@@ -43,4 +43,4 @@ jmx address: 192.168.50.224:15905
 =================================================
 ```
 
-Noted that the command to set up broker can be executed multiples to create a broker cluster.
+Noted that the command to set up broker can be executed multiple times to create a broker cluster.
