@@ -38,7 +38,7 @@ The console will show the broker connection information and JMX address. For exa
 ```shell
 873f799266e27a85f51aca7e0f64bc159a024354a8c742473d62e50a2f3b78fd
 =================================================
-broker address 192.168.50.224:11248
+broker address: 192.168.50.224:11248
 jmx address: 192.168.50.224:15905
 =================================================
 ```

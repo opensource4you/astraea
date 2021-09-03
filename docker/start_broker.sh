@@ -142,6 +142,6 @@ docker run -d \
   $image_name /home/$USER/kafka_2.13-${KAFKA_VERSION}/bin/kafka-server-start.sh /tmp/broker.properties
 
 echo "================================================="
-echo "broker address ${address}:$broker_port"
+echo "broker address: ${address}:$broker_port"
 echo "jmx address: ${address}:$broker_jmx_port"
 echo "================================================="
