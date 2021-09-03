@@ -1,17 +1,17 @@
-# astraea
+# Astraea
 a collection of tools used to balance Kafka data
 
-## authors
+# Authors
 - Chia-Ping Tsai <chia7712@gmail.com>
 - Yi-Chen   Wang <warren215215@gmail.com>
 - Ching-Hong Fang <fjh7777@gmail.com>
 - Zheng-Xian Li <garyparrottt@gmail.com>
 
-## env quickstart
+# Quickstart
 
 There are two scripts which can setup env quickly by container
 
-### set up zookeeper env
+## Set up zookeeper env
 
 ```shell
 ./docker/start_zk.sh
@@ -26,7 +26,7 @@ run ./docker/start_broker.sh zookeeper.connect=192.168.50.178:17228 to join kafk
 =================================================
 ```
 
-### set up (kafka) broker env
+## Set up (kafka) broker env
 
 After the zk env is running, you can copy the command (see above example) from zk script output to setup kafka. For example:
 ```shell
