@@ -3,10 +3,15 @@
 # =============================[functions]=============================
 function getAddress(){
   if [[ "$(which ipconfig)" != "" ]]; then
-    ipconfig getifaddr en0
+    address=$(ipconfig getifaddr en0)
   else
-    hostname -i
+    address=$(hostname -i)
   fi
+  if [[ "$address" == "127.0.0.1" ]]; then
+    echo "the address: 127.0.0.1 can't be used in this script. Please check /etc/hosts"
+    exit 2
+  fi
+  echo "$address"
 }
 # =====================================================================
 
