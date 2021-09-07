@@ -8,15 +8,15 @@ import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 
 /*
- * 負責不斷消費訊息，並印出每筆資料的延時
+ * 負責不斷消費訊息，並記錄資料延時
  */
 public class ConsumerThread extends Thread {
-  // private KafkaConsumer<byte[], byte[]> consumer;
   private KafkaConsumer<String, byte[]> consumer;
   private boolean running;
-  private long latency;
+  private AvgLatency latency;
+  private long endToEndLatency;
 
-  public ConsumerThread(String topic, String bootstrapServers, String groupId) {
+  public ConsumerThread(String topic, String bootstrapServers, String groupId, AvgLatency latency) {
     Properties prop = new Properties();
     prop.put("bootstrap.servers", bootstrapServers);
     prop.put("group.id", groupId);
@@ -29,7 +29,8 @@ public class ConsumerThread extends Thread {
     consumer.subscribe(Arrays.asList(topic));
 
     running = true;
-    latency = 0l;
+    this.latency = latency;
+    endToEndLatency = 0l;
   }
 
   @Override
@@ -39,8 +40,10 @@ public class ConsumerThread extends Thread {
       ConsumerRecords<String, byte[]> records = consumer.poll(Duration.ofMillis(100));
       for (ConsumerRecord<String, byte[]> record : records) {
         // 取得端到端延時
-        latency = System.currentTimeMillis() - record.timestamp();
-        System.out.println("End to end latency: " + latency + " ms");
+        endToEndLatency = System.currentTimeMillis() - record.timestamp();
+        latency.put(endToEndLatency);
+        // 記錄輸入byte(沒有算入header和timestamp)
+        latency.addBytes(record.serializedValueSize());
       }
     }
     consumer.close();

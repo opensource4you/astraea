@@ -12,14 +12,16 @@ public class ProducerThread extends Thread {
   private String topic;
   private byte[] payload;
   private long records;
-  private volatile boolean end;
+  private AvgLatency latency;
 
   /*
    * @param topic     ProducerThread 會發送訊息到topic
    * @param bootstrapServers  kafka brokers 的位址
    * @param records   要發送的訊息數量
+   * @param recordSize  要發送訊息的大小
    */
-  public ProducerThread(String topic, String bootstrapServers, long records, int recordSize) {
+  public ProducerThread(
+      String topic, String bootstrapServers, long records, int recordSize, AvgLatency latency) {
     // 設定producer
     Properties prop = new Properties();
     prop.put("bootstrap.servers", bootstrapServers);
@@ -32,9 +34,11 @@ public class ProducerThread extends Thread {
     // 給定訊息大小
     payload = new byte[recordSize];
 
+    // 要傳送訊息的數量
     this.records = records;
 
-    this.end = false;
+    // 記錄publish latency and bytes output
+    this.latency = latency;
   }
 
   /*
@@ -42,19 +46,19 @@ public class ProducerThread extends Thread {
    */
   @Override
   public void run() {
-    // 每秒傳送一筆訊息
+    // 每1毫秒傳送一筆訊息
     for (long i = 0; i < records; ++i) {
+      long start = System.currentTimeMillis();
       producer.send(new ProducerRecord<String, byte[]>(topic, payload));
+      // 記錄每筆訊息發送的延時
+      latency.put(System.currentTimeMillis() - start);
+      // 記錄訊息發送的量
+      latency.addBytes(payload.length);
       try {
-        Thread.sleep(1000);
+        Thread.sleep(1);
       } catch (InterruptedException ie) {
       }
     }
     System.out.println("Producer send end");
-    this.end = true;
-  }
-
-  public boolean end() {
-    return this.end;
   }
 }

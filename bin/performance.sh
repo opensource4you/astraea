@@ -25,8 +25,8 @@ echo "Creating java classpath file..."
 echo ".:app/build/libs/app-0.0.1-SNAPSHOT.jar:"`ls kafka_2.13-2.8.0/libs/*.jar` | tr " " : >> ${classpath}
 
 # 執行效能評測
-java -cp "@$base_dir/classpath.txt" org.astraea.performance.Performance "$@"
+java -cp "@$classpath" org.astraea.performance.Performance "$@"
 
 # 刪除中間檔案
 echo "Removing java classpath file..."
-rm $base_dir/classpath.txt
+rm $classpath
