@@ -46,7 +46,7 @@ public class ProducerThread extends Thread {
    */
   @Override
   public void run() {
-    // 每1毫秒傳送一筆訊息
+    // 每傳送一筆訊息，等待1毫秒
     for (long i = 0; i < records; ++i) {
       long start = System.currentTimeMillis();
       producer.send(new ProducerRecord<String, byte[]>(topic, payload));
@@ -54,6 +54,7 @@ public class ProducerThread extends Thread {
       latency.put(System.currentTimeMillis() - start);
       // 記錄訊息發送的量
       latency.addBytes(payload.length);
+      // 等待1毫秒
       try {
         Thread.sleep(1);
       } catch (InterruptedException ie) {

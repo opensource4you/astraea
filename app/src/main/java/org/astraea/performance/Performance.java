@@ -10,6 +10,7 @@ public class Performance {
   public static void main(String[] args) {
     // 把參數放到map中，方便之後取用
     Properties prop = parseArgs(args);
+    // 錯誤的格式
     if (prop == null) return;
 
     // 取得參數
@@ -39,11 +40,22 @@ public class Performance {
     // 新增多個thread，用來執行produce/consume
     ProducerThread[] producerThreads = new ProducerThread[numOfProducer];
     ConsumerThread[] consumerThreads = new ConsumerThread[numOfConsumer];
-    for (int i = 0; i < numOfProducer; ++i) {
+    // producer要平均分擔發送records，有除不盡的餘數則由第一個producer發送
+    producerMetric[0] = new AvgLatency();
+    producerThreads[0] =
+        new ProducerThread(
+            topic,
+            bootstrapServers,
+            records / numOfProducer + records % numOfProducer,
+            recordSize,
+            producerMetric[0]);
+    for (int i = 1; i < numOfProducer; ++i) {
       producerMetric[i] = new AvgLatency();
       producerThreads[i] =
-          new ProducerThread(topic, bootstrapServers, records, recordSize, producerMetric[i]);
+          new ProducerThread(
+              topic, bootstrapServers, records / numOfProducer, recordSize, producerMetric[i]);
     }
+    // 啟動consumer
     for (int i = 0; i < numOfConsumer; ++i) {
       consumerMetric[i] = new AvgLatency();
       consumerThreads[i] =
@@ -61,7 +73,7 @@ public class Performance {
     }
 
     // 每秒印出 現在數據
-    PrintOut printThread = new PrintOut(producerMetric, consumerMetric);
+    PrintOut printThread = new PrintOut(producerMetric, consumerMetric, records);
     printThread.start();
 
     // 等待producers完成
@@ -81,12 +93,16 @@ public class Performance {
     System.out.println("Performance end.");
   }
 
-  // 做文字處理，把參數放到map中
+  // 做文字處理，把參數放到map中。
+  // 會把args內以"--"開頭的字作為key，隨後的字作為value，存入Properties中
+  // @param args 所有的參數(e.g. {"--topic", "myTopic", "--brokers", "192.168.103.232:9092"})
   private static Properties parseArgs(String[] args) {
     Properties prop = new Properties();
     for (int i = 0; i < args.length; ++i) {
+      // 判斷是否是"--"開頭
       if (args[i].charAt(0) == '-' && args[i].charAt(1) == '-') {
         prop.put(args[i].substring(2), args[i + 1]);
+        // 跳過一個array element，因為已經作為value被讀取了
         ++i;
       } else {
         System.out.println("Parsing error.");
@@ -135,6 +151,7 @@ public class Performance {
                 + partitions
                 + " --replicationFactor "
                 + replicationFactor);
+        // 建立單個topic -> 取得建立的所有topics -> 選擇指定的topic的future -> 等待future完成
         admin
             .createTopics(Collections.singleton(new NewTopic(topic, partitions, replicationFactor)))
             .values()
@@ -150,17 +167,26 @@ public class Performance {
 class PrintOut extends Thread {
   private AvgLatency[] producerData;
   private AvgLatency[] consumerData;
+  private int records;
   private volatile boolean running;
 
-  public PrintOut(AvgLatency[] producerData, AvgLatency[] consumerData) {
+  public PrintOut(AvgLatency[] producerData, AvgLatency[] consumerData, int records) {
     this.producerData = producerData;
     this.consumerData = consumerData;
+    this.records = records;
     this.running = true;
   }
 
   @Override
   public void run() {
     while (running) {
+      // 計算producer完成度
+      int completed = 0;
+      for (int i = 0; i < producerData.length; ++i) {
+        completed += producerData[i].getNum();
+      }
+      System.out.println("producers完成度: " + ((float) completed * 100f / (float) records) + "%");
+      // 印出每部producer的數據
       for (int i = 0; i < producerData.length; ++i) {
         System.out.println("producer" + i + ":");
         System.out.println("  輸出" + ((float) producerData[i].getBytes() / 1000000f) + "MB/second");
@@ -168,6 +194,13 @@ class PrintOut extends Thread {
         System.out.println("  發送max latency:" + producerData[i].getMax() + "ms");
         System.out.println("  發送mim latency:" + producerData[i].getMin() + "ms");
       }
+      // 計算consumer完成度
+      completed = 0;
+      for (int i = 0; i < consumerData.length; ++i) {
+        completed += consumerData[i].getNum();
+      }
+      System.out.println("consumer完成度: " + ((float) completed * 100f / (float) records) + "%");
+      // 印出每部consumer的數據
       for (int i = 0; i < consumerData.length; ++i) {
         System.out.println("consumer" + i + ":");
         System.out.println("  輸入" + ((float) consumerData[i].getBytes() / 1000000f) + "MB/second");
@@ -175,7 +208,9 @@ class PrintOut extends Thread {
         System.out.println("  端到端max latency:" + consumerData[i].getMax() + "ms");
         System.out.println("  端到端mim latency:" + consumerData[i].getMin() + "ms");
       }
+      // 區隔每秒的輸出
       System.out.println("\n");
+      // 等待1秒，再抓資料輸出
       try {
         Thread.sleep(1000);
       } catch (InterruptedException ie) {

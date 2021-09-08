@@ -5,7 +5,7 @@ public class AvgLatency {
   private int num;
   private long max;
   private long min;
-  private int bytes;
+  private Integer bytes;
 
   public AvgLatency() {
     avg = 0;
@@ -16,20 +16,30 @@ public class AvgLatency {
     bytes = 0;
   }
   // 多紀錄一個新的值
-  public synchronized void put(long latency) {
+  public void put(long latency) {
+    // 更新最大延時
     if (min > latency) {
       min = latency;
     }
+    // 更新最小延時
     if (max < latency) {
       max = latency;
     }
     // 記錄現在有幾個數被加入了
     ++num;
+    // 更新平均值
     avg += (((double) latency) - avg) / (double) num;
   }
   // 增加bytes數值
   public void addBytes(int bytes) {
-    this.bytes += bytes;
+    // 不與getBytes()同時修改bytes
+    synchronized (this.bytes) {
+      this.bytes += bytes;
+    }
+  }
+
+  public int getNum() {
+    return num;
   }
   // 取得現在記錄的最大值
   public long getMax() {
@@ -43,10 +53,13 @@ public class AvgLatency {
   public double getAvg() {
     return avg;
   }
-  // 取得現在輸入/出的byte數，並重置
+  // 取得從 上次呼叫"getBytes()" 到 現在 的輸入/出的byte數，並重置
   public int getBytes() {
-    int tmp = this.bytes;
-    this.bytes = 0;
-    return tmp;
+    // 不與addBytes()同時修改bytes
+    synchronized (bytes) {
+      int tmp = this.bytes;
+      this.bytes = 0;
+      return tmp;
+    }
   }
 }

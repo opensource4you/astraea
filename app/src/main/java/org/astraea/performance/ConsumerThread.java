@@ -46,6 +46,7 @@ public class ConsumerThread extends Thread {
         latency.addBytes(record.serializedValueSize());
       }
     }
+    // 關閉kafkaConsumer
     consumer.close();
   }
 
