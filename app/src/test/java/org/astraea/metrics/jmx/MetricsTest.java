@@ -75,6 +75,25 @@ class MetricsTest {
     }
 
     @Test
+    void jvmOperatingSystem() {
+      Assertions.assertDoesNotThrow(() -> JvmOperatingSystem.arch);
+      Assertions.assertDoesNotThrow(() -> JvmOperatingSystem.name);
+      Assertions.assertDoesNotThrow(() -> JvmOperatingSystem.version);
+      Assertions.assertDoesNotThrow(() -> JvmOperatingSystem.availableProcessors);
+      Assertions.assertDoesNotThrow(() -> JvmOperatingSystem.committedVirtualMemorySize);
+      Assertions.assertDoesNotThrow(() -> JvmOperatingSystem.freePhysicalMemorySize);
+      Assertions.assertDoesNotThrow(() -> JvmOperatingSystem.freeSwapSpaceSize);
+      Assertions.assertDoesNotThrow(() -> JvmOperatingSystem.maxFileDescriptorCount);
+      Assertions.assertDoesNotThrow(() -> JvmOperatingSystem.openFileDescriptorCount);
+      Assertions.assertDoesNotThrow(() -> JvmOperatingSystem.ProcessCpuLoad);
+      Assertions.assertDoesNotThrow(() -> JvmOperatingSystem.ProcessCpuTime);
+      Assertions.assertDoesNotThrow(() -> JvmOperatingSystem.systemCpuLoad);
+      Assertions.assertDoesNotThrow(() -> JvmOperatingSystem.systemLoadAverage);
+      Assertions.assertDoesNotThrow(() -> JvmOperatingSystem.totalPhysicalMemorySize);
+      Assertions.assertDoesNotThrow(() -> JvmOperatingSystem.totalSwapSpaceSize);
+    }
+
+    @Test
     void socketServer() {
       Assertions.assertDoesNotThrow(() -> SocketServer.networkProcessorAvgIdlePercent);
     }
