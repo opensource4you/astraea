@@ -27,6 +27,24 @@ public final class Metrics {
           new DoubleBrokerMetric(
               "kafka.server:type=BrokerTopicMetrics,name=MessagesInPerSec", "OneMinuteRate");
     }
+
+    public static class BytesInPerSecond {
+      public static final LongBrokerMetric count =
+          new LongBrokerMetric(
+              "kafka.server:type=BrokerTopicMetrics,name=BytesInPerSecond", "Count");
+      public static final DoubleBrokerMetric fifteenMinuteRate =
+          new DoubleBrokerMetric(
+              "kafka.server:type=BrokerTopicMetrics,name=BytesInPerSecond", "FifteenMinuteRate");
+      public static final DoubleBrokerMetric fiveMinuteRate =
+          new DoubleBrokerMetric(
+              "kafka.server:type=BrokerTopicMetrics,name=BytesInPerSecond", "FiveMinuteRate");
+      public static final DoubleBrokerMetric meanRate =
+          new DoubleBrokerMetric(
+              "kafka.server:type=BrokerTopicMetrics,name=BytesInPerSecond", "MeanRate");
+      public static final DoubleBrokerMetric oneMinuteRate =
+          new DoubleBrokerMetric(
+              "kafka.server:type=BrokerTopicMetrics,name=BytesInPerSecond", "OneMinuteRate");
+    }
   }
 
   public static class JvmMemory {
@@ -37,4 +55,5 @@ public final class Metrics {
         new CustomCompositeDataMetric<>(
             "java.lang:type=Memory", "NonHeapMemoryUsage", MemoryUsage::from);
   }
+
 }

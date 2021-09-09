@@ -18,6 +18,12 @@ class MetricsTest {
       Assertions.assertDoesNotThrow(() -> Metrics.BrokerTopic.MessageInPerSecond.fiveMinuteRate);
       Assertions.assertDoesNotThrow(() -> Metrics.BrokerTopic.MessageInPerSecond.meanRate);
       Assertions.assertDoesNotThrow(() -> Metrics.BrokerTopic.MessageInPerSecond.oneMinuteRate);
+
+      Assertions.assertDoesNotThrow(() -> Metrics.BrokerTopic.BytesInPerSecond.count);
+      Assertions.assertDoesNotThrow(() -> Metrics.BrokerTopic.BytesInPerSecond.fifteenMinuteRate);
+      Assertions.assertDoesNotThrow(() -> Metrics.BrokerTopic.BytesInPerSecond.fiveMinuteRate);
+      Assertions.assertDoesNotThrow(() -> Metrics.BrokerTopic.BytesInPerSecond.meanRate);
+      Assertions.assertDoesNotThrow(() -> Metrics.BrokerTopic.BytesInPerSecond.oneMinuteRate);
     }
 
     @Test
