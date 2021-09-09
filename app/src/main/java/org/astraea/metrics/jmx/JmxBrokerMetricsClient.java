@@ -2,6 +2,7 @@ package org.astraea.metrics.jmx;
 
 import java.io.IOException;
 import javax.management.*;
+import javax.management.openmbean.CompositeDataSupport;
 import javax.management.remote.JMXConnector;
 import javax.management.remote.JMXConnectorFactory;
 import javax.management.remote.JMXServiceURL;
@@ -53,6 +54,10 @@ public class JmxBrokerMetricsClient implements AutoCloseable {
 
   public String fetchMetric(StringBrokerMetric metric) {
     return (String) fetchJmxMetric(metric);
+  }
+
+  public CompositeDataSupport fetchMetric(CompositeDataMetric metric) {
+    return (CompositeDataSupport) fetchJmxMetric(metric);
   }
 
   void throwExceptionIfNotConnectedYet() {
