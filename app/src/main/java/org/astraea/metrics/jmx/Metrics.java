@@ -105,6 +105,24 @@ public final class Metrics {
     }
   }
 
+  public static class ProcessorThread {
+
+    public final DoubleBrokerMetric idlePercent;
+
+    private ProcessorThread(int threadId) {
+      final String objectNameFormat =
+          "kafka.network:type=Processor,networkProcessor=%d,name=IdlePercent";
+      final String objectName = String.format(objectNameFormat, threadId);
+      this.idlePercent = new DoubleBrokerMetric(objectName, "Value");
+    }
+
+    public static ProcessorThread of(int threadId) {
+      // FIX: below code will introduce massive amount of redundant objects under frequently
+      // calling, beware of that.
+      return new ProcessorThread(threadId);
+    }
+  }
+
   public static class JvmMemory {
     public static final CustomCompositeDataMetric<MemoryUsage> heapMemoryUsage =
         new CustomCompositeDataMetric<>(

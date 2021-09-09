@@ -47,6 +47,16 @@ class MetricsTest {
     }
 
     @Test
+    void processor() {
+      Assertions.assertDoesNotThrow(() -> ProcessorThread.of(0).idlePercent);
+      Assertions.assertDoesNotThrow(() -> ProcessorThread.of(1).idlePercent);
+      Assertions.assertDoesNotThrow(() -> ProcessorThread.of(2).idlePercent);
+      Assertions.assertDoesNotThrow(() -> ProcessorThread.of(3).idlePercent);
+      Assertions.assertDoesNotThrow(() -> ProcessorThread.of(4).idlePercent);
+      Assertions.assertDoesNotThrow(() -> ProcessorThread.of(5).idlePercent);
+    }
+
+    @Test
     void jvmMemory() {
       Assertions.assertDoesNotThrow(() -> JvmMemory.heapMemoryUsage);
       Assertions.assertDoesNotThrow(() -> JvmMemory.nonHeapMemoryUsage);
