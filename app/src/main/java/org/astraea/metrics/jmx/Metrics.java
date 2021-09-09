@@ -1,6 +1,7 @@
 package org.astraea.metrics.jmx;
 
 import java.lang.management.MemoryUsage;
+import org.astraea.metrics.jmx.template.StatisticsMetricsTemplate;
 
 /** A list of all kafka metrics */
 public final class Metrics {
@@ -149,8 +150,9 @@ public final class Metrics {
       return new RequestMetrics(requestName);
     }
 
-    public static class MeasuredValue {
+    public static class MeasuredValue implements StatisticsMetricsTemplate {
 
+      private String formattedJmxName;
       public final String requestName;
       public final String measurement;
 
@@ -159,53 +161,14 @@ public final class Metrics {
         this.measurement = measurement;
       }
 
-      private String createJmxName() {
-        final String format = "kafka.network:type=RequestMetrics,request=%s,name=%s";
-        return String.format(format, requestName, measurement);
-      }
-
-      public DoubleBrokerMetric percentile50() {
-        return new DoubleBrokerMetric(createJmxName(), "50thPercentile");
-      }
-
-      public DoubleBrokerMetric percentile75() {
-        return new DoubleBrokerMetric(createJmxName(), "75thPercentile");
-      }
-
-      public DoubleBrokerMetric percentile95() {
-        return new DoubleBrokerMetric(createJmxName(), "95thPercentile");
-      }
-
-      public DoubleBrokerMetric percentile98() {
-        return new DoubleBrokerMetric(createJmxName(), "98thPercentile");
-      }
-
-      public DoubleBrokerMetric percentile99() {
-        return new DoubleBrokerMetric(createJmxName(), "99thPercentile");
-      }
-
-      public DoubleBrokerMetric percentile999() {
-        return new DoubleBrokerMetric(createJmxName(), "999thPercentile");
-      }
-
-      public LongBrokerMetric count() {
-        return new LongBrokerMetric(createJmxName(), "Count");
-      }
-
-      public DoubleBrokerMetric max() {
-        return new DoubleBrokerMetric(createJmxName(), "Max");
-      }
-
-      public DoubleBrokerMetric min() {
-        return new DoubleBrokerMetric(createJmxName(), "Min");
-      }
-
-      public DoubleBrokerMetric mean() {
-        return new DoubleBrokerMetric(createJmxName(), "Mean");
-      }
-
-      public DoubleBrokerMetric stddev() {
-        return new DoubleBrokerMetric(createJmxName(), "StdDev");
+      @Override
+      public String createJmxName() {
+        if (formattedJmxName == null) {
+          this.formattedJmxName =
+              String.format(
+                  "kafka.network:type=RequestMetrics,request=%s,name=%s", requestName, measurement);
+        }
+        return formattedJmxName;
       }
     }
   }
