@@ -43,5 +43,10 @@ class MetricsTest {
       Assertions.assertDoesNotThrow(() -> Metrics.JvmMemory.heapMemoryUsage);
       Assertions.assertDoesNotThrow(() -> Metrics.JvmMemory.nonHeapMemoryUsage);
     }
+
+    @Test
+    void socketServer() {
+      Assertions.assertDoesNotThrow(() -> Metrics.SocketServer.networkProcessorAvgIdlePercent);
+    }
   }
 }

@@ -92,4 +92,9 @@ public final class Metrics {
             "java.lang:type=Memory", "NonHeapMemoryUsage", MemoryUsage::from);
   }
 
+  public static class SocketServer {
+    public static final DoubleBrokerMetric networkProcessorAvgIdlePercent =
+        new DoubleBrokerMetric(
+            "kafka.network:type=SocketServer,name=NetworkProcessorAvgIdlePercent", "Value");
+  }
 }
