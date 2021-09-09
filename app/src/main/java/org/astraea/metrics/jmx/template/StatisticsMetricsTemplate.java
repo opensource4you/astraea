@@ -1,7 +1,6 @@
 package org.astraea.metrics.jmx.template;
 
-import org.astraea.metrics.jmx.DoubleBrokerMetric;
-import org.astraea.metrics.jmx.LongBrokerMetric;
+import org.astraea.metrics.jmx.types.*;
 
 public interface StatisticsMetricsTemplate extends MetricTemplate {
 

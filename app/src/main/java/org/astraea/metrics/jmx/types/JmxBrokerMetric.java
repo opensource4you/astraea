@@ -1,4 +1,4 @@
-package org.astraea.metrics.jmx;
+package org.astraea.metrics.jmx.types;
 
 import javax.management.MalformedObjectNameException;
 import javax.management.ObjectName;

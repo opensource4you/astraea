@@ -6,6 +6,7 @@ import javax.management.openmbean.CompositeDataSupport;
 import javax.management.remote.JMXConnector;
 import javax.management.remote.JMXConnectorFactory;
 import javax.management.remote.JMXServiceURL;
+import org.astraea.metrics.jmx.types.*;
 
 public class JmxBrokerMetricsClient implements AutoCloseable {
 

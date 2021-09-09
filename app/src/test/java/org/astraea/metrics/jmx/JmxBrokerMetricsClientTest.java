@@ -2,6 +2,7 @@ package org.astraea.metrics.jmx;
 
 import java.net.MalformedURLException;
 import javax.management.remote.JMXServiceURL;
+import org.astraea.metrics.jmx.types.*;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 

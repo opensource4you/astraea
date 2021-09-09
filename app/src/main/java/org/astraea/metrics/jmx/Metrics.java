@@ -2,6 +2,7 @@ package org.astraea.metrics.jmx;
 
 import java.lang.management.MemoryUsage;
 import org.astraea.metrics.jmx.template.StatisticsMetricsTemplate;
+import org.astraea.metrics.jmx.types.*;
 
 /** A list of all kafka metrics */
 public final class Metrics {

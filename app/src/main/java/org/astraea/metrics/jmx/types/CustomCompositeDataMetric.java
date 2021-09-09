@@ -1,4 +1,4 @@
-package org.astraea.metrics.jmx;
+package org.astraea.metrics.jmx.types;
 
 import java.util.function.Function;
 import javax.management.openmbean.CompositeDataSupport;

@@ -1,4 +1,4 @@
-package org.astraea.metrics.jmx;
+package org.astraea.metrics.jmx.types;
 
 public class LongBrokerMetric extends JmxBrokerMetric {
   public LongBrokerMetric(String jmxObjectName, String attributeName)
