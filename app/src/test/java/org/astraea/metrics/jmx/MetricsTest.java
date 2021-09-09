@@ -59,6 +59,34 @@ class MetricsTest {
     }
 
     @Test
+    void requestMetrics() {
+      RequestMetrics testingRequest = RequestMetrics.of("Testing");
+      RequestMetrics.MeasuredValue[] measuredValues =
+          new RequestMetrics.MeasuredValue[] {
+            testingRequest.localTimeMs,
+            testingRequest.requestBytes,
+            testingRequest.remoteTimeMs,
+            testingRequest.requestQueueTimeMs,
+            testingRequest.responseQueueTimeMs,
+            testingRequest.responseSendTimeMs,
+            testingRequest.throttleTimeMs,
+            testingRequest.totalTimeMs
+          };
+      for (RequestMetrics.MeasuredValue measuredValue : measuredValues) {
+        Assertions.assertDoesNotThrow(measuredValue::mean);
+        Assertions.assertDoesNotThrow(measuredValue::max);
+        Assertions.assertDoesNotThrow(measuredValue::min);
+        Assertions.assertDoesNotThrow(measuredValue::stddev);
+        Assertions.assertDoesNotThrow(measuredValue::percentile50);
+        Assertions.assertDoesNotThrow(measuredValue::percentile75);
+        Assertions.assertDoesNotThrow(measuredValue::percentile95);
+        Assertions.assertDoesNotThrow(measuredValue::percentile98);
+        Assertions.assertDoesNotThrow(measuredValue::percentile99);
+        Assertions.assertDoesNotThrow(measuredValue::percentile999);
+      }
+    }
+
+    @Test
     void processor() {
       Assertions.assertDoesNotThrow(() -> ProcessorThread.of(0).idlePercent);
       Assertions.assertDoesNotThrow(() -> ProcessorThread.of(1).idlePercent);

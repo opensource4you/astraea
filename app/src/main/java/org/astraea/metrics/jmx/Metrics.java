@@ -147,6 +147,95 @@ public final class Metrics {
     }
   }
 
+  public static class RequestMetrics {
+
+    private final String requestName;
+    public final MeasuredValue localTimeMs;
+    public final MeasuredValue remoteTimeMs;
+    public final MeasuredValue requestBytes;
+    public final MeasuredValue requestQueueTimeMs;
+    public final MeasuredValue responseQueueTimeMs;
+    public final MeasuredValue responseSendTimeMs;
+    public final MeasuredValue throttleTimeMs;
+    public final MeasuredValue totalTimeMs;
+
+    private RequestMetrics(String requestName) {
+      this.requestName = requestName;
+      this.localTimeMs = new MeasuredValue(requestName, "LocalTimeMs");
+      this.remoteTimeMs = new MeasuredValue(requestName, "RemoteTimeMs");
+      this.requestBytes = new MeasuredValue(requestName, "RequestBytes");
+      this.requestQueueTimeMs = new MeasuredValue(requestName, "RequestQueueTimeMs");
+      this.responseQueueTimeMs = new MeasuredValue(requestName, "ResponseQueueTimeMs");
+      this.responseSendTimeMs = new MeasuredValue(requestName, "ResponseSendTimeMs");
+      this.throttleTimeMs = new MeasuredValue(requestName, "ThrottleTimeMs");
+      this.totalTimeMs = new MeasuredValue(requestName, "TotalTimeMs");
+    }
+
+    public static RequestMetrics of(String requestName) {
+      return new RequestMetrics(requestName);
+    }
+
+    public static class MeasuredValue {
+
+      public final String requestName;
+      public final String measurement;
+
+      public MeasuredValue(String requestName, String measurement) {
+        this.requestName = requestName;
+        this.measurement = measurement;
+      }
+
+      private String createJmxName() {
+        final String format = "kafka.network:type=RequestMetrics,request=%s,name=%s";
+        return String.format(format, requestName, measurement);
+      }
+
+      public DoubleBrokerMetric percentile50() {
+        return new DoubleBrokerMetric(createJmxName(), "50thPercentile");
+      }
+
+      public DoubleBrokerMetric percentile75() {
+        return new DoubleBrokerMetric(createJmxName(), "75thPercentile");
+      }
+
+      public DoubleBrokerMetric percentile95() {
+        return new DoubleBrokerMetric(createJmxName(), "95thPercentile");
+      }
+
+      public DoubleBrokerMetric percentile98() {
+        return new DoubleBrokerMetric(createJmxName(), "98thPercentile");
+      }
+
+      public DoubleBrokerMetric percentile99() {
+        return new DoubleBrokerMetric(createJmxName(), "99thPercentile");
+      }
+
+      public DoubleBrokerMetric percentile999() {
+        return new DoubleBrokerMetric(createJmxName(), "999thPercentile");
+      }
+
+      public LongBrokerMetric count() {
+        return new LongBrokerMetric(createJmxName(), "Count");
+      }
+
+      public DoubleBrokerMetric max() {
+        return new DoubleBrokerMetric(createJmxName(), "Max");
+      }
+
+      public DoubleBrokerMetric min() {
+        return new DoubleBrokerMetric(createJmxName(), "Min");
+      }
+
+      public DoubleBrokerMetric mean() {
+        return new DoubleBrokerMetric(createJmxName(), "Mean");
+      }
+
+      public DoubleBrokerMetric stddev() {
+        return new DoubleBrokerMetric(createJmxName(), "StdDev");
+      }
+    }
+  }
+
   public static class ProcessorThread {
 
     public final DoubleBrokerMetric idlePercent;
