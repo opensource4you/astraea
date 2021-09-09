@@ -82,6 +82,27 @@ public final class Metrics {
               "kafka.server:type=BrokerTopicMetrics,name=ReplicationBytesInPerSec",
               "OneMinuteRate");
     }
+
+    public static class ReplicationBytesOutPerSec {
+      public static final LongBrokerMetric count =
+          new LongBrokerMetric(
+              "kafka.server:type=BrokerTopicMetrics,name=ReplicationBytesOutPerSec", "Count");
+      public static final DoubleBrokerMetric fifteenMinuteRate =
+          new DoubleBrokerMetric(
+              "kafka.server:type=BrokerTopicMetrics,name=ReplicationBytesOutPerSec",
+              "FifteenMinuteRate");
+      public static final DoubleBrokerMetric fiveMinuteRate =
+          new DoubleBrokerMetric(
+              "kafka.server:type=BrokerTopicMetrics,name=ReplicationBytesOutPerSec",
+              "FiveMinuteRate");
+      public static final DoubleBrokerMetric meanRate =
+          new DoubleBrokerMetric(
+              "kafka.server:type=BrokerTopicMetrics,name=ReplicationBytesOutPerSec", "MeanRate");
+      public static final DoubleBrokerMetric oneMinuteRate =
+          new DoubleBrokerMetric(
+              "kafka.server:type=BrokerTopicMetrics,name=ReplicationBytesOutPerSec",
+              "OneMinuteRate");
+    }
   }
 
   public static class JvmMemory {
