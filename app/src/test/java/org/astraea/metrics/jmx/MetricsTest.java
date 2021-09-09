@@ -25,6 +25,12 @@ class MetricsTest {
       Assertions.assertDoesNotThrow(() -> Metrics.BrokerTopic.BytesInPerSecond.meanRate);
       Assertions.assertDoesNotThrow(() -> Metrics.BrokerTopic.BytesInPerSecond.oneMinuteRate);
 
+      Assertions.assertDoesNotThrow(() -> Metrics.BrokerTopic.BytesOutPerSecond.count);
+      Assertions.assertDoesNotThrow(() -> Metrics.BrokerTopic.BytesOutPerSecond.fifteenMinuteRate);
+      Assertions.assertDoesNotThrow(() -> Metrics.BrokerTopic.BytesOutPerSecond.fiveMinuteRate);
+      Assertions.assertDoesNotThrow(() -> Metrics.BrokerTopic.BytesOutPerSecond.meanRate);
+      Assertions.assertDoesNotThrow(() -> Metrics.BrokerTopic.BytesOutPerSecond.oneMinuteRate);
+
       Assertions.assertDoesNotThrow(() -> Metrics.BrokerTopic.ReplicationBytesInPerSec.count);
       Assertions.assertDoesNotThrow(() -> Metrics.BrokerTopic.ReplicationBytesInPerSec.fifteenMinuteRate);
       Assertions.assertDoesNotThrow(() -> Metrics.BrokerTopic.ReplicationBytesInPerSec.fiveMinuteRate);
