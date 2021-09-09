@@ -103,6 +103,48 @@ public final class Metrics {
               "kafka.server:type=BrokerTopicMetrics,name=ReplicationBytesOutPerSec",
               "OneMinuteRate");
     }
+
+    public static class TotalFetchRequestsPerSec {
+      public static final LongBrokerMetric count =
+          new LongBrokerMetric(
+              "kafka.server:type=BrokerTopicMetrics,name=TotalFetchRequestsPerSec", "Count");
+      public static final DoubleBrokerMetric fifteenMinuteRate =
+          new DoubleBrokerMetric(
+              "kafka.server:type=BrokerTopicMetrics,name=TotalFetchRequestsPerSec",
+              "FifteenMinuteRate");
+      public static final DoubleBrokerMetric fiveMinuteRate =
+          new DoubleBrokerMetric(
+              "kafka.server:type=BrokerTopicMetrics,name=TotalFetchRequestsPerSec",
+              "FiveMinuteRate");
+      public static final DoubleBrokerMetric meanRate =
+          new DoubleBrokerMetric(
+              "kafka.server:type=BrokerTopicMetrics,name=TotalFetchRequestsPerSec", "MeanRate");
+      public static final DoubleBrokerMetric oneMinuteRate =
+          new DoubleBrokerMetric(
+              "kafka.server:type=BrokerTopicMetrics,name=TotalFetchRequestsPerSec",
+              "OneMinuteRate");
+    }
+
+    public static class TotalProduceRequestsPerSec {
+      public static final LongBrokerMetric count =
+          new LongBrokerMetric(
+              "kafka.server:type=BrokerTopicMetrics,name=TotalProduceRequestsPerSec", "Count");
+      public static final DoubleBrokerMetric fifteenMinuteRate =
+          new DoubleBrokerMetric(
+              "kafka.server:type=BrokerTopicMetrics,name=TotalProduceRequestsPerSec",
+              "FifteenMinuteRate");
+      public static final DoubleBrokerMetric fiveMinuteRate =
+          new DoubleBrokerMetric(
+              "kafka.server:type=BrokerTopicMetrics,name=TotalProduceRequestsPerSec",
+              "FiveMinuteRate");
+      public static final DoubleBrokerMetric meanRate =
+          new DoubleBrokerMetric(
+              "kafka.server:type=BrokerTopicMetrics,name=TotalProduceRequestsPerSec", "MeanRate");
+      public static final DoubleBrokerMetric oneMinuteRate =
+          new DoubleBrokerMetric(
+              "kafka.server:type=BrokerTopicMetrics,name=TotalProduceRequestsPerSec",
+              "OneMinuteRate");
+    }
   }
 
   public static class ProcessorThread {
