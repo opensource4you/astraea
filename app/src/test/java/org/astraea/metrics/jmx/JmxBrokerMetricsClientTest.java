@@ -25,5 +25,10 @@ class JmxBrokerMetricsClientTest {
         IllegalStateException.class, () -> client.fetchMetric(new LongBrokerMetric("", "")));
     Assertions.assertThrows(
         IllegalStateException.class, () -> client.fetchMetric(new StringBrokerMetric("", "")));
+    Assertions.assertThrows(
+        IllegalStateException.class, () -> client.fetchMetric(new CompositeDataMetric("", "")));
+    Assertions.assertThrows(
+        IllegalStateException.class,
+        () -> client.fetchMetric(new CustomCompositeDataMetric<>("", "", (x) -> null)));
   }
 }
