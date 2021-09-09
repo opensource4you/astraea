@@ -125,7 +125,7 @@ public final class Metrics {
     }
   }
 
-  public static class RequestMetrics {
+  public static class RequestLatencyMetric {
 
     public final MeasuredValue localTimeMs;
     public final MeasuredValue remoteTimeMs;
@@ -136,7 +136,7 @@ public final class Metrics {
     public final MeasuredValue throttleTimeMs;
     public final MeasuredValue totalTimeMs;
 
-    private RequestMetrics(String requestName) {
+    private RequestLatencyMetric(String requestName) {
       this.localTimeMs = new MeasuredValue(requestName, "LocalTimeMs");
       this.remoteTimeMs = new MeasuredValue(requestName, "RemoteTimeMs");
       this.requestBytes = new MeasuredValue(requestName, "RequestBytes");
@@ -147,8 +147,8 @@ public final class Metrics {
       this.totalTimeMs = new MeasuredValue(requestName, "TotalTimeMs");
     }
 
-    public static RequestMetrics of(String requestName) {
-      return new RequestMetrics(requestName);
+    public static RequestLatencyMetric of(String requestName) {
+      return new RequestLatencyMetric(requestName);
     }
 
     public static class MeasuredValue implements StatisticsMetricsTemplate {

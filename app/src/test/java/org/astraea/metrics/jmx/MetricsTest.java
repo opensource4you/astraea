@@ -60,9 +60,9 @@ class MetricsTest {
 
     @Test
     void requestMetrics() {
-      RequestMetrics testingRequest = RequestMetrics.of("Testing");
-      RequestMetrics.MeasuredValue[] measuredValues =
-          new RequestMetrics.MeasuredValue[] {
+      RequestLatencyMetric testingRequest = RequestLatencyMetric.of("Testing");
+      RequestLatencyMetric.MeasuredValue[] measuredValues =
+          new RequestLatencyMetric.MeasuredValue[] {
             testingRequest.localTimeMs,
             testingRequest.requestBytes,
             testingRequest.remoteTimeMs,
@@ -72,7 +72,7 @@ class MetricsTest {
             testingRequest.throttleTimeMs,
             testingRequest.totalTimeMs
           };
-      for (RequestMetrics.MeasuredValue measuredValue : measuredValues) {
+      for (RequestLatencyMetric.MeasuredValue measuredValue : measuredValues) {
         Assertions.assertDoesNotThrow(measuredValue::mean);
         Assertions.assertDoesNotThrow(measuredValue::max);
         Assertions.assertDoesNotThrow(measuredValue::min);
