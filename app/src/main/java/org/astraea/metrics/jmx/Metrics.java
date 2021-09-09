@@ -11,145 +11,120 @@ public final class Metrics {
 
   public static class BrokerTopic {
     public static class MessageInPerSecond {
-      public static final LongBrokerMetric count =
-          new LongBrokerMetric(
-              "kafka.server:type=BrokerTopicMetrics,name=MessagesInPerSec", "Count");
+
+      private static final String objectName =
+          "kafka.server:type=BrokerTopicMetrics,name=MessagesInPerSec";
+
+      public static final LongBrokerMetric count = new LongBrokerMetric(objectName, "Count");
       public static final DoubleBrokerMetric fifteenMinuteRate =
-          new DoubleBrokerMetric(
-              "kafka.server:type=BrokerTopicMetrics,name=MessagesInPerSec", "FifteenMinuteRate");
+          new DoubleBrokerMetric(objectName, "FifteenMinuteRate");
       public static final DoubleBrokerMetric fiveMinuteRate =
-          new DoubleBrokerMetric(
-              "kafka.server:type=BrokerTopicMetrics,name=MessagesInPerSec", "FiveMinuteRate");
+          new DoubleBrokerMetric(objectName, "FiveMinuteRate");
       public static final DoubleBrokerMetric meanRate =
-          new DoubleBrokerMetric(
-              "kafka.server:type=BrokerTopicMetrics,name=MessagesInPerSec", "MeanRate");
+          new DoubleBrokerMetric(objectName, "MeanRate");
       public static final DoubleBrokerMetric oneMinuteRate =
-          new DoubleBrokerMetric(
-              "kafka.server:type=BrokerTopicMetrics,name=MessagesInPerSec", "OneMinuteRate");
+          new DoubleBrokerMetric(objectName, "OneMinuteRate");
     }
 
     public static class BytesInPerSecond {
-      public static final LongBrokerMetric count =
-          new LongBrokerMetric("kafka.server:type=BrokerTopicMetrics,name=BytesInPerSec", "Count");
+
+      private static final String objectName =
+          "kafka.server:type=BrokerTopicMetrics,name=BytesInPerSec";
+
+      public static final LongBrokerMetric count = new LongBrokerMetric(objectName, "Count");
       public static final DoubleBrokerMetric fifteenMinuteRate =
-          new DoubleBrokerMetric(
-              "kafka.server:type=BrokerTopicMetrics,name=BytesInPerSec", "FifteenMinuteRate");
+          new DoubleBrokerMetric(objectName, "FifteenMinuteRate");
       public static final DoubleBrokerMetric fiveMinuteRate =
-          new DoubleBrokerMetric(
-              "kafka.server:type=BrokerTopicMetrics,name=BytesInPerSec", "FiveMinuteRate");
+          new DoubleBrokerMetric(objectName, "FiveMinuteRate");
       public static final DoubleBrokerMetric meanRate =
-          new DoubleBrokerMetric(
-              "kafka.server:type=BrokerTopicMetrics,name=BytesInPerSec", "MeanRate");
+          new DoubleBrokerMetric(objectName, "MeanRate");
       public static final DoubleBrokerMetric oneMinuteRate =
-          new DoubleBrokerMetric(
-              "kafka.server:type=BrokerTopicMetrics,name=BytesInPerSec", "OneMinuteRate");
+          new DoubleBrokerMetric(objectName, "OneMinuteRate");
     }
 
     public static class BytesOutPerSecond {
-      public static final LongBrokerMetric count =
-          new LongBrokerMetric("kafka.server:type=BrokerTopicMetrics,name=BytesOutPerSec", "Count");
+
+      private static final String objectName =
+          "kafka.server:type=BrokerTopicMetrics,name=BytesOutPerSec";
+
+      public static final LongBrokerMetric count = new LongBrokerMetric(objectName, "Count");
       public static final DoubleBrokerMetric fifteenMinuteRate =
-          new DoubleBrokerMetric(
-              "kafka.server:type=BrokerTopicMetrics,name=BytesOutPerSec", "FifteenMinuteRate");
+          new DoubleBrokerMetric(objectName, "FifteenMinuteRate");
       public static final DoubleBrokerMetric fiveMinuteRate =
-          new DoubleBrokerMetric(
-              "kafka.server:type=BrokerTopicMetrics,name=BytesOutPerSec", "FiveMinuteRate");
+          new DoubleBrokerMetric(objectName, "FiveMinuteRate");
       public static final DoubleBrokerMetric meanRate =
-          new DoubleBrokerMetric(
-              "kafka.server:type=BrokerTopicMetrics,name=BytesOutPerSec", "MeanRate");
+          new DoubleBrokerMetric(objectName, "MeanRate");
       public static final DoubleBrokerMetric oneMinuteRate =
-          new DoubleBrokerMetric(
-              "kafka.server:type=BrokerTopicMetrics,name=BytesOutPerSec", "OneMinuteRate");
+          new DoubleBrokerMetric(objectName, "OneMinuteRate");
     }
 
     public static class ReplicationBytesInPerSec {
-      public static final LongBrokerMetric count =
-          new LongBrokerMetric(
-              "kafka.server:type=BrokerTopicMetrics,name=ReplicationBytesInPerSec", "Count");
+
+      private static final String objectName =
+          "kafka.server:type=BrokerTopicMetrics,name=ReplicationBytesInPerSec";
+
+      public static final LongBrokerMetric count = new LongBrokerMetric(objectName, "Count");
       public static final DoubleBrokerMetric fifteenMinuteRate =
-          new DoubleBrokerMetric(
-              "kafka.server:type=BrokerTopicMetrics,name=ReplicationBytesInPerSec",
-              "FifteenMinuteRate");
+          new DoubleBrokerMetric(objectName, "FifteenMinuteRate");
       public static final DoubleBrokerMetric fiveMinuteRate =
-          new DoubleBrokerMetric(
-              "kafka.server:type=BrokerTopicMetrics,name=ReplicationBytesInPerSec",
-              "FiveMinuteRate");
+          new DoubleBrokerMetric(objectName, "FiveMinuteRate");
       public static final DoubleBrokerMetric meanRate =
-          new DoubleBrokerMetric(
-              "kafka.server:type=BrokerTopicMetrics,name=ReplicationBytesInPerSec", "MeanRate");
+          new DoubleBrokerMetric(objectName, "MeanRate");
       public static final DoubleBrokerMetric oneMinuteRate =
-          new DoubleBrokerMetric(
-              "kafka.server:type=BrokerTopicMetrics,name=ReplicationBytesInPerSec",
-              "OneMinuteRate");
+          new DoubleBrokerMetric(objectName, "OneMinuteRate");
     }
 
     public static class ReplicationBytesOutPerSec {
-      public static final LongBrokerMetric count =
-          new LongBrokerMetric(
-              "kafka.server:type=BrokerTopicMetrics,name=ReplicationBytesOutPerSec", "Count");
+
+      private static final String objectName =
+          "kafka.server:type=BrokerTopicMetrics,name=ReplicationBytesOutPerSec";
+
+      public static final LongBrokerMetric count = new LongBrokerMetric(objectName, "Count");
       public static final DoubleBrokerMetric fifteenMinuteRate =
-          new DoubleBrokerMetric(
-              "kafka.server:type=BrokerTopicMetrics,name=ReplicationBytesOutPerSec",
-              "FifteenMinuteRate");
+          new DoubleBrokerMetric(objectName, "FifteenMinuteRate");
       public static final DoubleBrokerMetric fiveMinuteRate =
-          new DoubleBrokerMetric(
-              "kafka.server:type=BrokerTopicMetrics,name=ReplicationBytesOutPerSec",
-              "FiveMinuteRate");
+          new DoubleBrokerMetric(objectName, "FiveMinuteRate");
       public static final DoubleBrokerMetric meanRate =
-          new DoubleBrokerMetric(
-              "kafka.server:type=BrokerTopicMetrics,name=ReplicationBytesOutPerSec", "MeanRate");
+          new DoubleBrokerMetric(objectName, "MeanRate");
       public static final DoubleBrokerMetric oneMinuteRate =
-          new DoubleBrokerMetric(
-              "kafka.server:type=BrokerTopicMetrics,name=ReplicationBytesOutPerSec",
-              "OneMinuteRate");
+          new DoubleBrokerMetric(objectName, "OneMinuteRate");
     }
 
     public static class TotalFetchRequestsPerSec {
-      public static final LongBrokerMetric count =
-          new LongBrokerMetric(
-              "kafka.server:type=BrokerTopicMetrics,name=TotalFetchRequestsPerSec", "Count");
+
+      private static final String objectName =
+          "kafka.server:type=BrokerTopicMetrics,name=TotalFetchRequestsPerSec";
+
+      public static final LongBrokerMetric count = new LongBrokerMetric(objectName, "Count");
       public static final DoubleBrokerMetric fifteenMinuteRate =
-          new DoubleBrokerMetric(
-              "kafka.server:type=BrokerTopicMetrics,name=TotalFetchRequestsPerSec",
-              "FifteenMinuteRate");
+          new DoubleBrokerMetric(objectName, "FifteenMinuteRate");
       public static final DoubleBrokerMetric fiveMinuteRate =
-          new DoubleBrokerMetric(
-              "kafka.server:type=BrokerTopicMetrics,name=TotalFetchRequestsPerSec",
-              "FiveMinuteRate");
+          new DoubleBrokerMetric(objectName, "FiveMinuteRate");
       public static final DoubleBrokerMetric meanRate =
-          new DoubleBrokerMetric(
-              "kafka.server:type=BrokerTopicMetrics,name=TotalFetchRequestsPerSec", "MeanRate");
+          new DoubleBrokerMetric(objectName, "MeanRate");
       public static final DoubleBrokerMetric oneMinuteRate =
-          new DoubleBrokerMetric(
-              "kafka.server:type=BrokerTopicMetrics,name=TotalFetchRequestsPerSec",
-              "OneMinuteRate");
+          new DoubleBrokerMetric(objectName, "OneMinuteRate");
     }
 
     public static class TotalProduceRequestsPerSec {
-      public static final LongBrokerMetric count =
-          new LongBrokerMetric(
-              "kafka.server:type=BrokerTopicMetrics,name=TotalProduceRequestsPerSec", "Count");
+
+      private static final String objectName =
+          "kafka.server:type=BrokerTopicMetrics,name=TotalProduceRequestsPerSec";
+
+      public static final LongBrokerMetric count = new LongBrokerMetric(objectName, "Count");
       public static final DoubleBrokerMetric fifteenMinuteRate =
-          new DoubleBrokerMetric(
-              "kafka.server:type=BrokerTopicMetrics,name=TotalProduceRequestsPerSec",
-              "FifteenMinuteRate");
+          new DoubleBrokerMetric(objectName, "FifteenMinuteRate");
       public static final DoubleBrokerMetric fiveMinuteRate =
-          new DoubleBrokerMetric(
-              "kafka.server:type=BrokerTopicMetrics,name=TotalProduceRequestsPerSec",
-              "FiveMinuteRate");
+          new DoubleBrokerMetric(objectName, "FiveMinuteRate");
       public static final DoubleBrokerMetric meanRate =
-          new DoubleBrokerMetric(
-              "kafka.server:type=BrokerTopicMetrics,name=TotalProduceRequestsPerSec", "MeanRate");
+          new DoubleBrokerMetric(objectName, "MeanRate");
       public static final DoubleBrokerMetric oneMinuteRate =
-          new DoubleBrokerMetric(
-              "kafka.server:type=BrokerTopicMetrics,name=TotalProduceRequestsPerSec",
-              "OneMinuteRate");
+          new DoubleBrokerMetric(objectName, "OneMinuteRate");
     }
   }
 
   public static class RequestMetrics {
 
-    private final String requestName;
     public final MeasuredValue localTimeMs;
     public final MeasuredValue remoteTimeMs;
     public final MeasuredValue requestBytes;
@@ -160,7 +135,6 @@ public final class Metrics {
     public final MeasuredValue totalTimeMs;
 
     private RequestMetrics(String requestName) {
-      this.requestName = requestName;
       this.localTimeMs = new MeasuredValue(requestName, "LocalTimeMs");
       this.remoteTimeMs = new MeasuredValue(requestName, "RemoteTimeMs");
       this.requestBytes = new MeasuredValue(requestName, "RequestBytes");
@@ -264,37 +238,37 @@ public final class Metrics {
   }
 
   public static class JvmOperatingSystem {
-    public static final StringBrokerMetric arch =
-        new StringBrokerMetric("java.lang:type=OperatingSystem", "Arch");
-    public static final StringBrokerMetric name =
-        new StringBrokerMetric("java.lang:type=OperatingSystem", "Name");
-    public static final StringBrokerMetric version =
-        new StringBrokerMetric("java.lang:type=OperatingSystem", "Version");
+
+    private static final String objectName = "java.lang:type=OperatingSystem";
+
+    public static final StringBrokerMetric arch = new StringBrokerMetric(objectName, "Arch");
+    public static final StringBrokerMetric name = new StringBrokerMetric(objectName, "Name");
+    public static final StringBrokerMetric version = new StringBrokerMetric(objectName, "Version");
 
     public static final IntegerBrokerMetric availableProcessors =
-        new IntegerBrokerMetric("java.lang:type=OperatingSystem", "AvailableProcessors");
+        new IntegerBrokerMetric(objectName, "AvailableProcessors");
     public static final LongBrokerMetric committedVirtualMemorySize =
-        new LongBrokerMetric("java.lang:type=OperatingSystem", "CommittedVirtualMemorySize");
+        new LongBrokerMetric(objectName, "CommittedVirtualMemorySize");
     public static final LongBrokerMetric freePhysicalMemorySize =
-        new LongBrokerMetric("java.lang:type=OperatingSystem", "FreePhysicalMemorySize");
+        new LongBrokerMetric(objectName, "FreePhysicalMemorySize");
     public static final LongBrokerMetric freeSwapSpaceSize =
-        new LongBrokerMetric("java.lang:type=OperatingSystem", "FreeSwapSpaceSize");
+        new LongBrokerMetric(objectName, "FreeSwapSpaceSize");
     public static final LongBrokerMetric maxFileDescriptorCount =
-        new LongBrokerMetric("java.lang:type=OperatingSystem", "MaxFileDescriptorCount");
+        new LongBrokerMetric(objectName, "MaxFileDescriptorCount");
     public static final LongBrokerMetric openFileDescriptorCount =
-        new LongBrokerMetric("java.lang:type=OperatingSystem", "OpenFileDescriptorCount");
+        new LongBrokerMetric(objectName, "OpenFileDescriptorCount");
     public static final DoubleBrokerMetric ProcessCpuLoad =
-        new DoubleBrokerMetric("java.lang:type=OperatingSystem", "ProcessCpuLoad");
+        new DoubleBrokerMetric(objectName, "ProcessCpuLoad");
     public static final LongBrokerMetric ProcessCpuTime =
-        new LongBrokerMetric("java.lang:type=OperatingSystem", "ProcessCpuTime");
+        new LongBrokerMetric(objectName, "ProcessCpuTime");
     public static final DoubleBrokerMetric systemCpuLoad =
-        new DoubleBrokerMetric("java.lang:type=OperatingSystem", "SystemCpuLoad");
+        new DoubleBrokerMetric(objectName, "SystemCpuLoad");
     public static final DoubleBrokerMetric systemLoadAverage =
-        new DoubleBrokerMetric("java.lang:type=OperatingSystem", "SystemLoadAverage");
+        new DoubleBrokerMetric(objectName, "SystemLoadAverage");
     public static final LongBrokerMetric totalPhysicalMemorySize =
-        new LongBrokerMetric("java.lang:type=OperatingSystem", "TotalPhysicalMemorySize");
+        new LongBrokerMetric(objectName, "TotalPhysicalMemorySize");
     public static final LongBrokerMetric totalSwapSpaceSize =
-        new LongBrokerMetric("java.lang:type=OperatingSystem", "TotalSwapSpaceSize");
+        new LongBrokerMetric(objectName, "TotalSwapSpaceSize");
   }
 
   public static class SocketServer {
