@@ -1,5 +1,7 @@
 package org.astraea.metrics.jmx;
 
+import static org.astraea.metrics.jmx.Metrics.*;
+
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -13,52 +15,46 @@ class MetricsTest {
 
     @Test
     void brokerTopic() {
-      Assertions.assertDoesNotThrow(() -> Metrics.BrokerTopic.MessageInPerSecond.count);
-      Assertions.assertDoesNotThrow(() -> Metrics.BrokerTopic.MessageInPerSecond.fifteenMinuteRate);
-      Assertions.assertDoesNotThrow(() -> Metrics.BrokerTopic.MessageInPerSecond.fiveMinuteRate);
-      Assertions.assertDoesNotThrow(() -> Metrics.BrokerTopic.MessageInPerSecond.meanRate);
-      Assertions.assertDoesNotThrow(() -> Metrics.BrokerTopic.MessageInPerSecond.oneMinuteRate);
+      Assertions.assertDoesNotThrow(() -> BrokerTopic.MessageInPerSecond.count);
+      Assertions.assertDoesNotThrow(() -> BrokerTopic.MessageInPerSecond.fifteenMinuteRate);
+      Assertions.assertDoesNotThrow(() -> BrokerTopic.MessageInPerSecond.fiveMinuteRate);
+      Assertions.assertDoesNotThrow(() -> BrokerTopic.MessageInPerSecond.meanRate);
+      Assertions.assertDoesNotThrow(() -> BrokerTopic.MessageInPerSecond.oneMinuteRate);
 
-      Assertions.assertDoesNotThrow(() -> Metrics.BrokerTopic.BytesInPerSecond.count);
-      Assertions.assertDoesNotThrow(() -> Metrics.BrokerTopic.BytesInPerSecond.fifteenMinuteRate);
-      Assertions.assertDoesNotThrow(() -> Metrics.BrokerTopic.BytesInPerSecond.fiveMinuteRate);
-      Assertions.assertDoesNotThrow(() -> Metrics.BrokerTopic.BytesInPerSecond.meanRate);
-      Assertions.assertDoesNotThrow(() -> Metrics.BrokerTopic.BytesInPerSecond.oneMinuteRate);
+      Assertions.assertDoesNotThrow(() -> BrokerTopic.BytesInPerSecond.count);
+      Assertions.assertDoesNotThrow(() -> BrokerTopic.BytesInPerSecond.fifteenMinuteRate);
+      Assertions.assertDoesNotThrow(() -> BrokerTopic.BytesInPerSecond.fiveMinuteRate);
+      Assertions.assertDoesNotThrow(() -> BrokerTopic.BytesInPerSecond.meanRate);
+      Assertions.assertDoesNotThrow(() -> BrokerTopic.BytesInPerSecond.oneMinuteRate);
 
-      Assertions.assertDoesNotThrow(() -> Metrics.BrokerTopic.BytesOutPerSecond.count);
-      Assertions.assertDoesNotThrow(() -> Metrics.BrokerTopic.BytesOutPerSecond.fifteenMinuteRate);
-      Assertions.assertDoesNotThrow(() -> Metrics.BrokerTopic.BytesOutPerSecond.fiveMinuteRate);
-      Assertions.assertDoesNotThrow(() -> Metrics.BrokerTopic.BytesOutPerSecond.meanRate);
-      Assertions.assertDoesNotThrow(() -> Metrics.BrokerTopic.BytesOutPerSecond.oneMinuteRate);
+      Assertions.assertDoesNotThrow(() -> BrokerTopic.BytesOutPerSecond.count);
+      Assertions.assertDoesNotThrow(() -> BrokerTopic.BytesOutPerSecond.fifteenMinuteRate);
+      Assertions.assertDoesNotThrow(() -> BrokerTopic.BytesOutPerSecond.fiveMinuteRate);
+      Assertions.assertDoesNotThrow(() -> BrokerTopic.BytesOutPerSecond.meanRate);
+      Assertions.assertDoesNotThrow(() -> BrokerTopic.BytesOutPerSecond.oneMinuteRate);
 
-      Assertions.assertDoesNotThrow(() -> Metrics.BrokerTopic.ReplicationBytesInPerSec.count);
-      Assertions.assertDoesNotThrow(
-          () -> Metrics.BrokerTopic.ReplicationBytesInPerSec.fifteenMinuteRate);
-      Assertions.assertDoesNotThrow(
-          () -> Metrics.BrokerTopic.ReplicationBytesInPerSec.fiveMinuteRate);
-      Assertions.assertDoesNotThrow(() -> Metrics.BrokerTopic.ReplicationBytesInPerSec.meanRate);
-      Assertions.assertDoesNotThrow(
-          () -> Metrics.BrokerTopic.ReplicationBytesInPerSec.oneMinuteRate);
+      Assertions.assertDoesNotThrow(() -> BrokerTopic.ReplicationBytesInPerSec.count);
+      Assertions.assertDoesNotThrow(() -> BrokerTopic.ReplicationBytesInPerSec.fifteenMinuteRate);
+      Assertions.assertDoesNotThrow(() -> BrokerTopic.ReplicationBytesInPerSec.fiveMinuteRate);
+      Assertions.assertDoesNotThrow(() -> BrokerTopic.ReplicationBytesInPerSec.meanRate);
+      Assertions.assertDoesNotThrow(() -> BrokerTopic.ReplicationBytesInPerSec.oneMinuteRate);
 
-      Assertions.assertDoesNotThrow(() -> Metrics.BrokerTopic.ReplicationBytesOutPerSec.count);
-      Assertions.assertDoesNotThrow(
-          () -> Metrics.BrokerTopic.ReplicationBytesOutPerSec.fifteenMinuteRate);
-      Assertions.assertDoesNotThrow(
-          () -> Metrics.BrokerTopic.ReplicationBytesOutPerSec.fiveMinuteRate);
-      Assertions.assertDoesNotThrow(() -> Metrics.BrokerTopic.ReplicationBytesOutPerSec.meanRate);
-      Assertions.assertDoesNotThrow(
-          () -> Metrics.BrokerTopic.ReplicationBytesOutPerSec.oneMinuteRate);
+      Assertions.assertDoesNotThrow(() -> BrokerTopic.ReplicationBytesOutPerSec.count);
+      Assertions.assertDoesNotThrow(() -> BrokerTopic.ReplicationBytesOutPerSec.fifteenMinuteRate);
+      Assertions.assertDoesNotThrow(() -> BrokerTopic.ReplicationBytesOutPerSec.fiveMinuteRate);
+      Assertions.assertDoesNotThrow(() -> BrokerTopic.ReplicationBytesOutPerSec.meanRate);
+      Assertions.assertDoesNotThrow(() -> BrokerTopic.ReplicationBytesOutPerSec.oneMinuteRate);
     }
 
     @Test
     void jvmMemory() {
-      Assertions.assertDoesNotThrow(() -> Metrics.JvmMemory.heapMemoryUsage);
-      Assertions.assertDoesNotThrow(() -> Metrics.JvmMemory.nonHeapMemoryUsage);
+      Assertions.assertDoesNotThrow(() -> JvmMemory.heapMemoryUsage);
+      Assertions.assertDoesNotThrow(() -> JvmMemory.nonHeapMemoryUsage);
     }
 
     @Test
     void socketServer() {
-      Assertions.assertDoesNotThrow(() -> Metrics.SocketServer.networkProcessorAvgIdlePercent);
+      Assertions.assertDoesNotThrow(() -> SocketServer.networkProcessorAvgIdlePercent);
     }
   }
 }
