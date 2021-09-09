@@ -125,5 +125,23 @@ class MetricsTest {
     void socketServer() {
       Assertions.assertDoesNotThrow(() -> SocketServer.networkProcessorAvgIdlePercent);
     }
+
+    @Test
+    void disk() {
+      Assertions.assertDoesNotThrow(() -> Disk.linuxDiskReadBytes);
+      Assertions.assertDoesNotThrow(() -> Disk.linuxDiskWriteBytes);
+    }
+
+    @Test
+    void requestHandler() {
+      Assertions.assertDoesNotThrow(() -> RequestHandler.RequestHandlerAvgIdlePercent.count);
+      Assertions.assertDoesNotThrow(
+          () -> RequestHandler.RequestHandlerAvgIdlePercent.fifteenMinuteRate);
+      Assertions.assertDoesNotThrow(
+          () -> RequestHandler.RequestHandlerAvgIdlePercent.fiveMinuteRate);
+      Assertions.assertDoesNotThrow(() -> RequestHandler.RequestHandlerAvgIdlePercent.meanRate);
+      Assertions.assertDoesNotThrow(
+          () -> RequestHandler.RequestHandlerAvgIdlePercent.oneMinuteRate);
+    }
   }
 }

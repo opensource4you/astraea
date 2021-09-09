@@ -239,4 +239,31 @@ public final class Metrics {
         new DoubleBrokerMetric(
             "kafka.network:type=SocketServer,name=NetworkProcessorAvgIdlePercent", "Value");
   }
+
+  public static class Disk {
+
+    public static final LongBrokerMetric linuxDiskReadBytes =
+        new LongBrokerMetric("kafka.server:type=KafkaServer,name=linux-disk-read-bytes", "Value");
+    public static final LongBrokerMetric linuxDiskWriteBytes =
+        new LongBrokerMetric("kafka.server:type=KafkaServer,name=linux-disk-write-bytes", "Value");
+  }
+
+  public static class RequestHandler {
+
+    public static class RequestHandlerAvgIdlePercent {
+
+      private static final String objectName =
+          "kafka.server:type=KafkaRequestHandlerPool,name=RequestHandlerAvgIdlePercent";
+
+      public static final LongBrokerMetric count = new LongBrokerMetric(objectName, "Count");
+      public static final DoubleBrokerMetric fifteenMinuteRate =
+          new DoubleBrokerMetric(objectName, "FifteenMinuteRate");
+      public static final DoubleBrokerMetric fiveMinuteRate =
+          new DoubleBrokerMetric(objectName, "FiveMinuteRate");
+      public static final DoubleBrokerMetric meanRate =
+          new DoubleBrokerMetric(objectName, "MeanRate");
+      public static final DoubleBrokerMetric oneMinuteRate =
+          new DoubleBrokerMetric(objectName, "OneMinuteRate");
+    }
+  }
 }
