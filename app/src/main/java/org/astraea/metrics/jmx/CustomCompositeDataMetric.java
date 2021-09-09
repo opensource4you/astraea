@@ -7,7 +7,7 @@ public class CustomCompositeDataMetric<T> extends JmxBrokerMetric {
 
   private final Function<CompositeDataSupport, T> transformer;
 
-  CustomCompositeDataMetric(
+  public CustomCompositeDataMetric(
       String jmxObjectName, String attributeName, Function<CompositeDataSupport, T> transformer)
       throws IllegalArgumentException {
     super(jmxObjectName, attributeName);

@@ -8,7 +8,8 @@ public class JmxBrokerMetric {
   public final ObjectName jmxObjectName;
   public final String attributeName;
 
-  JmxBrokerMetric(String jmxObjectName, String attributeName) throws IllegalArgumentException {
+  public JmxBrokerMetric(String jmxObjectName, String attributeName)
+      throws IllegalArgumentException {
     try {
       this.jmxObjectName = ObjectName.getInstance(jmxObjectName);
       this.attributeName = attributeName;
