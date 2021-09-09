@@ -1,4 +1,7 @@
 package org.astraea.metrics.jmx;
+
+import java.lang.management.MemoryUsage;
+
 /** A list of all kafka metrics */
 public final class Metrics {
 
@@ -24,5 +27,14 @@ public final class Metrics {
           new DoubleBrokerMetric(
               "kafka.server:type=BrokerTopicMetrics,name=MessagesInPerSec", "OneMinuteRate");
     }
+  }
+
+  public static class JvmMemory {
+    public static final CustomCompositeDataMetric<MemoryUsage> heapMemoryUsage =
+        new CustomCompositeDataMetric<>(
+            "java.lang:type=Memory", "HeapMemoryUsage", MemoryUsage::from);
+    public static final CustomCompositeDataMetric<MemoryUsage> nonHeapMemoryUsage =
+        new CustomCompositeDataMetric<>(
+            "java.lang:type=Memory", "NonHeapMemoryUsage", MemoryUsage::from);
   }
 }

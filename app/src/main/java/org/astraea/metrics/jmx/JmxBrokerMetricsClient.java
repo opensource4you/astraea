@@ -60,6 +60,10 @@ public class JmxBrokerMetricsClient implements AutoCloseable {
     return (CompositeDataSupport) fetchJmxMetric(metric);
   }
 
+  public <T> T fetchMetric(CustomCompositeDataMetric<T> metric) {
+    return metric.transform((CompositeDataSupport) fetchJmxMetric(metric));
+  }
+
   void throwExceptionIfNotConnectedYet() {
     if (notConnectedYet) throw new IllegalStateException("You need to connect to JMX agent first");
   }

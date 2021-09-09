@@ -19,5 +19,11 @@ class MetricsTest {
       Assertions.assertDoesNotThrow(() -> Metrics.BrokerTopic.MessageInPerSecond.meanRate);
       Assertions.assertDoesNotThrow(() -> Metrics.BrokerTopic.MessageInPerSecond.oneMinuteRate);
     }
+
+    @Test
+    void jvmMemory() {
+      Assertions.assertDoesNotThrow(() -> Metrics.JvmMemory.heapMemoryUsage);
+      Assertions.assertDoesNotThrow(() -> Metrics.JvmMemory.nonHeapMemoryUsage);
+    }
   }
 }
