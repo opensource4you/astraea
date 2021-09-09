@@ -5,8 +5,8 @@ import javax.management.ObjectName;
 
 public class JmxBrokerMetric {
 
-  final ObjectName jmxObjectName;
-  final String attributeName;
+  public final ObjectName jmxObjectName;
+  public final String attributeName;
 
   JmxBrokerMetric(String jmxObjectName, String attributeName) throws IllegalArgumentException {
     try {
