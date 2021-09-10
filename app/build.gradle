@@ -29,7 +29,17 @@ application {
     mainClass = 'org.astraea.App'
 }
 
+java {
+    sourceCompatibility = 11
+    targetCompatibility = 11
+}
+
 tasks.named('test') {
     // Use JUnit Platform for unit tests.
     useJUnitPlatform()
+
+    testLogging {
+        events "PASSED", "STARTED", "FAILED", "SKIPPED"
+        exceptionFormat = 'full'
+    }
 }
