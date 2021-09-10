@@ -1,6 +1,7 @@
 package org.astraea.metrics.jmx;
 
 import java.io.IOException;
+import java.util.Set;
 import javax.management.*;
 import javax.management.openmbean.CompositeDataSupport;
 import javax.management.remote.JMXConnector;
@@ -27,8 +28,14 @@ public class JmxBrokerMetricsClient implements AutoCloseable {
 
   public Object fetchJmxMetric(JmxBrokerMetric metric) {
     throwExceptionIfNotConnectedYet();
-    final ObjectName metricName = metric.jmxObjectName;
-    final String metricAttribute = metric.attributeName;
+
+    if (metric.isObjectNameResolutionRequired()) {
+      ObjectName realName = attemptToResolveObjectName(metric);
+      metric.resolveObjectName(realName);
+    }
+
+    final ObjectName metricName = metric.getJmxObjectName();
+    final String metricAttribute = metric.getAttributeName();
 
     try {
       return mBeanServerConnection.getAttribute(metricName, metricAttribute);
@@ -39,6 +46,20 @@ public class JmxBrokerMetricsClient implements AutoCloseable {
         | IOException e) {
       throw new MBeanResolutionException(e);
     }
+  }
+
+  private ObjectName attemptToResolveObjectName(JmxBrokerMetric metric) {
+    Set<ObjectInstance> objectInstances = null;
+    try {
+      objectInstances = this.mBeanServerConnection.queryMBeans(metric.getJmxObjectName(), null);
+    } catch (IOException e) {
+      throw new RuntimeException(e);
+    }
+    if (objectInstances.isEmpty())
+      throw new IllegalArgumentException(
+          String.format(
+              "Target jmx name '%s' match nothing on Mbean server", metric.getJmxObjectName()));
+    return objectInstances.stream().findFirst().get().getObjectName();
   }
 
   public long fetchMetric(LongBrokerMetric metric) {

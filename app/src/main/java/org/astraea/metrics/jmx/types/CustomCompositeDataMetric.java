@@ -14,6 +14,16 @@ public class CustomCompositeDataMetric<T> extends JmxBrokerMetric {
     this.transformer = transformer;
   }
 
+  public CustomCompositeDataMetric(
+      String jmxObjectName,
+      String attributeName,
+      boolean objectNameResolutionRequired,
+      Function<CompositeDataSupport, T> transformer)
+      throws IllegalArgumentException {
+    super(jmxObjectName, attributeName, objectNameResolutionRequired);
+    this.transformer = transformer;
+  }
+
   public T transform(CompositeDataSupport jmxCompositeData) {
     return transformer.apply(jmxCompositeData);
   }

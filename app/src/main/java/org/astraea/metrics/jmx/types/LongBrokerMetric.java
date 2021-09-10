@@ -5,4 +5,10 @@ public class LongBrokerMetric extends JmxBrokerMetric {
       throws IllegalArgumentException {
     super(jmxObjectName, attributeName);
   }
+
+  public LongBrokerMetric(
+      String jmxObjectName, String attributeName, boolean objectNameResolutionRequired)
+      throws IllegalArgumentException {
+    super(jmxObjectName, attributeName, objectNameResolutionRequired);
+  }
 }

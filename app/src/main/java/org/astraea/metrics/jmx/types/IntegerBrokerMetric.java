@@ -6,4 +6,10 @@ public class IntegerBrokerMetric extends JmxBrokerMetric {
       throws IllegalArgumentException {
     super(jmxObjectName, attributeName);
   }
+
+  public IntegerBrokerMetric(
+      String jmxObjectName, String attributeName, boolean objectNameResolutionRequired)
+      throws IllegalArgumentException {
+    super(jmxObjectName, attributeName, objectNameResolutionRequired);
+  }
 }
