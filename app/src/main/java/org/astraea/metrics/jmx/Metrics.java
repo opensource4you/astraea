@@ -143,9 +143,9 @@ public final class Metrics {
 
       this.counter = new LongBrokerMetric(jmxUrl, "Count", true);
       this.fifteenMinuteRate = new DoubleBrokerMetric(jmxUrl, "FifteenMinuteRate", true);
-      this.fiveMinuteRate = new DoubleBrokerMetric(jmxUrl, "fiveMinuteRate", true);
+      this.fiveMinuteRate = new DoubleBrokerMetric(jmxUrl, "FiveMinuteRate", true);
       this.meanRate = new DoubleBrokerMetric(jmxUrl, "MeanRate", true);
-      this.oneMinuteRate = new DoubleBrokerMetric(jmxUrl, "oneMinuteRate", true);
+      this.oneMinuteRate = new DoubleBrokerMetric(jmxUrl, "OneMinuteRate", true);
     }
 
     public static RequestCounterMetric of(String requestName) {
