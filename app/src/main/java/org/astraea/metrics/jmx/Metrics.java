@@ -125,6 +125,34 @@ public final class Metrics {
     }
   }
 
+  public static class RequestCounterMetric {
+
+    private final String jmxUrl;
+
+    public final LongBrokerMetric counter;
+    public final DoubleBrokerMetric fifteenMinuteRate;
+    public final DoubleBrokerMetric fiveMinuteRate;
+    public final DoubleBrokerMetric meanRate;
+    public final DoubleBrokerMetric oneMinuteRate;
+
+    public RequestCounterMetric(String requestName) {
+      this.jmxUrl =
+          String.format(
+              "kafka.network:type=RequestMetrics,request=%s,version=*,name=RequestsPerSec",
+              requestName);
+
+      this.counter = new LongBrokerMetric(jmxUrl, "Count", true);
+      this.fifteenMinuteRate = new DoubleBrokerMetric(jmxUrl, "FifteenMinuteRate", true);
+      this.fiveMinuteRate = new DoubleBrokerMetric(jmxUrl, "fiveMinuteRate", true);
+      this.meanRate = new DoubleBrokerMetric(jmxUrl, "MeanRate", true);
+      this.oneMinuteRate = new DoubleBrokerMetric(jmxUrl, "oneMinuteRate", true);
+    }
+
+    public static RequestCounterMetric of(String requestName) {
+      return new RequestCounterMetric(requestName);
+    }
+  }
+
   public static class RequestLatencyMetric {
 
     public final MeasuredValue localTimeMs;

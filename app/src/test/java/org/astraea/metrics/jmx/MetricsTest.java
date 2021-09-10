@@ -60,17 +60,24 @@ class MetricsTest {
 
     @Test
     void requestMetrics() {
-      RequestLatencyMetric testingRequest = RequestLatencyMetric.of("Testing");
+      RequestCounterMetric testCounterMetric = RequestCounterMetric.of("Testing");
+      Assertions.assertDoesNotThrow(() -> testCounterMetric.counter);
+      Assertions.assertDoesNotThrow(() -> testCounterMetric.fifteenMinuteRate);
+      Assertions.assertDoesNotThrow(() -> testCounterMetric.fiveMinuteRate);
+      Assertions.assertDoesNotThrow(() -> testCounterMetric.meanRate);
+      Assertions.assertDoesNotThrow(() -> testCounterMetric.oneMinuteRate);
+
+      RequestLatencyMetric testLatencyMetric = RequestLatencyMetric.of("Testing");
       RequestLatencyMetric.MeasuredValue[] measuredValues =
           new RequestLatencyMetric.MeasuredValue[] {
-            testingRequest.localTimeMs,
-            testingRequest.requestBytes,
-            testingRequest.remoteTimeMs,
-            testingRequest.requestQueueTimeMs,
-            testingRequest.responseQueueTimeMs,
-            testingRequest.responseSendTimeMs,
-            testingRequest.throttleTimeMs,
-            testingRequest.totalTimeMs
+            testLatencyMetric.localTimeMs,
+            testLatencyMetric.requestBytes,
+            testLatencyMetric.remoteTimeMs,
+            testLatencyMetric.requestQueueTimeMs,
+            testLatencyMetric.responseQueueTimeMs,
+            testLatencyMetric.responseSendTimeMs,
+            testLatencyMetric.throttleTimeMs,
+            testLatencyMetric.totalTimeMs
           };
       for (RequestLatencyMetric.MeasuredValue measuredValue : measuredValues) {
         Assertions.assertDoesNotThrow(measuredValue::mean);
