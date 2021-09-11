@@ -29,17 +29,18 @@ public class MBeanClient implements AutoCloseable {
       String objectName = beanObject.jmxQueryString();
       String[] attributeNameArray = beanObject.getAttributeView().keySet().toArray(new String[0]);
 
-      // fetch attribute list, and update the result back to original bean object
-      beanObject.updateAttributeValue(
-          getAttributeList(ObjectName.getInstance(objectName), attributeNameArray));
+      // fetch attribute list, create a new object based on these new attribute to keep everything
+      // immutable.
+      AttributeList attributeList =
+          getAttributeList(ObjectName.getInstance(objectName), attributeNameArray);
+      return new BeanObject(beanObject, attributeList);
+
     } catch (MalformedObjectNameException e) {
       // From the point we managed the BeanObject for library-user.
       // It is our responsibility to keep the jmxUrl error-free, so the error shouldn't be here.
       // If it actually happened, that means something wrong with the JMX Url generation code.
       throw new IllegalStateException("Illegal object name detected, this shouldn't happens", e);
     }
-
-    return beanObject;
   }
 
   private AttributeList getAttributeList(ObjectName objectName, String[] attributeName) {

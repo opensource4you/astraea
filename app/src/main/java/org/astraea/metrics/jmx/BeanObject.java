@@ -24,14 +24,25 @@ public class BeanObject {
     this.attributes = new HashMap<>();
   }
 
+  public BeanObject(BeanObject oldObject, AttributeList list) {
+    this.domainName = oldObject.domainName;
+    this.properties = new HashMap<>(oldObject.properties);
+    this.attributes = new HashMap<>(oldObject.attributes);
+    for (Attribute attribute : list.asList()) {
+      this.attributes.put(attribute.getName(), attribute.getValue());
+    }
+  }
+
   public BeanObject selectProperty(String key, String value) {
-    this.properties.put(key, value);
-    return this;
+    HashMap<String, String> propertiesCopy = new HashMap<>(properties);
+    propertiesCopy.put(key, value);
+    return new BeanObject(domainName, propertiesCopy, attributes);
   }
 
   public BeanObject fetchAttribute(String attributeName) {
-    this.attributes.put(attributeName, null);
-    return this;
+    HashMap<String, Object> attributesCopy = new HashMap<>(attributes);
+    attributesCopy.put(attributeName, null);
+    return new BeanObject(domainName, properties, attributesCopy);
   }
 
   public String jmxQueryString() {
@@ -52,12 +63,6 @@ public class BeanObject {
     }
 
     return sb.toString();
-  }
-
-  void updateAttributeValue(AttributeList attributeList) {
-    for (Attribute attribute : attributeList.asList()) {
-      this.attributes.put(attribute.getName(), attribute.getValue());
-    }
   }
 
   public Map<String, String> getPropertyView() {
