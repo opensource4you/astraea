@@ -37,7 +37,8 @@ public class MBeanClient implements AutoCloseable {
 
     } catch (MalformedObjectNameException e) {
       // From the point we managed the BeanObject for library-user.
-      // It is our responsibility to keep the object name string error-free, so the error shouldn't be here.
+      // It is our responsibility to keep the object name string error-free, so the error shouldn't
+      // be here.
       // If it actually happened, that means something wrong with the object name generation code.
       throw new IllegalStateException("Illegal object name detected, this shouldn't happens", e);
     }
