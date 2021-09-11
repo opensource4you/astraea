@@ -3,6 +3,7 @@ package org.astraea.metrics.jmx;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import org.astraea.metrics.jmx.utils.BeanUtility;
 
 public class BeanQuery {
   private final String domainName;
@@ -26,23 +27,7 @@ public class BeanQuery {
   }
 
   public String queryString() {
-    StringBuilder sb = new StringBuilder();
-
-    // append domain name part
-    sb.append(domainName);
-    sb.append(":");
-
-    // append properties selector part
-    boolean ignoreFirstComma = true;
-    for (String key : propertyQuery.keySet()) {
-
-      if (ignoreFirstComma) ignoreFirstComma = false;
-      else sb.append(",");
-
-      sb.append(key).append("=").append(propertyQuery.get(key));
-    }
-
-    return sb.toString();
+    return BeanUtility.getBeanObjectNameString(domainName, propertyQuery);
   }
 
   public static BeanQuery forDomainName(String domainName) {
