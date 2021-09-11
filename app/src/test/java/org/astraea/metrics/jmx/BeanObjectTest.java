@@ -19,9 +19,8 @@ class BeanObjectTest {
     // modify the maps
     properties.put("key", "value");
     attributes.put("key", "value");
-
     // if the constructor have make defensive copy, the original given map won't affect their value
-    assertTrue(beanObject.getProperties().isEmpty());
-    assertTrue(beanObject.getAttributes().isEmpty());
+    assertTrue(beanObject.getPropertyView().isEmpty());
+    assertTrue(beanObject.getAttributeView().isEmpty());
   }
 }
