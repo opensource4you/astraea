@@ -59,16 +59,7 @@ public class BeanObject {
       if (ignoreFirstComma) ignoreFirstComma = false;
       else sb.append(",");
 
-      // escaping property value
-      // The reason I call this "half escaped" is because there are actually two extra characters
-      // that need to taking care of.
-      // They are "*" and "?", which is left for pattern usage, we cannot determine whether or not
-      // users want to escape them.
-      // So I left the choice to the library user.
-      String halfEscapedPropertyValue =
-          properties.get(key).replace("\"", "\\\"").replace("\n", "\\n").replace("\\", "\\\\");
-
-      sb.append(key).append("=").append("\"").append(halfEscapedPropertyValue).append("\"");
+      sb.append(key).append("=").append(properties.get(key));
     }
 
     return sb.toString();
