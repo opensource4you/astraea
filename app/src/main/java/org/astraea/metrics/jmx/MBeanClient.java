@@ -2,6 +2,8 @@ package org.astraea.metrics.jmx;
 
 import java.io.IOException;
 import java.net.MalformedURLException;
+import java.util.Set;
+import java.util.stream.Collectors;
 import javax.management.*;
 import javax.management.remote.JMXConnector;
 import javax.management.remote.JMXConnectorFactory;
@@ -35,6 +37,28 @@ public class MBeanClient implements AutoCloseable {
           getAttributeList(ObjectName.getInstance(objectName), attributeNameArray);
       return new BeanObject(beanObject, attributeList);
 
+    } catch (MalformedObjectNameException e) {
+      // From the point we managed the BeanObject for library-user.
+      // It is our responsibility to keep the object name string error-free, so the error shouldn't
+      // be here.
+      // If it actually happened, that means something wrong with the object name generation code.
+      throw new IllegalStateException("Illegal object name detected, this shouldn't happens", e);
+    }
+  }
+
+  public Set<BeanObject> queryObject(BeanQuery beanQuery) {
+    try {
+
+      Set<ObjectInstance> objectInstances =
+          mBeanServerConnection.queryMBeans(ObjectName.getInstance(beanQuery.queryString()), null);
+
+      return objectInstances.stream()
+          .map(ObjectInstance::getObjectName)
+          .map(BeanObject::new)
+          .collect(Collectors.toSet());
+
+    } catch (IOException e) {
+      throw new RuntimeException(e);
     } catch (MalformedObjectNameException e) {
       // From the point we managed the BeanObject for library-user.
       // It is our responsibility to keep the object name string error-free, so the error shouldn't

@@ -5,6 +5,7 @@ import java.util.HashMap;
 import java.util.Map;
 import javax.management.Attribute;
 import javax.management.AttributeList;
+import javax.management.ObjectName;
 
 public class BeanObject {
   private final String domainName;
@@ -31,6 +32,12 @@ public class BeanObject {
     for (Attribute attribute : list.asList()) {
       this.attributes.put(attribute.getName(), attribute.getValue());
     }
+  }
+
+  public BeanObject(ObjectName from) {
+    this.domainName = from.getDomain();
+    this.properties = new HashMap<>(from.getKeyPropertyList());
+    this.attributes = new HashMap<>();
   }
 
   public BeanObject selectProperty(String key, String value) {
