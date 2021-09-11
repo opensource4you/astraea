@@ -8,6 +8,14 @@ import javax.management.AttributeList;
 import javax.management.ObjectName;
 import org.astraea.metrics.jmx.utils.BeanUtility;
 
+/**
+ * represent an MBean object at the remote MBean server.
+ *
+ * <p>This class should cooperate with {@link MBeanClient} to retrieve Mbean attributes value.
+ *
+ * <p><strong>This class follow immutable class design</strong>, beware the internal state when
+ * modify code.
+ */
 public class BeanObject {
   private final String domainName;
   private final Map<String, String> properties;

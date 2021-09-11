@@ -5,6 +5,14 @@ import java.util.HashMap;
 import java.util.Map;
 import org.astraea.metrics.jmx.utils.BeanUtility;
 
+/**
+ * represent an MBean query string.
+ *
+ * <p>This class should cooperate with {@link MBeanClient} to query possible Mbean candidate.
+ *
+ * <p><strong>This class follow immutable class design</strong>, beware the internal state when
+ * modify code.
+ */
 public class BeanQuery {
   private final String domainName;
   private final Map<String, String> propertyQuery;
