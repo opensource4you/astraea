@@ -27,6 +27,7 @@ dependencies {
 application {
     // Define the main class for the application.
     mainClass = 'org.astraea.App'
+    applicationDefaultJvmArgs = ["-server", "-XX:+UseG1GC", "-Djava.awt.headless=true", "-Xms4G", "-Xmx4G"]
 }
 
 java {
