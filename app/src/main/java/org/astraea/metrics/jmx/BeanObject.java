@@ -64,4 +64,8 @@ public class BeanObject {
   public Map<String, Object> getAttributeView() {
     return Collections.unmodifiableMap(attributes);
   }
+
+  public static BeanObject fromDomainName(String domainName) {
+    return new BeanObject(domainName);
+  }
 }
