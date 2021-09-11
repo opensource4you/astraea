@@ -26,7 +26,7 @@ public class MBeanClient implements AutoCloseable {
     ensureClientConnected();
 
     try {
-      String objectName = beanObject.jmxQueryString();
+      String objectName = beanObject.objectName();
       String[] attributeNameArray = beanObject.getAttributeView().keySet().toArray(new String[0]);
 
       // fetch attribute list, create a new object based on these new attribute to keep everything

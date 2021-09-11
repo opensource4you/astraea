@@ -45,7 +45,7 @@ public class BeanObject {
     return new BeanObject(domainName, properties, attributesCopy);
   }
 
-  public String jmxQueryString() {
+  public String objectName() {
     StringBuilder sb = new StringBuilder();
 
     // append domain name part
