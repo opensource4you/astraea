@@ -27,9 +27,20 @@ dependencies {
 application {
     // Define the main class for the application.
     mainClass = 'org.astraea.App'
+    applicationDefaultJvmArgs = ["-server", "-XX:+UseG1GC", "-Djava.awt.headless=true", "-Xms4G", "-Xmx4G"]
+}
+
+java {
+    sourceCompatibility = 11
+    targetCompatibility = 11
 }
 
 tasks.named('test') {
     // Use JUnit Platform for unit tests.
     useJUnitPlatform()
+
+    testLogging {
+        events "PASSED", "STARTED", "FAILED", "SKIPPED"
+        exceptionFormat = 'full'
+    }
 }
