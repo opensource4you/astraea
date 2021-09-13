@@ -25,7 +25,7 @@ run ./docker/start_broker.sh zookeeper.connect=192.168.50.178:17228 to join kafk
 =================================================
 ```
 
-## Set up zookeeper with specify version
+## Set up zookeeper with specific version
 
 ```shell
 ZOOKEEPER_VERSION=3.6.3 ./docker/start_zookeeper.sh
@@ -49,7 +49,7 @@ jmx address: 192.168.50.224:15905
 
 Noted that the command to set up broker can be executed multiple times to create a broker cluster.
 
-## Set up (kafka) broker with specify version
+## Set up (kafka) broker with specific version
 
 ```shell
 KAFKA_VERSION=2.8.0 ./docker/start_broker.sh zookeeper.connect=192.168.50.178:17228
