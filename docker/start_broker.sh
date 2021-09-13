@@ -31,12 +31,14 @@ if [[ "$(which docker)" == "" ]]; then
   exit 2
 fi
 
+if [[ -z "$KAFKA_VERSION" ]]; then
+  KAFKA_VERSION=2.8.0
+fi
+
 USER=broker
-KAFKA_VERSION=2.8.0
-image_name=astraea/broker
+image_name=astraea/broker:$KAFKA_VERSION
 broker_id="$(($RANDOM % 1000))"
 address=$(getAddress)
-jvm_memory="-Xmx2G -Xms2G"
 broker_port="$(($(($RANDOM % 10000 )) + 10000))"
 broker_jmx_port="$(($(($RANDOM % 10000 )) + 10000))"
 jmx_opts="-Dcom.sun.management.jmxremote \
@@ -55,9 +57,6 @@ while [[ $# -gt 0 ]]; do
     showHelp
     exit 2
   fi
-  if [[ "$1" == "memory=*" ]]; then
-    jvm_memory="$(echo $1 | cut -d'=' -f 2)"
-  fi
   echo "$1" >> "$config_file"
   shift
 done
@@ -67,6 +66,9 @@ if [[ "$(cat $config_file | grep zookeeper.connect)" == "" ]]; then
   showHelp
   exit 2
 fi
+
+# set JVM heap
+KAFKA_HEAP="${KAFKA_HEAP:-"-Xmx2G -Xms2G"}"
 
 # listeners will be generated automatically
 if [[ "$(cat $config_file | grep listeners)" != "" ]]; then
@@ -139,7 +141,7 @@ WORKDIR /home/$USER/kafka_2.13-${KAFKA_VERSION}
 Dockerfile
 
 docker run -d \
-  -e KAFKA_HEAP_OPTS="$jvm_memory" \
+  -e KAFKA_HEAP_OPTS="$KAFKA_HEAP" \
   -e KAFKA_JMX_OPTS="$jmx_opts" \
   -v $config_file:/tmp/broker.properties:ro \
   -p $broker_port:9092 \

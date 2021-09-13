@@ -20,9 +20,12 @@ if [[ "$(which docker)" == "" ]]; then
   exit 2
 fi
 
+if [[ -z "$ZOOKEEPER_VERSION" ]]; then
+  ZOOKEEPER_VERSION=3.6.3
+fi
+
 USER=zookeeper
-ZK_VERSION=3.6.3
-image_name=astraea/zookeeper
+image_name=astraea/zookeeper:$ZOOKEEPER_VERSION
 zk_port="$(($(($RANDOM % 10000 )) + 10000))"
 address=$(getAddress)
 
@@ -40,9 +43,9 @@ USER $USER
 
 # download zookeeper
 WORKDIR /home/$USER
-RUN wget https://dlcdn.apache.org/zookeeper/zookeeper-${ZK_VERSION}/apache-zookeeper-${ZK_VERSION}-bin.tar.gz
-RUN tar -zxvf apache-zookeeper-${ZK_VERSION}-bin.tar.gz
-WORKDIR /home/$USER/apache-zookeeper-${ZK_VERSION}-bin
+RUN wget https://archive.apache.org/dist/zookeeper/zookeeper-${ZOOKEEPER_VERSION}/apache-zookeeper-${ZOOKEEPER_VERSION}-bin.tar.gz
+RUN tar -zxvf apache-zookeeper-${ZOOKEEPER_VERSION}-bin.tar.gz
+WORKDIR /home/$USER/apache-zookeeper-${ZOOKEEPER_VERSION}-bin
 
 # create config file
 RUN echo "tickTime=2000" >> ./conf/zoo.cfg
@@ -52,7 +55,7 @@ Dockerfile
 
 docker run -d \
   -p $zk_port:2181 \
-  $image_name /home/$USER/apache-zookeeper-${ZK_VERSION}-bin/bin/zkServer.sh start-foreground
+  $image_name /home/$USER/apache-zookeeper-${ZOOKEEPER_VERSION}-bin/bin/zkServer.sh start-foreground
 
 echo "================================================="
 echo "run ./docker/start_broker.sh zookeeper.connect=$address:$zk_port to join kafka broker"
