@@ -16,12 +16,15 @@ repositories {
     mavenCentral()
 }
 
-dependencies {
-    // Use JUnit Jupiter for testing.
-    testImplementation 'org.junit.jupiter:junit-jupiter:5.7.2'
+def versions = [
+    kafka: project.properties['kafka.version'] ?: "2.8.0",
+    junit: project.properties['junit.version'] ?: "5.7.2",
+]
 
-    // This dependency is used by the application.
-    implementation 'org.apache.kafka:kafka-clients:2.8.0'
+dependencies {
+    testImplementation "org.junit.jupiter:junit-jupiter:${versions["junit"]}"
+
+    implementation "org.apache.kafka:kafka-clients:${versions["kafka"]}"
 }
 
 application {

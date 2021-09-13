@@ -31,9 +31,12 @@ if [[ "$(which docker)" == "" ]]; then
   exit 2
 fi
 
+if [[ -z "$KAFKA_VERSION" ]]; then
+  KAFKA_VERSION=2.8.0
+fi
+
 USER=broker
-KAFKA_VERSION=2.8.0
-image_name=astraea/broker
+image_name=astraea/broker:$KAFKA_VERSION
 broker_id="$(($RANDOM % 1000))"
 address=$(getAddress)
 jvm_memory="-Xmx2G -Xms2G"
