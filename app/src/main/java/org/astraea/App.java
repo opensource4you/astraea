@@ -4,12 +4,10 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
+import org.astraea.performance.latency.End2EndLatency;
 
 public class App {
-  private static final List<Class<?>> MAIN_CLASSES =
-      Arrays.asList(
-          // add the classes having main function
-          );
+  private static final List<Class<?>> MAIN_CLASSES = Arrays.asList(End2EndLatency.class);
 
   private static String toString(List<Class<?>> mains) {
     return mains.stream().map(Class::getName).collect(Collectors.joining(","));
