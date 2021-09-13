@@ -33,7 +33,7 @@ ZOOKEEPER_VERSION=3.6.3 ./docker/start_zookeeper.sh
 
 ## Set up (kafka) broker with default version
 
-After the zk env is running, you can copy the command (see above example) from zk script output to setup kafka. For example:
+After the zk env is running, you can copy the command (see above example) from zk script output to set up kafka. For example:
 ```shell
 ./docker/start_broker.sh zookeeper.connect=192.168.50.178:17228
 ```
