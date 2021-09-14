@@ -27,7 +27,7 @@ public class PrintOutThread extends CloseableThread {
     // System.out.println("consumer完成度: "+((double) completed * 100.0 / (double) records)+"%");
     System.out.printf("producers完成度: %.2f%%\n", ((double) completed * 100.0 / (double) records));
     // 印出producers的數據
-    System.out.printf("  輸出%.3fMB/second\n", ((double) bytes / (1 << 20)));
+    System.out.printf("  輸出%.3fMB/second%n", ((double) bytes / (1 << 20)));
     System.out.println("  發送max latency:" + max + "ms");
     System.out.println("  發送mim latency:" + min + "ms");
     for (int i = 0; i < producerData.length; ++i) {
@@ -46,9 +46,9 @@ public class PrintOutThread extends CloseableThread {
       if (min > data.min()) min = data.min();
     }
     // System.out.println("consumer完成度: "+((double) completed * 100.0 / (double) records)+"%");
-    System.out.printf("consumer完成度: %.2f%%\n", ((double) completed * 100.0 / (double) records));
+    System.out.printf("consumer完成度: %.2f%%%n", ((double) completed * 100.0 / (double) records));
     // 印出consumer的數據
-    System.out.printf("  輸入%.3fMB/second\n", ((double) bytes / (1 << 20)));
+    System.out.printf("  輸入%.3fMB/second%n", ((double) bytes / (1 << 20)));
     System.out.println("  端到端max latency:" + max + "ms");
     System.out.println("  端到端mim latency:" + min + "ms");
     for (int i = 0; i < consumerData.length; ++i) {
