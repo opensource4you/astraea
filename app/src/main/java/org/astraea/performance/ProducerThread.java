@@ -1,65 +1,55 @@
 package org.astraea.performance;
 
-import java.util.Properties;
-import org.apache.kafka.clients.producer.KafkaProducer;
+import java.util.concurrent.ExecutionException;
 import org.apache.kafka.clients.producer.ProducerRecord;
 
-/*
- * 每秒傳送一則給定大小(recordSize)的訊息，直到已經傳送records筆訊息
- */
-public class ProducerThread extends Thread {
-  private KafkaProducer<String, byte[]> producer;
-  private String topic;
-  private byte[] payload;
-  private long records;
-  private AvgLatency latency;
+/** 每秒傳送一則給定大小(recordSize)的訊息，直到已經傳送records筆訊息 */
+public class ProducerThread extends CloseableThread {
+  private final Producer producer;
+  private final String topic;
+  private final byte[] payload;
+  private final long records;
+  private final Metrics latency;
 
-  /*
-   * @param topic     ProducerThread 會發送訊息到topic
-   * @param bootstrapServers  kafka brokers 的位址
-   * @param records   要發送的訊息數量
-   * @param recordSize  要發送訊息的大小
+  /**
+   * @param producer An instance of producer which can send record and update metrics
+   * @param topic ProducerThread 會發送訊息到topic
+   * @param records 要發送的訊息數量
+   * @param recordSize 要發送訊息的大小
+   * @param latency A metric that store statistic numbers.
    */
   public ProducerThread(
-      String topic, String bootstrapServers, long records, int recordSize, AvgLatency latency) {
-    // 設定producer
-    Properties prop = new Properties();
-    prop.put("bootstrap.servers", bootstrapServers);
-    prop.put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer");
-    prop.put("value.serializer", "org.apache.kafka.common.serialization.ByteArraySerializer");
-    producer = new KafkaProducer<String, byte[]>(prop);
-
+      Producer producer, String topic, long records, int recordSize, Metrics latency) {
+    this.producer = producer;
     this.topic = topic;
-
+    this.records = records;
     // 給定訊息大小
     payload = new byte[recordSize];
-
-    // 要傳送訊息的數量
-    this.records = records;
-
     // 記錄publish latency and bytes output
     this.latency = latency;
   }
 
-  /*
-   * 執行(records)次資料傳送
-   */
+  /** 執行(records)次資料傳送 */
   @Override
-  public void run() {
-    // 每傳送一筆訊息，等待1毫秒
-    for (long i = 0; i < records; ++i) {
+  protected void execute() {
+    for (int i = 0; i < records; ++i) {
       long start = System.currentTimeMillis();
-      producer.send(new ProducerRecord<String, byte[]>(topic, payload));
-      // 記錄每筆訊息發送的延時
-      latency.put(System.currentTimeMillis() - start);
-      // 記錄訊息發送的量
-      latency.addBytes(payload.length);
-      // 等待1毫秒
+      ProducerRecord<byte[], byte[]> record = new ProducerRecord<byte[], byte[]>(topic, payload);
       try {
+        producer.send(record).get();
+        latency.putLatency(System.currentTimeMillis() - start);
+        latency.addBytes(payload.length);
         Thread.sleep(1);
       } catch (InterruptedException ie) {
+      } catch (ExecutionException ee) {
       }
     }
-    System.out.println("Producer send end");
+    // execute once.
+    closed.set(true);
+  }
+
+  @Override
+  protected void cleanup() {
+    producer.close();
   }
 }

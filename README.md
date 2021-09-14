@@ -7,14 +7,14 @@ a collection of tools used to balance Kafka data
 - Ching-Hong Fang <fjh7777@gmail.com>
 - Zheng-Xian Li <garyparrottt@gmail.com>
 
-# Quickstart
+# Quickstart a Kafka Env
 
 There are two scripts which can setup env quickly by container
 
-## Set up zookeeper env
+## Set up zookeeper with default version
 
 ```shell
-./docker/start_zk.sh
+./docker/start_zookeeper.sh
 ```
 
 The above script creates a zookeeper instance by container. Also, it will show the command used to add broker instance. For example:
@@ -25,9 +25,15 @@ run ./docker/start_broker.sh zookeeper.connect=192.168.50.178:17228 to join kafk
 =================================================
 ```
 
-## Set up (kafka) broker env
+## Set up zookeeper with specific version
 
-After the zk env is running, you can copy the command (see above example) from zk script output to setup kafka. For example:
+```shell
+ZOOKEEPER_VERSION=3.6.3 ./docker/start_zookeeper.sh
+```
+
+## Set up (kafka) broker with default version
+
+After the zk env is running, you can copy the command (see above example) from zk script output to set up kafka. For example:
 ```shell
 ./docker/start_broker.sh zookeeper.connect=192.168.50.178:17228
 ```
@@ -43,7 +49,13 @@ jmx address: 192.168.50.224:15905
 
 Noted that the command to set up broker can be executed multiple times to create a broker cluster.
 
-# Kafka tools
+## Set up (kafka) broker with specific version
+
+```shell
+KAFKA_VERSION=2.8.0 ./docker/start_broker.sh zookeeper.connect=192.168.50.178:17228
+```
+
+# Kafka Tools
 
 This project offers many kafka tools to simplify the life for kafka users.
 
