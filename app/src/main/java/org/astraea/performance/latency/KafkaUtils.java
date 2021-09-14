@@ -35,7 +35,9 @@ final class KafkaUtils {
     if (!Arrays.equals(producerRecord.key(), consumerRecord.key())) return false;
     if (!Arrays.equals(producerRecord.value(), consumerRecord.value())) return false;
     if (!producerRecord.topic().equals(consumerRecord.topic())) return false;
-    return equal(producerRecord.headers(), consumerRecord.headers());
+    if (!equal(producerRecord.headers(), consumerRecord.headers())) return false;
+    return producerRecord.timestamp() == null
+        || producerRecord.timestamp() == consumerRecord.timestamp();
   }
 
   static void createTopicIfNotExist(TopicAdmin adminClient, String name, int numberOfPartitions) {

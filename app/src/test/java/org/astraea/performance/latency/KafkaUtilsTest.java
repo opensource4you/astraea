@@ -1,5 +1,6 @@
 package org.astraea.performance.latency;
 
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Set;
@@ -78,8 +79,13 @@ class KafkaUtilsTest {
     var key = "key".getBytes();
     var value = "value".getBytes();
     var headers = Collections.singleton(KafkaUtils.header("a", "b".getBytes()));
-    var producerRecord = new ProducerRecord<>(topic, null, key, value, headers);
-    var consumerRecord = FakeComponentFactory.toConsumerRecord(producerRecord);
-    Assertions.assertTrue(KafkaUtils.equal(producerRecord, consumerRecord));
+    var producerRecords =
+        Arrays.asList(
+            new ProducerRecord<>(topic, null, key, value, headers),
+            new ProducerRecord<>(topic, null, 100L, key, value, headers));
+    producerRecords.forEach(
+        record ->
+            Assertions.assertTrue(
+                KafkaUtils.equal(record, FakeComponentFactory.toConsumerRecord(record))));
   }
 }
