@@ -23,11 +23,11 @@ public class Performance {
         int consumers,
         long records,
         int recordSize) {
-      if (brokers == "") throw new IllegalArgumentException("--brokers should be specified");
-      if (topic == "") throw new IllegalArgumentException("--topic should be specified");
+      if (brokers.equals("")) throw new IllegalArgumentException("--brokers should be specified");
+      if (topic.equals("")) throw new IllegalArgumentException("--topic should be specified");
       if (producers <= 0) throw new IllegalArgumentException("--producers should >= 1");
       if (consumers < 0) throw new IllegalArgumentException("--consumers should be nonegative");
-      if (records < 0) throw new IllegalArgumentException("--records should be nonegative");
+      if (records <= 0) throw new IllegalArgumentException("--records should be nonegative");
       if (recordSize <= 0) throw new IllegalArgumentException("--recordSize should >= 1");
 
       this.brokers = brokers;
@@ -69,35 +69,40 @@ public class Performance {
 
     final ComponentFactory componentFactory = ComponentFactory.fromKafka(param.brokers);
     // 檢查topic是否存在，如果不存在；創建一個
-    checkTopic(componentFactory, param);
+    checkTopic(componentFactory, param.topic, param.topicConfigs);
 
     final ProducerThread[] producerThread = new ProducerThread[param.producers];
     final ConsumerThread[] consumerThread = new ConsumerThread[param.consumers];
-    final AvgLatency[] producerMetric = new AvgLatency[param.producers];
-    final AvgLatency[] consumerMetric = new AvgLatency[param.consumers];
+    final Metrics[] producerMetric = new Metrics[param.producers];
+    final Metrics[] consumerMetric = new Metrics[param.consumers];
 
     startConsumers(consumerThread, componentFactory, consumerMetric, param.topic);
     // Warm up
-    ProducerThread producer =
-        new ProducerThread(componentFactory.createProducer(), param.topic, 1, 10, new AvgLatency());
-    try {
+    System.out.println("Warming up.");
+    try (ProducerThread producer =
+        new ProducerThread(
+            componentFactory.createProducer(), param.topic, 1, 10, new Metrics()); ) {
+      producer.start();
       Thread.sleep(5000);
-    } catch (Exception e) {
+    } catch (Exception ignored) {
     }
+
+    System.out.println("Start producing and consuming.");
     startProducers(producerThread, componentFactory, producerMetric, param);
 
     // 每秒印出 現在數據
-    final PrintOut printThread = new PrintOut(producerMetric, consumerMetric, param.records);
+    final PrintOutThread printThread =
+        new PrintOutThread(producerMetric, consumerMetric, param.records);
     printThread.start();
 
     // 等待producers完成
     try {
-      for (int i = 0; i < producerThread.length; ++i) {
-        producerThread[i].join();
-        producerThread[i].cleanup();
+      for (ProducerThread thread : producerThread) {
+        thread.join();
+        thread.cleanup();
       }
       Thread.sleep(2000);
-    } catch (InterruptedException ie) {
+    } catch (InterruptedException ignored) {
     }
     // 關閉consumer
     for (var i : consumerThread) {
@@ -109,10 +114,10 @@ public class Performance {
     System.out.println("Performance end.");
   }
   // 檢查topic是否存在，不存在就建立新的topic
-  private static void checkTopic(ComponentFactory componentFactory, Parameters param) {
+  public static void checkTopic(ComponentFactory componentFactory, String topic, String config) {
     try (TopicAdmin topicAdmin = componentFactory.createAdmin()) {
       // 取得所有topics -> 取得topic名字的future -> 查看topic是否存在
-      if (topicAdmin.listTopics().contains(param.topic)) {
+      if (topicAdmin.listTopics().contains(topic)) {
         // Topic already exist
         return;
       }
@@ -122,7 +127,6 @@ public class Performance {
       int partitions = 1;
       short replicationFactor = 1;
       // 判斷是否有topicConfigs
-      String config = param.topicConfigs;
       if (config == null) {
         System.out.println("No given topicConfigs. Use default.");
       } else {
@@ -142,7 +146,7 @@ public class Performance {
       // 開始建立topic，並等待topic成功建立
       System.out.println(
           "Creating topic:\""
-              + param.topic
+              + topic
               + "\" --partitions "
               + partitions
               + " --replicationFactor "
@@ -150,13 +154,12 @@ public class Performance {
       // 建立單個topic -> 取得建立的所有topics -> 選擇指定的topic的future -> 等待future完成
       topicAdmin
           .createTopics(
-              Collections.singletonList(new NewTopic(param.topic, partitions, replicationFactor)))
-          .values()
-          .get(param.topic)
+              Collections.singletonList(new NewTopic(topic, partitions, replicationFactor)))
+          .get(topic)
           .get();
-    } catch (InterruptedException ie) {
-    } catch (ExecutionException ee) {
-    } catch (Exception e) {
+    } catch (InterruptedException ignored) {
+    } catch (ExecutionException ignored) {
+    } catch (Exception ignored) {
     }
   }
 
@@ -164,10 +167,10 @@ public class Performance {
   private static void startProducers(
       ProducerThread[] producerThreads,
       ComponentFactory componentFactory,
-      AvgLatency[] producerMetrics,
+      Metrics[] producerMetrics,
       Parameters param) {
     // producer要平均分擔發送records，有除不盡的餘數則由第一個producer發送
-    producerMetrics[0] = new AvgLatency();
+    producerMetrics[0] = new Metrics();
     producerThreads[0] =
         new ProducerThread(
             componentFactory.createProducer(),
@@ -178,7 +181,7 @@ public class Performance {
     producerThreads[0].start();
     // 啟動producer
     for (int i = 1; i < param.producers; ++i) {
-      producerMetrics[i] = new AvgLatency();
+      producerMetrics[i] = new Metrics();
       producerThreads[i] =
           new ProducerThread(
               componentFactory.createProducer(),
@@ -193,80 +196,15 @@ public class Performance {
   private static void startConsumers(
       ConsumerThread[] consumerThreads,
       ComponentFactory componentFactory,
-      AvgLatency[] consumerMetrics,
+      Metrics[] consumerMetrics,
       String topic) {
     for (int i = 0; i < consumerMetrics.length; ++i) {
-      consumerMetrics[i] = new AvgLatency();
+      consumerMetrics[i] = new Metrics();
       consumerThreads[i] =
           new ConsumerThread(
               componentFactory.createConsumer(Collections.singletonList(topic)),
               consumerMetrics[i]);
       consumerThreads[i].start();
-    }
-  }
-  // 印數據
-  static class PrintOut extends CloseableThread {
-    private final AvgLatency[] producerData;
-    private final AvgLatency[] consumerData;
-    private final long records;
-    private volatile boolean running;
-
-    public PrintOut(AvgLatency[] producerData, AvgLatency[] consumerData, long records) {
-      this.producerData = producerData;
-      this.consumerData = consumerData;
-      this.records = records;
-      this.running = true;
-    }
-
-    @Override
-    public void execute() {
-      // 統計producer數據
-      long completed = 0;
-      long bytes = 0l;
-      long max = 0;
-      long min = Long.MAX_VALUE;
-      for (int i = 0; i < producerData.length; ++i) {
-        completed += producerData[i].num();
-        bytes += producerData[i].bytes();
-        if (max < producerData[i].max()) max = producerData[i].max();
-        if (min > producerData[i].min()) min = producerData[i].min();
-      }
-      System.out.printf("producers完成度: %2f%\n", ((double) completed * 100.0 / (double) records));
-      // 印出producers的數據
-      System.out.printf("  輸出MB/second", ((double) bytes / (1 << 20)));
-      System.out.println("  發送max latency:" + max + "ms");
-      System.out.println("  發送mim latency:" + min + "ms");
-      for (int i = 0; i < producerData.length; ++i) {
-        System.out.println(
-            "  producer[" + i + "]的發送average latency:" + producerData[i].avg() + "ms");
-      }
-      // 計算consumer完成度
-      completed = 0;
-      bytes = 0l;
-      max = 0;
-      min = Long.MAX_VALUE;
-      for (int i = 0; i < consumerData.length; ++i) {
-        completed += consumerData[i].num();
-        bytes += consumerData[i].bytes();
-        if (max < consumerData[i].max()) max = consumerData[i].max();
-        if (min > consumerData[i].min()) min = consumerData[i].min();
-      }
-      System.out.printf("consumer完成度: %2f%%");
-      // 印出consumer的數據
-      System.out.printf("  輸入%4fMB/second\n", ((double) bytes / (1 << 20)));
-      System.out.println("  端到端max latency:" + max + "ms");
-      System.out.println("  端到端mim latency:" + min + "ms");
-      for (int i = 0; i < consumerData.length; ++i) {
-        System.out.println(
-            "  consumer[" + i + "]的端到端average latency:" + consumerData[i].avg() + "ms");
-      }
-      // 區隔每秒的輸出
-      System.out.println("\n");
-      // 等待1秒，再抓資料輸出
-      try {
-        Thread.sleep(1000);
-      } catch (InterruptedException ie) {
-      }
     }
   }
 }

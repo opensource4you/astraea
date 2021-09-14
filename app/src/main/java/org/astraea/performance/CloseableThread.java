@@ -5,8 +5,8 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public abstract class CloseableThread extends Thread implements Closeable {
-  protected AtomicBoolean closed = new AtomicBoolean(false);
-  private CountDownLatch countDownLatch = new CountDownLatch(1);
+  protected final AtomicBoolean closed = new AtomicBoolean(false);
+  private final CountDownLatch countDownLatch = new CountDownLatch(1);
 
   @Override
   public final void run() {
@@ -18,7 +18,11 @@ public abstract class CloseableThread extends Thread implements Closeable {
     }
   }
 
-  public abstract void execute();
+  /**
+   * DO NOT call close() in execute()! It will cause deadlock. Use closed.set(true) in execute() to
+   * stop the thread looping.
+   */
+  protected abstract void execute();
 
   @Override
   public void close() {
@@ -26,9 +30,10 @@ public abstract class CloseableThread extends Thread implements Closeable {
     try {
       countDownLatch.await();
       // cleanup done
-    } catch (InterruptedException e) {
+    } catch (InterruptedException ignored) {
     }
   }
 
-  public void cleanup() {}
+  /** cleanup() will be called before the thread end. */
+  protected void cleanup() {}
 }

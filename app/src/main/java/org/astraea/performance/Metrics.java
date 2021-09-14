@@ -2,15 +2,15 @@ package org.astraea.performance;
 
 import java.util.concurrent.atomic.LongAdder;
 
-public class AvgLatency {
-  private double avg;
+public class Metrics {
+  private double avgLatency;
   private long num;
   private long max;
   private long min;
-  private LongAdder bytes;
+  private final LongAdder bytes;
 
-  public AvgLatency() {
-    avg = 0;
+  public Metrics() {
+    avgLatency = 0;
     num = 0;
     max = 0;
     // 初始為最大的integer值
@@ -18,7 +18,7 @@ public class AvgLatency {
     bytes = new LongAdder();
   }
   // 多紀錄一個新的值
-  public void put(long latency) {
+  public void putLatency(long latency) {
     // 更新最大延時
     if (min > latency) {
       min = latency;
@@ -30,7 +30,7 @@ public class AvgLatency {
     // 記錄現在有幾個數被加入了
     ++num;
     // 更新平均值
-    avg += (((double) latency) - avg) / (double) num;
+    avgLatency += (((double) latency) - avgLatency) / (double) num;
   }
   // 增加bytes數值
   public void addBytes(long bytes) {
@@ -49,8 +49,8 @@ public class AvgLatency {
     return min;
   }
   // 取得現在的平均值
-  public double avg() {
-    return avg;
+  public double avgLatency() {
+    return avgLatency;
   }
   // 取得從 上次呼叫"getBytes()" 到 現在 的輸入/出的byte數，並重置
   public long bytes() {

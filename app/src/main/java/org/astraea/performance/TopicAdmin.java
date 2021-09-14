@@ -1,17 +1,18 @@
 package org.astraea.performance;
 
 import java.util.Collection;
+import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import org.apache.kafka.clients.admin.Admin;
-import org.apache.kafka.clients.admin.CreateTopicsResult;
 import org.apache.kafka.clients.admin.NewTopic;
+import org.apache.kafka.common.KafkaFuture;
 
 public interface TopicAdmin extends AutoCloseable {
   Set<String> listTopics() throws InterruptedException, ExecutionException;
 
-  CreateTopicsResult createTopics(Collection<NewTopic> topics);
+  Map<String, KafkaFuture<Void>> createTopics(Collection<NewTopic> topics);
 
   static TopicAdmin fromKafka(Properties prop) {
     Admin admin = Admin.create(prop);
@@ -22,8 +23,8 @@ public interface TopicAdmin extends AutoCloseable {
       }
 
       @Override
-      public CreateTopicsResult createTopics(Collection<NewTopic> topics) {
-        return admin.createTopics(topics);
+      public Map<String, KafkaFuture<Void>> createTopics(Collection<NewTopic> topics) {
+        return admin.createTopics(topics).values();
       }
 
       @Override

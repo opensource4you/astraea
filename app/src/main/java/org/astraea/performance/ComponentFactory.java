@@ -12,7 +12,7 @@ public interface ComponentFactory {
 
   static ComponentFactory fromKafka(String brokers) {
     return new ComponentFactory() {
-      private final String groupId = "groupId:" + Long.toString(System.currentTimeMillis());
+      private final String groupId = "groupId:" + System.currentTimeMillis();
       /** Create Producer with KafkaProducer<byte[], byte[]> functions */
       @Override
       public Producer createProducer() {
