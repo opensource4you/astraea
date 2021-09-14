@@ -6,6 +6,7 @@ a collection of tools used to balance Kafka data
 - Yi-Chen   Wang <warren215215@gmail.com>
 - Ching-Hong Fang <fjh7777@gmail.com>
 - Zheng-Xian Li <garyparrottt@gmail.com>
+- SUN,XIANG-JUN sean0651101@gmail.com
 
 # Quickstart a Kafka Env
 
