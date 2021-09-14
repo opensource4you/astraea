@@ -42,7 +42,13 @@ class DataManager {
     var content = String.valueOf(recordIndex.getAndIncrement());
     var rawContent = content.getBytes();
     var headers = Collections.singletonList(KafkaUtils.header(content, rawContent));
-    return new ProducerRecord<>(topic, null, rawContent, new byte[valueSize], headers);
+    return new ProducerRecord<>(
+        topic,
+        null,
+        (long) (Math.random() * System.currentTimeMillis()),
+        rawContent,
+        new byte[valueSize],
+        headers);
   }
 
   void sendingRecord(ProducerRecord<byte[], byte[]> record, long now) {

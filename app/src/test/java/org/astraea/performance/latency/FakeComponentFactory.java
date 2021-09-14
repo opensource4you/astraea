@@ -23,7 +23,9 @@ class FakeComponentFactory implements ComponentFactory {
         producerRecord.topic(),
         1,
         1L,
-        1L,
+        producerRecord.timestamp() == null
+            ? System.currentTimeMillis()
+            : producerRecord.timestamp(),
         TimestampType.CREATE_TIME,
         1L,
         producerRecord.key() == null ? 0 : producerRecord.key().length,
