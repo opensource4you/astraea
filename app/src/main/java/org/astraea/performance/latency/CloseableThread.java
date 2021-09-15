@@ -7,11 +7,22 @@ import java.util.concurrent.atomic.AtomicBoolean;
 abstract class CloseableThread implements Runnable, Closeable {
   private final AtomicBoolean closed = new AtomicBoolean();
   private final CountDownLatch closeLatch = new CountDownLatch(1);
+  private final boolean executeOnce;
+
+  protected CloseableThread() {
+    this(false);
+  }
+
+  protected CloseableThread(boolean executeOnce) {
+    this.executeOnce = executeOnce;
+  }
 
   @Override
   public final void run() {
     try {
-      while (!closed.get()) execute();
+      do {
+        execute();
+      } while (!closed.get() && !executeOnce);
     } catch (InterruptedException e) {
       // swallow
     } finally {

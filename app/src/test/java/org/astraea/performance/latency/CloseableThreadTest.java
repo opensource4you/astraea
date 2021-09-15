@@ -9,7 +9,7 @@ import org.junit.jupiter.api.Test;
 class CloseableThreadTest {
 
   @Test
-  void testAllActions() throws InterruptedException {
+  void testExecuteAndCleanup() throws InterruptedException {
     var executeCount = new AtomicInteger();
     var cleanupCount = new AtomicInteger();
     var thread =
@@ -37,5 +37,25 @@ class CloseableThreadTest {
 
     Assertions.assertTrue(executeCount.get() > 0);
     Assertions.assertEquals(1, cleanupCount.get());
+  }
+
+  @Test
+  void testExecuteOnce() throws InterruptedException {
+    var executeCount = new AtomicInteger();
+    var thread =
+        new CloseableThread(true) {
+          @Override
+          void execute() {
+            executeCount.incrementAndGet();
+          }
+        };
+
+    var service = Executors.newSingleThreadExecutor();
+    service.execute(thread);
+    service.shutdown();
+
+    Assertions.assertTrue(service.awaitTermination(10, TimeUnit.SECONDS));
+
+    Assertions.assertEquals(1, executeCount.get());
   }
 }
