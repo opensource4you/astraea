@@ -31,6 +31,15 @@ abstract class CloseableThread implements Runnable, Closeable {
 
   @Override
   public void close() {
+    if (StackWalker.getInstance(StackWalker.Option.RETAIN_CLASS_REFERENCE)
+        .walk(
+            s ->
+                s.anyMatch(
+                    stack ->
+                        (stack.getMethodName().equals("execute"))
+                            && (stack.getDeclaringClass() == this.getClass())))) {
+      throw new RuntimeException();
+    }
     closed.set(true);
     try {
       closeLatch.await();
