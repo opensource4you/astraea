@@ -8,6 +8,7 @@ abstract class CloseableThread implements Runnable, Closeable {
   private final AtomicBoolean closed = new AtomicBoolean();
   private final CountDownLatch closeLatch = new CountDownLatch(1);
   private final boolean executeOnce;
+  private long threadId;
 
   protected CloseableThread() {
     this(false);
@@ -20,6 +21,7 @@ abstract class CloseableThread implements Runnable, Closeable {
   @Override
   public final void run() {
     try {
+      threadId = Thread.currentThread().getId();
       do {
         execute();
       } while (!closed.get() && !executeOnce);
@@ -42,14 +44,8 @@ abstract class CloseableThread implements Runnable, Closeable {
 
   @Override
   public void close() {
-    if (StackWalker.getInstance(StackWalker.Option.RETAIN_CLASS_REFERENCE)
-        .walk(
-            s ->
-                s.anyMatch(
-                    stack ->
-                        (stack.getMethodName().equals("execute"))
-                            && (stack.getDeclaringClass() == this.getClass())))) {
-      throw new RuntimeException();
+    if (threadId == Thread.currentThread().getId()) {
+      throw new RuntimeException("Should not call close() in execute().");
     }
     closed.set(true);
     try {
