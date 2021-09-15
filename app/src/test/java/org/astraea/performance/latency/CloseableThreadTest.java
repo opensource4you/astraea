@@ -43,17 +43,12 @@ class CloseableThreadTest {
   void testExecuteOnce() throws InterruptedException {
     var executeCount = new AtomicInteger();
     var thread =
-        new CloseableThread() {
+        new CloseableThread(true) {
           @Override
           void execute() {
             executeCount.incrementAndGet();
           }
-
-          @Override
-          void cleanup() {}
         };
-
-    thread.executeOnce();
 
     var service = Executors.newSingleThreadExecutor();
     service.execute(thread);
