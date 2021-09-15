@@ -4,9 +4,16 @@ import java.util.*;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import org.apache.kafka.clients.producer.ProducerRecord;
+import org.apache.kafka.common.header.Header;
 
 class DataManager {
+
+  private static final int NUMBER_OF_CACHED_VALUES = 100;
+  private static final int NUMBER_OF_CACHED_HEADERS = 100;
+  private static final int NUMBER_OF_SENDING_HEADERS = 3;
 
   static DataManager of(String topic, int valueSize) {
     return new DataManager(topic, valueSize, true);
@@ -21,8 +28,9 @@ class DataManager {
       sendingRecords = new ConcurrentSkipListMap<>(Arrays::compare);
 
   private final String topic;
-  private final int valueSize;
   private final boolean hasConsumer;
+  private final List<byte[]> values;
+  private final List<Header> headers;
 
   private final AtomicLong recordIndex = new AtomicLong(0);
 
@@ -30,25 +38,39 @@ class DataManager {
 
   private DataManager(String topic, int valueSize, boolean hasConsumer) {
     this.topic = Objects.requireNonNull(topic);
-    this.valueSize = valueSize;
+    this.values =
+        IntStream.range(0, NUMBER_OF_CACHED_VALUES)
+            .mapToObj(i -> randomString(valueSize).getBytes())
+            .collect(Collectors.toList());
+    this.headers =
+        IntStream.range(0, NUMBER_OF_CACHED_HEADERS)
+            .mapToObj(i -> KafkaUtils.header(randomString(5), randomString(5).getBytes()))
+            .collect(Collectors.toList());
     this.hasConsumer = hasConsumer;
+  }
+
+  static String randomString(int length) {
+    return new Random()
+        .ints('a', 'z')
+        .limit(length)
+        .collect(StringBuilder::new, StringBuilder::appendCodePoint, StringBuilder::append)
+        .toString();
   }
 
   /**
    * @return generate a new record with random data and specify topic name. The record consists of
-   *     key, value, topic and header.
+   *     key, value, topic and headers.
    */
   ProducerRecord<byte[], byte[]> producerRecord() {
-    var content = String.valueOf(recordIndex.getAndIncrement());
-    var rawContent = content.getBytes();
-    var headers = Collections.singletonList(KafkaUtils.header(content, rawContent));
     return new ProducerRecord<>(
         topic,
         null,
         (long) (Math.random() * System.currentTimeMillis()),
-        rawContent,
-        new byte[valueSize],
-        headers);
+        String.format("%020d", recordIndex.getAndIncrement()).getBytes(),
+        values.get((int) (Math.random() * values.size())),
+        IntStream.range(0, NUMBER_OF_SENDING_HEADERS)
+            .mapToObj(i -> headers.get((int) (Math.random() * headers.size())))
+            .collect(Collectors.toList()));
   }
 
   void sendingRecord(ProducerRecord<byte[], byte[]> record, long now) {
