@@ -51,10 +51,9 @@ class CloseableThreadTest {
           }
         };
 
-    Assertions.assertTrue(
-        Assertions.assertThrows(RuntimeException.class, () -> thread.run())
-            .toString()
-            .equals("java.lang.RuntimeException: Should not call close() in execute()."));
+    Assertions.assertEquals(
+        "Should not call close() in execute().",
+        Assertions.assertThrows(RuntimeException.class, thread::run).getMessage());
   }
 
   @Test
