@@ -25,14 +25,14 @@ public class PrintOutThread extends CloseableThread {
       if (min > data.min()) min = data.min();
     }
     // System.out.println("consumer完成度: "+((double) completed * 100.0 / (double) records)+"%");
-    System.out.printf("producers完成度: %.2f%%\n", ((double) completed * 100.0 / (double) records));
+    System.out.printf("producers完成度: %.2f%%%n", ((double) completed * 100.0 / (double) records));
     // 印出producers的數據
     System.out.printf("  輸出%.3fMB/second%n", ((double) bytes / (1 << 20)));
     System.out.println("  發送max latency:" + max + "ms");
     System.out.println("  發送mim latency:" + min + "ms");
     for (int i = 0; i < producerData.length; ++i) {
       System.out.printf(
-          "  producer[%d]的發送average latency: %.3fms", i, producerData[i].avgLatency());
+          "  producer[%d]的發送average latency: %.3fms%n", i, producerData[i].avgLatency());
     }
     // 計算consumer完成度
     completed = 0;
@@ -53,7 +53,7 @@ public class PrintOutThread extends CloseableThread {
     System.out.println("  端到端mim latency:" + min + "ms");
     for (int i = 0; i < consumerData.length; ++i) {
       System.out.printf(
-          "  consumer[%d]的端到端average latency: %.3fms", i, consumerData[i].avgLatency());
+          "  consumer[%d]的端到端average latency: %.3fms%n", i, consumerData[i].avgLatency());
     }
     // 區隔每秒的輸出
     System.out.println("\n");
