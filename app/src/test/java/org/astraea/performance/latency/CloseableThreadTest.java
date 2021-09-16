@@ -40,6 +40,21 @@ class CloseableThreadTest {
   }
 
   @Test
+  void testThrowException() {
+    var thread =
+        new CloseableThread() {
+          @Override
+          void execute() {
+            close();
+          }
+        };
+
+    Assertions.assertEquals(
+        "Should not call close() in execute().",
+        Assertions.assertThrows(RuntimeException.class, thread::run).getMessage());
+  }
+
+  @Test
   void testExecuteOnce() throws InterruptedException {
     var executeCount = new AtomicInteger();
     var thread =
