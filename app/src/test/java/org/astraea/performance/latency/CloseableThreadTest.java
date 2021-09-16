@@ -55,7 +55,7 @@ class CloseableThreadTest {
   }
 
   @Test
-  void testExecuteOnce() throws InterruptedException {
+  void testExecuteOnce() {
     var executeCount = new AtomicInteger();
     var thread =
         new CloseableThread(true) {
@@ -65,11 +65,7 @@ class CloseableThreadTest {
           }
         };
 
-    var service = Executors.newSingleThreadExecutor();
-    service.execute(thread);
-    service.shutdown();
-
-    Assertions.assertTrue(service.awaitTermination(10, TimeUnit.SECONDS));
+    thread.run();
 
     Assertions.assertEquals(1, executeCount.get());
   }
