@@ -2,7 +2,6 @@ package org.astraea.performance.latency;
 
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -41,8 +40,7 @@ class CloseableThreadTest {
   }
 
   @Test
-  void testThrowException() throws InterruptedException {
-    var exceptionThrow = new AtomicBoolean(false);
+  void testThrowException() {
     var thread =
         new CloseableThread() {
           @Override
