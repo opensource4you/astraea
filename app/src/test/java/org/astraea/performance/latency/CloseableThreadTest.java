@@ -47,22 +47,14 @@ class CloseableThreadTest {
         new CloseableThread() {
           @Override
           void execute() {
-            try {
-              close();
-            } catch (RuntimeException re) {
-              exceptionThrow.set(true);
-            }
+            close();
           }
         };
 
-    var service = Executors.newSingleThreadExecutor();
-    service.execute(thread);
-    Thread.sleep(1);
-    thread.close();
-    service.shutdown();
-
-    Assertions.assertTrue(service.awaitTermination(10, TimeUnit.SECONDS));
-    Assertions.assertTrue(exceptionThrow.get());
+    Assertions.assertThrows(
+        RuntimeException.class,
+        () -> thread.run(),
+        "java.lang.RuntimeException: Should not call close() in execute().");
   }
 
   @Test
