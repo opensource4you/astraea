@@ -9,9 +9,12 @@ class MBeanClientTest {
 
   @Test
   void fetchAttributeWithoutConnectFirstShouldThrowError() throws MalformedURLException {
-    MBeanClient mockClient = new MBeanClient("service:jmx:rmi:///jndi/rmi://example:5566/jmxrmi");
-    BeanObject mockObject = new BeanObject("");
+    final MBeanClient mBeanClient =
+        new MBeanClient("service:jmx:rmi:///jndi/rmi://example:5566/jmxrmi");
+    final BeanObject beanObject = new BeanObject("");
+    final BeanQuery beanQuery = new BeanQuery("");
 
-    assertThrows(IllegalStateException.class, () -> mockClient.fetchObjectAttribute(mockObject));
+    assertThrows(IllegalStateException.class, () -> mBeanClient.fetchObjectAttribute(beanObject));
+    assertThrows(IllegalStateException.class, () -> mBeanClient.queryObject(beanQuery));
   }
 }
