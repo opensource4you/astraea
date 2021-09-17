@@ -3,6 +3,7 @@ package org.astraea.metrics.jmx;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 import javax.management.Attribute;
 import javax.management.AttributeList;
 import javax.management.ObjectName;
@@ -75,5 +76,33 @@ public class BeanObject {
 
   public static BeanObject fromDomainName(String domainName) {
     return new BeanObject(domainName);
+  }
+
+  @Override
+  public String toString() {
+    return "BeanObject{"
+        + "domainName='"
+        + domainName
+        + '\''
+        + ", properties="
+        + properties
+        + ", attributes="
+        + attributes
+        + '}';
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) return true;
+    if (o == null || getClass() != o.getClass()) return false;
+    BeanObject that = (BeanObject) o;
+    return domainName.equals(that.domainName)
+        && properties.equals(that.properties)
+        && attributes.equals(that.attributes);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(domainName, properties, attributes);
   }
 }

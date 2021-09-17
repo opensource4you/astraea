@@ -3,6 +3,7 @@ package org.astraea.metrics.jmx;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 import org.astraea.metrics.jmx.utils.BeanUtility;
 
 /**
@@ -40,5 +41,29 @@ public class BeanQuery {
 
   public static BeanQuery forDomainName(String domainName) {
     return new BeanQuery(domainName);
+  }
+
+  @Override
+  public String toString() {
+    return "BeanQuery{"
+        + "domainName='"
+        + domainName
+        + '\''
+        + ", propertyQuery="
+        + propertyQuery
+        + '}';
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) return true;
+    if (o == null || getClass() != o.getClass()) return false;
+    BeanQuery beanQuery = (BeanQuery) o;
+    return domainName.equals(beanQuery.domainName) && propertyQuery.equals(beanQuery.propertyQuery);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(domainName, propertyQuery);
   }
 }
