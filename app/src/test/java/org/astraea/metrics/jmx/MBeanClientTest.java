@@ -37,7 +37,7 @@ class MBeanClientTest {
   }
 
   @Test
-  void test_Fetch_Attributes() throws Exception {
+  void testFetchAttributes() throws Exception {
     // arrange
     try (MBeanClient sut = new MBeanClient(jmxServer.getAddress())) {
       BeanQuery beanQuery = BeanQuery.of("java.lang").whereProperty("type", "Memory");
@@ -53,7 +53,7 @@ class MBeanClientTest {
   }
 
   @Test
-  void test_Fetch_Mbean_With_Multiple_Properties() throws Exception {
+  void testFetchMbeanWithMultipleProperties() throws Exception {
     // arrange
     try (MBeanClient sut = new MBeanClient(jmxServer.getAddress())) {
       BeanQuery query1 =
@@ -85,7 +85,7 @@ class MBeanClientTest {
   }
 
   @Test
-  void test_Fetch_Selected_Attributes() throws Exception {
+  void testFetchSelectedAttributes() throws Exception {
     // arrange
     try (MBeanClient sut = new MBeanClient(jmxServer.getAddress())) {
       BeanQuery beanQuery = BeanQuery.of("java.lang").whereProperty("type", "Memory");
@@ -102,7 +102,7 @@ class MBeanClientTest {
   }
 
   @Test
-  void test_Try_Fetch_Attributes() throws Exception {
+  void testTryFetchAttributes() throws Exception {
     // arrange
     try (MBeanClient sut = new MBeanClient(jmxServer.getAddress())) {
       BeanQuery beanQuery = BeanQuery.of("java.lang").whereProperty("type", "Memory");
@@ -119,7 +119,7 @@ class MBeanClientTest {
   }
 
   @Test
-  void test_Try_Non_Exists_MBean() throws Exception {
+  void testTryFetchNonExistsMBean() throws Exception {
     // arrange
     try (MBeanClient sut = new MBeanClient(jmxServer.getAddress())) {
       BeanQuery beanQuery = BeanQuery.of("java.lang").whereProperty("type", "HelloWorld");
@@ -133,7 +133,7 @@ class MBeanClientTest {
   }
 
   @Test
-  void test_Try_Fetch_Selected_Attributes() throws Exception {
+  void testTryFetchSelectedAttributes() throws Exception {
     // arrange
     try (MBeanClient sut = new MBeanClient(jmxServer.getAddress())) {
       BeanQuery beanQuery = BeanQuery.of("java.lang").whereProperty("type", "Memory");
@@ -151,7 +151,7 @@ class MBeanClientTest {
   }
 
   @Test
-  void test_Query_Beans() throws Exception {
+  void testQueryBeans() throws Exception {
     // arrange 1 query beans
     try (MBeanClient sut = new MBeanClient(jmxServer.getAddress())) {
       BeanQuery beanQuery = BeanQuery.of("java.lang").whereProperty("type", "C*");
@@ -188,7 +188,7 @@ class MBeanClientTest {
   }
 
   @Test
-  void test_Query_Non_Exists_Beans() throws Exception {
+  void testQueryNonExistsBeans() throws Exception {
     // arrange
     try (MBeanClient sut = new MBeanClient(jmxServer.getAddress())) {
       BeanQuery beanQuery = BeanQuery.of("java.lang").whereProperty("type", "Something");
@@ -202,7 +202,7 @@ class MBeanClientTest {
   }
 
   @Test
-  void test_Fetch_Non_Exists_Beans() throws Exception {
+  void testFetchNonExistsBeans() throws Exception {
     // arrange
     try (MBeanClient sut = new MBeanClient(jmxServer.getAddress())) {
       BeanQuery beanQuery = BeanQuery.of("java.lang").whereProperty("type", "Something");
