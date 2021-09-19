@@ -46,9 +46,9 @@ class MBeanClientTest {
       BeanObject beanObject = sut.fetchAttributes(beanQuery);
 
       // assert
-      assertTrue(beanObject.getPropertyKeySet().contains("type"));
-      assertTrue(beanObject.getAttribute("HeapMemoryUsage").isPresent());
-      assertTrue(beanObject.getAttribute("NonHeapMemoryUsage").isPresent());
+      assertTrue(beanObject.getProperties().containsKey("type"));
+      assertTrue(beanObject.getAttributes().containsKey("HeapMemoryUsage"));
+      assertTrue(beanObject.getAttributes().containsKey("NonHeapMemoryUsage"));
     }
   }
 
@@ -68,19 +68,19 @@ class MBeanClientTest {
       BeanObject beanObject2 = sut.fetchAttributes(query2);
 
       // assert
-      assertTrue(beanObject1.getPropertyKeySet().contains("type"));
-      assertTrue(beanObject1.getPropertyKeySet().contains("name"));
-      assertTrue(beanObject1.getAttribute("MemoryPoolNames").isPresent());
-      assertTrue(beanObject1.getAttribute("Name").isPresent());
-      assertTrue(beanObject1.getAttribute("ObjectName").isPresent());
-      assertTrue(beanObject1.getAttribute("Valid").isPresent());
+      assertTrue(beanObject1.getProperties().containsKey("type"));
+      assertTrue(beanObject1.getProperties().containsKey("name"));
+      assertTrue(beanObject1.getAttributes().containsKey("MemoryPoolNames"));
+      assertTrue(beanObject1.getAttributes().containsKey("Name"));
+      assertTrue(beanObject1.getAttributes().containsKey("ObjectName"));
+      assertTrue(beanObject1.getAttributes().containsKey("Valid"));
 
-      assertTrue(beanObject2.getPropertyKeySet().contains("type"));
-      assertTrue(beanObject2.getPropertyKeySet().contains("name"));
-      assertTrue(beanObject2.getAttribute("MemoryPoolNames").isPresent());
-      assertTrue(beanObject2.getAttribute("Name").isPresent());
-      assertTrue(beanObject2.getAttribute("ObjectName").isPresent());
-      assertTrue(beanObject2.getAttribute("Valid").isPresent());
+      assertTrue(beanObject2.getProperties().containsKey("type"));
+      assertTrue(beanObject2.getProperties().containsKey("name"));
+      assertTrue(beanObject2.getAttributes().containsKey("MemoryPoolNames"));
+      assertTrue(beanObject2.getAttributes().containsKey("Name"));
+      assertTrue(beanObject2.getAttributes().containsKey("ObjectName"));
+      assertTrue(beanObject2.getAttributes().containsKey("Valid"));
     }
   }
 
@@ -95,9 +95,9 @@ class MBeanClientTest {
       BeanObject beanObject = sut.fetchAttributes(beanQuery, selectedAttribute);
 
       // assert
-      assertTrue(beanObject.getPropertyKeySet().contains("type"));
-      assertTrue(beanObject.getAttribute("HeapMemoryUsage").isPresent());
-      assertTrue(beanObject.getAttribute("NonHeapMemoryUsage").isEmpty());
+      assertTrue(beanObject.getProperties().containsKey("type"));
+      assertTrue(beanObject.getAttributes().containsKey("HeapMemoryUsage"));
+      assertFalse(beanObject.getAttributes().containsKey("NonHeapMemoryUsage"));
     }
   }
 
@@ -112,9 +112,9 @@ class MBeanClientTest {
 
       // assert
       assertTrue(beanObject.isPresent());
-      assertTrue(beanObject.get().getPropertyKeySet().contains("type"));
-      assertTrue(beanObject.get().getAttribute("HeapMemoryUsage").isPresent());
-      assertTrue(beanObject.get().getAttribute("NonHeapMemoryUsage").isPresent());
+      assertTrue(beanObject.get().getProperties().containsKey("type"));
+      assertTrue(beanObject.get().getAttributes().containsKey("HeapMemoryUsage"));
+      assertTrue(beanObject.get().getAttributes().containsKey("NonHeapMemoryUsage"));
     }
   }
 
@@ -144,9 +144,9 @@ class MBeanClientTest {
 
       // assert
       assertTrue(beanObject.isPresent());
-      assertTrue(beanObject.get().getPropertyKeySet().contains("type"));
-      assertTrue(beanObject.get().getAttribute("HeapMemoryUsage").isPresent());
-      assertTrue(beanObject.get().getAttribute("NonHeapMemoryUsage").isEmpty());
+      assertTrue(beanObject.get().getProperties().containsKey("type"));
+      assertTrue(beanObject.get().getAttributes().containsKey("HeapMemoryUsage"));
+      assertFalse(beanObject.get().getAttributes().containsKey("NonHeapMemoryUsage"));
     }
   }
 
@@ -162,9 +162,9 @@ class MBeanClientTest {
       // assert 1
       assertEquals(2, beanObjects.size());
       assertTrue(
-          beanObjects.stream().anyMatch(x -> x.getProperty("type").get().equals("ClassLoading")));
+          beanObjects.stream().anyMatch(x -> x.getProperties().get("type").equals("ClassLoading")));
       assertTrue(
-          beanObjects.stream().anyMatch(x -> x.getProperty("type").get().equals("Compilation")));
+          beanObjects.stream().anyMatch(x -> x.getProperties().get("type").equals("Compilation")));
 
       // arrange 2 look into ClassLoading content
 
@@ -178,12 +178,12 @@ class MBeanClientTest {
       assertTrue(classLoading.isPresent());
       assertEquals("java.lang", classLoading.get().domainName());
       assertEquals(5, classLoading.get().getAttributes().size());
-      assertTrue(classLoading.get().getAttribute("LoadedClassCount").isPresent());
-      assertTrue(classLoading.get().getAttribute("ObjectName").isPresent());
-      assertTrue(classLoading.get().getAttribute("TotalLoadedClassCount").isPresent());
-      assertTrue(classLoading.get().getAttribute("UnloadedClassCount").isPresent());
-      assertTrue(classLoading.get().getAttribute("Verbose").isPresent());
-      assertTrue(classLoading.get().getAttribute("Verbose").get() instanceof Boolean);
+      assertTrue(classLoading.get().getAttributes().containsKey("LoadedClassCount"));
+      assertTrue(classLoading.get().getAttributes().containsKey("ObjectName"));
+      assertTrue(classLoading.get().getAttributes().containsKey("TotalLoadedClassCount"));
+      assertTrue(classLoading.get().getAttributes().containsKey("UnloadedClassCount"));
+      assertTrue(classLoading.get().getAttributes().containsKey("Verbose"));
+      assertTrue(classLoading.get().getAttributes().get("Verbose") instanceof Boolean);
     }
   }
 
