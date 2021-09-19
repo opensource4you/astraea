@@ -14,9 +14,9 @@ import javax.management.remote.*;
  * try(MBeanClient client = new MBeanClient(jmxConnectorServer.getAddress())) {
  *   BeanObject bean = client.queryBean(BeanQuery.of("java.lang")
  *            .whereProperty("type", "MemoryManager")
- *            .whereProperty("name", "CodeCacheManager"));
+ *            .whereProperty("name", "CodeCacheManager")
+ *            .build());
  *   System.out.println(bean.getAttributes());
- * }
  * }</pre>
  */
 public class MBeanClient implements AutoCloseable {

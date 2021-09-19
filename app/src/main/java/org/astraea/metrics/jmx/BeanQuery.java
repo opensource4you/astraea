@@ -14,6 +14,7 @@ import javax.management.ObjectName;
  * BeanQuery.of("java.lang")
  *       .whereProperty("type", "MemoryManager")
  *       .whereProperty("name", "CodeCacheManager")
+ *       .build();
  * }</pre>
  */
 public class BeanQuery {
@@ -22,7 +23,15 @@ public class BeanQuery {
   private final Map<String, String> properties;
   private final ObjectName objectName;
 
-  public BeanQuery(String domainName, Map<String, String> properties) {
+  /**
+   * Initialize a BeanQuery.
+   *
+   * @param domainName the target MBeans's domain name
+   * @param properties the target MBeans's properties
+   * @throws IllegalArgumentException if any given domain name or properties is in invalid format
+   */
+  public BeanQuery(String domainName, Map<String, String> properties)
+      throws IllegalArgumentException {
     this.domainName = Objects.requireNonNull(domainName);
     this.properties = Map.copyOf(Objects.requireNonNull(properties));
     Hashtable<String, String> ht = new Hashtable<>(this.properties);
@@ -45,46 +54,47 @@ public class BeanQuery {
     return this.objectName;
   }
 
-  public BeanQuery whereProperty(String key, String value) {
-    var propertiesCopy = new HashMap<>(properties);
-    propertiesCopy.put(key, value);
-    return new BeanQuery(domainName, propertiesCopy);
+  static class BeanQueryBuilder {
+
+    private final String domainName;
+    private final Map<String, String> properties;
+
+    BeanQueryBuilder(String domainName) {
+      this.domainName = domainName;
+      this.properties = new HashMap<>();
+    }
+
+    BeanQueryBuilder(String domainName, Map<String, String> properties) {
+      this.domainName = domainName;
+      this.properties = new HashMap<>(properties);
+    }
+
+    public BeanQueryBuilder whereProperty(String key, String value) {
+      this.properties.put(key, value);
+      return this;
+    }
+
+    /**
+     * Build a {@link BeanQuery} object based on current builder state.
+     *
+     * @return a {@link BeanQuery} with specific MBeans domain name & properties, based on the
+     *     previous calling to {@link BeanQueryBuilder#whereProperty(String, String)}.
+     * @throws IllegalArgumentException if domain name or any property is in invalid format.
+     */
+    public BeanQuery build() throws IllegalArgumentException {
+      return new BeanQuery(domainName, properties);
+    }
   }
 
-  public static HalfBakedBeanQuery of(String domainName) {
-    return new HalfBakedBeanQuery(domainName);
+  public static BeanQueryBuilder of(String domainName) {
+    return new BeanQueryBuilder(domainName);
   }
 
-  public static BeanQuery of(String domainName, Map<String, String> properties) {
-    return new BeanQuery(domainName, properties);
+  public static BeanQueryBuilder of(String domainName, Map<String, String> properties) {
+    return new BeanQueryBuilder(domainName, properties);
   }
 
   static BeanQuery of(ObjectName objectName) {
     return new BeanQuery(objectName.getDomain(), new HashMap<>(objectName.getKeyPropertyList()));
-  }
-
-  /**
-   * Represent a non-finished BeanQuery.
-   *
-   * <p>There is a requirement for MBean {@link ObjectName}, it requires at least one property in
-   * {@link ObjectName}. Those who don't follow this rule will get a {@link
-   * MalformedObjectNameException} during {@link ObjectName} initialization.
-   *
-   * <p>This class is here to represent those {@link BeanQuery} that have zero property. Since this
-   * class has no {@link BeanQuery#objectName()}, and no relationship with {@link BeanQuery}. User
-   * cannot take this half-baked BeanQuery object to retrieve data from {@link MBeanClient}. Prevent
-   * such error from compile-time.
-   */
-  public static class HalfBakedBeanQuery {
-
-    private final String domainName;
-
-    private HalfBakedBeanQuery(String domainName) {
-      this.domainName = domainName;
-    }
-
-    public BeanQuery whereProperty(String key, String value) {
-      return new BeanQuery(domainName, Map.of(key, value));
-    }
   }
 }

@@ -14,7 +14,8 @@ class BeanQueryTest {
     BeanQuery beanQuery =
         BeanQuery.of("java.lang")
             .whereProperty("type", "MemoryManager")
-            .whereProperty("name", "CodeCacheManager");
+            .whereProperty("name", "CodeCacheManager")
+            .build();
 
     assertEquals("java.lang", beanQuery.domainName());
   }
@@ -24,7 +25,8 @@ class BeanQueryTest {
     BeanQuery beanQuery =
         BeanQuery.of("java.lang")
             .whereProperty("type", "MemoryManager")
-            .whereProperty("name", "CodeCacheManager");
+            .whereProperty("name", "CodeCacheManager")
+            .build();
 
     assertEquals(
         Map.of("type", "MemoryManager", "name", "CodeCacheManager"), beanQuery.properties());
@@ -35,7 +37,8 @@ class BeanQueryTest {
     BeanQuery beanQuery =
         BeanQuery.of("java.lang")
             .whereProperty("type", "MemoryManager")
-            .whereProperty("name", "CodeCacheManager");
+            .whereProperty("name", "CodeCacheManager")
+            .build();
 
     assertEquals(
         ObjectName.getInstance("java.lang:type=MemoryManager,name=CodeCacheManager"),
@@ -44,12 +47,13 @@ class BeanQueryTest {
 
   @Test
   void whereProperty() {
-    BeanQuery beanQuery0 =
+    BeanQuery.BeanQueryBuilder beanQueryBuilder =
         BeanQuery.of("java.lang")
             .whereProperty("type", "MemoryManager")
             .whereProperty("name", "CodeCacheManager");
 
-    BeanQuery beanQuery1 = beanQuery0.whereProperty("hello", "world");
+    BeanQuery beanQuery0 = beanQueryBuilder.build();
+    BeanQuery beanQuery1 = beanQueryBuilder.whereProperty("hello", "world").build();
 
     assertTrue(beanQuery1.properties().containsKey("hello"));
     assertTrue(beanQuery1.properties().containsValue("world"));
@@ -66,7 +70,7 @@ class BeanQueryTest {
     assertEquals(Map.of("type", "Memory"), beanQueryFromObjectName.properties());
 
     // map version
-    BeanQuery beanQueryFromMap = BeanQuery.of("java.lang", Map.of("type", "Memory"));
+    BeanQuery beanQueryFromMap = BeanQuery.of("java.lang", Map.of("type", "Memory")).build();
     assertEquals("java.lang", beanQueryFromMap.domainName());
     assertEquals(Map.of("type", "Memory"), beanQueryFromMap.properties());
 

@@ -40,7 +40,7 @@ class MBeanClientTest {
   void testFetchAttributes() throws Exception {
     // arrange
     try (MBeanClient sut = new MBeanClient(jmxServer.getAddress())) {
-      BeanQuery beanQuery = BeanQuery.of("java.lang").whereProperty("type", "Memory");
+      BeanQuery beanQuery = BeanQuery.of("java.lang").whereProperty("type", "Memory").build();
 
       // act
       BeanObject beanObject = sut.queryBean(beanQuery);
@@ -57,11 +57,13 @@ class MBeanClientTest {
     // arrange
     try (MBeanClient sut = new MBeanClient(jmxServer.getAddress())) {
       BeanQuery query1 =
-          BeanQuery.of("java.lang", Map.of("type", "MemoryManager", "name", "CodeCacheManager"));
+          BeanQuery.of("java.lang", Map.of("type", "MemoryManager", "name", "CodeCacheManager"))
+              .build();
       BeanQuery query2 =
           BeanQuery.of("java.lang")
               .whereProperty("type", "MemoryManager")
-              .whereProperty("name", "CodeCacheManager");
+              .whereProperty("name", "CodeCacheManager")
+              .build();
 
       // act
       BeanObject beanObject1 = sut.queryBean(query1);
@@ -88,7 +90,7 @@ class MBeanClientTest {
   void testFetchSelectedAttributes() throws Exception {
     // arrange
     try (MBeanClient sut = new MBeanClient(jmxServer.getAddress())) {
-      BeanQuery beanQuery = BeanQuery.of("java.lang").whereProperty("type", "Memory");
+      BeanQuery beanQuery = BeanQuery.of("java.lang").whereProperty("type", "Memory").build();
       String[] selectedAttribute = new String[] {"HeapMemoryUsage"};
 
       // act
@@ -105,7 +107,7 @@ class MBeanClientTest {
   void testTryFetchAttributes() throws Exception {
     // arrange
     try (MBeanClient sut = new MBeanClient(jmxServer.getAddress())) {
-      BeanQuery beanQuery = BeanQuery.of("java.lang").whereProperty("type", "Memory");
+      BeanQuery beanQuery = BeanQuery.of("java.lang").whereProperty("type", "Memory").build();
 
       // act
       Optional<BeanObject> beanObject = sut.tryQueryBean(beanQuery);
@@ -122,7 +124,7 @@ class MBeanClientTest {
   void testTryFetchNonExistsMBean() throws Exception {
     // arrange
     try (MBeanClient sut = new MBeanClient(jmxServer.getAddress())) {
-      BeanQuery beanQuery = BeanQuery.of("java.lang").whereProperty("type", "HelloWorld");
+      BeanQuery beanQuery = BeanQuery.of("java.lang").whereProperty("type", "HelloWorld").build();
 
       // act
       Optional<BeanObject> beanObject = sut.tryQueryBean(beanQuery);
@@ -136,7 +138,7 @@ class MBeanClientTest {
   void testTryFetchSelectedAttributes() throws Exception {
     // arrange
     try (MBeanClient sut = new MBeanClient(jmxServer.getAddress())) {
-      BeanQuery beanQuery = BeanQuery.of("java.lang").whereProperty("type", "Memory");
+      BeanQuery beanQuery = BeanQuery.of("java.lang").whereProperty("type", "Memory").build();
       String[] selectedAttribute = new String[] {"HeapMemoryUsage"};
 
       // act
@@ -154,7 +156,7 @@ class MBeanClientTest {
   void testQueryBeans() throws Exception {
     // arrange 1 query beans
     try (MBeanClient sut = new MBeanClient(jmxServer.getAddress())) {
-      BeanQuery beanQuery = BeanQuery.of("java.lang").whereProperty("type", "C*");
+      BeanQuery beanQuery = BeanQuery.of("java.lang").whereProperty("type", "C*").build();
 
       // act 1
       Set<BeanObject> beanObjects = sut.queryBeans(beanQuery);
@@ -191,7 +193,7 @@ class MBeanClientTest {
   void testQueryNonExistsBeans() throws Exception {
     // arrange
     try (MBeanClient sut = new MBeanClient(jmxServer.getAddress())) {
-      BeanQuery beanQuery = BeanQuery.of("java.lang").whereProperty("type", "Something");
+      BeanQuery beanQuery = BeanQuery.of("java.lang").whereProperty("type", "Something").build();
 
       // act
       Set<BeanObject> beanObjects = sut.queryBeans(beanQuery);
@@ -205,7 +207,7 @@ class MBeanClientTest {
   void testFetchNonExistsBeans() throws Exception {
     // arrange
     try (MBeanClient sut = new MBeanClient(jmxServer.getAddress())) {
-      BeanQuery beanQuery = BeanQuery.of("java.lang").whereProperty("type", "Something");
+      BeanQuery beanQuery = BeanQuery.of("java.lang").whereProperty("type", "Something").build();
 
       // act assert
       assertThrows(
@@ -235,7 +237,7 @@ class MBeanClientTest {
   void testUseClosedClientWillThrowError() throws Exception {
     // arrange
     MBeanClient sut = new MBeanClient(jmxServer.getAddress());
-    BeanQuery query = BeanQuery.of("java.lang").whereProperty("type", "Memory");
+    BeanQuery query = BeanQuery.of("java.lang").whereProperty("type", "Memory").build();
 
     // act
     sut.close();
