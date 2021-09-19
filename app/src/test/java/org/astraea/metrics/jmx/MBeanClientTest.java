@@ -230,4 +230,37 @@ class MBeanClientTest {
           });
     }
   }
+
+  @Test
+  void testUseClosedClientWillThrowError() throws Exception {
+    // arrange
+    MBeanClient sut = new MBeanClient(jmxServer.getAddress());
+    BeanQuery query = BeanQuery.of("java.lang").whereProperty("type", "Memory");
+
+    // act
+    sut.close();
+
+    // assert
+    assertThrows(IllegalStateException.class, () -> sut.queryBean(query));
+    assertThrows(IllegalStateException.class, () -> sut.queryBean(query, new String[0]));
+    assertThrows(IllegalStateException.class, () -> sut.tryQueryBean(query));
+    assertThrows(IllegalStateException.class, () -> sut.tryQueryBean(query, new String[0]));
+    assertThrows(IllegalStateException.class, () -> sut.queryBeans(query));
+  }
+
+  @Test
+  void testCloseOnceMoreWillThrowError() throws Exception {
+    // arrange
+    MBeanClient sut = new MBeanClient(jmxServer.getAddress());
+
+    // act
+    sut.close();
+
+    // assert
+    assertThrows(IllegalStateException.class, sut::close);
+    assertThrows(IllegalStateException.class, sut::close);
+    assertThrows(IllegalStateException.class, sut::close);
+    assertThrows(IllegalStateException.class, sut::close);
+    assertThrows(IllegalStateException.class, sut::close);
+  }
 }

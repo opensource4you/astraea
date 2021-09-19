@@ -2,7 +2,6 @@ package org.astraea.metrics.jmx;
 
 import java.io.IOException;
 import java.util.*;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.management.*;
@@ -12,11 +11,12 @@ import javax.management.remote.*;
  * A MBeanClient used to retrieve mbean value from remote Jmx server.
  *
  * <pre>{@code
- * MBeanClient client = new MBeanClient(jmxConnectorServer.getAddress());
- * BeanObject bean = client.queryBean(BeanQuery.of("java.lang")
- *          .whereProperty("type", "MemoryManager")
- *          .whereProperty("name", "CodeCacheManager"));
- * System.out.println(bean.getAttributes());
+ * try(MBeanClient client = new MBeanClient(jmxConnectorServer.getAddress())) {
+ *   BeanObject bean = client.queryBean(BeanQuery.of("java.lang")
+ *            .whereProperty("type", "MemoryManager")
+ *            .whereProperty("name", "CodeCacheManager"));
+ *   System.out.println(bean.getAttributes());
+ * }
  * }</pre>
  */
 public class MBeanClient implements AutoCloseable {
@@ -24,14 +24,14 @@ public class MBeanClient implements AutoCloseable {
   private final JMXServiceURL jmxServiceURL;
   private final JMXConnector jmxConnector;
   private final MBeanServerConnection mBeanServerConnection;
-  private final AtomicBoolean isClosed;
+  private boolean isClosed;
 
   public MBeanClient(JMXServiceURL jmxServiceURL) throws IOException {
     this.jmxServiceURL = Objects.requireNonNull(jmxServiceURL);
     this.jmxConnector = JMXConnectorFactory.connect(jmxServiceURL);
     jmxConnector.connect();
+    this.isClosed = false;
     this.mBeanServerConnection = jmxConnector.getMBeanServerConnection();
-    this.isClosed = new AtomicBoolean(false);
   }
 
   /**
@@ -209,12 +209,16 @@ public class MBeanClient implements AutoCloseable {
   }
 
   private void ensureConnected() {
-    if (isClosed.get()) throw new IllegalStateException("MBean client is closed");
+    if (isClosed) throw new IllegalStateException("MBean client is closed");
   }
 
   @Override
   public void close() throws Exception {
-    this.isClosed.set(true);
-    this.jmxConnector.close();
+    if (!isClosed) {
+      this.isClosed = true;
+      this.jmxConnector.close();
+    } else {
+      throw new IllegalStateException("MBeanClient already closed");
+    }
   }
 }
