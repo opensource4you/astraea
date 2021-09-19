@@ -7,11 +7,8 @@ import java.lang.management.ManagementFactory;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import javax.management.InstanceNotFoundException;
-import javax.management.MBeanServer;
-import javax.management.remote.JMXConnectorServer;
-import javax.management.remote.JMXConnectorServerFactory;
-import javax.management.remote.JMXServiceURL;
+import javax.management.*;
+import javax.management.remote.*;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -264,5 +261,47 @@ class MBeanClientTest {
     assertThrows(IllegalStateException.class, sut::close);
     assertThrows(IllegalStateException.class, sut::close);
     assertThrows(IllegalStateException.class, sut::close);
+  }
+
+  @Test
+  void testGetAllMBeans() throws Exception {
+    // arrange
+    try (MBeanClient client = new MBeanClient(jmxServer.getAddress())) {
+
+      // act
+      Set<BeanObject> beanObjects = client.queryBeans(BeanQuery.all());
+
+      // assert
+      assertTrue(beanObjects.stream().anyMatch(x -> x.domainName().equals("java.lang")));
+      assertTrue(beanObjects.stream().anyMatch(x -> x.domainName().equals("java.nio")));
+    }
+  }
+
+  @Test
+  void testGetAllMBeansUnderSpecificDomainName() throws Exception {
+    // arrange
+    try (MBeanClient client = new MBeanClient(jmxServer.getAddress())) {
+
+      // act
+      Set<BeanObject> beanObjects = client.queryBeans(BeanQuery.all("java.lang"));
+
+      // assert
+      assertTrue(beanObjects.size() > 1);
+      assertTrue(beanObjects.stream().allMatch(x -> x.domainName().equals("java.lang")));
+    }
+  }
+
+  @Test
+  void testGetAllMBeansUnderSpecificDomainNamePattern() throws Exception {
+    // arrange
+    try (MBeanClient client = new MBeanClient(jmxServer.getAddress())) {
+
+      // act
+      Set<BeanObject> beanObjects = client.queryBeans(BeanQuery.all("java.*"));
+
+      // assert
+      assertTrue(beanObjects.size() > 1);
+      assertTrue(beanObjects.stream().allMatch(x -> x.domainName().matches("java.*")));
+    }
   }
 }

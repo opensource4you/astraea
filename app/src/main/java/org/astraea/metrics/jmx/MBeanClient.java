@@ -89,7 +89,8 @@ public class MBeanClient implements AutoCloseable {
         attributes.put(attribute.getName(), attribute.getValue());
       }
 
-      // according to the javadoc of MBeanServerConnection#getAttributes, the API will ignore any
+      // according to the javadoc of MBeanServerConnection#getAttributes, the API will
+      // ignore any
       // error occurring during the fetch process (for example, attribute not exists). Below code
       // check for such condition and try to figure out what exactly the error is. put it into
       // attributes return result.
@@ -111,13 +112,14 @@ public class MBeanClient implements AutoCloseable {
 
   private Object fetchAttributeObjectOrException(BeanQuery beanQuery, String attributeName) {
     // It is possible to trigger some unexpected runtime exception during the following call.
-    // For example, on my machine when I try to get attribute "BootClassPath" of
+    // For example, on my machine when I try to get attribute "BootClassPath" from
     // "java.lang:type=Runtime".
     // I will get a {@link java.lang.UnsupportedOperationException} indicates that "Boot class path
     // mechanism is not supported". Those attribute actually exists, but I cannot retrieve those
     // attribute value. Doing so I get that error.
     //
-    // Instead of blinding that attribute from the library user, I decided to put the exception
+    // Instead of blinding that attribute from the library user, I decided to put the
+    // exception
     // into their result.
     try {
       return mBeanServerConnection.getAttribute(beanQuery.objectName(), attributeName);
@@ -195,7 +197,9 @@ public class MBeanClient implements AutoCloseable {
 
       // transform result into a set of BeanQuery
       Stream<BeanQuery> queries =
-          objectInstances.stream().map(ObjectInstance::getObjectName).map(BeanQuery::of);
+          objectInstances.stream()
+              .map(ObjectInstance::getObjectName)
+              .map(BeanQuery::fromObjectName);
 
       // execute query on each BeanQuery, return result as a set of BeanObject
       Set<BeanObject> queryResult =

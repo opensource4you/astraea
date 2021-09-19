@@ -65,7 +65,7 @@ class BeanQueryTest {
   void of() throws MalformedObjectNameException {
     // ObjectName version
     BeanQuery beanQueryFromObjectName =
-        BeanQuery.of(ObjectName.getInstance("java.lang:type=Memory"));
+        BeanQuery.fromObjectName(ObjectName.getInstance("java.lang:type=Memory"));
     assertEquals("java.lang", beanQueryFromObjectName.domainName());
     assertEquals(Map.of("type", "Memory"), beanQueryFromObjectName.properties());
 
@@ -74,8 +74,14 @@ class BeanQueryTest {
     assertEquals("java.lang", beanQueryFromMap.domainName());
     assertEquals(Map.of("type", "Memory"), beanQueryFromMap.properties());
 
-    // HalfBakeBeanQuery
-    //noinspection ConstantConditions
-    assertFalse((Object) BeanQuery.of("java.lang") instanceof BeanQuery);
+    // all under specific domain
+    BeanQuery beanQueryForDomain = BeanQuery.all("java.lang");
+    assertEquals(0, beanQueryForDomain.objectName().getKeyPropertyList().size());
+    assertEquals("java.lang", beanQueryForDomain.objectName().getDomain());
+
+    // all in JMX
+    BeanQuery beanQueryForAllDomain = BeanQuery.all();
+    assertEquals(0, beanQueryForAllDomain.objectName().getKeyPropertyList().size());
+    assertEquals("*", beanQueryForAllDomain.objectName().getDomain());
   }
 }
