@@ -11,8 +11,13 @@ public class BeanObject {
   public BeanObject(
       String domainName, Map<String, String> properties, Map<String, Object> attributes) {
     this.domainName = Objects.requireNonNull(domainName);
-    this.properties = Collections.unmodifiableMap(Objects.requireNonNull(properties));
-    this.attributes = Collections.unmodifiableMap(Objects.requireNonNull(attributes));
+    this.properties = Map.copyOf(Objects.requireNonNull(properties));
+    // This is impossible to use Map#copyOf for following statement, since Map#copyOf will check
+    // if any key/value is null. It's possible that the attribute value returned from JMX Server is
+    // null. If we use Map#copyOf here we will get unexpected error for some MBeans result.
+    //noinspection Java9CollectionFactory
+    this.attributes =
+        Collections.unmodifiableMap(new HashMap<>(Objects.requireNonNull(attributes)));
   }
 
   public String domainName() {
