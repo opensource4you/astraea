@@ -20,11 +20,11 @@ public class BeanObject {
     return domainName;
   }
 
-  public Map<String, String> getPropertyView() {
+  public Map<String, String> getProperties() {
     return properties;
   }
 
-  public Map<String, Object> getAttributeView() {
+  public Map<String, Object> getAttributes() {
     return attributes;
   }
 
@@ -37,28 +37,28 @@ public class BeanObject {
   }
 
   public Optional<Object> getAttribute(String attributeName) {
-    return Optional.ofNullable(getAttributeView().get(attributeName));
+    return Optional.ofNullable(getAttributes().get(attributeName));
   }
 
   public Object getAttribute(String attributeName, Object defaultValue) {
-    return getAttributeView().getOrDefault(attributeName, defaultValue);
+    return getAttributes().getOrDefault(attributeName, defaultValue);
   }
 
   public Object getAttribute(String attributeName, Supplier<Object> defaultValue) {
-    if (getAttributeView().containsKey(attributeName)) return getAttributeView().get(attributeName);
+    if (getAttributes().containsKey(attributeName)) return getAttributes().get(attributeName);
     else return defaultValue.get();
   }
 
   public Optional<String> getProperty(String propertyKey) {
-    return Optional.ofNullable(getPropertyView().get(propertyKey));
+    return Optional.ofNullable(getProperties().get(propertyKey));
   }
 
   public String getProperty(String propertyKey, String defaultValue) {
-    return getPropertyView().getOrDefault(propertyKey, defaultValue);
+    return getProperties().getOrDefault(propertyKey, defaultValue);
   }
 
   public Object getProperty(String propertyKey, Supplier<String> defaultValue) {
-    if (getPropertyView().containsKey(propertyKey)) return getPropertyView().get(propertyKey);
+    if (getProperties().containsKey(propertyKey)) return getProperties().get(propertyKey);
     else return defaultValue.get();
   }
 }

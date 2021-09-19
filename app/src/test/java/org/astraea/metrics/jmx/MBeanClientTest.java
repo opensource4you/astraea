@@ -171,13 +171,13 @@ class MBeanClientTest {
       // act
       Optional<BeanObject> classLoading =
           beanObjects.stream()
-              .filter(x -> x.getPropertyView().get("type").equals("ClassLoading"))
+              .filter(x -> x.getProperties().get("type").equals("ClassLoading"))
               .findFirst();
 
       // assert
       assertTrue(classLoading.isPresent());
       assertEquals("java.lang", classLoading.get().domainName());
-      assertEquals(5, classLoading.get().getAttributeView().size());
+      assertEquals(5, classLoading.get().getAttributes().size());
       assertTrue(classLoading.get().getAttribute("LoadedClassCount").isPresent());
       assertTrue(classLoading.get().getAttribute("ObjectName").isPresent());
       assertTrue(classLoading.get().getAttribute("TotalLoadedClassCount").isPresent());

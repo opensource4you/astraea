@@ -37,7 +37,7 @@ public class BeanQuery {
     return domainName;
   }
 
-  public Map<String, String> propertyView() {
+  public Map<String, String> properties() {
     return Map.copyOf(properties);
   }
 

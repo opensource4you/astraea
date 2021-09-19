@@ -16,7 +16,7 @@ import javax.management.remote.*;
  * BeanObject bean = client.fetchAttributes(BeanQuery.of("java.lang")
  *          .whereProperty("type", "MemoryManager")
  *          .whereProperty("name", "CodeCacheManager"));
- * System.out.println(bean.getAttributeView());
+ * System.out.println(bean.getAttributes());
  * }</pre>
  */
 public class MBeanClient implements AutoCloseable {
@@ -102,7 +102,7 @@ public class MBeanClient implements AutoCloseable {
       }
 
       // collect result, and build a ne BeanObject as return result
-      return new BeanObject(beanQuery.domainName(), beanQuery.propertyView(), attributes);
+      return new BeanObject(beanQuery.domainName(), beanQuery.properties(), attributes);
 
     } catch (ReflectionException | IOException e) {
       throw new RuntimeException(e);

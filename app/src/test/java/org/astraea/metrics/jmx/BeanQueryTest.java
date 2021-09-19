@@ -27,7 +27,7 @@ class BeanQueryTest {
             .whereProperty("name", "CodeCacheManager");
 
     assertEquals(
-        Map.of("type", "MemoryManager", "name", "CodeCacheManager"), beanQuery.propertyView());
+        Map.of("type", "MemoryManager", "name", "CodeCacheManager"), beanQuery.properties());
   }
 
   @Test
@@ -51,10 +51,10 @@ class BeanQueryTest {
 
     BeanQuery beanQuery1 = beanQuery0.whereProperty("hello", "world");
 
-    assertTrue(beanQuery1.propertyView().containsKey("hello"));
-    assertTrue(beanQuery1.propertyView().containsValue("world"));
-    assertFalse(beanQuery0.propertyView().containsKey("hello"));
-    assertFalse(beanQuery0.propertyView().containsValue("world"));
+    assertTrue(beanQuery1.properties().containsKey("hello"));
+    assertTrue(beanQuery1.properties().containsValue("world"));
+    assertFalse(beanQuery0.properties().containsKey("hello"));
+    assertFalse(beanQuery0.properties().containsValue("world"));
   }
 
   @Test
@@ -63,12 +63,12 @@ class BeanQueryTest {
     BeanQuery beanQueryFromObjectName =
         BeanQuery.of(ObjectName.getInstance("java.lang:type=Memory"));
     assertEquals("java.lang", beanQueryFromObjectName.domainName());
-    assertEquals(Map.of("type", "Memory"), beanQueryFromObjectName.propertyView());
+    assertEquals(Map.of("type", "Memory"), beanQueryFromObjectName.properties());
 
     // map version
     BeanQuery beanQueryFromMap = BeanQuery.of("java.lang", Map.of("type", "Memory"));
     assertEquals("java.lang", beanQueryFromMap.domainName());
-    assertEquals(Map.of("type", "Memory"), beanQueryFromMap.propertyView());
+    assertEquals(Map.of("type", "Memory"), beanQueryFromMap.properties());
 
     // HalfBakeBeanQuery
     //noinspection ConstantConditions
