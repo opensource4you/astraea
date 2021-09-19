@@ -11,13 +11,9 @@ public class BeanObject {
 
   public BeanObject(
       String domainName, Map<String, String> properties, Map<String, Object> attributes) {
-    Objects.requireNonNull(domainName);
-    Objects.requireNonNull(properties);
-    Objects.requireNonNull(attributes);
-
-    this.domainName = domainName;
-    this.properties = Collections.unmodifiableMap(properties);
-    this.attributes = Collections.unmodifiableMap(attributes);
+    this.domainName = Objects.requireNonNull(domainName);
+    this.properties = Collections.unmodifiableMap(Objects.requireNonNull(properties));
+    this.attributes = Collections.unmodifiableMap(Objects.requireNonNull(attributes));
   }
 
   public String domainName() {

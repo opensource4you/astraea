@@ -27,7 +27,7 @@ public class MBeanClient implements AutoCloseable {
   private final AtomicBoolean isClosed;
 
   public MBeanClient(JMXServiceURL jmxServiceURL) throws IOException {
-    this.jmxServiceURL = jmxServiceURL;
+    this.jmxServiceURL = Objects.requireNonNull(jmxServiceURL);
     this.jmxConnector = JMXConnectorFactory.connect(jmxServiceURL);
     jmxConnector.connect();
     this.mBeanServerConnection = jmxConnector.getMBeanServerConnection();

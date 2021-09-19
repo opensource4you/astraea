@@ -23,12 +23,9 @@ public class BeanQuery {
   private final ObjectName objectName;
 
   public BeanQuery(String domainName, Map<String, String> properties) {
-    Objects.requireNonNull(domainName);
-    Objects.requireNonNull(properties);
-
-    this.domainName = domainName;
-    this.properties = Map.copyOf(properties);
-    Hashtable<String, String> ht = new Hashtable<>(properties);
+    this.domainName = Objects.requireNonNull(domainName);
+    this.properties = Map.copyOf(Objects.requireNonNull(properties));
+    Hashtable<String, String> ht = new Hashtable<>(this.properties);
     try {
       objectName = ObjectName.getInstance(domainName, ht);
     } catch (MalformedObjectNameException e) {
