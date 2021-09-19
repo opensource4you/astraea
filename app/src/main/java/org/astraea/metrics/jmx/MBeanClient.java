@@ -13,7 +13,7 @@ import javax.management.remote.*;
  *
  * <pre>{@code
  * MBeanClient client = new MBeanClient(jmxConnectorServer.getAddress());
- * BeanObject bean = client.fetchAttributes(BeanQuery.of("java.lang")
+ * BeanObject bean = client.queryBean(BeanQuery.of("java.lang")
  *          .whereProperty("type", "MemoryManager")
  *          .whereProperty("name", "CodeCacheManager"));
  * System.out.println(bean.getAttributes());
@@ -44,7 +44,7 @@ public class MBeanClient implements AutoCloseable {
    * @return A {@link BeanObject} contain all attributes if target resolved successfully.
    * @throws InstanceNotFoundException If the pattern target doesn't exists on remote mbean server.
    */
-  public BeanObject fetchAttributes(BeanQuery beanQuery) throws InstanceNotFoundException {
+  public BeanObject queryBean(BeanQuery beanQuery) throws InstanceNotFoundException {
     ensureConnected();
     try {
       // ask for MBeanInfo
@@ -57,7 +57,7 @@ public class MBeanClient implements AutoCloseable {
               .toArray(String[]::new);
 
       // query the result
-      return fetchAttributes(beanQuery, attributeName);
+      return queryBean(beanQuery, attributeName);
     } catch (ReflectionException | IntrospectionException | IOException e) {
       throw new RuntimeException(e);
     }
@@ -74,7 +74,7 @@ public class MBeanClient implements AutoCloseable {
    * @return A {@link BeanObject} contain given specific attributes if target resolved successfully.
    * @throws InstanceNotFoundException If the pattern target doesn't exists on remote mbean server.
    */
-  public BeanObject fetchAttributes(BeanQuery beanQuery, String[] attributeNameList)
+  public BeanObject queryBean(BeanQuery beanQuery, String[] attributeNameList)
       throws InstanceNotFoundException {
     ensureConnected();
     try {
@@ -140,10 +140,10 @@ public class MBeanClient implements AutoCloseable {
    *     resolved successfully. If the pattern target doesn't exists on remote mbean server, then an
    *     {@link Optional#empty()} returned.
    */
-  public Optional<BeanObject> tryFetchAttributes(BeanQuery beanQuery) {
+  public Optional<BeanObject> tryQueryBean(BeanQuery beanQuery) {
     ensureConnected();
     try {
-      return Optional.of(this.fetchAttributes(beanQuery));
+      return Optional.of(this.queryBean(beanQuery));
     } catch (InstanceNotFoundException e) {
       return Optional.empty();
     }
@@ -164,10 +164,10 @@ public class MBeanClient implements AutoCloseable {
    *     attributes resolved if target mbeans resolved successfully. If the pattern target doesn't
    *     exists on remote mbean server, then an {@link Optional#empty()} returned.
    */
-  public Optional<BeanObject> tryFetchAttributes(BeanQuery beanQuery, String[] attributeNameList) {
+  public Optional<BeanObject> tryQueryBean(BeanQuery beanQuery, String[] attributeNameList) {
     ensureConnected();
     try {
-      return Optional.of(this.fetchAttributes(beanQuery, attributeNameList));
+      return Optional.of(this.queryBean(beanQuery, attributeNameList));
     } catch (InstanceNotFoundException e) {
       return Optional.empty();
     }
@@ -199,10 +199,7 @@ public class MBeanClient implements AutoCloseable {
 
       // execute query on each BeanQuery, return result as a set of BeanObject
       Set<BeanObject> queryResult =
-          queries
-              .map(this::tryFetchAttributes)
-              .flatMap(Optional::stream)
-              .collect(Collectors.toSet());
+          queries.map(this::tryQueryBean).flatMap(Optional::stream).collect(Collectors.toSet());
 
       return queryResult;
 

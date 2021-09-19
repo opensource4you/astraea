@@ -43,7 +43,7 @@ class MBeanClientTest {
       BeanQuery beanQuery = BeanQuery.of("java.lang").whereProperty("type", "Memory");
 
       // act
-      BeanObject beanObject = sut.fetchAttributes(beanQuery);
+      BeanObject beanObject = sut.queryBean(beanQuery);
 
       // assert
       assertTrue(beanObject.getProperties().containsKey("type"));
@@ -64,8 +64,8 @@ class MBeanClientTest {
               .whereProperty("name", "CodeCacheManager");
 
       // act
-      BeanObject beanObject1 = sut.fetchAttributes(query1);
-      BeanObject beanObject2 = sut.fetchAttributes(query2);
+      BeanObject beanObject1 = sut.queryBean(query1);
+      BeanObject beanObject2 = sut.queryBean(query2);
 
       // assert
       assertTrue(beanObject1.getProperties().containsKey("type"));
@@ -92,7 +92,7 @@ class MBeanClientTest {
       String[] selectedAttribute = new String[] {"HeapMemoryUsage"};
 
       // act
-      BeanObject beanObject = sut.fetchAttributes(beanQuery, selectedAttribute);
+      BeanObject beanObject = sut.queryBean(beanQuery, selectedAttribute);
 
       // assert
       assertTrue(beanObject.getProperties().containsKey("type"));
@@ -108,7 +108,7 @@ class MBeanClientTest {
       BeanQuery beanQuery = BeanQuery.of("java.lang").whereProperty("type", "Memory");
 
       // act
-      Optional<BeanObject> beanObject = sut.tryFetchAttributes(beanQuery);
+      Optional<BeanObject> beanObject = sut.tryQueryBean(beanQuery);
 
       // assert
       assertTrue(beanObject.isPresent());
@@ -125,7 +125,7 @@ class MBeanClientTest {
       BeanQuery beanQuery = BeanQuery.of("java.lang").whereProperty("type", "HelloWorld");
 
       // act
-      Optional<BeanObject> beanObject = sut.tryFetchAttributes(beanQuery);
+      Optional<BeanObject> beanObject = sut.tryQueryBean(beanQuery);
 
       // assert
       assertTrue(beanObject.isEmpty());
@@ -140,7 +140,7 @@ class MBeanClientTest {
       String[] selectedAttribute = new String[] {"HeapMemoryUsage"};
 
       // act
-      Optional<BeanObject> beanObject = sut.tryFetchAttributes(beanQuery, selectedAttribute);
+      Optional<BeanObject> beanObject = sut.tryQueryBean(beanQuery, selectedAttribute);
 
       // assert
       assertTrue(beanObject.isPresent());
@@ -211,21 +211,21 @@ class MBeanClientTest {
       assertThrows(
           InstanceNotFoundException.class,
           () -> {
-            BeanObject beanObject = sut.fetchAttributes(beanQuery);
+            BeanObject beanObject = sut.queryBean(beanQuery);
           });
       assertThrows(
           InstanceNotFoundException.class,
           () -> {
-            BeanObject beanObject = sut.fetchAttributes(beanQuery, new String[0]);
+            BeanObject beanObject = sut.queryBean(beanQuery, new String[0]);
           });
       assertDoesNotThrow(
           () -> {
-            Optional<BeanObject> beanObject = sut.tryFetchAttributes(beanQuery);
+            Optional<BeanObject> beanObject = sut.tryQueryBean(beanQuery);
             assertTrue(beanObject.isEmpty());
           });
       assertDoesNotThrow(
           () -> {
-            Optional<BeanObject> beanObject = sut.tryFetchAttributes(beanQuery, new String[0]);
+            Optional<BeanObject> beanObject = sut.tryQueryBean(beanQuery, new String[0]);
             assertTrue(beanObject.isEmpty());
           });
     }
