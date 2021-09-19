@@ -83,5 +83,20 @@ class BeanQueryTest {
     BeanQuery beanQueryForAllDomain = BeanQuery.all();
     assertEquals(0, beanQueryForAllDomain.objectName().getKeyPropertyList().size());
     assertEquals("*", beanQueryForAllDomain.objectName().getDomain());
+
+    // usePropertyListPattern
+    BeanQuery withPattern =
+        BeanQuery.of("java.lang")
+            .whereProperty("type", "MemoryManager")
+            .usePropertyListPattern()
+            .build();
+    assertTrue(withPattern.objectName().isPropertyListPattern());
+
+    // invalid query: query whole domain name without specify "property list pattern"
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> {
+          BeanQuery.of("java.lang").build();
+        });
   }
 }

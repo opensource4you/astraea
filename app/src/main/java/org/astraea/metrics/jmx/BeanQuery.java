@@ -1,6 +1,7 @@
 package org.astraea.metrics.jmx;
 
 import java.util.*;
+import java.util.stream.Collectors;
 import javax.management.MalformedObjectNameException;
 import javax.management.ObjectName;
 
@@ -51,37 +52,39 @@ public class BeanQuery {
   private final String domainName;
   private final Map<String, String> properties;
   private final ObjectName objectName;
-
-  /**
-   * Initialize a BeanQuery. Target all mbeans under specific domain name.
-   *
-   * @param domainName the target MBeans's domain name
-   * @throws IllegalArgumentException if any given domain name or properties is in invalid format
-   */
-  public BeanQuery(String domainName) throws IllegalArgumentException {
-    this.domainName = Objects.requireNonNull(domainName);
-    this.properties = Map.of();
-    try {
-      objectName = ObjectName.getInstance(domainName + ":*");
-    } catch (MalformedObjectNameException e) {
-      throw new IllegalArgumentException(e);
-    }
-  }
+  private final boolean usePropertyListPattern;
 
   /**
    * Initialize a BeanQuery.
    *
    * @param domainName the target MBeans's domain name
    * @param properties the target MBeans's properties
+   * @param usePropertyListPattern use property list pattern or not. If used, a ",*" or "*" string
+   *     will be appended to ObjectName.
    * @throws IllegalArgumentException if any given domain name or properties is in invalid format
    */
-  public BeanQuery(String domainName, Map<String, String> properties)
+  public BeanQuery(
+      String domainName, Map<String, String> properties, boolean usePropertyListPattern)
       throws IllegalArgumentException {
     this.domainName = Objects.requireNonNull(domainName);
     this.properties = Map.copyOf(Objects.requireNonNull(properties));
-    Hashtable<String, String> ht = new Hashtable<>(this.properties);
+    this.usePropertyListPattern = usePropertyListPattern;
     try {
-      objectName = ObjectName.getInstance(domainName, ht);
+      if (usePropertyListPattern) {
+        String propertyList =
+            properties.entrySet().stream()
+                .map((entry -> String.format("%s=%s", entry.getKey(), entry.getValue())))
+                .collect(Collectors.joining(","));
+        StringBuilder sb = new StringBuilder();
+        sb.append(domainName);
+        sb.append(":");
+        sb.append(propertyList);
+        sb.append((properties.size() > 0) ? ",*" : "*");
+        this.objectName = ObjectName.getInstance(sb.toString());
+      } else {
+        Hashtable<String, String> ht = new Hashtable<>(this.properties);
+        this.objectName = ObjectName.getInstance(domainName, ht);
+      }
     } catch (MalformedObjectNameException e) {
       throw new IllegalArgumentException(e);
     }
@@ -103,19 +106,32 @@ public class BeanQuery {
 
     private final String domainName;
     private final Map<String, String> properties;
+    private boolean usePropertyListPattern;
 
     BeanQueryBuilder(String domainName) {
       this.domainName = domainName;
       this.properties = new HashMap<>();
+      this.usePropertyListPattern = false;
     }
 
     BeanQueryBuilder(String domainName, Map<String, String> properties) {
       this.domainName = domainName;
       this.properties = new HashMap<>(properties);
+      this.usePropertyListPattern = false;
     }
 
     public BeanQueryBuilder whereProperty(String key, String value) {
       this.properties.put(key, value);
+      return this;
+    }
+
+    public BeanQueryBuilder usePropertyListPattern() {
+      this.usePropertyListPattern = true;
+      return this;
+    }
+
+    public BeanQueryBuilder noPropertyListPattern() {
+      this.usePropertyListPattern = false;
       return this;
     }
 
@@ -127,19 +143,16 @@ public class BeanQuery {
      * @throws IllegalArgumentException if domain name or any property is in invalid format.
      */
     public BeanQuery build() throws IllegalArgumentException {
-      if (properties.isEmpty())
-        // This call target all mbeans under specific mbeans.
-        return new BeanQuery(domainName);
-      else return new BeanQuery(domainName, properties);
+      return new BeanQuery(domainName, properties, usePropertyListPattern);
     }
   }
 
   public static BeanQuery all() {
-    return new BeanQueryBuilder("*").build();
+    return new BeanQueryBuilder("*").usePropertyListPattern().build();
   }
 
   public static BeanQuery all(String domainName) {
-    return new BeanQueryBuilder(domainName).build();
+    return new BeanQueryBuilder(domainName).usePropertyListPattern().build();
   }
 
   public static BeanQueryBuilder of(String domainName) {
@@ -151,6 +164,9 @@ public class BeanQuery {
   }
 
   static BeanQuery fromObjectName(ObjectName objectName) {
-    return new BeanQuery(objectName.getDomain(), new HashMap<>(objectName.getKeyPropertyList()));
+    return new BeanQuery(
+        objectName.getDomain(),
+        new HashMap<>(objectName.getKeyPropertyList()),
+        objectName.isPropertyListPattern());
   }
 }

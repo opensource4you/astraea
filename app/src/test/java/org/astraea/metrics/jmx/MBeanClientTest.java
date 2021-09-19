@@ -304,4 +304,53 @@ class MBeanClientTest {
       assertTrue(beanObjects.stream().allMatch(x -> x.domainName().matches("java.*")));
     }
   }
+
+  @Test
+  void testUsePropertyListPattern() throws Exception {
+    // arrange
+    try (MBeanClient client = new MBeanClient(jmxServer.getAddress())) {
+      BeanQuery patternQuery =
+          BeanQuery.of("java.lang").whereProperty("type", "*").usePropertyListPattern().build();
+
+      // act
+      Set<BeanObject> beanObjects = client.queryBeans(patternQuery);
+
+      // assert
+      /*
+      It might be hard to understand what this test is testing for.
+      The keypoint is we are using BeanQueryBuilder#usePropertyListPattern()
+
+      Without it the query will be "java.lang:type=*"
+      And we only match the following
+      java.lang:{type=OperatingSystem}
+      java.lang:{type=Threading}
+      java.lang:{type=ClassLoading}
+      java.lang:{type=Compilation}
+      java.lang:{type=Memory}
+      java.lang:{type=Runtime}
+
+      With it the query will be "java.lang:type=*,*"
+      And we will match the following
+      java.lang:{type=MemoryPool, name=CodeHeap 'non-nmethods'}
+      java.lang:{type=GarbageCollector, name=G1 Young Generation}
+      java.lang:{type=Runtime}
+      java.lang:{type=OperatingSystem}
+      java.lang:{type=Threading}
+      java.lang:{type=MemoryPool, name=G1 Old Gen}
+      java.lang:{type=MemoryPool, name=CodeHeap 'profiled nmethods'}
+      java.lang:{type=MemoryPool, name=G1 Eden Space}
+      java.lang:{type=MemoryPool, name=Metaspace}
+      java.lang:{type=GarbageCollector, name=G1 Old Generation}
+      java.lang:{type=Memory}
+      java.lang:{type=MemoryPool, name=G1 Survivor Space}
+      java.lang:{type=Compilation}
+      java.lang:{type=MemoryManager, name=CodeCacheManager}
+      java.lang:{type=MemoryPool, name=CodeHeap 'non-profiled nmethods'}
+      java.lang:{type=MemoryManager, name=Metaspace Manager}
+      java.lang:{type=ClassLoading}
+      Notice how everything with "type" is match, even those with "name"
+      */
+      assertTrue(beanObjects.stream().anyMatch(x -> x.getProperties().containsKey("name")));
+    }
+  }
 }
