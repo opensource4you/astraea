@@ -11,39 +11,26 @@ import javax.management.ObjectName;
  * <p>For the specific rule of query pattern, consider look into {@link ObjectName} Here is some
  * code example to initialize a {@link BeanQuery}
  *
- * <p>Query specific MBean from a JMX server:
- *
  * <pre>{@code
+ * // Query specific MBean from a JMX server:
  * BeanQuery.of("java.lang")
  *       .whereProperty("type", "MemoryManager")
  *       .whereProperty("name", "CodeCacheManager")
  *       .build();
- * }</pre>
  *
- * <p>Query MBeans with specific property pattern from a JMX server:
- *
- * <pre>{@code
+ * // Query MBeans with specific property pattern from a JMX server:
  * BeanQuery.of("java.lang")
  *       .whereProperty("type", "MemoryManager")
  *       .whereProperty("name", "*")
  *       .build();
- * }</pre>
  *
- * <p>Query all Mbeans from a JMX server:
- *
- * <pre>{@code
+ * // Query all Mbeans from a JMX server:
  * BeanQuery.all()
- * }</pre>
  *
- * <p>Query all Mbeans under specific domain name from a JMX server:
- *
- * <pre>{@code
+ * // Query all Mbeans under specific domain name from a JMX server:
  * BeanQuery.all("java.lang")
- * }</pre>
  *
- * <p>Query all Mbeans under specific domain name pattern from a JMX server:
- *
- * <pre>{@code
+ * // Query all Mbeans under specific domain name pattern from a JMX server:
  * BeanQuery.all("java.*")
  * }</pre>
  */
