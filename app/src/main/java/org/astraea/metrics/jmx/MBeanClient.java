@@ -59,8 +59,10 @@ public class MBeanClient implements AutoCloseable {
 
       // query the result
       return queryBean(beanQuery, attributeName);
-    } catch (ReflectionException | IntrospectionException | IOException e) {
+    } catch (ReflectionException | IntrospectionException e) {
       throw new RuntimeException(e);
+    } catch (IOException e) {
+      throw new UncheckedIOException(e);
     }
   }
 
@@ -106,8 +108,10 @@ public class MBeanClient implements AutoCloseable {
       // collect result, and build a ne BeanObject as return result
       return new BeanObject(beanQuery.domainName(), beanQuery.properties(), attributes);
 
-    } catch (ReflectionException | IOException e) {
+    } catch (ReflectionException e) {
       throw new RuntimeException(e);
+    } catch (IOException e) {
+      throw new UncheckedIOException(e);
     }
   }
 
@@ -124,8 +128,10 @@ public class MBeanClient implements AutoCloseable {
     // into their result.
     try {
       return mBeanServerConnection.getAttribute(beanQuery.objectName(), attributeName);
+    } catch (IOException e) {
+        throw new UncheckedIOException(e);
     } catch (Exception e) {
-      return e;
+        return e;
     }
   }
 
@@ -209,7 +215,7 @@ public class MBeanClient implements AutoCloseable {
       return queryResult;
 
     } catch (IOException e) {
-      throw new RuntimeException(e);
+      throw new UncheckedIOException(e);
     }
   }
 
