@@ -1,6 +1,7 @@
 package org.astraea.metrics.jmx;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -209,6 +210,22 @@ public class MBeanClient implements AutoCloseable {
 
     } catch (IOException e) {
       throw new RuntimeException(e);
+    }
+  }
+
+  /**
+   * Returns the list of domains in which any MBean is currently registered. A string is in the
+   * returned array if and only if there is at least one MBean registered with an ObjectName whose
+   * getDomain() is equal to that string. The order of strings within the returned array is not
+   * defined.
+   *
+   * @reture a {@link List} of domain name {@link String}
+   */
+  public List<String> listDomains() {
+    try {
+      return Arrays.stream(mBeanServerConnection.getDomains()).collect(Collectors.toList());
+    } catch (IOException e) {
+      throw new UncheckedIOException(e);
     }
   }
 

@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import java.io.IOException;
 import java.lang.management.ManagementFactory;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -351,6 +352,20 @@ class MBeanClientTest {
       Notice how everything with "type" is match, even those with "name"
       */
       assertTrue(beanObjects.stream().anyMatch(x -> x.getProperties().containsKey("name")));
+    }
+  }
+
+  @Test
+  void testListDomains() throws Exception {
+    // arrange
+    try (MBeanClient client = new MBeanClient(jmxServer.getAddress())) {
+
+      // act
+      List<String> domains = client.listDomains();
+
+      // assert
+      assertTrue(domains.contains("java.lang"));
+      assertTrue(domains.contains("java.nio"));
     }
   }
 }
