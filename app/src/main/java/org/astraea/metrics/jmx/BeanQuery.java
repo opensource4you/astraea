@@ -34,7 +34,7 @@ import javax.management.ObjectName;
  * BeanQuery.all("java.*")
  * }</pre>
  */
-public class BeanQuery implements Query {
+public class BeanQuery {
 
   private final String domainName;
   private final Map<String, String> properties;
@@ -81,13 +81,11 @@ public class BeanQuery implements Query {
     return domainName;
   }
 
-  @Override
   public Map<String, String> properties() {
     return Map.copyOf(properties);
   }
 
-  @Override
-  public ObjectName getQuery() {
+  ObjectName objectName() {
     return this.objectName;
   }
 
