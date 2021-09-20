@@ -214,12 +214,11 @@ public class MBeanClient implements AutoCloseable {
   }
 
   /**
-   * Returns the list of domains in which any MBean is currently registered. A string is in the
-   * returned array if and only if there is at least one MBean registered with an ObjectName whose
-   * getDomain() is equal to that string. The order of strings within the returned array is not
-   * defined.
+   * Returns the list of domains in which any MBean is currently registered.
    *
-   * @reture a {@link List} of domain name {@link String}
+   * <p>The order of strings within the returned array is not defined.
+   *
+   * @return a {@link List} of domain name {@link String}
    */
   public List<String> listDomains() {
     try {
