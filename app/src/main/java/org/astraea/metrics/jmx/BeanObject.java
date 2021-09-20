@@ -1,6 +1,7 @@
 package org.astraea.metrics.jmx;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 /** Snapshot of remote MBean value */
 public class BeanObject {
@@ -30,5 +31,14 @@ public class BeanObject {
 
   public Map<String, Object> getAttributes() {
     return attributes;
+  }
+
+  @Override
+  public String toString() {
+    String propertyList =
+        properties.entrySet().stream()
+            .map((entry -> entry.getKey() + "=" + entry.getValue()))
+            .collect(Collectors.joining(","));
+    return "[" + domainName + ":" + propertyList + "]\n" + attributes;
   }
 }

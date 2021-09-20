@@ -38,4 +38,13 @@ class BeanObjectTest {
 
     assertEquals(Map.of("HeapMemoryUsage", "content"), result);
   }
+
+  @Test
+  void testToString() {
+    BeanObject beanObject = createBeanObject();
+
+    String s = beanObject.toString();
+
+    assertTrue(s.contains(beanObject.domainName()));
+  }
 }
