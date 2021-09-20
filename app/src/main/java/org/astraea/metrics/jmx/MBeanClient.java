@@ -129,9 +129,9 @@ public class MBeanClient implements AutoCloseable {
     try {
       return mBeanServerConnection.getAttribute(beanQuery.objectName(), attributeName);
     } catch (IOException e) {
-        throw new UncheckedIOException(e);
+      throw new UncheckedIOException(e);
     } catch (Exception e) {
-        return e;
+      return e;
     }
   }
 
