@@ -44,11 +44,11 @@ public class MBeanClient implements AutoCloseable {
    * @return A {@link BeanObject} contain all attributes if target resolved successfully.
    * @throws InstanceNotFoundException If the pattern target doesn't exists on remote mbean server.
    */
-  public BeanObject queryBean(BeanQuery beanQuery) throws InstanceNotFoundException {
+  public BeanObject queryBean(Query beanQuery) throws InstanceNotFoundException {
     ensureConnected();
     try {
       // ask for MBeanInfo
-      MBeanInfo mBeanInfo = mBeanServerConnection.getMBeanInfo(beanQuery.objectName());
+      MBeanInfo mBeanInfo = mBeanServerConnection.getMBeanInfo(beanQuery.getQuery());
 
       // create a list of all available attributes name
       String[] attributeName =
@@ -74,14 +74,14 @@ public class MBeanClient implements AutoCloseable {
    * @return A {@link BeanObject} contain given specific attributes if target resolved successfully.
    * @throws InstanceNotFoundException If the pattern target doesn't exists on remote mbean server.
    */
-  public BeanObject queryBean(BeanQuery beanQuery, String[] attributeNameList)
+  public BeanObject queryBean(Query beanQuery, String[] attributeNameList)
       throws InstanceNotFoundException {
     ensureConnected();
     try {
 
       // fetch attribute value from mbean server
       List<Attribute> attributeList =
-          mBeanServerConnection.getAttributes(beanQuery.objectName(), attributeNameList).asList();
+          mBeanServerConnection.getAttributes(beanQuery.getQuery(), attributeNameList).asList();
 
       // collect attribute name & value into a map
       Map<String, Object> attributes = new HashMap<>();
@@ -110,7 +110,7 @@ public class MBeanClient implements AutoCloseable {
     }
   }
 
-  private Object fetchAttributeObjectOrException(BeanQuery beanQuery, String attributeName) {
+  private Object fetchAttributeObjectOrException(Query beanQuery, String attributeName) {
     // It is possible to trigger some unexpected runtime exception during the following call.
     // For example, on my machine when I try to get attribute "BootClassPath" from
     // "java.lang:type=Runtime".
@@ -122,7 +122,7 @@ public class MBeanClient implements AutoCloseable {
     // exception
     // into their result.
     try {
-      return mBeanServerConnection.getAttribute(beanQuery.objectName(), attributeName);
+      return mBeanServerConnection.getAttribute(beanQuery.getQuery(), attributeName);
     } catch (Exception e) {
       return e;
     }
@@ -142,7 +142,7 @@ public class MBeanClient implements AutoCloseable {
    *     resolved successfully. If the pattern target doesn't exists on remote mbean server, then an
    *     {@link Optional#empty()} returned.
    */
-  public Optional<BeanObject> tryQueryBean(BeanQuery beanQuery) {
+  public Optional<BeanObject> tryQueryBean(Query beanQuery) {
     ensureConnected();
     try {
       return Optional.of(this.queryBean(beanQuery));
@@ -166,7 +166,7 @@ public class MBeanClient implements AutoCloseable {
    *     attributes resolved if target mbeans resolved successfully. If the pattern target doesn't
    *     exists on remote mbean server, then an {@link Optional#empty()} returned.
    */
-  public Optional<BeanObject> tryQueryBean(BeanQuery beanQuery, String[] attributeNameList) {
+  public Optional<BeanObject> tryQueryBean(Query beanQuery, String[] attributeNameList) {
     ensureConnected();
     try {
       return Optional.of(this.queryBean(beanQuery, attributeNameList));
@@ -187,13 +187,13 @@ public class MBeanClient implements AutoCloseable {
    * @param beanQuery the pattern to query
    * @return A {@link Set} of {@link BeanObject}, all BeanObject has its own attributes resolved.
    */
-  public Set<BeanObject> queryBeans(BeanQuery beanQuery) {
+  public Set<BeanObject> queryBeans(Query beanQuery) {
     ensureConnected();
     try {
 
       // query mbeans
       Set<ObjectInstance> objectInstances =
-          mBeanServerConnection.queryMBeans(beanQuery.objectName(), null);
+          mBeanServerConnection.queryMBeans(beanQuery.getQuery(), null);
 
       // transform result into a set of BeanQuery
       Stream<BeanQuery> queries =

@@ -42,7 +42,7 @@ class BeanQueryTest {
 
     assertEquals(
         ObjectName.getInstance("java.lang:type=MemoryManager,name=CodeCacheManager"),
-        beanQuery.objectName());
+        beanQuery.getQuery());
   }
 
   @Test
@@ -76,13 +76,13 @@ class BeanQueryTest {
 
     // all under specific domain
     BeanQuery beanQueryForDomain = BeanQuery.all("java.lang");
-    assertEquals(0, beanQueryForDomain.objectName().getKeyPropertyList().size());
-    assertEquals("java.lang", beanQueryForDomain.objectName().getDomain());
+    assertEquals(0, beanQueryForDomain.getQuery().getKeyPropertyList().size());
+    assertEquals("java.lang", beanQueryForDomain.getQuery().getDomain());
 
     // all in JMX
     BeanQuery beanQueryForAllDomain = BeanQuery.all();
-    assertEquals(0, beanQueryForAllDomain.objectName().getKeyPropertyList().size());
-    assertEquals("*", beanQueryForAllDomain.objectName().getDomain());
+    assertEquals(0, beanQueryForAllDomain.getQuery().getKeyPropertyList().size());
+    assertEquals("*", beanQueryForAllDomain.getQuery().getDomain());
 
     // usePropertyListPattern
     BeanQuery withPattern =
@@ -90,7 +90,7 @@ class BeanQueryTest {
             .whereProperty("type", "MemoryManager")
             .usePropertyListPattern()
             .build();
-    assertTrue(withPattern.objectName().isPropertyListPattern());
+    assertTrue(withPattern.getQuery().isPropertyListPattern());
 
     // invalid query: query whole domain name without specify "property list pattern"
     assertThrows(
