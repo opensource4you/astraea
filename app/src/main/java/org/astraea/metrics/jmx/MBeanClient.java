@@ -234,6 +234,14 @@ public class MBeanClient implements AutoCloseable {
     }
   }
 
+  /**
+   * The JMX URL of current MBeanClient instance
+   * @return the origin JMX URL used to initiate MBeanClient
+   */
+  public JMXServiceURL getAddress() {
+    return jmxServiceURL;
+  }
+
   private void ensureConnected() {
     if (isClosed) throw new IllegalStateException("MBean client is closed");
   }

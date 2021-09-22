@@ -368,4 +368,17 @@ class MBeanClientTest {
       assertTrue(domains.contains("java.nio"));
     }
   }
+
+    @Test
+    void testGetAddress() throws Exception {
+      // arrange
+      try (MBeanClient client = new MBeanClient(jmxServer.getAddress())) {
+
+        // act
+        JMXServiceURL address = client.getAddress();
+
+        // assert
+        assertEquals(jmxServer.getAddress(), address);
+      }
+    }
 }
