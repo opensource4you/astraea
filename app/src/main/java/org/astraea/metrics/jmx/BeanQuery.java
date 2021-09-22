@@ -13,13 +13,13 @@ import javax.management.ObjectName;
  *
  * <pre>{@code
  * // Query specific MBean from a JMX server:
- * BeanQuery.of("java.lang")
+ * BeanQuery.builder("java.lang")
  *       .whereProperty("type", "MemoryManager")
  *       .whereProperty("name", "CodeCacheManager")
  *       .build();
  *
  * // Query MBeans with specific property pattern from a JMX server:
- * BeanQuery.of("java.lang")
+ * BeanQuery.builder("java.lang")
  *       .whereProperty("type", "MemoryManager")
  *       .whereProperty("name", "*")
  *       .build();
@@ -142,11 +142,11 @@ public class BeanQuery {
     return new BeanQueryBuilder(domainName).usePropertyListPattern().build();
   }
 
-  public static BeanQueryBuilder of(String domainName) {
+  public static BeanQueryBuilder builder(String domainName) {
     return new BeanQueryBuilder(domainName);
   }
 
-  public static BeanQueryBuilder of(String domainName, Map<String, String> properties) {
+  public static BeanQueryBuilder builder(String domainName, Map<String, String> properties) {
     return new BeanQueryBuilder(domainName, properties);
   }
 

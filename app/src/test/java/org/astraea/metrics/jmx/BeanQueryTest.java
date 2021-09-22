@@ -12,7 +12,7 @@ class BeanQueryTest {
   @Test
   void domainName() {
     BeanQuery beanQuery =
-        BeanQuery.of("java.lang")
+        BeanQuery.builder("java.lang")
             .whereProperty("type", "MemoryManager")
             .whereProperty("name", "CodeCacheManager")
             .build();
@@ -23,7 +23,7 @@ class BeanQueryTest {
   @Test
   void propertyView() {
     BeanQuery beanQuery =
-        BeanQuery.of("java.lang")
+        BeanQuery.builder("java.lang")
             .whereProperty("type", "MemoryManager")
             .whereProperty("name", "CodeCacheManager")
             .build();
@@ -35,7 +35,7 @@ class BeanQueryTest {
   @Test
   void objectName() throws MalformedObjectNameException {
     BeanQuery beanQuery =
-        BeanQuery.of("java.lang")
+        BeanQuery.builder("java.lang")
             .whereProperty("type", "MemoryManager")
             .whereProperty("name", "CodeCacheManager")
             .build();
@@ -48,7 +48,7 @@ class BeanQueryTest {
   @Test
   void whereProperty() {
     BeanQuery.BeanQueryBuilder beanQueryBuilder =
-        BeanQuery.of("java.lang")
+        BeanQuery.builder("java.lang")
             .whereProperty("type", "MemoryManager")
             .whereProperty("name", "CodeCacheManager");
 
@@ -70,7 +70,7 @@ class BeanQueryTest {
     assertEquals(Map.of("type", "Memory"), beanQueryFromObjectName.properties());
 
     // map version
-    BeanQuery beanQueryFromMap = BeanQuery.of("java.lang", Map.of("type", "Memory")).build();
+    BeanQuery beanQueryFromMap = BeanQuery.builder("java.lang", Map.of("type", "Memory")).build();
     assertEquals("java.lang", beanQueryFromMap.domainName());
     assertEquals(Map.of("type", "Memory"), beanQueryFromMap.properties());
 
@@ -86,7 +86,7 @@ class BeanQueryTest {
 
     // usePropertyListPattern
     BeanQuery withPattern =
-        BeanQuery.of("java.lang")
+        BeanQuery.builder("java.lang")
             .whereProperty("type", "MemoryManager")
             .usePropertyListPattern()
             .build();
@@ -96,7 +96,7 @@ class BeanQueryTest {
     assertThrows(
         IllegalArgumentException.class,
         () -> {
-          BeanQuery.of("java.lang").build();
+          BeanQuery.builder("java.lang").build();
         });
   }
 }
