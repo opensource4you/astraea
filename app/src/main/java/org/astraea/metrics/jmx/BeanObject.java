@@ -1,5 +1,7 @@
 package org.astraea.metrics.jmx;
 
+import static java.util.Map.*;
+
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -9,16 +11,35 @@ public class BeanObject {
   private final Map<String, String> properties;
   private final Map<String, Object> attributes;
 
+  /**
+   * construct a {@link BeanObject}
+   *
+   * <p>Note that, for safety reason. Any null key/value entries may be discarded from the given
+   * properties & attributes map.
+   *
+   * @param domainName domain name of given Mbean snapshot
+   * @param properties properties of given Mbean snapshot
+   * @param attributes attribute and their value of given Mbean snapshot
+   */
   public BeanObject(
       String domainName, Map<String, String> properties, Map<String, Object> attributes) {
     this.domainName = Objects.requireNonNull(domainName);
-    this.properties = Map.copyOf(Objects.requireNonNull(properties));
-    // This is impossible to use Map#copyOf for following statement, since Map#copyOf will check
-    // if any key/value is null. It's possible that the attribute value returned from JMX Server is
-    // null. If we use Map#copyOf here we will get unexpected error for some MBeans result.
-    //noinspection Java9CollectionFactory
-    this.attributes =
-        Collections.unmodifiableMap(new HashMap<>(Objects.requireNonNull(attributes)));
+
+    // copy properties, and remove null key or null value
+    Objects.requireNonNull(properties);
+    Map<String, String> propertyMap =
+        properties.entrySet().stream()
+            .filter(entry -> entry.getKey() != null && entry.getValue() != null)
+            .collect(Collectors.toMap(Entry::getKey, Entry::getValue));
+    this.properties = Collections.unmodifiableMap(propertyMap);
+
+    // copy attribute, and remove null key or null value
+    Objects.requireNonNull(attributes);
+    Map<String, Object> attributeMap =
+        attributes.entrySet().stream()
+            .filter(entry -> entry.getKey() != null && entry.getValue() != null)
+            .collect(Collectors.toMap(Entry::getKey, Entry::getValue));
+    this.attributes = Collections.unmodifiableMap(attributeMap);
   }
 
   public String domainName() {
