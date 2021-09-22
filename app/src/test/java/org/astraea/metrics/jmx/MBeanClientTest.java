@@ -4,10 +4,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import java.io.IOException;
 import java.lang.management.ManagementFactory;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
+import java.util.*;
 import javax.management.*;
 import javax.management.remote.*;
 import org.junit.jupiter.api.AfterEach;
@@ -90,7 +87,7 @@ class MBeanClientTest {
     // arrange
     try (MBeanClient sut = new MBeanClient(jmxServer.getAddress())) {
       BeanQuery beanQuery = BeanQuery.builder("java.lang").property("type", "Memory").build();
-      String[] selectedAttribute = new String[] {"HeapMemoryUsage"};
+      List<String> selectedAttribute = List.of("HeapMemoryUsage");
 
       // act
       BeanObject beanObject = sut.queryBean(beanQuery, selectedAttribute);
@@ -138,7 +135,7 @@ class MBeanClientTest {
     // arrange
     try (MBeanClient sut = new MBeanClient(jmxServer.getAddress())) {
       BeanQuery beanQuery = BeanQuery.builder("java.lang").property("type", "Memory").build();
-      String[] selectedAttribute = new String[] {"HeapMemoryUsage"};
+      List<String> selectedAttribute = List.of("HeapMemoryUsage");
 
       // act
       Optional<BeanObject> beanObject = sut.tryQueryBean(beanQuery, selectedAttribute);
@@ -217,7 +214,7 @@ class MBeanClientTest {
       assertThrows(
           InstanceNotFoundException.class,
           () -> {
-            BeanObject beanObject = sut.queryBean(beanQuery, new String[0]);
+            BeanObject beanObject = sut.queryBean(beanQuery, Collections.emptyList());
           });
       assertDoesNotThrow(
           () -> {
@@ -226,7 +223,7 @@ class MBeanClientTest {
           });
       assertDoesNotThrow(
           () -> {
-            Optional<BeanObject> beanObject = sut.tryQueryBean(beanQuery, new String[0]);
+            Optional<BeanObject> beanObject = sut.tryQueryBean(beanQuery, Collections.emptyList());
             assertTrue(beanObject.isEmpty());
           });
     }
@@ -243,9 +240,10 @@ class MBeanClientTest {
 
     // assert
     assertThrows(IllegalStateException.class, () -> sut.queryBean(query));
-    assertThrows(IllegalStateException.class, () -> sut.queryBean(query, new String[0]));
+    assertThrows(IllegalStateException.class, () -> sut.queryBean(query, Collections.emptyList()));
     assertThrows(IllegalStateException.class, () -> sut.tryQueryBean(query));
-    assertThrows(IllegalStateException.class, () -> sut.tryQueryBean(query, new String[0]));
+    assertThrows(
+        IllegalStateException.class, () -> sut.tryQueryBean(query, Collections.emptyList()));
     assertThrows(IllegalStateException.class, () -> sut.queryBeans(query));
   }
 

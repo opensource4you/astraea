@@ -52,10 +52,10 @@ public class MBeanClient implements AutoCloseable {
       MBeanInfo mBeanInfo = mBeanServerConnection.getMBeanInfo(beanQuery.objectName());
 
       // create a list builder all available attributes name
-      String[] attributeName =
+      List<String> attributeName =
           Arrays.stream(mBeanInfo.getAttributes())
               .map(MBeanFeatureInfo::getName)
-              .toArray(String[]::new);
+              .collect(Collectors.toList());
 
       // query the result
       return queryBean(beanQuery, attributeName);
@@ -73,18 +73,19 @@ public class MBeanClient implements AutoCloseable {
    * exception will be placed into the attribute field.
    *
    * @param beanQuery the non-pattern BeanQuery
-   * @param attributeNameList a list of attribute you want to retrieve
+   * @param attributeNameCollection a list of attribute you want to retrieve
    * @return A {@link BeanObject} contain given specific attributes if target resolved successfully.
    * @throws InstanceNotFoundException If the pattern target doesn't exists on remote mbean server.
    */
-  public BeanObject queryBean(BeanQuery beanQuery, String[] attributeNameList)
+  public BeanObject queryBean(BeanQuery beanQuery, Collection<String> attributeNameCollection)
       throws InstanceNotFoundException {
     ensureConnected();
     try {
 
       // fetch attribute value from mbean server
+      String[] attributeNameArray = attributeNameCollection.toArray(new String[0]);
       List<Attribute> attributeList =
-          mBeanServerConnection.getAttributes(beanQuery.objectName(), attributeNameList).asList();
+          mBeanServerConnection.getAttributes(beanQuery.objectName(), attributeNameArray).asList();
 
       // collect attribute name & value into a map
       Map<String, Object> attributes = new HashMap<>();
@@ -98,7 +99,7 @@ public class MBeanClient implements AutoCloseable {
       // check for such condition and try to figure out what exactly the error is. put it into
       // attributes return result.
       Set<String> notResolvedAttributes =
-          Arrays.stream(attributeNameList)
+          Arrays.stream(attributeNameArray)
               .filter(str -> !attributes.containsKey(str))
               .collect(Collectors.toSet());
       for (String attributeName : notResolvedAttributes) {
@@ -168,15 +169,16 @@ public class MBeanClient implements AutoCloseable {
    * exception will be placed into the attribute field.
    *
    * @param beanQuery the non-pattern BeanQuery
-   * @param attributeNameList array of attribute names you want to retrieve
+   * @param attributeNameCollection array of attribute names you want to retrieve
    * @return A {@link Optional<BeanObject>} contain the exactly {@link BeanObject} with specific
    *     attributes resolved if target mbeans resolved successfully. If the pattern target doesn't
    *     exists on remote mbean server, then an {@link Optional#empty()} returned.
    */
-  public Optional<BeanObject> tryQueryBean(BeanQuery beanQuery, String[] attributeNameList) {
+  public Optional<BeanObject> tryQueryBean(
+      BeanQuery beanQuery, Collection<String> attributeNameCollection) {
     ensureConnected();
     try {
-      return Optional.of(this.queryBean(beanQuery, attributeNameList));
+      return Optional.of(this.queryBean(beanQuery, attributeNameCollection));
     } catch (InstanceNotFoundException e) {
       return Optional.empty();
     }
