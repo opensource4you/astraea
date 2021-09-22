@@ -134,18 +134,52 @@ public class BeanQuery {
     }
   }
 
+  /**
+   * construct a {@link BeanQuery} that target all MBeans under every domain name
+   *
+   * @return a {@link BeanQuery} object that target all MBeans under every domain name
+   */
   public static BeanQuery all() {
     return new BeanQueryBuilder("*").usePropertyListPattern().build();
   }
 
+  /**
+   * construct a {@link BeanQuery} that target all MBeans under specific domain name
+   *
+   * @param domainName the domain name to query
+   * @return a {@link BeanQuery} object that target all MBeans under specific domain name
+   */
   public static BeanQuery all(String domainName) {
     return new BeanQueryBuilder(domainName).usePropertyListPattern().build();
   }
 
+  /**
+   * construct a {@link BeanQueryBuilder} that target specific domainName.
+   *
+   * <pre>{@code
+   * // A typical usage of BeanQuery#builder
+   * BeanQuery myQuery = BeanQuery.builder("java.lang")
+   *      .property("type", "Memory")
+   *      .build();
+   * }</pre>
+   *
+   * @param domainName the query target domain name for Builder
+   * @return a {@link BeanQueryBuilder} that can be used to construct a query against specific MBean
+   *     domain name
+   */
   public static BeanQueryBuilder builder(String domainName) {
     return new BeanQueryBuilder(domainName);
   }
 
+  /**
+   * construct a {@link BeanQueryBuilder} that target specific domainName. With some properties
+   * given already.
+   *
+   * @param domainName the query target domain name for Builder
+   * @param properties a {@link Map} of property entries, used to initialize the builder
+   * @return a {@link BeanQueryBuilder} that can be used to construct a query against specific MBean
+   *     domain name
+   */
   public static BeanQueryBuilder builder(String domainName, Map<String, String> properties) {
     return new BeanQueryBuilder(domainName, properties);
   }
