@@ -105,7 +105,7 @@ public class MBeanClient implements AutoCloseable {
         attributes.put(attributeName, fetchAttributeObjectOrException(beanQuery, attributeName));
       }
 
-      // collect result, and build a ne BeanObject as return result
+      // collect result, and build a new BeanObject as return result
       return new BeanObject(beanQuery.domainName(), beanQuery.properties(), attributes);
 
     } catch (ReflectionException e) {
