@@ -48,11 +48,9 @@ public class BeanQuery {
    * @param properties the target MBeans's properties
    * @param usePropertyListPattern use property list pattern or not. If used, a ",*" or "*" string
    *     will be appended to ObjectName.
-   * @throws IllegalArgumentException if any given domain name or properties is in invalid format
    */
   public BeanQuery(
-      String domainName, Map<String, String> properties, boolean usePropertyListPattern)
-      throws IllegalArgumentException {
+      String domainName, Map<String, String> properties, boolean usePropertyListPattern) {
     this.domainName = Objects.requireNonNull(domainName);
     this.properties = Map.copyOf(Objects.requireNonNull(properties));
     this.usePropertyListPattern = usePropertyListPattern;
@@ -127,9 +125,8 @@ public class BeanQuery {
      *
      * @return a {@link BeanQuery} with specific MBeans domain name & properties, based on the
      *     previous calling to {@link BeanQueryBuilder#property(String, String)}.
-     * @throws IllegalArgumentException if domain name or any property is in invalid format.
      */
-    public BeanQuery build() throws IllegalArgumentException {
+    public BeanQuery build() {
       return new BeanQuery(domainName, properties, usePropertyListPattern);
     }
   }
