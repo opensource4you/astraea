@@ -13,8 +13,8 @@ class BeanQueryTest {
   void domainName() {
     BeanQuery beanQuery =
         BeanQuery.builder("java.lang")
-            .whereProperty("type", "MemoryManager")
-            .whereProperty("name", "CodeCacheManager")
+            .property("type", "MemoryManager")
+            .property("name", "CodeCacheManager")
             .build();
 
     assertEquals("java.lang", beanQuery.domainName());
@@ -24,8 +24,8 @@ class BeanQueryTest {
   void propertyView() {
     BeanQuery beanQuery =
         BeanQuery.builder("java.lang")
-            .whereProperty("type", "MemoryManager")
-            .whereProperty("name", "CodeCacheManager")
+            .property("type", "MemoryManager")
+            .property("name", "CodeCacheManager")
             .build();
 
     assertEquals(
@@ -36,8 +36,8 @@ class BeanQueryTest {
   void objectName() throws MalformedObjectNameException {
     BeanQuery beanQuery =
         BeanQuery.builder("java.lang")
-            .whereProperty("type", "MemoryManager")
-            .whereProperty("name", "CodeCacheManager")
+            .property("type", "MemoryManager")
+            .property("name", "CodeCacheManager")
             .build();
 
     assertEquals(
@@ -49,11 +49,11 @@ class BeanQueryTest {
   void whereProperty() {
     BeanQuery.BeanQueryBuilder beanQueryBuilder =
         BeanQuery.builder("java.lang")
-            .whereProperty("type", "MemoryManager")
-            .whereProperty("name", "CodeCacheManager");
+            .property("type", "MemoryManager")
+            .property("name", "CodeCacheManager");
 
     BeanQuery beanQuery0 = beanQueryBuilder.build();
-    BeanQuery beanQuery1 = beanQueryBuilder.whereProperty("hello", "world").build();
+    BeanQuery beanQuery1 = beanQueryBuilder.property("hello", "world").build();
 
     assertTrue(beanQuery1.properties().containsKey("hello"));
     assertTrue(beanQuery1.properties().containsValue("world"));
@@ -87,7 +87,7 @@ class BeanQueryTest {
     // usePropertyListPattern
     BeanQuery withPattern =
         BeanQuery.builder("java.lang")
-            .whereProperty("type", "MemoryManager")
+            .property("type", "MemoryManager")
             .usePropertyListPattern()
             .build();
     assertTrue(withPattern.objectName().isPropertyListPattern());

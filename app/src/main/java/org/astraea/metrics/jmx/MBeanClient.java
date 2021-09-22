@@ -14,8 +14,8 @@ import javax.management.remote.*;
  * <pre>{@code
  * try(MBeanClient client = new MBeanClient(jmxConnectorServer.getAddress())) {
  *   BeanObject bean = client.queryBean(BeanQuery.builder("java.lang")
- *            .whereProperty("type", "MemoryManager")
- *            .whereProperty("name", "CodeCacheManager")
+ *            .property("type", "MemoryManager")
+ *            .property("name", "CodeCacheManager")
  *            .build());
  *   System.out.println(bean.getAttributes());
  * }</pre>

@@ -14,14 +14,14 @@ import javax.management.ObjectName;
  * <pre>{@code
  * // Query specific MBean from a JMX server:
  * BeanQuery.builder("java.lang")
- *       .whereProperty("type", "MemoryManager")
- *       .whereProperty("name", "CodeCacheManager")
+ *       .property("type", "MemoryManager")
+ *       .property("name", "CodeCacheManager")
  *       .build();
  *
  * // Query MBeans with specific property pattern from a JMX server:
  * BeanQuery.builder("java.lang")
- *       .whereProperty("type", "MemoryManager")
- *       .whereProperty("name", "*")
+ *       .property("type", "MemoryManager")
+ *       .property("name", "*")
  *       .build();
  *
  * // Query all Mbeans from a JMX server:
@@ -107,7 +107,7 @@ public class BeanQuery {
       this.usePropertyListPattern = false;
     }
 
-    public BeanQueryBuilder whereProperty(String key, String value) {
+    public BeanQueryBuilder property(String key, String value) {
       this.properties.put(key, value);
       return this;
     }
@@ -126,7 +126,7 @@ public class BeanQuery {
      * Build a {@link BeanQuery} object based on current builder state.
      *
      * @return a {@link BeanQuery} with specific MBeans domain name & properties, based on the
-     *     previous calling to {@link BeanQueryBuilder#whereProperty(String, String)}.
+     *     previous calling to {@link BeanQueryBuilder#property(String, String)}.
      * @throws IllegalArgumentException if domain name or any property is in invalid format.
      */
     public BeanQuery build() throws IllegalArgumentException {
