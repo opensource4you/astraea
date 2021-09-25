@@ -62,4 +62,19 @@ public class BeanObject {
             .collect(Collectors.joining(","));
     return "[" + domainName + ":" + propertyList + "]\n" + attributes;
   }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) return true;
+    if (o == null || getClass() != o.getClass()) return false;
+    BeanObject that = (BeanObject) o;
+    return domainName.equals(that.domainName)
+        && properties.equals(that.properties)
+        && attributes.equals(that.attributes);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(domainName, properties, attributes);
+  }
 }
