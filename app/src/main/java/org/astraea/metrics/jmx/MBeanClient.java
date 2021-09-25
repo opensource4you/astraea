@@ -230,7 +230,7 @@ public class MBeanClient implements AutoCloseable {
    */
   public List<String> listDomains() {
     try {
-      return Arrays.stream(mBeanServerConnection.getDomains()).collect(Collectors.toList());
+      return Arrays.asList(mBeanServerConnection.getDomains());
     } catch (IOException e) {
       throw new UncheckedIOException(e);
     }
