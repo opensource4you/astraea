@@ -30,7 +30,6 @@ public class MBeanClient implements AutoCloseable {
   public MBeanClient(JMXServiceURL jmxServiceURL) throws IOException {
     this.jmxServiceURL = Objects.requireNonNull(jmxServiceURL);
     this.jmxConnector = JMXConnectorFactory.connect(jmxServiceURL);
-    jmxConnector.connect();
     this.isClosed = false;
     this.mBeanServerConnection = jmxConnector.getMBeanServerConnection();
   }
