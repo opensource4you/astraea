@@ -195,7 +195,7 @@ public class MBeanClient implements AutoCloseable {
    * @param beanQuery the pattern to query
    * @return A {@link Set} of {@link BeanObject}, all BeanObject has its own attributes resolved.
    */
-  public Set<BeanObject> queryBeans(BeanQuery beanQuery) {
+  public Collection<BeanObject> queryBeans(BeanQuery beanQuery) {
     ensureConnected();
     try {
 

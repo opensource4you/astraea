@@ -155,7 +155,7 @@ class MBeanClientTest {
       BeanQuery beanQuery = BeanQuery.builder("java.lang").property("type", "C*").build();
 
       // act 1
-      Set<BeanObject> beanObjects = sut.queryBeans(beanQuery);
+      Collection<BeanObject> beanObjects = sut.queryBeans(beanQuery);
 
       // assert 1
       assertEquals(2, beanObjects.size());
@@ -192,7 +192,7 @@ class MBeanClientTest {
       BeanQuery beanQuery = BeanQuery.builder("java.lang").property("type", "Something").build();
 
       // act
-      Set<BeanObject> beanObjects = sut.queryBeans(beanQuery);
+      Collection<BeanObject> beanObjects = sut.queryBeans(beanQuery);
 
       // assert
       assertEquals(0, beanObjects.size());
@@ -269,7 +269,7 @@ class MBeanClientTest {
     try (MBeanClient client = new MBeanClient(jmxServer.getAddress())) {
 
       // act
-      Set<BeanObject> beanObjects = client.queryBeans(BeanQuery.all());
+      Collection<BeanObject> beanObjects = client.queryBeans(BeanQuery.all());
 
       // assert
       assertTrue(beanObjects.stream().anyMatch(x -> x.domainName().equals("java.lang")));
@@ -283,7 +283,7 @@ class MBeanClientTest {
     try (MBeanClient client = new MBeanClient(jmxServer.getAddress())) {
 
       // act
-      Set<BeanObject> beanObjects = client.queryBeans(BeanQuery.all("java.lang"));
+      Collection<BeanObject> beanObjects = client.queryBeans(BeanQuery.all("java.lang"));
 
       // assert
       assertTrue(beanObjects.size() > 1);
@@ -297,7 +297,7 @@ class MBeanClientTest {
     try (MBeanClient client = new MBeanClient(jmxServer.getAddress())) {
 
       // act
-      Set<BeanObject> beanObjects = client.queryBeans(BeanQuery.all("java.*"));
+      Collection<BeanObject> beanObjects = client.queryBeans(BeanQuery.all("java.*"));
 
       // assert
       assertTrue(beanObjects.size() > 1);
@@ -313,7 +313,7 @@ class MBeanClientTest {
           BeanQuery.builder("java.lang").property("type", "*").usePropertyListPattern().build();
 
       // act
-      Set<BeanObject> beanObjects = client.queryBeans(patternQuery);
+      Collection<BeanObject> beanObjects = client.queryBeans(patternQuery);
 
       // assert
       /*
