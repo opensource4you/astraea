@@ -1,10 +1,12 @@
 package org.astraea.metrics.jmx;
 
+import static java.util.stream.Collectors.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 import java.io.IOException;
 import java.lang.management.ManagementFactory;
 import java.util.*;
+import java.util.stream.IntStream;
 import javax.management.*;
 import javax.management.remote.*;
 import org.junit.jupiter.api.AfterEach;
@@ -15,12 +17,37 @@ class MBeanClientTest {
 
   private MBeanServer mBeanServer;
   private JMXConnectorServer jmxServer;
+  private Map<ObjectName, Object> registeredBeans = new HashMap<>();
+
+  private void register(ObjectName name, Object mBean) {
+    registeredBeans.put(name, mBean);
+    try {
+      mBeanServer.registerMBean(mBean, name);
+    } catch (InstanceAlreadyExistsException
+        | MBeanRegistrationException
+        | NotCompliantMBeanException e) {
+      throw new RuntimeException(e);
+    }
+  }
+
+  private void clearRegisteredMBeans() {
+    registeredBeans.forEach(
+        (name, mbeans) -> {
+          try {
+            mBeanServer.unregisterMBean(name);
+          } catch (InstanceNotFoundException | MBeanRegistrationException e) {
+            throw new RuntimeException(e);
+          }
+        });
+    registeredBeans.clear();
+  }
 
   @BeforeEach
   void setUp() throws IOException {
     JMXServiceURL serviceURL = new JMXServiceURL("service:jmx:rmi://127.0.0.1");
 
     mBeanServer = ManagementFactory.getPlatformMBeanServer();
+
     jmxServer = JMXConnectorServerFactory.newJMXConnectorServer(serviceURL, null, mBeanServer);
     jmxServer.start();
   }
@@ -28,6 +55,7 @@ class MBeanClientTest {
   @AfterEach
   void tearDown() throws IOException {
     jmxServer.stop();
+    clearRegisteredMBeans();
     mBeanServer = null;
   }
 
@@ -378,6 +406,77 @@ class MBeanClientTest {
 
       // assert
       assertEquals(jmxServer.getAddress(), address);
+    }
+  }
+
+  @Test
+  void testCustomMBeanWith500Attributes() throws Exception {
+    // arrange
+    Map<String, Integer> mbeanPayload =
+        IntStream.range(0, 500).boxed().collect(toMap(i -> "attribute" + i, i -> i));
+    Object customMBean0 = Utility.createReadOnlyDynamicMBean(mbeanPayload);
+    ObjectName objectName0 = ObjectName.getInstance("com.example:type=test0");
+
+    register(objectName0, customMBean0);
+
+    try (MBeanClient client = new MBeanClient(jmxServer.getAddress())) {
+
+      // act
+      Collection<BeanObject> all =
+          client.queryBeans(BeanQuery.builder("com.example").property("type", "test*").build());
+
+      // assert
+      Map<String, Object> mergedCollect =
+          all.stream()
+              .flatMap(beanObject -> beanObject.getAttributes().entrySet().stream())
+              .collect(toMap(Map.Entry::getKey, Map.Entry::getValue));
+
+      assertEquals(500, mergedCollect.size());
+      assertEquals(mbeanPayload, mergedCollect);
+    }
+  }
+
+  @Test
+  void testWith100CustomMBeans() throws Exception {
+    // arrange
+    for (int i = 0; i < 100; i++) {
+      ObjectName objectName = ObjectName.getInstance("com.example:type=test" + i);
+      Object mbean = Utility.createReadOnlyDynamicMBean(Map.of("attribute", i));
+      register(objectName, mbean);
+    }
+
+    try (MBeanClient client = new MBeanClient(jmxServer.getAddress())) {
+
+      // act
+      Collection<BeanObject> all =
+          client.queryBeans(BeanQuery.builder("com.example").property("type", "test*").build());
+
+      // assert
+      List<Map.Entry<String, String>> properties =
+          all.stream()
+              .map(BeanObject::getProperties)
+              .map(Map::entrySet)
+              .flatMap(Collection::stream)
+              .collect(toList());
+      Set<String> propKeys = properties.stream().map(Map.Entry::getKey).collect(toSet());
+      Set<String> propValues = properties.stream().map(Map.Entry::getValue).collect(toSet());
+
+      List<Map.Entry<String, Object>> attributes =
+          all.stream()
+              .map(BeanObject::getAttributes)
+              .map(Map::entrySet)
+              .flatMap(Collection::stream)
+              .collect(toList());
+      Set<String> attrKeys = attributes.stream().map(Map.Entry::getKey).collect(toSet());
+      Set<Object> attrValues = attributes.stream().map(Map.Entry::getValue).collect(toSet());
+
+      assertEquals(100, all.size());
+      assertEquals(100, properties.size());
+      assertEquals(100, attributes.size());
+      assertEquals(Set.of("type"), propKeys);
+      assertEquals(Set.of("attribute"), attrKeys);
+      assertEquals(IntStream.range(0, 100).mapToObj(x -> "test" + x).collect(toSet()), propValues);
+      assertEquals(IntStream.range(0, 100).boxed().collect(toSet()), attrValues);
     }
   }
 }
