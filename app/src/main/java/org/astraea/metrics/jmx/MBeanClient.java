@@ -251,11 +251,8 @@ public class MBeanClient implements AutoCloseable {
 
   @Override
   public void close() throws Exception {
-    if (!isClosed) {
-      this.isClosed = true;
-      this.jmxConnector.close();
-    } else {
-      throw new IllegalStateException("MBeanClient already closed");
-    }
+    ensureConnected();
+    this.isClosed = true;
+    this.jmxConnector.close();
   }
 }
