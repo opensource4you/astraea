@@ -39,7 +39,6 @@ public class BeanQuery {
   private final String domainName;
   private final Map<String, String> properties;
   private final ObjectName objectName;
-  private final boolean usePropertyListPattern;
 
   /**
    * Initialize a BeanQuery.
@@ -53,7 +52,6 @@ public class BeanQuery {
       String domainName, Map<String, String> properties, boolean usePropertyListPattern) {
     this.domainName = Objects.requireNonNull(domainName);
     this.properties = Map.copyOf(Objects.requireNonNull(properties));
-    this.usePropertyListPattern = usePropertyListPattern;
     try {
       if (usePropertyListPattern) {
         String propertyList =
