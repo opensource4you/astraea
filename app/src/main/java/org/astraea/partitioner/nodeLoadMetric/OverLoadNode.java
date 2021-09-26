@@ -1,28 +1,30 @@
 package org.astraea.partitioner.nodeLoadMetric;
 
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 
 public class OverLoadNode {
   private double standardDeviation = 0;
   private double avgBrokersMsgPerSec = 0;
-  private int[] nodesID;
+  private Collection<Integer> nodesID;
   private int nodeNum;
-  private int mountCount;
+  private int mountCount = 0;
   private HashMap<Integer, Double> eachBrokerMsgPerSec = new HashMap();
 
   OverLoadNode() {
     this.nodesID = getNodesID();
-    this.nodeNum = getNodesID().length;
+    this.nodeNum = getNodesID().size();
   }
 
   /** Monitor and update the number of overloads of each node. */
   public void monitorOverLoad(HashMap<Integer, Integer> overLoadCount) {
-    int ifOverLoad = 0;
     setBrokersMsgPerSec();
     setAvgBrokersMsgPerSec();
     standardDeviationImperative();
     for (Map.Entry<Integer, Double> entry : eachBrokerMsgPerSec.entrySet()) {
+      int ifOverLoad = 0;
       if (entry.getValue() > (avgBrokersMsgPerSec + standardDeviation)) {
         ifOverLoad = 1;
       }
@@ -75,32 +77,38 @@ public class OverLoadNode {
   }
 
   // Only for test
-  public void setEachBrokerMsgPerSec(HashMap<Integer, Double> hashMap) {
+  void setEachBrokerMsgPerSec(HashMap<Integer, Double> hashMap) {
     this.eachBrokerMsgPerSec = hashMap;
   }
 
   // Only for test
-  public double getStandardDeviation() {
+  double getStandardDeviation() {
     return this.standardDeviation;
   }
 
   // Only for test
-  public double getAvgBrokersMsgPerSec() {
+  double getAvgBrokersMsgPerSec() {
     return this.avgBrokersMsgPerSec;
   }
 
   // Only for test
-  public void setMountCount(int i) {
+  void setMountCount(int i) {
     this.mountCount = i;
   }
 
   // TODO
   private double getEachBrokerMsgPerSec(int nodeID) {
-    return 0;
+    return eachBrokerMsgPerSec.get(nodeID);
   }
 
   // TODO
-  private int[] getNodesID() {
-    return new int[] {0, 1, 2, 3};
+  private Collection<Integer> getNodesID() {
+    Collection<Integer> testNodes = new ArrayList<Integer>();
+    testNodes.add(0);
+    testNodes.add(1);
+    testNodes.add(2);
+    testNodes.add(3);
+
+    return testNodes;
   }
 }

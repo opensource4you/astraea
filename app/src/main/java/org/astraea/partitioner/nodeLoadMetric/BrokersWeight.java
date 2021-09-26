@@ -44,12 +44,12 @@ public class BrokersWeight {
     return brokerHashMap;
   }
 
-  public void setCurrentBrokerHashMap(HashMap<Integer, int[]> currentBrokerHashMap) {
+  public synchronized void setCurrentBrokerHashMap(HashMap<Integer, int[]> currentBrokerHashMap) {
     brokerHashMap = currentBrokerHashMap;
   }
 
   // Only for test
-  public void setBrokerHashMapValue(Integer x, int y) {
+  void setBrokerHashMapValue(Integer x, int y) {
     brokerHashMap.put(x, new int[] {0, y});
   }
 }

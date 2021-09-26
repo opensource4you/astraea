@@ -1,7 +1,5 @@
 package org.astraea.partitioner.nodeLoadMetric;
 
-import static org.astraea.partitioner.nodeLoadMetric.NodeLoadClient.setOverLoadCount;
-
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
@@ -10,6 +8,8 @@ import org.apache.kafka.clients.producer.Partitioner;
 import org.apache.kafka.common.Cluster;
 import org.apache.kafka.common.PartitionInfo;
 
+import static org.astraea.partitioner.nodeLoadMetric.NodeLoadClient.*;
+
 public class SmoothPartitioner implements Partitioner {
 
   /** Implement Smooth Weight Round Robin. */
@@ -17,10 +17,14 @@ public class SmoothPartitioner implements Partitioner {
   public int partition(
       String topic, Object key, byte[] keyBytes, Object value, byte[] valueBytes, Cluster cluster) {
 
-    // I think I need to find a suitable place to put it.
-    setOverLoadCount();
+    NodeLoadClient nodeLoadClient = null;
+    try {
+      nodeLoadClient = getNodeLoadInstance();
+    } catch (InterruptedException e) {
+      e.printStackTrace();
+    }
 
-    LoadPoisson loadPoisson = new LoadPoisson();
+    LoadPoisson loadPoisson = new LoadPoisson(nodeLoadClient);
     BrokersWeight brokersWeight = new BrokersWeight(loadPoisson);
     brokersWeight.setBrokerHashMap();
     Map.Entry<Integer, int[]> maxWeightServer = null;
@@ -45,6 +49,7 @@ public class SmoothPartitioner implements Partitioner {
       partitionList.add(partitionInfo.partition());
     }
     Random rand = new Random();
+    nodeLoadClient.tellAlive();
     return partitionList.get(rand.nextInt(partitionList.size()));
   }
 
@@ -53,4 +58,5 @@ public class SmoothPartitioner implements Partitioner {
 
   @Override
   public void configure(Map<String, ?> configs) {}
+
 }

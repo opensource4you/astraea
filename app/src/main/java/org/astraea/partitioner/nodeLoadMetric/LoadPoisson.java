@@ -4,13 +4,17 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class LoadPoisson {
+  private NodeLoadClient nodeLoadClient;
+
+  LoadPoisson (NodeLoadClient nodeLoadClient){
+    this.nodeLoadClient = nodeLoadClient;
+  }
 
   public HashMap<Integer, Double> setAllPoisson() {
     HashMap<Integer, Double> poissonMap = new HashMap<>();
-    NodeLoadClient nodeLoadClient = new NodeLoadClient();
     int lambda = nodeLoadClient.getAvgLoadCount();
     for (Map.Entry<Integer, Integer> entry : nodeLoadClient.getOverLoadCount().entrySet()) {
-      int x = nodeLoadClient.getBinOneCount(entry.getKey());
+      int x = nodeLoadClient.getBinOneCount(entry.getValue());
       poissonMap.put(entry.getKey(), doPoisson(lambda, x));
     }
     return poissonMap;
