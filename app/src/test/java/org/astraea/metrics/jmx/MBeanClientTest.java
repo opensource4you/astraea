@@ -234,16 +234,9 @@ class MBeanClientTest {
       BeanQuery beanQuery = BeanQuery.builder("java.lang").property("type", "Something").build();
 
       // act assert
+      assertThrows(InstanceNotFoundException.class, () -> sut.queryBean(beanQuery));
       assertThrows(
-          InstanceNotFoundException.class,
-          () -> {
-            BeanObject beanObject = sut.queryBean(beanQuery);
-          });
-      assertThrows(
-          InstanceNotFoundException.class,
-          () -> {
-            BeanObject beanObject = sut.queryBean(beanQuery, Collections.emptyList());
-          });
+          InstanceNotFoundException.class, () -> sut.queryBean(beanQuery, Collections.emptyList()));
       assertDoesNotThrow(
           () -> {
             Optional<BeanObject> beanObject = sut.tryQueryBean(beanQuery);
