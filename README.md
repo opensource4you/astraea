@@ -8,11 +8,17 @@ a collection of tools used to balance Kafka data
 - Zheng-Xian Li <garyparrottt@gmail.com>
 - Xiang-Jun Sun <sean0651101@gmail.com>
 
-# Quickstart a Kafka Env
+# Kafka Tools
+
+This project offers many kafka tools to simplify the life for kafka users.
+
+---
+
+## Quickstart a Kafka Env
 
 There are two scripts which can setup env quickly by container
 
-## Set up zookeeper with default version
+### Set up zookeeper with default version
 
 ```shell
 ./docker/start_zookeeper.sh
@@ -26,13 +32,13 @@ run ./docker/start_broker.sh zookeeper.connect=192.168.50.178:17228 to join kafk
 =================================================
 ```
 
-## Set up zookeeper with specific version
+### Set up zookeeper with specific version
 
 ```shell
 ZOOKEEPER_VERSION=3.6.3 ./docker/start_zookeeper.sh
 ```
 
-## Set up (kafka) broker with default version
+### Set up (kafka) broker with default version
 
 After the zk env is running, you can copy the command (see above example) from zk script output to set up kafka. For example:
 ```shell
@@ -50,15 +56,13 @@ jmx address: 192.168.50.224:15905
 
 Noted that the command to set up broker can be executed multiple times to create a broker cluster.
 
-## Set up (kafka) broker with specific version
+### Set up (kafka) broker with specific version
 
 ```shell
 KAFKA_VERSION=2.8.0 ./docker/start_broker.sh zookeeper.connect=192.168.50.178:17228
 ```
 
-# Kafka Tools
-
-This project offers many kafka tools to simplify the life for kafka users.
+---
 
 ## Latency Benchmark
 
@@ -84,6 +88,8 @@ Run the benchmark from release
 5. --duration: the duration to run this benchmark. Default: 5 seconds
 6. --flushDuration: the duration to flush producer records. Default: 2 seconds
 
+---
+
 ## Offset Explorer
 
 This tool can expose both earliest offset and latest offset for all (public and private) topics.
@@ -101,6 +107,8 @@ Run the benchmark from release
 ### Offset Explorer Configurations
 1. --bootstrap.servers: the server to connect to
 2. --topic: the topic to search
+
+---
 
 ## Kafka Official Tool
 
