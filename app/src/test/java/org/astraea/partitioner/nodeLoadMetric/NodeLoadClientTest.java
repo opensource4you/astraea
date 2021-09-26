@@ -3,9 +3,8 @@ package org.astraea.partitioner.nodeLoadMetric;
 import static org.astraea.partitioner.nodeLoadMetric.NodeLoadClient.*;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import org.junit.jupiter.api.Test;
-
 import java.util.HashMap;
+import org.junit.jupiter.api.Test;
 
 public class NodeLoadClientTest {
 
@@ -51,8 +50,8 @@ public class NodeLoadClientTest {
 
     nodeLoadClient.tearDownClient();
 
-//    nodeLoadClient.getOverLoadCount();
+    //    nodeLoadClient.getOverLoadCount();
 
-//    System.out.println(nodeLoadClient.getOverLoadCount());
+    //    System.out.println(nodeLoadClient.getOverLoadCount());
   }
 }

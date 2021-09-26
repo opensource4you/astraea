@@ -2,7 +2,7 @@ package org.astraea.partitioner.nodeLoadMetric;
 
 import java.util.*;
 
-public class NodeLoadClient implements Runnable{
+public class NodeLoadClient implements Runnable {
 
   /** This value records the number of times each node has been overloaded within ten seconds. */
   private static HashMap<Integer, Integer> overLoadCount = new HashMap();
@@ -19,7 +19,7 @@ public class NodeLoadClient implements Runnable{
   public static NodeLoadClient getNodeLoadInstance() throws InterruptedException {
     if (!NodeLoadClientHolder.clientOn) {
       NodeLoadClientHolder.clientOn = true;
-      for (int i=0; i<10; i++){
+      for (int i = 0; i < 10; i++) {
         overLoadCount.put(i, 0);
       }
       Thread loadThread = new Thread(NodeLoadClientHolder.nodeLoadClient);
@@ -28,17 +28,16 @@ public class NodeLoadClient implements Runnable{
     return NodeLoadClientHolder.nodeLoadClient;
   }
 
-  /**
-   * A Cradle system for NodeLoadClient.
-   */
+  /** A Cradle system for NodeLoadClient. */
   @Override
   public void run() {
     try {
       while (!NodeLoadClientHolder.timeOut) {
         NodeLoadClientHolder.overLoadNode.monitorOverLoad(overLoadCount);
         NodeLoadClientHolder.timeOutCount++;
-        NodeLoadClientHolder.timeOut = NodeLoadClientHolder.timeOutCount>9;
-        NodeLoadClientHolder.timeOutCount = NodeLoadClientHolder.currentAlive?0:NodeLoadClientHolder.timeOutCount;
+        NodeLoadClientHolder.timeOut = NodeLoadClientHolder.timeOutCount > 9;
+        NodeLoadClientHolder.timeOutCount =
+            NodeLoadClientHolder.currentAlive ? 0 : NodeLoadClientHolder.timeOutCount;
         NodeLoadClientHolder.currentAlive = false;
         Thread.sleep(1000);
       }
@@ -60,7 +59,7 @@ public class NodeLoadClient implements Runnable{
     for (Map.Entry<Integer, Integer> entry : overLoadCount.entrySet()) {
       avgLoadCount += getBinOneCount(entry.getValue());
     }
-    return overLoadCount.size()>0?(int) avgLoadCount / overLoadCount.size():0;
+    return overLoadCount.size() > 0 ? (int) avgLoadCount / overLoadCount.size() : 0;
   }
 
   /** Get the number of times a node is overloaded. */
@@ -78,24 +77,22 @@ public class NodeLoadClient implements Runnable{
     return count;
   }
 
-  /**
-   * Baby don't cry.
-   */
+  /** Baby don't cry. */
   public void tellAlive() {
     NodeLoadClientHolder.currentAlive = true;
   }
 
-  //Only for test
+  // Only for test
   void setOverLoadCount(HashMap<Integer, Integer> loadCount) {
     overLoadCount = loadCount;
   }
 
-  //Only for test
-  static void setOverLoadNode(OverLoadNode loadNode){
+  // Only for test
+  static void setOverLoadNode(OverLoadNode loadNode) {
     NodeLoadClientHolder.overLoadNode = loadNode;
   }
 
-  //Only for test
+  // Only for test
   static int getTimeOutCount() {
     return NodeLoadClientHolder.timeOutCount;
   }

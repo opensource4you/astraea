@@ -1,5 +1,7 @@
 package org.astraea.partitioner.nodeLoadMetric;
 
+import static org.astraea.partitioner.nodeLoadMetric.NodeLoadClient.*;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
@@ -7,8 +9,6 @@ import java.util.Random;
 import org.apache.kafka.clients.producer.Partitioner;
 import org.apache.kafka.common.Cluster;
 import org.apache.kafka.common.PartitionInfo;
-
-import static org.astraea.partitioner.nodeLoadMetric.NodeLoadClient.*;
 
 public class SmoothPartitioner implements Partitioner {
 
@@ -58,5 +58,4 @@ public class SmoothPartitioner implements Partitioner {
 
   @Override
   public void configure(Map<String, ?> configs) {}
-
 }

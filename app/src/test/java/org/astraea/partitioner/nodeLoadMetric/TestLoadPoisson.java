@@ -3,9 +3,8 @@ package org.astraea.partitioner.nodeLoadMetric;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.*;
 
-import org.junit.jupiter.api.Test;
-
 import java.util.HashMap;
+import org.junit.jupiter.api.Test;
 
 public class TestLoadPoisson {
   public NodeLoadClient nodeLoadClient;
@@ -32,7 +31,7 @@ public class TestLoadPoisson {
 
   @Test
   public void testSetAllPoisson() {
-    HashMap<Integer,Integer> testNodesLoadCount = new HashMap<>();
+    HashMap<Integer, Integer> testNodesLoadCount = new HashMap<>();
     testNodesLoadCount.put(0, 10);
     testNodesLoadCount.put(1, 31);
     testNodesLoadCount.put(2, 255);
@@ -43,7 +42,9 @@ public class TestLoadPoisson {
     testPoissonMap.put(1, 0.6159606548330632);
     testPoissonMap.put(2, 0.9319063652781515);
 
-    NodeLoadClient nodeLoadClient = mock(NodeLoadClient.class,
+    NodeLoadClient nodeLoadClient =
+        mock(
+            NodeLoadClient.class,
             withSettings().useConstructor().defaultAnswer(CALLS_REAL_METHODS));
 
     nodeLoadClient.setOverLoadCount(testNodesLoadCount);
