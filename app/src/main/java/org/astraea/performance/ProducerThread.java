@@ -34,13 +34,13 @@ public class ProducerThread extends CloseableThread {
   protected void execute() {
     for (int i = 0; i < records; ++i) {
       long start = System.currentTimeMillis();
-      ProducerRecord<byte[], byte[]> record = new ProducerRecord<byte[], byte[]>(topic, payload);
+      ProducerRecord<byte[], byte[]> record = new ProducerRecord<>(topic, payload);
       try {
         producer.send(record).get();
         latency.putLatency(System.currentTimeMillis() - start);
         latency.addBytes(payload.length);
         Thread.sleep(1);
-      } catch (InterruptedException ie) {
+      } catch (InterruptedException ignored) {
       } catch (ExecutionException ee) {
       }
     }

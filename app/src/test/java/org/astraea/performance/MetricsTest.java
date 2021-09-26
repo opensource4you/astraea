@@ -25,6 +25,7 @@ public class MetricsTest {
     Assertions.assertEquals(avg, metrics.avgLatency());
   }
 
+  // Simultaneously add and get
   @Test
   void testBytes() {
     final CountDownLatch countDownLatch = new CountDownLatch(1);
@@ -67,5 +68,17 @@ public class MetricsTest {
     } catch (InterruptedException ie) {
     }
     Assertions.assertEquals(loopCount * input, longAdder.sum());
+  }
+
+  @Test
+  public void testReset() {
+    final Metrics metrics = new Metrics();
+    metrics.addBytes(10);
+    metrics.putLatency(11);
+
+    metrics.reset();
+
+    Assertions.assertEquals(0, metrics.bytes());
+    Assertions.assertEquals(0, metrics.avgLatency());
   }
 }

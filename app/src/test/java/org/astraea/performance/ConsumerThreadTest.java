@@ -15,7 +15,7 @@ public class ConsumerThreadTest {
 
     Assertions.assertEquals(0, metrics.avgLatency());
     Assertions.assertEquals(0, metrics.bytes());
-    Assertions.assertFalse(componentFactory.consumerClosed.get());
+    Assertions.assertEquals(0, componentFactory.consumerClosed.get());
 
     thread.start();
     Thread.sleep(1);
@@ -23,6 +23,6 @@ public class ConsumerThreadTest {
 
     Assertions.assertNotEquals(0, metrics.avgLatency());
     Assertions.assertNotEquals(0, metrics.bytes());
-    Assertions.assertTrue(componentFactory.consumerClosed.get());
+    Assertions.assertEquals(1, componentFactory.consumerClosed.get());
   }
 }

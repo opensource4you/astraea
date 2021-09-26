@@ -1,18 +1,18 @@
 package org.astraea.performance;
 
-import java.util.Collection;
-import java.util.Map;
-import java.util.Properties;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.ExecutionException;
 import org.apache.kafka.clients.admin.Admin;
 import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.common.KafkaFuture;
+import org.apache.kafka.common.TopicPartitionInfo;
 
 public interface TopicAdmin extends AutoCloseable {
   Set<String> listTopics() throws InterruptedException, ExecutionException;
 
   Map<String, KafkaFuture<Void>> createTopics(Collection<NewTopic> topics);
+
+  List<TopicPartitionInfo> partitions(String topic);
 
   static TopicAdmin fromKafka(Properties prop) {
     Admin admin = Admin.create(prop);
@@ -31,7 +31,21 @@ public interface TopicAdmin extends AutoCloseable {
       public void close() {
         try {
           admin.close();
-        } catch (Exception e) {
+        } catch (Exception ignore) {
+        }
+      }
+
+      @Override
+      public List<TopicPartitionInfo> partitions(String topic) {
+        try {
+          return admin
+              .describeTopics(Collections.singleton(topic))
+              .values()
+              .get(topic)
+              .get()
+              .partitions();
+        } catch (Exception ignore) {
+          return List.of();
         }
       }
     };

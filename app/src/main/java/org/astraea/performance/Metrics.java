@@ -56,4 +56,13 @@ public class Metrics {
   public long bytes() {
     return this.bytes.sumThenReset();
   }
+  // Set all attributes to default value
+  public void reset() {
+    avgLatency = 0;
+    num = 0;
+    max = 0;
+    // 初始為最大的integer值
+    min = Long.MAX_VALUE;
+    bytes.reset();
+  }
 }

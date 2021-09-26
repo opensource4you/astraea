@@ -1,9 +1,13 @@
 package org.astraea.performance;
 
 import java.util.Collections;
+import java.util.List;
 import java.util.Properties;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import org.apache.kafka.clients.admin.NewTopic;
+import org.apache.kafka.clients.producer.ProducerRecord;
+import org.apache.kafka.common.TopicPartitionInfo;
 
 public class Performance {
   static class Parameters {
@@ -67,51 +71,36 @@ public class Performance {
   public static void main(String[] args) {
     final Parameters param = Parameters.parseArgs(args);
 
+    execute(param);
+  }
+
+  public static void execute(Parameters param) {
+    /*=== Initialization ===*/
     final ComponentFactory componentFactory = ComponentFactory.fromKafka(param.brokers);
-    // 檢查topic是否存在，如果不存在；創建一個
     checkTopic(componentFactory, param.topic, param.topicConfigs);
 
-    final ProducerThread[] producerThread = new ProducerThread[param.producers];
-    final ConsumerThread[] consumerThread = new ConsumerThread[param.consumers];
-    final Metrics[] producerMetric = new Metrics[param.producers];
-    final Metrics[] consumerMetric = new Metrics[param.consumers];
+    // Start consuming
+    final CountDownLatch consumersComplete = new CountDownLatch(1);
+    final Metrics[] consumerMetrics = startConsumers(componentFactory, param, consumersComplete);
+    // Warm up: Send a record to each partition
+    warmUp(componentFactory, param.topic);
+    for (var metric : consumerMetrics) metric.reset();
+    // Start producing record. (Auto close)
+    final Metrics[] producerMetrics = startProducers(componentFactory, param);
 
-    startConsumers(consumerThread, componentFactory, consumerMetric, param.topic);
-    // Warm up
-    System.out.println("Warming up.");
-    try (ProducerThread producer =
-        new ProducerThread(
-            componentFactory.createProducer(), param.topic, 1, 10, new Metrics()); ) {
-      producer.start();
-      Thread.sleep(5000);
-    } catch (Exception ignored) {
-    }
+    // Get metrics and print them out
+    final PrintOutThread printOut =
+        new PrintOutThread(producerMetrics, consumerMetrics, param.records);
+    printOut.start();
 
-    System.out.println("Start producing and consuming.");
-    startProducers(producerThread, componentFactory, producerMetric, param);
-
-    // 每秒印出 現在數據
-    final PrintOutThread printThread =
-        new PrintOutThread(producerMetric, consumerMetric, param.records);
-    printThread.start();
-
-    // 等待producers完成
+    // Wait for consumer completion
     try {
-      for (ProducerThread thread : producerThread) {
-        thread.join();
-        thread.cleanup();
-      }
-      Thread.sleep(2000);
-    } catch (InterruptedException ignored) {
+      consumersComplete.await();
+    } catch (InterruptedException ignore) {
     }
-    // 關閉consumer
-    for (var i : consumerThread) {
-      i.close();
-    }
-    // 把印數據的thread關掉
-    printThread.close();
 
-    System.out.println("Performance end.");
+    /*=== Clean up ===*/
+    printOut.close();
   }
 
   // 檢查topic是否存在，不存在就建立新的topic
@@ -144,7 +133,6 @@ public class Performance {
           }
         }
       }
-      // 開始建立topic，並等待topic成功建立
       System.out.println(
           "Creating topic:\""
               + topic
@@ -152,6 +140,7 @@ public class Performance {
               + partitions
               + " --replicationFactor "
               + replicationFactor);
+      // 開始建立topic，並等待topic成功建立
       // 建立單個topic -> 取得建立的所有topics -> 選擇指定的topic的future -> 等待future完成
       topicAdmin
           .createTopics(
@@ -165,47 +154,80 @@ public class Performance {
   }
 
   // 啟動producers
-  private static void startProducers(
-      ProducerThread[] producerThreads,
-      ComponentFactory componentFactory,
-      Metrics[] producerMetrics,
-      Parameters param) {
-    // producer要平均分擔發送records，有除不盡的餘數則由第一個producer發送
-    producerMetrics[0] = new Metrics();
-    producerThreads[0] =
-        new ProducerThread(
-            componentFactory.createProducer(),
-            param.topic,
-            param.records / param.producers + param.records % param.producers,
-            param.recordSize,
-            producerMetrics[0]);
-    producerThreads[0].start();
+  public static Metrics[] startProducers(ComponentFactory componentFactory, Parameters param) {
+    final Metrics[] producerMetrics = new Metrics[param.producers];
+    // producer要平均分擔發送records
     // 啟動producer
-    for (int i = 1; i < param.producers; ++i) {
+    for (int i = 0; i < param.producers; ++i) {
+      long records = param.records / param.producers;
+      if (i < param.records % param.producers) ++records;
       producerMetrics[i] = new Metrics();
-      producerThreads[i] =
-          new ProducerThread(
+      // start up producerThread
+      new ProducerThread(
               componentFactory.createProducer(),
               param.topic,
-              param.records / param.producers,
+              records,
               param.recordSize,
-              producerMetrics[i]);
-      producerThreads[i].start();
+              producerMetrics[i])
+          .start();
     }
+    return producerMetrics;
   }
-  // 啟動consumers
-  private static void startConsumers(
-      ConsumerThread[] consumerThreads,
-      ComponentFactory componentFactory,
-      Metrics[] consumerMetrics,
-      String topic) {
+
+  // Start consumers, and cleanup until countdown latch complete.
+  public static Metrics[] startConsumers(
+      final ComponentFactory componentFactory,
+      final Parameters param,
+      final CountDownLatch consumersComplete) {
+    final Metrics[] consumerMetrics = new Metrics[param.consumers];
+    final ConsumerThread[] consumerThreads = new ConsumerThread[param.consumers];
     for (int i = 0; i < consumerMetrics.length; ++i) {
       consumerMetrics[i] = new Metrics();
       consumerThreads[i] =
           new ConsumerThread(
-              componentFactory.createConsumer(Collections.singletonList(topic)),
+              componentFactory.createConsumer(Collections.singletonList(param.topic)),
               consumerMetrics[i]);
       consumerThreads[i].start();
     }
+
+    // Wait for records all consumed, and cleanup.
+    new Thread(
+            () -> {
+              while (!consumerComplete(consumerMetrics, param.records))
+                ;
+              consumersComplete.countDown();
+              for (var consumer : consumerThreads) consumer.close();
+            })
+        .start();
+
+    return consumerMetrics;
+  }
+
+  public static void warmUp(ComponentFactory componentFactory, String topic) {
+    final byte[] payload = new byte[1];
+
+    System.out.println("Warming up...");
+    try (Producer producer = componentFactory.createProducer();
+        TopicAdmin admin = componentFactory.createAdmin()) {
+
+      List<TopicPartitionInfo> partitions = admin.partitions(topic);
+      for (TopicPartitionInfo partition : partitions) {
+        // Send record to all partitions
+        producer.send(new ProducerRecord<>(topic, partition.partition(), null, payload)).get();
+      }
+      Thread.sleep(10000);
+    } catch (InterruptedException ie) {
+    } catch (ExecutionException ee) {
+    } catch (Exception e) {
+    }
+    System.out.println("===================Start testing================\n");
+  }
+
+  public static boolean consumerComplete(Metrics[] consumerMetrics, long records) {
+    long sum = 0;
+    for (var metrics : consumerMetrics) {
+      sum += metrics.num();
+    }
+    return sum >= records;
   }
 }

@@ -3,7 +3,8 @@ package org.astraea.performance;
 import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.Future;
-import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.LongAdder;
 import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
@@ -11,12 +12,14 @@ import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.clients.producer.RecordMetadata;
 import org.apache.kafka.common.KafkaFuture;
 import org.apache.kafka.common.TopicPartition;
+import org.apache.kafka.common.TopicPartitionInfo;
 import org.apache.kafka.common.header.internals.RecordHeaders;
 import org.apache.kafka.common.record.TimestampType;
 
 public class FakeComponentFactory implements ComponentFactory {
-  public final AtomicBoolean consumerClosed = new AtomicBoolean(false);
-  public final AtomicBoolean producerClosed = new AtomicBoolean(false);
+  public final AtomicInteger consumerClosed = new AtomicInteger(0);
+  public final AtomicInteger producerClosed = new AtomicInteger(0);
+  public final LongAdder produced = new LongAdder();
   public final HashMap<String, NewTopic> topicToConfig;
 
   public FakeComponentFactory() {
@@ -29,11 +32,11 @@ public class FakeComponentFactory implements ComponentFactory {
       @Override
       public ConsumerRecords<byte[], byte[]> poll(Duration timeout) {
         // return a record with (current time(ms) - 10ms).
-        return new ConsumerRecords<byte[], byte[]>(
+        return new ConsumerRecords<>(
             Collections.singletonMap(
                 new TopicPartition("", 0),
                 Collections.singletonList(
-                    new ConsumerRecord<byte[], byte[]>(
+                    new ConsumerRecord<>(
                         "",
                         0,
                         0,
@@ -49,7 +52,7 @@ public class FakeComponentFactory implements ComponentFactory {
 
       @Override
       public void close() {
-        consumerClosed.set(true);
+        consumerClosed.incrementAndGet();
       }
     };
   }
@@ -60,6 +63,7 @@ public class FakeComponentFactory implements ComponentFactory {
       @Override
       public Future<RecordMetadata> send(ProducerRecord<byte[], byte[]> record) {
         try {
+          produced.increment();
           Thread.sleep(1);
         } catch (InterruptedException ie) {
         }
@@ -70,7 +74,7 @@ public class FakeComponentFactory implements ComponentFactory {
 
       @Override
       public void close() {
-        producerClosed.set(true);
+        producerClosed.incrementAndGet();
       }
     };
   }
@@ -96,6 +100,14 @@ public class FakeComponentFactory implements ComponentFactory {
 
       @Override
       public void close() {}
+
+      @Override
+      public List<TopicPartitionInfo> partitions(String topic) {
+        List<TopicPartitionInfo> list = new ArrayList<>();
+        for (int i = 0; i < topicToConfig.get(topic).numPartitions(); ++i)
+          list.add(new TopicPartitionInfo(0, null, List.of(), List.of()));
+        return list;
+      }
     };
   }
 }
