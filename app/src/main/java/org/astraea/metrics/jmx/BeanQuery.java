@@ -113,11 +113,6 @@ public class BeanQuery {
       return this;
     }
 
-    public BeanQueryBuilder noPropertyListPattern() {
-      this.usePropertyListPattern = false;
-      return this;
-    }
-
     /**
      * Build a {@link BeanQuery} object based on current builder state.
      *
