@@ -121,8 +121,9 @@ public class BeanQuery {
     /**
      * Apply Property List Pattern to the query being built.
      *
-     * <p>With Property List Pattern, the query will match whose domain matches and that contains
-     * the same keys and associated values, as well as possibly other keys and values.
+     * <p>By default, the built query has property list pattern disabled. With Property List
+     * Pattern, the query will match whose domain matches and that contains the same keys and
+     * associated values, as well as possibly other keys and values.
      *
      * @see <a
      *     href="https://docs.oracle.com/javase/7/docs/api/javax/management/ObjectName.html">ObjectName</a>
