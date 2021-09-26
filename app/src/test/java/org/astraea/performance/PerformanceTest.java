@@ -115,7 +115,7 @@ public class PerformanceTest {
         Performance.startProducers(
             componentFactory,
             new Performance.Parameters("localhost:9092", "topic", "", 2, 2, 4, 1));
-    Thread.sleep(5);
+    Thread.sleep(10);
 
     Assertions.assertEquals(4, componentFactory.produced.sum());
     Assertions.assertEquals(2, componentFactory.producerClosed.get());
