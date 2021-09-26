@@ -91,10 +91,11 @@ public class OffsetExplorer {
   }
 
   private static String help() {
-    return BROKERS_KEY
-        + "REQUIRED: The server to connect to"
+    return "Available configs:\n"
+        + BROKERS_KEY
+        + ": (REQUIRED) The server to connect to\n"
         + TOPIC_KEY
-        + " OPTIONAL: the topic to check";
+        + ": (OPTIONAL) the topic to check";
   }
 
   static Map<TopicPartition, Map.Entry<Long, Long>> execute(Admin admin, Set<String> topics) {
