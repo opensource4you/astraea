@@ -4,7 +4,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
-import org.astraea.offsets.OffsetExplorer;
+import org.astraea.offset.OffsetExplorer;
 import org.astraea.performance.latency.End2EndLatency;
 
 public class App {
