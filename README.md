@@ -77,9 +77,27 @@ Run the benchmark from release
 ```
 
 ### Latency Benchmark Configurations
-1. --bootstrap.servers: the brokers addresses
+1. --bootstrap.servers: the server to connect to
 2. --consumers: the number of consumers (threads). Default: 1
 3. --producers: the number of producers (threads). Default: 1
 4. --valueSize: the size of record value. Default: 100 bytes
 5. --duration: the duration to run this benchmark. Default: 5 seconds
 6. --flushDuration: the duration to flush producer records. Default: 2 seconds
+
+## Offset Explorer
+
+This tool can expose both earliest offset and latest offset for all (public and private) topics.
+
+Run the tool from source code
+```shell
+./gradlew run --args="offset --bootstrap.servers 192.168.50.178:19993"
+```
+
+Run the benchmark from release
+```shell
+./bin/App offset --bootstrap.servers 192.168.50.178:19993
+```
+
+### Offset Explorer Configurations
+1. --bootstrap.servers: the server to connect to
+2. --topic: the topic to search
