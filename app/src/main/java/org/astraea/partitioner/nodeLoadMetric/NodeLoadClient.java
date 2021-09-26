@@ -43,6 +43,10 @@ public class NodeLoadClient implements Runnable {
       }
     } catch (InterruptedException e) {
       e.printStackTrace();
+    } finally {
+      NodeLoadClientHolder.timeOutCount = 0;
+      NodeLoadClientHolder.timeOut = false;
+      NodeLoadClientHolder.clientOn = false;
     }
   }
 

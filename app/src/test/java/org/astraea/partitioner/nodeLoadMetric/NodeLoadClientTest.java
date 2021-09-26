@@ -30,10 +30,17 @@ public class NodeLoadClientTest {
 
     NodeLoadClient nodeLoadClient = getNodeLoadInstance();
     Thread.sleep(15000);
-    assertEquals(getTimeOutCount(), 10);
+    assertEquals(getTimeOutCount(), 0);
+
+    nodeLoadClient = getNodeLoadInstance();
+    Thread.sleep(5000);
+    nodeLoadClient.tellAlive();
+    Thread.sleep(6000);
+    assertEquals(getTimeOutCount(), 5);
   }
 
   @Test
+  // TODO
   public void testGetInstance() throws InterruptedException {
     HashMap<Integer, Double> testBrokerMsg = new HashMap<>();
     testBrokerMsg.put(0, 500.0);
@@ -47,11 +54,5 @@ public class NodeLoadClientTest {
 
     NodeLoadClient nodeLoadClient = getNodeLoadInstance();
     Thread.sleep(5000);
-
-    nodeLoadClient.tearDownClient();
-
-    //    nodeLoadClient.getOverLoadCount();
-
-    //    System.out.println(nodeLoadClient.getOverLoadCount());
   }
 }
