@@ -101,3 +101,19 @@ Run the benchmark from release
 ### Offset Explorer Configurations
 1. --bootstrap.servers: the server to connect to
 2. --topic: the topic to search
+
+## Kafka Official Tool
+
+This project offer a way to run kafka official tool by container. For example:
+
+### Run kafka-topics.sh
+
+```shell
+./docker/start_tool.sh kafka-topics.sh --bootstrap-server 192.168.50.178:14082 --list
+```
+
+### Show Available Official Tools
+
+```shell
+./docker/start_tool.sh help
+```

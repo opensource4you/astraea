@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # =============================[functions]=============================
-function getAddress(){
+function getAddress() {
   if [[ "$(which ipconfig)" != "" ]]; then
     address=$(ipconfig getifaddr en0)
   else
@@ -14,7 +14,7 @@ function getAddress(){
   echo "$address"
 }
 
-function showHelp(){
+function showHelp() {
   echo "Usage: start_broker.sh [ OPTIONS ]"
   echo "Required: "
   echo "    zookeeper.connect=node:22222  set zookeeper connection"
@@ -39,8 +39,8 @@ USER=broker
 image_name=astraea/broker:$KAFKA_VERSION
 broker_id="$(($RANDOM % 1000))"
 address=$(getAddress)
-broker_port="$(($(($RANDOM % 10000 )) + 10000))"
-broker_jmx_port="$(($(($RANDOM % 10000 )) + 10000))"
+broker_port="$(($(($RANDOM % 10000)) + 10000))"
+broker_jmx_port="$(($(($RANDOM % 10000)) + 10000))"
 jmx_opts="-Dcom.sun.management.jmxremote \
   -Dcom.sun.management.jmxremote.authenticate=false \
   -Dcom.sun.management.jmxremote.ssl=false \
@@ -50,14 +50,14 @@ jmx_opts="-Dcom.sun.management.jmxremote \
 
 # initialize broker config
 config_file="/tmp/server${broker_id}.properties"
-echo "" > "$config_file"
+echo "" >"$config_file"
 
 while [[ $# -gt 0 ]]; do
   if [[ "$1" == "help" ]]; then
     showHelp
     exit 2
   fi
-  echo "$1" >> "$config_file"
+  echo "$1" >>"$config_file"
   shift
 done
 
@@ -75,8 +75,8 @@ if [[ "$(cat $config_file | grep listeners)" != "" ]]; then
   echo "you should not define listeners"
   exit 2
 else
-  echo "listeners=PLAINTEXT://:9092" >> "$config_file"
-  echo "advertised.listeners=PLAINTEXT://${address}:$broker_port" >> "$config_file"
+  echo "listeners=PLAINTEXT://:9092" >>"$config_file"
+  echo "advertised.listeners=PLAINTEXT://${address}:$broker_port" >>"$config_file"
 fi
 
 # log.dirs is not exposed so it should be generated automatically
@@ -84,7 +84,7 @@ if [[ "$(cat $config_file | grep log.dirs)" != "" ]]; then
   echo "you should not define log.dirs"
   exit 2
 else
-  echo "log.dirs=/tmp/kafka-logs" >> "$config_file"
+  echo "log.dirs=/tmp/kafka-logs" >>"$config_file"
 fi
 
 # auto-generate broker id if it does not exist
@@ -92,32 +92,32 @@ if [[ "$(cat $config_file | grep broker.id)" != "" ]]; then
   echo "you should not define broker.id"
   exit 2
 else
-  echo "broker.id=${broker_id}" >> "$config_file"
+  echo "broker.id=${broker_id}" >>"$config_file"
 fi
 
 # =============================[performance configs]=============================
 if [[ "$(cat $config_file | grep num.io.threads)" == "" ]]; then
-  echo "num.io.threads=8" >> "$config_file"
+  echo "num.io.threads=8" >>"$config_file"
 fi
 
 if [[ "$(cat $config_file | grep num.network.threads)" == "" ]]; then
-  echo "num.network.threads=8" >> "$config_file"
+  echo "num.network.threads=8" >>"$config_file"
 fi
 
 if [[ "$(cat $config_file | grep num.partitions)" == "" ]]; then
-  echo "num.partitions=8" >> "$config_file"
+  echo "num.partitions=8" >>"$config_file"
 fi
 
 if [[ "$(cat $config_file | grep transaction.state.log.replication.factor)" == "" ]]; then
-  echo "transaction.state.log.replication.factor=1" >> "$config_file"
+  echo "transaction.state.log.replication.factor=1" >>"$config_file"
 fi
 
 if [[ "$(cat $config_file | grep offsets.topic.replication.factor)" == "" ]]; then
-  echo "offsets.topic.replication.factor=1" >> "$config_file"
+  echo "offsets.topic.replication.factor=1" >>"$config_file"
 fi
 
 if [[ "$(cat $config_file | grep transaction.state.log.min.isr)" == "" ]]; then
-  echo "transaction.state.log.min.isr=1" >> "$config_file"
+  echo "transaction.state.log.min.isr=1" >>"$config_file"
 fi
 # ==============================================================================
 
