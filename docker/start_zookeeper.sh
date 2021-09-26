@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # =============================[functions]=============================
-function getAddress(){
+function getAddress() {
   if [[ "$(which ipconfig)" != "" ]]; then
     address=$(ipconfig getifaddr en0)
   else
@@ -26,7 +26,7 @@ fi
 
 USER=zookeeper
 image_name=astraea/zookeeper:$ZOOKEEPER_VERSION
-zk_port="$(($(($RANDOM % 10000 )) + 10000))"
+zk_port="$(($(($RANDOM % 10000)) + 10000))"
 address=$(getAddress)
 
 docker build -t $image_name - <<Dockerfile
