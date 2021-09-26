@@ -103,11 +103,32 @@ public class BeanQuery {
       this.usePropertyListPattern = false;
     }
 
+    /**
+     * Apply new search property to the query being built.
+     *
+     * @param key the property key to match.
+     * @param value the property value to match.
+     * @see <a
+     *     href="https://docs.oracle.com/javase/7/docs/api/javax/management/ObjectName.html">ObjectName</a>
+     *     for how Oracle documentation describe property.
+     * @return the current {@link BeanQueryBuilder} instance with the new property applied.
+     */
     public BeanQueryBuilder property(String key, String value) {
       this.properties.put(key, value);
       return this;
     }
 
+    /**
+     * Apply Property List Pattern to the query being built.
+     *
+     * <p>With Property List Pattern, the query will match whose domain matches and that contains
+     * the same keys and associated values, as well as possibly other keys and values.
+     *
+     * @see <a
+     *     href="https://docs.oracle.com/javase/7/docs/api/javax/management/ObjectName.html">ObjectName</a>
+     *     for explanation of property list pattern from Oracle documentation.
+     * @return the current {@link BeanQueryBuilder} instance with property list pattern applied.
+     */
     public BeanQueryBuilder usePropertyListPattern() {
       this.usePropertyListPattern = true;
       return this;
