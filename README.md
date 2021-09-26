@@ -104,7 +104,7 @@ Run the benchmark from release
 
 ## Kafka Official Tool
 
-This project offer a way to run kafka official tool by container. For example:
+This project offers a way to run kafka official tool by container. For example:
 
 ### Run kafka-topics.sh
 
