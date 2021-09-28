@@ -144,7 +144,7 @@ WORKDIR /tmp/kafka
 RUN git checkout $KAFKA_REVISION
 RUN ./gradlew clean releaseTarGz
 RUN mkdir /home/$USER/kafka
-RUN tar -zxvf \$(find ./core/build/distributions/ -maxdepth 1 -type f -name kafka_*.tgz | head -n 1) -C /home/$USER/kafka --strip-components=1
+RUN tar -zxvf \$(find ./core/build/distributions/ -maxdepth 1 -type f -name kafka_*SNAPSHOT.tgz) -C /home/$USER/kafka --strip-components=1
 WORKDIR "/home/$USER/kafka"
 
 Dockerfile

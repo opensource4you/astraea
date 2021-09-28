@@ -21,7 +21,7 @@ fi
 if [[ -z "$KAFKA_VERSION" ]]; then
   KAFKA_VERSION=2.8.0
 fi
-image_name=astraea/broker:$KAFKA_VERSION
+image_name=astraea/kafka-tool:$KAFKA_VERSION
 
 # set JVM heap
 KAFKA_HEAP="${KAFKA_HEAP:-"-Xmx2G -Xms2G"}"
