@@ -25,6 +25,7 @@ dependencies {
     testImplementation "org.junit.jupiter:junit-jupiter:${versions["junit"]}"
 
     implementation "org.apache.kafka:kafka-clients:${versions["kafka"]}"
+    implementation "com.beust:jcommander:1.81"
 }
 
 application {

@@ -4,6 +4,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
+import org.astraea.argument.ArgumentCheck;
 import org.astraea.offset.OffsetExplorer;
 import org.astraea.performance.latency.End2EndLatency;
 
@@ -21,6 +22,9 @@ public class App {
 
   static void execute(List<Class<?>> mains, List<String> args) throws Throwable {
     if (args.size() < 1) {
+      throw new IllegalArgumentException(usage(mains));
+    }
+    if (!ArgumentCheck.checkArgument(args)) {
       throw new IllegalArgumentException(usage(mains));
     }
 
