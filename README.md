@@ -6,18 +6,25 @@ a collection of tools used to balance Kafka data
 - Yi-Chen   Wang <warren215215@gmail.com>
 - Ching-Hong Fang <fjh7777@gmail.com>
 - Zheng-Xian Li <garyparrottt@gmail.com>
+- Xiang-Jun Sun <sean0651101@gmail.com>
 
-# Quickstart a Kafka Env
+# Kafka Tools
 
-There are two scripts which can setup env quickly by container
+This project offers many kafka tools to simplify the life for kafka users.
 
-## Set up zookeeper with default version
+---
+
+## Kafka Cluster Quick Start
+
+The following scripts can build a kafka cluster by containers in one minute.
+
+### Set up zookeeper
 
 ```shell
 ./docker/start_zookeeper.sh
 ```
 
-The above script creates a zookeeper instance by container. Also, it will show the command used to add broker instance. For example:
+The script creates a zookeeper instance by container. Also, it will show the command used to add broker instance. For example:
 
 ```shell
 =================================================
@@ -25,13 +32,9 @@ run ./docker/start_broker.sh zookeeper.connect=192.168.50.178:17228 to join kafk
 =================================================
 ```
 
-## Set up zookeeper with specific version
+You can define `ZOOKEEPER_VERSION` to change the binary version.
 
-```shell
-ZOOKEEPER_VERSION=3.6.3 ./docker/start_zookeeper.sh
-```
-
-## Set up (kafka) broker with default version
+### Set up (kafka) broker
 
 After the zk env is running, you can copy the command (see above example) from zk script output to set up kafka. For example:
 ```shell
@@ -47,17 +50,10 @@ jmx address: 192.168.50.224:15905
 =================================================
 ```
 
-Noted that the command to set up broker can be executed multiple times to create a broker cluster.
+The command to set up broker can be executed multiple times to create a broker cluster. The env `KAFKA_VERSION` is used to
+define the release version of kafka. Or you can define `KAFKA_REVISION` to run kafka based on specify revision of source code.
 
-## Set up (kafka) broker with specific version
-
-```shell
-KAFKA_VERSION=2.8.0 ./docker/start_broker.sh zookeeper.connect=192.168.50.178:17228
-```
-
-# Kafka Tools
-
-This project offers many kafka tools to simplify the life for kafka users.
+---
 
 ## Latency Benchmark
 
@@ -76,9 +72,47 @@ Run the benchmark from release
 ```
 
 ### Latency Benchmark Configurations
-1. --bootstrap.servers: the brokers addresses
+1. --bootstrap.servers: the server to connect to
 2. --consumers: the number of consumers (threads). Default: 1
 3. --producers: the number of producers (threads). Default: 1
 4. --valueSize: the size of record value. Default: 100 bytes
 5. --duration: the duration to run this benchmark. Default: 5 seconds
 6. --flushDuration: the duration to flush producer records. Default: 2 seconds
+
+---
+
+## Offset Explorer
+
+This tool can expose both earliest offset and latest offset for all (public and private) topics.
+
+Run the tool from source code
+```shell
+./gradlew run --args="offset --bootstrap.servers 192.168.50.178:19993"
+```
+
+Run the benchmark from release
+```shell
+./bin/App offset --bootstrap.servers 192.168.50.178:19993
+```
+
+### Offset Explorer Configurations
+1. --bootstrap.servers: the server to connect to
+2. --topic: the topic to search
+
+---
+
+## Kafka Official Tool
+
+This project offers a way to run kafka official tool by container. For example:
+
+### Run kafka-topics.sh
+
+```shell
+./docker/start_kafka_tool.sh kafka-topics.sh --bootstrap-server 192.168.50.178:14082 --list
+```
+
+### Show Available Official Tools
+
+```shell
+./docker/start_kafka_tool.sh help
+```

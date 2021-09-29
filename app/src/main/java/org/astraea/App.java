@@ -4,12 +4,13 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
+import org.astraea.offset.OffsetExplorer;
 import org.astraea.performance.Performance;
 import org.astraea.performance.latency.End2EndLatency;
 
 public class App {
   private static final List<Class<?>> MAIN_CLASSES =
-      Arrays.asList(End2EndLatency.class, Performance.class);
+      Arrays.asList(End2EndLatency.class, OffsetExplorer.class, Performance.class);
 
   private static String toString(List<Class<?>> mains) {
     return mains.stream().map(Class::getName).collect(Collectors.joining(","));
