@@ -26,7 +26,7 @@ image_name=astraea/kafka-tool:$KAFKA_VERSION
 # set JVM heap
 KAFKA_HEAP="${KAFKA_HEAP:-"-Xmx2G -Xms2G"}"
 
-USER=broker
+USER=astraea
 
 docker build -t $image_name - <<Dockerfile
 FROM ubuntu:20.04
@@ -41,16 +41,18 @@ RUN groupadd $USER && useradd -ms /bin/bash -g $USER $USER
 USER $USER
 
 # download kafka
-WORKDIR /home/$USER
+WORKDIR /tmp
 RUN wget https://archive.apache.org/dist/kafka/${KAFKA_VERSION}/kafka_2.13-${KAFKA_VERSION}.tgz
-RUN tar -zxvf kafka_2.13-${KAFKA_VERSION}.tgz
-WORKDIR /home/$USER/kafka_2.13-${KAFKA_VERSION}
+RUN mkdir /home/$USER/kafka
+RUN tar -zxvf kafka_2.13-${KAFKA_VERSION}.tgz -C /home/$USER/kafka --strip-components=1
+WORKDIR "/home/$USER/kafka"
+
 Dockerfile
 
 if [[ "$script" == "help" ]]; then
-  docker run --rm $image_name /bin/bash -c "ls /home/$USER/kafka_2.13-${KAFKA_VERSION}/bin"
+  docker run --rm $image_name /bin/bash -c "ls ./bin"
 else
   docker run --rm -ti \
     -e KAFKA_HEAP_OPTS="$KAFKA_HEAP" \
-    $image_name /home/$USER/kafka_2.13-${KAFKA_VERSION}/bin/"$script" "$@"
+    $image_name ./bin/"$script" "$@"
 fi

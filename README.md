@@ -108,11 +108,11 @@ This project offers a way to run kafka official tool by container. For example:
 ### Run kafka-topics.sh
 
 ```shell
-./docker/start_tool.sh kafka-topics.sh --bootstrap-server 192.168.50.178:14082 --list
+./docker/start_kafka_tool.sh kafka-topics.sh --bootstrap-server 192.168.50.178:14082 --list
 ```
 
 ### Show Available Official Tools
 
 ```shell
-./docker/start_tool.sh help
+./docker/start_kafka_tool.sh help
 ```
