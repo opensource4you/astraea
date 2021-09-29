@@ -8,7 +8,6 @@ import org.junit.jupiter.api.Test;
 public class ArgumentCheckTest {
   @Test
   public void testParse() {
-    // End2EndLatencyArgument argument =
     Assertions.assertTrue(
         ArgumentCheck.checkArgument(
             Arrays.asList(
@@ -27,14 +26,6 @@ public class ArgumentCheckTest {
                 "6",
                 "--flushDuration",
                 "7")));
-
-    /*Assertions.assertEquals("localhost:9092", argument.brokers);
-    Assertions.assertEquals("testing", argument.topic);
-    Assertions.assertEquals(3, argument.producers);
-    Assertions.assertEquals(4, argument.consumers);
-    Assertions.assertEquals(Duration.ofSeconds(5), argument.duration);
-    Assertions.assertEquals(6, argument.valueSize);
-    Assertions.assertEquals(Duration.ofSeconds(7), argument.flushDuration);*/
   }
 
   @Test
