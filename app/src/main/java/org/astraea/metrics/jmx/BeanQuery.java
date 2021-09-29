@@ -85,7 +85,7 @@ public class BeanQuery {
     return this.objectName;
   }
 
-  static class BeanQueryBuilder {
+  public static class BeanQueryBuilder {
 
     private final String domainName;
     private final Map<String, String> properties;
