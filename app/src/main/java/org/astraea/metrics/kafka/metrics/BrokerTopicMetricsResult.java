@@ -5,7 +5,7 @@ import java.util.Objects;
 import org.astraea.metrics.jmx.BeanObject;
 import org.astraea.metrics.kafka.metrics.modifiers.*;
 
-public class BrokerTopicMetricsResult implements HasBeanObject, HasCount, HasEventType, HasRate {
+public class BrokerTopicMetricsResult implements HasCount, HasEventType, HasRate {
 
   private final BeanObject beanObject;
   private final BrokerTopicMetrics metric;
