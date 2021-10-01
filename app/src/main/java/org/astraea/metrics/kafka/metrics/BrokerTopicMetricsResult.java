@@ -1,6 +1,7 @@
 package org.astraea.metrics.kafka.metrics;
 
 import java.util.Map;
+import java.util.Objects;
 import org.astraea.metrics.jmx.BeanObject;
 import org.astraea.metrics.kafka.metrics.modifiers.HasCount;
 import org.astraea.metrics.kafka.metrics.modifiers.HasEventType;
@@ -13,8 +14,8 @@ public class BrokerTopicMetricsResult extends MetricsResult
   private final BrokerTopicMetrics metric;
 
   public BrokerTopicMetricsResult(BrokerTopicMetrics metric, BeanObject beanObject) {
-    super(beanObject);
-    this.metric = metric;
+    super(Objects.requireNonNull(beanObject));
+    this.metric = Objects.requireNonNull(metric);
   }
 
   @Override

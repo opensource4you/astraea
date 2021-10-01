@@ -1,6 +1,7 @@
 package org.astraea.metrics.kafka.metrics.modifiers;
 
 import java.util.Map;
+import java.util.Objects;
 import org.astraea.metrics.jmx.BeanObject;
 
 public class MetricsResult implements HasBeanObject {
@@ -8,7 +9,7 @@ public class MetricsResult implements HasBeanObject {
   private final BeanObject beanObject;
 
   protected MetricsResult(BeanObject beanObject) {
-    this.beanObject = beanObject;
+    this.beanObject = Objects.requireNonNull(beanObject);
   }
 
   public final BeanObject beanObject() {

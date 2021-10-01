@@ -1,23 +1,25 @@
 package org.astraea.metrics.kafka.metrics.modifiers;
 
+import java.util.Objects;
+
 public interface HasRate extends HasBeanObject {
   default double meanRate() {
-    return (double) beanObject().getAttributes().get("MeanRate");
+    return (double) Objects.requireNonNull(beanObject().getAttributes().get("MeanRate"));
   }
 
   default double oneMinuteRate() {
-    return (double) beanObject().getAttributes().get("OneMinuteRate");
+    return (double) Objects.requireNonNull(beanObject().getAttributes().get("OneMinuteRate"));
   }
 
   default double fiveMinuteRate() {
-    return (double) beanObject().getAttributes().get("FiveMinuteRate");
+    return (double) Objects.requireNonNull(beanObject().getAttributes().get("FiveMinuteRate"));
   }
 
   default double fifteenMinuteRate() {
-    return (double) beanObject().getAttributes().get("FifteenMinuteRate");
+    return (double) Objects.requireNonNull(beanObject().getAttributes().get("FifteenMinuteRate"));
   }
 
   default String rateUnit() {
-    return (String) beanObject().getAttributes().get("RateUnit");
+    return (String) Objects.requireNonNull(beanObject().getAttributes().get("RateUnit"));
   }
 }
