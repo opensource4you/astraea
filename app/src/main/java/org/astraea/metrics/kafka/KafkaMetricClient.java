@@ -35,7 +35,7 @@ public class KafkaMetricClient implements AutoCloseable {
             .tryQueryBean(
                 BeanQuery.builder("kafka.server")
                     .property("type", "BrokerTopicMetrics")
-                    .property("name", metric.name())
+                    .property("name", metric.metricName())
                     .build())
             .orElseThrow();
 
