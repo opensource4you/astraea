@@ -6,6 +6,7 @@ import java.io.IOException;
 import java.lang.management.ManagementFactory;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 import javax.management.*;
 import javax.management.remote.JMXConnectorServer;
 import javax.management.remote.JMXConnectorServerFactory;
@@ -82,7 +83,7 @@ class KafkaMetricClientTest {
                 "FiveMinuteRate", 4.0,
                 "MeanRate", 8.0,
                 "OneMinuteRate", 16.0,
-                "RateUnit", "SECONDS"));
+                "RateUnit", TimeUnit.SECONDS));
     register(
         ObjectName.getInstance("kafka.server:type=BrokerTopicMetrics,name=" + metric.name()),
         mbean);
@@ -97,6 +98,6 @@ class KafkaMetricClientTest {
     assertEquals(4.0, result.fiveMinuteRate());
     assertEquals(8.0, result.meanRate());
     assertEquals(16.0, result.oneMinuteRate());
-    assertEquals("SECONDS", result.rateUnit());
+    assertEquals(TimeUnit.SECONDS, result.rateUnit());
   }
 }
