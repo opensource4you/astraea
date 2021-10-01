@@ -25,6 +25,5 @@ class KafkaMetricClientAppTest {
   @Test
   void testBadArguments() {
     assertThrows(IllegalArgumentException.class, () -> KafkaMetricClientApp.main(new String[0]));
-    assertThrows(IllegalArgumentException.class, () -> KafkaMetricClientApp.main(new String[1]));
   }
 }

@@ -22,7 +22,7 @@ public final class KafkaMetricClientApp {
   public static void main(String[] args) throws MalformedURLException {
 
     // ensure argument safe
-    if (args.length < 2) {
+    if (args.length < 1) {
       help();
       throw new IllegalArgumentException();
     }
@@ -38,6 +38,9 @@ public final class KafkaMetricClientApp {
           argumentTargetMetrics.stream()
               .map(BrokerTopicMetrics::valueOf)
               .collect(Collectors.toUnmodifiableList());
+
+      // if no metric name specified, all metrics are selected
+      if (argumentTargetMetrics.size() == 0) metrics = List.of(BrokerTopicMetrics.values());
 
       while (!Thread.interrupted()) {
         // fetch
@@ -69,10 +72,12 @@ public final class KafkaMetricClientApp {
 
   private static void help() {
     String simpleName = KafkaMetricClientApp.class.getSimpleName();
-    System.err.printf(
-        "Usage: %s <jmx server address> <metric name> [more metric names ...]\n", simpleName);
+    System.err.printf("Usage: %s <jmx server address> [metric names ...]\n", simpleName);
     System.err.println();
-    System.err.printf("Example: %s localhost:9875 BytesInPerSec BytesOutPerSec\n", simpleName);
+    System.err.println("If no metric name specified in argument, all metrics will be selected.");
+    System.err.println();
+    System.err.printf("Example 1: %s localhost:9875\n", simpleName);
+    System.err.printf("Example 2: %s localhost:9875 BytesInPerSec BytesOutPerSec\n", simpleName);
     System.err.println();
     System.err.println("Available Metrics:");
     for (BrokerTopicMetrics value : BrokerTopicMetrics.values()) {
