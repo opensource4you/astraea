@@ -1,9 +1,8 @@
 package org.astraea.performance.latency;
 
 import com.beust.jcommander.Parameter;
-import org.astraea.argument.ArgumentUtil;
-
 import java.time.Duration;
+import org.astraea.argument.ArgumentUtil;
 
 public class End2EndLatencyArgument {
   @Parameter(

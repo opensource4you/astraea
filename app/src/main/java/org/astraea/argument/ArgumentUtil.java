@@ -4,11 +4,10 @@ import com.beust.jcommander.IParameterValidator;
 import com.beust.jcommander.IStringConverter;
 import com.beust.jcommander.JCommander;
 import com.beust.jcommander.ParameterException;
-import org.astraea.offset.OffsetExplorerArgument;
-import org.astraea.performance.latency.End2EndLatencyArgument;
-
 import java.time.Duration;
 import java.util.List;
+import org.astraea.offset.OffsetExplorerArgument;
+import org.astraea.performance.latency.End2EndLatencyArgument;
 
 /*
  * To add new option, add in the corresponding file.
@@ -23,7 +22,7 @@ import java.util.List;
 
 public class ArgumentUtil {
   // Do not instantiate.
-  private ArgumentUtil(){}
+  private ArgumentUtil() {}
 
   public static boolean checkArgument(List<String> args) {
     JCommander.Builder builder = JCommander.newBuilder();
