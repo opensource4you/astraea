@@ -3,7 +3,7 @@ package org.astraea.performance;
 import java.util.concurrent.ExecutionException;
 import org.apache.kafka.clients.producer.ProducerRecord;
 
-/** 每秒傳送一則給定大小(recordSize)的訊息，直到已經傳送records筆訊息 */
+/** 每毫秒傳送一則給定大小(recordSize)的訊息，直到已經傳送records筆訊息 */
 public class ProducerThread extends CloseableThread {
   private final Producer producer;
   private final String topic;
@@ -20,12 +20,11 @@ public class ProducerThread extends CloseableThread {
    */
   public ProducerThread(
       Producer producer, String topic, long records, int recordSize, Metrics latency) {
+    super(true);
     this.producer = producer;
     this.topic = topic;
     this.records = records;
-    // 給定訊息大小
-    payload = new byte[recordSize];
-    // 記錄publish latency and bytes output
+    this.payload = new byte[recordSize];
     this.latency = latency;
   }
 
@@ -40,12 +39,9 @@ public class ProducerThread extends CloseableThread {
         latency.putLatency(System.currentTimeMillis() - start);
         latency.addBytes(payload.length);
         Thread.sleep(1);
-      } catch (InterruptedException ignored) {
-      } catch (ExecutionException ee) {
+      } catch (InterruptedException | ExecutionException ignored) {
       }
     }
-    // execute once.
-    closed.set(true);
   }
 
   @Override

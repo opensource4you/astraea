@@ -1,14 +1,34 @@
 package org.astraea.performance;
 
 import java.util.Collections;
-import java.util.List;
 import java.util.Properties;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutionException;
 import org.apache.kafka.clients.admin.NewTopic;
-import org.apache.kafka.clients.producer.ProducerRecord;
-import org.apache.kafka.common.TopicPartitionInfo;
 
+/**
+ * Performance benchmark which includes
+ *
+ * <ol>
+ *   <li>publish latency: the time of completing producer data request
+ *   <li>E2E latency: the time for a record to travel through Kafka
+ *   <li>input rate: sum of consumer inputs in MByte per second
+ *   <li>output rate: sum of producer outputs in MByte per second
+ * </ol>
+ *
+ * With configurations:
+ *
+ * <ol>
+ *   <li>--brokers: the server to connect to
+ *   <li>--topic: the topic name
+ *   <li>--topicConfig: new topic's configuration Default: partitions:1,replicationFactor:1
+ *   <li>--producers: the number of producers (threads). Default: 1
+ *   <li>--consumers: the number of consumers (threads). Default: 1
+ *   <li>--records: the total number of records sent by the producers.
+ *   <li>--recordSize: the record size in byte
+ * </ol>
+ *
+ * To avoid records being produced too fast, producer wait for one millisecond after each send.
+ */
 public class Performance {
   static class Parameters {
     public final String brokers;
@@ -18,6 +38,10 @@ public class Performance {
     public final int consumers;
     public final long records;
     public final int recordSize;
+
+    public Parameters(String brokers, String topic) {
+      this(brokers, topic, "", 1, 1, 1000, 1024);
+    }
 
     public Parameters(
         String brokers,
@@ -63,18 +87,22 @@ public class Performance {
           prop.getProperty("topicConfigs", ""),
           Integer.parseInt(prop.getProperty("producers", "1")),
           Integer.parseInt(prop.getProperty("consumers", "1")),
-          Long.parseLong(prop.getProperty("records", "1")),
-          Integer.parseInt(prop.getProperty("recordSize", "1")));
+          Long.parseLong(prop.getProperty("records", "1000")),
+          Integer.parseInt(prop.getProperty("recordSize", "1024")));
     }
   }
 
   public static void main(String[] args) {
     final Parameters param = Parameters.parseArgs(args);
 
-    execute(param);
+    try {
+      execute(param);
+    } catch (InterruptedException ie) {
+      System.out.print(ie.getMessage());
+    }
   }
 
-  public static void execute(Parameters param) {
+  public static void execute(Parameters param) throws InterruptedException {
     /*=== Initialization ===*/
     final ComponentFactory componentFactory = ComponentFactory.fromKafka(param.brokers);
     checkTopic(componentFactory, param.topic, param.topicConfigs);
@@ -82,28 +110,29 @@ public class Performance {
     // Start consuming
     final CountDownLatch consumersComplete = new CountDownLatch(1);
     final Metrics[] consumerMetrics = startConsumers(componentFactory, param, consumersComplete);
-    // Warm up: Send a record to each partition
-    warmUp(componentFactory, param.topic);
+
+    System.out.println("Wait for consumer startup.");
+    Thread.sleep(10000);
+
+    // warm up
+    // startProducers(componentFactory, new Parameters(param.brokers, param.topic));
     for (var metric : consumerMetrics) metric.reset();
+    System.out.println("============== Start performance benchmark ================");
+
     // Start producing record. (Auto close)
     final Metrics[] producerMetrics = startProducers(componentFactory, param);
 
-    // Get metrics and print them out
-    final PrintOutThread printOut =
+    // Get metrics and print them out.
+    PrintOutThread printOutThread =
         new PrintOutThread(producerMetrics, consumerMetrics, param.records);
-    printOut.start();
+    printOutThread.start();
 
-    // Wait for consumer completion
-    try {
-      consumersComplete.await();
-    } catch (InterruptedException ignore) {
-    }
-
-    /*=== Clean up ===*/
-    printOut.close();
+    // Keep printing out until consumer consume records more than equal to producers produced.
+    printOutThread.join();
+    consumersComplete.countDown();
   }
 
-  // 檢查topic是否存在，不存在就建立新的topic
+  /** 檢查topic是否存在，不存在就建立新的topic */
   public static void checkTopic(ComponentFactory componentFactory, String topic, String config) {
     try (TopicAdmin topicAdmin = componentFactory.createAdmin()) {
       // 取得所有topics -> 取得topic名字的future -> 查看topic是否存在
@@ -147,9 +176,7 @@ public class Performance {
               Collections.singletonList(new NewTopic(topic, partitions, replicationFactor)))
           .get(topic)
           .get();
-    } catch (InterruptedException ignored) {
-    } catch (ExecutionException ignored) {
-    } catch (Exception ignored) {
+    } catch (Exception ignore) {
     }
   }
 
@@ -162,6 +189,7 @@ public class Performance {
       long records = param.records / param.producers;
       if (i < param.records % param.producers) ++records;
       producerMetrics[i] = new Metrics();
+      System.out.println("records: " + records);
       // start up producerThread
       new ProducerThread(
               componentFactory.createProducer(),
@@ -190,44 +218,18 @@ public class Performance {
       consumerThreads[i].start();
     }
 
-    // Wait for records all consumed, and cleanup.
+    // Cleanup consumers until the consumersComplete is signaled.
     new Thread(
             () -> {
-              while (!consumerComplete(consumerMetrics, param.records))
-                ;
-              consumersComplete.countDown();
-              for (var consumer : consumerThreads) consumer.close();
+              try {
+                consumersComplete.await();
+              } catch (InterruptedException ignore) {
+              } finally {
+                for (var consumer : consumerThreads) consumer.close();
+              }
             })
         .start();
 
     return consumerMetrics;
-  }
-
-  public static void warmUp(ComponentFactory componentFactory, String topic) {
-    final byte[] payload = new byte[1];
-
-    System.out.println("Warming up...");
-    try (Producer producer = componentFactory.createProducer();
-        TopicAdmin admin = componentFactory.createAdmin()) {
-
-      List<TopicPartitionInfo> partitions = admin.partitions(topic);
-      for (TopicPartitionInfo partition : partitions) {
-        // Send record to all partitions
-        producer.send(new ProducerRecord<>(topic, partition.partition(), null, payload)).get();
-      }
-      Thread.sleep(10000);
-    } catch (InterruptedException ie) {
-    } catch (ExecutionException ee) {
-    } catch (Exception e) {
-    }
-    System.out.println("===================Start testing================\n");
-  }
-
-  public static boolean consumerComplete(Metrics[] consumerMetrics, long records) {
-    long sum = 0;
-    for (var metrics : consumerMetrics) {
-      sum += metrics.num();
-    }
-    return sum >= records;
   }
 }

@@ -1,8 +1,6 @@
 package org.astraea.performance;
 
-import java.util.Collections;
 import java.util.concurrent.CountDownLatch;
-import org.apache.kafka.clients.admin.NewTopic;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -95,19 +93,6 @@ public class PerformanceTest {
   }
 
   @Test
-  public void testWarmUp() {
-    FakeComponentFactory componentFactory = new FakeComponentFactory();
-    try (TopicAdmin admin = componentFactory.createAdmin()) {
-      admin.createTopics(Collections.singletonList(new NewTopic("topic", 6, (short) 1)));
-    } catch (Exception ignore) {
-    }
-
-    Performance.warmUp(componentFactory, "topic");
-
-    Assertions.assertEquals(6, componentFactory.produced.sum());
-  }
-
-  @Test
   public void testStartProducer() throws InterruptedException {
     FakeComponentFactory componentFactory = new FakeComponentFactory();
 
@@ -124,7 +109,7 @@ public class PerformanceTest {
   }
 
   @Test
-  public void testStartConsumerAndConsumerComplete() throws InterruptedException {
+  public void testStartConsumerAndStop() throws InterruptedException {
     FakeComponentFactory componentFactory = new FakeComponentFactory();
     CountDownLatch consumerComplete = new CountDownLatch(1);
 
@@ -134,10 +119,9 @@ public class PerformanceTest {
             new Performance.Parameters("localhost:9092", "topic", "", 2, 2, 4, 1),
             consumerComplete);
     Thread.sleep(10);
+    consumerComplete.countDown();
+    Thread.sleep(10);
 
-    // check if startConsumer successfully return
-    Assertions.assertEquals(0, consumerComplete.getCount());
     Assertions.assertEquals(2, componentFactory.consumerClosed.get());
-    Assertions.assertTrue(Performance.consumerComplete(metrics, 4));
   }
 }

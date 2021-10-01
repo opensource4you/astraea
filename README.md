@@ -81,6 +81,28 @@ Run the benchmark from release
 
 ---
 
+## Performance Benchmark
+This tool is used test following metrics.
+1. publish latency: the time of completing producer data request
+2. E2E latency: the time for a record to travel through Kafka
+3. input rate: sum of consumer inputs in MByte per second
+4. output rate: sum of producer outputs in MByte per second
+
+Run the benchmark from source
+```shell
+./gradlew run --args="Performance --brokers 192.168.103.26:19900,192.168.103.26:19639,192.168.103.26:17374 --topic topic --topicConfig partitions:10,replicationFactor:3 --producers 5 --consumers 1 --records 100000 --recordSize 10000"
+```
+### Performance Benchmark Configurations
+1. --brokers: the server to connect to
+2. --topic: the topic name
+3. --topicConfig: new topic's configuration Default: partitions:1,replicationFactor:1
+4. --producers: the number of producers (threads). Default: 1
+5. --consumers: the number of consumers (threads). Default: 1
+6. --records: the total number of records sent by the producers. Default: 1000
+7. --recordSize: the record size in byte. Default: 1024 byte
+
+---
+
 ## Offset Explorer
 
 This tool can expose both earliest offset and latest offset for all (public and private) topics.
