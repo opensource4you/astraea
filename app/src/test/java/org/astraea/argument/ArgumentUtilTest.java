@@ -5,12 +5,12 @@ import java.util.Arrays;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-public class ArgumentCheckTest {
+public class ArgumentUtilTest {
   @Test
   public void testParse() {
     // End2EndLatencyArgument argument =
     Assertions.assertTrue(
-        ArgumentCheck.checkArgument(
+        ArgumentUtil.checkArgument(
             Arrays.asList(
                 "End2EndLatency",
                 "--bootstrap.servers",
@@ -44,7 +44,7 @@ public class ArgumentCheckTest {
         Assertions.assertThrows(
                 ParameterException.class,
                 () ->
-                    ArgumentCheck.checkArgument(
+                    ArgumentUtil.checkArgument(
                         Arrays.asList(
                             "OffsetExplorer", "--bootstrap.servers", "", "--topic", "testing")))
             .getMessage());
@@ -53,7 +53,7 @@ public class ArgumentCheckTest {
         Assertions.assertThrows(
                 ParameterException.class,
                 () ->
-                    ArgumentCheck.checkArgument(
+                    ArgumentUtil.checkArgument(
                         Arrays.asList(
                             "OffsetExplorer",
                             "--bootstrap.servers",
@@ -70,7 +70,7 @@ public class ArgumentCheckTest {
         Assertions.assertThrows(
                 ParameterException.class,
                 () ->
-                    ArgumentCheck.checkArgument(
+                    ArgumentUtil.checkArgument(
                         Arrays.asList(
                             "End2EndLatency",
                             "--bootstrap.servers",
@@ -85,7 +85,7 @@ public class ArgumentCheckTest {
         Assertions.assertThrows(
                 ParameterException.class,
                 () ->
-                    ArgumentCheck.checkArgument(
+                    ArgumentUtil.checkArgument(
                         Arrays.asList(
                             "End2EndLatency",
                             "--bootstrap.servers",
@@ -100,7 +100,7 @@ public class ArgumentCheckTest {
         Assertions.assertThrows(
                 ParameterException.class,
                 () ->
-                    ArgumentCheck.checkArgument(
+                    ArgumentUtil.checkArgument(
                         Arrays.asList(
                             "End2EndLatency",
                             "--bootstrap.servers",
@@ -115,7 +115,7 @@ public class ArgumentCheckTest {
         Assertions.assertThrows(
                 ParameterException.class,
                 () ->
-                    ArgumentCheck.checkArgument(
+                    ArgumentUtil.checkArgument(
                         Arrays.asList(
                             "End2EndLatency",
                             "--bootstrap.servers",
@@ -130,7 +130,7 @@ public class ArgumentCheckTest {
         Assertions.assertThrows(
                 ParameterException.class,
                 () ->
-                    ArgumentCheck.checkArgument(
+                    ArgumentUtil.checkArgument(
                         Arrays.asList(
                             "End2EndLatency",
                             "--bootstrap.servers",
