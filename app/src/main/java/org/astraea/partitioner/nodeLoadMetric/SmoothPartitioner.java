@@ -19,7 +19,7 @@ public class SmoothPartitioner implements Partitioner {
 
     NodeLoadClient nodeLoadClient = null;
     try {
-      nodeLoadClient = getNodeLoadInstance();
+      nodeLoadClient = getNodeLoadInstance(cluster.nodes().size());
     } catch (InterruptedException e) {
       e.printStackTrace();
     }

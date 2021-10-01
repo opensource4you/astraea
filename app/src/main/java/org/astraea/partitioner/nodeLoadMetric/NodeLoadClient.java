@@ -1,6 +1,7 @@
 package org.astraea.partitioner.nodeLoadMetric;
 
 import java.util.*;
+import java.util.concurrent.TimeUnit;
 
 public class NodeLoadClient implements Runnable {
 
@@ -10,16 +11,16 @@ public class NodeLoadClient implements Runnable {
   private static class NodeLoadClientHolder {
     private static OverLoadNode overLoadNode = new OverLoadNode();
     private static NodeLoadClient nodeLoadClient = new NodeLoadClient();
-    private static Boolean clientOn = false;
-    private static Boolean timeOut = false;
-    private static Boolean currentAlive = false;
+    private static boolean clientOn = false;
+    private static boolean timeOut = false;
+    private static boolean currentAlive = false;
     private static int timeOutCount = 0;
   }
 
-  public static NodeLoadClient getNodeLoadInstance() throws InterruptedException {
+  public static NodeLoadClient getNodeLoadInstance(int nodeNum) throws InterruptedException {
     if (!NodeLoadClientHolder.clientOn) {
       NodeLoadClientHolder.clientOn = true;
-      for (int i = 0; i < 10; i++) {
+      for (int i = 0; i < nodeNum; i++) {
         overLoadCount.put(i, 0);
       }
       Thread loadThread = new Thread(NodeLoadClientHolder.nodeLoadClient);
@@ -39,7 +40,7 @@ public class NodeLoadClient implements Runnable {
         NodeLoadClientHolder.timeOutCount =
             NodeLoadClientHolder.currentAlive ? 0 : NodeLoadClientHolder.timeOutCount;
         NodeLoadClientHolder.currentAlive = false;
-        Thread.sleep(1000);
+        TimeUnit.SECONDS.sleep(1);
       }
     } catch (InterruptedException e) {
       e.printStackTrace();
@@ -82,7 +83,7 @@ public class NodeLoadClient implements Runnable {
   }
 
   /** Baby don't cry. */
-  public void tellAlive() {
+  public synchronized void tellAlive() {
     NodeLoadClientHolder.currentAlive = true;
   }
 

@@ -28,11 +28,11 @@ public class NodeLoadClientTest {
     overLoadNode.setEachBrokerMsgPerSec(testBrokerMsg);
     setOverLoadNode(overLoadNode);
 
-    NodeLoadClient nodeLoadClient = getNodeLoadInstance();
+    NodeLoadClient nodeLoadClient = getNodeLoadInstance(4);
     Thread.sleep(15000);
     assertEquals(getTimeOutCount(), 0);
 
-    nodeLoadClient = getNodeLoadInstance();
+    nodeLoadClient = getNodeLoadInstance(4);
     Thread.sleep(5000);
     nodeLoadClient.tellAlive();
     Thread.sleep(6000);
@@ -52,7 +52,7 @@ public class NodeLoadClientTest {
     overLoadNode.setEachBrokerMsgPerSec(testBrokerMsg);
     setOverLoadNode(overLoadNode);
 
-    NodeLoadClient nodeLoadClient = getNodeLoadInstance();
+    NodeLoadClient nodeLoadClient = getNodeLoadInstance(4);
     Thread.sleep(5000);
   }
 }
