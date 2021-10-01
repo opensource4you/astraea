@@ -22,7 +22,7 @@ public final class KafkaMetricClientApp {
   public static void main(String[] args) throws MalformedURLException {
 
     // ensure argument safe
-    if (args.length < 3) {
+    if (args.length < 2) {
       help();
       throw new IllegalArgumentException();
     }
