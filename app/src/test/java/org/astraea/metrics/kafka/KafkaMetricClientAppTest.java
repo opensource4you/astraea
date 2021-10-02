@@ -14,11 +14,13 @@ class KafkaMetricClientAppTest {
 
   @BeforeEach
   void beforeEach() {
+    // swallow stderr output to null stream
     System.setErr(new PrintStream(OutputStream.nullOutputStream()));
   }
 
   @AfterEach
   void afterEach() {
+    // restore stderr stream
     System.setErr(stderr);
   }
 
