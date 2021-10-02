@@ -10,45 +10,52 @@ import org.astraea.offset.OffsetExplorerArgument;
 import org.astraea.performance.latency.End2EndLatencyArgument;
 
 /*
+ * A tool used to parse command line arguments.
+ *
  * To add new option, add in the corresponding file.
  * @Parameter(names={"--option"}, description="")
  * public <optionType> <optionName>;
  *
- * To add new tool, add new case in this file.
- * case "newTool":
- * jc.addObject(new NewToolArgument()).build().parse(args.subList(1, args.size()).toArray(new String[0]));
+ * To add "NewTool"
+ * 1. Import the class of "NewTool" argument class.
+ * 2. add new case in this file.
+ * ```
+ * case "path.to.package.NewTool":
+ *   jc.addObject(new NewToolArgument()).build().parse(args.toArray(new String[0]));
  * break;
+ * ```
  * */
 
 public class ArgumentUtil {
   // Do not instantiate.
   private ArgumentUtil() {}
 
-  public static boolean checkArgument(List<String> args) {
+  public static boolean checkArgument(Class<?> tool, List<String> args) {
     JCommander.Builder builder = JCommander.newBuilder();
     JCommander jc;
-    switch (args.get(0)) {
-      case "End2EndLatency":
+    System.out.println(tool.getName());
+    switch (tool.getName()) {
+      case "org.astraea.performance.latency.End2EndLatency":
         jc = builder.addObject(new End2EndLatencyArgument()).build();
         try {
-          jc.parse(args.subList(1, args.size()).toArray(new String[0]));
+          jc.parse(args.toArray(new String[0]));
         } catch (ParameterException pe) {
           jc.usage();
           throw pe;
         }
         break;
-      case "OffsetExplorer":
+      case "org.astraea.offset.OffsetExplorer":
         jc = builder.addObject(new OffsetExplorerArgument()).build();
         try {
-          jc.parse(args.subList(1, args.size()).toArray(new String[0]));
+          jc.parse(args.toArray(new String[0]));
         } catch (ParameterException pe) {
           jc.usage();
           throw pe;
         }
         break;
       default:
-        // Do not check any unknown tool. Let the Developer check himself.
-        return true;
+        // Unknown tool.
+        return false;
     }
     return true;
   }

@@ -24,9 +24,6 @@ public class App {
     if (args.size() < 1) {
       throw new IllegalArgumentException(usage(mains));
     }
-    if (!ArgumentUtil.checkArgument(args)) {
-      throw new IllegalArgumentException(usage(mains));
-    }
 
     var className = args.get(0);
 
@@ -39,6 +36,8 @@ public class App {
                     () ->
                         new IllegalArgumentException(
                             "className: " + className + " is not matched to " + toString(mains)));
+
+    ArgumentUtil.checkArgument(targetClass, args.subList(1, args.size()));
 
     var method = targetClass.getDeclaredMethod("main", String[].class);
     method.invoke(null, (Object) args.subList(1, args.size()).toArray(String[]::new));
