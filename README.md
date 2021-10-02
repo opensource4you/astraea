@@ -12,6 +12,11 @@ a collection of tools used to balance Kafka data
 
 This project offers many kafka tools to simplify the life for kafka users.
 
+1. [Kafka quick start](#kafka-cluster-quick-start): set up a true kafka cluster in one minute
+2. [Kafka benchmark](#latency-benchmark): run producers/consumers to test the performance and consistency for kafka cluster
+3. [Kafka offset explorer](#offset-explorer): check the start/end offsets of kafka topics
+4. [Kafka official tool](#kafka-official-tool): run any one specific kafka official tool. All you have to prepare is the docker env.
+
 ---
 
 ## Kafka Cluster Quick Start

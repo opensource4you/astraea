@@ -2,6 +2,8 @@ package org.astraea.argument;
 
 import com.beust.jcommander.ParameterException;
 import java.util.Arrays;
+import org.astraea.offset.OffsetExplorer;
+import org.astraea.performance.latency.End2EndLatency;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -10,8 +12,8 @@ public class ArgumentUtilTest {
   public void testParse() {
     Assertions.assertTrue(
         ArgumentUtil.checkArgument(
+            End2EndLatency.class,
             Arrays.asList(
-                "End2EndLatency",
                 "--bootstrap.servers",
                 "localhost:9092",
                 "--topic",
@@ -36,8 +38,8 @@ public class ArgumentUtilTest {
                 ParameterException.class,
                 () ->
                     ArgumentUtil.checkArgument(
-                        Arrays.asList(
-                            "OffsetExplorer", "--bootstrap.servers", "", "--topic", "testing")))
+                        OffsetExplorer.class,
+                        Arrays.asList("--bootstrap.servers", "", "--topic", "testing")))
             .getMessage());
     Assertions.assertEquals(
         "--topic should not be empty.",
@@ -45,12 +47,8 @@ public class ArgumentUtilTest {
                 ParameterException.class,
                 () ->
                     ArgumentUtil.checkArgument(
-                        Arrays.asList(
-                            "OffsetExplorer",
-                            "--bootstrap.servers",
-                            "localhost:9092",
-                            "--topic",
-                            "")))
+                        OffsetExplorer.class,
+                        Arrays.asList("--bootstrap.servers", "localhost:9092", "--topic", "")))
             .getMessage());
   }
 
@@ -62,8 +60,8 @@ public class ArgumentUtilTest {
                 ParameterException.class,
                 () ->
                     ArgumentUtil.checkArgument(
+                        End2EndLatency.class,
                         Arrays.asList(
-                            "End2EndLatency",
                             "--bootstrap.servers",
                             "localhost:9092",
                             "--topic",
@@ -77,8 +75,8 @@ public class ArgumentUtilTest {
                 ParameterException.class,
                 () ->
                     ArgumentUtil.checkArgument(
+                        End2EndLatency.class,
                         Arrays.asList(
-                            "End2EndLatency",
                             "--bootstrap.servers",
                             "localhost:9092",
                             "--topic",
@@ -92,8 +90,8 @@ public class ArgumentUtilTest {
                 ParameterException.class,
                 () ->
                     ArgumentUtil.checkArgument(
+                        End2EndLatency.class,
                         Arrays.asList(
-                            "End2EndLatency",
                             "--bootstrap.servers",
                             "localhost:9092",
                             "--topic",
@@ -107,8 +105,8 @@ public class ArgumentUtilTest {
                 ParameterException.class,
                 () ->
                     ArgumentUtil.checkArgument(
+                        End2EndLatency.class,
                         Arrays.asList(
-                            "End2EndLatency",
                             "--bootstrap.servers",
                             "localhost:9092",
                             "--topic",
@@ -122,8 +120,8 @@ public class ArgumentUtilTest {
                 ParameterException.class,
                 () ->
                     ArgumentUtil.checkArgument(
+                        End2EndLatency.class,
                         Arrays.asList(
-                            "End2EndLatency",
                             "--bootstrap.servers",
                             "localhost:9092",
                             "--topic",
