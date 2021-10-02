@@ -7,11 +7,16 @@ import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.clients.producer.RecordMetadata;
 import org.apache.kafka.common.serialization.ByteArraySerializer;
 
+/** An interface for sending records. */
 public interface Producer extends AutoCloseable {
   Future<RecordMetadata> send(ProducerRecord<byte[], byte[]> producerRecord);
 
   void close();
 
+  /** Create a KafkaProducer.
+   * @Param prop: Properties to create a KafkaProducer
+   * @return a KafkaProducer
+   * */
   static Producer fromKafka(Properties prop) {
     final KafkaProducer<byte[], byte[]> kafkaProducer =
         new KafkaProducer<>(prop, new ByteArraySerializer(), new ByteArraySerializer());

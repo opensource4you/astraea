@@ -1,10 +1,11 @@
 package org.astraea.performance;
 
+/** Print out the given metrics. Run until consumers complete their consume. */
 public class PrintOutThread extends Thread {
   private final Metrics[] producerData;
   private final Metrics[] consumerData;
   private final long records;
-  /** Print out the metrics. Run until consumers consume `records` records */
+
   public PrintOutThread(Metrics[] producerData, Metrics[] consumerData, long records) {
     this.producerData = producerData;
     this.consumerData = consumerData;
@@ -22,7 +23,7 @@ public class PrintOutThread extends Thread {
       /* producer */
       for (Metrics data : producerData) {
         completed += data.num();
-        bytes += data.bytes();
+        bytes += data.bytesThenReset();
         if (max < data.max()) max = data.max();
         if (min > data.min()) min = data.min();
       }
@@ -41,7 +42,7 @@ public class PrintOutThread extends Thread {
       min = Long.MAX_VALUE;
       for (Metrics data : consumerData) {
         completed += data.num();
-        bytes += data.bytes();
+        bytes += data.bytesThenReset();
         if (max < data.max()) max = data.max();
         if (min > data.min()) min = data.min();
       }

@@ -55,7 +55,7 @@ public class MetricsTest {
             } catch (InterruptedException ie) {
             }
             for (int i = 0; i < loopCount; ++i) {
-              longAdder.add(metrics.bytes());
+              longAdder.add(metrics.bytesThenReset());
             }
           }
         };
@@ -64,7 +64,7 @@ public class MetricsTest {
     countDownLatch.countDown();
     try {
       adder.join();
-      longAdder.add(metrics.bytes());
+      longAdder.add(metrics.bytesThenReset());
     } catch (InterruptedException ie) {
     }
     Assertions.assertEquals(loopCount * input, longAdder.sum());
@@ -78,7 +78,7 @@ public class MetricsTest {
 
     metrics.reset();
 
-    Assertions.assertEquals(0, metrics.bytes());
+    Assertions.assertEquals(0, metrics.bytesThenReset());
     Assertions.assertEquals(0, metrics.avgLatency());
   }
 }

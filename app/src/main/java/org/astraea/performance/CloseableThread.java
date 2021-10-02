@@ -11,10 +11,12 @@ public abstract class CloseableThread extends Thread implements Closeable {
   private final boolean executeOnce;
   private final AtomicLong threadId = new AtomicLong();
 
+  /** Set this thread to iterate forever until close() is called */
   protected CloseableThread() {
     this(false);
   }
 
+  /** Set this thread to iterate or run once. */
   protected CloseableThread(boolean executeOnce) {
     this.executeOnce = executeOnce;
   }
@@ -33,8 +35,7 @@ public abstract class CloseableThread extends Thread implements Closeable {
   }
 
   /**
-   * DO NOT call close() in execute()! It will cause deadlock. Use closed.set(true) in execute() to
-   * stop the thread looping.
+   * The process to iterate.
    */
   protected abstract void execute();
 

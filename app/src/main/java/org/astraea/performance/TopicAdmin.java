@@ -7,6 +7,7 @@ import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.common.KafkaFuture;
 import org.apache.kafka.common.TopicPartitionInfo;
 
+/** Used for creating admin to configure the server. */
 public interface TopicAdmin extends AutoCloseable {
   Set<String> listTopics() throws InterruptedException, ExecutionException;
 
@@ -14,6 +15,7 @@ public interface TopicAdmin extends AutoCloseable {
 
   List<TopicPartitionInfo> partitions(String topic);
 
+  /***/
   static TopicAdmin fromKafka(Properties prop) {
     Admin admin = Admin.create(prop);
     return new TopicAdmin() {

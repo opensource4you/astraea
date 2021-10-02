@@ -12,7 +12,7 @@ public class ProducerThreadTest {
         new ProducerThread(componentFactory.createProducer(), "", 1, 10, metrics);
 
     Assertions.assertEquals(0.0, metrics.avgLatency());
-    Assertions.assertEquals(0, metrics.bytes());
+    Assertions.assertEquals(0, metrics.bytesThenReset());
     Assertions.assertFalse(thread.closed.get());
 
     thread.start();
@@ -20,7 +20,7 @@ public class ProducerThreadTest {
     thread.close();
 
     Assertions.assertNotEquals(0.0, metrics.avgLatency());
-    Assertions.assertNotEquals(0, metrics.bytes());
+    Assertions.assertNotEquals(0, metrics.bytesThenReset());
     Assertions.assertTrue(thread.closed.get());
   }
 }

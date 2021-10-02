@@ -2,6 +2,7 @@ package org.astraea.performance;
 
 import java.util.concurrent.atomic.LongAdder;
 
+/** Used to track statistics. */
 public class Metrics {
   private double avgLatency;
   private long num;
@@ -13,50 +14,42 @@ public class Metrics {
     avgLatency = 0;
     num = 0;
     max = 0;
-    // 初始為最大的integer值
     min = Long.MAX_VALUE;
     bytes = new LongAdder();
   }
-  // 多紀錄一個新的值
+  /** Add a new value to latency metric. */
   public void putLatency(long latency) {
-    // 更新最大延時
-    if (min > latency) {
-      min = latency;
-    }
-    // 更新最小延時
-    if (max < latency) {
-      max = latency;
-    }
-    // 記錄現在有幾個數被加入了
+    if (min > latency) min = latency;
+    if (max < latency) max = latency;
     ++num;
-    // 更新平均值
     avgLatency += (((double) latency) - avgLatency) / (double) num;
   }
-  // 增加bytes數值
+  /** Add a new value to bytes. */
   public void addBytes(long bytes) {
     this.bytes.add(bytes);
   }
 
+  /** Get the number of latency put. */
   public long num() {
     return num;
   }
-  // 取得現在記錄的最大值
+  /** Get the maximum of latency put. */
   public long max() {
     return max;
   }
-  // 取得現在記錄的最小值
+  /** Get the minimum of latency put. */
   public long min() {
     return min;
   }
-  // 取得現在的平均值
+  /** Get the average latency. */
   public double avgLatency() {
     return avgLatency;
   }
-  // 取得從 上次呼叫"getBytes()" 到 現在 的輸入/出的byte數，並重置
-  public long bytes() {
+  /** Reset to 0 and returns the old value of bytes */
+  public long bytesThenReset() {
     return this.bytes.sumThenReset();
   }
-  // Set all attributes to default value
+  /** Set all attributes to default value */
   public void reset() {
     avgLatency = 0;
     num = 0;
