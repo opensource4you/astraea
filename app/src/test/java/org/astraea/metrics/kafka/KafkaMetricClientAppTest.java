@@ -14,7 +14,7 @@ class KafkaMetricClientAppTest {
 
   @BeforeEach
   void beforeEach() {
-    // swallow stderr output to null stream
+    // swallow stderr output to null stream, avoid help() info from KafkaMetricClientApp
     System.setErr(new PrintStream(OutputStream.nullOutputStream()));
   }
 
