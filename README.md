@@ -82,7 +82,7 @@ Run the benchmark from release
 ---
 
 ## Performance Benchmark
-This tool is used test following metrics.
+This tool is used test to following metrics.
 1. publish latency: the time of completing producer data request
 2. E2E latency: the time for a record to travel through Kafka
 3. input rate: sum of consumer inputs in MByte per second
