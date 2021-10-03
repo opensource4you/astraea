@@ -13,10 +13,12 @@ public interface Producer extends AutoCloseable {
 
   void close();
 
-  /** Create a KafkaProducer.
+  /**
+   * Create a KafkaProducer.
+   *
    * @param prop: Properties to create a KafkaProducer
    * @return a KafkaProducer
-   * */
+   */
   static Producer fromKafka(Properties prop) {
     final KafkaProducer<byte[], byte[]> kafkaProducer =
         new KafkaProducer<>(prop, new ByteArraySerializer(), new ByteArraySerializer());

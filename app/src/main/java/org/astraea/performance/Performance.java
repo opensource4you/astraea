@@ -102,7 +102,7 @@ public class Performance {
     }
   }
 
-  public static void execute(Parameters param) throws InterruptedException {
+  public static void execute(final Parameters param) throws InterruptedException {
     /*=== Initialization ===*/
     final ComponentFactory componentFactory = ComponentFactory.fromKafka(param.brokers);
     checkTopic(componentFactory, param.topic, param.topicConfigs);
@@ -113,23 +113,21 @@ public class Performance {
 
     System.out.println("Wait for consumer startup.");
     Thread.sleep(10000);
-
-    // warm up
-    // startProducers(componentFactory, new Parameters(param.brokers, param.topic));
-    for (var metric : consumerMetrics) metric.reset();
     System.out.println("============== Start performance benchmark ================");
 
     // Start producing record. (Auto close)
     final Metrics[] producerMetrics = startProducers(componentFactory, param);
 
-    // Get metrics and print them out.
-    PrintOutThread printOutThread =
-        new PrintOutThread(producerMetrics, consumerMetrics, param.records);
-    printOutThread.start();
-
-    // Keep printing out until consumer consume records more than equal to producers produced.
-    printOutThread.join();
-    consumersComplete.countDown();
+    try (PrintOutThread printOutThread =
+        new PrintOutThread(producerMetrics, consumerMetrics, param.records)) {
+      printOutThread.start();
+      // Check consumed records every one second.
+      checkConsume(consumerMetrics, param.records);
+    } catch (InterruptedException ignore) {
+    } finally {
+      // Stop all consumers
+      consumersComplete.countDown();
+    }
   }
 
   /** 檢查topic是否存在，不存在就建立新的topic */
@@ -189,7 +187,6 @@ public class Performance {
       long records = param.records / param.producers;
       if (i < param.records % param.producers) ++records;
       producerMetrics[i] = new Metrics();
-      System.out.println("records: " + records);
       // start up producerThread
       new ProducerThread(
               componentFactory.createProducer(),
@@ -231,5 +228,16 @@ public class Performance {
         .start();
 
     return consumerMetrics;
+  }
+
+  // Block until records consumed reached `records`
+  private static void checkConsume(final Metrics[] consumerMetrics, final long records)
+      throws InterruptedException {
+    int sum = 0;
+    while (sum < records) {
+      sum = 0;
+      for (Metrics metric : consumerMetrics) sum += metric.num();
+      Thread.sleep(1000);
+    }
   }
 }

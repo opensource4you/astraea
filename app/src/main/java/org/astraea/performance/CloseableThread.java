@@ -34,9 +34,7 @@ public abstract class CloseableThread extends Thread implements Closeable {
     }
   }
 
-  /**
-   * The process to iterate.
-   */
+  /** The process to iterate. */
   protected abstract void execute();
 
   @Override
