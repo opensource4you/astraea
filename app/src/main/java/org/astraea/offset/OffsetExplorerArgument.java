@@ -1,6 +1,7 @@
 package org.astraea.offset;
 
 import com.beust.jcommander.Parameter;
+import java.util.Set;
 import org.astraea.argument.ArgumentUtil;
 
 public class OffsetExplorerArgument {
@@ -15,6 +16,6 @@ public class OffsetExplorerArgument {
       names = {"--topic"},
       description = "String: topic name",
       validateWith = ArgumentUtil.NotEmpty.class,
-      required = true)
-  public String topic;
+      converter = ArgumentUtil.SetConverter.class)
+  public Set<String> topic;
 }

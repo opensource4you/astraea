@@ -1,133 +1,103 @@
 package org.astraea.argument;
 
+import com.beust.jcommander.Parameter;
 import com.beust.jcommander.ParameterException;
-import java.util.Arrays;
-import org.astraea.offset.OffsetExplorer;
-import org.astraea.performance.latency.End2EndLatency;
+import java.time.Duration;
+import java.util.Set;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 public class ArgumentUtilTest {
+  public static class FakeParameter {
+    @Parameter(
+        names = {"--require"},
+        validateWith = ArgumentUtil.NotEmpty.class,
+        required = true)
+    public String require;
+
+    @Parameter(
+        names = {"--longPositive"},
+        validateWith = ArgumentUtil.LongPositive.class)
+    public long longPositive;
+
+    @Parameter(
+        names = {"--longNotNegative"},
+        validateWith = ArgumentUtil.LongNotNegative.class)
+    public int longNotNegative = 1;
+
+    @Parameter(
+        names = {"--durationConvert"},
+        converter = ArgumentUtil.DurationConverter.class)
+    public Duration durationConvert;
+
+    @Parameter(
+        names = {"--setConverter"},
+        converter = ArgumentUtil.SetConverter.class,
+        variableArity = true)
+    public Set<String> setConverter;
+  }
+
   @Test
   public void testParse() {
-    Assertions.assertTrue(
-        ArgumentUtil.checkArgument(
-            End2EndLatency.class,
-            Arrays.asList(
-                "--bootstrap.servers",
-                "localhost:9092",
-                "--topic",
-                "testing",
-                "--producers",
-                "3",
-                "--consumers",
-                "4",
-                "--duration",
-                "5",
-                "--valueSize",
-                "6",
-                "--flushDuration",
-                "7")));
+    FakeParameter param =
+        ArgumentUtil.parseArgument(FakeParameter.class, new String[] {"--require", "require"});
+    Assertions.assertEquals("require", param.require);
   }
 
   @Test
-  public void testArgumentLost() {
-    Assertions.assertEquals(
-        "--bootstrap.servers should not be empty.",
-        Assertions.assertThrows(
-                ParameterException.class,
-                () ->
-                    ArgumentUtil.checkArgument(
-                        OffsetExplorer.class,
-                        Arrays.asList("--bootstrap.servers", "", "--topic", "testing")))
-            .getMessage());
-    Assertions.assertEquals(
-        "--topic should not be empty.",
-        Assertions.assertThrows(
-                ParameterException.class,
-                () ->
-                    ArgumentUtil.checkArgument(
-                        OffsetExplorer.class,
-                        Arrays.asList("--bootstrap.servers", "localhost:9092", "--topic", "")))
-            .getMessage());
+  public void testRequired() {
+    Assertions.assertThrows(
+        ParameterException.class,
+        () -> ArgumentUtil.parseArgument(FakeParameter.class, new String[] {}));
   }
 
   @Test
-  public void testInvalidArgument() {
-    Assertions.assertEquals(
-        "--producers should be positive.",
-        Assertions.assertThrows(
-                ParameterException.class,
-                () ->
-                    ArgumentUtil.checkArgument(
-                        End2EndLatency.class,
-                        Arrays.asList(
-                            "--bootstrap.servers",
-                            "localhost:9092",
-                            "--topic",
-                            "test",
-                            "--producers",
-                            "0")))
-            .getMessage());
-    Assertions.assertEquals(
-        "--consumers should not be negative.",
-        Assertions.assertThrows(
-                ParameterException.class,
-                () ->
-                    ArgumentUtil.checkArgument(
-                        End2EndLatency.class,
-                        Arrays.asList(
-                            "--bootstrap.servers",
-                            "localhost:9092",
-                            "--topic",
-                            "test",
-                            "--consumers",
-                            "-1")))
-            .getMessage());
-    Assertions.assertEquals(
-        "--duration should be positive.",
-        Assertions.assertThrows(
-                ParameterException.class,
-                () ->
-                    ArgumentUtil.checkArgument(
-                        End2EndLatency.class,
-                        Arrays.asList(
-                            "--bootstrap.servers",
-                            "localhost:9092",
-                            "--topic",
-                            "test",
-                            "--duration",
-                            "0")))
-            .getMessage());
-    Assertions.assertEquals(
-        "--valueSize should be positive.",
-        Assertions.assertThrows(
-                ParameterException.class,
-                () ->
-                    ArgumentUtil.checkArgument(
-                        End2EndLatency.class,
-                        Arrays.asList(
-                            "--bootstrap.servers",
-                            "localhost:9092",
-                            "--topic",
-                            "test",
-                            "--valueSize",
-                            "0")))
-            .getMessage());
-    Assertions.assertEquals(
-        "--flushDuration should be positive.",
-        Assertions.assertThrows(
-                ParameterException.class,
-                () ->
-                    ArgumentUtil.checkArgument(
-                        End2EndLatency.class,
-                        Arrays.asList(
-                            "--bootstrap.servers",
-                            "localhost:9092",
-                            "--topic",
-                            "test",
-                            "--flushDuration",
-                            "0")))
-            .getMessage());
+  public void testLongPositive() {
+    FakeParameter param =
+        ArgumentUtil.parseArgument(
+            FakeParameter.class, new String[] {"--require", "require", "--longPositive", "1000"});
+
+    Assertions.assertEquals(1000, param.longPositive);
+    Assertions.assertThrows(
+        ParameterException.class,
+        () ->
+            ArgumentUtil.parseArgument(
+                FakeParameter.class, new String[] {"--require", "require", "--longPositive", "0"}));
+  }
+
+  @Test
+  public void testNotNegative() {
+    FakeParameter param =
+        ArgumentUtil.parseArgument(
+            FakeParameter.class,
+            new String[] {"--require", "require", "--longNotNegative", "1000"});
+
+    Assertions.assertEquals(1000, param.longNotNegative);
+    Assertions.assertThrows(
+        ParameterException.class,
+        () ->
+            ArgumentUtil.parseArgument(
+                FakeParameter.class,
+                new String[] {"--require", "require", "--longNotNegative", "-1"}));
+  }
+
+  @Test
+  public void testDurationConvert() {
+    FakeParameter param =
+        ArgumentUtil.parseArgument(
+            FakeParameter.class,
+            new String[] {"--require", "require", "--durationConvert", "1000"});
+
+    Assertions.assertEquals(Duration.ofSeconds(1000), param.durationConvert);
+  }
+
+  @Test
+  public void testSetConverter() {
+    FakeParameter param =
+        ArgumentUtil.parseArgument(
+            FakeParameter.class,
+            new String[] {"--require", "require", "--setConverter", "1", "1", "2"});
+
+    Assertions.assertEquals(Set.of("1", "2"), param.setConverter);
   }
 }

@@ -12,13 +12,9 @@ public class OffsetExplorerTest {
 
   @Test
   void testToAdminProps() {
-    Assertions.assertThrows(
-        IllegalArgumentException.class, () -> OffsetExplorer.toAdminProps(Collections.emptyMap()));
-
     Assertions.assertEquals(
         "brokers",
-        OffsetExplorer.toAdminProps(Map.of(OffsetExplorer.BROKERS_KEY, "brokers"))
-            .get(CommonClientConfigs.BOOTSTRAP_SERVERS_CONFIG));
+        OffsetExplorer.toAdminProps("brokers").get(CommonClientConfigs.BOOTSTRAP_SERVERS_CONFIG));
   }
 
   @Test

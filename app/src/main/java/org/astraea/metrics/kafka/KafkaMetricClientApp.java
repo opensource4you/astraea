@@ -1,5 +1,6 @@
 package org.astraea.metrics.kafka;
 
+import com.beust.jcommander.ParameterException;
 import java.net.MalformedURLException;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
@@ -8,6 +9,7 @@ import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import javax.management.remote.JMXServiceURL;
+import org.astraea.argument.ArgumentUtil;
 import org.astraea.metrics.kafka.metrics.BrokerTopicMetrics;
 import org.astraea.metrics.kafka.metrics.BrokerTopicMetricsResult;
 
@@ -20,15 +22,16 @@ public final class KafkaMetricClientApp {
   }
 
   public static void main(String[] args) throws MalformedURLException {
-
-    // ensure argument safe
-    if (args.length < 1) {
+    KafkaMetricClientAppArgument parameters;
+    try {
+      parameters = ArgumentUtil.parseArgument(KafkaMetricClientAppArgument.class, args);
+    } catch (ParameterException pe) {
       help();
-      throw new IllegalArgumentException();
+      throw pe;
     }
 
-    String argumentJmxServerNetworkAddress = args[0];
-    List<String> argumentTargetMetrics = List.of(args).subList(1, args.length);
+    String argumentJmxServerNetworkAddress = parameters.address;
+    List<String> argumentTargetMetrics = parameters.metrics;
 
     JMXServiceURL serviceURL = new JMXServiceURL(createJmxUrl(argumentJmxServerNetworkAddress));
     try (KafkaMetricClient kafkaMetricClient = new KafkaMetricClient(serviceURL)) {

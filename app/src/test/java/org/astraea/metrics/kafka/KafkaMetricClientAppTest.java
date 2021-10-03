@@ -2,6 +2,7 @@ package org.astraea.metrics.kafka;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import com.beust.jcommander.ParameterException;
 import java.io.OutputStream;
 import java.io.PrintStream;
 import org.junit.jupiter.api.AfterEach;
@@ -26,6 +27,6 @@ class KafkaMetricClientAppTest {
 
   @Test
   void testBadArguments() {
-    assertThrows(IllegalArgumentException.class, () -> KafkaMetricClientApp.main(new String[0]));
+    assertThrows(ParameterException.class, () -> KafkaMetricClientApp.main(new String[0]));
   }
 }

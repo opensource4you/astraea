@@ -5,9 +5,9 @@ import com.beust.jcommander.IStringConverter;
 import com.beust.jcommander.JCommander;
 import com.beust.jcommander.ParameterException;
 import java.time.Duration;
+import java.util.HashSet;
 import java.util.List;
-import org.astraea.offset.OffsetExplorerArgument;
-import org.astraea.performance.latency.End2EndLatencyArgument;
+import java.util.Set;
 
 /*
  * A tool used to parse command line arguments.
@@ -30,34 +30,20 @@ public class ArgumentUtil {
   // Do not instantiate.
   private ArgumentUtil() {}
 
-  public static boolean checkArgument(Class<?> tool, List<String> args) {
-    JCommander.Builder builder = JCommander.newBuilder();
-    JCommander jc;
-    System.out.println(tool.getName());
-    switch (tool.getName()) {
-      case "org.astraea.performance.latency.End2EndLatency":
-        jc = builder.addObject(new End2EndLatencyArgument()).build();
-        try {
-          jc.parse(args.toArray(new String[0]));
-        } catch (ParameterException pe) {
-          jc.usage();
-          throw pe;
-        }
-        break;
-      case "org.astraea.offset.OffsetExplorer":
-        jc = builder.addObject(new OffsetExplorerArgument()).build();
-        try {
-          jc.parse(args.toArray(new String[0]));
-        } catch (ParameterException pe) {
-          jc.usage();
-          throw pe;
-        }
-        break;
-      default:
-        // Unknown tool.
-        return false;
+  public static <T> T parseArgument(Class<T> toolArgument, String[] args) {
+    T argument = null;
+    JCommander jc = null;
+    try {
+      argument = toolArgument.getConstructor().newInstance();
+      jc = JCommander.newBuilder().addObject(argument).build();
+      jc.parse(args);
+    } catch (ParameterException pe) {
+      if (jc != null) jc.usage();
+      throw pe;
+    } catch (Exception e) {
+      System.out.println(e.getMessage());
     }
-    return true;
+    return argument;
   }
 
   /* Validate Classes */
@@ -89,6 +75,14 @@ public class ArgumentUtil {
     @Override
     public Duration convert(String value) {
       return Duration.ofSeconds(Long.parseLong(value));
+    }
+  }
+
+  public static class SetConverter implements IStringConverter<Set<String>> {
+    @Override
+    public Set<String> convert(String value) {
+      String[] values = value.split(",");
+      return new HashSet<>(List.of(values));
     }
   }
 }

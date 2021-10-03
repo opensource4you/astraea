@@ -1,5 +1,6 @@
 package org.astraea.performance.latency;
 
+import com.beust.jcommander.ParameterException;
 import java.time.Duration;
 import java.util.concurrent.*;
 import org.junit.jupiter.api.Assertions;
@@ -10,63 +11,63 @@ class End2EndLatencyTest {
   @Test
   void testIncorrectParameters() {
     Assertions.assertThrows(
-        IllegalArgumentException.class,
-        () -> End2EndLatency.parameters(new String[] {End2EndLatency.BROKERS_KEY, ""}));
+        ParameterException.class,
+        () -> End2EndLatency.parameters(new String[] {End2EndLatencyArgument.BROKERS_KEY, ""}));
     Assertions.assertThrows(
-        IllegalArgumentException.class,
+        ParameterException.class,
         () ->
             End2EndLatency.parameters(
                 new String[] {
-                  End2EndLatency.BROKERS_KEY, "localhost:11111",
-                  End2EndLatency.TOPIC_KEY, ""
+                  End2EndLatencyArgument.BROKERS_KEY, "localhost:11111",
+                  End2EndLatencyArgument.TOPIC_KEY, ""
                 }));
     Assertions.assertThrows(
-        IllegalArgumentException.class,
+        ParameterException.class,
         () ->
             End2EndLatency.parameters(
                 new String[] {
-                  End2EndLatency.BROKERS_KEY, "localhost:11111",
-                  End2EndLatency.DURATION_KEY, "-1"
+                  End2EndLatencyArgument.BROKERS_KEY, "localhost:11111",
+                  End2EndLatencyArgument.DURATION_KEY, "-1"
                 }));
     Assertions.assertThrows(
-        IllegalArgumentException.class,
+        ParameterException.class,
         () ->
             End2EndLatency.parameters(
                 new String[] {
-                  End2EndLatency.BROKERS_KEY, "localhost:11111",
-                  End2EndLatency.FLUSH_DURATION_KEY, "-1"
+                  End2EndLatencyArgument.BROKERS_KEY, "localhost:11111",
+                  End2EndLatencyArgument.FLUSH_DURATION_KEY, "-1"
                 }));
     Assertions.assertThrows(
-        IllegalArgumentException.class,
+        ParameterException.class,
         () ->
             End2EndLatency.parameters(
                 new String[] {
-                  End2EndLatency.BROKERS_KEY, "localhost:11111",
-                  End2EndLatency.PRODUCERS_KEY, "-1"
+                  End2EndLatencyArgument.BROKERS_KEY, "localhost:11111",
+                  End2EndLatencyArgument.PRODUCERS_KEY, "-1"
                 }));
     Assertions.assertThrows(
-        IllegalArgumentException.class,
+        ParameterException.class,
         () ->
             End2EndLatency.parameters(
                 new String[] {
-                  End2EndLatency.BROKERS_KEY, "localhost:11111",
-                  End2EndLatency.PRODUCERS_KEY, "0"
+                  End2EndLatencyArgument.BROKERS_KEY, "localhost:11111",
+                  End2EndLatencyArgument.PRODUCERS_KEY, "0"
                 }));
     Assertions.assertThrows(
-        IllegalArgumentException.class,
+        ParameterException.class,
         () ->
             End2EndLatency.parameters(
                 new String[] {
-                  End2EndLatency.BROKERS_KEY, "localhost:11111",
-                  End2EndLatency.CONSUMERS_KEY, "-1"
+                  End2EndLatencyArgument.BROKERS_KEY, "localhost:11111",
+                  End2EndLatencyArgument.CONSUMERS_KEY, "-1"
                 }));
 
     Assertions.assertEquals(
         0,
         End2EndLatency.parameters(
                 new String[] {
-                  End2EndLatency.BROKERS_KEY, "localhost:11111",
-                  End2EndLatency.CONSUMERS_KEY, "0"
+                  End2EndLatencyArgument.BROKERS_KEY, "localhost:11111",
+                  End2EndLatencyArgument.CONSUMERS_KEY, "0"
                 })
             .numberOfConsumers);
   }
@@ -83,19 +84,19 @@ class End2EndLatencyTest {
     var parameters =
         End2EndLatency.parameters(
             new String[] {
-              End2EndLatency.BROKERS_KEY,
+              End2EndLatencyArgument.BROKERS_KEY,
               brokers,
-              End2EndLatency.CONSUMERS_KEY,
+              End2EndLatencyArgument.CONSUMERS_KEY,
               String.valueOf(numberOfConsumers),
-              End2EndLatency.DURATION_KEY,
+              End2EndLatencyArgument.DURATION_KEY,
               String.valueOf(duration.toSeconds()),
-              End2EndLatency.PRODUCERS_KEY,
+              End2EndLatencyArgument.PRODUCERS_KEY,
               String.valueOf(numberOfProducers),
-              End2EndLatency.TOPIC_KEY,
+              End2EndLatencyArgument.TOPIC_KEY,
               topic,
-              End2EndLatency.VALUE_SIZE_KEY,
+              End2EndLatencyArgument.VALUE_SIZE_KEY,
               String.valueOf(valueSize),
-              End2EndLatency.FLUSH_DURATION_KEY,
+              End2EndLatencyArgument.FLUSH_DURATION_KEY,
               String.valueOf(flushDuration.toSeconds())
             });
     Assertions.assertEquals(brokers, parameters.brokers);
@@ -113,7 +114,7 @@ class End2EndLatencyTest {
     try (var r =
         End2EndLatency.execute(
             factory,
-            new End2EndLatency.Parameters(
+            new End2EndLatencyArgument(
                 "brokers", "topic", 1, 1, Duration.ofSeconds(1), 10, Duration.ofSeconds(1)))) {
       TimeUnit.SECONDS.sleep(2);
     }
