@@ -39,8 +39,8 @@ public class ArgumentUtilTest {
 
   @Test
   public void testParse() {
-    FakeParameter param =
-        ArgumentUtil.parseArgument(FakeParameter.class, new String[] {"--require", "require"});
+    var param = new FakeParameter();
+    ArgumentUtil.parseArgument(param, new String[] {"--require", "require"});
     Assertions.assertEquals("require", param.require);
   }
 
@@ -53,9 +53,8 @@ public class ArgumentUtilTest {
 
   @Test
   public void testLongPositive() {
-    FakeParameter param =
-        ArgumentUtil.parseArgument(
-            FakeParameter.class, new String[] {"--require", "require", "--longPositive", "1000"});
+    var param = new FakeParameter();
+    ArgumentUtil.parseArgument(param, new String[] {"--require", "require", "--longPositive", "1000"});
 
     Assertions.assertEquals(1000, param.longPositive);
     Assertions.assertThrows(
@@ -67,9 +66,9 @@ public class ArgumentUtilTest {
 
   @Test
   public void testNotNegative() {
-    FakeParameter param =
+    FakeParameter param = new FakeParameter();
         ArgumentUtil.parseArgument(
-            FakeParameter.class,
+            param,
             new String[] {"--require", "require", "--longNotNegative", "1000"});
 
     Assertions.assertEquals(1000, param.longNotNegative);
@@ -83,9 +82,9 @@ public class ArgumentUtilTest {
 
   @Test
   public void testDurationConvert() {
-    FakeParameter param =
+    FakeParameter param = new FakeParameter();
         ArgumentUtil.parseArgument(
-            FakeParameter.class,
+            param,
             new String[] {"--require", "require", "--durationConvert", "1000"});
 
     Assertions.assertEquals(Duration.ofSeconds(1000), param.durationConvert);
@@ -93,9 +92,9 @@ public class ArgumentUtilTest {
 
   @Test
   public void testSetConverter() {
-    FakeParameter param =
+    FakeParameter param = new FakeParameter();
         ArgumentUtil.parseArgument(
-            FakeParameter.class,
+            param,
             new String[] {"--require", "require", "--setConverter", "1", "1", "2"});
 
     Assertions.assertEquals(Set.of("1", "2"), param.setConverter);

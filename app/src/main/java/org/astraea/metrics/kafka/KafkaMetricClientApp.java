@@ -22,9 +22,9 @@ public final class KafkaMetricClientApp {
   }
 
   public static void main(String[] args) throws MalformedURLException {
-    KafkaMetricClientAppArgument parameters;
+    var parameters = new KafkaMetricClientAppArgument();
     try {
-      parameters = ArgumentUtil.parseArgument(KafkaMetricClientAppArgument.class, args);
+      ArgumentUtil.parseArgument(parameters, args);
     } catch (ParameterException pe) {
       help();
       throw pe;
@@ -79,9 +79,9 @@ public final class KafkaMetricClientApp {
     System.err.println();
     System.err.println("If no metric name specified in argument, all metrics will be selected.");
     System.err.println();
-    System.err.printf("Example 1: %s --JMXServerAddress localhost:9875\n", simpleName);
+    System.err.printf("Example 1: %s --jmx.server localhost:9875\n", simpleName);
     System.err.printf(
-        "Example 2: %s --JMXServerAddress localhost:9875 --metrics BytesInPerSec BytesOutPerSec\n",
+        "Example 2: %s --jmx.server localhost:9875 --metrics BytesInPerSec BytesOutPerSec\n",
         simpleName);
     System.err.println();
     System.err.println("Available Metrics:");

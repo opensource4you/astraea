@@ -111,11 +111,15 @@ class End2EndLatencyTest {
   @Test
   void testExecute() throws Exception {
     var factory = new FakeComponentFactory();
-    try (var r =
-        End2EndLatency.execute(
-            factory,
-            new End2EndLatencyArgument(
-                "brokers", "topic", 1, 1, Duration.ofSeconds(1), 10, Duration.ofSeconds(1)))) {
+    var parameters = new End2EndLatencyArgument();
+    parameters.brokers = "brokers";
+    parameters.topic = "topic";
+    parameters.numberOfProducers = 1;
+    parameters.numberOfConsumers = 1;
+    parameters.duration = Duration.ofSeconds(1);
+    parameters.valueSize = 10;
+    parameters.flushDuration = Duration.ofSeconds(1);
+    try (var r = End2EndLatency.execute(factory, parameters)) {
       TimeUnit.SECONDS.sleep(2);
     }
 

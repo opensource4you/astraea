@@ -10,7 +10,9 @@ import org.astraea.argument.ArgumentUtil;
 public class End2EndLatency {
 
   static End2EndLatencyArgument parameters(String[] args) {
-    return ArgumentUtil.parseArgument(End2EndLatencyArgument.class, args);
+    var parameters = new End2EndLatencyArgument();
+    ArgumentUtil.parseArgument(parameters, args);
+    return parameters;
   }
 
   public static void main(String[] args) throws Exception {

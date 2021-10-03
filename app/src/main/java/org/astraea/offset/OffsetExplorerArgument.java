@@ -10,12 +10,12 @@ public class OffsetExplorerArgument {
       description = "String: server to connect to",
       validateWith = ArgumentUtil.NotEmpty.class,
       required = true)
-  public String brokers;
+  String brokers;
 
   @Parameter(
-      names = {"--topic"},
-      description = "String: topic name",
+      names = {"--topics"},
+      description = "String: topic names, comma separate",
       validateWith = ArgumentUtil.NotEmpty.class,
       converter = ArgumentUtil.SetConverter.class)
-  public Set<String> topic;
+  Set<String> topics;
 }

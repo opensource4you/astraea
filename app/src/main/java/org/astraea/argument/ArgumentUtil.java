@@ -30,20 +30,16 @@ public class ArgumentUtil {
   // Do not instantiate.
   private ArgumentUtil() {}
 
-  public static <T> T parseArgument(Class<T> toolArgument, String[] args) {
-    T argument = null;
+  /** Side effect: parse args into toolArgument */
+  public static <T> void parseArgument(T toolArgument, String[] args) {
     JCommander jc = null;
     try {
-      argument = toolArgument.getConstructor().newInstance();
-      jc = JCommander.newBuilder().addObject(argument).build();
+      jc = JCommander.newBuilder().addObject(toolArgument).build();
       jc.parse(args);
     } catch (ParameterException pe) {
       if (jc != null) jc.usage();
       throw pe;
-    } catch (Exception e) {
-      System.out.println(e.getMessage());
     }
-    return argument;
   }
 
   /* Validate Classes */
