@@ -79,8 +79,10 @@ public final class KafkaMetricClientApp {
     System.err.println();
     System.err.println("If no metric name specified in argument, all metrics will be selected.");
     System.err.println();
-    System.err.printf("Example 1: %s localhost:9875\n", simpleName);
-    System.err.printf("Example 2: %s localhost:9875 BytesInPerSec BytesOutPerSec\n", simpleName);
+    System.err.printf("Example 1: %s --JMXServerAddress localhost:9875\n", simpleName);
+    System.err.printf(
+        "Example 2: %s --JMXServerAddress localhost:9875 --metrics BytesInPerSec BytesOutPerSec\n",
+        simpleName);
     System.err.println();
     System.err.println("Available Metrics:");
     for (BrokerTopicMetrics value : BrokerTopicMetrics.values()) {
