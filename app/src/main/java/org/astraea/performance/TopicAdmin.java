@@ -15,7 +15,7 @@ public interface TopicAdmin extends AutoCloseable {
 
   List<TopicPartitionInfo> partitions(String topic);
 
-  /***/
+  /** Create KafkaAdminClient depending on given properties. */
   static TopicAdmin fromKafka(Properties prop) {
     Admin admin = Admin.create(prop);
     return new TopicAdmin() {

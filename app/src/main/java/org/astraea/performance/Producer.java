@@ -14,7 +14,7 @@ public interface Producer extends AutoCloseable {
   void close();
 
   /** Create a KafkaProducer.
-   * @Param prop: Properties to create a KafkaProducer
+   * @param prop: Properties to create a KafkaProducer
    * @return a KafkaProducer
    * */
   static Producer fromKafka(Properties prop) {
