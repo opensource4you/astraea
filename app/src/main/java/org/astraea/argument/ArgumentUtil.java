@@ -5,39 +5,31 @@ import com.beust.jcommander.IStringConverter;
 import com.beust.jcommander.JCommander;
 import com.beust.jcommander.ParameterException;
 import java.time.Duration;
-import java.util.HashSet;
-import java.util.List;
 import java.util.Set;
 
 /*
  * A tool used to parse command line arguments.
  *
- * To add new option, add in the corresponding file.
+ * To add new option, add new option in the corresponding file.
  * @Parameter(names={"--option"}, description="")
  * public <optionType> <optionName>;
- *
- * To add "NewTool"
- * 1. Import the class of "NewTool" argument class.
- * 2. add new case in this file.
- * ```
- * case "path.to.package.NewTool":
- *   jc.addObject(new NewToolArgument()).build().parse(args.toArray(new String[0]));
- * break;
- * ```
  * */
 
 public class ArgumentUtil {
   // Do not instantiate.
   private ArgumentUtil() {}
 
-  /** Side effect: parse args into toolArgument */
-  public static <T> void parseArgument(T toolArgument, String[] args) {
-    JCommander jc = null;
+  /**
+   * Side effect: parse args into toolArgument
+   * @param toolArgument An argument object that the user want.
+   * @param args Command line arguments that are put into main function.
+   * */
+  public static void parseArgument(Object toolArgument, String[] args) {
+    JCommander jc = JCommander.newBuilder().addObject(toolArgument).build();
     try {
-      jc = JCommander.newBuilder().addObject(toolArgument).build();
       jc.parse(args);
     } catch (ParameterException pe) {
-      if (jc != null) jc.usage();
+      jc.usage();
       throw pe;
     }
   }
@@ -78,7 +70,7 @@ public class ArgumentUtil {
     @Override
     public Set<String> convert(String value) {
       String[] values = value.split(",");
-      return new HashSet<>(List.of(values));
+      return Set.of(values);
     }
   }
 }

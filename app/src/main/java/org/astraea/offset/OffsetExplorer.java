@@ -139,10 +139,4 @@ public class OffsetExplorer {
                       + v.getValue()));
     }
   }
-
-  static Map<String, Object> toAdminProps(String brokers) {
-    var props = new HashMap<String, Object>();
-    props.put(CommonClientConfigs.BOOTSTRAP_SERVERS_CONFIG, brokers);
-    return props;
-  }
 }

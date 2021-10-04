@@ -1,6 +1,5 @@
 package org.astraea.metrics.kafka;
 
-import com.beust.jcommander.ParameterException;
 import java.net.MalformedURLException;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
@@ -23,12 +22,7 @@ public final class KafkaMetricClientApp {
 
   public static void main(String[] args) throws MalformedURLException {
     var parameters = new KafkaMetricClientAppArgument();
-    try {
-      ArgumentUtil.parseArgument(parameters, args);
-    } catch (ParameterException pe) {
-      help();
-      throw pe;
-    }
+    ArgumentUtil.parseArgument(parameters, args);
 
     String argumentJmxServerNetworkAddress = parameters.address;
     List<String> argumentTargetMetrics = parameters.metrics;
@@ -69,24 +63,6 @@ public final class KafkaMetricClientApp {
 
     } catch (Exception e) {
       e.printStackTrace();
-      help();
-    }
-  }
-
-  private static void help() {
-    String simpleName = KafkaMetricClientApp.class.getSimpleName();
-    System.err.printf("Usage: %s <jmx server address> [metric names ...]\n", simpleName);
-    System.err.println();
-    System.err.println("If no metric name specified in argument, all metrics will be selected.");
-    System.err.println();
-    System.err.printf("Example 1: %s --jmx.server localhost:9875\n", simpleName);
-    System.err.printf(
-        "Example 2: %s --jmx.server localhost:9875 --metrics BytesInPerSec BytesOutPerSec\n",
-        simpleName);
-    System.err.println();
-    System.err.println("Available Metrics:");
-    for (BrokerTopicMetrics value : BrokerTopicMetrics.values()) {
-      System.err.printf("    %s\n", value.metricName());
     }
   }
 }
