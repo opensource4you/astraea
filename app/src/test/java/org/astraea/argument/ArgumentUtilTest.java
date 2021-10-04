@@ -11,18 +11,18 @@ public class ArgumentUtilTest {
   public static class FakeParameter {
     @Parameter(
         names = {"--require"},
-        validateWith = ArgumentUtil.NotEmpty.class,
+        validateWith = ArgumentUtil.NotEmptyString.class,
         required = true)
     public String require;
 
     @Parameter(
         names = {"--longPositive"},
-        validateWith = ArgumentUtil.LongPositive.class)
+        validateWith = ArgumentUtil.PositiveLong.class)
     public long longPositive;
 
     @Parameter(
         names = {"--longNotNegative"},
-        validateWith = ArgumentUtil.LongNotNegative.class)
+        validateWith = ArgumentUtil.NonNegativeLong.class)
     public int longNotNegative = 1;
 
     @Parameter(
@@ -39,8 +39,8 @@ public class ArgumentUtilTest {
 
   @Test
   public void testParse() {
-    var param = new FakeParameter();
-    ArgumentUtil.parseArgument(param, new String[] {"--require", "require"});
+    var param =
+        ArgumentUtil.parseArgument(new FakeParameter(), new String[] {"--require", "require"});
     Assertions.assertEquals("require", param.require);
   }
 
@@ -53,9 +53,9 @@ public class ArgumentUtilTest {
 
   @Test
   public void testLongPositive() {
-    var param = new FakeParameter();
-    ArgumentUtil.parseArgument(
-        param, new String[] {"--require", "require", "--longPositive", "1000"});
+    var param =
+        ArgumentUtil.parseArgument(
+            new FakeParameter(), new String[] {"--require", "require", "--longPositive", "1000"});
 
     Assertions.assertEquals(1000, param.longPositive);
     Assertions.assertThrows(
@@ -67,9 +67,10 @@ public class ArgumentUtilTest {
 
   @Test
   public void testNotNegative() {
-    FakeParameter param = new FakeParameter();
-    ArgumentUtil.parseArgument(
-        param, new String[] {"--require", "require", "--longNotNegative", "1000"});
+    FakeParameter param =
+        ArgumentUtil.parseArgument(
+            new FakeParameter(),
+            new String[] {"--require", "require", "--longNotNegative", "1000"});
 
     Assertions.assertEquals(1000, param.longNotNegative);
     Assertions.assertThrows(
@@ -82,18 +83,20 @@ public class ArgumentUtilTest {
 
   @Test
   public void testDurationConvert() {
-    FakeParameter param = new FakeParameter();
-    ArgumentUtil.parseArgument(
-        param, new String[] {"--require", "require", "--durationConvert", "1000"});
+    FakeParameter param =
+        ArgumentUtil.parseArgument(
+            new FakeParameter(),
+            new String[] {"--require", "require", "--durationConvert", "1000"});
 
     Assertions.assertEquals(Duration.ofSeconds(1000), param.durationConvert);
   }
 
   @Test
   public void testSetConverter() {
-    FakeParameter param = new FakeParameter();
-    ArgumentUtil.parseArgument(
-        param, new String[] {"--require", "require", "--setConverter", "1", "1", "2"});
+    FakeParameter param =
+        ArgumentUtil.parseArgument(
+            new FakeParameter(),
+            new String[] {"--require", "require", "--setConverter", "1", "1", "2"});
 
     Assertions.assertEquals(Set.of("1", "2"), param.setConverter);
   }

@@ -118,13 +118,12 @@ public class OffsetExplorer {
   }
 
   public static void main(String[] args) throws IOException {
-    var argument = new OffsetExplorerArgument();
-    ArgumentUtil.parseArgument(argument, args);
+    var argument = ArgumentUtil.parseArgument(new OffsetExplorerArgument(), args);
     try (var admin =
         Admin.of(
             AdminClient.create(
                 Map.of(CommonClientConfigs.BOOTSTRAP_SERVERS_CONFIG, argument.brokers)))) {
-      var topics = (argument.topics != null) ? argument.topics : admin.topics();
+      var topics = (argument.topics.isEmpty()) ? admin.topics() : argument.topics;
       var result = execute(admin, topics);
       result.forEach(
           (k, v) ->

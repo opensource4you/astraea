@@ -1,5 +1,6 @@
 package org.astraea.argument;
 
+import com.beust.jcommander.DefaultUsageFormatter;
 import com.beust.jcommander.IParameterValidator;
 import com.beust.jcommander.IStringConverter;
 import com.beust.jcommander.JCommander;
@@ -25,18 +26,20 @@ public class ArgumentUtil {
    * @param toolArgument An argument object that the user want.
    * @param args Command line arguments that are put into main function.
    */
-  public static void parseArgument(Object toolArgument, String[] args) {
+  public static <T> T parseArgument(T toolArgument, String[] args) {
     JCommander jc = JCommander.newBuilder().addObject(toolArgument).build();
     try {
       jc.parse(args);
     } catch (ParameterException pe) {
-      jc.usage();
-      throw pe;
+      var sb = new StringBuilder();
+      new DefaultUsageFormatter(jc).usage(sb);
+      throw new ParameterException(pe.getMessage() + "\n" + sb);
     }
+    return toolArgument;
   }
 
   /* Validate Classes */
-  public static class NotEmpty implements IParameterValidator {
+  public static class NotEmptyString implements IParameterValidator {
     @Override
     public void validate(String name, String value) throws ParameterException {
       if (value == null || value.equals(""))
@@ -44,14 +47,14 @@ public class ArgumentUtil {
     }
   }
 
-  public static class LongPositive implements IParameterValidator {
+  public static class PositiveLong implements IParameterValidator {
     @Override
     public void validate(String name, String value) throws ParameterException {
       if (Long.parseLong(value) <= 0) throw new ParameterException(name + " should be positive.");
     }
   }
 
-  public static class LongNotNegative implements IParameterValidator {
+  public static class NonNegativeLong implements IParameterValidator {
     @Override
     public void validate(String name, String value) throws ParameterException {
       if (Long.parseLong(value) < 0)
@@ -70,8 +73,7 @@ public class ArgumentUtil {
   public static class SetConverter implements IStringConverter<Set<String>> {
     @Override
     public Set<String> convert(String value) {
-      String[] values = value.split(",");
-      return Set.of(values);
+      return Set.of(value.split(","));
     }
   }
 }

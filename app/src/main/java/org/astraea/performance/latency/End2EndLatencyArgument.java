@@ -8,45 +8,45 @@ public class End2EndLatencyArgument {
   @Parameter(
       names = {"--bootstrap.servers"},
       description = "String: server to connect to",
-      validateWith = ArgumentUtil.NotEmpty.class,
+      validateWith = ArgumentUtil.NotEmptyString.class,
       required = true)
   String brokers;
 
   @Parameter(
       names = {"--topic"},
       description = "String: topic name",
-      validateWith = ArgumentUtil.NotEmpty.class)
+      validateWith = ArgumentUtil.NotEmptyString.class)
   String topic = "testLatency-" + System.currentTimeMillis();
 
   @Parameter(
       names = {"--producers"},
       description = "Integer: number of producers to create",
-      validateWith = ArgumentUtil.LongPositive.class)
+      validateWith = ArgumentUtil.PositiveLong.class)
   int numberOfProducers = 1;
 
   @Parameter(
       names = {"--consumers"},
       description = "Integer: number of consumers to create",
-      validateWith = ArgumentUtil.LongNotNegative.class)
+      validateWith = ArgumentUtil.NonNegativeLong.class)
   int numberOfConsumers = 1;
 
   @Parameter(
       names = {"--duration"},
       description = "Long: producing time in seconds",
-      validateWith = ArgumentUtil.LongPositive.class,
+      validateWith = ArgumentUtil.PositiveLong.class,
       converter = ArgumentUtil.DurationConverter.class)
   Duration duration = Duration.ofSeconds(5);
 
   @Parameter(
       names = {"--valueSize"},
       description = "Integer: bytes per record sent",
-      validateWith = ArgumentUtil.LongPositive.class)
+      validateWith = ArgumentUtil.PositiveLong.class)
   int valueSize = 100;
 
   @Parameter(
       names = {"--flushDuration"},
       description = "Long: timeout for producer to flush the records",
-      validateWith = ArgumentUtil.LongPositive.class,
+      validateWith = ArgumentUtil.PositiveLong.class,
       converter = ArgumentUtil.DurationConverter.class)
   Duration flushDuration = Duration.ofSeconds(2);
 }

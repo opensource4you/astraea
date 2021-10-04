@@ -5,6 +5,7 @@ import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.FormatStyle;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import javax.management.remote.JMXServiceURL;
@@ -21,11 +22,10 @@ public final class KafkaMetricClientApp {
   }
 
   public static void main(String[] args) throws MalformedURLException {
-    var parameters = new KafkaMetricClientAppArgument();
-    ArgumentUtil.parseArgument(parameters, args);
+    var parameters = ArgumentUtil.parseArgument(new KafkaMetricClientAppArgument(), args);
 
     String argumentJmxServerNetworkAddress = parameters.address;
-    List<String> argumentTargetMetrics = parameters.metrics;
+    Set<String> argumentTargetMetrics = parameters.metrics;
 
     JMXServiceURL serviceURL = new JMXServiceURL(createJmxUrl(argumentJmxServerNetworkAddress));
     try (KafkaMetricClient kafkaMetricClient = new KafkaMetricClient(serviceURL)) {
