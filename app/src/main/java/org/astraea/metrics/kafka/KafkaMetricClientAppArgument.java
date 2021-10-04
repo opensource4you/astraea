@@ -16,6 +16,7 @@ public class KafkaMetricClientAppArgument {
       names = {"--metrics"},
       variableArity = true,
       description =
-          "The metric names you want. If no metric name specified in argument, all metrics will be selected.")
+          "The metric names you want. If no metric name specified in argument, all metrics will be selected. "
+              + "Example: KafkaMetricClientApp --jmx.server localhost:9875 --metrics BytesInPerSec BytesOutPerSec")
   List<String> metrics;
 }

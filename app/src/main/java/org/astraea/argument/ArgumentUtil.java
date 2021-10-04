@@ -23,7 +23,7 @@ public class ArgumentUtil {
    * Side effect: parse args into toolArgument
    * @param toolArgument An argument object that the user want.
    * @param args Command line arguments that are put into main function.
-   * */
+   */
   public static void parseArgument(Object toolArgument, String[] args) {
     JCommander jc = JCommander.newBuilder().addObject(toolArgument).build();
     try {
