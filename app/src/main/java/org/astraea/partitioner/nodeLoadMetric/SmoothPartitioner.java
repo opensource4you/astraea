@@ -4,14 +4,11 @@ import static org.astraea.partitioner.nodeLoadMetric.NodeLoadClient.*;
 
 import java.net.MalformedURLException;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Random;
-import java.util.stream.Collectors;
 import org.apache.kafka.clients.producer.Partitioner;
 import org.apache.kafka.common.Cluster;
-import org.apache.kafka.common.Node;
 import org.apache.kafka.common.PartitionInfo;
 
 public class SmoothPartitioner implements Partitioner {
@@ -22,9 +19,6 @@ public class SmoothPartitioner implements Partitioner {
   @Override
   public int partition(
       String topic, Object key, byte[] keyBytes, Object value, byte[] valueBytes, Cluster cluster) {
-
-    Collection<Integer> nodeIDs =
-        cluster.nodes().stream().map(Node::id).collect(Collectors.toUnmodifiableList());
 
     try {
       if (NodeLoadClient.ensureNodeLoadClientNull()) {
@@ -65,7 +59,7 @@ public class SmoothPartitioner implements Partitioner {
   }
 
   @Override
-  public void close() {}
+  public void close() {this.nodeLoadClient = null;}
 
   @Override
   public void configure(Map<String, ?> configs) {
