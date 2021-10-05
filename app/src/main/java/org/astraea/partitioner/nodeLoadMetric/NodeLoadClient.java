@@ -29,8 +29,8 @@ public class NodeLoadClient implements Runnable {
     NodeLoadClientHolder.clientOn = true;
   }
 
-  public synchronized static NodeLoadClient getNodeLoadInstance(HashMap<String, String> jmxAddresses)
-      throws InterruptedException, MalformedURLException {
+  public static synchronized NodeLoadClient getNodeLoadInstance(
+      HashMap<String, String> jmxAddresses) throws InterruptedException, MalformedURLException {
     if (!NodeLoadClientHolder.clientOn) {
       NodeLoadClientHolder.nodeLoadClient = new NodeLoadClient(jmxAddresses);
       NodeLoadClientHolder.clientOn = true;
