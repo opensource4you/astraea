@@ -12,13 +12,14 @@ public class NodeLoadClient implements Runnable {
   private static class NodeLoadClientHolder {
     private static NodeLoadClient nodeLoadClient;
     private static boolean clientOn = false;
+    private static boolean timeOut = false;
   }
 
   private OverLoadNode overLoadNode;
   private Collection<NodeMetadata> nodeMetadataCollection = new ArrayList<>();
   private int timeOutCount = 0;
   private boolean currentAlive = false;
-  private boolean timeOut = false;
+
 
   NodeLoadClient(HashMap<String, String> jmxAddresses) throws MalformedURLException {
     for (Map.Entry<String, String> entry : jmxAddresses.entrySet()) {
@@ -31,6 +32,10 @@ public class NodeLoadClient implements Runnable {
 
   public static synchronized NodeLoadClient getNodeLoadInstance(
       HashMap<String, String> jmxAddresses) throws InterruptedException, MalformedURLException {
+    if (NodeLoadClientHolder.timeOut){
+      TimeUnit.SECONDS.sleep(1);
+    }
+
     if (!NodeLoadClientHolder.clientOn) {
       NodeLoadClientHolder.nodeLoadClient = new NodeLoadClient(jmxAddresses);
       NodeLoadClientHolder.clientOn = true;
@@ -45,11 +50,11 @@ public class NodeLoadClient implements Runnable {
   @Override
   public void run() {
     try {
-      while (!timeOut) {
+      while (!NodeLoadClientHolder.timeOut) {
         refreshNodesMetrics();
         overLoadNode.monitorOverLoad(nodeMetadataCollection);
         timeOutCount++;
-        timeOut = timeOutCount > 9;
+        NodeLoadClientHolder.timeOut = timeOutCount > 9;
         timeOutCount = currentAlive ? 0 : timeOutCount;
         currentAlive = false;
         TimeUnit.SECONDS.sleep(1);
@@ -57,8 +62,9 @@ public class NodeLoadClient implements Runnable {
     } catch (InterruptedException e) {
       e.printStackTrace();
     } finally {
-      NodeLoadClientHolder.clientOn = false;
       NodeLoadClientHolder.nodeLoadClient = null;
+      NodeLoadClientHolder.clientOn = false;
+      NodeLoadClientHolder.timeOut = false;
     }
   }
 
