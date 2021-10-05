@@ -1,5 +1,7 @@
 package org.astraea;
 
+import com.beust.jcommander.ParameterException;
+import java.lang.reflect.InvocationTargetException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.function.Supplier;
@@ -38,7 +40,16 @@ public class App {
                             "className: " + className + " is not matched to " + toString(mains)));
 
     var method = targetClass.getDeclaredMethod("main", String[].class);
-    method.invoke(null, (Object) args.subList(1, args.size()).toArray(String[]::new));
+    try {
+      method.invoke(null, (Object) args.subList(1, args.size()).toArray(String[]::new));
+    } catch (InvocationTargetException targetException) {
+      // Print out ParameterException, don't throw.
+      if (targetException.getTargetException() instanceof ParameterException) {
+        System.out.println(targetException.getTargetException().getMessage());
+      } else {
+        throw targetException.getTargetException();
+      }
+    }
   }
 
   public static void main(String[] args) throws Throwable {

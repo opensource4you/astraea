@@ -36,9 +36,6 @@ public final class KafkaMetricClientApp {
               .map(BrokerTopicMetrics::valueOf)
               .collect(Collectors.toUnmodifiableList());
 
-      // if no metric name specified, all metrics are selected
-      if (argumentTargetMetrics.size() == 0) metrics = List.of(BrokerTopicMetrics.values());
-
       while (!Thread.interrupted()) {
         // fetch
         List<BrokerTopicMetricsResult> collect =

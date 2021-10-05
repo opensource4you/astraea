@@ -1,10 +1,10 @@
 package org.astraea.argument;
 
-import com.beust.jcommander.DefaultUsageFormatter;
 import com.beust.jcommander.IParameterValidator;
 import com.beust.jcommander.IStringConverter;
 import com.beust.jcommander.JCommander;
 import com.beust.jcommander.ParameterException;
+import com.beust.jcommander.UnixStyleUsageFormatter;
 import java.time.Duration;
 import java.util.Set;
 
@@ -28,11 +28,12 @@ public class ArgumentUtil {
    */
   public static <T> T parseArgument(T toolArgument, String[] args) {
     JCommander jc = JCommander.newBuilder().addObject(toolArgument).build();
+    jc.setUsageFormatter(new UnixStyleUsageFormatter(jc));
     try {
       jc.parse(args);
     } catch (ParameterException pe) {
       var sb = new StringBuilder();
-      new DefaultUsageFormatter(jc).usage(sb);
+      jc.getUsageFormatter().usage(sb);
       throw new ParameterException(pe.getMessage() + "\n" + sb);
     }
     return toolArgument;
