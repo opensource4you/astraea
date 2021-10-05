@@ -12,6 +12,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.stream.Collectors;
 
+/**
+ * Responsible for connecting jmx according to the received address
+ */
 public class NodeMetrics {
     public String JMX_URI_FORMAT = "service:jmx:rmi:///jndi/rmi://" + "%s" + "/jmxrmi";
     String[] metricsName = {"BytesInPerSec", "BytesOutPerSec"};

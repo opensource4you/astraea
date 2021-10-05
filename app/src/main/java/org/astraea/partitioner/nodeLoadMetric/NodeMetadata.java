@@ -1,5 +1,8 @@
 package org.astraea.partitioner.nodeLoadMetric;
 
+/**
+ * Store information about each node
+ */
 public class NodeMetadata {
     private String nodeID;
     private NodeMetrics nodeMetrics;
