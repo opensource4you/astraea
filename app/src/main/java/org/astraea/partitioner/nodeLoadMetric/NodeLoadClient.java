@@ -20,7 +20,6 @@ public class NodeLoadClient implements Runnable {
   private int timeOutCount = 0;
   private boolean currentAlive = false;
 
-
   NodeLoadClient(HashMap<String, String> jmxAddresses) throws MalformedURLException {
     for (Map.Entry<String, String> entry : jmxAddresses.entrySet()) {
       this.nodeMetadataCollection.add(
@@ -32,7 +31,7 @@ public class NodeLoadClient implements Runnable {
 
   public static synchronized NodeLoadClient getNodeLoadInstance(
       HashMap<String, String> jmxAddresses) throws InterruptedException, MalformedURLException {
-    if (NodeLoadClientHolder.timeOut){
+    if (NodeLoadClientHolder.timeOut) {
       TimeUnit.SECONDS.sleep(1);
     }
 
