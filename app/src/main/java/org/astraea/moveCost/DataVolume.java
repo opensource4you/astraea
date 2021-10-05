@@ -6,6 +6,7 @@ import java.util.concurrent.ExecutionException;
 import org.apache.kafka.clients.admin.*;
 import org.apache.kafka.clients.producer.*;
 import org.apache.kafka.common.KafkaFuture;
+import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.TopicPartitionReplica;
 
 public class DataVolume {
@@ -42,12 +43,14 @@ public class DataVolume {
     KafkaFuture<Set<String>> names = result.names();
     try {
       Set<String> set = names.get();
+      System.out.println("topic name: ");
       set.forEach(System.out::println);
       return (set);
     } catch (InterruptedException | ExecutionException e) {
       System.out.println("取得topic name失敗" + e.getMessage());
       e.printStackTrace();
     }
+    System.out.println("");
     return null;
   }
 
@@ -58,24 +61,44 @@ public class DataVolume {
     replicaAssignment.add(topicPartitionReplica);
     System.out.println(replicaAssignment.size());
      */
-    Set brockerName = getTopicNum();
+    Set brokerName = getTopicNum();
     Collection<Integer> brokerID = new ArrayList<Integer>();
-    for (int i = 0; i <= brockerName.size() - 1; i++) brokerID.add(i);
-    DescribeLogDirsResult result = client.describeLogDirs(brokerID);
-
-    for (var iii : result.descriptions().values()) {
-      try {
-        var map = iii.get();
-        for (String name : map.keySet()) {
-          System.out.println(name + ": " + map.get(name));
-          System.out.println("成功取得資訊 :" + name);
+    for (int j = 0; j <= brokerName.size() - 1; j++) {
+      brokerID.add(j);
+      DescribeLogDirsResult result = client.describeLogDirs(brokerID);
+      for (var i : result.descriptions().values()) {
+        try {
+          var map = i.get();
+          for (String name : map.keySet()) {
+            System.out.println("成功取得broker" +j + ": ");
+            System.out.println(name + ": " + map.get(name));
+          }
+        } catch (InterruptedException | ExecutionException e) {
+          System.out.println("取得資訊失敗" + e.getMessage());
+          e.printStackTrace();
         }
-      } catch (InterruptedException | ExecutionException e) {
-        System.out.println("取得資訊失敗" + e.getMessage());
-        e.printStackTrace();
       }
+      brokerID.remove(j);
     }
   }
+  public static void alterPartitionReassignment(String topic, Integer p,List<Integer> list) {
+    try {
+      TopicPartition topicPartition = new TopicPartition(topic, p);
+      Map<TopicPartition,Optional<NewPartitionReassignment>> replicaAssignment= new HashMap<>();
+      replicaAssignment.put(topicPartition,Optional.of(new NewPartitionReassignment(list)));
+      System.out.println("開始移動partition");
+      AlterPartitionReassignmentsResult result = client.alterPartitionReassignments(replicaAssignment);
+      result.all().get();
+      System.out.println("Partition移動成功！");
+
+    } catch (InterruptedException e) {
+      System.out.println("移動失敗：" + e.getMessage());
+      e.printStackTrace();
+    } catch (ExecutionException e) {
+      e.printStackTrace();
+    }
+  }
+
 
   public static void alterReplicaLogDir(String topic, Integer p, String path) {
     try {
@@ -97,10 +120,10 @@ public class DataVolume {
     }
   }
 
-  public static void testPrint(Producer producer) {
+  public static void testPrint(Producer producer,String topic) {
     for (int i = 0; i < 10; i++)
       producer.send(
-          new ProducerRecord<String, String>("test", Integer.toString(i), "test訊息:" + i),
+          new ProducerRecord<String, String>(topic, Integer.toString(i), "test訊息:" + i),
           new Callback() {
             @Override
             public void onCompletion(RecordMetadata recordMetadata, Exception e) {
@@ -112,9 +135,11 @@ public class DataVolume {
 
   public static void main(String[] args) throws InterruptedException {
     Producer producer = initProducer();
-    // 搬移partition
-    // alterReplicaLogDir("test", 1, "/tmp/test/kafka-logs");
-    testPrint(producer); // 塞東西給producer 取得到的logSize才不會是0
+    // 搬移partition log
+    // alterReplicaLogDir("test0", 1, "/home/sean/Document/test0/log1");
+    // 搬移partition至不同的broker
+     //alterPartitionReassignment("test0",0,List.of(2));
+    testPrint(producer,"test2"); // 塞東西給producer 取得到的logSize才不會是0
     getSize(); // 取得所有partition的名稱與大小等資訊
   }
 }
