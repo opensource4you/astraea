@@ -67,7 +67,7 @@ public class NodeLoadClientTest {
       overLoadNode.setEachBrokerMsgPerSec(testBrokerMsg);
       nodeLoadClient.setOverLoadNode(overLoadNode);
       TimeUnit.SECONDS.sleep(15);
-      assertEquals(nodeLoadClient.getTimeOutCount(), 0);
+      assertEquals(nodeLoadClient.getTimeOutCount(), 10);
 
       nodeLoadClient = getNodeLoadInstance(jmxAddresses);
       TimeUnit.SECONDS.sleep(5);
