@@ -100,10 +100,6 @@ public class NodeLoadClient implements Runnable {
     currentAlive = true;
   }
 
-  public static boolean ensureNodeLoadClientNull() {
-    return NodeLoadClientHolder.nodeLoadClient == null;
-  }
-
   public void refreshNodesMetrics() {
     for (NodeMetadata nodeMetadata : nodeMetadataCollection) {
       NodeMetrics nodeMetrics = nodeMetadata.getNodeMetrics();

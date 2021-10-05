@@ -21,7 +21,7 @@ public class SmoothPartitioner implements Partitioner {
       String topic, Object key, byte[] keyBytes, Object value, byte[] valueBytes, Cluster cluster) {
 
     try {
-      if (NodeLoadClient.ensureNodeLoadClientNull()) {
+      if (nodeLoadClient == null) {
         nodeLoadClient = getNodeLoadInstance(jmxServers);
       }
     } catch (InterruptedException | MalformedURLException e) {
