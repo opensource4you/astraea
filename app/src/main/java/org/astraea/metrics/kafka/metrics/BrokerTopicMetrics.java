@@ -53,12 +53,13 @@ public enum BrokerTopicMetrics {
   BytesOutPerSec("BytesOutPerSec");
 
   private final String metricName;
-  public static final Set<String> allMetricsName;
+  public static final Set<String> allMetricNames;
+
   static {
-    allMetricsName =
-            Arrays.stream(values())
-                    .map(BrokerTopicMetrics::metricName)
-                    .collect(Collectors.toUnmodifiableSet());
+    allMetricNames =
+        Arrays.stream(values())
+            .map(BrokerTopicMetrics::metricName)
+            .collect(Collectors.toUnmodifiableSet());
   }
 
   BrokerTopicMetrics(String name) {
