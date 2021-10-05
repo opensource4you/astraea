@@ -25,6 +25,7 @@ def versions = [
 dependencies {
     testImplementation "org.junit.jupiter:junit-jupiter:${versions["junit"]}"
     testImplementation "org.mockito:mockito-core:${versions["mockito"]}"
+    testImplementation "org.mockito:mockito-inline:${versions["mockito"]}"
 
     implementation "org.apache.kafka:kafka-clients:${versions["kafka"]}"
 }

@@ -2,38 +2,48 @@ package org.astraea.partitioner.nodeLoadMetric;
 
 import static org.astraea.partitioner.nodeLoadMetric.NodeLoadClient.*;
 
+import java.net.MalformedURLException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Random;
+import java.util.stream.Collectors;
+
 import org.apache.kafka.clients.producer.Partitioner;
 import org.apache.kafka.common.Cluster;
+import org.apache.kafka.common.Node;
 import org.apache.kafka.common.PartitionInfo;
 
 public class SmoothPartitioner implements Partitioner {
+  private NodeLoadClient nodeLoadClient;
+  private HashMap<String, String> jmxServers = new HashMap<>();
 
   /** Implement Smooth Weight Round Robin. */
   @Override
   public int partition(
       String topic, Object key, byte[] keyBytes, Object value, byte[] valueBytes, Cluster cluster) {
 
-    NodeLoadClient nodeLoadClient = null;
+    Collection<Integer> nodeIDs= cluster.nodes().stream().map(Node::id).collect(Collectors.toUnmodifiableList());
+
     try {
-      nodeLoadClient = getNodeLoadInstance(cluster.nodes().size());
-    } catch (InterruptedException e) {
+      if (NodeLoadClient.ensureNodeLoadClientNull()){
+        nodeLoadClient = getNodeLoadInstance(jmxServers);
+      }
+    } catch (InterruptedException | MalformedURLException e) {
       e.printStackTrace();
     }
 
     LoadPoisson loadPoisson = new LoadPoisson(nodeLoadClient);
     BrokersWeight brokersWeight = new BrokersWeight(loadPoisson);
     brokersWeight.setBrokerHashMap();
-    Map.Entry<Integer, int[]> maxWeightServer = null;
+    Map.Entry<String, int[]> maxWeightServer = null;
 
     int allWeight = brokersWeight.getAllWeight();
-    HashMap<Integer, int[]> currentBrokerHashMap = brokersWeight.getBrokerHashMap();
+    HashMap<String, int[]> currentBrokerHashMap = brokersWeight.getBrokerHashMap();
 
-    for (Map.Entry<Integer, int[]> item : currentBrokerHashMap.entrySet()) {
-      Map.Entry<Integer, int[]> currentServer = item;
+    for (Map.Entry<String, int[]> item : currentBrokerHashMap.entrySet()) {
+      Map.Entry<String, int[]> currentServer = item;
       if (maxWeightServer == null || currentServer.getValue()[1] > maxWeightServer.getValue()[1]) {
         maxWeightServer = currentServer;
       }
@@ -45,7 +55,7 @@ public class SmoothPartitioner implements Partitioner {
     brokersWeight.setCurrentBrokerHashMap(currentBrokerHashMap);
 
     ArrayList<Integer> partitionList = new ArrayList<>();
-    for (PartitionInfo partitionInfo : cluster.partitionsForNode(maxWeightServer.getKey())) {
+    for (PartitionInfo partitionInfo : cluster.partitionsForNode(Integer.parseInt(maxWeightServer.getKey()))) {
       partitionList.add(partitionInfo.partition());
     }
     Random rand = new Random();
@@ -54,8 +64,12 @@ public class SmoothPartitioner implements Partitioner {
   }
 
   @Override
-  public void close() {}
+  public void close() {
+  }
 
   @Override
-  public void configure(Map<String, ?> configs) {}
+  public void configure(Map<String, ?> configs) {
+    this.jmxServers = (HashMap<String, String>) configs;
+  }
+
 }

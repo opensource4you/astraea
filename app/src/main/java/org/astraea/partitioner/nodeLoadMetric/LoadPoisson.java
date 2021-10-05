@@ -10,10 +10,10 @@ public class LoadPoisson {
     this.nodeLoadClient = nodeLoadClient;
   }
 
-  public HashMap<Integer, Double> setAllPoisson() {
-    HashMap<Integer, Double> poissonMap = new HashMap<>();
+  public HashMap<String, Double> setAllPoisson() {
+    HashMap<String, Double> poissonMap = new HashMap<>();
     int lambda = nodeLoadClient.getAvgLoadCount();
-    for (Map.Entry<Integer, Integer> entry : nodeLoadClient.getOverLoadCount().entrySet()) {
+    for (Map.Entry<String, Integer> entry : nodeLoadClient.getAllOverLoadCount().entrySet()) {
       int x = nodeLoadClient.getBinOneCount(entry.getValue());
       poissonMap.put(entry.getKey(), doPoisson(lambda, x));
     }

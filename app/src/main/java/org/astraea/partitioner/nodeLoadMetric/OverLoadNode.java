@@ -1,36 +1,36 @@
 package org.astraea.partitioner.nodeLoadMetric;
 
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 public class OverLoadNode {
   private double standardDeviation = 0;
   private double avgBrokersMsgPerSec = 0;
-  private Collection<Integer> nodesID;
+  private Collection<String> nodesID;
   private int nodeNum;
   private int mountCount = 0;
-  private HashMap<Integer, Double> eachBrokerMsgPerSec = new HashMap();
+  private HashMap<String, Double> eachBrokerMsgPerSec = new HashMap();
+  private Collection<NodeMetadata> nodesMetadata;
 
-  OverLoadNode() {
-    this.nodesID = getNodesID();
-    this.nodeNum = getNodesID().size();
+  OverLoadNode(Collection<NodeMetadata> nodeMetadataCollection) {
+    this.nodesID = nodeMetadataCollection.stream().map(NodeMetadata::getNodeID).collect(Collectors.toUnmodifiableList());
+    this.nodeNum = nodeMetadataCollection.size();
+    this.nodesMetadata = nodeMetadataCollection;
   }
 
   /** Monitor and update the number of overloads of each node. */
-  public void monitorOverLoad(HashMap<Integer, Integer> overLoadCount) {
+  public void monitorOverLoad(Collection<NodeMetadata> nodeMetadataCollection) {
     setBrokersMsgPerSec();
     setAvgBrokersMsgPerSec();
     standardDeviationImperative();
-    for (Map.Entry<Integer, Double> entry : eachBrokerMsgPerSec.entrySet()) {
+    for(NodeMetadata nodeMetadata : nodeMetadataCollection) {
       int ifOverLoad = 0;
-      if (entry.getValue() > (avgBrokersMsgPerSec + standardDeviation)) {
+      if (nodeMetadata.getTotalBytes() > (avgBrokersMsgPerSec + standardDeviation)) {
         ifOverLoad = 1;
       }
-      overLoadCount.put(
-          entry.getKey(),
-          setOverLoadCount(overLoadCount.get(entry.getKey()), mountCount % 10, ifOverLoad));
+      nodeMetadata.setOverLoadCount(setOverLoadCount(nodeMetadata.getOverLoadCount(), mountCount % 10, ifOverLoad));
     }
     this.mountCount = mountCount++;
   }
@@ -53,14 +53,14 @@ public class OverLoadNode {
   }
 
   public void setBrokersMsgPerSec() {
-    for (int nodeID : nodesID) {
-      eachBrokerMsgPerSec.put(nodeID, getEachBrokerMsgPerSec(nodeID));
+    for (NodeMetadata nodeMetadata : nodesMetadata) {
+      eachBrokerMsgPerSec.put(nodeMetadata.getNodeID(), nodeMetadata.getTotalBytes());
     }
   }
 
   public void setAvgBrokersMsgPerSec() {
     double avg = 0;
-    for (Map.Entry<Integer, Double> entry : eachBrokerMsgPerSec.entrySet()) {
+    for (Map.Entry<String, Double> entry : eachBrokerMsgPerSec.entrySet()) {
       avg += entry.getValue();
     }
     this.avgBrokersMsgPerSec = avg / nodeNum;
@@ -68,7 +68,7 @@ public class OverLoadNode {
 
   public void standardDeviationImperative() {
     double variance = 0;
-    for (Map.Entry<Integer, Double> entry : eachBrokerMsgPerSec.entrySet()) {
+    for (Map.Entry<String, Double> entry : eachBrokerMsgPerSec.entrySet()) {
       variance +=
           (entry.getValue() - avgBrokersMsgPerSec) * (entry.getValue() - avgBrokersMsgPerSec);
     }
@@ -77,15 +77,14 @@ public class OverLoadNode {
   }
 
   // Only for test
-  void setEachBrokerMsgPerSec(HashMap<Integer, Double> hashMap) {
-    this.eachBrokerMsgPerSec = hashMap;
-  }
-
-  // Only for test
   double getStandardDeviation() {
     return this.standardDeviation;
   }
 
+  //Only for test
+  public void setEachBrokerMsgPerSec(HashMap<String, Double> hashMap) {
+    this.eachBrokerMsgPerSec = hashMap;
+  }
   // Only for test
   double getAvgBrokersMsgPerSec() {
     return this.avgBrokersMsgPerSec;
@@ -94,21 +93,5 @@ public class OverLoadNode {
   // Only for test
   void setMountCount(int i) {
     this.mountCount = i;
-  }
-
-  // TODO
-  private double getEachBrokerMsgPerSec(int nodeID) {
-    return eachBrokerMsgPerSec.get(nodeID);
-  }
-
-  // TODO
-  private Collection<Integer> getNodesID() {
-    Collection<Integer> testNodes = new ArrayList<Integer>();
-    testNodes.add(0);
-    testNodes.add(1);
-    testNodes.add(2);
-    testNodes.add(3);
-
-    return testNodes;
   }
 }
