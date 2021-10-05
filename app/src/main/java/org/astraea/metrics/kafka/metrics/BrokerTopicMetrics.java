@@ -1,5 +1,9 @@
 package org.astraea.metrics.kafka.metrics;
 
+import java.util.Arrays;
+import java.util.Set;
+import java.util.stream.Collectors;
+
 public enum BrokerTopicMetrics {
   /** Message validation failure rate due to non-continuous offset or sequence number in batch */
   InvalidOffsetOrSequenceRecordsPerSec("InvalidOffsetOrSequenceRecordsPerSec"),
@@ -49,6 +53,13 @@ public enum BrokerTopicMetrics {
   BytesOutPerSec("BytesOutPerSec");
 
   private final String metricName;
+  public static final Set<String> allMetricsName;
+  static {
+    allMetricsName =
+            Arrays.stream(values())
+                    .map(BrokerTopicMetrics::metricName)
+                    .collect(Collectors.toUnmodifiableSet());
+  }
 
   BrokerTopicMetrics(String name) {
     this.metricName = name;
