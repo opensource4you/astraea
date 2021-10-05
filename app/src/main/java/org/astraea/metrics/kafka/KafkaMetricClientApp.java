@@ -21,7 +21,7 @@ public final class KafkaMetricClientApp {
 
   public static void main(String[] args) throws MalformedURLException {
 
-//     ensure argument safe
+    //ensure argument safe
     if (args.length < 1) {
       help();
       throw new IllegalArgumentException();
@@ -30,15 +30,14 @@ public final class KafkaMetricClientApp {
     List<String> argumentTargetMetrics = List.of(args).subList(1, args.length);
     String[] test = {"localhost:18685", "BytesInPerSec"};
 
-
     JMXServiceURL serviceURL = new JMXServiceURL(createJmxUrl(argumentJmxServerNetworkAddress));
     try (KafkaMetricClient kafkaMetricClient = new KafkaMetricClient(serviceURL)) {
 
       // find the actual metrics to fetch.
       List<BrokerTopicMetrics> metrics =
-              argumentTargetMetrics.stream()
-                      .map(BrokerTopicMetrics::valueOf)
-                      .collect(Collectors.toUnmodifiableList());
+          argumentTargetMetrics.stream()
+              .map(BrokerTopicMetrics::valueOf)
+              .collect(Collectors.toUnmodifiableList());
 
       // if no metric name specified, all metrics are selected
       if (argumentTargetMetrics.size() == 0) metrics = List.of(BrokerTopicMetrics.values());
@@ -46,15 +45,15 @@ public final class KafkaMetricClientApp {
       while (!Thread.interrupted()) {
         // fetch
         List<BrokerTopicMetricsResult> collect =
-                metrics.stream()
-                        .map(kafkaMetricClient::requestMetric)
-                        .collect(Collectors.toUnmodifiableList());
+            metrics.stream()
+                .map(kafkaMetricClient::requestMetric)
+                .collect(Collectors.toUnmodifiableList());
 
         // output
         System.out.println(
-                "["
-                        + LocalTime.now().format(DateTimeFormatter.ofLocalizedTime(FormatStyle.MEDIUM))
-                        + "]");
+            "["
+                + LocalTime.now().format(DateTimeFormatter.ofLocalizedTime(FormatStyle.MEDIUM))
+                + "]");
         for (BrokerTopicMetricsResult result : collect) System.out.println(result);
         System.out.println();
 
