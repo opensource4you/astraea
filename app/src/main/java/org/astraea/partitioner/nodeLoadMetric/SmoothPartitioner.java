@@ -59,9 +59,7 @@ public class SmoothPartitioner implements Partitioner {
   }
 
   @Override
-  public void close() {
-    this.nodeLoadClient = null;
-  }
+  public void close() {}
 
   @Override
   public void configure(Map<String, ?> configs) {
