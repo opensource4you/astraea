@@ -12,7 +12,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.concurrent.TimeUnit;
-
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.MockedConstruction;
@@ -59,11 +58,11 @@ public class NodeLoadClientTest {
 
     OverLoadNode overLoadNode = new OverLoadNode(nodeMetadataCollection);
 
-    for(NodeMetadata nodeMetadata : nodeMetadataCollection) {
+    for (NodeMetadata nodeMetadata : nodeMetadataCollection) {
       nodeMetadata.setTotalBytes(testBrokerMsg.get(nodeMetadata.getNodeID()));
     }
 
-    try(MockedConstruction mocked = mockConstruction(NodeMetrics.class)){
+    try (MockedConstruction mocked = mockConstruction(NodeMetrics.class)) {
       NodeLoadClient nodeLoadClient = getNodeLoadInstance(jmxAddresses);
       overLoadNode.setEachBrokerMsgPerSec(testBrokerMsg);
       nodeLoadClient.setOverLoadNode(overLoadNode);

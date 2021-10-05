@@ -15,7 +15,10 @@ public class OverLoadNode {
   private Collection<NodeMetadata> nodesMetadata;
 
   OverLoadNode(Collection<NodeMetadata> nodeMetadataCollection) {
-    this.nodesID = nodeMetadataCollection.stream().map(NodeMetadata::getNodeID).collect(Collectors.toUnmodifiableList());
+    this.nodesID =
+        nodeMetadataCollection.stream()
+            .map(NodeMetadata::getNodeID)
+            .collect(Collectors.toUnmodifiableList());
     this.nodeNum = nodeMetadataCollection.size();
     this.nodesMetadata = nodeMetadataCollection;
   }
@@ -25,12 +28,13 @@ public class OverLoadNode {
     setBrokersMsgPerSec();
     setAvgBrokersMsgPerSec();
     standardDeviationImperative();
-    for(NodeMetadata nodeMetadata : nodeMetadataCollection) {
+    for (NodeMetadata nodeMetadata : nodeMetadataCollection) {
       int ifOverLoad = 0;
       if (nodeMetadata.getTotalBytes() > (avgBrokersMsgPerSec + standardDeviation)) {
         ifOverLoad = 1;
       }
-      nodeMetadata.setOverLoadCount(setOverLoadCount(nodeMetadata.getOverLoadCount(), mountCount % 10, ifOverLoad));
+      nodeMetadata.setOverLoadCount(
+          setOverLoadCount(nodeMetadata.getOverLoadCount(), mountCount % 10, ifOverLoad));
     }
     this.mountCount = mountCount++;
   }
@@ -81,7 +85,7 @@ public class OverLoadNode {
     return this.standardDeviation;
   }
 
-  //Only for test
+  // Only for test
   public void setEachBrokerMsgPerSec(HashMap<String, Double> hashMap) {
     this.eachBrokerMsgPerSec = hashMap;
   }

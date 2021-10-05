@@ -5,6 +5,11 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockConstruction;
 
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
 import org.apache.kafka.clients.producer.Partitioner;
 import org.apache.kafka.common.Cluster;
 import org.apache.kafka.common.Node;
@@ -12,12 +17,6 @@ import org.apache.kafka.common.PartitionInfo;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.MockedConstruction;
-
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
 
 public class TestSmoothPartitioner {
   private HashMap<String, String> jmxAddresses;
@@ -73,12 +72,12 @@ public class TestSmoothPartitioner {
             PARTITIONS,
             Collections.<String>emptySet(),
             Collections.<String>emptySet());
-    try(MockedConstruction mocked = mockConstruction(NodeMetrics.class)) {
+    try (MockedConstruction mocked = mockConstruction(NodeMetrics.class)) {
       int partition = partitioner.partition("test", null, KEY_BYTES, null, null, cluster);
       assertEquals(
-              partition,
-              partitioner.partition("test", null, KEY_BYTES, null, null, cluster),
-              "Same key should yield same partition");
+          partition,
+          partitioner.partition("test", null, KEY_BYTES, null, null, cluster),
+          "Same key should yield same partition");
     }
-    }
+  }
 }

@@ -9,7 +9,6 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Random;
 import java.util.stream.Collectors;
-
 import org.apache.kafka.clients.producer.Partitioner;
 import org.apache.kafka.common.Cluster;
 import org.apache.kafka.common.Node;
@@ -24,10 +23,11 @@ public class SmoothPartitioner implements Partitioner {
   public int partition(
       String topic, Object key, byte[] keyBytes, Object value, byte[] valueBytes, Cluster cluster) {
 
-    Collection<Integer> nodeIDs= cluster.nodes().stream().map(Node::id).collect(Collectors.toUnmodifiableList());
+    Collection<Integer> nodeIDs =
+        cluster.nodes().stream().map(Node::id).collect(Collectors.toUnmodifiableList());
 
     try {
-      if (NodeLoadClient.ensureNodeLoadClientNull()){
+      if (NodeLoadClient.ensureNodeLoadClientNull()) {
         nodeLoadClient = getNodeLoadInstance(jmxServers);
       }
     } catch (InterruptedException | MalformedURLException e) {
@@ -55,7 +55,8 @@ public class SmoothPartitioner implements Partitioner {
     brokersWeight.setCurrentBrokerHashMap(currentBrokerHashMap);
 
     ArrayList<Integer> partitionList = new ArrayList<>();
-    for (PartitionInfo partitionInfo : cluster.partitionsForNode(Integer.parseInt(maxWeightServer.getKey()))) {
+    for (PartitionInfo partitionInfo :
+        cluster.partitionsForNode(Integer.parseInt(maxWeightServer.getKey()))) {
       partitionList.add(partitionInfo.partition());
     }
     Random rand = new Random();
@@ -64,12 +65,10 @@ public class SmoothPartitioner implements Partitioner {
   }
 
   @Override
-  public void close() {
-  }
+  public void close() {}
 
   @Override
   public void configure(Map<String, ?> configs) {
     this.jmxServers = (HashMap<String, String>) configs;
   }
-
 }

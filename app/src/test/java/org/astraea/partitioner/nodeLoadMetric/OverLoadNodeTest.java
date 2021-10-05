@@ -6,7 +6,6 @@ import static org.mockito.Mockito.mock;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
-
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -68,7 +67,6 @@ public class OverLoadNodeTest {
     assertEquals(overLoadNode.setOverLoadCount(31, 2, 1), 31);
     assertEquals(overLoadNode.setOverLoadCount(31, 2, 0), 27);
     assertEquals(overLoadNode.setOverLoadCount(20, 4, 0), 4);
-
   }
 
   @Test
@@ -81,11 +79,11 @@ public class OverLoadNodeTest {
 
     OverLoadNode overLoadNode = new OverLoadNode(nodeMetadataCollection);
 
-    for(NodeMetadata nodeMetadata : nodeMetadataCollection) {
+    for (NodeMetadata nodeMetadata : nodeMetadataCollection) {
       nodeMetadata.setTotalBytes(testHashMap.get(nodeMetadata.getNodeID()));
     }
 
-    for(NodeMetadata nodeMetadata : nodeMetadataCollection2) {
+    for (NodeMetadata nodeMetadata : nodeMetadataCollection2) {
       nodeMetadata.setTotalBytes(testHashMap.get(nodeMetadata.getNodeID()));
     }
 
@@ -101,6 +99,8 @@ public class OverLoadNodeTest {
       overLoadNode.monitorOverLoad(nodeMetadataCollection2);
     }
 
-    assertEquals(((NodeMetadata) nodeMetadataCollection.toArray()[3]).getOverLoadCount(), ((NodeMetadata) nodeMetadataCollection2.toArray()[3]).getOverLoadCount());
+    assertEquals(
+        ((NodeMetadata) nodeMetadataCollection.toArray()[3]).getOverLoadCount(),
+        ((NodeMetadata) nodeMetadataCollection2.toArray()[3]).getOverLoadCount());
   }
 }

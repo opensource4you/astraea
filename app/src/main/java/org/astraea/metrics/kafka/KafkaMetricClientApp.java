@@ -22,12 +22,12 @@ public final class KafkaMetricClientApp {
   public static void main(String[] args) throws MalformedURLException {
 
     // ensure argument safe
-//    if (args.length < 1) {
-//      help();
-//      throw new IllegalArgumentException();
-//    }
-//    String argumentJmxServerNetworkAddress = args[0];
-//    List<String> argumentTargetMetrics = List.of(args).subList(1, args.length);
+    //    if (args.length < 1) {
+    //      help();
+    //      throw new IllegalArgumentException();
+    //    }
+    //    String argumentJmxServerNetworkAddress = args[0];
+    //    List<String> argumentTargetMetrics = List.of(args).subList(1, args.length);
     String[] test = {"localhost:18685", "BytesInPerSec"};
 
     String argumentJmxServerNetworkAddress = test[0];

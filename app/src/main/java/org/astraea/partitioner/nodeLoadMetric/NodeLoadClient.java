@@ -21,14 +21,16 @@ public class NodeLoadClient implements Runnable {
   private boolean timeOut = false;
 
   NodeLoadClient(HashMap<String, String> jmxAddresses) throws MalformedURLException {
-    for(Map.Entry<String, String> entry : jmxAddresses.entrySet()){
-      this.nodeMetadataCollection.add(new NodeMetadata(entry.getKey(), new NodeMetrics(entry.getKey(), entry.getValue())));
+    for (Map.Entry<String, String> entry : jmxAddresses.entrySet()) {
+      this.nodeMetadataCollection.add(
+          new NodeMetadata(entry.getKey(), new NodeMetrics(entry.getKey(), entry.getValue())));
     }
     this.overLoadNode = new OverLoadNode(this.nodeMetadataCollection);
     NodeLoadClientHolder.clientOn = true;
   }
 
-  public static NodeLoadClient getNodeLoadInstance(HashMap<String, String> jmxAddresses) throws InterruptedException, MalformedURLException {
+  public static NodeLoadClient getNodeLoadInstance(HashMap<String, String> jmxAddresses)
+      throws InterruptedException, MalformedURLException {
     if (!NodeLoadClientHolder.clientOn) {
       NodeLoadClientHolder.nodeLoadClient = new NodeLoadClient(jmxAddresses);
       NodeLoadClientHolder.clientOn = true;
@@ -48,8 +50,7 @@ public class NodeLoadClient implements Runnable {
         overLoadNode.monitorOverLoad(nodeMetadataCollection);
         timeOutCount++;
         timeOut = timeOutCount > 9;
-        timeOutCount =
-            currentAlive ? 0 : timeOutCount;
+        timeOutCount = currentAlive ? 0 : timeOutCount;
         currentAlive = false;
         TimeUnit.SECONDS.sleep(1);
       }
@@ -63,10 +64,9 @@ public class NodeLoadClient implements Runnable {
     }
   }
 
-
   public HashMap<String, Integer> getAllOverLoadCount() {
     HashMap<String, Integer> overLoadCount = new HashMap<>();
-    for (NodeMetadata nodeMetadata : nodeMetadataCollection){
+    for (NodeMetadata nodeMetadata : nodeMetadataCollection) {
       overLoadCount.put(nodeMetadata.getNodeID(), nodeMetadata.getOverLoadCount());
     }
     return overLoadCount;
@@ -77,7 +77,9 @@ public class NodeLoadClient implements Runnable {
     for (NodeMetadata nodeMetadata : nodeMetadataCollection) {
       avgLoadCount += getBinOneCount(nodeMetadata.getOverLoadCount());
     }
-    return nodeMetadataCollection.size() > 0 ? (int) avgLoadCount / nodeMetadataCollection.size() : 0;
+    return nodeMetadataCollection.size() > 0
+        ? (int) avgLoadCount / nodeMetadataCollection.size()
+        : 0;
   }
 
   /** Get the number of times a node is overloaded. */
@@ -105,7 +107,7 @@ public class NodeLoadClient implements Runnable {
   }
 
   public void refreshNodesMetrics() {
-    for (NodeMetadata nodeMetadata : nodeMetadataCollection){
+    for (NodeMetadata nodeMetadata : nodeMetadataCollection) {
       NodeMetrics nodeMetrics = nodeMetadata.getNodeMetrics();
       nodeMetrics.refreshMetrics();
       nodeMetadata.setTotalBytes(nodeMetrics.totalBytesPerSec());
