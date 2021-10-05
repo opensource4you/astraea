@@ -14,9 +14,6 @@ public class NodeLoadClient implements Runnable {
     private static boolean clientOn = false;
   }
 
-  /** This value records the number of times each node has been overloaded within ten seconds. */
-//  private static HashMap<String, Integer> overLoadCount = new HashMap();
-
   private OverLoadNode overLoadNode;
   private Collection<NodeMetadata> nodeMetadataCollection = new ArrayList<>();
   private int timeOutCount = 0;
