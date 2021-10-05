@@ -4,12 +4,14 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
+import org.astraea.argument.ArgumentUtil;
+import org.astraea.metrics.kafka.KafkaMetricClientApp;
 import org.astraea.offset.OffsetExplorer;
 import org.astraea.performance.latency.End2EndLatency;
 
 public class App {
   private static final List<Class<?>> MAIN_CLASSES =
-      Arrays.asList(End2EndLatency.class, OffsetExplorer.class);
+      Arrays.asList(End2EndLatency.class, OffsetExplorer.class, KafkaMetricClientApp.class);
 
   private static String toString(List<Class<?>> mains) {
     return mains.stream().map(Class::getName).collect(Collectors.joining(","));
@@ -35,6 +37,8 @@ public class App {
                     () ->
                         new IllegalArgumentException(
                             "className: " + className + " is not matched to " + toString(mains)));
+
+    ArgumentUtil.checkArgument(targetClass, args.subList(1, args.size()));
 
     var method = targetClass.getDeclaredMethod("main", String[].class);
     method.invoke(null, (Object) args.subList(1, args.size()).toArray(String[]::new));

@@ -35,8 +35,11 @@ if [[ -z "$KAFKA_VERSION" ]]; then
   KAFKA_VERSION=2.8.0
 fi
 
-USER=broker
+USER=astraea
 image_name=astraea/broker:$KAFKA_VERSION
+if [[ -n "$KAFKA_REVISION" ]]; then
+  image_name=astraea/broker:$KAFKA_REVISION
+fi
 broker_id="$(($RANDOM % 1000))"
 address=$(getAddress)
 broker_port="$(($(($RANDOM % 10000)) + 10000))"
@@ -121,7 +124,33 @@ if [[ "$(cat $config_file | grep transaction.state.log.min.isr)" == "" ]]; then
 fi
 # ==============================================================================
 
-docker build -t $image_name - <<Dockerfile
+if [[ -n "$KAFKA_REVISION" ]]; then
+
+  docker build -t $image_name - <<Dockerfile
+FROM ubuntu:20.04
+
+# install tools
+RUN apt-get update && apt-get upgrade -y && DEBIAN_FRONTEND=noninteractive apt-get install -y openjdk-11-jdk wget git curl
+
+# add user
+RUN groupadd $USER && useradd -ms /bin/bash -g $USER $USER
+
+# change user
+USER $USER
+
+# build kafka from source code
+RUN git clone https://github.com/apache/kafka /tmp/kafka
+WORKDIR /tmp/kafka
+RUN git checkout $KAFKA_REVISION
+RUN ./gradlew clean releaseTarGz
+RUN mkdir /home/$USER/kafka
+RUN tar -zxvf \$(find ./core/build/distributions/ -maxdepth 1 -type f -name kafka_*SNAPSHOT.tgz) -C /home/$USER/kafka --strip-components=1
+WORKDIR "/home/$USER/kafka"
+
+Dockerfile
+
+else
+  docker build -t $image_name - <<Dockerfile
 FROM ubuntu:20.04
 
 # install tools
@@ -134,11 +163,14 @@ RUN groupadd $USER && useradd -ms /bin/bash -g $USER $USER
 USER $USER
 
 # download kafka
-WORKDIR /home/$USER
+WORKDIR /tmp
 RUN wget https://archive.apache.org/dist/kafka/${KAFKA_VERSION}/kafka_2.13-${KAFKA_VERSION}.tgz
-RUN tar -zxvf kafka_2.13-${KAFKA_VERSION}.tgz
-WORKDIR /home/$USER/kafka_2.13-${KAFKA_VERSION}
+RUN mkdir /home/$USER/kafka
+RUN tar -zxvf kafka_2.13-${KAFKA_VERSION}.tgz -C /home/$USER/kafka --strip-components=1
+WORKDIR "/home/$USER/kafka"
+
 Dockerfile
+fi
 
 docker run -d \
   -e KAFKA_HEAP_OPTS="$KAFKA_HEAP" \
@@ -146,7 +178,7 @@ docker run -d \
   -v $config_file:/tmp/broker.properties:ro \
   -p $broker_port:9092 \
   -p $broker_jmx_port:$broker_jmx_port \
-  $image_name /home/$USER/kafka_2.13-${KAFKA_VERSION}/bin/kafka-server-start.sh /tmp/broker.properties
+  $image_name ./bin/kafka-server-start.sh /tmp/broker.properties
 
 echo "================================================="
 echo "broker address: ${address}:$broker_port"
