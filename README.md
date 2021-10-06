@@ -17,6 +17,11 @@ This project offers many kafka tools to simplify the life for kafka users.
 3. [Kafka offset explorer](#offset-explorer): check the start/end offsets of kafka topics
 4. [Kafka official tool](#kafka-official-tool): run any one specific kafka official tool. All you have to prepare is the docker env.
 
+[Release page](https://github.com/skiptests/astraea/releases) offers the uber jar including all tools.
+```shell
+java -jar astraea-0.0.1-alpha.1-all.jar [tool] [args]
+```
+
 ---
 
 ## Kafka Cluster Quick Start
