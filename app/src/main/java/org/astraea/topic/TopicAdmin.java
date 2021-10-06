@@ -219,7 +219,7 @@ public interface TopicAdmin extends Closeable {
     public final long earliest;
     public final long latest;
 
-    Offset(long earliest, long latest) {
+    public Offset(long earliest, long latest) {
       this.earliest = earliest;
       this.latest = latest;
     }
@@ -236,7 +236,7 @@ public interface TopicAdmin extends Closeable {
     public final boolean leader;
     public final boolean inSync;
 
-    Replica(int broker, long lag, boolean leader, boolean inSync) {
+    public Replica(int broker, long lag, boolean leader, boolean inSync) {
       this.broker = broker;
       this.lag = lag;
       this.leader = leader;

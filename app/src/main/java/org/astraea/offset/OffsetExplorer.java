@@ -15,27 +15,10 @@ public class OffsetExplorer {
   static class Result {
     final String topic;
     final int partition;
-    final long startOffset;
-    final long endOffset;
+    final long earliestOffset;
+    final long latestOffset;
     final List<TopicAdmin.Group> groups;
     final List<TopicAdmin.Replica> replicas;
-
-    @Override
-    public String toString() {
-      return "topic='"
-          + topic
-          + '\''
-          + ", partition="
-          + partition
-          + ", startOffset="
-          + startOffset
-          + ", endOffset="
-          + endOffset
-          + ", groups="
-          + groups
-          + ", replicas="
-          + replicas;
-    }
 
     Result(
         String topic,
@@ -46,10 +29,27 @@ public class OffsetExplorer {
         List<TopicAdmin.Replica> replicas) {
       this.topic = topic;
       this.partition = partition;
-      this.startOffset = startOffset;
-      this.endOffset = endOffset;
+      this.earliestOffset = startOffset;
+      this.latestOffset = endOffset;
       this.groups = groups;
       this.replicas = replicas;
+    }
+
+    @Override
+    public String toString() {
+      return "topic='"
+          + topic
+          + '\''
+          + ", partition="
+          + partition
+          + ", earliestOffset="
+          + earliestOffset
+          + ", latestOffset="
+          + latestOffset
+          + ", groups="
+          + groups
+          + ", replicas="
+          + replicas;
     }
   }
 
