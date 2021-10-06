@@ -15,7 +15,7 @@ public class App {
       Arrays.asList(End2EndLatency.class, OffsetExplorer.class, KafkaMetricClientApp.class);
 
   private static String toString(List<Class<?>> mains) {
-    return mains.stream().map(Class::getName).collect(Collectors.joining(","));
+    return mains.stream().map(Class::getSimpleName).collect(Collectors.joining(","));
   }
 
   private static String usage(List<Class<?>> mains) {

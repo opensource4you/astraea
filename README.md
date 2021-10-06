@@ -73,7 +73,7 @@ Run the benchmark from source code
 
 Run the benchmark from release
 ```shell
-./bin/App Latency --bootstrap.servers 192.168.50.224:18878
+java -jar app-0.0.1-SNAPSHOT-all.jar Latency --bootstrap.servers 192.168.50.224:18878
 ```
 
 ### Latency Benchmark Configurations
@@ -95,9 +95,9 @@ Run the tool from source code
 ./gradlew run --args="offset --bootstrap.servers 192.168.50.178:19993"
 ```
 
-Run the benchmark from release
+Run the tool from release
 ```shell
-./bin/App offset --bootstrap.servers 192.168.50.178:19993
+java -jar app-0.0.1-SNAPSHOT-all.jar offset --bootstrap.servers 192.168.50.178:19993
 ```
 
 ### Offset Explorer Configurations
