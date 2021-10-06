@@ -5,9 +5,11 @@ import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.FormatStyle;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import javax.management.remote.JMXServiceURL;
+import org.astraea.argument.ArgumentUtil;
 import org.astraea.metrics.kafka.metrics.BrokerTopicMetrics;
 import org.astraea.metrics.kafka.metrics.BrokerTopicMetricsResult;
 
@@ -20,15 +22,10 @@ public final class KafkaMetricClientApp {
   }
 
   public static void main(String[] args) throws MalformedURLException {
+    var parameters = ArgumentUtil.parseArgument(new KafkaMetricClientAppArgument(), args);
 
-    // ensure argument safe
-    if (args.length < 1) {
-      help();
-      throw new IllegalArgumentException();
-    }
-
-    String argumentJmxServerNetworkAddress = args[0];
-    List<String> argumentTargetMetrics = List.of(args).subList(1, args.length);
+    String argumentJmxServerNetworkAddress = parameters.address;
+    Set<String> argumentTargetMetrics = parameters.metrics;
 
     JMXServiceURL serviceURL = new JMXServiceURL(createJmxUrl(argumentJmxServerNetworkAddress));
     try (KafkaMetricClient kafkaMetricClient = new KafkaMetricClient(serviceURL)) {
@@ -38,9 +35,6 @@ public final class KafkaMetricClientApp {
           argumentTargetMetrics.stream()
               .map(BrokerTopicMetrics::valueOf)
               .collect(Collectors.toUnmodifiableList());
-
-      // if no metric name specified, all metrics are selected
-      if (argumentTargetMetrics.size() == 0) metrics = List.of(BrokerTopicMetrics.values());
 
       while (!Thread.interrupted()) {
         // fetch
@@ -66,22 +60,6 @@ public final class KafkaMetricClientApp {
 
     } catch (Exception e) {
       e.printStackTrace();
-      help();
-    }
-  }
-
-  private static void help() {
-    String simpleName = KafkaMetricClientApp.class.getSimpleName();
-    System.err.printf("Usage: %s <jmx server address> [metric names ...]\n", simpleName);
-    System.err.println();
-    System.err.println("If no metric name specified in argument, all metrics will be selected.");
-    System.err.println();
-    System.err.printf("Example 1: %s localhost:9875\n", simpleName);
-    System.err.printf("Example 2: %s localhost:9875 BytesInPerSec BytesOutPerSec\n", simpleName);
-    System.err.println();
-    System.err.println("Available Metrics:");
-    for (BrokerTopicMetrics value : BrokerTopicMetrics.values()) {
-      System.err.printf("    %s\n", value.metricName());
     }
   }
 }
