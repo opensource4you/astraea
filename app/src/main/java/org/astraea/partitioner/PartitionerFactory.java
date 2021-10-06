@@ -11,10 +11,6 @@ public class PartitionerFactory {
   private final Map<Map<String, ?>, Integer> count;
   private final Map<Map<String, ?>, Partitioner> instances;
 
-  PartitionerFactory() {
-    this((o1, o2) -> o1.equals(o2) ? 0 : Integer.compare(o1.hashCode(), o2.hashCode()));
-  }
-
   /**
    * create a factory with specific comparator.
    *
@@ -26,6 +22,12 @@ public class PartitionerFactory {
     this.instances = new TreeMap<>(comparator);
   }
 
+  /**
+   * @param clz partitioner class
+   * @param configs used to initialize new partitioner
+   * @return create a new partitioner if there is no matched partitioner (checked by comparator).
+   *     Otherwise, it returns the existent partitioner.
+   */
   Partitioner getOrCreate(Class<? extends Partitioner> clz, Map<String, ?> configs) {
     synchronized (lock) {
       var partitioner = instances.get(configs);

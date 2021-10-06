@@ -1,11 +1,20 @@
 package org.astraea.partitioner;
 
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.Map;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.Partitioner;
+import org.apache.kafka.clients.producer.Producer;
+import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.Cluster;
+import org.apache.kafka.common.serialization.ByteArraySerializer;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 public class PartitionerFactoryTest {
@@ -13,20 +22,66 @@ public class PartitionerFactoryTest {
   private static long countOfOnConfigure = 0;
   private static long countOfClose = 0;
 
+  @BeforeEach
+  void reset() {
+    countOfPartition = 0;
+    countOfOnConfigure = 0;
+    countOfClose = 0;
+  }
+
   @Test
-  void test() {
-    var configs = Map.of("a", "b");
+  void testSingletonByProducer() {
+    var props =
+        Map.<String, Object>of(
+            ProducerConfig.BOOTSTRAP_SERVERS_CONFIG,
+            "localhost:11111",
+            ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG,
+            ByteArraySerializer.class.getName(),
+            ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG,
+            ByteArraySerializer.class.getName(),
+            ProducerConfig.PARTITIONER_CLASS_CONFIG,
+            PassToProducer.class.getName());
 
     // create multiples partitioners
-    var partitioners =
+    var producers =
         IntStream.range(0, 10)
-            .mapToObj(
-                i -> {
-                  var partitioner = new PassToProducer();
-                  partitioner.configure(configs);
-                  return partitioner;
-                })
+            .mapToObj(i -> new KafkaProducer<byte[], byte[]>(props))
             .collect(Collectors.toList());
+
+    // ThreadSafePartitioner is created only once
+    Assertions.assertEquals(1, countOfOnConfigure);
+    Assertions.assertEquals(0, countOfPartition);
+    Assertions.assertEquals(0, countOfClose);
+
+    producers.forEach(Producer::close);
+    // ThreadSafePartitioner is closed only once
+    Assertions.assertEquals(1, countOfOnConfigure);
+    Assertions.assertEquals(0, countOfPartition);
+    Assertions.assertEquals(1, countOfClose);
+  }
+
+  @Test
+  void testSingleton() throws InterruptedException {
+    var configs = Map.of(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, "b");
+
+    var executor = Executors.newFixedThreadPool(10);
+    var partitioners = new ArrayList<Partitioner>();
+
+    // create partitions by multi-threads
+    IntStream.range(0, 10)
+        .forEach(
+            i -> {
+              executor.execute(
+                  () -> {
+                    var partitioner = new PassToProducer();
+                    partitioner.configure(configs);
+                    synchronized (partitioners) {
+                      partitioners.add(partitioner);
+                    }
+                  });
+            });
+    executor.shutdown();
+    Assertions.assertTrue(executor.awaitTermination(30, TimeUnit.SECONDS));
 
     // ThreadSafePartitioner is created only once
     Assertions.assertEquals(1, countOfOnConfigure);
@@ -68,9 +123,9 @@ public class PartitionerFactoryTest {
 
     // create two ThreadSafePartitioner with two configs
     var partitioner0 = new PassToProducer();
-    partitioner0.configure(Map.of("key", "value0"));
+    partitioner0.configure(Map.of(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, "value0"));
     var partitioner1 = new PassToProducer();
-    partitioner1.configure(Map.of("key", "value1"));
+    partitioner1.configure(Map.of(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, "value1"));
     Assertions.assertEquals(4, countOfOnConfigure);
     Assertions.assertEquals(3, countOfPartition);
     Assertions.assertEquals(2, countOfClose);
@@ -83,9 +138,11 @@ public class PartitionerFactoryTest {
     Assertions.assertEquals(4, countOfClose);
   }
 
-  private static class PassToProducer implements Partitioner {
+  public static class PassToProducer implements Partitioner {
 
-    private static final PartitionerFactory FACTORY = new PartitionerFactory();
+    private static final PartitionerFactory FACTORY =
+        new PartitionerFactory(
+            Comparator.comparing(o -> o.get(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG).toString()));
 
     private Partitioner partitioner;
 
