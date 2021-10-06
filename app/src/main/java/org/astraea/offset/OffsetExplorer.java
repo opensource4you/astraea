@@ -1,141 +1,85 @@
 package org.astraea.offset;
 
-import java.io.Closeable;
 import java.io.IOException;
-import java.util.*;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 import org.apache.kafka.clients.CommonClientConfigs;
-import org.apache.kafka.clients.admin.AdminClient;
-import org.apache.kafka.clients.admin.ListTopicsOptions;
-import org.apache.kafka.clients.admin.OffsetSpec;
-import org.apache.kafka.common.TopicPartition;
 import org.astraea.argument.ArgumentUtil;
+import org.astraea.topic.TopicAdmin;
 
 public class OffsetExplorer {
-  interface Admin extends Closeable {
-    Set<String> topics();
 
-    Set<TopicPartition> partitions(Set<String> topics);
+  static class Result {
+    final String topic;
+    final int partition;
+    final long startOffset;
+    final long endOffset;
+    final List<TopicAdmin.Group> groups;
+    final List<TopicAdmin.Replica> replicas;
 
-    Map<TopicPartition, Long> earliestOffsets(Set<TopicPartition> partitions);
+    @Override
+    public String toString() {
+      return "topic='"
+          + topic
+          + '\''
+          + ", partition="
+          + partition
+          + ", startOffset="
+          + startOffset
+          + ", endOffset="
+          + endOffset
+          + ", groups="
+          + groups
+          + ", replicas="
+          + replicas;
+    }
 
-    Map<TopicPartition, Long> latestOffsets(Set<TopicPartition> partitions);
-
-    static Admin of(org.apache.kafka.clients.admin.Admin admin) {
-      return new Admin() {
-        @Override
-        public void close() {
-          admin.close();
-        }
-
-        @Override
-        public Set<String> topics() {
-          try {
-            return admin.listTopics(new ListTopicsOptions().listInternal(true)).names().get();
-          } catch (Exception e) {
-            throw new RuntimeException(e);
-          }
-        }
-
-        @Override
-        public Set<TopicPartition> partitions(Set<String> topics) {
-          try {
-            return admin.describeTopics(topics).all().get().entrySet().stream()
-                .flatMap(
-                    e ->
-                        e.getValue().partitions().stream()
-                            .map(p -> new TopicPartition(e.getKey(), p.partition())))
-                .collect(Collectors.toSet());
-          } catch (Exception e) {
-            throw new RuntimeException(e);
-          }
-        }
-
-        @Override
-        public Map<TopicPartition, Long> earliestOffsets(Set<TopicPartition> partitions) {
-          try {
-            return admin
-                .listOffsets(
-                    partitions.stream()
-                        .collect(Collectors.toMap(e -> e, e -> new OffsetSpec.EarliestSpec())))
-                .all()
-                .get()
-                .entrySet()
-                .stream()
-                .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().offset()));
-          } catch (Exception e) {
-            throw new RuntimeException(e);
-          }
-        }
-
-        @Override
-        public Map<TopicPartition, Long> latestOffsets(Set<TopicPartition> partitions) {
-          try {
-            return admin
-                .listOffsets(
-                    partitions.stream()
-                        .collect(Collectors.toMap(e -> e, e -> new OffsetSpec.LatestSpec())))
-                .all()
-                .get()
-                .entrySet()
-                .stream()
-                .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().offset()));
-          } catch (Exception e) {
-            throw new RuntimeException(e);
-          }
-        }
-      };
+    Result(
+        String topic,
+        int partition,
+        long startOffset,
+        long endOffset,
+        List<TopicAdmin.Group> groups,
+        List<TopicAdmin.Replica> replicas) {
+      this.topic = topic;
+      this.partition = partition;
+      this.startOffset = startOffset;
+      this.endOffset = endOffset;
+      this.groups = groups;
+      this.replicas = replicas;
     }
   }
 
-  static Map<TopicPartition, Map.Entry<Long, Long>> execute(Admin admin, Set<String> topics) {
-    var topicPartitions = admin.partitions(topics);
+  static List<Result> execute(TopicAdmin admin, Set<String> topics) {
+    var replicas = admin.replicas(topics);
+    var offsets = admin.offset(topics);
+    var groups = admin.groups(topics);
 
-    var earliestOffsets = admin.earliestOffsets(topicPartitions);
-    var latestOffsets = admin.latestOffsets(topicPartitions);
-
-    var result = new LinkedHashMap<TopicPartition, Map.Entry<Long, Long>>();
-
-    topics.forEach(
-        topic ->
-            earliestOffsets.entrySet().stream()
-                .filter(e -> e.getKey().topic().equals(topic))
-                .sorted(
-                    Comparator.comparing((Map.Entry<TopicPartition, Long> o) -> o.getKey().topic())
-                        .thenComparingInt(o -> o.getKey().partition()))
-                .forEach(
-                    earliestOffset ->
-                        latestOffsets.entrySet().stream()
-                            .filter(e -> e.getKey().equals(earliestOffset.getKey()))
-                            .forEach(
-                                latestOffset ->
-                                    result.put(
-                                        earliestOffset.getKey(),
-                                        Map.entry(
-                                            earliestOffset.getValue(), latestOffset.getValue())))));
-
-    return result;
+    return replicas.entrySet().stream()
+        .filter(e -> offsets.containsKey(e.getKey()))
+        .map(
+            e ->
+                new Result(
+                    e.getKey().topic(),
+                    e.getKey().partition(),
+                    offsets.get(e.getKey()).earliest,
+                    offsets.get(e.getKey()).latest,
+                    groups.getOrDefault(e.getKey(), List.of()),
+                    e.getValue()))
+        .sorted(
+            Comparator.comparing((Result r) -> r.topic).thenComparing((Result r) -> r.partition))
+        .collect(Collectors.toList());
   }
 
   public static void main(String[] args) throws IOException {
     var argument = ArgumentUtil.parseArgument(new OffsetExplorerArgument(), args);
     try (var admin =
-        Admin.of(
-            AdminClient.create(
-                Map.of(CommonClientConfigs.BOOTSTRAP_SERVERS_CONFIG, argument.brokers)))) {
-      var topics = (argument.topics.isEmpty()) ? admin.topics() : argument.topics;
-      var result = execute(admin, topics);
-      result.forEach(
-          (k, v) ->
-              System.out.println(
-                  "topic: "
-                      + k.topic()
-                      + " partition: "
-                      + k.partition()
-                      + " start: "
-                      + v.getKey()
-                      + " end: "
-                      + v.getValue()));
+        TopicAdmin.of(Map.of(CommonClientConfigs.BOOTSTRAP_SERVERS_CONFIG, argument.brokers))) {
+      execute(admin, argument.topics.isEmpty() ? admin.topics() : argument.topics)
+          .forEach(System.out::println);
     }
   }
 }
