@@ -3,24 +3,11 @@ package org.astraea.offset;
 import java.util.Collections;
 import java.util.Map;
 import java.util.Set;
-import org.apache.kafka.clients.CommonClientConfigs;
 import org.apache.kafka.common.TopicPartition;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 public class OffsetExplorerTest {
-
-  @Test
-  void testToAdminProps() {
-    Assertions.assertThrows(
-        IllegalArgumentException.class, () -> OffsetExplorer.toAdminProps(Collections.emptyMap()));
-
-    Assertions.assertEquals(
-        "brokers",
-        OffsetExplorer.toAdminProps(Map.of(OffsetExplorer.BROKERS_KEY, "brokers"))
-            .get(CommonClientConfigs.BOOTSTRAP_SERVERS_CONFIG));
-  }
-
   @Test
   void testExecute() {
     var topicName = "topic";

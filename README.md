@@ -102,7 +102,7 @@ Run the benchmark from release
 
 ### Offset Explorer Configurations
 1. --bootstrap.servers: the server to connect to
-2. --topic: the topic to search
+2. --topics: the topics to search
 
 ---
 

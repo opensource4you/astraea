@@ -4,64 +4,43 @@ import com.beust.jcommander.IParameterValidator;
 import com.beust.jcommander.IStringConverter;
 import com.beust.jcommander.JCommander;
 import com.beust.jcommander.ParameterException;
+import com.beust.jcommander.UnixStyleUsageFormatter;
 import java.time.Duration;
-import java.util.List;
-import org.astraea.offset.OffsetExplorerArgument;
-import org.astraea.performance.latency.End2EndLatencyArgument;
+import java.util.Set;
 
 /*
  * A tool used to parse command line arguments.
  *
- * To add new option, add in the corresponding file.
+ * To add new option, add new option in the corresponding file.
  * @Parameter(names={"--option"}, description="")
  * public <optionType> <optionName>;
- *
- * To add "NewTool"
- * 1. Import the class of "NewTool" argument class.
- * 2. add new case in this file.
- * ```
- * case "path.to.package.NewTool":
- *   jc.addObject(new NewToolArgument()).build().parse(args.toArray(new String[0]));
- * break;
- * ```
  * */
 
 public class ArgumentUtil {
   // Do not instantiate.
   private ArgumentUtil() {}
 
-  public static boolean checkArgument(Class<?> tool, List<String> args) {
-    JCommander.Builder builder = JCommander.newBuilder();
-    JCommander jc;
-    System.out.println(tool.getName());
-    switch (tool.getName()) {
-      case "org.astraea.performance.latency.End2EndLatency":
-        jc = builder.addObject(new End2EndLatencyArgument()).build();
-        try {
-          jc.parse(args.toArray(new String[0]));
-        } catch (ParameterException pe) {
-          jc.usage();
-          throw pe;
-        }
-        break;
-      case "org.astraea.offset.OffsetExplorer":
-        jc = builder.addObject(new OffsetExplorerArgument()).build();
-        try {
-          jc.parse(args.toArray(new String[0]));
-        } catch (ParameterException pe) {
-          jc.usage();
-          throw pe;
-        }
-        break;
-      default:
-        // Unknown tool.
-        return false;
+  /**
+   * Side effect: parse args into toolArgument
+   *
+   * @param toolArgument An argument object that the user want.
+   * @param args Command line arguments that are put into main function.
+   */
+  public static <T> T parseArgument(T toolArgument, String[] args) {
+    JCommander jc = JCommander.newBuilder().addObject(toolArgument).build();
+    jc.setUsageFormatter(new UnixStyleUsageFormatter(jc));
+    try {
+      jc.parse(args);
+    } catch (ParameterException pe) {
+      var sb = new StringBuilder();
+      jc.getUsageFormatter().usage(sb);
+      throw new ParameterException(pe.getMessage() + "\n" + sb);
     }
-    return true;
+    return toolArgument;
   }
 
   /* Validate Classes */
-  public static class NotEmpty implements IParameterValidator {
+  public static class NotEmptyString implements IParameterValidator {
     @Override
     public void validate(String name, String value) throws ParameterException {
       if (value == null || value.equals(""))
@@ -69,14 +48,14 @@ public class ArgumentUtil {
     }
   }
 
-  public static class LongPositive implements IParameterValidator {
+  public static class PositiveLong implements IParameterValidator {
     @Override
     public void validate(String name, String value) throws ParameterException {
       if (Long.parseLong(value) <= 0) throw new ParameterException(name + " should be positive.");
     }
   }
 
-  public static class LongNotNegative implements IParameterValidator {
+  public static class NonNegativeLong implements IParameterValidator {
     @Override
     public void validate(String name, String value) throws ParameterException {
       if (Long.parseLong(value) < 0)
@@ -89,6 +68,13 @@ public class ArgumentUtil {
     @Override
     public Duration convert(String value) {
       return Duration.ofSeconds(Long.parseLong(value));
+    }
+  }
+
+  public static class SetConverter implements IStringConverter<Set<String>> {
+    @Override
+    public Set<String> convert(String value) {
+      return Set.of(value.split(","));
     }
   }
 }
