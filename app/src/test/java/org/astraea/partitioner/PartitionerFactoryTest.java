@@ -97,7 +97,10 @@ public class PartitionerFactoryTest {
     Assertions.assertEquals(0, countOfClose);
 
     // ThreadSafePartitioner is not closed if not all PassToProducers are closed.
-    partitioners.subList(1, partitioners.size()).forEach(Partitioner::close);
+    var executor2 = Executors.newFixedThreadPool(partitioners.size() - 1);
+    partitioners.subList(1, partitioners.size()).forEach(p -> executor2.execute(p::close));
+    executor2.shutdown();
+    Assertions.assertTrue(executor2.awaitTermination(30, TimeUnit.SECONDS));
     Assertions.assertEquals(1, countOfOnConfigure);
     Assertions.assertEquals(3, countOfPartition);
     Assertions.assertEquals(0, countOfClose);
