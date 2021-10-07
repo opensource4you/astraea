@@ -21,6 +21,7 @@ def versions = [
     kafka: project.properties['kafka.version'] ?: "2.8.0",
     junit: project.properties['junit.version'] ?: "5.7.2",
     jcommander: project.properties['jcommander.version'] ?: "1.81",
+    slf4j: project.properties['jcommander.version'] ?: "1.7.32",
 ]
 
 dependencies {
@@ -28,6 +29,8 @@ dependencies {
 
     implementation "org.apache.kafka:kafka-clients:${versions["kafka"]}"
     implementation "com.beust:jcommander:${versions["jcommander"]}"
+    // we don't use slf4j actually, and it is used by kafka so we swallow the log.
+    implementation "org.slf4j:slf4j-nop:${versions["slf4j"]}"
 }
 
 application {
