@@ -6,7 +6,10 @@ import com.beust.jcommander.JCommander;
 import com.beust.jcommander.ParameterException;
 import com.beust.jcommander.UnixStyleUsageFormatter;
 import java.time.Duration;
+import java.util.Collection;
 import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /*
  * A tool used to parse command line arguments.
@@ -71,10 +74,30 @@ public class ArgumentUtil {
     }
   }
 
-  public static class SetConverter implements IStringConverter<Set<String>> {
+  public static class StringSetConverter implements IStringConverter<Set<String>> {
     @Override
     public Set<String> convert(String value) {
-      return Set.of(value.split(","));
+      return requireNonEmpty(Set.of(value.split(",")));
     }
+  }
+
+  public static class IntegerSetConverter implements IStringConverter<Set<Integer>> {
+    @Override
+    public Set<Integer> convert(String value) {
+      return requireNonEmpty(
+          Stream.of(value.split(",")).map(Integer::valueOf).collect(Collectors.toSet()));
+    }
+  }
+
+  public static class BooleanConverter implements IStringConverter<Boolean> {
+    @Override
+    public Boolean convert(String value) {
+      return Boolean.valueOf(value);
+    }
+  }
+
+  private static <C extends Collection<T>, T> C requireNonEmpty(C collection) {
+    if (collection.isEmpty()) throw new ParameterException("array type can't be empty");
+    return collection;
   }
 }

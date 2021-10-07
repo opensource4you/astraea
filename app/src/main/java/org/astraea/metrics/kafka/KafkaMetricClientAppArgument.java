@@ -17,7 +17,7 @@ public class KafkaMetricClientAppArgument {
   @Parameter(
       names = {"--metrics"},
       variableArity = true,
-      converter = ArgumentUtil.SetConverter.class,
+      converter = ArgumentUtil.StringSetConverter.class,
       description =
           "The metric names you want. If no metric name specified in argument, all metrics will be selected.")
   Set<String> metrics = BrokerTopicMetrics.AllMetricNames;
