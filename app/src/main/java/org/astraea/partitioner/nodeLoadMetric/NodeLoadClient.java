@@ -36,7 +36,6 @@ public class NodeLoadClient implements Runnable {
       }
     } catch (InterruptedException e) {
       e.printStackTrace();
-    } finally {
     }
   }
 
