@@ -46,7 +46,7 @@ public class PerformanceTest {
     param.records = 4;
 
     Metrics[] metrics = Performance.startProducers(componentFactory, param);
-    Thread.sleep(10);
+    Thread.sleep(20);
 
     Assertions.assertEquals(4, componentFactory.produced.sum());
     Assertions.assertEquals(2, componentFactory.producerClosed.get());
@@ -66,7 +66,7 @@ public class PerformanceTest {
     Metrics[] metrics = Performance.startConsumers(componentFactory, param, consumerComplete);
     Thread.sleep(10);
     consumerComplete.countDown();
-    Thread.sleep(10);
+    Thread.sleep(20);
 
     Assertions.assertEquals(2, componentFactory.consumerClosed.get());
   }
