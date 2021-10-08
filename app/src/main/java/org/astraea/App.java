@@ -15,11 +15,16 @@ import org.astraea.topic.ReplicaCollie;
 public class App {
   private static final Map<String, Class<?>> MAIN_CLASSES =
       Map.of(
-          "latency", End2EndLatency.class,
-          "offset", OffsetExplorer.class,
-          "metrics", KafkaMetricClientApp.class,
-          "replica", ReplicaCollie.class,
-              "performance",Performance.class);
+          "latency",
+          End2EndLatency.class,
+          "offset",
+          OffsetExplorer.class,
+          "metrics",
+          KafkaMetricClientApp.class,
+          "replica",
+          ReplicaCollie.class,
+          "performance",
+          Performance.class);
 
   private static String toString(List<Class<?>> mains) {
     return mains.stream().map(Class::getSimpleName).collect(Collectors.joining(","));

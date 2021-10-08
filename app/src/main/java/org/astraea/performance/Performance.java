@@ -91,7 +91,7 @@ public class Performance {
       topicAdmin
           .createTopics(
               Collections.singletonList(
-                  new NewTopic(param.topic, param.partitions, (short) param.replicationFactor)))
+                  new NewTopic(param.topic, param.partitions, param.replicationFactor)))
           .get(param.topic)
           .get();
     } catch (Exception ignore) {

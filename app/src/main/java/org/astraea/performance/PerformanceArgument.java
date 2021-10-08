@@ -26,8 +26,9 @@ public class PerformanceArgument {
   @Parameter(
       names = {"--replicationFactor"},
       description = "Integer: number of replica to create the topic",
-      validateWith = ArgumentUtil.PositiveLong.class)
-  int replicationFactor = 1;
+      validateWith = ArgumentUtil.PositiveLong.class,
+      converter = ArgumentUtil.ShortConverter.class)
+  short replicationFactor = 1;
 
   @Parameter(
       names = {"--producers"},
