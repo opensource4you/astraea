@@ -25,7 +25,7 @@ public class NodeLoadClient implements Runnable {
     return new NodeMetrics(key, value);
   }
 
-  /** A Cradle system for NodeLoadClient. */
+  /** A thread that continuously updates metricsfor NodeLoadClient. */
   @Override
   public void run() {
     try {
