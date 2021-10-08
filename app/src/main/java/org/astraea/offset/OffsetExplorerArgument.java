@@ -17,6 +17,6 @@ public class OffsetExplorerArgument {
       names = {"--topics"},
       description = "String: topic names, comma separate",
       validateWith = ArgumentUtil.NotEmptyString.class,
-      converter = ArgumentUtil.SetConverter.class)
+      converter = ArgumentUtil.StringSetConverter.class)
   Set<String> topics = Collections.emptySet();
 }

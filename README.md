@@ -16,6 +16,7 @@ This project offers many kafka tools to simplify the life for kafka users.
 2. [Kafka benchmark](#latency-benchmark): run producers/consumers to test the performance and consistency for kafka cluster
 3. [Kafka offset explorer](#offset-explorer): check the start/end offsets of kafka topics
 4. [Kafka official tool](#kafka-official-tool): run any one specific kafka official tool. All you have to prepare is the docker env.
+4. [Replica Collie](#replica-collie): move replicas from brokers to others. You can use this tool to obstruct specific brokers from hosting specific topics. 
 
 [Release page](https://github.com/skiptests/astraea/releases) offers the uber jar including all tools.
 ```shell
@@ -73,12 +74,12 @@ This tool is used to test following latencies.
 
 Run the benchmark from source code
 ```shell
-./gradlew run --args="Latency --bootstrap.servers 192.168.50.224:18878"
+./gradlew run --args="latency --bootstrap.servers 192.168.50.224:18878"
 ```
 
 Run the benchmark from release
 ```shell
-java -jar app-0.0.1-SNAPSHOT-all.jar Latency --bootstrap.servers 192.168.50.224:18878
+java -jar app-0.0.1-SNAPSHOT-all.jar latency --bootstrap.servers 192.168.50.224:18878
 ```
 
 ### Latency Benchmark Configurations
@@ -147,4 +148,22 @@ This project offers a way to run kafka official tool by container. For example:
 
 ```shell
 ./docker/start_kafka_tool.sh help
+```
+
+---
+
+## Replica Collie
+
+This tool offers an effective way to migrate all replicas from specific brokers to others.
+
+### Move all replicas from broker_0 and broker_1 to other brokers
+
+```shell
+./gradlew run --args="replica --bootstrap.servers 192.168.50.178:19993 --from 0,1"
+```
+
+### Move all replicas of topic "abc" from broker_0 to broker_1
+
+```shell
+./gradlew run --args="replica --bootstrap.servers 192.168.50.178:19993 --from 0 --to 1 --topics abc"
 ```

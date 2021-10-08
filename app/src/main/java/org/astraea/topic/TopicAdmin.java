@@ -3,10 +3,7 @@ package org.astraea.topic;
 import java.io.Closeable;
 import java.util.*;
 import java.util.stream.Collectors;
-import org.apache.kafka.clients.admin.Admin;
-import org.apache.kafka.clients.admin.ConsumerGroupListing;
-import org.apache.kafka.clients.admin.OffsetSpec;
-import org.apache.kafka.clients.admin.ReplicaInfo;
+import org.apache.kafka.clients.admin.*;
 import org.apache.kafka.common.Node;
 import org.apache.kafka.common.TopicPartition;
 import org.astraea.Utils;
@@ -20,6 +17,28 @@ public interface TopicAdmin extends Closeable {
       @Override
       public void close() {
         admin.close();
+      }
+
+      @Override
+      public Set<Integer> brokerIds() {
+        return Utils.handleException(
+            () ->
+                admin.describeCluster().nodes().get().stream()
+                    .map(Node::id)
+                    .collect(Collectors.toSet()));
+      }
+
+      @Override
+      public void reassign(String topicName, int partition, Set<Integer> brokers) {
+        Utils.handleException(
+            () ->
+                admin
+                    .alterPartitionReassignments(
+                        Map.of(
+                            new TopicPartition(topicName, partition),
+                            Optional.of(new NewPartitionReassignment(new ArrayList<>(brokers)))))
+                    .all()
+                    .get());
       }
 
       @Override
@@ -114,17 +133,10 @@ public interface TopicAdmin extends Closeable {
 
       @Override
       public Map<TopicPartition, List<Replica>> replicas(Set<String> topics) {
-        var brokers =
-            Utils.handleException(
-                () ->
-                    admin.describeCluster().nodes().get().stream()
-                        .map(Node::id)
-                        .collect(Collectors.toSet()));
-
         var lags =
             Utils.handleException(
                 () ->
-                    admin.describeLogDirs(brokers).allDescriptions().get().entrySet().stream()
+                    admin.describeLogDirs(brokerIds()).allDescriptions().get().entrySet().stream()
                         .collect(
                             Collectors.toMap(
                                 Map.Entry::getKey,
@@ -199,6 +211,16 @@ public interface TopicAdmin extends Closeable {
    * @return the replicas of partition
    */
   Map<TopicPartition, List<Replica>> replicas(Set<String> topics);
+
+  /** @return all brokers' ids */
+  Set<Integer> brokerIds();
+
+  /**
+   * @param topicName topic name
+   * @param partition partition
+   * @param brokers to hold all the
+   */
+  void reassign(String topicName, int partition, Set<Integer> brokers);
 
   class Group {
     public final String id;

@@ -28,7 +28,7 @@ public class OffsetExplorerTest {
         new TopicAdmin() {
           @Override
           public Set<String> topics() {
-            return null;
+            throw new UnsupportedOperationException();
           }
 
           @Override
@@ -44,6 +44,16 @@ public class OffsetExplorerTest {
           @Override
           public Map<TopicPartition, List<Replica>> replicas(Set<String> topics) {
             return Map.of(topicPartition, List.of(new Replica(brokerId, lag, leader, inSync)));
+          }
+
+          @Override
+          public Set<Integer> brokerIds() {
+            throw new UnsupportedOperationException();
+          }
+
+          @Override
+          public void reassign(String topicName, int partition, Set<Integer> brokers) {
+            throw new UnsupportedOperationException();
           }
 
           @Override
