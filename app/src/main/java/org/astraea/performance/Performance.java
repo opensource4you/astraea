@@ -1,9 +1,9 @@
 package org.astraea.performance;
 
 import java.util.Collections;
-import java.util.Properties;
 import java.util.concurrent.CountDownLatch;
 import org.apache.kafka.clients.admin.NewTopic;
+import org.astraea.argument.ArgumentUtil;
 
 /**
  * Performance benchmark which includes
@@ -19,93 +19,33 @@ import org.apache.kafka.clients.admin.NewTopic;
  *
  * <ol>
  *   <li>--brokers: the server to connect to
- *   <li>--topic: the topic name
- *   <li>--topicConfig: new topic's configuration Default: partitions:1,replicationFactor:1
+ *   <li>--topic: the topic name. Create new topic when the given topic does not exist. Default:
+ *       "testPerformance-" + System.currentTimeMillis()
+ *   <li>--partitions: topic config when creating new topic. Default: 1
+ *   <li>--replicationFactor: topic config when creating new topic. Default: 1
  *   <li>--producers: the number of producers (threads). Default: 1
  *   <li>--consumers: the number of consumers (threads). Default: 1
- *   <li>--records: the total number of records sent by the producers.
- *   <li>--recordSize: the record size in byte
+ *   <li>--records: the total number of records sent by the producers. Default: 1000
+ *   <li>--recordSize: the record size in byte. Default: 1024
  * </ol>
  *
  * To avoid records being produced too fast, producer wait for one millisecond after each send.
  */
 public class Performance {
-  static class Parameters {
-    public final String brokers;
-    public final String topic;
-    public final String topicConfigs;
-    public final int producers;
-    public final int consumers;
-    public final long records;
-    public final int recordSize;
-
-    public Parameters(String brokers, String topic) {
-      this(brokers, topic, "", 1, 1, 1000, 1024);
-    }
-
-    public Parameters(
-        String brokers,
-        String topic,
-        String topicConfigs,
-        int producers,
-        int consumers,
-        long records,
-        int recordSize) {
-      if (brokers.equals("")) throw new IllegalArgumentException("--brokers should be specified");
-      if (topic.equals("")) throw new IllegalArgumentException("--topic should be specified");
-      if (producers <= 0) throw new IllegalArgumentException("--producers should >= 1");
-      if (consumers < 0) throw new IllegalArgumentException("--consumers should be nonegative");
-      if (records <= 0) throw new IllegalArgumentException("--records should be nonegative");
-      if (recordSize <= 0) throw new IllegalArgumentException("--recordSize should >= 1");
-
-      this.brokers = brokers;
-      this.topic = topic;
-      this.topicConfigs = topicConfigs;
-      this.producers = producers;
-      this.consumers = consumers;
-      this.records = records;
-      this.recordSize = recordSize;
-    }
-    /*
-     * 做文字處理，把參數放到map中。
-     * 會把args內以"--"開頭的字作為key，隨後的字作為value，存入Properties中
-     * @param args 所有的參數(e.g. {"--topic", "myTopic", "--brokers", "192.168.103.232:9092"})
-     */
-    public static Parameters parseArgs(String[] args) {
-      Properties prop = new Properties();
-      for (int i = 0; i < args.length; i += 2) {
-        // 判斷是否是"--"開頭
-        if (args[i].charAt(0) == '-' && args[i].charAt(1) == '-') {
-          prop.put(args[i].substring(2), args[i + 1]);
-        } else {
-          throw new IllegalArgumentException("parsing error");
-        }
-      }
-      return new Parameters(
-          prop.getProperty("brokers", ""),
-          prop.getProperty("topic", ""),
-          prop.getProperty("topicConfigs", ""),
-          Integer.parseInt(prop.getProperty("producers", "1")),
-          Integer.parseInt(prop.getProperty("consumers", "1")),
-          Long.parseLong(prop.getProperty("records", "1000")),
-          Integer.parseInt(prop.getProperty("recordSize", "1024")));
-    }
-  }
 
   public static void main(String[] args) {
-    final Parameters param = Parameters.parseArgs(args);
+    final var param = ArgumentUtil.parseArgument(new PerformanceArgument(), args);
 
     try {
       execute(param);
-    } catch (InterruptedException ie) {
-      System.out.print(ie.getMessage());
+    } catch (InterruptedException ignore) {
     }
   }
 
-  public static void execute(final Parameters param) throws InterruptedException {
+  public static void execute(final PerformanceArgument param) throws InterruptedException {
     /*=== Initialization ===*/
     final ComponentFactory componentFactory = ComponentFactory.fromKafka(param.brokers);
-    checkTopic(componentFactory, param.topic, param.topicConfigs);
+    checkTopic(componentFactory, param);
 
     // Start consuming
     final CountDownLatch consumersComplete = new CountDownLatch(1);
@@ -121,7 +61,7 @@ public class Performance {
     try (PrintOutThread printOutThread =
         new PrintOutThread(producerMetrics, consumerMetrics, param.records)) {
       printOutThread.start();
-      // Check consumed records every one second.
+      // Check consumed records every one second. (Process blocks here.)
       checkConsume(consumerMetrics, param.records);
     } catch (InterruptedException ignore) {
     } finally {
@@ -131,57 +71,38 @@ public class Performance {
   }
 
   /** 檢查topic是否存在，不存在就建立新的topic */
-  public static void checkTopic(ComponentFactory componentFactory, String topic, String config) {
+  public static void checkTopic(ComponentFactory componentFactory, PerformanceArgument param) {
     try (TopicAdmin topicAdmin = componentFactory.createAdmin()) {
       // 取得所有topics -> 取得topic名字的future -> 查看topic是否存在
-      if (topicAdmin.listTopics().contains(topic)) {
+      if (topicAdmin.listTopics().contains(param.topic)) {
         // Topic already exist
         return;
       }
       // 新建立topic
-      System.out.println("Create a new topic");
-      // 使用給定的設定來建立topic
-      int partitions = 1;
-      short replicationFactor = 1;
-      // 判斷是否有topicConfigs
-      if (config == null) {
-        System.out.println("No given topicConfigs. Use default.");
-      } else {
-        // 切割config字串
-        String[] configs = config.split("[:,]");
-        for (int i = 0; i < configs.length; ++i) {
-          // 找出key的值是什麼，並賦予對應的值
-          if (configs[i].equals("partitions")) {
-            partitions = Integer.parseInt(configs[i + 1]);
-            ++i;
-          } else if (configs[i].equals("replicationFactor") || configs[i].equals("replicas")) {
-            replicationFactor = Short.parseShort(configs[i + 1]);
-            ++i;
-          }
-        }
-      }
       System.out.println(
           "Creating topic:\""
-              + topic
+              + param.topic
               + "\" --partitions "
-              + partitions
+              + param.partitions
               + " --replicationFactor "
-              + replicationFactor);
+              + param.replicationFactor);
       // 開始建立topic，並等待topic成功建立
       // 建立單個topic -> 取得建立的所有topics -> 選擇指定的topic的future -> 等待future完成
       topicAdmin
           .createTopics(
-              Collections.singletonList(new NewTopic(topic, partitions, replicationFactor)))
-          .get(topic)
+              Collections.singletonList(
+                  new NewTopic(param.topic, param.partitions, (short) param.replicationFactor)))
+          .get(param.topic)
           .get();
     } catch (Exception ignore) {
     }
   }
 
   // 啟動producers
-  public static Metrics[] startProducers(ComponentFactory componentFactory, Parameters param) {
+  public static Metrics[] startProducers(
+      ComponentFactory componentFactory, PerformanceArgument param) {
     final Metrics[] producerMetrics = new Metrics[param.producers];
-    // producer要平均分擔發送records
+    // producer平均分擔發送records
     // 啟動producer
     for (int i = 0; i < param.producers; ++i) {
       long records = param.records / param.producers;
@@ -202,7 +123,7 @@ public class Performance {
   // Start consumers, and cleanup until countdown latch complete.
   public static Metrics[] startConsumers(
       final ComponentFactory componentFactory,
-      final Parameters param,
+      final PerformanceArgument param,
       final CountDownLatch consumersComplete) {
     final Metrics[] consumerMetrics = new Metrics[param.consumers];
     final ConsumerThread[] consumerThreads = new ConsumerThread[param.consumers];

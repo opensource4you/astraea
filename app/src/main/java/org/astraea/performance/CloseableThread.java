@@ -45,7 +45,6 @@ public abstract class CloseableThread extends Thread implements Closeable {
     closed.set(true);
     try {
       countDownLatch.await();
-      // cleanup done
     } catch (InterruptedException ignored) {
     }
   }

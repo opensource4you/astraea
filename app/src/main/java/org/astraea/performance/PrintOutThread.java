@@ -1,6 +1,6 @@
 package org.astraea.performance;
 
-/** Print out the given metrics. Run until consumers complete their consume. */
+/** Print out the given metrics. Run until `close()` is called. */
 public class PrintOutThread extends CloseableThread {
   private final Metrics[] producerData;
   private final Metrics[] consumerData;

@@ -6,85 +6,28 @@ import org.junit.jupiter.api.Test;
 
 public class PerformanceTest {
   @Test
-  void testParseParameter() {
-    Performance.Parameters param =
-        Performance.Parameters.parseArgs(
-            new String[] {
-              "--brokers",
-              "localhost:9092",
-              "--topic",
-              "testing",
-              "--topicConfigs",
-              "partitions:3,replicationFactor:3",
-              "--producers",
-              "6",
-              "--consumers",
-              "3",
-              "--records",
-              "10000",
-              "--recordSize",
-              "1000000"
-            });
-
-    Assertions.assertEquals("localhost:9092", param.brokers);
-    Assertions.assertEquals("testing", param.topic);
-    Assertions.assertEquals("partitions:3,replicationFactor:3", param.topicConfigs);
-    Assertions.assertEquals(6, param.producers);
-    Assertions.assertEquals(3, param.consumers);
-    Assertions.assertEquals(10000, param.records);
-    Assertions.assertEquals(1000000, param.recordSize);
-
-    Assertions.assertThrows(
-        IllegalArgumentException.class, () -> Performance.Parameters.parseArgs(new String[] {}));
-    Assertions.assertThrows(
-        IllegalArgumentException.class,
-        () -> Performance.Parameters.parseArgs(new String[] {"--brokers", "localhost:9092"}));
-    Assertions.assertThrows(
-        IllegalArgumentException.class,
-        () ->
-            Performance.Parameters.parseArgs(
-                new String[] {
-                  "--brokers", "localhost:9092", "--topic", "testing", "--producers", "0"
-                }));
-    Assertions.assertThrows(
-        IllegalArgumentException.class,
-        () ->
-            Performance.Parameters.parseArgs(
-                new String[] {
-                  "--brokers", "localhost:9092", "--topic", "testing", "--consumers", "-1"
-                }));
-    Assertions.assertThrows(
-        IllegalArgumentException.class,
-        () ->
-            Performance.Parameters.parseArgs(
-                new String[] {
-                  "--brokers", "localhost:9092", "--topic", "testing", "--records", "0"
-                }));
-    Assertions.assertThrows(
-        IllegalArgumentException.class,
-        () ->
-            Performance.Parameters.parseArgs(
-                new String[] {
-                  "--brokers", "localhost:9092", "--topic", "testing", "--recordSize", "0"
-                }));
-  }
-
-  @Test
-  void testCheckTopic() {
+  public void testCheckTopic() {
     FakeComponentFactory componentFactory = new FakeComponentFactory();
+    PerformanceArgument param = new PerformanceArgument();
+    param.topic = "topic";
+    param.partitions = 6;
+    param.replicationFactor = 3;
 
     Assertions.assertNull(componentFactory.topicToConfig.get("topic"));
 
     // act
-    Performance.checkTopic(componentFactory, "topic", "partitions:6,replicationFactor:3");
+    Performance.checkTopic(componentFactory, param);
 
     // assert
     Assertions.assertNotNull(componentFactory.topicToConfig.get("topic"));
     Assertions.assertEquals(6, componentFactory.topicToConfig.get("topic").numPartitions());
     Assertions.assertEquals(3, componentFactory.topicToConfig.get("topic").replicationFactor());
 
+    param.topic = "topic";
+    param.partitions = 16;
+    param.replicationFactor = 1;
     // act
-    Performance.checkTopic(componentFactory, "topic", "partitions:16,replicationFactor:1");
+    Performance.checkTopic(componentFactory, param);
 
     // assert
     Assertions.assertNotNull(componentFactory.topicToConfig.get("topic"));
@@ -95,11 +38,14 @@ public class PerformanceTest {
   @Test
   public void testStartProducer() throws InterruptedException {
     FakeComponentFactory componentFactory = new FakeComponentFactory();
+    PerformanceArgument param = new PerformanceArgument();
+    param.brokers = "localhost:9092";
+    param.topic = "topic";
+    param.producers = 2;
+    param.consumers = 3;
+    param.records = 4;
 
-    Metrics[] metrics =
-        Performance.startProducers(
-            componentFactory,
-            new Performance.Parameters("localhost:9092", "topic", "", 2, 2, 4, 1));
+    Metrics[] metrics = Performance.startProducers(componentFactory, param);
     Thread.sleep(10);
 
     Assertions.assertEquals(4, componentFactory.produced.sum());
@@ -110,14 +56,14 @@ public class PerformanceTest {
 
   @Test
   public void testStartConsumerAndStop() throws InterruptedException {
-    FakeComponentFactory componentFactory = new FakeComponentFactory();
-    CountDownLatch consumerComplete = new CountDownLatch(1);
+    var componentFactory = new FakeComponentFactory();
+    var consumerComplete = new CountDownLatch(1);
+    var param = new PerformanceArgument();
+    param.brokers = "localhost:9092";
+    param.topic = "topic";
+    param.consumers = 2;
 
-    Metrics[] metrics =
-        Performance.startConsumers(
-            componentFactory,
-            new Performance.Parameters("localhost:9092", "topic", "", 2, 2, 4, 1),
-            consumerComplete);
+    Metrics[] metrics = Performance.startConsumers(componentFactory, param, consumerComplete);
     Thread.sleep(10);
     consumerComplete.countDown();
     Thread.sleep(10);
