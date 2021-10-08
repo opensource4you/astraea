@@ -9,61 +9,34 @@ import java.util.concurrent.TimeUnit;
 
 public class NodeLoadClient implements Runnable {
 
-  private static class NodeLoadClientHolder {
-    private static NodeLoadClient nodeLoadClient;
-    private static boolean clientOn = false;
-    private static boolean timeOut = false;
-  }
-
   private OverLoadNode overLoadNode;
   private Collection<NodeMetadata> nodeMetadataCollection = new ArrayList<>();
-  private int timeOutCount = 0;
-  private boolean currentAlive = false;
+  private boolean shouldDown = false;
 
-  NodeLoadClient(HashMap<String, String> jmxAddresses) throws MalformedURLException {
+  public NodeLoadClient(HashMap<String, String> jmxAddresses) throws MalformedURLException {
     for (Map.Entry<String, String> entry : jmxAddresses.entrySet()) {
       this.nodeMetadataCollection.add(
-          new NodeMetadata(entry.getKey(), new NodeMetrics(entry.getKey(), entry.getValue())));
+          new NodeMetadata(entry.getKey(), createNodeMetrics(entry.getKey(), entry.getValue())));
     }
     this.overLoadNode = new OverLoadNode(this.nodeMetadataCollection);
-    NodeLoadClientHolder.clientOn = true;
   }
 
-  public static synchronized NodeLoadClient getNodeLoadInstance(
-      HashMap<String, String> jmxAddresses) throws InterruptedException, MalformedURLException {
-    if (NodeLoadClientHolder.timeOut) {
-      TimeUnit.SECONDS.sleep(1);
-    }
-
-    if (!NodeLoadClientHolder.clientOn) {
-      NodeLoadClientHolder.nodeLoadClient = new NodeLoadClient(jmxAddresses);
-      NodeLoadClientHolder.clientOn = true;
-
-      Thread loadThread = new Thread(NodeLoadClientHolder.nodeLoadClient);
-      loadThread.start();
-    }
-    return NodeLoadClientHolder.nodeLoadClient;
+  public NodeMetrics createNodeMetrics(String key, String value) throws MalformedURLException {
+    return new NodeMetrics(key, value);
   }
 
   /** A Cradle system for NodeLoadClient. */
   @Override
   public void run() {
     try {
-      while (!NodeLoadClientHolder.timeOut) {
+      while (!shouldDown) {
         refreshNodesMetrics();
         overLoadNode.monitorOverLoad(nodeMetadataCollection);
-        timeOutCount++;
-        NodeLoadClientHolder.timeOut = timeOutCount > 9;
-        timeOutCount = currentAlive ? 0 : timeOutCount;
-        currentAlive = false;
         TimeUnit.SECONDS.sleep(1);
       }
     } catch (InterruptedException e) {
       e.printStackTrace();
     } finally {
-      NodeLoadClientHolder.nodeLoadClient = null;
-      NodeLoadClientHolder.clientOn = false;
-      NodeLoadClientHolder.timeOut = false;
     }
   }
 
@@ -100,11 +73,6 @@ public class NodeLoadClient implements Runnable {
     return count;
   }
 
-  /** Baby don't cry. */
-  public synchronized void tellAlive() {
-    currentAlive = true;
-  }
-
   public void refreshNodesMetrics() {
     for (NodeMetadata nodeMetadata : nodeMetadataCollection) {
       NodeMetrics nodeMetrics = nodeMetadata.getNodeMetrics();
@@ -113,13 +81,7 @@ public class NodeLoadClient implements Runnable {
     }
   }
 
-  // Only for test
-  public void setOverLoadNode(OverLoadNode loadNode) {
-    overLoadNode = loadNode;
-  }
-
-  // Only for test
-  public int getTimeOutCount() {
-    return timeOutCount;
+  public void shouldDownNow() {
+    this.shouldDown = true;
   }
 }

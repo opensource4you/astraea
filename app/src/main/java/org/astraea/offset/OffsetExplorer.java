@@ -9,11 +9,9 @@ import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.clients.admin.ListTopicsOptions;
 import org.apache.kafka.clients.admin.OffsetSpec;
 import org.apache.kafka.common.TopicPartition;
+import org.astraea.argument.ArgumentUtil;
 
 public class OffsetExplorer {
-  static final String BROKERS_KEY = "--bootstrap.servers";
-  static final String TOPIC_KEY = "--topic";
-
   interface Admin extends Closeable {
     Set<String> topics();
 
@@ -90,14 +88,6 @@ public class OffsetExplorer {
     }
   }
 
-  private static String help() {
-    return "Available configs:\n"
-        + BROKERS_KEY
-        + ": (REQUIRED) The server to connect to\n"
-        + TOPIC_KEY
-        + ": (OPTIONAL) the topic to check";
-  }
-
   static Map<TopicPartition, Map.Entry<Long, Long>> execute(Admin admin, Set<String> topics) {
     var topicPartitions = admin.partitions(topics);
 
@@ -128,13 +118,12 @@ public class OffsetExplorer {
   }
 
   public static void main(String[] args) throws IOException {
-    var configs = toMaps(args);
-    try (var admin = Admin.of(AdminClient.create(toAdminProps(configs)))) {
-      var topics =
-          configs.containsKey(TOPIC_KEY)
-              ? Collections.singleton(configs.get(TOPIC_KEY))
-              : admin.topics();
-
+    var argument = ArgumentUtil.parseArgument(new OffsetExplorerArgument(), args);
+    try (var admin =
+        Admin.of(
+            AdminClient.create(
+                Map.of(CommonClientConfigs.BOOTSTRAP_SERVERS_CONFIG, argument.brokers)))) {
+      var topics = (argument.topics.isEmpty()) ? admin.topics() : argument.topics;
       var result = execute(admin, topics);
       result.forEach(
           (k, v) ->
@@ -148,21 +137,5 @@ public class OffsetExplorer {
                       + " end: "
                       + v.getValue()));
     }
-  }
-
-  static Map<String, Object> toAdminProps(Map<String, String> argMap) {
-    var props = new HashMap<String, Object>();
-    if (!argMap.containsKey(BROKERS_KEY)) throw new IllegalArgumentException(help());
-    props.put(CommonClientConfigs.BOOTSTRAP_SERVERS_CONFIG, argMap.get(BROKERS_KEY));
-    return props;
-  }
-
-  private static Map<String, String> toMaps(String[] args) {
-    var argMap = new HashMap<String, String>();
-    for (var i = 0; i <= args.length; i += 2) {
-      if (i + 1 >= args.length) break;
-      argMap.put(args[i], args[i + 1]);
-    }
-    return argMap;
   }
 }

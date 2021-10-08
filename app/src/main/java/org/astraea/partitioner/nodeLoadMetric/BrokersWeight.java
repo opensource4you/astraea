@@ -13,7 +13,7 @@ public class BrokersWeight {
 
   private LoadPoisson loadPoisson;
 
-  BrokersWeight(LoadPoisson loadPoisson) {
+  public BrokersWeight(LoadPoisson loadPoisson) {
     this.loadPoisson = loadPoisson;
   }
 

@@ -1,20 +1,22 @@
 package org.astraea.offset;
 
 import com.beust.jcommander.Parameter;
+import java.util.Collections;
+import java.util.Set;
 import org.astraea.argument.ArgumentUtil;
 
 public class OffsetExplorerArgument {
   @Parameter(
       names = {"--bootstrap.servers"},
       description = "String: server to connect to",
-      validateWith = ArgumentUtil.NotEmpty.class,
+      validateWith = ArgumentUtil.NotEmptyString.class,
       required = true)
-  public String brokers;
+  String brokers;
 
   @Parameter(
-      names = {"--topic"},
-      description = "String: topic name",
-      validateWith = ArgumentUtil.NotEmpty.class,
-      required = true)
-  public String topic;
+      names = {"--topics"},
+      description = "String: topic names, comma separate",
+      validateWith = ArgumentUtil.NotEmptyString.class,
+      converter = ArgumentUtil.SetConverter.class)
+  Set<String> topics = Collections.emptySet();
 }

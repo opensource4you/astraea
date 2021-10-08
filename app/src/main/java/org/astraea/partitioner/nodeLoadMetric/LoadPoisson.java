@@ -6,7 +6,7 @@ import java.util.Map;
 public class LoadPoisson {
   private NodeLoadClient nodeLoadClient;
 
-  LoadPoisson(NodeLoadClient nodeLoadClient) {
+  public LoadPoisson(NodeLoadClient nodeLoadClient) {
     this.nodeLoadClient = nodeLoadClient;
   }
 
