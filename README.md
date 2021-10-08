@@ -106,8 +106,8 @@ Run the benchmark from source
 ### Performance Benchmark Configurations
 1. --brokers: the server to connect to
 2. --topic: the topic name
-3. --topicConfig: new topic's configuration Default: partitions:1,replicationFactor:1
-4. --producers: the number of producers (threads). Default: 1
+3. --partitions: topic config when creating new topic. Default: 1 
+4. --replicationFactor: topic config when creating new topic. Default: 1
 5. --consumers: the number of consumers (threads). Default: 1
 6. --records: the total number of records sent by the producers. Default: 1000
 7. --recordSize: the record size in byte. Default: 1024 byte
