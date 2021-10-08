@@ -17,6 +17,11 @@ This project offers many kafka tools to simplify the life for kafka users.
 3. [Kafka offset explorer](#offset-explorer): check the start/end offsets of kafka topics
 4. [Kafka official tool](#kafka-official-tool): run any one specific kafka official tool. All you have to prepare is the docker env.
 
+[Release page](https://github.com/skiptests/astraea/releases) offers the uber jar including all tools.
+```shell
+java -jar astraea-0.0.1-alpha.1-all.jar [tool] [args]
+```
+
 ---
 
 ## Kafka Cluster Quick Start
@@ -73,7 +78,7 @@ Run the benchmark from source code
 
 Run the benchmark from release
 ```shell
-./bin/App Latency --bootstrap.servers 192.168.50.224:18878
+java -jar app-0.0.1-SNAPSHOT-all.jar Latency --bootstrap.servers 192.168.50.224:18878
 ```
 
 ### Latency Benchmark Configurations
@@ -117,14 +122,14 @@ Run the tool from source code
 ./gradlew run --args="offset --bootstrap.servers 192.168.50.178:19993"
 ```
 
-Run the benchmark from release
+Run the tool from release
 ```shell
-./bin/App offset --bootstrap.servers 192.168.50.178:19993
+java -jar app-0.0.1-SNAPSHOT-all.jar offset --bootstrap.servers 192.168.50.178:19993
 ```
 
 ### Offset Explorer Configurations
 1. --bootstrap.servers: the server to connect to
-2. --topic: the topic to search
+2. --topics: the topics to search
 
 ---
 
