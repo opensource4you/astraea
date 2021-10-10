@@ -87,16 +87,25 @@ public class OverLoadNodeTest {
       nodeMetadata.setTotalBytes(testHashMap.get(nodeMetadata.getNodeID()));
     }
 
-    for (int i = 0; i < 20; i++) {
+    for (int i = 0; i < 5; i++) {
       overLoadNode.setMountCount(i);
-      overLoadNode.monitorOverLoad(nodeMetadataCollection);
+      overLoadNode.monitorOverLoad();
+    }
+
+    assertEquals(((NodeMetadata) nodeMetadataCollection.toArray()[3]).getOverLoadCount(), 31);
+
+    for (int i = 0; i < 15; i++) {
+      overLoadNode.setMountCount(i);
+      overLoadNode.monitorOverLoad();
     }
 
     assertEquals(((NodeMetadata) nodeMetadataCollection.toArray()[3]).getOverLoadCount(), 1023);
 
+    overLoadNode = new OverLoadNode(nodeMetadataCollection2);
+
     for (int i = 0; i < 10; i++) {
       overLoadNode.setMountCount(i);
-      overLoadNode.monitorOverLoad(nodeMetadataCollection2);
+      overLoadNode.monitorOverLoad();
     }
 
     assertEquals(

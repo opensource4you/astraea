@@ -24,11 +24,11 @@ public class OverLoadNode {
   }
 
   /** Monitor and update the number of overloads of each node. */
-  public void monitorOverLoad(Collection<NodeMetadata> nodeMetadataCollection) {
+  public void monitorOverLoad() {
     setBrokersMsgPerSec();
     setAvgBrokersMsgPerSec();
     standardDeviationImperative();
-    for (NodeMetadata nodeMetadata : nodeMetadataCollection) {
+    for (NodeMetadata nodeMetadata : nodesMetadata) {
       int ifOverLoad = 0;
       if (nodeMetadata.getTotalBytes() > (avgBrokersMsgPerSec + standardDeviation)) {
         ifOverLoad = 1;

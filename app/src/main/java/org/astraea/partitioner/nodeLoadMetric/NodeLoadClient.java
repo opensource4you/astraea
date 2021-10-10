@@ -31,7 +31,7 @@ public class NodeLoadClient implements Runnable {
     try {
       while (!shouldDown) {
         refreshNodesMetrics();
-        overLoadNode.monitorOverLoad(nodeMetadataCollection);
+        overLoadNode.monitorOverLoad();
         TimeUnit.SECONDS.sleep(1);
       }
     } catch (InterruptedException e) {
