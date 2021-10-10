@@ -40,8 +40,13 @@ public class LinkPartitioner implements Partitioner {
   }
 
   @Override
-  public void configure(Map<String, ?> configs) {
-    jmxAddresses = (HashMap<String, String>) configs.get("jmx_server");
+  public void configure(Map<String, ?> configs) throws NullPointerException {
+    jmxAddresses = (HashMap<String, String>) configs.get("jmx_servers");
+
+    if (jmxAddresses.equals(null)) {
+      throw new NullPointerException("You must configure jmx_servers correctly.");
+    }
+
     partitioner = FACTORY.getOrCreate(ThreadSafeSmoothPartitioner.class, configs);
   }
 

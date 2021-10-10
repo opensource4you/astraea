@@ -11,7 +11,7 @@ public class NodeLoadClient implements Runnable {
 
   private final OverLoadNode overLoadNode;
   private final Collection<NodeMetadata> nodeMetadataCollection = new ArrayList<>();
-  private boolean shouldDown = false;
+  private volatile boolean shouldDown = false;
 
   public NodeLoadClient(HashMap<String, String> jmxAddresses) throws MalformedURLException {
     for (Map.Entry<String, String> entry : jmxAddresses.entrySet()) {
@@ -80,7 +80,7 @@ public class NodeLoadClient implements Runnable {
     }
   }
 
-  public synchronized void shouldDownNow() {
+  public void shouldDownNow() {
     this.shouldDown = true;
   }
 }

@@ -35,7 +35,6 @@ import org.mockito.MockedConstruction;
 public class SmoothPartitionerFactoryTest {
   private HashMap<String, String> jmxAddresses;
 
-  private static final byte[] KEY_BYTES = "key".getBytes();
   private static final Node[] NODES =
       new Node[] {
         new Node(0, "localhost", 99), new Node(1, "localhost", 100), new Node(12, "localhost", 101)
@@ -71,7 +70,7 @@ public class SmoothPartitionerFactoryTest {
               ByteArraySerializer.class.getName(),
               ProducerConfig.PARTITIONER_CLASS_CONFIG,
               LinkPartitioner.class.getName(),
-              "jmx_server",
+              "jmx_servers",
               jmxAddresses);
       // create multiples partitioners
       var producers =
@@ -96,11 +95,25 @@ public class SmoothPartitionerFactoryTest {
   }
 
   @Test
+  void testThrowException() {
+    var configs =
+        Map.of(
+            ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, "localhost:11111", "jmx_server", jmxAddresses);
+
+    LinkPartitioner partitioner = new LinkPartitioner();
+    Assertions.assertThrows(NullPointerException.class, () -> partitioner.configure(configs))
+        .getMessage();
+  }
+
+  @Test
   void testSingleton() throws InterruptedException {
 
     var configs =
         Map.of(
-            ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, "localhost:11111", "jmx_server", jmxAddresses);
+            ProducerConfig.BOOTSTRAP_SERVERS_CONFIG,
+            "localhost:11111",
+            "jmx_servers",
+            jmxAddresses);
 
     var executor = Executors.newFixedThreadPool(10);
     var partitioners = new ArrayList<LinkPartitioner>();
@@ -196,7 +209,7 @@ public class SmoothPartitionerFactoryTest {
 
       var partitioner0 = new LinkPartitioner();
       var props0 =
-          Map.of(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, "value0", "jmx_server", jmxAddresses);
+          Map.of(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, "value0", "jmx_servers", jmxAddresses);
       partitioner0.configure(props0);
 
       var smoothPartitioner0 = getFactory().getSmoothPartitionerMap().get(props0);
@@ -207,7 +220,7 @@ public class SmoothPartitionerFactoryTest {
 
       var partitioner1 = new LinkPartitioner();
       var props1 =
-          Map.of(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, "value1", "jmx_server", jmxAddresses);
+          Map.of(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, "value1", "jmx_servers", jmxAddresses);
       partitioner1.configure(props1);
       var smoothPartitioner1 = getFactory().getSmoothPartitionerMap().get(props1);
       Assertions.assertNotEquals(smoothPartitioner0, smoothPartitioner1);
