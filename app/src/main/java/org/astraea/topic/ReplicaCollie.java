@@ -24,7 +24,9 @@ public class ReplicaCollie {
               + " are nonexistent");
 
     var targetBrokers = args.toBrokers.isEmpty() ? allBrokers : args.toBrokers;
-    var result = new HashMap<TopicPartition, Map.Entry<Set<Integer>, Set<Integer>>>();
+    var result =
+        new TreeMap<TopicPartition, Map.Entry<Set<Integer>, Set<Integer>>>(
+            Comparator.comparing(TopicPartition::topic).thenComparing(TopicPartition::partition));
     admin
         .replicas(topics)
         .forEach(
