@@ -76,7 +76,6 @@ public class OverLoadNode {
       variance +=
           (entry.getValue() - avgBrokersMsgPerSec) * (entry.getValue() - avgBrokersMsgPerSec);
     }
-
     this.standardDeviation = Math.sqrt(variance / nodeNum);
   }
 

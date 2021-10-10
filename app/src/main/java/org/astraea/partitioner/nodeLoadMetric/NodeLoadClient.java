@@ -9,8 +9,8 @@ import java.util.concurrent.TimeUnit;
 
 public class NodeLoadClient implements Runnable {
 
-  private OverLoadNode overLoadNode;
-  private Collection<NodeMetadata> nodeMetadataCollection = new ArrayList<>();
+  private final OverLoadNode overLoadNode;
+  private final Collection<NodeMetadata> nodeMetadataCollection = new ArrayList<>();
   private boolean shouldDown = false;
 
   public NodeLoadClient(HashMap<String, String> jmxAddresses) throws MalformedURLException {
@@ -80,7 +80,7 @@ public class NodeLoadClient implements Runnable {
     }
   }
 
-  public void shouldDownNow() {
+  public synchronized void shouldDownNow() {
     this.shouldDown = true;
   }
 }

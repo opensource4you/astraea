@@ -1,13 +1,13 @@
 package org.astraea.partitioner.nodeLoadMetric;
 
 import static java.util.Arrays.asList;
-import static org.astraea.partitioner.partitionerFactory.LinkPartitioner.getCountOfClose;
-import static org.astraea.partitioner.partitionerFactory.LinkPartitioner.getCountOfOnConfigure;
-import static org.astraea.partitioner.partitionerFactory.LinkPartitioner.getCountOfPartition;
-import static org.astraea.partitioner.partitionerFactory.LinkPartitioner.setCountOfClose;
-import static org.astraea.partitioner.partitionerFactory.LinkPartitioner.setCountOfOnConfigure;
-import static org.astraea.partitioner.partitionerFactory.LinkPartitioner.setCountOfPartition;
+import static org.astraea.partitioner.partitionerFactory.LinkPartitioner.getFactory;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mockConstruction;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -50,9 +50,6 @@ public class SmoothPartitionerFactoryTest {
 
   @BeforeEach
   void reset() {
-    setCountOfPartition(0);
-    setCountOfOnConfigure(0);
-    setCountOfClose(0);
     jmxAddresses = new HashMap<>();
     jmxAddresses.put("0", "0.0.0.0");
     jmxAddresses.put("1", "0.0.0.0");
@@ -61,7 +58,9 @@ public class SmoothPartitionerFactoryTest {
 
   @Test
   void testSingletonByProducer() {
-    try (MockedConstruction mocked = mockConstruction(NodeMetrics.class)) {
+    try (MockedConstruction mocked =
+        mockConstruction(LinkPartitioner.ThreadSafeSmoothPartitioner.class)) {
+
       var props =
           Map.<String, Object>of(
               ProducerConfig.BOOTSTRAP_SERVERS_CONFIG,
@@ -74,23 +73,25 @@ public class SmoothPartitionerFactoryTest {
               LinkPartitioner.class.getName(),
               "jmx_server",
               jmxAddresses);
-
       // create multiples partitioners
       var producers =
           IntStream.range(0, 10)
               .mapToObj(i -> new KafkaProducer<byte[], byte[]>(props))
               .collect(Collectors.toList());
 
+      Assertions.assertEquals(getFactory().getSmoothPartitionerMap().size(), 1);
+      Partitioner partitioner = getFactory().getSmoothPartitionerMap().get(props);
+
       // ThreadSafePartitioner is created only once
-      Assertions.assertEquals(1, getCountOfOnConfigure());
-      Assertions.assertEquals(0, getCountOfPartition());
-      Assertions.assertEquals(0, getCountOfClose());
+      verify(partitioner).configure(any());
+      verify(partitioner, never()).partition(anyString(), any(), any(), any(), any(), any());
+      verify(partitioner, never()).close();
 
       producers.forEach(Producer::close);
       // ThreadSafePartitioner is closed only once
-      Assertions.assertEquals(1, getCountOfOnConfigure());
-      Assertions.assertEquals(0, getCountOfPartition());
-      Assertions.assertEquals(1, getCountOfClose());
+      verify(partitioner).configure(any());
+      verify(partitioner, never()).partition(anyString(), any(), any(), any(), any(), any());
+      verify(partitioner).close();
     }
   }
 
@@ -102,14 +103,17 @@ public class SmoothPartitionerFactoryTest {
             ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, "localhost:11111", "jmx_server", jmxAddresses);
 
     var executor = Executors.newFixedThreadPool(10);
-    var partitioners = new ArrayList<Partitioner>();
+    var partitioners = new ArrayList<LinkPartitioner>();
+    Partitioner currentSmoothPartitioner = null;
+
     // create partitions by multi-threads
     IntStream.range(0, 10)
         .forEach(
             i -> {
               executor.execute(
                   () -> {
-                    try (MockedConstruction mocked = mockConstruction(NodeMetrics.class)) {
+                    try (MockedConstruction mocked =
+                        mockConstruction(LinkPartitioner.ThreadSafeSmoothPartitioner.class)) {
                       var partitioner = new LinkPartitioner();
                       partitioner.configure(configs);
                       synchronized (partitioners) {
@@ -121,10 +125,18 @@ public class SmoothPartitionerFactoryTest {
     executor.shutdown();
     Assertions.assertTrue(executor.awaitTermination(30, TimeUnit.SECONDS));
 
-    // ThreadSafePartitioner is created only once
-    Assertions.assertEquals(1, getCountOfOnConfigure());
-    Assertions.assertEquals(0, getCountOfPartition());
-    Assertions.assertEquals(0, getCountOfClose());
+    for (LinkPartitioner partitioner : partitioners) {
+      if (currentSmoothPartitioner == null) {
+        currentSmoothPartitioner = partitioner.getPartitioner();
+      } else {
+        Assertions.assertEquals(currentSmoothPartitioner, partitioner.getPartitioner());
+      }
+    }
+
+    Partitioner partitioner10 = getFactory().getSmoothPartitionerMap().get(configs);
+    verify(partitioner10).configure(any());
+    verify(partitioner10, never()).partition(anyString(), any(), any(), any(), any(), any());
+    verify(partitioner10, never()).close();
 
     final Cluster cluster =
         new Cluster(
@@ -138,9 +150,9 @@ public class SmoothPartitionerFactoryTest {
     partitioners.get(0).partition("test", null, null, null, null, cluster);
     partitioners.get(1).partition("test", null, null, null, null, cluster);
     partitioners.get(2).partition("test", null, null, null, null, cluster);
-    Assertions.assertEquals(1, getCountOfOnConfigure());
-    Assertions.assertEquals(3, getCountOfPartition());
-    Assertions.assertEquals(0, getCountOfClose());
+    verify(partitioner10).configure(any());
+    verify(partitioner10, times(3)).partition(anyString(), any(), any(), any(), any(), any());
+    verify(partitioner10, never()).close();
 
     // ThreadSafePartitioner is not closed if not all PassToProducers are closed.
     var executor2 = Executors.newFixedThreadPool(partitioners.size() - 1);
@@ -150,50 +162,69 @@ public class SmoothPartitionerFactoryTest {
     executor2.shutdown();
 
     Assertions.assertTrue(executor2.awaitTermination(30, TimeUnit.SECONDS));
-    Assertions.assertEquals(1, getCountOfOnConfigure());
-    Assertions.assertEquals(3, getCountOfPartition());
-    Assertions.assertEquals(0, getCountOfClose());
+    verify(partitioner10).configure(any());
+    verify(partitioner10, times(3)).partition(anyString(), any(), any(), any(), any(), any());
+    verify(partitioner10, never()).close();
 
     // ok, all are closed
     partitioners.get(0).close();
-    Assertions.assertEquals(1, getCountOfOnConfigure());
-    Assertions.assertEquals(3, getCountOfPartition());
-    Assertions.assertEquals(1, getCountOfClose());
+    verify(partitioner10).configure(any());
+    verify(partitioner10, times(3)).partition(anyString(), any(), any(), any(), any(), any());
+    verify(partitioner10).close();
+    Assertions.assertNull(getFactory().getSmoothPartitionerMap().get(configs));
 
-    try (MockedConstruction mocked = mockConstruction(NodeMetrics.class)) {
+    try (MockedConstruction mocked =
+        mockConstruction(LinkPartitioner.ThreadSafeSmoothPartitioner.class)) {
       // let us create it again
       var partitioner = new LinkPartitioner();
       partitioner.configure(configs);
-      Assertions.assertEquals(2, getCountOfOnConfigure());
-      Assertions.assertEquals(3, getCountOfPartition());
-      Assertions.assertEquals(1, getCountOfClose());
+      partitioner10 = getFactory().getSmoothPartitionerMap().get(configs);
+      verify(partitioner10).configure(any());
+      verify(partitioner10, never()).partition(anyString(), any(), any(), any(), any(), any());
+      verify(partitioner10, never()).close();
 
       // close it
       partitioner.close();
-      Assertions.assertEquals(2, getCountOfOnConfigure());
-      Assertions.assertEquals(3, getCountOfPartition());
-      Assertions.assertEquals(2, getCountOfClose());
+      verify(partitioner10).configure(any());
+      verify(partitioner10, never()).partition(anyString(), any(), any(), any(), any(), any());
+      verify(partitioner10).close();
     }
 
-    try (MockedConstruction mocked = mockConstruction(NodeMetrics.class)) {
+    try (MockedConstruction mocked =
+        mockConstruction(LinkPartitioner.ThreadSafeSmoothPartitioner.class)) {
       // create two ThreadSafePartitioner with two configs
 
       var partitioner0 = new LinkPartitioner();
-      partitioner0.configure(
-          Map.of(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, "value0", "jmx_server", jmxAddresses));
+      var props0 =
+          Map.of(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, "value0", "jmx_server", jmxAddresses);
+      partitioner0.configure(props0);
+
+      var smoothPartitioner0 = getFactory().getSmoothPartitionerMap().get(props0);
+
+      verify(smoothPartitioner0, times(1)).configure(any());
+      verify(smoothPartitioner0, never()).partition(anyString(), any(), any(), any(), any(), any());
+      verify(smoothPartitioner0, never()).close();
+
       var partitioner1 = new LinkPartitioner();
-      partitioner1.configure(
-          Map.of(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, "value1", "jmx_server", jmxAddresses));
-      Assertions.assertEquals(4, getCountOfOnConfigure());
-      Assertions.assertEquals(3, getCountOfPartition());
-      Assertions.assertEquals(2, getCountOfClose());
+      var props1 =
+          Map.of(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, "value1", "jmx_server", jmxAddresses);
+      partitioner1.configure(props1);
+      var smoothPartitioner1 = getFactory().getSmoothPartitionerMap().get(props1);
+      Assertions.assertNotEquals(smoothPartitioner0, smoothPartitioner1);
+
+      verify(smoothPartitioner1, times(1)).configure(any());
+      verify(smoothPartitioner1, never()).partition(anyString(), any(), any(), any(), any(), any());
+      verify(smoothPartitioner1, never()).close();
 
       // close them
       partitioner0.close();
+      verify(smoothPartitioner0).configure(any());
+      verify(smoothPartitioner0, never()).partition(anyString(), any(), any(), any(), any(), any());
+      verify(smoothPartitioner0).close();
       partitioner1.close();
-      Assertions.assertEquals(4, getCountOfOnConfigure());
-      Assertions.assertEquals(3, getCountOfPartition());
-      Assertions.assertEquals(4, getCountOfClose());
+      verify(smoothPartitioner1).configure(any());
+      verify(smoothPartitioner1, never()).partition(anyString(), any(), any(), any(), any(), any());
+      verify(smoothPartitioner1).close();
     }
   }
 }

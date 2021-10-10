@@ -10,6 +10,7 @@ public class SmoothPartitionerFactory {
   private final Object lock = new Object();
   private final Map<Map<String, ?>, Integer> count;
   private final Map<Map<String, ?>, Partitioner> instances;
+  private final Map<Map<String, ?>, Partitioner> smoothPartitionerMap;
 
   /**
    * create a factory with specific comparator.
@@ -20,6 +21,7 @@ public class SmoothPartitionerFactory {
   SmoothPartitionerFactory(Comparator<Map<String, ?>> comparator) {
     this.count = new TreeMap<>(comparator);
     this.instances = new TreeMap<>(comparator);
+    this.smoothPartitionerMap = new TreeMap<>(comparator);
   }
 
   /**
@@ -71,6 +73,7 @@ public class SmoothPartitionerFactory {
                   } finally {
                     count.remove(configs);
                     instances.remove(configs);
+                    smoothPartitionerMap.remove(configs);
                   }
                 } else count.put(configs, current - 1);
               }
@@ -83,9 +86,18 @@ public class SmoothPartitionerFactory {
           };
       count.put(configs, 1);
       instances.put(configs, proxy);
+      smoothPartitionerMap.put(configs, partitioner);
       return proxy;
     } catch (Exception e) {
       throw new RuntimeException(e);
     }
+  }
+
+  public Map<Map<String, ?>, Integer> getCount() {
+    return this.count;
+  }
+
+  public Map<Map<String, ?>, Partitioner> getSmoothPartitionerMap() {
+    return this.smoothPartitionerMap;
   }
 }

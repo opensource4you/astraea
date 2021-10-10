@@ -15,9 +15,6 @@ import org.astraea.partitioner.nodeLoadMetric.LoadPoisson;
 import org.astraea.partitioner.nodeLoadMetric.NodeLoadClient;
 
 public class LinkPartitioner implements Partitioner {
-  private static long countOfPartition = 0;
-  private static long countOfOnConfigure = 0;
-  private static long countOfClose = 0;
   private static HashMap<String, String> jmxAddresses;
 
   private static final SmoothPartitionerFactory FACTORY =
@@ -48,7 +45,11 @@ public class LinkPartitioner implements Partitioner {
     partitioner = FACTORY.getOrCreate(ThreadSafeSmoothPartitioner.class, configs);
   }
 
-  static class ThreadSafeSmoothPartitioner implements Partitioner {
+  public Partitioner getPartitioner() {
+    return partitioner;
+  }
+
+  public static class ThreadSafeSmoothPartitioner implements Partitioner {
     private NodeLoadClient nodeLoadClient;
     private Thread loadThread;
 
@@ -93,7 +94,6 @@ public class LinkPartitioner implements Partitioner {
           cluster.partitionsForNode(Integer.parseInt(maxWeightServer.getKey()))) {
         partitionList.add(partitionInfo.partition());
       }
-      countOfPartition += 1;
       Random rand = new Random();
 
       return partitionList.get(rand.nextInt(partitionList.size()));
@@ -101,37 +101,14 @@ public class LinkPartitioner implements Partitioner {
 
     @Override
     public void close() {
-      countOfClose += 1;
       nodeLoadClient.shouldDownNow();
     }
 
     @Override
-    public void configure(Map<String, ?> configs) {
-      countOfOnConfigure += 1;
-    }
+    public void configure(Map<String, ?> configs) {}
   }
 
-  public static long getCountOfPartition() {
-    return countOfPartition;
-  }
-
-  public static void setCountOfPartition(long countOfPartition) {
-    LinkPartitioner.countOfPartition = countOfPartition;
-  }
-
-  public static long getCountOfOnConfigure() {
-    return countOfOnConfigure;
-  }
-
-  public static void setCountOfOnConfigure(long countOfOnConfigure) {
-    LinkPartitioner.countOfOnConfigure = countOfOnConfigure;
-  }
-
-  public static long getCountOfClose() {
-    return countOfClose;
-  }
-
-  public static void setCountOfClose(long countOfClose) {
-    LinkPartitioner.countOfClose = countOfClose;
+  public static SmoothPartitionerFactory getFactory() {
+    return FACTORY;
   }
 }
