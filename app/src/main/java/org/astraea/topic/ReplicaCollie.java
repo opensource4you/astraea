@@ -4,9 +4,9 @@ import com.beust.jcommander.Parameter;
 import java.io.IOException;
 import java.util.*;
 import java.util.stream.Collectors;
-import org.apache.kafka.clients.CommonClientConfigs;
 import org.apache.kafka.common.TopicPartition;
 import org.astraea.argument.ArgumentUtil;
+import org.astraea.argument.BasicTopicArgument;
 
 public class ReplicaCollie {
 
@@ -62,10 +62,9 @@ public class ReplicaCollie {
   }
 
   public static void main(String[] args) throws IOException {
-    var arguments = ArgumentUtil.parseArgument(new Argument(), args);
-    try (var admin =
-        TopicAdmin.of(Map.of(CommonClientConfigs.BOOTSTRAP_SERVERS_CONFIG, arguments.brokers))) {
-      execute(admin, arguments)
+    var argument = ArgumentUtil.parseArgument(new Argument(), args);
+    try (var admin = TopicAdmin.of(argument.properties())) {
+      execute(admin, argument)
           .forEach(
               (tp, assignments) ->
                   System.out.println(
@@ -80,21 +79,7 @@ public class ReplicaCollie {
     }
   }
 
-  static class Argument {
-    @Parameter(
-        names = {"--bootstrap.servers"},
-        description = "String: server to connect to",
-        validateWith = ArgumentUtil.NotEmptyString.class,
-        required = true)
-    String brokers;
-
-    @Parameter(
-        names = {"--topics"},
-        description = "Those topics' partitions will get reassigned",
-        validateWith = ArgumentUtil.NotEmptyString.class,
-        converter = ArgumentUtil.StringSetConverter.class)
-    Set<String> topics = Collections.emptySet();
-
+  static class Argument extends BasicTopicArgument {
     @Parameter(
         names = {"--from"},
         description = "Those brokers won't hold any replicas of topics (defined by --topics)",

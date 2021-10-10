@@ -35,10 +35,10 @@ class KafkaUtilsTest {
                 numberOfPartitions, newTopics.iterator().next().numPartitions());
           }
         };
-    KafkaUtils.createTopicIfNotExist(topicAdmin, existentTopic, 10);
+    KafkaUtils.createTopicIfNotExist(topicAdmin, Set.of(existentTopic), 10);
     Assertions.assertEquals(0, count.get());
 
-    KafkaUtils.createTopicIfNotExist(topicAdmin, "nonexistent", numberOfPartitions);
+    KafkaUtils.createTopicIfNotExist(topicAdmin, Set.of("nonexistent"), numberOfPartitions);
     Assertions.assertEquals(1, count.get());
   }
 

@@ -1,6 +1,7 @@
 package org.astraea.performance.latency;
 
 import java.time.Duration;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.kafka.clients.producer.RecordMetadata;
@@ -9,8 +10,8 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 class ProducerThreadTest {
-  private final String topic = "topic-" + String.valueOf(System.currentTimeMillis());
-  private final DataManager dataManager = DataManager.of(topic, 10);
+  private final String topic = "topic-" + System.currentTimeMillis();
+  private final DataManager dataManager = DataManager.of(Set.of(topic), 10);
 
   @Test
   void testExecute() {

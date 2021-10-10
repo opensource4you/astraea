@@ -20,19 +20,21 @@ class ProducerThread extends CloseableThread {
 
   @Override
   void execute() {
-    var data = dataManager.producerRecord();
+    var records = dataManager.producerRecords();
     var now = System.currentTimeMillis();
-    dataManager.sendingRecord(data, now);
-    producer
-        .send(data)
-        .whenComplete(
-            (r, e) -> {
-              if (e != null) tracker.record(0, System.currentTimeMillis() - now);
-              else
-                tracker.record(
-                    r.serializedKeySize() + r.serializedValueSize(),
-                    System.currentTimeMillis() - now);
-            });
+    dataManager.sendingRecord(records, now);
+    records.forEach(
+        record ->
+            producer
+                .send(record)
+                .whenComplete(
+                    (r, e) -> {
+                      if (e != null) tracker.record(0, System.currentTimeMillis() - now);
+                      else
+                        tracker.record(
+                            r.serializedKeySize() + r.serializedValueSize(),
+                            System.currentTimeMillis() - now);
+                    }));
     if (lastSend <= 0) lastSend = now;
     else if (lastSend + flushDuration.toMillis() < now) {
       lastSend = now;
