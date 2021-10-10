@@ -90,6 +90,7 @@ java -jar app-0.0.1-SNAPSHOT-all.jar latency --bootstrap.servers 192.168.50.224:
 4. --valueSize: the size of record value. Default: 100 bytes
 5. --duration: the duration to run this benchmark. Default: 5 seconds
 6. --flushDuration: the duration to flush producer records. Default: 2 seconds
+7. --topics: the topics to write/read data
 
 ---
 
@@ -109,7 +110,8 @@ java -jar app-0.0.1-SNAPSHOT-all.jar offset --bootstrap.servers 192.168.50.178:1
 
 ### Offset Explorer Configurations
 1. --bootstrap.servers: the server to connect to
-2. --topics: the topics to search
+2. --topics: the topics to be seeked
+3. --admin.props.file: the file path containing the properties to be passed to kafka admin
 
 ---
 
@@ -168,3 +170,8 @@ This tool offers an effective way to migrate all replicas from specific brokers 
 ```shell
 ./gradlew run --args="replica --bootstrap.servers 192.168.50.178:19993 --from 0 --to 1 --topics abc"
 ```
+
+### Replica Collie Configurations
+1. --bootstrap.servers: the server to connect to
+2. --topics: the topics to be moved
+3. --admin.props.file: the file path containing the properties to be passed to kafka admin

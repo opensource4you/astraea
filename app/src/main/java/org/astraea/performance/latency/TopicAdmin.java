@@ -2,14 +2,14 @@ package org.astraea.performance.latency;
 
 import java.io.Closeable;
 import java.util.Collection;
-import java.util.Properties;
+import java.util.Map;
 import java.util.Set;
 import org.apache.kafka.clients.admin.Admin;
 import org.apache.kafka.clients.admin.NewTopic;
 
 interface TopicAdmin extends Closeable {
 
-  static TopicAdmin fromKafka(Properties props) {
+  static TopicAdmin fromKafka(Map<String, Object> props) {
     var adminClient = Admin.create(props);
 
     return new TopicAdmin() {
