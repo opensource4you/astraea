@@ -87,9 +87,9 @@ java -jar app-0.0.1-SNAPSHOT-all.jar latency --bootstrap.servers 192.168.50.224:
 1. --bootstrap.servers: the server to connect to
 2. --consumers: the number of consumers (threads). Default: 1
 3. --producers: the number of producers (threads). Default: 1
-4. --valueSize: the size of record value. Default: 100 bytes
+4. --value.size: the size of record value. Default: 100 bytes
 5. --duration: the duration to run this benchmark. Default: 5 seconds
-6. --flushDuration: the duration to flush producer records. Default: 2 seconds
+6. --flush.duration: the duration to flush producer records. Default: 2 seconds
 7. --topics: the topics to write/read data
 
 ---

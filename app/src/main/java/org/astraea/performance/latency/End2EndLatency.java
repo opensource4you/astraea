@@ -118,13 +118,13 @@ public class End2EndLatency {
     Duration duration = Duration.ofSeconds(5);
 
     @Parameter(
-        names = {"--valueSize"},
+        names = {"--value.size"},
         description = "Integer: bytes per record sent",
         validateWith = ArgumentUtil.PositiveLong.class)
     int valueSize = 100;
 
     @Parameter(
-        names = {"--flushDuration"},
+        names = {"--flush.duration"},
         description = "Long: timeout for producer to flush the records",
         validateWith = ArgumentUtil.PositiveLong.class,
         converter = ArgumentUtil.DurationConverter.class)
