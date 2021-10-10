@@ -1,13 +1,11 @@
 package org.astraea.offset;
 
+import com.beust.jcommander.Parameter;
 import java.io.IOException;
-import java.util.Comparator;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
-import org.apache.kafka.clients.CommonClientConfigs;
 import org.astraea.argument.ArgumentUtil;
+import org.astraea.argument.BasicAdminArgument;
 import org.astraea.topic.TopicAdmin;
 
 public class OffsetExplorer {
@@ -75,11 +73,19 @@ public class OffsetExplorer {
   }
 
   public static void main(String[] args) throws IOException {
-    var argument = ArgumentUtil.parseArgument(new OffsetExplorerArgument(), args);
-    try (var admin =
-        TopicAdmin.of(Map.of(CommonClientConfigs.BOOTSTRAP_SERVERS_CONFIG, argument.brokers))) {
+    var argument = ArgumentUtil.parseArgument(new Argument(), args);
+    try (var admin = TopicAdmin.of(argument.adminProps())) {
       execute(admin, argument.topics.isEmpty() ? admin.topics() : argument.topics)
           .forEach(System.out::println);
     }
+  }
+
+  static class Argument extends BasicAdminArgument {
+    @Parameter(
+        names = {"--topics"},
+        description = "the topics to show all offset-related information. Empty means all topics",
+        validateWith = ArgumentUtil.NotEmptyString.class,
+        converter = ArgumentUtil.StringSetConverter.class)
+    public Set<String> topics = Collections.emptySet();
   }
 }

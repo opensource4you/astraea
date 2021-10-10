@@ -1,7 +1,7 @@
 package org.astraea.performance.latency;
 
 import java.io.Closeable;
-import java.util.Properties;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import org.apache.kafka.clients.producer.KafkaProducer;
@@ -11,7 +11,7 @@ import org.apache.kafka.common.serialization.ByteArraySerializer;
 
 interface Producer extends Closeable {
 
-  static Producer fromKafka(Properties props) {
+  static Producer fromKafka(Map<String, Object> props) {
     var kafkaProducer =
         new KafkaProducer<>(props, new ByteArraySerializer(), new ByteArraySerializer());
     return new Producer() {
