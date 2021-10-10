@@ -108,7 +108,8 @@ public interface TopicAdmin extends Closeable {
 
       @Override
       public Set<String> topics() {
-        return Utils.handleException(() -> admin.listTopics().names().get());
+        return Utils.handleException(
+            () -> admin.listTopics(new ListTopicsOptions().listInternal(true)).names().get());
       }
 
       @Override
