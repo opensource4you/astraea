@@ -9,6 +9,7 @@
 plugins {
     // Apply the application plugin to add support for building a CLI application in Java.
     id 'application'
+    id 'com.github.johnrengelman.shadow' version '7.1.0'
 }
 
 repositories {
@@ -21,6 +22,7 @@ def versions = [
     junit: project.properties['junit.version'] ?: "5.7.2",
     mockito: project.properties['mockito.version'] ?: "3.12.4",
     jcommander: project.properties['jcommander.version'] ?: "1.81",
+    slf4j: project.properties['jcommander.version'] ?: "1.7.32",
 ]
 
 dependencies {
@@ -30,6 +32,8 @@ dependencies {
 
     implementation "org.apache.kafka:kafka-clients:${versions["kafka"]}"
     implementation "com.beust:jcommander:${versions["jcommander"]}"
+    // we don't use slf4j actually, and it is used by kafka so we swallow the log.
+    implementation "org.slf4j:slf4j-nop:${versions["slf4j"]}"
 }
 
 application {

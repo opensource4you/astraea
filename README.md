@@ -16,6 +16,13 @@ This project offers many kafka tools to simplify the life for kafka users.
 2. [Kafka benchmark](#latency-benchmark): run producers/consumers to test the performance and consistency for kafka cluster
 3. [Kafka offset explorer](#offset-explorer): check the start/end offsets of kafka topics
 4. [Kafka official tool](#kafka-official-tool): run any one specific kafka official tool. All you have to prepare is the docker env.
+5. [Kafka metric client](#kafka-metric-client): utility for accessing kafka Mbean metrics via JMX.
+6. [Replica Collie](#replica-collie): move replicas from brokers to others. You can use this tool to obstruct specific brokers from hosting specific topics. 
+
+[Release page](https://github.com/skiptests/astraea/releases) offers the uber jar including all tools.
+```shell
+java -jar astraea-0.0.1-alpha.1-all.jar [tool] [args]
+```
 
 ---
 
@@ -68,12 +75,12 @@ This tool is used to test following latencies.
 
 Run the benchmark from source code
 ```shell
-./gradlew run --args="Latency --bootstrap.servers 192.168.50.224:18878"
+./gradlew run --args="latency --bootstrap.servers 192.168.50.224:18878"
 ```
 
 Run the benchmark from release
 ```shell
-./bin/App Latency --bootstrap.servers 192.168.50.224:18878
+java -jar app-0.0.1-SNAPSHOT-all.jar latency --bootstrap.servers 192.168.50.224:18878
 ```
 
 ### Latency Benchmark Configurations
@@ -83,6 +90,7 @@ Run the benchmark from release
 4. --valueSize: the size of record value. Default: 100 bytes
 5. --duration: the duration to run this benchmark. Default: 5 seconds
 6. --flushDuration: the duration to flush producer records. Default: 2 seconds
+7. --topics: the topics to write/read data
 
 ---
 
@@ -95,14 +103,15 @@ Run the tool from source code
 ./gradlew run --args="offset --bootstrap.servers 192.168.50.178:19993"
 ```
 
-Run the benchmark from release
+Run the tool from release
 ```shell
-./bin/App offset --bootstrap.servers 192.168.50.178:19993
+java -jar app-0.0.1-SNAPSHOT-all.jar offset --bootstrap.servers 192.168.50.178:19993
 ```
 
 ### Offset Explorer Configurations
 1. --bootstrap.servers: the server to connect to
-2. --topics: the topics to search
+2. --topics: the topics to be seeked
+3. --admin.props.file: the file path containing the properties to be passed to kafka admin
 
 ---
 
@@ -121,3 +130,48 @@ This project offers a way to run kafka official tool by container. For example:
 ```shell
 ./docker/start_kafka_tool.sh help
 ```
+
+---
+
+## Kafka Metric Client
+
+This tool can be used to access Kafka's MBean metrics via JMX.
+
+Run the tool from source code
+
+```shell
+./gradlew run --args="metrics --jmx.server 192.168.50.178:1099"
+```
+
+Run the tool from release
+```shell
+java -jar app-0.0.1-SNAPSHOT-all.jar metrics --jmx.server 192.168.50.178:1099
+```
+
+### Metric Client Configurations
+
+1. --jmx.server: the address to connect to Kafka JMX remote server
+2. --metrics: the Mbean metric to fetch. Default: All metrics
+
+---
+
+## Replica Collie
+
+This tool offers an effective way to migrate all replicas from specific brokers to others.
+
+### Move all replicas from broker_0 and broker_1 to other brokers
+
+```shell
+./gradlew run --args="replica --bootstrap.servers 192.168.50.178:19993 --from 0,1"
+```
+
+### Move all replicas of topic "abc" from broker_0 to broker_1
+
+```shell
+./gradlew run --args="replica --bootstrap.servers 192.168.50.178:19993 --from 0 --to 1 --topics abc"
+```
+
+### Replica Collie Configurations
+1. --bootstrap.servers: the server to connect to
+2. --topics: the topics to be moved
+3. --admin.props.file: the file path containing the properties to be passed to kafka admin

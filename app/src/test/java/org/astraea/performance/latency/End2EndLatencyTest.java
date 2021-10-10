@@ -1,7 +1,8 @@
 package org.astraea.performance.latency;
 
 import java.time.Duration;
-import java.util.concurrent.*;
+import java.util.Set;
+import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -9,9 +10,9 @@ class End2EndLatencyTest {
   @Test
   void testExecute() throws Exception {
     var factory = new FakeComponentFactory();
-    var parameters = new End2EndLatencyArgument();
+    var parameters = new End2EndLatency.Argument();
     parameters.brokers = "brokers";
-    parameters.topic = "topic";
+    parameters.topics = Set.of("topic");
     parameters.numberOfProducers = 1;
     parameters.numberOfConsumers = 1;
     parameters.duration = Duration.ofSeconds(1);

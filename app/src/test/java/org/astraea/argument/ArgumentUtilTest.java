@@ -32,7 +32,7 @@ public class ArgumentUtilTest {
 
     @Parameter(
         names = {"--setConverter"},
-        converter = ArgumentUtil.SetConverter.class,
+        converter = ArgumentUtil.StringSetConverter.class,
         variableArity = true)
     public Set<String> setConverter;
   }

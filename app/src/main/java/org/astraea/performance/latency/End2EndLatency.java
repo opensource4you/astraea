@@ -1,19 +1,22 @@
 package org.astraea.performance.latency;
 
-import java.util.Collections;
+import com.beust.jcommander.Parameter;
+import java.time.Duration;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.astraea.argument.ArgumentUtil;
+import org.astraea.argument.BasicArgument;
 
 public class End2EndLatency {
 
   public static void main(String[] args) throws Exception {
-    var parameters = ArgumentUtil.parseArgument(new End2EndLatencyArgument(), args);
-
+    var parameters = ArgumentUtil.parseArgument(new Argument(), args);
     System.out.println("brokers: " + parameters.brokers);
-    System.out.println("topic: " + parameters.topic);
+    System.out.println("topics: " + parameters.topics);
     System.out.println("numberOfProducers: " + parameters.numberOfProducers);
     System.out.println("numberOfConsumers: " + parameters.numberOfConsumers);
     System.out.println("duration: " + parameters.duration.toSeconds() + " seconds");
@@ -22,20 +25,18 @@ public class End2EndLatency {
 
     try (var closeFlag =
         execute(
-            ComponentFactory.fromKafka(parameters.brokers, Collections.singleton(parameters.topic)),
-            parameters)) {
+            ComponentFactory.fromKafka(parameters.properties(), parameters.topics), parameters)) {
       TimeUnit.MILLISECONDS.sleep(parameters.duration.toMillis());
     }
   }
 
-  static AutoCloseable execute(ComponentFactory factory, End2EndLatencyArgument parameters)
-      throws Exception {
+  static AutoCloseable execute(ComponentFactory factory, Argument parameters) throws Exception {
     var consumerTracker = new MeterTracker("consumer latency");
     var producerTracker = new MeterTracker("producer latency");
     var dataManager =
         parameters.numberOfConsumers <= 0
-            ? DataManager.noConsumer(parameters.topic, parameters.valueSize)
-            : DataManager.of(parameters.topic, parameters.valueSize);
+            ? DataManager.noConsumer(parameters.topics, parameters.valueSize)
+            : DataManager.of(parameters.topics, parameters.valueSize);
 
     // create producer threads
     var producers =
@@ -75,7 +76,7 @@ public class End2EndLatency {
         // consume a part of topic.
         KafkaUtils.createTopicIfNotExist(
             topicAdmin,
-            parameters.topic,
+            parameters.topics,
             parameters.numberOfConsumers <= 0 ? 1 : parameters.numberOfConsumers);
       }
       consumers.forEach(services::execute);
@@ -86,6 +87,51 @@ public class End2EndLatency {
     } catch (Exception e) {
       releaseAllObjects.close();
       throw e;
+    }
+  }
+
+  static class Argument extends BasicArgument {
+    @Parameter(
+        names = {"--topics"},
+        description = "The topics to push/subscribe data",
+        validateWith = ArgumentUtil.NotEmptyString.class,
+        converter = ArgumentUtil.StringSetConverter.class)
+    public Set<String> topics = Set.of("test-latency-" + System.currentTimeMillis());
+
+    @Parameter(
+        names = {"--producers"},
+        description = "Integer: number of producers to create",
+        validateWith = ArgumentUtil.PositiveLong.class)
+    int numberOfProducers = 1;
+
+    @Parameter(
+        names = {"--consumers"},
+        description = "Integer: number of consumers to create",
+        validateWith = ArgumentUtil.NonNegativeLong.class)
+    int numberOfConsumers = 1;
+
+    @Parameter(
+        names = {"--duration"},
+        description = "Long: producing time in seconds",
+        validateWith = ArgumentUtil.PositiveLong.class,
+        converter = ArgumentUtil.DurationConverter.class)
+    Duration duration = Duration.ofSeconds(5);
+
+    @Parameter(
+        names = {"--valueSize"},
+        description = "Integer: bytes per record sent",
+        validateWith = ArgumentUtil.PositiveLong.class)
+    int valueSize = 100;
+
+    @Parameter(
+        names = {"--flushDuration"},
+        description = "Long: timeout for producer to flush the records",
+        validateWith = ArgumentUtil.PositiveLong.class,
+        converter = ArgumentUtil.DurationConverter.class)
+    Duration flushDuration = Duration.ofSeconds(2);
+
+    Map<String, Object> properties() {
+      return properties(null);
     }
   }
 }
