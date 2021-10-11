@@ -4,12 +4,12 @@ import com.beust.jcommander.Parameter;
 import java.time.Duration;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.astraea.argument.ArgumentUtil;
 import org.astraea.argument.BasicArgument;
+import org.astraea.concurrent.ThreadPool;
 
 public class End2EndLatency {
 
@@ -30,6 +30,78 @@ public class End2EndLatency {
     }
   }
 
+  static ThreadPool.Executor producerThread(
+      DataManager dataManager, MeterTracker tracker, Producer producer, Duration flushDuration) {
+    return new ThreadPool.Executor() {
+      private long lastSend = 0;
+
+      @Override
+      public void execute() throws InterruptedException {
+        var records = dataManager.producerRecords();
+        var now = System.currentTimeMillis();
+        dataManager.sendingRecord(records, now);
+        records.forEach(
+            record ->
+                producer
+                    .send(record)
+                    .whenComplete(
+                        (r, e) -> {
+                          if (e != null) tracker.record(0, System.currentTimeMillis() - now);
+                          else
+                            tracker.record(
+                                r.serializedKeySize() + r.serializedValueSize(),
+                                System.currentTimeMillis() - now);
+                        }));
+        if (lastSend <= 0) lastSend = now;
+        else if (lastSend + flushDuration.toMillis() < now) {
+          lastSend = now;
+          producer.flush();
+        }
+      }
+
+      @Override
+      public void cleanup() {
+        producer.close();
+      }
+    };
+  }
+
+  static ThreadPool.Executor consumerExecutor(
+      DataManager dataManager, MeterTracker tracker, Consumer consumer) {
+    return new ThreadPool.Executor() {
+      @Override
+      public void execute() throws InterruptedException {
+        try {
+          var now = System.currentTimeMillis();
+          var records = consumer.poll();
+          records.forEach(
+              record -> {
+                var entry = dataManager.removeSendingRecord(record.key());
+                var latency = now - entry.getValue();
+                var produceRecord = entry.getKey();
+                if (!KafkaUtils.equal(produceRecord, record))
+                  System.out.println("receive corrupt data!!!");
+                else
+                  tracker.record(
+                      record.serializedKeySize() + record.serializedValueSize(), latency);
+              });
+        } catch (org.apache.kafka.common.errors.WakeupException e) {
+          throw new InterruptedException(e.getMessage());
+        }
+      }
+
+      @Override
+      public void cleanup() {
+        consumer.close();
+      }
+
+      @Override
+      public void wakeup() {
+        consumer.wakeup();
+      }
+    };
+  }
+
   static AutoCloseable execute(ComponentFactory factory, Argument parameters) throws Exception {
     var consumerTracker = new MeterTracker("consumer latency");
     var producerTracker = new MeterTracker("producer latency");
@@ -38,56 +110,33 @@ public class End2EndLatency {
             ? DataManager.noConsumer(parameters.topics, parameters.valueSize)
             : DataManager.of(parameters.topics, parameters.valueSize);
 
-    // create producer threads
-    var producers =
-        IntStream.range(0, parameters.numberOfProducers)
-            .mapToObj(
-                i ->
-                    new ProducerThread(
-                        dataManager, producerTracker, factory.producer(), parameters.flushDuration))
-            .collect(Collectors.toList());
-
-    // create consumers threads
-    var consumers =
-        IntStream.range(0, parameters.numberOfConsumers)
-            .mapToObj(
-                i -> new ConsumerThread(dataManager, consumerTracker, factory.createConsumer()))
-            .collect(Collectors.toList());
-
-    // + 2 for latency trackers
-    var services =
-        Executors.newFixedThreadPool(
-            parameters.numberOfProducers + parameters.numberOfConsumers + 2);
-
-    AutoCloseable releaseAllObjects =
-        () -> {
-          producerTracker.close();
-          consumerTracker.close();
-          producers.forEach(ProducerThread::close);
-          consumers.forEach(ConsumerThread::close);
-          services.shutdownNow();
-          if (!services.awaitTermination(30, TimeUnit.SECONDS)) {
-            System.out.println("timeout to wait all threads");
-          }
-        };
-    try {
-      try (var topicAdmin = factory.createTopicAdmin()) {
-        // the number of partitions is equal to number of consumers. That make each consumer can
-        // consume a part of topic.
-        KafkaUtils.createTopicIfNotExist(
-            topicAdmin,
-            parameters.topics,
-            parameters.numberOfConsumers <= 0 ? 1 : parameters.numberOfConsumers);
-      }
-      consumers.forEach(services::execute);
-      producers.forEach(services::execute);
-      services.execute(consumerTracker);
-      services.execute(producerTracker);
-      return releaseAllObjects;
-    } catch (Exception e) {
-      releaseAllObjects.close();
-      throw e;
+    try (var topicAdmin = factory.topicAdmin()) {
+      // the number of partitions is equal to number of consumers. That make each consumer can
+      // consume a part of topic.
+      KafkaUtils.createTopicIfNotExist(
+          topicAdmin,
+          parameters.topics,
+          parameters.numberOfConsumers <= 0 ? 1 : parameters.numberOfConsumers);
     }
+
+    return ThreadPool.builder()
+        .executor(consumerTracker)
+        .executor(producerTracker)
+        .executors(
+            IntStream.range(0, parameters.numberOfProducers)
+                .mapToObj(
+                    i ->
+                        producerThread(
+                            dataManager,
+                            producerTracker,
+                            factory.producer(),
+                            parameters.flushDuration))
+                .collect(Collectors.toList()))
+        .executors(
+            IntStream.range(0, parameters.numberOfConsumers)
+                .mapToObj(i -> consumerExecutor(dataManager, consumerTracker, factory.consumer()))
+                .collect(Collectors.toList()))
+        .build();
   }
 
   static class Argument extends BasicArgument {
