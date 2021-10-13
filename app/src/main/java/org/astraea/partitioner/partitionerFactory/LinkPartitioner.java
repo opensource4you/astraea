@@ -6,8 +6,7 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Random;
-import java.util.concurrent.TimeUnit;
-
+import java.util.concurrent.CountDownLatch;
 import org.apache.kafka.clients.producer.Partitioner;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.Cluster;
@@ -44,7 +43,7 @@ public class LinkPartitioner implements Partitioner {
   @Override
   public void configure(Map<String, ?> configs) throws NullPointerException {
 
-    var jmxAddresses =  configs.get("jmx_servers");
+    var jmxAddresses = configs.get("jmx_servers");
 
     if (jmxAddresses.equals(null)) {
       throw new NullPointerException("You must configure jmx_servers correctly.");
@@ -59,17 +58,17 @@ public class LinkPartitioner implements Partitioner {
 
   public static class ThreadSafeSmoothPartitioner implements Partitioner {
     private NodeLoadClient nodeLoadClient;
-    private Thread loadThread;
     private Map<String, ?> smoothConfigs;
+    private CountDownLatch latch;
 
     ThreadSafeSmoothPartitioner() throws MalformedURLException {
       nodeLoadClient = new NodeLoadClient((Map<String, String>) smoothConfigs.get("jmx_servers"));
-
-//      loadThread = new Thread(nodeLoadClient);
-      try (var pool = SingleThreadPool.builder().build(executor)) {
-        TimeUnit.SECONDS.sleep(2);
+      latch = new CountDownLatch(1);
+      try (var pool = SingleThreadPool.builder().build(nodeLoadClient)) {
+        latch.await();
+      } catch (InterruptedException e) {
+        e.printStackTrace();
       }
-      loadThread.start();
     }
 
     @Override
@@ -113,12 +112,13 @@ public class LinkPartitioner implements Partitioner {
 
     @Override
     public void close() {
-
+      latch.countDown();
     }
 
-
     @Override
-    public void configure(Map<String, ?> configs) {smoothConfigs = configs;}
+    public void configure(Map<String, ?> configs) {
+      smoothConfigs = configs;
+    }
   }
 
   public static SmoothPartitionerFactory getFactory() {
