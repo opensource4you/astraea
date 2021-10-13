@@ -1,8 +1,6 @@
 package org.astraea.offset;
 
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import org.apache.kafka.common.TopicPartition;
 import org.astraea.topic.TopicAdmin;
 import org.junit.jupiter.api.Assertions;
@@ -38,7 +36,9 @@ public class OffsetExplorerTest {
 
           @Override
           public Map<TopicPartition, List<Group>> groups(Set<String> topics) {
-            return Map.of(topicPartition, List.of(new Group(groupId, groupOffset)));
+            return Map.of(
+                topicPartition,
+                List.of(new Group(groupId, OptionalLong.of(groupOffset), List.of())));
           }
 
           @Override
@@ -66,8 +66,8 @@ public class OffsetExplorerTest {
       Assertions.assertEquals(earliestOffset, result.get(0).earliestOffset);
       Assertions.assertEquals(latestOffset, result.get(0).latestOffset);
       Assertions.assertEquals(1, result.get(0).groups.size());
-      Assertions.assertEquals(groupId, result.get(0).groups.get(0).id);
-      Assertions.assertEquals(groupOffset, result.get(0).groups.get(0).offset);
+      Assertions.assertEquals(groupId, result.get(0).groups.get(0).groupId);
+      Assertions.assertEquals(groupOffset, result.get(0).groups.get(0).offset.getAsLong());
       Assertions.assertEquals(1, result.get(0).replicas.size());
       Assertions.assertEquals(brokerId, result.get(0).replicas.get(0).broker);
       Assertions.assertEquals(lag, result.get(0).replicas.get(0).lag);

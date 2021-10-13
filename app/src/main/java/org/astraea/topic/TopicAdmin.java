@@ -43,38 +43,69 @@ public interface TopicAdmin extends Closeable {
 
       @Override
       public Map<TopicPartition, List<Group>> groups(Set<String> topics) {
-        return Utils.handleException(
-                () ->
-                    admin.listConsumerGroups().valid().get().stream()
-                        .map(ConsumerGroupListing::groupId)
-                        .collect(Collectors.toSet()))
-            .stream()
-            .flatMap(
-                group ->
-                    Utils.handleException(
-                            () ->
-                                admin
-                                    .listConsumerGroupOffsets(group)
-                                    .partitionsToOffsetAndMetadata()
-                                    .get())
-                        .entrySet()
-                        .stream()
-                        .filter(e -> topics.contains(e.getKey().topic()))
-                        .map(e -> Map.entry(group, e)))
-            .collect(Collectors.groupingBy(e -> e.getValue().getKey()))
-            .entrySet()
-            .stream()
-            .collect(
-                Collectors.toMap(
-                    Map.Entry::getKey,
-                    e ->
-                        e.getValue().stream()
-                            .map(
-                                groupOffset ->
-                                    new Group(
-                                        groupOffset.getKey(),
-                                        groupOffset.getValue().getValue().offset()))
-                            .collect(Collectors.toList())));
+        var groups =
+            Utils.handleException(() -> admin.listConsumerGroups().valid().get()).stream()
+                .map(ConsumerGroupListing::groupId)
+                .collect(Collectors.toList());
+
+        var allPartitions = partitions(topics);
+
+        var result = new HashMap<TopicPartition, List<Group>>();
+        Utils.handleException(() -> admin.describeConsumerGroups(groups).all().get())
+            .forEach(
+                (groupId, groupDescription) -> {
+                  var partitionOffsets =
+                      Utils.handleException(
+                          () ->
+                              admin
+                                  .listConsumerGroupOffsets(groupId)
+                                  .partitionsToOffsetAndMetadata()
+                                  .get());
+
+                  var partitionMembers =
+                      groupDescription.members().stream()
+                          .flatMap(
+                              m ->
+                                  m.assignment().topicPartitions().stream()
+                                      .map(tp -> Map.entry(tp, m)))
+                          .collect(Collectors.groupingBy(Map.Entry::getKey))
+                          .entrySet()
+                          .stream()
+                          .collect(
+                              Collectors.toMap(
+                                  Map.Entry::getKey,
+                                  e ->
+                                      e.getValue().stream()
+                                          .map(Map.Entry::getValue)
+                                          .collect(Collectors.toList())));
+
+                  allPartitions.forEach(
+                      tp -> {
+                        var offset =
+                            partitionOffsets.containsKey(tp)
+                                ? OptionalLong.of(partitionOffsets.get(tp).offset())
+                                : OptionalLong.empty();
+                        var members =
+                            partitionMembers.getOrDefault(tp, List.of()).stream()
+                                .map(
+                                    m ->
+                                        new GroupMember(
+                                            m.consumerId(),
+                                            m.groupInstanceId(),
+                                            m.clientId(),
+                                            m.host()))
+                                .collect(Collectors.toList());
+                        // This group is related to the partition only if it has either member or
+                        // offset.
+                        if (offset.isPresent() || !members.isEmpty()) {
+                          result
+                              .computeIfAbsent(tp, ignore -> new ArrayList<>())
+                              .add(new Group(groupId, offset, members));
+                        }
+                      });
+                });
+
+        return result;
       }
 
       private Map<TopicPartition, Long> earliestOffset(Set<TopicPartition> partitions) {
@@ -114,15 +145,7 @@ public interface TopicAdmin extends Closeable {
 
       @Override
       public Map<TopicPartition, Offset> offset(Set<String> topics) {
-        var partitions =
-            Utils.handleException(
-                () ->
-                    admin.describeTopics(topics).all().get().entrySet().stream()
-                        .flatMap(
-                            e ->
-                                e.getValue().partitions().stream()
-                                    .map(p -> new TopicPartition(e.getKey(), p.partition())))
-                        .collect(Collectors.toSet()));
+        var partitions = partitions(topics);
         var earliest = earliestOffset(partitions);
         var latest = latestOffset(partitions);
         return earliest.entrySet().stream()
@@ -130,6 +153,17 @@ public interface TopicAdmin extends Closeable {
             .collect(
                 Collectors.toMap(
                     Map.Entry::getKey, e -> new Offset(e.getValue(), latest.get(e.getKey()))));
+      }
+
+      private Set<TopicPartition> partitions(Set<String> topics) {
+        return Utils.handleException(
+            () ->
+                admin.describeTopics(topics).all().get().entrySet().stream()
+                    .flatMap(
+                        e ->
+                            e.getValue().partitions().stream()
+                                .map(p -> new TopicPartition(e.getKey(), p.partition())))
+                    .collect(Collectors.toSet()));
       }
 
       @Override
@@ -224,17 +258,59 @@ public interface TopicAdmin extends Closeable {
   void reassign(String topicName, int partition, Set<Integer> brokers);
 
   class Group {
-    public final String id;
-    public final long offset;
+    public final String groupId;
+    public final OptionalLong offset;
+    public final List<GroupMember> members;
 
-    public Group(String id, long offset) {
-      this.id = id;
+    public Group(String groupId, OptionalLong offset, List<GroupMember> members) {
+      this.groupId = groupId;
       this.offset = offset;
+      this.members = members;
     }
 
     @Override
     public String toString() {
-      return "Group{" + "id='" + id + '\'' + ", offset=" + offset + '}';
+      return "Group{"
+          + "groupId='"
+          + groupId
+          + '\''
+          + ", offset="
+          + (offset.isEmpty() ? "none" : offset.getAsLong())
+          + ", members="
+          + members
+          + '}';
+    }
+  }
+
+  class GroupMember {
+    private final String memberId;
+    private final Optional<String> groupInstanceId;
+    private final String clientId;
+    private final String host;
+
+    public GroupMember(
+        String memberId, Optional<String> groupInstanceId, String clientId, String host) {
+      this.memberId = memberId;
+      this.groupInstanceId = groupInstanceId;
+      this.clientId = clientId;
+      this.host = host;
+    }
+
+    @Override
+    public String toString() {
+      return "GroupMember{"
+          + "memberId='"
+          + memberId
+          + '\''
+          + ", groupInstanceId="
+          + groupInstanceId
+          + ", clientId='"
+          + clientId
+          + '\''
+          + ", host='"
+          + host
+          + '\''
+          + '}';
     }
   }
 

@@ -29,8 +29,12 @@ public class OffsetExplorer {
       this.partition = partition;
       this.earliestOffset = startOffset;
       this.latestOffset = endOffset;
-      this.groups = groups;
-      this.replicas = replicas;
+      this.groups =
+          groups.stream().sorted(Comparator.comparing(g -> g.groupId)).collect(Collectors.toList());
+      this.replicas =
+          replicas.stream()
+              .sorted(Comparator.comparing(r -> r.broker))
+              .collect(Collectors.toList());
     }
 
     @Override
