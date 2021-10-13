@@ -6,6 +6,8 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Random;
+import java.util.concurrent.TimeUnit;
+
 import org.apache.kafka.clients.producer.Partitioner;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.Cluster;
@@ -13,9 +15,9 @@ import org.apache.kafka.common.PartitionInfo;
 import org.astraea.partitioner.nodeLoadMetric.BrokersWeight;
 import org.astraea.partitioner.nodeLoadMetric.LoadPoisson;
 import org.astraea.partitioner.nodeLoadMetric.NodeLoadClient;
+import org.astraea.partitioner.nodeLoadMetric.SingleThreadPool;
 
 public class LinkPartitioner implements Partitioner {
-  private static HashMap<String, String> jmxAddresses;
 
   private static final SmoothPartitionerFactory FACTORY =
       new SmoothPartitionerFactory(
@@ -41,7 +43,8 @@ public class LinkPartitioner implements Partitioner {
 
   @Override
   public void configure(Map<String, ?> configs) throws NullPointerException {
-    jmxAddresses = (HashMap<String, String>) configs.get("jmx_servers");
+
+    var jmxAddresses =  configs.get("jmx_servers");
 
     if (jmxAddresses.equals(null)) {
       throw new NullPointerException("You must configure jmx_servers correctly.");
@@ -57,11 +60,15 @@ public class LinkPartitioner implements Partitioner {
   public static class ThreadSafeSmoothPartitioner implements Partitioner {
     private NodeLoadClient nodeLoadClient;
     private Thread loadThread;
+    private Map<String, ?> smoothConfigs;
 
     ThreadSafeSmoothPartitioner() throws MalformedURLException {
-      nodeLoadClient = new NodeLoadClient(LinkPartitioner.jmxAddresses);
+      nodeLoadClient = new NodeLoadClient((Map<String, String>) smoothConfigs.get("jmx_servers"));
 
-      loadThread = new Thread(nodeLoadClient);
+//      loadThread = new Thread(nodeLoadClient);
+      try (var pool = SingleThreadPool.builder().build(executor)) {
+        TimeUnit.SECONDS.sleep(2);
+      }
       loadThread.start();
     }
 
@@ -106,11 +113,12 @@ public class LinkPartitioner implements Partitioner {
 
     @Override
     public void close() {
-      nodeLoadClient.shouldDownNow();
+
     }
 
+
     @Override
-    public void configure(Map<String, ?> configs) {}
+    public void configure(Map<String, ?> configs) {smoothConfigs = configs;}
   }
 
   public static SmoothPartitionerFactory getFactory() {

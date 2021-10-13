@@ -7,13 +7,12 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
-public class NodeLoadClient implements Runnable {
+public class NodeLoadClient implements SingleThreadPool.Executor {
 
   private final OverLoadNode overLoadNode;
   private final Collection<NodeMetadata> nodeMetadataCollection = new ArrayList<>();
-  private volatile boolean shouldDown = false;
 
-  public NodeLoadClient(HashMap<String, String> jmxAddresses) throws MalformedURLException {
+  public NodeLoadClient(Map<String, String> jmxAddresses) throws MalformedURLException {
     for (Map.Entry<String, String> entry : jmxAddresses.entrySet()) {
       this.nodeMetadataCollection.add(
           new NodeMetadata(entry.getKey(), createNodeMetrics(entry.getKey(), entry.getValue())));
@@ -27,13 +26,11 @@ public class NodeLoadClient implements Runnable {
 
   /** A thread that continuously updates metricsfor NodeLoadClient. */
   @Override
-  public void run() {
+  public void execute() throws InterruptedException {
     try {
-      while (!shouldDown) {
-        refreshNodesMetrics();
-        overLoadNode.monitorOverLoad();
-        TimeUnit.SECONDS.sleep(1);
-      }
+      refreshNodesMetrics();
+      overLoadNode.monitorOverLoad();
+      TimeUnit.SECONDS.sleep(1);
     } catch (InterruptedException e) {
       e.printStackTrace();
     }
@@ -78,9 +75,5 @@ public class NodeLoadClient implements Runnable {
       nodeMetrics.refreshMetrics();
       nodeMetadata.setTotalBytes(nodeMetrics.totalBytesPerSec());
     }
-  }
-
-  public void shouldDownNow() {
-    this.shouldDown = true;
   }
 }
