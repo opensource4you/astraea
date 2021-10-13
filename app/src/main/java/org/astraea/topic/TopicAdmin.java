@@ -89,7 +89,7 @@ public interface TopicAdmin extends Closeable {
                             partitionMembers.getOrDefault(tp, List.of()).stream()
                                 .map(
                                     m ->
-                                        new GroupMember(
+                                        new Member(
                                             m.consumerId(),
                                             m.groupInstanceId(),
                                             m.clientId(),
@@ -260,9 +260,9 @@ public interface TopicAdmin extends Closeable {
   class Group {
     public final String groupId;
     public final OptionalLong offset;
-    public final List<GroupMember> members;
+    public final List<Member> members;
 
-    public Group(String groupId, OptionalLong offset, List<GroupMember> members) {
+    public Group(String groupId, OptionalLong offset, List<Member> members) {
       this.groupId = groupId;
       this.offset = offset;
       this.members = members;
@@ -282,14 +282,13 @@ public interface TopicAdmin extends Closeable {
     }
   }
 
-  class GroupMember {
+  class Member {
     private final String memberId;
     private final Optional<String> groupInstanceId;
     private final String clientId;
     private final String host;
 
-    public GroupMember(
-        String memberId, Optional<String> groupInstanceId, String clientId, String host) {
+    public Member(String memberId, Optional<String> groupInstanceId, String clientId, String host) {
       this.memberId = memberId;
       this.groupInstanceId = groupInstanceId;
       this.clientId = clientId;
@@ -298,7 +297,7 @@ public interface TopicAdmin extends Closeable {
 
     @Override
     public String toString() {
-      return "GroupMember{"
+      return "Member{"
           + "memberId='"
           + memberId
           + '\''
