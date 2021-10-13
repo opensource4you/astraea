@@ -34,7 +34,7 @@ class DataManager {
 
   private final AtomicLong recordIndex = new AtomicLong(0);
 
-  final AtomicLong producerRecords = new AtomicLong(0);
+  private final AtomicLong producerRecords = new AtomicLong(0);
 
   private DataManager(Set<String> topics, int valueSize, boolean hasConsumer) {
     this.topics = Objects.requireNonNull(topics);
