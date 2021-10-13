@@ -5,7 +5,6 @@ import java.lang.reflect.InvocationTargetException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 import org.astraea.metrics.kafka.KafkaMetricClientApp;
 import org.astraea.offset.OffsetExplorer;
 import org.astraea.performance.latency.End2EndLatency;
@@ -18,10 +17,6 @@ public class App {
           "offset", OffsetExplorer.class,
           "metrics", KafkaMetricClientApp.class,
           "replica", ReplicaCollie.class);
-
-  private static String toString(List<Class<?>> mains) {
-    return mains.stream().map(Class::getSimpleName).collect(Collectors.joining(","));
-  }
 
   static void execute(Map<String, Class<?>> mains, List<String> args) throws Throwable {
 
