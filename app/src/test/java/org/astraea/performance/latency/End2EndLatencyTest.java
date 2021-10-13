@@ -58,12 +58,12 @@ class End2EndLatencyTest {
           return CompletableFuture.completedFuture(
               new RecordMetadata(new TopicPartition(record.topic(), 1), 1L, 1L, 1L, 1L, 1, 1));
         }) {
-      var thread =
-          End2EndLatency.producerThread(
-              dataManager, new MeterTracker("test producer"), producer, Duration.ZERO);
+      var tracker = new MeterTracker("test producer");
+      var thread = End2EndLatency.producerThread(dataManager, tracker, producer, Duration.ZERO);
       thread.execute();
       Assertions.assertEquals(1, count.get());
       Assertions.assertEquals(1, dataManager.numberOfProducerRecords());
+      Assertions.assertEquals(1, tracker.count());
     }
   }
 
