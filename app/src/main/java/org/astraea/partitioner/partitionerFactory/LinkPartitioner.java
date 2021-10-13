@@ -6,7 +6,6 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Random;
-import java.util.concurrent.CountDownLatch;
 import org.apache.kafka.clients.producer.Partitioner;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.Cluster;
@@ -59,16 +58,11 @@ public class LinkPartitioner implements Partitioner {
   public static class ThreadSafeSmoothPartitioner implements Partitioner {
     private NodeLoadClient nodeLoadClient;
     private Map<String, ?> smoothConfigs;
-    private CountDownLatch latch;
+    private SingleThreadPool pool;
 
     ThreadSafeSmoothPartitioner() throws MalformedURLException {
       nodeLoadClient = new NodeLoadClient((Map<String, String>) smoothConfigs.get("jmx_servers"));
-      latch = new CountDownLatch(1);
-      try (var pool = SingleThreadPool.builder().build(nodeLoadClient)) {
-        latch.await();
-      } catch (InterruptedException e) {
-        e.printStackTrace();
-      }
+      pool = SingleThreadPool.builder().build(nodeLoadClient);
     }
 
     @Override
@@ -112,7 +106,7 @@ public class LinkPartitioner implements Partitioner {
 
     @Override
     public void close() {
-      latch.countDown();
+      pool.close();
     }
 
     @Override
