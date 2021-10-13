@@ -26,7 +26,7 @@ interface ComponentFactory {
       }
 
       @Override
-      public Consumer createConsumer() {
+      public Consumer consumer() {
         var copy = new HashMap<>(props);
         // all consumers are in same group, so there is no duplicate data in read workload.
         copy.put(ConsumerConfig.GROUP_ID_CONFIG, groupId);
@@ -34,7 +34,7 @@ interface ComponentFactory {
       }
 
       @Override
-      public TopicAdmin createTopicAdmin() {
+      public TopicAdmin topicAdmin() {
         return TopicAdmin.fromKafka(props);
       }
     };
@@ -44,8 +44,8 @@ interface ComponentFactory {
   Producer producer();
 
   /** @return a new consumer. Please close it when you don't need it */
-  Consumer createConsumer();
+  Consumer consumer();
 
   /** @return a new topic admin. Please close it when you don't need it. */
-  TopicAdmin createTopicAdmin();
+  TopicAdmin topicAdmin();
 }
