@@ -2,8 +2,6 @@ package org.astraea.metrics.kafka;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.util.LinkedList;
-import java.util.List;
 import javax.management.remote.JMXServiceURL;
 import org.astraea.metrics.jmx.BeanObject;
 import org.astraea.metrics.jmx.BeanQuery;
@@ -23,14 +21,8 @@ public class KafkaMetricClient implements AutoCloseable {
   }
 
   public <RET_TYPE> RET_TYPE requestMetric(Metric<RET_TYPE> metric) {
-
-    List<BeanQuery> queries = metric.queries();
-    List<BeanObject> resolved = new LinkedList<>();
-
-    for (BeanQuery query : queries) {
-      resolved.add(mBeanClient.tryQueryBean(query).orElseThrow());
-    }
-
+    BeanQuery query = metric.queries();
+    BeanObject resolved = mBeanClient.tryQueryBean(query).orElseThrow();
     return metric.from(resolved);
   }
 

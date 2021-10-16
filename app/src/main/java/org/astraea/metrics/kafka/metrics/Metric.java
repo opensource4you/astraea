@@ -1,6 +1,5 @@
 package org.astraea.metrics.kafka.metrics;
 
-import java.util.List;
 import org.astraea.metrics.jmx.BeanObject;
 import org.astraea.metrics.jmx.BeanQuery;
 
@@ -27,18 +26,18 @@ import org.astraea.metrics.jmx.BeanQuery;
 public interface Metric<RET_TYPE> {
 
   /**
-   * return a list of BeanQuery this Metric required to construct the domain object.
+   * return a BeanQuery this Metric required to construct the domain object.
    *
-   * @return a list of {@link BeanQuery}
+   * @return a {@link BeanQuery} used to resolve specific MBean.
    */
-  List<BeanQuery> queries();
+  BeanQuery queries();
 
   /**
-   * construct the domain object with {@link RET_TYPE} type by the given {@link BeanObject}s.
+   * construct the domain object with {@link RET_TYPE} type by the given {@link BeanObject}.
    *
-   * @param beanObject the list of {@link BeanObject} resolved from {@link BeanQuery} of {@link
-   *     #queries()}, the order of {@link BeanObject} must match.
+   * @param a {@link BeanObject} resolved from {@link BeanQuery} of {@link
+   *     #queries()}.
    * @return a domain object based on given given {@link BeanObject}, it offer easier to use API
    */
-  RET_TYPE from(List<BeanObject> beanObject);
+  RET_TYPE from(BeanObject beanObject);
 }
