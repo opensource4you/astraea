@@ -118,4 +118,44 @@ class MetricsTest {
     // assert
     assertEquals(0xfee1dead, value);
   }
+
+  @ParameterizedTest()
+  @EnumSource(value = Metrics.RequestMetrics.RequestTotalTimeMs.class)
+  void testRequestTotalTimeMs(Metrics.RequestMetrics.RequestTotalTimeMs request)
+      throws MalformedObjectNameException {
+    // arrange
+    Map<String, Object> map = new HashMap<>();
+    map.put("50thPercentile", 1.0);
+    map.put("75thPercentile", 2.0);
+    map.put("95thPercentile", 3.0);
+    map.put("98thPercentile", 4.0);
+    map.put("99thPercentile", 5.0);
+    map.put("999thPercentile", 6.0);
+    map.put("Count", 7L);
+    map.put("Max", 8.0);
+    map.put("Mean", 9.0);
+    map.put("Min", 10.0);
+    map.put("StdDev", 11.0);
+    Object mbean = Utility.createReadOnlyDynamicMBean(map);
+    register(
+        ObjectName.getInstance(
+            "kafka.network:type=RequestMetrics,request=" + request.name() + ",name=TotalTimeMs"),
+        mbean);
+
+    // act
+    TotalTimeMs totalTimeMs = sut.requestMetric(Metrics.RequestMetrics.totalTimeMs(request));
+
+    // assert
+    assertEquals(totalTimeMs.percentile50(), 1.0);
+    assertEquals(totalTimeMs.percentile75(), 2.0);
+    assertEquals(totalTimeMs.percentile95(), 3.0);
+    assertEquals(totalTimeMs.percentile98(), 4.0);
+    assertEquals(totalTimeMs.percentile99(), 5.0);
+    assertEquals(totalTimeMs.percentile999(), 6.0);
+    assertEquals(totalTimeMs.count(), 7L);
+    assertEquals(totalTimeMs.max(), 8.0);
+    assertEquals(totalTimeMs.mean(), 9.0);
+    assertEquals(totalTimeMs.min(), 10.0);
+    assertEquals(totalTimeMs.stdDev(), 11.0);
+  }
 }

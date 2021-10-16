@@ -35,4 +35,35 @@ public final class Metrics {
       };
     }
   }
+
+  public static final class RequestMetrics {
+
+    private RequestMetrics() {}
+    ;
+
+    public static Metric<TotalTimeMs> totalTimeMs(RequestTotalTimeMs request) {
+      return new Metric<TotalTimeMs>() {
+        @Override
+        public List<BeanQuery> queries() {
+          return List.of(
+              BeanQuery.builder("kafka.network")
+                  .property("type", "RequestMetrics")
+                  .property("request", request.name())
+                  .property("name", "TotalTimeMs")
+                  .build());
+        }
+
+        @Override
+        public TotalTimeMs from(List<BeanObject> beanObjects) {
+          return new TotalTimeMs(beanObjects.get(0));
+        }
+      };
+    }
+
+    public enum RequestTotalTimeMs {
+      Produce,
+      FetchConsumer,
+      FetchFollower;
+    }
+  }
 }
