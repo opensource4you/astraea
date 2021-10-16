@@ -16,6 +16,12 @@ public final class Metrics {
 
     private Purgatory() {}
 
+    /**
+     * Number of requests waiting in the producer purgatory.
+     *
+     * @param request fetch specific purgatory related to this request.
+     * @return Number of requests waiting in the producer purgatory.
+     */
     public static Metric<Integer> size(PurgatoryRequest request) {
       return new Metric<>() {
         @Override
@@ -40,6 +46,12 @@ public final class Metrics {
 
     private RequestMetrics() {}
 
+    /**
+     * Request rate.
+     *
+     * @param request the specific request to fetch.
+     * @return the request rate of specific request.
+     */
     public static Metric<TotalTimeMs> totalTimeMs(RequestTotalTimeMs request) {
       return new Metric<>() {
         @Override
@@ -70,6 +82,11 @@ public final class Metrics {
 
     private TopicPartition() {}
 
+    /**
+     * Number of partitions across all topics in the cluster.
+     *
+     * @return number of partitions across all topics in the cluster.
+     */
     public static Metric<Integer> globalPartitionCount() {
       return new Metric<>() {
         @Override
@@ -88,6 +105,13 @@ public final class Metrics {
       };
     }
 
+    /**
+     * Number of under-replicated partitions (| ISR | < | current replicas |). Replicas that are
+     * added as part of a reassignment will not count toward this value. Alert if value is greater
+     * than 0.
+     *
+     * @return number of under-replicated partitions.
+     */
     public static Metric<Integer> underReplicatedPartitions() {
       return new Metric<>() {
         @Override
