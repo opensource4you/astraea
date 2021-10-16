@@ -35,8 +35,7 @@ public interface Metric<RET_TYPE> {
   /**
    * construct the domain object with {@link RET_TYPE} type by the given {@link BeanObject}.
    *
-   * @param a {@link BeanObject} resolved from {@link BeanQuery} of {@link
-   *     #queries()}.
+   * @param a {@link BeanObject} resolved from {@link BeanQuery} of {@link #queries()}.
    * @return a domain object based on given given {@link BeanObject}, it offer easier to use API
    */
   RET_TYPE from(BeanObject beanObject);
