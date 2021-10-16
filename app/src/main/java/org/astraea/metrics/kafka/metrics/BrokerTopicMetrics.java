@@ -1,10 +1,13 @@
 package org.astraea.metrics.kafka.metrics;
 
 import java.util.Arrays;
+import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
+import org.astraea.metrics.jmx.BeanObject;
+import org.astraea.metrics.jmx.BeanQuery;
 
-public enum BrokerTopicMetrics {
+public enum BrokerTopicMetrics implements Metric<BrokerTopicMetricsResult> {
   /** Message validation failure rate due to non-continuous offset or sequence number in batch */
   InvalidOffsetOrSequenceRecordsPerSec("InvalidOffsetOrSequenceRecordsPerSec"),
 
@@ -64,5 +67,19 @@ public enum BrokerTopicMetrics {
 
   public String metricName() {
     return metricName;
+  }
+
+  @Override
+  public List<BeanQuery> queries() {
+    return List.of(
+        BeanQuery.builder("kafka.server")
+            .property("type", "BrokerTopicMetrics")
+            .property("name", this.metricName())
+            .build());
+  }
+
+  @Override
+  public BrokerTopicMetricsResult from(List<BeanObject> beanObject) {
+    return new BrokerTopicMetricsResult(this, beanObject.get(0));
   }
 }
