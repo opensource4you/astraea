@@ -7,7 +7,6 @@ import java.lang.management.ManagementFactory;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.TimeUnit;
 import javax.management.*;
 import javax.management.remote.JMXConnectorServer;
 import javax.management.remote.JMXConnectorServerFactory;
@@ -15,14 +14,10 @@ import javax.management.remote.JMXServiceURL;
 import org.astraea.metrics.jmx.BeanObject;
 import org.astraea.metrics.jmx.BeanQuery;
 import org.astraea.metrics.jmx.Utility;
-import org.astraea.metrics.kafka.metrics.BrokerTopicMetrics;
-import org.astraea.metrics.kafka.metrics.BrokerTopicMetricsResult;
 import org.astraea.metrics.kafka.metrics.Metric;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.EnumSource;
 
 class KafkaMetricClientTest {
 
@@ -118,37 +113,5 @@ class KafkaMetricClientTest {
 
     // assert
     assertEquals(100 * 2 / 3, sum);
-  }
-
-  @ParameterizedTest
-  @EnumSource(value = BrokerTopicMetrics.class)
-  void testRequestBrokerTopicMetrics(BrokerTopicMetrics metric)
-      throws MalformedObjectNameException {
-    // arrange
-    Object mbean =
-        Utility.createReadOnlyDynamicMBean(
-            Map.of(
-                "Count", 1L,
-                "EventType", "bytes",
-                "FifteenMinuteRate", 2.0,
-                "FiveMinuteRate", 4.0,
-                "MeanRate", 8.0,
-                "OneMinuteRate", 16.0,
-                "RateUnit", TimeUnit.SECONDS));
-    register(
-        ObjectName.getInstance("kafka.server:type=BrokerTopicMetrics,name=" + metric.name()),
-        mbean);
-
-    // act
-    BrokerTopicMetricsResult result = sut.requestMetric(metric);
-
-    // assert
-    assertEquals(1L, result.count());
-    assertEquals("bytes", result.eventType());
-    assertEquals(2.0, result.fifteenMinuteRate());
-    assertEquals(4.0, result.fiveMinuteRate());
-    assertEquals(8.0, result.meanRate());
-    assertEquals(16.0, result.oneMinuteRate());
-    assertEquals(TimeUnit.SECONDS, result.rateUnit());
   }
 }
