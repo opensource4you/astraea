@@ -15,6 +15,7 @@ import org.astraea.metrics.jmx.Utility;
 import org.astraea.metrics.kafka.KafkaMetricClient;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
@@ -157,5 +158,35 @@ class MetricsTest {
     assertEquals(totalTimeMs.mean(), 9.0);
     assertEquals(totalTimeMs.min(), 10.0);
     assertEquals(totalTimeMs.stdDev(), 11.0);
+  }
+
+  @Test
+  void testGlobalPartitionCount() throws MalformedObjectNameException {
+    // arrange
+    Object mbean = Utility.createReadOnlyDynamicMBean(Map.of("Value", 0xcafebabe));
+    register(
+        ObjectName.getInstance("kafka.controller:type=KafkaController,name=GlobalPartitionCount"),
+        mbean);
+
+    // act
+    Integer integer = sut.requestMetric(Metrics.TopicPartition.globalPartitionCount());
+
+    // assert
+    assertEquals(0xcafebabe, integer);
+  }
+
+  @Test
+  void testUnderReplicatedPartitions() throws MalformedObjectNameException {
+    // arrange
+    Object mbean = Utility.createReadOnlyDynamicMBean(Map.of("Value", 0x55665566));
+    register(
+        ObjectName.getInstance("kafka.server:type=ReplicaManager,name=UnderReplicatedPartitions"),
+        mbean);
+
+    // act
+    Integer integer = sut.requestMetric(Metrics.TopicPartition.underReplicatedPartitions());
+
+    // assert
+    assertEquals(0x55665566, integer);
   }
 }

@@ -39,10 +39,9 @@ public final class Metrics {
   public static final class RequestMetrics {
 
     private RequestMetrics() {}
-    ;
 
     public static Metric<TotalTimeMs> totalTimeMs(RequestTotalTimeMs request) {
-      return new Metric<TotalTimeMs>() {
+      return new Metric<>() {
         @Override
         public List<BeanQuery> queries() {
           return List.of(
@@ -63,7 +62,48 @@ public final class Metrics {
     public enum RequestTotalTimeMs {
       Produce,
       FetchConsumer,
-      FetchFollower;
+      FetchFollower
+    }
+  }
+
+  public static final class TopicPartition {
+
+    private TopicPartition() {}
+
+    public static Metric<Integer> globalPartitionCount() {
+      return new Metric<>() {
+        @Override
+        public List<BeanQuery> queries() {
+          return List.of(
+              BeanQuery.builder("kafka.controller")
+                  .property("type", "KafkaController")
+                  .property("name", "GlobalPartitionCount")
+                  .build());
+        }
+
+        @Override
+        public Integer from(List<BeanObject> beanObject) {
+          return (Integer) beanObject.get(0).getAttributes().get("Value");
+        }
+      };
+    }
+
+    public static Metric<Integer> underReplicatedPartitions() {
+      return new Metric<>() {
+        @Override
+        public List<BeanQuery> queries() {
+          return List.of(
+              BeanQuery.builder("kafka.server")
+                  .property("type", "ReplicaManager")
+                  .property("name", "UnderReplicatedPartitions")
+                  .build());
+        }
+
+        @Override
+        public Integer from(List<BeanObject> beanObject) {
+          return (Integer) beanObject.get(0).getAttributes().get("Value");
+        }
+      };
     }
   }
 }
