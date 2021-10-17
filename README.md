@@ -14,9 +14,10 @@ This project offers many kafka tools to simplify the life for kafka users.
 
 1. [Kafka quick start](#kafka-cluster-quick-start): set up a true kafka cluster in one minute
 2. [Kafka benchmark](#latency-benchmark): run producers/consumers to test the performance and consistency for kafka cluster
-3. [Kafka offset explorer](#offset-explorer): check the start/end offsets of kafka topics
-4. [Kafka official tool](#kafka-official-tool): run any one specific kafka official tool. All you have to prepare is the docker env.
-4. [Replica Collie](#replica-collie): move replicas from brokers to others. You can use this tool to obstruct specific brokers from hosting specific topics. 
+3. [Kafka performance](#Performance Benchmark): check producing/consuming performance.
+4. [Kafka offset explorer](#offset-explorer): check the start/end offsets of kafka topics
+5. [Kafka official tool](#kafka-official-tool): run any one specific kafka official tool. All you have to prepare is the docker env.
+6. [Replica Collie](#replica-collie): move replicas from brokers to others. You can use this tool to obstruct specific brokers from hosting specific topics. 
 
 [Release page](https://github.com/skiptests/astraea/releases) offers the uber jar including all tools.
 ```shell
@@ -101,16 +102,16 @@ This tool is used test to following metrics.
 
 Run the benchmark from source
 ```shell
-./gradlew run --args="Performance --brokers 192.168.103.26:19900,192.168.103.26:19639,192.168.103.26:17374 --topic topic --topicConfig partitions:10,replicationFactor:3 --producers 5 --consumers 1 --records 100000 --recordSize 10000"
+./gradlew run --args="Performance --bootstrap.servers localhost:9092 --topic topic --topicConfig partitions:10,replicationFactor:3 --producers 5 --consumers 1 --records 100000 --recordSize 10000"
 ```
 ### Performance Benchmark Configurations
-1. --brokers: the server to connect to
+1. --bootstrap.servers: the server to connect to
 2. --topic: the topic name
 3. --partitions: topic config when creating new topic. Default: 1 
-4. --replicationFactor: topic config when creating new topic. Default: 1
+4. --replicas: topic config when creating new topic. Default: 1
 5. --consumers: the number of consumers (threads). Default: 1
 6. --records: the total number of records sent by the producers. Default: 1000
-7. --recordSize: the record size in byte. Default: 1024 byte
+7. --record.size: the record size in byte. Default: 1024 byte
 
 ---
 

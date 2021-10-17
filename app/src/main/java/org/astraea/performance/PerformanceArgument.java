@@ -24,7 +24,7 @@ public class PerformanceArgument {
   int partitions = 1;
 
   @Parameter(
-      names = {"--replicationFactor"},
+      names = {"--replicas"},
       description = "Integer: number of replica to create the topic",
       validateWith = ArgumentUtil.PositiveLong.class,
       converter = ArgumentUtil.ShortConverter.class)
@@ -49,7 +49,7 @@ public class PerformanceArgument {
   long records = 1000;
 
   @Parameter(
-      names = {"--recordSize"},
+      names = {"--record.size"},
       description = "",
       validateWith = ArgumentUtil.PositiveLong.class)
   int recordSize = 1024;
