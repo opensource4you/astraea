@@ -36,7 +36,7 @@ public class NodeLoadClient implements SingleThreadPool.Executor {
     }
   }
 
-  public HashMap<String, Integer> getAllOverLoadCount() {
+  public synchronized HashMap<String, Integer> getAllOverLoadCount() {
     HashMap<String, Integer> overLoadCount = new HashMap<>();
     for (NodeMetadata nodeMetadata : nodeMetadataCollection) {
       overLoadCount.put(nodeMetadata.getNodeID(), nodeMetadata.getOverLoadCount());
@@ -44,7 +44,7 @@ public class NodeLoadClient implements SingleThreadPool.Executor {
     return overLoadCount;
   }
 
-  public int getAvgLoadCount() {
+  public synchronized int getAvgLoadCount() {
     double avgLoadCount = 0;
     for (NodeMetadata nodeMetadata : nodeMetadataCollection) {
       avgLoadCount += getBinOneCount(nodeMetadata.getOverLoadCount());
