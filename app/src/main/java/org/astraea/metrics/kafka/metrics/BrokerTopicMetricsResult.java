@@ -3,17 +3,14 @@ package org.astraea.metrics.kafka.metrics;
 import java.util.Map;
 import java.util.Objects;
 import org.astraea.metrics.jmx.BeanObject;
-import org.astraea.metrics.kafka.KafkaMetrics;
 import org.astraea.metrics.kafka.metrics.modifiers.*;
 
 public class BrokerTopicMetricsResult implements HasCount, HasEventType, HasRate {
 
   private final BeanObject beanObject;
-  private final KafkaMetrics.BrokerTopicMetrics metric;
 
-  public BrokerTopicMetricsResult(KafkaMetrics.BrokerTopicMetrics metric, BeanObject beanObject) {
+  public BrokerTopicMetricsResult(BeanObject beanObject) {
     this.beanObject = Objects.requireNonNull(beanObject);
-    this.metric = Objects.requireNonNull(metric);
   }
 
   @Override
@@ -26,7 +23,7 @@ public class BrokerTopicMetricsResult implements HasCount, HasEventType, HasRate
           .append("=")
           .append(e.getValue());
     }
-    return metric.name() + "{" + sb + "}";
+    return beanObject().getProperties().get("name") + "{" + sb + "}";
   }
 
   @Override

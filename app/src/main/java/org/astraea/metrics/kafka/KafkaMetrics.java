@@ -77,7 +77,7 @@ public final class KafkaMetrics {
                       .property("name", this.metricName())
                       .build())
               .orElseThrow();
-      return new BrokerTopicMetricsResult(this, beanObject);
+      return new BrokerTopicMetricsResult(beanObject);
     }
   }
 
