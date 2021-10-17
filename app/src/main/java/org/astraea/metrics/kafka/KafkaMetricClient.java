@@ -21,7 +21,7 @@ public class KafkaMetricClient implements AutoCloseable {
   }
 
   public <RET_TYPE> RET_TYPE requestMetric(Metric<RET_TYPE> metric) {
-    BeanQuery query = metric.queries();
+    BeanQuery query = metric.query();
     BeanObject resolved = mBeanClient.tryQueryBean(query).orElseThrow();
     return metric.from(resolved);
   }

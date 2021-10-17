@@ -69,7 +69,7 @@ public enum BrokerTopicMetrics implements Metric<BrokerTopicMetricsResult> {
   }
 
   @Override
-  public BeanQuery queries() {
+  public BeanQuery query() {
     return BeanQuery.builder("kafka.server")
         .property("type", "BrokerTopicMetrics")
         .property("name", this.metricName())

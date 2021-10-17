@@ -30,13 +30,13 @@ public interface Metric<RET_TYPE> {
    *
    * @return a {@link BeanQuery} used to resolve specific MBean.
    */
-  BeanQuery queries();
+  BeanQuery query();
 
   /**
    * construct the domain object with {@link RET_TYPE} type by the given {@link BeanObject}.
    *
-   * @param a {@link BeanObject} resolved from {@link BeanQuery} of {@link #queries()}.
-   * @return a domain object based on given given {@link BeanObject}, it offer easier to use API
+   * @param beanObject a {@link BeanObject} resolved from {@link BeanQuery} of {@link #query()}.
+   * @return a domain object based on given {@link BeanObject}, it offer easier API to use.
    */
   RET_TYPE from(BeanObject beanObject);
 }

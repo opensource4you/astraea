@@ -24,7 +24,7 @@ public final class Metrics {
     public static Metric<Integer> size(PurgatoryRequest request) {
       return new Metric<>() {
         @Override
-        public BeanQuery queries() {
+        public BeanQuery query() {
           return BeanQuery.builder("kafka.server")
               .property("type", "DelayedOperationPurgatory")
               .property("delayedOperation", request.name())
@@ -53,7 +53,7 @@ public final class Metrics {
     public static Metric<TotalTimeMs> totalTimeMs(RequestTotalTimeMs request) {
       return new Metric<>() {
         @Override
-        public BeanQuery queries() {
+        public BeanQuery query() {
           return BeanQuery.builder("kafka.network")
               .property("type", "RequestMetrics")
               .property("request", request.name())
@@ -87,7 +87,7 @@ public final class Metrics {
     public static Metric<Integer> globalPartitionCount() {
       return new Metric<>() {
         @Override
-        public BeanQuery queries() {
+        public BeanQuery query() {
           return BeanQuery.builder("kafka.controller")
               .property("type", "KafkaController")
               .property("name", "GlobalPartitionCount")
@@ -111,7 +111,7 @@ public final class Metrics {
     public static Metric<Integer> underReplicatedPartitions() {
       return new Metric<>() {
         @Override
-        public BeanQuery queries() {
+        public BeanQuery query() {
           return BeanQuery.builder("kafka.server")
               .property("type", "ReplicaManager")
               .property("name", "UnderReplicatedPartitions")

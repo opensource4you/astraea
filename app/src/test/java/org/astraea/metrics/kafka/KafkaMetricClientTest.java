@@ -80,7 +80,7 @@ class KafkaMetricClientTest {
         sut.requestMetric(
             new Metric<>() {
               @Override
-              public BeanQuery queries() {
+              public BeanQuery query() {
                 return BeanQuery.builder("org.example")
                     .property("type", "category")
                     .property("index", "0")
