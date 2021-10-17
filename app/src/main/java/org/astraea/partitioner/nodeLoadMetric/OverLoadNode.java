@@ -36,7 +36,7 @@ public class OverLoadNode {
       nodeMetadata.setOverLoadCount(
           setOverLoadCount(nodeMetadata.getOverLoadCount(), mountCount % 10, ifOverLoad));
     }
-    this.mountCount = mountCount++;
+    mountCount++;
   }
 
   /**

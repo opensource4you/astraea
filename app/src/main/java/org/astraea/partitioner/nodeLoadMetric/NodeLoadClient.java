@@ -6,6 +6,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.concurrent.TimeUnit;
 import org.astraea.concurrent.ThreadPool;
+import org.astraea.metrics.kafka.KafkaMetricClient;
 
 public class NodeLoadClient implements ThreadPool.Executor {
 
@@ -33,6 +34,19 @@ public class NodeLoadClient implements ThreadPool.Executor {
       TimeUnit.SECONDS.sleep(1);
     } catch (InterruptedException e) {
       e.printStackTrace();
+    }
+  }
+
+  @Override
+  public void cleanup() {
+    for (NodeMetadata nodeMetadata : nodeMetadataCollection) {
+      NodeMetrics nodeMetrics = nodeMetadata.getNodeMetrics();
+      KafkaMetricClient kafkaMetricClient = nodeMetrics.getKafkaMetricClient();
+      try {
+        kafkaMetricClient.close();
+      } catch (Exception e) {
+        e.printStackTrace();
+      }
     }
   }
 
