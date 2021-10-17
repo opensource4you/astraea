@@ -1,8 +1,9 @@
 package org.astraea.performance.latency;
 
 import java.util.concurrent.TimeUnit;
+import org.astraea.concurrent.ThreadPool;
 
-class MeterTracker extends CloseableThread {
+class MeterTracker implements ThreadPool.Executor {
   private final long startTime = System.currentTimeMillis();
   private final String name;
   private long bytes = 0;
@@ -62,7 +63,7 @@ class MeterTracker extends CloseableThread {
   }
 
   @Override
-  void execute() {
+  public void execute() {
     try {
       TimeUnit.SECONDS.sleep(2);
       String output;

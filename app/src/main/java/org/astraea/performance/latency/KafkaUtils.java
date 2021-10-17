@@ -40,12 +40,16 @@ final class KafkaUtils {
         || producerRecord.timestamp() == consumerRecord.timestamp();
   }
 
-  static void createTopicIfNotExist(TopicAdmin adminClient, String name, int numberOfPartitions) {
+  static void createTopicIfNotExist(
+      TopicAdmin adminClient, Set<String> topics, int numberOfPartitions) {
     try {
-      if (!adminClient.listTopics().contains(name))
-        adminClient.createTopics(
-            Collections.singletonList(
-                new NewTopic(name, Optional.of(numberOfPartitions), Optional.empty())));
+      topics.forEach(
+          topic -> {
+            if (!adminClient.listTopics().contains(topic))
+              adminClient.createTopics(
+                  Collections.singletonList(
+                      new NewTopic(topic, Optional.of(numberOfPartitions), Optional.empty())));
+          });
     } catch (Exception e) {
       throw new RuntimeException(e);
     }

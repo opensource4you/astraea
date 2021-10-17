@@ -86,7 +86,7 @@ class FakeComponentFactory implements ComponentFactory {
   }
 
   @Override
-  public Consumer createConsumer() {
+  public Consumer consumer() {
     return new Consumer() {
 
       @Override
@@ -117,7 +117,7 @@ class FakeComponentFactory implements ComponentFactory {
   }
 
   @Override
-  public TopicAdmin createTopicAdmin() {
+  public TopicAdmin topicAdmin() {
     return new TopicAdmin() {
 
       @Override

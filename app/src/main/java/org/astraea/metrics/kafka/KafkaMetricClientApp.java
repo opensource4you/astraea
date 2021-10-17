@@ -1,5 +1,6 @@
 package org.astraea.metrics.kafka;
 
+import com.beust.jcommander.Parameter;
 import java.net.MalformedURLException;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
@@ -22,7 +23,7 @@ public final class KafkaMetricClientApp {
   }
 
   public static void main(String[] args) throws MalformedURLException {
-    var parameters = ArgumentUtil.parseArgument(new KafkaMetricClientAppArgument(), args);
+    var parameters = ArgumentUtil.parseArgument(new Argument(), args);
 
     String argumentJmxServerNetworkAddress = parameters.address;
     Set<String> argumentTargetMetrics = parameters.metrics;
@@ -61,5 +62,22 @@ public final class KafkaMetricClientApp {
     } catch (Exception e) {
       e.printStackTrace();
     }
+  }
+
+  static class Argument {
+    @Parameter(
+        names = {"--jmx.server"},
+        description = "The address to connect to JMX remote server",
+        validateWith = ArgumentUtil.NotEmptyString.class,
+        required = true)
+    String address;
+
+    @Parameter(
+        names = {"--metrics"},
+        variableArity = true,
+        converter = ArgumentUtil.StringSetConverter.class,
+        description =
+            "The metric names you want. If no metric name specified in argument, all metrics will be selected.")
+    Set<String> metrics = BrokerTopicMetrics.AllMetricNames;
   }
 }
