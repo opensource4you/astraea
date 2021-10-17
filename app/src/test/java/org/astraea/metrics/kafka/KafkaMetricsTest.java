@@ -1,26 +1,31 @@
-package org.astraea.metrics.kafka.metrics;
+package org.astraea.metrics.kafka;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 import java.io.IOException;
 import java.lang.management.ManagementFactory;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 import javax.management.*;
 import javax.management.remote.JMXConnectorServer;
 import javax.management.remote.JMXConnectorServerFactory;
 import javax.management.remote.JMXServiceURL;
 import org.astraea.metrics.jmx.MBeanClient;
 import org.astraea.metrics.jmx.Utility;
+import org.astraea.metrics.kafka.metrics.BrokerTopicMetricsResult;
+import org.astraea.metrics.kafka.metrics.TotalTimeMs;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
-class MetricsTest {
+class KafkaMetricsTest {
 
   private MBeanServer mBeanServer;
   private JMXConnectorServer jmxServer;
@@ -70,9 +75,21 @@ class MetricsTest {
     mBeanClient.close();
   }
 
+  @Test
+  void testAllEnumNameUnique() {
+    // arrange act
+    Set<String> collectedName =
+        Arrays.stream(KafkaMetrics.BrokerTopicMetrics.values())
+            .map(KafkaMetrics.BrokerTopicMetrics::metricName)
+            .collect(Collectors.toSet());
+
+    // assert
+    assertEquals(KafkaMetrics.BrokerTopicMetrics.values().length, collectedName.size());
+  }
+
   @ParameterizedTest
-  @EnumSource(value = Metrics.BrokerTopicMetrics.class)
-  void testRequestBrokerTopicMetrics(Metrics.BrokerTopicMetrics metric)
+  @EnumSource(value = KafkaMetrics.BrokerTopicMetrics.class)
+  void testRequestBrokerTopicMetrics(KafkaMetrics.BrokerTopicMetrics metric)
       throws MalformedObjectNameException {
     // arrange
     Object mbean =
@@ -103,8 +120,8 @@ class MetricsTest {
   }
 
   @ParameterizedTest()
-  @EnumSource(value = Metrics.Purgatory.class)
-  void testPurgatorySize(Metrics.Purgatory request) throws MalformedObjectNameException {
+  @EnumSource(value = KafkaMetrics.Purgatory.class)
+  void testPurgatorySize(KafkaMetrics.Purgatory request) throws MalformedObjectNameException {
     // arrange
     Function<Integer, Object> fMbean =
         (a) -> Utility.createReadOnlyDynamicMBean(Map.of("Value", a));
@@ -123,8 +140,9 @@ class MetricsTest {
   }
 
   @ParameterizedTest()
-  @EnumSource(value = Metrics.RequestMetrics.class)
-  void testRequestTotalTimeMs(Metrics.RequestMetrics request) throws MalformedObjectNameException {
+  @EnumSource(value = KafkaMetrics.RequestMetrics.class)
+  void testRequestTotalTimeMs(KafkaMetrics.RequestMetrics request)
+      throws MalformedObjectNameException {
     // arrange
     Map<String, Object> map = new HashMap<>();
     map.put("50thPercentile", 1.0);
@@ -170,7 +188,7 @@ class MetricsTest {
         mbean);
 
     // act
-    int integer = Metrics.TopicPartition.globalPartitionCount(mBeanClient);
+    int integer = KafkaMetrics.TopicPartition.globalPartitionCount(mBeanClient);
 
     // assert
     assertEquals(0xcafebabe, integer);
@@ -185,7 +203,7 @@ class MetricsTest {
         mbean);
 
     // act
-    int integer = Metrics.TopicPartition.underReplicatedPartitions(mBeanClient);
+    int integer = KafkaMetrics.TopicPartition.underReplicatedPartitions(mBeanClient);
 
     // assert
     assertEquals(0x55665566, integer);

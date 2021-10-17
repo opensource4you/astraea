@@ -1,12 +1,14 @@
-package org.astraea.metrics.kafka.metrics;
+package org.astraea.metrics.kafka;
 
 import org.astraea.metrics.jmx.BeanObject;
 import org.astraea.metrics.jmx.BeanQuery;
 import org.astraea.metrics.jmx.MBeanClient;
+import org.astraea.metrics.kafka.metrics.BrokerTopicMetricsResult;
+import org.astraea.metrics.kafka.metrics.TotalTimeMs;
 
-public final class Metrics {
+public final class KafkaMetrics {
 
-  private Metrics() {}
+  private KafkaMetrics() {}
 
   public enum BrokerTopicMetrics {
     /** Message validation failure rate due to non-continuous offset or sequence number in batch */

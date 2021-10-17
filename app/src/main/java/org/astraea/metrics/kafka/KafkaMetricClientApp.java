@@ -14,7 +14,6 @@ import javax.management.remote.JMXServiceURL;
 import org.astraea.argument.ArgumentUtil;
 import org.astraea.metrics.jmx.MBeanClient;
 import org.astraea.metrics.kafka.metrics.BrokerTopicMetricsResult;
-import org.astraea.metrics.kafka.metrics.Metrics;
 
 public final class KafkaMetricClientApp {
 
@@ -34,9 +33,9 @@ public final class KafkaMetricClientApp {
     try (MBeanClient mBeanClient = new MBeanClient(serviceURL)) {
 
       // find the actual metrics to fetch.
-      List<Metrics.BrokerTopicMetrics> metrics =
+      List<KafkaMetrics.BrokerTopicMetrics> metrics =
           argumentTargetMetrics.stream()
-              .map(Metrics.BrokerTopicMetrics::valueOf)
+              .map(KafkaMetrics.BrokerTopicMetrics::valueOf)
               .collect(Collectors.toUnmodifiableList());
 
       while (!Thread.interrupted()) {
@@ -81,8 +80,8 @@ public final class KafkaMetricClientApp {
         description =
             "The metric names you want. If no metric name specified in argument, all metrics will be selected.")
     Set<String> metrics =
-        Arrays.stream(Metrics.BrokerTopicMetrics.values())
-            .map(Metrics.BrokerTopicMetrics::metricName)
+        Arrays.stream(KafkaMetrics.BrokerTopicMetrics.values())
+            .map(KafkaMetrics.BrokerTopicMetrics::metricName)
             .collect(Collectors.toUnmodifiableSet());
   }
 }
