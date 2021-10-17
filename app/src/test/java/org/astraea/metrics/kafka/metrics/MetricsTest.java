@@ -14,7 +14,6 @@ import javax.management.remote.JMXConnectorServerFactory;
 import javax.management.remote.JMXServiceURL;
 import org.astraea.metrics.jmx.MBeanClient;
 import org.astraea.metrics.jmx.Utility;
-import org.astraea.metrics.kafka.KafkaMetricClient;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -26,7 +25,6 @@ class MetricsTest {
   private MBeanServer mBeanServer;
   private JMXConnectorServer jmxServer;
   private Map<ObjectName, Object> registeredBeans = new HashMap<>();
-  private KafkaMetricClient sut;
   private MBeanClient mBeanClient;
 
   private void register(ObjectName name, Object mBean) {
@@ -61,7 +59,6 @@ class MetricsTest {
     jmxServer = JMXConnectorServerFactory.newJMXConnectorServer(serviceURL, null, mBeanServer);
     jmxServer.start();
 
-    sut = new KafkaMetricClient(jmxServer.getAddress());
     mBeanClient = new MBeanClient(jmxServer.getAddress());
   }
 
@@ -70,7 +67,7 @@ class MetricsTest {
     jmxServer.stop();
     clearRegisteredMBeans();
     mBeanServer = null;
-    sut.close();
+    mBeanClient.close();
   }
 
   @ParameterizedTest
