@@ -2,18 +2,20 @@ package org.astraea.partitioner.partitionerFactory;
 
 import java.net.MalformedURLException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Random;
 import org.apache.kafka.clients.producer.Partitioner;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.Cluster;
 import org.apache.kafka.common.PartitionInfo;
+import org.astraea.concurrent.ThreadPool;
 import org.astraea.partitioner.nodeLoadMetric.BrokersWeight;
 import org.astraea.partitioner.nodeLoadMetric.LoadPoisson;
 import org.astraea.partitioner.nodeLoadMetric.NodeLoadClient;
-import org.astraea.partitioner.nodeLoadMetric.SingleThreadPool;
 
 public class LinkPartitioner implements Partitioner {
 
@@ -41,13 +43,6 @@ public class LinkPartitioner implements Partitioner {
 
   @Override
   public void configure(Map<String, ?> configs) throws NullPointerException {
-
-    var jmxAddresses = configs.get("jmx_servers");
-
-    if (jmxAddresses.equals(null)) {
-      throw new NullPointerException("You must configure jmx_servers correctly.");
-    }
-
     partitioner = FACTORY.getOrCreate(ThreadSafeSmoothPartitioner.class, configs);
   }
 
@@ -57,13 +52,9 @@ public class LinkPartitioner implements Partitioner {
 
   public static class ThreadSafeSmoothPartitioner implements Partitioner {
     private NodeLoadClient nodeLoadClient;
-    private Map<String, ?> smoothConfigs;
-    private SingleThreadPool pool;
+    private ThreadPool pool;
 
-    ThreadSafeSmoothPartitioner() throws MalformedURLException {
-      nodeLoadClient = new NodeLoadClient((Map<String, String>) smoothConfigs.get("jmx_servers"));
-      pool = SingleThreadPool.builder().build(nodeLoadClient);
-    }
+    ThreadSafeSmoothPartitioner() {}
 
     @Override
     public int partition(
@@ -82,10 +73,8 @@ public class LinkPartitioner implements Partitioner {
       HashMap<String, int[]> currentBrokerHashMap = brokersWeight.getBrokerHashMap();
 
       for (Map.Entry<String, int[]> item : currentBrokerHashMap.entrySet()) {
-        Map.Entry<String, int[]> currentServer = item;
-        if (maxWeightServer == null
-            || currentServer.getValue()[1] > maxWeightServer.getValue()[1]) {
-          maxWeightServer = currentServer;
+        if (maxWeightServer == null || item.getValue()[1] > maxWeightServer.getValue()[1]) {
+          maxWeightServer = item;
         }
       }
       assert maxWeightServer != null;
@@ -111,7 +100,21 @@ public class LinkPartitioner implements Partitioner {
 
     @Override
     public void configure(Map<String, ?> configs) {
-      smoothConfigs = configs;
+      try {
+        var list = Arrays.asList(((String) configs.get("jmx_servers")).split(","));
+        HashMap<String, String> mapAddress = new HashMap<>();
+        for (String str : list) {
+          var listAddress = Arrays.asList(str.split("@"));
+          System.out.println(listAddress);
+          mapAddress.put(listAddress.get(1), listAddress.get(0));
+        }
+        Objects.requireNonNull(
+            mapAddress, "You must configure jmx_servers correctly.(JmxAddress@NodeID)");
+        nodeLoadClient = new NodeLoadClient((mapAddress));
+      } catch (MalformedURLException e) {
+        e.printStackTrace();
+      }
+      pool = ThreadPool.builder().executor(nodeLoadClient).build();
     }
   }
 

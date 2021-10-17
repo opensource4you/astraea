@@ -4,16 +4,16 @@ import java.net.MalformedURLException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.Map;
 import java.util.concurrent.TimeUnit;
+import org.astraea.concurrent.ThreadPool;
 
-public class NodeLoadClient implements SingleThreadPool.Executor {
+public class NodeLoadClient implements ThreadPool.Executor {
 
   private final OverLoadNode overLoadNode;
   private final Collection<NodeMetadata> nodeMetadataCollection = new ArrayList<>();
 
-  public NodeLoadClient(Map<String, String> jmxAddresses) throws MalformedURLException {
-    for (Map.Entry<String, String> entry : jmxAddresses.entrySet()) {
+  public NodeLoadClient(HashMap<String, String> jmxAddresses) throws MalformedURLException {
+    for (HashMap.Entry<String, String> entry : jmxAddresses.entrySet()) {
       this.nodeMetadataCollection.add(
           new NodeMetadata(entry.getKey(), createNodeMetrics(entry.getKey(), entry.getValue())));
     }
@@ -55,7 +55,7 @@ public class NodeLoadClient implements SingleThreadPool.Executor {
   }
 
   /** Get the number of times a node is overloaded. */
-  public int getBinOneCount(int n) {
+  public static int getBinOneCount(int n) {
     int index = 0;
     int count = 0;
     while (n > 0) {

@@ -11,7 +11,6 @@ import static org.mockito.Mockito.verify;
 
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Executors;
@@ -33,7 +32,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.MockedConstruction;
 
 public class SmoothPartitionerFactoryTest {
-  private HashMap<String, String> jmxAddresses;
+  private String jmxAddresses;
 
   private static final Node[] NODES =
       new Node[] {
@@ -49,10 +48,7 @@ public class SmoothPartitionerFactoryTest {
 
   @BeforeEach
   void reset() {
-    jmxAddresses = new HashMap<>();
-    jmxAddresses.put("0", "0.0.0.0");
-    jmxAddresses.put("1", "0.0.0.0");
-    jmxAddresses.put("2", "0.0.0.0");
+    jmxAddresses = "0.0.0.0,1.1.1.1,2.2.2.2";
   }
 
   @Test
@@ -101,7 +97,7 @@ public class SmoothPartitionerFactoryTest {
             ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, "localhost:11111", "jmx_server", jmxAddresses);
 
     LinkPartitioner partitioner = new LinkPartitioner();
-    Assertions.assertThrows(NullPointerException.class, () -> partitioner.configure(configs))
+    Assertions.assertThrows(RuntimeException.class, () -> partitioner.configure(configs))
         .getMessage();
   }
 

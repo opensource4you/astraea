@@ -1,7 +1,6 @@
 package org.astraea.partitioner.nodeLoadMetric;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -47,7 +46,6 @@ public class TestLoadPoisson {
     NodeLoadClient nodeLoadClient = mock(NodeLoadClient.class);
     when(nodeLoadClient.getAllOverLoadCount()).thenReturn(testNodesLoadCount);
     when(nodeLoadClient.getAvgLoadCount()).thenReturn(5);
-    when(nodeLoadClient.getBinOneCount(anyInt())).thenCallRealMethod();
 
     LoadPoisson loadPoisson = new LoadPoisson(nodeLoadClient);
 

@@ -1,9 +1,8 @@
 package org.astraea.partitioner.nodeLoadMetric;
 
+import static org.astraea.partitioner.nodeLoadMetric.NodeLoadClient.getBinOneCount;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -37,9 +36,7 @@ public class NodeLoadClientTest {
 
   @Test
   public void testGetBinOneCount() {
-    NodeLoadClient nodeLoadClient = mock(NodeLoadClient.class);
-    when(nodeLoadClient.getBinOneCount(anyInt())).thenCallRealMethod();
-    assertEquals(nodeLoadClient.getBinOneCount(7), 3);
-    assertEquals(nodeLoadClient.getBinOneCount(10), 2);
+    assertEquals(getBinOneCount(7), 3);
+    assertEquals(getBinOneCount(10), 2);
   }
 }
