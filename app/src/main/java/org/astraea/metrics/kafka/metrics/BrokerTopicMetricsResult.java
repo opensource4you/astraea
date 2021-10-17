@@ -8,9 +8,9 @@ import org.astraea.metrics.kafka.metrics.modifiers.*;
 public class BrokerTopicMetricsResult implements HasCount, HasEventType, HasRate {
 
   private final BeanObject beanObject;
-  private final BrokerTopicMetrics metric;
+  private final Metrics.BrokerTopicMetrics metric;
 
-  public BrokerTopicMetricsResult(BrokerTopicMetrics metric, BeanObject beanObject) {
+  public BrokerTopicMetricsResult(Metrics.BrokerTopicMetrics metric, BeanObject beanObject) {
     this.beanObject = Objects.requireNonNull(beanObject);
     this.metric = Objects.requireNonNull(metric);
   }

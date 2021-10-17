@@ -7,10 +7,12 @@ import java.lang.management.ManagementFactory;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 import javax.management.*;
 import javax.management.remote.JMXConnectorServer;
 import javax.management.remote.JMXConnectorServerFactory;
 import javax.management.remote.JMXServiceURL;
+import org.astraea.metrics.jmx.MBeanClient;
 import org.astraea.metrics.jmx.Utility;
 import org.astraea.metrics.kafka.KafkaMetricClient;
 import org.junit.jupiter.api.AfterEach;
@@ -25,6 +27,7 @@ class MetricsTest {
   private JMXConnectorServer jmxServer;
   private Map<ObjectName, Object> registeredBeans = new HashMap<>();
   private KafkaMetricClient sut;
+  private MBeanClient mBeanClient;
 
   private void register(ObjectName name, Object mBean) {
     registeredBeans.put(name, mBean);
@@ -59,6 +62,7 @@ class MetricsTest {
     jmxServer.start();
 
     sut = new KafkaMetricClient(jmxServer.getAddress());
+    mBeanClient = new MBeanClient(jmxServer.getAddress());
   }
 
   @AfterEach
@@ -70,8 +74,8 @@ class MetricsTest {
   }
 
   @ParameterizedTest
-  @EnumSource(value = BrokerTopicMetrics.class)
-  void testRequestBrokerTopicMetrics(BrokerTopicMetrics metric)
+  @EnumSource(value = Metrics.BrokerTopicMetrics.class)
+  void testRequestBrokerTopicMetrics(Metrics.BrokerTopicMetrics metric)
       throws MalformedObjectNameException {
     // arrange
     Object mbean =
@@ -89,7 +93,7 @@ class MetricsTest {
         mbean);
 
     // act
-    BrokerTopicMetricsResult result = sut.requestMetric(Metrics.brokerTopicMetric(metric));
+    BrokerTopicMetricsResult result = metric.fetch(mBeanClient);
 
     // assert
     assertEquals(1L, result.count());
@@ -102,28 +106,28 @@ class MetricsTest {
   }
 
   @ParameterizedTest()
-  @EnumSource(value = PurgatoryRequest.class)
-  void testPurgatorySize(PurgatoryRequest request) throws MalformedObjectNameException {
+  @EnumSource(value = Metrics.Purgatory.class)
+  void testPurgatorySize(Metrics.Purgatory request) throws MalformedObjectNameException {
     // arrange
-    Object mbean = Utility.createReadOnlyDynamicMBean(Map.of("Value", 0xfee1dead));
-    register(
-        ObjectName.getInstance(
-            "kafka.server:type=DelayedOperationPurgatory,delayedOperation="
-                + request.name()
-                + ",name=PurgatorySize"),
-        mbean);
+    Function<Integer, Object> fMbean =
+        (a) -> Utility.createReadOnlyDynamicMBean(Map.of("Value", a));
+    Function<String, String> fname =
+        (a) ->
+            String.format(
+                "kafka.server:type=DelayedOperationPurgatory,delayedOperation=%s,name=PurgatorySize",
+                a);
+    register(ObjectName.getInstance(fname.apply(request.name())), fMbean.apply(0xcafebabe));
 
     // act
-    Integer value = sut.requestMetric(Metrics.Purgatory.size(request));
+    int size = request.size(mBeanClient);
 
     // assert
-    assertEquals(0xfee1dead, value);
+    assertEquals(0xcafebabe, size);
   }
 
   @ParameterizedTest()
-  @EnumSource(value = Metrics.RequestMetrics.RequestTotalTimeMs.class)
-  void testRequestTotalTimeMs(Metrics.RequestMetrics.RequestTotalTimeMs request)
-      throws MalformedObjectNameException {
+  @EnumSource(value = Metrics.RequestMetrics.class)
+  void testRequestTotalTimeMs(Metrics.RequestMetrics request) throws MalformedObjectNameException {
     // arrange
     Map<String, Object> map = new HashMap<>();
     map.put("50thPercentile", 1.0);
@@ -144,7 +148,7 @@ class MetricsTest {
         mbean);
 
     // act
-    TotalTimeMs totalTimeMs = sut.requestMetric(Metrics.RequestMetrics.totalTimeMs(request));
+    TotalTimeMs totalTimeMs = request.totalTimeMs(mBeanClient);
 
     // assert
     assertEquals(totalTimeMs.percentile50(), 1.0);
@@ -169,7 +173,7 @@ class MetricsTest {
         mbean);
 
     // act
-    Integer integer = sut.requestMetric(Metrics.TopicPartition.globalPartitionCount());
+    int integer = Metrics.TopicPartition.globalPartitionCount(mBeanClient);
 
     // assert
     assertEquals(0xcafebabe, integer);
@@ -184,7 +188,7 @@ class MetricsTest {
         mbean);
 
     // act
-    Integer integer = sut.requestMetric(Metrics.TopicPartition.underReplicatedPartitions());
+    int integer = Metrics.TopicPartition.underReplicatedPartitions(mBeanClient);
 
     // assert
     assertEquals(0x55665566, integer);

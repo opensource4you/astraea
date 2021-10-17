@@ -13,11 +13,11 @@ class BrokerTopicMetricsTest {
   void testAllEnumNameUnique() {
     // arrange act
     Set<String> collectedName =
-        Arrays.stream(BrokerTopicMetrics.values())
-            .map(BrokerTopicMetrics::metricName)
+        Arrays.stream(Metrics.BrokerTopicMetrics.values())
+            .map(Metrics.BrokerTopicMetrics::metricName)
             .collect(Collectors.toSet());
 
     // assert
-    assertEquals(BrokerTopicMetrics.values().length, collectedName.size());
+    assertEquals(Metrics.BrokerTopicMetrics.values().length, collectedName.size());
   }
 }

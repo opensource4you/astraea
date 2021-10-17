@@ -5,14 +5,16 @@ import java.net.MalformedURLException;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.FormatStyle;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import javax.management.remote.JMXServiceURL;
 import org.astraea.argument.ArgumentUtil;
-import org.astraea.metrics.kafka.metrics.BrokerTopicMetrics;
+import org.astraea.metrics.jmx.MBeanClient;
 import org.astraea.metrics.kafka.metrics.BrokerTopicMetricsResult;
+import org.astraea.metrics.kafka.metrics.Metrics;
 
 public final class KafkaMetricClientApp {
 
@@ -29,19 +31,19 @@ public final class KafkaMetricClientApp {
     Set<String> argumentTargetMetrics = parameters.metrics;
 
     JMXServiceURL serviceURL = new JMXServiceURL(createJmxUrl(argumentJmxServerNetworkAddress));
-    try (KafkaMetricClient kafkaMetricClient = new KafkaMetricClient(serviceURL)) {
+    try (MBeanClient mBeanClient = new MBeanClient(serviceURL)) {
 
       // find the actual metrics to fetch.
-      List<BrokerTopicMetrics> metrics =
+      List<Metrics.BrokerTopicMetrics> metrics =
           argumentTargetMetrics.stream()
-              .map(BrokerTopicMetrics::valueOf)
+              .map(Metrics.BrokerTopicMetrics::valueOf)
               .collect(Collectors.toUnmodifiableList());
 
       while (!Thread.interrupted()) {
         // fetch
         List<BrokerTopicMetricsResult> collect =
             metrics.stream()
-                .map(kafkaMetricClient::requestMetric)
+                .map(x -> x.fetch(mBeanClient))
                 .collect(Collectors.toUnmodifiableList());
 
         // output
@@ -78,6 +80,9 @@ public final class KafkaMetricClientApp {
         converter = ArgumentUtil.StringSetConverter.class,
         description =
             "The metric names you want. If no metric name specified in argument, all metrics will be selected.")
-    Set<String> metrics = BrokerTopicMetrics.AllMetricNames;
+    Set<String> metrics =
+        Arrays.stream(Metrics.BrokerTopicMetrics.values())
+            .map(Metrics.BrokerTopicMetrics::metricName)
+            .collect(Collectors.toUnmodifiableSet());
   }
 }

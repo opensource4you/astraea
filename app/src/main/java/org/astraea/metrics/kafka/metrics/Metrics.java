@@ -2,76 +2,123 @@ package org.astraea.metrics.kafka.metrics;
 
 import org.astraea.metrics.jmx.BeanObject;
 import org.astraea.metrics.jmx.BeanQuery;
+import org.astraea.metrics.jmx.MBeanClient;
 
 public final class Metrics {
 
   private Metrics() {}
 
-  public static Metric<BrokerTopicMetricsResult> brokerTopicMetric(BrokerTopicMetrics m) {
-    return m;
-  }
+  public enum BrokerTopicMetrics {
+    /** Message validation failure rate due to non-continuous offset or sequence number in batch */
+    InvalidOffsetOrSequenceRecordsPerSec("InvalidOffsetOrSequenceRecordsPerSec"),
 
-  public static final class Purgatory {
+    /** Message validation failure rate due to incorrect crc checksum */
+    InvalidMessageCrcRecordsPerSec("InvalidMessageCrcRecordsPerSec"),
 
-    private Purgatory() {}
+    FetchMessageConversionsPerSec("FetchMessageConversionsPerSec"),
 
-    /**
-     * Number of requests waiting in the producer purgatory.
-     *
-     * @param request fetch specific purgatory related to this request.
-     * @return Number of requests waiting in the producer purgatory.
-     */
-    public static Metric<Integer> size(PurgatoryRequest request) {
-      return new Metric<>() {
-        @Override
-        public BeanQuery query() {
-          return BeanQuery.builder("kafka.server")
-              .property("type", "DelayedOperationPurgatory")
-              .property("delayedOperation", request.name())
-              .property("name", "PurgatorySize")
-              .build();
-        }
+    BytesRejectedPerSec("BytesRejectedPerSec"),
 
-        @Override
-        public Integer from(BeanObject beanObject) {
-          return (Integer) beanObject.getAttributes().get("Value");
-        }
-      };
+    /** Message in rate */
+    MessagesInPerSec("MessagesInPerSec"),
+
+    /** Incoming byte rate of reassignment traffic */
+    ReassignmentBytesInPerSec("ReassignmentBytesInPerSec"),
+
+    FailedFetchRequestsPerSec("FailedFetchRequestsPerSec"),
+
+    /** Byte in rate from other brokers */
+    ReplicationBytesInPerSec("ReplicationBytesInPerSec"),
+
+    /** Message validation failure rate due to no key specified for compacted topic */
+    NoKeyCompactedTopicRecordsPerSec("NoKeyCompactedTopicRecordsPerSec"),
+
+    TotalFetchRequestsPerSec("TotalFetchRequestsPerSec"),
+
+    FailedProduceRequestsPerSec("FailedProduceRequestsPerSec"),
+
+    /** Byte in rate from clients */
+    BytesInPerSec("BytesInPerSec"),
+
+    TotalProduceRequestsPerSec("TotalProduceRequestsPerSec"),
+
+    /** Message validation failure rate due to invalid magic number */
+    InvalidMagicNumberRecordsPerSec("InvalidMagicNumberRecordsPerSec"),
+
+    /** Outgoing byte rate of reassignment traffic */
+    ReassignmentBytesOutPerSec("ReassignmentBytesOutPerSec"),
+
+    /** Bytes in rate from other brokers */
+    ReplicationBytesOutPerSec("ReplicationBytesOutPerSec"),
+
+    ProduceMessageConversionsPerSec("ProduceMessageConversionsPerSec"),
+
+    /** Byte out rate to clients. */
+    BytesOutPerSec("BytesOutPerSec");
+
+    private final String metricName;
+
+    BrokerTopicMetrics(String name) {
+      this.metricName = name;
+    }
+
+    public String metricName() {
+      return metricName;
+    }
+
+    public BrokerTopicMetricsResult fetch(MBeanClient mBeanClient) {
+      BeanObject beanObject =
+          mBeanClient
+              .tryQueryBean(
+                  BeanQuery.builder("kafka.server")
+                      .property("type", "BrokerTopicMetrics")
+                      .property("name", this.metricName())
+                      .build())
+              .orElseThrow();
+      return new BrokerTopicMetricsResult(this, beanObject);
     }
   }
 
-  public static final class RequestMetrics {
+  public enum Purgatory {
+    AlterAcls,
+    DeleteRecords,
+    ElectLeader,
+    Fetch,
+    Heartbeat,
+    Produce,
+    Rebalance;
 
-    private RequestMetrics() {}
-
-    /**
-     * Request rate.
-     *
-     * @param request the specific request to fetch.
-     * @return the request rate of specific request.
-     */
-    public static Metric<TotalTimeMs> totalTimeMs(RequestTotalTimeMs request) {
-      return new Metric<>() {
-        @Override
-        public BeanQuery query() {
-          return BeanQuery.builder("kafka.network")
-              .property("type", "RequestMetrics")
-              .property("request", request.name())
-              .property("name", "TotalTimeMs")
-              .build();
-        }
-
-        @Override
-        public TotalTimeMs from(BeanObject beanObject) {
-          return new TotalTimeMs(beanObject);
-        }
-      };
+    public int size(MBeanClient mBeanClient) {
+      return (int)
+          mBeanClient
+              .tryQueryBean(
+                  BeanQuery.builder("kafka.server")
+                      .property("type", "DelayedOperationPurgatory")
+                      .property("delayedOperation", this.name())
+                      .property("name", "PurgatorySize")
+                      .build())
+              .orElseThrow()
+              .getAttributes()
+              .get("Value");
     }
+  }
 
-    public enum RequestTotalTimeMs {
-      Produce,
-      FetchConsumer,
-      FetchFollower
+  public enum RequestMetrics {
+    Produce,
+    FetchConsumer,
+    FetchFollower;
+
+    public TotalTimeMs totalTimeMs(MBeanClient mBeanClient) {
+      BeanObject beanObject =
+          mBeanClient
+              .tryQueryBean(
+                  BeanQuery.builder("kafka.network")
+                      .property("type", "RequestMetrics")
+                      .property("request", this.name())
+                      .property("name", "TotalTimeMs")
+                      .build())
+              .orElseThrow();
+      return new TotalTimeMs(beanObject);
     }
   }
 
@@ -84,21 +131,17 @@ public final class Metrics {
      *
      * @return number of partitions across all topics in the cluster.
      */
-    public static Metric<Integer> globalPartitionCount() {
-      return new Metric<>() {
-        @Override
-        public BeanQuery query() {
-          return BeanQuery.builder("kafka.controller")
-              .property("type", "KafkaController")
-              .property("name", "GlobalPartitionCount")
-              .build();
-        }
-
-        @Override
-        public Integer from(BeanObject beanObject) {
-          return (Integer) beanObject.getAttributes().get("Value");
-        }
-      };
+    public static int globalPartitionCount(MBeanClient mBeanClient) {
+      return (int)
+          mBeanClient
+              .tryQueryBean(
+                  BeanQuery.builder("kafka.controller")
+                      .property("type", "KafkaController")
+                      .property("name", "GlobalPartitionCount")
+                      .build())
+              .orElseThrow()
+              .getAttributes()
+              .get("Value");
     }
 
     /**
@@ -108,21 +151,17 @@ public final class Metrics {
      *
      * @return number of under-replicated partitions.
      */
-    public static Metric<Integer> underReplicatedPartitions() {
-      return new Metric<>() {
-        @Override
-        public BeanQuery query() {
-          return BeanQuery.builder("kafka.server")
-              .property("type", "ReplicaManager")
-              .property("name", "UnderReplicatedPartitions")
-              .build();
-        }
-
-        @Override
-        public Integer from(BeanObject beanObject) {
-          return (Integer) beanObject.getAttributes().get("Value");
-        }
-      };
+    public static int underReplicatedPartitions(MBeanClient mBeanClient) {
+      return (int)
+          mBeanClient
+              .tryQueryBean(
+                  BeanQuery.builder("kafka.server")
+                      .property("type", "ReplicaManager")
+                      .property("name", "UnderReplicatedPartitions")
+                      .build())
+              .orElseThrow()
+              .getAttributes()
+              .get("Value");
     }
   }
 }
