@@ -208,4 +208,30 @@ class KafkaMetricsTest {
     // assert
     assertEquals(0x55665566, integer);
   }
+
+  @Test
+  void testSize() throws MalformedObjectNameException {
+    // arrange
+    String topicName = "A";
+    Function<Long, Object> fMbean =
+        (Long l) -> Utility.createReadOnlyDynamicMBean(Map.of("Value", l));
+    Function<Integer, String> fName =
+        (Integer i) -> "kafka.log:type=Log,name=Size,topic=" + topicName + ",partition=" + i;
+
+    register(ObjectName.getInstance(fName.apply(1)), fMbean.apply(100L));
+    register(ObjectName.getInstance(fName.apply(2)), fMbean.apply(200L));
+    register(ObjectName.getInstance(fName.apply(4)), fMbean.apply(400L));
+    register(ObjectName.getInstance(fName.apply(5)), fMbean.apply(500L));
+
+    // act
+    Map<Integer, Long> size = KafkaMetrics.TopicPartition.size(mBeanClient, topicName);
+
+    // assert
+    assertFalse(size.containsKey(0));
+    assertEquals(100L, size.get(1));
+    assertEquals(200L, size.get(2));
+    assertFalse(size.containsKey(3));
+    assertEquals(400L, size.get(4));
+    assertEquals(500L, size.get(5));
+  }
 }
