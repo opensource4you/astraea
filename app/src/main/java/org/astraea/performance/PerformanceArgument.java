@@ -2,14 +2,9 @@ package org.astraea.performance;
 
 import com.beust.jcommander.Parameter;
 import org.astraea.argument.ArgumentUtil;
+import org.astraea.argument.BasicArgument;
 
-public class PerformanceArgument {
-  @Parameter(
-      names = {"--bootstrap.servers"},
-      description = "String: server to connect to",
-      validateWith = ArgumentUtil.NotEmptyString.class,
-      required = true)
-  String brokers;
+public class PerformanceArgument extends BasicArgument {
 
   @Parameter(
       names = {"--topic"},
@@ -50,7 +45,13 @@ public class PerformanceArgument {
 
   @Parameter(
       names = {"--record.size"},
-      description = "",
+      description = "Integer: size of each record",
       validateWith = ArgumentUtil.PositiveLong.class)
   int recordSize = 1024;
+
+  @Parameter(
+      names = {"--prop.file"},
+      description = "String: path to the properties file",
+      validateWith = ArgumentUtil.NotEmptyString.class)
+  String propFile;
 }
