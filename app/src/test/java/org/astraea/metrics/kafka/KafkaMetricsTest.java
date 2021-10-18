@@ -79,17 +79,17 @@ class KafkaMetricsTest {
   void testAllEnumNameUnique() {
     // arrange act
     Set<String> collectedName =
-        Arrays.stream(KafkaMetrics.BrokerTopicMetrics.values())
-            .map(KafkaMetrics.BrokerTopicMetrics::metricName)
+        Arrays.stream(KafkaMetrics.BrokerTopic.values())
+            .map(KafkaMetrics.BrokerTopic::metricName)
             .collect(Collectors.toSet());
 
     // assert
-    assertEquals(KafkaMetrics.BrokerTopicMetrics.values().length, collectedName.size());
+    assertEquals(KafkaMetrics.BrokerTopic.values().length, collectedName.size());
   }
 
   @ParameterizedTest
-  @EnumSource(value = KafkaMetrics.BrokerTopicMetrics.class)
-  void testRequestBrokerTopicMetrics(KafkaMetrics.BrokerTopicMetrics metric)
+  @EnumSource(value = KafkaMetrics.BrokerTopic.class)
+  void testRequestBrokerTopicMetrics(KafkaMetrics.BrokerTopic metric)
       throws MalformedObjectNameException {
     // arrange
     Object mbean =
@@ -140,8 +140,8 @@ class KafkaMetricsTest {
   }
 
   @ParameterizedTest()
-  @EnumSource(value = KafkaMetrics.RequestMetrics.class)
-  void testRequestTotalTimeMs(KafkaMetrics.RequestMetrics request)
+  @EnumSource(value = KafkaMetrics.Request.class)
+  void testRequestTotalTimeMs(KafkaMetrics.Request request)
       throws MalformedObjectNameException {
     // arrange
     Map<String, Object> map = new HashMap<>();

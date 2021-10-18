@@ -33,11 +33,11 @@ public final class KafkaMetricClientApp {
     try (MBeanClient mBeanClient = new MBeanClient(serviceURL)) {
 
       // find the actual metrics to fetch.
-      List<KafkaMetrics.BrokerTopicMetrics> metrics =
+      List<KafkaMetrics.BrokerTopic> metrics =
           argumentTargetMetrics.stream()
               .map(
                   (s) -> {
-                    for (var metric : KafkaMetrics.BrokerTopicMetrics.values()) {
+                    for (var metric : KafkaMetrics.BrokerTopic.values()) {
                       if (metric.name().equalsIgnoreCase(s)) return metric;
                     }
                     throw new RuntimeException("No such metric: " + s);
@@ -86,8 +86,8 @@ public final class KafkaMetricClientApp {
         description =
             "The metric names you want. If no metric name specified in argument, all metrics will be selected.")
     Set<String> metrics =
-        Arrays.stream(KafkaMetrics.BrokerTopicMetrics.values())
-            .map(KafkaMetrics.BrokerTopicMetrics::metricName)
+        Arrays.stream(KafkaMetrics.BrokerTopic.values())
+            .map(KafkaMetrics.BrokerTopic::metricName)
             .collect(Collectors.toUnmodifiableSet());
   }
 }

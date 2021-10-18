@@ -13,7 +13,7 @@ public final class KafkaMetrics {
 
   private KafkaMetrics() {}
 
-  public enum BrokerTopicMetrics {
+  public enum BrokerTopic {
     /** Message validation failure rate due to non-continuous offset or sequence number in batch */
     InvalidOffsetOrSequenceRecordsPerSec("InvalidOffsetOrSequenceRecordsPerSec"),
 
@@ -63,7 +63,7 @@ public final class KafkaMetrics {
 
     private final String metricName;
 
-    BrokerTopicMetrics(String name) {
+    BrokerTopic(String name) {
       this.metricName = name;
     }
 
@@ -108,7 +108,7 @@ public final class KafkaMetrics {
     }
   }
 
-  public enum RequestMetrics {
+  public enum Request {
     Produce,
     FetchConsumer,
     FetchFollower;
