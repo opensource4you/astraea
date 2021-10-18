@@ -6,6 +6,12 @@ import org.astraea.metrics.jmx.MBeanClient;
 import org.astraea.metrics.kafka.metrics.BrokerTopicMetricsResult;
 import org.astraea.metrics.kafka.metrics.TotalTimeMs;
 
+import java.util.Collection;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+
 public final class KafkaMetrics {
 
   private KafkaMetrics() {}
@@ -165,5 +171,29 @@ public final class KafkaMetrics {
               .getAttributes()
               .get("Value");
     }
+
+    /**
+     * retrieve the log size of partitions under specific topic in specific broker.
+     *
+     * @param client a {@link MBeanClient} instance connect to specific kafka broker
+     * @param topicName the name of the topic to query
+     * @return a {@link Map} of ({@link Integer}, {@link Long}) pairs that each entry represent a pair of partition id and its log size
+     */
+    public static Map<Integer, Long> size(MBeanClient client, String topicName) {
+      Collection<BeanObject> beanObjects = client.queryBeans(
+              BeanQuery.builder("kafka.log")
+                      .property("type", "Log")
+                      .property("topic", topicName)
+                      .property("partition", "*")
+                      .property("name", "Size")
+                      .build());
+
+      // collect result as a map.
+      return beanObjects.stream()
+              .collect(Collectors.toMap(
+                      (BeanObject a) ->  Integer.parseInt(a.getProperties().get("partition")),
+                      (BeanObject a) ->  (Long) a.getAttributes().get("Value")));
+    }
   }
+
 }
