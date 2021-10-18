@@ -101,7 +101,10 @@ public class LinkPartitioner implements Partitioner {
     @Override
     public void configure(Map<String, ?> configs) {
       try {
-        var list = Arrays.asList(((String) configs.get("jmx_servers")).split(","));
+        var jmxAddresses =
+            Objects.requireNonNull(
+                (String) configs.get("jmx_servers"), "You must configure jmx_servers correctly");
+        var list = Arrays.asList((jmxAddresses).split(","));
         HashMap<String, String> mapAddress = new HashMap<>();
         for (String str : list) {
           var listAddress = Arrays.asList(str.split("@"));
