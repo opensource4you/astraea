@@ -141,8 +141,7 @@ class KafkaMetricsTest {
 
   @ParameterizedTest()
   @EnumSource(value = KafkaMetrics.Request.class)
-  void testRequestTotalTimeMs(KafkaMetrics.Request request)
-      throws MalformedObjectNameException {
+  void testRequestTotalTimeMs(KafkaMetrics.Request request) throws MalformedObjectNameException {
     // arrange
     Map<String, Object> map = new HashMap<>();
     map.put("50thPercentile", 1.0);
