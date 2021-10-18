@@ -35,13 +35,7 @@ public final class KafkaMetricClientApp {
       // find the actual metrics to fetch.
       List<KafkaMetrics.BrokerTopic> metrics =
           argumentTargetMetrics.stream()
-              .map(
-                  (s) -> {
-                    for (var metric : KafkaMetrics.BrokerTopic.values()) {
-                      if (metric.name().equalsIgnoreCase(s)) return metric;
-                    }
-                    throw new RuntimeException("No such metric: " + s);
-                  })
+              .map(KafkaMetrics.BrokerTopic::of)
               .collect(Collectors.toUnmodifiableList());
 
       while (!Thread.interrupted()) {

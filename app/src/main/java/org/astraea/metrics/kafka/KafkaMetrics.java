@@ -82,6 +82,19 @@ public final class KafkaMetrics {
               .orElseThrow();
       return new BrokerTopicMetricsResult(beanObject);
     }
+
+    /**
+     * resolve specific {@link BrokerTopic} by the given metric string, compare by case insensitive
+     *
+     * @param metricName the metric to resolve
+     * @return a {@link BrokerTopic} match to give metric name
+     */
+    public static BrokerTopic of(String metricName) {
+      for (BrokerTopic metric : BrokerTopic.values()) {
+        if (metric.metricName().equalsIgnoreCase(metricName)) return metric;
+      }
+      throw new IllegalArgumentException("No such metric: " + metricName);
+    }
   }
 
   public enum Purgatory {
