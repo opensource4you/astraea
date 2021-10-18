@@ -15,6 +15,37 @@ public interface TopicAdmin extends Closeable {
     return new TopicAdmin() {
 
       @Override
+      public void createTopic(String topic, int numberOfPartitions) {
+        var topics = topics();
+        if (topics.contains(topic)) {
+          var partitions = partitions(Set.of(topic));
+          if (partitions.size() < numberOfPartitions) {
+            Utils.handleException(
+                () ->
+                    admin
+                        .createPartitions(
+                            Map.of(topic, NewPartitions.increaseTo(numberOfPartitions)))
+                        .all()
+                        .get());
+          }
+          if (partitions.size() > numberOfPartitions) {
+            throw new IllegalArgumentException(
+                "Reducing the number of partitions is disallowed. Current: "
+                    + partitions.size()
+                    + " requested: "
+                    + numberOfPartitions);
+          }
+        } else {
+          Utils.handleException(
+              () ->
+                  admin
+                      .createTopics(List.of(new NewTopic(topic, numberOfPartitions, (short) 1)))
+                      .all()
+                      .get());
+        }
+      }
+
+      @Override
       public void close() {
         admin.close();
       }
@@ -228,6 +259,16 @@ public interface TopicAdmin extends Closeable {
 
   /** @return the topics name (internal topics are excluded) */
   Set<String> topics();
+
+  /**
+   * make sure there is a topic having requested name and requested number of partitions. If the
+   * topic is existent and the number of partitions is larger than requested number, it will throw
+   * exception.
+   *
+   * @param topic topic name
+   * @param numberOfPartitions expected number of partitions.
+   */
+  void createTopic(String topic, int numberOfPartitions);
 
   /**
    * @param topics topic names

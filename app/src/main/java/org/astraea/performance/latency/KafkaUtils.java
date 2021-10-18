@@ -1,7 +1,8 @@
 package org.astraea.performance.latency;
 
-import java.util.*;
-import org.apache.kafka.clients.admin.NewTopic;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Comparator;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.header.Header;
@@ -38,21 +39,6 @@ final class KafkaUtils {
     if (!equal(producerRecord.headers(), consumerRecord.headers())) return false;
     return producerRecord.timestamp() == null
         || producerRecord.timestamp() == consumerRecord.timestamp();
-  }
-
-  static void createTopicIfNotExist(
-      TopicAdmin adminClient, Set<String> topics, int numberOfPartitions) {
-    try {
-      topics.forEach(
-          topic -> {
-            if (!adminClient.listTopics().contains(topic))
-              adminClient.createTopics(
-                  Collections.singletonList(
-                      new NewTopic(topic, Optional.of(numberOfPartitions), Optional.empty())));
-          });
-    } catch (Exception e) {
-      throw new RuntimeException(e);
-    }
   }
 
   private KafkaUtils() {}
