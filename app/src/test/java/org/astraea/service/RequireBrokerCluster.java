@@ -1,5 +1,7 @@
 package org.astraea.service;
 
+import java.util.Map;
+import java.util.Set;
 import org.astraea.Utils;
 import org.junit.jupiter.api.AfterAll;
 
@@ -11,8 +13,12 @@ public abstract class RequireBrokerCluster {
   private static final ZookeeperCluster ZOOKEEPER_CLUSTER = Services.zookeeperCluster();
   private static final BrokerCluster BROKER_CLUSTER = Services.brokerCluster(ZOOKEEPER_CLUSTER, 3);
 
-  public static String bootstrapServers() {
+  protected static String bootstrapServers() {
     return BROKER_CLUSTER.bootstrapServers();
+  }
+
+  protected static Map<Integer, Set<String>> logFolders() {
+    return BROKER_CLUSTER.logFolders();
   }
 
   @AfterAll

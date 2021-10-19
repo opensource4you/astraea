@@ -204,24 +204,43 @@ public interface TopicAdmin extends Closeable {
 
       @Override
       public Map<TopicPartition, List<Replica>> replicas(Set<String> topics) {
-        var lags =
-            Utils.handleException(
-                () ->
-                    admin.describeLogDirs(brokerIds()).allDescriptions().get().entrySet().stream()
-                        .collect(
-                            Collectors.toMap(
-                                Map.Entry::getKey,
-                                e ->
-                                    e.getValue().values().stream()
-                                        .flatMap(
-                                            logDirDescription ->
-                                                logDirDescription
-                                                    .replicaInfos()
-                                                    .entrySet()
-                                                    .stream())
-                                        .collect(
-                                            Collectors.toMap(
-                                                Map.Entry::getKey, Map.Entry::getValue)))));
+        var replicaInfo =
+            Utils.handleException(() -> admin.describeLogDirs(brokerIds()).allDescriptions().get());
+
+        var replicaLags =
+            replicaInfo.entrySet().stream()
+                .collect(
+                    Collectors.toMap(
+                        Map.Entry::getKey,
+                        e ->
+                            e.getValue().values().stream()
+                                .flatMap(
+                                    logDirDescription ->
+                                        logDirDescription.replicaInfos().entrySet().stream())
+                                .collect(
+                                    Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue))));
+
+        var replicaPaths =
+            replicaInfo.entrySet().stream()
+                .collect(
+                    Collectors.toMap(
+                        Map.Entry::getKey,
+                        e ->
+                            e.getValue().entrySet().stream()
+                                .flatMap(
+                                    logDirDescription ->
+                                        logDirDescription
+                                            .getValue()
+                                            .replicaInfos()
+                                            .keySet()
+                                            .stream()
+                                            .map(
+                                                topicPartition ->
+                                                    Map.entry(
+                                                        topicPartition,
+                                                        logDirDescription.getKey())))
+                                .collect(
+                                    Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue))));
 
         return Utils.handleException(
             () ->
@@ -240,7 +259,8 @@ public interface TopicAdmin extends Closeable {
                                                         new Replica(
                                                             node.id(),
                                                             Optional.ofNullable(
-                                                                    lags.getOrDefault(
+                                                                    replicaLags
+                                                                        .getOrDefault(
                                                                             node.id(), Map.of())
                                                                         .get(
                                                                             new TopicPartition(
@@ -251,9 +271,14 @@ public interface TopicAdmin extends Closeable {
                                                                 .orElse(-1L),
                                                             topicPartitionInfo.leader().id()
                                                                 == node.id(),
-                                                            topicPartitionInfo
-                                                                .isr()
-                                                                .contains(node)))
+                                                            topicPartitionInfo.isr().contains(node),
+                                                            replicaPaths
+                                                                .get(node.id())
+                                                                .get(
+                                                                    new TopicPartition(
+                                                                        e.getKey(),
+                                                                        topicPartitionInfo
+                                                                            .partition()))))
                                                 .sorted(
                                                     Comparator.comparing((Replica r) -> r.broker))
                                                 .collect(Collectors.toList()))))
@@ -379,12 +404,14 @@ public interface TopicAdmin extends Closeable {
     public final long lag;
     public final boolean leader;
     public final boolean inSync;
+    public final String path;
 
-    public Replica(int broker, long lag, boolean leader, boolean inSync) {
+    public Replica(int broker, long lag, boolean leader, boolean inSync, String path) {
       this.broker = broker;
       this.lag = lag;
       this.leader = leader;
       this.inSync = inSync;
+      this.path = path;
     }
 
     @Override
@@ -398,6 +425,9 @@ public interface TopicAdmin extends Closeable {
           + leader
           + ", inSync="
           + inSync
+          + ", path='"
+          + path
+          + '\''
           + '}';
     }
   }

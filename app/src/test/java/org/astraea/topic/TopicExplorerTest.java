@@ -39,7 +39,8 @@ public class OffsetExplorerTest {
 
           @Override
           public Map<TopicPartition, List<Replica>> replicas(Set<String> topics) {
-            return Map.of(topicPartition, List.of(new Replica(brokerId, lag, leader, inSync)));
+            return Map.of(
+                topicPartition, List.of(new Replica(brokerId, lag, leader, inSync, "path")));
           }
         }) {
       var result = OffsetExplorer.execute(admin, Set.of(topicName));

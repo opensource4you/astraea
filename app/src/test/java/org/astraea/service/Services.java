@@ -2,7 +2,9 @@ package org.astraea.service;
 
 import java.io.File;
 import java.net.InetSocketAddress;
+import java.util.Map;
 import java.util.Properties;
+import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import kafka.server.KafkaConfig;
@@ -74,6 +76,13 @@ public final class Services {
       @Override
       public boolean isLocal() {
         return true;
+      }
+
+      @Override
+      public Map<Integer, Set<String>> logFolders() {
+        return IntStream.range(0, numberOfBrokers)
+            .mapToObj(brokerId -> Map.entry(brokerId, Set.of(tempFolders.get(brokerId).toString())))
+            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
       }
     };
   }

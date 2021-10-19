@@ -28,7 +28,7 @@ public class ReplicaCollieTest {
         public Map<TopicPartition, List<Replica>> replicas(Set<String> topics) {
           return Map.of(
               new TopicPartition(topicName, partition),
-              List.of(new Replica(badBroker, 0, true, true)));
+              List.of(new Replica(badBroker, 0, true, true, "path")));
         }
 
         @Override
