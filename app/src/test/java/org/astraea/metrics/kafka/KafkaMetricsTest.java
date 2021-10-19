@@ -233,4 +233,15 @@ class KafkaMetricsTest {
     assertEquals(400L, size.get(4));
     assertEquals(500L, size.get(5));
   }
+
+  @Test
+  void testKafkaMetricsOf() {
+    assertEquals(
+        KafkaMetrics.BrokerTopic.BytesInPerSec, KafkaMetrics.BrokerTopic.of("ByTeSiNpErSeC"));
+    assertEquals(
+        KafkaMetrics.BrokerTopic.BytesOutPerSec, KafkaMetrics.BrokerTopic.of("bytesoutpersec"));
+    assertEquals(
+        KafkaMetrics.BrokerTopic.MessagesInPerSec, KafkaMetrics.BrokerTopic.of("MessagesInPERSEC"));
+    assertThrows(IllegalArgumentException.class, () -> KafkaMetrics.BrokerTopic.of("nothing"));
+  }
 }

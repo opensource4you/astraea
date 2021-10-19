@@ -1,5 +1,6 @@
 package org.astraea.metrics.kafka;
 
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -90,10 +91,10 @@ public final class KafkaMetrics {
      * @return a {@link BrokerTopic} match to give metric name
      */
     public static BrokerTopic of(String metricName) {
-      for (BrokerTopic metric : BrokerTopic.values()) {
-        if (metric.metricName().equalsIgnoreCase(metricName)) return metric;
-      }
-      throw new IllegalArgumentException("No such metric: " + metricName);
+      return Arrays.stream(BrokerTopic.values())
+          .filter(metric -> metric.metricName().equalsIgnoreCase(metricName))
+          .findFirst()
+          .orElseThrow(() -> new IllegalArgumentException("No such metric: " + metricName));
     }
   }
 
