@@ -1,4 +1,4 @@
-package org.astraea.offset;
+package org.astraea.topic;
 
 import com.beust.jcommander.Parameter;
 import java.io.IOException;
@@ -6,9 +6,8 @@ import java.util.*;
 import java.util.stream.Collectors;
 import org.astraea.argument.ArgumentUtil;
 import org.astraea.argument.BasicAdminArgument;
-import org.astraea.topic.TopicAdmin;
 
-public class OffsetExplorer {
+public class TopicExplorer {
 
   static class Result {
     final String topic;

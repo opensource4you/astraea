@@ -1,12 +1,11 @@
-package org.astraea.offset;
+package org.astraea.topic;
 
 import java.util.*;
 import org.apache.kafka.common.TopicPartition;
-import org.astraea.topic.FakeTopicAdmin;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-public class OffsetExplorerTest {
+public class TopicExplorerTest {
 
   @Test
   void test() {
@@ -43,7 +42,7 @@ public class OffsetExplorerTest {
                 topicPartition, List.of(new Replica(brokerId, lag, leader, inSync, "path")));
           }
         }) {
-      var result = OffsetExplorer.execute(admin, Set.of(topicName));
+      var result = TopicExplorer.execute(admin, Set.of(topicName));
       Assertions.assertEquals(1, result.size());
       Assertions.assertEquals(topicName, result.get(0).topic);
       Assertions.assertEquals(partition, result.get(0).partition);
