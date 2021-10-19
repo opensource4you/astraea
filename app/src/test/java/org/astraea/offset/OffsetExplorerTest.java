@@ -26,7 +26,7 @@ public class OffsetExplorerTest {
         new FakeTopicAdmin() {
 
           @Override
-          public Map<TopicPartition, Offset> offset(Set<String> topics) {
+          public Map<TopicPartition, Offset> offsets(Set<String> topics) {
             return Map.of(topicPartition, new Offset(earliestOffset, latestOffset));
           }
 

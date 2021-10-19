@@ -57,7 +57,7 @@ public class OffsetExplorer {
 
   static List<Result> execute(TopicAdmin admin, Set<String> topics) {
     var replicas = admin.replicas(topics);
-    var offsets = admin.offset(topics);
+    var offsets = admin.offsets(topics);
     var groups = admin.groups(topics);
 
     return replicas.entrySet().stream()

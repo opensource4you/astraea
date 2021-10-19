@@ -3,12 +3,17 @@ package org.astraea.topic;
 import java.io.Closeable;
 import java.util.*;
 import java.util.stream.Collectors;
+import org.apache.kafka.clients.CommonClientConfigs;
 import org.apache.kafka.clients.admin.*;
 import org.apache.kafka.common.Node;
 import org.apache.kafka.common.TopicPartition;
 import org.astraea.Utils;
 
 public interface TopicAdmin extends Closeable {
+
+  static TopicAdmin of(String bootstrapServers) {
+    return of(Map.of(CommonClientConfigs.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers));
+  }
 
   static TopicAdmin of(Map<String, Object> conf) {
     var admin = Admin.create(conf);
@@ -175,7 +180,7 @@ public interface TopicAdmin extends Closeable {
       }
 
       @Override
-      public Map<TopicPartition, Offset> offset(Set<String> topics) {
+      public Map<TopicPartition, Offset> offsets(Set<String> topics) {
         var partitions = partitions(topics);
         var earliest = earliestOffset(partitions);
         var latest = latestOffset(partitions);
@@ -274,7 +279,7 @@ public interface TopicAdmin extends Closeable {
    * @param topics topic names
    * @return the earliest offset and latest offset for specific topics
    */
-  Map<TopicPartition, Offset> offset(Set<String> topics);
+  Map<TopicPartition, Offset> offsets(Set<String> topics);
 
   /**
    * @param topics topic names

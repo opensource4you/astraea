@@ -17,7 +17,7 @@ public abstract class FakeTopicAdmin implements TopicAdmin {
   }
 
   @Override
-  public Map<TopicPartition, Offset> offset(Set<String> topics) {
+  public Map<TopicPartition, Offset> offsets(Set<String> topics) {
     throw new UnsupportedOperationException();
   }
 
