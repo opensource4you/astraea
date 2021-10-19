@@ -60,7 +60,6 @@ public final class Utils {
       if (closeable != null) closeable.close();
     } catch (Exception e) {
       e.printStackTrace();
-      ;
     }
   }
 
