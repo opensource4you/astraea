@@ -44,7 +44,7 @@ class End2EndLatencyTest {
     Assertions.assertEquals(1, factory.consumerCloseCount.get());
 
     // check admin topic count
-    Assertions.assertEquals(1, factory.topicAdminListCount.get());
+    Assertions.assertEquals(0, factory.topicAdminListCount.get());
     Assertions.assertEquals(1, factory.topicAdminCloseCount.get());
     Assertions.assertEquals(1, factory.topicAdminCreateCount.get());
   }

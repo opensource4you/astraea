@@ -1,11 +1,9 @@
 package org.astraea.performance.latency;
 
-import java.util.Collection;
 import java.util.Collections;
 import java.util.Set;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
-import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.producer.ProducerRecord;
@@ -14,6 +12,8 @@ import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.errors.WakeupException;
 import org.apache.kafka.common.header.internals.RecordHeaders;
 import org.apache.kafka.common.record.TimestampType;
+import org.astraea.topic.FakeTopicAdmin;
+import org.astraea.topic.TopicAdmin;
 
 class FakeComponentFactory implements ComponentFactory {
 
@@ -118,16 +118,16 @@ class FakeComponentFactory implements ComponentFactory {
 
   @Override
   public TopicAdmin topicAdmin() {
-    return new TopicAdmin() {
+    return new FakeTopicAdmin() {
 
       @Override
-      public Set<String> listTopics() {
+      public Set<String> topics() {
         topicAdminListCount.incrementAndGet();
         return Collections.emptySet();
       }
 
       @Override
-      public void createTopics(Collection<NewTopic> newTopics) {
+      public void createTopic(String topic, int numberOfPartitions) {
         topicAdminCreateCount.incrementAndGet();
       }
 
