@@ -2,6 +2,8 @@ package org.astraea.performance;
 
 import java.util.Collection;
 import java.util.Properties;
+import org.apache.kafka.clients.consumer.ConsumerConfig;
+import org.apache.kafka.clients.producer.ProducerConfig;
 
 /** An interface used for creating producer, consumer, admin. */
 public interface ComponentFactory {
@@ -20,7 +22,7 @@ public interface ComponentFactory {
       @Override
       public Producer createProducer() {
         Properties prop = new Properties();
-        prop.put("bootstrap.servers", brokers);
+        prop.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, brokers);
         return Producer.fromKafka(prop);
       }
 
@@ -28,8 +30,8 @@ public interface ComponentFactory {
       @Override
       public Consumer createConsumer(Collection<String> topic) {
         Properties prop = new Properties();
-        prop.put("bootstrap.servers", brokers);
-        prop.put("group.id", groupId);
+        prop.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, brokers);
+        prop.put(ConsumerConfig.GROUP_ID_CONFIG, groupId);
         return Consumer.fromKafka(prop, topic);
       }
     };
