@@ -117,7 +117,7 @@ Run the benchmark from source
 
 ---
 
-## Offset Explorer
+## Topic Explorer
 
 This tool can expose both earliest offset and latest offset for all (public and private) topics.
 

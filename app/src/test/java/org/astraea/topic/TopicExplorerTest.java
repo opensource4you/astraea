@@ -1,12 +1,11 @@
-package org.astraea.offset;
+package org.astraea.topic;
 
 import java.util.*;
 import org.apache.kafka.common.TopicPartition;
-import org.astraea.topic.TopicAdmin;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-public class OffsetExplorerTest {
+public class TopicExplorerTest {
 
   @Test
   void test() {
@@ -23,14 +22,10 @@ public class OffsetExplorerTest {
     var leader = true;
     var inSync = true;
     try (var admin =
-        new TopicAdmin() {
-          @Override
-          public Set<String> topics() {
-            throw new UnsupportedOperationException();
-          }
+        new FakeTopicAdmin() {
 
           @Override
-          public Map<TopicPartition, Offset> offset(Set<String> topics) {
+          public Map<TopicPartition, Offset> offsets(Set<String> topics) {
             return Map.of(topicPartition, new Offset(earliestOffset, latestOffset));
           }
 
@@ -43,23 +38,11 @@ public class OffsetExplorerTest {
 
           @Override
           public Map<TopicPartition, List<Replica>> replicas(Set<String> topics) {
-            return Map.of(topicPartition, List.of(new Replica(brokerId, lag, leader, inSync)));
+            return Map.of(
+                topicPartition, List.of(new Replica(brokerId, lag, leader, inSync, "path")));
           }
-
-          @Override
-          public Set<Integer> brokerIds() {
-            throw new UnsupportedOperationException();
-          }
-
-          @Override
-          public void reassign(String topicName, int partition, Set<Integer> brokers) {
-            throw new UnsupportedOperationException();
-          }
-
-          @Override
-          public void close() {}
         }) {
-      var result = OffsetExplorer.execute(admin, Set.of(topicName));
+      var result = TopicExplorer.execute(admin, Set.of(topicName));
       Assertions.assertEquals(1, result.size());
       Assertions.assertEquals(topicName, result.get(0).topic);
       Assertions.assertEquals(partition, result.get(0).partition);

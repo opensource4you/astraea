@@ -3,6 +3,7 @@ package org.astraea.topic;
 import java.io.Closeable;
 import java.util.*;
 import java.util.stream.Collectors;
+import org.apache.kafka.clients.CommonClientConfigs;
 import org.apache.kafka.clients.admin.*;
 import org.apache.kafka.common.Node;
 import org.apache.kafka.common.TopicPartition;
@@ -10,9 +11,44 @@ import org.astraea.Utils;
 
 public interface TopicAdmin extends Closeable {
 
+  static TopicAdmin of(String bootstrapServers) {
+    return of(Map.of(CommonClientConfigs.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers));
+  }
+
   static TopicAdmin of(Map<String, Object> conf) {
     var admin = Admin.create(conf);
     return new TopicAdmin() {
+
+      @Override
+      public void createTopic(String topic, int numberOfPartitions) {
+        var topics = topics();
+        if (topics.contains(topic)) {
+          var partitions = partitions(Set.of(topic));
+          if (partitions.size() < numberOfPartitions) {
+            Utils.handleException(
+                () ->
+                    admin
+                        .createPartitions(
+                            Map.of(topic, NewPartitions.increaseTo(numberOfPartitions)))
+                        .all()
+                        .get());
+          }
+          if (partitions.size() > numberOfPartitions) {
+            throw new IllegalArgumentException(
+                "Reducing the number of partitions is disallowed. Current: "
+                    + partitions.size()
+                    + " requested: "
+                    + numberOfPartitions);
+          }
+        } else {
+          Utils.handleException(
+              () ->
+                  admin
+                      .createTopics(List.of(new NewTopic(topic, numberOfPartitions, (short) 1)))
+                      .all()
+                      .get());
+        }
+      }
 
       @Override
       public void close() {
@@ -144,7 +180,7 @@ public interface TopicAdmin extends Closeable {
       }
 
       @Override
-      public Map<TopicPartition, Offset> offset(Set<String> topics) {
+      public Map<TopicPartition, Offset> offsets(Set<String> topics) {
         var partitions = partitions(topics);
         var earliest = earliestOffset(partitions);
         var latest = latestOffset(partitions);
@@ -168,24 +204,43 @@ public interface TopicAdmin extends Closeable {
 
       @Override
       public Map<TopicPartition, List<Replica>> replicas(Set<String> topics) {
-        var lags =
-            Utils.handleException(
-                () ->
-                    admin.describeLogDirs(brokerIds()).allDescriptions().get().entrySet().stream()
-                        .collect(
-                            Collectors.toMap(
-                                Map.Entry::getKey,
-                                e ->
-                                    e.getValue().values().stream()
-                                        .flatMap(
-                                            logDirDescription ->
-                                                logDirDescription
-                                                    .replicaInfos()
-                                                    .entrySet()
-                                                    .stream())
-                                        .collect(
-                                            Collectors.toMap(
-                                                Map.Entry::getKey, Map.Entry::getValue)))));
+        var replicaInfo =
+            Utils.handleException(() -> admin.describeLogDirs(brokerIds()).allDescriptions().get());
+
+        var replicaLags =
+            replicaInfo.entrySet().stream()
+                .collect(
+                    Collectors.toMap(
+                        Map.Entry::getKey,
+                        e ->
+                            e.getValue().values().stream()
+                                .flatMap(
+                                    logDirDescription ->
+                                        logDirDescription.replicaInfos().entrySet().stream())
+                                .collect(
+                                    Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue))));
+
+        var replicaPaths =
+            replicaInfo.entrySet().stream()
+                .collect(
+                    Collectors.toMap(
+                        Map.Entry::getKey,
+                        e ->
+                            e.getValue().entrySet().stream()
+                                .flatMap(
+                                    logDirDescription ->
+                                        logDirDescription
+                                            .getValue()
+                                            .replicaInfos()
+                                            .keySet()
+                                            .stream()
+                                            .map(
+                                                topicPartition ->
+                                                    Map.entry(
+                                                        topicPartition,
+                                                        logDirDescription.getKey())))
+                                .collect(
+                                    Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue))));
 
         return Utils.handleException(
             () ->
@@ -204,7 +259,8 @@ public interface TopicAdmin extends Closeable {
                                                         new Replica(
                                                             node.id(),
                                                             Optional.ofNullable(
-                                                                    lags.getOrDefault(
+                                                                    replicaLags
+                                                                        .getOrDefault(
                                                                             node.id(), Map.of())
                                                                         .get(
                                                                             new TopicPartition(
@@ -215,9 +271,14 @@ public interface TopicAdmin extends Closeable {
                                                                 .orElse(-1L),
                                                             topicPartitionInfo.leader().id()
                                                                 == node.id(),
-                                                            topicPartitionInfo
-                                                                .isr()
-                                                                .contains(node)))
+                                                            topicPartitionInfo.isr().contains(node),
+                                                            replicaPaths
+                                                                .get(node.id())
+                                                                .get(
+                                                                    new TopicPartition(
+                                                                        e.getKey(),
+                                                                        topicPartitionInfo
+                                                                            .partition()))))
                                                 .sorted(
                                                     Comparator.comparing((Replica r) -> r.broker))
                                                 .collect(Collectors.toList()))))
@@ -230,10 +291,20 @@ public interface TopicAdmin extends Closeable {
   Set<String> topics();
 
   /**
+   * make sure there is a topic having requested name and requested number of partitions. If the
+   * topic is existent and the number of partitions is larger than requested number, it will throw
+   * exception.
+   *
+   * @param topic topic name
+   * @param numberOfPartitions expected number of partitions.
+   */
+  void createTopic(String topic, int numberOfPartitions);
+
+  /**
    * @param topics topic names
    * @return the earliest offset and latest offset for specific topics
    */
-  Map<TopicPartition, Offset> offset(Set<String> topics);
+  Map<TopicPartition, Offset> offsets(Set<String> topics);
 
   /**
    * @param topics topic names
@@ -333,12 +404,14 @@ public interface TopicAdmin extends Closeable {
     public final long lag;
     public final boolean leader;
     public final boolean inSync;
+    public final String path;
 
-    public Replica(int broker, long lag, boolean leader, boolean inSync) {
+    public Replica(int broker, long lag, boolean leader, boolean inSync, String path) {
       this.broker = broker;
       this.lag = lag;
       this.leader = leader;
       this.inSync = inSync;
+      this.path = path;
     }
 
     @Override
@@ -352,6 +425,9 @@ public interface TopicAdmin extends Closeable {
           + leader
           + ", inSync="
           + inSync
+          + ", path='"
+          + path
+          + '\''
           + '}';
     }
   }

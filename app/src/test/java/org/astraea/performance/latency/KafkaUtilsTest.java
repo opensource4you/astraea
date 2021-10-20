@@ -1,46 +1,14 @@
 package org.astraea.performance.latency;
 
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.Collections;
-import java.util.Set;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 class KafkaUtilsTest {
-
-  @Test
-  void testCreateTopic() {
-    var numberOfPartitions = 1000;
-    var existentTopic = "existentTopic";
-    var count = new AtomicInteger();
-    var topicAdmin =
-        new TopicAdmin() {
-
-          @Override
-          public Set<String> listTopics() {
-            return Collections.singleton(existentTopic);
-          }
-
-          @Override
-          public void createTopics(Collection<NewTopic> newTopics) {
-            count.incrementAndGet();
-            Assertions.assertEquals(1, newTopics.size());
-            Assertions.assertEquals(
-                numberOfPartitions, newTopics.iterator().next().numPartitions());
-          }
-        };
-    KafkaUtils.createTopicIfNotExist(topicAdmin, Set.of(existentTopic), 10);
-    Assertions.assertEquals(0, count.get());
-
-    KafkaUtils.createTopicIfNotExist(topicAdmin, Set.of("nonexistent"), numberOfPartitions);
-    Assertions.assertEquals(1, count.get());
-  }
 
   @Test
   void testCreateHeader() {

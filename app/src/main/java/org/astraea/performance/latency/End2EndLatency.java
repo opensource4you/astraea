@@ -113,10 +113,10 @@ public class End2EndLatency {
     try (var topicAdmin = factory.topicAdmin()) {
       // the number of partitions is equal to number of consumers. That make each consumer can
       // consume a part of topic.
-      KafkaUtils.createTopicIfNotExist(
-          topicAdmin,
-          parameters.topics,
-          parameters.numberOfConsumers <= 0 ? 1 : parameters.numberOfConsumers);
+      parameters.topics.forEach(
+          topic ->
+              topicAdmin.createTopic(
+                  topic, parameters.numberOfConsumers <= 0 ? 1 : parameters.numberOfConsumers));
     }
 
     return ThreadPool.builder()

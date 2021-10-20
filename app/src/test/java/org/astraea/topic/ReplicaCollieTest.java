@@ -18,27 +18,17 @@ public class ReplicaCollieTest {
   private final int latestOffset = 299;
   private final Set<Integer> reassignment = new HashSet<>();
   private final TopicAdmin admin =
-      new TopicAdmin() {
+      new FakeTopicAdmin() {
         @Override
         public Set<String> topics() {
           return Set.of(topicName);
         }
 
         @Override
-        public Map<TopicPartition, Offset> offset(Set<String> topics) {
-          throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public Map<TopicPartition, List<Group>> groups(Set<String> topics) {
-          throw new UnsupportedOperationException();
-        }
-
-        @Override
         public Map<TopicPartition, List<Replica>> replicas(Set<String> topics) {
           return Map.of(
               new TopicPartition(topicName, partition),
-              List.of(new Replica(badBroker, 0, true, true)));
+              List.of(new Replica(badBroker, 0, true, true, "path")));
         }
 
         @Override
@@ -49,11 +39,6 @@ public class ReplicaCollieTest {
         @Override
         public void reassign(String topicName, int partition, Set<Integer> brokers) {
           reassignment.addAll(brokers);
-        }
-
-        @Override
-        public void close() {
-          throw new UnsupportedOperationException();
         }
       };
 

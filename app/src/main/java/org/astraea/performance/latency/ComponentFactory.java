@@ -4,6 +4,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
+import org.astraea.topic.TopicAdmin;
 
 interface ComponentFactory {
 
@@ -35,7 +36,7 @@ interface ComponentFactory {
 
       @Override
       public TopicAdmin topicAdmin() {
-        return TopicAdmin.fromKafka(props);
+        return TopicAdmin.of(props);
       }
     };
   }
