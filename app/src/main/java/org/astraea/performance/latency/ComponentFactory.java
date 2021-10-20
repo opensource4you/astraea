@@ -3,10 +3,15 @@ package org.astraea.performance.latency;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
+import org.apache.kafka.clients.CommonClientConfigs;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.astraea.topic.TopicAdmin;
 
 interface ComponentFactory {
+
+  static ComponentFactory of(String bootstrapServers, Set<String> topics) {
+    return of(Map.of(CommonClientConfigs.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers), topics);
+  }
 
   /**
    * create a factory based on kafka cluster. All components created by this factory will send
@@ -16,7 +21,7 @@ interface ComponentFactory {
    * @param topics to subscribe
    * @return a factory based on kafka
    */
-  static ComponentFactory fromKafka(Map<String, Object> props, Set<String> topics) {
+  static ComponentFactory of(Map<String, Object> props, Set<String> topics) {
 
     return new ComponentFactory() {
       private final String groupId = "group-id-" + System.currentTimeMillis();
