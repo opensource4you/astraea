@@ -1,9 +1,20 @@
 package org.astraea.performance;
 
+import com.beust.jcommander.Parameter;
+import java.io.IOException;
+import java.time.Duration;
 import java.util.Collections;
+import java.util.Map;
 import java.util.concurrent.CountDownLatch;
-import org.apache.kafka.clients.admin.NewTopic;
+import java.util.concurrent.ExecutionException;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+import org.apache.kafka.clients.producer.ProducerRecord;
+import org.apache.kafka.common.errors.WakeupException;
 import org.astraea.argument.ArgumentUtil;
+import org.astraea.argument.BasicAdminArgument;
+import org.astraea.concurrent.ThreadPool;
+import org.astraea.topic.TopicAdmin;
 
 /**
  * Performance benchmark which includes
@@ -34,131 +45,166 @@ import org.astraea.argument.ArgumentUtil;
 public class Performance {
 
   public static void main(String[] args) {
-    final var param = ArgumentUtil.parseArgument(new PerformanceArgument(), args);
+    final var param = ArgumentUtil.parseArgument(new Argument(), args);
 
     try {
-      execute(param);
+      execute(param, ComponentFactory.fromKafka(param.brokers));
     } catch (InterruptedException ignore) {
     }
   }
 
-  public static void execute(final PerformanceArgument param) throws InterruptedException {
-    /*=== Initialization ===*/
-    final ComponentFactory componentFactory = ComponentFactory.fromKafka(param.brokers);
-    checkTopic(componentFactory, param);
-
-    // Start consuming
-    final CountDownLatch consumersComplete = new CountDownLatch(1);
-    final Metrics[] consumerMetrics = startConsumers(componentFactory, param, consumersComplete);
-
-    System.out.println("Wait for consumer startup.");
-    Thread.sleep(10000);
-    System.out.println("============== Start performance benchmark ================");
-
-    // Start producing record. (Auto close)
-    final Metrics[] producerMetrics = startProducers(componentFactory, param);
-
-    try (PrintOutThread printOutThread =
-        new PrintOutThread(producerMetrics, consumerMetrics, param.records)) {
-      printOutThread.start();
-      // Check consumed records every one second. (Process blocks here.)
-      checkConsume(consumerMetrics, param.records);
-    } catch (InterruptedException ignore) {
-    } finally {
-      // Stop all consumers
-      consumersComplete.countDown();
+  public static void execute(final Argument param, ComponentFactory componentFactory)
+          throws InterruptedException {
+    try (var topicAdmin = TopicAdmin.of(param.adminProps())) {
+      topicAdmin.createTopic(param.topic, param.partitions, param.replicas);
+    } catch (IOException ignore) {
     }
-  }
 
-  /** 檢查topic是否存在，不存在就建立新的topic */
-  public static void checkTopic(ComponentFactory componentFactory, PerformanceArgument param) {
-    try (TopicAdmin topicAdmin = componentFactory.createAdmin()) {
-      // 取得所有topics -> 取得topic名字的future -> 查看topic是否存在
-      if (topicAdmin.listTopics().contains(param.topic)) {
-        // Topic already exist
-        return;
+    final Metrics[] consumerMetric = new Metrics[param.consumers];
+    final Metrics[] producerMetric = new Metrics[param.producers];
+    for (int i = 0; i < producerMetric.length; ++i) producerMetric[i] = new Metrics();
+
+    // unconditional carry. Let all producers produce the same number of records.
+    param.records += param.producers - param.records % param.producers;
+
+    var complete = new CountDownLatch(1);
+    try (ThreadPool consumerThreads =
+                 ThreadPool.builder()
+                         .executors(
+                                 IntStream.range(0, param.consumers)
+                                         .mapToObj(
+                                                 i ->
+                                                         consumerExecutor(
+                                                                 componentFactory.createConsumer(Collections.singleton(param.topic)),
+                                                                 consumerMetric[i] = new Metrics()))
+                                         .collect(Collectors.toList()))
+                         .executor(new Tracker(producerMetric, consumerMetric, param.records, complete))
+                         .build()) {
+
+      System.out.println("Wait for consumer startup");
+      Thread.sleep(10000);
+
+      // Close after all records are sent
+      try (ThreadPool producerThreads =
+                   ThreadPool.builder()
+                           .loop((int) (param.records / param.producers))
+                           .executors(
+                                   IntStream.range(0, param.producers)
+                                           .mapToObj(
+                                                   i ->
+                                                           producerExecutor(
+                                                                   componentFactory.createProducer(), param, producerMetric[i]))
+                                           .collect(Collectors.toList()))
+                           .build()) {
+        complete.await();
       }
-      // 新建立topic
-      System.out.println(
-          "Creating topic:\""
-              + param.topic
-              + "\" --partitions "
-              + param.partitions
-              + " --replicationFactor "
-              + param.replicationFactor);
-      // 開始建立topic，並等待topic成功建立
-      // 建立單個topic -> 取得建立的所有topics -> 選擇指定的topic的future -> 等待future完成
-      topicAdmin
-          .createTopics(
-              Collections.singletonList(
-                  new NewTopic(param.topic, param.partitions, param.replicationFactor)))
-          .get(param.topic)
-          .get();
-    } catch (Exception ignore) {
     }
   }
 
-  // 啟動producers
-  public static Metrics[] startProducers(
-      ComponentFactory componentFactory, PerformanceArgument param) {
-    final Metrics[] producerMetrics = new Metrics[param.producers];
-    // producer平均分擔發送records
-    // 啟動producer
-    for (int i = 0; i < param.producers; ++i) {
-      long records = param.records / param.producers;
-      if (i < param.records % param.producers) ++records;
-      producerMetrics[i] = new Metrics();
-      // start up producerThread
-      new ProducerThread(
-              componentFactory.createProducer(),
-              param.topic,
-              records,
-              param.recordSize,
-              producerMetrics[i])
-          .start();
-    }
-    return producerMetrics;
+  static ThreadPool.Executor consumerExecutor(Consumer consumer, Metrics metrics) {
+    return new ThreadPool.Executor() {
+      @Override
+      public void execute() throws InterruptedException {
+        try {
+          for (var record : consumer.poll(Duration.ofMillis(100))) {
+            // 取得端到端延時
+            metrics.putLatency(System.currentTimeMillis() - record.timestamp());
+            // 記錄輸入byte(沒有算入header和timestamp)
+            metrics.addBytes(record.serializedKeySize() + record.serializedValueSize());
+          }
+        } catch (WakeupException ignore) {
+          // Stop polling and being ready to clean up
+        }
+      }
+
+      @Override
+      public void wakeup() {
+        consumer.wakeup();
+      }
+
+      @Override
+      public void cleanup() {
+        consumer.cleanup();
+      }
+    };
   }
 
-  // Start consumers, and cleanup until countdown latch complete.
-  public static Metrics[] startConsumers(
-      final ComponentFactory componentFactory,
-      final PerformanceArgument param,
-      final CountDownLatch consumersComplete) {
-    final Metrics[] consumerMetrics = new Metrics[param.consumers];
-    final ConsumerThread[] consumerThreads = new ConsumerThread[param.consumers];
-    for (int i = 0; i < consumerMetrics.length; ++i) {
-      consumerMetrics[i] = new Metrics();
-      consumerThreads[i] =
-          new ConsumerThread(
-              componentFactory.createConsumer(Collections.singletonList(param.topic)),
-              consumerMetrics[i]);
-      consumerThreads[i].start();
-    }
+  static ThreadPool.Executor producerExecutor(Producer producer, Argument param, Metrics metrics) {
+    byte[] payload = new byte[param.recordSize];
+    return new ThreadPool.Executor() {
+      @Override
+      public void execute() throws InterruptedException {
+        long start = System.currentTimeMillis();
+        ProducerRecord<byte[], byte[]> record = new ProducerRecord<>(param.topic, payload);
+        try {
+          producer.send(record).get();
+          metrics.putLatency(System.currentTimeMillis() - start);
+          metrics.addBytes(payload.length);
+          Thread.sleep(1);
+        } catch (InterruptedException | ExecutionException ignored) {
+        }
+      }
 
-    // Cleanup consumers until the consumersComplete is signaled.
-    new Thread(
-            () -> {
-              try {
-                consumersComplete.await();
-              } catch (InterruptedException ignore) {
-              } finally {
-                for (var consumer : consumerThreads) consumer.close();
-              }
-            })
-        .start();
-
-    return consumerMetrics;
+      @Override
+      public void cleanup() {
+        producer.cleanup();
+      }
+    };
   }
 
-  // Block until records consumed reached `records`
-  private static void checkConsume(final Metrics[] consumerMetrics, final long records)
-      throws InterruptedException {
-    int sum = 0;
-    while (sum < records) {
-      sum = 0;
-      for (Metrics metric : consumerMetrics) sum += metric.num();
-      Thread.sleep(1000);
+  static class Argument extends BasicAdminArgument {
+
+    @Parameter(
+            names = {"--topic"},
+            description = "String: topic name",
+            validateWith = ArgumentUtil.NotEmptyString.class)
+    String topic = "testPerformance-" + System.currentTimeMillis();
+
+    @Parameter(
+            names = {"--partitions"},
+            description = "Integer: number of partitions to create the topic",
+            validateWith = ArgumentUtil.PositiveLong.class)
+    int partitions = 1;
+
+    @Parameter(
+            names = {"--replicas"},
+            description = "Integer: number of replica to create the topic",
+            validateWith = ArgumentUtil.PositiveLong.class,
+            converter = ArgumentUtil.ShortConverter.class)
+    short replicas = 1;
+
+    @Parameter(
+            names = {"--producers"},
+            description = "Integer: number of producers to produce records",
+            validateWith = ArgumentUtil.PositiveLong.class)
+    int producers = 1;
+
+    @Parameter(
+            names = {"--consumers"},
+            description = "Integer: number of consumers to consume records",
+            validateWith = ArgumentUtil.NonNegativeLong.class)
+    int consumers = 1;
+
+    @Parameter(
+            names = {"--records"},
+            description = "Integer: number of records to send",
+            validateWith = ArgumentUtil.NonNegativeLong.class)
+    long records = 1000;
+
+    @Parameter(
+            names = {"--record.size"},
+            description = "Integer: size of each record",
+            validateWith = ArgumentUtil.PositiveLong.class)
+    int recordSize = 1024;
+
+    @Parameter(
+            names = {"--prop.file"},
+            description = "String: path to the properties file",
+            validateWith = ArgumentUtil.NotEmptyString.class)
+    String propFile;
+
+    public Map<String, Object> perfProps() {
+      return properties(propFile);
     }
   }
 }

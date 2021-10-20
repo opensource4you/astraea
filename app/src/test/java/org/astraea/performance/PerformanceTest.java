@@ -4,70 +4,57 @@ import java.util.concurrent.CountDownLatch;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-public class PerformanceTest {
+package org.astraea.performance;
+
+import java.util.List;
+import org.astraea.concurrent.ThreadPool;
+import org.astraea.service.RequireBrokerCluster;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
+
+public class PerformanceTest extends RequireBrokerCluster {
+  private final FakeComponentFactory fakeFactory = new FakeComponentFactory();
+  private final ComponentFactory factory = ComponentFactory.fromKafka(bootstrapServers());
+
   @Test
-  public void testCheckTopic() {
-    FakeComponentFactory componentFactory = new FakeComponentFactory();
-    PerformanceArgument param = new PerformanceArgument();
-    param.topic = "topic";
-    param.partitions = 6;
-    param.replicationFactor = 3;
-
-    Assertions.assertNull(componentFactory.topicToConfig.get("topic"));
-
-    // act
-    Performance.checkTopic(componentFactory, param);
-
-    // assert
-    Assertions.assertNotNull(componentFactory.topicToConfig.get("topic"));
-    Assertions.assertEquals(6, componentFactory.topicToConfig.get("topic").numPartitions());
-    Assertions.assertEquals(3, componentFactory.topicToConfig.get("topic").replicationFactor());
-
-    param.topic = "topic";
-    param.partitions = 16;
-    param.replicationFactor = 1;
-    // act
-    Performance.checkTopic(componentFactory, param);
-
-    // assert
-    Assertions.assertNotNull(componentFactory.topicToConfig.get("topic"));
-    Assertions.assertEquals(6, componentFactory.topicToConfig.get("topic").numPartitions());
-    Assertions.assertEquals(3, componentFactory.topicToConfig.get("topic").replicationFactor());
+  public void testExecute() {
+    Performance.Argument param = new Performance.Argument();
+    param.brokers = bootstrapServers();
+    Assertions.assertDoesNotThrow(() -> Performance.execute(param, factory));
   }
 
   @Test
-  public void testStartProducer() throws InterruptedException {
-    FakeComponentFactory componentFactory = new FakeComponentFactory();
-    PerformanceArgument param = new PerformanceArgument();
-    param.brokers = "localhost:9092";
-    param.topic = "topic";
-    param.producers = 2;
-    param.consumers = 3;
-    param.records = 4;
+  public void testProducerExecutor() throws InterruptedException {
+    Metrics metrics = new Metrics();
+    ThreadPool.Executor executor =
+            Performance.producerExecutor(
+                    fakeFactory.createProducer(), new Performance.Argument(), metrics);
 
-    Metrics[] metrics = Performance.startProducers(componentFactory, param);
-    Thread.sleep(20);
+    executor.execute();
 
-    Assertions.assertEquals(4, componentFactory.produced.sum());
-    Assertions.assertEquals(2, componentFactory.producerClosed.get());
-    Assertions.assertEquals(2, metrics[0].num());
-    Assertions.assertEquals(2, metrics[1].num());
+    Assertions.assertEquals(1, fakeFactory.produced.intValue());
+    Assertions.assertEquals(1, metrics.num());
+    Assertions.assertEquals(1024, metrics.bytesThenReset());
+
+    executor.cleanup();
+
+    Assertions.assertEquals(1, fakeFactory.producerClosed.get());
   }
 
   @Test
-  public void testStartConsumerAndStop() throws InterruptedException {
-    var componentFactory = new FakeComponentFactory();
-    var consumerComplete = new CountDownLatch(1);
-    var param = new PerformanceArgument();
-    param.brokers = "localhost:9092";
-    param.topic = "topic";
-    param.consumers = 2;
+  public void testConsumerExecutor() throws InterruptedException {
+    Metrics metrics = new Metrics();
+    ThreadPool.Executor executor =
+            Performance.consumerExecutor(fakeFactory.createConsumer(List.of("topic")), metrics);
 
-    Metrics[] metrics = Performance.startConsumers(componentFactory, param, consumerComplete);
-    Thread.sleep(10);
-    consumerComplete.countDown();
-    Thread.sleep(20);
+    executor.execute();
 
-    Assertions.assertEquals(2, componentFactory.consumerClosed.get());
+    Assertions.assertEquals(1, fakeFactory.consumerPoll.get());
+    Assertions.assertEquals(1, metrics.num());
+    Assertions.assertEquals(1024, metrics.bytesThenReset());
+
+    executor.cleanup();
+
+    Assertions.assertEquals(1, fakeFactory.consumerClosed.get());
   }
 }

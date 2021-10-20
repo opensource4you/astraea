@@ -11,13 +11,16 @@ import org.apache.kafka.common.serialization.ByteArrayDeserializer;
 public interface Consumer {
   ConsumerRecords<byte[], byte[]> poll(Duration timeout);
 
-  void close();
+  void wakeup();
+
+  void cleanup();
 
   /** Create a Consumer with KafkaConsumer<byte[], byte[]> functionality */
   static Consumer fromKafka(Properties prop, Collection<String> topics) {
-    KafkaConsumer<byte[], byte[]> kafkaConsumer =
-        new KafkaConsumer<byte[], byte[]>(
-            prop, new ByteArrayDeserializer(), new ByteArrayDeserializer());
+
+    var kafkaConsumer =
+            new KafkaConsumer<byte[], byte[]>(
+                    prop, new ByteArrayDeserializer(), new ByteArrayDeserializer());
     kafkaConsumer.subscribe(topics);
     return new Consumer() {
 
@@ -27,7 +30,12 @@ public interface Consumer {
       }
 
       @Override
-      public void close() {
+      public void wakeup() {
+        kafkaConsumer.wakeup();
+      }
+
+      @Override
+      public void cleanup() {
         kafkaConsumer.close();
       }
     };

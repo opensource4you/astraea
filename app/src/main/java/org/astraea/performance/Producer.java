@@ -8,10 +8,10 @@ import org.apache.kafka.clients.producer.RecordMetadata;
 import org.apache.kafka.common.serialization.ByteArraySerializer;
 
 /** An interface for sending records. */
-public interface Producer extends AutoCloseable {
+public interface Producer {
   Future<RecordMetadata> send(ProducerRecord<byte[], byte[]> producerRecord);
 
-  void close();
+  void cleanup();
 
   /**
    * Create a KafkaProducer.
@@ -21,7 +21,7 @@ public interface Producer extends AutoCloseable {
    */
   static Producer fromKafka(Properties prop) {
     final KafkaProducer<byte[], byte[]> kafkaProducer =
-        new KafkaProducer<>(prop, new ByteArraySerializer(), new ByteArraySerializer());
+            new KafkaProducer<>(prop, new ByteArraySerializer(), new ByteArraySerializer());
     return new Producer() {
 
       @Override
@@ -30,7 +30,7 @@ public interface Producer extends AutoCloseable {
       }
 
       @Override
-      public void close() {
+      public void cleanup() {
         kafkaProducer.close();
       }
     };
