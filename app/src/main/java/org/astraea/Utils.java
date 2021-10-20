@@ -6,6 +6,9 @@ import java.io.UncheckedIOException;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.nio.file.Files;
+import java.time.Duration;
+import java.util.concurrent.TimeUnit;
+import java.util.function.Supplier;
 import java.util.stream.Stream;
 
 public final class Utils {
@@ -61,6 +64,34 @@ public final class Utils {
     } catch (Exception e) {
       e.printStackTrace();
     }
+  }
+
+  /**
+   * Wait for procedure. Default is 10 seconds
+   *
+   * @param done a flag indicating the result.
+   */
+  public static void waitFor(Supplier<Boolean> done) {
+    waitFor(done, Duration.ofSeconds(10));
+  }
+
+  /**
+   * Wait for procedure.
+   *
+   * @param done a flag indicating the result.
+   */
+  public static void waitFor(Supplier<Boolean> done, Duration timeout) {
+    var endTime = System.currentTimeMillis() + timeout.toMillis();
+    Exception lastError = null;
+    while (System.currentTimeMillis() <= endTime)
+      try {
+        if (done.get()) return;
+        TimeUnit.SECONDS.sleep(1);
+      } catch (Exception e) {
+        lastError = e;
+      }
+    if (lastError != null) throw new RuntimeException(lastError);
+    throw new RuntimeException("Timeout to wait procedure");
   }
 
   private Utils() {}

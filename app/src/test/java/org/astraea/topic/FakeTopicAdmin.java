@@ -12,7 +12,7 @@ public abstract class FakeTopicAdmin implements TopicAdmin {
   }
 
   @Override
-  public void createTopic(String topic, int numberOfPartitions) {
+  public void createTopic(String topic, int numberOfPartitions, short numberOfReplicas) {
     throw new UnsupportedOperationException();
   }
 

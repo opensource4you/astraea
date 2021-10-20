@@ -3,6 +3,7 @@ package org.astraea.topic;
 import java.io.Closeable;
 import java.util.*;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import org.apache.kafka.clients.CommonClientConfigs;
 import org.apache.kafka.clients.admin.*;
 import org.apache.kafka.common.Node;
@@ -20,31 +21,51 @@ public interface TopicAdmin extends Closeable {
     return new TopicAdmin() {
 
       @Override
-      public void createTopic(String topic, int numberOfPartitions) {
+      public void createTopic(String topic, int numberOfPartitions, short numberOfReplicas) {
         var topics = topics();
         if (topics.contains(topic)) {
           var partitions = partitions(Set.of(topic));
-          if (partitions.size() < numberOfPartitions) {
-            Utils.handleException(
-                () ->
-                    admin
-                        .createPartitions(
-                            Map.of(topic, NewPartitions.increaseTo(numberOfPartitions)))
-                        .all()
-                        .get());
-          }
-          if (partitions.size() > numberOfPartitions) {
+          if (partitions.size() > numberOfPartitions)
             throw new IllegalArgumentException(
                 "Reducing the number of partitions is disallowed. Current: "
                     + partitions.size()
                     + " requested: "
                     + numberOfPartitions);
+
+          var allBrokers = brokerIds();
+          if (allBrokers.size() < numberOfReplicas)
+            throw new IllegalArgumentException(
+                "expected number of replicas is "
+                    + numberOfReplicas
+                    + ", but there are only "
+                    + allBrokers.size()
+                    + " brokers");
+
+          if (partitions.size() < numberOfPartitions) {
+            Utils.handleException(
+                () ->
+                    admin
+                        .createPartitions(
+                            Map.of(
+                                topic,
+                                NewPartitions.increaseTo(
+                                    numberOfPartitions,
+                                    IntStream.range(0, numberOfPartitions - partitions.size())
+                                        .mapToObj(
+                                            i ->
+                                                new ArrayList<>(allBrokers)
+                                                    .subList(0, numberOfReplicas))
+                                        .collect(Collectors.toList()))))
+                        .all()
+                        .get());
           }
+
         } else {
           Utils.handleException(
               () ->
                   admin
-                      .createTopics(List.of(new NewTopic(topic, numberOfPartitions, (short) 1)))
+                      .createTopics(
+                          List.of(new NewTopic(topic, numberOfPartitions, numberOfReplicas)))
                       .all()
                       .get());
         }
@@ -204,11 +225,11 @@ public interface TopicAdmin extends Closeable {
 
       @Override
       public Map<TopicPartition, List<Replica>> replicas(Set<String> topics) {
-        var replicaInfo =
+        var replicaInfos =
             Utils.handleException(() -> admin.describeLogDirs(brokerIds()).allDescriptions().get());
 
         var replicaLags =
-            replicaInfo.entrySet().stream()
+            replicaInfos.entrySet().stream()
                 .collect(
                     Collectors.toMap(
                         Map.Entry::getKey,
@@ -221,7 +242,7 @@ public interface TopicAdmin extends Closeable {
                                     Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue))));
 
         var replicaPaths =
-            replicaInfo.entrySet().stream()
+            replicaInfos.entrySet().stream()
                 .collect(
                     Collectors.toMap(
                         Map.Entry::getKey,
@@ -255,30 +276,33 @@ public interface TopicAdmin extends Closeable {
                                                 e.getKey(), topicPartitionInfo.partition()),
                                             topicPartitionInfo.replicas().stream()
                                                 .map(
-                                                    node ->
-                                                        new Replica(
-                                                            node.id(),
-                                                            Optional.ofNullable(
-                                                                    replicaLags
-                                                                        .getOrDefault(
-                                                                            node.id(), Map.of())
-                                                                        .get(
-                                                                            new TopicPartition(
-                                                                                e.getKey(),
-                                                                                topicPartitionInfo
-                                                                                    .partition())))
-                                                                .map(ReplicaInfo::offsetLag)
-                                                                .orElse(-1L),
-                                                            topicPartitionInfo.leader().id()
-                                                                == node.id(),
-                                                            topicPartitionInfo.isr().contains(node),
-                                                            replicaPaths
-                                                                .get(node.id())
-                                                                .get(
-                                                                    new TopicPartition(
-                                                                        e.getKey(),
-                                                                        topicPartitionInfo
-                                                                            .partition()))))
+                                                    node -> {
+                                                      var replicaInfo =
+                                                          replicaLags
+                                                              .getOrDefault(node.id(), Map.of())
+                                                              .get(
+                                                                  new TopicPartition(
+                                                                      e.getKey(),
+                                                                      topicPartitionInfo
+                                                                          .partition()));
+                                                      return new Replica(
+                                                          node.id(),
+                                                          replicaInfo == null
+                                                              ? -1
+                                                              : replicaInfo.offsetLag(),
+                                                          topicPartitionInfo.leader().id()
+                                                              == node.id(),
+                                                          topicPartitionInfo.isr().contains(node),
+                                                          replicaInfo != null
+                                                              && replicaInfo.isFuture(),
+                                                          replicaPaths
+                                                              .get(node.id())
+                                                              .get(
+                                                                  new TopicPartition(
+                                                                      e.getKey(),
+                                                                      topicPartitionInfo
+                                                                          .partition())));
+                                                    })
                                                 .sorted(
                                                     Comparator.comparing((Replica r) -> r.broker))
                                                 .collect(Collectors.toList()))))
@@ -298,7 +322,20 @@ public interface TopicAdmin extends Closeable {
    * @param topic topic name
    * @param numberOfPartitions expected number of partitions.
    */
-  void createTopic(String topic, int numberOfPartitions);
+  default void createTopic(String topic, int numberOfPartitions) {
+    createTopic(topic, numberOfPartitions, (short) 1);
+  }
+
+  /**
+   * make sure there is a topic having requested name and requested number of partitions. If the
+   * topic is existent and the number of partitions is larger than requested number, it will throw
+   * exception.
+   *
+   * @param topic topic name
+   * @param numberOfPartitions expected number of partitions.
+   * @param numberOfReplicas expected number of replicas.
+   */
+  void createTopic(String topic, int numberOfPartitions, short numberOfReplicas);
 
   /**
    * @param topics topic names
@@ -322,6 +359,8 @@ public interface TopicAdmin extends Closeable {
   Set<Integer> brokerIds();
 
   /**
+   * Assign the topic partition to specific brokers.
+   *
    * @param topicName topic name
    * @param partition partition
    * @param brokers to hold all the
@@ -404,13 +443,16 @@ public interface TopicAdmin extends Closeable {
     public final long lag;
     public final boolean leader;
     public final boolean inSync;
+    public final boolean isFuture;
     public final String path;
 
-    public Replica(int broker, long lag, boolean leader, boolean inSync, String path) {
+    public Replica(
+        int broker, long lag, boolean leader, boolean inSync, boolean isFuture, String path) {
       this.broker = broker;
       this.lag = lag;
       this.leader = leader;
       this.inSync = inSync;
+      this.isFuture = isFuture;
       this.path = path;
     }
 
@@ -425,10 +467,30 @@ public interface TopicAdmin extends Closeable {
           + leader
           + ", inSync="
           + inSync
+          + ", isFuture="
+          + isFuture
           + ", path='"
           + path
           + '\''
           + '}';
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) return true;
+      if (o == null || getClass() != o.getClass()) return false;
+      Replica replica = (Replica) o;
+      return broker == replica.broker
+          && lag == replica.lag
+          && leader == replica.leader
+          && inSync == replica.inSync
+          && isFuture == replica.isFuture
+          && Objects.equals(path, replica.path);
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(broker, lag, leader, inSync, isFuture, path);
     }
   }
 }
