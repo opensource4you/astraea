@@ -28,20 +28,20 @@ public class FakeComponentFactory implements ComponentFactory {
         consumerPoll.incrementAndGet();
         byte[] value = new byte[1024];
         return new ConsumerRecords<>(
-                Map.of(
-                        new TopicPartition("topic", 1),
-                        List.of(
-                                new ConsumerRecord<byte[], byte[]>(
-                                        "topic",
-                                        1,
-                                        0,
-                                        System.currentTimeMillis() - 10,
-                                        TimestampType.NO_TIMESTAMP_TYPE,
-                                        0,
-                                        0,
-                                        1024,
-                                        null,
-                                        value))));
+            Map.of(
+                new TopicPartition("topic", 1),
+                List.of(
+                    new ConsumerRecord<byte[], byte[]>(
+                        "topic",
+                        1,
+                        0,
+                        System.currentTimeMillis() - 10,
+                        TimestampType.NO_TIMESTAMP_TYPE,
+                        0,
+                        0,
+                        1024,
+                        null,
+                        value))));
       }
 
       @Override
@@ -63,14 +63,14 @@ public class FakeComponentFactory implements ComponentFactory {
       public Future<RecordMetadata> send(ProducerRecord<byte[], byte[]> record) {
         produced.increment();
         return KafkaFuture.completedFuture(
-                new RecordMetadata(
-                        new TopicPartition("topic", 0),
-                        -1,
-                        0,
-                        System.currentTimeMillis() - 10,
-                        0L,
-                        0,
-                        1024));
+            new RecordMetadata(
+                new TopicPartition("topic", 0),
+                -1,
+                0,
+                System.currentTimeMillis() - 10,
+                0L,
+                0,
+                1024));
       }
 
       @Override

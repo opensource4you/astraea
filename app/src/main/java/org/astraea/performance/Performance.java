@@ -54,7 +54,7 @@ public class Performance {
   }
 
   public static void execute(final Argument param, ComponentFactory componentFactory)
-          throws InterruptedException {
+      throws InterruptedException {
     try (var topicAdmin = TopicAdmin.of(param.adminProps())) {
       topicAdmin.createTopic(param.topic, param.partitions, param.replicas);
     } catch (IOException ignore) {
@@ -69,33 +69,33 @@ public class Performance {
 
     var complete = new CountDownLatch(1);
     try (ThreadPool consumerThreads =
-                 ThreadPool.builder()
-                         .executors(
-                                 IntStream.range(0, param.consumers)
-                                         .mapToObj(
-                                                 i ->
-                                                         consumerExecutor(
-                                                                 componentFactory.createConsumer(Collections.singleton(param.topic)),
-                                                                 consumerMetric[i] = new Metrics()))
-                                         .collect(Collectors.toList()))
-                         .executor(new Tracker(producerMetric, consumerMetric, param.records, complete))
-                         .build()) {
+        ThreadPool.builder()
+            .executors(
+                IntStream.range(0, param.consumers)
+                    .mapToObj(
+                        i ->
+                            consumerExecutor(
+                                componentFactory.createConsumer(Collections.singleton(param.topic)),
+                                consumerMetric[i] = new Metrics()))
+                    .collect(Collectors.toList()))
+            .executor(new Tracker(producerMetric, consumerMetric, param.records, complete))
+            .build()) {
 
       System.out.println("Wait for consumer startup");
       Thread.sleep(10000);
 
       // Close after all records are sent
       try (ThreadPool producerThreads =
-                   ThreadPool.builder()
-                           .loop((int) (param.records / param.producers))
-                           .executors(
-                                   IntStream.range(0, param.producers)
-                                           .mapToObj(
-                                                   i ->
-                                                           producerExecutor(
-                                                                   componentFactory.createProducer(), param, producerMetric[i]))
-                                           .collect(Collectors.toList()))
-                           .build()) {
+          ThreadPool.builder()
+              .loop((int) (param.records / param.producers))
+              .executors(
+                  IntStream.range(0, param.producers)
+                      .mapToObj(
+                          i ->
+                              producerExecutor(
+                                  componentFactory.createProducer(), param, producerMetric[i]))
+                      .collect(Collectors.toList()))
+              .build()) {
         complete.await();
       }
     }
@@ -155,52 +155,52 @@ public class Performance {
   static class Argument extends BasicAdminArgument {
 
     @Parameter(
-            names = {"--topic"},
-            description = "String: topic name",
-            validateWith = ArgumentUtil.NotEmptyString.class)
+        names = {"--topic"},
+        description = "String: topic name",
+        validateWith = ArgumentUtil.NotEmptyString.class)
     String topic = "testPerformance-" + System.currentTimeMillis();
 
     @Parameter(
-            names = {"--partitions"},
-            description = "Integer: number of partitions to create the topic",
-            validateWith = ArgumentUtil.PositiveLong.class)
+        names = {"--partitions"},
+        description = "Integer: number of partitions to create the topic",
+        validateWith = ArgumentUtil.PositiveLong.class)
     int partitions = 1;
 
     @Parameter(
-            names = {"--replicas"},
-            description = "Integer: number of replica to create the topic",
-            validateWith = ArgumentUtil.PositiveLong.class,
-            converter = ArgumentUtil.ShortConverter.class)
+        names = {"--replicas"},
+        description = "Integer: number of replica to create the topic",
+        validateWith = ArgumentUtil.PositiveLong.class,
+        converter = ArgumentUtil.ShortConverter.class)
     short replicas = 1;
 
     @Parameter(
-            names = {"--producers"},
-            description = "Integer: number of producers to produce records",
-            validateWith = ArgumentUtil.PositiveLong.class)
+        names = {"--producers"},
+        description = "Integer: number of producers to produce records",
+        validateWith = ArgumentUtil.PositiveLong.class)
     int producers = 1;
 
     @Parameter(
-            names = {"--consumers"},
-            description = "Integer: number of consumers to consume records",
-            validateWith = ArgumentUtil.NonNegativeLong.class)
+        names = {"--consumers"},
+        description = "Integer: number of consumers to consume records",
+        validateWith = ArgumentUtil.NonNegativeLong.class)
     int consumers = 1;
 
     @Parameter(
-            names = {"--records"},
-            description = "Integer: number of records to send",
-            validateWith = ArgumentUtil.NonNegativeLong.class)
+        names = {"--records"},
+        description = "Integer: number of records to send",
+        validateWith = ArgumentUtil.NonNegativeLong.class)
     long records = 1000;
 
     @Parameter(
-            names = {"--record.size"},
-            description = "Integer: size of each record",
-            validateWith = ArgumentUtil.PositiveLong.class)
+        names = {"--record.size"},
+        description = "Integer: size of each record",
+        validateWith = ArgumentUtil.PositiveLong.class)
     int recordSize = 1024;
 
     @Parameter(
-            names = {"--prop.file"},
-            description = "String: path to the properties file",
-            validateWith = ArgumentUtil.NotEmptyString.class)
+        names = {"--prop.file"},
+        description = "String: path to the properties file",
+        validateWith = ArgumentUtil.NotEmptyString.class)
     String propFile;
 
     public Map<String, Object> perfProps() {

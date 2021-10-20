@@ -21,7 +21,7 @@ public interface Producer {
    */
   static Producer fromKafka(Properties prop) {
     final KafkaProducer<byte[], byte[]> kafkaProducer =
-            new KafkaProducer<>(prop, new ByteArraySerializer(), new ByteArraySerializer());
+        new KafkaProducer<>(prop, new ByteArraySerializer(), new ByteArraySerializer());
     return new Producer() {
 
       @Override

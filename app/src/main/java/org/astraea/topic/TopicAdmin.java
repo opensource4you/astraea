@@ -21,6 +21,11 @@ public interface TopicAdmin extends Closeable {
 
       @Override
       public void createTopic(String topic, int numberOfPartitions) {
+        createTopic(topic, numberOfPartitions, (short) 1);
+      }
+
+      @Override
+      public void createTopic(String topic, int numberOfPartitions, short replicas) {
         var topics = topics();
         if (topics.contains(topic)) {
           var partitions = partitions(Set.of(topic));
@@ -44,7 +49,7 @@ public interface TopicAdmin extends Closeable {
           Utils.handleException(
               () ->
                   admin
-                      .createTopics(List.of(new NewTopic(topic, numberOfPartitions, (short) 1)))
+                      .createTopics(List.of(new NewTopic(topic, numberOfPartitions, replicas)))
                       .all()
                       .get());
         }
@@ -299,6 +304,17 @@ public interface TopicAdmin extends Closeable {
    * @param numberOfPartitions expected number of partitions.
    */
   void createTopic(String topic, int numberOfPartitions);
+
+  /**
+   * make sure there is a topic having requested name and requested number of partitions. If the
+   * topic is existent and the number of partitions is larger than requested number, it will throw
+   * exception.
+   *
+   * @param topic topic name
+   * @param numberOfPartitions expected number of partitions.
+   * @param replicas expected number of replicas
+   */
+  void createTopic(String topic, int numberOfPartitions, short replicas);
 
   /**
    * @param topics topic names

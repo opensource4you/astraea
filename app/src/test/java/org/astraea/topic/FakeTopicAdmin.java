@@ -17,6 +17,11 @@ public abstract class FakeTopicAdmin implements TopicAdmin {
   }
 
   @Override
+  public void createTopic(String topic, int numberOfPartitions, short replicas) {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
   public Map<TopicPartition, Offset> offsets(Set<String> topics) {
     throw new UnsupportedOperationException();
   }

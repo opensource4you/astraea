@@ -19,8 +19,8 @@ public interface Consumer {
   static Consumer fromKafka(Properties prop, Collection<String> topics) {
 
     var kafkaConsumer =
-            new KafkaConsumer<byte[], byte[]>(
-                    prop, new ByteArrayDeserializer(), new ByteArrayDeserializer());
+        new KafkaConsumer<byte[], byte[]>(
+            prop, new ByteArrayDeserializer(), new ByteArrayDeserializer());
     kafkaConsumer.subscribe(topics);
     return new Consumer() {
 

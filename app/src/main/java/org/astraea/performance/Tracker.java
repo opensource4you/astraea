@@ -11,7 +11,7 @@ public class Tracker implements ThreadPool.Executor {
   private final CountDownLatch complete;
 
   public Tracker(
-          Metrics[] producerData, Metrics[] consumerData, long records, CountDownLatch complete) {
+      Metrics[] producerData, Metrics[] consumerData, long records, CountDownLatch complete) {
     this.producerData = producerData;
     this.consumerData = consumerData;
     this.records = records;
@@ -42,7 +42,7 @@ public class Tracker implements ThreadPool.Executor {
     System.out.println("  發送mim latency:" + min + "ms");
     for (int i = 0; i < producerData.length; ++i) {
       System.out.printf(
-              "  producer[%d]的發送average latency: %.3fms%n", i, producerData[i].avgLatency());
+          "  producer[%d]的發送average latency: %.3fms%n", i, producerData[i].avgLatency());
     }
     /* consumer */
     completed = 0;
@@ -61,7 +61,7 @@ public class Tracker implements ThreadPool.Executor {
     System.out.println("  端到端mim latency:" + min + "ms");
     for (int i = 0; i < consumerData.length; ++i) {
       System.out.printf(
-              "  consumer[%d]的端到端average latency: %.3fms%n", i, consumerData[i].avgLatency());
+          "  consumer[%d]的端到端average latency: %.3fms%n", i, consumerData[i].avgLatency());
     }
 
     System.out.println("\n");

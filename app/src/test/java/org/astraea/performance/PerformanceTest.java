@@ -1,11 +1,5 @@
 package org.astraea.performance;
 
-import java.util.concurrent.CountDownLatch;
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Test;
-
-package org.astraea.performance;
-
 import java.util.List;
 import org.astraea.concurrent.ThreadPool;
 import org.astraea.service.RequireBrokerCluster;
@@ -27,8 +21,8 @@ public class PerformanceTest extends RequireBrokerCluster {
   public void testProducerExecutor() throws InterruptedException {
     Metrics metrics = new Metrics();
     ThreadPool.Executor executor =
-            Performance.producerExecutor(
-                    fakeFactory.createProducer(), new Performance.Argument(), metrics);
+        Performance.producerExecutor(
+            fakeFactory.createProducer(), new Performance.Argument(), metrics);
 
     executor.execute();
 
@@ -45,7 +39,7 @@ public class PerformanceTest extends RequireBrokerCluster {
   public void testConsumerExecutor() throws InterruptedException {
     Metrics metrics = new Metrics();
     ThreadPool.Executor executor =
-            Performance.consumerExecutor(fakeFactory.createConsumer(List.of("topic")), metrics);
+        Performance.consumerExecutor(fakeFactory.createConsumer(List.of("topic")), metrics);
 
     executor.execute();
 
