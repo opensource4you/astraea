@@ -14,16 +14,11 @@ import org.astraea.topic.TopicExplorer;
 public class App {
   private static final Map<String, Class<?>> MAIN_CLASSES =
       Map.of(
-          "latency",
-          End2EndLatency.class,
-          "offset",
-          TopicExplorer.class,
-          "metrics",
-          KafkaMetricClientApp.class,
-          "replica",
-          ReplicaCollie.class,
-          "performance",
-          Performance.class);
+          "latency", End2EndLatency.class,
+          "offset", TopicExplorer.class,
+          "metrics", KafkaMetricClientApp.class,
+          "replica", ReplicaCollie.class,
+          "performance", Performance.class);
 
   static void execute(Map<String, Class<?>> mains, List<String> args) throws Throwable {
 

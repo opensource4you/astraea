@@ -39,7 +39,7 @@ public class TopicExplorerTest {
           @Override
           public Map<TopicPartition, List<Replica>> replicas(Set<String> topics) {
             return Map.of(
-                topicPartition, List.of(new Replica(brokerId, lag, leader, inSync, "path")));
+                topicPartition, List.of(new Replica(brokerId, lag, leader, inSync, false, "path")));
           }
         }) {
       var result = TopicExplorer.execute(admin, Set.of(topicName));
