@@ -4,7 +4,10 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.producer.ProducerRecord;
+import org.apache.kafka.common.header.internals.RecordHeaders;
+import org.apache.kafka.common.record.TimestampType;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -52,8 +55,24 @@ class KafkaUtilsTest {
             new ProducerRecord<>(topic, null, key, value, headers),
             new ProducerRecord<>(topic, null, 100L, key, value, headers));
     producerRecords.forEach(
-        record ->
-            Assertions.assertTrue(
-                KafkaUtils.equal(record, FakeComponentFactory.toConsumerRecord(record))));
+        record -> Assertions.assertTrue(KafkaUtils.equal(record, toConsumerRecord(record))));
+  }
+
+  private static ConsumerRecord<byte[], byte[]> toConsumerRecord(
+      ProducerRecord<byte[], byte[]> producerRecord) {
+    return new ConsumerRecord<>(
+        producerRecord.topic(),
+        1,
+        1L,
+        producerRecord.timestamp() == null
+            ? System.currentTimeMillis()
+            : producerRecord.timestamp(),
+        TimestampType.CREATE_TIME,
+        1L,
+        producerRecord.key() == null ? 0 : producerRecord.key().length,
+        producerRecord.value() == null ? 0 : producerRecord.value().length,
+        producerRecord.key(),
+        producerRecord.value(),
+        new RecordHeaders(producerRecord.headers()));
   }
 }
