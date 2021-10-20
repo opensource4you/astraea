@@ -94,7 +94,7 @@ java -jar app-0.0.1-SNAPSHOT-all.jar latency --bootstrap.servers 192.168.50.224:
 
 ---
 
-## Offset Explorer
+## Topic Explorer
 
 This tool can expose both earliest offset and latest offset for all (public and private) topics.
 
