@@ -18,8 +18,10 @@ This project offers many kafka tools to simplify the life for kafka users.
 4. [Kafka official tool](#kafka-official-tool): run any one specific kafka official tool. All you have to prepare is the docker env.
 5. [Kafka metric client](#kafka-metric-client): utility for accessing kafka Mbean metrics via JMX.
 6. [Replica Collie](#replica-collie): move replicas from brokers to others. You can use this tool to obstruct specific brokers from hosting specific topics. 
+7. [Kafka partition score](#Kafka-partition-score): score all broker's partitions. 
 
 [Release page](https://github.com/skiptests/astraea/releases) offers the uber jar including all tools.
+
 ```shell
 java -jar astraea-0.0.1-alpha.1-all.jar [tool] [args]
 ```
@@ -175,3 +177,20 @@ This tool offers an effective way to migrate all replicas from specific brokers 
 1. --bootstrap.servers: the server to connect to
 2. --topics: the topics to be moved
 3. --admin.props.file: the file path containing the properties to be passed to kafka admin
+
+## Kafka Partition Score
+
+This tool will score the partition on brokers, the higher  score the heavier load.
+
+### Start scoring partitions on broker address "192.168.103.39:9092"
+
+
+
+```shell
+./gradlew run --args="score --bootstrap.servers 192.168.103.39:9092"
+```
+
+### Partition Score Configurations
+
+1. --bootstrap.servers: the server to connect to
+
