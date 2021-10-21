@@ -12,19 +12,29 @@ a collection of tools used to balance Kafka data
 
 This project offers many kafka tools to simplify the life for kafka users.
 
+1. [Kafka quick start](#kafka-cluster-quick-start): set up a true kafka cluster in one minute
+2. [Kafka benchmark](#latency-benchmark): run producers/consumers to test the performance and consistency for kafka cluster
+3. [Kafka offset explorer](#offset-explorer): check the start/end offsets of kafka topics
+4. [Kafka official tool](#kafka-official-tool): run any one specific kafka official tool. All you have to prepare is the docker env.
+
+[Release page](https://github.com/skiptests/astraea/releases) offers the uber jar including all tools.
+```shell
+java -jar astraea-0.0.1-alpha.1-all.jar [tool] [args]
+```
+
 ---
 
-## Quickstart a Kafka Env
+## Kafka Cluster Quick Start
 
-There are two scripts which can setup env quickly by container
+The following scripts can build a kafka cluster by containers in one minute.
 
-### Set up zookeeper with default version
+### Set up zookeeper
 
 ```shell
 ./docker/start_zookeeper.sh
 ```
 
-The above script creates a zookeeper instance by container. Also, it will show the command used to add broker instance. For example:
+The script creates a zookeeper instance by container. Also, it will show the command used to add broker instance. For example:
 
 ```shell
 =================================================
@@ -32,13 +42,9 @@ run ./docker/start_broker.sh zookeeper.connect=192.168.50.178:17228 to join kafk
 =================================================
 ```
 
-### Set up zookeeper with specific version
+You can define `ZOOKEEPER_VERSION` to change the binary version.
 
-```shell
-ZOOKEEPER_VERSION=3.6.3 ./docker/start_zookeeper.sh
-```
-
-### Set up (kafka) broker with default version
+### Set up (kafka) broker
 
 After the zk env is running, you can copy the command (see above example) from zk script output to set up kafka. For example:
 ```shell
@@ -54,13 +60,8 @@ jmx address: 192.168.50.224:15905
 =================================================
 ```
 
-Noted that the command to set up broker can be executed multiple times to create a broker cluster.
-
-### Set up (kafka) broker with specific version
-
-```shell
-KAFKA_VERSION=2.8.0 ./docker/start_broker.sh zookeeper.connect=192.168.50.178:17228
-```
+The command to set up broker can be executed multiple times to create a broker cluster. The env `KAFKA_VERSION` is used to
+define the release version of kafka. Or you can define `KAFKA_REVISION` to run kafka based on specify revision of source code.
 
 ---
 
@@ -77,7 +78,7 @@ Run the benchmark from source code
 
 Run the benchmark from release
 ```shell
-./bin/App Latency --bootstrap.servers 192.168.50.224:18878
+java -jar app-0.0.1-SNAPSHOT-all.jar Latency --bootstrap.servers 192.168.50.224:18878
 ```
 
 ### Latency Benchmark Configurations
@@ -99,14 +100,14 @@ Run the tool from source code
 ./gradlew run --args="offset --bootstrap.servers 192.168.50.178:19993"
 ```
 
-Run the benchmark from release
+Run the tool from release
 ```shell
-./bin/App offset --bootstrap.servers 192.168.50.178:19993
+java -jar app-0.0.1-SNAPSHOT-all.jar offset --bootstrap.servers 192.168.50.178:19993
 ```
 
 ### Offset Explorer Configurations
 1. --bootstrap.servers: the server to connect to
-2. --topic: the topic to search
+2. --topics: the topics to search
 
 ---
 
@@ -117,11 +118,11 @@ This project offers a way to run kafka official tool by container. For example:
 ### Run kafka-topics.sh
 
 ```shell
-./docker/start_tool.sh kafka-topics.sh --bootstrap-server 192.168.50.178:14082 --list
+./docker/start_kafka_tool.sh kafka-topics.sh --bootstrap-server 192.168.50.178:14082 --list
 ```
 
 ### Show Available Official Tools
 
 ```shell
-./docker/start_tool.sh help
+./docker/start_kafka_tool.sh help
 ```

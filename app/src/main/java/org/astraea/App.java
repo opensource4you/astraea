@@ -1,20 +1,23 @@
 package org.astraea;
 
+import com.beust.jcommander.ParameterException;
+import java.lang.reflect.InvocationTargetException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
+import org.astraea.metrics.kafka.KafkaMetricClientApp;
 import org.astraea.moveCost.DataVolume;
 import org.astraea.offset.OffsetExplorer;
 import org.astraea.performance.latency.End2EndLatency;
 
 public class App {
   private static final List<Class<?>> MAIN_CLASSES =
-      Arrays.asList(End2EndLatency.class, OffsetExplorer.class, DataVolume.class);
+      Arrays.asList(
+          End2EndLatency.class, OffsetExplorer.class, KafkaMetricClientApp.class, DataVolume.class);
 
   private static String toString(List<Class<?>> mains) {
-
-    return mains.stream().map(Class::getName).collect(Collectors.joining(","));
+    return mains.stream().map(Class::getSimpleName).collect(Collectors.joining(","));
   }
 
   private static String usage(List<Class<?>> mains) {
@@ -39,7 +42,16 @@ public class App {
                             "className: " + className + " is not matched to " + toString(mains)));
 
     var method = targetClass.getDeclaredMethod("main", String[].class);
-    method.invoke(null, (Object) args.subList(1, args.size()).toArray(String[]::new));
+    try {
+      method.invoke(null, (Object) args.subList(1, args.size()).toArray(String[]::new));
+    } catch (InvocationTargetException targetException) {
+      // Print out ParameterException, don't throw.
+      if (targetException.getTargetException() instanceof ParameterException) {
+        System.out.println(targetException.getTargetException().getMessage());
+      } else {
+        throw targetException.getTargetException();
+      }
+    }
   }
 
   public static void main(String[] args) throws Throwable {

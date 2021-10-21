@@ -1,65 +1,68 @@
 package org.astraea.offset;
 
-import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import org.apache.kafka.clients.CommonClientConfigs;
 import org.apache.kafka.common.TopicPartition;
+import org.astraea.topic.TopicAdmin;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 public class OffsetExplorerTest {
 
   @Test
-  void testToAdminProps() {
-    Assertions.assertThrows(
-        IllegalArgumentException.class, () -> OffsetExplorer.toAdminProps(Collections.emptyMap()));
+  void test() {
 
-    Assertions.assertEquals(
-        "brokers",
-        OffsetExplorer.toAdminProps(Map.of(OffsetExplorer.BROKERS_KEY, "brokers"))
-            .get(CommonClientConfigs.BOOTSTRAP_SERVERS_CONFIG));
-  }
-
-  @Test
-  void testExecute() {
     var topicName = "topic";
     var partition = 1000;
+    var topicPartition = new TopicPartition(topicName, partition);
     var latestOffset = 1000L;
     var earliestOffset = 100L;
-
+    var groupId = "thisIsId";
+    var groupOffset = 100;
+    var brokerId = 10;
+    var lag = 2;
+    var leader = true;
+    var inSync = true;
     try (var admin =
-        new OffsetExplorer.Admin() {
-          @Override
-          public void close() {}
-
+        new TopicAdmin() {
           @Override
           public Set<String> topics() {
-            return Collections.singleton("topic");
+            return null;
           }
 
           @Override
-          public Set<TopicPartition> partitions(Set<String> topics) {
-            return Collections.singleton(new TopicPartition(topicName, partition));
+          public Map<TopicPartition, Offset> offset(Set<String> topics) {
+            return Map.of(topicPartition, new Offset(earliestOffset, latestOffset));
           }
 
           @Override
-          public Map<TopicPartition, Long> earliestOffsets(Set<TopicPartition> partitions) {
-            return Map.of(new TopicPartition(topicName, partition), earliestOffset);
+          public Map<TopicPartition, List<Group>> groups(Set<String> topics) {
+            return Map.of(topicPartition, List.of(new Group(groupId, groupOffset)));
           }
 
           @Override
-          public Map<TopicPartition, Long> latestOffsets(Set<TopicPartition> partitions) {
-            return Map.of(new TopicPartition(topicName, partition), latestOffset);
+          public Map<TopicPartition, List<Replica>> replicas(Set<String> topics) {
+            return Map.of(topicPartition, List.of(new Replica(brokerId, lag, leader, inSync)));
           }
+
+          @Override
+          public void close() {}
         }) {
-      var result = OffsetExplorer.execute(admin, Collections.singleton(topicName));
+      var result = OffsetExplorer.execute(admin, Set.of(topicName));
       Assertions.assertEquals(1, result.size());
-      var item = result.entrySet().iterator().next();
-      Assertions.assertEquals(topicName, item.getKey().topic());
-      Assertions.assertEquals(partition, item.getKey().partition());
-      Assertions.assertEquals(earliestOffset, item.getValue().getKey());
-      Assertions.assertEquals(latestOffset, item.getValue().getValue());
+      Assertions.assertEquals(topicName, result.get(0).topic);
+      Assertions.assertEquals(partition, result.get(0).partition);
+      Assertions.assertEquals(earliestOffset, result.get(0).earliestOffset);
+      Assertions.assertEquals(latestOffset, result.get(0).latestOffset);
+      Assertions.assertEquals(1, result.get(0).groups.size());
+      Assertions.assertEquals(groupId, result.get(0).groups.get(0).id);
+      Assertions.assertEquals(groupOffset, result.get(0).groups.get(0).offset);
+      Assertions.assertEquals(1, result.get(0).replicas.size());
+      Assertions.assertEquals(brokerId, result.get(0).replicas.get(0).broker);
+      Assertions.assertEquals(lag, result.get(0).replicas.get(0).lag);
+      Assertions.assertEquals(leader, result.get(0).replicas.get(0).leader);
+      Assertions.assertEquals(inSync, result.get(0).replicas.get(0).inSync);
     }
   }
 }
