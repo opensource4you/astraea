@@ -4,37 +4,31 @@ import java.util.*;
 import java.util.Properties;
 import java.util.concurrent.ExecutionException;
 import org.apache.kafka.clients.admin.*;
-import org.apache.kafka.clients.producer.*;
-import org.apache.kafka.common.KafkaFuture;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.config.ConfigResource;
+import org.astraea.argument.ArgumentUtil;
+import org.astraea.argument.BasicArgument;
 
 public class PartitionScore {
   public static AdminClient client;
 
-  static synchronized Producer initProducer() {
+  static void init(String address) {
     Properties props = new Properties();
-    props.put("bootstrap.servers", "192.168.103.39:9092"); // *borker's ip
+    props.put("bootstrap.servers", address); // broker's address
     props.put("acks", "-1");
     props.put("retries", 1);
     props.put("batch.size", 10);
     props.put("linger.ms", 10000);
     props.put("buffer.memory", 10240);
     client = AdminClient.create(props);
-    props.put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer");
-    props.put("value.serializer", "org.apache.kafka.common.serialization.StringSerializer");
-    Producer producer = new KafkaProducer(props);
-    return producer;
   }
 
   public static Map<Integer, Map<TopicPartition, Float>> getLoad()
       throws ExecutionException, InterruptedException {
-    ListTopicsResult topic = client.listTopics();
-    KafkaFuture<Set<String>> names = topic.names();
     DescribeClusterResult broker = client.describeCluster();
-    Collection<Integer> brokerID = new ArrayList<Integer>();
+    Collection<Integer> brokerID = new ArrayList<>();
     Map<Integer, Map<TopicPartition, Float>> data = new HashMap<>();
-    Float load = 0f;
+    float load;
     for (var j : broker.nodes().get()) {
       brokerID.add(j.id());
       DescribeLogDirsResult result = client.describeLogDirs(brokerID);
@@ -43,13 +37,8 @@ public class PartitionScore {
           Map<TopicPartition, Float> partitionLoad = new HashMap<>();
           var map = i.get();
           for (String name : map.keySet()) {
-            System.out.println("成功取得broker" + j.id() + "(" + name + "): ");
-            System.out.println(name + ": " + map.get(name));
             for (var p : map.get(name).replicaInfos().keySet()) {
               if (!p.topic().equals("__consumer_offsets")) {
-                System.out.println("topic-partition: " + p);
-                System.out.println("size: " + map.get(name).replicaInfos().get(p).size());
-                //     System.out.println("retention.ms:  "+getRetention(p.topic()));
                 load = (float) map.get(name).replicaInfos().get(p).size() / getRetention(p.topic());
                 partitionLoad.put(p, load);
               }
@@ -77,45 +66,36 @@ public class PartitionScore {
     Map<Integer, Float> partitionMean = new HashMap<>();
     Map<Integer, Map<TopicPartition, Float>> score = new HashMap<>();
 
-    Float mean = 0f, tmp = 0f, LoadSQR = 0f, SD, brokerSD;
-    int partitionNum = 0;
+    float mean = 0f, LoadSQR = 0f, SD, brokerSD;
+    int partitionNum;
     for (var broker : data.keySet()) {
-      for (var ii : data.get(broker).keySet()) {
-        mean += data.get(broker).get(ii);
-        // System.out.println("broker: "+broker +" topic-partition: "+ ii+ "load: " +
-        partitionLoad.put(ii, data.get(broker).get(ii));
-        LoadSQR += (float) Math.pow(data.get(broker).get(ii), 2);
+      for (var topicPartition : data.get(broker).keySet()) {
+        mean += data.get(broker).get(topicPartition);
+        partitionLoad.put(topicPartition, data.get(broker).get(topicPartition));
+        LoadSQR += (float) Math.pow(data.get(broker).get(topicPartition), 2);
       }
       partitionNum = data.get(broker).keySet().size();
-      // System.out.println("brokerload: "+mean);
       brokerLoad.put(broker, mean);
       mean /= partitionNum;
-      // System.out.println("partitionMean: "+mean);
       partitionMean.put(broker, mean);
       SD = (float) Math.pow((LoadSQR - mean * mean * partitionNum) / partitionNum, 0.5);
-      // System.out.println("partitionSD= "+SD);
       partitionSD.put(broker, SD);
       mean = 0f;
       LoadSQR = 0f;
     }
     for (var i : brokerLoad.keySet()) {
-      //  System.out.println(i+" "+brokerLoad.get(i));
       mean += brokerLoad.get(i);
       LoadSQR += (float) Math.pow(brokerLoad.get(i), 2);
     }
     mean /= brokerLoad.keySet().size();
-    //  System.out.println("brokerLoad mean= "+mean);
     brokerSD =
         (float)
             Math.pow(
                 (LoadSQR - mean * mean * brokerLoad.keySet().size()) / brokerLoad.keySet().size(),
                 0.5);
-    //   System.out.println("brokerSD= "+brokerSD);
     for (var broker : data.keySet()) {
-      //  System.out.println("broker: "+broker);
       Map<TopicPartition, Float> partitionScore = new HashMap<>();
       for (var ii : data.get(broker).keySet()) {
-        //  System.out.println("topic-partition: "+ii);
         if (brokerLoad.get(broker) - mean > 0) {
           partitionScore.put(
               ii,
@@ -125,7 +105,6 @@ public class PartitionScore {
           score.put(broker, partitionScore);
 
         } else {
-          //  System.out.println("broker: "+broker +" is good.");
           partitionScore.put(ii, 0f);
           score.put(broker, partitionScore);
         }
@@ -147,9 +126,7 @@ public class PartitionScore {
                   .get(configResource)
                   .get("retention.ms")
                   .value());
-    } catch (InterruptedException e) {
-      e.printStackTrace();
-    } catch (ExecutionException e) {
+    } catch (InterruptedException | ExecutionException e) {
       e.printStackTrace();
     }
     return retentionTime;
@@ -166,9 +143,11 @@ public class PartitionScore {
   }
 
   public static void main(String[] args) throws InterruptedException, ExecutionException {
-    initProducer();
-    Map<Integer, Map<TopicPartition, Float>> score = new HashMap<>();
-    score = getScore();
+    var argument = ArgumentUtil.parseArgument(new Argument(), args);
+    init(argument.brokers);
+    Map<Integer, Map<TopicPartition, Float>> score = getScore();
     printScore(score);
   }
+
+  static class Argument extends BasicArgument {}
 }

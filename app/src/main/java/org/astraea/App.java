@@ -6,7 +6,6 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import org.astraea.metrics.kafka.KafkaMetricClientApp;
-
 import org.astraea.moveCost.PartitionScore;
 import org.astraea.performance.latency.End2EndLatency;
 import org.astraea.topic.ReplicaCollie;
