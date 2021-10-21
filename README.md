@@ -14,11 +14,11 @@ This project offers many kafka tools to simplify the life for kafka users.
 
 1. [Kafka quick start](#kafka-cluster-quick-start): set up a true kafka cluster in one minute
 2. [Kafka benchmark](#latency-benchmark): run producers/consumers to test the performance and consistency for kafka cluster
-3. [Kafka performance](#Performance Benchmark): check producing/consuming performance.
+3. [Kafka performance](#Performance-Benchmark): check producing/consuming performance.
 4. [Kafka offset explorer](#offset-explorer): check the start/end offsets of kafka topics
 5. [Kafka official tool](#kafka-official-tool): run any one specific kafka official tool. All you have to prepare is the docker env.
-6[Kafka metric client](#kafka-metric-client): utility for accessing kafka Mbean metrics via JMX.
-7[Replica Collie](#replica-collie): move replicas from brokers to others. You can use this tool to obstruct specific brokers from hosting specific topics. 
+6. [Kafka metric client](#kafka-metric-client): utility for accessing kafka Mbean metrics via JMX.
+7. [Replica Collie](#replica-collie): move replicas from brokers to others. You can use this tool to obstruct specific brokers from hosting specific topics. 
 
 [Release page](https://github.com/skiptests/astraea/releases) offers the uber jar including all tools.
 ```shell

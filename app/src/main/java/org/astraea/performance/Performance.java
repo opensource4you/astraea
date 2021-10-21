@@ -106,7 +106,7 @@ public class Performance {
       @Override
       public void execute() throws InterruptedException {
         try {
-          for (var record : consumer.poll(Duration.ofMillis(100))) {
+          for (var record : consumer.poll(Duration.ofSeconds(10))) {
             // 取得端到端延時
             metrics.putLatency(System.currentTimeMillis() - record.timestamp());
             // 記錄輸入byte(沒有算入header和timestamp)
