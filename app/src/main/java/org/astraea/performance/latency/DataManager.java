@@ -15,29 +15,29 @@ class DataManager {
   private static final int NUMBER_OF_CACHED_HEADERS = 100;
   private static final int NUMBER_OF_SENDING_HEADERS = 3;
 
-  static DataManager of(String topic, int valueSize) {
-    return new DataManager(topic, valueSize, true);
+  static DataManager of(Set<String> topics, int valueSize) {
+    return new DataManager(topics, valueSize, true);
   }
 
-  static DataManager noConsumer(String topic, int valueSize) {
-    return new DataManager(topic, valueSize, false);
+  static DataManager noConsumer(Set<String> topics, int valueSize) {
+    return new DataManager(topics, valueSize, false);
   }
 
   /** record key -> (record, timestamp_done) */
   private final ConcurrentMap<byte[], Map.Entry<ProducerRecord<byte[], byte[]>, Long>>
       sendingRecords = new ConcurrentSkipListMap<>(Arrays::compare);
 
-  private final String topic;
+  private final Set<String> topics;
   private final boolean hasConsumer;
   private final List<byte[]> values;
   private final List<Header> headers;
 
   private final AtomicLong recordIndex = new AtomicLong(0);
 
-  final AtomicLong producerRecords = new AtomicLong(0);
+  private final AtomicLong producerRecords = new AtomicLong(0);
 
-  private DataManager(String topic, int valueSize, boolean hasConsumer) {
-    this.topic = Objects.requireNonNull(topic);
+  private DataManager(Set<String> topics, int valueSize, boolean hasConsumer) {
+    this.topics = Objects.requireNonNull(topics);
     this.values =
         IntStream.range(0, NUMBER_OF_CACHED_VALUES)
             .mapToObj(i -> randomString(valueSize).getBytes())
@@ -61,23 +61,31 @@ class DataManager {
    * @return generate a new record with random data and specify topic name. The record consists of
    *     key, value, topic and headers.
    */
-  ProducerRecord<byte[], byte[]> producerRecord() {
-    return new ProducerRecord<>(
-        topic,
-        null,
-        (long) (Math.random() * System.currentTimeMillis()),
-        String.format("%020d", recordIndex.getAndIncrement()).getBytes(),
-        values.get((int) (Math.random() * values.size())),
-        IntStream.range(0, NUMBER_OF_SENDING_HEADERS)
-            .mapToObj(i -> headers.get((int) (Math.random() * headers.size())))
-            .collect(Collectors.toList()));
+  List<ProducerRecord<byte[], byte[]>> producerRecords() {
+    return topics.stream()
+        .map(
+            topic ->
+                new ProducerRecord<>(
+                    topic,
+                    null,
+                    (long) (Math.random() * System.currentTimeMillis()),
+                    String.format("%020d", recordIndex.getAndIncrement()).getBytes(),
+                    values.get((int) (Math.random() * values.size())),
+                    IntStream.range(0, NUMBER_OF_SENDING_HEADERS)
+                        .mapToObj(i -> headers.get((int) (Math.random() * headers.size())))
+                        .collect(Collectors.toList())))
+        .collect(Collectors.toList());
   }
 
-  void sendingRecord(ProducerRecord<byte[], byte[]> record, long now) {
+  void sendingRecord(List<ProducerRecord<byte[], byte[]>> records, long now) {
     if (hasConsumer) {
-      var previous =
-          sendingRecords.put(record.key(), new AbstractMap.SimpleImmutableEntry<>(record, now));
-      if (previous != null) throw new RuntimeException("duplicate data!!!");
+      records.forEach(
+          record -> {
+            var previous =
+                sendingRecords.put(
+                    record.key(), new AbstractMap.SimpleImmutableEntry<>(record, now));
+            if (previous != null) throw new RuntimeException("duplicate data!!!");
+          });
     }
     producerRecords.incrementAndGet();
   }

@@ -21,13 +21,19 @@ def versions = [
     kafka: project.properties['kafka.version'] ?: "2.8.0",
     junit: project.properties['junit.version'] ?: "5.7.2",
     jcommander: project.properties['jcommander.version'] ?: "1.81",
+    slf4j: project.properties['jcommander.version'] ?: "1.7.32",
+    zookeeper: project.properties['zookeeper.version'] ?: "3.5.9",
 ]
 
 dependencies {
     testImplementation "org.junit.jupiter:junit-jupiter:${versions["junit"]}"
+    testImplementation "org.apache.zookeeper:zookeeper:${versions["zookeeper"]}"
+    testImplementation "org.apache.kafka:kafka_2.12:${versions["kafka"]}"
 
     implementation "org.apache.kafka:kafka-clients:${versions["kafka"]}"
     implementation "com.beust:jcommander:${versions["jcommander"]}"
+    // we don't use slf4j actually, and it is used by kafka so we swallow the log.
+    implementation "org.slf4j:slf4j-nop:${versions["slf4j"]}"
 }
 
 application {
@@ -42,9 +48,14 @@ java {
 }
 
 tasks.named('test') {
+    int numberOfForks = Math.max((int) (Runtime.runtime.availableProcessors() / 2), 1)
+
     // Use JUnit Platform for unit tests.
     useJUnitPlatform()
 
+    maxParallelForks = numberOfForks
+    // make isolation for tests. It may be expensive but stability is first choice.
+    forkEvery = 1
     testLogging {
         events "PASSED", "STARTED", "FAILED", "SKIPPED"
         exceptionFormat = 'full'

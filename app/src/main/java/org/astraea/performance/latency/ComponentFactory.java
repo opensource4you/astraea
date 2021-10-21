@@ -1,48 +1,47 @@
 package org.astraea.performance.latency;
 
-import java.util.Properties;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Set;
 import org.apache.kafka.clients.CommonClientConfigs;
-import org.apache.kafka.clients.admin.AdminClientConfig;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
-import org.apache.kafka.clients.producer.ProducerConfig;
+import org.astraea.topic.TopicAdmin;
 
 interface ComponentFactory {
+
+  static ComponentFactory of(String bootstrapServers, Set<String> topics) {
+    return of(Map.of(CommonClientConfigs.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers), topics);
+  }
 
   /**
    * create a factory based on kafka cluster. All components created by this factory will send
    * request to kafka to get responses.
    *
-   * @param brokers kafka broker addresses
+   * @param props kafka props
    * @param topics to subscribe
    * @return a factory based on kafka
    */
-  static ComponentFactory fromKafka(String brokers, Set<String> topics) {
+  static ComponentFactory of(Map<String, Object> props, Set<String> topics) {
 
     return new ComponentFactory() {
       private final String groupId = "group-id-" + System.currentTimeMillis();
 
       @Override
       public Producer producer() {
-        var props = new Properties();
-        props.setProperty(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, brokers);
         return Producer.fromKafka(props);
       }
 
       @Override
-      public Consumer createConsumer() {
-        var props = new Properties();
-        props.setProperty(CommonClientConfigs.BOOTSTRAP_SERVERS_CONFIG, brokers);
+      public Consumer consumer() {
+        var copy = new HashMap<>(props);
         // all consumers are in same group, so there is no duplicate data in read workload.
-        props.setProperty(ConsumerConfig.GROUP_ID_CONFIG, groupId);
-        return Consumer.fromKafka(props, topics);
+        copy.put(ConsumerConfig.GROUP_ID_CONFIG, groupId);
+        return Consumer.fromKafka(copy, topics);
       }
 
       @Override
-      public TopicAdmin createTopicAdmin() {
-        var props = new Properties();
-        props.setProperty(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, brokers);
-        return TopicAdmin.fromKafka(props);
+      public TopicAdmin topicAdmin() {
+        return TopicAdmin.of(props);
       }
     };
   }
@@ -51,8 +50,8 @@ interface ComponentFactory {
   Producer producer();
 
   /** @return a new consumer. Please close it when you don't need it */
-  Consumer createConsumer();
+  Consumer consumer();
 
   /** @return a new topic admin. Please close it when you don't need it. */
-  TopicAdmin createTopicAdmin();
+  TopicAdmin topicAdmin();
 }

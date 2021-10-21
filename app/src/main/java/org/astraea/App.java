@@ -4,42 +4,36 @@ import com.beust.jcommander.ParameterException;
 import java.lang.reflect.InvocationTargetException;
 import java.util.Arrays;
 import java.util.List;
-import java.util.function.Supplier;
-import java.util.stream.Collectors;
+import java.util.Map;
 import org.astraea.metrics.kafka.KafkaMetricClientApp;
-import org.astraea.moveCost.DataVolume;
-import org.astraea.offset.OffsetExplorer;
+
+import org.astraea.moveCost.PartitionScore;
 import org.astraea.performance.latency.End2EndLatency;
+import org.astraea.topic.ReplicaCollie;
+import org.astraea.topic.TopicExplorer;
 
 public class App {
-  private static final List<Class<?>> MAIN_CLASSES =
-      Arrays.asList(
-          End2EndLatency.class, OffsetExplorer.class, KafkaMetricClientApp.class, DataVolume.class);
 
-  private static String toString(List<Class<?>> mains) {
-    return mains.stream().map(Class::getSimpleName).collect(Collectors.joining(","));
-  }
+  private static final Map<String, Class<?>> MAIN_CLASSES =
+      Map.of(
+          "latency", End2EndLatency.class,
+          "offset", TopicExplorer.class,
+          "metrics", KafkaMetricClientApp.class,
+          "replica", ReplicaCollie.class,
+          "score", PartitionScore.class);
 
-  private static String usage(List<Class<?>> mains) {
-    return "Usage: [" + toString(mains) + "] [args ...]";
-  }
+  static void execute(Map<String, Class<?>> mains, List<String> args) throws Throwable {
 
-  static void execute(List<Class<?>> mains, List<String> args) throws Throwable {
+    var usage = "Usage: " + mains.keySet() + " [args ...]";
+
     if (args.size() < 1) {
-      throw new IllegalArgumentException(usage(mains));
+      throw new IllegalArgumentException(usage);
     }
 
     var className = args.get(0);
 
-    var targetClass =
-        mains.stream()
-            .filter(clz -> clz.getName().contains(className))
-            .findFirst()
-            .orElseThrow(
-                (Supplier<Throwable>)
-                    () ->
-                        new IllegalArgumentException(
-                            "className: " + className + " is not matched to " + toString(mains)));
+    var targetClass = mains.get(className);
+    if (targetClass == null) throw new IllegalArgumentException(usage);
 
     var method = targetClass.getDeclaredMethod("main", String[].class);
     try {

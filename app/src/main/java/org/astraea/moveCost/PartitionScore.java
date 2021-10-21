@@ -1,4 +1,5 @@
 package org.astraea.moveCost;
+
 import java.util.*;
 import java.util.Properties;
 import java.util.concurrent.ExecutionException;
@@ -8,7 +9,7 @@ import org.apache.kafka.common.KafkaFuture;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.config.ConfigResource;
 
-public class DataVolume {
+public class PartitionScore {
   public static AdminClient client;
 
   static synchronized Producer initProducer() {
