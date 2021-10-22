@@ -2,7 +2,7 @@ package org.astraea.performance;
 
 import java.util.concurrent.atomic.LongAdder;
 
-/** Used to track statistics. */
+/** Used to record statistics. This is thread safe. */
 public class Metrics {
   private double avgLatency;
   private long num;
@@ -17,40 +17,46 @@ public class Metrics {
     min = Long.MAX_VALUE;
     bytes = new LongAdder();
   }
+
+  /** Simultaneously add latency and bytes. */
+  public synchronized void put(long latency, long bytes) {
+    putLatency(latency);
+    addBytes(bytes);
+  }
   /** Add a new value to latency metric. */
-  public void putLatency(long latency) {
+  public synchronized void putLatency(long latency) {
     if (min > latency) min = latency;
     if (max < latency) max = latency;
     ++num;
     avgLatency += (((double) latency) - avgLatency) / (double) num;
   }
   /** Add a new value to bytes. */
-  public void addBytes(long bytes) {
+  public synchronized void addBytes(long bytes) {
     this.bytes.add(bytes);
   }
 
   /** Get the number of latency put. */
-  public long num() {
+  public synchronized long num() {
     return num;
   }
   /** Get the maximum of latency put. */
-  public long max() {
+  public synchronized long max() {
     return max;
   }
   /** Get the minimum of latency put. */
-  public long min() {
+  public synchronized long min() {
     return min;
   }
   /** Get the average latency. */
-  public double avgLatency() {
+  public synchronized double avgLatency() {
     return avgLatency;
   }
   /** Reset to 0 and returns the old value of bytes */
-  public long bytesThenReset() {
+  public synchronized long bytesThenReset() {
     return this.bytes.sumThenReset();
   }
   /** Set all attributes to default value */
-  public void reset() {
+  public synchronized void reset() {
     avgLatency = 0;
     num = 0;
     max = 0;

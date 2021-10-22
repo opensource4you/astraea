@@ -9,7 +9,7 @@ import org.apache.kafka.common.serialization.ByteArraySerializer;
 
 /** An interface for sending records. */
 public interface Producer {
-  Future<RecordMetadata> send(ProducerRecord<byte[], byte[]> producerRecord);
+  Future<RecordMetadata> send(byte[] payload);
 
   void cleanup();
 
@@ -17,16 +17,17 @@ public interface Producer {
    * Create a KafkaProducer.
    *
    * @param prop: Properties to create a KafkaProducer
+   * @param topic: Topic to send to
    * @return a KafkaProducer
    */
-  static Producer fromKafka(Properties prop) {
+  static Producer fromKafka(Properties prop, String topic) {
     final KafkaProducer<byte[], byte[]> kafkaProducer =
         new KafkaProducer<>(prop, new ByteArraySerializer(), new ByteArraySerializer());
     return new Producer() {
 
       @Override
-      public Future<RecordMetadata> send(ProducerRecord<byte[], byte[]> producerRecord) {
-        return kafkaProducer.send(producerRecord);
+      public Future<RecordMetadata> send(byte[] payload) {
+        return kafkaProducer.send(new ProducerRecord<>(topic, payload));
       }
 
       @Override

@@ -3,13 +3,11 @@ package org.astraea.performance;
 import com.beust.jcommander.Parameter;
 import java.io.IOException;
 import java.time.Duration;
-import java.util.Collections;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.errors.WakeupException;
 import org.astraea.argument.ArgumentUtil;
 import org.astraea.argument.BasicAdminArgument;
@@ -48,7 +46,7 @@ public class Performance {
     final var param = ArgumentUtil.parseArgument(new Argument(), args);
 
     try {
-      execute(param, ComponentFactory.fromKafka(param.brokers));
+      execute(param, ComponentFactory.fromKafka(param.brokers, param.topic));
     } catch (InterruptedException ignore) {
     }
   }
@@ -75,7 +73,7 @@ public class Performance {
                     .mapToObj(
                         i ->
                             consumerExecutor(
-                                componentFactory.createConsumer(Collections.singleton(param.topic)),
+                                componentFactory.createConsumer(),
                                 consumerMetric[i] = new Metrics()))
                     .collect(Collectors.toList()))
             .executor(new Tracker(producerMetric, consumerMetric, param.records, complete))
@@ -107,10 +105,10 @@ public class Performance {
       public void execute() throws InterruptedException {
         try {
           for (var record : consumer.poll(Duration.ofSeconds(10))) {
-            // 取得端到端延時
-            metrics.putLatency(System.currentTimeMillis() - record.timestamp());
-            // 記錄輸入byte(沒有算入header和timestamp)
-            metrics.addBytes(record.serializedKeySize() + record.serializedValueSize());
+            // 記錄端到端延時, 記錄輸入byte(沒有算入header和timestamp)
+            metrics.put(
+                System.currentTimeMillis() - record.timestamp(),
+                record.serializedKeySize() + record.serializedValueSize());
           }
         } catch (WakeupException ignore) {
           // Stop polling and being ready to clean up
@@ -135,11 +133,9 @@ public class Performance {
       @Override
       public void execute() throws InterruptedException {
         long start = System.currentTimeMillis();
-        ProducerRecord<byte[], byte[]> record = new ProducerRecord<>(param.topic, payload);
         try {
-          producer.send(record).get();
-          metrics.putLatency(System.currentTimeMillis() - start);
-          metrics.addBytes(payload.length);
+          producer.send(payload).get();
+          metrics.put(System.currentTimeMillis() - start, payload.length);
           Thread.sleep(1);
         } catch (InterruptedException | ExecutionException ignored) {
         }
