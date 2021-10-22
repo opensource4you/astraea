@@ -13,6 +13,7 @@ import javax.management.remote.JMXConnectorServerFactory;
 import javax.management.remote.JMXServiceURL;
 import org.astraea.metrics.jmx.MBeanClient;
 import org.astraea.metrics.kafka.metrics.BrokerTopicMetricsResult;
+import org.astraea.metrics.kafka.metrics.OperatingSystemInfo;
 import org.astraea.metrics.kafka.metrics.TotalTimeMs;
 import org.astraea.service.RequireBrokerCluster;
 import org.astraea.topic.TopicAdmin;
@@ -135,5 +136,25 @@ class KafkaMetricsTest extends RequireBrokerCluster {
     assertEquals(
         KafkaMetrics.BrokerTopic.MessagesInPerSec, KafkaMetrics.BrokerTopic.of("MessagesInPERSEC"));
     assertThrows(IllegalArgumentException.class, () -> KafkaMetrics.BrokerTopic.of("nothing"));
+  }
+
+  @Test
+  void operatingSystem() {
+    OperatingSystemInfo operatingSystemInfo = KafkaMetrics.Host.operatingSystem(mBeanClient);
+    assertDoesNotThrow(operatingSystemInfo::arch);
+    assertDoesNotThrow(operatingSystemInfo::availableProcessors);
+    assertDoesNotThrow(operatingSystemInfo::committedVirtualMemorySize);
+    assertDoesNotThrow(operatingSystemInfo::freePhysicalMemorySize);
+    assertDoesNotThrow(operatingSystemInfo::freeSwapSpaceSize);
+    assertDoesNotThrow(operatingSystemInfo::maxFileDescriptorCount);
+    assertDoesNotThrow(operatingSystemInfo::openFileDescriptorCount);
+    assertDoesNotThrow(operatingSystemInfo::name);
+    assertDoesNotThrow(operatingSystemInfo::processCpuLoad);
+    assertDoesNotThrow(operatingSystemInfo::processCpuTime);
+    assertDoesNotThrow(operatingSystemInfo::systemCpuLoad);
+    assertDoesNotThrow(operatingSystemInfo::systemLoadAverage);
+    assertDoesNotThrow(operatingSystemInfo::totalPhysicalMemorySize);
+    assertDoesNotThrow(operatingSystemInfo::totalSwapSpaceSize);
+    assertDoesNotThrow(operatingSystemInfo::version);
   }
 }
