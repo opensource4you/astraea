@@ -98,6 +98,32 @@ public final class KafkaMetrics {
           .findFirst()
           .orElseThrow(() -> new IllegalArgumentException("No such metric: " + metricName));
     }
+
+    public static long linuxDiskReadBytes(MBeanClient mBeanClient) {
+      return (long)
+          mBeanClient
+              .tryQueryBean(
+                  BeanQuery.builder("kafka.server")
+                      .property("type", "KafkaServer")
+                      .property("name", "linux-disk-read-bytes")
+                      .build())
+              .orElseThrow()
+              .getAttributes()
+              .get("Value");
+    }
+
+    public static long linuxDiskWriteBytes(MBeanClient mBeanClient) {
+      return (long)
+          mBeanClient
+              .tryQueryBean(
+                  BeanQuery.builder("kafka.server")
+                      .property("type", "KafkaServer")
+                      .property("name", "linux-disk-write-bytes")
+                      .build())
+              .orElseThrow()
+              .getAttributes()
+              .get("Value");
+    }
   }
 
   public enum Purgatory {

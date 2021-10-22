@@ -172,4 +172,14 @@ class KafkaMetricsTest extends RequireBrokerCluster {
     assertDoesNotThrow(() -> jvmMemory.nonHeapMemoryUsage().getUsed());
     assertDoesNotThrow(() -> jvmMemory.nonHeapMemoryUsage().getInit());
   }
+
+  @Test
+  void linuxDiskReadBytes() {
+    assertDoesNotThrow(() -> KafkaMetrics.BrokerTopic.linuxDiskReadBytes(mBeanClient));
+  }
+
+  @Test
+  void linuxDiskWriteBytes() {
+    assertDoesNotThrow(() -> KafkaMetrics.BrokerTopic.linuxDiskWriteBytes(mBeanClient));
+  }
 }
