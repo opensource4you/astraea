@@ -13,6 +13,7 @@ import javax.management.remote.JMXConnectorServerFactory;
 import javax.management.remote.JMXServiceURL;
 import org.astraea.metrics.jmx.MBeanClient;
 import org.astraea.metrics.kafka.metrics.BrokerTopicMetricsResult;
+import org.astraea.metrics.kafka.metrics.JvmMemory;
 import org.astraea.metrics.kafka.metrics.OperatingSystemInfo;
 import org.astraea.metrics.kafka.metrics.TotalTimeMs;
 import org.astraea.service.RequireBrokerCluster;
@@ -156,5 +157,19 @@ class KafkaMetricsTest extends RequireBrokerCluster {
     assertDoesNotThrow(operatingSystemInfo::totalPhysicalMemorySize);
     assertDoesNotThrow(operatingSystemInfo::totalSwapSpaceSize);
     assertDoesNotThrow(operatingSystemInfo::version);
+  }
+
+  @Test
+  void testJvmMemory() {
+    JvmMemory jvmMemory = KafkaMetrics.Host.jvmMemory(mBeanClient);
+
+    assertDoesNotThrow(() -> jvmMemory.heapMemoryUsage().getCommitted());
+    assertDoesNotThrow(() -> jvmMemory.heapMemoryUsage().getMax());
+    assertDoesNotThrow(() -> jvmMemory.heapMemoryUsage().getUsed());
+    assertDoesNotThrow(() -> jvmMemory.heapMemoryUsage().getInit());
+    assertDoesNotThrow(() -> jvmMemory.nonHeapMemoryUsage().getCommitted());
+    assertDoesNotThrow(() -> jvmMemory.nonHeapMemoryUsage().getMax());
+    assertDoesNotThrow(() -> jvmMemory.nonHeapMemoryUsage().getUsed());
+    assertDoesNotThrow(() -> jvmMemory.nonHeapMemoryUsage().getInit());
   }
 }

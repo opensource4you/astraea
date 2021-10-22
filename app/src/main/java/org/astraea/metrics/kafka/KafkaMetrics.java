@@ -8,6 +8,7 @@ import org.astraea.metrics.jmx.BeanObject;
 import org.astraea.metrics.jmx.BeanQuery;
 import org.astraea.metrics.jmx.MBeanClient;
 import org.astraea.metrics.kafka.metrics.BrokerTopicMetricsResult;
+import org.astraea.metrics.kafka.metrics.JvmMemory;
 import org.astraea.metrics.kafka.metrics.OperatingSystemInfo;
 import org.astraea.metrics.kafka.metrics.TotalTimeMs;
 
@@ -229,6 +230,14 @@ public final class KafkaMetrics {
                   BeanQuery.builder("java.lang").property("type", "OperatingSystem").build())
               .orElseThrow();
       return new OperatingSystemInfo(beanObject);
+    }
+
+    public static JvmMemory jvmMemory(MBeanClient mBeanClient) {
+      BeanObject beanObject =
+          mBeanClient
+              .tryQueryBean(BeanQuery.builder("java.lang").property("type", "Memory").build())
+              .orElseThrow();
+      return new JvmMemory(beanObject);
     }
   }
 }
