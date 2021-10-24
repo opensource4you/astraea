@@ -3,6 +3,8 @@ package org.astraea.topic;
 import java.io.Closeable;
 import java.util.*;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+import org.apache.kafka.clients.CommonClientConfigs;
 import org.apache.kafka.clients.admin.*;
 import org.apache.kafka.common.Node;
 import org.apache.kafka.common.TopicPartition;
@@ -10,9 +12,64 @@ import org.astraea.Utils;
 
 public interface TopicAdmin extends Closeable {
 
+  static TopicAdmin of(String bootstrapServers) {
+    return of(Map.of(CommonClientConfigs.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers));
+  }
+
   static TopicAdmin of(Map<String, Object> conf) {
     var admin = Admin.create(conf);
     return new TopicAdmin() {
+
+      @Override
+      public void createTopic(String topic, int numberOfPartitions, short numberOfReplicas) {
+        var topics = topics();
+        if (topics.contains(topic)) {
+          var partitions = partitions(Set.of(topic));
+          if (partitions.size() > numberOfPartitions)
+            throw new IllegalArgumentException(
+                "Reducing the number of partitions is disallowed. Current: "
+                    + partitions.size()
+                    + " requested: "
+                    + numberOfPartitions);
+
+          var allBrokers = brokerIds();
+          if (allBrokers.size() < numberOfReplicas)
+            throw new IllegalArgumentException(
+                "expected number of replicas is "
+                    + numberOfReplicas
+                    + ", but there are only "
+                    + allBrokers.size()
+                    + " brokers");
+
+          if (partitions.size() < numberOfPartitions) {
+            Utils.handleException(
+                () ->
+                    admin
+                        .createPartitions(
+                            Map.of(
+                                topic,
+                                NewPartitions.increaseTo(
+                                    numberOfPartitions,
+                                    IntStream.range(0, numberOfPartitions - partitions.size())
+                                        .mapToObj(
+                                            i ->
+                                                new ArrayList<>(allBrokers)
+                                                    .subList(0, numberOfReplicas))
+                                        .collect(Collectors.toList()))))
+                        .all()
+                        .get());
+          }
+
+        } else {
+          Utils.handleException(
+              () ->
+                  admin
+                      .createTopics(
+                          List.of(new NewTopic(topic, numberOfPartitions, numberOfReplicas)))
+                      .all()
+                      .get());
+        }
+      }
 
       @Override
       public void close() {
@@ -43,38 +100,69 @@ public interface TopicAdmin extends Closeable {
 
       @Override
       public Map<TopicPartition, List<Group>> groups(Set<String> topics) {
-        return Utils.handleException(
-                () ->
-                    admin.listConsumerGroups().valid().get().stream()
-                        .map(ConsumerGroupListing::groupId)
-                        .collect(Collectors.toSet()))
-            .stream()
-            .flatMap(
-                group ->
-                    Utils.handleException(
-                            () ->
-                                admin
-                                    .listConsumerGroupOffsets(group)
-                                    .partitionsToOffsetAndMetadata()
-                                    .get())
-                        .entrySet()
-                        .stream()
-                        .filter(e -> topics.contains(e.getKey().topic()))
-                        .map(e -> Map.entry(group, e)))
-            .collect(Collectors.groupingBy(e -> e.getValue().getKey()))
-            .entrySet()
-            .stream()
-            .collect(
-                Collectors.toMap(
-                    Map.Entry::getKey,
-                    e ->
-                        e.getValue().stream()
-                            .map(
-                                groupOffset ->
-                                    new Group(
-                                        groupOffset.getKey(),
-                                        groupOffset.getValue().getValue().offset()))
-                            .collect(Collectors.toList())));
+        var groups =
+            Utils.handleException(() -> admin.listConsumerGroups().valid().get()).stream()
+                .map(ConsumerGroupListing::groupId)
+                .collect(Collectors.toList());
+
+        var allPartitions = partitions(topics);
+
+        var result = new HashMap<TopicPartition, List<Group>>();
+        Utils.handleException(() -> admin.describeConsumerGroups(groups).all().get())
+            .forEach(
+                (groupId, groupDescription) -> {
+                  var partitionOffsets =
+                      Utils.handleException(
+                          () ->
+                              admin
+                                  .listConsumerGroupOffsets(groupId)
+                                  .partitionsToOffsetAndMetadata()
+                                  .get());
+
+                  var partitionMembers =
+                      groupDescription.members().stream()
+                          .flatMap(
+                              m ->
+                                  m.assignment().topicPartitions().stream()
+                                      .map(tp -> Map.entry(tp, m)))
+                          .collect(Collectors.groupingBy(Map.Entry::getKey))
+                          .entrySet()
+                          .stream()
+                          .collect(
+                              Collectors.toMap(
+                                  Map.Entry::getKey,
+                                  e ->
+                                      e.getValue().stream()
+                                          .map(Map.Entry::getValue)
+                                          .collect(Collectors.toList())));
+
+                  allPartitions.forEach(
+                      tp -> {
+                        var offset =
+                            partitionOffsets.containsKey(tp)
+                                ? OptionalLong.of(partitionOffsets.get(tp).offset())
+                                : OptionalLong.empty();
+                        var members =
+                            partitionMembers.getOrDefault(tp, List.of()).stream()
+                                .map(
+                                    m ->
+                                        new Member(
+                                            m.consumerId(),
+                                            m.groupInstanceId(),
+                                            m.clientId(),
+                                            m.host()))
+                                .collect(Collectors.toList());
+                        // This group is related to the partition only if it has either member or
+                        // offset.
+                        if (offset.isPresent() || !members.isEmpty()) {
+                          result
+                              .computeIfAbsent(tp, ignore -> new ArrayList<>())
+                              .add(new Group(groupId, offset, members));
+                        }
+                      });
+                });
+
+        return result;
       }
 
       private Map<TopicPartition, Long> earliestOffset(Set<TopicPartition> partitions) {
@@ -113,16 +201,8 @@ public interface TopicAdmin extends Closeable {
       }
 
       @Override
-      public Map<TopicPartition, Offset> offset(Set<String> topics) {
-        var partitions =
-            Utils.handleException(
-                () ->
-                    admin.describeTopics(topics).all().get().entrySet().stream()
-                        .flatMap(
-                            e ->
-                                e.getValue().partitions().stream()
-                                    .map(p -> new TopicPartition(e.getKey(), p.partition())))
-                        .collect(Collectors.toSet()));
+      public Map<TopicPartition, Offset> offsets(Set<String> topics) {
+        var partitions = partitions(topics);
         var earliest = earliestOffset(partitions);
         var latest = latestOffset(partitions);
         return earliest.entrySet().stream()
@@ -132,26 +212,56 @@ public interface TopicAdmin extends Closeable {
                     Map.Entry::getKey, e -> new Offset(e.getValue(), latest.get(e.getKey()))));
       }
 
+      private Set<TopicPartition> partitions(Set<String> topics) {
+        return Utils.handleException(
+            () ->
+                admin.describeTopics(topics).all().get().entrySet().stream()
+                    .flatMap(
+                        e ->
+                            e.getValue().partitions().stream()
+                                .map(p -> new TopicPartition(e.getKey(), p.partition())))
+                    .collect(Collectors.toSet()));
+      }
+
       @Override
       public Map<TopicPartition, List<Replica>> replicas(Set<String> topics) {
-        var lags =
-            Utils.handleException(
-                () ->
-                    admin.describeLogDirs(brokerIds()).allDescriptions().get().entrySet().stream()
-                        .collect(
-                            Collectors.toMap(
-                                Map.Entry::getKey,
-                                e ->
-                                    e.getValue().values().stream()
-                                        .flatMap(
-                                            logDirDescription ->
-                                                logDirDescription
-                                                    .replicaInfos()
-                                                    .entrySet()
-                                                    .stream())
-                                        .collect(
-                                            Collectors.toMap(
-                                                Map.Entry::getKey, Map.Entry::getValue)))));
+        var replicaInfos =
+            Utils.handleException(() -> admin.describeLogDirs(brokerIds()).allDescriptions().get());
+
+        var replicaLags =
+            replicaInfos.entrySet().stream()
+                .collect(
+                    Collectors.toMap(
+                        Map.Entry::getKey,
+                        e ->
+                            e.getValue().values().stream()
+                                .flatMap(
+                                    logDirDescription ->
+                                        logDirDescription.replicaInfos().entrySet().stream())
+                                .collect(
+                                    Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue))));
+
+        var replicaPaths =
+            replicaInfos.entrySet().stream()
+                .collect(
+                    Collectors.toMap(
+                        Map.Entry::getKey,
+                        e ->
+                            e.getValue().entrySet().stream()
+                                .flatMap(
+                                    logDirDescription ->
+                                        logDirDescription
+                                            .getValue()
+                                            .replicaInfos()
+                                            .keySet()
+                                            .stream()
+                                            .map(
+                                                topicPartition ->
+                                                    Map.entry(
+                                                        topicPartition,
+                                                        logDirDescription.getKey())))
+                                .collect(
+                                    Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue))));
 
         return Utils.handleException(
             () ->
@@ -166,24 +276,33 @@ public interface TopicAdmin extends Closeable {
                                                 e.getKey(), topicPartitionInfo.partition()),
                                             topicPartitionInfo.replicas().stream()
                                                 .map(
-                                                    node ->
-                                                        new Replica(
-                                                            node.id(),
-                                                            Optional.ofNullable(
-                                                                    lags.getOrDefault(
-                                                                            node.id(), Map.of())
-                                                                        .get(
-                                                                            new TopicPartition(
-                                                                                e.getKey(),
-                                                                                topicPartitionInfo
-                                                                                    .partition())))
-                                                                .map(ReplicaInfo::offsetLag)
-                                                                .orElse(-1L),
-                                                            topicPartitionInfo.leader().id()
-                                                                == node.id(),
-                                                            topicPartitionInfo
-                                                                .isr()
-                                                                .contains(node)))
+                                                    node -> {
+                                                      var replicaInfo =
+                                                          replicaLags
+                                                              .getOrDefault(node.id(), Map.of())
+                                                              .get(
+                                                                  new TopicPartition(
+                                                                      e.getKey(),
+                                                                      topicPartitionInfo
+                                                                          .partition()));
+                                                      return new Replica(
+                                                          node.id(),
+                                                          replicaInfo == null
+                                                              ? -1
+                                                              : replicaInfo.offsetLag(),
+                                                          topicPartitionInfo.leader().id()
+                                                              == node.id(),
+                                                          topicPartitionInfo.isr().contains(node),
+                                                          replicaInfo != null
+                                                              && replicaInfo.isFuture(),
+                                                          replicaPaths
+                                                              .get(node.id())
+                                                              .get(
+                                                                  new TopicPartition(
+                                                                      e.getKey(),
+                                                                      topicPartitionInfo
+                                                                          .partition())));
+                                                    })
                                                 .sorted(
                                                     Comparator.comparing((Replica r) -> r.broker))
                                                 .collect(Collectors.toList()))))
@@ -196,10 +315,33 @@ public interface TopicAdmin extends Closeable {
   Set<String> topics();
 
   /**
+   * make sure there is a topic having requested name and requested number of partitions. If the
+   * topic is existent and the number of partitions is larger than requested number, it will throw
+   * exception.
+   *
+   * @param topic topic name
+   * @param numberOfPartitions expected number of partitions.
+   */
+  default void createTopic(String topic, int numberOfPartitions) {
+    createTopic(topic, numberOfPartitions, (short) 1);
+  }
+
+  /**
+   * make sure there is a topic having requested name and requested number of partitions. If the
+   * topic is existent and the number of partitions is larger than requested number, it will throw
+   * exception.
+   *
+   * @param topic topic name
+   * @param numberOfPartitions expected number of partitions.
+   * @param numberOfReplicas expected number of replicas.
+   */
+  void createTopic(String topic, int numberOfPartitions, short numberOfReplicas);
+
+  /**
    * @param topics topic names
    * @return the earliest offset and latest offset for specific topics
    */
-  Map<TopicPartition, Offset> offset(Set<String> topics);
+  Map<TopicPartition, Offset> offsets(Set<String> topics);
 
   /**
    * @param topics topic names
@@ -217,6 +359,8 @@ public interface TopicAdmin extends Closeable {
   Set<Integer> brokerIds();
 
   /**
+   * Assign the topic partition to specific brokers.
+   *
    * @param topicName topic name
    * @param partition partition
    * @param brokers to hold all the
@@ -224,17 +368,58 @@ public interface TopicAdmin extends Closeable {
   void reassign(String topicName, int partition, Set<Integer> brokers);
 
   class Group {
-    public final String id;
-    public final long offset;
+    public final String groupId;
+    public final OptionalLong offset;
+    public final List<Member> members;
 
-    public Group(String id, long offset) {
-      this.id = id;
+    public Group(String groupId, OptionalLong offset, List<Member> members) {
+      this.groupId = groupId;
       this.offset = offset;
+      this.members = members;
     }
 
     @Override
     public String toString() {
-      return "Group{" + "id='" + id + '\'' + ", offset=" + offset + '}';
+      return "Group{"
+          + "groupId='"
+          + groupId
+          + '\''
+          + ", offset="
+          + (offset.isEmpty() ? "none" : offset.getAsLong())
+          + ", members="
+          + members
+          + '}';
+    }
+  }
+
+  class Member {
+    private final String memberId;
+    private final Optional<String> groupInstanceId;
+    private final String clientId;
+    private final String host;
+
+    public Member(String memberId, Optional<String> groupInstanceId, String clientId, String host) {
+      this.memberId = memberId;
+      this.groupInstanceId = groupInstanceId;
+      this.clientId = clientId;
+      this.host = host;
+    }
+
+    @Override
+    public String toString() {
+      return "Member{"
+          + "memberId='"
+          + memberId
+          + '\''
+          + ", groupInstanceId="
+          + groupInstanceId
+          + ", clientId='"
+          + clientId
+          + '\''
+          + ", host='"
+          + host
+          + '\''
+          + '}';
     }
   }
 
@@ -258,12 +443,17 @@ public interface TopicAdmin extends Closeable {
     public final long lag;
     public final boolean leader;
     public final boolean inSync;
+    public final boolean isFuture;
+    public final String path;
 
-    public Replica(int broker, long lag, boolean leader, boolean inSync) {
+    public Replica(
+        int broker, long lag, boolean leader, boolean inSync, boolean isFuture, String path) {
       this.broker = broker;
       this.lag = lag;
       this.leader = leader;
       this.inSync = inSync;
+      this.isFuture = isFuture;
+      this.path = path;
     }
 
     @Override
@@ -277,7 +467,30 @@ public interface TopicAdmin extends Closeable {
           + leader
           + ", inSync="
           + inSync
+          + ", isFuture="
+          + isFuture
+          + ", path='"
+          + path
+          + '\''
           + '}';
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) return true;
+      if (o == null || getClass() != o.getClass()) return false;
+      Replica replica = (Replica) o;
+      return broker == replica.broker
+          && lag == replica.lag
+          && leader == replica.leader
+          && inSync == replica.inSync
+          && isFuture == replica.isFuture
+          && Objects.equals(path, replica.path);
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(broker, lag, leader, inSync, isFuture, path);
     }
   }
 }

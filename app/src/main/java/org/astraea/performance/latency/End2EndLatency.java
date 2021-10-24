@@ -24,8 +24,7 @@ public class End2EndLatency {
     System.out.println("flush duration: " + parameters.flushDuration.toSeconds() + " seconds");
 
     try (var closeFlag =
-        execute(
-            ComponentFactory.fromKafka(parameters.properties(), parameters.topics), parameters)) {
+        execute(ComponentFactory.of(parameters.properties(), parameters.topics), parameters)) {
       TimeUnit.MILLISECONDS.sleep(parameters.duration.toMillis());
     }
   }
@@ -113,10 +112,10 @@ public class End2EndLatency {
     try (var topicAdmin = factory.topicAdmin()) {
       // the number of partitions is equal to number of consumers. That make each consumer can
       // consume a part of topic.
-      KafkaUtils.createTopicIfNotExist(
-          topicAdmin,
-          parameters.topics,
-          parameters.numberOfConsumers <= 0 ? 1 : parameters.numberOfConsumers);
+      parameters.topics.forEach(
+          topic ->
+              topicAdmin.createTopic(
+                  topic, parameters.numberOfConsumers <= 0 ? 1 : parameters.numberOfConsumers));
     }
 
     return ThreadPool.builder()

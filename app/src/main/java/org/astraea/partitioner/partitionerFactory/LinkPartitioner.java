@@ -1,5 +1,6 @@
 package org.astraea.partitioner.partitionerFactory;
 
+import java.io.IOException;
 import java.net.MalformedURLException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -43,6 +44,8 @@ public class LinkPartitioner implements Partitioner {
 
   @Override
   public void configure(Map<String, ?> configs) throws NullPointerException {
+    Objects.requireNonNull(
+        (String) configs.get("jmx_servers"), "You must configure jmx_servers correctly");
     partitioner = FACTORY.getOrCreate(ThreadSafeSmoothPartitioner.class, configs);
   }
 
@@ -115,6 +118,8 @@ public class LinkPartitioner implements Partitioner {
             mapAddress, "You must configure jmx_servers correctly.(JmxAddress@NodeID)");
         nodeLoadClient = new NodeLoadClient((mapAddress));
       } catch (MalformedURLException e) {
+        e.printStackTrace();
+      } catch (IOException e) {
         e.printStackTrace();
       }
       pool = ThreadPool.builder().executor(nodeLoadClient).build();

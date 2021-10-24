@@ -1,16 +1,17 @@
 package org.astraea.metrics.kafka.metrics;
 
 import java.util.Map;
-import java.util.Objects;
 import org.astraea.metrics.jmx.BeanObject;
-import org.astraea.metrics.kafka.metrics.modifiers.*;
+import org.astraea.metrics.kafka.metrics.modifiers.HasCount;
+import org.astraea.metrics.kafka.metrics.modifiers.HasPercentiles;
+import org.astraea.metrics.kafka.metrics.modifiers.HasStatistics;
 
-public class BrokerTopicMetricsResult implements HasCount, HasEventType, HasRate {
+public class TotalTimeMs implements HasPercentiles, HasCount, HasStatistics {
 
   private final BeanObject beanObject;
 
-  public BrokerTopicMetricsResult(BeanObject beanObject) {
-    this.beanObject = Objects.requireNonNull(beanObject);
+  public TotalTimeMs(BeanObject beanObject) {
+    this.beanObject = beanObject;
   }
 
   @Override
@@ -23,7 +24,7 @@ public class BrokerTopicMetricsResult implements HasCount, HasEventType, HasRate
           .append("=")
           .append(e.getValue());
     }
-    return beanObject().getProperties().get("name") + "{" + sb + "}";
+    return beanObject.getProperties().get("request") + " TotalTimeMs {" + sb + "}";
   }
 
   @Override

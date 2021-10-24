@@ -1,19 +1,19 @@
 package org.astraea.partitioner.nodeLoadMetric;
 
-import java.net.MalformedURLException;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.concurrent.TimeUnit;
 import org.astraea.concurrent.ThreadPool;
-import org.astraea.metrics.kafka.KafkaMetricClient;
+import org.astraea.metrics.jmx.MBeanClient;
 
 public class NodeLoadClient implements ThreadPool.Executor {
 
   private final OverLoadNode overLoadNode;
   private final Collection<NodeMetadata> nodeMetadataCollection = new ArrayList<>();
 
-  public NodeLoadClient(HashMap<String, String> jmxAddresses) throws MalformedURLException {
+  public NodeLoadClient(HashMap<String, String> jmxAddresses) throws IOException {
     for (HashMap.Entry<String, String> entry : jmxAddresses.entrySet()) {
       this.nodeMetadataCollection.add(
           new NodeMetadata(entry.getKey(), createNodeMetrics(entry.getKey(), entry.getValue())));
@@ -21,7 +21,7 @@ public class NodeLoadClient implements ThreadPool.Executor {
     this.overLoadNode = new OverLoadNode(this.nodeMetadataCollection);
   }
 
-  public NodeMetrics createNodeMetrics(String key, String value) throws MalformedURLException {
+  public NodeMetrics createNodeMetrics(String key, String value) throws IOException {
     return new NodeMetrics(key, value);
   }
 
@@ -41,9 +41,9 @@ public class NodeLoadClient implements ThreadPool.Executor {
   public void cleanup() {
     for (NodeMetadata nodeMetadata : nodeMetadataCollection) {
       NodeMetrics nodeMetrics = nodeMetadata.getNodeMetrics();
-      KafkaMetricClient kafkaMetricClient = nodeMetrics.getKafkaMetricClient();
+      MBeanClient mBeanClient = nodeMetrics.getKafkaMetricClient();
       try {
-        kafkaMetricClient.close();
+        mBeanClient.close();
       } catch (Exception e) {
         e.printStackTrace();
       }
