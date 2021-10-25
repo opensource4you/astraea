@@ -1,10 +1,15 @@
 package org.astraea.metrics.kafka.metrics.modifiers;
 
 import java.lang.management.MemoryUsage;
+import javax.management.openmbean.CompositeData;
 
 public interface HasJvmMemory extends HasBeanObject {
 
-  MemoryUsage heapMemoryUsage();
+  default MemoryUsage heapMemoryUsage() {
+    return MemoryUsage.from((CompositeData) beanObject().getAttributes().get("HeapMemoryUsage"));
+  }
 
-  MemoryUsage nonHeapMemoryUsage();
+  default MemoryUsage nonHeapMemoryUsage() {
+    return MemoryUsage.from((CompositeData) beanObject().getAttributes().get("NonHeapMemoryUsage"));
+  }
 }

@@ -1,7 +1,6 @@
 package org.astraea.metrics.kafka.metrics;
 
 import java.lang.management.MemoryUsage;
-import javax.management.openmbean.CompositeData;
 import org.astraea.metrics.jmx.BeanObject;
 import org.astraea.metrics.kafka.metrics.modifiers.HasJvmMemory;
 
@@ -13,17 +12,13 @@ public class JvmMemory implements HasJvmMemory {
 
   @Override
   public MemoryUsage heapMemoryUsage() {
-    if (heapMemoryUsage == null)
-      heapMemoryUsage =
-          MemoryUsage.from((CompositeData) beanObject.getAttributes().get("HeapMemoryUsage"));
+    if (heapMemoryUsage == null) heapMemoryUsage = HasJvmMemory.super.heapMemoryUsage();
     return heapMemoryUsage;
   }
 
   @Override
   public MemoryUsage nonHeapMemoryUsage() {
-    if (nonHeapMemoryUsage == null)
-      nonHeapMemoryUsage =
-          MemoryUsage.from((CompositeData) beanObject.getAttributes().get("NonHeapMemoryUsage"));
+    if (nonHeapMemoryUsage == null) nonHeapMemoryUsage = HasJvmMemory.super.nonHeapMemoryUsage();
     return nonHeapMemoryUsage;
   }
 
