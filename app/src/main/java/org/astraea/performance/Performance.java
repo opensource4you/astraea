@@ -8,6 +8,8 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import org.apache.kafka.clients.producer.RoundRobinPartitioner;
+import org.apache.kafka.clients.producer.internals.DefaultPartitioner;
 import org.apache.kafka.common.errors.WakeupException;
 import org.astraea.argument.ArgumentUtil;
 import org.astraea.argument.BasicAdminArgument;
@@ -46,7 +48,11 @@ public class Performance {
     final var param = ArgumentUtil.parseArgument(new Argument(), args);
 
     try {
-      execute(param, ComponentFactory.fromKafka(param.brokers, param.topic));
+      execute(
+          param,
+          ComponentFactory.fromKafka(param.brokers, param.topic)
+              .partitioner(DefaultPartitioner.class.getName())
+              .JMXAddress(param.JMXAddress));
     } catch (InterruptedException ignore) {
     }
   }
@@ -63,7 +69,8 @@ public class Performance {
     for (int i = 0; i < producerMetric.length; ++i) producerMetric[i] = new Metrics();
 
     // unconditional carry. Let all producers produce the same number of records.
-    param.records += param.producers - param.records % param.producers;
+    param.records += param.producers - 1;
+    param.records -= param.records % param.producers;
 
     var complete = new CountDownLatch(1);
     try (ThreadPool consumerThreads =
@@ -198,6 +205,12 @@ public class Performance {
         description = "String: path to the properties file",
         validateWith = ArgumentUtil.NotEmptyString.class)
     String propFile;
+
+    @Parameter(
+        names = {"--jmx.server"},
+        description = "String: JMX server to connect to. Example: <JMX address>@<broker id>",
+        validateWith = ArgumentUtil.NotEmptyString.class)
+    String JMXAddress = "0.0.0.0@0";
 
     public Map<String, Object> perfProps() {
       return properties(propFile);

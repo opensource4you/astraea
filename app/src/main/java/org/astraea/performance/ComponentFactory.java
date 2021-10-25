@@ -4,12 +4,34 @@ import java.util.Collections;
 import java.util.Properties;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.producer.ProducerConfig;
+import org.apache.kafka.clients.producer.internals.DefaultPartitioner;
 
 /** An interface used for creating producer, consumer. */
 public interface ComponentFactory {
   Producer createProducer();
 
   Consumer createConsumer();
+
+  /**
+   * (Optional) Setting partitioner for producer. If not set, use default partitioner RoundRobin
+   *
+   * @param partitionerName The partitioner class to use
+   * @return This factory
+   */
+  default ComponentFactory partitioner(String partitionerName) {
+    return this;
+  }
+
+  /**
+   * (Optional) JMX server for user defined partitioner. Default partitioner will not use this
+   * attribute
+   *
+   * @param JMXAddress The jmx address to connect to
+   * @return This factory
+   */
+  default ComponentFactory JMXAddress(String JMXAddress) {
+    return this;
+  }
 
   /**
    * Used for creating Kafka producer, consumer of the same Kafka server and the same topic. The
@@ -19,11 +41,15 @@ public interface ComponentFactory {
   static ComponentFactory fromKafka(String brokers, String topic) {
     return new ComponentFactory() {
       private final String groupId = "groupId:" + System.currentTimeMillis();
+      private String partitionerName = DefaultPartitioner.class.getName();
+      private String JMXAddress = "0.0.0.0@0";
       /** Create Producer with KafkaProducer<byte[], byte[]> functions */
       @Override
       public Producer createProducer() {
         Properties prop = new Properties();
         prop.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, brokers);
+        prop.put(ProducerConfig.PARTITIONER_CLASS_CONFIG, partitionerName);
+        prop.put("jmx_servers", JMXAddress);
         return Producer.fromKafka(prop, topic);
       }
 
@@ -34,6 +60,18 @@ public interface ComponentFactory {
         prop.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, brokers);
         prop.put(ConsumerConfig.GROUP_ID_CONFIG, groupId);
         return Consumer.fromKafka(prop, Collections.singleton(topic));
+      }
+
+      @Override
+      public ComponentFactory partitioner(String partitionerName) {
+        this.partitionerName = partitionerName;
+        return this;
+      }
+
+      @Override
+      public ComponentFactory JMXAddress(String JMXAddress) {
+        this.JMXAddress = JMXAddress;
+        return this;
       }
     };
   }
