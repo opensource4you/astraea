@@ -40,38 +40,11 @@ public class JvmMemory implements HasJvmMemory {
   public String toString() {
     StringBuilder sb =
         new StringBuilder()
+            .append("    HeapMemoryUsage: ")
+            .append(heapMemoryUsage())
             .append(System.lineSeparator())
-            .append("  ")
-            .append("HeapMemoryUsage Max: ")
-            .append(heapMemoryUsage().getMax())
-            .append(System.lineSeparator())
-            .append("  ")
-            .append("HeapMemoryUsage Committed: ")
-            .append(heapMemoryUsage().getCommitted())
-            .append(System.lineSeparator())
-            .append("  ")
-            .append("HeapMemoryUsage Used: ")
-            .append(heapMemoryUsage().getUsed())
-            .append(System.lineSeparator())
-            .append("  ")
-            .append("HeapMemoryUsage Init: ")
-            .append(heapMemoryUsage().getInit())
-            .append(System.lineSeparator())
-            .append("  ")
-            .append("NonHeapMemoryUsage Max: ")
-            .append(nonHeapMemoryUsage().getMax())
-            .append(System.lineSeparator())
-            .append("  ")
-            .append("NonHeapMemoryUsage Committed: ")
-            .append(nonHeapMemoryUsage().getCommitted())
-            .append(System.lineSeparator())
-            .append("  ")
-            .append("NonHeapMemoryUsage Used: ")
-            .append(nonHeapMemoryUsage().getUsed())
-            .append(System.lineSeparator())
-            .append("  ")
-            .append("NonHeapMemoryUsage Init: ")
-            .append(nonHeapMemoryUsage().getInit());
-    return "JvmMemory {" + sb + "}";
+            .append("    NonHeapMemoryUsage")
+            .append(nonHeapMemoryUsage());
+    return "JvmMemory {\n" + sb + "\n}";
   }
 }
