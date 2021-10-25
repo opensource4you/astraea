@@ -2,11 +2,17 @@ package org.astraea.partitioner.nodeLoadMetric;
 
 import java.io.IOException;
 import java.lang.management.ManagementFactory;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Properties;
+import java.util.concurrent.ExecutionException;
 import javax.management.MBeanServer;
 import javax.management.remote.JMXConnectorServer;
 import javax.management.remote.JMXConnectorServerFactory;
 import javax.management.remote.JMXServiceURL;
+import org.apache.kafka.clients.admin.AdminClient;
+import org.apache.kafka.clients.admin.DescribeClusterResult;
+import org.apache.kafka.clients.admin.DescribeLogDirsResult;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.clients.producer.ProducerRecord;
@@ -16,6 +22,7 @@ import org.astraea.partitioner.partitionerFactory.LinkPartitioner;
 import org.astraea.service.RequireBrokerCluster;
 import org.astraea.topic.TopicAdmin;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -28,16 +35,12 @@ public class PartitionerTest extends RequireBrokerCluster {
 
   @BeforeEach
   void setUp() throws IOException {
-    //        JMXServiceURL serviceURL = new
-    // JMXServiceURL(String.format("service:jmx:rmi://127.0.0.1:9999"));
     JMXServiceURL serviceURL = new JMXServiceURL("service:jmx:rmi://127.0.0.1");
 
     mBeanServer = ManagementFactory.getPlatformMBeanServer();
 
     jmxServer = JMXConnectorServerFactory.newJMXConnectorServer(serviceURL, null, mBeanServer);
     jmxServer.start();
-    System.out.println(jmxServer.getAddress());
-    System.out.println(brokerList);
   }
 
   @AfterEach
@@ -59,7 +62,7 @@ public class PartitionerTest extends RequireBrokerCluster {
   @Test
   public void testPartitioner() {
     Properties props = initConfig();
-    props.put("jmx_servers", "127.0.0.1@0");
+    props.put("jmx_servers", jmxServer.getAddress() + "@0");
     admin.createTopic(topicName, 10);
     KafkaProducer<String, String> producer = new KafkaProducer<>(props);
     try {
@@ -70,11 +73,31 @@ public class PartitionerTest extends RequireBrokerCluster {
         ProducerRecord<String, String> record2 =
             new ProducerRecord<String, String>(topicName, "tainan-" + i, Integer.toString(i));
         RecordMetadata recordMetadata2 = producer.send(record2).get();
-        System.out.println("key:" + record1.key() + "***partition:" + recordMetadata.partition());
-        System.out.println("key:" + record2.key() + "***partition:" + recordMetadata2.partition());
       }
     } catch (Exception e) {
       e.printStackTrace();
+    }
+
+    AdminClient client = AdminClient.create(props);
+    Collection<Integer> brokerID = new ArrayList<>();
+    brokerID.add(0);
+    DescribeClusterResult broker = client.describeCluster();
+    DescribeLogDirsResult result = client.describeLogDirs(brokerID);
+    for (var k : result.descriptions().values()) {
+      try {
+        var map = k.get();
+        for (String name : map.keySet()) {
+          for (var p : map.get(name).replicaInfos().keySet()) {
+            if (!p.topic().equals("__consumer_offsets")) {
+              var size = (float) map.get(name).replicaInfos().get(p).size();
+              Assertions.assertNotEquals(size, 0);
+            }
+          }
+        }
+      } catch (InterruptedException | ExecutionException e) {
+        System.out.println("取得資訊失敗" + e.getMessage());
+        e.printStackTrace();
+      }
     }
   }
 }

@@ -123,7 +123,6 @@ class KafkaMetricsTest extends RequireBrokerCluster {
 
       // act assert
       assertDoesNotThrow(() -> KafkaMetrics.TopicPartition.size(mBeanClient, topicName));
-      System.out.println(KafkaMetrics.TopicPartition.size(mBeanClient, topicName));
     }
   }
 

@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import javax.management.remote.JMXServiceURL;
 import org.astraea.metrics.jmx.MBeanClient;
@@ -24,7 +25,9 @@ public class NodeMetrics {
     argumentTargetMetrics.add("BytesInPerSec");
     argumentTargetMetrics.add("BytesOutPerSec");
     nodeID = ID;
-    serviceURL = new JMXServiceURL(createJmxUrl(address));
+    if (Pattern.compile("^service:").matcher(address).find())
+      serviceURL = new JMXServiceURL(address);
+    else serviceURL = new JMXServiceURL(createJmxUrl(address));
     mBeanClient = new MBeanClient(serviceURL);
     metricsValues = new HashMap();
   }

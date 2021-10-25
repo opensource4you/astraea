@@ -1,7 +1,6 @@
 package org.astraea.partitioner.partitionerFactory;
 
 import java.io.IOException;
-import java.net.MalformedURLException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
@@ -111,16 +110,13 @@ public class LinkPartitioner implements Partitioner {
         HashMap<String, String> mapAddress = new HashMap<>();
         for (String str : list) {
           var listAddress = Arrays.asList(str.split("@"));
-          System.out.println(listAddress);
           mapAddress.put(listAddress.get(1), listAddress.get(0));
         }
         Objects.requireNonNull(
             mapAddress, "You must configure jmx_servers correctly.(JmxAddress@NodeID)");
         nodeLoadClient = new NodeLoadClient((mapAddress));
-      } catch (MalformedURLException e) {
-        e.printStackTrace();
       } catch (IOException e) {
-        e.printStackTrace();
+        throw new RuntimeException();
       }
       pool = ThreadPool.builder().executor(nodeLoadClient).build();
     }
