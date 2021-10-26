@@ -12,12 +12,14 @@ public class JvmMemory implements HasJvmMemory {
 
   @Override
   public MemoryUsage heapMemoryUsage() {
+    // override the default implementation to avoid creating excessive objects
     if (heapMemoryUsage == null) heapMemoryUsage = HasJvmMemory.super.heapMemoryUsage();
     return heapMemoryUsage;
   }
 
   @Override
   public MemoryUsage nonHeapMemoryUsage() {
+    // override the default implementation to avoid creating excessive objects
     if (nonHeapMemoryUsage == null) nonHeapMemoryUsage = HasJvmMemory.super.nonHeapMemoryUsage();
     return nonHeapMemoryUsage;
   }
