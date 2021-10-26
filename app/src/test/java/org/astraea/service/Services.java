@@ -74,11 +74,6 @@ public final class Services {
       }
 
       @Override
-      public boolean isLocal() {
-        return true;
-      }
-
-      @Override
       public Map<Integer, Set<String>> logFolders() {
         return IntStream.range(0, numberOfBrokers)
             .mapToObj(brokerId -> Map.entry(brokerId, Set.of(tempFolders.get(brokerId).toString())))
@@ -111,11 +106,6 @@ public final class Services {
       @Override
       public String connectionProps() {
         return Utils.hostname() + ":" + factory.getLocalPort();
-      }
-
-      @Override
-      public boolean isLocal() {
-        return true;
       }
     };
   }
