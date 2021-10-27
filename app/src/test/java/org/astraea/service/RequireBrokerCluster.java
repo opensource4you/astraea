@@ -9,7 +9,7 @@ import org.junit.jupiter.api.AfterAll;
  * This class offers a way to have embedded kafka cluster. It is useful to test code which is
  * depended on true cluster.
  */
-public abstract class RequireBrokerCluster {
+public abstract class RequireBrokerCluster extends RequireJmxServer {
   private static final ZookeeperCluster ZOOKEEPER_CLUSTER = Services.zookeeperCluster();
   private static final BrokerCluster BROKER_CLUSTER = Services.brokerCluster(ZOOKEEPER_CLUSTER, 3);
 
