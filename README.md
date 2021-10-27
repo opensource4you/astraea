@@ -13,12 +13,11 @@ a collection of tools used to balance Kafka data
 This project offers many kafka tools to simplify the life for kafka users.
 
 1. [Kafka quick start](#kafka-cluster-quick-start): set up a true kafka cluster in one minute
-2. [Kafka benchmark](#latency-benchmark): run producers/consumers to test the performance and consistency for kafka cluster
-3. [Kafka performance](#Performance-Benchmark): check producing/consuming performance.
-4. [Kafka offset explorer](#topic-explorer): check the start/end offsets of kafka topics
-5. [Kafka official tool](#kafka-official-tool): run any one specific kafka official tool. All you have to prepare is the docker env.
-6. [Kafka metric client](#kafka-metric-client): utility for accessing kafka Mbean metrics via JMX.
-7. [Replica Collie](#replica-collie): move replicas from brokers to others. You can use this tool to obstruct specific brokers from hosting specific topics.
+2. [Kafka performance](#Performance-Benchmark): check producing/consuming performance.
+3. [Kafka offset explorer](#topic-explorer): check the start/end offsets of kafka topics
+4. [Kafka official tool](#kafka-official-tool): run any one specific kafka official tool. All you have to prepare is the docker env.
+5. [Kafka metric client](#kafka-metric-client): utility for accessing kafka Mbean metrics via JMX.
+6. [Replica Collie](#replica-collie): move replicas from brokers to others. You can use this tool to obstruct specific brokers from hosting specific topics.
 
 [Release page](https://github.com/skiptests/astraea/releases) offers the uber jar including all tools.
 ```shell
@@ -65,33 +64,6 @@ jmx address: 192.168.50.224:15905
 
 The command to set up broker can be executed multiple times to create a broker cluster. The env `KAFKA_VERSION` is used to
 define the release version of kafka. Or you can define `KAFKA_REVISION` to run kafka based on specific revision of source code.
-
----
-
-## Latency Benchmark
-
-This tool is used to test following latencies.
-1. producer latency: the time of completing producer data request
-2. E2E latency: the time for a record to travel through Kafka
-
-Run the benchmark from source code
-```shell
-./gradlew run --args="latency --bootstrap.servers 192.168.50.224:18878"
-```
-
-Run the benchmark from release
-```shell
-java -jar app-0.0.1-SNAPSHOT-all.jar latency --bootstrap.servers 192.168.50.224:18878
-```
-
-### Latency Benchmark Configurations
-1. --bootstrap.servers: the server to connect to
-2. --consumers: the number of consumers (threads). Default: 1
-3. --producers: the number of producers (threads). Default: 1
-4. --value.size: the size of record value. Default: 100 bytes
-5. --duration: the duration to run this benchmark. Default: 5 seconds
-6. --flush.duration: the duration to flush producer records. Default: 2 seconds
-7. --topics: the topics to write/read data
 
 ---
 
