@@ -96,6 +96,13 @@ public class ArgumentUtil {
     }
   }
 
+  public static class ShortConverter implements IStringConverter<Short> {
+    @Override
+    public Short convert(String value) {
+      return Short.valueOf(value);
+    }
+  }
+
   private static <C extends Collection<T>, T> C requireNonEmpty(C collection) {
     if (collection.isEmpty()) throw new ParameterException("array type can't be empty");
     return collection;

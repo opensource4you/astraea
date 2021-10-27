@@ -6,6 +6,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import org.astraea.metrics.kafka.KafkaMetricClientApp;
+import org.astraea.performance.Performance;
 import org.astraea.performance.latency.End2EndLatency;
 import org.astraea.topic.ReplicaCollie;
 import org.astraea.topic.TopicExplorer;
@@ -16,7 +17,8 @@ public class App {
           "latency", End2EndLatency.class,
           "offset", TopicExplorer.class,
           "metrics", KafkaMetricClientApp.class,
-          "replica", ReplicaCollie.class);
+          "replica", ReplicaCollie.class,
+          "performance", Performance.class);
 
   static void execute(Map<String, Class<?>> mains, List<String> args) throws Throwable {
 
