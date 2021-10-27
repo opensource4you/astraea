@@ -1,4 +1,4 @@
-package org.astraea.metrics.kafka.metrics;
+package org.astraea.metrics.java.metrics;
 
 import java.lang.management.MemoryUsage;
 import org.astraea.metrics.jmx.BeanObject;

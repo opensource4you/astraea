@@ -8,7 +8,7 @@ import org.astraea.metrics.jmx.BeanObject;
 import org.astraea.metrics.jmx.BeanQuery;
 import org.astraea.metrics.jmx.MBeanClient;
 import org.astraea.metrics.kafka.metrics.BrokerTopicMetricsResult;
-import org.astraea.metrics.kafka.metrics.JvmMemory;
+import org.astraea.metrics.java.metrics.JvmMemory;
 import org.astraea.metrics.kafka.metrics.OperatingSystemInfo;
 import org.astraea.metrics.kafka.metrics.TotalTimeMs;
 

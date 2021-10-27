@@ -13,7 +13,7 @@ import javax.management.remote.JMXConnectorServerFactory;
 import javax.management.remote.JMXServiceURL;
 import org.astraea.metrics.jmx.MBeanClient;
 import org.astraea.metrics.kafka.metrics.BrokerTopicMetricsResult;
-import org.astraea.metrics.kafka.metrics.JvmMemory;
+import org.astraea.metrics.java.metrics.JvmMemory;
 import org.astraea.metrics.kafka.metrics.OperatingSystemInfo;
 import org.astraea.metrics.kafka.metrics.TotalTimeMs;
 import org.astraea.service.RequireBrokerCluster;
