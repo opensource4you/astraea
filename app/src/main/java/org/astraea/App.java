@@ -7,14 +7,12 @@ import java.util.List;
 import java.util.Map;
 import org.astraea.metrics.kafka.KafkaMetricClientApp;
 import org.astraea.performance.Performance;
-import org.astraea.performance.latency.End2EndLatency;
 import org.astraea.topic.ReplicaCollie;
 import org.astraea.topic.TopicExplorer;
 
 public class App {
   private static final Map<String, Class<?>> MAIN_CLASSES =
       Map.of(
-          "latency", End2EndLatency.class,
           "offset", TopicExplorer.class,
           "metrics", KafkaMetricClientApp.class,
           "replica", ReplicaCollie.class,
