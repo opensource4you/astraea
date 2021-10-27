@@ -1,15 +1,9 @@
 package org.astraea.partitioner.nodeLoadMetric;
 
-import java.io.IOException;
-import java.lang.management.ManagementFactory;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Properties;
 import java.util.concurrent.ExecutionException;
-import javax.management.MBeanServer;
-import javax.management.remote.JMXConnectorServer;
-import javax.management.remote.JMXConnectorServerFactory;
-import javax.management.remote.JMXServiceURL;
 import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.clients.admin.DescribeClusterResult;
 import org.apache.kafka.clients.admin.DescribeLogDirsResult;
@@ -21,33 +15,13 @@ import org.apache.kafka.common.serialization.StringSerializer;
 import org.astraea.partitioner.partitionerFactory.LinkPartitioner;
 import org.astraea.service.RequireBrokerCluster;
 import org.astraea.topic.TopicAdmin;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 public class PartitionerTest extends RequireBrokerCluster {
-  private MBeanServer mBeanServer;
-  private JMXConnectorServer jmxServer;
   public final String brokerList = bootstrapServers();
   TopicAdmin admin = TopicAdmin.of(bootstrapServers());
   public final String topicName = "address";
-
-  @BeforeEach
-  void setUp() throws IOException {
-    JMXServiceURL serviceURL = new JMXServiceURL("service:jmx:rmi://127.0.0.1");
-
-    mBeanServer = ManagementFactory.getPlatformMBeanServer();
-
-    jmxServer = JMXConnectorServerFactory.newJMXConnectorServer(serviceURL, null, mBeanServer);
-    jmxServer.start();
-  }
-
-  @AfterEach
-  void tearDown() throws Exception {
-    jmxServer.stop();
-    mBeanServer = null;
-  }
 
   public Properties initConfig() {
     Properties props = new Properties();
@@ -62,7 +36,7 @@ public class PartitionerTest extends RequireBrokerCluster {
   @Test
   public void testPartitioner() {
     Properties props = initConfig();
-    props.put("jmx_servers", jmxServer.getAddress() + "@0");
+    props.put("jmx_servers", jmxServiceURL() + "@0");
     admin.createTopic(topicName, 10);
     KafkaProducer<String, String> producer = new KafkaProducer<>(props);
     try {
