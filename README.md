@@ -63,7 +63,7 @@ jmx address: 192.168.50.224:15905
 ```
 
 The command to set up broker can be executed multiple times to create a broker cluster. The env `KAFKA_VERSION` is used to
-define the release version of kafka. Or you can define `KAFKA_REVISION` to run kafka based on specify revision of source code.
+define the release version of kafka. Or you can define `KAFKA_REVISION` to run kafka based on specific revision of source code.
 
 ---
 
