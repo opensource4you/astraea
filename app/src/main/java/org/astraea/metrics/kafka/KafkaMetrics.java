@@ -4,10 +4,12 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Map;
 import java.util.stream.Collectors;
+import org.astraea.metrics.java.metrics.JvmMemory;
 import org.astraea.metrics.jmx.BeanObject;
 import org.astraea.metrics.jmx.BeanQuery;
 import org.astraea.metrics.jmx.MBeanClient;
 import org.astraea.metrics.kafka.metrics.BrokerTopicMetricsResult;
+import org.astraea.metrics.kafka.metrics.OperatingSystemInfo;
 import org.astraea.metrics.kafka.metrics.TotalTimeMs;
 
 public final class KafkaMetrics {
@@ -95,6 +97,32 @@ public final class KafkaMetrics {
           .filter(metric -> metric.metricName().equalsIgnoreCase(metricName))
           .findFirst()
           .orElseThrow(() -> new IllegalArgumentException("No such metric: " + metricName));
+    }
+
+    public static long linuxDiskReadBytes(MBeanClient mBeanClient) {
+      return (long)
+          mBeanClient
+              .tryQueryBean(
+                  BeanQuery.builder("kafka.server")
+                      .property("type", "KafkaServer")
+                      .property("name", "linux-disk-read-bytes")
+                      .build())
+              .orElseThrow()
+              .getAttributes()
+              .get("Value");
+    }
+
+    public static long linuxDiskWriteBytes(MBeanClient mBeanClient) {
+      return (long)
+          mBeanClient
+              .tryQueryBean(
+                  BeanQuery.builder("kafka.server")
+                      .property("type", "KafkaServer")
+                      .property("name", "linux-disk-write-bytes")
+                      .build())
+              .orElseThrow()
+              .getAttributes()
+              .get("Value");
     }
   }
 
@@ -207,6 +235,35 @@ public final class KafkaMetrics {
               Collectors.toMap(
                   (BeanObject a) -> Integer.parseInt(a.getProperties().get("partition")),
                   (BeanObject a) -> (Long) a.getAttributes().get("Value")));
+    }
+  }
+
+  public static final class Host {
+
+    private Host() {}
+
+    /**
+     * retrieve broker's operating system info
+     *
+     * @param mBeanClient a {@link MBeanClient} instance connect to specific kafka broker
+     * @return a {@link OperatingSystemInfo} describe broker's os info (arch, processors, memory,
+     *     cpu loading ...)
+     */
+    public static OperatingSystemInfo operatingSystem(MBeanClient mBeanClient) {
+      BeanObject beanObject =
+          mBeanClient
+              .tryQueryBean(
+                  BeanQuery.builder("java.lang").property("type", "OperatingSystem").build())
+              .orElseThrow();
+      return new OperatingSystemInfo(beanObject);
+    }
+
+    public static JvmMemory jvmMemory(MBeanClient mBeanClient) {
+      BeanObject beanObject =
+          mBeanClient
+              .tryQueryBean(BeanQuery.builder("java.lang").property("type", "Memory").build())
+              .orElseThrow();
+      return new JvmMemory(beanObject);
     }
   }
 }
