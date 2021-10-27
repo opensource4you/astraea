@@ -4,7 +4,6 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.*;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import javax.management.*;
 import javax.management.remote.*;
 
@@ -42,9 +41,8 @@ public class MBeanClient implements AutoCloseable {
    *
    * @param beanQuery the non-pattern BeanQuery
    * @return A {@link BeanObject} contain all attributes if target resolved successfully.
-   * @throws InstanceNotFoundException If the pattern target doesn't exists on remote mbean server.
    */
-  public BeanObject queryBean(BeanQuery beanQuery) throws InstanceNotFoundException {
+  public BeanObject queryBean(BeanQuery beanQuery) {
     ensureConnected();
     try {
       // ask for MBeanInfo
@@ -62,22 +60,22 @@ public class MBeanClient implements AutoCloseable {
       throw new RuntimeException(e);
     } catch (IOException e) {
       throw new UncheckedIOException(e);
+    } catch (InstanceNotFoundException e) {
+      throw new NoSuchElementException(e.getMessage());
     }
   }
 
   /**
    * Fetch given attributes of target mbean
    *
-   * <p>Note that when exception is raised during the attribute fetching process, the exactly
+   * <p>Note that when exception is raised during the attribute fetching process, the exact
    * exception will be placed into the attribute field.
    *
    * @param beanQuery the non-pattern BeanQuery
    * @param attributeNameCollection a list of attribute you want to retrieve
    * @return A {@link BeanObject} contain given specific attributes if target resolved successfully.
-   * @throws InstanceNotFoundException If the pattern target doesn't exists on remote mbean server.
    */
-  public BeanObject queryBean(BeanQuery beanQuery, Collection<String> attributeNameCollection)
-      throws InstanceNotFoundException {
+  public BeanObject queryBean(BeanQuery beanQuery, Collection<String> attributeNameCollection) {
     ensureConnected();
     try {
 
@@ -112,6 +110,8 @@ public class MBeanClient implements AutoCloseable {
       throw new RuntimeException(e);
     } catch (IOException e) {
       throw new UncheckedIOException(e);
+    } catch (InstanceNotFoundException e) {
+      throw new NoSuchElementException(e.getMessage());
     }
   }
 
@@ -136,60 +136,12 @@ public class MBeanClient implements AutoCloseable {
   }
 
   /**
-   * Fetch all attributes of target mbean, return with {@link Optional} support
-   *
-   * <p>During the attribute retrieve process, if a {@link InstanceNotFoundException} is raised, an
-   * {@link Optional#empty()} will return.
-   *
-   * <p>Note that when exception is raised during the attribute fetching process, the exactly
-   * exception will be placed into the attribute field.
-   *
-   * @param beanQuery the non-pattern BeanQuery
-   * @return A {@link Optional<BeanObject>} of {@link BeanObject} contain all attributes if target
-   *     resolved successfully. If the pattern target doesn't exists on remote mbean server, then an
-   *     {@link Optional#empty()} returned.
-   */
-  public Optional<BeanObject> tryQueryBean(BeanQuery beanQuery) {
-    ensureConnected();
-    try {
-      return Optional.of(this.queryBean(beanQuery));
-    } catch (InstanceNotFoundException e) {
-      return Optional.empty();
-    }
-  }
-
-  /**
-   * Fetch a list of mbean attribute, return with {@link Optional} support
-   *
-   * <p>During the attribute retrieve process, if a {@link InstanceNotFoundException} is raised, an
-   * {@link Optional#empty()} will return.
-   *
-   * <p>Note that when exception is raised during the attribute fetching process, the exactly
-   * exception will be placed into the attribute field.
-   *
-   * @param beanQuery the non-pattern BeanQuery
-   * @param attributeNameCollection array of attribute names you want to retrieve
-   * @return A {@link Optional<BeanObject>} contain the exactly {@link BeanObject} with specific
-   *     attributes resolved if target mbeans resolved successfully. If the pattern target doesn't
-   *     exists on remote mbean server, then an {@link Optional#empty()} returned.
-   */
-  public Optional<BeanObject> tryQueryBean(
-      BeanQuery beanQuery, Collection<String> attributeNameCollection) {
-    ensureConnected();
-    try {
-      return Optional.of(this.queryBean(beanQuery, attributeNameCollection));
-    } catch (InstanceNotFoundException e) {
-      return Optional.empty();
-    }
-  }
-
-  /**
    * Query mBeans by pattern.
    *
    * <p>Query mbeans by {@link ObjectName} pattern, the returned {@link BeanObject}s will contain
    * all the available attributes
    *
-   * <p>Note that when exception is raised during the attribute fetching process, the exactly
+   * <p>Note that when exception is raised during the attribute fetching process, the exact
    * exception will be placed into the attribute field.
    *
    * @param beanQuery the pattern to query
@@ -198,22 +150,11 @@ public class MBeanClient implements AutoCloseable {
   public Collection<BeanObject> queryBeans(BeanQuery beanQuery) {
     ensureConnected();
     try {
-
-      // query mbeans
-      Set<ObjectInstance> objectInstances =
-          mBeanServerConnection.queryMBeans(beanQuery.objectName(), null);
-
-      // transform result into a set of BeanQuery
-      Stream<BeanQuery> queries =
-          objectInstances.stream()
-              .map(ObjectInstance::getObjectName)
-              .map(BeanQuery::fromObjectName);
-
-      // execute query on each BeanQuery, return result as a set of BeanObject
-      Set<BeanObject> queryResult =
-          queries.map(this::tryQueryBean).flatMap(Optional::stream).collect(Collectors.toSet());
-
-      return queryResult;
+      return mBeanServerConnection.queryMBeans(beanQuery.objectName(), null).stream()
+          .map(ObjectInstance::getObjectName)
+          .map(BeanQuery::fromObjectName)
+          .map(this::queryBean)
+          .collect(Collectors.toSet());
 
     } catch (IOException e) {
       throw new UncheckedIOException(e);
