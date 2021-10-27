@@ -27,7 +27,7 @@ public class MetricsTest {
 
   // Simultaneously add and get
   @Test
-  void testBytes() {
+  void testBytes() throws InterruptedException {
     final CountDownLatch countDownLatch = new CountDownLatch(1);
     final Metrics metrics = new Metrics();
     final LongAdder longAdder = new LongAdder();
@@ -58,11 +58,9 @@ public class MetricsTest {
     adder.start();
     getter.start();
     countDownLatch.countDown();
-    try {
-      adder.join();
-      longAdder.add(metrics.bytesThenReset());
-    } catch (InterruptedException ignore) {
-    }
+    adder.join();
+    longAdder.add(metrics.bytesThenReset());
+
     Assertions.assertEquals(loopCount * input, longAdder.sum());
   }
 
