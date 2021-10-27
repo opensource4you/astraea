@@ -11,7 +11,7 @@ import java.util.stream.IntStream;
 import org.apache.kafka.clients.producer.internals.DefaultPartitioner;
 import org.apache.kafka.common.errors.WakeupException;
 import org.astraea.argument.ArgumentUtil;
-import org.astraea.argument.BasicAdminArgument;
+import org.astraea.argument.BasicArgument;
 import org.astraea.concurrent.ThreadPool;
 import org.astraea.topic.TopicAdmin;
 
@@ -49,16 +49,15 @@ public class Performance {
     try {
       execute(
           param,
-          ComponentFactory.fromKafka(param.brokers, param.topic)
-              .partitioner(DefaultPartitioner.class.getName())
-              .JMXAddress(param.JMXAddress));
+          ComponentFactory.fromKafka(param.brokers, param.topic, param.perfProps())
+              .partitioner(DefaultPartitioner.class.getName()));
     } catch (InterruptedException ignore) {
     }
   }
 
   public static void execute(final Argument param, ComponentFactory componentFactory)
       throws InterruptedException {
-    try (var topicAdmin = TopicAdmin.of(param.adminProps())) {
+    try (var topicAdmin = TopicAdmin.of(param.perfProps())) {
       topicAdmin.createTopic(param.topic, param.partitions, param.replicas);
     } catch (IOException ignore) {
     }
@@ -108,7 +107,7 @@ public class Performance {
   static ThreadPool.Executor consumerExecutor(Consumer consumer, Metrics metrics) {
     return new ThreadPool.Executor() {
       @Override
-      public void execute() throws InterruptedException {
+      public void execute() {
         try {
           for (var record : consumer.poll(Duration.ofSeconds(10))) {
             // 記錄端到端延時, 記錄輸入byte(沒有算入header和timestamp)
@@ -137,7 +136,7 @@ public class Performance {
     byte[] payload = new byte[param.recordSize];
     return new ThreadPool.Executor() {
       @Override
-      public void execute() throws InterruptedException {
+      public void execute() {
         long start = System.currentTimeMillis();
         try {
           producer.send(payload).get();
@@ -154,7 +153,7 @@ public class Performance {
     };
   }
 
-  static class Argument extends BasicAdminArgument {
+  static class Argument extends BasicArgument {
 
     @Parameter(
         names = {"--topic"},
@@ -204,12 +203,6 @@ public class Performance {
         description = "String: path to the properties file",
         validateWith = ArgumentUtil.NotEmptyString.class)
     String propFile;
-
-    @Parameter(
-        names = {"--jmx.server"},
-        description = "String: JMX server to connect to. Example: <JMX address>@<broker id>",
-        validateWith = ArgumentUtil.NotEmptyString.class)
-    String JMXAddress = "0.0.0.0@0";
 
     public Map<String, Object> perfProps() {
       return properties(propFile);

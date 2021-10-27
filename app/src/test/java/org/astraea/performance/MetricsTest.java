@@ -34,38 +34,34 @@ public class MetricsTest {
     final long input = 100;
     final int loopCount = 10000;
     Thread adder =
-        new Thread() {
-          @Override
-          public void run() {
-            try {
-              countDownLatch.await();
-            } catch (InterruptedException ie) {
-            }
-            for (int i = 0; i < loopCount; ++i) {
-              metrics.addBytes(input);
-            }
-          }
-        };
+        new Thread(
+            () -> {
+              try {
+                countDownLatch.await();
+              } catch (InterruptedException ignore) {
+              }
+              for (int i = 0; i < loopCount; ++i) {
+                metrics.addBytes(input);
+              }
+            });
     Thread getter =
-        new Thread() {
-          @Override
-          public void run() {
-            try {
-              countDownLatch.await();
-            } catch (InterruptedException ie) {
-            }
-            for (int i = 0; i < loopCount; ++i) {
-              longAdder.add(metrics.bytesThenReset());
-            }
-          }
-        };
+        new Thread(
+            () -> {
+              try {
+                countDownLatch.await();
+              } catch (InterruptedException ignore) {
+              }
+              for (int i = 0; i < loopCount; ++i) {
+                longAdder.add(metrics.bytesThenReset());
+              }
+            });
     adder.start();
     getter.start();
     countDownLatch.countDown();
     try {
       adder.join();
       longAdder.add(metrics.bytesThenReset());
-    } catch (InterruptedException ie) {
+    } catch (InterruptedException ignore) {
     }
     Assertions.assertEquals(loopCount * input, longAdder.sum());
   }

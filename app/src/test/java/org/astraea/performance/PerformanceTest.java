@@ -1,5 +1,6 @@
 package org.astraea.performance;
 
+import java.util.Map;
 import org.astraea.concurrent.ThreadPool;
 import org.astraea.service.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
@@ -7,7 +8,8 @@ import org.junit.jupiter.api.Test;
 
 public class PerformanceTest extends RequireBrokerCluster {
   private final ComponentFactory factory =
-      ComponentFactory.fromKafka(bootstrapServers(), "testing-" + System.currentTimeMillis());
+      ComponentFactory.fromKafka(
+          bootstrapServers(), "testing-" + System.currentTimeMillis(), Map.of());
 
   @Test
   public void testExecute() {

@@ -1,21 +1,19 @@
 package org.astraea.performance;
 
-import java.util.concurrent.atomic.LongAdder;
-
 /** Used to record statistics. This is thread safe. */
 public class Metrics {
   private double avgLatency;
   private long num;
   private long max;
   private long min;
-  private final LongAdder bytes;
+  private long bytes;
 
   public Metrics() {
     avgLatency = 0;
     num = 0;
     max = 0;
     min = Long.MAX_VALUE;
-    bytes = new LongAdder();
+    bytes = 0;
   }
 
   /** Simultaneously add latency and bytes. */
@@ -32,7 +30,7 @@ public class Metrics {
   }
   /** Add a new value to bytes. */
   public synchronized void addBytes(long bytes) {
-    this.bytes.add(bytes);
+    this.bytes += bytes;
   }
 
   /** Get the number of latency put. */
@@ -53,7 +51,9 @@ public class Metrics {
   }
   /** Reset to 0 and returns the old value of bytes */
   public synchronized long bytesThenReset() {
-    return this.bytes.sumThenReset();
+    long tmp = this.bytes;
+    this.bytes = 0;
+    return tmp;
   }
   /** Set all attributes to default value */
   public synchronized void reset() {
@@ -62,6 +62,6 @@ public class Metrics {
     max = 0;
     // 初始為最大的integer值
     min = Long.MAX_VALUE;
-    bytes.reset();
+    bytes = 0;
   }
 }
