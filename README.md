@@ -180,7 +180,7 @@ This tool offers an effective way to migrate all replicas from specific brokers 
 
 ## Kafka Partition Score
 
-This tool will score the partition on brokers, the higher  score the heavier load.
+This tool will score the partition on brokers, the higher score the heavier load.
 
 ### Start scoring partitions on broker address "192.168.103.39:9092"
 
