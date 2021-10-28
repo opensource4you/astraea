@@ -1,10 +1,7 @@
-package org.astraea.metrics.kafka.metrics;
+package org.astraea.metrics.kafka;
 
 import java.util.Map;
 import org.astraea.metrics.jmx.BeanObject;
-import org.astraea.metrics.kafka.metrics.modifiers.HasCount;
-import org.astraea.metrics.kafka.metrics.modifiers.HasPercentiles;
-import org.astraea.metrics.kafka.metrics.modifiers.HasStatistics;
 
 public class TotalTimeMs implements HasPercentiles, HasCount, HasStatistics {
 
