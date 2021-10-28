@@ -6,8 +6,6 @@ import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
-import org.apache.kafka.common.serialization.ByteArrayDeserializer;
-import org.apache.kafka.common.serialization.Deserializer;
 
 public class Builder<Key, Value> {
 
@@ -17,8 +15,8 @@ public class Builder<Key, Value> {
   }
 
   private final Map<String, Object> configs = new HashMap<>();
-  private Deserializer<?> keyDeserializer = new ByteArrayDeserializer();
-  private Deserializer<?> valueDeserializer = new ByteArrayDeserializer();
+  private Deserializer<?> keyDeserializer = Deserializer.BYTE_ARRAY;
+  private Deserializer<?> valueDeserializer = Deserializer.BYTE_ARRAY;
   private OffsetPolicy offsetPolicy = OffsetPolicy.LATEST;
   private String groupId = "groupId-" + System.currentTimeMillis();
   private final Set<String> topics = new HashSet<>();
@@ -76,7 +74,9 @@ public class Builder<Key, Value> {
     }
     var kafkaConsumer =
         new KafkaConsumer<>(
-            configs, (Deserializer<Key>) keyDeserializer, (Deserializer<Value>) valueDeserializer);
+            configs,
+            Deserializer.of((Deserializer<Key>) keyDeserializer),
+            Deserializer.of((Deserializer<Value>) valueDeserializer));
     kafkaConsumer.subscribe(topics);
     return new Consumer<>() {
       @Override
@@ -125,6 +125,11 @@ public class Builder<Key, Value> {
                       @Override
                       public int serializedValueSize() {
                         return r.serializedValueSize();
+                      }
+
+                      @Override
+                      public Collection<Header> headers() {
+                        return Header.of(r.headers());
                       }
                     })
             .collect(Collectors.toList());

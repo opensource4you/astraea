@@ -1,5 +1,7 @@
 package org.astraea.consumer;
 
+import java.util.Collection;
+
 public interface Record<Key, Value> {
   /** The topic this record is received from (never null) */
   String topic();
@@ -29,4 +31,7 @@ public interface Record<Key, Value> {
    * -1.
    */
   int serializedValueSize();
+
+  /** The headers (never null) */
+  Collection<Header> headers();
 }

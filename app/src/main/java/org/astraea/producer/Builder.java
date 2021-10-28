@@ -1,20 +1,17 @@
 package org.astraea.producer;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Objects;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.clients.producer.ProducerRecord;
-import org.apache.kafka.common.serialization.ByteArraySerializer;
-import org.apache.kafka.common.serialization.Serializer;
+import org.astraea.consumer.Header;
 
 public class Builder<Key, Value> {
   private final Map<String, Object> configs = new HashMap<>();
-  private Serializer<?> keySerializer = new ByteArraySerializer();
-  private Serializer<?> valueSerializer = new ByteArraySerializer();
+  private Serializer<?> keySerializer = Serializer.BYTE_ARRAY;
+  private Serializer<?> valueSerializer = Serializer.BYTE_ARRAY;
 
   Builder() {}
 
@@ -50,7 +47,9 @@ public class Builder<Key, Value> {
   public Producer<Key, Value> build() {
     var kafkaProducer =
         new KafkaProducer<>(
-            configs, (Serializer<Key>) keySerializer, (Serializer<Value>) valueSerializer);
+            configs,
+            Serializer.of((Serializer<Key>) keySerializer),
+            Serializer.of((Serializer<Value>) valueSerializer));
     return new Producer<>() {
 
       @Override
@@ -61,6 +60,7 @@ public class Builder<Key, Value> {
           private String topic;
           private Integer partition;
           private Long timestamp;
+          private Collection<Header> headers = List.of();
 
           @Override
           public Sender<Key, Value> key(Key key) {
@@ -93,10 +93,16 @@ public class Builder<Key, Value> {
           }
 
           @Override
+          public Sender<Key, Value> headers(Collection<Header> headers) {
+            this.headers = headers;
+            return this;
+          }
+
+          @Override
           public CompletionStage<Metadata> run() {
             var completableFuture = new CompletableFuture<Metadata>();
             kafkaProducer.send(
-                new ProducerRecord<>(topic, partition, timestamp, key, value),
+                new ProducerRecord<>(topic, partition, timestamp, key, value, Header.of(headers)),
                 (metadata, exception) -> {
                   if (exception == null)
                     completableFuture.complete(
