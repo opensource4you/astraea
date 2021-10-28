@@ -1,16 +1,22 @@
 package org.astraea.partitioner.nodeLoadMetric;
 
+import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Properties;
 import java.util.concurrent.ExecutionException;
 import org.apache.kafka.clients.admin.AdminClient;
-import org.apache.kafka.clients.admin.DescribeClusterResult;
 import org.apache.kafka.clients.admin.DescribeLogDirsResult;
+import org.apache.kafka.clients.consumer.ConsumerConfig;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.apache.kafka.clients.consumer.ConsumerRecords;
+import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.clients.producer.RecordMetadata;
+import org.apache.kafka.common.serialization.StringDeserializer;
 import org.apache.kafka.common.serialization.StringSerializer;
 import org.astraea.partitioner.partitionerFactory.LinkPartitioner;
 import org.astraea.service.RequireBrokerCluster;
@@ -23,19 +29,30 @@ public class PartitionerTest extends RequireBrokerCluster {
   TopicAdmin admin = TopicAdmin.of(bootstrapServers());
   public final String topicName = "address";
 
-  public Properties initConfig() {
+  public Properties initProConfig() {
     Properties props = new Properties();
     props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, brokerList);
     props.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class.getName());
     props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, StringSerializer.class.getName());
-    props.put(ProducerConfig.CLIENT_ID_CONFIG, "producer.client.id.demo");
+    props.put(ProducerConfig.CLIENT_ID_CONFIG, "id1");
     props.put(ProducerConfig.PARTITIONER_CLASS_CONFIG, LinkPartitioner.class.getName());
+    return props;
+  }
+
+  public Properties initConConfig() {
+    Properties props = new Properties();
+    props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, brokerList);
+    props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
+    props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
+    props.put(ConsumerConfig.CLIENT_ID_CONFIG, "id1");
+    props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
+    props.put("group.id", "group1");
     return props;
   }
 
   @Test
   public void testPartitioner() {
-    Properties props = initConfig();
+    Properties props = initProConfig();
     props.put("jmx_servers", jmxServiceURL() + "@0");
     admin.createTopic(topicName, 10);
     KafkaProducer<String, String> producer = new KafkaProducer<>(props);
@@ -52,10 +69,24 @@ public class PartitionerTest extends RequireBrokerCluster {
       e.printStackTrace();
     }
 
+    KafkaConsumer<String, String> consumer = new KafkaConsumer(initConConfig());
+    consumer.subscribe(Arrays.asList(topicName));
+    ConsumerRecords<String, String> consumerRecords = consumer.poll(Duration.ofSeconds(10));
+    if (!consumerRecords.isEmpty()) {
+      var count = 0;
+      for (ConsumerRecord<String, String> consumerRecord : consumerRecords) {
+        count++;
+        //        System.out.println("TopicName: " + consumerRecord.topic() + " Partition:" +
+        //                consumerRecord.partition() + " Offset:" + consumerRecord.offset() + "" +
+        //                " Msg:" + consumerRecord.value());
+      }
+      Assertions.assertEquals(count, 20);
+    }
+
     AdminClient client = AdminClient.create(props);
     Collection<Integer> brokerID = new ArrayList<>();
     brokerID.add(0);
-    DescribeClusterResult broker = client.describeCluster();
+
     DescribeLogDirsResult result = client.describeLogDirs(brokerID);
     for (var k : result.descriptions().values()) {
       try {
