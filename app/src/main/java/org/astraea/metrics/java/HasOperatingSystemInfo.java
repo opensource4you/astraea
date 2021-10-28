@@ -1,4 +1,6 @@
-package org.astraea.metrics.kafka.metrics.modifiers;
+package org.astraea.metrics.java;
+
+import org.astraea.metrics.HasBeanObject;
 
 public interface HasOperatingSystemInfo extends HasBeanObject {
 

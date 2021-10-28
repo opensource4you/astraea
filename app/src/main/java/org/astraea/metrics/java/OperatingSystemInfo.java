@@ -1,8 +1,7 @@
-package org.astraea.metrics.kafka.metrics;
+package org.astraea.metrics.java;
 
 import java.util.Map;
 import org.astraea.metrics.jmx.BeanObject;
-import org.astraea.metrics.kafka.metrics.modifiers.HasOperatingSystemInfo;
 
 public class OperatingSystemInfo implements HasOperatingSystemInfo {
 

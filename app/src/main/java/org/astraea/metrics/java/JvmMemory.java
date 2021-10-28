@@ -1,8 +1,7 @@
-package org.astraea.metrics.java.metrics;
+package org.astraea.metrics.java;
 
 import java.lang.management.MemoryUsage;
 import org.astraea.metrics.jmx.BeanObject;
-import org.astraea.metrics.kafka.metrics.modifiers.HasJvmMemory;
 
 public class JvmMemory implements HasJvmMemory {
 

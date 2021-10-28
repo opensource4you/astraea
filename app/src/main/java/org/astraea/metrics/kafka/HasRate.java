@@ -1,6 +1,7 @@
-package org.astraea.metrics.kafka.metrics.modifiers;
+package org.astraea.metrics.kafka;
 
 import java.util.concurrent.TimeUnit;
+import org.astraea.metrics.HasBeanObject;
 
 public interface HasRate extends HasBeanObject {
   default double meanRate() {
