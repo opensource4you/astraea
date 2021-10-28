@@ -1,17 +1,18 @@
 package org.astraea.performance;
 
 import java.util.Properties;
-import java.util.concurrent.Future;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.clients.producer.RecordMetadata;
 import org.apache.kafka.common.serialization.ByteArraySerializer;
 
 /** An interface for sending records. */
-public interface Producer {
-  Future<RecordMetadata> send(byte[] payload);
+public interface Producer extends AutoCloseable {
+  CompletionStage<RecordMetadata> send(byte[] payload);
 
-  void cleanup();
+  void close();
 
   /**
    * Create a KafkaProducer.
@@ -26,12 +27,19 @@ public interface Producer {
     return new Producer() {
 
       @Override
-      public Future<RecordMetadata> send(byte[] payload) {
-        return kafkaProducer.send(new ProducerRecord<>(topic, payload));
+      public CompletionStage<RecordMetadata> send(byte[] payload) {
+        var completableFuture = new CompletableFuture<RecordMetadata>();
+        kafkaProducer.send(
+            new ProducerRecord<>(topic, payload),
+            (metadata, exception) -> {
+              if (exception == null) completableFuture.complete(metadata);
+              else completableFuture.completeExceptionally(exception);
+            });
+        return completableFuture;
       }
 
       @Override
-      public void cleanup() {
+      public void close() {
         kafkaProducer.close();
       }
     };

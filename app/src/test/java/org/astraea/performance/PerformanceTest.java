@@ -1,6 +1,8 @@
 package org.astraea.performance;
 
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicLong;
+import org.astraea.Utils;
 import org.astraea.concurrent.ThreadPool;
 import org.astraea.service.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
@@ -21,31 +23,31 @@ public class PerformanceTest extends RequireBrokerCluster {
   @Test
   public void testProducerExecutor() throws InterruptedException {
     Metrics metrics = new Metrics();
-    ThreadPool.Executor executor =
-        Performance.producerExecutor(factory.createProducer(), new Performance.Argument(), metrics);
+    try (ThreadPool.Executor executor =
+        Performance.producerExecutor(
+            factory.createProducer(), new Performance.Argument(), metrics, new AtomicLong(10))) {
+      executor.execute();
 
-    executor.execute();
-
-    Assertions.assertEquals(1, metrics.num());
-    Assertions.assertEquals(1024, metrics.bytesThenReset());
-
-    executor.cleanup();
+      Utils.waitFor(() -> metrics.num() == 1);
+      Assertions.assertEquals(1024, metrics.bytesThenReset());
+    }
   }
 
   @Test
   public void testConsumerExecutor() throws InterruptedException {
     Metrics metrics = new Metrics();
-    ThreadPool.Executor executor = Performance.consumerExecutor(factory.createConsumer(), metrics);
+    try (ThreadPool.Executor executor =
+        Performance.consumerExecutor(factory.createConsumer(), metrics, new AtomicLong(10))) {
+      executor.execute();
 
-    executor.execute();
+      Assertions.assertEquals(0, metrics.num());
+      Assertions.assertEquals(0, metrics.bytesThenReset());
 
-    Assertions.assertEquals(0, metrics.num());
-    Assertions.assertEquals(0, metrics.bytesThenReset());
+      factory.createProducer().send(new byte[1024]);
+      executor.execute();
 
-    factory.createProducer().send(new byte[1024]);
-    executor.execute();
-
-    Assertions.assertEquals(1, metrics.num());
-    Assertions.assertNotEquals(1024, metrics.bytesThenReset());
+      Assertions.assertEquals(1, metrics.num());
+      Assertions.assertNotEquals(1024, metrics.bytesThenReset());
+    }
   }
 }

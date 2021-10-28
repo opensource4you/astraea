@@ -5,22 +5,18 @@ import java.util.Map;
 import java.util.Properties;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.producer.ProducerConfig;
+import org.apache.kafka.clients.producer.internals.DefaultPartitioner;
 
 /** An interface used for creating producer, consumer. */
 public interface ComponentFactory {
-  Producer createProducer();
+
+  default Producer createProducer() {
+    return createProducer(DefaultPartitioner.class.getName());
+  }
+
+  Producer createProducer(String partitionClassName);
 
   Consumer createConsumer();
-
-  /**
-   * (Optional) Setting partitioner for producer. If not set, use default partitioner RoundRobin
-   *
-   * @param partitionerName The partitioner class to use
-   * @return This factory
-   */
-  default ComponentFactory partitioner(String partitionerName) {
-    return this;
-  }
 
   /**
    * Used for creating Kafka producer, consumer of the same Kafka server and the same topic. The
@@ -28,29 +24,29 @@ public interface ComponentFactory {
    * have the same groupID.
    */
   static ComponentFactory fromKafka(String brokers, String topic, Map<String, Object> config) {
-    final Properties prop = new Properties();
-    final String groupId = "groupId:" + System.currentTimeMillis();
-    prop.putAll(config);
-    prop.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, brokers);
-    prop.put(ConsumerConfig.GROUP_ID_CONFIG, groupId);
-
     return new ComponentFactory() {
+      private final String groupId = "groupId:" + System.currentTimeMillis();
+
       /** Create Producer with KafkaProducer<byte[], byte[]> functions */
       @Override
-      public Producer createProducer() {
-        return Producer.fromKafka(prop, topic);
+      public Producer createProducer(String partitionClassName) {
+        var props = new Properties();
+        props.putAll(config);
+        props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, brokers);
+        props.put(ProducerConfig.PARTITIONER_CLASS_CONFIG, partitionClassName);
+        return Producer.fromKafka(props, topic);
       }
 
       /** Create Consumer with KafkaConsumer<byte[], byte[]> functions */
       @Override
       public Consumer createConsumer() {
-        return Consumer.fromKafka(prop, Collections.singleton(topic));
-      }
-
-      @Override
-      public ComponentFactory partitioner(String partitionerName) {
-        prop.put(ProducerConfig.PARTITIONER_CLASS_CONFIG, partitionerName);
-        return this;
+        var props = new Properties();
+        props.putAll(config);
+        props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, brokers);
+        props.put(ConsumerConfig.GROUP_ID_CONFIG, groupId);
+        // always read data from beginning
+        props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
+        return Consumer.fromKafka(props, Collections.singleton(topic));
       }
     };
   }
