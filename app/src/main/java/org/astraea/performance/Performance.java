@@ -4,6 +4,7 @@ import com.beust.jcommander.Parameter;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -11,6 +12,9 @@ import org.apache.kafka.common.errors.WakeupException;
 import org.astraea.argument.ArgumentUtil;
 import org.astraea.argument.BasicArgument;
 import org.astraea.concurrent.ThreadPool;
+import org.astraea.consumer.Builder;
+import org.astraea.consumer.Consumer;
+import org.astraea.producer.Producer;
 import org.astraea.topic.TopicAdmin;
 
 /**
@@ -42,12 +46,10 @@ import org.astraea.topic.TopicAdmin;
 public class Performance {
 
   public static void main(String[] args) throws InterruptedException, IOException {
-    final var param = ArgumentUtil.parseArgument(new Argument(), args);
-    execute(param, ComponentFactory.fromKafka(param.brokers, param.topic, param.perfProps()));
+    execute(ArgumentUtil.parseArgument(new Argument(), args));
   }
 
-  public static void execute(final Argument param, ComponentFactory componentFactory)
-      throws InterruptedException, IOException {
+  public static void execute(final Argument param) throws InterruptedException, IOException {
     try (var topicAdmin = TopicAdmin.of(param.perfProps())) {
       topicAdmin.createTopic(param.topic, param.partitions, param.replicas);
     }
@@ -64,6 +66,7 @@ public class Performance {
     var consumerRecords = new AtomicLong(param.records);
     var producerRecords = new AtomicLong(param.records);
     var tracker = new Tracker(producerMetrics, consumerMetrics, param.records);
+    var groupId = "groupId-" + System.currentTimeMillis();
     try (ThreadPool threadPool =
         ThreadPool.builder()
             .executors(
@@ -71,7 +74,13 @@ public class Performance {
                     .mapToObj(
                         i ->
                             consumerExecutor(
-                                componentFactory.createConsumer(),
+                                Consumer.builder()
+                                    .brokers(param.brokers)
+                                    .topics(Set.of(param.topic))
+                                    .offsetPolicy(Builder.OffsetPolicy.EARLIEST)
+                                    .groupId(groupId)
+                                    .configs(param.perfProps())
+                                    .build(),
                                 consumerMetrics.get(i),
                                 consumerRecords))
                     .collect(Collectors.toUnmodifiableList()))
@@ -80,7 +89,10 @@ public class Performance {
                     .mapToObj(
                         i ->
                             producerExecutor(
-                                componentFactory.createProducer(),
+                                Producer.builder()
+                                    .brokers(param.brokers)
+                                    .configs(param.perfProps())
+                                    .build(),
                                 param,
                                 producerMetrics.get(i),
                                 producerRecords))
@@ -92,7 +104,7 @@ public class Performance {
   }
 
   static ThreadPool.Executor consumerExecutor(
-      Consumer consumer, Metrics metrics, AtomicLong records) {
+      Consumer<byte[], byte[]> consumer, Metrics metrics, AtomicLong records) {
     return new ThreadPool.Executor() {
       @Override
       public State execute() {
@@ -127,7 +139,7 @@ public class Performance {
   }
 
   static ThreadPool.Executor producerExecutor(
-      Producer producer, Argument param, Metrics metrics, AtomicLong records) {
+      Producer<byte[], byte[]> producer, Argument param, Metrics metrics, AtomicLong records) {
     byte[] payload = new byte[param.recordSize];
     return new ThreadPool.Executor() {
       @Override
@@ -136,7 +148,10 @@ public class Performance {
         if (currentRecords <= 0) return State.DONE;
         long start = System.currentTimeMillis();
         producer
-            .send(payload)
+            .sender()
+            .topic(param.topic)
+            .value(payload)
+            .run()
             .whenComplete(
                 (m, e) -> metrics.put(System.currentTimeMillis() - start, payload.length));
         return State.RUNNING;
