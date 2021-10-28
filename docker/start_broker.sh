@@ -32,7 +32,7 @@ if [[ "$(which docker)" == "" ]]; then
 fi
 
 if [[ -z "$KAFKA_VERSION" ]]; then
-  KAFKA_VERSION=2.8.0
+  KAFKA_VERSION=2.8.1
 fi
 
 USER=astraea

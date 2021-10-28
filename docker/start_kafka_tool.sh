@@ -19,7 +19,7 @@ else
 fi
 
 if [[ -z "$KAFKA_VERSION" ]]; then
-  KAFKA_VERSION=2.8.0
+  KAFKA_VERSION=2.8.1
 fi
 image_name=astraea/kafka-tool:$KAFKA_VERSION
 

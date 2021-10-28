@@ -6,6 +6,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Properties;
 import java.util.concurrent.ExecutionException;
+import java.util.regex.Pattern;
 import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.clients.admin.DescribeLogDirsResult;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
@@ -57,10 +58,7 @@ public class PartitionerTest extends RequireBrokerCluster {
     admin.createTopic(topicName, 10);
     KafkaProducer<String, String> producer = new KafkaProducer<>(props);
     try {
-      for (int i = 0; i < 10; i++) {
-        ProducerRecord<String, String> record1 =
-            new ProducerRecord<String, String>(topicName, "shanghai", Integer.toString(i));
-        RecordMetadata recordMetadata = producer.send(record1).get();
+      for (int i = 0; i < 20; i++) {
         ProducerRecord<String, String> record2 =
             new ProducerRecord<String, String>(topicName, "tainan-" + i, Integer.toString(i));
         RecordMetadata recordMetadata2 = producer.send(record2).get();
@@ -75,7 +73,7 @@ public class PartitionerTest extends RequireBrokerCluster {
     if (!consumerRecords.isEmpty()) {
       var count = 0;
       for (ConsumerRecord<String, String> consumerRecord : consumerRecords) {
-        count++;
+        if (Pattern.compile("^tainan").matcher(consumerRecord.key()).find()) count++;
         //        System.out.println("TopicName: " + consumerRecord.topic() + " Partition:" +
         //                consumerRecord.partition() + " Offset:" + consumerRecord.offset() + "" +
         //                " Msg:" + consumerRecord.value());
