@@ -36,7 +36,7 @@ public class MetricsTest {
     final long input = 100;
     final int loopCount = 10000;
 
-    ThreadPool threadPool =
+    try (ThreadPool threadPool =
         ThreadPool.builder()
             .executor(
                 () -> {
@@ -52,9 +52,9 @@ public class MetricsTest {
                     return ThreadPool.Executor.State.RUNNING;
                   else return ThreadPool.Executor.State.DONE;
                 })
-            .build();
-    threadPool.waitAll();
-    threadPool.close();
+            .build()) {
+      threadPool.waitAll();
+    }
     longAdder.add(metrics.bytesThenReset());
 
     Assertions.assertEquals(loopCount * input, longAdder.sum());
