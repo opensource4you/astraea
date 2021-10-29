@@ -4,11 +4,11 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Map;
 import java.util.stream.Collectors;
+import org.astraea.metrics.java.JvmMemory;
+import org.astraea.metrics.java.OperatingSystemInfo;
 import org.astraea.metrics.jmx.BeanObject;
 import org.astraea.metrics.jmx.BeanQuery;
 import org.astraea.metrics.jmx.MBeanClient;
-import org.astraea.metrics.kafka.metrics.BrokerTopicMetricsResult;
-import org.astraea.metrics.kafka.metrics.TotalTimeMs;
 
 public final class KafkaMetrics {
 
@@ -73,15 +73,12 @@ public final class KafkaMetrics {
     }
 
     public BrokerTopicMetricsResult fetch(MBeanClient mBeanClient) {
-      BeanObject beanObject =
-          mBeanClient
-              .tryQueryBean(
-                  BeanQuery.builder("kafka.server")
-                      .property("type", "BrokerTopicMetrics")
-                      .property("name", this.metricName())
-                      .build())
-              .orElseThrow();
-      return new BrokerTopicMetricsResult(beanObject);
+      return new BrokerTopicMetricsResult(
+          mBeanClient.queryBean(
+              BeanQuery.builder("kafka.server")
+                  .property("type", "BrokerTopicMetrics")
+                  .property("name", this.metricName())
+                  .build()));
     }
 
     /**
@@ -95,6 +92,30 @@ public final class KafkaMetrics {
           .filter(metric -> metric.metricName().equalsIgnoreCase(metricName))
           .findFirst()
           .orElseThrow(() -> new IllegalArgumentException("No such metric: " + metricName));
+    }
+
+    public static long linuxDiskReadBytes(MBeanClient mBeanClient) {
+      return (long)
+          mBeanClient
+              .queryBean(
+                  BeanQuery.builder("kafka.server")
+                      .property("type", "KafkaServer")
+                      .property("name", "linux-disk-read-bytes")
+                      .build())
+              .getAttributes()
+              .get("Value");
+    }
+
+    public static long linuxDiskWriteBytes(MBeanClient mBeanClient) {
+      return (long)
+          mBeanClient
+              .queryBean(
+                  BeanQuery.builder("kafka.server")
+                      .property("type", "KafkaServer")
+                      .property("name", "linux-disk-write-bytes")
+                      .build())
+              .getAttributes()
+              .get("Value");
     }
   }
 
@@ -110,13 +131,12 @@ public final class KafkaMetrics {
     public int size(MBeanClient mBeanClient) {
       return (int)
           mBeanClient
-              .tryQueryBean(
+              .queryBean(
                   BeanQuery.builder("kafka.server")
                       .property("type", "DelayedOperationPurgatory")
                       .property("delayedOperation", this.name())
                       .property("name", "PurgatorySize")
                       .build())
-              .orElseThrow()
               .getAttributes()
               .get("Value");
     }
@@ -128,16 +148,13 @@ public final class KafkaMetrics {
     FetchFollower;
 
     public TotalTimeMs totalTimeMs(MBeanClient mBeanClient) {
-      BeanObject beanObject =
-          mBeanClient
-              .tryQueryBean(
-                  BeanQuery.builder("kafka.network")
-                      .property("type", "RequestMetrics")
-                      .property("request", this.name())
-                      .property("name", "TotalTimeMs")
-                      .build())
-              .orElseThrow();
-      return new TotalTimeMs(beanObject);
+      return new TotalTimeMs(
+          mBeanClient.queryBean(
+              BeanQuery.builder("kafka.network")
+                  .property("type", "RequestMetrics")
+                  .property("request", this.name())
+                  .property("name", "TotalTimeMs")
+                  .build()));
     }
   }
 
@@ -153,12 +170,11 @@ public final class KafkaMetrics {
     public static int globalPartitionCount(MBeanClient mBeanClient) {
       return (int)
           mBeanClient
-              .tryQueryBean(
+              .queryBean(
                   BeanQuery.builder("kafka.controller")
                       .property("type", "KafkaController")
                       .property("name", "GlobalPartitionCount")
                       .build())
-              .orElseThrow()
               .getAttributes()
               .get("Value");
     }
@@ -173,12 +189,11 @@ public final class KafkaMetrics {
     public static int underReplicatedPartitions(MBeanClient mBeanClient) {
       return (int)
           mBeanClient
-              .tryQueryBean(
+              .queryBean(
                   BeanQuery.builder("kafka.server")
                       .property("type", "ReplicaManager")
                       .property("name", "UnderReplicatedPartitions")
                       .build())
-              .orElseThrow()
               .getAttributes()
               .get("Value");
     }
@@ -207,6 +222,29 @@ public final class KafkaMetrics {
               Collectors.toMap(
                   (BeanObject a) -> Integer.parseInt(a.getProperties().get("partition")),
                   (BeanObject a) -> (Long) a.getAttributes().get("Value")));
+    }
+  }
+
+  public static final class Host {
+
+    private Host() {}
+
+    /**
+     * retrieve broker's operating system info
+     *
+     * @param mBeanClient a {@link MBeanClient} instance connect to specific kafka broker
+     * @return a {@link OperatingSystemInfo} describe broker's os info (arch, processors, memory,
+     *     cpu loading ...)
+     */
+    public static OperatingSystemInfo operatingSystem(MBeanClient mBeanClient) {
+      return new OperatingSystemInfo(
+          mBeanClient.queryBean(
+              BeanQuery.builder("java.lang").property("type", "OperatingSystem").build()));
+    }
+
+    public static JvmMemory jvmMemory(MBeanClient mBeanClient) {
+      return new JvmMemory(
+          mBeanClient.queryBean(BeanQuery.builder("java.lang").property("type", "Memory").build()));
     }
   }
 }

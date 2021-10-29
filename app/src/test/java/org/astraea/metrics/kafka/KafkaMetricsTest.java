@@ -11,9 +11,9 @@ import javax.management.*;
 import javax.management.remote.JMXConnectorServer;
 import javax.management.remote.JMXConnectorServerFactory;
 import javax.management.remote.JMXServiceURL;
+import org.astraea.metrics.java.JvmMemory;
+import org.astraea.metrics.java.OperatingSystemInfo;
 import org.astraea.metrics.jmx.MBeanClient;
-import org.astraea.metrics.kafka.metrics.BrokerTopicMetricsResult;
-import org.astraea.metrics.kafka.metrics.TotalTimeMs;
 import org.astraea.service.RequireBrokerCluster;
 import org.astraea.topic.TopicAdmin;
 import org.junit.jupiter.api.AfterEach;
@@ -135,5 +135,49 @@ class KafkaMetricsTest extends RequireBrokerCluster {
     assertEquals(
         KafkaMetrics.BrokerTopic.MessagesInPerSec, KafkaMetrics.BrokerTopic.of("MessagesInPERSEC"));
     assertThrows(IllegalArgumentException.class, () -> KafkaMetrics.BrokerTopic.of("nothing"));
+  }
+
+  @Test
+  void operatingSystem() {
+    OperatingSystemInfo operatingSystemInfo = KafkaMetrics.Host.operatingSystem(mBeanClient);
+    assertDoesNotThrow(operatingSystemInfo::arch);
+    assertDoesNotThrow(operatingSystemInfo::availableProcessors);
+    assertDoesNotThrow(operatingSystemInfo::committedVirtualMemorySize);
+    assertDoesNotThrow(operatingSystemInfo::freePhysicalMemorySize);
+    assertDoesNotThrow(operatingSystemInfo::freeSwapSpaceSize);
+    assertDoesNotThrow(operatingSystemInfo::maxFileDescriptorCount);
+    assertDoesNotThrow(operatingSystemInfo::openFileDescriptorCount);
+    assertDoesNotThrow(operatingSystemInfo::name);
+    assertDoesNotThrow(operatingSystemInfo::processCpuLoad);
+    assertDoesNotThrow(operatingSystemInfo::processCpuTime);
+    assertDoesNotThrow(operatingSystemInfo::systemCpuLoad);
+    assertDoesNotThrow(operatingSystemInfo::systemLoadAverage);
+    assertDoesNotThrow(operatingSystemInfo::totalPhysicalMemorySize);
+    assertDoesNotThrow(operatingSystemInfo::totalSwapSpaceSize);
+    assertDoesNotThrow(operatingSystemInfo::version);
+  }
+
+  @Test
+  void testJvmMemory() {
+    JvmMemory jvmMemory = KafkaMetrics.Host.jvmMemory(mBeanClient);
+
+    assertDoesNotThrow(() -> jvmMemory.heapMemoryUsage().getCommitted());
+    assertDoesNotThrow(() -> jvmMemory.heapMemoryUsage().getMax());
+    assertDoesNotThrow(() -> jvmMemory.heapMemoryUsage().getUsed());
+    assertDoesNotThrow(() -> jvmMemory.heapMemoryUsage().getInit());
+    assertDoesNotThrow(() -> jvmMemory.nonHeapMemoryUsage().getCommitted());
+    assertDoesNotThrow(() -> jvmMemory.nonHeapMemoryUsage().getMax());
+    assertDoesNotThrow(() -> jvmMemory.nonHeapMemoryUsage().getUsed());
+    assertDoesNotThrow(() -> jvmMemory.nonHeapMemoryUsage().getInit());
+  }
+
+  @Test
+  void linuxDiskReadBytes() {
+    assertDoesNotThrow(() -> KafkaMetrics.BrokerTopic.linuxDiskReadBytes(mBeanClient));
+  }
+
+  @Test
+  void linuxDiskWriteBytes() {
+    assertDoesNotThrow(() -> KafkaMetrics.BrokerTopic.linuxDiskWriteBytes(mBeanClient));
   }
 }

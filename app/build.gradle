@@ -18,10 +18,10 @@ repositories {
 }
 
 def versions = [
-    kafka: project.properties['kafka.version'] ?: "2.8.0",
-    junit: project.properties['junit.version'] ?: "5.7.2",
+    kafka: project.properties['kafka.version'] ?: "2.8.1",
+    junit: project.properties['junit.version'] ?: "5.8.1",
     jcommander: project.properties['jcommander.version'] ?: "1.81",
-    slf4j: project.properties['jcommander.version'] ?: "1.7.32",
+    slf4j: project.properties['slf4j.version'] ?: "1.7.32",
     zookeeper: project.properties['zookeeper.version'] ?: "3.5.9",
 ]
 

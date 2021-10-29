@@ -10,17 +10,18 @@ public class ThreadPoolTest {
   private static class CountExecutor implements ThreadPool.Executor {
 
     private final AtomicInteger executeCount = new AtomicInteger();
-    private final AtomicInteger cleanupCount = new AtomicInteger();
+    private final AtomicInteger closeCount = new AtomicInteger();
     private final AtomicInteger wakeupCount = new AtomicInteger();
 
     @Override
-    public void execute() {
+    public State execute() {
       executeCount.incrementAndGet();
+      return State.RUNNING;
     }
 
     @Override
-    public void cleanup() {
-      cleanupCount.incrementAndGet();
+    public void close() {
+      closeCount.incrementAndGet();
     }
 
     @Override
@@ -36,18 +37,14 @@ public class ThreadPoolTest {
       TimeUnit.SECONDS.sleep(2);
     }
     Assertions.assertTrue(executor.executeCount.get() > 0);
-    Assertions.assertEquals(1, executor.cleanupCount.get());
+    Assertions.assertEquals(1, executor.closeCount.get());
     Assertions.assertEquals(1, executor.wakeupCount.get());
   }
 
   @Test
-  void testLoop() throws InterruptedException {
-    var executor = new CountExecutor();
-    try (var pool = ThreadPool.builder().executor(executor).loop(3).build()) {
-      TimeUnit.SECONDS.sleep(3);
+  void testWaitAll() {
+    try (var pool = ThreadPool.builder().executor(() -> ThreadPool.Executor.State.DONE).build()) {
+      pool.waitAll();
     }
-    Assertions.assertEquals(3, executor.executeCount.get());
-    Assertions.assertEquals(1, executor.cleanupCount.get());
-    Assertions.assertEquals(1, executor.wakeupCount.get());
   }
 }

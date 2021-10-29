@@ -1,4 +1,6 @@
-package org.astraea.metrics.kafka.metrics.modifiers;
+package org.astraea.metrics.kafka;
+
+import org.astraea.metrics.HasBeanObject;
 
 public interface HasEventType extends HasBeanObject {
   default String eventType() {

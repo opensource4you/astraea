@@ -128,55 +128,6 @@ class MBeanClientTest {
   }
 
   @Test
-  void testTryFetchAttributes() throws Exception {
-    // arrange
-    try (MBeanClient sut = new MBeanClient(jmxServer.getAddress())) {
-      BeanQuery beanQuery = BeanQuery.builder("java.lang").property("type", "Memory").build();
-
-      // act
-      Optional<BeanObject> beanObject = sut.tryQueryBean(beanQuery);
-
-      // assert
-      assertTrue(beanObject.isPresent());
-      assertTrue(beanObject.get().getProperties().containsKey("type"));
-      assertTrue(beanObject.get().getAttributes().containsKey("HeapMemoryUsage"));
-      assertTrue(beanObject.get().getAttributes().containsKey("NonHeapMemoryUsage"));
-    }
-  }
-
-  @Test
-  void testTryFetchNonExistsMBean() throws Exception {
-    // arrange
-    try (MBeanClient sut = new MBeanClient(jmxServer.getAddress())) {
-      BeanQuery beanQuery = BeanQuery.builder("java.lang").property("type", "HelloWorld").build();
-
-      // act
-      Optional<BeanObject> beanObject = sut.tryQueryBean(beanQuery);
-
-      // assert
-      assertTrue(beanObject.isEmpty());
-    }
-  }
-
-  @Test
-  void testTryFetchSelectedAttributes() throws Exception {
-    // arrange
-    try (MBeanClient sut = new MBeanClient(jmxServer.getAddress())) {
-      BeanQuery beanQuery = BeanQuery.builder("java.lang").property("type", "Memory").build();
-      List<String> selectedAttribute = List.of("HeapMemoryUsage");
-
-      // act
-      Optional<BeanObject> beanObject = sut.tryQueryBean(beanQuery, selectedAttribute);
-
-      // assert
-      assertTrue(beanObject.isPresent());
-      assertTrue(beanObject.get().getProperties().containsKey("type"));
-      assertTrue(beanObject.get().getAttributes().containsKey("HeapMemoryUsage"));
-      assertFalse(beanObject.get().getAttributes().containsKey("NonHeapMemoryUsage"));
-    }
-  }
-
-  @Test
   void testQueryBeans() throws Exception {
     // arrange 1 query beans
     try (MBeanClient sut = new MBeanClient(jmxServer.getAddress())) {
@@ -234,19 +185,9 @@ class MBeanClientTest {
       BeanQuery beanQuery = BeanQuery.builder("java.lang").property("type", "Something").build();
 
       // act assert
-      assertThrows(InstanceNotFoundException.class, () -> sut.queryBean(beanQuery));
+      assertThrows(NoSuchElementException.class, () -> sut.queryBean(beanQuery));
       assertThrows(
-          InstanceNotFoundException.class, () -> sut.queryBean(beanQuery, Collections.emptyList()));
-      assertDoesNotThrow(
-          () -> {
-            Optional<BeanObject> beanObject = sut.tryQueryBean(beanQuery);
-            assertTrue(beanObject.isEmpty());
-          });
-      assertDoesNotThrow(
-          () -> {
-            Optional<BeanObject> beanObject = sut.tryQueryBean(beanQuery, Collections.emptyList());
-            assertTrue(beanObject.isEmpty());
-          });
+          NoSuchElementException.class, () -> sut.queryBean(beanQuery, Collections.emptyList()));
     }
   }
 
@@ -262,9 +203,6 @@ class MBeanClientTest {
     // assert
     assertThrows(IllegalStateException.class, () -> sut.queryBean(query));
     assertThrows(IllegalStateException.class, () -> sut.queryBean(query, Collections.emptyList()));
-    assertThrows(IllegalStateException.class, () -> sut.tryQueryBean(query));
-    assertThrows(
-        IllegalStateException.class, () -> sut.tryQueryBean(query, Collections.emptyList()));
     assertThrows(IllegalStateException.class, () -> sut.queryBeans(query));
   }
 

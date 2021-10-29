@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import com.beust.jcommander.ParameterException;
 import java.io.OutputStream;
 import java.io.PrintStream;
+import org.astraea.metrics.KafkaMetricClientApp;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;

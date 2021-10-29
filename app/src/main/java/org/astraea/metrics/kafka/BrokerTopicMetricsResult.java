@@ -1,9 +1,8 @@
-package org.astraea.metrics.kafka.metrics;
+package org.astraea.metrics.kafka;
 
 import java.util.Map;
 import java.util.Objects;
 import org.astraea.metrics.jmx.BeanObject;
-import org.astraea.metrics.kafka.metrics.modifiers.*;
 
 public class BrokerTopicMetricsResult implements HasCount, HasEventType, HasRate {
 
