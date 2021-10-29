@@ -59,6 +59,7 @@ public class MetricsTest {
     getter.start();
     countDownLatch.countDown();
     adder.join();
+    getter.join();
     longAdder.add(metrics.bytesThenReset());
 
     Assertions.assertEquals(loopCount * input, longAdder.sum());
