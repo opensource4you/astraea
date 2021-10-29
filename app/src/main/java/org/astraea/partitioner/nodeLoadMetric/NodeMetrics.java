@@ -9,8 +9,8 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import javax.management.remote.JMXServiceURL;
 import org.astraea.metrics.jmx.MBeanClient;
+import org.astraea.metrics.kafka.BrokerTopicMetricsResult;
 import org.astraea.metrics.kafka.KafkaMetrics;
-import org.astraea.metrics.kafka.metrics.BrokerTopicMetricsResult;
 
 /** Responsible for connecting jmx according to the received address */
 public class NodeMetrics {

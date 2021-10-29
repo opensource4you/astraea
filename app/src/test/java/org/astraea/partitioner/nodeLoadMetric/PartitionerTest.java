@@ -2,24 +2,24 @@ package org.astraea.partitioner.nodeLoadMetric;
 
 import java.time.Duration;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
+import java.util.List;
+import java.util.Map;
 import java.util.Properties;
+import java.util.Set;
 import java.util.concurrent.ExecutionException;
-import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.clients.admin.DescribeLogDirsResult;
-import org.apache.kafka.clients.consumer.ConsumerConfig;
-import org.apache.kafka.clients.consumer.ConsumerRecord;
-import org.apache.kafka.clients.consumer.ConsumerRecords;
-import org.apache.kafka.clients.consumer.KafkaConsumer;
-import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerConfig;
-import org.apache.kafka.clients.producer.ProducerRecord;
-import org.apache.kafka.clients.producer.RecordMetadata;
-import org.apache.kafka.common.serialization.StringDeserializer;
-import org.apache.kafka.common.serialization.StringSerializer;
+import org.apache.kafka.common.serialization.ByteArraySerializer;
+import org.astraea.consumer.Builder;
+import org.astraea.consumer.Consumer;
+import org.astraea.consumer.Deserializer;
+import org.astraea.consumer.Header;
 import org.astraea.partitioner.partitionerFactory.LinkPartitioner;
+import org.astraea.producer.Producer;
+import org.astraea.producer.Serializer;
 import org.astraea.service.RequireBrokerCluster;
 import org.astraea.topic.TopicAdmin;
 import org.junit.jupiter.api.Assertions;
@@ -33,55 +33,65 @@ public class PartitionerTest extends RequireBrokerCluster {
   public Properties initProConfig() {
     Properties props = new Properties();
     props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, brokerList);
-    props.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class.getName());
-    props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, StringSerializer.class.getName());
+    props.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, ByteArraySerializer.class.getName());
+    props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, ByteArraySerializer.class.getName());
     props.put(ProducerConfig.CLIENT_ID_CONFIG, "id1");
     props.put(ProducerConfig.PARTITIONER_CLASS_CONFIG, LinkPartitioner.class.getName());
-    return props;
-  }
-
-  public Properties initConConfig() {
-    Properties props = new Properties();
-    props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, brokerList);
-    props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
-    props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
-    props.put(ConsumerConfig.CLIENT_ID_CONFIG, "id1");
-    props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
-    props.put("group.id", "group1");
+    props.put("jmx_servers", jmxServiceURL() + "@0");
     return props;
   }
 
   @Test
   public void testPartitioner() {
-    Properties props = initProConfig();
-    props.put("jmx_servers", jmxServiceURL() + "@0");
     admin.createTopic(topicName, 10);
-    KafkaProducer<String, String> producer = new KafkaProducer<>(props);
-    try {
+
+    var key = "tainan";
+    var timestamp = System.currentTimeMillis() + 10;
+    var header = Header.of("a", "b".getBytes());
+    try (var producer =
+        Producer.builder()
+            .keySerializer(Serializer.STRING)
+            .configs(
+                initProConfig().entrySet().stream()
+                    .collect(Collectors.toMap(e -> e.getKey().toString(), Map.Entry::getValue)))
+            .build()) {
       for (int i = 0; i < 20; i++) {
-        ProducerRecord<String, String> record2 =
-            new ProducerRecord<String, String>(topicName, "tainan-" + i, Integer.toString(i));
-        RecordMetadata recordMetadata2 = producer.send(record2).get();
+        var metadata =
+            producer
+                .sender()
+                .topic(topicName)
+                .key(key)
+                .timestamp(timestamp)
+                .headers(List.of(header))
+                .run()
+                .toCompletableFuture()
+                .get();
+        Assertions.assertEquals(topicName, metadata.topic());
+        Assertions.assertEquals(timestamp, metadata.timestamp());
       }
-    } catch (Exception e) {
+    } catch (ExecutionException | InterruptedException e) {
       e.printStackTrace();
     }
 
-    KafkaConsumer<String, String> consumer = new KafkaConsumer(initConConfig());
-    consumer.subscribe(Arrays.asList(topicName));
-    ConsumerRecords<String, String> consumerRecords = consumer.poll(Duration.ofSeconds(10));
-    if (!consumerRecords.isEmpty()) {
-      var count = 0;
-      for (ConsumerRecord<String, String> consumerRecord : consumerRecords) {
-        if (Pattern.compile("^tainan").matcher(consumerRecord.key()).find()) count++;
-        //        System.out.println("TopicName: " + consumerRecord.topic() + " Partition:" +
-        //                consumerRecord.partition() + " Offset:" + consumerRecord.offset() + "" +
-        //                " Msg:" + consumerRecord.value());
-      }
-      Assertions.assertEquals(count, 20);
+    try (var consumer =
+        Consumer.builder()
+            .brokers(bootstrapServers())
+            .offsetPolicy(Builder.OffsetPolicy.EARLIEST)
+            .topics(Set.of(topicName))
+            .keyDeserializer(Deserializer.STRING)
+            .build()) {
+      var records = consumer.poll(Duration.ofSeconds(10));
+      Assertions.assertEquals(20, records.size());
+      var record = records.iterator().next();
+      Assertions.assertEquals(topicName, record.topic());
+      Assertions.assertEquals("tainan", record.key());
+      Assertions.assertEquals(1, record.headers().size());
+      var actualHeader = record.headers().iterator().next();
+      Assertions.assertEquals(header.key(), actualHeader.key());
+      Assertions.assertArrayEquals(header.value(), actualHeader.value());
     }
 
-    AdminClient client = AdminClient.create(props);
+    AdminClient client = AdminClient.create(initProConfig());
     Collection<Integer> brokerID = new ArrayList<>();
     brokerID.add(0);
 

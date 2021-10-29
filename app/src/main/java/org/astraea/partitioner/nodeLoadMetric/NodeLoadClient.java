@@ -27,7 +27,7 @@ public class NodeLoadClient implements ThreadPool.Executor {
 
   /** A thread that continuously updates metricsfor NodeLoadClient. */
   @Override
-  public void execute() throws InterruptedException {
+  public State execute() throws InterruptedException {
     try {
       refreshNodesMetrics();
       overLoadNode.monitorOverLoad();
@@ -35,10 +35,11 @@ public class NodeLoadClient implements ThreadPool.Executor {
     } catch (InterruptedException e) {
       e.printStackTrace();
     }
+    return null;
   }
 
   @Override
-  public void cleanup() {
+  public void close() {
     for (NodeMetadata nodeMetadata : nodeMetadataCollection) {
       NodeMetrics nodeMetrics = nodeMetadata.getNodeMetrics();
       MBeanClient mBeanClient = nodeMetrics.getKafkaMetricClient();
