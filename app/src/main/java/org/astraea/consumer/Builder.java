@@ -83,55 +83,7 @@ public class Builder<Key, Value> {
       public Collection<Record<Key, Value>> poll(Duration timeout) {
         var records = kafkaConsumer.poll(timeout);
         return StreamSupport.stream(records.spliterator(), false)
-            .map(
-                r ->
-                    new Record<Key, Value>() {
-
-                      @Override
-                      public String topic() {
-                        return r.topic();
-                      }
-
-                      @Override
-                      public int partition() {
-                        return r.partition();
-                      }
-
-                      @Override
-                      public Key key() {
-                        return r.key();
-                      }
-
-                      @Override
-                      public Value value() {
-                        return r.value();
-                      }
-
-                      @Override
-                      public long offset() {
-                        return r.offset();
-                      }
-
-                      @Override
-                      public long timestamp() {
-                        return r.timestamp();
-                      }
-
-                      @Override
-                      public int serializedKeySize() {
-                        return r.serializedKeySize();
-                      }
-
-                      @Override
-                      public int serializedValueSize() {
-                        return r.serializedValueSize();
-                      }
-
-                      @Override
-                      public Collection<Header> headers() {
-                        return Header.of(r.headers());
-                      }
-                    })
+            .map(Record::of)
             .collect(Collectors.toList());
       }
 

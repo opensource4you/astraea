@@ -2,6 +2,7 @@ package org.astraea.consumer;
 
 import java.time.Duration;
 import java.util.Collection;
+import java.util.Map;
 
 /** An interface for polling records. */
 public interface Consumer<Key, Value> extends AutoCloseable {
@@ -22,5 +23,13 @@ public interface Consumer<Key, Value> extends AutoCloseable {
 
   static Builder<byte[], byte[]> builder() {
     return new Builder<>();
+  }
+
+  static Consumer<byte[], byte[]> of(String brokers) {
+    return builder().brokers(brokers).build();
+  }
+
+  static Consumer<byte[], byte[]> of(Map<String, Object> configs) {
+    return builder().configs(configs).build();
   }
 }
