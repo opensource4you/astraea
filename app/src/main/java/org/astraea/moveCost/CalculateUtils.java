@@ -51,13 +51,12 @@ public class CalculateUtils {
 
     for (var i : brokerLoad.keySet()) {
       mean += brokerLoad.get(i);
-      LoadSQR +=  Math.pow(brokerLoad.get(i), 2);
+      LoadSQR += Math.pow(brokerLoad.get(i), 2);
     }
     mean /= brokerLoad.keySet().size();
     brokerSD =
-            Math.pow(
-                (LoadSQR - mean * mean * brokerLoad.keySet().size()) / brokerLoad.keySet().size(),
-                0.5);
+        Math.pow(
+            (LoadSQR - mean * mean * brokerLoad.keySet().size()) / brokerLoad.keySet().size(), 0.5);
     for (var broker : load.keySet()) {
       Map<TopicPartition, Double> partitionScore = new HashMap<>();
       for (var topicPartition : load.get(broker).keySet()) {

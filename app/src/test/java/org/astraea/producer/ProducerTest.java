@@ -29,7 +29,6 @@ public class ProducerTest extends RequireBrokerCluster {
               .key(key)
               .timestamp(timestamp)
               .headers(List.of(header))
-                  .value(new byte[123458])
               .run()
               .toCompletableFuture()
               .get();

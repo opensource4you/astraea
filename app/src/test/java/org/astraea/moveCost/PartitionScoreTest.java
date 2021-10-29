@@ -8,7 +8,6 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
-
 import org.apache.kafka.clients.admin.AdminClient;
 import org.astraea.producer.Producer;
 import org.astraea.producer.Serializer;
@@ -19,6 +18,7 @@ import org.junit.jupiter.api.Test;
 
 public class PartitionScoreTest extends RequireBrokerCluster {
   static AdminClient client;
+
   @BeforeAll
   static void setup() throws ExecutionException, InterruptedException {
     Properties props = new Properties();
@@ -44,24 +44,23 @@ public class PartitionScoreTest extends RequireBrokerCluster {
     properties.setProperty(
         "value.serializer", "org.apache.kafka.common.serialization.StringSerializer");
     var producer =
-            Producer.builder().brokers(bootstrapServers()).keySerializer(Serializer.STRING).build();
-    int size=10000;
+        Producer.builder().brokers(bootstrapServers()).keySerializer(Serializer.STRING).build();
+    int size = 10000;
     for (int t = 0; t <= 2; t++) {
       for (int p = 0; p <= 3; p++) {
         producer
-                .sender()
-                .topic(topicName.get(t))
-                .partition(p)
-                .value(new byte[size])
-                .run()
-                .toCompletableFuture()
-                .get();
+            .sender()
+            .topic(topicName.get(t))
+            .partition(p)
+            .value(new byte[size])
+            .run()
+            .toCompletableFuture()
+            .get();
       }
-      size+=10000;
+      size += 10000;
     }
     producer.close();
   }
-
 
   @Test
   void testGetScore() throws ExecutionException, InterruptedException {

@@ -1,4 +1,5 @@
 package org.astraea.moveCost;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.io.IOException;
@@ -8,12 +9,12 @@ import java.util.Properties;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import org.apache.kafka.clients.admin.AdminClient;
+import org.astraea.producer.Producer;
 import org.astraea.producer.Serializer;
 import org.astraea.service.RequireBrokerCluster;
 import org.astraea.topic.TopicAdmin;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
-import org.astraea.producer.Producer;
 
 public class GetPartitionInfTest extends RequireBrokerCluster {
   static AdminClient client;
@@ -40,28 +41,28 @@ public class GetPartitionInfTest extends RequireBrokerCluster {
     Properties properties = new Properties();
     properties.setProperty("bootstrap.servers", bootstrapServers());
     properties.setProperty(
-            "key.serializer", "org.apache.kafka.common.serialization.StringSerializer");
+        "key.serializer", "org.apache.kafka.common.serialization.StringSerializer");
     properties.setProperty(
-            "value.serializer", "org.apache.kafka.common.serialization.StringSerializer");
+        "value.serializer", "org.apache.kafka.common.serialization.StringSerializer");
     var producer =
-            Producer.builder().brokers(bootstrapServers()).keySerializer(Serializer.STRING).build();
-    int size=10000;
+        Producer.builder().brokers(bootstrapServers()).keySerializer(Serializer.STRING).build();
+    int size = 10000;
     for (int t = 0; t <= 2; t++) {
       for (int p = 0; p <= 3; p++) {
         producer
-                .sender()
-                .topic(topicName.get(t))
-                .partition(p)
-                .value(new byte[size])
-                .run()
-                .toCompletableFuture()
-                .get();
+            .sender()
+            .topic(topicName.get(t))
+            .partition(p)
+            .value(new byte[size])
+            .run()
+            .toCompletableFuture()
+            .get();
       }
-      size+=10000;
+      size += 10000;
     }
   }
 
-    @Test
+  @Test
   void getSize() throws ExecutionException, InterruptedException {
 
     var brokerPartitionSize = GetPartitionInf.getSize(client);
