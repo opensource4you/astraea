@@ -54,6 +54,7 @@ public class MetricsTest {
                 })
             .build();
     threadPool.waitAll();
+    threadPool.close();
     longAdder.add(metrics.bytesThenReset());
 
     Assertions.assertEquals(loopCount * input, longAdder.sum());
