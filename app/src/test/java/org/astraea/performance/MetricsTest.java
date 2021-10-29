@@ -1,8 +1,9 @@
 package org.astraea.performance;
 
 import java.util.Random;
-import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.LongAdder;
+import org.astraea.concurrent.ThreadPool;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -27,39 +28,32 @@ public class MetricsTest {
 
   // Simultaneously add and get
   @Test
-  void testBytes() throws InterruptedException {
-    final CountDownLatch countDownLatch = new CountDownLatch(1);
+  void testBytes() {
     final Metrics metrics = new Metrics();
     final LongAdder longAdder = new LongAdder();
+    final AtomicInteger adderCount = new AtomicInteger(0);
+    final AtomicInteger getterCount = new AtomicInteger(0);
     final long input = 100;
     final int loopCount = 10000;
-    Thread adder =
-        new Thread(
-            () -> {
-              try {
-                countDownLatch.await();
-              } catch (InterruptedException ignore) {
-              }
-              for (int i = 0; i < loopCount; ++i) {
-                metrics.addBytes(input);
-              }
-            });
-    Thread getter =
-        new Thread(
-            () -> {
-              try {
-                countDownLatch.await();
-              } catch (InterruptedException ignore) {
-              }
-              for (int i = 0; i < loopCount; ++i) {
-                longAdder.add(metrics.bytesThenReset());
-              }
-            });
-    adder.start();
-    getter.start();
-    countDownLatch.countDown();
-    adder.join();
-    getter.join();
+
+    ThreadPool threadPool =
+        ThreadPool.builder()
+            .executor(
+                () -> {
+                  metrics.addBytes(input);
+                  if (adderCount.incrementAndGet() < loopCount)
+                    return ThreadPool.Executor.State.RUNNING;
+                  else return ThreadPool.Executor.State.DONE;
+                })
+            .executor(
+                () -> {
+                  longAdder.add(metrics.bytesThenReset());
+                  if (getterCount.incrementAndGet() < loopCount)
+                    return ThreadPool.Executor.State.RUNNING;
+                  else return ThreadPool.Executor.State.DONE;
+                })
+            .build();
+    threadPool.waitAll();
     longAdder.add(metrics.bytesThenReset());
 
     Assertions.assertEquals(loopCount * input, longAdder.sum());
