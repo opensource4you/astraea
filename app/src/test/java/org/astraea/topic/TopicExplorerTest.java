@@ -13,7 +13,7 @@ public class TopicExplorerTest extends RequireBrokerCluster {
   void testExecute() throws IOException, InterruptedException {
     var topicName = "testExecute";
     try (var admin = TopicAdmin.of(bootstrapServers())) {
-      admin.createTopic(topicName, 1, (short) 1);
+      admin.creator().topic(topicName).numberOfPartitions(1).numberOfReplicas((short) 1).create();
       // wait for topic
       TimeUnit.SECONDS.sleep(5);
       var result = TopicExplorer.execute(admin, Set.of(topicName));

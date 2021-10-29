@@ -5,6 +5,7 @@ import java.io.IOException;
 import java.time.Duration;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -45,13 +46,20 @@ import org.astraea.topic.TopicAdmin;
  */
 public class Performance {
 
-  public static void main(String[] args) throws InterruptedException, IOException {
+  public static void main(String[] args)
+      throws InterruptedException, IOException, ExecutionException {
     execute(ArgumentUtil.parseArgument(new Argument(), args));
   }
 
-  public static void execute(final Argument param) throws InterruptedException, IOException {
+  public static void execute(final Argument param)
+      throws InterruptedException, IOException, ExecutionException {
     try (var topicAdmin = TopicAdmin.of(param.perfProps())) {
-      topicAdmin.createTopic(param.topic, param.partitions, param.replicas);
+      topicAdmin
+          .creator()
+          .numberOfReplicas(param.replicas)
+          .numberOfPartitions(param.partitions)
+          .topic(param.topic)
+          .create();
     }
 
     var consumerMetrics =
@@ -89,10 +97,7 @@ public class Performance {
                     .mapToObj(
                         i ->
                             producerExecutor(
-                                Producer.builder()
-                                    .brokers(param.brokers)
-                                    .configs(param.perfProps())
-                                    .build(),
+                                Producer.of(param.perfProps()),
                                 param,
                                 producerMetrics.get(i),
                                 producerRecords))

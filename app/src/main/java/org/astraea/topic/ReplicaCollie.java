@@ -12,7 +12,7 @@ public class ReplicaCollie {
 
   static Map<TopicPartition, Map.Entry<Set<Integer>, Set<Integer>>> execute(
       TopicAdmin admin, Argument args) {
-    var topics = args.topics.isEmpty() ? admin.topics() : args.topics;
+    var topics = args.topics.isEmpty() ? admin.topicNames() : args.topics;
     var allBrokers = admin.brokerIds();
     if (!args.toBrokers.isEmpty() && !allBrokers.containsAll(args.toBrokers))
       throw new IllegalArgumentException(
@@ -31,7 +31,8 @@ public class ReplicaCollie {
         .replicas(topics)
         .forEach(
             (tp, replicas) -> {
-              var currentBrokers = replicas.stream().map(r -> r.broker).collect(Collectors.toSet());
+              var currentBrokers =
+                  replicas.stream().map(Replica::broker).collect(Collectors.toSet());
               var keptBrokers =
                   currentBrokers.stream()
                       .filter(i -> !args.fromBrokers.contains(i))

@@ -23,19 +23,24 @@ public class ReplicaCollieTest extends RequireBrokerCluster {
   }
 
   private void test(boolean verify) throws IOException, InterruptedException {
-    var topicName = "ReplicaCollieTest";
+    var topicName = "ReplicaCollieTest-" + verify;
     try (var topicAdmin = TopicAdmin.of(bootstrapServers())) {
-      topicAdmin.createTopic(topicName, 1, (short) 1);
+      topicAdmin
+          .creator()
+          .topic(topicName)
+          .numberOfPartitions(1)
+          .numberOfReplicas((short) 1)
+          .create();
       // wait for topic creation
       TimeUnit.SECONDS.sleep(5);
       var partitionReplicas = topicAdmin.replicas(Set.of(topicName));
       Assertions.assertEquals(1, partitionReplicas.size());
       var replicas =
           partitionReplicas.get(new TopicPartition(topicName, 0)).stream()
-              .filter(r -> !r.isFuture)
+              .filter(Replica::isCurrent)
               .collect(Collectors.toList());
       Assertions.assertEquals(1, replicas.size());
-      var badBroker = replicas.get(0).broker;
+      var badBroker = replicas.get(0).broker();
       var argument = new ReplicaCollie.Argument();
       argument.fromBrokers = Set.of(badBroker);
       argument.toBrokers = Set.of();
@@ -62,7 +67,7 @@ public class ReplicaCollieTest extends RequireBrokerCluster {
         Utils.waitFor(
             () -> {
               var rs = topicAdmin.replicas(Set.of(topicName)).get(new TopicPartition(topicName, 0));
-              return rs.size() == 1 && rs.stream().noneMatch(r -> r.broker == badBroker);
+              return rs.size() == 1 && rs.stream().noneMatch(r -> r.broker() == badBroker);
             });
       }
     }

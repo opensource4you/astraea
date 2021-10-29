@@ -19,7 +19,7 @@ public class ProducerTest extends RequireBrokerCluster {
     var topicName = "testSender-" + System.currentTimeMillis();
     var key = "key";
     var timestamp = System.currentTimeMillis() + 10;
-    var header = Header.of("a", "b".getBytes());
+    var header = new Header("a", "b".getBytes());
     try (var producer =
         Producer.builder().brokers(bootstrapServers()).keySerializer(Serializer.STRING).build()) {
       var metadata =

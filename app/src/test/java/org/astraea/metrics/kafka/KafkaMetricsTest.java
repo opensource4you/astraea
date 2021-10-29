@@ -119,7 +119,7 @@ class KafkaMetricsTest extends RequireBrokerCluster {
     // arrange
     try (TopicAdmin admin = TopicAdmin.of(bootstrapServers())) {
       String topicName = getClass().getName();
-      admin.createTopic(topicName, 10);
+      admin.creator().topic(topicName).numberOfPartitions(10).create();
 
       // act assert
       assertDoesNotThrow(() -> KafkaMetrics.TopicPartition.size(mBeanClient, topicName));
