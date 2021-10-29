@@ -3,9 +3,11 @@ package org.astraea.topic;
 import java.io.IOException;
 import java.util.Collection;
 import java.util.Set;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import org.astraea.Utils;
+import org.astraea.producer.Producer;
 import org.astraea.service.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -84,6 +86,38 @@ public class TopicAdminTest extends RequireBrokerCluster {
                 && partitionReplicas.size() == 1
                 && partitionReplicas.get(0).broker == broker;
           });
+    }
+  }
+
+  @Test
+  void testReplicaSize() throws IOException, ExecutionException, InterruptedException {
+    var topicName = "testReplicaSize";
+    try (var topicAdmin = TopicAdmin.of(bootstrapServers());
+        var producer = Producer.builder().brokers(bootstrapServers()).build()) {
+      producer.sender().topic(topicName).key(new byte[100]).run().toCompletableFuture().get();
+      var originSize =
+          topicAdmin
+              .replicas(Set.of(topicName))
+              .entrySet()
+              .iterator()
+              .next()
+              .getValue()
+              .get(0)
+              .size;
+
+      // add data again
+      producer.sender().topic(topicName).key(new byte[100]).run().toCompletableFuture().get();
+
+      var newSize =
+          topicAdmin
+              .replicas(Set.of(topicName))
+              .entrySet()
+              .iterator()
+              .next()
+              .getValue()
+              .get(0)
+              .size;
+      Assertions.assertTrue(newSize > originSize);
     }
   }
 }
