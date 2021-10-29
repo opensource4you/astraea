@@ -47,7 +47,6 @@ public class ReplicaCollieTest extends RequireBrokerCluster {
       argument.brokers = bootstrapServers();
       argument.verify = verify;
       var result = ReplicaCollie.execute(topicAdmin, argument);
-      Assertions.assertEquals(1, result.size());
       var assignment = result.get(new TopicPartition(topicName, 0));
       Assertions.assertEquals(1, assignment.getKey().size());
       Assertions.assertEquals(badBroker, assignment.getKey().iterator().next());
