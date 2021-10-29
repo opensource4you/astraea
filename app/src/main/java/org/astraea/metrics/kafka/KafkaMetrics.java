@@ -4,13 +4,11 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Map;
 import java.util.stream.Collectors;
-import org.astraea.metrics.java.metrics.JvmMemory;
+import org.astraea.metrics.java.JvmMemory;
+import org.astraea.metrics.java.OperatingSystemInfo;
 import org.astraea.metrics.jmx.BeanObject;
 import org.astraea.metrics.jmx.BeanQuery;
 import org.astraea.metrics.jmx.MBeanClient;
-import org.astraea.metrics.kafka.metrics.BrokerTopicMetricsResult;
-import org.astraea.metrics.kafka.metrics.OperatingSystemInfo;
-import org.astraea.metrics.kafka.metrics.TotalTimeMs;
 
 public final class KafkaMetrics {
 

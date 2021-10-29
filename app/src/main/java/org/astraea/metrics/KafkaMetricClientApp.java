@@ -1,4 +1,4 @@
-package org.astraea.metrics.kafka;
+package org.astraea.metrics;
 
 import com.beust.jcommander.Parameter;
 import java.net.MalformedURLException;
@@ -13,7 +13,8 @@ import java.util.stream.Collectors;
 import javax.management.remote.JMXServiceURL;
 import org.astraea.argument.ArgumentUtil;
 import org.astraea.metrics.jmx.MBeanClient;
-import org.astraea.metrics.kafka.metrics.BrokerTopicMetricsResult;
+import org.astraea.metrics.kafka.BrokerTopicMetricsResult;
+import org.astraea.metrics.kafka.KafkaMetrics;
 
 public final class KafkaMetricClientApp {
 

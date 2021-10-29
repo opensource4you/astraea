@@ -4,15 +4,17 @@ import com.beust.jcommander.Parameter;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.Map;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutionException;
+import java.util.Set;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-import org.apache.kafka.clients.producer.internals.DefaultPartitioner;
 import org.apache.kafka.common.errors.WakeupException;
 import org.astraea.argument.ArgumentUtil;
 import org.astraea.argument.BasicArgument;
 import org.astraea.concurrent.ThreadPool;
+import org.astraea.consumer.Builder;
+import org.astraea.consumer.Consumer;
+import org.astraea.producer.Producer;
 import org.astraea.topic.TopicAdmin;
 
 /**
@@ -43,80 +45,84 @@ import org.astraea.topic.TopicAdmin;
  */
 public class Performance {
 
-  public static void main(String[] args) {
-    final var param = ArgumentUtil.parseArgument(new Argument(), args);
-
-    try {
-      execute(
-          param,
-          ComponentFactory.fromKafka(param.brokers, param.topic, param.perfProps())
-              .partitioner(DefaultPartitioner.class.getName()));
-    } catch (InterruptedException ignore) {
-    }
+  public static void main(String[] args) throws InterruptedException, IOException {
+    execute(ArgumentUtil.parseArgument(new Argument(), args));
   }
 
-  public static void execute(final Argument param, ComponentFactory componentFactory)
-      throws InterruptedException {
+  public static void execute(final Argument param) throws InterruptedException, IOException {
     try (var topicAdmin = TopicAdmin.of(param.perfProps())) {
       topicAdmin.createTopic(param.topic, param.partitions, param.replicas);
-    } catch (IOException ignore) {
     }
 
-    final Metrics[] consumerMetric = new Metrics[param.consumers];
-    final Metrics[] producerMetric = new Metrics[param.producers];
-    for (int i = 0; i < producerMetric.length; ++i) producerMetric[i] = new Metrics();
+    var consumerMetrics =
+        IntStream.range(0, param.consumers)
+            .mapToObj(i -> new Metrics())
+            .collect(Collectors.toUnmodifiableList());
+    var producerMetrics =
+        IntStream.range(0, param.producers)
+            .mapToObj(i -> new Metrics())
+            .collect(Collectors.toUnmodifiableList());
 
-    // unconditional carry. Let all producers produce the same number of records.
-    param.records += param.producers - 1;
-    param.records -= param.records % param.producers;
-
-    var complete = new CountDownLatch(1);
-    try (ThreadPool consumerThreads =
+    var consumerRecords = new AtomicLong(param.records);
+    var producerRecords = new AtomicLong(param.records);
+    var tracker = new Tracker(producerMetrics, consumerMetrics, param.records);
+    var groupId = "groupId-" + System.currentTimeMillis();
+    try (ThreadPool threadPool =
         ThreadPool.builder()
             .executors(
                 IntStream.range(0, param.consumers)
                     .mapToObj(
                         i ->
                             consumerExecutor(
-                                componentFactory.createConsumer(),
-                                consumerMetric[i] = new Metrics()))
-                    .collect(Collectors.toList()))
-            .executor(new Tracker(producerMetric, consumerMetric, param.records, complete))
+                                Consumer.builder()
+                                    .brokers(param.brokers)
+                                    .topics(Set.of(param.topic))
+                                    .offsetPolicy(Builder.OffsetPolicy.EARLIEST)
+                                    .groupId(groupId)
+                                    .configs(param.perfProps())
+                                    .build(),
+                                consumerMetrics.get(i),
+                                consumerRecords))
+                    .collect(Collectors.toUnmodifiableList()))
+            .executors(
+                IntStream.range(0, param.producers)
+                    .mapToObj(
+                        i ->
+                            producerExecutor(
+                                Producer.builder()
+                                    .brokers(param.brokers)
+                                    .configs(param.perfProps())
+                                    .build(),
+                                param,
+                                producerMetrics.get(i),
+                                producerRecords))
+                    .collect(Collectors.toUnmodifiableList()))
+            .executor(tracker)
             .build()) {
-
-      System.out.println("Wait for consumer startup");
-      Thread.sleep(10000);
-
-      // Close after all records are sent
-      try (ThreadPool producerThreads =
-          ThreadPool.builder()
-              .loop((int) (param.records / param.producers))
-              .executors(
-                  IntStream.range(0, param.producers)
-                      .mapToObj(
-                          i ->
-                              producerExecutor(
-                                  componentFactory.createProducer(), param, producerMetric[i]))
-                      .collect(Collectors.toList()))
-              .build()) {
-        complete.await();
-      }
+      threadPool.waitAll();
     }
   }
 
-  static ThreadPool.Executor consumerExecutor(Consumer consumer, Metrics metrics) {
+  static ThreadPool.Executor consumerExecutor(
+      Consumer<byte[], byte[]> consumer, Metrics metrics, AtomicLong records) {
     return new ThreadPool.Executor() {
       @Override
-      public void execute() {
+      public State execute() {
         try {
-          for (var record : consumer.poll(Duration.ofSeconds(10))) {
-            // 記錄端到端延時, 記錄輸入byte(沒有算入header和timestamp)
-            metrics.put(
-                System.currentTimeMillis() - record.timestamp(),
-                record.serializedKeySize() + record.serializedValueSize());
-          }
+          consumer
+              .poll(Duration.ofSeconds(10))
+              .forEach(
+                  record -> {
+                    // 記錄端到端延時, 記錄輸入byte(沒有算入header和timestamp)
+                    metrics.put(
+                        System.currentTimeMillis() - record.timestamp(),
+                        record.serializedKeySize() + record.serializedValueSize());
+                    records.decrementAndGet();
+                  });
+          return records.get() <= 0 ? State.DONE : State.RUNNING;
         } catch (WakeupException ignore) {
           // Stop polling and being ready to clean up
+          return State.DONE;
         }
       }
 
@@ -126,29 +132,34 @@ public class Performance {
       }
 
       @Override
-      public void cleanup() {
-        consumer.cleanup();
+      public void close() {
+        consumer.close();
       }
     };
   }
 
-  static ThreadPool.Executor producerExecutor(Producer producer, Argument param, Metrics metrics) {
+  static ThreadPool.Executor producerExecutor(
+      Producer<byte[], byte[]> producer, Argument param, Metrics metrics, AtomicLong records) {
     byte[] payload = new byte[param.recordSize];
     return new ThreadPool.Executor() {
       @Override
-      public void execute() {
+      public State execute() {
+        var currentRecords = records.getAndDecrement();
+        if (currentRecords <= 0) return State.DONE;
         long start = System.currentTimeMillis();
-        try {
-          producer.send(payload).get();
-          metrics.put(System.currentTimeMillis() - start, payload.length);
-          Thread.sleep(1);
-        } catch (InterruptedException | ExecutionException ignored) {
-        }
+        producer
+            .sender()
+            .topic(param.topic)
+            .value(payload)
+            .run()
+            .whenComplete(
+                (m, e) -> metrics.put(System.currentTimeMillis() - start, payload.length));
+        return State.RUNNING;
       }
 
       @Override
-      public void cleanup() {
-        producer.cleanup();
+      public void close() {
+        producer.close();
       }
     };
   }

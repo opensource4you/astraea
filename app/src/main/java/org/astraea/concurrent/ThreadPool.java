@@ -4,7 +4,6 @@ import java.util.*;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * This class offers a simple way to manage the threads. All threads added to builder are not
@@ -16,20 +15,30 @@ public interface ThreadPool extends AutoCloseable {
   @Override
   void close();
 
+  /** wait all executors to be done. */
+  void waitAll();
+
   static Builder builder() {
     return new Builder();
   }
 
   @FunctionalInterface
-  interface Executor {
+  interface Executor extends AutoCloseable {
+
+    enum State {
+      DONE,
+      RUNNING
+    }
+
     /**
+     * @return the state of this executor
      * @throws InterruptedException This is an expected exception if your executor needs to call
      *     blocking method. This exception is not printed to console.
      */
-    void execute() throws InterruptedException;
+    State execute() throws InterruptedException;
 
-    /** cleanup this executor. */
-    default void cleanup() {}
+    /** close this executor. */
+    default void close() {}
 
     /**
      * If this executor is in blocking mode, this method offers a way to wake up executor to close.
@@ -39,7 +48,6 @@ public interface ThreadPool extends AutoCloseable {
 
   class Builder {
     private final List<Executor> executors = new ArrayList<>();
-    private final AtomicInteger loop = new AtomicInteger(-1);
 
     private Builder() {}
 
@@ -52,16 +60,6 @@ public interface ThreadPool extends AutoCloseable {
       return this;
     }
 
-    /**
-     * @param loop the count to execute thread. For example, all threads are executed only once if
-     *     the loop is equal to 1. By default, loop is infinite.
-     * @return this builder.
-     */
-    public Builder loop(int loop) {
-      this.loop.set(loop);
-      return this;
-    }
-
     public ThreadPool build() {
       var closed = new AtomicBoolean(false);
       var latch = new CountDownLatch(executors.size());
@@ -71,29 +69,35 @@ public interface ThreadPool extends AutoCloseable {
               service.execute(
                   () -> {
                     try {
-                      var count = 0;
-                      while (!closed.get() && (loop.get() <= 0 || count < loop.get())) {
-                        executor.execute();
-                        count += 1;
+                      while (!closed.get()) {
+                        if (executor.execute() == Executor.State.DONE) break;
                       }
                     } catch (InterruptedException e) {
                       // swallow
                     } finally {
                       try {
-                        executor.cleanup();
+                        executor.close();
                       } finally {
                         latch.countDown();
                       }
                     }
                   }));
-      return () -> {
-        service.shutdown();
-        closed.set(true);
-        executors.forEach(Executor::wakeup);
-        try {
-          latch.await();
-        } catch (InterruptedException e) {
-          // swallow
+      return new ThreadPool() {
+        @Override
+        public void close() {
+          service.shutdown();
+          closed.set(true);
+          executors.forEach(Executor::wakeup);
+          waitAll();
+        }
+
+        @Override
+        public void waitAll() {
+          try {
+            latch.await();
+          } catch (InterruptedException e) {
+            // swallow
+          }
         }
       };
     }
