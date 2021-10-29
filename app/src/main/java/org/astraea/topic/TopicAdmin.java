@@ -290,6 +290,9 @@ public interface TopicAdmin extends Closeable {
                                                           replicaInfo == null
                                                               ? -1
                                                               : replicaInfo.offsetLag(),
+                                                          replicaInfo == null
+                                                              ? -1
+                                                              : replicaInfo.size(),
                                                           topicPartitionInfo.leader().id()
                                                               == node.id(),
                                                           topicPartitionInfo.isr().contains(node),
@@ -441,19 +444,46 @@ public interface TopicAdmin extends Closeable {
   class Replica {
     public final int broker;
     public final long lag;
+    public final long size;
     public final boolean leader;
     public final boolean inSync;
     public final boolean isFuture;
     public final String path;
 
     public Replica(
-        int broker, long lag, boolean leader, boolean inSync, boolean isFuture, String path) {
+        int broker,
+        long lag,
+        long size,
+        boolean leader,
+        boolean inSync,
+        boolean isFuture,
+        String path) {
       this.broker = broker;
       this.lag = lag;
+      this.size = size;
       this.leader = leader;
       this.inSync = inSync;
       this.isFuture = isFuture;
       this.path = path;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) return true;
+      if (o == null || getClass() != o.getClass()) return false;
+      Replica replica = (Replica) o;
+      return broker == replica.broker
+          && lag == replica.lag
+          && size == replica.size
+          && leader == replica.leader
+          && inSync == replica.inSync
+          && isFuture == replica.isFuture
+          && path.equals(replica.path);
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(broker, lag, size, leader, inSync, isFuture, path);
     }
 
     @Override
@@ -463,6 +493,8 @@ public interface TopicAdmin extends Closeable {
           + broker
           + ", lag="
           + lag
+          + ", size="
+          + size
           + ", leader="
           + leader
           + ", inSync="
@@ -473,24 +505,6 @@ public interface TopicAdmin extends Closeable {
           + path
           + '\''
           + '}';
-    }
-
-    @Override
-    public boolean equals(Object o) {
-      if (this == o) return true;
-      if (o == null || getClass() != o.getClass()) return false;
-      Replica replica = (Replica) o;
-      return broker == replica.broker
-          && lag == replica.lag
-          && leader == replica.leader
-          && inSync == replica.inSync
-          && isFuture == replica.isFuture
-          && Objects.equals(path, replica.path);
-    }
-
-    @Override
-    public int hashCode() {
-      return Objects.hash(broker, lag, leader, inSync, isFuture, path);
     }
   }
 }
