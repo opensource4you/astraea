@@ -1,16 +1,12 @@
 package org.astraea.partitioner.nodeLoadMetric;
 
 import java.time.Duration;
-import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
-import org.apache.kafka.clients.admin.AdminClient;
-import org.apache.kafka.clients.admin.DescribeLogDirsResult;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.serialization.ByteArraySerializer;
 import org.astraea.consumer.Builder;
@@ -89,28 +85,6 @@ public class PartitionerTest extends RequireBrokerCluster {
       var actualHeader = record.headers().iterator().next();
       Assertions.assertEquals(header.key(), actualHeader.key());
       Assertions.assertArrayEquals(header.value(), actualHeader.value());
-    }
-
-    AdminClient client = AdminClient.create(initProConfig());
-    Collection<Integer> brokerID = new ArrayList<>();
-    brokerID.add(0);
-
-    DescribeLogDirsResult result = client.describeLogDirs(brokerID);
-    for (var k : result.descriptions().values()) {
-      try {
-        var map = k.get();
-        for (String name : map.keySet()) {
-          for (var p : map.get(name).replicaInfos().keySet()) {
-            if (!p.topic().equals("__consumer_offsets")) {
-              var size = (float) map.get(name).replicaInfos().get(p).size();
-              Assertions.assertNotEquals(size, 0);
-            }
-          }
-        }
-      } catch (InterruptedException | ExecutionException e) {
-        System.out.println("取得資訊失敗" + e.getMessage());
-        e.printStackTrace();
-      }
     }
   }
 }

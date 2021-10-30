@@ -13,25 +13,26 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.Partitioner;
-import org.apache.kafka.clients.producer.Producer;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.Cluster;
 import org.apache.kafka.common.Node;
 import org.apache.kafka.common.PartitionInfo;
 import org.apache.kafka.common.serialization.ByteArraySerializer;
 import org.astraea.partitioner.partitionerFactory.LinkPartitioner;
+import org.astraea.producer.Serializer;
+import org.astraea.service.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.MockedConstruction;
 
-public class SmoothPartitionerFactoryTest {
+public class SmoothPartitionerFactoryTest extends RequireBrokerCluster {
   private String jmxAddresses;
 
   private static final Node[] NODES =
@@ -51,27 +52,37 @@ public class SmoothPartitionerFactoryTest {
     jmxAddresses = "0.0.0.0,1.1.1.1,2.2.2.2";
   }
 
+  public Properties initProConfig() {
+    Properties props = new Properties();
+    props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers());
+    props.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, ByteArraySerializer.class.getName());
+    props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, ByteArraySerializer.class.getName());
+    props.put(ProducerConfig.CLIENT_ID_CONFIG, "id1");
+    props.put(ProducerConfig.PARTITIONER_CLASS_CONFIG, LinkPartitioner.class.getName());
+    props.put("jmx_servers", jmxServiceURL() + "@0");
+    return props;
+  }
+
   @Test
   void testSingletonByProducer() {
     try (MockedConstruction mocked =
         mockConstruction(LinkPartitioner.ThreadSafeSmoothPartitioner.class)) {
 
-      var props =
-          Map.<String, Object>of(
-              ProducerConfig.BOOTSTRAP_SERVERS_CONFIG,
-              "localhost:11111",
-              ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG,
-              ByteArraySerializer.class.getName(),
-              ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG,
-              ByteArraySerializer.class.getName(),
-              ProducerConfig.PARTITIONER_CLASS_CONFIG,
-              LinkPartitioner.class.getName(),
-              "jmx_servers",
-              jmxAddresses);
+      var props = initProConfig();
       // create multiples partitioners
       var producers =
           IntStream.range(0, 10)
-              .mapToObj(i -> new KafkaProducer<byte[], byte[]>(props))
+              .mapToObj(
+                  i ->
+                      org.astraea.producer.Producer.builder()
+                          .keySerializer(Serializer.STRING)
+                          .valueSerializer(Serializer.STRING)
+                          .configs(
+                              props.entrySet().stream()
+                                  .collect(
+                                      Collectors.toMap(
+                                          e -> e.getKey().toString(), Map.Entry::getValue)))
+                          .build())
               .collect(Collectors.toList());
 
       Assertions.assertEquals(getFactory().getSmoothPartitionerMap().size(), 1);
@@ -82,7 +93,7 @@ public class SmoothPartitionerFactoryTest {
       verify(partitioner, never()).partition(anyString(), any(), any(), any(), any(), any());
       verify(partitioner, never()).close();
 
-      producers.forEach(Producer::close);
+      producers.forEach(org.astraea.producer.Producer::close);
       // ThreadSafePartitioner is closed only once
       verify(partitioner).configure(any());
       verify(partitioner, never()).partition(anyString(), any(), any(), any(), any(), any());

@@ -47,7 +47,7 @@ public class NodeMetrics {
 
     for (BrokerTopicMetricsResult result : collect) {
       metricsValues.put(
-          result.beanObject().domainName(),
+          result.beanObject().getProperties().get("name"),
           (Double) result.beanObject().getAttributes().get("MeanRate"));
     }
   }
