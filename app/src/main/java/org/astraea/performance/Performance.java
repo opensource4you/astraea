@@ -156,6 +156,7 @@ public class Performance {
             .sender()
             .topic(param.topic)
             .value(payload)
+            .timestamp(start)
             .run()
             .whenComplete(
                 (m, e) -> metrics.put(System.currentTimeMillis() - start, payload.length));

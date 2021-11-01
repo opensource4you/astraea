@@ -1,7 +1,11 @@
 package org.astraea.performance;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+
 /** Used to record statistics. This is thread safe. */
 public class Metrics {
+  private final long startTime = System.currentTimeMillis();
   private double avgLatency;
   private long num;
   private long max;
@@ -18,50 +22,48 @@ public class Metrics {
 
   /** Simultaneously add latency and bytes. */
   public synchronized void put(long latency, long bytes) {
+    ++num;
     putLatency(latency);
     addBytes(bytes);
   }
   /** Add a new value to latency metric. */
-  public synchronized void putLatency(long latency) {
-    if (min > latency) min = latency;
-    if (max < latency) max = latency;
-    ++num;
+  private synchronized void putLatency(long latency) {
+    min = Math.min(min, latency);
+    max = Math.max(max, latency);
     avgLatency += (((double) latency) - avgLatency) / (double) num;
   }
   /** Add a new value to bytes. */
-  public synchronized void addBytes(long bytes) {
+  private synchronized void addBytes(long bytes) {
     this.bytes += bytes;
   }
 
-  /** Get the number of latency put. */
+  /** @return Get the number of latency put. */
   public synchronized long num() {
     return num;
   }
-  /** Get the maximum of latency put. */
+  /** @return Get the maximum of latency put. */
   public synchronized long max() {
     return max;
   }
-  /** Get the minimum of latency put. */
+  /** @return Get the minimum of latency put. */
   public synchronized long min() {
     return min;
   }
-  /** Get the average latency. */
+  /** @return Get the average latency. */
   public synchronized double avgLatency() {
     return avgLatency;
   }
-  /** Reset to 0 and returns the old value of bytes */
-  public synchronized long bytesThenReset() {
-    long tmp = this.bytes;
-    this.bytes = 0;
-    return tmp;
+
+  /** @return the average bytes (in second) */
+  public synchronized double avgBytes() {
+    var value = new BigDecimal(bytes);
+    var scale = new BigDecimal(1024 * 1024);
+    var time = BigDecimal.valueOf((double) (System.currentTimeMillis() - startTime) / 1000);
+    return value.divide(scale, 3, RoundingMode.UP).divide(time, 3, RoundingMode.UP).doubleValue();
   }
-  /** Set all attributes to default value */
-  public synchronized void reset() {
-    avgLatency = 0;
-    num = 0;
-    max = 0;
-    // 初始為最大的integer值
-    min = Long.MAX_VALUE;
-    bytes = 0;
+
+  /** @return total send/received bytes */
+  public synchronized long bytes() {
+    return bytes;
   }
 }
