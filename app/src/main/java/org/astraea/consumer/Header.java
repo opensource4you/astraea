@@ -7,10 +7,15 @@ import org.apache.kafka.common.header.Headers;
 import org.apache.kafka.common.header.internals.RecordHeaders;
 
 public final class Header implements org.apache.kafka.common.header.Header {
+
+  public static Header of(String key, byte[] value) {
+    return new Header(key, value);
+  }
+
   private final String key;
   private final byte[] value;
 
-  public Header(String key, byte[] value) {
+  private Header(String key, byte[] value) {
     this.key = key;
     this.value = value;
   }
