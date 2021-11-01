@@ -1,8 +1,10 @@
 #!/bin/bash
 
+# =============================[functions]=============================
 function showHelp() {
   echo "Usage: [ KAFKA SCRIPT ] [ OPTIONS ]"
 }
+# =====================================================================
 
 if [[ "$(which docker)" == "" ]]; then
   echo "you have to install docker"
@@ -26,7 +28,7 @@ image_name=astraea/kafka-tool:$KAFKA_VERSION
 # set JVM heap
 KAFKA_HEAP="${KAFKA_HEAP:-"-Xmx2G -Xms2G"}"
 
-USER=astraea
+kafka_user=astraea
 
 docker build -t $image_name - <<Dockerfile
 FROM ubuntu:20.04
@@ -35,17 +37,17 @@ FROM ubuntu:20.04
 RUN apt-get update && apt-get upgrade -y && apt-get install -y openjdk-11-jdk wget
 
 # add user
-RUN groupadd $USER && useradd -ms /bin/bash -g $USER $USER
+RUN groupadd $kafka_user && useradd -ms /bin/bash -g $kafka_user $kafka_user
 
 # change user
-USER $USER
+USER $kafka_user
 
 # download kafka
 WORKDIR /tmp
 RUN wget https://archive.apache.org/dist/kafka/${KAFKA_VERSION}/kafka_2.13-${KAFKA_VERSION}.tgz
-RUN mkdir /home/$USER/kafka
-RUN tar -zxvf kafka_2.13-${KAFKA_VERSION}.tgz -C /home/$USER/kafka --strip-components=1
-WORKDIR "/home/$USER/kafka"
+RUN mkdir /home/$kafka_user/kafka
+RUN tar -zxvf kafka_2.13-${KAFKA_VERSION}.tgz -C /home/$kafka_user/kafka --strip-components=1
+WORKDIR "/home/$kafka_user/kafka"
 
 Dockerfile
 
