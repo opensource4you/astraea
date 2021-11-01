@@ -3,12 +3,18 @@ package org.astraea.performance;
 import com.beust.jcommander.Parameter;
 import java.io.IOException;
 import java.time.Duration;
+import java.util.Collection;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import org.apache.kafka.clients.consumer.ConsumerRebalanceListener;
+import org.apache.kafka.clients.producer.ProducerConfig;
+import org.apache.kafka.clients.producer.internals.DefaultPartitioner;
+import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.errors.WakeupException;
 import org.astraea.argument.ArgumentUtil;
 import org.astraea.argument.BasicArgument;
@@ -75,6 +81,7 @@ public class Performance {
     var producerRecords = new AtomicLong(param.records);
     var tracker = new Tracker(producerMetrics, consumerMetrics, param.records);
     var groupId = "groupId-" + System.currentTimeMillis();
+    var countDown = new CountDownLatch(param.consumers);
     try (ThreadPool threadPool =
         ThreadPool.builder()
             .executors(
@@ -88,6 +95,18 @@ public class Performance {
                                     .offsetPolicy(Builder.OffsetPolicy.EARLIEST)
                                     .groupId(groupId)
                                     .configs(param.perfProps())
+                                    .rebalanceListener(
+                                        new ConsumerRebalanceListener() {
+                                          @Override
+                                          public void onPartitionsRevoked(
+                                              Collection<TopicPartition> partitions) {}
+
+                                          @Override
+                                          public void onPartitionsAssigned(
+                                              Collection<TopicPartition> partitions) {
+                                            countDown.countDown();
+                                          }
+                                        })
                                     .build(),
                                 consumerMetrics.get(i),
                                 consumerRecords))
@@ -100,7 +119,8 @@ public class Performance {
                                 Producer.of(param.perfProps()),
                                 param,
                                 producerMetrics.get(i),
-                                producerRecords))
+                                producerRecords,
+                                countDown))
                     .collect(Collectors.toUnmodifiableList()))
             .executor(tracker)
             .build()) {
@@ -144,11 +164,19 @@ public class Performance {
   }
 
   static ThreadPool.Executor producerExecutor(
-      Producer<byte[], byte[]> producer, Argument param, Metrics metrics, AtomicLong records) {
+      Producer<byte[], byte[]> producer,
+      Argument param,
+      Metrics metrics,
+      AtomicLong records,
+      CountDownLatch countDown) {
     byte[] payload = new byte[param.recordSize];
     return new ThreadPool.Executor() {
       @Override
       public State execute() {
+        try {
+          countDown.await();
+        } catch (InterruptedException ignore) {
+        }
         var currentRecords = records.getAndDecrement();
         if (currentRecords <= 0) return State.DONE;
         long start = System.currentTimeMillis();
@@ -215,13 +243,28 @@ public class Performance {
     int recordSize = 1024;
 
     @Parameter(
+        names = {"--jmx.servers"},
+        description =
+            "String: server to get jmx metrics <jmx_server>@<broker_id>[,<jmx_server>@<broker_id>]*")
+    String jmxServers = "";
+
+    @Parameter(
+        names = {"--partitioner"},
+        description = "String: the full class name of the desired partitioner",
+        validateWith = ArgumentUtil.NotEmptyString.class)
+    String partitioner = DefaultPartitioner.class.getName();
+
+    @Parameter(
         names = {"--prop.file"},
         description = "String: path to the properties file",
         validateWith = ArgumentUtil.NotEmptyString.class)
     String propFile;
 
     public Map<String, Object> perfProps() {
-      return properties(propFile);
+      Map<String, Object> props = properties(propFile);
+      props.put(ProducerConfig.PARTITIONER_CLASS_CONFIG, this.partitioner);
+      props.put("jmx_servers", this.jmxServers);
+      return props;
     }
   }
 }

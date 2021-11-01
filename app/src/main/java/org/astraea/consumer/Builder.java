@@ -5,7 +5,9 @@ import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
+import org.apache.kafka.clients.consumer.ConsumerRebalanceListener;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
+import org.apache.kafka.common.TopicPartition;
 
 public class Builder<Key, Value> {
 
@@ -20,6 +22,14 @@ public class Builder<Key, Value> {
   private OffsetPolicy offsetPolicy = OffsetPolicy.LATEST;
   private String groupId = "groupId-" + System.currentTimeMillis();
   private final Set<String> topics = new HashSet<>();
+  private ConsumerRebalanceListener listener =
+      new ConsumerRebalanceListener() {
+        @Override
+        public void onPartitionsRevoked(Collection<TopicPartition> partitions) {}
+
+        @Override
+        public void onPartitionsAssigned(Collection<TopicPartition> partitions) {}
+      };
 
   Builder() {}
 
@@ -61,6 +71,11 @@ public class Builder<Key, Value> {
     return this;
   }
 
+  public Builder<Key, Value> rebalanceListener(ConsumerRebalanceListener listener) {
+    this.listener = listener;
+    return this;
+  }
+
   @SuppressWarnings("unchecked")
   public Consumer<Key, Value> build() {
     configs.put(ConsumerConfig.GROUP_ID_CONFIG, Objects.requireNonNull(groupId));
@@ -77,7 +92,7 @@ public class Builder<Key, Value> {
             configs,
             Deserializer.of((Deserializer<Key>) keyDeserializer),
             Deserializer.of((Deserializer<Value>) valueDeserializer));
-    kafkaConsumer.subscribe(topics);
+    kafkaConsumer.subscribe(topics, listener);
     return new Consumer<>() {
       @Override
       public Collection<Record<Key, Value>> poll(Duration timeout) {
