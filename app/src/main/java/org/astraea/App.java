@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Map;
 import org.astraea.metrics.KafkaMetricClientApp;
 import org.astraea.performance.Performance;
+import org.astraea.metrics.MetricExplorer;
 import org.astraea.topic.ReplicaCollie;
 import org.astraea.topic.TopicExplorer;
 
@@ -14,7 +15,7 @@ public class App {
   private static final Map<String, Class<?>> MAIN_CLASSES =
       Map.of(
           "offset", TopicExplorer.class,
-          "metrics", KafkaMetricClientApp.class,
+          "metrics", MetricExplorer.class,
           "replica", ReplicaCollie.class,
           "performance", Performance.class);
 
