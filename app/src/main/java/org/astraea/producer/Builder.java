@@ -104,35 +104,7 @@ public class Builder<Key, Value> {
             kafkaProducer.send(
                 new ProducerRecord<>(topic, partition, timestamp, key, value, Header.of(headers)),
                 (metadata, exception) -> {
-                  if (exception == null)
-                    completableFuture.complete(
-                        new Metadata() {
-
-                          @Override
-                          public long serializedKeySize() {
-                            return metadata.serializedKeySize();
-                          }
-
-                          @Override
-                          public long serializedValueSize() {
-                            return metadata.serializedValueSize();
-                          }
-
-                          @Override
-                          public long timestamp() {
-                            return metadata.timestamp();
-                          }
-
-                          @Override
-                          public String topic() {
-                            return metadata.topic();
-                          }
-
-                          @Override
-                          public int partition() {
-                            return metadata.partition();
-                          }
-                        });
+                  if (exception == null) completableFuture.complete(Metadata.of(metadata));
                   else completableFuture.completeExceptionally(exception);
                 });
             return completableFuture;
