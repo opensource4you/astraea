@@ -183,4 +183,5 @@ docker run -d \
 echo "================================================="
 echo "broker address: ${address}:$broker_port"
 echo "jmx address: ${address}:$broker_jmx_port"
+echo "broker id: $broker_id"
 echo "================================================="
