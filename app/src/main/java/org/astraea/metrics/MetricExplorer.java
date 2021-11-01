@@ -162,12 +162,12 @@ public class MetricExplorer {
     static Stream<String> elaborateData(Object target) {
       if (target == null) {
         return Stream.of("null");
+      } else if (target instanceof List<?>) {
+        return elaborateList((List<?>) target);
       } else if (target instanceof Map<?, ?>) {
         return elaborateMap((Map<?, ?>) target);
       } else if (target instanceof CompositeDataSupport) {
         return elaborateCompositeDataSupport(((CompositeDataSupport) target));
-      } else if (target instanceof CompositeData) {
-        return elaborateCompositeData(((CompositeData) target));
       } else if (target.getClass().isArray()) {
         if (target.getClass() == long[].class) return elaborateArray((long[]) target);
         else return elaborateArray((Object[]) target);
@@ -214,15 +214,24 @@ public class MetricExplorer {
       return IntStream.range(0, array.length).mapToObj(x -> x + ": " + array[x]).limit(20);
     }
 
-    static Stream<String> elaborateCompositeDataSupport(CompositeDataSupport data) {
-      if (data.getCompositeType().getTypeName().startsWith("java.util.Map"))
-        return Stream.of(data.get("value").toString());
-      else return elaborateArray(data.values().toArray());
+    static Stream<String> elaborateList(List<?> list) {
+      return IntStream.range(0, list.size())
+              .boxed()
+              .flatMap(i -> {
+                List<String> collect = elaborateData(list.get(i)).collect(Collectors.toList());
+                if (collect.size() == 1)
+                  return Stream.of(String.format("%d: %s", i, collect.get(0)));
+                else
+                  return Stream.concat(
+                          Stream.of(i + ":"), streamAppendWith(" ", 4, collect.stream()));
+              });
     }
 
-    static Stream<String> elaborateCompositeData(CompositeData data) {
-      data.values();
-      return Stream.of();
+    static Stream<String> elaborateCompositeDataSupport(CompositeDataSupport data) {
+      return data.getCompositeType().keySet().stream()
+              .sorted()
+              .flatMap(key -> DataUtils.elaborateMapEntry(Map.entry(key, data.get(key))))
+              .limit(50);
     }
 
     static Stream<String> streamAppendWith(String s, int size, Stream<String> source) {
