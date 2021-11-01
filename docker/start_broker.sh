@@ -23,7 +23,6 @@ function showHelp() {
   echo "    num.network.threads=10        set JVM memory"
   echo "    memory=\"-Xmx2G -Xms2G\"        set JVM memory"
 }
-
 # =====================================================================
 
 if [[ "$(which docker)" == "" ]]; then
@@ -35,7 +34,9 @@ if [[ -z "$KAFKA_VERSION" ]]; then
   KAFKA_VERSION=2.8.1
 fi
 
-USER=astraea
+kafka_user=astraea
+exporter_version="0.16.1"
+exporter_port="$(($(($RANDOM % 10000)) + 10000))"
 image_name=astraea/broker:$KAFKA_VERSION
 if [[ -n "$KAFKA_REVISION" ]]; then
   image_name=astraea/broker:$KAFKA_REVISION
@@ -133,19 +134,25 @@ FROM ubuntu:20.04
 RUN apt-get update && apt-get upgrade -y && DEBIAN_FRONTEND=noninteractive apt-get install -y openjdk-11-jdk wget git curl
 
 # add user
-RUN groupadd $USER && useradd -ms /bin/bash -g $USER $USER
+RUN groupadd $kafka_user && useradd -ms /bin/bash -g $kafka_user $kafka_user
 
 # change user
-USER $USER
+USER $kafka_user
+
+# download jmx exporter
+RUN mkdir /tmp/jmx_exporter
+WORKDIR /tmp/jmx_exporter
+RUN wget https://raw.githubusercontent.com/prometheus/jmx_exporter/master/example_configs/kafka-2_0_0.yml
+RUN wget https://repo1.maven.org/maven2/io/prometheus/jmx/jmx_prometheus_javaagent/${exporter_version}/jmx_prometheus_javaagent-${exporter_version}.jar
 
 # build kafka from source code
 RUN git clone https://github.com/apache/kafka /tmp/kafka
 WORKDIR /tmp/kafka
 RUN git checkout $KAFKA_REVISION
 RUN ./gradlew clean releaseTarGz
-RUN mkdir /home/$USER/kafka
-RUN tar -zxvf \$(find ./core/build/distributions/ -maxdepth 1 -type f -name kafka_*SNAPSHOT.tgz) -C /home/$USER/kafka --strip-components=1
-WORKDIR "/home/$USER/kafka"
+RUN mkdir /home/$kafka_user/kafka
+RUN tar -zxvf \$(find ./core/build/distributions/ -maxdepth 1 -type f -name kafka_*SNAPSHOT.tgz) -C /home/$kafka_user/kafka --strip-components=1
+WORKDIR "/home/$kafka_user/kafka"
 
 Dockerfile
 
@@ -157,17 +164,23 @@ FROM ubuntu:20.04
 RUN apt-get update && apt-get upgrade -y && apt-get install -y openjdk-11-jdk wget
 
 # add user
-RUN groupadd $USER && useradd -ms /bin/bash -g $USER $USER
+RUN groupadd $kafka_user && useradd -ms /bin/bash -g $kafka_user $kafka_user
 
 # change user
-USER $USER
+USER $kafka_user
+
+# download jmx exporter
+RUN mkdir /tmp/jmx_exporter
+WORKDIR /tmp/jmx_exporter
+RUN wget https://raw.githubusercontent.com/prometheus/jmx_exporter/master/example_configs/kafka-2_0_0.yml
+RUN wget https://repo1.maven.org/maven2/io/prometheus/jmx/jmx_prometheus_javaagent/${exporter_version}/jmx_prometheus_javaagent-${exporter_version}.jar
 
 # download kafka
 WORKDIR /tmp
 RUN wget https://archive.apache.org/dist/kafka/${KAFKA_VERSION}/kafka_2.13-${KAFKA_VERSION}.tgz
-RUN mkdir /home/$USER/kafka
-RUN tar -zxvf kafka_2.13-${KAFKA_VERSION}.tgz -C /home/$USER/kafka --strip-components=1
-WORKDIR "/home/$USER/kafka"
+RUN mkdir /home/$kafka_user/kafka
+RUN tar -zxvf kafka_2.13-${KAFKA_VERSION}.tgz -C /home/$kafka_user/kafka --strip-components=1
+WORKDIR "/home/$kafka_user/kafka"
 
 Dockerfile
 fi
@@ -175,13 +188,16 @@ fi
 docker run -d \
   -e KAFKA_HEAP_OPTS="$KAFKA_HEAP" \
   -e KAFKA_JMX_OPTS="$jmx_opts" \
+  -e KAFKA_OPTS="-javaagent:/tmp/jmx_exporter/jmx_prometheus_javaagent-${exporter_version}.jar=$exporter_port:/tmp/jmx_exporter/kafka-2_0_0.yml" \
   -v $config_file:/tmp/broker.properties:ro \
   -p $broker_port:9092 \
   -p $broker_jmx_port:$broker_jmx_port \
+  -p $exporter_port:$exporter_port \
   $image_name ./bin/kafka-server-start.sh /tmp/broker.properties
 
 echo "================================================="
 echo "broker address: ${address}:$broker_port"
 echo "jmx address: ${address}:$broker_jmx_port"
+echo "exporter address: ${address}:$exporter_port"
 echo "broker id: $broker_id"
 echo "================================================="
