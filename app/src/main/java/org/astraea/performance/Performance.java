@@ -89,7 +89,7 @@ public class Performance {
                                     .topics(Set.of(param.topic))
                                     .groupId(groupId)
                                     .configs(param.perfProps())
-                                    .assignedListener(ignore -> countDown.countDown())
+                                    .consumerRebalanceListener(ignore -> countDown.countDown())
                                     .build(),
                                 consumerMetrics.get(i),
                                 consumerRecords))
@@ -158,11 +158,8 @@ public class Performance {
     byte[] payload = new byte[param.recordSize];
     return new ThreadPool.Executor() {
       @Override
-      public State execute() {
-        try {
-          countDown.await();
-        } catch (InterruptedException ignore) {
-        }
+      public State execute() throws InterruptedException{
+        countDown.await();
         var currentRecords = records.getAndDecrement();
         if (currentRecords <= 0) return State.DONE;
         long start = System.currentTimeMillis();
@@ -232,7 +229,8 @@ public class Performance {
     @Parameter(
         names = {"--jmx.servers"},
         description =
-            "String: server to get jmx metrics <jmx_server>@<broker_id>[,<jmx_server>@<broker_id>]*")
+            "String: server to get jmx metrics <jmx_server>@<broker_id>[,<jmx_server>@<broker_id>]*",
+            validateWith = ArgumentUtil.NotEmptyString.class)
     String jmxServers = "";
 
     @Parameter(
@@ -249,7 +247,7 @@ public class Performance {
 
     public Map<String, Object> perfProps() {
       Map<String, Object> props = properties(propFile);
-      props.put("jmx_servers", this.jmxServers);
+      if (!this.jmxServers.isEmpty()) props.put("jmx_servers", this.jmxServers);
       return props;
     }
   }

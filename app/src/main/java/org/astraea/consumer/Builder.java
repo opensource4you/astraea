@@ -20,7 +20,7 @@ public class Builder<Key, Value> {
   private OffsetPolicy offsetPolicy = OffsetPolicy.LATEST;
   private String groupId = "groupId-" + System.currentTimeMillis();
   private final Set<String> topics = new HashSet<>();
-  private AssignedListener listener = ignore -> {};
+  private ConsumerRebalanceListener listener = ignore -> {};
 
   Builder() {}
 
@@ -62,8 +62,8 @@ public class Builder<Key, Value> {
     return this;
   }
 
-  public Builder<Key, Value> assignedListener(AssignedListener listener) {
-    this.listener = listener;
+  public Builder<Key, Value> consumerRebalanceListener(ConsumerRebalanceListener listener) {
+    if (listener != null) this.listener = listener;
     return this;
   }
 
