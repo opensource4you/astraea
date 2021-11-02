@@ -5,9 +5,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
-import org.apache.kafka.clients.consumer.ConsumerRebalanceListener;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
-import org.apache.kafka.common.TopicPartition;
 
 public class Builder<Key, Value> {
 
@@ -22,14 +20,7 @@ public class Builder<Key, Value> {
   private OffsetPolicy offsetPolicy = OffsetPolicy.LATEST;
   private String groupId = "groupId-" + System.currentTimeMillis();
   private final Set<String> topics = new HashSet<>();
-  private ConsumerRebalanceListener listener =
-      new ConsumerRebalanceListener() {
-        @Override
-        public void onPartitionsRevoked(Collection<TopicPartition> partitions) {}
-
-        @Override
-        public void onPartitionsAssigned(Collection<TopicPartition> partitions) {}
-      };
+  private AssignedListener listener = ignore -> {};
 
   Builder() {}
 
@@ -71,7 +62,7 @@ public class Builder<Key, Value> {
     return this;
   }
 
-  public Builder<Key, Value> rebalanceListener(ConsumerRebalanceListener listener) {
+  public Builder<Key, Value> assignedListener(AssignedListener listener) {
     this.listener = listener;
     return this;
   }

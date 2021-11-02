@@ -3,7 +3,6 @@ package org.astraea.performance;
 import com.beust.jcommander.Parameter;
 import java.io.IOException;
 import java.time.Duration;
-import java.util.Collection;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
@@ -11,15 +10,11 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-import org.apache.kafka.clients.consumer.ConsumerRebalanceListener;
-import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.clients.producer.internals.DefaultPartitioner;
-import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.errors.WakeupException;
 import org.astraea.argument.ArgumentUtil;
 import org.astraea.argument.BasicArgument;
 import org.astraea.concurrent.ThreadPool;
-import org.astraea.consumer.Builder;
 import org.astraea.consumer.Consumer;
 import org.astraea.producer.Producer;
 import org.astraea.topic.TopicAdmin;
@@ -92,21 +87,9 @@ public class Performance {
                                 Consumer.builder()
                                     .brokers(param.brokers)
                                     .topics(Set.of(param.topic))
-                                    .offsetPolicy(Builder.OffsetPolicy.EARLIEST)
                                     .groupId(groupId)
                                     .configs(param.perfProps())
-                                    .rebalanceListener(
-                                        new ConsumerRebalanceListener() {
-                                          @Override
-                                          public void onPartitionsRevoked(
-                                              Collection<TopicPartition> partitions) {}
-
-                                          @Override
-                                          public void onPartitionsAssigned(
-                                              Collection<TopicPartition> partitions) {
-                                            countDown.countDown();
-                                          }
-                                        })
+                                    .assignedListener(ignore -> countDown.countDown())
                                     .build(),
                                 consumerMetrics.get(i),
                                 consumerRecords))
@@ -116,7 +99,10 @@ public class Performance {
                     .mapToObj(
                         i ->
                             producerExecutor(
-                                Producer.of(param.perfProps()),
+                                Producer.builder()
+                                    .configs(param.perfProps())
+                                    .partitionClassName(param.partitioner)
+                                    .build(),
                                 param,
                                 producerMetrics.get(i),
                                 producerRecords,
@@ -262,7 +248,6 @@ public class Performance {
 
     public Map<String, Object> perfProps() {
       Map<String, Object> props = properties(propFile);
-      props.put(ProducerConfig.PARTITIONER_CLASS_CONFIG, this.partitioner);
       props.put("jmx_servers", this.jmxServers);
       return props;
     }
