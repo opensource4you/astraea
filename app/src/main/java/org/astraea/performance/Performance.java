@@ -158,7 +158,7 @@ public class Performance {
     byte[] payload = new byte[param.recordSize];
     return new ThreadPool.Executor() {
       @Override
-      public State execute() throws InterruptedException{
+      public State execute() throws InterruptedException {
         countDown.await();
         var currentRecords = records.getAndDecrement();
         if (currentRecords <= 0) return State.DONE;
@@ -230,7 +230,7 @@ public class Performance {
         names = {"--jmx.servers"},
         description =
             "String: server to get jmx metrics <jmx_server>@<broker_id>[,<jmx_server>@<broker_id>]*",
-            validateWith = ArgumentUtil.NotEmptyString.class)
+        validateWith = ArgumentUtil.NotEmptyString.class)
     String jmxServers = "";
 
     @Parameter(
