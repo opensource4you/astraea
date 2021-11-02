@@ -14,25 +14,25 @@ public class TopicExplorer {
     final int partition;
     final long earliestOffset;
     final long latestOffset;
-    final List<TopicAdmin.Group> groups;
-    final List<TopicAdmin.Replica> replicas;
+    final List<Group> groups;
+    final List<Replica> replicas;
 
     Result(
         String topic,
         int partition,
         long startOffset,
         long endOffset,
-        List<TopicAdmin.Group> groups,
-        List<TopicAdmin.Replica> replicas) {
+        List<Group> groups,
+        List<Replica> replicas) {
       this.topic = topic;
       this.partition = partition;
       this.earliestOffset = startOffset;
       this.latestOffset = endOffset;
       this.groups =
-          groups.stream().sorted(Comparator.comparing(g -> g.groupId)).collect(Collectors.toList());
+          groups.stream().sorted(Comparator.comparing(Group::groupId)).collect(Collectors.toList());
       this.replicas =
           replicas.stream()
-              .sorted(Comparator.comparing(r -> r.broker))
+              .sorted(Comparator.comparing(Replica::broker))
               .collect(Collectors.toList());
     }
 
@@ -66,8 +66,8 @@ public class TopicExplorer {
                 new Result(
                     e.getKey().topic(),
                     e.getKey().partition(),
-                    offsets.get(e.getKey()).earliest,
-                    offsets.get(e.getKey()).latest,
+                    offsets.get(e.getKey()).earliest(),
+                    offsets.get(e.getKey()).latest(),
                     groups.getOrDefault(e.getKey(), List.of()),
                     e.getValue()))
         .sorted(
@@ -78,7 +78,7 @@ public class TopicExplorer {
   public static void main(String[] args) throws IOException {
     var argument = ArgumentUtil.parseArgument(new Argument(), args);
     try (var admin = TopicAdmin.of(argument.adminProps())) {
-      execute(admin, argument.topics.isEmpty() ? admin.topics() : argument.topics)
+      execute(admin, argument.topics.isEmpty() ? admin.topicNames() : argument.topics)
           .forEach(System.out::println);
     }
   }

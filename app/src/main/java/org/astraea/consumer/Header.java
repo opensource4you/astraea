@@ -6,36 +6,44 @@ import java.util.stream.StreamSupport;
 import org.apache.kafka.common.header.Headers;
 import org.apache.kafka.common.header.internals.RecordHeaders;
 
-public interface Header extends org.apache.kafka.common.header.Header {
+public final class Header implements org.apache.kafka.common.header.Header {
 
-  static Header of(String key, byte[] value) {
-    return new Header() {
-      @Override
-      public String key() {
-        return key;
-      }
-
-      @Override
-      public byte[] value() {
-        return value;
-      }
-    };
+  public static Header of(String key, byte[] value) {
+    return new Header(key, value);
   }
 
-  static Header of(org.apache.kafka.common.header.Header header) {
-    return of(header.key(), header.value());
+  private final String key;
+  private final byte[] value;
+
+  private Header(String key, byte[] value) {
+    this.key = key;
+    this.value = value;
   }
 
-  static Headers of(Collection<Header> headers) {
+  public static Header of(org.apache.kafka.common.header.Header header) {
+    return new Header(header.key(), header.value());
+  }
+
+  public static Headers of(Collection<Header> headers) {
     return new RecordHeaders(
         headers.stream()
             .map(h -> (org.apache.kafka.common.header.Header) h)
             .collect(Collectors.toList()));
   }
 
-  static Collection<Header> of(Headers headers) {
+  public static Collection<Header> of(Headers headers) {
     return StreamSupport.stream(headers.spliterator(), false)
         .map(Header::of)
         .collect(Collectors.toList());
+  }
+
+  @Override
+  public String key() {
+    return key;
+  }
+
+  @Override
+  public byte[] value() {
+    return value;
   }
 }
