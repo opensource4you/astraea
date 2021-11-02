@@ -29,9 +29,9 @@ public class PartitionScoreTest extends RequireBrokerCluster {
     topicName.put(1, "testPartitionScore1");
     topicName.put(2, "testPartitionScore2");
     try (var admin = TopicAdmin.of(bootstrapServers())) {
-      admin.createTopic(topicName.get(0), 4, (short) 1);
-      admin.createTopic(topicName.get(1), 4, (short) 1);
-      admin.createTopic(topicName.get(2), 4, (short) 1);
+      admin.creator().topic(topicName.get(0)).numberOfPartitions(4).create();
+      admin.creator().topic(topicName.get(1)).numberOfPartitions(4).create();
+      admin.creator().topic(topicName.get(2)).numberOfPartitions(4).create();
       // wait for topic
       TimeUnit.SECONDS.sleep(5);
     } catch (InterruptedException | IOException e) {
