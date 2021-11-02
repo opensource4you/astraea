@@ -5,9 +5,8 @@ import java.lang.reflect.InvocationTargetException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
-import org.astraea.metrics.KafkaMetricClientApp;
-import org.astraea.performance.Performance;
 import org.astraea.metrics.MetricExplorer;
+import org.astraea.performance.Performance;
 import org.astraea.topic.ReplicaCollie;
 import org.astraea.topic.TopicExplorer;
 

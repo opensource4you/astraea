@@ -11,7 +11,6 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
-import javax.management.openmbean.CompositeData;
 import javax.management.openmbean.CompositeDataSupport;
 import javax.management.remote.JMXServiceURL;
 import org.astraea.argument.ArgumentUtil;
@@ -216,22 +215,23 @@ public class MetricExplorer {
 
     static Stream<String> elaborateList(List<?> list) {
       return IntStream.range(0, list.size())
-              .boxed()
-              .flatMap(i -> {
+          .boxed()
+          .flatMap(
+              i -> {
                 List<String> collect = elaborateData(list.get(i)).collect(Collectors.toList());
                 if (collect.size() == 1)
                   return Stream.of(String.format("%d: %s", i, collect.get(0)));
                 else
                   return Stream.concat(
-                          Stream.of(i + ":"), streamAppendWith(" ", 4, collect.stream()));
+                      Stream.of(i + ":"), streamAppendWith(" ", 4, collect.stream()));
               });
     }
 
     static Stream<String> elaborateCompositeDataSupport(CompositeDataSupport data) {
       return data.getCompositeType().keySet().stream()
-              .sorted()
-              .flatMap(key -> DataUtils.elaborateMapEntry(Map.entry(key, data.get(key))))
-              .limit(50);
+          .sorted()
+          .flatMap(key -> DataUtils.elaborateMapEntry(Map.entry(key, data.get(key))))
+          .limit(50);
     }
 
     static Stream<String> streamAppendWith(String s, int size, Stream<String> source) {
