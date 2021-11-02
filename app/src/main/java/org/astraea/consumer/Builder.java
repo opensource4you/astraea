@@ -63,7 +63,7 @@ public class Builder<Key, Value> {
   }
 
   public Builder<Key, Value> consumerRebalanceListener(ConsumerRebalanceListener listener) {
-    if (listener != null) this.listener = listener;
+    this.listener = Objects.requireNonNull(listener);
     return this;
   }
 
@@ -83,7 +83,7 @@ public class Builder<Key, Value> {
             configs,
             Deserializer.of((Deserializer<Key>) keyDeserializer),
             Deserializer.of((Deserializer<Value>) valueDeserializer));
-    kafkaConsumer.subscribe(topics, listener);
+    kafkaConsumer.subscribe(topics, ConsumerRebalanceListener.of(listener));
     return new Consumer<>() {
       @Override
       public Collection<Record<Key, Value>> poll(Duration timeout) {
