@@ -24,7 +24,7 @@ if [[ -z "$ZOOKEEPER_VERSION" ]]; then
   ZOOKEEPER_VERSION=3.6.3
 fi
 
-USER=astraea
+zookeeper_user=astraea
 image_name=astraea/zookeeper:$ZOOKEEPER_VERSION
 zk_port="$(($(($RANDOM % 10000)) + 10000))"
 address=$(getAddress)
@@ -36,17 +36,17 @@ FROM ubuntu:20.04
 RUN apt-get update && apt-get upgrade -y && apt-get install -y openjdk-11-jdk wget
 
 # add user
-RUN groupadd $USER && useradd -ms /bin/bash -g $USER $USER
+RUN groupadd $zookeeper_user && useradd -ms /bin/bash -g $zookeeper_user $zookeeper_user
 
 # change user
-USER $USER
+USER $zookeeper_user
 
 # download zookeeper
 WORKDIR /tmp
 RUN wget https://archive.apache.org/dist/zookeeper/zookeeper-${ZOOKEEPER_VERSION}/apache-zookeeper-${ZOOKEEPER_VERSION}-bin.tar.gz
-RUN mkdir /home/$USER/zookeeper
-RUN tar -zxvf apache-zookeeper-${ZOOKEEPER_VERSION}-bin.tar.gz -C /home/$USER/zookeeper --strip-components=1
-WORKDIR /home/$USER/zookeeper
+RUN mkdir /home/$zookeeper_user/zookeeper
+RUN tar -zxvf apache-zookeeper-${ZOOKEEPER_VERSION}-bin.tar.gz -C /home/$zookeeper_user/zookeeper --strip-components=1
+WORKDIR /home/$zookeeper_user/zookeeper
 
 # create config file
 RUN echo "tickTime=2000" >> ./conf/zoo.cfg

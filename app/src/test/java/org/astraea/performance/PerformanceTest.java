@@ -29,7 +29,7 @@ public class PerformanceTest extends RequireBrokerCluster {
       executor.execute();
 
       Utils.waitFor(() -> metrics.num() == 1);
-      Assertions.assertEquals(1024, metrics.bytesThenReset());
+      Assertions.assertEquals(1024, metrics.bytes());
     }
   }
 
@@ -45,7 +45,7 @@ public class PerformanceTest extends RequireBrokerCluster {
       executor.execute();
 
       Assertions.assertEquals(0, metrics.num());
-      Assertions.assertEquals(0, metrics.bytesThenReset());
+      Assertions.assertEquals(0, metrics.bytes());
 
       try (var producer = Producer.builder().brokers(bootstrapServers()).build()) {
         producer.sender().topic(topicName).value(new byte[1024]).run().toCompletableFuture().get();
@@ -53,7 +53,7 @@ public class PerformanceTest extends RequireBrokerCluster {
       executor.execute();
 
       Assertions.assertEquals(1, metrics.num());
-      Assertions.assertNotEquals(1024, metrics.bytesThenReset());
+      Assertions.assertNotEquals(1024, metrics.bytes());
     }
   }
 }

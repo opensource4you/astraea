@@ -30,7 +30,7 @@ java -jar astraea-0.0.1-alpha.1-all.jar [tool] [args]
 
 The following scripts can build a kafka cluster by containers in one minute.
 
-### Set up zookeeper
+### Run Zookeeper
 
 ```shell
 ./docker/start_zookeeper.sh
@@ -46,7 +46,7 @@ run ./docker/start_broker.sh zookeeper.connect=192.168.50.178:17228 to join kafk
 
 You can define `ZOOKEEPER_VERSION` to change the binary version.
 
-### Set up (kafka) broker
+### Run Kafka Broker
 
 After the zk env is running, you can copy the command (see above example) from zk script output to set up kafka. For example:
 ```shell
@@ -57,13 +57,37 @@ The console will show the broker connection information and JMX address. For exa
 
 ```shell
 =================================================
-broker address: 192.168.50.224:11248
-jmx address: 192.168.50.224:15905
+broker address: 192.168.50.178:12747
+jmx address: 192.168.50.178:10216
+exporter address: 192.168.50.178:10558
+broker id: 677
 =================================================
 ```
 
+1. `broker address` is used by kafka client code. The alias is bootstrap server.
+2. `jmx address` exports the java metrics by JMX
+3. `exporter address` is the address of prometheus exporter.
+
 The command to set up broker can be executed multiple times to create a broker cluster. The env `KAFKA_VERSION` is used to
 define the release version of kafka. Or you can define `KAFKA_REVISION` to run kafka based on specific revision of source code.
+
+### Run Prometheus
+
+The exporters of brokers can offer metrics to Prometheus to monitor cluster status. For example, your kafka cluster has
+two brokers. The exporter address of first broker is `192.168.50.178:10558` and another is `192.168.50.178:10553`. You can
+use following command to run a prometheus service.
+
+```shell
+./docker/start_prometheus.sh 192.168.50.178:10558,192.168.50.178:10553
+```
+
+The console will show the http address of prometheus service.
+```shell
+=================================================
+config file: /tmp/prometheus-15483.yml
+prometheus address: http://192.168.50.178:15483
+=================================================
+```
 
 ---
 
