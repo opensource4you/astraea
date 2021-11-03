@@ -46,7 +46,7 @@ public class PartitionScore {
   public static void main(String[] args) throws InterruptedException, ExecutionException {
     var argument = ArgumentUtil.parseArgument(new Argument(), args);
     var partitionScore = new PartitionScore(argument.brokers);
-    partitionScore.printScore(partitionScore.score);
+    // partitionScore.printScore(partitionScore.score);
   }
 
   static class Argument extends BasicArgument {}

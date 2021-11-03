@@ -5,6 +5,7 @@ import java.util.stream.Collectors;
 import org.apache.kafka.clients.admin.*;
 import org.apache.kafka.common.Node;
 import org.apache.kafka.common.TopicPartition;
+import org.apache.kafka.common.TopicPartitionReplica;
 import org.apache.kafka.common.config.ConfigResource;
 import org.astraea.Utils;
 
@@ -47,6 +48,12 @@ public class Builder {
               admin.describeCluster().nodes().get().stream()
                   .map(Node::id)
                   .collect(Collectors.toSet()));
+    }
+
+    @Override
+    public void reassignFolder(String topicName, int partition, String path) {
+      Utils.handleException(
+          () -> admin.alterReplicaLogDirs(Map.of(new TopicPartitionReplica("test0", 3, 0), path)));
     }
 
     @Override

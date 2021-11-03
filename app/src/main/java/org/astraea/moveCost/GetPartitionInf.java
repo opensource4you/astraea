@@ -21,8 +21,12 @@ public class GetPartitionInf {
         try {
           var map = i.get();
           for (String name : map.keySet()) {
+            System.out.println("成功取得broker" + j + "(" + name + "): ");
+            System.out.println(name + ": " + map.get(name));
             for (var p : map.get(name).replicaInfos().keySet()) {
               partitionSize.put(p, (int) map.get(name).replicaInfos().get(p).size());
+              System.out.println("topic-partition: " + p);
+              System.out.println("size: " + map.get(name).replicaInfos().get(p).size());
             }
           }
         } catch (InterruptedException | ExecutionException e) {
