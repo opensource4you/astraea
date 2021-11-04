@@ -6,10 +6,10 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import org.astraea.metrics.KafkaMetricClientApp;
-import org.astraea.moveCost.PartitionScore;
 import org.astraea.performance.Performance;
 import org.astraea.topic.ReplicaCollie;
 import org.astraea.topic.TopicExplorer;
+import org.astraea.topic.cost.PartitionScore;
 
 public class App {
 

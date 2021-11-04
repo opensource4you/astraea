@@ -27,11 +27,12 @@ def versions = [
 ]
 
 dependencies {
-    implementation 'junit:junit:4.13.1'
     testImplementation "org.junit.jupiter:junit-jupiter:${versions["junit"]}"
     testImplementation "org.mockito:mockito-core:${versions["mockito"]}"
     testImplementation "org.mockito:mockito-inline:${versions["mockito"]}"
-    testImplementation "org.apache.zookeeper:zookeeper:${versions["zookeeper"]}"
+    testImplementation "org.apache.zookeeper:zookeeper:${versions["zooke" +
+            "qq" +
+            "eper"]}"
     testImplementation "org.apache.kafka:kafka_2.12:${versions["kafka"]}"
 
 

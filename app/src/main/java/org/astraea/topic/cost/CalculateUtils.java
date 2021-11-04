@@ -1,4 +1,4 @@
-package org.astraea.moveCost;
+package org.astraea.topic.cost;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -6,21 +6,21 @@ import org.apache.kafka.common.TopicPartition;
 
 public class CalculateUtils {
   public static Map<Integer, Map<TopicPartition, Double>> getLoad(
-      Map<Integer, Map<TopicPartition, Integer>> broker_partitionSize,
-      Map<String, Integer> retention_ms) {
-    Map<Integer, Map<TopicPartition, Double>> broker_partitionLoad = new HashMap<>();
+      Map<Integer, Map<TopicPartition, Integer>> brokerPartitionSize,
+      Map<String, Integer> retentionMillis) {
+    Map<Integer, Map<TopicPartition, Double>> brokerPartitionLoad = new HashMap<>();
     double load;
-    for (var broker : broker_partitionSize.keySet()) {
+    for (var broker : brokerPartitionSize.keySet()) {
       Map<TopicPartition, Double> partitionLoad = new HashMap<>();
-      for (var partition : broker_partitionSize.get(broker).keySet()) {
+      for (var partition : brokerPartitionSize.get(broker).keySet()) {
         load =
-            (double) broker_partitionSize.get(broker).get(partition)
-                / retention_ms.get(partition.topic());
+            (double) brokerPartitionSize.get(broker).get(partition)
+                / retentionMillis.get(partition.topic());
         partitionLoad.put(partition, load);
       }
-      broker_partitionLoad.put(broker, partitionLoad);
+      brokerPartitionLoad.put(broker, partitionLoad);
     }
-    return broker_partitionLoad;
+    return brokerPartitionLoad;
   }
 
   public static Map<Integer, Map<TopicPartition, Double>> getScore(
@@ -29,7 +29,7 @@ public class CalculateUtils {
     Map<TopicPartition, Double> partitionLoad = new HashMap<>();
     Map<Integer, Double> partitionSD = new HashMap<>();
     Map<Integer, Double> partitionMean = new HashMap<>();
-    Map<Integer, Map<TopicPartition, Double>> broker_partitionScore = new HashMap<>();
+    Map<Integer, Map<TopicPartition, Double>> brokerPartitionScore = new HashMap<>();
 
     double mean = 0f, LoadSQR = 0f, SD, brokerSD;
     int partitionNum;
@@ -71,9 +71,9 @@ public class CalculateUtils {
         } else {
           partitionScore.put(topicPartition, 0.0);
         }
-        broker_partitionScore.put(broker, partitionScore);
+        brokerPartitionScore.put(broker, partitionScore);
       }
     }
-    return broker_partitionScore;
+    return brokerPartitionScore;
   }
 }

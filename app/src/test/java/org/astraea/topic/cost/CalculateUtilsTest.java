@@ -1,4 +1,4 @@
-package org.astraea.moveCost;
+package org.astraea.topic.cost;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -10,8 +10,8 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 public class CalculateUtilsTest extends RequireBrokerCluster {
-  static Map<Integer, Map<TopicPartition, Integer>> fakeBroker_PartitionSize = new HashMap<>();
-  static Map<String, Integer> fakeRetention_ms = new HashMap<>();
+  static Map<Integer, Map<TopicPartition, Integer>> fakeBrokerPartitionSize = new HashMap<>();
+  static Map<String, Integer> fakeRetentionMillis = new HashMap<>();
   static Map<Integer, Map<TopicPartition, Double>> fakePartitionLoad = new HashMap<>();
 
   @BeforeAll
@@ -22,15 +22,15 @@ public class CalculateUtilsTest extends RequireBrokerCluster {
     fakePartitionSize.put(new TopicPartition("test0", 1), 200000000);
     fakePartitionSize.put(new TopicPartition("test0", 2), 300000000);
     fakePartitionSize.put(new TopicPartition("test0", 3), 400000000);
-    fakeBroker_PartitionSize.put(0, fakePartitionSize);
+    fakeBrokerPartitionSize.put(0, fakePartitionSize);
     fakePartitionSize = new HashMap<>();
     fakePartitionSize.put(new TopicPartition("test1", 0), 500000000);
     fakePartitionSize.put(new TopicPartition("test1", 1), 600000000);
     fakePartitionSize.put(new TopicPartition("test1", 2), 700000000);
     fakePartitionSize.put(new TopicPartition("test1", 3), 800000000);
-    fakeBroker_PartitionSize.put(1, fakePartitionSize);
-    fakeRetention_ms.put("test0", 604800000);
-    fakeRetention_ms.put("test1", 604800000);
+    fakeBrokerPartitionSize.put(1, fakePartitionSize);
+    fakeRetentionMillis.put("test0", 604800000);
+    fakeRetentionMillis.put("test1", 604800000);
 
     // set partition load
     fakePartitionLoad = new HashMap<>();
@@ -50,7 +50,7 @@ public class CalculateUtilsTest extends RequireBrokerCluster {
 
   @Test
   void testGetLoad() {
-    var Load = CalculateUtils.getLoad(fakeBroker_PartitionSize, fakeRetention_ms);
+    var Load = CalculateUtils.getLoad(fakeBrokerPartitionSize, fakeRetentionMillis);
     assertEquals(2, Load.size());
     assertEquals(4, Load.get(0).size());
     assertEquals(4, Load.get(1).size());

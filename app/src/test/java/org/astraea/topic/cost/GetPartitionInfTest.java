@@ -1,14 +1,12 @@
-package org.astraea.moveCost;
+package org.astraea.topic.cost;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Properties;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
-import org.apache.kafka.clients.admin.AdminClient;
 import org.astraea.producer.Producer;
 import org.astraea.producer.Serializer;
 import org.astraea.service.RequireBrokerCluster;
@@ -17,13 +15,11 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 public class GetPartitionInfTest extends RequireBrokerCluster {
-  static AdminClient client;
+  static TopicAdmin admin;
 
   @BeforeAll
   static void setup() throws ExecutionException, InterruptedException {
-    Properties props = new Properties();
-    props.put("bootstrap.servers", bootstrapServers());
-    client = AdminClient.create(props);
+    admin = TopicAdmin.of(bootstrapServers());
     Map<Integer, String> topicName = new HashMap<>();
     topicName.put(0, "testPartitionScore0");
     topicName.put(1, "testPartitionScore1");
@@ -53,12 +49,6 @@ public class GetPartitionInfTest extends RequireBrokerCluster {
     } catch (InterruptedException | IOException e) {
       e.printStackTrace();
     }
-    Properties properties = new Properties();
-    properties.setProperty("bootstrap.servers", bootstrapServers());
-    properties.setProperty(
-        "key.serializer", "org.apache.kafka.common.serialization.StringSerializer");
-    properties.setProperty(
-        "value.serializer", "org.apache.kafka.common.serialization.StringSerializer");
     var producer =
         Producer.builder().brokers(bootstrapServers()).keySerializer(Serializer.STRING).build();
     int size = 10000;
@@ -78,9 +68,9 @@ public class GetPartitionInfTest extends RequireBrokerCluster {
   }
 
   @Test
-  void getSize() throws ExecutionException, InterruptedException {
+  void getSize() {
 
-    var brokerPartitionSize = GetPartitionInf.getSize(client);
+    var brokerPartitionSize = GetPartitionInf.getSize(admin);
     assertEquals(3, brokerPartitionSize.size());
     assertEquals(
         3 * 4,
@@ -90,8 +80,8 @@ public class GetPartitionInfTest extends RequireBrokerCluster {
   }
 
   @Test
-  void getRetention_ms() throws ExecutionException, InterruptedException {
-    var brokerPartitionRetention_ms = GetPartitionInf.getRetention_ms(client);
-    assertEquals(3, brokerPartitionRetention_ms.size());
+  void getRetentionMillis() {
+    var brokerPartitionRetentionMillis = GetPartitionInf.getRetentionMillis(admin);
+    assertEquals(3, brokerPartitionRetentionMillis.size());
   }
 }
