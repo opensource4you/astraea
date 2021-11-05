@@ -45,6 +45,10 @@ broker_id="$(($RANDOM % 1000))"
 address=$(getAddress)
 broker_port="$(($(($RANDOM % 10000)) + 10000))"
 broker_jmx_port="$(($(($RANDOM % 10000)) + 10000))"
+admin_name="admin"
+admin_password="admin-secret"
+user_name="user"
+user_password="user-secret"
 jmx_opts="-Dcom.sun.management.jmxremote \
   -Dcom.sun.management.jmxremote.authenticate=false \
   -Dcom.sun.management.jmxremote.ssl=false \
@@ -61,7 +65,7 @@ while [[ $# -gt 0 ]]; do
     showHelp
     exit 2
   fi
-  echo "$1" >>"$config_file"
+  echo "$1" >> "$config_file"
   shift
 done
 
@@ -72,15 +76,31 @@ if [[ "$(cat $config_file | grep zookeeper.connect)" == "" ]]; then
 fi
 
 # set JVM heap
-KAFKA_HEAP="${KAFKA_HEAP:-"-Xmx2G -Xms2G"}"
+heap="${heap:-"-Xmx2G -Xms2G"}"
 
 # listeners will be generated automatically
 if [[ "$(cat $config_file | grep listeners)" != "" ]]; then
   echo "you should not define listeners"
   exit 2
 else
-  echo "listeners=PLAINTEXT://:9092" >>"$config_file"
-  echo "advertised.listeners=PLAINTEXT://${address}:$broker_port" >>"$config_file"
+  if [[ "$SASL" == "true" ]]; then
+    echo "listeners=SASL_PLAINTEXT://:9092" >> "$config_file"
+    echo "advertised.listeners=SASL_PLAINTEXT://${address}:$broker_port" >> "$config_file"
+    echo "security.inter.broker.protocol=SASL_PLAINTEXT" >> "$config_file"
+    echo "sasl.mechanism.inter.broker.protocol=PLAIN" >> "$config_file"
+    echo "sasl.enabled.mechanisms=PLAIN" >> "$config_file"
+    echo "listener.name.sasl_plaintext.plain.sasl.jaas.config=org.apache.kafka.common.security.plain.PlainLoginModule required \
+             username="$admin_name" \
+             password="$admin_password" \
+             user_${admin_name}="$admin_password" \
+             user_${user_name}="${user_password}";" >> "$config_file"
+    echo "authorizer.class.name=kafka.security.authorizer.AclAuthorizer" >> "$config_file"
+    # allow brokers to communicate each other
+    echo "super.users=User:admin" >> "$config_file"
+  else
+    echo "listeners=PLAINTEXT://:9092" >>"$config_file"
+    echo "advertised.listeners=PLAINTEXT://${address}:$broker_port" >>"$config_file"
+  fi
 fi
 
 # log.dirs is not exposed so it should be generated automatically
@@ -88,7 +108,7 @@ if [[ "$(cat $config_file | grep log.dirs)" != "" ]]; then
   echo "you should not define log.dirs"
   exit 2
 else
-  echo "log.dirs=/tmp/kafka-logs" >>"$config_file"
+  echo "log.dirs=/tmp/kafka-logs" >> "$config_file"
 fi
 
 # auto-generate broker id if it does not exist
@@ -96,32 +116,32 @@ if [[ "$(cat $config_file | grep broker.id)" != "" ]]; then
   echo "you should not define broker.id"
   exit 2
 else
-  echo "broker.id=${broker_id}" >>"$config_file"
+  echo "broker.id=${broker_id}" >> "$config_file"
 fi
 
 # =============================[performance configs]=============================
 if [[ "$(cat $config_file | grep num.io.threads)" == "" ]]; then
-  echo "num.io.threads=8" >>"$config_file"
+  echo "num.io.threads=8" >> "$config_file"
 fi
 
 if [[ "$(cat $config_file | grep num.network.threads)" == "" ]]; then
-  echo "num.network.threads=8" >>"$config_file"
+  echo "num.network.threads=8" >> "$config_file"
 fi
 
 if [[ "$(cat $config_file | grep num.partitions)" == "" ]]; then
-  echo "num.partitions=8" >>"$config_file"
+  echo "num.partitions=8" >> "$config_file"
 fi
 
 if [[ "$(cat $config_file | grep transaction.state.log.replication.factor)" == "" ]]; then
-  echo "transaction.state.log.replication.factor=1" >>"$config_file"
+  echo "transaction.state.log.replication.factor=1" >> "$config_file"
 fi
 
 if [[ "$(cat $config_file | grep offsets.topic.replication.factor)" == "" ]]; then
-  echo "offsets.topic.replication.factor=1" >>"$config_file"
+  echo "offsets.topic.replication.factor=1" >> "$config_file"
 fi
 
 if [[ "$(cat $config_file | grep transaction.state.log.min.isr)" == "" ]]; then
-  echo "transaction.state.log.min.isr=1" >>"$config_file"
+  echo "transaction.state.log.min.isr=1" >> "$config_file"
 fi
 # ==============================================================================
 
@@ -186,7 +206,7 @@ Dockerfile
 fi
 
 docker run -d \
-  -e KAFKA_HEAP_OPTS="$KAFKA_HEAP" \
+  -e KAFKA_HEAP_OPTS="$heap" \
   -e KAFKA_JMX_OPTS="$jmx_opts" \
   -e KAFKA_OPTS="-javaagent:/tmp/jmx_exporter/jmx_prometheus_javaagent-${exporter_version}.jar=$exporter_port:/tmp/jmx_exporter/kafka-2_0_0.yml" \
   -v $config_file:/tmp/broker.properties:ro \
@@ -200,4 +220,20 @@ echo "broker address: ${address}:$broker_port"
 echo "jmx address: ${address}:$broker_jmx_port"
 echo "exporter address: ${address}:$exporter_port"
 echo "broker id: $broker_id"
+if [[ "$SASL" == "true" ]]; then
+  user_jaas_file=/tmp/user-jaas-${broker_port}.conf
+  echo "
+  sasl.jaas.config=org.apache.kafka.common.security.plain.PlainLoginModule required username=${user_name} password=${user_password};
+  security.protocol=SASL_PLAINTEXT
+  sasl.mechanism=PLAIN
+  " > $user_jaas_file
+
+  admin_jaas_file=/tmp/admin-jaas-${broker_port}.conf
+  echo "
+  sasl.jaas.config=org.apache.kafka.common.security.plain.PlainLoginModule required username=${admin_name} password=${admin_password};
+  security.protocol=SASL_PLAINTEXT
+  sasl.mechanism=PLAIN
+  " > $admin_jaas_file
+  echo "SASL_PLAINTEXT is enabled. user config: $user_jaas_file admin config: $admin_jaas_file"
+fi
 echo "================================================="
