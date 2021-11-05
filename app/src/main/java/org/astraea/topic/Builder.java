@@ -1,6 +1,7 @@
 package org.astraea.topic;
 
 import java.util.*;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.kafka.clients.admin.*;
 import org.apache.kafka.common.Node;
@@ -288,19 +289,27 @@ public class Builder {
 
     @Override
     public Creator creator() {
-      return new CreatorImpl(admin);
+      return new CreatorImpl(
+          admin, topic -> this.replicas(Set.of(topic)), topic -> topics().get(topic));
     }
   }
 
   private static class CreatorImpl implements Creator {
     private final Admin admin;
+    private final Function<String, Map<TopicPartition, List<Replica>>> replicasGetter;
+    private final Function<String, Map<String, String>> configsGetter;
     private String topic;
     private int numberOfPartitions = 1;
     private short numberOfReplicas = 1;
     private final Map<String, String> configs = new HashMap<>();
 
-    CreatorImpl(Admin admin) {
+    CreatorImpl(
+        Admin admin,
+        Function<String, Map<TopicPartition, List<Replica>>> replicasGetter,
+        Function<String, Map<String, String>> configsGetter) {
       this.admin = admin;
+      this.replicasGetter = replicasGetter;
+      this.configsGetter = configsGetter;
     }
 
     @Override
@@ -329,6 +338,48 @@ public class Builder {
 
     @Override
     public void create() {
+      if (Utils.handleException(() -> admin.listTopics().names().get()).contains(topic)) {
+        var partitionReplicas = replicasGetter.apply(topic);
+        partitionReplicas.forEach(
+            (tp, replicas) -> {
+              if (replicas.size() != numberOfReplicas)
+                throw new IllegalArgumentException(
+                    topic
+                        + " is existent but its replicas: "
+                        + replicas.size()
+                        + " is not equal to expected: "
+                        + numberOfReplicas);
+            });
+        var result =
+            Utils.handleException(() -> admin.describeTopics(Set.of(topic)).all().get().get(topic));
+        if (result.partitions().size() != numberOfPartitions)
+          throw new IllegalArgumentException(
+              topic
+                  + " is existent but its partitions: "
+                  + result.partitions().size()
+                  + " is not equal to expected: "
+                  + numberOfReplicas);
+
+        var actualConfigs = configsGetter.apply(topic);
+        this.configs.forEach(
+            (key, value) -> {
+              if (!actualConfigs.get(key).equals(value))
+                throw new IllegalArgumentException(
+                    topic
+                        + " is existent but its config: <"
+                        + key
+                        + ", "
+                        + actualConfigs.get(key)
+                        + "> is not equal to expected: "
+                        + key
+                        + ", "
+                        + value);
+            });
+
+        // ok, the existent topic is totally equal to what we want to create.
+        return;
+      }
+
       Utils.handleException(
           () ->
               admin
