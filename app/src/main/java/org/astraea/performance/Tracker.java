@@ -43,6 +43,10 @@ public class Tracker implements ThreadPool.Executor {
       System.out.printf(
           "  producer[%d]的發送average latency: %.3fms%n", i, producerData.get(i).avgLatency());
     }
+    if (consumerData.isEmpty()) {
+      if (completed >= records) return State.DONE;
+      else return State.RUNNING;
+    }
     /* consumer */
     completed = 0;
     bytes = 0L;
