@@ -35,16 +35,19 @@ public class TopicAdminTest extends RequireBrokerCluster {
   void testCreateTopicRepeatedly() throws IOException {
     var topicName = "testCreateTopicRepeatedly";
     try (var topicAdmin = TopicAdmin.of(bootstrapServers())) {
-      IntStream.range(0, 10)
-          .forEach(
-              i ->
-                  topicAdmin
-                      .creator()
-                      .configs(Map.of(TopicConfig.COMPRESSION_TYPE_CONFIG, "lz4"))
-                      .numberOfReplicas((short) 1)
-                      .numberOfPartitions(3)
-                      .topic(topicName)
-                      .create());
+      Runnable createTopic =
+          () ->
+              topicAdmin
+                  .creator()
+                  .configs(Map.of(TopicConfig.COMPRESSION_TYPE_CONFIG, "lz4"))
+                  .numberOfReplicas((short) 1)
+                  .numberOfPartitions(3)
+                  .topic(topicName)
+                  .create();
+
+      createTopic.run();
+      Utils.waitFor(() -> topicAdmin.topics().containsKey(topicName));
+      IntStream.range(0, 10).forEach(i -> createTopic.run());
 
       // changing number of partitions can producer error
       Assertions.assertThrows(
