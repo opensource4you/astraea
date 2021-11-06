@@ -174,7 +174,7 @@ public class MetricExplorer {
     @Parameter(
         names = {"--jmx.server"},
         description =
-            "The JMX server address to connect to, support [hostname:port] style or JMX URI format, former style assume no security and no password used",
+            "The JMX server address to connect to, support [hostname:port] style or JMX URI format",
         validateWith = ArgumentUtil.NotEmptyString.class,
         converter = Argument.JmxServerUrlConverter.class,
         required = true)
