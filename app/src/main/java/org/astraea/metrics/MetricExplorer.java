@@ -34,15 +34,19 @@ public class MetricExplorer {
     Collection<BeanObject> beanObjects = mBeanClient.queryBeans(builder.build());
 
     // display result
-    display(beanObjects);
+    if (args.viewObjectNameList) displayObjectNameList(beanObjects);
+    else displayBeanObjects(beanObjects);
   }
 
-  static void display(Collection<BeanObject> beanObjects) {
-    for (BeanObject beanObject : beanObjects) {
+  static void displayBeanObjects(Collection<BeanObject> beanObjects) {
+    var propertyOrderMap = propertyOrder(beanObjects);
+    var collect = sortBeanObjects(beanObjects, propertyOrderMap);
+
+    for (BeanObject beanObject : collect) {
       String properties =
           beanObject.getProperties().entrySet().stream()
+              .sorted(Comparator.comparing(x -> propertyOrderMap.get(x.getKey())))
               .map(entry -> entry.getKey() + "=" + entry.getValue())
-              .sorted()
               .collect(Collectors.joining(","));
 
       System.out.printf("[%s:%s]\n", beanObject.domainName(), properties);
@@ -51,6 +55,111 @@ public class MetricExplorer {
       strings = DataUtils.streamAppendWith(" ", 4, strings);
       strings.forEach(System.out::println);
     }
+  }
+
+  static void displayObjectNameList(Collection<BeanObject> beanObjects) {
+    var propertyOrderMap = propertyOrder(beanObjects);
+    var collect = sortBeanObjects(beanObjects, propertyOrderMap);
+
+    collect.forEach(
+        x ->
+            System.out.printf(
+                "%s:%s\n",
+                x.domainName(),
+                x.getProperties().entrySet().stream()
+                    .sorted(Comparator.comparingLong(z -> propertyOrderMap.get(z.getKey())))
+                    .map(z -> z.getKey() + "=" + z.getValue())
+                    .collect(Collectors.joining(","))));
+  }
+
+  /**
+   * generate the order of property entry, the lower number the higher priority
+   *
+   * @param beanObjects Mbeans objects, the order is decided by some property or statistics based on
+   *     the given Mbeans.
+   * @return a {@link Map} describe the priority of each property key
+   */
+  static Map<String, Long> propertyOrder(Collection<BeanObject> beanObjects) {
+
+    // count the frequency of each property key name
+    // property who has higher frequency will close to the tree root when printing result
+    Map<String, Long> propertyFrequencyMap =
+        beanObjects.stream()
+            .flatMap(x -> x.getProperties().entrySet().stream())
+            .map(Map.Entry::getKey)
+            .collect(Collectors.groupingBy(x -> x, Collectors.counting()));
+
+    // the order for sorting properties
+    Map<String, Long> propertyOrderMap =
+        propertyFrequencyMap.entrySet().stream()
+            .map(entry -> Map.entry(entry.getKey(), beanObjects.size() + 1 - entry.getValue()))
+            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+
+    // the property key "name" will always has the lowest priority, just like how JMC does it.
+    propertyOrderMap.put("name", beanObjects.size() + 1L);
+
+    return propertyOrderMap;
+  }
+
+  /**
+   * sort the given bean objects based on the given property order. The order is first decide by the
+   * alphabet order of domain name, then decided by the given property key order.
+   *
+   * @param beanObjects the Mbeans to be sorted.
+   * @param propertyOrderMap the order of property key, the lower number the higher priority.
+   * @return a new {@link List} consist of all the given Mbeans, all Mbeans are sort by given
+   *     property order.
+   */
+  static List<BeanObject> sortBeanObjects(
+      Collection<BeanObject> beanObjects, Map<String, Long> propertyOrderMap) {
+    return beanObjects.stream()
+        .sorted(
+            Comparator.comparing(BeanObject::domainName)
+                .thenComparing(
+                    (o1, o2) -> {
+                      List<Map.Entry<String, String>> order1 =
+                          o1.getProperties().entrySet().stream()
+                              .sorted(Comparator.comparing(x -> propertyOrderMap.get(x.getKey())))
+                              .collect(Collectors.toList());
+                      List<Map.Entry<String, String>> order2 =
+                          o2.getProperties().entrySet().stream()
+                              .sorted(Comparator.comparing(x -> propertyOrderMap.get(x.getKey())))
+                              .collect(Collectors.toList());
+
+                      // how the comparison works:
+                      // 1. sort all properties, now property key/value with higher key frequency
+                      // will show first.
+                      // 2. sort by property key/value amount
+                      // 3. compare the 1'st property key
+                      // 4. compare the 2'nd property key
+                      // 5. etc...
+                      // 6. compare the 1'st property value
+                      // 7. compare the 2'nd property value
+                      // 8. etc...
+                      // 9. object name equal
+
+                      if (order1.size() != order2.size()) {
+                        return -Integer.compare(order1.size(), order2.size());
+                      } else {
+                        var key =
+                            Comparator.comparing(
+                                (Map.Entry<String, String> x) -> propertyOrderMap.get(x.getKey()));
+                        var value = Map.Entry.<String, String>comparingByValue();
+
+                        for (int i = 0; i < order1.size(); i++) {
+                          int result = key.compare(order1.get(i), order2.get(i));
+                          if (result != 0) return result;
+                        }
+
+                        for (int i = 0; i < order1.size(); i++) {
+                          int result = value.compare(order1.get(i), order2.get(i));
+                          if (result != 0) return result;
+                        }
+
+                        return 0;
+                      }
+                    }))
+        .collect(Collectors.toList());
   }
 
   public static void main(String[] args) throws Exception {
@@ -88,6 +197,11 @@ public class MetricExplorer {
         description =
             "Only MBeans metrics with properties completely match the given criteria shows")
     boolean strictMatch = false;
+
+    @Parameter(
+        names = {"--view-object-name-list"},
+        description = "Show the list view of MBeans' domain name & properties")
+    boolean viewObjectNameList = false;
 
     public static class JmxServerUrlConverter implements IStringConverter<JMXServiceURL> {
 
