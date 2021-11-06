@@ -38,7 +38,7 @@ public class MetricExplorer {
     else displayBeanObjects(beanObjects);
   }
 
-  static void displayBeanObjects(Collection<BeanObject> beanObjects) {
+  private static void displayBeanObjects(Collection<BeanObject> beanObjects) {
     var propertyOrderMap = propertyOrder(beanObjects);
     var collect = sortBeanObjects(beanObjects, propertyOrderMap);
 
@@ -57,7 +57,7 @@ public class MetricExplorer {
     }
   }
 
-  static void displayObjectNameList(Collection<BeanObject> beanObjects) {
+  private static void displayObjectNameList(Collection<BeanObject> beanObjects) {
     var propertyOrderMap = propertyOrder(beanObjects);
     var collect = sortBeanObjects(beanObjects, propertyOrderMap);
 
