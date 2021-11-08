@@ -76,7 +76,7 @@ public class Performance {
     var producerRecords = new AtomicLong(param.records);
     var tracker = new Tracker(producerMetrics, consumerMetrics, param.records);
     var groupId = "groupId-" + System.currentTimeMillis();
-    var countDown = new CountDownLatch(param.consumers);
+    var getAssignment = new CountDownLatch(param.consumers);
     try (ThreadPool threadPool =
         ThreadPool.builder()
             .executors(
@@ -89,7 +89,7 @@ public class Performance {
                                     .topics(Set.of(param.topic))
                                     .groupId(groupId)
                                     .configs(param.perfProps())
-                                    .consumerRebalanceListener(ignore -> countDown.countDown())
+                                    .consumerRebalanceListener(ignore -> getAssignment.countDown())
                                     .build(),
                                 consumerMetrics.get(i),
                                 consumerRecords))
@@ -106,7 +106,7 @@ public class Performance {
                                 param,
                                 producerMetrics.get(i),
                                 producerRecords,
-                                countDown))
+                                getAssignment))
                     .collect(Collectors.toUnmodifiableList()))
             .executor(tracker)
             .build()) {
@@ -154,12 +154,13 @@ public class Performance {
       Argument param,
       Metrics metrics,
       AtomicLong records,
-      CountDownLatch countDown) {
+      CountDownLatch getAssignment) {
     byte[] payload = new byte[param.recordSize];
     return new ThreadPool.Executor() {
       @Override
       public State execute() throws InterruptedException {
-        countDown.await();
+        // Wait for all consumers get assignment.
+        getAssignment.await();
         var currentRecords = records.getAndDecrement();
         if (currentRecords <= 0) return State.DONE;
         long start = System.currentTimeMillis();

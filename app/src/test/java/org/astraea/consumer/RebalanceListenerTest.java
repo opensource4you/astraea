@@ -6,7 +6,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.astraea.Utils;
 import org.astraea.concurrent.ThreadPool;
 import org.astraea.service.RequireBrokerCluster;
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 public class RebalanceListenerTest extends RequireBrokerCluster {
@@ -28,8 +27,7 @@ public class RebalanceListenerTest extends RequireBrokerCluster {
                     return ThreadPool.Executor.State.DONE;
                   })
               .build()) {
-        Assertions.assertDoesNotThrow(
-            () -> Utils.waitFor(() -> getAssignment.get() == 1, Duration.ofSeconds(10)));
+        Utils.waitFor(() -> getAssignment.get() == 1, Duration.ofSeconds(10));
       }
     }
   }
