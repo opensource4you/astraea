@@ -51,9 +51,18 @@ public class Builder {
     }
 
     @Override
-    public void reassignFolder(String topicName, int partition, String path) {
-      Utils.handleException(
-          () -> admin.alterReplicaLogDirs(Map.of(new TopicPartitionReplica("test0", 3, 0), path)));
+    public void reassignFolder(String topicName, Set<String> partition, String path) {
+      try {
+        for (var p : partition) {
+          admin.alterReplicaLogDirs(
+              Map.of(
+                  new TopicPartitionReplica(
+                      topicName,
+                          Integer.parseInt(p),
+                     0),
+                  path));
+        }
+      } catch (Exception e) {}
     }
 
     @Override
