@@ -197,7 +197,7 @@ This tool offers an effective way to migrate all replicas from specific brokers 
 ### Replica Collie Configurations
 1. --bootstrap.servers: the server to connect to
 2. --topics: the topics to be moved
-3. --admin.props.file: the file path containing the properties to be passed to kafka admingi
+3. --admin.props.file: the file path containing the properties to be passed to kafka admin
 
 ## Kafka Partition Score
 
