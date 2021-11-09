@@ -7,6 +7,7 @@ import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import org.apache.kafka.common.config.TopicConfig;
 import org.astraea.Utils;
 import org.astraea.producer.Producer;
@@ -27,6 +28,46 @@ public class TopicAdminTest extends RequireBrokerCluster {
           .create();
       Assertions.assertEquals(
           "lz4", topicAdmin.topics().get(topicName).get(TopicConfig.COMPRESSION_TYPE_CONFIG));
+    }
+  }
+
+  @Test
+  void testCreateTopicRepeatedly() throws IOException {
+    var topicName = "testCreateTopicRepeatedly";
+    try (var topicAdmin = TopicAdmin.of(bootstrapServers())) {
+      Runnable createTopic =
+          () ->
+              topicAdmin
+                  .creator()
+                  .configs(Map.of(TopicConfig.COMPRESSION_TYPE_CONFIG, "lz4"))
+                  .numberOfReplicas((short) 1)
+                  .numberOfPartitions(3)
+                  .topic(topicName)
+                  .create();
+
+      createTopic.run();
+      Utils.waitFor(() -> topicAdmin.topics().containsKey(topicName));
+      IntStream.range(0, 10).forEach(i -> createTopic.run());
+
+      // changing number of partitions can producer error
+      Assertions.assertThrows(
+          IllegalArgumentException.class,
+          () -> topicAdmin.creator().numberOfPartitions(1).topic(topicName).create());
+
+      // changing number of replicas can producer error
+      Assertions.assertThrows(
+          IllegalArgumentException.class,
+          () -> topicAdmin.creator().numberOfReplicas((short) 2).topic(topicName).create());
+
+      // changing config can producer error
+      Assertions.assertThrows(
+          IllegalArgumentException.class,
+          () ->
+              topicAdmin
+                  .creator()
+                  .configs(Map.of(TopicConfig.COMPRESSION_TYPE_CONFIG, "gzip"))
+                  .topic(topicName)
+                  .create());
     }
   }
 
