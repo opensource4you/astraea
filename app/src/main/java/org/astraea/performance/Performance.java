@@ -13,7 +13,7 @@ import java.util.stream.IntStream;
 import org.apache.kafka.clients.producer.internals.DefaultPartitioner;
 import org.apache.kafka.common.errors.WakeupException;
 import org.astraea.argument.ArgumentUtil;
-import org.astraea.argument.BasicArgument;
+import org.astraea.argument.BasicArgumentWithPropFile;
 import org.astraea.concurrent.ThreadPool;
 import org.astraea.consumer.Consumer;
 import org.astraea.producer.Producer;
@@ -182,7 +182,7 @@ public class Performance {
     };
   }
 
-  static class Argument extends BasicArgument {
+  static class Argument extends BasicArgumentWithPropFile {
 
     @Parameter(
         names = {"--topic"},

@@ -59,6 +59,7 @@ public class Metrics {
     var value = new BigDecimal(bytes);
     var scale = new BigDecimal(1024 * 1024);
     var time = BigDecimal.valueOf((double) (System.currentTimeMillis() - startTime) / 1000);
+    if (time.doubleValue() == 0.0) return 0.0;
     return value.divide(scale, 3, RoundingMode.UP).divide(time, 3, RoundingMode.UP).doubleValue();
   }
 

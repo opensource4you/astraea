@@ -95,21 +95,23 @@ prometheus address: http://192.168.50.178:15483
 This tool is used test to following metrics.
 1. publish latency: the time of completing producer data request
 2. E2E latency: the time for a record to travel through Kafka
-3. input rate: sum of consumer inputs in MByte per second
-4. output rate: sum of producer outputs in MByte per second
+3. input rate: average of consumer inputs in MByte per second
+4. output rate: average of producer outputs in MByte per second
 
 Run the benchmark from source
 ```shell
-./gradlew run --args="Performance --bootstrap.servers localhost:9092 --topic topic --topicConfig partitions:10,replicationFactor:3 --producers 5 --consumers 1 --records 100000 --recordSize 10000"
+./gradlew run --args="performance --bootstrap.servers localhost:9092"
 ```
 ### Performance Benchmark Configurations
 1. --bootstrap.servers: the server to connect to
-2. --topic: the topic name
+2. --topic: the topic name. Default: testPerformance-{Time in millis}
 3. --partitions: topic config when creating new topic. Default: 1 
 4. --replicas: topic config when creating new topic. Default: 1
 5. --consumers: the number of consumers (threads). Default: 1
-6. --records: the total number of records sent by the producers. Default: 1000
-7. --record.size: the record size in byte. Default: 1024 byte
+6. --producers: the number of producers (threads). Default: 1
+7. --records: the total number of records sent by the producers. Default: 1000
+8. --record.size: the record size in byte. Default: 1024 byte
+9. --prop.file: the path to property file.
 
 ---
 
