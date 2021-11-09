@@ -12,7 +12,6 @@ import org.astraea.topic.TopicExplorer;
 import org.astraea.topic.cost.PartitionScore;
 
 public class App {
-
   private static final Map<String, Class<?>> MAIN_CLASSES =
       Map.of(
           "offset", TopicExplorer.class,
