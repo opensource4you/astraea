@@ -25,8 +25,12 @@ public class PartitionScore {
     for (var i : score.keySet()) {
       System.out.println("broker: " + i);
       for (var j : score.get(i).keySet()) {
-        System.out.println("topic-partition: " + j);
-        System.out.println("score: " + score.get(i).get(j));
+        if (score.get(i).get(j) != 0) {
+          System.out.println("topic-partition: " + j);
+          System.out.println("score: " + score.get(i).get(j));
+        } else {
+          System.out.println("topic-partition: " + j + " is balance");
+        }
       }
     }
   }
