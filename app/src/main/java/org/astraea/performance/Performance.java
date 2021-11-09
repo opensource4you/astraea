@@ -54,7 +54,7 @@ public class Performance {
 
   public static void execute(final Argument param)
       throws InterruptedException, IOException, ExecutionException {
-    try (var topicAdmin = TopicAdmin.of(param.perfProps())) {
+    try (var topicAdmin = TopicAdmin.of(param.props())) {
       topicAdmin
           .creator()
           .numberOfReplicas(param.replicas)
@@ -88,7 +88,7 @@ public class Performance {
                                     .brokers(param.brokers)
                                     .topics(Set.of(param.topic))
                                     .groupId(groupId)
-                                    .configs(param.perfProps())
+                                    .configs(param.props())
                                     .consumerRebalanceListener(ignore -> getAssignment.countDown())
                                     .build(),
                                 consumerMetrics.get(i),
@@ -100,7 +100,7 @@ public class Performance {
                         i ->
                             producerExecutor(
                                 Producer.builder()
-                                    .configs(param.perfProps())
+                                    .configs(param.props())
                                     .partitionClassName(param.partitioner)
                                     .build(),
                                 param,
@@ -240,16 +240,11 @@ public class Performance {
         validateWith = ArgumentUtil.NotEmptyString.class)
     String partitioner = DefaultPartitioner.class.getName();
 
-    @Parameter(
-        names = {"--prop.file"},
-        description = "String: path to the properties file",
-        validateWith = ArgumentUtil.NotEmptyString.class)
-    String propFile;
-
-    public Map<String, Object> perfProps() {
-      Map<String, Object> props = properties(propFile);
-      if (!this.jmxServers.isEmpty()) props.put("jmx_servers", this.jmxServers);
-      return props;
+    @Override
+    public Map<String, Object> props() {
+      Map<String, Object> prop = properties(propFile);
+      if (!this.jmxServers.isEmpty()) prop.put("jmx_servers", this.jmxServers);
+      return prop;
     }
   }
 }
