@@ -26,8 +26,13 @@ public class TopicAdminTest extends RequireBrokerCluster {
           .topic(topicName)
           .configs(Map.of(TopicConfig.COMPRESSION_TYPE_CONFIG, "lz4"))
           .create();
-      Assertions.assertEquals(
-          "lz4", topicAdmin.topics().get(topicName).get(TopicConfig.COMPRESSION_TYPE_CONFIG));
+      Utils.waitFor(
+          () ->
+              topicAdmin
+                  .topics()
+                  .getOrDefault(topicName, Map.of())
+                  .get(TopicConfig.COMPRESSION_TYPE_CONFIG)
+                  .equals("lz4"));
     }
   }
 
