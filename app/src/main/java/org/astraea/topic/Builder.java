@@ -209,6 +209,7 @@ public class Builder {
     public Map<TopicPartition, List<Replica>> replicas(Set<String> topics) {
       var replicaInfos =
           Utils.handleException(() -> admin.describeLogDirs(brokerIds()).allDescriptions().get());
+
       var replicaLags =
           replicaInfos.entrySet().stream()
               .collect(
