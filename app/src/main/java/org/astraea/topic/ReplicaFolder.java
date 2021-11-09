@@ -10,22 +10,33 @@ import org.astraea.argument.BasicAdminArgument;
 
 public class ReplicaFolder {
 
-  static Map<TopicPartition, Map.Entry<Set<Integer>, Set<Integer>>> execute(
+  static Map<TopicPartition, Map.Entry<Set<String>, Set<String>>> execute(
       TopicAdmin admin, Argument args) {
-    var topics = (args.topics.isEmpty() ? admin.topicNames() : args.topics).iterator().next();
+    var topic = args.topics.isEmpty() ? admin.topicNames() : args.topics;
     var partitions = args.partitions;
     var path = args.path.iterator().next();
-
     var result =
-        new TreeMap<TopicPartition, Map.Entry<Set<Integer>, Set<Integer>>>(
+        new TreeMap<TopicPartition, Map.Entry<Set<String>, Set<String>>>(
             Comparator.comparing(TopicPartition::topic).thenComparing(TopicPartition::partition));
+    admin.replicas(topic).entrySet().stream()
+        .filter(
+            t ->
+                t.getKey().topic().equals(topic.iterator().next())
+                    && partitions.contains(t.getKey().partition()))
+        .collect(Collectors.toList())
+        .forEach(
+            (tp) -> {
+              var currentPath =
+                  tp.getValue().stream().map(Replica::path).collect(Collectors.toSet());
+              if (tp.getValue().get(0).broker() == 0)
+                if (topic.iterator().next().equals(tp.getKey().topic())
+                    && partitions.contains(String.valueOf(tp.getKey().partition())))
+                  if (!currentPath.equals(args.path))
+                    result.put(tp.getKey(), Map.entry(currentPath, args.path));
+            });
 
+    admin.reassignFolder(topic.iterator().next(), partitions, path);
 
-    result.forEach(
-        (tp, assignments) -> {
-          // if (!args.verify) admin.reassign(tp.topic(), tp.partition(), assignments.getValue());
-        });
-    admin.reassignFolder(topics, partitions, path);
     return result;
   }
 
@@ -69,13 +80,12 @@ public class ReplicaFolder {
         converter = ArgumentUtil.StringSetConverter.class)
     public Set<String> path = Collections.emptySet();
 
-
     @Parameter(
         names = {"--verify"},
         description =
             "True if you just want to see the new assignment instead of executing the plan",
         validateWith = ArgumentUtil.NotEmptyString.class,
         converter = ArgumentUtil.BooleanConverter.class)
-    boolean verify = false;
+    boolean verify = true;
   }
 }

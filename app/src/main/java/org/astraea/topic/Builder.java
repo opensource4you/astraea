@@ -55,14 +55,10 @@ public class Builder {
       try {
         for (var p : partition) {
           admin.alterReplicaLogDirs(
-              Map.of(
-                  new TopicPartitionReplica(
-                      topicName,
-                          Integer.parseInt(p),
-                     0),
-                  path));
+              Map.of(new TopicPartitionReplica(topicName, Integer.parseInt(p), 0), path));
         }
-      } catch (Exception e) {}
+      } catch (Exception e) {
+      }
     }
 
     @Override
