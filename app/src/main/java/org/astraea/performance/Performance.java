@@ -11,7 +11,7 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.kafka.common.errors.WakeupException;
 import org.astraea.argument.ArgumentUtil;
-import org.astraea.argument.BasicArgument;
+import org.astraea.argument.BasicArgumentWithPropFile;
 import org.astraea.concurrent.ThreadPool;
 import org.astraea.consumer.Builder;
 import org.astraea.consumer.Consumer;
@@ -170,7 +170,7 @@ public class Performance {
     };
   }
 
-  static class Argument extends BasicArgument {
+  static class Argument extends BasicArgumentWithPropFile {
 
     @Parameter(
         names = {"--topic"},
@@ -214,12 +214,6 @@ public class Performance {
         description = "Integer: size of each record",
         validateWith = ArgumentUtil.PositiveLong.class)
     int recordSize = 1024;
-
-    @Parameter(
-        names = {"--prop.file"},
-        description = "String: path to the properties file",
-        validateWith = ArgumentUtil.NotEmptyString.class)
-    String propFile;
 
     public Map<String, Object> perfProps() {
       return properties(propFile);

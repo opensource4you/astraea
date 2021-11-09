@@ -6,7 +6,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 import org.apache.kafka.common.TopicPartition;
 import org.astraea.argument.ArgumentUtil;
-import org.astraea.argument.BasicAdminArgument;
+import org.astraea.argument.BasicArgumentWithPropFile;
 
 public class ReplicaCollie {
 
@@ -66,7 +66,7 @@ public class ReplicaCollie {
 
   public static void main(String[] args) throws IOException {
     var argument = ArgumentUtil.parseArgument(new Argument(), args);
-    try (var admin = TopicAdmin.of(argument.adminProps())) {
+    try (var admin = TopicAdmin.of(argument.props())) {
       execute(admin, argument)
           .forEach(
               (tp, assignments) ->
@@ -82,7 +82,7 @@ public class ReplicaCollie {
     }
   }
 
-  static class Argument extends BasicAdminArgument {
+  static class Argument extends BasicArgumentWithPropFile {
     @Parameter(
         names = {"--topics"},
         description = "Those topics' partitions will get reassigned. Empty menas all topics",
