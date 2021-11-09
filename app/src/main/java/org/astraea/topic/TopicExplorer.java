@@ -5,7 +5,7 @@ import java.io.IOException;
 import java.util.*;
 import java.util.stream.Collectors;
 import org.astraea.argument.ArgumentUtil;
-import org.astraea.argument.BasicAdminArgument;
+import org.astraea.argument.BasicArgumentWithPropFile;
 
 public class TopicExplorer {
 
@@ -77,13 +77,13 @@ public class TopicExplorer {
 
   public static void main(String[] args) throws IOException {
     var argument = ArgumentUtil.parseArgument(new Argument(), args);
-    try (var admin = TopicAdmin.of(argument.adminProps())) {
+    try (var admin = TopicAdmin.of(argument.props())) {
       execute(admin, argument.topics.isEmpty() ? admin.topicNames() : argument.topics)
           .forEach(System.out::println);
     }
   }
 
-  static class Argument extends BasicAdminArgument {
+  static class Argument extends BasicArgumentWithPropFile {
     @Parameter(
         names = {"--topics"},
         description = "the topics to show all offset-related information. Empty means all topics",
