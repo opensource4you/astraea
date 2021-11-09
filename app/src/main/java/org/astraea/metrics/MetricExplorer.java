@@ -293,8 +293,7 @@ public class MetricExplorer {
     static Stream<String> elaborateMap(Map<?, ?> data) {
       return data.entrySet().stream()
           .sorted(Comparator.comparing(Object::toString))
-          .flatMap(DataUtils::elaborateMapEntry)
-          .limit(50);
+          .flatMap(DataUtils::elaborateMapEntry);
     }
 
     static Stream<String> elaborateMapEntry(Map.Entry<?, ?> entry) {
@@ -324,7 +323,7 @@ public class MetricExplorer {
     }
 
     static Stream<String> elaborateArray(long[] array) {
-      return IntStream.range(0, array.length).mapToObj(x -> x + ": " + array[x]).limit(20);
+      return IntStream.range(0, array.length).mapToObj(x -> x + ": " + array[x]);
     }
 
     static Stream<String> elaborateList(List<?> list) {
@@ -344,8 +343,7 @@ public class MetricExplorer {
     static Stream<String> elaborateCompositeDataSupport(CompositeDataSupport data) {
       return data.getCompositeType().keySet().stream()
           .sorted()
-          .flatMap(key -> DataUtils.elaborateMapEntry(Map.entry(key, data.get(key))))
-          .limit(50);
+          .flatMap(key -> DataUtils.elaborateMapEntry(Map.entry(key, data.get(key))));
     }
 
     static Stream<String> streamAppendWith(String s, int size, Stream<String> source) {
