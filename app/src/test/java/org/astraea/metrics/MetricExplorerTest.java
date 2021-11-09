@@ -68,8 +68,8 @@ class MetricExplorerTest {
   @ParameterizedTest
   @ValueSource(
       strings = {
-        "--jmx.server localhost:5566 --from-domain example.com",
-        "--jmx.server localhost:5566 --from-domain example.com --view-object-name-list",
+        "--jmx.server localhost:5566 --domain example.com",
+        "--jmx.server localhost:5566 --domain example.com --view-object-name-list",
       })
   void executeDoesPrintSomething(String args) {
     // arrange
@@ -99,7 +99,7 @@ class MetricExplorerTest {
       delimiterString = "(is",
       value = {
         "--jmx.server localhost:5566                                       (is ok",
-        "--jmx.server localhost:5566 --from-domain kafka.log               (is ok",
+        "--jmx.server localhost:5566 --domain kafka.log                    (is ok",
         "--jmx.server localhost:5566 --property type=Memory                (is ok",
         "--jmx.server localhost:5566 --strict-match --property type=Memory (is ok",
         "--jmx.server localhost:5566 --view-object-name-list               (is ok",

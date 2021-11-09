@@ -138,7 +138,7 @@ Run the tool from source code
 ./gradlew run --args="metrics --jmx.server 192.168.50.178:1099"
 ./gradlew run --args="metrics --jmx.server 192.168.50.178:1099 --property type=Memory"
 ./gradlew run --args="metrics --jmx.server 192.168.50.178:1099 --view-object-name-list"
-./gradlew run --args="metrics --jmx.server 192.168.50.178:1099 --from-domain kafka.network --property request=Metadata --property name=LocalTimeMs"
+./gradlew run --args="metrics --jmx.server 192.168.50.178:1099 --domain kafka.network --property request=Metadata --property name=LocalTimeMs"
 ```
 
 Run the tool from release
@@ -146,13 +146,13 @@ Run the tool from release
 java -jar app-0.0.1-SNAPSHOT-all.jar metrics --jmx.server 192.168.50.178:1099
 java -jar app-0.0.1-SNAPSHOT-all.jar metrics --jmx.server 192.168.50.178:1099 --property type=Memory
 java -jar app-0.0.1-SNAPSHOT-all.jar metrics --jmx.server 192.168.50.178:1099 --view-object-name-list
-java -jar app-0.0.1-SNAPSHOT-all.jar metrics --jmx.server 192.168.50.178:1099 --from-domain kafka.network --property request=Metadata --property name=LocalTimeMs
+java -jar app-0.0.1-SNAPSHOT-all.jar metrics --jmx.server 192.168.50.178:1099 --domain kafka.network --property request=Metadata --property name=LocalTimeMs
 ```
 
 ### Metric Client Configurations
 
 1. --jmx.server: the address to connect to Kafka JMX remote server.
-2. --from-domain: query Mbeans from the specific domain name (support wildcard "\*" and "?"). Default: "\*".
+2. --domain: query Mbeans from the specific domain name (support wildcard "\*" and "?"). Default: "\*".
 3. --property: query mbeans with the specific property (support wildcard "\*" and "?"). You can specify this argument multiple times. Default: [].
 4. --strict-match: only Mbeans with its object name completely match the given criteria shows. Default: false.
 5. --view-object-name-list: show the list view of MBeans' domain name & properties. Default: false.

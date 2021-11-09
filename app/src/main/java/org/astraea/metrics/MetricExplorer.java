@@ -181,7 +181,7 @@ public class MetricExplorer {
     JMXServiceURL jmxServer;
 
     @Parameter(
-        names = {"--from-domain"},
+        names = {"--domain"},
         description =
             "Show Mbeans from specific domain pattern, support wildcard(*) and any char(?)")
     String fromDomainName = "*";
