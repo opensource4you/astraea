@@ -272,85 +272,127 @@ public class MetricExplorer {
 
   static class DataUtils {
 
-    static Stream<String> elaborateData(Object target) {
-      if (target == null) {
-        return Stream.of("null");
-      } else if (target instanceof List<?>) {
-        return elaborateList((List<?>) target);
-      } else if (target instanceof Map<?, ?>) {
-        return elaborateMap((Map<?, ?>) target);
-      } else if (target instanceof CompositeDataSupport) {
-        return elaborateCompositeDataSupport(((CompositeDataSupport) target));
-      } else if (target.getClass().isArray()) {
-        if (target.getClass() == long[].class) return elaborateArray((long[]) target);
-        else return elaborateArray((Object[]) target);
-      }
+    static int stringLengthLimit = 500;
 
-      // I have no idea how to display this object, just toString it.
-      return Stream.of(target.toString());
+    static Stream<String> elaborateData(Object target) {
+      try {
+        if (target == null) {
+          return Stream.of("null");
+        } else if (target instanceof List<?>) {
+          return elaborateList((List<?>) target);
+        } else if (target instanceof Map<?, ?>) {
+          return elaborateMap((Map<?, ?>) target);
+        } else if (target instanceof CompositeDataSupport) {
+          return elaborateCompositeDataSupport(((CompositeDataSupport) target));
+        } else if (target.getClass().isArray()) {
+          if (target.getClass() == long[].class) return elaborateArray((long[]) target);
+          else return elaborateArray((Object[]) target);
+        }
+
+        // I have no idea how to display this object, just toString it.
+        return Stream.of(stringify(target));
+      } catch (Exception e) {
+        return Stream.of(e.toString());
+      }
+    }
+
+    static String stringify(Object object) {
+        String string = object.toString();
+        if(string.length() > stringLengthLimit) {
+          return string.substring(0, stringLengthLimit) +
+                  String.format("%n... (%d characters truncated)", string.length() - stringLengthLimit);
+        } else {
+          return string;
+        }
     }
 
     static Stream<String> elaborateMap(Map<?, ?> data) {
-      return data.entrySet().stream()
-          .sorted(Comparator.comparing(Object::toString))
-          .flatMap(DataUtils::elaborateMapEntry)
-          .limit(50);
+      try {
+        return data.entrySet().stream()
+                .sorted(Comparator.comparing(Object::toString))
+                .flatMap(DataUtils::elaborateMapEntry);
+      } catch (Exception e) {
+        return Stream.of(e.toString());
+      }
     }
 
     static Stream<String> elaborateMapEntry(Map.Entry<?, ?> entry) {
-      List<String> key = elaborateData(entry.getKey()).collect(Collectors.toList());
-      List<String> value = elaborateData(entry.getValue()).collect(Collectors.toList());
+      try {
+        List<String> key = elaborateData(entry.getKey()).collect(Collectors.toList());
+        List<String> value = elaborateData(entry.getValue()).collect(Collectors.toList());
 
-      if (key.size() == 1 && value.size() > 1)
-        return Stream.concat(
-            Stream.of(String.format("\"%s\":", key.get(0))),
-            streamAppendWith(" ", 4, value.stream()));
+        if (key.size() == 1 && value.size() > 1)
+          return Stream.concat(
+                  Stream.of(String.format("\"%s\":", key.get(0))),
+                  streamAppendWith(" ", 4, value.stream()));
 
-      return Stream.of(String.format("\"%s\": %s", key.get(0), value.get(0)));
+        return Stream.of(String.format("\"%s\": %s", key.get(0), value.get(0)));
+      } catch (Exception e) {
+          return Stream.of(e.toString());
+      }
     }
 
     static Stream<String> elaborateArray(Object[] array) {
-      return IntStream.range(0, array.length)
-          .boxed()
-          .flatMap(
-              i -> {
-                List<String> collect = elaborateData(array[i]).collect(Collectors.toList());
-                if (collect.size() == 1)
-                  return Stream.of(String.format("%d: %s", i, collect.get(0)));
-                else
-                  return Stream.concat(
-                      Stream.of(i + ":"), streamAppendWith(" ", 4, collect.stream()));
-              });
+      try {
+        return IntStream.range(0, array.length)
+                .boxed()
+                .flatMap(
+                        i -> {
+                          List<String> collect = elaborateData(array[i]).collect(Collectors.toList());
+                          if (collect.size() == 1)
+                            return Stream.of(String.format("%d: %s", i, collect.get(0)));
+                          else
+                            return Stream.concat(
+                                    Stream.of(i + ":"), streamAppendWith(" ", 4, collect.stream()));
+                        });
+      } catch (Exception e) {
+          return Stream.of(e.toString());
+      }
     }
 
     static Stream<String> elaborateArray(long[] array) {
-      return IntStream.range(0, array.length).mapToObj(x -> x + ": " + array[x]).limit(20);
+      try {
+        return IntStream.range(0, array.length).mapToObj(x -> x + ": " + array[x]);
+      } catch (Exception e) {
+          return Stream.of(e.toString());
+      }
     }
 
     static Stream<String> elaborateList(List<?> list) {
-      return IntStream.range(0, list.size())
-          .boxed()
-          .flatMap(
-              i -> {
-                List<String> collect = elaborateData(list.get(i)).collect(Collectors.toList());
-                if (collect.size() == 1)
-                  return Stream.of(String.format("%d: %s", i, collect.get(0)));
-                else
-                  return Stream.concat(
-                      Stream.of(i + ":"), streamAppendWith(" ", 4, collect.stream()));
-              });
+      try {
+        return IntStream.range(0, list.size())
+                .boxed()
+                .flatMap(
+                        i -> {
+                          List<String> collect = elaborateData(list.get(i)).collect(Collectors.toList());
+                          if (collect.size() == 1)
+                            return Stream.of(String.format("%d: %s", i, collect.get(0)));
+                          else
+                            return Stream.concat(
+                                    Stream.of(i + ":"), streamAppendWith(" ", 4, collect.stream()));
+                        });
+      } catch (Exception e) {
+        return Stream.of(e.toString());
+      }
     }
 
     static Stream<String> elaborateCompositeDataSupport(CompositeDataSupport data) {
-      return data.getCompositeType().keySet().stream()
-          .sorted()
-          .flatMap(key -> DataUtils.elaborateMapEntry(Map.entry(key, data.get(key))))
-          .limit(50);
+      try {
+        return data.getCompositeType().keySet().stream()
+                .sorted()
+                .flatMap(key -> DataUtils.elaborateMapEntry(Map.entry(key, data.get(key))));
+      } catch (Exception e) {
+        return Stream.of(e.toString());
+      }
     }
 
     static Stream<String> streamAppendWith(String s, int size, Stream<String> source) {
-      String append = String.join("", Collections.nCopies(size, s));
-      return source.map(x -> append + x);
+      try {
+        String append = String.join("", Collections.nCopies(size, s));
+        return source.map(x -> append + x);
+      } catch (Exception e) {
+        return Stream.of(e.toString());
+      }
     }
   }
 }
