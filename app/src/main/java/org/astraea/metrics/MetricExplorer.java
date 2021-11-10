@@ -297,20 +297,20 @@ public class MetricExplorer {
     }
 
     static String stringify(Object object) {
-        String string = object.toString();
-        if(string.length() > stringLengthLimit) {
-          return string.substring(0, stringLengthLimit) +
-                  String.format("%n... (%d characters truncated)", string.length() - stringLengthLimit);
-        } else {
-          return string;
-        }
+      String string = object.toString();
+      if (string.length() > stringLengthLimit) {
+        return string.substring(0, stringLengthLimit)
+            + String.format("%n... (%d characters truncated)", string.length() - stringLengthLimit);
+      } else {
+        return string;
+      }
     }
 
     static Stream<String> elaborateMap(Map<?, ?> data) {
       try {
         return data.entrySet().stream()
-                .sorted(Comparator.comparing(Object::toString))
-                .flatMap(DataUtils::elaborateMapEntry);
+            .sorted(Comparator.comparing(Object::toString))
+            .flatMap(DataUtils::elaborateMapEntry);
       } catch (Exception e) {
         return Stream.of(e.toString());
       }
@@ -323,30 +323,30 @@ public class MetricExplorer {
 
         if (key.size() == 1 && value.size() > 1)
           return Stream.concat(
-                  Stream.of(String.format("\"%s\":", key.get(0))),
-                  streamAppendWith(" ", 4, value.stream()));
+              Stream.of(String.format("\"%s\":", key.get(0))),
+              streamAppendWith(" ", 4, value.stream()));
 
         return Stream.of(String.format("\"%s\": %s", key.get(0), value.get(0)));
       } catch (Exception e) {
-          return Stream.of(e.toString());
+        return Stream.of(e.toString());
       }
     }
 
     static Stream<String> elaborateArray(Object[] array) {
       try {
         return IntStream.range(0, array.length)
-                .boxed()
-                .flatMap(
-                        i -> {
-                          List<String> collect = elaborateData(array[i]).collect(Collectors.toList());
-                          if (collect.size() == 1)
-                            return Stream.of(String.format("%d: %s", i, collect.get(0)));
-                          else
-                            return Stream.concat(
-                                    Stream.of(i + ":"), streamAppendWith(" ", 4, collect.stream()));
-                        });
+            .boxed()
+            .flatMap(
+                i -> {
+                  List<String> collect = elaborateData(array[i]).collect(Collectors.toList());
+                  if (collect.size() == 1)
+                    return Stream.of(String.format("%d: %s", i, collect.get(0)));
+                  else
+                    return Stream.concat(
+                        Stream.of(i + ":"), streamAppendWith(" ", 4, collect.stream()));
+                });
       } catch (Exception e) {
-          return Stream.of(e.toString());
+        return Stream.of(e.toString());
       }
     }
 
@@ -354,23 +354,23 @@ public class MetricExplorer {
       try {
         return IntStream.range(0, array.length).mapToObj(x -> x + ": " + array[x]);
       } catch (Exception e) {
-          return Stream.of(e.toString());
+        return Stream.of(e.toString());
       }
     }
 
     static Stream<String> elaborateList(List<?> list) {
       try {
         return IntStream.range(0, list.size())
-                .boxed()
-                .flatMap(
-                        i -> {
-                          List<String> collect = elaborateData(list.get(i)).collect(Collectors.toList());
-                          if (collect.size() == 1)
-                            return Stream.of(String.format("%d: %s", i, collect.get(0)));
-                          else
-                            return Stream.concat(
-                                    Stream.of(i + ":"), streamAppendWith(" ", 4, collect.stream()));
-                        });
+            .boxed()
+            .flatMap(
+                i -> {
+                  List<String> collect = elaborateData(list.get(i)).collect(Collectors.toList());
+                  if (collect.size() == 1)
+                    return Stream.of(String.format("%d: %s", i, collect.get(0)));
+                  else
+                    return Stream.concat(
+                        Stream.of(i + ":"), streamAppendWith(" ", 4, collect.stream()));
+                });
       } catch (Exception e) {
         return Stream.of(e.toString());
       }
@@ -379,8 +379,8 @@ public class MetricExplorer {
     static Stream<String> elaborateCompositeDataSupport(CompositeDataSupport data) {
       try {
         return data.getCompositeType().keySet().stream()
-                .sorted()
-                .flatMap(key -> DataUtils.elaborateMapEntry(Map.entry(key, data.get(key))));
+            .sorted()
+            .flatMap(key -> DataUtils.elaborateMapEntry(Map.entry(key, data.get(key))));
       } catch (Exception e) {
         return Stream.of(e.toString());
       }
