@@ -78,6 +78,8 @@ public class LinkPartitioner implements Partitioner {
         if (maxWeightServer == null || item.getValue()[1] > maxWeightServer.getValue()[1]) {
           maxWeightServer = item;
         }
+        currentBrokerHashMap.put(
+            item.getKey(), new int[] {item.getValue()[0], item.getValue()[1] + item.getValue()[0]});
       }
       assert maxWeightServer != null;
       currentBrokerHashMap.put(
