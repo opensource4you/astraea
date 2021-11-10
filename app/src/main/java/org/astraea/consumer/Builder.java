@@ -20,6 +20,7 @@ public class Builder<Key, Value> {
   private OffsetPolicy offsetPolicy = OffsetPolicy.LATEST;
   private String groupId = "groupId-" + System.currentTimeMillis();
   private final Set<String> topics = new HashSet<>();
+  private ConsumerRebalanceListener listener = ignore -> {};
 
   Builder() {}
 
@@ -61,6 +62,11 @@ public class Builder<Key, Value> {
     return this;
   }
 
+  public Builder<Key, Value> consumerRebalanceListener(ConsumerRebalanceListener listener) {
+    this.listener = Objects.requireNonNull(listener);
+    return this;
+  }
+
   @SuppressWarnings("unchecked")
   public Consumer<Key, Value> build() {
     configs.put(ConsumerConfig.GROUP_ID_CONFIG, Objects.requireNonNull(groupId));
@@ -77,7 +83,7 @@ public class Builder<Key, Value> {
             configs,
             Deserializer.of((Deserializer<Key>) keyDeserializer),
             Deserializer.of((Deserializer<Value>) valueDeserializer));
-    kafkaConsumer.subscribe(topics);
+    kafkaConsumer.subscribe(topics, ConsumerRebalanceListener.of(listener));
     return new Consumer<>() {
       @Override
       public Collection<Record<Key, Value>> poll(Duration timeout) {
