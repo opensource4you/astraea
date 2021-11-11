@@ -156,13 +156,15 @@ public class Performance {
       AtomicLong records,
       CountDownLatch getAssignment) {
     byte[] payload = new byte[param.recordSize];
+    long start = System.currentTimeMillis();
     return new ThreadPool.Executor() {
       @Override
       public State execute() throws InterruptedException {
         // Wait for all consumers get assignment.
         getAssignment.await();
         var currentRecords = records.getAndDecrement();
-        if (currentRecords <= 0) return State.DONE;
+        if (currentRecords <= 0 || System.currentTimeMillis() - start >= param.duration)
+          return State.DONE;
         long start = System.currentTimeMillis();
         producer
             .sender()
@@ -219,13 +221,18 @@ public class Performance {
         names = {"--records"},
         description = "Integer: number of records to send",
         validateWith = ArgumentUtil.NonNegativeLong.class)
-    long records = 1000;
+    long records = Long.MAX_VALUE;
 
     @Parameter(
         names = {"--record.size"},
         description = "Integer: size of each record",
         validateWith = ArgumentUtil.PositiveLong.class)
     int recordSize = 1024;
+
+    @Parameter(
+        names = {"--duration"},
+        description = "Integer: producer stop after duration time in second")
+    int duration = Integer.MAX_VALUE;
 
     @Parameter(
         names = {"--jmx.servers"},
