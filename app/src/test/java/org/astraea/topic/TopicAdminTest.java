@@ -1,5 +1,7 @@
 package org.astraea.topic;
 
+import static org.junit.jupiter.api.condition.OS.WINDOWS;
+
 import java.io.IOException;
 import java.util.Collection;
 import java.util.Map;
@@ -15,8 +17,6 @@ import org.astraea.service.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledOnOs;
-
-import static org.junit.jupiter.api.condition.OS.WINDOWS;
 
 public class TopicAdminTest extends RequireBrokerCluster {
 
