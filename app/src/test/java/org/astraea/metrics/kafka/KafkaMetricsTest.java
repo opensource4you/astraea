@@ -1,6 +1,7 @@
 package org.astraea.metrics.kafka;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.condition.OS.LINUX;
 import static org.junit.jupiter.api.condition.OS.WINDOWS;
 
 import java.io.IOException;
@@ -21,6 +22,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledOnOs;
+import org.junit.jupiter.api.condition.EnabledOnOs;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
@@ -186,13 +188,13 @@ class KafkaMetricsTest extends RequireBrokerCluster {
   }
 
   @Test
-  @DisabledOnOs(WINDOWS)
+  @EnabledOnOs(LINUX)
   void linuxDiskReadBytes() {
     assertDoesNotThrow(() -> KafkaMetrics.BrokerTopic.linuxDiskReadBytes(mBeanClient));
   }
 
   @Test
-  @DisabledOnOs(WINDOWS)
+  @EnabledOnOs(LINUX)
   void linuxDiskWriteBytes() {
     assertDoesNotThrow(() -> KafkaMetrics.BrokerTopic.linuxDiskWriteBytes(mBeanClient));
   }
