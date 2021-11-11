@@ -9,15 +9,20 @@ import org.astraea.Utils;
 import org.astraea.service.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.DisabledOnOs;
+
+import static org.junit.jupiter.api.condition.OS.WINDOWS;
 
 public class ReplicaCollieTest extends RequireBrokerCluster {
 
   @Test
+  @DisabledOnOs(WINDOWS)
   void testVerify() throws IOException, InterruptedException {
     test(true);
   }
 
   @Test
+  @DisabledOnOs(WINDOWS)
   void testExecute() throws IOException, InterruptedException {
     test(false);
   }
