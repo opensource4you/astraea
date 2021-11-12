@@ -3,6 +3,7 @@ package org.astraea.performance;
 import com.beust.jcommander.Parameter;
 import java.io.IOException;
 import java.time.Duration;
+import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.Set;
@@ -173,6 +174,8 @@ public class Performance {
         producer
             .sender()
             .topic(param.topic)
+            .headers(List.of())
+            .key(null)
             .value(randomPayload.payload())
             .timestamp(start)
             .run()
@@ -242,7 +245,7 @@ public class Performance {
         names = {"--records"},
         description = "Integer: number of records to send",
         validateWith = ArgumentUtil.NonNegativeLong.class)
-    long records = Long.MAX_VALUE;
+    long records = 1000000000l;
 
     @Parameter(
         names = {"--fixedSize"},
@@ -259,7 +262,7 @@ public class Performance {
         names = {"--duration"},
         description = "Integer: producer stop after duration time in second",
         converter = ArgumentUtil.DurationConverter.class)
-    Duration duration = Duration.ofSeconds(Integer.MAX_VALUE);
+    Duration duration = Duration.ofHours(1);
 
     @Parameter(
         names = {"--jmx.servers"},
