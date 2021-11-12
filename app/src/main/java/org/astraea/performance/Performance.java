@@ -4,6 +4,7 @@ import com.beust.jcommander.Parameter;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.Map;
+import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
@@ -74,7 +75,7 @@ public class Performance {
 
     var consumerRecords = new AtomicLong(param.records);
     var producerRecords = new AtomicLong(param.records);
-    var tracker = new Tracker(producerMetrics, consumerMetrics, param.records);
+    var tracker = new Tracker(producerMetrics, consumerMetrics, param.records, param.duration);
     var groupId = "groupId-" + System.currentTimeMillis();
     var getAssignment = new CountDownLatch(param.consumers);
     try (ThreadPool threadPool =
@@ -92,7 +93,8 @@ public class Performance {
                                     .consumerRebalanceListener(ignore -> getAssignment.countDown())
                                     .build(),
                                 consumerMetrics.get(i),
-                                consumerRecords))
+                                consumerRecords,
+                                param.duration))
                     .collect(Collectors.toUnmodifiableList()))
             .executors(
                 IntStream.range(0, param.producers)
@@ -115,7 +117,8 @@ public class Performance {
   }
 
   static ThreadPool.Executor consumerExecutor(
-      Consumer<byte[], byte[]> consumer, Metrics metrics, AtomicLong records) {
+      Consumer<byte[], byte[]> consumer, Metrics metrics, AtomicLong records, Duration duration) {
+    long end = System.currentTimeMillis() + duration.toMillis();
     return new ThreadPool.Executor() {
       @Override
       public State execute() {
@@ -130,7 +133,9 @@ public class Performance {
                         record.serializedKeySize() + record.serializedValueSize());
                     records.decrementAndGet();
                   });
-          return records.get() <= 0 ? State.DONE : State.RUNNING;
+          return (records.get() <= 0 || System.currentTimeMillis() >= end)
+              ? State.DONE
+              : State.RUNNING;
         } catch (WakeupException ignore) {
           // Stop polling and being ready to clean up
           return State.DONE;
@@ -155,25 +160,24 @@ public class Performance {
       Metrics metrics,
       AtomicLong records,
       CountDownLatch getAssignment) {
-    byte[] payload = new byte[param.recordSize];
-    long start = System.currentTimeMillis();
+    var randomPayload = new RandomPayload(param.fixedSize, param.recordSize);
+    long end = System.currentTimeMillis() + param.duration.toMillis();
     return new ThreadPool.Executor() {
       @Override
       public State execute() throws InterruptedException {
         // Wait for all consumers get assignment.
         getAssignment.await();
         var currentRecords = records.getAndDecrement();
-        if (currentRecords <= 0 || System.currentTimeMillis() - start >= param.duration)
-          return State.DONE;
+        if (currentRecords <= 0 || System.currentTimeMillis() >= end) return State.DONE;
         long start = System.currentTimeMillis();
         producer
             .sender()
             .topic(param.topic)
-            .value(payload)
+            .value(randomPayload.payload())
             .timestamp(start)
             .run()
             .whenComplete(
-                (m, e) -> metrics.put(System.currentTimeMillis() - start, payload.length));
+                (m, e) -> metrics.put(System.currentTimeMillis() - start, m.serializedValueSize()));
         return State.RUNNING;
       }
 
@@ -182,6 +186,23 @@ public class Performance {
         producer.close();
       }
     };
+  }
+
+  static class RandomPayload {
+    private final boolean fixedSize;
+    private final int size;
+    private final Random rand = new Random();
+
+    public RandomPayload(boolean fixedSize, int size) {
+      this.fixedSize = fixedSize;
+      this.size = size;
+    }
+
+    public byte[] payload() {
+      byte[] payload = (this.fixedSize) ? new byte[size] : new byte[rand.nextInt(size) + 1];
+      rand.nextBytes(payload);
+      return payload;
+    }
   }
 
   static class Argument extends BasicArgumentWithPropFile {
@@ -224,6 +245,11 @@ public class Performance {
     long records = Long.MAX_VALUE;
 
     @Parameter(
+        names = {"--fixedSize"},
+        description = "boolean: send fixed size records if this flag is set")
+    boolean fixedSize = false;
+
+    @Parameter(
         names = {"--record.size"},
         description = "Integer: size of each record",
         validateWith = ArgumentUtil.PositiveLong.class)
@@ -231,8 +257,9 @@ public class Performance {
 
     @Parameter(
         names = {"--duration"},
-        description = "Integer: producer stop after duration time in second")
-    int duration = Integer.MAX_VALUE;
+        description = "Integer: producer stop after duration time in second",
+        converter = ArgumentUtil.DurationConverter.class)
+    Duration duration = Duration.ofSeconds(Integer.MAX_VALUE);
 
     @Parameter(
         names = {"--jmx.servers"},

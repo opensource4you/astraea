@@ -1,5 +1,7 @@
 package org.astraea.performance;
 
+import java.time.Duration;
+import java.util.Arrays;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
@@ -19,6 +21,7 @@ public class PerformanceTest extends RequireBrokerCluster {
     var metrics = new Metrics();
     var param = new Performance.Argument();
     param.topic = "testProducerExecutor-" + System.currentTimeMillis();
+    param.fixedSize = true;
     try (ThreadPool.Executor executor =
         Performance.producerExecutor(
             Producer.builder().brokers(bootstrapServers()).build(),
@@ -41,7 +44,8 @@ public class PerformanceTest extends RequireBrokerCluster {
         Performance.consumerExecutor(
             Consumer.builder().topics(Set.of(topicName)).brokers(bootstrapServers()).build(),
             metrics,
-            new AtomicLong(10))) {
+            new AtomicLong(10),
+            Duration.ofSeconds(Integer.MAX_VALUE))) {
       executor.execute();
 
       Assertions.assertEquals(0, metrics.num());
@@ -55,5 +59,25 @@ public class PerformanceTest extends RequireBrokerCluster {
       Assertions.assertEquals(1, metrics.num());
       Assertions.assertNotEquals(1024, metrics.bytes());
     }
+  }
+
+  @Test
+  void testRandomSize() {
+    var randomPayload = new Performance.RandomPayload(false, 102400);
+    boolean sameSize = randomPayload.payload().length == randomPayload.payload().length;
+
+    // Assertion failed with probability 1/102400 ~ 0.001%
+    Assertions.assertFalse(sameSize);
+
+    Assertions.assertTrue(randomPayload.payload().length <= 102400);
+  }
+
+  @Test
+  void testRandomContent() {
+    var randomPayload = new Performance.RandomPayload(false, 102400);
+    boolean same = Arrays.equals(randomPayload.payload(), randomPayload.payload());
+
+    // Assertion failed with probability < 1/102400
+    Assertions.assertFalse(same);
   }
 }

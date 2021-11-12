@@ -1,5 +1,6 @@
 package org.astraea.performance;
 
+import java.time.Duration;
 import java.util.List;
 import org.astraea.concurrent.ThreadPool;
 
@@ -8,16 +9,19 @@ public class Tracker implements ThreadPool.Executor {
   private final List<Metrics> producerData;
   private final List<Metrics> consumerData;
   private final long records;
+  private final long end;
 
-  public Tracker(List<Metrics> producerData, List<Metrics> consumerData, long records) {
+  public Tracker(
+      List<Metrics> producerData, List<Metrics> consumerData, long records, Duration duration) {
     this.producerData = producerData;
     this.consumerData = consumerData;
     this.records = records;
+    this.end = System.currentTimeMillis() + duration.toMillis();
   }
 
   @Override
   public State execute() throws InterruptedException {
-    if (logProducers() & logConsumers()) return State.DONE;
+    if ((logProducers() & logConsumers()) || System.currentTimeMillis() >= end) return State.DONE;
     // 等待1秒，再抓資料輸出
     Thread.sleep(1000);
     return State.RUNNING;
