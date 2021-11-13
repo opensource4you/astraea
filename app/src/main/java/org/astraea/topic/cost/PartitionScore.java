@@ -22,14 +22,24 @@ public class PartitionScore {
   }
 
   public void printScore(Map<Integer, Map<TopicPartition, Double>> score) {
-    for (var i : score.keySet()) {
-      System.out.println("broker: " + i);
-      for (var j : score.get(i).keySet()) {
-        if (score.get(i).get(j) != 0) {
-          System.out.println("topic-partition: " + j);
-          System.out.println("score: " + score.get(i).get(j));
-        } else {
-          System.out.println("topic-partition: " + j + " is balance");
+    Map<Integer, Boolean> brokerGood = new HashMap();
+    for (var broker : score.keySet()) {
+      brokerGood.put(broker, true);
+      for (var tp : score.get(broker).keySet())
+        if (score.get(broker).get(tp) > 0) brokerGood.put(broker, false);
+      if (brokerGood.get(broker)) {
+        System.out.println();
+        System.out.println("broker: " + broker + " is balance");
+      } else {
+        System.out.println();
+        System.out.println("broker: " + broker);
+        for (var tp : score.get(broker).keySet()) {
+          if (score.get(broker).get(tp) > 0) {
+            System.out.println("topic-partition: " + tp);
+            System.out.println("score: " + score.get(broker).get(tp));
+          } else {
+            System.out.println("topic-partition: " + tp + " is balance");
+          }
         }
       }
     }
