@@ -1,6 +1,8 @@
 package org.astraea.metrics.kafka;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.condition.OS.LINUX;
+import static org.junit.jupiter.api.condition.OS.WINDOWS;
 
 import java.io.IOException;
 import java.lang.management.ManagementFactory;
@@ -19,6 +21,8 @@ import org.astraea.topic.TopicAdmin;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.DisabledOnOs;
+import org.junit.jupiter.api.condition.EnabledOnOs;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
@@ -145,8 +149,6 @@ class KafkaMetricsTest extends RequireBrokerCluster {
     assertDoesNotThrow(operatingSystemInfo::committedVirtualMemorySize);
     assertDoesNotThrow(operatingSystemInfo::freePhysicalMemorySize);
     assertDoesNotThrow(operatingSystemInfo::freeSwapSpaceSize);
-    assertDoesNotThrow(operatingSystemInfo::maxFileDescriptorCount);
-    assertDoesNotThrow(operatingSystemInfo::openFileDescriptorCount);
     assertDoesNotThrow(operatingSystemInfo::name);
     assertDoesNotThrow(operatingSystemInfo::processCpuLoad);
     assertDoesNotThrow(operatingSystemInfo::processCpuTime);
@@ -155,6 +157,20 @@ class KafkaMetricsTest extends RequireBrokerCluster {
     assertDoesNotThrow(operatingSystemInfo::totalPhysicalMemorySize);
     assertDoesNotThrow(operatingSystemInfo::totalSwapSpaceSize);
     assertDoesNotThrow(operatingSystemInfo::version);
+  }
+
+  @Test
+  @DisabledOnOs(WINDOWS)
+  void maxFileDescriptorCount() {
+    OperatingSystemInfo operatingSystemInfo = KafkaMetrics.Host.operatingSystem(mBeanClient);
+    assertDoesNotThrow(operatingSystemInfo::maxFileDescriptorCount);
+  }
+
+  @Test
+  @DisabledOnOs(WINDOWS)
+  void openFileDescriptorCount() {
+    OperatingSystemInfo operatingSystemInfo = KafkaMetrics.Host.operatingSystem(mBeanClient);
+    assertDoesNotThrow(operatingSystemInfo::openFileDescriptorCount);
   }
 
   @Test
@@ -172,11 +188,13 @@ class KafkaMetricsTest extends RequireBrokerCluster {
   }
 
   @Test
+  @EnabledOnOs(LINUX)
   void linuxDiskReadBytes() {
     assertDoesNotThrow(() -> KafkaMetrics.BrokerTopic.linuxDiskReadBytes(mBeanClient));
   }
 
   @Test
+  @EnabledOnOs(LINUX)
   void linuxDiskWriteBytes() {
     assertDoesNotThrow(() -> KafkaMetrics.BrokerTopic.linuxDiskWriteBytes(mBeanClient));
   }

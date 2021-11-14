@@ -1,5 +1,7 @@
 package org.astraea.topic;
 
+import static org.junit.jupiter.api.condition.OS.WINDOWS;
+
 import java.io.IOException;
 import java.util.Collection;
 import java.util.HashSet;
@@ -15,6 +17,7 @@ import org.astraea.producer.Producer;
 import org.astraea.service.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.DisabledOnOs;
 
 public class TopicAdminTest extends RequireBrokerCluster {
 
@@ -147,6 +150,7 @@ public class TopicAdminTest extends RequireBrokerCluster {
   }
 
   @Test
+  @DisabledOnOs(WINDOWS)
   void testReassign() throws IOException, InterruptedException {
     var topicName = "testReassign";
     try (var topicAdmin = TopicAdmin.of(bootstrapServers())) {

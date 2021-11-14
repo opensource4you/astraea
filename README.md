@@ -154,25 +154,50 @@ This project offers a way to run kafka official tool by container. For example:
 
 ---
 
-## Kafka Metric Client
+## Kafka Metric Explorer
 
 This tool can be used to access Kafka's MBean metrics via JMX.
 
 Run the tool from source code
 
 ```shell
+# fetch every Mbeans from specific JMX server.
 ./gradlew run --args="metrics --jmx.server 192.168.50.178:1099"
+
+# fetch any Mbean that its object name contains property "type=Memory".
+./gradlew run --args="metrics --jmx.server 192.168.50.178:1099 --property type=Memory"
+
+# fetch any Mbean that belongs to "kafka.network" domain name, 
+# and it's object name contains two properties "request=Metadata" and "name=LocalTimeMs".
+./gradlew run --args="metrics --jmx.server 192.168.50.178:1099 --domain kafka.network --property request=Metadata --property name=LocalTimeMs"
+
+# list all Mbeans' object name on specific JMX server.
+./gradlew run --args="metrics --jmx.server 192.168.50.178:1099 --view-object-name-list"
 ```
 
 Run the tool from release
 ```shell
+# fetch every Mbeans from specific JMX server.
 java -jar app-0.0.1-SNAPSHOT-all.jar metrics --jmx.server 192.168.50.178:1099
+
+# fetch any Mbean that its object name contains property "type=Memory".
+java -jar app-0.0.1-SNAPSHOT-all.jar metrics --jmx.server 192.168.50.178:1099 --property type=Memory
+
+# fetch any Mbean that belongs to "kafka.network" domain name,
+# and it's object name contains two properties "request=Metadata" and "name=LocalTimeMs".
+java -jar app-0.0.1-SNAPSHOT-all.jar metrics --jmx.server 192.168.50.178:1099 --domain kafka.network --property request=Metadata --property name=LocalTimeMs
+
+# list all Mbeans' object name on specific JMX server.
+java -jar app-0.0.1-SNAPSHOT-all.jar metrics --jmx.server 192.168.50.178:1099 --view-object-name-list
 ```
 
-### Metric Client Configurations
+### Metric Explorer Configurations
 
-1. --jmx.server: the address to connect to Kafka JMX remote server
-2. --metrics: the Mbean metric to fetch. Default: All metrics
+1. --jmx.server: the address to connect to Kafka JMX remote server.
+2. --domain: query Mbeans from the specific domain name (support wildcard "\*" and "?"). Default: "\*".
+3. --property: query mbeans with the specific property (support wildcard "\*" and "?"). You can specify this argument multiple times. Default: [].
+4. --strict-match: only Mbeans with its object name completely match the given criteria shows. Default: false.
+5. --view-object-name-list: show the list view of MBeans' domain name & properties. Default: false.
 
 ---
 
