@@ -2,6 +2,7 @@ package org.astraea.partitioner.nodeLoadMetric;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 
 public class BrokersWeight {
 
@@ -18,9 +19,8 @@ public class BrokersWeight {
   }
 
   /** Change the weight of the node according to the current Poisson. */
-  public synchronized void setBrokerHashMap() {
-    HashMap<String, Double> poissonMap = loadPoisson.setAllPoisson();
-
+  public synchronized void setBrokerHashMap(Set<String> existID) {
+    HashMap<String, Double> poissonMap = loadPoisson.setAllPoisson(existID);
     for (Map.Entry<String, Double> entry : poissonMap.entrySet()) {
       if (!brokerHashMap.containsKey(entry.getKey())) {
         brokerHashMap.put(entry.getKey(), new int[] {(int) ((1 - entry.getValue()) * 20), 0});

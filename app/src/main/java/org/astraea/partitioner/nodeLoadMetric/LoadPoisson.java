@@ -2,6 +2,8 @@ package org.astraea.partitioner.nodeLoadMetric;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 
 public class LoadPoisson {
   private NodeLoadClient nodeLoadClient;
@@ -10,12 +12,15 @@ public class LoadPoisson {
     this.nodeLoadClient = nodeLoadClient;
   }
 
-  public synchronized HashMap<String, Double> setAllPoisson() {
+  public synchronized HashMap<String, Double> setAllPoisson(Set<String> existID) {
     HashMap<String, Double> poissonMap = new HashMap<>();
     int lambda = nodeLoadClient.getAvgLoadCount();
+    var x = 0;
     for (Map.Entry<String, Integer> entry : nodeLoadClient.getAllOverLoadCount().entrySet()) {
-      int x = nodeLoadClient.getBinOneCount(entry.getValue());
-      poissonMap.put(entry.getKey(), doPoisson(lambda, x));
+      if (existID.stream().anyMatch(s -> Objects.equals(s, entry.getKey()))) {
+        x = nodeLoadClient.getBinOneCount(entry.getValue());
+        poissonMap.put(entry.getKey(), doPoisson(lambda, x));
+      }
     }
     return poissonMap;
   }

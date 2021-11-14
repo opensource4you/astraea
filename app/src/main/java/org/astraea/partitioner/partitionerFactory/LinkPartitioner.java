@@ -5,9 +5,11 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Random;
+import java.util.Set;
 import org.apache.kafka.clients.producer.Partitioner;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.Cluster;
@@ -16,6 +18,7 @@ import org.astraea.concurrent.ThreadPool;
 import org.astraea.partitioner.nodeLoadMetric.BrokersWeight;
 import org.astraea.partitioner.nodeLoadMetric.LoadPoisson;
 import org.astraea.partitioner.nodeLoadMetric.NodeLoadClient;
+import org.astraea.topic.TopicAdmin;
 
 public class LinkPartitioner implements Partitioner {
 
@@ -55,6 +58,9 @@ public class LinkPartitioner implements Partitioner {
   public static class ThreadSafeSmoothPartitioner implements Partitioner {
     private NodeLoadClient nodeLoadClient;
     private ThreadPool pool;
+    private String bootstrapServers;
+    private HashMap<String, String> addressMap = new HashMap<>();
+    private Set<String> existPartitionsNodeID = new HashSet<>();
 
     ThreadSafeSmoothPartitioner() {}
 
@@ -68,12 +74,11 @@ public class LinkPartitioner implements Partitioner {
         Cluster cluster) {
       LoadPoisson loadPoisson = new LoadPoisson(nodeLoadClient);
       BrokersWeight brokersWeight = new BrokersWeight(loadPoisson);
-      brokersWeight.setBrokerHashMap();
+      brokersWeight.setBrokerHashMap(existPartitionsNodeID);
       Map.Entry<String, int[]> maxWeightServer = null;
 
       int allWeight = brokersWeight.getAllWeight();
       HashMap<String, int[]> currentBrokerHashMap = brokersWeight.getBrokerHashMap();
-
       for (Map.Entry<String, int[]> item : currentBrokerHashMap.entrySet()) {
         if (maxWeightServer == null || item.getValue()[1] > maxWeightServer.getValue()[1]) {
           maxWeightServer = item;
@@ -85,15 +90,44 @@ public class LinkPartitioner implements Partitioner {
       currentBrokerHashMap.put(
           maxWeightServer.getKey(),
           new int[] {maxWeightServer.getValue()[0], maxWeightServer.getValue()[1] - allWeight});
-      brokersWeight.setCurrentBrokerHashMap(currentBrokerHashMap);
 
       ArrayList<Integer> partitionList = new ArrayList<>();
       for (PartitionInfo partitionInfo :
           cluster.partitionsForNode(Integer.parseInt(maxWeightServer.getKey()))) {
         partitionList.add(partitionInfo.partition());
       }
-      Random rand = new Random();
 
+      // When assigned to a broker without partition.
+      if (partitionList.size() == 0) {
+        try (var topicAdmin = TopicAdmin.of(bootstrapServers)) {
+          var leaders = topicAdmin.topicLeaders(topic);
+          var newBrokerHashMap = new HashMap<String, int[]>();
+
+          leaders.forEach(s -> newBrokerHashMap.put(s, new int[] {0, 0}));
+
+          for (Map.Entry<String, int[]> broker : newBrokerHashMap.entrySet()) {
+            var k = broker.getKey();
+            var nullJmxBroker = 1;
+
+            for (Map.Entry<String, String> adr : addressMap.entrySet()) {
+              // Determine whether the broker has a corresponding jmxServer
+              if (Objects.equals(adr.getKey(), k)) nullJmxBroker = 0;
+            }
+            if (nullJmxBroker == 1) throw new RuntimeException();
+          }
+
+          existPartitionsNodeID = leaders;
+          brokersWeight.setCurrentBrokerHashMap(newBrokerHashMap);
+          return this.partition(topic, key, keyBytes, value, valueBytes, cluster);
+        } catch (IOException e) {
+          System.err.println(
+              "There are brokers without Jmx Broker, you need to configure jmxServer for each broker.");
+          throw new RuntimeException();
+        }
+      }
+
+      brokersWeight.setCurrentBrokerHashMap(currentBrokerHashMap);
+      Random rand = new Random();
       return partitionList.get(rand.nextInt(partitionList.size()));
     }
 
@@ -107,20 +141,26 @@ public class LinkPartitioner implements Partitioner {
       try {
         var jmxAddresses =
             Objects.requireNonNull(
-                (String) configs.get("jmx_servers"), "You must configure jmx_servers correctly");
+                (String) configs.get("jmx_servers"), "You need configure jmx_servers correctly");
+        setBootstrapServers((String) configs.get(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG));
+
         var list = Arrays.asList((jmxAddresses).split(","));
-        HashMap<String, String> mapAddress = new HashMap<>();
         for (String str : list) {
           var listAddress = Arrays.asList(str.split("@"));
-          mapAddress.put(listAddress.get(1), listAddress.get(0));
+          addressMap.put(listAddress.get(1), listAddress.get(0));
+          existPartitionsNodeID.add(listAddress.get(1));
         }
         Objects.requireNonNull(
-            mapAddress, "You must configure jmx_servers correctly.(JmxAddress@NodeID)");
-        nodeLoadClient = new NodeLoadClient((mapAddress));
+            addressMap, "You need configure jmx_servers correctly.(JmxAddress@NodeID)");
+        nodeLoadClient = new NodeLoadClient((addressMap));
       } catch (IOException e) {
         throw new RuntimeException();
       }
       pool = ThreadPool.builder().executor(nodeLoadClient).build();
+    }
+
+    private void setBootstrapServers(String bootstrapServers) {
+      this.bootstrapServers = bootstrapServers;
     }
   }
 

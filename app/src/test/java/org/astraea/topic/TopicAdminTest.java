@@ -2,6 +2,7 @@ package org.astraea.topic;
 
 import java.io.IOException;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
@@ -128,6 +129,20 @@ public class TopicAdminTest extends RequireBrokerCluster {
                 Assertions.assertEquals(0, offset.earliest());
                 Assertions.assertEquals(0, offset.latest());
               });
+    }
+  }
+
+  @Test
+  void testTopicLeader() throws IOException {
+    var topicName = "testTopicLeader";
+    Set<String> testSet = new HashSet<>();
+    testSet.add("0");
+    testSet.add("1");
+    testSet.add("2");
+    try (var topicAdmin = TopicAdmin.of(bootstrapServers())) {
+      topicAdmin.creator().topic(topicName).numberOfPartitions(3).create();
+      var topicLeader = topicAdmin.topicLeaders(topicName);
+      Assertions.assertEquals(topicLeader, testSet);
     }
   }
 

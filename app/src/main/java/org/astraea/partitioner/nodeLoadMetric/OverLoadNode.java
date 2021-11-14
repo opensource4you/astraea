@@ -67,7 +67,7 @@ public class OverLoadNode {
     for (Map.Entry<String, Double> entry : eachBrokerMsgPerSec.entrySet()) {
       avg += entry.getValue();
     }
-    this.avgBrokersMsgPerSec = avg / nodeNum;
+    this.avgBrokersMsgPerSec = avg / eachBrokerMsgPerSec.size();
   }
 
   public void standardDeviationImperative() {

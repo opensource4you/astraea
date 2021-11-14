@@ -5,6 +5,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import org.junit.jupiter.api.Test;
 
 public class TestLoadPoisson {
@@ -32,6 +33,10 @@ public class TestLoadPoisson {
 
   @Test
   public void testSetAllPoisson() {
+    var testSet = new HashSet<String>();
+    testSet.add("0");
+    testSet.add("1");
+    testSet.add("2");
     HashMap<String, Integer> testNodesLoadCount = new HashMap<>();
     testNodesLoadCount.put("0", 10);
     testNodesLoadCount.put("1", 31);
@@ -49,7 +54,7 @@ public class TestLoadPoisson {
 
     LoadPoisson loadPoisson = new LoadPoisson(nodeLoadClient);
 
-    poissonMap = loadPoisson.setAllPoisson();
+    poissonMap = loadPoisson.setAllPoisson(testSet);
 
     assertEquals(poissonMap, testPoissonMap);
   }
