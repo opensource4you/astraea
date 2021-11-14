@@ -1,6 +1,7 @@
 package org.astraea.topic.cost;
 
 import java.util.*;
+import java.util.stream.Collectors;
 import org.apache.kafka.common.TopicPartition;
 import org.astraea.argument.ArgumentUtil;
 import org.astraea.argument.BasicArgument;
@@ -22,27 +23,28 @@ public class PartitionScore {
   }
 
   public void printScore(Map<Integer, Map<TopicPartition, Double>> score) {
-    Map<Integer, Boolean> brokerGood = new HashMap();
+    Set<TopicPartition> partitionGood = new HashSet<>();
+    Map<Integer, Boolean> BrokerGood = new HashMap<>();
     for (var broker : score.keySet()) {
-      brokerGood.put(broker, true);
+      BrokerGood.put(broker, true);
       for (var tp : score.get(broker).keySet())
-        if (score.get(broker).get(tp) > 0) brokerGood.put(broker, false);
-      if (brokerGood.get(broker)) {
-        System.out.println();
-        System.out.println("broker: " + broker + " is balance");
+        if (score.get(broker).get(tp) > 0) BrokerGood.put(broker, false);
+      System.out.println();
+      if (BrokerGood.get(broker)) {
+        System.out.println("broker: " + broker + " is balanced.");
       } else {
-        System.out.println();
         System.out.println("broker: " + broker);
         for (var tp : score.get(broker).keySet()) {
           if (score.get(broker).get(tp) > 0) {
-            System.out.println("topic-partition: " + tp);
-            System.out.println("score: " + score.get(broker).get(tp));
+            System.out.println(tp + ": " + score.get(broker).get(tp));
           } else {
-            System.out.println("topic-partition: " + tp + " is balance");
+            partitionGood.add(tp);
           }
         }
       }
     }
+    System.out.print(
+        partitionGood.stream().map(String::valueOf).collect(Collectors.joining(", ", "[", "]")));
   }
 
   public static void main(String[] args) {
