@@ -43,8 +43,12 @@ public class PartitionScore {
         }
       }
     }
+
     System.out.print(
-        partitionGood.stream().map(String::valueOf).collect(Collectors.joining(", ", "[", "]")));
+        "\nThe following partitions are balanced: "
+            + partitionGood.stream()
+                .map(String::valueOf)
+                .collect(Collectors.joining(", ", "[", "]")));
   }
 
   public static void main(String[] args) {
