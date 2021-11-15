@@ -8,6 +8,7 @@ public class Tracker implements ThreadPool.Executor {
   private final List<Metrics> producerData;
   private final List<Metrics> consumerData;
   private final long records;
+  private long duration = 0L;
 
   public Tracker(List<Metrics> producerData, List<Metrics> consumerData, long records) {
     this.producerData = producerData;
@@ -38,6 +39,9 @@ public class Tracker implements ThreadPool.Executor {
 
     if (completed == 0) return false;
 
+    ++duration;
+    System.out.println(
+        "Time: " + duration / 3600 + "hr " + duration / 60 + "min " + duration % 60 + "sec");
     System.out.printf("producers完成度: %.2f%%%n", ((double) completed * 100.0 / (double) records));
     System.out.printf("  輸出%.3fMB/second%n", bytes);
     System.out.println("  發送max latency: " + max + "ms");
