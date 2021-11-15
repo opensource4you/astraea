@@ -7,6 +7,7 @@ a collection of tools used to balance Kafka data
 - Ching-Hong Fang <fjh7777@gmail.com>
 - Zheng-Xian Li <garyparrottt@gmail.com>
 - Xiang-Jun Sun <sean0651101@gmail.com>
+- Zhi-Mao Teng <zhimao.teng@gmail.com>
 
 # Kafka Tools
 
