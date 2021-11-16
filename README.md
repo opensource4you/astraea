@@ -7,6 +7,7 @@ a collection of tools used to balance Kafka data
 - Ching-Hong Fang <fjh7777@gmail.com>
 - Zheng-Xian Li <garyparrottt@gmail.com>
 - Xiang-Jun Sun <sean0651101@gmail.com>
+- Zhi-Mao Teng <zhimao.teng@gmail.com>
 
 # Kafka Tools
 
@@ -18,6 +19,7 @@ This project offers many kafka tools to simplify the life for kafka users.
 4. [Kafka official tool](#kafka-official-tool): run any one specific kafka official tool. All you have to prepare is the docker env.
 5. [Kafka metric client](#kafka-metric-client): utility for accessing kafka Mbean metrics via JMX.
 6. [Replica Collie](#replica-collie): move replicas from brokers to others. You can use this tool to obstruct specific brokers from hosting specific topics.
+7. [Kafka partition score](#Kafka-partition-score): score all broker's partitions. 
 
 [Release page](https://github.com/skiptests/astraea/releases) offers the uber jar including all tools.
 ```shell
@@ -154,25 +156,50 @@ This project offers a way to run kafka official tool by container. For example:
 
 ---
 
-## Kafka Metric Client
+## Kafka Metric Explorer
 
 This tool can be used to access Kafka's MBean metrics via JMX.
 
 Run the tool from source code
 
 ```shell
+# fetch every Mbeans from specific JMX server.
 ./gradlew run --args="metrics --jmx.server 192.168.50.178:1099"
+
+# fetch any Mbean that its object name contains property "type=Memory".
+./gradlew run --args="metrics --jmx.server 192.168.50.178:1099 --property type=Memory"
+
+# fetch any Mbean that belongs to "kafka.network" domain name, 
+# and it's object name contains two properties "request=Metadata" and "name=LocalTimeMs".
+./gradlew run --args="metrics --jmx.server 192.168.50.178:1099 --domain kafka.network --property request=Metadata --property name=LocalTimeMs"
+
+# list all Mbeans' object name on specific JMX server.
+./gradlew run --args="metrics --jmx.server 192.168.50.178:1099 --view-object-name-list"
 ```
 
 Run the tool from release
 ```shell
+# fetch every Mbeans from specific JMX server.
 java -jar app-0.0.1-SNAPSHOT-all.jar metrics --jmx.server 192.168.50.178:1099
+
+# fetch any Mbean that its object name contains property "type=Memory".
+java -jar app-0.0.1-SNAPSHOT-all.jar metrics --jmx.server 192.168.50.178:1099 --property type=Memory
+
+# fetch any Mbean that belongs to "kafka.network" domain name,
+# and it's object name contains two properties "request=Metadata" and "name=LocalTimeMs".
+java -jar app-0.0.1-SNAPSHOT-all.jar metrics --jmx.server 192.168.50.178:1099 --domain kafka.network --property request=Metadata --property name=LocalTimeMs
+
+# list all Mbeans' object name on specific JMX server.
+java -jar app-0.0.1-SNAPSHOT-all.jar metrics --jmx.server 192.168.50.178:1099 --view-object-name-list
 ```
 
-### Metric Client Configurations
+### Metric Explorer Configurations
 
-1. --jmx.server: the address to connect to Kafka JMX remote server
-2. --metrics: the Mbean metric to fetch. Default: All metrics
+1. --jmx.server: the address to connect to Kafka JMX remote server.
+2. --domain: query Mbeans from the specific domain name (support wildcard "\*" and "?"). Default: "\*".
+3. --property: query mbeans with the specific property (support wildcard "\*" and "?"). You can specify this argument multiple times. Default: [].
+4. --strict-match: only Mbeans with its object name completely match the given criteria shows. Default: false.
+5. --view-object-name-list: show the list view of MBeans' domain name & properties. Default: false.
 
 ---
 
@@ -196,3 +223,18 @@ This tool offers an effective way to migrate all replicas from specific brokers 
 1. --bootstrap.servers: the server to connect to
 2. --topics: the topics to be moved
 3. --admin.props.file: the file path containing the properties to be passed to kafka admin
+
+## Kafka Partition Score
+
+This tool will score the partition on brokers, the higher score the heavier load.
+
+### Start scoring partitions on broker address "192.168.103.39:9092"
+
+```shell
+./gradlew run --args="score --bootstrap.servers 192.168.103.39:9092"
+```
+
+### Partition Score Configurations
+
+1. --bootstrap.servers: the server to connect to
+
