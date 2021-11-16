@@ -1,5 +1,6 @@
 package org.astraea.performance;
 
+import java.time.Duration;
 import java.util.List;
 import org.astraea.concurrent.ThreadPool;
 
@@ -40,14 +41,14 @@ public class Tracker implements ThreadPool.Executor {
     if (completed == 0) return false;
 
     if (start == 0L) start = System.currentTimeMillis();
-    var duration = System.currentTimeMillis() - start;
+    var duration = Duration.ofMillis(System.currentTimeMillis() - start);
     System.out.println(
         "Time: "
-            + duration / 3600000
+            + duration.toHoursPart()
             + "hr "
-            + duration / 60000
+            + duration.toMinutesPart()
             + "min "
-            + duration / 1000 % 60
+            + duration.toSecondsPart()
             + "sec");
     System.out.printf("producers完成度: %.2f%%%n", ((double) completed * 100.0 / (double) records));
     System.out.printf("  輸出%.3fMB/second%n", bytes);
