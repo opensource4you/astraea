@@ -1,10 +1,7 @@
 package org.astraea.performance;
 
-import java.time.Duration;
-
 /** Used to record statistics. This is thread safe. */
 public class Metrics {
-  private final long startTime = System.currentTimeMillis();
   private double avgLatency;
   private long num;
   private long max;
@@ -51,14 +48,6 @@ public class Metrics {
   /** @return Get the average latency. */
   public synchronized double avgLatency() {
     return avgLatency;
-  }
-
-  /** @return the average bytes (in second) */
-  public synchronized double avgBytes() {
-    var duration = Duration.ofMillis(System.currentTimeMillis() - startTime);
-    return duration.toSeconds() <= 0
-        ? 0
-        : ((double) (bytes / duration.toSeconds())) / 1024D / 1024D;
   }
 
   /** @return total send/received bytes */
