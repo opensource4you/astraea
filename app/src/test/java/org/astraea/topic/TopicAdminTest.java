@@ -6,6 +6,7 @@ import java.io.IOException;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -143,8 +144,16 @@ public class TopicAdminTest extends RequireBrokerCluster {
     testSet.add("1");
     testSet.add("2");
     try (var topicAdmin = TopicAdmin.of(bootstrapServers())) {
+      var topicNameSet = new HashSet<String>();
+      topicNameSet.add(topicName);
       topicAdmin.creator().topic(topicName).numberOfPartitions(3).create();
-      var topicLeader = topicAdmin.topicLeaders(topicName);
+      var topicLeader = new HashSet<String>();
+
+      topicAdmin.topicsLeaders(topicAdmin.replicas(topicNameSet)).entrySet().stream()
+          .filter(s -> Objects.equals(s.getKey().topic(), topicName))
+          .map(Map.Entry::getValue)
+          .forEach(s -> s.forEach(topicLeader::add));
+
       Assertions.assertEquals(topicLeader, testSet);
     }
   }

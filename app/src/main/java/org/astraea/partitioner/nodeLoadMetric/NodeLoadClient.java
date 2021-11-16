@@ -11,7 +11,7 @@ import org.astraea.metrics.jmx.MBeanClient;
 public class NodeLoadClient implements ThreadPool.Executor {
 
   private final OverLoadNode overLoadNode;
-  private Collection<NodeMetadata> nodeMetadataCollection = new ArrayList<>();
+  private final Collection<NodeMetadata> nodeMetadataCollection = new ArrayList<>();
 
   public NodeLoadClient(HashMap<String, String> jmxAddresses) throws IOException {
     for (HashMap.Entry<String, String> entry : jmxAddresses.entrySet()) {

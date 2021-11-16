@@ -1,5 +1,7 @@
 package org.astraea.partitioner.nodeLoadMetric;
 
+import static org.astraea.partitioner.nodeLoadMetric.NodeLoadClient.getBinOneCount;
+
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -18,7 +20,7 @@ public class LoadPoisson {
     var x = 0;
     for (Map.Entry<String, Integer> entry : nodeLoadClient.getAllOverLoadCount().entrySet()) {
       if (existID.stream().anyMatch(s -> Objects.equals(s, entry.getKey()))) {
-        x = nodeLoadClient.getBinOneCount(entry.getValue());
+        x = getBinOneCount(entry.getValue());
         poissonMap.put(entry.getKey(), doPoisson(lambda, x));
       }
     }

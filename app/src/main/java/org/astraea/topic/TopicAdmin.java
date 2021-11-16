@@ -59,6 +59,7 @@ public interface TopicAdmin extends Closeable {
    */
   void reassign(String topicName, int partition, Set<Integer> brokers);
 
-  /** @return The topic all leader ids. */
-  Set<String> topicLeaders(String topicName);
+  /** @return All topics' leaderID. */
+  Map<TopicPartition, Set<String>> topicsLeaders(
+      Map<TopicPartition, List<Replica>> replicasMap);
 }

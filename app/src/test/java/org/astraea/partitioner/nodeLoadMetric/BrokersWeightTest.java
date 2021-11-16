@@ -8,7 +8,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import org.junit.jupiter.api.Test;
 
-public class TestBrokersWeight {
+public class BrokersWeightTest {
   LoadPoisson loadPoisson = mock(LoadPoisson.class);
 
   @Test

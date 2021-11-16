@@ -100,7 +100,13 @@ public class LinkPartitioner implements Partitioner {
       // When assigned to a broker without partition.
       if (partitionList.size() == 0) {
         try (var topicAdmin = TopicAdmin.of(bootstrapServers)) {
-          var leaders = topicAdmin.topicLeaders(topic);
+          var topicNameSet = new HashSet<String>();
+          topicNameSet.add(topic);
+          var leaders = new HashSet<String>();
+          topicAdmin.topicsLeaders(topicAdmin.replicas(topicNameSet)).entrySet().stream()
+              .filter(s -> Objects.equals(s.getKey().topic(), topic))
+              .map(Map.Entry::getValue)
+              .forEach(s -> s.forEach(leaders::add));
           var newBrokerHashMap = new HashMap<String, int[]>();
 
           leaders.forEach(s -> newBrokerHashMap.put(s, new int[] {0, 0}));

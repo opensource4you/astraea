@@ -8,7 +8,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import org.junit.jupiter.api.Test;
 
-public class TestLoadPoisson {
+public class LoadPoissonTest {
   public NodeLoadClient nodeLoadClient;
 
   @Test

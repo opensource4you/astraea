@@ -51,21 +51,6 @@ public class Builder {
     }
 
     @Override
-    public Set<String> topicLeaders(String topicName) {
-      return Utils.handleException(
-          () ->
-              admin
-                  .describeTopics(Collections.singleton(topicName))
-                  .all()
-                  .get()
-                  .get(topicName)
-                  .partitions()
-                  .stream()
-                  .map(s -> String.valueOf(s.leader().id()))
-                  .collect(Collectors.toSet()));
-    }
-
-    @Override
     public void reassign(String topicName, int partition, Set<Integer> brokers) {
       Utils.handleException(
           () ->
@@ -219,6 +204,22 @@ public class Builder {
                           e.getValue().partitions().stream()
                               .map(p -> new TopicPartition(e.getKey(), p.partition())))
                   .collect(Collectors.toSet()));
+    }
+
+    @Override
+    public Map<TopicPartition, Set<String>> topicsLeaders(
+        Map<TopicPartition, List<Replica>> replicasMap) {
+      return Utils.handleException(
+          () ->
+              replicasMap.entrySet().stream()
+                  .collect(
+                      Collectors.toMap(
+                          Map.Entry::getKey,
+                          e ->
+                              e.getValue().stream()
+                                  .filter(replica -> replica.leader())
+                                  .map(replica -> replica.broker() + "")
+                                  .collect(Collectors.toSet()))));
     }
 
     @Override
