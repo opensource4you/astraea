@@ -1,7 +1,6 @@
 package org.astraea.performance;
 
-import java.math.BigDecimal;
-import java.math.RoundingMode;
+import java.time.Duration;
 
 /** Used to record statistics. This is thread safe. */
 public class Metrics {
@@ -56,11 +55,10 @@ public class Metrics {
 
   /** @return the average bytes (in second) */
   public synchronized double avgBytes() {
-    var value = new BigDecimal(bytes);
-    var scale = new BigDecimal(1024 * 1024);
-    var time = BigDecimal.valueOf((double) (System.currentTimeMillis() - startTime) / 1000);
-    if (time.doubleValue() == 0.0) return 0.0;
-    return value.divide(scale, 3, RoundingMode.UP).divide(time, 3, RoundingMode.UP).doubleValue();
+    var duration = Duration.ofMillis(System.currentTimeMillis() - startTime);
+    return duration.toSeconds() <= 0
+        ? 0
+        : ((double) (bytes / duration.toSeconds())) / 1024D / 1024D;
   }
 
   /** @return total send/received bytes */
