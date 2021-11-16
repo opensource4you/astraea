@@ -1,11 +1,7 @@
 package org.astraea.performance;
 
-import java.math.BigDecimal;
-import java.math.RoundingMode;
-
 /** Used to record statistics. This is thread safe. */
 public class Metrics {
-  private final long startTime = System.currentTimeMillis();
   private double avgLatency;
   private long num;
   private long max;
@@ -52,15 +48,6 @@ public class Metrics {
   /** @return Get the average latency. */
   public synchronized double avgLatency() {
     return avgLatency;
-  }
-
-  /** @return the average bytes (in second) */
-  public synchronized double avgBytes() {
-    var value = new BigDecimal(bytes);
-    var scale = new BigDecimal(1024 * 1024);
-    var time = BigDecimal.valueOf((double) (System.currentTimeMillis() - startTime) / 1000);
-    if (time.doubleValue() == 0.0) return 0.0;
-    return value.divide(scale, 3, RoundingMode.UP).divide(time, 3, RoundingMode.UP).doubleValue();
   }
 
   /** @return total send/received bytes */
