@@ -25,7 +25,6 @@ import org.junit.jupiter.api.Test;
 public class PartitionerTest extends RequireBrokerCluster {
   public final String brokerList = bootstrapServers();
   TopicAdmin admin = TopicAdmin.of(bootstrapServers());
-  public final String topicName = "address";
 
   public Properties initProConfig() {
     Properties props = new Properties();
@@ -39,6 +38,7 @@ public class PartitionerTest extends RequireBrokerCluster {
 
   @Test
   public void testAstraeaPartitioner() {
+    var topicName = "address";
     admin.creator().topic(topicName).numberOfPartitions(10).create();
 
     var key = "tainan";
@@ -90,6 +90,7 @@ public class PartitionerTest extends RequireBrokerCluster {
 
   @Test
   public void testDataDependencyPartitioner() {
+    var topicName = "dataD";
     admin.creator().topic(topicName).numberOfPartitions(10).create();
 
     var key = "DataDependency";
