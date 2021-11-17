@@ -1,6 +1,7 @@
 package org.astraea.partitioner.nodeLoadMetric;
 
 import java.time.Duration;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
@@ -37,7 +38,7 @@ public class PartitionerTest extends RequireBrokerCluster {
   }
 
   @Test
-  public void testPartitioner() {
+  public void testAstraeaPartitioner() {
     admin.creator().topic(topicName).numberOfPartitions(10).create();
 
     var key = "tainan";
@@ -80,6 +81,64 @@ public class PartitionerTest extends RequireBrokerCluster {
       var record = records.iterator().next();
       Assertions.assertEquals(topicName, record.topic());
       Assertions.assertEquals("tainan", record.key());
+      Assertions.assertEquals(1, record.headers().size());
+      var actualHeader = record.headers().iterator().next();
+      Assertions.assertEquals(header.key(), actualHeader.key());
+      Assertions.assertArrayEquals(header.value(), actualHeader.value());
+    }
+  }
+
+  @Test
+  public void testDataDependencyPartitioner() {
+    admin.creator().topic(topicName).numberOfPartitions(10).create();
+
+    var key = "DataDependency";
+    var timestamp = System.currentTimeMillis() + 10;
+    var header = Header.of("a", "b".getBytes());
+    var props = initProConfig();
+    props.put("dataDependency", "true");
+
+    var testPartitionID = new HashSet<Integer>();
+
+    try (var producer =
+        Producer.builder()
+            .keySerializer(Serializer.STRING)
+            .configs(
+                props.entrySet().stream()
+                    .collect(Collectors.toMap(e -> e.getKey().toString(), Map.Entry::getValue)))
+            .build()) {
+      for (int i = 0; i < 10; i++) {
+        var metadata =
+            producer
+                .sender()
+                .topic(topicName)
+                .key(key)
+                .timestamp(timestamp)
+                .headers(List.of(header))
+                .run()
+                .toCompletableFuture()
+                .get();
+        Assertions.assertEquals(topicName, metadata.topic());
+        Assertions.assertEquals(timestamp, metadata.timestamp());
+        testPartitionID.add(metadata.partition());
+      }
+    } catch (ExecutionException | InterruptedException e) {
+      e.printStackTrace();
+    }
+
+    Assertions.assertEquals(testPartitionID.size(), 1);
+    try (var consumer =
+        Consumer.builder()
+            .brokers(bootstrapServers())
+            .offsetPolicy(Builder.OffsetPolicy.EARLIEST)
+            .topics(Set.of(topicName))
+            .keyDeserializer(Deserializer.STRING)
+            .build()) {
+      var records = consumer.poll(Duration.ofSeconds(10));
+      Assertions.assertEquals(10, records.size());
+      var record = records.iterator().next();
+      Assertions.assertEquals(topicName, record.topic());
+      Assertions.assertEquals("DataDependency", record.key());
       Assertions.assertEquals(1, record.headers().size());
       var actualHeader = record.headers().iterator().next();
       Assertions.assertEquals(header.key(), actualHeader.key());

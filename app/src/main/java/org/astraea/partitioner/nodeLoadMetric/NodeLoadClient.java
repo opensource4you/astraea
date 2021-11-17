@@ -91,4 +91,8 @@ public class NodeLoadClient implements ThreadPool.Executor {
       nodeMetadata.setTotalBytes(nodeMetrics.totalBytesPerSec());
     }
   }
+
+  public Collection<NodeMetadata> getNodeMetadataCollection() {
+    return this.nodeMetadataCollection;
+  }
 }

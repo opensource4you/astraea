@@ -45,11 +45,35 @@ public class LinkPartitioner implements Partitioner {
   public void configure(Map<String, ?> configs) throws NullPointerException {
     Objects.requireNonNull(
         (String) configs.get("jmx_servers"), "You must configure jmx_servers correctly");
-    partitioner = FACTORY.getOrCreate(ThreadSafeSmoothPartitioner.class, configs);
+    if (configs.containsKey("dataDependency")) {
+      if (configs.get("dataDependency") == "true") {
+        partitioner = new DataDependencyPartitioner();
+        partitioner.configure(configs);
+      } else {
+        partitioner = FACTORY.getOrCreate(ThreadSafeSmoothPartitioner.class, configs);
+      }
+    } else {
+      partitioner = FACTORY.getOrCreate(ThreadSafeSmoothPartitioner.class, configs);
+    }
   }
 
   public Partitioner getPartitioner() {
     return partitioner;
+  }
+
+  public static HashMap<String, String> getAddressMap(Map<String, ?> configs) {
+    var jmxAddresses =
+        Objects.requireNonNull(
+            (String) configs.get("jmx_servers"), "You must configure jmx_servers correctly");
+    var list = Arrays.asList((jmxAddresses).split(","));
+    HashMap<String, String> mapAddress = new HashMap<>();
+    for (String str : list) {
+      var listAddress = Arrays.asList(str.split("@"));
+      mapAddress.put(listAddress.get(1), listAddress.get(0));
+    }
+    Objects.requireNonNull(
+        mapAddress, "You must configure jmx_servers correctly.(JmxAddress@NodeID)");
+    return mapAddress;
   }
 
   public static class ThreadSafeSmoothPartitioner implements Partitioner {
@@ -105,18 +129,7 @@ public class LinkPartitioner implements Partitioner {
     @Override
     public void configure(Map<String, ?> configs) {
       try {
-        var jmxAddresses =
-            Objects.requireNonNull(
-                (String) configs.get("jmx_servers"), "You must configure jmx_servers correctly");
-        var list = Arrays.asList((jmxAddresses).split(","));
-        HashMap<String, String> mapAddress = new HashMap<>();
-        for (String str : list) {
-          var listAddress = Arrays.asList(str.split("@"));
-          mapAddress.put(listAddress.get(1), listAddress.get(0));
-        }
-        Objects.requireNonNull(
-            mapAddress, "You must configure jmx_servers correctly.(JmxAddress@NodeID)");
-        nodeLoadClient = new NodeLoadClient((mapAddress));
+        nodeLoadClient = new NodeLoadClient((getAddressMap(configs)));
       } catch (IOException e) {
         throw new RuntimeException();
       }
