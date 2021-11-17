@@ -3,13 +3,10 @@ package org.astraea.performance;
 import com.beust.jcommander.Parameter;
 import java.io.IOException;
 import java.time.Duration;
-import java.util.List;
 import java.util.Map;
-import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.kafka.clients.producer.internals.DefaultPartitioner;
@@ -74,9 +71,8 @@ public class Performance {
             .mapToObj(i -> new Metrics())
             .collect(Collectors.toUnmodifiableList());
 
-    var consumerRecords = new AtomicLong(param.records);
-    var producerRecords = new AtomicLong(param.records);
-    var tracker = new Tracker(producerMetrics, consumerMetrics, param.records, param.duration);
+    var dataManager = new DataManager(param.records, param.fixedSize, param.recordSize);
+    var tracker = new Tracker(producerMetrics, consumerMetrics, dataManager, param.duration);
     var groupId = "groupId-" + System.currentTimeMillis();
     var getAssignment = new CountDownLatch(param.consumers);
     try (ThreadPool threadPool =
@@ -94,7 +90,7 @@ public class Performance {
                                     .consumerRebalanceListener(ignore -> getAssignment.countDown())
                                     .build(),
                                 consumerMetrics.get(i),
-                                consumerRecords,
+                                dataManager,
                                 param.duration))
                     .collect(Collectors.toUnmodifiableList()))
             .executors(
@@ -108,7 +104,7 @@ public class Performance {
                                     .build(),
                                 param,
                                 producerMetrics.get(i),
-                                producerRecords,
+                                dataManager,
                                 getAssignment))
                     .collect(Collectors.toUnmodifiableList()))
             .executor(tracker)
@@ -118,7 +114,10 @@ public class Performance {
   }
 
   static ThreadPool.Executor consumerExecutor(
-      Consumer<byte[], byte[]> consumer, Metrics metrics, AtomicLong records, Duration duration) {
+      Consumer<byte[], byte[]> consumer,
+      Metrics metrics,
+      DataManager dataManager,
+      Duration duration) {
     long end = System.currentTimeMillis() + duration.toMillis();
     return new ThreadPool.Executor() {
       @Override
@@ -132,9 +131,12 @@ public class Performance {
                     metrics.put(
                         System.currentTimeMillis() - record.timestamp(),
                         record.serializedKeySize() + record.serializedValueSize());
-                    records.decrementAndGet();
+                    dataManager.consumedIncrement();
                   });
-          return (records.get() <= 0 || System.currentTimeMillis() >= end)
+          // Consumer reached the record upperbound or consumed all the record producer produced.
+          return (dataManager.consumed() == dataManager.records()
+                  || (dataManager.consumed() == dataManager.produced()
+                      && System.currentTimeMillis() >= end))
               ? State.DONE
               : State.RUNNING;
         } catch (WakeupException ignore) {
@@ -159,24 +161,21 @@ public class Performance {
       Producer<byte[], byte[]> producer,
       Argument param,
       Metrics metrics,
-      AtomicLong records,
+      DataManager dataManager,
       CountDownLatch getAssignment) {
-    var randomPayload = new RandomPayload(param.fixedSize, param.recordSize);
     long end = System.currentTimeMillis() + param.duration.toMillis();
     return new ThreadPool.Executor() {
       @Override
       public State execute() throws InterruptedException {
         // Wait for all consumers get assignment.
         getAssignment.await();
-        var currentRecords = records.getAndDecrement();
-        if (currentRecords <= 0 || System.currentTimeMillis() >= end) return State.DONE;
+        var payload = dataManager.payload();
+        if (payload.isEmpty() || System.currentTimeMillis() >= end) return State.DONE;
         long start = System.currentTimeMillis();
         producer
             .sender()
             .topic(param.topic)
-            .headers(List.of())
-            .key(null)
-            .value(randomPayload.payload())
+            .value(payload.get())
             .timestamp(start)
             .run()
             .whenComplete(
@@ -189,23 +188,6 @@ public class Performance {
         producer.close();
       }
     };
-  }
-
-  static class RandomPayload {
-    private final boolean fixedSize;
-    private final int size;
-    private final Random rand = new Random();
-
-    public RandomPayload(boolean fixedSize, int size) {
-      this.fixedSize = fixedSize;
-      this.size = size;
-    }
-
-    public byte[] payload() {
-      byte[] payload = (this.fixedSize) ? new byte[size] : new byte[rand.nextInt(size) + 1];
-      rand.nextBytes(payload);
-      return payload;
-    }
   }
 
   static class Argument extends BasicArgumentWithPropFile {
@@ -245,7 +227,7 @@ public class Performance {
         names = {"--records"},
         description = "Integer: number of records to send",
         validateWith = ArgumentUtil.NonNegativeLong.class)
-    long records = 1000000000l;
+    long records = 1000000000L;
 
     @Parameter(
         names = {"--fixedSize"},

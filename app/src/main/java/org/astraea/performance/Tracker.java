@@ -8,21 +8,24 @@ import org.astraea.concurrent.ThreadPool;
 public class Tracker implements ThreadPool.Executor {
   private final List<Metrics> producerData;
   private final List<Metrics> consumerData;
-  private final long records;
-  private final long end;
-  private long start = 0L;
+  private final DataManager dataManager;
+  private final Duration exeTime;
+  private long start = System.currentTimeMillis();
 
   public Tracker(
-      List<Metrics> producerData, List<Metrics> consumerData, long records, Duration duration) {
+      List<Metrics> producerData,
+      List<Metrics> consumerData,
+      DataManager dataManager,
+      Duration duration) {
     this.producerData = producerData;
     this.consumerData = consumerData;
-    this.records = records;
-    this.end = System.currentTimeMillis() + duration.toMillis();
+    this.dataManager = dataManager;
+    this.exeTime = duration;
   }
 
   @Override
   public State execute() throws InterruptedException {
-    if ((logProducers() & logConsumers()) || System.currentTimeMillis() >= end) return State.DONE;
+    if (logProducers() & logConsumers()) return State.DONE;
     // 等待1秒，再抓資料輸出
     Thread.sleep(1000);
     return State.RUNNING;
@@ -41,10 +44,20 @@ public class Tracker implements ThreadPool.Executor {
       min = Math.min(min, data.min());
     }
 
-    if (completed == 0) return false;
+    if (completed == 0) {
+      start = System.currentTimeMillis();
+      return false;
+    }
 
-    if (start == 0L) start = System.currentTimeMillis();
     var duration = Duration.ofMillis(System.currentTimeMillis() - start);
+    // Print completion rate (by number of records) or (by time)
+    var percentage =
+        Math.min(
+            100D,
+            Math.max(
+                100D * completed / dataManager.records(),
+                100D * (System.currentTimeMillis() - start) / exeTime.toMillis()));
+
     System.out.println(
         "Time: "
             + duration.toHoursPart()
@@ -53,7 +66,7 @@ public class Tracker implements ThreadPool.Executor {
             + "min "
             + duration.toSecondsPart()
             + "sec");
-    System.out.printf("producers完成度: %.2f%%%n", ((double) completed * 100.0 / (double) records));
+    System.out.printf("producers完成度: %.2f%%%n", percentage);
     System.out.printf("  輸出%.3fMB/second%n", bytes);
     System.out.println("  發送max latency: " + max + "ms");
     System.out.println("  發送mim latency: " + min + "ms");
@@ -64,7 +77,7 @@ public class Tracker implements ThreadPool.Executor {
           "  producer[%d]的發送average latency: %.3fms%n", i, producerData.get(i).avgLatency());
     }
     System.out.println("\n");
-    return completed >= records;
+    return percentage >= 100D;
   }
 
   private boolean logConsumers() {
@@ -83,7 +96,9 @@ public class Tracker implements ThreadPool.Executor {
 
     if (completed == 0) return false;
 
-    System.out.printf("consumer完成度: %.2f%%%n", ((double) completed * 100.0 / (double) records));
+    // Print out percentage of (consumed records) and (produced records)
+    var percentage = completed * 100D / dataManager.produced();
+    System.out.printf("consumer完成度: %.2f%%%n", percentage);
     System.out.printf("  輸入%.3fMB/second%n", bytes);
     System.out.println("  端到端max latency: " + max + "ms");
     System.out.println("  端到端mim latency: " + min + "ms");
@@ -94,6 +109,7 @@ public class Tracker implements ThreadPool.Executor {
           "  consumer[%d]的端到端average latency: %.3fms%n", i, consumerData.get(i).avgLatency());
     }
     System.out.println("\n");
-    return completed >= records;
+    return completed == dataManager.records()
+        || (percentage >= 100D && System.currentTimeMillis() >= start + exeTime.toMillis());
   }
 }

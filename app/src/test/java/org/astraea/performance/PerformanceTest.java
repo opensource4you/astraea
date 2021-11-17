@@ -1,11 +1,9 @@
 package org.astraea.performance;
 
 import java.time.Duration;
-import java.util.Arrays;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.atomic.AtomicLong;
 import org.astraea.Utils;
 import org.astraea.concurrent.ThreadPool;
 import org.astraea.consumer.Consumer;
@@ -27,7 +25,7 @@ public class PerformanceTest extends RequireBrokerCluster {
             Producer.builder().brokers(bootstrapServers()).build(),
             param,
             metrics,
-            new AtomicLong(10),
+            new DataManager(10, true, 1024),
             new CountDownLatch(0))) {
       executor.execute();
 
@@ -44,8 +42,8 @@ public class PerformanceTest extends RequireBrokerCluster {
         Performance.consumerExecutor(
             Consumer.builder().topics(Set.of(topicName)).brokers(bootstrapServers()).build(),
             metrics,
-            new AtomicLong(10),
-            Duration.ofSeconds(Integer.MAX_VALUE))) {
+            new DataManager(10, true, 1024),
+            Duration.ofMillis(10))) {
       executor.execute();
 
       Assertions.assertEquals(0, metrics.num());
@@ -59,25 +57,5 @@ public class PerformanceTest extends RequireBrokerCluster {
       Assertions.assertEquals(1, metrics.num());
       Assertions.assertNotEquals(1024, metrics.bytes());
     }
-  }
-
-  @Test
-  void testRandomSize() {
-    var randomPayload = new Performance.RandomPayload(false, 102400);
-    boolean sameSize = randomPayload.payload().length == randomPayload.payload().length;
-
-    // Assertion failed with probability 1/102400 ~ 0.001%
-    Assertions.assertFalse(sameSize);
-
-    Assertions.assertTrue(randomPayload.payload().length <= 102400);
-  }
-
-  @Test
-  void testRandomContent() {
-    var randomPayload = new Performance.RandomPayload(false, 102400);
-    boolean same = Arrays.equals(randomPayload.payload(), randomPayload.payload());
-
-    // Assertion failed with probability < 1/102400
-    Assertions.assertFalse(same);
   }
 }
