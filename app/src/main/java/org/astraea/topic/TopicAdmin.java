@@ -59,5 +59,5 @@ public interface TopicAdmin extends Closeable {
    */
   void reassign(String topicName, int partition, Set<Integer> brokers);
 
-  void reassignFolder(String topicName, Set<String> partition, String path);
+  void reassignFolder(Integer broker, String topicName, Set<Integer> partition, String path);
 }

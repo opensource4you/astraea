@@ -51,11 +51,11 @@ public class Builder {
     }
 
     @Override
-    public void reassignFolder(String topicName, Set<String> partition, String path) {
+    public void reassignFolder(
+        Integer broker, String topicName, Set<Integer> partition, String path) {
       try {
         for (var p : partition) {
-          admin.alterReplicaLogDirs(
-              Map.of(new TopicPartitionReplica(topicName, Integer.parseInt(p), 0), path));
+          admin.alterReplicaLogDirs(Map.of(new TopicPartitionReplica(topicName, p, broker), path));
         }
       } catch (Exception e) {
       }

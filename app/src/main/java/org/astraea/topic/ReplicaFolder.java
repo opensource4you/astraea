@@ -12,30 +12,33 @@ public class ReplicaFolder {
 
   static Map<TopicPartition, Map.Entry<Set<String>, Set<String>>> execute(
       TopicAdmin admin, Argument args) {
-    var topic = args.topics.isEmpty() ? admin.topicNames() : args.topics;
-    var partitions = args.partitions;
+    var topic = args.topics.iterator().next();
+    var partitions = args.partitions.stream().map(Integer::valueOf).collect(Collectors.toSet());
     var path = args.path.iterator().next();
+    var currentBroker =
+        admin
+            .replicas(args.topics)
+            .get(new TopicPartition(topic, partitions.iterator().next()))
+            .get(0)
+            .broker();
     var result =
         new TreeMap<TopicPartition, Map.Entry<Set<String>, Set<String>>>(
             Comparator.comparing(TopicPartition::topic).thenComparing(TopicPartition::partition));
-    admin.replicas(topic).entrySet().stream()
+    admin.replicas(args.topics).entrySet().stream()
         .filter(
-            t ->
-                t.getKey().topic().equals(topic.iterator().next())
-                    && partitions.contains(t.getKey().partition()))
+            t -> t.getKey().topic().equals(topic) && partitions.contains(t.getKey().partition()))
         .collect(Collectors.toList())
         .forEach(
             (tp) -> {
               var currentPath =
                   tp.getValue().stream().map(Replica::path).collect(Collectors.toSet());
-              if (tp.getValue().get(0).broker() == 0)
-                if (topic.iterator().next().equals(tp.getKey().topic())
-                    && partitions.contains(String.valueOf(tp.getKey().partition())))
+              if (tp.getValue().get(0).broker() == currentBroker)
+                if (topic.equals(tp.getKey().topic())
+                    && partitions.contains(tp.getKey().partition()))
                   if (!currentPath.equals(args.path))
                     result.put(tp.getKey(), Map.entry(currentPath, args.path));
             });
-
-    admin.reassignFolder(topic.iterator().next(), partitions, path);
+    if (!args.verify) admin.reassignFolder(currentBroker, topic, partitions, path);
 
     return result;
   }
@@ -63,14 +66,16 @@ public class ReplicaFolder {
         names = {"--topics"},
         description = "Those topics' partitions will get reassigned. Empty menas all topics",
         validateWith = ArgumentUtil.NotEmptyString.class,
-        converter = ArgumentUtil.StringSetConverter.class)
+        converter = ArgumentUtil.StringSetConverter.class,
+        required = true)
     public Set<String> topics = Collections.emptySet();
 
     @Parameter(
         names = {"--partitions"},
         description = "The partition that will be moved",
         validateWith = ArgumentUtil.NotEmptyString.class,
-        converter = ArgumentUtil.StringSetConverter.class)
+        converter = ArgumentUtil.StringSetConverter.class,
+        required = true)
     public Set<String> partitions = Collections.emptySet();
 
     @Parameter(
@@ -86,6 +91,6 @@ public class ReplicaFolder {
             "True if you just want to see the new assignment instead of executing the plan",
         validateWith = ArgumentUtil.NotEmptyString.class,
         converter = ArgumentUtil.BooleanConverter.class)
-    boolean verify = true;
+    boolean verify = false;
   }
 }
