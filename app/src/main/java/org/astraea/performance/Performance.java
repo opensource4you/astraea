@@ -169,8 +169,11 @@ public class Performance {
       public State execute() throws InterruptedException {
         // Wait for all consumers get assignment.
         getAssignment.await();
+        if (System.currentTimeMillis() >= end) return State.DONE;
         var payload = dataManager.payload();
-        if (payload.isEmpty() || System.currentTimeMillis() >= end) return State.DONE;
+        // Number of records produced reach the given number.
+        if (payload.isEmpty()) return State.DONE;
+
         long start = System.currentTimeMillis();
         producer
             .sender()
