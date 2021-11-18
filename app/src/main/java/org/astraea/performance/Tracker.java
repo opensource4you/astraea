@@ -47,10 +47,7 @@ public class Tracker implements ThreadPool.Executor {
   private boolean logProducers() {
     var result = result(producerData);
 
-    if (result.completedRecords == 0) {
-      start = System.currentTimeMillis();
-      return false;
-    }
+    if (result.completedRecords == 0) return false;
 
     var duration = duration();
     // Print completion rate (by number of records) or (by time)
@@ -73,7 +70,7 @@ public class Tracker implements ThreadPool.Executor {
     System.out.printf("  輸出%.3fMB/second%n", result.averageBytes(duration));
     System.out.println("  發送max latency: " + result.maxLatency + "ms");
     System.out.println("  發送mim latency: " + result.minLatency + "ms");
-    for (int i = 0; i < producerData.size(); ++i) {
+    for (int i = 0; i < result.bytes.size(); ++i) {
       System.out.printf(
           "  producer[%d]的發送average bytes: %.3fMB%n", i, avg(duration, result.bytes.get(i)));
       System.out.printf(
@@ -96,7 +93,7 @@ public class Tracker implements ThreadPool.Executor {
     System.out.printf("  輸入%.3fMB/second%n", result.averageBytes(duration));
     System.out.println("  端到端max latency: " + result.maxLatency + "ms");
     System.out.println("  端到端mim latency: " + result.minLatency + "ms");
-    for (int i = 0; i < consumerData.size(); ++i) {
+    for (int i = 0; i < result.bytes.size(); ++i) {
       System.out.printf(
           "  consumer[%d]的端到端average bytes: %.3fMB%n", i, avg(duration, result.bytes.get(i)));
       System.out.printf(
