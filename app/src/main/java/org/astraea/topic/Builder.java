@@ -207,22 +207,6 @@ public class Builder {
     }
 
     @Override
-    public Map<TopicPartition, Set<String>> topicsLeaders(
-        Map<TopicPartition, List<Replica>> replicasMap) {
-      return Utils.handleException(
-          () ->
-              replicasMap.entrySet().stream()
-                  .collect(
-                      Collectors.toMap(
-                          Map.Entry::getKey,
-                          e ->
-                              e.getValue().stream()
-                                  .filter(replica -> replica.leader())
-                                  .map(replica -> replica.broker() + "")
-                                  .collect(Collectors.toSet()))));
-    }
-
-    @Override
     public Map<TopicPartition, List<Replica>> replicas(Set<String> topics) {
       var replicaInfos =
           Utils.handleException(() -> admin.describeLogDirs(brokerIds()).allDescriptions().get());

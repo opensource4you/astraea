@@ -2,6 +2,7 @@ package org.astraea.topic;
 
 import java.io.Closeable;
 import java.util.*;
+import java.util.stream.Collectors;
 import org.apache.kafka.clients.admin.*;
 import org.apache.kafka.common.TopicPartition;
 
@@ -60,5 +61,16 @@ public interface TopicAdmin extends Closeable {
   void reassign(String topicName, int partition, Set<Integer> brokers);
 
   /** @return All topics' leaderID. */
-  Map<TopicPartition, Set<String>> topicsLeaders(Map<TopicPartition, List<Replica>> replicasMap);
+  default Map<TopicPartition, Integer> leaders(Set<String> topics) {
+    return replicas(topics).entrySet().stream()
+        .collect(
+            Collectors.toMap(
+                Map.Entry::getKey,
+                e ->
+                    e.getValue().stream()
+                        .filter(r -> r.leader())
+                        .map(r -> r.broker())
+                        .findFirst()
+                        .get()));
+  }
 }
