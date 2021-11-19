@@ -9,7 +9,7 @@ public class BrokersWeight {
    * Record the current weight of each node according to Poisson calculation and the weight after
    * partitioner calculation.
    */
-  private static HashMap<String, int[]> brokerHashMap = new HashMap<>();
+  private static HashMap<String, int[]> brokerWeightHashMap = new HashMap<>();
 
   private LoadPoisson loadPoisson;
 
@@ -18,38 +18,40 @@ public class BrokersWeight {
   }
 
   /** Change the weight of the node according to the current Poisson. */
-  public synchronized void setBrokerHashMap() {
-    HashMap<String, Double> poissonMap = loadPoisson.setAllPoisson();
+  public synchronized void setBrokerWeightHashMap() {
+    HashMap<String, Double> poissonMap = loadPoisson.getAllPoissonMap();
 
     for (Map.Entry<String, Double> entry : poissonMap.entrySet()) {
-      if (!brokerHashMap.containsKey(entry.getKey())) {
-        brokerHashMap.put(entry.getKey(), new int[] {(int) ((1 - entry.getValue()) * 20), 0});
+      if (!brokerWeightHashMap.containsKey(entry.getKey())) {
+        brokerWeightHashMap.put(entry.getKey(), new int[] {(int) ((1 - entry.getValue()) * 20), 0});
       } else {
-        brokerHashMap.put(
+        brokerWeightHashMap.put(
             entry.getKey(),
-            new int[] {(int) ((1 - entry.getValue()) * 20), brokerHashMap.get(entry.getKey())[1]});
+            new int[] {
+              (int) ((1 - entry.getValue()) * 20), brokerWeightHashMap.get(entry.getKey())[1]
+            });
       }
     }
   }
 
   public synchronized int getAllWeight() {
     int allWeight = 0;
-    for (Map.Entry<String, int[]> entry : brokerHashMap.entrySet()) {
+    for (Map.Entry<String, int[]> entry : brokerWeightHashMap.entrySet()) {
       allWeight += entry.getValue()[0];
     }
     return allWeight;
   }
 
   public synchronized HashMap<String, int[]> getBrokerHashMap() {
-    return brokerHashMap;
+    return brokerWeightHashMap;
   }
 
   public synchronized void setCurrentBrokerHashMap(HashMap<String, int[]> currentBrokerHashMap) {
-    brokerHashMap = currentBrokerHashMap;
+    brokerWeightHashMap = currentBrokerHashMap;
   }
 
   // Only for test
   void setBrokerHashMapValue(String x, int y) {
-    brokerHashMap.put(x, new int[] {0, y});
+    brokerWeightHashMap.put(x, new int[] {0, y});
   }
 }

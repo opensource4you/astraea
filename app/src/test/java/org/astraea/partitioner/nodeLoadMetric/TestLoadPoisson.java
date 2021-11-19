@@ -13,7 +13,7 @@ public class TestLoadPoisson {
   @Test
   public void testFactorial() {
     nodeLoadClient = mock(NodeLoadClient.class);
-    LoadPoisson loadPoisson = new LoadPoisson(nodeLoadClient);
+    LoadPoisson loadPoisson = new LoadPoisson();
 
     assertEquals(loadPoisson.factorial(3), 6);
     assertEquals(loadPoisson.factorial(5), 120);
@@ -22,7 +22,7 @@ public class TestLoadPoisson {
   @Test
   public void testDoPoisson() {
     nodeLoadClient = mock(NodeLoadClient.class);
-    LoadPoisson loadPoisson = new LoadPoisson(nodeLoadClient);
+    LoadPoisson loadPoisson = new LoadPoisson();
 
     assertEquals(loadPoisson.doPoisson(10, 15), 0.9512595966960214);
     assertEquals(loadPoisson.doPoisson(5, 5), 0.6159606548330632);
@@ -44,13 +44,14 @@ public class TestLoadPoisson {
     testPoissonMap.put("2", 0.9319063652781515);
 
     NodeLoadClient nodeLoadClient = mock(NodeLoadClient.class);
-    when(nodeLoadClient.getAllOverLoadCount()).thenReturn(testNodesLoadCount);
+    when(nodeLoadClient.getNodeOverLoadCount()).thenReturn(testNodesLoadCount);
     when(nodeLoadClient.getAvgLoadCount()).thenReturn(5);
 
-    LoadPoisson loadPoisson = new LoadPoisson(nodeLoadClient);
+    LoadPoisson loadPoisson = new LoadPoisson();
 
-    poissonMap = loadPoisson.setAllPoisson();
+    loadPoisson.setAllPoisson(
+        nodeLoadClient.getAvgLoadCount(), nodeLoadClient.getNodeOverLoadCount());
 
-    assertEquals(poissonMap, testPoissonMap);
+    assertEquals(loadPoisson.getAllPoissonMap(), testPoissonMap);
   }
 }

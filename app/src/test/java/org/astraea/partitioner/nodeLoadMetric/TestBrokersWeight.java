@@ -17,17 +17,17 @@ public class TestBrokersWeight {
     poissonMap.put("1", 0.8);
     poissonMap.put("2", 0.3);
 
-    when(loadPoisson.setAllPoisson()).thenReturn(poissonMap);
+    when(loadPoisson.getAllPoissonMap()).thenReturn(poissonMap);
 
     BrokersWeight brokersWeight = new BrokersWeight(loadPoisson);
 
-    brokersWeight.setBrokerHashMap();
+    brokersWeight.setBrokerWeightHashMap();
 
     assertEquals(brokersWeight.getBrokerHashMap().get("0")[0], 10);
     assertEquals(brokersWeight.getBrokerHashMap().get("1")[0], 3);
 
     brokersWeight.setBrokerHashMapValue("0", 8);
-    brokersWeight.setBrokerHashMap();
+    brokersWeight.setBrokerWeightHashMap();
     assertEquals(brokersWeight.getBrokerHashMap().get("0")[1], 8);
   }
 }

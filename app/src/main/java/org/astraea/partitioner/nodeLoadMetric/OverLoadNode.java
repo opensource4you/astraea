@@ -7,28 +7,24 @@ import java.util.stream.Collectors;
 
 public class OverLoadNode {
   private double standardDeviation = 0;
-  private double avgBrokersMsgPerSec = 0;
   private Collection<String> nodesID;
   private int nodeNum;
   private int mountCount = 0;
-  private HashMap<String, Double> eachBrokerMsgPerSec = new HashMap();
-  private Collection<NodeMetadata> nodesMetadata;
+  private Collection<NodeMetadata> nodeMetadata;
 
-  OverLoadNode(Collection<NodeMetadata> nodeMetadataCollection) {
+  OverLoadNode(Collection<NodeMetadata> nodeMetadata) {
     this.nodesID =
-        nodeMetadataCollection.stream()
-            .map(NodeMetadata::getNodeID)
-            .collect(Collectors.toUnmodifiableList());
-    this.nodeNum = nodeMetadataCollection.size();
-    this.nodesMetadata = nodeMetadataCollection;
+        nodeMetadata.stream().map(SafeMetadata::getNodeID).collect(Collectors.toUnmodifiableList());
+    this.nodeNum = nodeMetadata.size();
+    this.nodeMetadata = nodeMetadata;
   }
 
   /** Monitor and update the number of overloads of each node. */
   public void monitorOverLoad() {
-    setBrokersMsgPerSec();
-    setAvgBrokersMsgPerSec();
-    standardDeviationImperative();
-    for (NodeMetadata nodeMetadata : nodesMetadata) {
+    var eachBrokerMsgPerSec = setBrokersMsgPerSec();
+    var avgBrokersMsgPerSec = setAvgBrokersMsgPerSec(eachBrokerMsgPerSec);
+    standardDeviationImperative(eachBrokerMsgPerSec, avgBrokersMsgPerSec);
+    for (NodeMetadata nodeMetadata : nodeMetadata) {
       int ifOverLoad = 0;
       if (nodeMetadata.getTotalBytes() > (avgBrokersMsgPerSec + standardDeviation)) {
         ifOverLoad = 1;
@@ -56,23 +52,26 @@ public class OverLoadNode {
     }
   }
 
-  public void setBrokersMsgPerSec() {
-    for (NodeMetadata nodeMetadata : nodesMetadata) {
-      eachBrokerMsgPerSec.put(nodeMetadata.getNodeID(), nodeMetadata.getTotalBytes());
+  public HashMap<String, Double> setBrokersMsgPerSec() {
+    var eachMsg = new HashMap<String, Double>();
+    for (NodeMetadata nodeMetadata : nodeMetadata) {
+      eachMsg.put(nodeMetadata.getNodeID(), nodeMetadata.getTotalBytes());
     }
+    return eachMsg;
   }
 
-  public void setAvgBrokersMsgPerSec() {
+  public double setAvgBrokersMsgPerSec(HashMap<String, Double> eachMsg) {
     double avg = 0;
-    for (Map.Entry<String, Double> entry : eachBrokerMsgPerSec.entrySet()) {
+    for (Map.Entry<String, Double> entry : eachMsg.entrySet()) {
       avg += entry.getValue();
     }
-    this.avgBrokersMsgPerSec = avg / nodeNum;
+    return avg / nodeNum;
   }
 
-  public void standardDeviationImperative() {
+  public void standardDeviationImperative(
+      HashMap<String, Double> eachMsg, double avgBrokersMsgPerSec) {
     double variance = 0;
-    for (Map.Entry<String, Double> entry : eachBrokerMsgPerSec.entrySet()) {
+    for (Map.Entry<String, Double> entry : eachMsg.entrySet()) {
       variance +=
           (entry.getValue() - avgBrokersMsgPerSec) * (entry.getValue() - avgBrokersMsgPerSec);
     }
@@ -82,15 +81,6 @@ public class OverLoadNode {
   // Only for test
   double getStandardDeviation() {
     return this.standardDeviation;
-  }
-
-  // Only for test
-  public void setEachBrokerMsgPerSec(HashMap<String, Double> hashMap) {
-    this.eachBrokerMsgPerSec = hashMap;
-  }
-  // Only for test
-  double getAvgBrokersMsgPerSec() {
-    return this.avgBrokersMsgPerSec;
   }
 
   // Only for test

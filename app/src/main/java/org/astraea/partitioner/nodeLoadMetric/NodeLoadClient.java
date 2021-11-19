@@ -5,24 +5,26 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 import org.astraea.concurrent.ThreadPool;
 import org.astraea.metrics.jmx.MBeanClient;
 
 public class NodeLoadClient implements ThreadPool.Executor {
 
   private final OverLoadNode overLoadNode;
-  private final Collection<NodeMetadata> nodeMetadataCollection = new ArrayList<>();
+  private final Collection<NodeMetrics> nodeMetricsCollection = new ArrayList<>();
+  private final LoadPoisson loadPoisson;
 
   public NodeLoadClient(HashMap<String, String> jmxAddresses) throws IOException {
     for (HashMap.Entry<String, String> entry : jmxAddresses.entrySet()) {
-      this.nodeMetadataCollection.add(
-          new NodeMetadata(entry.getKey(), createNodeMetrics(entry.getKey(), entry.getValue())));
+      this.nodeMetricsCollection.add(new NodeMetrics(entry.getKey(), entry.getValue()));
     }
-    this.overLoadNode = new OverLoadNode(this.nodeMetadataCollection);
-  }
-
-  public NodeMetrics createNodeMetrics(String key, String value) throws IOException {
-    return new NodeMetrics(key, value);
+    this.overLoadNode =
+        new OverLoadNode(
+            this.nodeMetricsCollection.stream()
+                .map(NodeMetrics::getNodeMetadata)
+                .collect(Collectors.toList()));
+    loadPoisson = new LoadPoisson();
   }
 
   /** A thread that continuously updates metricsfor NodeLoadClient. */
@@ -31,6 +33,7 @@ public class NodeLoadClient implements ThreadPool.Executor {
     try {
       refreshNodesMetrics();
       overLoadNode.monitorOverLoad();
+      loadPoisson.setAllPoisson(getAvgLoadCount(), getNodeOverLoadCount());
       TimeUnit.SECONDS.sleep(1);
     } catch (InterruptedException e) {
       e.printStackTrace();
@@ -40,8 +43,7 @@ public class NodeLoadClient implements ThreadPool.Executor {
 
   @Override
   public void close() {
-    for (NodeMetadata nodeMetadata : nodeMetadataCollection) {
-      NodeMetrics nodeMetrics = nodeMetadata.getNodeMetrics();
+    for (NodeMetrics nodeMetrics : nodeMetricsCollection) {
       MBeanClient mBeanClient = nodeMetrics.getKafkaMetricClient();
       try {
         mBeanClient.close();
@@ -51,22 +53,23 @@ public class NodeLoadClient implements ThreadPool.Executor {
     }
   }
 
-  public synchronized HashMap<String, Integer> getAllOverLoadCount() {
+  public synchronized HashMap<String, Integer> getNodeOverLoadCount() {
     HashMap<String, Integer> overLoadCount = new HashMap<>();
-    for (NodeMetadata nodeMetadata : nodeMetadataCollection) {
-      overLoadCount.put(nodeMetadata.getNodeID(), nodeMetadata.getOverLoadCount());
+    for (NodeMetrics nodeMetrics : nodeMetricsCollection) {
+      SafeMetadata safeMetadata = nodeMetrics.getNodeMetadata();
+      overLoadCount.put(safeMetadata.getNodeID(), safeMetadata.getOverLoadCount());
     }
     return overLoadCount;
   }
 
   public synchronized int getAvgLoadCount() {
     double avgLoadCount = 0;
-    for (NodeMetadata nodeMetadata : nodeMetadataCollection) {
-      avgLoadCount += getBinOneCount(nodeMetadata.getOverLoadCount());
+
+    for (NodeMetrics nodeMetrics : nodeMetricsCollection) {
+      SafeMetadata safeMetadata = nodeMetrics.getNodeMetadata();
+      avgLoadCount += getBinOneCount(safeMetadata.getOverLoadCount());
     }
-    return nodeMetadataCollection.size() > 0
-        ? (int) avgLoadCount / nodeMetadataCollection.size()
-        : 0;
+    return nodeMetricsCollection.size() > 0 ? (int) avgLoadCount / nodeMetricsCollection.size() : 0;
   }
 
   /** Get the number of times a node is overloaded. */
@@ -85,10 +88,12 @@ public class NodeLoadClient implements ThreadPool.Executor {
   }
 
   public void refreshNodesMetrics() {
-    for (NodeMetadata nodeMetadata : nodeMetadataCollection) {
-      NodeMetrics nodeMetrics = nodeMetadata.getNodeMetrics();
+    for (NodeMetrics nodeMetrics : nodeMetricsCollection) {
       nodeMetrics.refreshMetrics();
-      nodeMetadata.setTotalBytes(nodeMetrics.totalBytesPerSec());
     }
+  }
+
+  public LoadPoisson getLoadPoisson() {
+    return loadPoisson;
   }
 }

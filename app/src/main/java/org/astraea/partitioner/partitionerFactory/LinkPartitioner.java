@@ -14,7 +14,6 @@ import org.apache.kafka.common.Cluster;
 import org.apache.kafka.common.PartitionInfo;
 import org.astraea.concurrent.ThreadPool;
 import org.astraea.partitioner.nodeLoadMetric.BrokersWeight;
-import org.astraea.partitioner.nodeLoadMetric.LoadPoisson;
 import org.astraea.partitioner.nodeLoadMetric.NodeLoadClient;
 
 public class LinkPartitioner implements Partitioner {
@@ -66,9 +65,8 @@ public class LinkPartitioner implements Partitioner {
         Object value,
         byte[] valueBytes,
         Cluster cluster) {
-      LoadPoisson loadPoisson = new LoadPoisson(nodeLoadClient);
-      BrokersWeight brokersWeight = new BrokersWeight(loadPoisson);
-      brokersWeight.setBrokerHashMap();
+      BrokersWeight brokersWeight = new BrokersWeight(nodeLoadClient.getLoadPoisson());
+      brokersWeight.setBrokerWeightHashMap();
       Map.Entry<String, int[]> maxWeightServer = null;
 
       int allWeight = brokersWeight.getAllWeight();

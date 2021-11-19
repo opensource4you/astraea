@@ -3,7 +3,6 @@ package org.astraea.partitioner.nodeLoadMetric;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.List;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -18,7 +17,7 @@ public class NodeMetrics {
   private final JMXServiceURL serviceURL;
   private final MBeanClient mBeanClient;
   private final String nodeID;
-  private HashMap<String, Double> metricsValues;
+  private final NodeMetadata nodeMetadata;
   private Collection<String> argumentTargetMetrics = new ArrayList<>();
 
   NodeMetrics(String ID, String address) throws IOException {
@@ -29,7 +28,7 @@ public class NodeMetrics {
       serviceURL = new JMXServiceURL(address);
     else serviceURL = new JMXServiceURL(createJmxUrl(address));
     mBeanClient = new MBeanClient(serviceURL);
-    metricsValues = new HashMap();
+    nodeMetadata = createNodeMetadata(ID);
   }
 
   public String createJmxUrl(String address) {
@@ -45,18 +44,23 @@ public class NodeMetrics {
     List<BrokerTopicMetricsResult> collect =
         metrics.stream().map(x -> x.fetch(mBeanClient)).collect(Collectors.toUnmodifiableList());
 
-    for (BrokerTopicMetricsResult result : collect) {
-      metricsValues.put(
-          result.beanObject().getProperties().get("name"),
-          (Double) result.beanObject().getAttributes().get("MeanRate"));
-    }
-  }
-
-  public double totalBytesPerSec() {
-    return metricsValues.get("BytesInPerSec") + metricsValues.get("BytesOutPerSec");
+    nodeMetadata.setTotalBytes(
+        collect.stream()
+            .mapToDouble(s -> (double) s.beanObject().getAttributes().get("MeanRate"))
+            .reduce(Double::sum)
+            .stream()
+            .sum());
   }
 
   public MBeanClient getKafkaMetricClient() {
-    return this.mBeanClient;
+    return mBeanClient;
+  }
+
+  public NodeMetadata createNodeMetadata(String nodeID) {
+    return new NodeMetadata(nodeID);
+  }
+
+  public NodeMetadata getNodeMetadata() {
+    return nodeMetadata;
   }
 }

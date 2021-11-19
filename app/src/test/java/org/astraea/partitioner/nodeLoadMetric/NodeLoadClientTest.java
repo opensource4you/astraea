@@ -23,10 +23,10 @@ public class NodeLoadClientTest {
 
     nodeMetadataCollection = new ArrayList<>();
     NodeMetrics nodeMetrics = mock(NodeMetrics.class);
-    NodeMetadata nodeMetadata0 = new NodeMetadata("0", nodeMetrics);
-    NodeMetadata nodeMetadata1 = new NodeMetadata("1", nodeMetrics);
-    NodeMetadata nodeMetadata2 = new NodeMetadata("2", nodeMetrics);
-    NodeMetadata nodeMetadata3 = new NodeMetadata("3", nodeMetrics);
+    NodeMetadata nodeMetadata0 = new NodeMetadata("0");
+    NodeMetadata nodeMetadata1 = new NodeMetadata("1");
+    NodeMetadata nodeMetadata2 = new NodeMetadata("2");
+    NodeMetadata nodeMetadata3 = new NodeMetadata("3");
 
     nodeMetadataCollection.add(nodeMetadata0);
     nodeMetadataCollection.add(nodeMetadata1);

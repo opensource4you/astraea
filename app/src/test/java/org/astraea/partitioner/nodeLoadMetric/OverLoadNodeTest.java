@@ -1,11 +1,12 @@
 package org.astraea.partitioner.nodeLoadMetric;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.mockito.Mockito.mock;
 
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Set;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -16,21 +17,20 @@ public class OverLoadNodeTest {
   @BeforeEach
   public void setUp() {
     nodeMetadataCollection = new ArrayList<>();
-    NodeMetrics nodeMetrics = mock(NodeMetrics.class);
-    NodeMetadata nodeMetadata0 = new NodeMetadata("0", nodeMetrics);
-    NodeMetadata nodeMetadata1 = new NodeMetadata("1", nodeMetrics);
-    NodeMetadata nodeMetadata2 = new NodeMetadata("2", nodeMetrics);
-    NodeMetadata nodeMetadata3 = new NodeMetadata("3", nodeMetrics);
+    NodeMetadata nodeMetadata0 = new NodeMetadata("0");
+    NodeMetadata nodeMetadata1 = new NodeMetadata("1");
+    NodeMetadata nodeMetadata2 = new NodeMetadata("2");
+    NodeMetadata nodeMetadata3 = new NodeMetadata("3");
 
     nodeMetadataCollection.add(nodeMetadata0);
     nodeMetadataCollection.add(nodeMetadata1);
     nodeMetadataCollection.add(nodeMetadata2);
     nodeMetadataCollection.add(nodeMetadata3);
 
-    NodeMetadata nodeMetadata20 = new NodeMetadata("0", nodeMetrics);
-    NodeMetadata nodeMetadata21 = new NodeMetadata("1", nodeMetrics);
-    NodeMetadata nodeMetadata22 = new NodeMetadata("2", nodeMetrics);
-    NodeMetadata nodeMetadata23 = new NodeMetadata("3", nodeMetrics);
+    NodeMetadata nodeMetadata20 = new NodeMetadata("0");
+    NodeMetadata nodeMetadata21 = new NodeMetadata("1");
+    NodeMetadata nodeMetadata22 = new NodeMetadata("2");
+    NodeMetadata nodeMetadata23 = new NodeMetadata("3");
 
     nodeMetadataCollection2 = new ArrayList<>();
     nodeMetadataCollection2.add(nodeMetadata20);
@@ -48,21 +48,19 @@ public class OverLoadNodeTest {
     testHashMap.put("3", 20.0);
 
     OverLoadNode overLoadNode = new OverLoadNode(nodeMetadataCollection);
-    overLoadNode.setEachBrokerMsgPerSec(testHashMap);
-    overLoadNode.setAvgBrokersMsgPerSec();
+    var testAvg = overLoadNode.setAvgBrokersMsgPerSec(testHashMap);
+    assertEquals(testAvg, 15);
 
-    assertEquals(overLoadNode.getAvgBrokersMsgPerSec(), 15);
-
-    overLoadNode.standardDeviationImperative();
+    overLoadNode.standardDeviationImperative(testHashMap, testAvg);
 
     assertEquals(overLoadNode.getStandardDeviation(), 5);
   }
 
   @Test
   public void testSetOverLoadCount() {
-    Collection<NodeMetadata> nodeMetadataCollection = new ArrayList<>();
+    Set<NodeMetadata> nodeMetricsCollection = new HashSet<>();
 
-    OverLoadNode overLoadNode = new OverLoadNode(nodeMetadataCollection);
+    OverLoadNode overLoadNode = new OverLoadNode(nodeMetricsCollection);
     assertEquals(overLoadNode.setOverLoadCount(0, 2, 1), 4);
     assertEquals(overLoadNode.setOverLoadCount(31, 2, 1), 31);
     assertEquals(overLoadNode.setOverLoadCount(31, 2, 0), 27);

@@ -1,21 +1,15 @@
 package org.astraea.partitioner.nodeLoadMetric;
 
 /** Store information about each node */
-public class NodeMetadata {
-  private String nodeID;
-  private NodeMetrics nodeMetrics;
+public class NodeMetadata implements SafeMetadata {
+  private final String nodeID;
   private double totalBytes;
   private int overLoadCount;
 
-  NodeMetadata(String nodeID, NodeMetrics nodeMetrics) {
+  NodeMetadata(String nodeID) {
     this.nodeID = nodeID;
-    this.nodeMetrics = nodeMetrics;
     this.overLoadCount = 0;
     this.totalBytes = 0.0;
-  }
-
-  public NodeMetrics getNodeMetrics() {
-    return this.nodeMetrics;
   }
 
   public void setOverLoadCount(int count) {
