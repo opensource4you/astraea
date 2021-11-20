@@ -34,10 +34,6 @@ public final class Services {
         IntStream.range(0, numberOfBrokers)
             .mapToObj(
                 index -> {
-                  var path =
-                      tempFolders.get(index).stream()
-                          .map(String::valueOf)
-                          .collect(Collectors.joining(","));
                   Properties config = new Properties();
                   // reduce the number from partitions and replicas to speedup the mini cluster
                   config.setProperty(
@@ -48,7 +44,11 @@ public final class Services {
                   config.setProperty(KafkaConfig$.MODULE$.BrokerIdProp(), String.valueOf(index));
                   // bind broker on random port
                   config.setProperty(KafkaConfig$.MODULE$.ListenersProp(), "PLAINTEXT://:0");
-                  config.setProperty(KafkaConfig$.MODULE$.LogDirProp(), path);
+                  config.setProperty(
+                      KafkaConfig$.MODULE$.LogDirsProp(),
+                      tempFolders.get(index).stream()
+                          .map(String::valueOf)
+                          .collect(Collectors.joining(",")));
                   // increase the timeout in order to avoid ZkTimeoutException
                   config.setProperty(
                       KafkaConfig$.MODULE$.ZkSessionTimeoutMsProp(), String.valueOf(30 * 1000));
@@ -84,7 +84,13 @@ public final class Services {
       @Override
       public Map<Integer, Set<String>> logFolders() {
         return IntStream.range(0, numberOfBrokers)
-            .mapToObj(brokerId -> Map.entry(brokerId, Set.of(tempFolders.get(brokerId).toString())))
+            .mapToObj(
+                brokerId ->
+                    Map.entry(
+                        brokerId,
+                        tempFolders.get(brokerId).stream()
+                            .map(String::valueOf)
+                            .collect(Collectors.toSet())))
             .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
       }
     };
