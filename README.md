@@ -7,6 +7,7 @@ a collection of tools used to balance Kafka data
 - Ching-Hong Fang <fjh7777@gmail.com>
 - Zheng-Xian Li <garyparrottt@gmail.com>
 - Xiang-Jun Sun <sean0651101@gmail.com>
+- Zhi-Mao Teng <zhimao.teng@gmail.com>
 
 # Kafka Tools
 
@@ -97,21 +98,23 @@ prometheus address: http://192.168.50.178:15483
 This tool is used test to following metrics.
 1. publish latency: the time of completing producer data request
 2. E2E latency: the time for a record to travel through Kafka
-3. input rate: sum of consumer inputs in MByte per second
-4. output rate: sum of producer outputs in MByte per second
+3. input rate: average of consumer inputs in MByte per second
+4. output rate: average of producer outputs in MByte per second
 
 Run the benchmark from source
 ```shell
-./gradlew run --args="Performance --bootstrap.servers localhost:9092 --topic topic --topicConfig partitions:10,replicationFactor:3 --producers 5 --consumers 1 --records 100000 --recordSize 10000"
+./gradlew run --args="performance --bootstrap.servers localhost:9092"
 ```
 ### Performance Benchmark Configurations
 1. --bootstrap.servers: the server to connect to
-2. --topic: the topic name
+2. --topic: the topic name. Default: testPerformance-{Time in millis}
 3. --partitions: topic config when creating new topic. Default: 1 
 4. --replicas: topic config when creating new topic. Default: 1
 5. --consumers: the number of consumers (threads). Default: 1
-6. --records: the total number of records sent by the producers. Default: 1000
-7. --record.size: the record size in byte. Default: 1024 byte
+6. --producers: the number of producers (threads). Default: 1
+7. --records: the total number of records sent by the producers. Default: 1000
+8. --record.size: the record size in byte. Default: 1024 byte
+9. --prop.file: the path to property file.
 
 ---
 
@@ -154,25 +157,50 @@ This project offers a way to run kafka official tool by container. For example:
 
 ---
 
-## Kafka Metric Client
+## Kafka Metric Explorer
 
 This tool can be used to access Kafka's MBean metrics via JMX.
 
 Run the tool from source code
 
 ```shell
+# fetch every Mbeans from specific JMX server.
 ./gradlew run --args="metrics --jmx.server 192.168.50.178:1099"
+
+# fetch any Mbean that its object name contains property "type=Memory".
+./gradlew run --args="metrics --jmx.server 192.168.50.178:1099 --property type=Memory"
+
+# fetch any Mbean that belongs to "kafka.network" domain name, 
+# and it's object name contains two properties "request=Metadata" and "name=LocalTimeMs".
+./gradlew run --args="metrics --jmx.server 192.168.50.178:1099 --domain kafka.network --property request=Metadata --property name=LocalTimeMs"
+
+# list all Mbeans' object name on specific JMX server.
+./gradlew run --args="metrics --jmx.server 192.168.50.178:1099 --view-object-name-list"
 ```
 
 Run the tool from release
 ```shell
+# fetch every Mbeans from specific JMX server.
 java -jar app-0.0.1-SNAPSHOT-all.jar metrics --jmx.server 192.168.50.178:1099
+
+# fetch any Mbean that its object name contains property "type=Memory".
+java -jar app-0.0.1-SNAPSHOT-all.jar metrics --jmx.server 192.168.50.178:1099 --property type=Memory
+
+# fetch any Mbean that belongs to "kafka.network" domain name,
+# and it's object name contains two properties "request=Metadata" and "name=LocalTimeMs".
+java -jar app-0.0.1-SNAPSHOT-all.jar metrics --jmx.server 192.168.50.178:1099 --domain kafka.network --property request=Metadata --property name=LocalTimeMs
+
+# list all Mbeans' object name on specific JMX server.
+java -jar app-0.0.1-SNAPSHOT-all.jar metrics --jmx.server 192.168.50.178:1099 --view-object-name-list
 ```
 
-### Metric Client Configurations
+### Metric Explorer Configurations
 
-1. --jmx.server: the address to connect to Kafka JMX remote server
-2. --metrics: the Mbean metric to fetch. Default: All metrics
+1. --jmx.server: the address to connect to Kafka JMX remote server.
+2. --domain: query Mbeans from the specific domain name (support wildcard "\*" and "?"). Default: "\*".
+3. --property: query mbeans with the specific property (support wildcard "\*" and "?"). You can specify this argument multiple times. Default: [].
+4. --strict-match: only Mbeans with its object name completely match the given criteria shows. Default: false.
+5. --view-object-name-list: show the list view of MBeans' domain name & properties. Default: false.
 
 ---
 

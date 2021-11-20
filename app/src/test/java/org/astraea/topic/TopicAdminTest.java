@@ -1,5 +1,7 @@
 package org.astraea.topic;
 
+import static org.junit.jupiter.api.condition.OS.WINDOWS;
+
 import java.io.IOException;
 import java.util.Collection;
 import java.util.Map;
@@ -7,6 +9,7 @@ import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.config.TopicConfig;
 import org.astraea.Utils;
@@ -14,6 +17,7 @@ import org.astraea.producer.Producer;
 import org.astraea.service.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.DisabledOnOs;
 
 public class TopicAdminTest extends RequireBrokerCluster {
 
@@ -26,8 +30,53 @@ public class TopicAdminTest extends RequireBrokerCluster {
           .topic(topicName)
           .configs(Map.of(TopicConfig.COMPRESSION_TYPE_CONFIG, "lz4"))
           .create();
-      Assertions.assertEquals(
-          "lz4", topicAdmin.topics().get(topicName).get(TopicConfig.COMPRESSION_TYPE_CONFIG));
+      Utils.waitFor(
+          () ->
+              topicAdmin
+                  .topics()
+                  .getOrDefault(topicName, Map.of())
+                  .get(TopicConfig.COMPRESSION_TYPE_CONFIG)
+                  .equals("lz4"));
+    }
+  }
+
+  @Test
+  void testCreateTopicRepeatedly() throws IOException {
+    var topicName = "testCreateTopicRepeatedly";
+    try (var topicAdmin = TopicAdmin.of(bootstrapServers())) {
+      Runnable createTopic =
+          () ->
+              topicAdmin
+                  .creator()
+                  .configs(Map.of(TopicConfig.COMPRESSION_TYPE_CONFIG, "lz4"))
+                  .numberOfReplicas((short) 1)
+                  .numberOfPartitions(3)
+                  .topic(topicName)
+                  .create();
+
+      createTopic.run();
+      Utils.waitFor(() -> topicAdmin.topics().containsKey(topicName));
+      IntStream.range(0, 10).forEach(i -> createTopic.run());
+
+      // changing number of partitions can producer error
+      Assertions.assertThrows(
+          IllegalArgumentException.class,
+          () -> topicAdmin.creator().numberOfPartitions(1).topic(topicName).create());
+
+      // changing number of replicas can producer error
+      Assertions.assertThrows(
+          IllegalArgumentException.class,
+          () -> topicAdmin.creator().numberOfReplicas((short) 2).topic(topicName).create());
+
+      // changing config can producer error
+      Assertions.assertThrows(
+          IllegalArgumentException.class,
+          () ->
+              topicAdmin
+                  .creator()
+                  .configs(Map.of(TopicConfig.COMPRESSION_TYPE_CONFIG, "gzip"))
+                  .topic(topicName)
+                  .create());
     }
   }
 
@@ -127,6 +176,7 @@ public class TopicAdminTest extends RequireBrokerCluster {
   }
 
   @Test
+  @DisabledOnOs(WINDOWS)
   void testReassign() throws IOException, InterruptedException {
     var topicName = "testReassign";
     try (var topicAdmin = TopicAdmin.of(bootstrapServers())) {

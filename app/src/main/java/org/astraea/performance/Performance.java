@@ -5,15 +5,16 @@ import java.io.IOException;
 import java.time.Duration;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import org.apache.kafka.clients.producer.internals.DefaultPartitioner;
 import org.apache.kafka.common.errors.WakeupException;
 import org.astraea.argument.ArgumentUtil;
-import org.astraea.argument.BasicArgument;
+import org.astraea.argument.BasicArgumentWithPropFile;
 import org.astraea.concurrent.ThreadPool;
-import org.astraea.consumer.Builder;
 import org.astraea.consumer.Consumer;
 import org.astraea.producer.Producer;
 import org.astraea.topic.TopicAdmin;
@@ -53,7 +54,7 @@ public class Performance {
 
   public static void execute(final Argument param)
       throws InterruptedException, IOException, ExecutionException {
-    try (var topicAdmin = TopicAdmin.of(param.perfProps())) {
+    try (var topicAdmin = TopicAdmin.of(param.props())) {
       topicAdmin
           .creator()
           .numberOfReplicas(param.replicas)
@@ -75,6 +76,7 @@ public class Performance {
     var producerRecords = new AtomicLong(param.records);
     var tracker = new Tracker(producerMetrics, consumerMetrics, param.records);
     var groupId = "groupId-" + System.currentTimeMillis();
+    var getAssignment = new CountDownLatch(param.consumers);
     try (ThreadPool threadPool =
         ThreadPool.builder()
             .executors(
@@ -85,9 +87,9 @@ public class Performance {
                                 Consumer.builder()
                                     .brokers(param.brokers)
                                     .topics(Set.of(param.topic))
-                                    .offsetPolicy(Builder.OffsetPolicy.EARLIEST)
                                     .groupId(groupId)
-                                    .configs(param.perfProps())
+                                    .configs(param.props())
+                                    .consumerRebalanceListener(ignore -> getAssignment.countDown())
                                     .build(),
                                 consumerMetrics.get(i),
                                 consumerRecords))
@@ -97,10 +99,14 @@ public class Performance {
                     .mapToObj(
                         i ->
                             producerExecutor(
-                                Producer.of(param.perfProps()),
+                                Producer.builder()
+                                    .configs(param.props())
+                                    .partitionClassName(param.partitioner)
+                                    .build(),
                                 param,
                                 producerMetrics.get(i),
-                                producerRecords))
+                                producerRecords,
+                                getAssignment))
                     .collect(Collectors.toUnmodifiableList()))
             .executor(tracker)
             .build()) {
@@ -144,11 +150,17 @@ public class Performance {
   }
 
   static ThreadPool.Executor producerExecutor(
-      Producer<byte[], byte[]> producer, Argument param, Metrics metrics, AtomicLong records) {
+      Producer<byte[], byte[]> producer,
+      Argument param,
+      Metrics metrics,
+      AtomicLong records,
+      CountDownLatch getAssignment) {
     byte[] payload = new byte[param.recordSize];
     return new ThreadPool.Executor() {
       @Override
-      public State execute() {
+      public State execute() throws InterruptedException {
+        // Wait for all consumers get assignment.
+        getAssignment.await();
         var currentRecords = records.getAndDecrement();
         if (currentRecords <= 0) return State.DONE;
         long start = System.currentTimeMillis();
@@ -170,7 +182,7 @@ public class Performance {
     };
   }
 
-  static class Argument extends BasicArgument {
+  static class Argument extends BasicArgumentWithPropFile {
 
     @Parameter(
         names = {"--topic"},
@@ -216,13 +228,23 @@ public class Performance {
     int recordSize = 1024;
 
     @Parameter(
-        names = {"--prop.file"},
-        description = "String: path to the properties file",
+        names = {"--jmx.servers"},
+        description =
+            "String: server to get jmx metrics <jmx_server>@<broker_id>[,<jmx_server>@<broker_id>]*",
         validateWith = ArgumentUtil.NotEmptyString.class)
-    String propFile;
+    String jmxServers = "";
 
-    public Map<String, Object> perfProps() {
-      return properties(propFile);
+    @Parameter(
+        names = {"--partitioner"},
+        description = "String: the full class name of the desired partitioner",
+        validateWith = ArgumentUtil.NotEmptyString.class)
+    String partitioner = DefaultPartitioner.class.getName();
+
+    @Override
+    public Map<String, Object> props() {
+      Map<String, Object> prop = properties(propFile);
+      if (!this.jmxServers.isEmpty()) prop.put("jmx_servers", this.jmxServers);
+      return prop;
     }
   }
 }
