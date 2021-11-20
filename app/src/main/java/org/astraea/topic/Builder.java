@@ -51,6 +51,21 @@ public class Builder {
     }
 
     @Override
+    public Set<String> brokerFolders(Integer broker) {
+      return Utils.handleException(
+          () ->
+              admin
+                  .describeLogDirs(Set.of(broker))
+                  .allDescriptions()
+                  .get()
+                  .get(broker)
+                  .keySet()
+                  .stream()
+                  .map(String::valueOf)
+                  .collect(Collectors.toSet()));
+    }
+
+    @Override
     public void reassignFolder(
         Integer broker, String topicName, Set<Integer> partition, String path) {
       try {

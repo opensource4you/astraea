@@ -7,6 +7,7 @@ import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
+import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.config.TopicConfig;
 import org.astraea.Utils;
 import org.astraea.producer.Producer;
@@ -82,6 +83,46 @@ public class TopicAdminTest extends RequireBrokerCluster {
                 Assertions.assertEquals(0, offset.earliest());
                 Assertions.assertEquals(0, offset.latest());
               });
+    }
+  }
+
+  @Test
+  void testReassignFolder() throws IOException, InterruptedException {
+    var topicName = "testReassignFolder";
+    try (var topicAdmin = TopicAdmin.of(bootstrapServers())) {
+      topicAdmin.creator().topic(topicName).numberOfPartitions(1).create();
+      // wait for syncing topic creation
+      TimeUnit.SECONDS.sleep(5);
+      var currentBroker =
+          topicAdmin
+              .replicas(Set.of(topicName))
+              .get(new TopicPartition(topicName, 0))
+              .get(0)
+              .broker();
+      var allPath = topicAdmin.brokerFolders(currentBroker);
+      var targetPath =
+          allPath.stream()
+              .filter(
+                  i ->
+                      !i.contains(
+                          topicAdmin
+                              .replicas(Set.of(topicName))
+                              .get(new TopicPartition(topicName, 0))
+                              .get(0)
+                              .path()))
+              .collect(Collectors.toList())
+              .toString()
+              .replace("[", "")
+              .replace("]", "");
+      topicAdmin.reassignFolder(currentBroker, topicName, Set.of(0), targetPath);
+      Utils.waitFor(
+          () -> {
+            var replicas = topicAdmin.replicas(Set.of(topicName));
+            var partitionReplicas = replicas.entrySet().iterator().next().getValue();
+            return replicas.size() == 1
+                && partitionReplicas.size() == 1
+                && partitionReplicas.get(0).path().equals(targetPath);
+          });
     }
   }
 

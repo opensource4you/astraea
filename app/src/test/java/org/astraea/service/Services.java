@@ -2,6 +2,7 @@ package org.astraea.service;
 
 import java.io.File;
 import java.net.InetSocketAddress;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
@@ -21,15 +22,22 @@ public final class Services {
   private Services() {}
 
   static BrokerCluster brokerCluster(ZookeeperCluster zk, int numberOfBrokers) {
-    var tempFolders =
-        IntStream.range(0, numberOfBrokers)
-            .mapToObj(i -> Utils.createTempDirectory("local_kafka"))
-            .collect(Collectors.toUnmodifiableList());
+    Map<Integer, Set<File>> tempFolders = new HashMap<>();
+    for (var b = 0; b <= numberOfBrokers; b++) {
+      tempFolders.put(
+          b,
+          Set.of(
+              Utils.createTempDirectory("local_kafka"), Utils.createTempDirectory("local_kafka")));
+    }
+
     var brokers =
         IntStream.range(0, numberOfBrokers)
             .mapToObj(
                 index -> {
-                  File logDir = tempFolders.get(index);
+                  var path =
+                      tempFolders.get(index).stream()
+                          .map(String::valueOf)
+                          .collect(Collectors.joining(","));
                   Properties config = new Properties();
                   // reduce the number from partitions and replicas to speedup the mini cluster
                   config.setProperty(
@@ -40,7 +48,7 @@ public final class Services {
                   config.setProperty(KafkaConfig$.MODULE$.BrokerIdProp(), String.valueOf(index));
                   // bind broker on random port
                   config.setProperty(KafkaConfig$.MODULE$.ListenersProp(), "PLAINTEXT://:0");
-                  config.setProperty(KafkaConfig$.MODULE$.LogDirProp(), logDir.getAbsolutePath());
+                  config.setProperty(KafkaConfig$.MODULE$.LogDirProp(), path);
                   // increase the timeout in order to avoid ZkTimeoutException
                   config.setProperty(
                       KafkaConfig$.MODULE$.ZkSessionTimeoutMsProp(), String.valueOf(30 * 1000));
@@ -65,7 +73,7 @@ public final class Services {
               broker.shutdown();
               broker.awaitShutdown();
             });
-        tempFolders.forEach(Utils::delete);
+        for (var b : tempFolders.keySet()) tempFolders.get(b).forEach(Utils::delete);
       }
 
       @Override
