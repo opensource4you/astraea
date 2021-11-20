@@ -27,7 +27,10 @@ public final class Services {
       tempFolders.put(
           b,
           Set.of(
-              Utils.createTempDirectory("local_kafka"), Utils.createTempDirectory("local_kafka")));
+              Utils.createTempDirectory("local_kafka"),
+              Utils.createTempDirectory("local_kafka"),
+              Utils.createTempDirectory("local_kafka"),
+              Utils.createTempDirectory("local_kafka")));
     }
 
     var brokers =

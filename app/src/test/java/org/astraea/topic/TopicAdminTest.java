@@ -149,7 +149,7 @@ public class TopicAdminTest extends RequireBrokerCluster {
               .get(0)
               .broker();
       var allPath = topicAdmin.brokerFolders(currentBroker);
-      var targetPath =
+      var otherPath =
           allPath.stream()
               .filter(
                   i ->
@@ -159,18 +159,15 @@ public class TopicAdminTest extends RequireBrokerCluster {
                               .get(new TopicPartition(topicName, 0))
                               .get(0)
                               .path()))
-              .collect(Collectors.toList())
-              .toString()
-              .replace("[", "")
-              .replace("]", "");
-      topicAdmin.reassignFolder(currentBroker, topicName, Set.of(0), targetPath);
+              .collect(Collectors.toSet());
+      topicAdmin.reassignFolder(currentBroker, topicName, Set.of(0), otherPath.iterator().next());
       Utils.waitFor(
           () -> {
             var replicas = topicAdmin.replicas(Set.of(topicName));
             var partitionReplicas = replicas.entrySet().iterator().next().getValue();
             return replicas.size() == 1
                 && partitionReplicas.size() == 1
-                && partitionReplicas.get(0).path().equals(targetPath);
+                && partitionReplicas.get(0).path().equals(otherPath.iterator().next());
           });
     }
   }
