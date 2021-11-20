@@ -22,7 +22,6 @@ This project offers many kafka tools to simplify the life for kafka users.
 7. [Kafka partition score](#Kafka-partition-score): score all broker's partitions. 
 
 [Release page](https://github.com/skiptests/astraea/releases) offers the uber jar including all tools.
-
 ```shell
 java -jar astraea-0.0.1-alpha.1-all.jar [tool] [args]
 ```
