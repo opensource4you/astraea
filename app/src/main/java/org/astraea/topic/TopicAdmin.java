@@ -24,7 +24,7 @@ public interface TopicAdmin extends Closeable {
   }
 
   /** @return the topic name and its configurations. */
-  Map<String, Map<String, String>> topics();
+  Map<String, TopicConfig> topics();
 
   /** @return a topic creator to set all topic configs and then run the procedure. */
   Creator creator();
@@ -47,29 +47,15 @@ public interface TopicAdmin extends Closeable {
    */
   Map<TopicPartition, List<Replica>> replicas(Set<String> topics);
 
+  /** @return all brokers' ids */
+  Set<Integer> brokerIds();
+
   /**
    * @param broker broker ID
    * @return all log directory
    */
   Map<Integer, Set<String>> brokerFolders(Set<Integer> broker);
 
-  /** @return all brokers' ids */
-  Set<Integer> brokerIds();
-
-  /**
-   * Assign the topic partition to specific brokers.
-   *
-   * @param topicName topic name
-   * @param partition partition
-   * @param brokers to hold all the
-   */
-  void reassign(String topicName, int partition, Set<Integer> brokers);
-
-  /**
-   * @param broker broker ID
-   * @param topicName topic name
-   * @param partition partition
-   * @param path the partition will move to
-   */
-  void reassignFolder(Integer broker, String topicName, Integer partition, String path);
+  /** @return a partition migrator used to move partitions to another broker or folder. */
+  Migrator migrator();
 }

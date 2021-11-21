@@ -10,6 +10,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import java.util.stream.StreamSupport;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.config.TopicConfig;
 import org.astraea.Utils;
@@ -34,9 +35,16 @@ public class TopicAdminTest extends RequireBrokerCluster {
           () ->
               topicAdmin
                   .topics()
-                  .getOrDefault(topicName, Map.of())
-                  .get(TopicConfig.COMPRESSION_TYPE_CONFIG)
-                  .equals("lz4"));
+                  .get(topicName)
+                  .value(TopicConfig.COMPRESSION_TYPE_CONFIG)
+                  .filter(value -> value.equals("lz4"))
+                  .isPresent());
+
+      var config = topicAdmin.topics().get(topicName);
+      Assertions.assertEquals(
+          config.keys().size(), (int) StreamSupport.stream(config.spliterator(), false).count());
+      config.keys().forEach(key -> Assertions.assertTrue(config.value(key).isPresent()));
+      Assertions.assertTrue(config.values().contains("lz4"));
     }
   }
 
@@ -136,12 +144,24 @@ public class TopicAdminTest extends RequireBrokerCluster {
   }
 
   @Test
-  void testReassignFolder() throws IOException, InterruptedException {
-    var topicName = "testReassignFolder";
+  @DisabledOnOs(WINDOWS)
+  void testMigrateSinglePartition() throws IOException, InterruptedException {
+    var topicName = "testMigrateSinglePartition";
     try (var topicAdmin = TopicAdmin.of(bootstrapServers())) {
       topicAdmin.creator().topic(topicName).numberOfPartitions(1).create();
       // wait for syncing topic creation
       TimeUnit.SECONDS.sleep(5);
+      var broker = topicAdmin.brokerIds().iterator().next();
+      topicAdmin.migrator().partition(topicName, 0).moveTo(Set.of(broker));
+      Utils.waitFor(
+          () -> {
+            var replicas = topicAdmin.replicas(Set.of(topicName));
+            var partitionReplicas = replicas.entrySet().iterator().next().getValue();
+            return replicas.size() == 1
+                && partitionReplicas.size() == 1
+                && partitionReplicas.get(0).broker() == broker;
+          });
+
       var currentBroker =
           topicAdmin
               .replicas(Set.of(topicName))
@@ -160,7 +180,10 @@ public class TopicAdminTest extends RequireBrokerCluster {
                               .get(0)
                               .path()))
               .collect(Collectors.toSet());
-      topicAdmin.reassignFolder(currentBroker, topicName, 0, otherPath.iterator().next());
+      topicAdmin
+          .migrator()
+          .partition(topicName, 0)
+          .moveTo(Map.of(currentBroker, otherPath.iterator().next()));
       Utils.waitFor(
           () -> {
             var replicas = topicAdmin.replicas(Set.of(topicName));
@@ -174,21 +197,21 @@ public class TopicAdminTest extends RequireBrokerCluster {
 
   @Test
   @DisabledOnOs(WINDOWS)
-  void testReassign() throws IOException, InterruptedException {
-    var topicName = "testReassign";
+  void testMigrateAllPartitions() throws IOException, InterruptedException {
+    var topicName = "testMigrateAllPartitions";
     try (var topicAdmin = TopicAdmin.of(bootstrapServers())) {
-      topicAdmin.creator().topic(topicName).numberOfPartitions(1).create();
+      topicAdmin.creator().topic(topicName).numberOfPartitions(3).create();
       // wait for syncing topic creation
       TimeUnit.SECONDS.sleep(5);
       var broker = topicAdmin.brokerIds().iterator().next();
-      topicAdmin.reassign(topicName, 0, Set.of(broker));
+      topicAdmin.migrator().topic(topicName).moveTo(Set.of(broker));
       Utils.waitFor(
           () -> {
             var replicas = topicAdmin.replicas(Set.of(topicName));
-            var partitionReplicas = replicas.entrySet().iterator().next().getValue();
-            return replicas.size() == 1
-                && partitionReplicas.size() == 1
-                && partitionReplicas.get(0).broker() == broker;
+            if (replicas.size() != 3) return false;
+            if (!replicas.values().stream().allMatch(rs -> rs.size() == 1)) return false;
+            return replicas.values().stream()
+                .allMatch(rs -> rs.stream().allMatch(r -> r.broker() == broker));
           });
     }
   }
