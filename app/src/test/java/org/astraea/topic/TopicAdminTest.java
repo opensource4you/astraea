@@ -10,6 +10,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import java.util.stream.StreamSupport;
 import org.apache.kafka.common.config.TopicConfig;
 import org.astraea.Utils;
 import org.astraea.producer.Producer;
@@ -33,9 +34,16 @@ public class TopicAdminTest extends RequireBrokerCluster {
           () ->
               topicAdmin
                   .topics()
-                  .getOrDefault(topicName, Map.of())
-                  .get(TopicConfig.COMPRESSION_TYPE_CONFIG)
-                  .equals("lz4"));
+                  .get(topicName)
+                  .value(TopicConfig.COMPRESSION_TYPE_CONFIG)
+                  .filter(value -> value.equals("lz4"))
+                  .isPresent());
+
+      var config = topicAdmin.topics().get(topicName);
+      Assertions.assertEquals(
+          config.keys().size(), (int) StreamSupport.stream(config.spliterator(), false).count());
+      config.keys().forEach(key -> Assertions.assertTrue(config.value(key).isPresent()));
+      Assertions.assertTrue(config.values().contains("lz4"));
     }
   }
 
