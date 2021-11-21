@@ -245,16 +245,10 @@ public class Performance {
         validateWith = ArgumentUtil.NotEmptyString.class)
     String partitioner = DefaultPartitioner.class.getName();
 
-    @Override
-    public Map<String, Object> props() {
-      Map<String, Object> prop = properties(propFile);
-      if (!this.jmxServers.isEmpty()) prop.put("jmx_servers", this.jmxServers);
-      return prop;
-    }
-
     public Map<String, Object> producerProps() {
       var props = props();
       props.put(ProducerConfig.COMPRESSION_TYPE_CONFIG, compression.name);
+      if (!this.jmxServers.isEmpty()) props.put("jmx_servers", this.jmxServers);
       return props;
     }
 
