@@ -5,25 +5,19 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
 import org.astraea.concurrent.ThreadPool;
-import org.astraea.metrics.jmx.MBeanClient;
 
 public class NodeLoadClient implements ThreadPool.Executor {
 
   private final OverLoadNode overLoadNode;
-  private final Collection<NodeMetrics> nodeMetricsCollection = new ArrayList<>();
+  private final Collection<NodeClient> nodeClientCollection = new ArrayList<>();
   private final LoadPoisson loadPoisson;
 
   public NodeLoadClient(HashMap<String, String> jmxAddresses) throws IOException {
     for (HashMap.Entry<String, String> entry : jmxAddresses.entrySet()) {
-      this.nodeMetricsCollection.add(new NodeMetrics(entry.getKey(), entry.getValue()));
+      this.nodeClientCollection.add(new NodeClient(entry.getKey(), entry.getValue()));
     }
-    this.overLoadNode =
-        new OverLoadNode(
-            this.nodeMetricsCollection.stream()
-                .map(NodeMetrics::getNodeMetadata)
-                .collect(Collectors.toList()));
+    this.overLoadNode = new OverLoadNode(nodeClientCollection);
     loadPoisson = new LoadPoisson();
   }
 
@@ -43,21 +37,15 @@ public class NodeLoadClient implements ThreadPool.Executor {
 
   @Override
   public void close() {
-    for (NodeMetrics nodeMetrics : nodeMetricsCollection) {
-      MBeanClient mBeanClient = nodeMetrics.getKafkaMetricClient();
-      try {
-        mBeanClient.close();
-      } catch (Exception e) {
-        e.printStackTrace();
-      }
+    for (NodeClient nodeClient : nodeClientCollection) {
+      nodeClient.close();
     }
   }
 
   public synchronized HashMap<String, Integer> getNodeOverLoadCount() {
     HashMap<String, Integer> overLoadCount = new HashMap<>();
-    for (NodeMetrics nodeMetrics : nodeMetricsCollection) {
-      SafeMetadata safeMetadata = nodeMetrics.getNodeMetadata();
-      overLoadCount.put(safeMetadata.getNodeID(), safeMetadata.getOverLoadCount());
+    for (NodeMetadata nodeMetadata : nodeClientCollection) {
+      overLoadCount.put(nodeMetadata.getNodeID(), nodeMetadata.getOverLoadCount());
     }
     return overLoadCount;
   }
@@ -65,11 +53,10 @@ public class NodeLoadClient implements ThreadPool.Executor {
   public synchronized int getAvgLoadCount() {
     double avgLoadCount = 0;
 
-    for (NodeMetrics nodeMetrics : nodeMetricsCollection) {
-      SafeMetadata safeMetadata = nodeMetrics.getNodeMetadata();
-      avgLoadCount += getBinOneCount(safeMetadata.getOverLoadCount());
+    for (NodeMetadata nodeMetadata : nodeClientCollection) {
+      avgLoadCount += getBinOneCount(nodeMetadata.getOverLoadCount());
     }
-    return nodeMetricsCollection.size() > 0 ? (int) avgLoadCount / nodeMetricsCollection.size() : 0;
+    return nodeClientCollection.size() > 0 ? (int) avgLoadCount / nodeClientCollection.size() : 0;
   }
 
   /** Get the number of times a node is overloaded. */
@@ -88,8 +75,8 @@ public class NodeLoadClient implements ThreadPool.Executor {
   }
 
   public void refreshNodesMetrics() {
-    for (NodeMetrics nodeMetrics : nodeMetricsCollection) {
-      nodeMetrics.refreshMetrics();
+    for (NodeClient nodeClient : nodeClientCollection) {
+      nodeClient.refreshMetrics();
     }
   }
 

@@ -2,41 +2,42 @@ package org.astraea.partitioner.nodeLoadMetric;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Set;
+import org.astraea.service.RequireJmxServer;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-public class OverLoadNodeTest {
-  private Collection<NodeMetadata> nodeMetadataCollection;
-  private Collection<NodeMetadata> nodeMetadataCollection2;
+public class OverLoadNodeTest extends RequireJmxServer {
+  private Collection<NodeClient> nodeClientCollection;
+  private Collection<NodeClient> nodeClientCollection2;
 
   @BeforeEach
-  public void setUp() {
-    nodeMetadataCollection = new ArrayList<>();
-    NodeMetadata nodeMetadata0 = new NodeMetadata("0");
-    NodeMetadata nodeMetadata1 = new NodeMetadata("1");
-    NodeMetadata nodeMetadata2 = new NodeMetadata("2");
-    NodeMetadata nodeMetadata3 = new NodeMetadata("3");
+  public void setUp() throws IOException {
+    var jmxServer = jmxServiceURL().toString();
+    nodeClientCollection = new ArrayList<>();
+    NodeClient nodeClient0 = new NodeClient("0", jmxServer);
+    NodeClient nodeClient1 = new NodeClient("1", jmxServer);
+    NodeClient nodeClient2 = new NodeClient("2", jmxServer);
+    NodeClient nodeClient3 = new NodeClient("3", jmxServer);
 
-    nodeMetadataCollection.add(nodeMetadata0);
-    nodeMetadataCollection.add(nodeMetadata1);
-    nodeMetadataCollection.add(nodeMetadata2);
-    nodeMetadataCollection.add(nodeMetadata3);
+    nodeClientCollection.add(nodeClient0);
+    nodeClientCollection.add(nodeClient1);
+    nodeClientCollection.add(nodeClient2);
+    nodeClientCollection.add(nodeClient3);
 
-    NodeMetadata nodeMetadata20 = new NodeMetadata("0");
-    NodeMetadata nodeMetadata21 = new NodeMetadata("1");
-    NodeMetadata nodeMetadata22 = new NodeMetadata("2");
-    NodeMetadata nodeMetadata23 = new NodeMetadata("3");
+    nodeClientCollection2 = new ArrayList<>();
+    NodeClient nodeClient10 = new NodeClient("0", jmxServer);
+    NodeClient nodeClient11 = new NodeClient("1", jmxServer);
+    NodeClient nodeClient12 = new NodeClient("2", jmxServer);
+    NodeClient nodeClient13 = new NodeClient("3", jmxServer);
 
-    nodeMetadataCollection2 = new ArrayList<>();
-    nodeMetadataCollection2.add(nodeMetadata20);
-    nodeMetadataCollection2.add(nodeMetadata21);
-    nodeMetadataCollection2.add(nodeMetadata22);
-    nodeMetadataCollection2.add(nodeMetadata23);
+    nodeClientCollection2.add(nodeClient10);
+    nodeClientCollection2.add(nodeClient11);
+    nodeClientCollection2.add(nodeClient12);
+    nodeClientCollection2.add(nodeClient13);
   }
 
   @Test
@@ -47,7 +48,7 @@ public class OverLoadNodeTest {
     testHashMap.put("2", 20.0);
     testHashMap.put("3", 20.0);
 
-    OverLoadNode overLoadNode = new OverLoadNode(nodeMetadataCollection);
+    OverLoadNode overLoadNode = new OverLoadNode(nodeClientCollection);
     var testAvg = overLoadNode.setAvgBrokersMsgPerSec(testHashMap);
     assertEquals(testAvg, 15);
 
@@ -58,9 +59,9 @@ public class OverLoadNodeTest {
 
   @Test
   public void testSetOverLoadCount() {
-    Set<NodeMetadata> nodeMetricsCollection = new HashSet<>();
+    Collection<NodeClient> nodeClientCollection = new ArrayList<NodeClient>();
 
-    OverLoadNode overLoadNode = new OverLoadNode(nodeMetricsCollection);
+    OverLoadNode overLoadNode = new OverLoadNode(nodeClientCollection);
     assertEquals(overLoadNode.setOverLoadCount(0, 2, 1), 4);
     assertEquals(overLoadNode.setOverLoadCount(31, 2, 1), 31);
     assertEquals(overLoadNode.setOverLoadCount(31, 2, 0), 27);
@@ -75,14 +76,14 @@ public class OverLoadNodeTest {
     testHashMap.put("2", 20.0);
     testHashMap.put("3", 50.0);
 
-    OverLoadNode overLoadNode = new OverLoadNode(nodeMetadataCollection);
+    OverLoadNode overLoadNode = new OverLoadNode(nodeClientCollection);
 
-    for (NodeMetadata nodeMetadata : nodeMetadataCollection) {
-      nodeMetadata.setTotalBytes(testHashMap.get(nodeMetadata.getNodeID()));
+    for (NodeClient nodeClient : nodeClientCollection) {
+      nodeClient.setTotalBytes(testHashMap.get(nodeClient.getNodeID()));
     }
 
-    for (NodeMetadata nodeMetadata : nodeMetadataCollection2) {
-      nodeMetadata.setTotalBytes(testHashMap.get(nodeMetadata.getNodeID()));
+    for (NodeClient nodeClient : nodeClientCollection2) {
+      nodeClient.setTotalBytes(testHashMap.get(nodeClient.getNodeID()));
     }
 
     for (int i = 0; i < 5; i++) {
@@ -90,16 +91,16 @@ public class OverLoadNodeTest {
       overLoadNode.monitorOverLoad();
     }
 
-    assertEquals(((NodeMetadata) nodeMetadataCollection.toArray()[3]).getOverLoadCount(), 31);
+    assertEquals(((NodeClient) nodeClientCollection.toArray()[3]).getOverLoadCount(), 31);
 
     for (int i = 0; i < 15; i++) {
       overLoadNode.setMountCount(i);
       overLoadNode.monitorOverLoad();
     }
 
-    assertEquals(((NodeMetadata) nodeMetadataCollection.toArray()[3]).getOverLoadCount(), 1023);
+    assertEquals(((NodeClient) nodeClientCollection.toArray()[3]).getOverLoadCount(), 1023);
 
-    overLoadNode = new OverLoadNode(nodeMetadataCollection2);
+    overLoadNode = new OverLoadNode(nodeClientCollection2);
 
     for (int i = 0; i < 10; i++) {
       overLoadNode.setMountCount(i);
@@ -107,7 +108,7 @@ public class OverLoadNodeTest {
     }
 
     assertEquals(
-        ((NodeMetadata) nodeMetadataCollection.toArray()[3]).getOverLoadCount(),
-        ((NodeMetadata) nodeMetadataCollection2.toArray()[3]).getOverLoadCount());
+        ((NodeClient) nodeClientCollection.toArray()[3]).getOverLoadCount(),
+        ((NodeClient) nodeClientCollection2.toArray()[3]).getOverLoadCount());
   }
 }

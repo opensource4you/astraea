@@ -10,13 +10,13 @@ public class OverLoadNode {
   private Collection<String> nodesID;
   private int nodeNum;
   private int mountCount = 0;
-  private Collection<NodeMetadata> nodeMetadata;
+  private Collection<NodeClient> nodeClientCollection;
 
-  OverLoadNode(Collection<NodeMetadata> nodeMetadata) {
+  OverLoadNode(Collection<NodeClient> nodeMetrics) {
     this.nodesID =
-        nodeMetadata.stream().map(SafeMetadata::getNodeID).collect(Collectors.toUnmodifiableList());
-    this.nodeNum = nodeMetadata.size();
-    this.nodeMetadata = nodeMetadata;
+        nodeMetrics.stream().map(NodeMetadata::getNodeID).collect(Collectors.toUnmodifiableList());
+    this.nodeNum = nodeMetrics.size();
+    this.nodeClientCollection = nodeMetrics;
   }
 
   /** Monitor and update the number of overloads of each node. */
@@ -24,12 +24,13 @@ public class OverLoadNode {
     var eachBrokerMsgPerSec = setBrokersMsgPerSec();
     var avgBrokersMsgPerSec = setAvgBrokersMsgPerSec(eachBrokerMsgPerSec);
     standardDeviationImperative(eachBrokerMsgPerSec, avgBrokersMsgPerSec);
-    for (NodeMetadata nodeMetadata : nodeMetadata) {
+    for (NodeClient nodeClient : nodeClientCollection) {
       int ifOverLoad = 0;
+      NodeMetadata nodeMetadata = nodeClient;
       if (nodeMetadata.getTotalBytes() > (avgBrokersMsgPerSec + standardDeviation)) {
         ifOverLoad = 1;
       }
-      nodeMetadata.setOverLoadCount(
+      nodeClient.setOverLoadCount(
           setOverLoadCount(nodeMetadata.getOverLoadCount(), mountCount % 10, ifOverLoad));
     }
     mountCount++;
@@ -54,7 +55,7 @@ public class OverLoadNode {
 
   public HashMap<String, Double> setBrokersMsgPerSec() {
     var eachMsg = new HashMap<String, Double>();
-    for (NodeMetadata nodeMetadata : nodeMetadata) {
+    for (NodeMetadata nodeMetadata : nodeClientCollection) {
       eachMsg.put(nodeMetadata.getNodeID(), nodeMetadata.getTotalBytes());
     }
     return eachMsg;
