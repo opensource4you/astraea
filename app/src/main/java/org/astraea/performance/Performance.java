@@ -1,6 +1,8 @@
 package org.astraea.performance;
 
+import com.beust.jcommander.IStringConverter;
 import com.beust.jcommander.Parameter;
+import com.beust.jcommander.ParameterException;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.Map;
@@ -10,8 +12,11 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
+import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.clients.producer.internals.DefaultPartitioner;
 import org.apache.kafka.common.errors.WakeupException;
+import org.apache.kafka.common.record.CompressionType;
 import org.astraea.argument.ArgumentUtil;
 import org.astraea.argument.BasicArgumentWithPropFile;
 import org.astraea.concurrent.ThreadPool;
@@ -100,7 +105,7 @@ public class Performance {
                         i ->
                             producerExecutor(
                                 Producer.builder()
-                                    .configs(param.props())
+                                    .configs(param.producerProps())
                                     .partitionClassName(param.partitioner)
                                     .build(),
                                 param,
@@ -245,6 +250,37 @@ public class Performance {
       Map<String, Object> prop = properties(propFile);
       if (!this.jmxServers.isEmpty()) prop.put("jmx_servers", this.jmxServers);
       return prop;
+    }
+
+    public Map<String, Object> producerProps() {
+      var props = props();
+      props.put(ProducerConfig.COMPRESSION_TYPE_CONFIG, compression.name);
+      return props;
+    }
+
+    @Parameter(
+        names = {"--compression"},
+        description =
+            "String: the compression algorithm used by producer. Available algorithm are none, gzip, snappy, lz4, and zstd",
+        converter = CompressionArgument.class)
+    CompressionType compression = CompressionType.NONE;
+  }
+
+  static class CompressionArgument implements IStringConverter<CompressionType> {
+
+    @Override
+    public CompressionType convert(String value) {
+      try {
+        return CompressionType.forName(value.toLowerCase());
+      } catch (IllegalArgumentException e) {
+        throw new ParameterException(
+            "the "
+                + value
+                + " is unsupported. The supported algorithms are "
+                + Stream.of(CompressionType.values())
+                    .map(CompressionType::name)
+                    .collect(Collectors.joining(",")));
+      }
     }
   }
 }
