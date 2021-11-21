@@ -50,12 +50,6 @@ public interface TopicAdmin extends Closeable {
   /** @return all brokers' ids */
   Set<Integer> brokerIds();
 
-  /**
-   * Assign the topic partition to specific brokers.
-   *
-   * @param topicName topic name
-   * @param partition partition
-   * @param brokers to hold all the
-   */
-  void reassign(String topicName, int partition, Set<Integer> brokers);
+  /** @return a partition migrator used to move partitions to another broker or folder. */
+  Migrator migrator();
 }
