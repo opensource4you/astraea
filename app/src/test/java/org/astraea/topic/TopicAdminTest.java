@@ -148,9 +148,9 @@ public class TopicAdminTest extends RequireBrokerCluster {
               .get(new TopicPartition(topicName, 0))
               .get(0)
               .broker();
-      var allPath = topicAdmin.brokerFolders(currentBroker);
+      var allPath = topicAdmin.brokerFolders(Set.of(currentBroker));
       var otherPath =
-          allPath.stream()
+          allPath.get(currentBroker).stream()
               .filter(
                   i ->
                       !i.contains(
@@ -160,7 +160,7 @@ public class TopicAdminTest extends RequireBrokerCluster {
                               .get(0)
                               .path()))
               .collect(Collectors.toSet());
-      topicAdmin.reassignFolder(currentBroker, topicName, Set.of(0), otherPath.iterator().next());
+      topicAdmin.reassignFolder(currentBroker, topicName, 0, otherPath.iterator().next());
       Utils.waitFor(
           () -> {
             var replicas = topicAdmin.replicas(Set.of(topicName));

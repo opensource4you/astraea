@@ -108,7 +108,7 @@ if [[ "$(cat $config_file | grep log.dirs)" != "" ]]; then
   echo "you should not define log.dirs"
   exit 2
 else
-  echo "log.dirs=/tmp/kafka-logs" >> "$config_file"
+  echo "log.dirs=/tmp/kafka-logs1,/tmp/kafka-logs2,/tmp/kafka-logs3" >> "$config_file"
 fi
 
 # auto-generate broker id if it does not exist

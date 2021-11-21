@@ -51,7 +51,7 @@ public interface TopicAdmin extends Closeable {
    * @param broker broker ID
    * @return all log directory
    */
-  Set<String> brokerFolders(Integer broker);
+  Map<Integer, Set<String>> brokerFolders(Set<Integer> broker);
 
   /** @return all brokers' ids */
   Set<Integer> brokerIds();
@@ -71,5 +71,5 @@ public interface TopicAdmin extends Closeable {
    * @param partition partition
    * @param path the partition will move to
    */
-  void reassignFolder(Integer broker, String topicName, Set<Integer> partition, String path);
+  void reassignFolder(Integer broker, String topicName, Integer partition, String path);
 }

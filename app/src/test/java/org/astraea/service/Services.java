@@ -2,10 +2,10 @@ package org.astraea.service;
 
 import java.io.File;
 import java.net.InetSocketAddress;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import kafka.server.KafkaConfig;
@@ -22,16 +22,17 @@ public final class Services {
   private Services() {}
 
   static BrokerCluster brokerCluster(ZookeeperCluster zk, int numberOfBrokers) {
-    Map<Integer, Set<File>> tempFolders = new HashMap<>();
-    for (var b = 0; b <= numberOfBrokers; b++) {
-      tempFolders.put(
-          b,
-          Set.of(
-              Utils.createTempDirectory("local_kafka"),
-              Utils.createTempDirectory("local_kafka"),
-              Utils.createTempDirectory("local_kafka"),
-              Utils.createTempDirectory("local_kafka")));
-    }
+    var tempFolders =
+        IntStream.range(0, numberOfBrokers)
+            .boxed()
+            .collect(
+                Collectors.toMap(
+                    Function.identity(),
+                    brokerId ->
+                        Set.of(
+                            Utils.createTempDirectory("local_kafka").getAbsolutePath(),
+                            Utils.createTempDirectory("local_kafka").getAbsolutePath(),
+                            Utils.createTempDirectory("local_kafka").getAbsolutePath())));
 
     var brokers =
         IntStream.range(0, numberOfBrokers)
@@ -48,10 +49,8 @@ public final class Services {
                   // bind broker on random port
                   config.setProperty(KafkaConfig$.MODULE$.ListenersProp(), "PLAINTEXT://:0");
                   config.setProperty(
-                      KafkaConfig$.MODULE$.LogDirsProp(),
-                      tempFolders.get(index).stream()
-                          .map(String::valueOf)
-                          .collect(Collectors.joining(",")));
+                      KafkaConfig$.MODULE$.LogDirsProp(), String.join(",", tempFolders.get(index)));
+
                   // increase the timeout in order to avoid ZkTimeoutException
                   config.setProperty(
                       KafkaConfig$.MODULE$.ZkSessionTimeoutMsProp(), String.valueOf(30 * 1000));
@@ -76,7 +75,8 @@ public final class Services {
               broker.shutdown();
               broker.awaitShutdown();
             });
-        for (var b : tempFolders.keySet()) tempFolders.get(b).forEach(Utils::delete);
+        for (var b : tempFolders.keySet())
+          tempFolders.get(b).forEach(s -> Utils.delete(new File(s)));
       }
 
       @Override
@@ -87,14 +87,8 @@ public final class Services {
       @Override
       public Map<Integer, Set<String>> logFolders() {
         return IntStream.range(0, numberOfBrokers)
-            .mapToObj(
-                brokerId ->
-                    Map.entry(
-                        brokerId,
-                        tempFolders.get(brokerId).stream()
-                            .map(String::valueOf)
-                            .collect(Collectors.toSet())))
-            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+            .boxed()
+            .collect(Collectors.toMap(Function.identity(), tempFolders::get));
       }
     };
   }

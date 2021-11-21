@@ -52,27 +52,18 @@ public class Builder {
     }
 
     @Override
-    public Set<String> brokerFolders(Integer broker) {
+    public Map<Integer, Set<String>> brokerFolders(Set<Integer> broker) {
       return Utils.handleException(
           () ->
-              admin
-                  .describeLogDirs(Set.of(broker))
-                  .allDescriptions()
-                  .get()
-                  .get(broker)
-                  .keySet()
-                  .stream()
-                  .map(String::valueOf)
-                  .collect(Collectors.toSet()));
+              admin.describeLogDirs(broker).allDescriptions().get().entrySet().stream()
+                  .collect(Collectors.toMap(Map.Entry::getKey, map -> map.getValue().keySet())));
     }
 
     @Override
-    public void reassignFolder(
-        Integer broker, String topicName, Set<Integer> partition, String path) {
+    public void reassignFolder(Integer broker, String topicName, Integer partition, String path) {
       try {
-        for (var p : partition) {
-          admin.alterReplicaLogDirs(Map.of(new TopicPartitionReplica(topicName, p, broker), path));
-        }
+        admin.alterReplicaLogDirs(
+            Map.of(new TopicPartitionReplica(topicName, partition, broker), path));
       } catch (Exception e) {
       }
     }
