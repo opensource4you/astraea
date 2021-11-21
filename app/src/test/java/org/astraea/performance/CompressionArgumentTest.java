@@ -29,4 +29,13 @@ public class CompressionArgumentTest {
         "gzip", arg.producerProps().get(ProducerConfig.COMPRESSION_TYPE_CONFIG));
     Assertions.assertNull(arg.props().get(ProducerConfig.COMPRESSION_TYPE_CONFIG));
   }
+
+  @Test
+  void testJmxServer() {
+    var arg =
+        ArgumentUtil.parseArgument(
+            new Performance.Argument(),
+            new String[] {"--bootstrap.servers", "aa", "--jmx.servers", "aaa"});
+    Assertions.assertEquals("aaa", arg.producerProps().get("jmx_servers"));
+  }
 }
