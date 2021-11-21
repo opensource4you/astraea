@@ -51,16 +51,8 @@ public class Builder {
     }
 
     @Override
-    public void reassign(String topicName, int partition, Set<Integer> brokers) {
-      Utils.handleException(
-          () ->
-              admin
-                  .alterPartitionReassignments(
-                      Map.of(
-                          new TopicPartition(topicName, partition),
-                          Optional.of(new NewPartitionReassignment(new ArrayList<>(brokers)))))
-                  .all()
-                  .get());
+    public Migrator migrator() {
+      return new MigratorImpl(admin, this::partitions);
     }
 
     @Override
@@ -387,6 +379,46 @@ public class Builder {
                       List.of(
                           new NewTopic(topic, numberOfPartitions, numberOfReplicas)
                               .configs(configs)))
+                  .all()
+                  .get());
+    }
+  }
+
+  private static class MigratorImpl implements Migrator {
+    private final Admin admin;
+    private final Function<Set<String>, Set<TopicPartition>> partitionGetter;
+    private final Set<TopicPartition> partitions = new HashSet<>();
+
+    MigratorImpl(Admin admin, Function<Set<String>, Set<TopicPartition>> partitionGetter) {
+      this.admin = admin;
+      this.partitionGetter = partitionGetter;
+    }
+
+    @Override
+    public Migrator topic(String topic) {
+      partitions.addAll(partitionGetter.apply(Set.of(topic)));
+      return this;
+    }
+
+    @Override
+    public Migrator partition(String topic, int partition) {
+      partitions.add(new TopicPartition(topic, partition));
+      return this;
+    }
+
+    @Override
+    public void moveTo(Set<Integer> brokers) {
+      Utils.handleException(
+          () ->
+              admin
+                  .alterPartitionReassignments(
+                      partitions.stream()
+                          .collect(
+                              Collectors.toMap(
+                                  Function.identity(),
+                                  ignore ->
+                                      Optional.of(
+                                          new NewPartitionReassignment(new ArrayList<>(brokers))))))
                   .all()
                   .get());
     }

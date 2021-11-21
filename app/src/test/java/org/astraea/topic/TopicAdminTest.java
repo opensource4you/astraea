@@ -136,14 +136,14 @@ public class TopicAdminTest extends RequireBrokerCluster {
 
   @Test
   @DisabledOnOs(WINDOWS)
-  void testReassign() throws IOException, InterruptedException {
-    var topicName = "testReassign";
+  void testMigrateSinglePartition() throws IOException, InterruptedException {
+    var topicName = "testMigrateSinglePartition";
     try (var topicAdmin = TopicAdmin.of(bootstrapServers())) {
       topicAdmin.creator().topic(topicName).numberOfPartitions(1).create();
       // wait for syncing topic creation
       TimeUnit.SECONDS.sleep(5);
       var broker = topicAdmin.brokerIds().iterator().next();
-      topicAdmin.reassign(topicName, 0, Set.of(broker));
+      topicAdmin.migrator().partition(topicName, 0).moveTo(Set.of(broker));
       Utils.waitFor(
           () -> {
             var replicas = topicAdmin.replicas(Set.of(topicName));
@@ -151,6 +151,27 @@ public class TopicAdminTest extends RequireBrokerCluster {
             return replicas.size() == 1
                 && partitionReplicas.size() == 1
                 && partitionReplicas.get(0).broker() == broker;
+          });
+    }
+  }
+
+  @Test
+  @DisabledOnOs(WINDOWS)
+  void testMigrateAllPartitions() throws IOException, InterruptedException {
+    var topicName = "testMigrateAllPartitions";
+    try (var topicAdmin = TopicAdmin.of(bootstrapServers())) {
+      topicAdmin.creator().topic(topicName).numberOfPartitions(3).create();
+      // wait for syncing topic creation
+      TimeUnit.SECONDS.sleep(5);
+      var broker = topicAdmin.brokerIds().iterator().next();
+      topicAdmin.migrator().topic(topicName).moveTo(Set.of(broker));
+      Utils.waitFor(
+          () -> {
+            var replicas = topicAdmin.replicas(Set.of(topicName));
+            if (replicas.size() != 3) return false;
+            if (!replicas.values().stream().allMatch(rs -> rs.size() == 1)) return false;
+            return replicas.values().stream()
+                .allMatch(rs -> rs.stream().allMatch(r -> r.broker() == broker));
           });
     }
   }
