@@ -6,23 +6,17 @@ import java.util.Collections;
 import java.util.List;
 import org.astraea.concurrent.ThreadPool;
 
-/** Print out the given metrics. Run until `close()` is called. */
+/** Print out the given metrics. */
 public class Tracker implements ThreadPool.Executor {
   private final List<Metrics> producerData;
   private final List<Metrics> consumerData;
-  private final DataManager dataManager;
-  private final Duration exeTime;
-  private long start = System.currentTimeMillis();
+  private final Manager manager;
+  long start = 0L;
 
-  public Tracker(
-      List<Metrics> producerData,
-      List<Metrics> consumerData,
-      DataManager dataManager,
-      Duration duration) {
+  public Tracker(List<Metrics> producerData, List<Metrics> consumerData, Manager manager) {
     this.producerData = producerData;
     this.consumerData = consumerData;
-    this.dataManager = dataManager;
-    this.exeTime = duration;
+    this.manager = manager;
   }
 
   @Override
@@ -34,7 +28,7 @@ public class Tracker implements ThreadPool.Executor {
   }
 
   private Duration duration() {
-    if (start == 0L) start = System.currentTimeMillis();
+    if (start == 0L) start = System.currentTimeMillis() - Duration.ofSeconds(1).toMillis();
     return Duration.ofMillis(System.currentTimeMillis() - start);
   }
 
@@ -55,8 +49,8 @@ public class Tracker implements ThreadPool.Executor {
         Math.min(
             100D,
             Math.max(
-                100D * result.completedRecords / dataManager.records(),
-                100D * duration.toMillis() / exeTime.toMillis()));
+                100D * result.completedRecords / manager.records(),
+                100D * duration.toMillis() / (manager.end() - start)));
 
     System.out.println(
         "Time: "
@@ -83,12 +77,13 @@ public class Tracker implements ThreadPool.Executor {
   private boolean logConsumers() {
     // there is no consumer, so we just complete this log.
     if (consumerData.isEmpty()) return true;
+    var consumedDone = manager.consumedDone();
     var result = result(consumerData);
     if (result.completedRecords == 0) return false;
     var duration = duration();
 
     // Print out percentage of (consumed records) and (produced records)
-    var percentage = result.completedRecords * 100D / dataManager.produced();
+    var percentage = result.completedRecords * 100D / manager.produced();
     System.out.printf("consumer完成度: %.2f%%%n", percentage);
     System.out.printf("  輸入%.3fMB/second%n", result.averageBytes(duration));
     System.out.println("  端到端max latency: " + result.maxLatency + "ms");
@@ -101,8 +96,7 @@ public class Tracker implements ThreadPool.Executor {
     }
     System.out.println("\n");
     // Target number of records consumed OR consumed all that produced
-    return result.completedRecords == dataManager.records()
-        || (percentage >= 100D && duration.compareTo(exeTime) >= 0);
+    return consumedDone;
   }
 
   private static Result result(List<Metrics> metrics) {

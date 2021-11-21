@@ -5,7 +5,6 @@ import java.io.IOException;
 import java.time.Duration;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -71,10 +70,11 @@ public class Performance {
             .mapToObj(i -> new Metrics())
             .collect(Collectors.toUnmodifiableList());
 
-    var dataManager = new DataManager(param.records, param.fixedSize, param.recordSize);
-    var tracker = new Tracker(producerMetrics, consumerMetrics, dataManager, param.duration);
+    var manager =
+        new Manager(
+            param.records, param.duration, param.fixedSize, param.recordSize, param.consumers);
+    var tracker = new Tracker(producerMetrics, consumerMetrics, manager);
     var groupId = "groupId-" + System.currentTimeMillis();
-    var getAssignment = new CountDownLatch(param.consumers);
     try (ThreadPool threadPool =
         ThreadPool.builder()
             .executors(
@@ -87,11 +87,11 @@ public class Performance {
                                     .topics(Set.of(param.topic))
                                     .groupId(groupId)
                                     .configs(param.props())
-                                    .consumerRebalanceListener(ignore -> getAssignment.countDown())
+                                    .consumerRebalanceListener(
+                                        ignore -> manager.countDownGetAssignment())
                                     .build(),
                                 consumerMetrics.get(i),
-                                dataManager,
-                                param.duration))
+                                manager))
                     .collect(Collectors.toUnmodifiableList()))
             .executors(
                 IntStream.range(0, param.producers)
@@ -104,8 +104,7 @@ public class Performance {
                                     .build(),
                                 param,
                                 producerMetrics.get(i),
-                                dataManager,
-                                getAssignment))
+                                manager))
                     .collect(Collectors.toUnmodifiableList()))
             .executor(tracker)
             .build()) {
@@ -114,11 +113,7 @@ public class Performance {
   }
 
   static ThreadPool.Executor consumerExecutor(
-      Consumer<byte[], byte[]> consumer,
-      Metrics metrics,
-      DataManager dataManager,
-      Duration duration) {
-    long end = System.currentTimeMillis() + duration.toMillis();
+      Consumer<byte[], byte[]> consumer, Metrics metrics, Manager manager) {
     return new ThreadPool.Executor() {
       @Override
       public State execute() {
@@ -131,14 +126,10 @@ public class Performance {
                     metrics.put(
                         System.currentTimeMillis() - record.timestamp(),
                         record.serializedKeySize() + record.serializedValueSize());
-                    dataManager.consumedIncrement();
+                    manager.consumedIncrement();
                   });
           // Consumer reached the record upperbound or consumed all the record producer produced.
-          return (dataManager.consumed() == dataManager.records()
-                  || (dataManager.consumed() == dataManager.produced()
-                      && System.currentTimeMillis() >= end))
-              ? State.DONE
-              : State.RUNNING;
+          return manager.consumedDone() ? State.DONE : State.RUNNING;
         } catch (WakeupException ignore) {
           // Stop polling and being ready to clean up
           return State.DONE;
@@ -158,20 +149,14 @@ public class Performance {
   }
 
   static ThreadPool.Executor producerExecutor(
-      Producer<byte[], byte[]> producer,
-      Argument param,
-      Metrics metrics,
-      DataManager dataManager,
-      CountDownLatch getAssignment) {
-    long end = System.currentTimeMillis() + param.duration.toMillis();
+      Producer<byte[], byte[]> producer, Argument param, Metrics metrics, Manager manager) {
     return new ThreadPool.Executor() {
       @Override
       public State execute() throws InterruptedException {
         // Wait for all consumers get assignment.
-        getAssignment.await();
-        if (System.currentTimeMillis() >= end) return State.DONE;
-        var payload = dataManager.payload();
-        // Number of records produced reach the given number.
+        manager.awaitGetAssignment();
+
+        var payload = manager.payload();
         if (payload.isEmpty()) return State.DONE;
 
         long start = System.currentTimeMillis();

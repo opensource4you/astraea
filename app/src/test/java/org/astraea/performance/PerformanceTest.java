@@ -2,7 +2,6 @@ package org.astraea.performance;
 
 import java.time.Duration;
 import java.util.Set;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import org.astraea.Utils;
 import org.astraea.concurrent.ThreadPool;
@@ -25,8 +24,7 @@ public class PerformanceTest extends RequireBrokerCluster {
             Producer.builder().brokers(bootstrapServers()).build(),
             param,
             metrics,
-            new DataManager(10, true, 1024),
-            new CountDownLatch(0))) {
+            new Manager(10, Duration.ofSeconds(1), true, 1024, 0))) {
       executor.execute();
 
       Utils.waitFor(() -> metrics.num() == 1);
@@ -42,8 +40,7 @@ public class PerformanceTest extends RequireBrokerCluster {
         Performance.consumerExecutor(
             Consumer.builder().topics(Set.of(topicName)).brokers(bootstrapServers()).build(),
             metrics,
-            new DataManager(10, true, 1024),
-            Duration.ofMillis(10))) {
+            new Manager(10, Duration.ofMillis(10), true, 1024, 1))) {
       executor.execute();
 
       Assertions.assertEquals(0, metrics.num());
