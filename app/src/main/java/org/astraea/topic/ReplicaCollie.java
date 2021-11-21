@@ -59,7 +59,8 @@ public class ReplicaCollie {
             });
     result.forEach(
         (tp, assignments) -> {
-          if (!args.verify) admin.reassign(tp.topic(), tp.partition(), assignments.getValue());
+          if (!args.verify)
+            admin.migrator().partition(tp.topic(), tp.partition()).moveTo(assignments.getValue());
         });
     return result;
   }
