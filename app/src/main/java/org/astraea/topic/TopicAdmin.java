@@ -24,7 +24,7 @@ public interface TopicAdmin extends Closeable {
   }
 
   /** @return the topic name and its configurations. */
-  Map<String, Map<String, String>> topics();
+  Map<String, TopicConfig> topics();
 
   /** @return a topic creator to set all topic configs and then run the procedure. */
   Creator creator();

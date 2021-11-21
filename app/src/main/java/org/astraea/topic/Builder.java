@@ -152,7 +152,7 @@ public class Builder {
     }
 
     @Override
-    public Map<String, Map<String, String>> topics() {
+    public Map<String, TopicConfig> topics() {
       var topics =
           Utils.handleException(
               () -> admin.listTopics(new ListTopicsOptions().listInternal(true)).names().get());
@@ -171,8 +171,9 @@ public class Builder {
               Collectors.toMap(
                   e -> e.getKey().name(),
                   e ->
-                      e.getValue().entries().stream()
-                          .collect(Collectors.toMap(ConfigEntry::name, ConfigEntry::value))));
+                      new TopicConfigImpl(
+                          e.getValue().entries().stream()
+                              .collect(Collectors.toMap(ConfigEntry::name, ConfigEntry::value)))));
     }
 
     @Override
@@ -286,10 +287,38 @@ public class Builder {
     }
   }
 
+  private static class TopicConfigImpl implements TopicConfig {
+    private final Map<String, String> configs;
+
+    TopicConfigImpl(Map<String, String> configs) {
+      this.configs = Collections.unmodifiableMap(configs);
+    }
+
+    @Override
+    public Optional<String> value(String key) {
+      return Optional.ofNullable(configs.get(key));
+    }
+
+    @Override
+    public Set<String> keys() {
+      return configs.keySet();
+    }
+
+    @Override
+    public Collection<String> values() {
+      return configs.values();
+    }
+
+    @Override
+    public Iterator<Map.Entry<String, String>> iterator() {
+      return configs.entrySet().iterator();
+    }
+  }
+
   private static class CreatorImpl implements Creator {
     private final Admin admin;
     private final Function<String, Map<TopicPartition, List<Replica>>> replicasGetter;
-    private final Function<String, Map<String, String>> configsGetter;
+    private final Function<String, TopicConfig> configsGetter;
     private String topic;
     private int numberOfPartitions = 1;
     private short numberOfReplicas = 1;
@@ -298,7 +327,7 @@ public class Builder {
     CreatorImpl(
         Admin admin,
         Function<String, Map<TopicPartition, List<Replica>>> replicasGetter,
-        Function<String, Map<String, String>> configsGetter) {
+        Function<String, TopicConfig> configsGetter) {
       this.admin = admin;
       this.replicasGetter = replicasGetter;
       this.configsGetter = configsGetter;
@@ -355,13 +384,13 @@ public class Builder {
         var actualConfigs = configsGetter.apply(topic);
         this.configs.forEach(
             (key, value) -> {
-              if (!actualConfigs.get(key).equals(value))
+              if (actualConfigs.value(key).filter(actual -> actual.equals(value)).isEmpty())
                 throw new IllegalArgumentException(
                     topic
                         + " is existent but its config: <"
                         + key
                         + ", "
-                        + actualConfigs.get(key)
+                        + actualConfigs.value(key)
                         + "> is not equal to expected: "
                         + key
                         + ", "

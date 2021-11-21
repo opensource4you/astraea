@@ -1,6 +1,7 @@
 package org.astraea.topic.cost;
 
 import java.util.*;
+import java.util.stream.Collectors;
 import org.apache.kafka.common.TopicPartition;
 import org.astraea.topic.TopicAdmin;
 
@@ -20,10 +21,17 @@ public class GetPartitionInf {
   }
 
   static Map<String, Integer> getRetentionMillis(TopicAdmin client) {
-    Map<String, Integer> retentionTime = new HashMap<>();
-    for (var topic : client.topics().keySet()) {
-      retentionTime.put(topic, Integer.parseInt(client.topics().get(topic).get("retention.ms")));
-    }
-    return retentionTime;
+    return client.topics().entrySet().stream()
+        .collect(
+            Collectors.toMap(
+                Map.Entry::getKey,
+                entry ->
+                    client
+                        .topics()
+                        .get(entry.getKey())
+                        .value("retention.ms")
+                        .map(Integer::parseInt)
+                        .orElseThrow(
+                            () -> new NoSuchElementException("retention.ms does not exist"))));
   }
 }
