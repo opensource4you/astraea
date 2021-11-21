@@ -27,7 +27,7 @@ public class NodeLoadClient implements ThreadPool.Executor {
     try {
       refreshNodesMetrics();
       overLoadNode.monitorOverLoad();
-      loadPoisson.setAllPoisson(getAvgLoadCount(), getNodeOverLoadCount());
+      loadPoisson.allNodesPoisson(avgLoadCount(), nodeOverLoadCount());
       TimeUnit.SECONDS.sleep(1);
     } catch (InterruptedException e) {
       e.printStackTrace();
@@ -42,29 +42,29 @@ public class NodeLoadClient implements ThreadPool.Executor {
     }
   }
 
-  public synchronized HashMap<String, Integer> getNodeOverLoadCount() {
+  public synchronized HashMap<String, Integer> nodeOverLoadCount() {
     HashMap<String, Integer> overLoadCount = new HashMap<>();
     for (NodeMetadata nodeMetadata : nodeClientCollection) {
-      overLoadCount.put(nodeMetadata.getNodeID(), nodeMetadata.getOverLoadCount());
+      overLoadCount.put(nodeMetadata.nodeID(), nodeMetadata.overLoadCount());
     }
     return overLoadCount;
   }
 
-  public synchronized int getAvgLoadCount() {
-    double avgLoadCount = 0;
+  public synchronized int avgLoadCount() {
+    var avgLoadCount = 0.0;
 
     for (NodeMetadata nodeMetadata : nodeClientCollection) {
-      avgLoadCount += getBinOneCount(nodeMetadata.getOverLoadCount());
+      avgLoadCount += binOneCount(nodeMetadata.overLoadCount());
     }
     return nodeClientCollection.size() > 0 ? (int) avgLoadCount / nodeClientCollection.size() : 0;
   }
 
   /** Get the number of times a node is overloaded. */
-  public static int getBinOneCount(int n) {
-    int index = 0;
-    int count = 0;
+  public static int binOneCount(int n) {
+    var index = 0;
+    var count = 0;
     while (n > 0) {
-      int x = n & 1 << index;
+      var x = n & 1 << index;
       if (x != 0) {
         count++;
         n = n - (1 << index);

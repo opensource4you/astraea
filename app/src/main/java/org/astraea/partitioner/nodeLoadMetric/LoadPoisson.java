@@ -1,6 +1,6 @@
 package org.astraea.partitioner.nodeLoadMetric;
 
-import static org.astraea.partitioner.nodeLoadMetric.NodeLoadClient.getBinOneCount;
+import static org.astraea.partitioner.nodeLoadMetric.NodeLoadClient.binOneCount;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -8,21 +8,22 @@ import java.util.Map;
 public class LoadPoisson {
   private HashMap<String, Double> allPoissonMap = new HashMap<>();
 
-  public synchronized void setAllPoisson(int avgLoad, HashMap<String, Integer> nodeOverLoadCount) {
+  public synchronized void allNodesPoisson(
+      int avgLoad, HashMap<String, Integer> nodeOverLoadCount) {
     for (Map.Entry<String, Integer> entry : nodeOverLoadCount.entrySet()) {
-      int x = getBinOneCount(entry.getValue());
+      var x = binOneCount(entry.getValue());
       allPoissonMap.put(entry.getKey(), doPoisson(avgLoad, x));
     }
   }
 
   public double doPoisson(int lambda, int x) {
-    double Probability = 0;
-    double ans = 0;
+    var Probability = 0.0;
+    var ans = 0.0;
 
     for (int i = 0; i <= x; i++) {
-      double j = Math.pow(lambda, i);
-      double e = Math.exp(-lambda);
-      long h = factorial(i);
+      var j = Math.pow(lambda, i);
+      var e = Math.exp(-lambda);
+      var h = factorial(i);
       Probability = (j * e) / h;
       ans += Probability;
     }

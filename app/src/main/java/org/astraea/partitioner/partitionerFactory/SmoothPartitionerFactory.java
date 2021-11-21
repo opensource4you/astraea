@@ -93,10 +93,6 @@ public class SmoothPartitionerFactory {
     }
   }
 
-  public Map<Map<String, ?>, Integer> getCount() {
-    return this.count;
-  }
-
   public Map<Map<String, ?>, Partitioner> getSmoothPartitionerMap() {
     return this.smoothPartitionerMap;
   }

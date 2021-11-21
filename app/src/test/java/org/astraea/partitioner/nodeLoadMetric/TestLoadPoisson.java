@@ -44,13 +44,12 @@ public class TestLoadPoisson {
     testPoissonMap.put("2", 0.9319063652781515);
 
     NodeLoadClient nodeLoadClient = mock(NodeLoadClient.class);
-    when(nodeLoadClient.getNodeOverLoadCount()).thenReturn(testNodesLoadCount);
-    when(nodeLoadClient.getAvgLoadCount()).thenReturn(5);
+    when(nodeLoadClient.nodeOverLoadCount()).thenReturn(testNodesLoadCount);
+    when(nodeLoadClient.avgLoadCount()).thenReturn(5);
 
     LoadPoisson loadPoisson = new LoadPoisson();
 
-    loadPoisson.setAllPoisson(
-        nodeLoadClient.getAvgLoadCount(), nodeLoadClient.getNodeOverLoadCount());
+    loadPoisson.allNodesPoisson(nodeLoadClient.avgLoadCount(), nodeLoadClient.nodeOverLoadCount());
 
     assertEquals(loadPoisson.getAllPoissonMap(), testPoissonMap);
   }

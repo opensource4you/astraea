@@ -35,7 +35,7 @@ public class BrokersWeight {
   }
 
   public synchronized int getAllWeight() {
-    int allWeight = 0;
+    var allWeight = 0;
     for (Map.Entry<String, int[]> entry : brokerWeightHashMap.entrySet()) {
       allWeight += entry.getValue()[0];
     }

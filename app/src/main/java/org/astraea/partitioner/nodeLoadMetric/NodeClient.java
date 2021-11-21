@@ -7,13 +7,14 @@ import java.util.List;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import javax.management.remote.JMXServiceURL;
+import org.astraea.Utils;
 import org.astraea.metrics.jmx.MBeanClient;
 import org.astraea.metrics.kafka.BrokerTopicMetricsResult;
 import org.astraea.metrics.kafka.KafkaMetrics;
 
 /** Responsible for connecting jmx according to the received address */
 public class NodeClient implements NodeMetadata, AutoCloseable {
-  private final String JMX_URI_FORMAT = "service:jmx:rmi:///jndi/rmi://" + "%s" + "/jmxrmi";
+  private static final String JMX_URI_FORMAT = "service:jmx:rmi:///jndi/rmi://" + "%s" + "/jmxrmi";
   private final JMXServiceURL serviceURL;
   private final MBeanClient mBeanClient;
   private final String nodeID;
@@ -23,8 +24,8 @@ public class NodeClient implements NodeMetadata, AutoCloseable {
   private int overLoadCount;
 
   NodeClient(String ID, String address) throws IOException {
-    argumentTargetMetrics.add("BytesInPerSec");
-    argumentTargetMetrics.add("BytesOutPerSec");
+    argumentTargetMetrics.add(KafkaMetrics.BrokerTopic.BytesOutPerSec.toString());
+    argumentTargetMetrics.add(KafkaMetrics.BrokerTopic.BytesOutPerSec.toString());
     nodeID = ID;
     if (Pattern.compile("^service:").matcher(address).find())
       serviceURL = new JMXServiceURL(address);
@@ -55,10 +56,6 @@ public class NodeClient implements NodeMetadata, AutoCloseable {
             .sum());
   }
 
-  public MBeanClient getKafkaMetricClient() {
-    return mBeanClient;
-  }
-
   public void setOverLoadCount(int count) {
     this.overLoadCount = count;
   }
@@ -67,23 +64,22 @@ public class NodeClient implements NodeMetadata, AutoCloseable {
     this.totalBytes = bytes;
   }
 
-  public double getTotalBytes() {
+  public double totalBytes() {
     return this.totalBytes;
   }
 
-  public String getNodeID() {
+  public String nodeID() {
     return this.nodeID;
   }
 
-  public int getOverLoadCount() {
+  public int overLoadCount() {
     return this.overLoadCount;
   }
 
   @Override
   public void close() {
-    MBeanClient mBeanClient = getKafkaMetricClient();
     try {
-      mBeanClient.close();
+      Utils.close(mBeanClient);
     } catch (Exception e) {
       e.printStackTrace();
     }

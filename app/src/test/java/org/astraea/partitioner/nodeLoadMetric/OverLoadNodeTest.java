@@ -49,7 +49,7 @@ public class OverLoadNodeTest extends RequireJmxServer {
     testHashMap.put("3", 20.0);
 
     OverLoadNode overLoadNode = new OverLoadNode(nodeClientCollection);
-    var testAvg = overLoadNode.setAvgBrokersMsgPerSec(testHashMap);
+    var testAvg = overLoadNode.avgBrokersMsgPerSec(testHashMap);
     assertEquals(testAvg, 15);
 
     overLoadNode.standardDeviationImperative(testHashMap, testAvg);
@@ -62,10 +62,10 @@ public class OverLoadNodeTest extends RequireJmxServer {
     Collection<NodeClient> nodeClientCollection = new ArrayList<NodeClient>();
 
     OverLoadNode overLoadNode = new OverLoadNode(nodeClientCollection);
-    assertEquals(overLoadNode.setOverLoadCount(0, 2, 1), 4);
-    assertEquals(overLoadNode.setOverLoadCount(31, 2, 1), 31);
-    assertEquals(overLoadNode.setOverLoadCount(31, 2, 0), 27);
-    assertEquals(overLoadNode.setOverLoadCount(20, 4, 0), 4);
+    assertEquals(overLoadNode.overLoadCount(0, 2, 1), 4);
+    assertEquals(overLoadNode.overLoadCount(31, 2, 1), 31);
+    assertEquals(overLoadNode.overLoadCount(31, 2, 0), 27);
+    assertEquals(overLoadNode.overLoadCount(20, 4, 0), 4);
   }
 
   @Test
@@ -79,11 +79,11 @@ public class OverLoadNodeTest extends RequireJmxServer {
     OverLoadNode overLoadNode = new OverLoadNode(nodeClientCollection);
 
     for (NodeClient nodeClient : nodeClientCollection) {
-      nodeClient.setTotalBytes(testHashMap.get(nodeClient.getNodeID()));
+      nodeClient.setTotalBytes(testHashMap.get(nodeClient.nodeID()));
     }
 
     for (NodeClient nodeClient : nodeClientCollection2) {
-      nodeClient.setTotalBytes(testHashMap.get(nodeClient.getNodeID()));
+      nodeClient.setTotalBytes(testHashMap.get(nodeClient.nodeID()));
     }
 
     for (int i = 0; i < 5; i++) {
@@ -91,14 +91,14 @@ public class OverLoadNodeTest extends RequireJmxServer {
       overLoadNode.monitorOverLoad();
     }
 
-    assertEquals(((NodeClient) nodeClientCollection.toArray()[3]).getOverLoadCount(), 31);
+    assertEquals(((NodeClient) nodeClientCollection.toArray()[3]).overLoadCount(), 31);
 
     for (int i = 0; i < 15; i++) {
       overLoadNode.setMountCount(i);
       overLoadNode.monitorOverLoad();
     }
 
-    assertEquals(((NodeClient) nodeClientCollection.toArray()[3]).getOverLoadCount(), 1023);
+    assertEquals(((NodeClient) nodeClientCollection.toArray()[3]).overLoadCount(), 1023);
 
     overLoadNode = new OverLoadNode(nodeClientCollection2);
 
@@ -108,7 +108,7 @@ public class OverLoadNodeTest extends RequireJmxServer {
     }
 
     assertEquals(
-        ((NodeClient) nodeClientCollection.toArray()[3]).getOverLoadCount(),
-        ((NodeClient) nodeClientCollection2.toArray()[3]).getOverLoadCount());
+        ((NodeClient) nodeClientCollection.toArray()[3]).overLoadCount(),
+        ((NodeClient) nodeClientCollection2.toArray()[3]).overLoadCount());
   }
 }

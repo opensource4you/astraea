@@ -69,7 +69,7 @@ public class LinkPartitioner implements Partitioner {
       brokersWeight.setBrokerWeightHashMap();
       Map.Entry<String, int[]> maxWeightServer = null;
 
-      int allWeight = brokersWeight.getAllWeight();
+      var allWeight = brokersWeight.getAllWeight();
       HashMap<String, int[]> currentBrokerHashMap = brokersWeight.getBrokerHashMap();
 
       for (Map.Entry<String, int[]> item : currentBrokerHashMap.entrySet()) {
