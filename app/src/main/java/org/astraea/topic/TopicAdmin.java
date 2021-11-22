@@ -51,10 +51,10 @@ public interface TopicAdmin extends Closeable {
   Set<Integer> brokerIds();
 
   /**
-   * @param broker broker ID
+   * @param brokers a Set containing broker's ID
    * @return all log directory
    */
-  Map<Integer, Set<String>> brokerFolders(Set<Integer> broker);
+  Map<Integer, Set<String>> brokerFolders(Set<Integer> brokers);
 
   /** @return a partition migrator used to move partitions to another broker or folder. */
   Migrator migrator();

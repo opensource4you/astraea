@@ -52,10 +52,10 @@ public class Builder {
     }
 
     @Override
-    public Map<Integer, Set<String>> brokerFolders(Set<Integer> broker) {
+    public Map<Integer, Set<String>> brokerFolders(Set<Integer> brokers) {
       return Utils.handleException(
           () ->
-              admin.describeLogDirs(broker).allDescriptions().get().entrySet().stream()
+              admin.describeLogDirs(brokers).allDescriptions().get().entrySet().stream()
                   .collect(Collectors.toMap(Map.Entry::getKey, map -> map.getValue().keySet())));
     }
 
