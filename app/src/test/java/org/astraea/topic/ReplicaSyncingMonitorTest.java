@@ -54,6 +54,7 @@ class ReplicaSyncingMonitorTest {
   @Test
   void execute() throws InterruptedException {
     // arrange
+    int interval = 10;
     TopicAdmin mockTopicAdmin = mock(TopicAdmin.class);
     when(mockTopicAdmin.topicNames()).thenReturn(Set.of("topic-1", "topic-2", "topic-3"));
     when(mockTopicAdmin.replicas(anySet()))
@@ -83,7 +84,12 @@ class ReplicaSyncingMonitorTest {
                   mockTopicAdmin,
                   ArgumentUtil.parseArgument(
                       new ReplicaSyncingMonitor.Argument(),
-                      new String[] {"--bootstrap.servers", "whatever:9092"}));
+                      new String[] {
+                        "--bootstrap.servers",
+                        "whatever:9092",
+                        "--interval",
+                        String.valueOf(interval)
+                      }));
             });
     tearDownTasks.add(
         () -> {
@@ -95,9 +101,7 @@ class ReplicaSyncingMonitorTest {
 
     // act
     executionThread.start();
-    // TODO: allow client to change wait interval, so we can save some waiting time. I am tired of
-    // those slow tests.
-    TimeUnit.SECONDS.timedJoin(executionThread, 4);
+    TimeUnit.MILLISECONDS.timedJoin(executionThread, 4 * (interval) + 1000);
 
     // assert execution will exit
     assertSame(Thread.State.TERMINATED, executionThread.getState());
@@ -112,6 +116,7 @@ class ReplicaSyncingMonitorTest {
   @Test
   void executeWithKeepTrack() throws InterruptedException {
     // arrange
+    int interval = 10;
     TopicAdmin mockTopicAdmin = mock(TopicAdmin.class);
     when(mockTopicAdmin.topicNames()).thenReturn(Set.of("topic-1"));
     when(mockTopicAdmin.replicas(anySet()))
@@ -155,7 +160,13 @@ class ReplicaSyncingMonitorTest {
                     mockTopicAdmin,
                     ArgumentUtil.parseArgument(
                         new ReplicaSyncingMonitor.Argument(),
-                        new String[] {"--bootstrap.servers", "whatever:9092", "--keep-track"}));
+                        new String[] {
+                          "--bootstrap.servers",
+                          "whatever:9092",
+                          "--keep-track",
+                          "--interval",
+                          String.valueOf(interval)
+                        }));
               } catch (Exception e) {
                 // swallow interrupted error
               }
@@ -170,9 +181,7 @@ class ReplicaSyncingMonitorTest {
 
     // act
     executionThread.start();
-    // TODO: allow client to change wait interval, so we can save some waiting time. I am tired of
-    // those slow tests.
-    TimeUnit.SECONDS.timedJoin(executionThread, 7);
+    TimeUnit.MILLISECONDS.timedJoin(executionThread, 7 * (interval) + 1000);
 
     // assert execution will not exit even if all replicas are synced
     assertNotEquals(Thread.State.TERMINATED, executionThread.getState());
@@ -188,6 +197,7 @@ class ReplicaSyncingMonitorTest {
   @Test
   void executeWithTopic() throws InterruptedException {
     // arrange
+    int interval = 10;
     TopicAdmin mockTopicAdmin = mock(TopicAdmin.class);
     when(mockTopicAdmin.replicas(Set.of("target-topic")))
         .thenReturn(
@@ -205,7 +215,12 @@ class ReplicaSyncingMonitorTest {
                     ArgumentUtil.parseArgument(
                         new ReplicaSyncingMonitor.Argument(),
                         new String[] {
-                          "--bootstrap.servers", "whatever:9092", "--topic", "target-topic"
+                          "--bootstrap.servers",
+                          "whatever:9092",
+                          "--topic",
+                          "target-topic",
+                          "--interval",
+                          String.valueOf(interval)
                         }));
               } catch (IllegalStateException e) {
                 // immediate fail due to bad behavior of --topic flag
@@ -222,9 +237,7 @@ class ReplicaSyncingMonitorTest {
 
     // act
     executionThread.start();
-    // TODO: allow client to change wait interval, so we can save some waiting time. I am tired of
-    // those slow tests.
-    TimeUnit.SECONDS.timedJoin(executionThread, 2);
+    TimeUnit.MILLISECONDS.timedJoin(executionThread, 2 * interval + 1000);
 
     // assert execution exit
     assertSame(Thread.State.TERMINATED, executionThread.getState());
@@ -270,10 +283,11 @@ class ReplicaSyncingMonitorTest {
         "--bootstrap.servers localhost:5566                                 (is ok",
         "--bootstrap.servers localhost:5566 --keep-track                    (is ok",
         "--bootstrap.servers localhost:5566 --topic my-topic --keep-track   (is ok",
+        "--bootstrap.servers localhost:5566 --interval 1234                 (is ok",
         "--bootstrap.servers localhost:5566 --whatever                      (is not ok",
         "--bootstrap.servers localhost:5566 sad                             (is not ok",
-        "wuewuewuewue                                                      (is not ok",
-        "--server                                                          (is not ok",
+        "wuewuewuewue                                                       (is not ok",
+        "--server                                                           (is not ok",
       })
   void ensureArgumentFlagExists(String args, String exception) {
     switch (exception) {

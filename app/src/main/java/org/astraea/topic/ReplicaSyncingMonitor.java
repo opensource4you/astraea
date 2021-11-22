@@ -1,5 +1,6 @@
 package org.astraea.topic;
 
+import com.beust.jcommander.IStringConverter;
 import com.beust.jcommander.Parameter;
 import java.io.IOException;
 import java.time.Duration;
@@ -140,7 +141,7 @@ public class ReplicaSyncingMonitor {
 
       Utils.handleException(
           () -> {
-            TimeUnit.SECONDS.sleep(1);
+            TimeUnit.MILLISECONDS.sleep(argument.interval.toMillis());
             return 0;
           });
     }
@@ -247,5 +248,18 @@ public class ReplicaSyncingMonitor {
         description =
             "Boolean: keep tracking even if all the replicas are synced, also attempts to discovery any non-synced replicas")
     public boolean keepTrack = false;
+
+    @Parameter(
+        names = {"--interval"},
+        description = "Millisecond: the frequency(time interval) to check replica state",
+        converter = DurationConverter.class)
+    public Duration interval = Duration.ofMillis(1000);
+
+    public static class DurationConverter implements IStringConverter<Duration> {
+      @Override
+      public Duration convert(String value) {
+        return Duration.ofMillis(Integer.parseInt(value));
+      }
+    }
   }
 }
