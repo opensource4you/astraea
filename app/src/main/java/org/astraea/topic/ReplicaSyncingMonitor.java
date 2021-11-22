@@ -117,7 +117,7 @@ public class ReplicaSyncingMonitor {
     }
   }
 
-  private static String dataRate(
+  static String dataRate(
       Map<TopicPartitionReplica, Long> previousCheckedSize,
       TopicPartition tp,
       Replica replica,
