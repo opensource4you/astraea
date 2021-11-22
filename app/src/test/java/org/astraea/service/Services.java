@@ -75,8 +75,7 @@ public final class Services {
               broker.shutdown();
               broker.awaitShutdown();
             });
-        for (var b : tempFolders.keySet())
-          tempFolders.get(b).forEach(s -> Utils.delete(new File(s)));
+        tempFolders.values().forEach(fs -> fs.forEach(f -> Utils.delete(new File(f))));
       }
 
       @Override
