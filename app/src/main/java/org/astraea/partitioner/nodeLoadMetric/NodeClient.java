@@ -21,7 +21,7 @@ public class NodeClient implements NodeMetadata, AutoCloseable {
   private static final Collection<String> BYTES_METRICS =
       Set.of(
           KafkaMetrics.BrokerTopic.BytesOutPerSec.toString(),
-          KafkaMetrics.BrokerTopic.BytesOutPerSec.toString());
+          KafkaMetrics.BrokerTopic.BytesInPerSec.toString());
 
   private double totalBytes;
   private int overLoadCount;

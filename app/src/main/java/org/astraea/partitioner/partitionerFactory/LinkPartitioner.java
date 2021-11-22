@@ -13,7 +13,6 @@ import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.Cluster;
 import org.apache.kafka.common.PartitionInfo;
 import org.astraea.concurrent.ThreadPool;
-import org.astraea.partitioner.nodeLoadMetric.BrokersWeight;
 import org.astraea.partitioner.nodeLoadMetric.NodeLoadClient;
 
 public class LinkPartitioner implements Partitioner {
@@ -52,6 +51,12 @@ public class LinkPartitioner implements Partitioner {
   }
 
   public static class ThreadSafeSmoothPartitioner implements Partitioner {
+    /**
+     * Record the current weight of each node according to Poisson calculation and the weight after
+     * partitioner calculation.
+     */
+    private static HashMap<String, int[]> brokerWeightHashMap = new HashMap<>();
+
     private NodeLoadClient nodeLoadClient;
     private ThreadPool pool;
 
@@ -65,12 +70,11 @@ public class LinkPartitioner implements Partitioner {
         Object value,
         byte[] valueBytes,
         Cluster cluster) {
-      BrokersWeight brokersWeight = new BrokersWeight(nodeLoadClient.getLoadPoisson());
-      brokersWeight.setBrokerWeightHashMap();
+      setBrokerWeightHashMap();
       Map.Entry<String, int[]> maxWeightServer = null;
 
-      var allWeight = brokersWeight.getAllWeight();
-      HashMap<String, int[]> currentBrokerHashMap = brokersWeight.getBrokerHashMap();
+      var allWeight = getAllWeight();
+      HashMap<String, int[]> currentBrokerHashMap = getBrokerHashMap();
 
       for (Map.Entry<String, int[]> item : currentBrokerHashMap.entrySet()) {
         if (maxWeightServer == null || item.getValue()[1] > maxWeightServer.getValue()[1]) {
@@ -83,7 +87,7 @@ public class LinkPartitioner implements Partitioner {
       currentBrokerHashMap.put(
           maxWeightServer.getKey(),
           new int[] {maxWeightServer.getValue()[0], maxWeightServer.getValue()[1] - allWeight});
-      brokersWeight.setCurrentBrokerHashMap(currentBrokerHashMap);
+      setCurrentBrokerHashMap(currentBrokerHashMap);
 
       ArrayList<Integer> partitionList = new ArrayList<>();
       for (PartitionInfo partitionInfo :
@@ -119,6 +123,39 @@ public class LinkPartitioner implements Partitioner {
         throw new RuntimeException();
       }
       pool = ThreadPool.builder().executor(nodeLoadClient).build();
+    }
+    /** Change the weight of the node according to the current Poisson. */
+    public synchronized void setBrokerWeightHashMap() {
+      HashMap<String, Double> poissonMap = nodeLoadClient.getLoadPoisson().getAllPoissonMap();
+
+      for (Map.Entry<String, Double> entry : poissonMap.entrySet()) {
+        if (!brokerWeightHashMap.containsKey(entry.getKey())) {
+          brokerWeightHashMap.put(
+              entry.getKey(), new int[] {(int) ((1 - entry.getValue()) * 20), 0});
+        } else {
+          brokerWeightHashMap.put(
+              entry.getKey(),
+              new int[] {
+                (int) ((1 - entry.getValue()) * 20), brokerWeightHashMap.get(entry.getKey())[1]
+              });
+        }
+      }
+    }
+
+    public synchronized int getAllWeight() {
+      var allWeight = 0;
+      for (Map.Entry<String, int[]> entry : brokerWeightHashMap.entrySet()) {
+        allWeight += entry.getValue()[0];
+      }
+      return allWeight;
+    }
+
+    public synchronized HashMap<String, int[]> getBrokerHashMap() {
+      return brokerWeightHashMap;
+    }
+
+    public synchronized void setCurrentBrokerHashMap(HashMap<String, int[]> currentBrokerHashMap) {
+      brokerWeightHashMap = currentBrokerHashMap;
     }
   }
 
