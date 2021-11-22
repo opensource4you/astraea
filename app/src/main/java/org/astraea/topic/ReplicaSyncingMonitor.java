@@ -7,6 +7,7 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.kafka.common.TopicPartition;
@@ -23,20 +24,42 @@ public class ReplicaSyncingMonitor {
   static void execute(final Argument argument) {
     try (TopicAdmin topicAdmin = TopicAdmin.of(argument.props())) {
 
-      Set<String> topicToTrack =
-          argument.topics.contains(Argument.EVERY_TOPIC)
-              ? topicAdmin.topicNames()
-              : argument.topics;
+      // this supplier will gives you all the topic name that the client interest in.
+      Supplier<Set<String>> topicToTrack =
+          () ->
+              argument.topics.contains(Argument.EVERY_TOPIC)
+                  ? topicAdmin.topicNames()
+                  : argument.topics;
 
+      // the non-synced topic-partition we want to monitor
       Set<TopicPartition> topicPartitionToTrack =
-          topicAdmin.replicas(topicToTrack).entrySet().stream()
-              .filter(tpr -> tpr.getValue().stream().anyMatch(replica -> !replica.inSync()))
-              .map(Map.Entry::getKey)
-              .collect(Collectors.toSet());
+          findNonSyncedTopicPartition(topicAdmin, topicToTrack.get());
 
-      Map<TopicPartitionReplica, Long> previousCheckedSize = new HashMap<>();
+      // keep tracking the previous replica size of a topic-partition-replica tuple
+      final Map<TopicPartitionReplica, Long> previousCheckedSize = new HashMap<>();
 
-      while (!topicPartitionToTrack.isEmpty()) {
+      while (!topicPartitionToTrack.isEmpty() || argument.keepTrack) {
+
+        // attempts to discover any non-synced replica if flag --keep-track is used
+        if (argument.keepTrack) {
+          // find new non-synced topic-partition
+          Set<TopicPartition> nonSyncedTopicPartition =
+              findNonSyncedTopicPartition(topicAdmin, topicToTrack.get());
+          // add all the non-synced topic-partition into tracking
+          topicPartitionToTrack.addAll(nonSyncedTopicPartition);
+          // remove previous progress from size map
+          previousCheckedSize.entrySet().stream()
+              .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue))
+              .entrySet()
+              .stream()
+              .filter(
+                  tpr ->
+                      !nonSyncedTopicPartition.contains(
+                          new TopicPartition(tpr.getKey().topic(), tpr.getKey().partition())))
+              .distinct()
+              .forEach(tpr -> previousCheckedSize.remove(tpr.getKey()));
+        }
+
         System.out.printf(
             "[%s]%n", LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
         Map<TopicPartition, List<Replica>> replicaProgress =
@@ -99,7 +122,6 @@ public class ReplicaSyncingMonitor {
                                 .forEachOrdered(System.out::println);
                           });
                 });
-        System.out.println();
 
         // remove synced topic-partition-replica
         Set<TopicPartition> topicPartitionFinished =
@@ -109,12 +131,25 @@ public class ReplicaSyncingMonitor {
                 .collect(Collectors.toSet());
         topicPartitionToTrack.removeAll(topicPartitionFinished);
 
+        if (topicPartitionToTrack.isEmpty()) {
+          System.out.println("  Every replica is synced.");
+        }
+        System.out.println();
+
         TimeUnit.SECONDS.sleep(1);
       }
 
     } catch (IOException | InterruptedException e) {
       e.printStackTrace();
     }
+  }
+
+  static Set<TopicPartition> findNonSyncedTopicPartition(
+      TopicAdmin topicAdmin, Set<String> topicToTrack) {
+    return topicAdmin.replicas(topicToTrack).entrySet().stream()
+        .filter(tpr -> tpr.getValue().stream().anyMatch(replica -> !replica.inSync()))
+        .map(Map.Entry::getKey)
+        .collect(Collectors.toSet());
   }
 
   static String dataRate(
@@ -204,5 +239,11 @@ public class ReplicaSyncingMonitor {
         description = "String: topics to track",
         validateWith = ArgumentUtil.NotEmptyString.class)
     public Set<String> topics = Set.of(EVERY_TOPIC);
+
+    @Parameter(
+        names = {"--keep-track"},
+        description =
+            "Boolean: keep tracking even if all the replicas are synced, also attempts to discovery any non-synced replicas")
+    public boolean keepTrack = false;
   }
 }
