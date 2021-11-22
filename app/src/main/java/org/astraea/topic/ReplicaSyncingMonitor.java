@@ -46,26 +46,6 @@ public class ReplicaSyncingMonitor {
 
     while (!topicPartitionToTrack.isEmpty() || argument.keepTrack) {
 
-      // attempts to discover any non-synced replica if flag --keep-track is used
-      if (argument.keepTrack) {
-        // find new non-synced topic-partition
-        Set<TopicPartition> nonSyncedTopicPartition =
-            findNonSyncedTopicPartition(topicAdmin, topicToTrack.get());
-        // add all the non-synced topic-partition into tracking
-        topicPartitionToTrack.addAll(nonSyncedTopicPartition);
-        // remove previous progress from size map
-        previousCheckedSize.entrySet().stream()
-            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue))
-            .entrySet()
-            .stream()
-            .filter(
-                tpr ->
-                    !nonSyncedTopicPartition.contains(
-                        new TopicPartition(tpr.getKey().topic(), tpr.getKey().partition())))
-            .distinct()
-            .forEach(tpr -> previousCheckedSize.remove(tpr.getKey()));
-      }
-
       System.out.printf(
           "[%s]%n", LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
       Map<TopicPartition, List<Replica>> replicaProgress =
@@ -138,6 +118,26 @@ public class ReplicaSyncingMonitor {
         System.out.println("  Every replica is synced.");
       }
       System.out.println();
+
+      // attempts to discover any non-synced replica if flag --keep-track is used
+      if (argument.keepTrack) {
+        // find new non-synced topic-partition
+        Set<TopicPartition> nonSyncedTopicPartition =
+            findNonSyncedTopicPartition(topicAdmin, topicToTrack.get());
+        // add all the non-synced topic-partition into tracking
+        topicPartitionToTrack.addAll(nonSyncedTopicPartition);
+        // remove previous progress from size map
+        previousCheckedSize.entrySet().stream()
+            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue))
+            .entrySet()
+            .stream()
+            .filter(
+                tpr ->
+                    !nonSyncedTopicPartition.contains(
+                        new TopicPartition(tpr.getKey().topic(), tpr.getKey().partition())))
+            .distinct()
+            .forEach(tpr -> previousCheckedSize.remove(tpr.getKey()));
+      }
 
       Utils.handleException(
           () -> {
@@ -252,7 +252,8 @@ public class ReplicaSyncingMonitor {
     @Parameter(
         names = {"--interval"},
         description = "Millisecond: the frequency(time interval) to check replica state",
-        converter = DurationConverter.class)
+        converter = DurationConverter.class,
+        validateWith = ArgumentUtil.PositiveLong.class)
     public Duration interval = Duration.ofMillis(1000);
 
     public static class DurationConverter implements IStringConverter<Duration> {
