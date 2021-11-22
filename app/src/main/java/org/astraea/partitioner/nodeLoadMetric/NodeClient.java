@@ -1,9 +1,9 @@
 package org.astraea.partitioner.nodeLoadMetric;
 
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Set;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import javax.management.remote.JMXServiceURL;
@@ -18,30 +18,27 @@ public class NodeClient implements NodeMetadata, AutoCloseable {
   private final JMXServiceURL serviceURL;
   private final MBeanClient mBeanClient;
   private final String nodeID;
-  private Collection<String> argumentTargetMetrics = new ArrayList<>();
+  private static final Collection<String> BYTES_METRICS =
+      Set.of(
+          KafkaMetrics.BrokerTopic.BytesOutPerSec.toString(),
+          KafkaMetrics.BrokerTopic.BytesOutPerSec.toString());
 
   private double totalBytes;
   private int overLoadCount;
 
   NodeClient(String ID, String address) throws IOException {
-    argumentTargetMetrics.add(KafkaMetrics.BrokerTopic.BytesOutPerSec.toString());
-    argumentTargetMetrics.add(KafkaMetrics.BrokerTopic.BytesOutPerSec.toString());
     nodeID = ID;
     if (Pattern.compile("^service:").matcher(address).find())
       serviceURL = new JMXServiceURL(address);
-    else serviceURL = new JMXServiceURL(createJmxUrl(address));
+    else serviceURL = new JMXServiceURL(String.format(JMX_URI_FORMAT, address));
     mBeanClient = new MBeanClient(serviceURL);
     totalBytes = 0.0;
     overLoadCount = 0;
   }
 
-  public String createJmxUrl(String address) {
-    return String.format(JMX_URI_FORMAT, address);
-  }
-
   public void refreshMetrics() {
     List<KafkaMetrics.BrokerTopic> metrics =
-        argumentTargetMetrics.stream()
+        BYTES_METRICS.stream()
             .map(KafkaMetrics.BrokerTopic::of)
             .collect(Collectors.toUnmodifiableList());
 
@@ -78,10 +75,6 @@ public class NodeClient implements NodeMetadata, AutoCloseable {
 
   @Override
   public void close() {
-    try {
-      Utils.close(mBeanClient);
-    } catch (Exception e) {
-      e.printStackTrace();
-    }
+    Utils.close(mBeanClient);
   }
 }
