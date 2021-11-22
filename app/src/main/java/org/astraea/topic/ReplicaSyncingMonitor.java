@@ -12,135 +12,137 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.TopicPartitionReplica;
+import org.astraea.Utils;
 import org.astraea.argument.ArgumentUtil;
 import org.astraea.argument.BasicArgumentWithPropFile;
 
 public class ReplicaSyncingMonitor {
 
   public static void main(String[] args) {
-    execute(ArgumentUtil.parseArgument(new Argument(), args));
+    Argument argument = ArgumentUtil.parseArgument(new Argument(), args);
+    try (TopicAdmin topicAdmin = TopicAdmin.of(argument.props())) {
+      execute(topicAdmin, argument);
+    } catch (IOException ioException) {
+      ioException.printStackTrace();
+    }
   }
 
-  static void execute(final Argument argument) {
-    try (TopicAdmin topicAdmin = TopicAdmin.of(argument.props())) {
+  static void execute(final TopicAdmin topicAdmin, final Argument argument) {
 
-      // this supplier will gives you all the topic name that the client interest in.
-      Supplier<Set<String>> topicToTrack =
-          () ->
-              argument.topics.contains(Argument.EVERY_TOPIC)
-                  ? topicAdmin.topicNames()
-                  : argument.topics;
+    // this supplier will gives you all the topic name that the client interest in.
+    Supplier<Set<String>> topicToTrack =
+        () ->
+            argument.topics.contains(Argument.EVERY_TOPIC)
+                ? topicAdmin.topicNames()
+                : argument.topics;
 
-      // the non-synced topic-partition we want to monitor
-      Set<TopicPartition> topicPartitionToTrack =
-          findNonSyncedTopicPartition(topicAdmin, topicToTrack.get());
+    // the non-synced topic-partition we want to monitor
+    Set<TopicPartition> topicPartitionToTrack =
+        findNonSyncedTopicPartition(topicAdmin, topicToTrack.get());
 
-      // keep tracking the previous replica size of a topic-partition-replica tuple
-      final Map<TopicPartitionReplica, Long> previousCheckedSize = new HashMap<>();
+    // keep tracking the previous replica size of a topic-partition-replica tuple
+    final Map<TopicPartitionReplica, Long> previousCheckedSize = new HashMap<>();
 
-      while (!topicPartitionToTrack.isEmpty() || argument.keepTrack) {
+    while (!topicPartitionToTrack.isEmpty() || argument.keepTrack) {
 
-        // attempts to discover any non-synced replica if flag --keep-track is used
-        if (argument.keepTrack) {
-          // find new non-synced topic-partition
-          Set<TopicPartition> nonSyncedTopicPartition =
-              findNonSyncedTopicPartition(topicAdmin, topicToTrack.get());
-          // add all the non-synced topic-partition into tracking
-          topicPartitionToTrack.addAll(nonSyncedTopicPartition);
-          // remove previous progress from size map
-          previousCheckedSize.entrySet().stream()
-              .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue))
-              .entrySet()
-              .stream()
-              .filter(
-                  tpr ->
-                      !nonSyncedTopicPartition.contains(
-                          new TopicPartition(tpr.getKey().topic(), tpr.getKey().partition())))
-              .distinct()
-              .forEach(tpr -> previousCheckedSize.remove(tpr.getKey()));
-        }
-
-        System.out.printf(
-            "[%s]%n", LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
-        Map<TopicPartition, List<Replica>> replicaProgress =
-            topicAdmin.replicas(
-                topicPartitionToTrack.stream()
-                    .map(TopicPartition::topic)
-                    .collect(Collectors.toUnmodifiableSet()));
-
-        Map<TopicPartition, Replica> topicPartitionLeaderReplicaTable =
-            replicaProgress.entrySet().stream()
-                .map(
-                    x ->
-                        Map.entry(
-                            x.getKey(),
-                            x.getValue().stream()
-                                .filter(Replica::leader)
-                                .findFirst()
-                                .orElseThrow()))
-                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-
-        topicPartitionToTrack.stream()
-            .map(TopicPartition::topic)
+      // attempts to discover any non-synced replica if flag --keep-track is used
+      if (argument.keepTrack) {
+        // find new non-synced topic-partition
+        Set<TopicPartition> nonSyncedTopicPartition =
+            findNonSyncedTopicPartition(topicAdmin, topicToTrack.get());
+        // add all the non-synced topic-partition into tracking
+        topicPartitionToTrack.addAll(nonSyncedTopicPartition);
+        // remove previous progress from size map
+        previousCheckedSize.entrySet().stream()
+            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue))
+            .entrySet()
+            .stream()
+            .filter(
+                tpr ->
+                    !nonSyncedTopicPartition.contains(
+                        new TopicPartition(tpr.getKey().topic(), tpr.getKey().partition())))
             .distinct()
-            .sorted()
-            .forEachOrdered(
-                topic -> {
-                  Map<TopicPartition, List<Replica>> partitionReplicas =
-                      replicaProgress.entrySet().stream()
-                          .filter(tpr -> tpr.getKey().topic().equals(topic))
-                          .filter(tpr -> topicPartitionToTrack.contains(tpr.getKey()))
-                          .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-
-                  System.out.printf("  Topic \"%s\":%n", topic);
-
-                  partitionReplicas.keySet().stream()
-                      .map(TopicPartition::partition)
-                      .distinct()
-                      .sorted()
-                      .forEachOrdered(
-                          partition -> {
-                            TopicPartition tp = new TopicPartition(topic, partition);
-                            Replica leaderReplica = topicPartitionLeaderReplicaTable.get(tp);
-                            List<Replica> thisReplicas = partitionReplicas.get(tp);
-
-                            System.out.printf("  │ Partition %d:%n", partition);
-                            thisReplicas.stream()
-                                .map(
-                                    replica ->
-                                        String.format(
-                                            "replica on broker %3d => %s %s %s",
-                                            replica.broker(),
-                                            progressIndicator(replica.size(), leaderReplica.size()),
-                                            dataRate(
-                                                previousCheckedSize,
-                                                tp,
-                                                replica,
-                                                leaderReplica.size()),
-                                            replicaDescriptor(replica)))
-                                .map(s -> String.format("  │ │ %s", s))
-                                .forEachOrdered(System.out::println);
-                          });
-                });
-
-        // remove synced topic-partition-replica
-        Set<TopicPartition> topicPartitionFinished =
-            replicaProgress.entrySet().stream()
-                .filter(x -> x.getValue().stream().allMatch(Replica::inSync))
-                .map(Map.Entry::getKey)
-                .collect(Collectors.toSet());
-        topicPartitionToTrack.removeAll(topicPartitionFinished);
-
-        if (topicPartitionToTrack.isEmpty()) {
-          System.out.println("  Every replica is synced.");
-        }
-        System.out.println();
-
-        TimeUnit.SECONDS.sleep(1);
+            .forEach(tpr -> previousCheckedSize.remove(tpr.getKey()));
       }
 
-    } catch (IOException | InterruptedException e) {
-      e.printStackTrace();
+      System.out.printf(
+          "[%s]%n", LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
+      Map<TopicPartition, List<Replica>> replicaProgress =
+          topicAdmin.replicas(
+              topicPartitionToTrack.stream()
+                  .map(TopicPartition::topic)
+                  .collect(Collectors.toUnmodifiableSet()));
+
+      Map<TopicPartition, Replica> topicPartitionLeaderReplicaTable =
+          replicaProgress.entrySet().stream()
+              .map(
+                  x ->
+                      Map.entry(
+                          x.getKey(),
+                          x.getValue().stream().filter(Replica::leader).findFirst().orElseThrow()))
+              .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+
+      topicPartitionToTrack.stream()
+          .map(TopicPartition::topic)
+          .distinct()
+          .sorted()
+          .forEachOrdered(
+              topic -> {
+                Map<TopicPartition, List<Replica>> partitionReplicas =
+                    replicaProgress.entrySet().stream()
+                        .filter(tpr -> tpr.getKey().topic().equals(topic))
+                        .filter(tpr -> topicPartitionToTrack.contains(tpr.getKey()))
+                        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+
+                System.out.printf("  Topic \"%s\":%n", topic);
+
+                partitionReplicas.keySet().stream()
+                    .map(TopicPartition::partition)
+                    .distinct()
+                    .sorted()
+                    .forEachOrdered(
+                        partition -> {
+                          TopicPartition tp = new TopicPartition(topic, partition);
+                          Replica leaderReplica = topicPartitionLeaderReplicaTable.get(tp);
+                          List<Replica> thisReplicas = partitionReplicas.get(tp);
+
+                          System.out.printf("  │ Partition %d:%n", partition);
+                          thisReplicas.stream()
+                              .map(
+                                  replica ->
+                                      String.format(
+                                          "replica on broker %3d => %s %s %s",
+                                          replica.broker(),
+                                          progressIndicator(replica.size(), leaderReplica.size()),
+                                          dataRate(
+                                              previousCheckedSize,
+                                              tp,
+                                              replica,
+                                              leaderReplica.size()),
+                                          replicaDescriptor(replica)))
+                              .map(s -> String.format("  │ │ %s", s))
+                              .forEachOrdered(System.out::println);
+                        });
+              });
+
+      // remove synced topic-partition-replica
+      Set<TopicPartition> topicPartitionFinished =
+          replicaProgress.entrySet().stream()
+              .filter(x -> x.getValue().stream().allMatch(Replica::inSync))
+              .map(Map.Entry::getKey)
+              .collect(Collectors.toSet());
+      topicPartitionToTrack.removeAll(topicPartitionFinished);
+
+      if (topicPartitionToTrack.isEmpty()) {
+        System.out.println("  Every replica is synced.");
+      }
+      System.out.println();
+
+      Utils.handleException(
+          () -> {
+            TimeUnit.SECONDS.sleep(1);
+            return 0;
+          });
     }
   }
 
