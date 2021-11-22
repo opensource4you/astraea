@@ -21,7 +21,7 @@ if [[ "$(which docker)" == "" ]]; then
 fi
 
 if [[ -z "$ZOOKEEPER_VERSION" ]]; then
-  ZOOKEEPER_VERSION=3.6.3
+  ZOOKEEPER_VERSION=3.7.0
 fi
 
 zookeeper_user=astraea
