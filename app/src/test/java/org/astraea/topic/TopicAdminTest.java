@@ -11,6 +11,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.StreamSupport;
+import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.config.TopicConfig;
 import org.astraea.Utils;
 import org.astraea.producer.Producer;
@@ -159,6 +160,37 @@ public class TopicAdminTest extends RequireBrokerCluster {
             return replicas.size() == 1
                 && partitionReplicas.size() == 1
                 && partitionReplicas.get(0).broker() == broker;
+          });
+
+      var currentBroker =
+          topicAdmin
+              .replicas(Set.of(topicName))
+              .get(new TopicPartition(topicName, 0))
+              .get(0)
+              .broker();
+      var allPath = topicAdmin.brokerFolders(Set.of(currentBroker));
+      var otherPath =
+          allPath.get(currentBroker).stream()
+              .filter(
+                  i ->
+                      !i.contains(
+                          topicAdmin
+                              .replicas(Set.of(topicName))
+                              .get(new TopicPartition(topicName, 0))
+                              .get(0)
+                              .path()))
+              .collect(Collectors.toSet());
+      topicAdmin
+          .migrator()
+          .partition(topicName, 0)
+          .moveTo(Map.of(currentBroker, otherPath.iterator().next()));
+      Utils.waitFor(
+          () -> {
+            var replicas = topicAdmin.replicas(Set.of(topicName));
+            var partitionReplicas = replicas.entrySet().iterator().next().getValue();
+            return replicas.size() == 1
+                && partitionReplicas.size() == 1
+                && partitionReplicas.get(0).path().equals(otherPath.iterator().next());
           });
     }
   }
