@@ -2,20 +2,29 @@ package org.astraea.topic;
 
 import com.beust.jcommander.Parameter;
 import org.apache.kafka.common.TopicPartition;
+import org.apache.kafka.common.TopicPartitionReplica;
 import org.apache.kafka.common.internals.Topic;
 import org.astraea.argument.ArgumentUtil;
 import org.astraea.argument.BasicArgument;
 import org.astraea.argument.BasicArgumentWithPropFile;
 
+import java.io.BufferedOutputStream;
 import java.io.IOException;
+import java.io.OutputStream;
+import java.io.PrintStream;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.time.format.FormatStyle;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
 public class ReplicaSyncingMonitor {
 
@@ -36,6 +45,8 @@ public class ReplicaSyncingMonitor {
                         .filter(tpr -> tpr.getValue().stream().anyMatch(replica -> !replica.inSync()))
                         .map(Map.Entry::getKey)
                         .collect(Collectors.toSet());
+
+            Map<TopicPartitionReplica, Long> previousCheckedSize = new HashMap<>();
 
             while(!topicPartitionToTrack.isEmpty()) {
                 System.out.printf("[%s]%n", LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
@@ -71,9 +82,10 @@ public class ReplicaSyncingMonitor {
 
                                         System.out.printf("  │ Partition %d:%n", partition);
                                         thisReplicas.stream()
-                                                .map(replica -> String.format("replica on broker %3d => %s %s",
+                                                .map(replica -> String.format("replica on broker %3d => %s %s %s",
                                                         replica.broker(),
                                                         progressIndicator(replica.size(), leaderReplica.size()),
+                                                        dataRate(previousCheckedSize, tp, replica, leaderReplica.size()),
                                                         replicaDescriptor(replica)))
                                                 .map(s -> String.format("  │ │ %s", s))
                                                 .forEachOrdered(System.out::println);
@@ -93,6 +105,52 @@ public class ReplicaSyncingMonitor {
 
         } catch (IOException | InterruptedException e) {
             e.printStackTrace();
+        }
+    }
+
+    private static String dataRate(Map<TopicPartitionReplica, Long> previousCheckedSize, TopicPartition tp, Replica replica, long leaderSize) {
+        TopicPartitionReplica tpr = new TopicPartitionReplica(tp.topic(), tp.partition(), replica.broker());
+        if(replica.leader())
+            // leader don't do partition migration, so there is no data rate
+            return "";
+        else if (previousCheckedSize.containsKey(tpr)) {
+            final long lastSize = previousCheckedSize.get(tpr);
+            final long currentSize = replica.size();
+            final long sizeProgress = currentSize - lastSize;
+
+            final Duration estimatedTime = Duration.ofSeconds(sizeProgress == 0 ? -1 : (leaderSize - currentSize) / sizeProgress);
+            final String estimated = estimatedTime.isNegative() ? "unknown" :
+                                     estimatedTime.isZero() ? "about now" : Stream.of(
+                    Map.entry(estimatedTime.toHoursPart(), "h"),
+                    Map.entry(estimatedTime.toMinutesPart(), "m"),
+                    Map.entry(estimatedTime.toSecondsPart(), "s"))
+                    .dropWhile(x -> x.getKey() == 0)
+                    .map(x -> x.getKey().toString() + x.getValue())
+                    .collect(Collectors.joining(" ", "", " estimated"));
+
+
+            // update
+            previousCheckedSize.put(tpr, replica.size());
+
+            final long TB = 1024L * 1024L * 1024L * 1024L;
+            final long GB = 1024L * 1024L * 1024L;
+            final long MB = 1024L * 1024L;
+            final long KB = 1024L;
+            if(sizeProgress > TB)
+                return String.format("%.2f TB/s (%s)", (double)sizeProgress / TB, estimated);
+            else if(sizeProgress > GB)
+                return String.format("%.2f GB/s (%s)", (double)sizeProgress / GB, estimated);
+            else if(sizeProgress > MB)
+                return String.format("%.2f MB/s (%s)", (double)sizeProgress / MB, estimated);
+            else if(sizeProgress > KB)
+                return String.format("%.2f KB/s (%s)", (double)sizeProgress / KB, estimated);
+            else
+                return String.format("%.2f B/s  (%s)", (double)sizeProgress, estimated);
+        } else {
+            // update
+            previousCheckedSize.put(tpr, replica.size());
+
+            return "";
         }
     }
 
