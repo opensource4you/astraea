@@ -8,6 +8,7 @@ import java.util.Map;
 import org.astraea.metrics.MetricExplorer;
 import org.astraea.performance.Performance;
 import org.astraea.topic.ReplicaCollie;
+import org.astraea.topic.ReplicaSyncingMonitor;
 import org.astraea.topic.TopicExplorer;
 import org.astraea.topic.cost.PartitionScore;
 
@@ -18,7 +19,8 @@ public class App {
           "metrics", MetricExplorer.class,
           "replica", ReplicaCollie.class,
           "score", PartitionScore.class,
-          "performance", Performance.class);
+          "performance", Performance.class,
+          "sync-monitor", ReplicaSyncingMonitor.class);
 
   static void execute(Map<String, Class<?>> mains, List<String> args) throws Throwable {
 
