@@ -55,7 +55,7 @@ public class LinkPartitioner implements Partitioner {
      * Record the current weight of each node according to Poisson calculation and the weight after
      * partitioner calculation.
      */
-    private static HashMap<String, int[]> brokerWeightHashMap = new HashMap<>();
+    private HashMap<String, int[]> allBrokersWeight = new HashMap<>();
 
     private NodeLoadClient nodeLoadClient;
     private ThreadPool pool;
@@ -70,24 +70,23 @@ public class LinkPartitioner implements Partitioner {
         Object value,
         byte[] valueBytes,
         Cluster cluster) {
-      setBrokerWeightHashMap();
       Map.Entry<String, int[]> maxWeightServer = null;
-
+      updateBrokersWeight();
       var allWeight = getAllWeight();
-      HashMap<String, int[]> currentBrokerHashMap = getBrokerHashMap();
+      HashMap<String, int[]> currentBrokers = getAllBrokersWeight();
 
-      for (Map.Entry<String, int[]> item : currentBrokerHashMap.entrySet()) {
+      for (Map.Entry<String, int[]> item : currentBrokers.entrySet()) {
         if (maxWeightServer == null || item.getValue()[1] > maxWeightServer.getValue()[1]) {
           maxWeightServer = item;
         }
-        currentBrokerHashMap.put(
+        currentBrokers.put(
             item.getKey(), new int[] {item.getValue()[0], item.getValue()[1] + item.getValue()[0]});
       }
       assert maxWeightServer != null;
-      currentBrokerHashMap.put(
+      currentBrokers.put(
           maxWeightServer.getKey(),
           new int[] {maxWeightServer.getValue()[0], maxWeightServer.getValue()[1] - allWeight});
-      setCurrentBrokerHashMap(currentBrokerHashMap);
+      setCurrentBrokers(currentBrokers);
 
       ArrayList<Integer> partitionList = new ArrayList<>();
       for (PartitionInfo partitionInfo :
@@ -111,51 +110,46 @@ public class LinkPartitioner implements Partitioner {
             Objects.requireNonNull(
                 (String) configs.get("jmx_servers"), "You must configure jmx_servers correctly");
         var list = Arrays.asList((jmxAddresses).split(","));
-        HashMap<String, String> mapAddress = new HashMap<>();
+        Map<String, String> jmxAddress = new HashMap<>();
         for (String str : list) {
           var listAddress = Arrays.asList(str.split("@"));
-          mapAddress.put(listAddress.get(1), listAddress.get(0));
+          jmxAddress.put(listAddress.get(1), listAddress.get(0));
         }
         Objects.requireNonNull(
-            mapAddress, "You must configure jmx_servers correctly.(JmxAddress@NodeID)");
-        nodeLoadClient = new NodeLoadClient((mapAddress));
+            jmxAddress, "You must configure jmx_servers correctly.(JmxAddress@NodeID)");
+        nodeLoadClient = new NodeLoadClient((jmxAddress));
       } catch (IOException e) {
         throw new RuntimeException();
       }
       pool = ThreadPool.builder().executor(nodeLoadClient).build();
     }
     /** Change the weight of the node according to the current Poisson. */
-    public synchronized void setBrokerWeightHashMap() {
-      HashMap<String, Double> poissonMap = nodeLoadClient.getLoadPoisson().getAllPoissonMap();
+    private synchronized void updateBrokersWeight() {
+      Map<String, Double> allPoisson = nodeLoadClient.getLoadPoisson().getAllPoisson();
 
-      for (Map.Entry<String, Double> entry : poissonMap.entrySet()) {
-        if (!brokerWeightHashMap.containsKey(entry.getKey())) {
-          brokerWeightHashMap.put(
-              entry.getKey(), new int[] {(int) ((1 - entry.getValue()) * 20), 0});
+      for (Map.Entry<String, Double> entry : allPoisson.entrySet()) {
+        if (!allBrokersWeight.containsKey(entry.getKey())) {
+          allBrokersWeight.put(entry.getKey(), new int[] {(int) ((1 - entry.getValue()) * 20), 0});
         } else {
-          brokerWeightHashMap.put(
+          allBrokersWeight.put(
               entry.getKey(),
               new int[] {
-                (int) ((1 - entry.getValue()) * 20), brokerWeightHashMap.get(entry.getKey())[1]
+                (int) ((1 - entry.getValue()) * 20), allBrokersWeight.get(entry.getKey())[1]
               });
         }
       }
     }
 
-    public synchronized int getAllWeight() {
-      var allWeight = 0;
-      for (Map.Entry<String, int[]> entry : brokerWeightHashMap.entrySet()) {
-        allWeight += entry.getValue()[0];
-      }
-      return allWeight;
+    private synchronized int getAllWeight() {
+      return allBrokersWeight.values().stream().mapToInt(vs -> vs[0]).sum();
     }
 
-    public synchronized HashMap<String, int[]> getBrokerHashMap() {
-      return brokerWeightHashMap;
+    private synchronized HashMap<String, int[]> getAllBrokersWeight() {
+      return allBrokersWeight;
     }
 
-    public synchronized void setCurrentBrokerHashMap(HashMap<String, int[]> currentBrokerHashMap) {
-      brokerWeightHashMap = currentBrokerHashMap;
+    private synchronized void setCurrentBrokers(HashMap<String, int[]> currentBrokers) {
+      allBrokersWeight = currentBrokers;
     }
   }
 

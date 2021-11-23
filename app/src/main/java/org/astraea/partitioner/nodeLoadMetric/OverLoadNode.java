@@ -53,11 +53,9 @@ public class OverLoadNode {
     }
   }
 
-  public HashMap<String, Double> brokersMsgPerSec() {
+  private HashMap<String, Double> brokersMsgPerSec() {
     var eachMsg = new HashMap<String, Double>();
-    for (NodeMetadata nodeMetadata : nodeClientCollection) {
-      eachMsg.put(nodeMetadata.nodeID(), nodeMetadata.totalBytes());
-    }
+    nodeClientCollection.forEach(s -> eachMsg.put(s.nodeID(), s.totalBytes()));
     return eachMsg;
   }
 

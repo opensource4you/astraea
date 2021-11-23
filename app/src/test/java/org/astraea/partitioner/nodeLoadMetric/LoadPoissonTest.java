@@ -7,7 +7,7 @@ import static org.mockito.Mockito.when;
 import java.util.HashMap;
 import org.junit.jupiter.api.Test;
 
-public class TestLoadPoisson {
+public class LoadPoissonTest {
   public NodeLoadClient nodeLoadClient;
 
   @Test
@@ -51,6 +51,6 @@ public class TestLoadPoisson {
 
     loadPoisson.allNodesPoisson(nodeLoadClient.avgLoadCount(), nodeLoadClient.nodeOverLoadCount());
 
-    assertEquals(loadPoisson.getAllPoissonMap(), testPoissonMap);
+    assertEquals(loadPoisson.getAllPoisson(), testPoissonMap);
   }
 }

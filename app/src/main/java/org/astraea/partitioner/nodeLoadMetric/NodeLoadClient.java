@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import org.astraea.concurrent.ThreadPool;
 
@@ -13,7 +14,7 @@ public class NodeLoadClient implements ThreadPool.Executor {
   private final Collection<NodeClient> nodeClientCollection = new ArrayList<>();
   private final LoadPoisson loadPoisson;
 
-  public NodeLoadClient(HashMap<String, String> jmxAddresses) throws IOException {
+  public NodeLoadClient(Map<String, String> jmxAddresses) throws IOException {
     for (HashMap.Entry<String, String> entry : jmxAddresses.entrySet()) {
       this.nodeClientCollection.add(new NodeClient(entry.getKey(), entry.getValue()));
     }
@@ -37,16 +38,12 @@ public class NodeLoadClient implements ThreadPool.Executor {
 
   @Override
   public void close() {
-    for (NodeClient nodeClient : nodeClientCollection) {
-      nodeClient.close();
-    }
+    nodeClientCollection.forEach(NodeClient::close);
   }
 
-  public synchronized HashMap<String, Integer> nodeOverLoadCount() {
-    HashMap<String, Integer> overLoadCount = new HashMap<>();
-    for (NodeMetadata nodeMetadata : nodeClientCollection) {
-      overLoadCount.put(nodeMetadata.nodeID(), nodeMetadata.overLoadCount());
-    }
+  public synchronized Map<String, Integer> nodeOverLoadCount() {
+    Map<String, Integer> overLoadCount = new HashMap<>();
+    nodeClientCollection.forEach(s -> overLoadCount.put(s.nodeID(), s.overLoadCount()));
     return overLoadCount;
   }
 
@@ -74,10 +71,8 @@ public class NodeLoadClient implements ThreadPool.Executor {
     return count;
   }
 
-  public void refreshNodesMetrics() {
-    for (NodeClient nodeClient : nodeClientCollection) {
-      nodeClient.refreshMetrics();
-    }
+  private void refreshNodesMetrics() {
+    nodeClientCollection.forEach(NodeClient::refreshMetrics);
   }
 
   public LoadPoisson getLoadPoisson() {

@@ -6,13 +6,12 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class LoadPoisson {
-  private HashMap<String, Double> allPoissonMap = new HashMap<>();
+  private Map<String, Double> allPoisson = new HashMap<>();
 
-  public synchronized void allNodesPoisson(
-      int avgLoad, HashMap<String, Integer> nodeOverLoadCount) {
+  public synchronized void allNodesPoisson(int avgLoad, Map<String, Integer> nodeOverLoadCount) {
     for (Map.Entry<String, Integer> entry : nodeOverLoadCount.entrySet()) {
       var x = binOneCount(entry.getValue());
-      allPoissonMap.put(entry.getKey(), doPoisson(avgLoad, x));
+      allPoisson.put(entry.getKey(), doPoisson(avgLoad, x));
     }
   }
 
@@ -36,7 +35,7 @@ public class LoadPoisson {
     else return number * factorial(number - 1);
   }
 
-  public HashMap<String, Double> getAllPoissonMap() {
-    return allPoissonMap;
+  public Map<String, Double> getAllPoisson() {
+    return allPoisson;
   }
 }
