@@ -87,22 +87,46 @@ public class ReplicaSyncingMonitor {
                           Replica leaderReplica = topicPartitionLeaderReplicaTable.get(tp);
                           List<Replica> thisReplicas = partitionReplicas.get(tp);
 
+                          // printing info
                           System.out.printf("  │ Partition %d:%n", partition);
                           thisReplicas.stream()
                               .map(
                                   replica ->
+                                      Map.entry(
+                                          new TopicPartitionReplica(
+                                              topic, partition, replica.broker()),
+                                          replica))
+                              .map(
+                                  entry ->
+                                      Map.entry(
+                                          entry.getValue(),
+                                          new DataRate(
+                                              leaderReplica.size(),
+                                              previousCheckedSize.getOrDefault(
+                                                  entry.getKey(), entry.getValue().size()),
+                                              entry.getValue().size(),
+                                              argument.interval)))
+                              .map(
+                                  entry ->
                                       String.format(
-                                          "replica on broker %3d => %s %s %s",
-                                          replica.broker(),
-                                          progressIndicator(replica.size(), leaderReplica.size()),
-                                          dataRate(
-                                              previousCheckedSize,
-                                              tp,
-                                              replica,
-                                              leaderReplica.size()),
-                                          replicaDescriptor(replica)))
+                                          "replica on broker %3d => %s",
+                                          entry.getKey().broker(),
+                                          formatString(entry.getKey(), entry.getValue())))
                               .map(s -> String.format("  │ │ %s", s))
                               .forEachOrdered(System.out::println);
+
+                          // update previous size
+                          thisReplicas.stream()
+                              .map(
+                                  replica ->
+                                      Map.entry(
+                                          new TopicPartitionReplica(
+                                              topic, partition, replica.broker()),
+                                          replica))
+                              .forEach(
+                                  entry ->
+                                      previousCheckedSize.put(
+                                          entry.getKey(), entry.getValue().size()));
                         });
               });
 
@@ -147,6 +171,17 @@ public class ReplicaSyncingMonitor {
     }
   }
 
+  private static String formatString(Replica replica, DataRate value) {
+    return Stream.of(
+            Optional.ofNullable(value.progressBar()),
+            Optional.ofNullable(replica.leader() ? null : value.dataRateString()),
+            Optional.ofNullable(
+                replica.leader() ? null : "(" + value.estimateFinishTimeString() + ")"),
+            Optional.ofNullable(replicaDescriptor(replica)))
+        .flatMap(Optional::stream)
+        .collect(Collectors.joining(" "));
+  }
+
   static Set<TopicPartition> findNonSyncedTopicPartition(
       TopicAdmin topicAdmin, Set<String> topicToTrack) {
     return topicAdmin.replicas(topicToTrack).entrySet().stream()
@@ -155,57 +190,84 @@ public class ReplicaSyncingMonitor {
         .collect(Collectors.toSet());
   }
 
-  static String dataRate(
-      Map<TopicPartitionReplica, Long> previousCheckedSize,
-      TopicPartition tp,
-      Replica replica,
-      long leaderSize) {
-    TopicPartitionReplica tpr =
-        new TopicPartitionReplica(tp.topic(), tp.partition(), replica.broker());
-    if (replica.leader())
-      // leader don't do partition migration, so there is no data rate
-      return "";
-    else if (previousCheckedSize.containsKey(tpr)) {
-      final long lastSize = previousCheckedSize.get(tpr);
-      final long currentSize = replica.size();
-      final long sizeProgress = currentSize - lastSize;
+  static class DataRate {
+    public final long leaderSize;
+    public final long previousSize;
+    public final long currentSize;
+    public final Duration interval;
 
-      final Duration estimatedTime =
-          Duration.ofSeconds(sizeProgress == 0 ? -1 : (leaderSize - currentSize) / sizeProgress);
-      final String estimated =
-          estimatedTime.isNegative()
-              ? "unknown"
-              : estimatedTime.isZero()
-                  ? "about now"
-                  : Stream.of(
-                          Map.entry(estimatedTime.toHoursPart(), "h"),
-                          Map.entry(estimatedTime.toMinutesPart(), "m"),
-                          Map.entry(estimatedTime.toSecondsPart(), "s"))
-                      .dropWhile(x -> x.getKey() == 0)
-                      .map(x -> x.getKey().toString() + x.getValue())
-                      .collect(Collectors.joining(" ", "", " estimated"));
+    DataRate(long leaderSize, long previousSize, long currentSize, Duration interval) {
+      if (previousSize > currentSize) throw new IllegalArgumentException();
+      this.leaderSize = leaderSize;
+      this.previousSize = previousSize;
+      this.currentSize = currentSize;
+      this.interval = interval;
+    }
 
-      // update
-      previousCheckedSize.put(tpr, replica.size());
+    public double progress() {
+      return ((double) currentSize) / leaderSize * 100.0;
+    }
 
+    public String progressBar() {
+      final int totalBlocks = 20;
+      final int filledBlocks =
+          (int) Math.min(totalBlocks, Math.floor(0.2 + progress() / (100.0 / totalBlocks)));
+      final int emptyBlocks = totalBlocks - filledBlocks;
+
+      return String.format(
+          "[%s%s] %6.2f%%",
+          String.join("", Collections.nCopies(filledBlocks, "#")),
+          String.join("", Collections.nCopies(emptyBlocks, " ")),
+          progress());
+    }
+
+    public double dataRatePerSec() {
+      return (double) (currentSize - previousSize) / interval.toMillis() * 1000;
+    }
+
+    /**
+     * estimated finish time, return a negative duration if the progress is stalled
+     *
+     * @return a {@link Duration} represent the estimated finish time, negative if progress is
+     *     stalled.
+     */
+    public Duration estimateFinishTime() {
+      if (dataRatePerSec() == 0) return Duration.ofSeconds(-1);
+      return Duration.ofSeconds((long) ((leaderSize - currentSize) / dataRatePerSec()));
+    }
+
+    public String estimateFinishTimeString() {
+      Duration estimatedTime = estimateFinishTime();
+      return estimatedTime.isNegative()
+          ? "unknown"
+          : estimatedTime.toSeconds() == 0
+              ? "about now"
+              : Stream.of(
+                      Map.entry(estimatedTime.toHoursPart(), "h"),
+                      Map.entry(estimatedTime.toMinutesPart(), "m"),
+                      Map.entry(estimatedTime.toSecondsPart(), "s"))
+                  .dropWhile(x -> x.getKey() == 0)
+                  .map(x -> x.getKey().toString() + x.getValue())
+                  .collect(Collectors.joining(" ", "", " estimated"));
+    }
+
+    public String dataRateString() {
+      final double sizeProgress = dataRatePerSec();
       final long TB = 1024L * 1024L * 1024L * 1024L;
       final long GB = 1024L * 1024L * 1024L;
       final long MB = 1024L * 1024L;
       final long KB = 1024L;
-      if (sizeProgress > TB)
-        return String.format("%.2f TB/s (%s)", (double) sizeProgress / TB, estimated);
-      else if (sizeProgress > GB)
-        return String.format("%.2f GB/s (%s)", (double) sizeProgress / GB, estimated);
-      else if (sizeProgress > MB)
-        return String.format("%.2f MB/s (%s)", (double) sizeProgress / MB, estimated);
-      else if (sizeProgress > KB)
-        return String.format("%.2f KB/s (%s)", (double) sizeProgress / KB, estimated);
-      else return String.format("%.2f B/s  (%s)", (double) sizeProgress, estimated);
-    } else {
-      // update
-      previousCheckedSize.put(tpr, replica.size());
+      if (sizeProgress > TB) return String.format("%.2f TB/s", sizeProgress / TB);
+      else if (sizeProgress > GB) return String.format("%.2f GB/s", sizeProgress / GB);
+      else if (sizeProgress > MB) return String.format("%.2f MB/s", sizeProgress / MB);
+      else if (sizeProgress > KB) return String.format("%.2f KB/s", sizeProgress / KB);
+      else return String.format("%.2f B/s", sizeProgress);
+    }
 
-      return "";
+    @Override
+    public String toString() {
+      if (estimateFinishTime().isZero() && currentSize == previousSize) return dataRateString();
+      else return String.format("%s (%s)", dataRateString(), estimateFinishTimeString());
     }
   }
 
@@ -217,20 +279,6 @@ public class ReplicaSyncingMonitor {
         .stream()
         .flatMap(Optional::stream)
         .collect(Collectors.joining(", ", "[", "]"));
-  }
-
-  static String progressIndicator(long current, long max) {
-    double percentage = ((double) current) / max * 100.0;
-    final int totalBlocks = 20;
-    final int filledBlocks =
-        (int) Math.min(totalBlocks, Math.floor(0.2 + percentage / (100.0 / totalBlocks)));
-    final int emptyBlocks = totalBlocks - filledBlocks;
-
-    return String.format(
-        "[%s%s] %6.2f%%",
-        String.join("", Collections.nCopies(filledBlocks, "#")),
-        String.join("", Collections.nCopies(emptyBlocks, " ")),
-        percentage);
   }
 
   static class Argument extends BasicArgumentWithPropFile {

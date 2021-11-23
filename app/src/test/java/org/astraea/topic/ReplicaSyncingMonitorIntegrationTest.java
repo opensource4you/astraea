@@ -67,10 +67,13 @@ class ReplicaSyncingMonitorIntegrationTest extends RequireBrokerCluster {
 
       // act
       executionThread.start();
-      TimeUnit.SECONDS.timedJoin(executionThread, 8);
+      TimeUnit.SECONDS.timedJoin(executionThread, 8); // wait until the thread exit
+      TimeUnit.SECONDS.sleep(2); // sleep 2 extra seconds to ensure test run in stable
 
       // assert
       assertSame(Thread.State.TERMINATED, executionThread.getState());
+      assertEquals(
+          1, topicAdmin.replicas(Set.of(topicName)).get(new TopicPartition(topicName, 0)).size());
       assertEquals(
           moveToBroker,
           topicAdmin.replicas(Set.of(topicName)).get(new TopicPartition(topicName, 0)).stream()

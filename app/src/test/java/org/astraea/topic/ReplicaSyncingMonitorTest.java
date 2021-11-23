@@ -5,6 +5,7 @@ import static org.mockito.Mockito.*;
 
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -289,8 +290,8 @@ class ReplicaSyncingMonitorTest {
         "wuewuewuewue                                                       (is not ok",
         "--server                                                           (is not ok",
       })
-  void ensureArgumentFlagExists(String args, String exception) {
-    switch (exception) {
+  void ensureArgumentFlagExists(String args, String outcome) {
+    switch (outcome) {
       case "ok":
         assertDoesNotThrow(
             () ->
@@ -306,5 +307,35 @@ class ReplicaSyncingMonitorTest {
         fail();
         break;
     }
+  }
+
+  @ParameterizedTest
+  @CsvSource(
+      delimiterString = ",",
+      value = {
+        // leaderSize, previousSize, currentSize, interval, dataRatePerSec, Progress, Remaining, ?
+        "  100       , 0           , 50         , 1       , 50.0          , 50      , 1        , test",
+        "  200       , 0           , 100        , 1       , 100.0         , 50      , 1        , test",
+        "  100       , 25          , 50         , 1       , 25.0          , 50      , 2        , test",
+        "  100       , 0           , 10         , 10      , 1.0           , 10      , 90       , 10 sec interval",
+        "  100       , 50          , 50         , 1       , 0.0           , 50      , -1       , stalled progress",
+      })
+  void dataRate(
+      long leaderSize,
+      long previousSize,
+      long currentSize,
+      int interval,
+      double expectedDataRatePerSec,
+      double expectedProgress,
+      int expectedRemainingTime) {
+    // act
+    var dataRate =
+        new ReplicaSyncingMonitor.DataRate(
+            leaderSize, previousSize, currentSize, Duration.ofSeconds(interval));
+
+    // assert
+    assertEquals(expectedDataRatePerSec, dataRate.dataRatePerSec());
+    assertEquals(expectedProgress, dataRate.progress());
+    assertEquals(Duration.ofSeconds(expectedRemainingTime), dataRate.estimateFinishTime());
   }
 }
