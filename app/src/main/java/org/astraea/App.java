@@ -20,7 +20,7 @@ public class App {
           "replica", ReplicaCollie.class,
           "score", PartitionScore.class,
           "performance", Performance.class,
-          "sync-monitor", ReplicaSyncingMonitor.class);
+          "monitor", ReplicaSyncingMonitor.class);
 
   static void execute(Map<String, Class<?>> mains, List<String> args) throws Throwable {
 
