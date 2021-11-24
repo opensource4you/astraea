@@ -311,12 +311,12 @@ class ReplicaSyncingMonitorTest {
   @CsvSource(
       delimiterString = ",",
       value = {
-        // leaderSize, previousSize, currentSize, interval, dataRatePerSec, Progress, Remaining, ?
-        "  100       , 0           , 50         , 1       , 50.0          , 50      , 1        , test",
-        "  200       , 0           , 100        , 1       , 100.0         , 50      , 1        , test",
-        "  100       , 25          , 50         , 1       , 25.0          , 50      , 2        , test",
-        "  100       , 0           , 10         , 10      , 1.0           , 10      , 90       , 10 sec interval",
-        "  100       , 50          , 50         , 1       , 0.0           , 50      , -1       , stalled progress",
+        // leader, previous, current, interval, dataRatePerSec, Progress, Remaining, test-purpose
+        "  100   , 0       , 50     , 1       , 50.0          , 50      , 1        , test",
+        "  200   , 0       , 100    , 1       , 100.0         , 50      , 1        , test",
+        "  100   , 25      , 50     , 1       , 25.0          , 50      , 2        , test",
+        "  100   , 0       , 10     , 10      , 1.0           , 10      , 90       , 10 sec interval",
+        "  100   , 50      , 50     , 1       , 0.0           , 50      , -1       , stalled progress",
       })
   void dataRate(
       long leaderSize,
