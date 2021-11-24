@@ -272,11 +272,10 @@ public class ReplicaSyncingMonitor {
   }
 
   static String replicaDescriptor(Replica replica) {
-    return List.of(
+    return Stream.of(
             Optional.ofNullable(replica.leader() ? "leader" : null),
             Optional.ofNullable(replica.inSync() ? "synced" : null),
             Optional.ofNullable(replica.lag() > 0 ? "lagged" : null))
-        .stream()
         .flatMap(Optional::stream)
         .collect(Collectors.joining(", ", "[", "]"));
   }
