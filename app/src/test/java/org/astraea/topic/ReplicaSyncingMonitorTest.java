@@ -90,7 +90,7 @@ class ReplicaSyncingMonitorTest {
                         "--bootstrap.servers",
                         "whatever:9092",
                         "--interval",
-                        String.valueOf(interval)
+                        String.valueOf((double)(interval) / 1000.0)
                       }));
             });
     tearDownTasks.add(
@@ -167,7 +167,7 @@ class ReplicaSyncingMonitorTest {
                           "whatever:9092",
                           "--keep-track",
                           "--interval",
-                          String.valueOf(interval)
+                          String.valueOf((double)(interval) / 1000.0)
                         }));
               } catch (Exception e) {
                 // swallow interrupted error
@@ -222,7 +222,7 @@ class ReplicaSyncingMonitorTest {
                           "--topic",
                           "target-topic",
                           "--interval",
-                          String.valueOf(interval)
+                          String.valueOf((double)(interval) / 1000.0)
                         }));
               } catch (IllegalStateException e) {
                 // immediate fail due to bad behavior of --topic flag
@@ -307,16 +307,29 @@ class ReplicaSyncingMonitorTest {
         .forEach(args -> assertThrows(Exception.class, () -> execution.accept(args)));
   }
 
+  @Test
+  void ensureIntervalParseCorrectly() {
+    // arrange
+    String args = "--bootstrap.servers localhost:5566 --interval 0.56";
+
+    // act
+    var argument =
+        ArgumentUtil.parseArgument(new ReplicaSyncingMonitor.Argument(), args.split(" "));
+
+    // assert
+    assertEquals(560, argument.interval);
+  }
+
   @ParameterizedTest
   @CsvSource(
       delimiterString = ",",
       value = {
         // leader, previous, current, interval, dataRatePerSec, Progress, Remaining, test-purpose
-        "  100   , 0       , 50     , 1       , 50.0          , 50      , 1        , test",
-        "  200   , 0       , 100    , 1       , 100.0         , 50      , 1        , test",
-        "  100   , 25      , 50     , 1       , 25.0          , 50      , 2        , test",
-        "  100   , 0       , 10     , 10      , 1.0           , 10      , 90       , 10 sec interval",
-        "  100   , 50      , 50     , 1       , 0.0           , 50      , -1       , stalled progress",
+        "  100   , 0       , 50     , 1000    , 50.0          , 50      , 1        , test",
+        "  200   , 0       , 100    , 1000    , 100.0         , 50      , 1        , test",
+        "  100   , 25      , 50     , 1000    , 25.0          , 50      , 2        , test",
+        "  100   , 0       , 10     , 10000   , 1.0           , 10      , 90       , 10 sec interval",
+        "  100   , 50      , 50     , 1000    , 0.0           , 50      , -1       , stalled progress",
       })
   void dataRate(
       long leaderSize,
@@ -328,8 +341,7 @@ class ReplicaSyncingMonitorTest {
       int expectedRemainingTime) {
     // act
     var dataRate =
-        new ReplicaSyncingMonitor.DataRate(
-            leaderSize, previousSize, currentSize, Duration.ofSeconds(interval));
+        new ReplicaSyncingMonitor.DataRate(leaderSize, previousSize, currentSize, interval);
 
     // assert
     assertEquals(expectedDataRatePerSec, dataRate.dataRatePerSec());

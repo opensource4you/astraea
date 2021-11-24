@@ -46,6 +46,8 @@ public class ReplicaSyncingMonitor {
 
     while (!topicPartitionToTrack.isEmpty() || argument.keepTrack) {
 
+      long startTime = System.nanoTime();
+
       System.out.printf(
           "[%s]%n", LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
       var replicaProgress =
@@ -165,7 +167,9 @@ public class ReplicaSyncingMonitor {
 
       Utils.handleException(
           () -> {
-            TimeUnit.MILLISECONDS.sleep(argument.interval.toMillis());
+            long expectedWaitNs = argument.interval * 1000L * 1000L;
+            long elapsedNs = (System.nanoTime() - startTime);
+            TimeUnit.NANOSECONDS.sleep(Math.max(expectedWaitNs - elapsedNs, 0));
             return 0;
           });
     }
@@ -194,14 +198,14 @@ public class ReplicaSyncingMonitor {
     public final long leaderSize;
     public final long previousSize;
     public final long currentSize;
-    public final Duration interval;
+    public final int interval;
 
-    DataRate(long leaderSize, long previousSize, long currentSize, Duration interval) {
+    DataRate(long leaderSize, long previousSize, long currentSize, int intervalMs) {
       if (previousSize > currentSize) throw new IllegalArgumentException();
       this.leaderSize = leaderSize;
       this.previousSize = previousSize;
       this.currentSize = currentSize;
-      this.interval = interval;
+      this.interval = intervalMs;
     }
 
     public double progress() {
@@ -222,7 +226,7 @@ public class ReplicaSyncingMonitor {
     }
 
     public double dataRatePerSec() {
-      return (double) (currentSize - previousSize) / interval.toMillis() * 1000;
+      return (double) (currentSize - previousSize) / interval * 1000;
     }
 
     /**
@@ -298,15 +302,15 @@ public class ReplicaSyncingMonitor {
 
     @Parameter(
         names = {"--interval"},
-        description = "Millisecond: the frequency(time interval) to check replica state",
-        converter = DurationConverter.class,
-        validateWith = ArgumentUtil.PositiveLong.class)
-    public Duration interval = Duration.ofMillis(1000);
+        description =
+            "Decimal: the frequency(time interval) to check replica state, support floating point value",
+        converter = MillisecondConverter.class)
+    public int interval = 1000;
 
-    public static class DurationConverter implements IStringConverter<Duration> {
+    public static class MillisecondConverter implements IStringConverter<Integer> {
       @Override
-      public Duration convert(String value) {
-        return Duration.ofMillis(Integer.parseInt(value));
+      public Integer convert(String value) {
+        return (int) (Double.parseDouble(value) * 1000);
       }
     }
   }

@@ -61,7 +61,7 @@ class ReplicaSyncingMonitorIntegrationTest extends RequireBrokerCluster {
                           "--topic",
                           topicName,
                           "--interval",
-                          "100"
+                          "0.1"
                         }));
               });
 
