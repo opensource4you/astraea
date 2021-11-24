@@ -71,7 +71,7 @@ public class NodeLoadClient implements ThreadPool.Executor {
     return count;
   }
 
-  private void refreshNodesMetrics() {
+  public void refreshNodesMetrics() {
     nodeClientCollection.forEach(NodeClient::refreshMetrics);
   }
 

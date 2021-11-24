@@ -13,7 +13,7 @@ import org.astraea.consumer.Builder;
 import org.astraea.consumer.Consumer;
 import org.astraea.consumer.Deserializer;
 import org.astraea.consumer.Header;
-import org.astraea.partitioner.partitionerFactory.LinkPartitioner;
+import org.astraea.partitioner.partitionerFactory.SmoothWeightPartitioner;
 import org.astraea.producer.Producer;
 import org.astraea.producer.Serializer;
 import org.astraea.service.RequireBrokerCluster;
@@ -31,7 +31,7 @@ public class PartitionerTest extends RequireBrokerCluster {
     props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, brokerList);
     props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, ByteArraySerializer.class.getName());
     props.put(ProducerConfig.CLIENT_ID_CONFIG, "id1");
-    props.put(ProducerConfig.PARTITIONER_CLASS_CONFIG, LinkPartitioner.class.getName());
+    props.put(ProducerConfig.PARTITIONER_CLASS_CONFIG, SmoothWeightPartitioner.class.getName());
     props.put("jmx_servers", jmxServiceURL() + "@0");
     return props;
   }
