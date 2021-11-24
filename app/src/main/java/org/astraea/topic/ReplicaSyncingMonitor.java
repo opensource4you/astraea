@@ -180,7 +180,9 @@ public class ReplicaSyncingMonitor {
             Optional.ofNullable(value.progressBar()),
             Optional.ofNullable(replica.leader() ? null : value.dataRateString()),
             Optional.ofNullable(
-                replica.leader() || replica.inSync() ? null : "(" + value.estimateFinishTimeString() + ")"),
+                replica.leader() || replica.inSync()
+                    ? null
+                    : "(" + value.estimateFinishTimeString() + ")"),
             Optional.ofNullable(replicaDescriptor(replica)))
         .flatMap(Optional::stream)
         .collect(Collectors.joining(" "));

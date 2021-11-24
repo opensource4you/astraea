@@ -90,7 +90,7 @@ class ReplicaSyncingMonitorTest {
                         "--bootstrap.servers",
                         "whatever:9092",
                         "--interval",
-                        String.valueOf((double)(interval) / 1000.0)
+                        String.valueOf((double) (interval) / 1000.0)
                       }));
             });
     tearDownTasks.add(
@@ -167,7 +167,7 @@ class ReplicaSyncingMonitorTest {
                           "whatever:9092",
                           "--keep-track",
                           "--interval",
-                          String.valueOf((double)(interval) / 1000.0)
+                          String.valueOf((double) (interval) / 1000.0)
                         }));
               } catch (Exception e) {
                 // swallow interrupted error
@@ -207,25 +207,26 @@ class ReplicaSyncingMonitorTest {
                 topicPartition.apply("target-topic", 0),
                 replica.apply(3, new long[] {100, 100, 100})));
 
-    Runnable execution = () -> {
-              try {
-                ReplicaSyncingMonitor.execute(
-                    mockTopicAdmin,
-                    ArgumentUtil.parseArgument(
-                        new ReplicaSyncingMonitor.Argument(),
-                        new String[] {
-                          "--bootstrap.servers",
-                          "whatever:9092",
-                          "--topic",
-                          "target-topic",
-                          "--interval",
-                          String.valueOf((double)(interval) / 1000.0)
-                        }));
-              } catch (IllegalStateException e) {
-                // immediate fail due to bad behavior of --topic flag
-                fail();
-              }
-            };
+    Runnable execution =
+        () -> {
+          try {
+            ReplicaSyncingMonitor.execute(
+                mockTopicAdmin,
+                ArgumentUtil.parseArgument(
+                    new ReplicaSyncingMonitor.Argument(),
+                    new String[] {
+                      "--bootstrap.servers",
+                      "whatever:9092",
+                      "--topic",
+                      "target-topic",
+                      "--interval",
+                      String.valueOf((double) (interval) / 1000.0)
+                    }));
+          } catch (IllegalStateException e) {
+            // immediate fail due to bad behavior of --topic flag
+            fail();
+          }
+        };
 
     // act
     execution.run();
