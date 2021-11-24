@@ -12,6 +12,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BiFunction;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.kafka.common.TopicPartition;
@@ -277,36 +278,33 @@ class ReplicaSyncingMonitorTest {
     assertFalse(nonSyncedTopicPartition.contains(new TopicPartition("topic1", 0)));
   }
 
-  @ParameterizedTest
-  @CsvSource(
-      delimiterString = "(is",
-      value = {
-        "--bootstrap.servers localhost:5566                                 (is ok",
-        "--bootstrap.servers localhost:5566 --keep-track                    (is ok",
-        "--bootstrap.servers localhost:5566 --topic my-topic --keep-track   (is ok",
-        "--bootstrap.servers localhost:5566 --interval 1234                 (is ok",
-        "--bootstrap.servers localhost:5566 --whatever                      (is not ok",
-        "--bootstrap.servers localhost:5566 sad                             (is not ok",
-        "wuewuewuewue                                                       (is not ok",
-        "--server                                                           (is not ok",
-      })
-  void ensureArgumentFlagExists(String args, String outcome) {
-    switch (outcome) {
-      case "ok":
-        assertDoesNotThrow(
-            () ->
-                ArgumentUtil.parseArgument(new ReplicaSyncingMonitor.Argument(), args.split(" ")));
-        break;
-      case "not ok":
-        assertThrows(
-            Exception.class,
-            () ->
-                ArgumentUtil.parseArgument(new ReplicaSyncingMonitor.Argument(), args.split(" ")));
-        break;
-      default:
-        fail();
-        break;
-    }
+  @Test
+  void ensureArgumentFlagExists() {
+    // arrange
+    var correct =
+        Set.of(
+            "--bootstrap.servers localhost:5566",
+            "--bootstrap.servers localhost:5566 --keep-track",
+            "--bootstrap.servers localhost:5566 --topic my-topic --keep-track",
+            "--bootstrap.servers localhost:5566 --interval 1234");
+    var incorrect =
+        Set.of(
+            "--bootstrap.servers localhost:5566 --whatever",
+            "--bootstrap.servers localhost:5566 sad",
+            "wuewuewuewue",
+            "--server");
+
+    // act
+    Consumer<String[]> execution =
+        (String[] args) -> ArgumentUtil.parseArgument(new ReplicaSyncingMonitor.Argument(), args);
+
+    // assert
+    correct.stream()
+        .map(args -> args.split(" "))
+        .forEach(args -> assertDoesNotThrow(() -> execution.accept(args)));
+    incorrect.stream()
+        .map(args -> args.split(" "))
+        .forEach(args -> assertThrows(Exception.class, () -> execution.accept(args)));
   }
 
   @ParameterizedTest
