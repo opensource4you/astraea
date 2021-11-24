@@ -48,13 +48,13 @@ public class ReplicaSyncingMonitor {
 
       System.out.printf(
           "[%s]%n", LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
-      Map<TopicPartition, List<Replica>> replicaProgress =
+      var replicaProgress =
           topicAdmin.replicas(
               topicPartitionToTrack.stream()
                   .map(TopicPartition::topic)
                   .collect(Collectors.toUnmodifiableSet()));
 
-      Map<TopicPartition, Replica> topicPartitionLeaderReplicaTable =
+      var topicPartitionLeaderReplicaTable =
           replicaProgress.entrySet().stream()
               .map(
                   x ->
@@ -69,7 +69,7 @@ public class ReplicaSyncingMonitor {
           .sorted()
           .forEachOrdered(
               topic -> {
-                Map<TopicPartition, List<Replica>> partitionReplicas =
+                var partitionReplicas =
                     replicaProgress.entrySet().stream()
                         .filter(tpr -> tpr.getKey().topic().equals(topic))
                         .filter(tpr -> topicPartitionToTrack.contains(tpr.getKey()))
@@ -131,7 +131,7 @@ public class ReplicaSyncingMonitor {
               });
 
       // remove synced topic-partition-replica
-      Set<TopicPartition> topicPartitionFinished =
+      var topicPartitionFinished =
           replicaProgress.entrySet().stream()
               .filter(x -> x.getValue().stream().allMatch(Replica::inSync))
               .map(Map.Entry::getKey)
