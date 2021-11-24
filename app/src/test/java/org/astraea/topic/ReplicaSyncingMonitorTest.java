@@ -206,11 +206,8 @@ class ReplicaSyncingMonitorTest {
             Map.of(
                 topicPartition.apply("target-topic", 0),
                 replica.apply(3, new long[] {100, 100, 100})));
-    when(mockTopicAdmin.replicas(anySet())).thenThrow(IllegalStateException.class);
 
-    Thread executionThread =
-        new Thread(
-            () -> {
+    Runnable execution = () -> {
               try {
                 ReplicaSyncingMonitor.execute(
                     mockTopicAdmin,
@@ -228,21 +225,10 @@ class ReplicaSyncingMonitorTest {
                 // immediate fail due to bad behavior of --topic flag
                 fail();
               }
-            });
-    tearDownTasks.add(
-        () -> {
-          if (executionThread.isAlive()) {
-            when(mockTopicAdmin.replicas(anySet())).thenThrow(RuntimeException.class);
-            executionThread.interrupt();
-          }
-        });
+            };
 
     // act
-    executionThread.start();
-    TimeUnit.MILLISECONDS.timedJoin(executionThread, 2 * interval + 1000);
-
-    // assert execution exit
-    assertSame(Thread.State.TERMINATED, executionThread.getState());
+    execution.run();
 
     // assert TopicAdmin#replicas call at least 1 times with Set.of("target-topic")
     verify(mockTopicAdmin, atLeast(1)).replicas(Set.of("target-topic"));
