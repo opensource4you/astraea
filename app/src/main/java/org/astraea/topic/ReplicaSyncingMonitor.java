@@ -1,6 +1,5 @@
 package org.astraea.topic;
 
-import com.beust.jcommander.IStringConverter;
 import com.beust.jcommander.Parameter;
 import java.io.IOException;
 import java.time.Duration;
@@ -164,7 +163,7 @@ public class ReplicaSyncingMonitor {
 
       Utils.handleException(
           () -> {
-            long expectedWaitNs = argument.interval * 1000L * 1000L;
+            long expectedWaitNs = argument.interval.toNanos();
             long elapsedNs = (System.nanoTime() - startTime);
             TimeUnit.NANOSECONDS.sleep(Math.max(expectedWaitNs - elapsedNs, 0));
             return 0;
@@ -197,14 +196,14 @@ public class ReplicaSyncingMonitor {
     public final long leaderSize;
     public final long previousSize;
     public final long currentSize;
-    public final int interval;
+    public final Duration interval;
 
-    DataRate(long leaderSize, long previousSize, long currentSize, int intervalMs) {
+    DataRate(long leaderSize, long previousSize, long currentSize, Duration interval) {
       if (previousSize > currentSize) throw new IllegalArgumentException();
       this.leaderSize = leaderSize;
       this.previousSize = previousSize;
       this.currentSize = currentSize;
-      this.interval = intervalMs;
+      this.interval = interval;
     }
 
     public double progress() {
@@ -225,7 +224,7 @@ public class ReplicaSyncingMonitor {
     }
 
     public double dataRatePerSec() {
-      return (double) (currentSize - previousSize) / interval * 1000;
+      return (double) (currentSize - previousSize) / ((interval.toNanos() / 1e9));
     }
 
     /**
@@ -300,15 +299,10 @@ public class ReplicaSyncingMonitor {
     @Parameter(
         names = {"--interval"},
         description =
-            "Second: the frequency(time interval) to check replica state, support floating point value",
-        converter = MillisecondConverter.class)
-    public int interval = 1000;
-
-    public static class MillisecondConverter implements IStringConverter<Integer> {
-      @Override
-      public Integer convert(String value) {
-        return (int) (Double.parseDouble(value) * 1000);
-      }
-    }
+            "Time: the time interval between replica state check, support multiple time unit like 10s, 500ms and 100us. "
+                + "If no time unit specified, second unit will be used.",
+        validateWith = ArgumentUtil.TimeConverter.class,
+        converter = ArgumentUtil.TimeConverter.class)
+    public Duration interval = Duration.ofSeconds(1);
   }
 }

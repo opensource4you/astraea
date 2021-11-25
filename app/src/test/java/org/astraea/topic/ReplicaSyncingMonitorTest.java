@@ -87,10 +87,7 @@ class ReplicaSyncingMonitorTest {
                   ArgumentUtil.parseArgument(
                       new ReplicaSyncingMonitor.Argument(),
                       new String[] {
-                        "--bootstrap.servers",
-                        "whatever:9092",
-                        "--interval",
-                        String.valueOf((double) (interval) / 1000.0)
+                        "--bootstrap.servers", "whatever:9092", "--interval", interval + "ms"
                       }));
             });
     tearDownTasks.add(
@@ -167,7 +164,7 @@ class ReplicaSyncingMonitorTest {
                           "whatever:9092",
                           "--track",
                           "--interval",
-                          String.valueOf((double) (interval) / 1000.0)
+                          interval + "ms"
                         }));
               } catch (Exception e) {
                 // swallow interrupted error
@@ -220,7 +217,7 @@ class ReplicaSyncingMonitorTest {
                       "--topic",
                       "target-topic",
                       "--interval",
-                      String.valueOf((double) (interval) / 1000.0)
+                      interval + "ms"
                     }));
           } catch (IllegalStateException e) {
             // immediate fail due to bad behavior of --topic flag
@@ -294,19 +291,6 @@ class ReplicaSyncingMonitorTest {
         .forEach(args -> assertThrows(Exception.class, () -> execution.accept(args)));
   }
 
-  @Test
-  void ensureIntervalParseCorrectly() {
-    // arrange
-    String args = "--bootstrap.servers localhost:5566 --interval 0.56";
-
-    // act
-    var argument =
-        ArgumentUtil.parseArgument(new ReplicaSyncingMonitor.Argument(), args.split(" "));
-
-    // assert
-    assertEquals(560, argument.interval);
-  }
-
   @ParameterizedTest
   @CsvSource(
       delimiterString = ",",
@@ -328,7 +312,8 @@ class ReplicaSyncingMonitorTest {
       int expectedRemainingTime) {
     // act
     var dataRate =
-        new ReplicaSyncingMonitor.DataRate(leaderSize, previousSize, currentSize, interval);
+        new ReplicaSyncingMonitor.DataRate(
+            leaderSize, previousSize, currentSize, Duration.ofMillis(interval));
 
     // assert
     assertEquals(expectedDataRatePerSec, dataRate.dataRatePerSec());
