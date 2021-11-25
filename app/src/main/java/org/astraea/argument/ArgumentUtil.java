@@ -66,6 +66,15 @@ public class ArgumentUtil {
     }
   }
 
+  public static class NonNegativeNumber implements IParameterValidator {
+    @Override
+    public void validate(String name, String value) throws ParameterException {
+      final double doubleValue = Double.parseDouble(value);
+      if (Math.signum(doubleValue) < 0.0 || Double.isNaN(doubleValue))
+        throw new ParameterException(name + " should not be negative or nan.");
+    }
+  }
+
   /* Converter classes */
   public static class DurationConverter implements IStringConverter<Duration> {
     @Override
