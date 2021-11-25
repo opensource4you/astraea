@@ -32,10 +32,7 @@ public class ReplicaSyncingMonitor {
 
     // this supplier will gives you all the topic name that the client interest in.
     Supplier<Set<String>> topicToTrack =
-        () ->
-            argument.topics.contains(Argument.EVERY_TOPIC)
-                ? topicAdmin.topicNames()
-                : argument.topics;
+        () -> argument.topics.isEmpty() ? topicAdmin.topicNames() : argument.topics;
 
     // the non-synced topic-partition we want to monitor
     Set<TopicPartition> topicPartitionToTrack =
@@ -288,13 +285,11 @@ public class ReplicaSyncingMonitor {
 
   static class Argument extends BasicArgumentWithPropFile {
 
-    public static final String EVERY_TOPIC = "every non-synced topics...";
-
     @Parameter(
         names = {"--topic"},
-        description = "String: topics to track",
+        description = "String: topics to track, use all non-synced topics by default",
         validateWith = ArgumentUtil.NotEmptyString.class)
-    public Set<String> topics = Set.of(EVERY_TOPIC);
+    public Set<String> topics = Set.of();
 
     @Parameter(
         names = {"--keep-track"},
