@@ -105,7 +105,7 @@ public class NodeLoadClientFactory {
       instances.put(configs, proxy);
       nodeLoadClientMap.put(configs, nodeLoadClient);
       pool = ThreadPool.builder().executor(proxy).build();
-      Runtime.getRuntime().addShutdownHook(new Thread(() ->pool.close()));
+      Runtime.getRuntime().addShutdownHook(new Thread(() -> pool.close()));
       return proxy;
     } catch (Exception e) {
       throw new RuntimeException(e);
@@ -116,7 +116,7 @@ public class NodeLoadClientFactory {
     return this.nodeLoadClientMap;
   }
 
-    public ThreadPool getPool() {
-        return pool;
-    }
+  public ThreadPool getPool() {
+    return pool;
+  }
 }
