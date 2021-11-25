@@ -292,15 +292,15 @@ public class ReplicaSyncingMonitor {
     public Set<String> topics = Set.of();
 
     @Parameter(
-        names = {"--keep-track"},
+        names = {"--track"},
         description =
-            "Boolean: keep tracking even if all the replicas are synced, also attempts to discovery any non-synced replicas")
+            "Boolean: keep track even if all the replicas are synced, also attempts to discovery any non-synced replicas")
     public boolean keepTrack = false;
 
     @Parameter(
         names = {"--interval"},
         description =
-            "Decimal: the frequency(time interval) to check replica state, support floating point value",
+            "Second: the frequency(time interval) to check replica state, support floating point value",
         converter = MillisecondConverter.class)
     public int interval = 1000;
 

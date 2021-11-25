@@ -136,7 +136,7 @@ class ReplicaSyncingMonitorTest {
                 topicPartition.apply("topic-1", 0), replica.apply(3, new long[] {100, 100, 100})))
         .thenReturn(
             Map.of(
-                /* progress 100%, --keep-track should not exit when progress reach 100% */
+                /* progress 100%, --track should not exit when progress reach 100% */
                 topicPartition.apply("topic-1", 0), replica.apply(3, new long[] {100, 100, 100})))
         .thenReturn(
             Map.of(
@@ -165,7 +165,7 @@ class ReplicaSyncingMonitorTest {
                         new String[] {
                           "--bootstrap.servers",
                           "whatever:9092",
-                          "--keep-track",
+                          "--track",
                           "--interval",
                           String.valueOf((double) (interval) / 1000.0)
                         }));
@@ -271,8 +271,8 @@ class ReplicaSyncingMonitorTest {
     var correct =
         Set.of(
             "--bootstrap.servers localhost:5566",
-            "--bootstrap.servers localhost:5566 --keep-track",
-            "--bootstrap.servers localhost:5566 --topic my-topic --keep-track",
+            "--bootstrap.servers localhost:5566 --track",
+            "--bootstrap.servers localhost:5566 --topic my-topic --track",
             "--bootstrap.servers localhost:5566 --interval 1234");
     var incorrect =
         Set.of(
