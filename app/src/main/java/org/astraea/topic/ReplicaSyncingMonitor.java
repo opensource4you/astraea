@@ -294,7 +294,7 @@ public class ReplicaSyncingMonitor {
     @Parameter(
         names = {"--track"},
         description =
-            "Boolean: keep track even if all the replicas are synced, also attempts to discovery any non-synced replicas")
+            "Boolean: keep track even if all the replicas are synced, also attempts to discover any non-synced replicas")
     public boolean keepTrack = false;
 
     @Parameter(
