@@ -266,24 +266,18 @@ class ReplicaSyncingMonitorTest {
   }
 
   @Test
-  void ensureArgumentFlagCorrect() {
+  void ensureArgumentFlagExists() {
     // arrange
     var correct =
         Set.of(
             "--bootstrap.servers localhost:5566",
             "--bootstrap.servers localhost:5566 --track",
             "--bootstrap.servers localhost:5566 --topic my-topic --track",
-            "--bootstrap.servers localhost:5566 --interval 0",
-            "--bootstrap.servers localhost:5566 --interval 1e9",
             "--bootstrap.servers localhost:5566 --interval 1234");
     var incorrect =
         Set.of(
             "--bootstrap.servers localhost:5566 --whatever",
             "--bootstrap.servers localhost:5566 sad",
-            "--bootstrap.servers localhost:5566 --interval -12345",
-            "--bootstrap.servers localhost:5566 --interval +NaN",
-            "--bootstrap.servers localhost:5566 --interval NaN",
-            "--bootstrap.servers localhost:5566 --interval -NaN",
             "wuewuewuewue",
             "--server");
 
@@ -310,7 +304,7 @@ class ReplicaSyncingMonitorTest {
         ArgumentUtil.parseArgument(new ReplicaSyncingMonitor.Argument(), args.split(" "));
 
     // assert
-    assertEquals(560, argument.intervalMs());
+    assertEquals(560, argument.interval);
   }
 
   @ParameterizedTest

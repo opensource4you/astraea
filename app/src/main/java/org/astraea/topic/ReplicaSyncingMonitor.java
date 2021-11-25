@@ -1,7 +1,7 @@
 package org.astraea.topic;
 
+import com.beust.jcommander.IStringConverter;
 import com.beust.jcommander.Parameter;
-import com.beust.jcommander.converters.DoubleConverter;
 import java.io.IOException;
 import java.time.Duration;
 import java.time.LocalDateTime;
@@ -104,7 +104,7 @@ public class ReplicaSyncingMonitor {
                                               previousCheckedSize.getOrDefault(
                                                   entry.getKey(), entry.getValue().size()),
                                               entry.getValue().size(),
-                                              argument.intervalMs())))
+                                              argument.interval)))
                               .map(
                                   entry ->
                                       String.format(
@@ -164,7 +164,7 @@ public class ReplicaSyncingMonitor {
 
       Utils.handleException(
           () -> {
-            long expectedWaitNs = argument.intervalMs() * 1000L * 1000L;
+            long expectedWaitNs = argument.interval * 1000L * 1000L;
             long elapsedNs = (System.nanoTime() - startTime);
             TimeUnit.NANOSECONDS.sleep(Math.max(expectedWaitNs - elapsedNs, 0));
             return 0;
@@ -301,12 +301,14 @@ public class ReplicaSyncingMonitor {
         names = {"--interval"},
         description =
             "Second: the frequency(time interval) to check replica state, support floating point value",
-        validateWith = ArgumentUtil.NonNegativeNumber.class,
-        converter = DoubleConverter.class)
-    public double interval = 1.0;
+        converter = MillisecondConverter.class)
+    public int interval = 1000;
 
-    public int intervalMs() {
-      return (int) (interval * 1000);
+    public static class MillisecondConverter implements IStringConverter<Integer> {
+      @Override
+      public Integer convert(String value) {
+        return (int) (Double.parseDouble(value) * 1000);
+      }
     }
   }
 }
