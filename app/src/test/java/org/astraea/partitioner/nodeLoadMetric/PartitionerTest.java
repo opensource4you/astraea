@@ -38,7 +38,7 @@ public class PartitionerTest extends RequireBrokerCluster {
 
   @Test
   public void testPartitioner() {
-    admin.creator().topic(topicName).numberOfPartitions(10).create();
+    admin.creator().topic(topicName).numberOfPartitions(20).create();
 
     var key = "tainan";
     var timestamp = System.currentTimeMillis() + 10;
