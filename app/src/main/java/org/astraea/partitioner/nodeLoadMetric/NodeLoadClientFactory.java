@@ -115,8 +115,4 @@ public class NodeLoadClientFactory {
   public Map<Map<String, ?>, NodeLoadClient> getnodeLoadClientMap() {
     return this.nodeLoadClientMap;
   }
-
-  public ThreadPool getPool() {
-    return pool;
-  }
 }
