@@ -30,7 +30,7 @@ public class ReplicaSyncingMonitor {
 
   static void execute(final TopicAdmin topicAdmin, final Argument argument) {
 
-    // this supplier will gives you all the topic name that the client interest in.
+    // this supplier will give you all the topic names that the client is interested in.
     Supplier<Set<String>> topicToTrack =
         () -> argument.topics.isEmpty() ? topicAdmin.topicNames() : argument.topics;
 
