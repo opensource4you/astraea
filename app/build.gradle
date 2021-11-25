@@ -56,4 +56,7 @@ tasks.named('test') {
         events "PASSED", "STARTED", "FAILED", "SKIPPED"
         exceptionFormat = 'full'
     }
+
+    minHeapSize = "512m"
+    maxHeapSize = "2048m"
 }
