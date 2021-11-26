@@ -74,7 +74,7 @@ There are 4 useful ENVs which can change JVM/container configuration.
 1. KAFKA_VERSION -> define the kafka version
 2. KAFKA_REVISION -> define the revision of kafka source code. If this is defined, it will run distribution based on the source code
 3. KAFKA_HEAP_OPTS -> define JVM memory options
-4. LOG_FOLDERS -> define the host folders used by broker. You should define it if you want to keep data after terminating container
+4. DATA_FOLDERS -> define the host folders used by broker. You should define it if you want to keep data after terminating container
 
 ### Run Prometheus
 
