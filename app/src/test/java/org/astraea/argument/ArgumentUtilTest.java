@@ -4,11 +4,13 @@ import com.beust.jcommander.Parameter;
 import com.beust.jcommander.ParameterException;
 import java.time.Duration;
 import java.util.Set;
+import java.util.function.Supplier;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.MethodSource;
 
 public class ArgumentUtilTest {
@@ -105,7 +107,7 @@ public class ArgumentUtilTest {
     Assertions.assertEquals(Set.of("1", "2"), param.setConverter);
   }
 
-  private static Stream<Arguments> testTimeConverterTestcase() {
+  private static Stream<Arguments> testDurationConvertorTestcases() {
     return Stream.of(
         Arguments.of("1", Duration.ofSeconds(1)),
         Arguments.of("0", Duration.ZERO),
@@ -120,10 +122,49 @@ public class ArgumentUtilTest {
   }
 
   @ParameterizedTest(name = "[{index}] time string \"{0}\" will match duration \"{1}\"")
-  @MethodSource("testTimeConverterTestcase")
-  public void testTimeConverter(String timeString, Duration expectedDuration) {
-    ArgumentUtil.TimeConverter timeConverter = new ArgumentUtil.TimeConverter();
+  @MethodSource("testDurationConvertorTestcases")
+  public void testDurationConvertorConvert(String timeString, Duration expectedDuration) {
+    ArgumentUtil.DurationConverter durationConverter = new ArgumentUtil.DurationConverter();
 
-    Assertions.assertEquals(expectedDuration, timeConverter.convert(timeString));
+    Assertions.assertEquals(expectedDuration, durationConverter.convert(timeString));
+  }
+
+  @ParameterizedTest()
+  @CsvSource(
+      delimiterString = ",",
+      value = {
+        // input string, is_legal, test-purpose
+        "             0, true    , valid unit",
+        "             1, true    , valid unit",
+        "          5566, true    , valid unit",
+        "        1234ns, true    , valid unit",
+        "        4321us, true    , valid unit",
+        "        1234ms, true    , valid unit",
+        "        12000s, true    , valid unit",
+        "           60m, true    , valid unit",
+        "           60h, true    , valid unit",
+        "        365day, true    , valid unit",
+        "       365days, true    , valid unit",
+        "         -1234, false   , currently no negative number allowed",
+        "       -1234ms, false   , currently no negative number allowed",
+        "      -365days, false   , currently no negative number allowed",
+        "          0.5s, false   , currently no floating value allowed",
+        "         hello, false   , illegal time/unit",
+      })
+  public void testDurationConvertorValidate(String timeString, boolean isLegal) {
+    var execution =
+        (Supplier<Boolean>)
+            () -> {
+              try {
+                ArgumentUtil.DurationConverter durationConverter =
+                    new ArgumentUtil.DurationConverter();
+                durationConverter.validate("key", timeString);
+                return true;
+              } catch (ParameterException ignored) {
+                return false;
+              }
+            };
+
+    Assertions.assertEquals(isLegal, execution.get());
   }
 }

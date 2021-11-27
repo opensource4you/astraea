@@ -69,13 +69,6 @@ public class ArgumentUtil {
   }
 
   /* Converter classes */
-  public static class DurationConverter implements IStringConverter<Duration> {
-    @Override
-    public Duration convert(String value) {
-      return Duration.ofSeconds(Long.parseLong(value));
-    }
-  }
-
   public static class StringSetConverter implements IStringConverter<Set<String>> {
     @Override
     public Set<String> convert(String value) {
@@ -141,7 +134,7 @@ public class ArgumentUtil {
    *   <li><b>(doesn't work)</b> {@code "0.5" to {@code Duration.ofMillis(500)}}
    * </ul>
    */
-  public static class TimeConverter implements IStringConverter<Duration>, IParameterValidator {
+  public static class DurationConverter implements IStringConverter<Duration>, IParameterValidator {
 
     static final Pattern timePattern =
         Pattern.compile("^(?<value>[0-9]+)(?<unit>days|day|h|m|s|ms|us|ns|)$");

@@ -302,8 +302,8 @@ public class ReplicaSyncingMonitor {
         description =
             "Time: the time interval between replica state check, support multiple time unit like 10s, 500ms and 100us. "
                 + "If no time unit specified, second unit will be used.",
-        validateWith = ArgumentUtil.TimeConverter.class,
-        converter = ArgumentUtil.TimeConverter.class)
+        validateWith = ArgumentUtil.DurationConverter.class,
+        converter = ArgumentUtil.DurationConverter.class)
     public Duration interval = Duration.ofSeconds(1);
   }
 }
