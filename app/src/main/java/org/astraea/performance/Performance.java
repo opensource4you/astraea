@@ -230,7 +230,7 @@ public class Performance {
     ExeTime exeTime = new ExeTime(1000);
 
     @Parameter(
-        names = {"--fixedSize"},
+        names = {"--fixed.size"},
         description = "boolean: send fixed size records if this flag is set")
     boolean fixedSize = false;
 
@@ -266,25 +266,11 @@ public class Performance {
             "String: the compression algorithm used by producer. Available algorithm are none, gzip, snappy, lz4, and zstd",
         converter = CompressionArgument.class)
     CompressionType compression = CompressionType.NONE;
-  }
 
-  static class CompressionArgument implements IStringConverter<CompressionType> {
-
-    @Override
-    public CompressionType convert(String value) {
-      try {
-        return CompressionType.forName(value.toLowerCase());
-      } catch (IllegalArgumentException e) {
-        throw new ParameterException(
-            "the "
-                + value
-                + " is unsupported. The supported algorithms are "
-                + Stream.of(CompressionType.values())
-                    .map(CompressionType::name)
-                    .collect(Collectors.joining(",")));
-      }
-    }
-
+    /**
+     * Two kind of running modes. One run for a duration of time. The other run for a number of
+     * records.
+     */
     static class ExeTime {
       public final Duration duration;
       public final long records;
@@ -328,6 +314,24 @@ public class Performance {
         return (this.mode == Mode.DURATION)
             ? "Duration:" + duration.toMillis()
             : "Records:" + records;
+      }
+    }
+  }
+
+  static class CompressionArgument implements IStringConverter<CompressionType> {
+
+    @Override
+    public CompressionType convert(String value) {
+      try {
+        return CompressionType.forName(value.toLowerCase());
+      } catch (IllegalArgumentException e) {
+        throw new ParameterException(
+            "the "
+                + value
+                + " is unsupported. The supported algorithms are "
+                + Stream.of(CompressionType.values())
+                    .map(CompressionType::name)
+                    .collect(Collectors.joining(",")));
       }
     }
   }

@@ -5,7 +5,11 @@ import java.util.Optional;
 import java.util.Random;
 import java.util.concurrent.CountDownLatch;
 
-/** Thread safe */
+/**
+ * Thread safe This class is used for managing the start/end of the producer/consumer threads.
+ * Producer can start producing until all consumers get assignment. Consumers can stop after all
+ * producers are closed and all records are consumed.
+ */
 public class Manager {
   private final Performance.Argument.ExeTime exeTime;
   private final boolean fixedSize;
@@ -20,10 +24,17 @@ public class Manager {
   /**
    * Used to manage producing/consuming.
    *
-   * @param exeTime number of records at most to produce or execution time (includes initialization
-   *     time)
-   * @param fixedSize whether the length of the record should be random
-   * @param size the length/(bound of random length) of the record
+   * @param argument
+   *     <ol>
+   *       <li>"fixedSize" for setting whether the size of the record is fixed
+   *       <li>"recordSize" for setting (the bound of) the size of the record
+   *       <li>"consumers" for number of consumers to wait on getting assignment
+   *       <li>"producers" for number of producers to wait on stop producing
+   *       <li>"exeTime" for determining whether the producers/consumers are completed
+   *     </ol>
+   *
+   * @param producerMetrics for counting the number of records have been produced
+   * @param consumerMetrics for counting the number of records have been consumed
    */
   public Manager(
       Performance.Argument argument, List<Metrics> producerMetrics, List<Metrics> consumerMetrics) {
@@ -62,10 +73,12 @@ public class Manager {
     return ans;
   }
 
+  /** Used in "consumerRebalanceListener" callback. To */
   public void countDownGetAssignment() {
     this.getAssignment.countDown();
   }
 
+  /** Called after producer is closed. For informing consumers there will be no new records */
   public void countDownProducerClosed() {
     this.producerClosed.countDown();
   }
@@ -78,6 +91,7 @@ public class Manager {
     return exeTime;
   }
 
+  /** Check if we should keep producing record. */
   public boolean producedDone() {
     if (exeTime.mode == Performance.Argument.ExeTime.Mode.DURATION) {
       return System.currentTimeMillis() - start >= exeTime.duration.toMillis();
@@ -86,6 +100,7 @@ public class Manager {
     }
   }
 
+  /** Check if we should keep consuming record. */
   public boolean consumedDone() {
     return producedDone() && consumedRecords() >= producedRecords();
   }
