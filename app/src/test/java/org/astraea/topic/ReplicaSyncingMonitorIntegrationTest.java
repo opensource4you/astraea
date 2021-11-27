@@ -16,7 +16,7 @@ import org.junit.jupiter.api.Test;
 
 class ReplicaSyncingMonitorIntegrationTest extends RequireBrokerCluster {
 
-  private static final String topicName =
+  private static final String TOPIC_NAME =
       ReplicaSyncingMonitorIntegrationTest.class.getSimpleName();
   private static final byte[] dummyBytes = new byte[1024];
 
@@ -26,13 +26,13 @@ class ReplicaSyncingMonitorIntegrationTest extends RequireBrokerCluster {
     try (TopicAdmin topicAdmin = TopicAdmin.of(bootstrapServers())) {
       topicAdmin
           .creator()
-          .topic(topicName)
+          .topic(TOPIC_NAME)
           .numberOfPartitions(1)
           .numberOfReplicas((short) 1)
           .create();
 
       Sender<byte[], byte[]> sender =
-          Producer.of(bootstrapServers()).sender().topic(topicName).partition(0).value(dummyBytes);
+          Producer.of(bootstrapServers()).sender().topic(TOPIC_NAME).partition(0).value(dummyBytes);
 
       // create 16MB of data
       IntStream.range(0, 16 * 1024)
@@ -41,8 +41,8 @@ class ReplicaSyncingMonitorIntegrationTest extends RequireBrokerCluster {
 
       int currentBroker =
           topicAdmin
-              .replicas(Set.of(topicName))
-              .get(new TopicPartition(topicName, 0))
+              .replicas(Set.of(TOPIC_NAME))
+              .get(new TopicPartition(TOPIC_NAME, 0))
               .get(0)
               .broker();
       int moveToBroker = (currentBroker + 1) % logFolders().size();
@@ -50,7 +50,7 @@ class ReplicaSyncingMonitorIntegrationTest extends RequireBrokerCluster {
       Thread executionThread =
           new Thread(
               () -> {
-                topicAdmin.migrator().partition(topicName, 0).moveTo(Set.of(moveToBroker));
+                topicAdmin.migrator().partition(TOPIC_NAME, 0).moveTo(Set.of(moveToBroker));
                 ReplicaSyncingMonitor.execute(
                     topicAdmin,
                     ArgumentUtil.parseArgument(
@@ -59,7 +59,7 @@ class ReplicaSyncingMonitorIntegrationTest extends RequireBrokerCluster {
                           "--bootstrap.servers",
                           bootstrapServers(),
                           "--topic",
-                          topicName,
+                          TOPIC_NAME,
                           "--interval",
                           "0.1"
                         }));
@@ -73,10 +73,10 @@ class ReplicaSyncingMonitorIntegrationTest extends RequireBrokerCluster {
       // assert
       assertSame(Thread.State.TERMINATED, executionThread.getState());
       assertEquals(
-          1, topicAdmin.replicas(Set.of(topicName)).get(new TopicPartition(topicName, 0)).size());
+          1, topicAdmin.replicas(Set.of(TOPIC_NAME)).get(new TopicPartition(TOPIC_NAME, 0)).size());
       assertEquals(
           moveToBroker,
-          topicAdmin.replicas(Set.of(topicName)).get(new TopicPartition(topicName, 0)).stream()
+          topicAdmin.replicas(Set.of(TOPIC_NAME)).get(new TopicPartition(TOPIC_NAME, 0)).stream()
               .filter(Replica::leader)
               .findFirst()
               .orElseThrow()

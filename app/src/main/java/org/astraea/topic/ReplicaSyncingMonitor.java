@@ -36,11 +36,10 @@ public class ReplicaSyncingMonitor {
         () -> argument.topics.isEmpty() ? topicAdmin.topicNames() : argument.topics;
 
     // the non-synced topic-partition we want to monitor
-    Set<TopicPartition> topicPartitionToTrack =
-        findNonSyncedTopicPartition(topicAdmin, topicToTrack.get());
+    var topicPartitionToTrack = findNonSyncedTopicPartition(topicAdmin, topicToTrack.get());
 
     // keep tracking the previous replica size of a topic-partition-replica tuple
-    final Map<TopicPartitionReplica, Long> previousCheckedSize = new HashMap<>();
+    final var previousCheckedSize = new HashMap<TopicPartitionReplica, Long>();
 
     while (!topicPartitionToTrack.isEmpty() || argument.keepTrack) {
 
@@ -287,7 +286,7 @@ public class ReplicaSyncingMonitor {
   static class Argument extends BasicArgumentWithPropFile {
 
     @Parameter(
-        names = {"--topic"},
+        names = {"--topics"},
         description = "String: topics to track, use all non-synced topics by default",
         validateWith = ArgumentUtil.NotEmptyString.class)
     public Set<String> topics = Set.of();

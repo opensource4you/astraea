@@ -20,7 +20,7 @@ This project offers many kafka tools to simplify the life for kafka users.
 5. [Kafka metric client](#kafka-metric-client): utility for accessing kafka Mbean metrics via JMX.
 6. [Replica Collie](#replica-collie): move replicas from brokers to others. You can use this tool to obstruct specific brokers from hosting specific topics.
 7. [Kafka partition score](#Kafka-partition-score): score all broker's partitions. 
-8. [Kafka relica syncing monitor](#Kafka-replica-syncing-monitor): Tracking replica syncing progress.
+8. [Kafka replica syncing monitor](#Kafka-replica-syncing-monitor): Tracking replica syncing progress.
 
 [Release page](https://github.com/skiptests/astraea/releases) offers the uber jar including all tools.
 ```shell

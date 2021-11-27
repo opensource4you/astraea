@@ -194,7 +194,7 @@ class ReplicaSyncingMonitorTest {
   }
 
   @Test
-  void executeWithTopic() throws InterruptedException {
+  void executeWithTopic() {
     // arrange
     int interval = 10;
     TopicAdmin mockTopicAdmin = mock(TopicAdmin.class);
@@ -214,7 +214,7 @@ class ReplicaSyncingMonitorTest {
                     new String[] {
                       "--bootstrap.servers",
                       "whatever:9092",
-                      "--topic",
+                      "--topics",
                       "target-topic",
                       "--interval",
                       interval + "ms"
@@ -269,7 +269,7 @@ class ReplicaSyncingMonitorTest {
         Set.of(
             "--bootstrap.servers localhost:5566",
             "--bootstrap.servers localhost:5566 --track",
-            "--bootstrap.servers localhost:5566 --topic my-topic --track",
+            "--bootstrap.servers localhost:5566 --topics my-topic --track",
             "--bootstrap.servers localhost:5566 --interval 1234");
     var incorrect =
         Set.of(
