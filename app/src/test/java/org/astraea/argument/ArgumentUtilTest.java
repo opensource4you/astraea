@@ -150,6 +150,9 @@ public class ArgumentUtilTest {
         "      -365days, false   , currently no negative number allowed",
         "          0.5s, false   , currently no floating value allowed",
         "         hello, false   , illegal time/unit",
+        "            ms, false   , illegal time/unit",
+        "           day, false   , illegal time/unit",
+        "             h, false   , illegal time/unit",
       })
   public void testDurationConvertorValidate(String timeString, boolean isLegal) {
     var execution =
