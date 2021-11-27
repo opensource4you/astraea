@@ -30,6 +30,8 @@ public class ReplicaSyncingMonitor {
   static void execute(final TopicAdmin topicAdmin, final Argument argument) {
 
     // this supplier will give you all the topic names that the client is interested in.
+    // discover any newly happened non-synced replica can be a quiet useful scenario, so here we use
+    // a supplier to do the query for us.
     Supplier<Set<String>> topicToTrack =
         () -> argument.topics.isEmpty() ? topicAdmin.topicNames() : argument.topics;
 
