@@ -6,6 +6,7 @@ import java.util.stream.Collectors;
 import org.apache.kafka.clients.admin.*;
 import org.apache.kafka.common.Node;
 import org.apache.kafka.common.TopicPartition;
+import org.apache.kafka.common.TopicPartitionReplica;
 import org.apache.kafka.common.config.ConfigResource;
 import org.astraea.Utils;
 
@@ -48,6 +49,14 @@ public class Builder {
               admin.describeCluster().nodes().get().stream()
                   .map(Node::id)
                   .collect(Collectors.toSet()));
+    }
+
+    @Override
+    public Map<Integer, Set<String>> brokerFolders(Set<Integer> brokers) {
+      return Utils.handleException(
+          () ->
+              admin.describeLogDirs(brokers).allDescriptions().get().entrySet().stream()
+                  .collect(Collectors.toMap(Map.Entry::getKey, map -> map.getValue().keySet())));
     }
 
     @Override
@@ -433,6 +442,22 @@ public class Builder {
     public Migrator partition(String topic, int partition) {
       partitions.add(new TopicPartition(topic, partition));
       return this;
+    }
+
+    @Override
+    public void moveTo(Map<Integer, String> brokerFolders) {
+      Utils.handleException(
+          () ->
+              admin.alterReplicaLogDirs(
+                  brokerFolders.entrySet().stream()
+                      .collect(
+                          Collectors.toMap(
+                              x ->
+                                  new TopicPartitionReplica(
+                                      partitions.iterator().next().topic(),
+                                      partitions.iterator().next().partition(),
+                                      x.getKey()),
+                              Map.Entry::getValue))));
     }
 
     @Override

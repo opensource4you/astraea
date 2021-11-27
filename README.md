@@ -70,8 +70,11 @@ broker id: 677
 2. `jmx address` exports the java metrics by JMX
 3. `exporter address` is the address of prometheus exporter.
 
-The command to set up broker can be executed multiple times to create a broker cluster. The env `KAFKA_VERSION` is used to
-define the release version of kafka. Or you can define `KAFKA_REVISION` to run kafka based on specific revision of source code.
+There are 4 useful ENVs which can change JVM/container configuration.
+1. KAFKA_VERSION -> define the kafka version
+2. KAFKA_REVISION -> define the revision of kafka source code. If this is defined, it will run distribution based on the source code
+3. KAFKA_HEAP_OPTS -> define JVM memory options
+4. LOG_FOLDERS -> define the host folders used by broker. You should define it if you want to keep data after terminating container
 
 ### Run Prometheus
 
