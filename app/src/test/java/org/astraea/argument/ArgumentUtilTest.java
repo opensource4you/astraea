@@ -145,6 +145,7 @@ public class ArgumentUtilTest {
         "           60h, true    , valid unit",
         "        365day, true    , valid unit",
         "       365days, true    , valid unit",
+        "   0010100days, true    , valid unit",
         "         -1234, false   , currently no negative number allowed",
         "       -1234ms, false   , currently no negative number allowed",
         "      -365days, false   , currently no negative number allowed",
