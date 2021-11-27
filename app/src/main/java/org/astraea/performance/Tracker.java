@@ -48,9 +48,9 @@ public class Tracker implements ThreadPool.Executor {
     var percentage =
         Math.min(
             100D,
-            Math.max(
-                100D * result.completedRecords / manager.records(),
-                100D * duration.toMillis() / (manager.end() - start)));
+            (manager.exeTime().mode == Performance.Argument.ExeTime.Mode.RECORDS)
+                ? 100D * result.completedRecords / manager.exeTime().records
+                : 100D * duration.toMillis() / manager.exeTime().duration.toMillis());
 
     System.out.println(
         "Time: "
@@ -77,13 +77,12 @@ public class Tracker implements ThreadPool.Executor {
   private boolean logConsumers() {
     // there is no consumer, so we just complete this log.
     if (consumerData.isEmpty()) return true;
-    var consumedDone = manager.consumedDone();
     var result = result(consumerData);
     if (result.completedRecords == 0) return false;
     var duration = duration();
 
     // Print out percentage of (consumed records) and (produced records)
-    var percentage = result.completedRecords * 100D / manager.produced();
+    var percentage = result.completedRecords * 100D / manager.producedRecords();
     System.out.printf("consumer完成度: %.2f%%%n", percentage);
     System.out.printf("  輸入%.3fMB/second%n", result.averageBytes(duration));
     System.out.println("  端到端max latency: " + result.maxLatency + "ms");
@@ -96,7 +95,7 @@ public class Tracker implements ThreadPool.Executor {
     }
     System.out.println("\n");
     // Target number of records consumed OR consumed all that produced
-    return consumedDone;
+    return manager.producedDone() && percentage >= 100D;
   }
 
   private static Result result(List<Metrics> metrics) {

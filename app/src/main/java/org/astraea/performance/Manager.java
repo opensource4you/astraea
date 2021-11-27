@@ -1,39 +1,39 @@
 package org.astraea.performance;
 
-import java.time.Duration;
+import java.util.List;
 import java.util.Optional;
 import java.util.Random;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.atomic.AtomicLong;
 
 /** Thread safe */
 public class Manager {
-  private final long records;
+  private final Performance.Argument.ExeTime exeTime;
   private final boolean fixedSize;
   private final int size;
   private final CountDownLatch getAssignment;
+  private final CountDownLatch producerClosed;
   private final Random rand = new Random();
 
-  // Random payload produced by this instance.
-  private final AtomicLong produced = new AtomicLong(0L);
-  // Record the records consumed by consumer.
-  private final AtomicLong consumed = new AtomicLong(0L);
-  private final long end;
+  private final List<Metrics> producerMetrics, consumerMetrics;
+  private final long start = System.currentTimeMillis();
 
   /**
    * Used to manage producing/consuming.
    *
-   * @param records number of records at most to produce
-   * @param duration execution time (includes initialization time)
+   * @param exeTime number of records at most to produce or execution time (includes initialization
+   *     time)
    * @param fixedSize whether the length of the record should be random
    * @param size the length/(bound of random length) of the record
    */
-  public Manager(long records, Duration duration, boolean fixedSize, int size, int consumers) {
-    this.records = records;
-    this.fixedSize = fixedSize;
-    this.size = size;
-    this.end = System.currentTimeMillis() + duration.toMillis();
-    this.getAssignment = new CountDownLatch(consumers);
+  public Manager(
+      Performance.Argument argument, List<Metrics> producerMetrics, List<Metrics> consumerMetrics) {
+    this.fixedSize = argument.fixedSize;
+    this.size = argument.recordSize;
+    this.getAssignment = new CountDownLatch(argument.consumers);
+    this.producerClosed = new CountDownLatch(argument.producers);
+    this.producerMetrics = producerMetrics;
+    this.consumerMetrics = consumerMetrics;
+    this.exeTime = argument.exeTime;
   }
 
   /**
@@ -44,54 +44,49 @@ public class Manager {
    *     records" and "execution time" are considered.
    */
   public Optional<byte[]> payload() {
-    if (timeOut() || produced.getAndUpdate(previous -> Math.min(records, previous + 1)) >= records)
-      return Optional.empty();
+    if (producedDone()) return Optional.empty();
     byte[] payload = (this.fixedSize) ? new byte[size] : new byte[rand.nextInt(size) + 1];
     rand.nextBytes(payload);
     return Optional.of(payload);
   }
 
-  public long end() {
-    return this.end;
+  public long producedRecords() {
+    long ans = 0;
+    for (var m : producerMetrics) ans += m.num();
+    return ans;
   }
 
-  public long records() {
-    return this.records;
-  }
-
-  public long produced() {
-    return this.produced.get();
-  }
-
-  public void consumedIncrement() {
-    this.consumed.incrementAndGet();
-  }
-
-  public long consumed() {
-    return this.consumed.get();
+  public long consumedRecords() {
+    long ans = 0;
+    for (var m : consumerMetrics) ans += m.num();
+    return ans;
   }
 
   public void countDownGetAssignment() {
     this.getAssignment.countDown();
   }
 
-  public void awaitGetAssignment() throws InterruptedException {
+  public void countDownProducerClosed() {
+    this.producerClosed.countDown();
+  }
+
+  public void awaitPartitionAssignment() throws InterruptedException {
     getAssignment.await();
   }
 
-  /**
-   * @return true on two conditions:
-   *     <ol>
-   *       <li>The consumers consumed the max number that producers would generate.
-   *       <li>The consumers consumed **all the records** that producers produced, and the producers
-   *           stop producing record (timeout).
-   *     </ol>
-   */
-  public synchronized boolean consumedDone() {
-    return consumed() == this.records || (timeOut() && consumed() >= produced());
+  public Performance.Argument.ExeTime exeTime() {
+    return exeTime;
   }
 
-  private boolean timeOut() {
-    return System.currentTimeMillis() >= end;
+  public boolean producedDone() {
+    if (exeTime.mode == Performance.Argument.ExeTime.Mode.DURATION) {
+      return System.currentTimeMillis() - start >= exeTime.duration.toMillis();
+    } else {
+      return producedRecords() >= exeTime.records;
+    }
+  }
+
+  public boolean consumedDone() {
+    return producedDone() && consumedRecords() >= producedRecords();
   }
 }

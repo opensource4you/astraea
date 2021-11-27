@@ -1,11 +1,15 @@
 package org.astraea.performance;
 
+import com.beust.jcommander.IStringConverter;
 import com.beust.jcommander.Parameter;
+import com.beust.jcommander.ParameterException;
 import java.io.IOException;
+import java.time.DateTimeException;
 import java.time.Duration;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
+import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.kafka.clients.producer.internals.DefaultPartitioner;
@@ -70,9 +74,7 @@ public class Performance {
             .mapToObj(i -> new Metrics())
             .collect(Collectors.toUnmodifiableList());
 
-    var manager =
-        new Manager(
-            param.records, param.duration, param.fixedSize, param.recordSize, param.consumers);
+    var manager = new Manager(param, producerMetrics, consumerMetrics);
     var tracker = new Tracker(producerMetrics, consumerMetrics, manager);
     var groupId = "groupId-" + System.currentTimeMillis();
     try (ThreadPool threadPool =
@@ -113,7 +115,7 @@ public class Performance {
   }
 
   static ThreadPool.Executor consumerExecutor(
-      Consumer<byte[], byte[]> consumer, Metrics metrics, Manager manager) {
+      Consumer<byte[], byte[]> consumer, BiConsumer<Long, Long> metrics, Manager manager) {
     return new ThreadPool.Executor() {
       @Override
       public State execute() {
@@ -123,10 +125,9 @@ public class Performance {
               .forEach(
                   record -> {
                     // 記錄端到端延時, 記錄輸入byte(沒有算入header和timestamp)
-                    metrics.put(
+                    metrics.accept(
                         System.currentTimeMillis() - record.timestamp(),
-                        record.serializedKeySize() + record.serializedValueSize());
-                    manager.consumedIncrement();
+                        (long) record.serializedKeySize() + record.serializedValueSize());
                   });
           // Consumer reached the record upperbound or consumed all the record producer produced.
           return manager.consumedDone() ? State.DONE : State.RUNNING;
@@ -149,12 +150,15 @@ public class Performance {
   }
 
   static ThreadPool.Executor producerExecutor(
-      Producer<byte[], byte[]> producer, Argument param, Metrics metrics, Manager manager) {
+      Producer<byte[], byte[]> producer,
+      Argument param,
+      BiConsumer<Long, Long> metrics,
+      Manager manager) {
     return new ThreadPool.Executor() {
       @Override
       public State execute() throws InterruptedException {
         // Wait for all consumers get assignment.
-        manager.awaitGetAssignment();
+        manager.awaitPartitionAssignment();
 
         var payload = manager.payload();
         if (payload.isEmpty()) return State.DONE;
@@ -167,13 +171,15 @@ public class Performance {
             .timestamp(start)
             .run()
             .whenComplete(
-                (m, e) -> metrics.put(System.currentTimeMillis() - start, m.serializedValueSize()));
+                (m, e) ->
+                    metrics.accept(System.currentTimeMillis() - start, m.serializedValueSize()));
         return State.RUNNING;
       }
 
       @Override
       public void close() {
         producer.close();
+        manager.countDownProducerClosed();
       }
     };
   }
@@ -212,10 +218,13 @@ public class Performance {
     int consumers = 1;
 
     @Parameter(
-        names = {"--records"},
-        description = "Integer: number of records to send",
-        validateWith = ArgumentUtil.NonNegativeLong.class)
-    long records = 1000000000L;
+        names = {"--run.until"},
+        description =
+            "Run until number of records are produced and consumed or until duration meets."
+                + " The duration formats accepted are based on the ISO-8601 duration format"
+                + " PnDTnHnMn.nS with days considered to be exactly 24 hours.",
+        converter = ExeTime.Converter.class)
+    ExeTime exeTime = new ExeTime(1000);
 
     @Parameter(
         names = {"--fixedSize"},
@@ -227,12 +236,6 @@ public class Performance {
         description = "Integer: size of each record",
         validateWith = ArgumentUtil.PositiveLong.class)
     int recordSize = 1024;
-
-    @Parameter(
-        names = {"--duration"},
-        description = "Integer: producer stop after duration time in second",
-        converter = ArgumentUtil.DurationConverter.class)
-    Duration duration = Duration.ofHours(1);
 
     @Parameter(
         names = {"--jmx.servers"},
@@ -252,6 +255,52 @@ public class Performance {
       Map<String, Object> prop = properties(propFile);
       if (!this.jmxServers.isEmpty()) prop.put("jmx_servers", this.jmxServers);
       return prop;
+    }
+
+    static class ExeTime {
+      public final Duration duration;
+      public final long records;
+      public final Mode mode;
+
+      enum Mode {
+        DURATION,
+        RECORDS
+      }
+
+      public ExeTime(Duration duration) {
+        this.duration = duration;
+        this.records = 0;
+        mode = Mode.DURATION;
+      }
+
+      public ExeTime(long records) {
+        this.duration = Duration.ofMillis(0);
+        this.records = records;
+        this.mode = Mode.RECORDS;
+      }
+
+      public static class Converter implements IStringConverter<ExeTime> {
+        @Override
+        public ExeTime convert(String argument) {
+          ExeTime exeTime;
+          var mode = argument.split(":")[0];
+          var value = argument.split(":")[1];
+          try {
+            if (mode.equalsIgnoreCase("records")) exeTime = new ExeTime(Long.parseLong(value));
+            else exeTime = new ExeTime(Duration.parse(value));
+          } catch (DateTimeException | NumberFormatException paramException) {
+            throw new ParameterException("Wrong format for \"" + mode + "\"");
+          }
+          return exeTime;
+        }
+      }
+
+      @Override
+      public String toString() {
+        return (this.mode == Mode.DURATION)
+            ? "Duration:" + duration.toMillis()
+            : "Records:" + records;
+      }
     }
   }
 }
