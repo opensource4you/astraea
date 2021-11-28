@@ -13,12 +13,28 @@ function getAddress() {
   fi
   echo "$address"
 }
+
+function showHelp() {
+  echo "Usage: [ENV] start_zookeeper.sh"
+  echo "ENV: "
+  echo "    ZOOKEEPER_VERSION=3.7.0    set version of zookeeper distribution"
+  echo "    DATA_FOLDER=/tmp/folder1   set host folders used by zookeeper"
+}
+
 # =====================================================================
 
 if [[ "$(which docker)" == "" ]]; then
   echo "you have to install docker"
   exit 2
 fi
+
+while [[ $# -gt 0 ]]; do
+  if [[ "$1" == "help" ]]; then
+    showHelp
+    exit 2
+  fi
+  shift
+done
 
 if [[ -z "$ZOOKEEPER_VERSION" ]]; then
   ZOOKEEPER_VERSION=3.7.0
@@ -28,6 +44,12 @@ zookeeper_user=astraea
 image_name=astraea/zookeeper:$ZOOKEEPER_VERSION
 zk_port="$(($(($RANDOM % 10000)) + 10000))"
 address=$(getAddress)
+
+hostFolderConfigs=""
+if [[ -n "$DATA_FOLDER" ]]; then
+  mkdir -p "$DATA_FOLDER"
+  hostFolderConfigs="-v $DATA_FOLDER:/tmp/zookeeper-dir"
+fi
 
 docker build -t $image_name - <<Dockerfile
 FROM ubuntu:20.04
@@ -50,14 +72,16 @@ WORKDIR /home/$zookeeper_user/zookeeper
 
 # create config file
 RUN echo "tickTime=2000" >> ./conf/zoo.cfg
-RUN echo "dataDir=/tmp/zookeeper" >> ./conf/zoo.cfg
+RUN echo "dataDir=/tmp/zookeeper-dir" >> ./conf/zoo.cfg
 RUN echo "clientPort=2181" >> ./conf/zoo.cfg
 Dockerfile
 
 docker run -d \
   -p $zk_port:2181 \
+  $hostFolderConfigs \
   $image_name ./bin/zkServer.sh start-foreground
 
 echo "================================================="
+echo "folder mapping: $hostFolderConfigs"
 echo "run ./docker/start_broker.sh zookeeper.connect=$address:$zk_port to join kafka broker"
 echo "================================================="
