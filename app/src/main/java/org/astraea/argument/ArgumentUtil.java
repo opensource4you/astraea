@@ -136,12 +136,12 @@ public class ArgumentUtil {
    */
   public static class DurationConverter implements IStringConverter<Duration>, IParameterValidator {
 
-    static final Pattern timePattern =
+    static final Pattern TIME_PATTERN =
         Pattern.compile("^(?<value>[0-9]+)(?<unit>days|day|h|m|s|ms|us|ns|)$");
 
     @Override
     public Duration convert(String input) {
-      Matcher matcher = timePattern.matcher(input);
+      Matcher matcher = TIME_PATTERN.matcher(input);
       if (matcher.find()) {
         long value = Long.parseLong(matcher.group("value"));
         String unit = matcher.group("unit");
@@ -170,7 +170,7 @@ public class ArgumentUtil {
 
     @Override
     public void validate(String name, String value) throws ParameterException {
-      if (!timePattern.matcher(value).find())
+      if (!TIME_PATTERN.matcher(value).find())
         throw new ParameterException(
             "field \"" + name + "\"'s value \"" + value + "\" doesn't match time format");
     }
