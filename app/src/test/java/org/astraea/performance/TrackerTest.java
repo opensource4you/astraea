@@ -1,6 +1,5 @@
 package org.astraea.performance;
 
-import java.time.Duration;
 import java.util.List;
 import org.astraea.concurrent.ThreadPool;
 import org.junit.jupiter.api.Assertions;
@@ -13,7 +12,7 @@ public class TrackerTest {
     var consumerData = List.of(new Metrics());
     List<Metrics> empty = List.of();
     var argument = new Performance.Argument();
-    argument.exeTime = new Performance.Argument.ExeTime(1);
+    argument.exeTime = Performance.ExeTime.of("1records");
 
     var manager = new Manager(argument, producerData, consumerData);
     try (Tracker tracker = new Tracker(producerData, consumerData, manager)) {
@@ -33,7 +32,7 @@ public class TrackerTest {
     }
 
     // Stop by duration time out
-    argument.exeTime = new Performance.Argument.ExeTime(Duration.ofSeconds(2));
+    argument.exeTime = Performance.ExeTime.of("2s");
     producerData = List.of(new Metrics());
     consumerData = List.of(new Metrics());
     manager = new Manager(argument, producerData, consumerData);

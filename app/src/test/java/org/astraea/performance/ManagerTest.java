@@ -1,6 +1,5 @@
 package org.astraea.performance;
 
-import java.time.Duration;
 import java.util.Arrays;
 import java.util.List;
 import org.junit.jupiter.api.Assertions;
@@ -11,7 +10,7 @@ public class ManagerTest {
   void testReturnNull() throws InterruptedException {
     var argument = new Performance.Argument();
     var producerMetric = new Metrics();
-    argument.exeTime = new Performance.Argument.ExeTime(1);
+    argument.exeTime = Performance.ExeTime.of("1records");
     var manager = new Manager(argument, List.of(producerMetric), List.of());
 
     Assertions.assertTrue(manager.payload().isPresent());
@@ -19,7 +18,7 @@ public class ManagerTest {
     Assertions.assertTrue(manager.payload().isEmpty());
 
     producerMetric = new Metrics();
-    argument.exeTime = new Performance.Argument.ExeTime(Duration.ofMillis(50));
+    argument.exeTime = Performance.ExeTime.of("50ms");
     manager = new Manager(argument, List.of(producerMetric), List.of());
 
     Assertions.assertTrue(manager.payload().isPresent());
@@ -31,7 +30,7 @@ public class ManagerTest {
   @Test
   void testRandomSize() {
     var argument = new Performance.Argument();
-    argument.exeTime = new Performance.Argument.ExeTime(3L);
+    argument.exeTime = Performance.ExeTime.of("3records");
     argument.recordSize = 102400;
     var dataManager = new Manager(argument, List.of(), List.of());
     boolean sameSize = dataManager.payload().get().length == dataManager.payload().get().length;
@@ -45,7 +44,7 @@ public class ManagerTest {
   @Test
   void testRandomContent() {
     var argument = new Performance.Argument();
-    argument.exeTime = new Performance.Argument.ExeTime(2L);
+    argument.exeTime = Performance.ExeTime.of("2records");
     argument.recordSize = 102400;
     var manager = new Manager(argument, List.of(), List.of());
     boolean same = Arrays.equals(manager.payload().get(), manager.payload().get());

@@ -46,11 +46,7 @@ public class Tracker implements ThreadPool.Executor {
     var duration = duration();
     // Print completion rate (by number of records) or (by time)
     var percentage =
-        Math.min(
-            100D,
-            (manager.exeTime().mode == Performance.Argument.ExeTime.Mode.RECORDS)
-                ? 100D * result.completedRecords / manager.exeTime().records
-                : 100D * duration.toMillis() / manager.exeTime().duration.toMillis());
+        Math.min(100D, manager.exeTime().percentage(result.completedRecords, duration.toMillis()));
 
     System.out.println(
         "Time: "

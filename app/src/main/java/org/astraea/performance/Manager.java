@@ -11,7 +11,7 @@ import java.util.concurrent.CountDownLatch;
  * producers are closed and all records are consumed.
  */
 public class Manager {
-  private final Performance.Argument.ExeTime exeTime;
+  private final Performance.ExeTime exeTime;
   private final boolean fixedSize;
   private final int size;
   private final CountDownLatch getAssignment;
@@ -87,17 +87,13 @@ public class Manager {
     getAssignment.await();
   }
 
-  public Performance.Argument.ExeTime exeTime() {
+  public Performance.ExeTime exeTime() {
     return exeTime;
   }
 
   /** Check if we should keep producing record. */
   public boolean producedDone() {
-    if (exeTime.mode == Performance.Argument.ExeTime.Mode.DURATION) {
-      return System.currentTimeMillis() - start >= exeTime.duration.toMillis();
-    } else {
-      return producedRecords() >= exeTime.records;
-    }
+    return exeTime.done(producedRecords(), System.currentTimeMillis() - start);
   }
 
   /** Check if we should keep consuming record. */

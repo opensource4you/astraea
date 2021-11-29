@@ -4,7 +4,6 @@ import com.beust.jcommander.IStringConverter;
 import com.beust.jcommander.Parameter;
 import com.beust.jcommander.ParameterException;
 import java.io.IOException;
-import java.time.DateTimeException;
 import java.time.Duration;
 import java.util.Map;
 import java.util.Set;
@@ -181,8 +180,11 @@ public class Performance {
 
       @Override
       public void close() {
-        producer.close();
-        manager.countDownProducerClosed();
+        try {
+          producer.close();
+        } finally {
+          manager.countDownProducerClosed();
+        }
       }
     };
   }
@@ -226,8 +228,8 @@ public class Performance {
             "Run until number of records are produced and consumed or until duration meets."
                 + " The duration formats accepted are based on the ISO-8601 duration format"
                 + " PnDTnHnMn.nS with days considered to be exactly 24 hours.",
-        converter = ExeTime.Converter.class)
-    ExeTime exeTime = new ExeTime(1000);
+        converter = ExeTimeArgument.class)
+    ExeTime exeTime = ExeTime.of("1000records");
 
     @Parameter(
         names = {"--fixed.size"},
@@ -266,56 +268,6 @@ public class Performance {
             "String: the compression algorithm used by producer. Available algorithm are none, gzip, snappy, lz4, and zstd",
         converter = CompressionArgument.class)
     CompressionType compression = CompressionType.NONE;
-
-    /**
-     * Two kind of running modes. One run for a duration of time. The other run for a number of
-     * records.
-     */
-    static class ExeTime {
-      public final Duration duration;
-      public final long records;
-      public final Mode mode;
-
-      enum Mode {
-        DURATION,
-        RECORDS
-      }
-
-      public ExeTime(Duration duration) {
-        this.duration = duration;
-        this.records = 0;
-        mode = Mode.DURATION;
-      }
-
-      public ExeTime(long records) {
-        this.duration = Duration.ofMillis(0);
-        this.records = records;
-        this.mode = Mode.RECORDS;
-      }
-
-      public static class Converter implements IStringConverter<ExeTime> {
-        @Override
-        public ExeTime convert(String argument) {
-          ExeTime exeTime;
-          var mode = argument.split(":")[0];
-          var value = argument.split(":")[1];
-          try {
-            if (mode.equalsIgnoreCase("records")) exeTime = new ExeTime(Long.parseLong(value));
-            else exeTime = new ExeTime(Duration.parse(value));
-          } catch (DateTimeException | NumberFormatException paramException) {
-            throw new ParameterException("Wrong format for \"" + mode + "\"");
-          }
-          return exeTime;
-        }
-      }
-
-      @Override
-      public String toString() {
-        return (this.mode == Mode.DURATION)
-            ? "Duration:" + duration.toMillis()
-            : "Records:" + records;
-      }
-    }
   }
 
   static class CompressionArgument implements IStringConverter<CompressionType> {
@@ -333,6 +285,52 @@ public class Performance {
                     .map(CompressionType::name)
                     .collect(Collectors.joining(",")));
       }
+    }
+  }
+
+  static class ExeTimeArgument implements IStringConverter<ExeTime> {
+    @Override
+    public ExeTime convert(String value) {
+      return ExeTime.of(value);
+    }
+  }
+
+  /**
+   * Two kind of running modes. One run for a duration of time. The other run for a number of
+   * records.
+   */
+  interface ExeTime {
+
+    boolean done(long records, long elapsedTime);
+
+    double percentage(long records, long elapsedTime);
+
+    static ExeTime of(String exeTime) {
+      final long records =
+          (exeTime.endsWith("records")) ? Long.parseLong(exeTime.replace("records", "")) : 0L;
+      final Duration duration =
+          (exeTime.endsWith("records"))
+              ? Duration.ZERO
+              : new ArgumentUtil.DurationConverter().convert(exeTime);
+
+      return new ExeTime() {
+        @Override
+        public boolean done(long completeRecords, long elapsedTime) {
+          return (records == 0) ? elapsedTime >= duration.toMillis() : completeRecords >= records;
+        }
+
+        @Override
+        public double percentage(long completeRecords, long elapsedTime) {
+          return (records == 0)
+              ? 100D * elapsedTime / duration.toMillis()
+              : 100D * completeRecords / records;
+        }
+
+        @Override
+        public String toString() {
+          return (records == 0) ? duration.toString() : records + "records";
+        }
+      };
     }
   }
 }
