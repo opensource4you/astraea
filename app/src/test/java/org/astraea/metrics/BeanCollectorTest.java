@@ -23,9 +23,9 @@ public class BeanCollectorTest extends RequireBrokerCluster {
       collector
           .nodes()
           .forEach(
-              entry ->
+              node ->
                   Assertions.assertNotEquals(
-                      0, collector.objects(entry.getKey(), entry.getValue()).size()));
+                      0, collector.objects(node.host(), node.port()).size()));
     }
   }
 
