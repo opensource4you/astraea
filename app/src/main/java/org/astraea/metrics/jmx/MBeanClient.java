@@ -26,11 +26,15 @@ public class MBeanClient implements AutoCloseable {
   private final MBeanServerConnection mBeanServerConnection;
   private boolean isClosed;
 
-  public MBeanClient(JMXServiceURL jmxServiceURL) throws IOException {
-    this.jmxServiceURL = Objects.requireNonNull(jmxServiceURL);
-    this.jmxConnector = JMXConnectorFactory.connect(jmxServiceURL);
-    this.isClosed = false;
-    this.mBeanServerConnection = jmxConnector.getMBeanServerConnection();
+  public MBeanClient(JMXServiceURL jmxServiceURL) {
+    try {
+      this.jmxServiceURL = Objects.requireNonNull(jmxServiceURL);
+      this.jmxConnector = JMXConnectorFactory.connect(jmxServiceURL);
+      this.isClosed = false;
+      this.mBeanServerConnection = jmxConnector.getMBeanServerConnection();
+    } catch (IOException e) {
+      throw new UncheckedIOException(e);
+    }
   }
 
   /**

@@ -6,6 +6,7 @@ import java.util.concurrent.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import javax.management.remote.JMXServiceURL;
 import org.astraea.Utils;
 import org.astraea.concurrent.ThreadPool;
 import org.astraea.metrics.jmx.MBeanClient;
@@ -92,21 +93,20 @@ public class BeanCollector implements AutoCloseable {
     pool.waitAll();
   }
 
-  public void addClient(MBeanClient client, Function<MBeanClient, HasBeanObject> getter) {
+  public void addClient(JMXServiceURL url, Function<MBeanClient, HasBeanObject> getter) {
     if (pool.isClosed()) throw new RuntimeException("this is closed!!!");
     var existentNode =
         allNodes.values().stream()
             .flatMap(
                 ns ->
                     ns.stream()
-                        .filter(
-                            n ->
-                                n.host().equals(client.getAddress().getHost())
-                                    && n.port() == client.getAddress().getPort()))
+                        .filter(n -> n.host().equals(url.getHost()) && n.port() == url.getPort()))
             .findFirst();
     // reuse the existent client to get metrics
     if (existentNode.isPresent()) existentNode.get().getters.add(getter);
-    else nodes((int) (Math.random() * pool.size())).add(new Node(client, MAX_OBJECTS, getter));
+    else
+      nodes((int) (Math.random() * pool.size()))
+          .add(new Node(new MBeanClient(url), MAX_OBJECTS, getter));
   }
 
   private static class Node implements AutoCloseable {

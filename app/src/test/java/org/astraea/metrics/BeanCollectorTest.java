@@ -1,9 +1,7 @@
-package org.astraea.partitioner;
+package org.astraea.metrics;
 
 import org.astraea.Utils;
-import org.astraea.metrics.BeanCollector;
 import org.astraea.metrics.java.JvmMemory;
-import org.astraea.metrics.jmx.MBeanClient;
 import org.astraea.metrics.kafka.KafkaMetrics;
 import org.astraea.service.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
@@ -14,7 +12,7 @@ public class BeanCollectorTest extends RequireBrokerCluster {
   @Test
   void testAddClient() throws Exception {
     try (var collector = new BeanCollector()) {
-      collector.addClient(new MBeanClient(jmxServiceURL()), KafkaMetrics.Host::jvmMemory);
+      collector.addClient(jmxServiceURL(), KafkaMetrics.Host::jvmMemory);
       Utils.waitFor(() -> collector.size() > 0);
       collector
           .objects()
@@ -28,6 +26,17 @@ public class BeanCollectorTest extends RequireBrokerCluster {
               entry ->
                   Assertions.assertNotEquals(
                       0, collector.objects(entry.getKey(), entry.getValue()).size()));
+    }
+  }
+
+  @Test
+  void testAddDuplicateClient() throws Exception {
+    try (var collector = new BeanCollector()) {
+      collector.addClient(jmxServiceURL(), KafkaMetrics.Host::jvmMemory);
+      collector.addClient(jmxServiceURL(), KafkaMetrics.Host::jvmMemory);
+      collector.addClient(jmxServiceURL(), KafkaMetrics.Host::jvmMemory);
+
+      Assertions.assertEquals(1, collector.nodes().size());
     }
   }
 }
