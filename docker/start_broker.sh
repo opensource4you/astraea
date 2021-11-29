@@ -19,13 +19,13 @@ function showHelp() {
   echo "Required Argument: "
   echo "    zookeeper.connect=node:22222            set zookeeper connection"
   echo "Optional Arguments: "
-  echo "    num.io.threads=10                       set Broker I/O threads"
-  echo "    num.network.threads=10                  set Broker network threads"
+  echo "    num.io.threads=10                       set broker I/O threads"
+  echo "    num.network.threads=10                  set broker network threads"
   echo "ENV: "
-  echo "    KAFKA_HEAP_OPTS=\"-Xmx2G -Xms2G\"         set Broker JVM memory"
+  echo "    KAFKA_HEAP_OPTS=\"-Xmx2G -Xms2G\"         set broker JVM memory"
   echo "    KAFKA_REVISION=trunk                    set revision of kafka source code to build container"
   echo "    KAFKA_VERSION=2.8.1                     set version of kafka distribution"
-  echo "    LOG_FOLDERS=/tmp/folder1,/tmp/folder2   set host folders used by Broker"
+  echo "    DATA_FOLDERS=/tmp/folder1,/tmp/folder2   set host folders used by broker"
 }
 # =====================================================================
 
@@ -61,7 +61,7 @@ KAFKA_JMX_OPTS="-Dcom.sun.management.jmxremote \
   -Djava.rmi.server.hostname=$address"
 
 # initialize broker config
-config_file="/tmp/server${broker_id}.properties"
+config_file="/tmp/server-${broker_port}.properties"
 echo "" >"$config_file"
 
 while [[ $# -gt 0 ]]; do
@@ -107,6 +107,7 @@ else
   fi
 fi
 
+# create log folders and find out the existent broker.id
 hostFolderConfigs=""
 if [[ "$(cat $config_file | grep log.dirs)" != "" ]]; then
   echo "you should not define log.dirs"
@@ -114,9 +115,15 @@ if [[ "$(cat $config_file | grep log.dirs)" != "" ]]; then
 else
   logConfigs="log.dirs"
   index="1"
-  if [[ -n "$LOG_FOLDERS" ]]; then
-    IFS=',' read -ra folders <<< "$LOG_FOLDERS"
+  if [[ -n "$DATA_FOLDERS" ]]; then
+    IFS=',' read -ra folders <<< "$DATA_FOLDERS"
     for folder in "${folders[@]}"; do
+      # create the folder if it is nonexistent
+      mkdir -p "$folder"
+      # update the broker.id used by this script if it is exist
+      if [[ -f "$folder/meta.properties" ]]; then
+        broker_id=$(grep broker.id "$folder/meta.properties" | cut -d = -f 2)
+      fi
       if [[ "$index" == "1" ]]; then
         logConfigs="$logConfigs=/tmp/kafka-logs$index"
         hostFolderConfigs="-v $folder:/tmp/kafka-logs$index"

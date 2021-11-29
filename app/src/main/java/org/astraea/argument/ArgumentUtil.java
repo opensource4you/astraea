@@ -68,6 +68,36 @@ public class ArgumentUtil {
     }
   }
 
+  /* Converter classes */
+  public static class StringSetConverter implements IStringConverter<Set<String>> {
+    @Override
+    public Set<String> convert(String value) {
+      return requireNonEmpty(Set.of(value.split(",")));
+    }
+  }
+
+  public static class IntegerSetConverter implements IStringConverter<Set<Integer>> {
+    @Override
+    public Set<Integer> convert(String value) {
+      return requireNonEmpty(
+          Stream.of(value.split(",")).map(Integer::valueOf).collect(Collectors.toSet()));
+    }
+  }
+
+  public static class BooleanConverter implements IStringConverter<Boolean> {
+    @Override
+    public Boolean convert(String value) {
+      return Boolean.valueOf(value);
+    }
+  }
+
+  public static class ShortConverter implements IStringConverter<Short> {
+    @Override
+    public Short convert(String value) {
+      return Short.valueOf(value);
+    }
+  }
+
   /**
    * A converter for time unit.
    *
@@ -143,35 +173,6 @@ public class ArgumentUtil {
       if (!TIME_PATTERN.matcher(value).find())
         throw new ParameterException(
             "field \"" + name + "\"'s value \"" + value + "\" doesn't match time format");
-    }
-  }
-
-  public static class StringSetConverter implements IStringConverter<Set<String>> {
-    @Override
-    public Set<String> convert(String value) {
-      return requireNonEmpty(Set.of(value.split(",")));
-    }
-  }
-
-  public static class IntegerSetConverter implements IStringConverter<Set<Integer>> {
-    @Override
-    public Set<Integer> convert(String value) {
-      return requireNonEmpty(
-          Stream.of(value.split(",")).map(Integer::valueOf).collect(Collectors.toSet()));
-    }
-  }
-
-  public static class BooleanConverter implements IStringConverter<Boolean> {
-    @Override
-    public Boolean convert(String value) {
-      return Boolean.valueOf(value);
-    }
-  }
-
-  public static class ShortConverter implements IStringConverter<Short> {
-    @Override
-    public Short convert(String value) {
-      return Short.valueOf(value);
     }
   }
 

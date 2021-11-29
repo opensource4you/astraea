@@ -20,6 +20,7 @@ This project offers many kafka tools to simplify the life for kafka users.
 5. [Kafka metric client](#kafka-metric-client): utility for accessing kafka Mbean metrics via JMX.
 6. [Replica Collie](#replica-collie): move replicas from brokers to others. You can use this tool to obstruct specific brokers from hosting specific topics.
 7. [Kafka partition score](#Kafka-partition-score): score all broker's partitions. 
+8. [Kafka replica syncing monitor](#Kafka-replica-syncing-monitor): Tracking replica syncing progress.
 
 [Release page](https://github.com/skiptests/astraea/releases) offers the uber jar including all tools.
 ```shell
@@ -74,7 +75,7 @@ There are 4 useful ENVs which can change JVM/container configuration.
 1. KAFKA_VERSION -> define the kafka version
 2. KAFKA_REVISION -> define the revision of kafka source code. If this is defined, it will run distribution based on the source code
 3. KAFKA_HEAP_OPTS -> define JVM memory options
-4. LOG_FOLDERS -> define the host folders used by broker. You should define it if you want to keep data after terminating container
+4. DATA_FOLDERS -> define the host folders used by broker. You should define it if you want to keep data after terminating container
 
 ### Run Prometheus
 
@@ -244,3 +245,50 @@ This tool will score the partition on brokers, the higher score the heavier load
 
 1. --bootstrap.servers: the server to connect to
 
+## Kafka Replica Syncing Monitor
+
+This tool will track partition replica syncing progress. This tool can be used to observe 
+the partition migration process.
+
+### Start monitor syncing progress
+
+```shell
+$ ./gradlew run --args="monitor --bootstrap.servers 192.168.103.39:9092"
+
+[2021-11-23T16:00:26.282676667]
+  Topic "my-topic":
+  │ Partition 0:
+  │ │ replica on broker   0 => [####################] 100.00% [leader, synced]
+  │ │ replica on broker   2 => [                    ]   1.37% 0.00 B/s (unknown) []
+  │ Partition 1:
+  │ │ replica on broker   0 => [####################] 100.00% [leader, synced]
+  │ │ replica on broker   2 => [                    ]   1.35% 0.00 B/s (unknown) []
+
+[2021-11-23T16:00:26.862637796]
+  Topic "my-topic":
+  │ Partition 0:
+  │ │ replica on broker   0 => [####################] 100.00% [leader, synced]
+  │ │ replica on broker   2 => [#                   ]   5.62% 240.54 MB/s (11s estimated) []
+  │ Partition 1:
+  │ │ replica on broker   0 => [####################] 100.00% [leader, synced]
+  │ │ replica on broker   2 => [#                   ]   5.25% 242.53 MB/s (12s estimated) []
+
+[2021-11-23T16:00:27.400814839]
+  Topic "my-topic":
+  │ Partition 0:
+  │ │ replica on broker   0 => [####################] 100.00% [leader, synced]
+  │ │ replica on broker   2 => [##                  ]   9.90% 242.53 MB/s (10s estimated) []
+  │ Partition 1:
+  │ │ replica on broker   0 => [####################] 100.00% [leader, synced]
+  │ │ replica on broker   2 => [##                  ]   9.13% 240.54 MB/s (11s estimated) []
+
+...
+```
+
+### Replica Syncing Monitor Configurations
+
+1. --bootstrap.servers: the server to connect to
+2. --interval: the frequency(time interval in second) to check replica state, support floating point value. (default: 1 second)
+3. --prop.file: the path to a file that containing the properties to be passed to kafka admin.
+4. --topic: topics to track (default: track all non-synced partition by default)
+5. --track: keep track even if all the replicas are synced. Also attempts to discover any non-synced replicas. (default: false)
