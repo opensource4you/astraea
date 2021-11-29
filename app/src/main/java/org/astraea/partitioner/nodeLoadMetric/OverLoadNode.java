@@ -1,89 +1,121 @@
 package org.astraea.partitioner.nodeLoadMetric;
 
-import java.util.Collection;
+import static java.lang.Double.sum;
+
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+import org.astraea.metrics.HasBeanObject;
+import org.astraea.metrics.jmx.BeanCollector;
+import org.astraea.metrics.kafka.KafkaMetrics;
 
 public class OverLoadNode {
-  private double standardDeviation = 0;
-  private Collection<String> nodesID;
-  private int nodeNum;
-  private int mountCount = 0;
-  private Collection<NodeClient> nodeClientCollection;
+  private final BeanCollector beanCollector;
+  private Map<Map.Entry<String, Integer>, Map<String, List<HasBeanObject>>> valueMetrics;
 
-  OverLoadNode(Collection<NodeClient> nodeMetrics) {
-    this.nodesID =
-        nodeMetrics.stream().map(NodeMetadata::nodeID).collect(Collectors.toUnmodifiableList());
-    this.nodeNum = nodeMetrics.size();
-    this.nodeClientCollection = nodeMetrics;
+  OverLoadNode(BeanCollector collector) {
+    beanCollector = collector;
   }
 
   /** Monitor and update the number of overloads of each node. */
-  public void monitorOverLoad() {
+  public Map<Map.Entry<String, Integer>, Integer> nodesOverLoad(
+      Set<Map.Entry<String, Integer>> addresses) {
+    var nodesMetrics = beanCollector.nodesObjects();
+    valueMetrics = new ConcurrentHashMap<>();
+    for (Map.Entry<String, Integer> address : addresses) {
+      var entrySet =
+          nodesMetrics.entrySet().stream()
+              .filter(entry -> Objects.equals(entry.getKey(), address))
+              .findFirst()
+              .get();
+      valueMetrics.put(entrySet.getKey(), entrySet.getValue());
+    }
+
     var eachBrokerMsgPerSec = brokersMsgPerSec();
-    var avgBrokersMsgPerSec = avgBrokersMsgPerSec(eachBrokerMsgPerSec);
-    standardDeviationImperative(eachBrokerMsgPerSec, avgBrokersMsgPerSec);
-    for (NodeClient nodeClient : nodeClientCollection) {
-      var ifOverLoad = 0;
-      NodeMetadata nodeMetadata = nodeClient;
-      if (nodeMetadata.totalBytes() > (avgBrokersMsgPerSec + standardDeviation)) {
-        ifOverLoad = 1;
+
+    var overLoadCount = new HashMap<Map.Entry<String, Integer>, Integer>();
+    eachBrokerMsgPerSec.keySet().forEach(e -> overLoadCount.put(e, 0));
+    var i = 0;
+    while (i < 10) {
+      var avg = getAvgMsgSec(i);
+      var eachMsg = getBrokersMsgSec(i);
+      var standardDeviation = standardDeviationImperative(eachMsg, avg);
+      for (Map.Entry<Map.Entry<String, Integer>, Double> entry : eachMsg.entrySet()) {
+        if (entry.getValue() > (avg + standardDeviation)) {
+          overLoadCount.put(entry.getKey(), overLoadCount.get(entry.getKey()) + 1);
+        }
       }
-      nodeClient.setOverLoadCount(
-          overLoadCount(nodeMetadata.overLoadCount(), mountCount % 10, ifOverLoad));
+      i++;
     }
-    mountCount++;
+    return overLoadCount;
   }
 
-  /**
-   * Use bit operations to record whether the node exceeds the load per second,the position of the
-   * number represents the recorded time.
-   */
-  public int overLoadCount(int overLoadCount, int roundCount, int ifOverLoad) {
-    var x = overLoadCount & 1 << roundCount;
-    if (x == ifOverLoad << roundCount) {
-      return overLoadCount;
-    } else {
-      if (ifOverLoad != 0) {
-        return overLoadCount | 1 << roundCount;
-      } else {
-        return overLoadCount - (int) Math.pow(2, roundCount);
-      }
-    }
+  private Map<Map.Entry<String, Integer>, Double> getBrokersMsgSec(int index) {
+    return brokersMsgPerSec().entrySet().stream()
+        .collect(Collectors.toMap(Map.Entry::getKey, entry -> entry.getValue().get(index)));
   }
 
-  private HashMap<String, Double> brokersMsgPerSec() {
-    var eachMsg = new HashMap<String, Double>();
-    nodeClientCollection.forEach(s -> eachMsg.put(s.nodeID(), s.totalBytes()));
+  private double getAvgMsgSec(int index) {
+    return avgBrokersMsgPerSec(brokersMsgPerSec()).get(index);
+  }
+
+  private Map<Map.Entry<String, Integer>, List<Double>> brokersMsgPerSec() {
+    var eachMsg = new HashMap<Map.Entry<String, Integer>, List<Double>>();
+
+    for (Map.Entry<Map.Entry<String, Integer>, Map<String, List<HasBeanObject>>> entry :
+        valueMetrics.entrySet()) {
+      List<Double> sumList = new ArrayList<>();
+      var outMsg = entry.getValue().get(KafkaMetrics.BrokerTopic.BytesOutPerSec.toString());
+      var inMsg = entry.getValue().get(KafkaMetrics.BrokerTopic.BytesInPerSec.toString());
+
+      IntStream.range(
+              0, valueMetrics.values().stream().map(s -> s.values()).findFirst().get().size())
+          .mapToObj(
+              i ->
+                  sumList.add(
+                      sum(
+                          Double.parseDouble(
+                              outMsg
+                                  .get(i)
+                                  .beanObject()
+                                  .getAttributes()
+                                  .get("MeanRate")
+                                  .toString()),
+                          Double.parseDouble(
+                              inMsg
+                                  .get(i)
+                                  .beanObject()
+                                  .getAttributes()
+                                  .get("MeanRate")
+                                  .toString()))));
+
+      eachMsg.put(entry.getKey(), sumList);
+    }
     return eachMsg;
   }
 
-  public double avgBrokersMsgPerSec(HashMap<String, Double> eachMsg) {
-    var avg = 0.0;
-    for (Map.Entry<String, Double> entry : eachMsg.entrySet()) {
-      avg += entry.getValue();
-    }
-    return avg / nodeNum;
+  public List<Double> avgBrokersMsgPerSec(Map<Map.Entry<String, Integer>, List<Double>> eachMsg) {
+
+    return IntStream.range(0, eachMsg.values().stream().findFirst().get().size())
+        .mapToDouble(i -> eachMsg.values().stream().map(s -> s.get(i)).reduce(0.0, Double::sum))
+        .map(sum -> sum / eachMsg.size())
+        .boxed()
+        .collect(Collectors.toList());
   }
 
-  public void standardDeviationImperative(
-      HashMap<String, Double> eachMsg, double avgBrokersMsgPerSec) {
+  public double standardDeviationImperative(
+      Map<Map.Entry<String, Integer>, Double> eachMsg, double avgBrokersMsgPerSec) {
     var variance = 0.0;
-    for (Map.Entry<String, Double> entry : eachMsg.entrySet()) {
+    for (Map.Entry<Map.Entry<String, Integer>, Double> entry : eachMsg.entrySet()) {
       variance +=
           (entry.getValue() - avgBrokersMsgPerSec) * (entry.getValue() - avgBrokersMsgPerSec);
     }
-    this.standardDeviation = Math.sqrt(variance / nodeNum);
-  }
-
-  // Only for test
-  double getStandardDeviation() {
-    return this.standardDeviation;
-  }
-
-  // Only for test
-  void setMountCount(int i) {
-    this.mountCount = i;
+    return Math.sqrt(variance / eachMsg.size());
   }
 }

@@ -2,9 +2,7 @@ package org.astraea.partitioner.nodeLoadMetric;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 
-import java.util.HashMap;
 import org.junit.jupiter.api.Test;
 
 public class LoadPoissonTest {
@@ -28,29 +26,5 @@ public class LoadPoissonTest {
     assertEquals(loadPoisson.doPoisson(5, 5), 0.6159606548330632);
     assertEquals(loadPoisson.doPoisson(5, 8), 0.9319063652781515);
     assertEquals(loadPoisson.doPoisson(5, 2), 0.12465201948308113);
-  }
-
-  @Test
-  public void testSetAllPoisson() {
-    HashMap<String, Integer> testNodesLoadCount = new HashMap<>();
-    testNodesLoadCount.put("0", 10);
-    testNodesLoadCount.put("1", 31);
-    testNodesLoadCount.put("2", 255);
-
-    HashMap<String, Double> poissonMap;
-    HashMap<String, Double> testPoissonMap = new HashMap<>();
-    testPoissonMap.put("0", 0.12465201948308113);
-    testPoissonMap.put("1", 0.6159606548330632);
-    testPoissonMap.put("2", 0.9319063652781515);
-
-    NodeLoadClient nodeLoadClient = mock(NodeLoadClient.class);
-    when(nodeLoadClient.nodeOverLoadCount()).thenReturn(testNodesLoadCount);
-    when(nodeLoadClient.avgLoadCount()).thenReturn(5);
-
-    LoadPoisson loadPoisson = new LoadPoisson();
-
-    loadPoisson.allNodesPoisson(nodeLoadClient.avgLoadCount(), nodeLoadClient.nodeOverLoadCount());
-
-    assertEquals(loadPoisson.getAllPoisson(), testPoissonMap);
   }
 }

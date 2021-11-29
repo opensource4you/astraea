@@ -32,14 +32,14 @@ public class PartitionerTest extends RequireBrokerCluster {
     props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, ByteArraySerializer.class.getName());
     props.put(ProducerConfig.CLIENT_ID_CONFIG, "id1");
     props.put(ProducerConfig.PARTITIONER_CLASS_CONFIG, SmoothWeightPartitioner.class.getName());
-    props.put("jmx_servers", jmxServiceURL() + "@0");
+    props.put("jmx_servers", jmxServiceURL() + "");
+    System.out.println(jmxServiceURL() + "");
     return props;
   }
 
   @Test
   public void testPartitioner() {
     admin.creator().topic(topicName).numberOfPartitions(20).create();
-
     var key = "tainan";
     var timestamp = System.currentTimeMillis() + 10;
     var header = Header.of("a", "b".getBytes());

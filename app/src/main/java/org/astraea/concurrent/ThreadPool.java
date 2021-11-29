@@ -18,6 +18,11 @@ public interface ThreadPool extends AutoCloseable {
   /** wait all executors to be done. */
   void waitAll();
 
+  boolean isClosed();
+
+  /** @return the number of threads */
+  int size();
+
   static Builder builder() {
     return new Builder();
   }
@@ -98,6 +103,16 @@ public interface ThreadPool extends AutoCloseable {
           } catch (InterruptedException e) {
             // swallow
           }
+        }
+
+        @Override
+        public boolean isClosed() {
+          return closed.get();
+        }
+
+        @Override
+        public int size() {
+          return executors.size();
         }
       };
     }

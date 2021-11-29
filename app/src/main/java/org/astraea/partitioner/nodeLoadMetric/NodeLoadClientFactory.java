@@ -2,18 +2,15 @@ package org.astraea.partitioner.nodeLoadMetric;
 
 import java.util.Arrays;
 import java.util.Comparator;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.TreeMap;
-import org.astraea.concurrent.ThreadPool;
 
 public class NodeLoadClientFactory {
   private final Object lock = new Object();
   private final Map<Map<String, ?>, Integer> count;
   private final Map<Map<String, ?>, NodeLoadClient> instances;
   private final Map<Map<String, ?>, NodeLoadClient> nodeLoadClientMap;
-  private ThreadPool pool;
   /**
    * create a factory with specific comparator.
    *
@@ -48,41 +45,16 @@ public class NodeLoadClientFactory {
       var jmxAddresses =
           Objects.requireNonNull(
               (String) configs.get("jmx_servers"), "You must configure jmx_servers correctly");
-      var list = Arrays.asList((jmxAddresses).split(","));
-      Map<String, String> jmxAddress = new HashMap<>();
-      for (String str : list) {
-        var listAddress = Arrays.asList(str.split("@"));
-        jmxAddress.put(listAddress.get(1), listAddress.get(0));
-      }
+      var jmxAddress = Arrays.asList((jmxAddresses).split(","));
       Objects.requireNonNull(
           jmxAddress, "You must configure jmx_servers correctly.(JmxAddress@NodeID)");
       var nodeLoadClient = new NodeLoadClient(jmxAddress);
       var proxy =
           new NodeLoadClient(jmxAddress) {
-            @Override
-            public void refreshNodesMetrics() {
-              nodeLoadClient.refreshNodesMetrics();
-            }
-
-            @Override
-            public synchronized int avgLoadCount() {
-              return nodeLoadClient.avgLoadCount();
-            }
 
             @Override
             public LoadPoisson getLoadPoisson() {
               return nodeLoadClient.getLoadPoisson();
-            }
-
-            @Override
-            public Map<String, Integer> nodeOverLoadCount() {
-              return nodeLoadClient.nodeOverLoadCount();
-            }
-
-            @Override
-            public State execute() throws InterruptedException {
-              nodeLoadClient.execute();
-              return null;
             }
 
             @Override
@@ -92,6 +64,8 @@ public class NodeLoadClientFactory {
                 if (current == 1) {
                   try {
                     nodeLoadClient.close();
+                  } catch (Exception e) {
+                    e.printStackTrace();
                   } finally {
                     count.remove(configs);
                     instances.remove(configs);
@@ -104,8 +78,6 @@ public class NodeLoadClientFactory {
       count.put(configs, 1);
       instances.put(configs, proxy);
       nodeLoadClientMap.put(configs, nodeLoadClient);
-      pool = ThreadPool.builder().executor(proxy).build();
-      Runtime.getRuntime().addShutdownHook(new Thread(() -> pool.close()));
       return proxy;
     } catch (Exception e) {
       throw new RuntimeException(e);

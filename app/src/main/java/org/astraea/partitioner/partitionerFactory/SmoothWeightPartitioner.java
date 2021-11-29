@@ -1,5 +1,6 @@
 package org.astraea.partitioner.partitionerFactory;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -22,19 +23,19 @@ public class SmoothWeightPartitioner implements Partitioner {
    * Record the current weight of each node according to Poisson calculation and the weight after
    * partitioner calculation.
    */
-  private HashMap<String, int[]> allBrokersWeight = new HashMap<>();
+  private HashMap<Integer, int[]> allBrokersWeight = new HashMap<>();
 
   private NodeLoadClient nodeLoadClient;
 
   @Override
   public int partition(
       String topic, Object key, byte[] keyBytes, Object value, byte[] valueBytes, Cluster cluster) {
-    Map.Entry<String, int[]> maxWeightServer = null;
-    updateBrokersWeight();
+    Map.Entry<Integer, int[]> maxWeightServer = null;
+    updateBrokersWeight(cluster);
     var allWeight = getAllWeight();
-    HashMap<String, int[]> currentBrokers = getAllBrokersWeight();
+    HashMap<Integer, int[]> currentBrokers = getAllBrokersWeight();
 
-    for (Map.Entry<String, int[]> item : currentBrokers.entrySet()) {
+    for (Map.Entry<Integer, int[]> item : currentBrokers.entrySet()) {
       if (maxWeightServer == null || item.getValue()[1] > maxWeightServer.getValue()[1]) {
         maxWeightServer = item;
       }
@@ -48,8 +49,7 @@ public class SmoothWeightPartitioner implements Partitioner {
     setCurrentBrokers(currentBrokers);
 
     ArrayList<Integer> partitionList = new ArrayList<>();
-    for (PartitionInfo partitionInfo :
-        cluster.partitionsForNode(Integer.parseInt(maxWeightServer.getKey()))) {
+    for (PartitionInfo partitionInfo : cluster.partitionsForNode(maxWeightServer.getKey())) {
       partitionList.add(partitionInfo.partition());
     }
     Random rand = new Random();
@@ -59,7 +59,11 @@ public class SmoothWeightPartitioner implements Partitioner {
 
   @Override
   public void close() {
-    nodeLoadClient.close();
+    try {
+      nodeLoadClient.close();
+    } catch (Exception e) {
+      e.printStackTrace();
+    }
   }
 
   @Override
@@ -67,12 +71,18 @@ public class SmoothWeightPartitioner implements Partitioner {
     Objects.requireNonNull(
         (String) configs.get("jmx_servers"), "You must configure jmx_servers correctly");
     nodeLoadClient = FACTORY.getOrCreate(NodeLoadClient.class, configs);
+    try {
+      nodeLoadClient.addNodeMetrics();
+    } catch (IOException e) {
+      e.printStackTrace();
+    }
   }
   /** Change the weight of the node according to the current Poisson. */
-  private synchronized void updateBrokersWeight() {
-    Map<String, Double> allPoisson = nodeLoadClient.getLoadPoisson().getAllPoisson();
+  private synchronized void updateBrokersWeight(Cluster cluster) {
+    nodeLoadClient.nodesPoisson(cluster);
+    Map<Integer, Double> allPoisson = nodeLoadClient.getLoadPoisson().getAllPoisson();
 
-    for (Map.Entry<String, Double> entry : allPoisson.entrySet()) {
+    for (Map.Entry<Integer, Double> entry : allPoisson.entrySet()) {
       if (!allBrokersWeight.containsKey(entry.getKey())) {
         allBrokersWeight.put(entry.getKey(), new int[] {(int) ((1 - entry.getValue()) * 20), 0});
       } else {
@@ -89,11 +99,11 @@ public class SmoothWeightPartitioner implements Partitioner {
     return allBrokersWeight.values().stream().mapToInt(vs -> vs[0]).sum();
   }
 
-  private synchronized HashMap<String, int[]> getAllBrokersWeight() {
+  private synchronized HashMap<Integer, int[]> getAllBrokersWeight() {
     return allBrokersWeight;
   }
 
-  private synchronized void setCurrentBrokers(HashMap<String, int[]> currentBrokers) {
+  private synchronized void setCurrentBrokers(HashMap<Integer, int[]> currentBrokers) {
     allBrokersWeight = currentBrokers;
   }
 

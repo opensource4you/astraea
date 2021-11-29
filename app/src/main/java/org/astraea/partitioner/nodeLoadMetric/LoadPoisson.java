@@ -1,17 +1,16 @@
 package org.astraea.partitioner.nodeLoadMetric;
 
-import static org.astraea.partitioner.nodeLoadMetric.NodeLoadClient.binOneCount;
-
 import java.util.HashMap;
 import java.util.Map;
 
 public class LoadPoisson {
-  private Map<String, Double> allPoisson = new HashMap<>();
+  private Map<Integer, Double> allPoisson = new HashMap<>();
 
-  public synchronized void allNodesPoisson(int avgLoad, Map<String, Integer> nodeOverLoadCount) {
-    for (Map.Entry<String, Integer> entry : nodeOverLoadCount.entrySet()) {
-      var x = binOneCount(entry.getValue());
-      allPoisson.put(entry.getKey(), doPoisson(avgLoad, x));
+  public synchronized void allNodesPoisson(Map<Integer, Integer> nodeOverLoadCount) {
+    int avgLoad =
+        nodeOverLoadCount.values().stream().reduce(Integer::sum).get() / nodeOverLoadCount.size();
+    for (Map.Entry<Integer, Integer> entry : nodeOverLoadCount.entrySet()) {
+      allPoisson.put(entry.getKey(), doPoisson(avgLoad, entry.getValue()));
     }
   }
 
@@ -35,7 +34,7 @@ public class LoadPoisson {
     else return number * factorial(number - 1);
   }
 
-  public Map<String, Double> getAllPoisson() {
+  public Map<Integer, Double> getAllPoisson() {
     return allPoisson;
   }
 }
