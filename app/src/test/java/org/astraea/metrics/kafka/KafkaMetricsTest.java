@@ -41,7 +41,7 @@ class KafkaMetricsTest extends RequireBrokerCluster {
     jmxServer = JMXConnectorServerFactory.newJMXConnectorServer(serviceURL, null, mBeanServer);
     jmxServer.start();
 
-    mBeanClient = new MBeanClient(jmxServer.getAddress());
+    mBeanClient = MBeanClient.of(jmxServer.getAddress());
   }
 
   @AfterEach

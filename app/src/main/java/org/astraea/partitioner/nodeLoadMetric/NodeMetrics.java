@@ -28,7 +28,7 @@ public class NodeMetrics {
     if (Pattern.compile("^service:").matcher(address).find())
       serviceURL = new JMXServiceURL(address);
     else serviceURL = new JMXServiceURL(createJmxUrl(address));
-    mBeanClient = new MBeanClient(serviceURL);
+    mBeanClient = MBeanClient.of(serviceURL);
     metricsValues = new HashMap();
   }
 
