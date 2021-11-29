@@ -1,4 +1,4 @@
-package org.astraea.partitioner;
+package org.astraea.metrics;
 
 import java.time.Duration;
 import java.util.*;
@@ -8,7 +8,6 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.astraea.Utils;
 import org.astraea.concurrent.ThreadPool;
-import org.astraea.metrics.HasBeanObject;
 import org.astraea.metrics.jmx.MBeanClient;
 
 public class BeanCollector implements AutoCloseable {
@@ -95,26 +94,40 @@ public class BeanCollector implements AutoCloseable {
 
   public void addClient(MBeanClient client, Function<MBeanClient, HasBeanObject> getter) {
     if (pool.isClosed()) throw new RuntimeException("this is closed!!!");
-    nodes((int) (Math.random() * pool.size())).add(new Node(client, MAX_OBJECTS, getter));
+    var existentNode =
+        allNodes.values().stream()
+            .flatMap(
+                ns ->
+                    ns.stream()
+                        .filter(
+                            n ->
+                                n.host().equals(client.getAddress().getHost())
+                                    && n.port() == client.getAddress().getPort()))
+            .findFirst();
+    // reuse the existent client to get metrics
+    if (existentNode.isPresent()) existentNode.get().getters.add(getter);
+    else nodes((int) (Math.random() * pool.size())).add(new Node(client, MAX_OBJECTS, getter));
   }
 
   private static class Node implements AutoCloseable {
     final MBeanClient client;
-    final Function<MBeanClient, HasBeanObject> getter;
+    final List<Function<MBeanClient, HasBeanObject>> getters = new CopyOnWriteArrayList<>();
     final Queue<HasBeanObject> objects;
     final int numberOfObjects;
 
     Node(MBeanClient client, int numberOfObjects, Function<MBeanClient, HasBeanObject> getter) {
       this.client = client;
-      this.getter = getter;
+      this.getters.add(getter);
       this.objects = new LinkedBlockingQueue<>(numberOfObjects);
       this.numberOfObjects = numberOfObjects;
     }
 
     void updateObjects() {
-      var newObject = getter.apply(client);
-      if (objects.size() >= numberOfObjects) objects.poll();
-      objects.offer(newObject);
+      getters.forEach(
+          getter -> {
+            if (objects.size() >= numberOfObjects) objects.poll();
+            objects.offer(getter.apply(client));
+          });
     }
 
     @Override

@@ -1,6 +1,7 @@
 package org.astraea.partitioner;
 
 import org.astraea.Utils;
+import org.astraea.metrics.BeanCollector;
 import org.astraea.metrics.java.JvmMemory;
 import org.astraea.metrics.jmx.MBeanClient;
 import org.astraea.metrics.kafka.KafkaMetrics;
