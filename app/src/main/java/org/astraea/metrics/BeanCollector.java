@@ -13,7 +13,7 @@ import org.astraea.metrics.jmx.MBeanClient;
 
 public class BeanCollector implements AutoCloseable {
   private static final int MAX_OBJECTS = 30;
-  private final Map<Integer, Set<Node>> allNodes = new ConcurrentHashMap<>();
+  private final Map<Integer, Set<NodeImpl>> allNodes = new ConcurrentHashMap<>();
   private final ThreadPool pool;
 
   public BeanCollector() {
@@ -30,7 +30,7 @@ public class BeanCollector implements AutoCloseable {
                             new ThreadPool.Executor() {
                               @Override
                               public State execute() throws InterruptedException {
-                                nodes(i).forEach(Node::updateObjects);
+                                nodes(i).forEach(NodeImpl::updateObjects);
                                 TimeUnit.MILLISECONDS.sleep(interval.toMillis());
                                 return ThreadPool.Executor.State.RUNNING;
                               }
@@ -38,25 +38,25 @@ public class BeanCollector implements AutoCloseable {
                               @Override
                               public void close() {
                                 var nodes = allNodes.remove(i);
-                                if (nodes != null) nodes.forEach(Node::close);
+                                if (nodes != null) nodes.forEach(NodeImpl::close);
                               }
                             })
                     .collect(Collectors.toList()))
             .build();
   }
 
-  private Set<Node> nodes(int index) {
+  private Set<NodeImpl> nodes(int index) {
     return allNodes.computeIfAbsent(
         index,
         ignored ->
             new ConcurrentSkipListSet<>(
-                Comparator.comparing(Node::host).thenComparing(Node::port)));
+                Comparator.comparing(NodeImpl::host).thenComparing(NodeImpl::port)));
   }
 
   /** @return the monitored host/port */
-  public List<Map.Entry<String, Integer>> nodes() {
+  public List<Node> nodes() {
     return allNodes.values().stream()
-        .flatMap(ns -> ns.stream().map(n -> Map.entry(n.host(), n.port())))
+        .flatMap(ns -> ns.stream().map(n -> (Node) n))
         .collect(Collectors.toList());
   }
 
@@ -75,9 +75,9 @@ public class BeanCollector implements AutoCloseable {
         .collect(Collectors.toList());
   }
 
-  public Map<Map.Entry<String, Integer>, List<HasBeanObject>> objects() {
+  public Map<Node, List<HasBeanObject>> objects() {
     return nodes().stream()
-        .collect(Collectors.toMap(Function.identity(), n -> objects(n.getKey(), n.getValue())));
+        .collect(Collectors.toMap(Function.identity(), n -> objects(n.host(), n.port())));
   }
 
   /** @return the number of all objects */
@@ -106,16 +106,22 @@ public class BeanCollector implements AutoCloseable {
     if (existentNode.isPresent()) existentNode.get().getters.add(getter);
     else
       nodes((int) (Math.random() * pool.size()))
-          .add(new Node(new MBeanClient(url), MAX_OBJECTS, getter));
+          .add(new NodeImpl(new MBeanClient(url), MAX_OBJECTS, getter));
   }
 
-  private static class Node implements AutoCloseable {
+  interface Node {
+    String host();
+
+    int port();
+  }
+
+  private static class NodeImpl implements AutoCloseable, Node {
     final MBeanClient client;
     final List<Function<MBeanClient, HasBeanObject>> getters = new CopyOnWriteArrayList<>();
     final Queue<HasBeanObject> objects;
     final int numberOfObjects;
 
-    Node(MBeanClient client, int numberOfObjects, Function<MBeanClient, HasBeanObject> getter) {
+    NodeImpl(MBeanClient client, int numberOfObjects, Function<MBeanClient, HasBeanObject> getter) {
       this.client = client;
       this.getters.add(getter);
       this.objects = new LinkedBlockingQueue<>(numberOfObjects);
@@ -135,11 +141,13 @@ public class BeanCollector implements AutoCloseable {
       Utils.close(client);
     }
 
-    String host() {
+    @Override
+    public String host() {
       return client.getAddress().getHost();
     }
 
-    int port() {
+    @Override
+    public int port() {
       return client.getAddress().getPort();
     }
   }
