@@ -329,15 +329,12 @@ class MBeanClientTest {
   }
 
   @Test
-  void testGetAddress() {
+  void testHostAndPort() {
     // arrange
     try (var client = MBeanClient.of(jmxServer.getAddress())) {
 
-      // act
-      JMXServiceURL address = ((MBeanClientImpl) client).getAddress();
-
-      // assert
-      assertEquals(jmxServer.getAddress(), address);
+      assertEquals(jmxServer.getAddress().getHost(), client.host());
+      assertEquals(jmxServer.getAddress().getPort(), client.port());
     }
   }
 
