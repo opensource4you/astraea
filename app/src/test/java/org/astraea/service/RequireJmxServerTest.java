@@ -9,8 +9,13 @@ import org.junit.jupiter.api.Test;
 public class RequireJmxServerTest extends RequireBrokerCluster {
 
   @Test
-  void testQueryBeans() throws Exception {
-    try (var client = MBeanClient.of(jmxServiceURL())) {
+  void testQueryBeans() {
+    testQueryBeans(MBeanClient.jndi(jmxServiceURL().getHost(), jmxServiceURL().getPort()));
+    testQueryBeans(MBeanClient.of(jmxServiceURL()));
+  }
+
+  private void testQueryBeans(MBeanClient client) {
+    try (client) {
       var result = client.queryBeans(BeanQuery.all());
       Assertions.assertFalse(result.isEmpty());
     }
@@ -18,7 +23,12 @@ public class RequireJmxServerTest extends RequireBrokerCluster {
 
   @Test
   void testMemory() throws Exception {
-    try (var client = MBeanClient.of(jmxServiceURL())) {
+    testMemory(MBeanClient.jndi(jmxServiceURL().getHost(), jmxServiceURL().getPort()));
+    testMemory(MBeanClient.of(jmxServiceURL()));
+  }
+
+  private void testMemory(MBeanClient client) {
+    try (client) {
       var memory = KafkaMetrics.Host.jvmMemory(client);
       Assertions.assertNotEquals(0, memory.heapMemoryUsage().getMax());
     }

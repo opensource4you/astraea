@@ -1,5 +1,6 @@
 package org.astraea.metrics.jmx;
 
+import java.net.MalformedURLException;
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
@@ -19,6 +20,21 @@ import javax.management.remote.JMXServiceURL;
  * }</pre>
  */
 public interface MBeanClient extends AutoCloseable {
+
+  /**
+   * @param host the address of jmx server
+   * @param port the port of jmx server
+   * @return a mbean client using JNDI to lookup metrics.
+   */
+  static MBeanClient jndi(String host, int port) {
+    try {
+      return of(
+          new JMXServiceURL(
+              String.format("service:jmx:rmi:///jndi/rmi://%s:%s/jmxrmi", host, port)));
+    } catch (MalformedURLException e) {
+      throw new IllegalArgumentException(e);
+    }
+  }
 
   static MBeanClient of(JMXServiceURL url) {
     return new MBeanClientImpl(url);
