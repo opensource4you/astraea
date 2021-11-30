@@ -11,7 +11,7 @@ import java.util.concurrent.CountDownLatch;
  * producers are closed and all records are consumed.
  */
 public class Manager {
-  private final Performance.ExeTime exeTime;
+  private final ExeTime exeTime;
   private final boolean fixedSize;
   private final int size;
   private final CountDownLatch getAssignment;
@@ -62,15 +62,11 @@ public class Manager {
   }
 
   public long producedRecords() {
-    long ans = 0;
-    for (var m : producerMetrics) ans += m.num();
-    return ans;
+    return producerMetrics.stream().mapToLong(Metrics::num).sum();
   }
 
   public long consumedRecords() {
-    long ans = 0;
-    for (var m : consumerMetrics) ans += m.num();
-    return ans;
+    return consumerMetrics.stream().mapToLong(Metrics::num).sum();
   }
 
   /** Used in "consumerRebalanceListener" callback. To */
@@ -87,13 +83,13 @@ public class Manager {
     getAssignment.await();
   }
 
-  public Performance.ExeTime exeTime() {
+  public ExeTime exeTime() {
     return exeTime;
   }
 
   /** Check if we should keep producing record. */
   public boolean producedDone() {
-    return exeTime.done(producedRecords(), System.currentTimeMillis() - start);
+    return exeTime.percentage(producedRecords(), System.currentTimeMillis() - start) >= 100D;
   }
 
   /** Check if we should keep consuming record. */

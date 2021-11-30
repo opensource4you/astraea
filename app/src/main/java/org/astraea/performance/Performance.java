@@ -9,6 +9,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.function.BiConsumer;
+import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -117,7 +118,7 @@ public class Performance {
   }
 
   static ThreadPool.Executor consumerExecutor(
-      Consumer<byte[], byte[]> consumer, BiConsumer<Long, Long> metrics, Manager manager) {
+      Consumer<byte[], byte[]> consumer, BiConsumer<Long, Long> observer, Manager manager) {
     return new ThreadPool.Executor() {
       @Override
       public State execute() {
@@ -127,7 +128,7 @@ public class Performance {
               .forEach(
                   record -> {
                     // 記錄端到端延時, 記錄輸入byte(沒有算入header和timestamp)
-                    metrics.accept(
+                    observer.accept(
                         System.currentTimeMillis() - record.timestamp(),
                         (long) record.serializedKeySize() + record.serializedValueSize());
                   });
@@ -154,7 +155,7 @@ public class Performance {
   static ThreadPool.Executor producerExecutor(
       Producer<byte[], byte[]> producer,
       Argument param,
-      BiConsumer<Long, Long> metrics,
+      BiConsumer<Long, Long> observer,
       Manager manager) {
     return new ThreadPool.Executor() {
       @Override
@@ -174,7 +175,7 @@ public class Performance {
             .run()
             .whenComplete(
                 (m, e) ->
-                    metrics.accept(System.currentTimeMillis() - start, m.serializedValueSize()));
+                    observer.accept(System.currentTimeMillis() - start, m.serializedValueSize()));
         return State.RUNNING;
       }
 
@@ -226,8 +227,9 @@ public class Performance {
         names = {"--run.until"},
         description =
             "Run until number of records are produced and consumed or until duration meets."
-                + " The duration formats accepted are based on the ISO-8601 duration format"
-                + " PnDTnHnMn.nS with days considered to be exactly 24 hours.",
+                + " The duration formats accepted are (a number) + (a time unit)."
+                + " The time units can be \"days\", \"day\", \"h\", \"m\", \"s, \"ms\","
+                + " \"us\", \"ns\"",
         converter = ExeTimeArgument.class)
     ExeTime exeTime = ExeTime.of("1000records");
 
@@ -294,43 +296,36 @@ public class Performance {
       return ExeTime.of(value);
     }
   }
+}
 
-  /**
-   * Two kind of running modes. One run for a duration of time. The other run for a number of
-   * records.
-   */
-  interface ExeTime {
+/**
+ * Two kind of running modes. One runs for a duration of time. The other runs for a number of
+ * records.
+ */
+interface ExeTime {
 
-    boolean done(long records, long elapsedTime);
+  double percentage(long records, long elapsedTime);
 
-    double percentage(long records, long elapsedTime);
-
-    static ExeTime of(String exeTime) {
-      final long records =
-          (exeTime.endsWith("records")) ? Long.parseLong(exeTime.replace("records", "")) : 0L;
-      final Duration duration =
-          (exeTime.endsWith("records"))
-              ? Duration.ZERO
-              : new ArgumentUtil.DurationConverter().convert(exeTime);
-
-      return new ExeTime() {
-        @Override
-        public boolean done(long completeRecords, long elapsedTime) {
-          return (records == 0) ? elapsedTime >= duration.toMillis() : completeRecords >= records;
-        }
-
-        @Override
-        public double percentage(long completeRecords, long elapsedTime) {
-          return (records == 0)
-              ? 100D * elapsedTime / duration.toMillis()
-              : 100D * completeRecords / records;
-        }
-
-        @Override
-        public String toString() {
-          return (records == 0) ? duration.toString() : records + "records";
-        }
-      };
+  static ExeTime of(String exeTime) {
+    if (exeTime.endsWith("records")) {
+      final long records = Long.parseLong(exeTime.replace("records", ""));
+      return ExeTime.of((completeRecords, ignore) -> 100D * completeRecords / records, exeTime);
     }
+    final Duration duration = new ArgumentUtil.DurationConverter().convert(exeTime);
+    return ExeTime.of((ignore, elapsedTime) -> 100D * elapsedTime / duration.toMillis(), exeTime);
+  }
+
+  static ExeTime of(BiFunction<Long, Long, Double> function, String toString) {
+    return new ExeTime() {
+      @Override
+      public double percentage(long records, long duration) {
+        return function.apply(records, duration);
+      }
+
+      @Override
+      public String toString() {
+        return toString;
+      }
+    };
   }
 }

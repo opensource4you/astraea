@@ -12,7 +12,7 @@ public class TrackerTest {
     var consumerData = List.of(new Metrics());
     List<Metrics> empty = List.of();
     var argument = new Performance.Argument();
-    argument.exeTime = Performance.ExeTime.of("1records");
+    argument.exeTime = ExeTime.of("1records");
 
     var manager = new Manager(argument, producerData, consumerData);
     try (Tracker tracker = new Tracker(producerData, consumerData, manager)) {
@@ -32,7 +32,7 @@ public class TrackerTest {
     }
 
     // Stop by duration time out
-    argument.exeTime = Performance.ExeTime.of("2s");
+    argument.exeTime = ExeTime.of("2s");
     producerData = List.of(new Metrics());
     consumerData = List.of(new Metrics());
     manager = new Manager(argument, producerData, consumerData);
