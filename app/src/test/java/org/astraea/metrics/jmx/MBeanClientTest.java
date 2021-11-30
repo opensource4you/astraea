@@ -17,7 +17,7 @@ class MBeanClientTest {
 
   private MBeanServer mBeanServer;
   private JMXConnectorServer jmxServer;
-  private Map<ObjectName, Object> registeredBeans = new HashMap<>();
+  private final Map<ObjectName, Object> registeredBeans = new HashMap<>();
 
   private void register(ObjectName name, Object mBean) {
     registeredBeans.put(name, mBean);
@@ -60,13 +60,13 @@ class MBeanClientTest {
   }
 
   @Test
-  void testFetchAttributes() throws Exception {
+  void testFetchAttributes() {
     // arrange
-    try (MBeanClient sut = new MBeanClient(jmxServer.getAddress())) {
+    try (var client = MBeanClient.of(jmxServer.getAddress())) {
       BeanQuery beanQuery = BeanQuery.builder("java.lang").property("type", "Memory").build();
 
       // act
-      BeanObject beanObject = sut.queryBean(beanQuery);
+      BeanObject beanObject = client.queryBean(beanQuery);
 
       // assert
       assertTrue(beanObject.getProperties().containsKey("type"));
@@ -76,9 +76,9 @@ class MBeanClientTest {
   }
 
   @Test
-  void testFetchMbeanWithMultipleProperties() throws Exception {
+  void testFetchMbeanWithMultipleProperties() {
     // arrange
-    try (MBeanClient sut = new MBeanClient(jmxServer.getAddress())) {
+    try (var client = MBeanClient.of(jmxServer.getAddress())) {
       BeanQuery query1 =
           BeanQuery.builder(
                   "java.lang", Map.of("type", "MemoryManager", "name", "CodeCacheManager"))
@@ -90,8 +90,8 @@ class MBeanClientTest {
               .build();
 
       // act
-      BeanObject beanObject1 = sut.queryBean(query1);
-      BeanObject beanObject2 = sut.queryBean(query2);
+      BeanObject beanObject1 = client.queryBean(query1);
+      BeanObject beanObject2 = client.queryBean(query2);
 
       // assert
       assertTrue(beanObject1.getProperties().containsKey("type"));
@@ -111,14 +111,14 @@ class MBeanClientTest {
   }
 
   @Test
-  void testFetchSelectedAttributes() throws Exception {
+  void testFetchSelectedAttributes() {
     // arrange
-    try (MBeanClient sut = new MBeanClient(jmxServer.getAddress())) {
+    try (var client = MBeanClient.of(jmxServer.getAddress())) {
       BeanQuery beanQuery = BeanQuery.builder("java.lang").property("type", "Memory").build();
       List<String> selectedAttribute = List.of("HeapMemoryUsage");
 
       // act
-      BeanObject beanObject = sut.queryBean(beanQuery, selectedAttribute);
+      BeanObject beanObject = client.queryBean(beanQuery, selectedAttribute);
 
       // assert
       assertTrue(beanObject.getProperties().containsKey("type"));
@@ -128,13 +128,13 @@ class MBeanClientTest {
   }
 
   @Test
-  void testQueryBeans() throws Exception {
+  void testQueryBeans() {
     // arrange 1 query beans
-    try (MBeanClient sut = new MBeanClient(jmxServer.getAddress())) {
+    try (var client = MBeanClient.of(jmxServer.getAddress())) {
       BeanQuery beanQuery = BeanQuery.builder("java.lang").property("type", "C*").build();
 
       // act 1
-      Collection<BeanObject> beanObjects = sut.queryBeans(beanQuery);
+      Collection<BeanObject> beanObjects = client.queryBeans(beanQuery);
 
       // assert 1
       assertEquals(2, beanObjects.size());
@@ -165,13 +165,13 @@ class MBeanClientTest {
   }
 
   @Test
-  void testQueryNonExistsBeans() throws Exception {
+  void testQueryNonExistsBeans() {
     // arrange
-    try (MBeanClient sut = new MBeanClient(jmxServer.getAddress())) {
+    try (var client = MBeanClient.of(jmxServer.getAddress())) {
       BeanQuery beanQuery = BeanQuery.builder("java.lang").property("type", "Something").build();
 
       // act
-      Collection<BeanObject> beanObjects = sut.queryBeans(beanQuery);
+      Collection<BeanObject> beanObjects = client.queryBeans(beanQuery);
 
       // assert
       assertEquals(0, beanObjects.size());
@@ -179,53 +179,54 @@ class MBeanClientTest {
   }
 
   @Test
-  void testFetchNonExistsBeans() throws Exception {
+  void testFetchNonExistsBeans() {
     // arrange
-    try (MBeanClient sut = new MBeanClient(jmxServer.getAddress())) {
+    try (var client = MBeanClient.of(jmxServer.getAddress())) {
       BeanQuery beanQuery = BeanQuery.builder("java.lang").property("type", "Something").build();
 
       // act assert
-      assertThrows(NoSuchElementException.class, () -> sut.queryBean(beanQuery));
+      assertThrows(NoSuchElementException.class, () -> client.queryBean(beanQuery));
       assertThrows(
-          NoSuchElementException.class, () -> sut.queryBean(beanQuery, Collections.emptyList()));
+          NoSuchElementException.class, () -> client.queryBean(beanQuery, Collections.emptyList()));
     }
   }
 
   @Test
-  void testUseClosedClientWillThrowError() throws Exception {
+  void testUseClosedClientWillThrowError() {
     // arrange
-    MBeanClient sut = new MBeanClient(jmxServer.getAddress());
+    var client = MBeanClient.of(jmxServer.getAddress());
     BeanQuery query = BeanQuery.builder("java.lang").property("type", "Memory").build();
 
     // act
-    sut.close();
+    client.close();
 
     // assert
-    assertThrows(IllegalStateException.class, () -> sut.queryBean(query));
-    assertThrows(IllegalStateException.class, () -> sut.queryBean(query, Collections.emptyList()));
-    assertThrows(IllegalStateException.class, () -> sut.queryBeans(query));
+    assertThrows(IllegalStateException.class, () -> client.queryBean(query));
+    assertThrows(
+        IllegalStateException.class, () -> client.queryBean(query, Collections.emptyList()));
+    assertThrows(IllegalStateException.class, () -> client.queryBeans(query));
   }
 
   @Test
-  void testCloseOnceMoreWillThrowError() throws Exception {
+  void testCloseOnceMore() {
     // arrange
-    MBeanClient sut = new MBeanClient(jmxServer.getAddress());
+    var client = MBeanClient.of(jmxServer.getAddress());
 
     // act
-    sut.close();
+    client.close();
 
     // assert
-    assertThrows(IllegalStateException.class, sut::close);
-    assertThrows(IllegalStateException.class, sut::close);
-    assertThrows(IllegalStateException.class, sut::close);
-    assertThrows(IllegalStateException.class, sut::close);
-    assertThrows(IllegalStateException.class, sut::close);
+    client.close();
+    client.close();
+    client.close();
+    client.close();
+    client.close();
   }
 
   @Test
-  void testGetAllMBeans() throws Exception {
+  void testGetAllMBeans() {
     // arrange
-    try (MBeanClient client = new MBeanClient(jmxServer.getAddress())) {
+    try (var client = MBeanClient.of(jmxServer.getAddress())) {
 
       // act
       Collection<BeanObject> beanObjects = client.queryBeans(BeanQuery.all());
@@ -237,9 +238,9 @@ class MBeanClientTest {
   }
 
   @Test
-  void testGetAllMBeansUnderSpecificDomainName() throws Exception {
+  void testGetAllMBeansUnderSpecificDomainName() {
     // arrange
-    try (MBeanClient client = new MBeanClient(jmxServer.getAddress())) {
+    try (var client = MBeanClient.of(jmxServer.getAddress())) {
 
       // act
       Collection<BeanObject> beanObjects = client.queryBeans(BeanQuery.all("java.lang"));
@@ -251,9 +252,9 @@ class MBeanClientTest {
   }
 
   @Test
-  void testGetAllMBeansUnderSpecificDomainNamePattern() throws Exception {
+  void testGetAllMBeansUnderSpecificDomainNamePattern() {
     // arrange
-    try (MBeanClient client = new MBeanClient(jmxServer.getAddress())) {
+    try (var client = MBeanClient.of(jmxServer.getAddress())) {
 
       // act
       Collection<BeanObject> beanObjects = client.queryBeans(BeanQuery.all("java.*"));
@@ -265,9 +266,9 @@ class MBeanClientTest {
   }
 
   @Test
-  void testUsePropertyListPattern() throws Exception {
+  void testUsePropertyListPattern() {
     // arrange
-    try (MBeanClient client = new MBeanClient(jmxServer.getAddress())) {
+    try (var client = MBeanClient.of(jmxServer.getAddress())) {
       BeanQuery patternQuery =
           BeanQuery.builder("java.lang").property("type", "*").usePropertyListPattern().build();
 
@@ -314,9 +315,9 @@ class MBeanClientTest {
   }
 
   @Test
-  void testListDomains() throws Exception {
+  void testListDomains() {
     // arrange
-    try (MBeanClient client = new MBeanClient(jmxServer.getAddress())) {
+    try (var client = MBeanClient.of(jmxServer.getAddress())) {
 
       // act
       List<String> domains = client.listDomains();
@@ -328,15 +329,12 @@ class MBeanClientTest {
   }
 
   @Test
-  void testGetAddress() throws Exception {
+  void testHostAndPort() {
     // arrange
-    try (MBeanClient client = new MBeanClient(jmxServer.getAddress())) {
+    try (var client = MBeanClient.of(jmxServer.getAddress())) {
 
-      // act
-      JMXServiceURL address = client.getAddress();
-
-      // assert
-      assertEquals(jmxServer.getAddress(), address);
+      assertEquals(jmxServer.getAddress().getHost(), client.host());
+      assertEquals(jmxServer.getAddress().getPort(), client.port());
     }
   }
 
@@ -350,7 +348,7 @@ class MBeanClientTest {
 
     register(objectName0, customMBean0);
 
-    try (MBeanClient client = new MBeanClient(jmxServer.getAddress())) {
+    try (var client = MBeanClient.of(jmxServer.getAddress())) {
 
       // act
       Collection<BeanObject> all =
@@ -376,7 +374,7 @@ class MBeanClientTest {
       register(objectName, mbean);
     }
 
-    try (MBeanClient client = new MBeanClient(jmxServer.getAddress())) {
+    try (var client = MBeanClient.of(jmxServer.getAddress())) {
 
       // act
       Collection<BeanObject> all =
