@@ -106,7 +106,7 @@ public class BeanCollector implements AutoCloseable {
     if (existentNode.isPresent()) existentNode.get().getters.add(getter);
     else
       nodes((int) (Math.random() * pool.size()))
-          .add(new NodeImpl(new MBeanClient(url), MAX_OBJECTS, getter));
+          .add(new NodeImpl(MBeanClient.of(url), MAX_OBJECTS, getter));
   }
 
   interface Node {
@@ -143,12 +143,12 @@ public class BeanCollector implements AutoCloseable {
 
     @Override
     public String host() {
-      return client.getAddress().getHost();
+      return client.host();
     }
 
     @Override
     public int port() {
-      return client.getAddress().getPort();
+      return client.port();
     }
   }
 }

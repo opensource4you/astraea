@@ -5,8 +5,8 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.concurrent.TimeUnit;
+import org.astraea.Utils;
 import org.astraea.concurrent.ThreadPool;
-import org.astraea.metrics.jmx.MBeanClient;
 
 public class NodeLoadClient implements ThreadPool.Executor {
 
@@ -42,12 +42,7 @@ public class NodeLoadClient implements ThreadPool.Executor {
   public void close() {
     for (NodeMetadata nodeMetadata : nodeMetadataCollection) {
       NodeMetrics nodeMetrics = nodeMetadata.getNodeMetrics();
-      MBeanClient mBeanClient = nodeMetrics.getKafkaMetricClient();
-      try {
-        mBeanClient.close();
-      } catch (Exception e) {
-        e.printStackTrace();
-      }
+      Utils.close(nodeMetrics.getKafkaMetricClient());
     }
   }
 
