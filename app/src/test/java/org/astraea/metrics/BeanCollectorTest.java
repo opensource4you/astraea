@@ -12,7 +12,8 @@ public class BeanCollectorTest extends RequireBrokerCluster {
   @Test
   void testAddClient() throws Exception {
     try (var collector = new BeanCollector()) {
-      collector.addClient(jmxServiceURL(), KafkaMetrics.Host::jvmMemory);
+      collector.addClient(
+          jmxServiceURL().getHost(), jmxServiceURL().getPort(), KafkaMetrics.Host::jvmMemory);
       Utils.waitFor(() -> collector.size() > 0);
       collector
           .objects()
@@ -32,9 +33,12 @@ public class BeanCollectorTest extends RequireBrokerCluster {
   @Test
   void testAddDuplicateClient() throws Exception {
     try (var collector = new BeanCollector()) {
-      collector.addClient(jmxServiceURL(), KafkaMetrics.Host::jvmMemory);
-      collector.addClient(jmxServiceURL(), KafkaMetrics.Host::jvmMemory);
-      collector.addClient(jmxServiceURL(), KafkaMetrics.Host::jvmMemory);
+      collector.addClient(
+          jmxServiceURL().getHost(), jmxServiceURL().getPort(), KafkaMetrics.Host::jvmMemory);
+      collector.addClient(
+          jmxServiceURL().getHost(), jmxServiceURL().getPort(), KafkaMetrics.Host::jvmMemory);
+      collector.addClient(
+          jmxServiceURL().getHost(), jmxServiceURL().getPort(), KafkaMetrics.Host::jvmMemory);
 
       Assertions.assertEquals(1, collector.nodes().size());
     }

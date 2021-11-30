@@ -6,14 +6,13 @@ import java.util.concurrent.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-import javax.management.remote.JMXServiceURL;
 import org.astraea.Utils;
 import org.astraea.concurrent.ThreadPool;
 import org.astraea.metrics.jmx.MBeanClient;
 
 public class BeanCollector implements AutoCloseable {
   private static final int MAX_OBJECTS = 30;
-  private final Map<Integer, Set<NodeImpl>> allNodes = new ConcurrentHashMap<>();
+  private final Map<Integer, Collection<NodeImpl>> allNodes = new ConcurrentHashMap<>();
   private final ThreadPool pool;
 
   public BeanCollector() {
@@ -45,12 +44,8 @@ public class BeanCollector implements AutoCloseable {
             .build();
   }
 
-  private Set<NodeImpl> nodes(int index) {
-    return allNodes.computeIfAbsent(
-        index,
-        ignored ->
-            new ConcurrentSkipListSet<>(
-                Comparator.comparing(NodeImpl::host).thenComparing(NodeImpl::port)));
+  private Collection<NodeImpl> nodes(int index) {
+    return allNodes.computeIfAbsent(index, ignored -> new ConcurrentLinkedQueue<>());
   }
 
   /** @return the monitored host/port */
@@ -93,20 +88,16 @@ public class BeanCollector implements AutoCloseable {
     pool.waitAll();
   }
 
-  public void addClient(JMXServiceURL url, Function<MBeanClient, HasBeanObject> getter) {
+  public void addClient(String host, int port, Function<MBeanClient, HasBeanObject> getter) {
     if (pool.isClosed()) throw new RuntimeException("this is closed!!!");
     var existentNode =
         allNodes.values().stream()
-            .flatMap(
-                ns ->
-                    ns.stream()
-                        .filter(n -> n.host().equals(url.getHost()) && n.port() == url.getPort()))
+            .flatMap(ns -> ns.stream().filter(n -> n.host().equals(host) && n.port() == port))
             .findFirst();
     // reuse the existent client to get metrics
     if (existentNode.isPresent()) existentNode.get().getters.add(getter);
     else
-      nodes((int) (Math.random() * pool.size()))
-          .add(new NodeImpl(MBeanClient.of(url), MAX_OBJECTS, getter));
+      nodes((int) (Math.random() * pool.size())).add(new NodeImpl(host, port, MAX_OBJECTS, getter));
   }
 
   interface Node {
@@ -116,15 +107,20 @@ public class BeanCollector implements AutoCloseable {
   }
 
   private static class NodeImpl implements AutoCloseable, Node {
+    final String host;
+    final int port;
     final MBeanClient client;
-    final List<Function<MBeanClient, HasBeanObject>> getters = new CopyOnWriteArrayList<>();
+    final Collection<Function<MBeanClient, HasBeanObject>> getters = new ConcurrentLinkedQueue<>();
     final Queue<HasBeanObject> objects;
     final int numberOfObjects;
 
-    NodeImpl(MBeanClient client, int numberOfObjects, Function<MBeanClient, HasBeanObject> getter) {
-      this.client = client;
+    NodeImpl(
+        String host, int port, int numberOfObjects, Function<MBeanClient, HasBeanObject> getter) {
+      this.host = host;
+      this.port = port;
+      this.client = MBeanClient.jndi(host, port);
       this.getters.add(getter);
-      this.objects = new LinkedBlockingQueue<>(numberOfObjects);
+      this.objects = new ConcurrentLinkedQueue<>();
       this.numberOfObjects = numberOfObjects;
     }
 
@@ -143,12 +139,12 @@ public class BeanCollector implements AutoCloseable {
 
     @Override
     public String host() {
-      return client.host();
+      return host;
     }
 
     @Override
     public int port() {
-      return client.port();
+      return port;
     }
   }
 }
