@@ -10,7 +10,7 @@ public class RequireJmxServerTest extends RequireBrokerCluster {
 
   @Test
   void testQueryBeans() throws Exception {
-    try (var client = new MBeanClient(jmxServiceURL())) {
+    try (var client = MBeanClient.of(jmxServiceURL())) {
       var result = client.queryBeans(BeanQuery.all());
       Assertions.assertFalse(result.isEmpty());
     }
@@ -18,7 +18,7 @@ public class RequireJmxServerTest extends RequireBrokerCluster {
 
   @Test
   void testMemory() throws Exception {
-    try (var client = new MBeanClient(jmxServiceURL())) {
+    try (var client = MBeanClient.of(jmxServiceURL())) {
       var memory = KafkaMetrics.Host.jvmMemory(client);
       Assertions.assertNotEquals(0, memory.heapMemoryUsage().getMax());
     }

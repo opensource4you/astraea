@@ -162,10 +162,10 @@ public class MetricExplorer {
         .collect(Collectors.toList());
   }
 
-  public static void main(String[] args) throws Exception {
+  public static void main(String[] args) {
     var arguments = ArgumentUtil.parseArgument(new Argument(), args);
 
-    try (MBeanClient mBeanClient = new MBeanClient(arguments.jmxServer)) {
+    try (var mBeanClient = MBeanClient.of(arguments.jmxServer)) {
       execute(mBeanClient, arguments);
     }
   }
