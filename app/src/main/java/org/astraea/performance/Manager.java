@@ -4,6 +4,8 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Random;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Thread safe This class is used for managing the start/end of the producer/consumer threads.
@@ -15,11 +17,12 @@ public class Manager {
   private final boolean fixedSize;
   private final int size;
   private final CountDownLatch getAssignment;
-  private final CountDownLatch producerClosed;
+  private final AtomicInteger producerClosed;
   private final Random rand = new Random();
 
   private final List<Metrics> producerMetrics, consumerMetrics;
   private final long start = System.currentTimeMillis();
+  private final AtomicLong payloadNum = new AtomicLong(0);
 
   /**
    * Used to manage producing/consuming.
@@ -41,7 +44,7 @@ public class Manager {
     this.fixedSize = argument.fixedSize;
     this.size = argument.recordSize;
     this.getAssignment = new CountDownLatch(argument.consumers);
-    this.producerClosed = new CountDownLatch(argument.producers);
+    this.producerClosed = new AtomicInteger(argument.producers);
     this.producerMetrics = producerMetrics;
     this.consumerMetrics = consumerMetrics;
     this.exeTime = argument.exeTime;
@@ -55,7 +58,9 @@ public class Manager {
    *     records" and "execution time" are considered.
    */
   public Optional<byte[]> payload() {
-    if (producedDone()) return Optional.empty();
+    if (exeTime.percentage(payloadNum.getAndIncrement(), System.currentTimeMillis() - start)
+        >= 100D) return Optional.empty();
+
     byte[] payload = (this.fixedSize) ? new byte[size] : new byte[rand.nextInt(size) + 1];
     rand.nextBytes(payload);
     return Optional.of(payload);
@@ -75,8 +80,8 @@ public class Manager {
   }
 
   /** Called after producer is closed. For informing consumers there will be no new records */
-  public void countDownProducerClosed() {
-    this.producerClosed.countDown();
+  public void producerClosed() {
+    this.producerClosed.decrementAndGet();
   }
 
   public void awaitPartitionAssignment() throws InterruptedException {
@@ -87,9 +92,9 @@ public class Manager {
     return exeTime;
   }
 
-  /** Check if we should keep producing record. */
+  /** Check if all producer are closed. */
   public boolean producedDone() {
-    return exeTime.percentage(producedRecords(), System.currentTimeMillis() - start) >= 100D;
+    return producerClosed.get() == 0;
   }
 
   /** Check if we should keep consuming record. */

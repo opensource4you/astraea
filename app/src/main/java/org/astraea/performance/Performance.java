@@ -184,7 +184,7 @@ public class Performance {
         try {
           producer.close();
         } finally {
-          manager.countDownProducerClosed();
+          manager.producerClosed();
         }
       }
     };

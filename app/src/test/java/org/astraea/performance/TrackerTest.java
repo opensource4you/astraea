@@ -19,6 +19,7 @@ public class TrackerTest {
       Assertions.assertEquals(ThreadPool.Executor.State.RUNNING, tracker.execute());
       producerData.get(0).accept(1L, 1L);
       consumerData.get(0).accept(1L, 1L);
+      manager.producerClosed();
       Assertions.assertEquals(ThreadPool.Executor.State.DONE, tracker.execute());
     }
 
@@ -28,6 +29,7 @@ public class TrackerTest {
     try (Tracker tracker = new Tracker(producerData, empty, manager)) {
       Assertions.assertEquals(ThreadPool.Executor.State.RUNNING, tracker.execute());
       producerData.get(0).accept(1L, 1L);
+      manager.producerClosed();
       Assertions.assertEquals(ThreadPool.Executor.State.DONE, tracker.execute());
     }
 
@@ -44,6 +46,7 @@ public class TrackerTest {
       producerData.get(0).accept(1L, 1L);
       consumerData.get(0).accept(1L, 1L);
       Thread.sleep(2000);
+      manager.producerClosed();
 
       Assertions.assertEquals(ThreadPool.Executor.State.DONE, tracker.execute());
     }
