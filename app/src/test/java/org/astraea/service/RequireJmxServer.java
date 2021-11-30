@@ -29,7 +29,7 @@ public abstract class RequireJmxServer {
    *
    * @return JMXConnectorServer
    */
-  public static JMXConnectorServer jmxConnectorServer(int port) {
+  private static JMXConnectorServer jmxConnectorServer(int port) {
     try {
       LocateRegistry.createRegistry(port);
       var mBeanServer = ManagementFactory.getPlatformMBeanServer();
@@ -49,7 +49,7 @@ public abstract class RequireJmxServer {
     }
   }
 
-  public static int freePort() {
+  private static int freePort() {
     try (var server = new ServerSocket(0)) {
       return server.getLocalPort();
     } catch (IOException e) {
