@@ -1,6 +1,7 @@
 package org.astraea.topic;
 
 import java.util.*;
+import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.kafka.clients.admin.*;
@@ -213,33 +214,18 @@ public class Builder {
       var replicaInfos =
           Utils.handleException(() -> admin.describeLogDirs(brokerIds()).allDescriptions().get());
 
-      var replicaLags =
-          replicaInfos.entrySet().stream()
-              .collect(
-                  Collectors.toMap(
-                      Map.Entry::getKey,
-                      e ->
-                          e.getValue().values().stream()
-                              .flatMap(
-                                  logDirDescription ->
-                                      logDirDescription.replicaInfos().entrySet().stream())
-                              .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue))));
-
-      var replicaPaths =
-          replicaInfos.entrySet().stream()
-              .collect(
-                  Collectors.toMap(
-                      Map.Entry::getKey,
-                      e ->
-                          e.getValue().entrySet().stream()
-                              .flatMap(
-                                  logDirDescription ->
-                                      logDirDescription.getValue().replicaInfos().keySet().stream()
-                                          .map(
-                                              topicPartition ->
-                                                  Map.entry(
-                                                      topicPartition, logDirDescription.getKey())))
-                              .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue))));
+      BiFunction<Integer, TopicPartition, List<Map.Entry<String, ReplicaInfo>>> findReplicas =
+          (id, partition) ->
+              replicaInfos.getOrDefault(id, Map.of()).entrySet().stream()
+                  .flatMap(
+                      entry -> {
+                        var path = entry.getKey();
+                        var replicas = entry.getValue().replicaInfos();
+                        return replicas.entrySet().stream()
+                            .filter(e -> e.getKey().equals(partition))
+                            .map(e -> Map.entry(path, e.getValue()));
+                      })
+                  .collect(Collectors.toList());
 
       return Utils.handleException(
           () ->
@@ -248,44 +234,34 @@ public class Builder {
                       e ->
                           e.getValue().partitions().stream()
                               .map(
-                                  topicPartitionInfo ->
-                                      Map.entry(
-                                          new TopicPartition(
-                                              e.getKey(), topicPartitionInfo.partition()),
-                                          topicPartitionInfo.replicas().stream()
-                                              .map(
-                                                  node -> {
-                                                    var replicaInfo =
-                                                        replicaLags
-                                                            .getOrDefault(node.id(), Map.of())
-                                                            .get(
-                                                                new TopicPartition(
-                                                                    e.getKey(),
+                                  topicPartitionInfo -> {
+                                    var partition =
+                                        new TopicPartition(
+                                            e.getKey(), topicPartitionInfo.partition());
+                                    return Map.entry(
+                                        partition,
+                                        topicPartitionInfo.replicas().stream()
+                                            .flatMap(
+                                                node ->
+                                                    findReplicas
+                                                        .apply(node.id(), partition)
+                                                        .stream()
+                                                        .map(
+                                                            entry ->
+                                                                new Replica(
+                                                                    node.id(),
+                                                                    entry.getValue().offsetLag(),
+                                                                    entry.getValue().size(),
+                                                                    topicPartitionInfo.leader().id()
+                                                                        == node.id(),
                                                                     topicPartitionInfo
-                                                                        .partition()));
-                                                    return new Replica(
-                                                        node.id(),
-                                                        replicaInfo == null
-                                                            ? -1
-                                                            : replicaInfo.offsetLag(),
-                                                        replicaInfo == null
-                                                            ? -1
-                                                            : replicaInfo.size(),
-                                                        topicPartitionInfo.leader().id()
-                                                            == node.id(),
-                                                        topicPartitionInfo.isr().contains(node),
-                                                        replicaInfo != null
-                                                            && replicaInfo.isFuture(),
-                                                        replicaPaths
-                                                            .get(node.id())
-                                                            .get(
-                                                                new TopicPartition(
-                                                                    e.getKey(),
-                                                                    topicPartitionInfo
-                                                                        .partition())));
-                                                  })
-                                              .sorted(Comparator.comparing(Replica::broker))
-                                              .collect(Collectors.toList()))))
+                                                                        .isr()
+                                                                        .contains(node),
+                                                                    entry.getValue().isFuture(),
+                                                                    entry.getKey())))
+                                            .sorted(Comparator.comparing(Replica::broker))
+                                            .collect(Collectors.toList()));
+                                  }))
                   .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue)));
     }
 
