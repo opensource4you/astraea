@@ -215,6 +215,12 @@ public class BeanCollector implements AutoCloseable {
       return metricsGetter(null, getter);
     }
 
+    /**
+     * @param name of getter. This must be unique. The getters having same name will be in same
+     *     group and only the latest one gets work.
+     * @param getter getter
+     * @return this register
+     */
     Register metricsGetter(String name, Function<MBeanClient, HasBeanObject> getter);
 
     Unregister build();
