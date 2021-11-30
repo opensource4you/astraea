@@ -94,5 +94,11 @@ public final class Utils {
     throw new RuntimeException("Timeout to wait procedure");
   }
 
+  public static int requirePositive(int value) {
+    if (value <= 0)
+      throw new IllegalArgumentException("the value: " + value + " must be bigger than zero");
+    return value;
+  }
+
   private Utils() {}
 }
