@@ -209,24 +209,40 @@ java -jar app-0.0.1-SNAPSHOT-all.jar metrics --jmx.server 192.168.50.178:1099 --
 
 ## Replica Collie
 
-This tool offers an effective way to migrate all replicas from specific brokers to others.
+This tool offers an effective way to migrate specify replicas from specific brokers to others brokers.
 
-### Move all replicas from broker_0 and broker_1 to other brokers
+### Move all replicas of topic "abc" from broker_0 to broker_1 to other brokers
 
 ```shell
-./gradlew run --args="replica --bootstrap.servers 192.168.50.178:19993 --from 0,1"
+./gradlew run --args="replica --bootstrap.servers 192.168.50.178:19993 --from 0 --to 1 --topic abc"
 ```
 
-### Move all replicas of topic "abc" from broker_0 to broker_1
+### Move all replicas of topic "abc" in broker_0 to other folders
 
 ```shell
-./gradlew run --args="replica --bootstrap.servers 192.168.50.178:19993 --from 0 --to 1 --topics abc"
+./gradlew run --args="replica --bootstrap.servers 192.168.50.178:19993 --from 0 --topics abc"
+```
+
+### Move specify replicas of topic "abc" from broker_0 to broker_1
+
+```shell
+./gradlew run --args="replica --bootstrap.servers 192.168.50.178:19993 --from 0 --to 1 --topic abc --partitions 0,1"
+```
+
+### Move specify replicas of topic "abc" from broker_0 to broker_1 specify folder
+
+```shell
+./gradlew run --args="replica --bootstrap.servers 192.168.50.178:19993 --from 0 --to 1 --topic abc --partitions 0,1 --path /tmp/log1"
 ```
 
 ### Replica Collie Configurations
+
 1. --bootstrap.servers: the server to connect to
-2. --topics: the topics to be moved
-3. --admin.props.file: the file path containing the properties to be passed to kafka admin
+2. --from: the broker of the specified replica
+3. --to: the replica moved target broker
+4. --topics: the topics to be moved
+5. --partitions : all partitions that will be moved
+6. --path: the replica that will moved to
 
 ## Kafka Partition Score
 

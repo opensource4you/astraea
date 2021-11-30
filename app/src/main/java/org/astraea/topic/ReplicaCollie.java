@@ -82,7 +82,8 @@ public class ReplicaCollie {
             t ->
                 t.getValue().get(0).broker() == fromBroker
                     && t.getKey().topic().equals(topics.iterator().next())
-                    && args.partitions.contains(t.getKey().partition()))
+                    && ((args.partitions.isEmpty())
+                        || args.partitions.contains(t.getKey().partition())))
         .collect(Collectors.toList())
         .forEach(
             (tp) -> {
@@ -91,6 +92,19 @@ public class ReplicaCollie {
                 if (!currentPath.iterator().next().equals(path))
                   partitionMigratorResult.put(
                       tp.getKey(), Map.entry(currentPath.iterator().next(), path));
+              } else if (args.path.isEmpty()) {
+                partitionMigratorResult.put(
+                    tp.getKey(),
+                    Map.entry(
+                        currentPath.iterator().next(),
+                        admin
+                            .brokerFolders(targetBrokers)
+                            .get(targetBrokers.iterator().next())
+                            .stream()
+                            .filter(p -> !currentPath.contains(p))
+                            .collect(Collectors.toSet())
+                            .iterator()
+                            .next()));
               } else {
                 partitionMigratorResult.put(
                     tp.getKey(), Map.entry(currentPath.iterator().next(), "nah"));
@@ -191,7 +205,7 @@ public class ReplicaCollie {
 
     @Parameter(
         names = {"--partitions"},
-        description = "A partition that will be moved",
+        description = "all partitions that will be moved",
         validateWith = ArgumentUtil.NotEmptyString.class,
         converter = ArgumentUtil.IntegerSetConverter.class)
     Set<Integer> partitions = Collections.emptySet();
