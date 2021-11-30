@@ -62,12 +62,9 @@ public class ReplicaCollie {
                     targetBrokers.stream()
                         .filter(i -> !keptBrokers.contains(i) && !args.fromBrokers.contains(i))
                         .collect(Collectors.toSet());
-                var finalBrokers = new HashSet<>(keptBrokers);
-                finalBrokers.addAll(
-                    new ArrayList<>(availableBrokers).subList(0, numberOfMigratedReplicas));
                 brokerMigratorResult.put(
                     tp.getKey(),
-                    Map.entry(currentBrokers.iterator().next(), finalBrokers.iterator().next()));
+                    Map.entry(currentBrokers.iterator().next(), targetBrokers.iterator().next()));
               } else {
                 brokerMigratorResult.put(
                     tp.getKey(),
