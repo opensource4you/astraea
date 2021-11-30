@@ -90,7 +90,7 @@ public interface ThreadPool extends AutoCloseable {
       return new ThreadPool() {
         @Override
         public void close() {
-          service.shutdown();
+          service.shutdownNow();
           closed.set(true);
           executors.forEach(Executor::wakeup);
           waitAll();

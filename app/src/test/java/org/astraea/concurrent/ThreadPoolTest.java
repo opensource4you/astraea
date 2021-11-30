@@ -4,6 +4,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 
 public class ThreadPoolTest {
 
@@ -46,5 +47,20 @@ public class ThreadPoolTest {
     try (var pool = ThreadPool.builder().executor(() -> ThreadPool.Executor.State.DONE).build()) {
       pool.waitAll();
     }
+  }
+
+  @Timeout(10)
+  @Test
+  void testInterrupt() {
+    var pool =
+        ThreadPool.builder()
+            .executor(
+                () -> {
+                  TimeUnit.SECONDS.sleep(1000);
+                  return ThreadPool.Executor.State.DONE;
+                })
+            .build();
+    pool.close();
+    Assertions.assertTrue(pool.isClosed());
   }
 }

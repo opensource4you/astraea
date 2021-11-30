@@ -2,57 +2,91 @@ package org.astraea.metrics;
 
 import java.time.Duration;
 import java.util.*;
-import java.util.concurrent.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedDeque;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.astraea.Utils;
 import org.astraea.concurrent.ThreadPool;
 import org.astraea.metrics.jmx.MBeanClient;
 
+/**
+ * this class is used to manage multiples jmx connections. Normally, we want to get different
+ * metrics from the same jmx server, but we hate the high cost caused by multiples connections.
+ * Hence, this class keeps the single connection for each jmx server, and you can register the
+ * `getter` the fetch various mbean objects through same connection.
+ */
 public class BeanCollector implements AutoCloseable {
-  private static final int MAX_OBJECTS = 30;
-  private final Map<Integer, Collection<NodeImpl>> allNodes = new ConcurrentHashMap<>();
-  private final ThreadPool pool;
 
-  public BeanCollector() {
-    this(Duration.ofSeconds(1), 2);
+  public static Builder builder() {
+    return new Builder();
   }
 
-  public BeanCollector(Duration interval, int numberOfThreads) {
+  static class Builder {
+    private int numberOfThreads = 2;
+    private Duration interval = Duration.ofSeconds(1);
+    private int numberOfObjectsPerNode = 300;
+
+    private Builder() {}
+
+    public Builder numberOfThreads(int numberOfThreads) {
+      this.numberOfThreads = numberOfThreads;
+      return this;
+    }
+
+    public Builder interval(Duration interval) {
+      this.interval = interval;
+      return this;
+    }
+
+    public Builder numberOfObjectsPerNode(int numberOfObjectsPerNode) {
+      this.numberOfObjectsPerNode = numberOfObjectsPerNode;
+      return this;
+    }
+
+    public BeanCollector build() {
+      return new BeanCollector(numberOfThreads, interval, numberOfObjectsPerNode);
+    }
+  }
+
+  private final Queue<NodeImpl> nodes = new ConcurrentLinkedQueue<>();
+  private final ThreadPool pool;
+  private final int numberOfObjectsPerNode;
+  private final Object notification = new Object();
+
+  private BeanCollector(int numberOfThreads, Duration interval, int numberOfObjectsPerNode) {
+    this.numberOfObjectsPerNode = numberOfObjectsPerNode;
     this.pool =
         ThreadPool.builder()
             .executors(
                 IntStream.range(0, numberOfThreads)
                     .mapToObj(
                         i ->
-                            new ThreadPool.Executor() {
-                              @Override
-                              public State execute() throws InterruptedException {
-                                nodes(i).forEach(NodeImpl::updateObjects);
-                                TimeUnit.MILLISECONDS.sleep(interval.toMillis());
-                                return ThreadPool.Executor.State.RUNNING;
-                              }
+                            (ThreadPool.Executor)
+                                () -> {
+                                  var node = nodes.poll();
+                                  if (node != null)
+                                    try {
+                                      node.updateObjects();
+                                    } finally {
+                                      nodes.add(node);
+                                    }
 
-                              @Override
-                              public void close() {
-                                var nodes = allNodes.remove(i);
-                                if (nodes != null) nodes.forEach(NodeImpl::close);
-                              }
-                            })
+                                  synchronized (notification) {
+                                    notification.wait(interval.toMillis());
+                                  }
+                                  return ThreadPool.Executor.State.RUNNING;
+                                })
                     .collect(Collectors.toList()))
             .build();
   }
 
-  private Collection<NodeImpl> nodes(int index) {
-    return allNodes.computeIfAbsent(index, ignored -> new ConcurrentLinkedQueue<>());
-  }
-
   /** @return the monitored host/port */
   public List<Node> nodes() {
-    return allNodes.values().stream()
-        .flatMap(ns -> ns.stream().map(n -> (Node) n))
-        .collect(Collectors.toList());
+    return nodes.stream().map(n -> (Node) n).collect(Collectors.toList());
   }
 
   /**
@@ -61,43 +95,134 @@ public class BeanCollector implements AutoCloseable {
    * @return the objects from target host/port
    */
   public List<HasBeanObject> objects(String host, int port) {
-    return allNodes.values().stream()
-        .flatMap(
-            ns ->
-                ns.stream()
-                    .filter(n -> n.host().equals(host) && n.port() == port)
-                    .flatMap(n -> n.objects.stream()))
+    return nodes.stream()
+        .filter(n -> n.host().equals(host) && n.port() == port)
+        .flatMap(n -> n.objects.stream())
         .collect(Collectors.toList());
   }
 
   public Map<Node, List<HasBeanObject>> objects() {
-    return nodes().stream()
-        .collect(Collectors.toMap(Function.identity(), n -> objects(n.host(), n.port())));
+    return nodes.stream()
+        .collect(Collectors.toMap(Function.identity(), node -> new ArrayList<>(node.objects)));
   }
 
   /** @return the number of all objects */
-  public int size() {
-    return allNodes.values().stream()
-        .mapToInt(ns -> ns.stream().mapToInt(n -> n.objects.size()).sum())
+  public int numberOfObjects() {
+    return nodes.stream().mapToInt(node -> node.objects.size()).sum();
+  }
+
+  /** @return the number of all getters */
+  int numberOfGetters() {
+    return nodes.stream()
+        .mapToInt(node -> node.allGetters.values().stream().mapToInt(Deque::size).sum())
         .sum();
   }
 
-  @Override
-  public void close() throws Exception {
-    pool.close();
-    pool.waitAll();
+  /** wake up all threads to update mbean objects */
+  public void requestToUpdate() {
+    synchronized (notification) {
+      notification.notifyAll();
+    }
   }
 
-  public void addClient(String host, int port, Function<MBeanClient, HasBeanObject> getter) {
-    if (pool.isClosed()) throw new RuntimeException("this is closed!!!");
-    var existentNode =
-        allNodes.values().stream()
-            .flatMap(ns -> ns.stream().filter(n -> n.host().equals(host) && n.port() == port))
-            .findFirst();
-    // reuse the existent client to get metrics
-    if (existentNode.isPresent()) existentNode.get().getters.add(getter);
-    else
-      nodes((int) (Math.random() * pool.size())).add(new NodeImpl(host, port, MAX_OBJECTS, getter));
+  @Override
+  public void close() {
+    pool.close();
+    pool.waitAll();
+
+    // close all nodes
+    while (!nodes.isEmpty()) {
+      var node = nodes.poll();
+      if (node != null) node.close();
+    }
+  }
+
+  /**
+   * @return Register is used to store your getter which can fetch mbean objects from jmx
+   *     connection.
+   */
+  public Register register() {
+    return new Register() {
+      private String host;
+      private int port = -1;
+      private Supplier<MBeanClient> supplier;
+      private String getterName;
+      private Function<MBeanClient, HasBeanObject> getter;
+
+      @Override
+      public Register host(String host) {
+        this.host = host;
+        return this;
+      }
+
+      @Override
+      public Register port(int port) {
+        this.port = port;
+        return this;
+      }
+
+      @Override
+      public Register clientSupplier(Supplier<MBeanClient> supplier) {
+        this.supplier = supplier;
+        return this;
+      }
+
+      @Override
+      public Register metricsGetter(String name, Function<MBeanClient, HasBeanObject> getter) {
+        this.getterName = name;
+        this.getter = getter;
+        return this;
+      }
+
+      @Override
+      public Unregister build() {
+        if (pool.isClosed()) throw new RuntimeException("this is closed!!!");
+        var finalHost = Objects.requireNonNull(host);
+        var finalPort = Utils.requirePositive(port);
+        Supplier<MBeanClient> finalSupplier =
+            supplier == null ? () -> MBeanClient.jndi(finalHost, finalPort) : supplier;
+        var finalGetter = Objects.requireNonNull(getter);
+        var finalGetterName = getterName == null ? finalGetter.toString() : getterName;
+        var node =
+            nodes.stream()
+                .filter(n -> n.host().equals(finalHost) && n.port() == finalPort)
+                .findFirst()
+                .orElseGet(
+                    () -> {
+                      var n = new NodeImpl(finalSupplier.get(), numberOfObjectsPerNode);
+                      nodes.add(n);
+                      return n;
+                    });
+        node.allGetters
+            .computeIfAbsent(finalGetterName, ignore -> new ConcurrentLinkedDeque<>())
+            .add(getter);
+        return () -> {
+          var getters = node.allGetters.get(finalGetterName);
+          if (getters != null) getters.remove(getter);
+        };
+      }
+    };
+  }
+
+  interface Register {
+    Register host(String host);
+
+    Register port(int port);
+
+    Register clientSupplier(Supplier<MBeanClient> supplier);
+
+    default Register metricsGetter(Function<MBeanClient, HasBeanObject> getter) {
+      return metricsGetter(null, getter);
+    }
+
+    Register metricsGetter(String name, Function<MBeanClient, HasBeanObject> getter);
+
+    Unregister build();
+  }
+
+  interface Unregister {
+    /** remove the getter */
+    void removeGetter();
   }
 
   interface Node {
@@ -107,28 +232,25 @@ public class BeanCollector implements AutoCloseable {
   }
 
   private static class NodeImpl implements AutoCloseable, Node {
-    final String host;
-    final int port;
     final MBeanClient client;
-    final Collection<Function<MBeanClient, HasBeanObject>> getters = new ConcurrentLinkedQueue<>();
-    final Queue<HasBeanObject> objects;
+    final Map<String, Deque<Function<MBeanClient, HasBeanObject>>> allGetters =
+        new ConcurrentHashMap<>();
+    final Queue<HasBeanObject> objects = new ConcurrentLinkedQueue<>();
     final int numberOfObjects;
 
-    NodeImpl(
-        String host, int port, int numberOfObjects, Function<MBeanClient, HasBeanObject> getter) {
-      this.host = host;
-      this.port = port;
-      this.client = MBeanClient.jndi(host, port);
-      this.getters.add(getter);
-      this.objects = new ConcurrentLinkedQueue<>();
+    NodeImpl(MBeanClient client, int numberOfObjects) {
+      this.client = client;
       this.numberOfObjects = numberOfObjects;
     }
 
     void updateObjects() {
-      getters.forEach(
-          getter -> {
-            if (objects.size() >= numberOfObjects) objects.poll();
-            objects.offer(getter.apply(client));
+      allGetters.forEach(
+          (name, getters) -> {
+            var getter = getters.getLast();
+            if (getter != null) {
+              if (objects.size() >= numberOfObjects) objects.poll();
+              objects.offer(getter.apply(client));
+            }
           });
     }
 
@@ -139,12 +261,12 @@ public class BeanCollector implements AutoCloseable {
 
     @Override
     public String host() {
-      return host;
+      return client.host();
     }
 
     @Override
     public int port() {
-      return port;
+      return client.port();
     }
   }
 }
