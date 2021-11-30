@@ -45,18 +45,26 @@ public class ReplicaCollieTest extends RequireBrokerCluster {
               .filter(Replica::isCurrent)
               .collect(Collectors.toList());
       Assertions.assertEquals(1, replicas.size());
+      var badPath=partitionReplicas.get(new TopicPartition(topicName,0)).get(0).path();
+      var targetPath = topicAdmin.brokerFolders(Set.of(1)).get(1).iterator().next();
       var badBroker = replicas.get(0).broker();
       var argument = new ReplicaCollie.Argument();
       argument.fromBrokers = Set.of(badBroker);
-      argument.toBrokers = Set.of();
+      argument.toBrokers = Set.of(1);
       argument.brokers = bootstrapServers();
+      argument.topics = Set.of(topicName);
+      argument.partitions = Set.of(0);
+      argument.path = Set.of(targetPath);
       argument.verify = verify;
       var result = ReplicaCollie.execute(topicAdmin, argument);
       var assignment = result.get(new TopicPartition(topicName, 0));
-      Assertions.assertEquals(1, assignment.getKey().size());
-      Assertions.assertEquals(badBroker, assignment.getKey().iterator().next());
-      Assertions.assertEquals(1, assignment.getValue().size());
-      Assertions.assertFalse(assignment.getValue().contains(badBroker));
+      Assertions.assertEquals(badBroker, assignment.getKey().getKey());
+      Assertions.assertNotEquals(badBroker,assignment.getKey().getValue());
+      Assertions.assertEquals(badPath, assignment.getValue().getKey());
+      Assertions.assertNotEquals(badPath,assignment.getValue().getValue());
+
+      Assertions.assertEquals(1, assignment.getKey().getValue());
+      Assertions.assertEquals(targetPath, assignment.getValue().getValue());
       if (verify) {
         var currentReplicas = topicAdmin.replicas(Set.of(topicName));
         Assertions.assertEquals(partitionReplicas.size(), currentReplicas.size());
