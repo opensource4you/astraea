@@ -15,13 +15,17 @@ function getAddress() {
 }
 
 function showHelp() {
-  echo "Usage: start_broker.sh [ OPTIONS ]"
-  echo "Required: "
-  echo "    zookeeper.connect=node:22222  set zookeeper connection"
-  echo "Optional: "
-  echo "    num.io.threads=10             set JVM memory"
-  echo "    num.network.threads=10        set JVM memory"
-  echo "    memory=\"-Xmx2G -Xms2G\"        set JVM memory"
+  echo "Usage: [ENV] start_broker.sh [ ARGUMENTS ]"
+  echo "Required Argument: "
+  echo "    zookeeper.connect=node:22222            set zookeeper connection"
+  echo "Optional Arguments: "
+  echo "    num.io.threads=10                       set broker I/O threads"
+  echo "    num.network.threads=10                  set broker network threads"
+  echo "ENV: "
+  echo "    KAFKA_HEAP_OPTS=\"-Xmx2G -Xms2G\"         set broker JVM memory"
+  echo "    KAFKA_REVISION=trunk                    set revision of kafka source code to build container"
+  echo "    KAFKA_VERSION=2.8.1                     set version of kafka distribution"
+  echo "    DATA_FOLDERS=/tmp/folder1,/tmp/folder2   set host folders used by broker"
 }
 # =====================================================================
 
@@ -49,7 +53,7 @@ admin_name="admin"
 admin_password="admin-secret"
 user_name="user"
 user_password="user-secret"
-jmx_opts="-Dcom.sun.management.jmxremote \
+KAFKA_JMX_OPTS="-Dcom.sun.management.jmxremote \
   -Dcom.sun.management.jmxremote.authenticate=false \
   -Dcom.sun.management.jmxremote.ssl=false \
   -Dcom.sun.management.jmxremote.port=$broker_jmx_port \
@@ -57,7 +61,7 @@ jmx_opts="-Dcom.sun.management.jmxremote \
   -Djava.rmi.server.hostname=$address"
 
 # initialize broker config
-config_file="/tmp/server${broker_id}.properties"
+config_file="/tmp/server-${broker_port}.properties"
 echo "" >"$config_file"
 
 while [[ $# -gt 0 ]]; do
@@ -76,7 +80,7 @@ if [[ "$(cat $config_file | grep zookeeper.connect)" == "" ]]; then
 fi
 
 # set JVM heap
-heap="${heap:-"-Xmx2G -Xms2G"}"
+KAFKA_HEAP_OPTS="${KAFKA_HEAP_OPTS:-"-Xmx2G -Xms2G"}"
 
 # listeners will be generated automatically
 if [[ "$(cat $config_file | grep listeners)" != "" ]]; then
@@ -103,12 +107,37 @@ else
   fi
 fi
 
-# log.dirs is not exposed so it should be generated automatically
+# create log folders and find out the existent broker.id
+hostFolderConfigs=""
 if [[ "$(cat $config_file | grep log.dirs)" != "" ]]; then
   echo "you should not define log.dirs"
   exit 2
 else
-  echo "log.dirs=/tmp/kafka-logs1,/tmp/kafka-logs2,/tmp/kafka-logs3" >> "$config_file"
+  logConfigs="log.dirs"
+  index="1"
+  if [[ -n "$DATA_FOLDERS" ]]; then
+    IFS=',' read -ra folders <<< "$DATA_FOLDERS"
+    for folder in "${folders[@]}"; do
+      # create the folder if it is nonexistent
+      mkdir -p "$folder"
+      # update the broker.id used by this script if it is exist
+      if [[ -f "$folder/meta.properties" ]]; then
+        broker_id=$(grep broker.id "$folder/meta.properties" | cut -d = -f 2)
+      fi
+      if [[ "$index" == "1" ]]; then
+        logConfigs="$logConfigs=/tmp/kafka-logs$index"
+        hostFolderConfigs="-v $folder:/tmp/kafka-logs$index"
+      else
+        logConfigs="$logConfigs,/tmp/kafka-logs$index"
+        hostFolderConfigs="$hostFolderConfigs -v $folder:/tmp/kafka-logs$index"
+      fi
+      index=$((index+1))
+    done
+  else
+    # In order to enable replica folders migration, we create three folders for broker.
+    logConfigs="log.dirs=/tmp/kafka-logs1,/tmp/kafka-logs2,/tmp/kafka-logs3"
+  fi
+  echo $logConfigs >> "$config_file"
 fi
 
 # auto-generate broker id if it does not exist
@@ -206,10 +235,11 @@ Dockerfile
 fi
 
 docker run -d \
-  -e KAFKA_HEAP_OPTS="$heap" \
-  -e KAFKA_JMX_OPTS="$jmx_opts" \
+  -e KAFKA_HEAP_OPTS="$KAFKA_HEAP_OPTS" \
+  -e KAFKA_JMX_OPTS="$KAFKA_JMX_OPTS" \
   -e KAFKA_OPTS="-javaagent:/tmp/jmx_exporter/jmx_prometheus_javaagent-${exporter_version}.jar=$exporter_port:/tmp/jmx_exporter/kafka-2_0_0.yml" \
   -v $config_file:/tmp/broker.properties:ro \
+  $hostFolderConfigs \
   -p $broker_port:9092 \
   -p $broker_jmx_port:$broker_jmx_port \
   -p $exporter_port:$exporter_port \
@@ -220,6 +250,7 @@ echo "broker address: ${address}:$broker_port"
 echo "jmx address: ${address}:$broker_jmx_port"
 echo "exporter address: ${address}:$exporter_port"
 echo "broker id: $broker_id"
+echo "folder mapping: $hostFolderConfigs"
 if [[ "$SASL" == "true" ]]; then
   user_jaas_file=/tmp/user-jaas-${broker_port}.conf
   echo "
