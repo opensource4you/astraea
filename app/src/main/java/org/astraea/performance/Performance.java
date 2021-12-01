@@ -9,7 +9,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.function.BiConsumer;
-import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -230,7 +229,7 @@ public class Performance {
                 + " The duration formats accepted are (a number) + (a time unit)."
                 + " The time units can be \"days\", \"day\", \"h\", \"m\", \"s, \"ms\","
                 + " \"us\", \"ns\"",
-        converter = ExeTimeArgument.class)
+        converter = ExeTime.Converter.class)
     ExeTime exeTime = ExeTime.of("1000records");
 
     @Parameter(
@@ -288,44 +287,5 @@ public class Performance {
                     .collect(Collectors.joining(",")));
       }
     }
-  }
-
-  static class ExeTimeArgument implements IStringConverter<ExeTime> {
-    @Override
-    public ExeTime convert(String value) {
-      return ExeTime.of(value);
-    }
-  }
-}
-
-/**
- * Two kind of running modes. One runs for a duration of time. The other runs for a number of
- * records.
- */
-interface ExeTime {
-
-  double percentage(long records, long elapsedTime);
-
-  static ExeTime of(String exeTime) {
-    if (exeTime.endsWith("records")) {
-      final long records = Long.parseLong(exeTime.replace("records", ""));
-      return ExeTime.of((completeRecords, ignore) -> 100D * completeRecords / records, exeTime);
-    }
-    final Duration duration = new ArgumentUtil.DurationConverter().convert(exeTime);
-    return ExeTime.of((ignore, elapsedTime) -> 100D * elapsedTime / duration.toMillis(), exeTime);
-  }
-
-  static ExeTime of(BiFunction<Long, Long, Double> function, String toString) {
-    return new ExeTime() {
-      @Override
-      public double percentage(long records, long duration) {
-        return function.apply(records, duration);
-      }
-
-      @Override
-      public String toString() {
-        return toString;
-      }
-    };
   }
 }
