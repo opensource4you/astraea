@@ -5,13 +5,17 @@ import com.beust.jcommander.Parameter;
 import com.beust.jcommander.ParameterException;
 import java.io.IOException;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.Map;
+import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
+
+import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.clients.producer.internals.DefaultPartitioner;
 import org.apache.kafka.common.errors.WakeupException;
@@ -90,7 +94,7 @@ public class Performance {
                                     .brokers(param.brokers)
                                     .topics(Set.of(param.topic))
                                     .groupId(groupId)
-                                    .configs(param.props())
+                                    .configs(param.consumerProps())
                                     .consumerRebalanceListener(
                                         ignore -> manager.countDownGetAssignment())
                                     .build(),
@@ -162,19 +166,30 @@ public class Performance {
         // Wait for all consumers get assignment.
         manager.awaitPartitionAssignment();
 
-        var payload = manager.payload();
-        if (payload.isEmpty()) return State.DONE;
+        int transactionNum = manager.transactionNum();
+        var payloads = new ArrayList<byte[]>(transactionNum);
+        for (int i = 0; i < transactionNum; ++i) {
+          var payload = manager.payload();
+          if (payload.isEmpty()) break;
+          payloads.add(payload.get());
+        }
+        if (payloads.size() == 0) return State.DONE;
 
         long start = System.currentTimeMillis();
-        producer
-            .sender()
-            .topic(param.topic)
-            .value(payload.get())
-            .timestamp(start)
-            .run()
-            .whenComplete(
-                (m, e) ->
-                    observer.accept(System.currentTimeMillis() - start, m.serializedValueSize()));
+        if (param.transaction) producer.beginTransaction();
+        payloads.forEach(
+            payload ->
+                producer
+                    .sender()
+                    .topic(param.topic)
+                    .value(payload)
+                    .timestamp(start)
+                    .run()
+                    .whenComplete(
+                        (m, e) ->
+                            observer.accept(
+                                System.currentTimeMillis() - start, m.serializedValueSize())));
+        if (param.transaction) producer.commitTransaction();
         return State.RUNNING;
       }
 
@@ -260,6 +275,14 @@ public class Performance {
       var props = props();
       props.put(ProducerConfig.COMPRESSION_TYPE_CONFIG, compression.name);
       if (!this.jmxServers.isEmpty()) props.put("jmx_servers", this.jmxServers);
+      if (transaction)
+        props.put(ProducerConfig.TRANSACTIONAL_ID_CONFIG, "id" + new Random().nextInt());
+      return props;
+    }
+
+    public Map<String, Object> consumerProps(){
+      var props = props();
+      if (transaction) props.put(ConsumerConfig.ISOLATION_LEVEL_CONFIG, "read_committed");
       return props;
     }
 
@@ -269,6 +292,21 @@ public class Performance {
             "String: the compression algorithm used by producer. Available algorithm are none, gzip, snappy, lz4, and zstd",
         converter = CompressionArgument.class)
     CompressionType compression = CompressionType.NONE;
+
+    @Parameter(
+        names = {"--transaction"},
+        description = "let producers send transactional")
+    boolean transaction = false;
+
+    @Parameter(
+        names = {"--transaction.size"},
+        description = "integer: number of records in each transaction")
+    int transactionSize = 1;
+
+    @Parameter(
+        names = {"--transaction.rate"},
+        description = "double: rate to make transactional sending")
+    double transactionRate = 0.3D;
   }
 
   static class CompressionArgument implements IStringConverter<CompressionType> {

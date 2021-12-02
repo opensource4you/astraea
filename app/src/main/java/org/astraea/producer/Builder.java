@@ -50,6 +50,8 @@ public class Builder<Key, Value> {
             configs,
             Serializer.of((Serializer<Key>) keySerializer),
             Serializer.of((Serializer<Value>) valueSerializer));
+    if (!configs.getOrDefault(ProducerConfig.TRANSACTIONAL_ID_CONFIG, "").toString().isEmpty())
+      kafkaProducer.initTransactions();
     return new Producer<>() {
 
       @Override
@@ -110,6 +112,16 @@ public class Builder<Key, Value> {
             return completableFuture;
           }
         };
+      }
+
+      @Override
+      public void beginTransaction() {
+        kafkaProducer.beginTransaction();
+      }
+
+      @Override
+      public void commitTransaction() {
+        kafkaProducer.commitTransaction();
       }
 
       @Override

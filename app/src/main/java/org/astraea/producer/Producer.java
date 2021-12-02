@@ -6,6 +6,10 @@ import java.util.Map;
 public interface Producer<Key, Value> extends AutoCloseable {
   Sender<Key, Value> sender();
 
+  void beginTransaction();
+
+  void commitTransaction();
+
   void close();
 
   static Builder<byte[], byte[]> builder() {

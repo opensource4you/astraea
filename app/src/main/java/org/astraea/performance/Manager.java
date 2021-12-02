@@ -16,6 +16,9 @@ public class Manager {
   private final ExeTime exeTime;
   private final boolean fixedSize;
   private final int size;
+  private final boolean transaction;
+  private final int transactionSize;
+  private final Double transactionRate;
   private final CountDownLatch getAssignment;
   private final AtomicInteger producerClosed;
   private final Random rand = new Random();
@@ -48,6 +51,9 @@ public class Manager {
     this.producerMetrics = producerMetrics;
     this.consumerMetrics = consumerMetrics;
     this.exeTime = argument.exeTime;
+    this.transaction = argument.transaction;
+    this.transactionSize = argument.transactionSize;
+    this.transactionRate = argument.transactionRate;
   }
 
   /**
@@ -100,5 +106,10 @@ public class Manager {
   /** Check if we should keep consuming record. */
   public boolean consumedDone() {
     return producedDone() && consumedRecords() >= producedRecords();
+  }
+
+  public int transactionNum() {
+    if (this.transaction && rand.nextDouble() < this.transactionRate) return transactionSize;
+    else return 1;
   }
 }
