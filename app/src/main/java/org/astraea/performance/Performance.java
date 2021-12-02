@@ -14,7 +14,6 @@ import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
-
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.clients.producer.internals.DefaultPartitioner;
@@ -280,7 +279,7 @@ public class Performance {
       return props;
     }
 
-    public Map<String, Object> consumerProps(){
+    public Map<String, Object> consumerProps() {
       var props = props();
       if (transaction) props.put(ConsumerConfig.ISOLATION_LEVEL_CONFIG, "read_committed");
       return props;
