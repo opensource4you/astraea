@@ -115,13 +115,13 @@ public class Builder<Key, Value> {
       }
 
       @Override
-      public void beginTransaction() {
+      public Collection<CompletionStage<Metadata>> transaction(
+          Collection<Sender<Key, Value>> senders) {
+        var futures = new ArrayList<CompletionStage<Metadata>>(senders.size());
         kafkaProducer.beginTransaction();
-      }
-
-      @Override
-      public void commitTransaction() {
+        senders.forEach(sender -> futures.add(sender.run()));
         kafkaProducer.commitTransaction();
+        return futures;
       }
 
       @Override

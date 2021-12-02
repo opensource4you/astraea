@@ -1,14 +1,14 @@
 package org.astraea.producer;
 
+import java.util.Collection;
 import java.util.Map;
+import java.util.concurrent.CompletionStage;
 
 /** An interface for sending records. */
 public interface Producer<Key, Value> extends AutoCloseable {
   Sender<Key, Value> sender();
 
-  void beginTransaction();
-
-  void commitTransaction();
+  Collection<CompletionStage<Metadata>> transaction(Collection<Sender<Key, Value>> senders);
 
   void close();
 

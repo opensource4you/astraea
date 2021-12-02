@@ -5,10 +5,7 @@ import com.beust.jcommander.Parameter;
 import com.beust.jcommander.ParameterException;
 import java.io.IOException;
 import java.time.Duration;
-import java.util.ArrayList;
-import java.util.Map;
-import java.util.Random;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.ExecutionException;
 import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
@@ -24,6 +21,7 @@ import org.astraea.argument.BasicArgumentWithPropFile;
 import org.astraea.concurrent.ThreadPool;
 import org.astraea.consumer.Consumer;
 import org.astraea.producer.Producer;
+import org.astraea.producer.Sender;
 import org.astraea.topic.TopicAdmin;
 
 /**
@@ -165,30 +163,39 @@ public class Performance {
         // Wait for all consumers get assignment.
         manager.awaitPartitionAssignment();
 
-        int transactionNum = manager.transactionNum();
-        var payloads = new ArrayList<byte[]>(transactionNum);
-        for (int i = 0; i < transactionNum; ++i) {
+        if (param.transaction()) {
+          int transactionNum = manager.transactionNum();
+          var senders = new ArrayList<Sender<byte[], byte[]>>(transactionNum);
+          long start = System.currentTimeMillis();
+          while (senders.size() < transactionNum) {
+            var payload = manager.payload();
+            if (payload.isEmpty()) break;
+            senders.add(producer.sender().topic(param.topic).value(payload.get()).timestamp(start));
+          }
+          if (senders.size() == 0) return State.DONE;
+          producer
+              .transaction(senders)
+              .forEach(
+                  future ->
+                      future.whenComplete(
+                          (m, e) ->
+                              observer.accept(
+                                  System.currentTimeMillis() - start, m.serializedValueSize())));
+        } else {
           var payload = manager.payload();
-          if (payload.isEmpty()) break;
-          payloads.add(payload.get());
-        }
-        if (payloads.size() == 0) return State.DONE;
+          if (payload.isEmpty()) return State.DONE;
 
-        long start = System.currentTimeMillis();
-        if (param.transaction()) producer.beginTransaction();
-        payloads.forEach(
-            payload ->
-                producer
-                    .sender()
-                    .topic(param.topic)
-                    .value(payload)
-                    .timestamp(start)
-                    .run()
-                    .whenComplete(
-                        (m, e) ->
-                            observer.accept(
-                                System.currentTimeMillis() - start, m.serializedValueSize())));
-        if (param.transaction()) producer.commitTransaction();
+          long start = System.currentTimeMillis();
+          producer
+              .sender()
+              .topic(param.topic)
+              .value(payload.get())
+              .timestamp(start)
+              .run()
+              .whenComplete(
+                  (m, e) ->
+                      observer.accept(System.currentTimeMillis() - start, m.serializedValueSize()));
+        }
         return State.RUNNING;
       }
 

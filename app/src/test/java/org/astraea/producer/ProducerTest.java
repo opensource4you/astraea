@@ -1,6 +1,7 @@
 package org.astraea.producer;
 
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -61,33 +62,40 @@ public class ProducerTest extends RequireBrokerCluster {
   @Test
   void testTransaction() {
     var topicName = "testTransaction-" + System.currentTimeMillis();
-    Map<String, Object> producerProp = Map.of(ProducerConfig.TRANSACTIONAL_ID_CONFIG, "1");
+    var key = "key";
+    var timestamp = System.currentTimeMillis() + 10;
+    var header = Header.of("a", "b".getBytes());
+    Map<String, Object> prop = Map.of(ProducerConfig.TRANSACTIONAL_ID_CONFIG, "1");
     try (var producer =
         Producer.builder()
-            .configs(producerProp)
             .brokers(bootstrapServers())
             .keySerializer(Serializer.STRING)
+            .configs(prop)
             .build()) {
-      producer.beginTransaction();
-      producer.sender().topic(topicName).run();
-      Map<String, Object> consumerProp =
-          Map.of(ConsumerConfig.ISOLATION_LEVEL_CONFIG, "read_committed");
-      try (var consumer =
-          Consumer.builder()
-              .brokers(bootstrapServers())
-              .offsetPolicy(Builder.OffsetPolicy.EARLIEST)
-              .topics(Set.of(topicName))
-              .keyDeserializer(Deserializer.STRING)
-              .configs(consumerProp)
-              .build()) {
-        var records = consumer.poll(Duration.ofSeconds(5));
-        Assertions.assertEquals(0, records.size());
-
-        producer.commitTransaction();
-
-        records = consumer.poll(Duration.ofSeconds(10));
-        Assertions.assertEquals(1, records.size());
+      var senders = new ArrayList<Sender<String, byte[]>>(3);
+      while (senders.size() < 3) {
+        senders.add(
+            producer
+                .sender()
+                .topic(topicName)
+                .key(key)
+                .timestamp(timestamp)
+                .headers(List.of(header)));
       }
+      producer.transaction(senders);
+    }
+
+    prop = Map.of(ConsumerConfig.ISOLATION_LEVEL_CONFIG, "read_committed");
+    try (var consumer =
+        Consumer.builder()
+            .brokers(bootstrapServers())
+            .offsetPolicy(Builder.OffsetPolicy.EARLIEST)
+            .topics(Set.of(topicName))
+            .keyDeserializer(Deserializer.STRING)
+            .configs(prop)
+            .build()) {
+      var records = consumer.poll(Duration.ofSeconds(10));
+      Assertions.assertEquals(3, records.size());
     }
   }
 }
