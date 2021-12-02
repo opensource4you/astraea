@@ -175,7 +175,7 @@ public class Performance {
         if (payloads.size() == 0) return State.DONE;
 
         long start = System.currentTimeMillis();
-        if (param.transaction) producer.beginTransaction();
+        if (param.transaction()) producer.beginTransaction();
         payloads.forEach(
             payload ->
                 producer
@@ -188,7 +188,7 @@ public class Performance {
                         (m, e) ->
                             observer.accept(
                                 System.currentTimeMillis() - start, m.serializedValueSize())));
-        if (param.transaction) producer.commitTransaction();
+        if (param.transaction()) producer.commitTransaction();
         return State.RUNNING;
       }
 
@@ -274,14 +274,14 @@ public class Performance {
       var props = props();
       props.put(ProducerConfig.COMPRESSION_TYPE_CONFIG, compression.name);
       if (!this.jmxServers.isEmpty()) props.put("jmx_servers", this.jmxServers);
-      if (transaction)
+      if (transaction())
         props.put(ProducerConfig.TRANSACTIONAL_ID_CONFIG, "id" + new Random().nextInt());
       return props;
     }
 
     public Map<String, Object> consumerProps() {
       var props = props();
-      if (transaction) props.put(ConsumerConfig.ISOLATION_LEVEL_CONFIG, "read_committed");
+      if (transaction()) props.put(ConsumerConfig.ISOLATION_LEVEL_CONFIG, "read_committed");
       return props;
     }
 
@@ -292,20 +292,29 @@ public class Performance {
         converter = CompressionArgument.class)
     CompressionType compression = CompressionType.NONE;
 
-    @Parameter(
-        names = {"--transaction"},
-        description = "let producers send transactional")
-    boolean transaction = false;
+    public boolean transaction() {
+      return (transactionSize > 0 || transactionRate > 0D);
+    }
 
     @Parameter(
         names = {"--transaction.size"},
-        description = "integer: number of records in each transaction")
-    int transactionSize = 1;
+        description = "integer: number of records in each transaction",
+        validateWith = ArgumentUtil.PositiveLong.class)
+    int transactionSize = 0;
+
+    public int transactionSize() {
+      return (transaction()) ? Math.max(1, transactionSize) : 0;
+    }
 
     @Parameter(
         names = {"--transaction.rate"},
-        description = "double: rate to make transactional sending")
-    double transactionRate = 0.3D;
+        description = "double: rate to make transactional sending",
+        validateWith = ArgumentUtil.PositiveDouble.class)
+    double transactionRate = 0D;
+
+    public double transactionRate() {
+      return (transaction() && transactionRate == 0D) ? 1D : transactionRate;
+    }
   }
 
   static class CompressionArgument implements IStringConverter<CompressionType> {

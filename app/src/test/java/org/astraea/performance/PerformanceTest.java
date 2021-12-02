@@ -58,4 +58,18 @@ public class PerformanceTest extends RequireBrokerCluster {
       Assertions.assertNotEquals(1024, metrics.bytes());
     }
   }
+
+  @Test
+  void testTransactionSet() {
+    var argument = new Performance.Argument();
+    Assertions.assertFalse(argument.transaction());
+    argument.transactionRate = 0.1D;
+    Assertions.assertTrue(argument.transaction());
+    Assertions.assertEquals(0.1D, argument.transactionRate());
+
+    argument = new Performance.Argument();
+    argument.transactionSize = 3;
+    Assertions.assertTrue(argument.transaction());
+    Assertions.assertEquals(3, argument.transactionSize());
+  }
 }

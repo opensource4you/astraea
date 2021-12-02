@@ -68,6 +68,14 @@ public class ArgumentUtil {
     }
   }
 
+  public static class PositiveDouble implements IParameterValidator {
+    @Override
+    public void validate(String name, String value) throws ParameterException {
+      if (Double.parseDouble(value) < 0D)
+        throw new ParameterException(name + " should not be negative.");
+    }
+  }
+
   /* Converter classes */
   public static class StringSetConverter implements IStringConverter<Set<String>> {
     @Override

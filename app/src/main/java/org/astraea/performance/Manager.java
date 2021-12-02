@@ -51,9 +51,9 @@ public class Manager {
     this.producerMetrics = producerMetrics;
     this.consumerMetrics = consumerMetrics;
     this.exeTime = argument.exeTime;
-    this.transaction = argument.transaction;
-    this.transactionSize = argument.transactionSize;
-    this.transactionRate = argument.transactionRate;
+    this.transaction = argument.transaction();
+    this.transactionSize = argument.transactionSize();
+    this.transactionRate = argument.transactionRate();
   }
 
   /**
