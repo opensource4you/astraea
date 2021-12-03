@@ -4,18 +4,12 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class LoadPoisson {
-  private NodeLoadClient nodeLoadClient;
 
-  public LoadPoisson(NodeLoadClient nodeLoadClient) {
-    this.nodeLoadClient = nodeLoadClient;
-  }
-
-  public synchronized HashMap<String, Double> setAllPoisson() {
-    HashMap<String, Double> poissonMap = new HashMap<>();
-    int lambda = nodeLoadClient.getAvgLoadCount();
-    for (Map.Entry<String, Integer> entry : nodeLoadClient.getAllOverLoadCount().entrySet()) {
-      int x = nodeLoadClient.getBinOneCount(entry.getValue());
-      poissonMap.put(entry.getKey(), doPoisson(lambda, x));
+  public synchronized HashMap<Integer, Double> setAllPoisson(Map<Integer, Integer> overLoadCount) {
+    HashMap<Integer, Double> poissonMap = new HashMap<>();
+    var lambda = getAvgLoadCount(overLoadCount);
+    for (Map.Entry<Integer, Integer> entry : overLoadCount.entrySet()) {
+      poissonMap.put(entry.getKey(), doPoisson(lambda, entry.getValue()));
     }
     return poissonMap;
   }
@@ -38,5 +32,11 @@ public class LoadPoisson {
   public long factorial(long number) {
     if (number <= 1) return 1;
     else return number * factorial(number - 1);
+  }
+
+  private int getAvgLoadCount(Map<Integer, Integer> overLoadCount) {
+    var avgLoadCount =
+        overLoadCount.values().stream().mapToDouble(Integer::doubleValue).average().getAsDouble();
+    return (int) avgLoadCount;
   }
 }

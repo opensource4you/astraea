@@ -9,19 +9,11 @@ public class BrokersWeight {
    * Record the current weight of each node according to Poisson calculation and the weight after
    * partitioner calculation.
    */
-  private static HashMap<String, int[]> brokerHashMap = new HashMap<>();
-
-  private LoadPoisson loadPoisson;
-
-  public BrokersWeight(LoadPoisson loadPoisson) {
-    this.loadPoisson = loadPoisson;
-  }
+  private static HashMap<Integer, int[]> brokerHashMap = new HashMap<>();
 
   /** Change the weight of the node according to the current Poisson. */
-  public synchronized void setBrokerHashMap() {
-    HashMap<String, Double> poissonMap = loadPoisson.setAllPoisson();
-
-    for (Map.Entry<String, Double> entry : poissonMap.entrySet()) {
+  public synchronized void setBrokerHashMap(Map<Integer, Double> poissonMap) {
+    for (Map.Entry<Integer, Double> entry : poissonMap.entrySet()) {
       if (!brokerHashMap.containsKey(entry.getKey())) {
         brokerHashMap.put(entry.getKey(), new int[] {(int) ((1 - entry.getValue()) * 20), 0});
       } else {
@@ -34,22 +26,22 @@ public class BrokersWeight {
 
   public synchronized int getAllWeight() {
     int allWeight = 0;
-    for (Map.Entry<String, int[]> entry : brokerHashMap.entrySet()) {
+    for (Map.Entry<Integer, int[]> entry : brokerHashMap.entrySet()) {
       allWeight += entry.getValue()[0];
     }
     return allWeight;
   }
 
-  public synchronized HashMap<String, int[]> getBrokerHashMap() {
+  public synchronized HashMap<Integer, int[]> getBrokerHashMap() {
     return brokerHashMap;
   }
 
-  public synchronized void setCurrentBrokerHashMap(HashMap<String, int[]> currentBrokerHashMap) {
+  public synchronized void setCurrentBrokerHashMap(HashMap<Integer, int[]> currentBrokerHashMap) {
     brokerHashMap = currentBrokerHashMap;
   }
 
   // Only for test
-  void setBrokerHashMapValue(String x, int y) {
+  void setBrokerHashMapValue(Integer x, int y) {
     brokerHashMap.put(x, new int[] {0, y});
   }
 }

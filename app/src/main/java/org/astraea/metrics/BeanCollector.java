@@ -25,7 +25,7 @@ public class BeanCollector implements AutoCloseable {
     return new Builder();
   }
 
-  static class Builder {
+  public static class Builder {
     private int numberOfThreads = 2;
     private Duration interval = Duration.ofSeconds(1);
     private int numberOfObjectsPerNode = 300;
@@ -57,7 +57,12 @@ public class BeanCollector implements AutoCloseable {
   private final int numberOfObjectsPerNode;
   private final Object notification = new Object();
 
-  private BeanCollector(int numberOfThreads, Duration interval, int numberOfObjectsPerNode) {
+  protected BeanCollector(ThreadPool proxyPool, int proxyNumberOfObjectsPerNode) {
+    pool = proxyPool;
+    numberOfObjectsPerNode = proxyNumberOfObjectsPerNode;
+  }
+
+  BeanCollector(int numberOfThreads, Duration interval, int numberOfObjectsPerNode) {
     this.numberOfObjectsPerNode = numberOfObjectsPerNode;
     this.pool =
         ThreadPool.builder()
@@ -137,6 +142,14 @@ public class BeanCollector implements AutoCloseable {
     }
   }
 
+  public int numberOfObjectsPerNode() {
+    return numberOfObjectsPerNode;
+  }
+
+  public ThreadPool pool() {
+    return pool;
+  }
+
   /**
    * @return Register is used to store your getter which can fetch mbean objects from jmx
    *     connection.
@@ -204,7 +217,7 @@ public class BeanCollector implements AutoCloseable {
     };
   }
 
-  interface Register {
+  public interface Register {
     Register host(String host);
 
     Register port(int port);
@@ -231,7 +244,7 @@ public class BeanCollector implements AutoCloseable {
     void removeGetter();
   }
 
-  interface Node {
+  public interface Node {
     String host();
 
     int port();
