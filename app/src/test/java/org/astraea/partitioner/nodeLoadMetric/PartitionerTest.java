@@ -33,6 +33,7 @@ public class PartitionerTest extends RequireBrokerCluster {
     props.put(ProducerConfig.CLIENT_ID_CONFIG, "id1");
     props.put(ProducerConfig.PARTITIONER_CLASS_CONFIG, SmoothWeightPartitioner.class.getName());
     props.put("jmx_servers", jmxServiceURL().getHost() + ":" + jmxServiceURL().getPort());
+    System.out.println(jmxServiceURL().getHost() + ":" + jmxServiceURL().getPort());
     return props;
   }
 

@@ -8,6 +8,7 @@ import java.util.TreeMap;
 import org.astraea.metrics.BeanCollector;
 import org.astraea.metrics.HasBeanObject;
 
+/** create a single BeanCollector to avoid waste of resources */
 public class BeanCollectorFactory {
   private final Object lock = new Object();
   private final Map<Map<String, ?>, Integer> count;
@@ -25,7 +26,7 @@ public class BeanCollectorFactory {
   }
 
   /**
-   * @param configs as map key
+   * @param configs as specific comparator key
    * @return create a new BeanCollector if there is no matched BeanCollector (checked by
    *     comparator). Otherwise, it returns the existent BeanCollector.
    */
@@ -90,7 +91,7 @@ public class BeanCollectorFactory {
     return this.count;
   }
 
-  public Map<Map<String, ?>, BeanCollector> getInstances() {
+  public Map<Map<String, ?>, BeanCollector> Instances() {
     return this.instances;
   }
 }

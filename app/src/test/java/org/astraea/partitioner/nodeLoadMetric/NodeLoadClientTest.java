@@ -37,7 +37,7 @@ public class NodeLoadClientTest extends RequireBrokerCluster {
     var map = new HashMap<String, String>();
     map.put(jmxServiceURL().getHost(), jmxServiceURL().getPort() + "");
     var nodeLoadClient = new NodeLoadClient(map, props);
-    System.out.println(nodeLoadClient.getBeanCollector().objects());
+    System.out.println(nodeLoadClient.beanCollector().objects());
     var FACTORY = nodeLoadClient.getFactory();
     var beanCollector = FACTORY.getOrCreate(props);
     System.out.println(beanCollector.objects());

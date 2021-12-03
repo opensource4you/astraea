@@ -41,9 +41,9 @@ public class BeanCollectorFactoryTest extends RequireBrokerCluster {
 
       FACTORY.close(props);
       FACTORY.close(props);
-      Assertions.assertNotNull(FACTORY.getInstances().get(props));
+      Assertions.assertNotNull(FACTORY.Instances().get(props));
       FACTORY.close(props);
-      Assertions.assertNull(FACTORY.getInstances().get(props));
+      Assertions.assertNull(FACTORY.Instances().get(props));
     }
   }
 }

@@ -40,7 +40,7 @@ public class LoadPoissonTest {
 
     LoadPoisson loadPoisson = new LoadPoisson();
 
-    poissonMap = loadPoisson.setAllPoisson(testNodesLoadCount);
+    poissonMap = loadPoisson.allPoisson(testNodesLoadCount);
 
     assertEquals(poissonMap, testPoissonMap);
   }

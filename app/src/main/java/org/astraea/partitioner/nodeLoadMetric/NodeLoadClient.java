@@ -22,6 +22,10 @@ import org.astraea.metrics.BeanCollector;
 import org.astraea.metrics.HasBeanObject;
 import org.astraea.metrics.kafka.KafkaMetrics;
 
+/**
+ * this clas is responsible for obtaining jmx metrics from BeanCollector and calculating the
+ * overload status of each node through them.
+ */
 public class NodeLoadClient {
 
   private BeanCollector beanCollector;
@@ -55,25 +59,22 @@ public class NodeLoadClient {
     }
   }
 
-  /** Monitor and update the number of overloads of each node. */
+  /**
+   * @param cluster the cluster from the partitioner
+   * @return each node overLoad count in preset time
+   */
   public Map<Integer, Integer> nodesOverLoad(Cluster cluster) {
     var valuableObjects = new HashMap<Map.Entry<String, Integer>, List<HasBeanObject>>();
-    var addresses =
-        cluster.nodes().stream()
-            .collect(Collectors.toMap(Node::host, Node::port, (r1, r2) -> r1))
-            .entrySet();
+    var addresses = cluster.nodes().stream().map(Node::host).collect(Collectors.toList());
 
     System.out.println(beanCollector.nodes().size());
     var nodesMetrics = beanCollector.objects();
     System.out.println(nodesMetrics);
 
-    for (Map.Entry<String, Integer> address : addresses) {
+    for (String host : addresses) {
       var valueNode =
           nodesMetrics.entrySet().stream()
-              .filter(
-                  entry ->
-                      Objects.equals(entry.getKey().host(), address.getKey())
-                          && Objects.equals(entry.getKey().port(), address.getValue()))
+              .filter(entry -> Objects.equals(entry.getKey().host(), host))
               .findAny()
               .orElse(null);
       var addressEntrySet = new HashMap<String, Integer>();
@@ -88,8 +89,8 @@ public class NodeLoadClient {
     eachBrokerMsgPerSec.keySet().forEach(e -> overLoadCount.put(e, 0));
     var i = 0;
     while (i < 10) {
-      var avg = getAvgMsgSec(i);
-      var eachMsg = getBrokersMsgSec(i);
+      var avg = avgMsgSec(i);
+      var eachMsg = brokersMsgSec(i);
       var standardDeviation = standardDeviationImperative(eachMsg, avg);
       for (Map.Entry<Map.Entry<String, Integer>, Double> entry : eachMsg.entrySet()) {
         if (entry.getValue() > (avg + standardDeviation)) {
@@ -107,6 +108,7 @@ public class NodeLoadClient {
     return nodeID;
   }
 
+  /** @return data transfer per second per node */
   private Map<Map.Entry<String, Integer>, List<Double>> brokersMsgPerSec() {
     var eachMsg = new HashMap<Map.Entry<String, Integer>, List<Double>>();
 
@@ -143,7 +145,6 @@ public class NodeLoadClient {
   }
 
   public List<Double> avgBrokersMsgPerSec(Map<Map.Entry<String, Integer>, List<Double>> eachMsg) {
-
     return IntStream.range(0, eachMsg.values().stream().findFirst().get().size())
         .mapToDouble(i -> eachMsg.values().stream().map(s -> s.get(i)).reduce(0.0, Double::sum))
         .map(sum -> sum / eachMsg.size())
@@ -161,6 +162,10 @@ public class NodeLoadClient {
     return Math.sqrt(variance / eachMsg.size());
   }
 
+  /**
+   * @param valueMetrics node metrics that exists in topic
+   * @return the name and corresponding data of the metrics obtained by each node
+   */
   public Map<Map.Entry<String, Integer>, Map<String, List<HasBeanObject>>> metricsNameObjects(
       HashMap<Map.Entry<String, Integer>, List<HasBeanObject>> valueMetrics) {
     Map<Map.Entry<String, Integer>, Map<String, List<HasBeanObject>>> result = new HashMap<>();
@@ -190,12 +195,12 @@ public class NodeLoadClient {
     return result;
   }
 
-  private Map<Map.Entry<String, Integer>, Double> getBrokersMsgSec(int index) {
+  private Map<Map.Entry<String, Integer>, Double> brokersMsgSec(int index) {
     return brokersMsgPerSec().entrySet().stream()
         .collect(Collectors.toMap(Map.Entry::getKey, entry -> entry.getValue().get(index)));
   }
 
-  private double getAvgMsgSec(int index) {
+  private double avgMsgSec(int index) {
     return avgBrokersMsgPerSec(brokersMsgPerSec()).get(index);
   }
 
@@ -203,65 +208,13 @@ public class NodeLoadClient {
     FACTORY.close(configs);
   }
 
-  public BeanCollector getBeanCollector() {
-    return beanCollector;
-  }
-
-  //  public NodeMetrics createNodeMetrics(String key, String value) throws IOException {
-  //    return new NodeMetrics(key, value);
-  //  }
-  //
-  //  @Override
-  //  public void close() {
-  //    for (NodeMetadata nodeMetadata : nodeMetadataCollection) {
-  //      NodeMetrics nodeMetrics = nodeMetadata.getNodeMetrics();
-  //      Utils.close(nodeMetrics.getKafkaMetricClient());
-  //    }
-  //  }
-  //
-  //  public synchronized HashMap<String, Integer> getAllOverLoadCount() {
-  //    HashMap<String, Integer> overLoadCount = new HashMap<>();
-  //    for (NodeMetadata nodeMetadata : nodeMetadataCollection) {
-  //      overLoadCount.put(nodeMetadata.getNodeID(), nodeMetadata.getOverLoadCount());
-  //    }
-  //    return overLoadCount;
-  //  }
-  //
-  //  public synchronized int getAvgLoadCount() {
-  //    double avgLoadCount = 0;
-  //    for (NodeMetadata nodeMetadata : nodeMetadataCollection) {
-  //      avgLoadCount += getBinOneCount(nodeMetadata.getOverLoadCount());
-  //    }
-  //    return nodeMetadataCollection.size() > 0
-  //        ? (int) avgLoadCount / nodeMetadataCollection.size()
-  //        : 0;
-  //  }
-  //
-  //  /** Get the number of times a node is overloaded. */
-  //  public static int getBinOneCount(int n) {
-  //    int index = 0;
-  //    int count = 0;
-  //    while (n > 0) {
-  //      int x = n & 1 << index;
-  //      if (x != 0) {
-  //        count++;
-  //        n = n - (1 << index);
-  //      }
-  //      index++;
-  //    }
-  //    return count;
-  //  }
-  //
-  //  public void refreshNodesMetrics() {
-  //    for (NodeMetadata nodeMetadata : nodeMetadataCollection) {
-  //      NodeMetrics nodeMetrics = nodeMetadata.getNodeMetrics();
-  //      nodeMetrics.refreshMetrics();
-  //      nodeMetadata.setTotalBytes(nodeMetrics.totalBytesPerSec());
-  //    }
-  //  }
   static <T> Predicate<T> distinctByKey(Function<? super T, ?> keyExtractor) {
     Map<Object, Boolean> seen = new ConcurrentHashMap<>();
     return t -> seen.putIfAbsent(keyExtractor.apply(t), Boolean.TRUE) == null;
+  }
+
+  public BeanCollector beanCollector() {
+    return beanCollector;
   }
 
   public BeanCollectorFactory getFactory() {

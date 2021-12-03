@@ -16,13 +16,13 @@ public class BrokersWeightTest {
 
     BrokersWeight brokersWeight = new BrokersWeight();
 
-    brokersWeight.setBrokerHashMap(poissonMap);
+    brokersWeight.brokerHashMap(poissonMap);
 
-    assertEquals(brokersWeight.getBrokerHashMap().get(0)[0], 10);
-    assertEquals(brokersWeight.getBrokerHashMap().get(1)[0], 3);
+    assertEquals(brokersWeight.brokerHashMap().get(0)[0], 10);
+    assertEquals(brokersWeight.brokerHashMap().get(1)[0], 3);
 
-    brokersWeight.setBrokerHashMapValue(0, 8);
-    brokersWeight.setBrokerHashMap(poissonMap);
-    assertEquals(brokersWeight.getBrokerHashMap().get(0)[1], 8);
+    brokersWeight.brokerHashMapValue(0, 8);
+    brokersWeight.brokerHashMap(poissonMap);
+    assertEquals(brokersWeight.brokerHashMap().get(0)[1], 8);
   }
 }

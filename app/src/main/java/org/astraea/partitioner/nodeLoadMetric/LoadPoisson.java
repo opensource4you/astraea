@@ -3,11 +3,12 @@ package org.astraea.partitioner.nodeLoadMetric;
 import java.util.HashMap;
 import java.util.Map;
 
+/** do poisson for node's load situation */
 public class LoadPoisson {
 
-  public synchronized HashMap<Integer, Double> setAllPoisson(Map<Integer, Integer> overLoadCount) {
-    HashMap<Integer, Double> poissonMap = new HashMap<>();
-    var lambda = getAvgLoadCount(overLoadCount);
+  public synchronized HashMap<Integer, Double> allPoisson(Map<Integer, Integer> overLoadCount) {
+    var poissonMap = new HashMap<Integer, Double>();
+    var lambda = avgLoadCount(overLoadCount);
     for (Map.Entry<Integer, Integer> entry : overLoadCount.entrySet()) {
       poissonMap.put(entry.getKey(), doPoisson(lambda, entry.getValue()));
     }
@@ -15,13 +16,13 @@ public class LoadPoisson {
   }
 
   public double doPoisson(int lambda, int x) {
-    double Probability = 0;
-    double ans = 0;
+    var Probability = 0.0;
+    var ans = 0.0;
 
-    for (int i = 0; i <= x; i++) {
-      double j = Math.pow(lambda, i);
-      double e = Math.exp(-lambda);
-      long h = factorial(i);
+    for (var i = 0; i <= x; i++) {
+      var j = Math.pow(lambda, i);
+      var e = Math.exp(-lambda);
+      var h = factorial(i);
       Probability = (j * e) / h;
       ans += Probability;
     }
@@ -34,7 +35,7 @@ public class LoadPoisson {
     else return number * factorial(number - 1);
   }
 
-  private int getAvgLoadCount(Map<Integer, Integer> overLoadCount) {
+  private int avgLoadCount(Map<Integer, Integer> overLoadCount) {
     var avgLoadCount =
         overLoadCount.values().stream().mapToDouble(Integer::doubleValue).average().getAsDouble();
     return (int) avgLoadCount;

@@ -14,13 +14,12 @@ import org.astraea.partitioner.nodeLoadMetric.BrokersWeight;
 import org.astraea.partitioner.nodeLoadMetric.LoadPoisson;
 import org.astraea.partitioner.nodeLoadMetric.NodeLoadClient;
 
+/**
+ * Based on the jmx metrics obtained from Kafka, it records the load status of the node over a
+ * period of time. Predict the future status of each node through the poisson of the load status.
+ * Finally, the result of poisson is used as the weight to perform smooth weighted RoundRobin.
+ */
 public class SmoothWeightPartitioner implements Partitioner {
-
-  //  private static final BeanCollectorFactory FACTORY =
-  //      new BeanCollectorFactory(
-  //          Comparator.comparing(o -> o.get(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG).toString()));
-
-  //  private Map configs;
 
   private NodeLoadClient nodeLoadClient;
 
@@ -30,11 +29,11 @@ public class SmoothWeightPartitioner implements Partitioner {
     var overLoadCount = nodeLoadClient.nodesOverLoad(cluster);
     var loadPoisson = new LoadPoisson();
     var brokersWeight = new BrokersWeight();
-    brokersWeight.setBrokerHashMap(loadPoisson.setAllPoisson(overLoadCount));
+    brokersWeight.brokerHashMap(loadPoisson.allPoisson(overLoadCount));
     Map.Entry<Integer, int[]> maxWeightServer = null;
 
-    int allWeight = brokersWeight.getAllWeight();
-    HashMap<Integer, int[]> currentBrokerHashMap = brokersWeight.getBrokerHashMap();
+    var allWeight = brokersWeight.allNodesWeight();
+    var currentBrokerHashMap = brokersWeight.brokerHashMap();
 
     for (Map.Entry<Integer, int[]> item : currentBrokerHashMap.entrySet()) {
       if (maxWeightServer == null || item.getValue()[1] > maxWeightServer.getValue()[1]) {
@@ -47,7 +46,7 @@ public class SmoothWeightPartitioner implements Partitioner {
     currentBrokerHashMap.put(
         maxWeightServer.getKey(),
         new int[] {maxWeightServer.getValue()[0], maxWeightServer.getValue()[1] - allWeight});
-    brokersWeight.setCurrentBrokerHashMap(currentBrokerHashMap);
+    brokersWeight.currentBrokerHashMap(currentBrokerHashMap);
 
     ArrayList<Integer> partitionList = new ArrayList<>();
     for (PartitionInfo partitionInfo : cluster.partitionsForNode(maxWeightServer.getKey())) {
