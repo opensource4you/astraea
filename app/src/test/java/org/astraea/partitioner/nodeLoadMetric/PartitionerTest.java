@@ -9,7 +9,6 @@ import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.serialization.ByteArraySerializer;
-import org.astraea.consumer.Builder;
 import org.astraea.consumer.Consumer;
 import org.astraea.consumer.Deserializer;
 import org.astraea.consumer.Header;
@@ -73,7 +72,7 @@ public class PartitionerTest extends RequireBrokerCluster {
     try (var consumer =
         Consumer.builder()
             .brokers(bootstrapServers())
-            .offsetPolicy(Builder.OffsetPolicy.EARLIEST)
+            .fromBeginning()
             .topics(Set.of(topicName))
             .keyDeserializer(Deserializer.STRING)
             .build()) {

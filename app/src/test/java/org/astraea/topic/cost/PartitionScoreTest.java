@@ -2,7 +2,6 @@ package org.astraea.topic.cost;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
@@ -45,7 +44,7 @@ public class PartitionScoreTest extends RequireBrokerCluster {
           .create();
       // wait for topic
       TimeUnit.SECONDS.sleep(5);
-    } catch (InterruptedException | IOException e) {
+    } catch (InterruptedException e) {
       e.printStackTrace();
     }
     var producer =

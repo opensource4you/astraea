@@ -6,6 +6,9 @@ import java.util.Map;
 public interface Producer<Key, Value> extends AutoCloseable {
   Sender<Key, Value> sender();
 
+  /** this method is blocked until all data in buffer are sent. */
+  void flush();
+
   void close();
 
   static Builder<byte[], byte[]> builder() {

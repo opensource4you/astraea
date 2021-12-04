@@ -4,7 +4,6 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
-import org.astraea.consumer.Builder;
 import org.astraea.consumer.Consumer;
 import org.astraea.consumer.Deserializer;
 import org.astraea.consumer.Header;
@@ -39,7 +38,7 @@ public class ProducerTest extends RequireBrokerCluster {
     try (var consumer =
         Consumer.builder()
             .brokers(bootstrapServers())
-            .offsetPolicy(Builder.OffsetPolicy.EARLIEST)
+            .fromBeginning()
             .topics(Set.of(topicName))
             .keyDeserializer(Deserializer.STRING)
             .build()) {
