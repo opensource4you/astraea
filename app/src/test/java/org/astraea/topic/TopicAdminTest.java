@@ -2,10 +2,8 @@ package org.astraea.topic;
 
 import static org.junit.jupiter.api.condition.OS.WINDOWS;
 
-import java.io.IOException;
-import java.util.Collection;
-import java.util.Map;
-import java.util.Set;
+import java.time.Duration;
+import java.util.*;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -14,7 +12,10 @@ import java.util.stream.StreamSupport;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.config.TopicConfig;
 import org.astraea.Utils;
+import org.astraea.consumer.Consumer;
+import org.astraea.consumer.Deserializer;
 import org.astraea.producer.Producer;
+import org.astraea.producer.Serializer;
 import org.astraea.service.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -23,7 +24,7 @@ import org.junit.jupiter.api.condition.DisabledOnOs;
 public class TopicAdminTest extends RequireBrokerCluster {
 
   @Test
-  void testCreator() throws IOException {
+  void testCreator() {
     var topicName = "testCreator";
     try (var topicAdmin = TopicAdmin.of(bootstrapServers())) {
       topicAdmin
@@ -49,7 +50,7 @@ public class TopicAdminTest extends RequireBrokerCluster {
   }
 
   @Test
-  void testCreateTopicRepeatedly() throws IOException {
+  void testCreateTopicRepeatedly() {
     var topicName = "testCreateTopicRepeatedly";
     try (var topicAdmin = TopicAdmin.of(bootstrapServers())) {
       Runnable createTopic =
@@ -89,7 +90,7 @@ public class TopicAdminTest extends RequireBrokerCluster {
   }
 
   @Test
-  void testPartitions() throws IOException, InterruptedException {
+  void testPartitions() throws InterruptedException {
     var topicName = "testPartitions";
     try (var topicAdmin = TopicAdmin.of(bootstrapServers())) {
       topicAdmin.creator().topic(topicName).numberOfPartitions(3).create();
@@ -112,7 +113,7 @@ public class TopicAdminTest extends RequireBrokerCluster {
   }
 
   @Test
-  void testGroups() throws IOException, InterruptedException {
+  void testGroups() throws InterruptedException {
     var topicName = "testGroups";
     try (var topicAdmin = TopicAdmin.of(bootstrapServers())) {
       topicAdmin.creator().topic(topicName).numberOfPartitions(3).create();
@@ -125,7 +126,7 @@ public class TopicAdminTest extends RequireBrokerCluster {
   }
 
   @Test
-  void testOffsets() throws IOException, InterruptedException {
+  void testOffsets() throws InterruptedException {
     var topicName = "testOffsets";
     try (var topicAdmin = TopicAdmin.of(bootstrapServers())) {
       topicAdmin.creator().topic(topicName).numberOfPartitions(3).create();
@@ -145,7 +146,7 @@ public class TopicAdminTest extends RequireBrokerCluster {
 
   @Test
   @DisabledOnOs(WINDOWS)
-  void testMigrateSinglePartition() throws IOException, InterruptedException {
+  void testMigrateSinglePartition() throws InterruptedException {
     var topicName = "testMigrateSinglePartition";
     try (var topicAdmin = TopicAdmin.of(bootstrapServers())) {
       topicAdmin.creator().topic(topicName).numberOfPartitions(1).create();
@@ -197,7 +198,7 @@ public class TopicAdminTest extends RequireBrokerCluster {
 
   @Test
   @DisabledOnOs(WINDOWS)
-  void testMigrateAllPartitions() throws IOException, InterruptedException {
+  void testMigrateAllPartitions() throws InterruptedException {
     var topicName = "testMigrateAllPartitions";
     try (var topicAdmin = TopicAdmin.of(bootstrapServers())) {
       topicAdmin.creator().topic(topicName).numberOfPartitions(3).create();
@@ -217,7 +218,7 @@ public class TopicAdminTest extends RequireBrokerCluster {
   }
 
   @Test
-  void testReplicaSize() throws IOException, ExecutionException, InterruptedException {
+  void testReplicaSize() throws ExecutionException, InterruptedException {
     var topicName = "testReplicaSize";
     try (var topicAdmin = TopicAdmin.of(bootstrapServers());
         var producer = Producer.builder().brokers(bootstrapServers()).build()) {
@@ -245,6 +246,61 @@ public class TopicAdminTest extends RequireBrokerCluster {
               .get(0)
               .size();
       Assertions.assertTrue(newSize > originSize);
+    }
+  }
+
+  @Test
+  void testCompact() throws InterruptedException {
+    var topicName = "testCompacted";
+    try (var topicAdmin = TopicAdmin.of(bootstrapServers())) {
+      topicAdmin.creator().topic(topicName).compactionMaxLag(Duration.ofSeconds(1)).create();
+
+      var key = "key";
+      var anotherKey = "anotherKey";
+      var value = "value";
+      try (var producer =
+          Producer.builder()
+              .keySerializer(Serializer.STRING)
+              .valueSerializer(Serializer.STRING)
+              .brokers(bootstrapServers())
+              .build()) {
+        IntStream.range(0, 10)
+            .forEach(i -> producer.sender().key(key).value(value).topic(topicName).run());
+        producer.flush();
+
+        // sleep and produce more data to generate the new segment
+        TimeUnit.SECONDS.sleep(2);
+        IntStream.range(0, 10)
+            .forEach(i -> producer.sender().key(anotherKey).value(value).topic(topicName).run());
+        producer.flush();
+      }
+
+      // sleep for compact (the backoff of compact thread is reduced to 2 seconds.
+      // see org.astraea.service.Services)
+      TimeUnit.SECONDS.sleep(3);
+
+      try (var consumer =
+          Consumer.builder()
+              .keyDeserializer(Deserializer.STRING)
+              .valueDeserializer(Deserializer.STRING)
+              .fromBeginning()
+              .brokers(bootstrapServers())
+              .topics(Set.of(topicName))
+              .build()) {
+
+        var records =
+            IntStream.range(0, 5)
+                .mapToObj(i -> consumer.poll(Duration.ofSeconds(1)))
+                .flatMap(Collection::stream)
+                .collect(Collectors.toList());
+
+        Assertions.assertEquals(
+            1, records.stream().filter(record -> record.key().equals(key)).count());
+
+        // those data are in active segment, so they can be compacted.
+        Assertions.assertEquals(
+            10, records.stream().filter(record -> record.key().equals(anotherKey)).count());
+      }
     }
   }
 }

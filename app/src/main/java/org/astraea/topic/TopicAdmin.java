@@ -58,4 +58,7 @@ public interface TopicAdmin extends Closeable {
 
   /** @return a partition migrator used to move partitions to another broker or folder. */
   Migrator migrator();
+
+  @Override
+  void close();
 }

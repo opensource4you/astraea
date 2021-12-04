@@ -29,8 +29,13 @@ public class Builder<Key, Value> {
     return this;
   }
 
-  public Builder<Key, Value> offsetPolicy(OffsetPolicy offsetPolicy) {
-    this.offsetPolicy = Objects.requireNonNull(offsetPolicy);
+  /**
+   * make the consumer read data from beginning. By default, it reads the latest data.
+   *
+   * @return this builder
+   */
+  public Builder<Key, Value> fromBeginning() {
+    this.offsetPolicy = OffsetPolicy.EARLIEST;
     return this;
   }
 
