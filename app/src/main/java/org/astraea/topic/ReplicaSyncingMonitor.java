@@ -1,7 +1,6 @@
 package org.astraea.topic;
 
 import com.beust.jcommander.Parameter;
-import java.io.IOException;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -22,8 +21,6 @@ public class ReplicaSyncingMonitor {
     Argument argument = ArgumentUtil.parseArgument(new Argument(), args);
     try (TopicAdmin topicAdmin = TopicAdmin.of(argument.props())) {
       execute(topicAdmin, argument);
-    } catch (IOException ioException) {
-      ioException.printStackTrace();
     }
   }
 

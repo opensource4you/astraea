@@ -39,6 +39,9 @@ public final class Services {
             .mapToObj(
                 index -> {
                   Properties config = new Properties();
+                  // reduce the backoff of compact thread to test it quickly
+                  config.setProperty(
+                      KafkaConfig$.MODULE$.LogCleanerBackoffMsProp(), String.valueOf(2000));
                   // reduce the number from partitions and replicas to speedup the mini cluster
                   config.setProperty(
                       KafkaConfig$.MODULE$.OffsetsTopicPartitionsProp(), String.valueOf(1));
