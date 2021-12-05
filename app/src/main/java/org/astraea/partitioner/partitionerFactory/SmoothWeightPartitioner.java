@@ -1,6 +1,7 @@
 package org.astraea.partitioner.partitionerFactory;
 
 import java.io.IOException;
+import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -26,7 +27,12 @@ public class SmoothWeightPartitioner implements Partitioner {
   @Override
   public int partition(
       String topic, Object key, byte[] keyBytes, Object value, byte[] valueBytes, Cluster cluster) {
-    var overLoadCount = nodeLoadClient.nodesOverLoad(cluster);
+    Map<Integer, Integer> overLoadCount = null;
+    try {
+      overLoadCount = nodeLoadClient.nodesOverLoad(cluster);
+    } catch (UnknownHostException e) {
+      e.printStackTrace();
+    }
     var loadPoisson = new LoadPoisson();
     var brokersWeight = new BrokersWeight();
     brokersWeight.brokerHashMap(loadPoisson.allPoisson(overLoadCount));
