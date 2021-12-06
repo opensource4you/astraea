@@ -10,6 +10,9 @@ public interface Producer<Key, Value> extends AutoCloseable {
 
   Collection<CompletionStage<Metadata>> transaction(Collection<Sender<Key, Value>> senders);
 
+  /** this method is blocked until all data in buffer are sent. */
+  void flush();
+
   void close();
 
   static Builder<byte[], byte[]> builder() {

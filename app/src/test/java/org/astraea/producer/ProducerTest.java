@@ -43,7 +43,7 @@ public class ProducerTest extends RequireBrokerCluster {
     try (var consumer =
         Consumer.builder()
             .brokers(bootstrapServers())
-            .offsetPolicy(Builder.OffsetPolicy.EARLIEST)
+            .fromBeginning()
             .topics(Set.of(topicName))
             .keyDeserializer(Deserializer.STRING)
             .build()) {
@@ -89,7 +89,7 @@ public class ProducerTest extends RequireBrokerCluster {
     try (var consumer =
         Consumer.builder()
             .brokers(bootstrapServers())
-            .offsetPolicy(Builder.OffsetPolicy.EARLIEST)
+            .fromBeginning()
             .topics(Set.of(topicName))
             .keyDeserializer(Deserializer.STRING)
             .configs(prop)

@@ -3,7 +3,9 @@ package org.astraea.service;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.lang.management.ManagementFactory;
+import java.net.InetAddress;
 import java.net.ServerSocket;
+import java.net.UnknownHostException;
 import java.rmi.registry.LocateRegistry;
 import javax.management.remote.JMXConnectorServer;
 import javax.management.remote.JMXConnectorServerFactory;
@@ -39,7 +41,8 @@ public abstract class RequireJmxServer {
               // JNDI too.
               new JMXServiceURL(
                   String.format(
-                      "service:jmx:rmi://127.0.0.1:%s/jndi/rmi://127.0.0.1:%s/jmxrmi", port, port)),
+                      "service:jmx:rmi://%s:%s/jndi/rmi://%s:%s/jmxrmi",
+                      address(), port, address(), port)),
               null,
               mBeanServer);
       jmxServer.start();
@@ -54,6 +57,17 @@ public abstract class RequireJmxServer {
       return server.getLocalPort();
     } catch (IOException e) {
       throw new UncheckedIOException(e);
+    }
+  }
+
+  private static String address() {
+    try {
+      var address = InetAddress.getLocalHost().getHostAddress();
+      if (address.equals("0.0.0.0") || address.equals("127.0.0.1"))
+        throw new RuntimeException("the address of host can't be either 0.0.0.0 or 127.0.0.1");
+      return InetAddress.getLocalHost().getHostAddress();
+    } catch (UnknownHostException e) {
+      throw new RuntimeException(e);
     }
   }
 }
