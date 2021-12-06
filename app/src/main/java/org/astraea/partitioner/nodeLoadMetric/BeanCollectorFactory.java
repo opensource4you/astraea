@@ -81,6 +81,7 @@ public class BeanCollectorFactory {
     synchronized (lock) {
       var current = count.get(configs);
       if (current == 1) {
+        instances.get(configs).close();
         count.remove(configs);
         instances.remove(configs);
       } else count.put(configs, current - 1);

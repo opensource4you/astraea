@@ -10,6 +10,7 @@ import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.serialization.ByteArraySerializer;
 import org.astraea.partitioner.partitionerFactory.SmoothWeightPartitioner;
 import org.astraea.service.RequireBrokerCluster;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -28,6 +29,11 @@ public class NodeLoadClientTest extends RequireBrokerCluster {
     var map = new HashMap<String, String>();
     map.put(jmxServiceURL().getHost(), jmxServiceURL().getPort() + "");
     nodeLoadClient = new NodeLoadClient(map, props);
+  }
+
+  @AfterAll
+  public void tearDown() {
+    nodeLoadClient.close();
   }
 
   public Properties initProConfig() {
