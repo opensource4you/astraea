@@ -65,10 +65,10 @@ public class ReplicaCollieTest extends RequireBrokerCluster {
       argument.verify = verify;
       var result = ReplicaCollie.execute(topicAdmin, argument);
       var assignment = result.get(new TopicPartition(topicName, 0));
-      Assertions.assertEquals(badBroker, assignment.getKey().getKey());
-      Assertions.assertNotEquals(badBroker, assignment.getKey().getValue());
-      Assertions.assertEquals(badPath, assignment.getValue().getKey());
-      Assertions.assertNotEquals(badPath, assignment.getValue().getValue());
+      Assertions.assertEquals(badBroker, assignment.brokerIdA);
+      Assertions.assertNotEquals(badBroker, assignment.brokerIdB);
+      Assertions.assertEquals(badPath, assignment.pathA);
+      Assertions.assertNotEquals(badPath, assignment.pathB);
       if (verify) {
         var currentReplicas = topicAdmin.replicas(Set.of(topicName));
         Assertions.assertEquals(partitionReplicas.size(), currentReplicas.size());
@@ -79,8 +79,8 @@ public class ReplicaCollieTest extends RequireBrokerCluster {
               for (var index = 0; index != rs.size(); ++index)
                 Assertions.assertEquals(rs.get(index), currentRs.get(index));
             });
-        Assertions.assertEquals(targetBroker, assignment.getKey().getValue());
-        Assertions.assertEquals(targetPath, assignment.getValue().getValue());
+        Assertions.assertEquals(targetBroker, assignment.brokerIdB);
+        Assertions.assertEquals(targetPath, assignment.pathB);
       } else {
         Utils.waitFor(
             () -> {

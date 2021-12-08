@@ -239,10 +239,11 @@ This tool offers an effective way to migrate specify replicas from specific brok
 
 1. --bootstrap.servers: the server to connect to
 2. --from: the broker of the specified replica
-3. --to: the replica moved target broker
-4. --topics: the topics to be moved
-5. --partitions : all partitions that will be moved
-6. --path: the replica that will moved to
+3. --prop.file: the file path containing the properties to be passed to kafka admin
+4. --to: the replica moved target broker
+5. --topics: the topics to be moved
+6. --partitions : all partitions that will be moved
+7. --path: the replica that will move to
 
 ## Kafka Partition Score
 
