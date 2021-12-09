@@ -15,8 +15,8 @@ if [[ "$(which docker)" == "" ]]; then
   exit 2
 fi
 
-if [[ "$(which docker)" == "" ]]; then
-  echo "you have to install docker"
+if [[ "$OSTYPE" == "darwin"* ]]; then
+  echo "This script requires to run container with \"--network host\", but the feature is unsupported by Mac OS"
   exit 2
 fi
 
