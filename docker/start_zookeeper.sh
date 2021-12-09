@@ -1,34 +1,18 @@
 #!/bin/bash
 
-# =============================[functions]=============================
-
 function showHelp() {
   echo "Usage: [ENV] start_zookeeper.sh"
   echo "ENV: "
   echo "    REPO=astraea/zk     set the docker repo"
   echo "    VERSION=3.7.0    set version of zookeeper distribution"
+  echo "    RUN=false    set false if you want to build image only"
   echo "    DATA_FOLDER=/tmp/folder1   set host folders used by zookeeper"
 }
-
-# ===============================[checks]===============================
 
 if [[ "$(which docker)" == "" ]]; then
   echo "you have to install docker"
   exit 2
 fi
-
-if [[ "$(which ipconfig)" != "" ]]; then
-  address=$(ipconfig getifaddr en0)
-else
-  address=$(hostname -i)
-fi
-
-if [[ "$address" == "127.0.0.1" || "$address" == "127.0.1.1" ]]; then
-  echo "the address: Either 127.0.0.1 or 127.0.1.1 can't be used in this script. Please check /etc/hosts"
-  exit 2
-fi
-
-# =================================[main]=================================
 
 while [[ $# -gt 0 ]]; do
   if [[ "$1" == "help" ]]; then
@@ -38,17 +22,18 @@ while [[ $# -gt 0 ]]; do
   shift
 done
 
+if [[ "$(which ipconfig)" != "" ]]; then
+  address=$(ipconfig getifaddr en0)
+else
+  address=$(hostname -i)
+fi
+
 zookeeper_user=astraea
 version=${VERSION:-3.7.0}
 repo=${REPO:-astraea/zookeeper}
 image_name="$repo:$version"
 zk_port="$(($(($RANDOM % 10000)) + 10000))"
-
-hostFolderConfigs=""
-if [[ -n "$DATA_FOLDER" ]]; then
-  mkdir -p "$DATA_FOLDER"
-  hostFolderConfigs="-v $DATA_FOLDER:/tmp/zookeeper-dir"
-fi
+run_container=${RUN:-true}
 
 docker build -t $image_name - <<Dockerfile
 FROM ubuntu:20.04
@@ -74,6 +59,22 @@ RUN echo "tickTime=2000" >> ./conf/zoo.cfg
 RUN echo "dataDir=/tmp/zookeeper-dir" >> ./conf/zoo.cfg
 RUN echo "clientPort=2181" >> ./conf/zoo.cfg
 Dockerfile
+
+if [[ "$run_container" != "true" ]]; then
+  echo "docker image: $image_name is created"
+  exit 0
+fi
+
+if [[ "$address" == "127.0.0.1" || "$address" == "127.0.1.1" ]]; then
+  echo "the address: Either 127.0.0.1 or 127.0.1.1 can't be used in this script. Please check /etc/hosts"
+  exit 2
+fi
+
+hostFolderConfigs=""
+if [[ -n "$DATA_FOLDER" ]]; then
+  mkdir -p "$DATA_FOLDER"
+  hostFolderConfigs="-v $DATA_FOLDER:/tmp/zookeeper-dir"
+fi
 
 docker run -d \
   -p $zk_port:2181 \
