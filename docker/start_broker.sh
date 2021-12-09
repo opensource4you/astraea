@@ -1,18 +1,6 @@
 #!/bin/bash
 
 # =============================[functions]=============================
-function getAddress() {
-  if [[ "$(which ipconfig)" != "" ]]; then
-    address=$(ipconfig getifaddr en0)
-  else
-    address=$(hostname -i)
-  fi
-  if [[ "$address" == "127.0.0.1" ]]; then
-    echo "the address: 127.0.0.1 can't be used in this script. Please check /etc/hosts"
-    exit 2
-  fi
-  echo "$address"
-}
 
 function showHelp() {
   echo "Usage: [ENV] start_broker.sh [ ARGUMENTS ]"
@@ -27,12 +15,26 @@ function showHelp() {
   echo "    KAFKA_VERSION=2.8.1                     set version of kafka distribution"
   echo "    DATA_FOLDERS=/tmp/folder1,/tmp/folder2   set host folders used by broker"
 }
-# =====================================================================
+
+# ===============================[checks]===============================
 
 if [[ "$(which docker)" == "" ]]; then
   echo "you have to install docker"
   exit 2
 fi
+
+if [[ "$(which ipconfig)" != "" ]]; then
+  address=$(ipconfig getifaddr en0)
+else
+  address=$(hostname -i)
+fi
+
+if [[ "$address" == "127.0.0.1" || "$address" == "127.0.1.1" ]]; then
+  echo "the address: Either 127.0.0.1 or 127.0.1.1 can't be used in this script. Please check /etc/hosts"
+  exit 2
+fi
+
+# =================================[main]=================================
 
 if [[ -z "$KAFKA_VERSION" ]]; then
   KAFKA_VERSION=2.8.1
@@ -46,7 +48,6 @@ if [[ -n "$KAFKA_REVISION" ]]; then
   image_name=astraea/broker:$KAFKA_REVISION
 fi
 broker_id="$(($RANDOM % 1000))"
-address=$(getAddress)
 broker_port="$(($(($RANDOM % 10000)) + 10000))"
 broker_jmx_port="$(($(($RANDOM % 10000)) + 10000))"
 admin_name="admin"
@@ -67,7 +68,7 @@ echo "" >"$config_file"
 while [[ $# -gt 0 ]]; do
   if [[ "$1" == "help" ]]; then
     showHelp
-    exit 2
+    exit 0
   fi
   echo "$1" >> "$config_file"
   shift
