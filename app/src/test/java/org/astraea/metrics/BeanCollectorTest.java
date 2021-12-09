@@ -3,6 +3,7 @@ package org.astraea.metrics;
 import java.time.Duration;
 import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 import org.astraea.Utils;
 import org.astraea.metrics.java.JvmMemory;
 import org.astraea.metrics.jmx.MBeanClient;
@@ -179,7 +180,14 @@ public class BeanCollectorTest extends RequireBrokerCluster {
           .forEach(
               node ->
                   Assertions.assertNotEquals(
-                      0, collector.objects(node.host(), node.port()).size()));
+                      0,
+                      collector.objects(node.host(), node.port()).size(),
+                      String.format(
+                          "all nodes: %s current: %s",
+                          collector.nodes().stream()
+                              .map(n -> n.host() + ":" + n.port())
+                              .collect(Collectors.joining(",")),
+                          node.host() + ":" + node.port())));
 
       collector
           .nodes()
