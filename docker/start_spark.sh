@@ -1,18 +1,6 @@
 #!/bin/bash
 
 # =============================[functions]=============================
-function getAddress() {
-  if [[ "$(which ipconfig)" != "" ]]; then
-    address=$(ipconfig getifaddr en0)
-  else
-    address=$(hostname -i)
-  fi
-  if [[ "$address" == "127.0.0.1" ]]; then
-    echo "the address: 127.0.0.1 can't be used in this script. Please check /etc/hosts"
-    exit 2
-  fi
-  echo "$address"
-}
 
 function showHelp() {
   echo "Usage: [ENV] start_spark.sh master-url"
@@ -27,6 +15,22 @@ if [[ "$(which docker)" == "" ]]; then
   exit 2
 fi
 
+if [[ "$OSTYPE" == "darwin"* ]]; then
+  echo "This script requires to run container with \"--network host\", but the feature is unsupported by Mac OS"
+  exit 2
+fi
+
+if [[ "$(which ipconfig)" != "" ]]; then
+  address=$(ipconfig getifaddr en0)
+else
+  address=$(hostname -i)
+fi
+
+if [[ "$address" == "127.0.0.1" || "$address" == "127.0.1.1" ]]; then
+  echo "the address: Either 127.0.0.1 or 127.0.1.1 can't be used in this script. Please check /etc/hosts"
+  exit 2
+fi
+
 master_url=""
 while [[ $# -gt 0 ]]; do
   if [[ "$1" == "help" ]]; then
@@ -37,6 +41,25 @@ while [[ $# -gt 0 ]]; do
   shift
 done
 
+# Spark needs to manage the hardware resource for this node, so we don't run multiples workers/masters in same node.
+if [[ -n "$master_url" ]]; then
+  master_port=$(echo "$master_url" | cut -d':' -f 3)
+  worker_name="spark-worker-$master_port"
+  container_names=$(docker ps --format "{{.Names}}")
+  if [[ $(echo "${container_names}" | grep "$worker_name") != "" ]]; then
+    echo "It is disallowed to run multiples spark workers in same node"
+    exit 2
+  fi
+else
+  master_name="spark-master"
+  container_names=$(docker ps --format "{{.Names}}")
+  if [[ $(echo "${container_names}" | grep "$master_name") != "" ]]; then
+    echo "It is disallowed to run multiples spark masters in same node"
+    exit 2
+  fi
+fi
+
+
 if [[ -z "$SPARK_VERSION" ]]; then
   SPARK_VERSION=3.1.2
 fi
@@ -45,7 +68,6 @@ spark_user=astraea
 image_name=astraea/spark:$SPARK_VERSION
 spark_port="$(($(($RANDOM % 10000)) + 10000))"
 spark_ui_port="$(($(($RANDOM % 10000)) + 10000))"
-address=$(getAddress)
 
 docker build -t $image_name - <<Dockerfile
 FROM ubuntu:20.04
@@ -67,33 +89,31 @@ RUN tar -zxvf spark-${SPARK_VERSION}-bin-hadoop3.2.tgz -C /home/$spark_user/spar
 ENV SPARK_MASTER_WEBUI_PORT=$spark_ui_port
 ENV SPARK_WORKER_WEBUI_PORT=$spark_ui_port
 ENV SPARK_MASTER_PORT=$spark_port
+ENV SPARK_WORKER_PORT=$spark_port
 ENV SPARK_NO_DAEMONIZE=true
-ENV SPARK_PUBLIC_DNS=$address
 WORKDIR /home/$spark_user/spark
 
 Dockerfile
 
 if [[ -n "$master_url" ]]; then
-  # worker mode
-    docker run -d \
-      -p $spark_ui_port:$spark_ui_port \
-      $image_name ./sbin/start-worker.sh "$master_url"
+  docker run -d \
+    --name "$worker_name" \
+    --network host \
+    $image_name ./sbin/start-worker.sh "$master_url"
 
-    echo "================================================="
-    echo "Bound WorkerWebUI started at http://${address}:${spark_ui_port}"
-    echo "================================================="
+  echo "================================================="
+  echo "Starting Spark worker $address:$spark_port"
+  echo "Bound WorkerWebUI started at http://${address}:${spark_ui_port}"
+  echo "================================================="
 else
-    docker run -d \
-      -p $spark_port:$spark_port \
-      -p $spark_ui_port:$spark_ui_port \
-      $image_name ./sbin/start-master.sh
+  docker run -d \
+    --name "$master_name" \
+    --network host \
+    $image_name ./sbin/start-master.sh
 
-    echo "================================================="
-    echo "Starting Spark master at spark://$address:$spark_port"
-    echo "Bound MasterWebUI started at http://${address}:${spark_ui_port}"
-    echo "execute ./docker/start_spark.sh spark://$address:$spark_port to add worker"
-    echo "================================================="
-
+  echo "================================================="
+  echo "Starting Spark master at spark://$address:$spark_port"
+  echo "Bound MasterWebUI started at http://${address}:${spark_ui_port}"
+  echo "execute ./docker/start_spark.sh spark://$address:$spark_port to add worker"
+  echo "================================================="
 fi
-
-
