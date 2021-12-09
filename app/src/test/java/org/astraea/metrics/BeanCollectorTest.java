@@ -183,7 +183,8 @@ public class BeanCollectorTest extends RequireBrokerCluster {
                       0,
                       collector.objects(node.host(), node.port()).size(),
                       String.format(
-                          "all nodes: %s current: %s",
+                          "all objects: %s all nodes: %s current: %s",
+                          collector.numberOfObjects(),
                           collector.nodes().stream()
                               .map(n -> n.host() + ":" + n.port())
                               .collect(Collectors.joining(",")),
