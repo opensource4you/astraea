@@ -1,19 +1,34 @@
 #!/bin/bash
 
 # =============================[functions]=============================
+
 function showHelp() {
   echo "Usage: [ KAFKA SCRIPT ] [ OPTIONS ]"
 }
-# =====================================================================
+
+# ===============================[checks]===============================
 
 if [[ "$(which docker)" == "" ]]; then
   echo "you have to install docker"
   exit 2
 fi
 
+if [[ "$(which ipconfig)" != "" ]]; then
+  address=$(ipconfig getifaddr en0)
+else
+  address=$(hostname -i)
+fi
+
+if [[ "$address" == "127.0.0.1" || "$address" == "127.0.1.1" ]]; then
+  echo "the address: Either 127.0.0.1 or 127.0.1.1 can't be used in this script. Please check /etc/hosts"
+  exit 2
+fi
+
+# =================================[main]=================================
+
 if [[ "$1" == "" ]]; then
   showHelp
-  exit 2
+  exit 0
 else
   script=$1
   # remove first command lines

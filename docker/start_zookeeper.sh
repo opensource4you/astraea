@@ -1,18 +1,6 @@
 #!/bin/bash
 
 # =============================[functions]=============================
-function getAddress() {
-  if [[ "$(which ipconfig)" != "" ]]; then
-    address=$(ipconfig getifaddr en0)
-  else
-    address=$(hostname -i)
-  fi
-  if [[ "$address" == "127.0.0.1" ]]; then
-    echo "the address: 127.0.0.1 can't be used in this script. Please check /etc/hosts"
-    exit 2
-  fi
-  echo "$address"
-}
 
 function showHelp() {
   echo "Usage: [ENV] start_zookeeper.sh"
@@ -21,17 +9,30 @@ function showHelp() {
   echo "    DATA_FOLDER=/tmp/folder1   set host folders used by zookeeper"
 }
 
-# =====================================================================
+# ===============================[checks]===============================
 
 if [[ "$(which docker)" == "" ]]; then
   echo "you have to install docker"
   exit 2
 fi
 
+if [[ "$(which ipconfig)" != "" ]]; then
+  address=$(ipconfig getifaddr en0)
+else
+  address=$(hostname -i)
+fi
+
+if [[ "$address" == "127.0.0.1" || "$address" == "127.0.1.1" ]]; then
+  echo "the address: Either 127.0.0.1 or 127.0.1.1 can't be used in this script. Please check /etc/hosts"
+  exit 2
+fi
+
+# =================================[main]=================================
+
 while [[ $# -gt 0 ]]; do
   if [[ "$1" == "help" ]]; then
     showHelp
-    exit 2
+    exit 0
   fi
   shift
 done
@@ -43,7 +44,6 @@ fi
 zookeeper_user=astraea
 image_name=astraea/zookeeper:$ZOOKEEPER_VERSION
 zk_port="$(($(($RANDOM % 10000)) + 10000))"
-address=$(getAddress)
 
 hostFolderConfigs=""
 if [[ -n "$DATA_FOLDER" ]]; then
