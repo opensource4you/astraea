@@ -1,32 +1,34 @@
 #!/bin/bash
 
 # =============================[functions]=============================
-function getAddress() {
-  if [[ "$(which ipconfig)" != "" ]]; then
-    address=$(ipconfig getifaddr en0)
-  else
-    address=$(hostname -i)
-  fi
-  if [[ "$address" == "127.0.0.1" ]]; then
-    echo "the address: 127.0.0.1 can't be used in this script. Please check /etc/hosts"
-    exit 2
-  fi
-  echo "$address"
-}
 
 function showHelp() {
   echo "Usage: [targets]"
 }
-# =====================================================================
+
+# ===============================[checks]===============================
 
 if [[ "$(which docker)" == "" ]]; then
   echo "you have to install docker"
   exit 2
 fi
 
-if [[ "$1" == "" ]]; then
-  showHelp
+if [[ "$(which ipconfig)" != "" ]]; then
+  address=$(ipconfig getifaddr en0)
+else
+  address=$(hostname -i)
+fi
+
+if [[ "$address" == "127.0.0.1" || "$address" == "127.0.1.1" ]]; then
+  echo "the address: Either 127.0.0.1 or 127.0.1.1 can't be used in this script. Please check /etc/hosts"
   exit 2
+fi
+
+# =================================[main]=================================
+
+if [[ "$1" == "" ]] || [[ "$1" == "help" ]]; then
+  showHelp
+  exit 0
 fi
 
 targets=""
@@ -43,7 +45,6 @@ echo "$targets"
 image_name=prom/prometheus
 prometheus_port="$(($(($RANDOM % 10000)) + 10000))"
 file=/tmp/prometheus-${prometheus_port}.yml
-address=$(getAddress)
 
 cat <<EOT > "$file"
 global:
