@@ -5,6 +5,7 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -64,17 +65,10 @@ public class BeanCollector implements AutoCloseable {
             .executors(
                 IntStream.range(0, numberOfThreads)
                     .mapToObj(
-                        i ->
+                        threadIndex ->
                             (ThreadPool.Executor)
                                 () -> {
-                                  var node = nodes.poll();
-                                  if (node != null)
-                                    try {
-                                      node.updateObjects();
-                                    } finally {
-                                      nodes.add(node);
-                                    }
-
+                                  nodes.forEach(NodeImpl::updateObjects);
                                   synchronized (notification) {
                                     notification.wait(interval.toMillis());
                                   }
@@ -243,6 +237,7 @@ public class BeanCollector implements AutoCloseable {
         new ConcurrentHashMap<>();
     final Queue<HasBeanObject> objects = new ConcurrentLinkedQueue<>();
     final int numberOfObjects;
+    final AtomicBoolean updating = new AtomicBoolean(false);
 
     NodeImpl(MBeanClient client, int numberOfObjects) {
       this.client = client;
@@ -250,14 +245,21 @@ public class BeanCollector implements AutoCloseable {
     }
 
     void updateObjects() {
-      allGetters.forEach(
-          (name, getters) -> {
-            var getter = getters.getLast();
-            if (getter != null) {
-              if (objects.size() >= numberOfObjects) objects.poll();
-              objects.offer(getter.apply(client));
-            }
-          });
+      // don't process one node by two threads
+      if (updating.compareAndSet(false, true)) {
+        try {
+          allGetters.forEach(
+              (name, getters) -> {
+                var getter = getters.getLast();
+                if (getter != null) {
+                  if (objects.size() >= numberOfObjects) objects.poll();
+                  objects.offer(getter.apply(client));
+                }
+              });
+        } finally {
+          updating.set(false);
+        }
+      }
     }
 
     @Override
