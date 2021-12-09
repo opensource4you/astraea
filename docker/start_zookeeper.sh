@@ -3,9 +3,9 @@
 function showHelp() {
   echo "Usage: [ENV] start_zookeeper.sh"
   echo "ENV: "
-  echo "    REPO=astraea/zk     set the docker repo"
-  echo "    VERSION=3.7.0    set version of zookeeper distribution"
-  echo "    RUN=false    set false if you want to build image only"
+  echo "    REPO=astraea/zk            set the docker repo"
+  echo "    VERSION=3.7.0              set version of zookeeper distribution"
+  echo "    RUN=false                  set false if you want to build image only"
   echo "    DATA_FOLDER=/tmp/folder1   set host folders used by zookeeper"
 }
 

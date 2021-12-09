@@ -3,10 +3,10 @@
 function showHelp() {
   echo "Usage: [ENV] start_broker.sh [ ARGUMENTS ]"
   echo "Required Argument: "
-  echo "    zookeeper.connect=node:22222            set zookeeper connection"
+  echo "    zookeeper.connect=node:22222             set zookeeper connection"
   echo "Optional Arguments: "
-  echo "    num.io.threads=10                       set broker I/O threads"
-  echo "    num.network.threads=10                  set broker network threads"
+  echo "    num.io.threads=10                        set broker I/O threads"
+  echo "    num.network.threads=10                   set broker network threads"
   echo "ENV: "
   echo "    REPO=astraea/broker                      set the docker repo"
   echo "    HEAP_OPTS=\"-Xmx2G -Xms2G\"                set broker JVM memory"
@@ -50,6 +50,18 @@ jmx_opts="-Dcom.sun.management.jmxremote \
   -Dcom.sun.management.jmxremote.rmi.port=$broker_jmx_port \
   -Djava.rmi.server.hostname=$address"
 heap_opts="${HEAP_OPTS:-"-Xmx2G -Xms2G"}"
+
+config_file="/tmp/server-${broker_port}.properties"
+echo "" >"$config_file"
+
+while [[ $# -gt 0 ]]; do
+  if [[ "$1" == "help" ]]; then
+    showHelp
+    exit 0
+  fi
+  echo "$1" >> "$config_file"
+  shift
+done
 
 if [[ -n "$REVISION" ]]; then
 
@@ -115,18 +127,6 @@ if [[ "$run_container" != "true" ]]; then
   echo "docker image: $image_name is created"
   exit 0
 fi
-
-config_file="/tmp/server-${broker_port}.properties"
-echo "" >"$config_file"
-
-while [[ $# -gt 0 ]]; do
-  if [[ "$1" == "help" ]]; then
-    showHelp
-    exit 0
-  fi
-  echo "$1" >> "$config_file"
-  shift
-done
 
 # check zk connection
 if [[ "$(cat $config_file | grep zookeeper.connect)" == "" ]]; then
