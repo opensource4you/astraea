@@ -5,7 +5,8 @@
 function showHelp() {
   echo "Usage: [ENV] start_zookeeper.sh"
   echo "ENV: "
-  echo "    ZOOKEEPER_VERSION=3.7.0    set version of zookeeper distribution"
+  echo "    REPO=astraea/zk     set the docker repo"
+  echo "    VERSION=3.7.0    set version of zookeeper distribution"
   echo "    DATA_FOLDER=/tmp/folder1   set host folders used by zookeeper"
 }
 
@@ -37,12 +38,10 @@ while [[ $# -gt 0 ]]; do
   shift
 done
 
-if [[ -z "$ZOOKEEPER_VERSION" ]]; then
-  ZOOKEEPER_VERSION=3.7.0
-fi
-
 zookeeper_user=astraea
-image_name=astraea/zookeeper:$ZOOKEEPER_VERSION
+version=${VERSION:-3.7.0}
+repo=${REPO:-astraea/zookeeper}
+image_name="$repo:$version"
 zk_port="$(($(($RANDOM % 10000)) + 10000))"
 
 hostFolderConfigs=""
@@ -65,9 +64,9 @@ USER $zookeeper_user
 
 # download zookeeper
 WORKDIR /tmp
-RUN wget https://archive.apache.org/dist/zookeeper/zookeeper-${ZOOKEEPER_VERSION}/apache-zookeeper-${ZOOKEEPER_VERSION}-bin.tar.gz
+RUN wget https://archive.apache.org/dist/zookeeper/zookeeper-${version}/apache-zookeeper-${version}-bin.tar.gz
 RUN mkdir /home/$zookeeper_user/zookeeper
-RUN tar -zxvf apache-zookeeper-${ZOOKEEPER_VERSION}-bin.tar.gz -C /home/$zookeeper_user/zookeeper --strip-components=1
+RUN tar -zxvf apache-zookeeper-${version}-bin.tar.gz -C /home/$zookeeper_user/zookeeper --strip-components=1
 WORKDIR /home/$zookeeper_user/zookeeper
 
 # create config file
