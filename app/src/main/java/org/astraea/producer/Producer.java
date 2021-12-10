@@ -1,5 +1,8 @@
 package org.astraea.producer;
 
+import org.apache.kafka.common.Metric;
+import org.apache.kafka.common.MetricName;
+
 import java.util.Map;
 
 /** An interface for sending records. */

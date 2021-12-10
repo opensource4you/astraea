@@ -6,6 +6,8 @@ import java.util.concurrent.CompletionStage;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.clients.producer.ProducerRecord;
+import org.apache.kafka.common.Metric;
+import org.apache.kafka.common.MetricName;
 import org.astraea.consumer.Header;
 
 public class Builder<Key, Value> {
