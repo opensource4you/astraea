@@ -5,7 +5,9 @@
 function showHelp() {
   echo "Usage: [ENV] submit_spark_job.sh [ ARGUMENTS ]"
   echo "ENV: "
-  echo "    SPARK_VERSION=3.7.0    set version of spark distribution"
+  echo "    REPO=astraea/spark-job           set the docker repo"
+  echo "    VERSION=3.1.2                    set version of spark distribution"
+  echo "    RUN=false                        set false if you want to build image only"
 }
 
 # ===============================[checks]===============================
@@ -15,20 +17,10 @@ if [[ "$(which docker)" == "" ]]; then
   exit 2
 fi
 
-if [[ "$OSTYPE" == "darwin"* ]]; then
-  echo "This script requires to run container with \"--network host\", but the feature is unsupported by Mac OS"
-  exit 2
-fi
-
 if [[ "$(which ipconfig)" != "" ]]; then
   address=$(ipconfig getifaddr en0)
 else
   address=$(hostname -i)
-fi
-
-if [[ "$address" == "127.0.0.1" || "$address" == "127.0.1.1" ]]; then
-  echo "the address: Either 127.0.0.1 or 127.0.1.1 can't be used in this script. Please check /etc/hosts"
-  exit 2
 fi
 
 # =================================[main]=================================
@@ -40,24 +32,11 @@ while [[ $# -gt 0 ]]; do
   shift
 done
 
-if [[ -z "$py_file" ]]; then
-  echo "failed to get main py file from input arguments"
-  exit 2
-fi
-
-if [[ ! -f "$py_file" ]]; then
-  echo "\"$py_file\" is not a file"
-  exit 2
-fi
-
-py_folder=$(dirname "$py_file")
-
-if [[ -z "$SPARK_VERSION" ]]; then
-  SPARK_VERSION=3.1.2
-fi
-
 spark_user=astraea
-image_name=astraea/spark-job:$SPARK_VERSION
+version=${REVISION:-${VERSION:-3.1.2}}
+repo=${REPO:-astraea/spark}
+image_name="$repo:$version"
+run_container=${RUN:-true}
 
 docker build -t $image_name - <<Dockerfile
 FROM ubuntu:20.04
@@ -73,15 +52,42 @@ USER $spark_user
 
 # download spark
 WORKDIR /tmp
-RUN wget https://archive.apache.org/dist/spark/spark-${SPARK_VERSION}/spark-${SPARK_VERSION}-bin-hadoop3.2.tgz
+RUN wget https://archive.apache.org/dist/spark/spark-${version}/spark-${version}-bin-hadoop3.2.tgz
 RUN mkdir /home/$spark_user/spark
-RUN tar -zxvf spark-${SPARK_VERSION}-bin-hadoop3.2.tgz -C /home/$spark_user/spark --strip-components=1
+RUN tar -zxvf spark-${version}-bin-hadoop3.2.tgz -C /home/$spark_user/spark --strip-components=1
 WORKDIR /home/$spark_user/spark
 
 Dockerfile
 
+if [[ "$run_container" != "true" ]]; then
+  echo "docker image: $image_name is created"
+  exit 0
+fi
+
+if [[ "$OSTYPE" == "darwin"* ]]; then
+  echo "This script requires to run container with \"--network host\", but the feature is unsupported by Mac OS"
+  exit 2
+fi
+
+if [[ "$address" == "127.0.0.1" || "$address" == "127.0.1.1" ]]; then
+  echo "the address: Either 127.0.0.1 or 127.0.1.1 can't be used in this script. Please check /etc/hosts"
+  exit 2
+fi
+
+if [[ -z "$py_file" ]]; then
+  echo "failed to get main py file from input arguments"
+  exit 2
+fi
+
+if [[ ! -f "$py_file" ]]; then
+  echo "\"$py_file\" is not a file"
+  exit 2
+fi
+
 # spark stores package files to ~/.ivy2 by default. We keep those files in host path to avoid download them again.
 mkdir -p "$HOME"/.ivy2
+
+py_folder=$(dirname "$py_file")
 
 docker run \
   --network host \

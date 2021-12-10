@@ -1,22 +1,17 @@
 #!/bin/bash
 
-# =============================[functions]=============================
-
 function showHelp() {
   echo "Usage: [ENV] start_spark.sh master-url"
+  echo "Optional Arguments: "
+  echo "    master-url=spar://node00:1111    start a spark worker. Or start a spark master if master-url is not defined"
   echo "ENV: "
-  echo "    SPARK_VERSION=3.7.0    set version of spark distribution"
+  echo "    REPO=astraea/spark               set the docker repo"
+  echo "    VERSION=3.1.2                    set version of spark distribution"
+  echo "    RUN=false                        set false if you want to build image only"
 }
-
-# ===============================[checks]===============================
 
 if [[ "$(which docker)" == "" ]]; then
   echo "you have to install docker"
-  exit 2
-fi
-
-if [[ "$OSTYPE" == "darwin"* ]]; then
-  echo "This script requires to run container with \"--network host\", but the feature is unsupported by Mac OS"
   exit 2
 fi
 
@@ -25,13 +20,6 @@ if [[ "$(which ipconfig)" != "" ]]; then
 else
   address=$(hostname -i)
 fi
-
-if [[ "$address" == "127.0.0.1" || "$address" == "127.0.1.1" ]]; then
-  echo "the address: Either 127.0.0.1 or 127.0.1.1 can't be used in this script. Please check /etc/hosts"
-  exit 2
-fi
-
-# =================================[main]=================================
 
 master_url=""
 while [[ $# -gt 0 ]]; do
@@ -62,12 +50,11 @@ else
 fi
 
 
-if [[ -z "$SPARK_VERSION" ]]; then
-  SPARK_VERSION=3.1.2
-fi
-
 spark_user=astraea
-image_name=astraea/spark:$SPARK_VERSION
+version=${REVISION:-${VERSION:-3.1.2}}
+repo=${REPO:-astraea/spark}
+image_name="$repo:$version"
+run_container=${RUN:-true}
 spark_port="$(($(($RANDOM % 10000)) + 10000))"
 spark_ui_port="$(($(($RANDOM % 10000)) + 10000))"
 
@@ -85,9 +72,9 @@ USER $spark_user
 
 # download spark
 WORKDIR /tmp
-RUN wget https://archive.apache.org/dist/spark/spark-${SPARK_VERSION}/spark-${SPARK_VERSION}-bin-hadoop3.2.tgz
+RUN wget https://archive.apache.org/dist/spark/spark-${version}/spark-${version}-bin-hadoop3.2.tgz
 RUN mkdir /home/$spark_user/spark
-RUN tar -zxvf spark-${SPARK_VERSION}-bin-hadoop3.2.tgz -C /home/$spark_user/spark --strip-components=1
+RUN tar -zxvf spark-${version}-bin-hadoop3.2.tgz -C /home/$spark_user/spark --strip-components=1
 ENV SPARK_MASTER_WEBUI_PORT=$spark_ui_port
 ENV SPARK_WORKER_WEBUI_PORT=$spark_ui_port
 ENV SPARK_MASTER_PORT=$spark_port
@@ -96,6 +83,22 @@ ENV SPARK_NO_DAEMONIZE=true
 WORKDIR /home/$spark_user/spark
 
 Dockerfile
+
+if [[ "$run_container" != "true" ]]; then
+  echo "docker image: $image_name is created"
+  exit 0
+fi
+
+if [[ "$OSTYPE" == "darwin"* ]]; then
+  echo "This script requires to run container with \"--network host\", but the feature is unsupported by Mac OS"
+  exit 2
+fi
+
+if [[ "$address" == "127.0.0.1" || "$address" == "127.0.1.1" ]]; then
+  echo "the address: Either 127.0.0.1 or 127.0.1.1 can't be used in this script. Please check /etc/hosts"
+  exit 2
+fi
+
 
 if [[ -n "$master_url" ]]; then
   docker run -d \
