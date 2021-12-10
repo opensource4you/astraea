@@ -226,11 +226,6 @@ if [[ "$(cat $config_file | grep transaction.state.log.min.isr)" == "" ]]; then
   echo "transaction.state.log.min.isr=1" >> "$config_file"
 fi
 
-if [[ "$run_container" != "true" ]]; then
-  echo "docker image: $image_name is created"
-  exit 0
-fi
-
 if [[ "$address" == "127.0.0.1" || "$address" == "127.0.1.1" ]]; then
   echo "the address: Either 127.0.0.1 or 127.0.1.1 can't be used in this script. Please check /etc/hosts"
   exit 2
