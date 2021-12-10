@@ -5,6 +5,7 @@ import java.io.IOException;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
@@ -15,6 +16,7 @@ import org.apache.kafka.common.TopicPartitionReplica;
 import org.astraea.Utils;
 import org.astraea.argument.ArgumentUtil;
 import org.astraea.argument.BasicArgumentWithPropFile;
+import org.astraea.utils.DataUnit;
 
 public class ReplicaSyncingMonitor {
 
@@ -194,13 +196,15 @@ public class ReplicaSyncingMonitor {
   }
 
   static class DataRate {
-    public final long leaderSize;
-    public final long previousSize;
-    public final long currentSize;
+    private final DataUnit.DataRate dataRate;
+    private final long leaderSize;
+    private final long previousSize;
+    private final long currentSize;
     public final Duration interval;
 
     DataRate(long leaderSize, long previousSize, long currentSize, Duration interval) {
       if (previousSize > currentSize) throw new IllegalArgumentException();
+      this.dataRate = DataUnit.Byte.of(currentSize - previousSize).dataRate(interval);
       this.leaderSize = leaderSize;
       this.previousSize = previousSize;
       this.currentSize = currentSize;
@@ -225,7 +229,7 @@ public class ReplicaSyncingMonitor {
     }
 
     public double dataRatePerSec() {
-      return (double) (currentSize - previousSize) / ((interval.toNanos() / 1e9));
+      return dataRate.idealDataRate(ChronoUnit.SECONDS).doubleValue();
     }
 
     /**
@@ -255,16 +259,7 @@ public class ReplicaSyncingMonitor {
     }
 
     public String dataRateString() {
-      final double sizeProgress = dataRatePerSec();
-      final long TB = 1024L * 1024L * 1024L * 1024L;
-      final long GB = 1024L * 1024L * 1024L;
-      final long MB = 1024L * 1024L;
-      final long KB = 1024L;
-      if (sizeProgress > TB) return String.format("%.2f TB/s", sizeProgress / TB);
-      else if (sizeProgress > GB) return String.format("%.2f GB/s", sizeProgress / GB);
-      else if (sizeProgress > MB) return String.format("%.2f MB/s", sizeProgress / MB);
-      else if (sizeProgress > KB) return String.format("%.2f KB/s", sizeProgress / KB);
-      else return String.format("%.2f B/s", sizeProgress);
+      return dataRate.toString(ChronoUnit.SECONDS);
     }
 
     @Override
