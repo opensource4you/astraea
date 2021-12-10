@@ -12,15 +12,15 @@ import org.apache.kafka.common.serialization.ByteArraySerializer;
 import org.astraea.consumer.Consumer;
 import org.astraea.consumer.Deserializer;
 import org.astraea.consumer.Header;
+import org.astraea.partitioner.partitionerFactory.DependencyClient;
 import org.astraea.partitioner.partitionerFactory.SmoothWeightPartitioner;
 import org.astraea.producer.Producer;
-import org.astraea.producer.Serializer;
 import org.astraea.service.RequireBrokerCluster;
 import org.astraea.topic.TopicAdmin;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-public class PartitionerTest extends RequireBrokerCluster {
+public class DependencyPartitionTest extends RequireBrokerCluster {
   public final String brokerList = bootstrapServers();
   TopicAdmin admin = TopicAdmin.of(bootstrapServers());
   public final String topicName = "address";
@@ -38,36 +38,40 @@ public class PartitionerTest extends RequireBrokerCluster {
   }
 
   @Test
-  public void testPartitioner() {
+  public void testDependencyPartitioner() {
     admin.creator().topic(topicName).numberOfPartitions(10).create();
-    var key = "tainan";
+    var dependencyClient = new DependencyClient();
     var timestamp = System.currentTimeMillis() + 10;
     var header = Header.of("a", "b".getBytes());
-    try (var producer =
-        Producer.builder()
-            .keySerializer(Serializer.STRING)
-            .configs(
-                initProConfig().entrySet().stream()
-                    .collect(Collectors.toMap(e -> e.getKey().toString(), Map.Entry::getValue)))
-            .build()) {
+    var ps = initProConfig();
+    ps.put("producerID", 2);
+    var props =
+        ps.entrySet().stream()
+            .collect(Collectors.toMap(e -> e.getKey().toString(), Map.Entry::getValue));
+    try (var producer = Producer.builder().configs(props).build()) {
+
+      dependencyClient.initializeDependency(props);
+      dependencyClient.beginDependency(props);
+      int targetPartition = 0;
       for (int i = 0; i < 20; i++) {
         var metadata =
             producer
                 .sender()
                 .topic(topicName)
-                .key(key)
                 .timestamp(timestamp)
                 .headers(List.of(header))
                 .run()
                 .toCompletableFuture()
                 .get();
+        if (i > 0) Assertions.assertEquals(targetPartition, metadata.partition());
+        targetPartition = metadata.partition();
         Assertions.assertEquals(topicName, metadata.topic());
         Assertions.assertEquals(timestamp, metadata.timestamp());
       }
+      dependencyClient.finishDependency(props);
     } catch (ExecutionException | InterruptedException e) {
       e.printStackTrace();
     }
-
     try (var consumer =
         Consumer.builder()
             .brokers(bootstrapServers())
@@ -79,7 +83,6 @@ public class PartitionerTest extends RequireBrokerCluster {
       Assertions.assertEquals(20, records.size());
       var record = records.iterator().next();
       Assertions.assertEquals(topicName, record.topic());
-      Assertions.assertEquals("tainan", record.key());
       Assertions.assertEquals(1, record.headers().size());
       var actualHeader = record.headers().iterator().next();
       Assertions.assertEquals(header.key(), actualHeader.key());

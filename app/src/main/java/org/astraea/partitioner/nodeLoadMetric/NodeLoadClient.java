@@ -16,7 +16,6 @@ import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.Cluster;
 import org.astraea.Utils;
 import org.astraea.metrics.BeanCollector;
@@ -34,14 +33,12 @@ public class NodeLoadClient {
   private Map<Integer, Map.Entry<Map.Entry<String, Integer>, Map<String, List<HasBeanObject>>>>
       valueMetrics;
 
-  private static final BeanCollectorFactory FACTORY =
-      new BeanCollectorFactory(
-          Comparator.comparing(o -> o.get(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG).toString()));
+  private static final BeanCollectorFactory FACTORY = new BeanCollectorFactory();
 
   public NodeLoadClient(Map<String, String> jmxAddresses, Map<String, ?> configs)
       throws IOException {
     for (HashMap.Entry<String, String> entry : jmxAddresses.entrySet()) {
-      this.beanCollector = FACTORY.getOrCreate(configs);
+      this.beanCollector = FACTORY.beanCollector();
       beanCollector
           .register()
           .host(entry.getKey())
@@ -263,7 +260,7 @@ public class NodeLoadClient {
   }
 
   public void close() {
-    FACTORY.close(configs);
+    FACTORY.close();
   }
 
   static <T> Predicate<T> distinctByKey(Function<? super T, ?> keyExtractor) {

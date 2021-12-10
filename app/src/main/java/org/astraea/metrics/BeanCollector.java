@@ -57,11 +57,6 @@ public class BeanCollector implements AutoCloseable {
   private final int numberOfObjectsPerNode;
   private final Object notification = new Object();
 
-  protected BeanCollector(ThreadPool proxyPool, int proxyNumberOfObjectsPerNode) {
-    pool = proxyPool;
-    numberOfObjectsPerNode = proxyNumberOfObjectsPerNode;
-  }
-
   BeanCollector(int numberOfThreads, Duration interval, int numberOfObjectsPerNode) {
     this.numberOfObjectsPerNode = numberOfObjectsPerNode;
     this.pool =
@@ -140,14 +135,6 @@ public class BeanCollector implements AutoCloseable {
       var node = nodes.poll();
       if (node != null) node.close();
     }
-  }
-
-  public int numberOfObjectsPerNode() {
-    return numberOfObjectsPerNode;
-  }
-
-  public ThreadPool pool() {
-    return pool;
   }
 
   /**
