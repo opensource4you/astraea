@@ -162,16 +162,18 @@ public class Performance {
         // Wait for all consumers get assignment.
         manager.awaitPartitionAssignment();
 
-        int transactionNum = manager.transactionNum();
         // Do transactional send.
-        if (transactionNum > 1) {
+        if (param.transaction()) {
           long start = System.currentTimeMillis();
           var senders =
-              IntStream.range(0, transactionNum)
+              IntStream.range(0, param.transactionSize)
                   .mapToObj(i -> manager.payload())
                   .filter(Optional::isPresent)
                   .map(p -> producer.sender().topic(param.topic).value(p.get()).timestamp(start))
                   .collect(Collectors.toList());
+
+          // No records to send
+          if (senders.isEmpty()) return State.DONE;
           producer
               .transaction(senders)
               .forEach(
@@ -298,28 +300,14 @@ public class Performance {
         converter = CompressionArgument.class)
     CompressionType compression = CompressionType.NONE;
 
-    public boolean transaction() {
-      return (transactionSize > 0 || transactionRate > 0D);
-    }
-
     @Parameter(
         names = {"--transaction.size"},
         description = "integer: number of records in each transaction",
         validateWith = ArgumentUtil.PositiveLong.class)
-    int transactionSize = 0;
+    int transactionSize = 1;
 
-    public int transactionSize() {
-      return (transaction()) ? Math.max(1, transactionSize) : 0;
-    }
-
-    @Parameter(
-        names = {"--transaction.rate"},
-        description = "double: rate to make transactional sending",
-        validateWith = ArgumentUtil.PositiveDouble.class)
-    double transactionRate = 0D;
-
-    public double transactionRate() {
-      return (transaction() && transactionRate == 0D) ? 1D : transactionRate;
+    public boolean transaction() {
+      return transactionSize > 1;
     }
   }
 
