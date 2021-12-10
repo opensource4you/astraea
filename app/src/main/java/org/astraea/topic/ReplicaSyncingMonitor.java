@@ -229,7 +229,7 @@ public class ReplicaSyncingMonitor {
     }
 
     public double dataRatePerSec() {
-      return dataRate.idealDataRate(ChronoUnit.SECONDS).doubleValue();
+      return dataRate.dataRate(DataUnit.Byte, ChronoUnit.SECONDS).doubleValue();
     }
 
     /**
