@@ -23,6 +23,10 @@ public interface Sender<Key, Value> {
 
   Sender<Key, Value> headers(Collection<Header> headers);
 
+  default Sender<Key, Value> transaction() {
+    return this;
+  }
+
   /**
    * send data to servers. This operation is running in background. You have to call {@link
    * CompletionStage#toCompletableFuture()} to wait response of servers.

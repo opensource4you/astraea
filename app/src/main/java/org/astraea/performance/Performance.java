@@ -21,7 +21,6 @@ import org.astraea.argument.BasicArgumentWithPropFile;
 import org.astraea.concurrent.ThreadPool;
 import org.astraea.consumer.Consumer;
 import org.astraea.producer.Producer;
-import org.astraea.producer.Sender;
 import org.astraea.topic.TopicAdmin;
 
 /**
@@ -163,16 +162,16 @@ public class Performance {
         // Wait for all consumers get assignment.
         manager.awaitPartitionAssignment();
 
-        if (param.transaction()) {
-          int transactionNum = manager.transactionNum();
-          var senders = new ArrayList<Sender<byte[], byte[]>>(transactionNum);
+        int transactionNum = manager.transactionNum();
+        // Do transactional send.
+        if (transactionNum > 1) {
           long start = System.currentTimeMillis();
-          while (senders.size() < transactionNum) {
-            var payload = manager.payload();
-            if (payload.isEmpty()) break;
-            senders.add(producer.sender().topic(param.topic).value(payload.get()).timestamp(start));
-          }
-          if (senders.size() == 0) return State.DONE;
+          var senders =
+              IntStream.range(0, transactionNum)
+                  .mapToObj(i -> manager.payload())
+                  .filter(Optional::isPresent)
+                  .map(p -> producer.sender().topic(param.topic).value(p.get()).timestamp(start))
+                  .collect(Collectors.toList());
           producer
               .transaction(senders)
               .forEach(

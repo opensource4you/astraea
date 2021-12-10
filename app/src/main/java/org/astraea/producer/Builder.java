@@ -6,6 +6,10 @@ import java.util.concurrent.CompletionStage;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.clients.producer.ProducerRecord;
+import org.apache.kafka.common.KafkaException;
+import org.apache.kafka.common.errors.AuthorizationException;
+import org.apache.kafka.common.errors.OutOfOrderSequenceException;
+import org.apache.kafka.common.errors.ProducerFencedException;
 import org.astraea.consumer.Header;
 
 public class Builder<Key, Value> {
@@ -45,13 +49,23 @@ public class Builder<Key, Value> {
 
   @SuppressWarnings("unchecked")
   public Producer<Key, Value> build() {
-    var kafkaProducer =
+    // For transactional send
+    var transactionProducer =
         new KafkaProducer<>(
             configs,
             Serializer.of((Serializer<Key>) keySerializer),
             Serializer.of((Serializer<Value>) valueSerializer));
-    if (!configs.getOrDefault(ProducerConfig.TRANSACTIONAL_ID_CONFIG, "").toString().isEmpty())
-      kafkaProducer.initTransactions();
+    if (!configs.getOrDefault(ProducerConfig.TRANSACTIONAL_ID_CONFIG, "").toString().isEmpty()) {
+      transactionProducer.initTransactions();
+    }
+
+    var withoutTransactionConfig = new HashMap<>(configs);
+    withoutTransactionConfig.remove(ProducerConfig.TRANSACTIONAL_ID_CONFIG);
+    var kafkaProducer =
+        new KafkaProducer<>(
+            withoutTransactionConfig,
+            Serializer.of((Serializer<Key>) keySerializer),
+            Serializer.of((Serializer<Value>) valueSerializer));
     return new Producer<>() {
 
       @Override
@@ -62,6 +76,7 @@ public class Builder<Key, Value> {
           private String topic;
           private Integer partition;
           private Long timestamp;
+          private boolean isTransaction = false;
           private Collection<Header> headers = List.of();
 
           @Override
@@ -101,14 +116,22 @@ public class Builder<Key, Value> {
           }
 
           @Override
+          public Sender<Key, Value> transaction() {
+            this.isTransaction = true;
+            return this;
+          }
+
+          @Override
           public CompletionStage<Metadata> run() {
             var completableFuture = new CompletableFuture<Metadata>();
-            kafkaProducer.send(
-                new ProducerRecord<>(topic, partition, timestamp, key, value, Header.of(headers)),
-                (metadata, exception) -> {
-                  if (exception == null) completableFuture.complete(Metadata.of(metadata));
-                  else completableFuture.completeExceptionally(exception);
-                });
+            ((isTransaction) ? transactionProducer : kafkaProducer)
+                .send(
+                    new ProducerRecord<>(
+                        topic, partition, timestamp, key, value, Header.of(headers)),
+                    (metadata, exception) -> {
+                      if (exception == null) completableFuture.complete(Metadata.of(metadata));
+                      else completableFuture.completeExceptionally(exception);
+                    });
             return completableFuture;
           }
         };
@@ -118,20 +141,30 @@ public class Builder<Key, Value> {
       public Collection<CompletionStage<Metadata>> transaction(
           Collection<Sender<Key, Value>> senders) {
         var futures = new ArrayList<CompletionStage<Metadata>>(senders.size());
-        kafkaProducer.beginTransaction();
-        senders.forEach(sender -> futures.add(sender.run()));
-        kafkaProducer.commitTransaction();
+        try {
+          transactionProducer.beginTransaction();
+          senders.forEach(sender -> futures.add(sender.transaction().run()));
+          transactionProducer.commitTransaction();
+        } catch (ProducerFencedException | OutOfOrderSequenceException | AuthorizationException e) {
+          transactionProducer.close();
+          // Error occur
+          throw e;
+        } catch (KafkaException ke) {
+          transactionProducer.abortTransaction();
+        }
         return futures;
       }
 
       @Override
       public void flush() {
         kafkaProducer.flush();
+        transactionProducer.flush();
       }
 
       @Override
       public void close() {
         kafkaProducer.close();
+        transactionProducer.close();
       }
     };
   }
