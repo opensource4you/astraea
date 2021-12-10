@@ -91,6 +91,7 @@ py_folder=$(dirname "$py_file")
 
 docker run \
   --network host \
+  -v "$HOME"/.local/lib:/home/$spark_user/.local/lib:ro \
   -v "$HOME"/.ivy2:/home/$spark_user/.ivy2 \
   -v "$py_folder":"$py_folder":ro \
   $image_name ./bin/spark-submit $args
