@@ -7,16 +7,10 @@ import org.astraea.metrics.BeanCollector;
 public class BeanCollectorFactory {
   private final Object lock = new Object();
   private int count = 0;
-  private final BeanCollector beanCollector;
+  private BeanCollector beanCollector;
 
   /** create a factory with specific comparator. * */
-  public BeanCollectorFactory() {
-    beanCollector =
-        BeanCollector.builder()
-            .interval(Duration.ofMillis(1000))
-            .numberOfObjectsPerNode(10)
-            .build();
-  }
+  public BeanCollectorFactory() {}
 
   /**
    * @return create a new BeanCollector if there is no matched BeanCollector (checked by
@@ -24,7 +18,16 @@ public class BeanCollectorFactory {
    */
   public BeanCollector beanCollector() {
     synchronized (lock) {
-      count++;
+      if (count == 0) {
+        beanCollector =
+            BeanCollector.builder()
+                .interval(Duration.ofMillis(1000))
+                .numberOfObjectsPerNode(10)
+                .build();
+        count++;
+      } else {
+        count++;
+      }
       return beanCollector;
     }
   }

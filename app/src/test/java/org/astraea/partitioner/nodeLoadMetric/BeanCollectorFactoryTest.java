@@ -26,6 +26,10 @@ public class BeanCollectorFactoryTest extends RequireBrokerCluster {
       Assertions.assertEquals(FACTORY.factoryCount(), 1);
       FACTORY.close();
       Assertions.assertEquals(FACTORY.factoryCount(), 0);
+      var bc5 = FACTORY.beanCollector();
+      Assertions.assertEquals(FACTORY.factoryCount(), 1);
+      FACTORY.close();
+      Assertions.assertEquals(FACTORY.factoryCount(), 0);
     }
   }
 }
