@@ -34,7 +34,7 @@ done
 
 spark_user=astraea
 version=${REVISION:-${VERSION:-3.1.2}}
-repo=${REPO:-astraea/spark}
+repo=${REPO:-astraea/spark-job}
 image_name="$repo:$version"
 run_container=${RUN:-true}
 
