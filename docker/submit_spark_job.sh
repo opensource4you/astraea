@@ -5,9 +5,10 @@
 function showHelp() {
   echo "Usage: [ENV] submit_spark_job.sh [ ARGUMENTS ]"
   echo "ENV: "
-  echo "    REPO=astraea/spark-job           set the docker repo"
-  echo "    VERSION=3.1.2                    set version of spark distribution"
-  echo "    RUN=false                        set false if you want to build image only"
+  echo "    REPO=astraea/spark-job             set the docker repo"
+  echo "    VERSION=3.1.2                      set version of spark distribution"
+  echo "    RUN=false                          set false if you want to build image only"
+  echo "    MOUNT=host_path:container_path     mount the host path to container path"
 }
 
 # ===============================[checks]===============================
@@ -25,6 +26,10 @@ fi
 
 # =================================[main]=================================
 while [[ $# -gt 0 ]]; do
+  if [[ "$1" == "help" ]]; then
+    showHelp
+    exit 0
+  fi
   if [[ "$1" != "--"* ]] && [[ "$1" == *".py" ]]; then
     py_file=$1
   fi
@@ -89,9 +94,36 @@ mkdir -p "$HOME"/.ivy2
 
 py_folder=$(dirname "$py_file")
 
-docker run \
-  --network host \
-  -v "$HOME"/.local/lib:/home/$spark_user/.local/lib:ro \
-  -v "$HOME"/.ivy2:/home/$spark_user/.ivy2 \
-  -v "$py_folder":"$py_folder":ro \
-  $image_name ./bin/spark-submit $args
+if [[ -n "$MOUNT" ]]; then
+  index="1"
+  IFS=',' read -ra folders <<< "$MOUNT"
+  for mapping in "${folders[@]}"; do
+    host_folder=$(echo "$mapping" | cut -d : -f 1)
+    container_folder=$(echo "$mapping" | cut -d : -f 2)
+
+    # create folder on host
+    mkdir -p "$host_folder"
+
+    if [[ "$index" == "1" ]]; then
+      hostFolderConfigs="-v $host_folder:$container_folder"
+    else
+      hostFolderConfigs="$hostFolderConfigs -v $host_folder:$container_folder"
+    fi
+    index=$((index+1))
+  done
+
+  docker run \
+    --network host \
+    $hostFolderConfigs \
+    -v "$HOME"/.local/lib:/home/$spark_user/.local/lib:ro \
+    -v "$HOME"/.ivy2:/home/$spark_user/.ivy2 \
+    -v "$py_folder":"$py_folder":ro \
+    $image_name ./bin/spark-submit $args
+else
+  docker run \
+    --network host \
+    -v "$HOME"/.local/lib:/home/$spark_user/.local/lib:ro \
+    -v "$HOME"/.ivy2:/home/$spark_user/.ivy2 \
+    -v "$py_folder":"$py_folder":ro \
+    $image_name ./bin/spark-submit $args
+fi
