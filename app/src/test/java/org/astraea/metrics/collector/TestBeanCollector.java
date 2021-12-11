@@ -72,17 +72,19 @@ public class TestBeanCollector {
 
     var c0 = receiver.current();
     Assertions.assertEquals(1, c0.size());
+    var firstObject = c0.get(0);
     sleep(1);
 
     var c1 = receiver.current();
     Assertions.assertEquals(2, c1.size());
+    var secondObject = c1.stream().filter(o -> o != firstObject).findFirst().get();
     sleep(1);
 
     var c2 = receiver.current();
     Assertions.assertEquals(2, c2.size());
-    Assertions.assertTrue(c2.contains(c1.get(1)));
     // the oldest element should be removed
-    Assertions.assertFalse(c2.contains(c0.get(0)));
+    Assertions.assertFalse(c2.contains(firstObject));
+    Assertions.assertTrue(c2.contains(secondObject));
   }
 
   @Test
