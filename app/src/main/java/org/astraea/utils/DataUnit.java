@@ -422,7 +422,7 @@ public enum DataUnit {
       return new DataRate(dataSize, duration);
     }
 
-    static String chronoName(ChronoUnit chronoUnit) {
+    private static String chronoName(ChronoUnit chronoUnit) {
       return chronoUnit.name().toLowerCase(Locale.ROOT);
     }
 

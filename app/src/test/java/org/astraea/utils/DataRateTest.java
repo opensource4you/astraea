@@ -7,7 +7,6 @@ import java.time.temporal.ChronoUnit;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
-import org.junit.jupiter.params.provider.EnumSource;
 
 class DataRateTest {
 
@@ -51,15 +50,6 @@ class DataRateTest {
 
     assertFloatingValueEquals(0.5, sut0.doubleValue());
     assertFloatingValueEquals(0.5, sut1.doubleValue());
-  }
-
-  @ParameterizedTest
-  @EnumSource(ChronoUnit.class)
-  void chronoName(ChronoUnit chronoUnit) {
-    assertDoesNotThrow(
-        () -> {
-          assertNotNull(DataUnit.DataRate.chronoName(chronoUnit));
-        });
   }
 
   @ParameterizedTest
