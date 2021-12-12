@@ -311,13 +311,13 @@ class ReplicaSyncingMonitorTest {
       double expectedProgress,
       int expectedRemainingTime) {
     // act
-    var dataRate =
-        new ReplicaSyncingMonitor.DataRate(
+    var progress =
+        new ReplicaSyncingMonitor.ProgressInfo(
             leaderSize, previousSize, currentSize, Duration.ofMillis(interval));
 
     // assert
-    assertEquals(expectedDataRatePerSec, dataRate.dataRatePerSec());
-    assertEquals(expectedProgress, dataRate.progress());
-    assertEquals(Duration.ofSeconds(expectedRemainingTime), dataRate.estimateFinishTime());
+    assertEquals(expectedDataRatePerSec, progress.dataRatePerSec());
+    assertEquals(expectedProgress, progress.progress());
+    assertEquals(Duration.ofSeconds(expectedRemainingTime), progress.estimateFinishTime());
   }
 }

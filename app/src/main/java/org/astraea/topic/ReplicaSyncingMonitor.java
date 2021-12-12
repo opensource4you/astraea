@@ -101,7 +101,7 @@ public class ReplicaSyncingMonitor {
                                   entry ->
                                       Map.entry(
                                           entry.getValue(),
-                                          new DataRate(
+                                          new ProgressInfo(
                                               leaderReplica.size(),
                                               previousCheckedSize.getOrDefault(
                                                   entry.getKey(), entry.getValue().size()),
@@ -174,7 +174,7 @@ public class ReplicaSyncingMonitor {
     }
   }
 
-  private static String formatString(Replica replica, DataRate value) {
+  private static String formatString(Replica replica, ProgressInfo value) {
     return Stream.of(
             Optional.ofNullable(value.progressBar()),
             Optional.ofNullable(replica.leader() ? null : value.dataRateString()),
@@ -195,16 +195,16 @@ public class ReplicaSyncingMonitor {
         .collect(Collectors.toSet());
   }
 
-  static class DataRate {
-    private final DataUnit.DataRate dataRate;
+  static class ProgressInfo {
+    private final DataUnit.DataRate syncSpeed;
     private final long leaderSize;
     private final long previousSize;
     private final long currentSize;
     public final Duration interval;
 
-    DataRate(long leaderSize, long previousSize, long currentSize, Duration interval) {
+    ProgressInfo(long leaderSize, long previousSize, long currentSize, Duration interval) {
       if (previousSize > currentSize) throw new IllegalArgumentException();
-      this.dataRate = DataUnit.Byte.of(currentSize - previousSize).dataRate(interval);
+      this.syncSpeed = DataUnit.Byte.of(currentSize - previousSize).dataRate(interval);
       this.leaderSize = leaderSize;
       this.previousSize = previousSize;
       this.currentSize = currentSize;
@@ -229,7 +229,7 @@ public class ReplicaSyncingMonitor {
     }
 
     public double dataRatePerSec() {
-      return dataRate.dataRate(DataUnit.Byte, ChronoUnit.SECONDS).doubleValue();
+      return syncSpeed.dataRate(DataUnit.Byte, ChronoUnit.SECONDS).doubleValue();
     }
 
     /**
@@ -259,7 +259,7 @@ public class ReplicaSyncingMonitor {
     }
 
     public String dataRateString() {
-      return dataRate.toString(ChronoUnit.SECONDS);
+      return syncSpeed.toString(ChronoUnit.SECONDS);
     }
 
     @Override
