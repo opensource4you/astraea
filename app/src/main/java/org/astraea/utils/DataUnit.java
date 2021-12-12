@@ -423,42 +423,7 @@ public enum DataUnit {
     }
 
     static String chronoName(ChronoUnit chronoUnit) {
-      switch (chronoUnit) {
-        case NANOS:
-          return "ns";
-        case MICROS:
-          return "us";
-        case MILLIS:
-          return "ms";
-        case SECONDS:
-          return "s";
-        case MINUTES:
-          return "m";
-        case HOURS:
-          return "h";
-        case HALF_DAYS:
-          return "halfDay";
-        case DAYS:
-          return "day";
-        case WEEKS:
-          return "week";
-        case MONTHS:
-          return "month";
-        case YEARS:
-          return "year";
-        case DECADES:
-          return "decade";
-        case CENTURIES:
-          return "century";
-        case MILLENNIA:
-          return "millennia";
-        case ERAS:
-          return "era";
-        case FOREVER:
-          return "forever";
-        default:
-          throw new IllegalArgumentException("Unknown");
-      }
+      return chronoUnit.name().toLowerCase(Locale.ROOT);
     }
 
     public String toString(DataUnit dataUnit, ChronoUnit chronoUnit) {

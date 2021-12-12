@@ -73,6 +73,19 @@ class DataSizeTest {
     tellMeTheAnswerIn.accept(ChronoUnit.DECADES);
     tellMeTheAnswerIn.accept(ChronoUnit.CENTURIES);
     tellMeTheAnswerIn.accept(ChronoUnit.MILLENNIA);
+
+    System.out.println(dataVolumeOver1000Years.toString(ChronoUnit.NANOS));
+    System.out.println(dataVolumeOver1000Years.toString(ChronoUnit.MICROS));
+    System.out.println(dataVolumeOver1000Years.toString(ChronoUnit.MILLIS));
+    System.out.println(dataVolumeOver1000Years.toString(ChronoUnit.SECONDS));
+    System.out.println(dataVolumeOver1000Years.toString(ChronoUnit.MINUTES));
+    System.out.println(dataVolumeOver1000Years.toString(ChronoUnit.HOURS));
+    System.out.println(dataVolumeOver1000Years.toString(ChronoUnit.DAYS));
+    System.out.println(dataVolumeOver1000Years.toString(ChronoUnit.WEEKS));
+    System.out.println(dataVolumeOver1000Years.toString(ChronoUnit.MONTHS));
+    System.out.println(dataVolumeOver1000Years.toString(ChronoUnit.YEARS));
+    System.out.println(dataVolumeOver1000Years.toString(ChronoUnit.DECADES));
+    System.out.println(dataVolumeOver1000Years.toString(ChronoUnit.CENTURIES));
   }
 
   @ParameterizedTest
