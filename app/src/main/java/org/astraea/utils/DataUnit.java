@@ -6,10 +6,7 @@ import java.math.MathContext;
 import java.math.RoundingMode;
 import java.time.Duration;
 import java.time.temporal.ChronoUnit;
-import java.util.Arrays;
-import java.util.Comparator;
-import java.util.List;
-import java.util.Objects;
+import java.util.*;
 import java.util.stream.Collectors;
 
 /**
@@ -121,7 +118,7 @@ public enum DataUnit {
    * List of recommended unit for display data, {@link DataUnit.Size#toString()} take advantage of
    * this collection to find ideal unit for string formalization.
    */
-  private static final List<DataUnit> byteUnitOrderedSize =
+  private static final List<DataUnit> BYTE_UNIT_SIZE_ORDERED_LIST =
       Arrays.stream(DataUnit.values())
           .filter(x -> x.candidateUnitForToString)
           .sorted(Comparator.comparing(x -> x.bits))
@@ -145,11 +142,10 @@ public enum DataUnit {
      *
      * @param measurement data measurement.
      * @param dataUnit data unit.
-     * @return a new {@link Size} that have apply the math operation.
+     * @return a new {@link Size} that have applied the math operation.
      */
     public Size add(long measurement, DataUnit dataUnit) {
-      Objects.requireNonNull(dataUnit);
-      return add(new Size(measurement, dataUnit));
+      return add(new Size(measurement, Objects.requireNonNull(dataUnit)));
     }
 
     /**
@@ -157,18 +153,17 @@ public enum DataUnit {
      *
      * @param measurement data measurement.
      * @param dataUnit data unit.
-     * @return a new {@link Size} that have apply the math operation.
+     * @return a new {@link Size} that have applied the math operation.
      */
     public Size subtract(long measurement, DataUnit dataUnit) {
-      Objects.requireNonNull(dataUnit);
-      return subtract(new Size(measurement, dataUnit));
+      return subtract(new Size(measurement, Objects.requireNonNull(dataUnit)));
     }
 
     /**
      * Multiply current data volume by a scalar.
      *
      * @param scalar a long integer.
-     * @return a new {@link Size} that have apply the math operation.
+     * @return a new {@link Size} that have applied the math operation.
      */
     public Size multiply(long scalar) {
       return multiply(BigInteger.valueOf(scalar));
@@ -178,7 +173,7 @@ public enum DataUnit {
      * Divide current data volume by a scalar.
      *
      * @param scalar a long integer.
-     * @return a new {@link Size} that have apply the math operation.
+     * @return a new {@link Size} that have applied the math operation.
      */
     public Size divide(long scalar) {
       return divide(BigInteger.valueOf(scalar));
@@ -188,22 +183,20 @@ public enum DataUnit {
      * Add by given {@link Size}.
      *
      * @param rhs the right hand side value.
-     * @return a new {@link Size} that have apply the math operation.
+     * @return a new {@link Size} that have applied the math operation.
      */
     public Size add(Size rhs) {
-      Objects.requireNonNull(rhs);
-      return add(rhs.bits);
+      return add(Objects.requireNonNull(rhs).bits);
     }
 
     /**
      * Subtract by given {@link Size}.
      *
      * @param rhs the right hand size value.
-     * @return a new {@link Size} that have apply the math operation.
+     * @return a new {@link Size} that have applied the math operation.
      */
     public Size subtract(Size rhs) {
-      Objects.requireNonNull(rhs);
-      return subtract(rhs.bits);
+      return subtract(Objects.requireNonNull(rhs).bits);
     }
 
     private Size add(BigInteger rhs) {
@@ -266,7 +259,7 @@ public enum DataUnit {
      * @return a {@link DataUnit} that is suitable to describe current data volume.
      */
     public DataUnit idealDataUnit() {
-      return byteUnitOrderedSize.stream()
+      return BYTE_UNIT_SIZE_ORDERED_LIST.stream()
           .sorted(Comparator.reverseOrder())
           .dropWhile((x) -> this.bits.compareTo(x.bits) < 0)
           .findFirst()
@@ -365,7 +358,7 @@ public enum DataUnit {
               .multiply(fromDurationToBigIntegerSafely(chronoUnit.getDuration()))
               .divide(durationInNanoSecond.toBigInteger());
 
-      return byteUnitOrderedSize.stream()
+      return BYTE_UNIT_SIZE_ORDERED_LIST.stream()
           .sorted(Comparator.reverseOrder())
           .dropWhile((x) -> dataRate.compareTo(x.bits) < 0)
           .findFirst()
@@ -429,7 +422,7 @@ public enum DataUnit {
       return new DataRate(dataSize, duration);
     }
 
-    public static String chronoName(ChronoUnit chronoUnit) {
+    static String chronoName(ChronoUnit chronoUnit) {
       switch (chronoUnit) {
         case NANOS:
           return "ns";
