@@ -56,6 +56,19 @@ public interface ThreadPool extends AutoCloseable {
 
     private Builder() {}
 
+    public Builder runnable(Runnable runnable) {
+      return executor(
+          () -> {
+            runnable.run();
+            return Executor.State.RUNNING;
+          });
+    }
+
+    public Builder runnables(Collection<Runnable> runnables) {
+      runnables.forEach(this::runnable);
+      return this;
+    }
+
     public Builder executor(Executor executor) {
       return executors(List.of(executor));
     }
