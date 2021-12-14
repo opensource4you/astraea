@@ -116,7 +116,7 @@ public class NodeLoadClient {
       }
     }
 
-    eachNodeIDMetrics = metricsNameObjects(nodeIDReceiver);
+    eachNodeIDMetrics = metricsNameForReceiver(nodeIDReceiver);
     var eachBrokerMsgPerSec = brokersMsgPerSec();
 
     var overLoadCount = new HashMap<Integer, Integer>();
@@ -177,7 +177,7 @@ public class NodeLoadClient {
    * @param nodeIDReceiver nodes metrics that exists in topic
    * @return the name and corresponding data of the metrics obtained by each node
    */
-  public Map<Integer, Map<String, Receiver>> metricsNameObjects(
+  public Map<Integer, Map<String, Receiver>> metricsNameForReceiver(
       HashMap<Integer, List<Receiver>> nodeIDReceiver) {
 
     Map<Integer, Map<String, Receiver>> result = new HashMap<>();
@@ -247,7 +247,7 @@ public class NodeLoadClient {
     FACTORY.close();
   }
 
-  static <T> Predicate<T> distinctByKey(Function<? super T, ?> keyExtractor) {
+  private static <T> Predicate<T> distinctByKey(Function<? super T, ?> keyExtractor) {
     Map<Object, Boolean> seen = new ConcurrentHashMap<>();
     return t -> seen.putIfAbsent(keyExtractor.apply(t), Boolean.TRUE) == null;
   }
