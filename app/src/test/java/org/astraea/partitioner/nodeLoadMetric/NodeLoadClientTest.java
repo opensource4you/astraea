@@ -26,9 +26,9 @@ public class NodeLoadClientTest extends RequireBrokerCluster {
   @BeforeAll
   public void setUp() throws IOException {
     props = initProConfig();
-    var map = new HashMap<String, String>();
-    map.put(jmxServiceURL().getHost(), jmxServiceURL().getPort() + "");
-    nodeLoadClient = new NodeLoadClient(map, props);
+    var map = new HashMap<String, Integer>();
+    map.put(jmxServiceURL().getHost(), jmxServiceURL().getPort());
+    nodeLoadClient = new NodeLoadClient(map);
   }
 
   @AfterAll

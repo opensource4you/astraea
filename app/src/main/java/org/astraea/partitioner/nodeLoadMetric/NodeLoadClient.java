@@ -1,7 +1,5 @@
 package org.astraea.partitioner.nodeLoadMetric;
 
-import static java.lang.Double.sum;
-
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
@@ -18,8 +16,7 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.kafka.common.Cluster;
 import org.astraea.Utils;
-import org.astraea.metrics.BeanCollector;
-import org.astraea.metrics.HasBeanObject;
+import org.astraea.metrics.collector.Receiver;
 import org.astraea.metrics.kafka.KafkaMetrics;
 
 /**
@@ -28,32 +25,17 @@ import org.astraea.metrics.kafka.KafkaMetrics;
  */
 public class NodeLoadClient {
 
-  private BeanCollector beanCollector;
-  private Map<String, ?> configs;
-  private Map<Integer, Map.Entry<Map.Entry<String, Integer>, Map<String, List<HasBeanObject>>>>
-      valueMetrics;
+  private List<Receiver> receiverList;
+
+  private Map<Integer, Map<String, Receiver>> eachNodeIDMetrics;
 
   private static final BeanCollectorFactory FACTORY = new BeanCollectorFactory();
 
-  public NodeLoadClient(Map<String, String> jmxAddresses, Map<String, ?> configs)
-      throws IOException {
-    for (HashMap.Entry<String, String> entry : jmxAddresses.entrySet()) {
-      this.beanCollector = FACTORY.beanCollector();
-      beanCollector
-          .register()
-          .host(entry.getKey())
-          .port(Integer.parseInt(entry.getValue()))
-          .metricsGetter(KafkaMetrics.BrokerTopic.BytesOutPerSec::fetch)
-          .build();
-      beanCollector
-          .register()
-          .host(entry.getKey())
-          .port(Integer.parseInt(entry.getValue()))
-          .metricsGetter(KafkaMetrics.BrokerTopic.BytesInPerSec::fetch)
-          .build();
-      this.configs = configs;
-      Utils.waitFor(() -> beanCollector.numberOfObjects() > 0);
-    }
+  public NodeLoadClient(Map<String, Integer> jmxAddresses) throws IOException {
+
+    this.receiverList = FACTORY.receiversList(jmxAddresses);
+    receiverList.forEach(receiver -> Utils.waitFor(() -> receiver.current().size() > 0));
+    receiverList.forEach(receiver -> System.out.println(receiver.current().size()));
   }
 
   /**
@@ -61,76 +43,80 @@ public class NodeLoadClient {
    * @return each node overLoad count in preset time
    */
   public Map<Integer, Integer> nodesOverLoad(Cluster cluster) throws UnknownHostException {
-    var valuableObjects = new HashMap<Map.Entry<String, Integer>, List<HasBeanObject>>();
-    var valuableNodeID =
-        new HashMap<Integer, Map.Entry<Map.Entry<String, Integer>, List<HasBeanObject>>>();
+    var nodeIDReceiver = new HashMap<Integer, List<Receiver>>();
     var addresses =
         cluster.nodes().stream()
             .collect(
                 Collectors.toMap(node -> node.id(), node -> Map.entry(node.host(), node.port())));
 
-    var nodesMetrics = beanCollector.objects();
+    for (Receiver receiver : receiverList) {
+      receiver.host();
+    }
 
     for (Map.Entry<Integer, Map.Entry<String, Integer>> hostPort : addresses.entrySet()) {
-      Map.Entry<BeanCollector.Node, List<HasBeanObject>> valueNode;
+      Receiver matchingNode;
       String regex =
           "((25[0-5]|2[0-4]\\d|1\\d{2}|[1-9]?\\d)\\.){3}"
               + "(25[0-5]|2[0-4]\\d|1\\d{2}|[1-9]?\\d)$";
       if (!hostPort.getValue().getKey().matches(regex)) {
         var localhost =
             InetAddress.getByName(hostPort.getValue().getKey()).toString().split("/")[1];
-        valueNode =
-            nodesMetrics.entrySet().stream()
+        matchingNode =
+            receiverList.stream()
                 .filter(
-                    entry ->
-                        ((valuableObjects.keySet().stream()
-                                        .map(n -> Objects.equals(n.getKey(), localhost))
+                    receiver ->
+                        ((nodeIDReceiver.values().stream()
+                                        .map(
+                                            n ->
+                                                Objects.equals(
+                                                    n.stream().findAny().get().host(), localhost))
                                         .anyMatch(n -> n.equals(true))
-                                    && valuableObjects.keySet().stream()
+                                    && nodeIDReceiver.values().stream()
                                         .map(
                                             n ->
                                                 !Objects.equals(
-                                                    n.getValue(), hostPort.getValue().getValue()))
+                                                    n.stream().findAny().get().port(),
+                                                    hostPort.getValue().getValue()))
                                         .anyMatch(n -> n.equals(true)))
-                                || Objects.equals(valuableObjects.size(), 0))
-                            && Objects.equals(entry.getKey().host(), localhost))
+                                || Objects.equals(nodeIDReceiver.size(), 0))
+                            && Objects.equals(receiver.host(), localhost))
                 .findAny()
                 .orElse(null);
       } else {
-        valueNode =
-            nodesMetrics.entrySet().stream()
+        matchingNode =
+            receiverList.stream()
                 .filter(
-                    entry ->
-                        ((valuableObjects.keySet().stream()
+                    receiver ->
+                        ((nodeIDReceiver.values().stream()
                                         .map(
                                             n ->
                                                 Objects.equals(
-                                                    n.getKey(), hostPort.getValue().getKey()))
+                                                    n.stream().findAny().get().host(),
+                                                    hostPort.getValue().getKey()))
                                         .anyMatch(n -> n.equals(true))
-                                    && valuableObjects.keySet().stream()
+                                    && nodeIDReceiver.values().stream()
                                         .map(
                                             n ->
                                                 Objects.equals(
-                                                    n.getValue(), hostPort.getValue().getValue()))
+                                                    n.stream().findAny().get().port(),
+                                                    hostPort.getValue().getValue()))
                                         .anyMatch(n -> n.equals(true)))
-                                || Objects.equals(valuableObjects.size(), 0))
-                            && Objects.equals(entry.getKey().host(), hostPort.getValue().getKey()))
+                                || Objects.equals(nodeIDReceiver.size(), 0))
+                            && Objects.equals(receiver.host(), hostPort.getValue().getKey()))
                 .findAny()
                 .orElse(null);
       }
+
       var addressEntrySet = new HashMap<String, Integer>();
 
-      if (valueNode != null) {
-        addressEntrySet.put(valueNode.getKey().host(), valueNode.getKey().port());
-        valuableObjects.put(
-            addressEntrySet.entrySet().stream().findAny().get(), valueNode.getValue());
-        valuableNodeID.put(
-            hostPort.getKey(),
-            Map.entry(addressEntrySet.entrySet().stream().findAny().get(), valueNode.getValue()));
+      if (matchingNode != null) {
+        addressEntrySet.put(matchingNode.host(), matchingNode.port());
+        if (!nodeIDReceiver.containsKey(addressEntrySet.entrySet().stream().findAny().get()))
+          nodeIDReceiver.put(hostPort.getKey(), List.of(matchingNode));
       }
     }
 
-    valueMetrics = metricsNameObjects(valuableNodeID);
+    eachNodeIDMetrics = metricsNameObjects(nodeIDReceiver);
     var eachBrokerMsgPerSec = brokersMsgPerSec();
 
     var overLoadCount = new HashMap<Integer, Integer>();
@@ -159,35 +145,10 @@ public class NodeLoadClient {
   private Map<Integer, List<Double>> brokersMsgPerSec() {
     var eachMsg = new HashMap<Integer, List<Double>>();
 
-    for (Map.Entry<Integer, Map.Entry<Map.Entry<String, Integer>, Map<String, List<HasBeanObject>>>>
-        entry : valueMetrics.entrySet()) {
+    for (Map.Entry<Integer, Map<String, Receiver>> entry : eachNodeIDMetrics.entrySet()) {
       List<Double> sumList = new ArrayList<>();
-      var outMsg =
-          entry.getValue().getValue().get(KafkaMetrics.BrokerTopic.BytesOutPerSec.toString());
-      var inMsg =
-          entry.getValue().getValue().get(KafkaMetrics.BrokerTopic.BytesInPerSec.toString());
-
-      var test =
-          valueMetrics.values().stream().map(s -> s.getValue().values()).findAny().get().size();
-      IntStream.range(0, Math.min(outMsg.size(), inMsg.size()))
-          .forEach(
-              i ->
-                  sumList.add(
-                      sum(
-                          Double.parseDouble(
-                              outMsg
-                                  .get(i)
-                                  .beanObject()
-                                  .getAttributes()
-                                  .get("MeanRate")
-                                  .toString()),
-                          Double.parseDouble(
-                              inMsg
-                                  .get(i)
-                                  .beanObject()
-                                  .getAttributes()
-                                  .get("MeanRate")
-                                  .toString()))));
+      var outMsg = entry.getValue().get(KafkaMetrics.BrokerTopic.BytesOutPerSec.toString());
+      var inMsg = entry.getValue().get(KafkaMetrics.BrokerTopic.BytesInPerSec.toString());
 
       eachMsg.put(entry.getKey(), sumList);
     }
@@ -213,21 +174,37 @@ public class NodeLoadClient {
   }
 
   /**
-   * @param valueMetrics nodes metrics that exists in topic
+   * @param nodeIDReceiver nodes metrics that exists in topic
    * @return the name and corresponding data of the metrics obtained by each node
    */
-  public Map<Integer, Map.Entry<Map.Entry<String, Integer>, Map<String, List<HasBeanObject>>>>
-      metricsNameObjects(
-          HashMap<Integer, Map.Entry<Map.Entry<String, Integer>, List<HasBeanObject>>>
-              valueMetrics) {
-    Map<Integer, Map.Entry<Map.Entry<String, Integer>, Map<String, List<HasBeanObject>>>> result =
-        new HashMap<>();
-    for (Map.Entry<Integer, Map.Entry<Map.Entry<String, Integer>, List<HasBeanObject>>> entry :
-        valueMetrics.entrySet()) {
+  public Map<Integer, Map<String, Receiver>> metricsNameObjects(
+      HashMap<Integer, List<Receiver>> nodeIDReceiver) {
+
+    Map<Integer, Map<String, Receiver>> result = new HashMap<>();
+
+    for (Map.Entry<Integer, List<Receiver>> entry : nodeIDReceiver.entrySet()) {
       var metricsName =
-          entry.getValue().getValue().stream()
-              .filter(distinctByKey(b -> b.beanObject().getProperties().values()))
-              .map(b -> b.beanObject().getProperties().values().stream().findAny().get())
+          entry.getValue().stream()
+              .filter(
+                  distinctByKey(
+                      b ->
+                          b.current().stream()
+                              .findAny()
+                              .get()
+                              .beanObject()
+                              .getProperties()
+                              .values()))
+              .map(
+                  b ->
+                      b.current().stream()
+                          .findAny()
+                          .get()
+                          .beanObject()
+                          .getProperties()
+                          .values()
+                          .stream()
+                          .findAny()
+                          .get())
               .distinct()
               .collect(Collectors.toList());
       var objectName =
@@ -236,16 +213,23 @@ public class NodeLoadClient {
                   Collectors.toMap(
                       Function.identity(),
                       name ->
-                          entry.getValue().getValue().stream()
+                          entry.getValue().stream()
                               .filter(
                                   mbean ->
-                                      mbean.beanObject().getProperties().values().stream()
+                                      mbean.current().stream()
+                                          .findAny()
+                                          .get()
+                                          .beanObject()
+                                          .getProperties()
+                                          .values()
+                                          .stream()
                                           .findAny()
                                           .get()
                                           .equals(name))
-                              .collect(Collectors.toList())));
+                              .findAny()
+                              .get()));
 
-      result.put(entry.getKey(), Map.entry(entry.getValue().getKey(), objectName));
+      result.put(entry.getKey(), objectName);
     }
     return result;
   }

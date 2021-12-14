@@ -4,6 +4,17 @@ import java.util.HashMap;
 import java.util.Map;
 import org.apache.kafka.common.KafkaException;
 
+/**
+ * A DependencyClient allows users to make producers send dependency data.
+ *
+ * <pre>{@code
+ * var dependencyClient = new DependencyClient();
+ * dependencyClient.initializeDependency(props);
+ * dependencyClient.beginDependency(props);
+ * producer.send();
+ * dependencyClient.finishDependency(props);
+ * }</pre>
+ */
 public class DependencyClient {
   private static Map<Integer, SmoothWeightPartitioner> PartitionerForProducers = new HashMap<>();
 

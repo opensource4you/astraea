@@ -100,14 +100,14 @@ public class SmoothWeightPartitioner implements Partitioner {
           Objects.requireNonNull(
               configs.get("jmx_servers").toString(), "You must configure jmx_servers correctly");
       var list = Arrays.asList((jmxAddresses).split(","));
-      HashMap<String, String> mapAddress = new HashMap<>();
+      HashMap<String, Integer> mapAddress = new HashMap<>();
       for (String str : list) {
         var listAddress = Arrays.asList(str.split(":"));
-        mapAddress.put(listAddress.get(0), listAddress.get(1));
+        mapAddress.put(listAddress.get(0), Integer.parseInt(listAddress.get(1)));
       }
       Objects.requireNonNull(mapAddress, "You must configure jmx_servers correctly.");
 
-      nodeLoadClient = new NodeLoadClient(mapAddress, configs);
+      nodeLoadClient = new NodeLoadClient(mapAddress);
       dependencyManager = new DependencyManager();
       addPartitioner(configs, this);
     } catch (IOException e) {
