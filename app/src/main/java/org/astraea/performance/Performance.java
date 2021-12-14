@@ -164,12 +164,17 @@ public class Performance {
 
         // Do transactional send.
         if (param.transaction()) {
-          long start = System.currentTimeMillis();
           var senders =
               IntStream.range(0, param.transactionSize)
                   .mapToObj(i -> manager.payload())
                   .filter(Optional::isPresent)
-                  .map(p -> producer.sender().topic(param.topic).value(p.get()).timestamp(start))
+                  .map(
+                      p ->
+                          producer
+                              .sender()
+                              .topic(param.topic)
+                              .value(p.get())
+                              .timestamp(System.currentTimeMillis()))
                   .collect(Collectors.toList());
 
           // No records to send
@@ -181,7 +186,8 @@ public class Performance {
                       future.whenComplete(
                           (m, e) ->
                               observer.accept(
-                                  System.currentTimeMillis() - start, m.serializedValueSize())));
+                                  System.currentTimeMillis() - m.timestamp(),
+                                  m.serializedValueSize())));
         } else {
           var payload = manager.payload();
           if (payload.isEmpty()) return State.DONE;
