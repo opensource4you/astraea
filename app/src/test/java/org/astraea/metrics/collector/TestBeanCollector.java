@@ -11,13 +11,11 @@ import java.util.stream.IntStream;
 import org.astraea.concurrent.ThreadPool;
 import org.astraea.metrics.HasBeanObject;
 import org.astraea.metrics.jmx.MBeanClient;
-import org.astraea.metrics.kafka.KafkaMetrics;
-import org.astraea.service.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
-public class TestBeanCollector extends RequireBrokerCluster {
+public class TestBeanCollector {
   private final HasBeanObject mbean = Mockito.mock(HasBeanObject.class);
   private final MBeanClient mbeanClient = Mockito.mock(MBeanClient.class);
   private final BiFunction<String, Integer, MBeanClient> clientCreator =
@@ -97,49 +95,6 @@ public class TestBeanCollector extends RequireBrokerCluster {
         NullPointerException.class, () -> BeanCollector.builder().clientCreator(null));
     Assertions.assertThrows(
         IllegalArgumentException.class, () -> BeanCollector.builder().numberOfObjectsPerNode(-1));
-  }
-
-  @Test
-  void test() {
-    var mbaen = MBeanClient.jndi(jmxServiceURL().getHost(), jmxServiceURL().getPort());
-    BiFunction<String, Integer, MBeanClient> clientCreator = (host, port) -> mbaen;
-    var receiversList = new ArrayList<Receiver>();
-    var beanCollector =
-        BeanCollector.builder()
-            .numberOfObjectsPerNode(10)
-            .interval(Duration.ofMillis(1000))
-            .clientCreator(clientCreator)
-            .build();
-    receiversList.add(
-        beanCollector
-            .register()
-            .host(jmxServiceURL().getHost())
-            .port(jmxServiceURL().getPort())
-            .metricsGetter(KafkaMetrics.BrokerTopic.BytesOutPerSec::fetch)
-            .build());
-    receiversList.add(
-        beanCollector
-            .register()
-            .host(jmxServiceURL().getHost())
-            .port(jmxServiceURL().getPort())
-            .metricsGetter(KafkaMetrics.BrokerTopic.BytesInPerSec::fetch)
-            .build());
-    try (var pool =
-        ThreadPool.builder()
-            .runnables(
-                receiversList.stream()
-                    .map(receiver -> ((Runnable) receiver::current))
-                    .collect(Collectors.toList()))
-            .build()) {
-      var i = 0;
-      while (i < 10) {
-        receiversList.forEach(receiver -> System.out.println(receiver.current().size()));
-        TimeUnit.SECONDS.sleep(1);
-        i++;
-      }
-    } catch (InterruptedException e) {
-      e.printStackTrace();
-    }
   }
 
   @Test
