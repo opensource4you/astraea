@@ -96,7 +96,7 @@ public class TopicAdminTest extends RequireBrokerCluster {
       topicAdmin.creator().topic(topicName).numberOfPartitions(3).create();
       // wait for syncing topic creation
       TimeUnit.SECONDS.sleep(5);
-      Assertions.assertTrue(topicAdmin.topicNames().contains(topicName));
+      Assertions.assertTrue(topicAdmin.topicNames(true).contains(topicName));
       var partitions = topicAdmin.replicas(Set.of(topicName));
       Assertions.assertEquals(3, partitions.size());
       var logFolders =
@@ -119,7 +119,7 @@ public class TopicAdminTest extends RequireBrokerCluster {
       topicAdmin.creator().topic(topicName).numberOfPartitions(3).create();
       // wait for syncing topic creation
       TimeUnit.SECONDS.sleep(5);
-      Assertions.assertTrue(topicAdmin.topicNames().contains(topicName));
+      Assertions.assertTrue(topicAdmin.topicNames(true).contains(topicName));
       var groups = topicAdmin.groups(Set.of(topicName));
       Assertions.assertEquals(0, groups.size());
     }
