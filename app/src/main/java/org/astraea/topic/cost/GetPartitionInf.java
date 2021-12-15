@@ -10,24 +10,25 @@ public class GetPartitionInf {
     Map<Integer, Map<TopicPartition, Integer>> brokerPartitionSize = new HashMap<>();
     for (var broker : client.brokerIds()) {
       Map<TopicPartition, Integer> partitionSize = new HashMap<>();
-      for (var partition : client.replicas(client.topics(false).keySet()).keySet())
-        if (client.replicas(client.topics(false).keySet()).get(partition).get(0).broker() == broker)
+      for (var partition : client.replicas(client.publicTopics().keySet()).keySet())
+        if (client.replicas(client.publicTopics().keySet()).get(partition).get(0).broker()
+            == broker)
           partitionSize.put(
               partition,
-              (int) client.replicas(client.topics(false).keySet()).get(partition).get(0).size());
+              (int) client.replicas(client.publicTopics().keySet()).get(partition).get(0).size());
       brokerPartitionSize.put(broker, partitionSize);
     }
     return brokerPartitionSize;
   }
 
   static Map<String, Integer> getRetentionMillis(TopicAdmin client) {
-    return client.topics(false).entrySet().stream()
+    return client.publicTopics().entrySet().stream()
         .collect(
             Collectors.toMap(
                 Map.Entry::getKey,
                 entry ->
                     client
-                        .topics(false)
+                        .publicTopics()
                         .get(entry.getKey())
                         .value("retention.ms")
                         .map(Integer::parseInt)

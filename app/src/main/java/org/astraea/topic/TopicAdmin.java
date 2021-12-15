@@ -19,12 +19,19 @@ public interface TopicAdmin extends Closeable {
     return builder().configs(configs).build();
   }
 
-  default Set<String> topicNames(boolean listInternal) {
-    return topics(listInternal).keySet();
+  default Set<String> topicNames() {
+    return topics().keySet();
   }
 
   /** @return the topic name and its configurations. */
-  Map<String, TopicConfig> topics(boolean listInternal);
+  Map<String, TopicConfig> topics();
+
+  default Set<String> publicTopicNames() {
+    return publicTopics().keySet();
+  }
+
+  /** @return the topic name and its configurations. (Without internal topics) */
+  Map<String, TopicConfig> publicTopics();
 
   /** @return a topic creator to set all topic configs and then run the procedure. */
   Creator creator();

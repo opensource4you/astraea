@@ -35,13 +35,13 @@ public class TopicAdminTest extends RequireBrokerCluster {
       Utils.waitFor(
           () ->
               topicAdmin
-                  .topics(true)
+                  .topics()
                   .get(topicName)
                   .value(TopicConfig.COMPRESSION_TYPE_CONFIG)
                   .filter(value -> value.equals("lz4"))
                   .isPresent());
 
-      var config = topicAdmin.topics(true).get(topicName);
+      var config = topicAdmin.topics().get(topicName);
       Assertions.assertEquals(
           config.keys().size(), (int) StreamSupport.stream(config.spliterator(), false).count());
       config.keys().forEach(key -> Assertions.assertTrue(config.value(key).isPresent()));
@@ -64,7 +64,7 @@ public class TopicAdminTest extends RequireBrokerCluster {
                   .create();
 
       createTopic.run();
-      Utils.waitFor(() -> topicAdmin.topics(true).containsKey(topicName));
+      Utils.waitFor(() -> topicAdmin.topics().containsKey(topicName));
       IntStream.range(0, 10).forEach(i -> createTopic.run());
 
       // changing number of partitions can producer error
@@ -96,7 +96,7 @@ public class TopicAdminTest extends RequireBrokerCluster {
       topicAdmin.creator().topic(topicName).numberOfPartitions(3).create();
       // wait for syncing topic creation
       TimeUnit.SECONDS.sleep(5);
-      Assertions.assertTrue(topicAdmin.topicNames(true).contains(topicName));
+      Assertions.assertTrue(topicAdmin.topicNames().contains(topicName));
       var partitions = topicAdmin.replicas(Set.of(topicName));
       Assertions.assertEquals(3, partitions.size());
       var logFolders =
@@ -119,7 +119,7 @@ public class TopicAdminTest extends RequireBrokerCluster {
       topicAdmin.creator().topic(topicName).numberOfPartitions(3).create();
       // wait for syncing topic creation
       TimeUnit.SECONDS.sleep(5);
-      Assertions.assertTrue(topicAdmin.topicNames(true).contains(topicName));
+      Assertions.assertTrue(topicAdmin.topicNames().contains(topicName));
       var groups = topicAdmin.groups(Set.of(topicName));
       Assertions.assertEquals(0, groups.size());
     }

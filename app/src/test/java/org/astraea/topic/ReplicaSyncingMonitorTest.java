@@ -58,7 +58,7 @@ class ReplicaSyncingMonitorTest {
     // arrange
     int interval = 10;
     TopicAdmin mockTopicAdmin = mock(TopicAdmin.class);
-    when(mockTopicAdmin.topicNames(false)).thenReturn(Set.of("topic-1", "topic-2", "topic-3"));
+    when(mockTopicAdmin.topicNames()).thenReturn(Set.of("topic-1", "topic-2", "topic-3"));
     when(mockTopicAdmin.replicas(anySet()))
         .thenReturn(
             Map.of(
@@ -117,7 +117,7 @@ class ReplicaSyncingMonitorTest {
     // arrange
     int interval = 10;
     TopicAdmin mockTopicAdmin = mock(TopicAdmin.class);
-    when(mockTopicAdmin.topicNames(false)).thenReturn(Set.of("topic-1"));
+    when(mockTopicAdmin.topicNames()).thenReturn(Set.of("topic-1"));
     when(mockTopicAdmin.replicas(anySet()))
         .thenReturn(
             Map.of(

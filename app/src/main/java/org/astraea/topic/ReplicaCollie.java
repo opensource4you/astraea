@@ -12,7 +12,7 @@ public class ReplicaCollie {
 
   static Map<TopicPartition, Map.Entry<Set<Integer>, Set<Integer>>> execute(
       TopicAdmin admin, Argument args) {
-    var topics = args.topics.isEmpty() ? admin.topicNames(true) : args.topics;
+    var topics = args.topics.isEmpty() ? admin.topicNames() : args.topics;
     var allBrokers = admin.brokerIds();
     if (!args.toBrokers.isEmpty() && !allBrokers.containsAll(args.toBrokers))
       throw new IllegalArgumentException(
