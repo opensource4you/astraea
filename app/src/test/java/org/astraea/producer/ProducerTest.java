@@ -7,7 +7,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
-import org.apache.kafka.clients.producer.ProducerConfig;
 import org.astraea.consumer.Consumer;
 import org.astraea.consumer.Deserializer;
 import org.astraea.consumer.Header;
@@ -64,13 +63,8 @@ public class ProducerTest extends RequireBrokerCluster {
     var key = "key";
     var timestamp = System.currentTimeMillis() + 10;
     var header = Header.of("a", "b".getBytes());
-    Map<String, Object> prop = Map.of(ProducerConfig.TRANSACTIONAL_ID_CONFIG, "1");
     try (var producer =
-        Producer.builder()
-            .brokers(bootstrapServers())
-            .keySerializer(Serializer.STRING)
-            .configs(prop)
-            .build()) {
+        Producer.builder().brokers(bootstrapServers()).keySerializer(Serializer.STRING).build()) {
       var senders = new ArrayList<Sender<String, byte[]>>(3);
       while (senders.size() < 3) {
         senders.add(
@@ -84,7 +78,7 @@ public class ProducerTest extends RequireBrokerCluster {
       producer.transaction(senders);
     }
 
-    prop = Map.of(ConsumerConfig.ISOLATION_LEVEL_CONFIG, "read_committed");
+    Map<String, Object> prop = Map.of(ConsumerConfig.ISOLATION_LEVEL_CONFIG, "read_committed");
     try (var consumer =
         Consumer.builder()
             .brokers(bootstrapServers())

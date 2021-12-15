@@ -47,23 +47,27 @@ public class Builder<Key, Value> {
     return this;
   }
 
+  public Builder<Key, Value> transactionalId(String transactionalId) {
+    this.configs.put(ProducerConfig.TRANSACTIONAL_ID_CONFIG, transactionalId);
+    return this;
+  }
+
   @SuppressWarnings("unchecked")
   public Producer<Key, Value> build() {
+    var transactionConfigs = new HashMap<>(configs);
+    transactionConfigs.putIfAbsent(
+        ProducerConfig.TRANSACTIONAL_ID_CONFIG, "id" + new Random().nextLong());
     // For transactional send
     var transactionProducer =
         new KafkaProducer<>(
-            configs,
+            transactionConfigs,
             Serializer.of((Serializer<Key>) keySerializer),
             Serializer.of((Serializer<Value>) valueSerializer));
-    if (!configs.getOrDefault(ProducerConfig.TRANSACTIONAL_ID_CONFIG, "").toString().isEmpty()) {
-      transactionProducer.initTransactions();
-    }
+    transactionProducer.initTransactions();
 
-    var withoutTransactionConfig = new HashMap<>(configs);
-    withoutTransactionConfig.remove(ProducerConfig.TRANSACTIONAL_ID_CONFIG);
     var kafkaProducer =
         new KafkaProducer<>(
-            withoutTransactionConfig,
+            configs,
             Serializer.of((Serializer<Key>) keySerializer),
             Serializer.of((Serializer<Value>) valueSerializer));
     return new Producer<>() {

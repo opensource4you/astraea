@@ -71,7 +71,7 @@ public class PartitionScoreTest extends RequireBrokerCluster {
     PartitionScore partitionScore = new PartitionScore(bootstrapServers());
     assertEquals(3, partitionScore.score.size());
     assertEquals(
-        3 * 4,
+        3 * 4 + 50,
         partitionScore.score.get(0).size()
             + partitionScore.score.get(1).size()
             + partitionScore.score.get(2).size());

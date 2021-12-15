@@ -288,8 +288,6 @@ public class Performance {
       var props = props();
       props.put(ProducerConfig.COMPRESSION_TYPE_CONFIG, compression.name);
       if (!this.jmxServers.isEmpty()) props.put("jmx_servers", this.jmxServers);
-      if (transaction())
-        props.put(ProducerConfig.TRANSACTIONAL_ID_CONFIG, "id" + new Random().nextInt());
       return props;
     }
 
