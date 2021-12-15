@@ -20,11 +20,11 @@ public interface TopicAdmin extends Closeable {
   }
 
   default Set<String> topicNames() {
-    return topics().keySet();
+    return topics(false).keySet();
   }
 
   /** @return the topic name and its configurations. */
-  Map<String, TopicConfig> topics();
+  Map<String, TopicConfig> topics(boolean listInternal);
 
   /** @return a topic creator to set all topic configs and then run the procedure. */
   Creator creator();

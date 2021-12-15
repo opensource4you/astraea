@@ -162,10 +162,14 @@ public class Builder {
     }
 
     @Override
-    public Map<String, TopicConfig> topics() {
+    public Map<String, TopicConfig> topics(boolean listInternal) {
       var topics =
           Utils.handleException(
-              () -> admin.listTopics(new ListTopicsOptions().listInternal(true)).names().get());
+              () ->
+                  admin
+                      .listTopics(new ListTopicsOptions().listInternal(listInternal))
+                      .names()
+                      .get());
       return Utils.handleException(
               () ->
                   admin
@@ -268,7 +272,7 @@ public class Builder {
     @Override
     public Creator creator() {
       return new CreatorImpl(
-          admin, topic -> this.replicas(Set.of(topic)), topic -> topics().get(topic));
+          admin, topic -> this.replicas(Set.of(topic)), topic -> topics(false).get(topic));
     }
   }
 

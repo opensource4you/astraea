@@ -35,13 +35,13 @@ public class TopicAdminTest extends RequireBrokerCluster {
       Utils.waitFor(
           () ->
               topicAdmin
-                  .topics()
+                  .topics(true)
                   .get(topicName)
                   .value(TopicConfig.COMPRESSION_TYPE_CONFIG)
                   .filter(value -> value.equals("lz4"))
                   .isPresent());
 
-      var config = topicAdmin.topics().get(topicName);
+      var config = topicAdmin.topics(true).get(topicName);
       Assertions.assertEquals(
           config.keys().size(), (int) StreamSupport.stream(config.spliterator(), false).count());
       config.keys().forEach(key -> Assertions.assertTrue(config.value(key).isPresent()));
@@ -64,7 +64,7 @@ public class TopicAdminTest extends RequireBrokerCluster {
                   .create();
 
       createTopic.run();
-      Utils.waitFor(() -> topicAdmin.topics().containsKey(topicName));
+      Utils.waitFor(() -> topicAdmin.topics(true).containsKey(topicName));
       IntStream.range(0, 10).forEach(i -> createTopic.run());
 
       // changing number of partitions can producer error
