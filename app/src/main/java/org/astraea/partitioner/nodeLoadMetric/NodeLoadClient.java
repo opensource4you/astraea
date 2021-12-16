@@ -1,5 +1,7 @@
 package org.astraea.partitioner.nodeLoadMetric;
 
+import static java.lang.Double.sum;
+
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
@@ -29,13 +31,26 @@ public class NodeLoadClient {
 
   private Map<Integer, Map<String, Receiver>> eachNodeIDMetrics;
 
-  private static final BeanCollectorFactory FACTORY = new BeanCollectorFactory();
+  private final Map<String, Integer> currentJmxAddresses;
+
+  private static final receiverFactory FACTORY = new receiverFactory();
 
   public NodeLoadClient(Map<String, Integer> jmxAddresses) throws IOException {
-
     this.receiverList = FACTORY.receiversList(jmxAddresses);
+    receiverList.forEach(
+        receiver ->
+            System.out.println(
+                receiver.current().stream()
+                    .findAny()
+                    .get()
+                    .beanObject()
+                    .getProperties()
+                    .values()
+                    .stream()
+                    .findAny()
+                    .get()));
     receiverList.forEach(receiver -> Utils.waitFor(() -> receiver.current().size() > 0));
-    receiverList.forEach(receiver -> System.out.println(receiver.current().size()));
+    currentJmxAddresses = jmxAddresses;
   }
 
   /**
@@ -49,12 +64,8 @@ public class NodeLoadClient {
             .collect(
                 Collectors.toMap(node -> node.id(), node -> Map.entry(node.host(), node.port())));
 
-    for (Receiver receiver : receiverList) {
-      receiver.host();
-    }
-
     for (Map.Entry<Integer, Map.Entry<String, Integer>> hostPort : addresses.entrySet()) {
-      Receiver matchingNode;
+      List<Receiver> matchingNode;
       String regex =
           "((25[0-5]|2[0-4]\\d|1\\d{2}|[1-9]?\\d)\\.){3}"
               + "(25[0-5]|2[0-4]\\d|1\\d{2}|[1-9]?\\d)$";
@@ -80,8 +91,7 @@ public class NodeLoadClient {
                                         .anyMatch(n -> n.equals(true)))
                                 || Objects.equals(nodeIDReceiver.size(), 0))
                             && Objects.equals(receiver.host(), localhost))
-                .findAny()
-                .orElse(null);
+                .collect(Collectors.toList());
       } else {
         matchingNode =
             receiverList.stream()
@@ -103,33 +113,29 @@ public class NodeLoadClient {
                                         .anyMatch(n -> n.equals(true)))
                                 || Objects.equals(nodeIDReceiver.size(), 0))
                             && Objects.equals(receiver.host(), hostPort.getValue().getKey()))
-                .findAny()
-                .orElse(null);
+                .collect(Collectors.toList());
       }
 
-      var addressEntrySet = new HashMap<String, Integer>();
-
-      if (matchingNode != null) {
-        addressEntrySet.put(matchingNode.host(), matchingNode.port());
-        if (!nodeIDReceiver.containsKey(addressEntrySet.entrySet().stream().findAny().get()))
-          nodeIDReceiver.put(hostPort.getKey(), List.of(matchingNode));
+      if (matchingNode.size() > 0) {
+        if (!nodeIDReceiver.containsKey(hostPort.getKey()))
+          nodeIDReceiver.put(hostPort.getKey(), matchingNode);
+        else matchingNode.forEach(node -> nodeIDReceiver.get(hostPort.getKey()).add(node));
       }
     }
 
     eachNodeIDMetrics = metricsNameForReceiver(nodeIDReceiver);
     var eachBrokerMsgPerSec = brokersMsgPerSec();
-
     var overLoadCount = new HashMap<Integer, Integer>();
     eachBrokerMsgPerSec.keySet().forEach(e -> overLoadCount.put(e, 0));
     var i = 0;
     var minRecordSec =
-        brokersMsgPerSec().values().stream()
+        eachBrokerMsgPerSec.values().stream()
             .map(n -> n.size())
             .min(Comparator.comparing(Integer::intValue))
             .get();
     while (i < minRecordSec) {
-      var avg = avgMsgSec(i);
-      var eachMsg = brokersMsgSec(i);
+      var avg = avgMsgSec(i, eachBrokerMsgPerSec);
+      var eachMsg = brokersMsgSec(i, eachBrokerMsgPerSec);
       var standardDeviation = standardDeviationImperative(eachMsg, avg);
       for (Map.Entry<Integer, Double> entry : eachMsg.entrySet()) {
         if (entry.getValue() > (avg + standardDeviation)) {
@@ -149,7 +155,27 @@ public class NodeLoadClient {
       List<Double> sumList = new ArrayList<>();
       var outMsg = entry.getValue().get(KafkaMetrics.BrokerTopic.BytesOutPerSec.toString());
       var inMsg = entry.getValue().get(KafkaMetrics.BrokerTopic.BytesInPerSec.toString());
-
+      var outMsgBean = outMsg.current();
+      var inMsgBean = inMsg.current();
+      IntStream.range(0, Math.min(outMsgBean.size(), inMsgBean.size()))
+          .forEach(
+              i ->
+                  sumList.add(
+                      sum(
+                          Double.parseDouble(
+                              outMsgBean
+                                  .get(i)
+                                  .beanObject()
+                                  .getAttributes()
+                                  .get("MeanRate")
+                                  .toString()),
+                          Double.parseDouble(
+                              inMsgBean
+                                  .get(i)
+                                  .beanObject()
+                                  .getAttributes()
+                                  .get("MeanRate")
+                                  .toString()))));
       eachMsg.put(entry.getKey(), sumList);
     }
     return eachMsg;
@@ -185,27 +211,16 @@ public class NodeLoadClient {
     for (Map.Entry<Integer, List<Receiver>> entry : nodeIDReceiver.entrySet()) {
       var metricsName =
           entry.getValue().stream()
-              .filter(
-                  distinctByKey(
-                      b ->
-                          b.current().stream()
-                              .findAny()
-                              .get()
-                              .beanObject()
-                              .getProperties()
-                              .values()))
               .map(
-                  b ->
-                      b.current().stream()
-                          .findAny()
-                          .get()
-                          .beanObject()
-                          .getProperties()
-                          .values()
-                          .stream()
+                  receiver ->
+                      receiver.current().stream()
+                          .map(
+                              bean ->
+                                  bean.beanObject().getProperties().values().stream()
+                                      .findAny()
+                                      .get())
                           .findAny()
                           .get())
-              .distinct()
               .collect(Collectors.toList());
       var objectName =
           metricsName.stream()
@@ -234,17 +249,17 @@ public class NodeLoadClient {
     return result;
   }
 
-  private Map<Integer, Double> brokersMsgSec(int index) {
-    return brokersMsgPerSec().entrySet().stream()
+  private Map<Integer, Double> brokersMsgSec(int index, Map<Integer, List<Double>> eachMsg) {
+    return eachMsg.entrySet().stream()
         .collect(Collectors.toMap(Map.Entry::getKey, entry -> entry.getValue().get(index)));
   }
 
-  private double avgMsgSec(int index) {
-    return avgBrokersMsgPerSec(brokersMsgPerSec()).get(index);
+  private double avgMsgSec(int index, Map<Integer, List<Double>> eachMsg) {
+    return avgBrokersMsgPerSec(eachMsg).get(index);
   }
 
   public void close() {
-    FACTORY.close();
+    FACTORY.close(currentJmxAddresses);
   }
 
   private static <T> Predicate<T> distinctByKey(Function<? super T, ?> keyExtractor) {

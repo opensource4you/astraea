@@ -176,17 +176,5 @@ public class SmoothWeightPartitioner implements Partitioner {
       }
       currentState = target;
     }
-
-    private synchronized boolean isUNINITIALIZED() {
-      return currentState.equals(State.UNINITIALIZED);
-    }
-
-    private synchronized boolean isReady() {
-      return currentState.equals(State.READY);
-    }
-
-    private synchronized State currentState() {
-      return currentState;
-    }
   }
 }
