@@ -1,8 +1,6 @@
 package org.astraea.performance;
 
-import java.util.List;
-import java.util.Optional;
-import java.util.Random;
+import java.util.*;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
@@ -23,6 +21,7 @@ public class Manager {
   private final List<Metrics> producerMetrics, consumerMetrics;
   private final long start = System.currentTimeMillis();
   private final AtomicLong payloadNum = new AtomicLong(0);
+  private final List<Map.Entry<Double, String>> keyPosTable = new ArrayList<>();
 
   /**
    * Used to manage producing/consuming.
@@ -48,6 +47,14 @@ public class Manager {
     this.producerMetrics = producerMetrics;
     this.consumerMetrics = consumerMetrics;
     this.exeTime = argument.exeTime;
+    argument.distribution.forEach(
+        s -> keyPosTable.add(Map.entry(Double.parseDouble(s.split(":")[1]), s.split(":")[0])));
+    // Argument verification
+    keyPosTable.forEach(
+        entry -> {
+          if (entry.getValue().getBytes().length > this.size)
+            throw new IllegalArgumentException("One of the key is too big to fit in a record.");
+        });
   }
 
   /**
@@ -100,5 +107,15 @@ public class Manager {
   /** Check if we should keep consuming record. */
   public boolean consumedDone() {
     return producedDone() && consumedRecords() >= producedRecords();
+  }
+
+  /** Randomly choose a key according to the possibility table. */
+  public Optional<byte[]> getKey() {
+    double r = rand.nextDouble();
+    for (var keyPos : keyPosTable) {
+      r -= keyPos.getKey();
+      if (r <= 0) return Optional.of(keyPos.getValue().getBytes());
+    }
+    return Optional.empty();
   }
 }

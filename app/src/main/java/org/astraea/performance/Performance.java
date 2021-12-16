@@ -5,6 +5,8 @@ import com.beust.jcommander.Parameter;
 import com.beust.jcommander.ParameterException;
 import java.io.IOException;
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
@@ -169,6 +171,7 @@ public class Performance {
         producer
             .sender()
             .topic(param.topic)
+            .key(manager.getKey().orElse(null))
             .value(payload.get())
             .timestamp(start)
             .run()
@@ -269,6 +272,11 @@ public class Performance {
             "String: the compression algorithm used by producer. Available algorithm are none, gzip, snappy, lz4, and zstd",
         converter = CompressionArgument.class)
     CompressionType compression = CompressionType.NONE;
+
+    @Parameter(
+        names = {"--key.distribution"},
+        description = "String: a key and the possibility. e.g. \"key-01:0.2,key-02:0.3\"")
+    List<String> distribution = new ArrayList<>();
   }
 
   static class CompressionArgument implements IStringConverter<CompressionType> {
