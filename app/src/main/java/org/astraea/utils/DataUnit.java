@@ -347,7 +347,7 @@ public enum DataUnit {
 
     /** Return the ideal data rate under specific time unit. */
     public BigDecimal idealDataRate(ChronoUnit chronoUnit) {
-      return dataRate(idealDataUnit(chronoUnit), chronoUnit);
+      return toBigDecimal(idealDataUnit(chronoUnit), chronoUnit);
     }
 
     /** Return the ideal data unit under specific time unit. */
@@ -368,12 +368,12 @@ public enum DataUnit {
     /**
      * Calculate the data rate in a specific {@link DataUnit} over a specific {@link ChronoUnit}.
      */
-    public BigDecimal dataRate(DataUnit dataUnit, ChronoUnit chronoUnit) {
-      return dataRate(dataUnit, chronoUnit.getDuration());
+    public BigDecimal toBigDecimal(DataUnit dataUnit, ChronoUnit chronoUnit) {
+      return toBigDecimal(dataUnit, chronoUnit.getDuration());
     }
 
     /** Calculate the data rate in a specific {@link DataUnit} over a specific {@link Duration}. */
-    public BigDecimal dataRate(DataUnit dataUnit, Duration duration) {
+    public BigDecimal toBigDecimal(DataUnit dataUnit, Duration duration) {
       return this.totalBitTransmitted
           .measurement(dataUnit)
           .multiply(fromDurationToBigDecimalSafely(duration))
@@ -427,7 +427,7 @@ public enum DataUnit {
     }
 
     public String toString(DataUnit dataUnit, ChronoUnit chronoUnit) {
-      BigDecimal dataRate = dataRate(dataUnit, chronoUnit).setScale(2, RoundingMode.HALF_EVEN);
+      BigDecimal dataRate = toBigDecimal(dataUnit, chronoUnit).setScale(2, RoundingMode.HALF_EVEN);
       return String.format("%s %s/%s", dataRate, dataUnit.name(), chronoName(chronoUnit));
     }
 

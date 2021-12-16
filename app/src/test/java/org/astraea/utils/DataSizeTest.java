@@ -58,7 +58,7 @@ class DataSizeTest {
               "If Bob sends %s %s data over 1000 years. Then Bob has to send %s %s each %s.%n",
               dataVolume.idealMeasurement(),
               dataVolume.idealDataUnit(),
-              dataVolumeOver1000Years.dataRate(
+              dataVolumeOver1000Years.toBigDecimal(
                   dataVolumeOver1000Years.idealDataUnit(chronoUnit), chronoUnit),
               dataVolumeOver1000Years.idealDataUnit(chronoUnit),
               chronoUnit);

@@ -43,10 +43,10 @@ class DataRateTest {
   void dataRate() {
     var sut0 =
         DataUnit.DataRate.of(500, DataUnit.KB, Duration.ofSeconds(1))
-            .dataRate(DataUnit.MB, Duration.ofSeconds(1));
+            .toBigDecimal(DataUnit.MB, Duration.ofSeconds(1));
     var sut1 =
         DataUnit.DataRate.of(500, DataUnit.KB, ChronoUnit.SECONDS)
-            .dataRate(DataUnit.MB, Duration.ofSeconds(1));
+            .toBigDecimal(DataUnit.MB, Duration.ofSeconds(1));
 
     assertFloatingValueEquals(0.5, sut0.doubleValue());
     assertFloatingValueEquals(0.5, sut1.doubleValue());
