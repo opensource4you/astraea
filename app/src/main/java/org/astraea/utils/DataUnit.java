@@ -412,6 +412,20 @@ public enum DataUnit {
      * Create a {@link DataRate} object from data volume and time duration
      *
      * <pre>{@code
+     * DataRate.of(DataUnit.KB.of(100), ChronoUnit.SECONDS); // 100 KB/s
+     * DataRate.of(DataUnit.MB.of(100), ChronoUnit.SECONDS); // 50 MB/s
+     * }</pre>
+     *
+     * @return an object {@link DataRate} correspond to given arguments
+     */
+    public static DataRate of(Size dataSize, ChronoUnit chronoUnit) {
+      return new DataRate(dataSize, chronoUnit.getDuration());
+    }
+
+    /**
+     * Create a {@link DataRate} object from data volume and time duration
+     *
+     * <pre>{@code
      * DataRate.of(DataUnit.KB.of(100), Duration.ofSeconds(1)); // 100 KB/s
      * DataRate.of(DataUnit.MB.of(100), Duration.ofSeconds(2)); // 50 MB/s
      * }</pre>
@@ -420,6 +434,38 @@ public enum DataUnit {
      */
     public static DataRate of(Size dataSize, Duration duration) {
       return new DataRate(dataSize, duration);
+    }
+
+    public static BigDecimal ofBigDecimal(long measurement, DataUnit unit, ChronoUnit time) {
+      return ofBigDecimal(unit.of(measurement), unit, time.getDuration());
+    }
+
+    public static BigDecimal ofBigDecimal(long measurement, DataUnit unit, Duration time) {
+      return ofBigDecimal(unit.of(measurement), unit, time);
+    }
+
+    public static BigDecimal ofBigDecimal(Size size, DataUnit unit, ChronoUnit time) {
+      return ofBigDecimal(size, unit, time.getDuration());
+    }
+
+    public static BigDecimal ofBigDecimal(Size size, DataUnit unit, Duration time) {
+      return of(size, time).toBigDecimal(unit, time);
+    }
+
+    public static double ofDouble(long measurement, DataUnit unit, ChronoUnit time) {
+      return ofBigDecimal(measurement, unit, time).doubleValue();
+    }
+
+    public static double ofDouble(long measurement, DataUnit unit, Duration time) {
+      return ofBigDecimal(measurement, unit, time).doubleValue();
+    }
+
+    public static double ofDouble(Size size, DataUnit unit, ChronoUnit time) {
+      return ofBigDecimal(size, unit, time).doubleValue();
+    }
+
+    public static double ofDouble(Size size, DataUnit unit, Duration time) {
+      return ofBigDecimal(size, unit, time).doubleValue();
     }
 
     private static String chronoName(ChronoUnit chronoUnit) {

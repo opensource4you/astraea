@@ -6,6 +6,7 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.time.Duration;
 import java.time.temporal.ChronoUnit;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import org.junit.jupiter.api.Test;
@@ -48,6 +49,23 @@ class DataSizeTest {
     // someone wondering that if we send 1 YB of data over 1000 years, how much data we sent per
     // second.
     DataUnit.YB.of(1).dataRate(ChronoUnit.MILLENNIA).toString(ChronoUnit.SECONDS);
+
+    // faster convert between DataRate and others.
+    var randomSize = DataUnit.Byte.of(ThreadLocalRandom.current().nextLong());
+
+    BigDecimal bigDecimal0 =
+        DataUnit.DataRate.ofBigDecimal(1000, DataUnit.Byte, ChronoUnit.SECONDS);
+    BigDecimal bigDecimal1 =
+        DataUnit.DataRate.ofBigDecimal(1000, DataUnit.Byte, Duration.ofSeconds(1));
+    BigDecimal bigDecimal2 =
+        DataUnit.DataRate.ofBigDecimal(randomSize, DataUnit.Byte, ChronoUnit.SECONDS);
+    BigDecimal bigDecimal3 =
+        DataUnit.DataRate.ofBigDecimal(randomSize, DataUnit.Byte, Duration.ofSeconds(1));
+
+    double double0 = DataUnit.DataRate.ofDouble(1000, DataUnit.Byte, ChronoUnit.SECONDS);
+    double double1 = DataUnit.DataRate.ofDouble(1000, DataUnit.Byte, Duration.ofSeconds(1));
+    double double2 = DataUnit.DataRate.ofDouble(randomSize, DataUnit.Byte, ChronoUnit.SECONDS);
+    double double3 = DataUnit.DataRate.ofDouble(randomSize, DataUnit.Byte, Duration.ofSeconds(1));
 
     // solve the above problem
     var dataVolume = DataUnit.YB.of(1);
