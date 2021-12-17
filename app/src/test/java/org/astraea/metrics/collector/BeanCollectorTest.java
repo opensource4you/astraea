@@ -3,6 +3,7 @@ package org.astraea.metrics.collector;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiFunction;
@@ -142,13 +143,13 @@ public class BeanCollectorTest {
     var receivers = receivers(collector);
     receivers.forEach(Receiver::current);
 
-    Assertions.assertEquals(1, collector.clients.size());
+    Assertions.assertEquals(1, collector.nodes.size());
     Assertions.assertEquals(
-        mbeanClient, collector.clients.entrySet().iterator().next().getValue().mBeanClient);
+        mbeanClient, collector.nodes.entrySet().iterator().next().getValue().mBeanClient);
 
     receivers.forEach(Receiver::close);
-    Assertions.assertEquals(1, collector.clients.size());
-    Assertions.assertNull(collector.clients.entrySet().iterator().next().getValue().mBeanClient);
+    Assertions.assertEquals(1, collector.nodes.size());
+    Assertions.assertNull(collector.nodes.entrySet().iterator().next().getValue().mBeanClient);
   }
 
   @Test
@@ -204,5 +205,41 @@ public class BeanCollectorTest {
       Assertions.assertEquals(expect, count.get());
       sleep(1);
     }
+  }
+
+  @Test
+  void testMultiplesReceiversData() {
+    var collector =
+        BeanCollector.builder()
+            .interval(Duration.ofSeconds(1))
+            .clientCreator(clientCreator)
+            .build();
+
+    var receivers =
+        IntStream.range(0, 2)
+            .mapToObj(
+                i -> {
+                  var count = new AtomicInteger();
+                  return Map.entry(
+                      count,
+                      collector
+                          .register()
+                          .host("unknown")
+                          .port(100)
+                          .metricsGetter(
+                              c -> {
+                                count.incrementAndGet();
+                                return mbean;
+                              })
+                          .build());
+                })
+            .collect(Collectors.toList());
+
+    sleep(1);
+    receivers.forEach(e -> Assertions.assertEquals(0, e.getKey().get()));
+
+    sleep(1);
+    receivers.forEach(e -> Assertions.assertEquals(1, e.getValue().current().size()));
+    receivers.forEach(e -> Assertions.assertEquals(1, e.getKey().get()));
   }
 }
