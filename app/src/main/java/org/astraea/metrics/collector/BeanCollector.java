@@ -4,11 +4,10 @@ import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ConcurrentSkipListMap;
-import java.util.concurrent.locks.ReadWriteLock;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.BiFunction;
 import java.util.function.Function;
-import java.util.function.Supplier;
 import org.astraea.Utils;
 import org.astraea.metrics.HasBeanObject;
 import org.astraea.metrics.jmx.MBeanClient;
@@ -51,7 +50,7 @@ public class BeanCollector {
   private final int numberOfObjectsPerNode;
 
   // visible for testing
-  final ConcurrentMap<Node, NodeClient> clients = new ConcurrentSkipListMap<>();
+  final ConcurrentMap<String, Node> nodes = new ConcurrentSkipListMap<>();
 
   private BeanCollector(
       BiFunction<String, Integer, MBeanClient> clientCreator,
@@ -88,10 +87,12 @@ public class BeanCollector {
 
       @Override
       public Receiver build() {
-        var node = new Node(host, port);
-        var client = clients.computeIfAbsent(node, ignored -> new NodeClient());
-        return client.add(
+        var nodeKey = host + ":" + port;
+        var node = nodes.computeIfAbsent(nodeKey, ignored -> new Node(host, port));
+        var receiver =
             new Receiver() {
+              private final Map<Long, HasBeanObject> objects = new HashMap<>();
+
               @Override
               public String host() {
                 return host;
@@ -104,105 +105,68 @@ public class BeanCollector {
 
               @Override
               public List<HasBeanObject> current() {
-                client.tryUpdate(
-                    interval,
-                    numberOfObjectsPerNode,
-                    getter,
-                    () -> clientCreator.apply(host, port));
-                return client.current();
+                tryUpdate();
+                return List.copyOf(objects.values());
               }
 
               @Override
               public void close() {
-                client.remove(this);
+                node.lock.lock();
+                try {
+                  node.receivers.remove(this);
+                  if (node.receivers.isEmpty()) Utils.close(node.mBeanClient);
+                  node.mBeanClient = null;
+                } finally {
+                  node.lock.unlock();
+                }
               }
-            });
+
+              private void tryUpdate() {
+                if (node.lock.tryLock()) {
+                  try {
+                    var needUpdate =
+                        objects.keySet().stream()
+                            .max((Long::compare))
+                            .map(last -> last + interval.toMillis() <= System.currentTimeMillis())
+                            .orElse(true);
+                    if (needUpdate) {
+                      if (node.mBeanClient == null)
+                        node.mBeanClient = clientCreator.apply(host, port);
+                      if (objects.size() >= numberOfObjectsPerNode)
+                        objects.keySet().stream().min((Long::compare)).ifPresent(objects::remove);
+                      objects.put(System.currentTimeMillis(), getter.apply(node.mBeanClient));
+                    }
+                  } finally {
+                    node.lock.unlock();
+                  }
+                }
+              }
+            };
+
+        // add receiver
+        node.lock.lock();
+        try {
+          node.receivers.add(receiver);
+        } finally {
+          node.lock.unlock();
+        }
+        return receiver;
       }
     };
   }
 
   // visible for testing
-  static class NodeClient {
+  static final class Node {
     private final Set<Receiver> receivers = new HashSet<>();
-    private final ReadWriteLock lock = new ReentrantReadWriteLock();
+    private final Lock lock = new ReentrantLock();
     // visible for testing
     MBeanClient mBeanClient;
-    private final Map<Long, HasBeanObject> objects = new HashMap<>();
-
-    Receiver add(Receiver receiver) {
-      lock.writeLock().lock();
-      try {
-        receivers.add(receiver);
-      } finally {
-        lock.writeLock().unlock();
-      }
-      return receiver;
-    }
-
-    void remove(Receiver receiver) {
-      lock.writeLock().lock();
-      try {
-        receivers.remove(receiver);
-        if (receivers.isEmpty()) Utils.close(mBeanClient);
-        mBeanClient = null;
-      } finally {
-        lock.writeLock().unlock();
-      }
-    }
-
-    private void removeOldest() {
-      objects.keySet().stream().min((Long::compare)).ifPresent(objects::remove);
-    }
-
-    List<HasBeanObject> current() {
-      lock.readLock().lock();
-      try {
-        return List.copyOf(objects.values());
-      } finally {
-        lock.readLock().unlock();
-      }
-    }
-
-    void tryUpdate(
-        Duration interval,
-        int numberOfObjectsPerNode,
-        Function<MBeanClient, HasBeanObject> beanGetter,
-        Supplier<MBeanClient> clientCreator) {
-
-      if (lock.writeLock().tryLock()) {
-        try {
-          var needUpdate =
-              objects.keySet().stream()
-                  .max((Long::compare))
-                  .map(last -> last + interval.toMillis() <= System.currentTimeMillis())
-                  .orElse(true);
-          if (needUpdate) {
-            if (mBeanClient == null) mBeanClient = clientCreator.get();
-            if (objects.size() >= numberOfObjectsPerNode) removeOldest();
-            objects.put(System.currentTimeMillis(), beanGetter.apply(mBeanClient));
-          }
-
-        } finally {
-          lock.writeLock().unlock();
-        }
-      }
-    }
-  }
-
-  private static final class Node implements Comparable<Node> {
     public final String host;
     public final int port;
 
     Node(String host, int port) {
       this.host = host;
       this.port = port;
-    }
-
-    @Override
-    public int compareTo(Node other) {
-      var result = host.compareTo(other.host);
-      if (result != 0) return result;
-      return Integer.compare(port, other.port);
     }
   }
 }
