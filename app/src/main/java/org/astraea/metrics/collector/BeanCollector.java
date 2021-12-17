@@ -122,20 +122,18 @@ public class BeanCollector {
               }
 
               private void tryUpdate() {
-                if (node.lock.tryLock()) {
+                var needUpdate =
+                    objects.keySet().stream()
+                        .max((Long::compare))
+                        .map(last -> last + interval.toMillis() <= System.currentTimeMillis())
+                        .orElse(true);
+                if (needUpdate && node.lock.tryLock()) {
                   try {
-                    var needUpdate =
-                        objects.keySet().stream()
-                            .max((Long::compare))
-                            .map(last -> last + interval.toMillis() <= System.currentTimeMillis())
-                            .orElse(true);
-                    if (needUpdate) {
-                      if (node.mBeanClient == null)
-                        node.mBeanClient = clientCreator.apply(host, port);
-                      if (objects.size() >= numberOfObjectsPerNode)
-                        objects.keySet().stream().min((Long::compare)).ifPresent(objects::remove);
-                      objects.put(System.currentTimeMillis(), getter.apply(node.mBeanClient));
-                    }
+                    if (node.mBeanClient == null)
+                      node.mBeanClient = clientCreator.apply(host, port);
+                    if (objects.size() >= numberOfObjectsPerNode)
+                      objects.keySet().stream().min((Long::compare)).ifPresent(objects::remove);
+                    objects.put(System.currentTimeMillis(), getter.apply(node.mBeanClient));
                   } finally {
                     node.lock.unlock();
                   }
