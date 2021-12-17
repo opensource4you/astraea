@@ -5,7 +5,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.TimeUnit;
 import java.util.function.BiFunction;
 import org.astraea.metrics.collector.BeanCollector;
 import org.astraea.metrics.collector.Receiver;
@@ -75,14 +74,6 @@ public class receiverFactory {
           count.put(entry, count.get(entry) - 1);
         }
       }
-    }
-  }
-
-  private static void sleep(int seconds) {
-    try {
-      TimeUnit.SECONDS.sleep(seconds);
-    } catch (InterruptedException e) {
-      throw new RuntimeException(e);
     }
   }
 

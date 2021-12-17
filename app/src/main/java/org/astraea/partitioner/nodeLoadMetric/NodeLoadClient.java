@@ -11,9 +11,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
-import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.kafka.common.Cluster;
@@ -37,18 +35,6 @@ public class NodeLoadClient {
 
   public NodeLoadClient(Map<String, Integer> jmxAddresses) throws IOException {
     this.receiverList = FACTORY.receiversList(jmxAddresses);
-    receiverList.forEach(
-        receiver ->
-            System.out.println(
-                receiver.current().stream()
-                    .findAny()
-                    .get()
-                    .beanObject()
-                    .getProperties()
-                    .values()
-                    .stream()
-                    .findAny()
-                    .get()));
     receiverList.forEach(receiver -> Utils.waitFor(() -> receiver.current().size() > 0));
     currentJmxAddresses = jmxAddresses;
   }
@@ -260,10 +246,5 @@ public class NodeLoadClient {
 
   public void close() {
     FACTORY.close(currentJmxAddresses);
-  }
-
-  private static <T> Predicate<T> distinctByKey(Function<? super T, ?> keyExtractor) {
-    Map<Object, Boolean> seen = new ConcurrentHashMap<>();
-    return t -> seen.putIfAbsent(keyExtractor.apply(t), Boolean.TRUE) == null;
   }
 }
