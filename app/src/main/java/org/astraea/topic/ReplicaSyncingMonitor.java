@@ -206,7 +206,7 @@ public class ReplicaSyncingMonitor {
 
     ProgressInfo(
         DataSize leaderSize, DataSize previousSize, DataSize currentSize, Duration interval) {
-      if (previousSize.compareTo(leaderSize) > 0) throw new IllegalArgumentException();
+      if (previousSize.greaterThan(leaderSize)) throw new IllegalArgumentException();
       this.leaderSize = leaderSize;
       this.previousSize = previousSize;
       this.currentSize = currentSize;

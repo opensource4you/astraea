@@ -83,6 +83,22 @@ public class DataSize implements Comparable<DataSize> {
     return subtract(Objects.requireNonNull(rhs).bits);
   }
 
+  public boolean smallerThan(DataSize dataSize) {
+    return this.compareTo(dataSize) < 0;
+  }
+
+  public boolean smallerEqualTo(DataSize dataSize) {
+    return this.compareTo(dataSize) <= 0;
+  }
+
+  public boolean greaterThan(DataSize dataSize) {
+    return this.compareTo(dataSize) > 0;
+  }
+
+  public boolean greaterEqualTo(DataSize dataSize) {
+    return this.compareTo(dataSize) >= 0;
+  }
+
   private DataSize add(BigInteger rhs) {
     return new DataSize(bits.add(rhs));
   }

@@ -68,14 +68,15 @@ class DataSizeTest {
     var dataVolume = DataUnit.YB.of(1);
     var dataVolumeOver1000Years = dataVolume.dataRate(ChronoUnit.MILLENNIA);
     Consumer<ChronoUnit> tellMeTheAnswerIn =
-        (ChronoUnit chronoUnit) -> System.out.printf(
-            "If Bob sends %s %s data over 1000 years. Then Bob has to send %s %s each %s.%n",
-            dataVolume.idealMeasurement(),
-            dataVolume.idealDataUnit(),
-            dataVolumeOver1000Years.toBigDecimal(
-                dataVolumeOver1000Years.idealDataUnit(chronoUnit), chronoUnit),
-            dataVolumeOver1000Years.idealDataUnit(chronoUnit),
-            chronoUnit);
+        (ChronoUnit chronoUnit) ->
+            System.out.printf(
+                "If Bob sends %s %s data over 1000 years. Then Bob has to send %s %s each %s.%n",
+                dataVolume.idealMeasurement(),
+                dataVolume.idealDataUnit(),
+                dataVolumeOver1000Years.toBigDecimal(
+                    dataVolumeOver1000Years.idealDataUnit(chronoUnit), chronoUnit),
+                dataVolumeOver1000Years.idealDataUnit(chronoUnit),
+                chronoUnit);
 
     tellMeTheAnswerIn.accept(ChronoUnit.NANOS);
     tellMeTheAnswerIn.accept(ChronoUnit.SECONDS);
@@ -229,5 +230,20 @@ class DataSizeTest {
     BigInteger bit5566 = DataUnit.of(5566, DataUnit.Bit).bits();
 
     assertEquals(BigInteger.valueOf(5566), bit5566);
+  }
+
+  @Test
+  void compare() {
+    assertEquals(DataUnit.KB.of(1000), DataUnit.MB.of(1));
+    assertNotEquals(DataUnit.KB.of(1000), DataUnit.KiB.of(1000));
+
+    assertTrue(DataUnit.KB.of(999).smallerEqualTo(DataUnit.MB.of(1)));
+    assertTrue(DataUnit.KB.of(1000).smallerEqualTo(DataUnit.MB.of(1)));
+    assertTrue(DataUnit.KB.of(1000).greaterEqualTo(DataUnit.MB.of(1)));
+    assertTrue(DataUnit.KB.of(1001).greaterThan(DataUnit.MB.of(1)));
+    assertFalse(DataUnit.MB.of(1).smallerEqualTo(DataUnit.KB.of(999)));
+    assertFalse(DataUnit.MB.of(2).smallerEqualTo(DataUnit.KB.of(1000)));
+    assertFalse(DataUnit.MB.of(0).greaterEqualTo(DataUnit.KB.of(1000)));
+    assertFalse(DataUnit.MB.of(1).greaterThan(DataUnit.KB.of(1001)));
   }
 }
