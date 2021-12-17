@@ -16,9 +16,9 @@ import org.apache.kafka.common.TopicPartitionReplica;
 import org.astraea.Utils;
 import org.astraea.argument.ArgumentUtil;
 import org.astraea.argument.BasicArgumentWithPropFile;
+import org.astraea.utils.DataRate;
 import org.astraea.utils.DataSize;
 import org.astraea.utils.DataUnit;
-import org.astraea.utils.DataUnit.DataRate;
 
 public class ReplicaSyncingMonitor {
 

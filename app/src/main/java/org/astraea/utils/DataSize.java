@@ -150,17 +150,16 @@ public class DataSize implements Comparable<DataSize> {
         .orElse(DataUnit.Byte);
   }
 
-  /** Return a {@link DataUnit.DataRate} based on current data size over a specific time unit. */
-  public DataUnit.DataRate dataRate(ChronoUnit chronoUnit) {
-    return DataUnit.DataRate.of(this, chronoUnit.getDuration());
+  /** Return a {@link DataRate} based on current data size over a specific time unit. */
+  public DataRate dataRate(ChronoUnit chronoUnit) {
+    return DataRate.of(this, chronoUnit.getDuration());
   }
 
   /**
-   * Return a {@link DataUnit.DataRate} based on current data size over a specific {@link Duration}
-   * of time.
+   * Return a {@link DataRate} based on current data size over a specific {@link Duration} of time.
    */
-  public DataUnit.DataRate dataRate(Duration timePassed) {
-    return DataUnit.DataRate.of(this, timePassed);
+  public DataRate dataRate(Duration timePassed) {
+    return DataRate.of(this, timePassed);
   }
 
   /** Return a string represent current size in given data unit. */

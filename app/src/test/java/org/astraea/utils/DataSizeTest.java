@@ -53,34 +53,29 @@ class DataSizeTest {
     // faster convert between DataRate and others.
     var randomSize = DataUnit.Byte.of(ThreadLocalRandom.current().nextLong());
 
-    BigDecimal bigDecimal0 =
-        DataUnit.DataRate.ofBigDecimal(1000, DataUnit.Byte, ChronoUnit.SECONDS);
-    BigDecimal bigDecimal1 =
-        DataUnit.DataRate.ofBigDecimal(1000, DataUnit.Byte, Duration.ofSeconds(1));
-    BigDecimal bigDecimal2 =
-        DataUnit.DataRate.ofBigDecimal(randomSize, DataUnit.Byte, ChronoUnit.SECONDS);
+    BigDecimal bigDecimal0 = DataRate.ofBigDecimal(1000, DataUnit.Byte, ChronoUnit.SECONDS);
+    BigDecimal bigDecimal1 = DataRate.ofBigDecimal(1000, DataUnit.Byte, Duration.ofSeconds(1));
+    BigDecimal bigDecimal2 = DataRate.ofBigDecimal(randomSize, DataUnit.Byte, ChronoUnit.SECONDS);
     BigDecimal bigDecimal3 =
-        DataUnit.DataRate.ofBigDecimal(randomSize, DataUnit.Byte, Duration.ofSeconds(1));
+        DataRate.ofBigDecimal(randomSize, DataUnit.Byte, Duration.ofSeconds(1));
 
-    double double0 = DataUnit.DataRate.ofDouble(1000, DataUnit.Byte, ChronoUnit.SECONDS);
-    double double1 = DataUnit.DataRate.ofDouble(1000, DataUnit.Byte, Duration.ofSeconds(1));
-    double double2 = DataUnit.DataRate.ofDouble(randomSize, DataUnit.Byte, ChronoUnit.SECONDS);
-    double double3 = DataUnit.DataRate.ofDouble(randomSize, DataUnit.Byte, Duration.ofSeconds(1));
+    double double0 = DataRate.ofDouble(1000, DataUnit.Byte, ChronoUnit.SECONDS);
+    double double1 = DataRate.ofDouble(1000, DataUnit.Byte, Duration.ofSeconds(1));
+    double double2 = DataRate.ofDouble(randomSize, DataUnit.Byte, ChronoUnit.SECONDS);
+    double double3 = DataRate.ofDouble(randomSize, DataUnit.Byte, Duration.ofSeconds(1));
 
     // solve the above problem
     var dataVolume = DataUnit.YB.of(1);
     var dataVolumeOver1000Years = dataVolume.dataRate(ChronoUnit.MILLENNIA);
     Consumer<ChronoUnit> tellMeTheAnswerIn =
-        (ChronoUnit chronoUnit) -> {
-          System.out.printf(
-              "If Bob sends %s %s data over 1000 years. Then Bob has to send %s %s each %s.%n",
-              dataVolume.idealMeasurement(),
-              dataVolume.idealDataUnit(),
-              dataVolumeOver1000Years.toBigDecimal(
-                  dataVolumeOver1000Years.idealDataUnit(chronoUnit), chronoUnit),
-              dataVolumeOver1000Years.idealDataUnit(chronoUnit),
-              chronoUnit);
-        };
+        (ChronoUnit chronoUnit) -> System.out.printf(
+            "If Bob sends %s %s data over 1000 years. Then Bob has to send %s %s each %s.%n",
+            dataVolume.idealMeasurement(),
+            dataVolume.idealDataUnit(),
+            dataVolumeOver1000Years.toBigDecimal(
+                dataVolumeOver1000Years.idealDataUnit(chronoUnit), chronoUnit),
+            dataVolumeOver1000Years.idealDataUnit(chronoUnit),
+            chronoUnit);
 
     tellMeTheAnswerIn.accept(ChronoUnit.NANOS);
     tellMeTheAnswerIn.accept(ChronoUnit.SECONDS);

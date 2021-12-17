@@ -23,17 +23,17 @@ class DataRateTest {
   void fromDurationSafely() {
     assertDoesNotThrow(
         () -> {
-          DataUnit.DataRate.fromDurationToBigDecimalSafely(ChronoUnit.FOREVER.getDuration());
+          DataRate.fromDurationToBigDecimalSafely(ChronoUnit.FOREVER.getDuration());
         });
     assertDoesNotThrow(
         () -> {
-          DataUnit.DataRate.fromDurationToBigIntegerSafely(ChronoUnit.FOREVER.getDuration());
+          DataRate.fromDurationToBigIntegerSafely(ChronoUnit.FOREVER.getDuration());
         });
   }
 
   @Test
   void idealDataRateAndUnit() {
-    var sut = DataUnit.DataRate.of(1000, DataUnit.KB, Duration.ofSeconds(1));
+    var sut = DataRate.of(1000, DataUnit.KB, Duration.ofSeconds(1));
 
     assertFloatingValueEquals(1.0, sut.idealDataRate(ChronoUnit.SECONDS).doubleValue());
     assertSame(DataUnit.MB, sut.idealDataUnit(ChronoUnit.SECONDS));
@@ -42,10 +42,10 @@ class DataRateTest {
   @Test
   void dataRate() {
     var sut0 =
-        DataUnit.DataRate.of(500, DataUnit.KB, Duration.ofSeconds(1))
+        DataRate.of(500, DataUnit.KB, Duration.ofSeconds(1))
             .toBigDecimal(DataUnit.MB, Duration.ofSeconds(1));
     var sut1 =
-        DataUnit.DataRate.of(500, DataUnit.KB, ChronoUnit.SECONDS)
+        DataRate.of(500, DataUnit.KB, ChronoUnit.SECONDS)
             .toBigDecimal(DataUnit.MB, Duration.ofSeconds(1));
 
     assertFloatingValueEquals(0.5, sut0.doubleValue());
@@ -75,8 +75,7 @@ class DataRateTest {
       long passedSecond,
       double expectedIdealDataRate,
       DataUnit expectedDataUnit) {
-    DataUnit.DataRate sut =
-        DataUnit.DataRate.of(measurement, dataUnit, Duration.ofSeconds(passedSecond));
+    DataRate sut = DataRate.of(measurement, dataUnit, Duration.ofSeconds(passedSecond));
 
     assertFloatingValueEquals(
         expectedIdealDataRate, sut.idealDataRate(ChronoUnit.SECONDS).doubleValue());
