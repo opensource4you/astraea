@@ -163,34 +163,22 @@ public class Builder {
 
     @Override
     public Map<String, TopicConfig> topics() {
-      var topics =
-          Utils.handleException(
-              () -> admin.listTopics(new ListTopicsOptions().listInternal(true)).names().get());
-      return Utils.handleException(
-              () ->
-                  admin
-                      .describeConfigs(
-                          topics.stream()
-                              .map(topic -> new ConfigResource(ConfigResource.Type.TOPIC, topic))
-                              .collect(Collectors.toList()))
-                      .all()
-                      .get())
-          .entrySet()
-          .stream()
-          .collect(
-              Collectors.toMap(
-                  e -> e.getKey().name(),
-                  e ->
-                      new TopicConfigImpl(
-                          e.getValue().entries().stream()
-                              .collect(Collectors.toMap(ConfigEntry::name, ConfigEntry::value)))));
+      return topics(true);
     }
 
     @Override
     public Map<String, TopicConfig> publicTopics() {
+      return topics(false);
+    }
+
+    private Map<String, TopicConfig> topics(boolean listInternal) {
       var topics =
           Utils.handleException(
-              () -> admin.listTopics(new ListTopicsOptions().listInternal(false)).names().get());
+              () ->
+                  admin
+                      .listTopics(new ListTopicsOptions().listInternal(listInternal))
+                      .names()
+                      .get());
       return Utils.handleException(
               () ->
                   admin

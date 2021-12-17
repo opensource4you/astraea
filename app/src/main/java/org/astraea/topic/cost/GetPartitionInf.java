@@ -27,9 +27,8 @@ public class GetPartitionInf {
             Collectors.toMap(
                 Map.Entry::getKey,
                 entry ->
-                    client
-                        .publicTopics()
-                        .get(entry.getKey())
+                    entry
+                        .getValue()
                         .value("retention.ms")
                         .map(Integer::parseInt)
                         .orElseThrow(
