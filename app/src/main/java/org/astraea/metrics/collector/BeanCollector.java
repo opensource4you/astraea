@@ -87,7 +87,8 @@ public class BeanCollector {
 
       @Override
       public Receiver build() {
-        var node = nodes.computeIfAbsent(nodeKey(host, port), ignored -> new Node(host, port));
+        var nodeKey = host + ":" + port;
+        var node = nodes.computeIfAbsent(nodeKey, ignored -> new Node(host, port));
         var receiver =
             new Receiver() {
               private final Map<Long, HasBeanObject> objects = new HashMap<>();
@@ -152,10 +153,6 @@ public class BeanCollector {
         return receiver;
       }
     };
-  }
-
-  private static String nodeKey(String host, int port) {
-    return host + ":" + port;
   }
 
   // visible for testing
