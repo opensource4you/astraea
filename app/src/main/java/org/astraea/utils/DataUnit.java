@@ -80,7 +80,7 @@ public enum DataUnit {
   }
 
   /**
-   * Return a {@link Size} based on given measurement and related unit.
+   * Return a {@link DataSize} based on given measurement and related unit.
    *
    * <pre>{@code
    * DataUnit.KB.of(500);  // 500 KB  (500 * 1000 bytes)
@@ -92,12 +92,12 @@ public enum DataUnit {
    * @param measurement the data size measurement.
    * @return a size object of given measurement under specific data unit.
    */
-  public Size of(long measurement) {
-    return new Size(measurement, this);
+  public DataSize of(long measurement) {
+    return new DataSize(measurement, this);
   }
 
   /**
-   * Return a {@link Size} based on given measurement and unit.
+   * Return a {@link DataSize} based on given measurement and unit.
    *
    * <pre>{@code
    * DataUnit.of(500, DataUnit.KB);   // 500 KB  (500 * 1000 bytes)
@@ -110,210 +110,23 @@ public enum DataUnit {
    * @param unit the data unit of given measurement.
    * @return a size object of given measurement under specific data unit.
    */
-  public static Size of(long measurement, DataUnit unit) {
-    return new Size(measurement, unit);
+  public static DataSize of(long measurement, DataUnit unit) {
+    return new DataSize(measurement, unit);
   }
 
   /**
-   * List of recommended unit for display data, {@link DataUnit.Size#toString()} take advantage of
-   * this collection to find ideal unit for string formalization.
+   * List of recommended unit for display data, {@link DataSize#toString()} take advantage of this
+   * collection to find ideal unit for string formalization.
    */
-  private static final List<DataUnit> BYTE_UNIT_SIZE_ORDERED_LIST =
+  static final List<DataUnit> BYTE_UNIT_SIZE_ORDERED_LIST =
       Arrays.stream(DataUnit.values())
           .filter(x -> x.candidateUnitForToString)
           .sorted(Comparator.comparing(x -> x.bits))
           .collect(Collectors.toUnmodifiableList());
 
-  /** Data size class */
-  public static class Size implements Comparable<Size> {
-
-    private final BigInteger bits;
-
-    Size(long volume, DataUnit dataUnit) {
-      this(BigInteger.valueOf(volume).multiply(dataUnit.bits));
-    }
-
-    Size(BigInteger bigInteger) {
-      this.bits = bigInteger;
-    }
-
-    /**
-     * Add data volume.
-     *
-     * @param measurement data measurement.
-     * @param dataUnit data unit.
-     * @return a new {@link Size} that have applied the math operation.
-     */
-    public Size add(long measurement, DataUnit dataUnit) {
-      return add(new Size(measurement, Objects.requireNonNull(dataUnit)));
-    }
-
-    /**
-     * Subtract data volume.
-     *
-     * @param measurement data measurement.
-     * @param dataUnit data unit.
-     * @return a new {@link Size} that have applied the math operation.
-     */
-    public Size subtract(long measurement, DataUnit dataUnit) {
-      return subtract(new Size(measurement, Objects.requireNonNull(dataUnit)));
-    }
-
-    /**
-     * Multiply current data volume by a scalar.
-     *
-     * @param scalar a long integer.
-     * @return a new {@link Size} that have applied the math operation.
-     */
-    public Size multiply(long scalar) {
-      return multiply(BigInteger.valueOf(scalar));
-    }
-
-    /**
-     * Divide current data volume by a scalar.
-     *
-     * @param scalar a long integer.
-     * @return a new {@link Size} that have applied the math operation.
-     */
-    public Size divide(long scalar) {
-      return divide(BigInteger.valueOf(scalar));
-    }
-
-    /**
-     * Add by given {@link Size}.
-     *
-     * @param rhs the right hand side value.
-     * @return a new {@link Size} that have applied the math operation.
-     */
-    public Size add(Size rhs) {
-      return add(Objects.requireNonNull(rhs).bits);
-    }
-
-    /**
-     * Subtract by given {@link Size}.
-     *
-     * @param rhs the right hand size value.
-     * @return a new {@link Size} that have applied the math operation.
-     */
-    public Size subtract(Size rhs) {
-      return subtract(Objects.requireNonNull(rhs).bits);
-    }
-
-    private Size add(BigInteger rhs) {
-      return new Size(bits.add(rhs));
-    }
-
-    private Size subtract(BigInteger rhs) {
-      return new Size(bits.subtract(rhs));
-    }
-
-    private Size multiply(BigInteger rhs) {
-      return new Size(bits.multiply(rhs));
-    }
-
-    private Size divide(BigInteger rhs) {
-      return new Size(bits.divide(rhs));
-    }
-
-    /** Current bits. */
-    public BigInteger bits() {
-      return bits;
-    }
-
-    /**
-     * The measurement value in term of specific data unit.
-     *
-     * @param dataUnit data unit to describe current size.
-     * @return a {@link BigDecimal} describe current data size in term of specific data unit.
-     */
-    public BigDecimal measurement(DataUnit dataUnit) {
-      return new BigDecimal(this.bits).divide(new BigDecimal(dataUnit.bits), MathContext.DECIMAL32);
-    }
-
-    /**
-     * The measurement value in term of the most ideal data unit for human readability.
-     *
-     * @return a {@link BigDecimal} describe current data size in term of the ideal data unit.
-     */
-    public BigDecimal idealMeasurement() {
-      return measurement(idealDataUnit());
-    }
-
-    /**
-     * Return the most ideal data unit in terms of human readability. Usually, the most suitable
-     * unit describes the data volume in the fewest decimal digits.
-     *
-     * <p>For example, given 1,000,000,000 bytes. We can describe this data volume in various way:
-     *
-     * <ol>
-     *   <li>8,000,000,000 Bit
-     *   <li>1,000,000,000 Byte
-     *   <li>1,000,000 KB
-     *   <li>1,000 MB
-     *   <li>1 GB
-     *   <li>0.0001 TB
-     * </ol>
-     *
-     * For all these possibilities, GB is more ideal since it has the fewest decimal digits.
-     *
-     * @return a {@link DataUnit} that is suitable to describe current data volume.
-     */
-    public DataUnit idealDataUnit() {
-      return BYTE_UNIT_SIZE_ORDERED_LIST.stream()
-          .sorted(Comparator.reverseOrder())
-          .dropWhile((x) -> this.bits.compareTo(x.bits) < 0)
-          .findFirst()
-          .orElse(Byte);
-    }
-
-    /** Return a {@link DataRate} based on current data size over a specific time unit. */
-    public DataRate dataRate(ChronoUnit chronoUnit) {
-      return DataRate.of(this, chronoUnit.getDuration());
-    }
-
-    /**
-     * Return a {@link DataRate} based on current data size over a specific {@link Duration} of
-     * time.
-     */
-    public DataRate dataRate(Duration timePassed) {
-      return DataRate.of(this, timePassed);
-    }
-
-    /** Return a string represent current size in given data unit. */
-    public String toString(DataUnit unit) {
-      return String.format("%s %s", this.bits.divide(unit.bits), unit.name());
-    }
-
-    /**
-     * Return a string representing the current size, the string will use an easy to read data unit.
-     */
-    @Override
-    public String toString() {
-      return toString(idealDataUnit());
-    }
-
-    @Override
-    public int compareTo(Size hs) {
-      return this.bits.compareTo(hs.bits);
-    }
-
-    @Override
-    public boolean equals(Object o) {
-      if (this == o) return true;
-      if (o == null || getClass() != o.getClass()) return false;
-      Size size = (Size) o;
-      return bits.equals(size.bits);
-    }
-
-    @Override
-    public int hashCode() {
-      return Objects.hash(bits);
-    }
-  }
-
   /** Data rate class */
   public static class DataRate {
-    private final Size totalBitTransmitted;
+    private final DataSize totalBitTransmitted;
     private final BigDecimal durationInNanoSecond;
 
     static BigDecimal fromDurationToBigDecimalSafely(Duration duration) {
@@ -340,7 +153,7 @@ public enum DataUnit {
       }
     }
 
-    DataRate(Size initialSize, Duration duration) {
+    DataRate(DataSize initialSize, Duration duration) {
       this.totalBitTransmitted = initialSize;
       this.durationInNanoSecond = fromDurationToBigDecimalSafely(duration);
     }
@@ -354,7 +167,7 @@ public enum DataUnit {
     public DataUnit idealDataUnit(ChronoUnit chronoUnit) {
       final BigInteger dataRate =
           totalBitTransmitted
-              .bits
+              .bits()
               .multiply(fromDurationToBigIntegerSafely(chronoUnit.getDuration()))
               .divide(durationInNanoSecond.toBigInteger());
 
@@ -418,7 +231,7 @@ public enum DataUnit {
      *
      * @return an object {@link DataRate} correspond to given arguments
      */
-    public static DataRate of(Size dataSize, ChronoUnit chronoUnit) {
+    public static DataRate of(DataSize dataSize, ChronoUnit chronoUnit) {
       return new DataRate(dataSize, chronoUnit.getDuration());
     }
 
@@ -432,7 +245,7 @@ public enum DataUnit {
      *
      * @return an object {@link DataRate} correspond to given arguments
      */
-    public static DataRate of(Size dataSize, Duration duration) {
+    public static DataRate of(DataSize dataSize, Duration duration) {
       return new DataRate(dataSize, duration);
     }
 
@@ -444,11 +257,11 @@ public enum DataUnit {
       return ofBigDecimal(unit.of(measurement), unit, time);
     }
 
-    public static BigDecimal ofBigDecimal(Size size, DataUnit unit, ChronoUnit time) {
+    public static BigDecimal ofBigDecimal(DataSize size, DataUnit unit, ChronoUnit time) {
       return ofBigDecimal(size, unit, time.getDuration());
     }
 
-    public static BigDecimal ofBigDecimal(Size size, DataUnit unit, Duration time) {
+    public static BigDecimal ofBigDecimal(DataSize size, DataUnit unit, Duration time) {
       return of(size, time).toBigDecimal(unit, time);
     }
 
@@ -460,11 +273,11 @@ public enum DataUnit {
       return ofBigDecimal(measurement, unit, time).doubleValue();
     }
 
-    public static double ofDouble(Size size, DataUnit unit, ChronoUnit time) {
+    public static double ofDouble(DataSize size, DataUnit unit, ChronoUnit time) {
       return ofBigDecimal(size, unit, time).doubleValue();
     }
 
-    public static double ofDouble(Size size, DataUnit unit, Duration time) {
+    public static double ofDouble(DataSize size, DataUnit unit, Duration time) {
       return ofBigDecimal(size, unit, time).doubleValue();
     }
 

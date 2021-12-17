@@ -1,0 +1,196 @@
+package org.astraea.utils;
+
+import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.math.MathContext;
+import java.time.Duration;
+import java.time.temporal.ChronoUnit;
+import java.util.Comparator;
+import java.util.Objects;
+
+/** Data size class */
+public class DataSize implements Comparable<DataSize> {
+
+  private final BigInteger bits;
+
+  DataSize(long volume, DataUnit dataUnit) {
+    this(BigInteger.valueOf(volume).multiply(dataUnit.bits));
+  }
+
+  DataSize(BigInteger bigInteger) {
+    this.bits = bigInteger;
+  }
+
+  /**
+   * Add data volume.
+   *
+   * @param measurement data measurement.
+   * @param dataUnit data unit.
+   * @return a new {@link DataSize} that have applied the math operation.
+   */
+  public DataSize add(long measurement, DataUnit dataUnit) {
+    return add(new DataSize(measurement, Objects.requireNonNull(dataUnit)));
+  }
+
+  /**
+   * Subtract data volume.
+   *
+   * @param measurement data measurement.
+   * @param dataUnit data unit.
+   * @return a new {@link DataSize} that have applied the math operation.
+   */
+  public DataSize subtract(long measurement, DataUnit dataUnit) {
+    return subtract(new DataSize(measurement, Objects.requireNonNull(dataUnit)));
+  }
+
+  /**
+   * Multiply current data volume by a scalar.
+   *
+   * @param scalar a long integer.
+   * @return a new {@link DataSize} that have applied the math operation.
+   */
+  public DataSize multiply(long scalar) {
+    return multiply(BigInteger.valueOf(scalar));
+  }
+
+  /**
+   * Divide current data volume by a scalar.
+   *
+   * @param scalar a long integer.
+   * @return a new {@link DataSize} that have applied the math operation.
+   */
+  public DataSize divide(long scalar) {
+    return divide(BigInteger.valueOf(scalar));
+  }
+
+  /**
+   * Add by given {@link DataSize}.
+   *
+   * @param rhs the right hand side value.
+   * @return a new {@link DataSize} that have applied the math operation.
+   */
+  public DataSize add(DataSize rhs) {
+    return add(Objects.requireNonNull(rhs).bits);
+  }
+
+  /**
+   * Subtract by given {@link DataSize}.
+   *
+   * @param rhs the right hand size value.
+   * @return a new {@link DataSize} that have applied the math operation.
+   */
+  public DataSize subtract(DataSize rhs) {
+    return subtract(Objects.requireNonNull(rhs).bits);
+  }
+
+  private DataSize add(BigInteger rhs) {
+    return new DataSize(bits.add(rhs));
+  }
+
+  private DataSize subtract(BigInteger rhs) {
+    return new DataSize(bits.subtract(rhs));
+  }
+
+  private DataSize multiply(BigInteger rhs) {
+    return new DataSize(bits.multiply(rhs));
+  }
+
+  private DataSize divide(BigInteger rhs) {
+    return new DataSize(bits.divide(rhs));
+  }
+
+  /** Current bits. */
+  public BigInteger bits() {
+    return bits;
+  }
+
+  /**
+   * The measurement value in term of specific data unit.
+   *
+   * @param dataUnit data unit to describe current size.
+   * @return a {@link BigDecimal} describe current data size in term of specific data unit.
+   */
+  public BigDecimal measurement(DataUnit dataUnit) {
+    return new BigDecimal(this.bits).divide(new BigDecimal(dataUnit.bits), MathContext.DECIMAL32);
+  }
+
+  /**
+   * The measurement value in term of the most ideal data unit for human readability.
+   *
+   * @return a {@link BigDecimal} describe current data size in term of the ideal data unit.
+   */
+  public BigDecimal idealMeasurement() {
+    return measurement(idealDataUnit());
+  }
+
+  /**
+   * Return the most ideal data unit in terms of human readability. Usually, the most suitable unit
+   * describes the data volume in the fewest decimal digits.
+   *
+   * <p>For example, given 1,000,000,000 bytes. We can describe this data volume in various way:
+   *
+   * <ol>
+   *   <li>8,000,000,000 Bit
+   *   <li>1,000,000,000 Byte
+   *   <li>1,000,000 KB
+   *   <li>1,000 MB
+   *   <li>1 GB
+   *   <li>0.0001 TB
+   * </ol>
+   *
+   * <p>For all these possibilities, GB is more ideal since it has the fewest decimal digits.
+   *
+   * @return a {@link DataUnit} that is suitable to describe current data volume.
+   */
+  public DataUnit idealDataUnit() {
+    return DataUnit.BYTE_UNIT_SIZE_ORDERED_LIST.stream()
+        .sorted(Comparator.reverseOrder())
+        .dropWhile((x) -> this.bits.compareTo(x.bits) < 0)
+        .findFirst()
+        .orElse(DataUnit.Byte);
+  }
+
+  /** Return a {@link DataUnit.DataRate} based on current data size over a specific time unit. */
+  public DataUnit.DataRate dataRate(ChronoUnit chronoUnit) {
+    return DataUnit.DataRate.of(this, chronoUnit.getDuration());
+  }
+
+  /**
+   * Return a {@link DataUnit.DataRate} based on current data size over a specific {@link Duration}
+   * of time.
+   */
+  public DataUnit.DataRate dataRate(Duration timePassed) {
+    return DataUnit.DataRate.of(this, timePassed);
+  }
+
+  /** Return a string represent current size in given data unit. */
+  public String toString(DataUnit unit) {
+    return String.format("%s %s", this.bits.divide(unit.bits), unit.name());
+  }
+
+  /**
+   * Return a string representing the current size, the string will use an easy to read data unit.
+   */
+  @Override
+  public String toString() {
+    return toString(idealDataUnit());
+  }
+
+  @Override
+  public int compareTo(DataSize hs) {
+    return this.bits.compareTo(hs.bits);
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) return true;
+    if (o == null || getClass() != o.getClass()) return false;
+    DataSize size = (DataSize) o;
+    return bits.equals(size.bits);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(bits);
+  }
+}

@@ -16,9 +16,9 @@ import org.apache.kafka.common.TopicPartitionReplica;
 import org.astraea.Utils;
 import org.astraea.argument.ArgumentUtil;
 import org.astraea.argument.BasicArgumentWithPropFile;
+import org.astraea.utils.DataSize;
 import org.astraea.utils.DataUnit;
 import org.astraea.utils.DataUnit.DataRate;
-import org.astraea.utils.DataUnit.Size;
 
 public class ReplicaSyncingMonitor {
 
@@ -199,12 +199,13 @@ public class ReplicaSyncingMonitor {
   }
 
   static class ProgressInfo {
-    private final Size leaderSize;
-    private final Size previousSize;
-    private final Size currentSize;
+    private final DataSize leaderSize;
+    private final DataSize previousSize;
+    private final DataSize currentSize;
     private final Duration interval;
 
-    ProgressInfo(Size leaderSize, Size previousSize, Size currentSize, Duration interval) {
+    ProgressInfo(
+        DataSize leaderSize, DataSize previousSize, DataSize currentSize, Duration interval) {
       if (previousSize.compareTo(leaderSize) > 0) throw new IllegalArgumentException();
       this.leaderSize = leaderSize;
       this.previousSize = previousSize;
