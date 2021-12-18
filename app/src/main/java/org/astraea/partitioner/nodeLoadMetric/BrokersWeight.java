@@ -13,23 +13,25 @@ public class BrokersWeight {
 
   /** Change the weight of the node according to the current Poisson. */
   public synchronized void brokerHashMap(Map<Integer, Double> poissonMap) {
-    for (Map.Entry<Integer, Double> entry : poissonMap.entrySet()) {
-      if (!brokerHashMap.containsKey(entry.getKey())) {
-        brokerHashMap.put(entry.getKey(), new int[] {(int) ((1 - entry.getValue()) * 20), 0});
-      } else {
-        brokerHashMap.put(
-            entry.getKey(),
-            new int[] {(int) ((1 - entry.getValue()) * 20), brokerHashMap.get(entry.getKey())[1]});
-      }
-    }
+    poissonMap
+        .entrySet()
+        .forEach(
+            entry -> {
+              if (!brokerHashMap.containsKey(entry.getKey())) {
+                brokerHashMap.put(
+                    entry.getKey(), new int[] {(int) ((1 - entry.getValue()) * 20), 0});
+              } else {
+                brokerHashMap.put(
+                    entry.getKey(),
+                    new int[] {
+                      (int) ((1 - entry.getValue()) * 20), brokerHashMap.get(entry.getKey())[1]
+                    });
+              }
+            });
   }
 
   public synchronized int allNodesWeight() {
-    var allWeight = 0;
-    for (Map.Entry<Integer, int[]> entry : brokerHashMap.entrySet()) {
-      allWeight += entry.getValue()[0];
-    }
-    return allWeight;
+    return brokerHashMap.values().stream().mapToInt(vs -> vs[0]).sum();
   }
 
   public synchronized Map<Integer, int[]> brokerHashMap() {

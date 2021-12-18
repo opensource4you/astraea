@@ -12,7 +12,7 @@ import org.apache.kafka.common.serialization.ByteArraySerializer;
 import org.astraea.consumer.Consumer;
 import org.astraea.consumer.Deserializer;
 import org.astraea.consumer.Header;
-import org.astraea.partitioner.partitionerFactory.SmoothWeightPartitioner;
+import org.astraea.partitioner.smoothPartitioner.SmoothWeightPartitioner;
 import org.astraea.producer.Producer;
 import org.astraea.producer.Serializer;
 import org.astraea.service.RequireBrokerCluster;
@@ -50,7 +50,8 @@ public class PartitionerTest extends RequireBrokerCluster {
                 initProConfig().entrySet().stream()
                     .collect(Collectors.toMap(e -> e.getKey().toString(), Map.Entry::getValue)))
             .build()) {
-      for (int i = 0; i < 20; i++) {
+      var i = 0;
+      while (i < 20) {
         var metadata =
             producer
                 .sender()
@@ -63,6 +64,7 @@ public class PartitionerTest extends RequireBrokerCluster {
                 .get();
         Assertions.assertEquals(topicName, metadata.topic());
         Assertions.assertEquals(timestamp, metadata.timestamp());
+        i++;
       }
     } catch (ExecutionException | InterruptedException e) {
       e.printStackTrace();

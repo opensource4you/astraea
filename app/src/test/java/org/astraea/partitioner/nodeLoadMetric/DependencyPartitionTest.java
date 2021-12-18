@@ -12,8 +12,8 @@ import org.apache.kafka.common.serialization.ByteArraySerializer;
 import org.astraea.consumer.Consumer;
 import org.astraea.consumer.Deserializer;
 import org.astraea.consumer.Header;
-import org.astraea.partitioner.partitionerFactory.DependencyClient;
-import org.astraea.partitioner.partitionerFactory.SmoothWeightPartitioner;
+import org.astraea.partitioner.smoothPartitioner.DependencyClient;
+import org.astraea.partitioner.smoothPartitioner.SmoothWeightPartitioner;
 import org.astraea.producer.Producer;
 import org.astraea.service.RequireBrokerCluster;
 import org.astraea.topic.TopicAdmin;
@@ -40,18 +40,18 @@ public class DependencyPartitionTest extends RequireBrokerCluster {
   @Test
   public void testDependencyPartitioner() {
     admin.creator().topic(topicName).numberOfPartitions(10).create();
-    var dependencyClient = new DependencyClient();
+    var ps = initProConfig();
     var timestamp = System.currentTimeMillis() + 10;
     var header = Header.of("a", "b".getBytes());
-    var ps = initProConfig();
     ps.put("producerID", 2);
     var props =
         ps.entrySet().stream()
             .collect(Collectors.toMap(e -> e.getKey().toString(), Map.Entry::getValue));
+    var dependencyClient = new DependencyClient(props);
     try (var producer = Producer.builder().configs(props).build()) {
 
-      dependencyClient.initializeDependency(props);
-      dependencyClient.beginDependency(props);
+      dependencyClient.initializeDependency();
+      dependencyClient.beginDependency();
       int targetPartition = 0;
       for (int i = 0; i < 20; i++) {
         var metadata =
@@ -68,7 +68,7 @@ public class DependencyPartitionTest extends RequireBrokerCluster {
         Assertions.assertEquals(topicName, metadata.topic());
         Assertions.assertEquals(timestamp, metadata.timestamp());
       }
-      dependencyClient.finishDependency(props);
+      dependencyClient.finishDependency();
     } catch (ExecutionException | InterruptedException e) {
       e.printStackTrace();
     }

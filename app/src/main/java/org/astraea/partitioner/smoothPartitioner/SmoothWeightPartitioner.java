@@ -1,6 +1,6 @@
-package org.astraea.partitioner.partitionerFactory;
+package org.astraea.partitioner.smoothPartitioner;
 
-import static org.astraea.partitioner.partitionerFactory.DependencyClient.addPartitioner;
+import static org.astraea.partitioner.smoothPartitioner.DependencyClient.addPartitioner;
 
 import java.io.IOException;
 import java.net.UnknownHostException;
@@ -10,10 +10,10 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Random;
+import java.util.concurrent.atomic.AtomicReference;
 import org.apache.kafka.clients.producer.Partitioner;
 import org.apache.kafka.common.Cluster;
 import org.apache.kafka.common.KafkaException;
-import org.apache.kafka.common.PartitionInfo;
 import org.astraea.partitioner.nodeLoadMetric.BrokersWeight;
 import org.astraea.partitioner.nodeLoadMetric.LoadPoisson;
 import org.astraea.partitioner.nodeLoadMetric.NodeLoadClient;
@@ -61,29 +61,34 @@ public class SmoothWeightPartitioner implements Partitioner {
         var brokersWeight = new BrokersWeight();
         assert overLoadCount != null;
         brokersWeight.brokerHashMap(loadPoisson.allPoisson(overLoadCount));
-        Map.Entry<Integer, int[]> maxWeightServer = null;
-
+        AtomicReference<Map.Entry<Integer, int[]>> maxWeightServer = new AtomicReference<>();
         var allWeight = brokersWeight.allNodesWeight();
         var currentBrokerHashMap = brokersWeight.brokerHashMap();
-
-        for (Map.Entry<Integer, int[]> item : currentBrokerHashMap.entrySet()) {
-          if (maxWeightServer == null || item.getValue()[1] > maxWeightServer.getValue()[1]) {
-            maxWeightServer = item;
-          }
-          currentBrokerHashMap.put(
-              item.getKey(),
-              new int[] {item.getValue()[0], item.getValue()[1] + item.getValue()[0]});
-        }
-        assert maxWeightServer != null;
+        currentBrokerHashMap
+            .entrySet()
+            .forEach(
+                item -> {
+                  if (maxWeightServer.get() == null
+                      || item.getValue()[1] > maxWeightServer.get().getValue()[1]) {
+                    maxWeightServer.set(item);
+                  }
+                  currentBrokerHashMap.put(
+                      item.getKey(),
+                      new int[] {item.getValue()[0], item.getValue()[1] + item.getValue()[0]});
+                });
+        assert maxWeightServer.get() != null;
         currentBrokerHashMap.put(
-            maxWeightServer.getKey(),
-            new int[] {maxWeightServer.getValue()[0], maxWeightServer.getValue()[1] - allWeight});
+            maxWeightServer.get().getKey(),
+            new int[] {
+              maxWeightServer.get().getValue()[0], maxWeightServer.get().getValue()[1] - allWeight
+            });
         brokersWeight.currentBrokerHashMap(currentBrokerHashMap);
 
         ArrayList<Integer> partitionList = new ArrayList<>();
-        for (PartitionInfo partitionInfo : cluster.partitionsForNode(maxWeightServer.getKey())) {
-          partitionList.add(partitionInfo.partition());
-        }
+        cluster
+            .partitionsForNode(maxWeightServer.get().getKey())
+            .forEach(partitionInfo -> partitionList.add(partitionInfo.partition()));
+
         return partitionList.get(rand.nextInt(partitionList.size()));
     }
   }
@@ -101,10 +106,11 @@ public class SmoothWeightPartitioner implements Partitioner {
               configs.get("jmx_servers").toString(), "You must configure jmx_servers correctly");
       var list = Arrays.asList((jmxAddresses).split(","));
       HashMap<String, Integer> mapAddress = new HashMap<>();
-      for (String str : list) {
-        var listAddress = Arrays.asList(str.split(":"));
-        mapAddress.put(listAddress.get(0), Integer.parseInt(listAddress.get(1)));
-      }
+      list.forEach(
+          str ->
+              mapAddress.put(
+                  Arrays.asList(str.split(":")).get(0),
+                  Integer.parseInt(Arrays.asList(str.split(":")).get(1))));
       Objects.requireNonNull(mapAddress, "You must configure jmx_servers correctly.");
 
       nodeLoadClient = new NodeLoadClient(mapAddress);

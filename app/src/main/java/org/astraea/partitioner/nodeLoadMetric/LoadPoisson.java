@@ -9,24 +9,24 @@ public class LoadPoisson {
   public synchronized HashMap<Integer, Double> allPoisson(Map<Integer, Integer> overLoadCount) {
     var poissonMap = new HashMap<Integer, Double>();
     var lambda = avgLoadCount(overLoadCount);
-    for (Map.Entry<Integer, Integer> entry : overLoadCount.entrySet()) {
-      poissonMap.put(entry.getKey(), doPoisson(lambda, entry.getValue()));
-    }
+    overLoadCount
+        .entrySet()
+        .forEach(entry -> poissonMap.put(entry.getKey(), doPoisson(lambda, entry.getValue())));
     return poissonMap;
   }
 
   public double doPoisson(int lambda, int x) {
     var Probability = 0.0;
     var ans = 0.0;
-
-    for (var i = 0; i <= x; i++) {
+    var i = 0;
+    while (i <= x) {
       var j = Math.pow(lambda, i);
       var e = Math.exp(-lambda);
       var h = factorial(i);
       Probability = (j * e) / h;
       ans += Probability;
+      i++;
     }
-
     return ans;
   }
 

@@ -1,4 +1,4 @@
-package org.astraea.partitioner.partitionerFactory;
+package org.astraea.partitioner.smoothPartitioner;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -8,29 +8,35 @@ import org.apache.kafka.common.KafkaException;
  * A DependencyClient allows users to make producers send dependency data.
  *
  * <pre>{@code
- * var dependencyClient = new DependencyClient();
- * dependencyClient.initializeDependency(props);
- * dependencyClient.beginDependency(props);
+ * var dependencyClient = new DependencyClient(props);
+ * dependencyClient.initializeDependency();
+ * dependencyClient.beginDependency();
  * producer.send();
- * dependencyClient.finishDependency(props);
+ * dependencyClient.finishDependency();
  * }</pre>
  */
 public class DependencyClient {
-  private static Map<Integer, SmoothWeightPartitioner> PartitionerForProducers = new HashMap<>();
+  private static final Map<Integer, SmoothWeightPartitioner> PartitionerForProducers =
+      new HashMap<>();
+  private final Map<String, ?> props;
 
-  public synchronized void initializeDependency(Map<String, ?> props) {
+  public DependencyClient(Map<String, ?> props) {
+    this.props = props;
+  }
+
+  public synchronized void initializeDependency() {
     var ID = (int) props.get("producerID");
     isValidProps(ID);
     PartitionerForProducers.get(ID).initializeDependency();
   }
 
-  public synchronized void beginDependency(Map<String, ?> props) {
+  public synchronized void beginDependency() {
     var ID = (int) props.get("producerID");
     isValidProps(ID);
     PartitionerForProducers.get(ID).beginDependency();
   }
 
-  public synchronized void finishDependency(Map<String, ?> props) {
+  public synchronized void finishDependency() {
     var ID = (int) props.get("producerID");
     isValidProps(ID);
     PartitionerForProducers.get(ID).finishDependency();

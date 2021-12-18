@@ -4,7 +4,7 @@ import java.util.Map;
 import java.util.Properties;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.serialization.ByteArraySerializer;
-import org.astraea.partitioner.partitionerFactory.SmoothWeightPartitioner;
+import org.astraea.partitioner.smoothPartitioner.SmoothWeightPartitioner;
 import org.astraea.service.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -25,7 +25,7 @@ public class receiverFactoryTest extends RequireBrokerCluster {
   void testSingleton() {
     initProConfig();
     var jmxAddress = Map.of(jmxServiceURL().getHost(), jmxServiceURL().getPort());
-    var FACTORY = new receiverFactory();
+    var FACTORY = new ReceiverFactory();
     var bc1 = FACTORY.receiversList(jmxAddress);
     var bc2 = FACTORY.receiversList(jmxAddress);
     Assertions.assertEquals(bc1, bc2);

@@ -8,7 +8,7 @@ import java.util.Map;
 import java.util.Properties;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.serialization.ByteArraySerializer;
-import org.astraea.partitioner.partitionerFactory.SmoothWeightPartitioner;
+import org.astraea.partitioner.smoothPartitioner.SmoothWeightPartitioner;
 import org.astraea.service.RequireBrokerCluster;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
@@ -39,7 +39,6 @@ public class NodeLoadClientTest extends RequireBrokerCluster {
   public Properties initProConfig() {
     Properties props = new Properties();
     jmxAddress = jmxServiceURL().getHost() + ":" + jmxServiceURL().getPort();
-    System.out.println(jmxAddress);
     props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, brokerList);
     props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, ByteArraySerializer.class.getName());
     props.put(ProducerConfig.CLIENT_ID_CONFIG, "id1");
