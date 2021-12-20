@@ -1,10 +1,6 @@
 package org.astraea.partitioner.smoothPartitioner;
 
-import org.apache.kafka.clients.producer.Partitioner;
-import org.apache.kafka.common.Cluster;
-import org.apache.kafka.common.KafkaException;
-import org.astraea.partitioner.nodeLoadMetric.LoadPoisson;
-import org.astraea.partitioner.nodeLoadMetric.NodeLoadClient;
+import static org.astraea.partitioner.smoothPartitioner.DependencyClient.addPartitioner;
 
 import java.io.IOException;
 import java.net.UnknownHostException;
@@ -15,8 +11,11 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Random;
 import java.util.concurrent.atomic.AtomicReference;
-
-import static org.astraea.partitioner.smoothPartitioner.DependencyClient.addPartitioner;
+import org.apache.kafka.clients.producer.Partitioner;
+import org.apache.kafka.common.Cluster;
+import org.apache.kafka.common.KafkaException;
+import org.astraea.partitioner.nodeLoadMetric.LoadPoisson;
+import org.astraea.partitioner.nodeLoadMetric.NodeLoadClient;
 
 /**
  * Based on the jmx metrics obtained from Kafka, it records the load status of the node over a
@@ -29,7 +28,7 @@ public class SmoothWeightPartitioner implements Partitioner {
    * Record the current weight of each node according to Poisson calculation and the weight after
    * partitioner calculation.
    */
-  private static Map<Integer, int[]> brokerHashMap = new HashMap<>();
+  private Map<Integer, int[]> brokerHashMap = new HashMap<>();
 
   private NodeLoadClient nodeLoadClient;
   private DependencyManager dependencyManager;
