@@ -4,6 +4,7 @@ import java.util.*;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.stream.IntStream;
 
 /**
  * Thread safe This class is used for managing the start/end of the producer/consumer threads.
@@ -21,7 +22,8 @@ public class Manager {
   private final List<Metrics> producerMetrics, consumerMetrics;
   private final long start = System.currentTimeMillis();
   private final AtomicLong payloadNum = new AtomicLong(0);
-  private final List<Map.Entry<Double, String>> keyPosTable = new ArrayList<>();
+  private final String distribution;
+  private final List<Double> cumulativeDensityTable = new ArrayList<>();
 
   /**
    * Used to manage producing/consuming.
@@ -47,14 +49,10 @@ public class Manager {
     this.producerMetrics = producerMetrics;
     this.consumerMetrics = consumerMetrics;
     this.exeTime = argument.exeTime;
-    argument.distribution.forEach(
-        s -> keyPosTable.add(Map.entry(Double.parseDouble(s.split(":")[1]), s.split(":")[0])));
-    // Argument verification
-    keyPosTable.forEach(
-        entry -> {
-          if (entry.getValue().getBytes().length > this.size)
-            throw new IllegalArgumentException("One of the key is too big to fit in a record.");
-        });
+    this.distribution = argument.distribution;
+    if (this.distribution.equals("zipfian")) {
+      buildZipfianTable(30);
+    }
   }
 
   /**
@@ -111,11 +109,35 @@ public class Manager {
 
   /** Randomly choose a key according to the possibility table. */
   public Optional<byte[]> getKey() {
-    double r = rand.nextDouble();
-    for (var keyPos : keyPosTable) {
-      r -= keyPos.getKey();
-      if (r <= 0) return Optional.of(keyPos.getValue().getBytes());
+    switch (distribution) {
+      case "uniform":
+        // The key uniformly distribute in integer range
+        return Optional.of(("key-" + rand.nextInt()).getBytes());
+      case "zipfian":
+        // The first key ("key-0") has double possibility than the second key, has
+        // triple possibility than the third key, and so on.
+        final double randNum = rand.nextDouble();
+        for (int i = 0; i < cumulativeDensityTable.size(); ++i) {
+          if (randNum < cumulativeDensityTable.get(i)) return Optional.of(("key-" + i).getBytes());
+        }
+        return Optional.empty();
+      case "latest":
+        // Keys in a period of time are the same
+        return Optional.of(("key-" + System.currentTimeMillis() / 2000).getBytes());
+      default:
+        // Do not provide a key.
+        return Optional.empty();
     }
-    return Optional.empty();
+  }
+
+  // For building a zipfian distribution with PDF: 1/k/H_N
+  // , where H_N is the Nth harmonic number; k is the key id
+  private void buildZipfianTable(int N) {
+    final double H_N = IntStream.range(1, N).mapToDouble(k -> 1D / k).sum();
+    cumulativeDensityTable.add(1D / H_N);
+    IntStream.range(1, N)
+        .forEach(
+            i ->
+                cumulativeDensityTable.add(cumulativeDensityTable.get(i - 1) + 1D / (i + 1) / H_N));
   }
 }

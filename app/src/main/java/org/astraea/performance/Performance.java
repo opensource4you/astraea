@@ -5,8 +5,6 @@ import com.beust.jcommander.Parameter;
 import com.beust.jcommander.ParameterException;
 import java.io.IOException;
 import java.time.Duration;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
@@ -275,8 +273,8 @@ public class Performance {
 
     @Parameter(
         names = {"--key.distribution"},
-        description = "String: a key and the possibility. e.g. \"key-01:0.2,key-02:0.3\"")
-    List<String> distribution = new ArrayList<>();
+        description = "String: Distribution name. e.g. \"uniform\", \"zipfian\", \"latest\"")
+    String distribution = "";
   }
 
   static class CompressionArgument implements IStringConverter<CompressionType> {
