@@ -50,6 +50,8 @@ jmx_opts="-Dcom.sun.management.jmxremote \
   -Dcom.sun.management.jmxremote.rmi.port=$broker_jmx_port \
   -Djava.rmi.server.hostname=$address"
 heap_opts="${HEAP_OPTS:-"-Xmx2G -Xms2G"}"
+docker_dir=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+dockerfile=$docker_dir/broker.dockerfile
 
 config_file="/tmp/server-${broker_port}.properties"
 echo "" >"$config_file"
@@ -64,8 +66,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 if [[ -n "$REVISION" ]]; then
-
-  docker build -t $image_name - <<Dockerfile
+  echo "# this dockerfile is generated dynamically
 FROM ubuntu:20.04
 
 # install tools
@@ -91,11 +92,10 @@ RUN ./gradlew clean releaseTarGz
 RUN mkdir /home/$kafka_user/kafka
 RUN tar -zxvf \$(find ./core/build/distributions/ -maxdepth 1 -type f -name kafka_*SNAPSHOT.tgz) -C /home/$kafka_user/kafka --strip-components=1
 WORKDIR "/home/$kafka_user/kafka"
-
-Dockerfile
+  " > "$dockerfile"
 
 else
-  docker build -t $image_name - <<Dockerfile
+  echo "# this dockerfile is generated dynamically
 FROM ubuntu:20.04
 
 # install tools
@@ -119,8 +119,12 @@ RUN wget https://archive.apache.org/dist/kafka/${version}/kafka_2.13-${version}.
 RUN mkdir /home/$kafka_user/kafka
 RUN tar -zxvf kafka_2.13-${version}.tgz -C /home/$kafka_user/kafka --strip-components=1
 WORKDIR "/home/$kafka_user/kafka"
+  " > "$dockerfile"
+fi
 
-Dockerfile
+# build image only if the image does not exist locally
+if [[ "$(docker images -q $image_name 2> /dev/null)" == "" ]]; then
+  docker build -t $image_name -f "$dockerfile" "$docker_dir"
 fi
 
 if [[ "$run_container" != "true" ]]; then
@@ -247,7 +251,9 @@ echo "broker address: ${address}:$broker_port"
 echo "jmx address: ${address}:$broker_jmx_port"
 echo "exporter address: ${address}:$exporter_port"
 echo "broker id: $broker_id"
-echo "folder mapping: $hostFolderConfigs"
+if [[ "$hostFolderConfigs" != "" ]]; then
+  echo "folder mapping: $hostFolderConfigs"
+fi
 if [[ "$SASL" == "true" ]]; then
   user_jaas_file=/tmp/user-jaas-${broker_port}.conf
   echo "

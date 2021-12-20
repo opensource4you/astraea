@@ -9,3 +9,10 @@ build
 
 # Ignore macos file
 .DS_Store
+
+# generated dockerfiles
+zookeeper.dockerfile
+broker.dockerfile
+kafka_tool.dockerfile
+spark.dockerfile
+spark-job.dockerfile

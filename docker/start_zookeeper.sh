@@ -34,8 +34,10 @@ repo=${REPO:-astraea/zookeeper}
 image_name="$repo:$version"
 zk_port="$(($(($RANDOM % 10000)) + 10000))"
 run_container=${RUN:-true}
+docker_dir=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+dockerfile=$docker_dir/zookeeper.dockerfile
 
-docker build -t $image_name - <<Dockerfile
+echo "# this dockerfile is generated dynamically
 FROM ubuntu:20.04
 
 # install tools
@@ -58,7 +60,12 @@ WORKDIR /home/$zookeeper_user/zookeeper
 RUN echo "tickTime=2000" >> ./conf/zoo.cfg
 RUN echo "dataDir=/tmp/zookeeper-dir" >> ./conf/zoo.cfg
 RUN echo "clientPort=2181" >> ./conf/zoo.cfg
-Dockerfile
+" > "$dockerfile"
+
+# build image only if the image does not exist locally
+if [[ "$(docker images -q $image_name 2> /dev/null)" == "" ]]; then
+  docker build -t $image_name -f "$dockerfile" "$docker_dir"
+fi
 
 if [[ "$run_container" != "true" ]]; then
   echo "docker image: $image_name is created"
@@ -82,6 +89,8 @@ docker run -d \
   $image_name ./bin/zkServer.sh start-foreground
 
 echo "================================================="
-echo "folder mapping: $hostFolderConfigs"
+if [[ "$hostFolderConfigs" != "" ]]; then
+  echo "folder mapping: $hostFolderConfigs"
+fi
 echo "run ./docker/start_broker.sh zookeeper.connect=$address:$zk_port to join kafka broker"
 echo "================================================="
