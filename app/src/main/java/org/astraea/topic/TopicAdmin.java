@@ -26,6 +26,13 @@ public interface TopicAdmin extends Closeable {
   /** @return the topic name and its configurations. */
   Map<String, TopicConfig> topics();
 
+  default Set<String> publicTopicNames() {
+    return publicTopics().keySet();
+  }
+
+  /** @return the topic name and its configurations. (Without internal topics) */
+  Map<String, TopicConfig> publicTopics();
+
   /** @return a topic creator to set all topic configs and then run the procedure. */
   Creator creator();
 
