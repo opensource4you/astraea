@@ -30,7 +30,7 @@ public class ReplicaSyncingMonitor {
     // discover any newly happened non-synced replica can be a quiet useful scenario, so here we use
     // a supplier to do the query for us.
     Supplier<Set<String>> topicToTrack =
-        () -> argument.topics.isEmpty() ? topicAdmin.publicTopicNames() : argument.topics;
+        () -> argument.topics.isEmpty() ? topicAdmin.topicNames() : argument.topics;
 
     // the non-synced topic-partition we want to monitor
     var topicPartitionToTrack = findNonSyncedTopicPartition(topicAdmin, topicToTrack.get());
