@@ -34,65 +34,58 @@ public class ReceiverFactory {
    */
   public List<Receiver> receiversList(Map<String, Integer> jmxAddresses) {
     synchronized (lock) {
-      jmxAddresses
-          .entrySet()
-          .forEach(
-              entry -> {
-                if (!count.containsKey(nodeKey(entry))) {
-                  receiversList.add(
-                      beanCollector
-                          .register()
-                          .host(entry.getKey())
-                          .port(entry.getValue())
-                          .metricsGetter(KafkaMetrics.BrokerTopic.BytesInPerSec::fetch)
-                          .build());
-                  receiversList.add(
-                      beanCollector
-                          .register()
-                          .host(entry.getKey())
-                          .port(entry.getValue())
-                          .metricsGetter(KafkaMetrics.BrokerTopic.BytesOutPerSec::fetch)
-                          .build());
-                  count.put(nodeKey(entry), 1);
-                } else {
-                  count.put(nodeKey(entry), count.get(nodeKey(entry)) + 1);
-                }
-              });
+      jmxAddresses.forEach(
+          (host, port) -> {
+            if (!count.containsKey(nodeKey(host, port))) {
+              receiversList.add(
+                  beanCollector
+                      .register()
+                      .host(host)
+                      .port(port)
+                      .metricsGetter(KafkaMetrics.BrokerTopic.BytesInPerSec::fetch)
+                      .build());
+              receiversList.add(
+                  beanCollector
+                      .register()
+                      .host(host)
+                      .port(port)
+                      .metricsGetter(KafkaMetrics.BrokerTopic.BytesOutPerSec::fetch)
+                      .build());
+              count.put(nodeKey(host, port), 1);
+            } else {
+              count.put(nodeKey(host, port), count.get(nodeKey(host, port)) + 1);
+            }
+          });
     }
     return receiversList;
   }
 
   public void close(Map<String, Integer> jmxAddresses) {
     synchronized (lock) {
-      jmxAddresses
-          .entrySet()
-          .forEach(
-              entry -> {
-                if (count.containsKey(nodeKey(entry))) {
-                  if (count.get(nodeKey(entry)) == 1) {
-                    receiversList.stream()
-                        .filter(
-                            receiver ->
-                                receiver.host().equals(entry.getKey())
-                                    && receiver.port() == entry.getValue())
-                        .forEach(Receiver::close);
-                    count.remove(nodeKey(entry));
-                  } else {
-                    count.put(nodeKey(entry), count.get(nodeKey(entry)) - 1);
-                  }
-                }
-              });
+      jmxAddresses.forEach(
+          (host, port) -> {
+            if (count.containsKey(nodeKey(host, port))) {
+              if (count.get(nodeKey(host, port)) == 1) {
+                receiversList.stream()
+                    .filter(receiver -> receiver.host().equals(host) && receiver.port() == port)
+                    .forEach(Receiver::close);
+                count.remove(nodeKey(host, port));
+              } else {
+                count.put(nodeKey(host, port), count.get(nodeKey(host, port)) - 1);
+              }
+            }
+          });
     }
   }
 
-  private String nodeKey(Map.Entry<String, Integer> entry) {
-    return entry.getKey() + ":" + entry.getValue();
+  private String nodeKey(String host, Integer port) {
+    return host + ":" + port;
   }
 
   // visible for testing
   public int factoryCount(Map<String, Integer> jmxAddresses) {
     var testCount = new AtomicInteger(-1);
-    jmxAddresses.entrySet().forEach(entry -> testCount.set(count.getOrDefault(nodeKey(entry), 0)));
+    jmxAddresses.forEach((host, port) -> testCount.set(count.getOrDefault(nodeKey(host, port), 0)));
     return testCount.get();
   }
 }

@@ -9,12 +9,11 @@ public class LoadPoisson {
   public synchronized HashMap<Integer, Double> allPoisson(Map<Integer, Integer> overLoadCount) {
     var poissonMap = new HashMap<Integer, Double>();
     var lambda = avgLoadCount(overLoadCount);
-    overLoadCount
-        .entrySet()
-        .forEach(entry -> poissonMap.put(entry.getKey(), doPoisson(lambda, entry.getValue())));
+    overLoadCount.forEach((nodeID, count) -> poissonMap.put(nodeID, doPoisson(lambda, count)));
     return poissonMap;
   }
 
+  // visible for test
   public double doPoisson(int lambda, int x) {
     var Probability = 0.0;
     var ans = 0.0;
@@ -30,6 +29,7 @@ public class LoadPoisson {
     return ans;
   }
 
+  // visible for test
   public long factorial(long number) {
     if (number <= 1) return 1;
     else return number * factorial(number - 1);

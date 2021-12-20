@@ -8,7 +8,7 @@ import org.junit.jupiter.api.Test;
 public class LoadPoissonTest {
 
   @Test
-  public void testFactorial() {
+  void testFactorial() {
     LoadPoisson loadPoisson = new LoadPoisson();
 
     assertEquals(loadPoisson.factorial(3), 6);
@@ -16,7 +16,7 @@ public class LoadPoissonTest {
   }
 
   @Test
-  public void testDoPoisson() {
+  void testDoPoisson() {
     LoadPoisson loadPoisson = new LoadPoisson();
 
     assertEquals(loadPoisson.doPoisson(10, 15), 0.9512595966960214);
@@ -26,7 +26,7 @@ public class LoadPoissonTest {
   }
 
   @Test
-  public void testSetAllPoisson() {
+  void testSetAllPoisson() {
     HashMap<Integer, Integer> testNodesLoadCount = new HashMap<>();
     testNodesLoadCount.put(0, 2);
     testNodesLoadCount.put(1, 5);

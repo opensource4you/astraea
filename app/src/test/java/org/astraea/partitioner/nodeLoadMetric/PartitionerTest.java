@@ -1,6 +1,9 @@
 package org.astraea.partitioner.nodeLoadMetric;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
 import java.time.Duration;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
@@ -21,9 +24,9 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 public class PartitionerTest extends RequireBrokerCluster {
-  public final String brokerList = bootstrapServers();
+  private final String brokerList = bootstrapServers();
   TopicAdmin admin = TopicAdmin.of(bootstrapServers());
-  public final String topicName = "address";
+  private final String topicName = "address";
 
   private Properties initProConfig() {
     Properties props = new Properties();
@@ -38,7 +41,7 @@ public class PartitionerTest extends RequireBrokerCluster {
   }
 
   @Test
-  public void testPartitioner() {
+  void testPartitioner() {
     admin.creator().topic(topicName).numberOfPartitions(10).create();
     var key = "tainan";
     var timestamp = System.currentTimeMillis() + 10;
@@ -62,8 +65,8 @@ public class PartitionerTest extends RequireBrokerCluster {
                 .run()
                 .toCompletableFuture()
                 .get();
-        Assertions.assertEquals(topicName, metadata.topic());
-        Assertions.assertEquals(timestamp, metadata.timestamp());
+        assertEquals(topicName, metadata.topic());
+        assertEquals(timestamp, metadata.timestamp());
         i++;
       }
     } catch (ExecutionException | InterruptedException e) {
@@ -78,14 +81,33 @@ public class PartitionerTest extends RequireBrokerCluster {
             .keyDeserializer(Deserializer.STRING)
             .build()) {
       var records = consumer.poll(Duration.ofSeconds(10));
-      Assertions.assertEquals(20, records.size());
+      assertEquals(20, records.size());
       var record = records.iterator().next();
-      Assertions.assertEquals(topicName, record.topic());
-      Assertions.assertEquals("tainan", record.key());
-      Assertions.assertEquals(1, record.headers().size());
+      assertEquals(topicName, record.topic());
+      assertEquals("tainan", record.key());
+      assertEquals(1, record.headers().size());
       var actualHeader = record.headers().iterator().next();
-      Assertions.assertEquals(header.key(), actualHeader.key());
+      assertEquals(header.key(), actualHeader.key());
       Assertions.assertArrayEquals(header.value(), actualHeader.value());
     }
+  }
+
+  @Test
+  void testSetBrokerHashMap() {
+    var poissonMap = new HashMap<Integer, Double>();
+    poissonMap.put(0, 0.5);
+    poissonMap.put(1, 0.8);
+    poissonMap.put(2, 0.3);
+
+    var smoothWeightPartitioner = new SmoothWeightPartitioner();
+
+    smoothWeightPartitioner.brokerHashMap(poissonMap);
+
+    assertEquals(smoothWeightPartitioner.brokerHashMap().get(0)[0], 10);
+    assertEquals(smoothWeightPartitioner.brokerHashMap().get(1)[0], 3);
+
+    smoothWeightPartitioner.brokerHashMapValue(0, 8);
+    smoothWeightPartitioner.brokerHashMap(poissonMap);
+    assertEquals(smoothWeightPartitioner.brokerHashMap().get(0)[1], 8);
   }
 }

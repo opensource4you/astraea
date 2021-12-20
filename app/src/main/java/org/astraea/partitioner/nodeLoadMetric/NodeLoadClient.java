@@ -124,14 +124,12 @@ public class NodeLoadClient {
       var avg = avgMsgSec(i, eachBrokerMsgPerSec);
       var eachMsg = brokersMsgSec(i, eachBrokerMsgPerSec);
       var standardDeviation = standardDeviationImperative(eachMsg, avg);
-      eachMsg
-          .entrySet()
-          .forEach(
-              entry -> {
-                if (entry.getValue() > (avg + standardDeviation)) {
-                  overLoadCount.put(entry.getKey(), overLoadCount.get(entry.getKey()) + 1);
-                }
-              });
+      eachMsg.forEach(
+          (nodeID, msg) -> {
+            if (msg > (avg + standardDeviation)) {
+              overLoadCount.put(nodeID, overLoadCount.get(nodeID) + 1);
+            }
+          });
       i++;
     }
     return overLoadCount;
@@ -182,15 +180,10 @@ public class NodeLoadClient {
   public double standardDeviationImperative(
       Map<Integer, Double> eachMsg, double avgBrokersMsgPerSec) {
     var variance = new AtomicReference<>(0.0);
-    eachMsg
-        .entrySet()
-        .forEach(
-            entry ->
-                variance.updateAndGet(
-                    v ->
-                        v
-                            + (entry.getValue() - avgBrokersMsgPerSec)
-                                * (entry.getValue() - avgBrokersMsgPerSec)));
+    eachMsg.forEach(
+        (nodeID, msg) ->
+            variance.updateAndGet(
+                v -> v + (msg - avgBrokersMsgPerSec) * (msg - avgBrokersMsgPerSec)));
     return Math.sqrt(variance.get() / eachMsg.size());
   }
 
@@ -203,45 +196,43 @@ public class NodeLoadClient {
 
     var result = new HashMap<Integer, Map<String, Receiver>>();
 
-    nodeIDReceiver
-        .entrySet()
-        .forEach(
-            entry -> {
-              result.put(
-                  entry.getKey(),
-                  entry.getValue().stream()
-                      .map(
-                          receiver ->
-                              receiver.current().stream()
-                                  .map(
-                                      bean ->
-                                          bean.beanObject().getProperties().values().stream()
+    nodeIDReceiver.forEach(
+        (nodeID, receivers) -> {
+          result.put(
+              nodeID,
+              receivers.stream()
+                  .map(
+                      receiver ->
+                          receiver.current().stream()
+                              .map(
+                                  bean ->
+                                      bean.beanObject().getProperties().values().stream()
+                                          .findAny()
+                                          .get())
+                              .findAny()
+                              .get())
+                  .collect(Collectors.toList())
+                  .stream()
+                  .collect(
+                      Collectors.toMap(
+                          Function.identity(),
+                          name ->
+                              receivers.stream()
+                                  .filter(
+                                      mbean ->
+                                          mbean.current().stream()
                                               .findAny()
-                                              .get())
+                                              .get()
+                                              .beanObject()
+                                              .getProperties()
+                                              .values()
+                                              .stream()
+                                              .findAny()
+                                              .get()
+                                              .equals(name))
                                   .findAny()
-                                  .get())
-                      .collect(Collectors.toList())
-                      .stream()
-                      .collect(
-                          Collectors.toMap(
-                              Function.identity(),
-                              name ->
-                                  entry.getValue().stream()
-                                      .filter(
-                                          mbean ->
-                                              mbean.current().stream()
-                                                  .findAny()
-                                                  .get()
-                                                  .beanObject()
-                                                  .getProperties()
-                                                  .values()
-                                                  .stream()
-                                                  .findAny()
-                                                  .get()
-                                                  .equals(name))
-                                      .findAny()
-                                      .get())));
-            });
+                                  .get())));
+        });
     return result;
   }
 

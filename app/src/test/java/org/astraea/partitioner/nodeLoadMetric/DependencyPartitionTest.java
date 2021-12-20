@@ -21,9 +21,9 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 public class DependencyPartitionTest extends RequireBrokerCluster {
-  public final String brokerList = bootstrapServers();
+  private final String brokerList = bootstrapServers();
   TopicAdmin admin = TopicAdmin.of(bootstrapServers());
-  public final String topicName = "address";
+  private final String topicName = "address";
 
   private Properties initProConfig() {
     Properties props = new Properties();
@@ -38,7 +38,7 @@ public class DependencyPartitionTest extends RequireBrokerCluster {
   }
 
   @Test
-  public void testDependencyPartitioner() {
+  void testDependencyPartitioner() {
     admin.creator().topic(topicName).numberOfPartitions(10).create();
     var ps = initProConfig();
     var timestamp = System.currentTimeMillis() + 10;

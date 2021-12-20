@@ -24,7 +24,7 @@ public class NodeLoadClientTest extends RequireBrokerCluster {
   private Map props;
 
   @BeforeAll
-  public void setUp() throws IOException {
+  void setUp() throws IOException {
     props = initProConfig();
     var map = new HashMap<String, Integer>();
     map.put(jmxServiceURL().getHost(), jmxServiceURL().getPort());
@@ -32,11 +32,11 @@ public class NodeLoadClientTest extends RequireBrokerCluster {
   }
 
   @AfterAll
-  public void tearDown() {
+  void tearDown() {
     nodeLoadClient.close();
   }
 
-  public Properties initProConfig() {
+  Properties initProConfig() {
     Properties props = new Properties();
     jmxAddress = jmxServiceURL().getHost() + ":" + jmxServiceURL().getPort();
     props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, brokerList);
@@ -48,7 +48,7 @@ public class NodeLoadClientTest extends RequireBrokerCluster {
   }
 
   @Test
-  public void testAvgBrokersMsgPerSec() {
+  void testAvgBrokersMsgPerSec() {
     var testMap = new HashMap<Integer, List<Double>>();
     testMap.put(0, Arrays.asList(20.0, 30.0, 40.0));
     testMap.put(1, Arrays.asList(30.0, 20.0, 30.0));
@@ -58,7 +58,7 @@ public class NodeLoadClientTest extends RequireBrokerCluster {
   }
 
   @Test
-  public void testStandardDeviationImperative() {
+  void testStandardDeviationImperative() {
     var testMap = new HashMap<Integer, Double>();
     testMap.put(0, 15.0);
     testMap.put(1, 20.0);

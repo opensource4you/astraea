@@ -1,6 +1,10 @@
 package org.astraea.partitioner.smoothPartitioner;
 
-import static org.astraea.partitioner.smoothPartitioner.DependencyClient.addPartitioner;
+import org.apache.kafka.clients.producer.Partitioner;
+import org.apache.kafka.common.Cluster;
+import org.apache.kafka.common.KafkaException;
+import org.astraea.partitioner.nodeLoadMetric.LoadPoisson;
+import org.astraea.partitioner.nodeLoadMetric.NodeLoadClient;
 
 import java.io.IOException;
 import java.net.UnknownHostException;
@@ -11,12 +15,8 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Random;
 import java.util.concurrent.atomic.AtomicReference;
-import org.apache.kafka.clients.producer.Partitioner;
-import org.apache.kafka.common.Cluster;
-import org.apache.kafka.common.KafkaException;
-import org.astraea.partitioner.nodeLoadMetric.BrokersWeight;
-import org.astraea.partitioner.nodeLoadMetric.LoadPoisson;
-import org.astraea.partitioner.nodeLoadMetric.NodeLoadClient;
+
+import static org.astraea.partitioner.smoothPartitioner.DependencyClient.addPartitioner;
 
 /**
  * Based on the jmx metrics obtained from Kafka, it records the load status of the node over a
@@ -24,6 +24,12 @@ import org.astraea.partitioner.nodeLoadMetric.NodeLoadClient;
  * Finally, the result of poisson is used as the weight to perform smooth weighted RoundRobin.
  */
 public class SmoothWeightPartitioner implements Partitioner {
+
+  /**
+   * Record the current weight of each node according to Poisson calculation and the weight after
+   * partitioner calculation.
+   */
+  private static Map<Integer, int[]> brokerHashMap = new HashMap<>();
 
   private NodeLoadClient nodeLoadClient;
   private DependencyManager dependencyManager;
@@ -58,31 +64,27 @@ public class SmoothWeightPartitioner implements Partitioner {
           e.printStackTrace();
         }
         var loadPoisson = new LoadPoisson();
-        var brokersWeight = new BrokersWeight();
+
         assert overLoadCount != null;
-        brokersWeight.brokerHashMap(loadPoisson.allPoisson(overLoadCount));
+        brokerHashMap(loadPoisson.allPoisson(overLoadCount));
         AtomicReference<Map.Entry<Integer, int[]>> maxWeightServer = new AtomicReference<>();
-        var allWeight = brokersWeight.allNodesWeight();
-        var currentBrokerHashMap = brokersWeight.brokerHashMap();
-        currentBrokerHashMap
-            .entrySet()
-            .forEach(
-                item -> {
-                  if (maxWeightServer.get() == null
-                      || item.getValue()[1] > maxWeightServer.get().getValue()[1]) {
-                    maxWeightServer.set(item);
-                  }
-                  currentBrokerHashMap.put(
-                      item.getKey(),
-                      new int[] {item.getValue()[0], item.getValue()[1] + item.getValue()[0]});
-                });
+        var allWeight = allNodesWeight();
+        var currentBrokerHashMap = brokerHashMap();
+        currentBrokerHashMap.forEach(
+            (nodeID, weight) -> {
+              if (maxWeightServer.get() == null
+                  || weight[1] > maxWeightServer.get().getValue()[1]) {
+                maxWeightServer.set(Map.entry(nodeID, weight));
+              }
+              currentBrokerHashMap.put(nodeID, new int[] {weight[0], weight[1] + weight[0]});
+            });
         assert maxWeightServer.get() != null;
         currentBrokerHashMap.put(
             maxWeightServer.get().getKey(),
             new int[] {
               maxWeightServer.get().getValue()[0], maxWeightServer.get().getValue()[1] - allWeight
             });
-        brokersWeight.currentBrokerHashMap(currentBrokerHashMap);
+        currentBrokerHashMap(currentBrokerHashMap);
 
         ArrayList<Integer> partitionList = new ArrayList<>();
         cluster
@@ -121,6 +123,37 @@ public class SmoothWeightPartitioner implements Partitioner {
     }
   }
 
+  /** Change the weight of the node according to the current Poisson. */
+  // visible for test
+  public synchronized void brokerHashMap(Map<Integer, Double> poissonMap) {
+    poissonMap.forEach(
+        (key, value) -> {
+          if (!brokerHashMap.containsKey(key)) {
+            brokerHashMap.put(key, new int[] {(int) ((1 - value) * 20), 0});
+          } else {
+            brokerHashMap.put(key, new int[] {(int) ((1 - value) * 20), brokerHashMap.get(key)[1]});
+          }
+        });
+  }
+
+  private synchronized int allNodesWeight() {
+    return brokerHashMap.values().stream().mapToInt(vs -> vs[0]).sum();
+  }
+
+  // visible for test
+  public synchronized Map<Integer, int[]> brokerHashMap() {
+    return brokerHashMap;
+  }
+
+  private synchronized void currentBrokerHashMap(Map<Integer, int[]> currentBrokerHashMap) {
+    brokerHashMap = currentBrokerHashMap;
+  }
+
+  // visible for test
+  public void brokerHashMapValue(Integer x, int y) {
+    brokerHashMap.put(x, new int[] {0, y});
+  }
+
   public synchronized void initializeDependency() {
     dependencyManager.initializeDependency();
   }
@@ -133,6 +166,9 @@ public class SmoothWeightPartitioner implements Partitioner {
     dependencyManager.finishDependency();
   }
 
+  /**
+   * Store the state related to the partitioner dependency and avoid wrong transitions between them.
+   */
   private static class DependencyManager {
     private volatile State currentState = State.UNINITIALIZED;
 
