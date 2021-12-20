@@ -72,7 +72,7 @@ public class GetPartitionInfTest extends RequireBrokerCluster {
     var brokerPartitionSize = GetPartitionInf.getSize(admin);
     assertEquals(3, brokerPartitionSize.size());
     assertEquals(
-        3 * 4 + 50,
+        3 * 4,
         brokerPartitionSize.get(0).size()
             + brokerPartitionSize.get(1).size()
             + brokerPartitionSize.get(2).size());
@@ -81,6 +81,6 @@ public class GetPartitionInfTest extends RequireBrokerCluster {
   @Test
   void getRetentionMillis() {
     var brokerPartitionRetentionMillis = GetPartitionInf.getRetentionMillis(admin);
-    assertEquals(4, brokerPartitionRetentionMillis.size());
+    assertEquals(3, brokerPartitionRetentionMillis.size());
   }
 }
