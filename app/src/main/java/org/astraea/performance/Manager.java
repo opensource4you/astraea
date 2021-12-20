@@ -107,7 +107,7 @@ public class Manager {
     return producedDone() && consumedRecords() >= producedRecords();
   }
 
-  /** Randomly choose a key according to the possibility table. */
+  /** Randomly choose a key according to the distribution. */
   public Optional<byte[]> getKey() {
     switch (distribution) {
       case "uniform":

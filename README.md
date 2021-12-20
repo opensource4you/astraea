@@ -121,7 +121,7 @@ Run the benchmark from source
 10. --prop.file: the path to property file.
 11. --partitioner: the partitioner to use in producers
 12. --jmx.servers: the jmx server addresses of the brokers 
-13. --key.distribution: possible keys and key possibility for record. Default: (No key)
+13. --key.distribution: Name of the distribution. Default: (No key)
 
 ---
 
