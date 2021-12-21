@@ -22,7 +22,7 @@ public class Manager {
   private final List<Metrics> producerMetrics, consumerMetrics;
   private final long start = System.currentTimeMillis();
   private final AtomicLong payloadNum = new AtomicLong(0);
-  private final String distribution;
+  private final Distribution distribution;
   private final List<Double> cumulativeDensityTable = new ArrayList<>();
 
   /**
@@ -50,7 +50,7 @@ public class Manager {
     this.consumerMetrics = consumerMetrics;
     this.exeTime = argument.exeTime;
     this.distribution = argument.distribution;
-    if (this.distribution.equals("zipfian")) {
+    if (this.distribution == Distribution.ZIPFIAN) {
       buildZipfianTable(30);
     }
   }
@@ -110,10 +110,10 @@ public class Manager {
   /** Randomly choose a key according to the distribution. */
   public Optional<byte[]> getKey() {
     switch (distribution) {
-      case "uniform":
+      case UNIFORM:
         // The key uniformly distribute in integer range
         return Optional.of(("key-" + rand.nextInt()).getBytes());
-      case "zipfian":
+      case ZIPFIAN:
         // The first key ("key-0") has double possibility than the second key, has
         // triple possibility than the third key, and so on.
         final double randNum = rand.nextDouble();
@@ -121,7 +121,7 @@ public class Manager {
           if (randNum < cumulativeDensityTable.get(i)) return Optional.of(("key-" + i).getBytes());
         }
         return Optional.empty();
-      case "latest":
+      case LATEST:
         // Keys in a period of time are the same
         return Optional.of(("key-" + System.currentTimeMillis() / 2000).getBytes());
       default:

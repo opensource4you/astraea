@@ -273,8 +273,9 @@ public class Performance {
 
     @Parameter(
         names = {"--key.distribution"},
-        description = "String: Distribution name. e.g. \"uniform\", \"zipfian\", \"latest\"")
-    String distribution = "";
+        description = "String: Distribution name. e.g. \"uniform\", \"zipfian\", \"latest\"",
+    converter = Distribution.DistributionConverter.class)
+    Distribution distribution = Distribution.NONE;
   }
 
   static class CompressionArgument implements IStringConverter<CompressionType> {

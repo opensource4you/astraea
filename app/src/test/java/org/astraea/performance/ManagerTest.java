@@ -56,11 +56,11 @@ public class ManagerTest {
   @Test
   void testGetKey() {
     var argument = new Performance.Argument();
-    argument.distribution = "zipfian";
+    argument.distribution = Distribution.ZIPFIAN;
     var manager = new Manager(argument, List.of(), List.of());
     Assertions.assertTrue(manager.getKey().isPresent());
 
-    argument.distribution = "";
+    argument.distribution = Distribution.NONE;
     manager = new Manager(argument, List.of(), List.of());
     Assertions.assertTrue(manager.getKey().isEmpty());
   }
