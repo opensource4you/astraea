@@ -56,51 +56,33 @@ public class NodeLoadClient {
 
     for (Map.Entry<Integer, Map.Entry<String, Integer>> hostPort : addresses.entrySet()) {
       List<Receiver> matchingNode;
+      var host = "-1.-1.-1.-1";
       if (!hostPort.getValue().getKey().matches(regex)) {
-        var host = InetAddress.getByName(hostPort.getValue().getKey()).toString().split("/")[1];
-        matchingNode =
-            receiverList.stream()
-                .filter(
-                    receiver ->
-                        (Objects.equals(nodeIDReceiver.size(), 0)
-                                || (nodeIDReceiver.values().stream()
-                                        .map(
-                                            n ->
-                                                Objects.equals(
-                                                    n.stream().findAny().get().host(), host))
-                                        .anyMatch(n -> n.equals(true))
-                                    && nodeIDReceiver.values().stream()
-                                        .map(
-                                            n ->
-                                                !Objects.equals(
-                                                    n.stream().findAny().get().port(),
-                                                    hostPort.getValue().getValue()))
-                                        .anyMatch(n -> n.equals(true))))
-                            && Objects.equals(receiver.host(), host))
-                .collect(Collectors.toList());
+        host = InetAddress.getByName(hostPort.getValue().getKey()).toString().split("/")[1];
       } else {
-        matchingNode =
-            receiverList.stream()
-                .filter(
-                    receiver ->
-                        (Objects.equals(nodeIDReceiver.size(), 0)
-                                || (nodeIDReceiver.values().stream()
-                                        .map(
-                                            n ->
-                                                Objects.equals(
-                                                    n.stream().findAny().get().host(),
-                                                    hostPort.getValue().getKey()))
-                                        .anyMatch(n -> n.equals(true))
-                                    && nodeIDReceiver.values().stream()
-                                        .map(
-                                            n ->
-                                                Objects.equals(
-                                                    n.stream().findAny().get().port(),
-                                                    hostPort.getValue().getValue()))
-                                        .anyMatch(n -> n.equals(true))))
-                            && Objects.equals(receiver.host(), hostPort.getValue().getKey()))
-                .collect(Collectors.toList());
+        host = hostPort.getValue().getKey();
       }
+      var finalHost = host;
+      matchingNode =
+          receiverList.stream()
+              .filter(
+                  receiver ->
+                      (Objects.equals(nodeIDReceiver.size(), 0)
+                              || (nodeIDReceiver.values().stream()
+                                      .map(
+                                          n ->
+                                              Objects.equals(
+                                                  n.stream().findAny().get().host(), finalHost))
+                                      .anyMatch(n -> n.equals(true))
+                                  && nodeIDReceiver.values().stream()
+                                      .map(
+                                          n ->
+                                              !Objects.equals(
+                                                  n.stream().findAny().get().port(),
+                                                  hostPort.getValue().getValue()))
+                                      .anyMatch(n -> n.equals(true))))
+                          && Objects.equals(receiver.host(), finalHost))
+              .collect(Collectors.toList());
 
       if (matchingNode.size() > 0) {
         if (!nodeIDReceiver.containsKey(hostPort.getKey()))
