@@ -16,6 +16,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.kafka.common.Cluster;
+import org.apache.kafka.common.Node;
 import org.astraea.Utils;
 import org.astraea.metrics.collector.Receiver;
 import org.astraea.metrics.kafka.KafkaMetrics;
@@ -26,19 +27,19 @@ import org.astraea.metrics.kafka.KafkaMetrics;
  */
 public class NodeLoadClient {
 
-  private List<Receiver> receiverList;
+  private final List<Receiver> receiverList;
 
   private Map<Integer, Map<String, Receiver>> eachNodeIDMetrics;
 
   private final Map<String, Integer> currentJmxAddresses;
 
-  private static final ReceiverFactory FACTORY = new ReceiverFactory();
+  private static final ReceiverFactory RECEIVER_FACTORY = new ReceiverFactory();
 
   private static final String regex =
       "((25[0-5]|2[0-4]\\d|1\\d{2}|[1-9]?\\d)\\.){3}" + "(25[0-5]|2[0-4]\\d|1\\d{2}|[1-9]?\\d)$";
 
   public NodeLoadClient(Map<String, Integer> jmxAddresses) throws IOException {
-    this.receiverList = FACTORY.receiversList(jmxAddresses);
+    this.receiverList = RECEIVER_FACTORY.receiversList(jmxAddresses);
     receiverList.forEach(receiver -> Utils.waitFor(() -> receiver.current().size() > 0));
     currentJmxAddresses = jmxAddresses;
   }
@@ -51,23 +52,22 @@ public class NodeLoadClient {
     var nodeIDReceiver = new HashMap<Integer, List<Receiver>>();
     var addresses =
         cluster.nodes().stream()
-            .collect(
-                Collectors.toMap(node -> node.id(), node -> Map.entry(node.host(), node.port())));
+            .collect(Collectors.toMap(Node::id, node -> Map.entry(node.host(), node.port())));
 
     for (Map.Entry<Integer, Map.Entry<String, Integer>> hostPort : addresses.entrySet()) {
       List<Receiver> matchingNode;
       if (!hostPort.getValue().getKey().matches(regex)) {
-        var localhost =
-            InetAddress.getByName(hostPort.getValue().getKey()).toString().split("/")[1];
+        var host = InetAddress.getByName(hostPort.getValue().getKey()).toString().split("/")[1];
         matchingNode =
             receiverList.stream()
                 .filter(
                     receiver ->
-                        ((nodeIDReceiver.values().stream()
+                        (Objects.equals(nodeIDReceiver.size(), 0)
+                                || (nodeIDReceiver.values().stream()
                                         .map(
                                             n ->
                                                 Objects.equals(
-                                                    n.stream().findAny().get().host(), localhost))
+                                                    n.stream().findAny().get().host(), host))
                                         .anyMatch(n -> n.equals(true))
                                     && nodeIDReceiver.values().stream()
                                         .map(
@@ -75,16 +75,16 @@ public class NodeLoadClient {
                                                 !Objects.equals(
                                                     n.stream().findAny().get().port(),
                                                     hostPort.getValue().getValue()))
-                                        .anyMatch(n -> n.equals(true)))
-                                || Objects.equals(nodeIDReceiver.size(), 0))
-                            && Objects.equals(receiver.host(), localhost))
+                                        .anyMatch(n -> n.equals(true))))
+                            && Objects.equals(receiver.host(), host))
                 .collect(Collectors.toList());
       } else {
         matchingNode =
             receiverList.stream()
                 .filter(
                     receiver ->
-                        ((nodeIDReceiver.values().stream()
+                        (Objects.equals(nodeIDReceiver.size(), 0)
+                                || (nodeIDReceiver.values().stream()
                                         .map(
                                             n ->
                                                 Objects.equals(
@@ -97,8 +97,7 @@ public class NodeLoadClient {
                                                 Objects.equals(
                                                     n.stream().findAny().get().port(),
                                                     hostPort.getValue().getValue()))
-                                        .anyMatch(n -> n.equals(true)))
-                                || Objects.equals(nodeIDReceiver.size(), 0))
+                                        .anyMatch(n -> n.equals(true))))
                             && Objects.equals(receiver.host(), hostPort.getValue().getKey()))
                 .collect(Collectors.toList());
       }
@@ -246,6 +245,6 @@ public class NodeLoadClient {
   }
 
   public void close() {
-    FACTORY.close(currentJmxAddresses);
+    RECEIVER_FACTORY.close(currentJmxAddresses);
   }
 }

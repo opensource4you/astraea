@@ -83,7 +83,7 @@ public class ReceiverFactory {
   }
 
   // visible for testing
-  public int factoryCount(Map<String, Integer> jmxAddresses) {
+  int factoryCount(Map<String, Integer> jmxAddresses) {
     var testCount = new AtomicInteger(-1);
     jmxAddresses.forEach((host, port) -> testCount.set(count.getOrDefault(nodeKey(host, port), 0)));
     return testCount.get();
