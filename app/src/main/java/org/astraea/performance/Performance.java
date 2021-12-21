@@ -274,7 +274,7 @@ public class Performance {
     @Parameter(
         names = {"--key.distribution"},
         description = "String: Distribution name. e.g. \"uniform\", \"zipfian\", \"latest\"",
-    converter = Distribution.DistributionConverter.class)
+        converter = Distribution.DistributionConverter.class)
     Distribution distribution = Distribution.NONE;
   }
 
