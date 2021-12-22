@@ -4,7 +4,6 @@ import java.util.*;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.stream.IntStream;
 
 /**
  * Thread safe This class is used for managing the start/end of the producer/consumer threads.
@@ -23,7 +22,6 @@ public class Manager {
   private final long start = System.currentTimeMillis();
   private final AtomicLong payloadNum = new AtomicLong(0);
   private final Distribution distribution;
-  private final List<Double> cumulativeDensityTable = new ArrayList<>();
 
   /**
    * Used to manage producing/consuming.
@@ -50,9 +48,6 @@ public class Manager {
     this.consumerMetrics = consumerMetrics;
     this.exeTime = argument.exeTime;
     this.distribution = argument.distribution;
-    if (this.distribution == Distribution.ZIPFIAN) {
-      buildZipfianTable(30);
-    }
   }
 
   /**
@@ -109,35 +104,7 @@ public class Manager {
 
   /** Randomly choose a key according to the distribution. */
   public Optional<byte[]> getKey() {
-    switch (distribution) {
-      case UNIFORM:
-        // The key uniformly distribute in integer range
-        return Optional.of(("key-" + rand.nextInt()).getBytes());
-      case ZIPFIAN:
-        // The first key ("key-0") has double possibility than the second key, has
-        // triple possibility than the third key, and so on.
-        final double randNum = rand.nextDouble();
-        for (int i = 0; i < cumulativeDensityTable.size(); ++i) {
-          if (randNum < cumulativeDensityTable.get(i)) return Optional.of(("key-" + i).getBytes());
-        }
-        return Optional.empty();
-      case LATEST:
-        // Keys in a period of time are the same
-        return Optional.of(("key-" + System.currentTimeMillis() / 2000).getBytes());
-      default:
-        // Do not provide a key.
-        return Optional.empty();
-    }
-  }
-
-  // For building a zipfian distribution with PDF: 1/k/H_N
-  // , where H_N is the Nth harmonic number; k is the key id
-  private void buildZipfianTable(int N) {
-    final double H_N = IntStream.range(1, N).mapToDouble(k -> 1D / k).sum();
-    cumulativeDensityTable.add(1D / H_N);
-    IntStream.range(1, N)
-        .forEach(
-            i ->
-                cumulativeDensityTable.add(cumulativeDensityTable.get(i - 1) + 1D / (i + 1) / H_N));
+    if (distribution == null) return Optional.empty();
+    return Optional.of(("key-" + distribution.get()).getBytes());
   }
 }

@@ -275,7 +275,7 @@ public class Performance {
         names = {"--key.distribution"},
         description = "String: Distribution name. e.g. \"uniform\", \"zipfian\", \"latest\"",
         converter = Distribution.DistributionConverter.class)
-    Distribution distribution = Distribution.NONE;
+    Distribution distribution = null;
   }
 
   static class CompressionArgument implements IStringConverter<CompressionType> {
