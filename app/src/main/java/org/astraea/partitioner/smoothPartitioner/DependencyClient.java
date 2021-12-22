@@ -1,8 +1,6 @@
 package org.astraea.partitioner.smoothPartitioner;
 
-import java.util.HashMap;
-import java.util.Map;
-import org.apache.kafka.common.KafkaException;
+import org.apache.kafka.clients.producer.KafkaProducer;
 
 /**
  * A DependencyClient allows users to make producers send dependency data.
@@ -16,45 +14,29 @@ import org.apache.kafka.common.KafkaException;
  * }</pre>
  */
 public class DependencyClient {
-  private static final Map<Integer, SmoothWeightPartitioner> PartitionerForProducers =
-      new HashMap<>();
-  private final Map<String, ?> props;
+  private final SmoothWeightPartitioner smoothWeightPartitioner;
 
-  public DependencyClient(Map<String, ?> props) {
-    this.props = props;
+  public DependencyClient(KafkaProducer kafkaProducer)
+      throws NoSuchFieldException, IllegalAccessException {
+    this.smoothWeightPartitioner = partitionerOfProducer(kafkaProducer);
   }
 
   public synchronized void initializeDependency() {
-    var ID = (int) props.get("producerID");
-    isValidProps(ID);
-    PartitionerForProducers.get(ID).initializeDependency();
+    smoothWeightPartitioner.initializeDependency();
   }
 
   public synchronized void beginDependency() {
-    var ID = (int) props.get("producerID");
-    isValidProps(ID);
-    PartitionerForProducers.get(ID).beginDependency();
+    smoothWeightPartitioner.beginDependency();
   }
 
   public synchronized void finishDependency() {
-    var ID = (int) props.get("producerID");
-    isValidProps(ID);
-    PartitionerForProducers.get(ID).finishDependency();
+    smoothWeightPartitioner.finishDependency();
   }
 
-  private synchronized void isValidProps(int ID) {
-    if (!PartitionerForProducers.containsKey(ID)) {
-      throw new KafkaException("Properties does not exist in producers. ");
-    }
-  }
-
-  public static synchronized void addPartitioner(
-      Map<String, ?> props, SmoothWeightPartitioner partitioner) {
-    var ID = (int) props.get("producerID");
-    if (!PartitionerForProducers.containsKey(ID)) {
-      PartitionerForProducers.put(ID, partitioner);
-    } else {
-      throw new KafkaException("Each producer ID can only correspond to one partitioner.");
-    }
+  private SmoothWeightPartitioner partitionerOfProducer(KafkaProducer producer)
+      throws NoSuchFieldException, IllegalAccessException {
+    var field = producer.getClass().getDeclaredField("partitioner");
+    field.setAccessible(true);
+    return (SmoothWeightPartitioner) field.get(producer);
   }
 }

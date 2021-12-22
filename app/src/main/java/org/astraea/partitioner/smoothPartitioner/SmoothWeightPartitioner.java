@@ -1,7 +1,5 @@
 package org.astraea.partitioner.smoothPartitioner;
 
-import static org.astraea.partitioner.smoothPartitioner.DependencyClient.addPartitioner;
-
 import java.io.IOException;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
@@ -116,7 +114,6 @@ public class SmoothWeightPartitioner implements Partitioner {
 
       nodeLoadClient = new NodeLoadClient(mapAddress);
       dependencyManager = new DependencyManager();
-      addPartitioner(configs, this);
     } catch (IOException e) {
       throw new RuntimeException();
     }

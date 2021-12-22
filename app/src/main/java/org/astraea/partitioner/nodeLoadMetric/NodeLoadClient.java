@@ -56,13 +56,7 @@ public class NodeLoadClient {
 
     for (Map.Entry<Integer, Map.Entry<String, Integer>> hostPort : addresses.entrySet()) {
       List<Receiver> matchingNode;
-      var host = "-1.-1.-1.-1";
-      if (!hostPort.getValue().getKey().matches(regex)) {
-        host = InetAddress.getByName(hostPort.getValue().getKey()).toString().split("/")[1];
-      } else {
-        host = hostPort.getValue().getKey();
-      }
-      var finalHost = host;
+      var host = ipAddress(hostPort);
       matchingNode =
           receiverList.stream()
               .filter(
@@ -72,7 +66,7 @@ public class NodeLoadClient {
                                       .map(
                                           n ->
                                               Objects.equals(
-                                                  n.stream().findAny().get().host(), finalHost))
+                                                  n.stream().findAny().get().host(), host))
                                       .anyMatch(n -> n.equals(true))
                                   && nodeIDReceiver.values().stream()
                                       .map(
@@ -81,7 +75,7 @@ public class NodeLoadClient {
                                                   n.stream().findAny().get().port(),
                                                   hostPort.getValue().getValue()))
                                       .anyMatch(n -> n.equals(true))))
-                          && Objects.equals(receiver.host(), finalHost))
+                          && Objects.equals(receiver.host(), host))
               .collect(Collectors.toList());
 
       if (matchingNode.size() > 0) {
@@ -224,6 +218,17 @@ public class NodeLoadClient {
 
   private double avgMsgSec(int index, Map<Integer, List<Double>> eachMsg) {
     return avgBrokersMsgPerSec(eachMsg).get(index);
+  }
+
+  private String ipAddress(Map.Entry<Integer, Map.Entry<String, Integer>> hostPort)
+      throws UnknownHostException {
+    var host = "-1.-1.-1.-1";
+    if (!hostPort.getValue().getKey().matches(regex)) {
+      host = InetAddress.getByName(hostPort.getValue().getKey()).toString().split("/")[1];
+    } else {
+      host = hostPort.getValue().getKey();
+    }
+    return host;
   }
 
   public void close() {

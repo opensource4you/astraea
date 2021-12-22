@@ -1,6 +1,10 @@
 package org.astraea.producer;
 
-import java.util.*;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import org.apache.kafka.clients.producer.KafkaProducer;
@@ -115,6 +119,11 @@ public class Builder<Key, Value> {
       @Override
       public void flush() {
         kafkaProducer.flush();
+      }
+
+      @Override
+      public KafkaProducer kafkaProducer() {
+        return kafkaProducer;
       }
 
       @Override

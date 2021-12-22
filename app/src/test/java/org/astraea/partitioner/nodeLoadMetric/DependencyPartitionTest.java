@@ -32,13 +32,12 @@ public class DependencyPartitionTest extends RequireBrokerCluster {
     props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, ByteArraySerializer.class.getName());
     props.put(ProducerConfig.CLIENT_ID_CONFIG, "id1");
     props.put(ProducerConfig.PARTITIONER_CLASS_CONFIG, SmoothWeightPartitioner.class.getName());
-    props.put("producerID", 1);
     props.put("jmx_servers", jmxServiceURL().getHost() + ":" + jmxServiceURL().getPort());
     return props;
   }
 
   @Test
-  void testDependencyPartitioner() {
+  void testDependencyPartitioner() throws NoSuchFieldException, IllegalAccessException {
     admin.creator().topic(topicName).numberOfPartitions(10).create();
     var ps = initProConfig();
     var timestamp = System.currentTimeMillis() + 10;
@@ -47,13 +46,13 @@ public class DependencyPartitionTest extends RequireBrokerCluster {
     var props =
         ps.entrySet().stream()
             .collect(Collectors.toMap(e -> e.getKey().toString(), Map.Entry::getValue));
-    var dependencyClient = new DependencyClient(props);
     try (var producer = Producer.builder().configs(props).build()) {
-
+      var dependencyClient = new DependencyClient(producer.kafkaProducer());
       dependencyClient.initializeDependency();
       dependencyClient.beginDependency();
-      int targetPartition = 0;
-      for (int i = 0; i < 20; i++) {
+      var targetPartition = 0;
+      var i = 0;
+      while (i < 20) {
         var metadata =
             producer
                 .sender()
@@ -67,6 +66,7 @@ public class DependencyPartitionTest extends RequireBrokerCluster {
         targetPartition = metadata.partition();
         Assertions.assertEquals(topicName, metadata.topic());
         Assertions.assertEquals(timestamp, metadata.timestamp());
+        i++;
       }
       dependencyClient.finishDependency();
     } catch (ExecutionException | InterruptedException e) {
