@@ -6,7 +6,8 @@ import org.apache.kafka.clients.producer.KafkaProducer;
  * A DependencyClient allows users to make producers send dependency data.
  *
  * <pre>{@code
- * var dependencyClient = new DependencyClient(props);
+ * KafkaProducer producer = new KafkaProducer(props);
+ * var dependencyClient = new DependencyClient(producer);
  * dependencyClient.initializeDependency();
  * dependencyClient.beginDependency();
  * producer.send();
