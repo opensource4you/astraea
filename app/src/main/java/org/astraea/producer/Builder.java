@@ -3,6 +3,7 @@ package org.astraea.producer;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.clients.producer.ProducerRecord;
@@ -47,11 +48,6 @@ public class Builder<Key, Value> {
     return this;
   }
 
-  public Builder<Key, Value> transactionalId(String transactionalId) {
-    this.configs.put(ProducerConfig.TRANSACTIONAL_ID_CONFIG, transactionalId);
-    return this;
-  }
-
   @SuppressWarnings("unchecked")
   public Producer<Key, Value> build() {
     var transactionConfigs = new HashMap<>(configs);
@@ -71,6 +67,7 @@ public class Builder<Key, Value> {
             Serializer.of((Serializer<Key>) keySerializer),
             Serializer.of((Serializer<Value>) valueSerializer));
     return new Producer<>() {
+      final AtomicBoolean isTransaction = new AtomicBoolean(false);
 
       @Override
       public Sender<Key, Value> sender() {
@@ -80,7 +77,6 @@ public class Builder<Key, Value> {
           private String topic;
           private Integer partition;
           private Long timestamp;
-          private boolean isTransaction = false;
           private Collection<Header> headers = List.of();
 
           @Override
@@ -120,22 +116,18 @@ public class Builder<Key, Value> {
           }
 
           @Override
-          public Sender<Key, Value> transaction() {
-            this.isTransaction = true;
-            return this;
-          }
-
-          @Override
           public CompletionStage<Metadata> run() {
             var completableFuture = new CompletableFuture<Metadata>();
-            ((isTransaction) ? transactionProducer : kafkaProducer)
-                .send(
-                    new ProducerRecord<>(
-                        topic, partition, timestamp, key, value, Header.of(headers)),
-                    (metadata, exception) -> {
-                      if (exception == null) completableFuture.complete(Metadata.of(metadata));
-                      else completableFuture.completeExceptionally(exception);
-                    });
+            synchronized (isTransaction) {
+              ((isTransaction.get()) ? transactionProducer : kafkaProducer)
+                  .send(
+                      new ProducerRecord<>(
+                          topic, partition, timestamp, key, value, Header.of(headers)),
+                      (metadata, exception) -> {
+                        if (exception == null) completableFuture.complete(Metadata.of(metadata));
+                        else completableFuture.completeExceptionally(exception);
+                      });
+            }
             return completableFuture;
           }
         };
@@ -145,16 +137,23 @@ public class Builder<Key, Value> {
       public Collection<CompletionStage<Metadata>> transaction(
           Collection<Sender<Key, Value>> senders) {
         var futures = new ArrayList<CompletionStage<Metadata>>(senders.size());
-        try {
-          transactionProducer.beginTransaction();
-          senders.forEach(sender -> futures.add(sender.transaction().run()));
-          transactionProducer.commitTransaction();
-        } catch (ProducerFencedException | OutOfOrderSequenceException | AuthorizationException e) {
-          transactionProducer.close();
-          // Error occur
-          throw e;
-        } catch (KafkaException ke) {
-          transactionProducer.abortTransaction();
+        synchronized (isTransaction) {
+          try {
+            isTransaction.set(true);
+            transactionProducer.beginTransaction();
+            senders.forEach(sender -> futures.add(sender.run()));
+            transactionProducer.commitTransaction();
+          } catch (ProducerFencedException
+              | OutOfOrderSequenceException
+              | AuthorizationException e) {
+            transactionProducer.close();
+            // Error occur
+            throw e;
+          } catch (KafkaException ke) {
+            transactionProducer.abortTransaction();
+          } finally {
+            isTransaction.set(false);
+          }
         }
         return futures;
       }
