@@ -6,6 +6,8 @@ import java.util.Random;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+import org.astraea.utils.DataSize;
+import org.astraea.utils.DataUnit;
 
 /**
  * Thread safe This class is used for managing the start/end of the producer/consumer threads.
@@ -15,7 +17,7 @@ import java.util.concurrent.atomic.AtomicLong;
 public class Manager {
   private final ExeTime exeTime;
   private final boolean fixedSize;
-  private final int size;
+  private final DataSize dataSize;
   private final CountDownLatch getAssignment;
   private final AtomicInteger producerClosed;
   private final Random rand = new Random();
@@ -42,7 +44,7 @@ public class Manager {
   public Manager(
       Performance.Argument argument, List<Metrics> producerMetrics, List<Metrics> consumerMetrics) {
     this.fixedSize = argument.fixedSize;
-    this.size = argument.recordSize;
+    this.dataSize = argument.recordSize;
     this.getAssignment = new CountDownLatch(argument.consumers);
     this.producerClosed = new AtomicInteger(argument.producers);
     this.producerMetrics = producerMetrics;
@@ -61,7 +63,10 @@ public class Manager {
     if (exeTime.percentage(payloadNum.getAndIncrement(), System.currentTimeMillis() - start)
         >= 100D) return Optional.empty();
 
-    byte[] payload = (this.fixedSize) ? new byte[size] : new byte[rand.nextInt(size) + 1];
+    byte[] payload =
+        (this.fixedSize)
+            ? new byte[dataSize.measurement(DataUnit.Byte).intValue()]
+            : new byte[rand.nextInt(dataSize.measurement(DataUnit.Byte).intValue()) + 1];
     rand.nextBytes(payload);
     return Optional.of(payload);
   }

@@ -2,6 +2,7 @@ package org.astraea.performance;
 
 import java.util.Arrays;
 import java.util.List;
+import org.astraea.utils.DataUnit;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -31,7 +32,7 @@ public class ManagerTest {
   void testRandomSize() {
     var argument = new Performance.Argument();
     argument.exeTime = ExeTime.of("3records");
-    argument.recordSize = 102400;
+    argument.recordSize = DataUnit.of(100, DataUnit.KiB);
     var dataManager = new Manager(argument, List.of(), List.of());
     boolean sameSize = dataManager.payload().get().length == dataManager.payload().get().length;
 
@@ -45,7 +46,7 @@ public class ManagerTest {
   void testRandomContent() {
     var argument = new Performance.Argument();
     argument.exeTime = ExeTime.of("2records");
-    argument.recordSize = 102400;
+    argument.recordSize = DataUnit.of(100, DataUnit.KiB);
     var manager = new Manager(argument, List.of(), List.of());
     boolean same = Arrays.equals(manager.payload().get(), manager.payload().get());
 

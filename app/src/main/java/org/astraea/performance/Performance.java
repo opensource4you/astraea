@@ -22,6 +22,8 @@ import org.astraea.concurrent.ThreadPool;
 import org.astraea.consumer.Consumer;
 import org.astraea.producer.Producer;
 import org.astraea.topic.TopicAdmin;
+import org.astraea.utils.DataSize;
+import org.astraea.utils.DataUnit;
 
 /**
  * Performance benchmark which includes
@@ -240,8 +242,8 @@ public class Performance {
     @Parameter(
         names = {"--record.size"},
         description = "Integer: size of each record",
-        validateWith = ArgumentUtil.PositiveLong.class)
-    int recordSize = 1024;
+        converter = DataSize.Converter.class)
+    DataSize recordSize = DataUnit.of(1024, DataUnit.Byte);
 
     @Parameter(
         names = {"--jmx.servers"},

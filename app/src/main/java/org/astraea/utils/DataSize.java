@@ -1,5 +1,6 @@
 package org.astraea.utils;
 
+import com.beust.jcommander.IStringConverter;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.MathContext;
@@ -7,6 +8,8 @@ import java.time.Duration;
 import java.time.temporal.ChronoUnit;
 import java.util.Comparator;
 import java.util.Objects;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /** Data size class */
 public class DataSize implements Comparable<DataSize> {
@@ -19,6 +22,32 @@ public class DataSize implements Comparable<DataSize> {
 
   DataSize(BigInteger bigInteger) {
     this.bits = bigInteger;
+  }
+
+  /**
+   * Convert string to DataSize.
+   *
+   * <pre>{@code
+   * DataSize.of("500KB");  // 500 KB  (500 * 1000 bytes)
+   * DataSize.of("500KiB"); // 500 KiB (500 * 1024 bytes)
+   * DataSize.of("500Kb");  // 500 Kb  (500 * 1000 bits)
+   * DataSize.of("500Kib"); // 500 Kib (500 * 1024 bits)
+   * }</pre>
+   *
+   * @param argument number and the unit. e.g. "500MiB", "9876 KB"
+   * @return a data size object of given measurement under specific data unit.
+   */
+  public static DataSize of(String argument) {
+    // Parse number and DataUnit
+    Pattern dataSizePattern =
+        Pattern.compile("(?<measurement>[0-9]+)\\s?(?<dataUnit>[\\w&&[^\\d]]+)");
+    Matcher matcher = dataSizePattern.matcher(argument);
+    if (matcher.find()) {
+      return DataUnit.valueOf(matcher.group("dataUnit"))
+          .of(Long.parseLong(matcher.group("measurement")));
+    } else {
+      throw new IllegalArgumentException("Unknown DataSize");
+    }
   }
 
   /**
@@ -207,5 +236,11 @@ public class DataSize implements Comparable<DataSize> {
   @Override
   public int hashCode() {
     return Objects.hash(bits);
+  }
+
+  public static class Converter implements IStringConverter<DataSize> {
+    public DataSize convert(String argument) {
+      return DataSize.of(argument);
+    }
   }
 }
