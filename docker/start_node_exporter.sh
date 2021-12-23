@@ -29,7 +29,7 @@ if [[ "$address" == "127.0.0.1" || "$address" == "127.0.1.1" ]]; then
   exit 2
 fi
 
-if [[ "$(curl -s "http://0.0.0.0:$PORT")" != "" ]]; then
+if [[ "$(curl --connect-timeout 1 -s "http://0.0.0.0:$PORT")" != "" ]]; then
   error Is address http://0.0.0.0:"$PORT" already in use by other application?
   exit 4
 fi
@@ -56,7 +56,7 @@ function run_node_exporter() {
 container_id="$(run_node_exporter)"
 info Container ID of node_exporter: "$container_id"
 
-if [[ "$(curl --retry 3 -s "http://0.0.0.0:$PORT")" == "" ]] || [[ "$(docker_container_running "$container_id")" == "false" ]]; then
+if [[ "$(curl --connect-timeout 1 --retry 3 -s "http://0.0.0.0:$PORT")" == "" ]] || [[ "$(docker_container_running "$container_id")" == "false" ]]; then
   error Cannot access node_exporter metric server: "http://0.0.0.0:$PORT". Something go wrong!
   error Execute \"docker logs "$container_id"\" to see what\'s going on.
   exit 3

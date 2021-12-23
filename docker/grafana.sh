@@ -31,7 +31,7 @@ function quiet_grep() {
 }
 
 function is_grafana_running() {
-  curl -s "$(grafana_dashboard_http_url)/login" | quiet_grep grafana
+  curl --connect-timeout 2 -s "$(grafana_dashboard_http_url)/login" | quiet_grep grafana
   if [ $? -eq 0 ]; then echo "yes"; else echo "no"; fi
 }
 
@@ -40,6 +40,7 @@ function add_prometheus_datasource() {
   source_name="$2"
   url="$3"
   curl \
+    --connect-timeout 2 \
     -X "POST" \
     -s "http://$address:$GRAFANA_HTTP_DASHBOARD_PORT/api/datasources" \
     -H "Content-Type: application/json" \
