@@ -18,7 +18,7 @@ public class DataSize implements Comparable<DataSize> {
 
   // Parse number and DataUnit
   private static final Pattern dataSizePattern =
-      Pattern.compile("(?<measurement>[0-9]+)\\s?(?<dataUnit>[\\w&&[^\\d]]+)");
+      Pattern.compile("(?<measurement>[0-9]+)\\s?(?<dataUnit>[a-zA-Z]+)");
 
   DataSize(long volume, DataUnit dataUnit) {
     this(BigInteger.valueOf(volume).multiply(dataUnit.bits));
@@ -32,10 +32,10 @@ public class DataSize implements Comparable<DataSize> {
    * Convert string to DataSize.
    *
    * <pre>{@code
-   * DataSize.of("500KB");  // 500 KB  (500 * 1000 bytes)
-   * DataSize.of("500KiB"); // 500 KiB (500 * 1024 bytes)
-   * DataSize.of("500Kb");  // 500 Kb  (500 * 1000 bits)
-   * DataSize.of("500Kib"); // 500 Kib (500 * 1024 bits)
+   * DataSize.parseDataSize("500KB");  // 500 KB  (500 * 1000 bytes)
+   * DataSize.parseDataSize("500KiB"); // 500 KiB (500 * 1024 bytes)
+   * DataSize.parseDataSizeof("500Kb");  // 500 Kb  (500 * 1000 bits)
+   * DataSize.parseDataSize("500Kib"); // 500 Kib (500 * 1024 bits)
    * }</pre>
    *
    * @param argument number and the unit. e.g. "500MiB", "9876 KB"
@@ -43,11 +43,11 @@ public class DataSize implements Comparable<DataSize> {
    */
   public static DataSize parseDataSize(String argument) {
     Matcher matcher = dataSizePattern.matcher(argument);
-    if (matcher.find()) {
+    if (matcher.matches()) {
       return DataUnit.valueOf(matcher.group("dataUnit"))
           .of(Long.parseLong(matcher.group("measurement")));
     } else {
-      throw new IllegalArgumentException("Unknown DataSize");
+      throw new IllegalArgumentException("Unknown DataSize \"" + argument + "\"");
     }
   }
 

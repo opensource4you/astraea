@@ -147,6 +147,54 @@ class DataSizeTest {
   }
 
   @Test
+  void parseDataSize() {
+    assertEquals(DataUnit.Bit.of(100).toString(), DataSize.parseDataSize("100Bit").toString());
+    assertEquals(DataUnit.Kb.of(100).toString(), DataSize.parseDataSize("100 Kb").toString());
+    assertEquals(DataUnit.Mb.of(100).toString(), DataSize.parseDataSize("100 Mb").toString());
+    assertEquals(DataUnit.Gb.of(100).toString(), DataSize.parseDataSize("100 Gb").toString());
+    assertEquals(DataUnit.Tb.of(100).toString(), DataSize.parseDataSize("100 Tb").toString());
+    assertEquals(DataUnit.Pb.of(100).toString(), DataSize.parseDataSize("100 Pb").toString());
+    assertEquals(DataUnit.Eb.of(100).toString(), DataSize.parseDataSize("100 Eb").toString());
+    assertEquals(DataUnit.Zb.of(100).toString(), DataSize.parseDataSize("100 Zb").toString());
+    assertEquals(DataUnit.Yb.of(100).toString(), DataSize.parseDataSize("100 Yb").toString());
+
+    assertEquals(DataUnit.Kib.of(100).toString(), DataSize.parseDataSize("100 Kib").toString());
+    assertEquals(DataUnit.Mib.of(100).toString(), DataSize.parseDataSize("100 Mib").toString());
+    assertEquals(DataUnit.Gib.of(100).toString(), DataSize.parseDataSize("100 Gib").toString());
+    assertEquals(DataUnit.Tib.of(100).toString(), DataSize.parseDataSize("100 Tib").toString());
+    assertEquals(DataUnit.Pib.of(100).toString(), DataSize.parseDataSize("100 Pib").toString());
+    assertEquals(DataUnit.Eib.of(100).toString(), DataSize.parseDataSize("100 Eib").toString());
+    assertEquals(DataUnit.Zib.of(100).toString(), DataSize.parseDataSize("100 Zib").toString());
+    assertEquals(DataUnit.Yib.of(100).toString(), DataSize.parseDataSize("100 Yib").toString());
+
+    assertEquals(DataUnit.Byte.of(100).toString(), DataSize.parseDataSize("100Byte").toString());
+    assertEquals(DataUnit.KB.of(100).toString(), DataSize.parseDataSize("100 KB").toString());
+    assertEquals(DataUnit.MB.of(100).toString(), DataSize.parseDataSize("100 MB").toString());
+    assertEquals(DataUnit.GB.of(100).toString(), DataSize.parseDataSize("100 GB").toString());
+    assertEquals(DataUnit.TB.of(100).toString(), DataSize.parseDataSize("100 TB").toString());
+    assertEquals(DataUnit.PB.of(100).toString(), DataSize.parseDataSize("100 PB").toString());
+    assertEquals(DataUnit.EB.of(100).toString(), DataSize.parseDataSize("100 EB").toString());
+    assertEquals(DataUnit.ZB.of(100).toString(), DataSize.parseDataSize("100 ZB").toString());
+    assertEquals(DataUnit.YB.of(100).toString(), DataSize.parseDataSize("100 YB").toString());
+
+    assertEquals(DataUnit.KiB.of(100).toString(), DataSize.parseDataSize("100 KiB").toString());
+    assertEquals(DataUnit.MiB.of(100).toString(), DataSize.parseDataSize("100 MiB").toString());
+    assertEquals(DataUnit.GiB.of(100).toString(), DataSize.parseDataSize("100 GiB").toString());
+    assertEquals(DataUnit.TiB.of(100).toString(), DataSize.parseDataSize("100 TiB").toString());
+    assertEquals(DataUnit.PiB.of(100).toString(), DataSize.parseDataSize("100 PiB").toString());
+    assertEquals(DataUnit.EiB.of(100).toString(), DataSize.parseDataSize("100 EiB").toString());
+    assertEquals(DataUnit.ZiB.of(100).toString(), DataSize.parseDataSize("100 ZiB").toString());
+    assertEquals(DataUnit.YiB.of(100).toString(), DataSize.parseDataSize("100 YiB").toString());
+
+    assertThrows(IllegalArgumentException.class, () -> DataSize.parseDataSize("5000 MB xxx"));
+    assertThrows(
+        IllegalArgumentException.class, () -> DataSize.parseDataSize("5000 MB per second"));
+    assertThrows(IllegalArgumentException.class, () -> DataSize.parseDataSize("xxx 5000 MB"));
+    assertThrows(IllegalArgumentException.class, () -> DataSize.parseDataSize("5000 MB 400GB"));
+    assertThrows(IllegalArgumentException.class, () -> DataSize.parseDataSize("6.00 MB"));
+  }
+
+  @Test
   void measurement() {
     var value = DataUnit.PB.of(1);
 
