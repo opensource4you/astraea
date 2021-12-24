@@ -17,7 +17,7 @@ public class DataSize implements Comparable<DataSize> {
   private final BigInteger bits;
 
   // Parse number and DataUnit
-  private static final Pattern dataSizePattern =
+  private static final Pattern DATA_SIZE_PATTERN =
       Pattern.compile("(?<measurement>[0-9]+)\\s?(?<dataUnit>[a-zA-Z]+)");
 
   DataSize(long volume, DataUnit dataUnit) {
@@ -34,7 +34,7 @@ public class DataSize implements Comparable<DataSize> {
    * <pre>{@code
    * DataSize.parseDataSize("500KB");  // 500 KB  (500 * 1000 bytes)
    * DataSize.parseDataSize("500KiB"); // 500 KiB (500 * 1024 bytes)
-   * DataSize.parseDataSizeof("500Kb");  // 500 Kb  (500 * 1000 bits)
+   * DataSize.parseDataSize("500Kb");  // 500 Kb  (500 * 1000 bits)
    * DataSize.parseDataSize("500Kib"); // 500 Kib (500 * 1024 bits)
    * }</pre>
    *
@@ -42,7 +42,7 @@ public class DataSize implements Comparable<DataSize> {
    * @return a data size object of given measurement under specific data unit.
    */
   public static DataSize parseDataSize(String argument) {
-    Matcher matcher = dataSizePattern.matcher(argument);
+    Matcher matcher = DATA_SIZE_PATTERN.matcher(argument);
     if (matcher.matches()) {
       return DataUnit.valueOf(matcher.group("dataUnit"))
           .of(Long.parseLong(matcher.group("measurement")));
