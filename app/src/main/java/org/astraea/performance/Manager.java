@@ -45,6 +45,8 @@ public class Manager {
       Performance.Argument argument, List<Metrics> producerMetrics, List<Metrics> consumerMetrics) {
     this.fixedSize = argument.fixedSize;
     this.dataSize = argument.recordSize;
+    if (dataSize.greaterThan(DataUnit.Byte.of(Integer.MAX_VALUE)))
+      throw new IllegalArgumentException("record size exceed integer range");
     this.getAssignment = new CountDownLatch(argument.consumers);
     this.producerClosed = new AtomicInteger(argument.producers);
     this.producerMetrics = producerMetrics;

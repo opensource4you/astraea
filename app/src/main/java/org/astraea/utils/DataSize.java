@@ -16,6 +16,10 @@ public class DataSize implements Comparable<DataSize> {
 
   private final BigInteger bits;
 
+  // Parse number and DataUnit
+  private static final Pattern dataSizePattern =
+      Pattern.compile("(?<measurement>[0-9]+)\\s?(?<dataUnit>[\\w&&[^\\d]]+)");
+
   DataSize(long volume, DataUnit dataUnit) {
     this(BigInteger.valueOf(volume).multiply(dataUnit.bits));
   }
@@ -37,10 +41,7 @@ public class DataSize implements Comparable<DataSize> {
    * @param argument number and the unit. e.g. "500MiB", "9876 KB"
    * @return a data size object of given measurement under specific data unit.
    */
-  public static DataSize of(String argument) {
-    // Parse number and DataUnit
-    Pattern dataSizePattern =
-        Pattern.compile("(?<measurement>[0-9]+)\\s?(?<dataUnit>[\\w&&[^\\d]]+)");
+  public static DataSize parseDataSize(String argument) {
     Matcher matcher = dataSizePattern.matcher(argument);
     if (matcher.find()) {
       return DataUnit.valueOf(matcher.group("dataUnit"))
@@ -240,7 +241,7 @@ public class DataSize implements Comparable<DataSize> {
 
   public static class Converter implements IStringConverter<DataSize> {
     public DataSize convert(String argument) {
-      return DataSize.of(argument);
+      return DataSize.parseDataSize(argument);
     }
   }
 }

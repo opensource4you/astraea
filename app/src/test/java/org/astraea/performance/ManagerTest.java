@@ -32,7 +32,7 @@ public class ManagerTest {
   void testRandomSize() {
     var argument = new Performance.Argument();
     argument.exeTime = ExeTime.of("3records");
-    argument.recordSize = DataUnit.of(100, DataUnit.KiB);
+    argument.recordSize = DataUnit.KiB.of(100);
     var dataManager = new Manager(argument, List.of(), List.of());
     boolean sameSize = dataManager.payload().get().length == dataManager.payload().get().length;
 
@@ -46,7 +46,7 @@ public class ManagerTest {
   void testRandomContent() {
     var argument = new Performance.Argument();
     argument.exeTime = ExeTime.of("2records");
-    argument.recordSize = DataUnit.of(100, DataUnit.KiB);
+    argument.recordSize = DataUnit.KiB.of(100);
     var manager = new Manager(argument, List.of(), List.of());
     boolean same = Arrays.equals(manager.payload().get(), manager.payload().get());
 

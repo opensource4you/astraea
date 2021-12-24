@@ -227,7 +227,7 @@ class DataSizeTest {
 
   @Test
   void bits() {
-    BigInteger bit5566 = DataUnit.of(5566, DataUnit.Bit).bits();
+    BigInteger bit5566 = DataUnit.Bit.of(5566).bits();
 
     assertEquals(BigInteger.valueOf(5566), bit5566);
   }
