@@ -44,10 +44,12 @@ function wrap_address() {
 }
 
 prometheus_port="${PROMETHEUS_PORT:-9090}"
-image_name=prom/prometheus
+image_name=prom/prometheus:v2.32.1
 container_name="prometheus-${prometheus_port}"
 file=/tmp/prometheus-${prometheus_port}.yml
 scrape_interval="5s"
+volume_name_1="prometheus-${prometheus_port}-etc"
+volume_name_2="prometheus-${prometheus_port}-prometheus"
 
 function write_config() {
   kafka_jmx_addresses="$(wrap_address "$1")"
@@ -90,6 +92,7 @@ function info() {
 
 function refresh_config_from_file() {
   info "Refresh prometheus configuration from config file $file"
+  docker cp "$file" "$container_name:/etc/prometheus/prometheus.yml"
   docker kill --signal="SIGHUP" "$container_name"
 }
 
@@ -97,6 +100,7 @@ function refresh_config() {
   info "Refresh prometheus configuration"
 
   write_config "$1" "$2"
+  docker cp "$file" "$container_name:/etc/prometheus/prometheus.yml"
   docker kill --signal="SIGHUP" "$container_name"
 }
 
@@ -107,8 +111,6 @@ function main() {
     exit 0
   fi
 
-  write_config "$1" "$2"
-
   if [ "$(is_prometheus_exists)" == "yes" ]; then
     info "Start existing prometheus instance"
     docker start "$container_name"
@@ -117,10 +119,12 @@ function main() {
     docker run -d \
         --name "$container_name" \
         -p "$prometheus_port:9090" \
-        -v "$file:/etc/prometheus/prometheus.yml" \
-        $image_name
+        -v "${volume_name_1}:/etc/prometheus" \
+        -v "${volume_name_2}:/prometheus" \
+        "$image_name"
   fi
 
+  refresh_config "$1" "$2"
 
   info "================================================="
   info "config file: $file"
