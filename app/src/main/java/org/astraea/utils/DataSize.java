@@ -16,39 +16,12 @@ public class DataSize implements Comparable<DataSize> {
 
   private final BigInteger bits;
 
-  // Parse number and DataUnit
-  private static final Pattern DATA_SIZE_PATTERN =
-      Pattern.compile("(?<measurement>[0-9]+)\\s?(?<dataUnit>[a-zA-Z]+)");
-
   DataSize(long volume, DataUnit dataUnit) {
     this(BigInteger.valueOf(volume).multiply(dataUnit.bits));
   }
 
   DataSize(BigInteger bigInteger) {
     this.bits = bigInteger;
-  }
-
-  /**
-   * Convert string to DataSize.
-   *
-   * <pre>{@code
-   * DataSize.parseDataSize("500KB");  // 500 KB  (500 * 1000 bytes)
-   * DataSize.parseDataSize("500KiB"); // 500 KiB (500 * 1024 bytes)
-   * DataSize.parseDataSize("500Kb");  // 500 Kb  (500 * 1000 bits)
-   * DataSize.parseDataSize("500Kib"); // 500 Kib (500 * 1024 bits)
-   * }</pre>
-   *
-   * @param argument number and the unit. e.g. "500MiB", "9876 KB"
-   * @return a data size object of given measurement under specific data unit.
-   */
-  public static DataSize parseDataSize(String argument) {
-    Matcher matcher = DATA_SIZE_PATTERN.matcher(argument);
-    if (matcher.matches()) {
-      return DataUnit.valueOf(matcher.group("dataUnit"))
-          .of(Long.parseLong(matcher.group("measurement")));
-    } else {
-      throw new IllegalArgumentException("Unknown DataSize \"" + argument + "\"");
-    }
   }
 
   /**
@@ -240,8 +213,32 @@ public class DataSize implements Comparable<DataSize> {
   }
 
   public static class Converter implements IStringConverter<DataSize> {
+    // Parse number and DataUnit
+    private static final Pattern DATA_SIZE_PATTERN =
+        Pattern.compile("(?<measurement>[0-9]+)\\s?(?<dataUnit>[a-zA-Z]+)");
+
+    /**
+     * Convert string to DataSize.
+     *
+     * <pre>{@code
+     * new DataSize.Converter().convert("500KB");  // 500 KB  (500 * 1000 bytes)
+     * new DataSize.Converter().convert("500KiB"); // 500 KiB (500 * 1024 bytes)
+     * new DataSize.Converter().convert("500Kb");  // 500 Kb  (500 * 1000 bits)
+     * new DataSize.Converter().convert("500Kib"); // 500 Kib (500 * 1024 bits)
+     * }</pre>
+     *
+     * @param argument number and the unit. e.g. "500MiB", "9876 KB"
+     * @return a data size object of given measurement under specific data unit.
+     */
+    @Override
     public DataSize convert(String argument) {
-      return DataSize.parseDataSize(argument);
+      Matcher matcher = DATA_SIZE_PATTERN.matcher(argument);
+      if (matcher.matches()) {
+        return DataUnit.valueOf(matcher.group("dataUnit"))
+            .of(Long.parseLong(matcher.group("measurement")));
+      } else {
+        throw new IllegalArgumentException("Unknown DataSize \"" + argument + "\"");
+      }
     }
   }
 }

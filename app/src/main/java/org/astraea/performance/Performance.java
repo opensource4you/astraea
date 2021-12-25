@@ -241,9 +241,9 @@ public class Performance {
 
     @Parameter(
         names = {"--record.size"},
-        description = "Integer: size of each record",
+        description = "DataSize: size of each record. e.g. \"500KiB\"",
         converter = DataSize.Converter.class)
-    DataSize recordSize = DataUnit.Byte.of(1024);
+    DataSize recordSize = DataUnit.KiB.of(1);
 
     @Parameter(
         names = {"--jmx.servers"},

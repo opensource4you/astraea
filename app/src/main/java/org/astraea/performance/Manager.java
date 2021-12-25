@@ -46,7 +46,8 @@ public class Manager {
     this.fixedSize = argument.fixedSize;
     this.dataSize = argument.recordSize;
     if (dataSize.greaterThan(DataUnit.Byte.of(Integer.MAX_VALUE)))
-      throw new IllegalArgumentException("record size exceed integer range");
+      throw new IllegalArgumentException(
+          "Record size should be smaller than or equal to 2147483648 (Integer.MAX_VALUE) bytes");
     this.getAssignment = new CountDownLatch(argument.consumers);
     this.producerClosed = new AtomicInteger(argument.producers);
     this.producerMetrics = producerMetrics;
