@@ -3,14 +3,13 @@
 # =================================[help]=================================
 
 function showHelp() {
-  echo "Usage: grafana.sh [ COMMAND ]"
+  echo "Usage: ./start_grafana.sh [ COMMAND ]"
   echo "COMMAND: "
   echo "    start(default)                              create/start the Grafana docker instance"
   echo "    add_prom_source <user:passwd> <name> <url>  add new prometheus data source"
-  echo "    stop                                        stop the Grafana docker instance"
   echo "    help                                        show this dialog"
   echo "EXAMPLE: add new prometheus datasource"
-  echo "    ./grafana.sh add_prom_source MY_USERNAME:MY_PASSWORD Prometheus http://localhost:9090"
+  echo "    ./start_grafana.sh add_prom_source MY_USERNAME:MY_PASSWORD Prometheus http://localhost:9090"
 }
 
 # =================================[utility]=================================
@@ -70,10 +69,6 @@ fi
 
 # =================================[main]=================================
 
-function stop() {
-  docker stop $GRAFANA_CONTAINER_NAME
-}
-
 function main() {
   if [[ "$(is_grafana_running)" == "yes" ]]; then
     info Grafana is already running at "$(grafana_dashboard_http_url)"
@@ -100,8 +95,6 @@ if [[ "$@" == "" || "$1" == "start" ]]; then
   main
 elif [[ "$1" == "add_prom_source" ]]; then
   add_prometheus_datasource "$2" "$3" "$4"
-elif [[ "$1" == "stop" ]]; then
-  stop
 elif [[ "$1" == "help" ]]; then
   showHelp
 else

@@ -7,7 +7,6 @@ function showHelp() {
   echo "COMMAND: "
   echo "    start <kafka-broker-jmx-addresses> <node-exporter-addresses>    create/start the prometheus docker instance"
   echo "    refresh <kafka-broker-jmx-addresses> <node-exporter-addresses>  refresh and apply the prometheus config"
-  echo "    stop                                                            stop the prometheus container"
   echo "    help                                                            show this dialog"
 }
 
@@ -101,11 +100,6 @@ function refresh_config() {
   docker kill --signal="SIGHUP" "$container_name"
 }
 
-function stop() {
-  info "Stop prometheus"
-  docker stop "$container_name"
-}
-
 function main() {
   if [ "$(is_prometheus_running)" == "yes" ]; then
     info "Prometheus is already running" at "http://$address:$prometheus_port"
@@ -131,8 +125,8 @@ function main() {
   info "================================================="
   info "config file: $file"
   info "prometheus address: http://${address}:$prometheus_port"
-  info "command to run grafana at this host: ./docker/grafana.sh start"
-  info "command to add prometheus to grafana datasource: ./docker/grafana.sh add_prom_source <USERNAME>:<PASSWORD> Prometheus http://$address:$prometheus_port"
+  info "command to run grafana at this host: ./docker/start_grafana.sh start"
+  info "command to add prometheus to grafana datasource: ./docker/start_grafana.sh add_prom_source <USERNAME>:<PASSWORD> Prometheus http://$address:$prometheus_port"
   info "================================================="
 }
 
@@ -146,8 +140,6 @@ elif [[ "$1" == "refresh" ]] && [[ "$2" != "" ]]; then
   refresh_config "$2" "$3"
 elif [[ "$1" == "refresh" ]]; then
   refresh_config_from_file
-elif [[ "$1" == "stop" ]]; then
-  stop
 elif [[ "$1" == "help" ]]; then
   showHelp
 else

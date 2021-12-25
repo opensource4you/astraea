@@ -125,8 +125,8 @@ prometheus-9090
 [INFO] =================================================
 [INFO] config file: /tmp/prometheus-9090.yml
 [INFO] prometheus address: http://192.168.0.2:9090
-[INFO] command to run grafana at this host: ./docker/grafana.sh start
-[INFO] command to add prometheus to grafana datasource: ./docker/grafana.sh add_prom_source <USERNAME>:<PASSWORD> Prometheus http://192.168.0.2:9090
+[INFO] command to run grafana at this host: ./docker/start_grafana.sh start
+[INFO] command to add prometheus to grafana datasource: ./docker/start_grafana.sh add_prom_source <USERNAME>:<PASSWORD> Prometheus http://192.168.0.2:9090
 [INFO] =================================================
 ```
 
@@ -147,7 +147,7 @@ in conjunction with [Prometheus](#run-prometheus) to observe the test environmen
 This project offers a way to quickly create a Grafana container instance for **test purpose**.
 
 ```shell
-./docker/grafana.sh start
+./docker/start_grafana.sh start
 ```
 
 ```shell
@@ -164,7 +164,7 @@ the data source for your Grafana instance.
 The following command set up a Prometheus data source for the Grafana instance we previously created.
 
 ```shell
-./docker/grafana.sh add_prom_source <USERNAME>:<PASSWORD> Prometheus http://192.168.0.2:9090
+./docker/start_grafana.sh add_prom_source <USERNAME>:<PASSWORD> Prometheus http://192.168.0.2:9090
 ```
 ```json
 {
