@@ -25,7 +25,7 @@ import org.astraea.partitioner.nodeLoadMetric.NodeLoadClient;
  * <pre>{@code
  * KafkaProducer producer = new KafkaProducer(props);
  *
- * SmoothWeightPartitioner smoothWeightPartitioner = new DependencyClient(producer);
+ * SmoothWeightPartitioner smoothWeightPartitioner = Utils.partitionerOfProducer(producer);
  * dependencyClient.initializeDependency();
  * try{
  *     dependencyClient.beginDependency();
