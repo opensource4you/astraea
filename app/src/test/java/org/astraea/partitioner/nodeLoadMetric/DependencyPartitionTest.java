@@ -9,10 +9,10 @@ import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.serialization.ByteArraySerializer;
+import org.astraea.Utils;
 import org.astraea.consumer.Consumer;
 import org.astraea.consumer.Deserializer;
 import org.astraea.consumer.Header;
-import org.astraea.partitioner.smoothPartitioner.DependencyClient;
 import org.astraea.partitioner.smoothPartitioner.SmoothWeightPartitioner;
 import org.astraea.producer.Producer;
 import org.astraea.service.RequireBrokerCluster;
@@ -37,7 +37,7 @@ public class DependencyPartitionTest extends RequireBrokerCluster {
   }
 
   @Test
-  void testDependencyPartitioner() throws NoSuchFieldException, IllegalAccessException {
+  void testDependencyPartitioner() throws IllegalAccessException {
     admin.creator().topic(topicName).numberOfPartitions(10).create();
     var ps = initProConfig();
     var timestamp = System.currentTimeMillis() + 10;
@@ -47,9 +47,10 @@ public class DependencyPartitionTest extends RequireBrokerCluster {
         ps.entrySet().stream()
             .collect(Collectors.toMap(e -> e.getKey().toString(), Map.Entry::getValue));
     try (var producer = Producer.builder().configs(props).build()) {
-      var dependencyClient = new DependencyClient(producer.kafkaProducer());
-      dependencyClient.initializeDependency();
-      dependencyClient.beginDependency();
+      SmoothWeightPartitioner smoothWeightPartitioner =
+          Utils.partitionerOfProducer(producer.kafkaProducer());
+      smoothWeightPartitioner.initializeDependency();
+      smoothWeightPartitioner.beginDependency();
       var targetPartition = 0;
       var i = 0;
       while (i < 20) {
@@ -68,7 +69,7 @@ public class DependencyPartitionTest extends RequireBrokerCluster {
         Assertions.assertEquals(timestamp, metadata.timestamp());
         i++;
       }
-      dependencyClient.finishDependency();
+      smoothWeightPartitioner.finishDependency();
     } catch (ExecutionException | InterruptedException e) {
       e.printStackTrace();
     }

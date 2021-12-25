@@ -3,6 +3,7 @@ package org.astraea;
 import java.io.File;
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.lang.reflect.Field;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.nio.file.Files;
@@ -10,6 +11,8 @@ import java.time.Duration;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
+import org.apache.kafka.clients.producer.KafkaProducer;
+import org.astraea.partitioner.smoothPartitioner.SmoothWeightPartitioner;
 
 public final class Utils {
 
@@ -92,6 +95,34 @@ public final class Utils {
       }
     if (lastError != null) throw new RuntimeException(lastError);
     throw new RuntimeException("Timeout to wait procedure");
+  }
+
+  /**
+   * Get the field of the object.
+   *
+   * @param object reflected object.
+   * @param fieldName reflected field name.
+   * @return Required field.
+   */
+  public static Field reflectionField(Object object, String fieldName) {
+    try {
+      return object.getClass().getDeclaredField(fieldName);
+    } catch (NoSuchFieldException e) {
+      throw new IllegalArgumentException(e);
+    }
+  }
+
+  /**
+   * Get the partitioner of the producer.
+   *
+   * @param producer kafka producer.
+   * @return smoothWeightPartitioner in the producer.
+   */
+  public static SmoothWeightPartitioner partitionerOfProducer(KafkaProducer<?, ?> producer)
+      throws IllegalAccessException {
+    var field = Utils.reflectionField(producer, "partitioner");
+    field.setAccessible(true);
+    return (SmoothWeightPartitioner) field.get(producer);
   }
 
   public static int requirePositive(int value) {

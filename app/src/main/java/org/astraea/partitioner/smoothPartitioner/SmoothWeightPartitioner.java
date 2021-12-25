@@ -19,6 +19,21 @@ import org.astraea.partitioner.nodeLoadMetric.NodeLoadClient;
  * Based on the jmx metrics obtained from Kafka, it records the load status of the node over a
  * period of time. Predict the future status of each node through the poisson of the load status.
  * Finally, the result of poisson is used as the weight to perform smooth weighted RoundRobin.
+ *
+ * <p>SmoothWeightPartitioner also allows users to make producers send dependency data.
+ *
+ * <pre>{@code
+ * KafkaProducer producer = new KafkaProducer(props);
+ *
+ * SmoothWeightPartitioner smoothWeightPartitioner = new DependencyClient(producer);
+ * dependencyClient.initializeDependency();
+ * try{
+ *     dependencyClient.beginDependency();
+ *     producer.send();
+ * } finally{
+ *     dependencyClient.finishDependency();
+ * }
+ * }</pre>
  */
 public class SmoothWeightPartitioner implements Partitioner {
 
@@ -29,22 +44,22 @@ public class SmoothWeightPartitioner implements Partitioner {
   private Map<Integer, int[]> brokerHashMap = new HashMap<>();
 
   private NodeLoadClient nodeLoadClient;
-  private DependencyManager dependencyManager;
+  private final DependencyManager dependencyManager = new DependencyManager();
+  /**
+   * This parameter only works in dependency mode.And it will be specified when the dependency is
+   * executed for the first time, and no changes will be made afterwards.
+   */
   private int targetPartition;
 
   @Override
   public int partition(
       String topic, Object key, byte[] keyBytes, Object value, byte[] valueBytes, Cluster cluster) {
-    Map<Integer, Integer> overLoadCount = null;
+    Map<Integer, Integer> overLoadCount;
     var rand = new Random();
     switch (dependencyManager.currentState) {
       case Start_Dependency:
-        try {
-          overLoadCount = nodeLoadClient.nodesOverLoad(cluster);
-        } catch (UnknownHostException e) {
-          e.printStackTrace();
-        }
-        assert overLoadCount != null;
+        overLoadCount = overLoadCount(cluster);
+        Objects.requireNonNull(overLoadCount, "OverLoadCount should not be null.");
         var minOverLoadNode =
             overLoadCount.entrySet().stream().min(Map.Entry.comparingByValue()).get();
         var minOverLoadPartition = cluster.partitionsForNode(minOverLoadNode.getKey());
@@ -55,14 +70,10 @@ public class SmoothWeightPartitioner implements Partitioner {
       case IN_Dependency:
         return targetPartition;
       default:
-        try {
-          overLoadCount = nodeLoadClient.nodesOverLoad(cluster);
-        } catch (UnknownHostException e) {
-          e.printStackTrace();
-        }
+        overLoadCount = overLoadCount(cluster);
         var loadPoisson = new LoadPoisson();
 
-        assert overLoadCount != null;
+        Objects.requireNonNull(overLoadCount, "OverLoadCount should not be null.");
         brokerHashMap(loadPoisson.allPoisson(overLoadCount));
         AtomicReference<Map.Entry<Integer, int[]>> maxWeightServer = new AtomicReference<>();
         var allWeight = allNodesWeight();
@@ -75,7 +86,7 @@ public class SmoothWeightPartitioner implements Partitioner {
               }
               currentBrokerHashMap.put(nodeID, new int[] {weight[0], weight[1] + weight[0]});
             });
-        assert maxWeightServer.get() != null;
+        Objects.requireNonNull(maxWeightServer.get(), "MaxWeightServer should not be null.");
         currentBrokerHashMap.put(
             maxWeightServer.get().getKey(),
             new int[] {
@@ -113,7 +124,6 @@ public class SmoothWeightPartitioner implements Partitioner {
       Objects.requireNonNull(mapAddress, "You must configure jmx_servers correctly.");
 
       nodeLoadClient = new NodeLoadClient(mapAddress);
-      dependencyManager = new DependencyManager();
     } catch (IOException e) {
       throw new RuntimeException();
     }
@@ -160,6 +170,14 @@ public class SmoothWeightPartitioner implements Partitioner {
 
   public synchronized void finishDependency() {
     dependencyManager.finishDependency();
+  }
+
+  private Map<Integer, Integer> overLoadCount(Cluster cluster) {
+    try {
+      return nodeLoadClient.nodesOverLoad(cluster);
+    } catch (UnknownHostException e) {
+      throw new IllegalArgumentException(e);
+    }
   }
 
   /**
