@@ -49,7 +49,6 @@ public class DependencyPartitionTest extends RequireBrokerCluster {
     try (var producer = Producer.builder().configs(props).build()) {
       SmoothWeightPartitioner smoothWeightPartitioner =
           Utils.partitionerOfProducer(producer.kafkaProducer());
-      smoothWeightPartitioner.initializeDependency();
       smoothWeightPartitioner.beginDependency();
       var targetPartition = 0;
       var i = 0;

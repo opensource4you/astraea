@@ -26,7 +26,6 @@ import org.astraea.partitioner.nodeLoadMetric.NodeLoadClient;
  * KafkaProducer producer = new KafkaProducer(props);
  *
  * SmoothWeightPartitioner smoothWeightPartitioner = Utils.partitionerOfProducer(producer);
- * dependencyClient.initializeDependency();
  * try{
  *     dependencyClient.beginDependency();
  *     producer.send();
@@ -160,10 +159,6 @@ public class SmoothWeightPartitioner implements Partitioner {
     brokerHashMap.put(x, new int[] {0, y});
   }
 
-  public synchronized void initializeDependency() {
-    dependencyManager.initializeDependency();
-  }
-
   public synchronized void beginDependency() {
     dependencyManager.beginDependency();
   }
@@ -186,10 +181,6 @@ public class SmoothWeightPartitioner implements Partitioner {
   private static class DependencyManager {
     private volatile State currentState = State.UNINITIALIZED;
 
-    private synchronized void initializeDependency() {
-      transitionTo(State.READY);
-    }
-
     private synchronized void beginDependency() {
       transitionTo(State.Start_Dependency);
     }
@@ -200,7 +191,6 @@ public class SmoothWeightPartitioner implements Partitioner {
 
     private enum State {
       UNINITIALIZED,
-      READY,
       Start_Dependency,
       IN_Dependency,
       FATAL_ERROR;
@@ -209,11 +199,9 @@ public class SmoothWeightPartitioner implements Partitioner {
           DependencyManager.State source, DependencyManager.State target) {
         switch (target) {
           case UNINITIALIZED:
-            return source == READY || source == IN_Dependency;
-          case READY:
-            return source == UNINITIALIZED;
+            return source == Start_Dependency || source == IN_Dependency;
           case Start_Dependency:
-            return source == READY;
+            return source == UNINITIALIZED;
           case IN_Dependency:
             return source == Start_Dependency;
           default:
