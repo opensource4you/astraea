@@ -5,11 +5,12 @@ import com.beust.jcommander.ParameterException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
-import java.util.function.Supplier;
 import java.util.stream.IntStream;
 
 /** Randomly generate a long number with respect to some distribution */
-public interface Distribution extends Supplier<Long> {
+public interface Distribution {
+
+  long get();
 
   class DistributionConverter implements IStringConverter<Distribution> {
     @Override
@@ -27,7 +28,8 @@ public interface Distribution extends Supplier<Long> {
           if (args.length > 1) return zipfian(Integer.parseInt(args[1]));
           return zipfian(30);
         default:
-          throw new ParameterException("Unknown distribution \"" + name + "\".");
+          throw new ParameterException(
+              "Unknown distribution \"" + name + "\". use \"uniform\", \"latest\", \"zipfian\".");
       }
     }
   }

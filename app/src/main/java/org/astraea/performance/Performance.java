@@ -273,7 +273,8 @@ public class Performance {
 
     @Parameter(
         names = {"--key.distribution"},
-        description = "String: Distribution name. e.g. \"uniform\", \"zipfian\", \"latest\"",
+        description =
+            "String: Distribution name. Available distribution names: \"uniform\", \"zipfian\", \"latest\". Default: (No key)",
         converter = Distribution.DistributionConverter.class)
     Distribution distribution = null;
   }
