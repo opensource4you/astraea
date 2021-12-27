@@ -31,8 +31,7 @@ public class ArgumentUtil {
    * @param toolArgument An argument object that the user want.
    * @param args Command line arguments that are put into main function.
    */
-  public static <T> T
-  parseArgument(T toolArgument, String[] args) {
+  public static <T> T parseArgument(T toolArgument, String[] args) {
     JCommander jc = JCommander.newBuilder().addObject(toolArgument).build();
     jc.setUsageFormatter(new UnixStyleUsageFormatter(jc));
     try {

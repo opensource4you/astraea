@@ -10,38 +10,30 @@ import org.astraea.argument.BasicArgumentWithPropFile;
 
 public class ReplicaCollie {
   static class MigratorInfo {
-    Integer brokerIdA;
-    Integer brokerIdB;
-    String pathA;
-    String pathB;
+    Integer brokerSource;
+    Integer brokerSink;
+    String pathSource;
+    String pathSink;
   }
 
-  static class Parameters {
-    Set<String> topics;
-    Set<Integer> partitions;
-    Set<Integer> fromBrokers;
-    String path;
-    Set<Integer> targetBrokers;
-  }
-
-  static Parameters setParameters(TopicAdmin admin, Argument args) {
-    Parameters parameters = new Parameters();
-    parameters.topics = args.topics.isEmpty() ? admin.topicNames() : args.topics;
-    parameters.fromBrokers = args.fromBrokers;
-    parameters.partitions = args.partitions;
-    parameters.path = args.path.isEmpty() ? null : args.path.iterator().next();
+  static Argument setArguments(TopicAdmin admin, Argument args) {
+    Argument argument = new Argument();
+    argument.topics = args.topics.isEmpty() ? admin.topicNames() : args.topics;
+    argument.fromBrokers = args.fromBrokers;
+    argument.partitions = args.partitions;
+    argument.path = args.path.isEmpty() ? null : args.path;
     if (args.partitions.isEmpty() && args.path.isEmpty() && args.toBrokers.isEmpty()) {
-      parameters.targetBrokers =
+      argument.toBrokers =
           admin.brokerIds().stream()
               .filter(b -> !args.fromBrokers.contains(b))
               .collect(Collectors.toSet());
     } else {
-      parameters.targetBrokers = args.toBrokers.isEmpty() ? args.fromBrokers : args.toBrokers;
+      argument.toBrokers = args.toBrokers.isEmpty() ? args.fromBrokers : args.toBrokers;
     }
-    return parameters;
+    return argument;
   }
 
-  static void illegalArgs(TopicAdmin admin, Argument args) {
+  static void checkArgs(TopicAdmin admin, Argument args) {
     var topics = args.topics.isEmpty() ? admin.topicNames() : args.topics;
     var path = args.path.isEmpty() ? null : args.path.iterator().next();
     var targetBrokers = args.toBrokers.isEmpty() ? args.fromBrokers : args.toBrokers;
@@ -78,18 +70,18 @@ public class ReplicaCollie {
     }
   }
 
-  static TreeMap<TopicPartition, Map.Entry<Integer, Integer>> migratorBrokerCheck(
-      TopicAdmin admin, Parameters parameters) {
-    TreeMap<TopicPartition, Map.Entry<Integer, Integer>> brokerMigrator =
+  static TreeMap<TopicPartition, Map.Entry<Integer, Integer>> checkMigratorBroker(
+      TopicAdmin admin, Argument argument) {
+    TreeMap<TopicPartition, Map.Entry<Integer, Integer>> brokerMigrate =
         new TreeMap<>(
             Comparator.comparing(TopicPartition::topic).thenComparing(TopicPartition::partition));
-    admin.replicas(parameters.topics).entrySet().stream()
+    admin.replicas(argument.topics).entrySet().stream()
         .filter(
             tp ->
-                ((parameters.partitions.contains(tp.getKey().partition()))
-                        || parameters.partitions.isEmpty())
-                    && parameters.fromBrokers.contains(tp.getValue().get(0).broker())
-                    && !parameters.fromBrokers.containsAll(parameters.targetBrokers))
+                ((argument.partitions.contains(tp.getKey().partition()))
+                        || argument.partitions.isEmpty())
+                    && argument.fromBrokers.contains(tp.getValue().get(0).broker())
+                    && !argument.fromBrokers.containsAll(argument.toBrokers))
         .collect(Collectors.toSet())
         .forEach(
             (tp) -> {
@@ -97,141 +89,168 @@ public class ReplicaCollie {
                   tp.getValue().stream().map(Replica::broker).collect(Collectors.toSet());
               var keptBrokers =
                   currentBrokers.stream()
-                      .filter(i -> !parameters.fromBrokers.contains(i))
+                      .filter(i -> !argument.fromBrokers.contains(i))
                       .collect(Collectors.toSet());
               var numberOfMigratedReplicas = currentBrokers.size() - keptBrokers.size();
               if (numberOfMigratedReplicas > 0) {
-                brokerMigrator.put(
+                brokerMigrate.put(
                     tp.getKey(),
                     Map.entry(
-                        currentBrokers.iterator().next(),
-                        parameters.targetBrokers.iterator().next()));
+                        currentBrokers.iterator().next(), argument.toBrokers.iterator().next()));
               } else {
-                brokerMigrator.put(
+                brokerMigrate.put(
                     tp.getKey(),
                     Map.entry(currentBrokers.iterator().next(), currentBrokers.iterator().next()));
               }
             });
-    return brokerMigrator;
+    return brokerMigrate;
   }
 
-  static TreeMap<TopicPartition, Map.Entry<String, String>> migratorPathCheck(
-      TopicAdmin admin, Parameters parameters) {
-    TreeMap<TopicPartition, Map.Entry<String, String>> partitionMigrator =
+  static TreeMap<TopicPartition, Map.Entry<String, String>> checkMigratorPath(
+      TopicAdmin admin, Argument argument) {
+    TreeMap<TopicPartition, Map.Entry<String, String>> partitionMigrate =
         new TreeMap<>(
             Comparator.comparing(TopicPartition::topic).thenComparing(TopicPartition::partition));
-    admin.replicas(parameters.topics).entrySet().stream()
+    admin.replicas(argument.topics).entrySet().stream()
         .filter(
             t ->
-                parameters.fromBrokers.contains(t.getValue().get(0).broker())
-                    && parameters.topics.contains(t.getKey().topic())
-                    && ((parameters.partitions.isEmpty())
-                        || parameters.partitions.contains(t.getKey().partition())))
+                argument.fromBrokers.contains(t.getValue().get(0).broker())
+                    && argument.topics.contains(t.getKey().topic())
+                    && ((argument.partitions.isEmpty())
+                        || argument.partitions.contains(t.getKey().partition())))
         .collect(Collectors.toList())
         .forEach(
             (tp) -> {
               var currentPath = Set.of(tp.getValue().get(0).path());
-              if (parameters.path != null) {
-                if (!currentPath.iterator().next().equals(parameters.path))
-                  partitionMigrator.put(
-                      tp.getKey(), Map.entry(currentPath.iterator().next(), parameters.path));
+              if (argument.path != null) {
+                if (!currentPath.iterator().next().equals(argument.path.iterator().next()))
+                  partitionMigrate.put(
+                      tp.getKey(),
+                      Map.entry(currentPath.iterator().next(), argument.path.iterator().next()));
               } else {
-                if (parameters.fromBrokers.contains(parameters.targetBrokers.iterator().next())) {
-                  partitionMigrator.put(
+                if (argument.fromBrokers.contains(argument.toBrokers.iterator().next())) {
+                  partitionMigrate.put(
                       tp.getKey(),
                       Map.entry(
                           currentPath.iterator().next(),
                           admin
-                              .brokerFolders(parameters.targetBrokers)
-                              .get(parameters.targetBrokers.iterator().next())
+                              .brokerFolders(argument.toBrokers)
+                              .get(argument.toBrokers.iterator().next())
                               .stream()
                               .filter(p -> !currentPath.contains(p))
                               .collect(Collectors.toSet())
                               .iterator()
                               .next()));
                 } else {
-                  partitionMigrator.put(
+                  partitionMigrate.put(
                       tp.getKey(), Map.entry(currentPath.iterator().next(), "unknown"));
                 }
               }
             });
-    return partitionMigrator;
+    return partitionMigrate;
   }
 
-  static Map<TopicPartition, MigratorInfo> execute(TopicAdmin admin, Argument args) {
-    illegalArgs(admin, args);
-    Parameters parameters = setParameters(admin, args);
-    Map<TopicPartition, MigratorInfo> result =
-        new TreeMap<>(
-            Comparator.comparing(TopicPartition::topic).thenComparing(TopicPartition::partition));
-    var brokerMigrator = migratorBrokerCheck(admin, parameters);
-    var partitionMigrator = migratorPathCheck(admin, parameters);
-
-    brokerMigrator.forEach(
+  static void brokerMigrator(
+      TreeMap<TopicPartition, Map.Entry<Integer, Integer>> brokerMigrate, TopicAdmin admin) {
+    brokerMigrate.forEach(
         (tp, assignments) -> {
           if (!assignments.getKey().equals(assignments.getValue())) {
-            if (!args.verify)
-              admin
-                  .migrator()
-                  .partition(tp.topic(), tp.partition())
-                  .moveTo(Set.of(assignments.getValue()));
-            if (!partitionMigrator.isEmpty()) {
+            admin
+                .migrator()
+                .partition(tp.topic(), tp.partition())
+                .moveTo(Set.of(assignments.getValue()));
+          }
+        });
+  }
+
+  static void partitionMigrator(
+      TreeMap<TopicPartition, Map.Entry<String, String>> partitionMigrate,
+      TopicAdmin admin,
+      Integer broker) {
+    partitionMigrate.forEach(
+        (tp, assignments) -> {
+          admin
+              .migrator()
+              .partition(tp.topic(), tp.partition())
+              .moveTo(Map.of(broker, assignments.getValue()));
+        });
+  }
+
+  static TreeMap<TopicPartition, MigratorInfo> getResult(
+      TreeMap<TopicPartition, Map.Entry<Integer, Integer>> brokerMigrate,
+      TreeMap<TopicPartition, Map.Entry<String, String>> partitionMigrate,
+      TopicAdmin admin,
+      Argument argument) {
+    var result =
+        new TreeMap<TopicPartition, MigratorInfo>(
+            Comparator.comparing(TopicPartition::topic).thenComparing(TopicPartition::partition));
+    brokerMigrate.forEach(
+        (tp, assignments) -> {
+          if (!assignments.getKey().equals(assignments.getValue())) {
+            if (!partitionMigrate.isEmpty()) {
               MigratorInfo migratorInfo = new MigratorInfo();
-              migratorInfo.brokerIdA = assignments.getKey();
-              migratorInfo.brokerIdB = assignments.getValue();
-              migratorInfo.pathA = partitionMigrator.get(tp).getKey();
-              migratorInfo.pathB = partitionMigrator.get(tp).getValue();
+              migratorInfo.brokerSource = assignments.getKey();
+              migratorInfo.brokerSink = assignments.getValue();
+              migratorInfo.pathSource = partitionMigrate.get(tp).getKey();
+              migratorInfo.pathSink = partitionMigrate.get(tp).getValue();
               result.put(tp, migratorInfo);
             }
           }
         });
-    partitionMigrator.forEach(
+    partitionMigrate.forEach(
         (tp, assignments) -> {
-          if (!args.verify)
-            admin
-                .migrator()
-                .partition(tp.topic(), tp.partition())
-                .moveTo(Map.of(parameters.targetBrokers.iterator().next(), assignments.getValue()));
           int fromBroker, toBroker;
-          if (parameters.fromBrokers.containsAll(parameters.targetBrokers)) {
-            fromBroker = parameters.fromBrokers.iterator().next();
+          if (argument.fromBrokers.containsAll(argument.toBrokers)) {
+            fromBroker = argument.fromBrokers.iterator().next();
             toBroker = fromBroker;
           } else {
-            fromBroker = brokerMigrator.get(tp).getKey();
-            toBroker = brokerMigrator.get(tp).getValue();
+            fromBroker = brokerMigrate.get(tp).getKey();
+            toBroker = brokerMigrate.get(tp).getValue();
           }
           if (!result.containsKey(tp)) {
             MigratorInfo migratorInfo = new MigratorInfo();
-            migratorInfo.brokerIdA = fromBroker;
-            migratorInfo.brokerIdB = toBroker;
-            migratorInfo.pathA = assignments.getKey();
-            migratorInfo.pathB = assignments.getValue();
+            migratorInfo.brokerSource = fromBroker;
+            migratorInfo.brokerSink = toBroker;
+            migratorInfo.pathSource = assignments.getKey();
+            migratorInfo.pathSink = assignments.getValue();
             result.put(tp, migratorInfo);
           } else {
             if (assignments.getValue().equals("unknown")) {
               var newPath =
-                  admin.replicas(parameters.topics).get(tp).size() == 2
-                      ? admin.replicas(parameters.topics).get(tp).stream()
+                  admin.replicas(argument.topics).get(tp).size() == 2
+                      ? admin.replicas(argument.topics).get(tp).stream()
                           .filter(i -> !i.path().contains(assignments.getKey()))
                           .collect(Collectors.toSet())
                           .iterator()
                           .next()
                           .path()
-                      : admin.replicas(parameters.topics).get(tp).get(0).path();
+                      : admin.replicas(argument.topics).get(tp).get(0).path();
               if (assignments.getKey().equals(newPath)) {
-                if (!args.verify) result.remove(tp);
+                if (!argument.verify) result.remove(tp);
               } else {
                 MigratorInfo migratorInfo = new MigratorInfo();
-                migratorInfo.brokerIdA = fromBroker;
-                migratorInfo.brokerIdB = toBroker;
-                migratorInfo.pathA = assignments.getKey();
-                migratorInfo.pathB = newPath;
+                migratorInfo.brokerSource = fromBroker;
+                migratorInfo.brokerSink = toBroker;
+                migratorInfo.pathSource = assignments.getKey();
+                migratorInfo.pathSink = newPath;
                 result.put(tp, migratorInfo);
               }
             }
           }
         });
     return result;
+  }
+
+  static Map<TopicPartition, MigratorInfo> execute(TopicAdmin admin, Argument args) {
+    checkArgs(admin, args);
+    Argument argument = setArguments(admin, args);
+    var brokerMigrate = checkMigratorBroker(admin, argument);
+    var partitionMigrate = checkMigratorPath(admin, argument);
+    if (!args.verify) {
+      brokerMigrator(brokerMigrate, admin);
+      partitionMigrator(partitionMigrate, admin, argument.toBrokers.iterator().next());
+    }
+    return getResult(brokerMigrate, partitionMigrate, admin, argument);
   }
 
   public static void main(String[] args) throws IOException {
@@ -246,13 +265,13 @@ public class ReplicaCollie {
                           + ", partition: "
                           + tp.partition()
                           + " before: "
-                          + assignments.brokerIdA
+                          + assignments.brokerSource
                           + ","
-                          + assignments.pathA
+                          + assignments.pathSource
                           + " after: "
-                          + assignments.brokerIdB
+                          + assignments.brokerSink
                           + ","
-                          + assignments.pathB));
+                          + assignments.pathSink));
     }
   }
 
