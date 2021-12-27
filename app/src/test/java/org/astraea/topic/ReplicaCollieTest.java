@@ -3,7 +3,10 @@ package org.astraea.topic;
 import static org.junit.jupiter.api.condition.OS.WINDOWS;
 
 import java.io.IOException;
+import java.util.Comparator;
+import java.util.Map;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import org.apache.kafka.common.TopicPartition;
@@ -25,6 +28,80 @@ public class ReplicaCollieTest extends RequireBrokerCluster {
   @DisabledOnOs(WINDOWS)
   void testExecute() throws IOException, InterruptedException {
     test(false);
+  }
+
+  @Test
+  @DisabledOnOs(WINDOWS)
+  void testBrokerMigrator() throws IOException, InterruptedException {
+    var topicName = "ReplicaCollieTest";
+    try (var topicAdmin = TopicAdmin.of(bootstrapServers())) {
+      topicAdmin
+          .creator()
+          .topic(topicName)
+          .numberOfPartitions(1)
+          .numberOfReplicas((short) 1)
+          .create();
+      // wait for topic creation
+      TimeUnit.SECONDS.sleep(5);
+      var partitionReplicas = topicAdmin.replicas(Set.of(topicName));
+      Assertions.assertEquals(1, partitionReplicas.size());
+      var brokerSource = partitionReplicas.get(new TopicPartition(topicName, 0)).get(0).broker();
+      var brokerSink =
+          topicAdmin.brokerIds().stream().filter(b -> b != brokerSource).iterator().next();
+      TreeMap<TopicPartition, Map.Entry<Integer, Integer>> brokerMigrate =
+          new TreeMap<>(
+              Comparator.comparing(TopicPartition::topic).thenComparing(TopicPartition::partition));
+      brokerMigrate.put(new TopicPartition(topicName, 0), Map.entry(brokerSource, brokerSink));
+      Assertions.assertNotEquals(brokerSource, brokerSink);
+      ReplicaCollie.brokerMigrator(brokerMigrate, topicAdmin);
+      Utils.waitFor(
+          () ->
+              topicAdmin
+                      .replicas(Set.of(topicName))
+                      .get(new TopicPartition(topicName, 0))
+                      .get(0)
+                      .broker()
+                  == brokerSink);
+    }
+  }
+
+  @Test
+  @DisabledOnOs(WINDOWS)
+  void testPathMigrator() throws IOException, InterruptedException {
+    var topicName = "ReplicaCollieTest";
+    try (var topicAdmin = TopicAdmin.of(bootstrapServers())) {
+      topicAdmin
+          .creator()
+          .topic(topicName)
+          .numberOfPartitions(1)
+          .numberOfReplicas((short) 1)
+          .create();
+      // wait for topic creation
+      TimeUnit.SECONDS.sleep(5);
+      var partitionReplicas = topicAdmin.replicas(Set.of(topicName));
+      Assertions.assertEquals(1, partitionReplicas.size());
+      var brokerSource = partitionReplicas.get(new TopicPartition(topicName, 0)).get(0).broker();
+      var pathSource = partitionReplicas.get(new TopicPartition(topicName, 0)).get(0).path();
+      var pathSink =
+          topicAdmin.brokerFolders(Set.of(brokerSource)).get(brokerSource).stream()
+              .filter(p -> !p.equals(pathSource))
+              .iterator()
+              .next();
+      TreeMap<TopicPartition, Map.Entry<String, String>> pathMigrate =
+          new TreeMap<>(
+              Comparator.comparing(TopicPartition::topic).thenComparing(TopicPartition::partition));
+      pathMigrate.put(new TopicPartition(topicName, 0), Map.entry(pathSource, pathSink));
+      Assertions.assertNotEquals(pathSource, pathSink);
+      ReplicaCollie.pathMigrator(pathMigrate, topicAdmin, brokerSource);
+      Utils.waitFor(
+          () ->
+              topicAdmin
+                  .replicas(Set.of(topicName))
+                  .get(new TopicPartition(topicName, 0))
+                  .get(0)
+                  .path()
+                  .equals(pathSink));
+    }
   }
 
   private void test(boolean verify) throws IOException, InterruptedException {
@@ -79,7 +156,7 @@ public class ReplicaCollieTest extends RequireBrokerCluster {
               for (var index = 0; index != rs.size(); ++index)
                 Assertions.assertEquals(rs.get(index), currentRs.get(index));
             });
-        Assertions.assertEquals(targetBroker, assignment.brokerSource);
+        Assertions.assertEquals(targetBroker, assignment.brokerSink);
         Assertions.assertEquals(targetPath, assignment.pathSink);
       } else {
         Utils.waitFor(

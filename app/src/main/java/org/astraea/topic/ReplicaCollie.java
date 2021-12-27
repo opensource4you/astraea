@@ -22,7 +22,10 @@ public class ReplicaCollie {
     argument.fromBrokers = args.fromBrokers;
     argument.partitions = args.partitions;
     argument.path = args.path.isEmpty() ? null : args.path;
-    if (args.partitions.isEmpty() && args.path.isEmpty() && args.toBrokers.isEmpty()) {
+    if (args.partitions.isEmpty()
+        && args.path.isEmpty()
+        && args.toBrokers
+            .isEmpty()) { // 若未同時指定partitions,搬移路徑與的的broker,則將該broker指定的topics搬移至其他broker(若未指定則包含該broker的所有topics)
       argument.toBrokers =
           admin.brokerIds().stream()
               .filter(b -> !args.fromBrokers.contains(b))
@@ -108,7 +111,7 @@ public class ReplicaCollie {
 
   static TreeMap<TopicPartition, Map.Entry<String, String>> checkMigratorPath(
       TopicAdmin admin, Argument argument) {
-    TreeMap<TopicPartition, Map.Entry<String, String>> partitionMigrate =
+    TreeMap<TopicPartition, Map.Entry<String, String>> pathMigrate =
         new TreeMap<>(
             Comparator.comparing(TopicPartition::topic).thenComparing(TopicPartition::partition));
     admin.replicas(argument.topics).entrySet().stream()
@@ -124,12 +127,12 @@ public class ReplicaCollie {
               var currentPath = Set.of(tp.getValue().get(0).path());
               if (argument.path != null) {
                 if (!currentPath.iterator().next().equals(argument.path.iterator().next()))
-                  partitionMigrate.put(
+                  pathMigrate.put(
                       tp.getKey(),
                       Map.entry(currentPath.iterator().next(), argument.path.iterator().next()));
               } else {
                 if (argument.fromBrokers.contains(argument.toBrokers.iterator().next())) {
-                  partitionMigrate.put(
+                  pathMigrate.put(
                       tp.getKey(),
                       Map.entry(
                           currentPath.iterator().next(),
@@ -142,12 +145,11 @@ public class ReplicaCollie {
                               .iterator()
                               .next()));
                 } else {
-                  partitionMigrate.put(
-                      tp.getKey(), Map.entry(currentPath.iterator().next(), "unknown"));
+                  pathMigrate.put(tp.getKey(), Map.entry(currentPath.iterator().next(), "unknown"));
                 }
               }
             });
-    return partitionMigrate;
+    return pathMigrate;
   }
 
   static void brokerMigrator(
@@ -163,11 +165,11 @@ public class ReplicaCollie {
         });
   }
 
-  static void partitionMigrator(
-      TreeMap<TopicPartition, Map.Entry<String, String>> partitionMigrate,
+  static void pathMigrator(
+      TreeMap<TopicPartition, Map.Entry<String, String>> pathMigrate,
       TopicAdmin admin,
       Integer broker) {
-    partitionMigrate.forEach(
+    pathMigrate.forEach(
         (tp, assignments) -> {
           admin
               .migrator()
@@ -178,7 +180,7 @@ public class ReplicaCollie {
 
   static TreeMap<TopicPartition, MigratorInfo> getResult(
       TreeMap<TopicPartition, Map.Entry<Integer, Integer>> brokerMigrate,
-      TreeMap<TopicPartition, Map.Entry<String, String>> partitionMigrate,
+      TreeMap<TopicPartition, Map.Entry<String, String>> pathMigrate,
       TopicAdmin admin,
       Argument argument) {
     var result =
@@ -187,17 +189,17 @@ public class ReplicaCollie {
     brokerMigrate.forEach(
         (tp, assignments) -> {
           if (!assignments.getKey().equals(assignments.getValue())) {
-            if (!partitionMigrate.isEmpty()) {
+            if (!pathMigrate.isEmpty()) {
               MigratorInfo migratorInfo = new MigratorInfo();
               migratorInfo.brokerSource = assignments.getKey();
               migratorInfo.brokerSink = assignments.getValue();
-              migratorInfo.pathSource = partitionMigrate.get(tp).getKey();
-              migratorInfo.pathSink = partitionMigrate.get(tp).getValue();
+              migratorInfo.pathSource = pathMigrate.get(tp).getKey();
+              migratorInfo.pathSink = pathMigrate.get(tp).getValue();
               result.put(tp, migratorInfo);
             }
           }
         });
-    partitionMigrate.forEach(
+    pathMigrate.forEach(
         (tp, assignments) -> {
           int fromBroker, toBroker;
           if (argument.fromBrokers.containsAll(argument.toBrokers)) {
@@ -245,12 +247,12 @@ public class ReplicaCollie {
     checkArgs(admin, args);
     Argument argument = setArguments(admin, args);
     var brokerMigrate = checkMigratorBroker(admin, argument);
-    var partitionMigrate = checkMigratorPath(admin, argument);
+    var pathMigrate = checkMigratorPath(admin, argument);
     if (!args.verify) {
       brokerMigrator(brokerMigrate, admin);
-      partitionMigrator(partitionMigrate, admin, argument.toBrokers.iterator().next());
+      pathMigrator(pathMigrate, admin, argument.toBrokers.iterator().next());
     }
-    return getResult(brokerMigrate, partitionMigrate, admin, argument);
+    return getResult(brokerMigrate, pathMigrate, admin, argument);
   }
 
   public static void main(String[] args) throws IOException {
