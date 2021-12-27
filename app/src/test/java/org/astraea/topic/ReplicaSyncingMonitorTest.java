@@ -6,6 +6,7 @@ import static org.mockito.Mockito.*;
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
 import java.time.Duration;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -17,6 +18,7 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.kafka.common.TopicPartition;
 import org.astraea.argument.ArgumentUtil;
+import org.astraea.utils.DataUnit;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -311,13 +313,16 @@ class ReplicaSyncingMonitorTest {
       double expectedProgress,
       int expectedRemainingTime) {
     // act
-    var dataRate =
-        new ReplicaSyncingMonitor.DataRate(
-            leaderSize, previousSize, currentSize, Duration.ofMillis(interval));
+    var progress =
+        new ReplicaSyncingMonitor.ProgressInfo(
+            DataUnit.Byte.of(leaderSize),
+            DataUnit.Byte.of(previousSize),
+            DataUnit.Byte.of(currentSize),
+            Duration.ofMillis(interval));
 
     // assert
-    assertEquals(expectedDataRatePerSec, dataRate.dataRatePerSec());
-    assertEquals(expectedProgress, dataRate.progress());
-    assertEquals(Duration.ofSeconds(expectedRemainingTime), dataRate.estimateFinishTime());
+    assertEquals(expectedDataRatePerSec, progress.dataRate(DataUnit.Byte, ChronoUnit.SECONDS));
+    assertEquals(expectedProgress, progress.progress());
+    assertEquals(Duration.ofSeconds(expectedRemainingTime), progress.estimateFinishTime());
   }
 }

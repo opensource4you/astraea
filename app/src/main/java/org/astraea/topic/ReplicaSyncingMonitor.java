@@ -1,10 +1,10 @@
 package org.astraea.topic;
 
 import com.beust.jcommander.Parameter;
-import java.io.IOException;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
@@ -15,6 +15,9 @@ import org.apache.kafka.common.TopicPartitionReplica;
 import org.astraea.Utils;
 import org.astraea.argument.ArgumentUtil;
 import org.astraea.argument.BasicArgumentWithPropFile;
+import org.astraea.utils.DataRate;
+import org.astraea.utils.DataSize;
+import org.astraea.utils.DataUnit;
 
 public class ReplicaSyncingMonitor {
 
@@ -22,8 +25,6 @@ public class ReplicaSyncingMonitor {
     Argument argument = ArgumentUtil.parseArgument(new Argument(), args);
     try (TopicAdmin topicAdmin = TopicAdmin.of(argument.props())) {
       execute(topicAdmin, argument);
-    } catch (IOException ioException) {
-      ioException.printStackTrace();
     }
   }
 
@@ -99,11 +100,12 @@ public class ReplicaSyncingMonitor {
                                   entry ->
                                       Map.entry(
                                           entry.getValue(),
-                                          new DataRate(
-                                              leaderReplica.size(),
-                                              previousCheckedSize.getOrDefault(
-                                                  entry.getKey(), entry.getValue().size()),
-                                              entry.getValue().size(),
+                                          new ProgressInfo(
+                                              DataUnit.Byte.of(leaderReplica.size()),
+                                              DataUnit.Byte.of(
+                                                  previousCheckedSize.getOrDefault(
+                                                      entry.getKey(), entry.getValue().size())),
+                                              DataUnit.Byte.of(entry.getValue().size()),
                                               argument.interval)))
                               .map(
                                   entry ->
@@ -172,7 +174,7 @@ public class ReplicaSyncingMonitor {
     }
   }
 
-  private static String formatString(Replica replica, DataRate value) {
+  private static String formatString(Replica replica, ProgressInfo value) {
     return Stream.of(
             Optional.ofNullable(value.progressBar()),
             Optional.ofNullable(replica.leader() ? null : value.dataRateString()),
@@ -193,14 +195,15 @@ public class ReplicaSyncingMonitor {
         .collect(Collectors.toSet());
   }
 
-  static class DataRate {
-    public final long leaderSize;
-    public final long previousSize;
-    public final long currentSize;
-    public final Duration interval;
+  static class ProgressInfo {
+    private final DataSize leaderSize;
+    private final DataSize previousSize;
+    private final DataSize currentSize;
+    private final Duration interval;
 
-    DataRate(long leaderSize, long previousSize, long currentSize, Duration interval) {
-      if (previousSize > currentSize) throw new IllegalArgumentException();
+    ProgressInfo(
+        DataSize leaderSize, DataSize previousSize, DataSize currentSize, Duration interval) {
+      if (previousSize.greaterThan(leaderSize)) throw new IllegalArgumentException();
       this.leaderSize = leaderSize;
       this.previousSize = previousSize;
       this.currentSize = currentSize;
@@ -208,7 +211,9 @@ public class ReplicaSyncingMonitor {
     }
 
     public double progress() {
-      return ((double) currentSize) / leaderSize * 100.0;
+      var currentBit = currentSize.measurement(DataUnit.Bit).doubleValue();
+      var leaderBit = leaderSize.measurement(DataUnit.Bit).doubleValue();
+      return currentBit / leaderBit * 100.0;
     }
 
     public String progressBar() {
@@ -224,8 +229,16 @@ public class ReplicaSyncingMonitor {
           progress());
     }
 
-    public double dataRatePerSec() {
-      return (double) (currentSize - previousSize) / ((interval.toNanos() / 1e9));
+    public DataRate dataRate() {
+      return currentSize.subtract(previousSize).dataRate(interval);
+    }
+
+    public double dataRate(DataUnit dataUnit, ChronoUnit chronoUnit) {
+      return dataRate().toBigDecimal(dataUnit, chronoUnit).doubleValue();
+    }
+
+    public boolean isStalled() {
+      return currentSize.equals(previousSize);
     }
 
     /**
@@ -235,8 +248,14 @@ public class ReplicaSyncingMonitor {
      *     stalled.
      */
     public Duration estimateFinishTime() {
-      if (dataRatePerSec() == 0) return Duration.ofSeconds(-1);
-      return Duration.ofSeconds((long) ((leaderSize - currentSize) / dataRatePerSec()));
+      if (isStalled()) return Duration.ofSeconds(-1);
+      else {
+        final double leaderByte = leaderSize.measurement(DataUnit.Byte).doubleValue();
+        final double currentByte = currentSize.measurement(DataUnit.Byte).doubleValue();
+        final double estimateFinishTime =
+            ((leaderByte - currentByte) / dataRate(DataUnit.Byte, ChronoUnit.SECONDS));
+        return Duration.ofSeconds((long) estimateFinishTime);
+      }
     }
 
     public String estimateFinishTimeString() {
@@ -255,21 +274,12 @@ public class ReplicaSyncingMonitor {
     }
 
     public String dataRateString() {
-      final double sizeProgress = dataRatePerSec();
-      final long TB = 1024L * 1024L * 1024L * 1024L;
-      final long GB = 1024L * 1024L * 1024L;
-      final long MB = 1024L * 1024L;
-      final long KB = 1024L;
-      if (sizeProgress > TB) return String.format("%.2f TB/s", sizeProgress / TB);
-      else if (sizeProgress > GB) return String.format("%.2f GB/s", sizeProgress / GB);
-      else if (sizeProgress > MB) return String.format("%.2f MB/s", sizeProgress / MB);
-      else if (sizeProgress > KB) return String.format("%.2f KB/s", sizeProgress / KB);
-      else return String.format("%.2f B/s", sizeProgress);
+      return dataRate().toString(ChronoUnit.SECONDS);
     }
 
     @Override
     public String toString() {
-      if (estimateFinishTime().isZero() && currentSize == previousSize) return dataRateString();
+      if (estimateFinishTime().isZero() && isStalled()) return dataRateString();
       else return String.format("%s (%s)", dataRateString(), estimateFinishTimeString());
     }
   }

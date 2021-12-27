@@ -47,7 +47,7 @@ run ./docker/start_broker.sh zookeeper.connect=192.168.50.178:17228 to join kafk
 =================================================
 ```
 
-You can define `ZOOKEEPER_VERSION` to change the binary version.
+You can define `VERSION` to change the binary version.
 
 ### Run Kafka Broker
 
@@ -72,9 +72,9 @@ broker id: 677
 3. `exporter address` is the address of prometheus exporter.
 
 There are 4 useful ENVs which can change JVM/container configuration.
-1. KAFKA_VERSION -> define the kafka version
-2. KAFKA_REVISION -> define the revision of kafka source code. If this is defined, it will run distribution based on the source code
-3. KAFKA_HEAP_OPTS -> define JVM memory options
+1. VERSION -> define the kafka version
+2. REVISION -> define the revision of kafka source code. If this is defined, it will run distribution based on the source code
+3. HEAP_OPTS -> define JVM memory options
 4. DATA_FOLDERS -> define the host folders used by broker. You should define it if you want to keep data after terminating container
 
 ### Run Prometheus
@@ -115,9 +115,12 @@ Run the benchmark from source
 4. --replicas: topic config when creating new topic. Default: 1
 5. --consumers: the number of consumers (threads). Default: 1
 6. --producers: the number of producers (threads). Default: 1
-7. --records: the total number of records sent by the producers. Default: 1000
-8. --record.size: the record size in byte. Default: 1024 byte
-9. --prop.file: the path to property file.
+7. --run.until: the total number of records sent by the producers. Default: 1000records
+8. --record.size: the (bound of) record size in byte. Default: 1 KiB
+9. --fixed.size: the flag to let all records have the same size
+10. --prop.file: the path to property file.
+11. --partitioner: the partitioner to use in producers
+12. --jmx.servers: the jmx server addresses of the brokers 
 
 ---
 

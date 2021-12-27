@@ -7,9 +7,8 @@ import java.io.IOException;
 import java.time.Duration;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -23,6 +22,8 @@ import org.astraea.concurrent.ThreadPool;
 import org.astraea.consumer.Consumer;
 import org.astraea.producer.Producer;
 import org.astraea.topic.TopicAdmin;
+import org.astraea.utils.DataSize;
+import org.astraea.utils.DataUnit;
 
 /**
  * Performance benchmark which includes
@@ -77,11 +78,9 @@ public class Performance {
             .mapToObj(i -> new Metrics())
             .collect(Collectors.toUnmodifiableList());
 
-    var consumerRecords = new AtomicLong(param.records);
-    var producerRecords = new AtomicLong(param.records);
-    var tracker = new Tracker(producerMetrics, consumerMetrics, param.records);
+    var manager = new Manager(param, producerMetrics, consumerMetrics);
+    var tracker = new Tracker(producerMetrics, consumerMetrics, manager);
     var groupId = "groupId-" + System.currentTimeMillis();
-    var getAssignment = new CountDownLatch(param.consumers);
     try (ThreadPool threadPool =
         ThreadPool.builder()
             .executors(
@@ -94,10 +93,11 @@ public class Performance {
                                     .topics(Set.of(param.topic))
                                     .groupId(groupId)
                                     .configs(param.props())
-                                    .consumerRebalanceListener(ignore -> getAssignment.countDown())
+                                    .consumerRebalanceListener(
+                                        ignore -> manager.countDownGetAssignment())
                                     .build(),
                                 consumerMetrics.get(i),
-                                consumerRecords))
+                                manager))
                     .collect(Collectors.toUnmodifiableList()))
             .executors(
                 IntStream.range(0, param.producers)
@@ -110,8 +110,7 @@ public class Performance {
                                     .build(),
                                 param,
                                 producerMetrics.get(i),
-                                producerRecords,
-                                getAssignment))
+                                manager))
                     .collect(Collectors.toUnmodifiableList()))
             .executor(tracker)
             .build()) {
@@ -120,7 +119,7 @@ public class Performance {
   }
 
   static ThreadPool.Executor consumerExecutor(
-      Consumer<byte[], byte[]> consumer, Metrics metrics, AtomicLong records) {
+      Consumer<byte[], byte[]> consumer, BiConsumer<Long, Long> observer, Manager manager) {
     return new ThreadPool.Executor() {
       @Override
       public State execute() {
@@ -130,12 +129,12 @@ public class Performance {
               .forEach(
                   record -> {
                     // 記錄端到端延時, 記錄輸入byte(沒有算入header和timestamp)
-                    metrics.put(
+                    observer.accept(
                         System.currentTimeMillis() - record.timestamp(),
-                        record.serializedKeySize() + record.serializedValueSize());
-                    records.decrementAndGet();
+                        (long) record.serializedKeySize() + record.serializedValueSize());
                   });
-          return records.get() <= 0 ? State.DONE : State.RUNNING;
+          // Consumer reached the record upperbound or consumed all the record producer produced.
+          return manager.consumedDone() ? State.DONE : State.RUNNING;
         } catch (WakeupException ignore) {
           // Stop polling and being ready to clean up
           return State.DONE;
@@ -157,32 +156,37 @@ public class Performance {
   static ThreadPool.Executor producerExecutor(
       Producer<byte[], byte[]> producer,
       Argument param,
-      Metrics metrics,
-      AtomicLong records,
-      CountDownLatch getAssignment) {
-    byte[] payload = new byte[param.recordSize];
+      BiConsumer<Long, Long> observer,
+      Manager manager) {
     return new ThreadPool.Executor() {
       @Override
       public State execute() throws InterruptedException {
         // Wait for all consumers get assignment.
-        getAssignment.await();
-        var currentRecords = records.getAndDecrement();
-        if (currentRecords <= 0) return State.DONE;
+        manager.awaitPartitionAssignment();
+
+        var payload = manager.payload();
+        if (payload.isEmpty()) return State.DONE;
+
         long start = System.currentTimeMillis();
         producer
             .sender()
             .topic(param.topic)
-            .value(payload)
+            .value(payload.get())
             .timestamp(start)
             .run()
             .whenComplete(
-                (m, e) -> metrics.put(System.currentTimeMillis() - start, payload.length));
+                (m, e) ->
+                    observer.accept(System.currentTimeMillis() - start, m.serializedValueSize()));
         return State.RUNNING;
       }
 
       @Override
       public void close() {
-        producer.close();
+        try {
+          producer.close();
+        } finally {
+          manager.producerClosed();
+        }
       }
     };
   }
@@ -221,16 +225,25 @@ public class Performance {
     int consumers = 1;
 
     @Parameter(
-        names = {"--records"},
-        description = "Integer: number of records to send",
-        validateWith = ArgumentUtil.NonNegativeLong.class)
-    long records = 1000;
+        names = {"--run.until"},
+        description =
+            "Run until number of records are produced and consumed or until duration meets."
+                + " The duration formats accepted are (a number) + (a time unit)."
+                + " The time units can be \"days\", \"day\", \"h\", \"m\", \"s, \"ms\","
+                + " \"us\", \"ns\"",
+        converter = ExeTime.Converter.class)
+    ExeTime exeTime = ExeTime.of("1000records");
+
+    @Parameter(
+        names = {"--fixed.size"},
+        description = "boolean: send fixed size records if this flag is set")
+    boolean fixedSize = false;
 
     @Parameter(
         names = {"--record.size"},
-        description = "Integer: size of each record",
-        validateWith = ArgumentUtil.PositiveLong.class)
-    int recordSize = 1024;
+        description = "DataSize: size of each record. e.g. \"500KiB\"",
+        converter = DataSize.Converter.class)
+    DataSize recordSize = DataUnit.KiB.of(1);
 
     @Parameter(
         names = {"--jmx.servers"},

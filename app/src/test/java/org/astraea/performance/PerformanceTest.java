@@ -1,9 +1,8 @@
 package org.astraea.performance;
 
+import java.util.List;
 import java.util.Set;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.atomic.AtomicLong;
 import org.astraea.Utils;
 import org.astraea.concurrent.ThreadPool;
 import org.astraea.consumer.Consumer;
@@ -19,13 +18,14 @@ public class PerformanceTest extends RequireBrokerCluster {
     var metrics = new Metrics();
     var param = new Performance.Argument();
     param.topic = "testProducerExecutor-" + System.currentTimeMillis();
+    param.fixedSize = true;
+    param.consumers = 0;
     try (ThreadPool.Executor executor =
         Performance.producerExecutor(
             Producer.builder().brokers(bootstrapServers()).build(),
             param,
             metrics,
-            new AtomicLong(10),
-            new CountDownLatch(0))) {
+            new Manager(param, List.of(), List.of()))) {
       executor.execute();
 
       Utils.waitFor(() -> metrics.num() == 1);
@@ -37,11 +37,13 @@ public class PerformanceTest extends RequireBrokerCluster {
   void testConsumerExecutor() throws InterruptedException, ExecutionException {
     Metrics metrics = new Metrics();
     var topicName = "testConsumerExecutor-" + System.currentTimeMillis();
+    var param = new Performance.Argument();
+    param.fixedSize = true;
     try (ThreadPool.Executor executor =
         Performance.consumerExecutor(
             Consumer.builder().topics(Set.of(topicName)).brokers(bootstrapServers()).build(),
             metrics,
-            new AtomicLong(10))) {
+            new Manager(param, List.of(), List.of()))) {
       executor.execute();
 
       Assertions.assertEquals(0, metrics.num());

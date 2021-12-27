@@ -113,6 +113,11 @@ public class Builder<Key, Value> {
       }
 
       @Override
+      public void flush() {
+        kafkaProducer.flush();
+      }
+
+      @Override
       public void close() {
         kafkaProducer.close();
       }

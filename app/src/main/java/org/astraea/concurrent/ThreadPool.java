@@ -18,6 +18,11 @@ public interface ThreadPool extends AutoCloseable {
   /** wait all executors to be done. */
   void waitAll();
 
+  boolean isClosed();
+
+  /** @return the number of threads */
+  int size();
+
   static Builder builder() {
     return new Builder();
   }
@@ -50,6 +55,19 @@ public interface ThreadPool extends AutoCloseable {
     private final List<Executor> executors = new ArrayList<>();
 
     private Builder() {}
+
+    public Builder runnable(Runnable runnable) {
+      return executor(
+          () -> {
+            runnable.run();
+            return Executor.State.RUNNING;
+          });
+    }
+
+    public Builder runnables(Collection<Runnable> runnables) {
+      runnables.forEach(this::runnable);
+      return this;
+    }
 
     public Builder executor(Executor executor) {
       return executors(List.of(executor));
@@ -85,7 +103,7 @@ public interface ThreadPool extends AutoCloseable {
       return new ThreadPool() {
         @Override
         public void close() {
-          service.shutdown();
+          service.shutdownNow();
           closed.set(true);
           executors.forEach(Executor::wakeup);
           waitAll();
@@ -98,6 +116,16 @@ public interface ThreadPool extends AutoCloseable {
           } catch (InterruptedException e) {
             // swallow
           }
+        }
+
+        @Override
+        public boolean isClosed() {
+          return closed.get();
+        }
+
+        @Override
+        public int size() {
+          return executors.size();
         }
       };
     }

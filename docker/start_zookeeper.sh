@@ -1,27 +1,13 @@
 #!/bin/bash
 
-# =============================[functions]=============================
-function getAddress() {
-  if [[ "$(which ipconfig)" != "" ]]; then
-    address=$(ipconfig getifaddr en0)
-  else
-    address=$(hostname -i)
-  fi
-  if [[ "$address" == "127.0.0.1" ]]; then
-    echo "the address: 127.0.0.1 can't be used in this script. Please check /etc/hosts"
-    exit 2
-  fi
-  echo "$address"
-}
-
 function showHelp() {
   echo "Usage: [ENV] start_zookeeper.sh"
   echo "ENV: "
-  echo "    ZOOKEEPER_VERSION=3.7.0    set version of zookeeper distribution"
+  echo "    REPO=astraea/zk            set the docker repo"
+  echo "    VERSION=3.7.0              set version of zookeeper distribution"
+  echo "    RUN=false                  set false if you want to build image only"
   echo "    DATA_FOLDER=/tmp/folder1   set host folders used by zookeeper"
 }
-
-# =====================================================================
 
 if [[ "$(which docker)" == "" ]]; then
   echo "you have to install docker"
@@ -31,27 +17,27 @@ fi
 while [[ $# -gt 0 ]]; do
   if [[ "$1" == "help" ]]; then
     showHelp
-    exit 2
+    exit 0
   fi
   shift
 done
 
-if [[ -z "$ZOOKEEPER_VERSION" ]]; then
-  ZOOKEEPER_VERSION=3.7.0
+if [[ "$(which ipconfig)" != "" ]]; then
+  address=$(ipconfig getifaddr en0)
+else
+  address=$(hostname -i)
 fi
 
 zookeeper_user=astraea
-image_name=astraea/zookeeper:$ZOOKEEPER_VERSION
+version=${VERSION:-3.7.0}
+repo=${REPO:-astraea/zookeeper}
+image_name="$repo:$version"
 zk_port="$(($(($RANDOM % 10000)) + 10000))"
-address=$(getAddress)
+run_container=${RUN:-true}
+docker_dir=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+dockerfile=$docker_dir/zookeeper.dockerfile
 
-hostFolderConfigs=""
-if [[ -n "$DATA_FOLDER" ]]; then
-  mkdir -p "$DATA_FOLDER"
-  hostFolderConfigs="-v $DATA_FOLDER:/tmp/zookeeper-dir"
-fi
-
-docker build -t $image_name - <<Dockerfile
+echo "# this dockerfile is generated dynamically
 FROM ubuntu:20.04
 
 # install tools
@@ -65,16 +51,37 @@ USER $zookeeper_user
 
 # download zookeeper
 WORKDIR /tmp
-RUN wget https://archive.apache.org/dist/zookeeper/zookeeper-${ZOOKEEPER_VERSION}/apache-zookeeper-${ZOOKEEPER_VERSION}-bin.tar.gz
+RUN wget https://archive.apache.org/dist/zookeeper/zookeeper-${version}/apache-zookeeper-${version}-bin.tar.gz
 RUN mkdir /home/$zookeeper_user/zookeeper
-RUN tar -zxvf apache-zookeeper-${ZOOKEEPER_VERSION}-bin.tar.gz -C /home/$zookeeper_user/zookeeper --strip-components=1
+RUN tar -zxvf apache-zookeeper-${version}-bin.tar.gz -C /home/$zookeeper_user/zookeeper --strip-components=1
 WORKDIR /home/$zookeeper_user/zookeeper
 
 # create config file
 RUN echo "tickTime=2000" >> ./conf/zoo.cfg
 RUN echo "dataDir=/tmp/zookeeper-dir" >> ./conf/zoo.cfg
 RUN echo "clientPort=2181" >> ./conf/zoo.cfg
-Dockerfile
+" > "$dockerfile"
+
+# build image only if the image does not exist locally
+if [[ "$(docker images -q $image_name 2> /dev/null)" == "" ]]; then
+  docker build -t $image_name -f "$dockerfile" "$docker_dir"
+fi
+
+if [[ "$run_container" != "true" ]]; then
+  echo "docker image: $image_name is created"
+  exit 0
+fi
+
+if [[ "$address" == "127.0.0.1" || "$address" == "127.0.1.1" ]]; then
+  echo "the address: Either 127.0.0.1 or 127.0.1.1 can't be used in this script. Please check /etc/hosts"
+  exit 2
+fi
+
+hostFolderConfigs=""
+if [[ -n "$DATA_FOLDER" ]]; then
+  mkdir -p "$DATA_FOLDER"
+  hostFolderConfigs="-v $DATA_FOLDER:/tmp/zookeeper-dir"
+fi
 
 docker run -d \
   -p $zk_port:2181 \
@@ -82,6 +89,8 @@ docker run -d \
   $image_name ./bin/zkServer.sh start-foreground
 
 echo "================================================="
-echo "folder mapping: $hostFolderConfigs"
+if [[ "$hostFolderConfigs" != "" ]]; then
+  echo "folder mapping: $hostFolderConfigs"
+fi
 echo "run ./docker/start_broker.sh zookeeper.connect=$address:$zk_port to join kafka broker"
 echo "================================================="

@@ -30,7 +30,8 @@ public interface MBeanClient extends AutoCloseable {
     try {
       return of(
           new JMXServiceURL(
-              String.format("service:jmx:rmi:///jndi/rmi://%s:%s/jmxrmi", host, port)));
+              String.format(
+                  "service:jmx:rmi://%s:%s/jndi/rmi://%s:%s/jmxrmi", host, port, host, port)));
     } catch (MalformedURLException e) {
       throw new IllegalArgumentException(e);
     }

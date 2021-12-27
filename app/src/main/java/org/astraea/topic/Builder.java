@@ -163,9 +163,22 @@ public class Builder {
 
     @Override
     public Map<String, TopicConfig> topics() {
+      return topics(true);
+    }
+
+    @Override
+    public Map<String, TopicConfig> publicTopics() {
+      return topics(false);
+    }
+
+    private Map<String, TopicConfig> topics(boolean listInternal) {
       var topics =
           Utils.handleException(
-              () -> admin.listTopics(new ListTopicsOptions().listInternal(true)).names().get());
+              () ->
+                  admin
+                      .listTopics(new ListTopicsOptions().listInternal(listInternal))
+                      .names()
+                      .get());
       return Utils.handleException(
               () ->
                   admin
