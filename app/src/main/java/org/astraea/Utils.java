@@ -11,8 +11,6 @@ import java.time.Duration;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
-import org.apache.kafka.clients.producer.KafkaProducer;
-import org.astraea.partitioner.smoothPartitioner.SmoothWeightPartitioner;
 
 public final class Utils {
 
@@ -110,19 +108,6 @@ public final class Utils {
     } catch (NoSuchFieldException e) {
       throw new IllegalArgumentException(e);
     }
-  }
-
-  /**
-   * Get the partitioner of the producer.
-   *
-   * @param producer kafka producer.
-   * @return smoothWeightPartitioner in the producer.
-   */
-  public static SmoothWeightPartitioner partitionerOfProducer(KafkaProducer<?, ?> producer)
-      throws IllegalAccessException {
-    var field = Utils.reflectionField(producer, "partitioner");
-    field.setAccessible(true);
-    return (SmoothWeightPartitioner) field.get(producer);
   }
 
   public static int requirePositive(int value) {

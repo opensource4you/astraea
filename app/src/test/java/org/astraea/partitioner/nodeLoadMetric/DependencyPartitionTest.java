@@ -9,7 +9,6 @@ import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.serialization.ByteArraySerializer;
-import org.astraea.Utils;
 import org.astraea.consumer.Consumer;
 import org.astraea.consumer.Deserializer;
 import org.astraea.consumer.Header;
@@ -48,7 +47,7 @@ public class DependencyPartitionTest extends RequireBrokerCluster {
             .collect(Collectors.toMap(e -> e.getKey().toString(), Map.Entry::getValue));
     try (var producer = Producer.builder().configs(props).build()) {
       SmoothWeightPartitioner smoothWeightPartitioner =
-          Utils.partitionerOfProducer(producer.kafkaProducer());
+          SmoothWeightPartitioner.orderControl(producer.kafkaProducer());
       smoothWeightPartitioner.beginDependency();
       var targetPartition = 0;
       var i = 0;

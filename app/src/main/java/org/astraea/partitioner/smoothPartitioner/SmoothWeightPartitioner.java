@@ -9,9 +9,11 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Random;
 import java.util.concurrent.atomic.AtomicReference;
+import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.Partitioner;
 import org.apache.kafka.common.Cluster;
 import org.apache.kafka.common.KafkaException;
+import org.astraea.Utils;
 import org.astraea.partitioner.nodeLoadMetric.LoadPoisson;
 import org.astraea.partitioner.nodeLoadMetric.NodeLoadClient;
 
@@ -25,12 +27,14 @@ import org.astraea.partitioner.nodeLoadMetric.NodeLoadClient;
  * <pre>{@code
  * KafkaProducer producer = new KafkaProducer(props);
  *
- * SmoothWeightPartitioner smoothWeightPartitioner = Utils.partitionerOfProducer(producer);
+ * var orderControl = SmoothWeightPartitioner.orderControl(producer);
+ * orderControl.startDependency();
  * try{
- *     dependencyClient.beginDependency();
+ *     producer.send();
+ *     producer.send();
  *     producer.send();
  * } finally{
- *     dependencyClient.finishDependency();
+ *     orderControl.finishDependency();
  * }
  * }</pre>
  */
@@ -173,6 +177,19 @@ public class SmoothWeightPartitioner implements Partitioner {
     } catch (UnknownHostException e) {
       throw new IllegalArgumentException(e);
     }
+  }
+
+  /**
+   * Get the partitioner of the producer.
+   *
+   * @param producer kafka producer.
+   * @return smoothWeightPartitioner in the producer.
+   */
+  public static SmoothWeightPartitioner orderControl(KafkaProducer<?, ?> producer)
+      throws IllegalAccessException {
+    var field = Utils.reflectionField(producer, "partitioner");
+    field.setAccessible(true);
+    return (SmoothWeightPartitioner) field.get(producer);
   }
 
   /**
