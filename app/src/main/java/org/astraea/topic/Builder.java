@@ -66,7 +66,7 @@ public class Builder {
     }
 
     @Override
-    public Map<TopicPartition, List<Group>> groups(Set<String> topics) {
+    public Map<TopicPartition, List<Group>> partitionConsumerOffset(Set<String> topics) {
       var groups =
           Utils.handleException(() -> admin.listConsumerGroups().valid().get()).stream()
               .map(ConsumerGroupListing::groupId)

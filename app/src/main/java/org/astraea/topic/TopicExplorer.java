@@ -47,7 +47,7 @@ public class TopicExplorer {
   static Map<String, List<PartitionInfo>> execute(TopicAdmin admin, Set<String> topics) {
     var replicas = admin.replicas(topics);
     var offsets = admin.offsets(topics);
-    var groups = admin.groups(topics);
+    var consumerProgress = admin.partitionConsumerOffset(topics);
 
     // Given topic name, return a list of its partition id;
     Function<String, List<Integer>> partitionsOf =
@@ -68,7 +68,7 @@ public class TopicExplorer {
                       .map(
                           (partition) -> {
                             var topicPartition = new TopicPartition(topic, partition);
-                            var consumerGroups = groups.getOrDefault(topicPartition, List.of());
+                            var consumerGroups = consumerProgress.getOrDefault(topicPartition, List.of());
                             var replications = replicas.getOrDefault(topicPartition, List.of());
                             return new PartitionInfo(
                                 topicPartition,

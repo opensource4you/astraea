@@ -120,8 +120,8 @@ public class TopicAdminTest extends RequireBrokerCluster {
       // wait for syncing topic creation
       TimeUnit.SECONDS.sleep(5);
       Assertions.assertTrue(topicAdmin.topicNames().contains(topicName));
-      var groups = topicAdmin.groups(Set.of(topicName));
-      Assertions.assertEquals(0, groups.size());
+      var consumerProgress = topicAdmin.partitionConsumerOffset(Set.of(topicName));
+      Assertions.assertEquals(0, consumerProgress.size());
     }
   }
 
