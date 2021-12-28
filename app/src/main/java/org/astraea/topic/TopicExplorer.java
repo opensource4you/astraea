@@ -68,7 +68,8 @@ public class TopicExplorer {
                       .map(
                           (partition) -> {
                             var topicPartition = new TopicPartition(topic, partition);
-                            var consumerGroups = consumerProgress.getOrDefault(topicPartition, List.of());
+                            var consumerGroups =
+                                consumerProgress.getOrDefault(topicPartition, List.of());
                             var replications = replicas.getOrDefault(topicPartition, List.of());
                             return new PartitionInfo(
                                 topicPartition,

@@ -6,6 +6,7 @@ import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.StreamSupport;
@@ -246,6 +247,33 @@ public class TopicAdminTest extends RequireBrokerCluster {
               .get(0)
               .size();
       Assertions.assertTrue(newSize > originSize);
+    }
+  }
+
+  @Test
+  void testConsumerGroupMember() {
+    var topicName = "testConsumerGroupMember";
+    var groupName = "testConsumerGroupMemberGroup";
+
+    try (var topicAdmin = TopicAdmin.of(bootstrapServers())) {
+      topicAdmin.creator().topic(topicName).numberOfPartitions(3).create();
+
+      Supplier<Consumer<?, ?>> consumer =
+          () ->
+              Consumer.builder()
+                  .brokers(bootstrapServers())
+                  .topics(Set.of(topicName))
+                  .groupId(groupName)
+                  .build();
+
+      try (var consumer0 = consumer.get()) {
+        // for some reason we have to poll to make sure the consumer will join the group
+        consumer0.poll(Duration.ofMillis(500));
+        var groupMembers = topicAdmin.consumerGroupMembers(Set.of(groupName));
+        Assertions.assertEquals(1, groupMembers.size());
+        Assertions.assertTrue(groupMembers.containsKey(groupName));
+        Assertions.assertEquals(1, groupMembers.get(groupName).size());
+      }
     }
   }
 

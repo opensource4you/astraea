@@ -132,6 +132,27 @@ public class Builder {
       return result;
     }
 
+    @Override
+    public Map<String, List<Member>> consumerGroupMembers(Set<String> consumerGroupNames) {
+      return Utils.handleException(
+          () ->
+              admin.describeConsumerGroups(consumerGroupNames).all().get().entrySet().stream()
+                  .map(
+                      entry ->
+                          Map.entry(
+                              entry.getKey(),
+                              entry.getValue().members().stream()
+                                  .map(
+                                      member ->
+                                          new Member(
+                                              member.consumerId(),
+                                              member.groupInstanceId(),
+                                              member.clientId(),
+                                              member.host()))
+                                  .collect(Collectors.toList())))
+                  .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue)));
+    }
+
     private Map<TopicPartition, Long> earliestOffset(Set<TopicPartition> partitions) {
 
       return Utils.handleException(
