@@ -122,7 +122,7 @@ public class Builder<Key, Value> {
       }
 
       @Override
-      public KafkaProducer kafkaProducer() {
+      public KafkaProducer<Key, Value> kafkaProducer() {
         return kafkaProducer;
       }
 

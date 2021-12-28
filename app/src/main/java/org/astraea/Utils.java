@@ -3,7 +3,6 @@ package org.astraea;
 import java.io.File;
 import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.lang.reflect.Field;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.nio.file.Files;
@@ -102,10 +101,12 @@ public final class Utils {
    * @param fieldName reflected field name.
    * @return Required field.
    */
-  public static Field reflectionField(Object object, String fieldName) {
+  public static Object requireField(Object object, String fieldName) {
     try {
-      return object.getClass().getDeclaredField(fieldName);
-    } catch (NoSuchFieldException e) {
+      var field = object.getClass().getDeclaredField(fieldName);
+      field.setAccessible(true);
+      return field.get(object);
+    } catch (NoSuchFieldException | IllegalAccessException e) {
       throw new IllegalArgumentException(e);
     }
   }

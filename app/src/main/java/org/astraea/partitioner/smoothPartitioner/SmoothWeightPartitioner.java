@@ -27,18 +27,18 @@ import org.astraea.partitioner.nodeLoadMetric.NodeLoadClient;
  * <pre>{@code
  * KafkaProducer producer = new KafkaProducer(props);
  *
- * var orderControl = SmoothWeightPartitioner.orderControl(producer);
- * orderControl.startDependency();
+ * var dependencyControl = SmoothWeightPartitioner.dependencyControl(producer);
+ * dependencyControl.startDependency();
  * try{
  *     producer.send();
  *     producer.send();
  *     producer.send();
  * } finally{
- *     orderControl.finishDependency();
+ *     dependencyControl.finishDependency();
  * }
  * }</pre>
  */
-public class SmoothWeightPartitioner implements Partitioner {
+public class SmoothWeightPartitioner implements Partitioner, DependencyClient {
 
   /**
    * Record the current weight of each node according to Poisson calculation and the weight after
@@ -185,11 +185,9 @@ public class SmoothWeightPartitioner implements Partitioner {
    * @param producer kafka producer.
    * @return smoothWeightPartitioner in the producer.
    */
-  public static SmoothWeightPartitioner orderControl(KafkaProducer<?, ?> producer)
+  public static DependencyClient dependencyControl(KafkaProducer<?, ?> producer)
       throws IllegalAccessException {
-    var field = Utils.reflectionField(producer, "partitioner");
-    field.setAccessible(true);
-    return (SmoothWeightPartitioner) field.get(producer);
+    return (DependencyClient) Utils.requireField(producer, "partitioner");
   }
 
   /**

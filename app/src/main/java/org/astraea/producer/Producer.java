@@ -12,7 +12,7 @@ public interface Producer<Key, Value> extends AutoCloseable {
 
   void close();
 
-  KafkaProducer kafkaProducer();
+  KafkaProducer<Key, Value> kafkaProducer();
 
   static Builder<byte[], byte[]> builder() {
     return new Builder<>();
