@@ -54,7 +54,10 @@ public final class Member {
     if (this == o) return true;
     if (o == null || getClass() != o.getClass()) return false;
     Member member = (Member) o;
-    return Objects.equals(memberId, member.memberId) && Objects.equals(groupInstanceId, member.groupInstanceId) && Objects.equals(clientId, member.clientId) && Objects.equals(host, member.host);
+    return Objects.equals(memberId, member.memberId)
+        && Objects.equals(groupInstanceId, member.groupInstanceId)
+        && Objects.equals(clientId, member.clientId)
+        && Objects.equals(host, member.host);
   }
 
   @Override

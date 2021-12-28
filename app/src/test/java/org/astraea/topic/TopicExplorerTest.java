@@ -1,6 +1,5 @@
 package org.astraea.topic;
 
-import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 import org.astraea.service.RequireBrokerCluster;
