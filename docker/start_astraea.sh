@@ -5,7 +5,7 @@ if [[ "$(which docker)" == "" ]]; then
   exit 2
 fi
 
-docker_dir=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+docker_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
 dockerfile=$docker_dir/astraea.dockerfile
 image_name="astraea/astraea:latest"
 
@@ -25,10 +25,10 @@ RUN git clone https://github.com/skiptests/astraea
 # pre-build project to collect all dependencies
 WORKDIR /tmp/astraea
 RUN ./gradlew clean build -x test --no-daemon
-" > "$dockerfile"
+" >"$dockerfile"
 
 # build image only if the image does not exist locally
-if [[ "$(docker images -q $image_name 2> /dev/null)" == "" ]]; then
+if [[ "$(docker images -q $image_name 2>/dev/null)" == "" ]]; then
   docker build -t $image_name -f "$dockerfile" "$docker_dir"
 fi
 
@@ -38,7 +38,6 @@ else
   # shellcheck disable=SC2124
   result="$@"
 fi
-
 
 docker run --rm \
   $image_name \
