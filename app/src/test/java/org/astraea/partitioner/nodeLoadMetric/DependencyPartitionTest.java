@@ -1,12 +1,5 @@
 package org.astraea.partitioner.nodeLoadMetric;
 
-import java.time.Duration;
-import java.util.List;
-import java.util.Map;
-import java.util.Properties;
-import java.util.Set;
-import java.util.concurrent.ExecutionException;
-import java.util.stream.Collectors;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.serialization.ByteArraySerializer;
 import org.astraea.consumer.Consumer;
@@ -18,6 +11,14 @@ import org.astraea.service.RequireBrokerCluster;
 import org.astraea.topic.TopicAdmin;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+
+import java.time.Duration;
+import java.util.List;
+import java.util.Map;
+import java.util.Properties;
+import java.util.Set;
+import java.util.concurrent.ExecutionException;
+import java.util.stream.Collectors;
 
 public class DependencyPartitionTest extends RequireBrokerCluster {
   private final String brokerList = bootstrapServers();
@@ -36,7 +37,7 @@ public class DependencyPartitionTest extends RequireBrokerCluster {
   }
 
   @Test
-  void testDependencyPartitioner() throws IllegalAccessException {
+  void testDependencyPartitioner() {
     admin.creator().topic(topicName).numberOfPartitions(10).create();
     var ps = initProConfig();
     var timestamp = System.currentTimeMillis() + 10;
@@ -46,8 +47,7 @@ public class DependencyPartitionTest extends RequireBrokerCluster {
         ps.entrySet().stream()
             .collect(Collectors.toMap(e -> e.getKey().toString(), Map.Entry::getValue));
     try (var producer = Producer.builder().configs(props).build()) {
-      var dependencyClient = SmoothWeightPartitioner.dependencyControl(producer.kafkaProducer());
-      dependencyClient.beginDependency();
+      var dependencyClient = SmoothWeightPartitioner.beginDependency(producer.kafkaProducer());
       var targetPartition = 0;
       var i = 0;
       while (i < 20) {

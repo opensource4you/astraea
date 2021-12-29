@@ -1,18 +1,5 @@
 package org.astraea.metrics.kafka;
 
-import static org.junit.jupiter.api.Assertions.*;
-import static org.junit.jupiter.api.condition.OS.LINUX;
-import static org.junit.jupiter.api.condition.OS.WINDOWS;
-
-import java.io.IOException;
-import java.lang.management.ManagementFactory;
-import java.util.Arrays;
-import java.util.Set;
-import java.util.stream.Collectors;
-import javax.management.*;
-import javax.management.remote.JMXConnectorServer;
-import javax.management.remote.JMXConnectorServerFactory;
-import javax.management.remote.JMXServiceURL;
 import org.astraea.metrics.java.JvmMemory;
 import org.astraea.metrics.java.OperatingSystemInfo;
 import org.astraea.metrics.jmx.MBeanClient;
@@ -25,6 +12,22 @@ import org.junit.jupiter.api.condition.DisabledOnOs;
 import org.junit.jupiter.api.condition.EnabledOnOs;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
+
+import javax.management.MBeanServer;
+import javax.management.remote.JMXConnectorServer;
+import javax.management.remote.JMXConnectorServerFactory;
+import javax.management.remote.JMXServiceURL;
+import java.io.IOException;
+import java.lang.management.ManagementFactory;
+import java.util.Arrays;
+import java.util.Set;
+import java.util.stream.Collectors;
+
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.condition.OS.LINUX;
+import static org.junit.jupiter.api.condition.OS.WINDOWS;
 
 class KafkaMetricsTest extends RequireBrokerCluster {
 

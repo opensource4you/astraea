@@ -1,5 +1,13 @@
 package org.astraea.partitioner.smoothPartitioner;
 
+import org.apache.kafka.clients.producer.KafkaProducer;
+import org.apache.kafka.clients.producer.Partitioner;
+import org.apache.kafka.common.Cluster;
+import org.apache.kafka.common.KafkaException;
+import org.astraea.Utils;
+import org.astraea.partitioner.nodeLoadMetric.LoadPoisson;
+import org.astraea.partitioner.nodeLoadMetric.NodeLoadClient;
+
 import java.io.IOException;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
@@ -9,13 +17,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Random;
 import java.util.concurrent.atomic.AtomicReference;
-import org.apache.kafka.clients.producer.KafkaProducer;
-import org.apache.kafka.clients.producer.Partitioner;
-import org.apache.kafka.common.Cluster;
-import org.apache.kafka.common.KafkaException;
-import org.astraea.Utils;
-import org.astraea.partitioner.nodeLoadMetric.LoadPoisson;
-import org.astraea.partitioner.nodeLoadMetric.NodeLoadClient;
 
 /**
  * Based on the jmx metrics obtained from Kafka, it records the load status of the node over a
@@ -27,8 +28,7 @@ import org.astraea.partitioner.nodeLoadMetric.NodeLoadClient;
  * <pre>{@code
  * KafkaProducer producer = new KafkaProducer(props);
  *
- * var dependencyControl = SmoothWeightPartitioner.dependencyControl(producer);
- * dependencyControl.startDependency();
+ * var dependencyControl = SmoothWeightPartitioner.beginDependency(producer);
  * try{
  *     producer.send();
  *     producer.send();
@@ -47,7 +47,7 @@ public class SmoothWeightPartitioner implements Partitioner, DependencyClient {
   private Map<Integer, int[]> brokerHashMap = new HashMap<>();
 
   private NodeLoadClient nodeLoadClient;
-  private final DependencyManager dependencyManager = new DependencyManager();
+  private static final DependencyManager dependencyManager = new DependencyManager();
   /**
    * This parameter only works in dependency mode.And it will be specified when the dependency is
    * executed for the first time, and no changes will be made afterwards.
@@ -163,8 +163,9 @@ public class SmoothWeightPartitioner implements Partitioner, DependencyClient {
     brokerHashMap.put(x, new int[] {0, y});
   }
 
-  public synchronized void beginDependency() {
+  public static synchronized DependencyClient beginDependency(KafkaProducer<?, ?> producer) {
     dependencyManager.beginDependency();
+    return (DependencyClient) Utils.requireField(producer, "partitioner");
   }
 
   public synchronized void finishDependency() {
@@ -177,17 +178,6 @@ public class SmoothWeightPartitioner implements Partitioner, DependencyClient {
     } catch (UnknownHostException e) {
       throw new IllegalArgumentException(e);
     }
-  }
-
-  /**
-   * Get the partitioner of the producer.
-   *
-   * @param producer kafka producer.
-   * @return smoothWeightPartitioner in the producer.
-   */
-  public static DependencyClient dependencyControl(KafkaProducer<?, ?> producer)
-      throws IllegalAccessException {
-    return (DependencyClient) Utils.requireField(producer, "partitioner");
   }
 
   /**
