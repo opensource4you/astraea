@@ -87,7 +87,7 @@ public class Tracker implements ThreadPool.Executor {
       System.out.printf(
           "  consumer[%d] average throughput: %.3fMB%n", i, avg(duration, result.bytes.get(i)));
       System.out.printf(
-          "  consumer[%d] average throughput: %.3fms%n", i, result.averageLatencies.get(i));
+          "  consumer[%d] average ene-to-end latency: %.3fms%n", i, result.averageLatencies.get(i));
     }
     System.out.println("\n");
     // Target number of records consumed OR consumed all that produced
