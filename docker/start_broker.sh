@@ -13,6 +13,7 @@ declare -r DATA_FOLDER_IN_CONTAINER_PREFIX="/tmp/log-folder"
 declare -r EXPORTER_VERSION="0.16.1"
 declare -r EXPORTER_PORT="$(($(($RANDOM % 10000)) + 10000))"
 declare -r BROKER_PORT="$(($(($RANDOM % 10000)) + 10000))"
+declare -r CONTAINER_NAME="broker-$BROKER_PORT"
 declare -r BROKER_JMX_PORT="$(($(($RANDOM % 10000)) + 10000))"
 declare -r ADMIN_NAME="admin"
 declare -r ADMIN_PASSWORD="admin-secret"
@@ -209,6 +210,23 @@ function setPropertyIfEmpty() {
   fi
 }
 
+function fetchBrokerId() {
+  local id=""
+  for i in {1..3}; do
+    id=$(docker logs $CONTAINER_NAME | grep -o "KafkaServer id=[0-9]*" | cut -d = -f 2)
+    if [[ "$id" != "" ]]; then
+      break
+    fi
+    sleep 1
+  done
+  if [[ "$id" == "" ]]; then
+    echo "failed to get broker id from container: $CONTAINER_NAME"
+  else
+    echo "$id"
+  fi
+
+}
+
 # ===================================[main]===================================
 
 checkDocker
@@ -245,6 +263,7 @@ setPropertyIfEmpty "transaction.state.log.min.isr" "1"
 setLogDirs
 
 docker run -d \
+  --name $CONTAINER_NAME \
   -e KAFKA_HEAP_OPTS="$HEAP_OPTS" \
   -e KAFKA_JMX_OPTS="$JMX_OPTS" \
   -e KAFKA_OPTS="-javaagent:/tmp/jmx_exporter/jmx_prometheus_javaagent-${EXPORTER_VERSION}.jar=$EXPORTER_PORT:/tmp/jmx_exporter/kafka-2_0_0.yml" \
@@ -256,7 +275,8 @@ docker run -d \
   $IMAGE_NAME ./bin/kafka-server-start.sh /tmp/broker.properties
 
 echo "================================================="
-[[ -n "$DATA_FOLDERS" ]] && echo "mount $DATA_FOLDERS to container"
+[[ -n "$DATA_FOLDERS" ]] && echo "mount $DATA_FOLDERS to container: $CONTAINER_NAME"
+echo "broker id: $(fetchBrokerId)"
 echo "broker address: ${ADDRESS}:$BROKER_PORT"
 echo "jmx address: ${ADDRESS}:$BROKER_JMX_PORT"
 echo "exporter address: ${ADDRESS}:$EXPORTER_PORT"

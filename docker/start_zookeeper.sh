@@ -11,6 +11,7 @@ declare -r RUN=${RUN:-true}
 declare -r DOCKER_FOLDER=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
 declare -r DOCKERFILE=$DOCKER_FOLDER/zookeeper.dockerfile
 declare -r DATA_FOLDER_IN_CONTAINER="/tmp/zookeeper-dir"
+declare -r CONTAINER_NAME="zookeeper-$PORT"
 declare -r ADDRESS=$([[ "$(which ipconfig)" != "" ]] && ipconfig getifaddr en0 || hostname -i)
 
 # ===================================[functions]===================================
@@ -94,6 +95,7 @@ if [[ -n "$DATA_FOLDER" ]]; then
   mkdir -p "$DATA_FOLDER"
   echo "mount $DATA_FOLDER to container"
   docker run -d \
+    --name $CONTAINER_NAME \
     -p $PORT:2181 \
     -v "$DATA_FOLDER":$DATA_FOLDER_IN_CONTAINER \
     $IMAGE_NAME ./bin/zkServer.sh start-foreground
