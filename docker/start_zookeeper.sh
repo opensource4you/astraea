@@ -1,5 +1,34 @@
 #!/bin/bash
 
+# ===============================[global variables]===============================
+
+USER=astraea
+VERSION=${VERSION:-3.7.0}
+REPO=${REPO:-astraea/zookeeper}
+IMAGE_NAME="$REPO:$VERSION"
+PORT="$(($(($RANDOM % 10000)) + 10000))"
+RUN=${RUN:-true}
+DOCKER_FOLDER=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
+DOCKER_FILE=$DOCKER_FOLDER/zookeeper.dockerfile
+DATA_FOLDER_IN_CONTAINER="/tmp/zookeeper-dir"
+[[ "$(which ipconfig)" != "" ]] && ADDRESS=$(ipconfig getifaddr en0) || ADDRESS=$(hostname -i)
+
+# ===================================[functions]===================================
+
+function checkDocker() {
+  if [[ "$(which docker)" == "" ]]; then
+    echo "you have to install docker"
+    exit 2
+  fi
+}
+
+function checkNetwork() {
+  if [[ "$ADDRESS" == "127.0.0.1" || "$ADDRESS" == "127.0.1.1" ]]; then
+    echo "the address: Either 127.0.0.1 or 127.0.1.1 can't be used in this script. Please check /etc/hosts"
+    exit 2
+  fi
+}
+
 function showHelp() {
   echo "Usage: [ENV] start_zookeeper.sh"
   echo "ENV: "
@@ -9,88 +38,72 @@ function showHelp() {
   echo "    DATA_FOLDER=/tmp/folder1   set host folders used by zookeeper"
 }
 
-if [[ "$(which docker)" == "" ]]; then
-  echo "you have to install docker"
-  exit 2
-fi
+function generateDockerfile() {
 
-while [[ $# -gt 0 ]]; do
-  if [[ "$1" == "help" ]]; then
-    showHelp
-    exit 0
-  fi
-  shift
-done
-
-if [[ "$(which ipconfig)" != "" ]]; then
-  address=$(ipconfig getifaddr en0)
-else
-  address=$(hostname -i)
-fi
-
-zookeeper_user=astraea
-version=${VERSION:-3.7.0}
-repo=${REPO:-astraea/zookeeper}
-image_name="$repo:$version"
-zk_port="$(($(($RANDOM % 10000)) + 10000))"
-run_container=${RUN:-true}
-docker_dir=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
-dockerfile=$docker_dir/zookeeper.dockerfile
-
-echo "# this dockerfile is generated dynamically
+  echo "# this dockerfile is generated dynamically
 FROM ubuntu:20.04
 
 # install tools
 RUN apt-get update && apt-get upgrade -y && apt-get install -y openjdk-11-jdk wget
 
 # add user
-RUN groupadd $zookeeper_user && useradd -ms /bin/bash -g $zookeeper_user $zookeeper_user
+RUN groupadd $USER && useradd -ms /bin/bash -g $USER $USER
 
 # change user
-USER $zookeeper_user
+USER $USER
 
 # download zookeeper
 WORKDIR /tmp
-RUN wget https://archive.apache.org/dist/zookeeper/zookeeper-${version}/apache-zookeeper-${version}-bin.tar.gz
-RUN mkdir /home/$zookeeper_user/zookeeper
-RUN tar -zxvf apache-zookeeper-${version}-bin.tar.gz -C /home/$zookeeper_user/zookeeper --strip-components=1
-WORKDIR /home/$zookeeper_user/zookeeper
+RUN wget https://archive.apache.org/dist/zookeeper/zookeeper-${VERSION}/apache-zookeeper-${VERSION}-bin.tar.gz
+RUN mkdir /home/$USER/zookeeper
+RUN tar -zxvf apache-zookeeper-${VERSION}-bin.tar.gz -C /home/$USER/zookeeper --strip-components=1
+WORKDIR /home/$USER/zookeeper
 
 # create config file
 RUN echo "tickTime=2000" >> ./conf/zoo.cfg
-RUN echo "dataDir=/tmp/zookeeper-dir" >> ./conf/zoo.cfg
+RUN echo "dataDir=$DATA_FOLDER_IN_CONTAINER" >> ./conf/zoo.cfg
 RUN echo "clientPort=2181" >> ./conf/zoo.cfg
-" > "$dockerfile"
+" >"$DOCKER_FILE"
+}
 
 # build image only if the image does not exist locally
-if [[ "$(docker images -q $image_name 2> /dev/null)" == "" ]]; then
-  docker build -t $image_name -f "$dockerfile" "$docker_dir"
-fi
+function buildImageIfNeed() {
+  if [[ "$(docker images -q $IMAGE_NAME 2>/dev/null)" == "" ]]; then
+    docker build --no-cache -t "$IMAGE_NAME" -f "$DOCKER_FILE" "$DOCKER_FOLDER"
+  fi
+}
 
-if [[ "$run_container" != "true" ]]; then
-  echo "docker image: $image_name is created"
+# ===================================[main]===================================
+
+if [[ "$1" == "help" ]]; then
+  showHelp
   exit 0
 fi
 
-if [[ "$address" == "127.0.0.1" || "$address" == "127.0.1.1" ]]; then
-  echo "the address: Either 127.0.0.1 or 127.0.1.1 can't be used in this script. Please check /etc/hosts"
-  exit 2
+checkDocker
+generateDockerfile
+buildImageIfNeed
+
+if [[ "$RUN" != "true" ]]; then
+  echo "docker image: $IMAGE_NAME is created"
+  exit 0
 fi
 
-hostFolderConfigs=""
+checkNetwork
+
 if [[ -n "$DATA_FOLDER" ]]; then
   mkdir -p "$DATA_FOLDER"
-  hostFolderConfigs="-v $DATA_FOLDER:/tmp/zookeeper-dir"
+  echo "mount $DATA_FOLDER to container"
+  docker run -d \
+    -p $PORT:2181 \
+    -v "$DATA_FOLDER":$DATA_FOLDER_IN_CONTAINER \
+    $IMAGE_NAME ./bin/zkServer.sh start-foreground
+else
+  docker run -d \
+    -p $PORT:2181 \
+    $IMAGE_NAME ./bin/zkServer.sh start-foreground
 fi
-
-docker run -d \
-  -p $zk_port:2181 \
-  $hostFolderConfigs \
-  $image_name ./bin/zkServer.sh start-foreground
 
 echo "================================================="
-if [[ "$hostFolderConfigs" != "" ]]; then
-  echo "folder mapping: $hostFolderConfigs"
-fi
-echo "run ./docker/start_broker.sh zookeeper.connect=$address:$zk_port to join kafka broker"
+echo "run $DOCKER_FOLDER/start_broker.sh zookeeper.connect=$ADDRESS:$PORT to join kafka broker"
 echo "================================================="
