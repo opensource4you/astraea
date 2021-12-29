@@ -1,22 +1,29 @@
 #!/bin/bash
 
-if [[ "$(which docker)" == "" ]]; then
-  echo "you have to install docker"
-  exit 2
-fi
+# ===============================[global variables]===============================
 
-docker_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
-dockerfile=$docker_dir/astraea.dockerfile
-image_name="astraea/astraea:latest"
+IMAGE_NAME="astraea/astraea:latest"
+DOCKER_FOLDER=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
+DOCKER_FILE=$DOCKER_FOLDER/astraea.dockerfile
 
-echo "# this dockerfile is generated dynamically
+# ===================================[functions]===================================
+
+function checkDocker() {
+  if [[ "$(which docker)" == "" ]]; then
+    echo "you have to install docker"
+    exit 2
+  fi
+}
+
+function generateDockerfile() {
+  echo "# this dockerfile is generated dynamically
 FROM ubuntu:20.04
 
 # Do not ask for confirmations when running apt-get, etc.
 ENV DEBIAN_FRONTEND noninteractive
 
 # install tools
-RUN apt-get update && apt-get upgrade -y && apt-get install -y openjdk-11-jdk wget git
+RUN apt-get update && apt-get upgrade -y && apt-get install -y openjdk-11-jdk git curl
 
 # clone repo
 WORKDIR /tmp
@@ -25,20 +32,30 @@ RUN git clone https://github.com/skiptests/astraea
 # pre-build project to collect all dependencies
 WORKDIR /tmp/astraea
 RUN ./gradlew clean build -x test --no-daemon
-" >"$dockerfile"
+" >"$DOCKER_FILE"
+}
 
 # build image only if the image does not exist locally
-if [[ "$(docker images -q $image_name 2>/dev/null)" == "" ]]; then
-  docker build -t $image_name -f "$dockerfile" "$docker_dir"
-fi
+function buildImageIfNeed() {
+  if [[ "$(docker images -q $IMAGE_NAME 2>/dev/null)" == "" ]]; then
+    docker build --no-cache -t "$IMAGE_NAME" -f "$DOCKER_FILE" "$DOCKER_FOLDER"
+  fi
+}
 
-if [[ -z "$1" ]]; then
-  result="help"
+function runContainer() {
+  local args=$1
+  docker run --rm \
+    $IMAGE_NAME \
+    /bin/bash -c "./gradlew run --args=\"$args\""
+}
+
+# ===================================[main]===================================
+
+checkDocker
+generateDockerfile
+buildImageIfNeed
+if [[ -n "$1" ]]; then
+  runContainer "$@"
 else
-  # shellcheck disable=SC2124
-  result="$@"
+  runContainer "help"
 fi
-
-docker run --rm \
-  $image_name \
-  /bin/bash -c "./gradlew run --args=\"$result\""
