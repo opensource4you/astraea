@@ -128,7 +128,8 @@ public class Performance {
               .poll(Duration.ofSeconds(10))
               .forEach(
                   record -> {
-                    // 記錄端到端延時, 記錄輸入byte(沒有算入header和timestamp)
+                    // record ene-to-end latency, and record input byte (header and timestamp size
+                    // excluded)
                     observer.accept(
                         System.currentTimeMillis() - record.timestamp(),
                         (long) record.serializedKeySize() + record.serializedValueSize());
