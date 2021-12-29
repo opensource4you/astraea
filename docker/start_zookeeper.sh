@@ -2,17 +2,16 @@
 
 # ===============================[global variables]===============================
 
-USER=astraea
-VERSION=${VERSION:-3.7.0}
-REPO=${REPO:-astraea/zookeeper}
-IMAGE_NAME="$REPO:$VERSION"
-PORT="$(($(($RANDOM % 10000)) + 10000))"
-RUN=${RUN:-true}
-DOCKER_FOLDER=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
-DOCKER_FILE=$DOCKER_FOLDER/zookeeper.dockerfile
-DATA_FOLDER_IN_CONTAINER="/tmp/zookeeper-dir"
-[[ "$(which ipconfig)" != "" ]] && ADDRESS=$(ipconfig getifaddr en0) || ADDRESS=$(hostname -i)
-
+declare -r USER=astraea
+declare -r VERSION=${VERSION:-3.7.0}
+declare -r REPO=${REPO:-astraea/zookeeper}
+declare -r IMAGE_NAME="$REPO:$VERSION"
+declare -r PORT="$(($(($RANDOM % 10000)) + 10000))"
+declare -r RUN=${RUN:-true}
+declare -r DOCKER_FOLDER=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
+declare -r DOCKERFILE=$DOCKER_FOLDER/zookeeper.dockerfile
+declare -r DATA_FOLDER_IN_CONTAINER="/tmp/zookeeper-dir"
+declare -r ADDRESS=$([[ "$(which ipconfig)" != "" ]] && ipconfig getifaddr en0 || hostname -i)
 # ===================================[functions]===================================
 
 function checkDocker() {
@@ -39,7 +38,6 @@ function showHelp() {
 }
 
 function generateDockerfile() {
-
   echo "# this dockerfile is generated dynamically
 FROM ubuntu:20.04
 
@@ -63,13 +61,13 @@ WORKDIR /home/$USER/zookeeper
 RUN echo "tickTime=2000" >> ./conf/zoo.cfg
 RUN echo "dataDir=$DATA_FOLDER_IN_CONTAINER" >> ./conf/zoo.cfg
 RUN echo "clientPort=2181" >> ./conf/zoo.cfg
-" >"$DOCKER_FILE"
+" >"$DOCKERFILE"
 }
 
 # build image only if the image does not exist locally
 function buildImageIfNeed() {
   if [[ "$(docker images -q $IMAGE_NAME 2>/dev/null)" == "" ]]; then
-    docker build --no-cache -t "$IMAGE_NAME" -f "$DOCKER_FILE" "$DOCKER_FOLDER"
+    docker build --no-cache -t "$IMAGE_NAME" -f "$DOCKERFILE" "$DOCKER_FOLDER"
   fi
 }
 
