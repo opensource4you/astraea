@@ -15,3 +15,6 @@ zookeeper.dockerfile
 broker.dockerfile
 kafka_tool.dockerfile
 spark.dockerfile
+
+# we don't put binary file to git repo
+gradle-wrapper.jar
