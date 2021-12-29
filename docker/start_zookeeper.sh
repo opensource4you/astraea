@@ -12,7 +12,17 @@ declare -r DOCKER_FOLDER=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null
 declare -r DOCKERFILE=$DOCKER_FOLDER/zookeeper.dockerfile
 declare -r DATA_FOLDER_IN_CONTAINER="/tmp/zookeeper-dir"
 declare -r ADDRESS=$([[ "$(which ipconfig)" != "" ]] && ipconfig getifaddr en0 || hostname -i)
+
 # ===================================[functions]===================================
+
+function showHelp() {
+  echo "Usage: [ENV] start_zookeeper.sh"
+  echo "ENV: "
+  echo "    REPO=astraea/zk            set the docker repo"
+  echo "    VERSION=3.7.0              set version of zookeeper distribution"
+  echo "    RUN=false                  set false if you want to build image only"
+  echo "    DATA_FOLDER=/tmp/folder1   set host folders used by zookeeper"
+}
 
 function checkDocker() {
   if [[ "$(which docker)" == "" ]]; then
@@ -26,15 +36,6 @@ function checkNetwork() {
     echo "the address: Either 127.0.0.1 or 127.0.1.1 can't be used in this script. Please check /etc/hosts"
     exit 2
   fi
-}
-
-function showHelp() {
-  echo "Usage: [ENV] start_zookeeper.sh"
-  echo "ENV: "
-  echo "    REPO=astraea/zk            set the docker repo"
-  echo "    VERSION=3.7.0              set version of zookeeper distribution"
-  echo "    RUN=false                  set false if you want to build image only"
-  echo "    DATA_FOLDER=/tmp/folder1   set host folders used by zookeeper"
 }
 
 function generateDockerfile() {

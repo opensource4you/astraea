@@ -32,6 +32,22 @@ declare -r BROKER_PROPERTIES="/tmp/server-${BROKER_PORT}.properties"
 
 # ===================================[functions]===================================
 
+function showHelp() {
+  echo "Usage: [ENV] start_broker.sh [ ARGUMENTS ]"
+  echo "Required Argument: "
+  echo "    zookeeper.connect=node:22222             set zookeeper connection"
+  echo "Optional Arguments: "
+  echo "    num.io.threads=10                        set broker I/O threads"
+  echo "    num.network.threads=10                   set broker network threads"
+  echo "ENV: "
+  echo "    REPO=astraea/broker                      set the docker repo"
+  echo "    HEAP_OPTS=\"-Xmx2G -Xms2G\"                set broker JVM memory"
+  echo "    REVISION=trunk                           set revision of kafka source code to build container"
+  echo "    VERSION=2.8.1                            set version of kafka distribution"
+  echo "    RUN=false                                set false if you want to build image only"
+  echo "    DATA_FOLDERS=/tmp/folder1,/tmp/folder2   set host folders used by broker"
+}
+
 function checkDocker() {
   if [[ "$(which docker)" == "" ]]; then
     echo "you have to install docker"
@@ -52,22 +68,6 @@ function checkCustomProperties() {
     echo "$key is NOT configurable"
     exit 2
   fi
-}
-
-function showHelp() {
-  echo "Usage: [ENV] start_broker.sh [ ARGUMENTS ]"
-  echo "Required Argument: "
-  echo "    zookeeper.connect=node:22222             set zookeeper connection"
-  echo "Optional Arguments: "
-  echo "    num.io.threads=10                        set broker I/O threads"
-  echo "    num.network.threads=10                   set broker network threads"
-  echo "ENV: "
-  echo "    REPO=astraea/broker                      set the docker repo"
-  echo "    HEAP_OPTS=\"-Xmx2G -Xms2G\"                set broker JVM memory"
-  echo "    REVISION=trunk                           set revision of kafka source code to build container"
-  echo "    VERSION=2.8.1                            set version of kafka distribution"
-  echo "    RUN=false                                set false if you want to build image only"
-  echo "    DATA_FOLDERS=/tmp/folder1,/tmp/folder2   set host folders used by broker"
 }
 
 function generateDockerfileBySource() {
