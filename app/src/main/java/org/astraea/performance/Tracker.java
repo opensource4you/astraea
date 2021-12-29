@@ -22,7 +22,7 @@ public class Tracker implements ThreadPool.Executor {
   @Override
   public State execute() throws InterruptedException {
     if (logProducers() & logConsumers()) return State.DONE;
-    // 等待1秒，再抓資料輸出
+    // Log after waiting for one second
     Thread.sleep(1000);
     return State.RUNNING;
   }
@@ -56,15 +56,15 @@ public class Tracker implements ThreadPool.Executor {
             + "min "
             + duration.toSecondsPart()
             + "sec");
-    System.out.printf("producers完成度: %.2f%%%n", percentage);
-    System.out.printf("  輸出%.3fMB/second%n", result.averageBytes(duration));
-    System.out.println("  發送max latency: " + result.maxLatency + "ms");
-    System.out.println("  發送mim latency: " + result.minLatency + "ms");
+    System.out.printf("producers completion rate: %.2f%%%n", percentage);
+    System.out.printf("  Throughput: %.3fMB/second%n", result.averageBytes(duration));
+    System.out.println("  publish max latency: " + result.maxLatency + "ms");
+    System.out.println("  publish mim latency: " + result.minLatency + "ms");
     for (int i = 0; i < result.bytes.size(); ++i) {
       System.out.printf(
-          "  producer[%d]的發送average bytes: %.3fMB%n", i, avg(duration, result.bytes.get(i)));
+          "  producer[%d] average throughput: %.3fMB%n", i, avg(duration, result.bytes.get(i)));
       System.out.printf(
-          "  producer[%d]的發送average latency: %.3fms%n", i, result.averageLatencies.get(i));
+          "  producer[%d] average publish latency: %.3fms%n", i, result.averageLatencies.get(i));
     }
     System.out.println("\n");
     return percentage >= 100D;
@@ -79,15 +79,15 @@ public class Tracker implements ThreadPool.Executor {
 
     // Print out percentage of (consumed records) and (produced records)
     var percentage = result.completedRecords * 100D / manager.producedRecords();
-    System.out.printf("consumer完成度: %.2f%%%n", percentage);
-    System.out.printf("  輸入%.3fMB/second%n", result.averageBytes(duration));
-    System.out.println("  端到端max latency: " + result.maxLatency + "ms");
-    System.out.println("  端到端mim latency: " + result.minLatency + "ms");
+    System.out.printf("consumer completion rate: %.2f%%%n", percentage);
+    System.out.printf("  throughput: %.3fMB/second%n", result.averageBytes(duration));
+    System.out.println("  end-to-end max latency: " + result.maxLatency + "ms");
+    System.out.println("  end-to-end mim latency: " + result.minLatency + "ms");
     for (int i = 0; i < result.bytes.size(); ++i) {
       System.out.printf(
-          "  consumer[%d]的端到端average bytes: %.3fMB%n", i, avg(duration, result.bytes.get(i)));
+          "  consumer[%d] average throughput: %.3fMB%n", i, avg(duration, result.bytes.get(i)));
       System.out.printf(
-          "  consumer[%d]的端到端average latency: %.3fms%n", i, result.averageLatencies.get(i));
+          "  consumer[%d] average throughput: %.3fms%n", i, result.averageLatencies.get(i));
     }
     System.out.println("\n");
     // Target number of records consumed OR consumed all that produced
