@@ -27,13 +27,24 @@ public class App {
     var usage = "Usage: " + mains.keySet() + " [args ...]";
 
     if (args.size() < 1) {
-      throw new IllegalArgumentException(usage);
+      System.err.println(usage);
+      return;
     }
 
     var className = args.get(0);
 
+    if (className.toLowerCase().equals("help")) {
+      System.out.println(usage);
+      return;
+    }
+
     var targetClass = mains.get(className);
-    if (targetClass == null) throw new IllegalArgumentException(usage);
+
+    if (targetClass == null) {
+      System.err.println("the application \"" + className + "\" is nonexistent");
+      System.err.println(usage);
+      return;
+    }
 
     var method = targetClass.getDeclaredMethod("main", String[].class);
     try {
