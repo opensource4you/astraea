@@ -23,6 +23,8 @@ import org.astraea.consumer.Consumer;
 import org.astraea.producer.Producer;
 import org.astraea.producer.TransactionalProducer;
 import org.astraea.topic.TopicAdmin;
+import org.astraea.utils.DataSize;
+import org.astraea.utils.DataUnit;
 
 /**
  * Performance benchmark which includes
@@ -131,7 +133,8 @@ public class Performance {
               .poll(Duration.ofSeconds(10))
               .forEach(
                   record -> {
-                    // 記錄端到端延時, 記錄輸入byte(沒有算入header和timestamp)
+                    // record ene-to-end latency, and record input byte (header and timestamp size
+                    // excluded)
                     observer.accept(
                         System.currentTimeMillis() - record.timestamp(),
                         (long) record.serializedKeySize() + record.serializedValueSize());
@@ -273,9 +276,9 @@ public class Performance {
 
     @Parameter(
         names = {"--record.size"},
-        description = "Integer: size of each record",
-        validateWith = ArgumentUtil.PositiveLong.class)
-    int recordSize = 1024;
+        description = "DataSize: size of each record. e.g. \"500KiB\"",
+        converter = DataSize.Converter.class)
+    DataSize recordSize = DataUnit.KiB.of(1);
 
     @Parameter(
         names = {"--jmx.servers"},

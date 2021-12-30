@@ -114,6 +114,15 @@ case "$( uname )" in                #(
   NONSTOP* )        nonstop=true ;;
 esac
 
+# gradle-wrapper.jar is not in git repo anymore, so we have to download it now.
+if [ ! -e "$APP_HOME/gradle/wrapper/gradle-wrapper.jar" ]; then
+  if ! curl -s -S --retry 3 -L -o "$APP_HOME/gradle/wrapper/gradle-wrapper.jar" "https://raw.githubusercontent.com/gradle/gradle/v7.3.3/gradle/wrapper/gradle-wrapper.jar"; then
+    rm -f "$APP_HOME/gradle/wrapper/gradle-wrapper.jar"
+    echo "failed to download gradle-wrapper.jar"
+    exit 1
+  fi
+fi
+
 CLASSPATH=$APP_HOME/gradle/wrapper/gradle-wrapper.jar
 
 

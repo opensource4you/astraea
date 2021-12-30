@@ -16,8 +16,7 @@ This project offers many kafka tools to simplify the life for kafka users.
 1. [Kafka quick start](#kafka-cluster-quick-start): set up a true kafka cluster in one minute
 2. [Kafka performance](#Performance-Benchmark): check producing/consuming performance.
 3. [Kafka offset explorer](#topic-explorer): check the start/end offsets of kafka topics
-4. [Kafka official tool](#kafka-official-tool): run any one specific kafka official tool. All you have to prepare is the docker env.
-5. [Kafka metric client](#kafka-metric-client): utility for accessing kafka Mbean metrics via JMX.
+5. [Kafka metric explorer](#kafka-metric-explorer): utility for accessing kafka Mbean metrics via JMX.
 6. [Replica Collie](#replica-collie): move replicas from brokers to others. You can use this tool to obstruct specific brokers from hosting specific topics.
 7. [Kafka partition score](#Kafka-partition-score): score all broker's partitions. 
 8. [Kafka replica syncing monitor](#Kafka-replica-syncing-monitor): Tracking replica syncing progress.
@@ -77,22 +76,123 @@ There are 4 useful ENVs which can change JVM/container configuration.
 3. HEAP_OPTS -> define JVM memory options
 4. DATA_FOLDERS -> define the host folders used by broker. You should define it if you want to keep data after terminating container
 
-### Run Prometheus
+### Run Node Exporter
 
-The exporters of brokers can offer metrics to Prometheus to monitor cluster status. For example, your kafka cluster has
-two brokers. The exporter address of first broker is `192.168.50.178:10558` and another is `192.168.50.178:10553`. You can
-use following command to run a prometheus service.
+[Node Exporter](https://github.com/prometheus/node_exporter) is a famous utility for exporting machine metrics. It is 
+recommended using node exporter in conjunction with [Prometheus](#run-prometheus) to observe the test environment state.
 
 ```shell
-./docker/start_prometheus.sh 192.168.50.178:10558,192.168.50.178:10553
+./docker/start_node_exporter.sh
 ```
 
-The console will show the http address of prometheus service.
 ```shell
-=================================================
-config file: /tmp/prometheus-15483.yml
-prometheus address: http://192.168.50.178:15483
-=================================================
+[INFO] Container ID of node_exporter: d67d5d1daaaaf57792d145a8a8a5bd470207e698c8ca544f3023bdfcac914271
+[INFO] node_exporter running at http://192.168.0.2:9100
+```
+
+### Run Prometheus
+
+[Prometheus](https://github.com/prometheus/prometheus) is a famous application for monitor and gather time-series metrics. 
+
+#### Start Prometheus
+
+This project offers some scripts to set up Prometheus for your test environment quickly.
+
+If you have an exporter installed on your broker(all Kafka instances created by `start_broker.sh` will have JMX exporter installed),
+and [node exporter](#run-node-exporter) installed on your machine. You can follow the below instruction to observe the performance metrics
+of Kafka & your machine.
+
+For example. Assume you have two Kafka brokers, 
+
+* the first broker has an exporter running at `192.168.0.1:10558` 
+* the second broker has an exporter running at `192.168.0.2:10558`
+* the first machine has node exporter running at `192.168.0.1:9100`
+* the second machine has node exporter running at `192.168.0.2:9100`
+
+You can execute the following command to create a Prometheus instance that fetches data from the above 4 exporters.
+
+```shell
+./docker/start_prometheus.sh start 192.168.0.1:10558,192.168.0.2:10558 192.168.0.1:9100,192.168.0.2:9100
+```
+
+The console will show the http address of prometheus service, also some hints for you to set up Grafana. See next [section](#run-grafana) for
+further detail.
+
+```shell
+[INFO] Start existing prometheus instance
+prometheus-9090
+[INFO] =================================================
+[INFO] config file: /tmp/prometheus-9090.yml
+[INFO] prometheus address: http://192.168.0.2:9090
+[INFO] command to run grafana at this host: ./docker/start_grafana.sh start
+[INFO] command to add prometheus to grafana datasource: ./docker/start_grafana.sh add_prom_source <USERNAME>:<PASSWORD> Prometheus http://192.168.0.2:9090
+[INFO] =================================================
+```
+
+#### Update Prometheus configuration
+
+To update your Prometheus configuration, there are two ways.
+
+1. Execute ``./docker/start_prometheus.sh refresh <kafka-exporter-addresses> <node-exporter-addresses>``.
+2. Go edit ``/tmp/prometheus-9090.yml``, and execute ``./docker/start_prometheus.sh refresh``.
+
+### Run Grafana
+
+[Grafana](https://github.com/grafana/grafana) is a famous application for display system states. It is recommended to use Grafana
+in conjunction with [Prometheus](#run-prometheus) to observe the test environment state.
+
+#### Start Grafana
+
+This project offers a way to quickly create a Grafana container instance for **test purpose**.
+
+```shell
+./docker/start_grafana.sh start
+```
+
+```shell
+aa8a47da91a2e0974a38690525f9148c9697f7ffc752611ef06248ffb09ef53a
+[INFO] Default username/password for grafana docker image is admin/admin
+[INFO] Access Grafana dashboard here:  http://192.168.0.2:3000
+```
+
+#### Add Prometheus DataSource
+
+Grafana needs to know where the metrics are, so he can show you the pretty diagram. The first step is setting up the 
+the data source for your Grafana instance.
+
+The following command set up a Prometheus data source for the Grafana instance we previously created.
+
+```shell
+./docker/start_grafana.sh add_prom_source <USERNAME>:<PASSWORD> Prometheus http://192.168.0.2:9090
+```
+```json
+{
+  "datasource": {
+    "id": 1,
+    "uid": "7jbIw-Tnz",
+    "orgId": 1,
+    "name": "Prometheus",
+    "type": "prometheus",
+    "typeLogoUrl": "",
+    "access": "proxy",
+    "url": "http://192.168.0.2:9090",
+    "password": "",
+    "user": "",
+    "database": "",
+    "basicAuth": false,
+    "basicAuthUser": "",
+    "basicAuthPassword": "",
+    "withCredentials": false,
+    "isDefault": false,
+    "jsonData": {},
+    "secureJsonFields": {},
+    "version": 1,
+    "readOnly": false
+  },
+  "id": 1,
+  "message": "Datasource added",
+  "name": "Prometheus"
+}
 ```
 
 ---
@@ -116,7 +216,7 @@ Run the benchmark from source
 5. --consumers: the number of consumers (threads). Default: 1
 6. --producers: the number of producers (threads). Default: 1
 7. --run.until: the total number of records sent by the producers. Default: 1000records
-8. --record.size: the (bound of) record size in byte. Default: 1024 byte
+8. --record.size: the (bound of) record size in byte. Default: 1 KiB
 9. --fixed.size: the flag to let all records have the same size
 10. --prop.file: the path to property file.
 11. --partitioner: the partitioner to use in producers
@@ -142,24 +242,6 @@ java -jar app-0.0.1-SNAPSHOT-all.jar offset --bootstrap.servers 192.168.50.178:1
 1. --bootstrap.servers: the server to connect to
 2. --topics: the topics to be seeked
 3. --admin.props.file: the file path containing the properties to be passed to kafka admin
-
----
-
-## Kafka Official Tool
-
-This project offers a way to run kafka official tool by container. For example:
-
-### Run kafka-topics.sh
-
-```shell
-./docker/start_kafka_tool.sh kafka-topics.sh --bootstrap-server 192.168.50.178:14082 --list
-```
-
-### Show Available Official Tools
-
-```shell
-./docker/start_kafka_tool.sh help
-```
 
 ---
 

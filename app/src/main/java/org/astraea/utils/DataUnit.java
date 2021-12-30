@@ -92,24 +92,6 @@ public enum DataUnit {
   }
 
   /**
-   * Return a {@link DataSize} based on given measurement and unit.
-   *
-   * <pre>{@code
-   * DataUnit.of(500, DataUnit.KB);   // 500 KB  (500 * 1000 bytes)
-   * DataUnit.of(500, DataUnit.KiB);  // 500 KiB (500 * 1024 bytes)
-   * DataUnit.of(500, DataUnit.Kb);   // 500 Kb  (500 * 1000 bits)
-   * DataUnit.of(500, DataUnit.Kib);  // 500 Kib (500 * 1024 bits)
-   * }</pre>
-   *
-   * @param measurement the data size measurement.
-   * @param unit the data unit of given measurement.
-   * @return a size object of given measurement under specific data unit.
-   */
-  public static DataSize of(long measurement, DataUnit unit) {
-    return new DataSize(measurement, unit);
-  }
-
-  /**
    * List of recommended unit for display data, {@link DataSize#toString()} take advantage of this
    * collection to find ideal unit for string formalization.
    */

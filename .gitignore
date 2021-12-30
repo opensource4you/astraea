@@ -9,3 +9,13 @@ build
 
 # Ignore macos file
 .DS_Store
+
+# generated dockerfiles
+zookeeper.dockerfile
+broker.dockerfile
+kafka_tool.dockerfile
+spark.dockerfile
+astraea.dockerfile
+
+# we don't put binary file to git repo
+gradle-wrapper.jar
