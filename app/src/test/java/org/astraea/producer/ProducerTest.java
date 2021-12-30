@@ -64,7 +64,10 @@ public class ProducerTest extends RequireBrokerCluster {
     var timestamp = System.currentTimeMillis() + 10;
     var header = Header.of("a", "b".getBytes());
     try (var producer =
-        Producer.builder().brokers(bootstrapServers()).keySerializer(Serializer.STRING).build()) {
+        Producer.builder()
+            .brokers(bootstrapServers())
+            .keySerializer(Serializer.STRING)
+            .buildTransactional()) {
       var senders = new ArrayList<Sender<String, byte[]>>(3);
       while (senders.size() < 3) {
         senders.add(

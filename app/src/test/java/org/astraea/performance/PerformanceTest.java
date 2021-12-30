@@ -23,6 +23,7 @@ public class PerformanceTest extends RequireBrokerCluster {
     try (ThreadPool.Executor executor =
         Performance.producerExecutor(
             Producer.builder().brokers(bootstrapServers()).build(),
+            Producer.builder().brokers(bootstrapServers()).buildTransactional(),
             param,
             metrics,
             new Manager(param, List.of(), List.of()))) {

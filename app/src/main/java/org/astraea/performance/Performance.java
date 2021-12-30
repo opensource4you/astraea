@@ -21,6 +21,7 @@ import org.astraea.argument.BasicArgumentWithPropFile;
 import org.astraea.concurrent.ThreadPool;
 import org.astraea.consumer.Consumer;
 import org.astraea.producer.Producer;
+import org.astraea.producer.TransactionalProducer;
 import org.astraea.topic.TopicAdmin;
 
 /**
@@ -106,6 +107,10 @@ public class Performance {
                                     .configs(param.producerProps())
                                     .partitionClassName(param.partitioner)
                                     .build(),
+                                Producer.builder()
+                                    .configs(param.producerProps())
+                                    .partitionClassName(param.partitioner)
+                                    .buildTransactional(),
                                 param,
                                 producerMetrics.get(i),
                                 manager))
@@ -153,6 +158,7 @@ public class Performance {
 
   static ThreadPool.Executor producerExecutor(
       Producer<byte[], byte[]> producer,
+      TransactionalProducer<byte[], byte[]> transactionalProducer,
       Argument param,
       BiConsumer<Long, Long> observer,
       Manager manager) {
@@ -179,7 +185,7 @@ public class Performance {
 
           // No records to send
           if (senders.isEmpty()) return State.DONE;
-          producer
+          transactionalProducer
               .transaction(senders)
               .forEach(
                   future ->
