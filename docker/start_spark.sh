@@ -12,8 +12,8 @@ declare -r SPARK_UI_PORT="$(($(($RANDOM % 10000)) + 10000))"
 declare -r IVY_VERSION=2.5.0
 declare -r DELTA_VERSION=${DELTA_VERSION:-1.0.0}
 declare -r PYTHON_KAFKA_VERSION=${PYTHON_KAFKA_VERSION:-1.7.0}
-# hardcode VERSION to avoid NPE (see https://issues.apache.org/jira/browse/HADOOP-16410)
-declare -r hadoop_VERSION=3.2.2
+# hardcode hadoop version to avoid NPE (see https://issues.apache.org/jira/browse/HADOOP-16410)
+declare -r HADOOP_VERSION=3.2.2
 declare -r DOCKER_FOLDER=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
 declare -r DOCKERFILE=$DOCKER_FOLDER/spark.dockerfile
 declare -r ADDRESS=$([[ "$(which ipconfig)" != "" ]] && ipconfig getifaddr en0 || hostname -i)
@@ -67,8 +67,8 @@ function checkConflictContainer() {
   fi
 }
 
-function generateDockerfile() {
-  echo "# this DOCKERFILE is generated dynamically
+function generateDockerfileByVersion() {
+  echo "# this dockerfile is generated dynamically
 FROM ubuntu:20.04
 
 # Do not ask for confirmations when running apt-get, etc.
@@ -83,7 +83,7 @@ RUN groupadd $USER && useradd -ms /bin/bash -g $USER $USER
 # change user
 USER $USER
 
-# pre-install python dependencies
+# install python dependencies
 RUN pip3 install confluent-kafka==$PYTHON_KAFKA_VERSION delta-spark==$DELTA_VERSION pyspark==$VERSION
 
 # install java dependencies
@@ -94,7 +94,7 @@ WORKDIR apache-ivy-${IVY_VERSION}
 RUN java -jar ./ivy-${IVY_VERSION}.jar -dependency io.delta delta-core_2.12 $DELTA_VERSION
 RUN java -jar ./ivy-${IVY_VERSION}.jar -dependency org.apache.spark spark-sql-kafka-0-10_2.12 $VERSION
 RUN java -jar ./ivy-${IVY_VERSION}.jar -dependency org.apache.spark spark-token-provider-kafka-0-10_2.12 $VERSION
-RUN java -jar ./ivy-${IVY_VERSION}.jar -dependency org.apache.hadoop hadoop-azure $hadoop_VERSION
+RUN java -jar ./ivy-${IVY_VERSION}.jar -dependency org.apache.hadoop hadoop-azure $HADOOP_VERSION
 
 # download spark
 WORKDIR /tmp
@@ -105,7 +105,45 @@ WORKDIR /home/$USER/spark
 " >"$DOCKERFILE"
 }
 
-# build image only if the image does not exist locally
+function generateDockerfileBySource() {
+  echo "# this dockerfile is generated dynamically
+FROM ubuntu:20.04
+
+# Do not ask for confirmations when running apt-get, etc.
+ENV DEBIAN_FRONTEND noninteractive
+
+# install tools
+RUN apt-get update && apt-get upgrade -y && apt-get install -y openjdk-11-jdk python3 python3-pip git curl
+
+# install python dependencies
+RUN pip3 install confluent-kafka==$PYTHON_KAFKA_VERSION
+
+# add user
+RUN groupadd $USER && useradd -ms /bin/bash -g $USER $USER
+
+# change user
+USER $USER
+
+# build spark from source code
+RUN git clone https://github.com/apache/spark /tmp/spark
+WORKDIR /tmp/spark
+RUN git checkout $VERSION
+RUN ./dev/make-distribution.sh --pip --tgz
+RUN mkdir /home/$USER/spark
+RUN tar -zxvf \$(find ./ -maxdepth 1 -type f -name spark-*SNAPSHOT*.tgz) -C /home/$USER/spark --strip-components=1
+RUN ./build/mvn install -DskipTests
+WORKDIR "/home/$USER/spark"
+" >"$DOCKERFILE"
+}
+
+function generateDockerfile() {
+  if [[ -n "$REVISION" ]]; then
+    generateDockerfileBySource
+  else
+    generateDockerfileByVersion
+  fi
+}
+
 function buildImageIfNeed() {
   if [[ "$(docker images -q $IMAGE_NAME 2>/dev/null)" == "" ]]; then
     docker build --no-cache -t "$IMAGE_NAME" -f "$DOCKERFILE" "$DOCKER_FOLDER"
