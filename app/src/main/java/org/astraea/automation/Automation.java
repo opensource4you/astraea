@@ -1,6 +1,7 @@
 package org.astraea.automation;
 
-import org.astraea.performance.Performance;
+import static org.astraea.Utils.astraeaPath;
+import static org.astraea.performance.Performance.performanceLatch;
 
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -8,9 +9,7 @@ import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
-
-import static org.astraea.Utils.astraeaPath;
-import static org.astraea.performance.Performance.performanceLatch;
+import org.astraea.performance.Performance;
 
 /**
  * By configuring the parameters in config/automation.properties, control the execution times of
