@@ -7,6 +7,7 @@ import java.io.IOException;
 import java.time.Duration;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
@@ -52,9 +53,11 @@ import org.astraea.utils.DataUnit;
  * To avoid records being produced too fast, producer wait for one millisecond after each send.
  */
 public class Performance {
+  private static CountDownLatch latch;
 
   public static void main(String[] args)
       throws InterruptedException, IOException, ExecutionException {
+    latch = new CountDownLatch(1);
     execute(ArgumentUtil.parseArgument(new Argument(), args));
   }
 
@@ -115,6 +118,7 @@ public class Performance {
             .executor(tracker)
             .build()) {
       threadPool.waitAll();
+      latch.countDown();
     }
   }
 
@@ -290,5 +294,9 @@ public class Performance {
                     .collect(Collectors.joining(",")));
       }
     }
+  }
+
+  public static CountDownLatch performanceLatch() {
+    return latch;
   }
 }

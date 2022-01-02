@@ -5,6 +5,7 @@ import java.lang.reflect.InvocationTargetException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import org.astraea.automation.Automation;
 import org.astraea.metrics.MetricExplorer;
 import org.astraea.performance.Performance;
 import org.astraea.topic.ReplicaCollie;
@@ -20,7 +21,8 @@ public class App {
           "replica", ReplicaCollie.class,
           "score", PartitionScore.class,
           "performance", Performance.class,
-          "monitor", ReplicaSyncingMonitor.class);
+          "monitor", ReplicaSyncingMonitor.class,
+          "automation", Automation.class);
 
   static void execute(Map<String, Class<?>> mains, List<String> args) throws Throwable {
 
