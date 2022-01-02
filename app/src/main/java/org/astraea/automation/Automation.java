@@ -1,16 +1,16 @@
 package org.astraea.automation;
 
-import static org.astraea.Utils.astraeaPath;
-import static org.astraea.performance.Performance.performanceLatch;
+import org.astraea.performance.Performance;
 
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
-import org.astraea.performance.Performance;
+
+import static org.astraea.Utils.astraeaPath;
+import static org.astraea.performance.Performance.performanceLatch;
 
 /**
  * By configuring the parameters in config/automation.properties, control the execution times of
@@ -40,9 +40,13 @@ public class Automation {
       properties.load(new FileInputStream(astraeaPath() + "/config/automation.properties"));
 
       var i = 0;
-      while (i < Integer.parseInt(properties.getProperty("--time"))) {
-        Class<?> loadClass = classLoader.loadClass("org.astraea.performance.Performance");
-        Method method = loadClass.getMethod("main", String[].class);
+      var times = 0;
+      if (properties.getProperty("--time").equals("Defaults")) times = 5;
+      else times = Integer.parseInt(properties.getProperty("--time"));
+
+      while (i < times) {
+        var loadClass = classLoader.loadClass("org.astraea.performance.Performance");
+        var method = loadClass.getMethod("main", String[].class);
         method.invoke(null, (Object) performanceArgs(properties));
         performanceLatch().await();
         i++;
