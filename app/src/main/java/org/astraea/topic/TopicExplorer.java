@@ -2,6 +2,7 @@ package org.astraea.topic;
 
 import com.beust.jcommander.Parameter;
 import java.io.IOException;
+import java.io.PrintStream;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
@@ -46,15 +47,15 @@ public class TopicExplorer {
 
   static class Result {
     public final LocalDateTime time;
-    public final Map<String, List<PartitionInfo>> infos;
+    public final Map<String, List<PartitionInfo>> partitionInfo;
     public final Map<String, List<Member>> consumerGroupMembers;
 
     Result(
         LocalDateTime time,
-        Map<String, List<PartitionInfo>> infos,
+        Map<String, List<PartitionInfo>> partitionInfo,
         Map<String, List<Member>> consumerGroupMembers) {
       this.time = time;
-      this.infos = infos;
+      this.partitionInfo = partitionInfo;
       this.consumerGroupMembers = consumerGroupMembers;
     }
   }
@@ -71,38 +72,32 @@ public class TopicExplorer {
                 .collect(Collectors.toUnmodifiableSet()));
     var time = LocalDateTime.now();
 
-    // Given topic name, return a list of its partition id;
-    Function<String, List<Integer>> partitionsOf =
-        (topicName) ->
-            replicas.keySet().stream()
-                .filter(x -> x.topic().equals(topicName))
-                .map(TopicPartition::partition)
-                .sorted()
-                .collect(Collectors.toUnmodifiableList());
+    // Given topic name, return the partition count
+    var topicPartitionCount =
+        replicas.keySet().stream()
+            .collect(Collectors.groupingBy(TopicPartition::topic))
+            .entrySet()
+            .stream()
+            .map(entry -> Map.entry(entry.getKey(), entry.getValue().size()))
+            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
 
     var topicPartitionInfos =
         topics.stream()
             .collect(
                 Collectors.toMap(
                     Function.identity(),
-                    (topic) -> {
-                      var partitions = partitionsOf.apply(topic);
-                      return partitions.stream()
-                          .map(
-                              (partition) -> {
-                                var topicPartition = new TopicPartition(topic, partition);
-                                var consumerGroups =
-                                    consumerProgress.getOrDefault(topicPartition, List.of());
-                                var replications = replicas.getOrDefault(topicPartition, List.of());
-                                return new PartitionInfo(
-                                    topicPartition,
-                                    offsets.get(topicPartition).earliest(),
-                                    offsets.get(topicPartition).latest(),
-                                    consumerGroups,
-                                    replications);
-                              })
-                          .collect(Collectors.toUnmodifiableList());
-                    }));
+                    (topic) ->
+                        IntStream.range(0, topicPartitionCount.get(topic))
+                            .mapToObj(partition -> new TopicPartition(topic, partition))
+                            .map(
+                                topicPartition ->
+                                    new PartitionInfo(
+                                        topicPartition,
+                                        offsets.get(topicPartition).earliest(),
+                                        offsets.get(topicPartition).latest(),
+                                        consumerProgress.getOrDefault(topicPartition, List.of()),
+                                        replicas.getOrDefault(topicPartition, List.of())))
+                            .collect(Collectors.toUnmodifiableList())));
 
     return new Result(time, topicPartitionInfos, consumerGroupMembers);
   }
@@ -111,7 +106,7 @@ public class TopicExplorer {
     var argument = ArgumentUtil.parseArgument(new Argument(), args);
     try (var admin = TopicAdmin.of(argument.props())) {
       var result = execute(admin, argument.topics.isEmpty() ? admin.topicNames() : argument.topics);
-      TreeOutput.print(result);
+      TreeOutput.print(result, System.out);
     }
   }
 
@@ -120,19 +115,21 @@ public class TopicExplorer {
     private final LocalDateTime time;
     private final Map<String, List<PartitionInfo>> info;
     private final Map<String, List<Member>> consumerGroupMembers;
+    private final PrintStream printStream;
 
     private static final String NEXT_LEVEL = "│ ";
     private static final String TERMINATOR =
         "└─────────────────────────────────────────────────────────────────────────────────────";
 
-    private TreeOutput(Result result) {
+    private TreeOutput(Result result, PrintStream printStream) {
       this.time = result.time;
-      this.info = result.infos;
+      this.info = result.partitionInfo;
       this.consumerGroupMembers = result.consumerGroupMembers;
+      this.printStream = printStream;
     }
 
-    public static void print(Result result) {
-      new TreeOutput(result).print();
+    public static void print(Result result, PrintStream printStream) {
+      new TreeOutput(result, printStream).print();
     }
 
     private final Stack<String> treePrefix = new Stack<>();
@@ -156,9 +153,9 @@ public class TopicExplorer {
     }
 
     private void treePrintln(String format, Object... args) {
-      System.out.print(cachedPrefix);
-      System.out.printf(format, args);
-      System.out.println();
+      printStream.print(cachedPrefix);
+      printStream.printf(format, args);
+      printStream.println();
     }
 
     public void print() {
