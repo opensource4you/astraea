@@ -44,10 +44,32 @@ public class TopicExplorer {
     }
   }
 
-  static Map<String, List<PartitionInfo>> execute(TopicAdmin admin, Set<String> topics) {
+  static class Result {
+    public final LocalDateTime time;
+    public final Map<String, List<PartitionInfo>> infos;
+    public final Map<String, List<Member>> consumerGroupMembers;
+
+    Result(
+        LocalDateTime time,
+        Map<String, List<PartitionInfo>> infos,
+        Map<String, List<Member>> consumerGroupMembers) {
+      this.time = time;
+      this.infos = infos;
+      this.consumerGroupMembers = consumerGroupMembers;
+    }
+  }
+
+  static Result execute(TopicAdmin admin, Set<String> topics) {
     var replicas = admin.replicas(topics);
     var offsets = admin.offsets(topics);
     var consumerProgress = admin.partitionConsumerOffset(topics);
+    var consumerGroupMembers =
+        admin.consumerGroupMembers(
+            consumerProgress.values().stream()
+                .flatMap(Collection::stream)
+                .map(Group::groupId)
+                .collect(Collectors.toUnmodifiableSet()));
+    var time = LocalDateTime.now();
 
     // Given topic name, return a list of its partition id;
     Function<String, List<Integer>> partitionsOf =
@@ -56,30 +78,33 @@ public class TopicExplorer {
                 .filter(x -> x.topic().equals(topicName))
                 .map(TopicPartition::partition)
                 .sorted()
-                .collect(Collectors.toList());
+                .collect(Collectors.toUnmodifiableList());
 
-    return topics.stream()
-        .collect(
-            Collectors.toMap(
-                Function.identity(),
-                (topic) -> {
-                  var partitions = partitionsOf.apply(topic);
-                  return partitions.stream()
-                      .map(
-                          (partition) -> {
-                            var topicPartition = new TopicPartition(topic, partition);
-                            var consumerGroups =
-                                consumerProgress.getOrDefault(topicPartition, List.of());
-                            var replications = replicas.getOrDefault(topicPartition, List.of());
-                            return new PartitionInfo(
-                                topicPartition,
-                                offsets.get(topicPartition).earliest(),
-                                offsets.get(topicPartition).latest(),
-                                consumerGroups,
-                                replications);
-                          })
-                      .collect(Collectors.toList());
-                }));
+    var topicPartitionInfos =
+        topics.stream()
+            .collect(
+                Collectors.toMap(
+                    Function.identity(),
+                    (topic) -> {
+                      var partitions = partitionsOf.apply(topic);
+                      return partitions.stream()
+                          .map(
+                              (partition) -> {
+                                var topicPartition = new TopicPartition(topic, partition);
+                                var consumerGroups =
+                                    consumerProgress.getOrDefault(topicPartition, List.of());
+                                var replications = replicas.getOrDefault(topicPartition, List.of());
+                                return new PartitionInfo(
+                                    topicPartition,
+                                    offsets.get(topicPartition).earliest(),
+                                    offsets.get(topicPartition).latest(),
+                                    consumerGroups,
+                                    replications);
+                              })
+                          .collect(Collectors.toUnmodifiableList());
+                    }));
+
+    return new Result(time, topicPartitionInfos, consumerGroupMembers);
   }
 
   public static void main(String[] args) throws IOException {
@@ -92,18 +117,22 @@ public class TopicExplorer {
 
   static class TreeOutput {
 
+    private final LocalDateTime time;
     private final Map<String, List<PartitionInfo>> info;
+    private final Map<String, List<Member>> consumerGroupMembers;
 
     private static final String NEXT_LEVEL = "│ ";
     private static final String TERMINATOR =
         "└─────────────────────────────────────────────────────────────────────────────────────";
 
-    private TreeOutput(Map<String, List<PartitionInfo>> info) {
-      this.info = info;
+    private TreeOutput(Result result) {
+      this.time = result.time;
+      this.info = result.infos;
+      this.consumerGroupMembers = result.consumerGroupMembers;
     }
 
-    public static void print(Map<String, List<PartitionInfo>> info) {
-      new TreeOutput(info).print();
+    public static void print(Result result) {
+      new TreeOutput(result).print();
     }
 
     private final Stack<String> treePrefix = new Stack<>();
@@ -136,7 +165,7 @@ public class TopicExplorer {
       treePrefix.clear();
       cachedPrefix = "";
 
-      treePrintln("[%s]", LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
+      treePrintln("[%s]", time.format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
       nextLevel(
           " ",
           () -> {
@@ -218,6 +247,12 @@ public class TopicExplorer {
                                                         .map(Map.Entry::getKey)
                                                         .collect(Collectors.toList())));
 
+                                // for each member that have no work, join them into dutyOfMembers
+                                // with no partition assigned
+                                consumerGroupMembers.get(groupId).stream()
+                                    .filter(x -> !dutyOfMembers.containsKey(x))
+                                    .forEach(x -> dutyOfMembers.put(x, List.of()));
+
                                 if (dutyOfMembers.isEmpty()) treePrintln("no active member.");
                                 else {
                                   dutyOfMembers.keySet().stream()
@@ -228,12 +263,15 @@ public class TopicExplorer {
                                             nextLevel(
                                                 NEXT_LEVEL,
                                                 () -> {
-                                                  treePrintln(
-                                                      "working on partition %s",
-                                                      dutyOfMembers.get(member).stream()
-                                                          .sorted()
-                                                          .map(Object::toString)
-                                                          .collect(Collectors.joining(", ")));
+                                                  if (dutyOfMembers.get(member).size() == 0)
+                                                    treePrintln("no partition assigned.");
+                                                  else
+                                                    treePrintln(
+                                                        "working on partition %s.",
+                                                        dutyOfMembers.get(member).stream()
+                                                            .sorted()
+                                                            .map(Object::toString)
+                                                            .collect(Collectors.joining(", ")));
                                                   treePrintln(
                                                       "clientId: \"%s\"", member.clientId());
                                                   treePrintln("host: \"%s\"", member.host());
