@@ -53,6 +53,7 @@ import org.astraea.utils.DataUnit;
  * To avoid records being produced too fast, producer wait for one millisecond after each send.
  */
 public class Performance {
+  /** Used in Automation, to achieve the end of one Performance and then start another. */
   private static CountDownLatch latch;
 
   public static void main(String[] args)
