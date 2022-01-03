@@ -54,7 +54,7 @@ checkDocker
 generateDockerfile
 buildImageIfNeed
 if [[ -n "$1" ]]; then
-  runContainer "$@"
+  runContainer "$*"
 else
   runContainer "help"
 fi
