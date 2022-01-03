@@ -339,30 +339,30 @@ $ ./gradlew run --args="monitor --bootstrap.servers 192.168.103.39:9092"
 
 [2021-11-23T16:00:26.282676667]
   Topic "my-topic":
-  │ Partition 0:
-  │ │ replica on broker   0 => [####################] 100.00% [leader, synced]
-  │ │ replica on broker   2 => [                    ]   1.37% 0.00 B/s (unknown) []
-  │ Partition 1:
-  │ │ replica on broker   0 => [####################] 100.00% [leader, synced]
-  │ │ replica on broker   2 => [                    ]   1.35% 0.00 B/s (unknown) []
+  | Partition 0:
+  | | replica on broker   0 => [####################] 100.00% [leader, synced]
+  | | replica on broker   2 => [                    ]   1.37% 0.00 B/s (unknown) []
+  | Partition 1:
+  | | replica on broker   0 => [####################] 100.00% [leader, synced]
+  | | replica on broker   2 => [                    ]   1.35% 0.00 B/s (unknown) []
 
 [2021-11-23T16:00:26.862637796]
   Topic "my-topic":
-  │ Partition 0:
-  │ │ replica on broker   0 => [####################] 100.00% [leader, synced]
-  │ │ replica on broker   2 => [#                   ]   5.62% 240.54 MB/s (11s estimated) []
-  │ Partition 1:
-  │ │ replica on broker   0 => [####################] 100.00% [leader, synced]
-  │ │ replica on broker   2 => [#                   ]   5.25% 242.53 MB/s (12s estimated) []
+  | Partition 0:
+  | | replica on broker   0 => [####################] 100.00% [leader, synced]
+  | | replica on broker   2 => [#                   ]   5.62% 240.54 MB/s (11s estimated) []
+  | Partition 1:
+  | | replica on broker   0 => [####################] 100.00% [leader, synced]
+  | | replica on broker   2 => [#                   ]   5.25% 242.53 MB/s (12s estimated) []
 
 [2021-11-23T16:00:27.400814839]
   Topic "my-topic":
-  │ Partition 0:
-  │ │ replica on broker   0 => [####################] 100.00% [leader, synced]
-  │ │ replica on broker   2 => [##                  ]   9.90% 242.53 MB/s (10s estimated) []
-  │ Partition 1:
-  │ │ replica on broker   0 => [####################] 100.00% [leader, synced]
-  │ │ replica on broker   2 => [##                  ]   9.13% 240.54 MB/s (11s estimated) []
+  | Partition 0:
+  | | replica on broker   0 => [####################] 100.00% [leader, synced]
+  | | replica on broker   2 => [##                  ]   9.90% 242.53 MB/s (10s estimated) []
+  | Partition 1:
+  | | replica on broker   0 => [####################] 100.00% [leader, synced]
+  | | replica on broker   2 => [##                  ]   9.13% 240.54 MB/s (11s estimated) []
 
 ...
 ```
