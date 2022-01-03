@@ -312,10 +312,11 @@ public class TopicExplorer {
                                   .forEach(
                                       replica -> {
                                         treePrintln(
-                                            "replica on broker %-4s %17s %s",
+                                            "replica on broker %-4s %17s %s at \"%s\"",
                                             "#" + replica.broker(),
                                             ReplicaHelper.size(replica.size()),
-                                            ReplicaHelper.descriptor(replica));
+                                            ReplicaHelper.descriptor(replica),
+                                            replica.path());
                                       });
                             });
                       });
