@@ -117,9 +117,9 @@ public class TopicExplorer {
     private final Map<String, List<Member>> consumerGroupMembers;
     private final PrintStream printStream;
 
-    private static final String NEXT_LEVEL = "│ ";
+    private static final String NEXT_LEVEL = "| ";
     private static final String TERMINATOR =
-        "└─────────────────────────────────────────────────────────────────────────────────────";
+        "|_____________________________________________________________________________________";
 
     private TreeOutput(Result result, PrintStream printStream) {
       this.time = result.time;
