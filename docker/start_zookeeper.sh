@@ -66,7 +66,6 @@ RUN echo "clientPort=2181" >> ./conf/zoo.cfg
 " >"$DOCKERFILE"
 }
 
-# build image only if the image does not exist locally
 function buildImageIfNeed() {
   if [[ "$(docker images -q $IMAGE_NAME 2>/dev/null)" == "" ]]; then
     docker build --no-cache -t "$IMAGE_NAME" -f "$DOCKERFILE" "$DOCKER_FOLDER"

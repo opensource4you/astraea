@@ -35,7 +35,6 @@ RUN ./gradlew clean build -x test --no-daemon
 " >"$DOCKER_FILE"
 }
 
-# build image only if the image does not exist locally
 function buildImageIfNeed() {
   if [[ "$(docker images -q $IMAGE_NAME 2>/dev/null)" == "" ]]; then
     docker build --no-cache -t "$IMAGE_NAME" -f "$DOCKER_FILE" "$DOCKER_FOLDER"
