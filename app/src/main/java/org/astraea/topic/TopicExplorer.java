@@ -366,7 +366,7 @@ public class TopicExplorer {
       public String toString() {
         var partitionDigits = Math.max((int) (Math.log10(map.get(topic).size() - 1)) + 1, 1);
         return String.format(
-            "consume progress of partition %"
+            "consume progress of partition #%"
                 + partitionDigits
                 + "d %s (earliest/current/latest offset %d/%d/%d)",
             index,
