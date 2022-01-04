@@ -219,7 +219,7 @@ function setPropertyIfEmpty() {
 
 function fetchBrokerId() {
   local id=""
-  for i in {1..3}; do
+  for i in {1..10}; do
     id=$(docker logs $CONTAINER_NAME | grep -o "KafkaServer id=[0-9]*" | cut -d = -f 2)
     if [[ "$id" != "" ]]; then
       break
