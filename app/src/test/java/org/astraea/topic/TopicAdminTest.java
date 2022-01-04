@@ -6,7 +6,6 @@ import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
-import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.StreamSupport;
@@ -114,19 +113,6 @@ public class TopicAdminTest extends RequireBrokerCluster {
   }
 
   @Test
-  void testGroups() throws InterruptedException {
-    var topicName = "testGroups";
-    try (var topicAdmin = TopicAdmin.of(bootstrapServers())) {
-      topicAdmin.creator().topic(topicName).numberOfPartitions(3).create();
-      // wait for syncing topic creation
-      TimeUnit.SECONDS.sleep(5);
-      Assertions.assertTrue(topicAdmin.topicNames().contains(topicName));
-      var consumerProgress = topicAdmin.partitionConsumerOffset(Set.of(topicName));
-      Assertions.assertEquals(0, consumerProgress.size());
-    }
-  }
-
-  @Test
   void testOffsets() throws InterruptedException {
     var topicName = "testOffsets";
     try (var topicAdmin = TopicAdmin.of(bootstrapServers())) {
@@ -142,6 +128,26 @@ public class TopicAdminTest extends RequireBrokerCluster {
                 Assertions.assertEquals(0, offset.earliest());
                 Assertions.assertEquals(0, offset.latest());
               });
+    }
+  }
+
+  @Test
+  void testConsumerGroups() throws InterruptedException {
+    var topicName = "testConsumerGroups-Topic";
+    var consumerGroup = "testConsumerGroups-Group";
+    try (var topicAdmin = TopicAdmin.of(bootstrapServers())) {
+      topicAdmin.creator().topic(topicName).numberOfPartitions(3).create();
+      Consumer.builder()
+          .brokers(bootstrapServers())
+          .topics(Set.of(topicName))
+          .groupId(consumerGroup)
+          .build();
+      // wait for syncing topic creation
+      TimeUnit.SECONDS.sleep(5);
+      var consumerGroupMap = topicAdmin.consumerGroup(Set.of(consumerGroup));
+      Assertions.assertEquals(1, consumerGroupMap.size());
+      Assertions.assertTrue(consumerGroupMap.containsKey(consumerGroup));
+      Assertions.assertEquals(consumerGroup, consumerGroupMap.get(consumerGroup).groupId());
     }
   }
 
@@ -247,33 +253,6 @@ public class TopicAdminTest extends RequireBrokerCluster {
               .get(0)
               .size();
       Assertions.assertTrue(newSize > originSize);
-    }
-  }
-
-  @Test
-  void testConsumerGroupMember() {
-    var topicName = "testConsumerGroupMember";
-    var groupName = "testConsumerGroupMemberGroup";
-
-    try (var topicAdmin = TopicAdmin.of(bootstrapServers())) {
-      topicAdmin.creator().topic(topicName).numberOfPartitions(3).create();
-
-      Supplier<Consumer<?, ?>> consumer =
-          () ->
-              Consumer.builder()
-                  .brokers(bootstrapServers())
-                  .topics(Set.of(topicName))
-                  .groupId(groupName)
-                  .build();
-
-      try (var consumer0 = consumer.get()) {
-        // for some reason we have to poll to make sure the consumer will join the group
-        consumer0.poll(Duration.ofMillis(500));
-        var groupMembers = topicAdmin.consumerGroupMembers(Set.of(groupName));
-        Assertions.assertEquals(1, groupMembers.size());
-        Assertions.assertTrue(groupMembers.containsKey(groupName));
-        Assertions.assertEquals(1, groupMembers.get(groupName).size());
-      }
     }
   }
 

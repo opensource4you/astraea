@@ -42,16 +42,11 @@ public interface TopicAdmin extends Closeable {
   Map<TopicPartition, Offset> offsets(Set<String> topics);
 
   /**
-   * @param topics topic names
-   * @return the partition having consumer group id and consumer group offset
-   */
-  Map<TopicPartition, List<Group>> partitionConsumerOffset(Set<String> topics);
-
-  /**
-   * @param consumerGroupNames consumer group names
+   * @param consumerGroupNames consumer group names. if empty set given, every consume group will
+   *     return.
    * @return the member info of each consumer group
    */
-  Map<String, List<Member>> consumerGroupMembers(Set<String> consumerGroupNames);
+  Map<String, ConsumerGroup> consumerGroup(Set<String> consumerGroupNames);
 
   /**
    * @param topics topic names

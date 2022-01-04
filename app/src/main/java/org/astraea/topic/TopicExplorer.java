@@ -22,22 +22,16 @@ public class TopicExplorer {
     final TopicPartition topicPartition;
     final long earliestOffset;
     final long latestOffset;
-    final List<Group> consumerGroups;
     final List<Replica> replicas;
 
     public PartitionInfo(
         TopicPartition topicPartition,
         long earliestOffset,
         long latestOffset,
-        List<Group> consumerGroups,
         List<Replica> replicas) {
       this.topicPartition = topicPartition;
       this.earliestOffset = earliestOffset;
       this.latestOffset = latestOffset;
-      this.consumerGroups =
-          consumerGroups.stream()
-              .sorted(Comparator.comparing(Group::groupId))
-              .collect(Collectors.toList());
       this.replicas =
           replicas.stream()
               .sorted(Comparator.comparing(Replica::broker))
@@ -48,28 +42,22 @@ public class TopicExplorer {
   static class Result {
     public final LocalDateTime time;
     public final Map<String, List<PartitionInfo>> partitionInfo;
-    public final Map<String, List<Member>> consumerGroupMembers;
+    public final Map<String, ConsumerGroup> consumerGroups;
 
     Result(
         LocalDateTime time,
         Map<String, List<PartitionInfo>> partitionInfo,
-        Map<String, List<Member>> consumerGroupMembers) {
+        Map<String, ConsumerGroup> consumerGroups) {
       this.time = time;
       this.partitionInfo = partitionInfo;
-      this.consumerGroupMembers = consumerGroupMembers;
+      this.consumerGroups = consumerGroups;
     }
   }
 
   static Result execute(TopicAdmin admin, Set<String> topics) {
     var replicas = admin.replicas(topics);
     var offsets = admin.offsets(topics);
-    var consumerProgress = admin.partitionConsumerOffset(topics);
-    var consumerGroupMembers =
-        admin.consumerGroupMembers(
-            consumerProgress.values().stream()
-                .flatMap(Collection::stream)
-                .map(Group::groupId)
-                .collect(Collectors.toUnmodifiableSet()));
+    var consumerGroups = admin.consumerGroup(Set.of());
     var time = LocalDateTime.now();
 
     // Given topic name, return the partition count
@@ -95,11 +83,10 @@ public class TopicExplorer {
                                         topicPartition,
                                         offsets.get(topicPartition).earliest(),
                                         offsets.get(topicPartition).latest(),
-                                        consumerProgress.getOrDefault(topicPartition, List.of()),
                                         replicas.getOrDefault(topicPartition, List.of())))
                             .collect(Collectors.toUnmodifiableList())));
 
-    return new Result(time, topicPartitionInfos, consumerGroupMembers);
+    return new Result(time, topicPartitionInfos, consumerGroups);
   }
 
   public static void main(String[] args) throws IOException {
@@ -114,7 +101,7 @@ public class TopicExplorer {
 
     private final LocalDateTime time;
     private final Map<String, List<PartitionInfo>> info;
-    private final Map<String, List<Member>> consumerGroupMembers;
+    private final Map<String, ConsumerGroup> consumerGroups;
     private final PrintStream printStream;
 
     private static final String NEXT_LEVEL = "| ";
@@ -122,10 +109,10 @@ public class TopicExplorer {
         "|_____________________________________________________________________________________";
 
     private TreeOutput(Result result, PrintStream printStream) {
-      this.time = result.time;
-      this.info = result.partitionInfo;
-      this.consumerGroupMembers = result.consumerGroupMembers;
-      this.printStream = printStream;
+      this.time = Objects.requireNonNull(result.time);
+      this.info = Map.copyOf(result.partitionInfo);
+      this.consumerGroups = Map.copyOf(result.consumerGroups);
+      this.printStream = Objects.requireNonNull(printStream);
     }
 
     public static void print(Result result, PrintStream printStream) {
@@ -166,21 +153,23 @@ public class TopicExplorer {
       nextLevel(
           " ",
           () -> {
-            info.forEach(
-                (topic, partitionInfos) -> {
-                  treePrintln("Topic \"%s\"", topic);
-                  nextLevel(
-                      "",
-                      () -> {
-                        nextLevel(
-                            NEXT_LEVEL,
-                            () -> {
-                              printConsumerGroup(topic, partitionInfos);
-                              printPartitionReplica(partitionInfos);
-                            });
-                      },
-                      TERMINATOR);
-                });
+            info.entrySet().stream()
+                .sorted(Map.Entry.comparingByKey())
+                .forEach(
+                    (entry) -> {
+                      treePrintln("Topic \"%s\"", entry.getKey());
+                      nextLevel(
+                          "",
+                          () -> {
+                            nextLevel(
+                                NEXT_LEVEL,
+                                () -> {
+                                  printConsumerGroup(entry.getKey(), entry.getValue());
+                                  printPartitionReplica(entry.getValue());
+                                });
+                          },
+                          TERMINATOR);
+                    });
           });
     }
 
@@ -189,40 +178,31 @@ public class TopicExplorer {
       nextLevel(
           NEXT_LEVEL,
           () -> {
-
-            // print out the progress of each group within the topic
-            var consumerGroups =
-                partitionInfos.stream()
-                    .flatMap(x -> x.consumerGroups.stream())
-                    .map(Group::groupId)
-                    .sorted()
+            // find all the consumer groups that are related to this topic
+            var consumerGroupList =
+                consumerGroups.values().stream()
+                    .filter(
+                        consumerGroup ->
+                            consumerGroup.consumeProgress().keySet().stream()
+                                .anyMatch(tp -> tp.topic().equals(topic)))
+                    .map(ConsumerGroup::groupId)
                     .distinct()
-                    .collect(Collectors.toList());
+                    .map(consumerGroups::get)
+                    .collect(Collectors.toUnmodifiableList());
 
-            if (consumerGroups.isEmpty()) {
+            if (consumerGroupList.isEmpty()) {
               treePrintln("no consumer group.");
             } else {
-              consumerGroups.forEach(
-                  groupId -> {
+              consumerGroupList.forEach(
+                  consumerGroup -> {
 
                     // print out consumer group
-                    treePrintln("Consumer Group \"%s\"", groupId);
+                    treePrintln("Consumer Group \"%s\"", consumerGroup.groupId());
                     nextLevel(
                         "  ",
                         () -> {
-                          var groups =
-                              partitionInfos.stream()
-                                  .collect(
-                                      Collectors.toMap(
-                                          (p) -> p.topicPartition.partition(),
-                                          (p) ->
-                                              p.consumerGroups.stream()
-                                                  .filter(x -> x.groupId().equals(groupId))
-                                                  .findFirst()
-                                                  .orElseThrow()));
-
                           IntStream.range(0, partitionInfos.size())
-                              .mapToObj(x -> new ConsumeProgress(topic, x, groups.get(x), info))
+                              .mapToObj(x -> new ConsumeProgress(topic, x, consumerGroup, info))
                               .forEach(x -> treePrintln("%s", x));
 
                           // print out the active member of this consumer group
@@ -230,29 +210,38 @@ public class TopicExplorer {
                           nextLevel(
                               "  ",
                               () -> {
-                                var dutyOfMembers =
-                                    groups.values().stream()
-                                        .flatMap(x -> x.members().stream())
-                                        .distinct()
+                                var memberAssignment =
+                                    consumerGroup.activeMembers().stream()
                                         .collect(
-                                            Collectors.toMap(
-                                                (m) -> m,
-                                                (m) ->
-                                                    groups.entrySet().stream()
-                                                        .filter(
-                                                            g -> g.getValue().members().contains(m))
-                                                        .map(Map.Entry::getKey)
-                                                        .collect(Collectors.toList())));
+                                            Collectors.toUnmodifiableMap(
+                                                x -> x,
+                                                x ->
+                                                    consumerGroup
+                                                        .assignment()
+                                                        .getOrDefault(x, Set.of())
+                                                        .stream()
+                                                        .filter(tp -> tp.topic().equals(topic))
+                                                        .map(TopicPartition::partition)
+                                                        .collect(Collectors.toUnmodifiableSet())));
 
-                                // for each member that have no work, join them into dutyOfMembers
-                                // with no partition assigned
-                                consumerGroupMembers.get(groupId).stream()
-                                    .filter(x -> !dutyOfMembers.containsKey(x))
-                                    .forEach(x -> dutyOfMembers.put(x, List.of()));
+                                int totalAssignedPartition =
+                                    memberAssignment.values().stream().mapToInt(Set::size).sum();
 
-                                if (dutyOfMembers.isEmpty()) treePrintln("no active member.");
+                                // how to tell if this consumer group is working on the specific
+                                // 1. there must be some active member(of course).
+                                // 2. at least one partition is assigned to some member. It is
+                                // possible that a consumer group used to work on a specific topic
+                                // in the past. But no longer work at it at this moment. In such a
+                                // situation, Kafka API will still tell you the consumer group
+                                // belongs to that topic(of course there are offsets stored here so
+                                // Kafka cannot just delete it). But you will realize even though
+                                // there are some live members here but none of them are assigned to
+                                // the topic. Because they didn't declare to work on that topic(used
+                                // to, but not now).
+                                if (memberAssignment.isEmpty() || totalAssignedPartition == 0)
+                                  treePrintln("no active member.");
                                 else {
-                                  dutyOfMembers.keySet().stream()
+                                  memberAssignment.keySet().stream()
                                       .sorted(Comparator.comparing(Member::memberId))
                                       .forEach(
                                           member -> {
@@ -260,12 +249,12 @@ public class TopicExplorer {
                                             nextLevel(
                                                 NEXT_LEVEL,
                                                 () -> {
-                                                  if (dutyOfMembers.get(member).size() == 0)
+                                                  if (memberAssignment.get(member).size() == 0)
                                                     treePrintln("no partition assigned.");
                                                   else
                                                     treePrintln(
                                                         "working on partition %s.",
-                                                        dutyOfMembers.get(member).stream()
+                                                        memberAssignment.get(member).stream()
                                                             .sorted()
                                                             .map(Object::toString)
                                                             .collect(Collectors.joining(", ")));
@@ -327,11 +316,11 @@ public class TopicExplorer {
     private static class ConsumeProgress {
       private final String topic;
       private final int index;
-      private final Group group;
+      private final ConsumerGroup group;
       private final Map<String, List<PartitionInfo>> map;
 
       private ConsumeProgress(
-          String topic, int partition, Group group, Map<String, List<PartitionInfo>> map) {
+          String topic, int partition, ConsumerGroup group, Map<String, List<PartitionInfo>> map) {
         this.topic = topic;
         this.index = partition;
         this.group = group;
@@ -347,7 +336,7 @@ public class TopicExplorer {
       }
 
       private long current() {
-        return group.offset().orElse(0);
+        return group.consumeProgress().get(new TopicPartition(topic, index));
       }
 
       private String progressBar() {

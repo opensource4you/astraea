@@ -91,16 +91,16 @@ public class TopicExplorerTest extends RequireBrokerCluster {
       assertTrue(
           ChronoUnit.SECONDS.between(result.time, LocalDateTime.now()) < 10,
           "assert the execution timestamp come from a reasonable passed time (10sec before)");
-      assertTrue(result.consumerGroupMembers.containsKey(groupName));
-      assertEquals(3, result.consumerGroupMembers.get(groupName).size());
+      assertTrue(result.consumerGroups.containsKey(groupName));
+      assertEquals(3, result.consumerGroups.get(groupName).activeMembers().size());
       assertTrue(
-          result.consumerGroupMembers.get(groupName).stream()
+          result.consumerGroups.get(groupName).activeMembers().stream()
               .anyMatch(x -> x.groupInstanceId().orElseThrow().equals("alpha")));
       assertTrue(
-          result.consumerGroupMembers.get(groupName).stream()
+          result.consumerGroups.get(groupName).activeMembers().stream()
               .anyMatch(x -> x.groupInstanceId().orElseThrow().equals("beta")));
       assertTrue(
-          result.consumerGroupMembers.get(groupName).stream()
+          result.consumerGroups.get(groupName).activeMembers().stream()
               .anyMatch(x -> x.groupInstanceId().orElseThrow().equals("gamma")));
       assertTrue(result.partitionInfo.containsKey(topicName));
       assertEquals(3, result.partitionInfo.get(topicName).size());
@@ -115,22 +115,42 @@ public class TopicExplorerTest extends RequireBrokerCluster {
     var printStream = new PrintStream(mockOutput);
     var groupMembers =
         List.of(
-            new Member("memberId-1", Optional.of("instance-1"), "clientId-1", "host1"),
-            new Member("memberId-2", Optional.of("instance-2"), "clientId-2", "host2"),
-            new Member("memberId-3", Optional.of("instance-3"), "clientId-3", "host3"));
+            new Member(
+                "my-consumer-group-1",
+                "memberId-1",
+                Optional.of("instance-1"),
+                "clientId-1",
+                "host1"),
+            new Member(
+                "my-consumer-group-1",
+                "memberId-2",
+                Optional.of("instance-2"),
+                "clientId-2",
+                "host2"),
+            new Member(
+                "my-consumer-group-1",
+                "memberId-3",
+                Optional.of("instance-3"),
+                "clientId-3",
+                "host3"));
     var partitionInfo =
         List.of(
             new TopicExplorer.PartitionInfo(
                 new TopicPartition("my-topic", 0),
                 0,
                 100,
-                List.of(
-                    new Group(
-                        "my-consumer-group-1", OptionalLong.of(50), List.of(groupMembers.get(0)))),
                 List.of(new Replica(55, 15, 100, true, false, true, "/tmp/path0"))));
     var result =
         new TopicExplorer.Result(
-            now, Map.of("my-topic", partitionInfo), Map.of("my-consumer-group-1", groupMembers));
+            now,
+            Map.of("my-topic", partitionInfo),
+            Map.of(
+                "my-consumer-group-1",
+                new ConsumerGroup(
+                    "my-consumer-group-1",
+                    groupMembers,
+                    Map.of(new TopicPartition("my-topic", 0), 50L),
+                    Map.of(groupMembers.get(0), Set.of(new TopicPartition("my-topic", 0))))));
 
     // act
     TopicExplorer.TreeOutput.print(result, printStream);
