@@ -1,24 +1,20 @@
 package org.astraea.partitioner.nodeLoadMetric;
 
-import static java.lang.Double.sum;
-
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
-import java.util.ArrayList;
-import java.util.Comparator;
+import java.time.Duration;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Function;
 import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 import org.apache.kafka.common.Cluster;
 import org.apache.kafka.common.Node;
 import org.astraea.Utils;
 import org.astraea.metrics.collector.Receiver;
+import org.astraea.metrics.java.HasJvmMemory;
 import org.astraea.metrics.kafka.KafkaMetrics;
 
 /**
@@ -28,12 +24,14 @@ import org.astraea.metrics.kafka.KafkaMetrics;
 public class NodeLoadClient {
 
   private final List<Receiver> receiverList;
-
-  private Map<Integer, Map<String, Receiver>> eachNodeIDMetrics;
-
   private final Map<String, Integer> currentJmxAddresses;
-
   private static final ReceiverFactory RECEIVER_FACTORY = new ReceiverFactory();
+  private long lastTime = -1;
+  // visible for testing
+  Map<Integer, Broker> brokers;
+  private Map<Integer, Integer> currentLoadNode;
+  private int referenceBrokerID;
+  private Broker referenceBroker;
 
   private static final String regex =
       "((25[0-5]|2[0-4]\\d|1\\d{2}|[1-9]?\\d)\\.){3}" + "(25[0-5]|2[0-4]\\d|1\\d{2}|[1-9]?\\d)$";
@@ -45,193 +43,301 @@ public class NodeLoadClient {
   }
 
   /**
-   * @param cluster the cluster from the partitioner
-   * @return each node overLoad count in preset time
+   * When the interval between getting the load twice exceeds one second, update the load and
+   * return, otherwise directly return to the existing load.
+   *
+   * @param cluster from partitioner
+   * @return each node load count in preset time
+   * @throws UnknownHostException
    */
-  public Map<Integer, Integer> nodesOverLoad(Cluster cluster) throws UnknownHostException {
+  public Map<Integer, Integer> loadSituation(Cluster cluster) throws UnknownHostException {
+    if (overOneSecond()) {
+      nodesOverLoad(cluster);
+    }
+    return currentLoadNode;
+  }
+
+  /**
+   * @param cluster the cluster from the partitioner
+   * @return each node load count in preset time
+   */
+  private void nodesOverLoad(Cluster cluster) {
+    var nodes = cluster.nodes();
+    if (lastTime == -1) {
+      brokers = nodes.stream().collect(Collectors.toMap(Node::id, node -> new Broker()));
+      referenceBrokerID = brokers.keySet().stream().findFirst().get();
+      referenceBroker = brokers.get(referenceBrokerID);
+    }
     var nodeIDReceiver = new HashMap<Integer, List<Receiver>>();
     var addresses =
-        cluster.nodes().stream()
+        nodes.stream()
             .collect(Collectors.toMap(Node::id, node -> Map.entry(node.host(), node.port())));
 
-    for (Map.Entry<Integer, Map.Entry<String, Integer>> hostPort : addresses.entrySet()) {
-      List<Receiver> matchingNode;
-      var host = ipAddress(hostPort);
-      matchingNode =
-          receiverList.stream()
-              .filter(
-                  receiver ->
-                      (Objects.equals(nodeIDReceiver.size(), 0)
-                              || (nodeIDReceiver.values().stream()
-                                      .map(
-                                          n ->
-                                              Objects.equals(
-                                                  n.stream().findAny().get().host(), host))
-                                      .anyMatch(n -> n.equals(true))
-                                  && nodeIDReceiver.values().stream()
-                                      .map(
-                                          n ->
-                                              !Objects.equals(
-                                                  n.stream().findAny().get().port(),
-                                                  hostPort.getValue().getValue()))
-                                      .anyMatch(n -> n.equals(true))))
-                          && Objects.equals(receiver.host(), host))
-              .collect(Collectors.toList());
+    addresses
+        .entrySet()
+        .forEach(
+            hostPort -> {
+              List<Receiver> matchingNode;
+              var host = ipAddress(hostPort);
+              matchingNode =
+                  receiverList.stream()
+                      .filter(
+                          receiver ->
+                              (Objects.equals(nodeIDReceiver.size(), 0)
+                                      || (nodeIDReceiver.values().stream()
+                                              .map(
+                                                  n ->
+                                                      Objects.equals(
+                                                          n.stream().findAny().get().host(), host))
+                                              .anyMatch(n -> n.equals(true))
+                                          && nodeIDReceiver.values().stream()
+                                              .map(
+                                                  n ->
+                                                      !Objects.equals(
+                                                          n.stream().findAny().get().port(),
+                                                          hostPort.getValue().getValue()))
+                                              .anyMatch(n -> n.equals(true))))
+                                  && Objects.equals(receiver.host(), host))
+                      .collect(Collectors.toList());
 
-      if (matchingNode.size() > 0) {
-        if (!nodeIDReceiver.containsKey(hostPort.getKey()))
-          nodeIDReceiver.put(hostPort.getKey(), matchingNode);
-        else matchingNode.forEach(node -> nodeIDReceiver.get(hostPort.getKey()).add(node));
-      }
-    }
+              if (matchingNode.size() > 0) {
+                if (!nodeIDReceiver.containsKey(hostPort.getKey()))
+                  nodeIDReceiver.put(hostPort.getKey(), matchingNode);
+                else matchingNode.forEach(node -> nodeIDReceiver.get(hostPort.getKey()).add(node));
+              }
+            });
 
-    eachNodeIDMetrics = metricsNameForReceiver(nodeIDReceiver);
-    var eachBrokerMsgPerSec = brokersMsgPerSec();
-    var overLoadCount = new HashMap<Integer, Integer>();
-    eachBrokerMsgPerSec.keySet().forEach(e -> overLoadCount.put(e, 0));
-    var i = 0;
-    var minRecordSec =
-        eachBrokerMsgPerSec.values().stream()
-            .map(n -> n.size())
-            .min(Comparator.comparing(Integer::intValue))
-            .get();
-    while (i < minRecordSec) {
-      var avg = avgMsgSec(i, eachBrokerMsgPerSec);
-      var eachMsg = brokersMsgSec(i, eachBrokerMsgPerSec);
-      var standardDeviation = standardDeviationImperative(eachMsg, avg);
-      eachMsg.forEach(
-          (nodeID, msg) -> {
-            if (msg > (avg + standardDeviation)) {
-              overLoadCount.put(nodeID, overLoadCount.get(nodeID) + 1);
-            }
-          });
-      i++;
-    }
-    return overLoadCount;
+    metricsNameForReceiver(nodeIDReceiver);
+    brokersMsgPerSec();
+
+    var totalInput = brokers.values().stream().map(broker -> broker.input).reduce(0.0, Double::sum);
+    var totalOutput =
+        brokers.values().stream().map(broker -> broker.output).reduce(0.0, Double::sum);
+
+    AtomicReference<Double> totalBrokerSituation = new AtomicReference<>(0.0);
+    brokers
+        .values()
+        .forEach(
+            broker -> {
+              broker.maxThoughPut();
+              broker.inputNormalized(totalInput);
+              broker.outputNormalized(totalOutput);
+              broker.thoughPutComparison(referenceBroker.maxThoughPut);
+              broker.brokerSituation();
+              totalBrokerSituation.updateAndGet(v -> v + broker.brokerSituation);
+            });
+
+    var totalSituation = totalBrokerSituation.get();
+
+    brokers
+        .values()
+        .forEach(
+            broker -> {
+              broker.brokerSituationNormalized(totalSituation);
+            });
+
+    var avg = totalSituation / brokers.size();
+
+    // TODO Regarding countermeasures against cluster conditions
+    var standardDeviation = standardDeviationImperative(avg);
+
+    brokers.values().forEach(broker -> broker.load(brokerLoad(broker.brokerSituation, avg)));
+    currentLoadNode =
+        brokers.entrySet().stream()
+            .collect(Collectors.toMap(Map.Entry::getKey, entry -> entry.getValue().totalLoad()));
+    lastTime = System.currentTimeMillis();
   }
 
-  /** @return data transfer per second per node */
-  private Map<Integer, List<Double>> brokersMsgPerSec() {
-    var eachMsg = new HashMap<Integer, List<Double>>();
-
-    for (Map.Entry<Integer, Map<String, Receiver>> entry : eachNodeIDMetrics.entrySet()) {
-      List<Double> sumList = new ArrayList<>();
-      var outMsg = entry.getValue().get(KafkaMetrics.BrokerTopic.BytesOutPerSec.toString());
-      var inMsg = entry.getValue().get(KafkaMetrics.BrokerTopic.BytesInPerSec.toString());
-      var outMsgBean = outMsg.current();
-      var inMsgBean = inMsg.current();
-      IntStream.range(0, Math.min(outMsgBean.size(), inMsgBean.size()))
-          .forEach(
-              i ->
-                  sumList.add(
-                      sum(
-                          Double.parseDouble(
-                              outMsgBean
-                                  .get(i)
-                                  .beanObject()
-                                  .getAttributes()
-                                  .get("MeanRate")
-                                  .toString()),
-                          Double.parseDouble(
-                              inMsgBean
-                                  .get(i)
-                                  .beanObject()
-                                  .getAttributes()
-                                  .get("MeanRate")
-                                  .toString()))));
-      eachMsg.put(entry.getKey(), sumList);
-    }
-    return eachMsg;
+  private void brokersMsgPerSec() {
+    brokers.forEach(
+        (key, broker) -> {
+          broker.output =
+              Double.parseDouble(
+                  broker
+                      .metrics
+                      .get(KafkaMetrics.BrokerTopic.BytesOutPerSec.toString())
+                      .current()
+                      .get(0)
+                      .beanObject()
+                      .getAttributes()
+                      .get("MeanRate")
+                      .toString());
+          broker.input =
+              Double.parseDouble(
+                  broker
+                      .metrics
+                      .get(KafkaMetrics.BrokerTopic.BytesInPerSec.toString())
+                      .current()
+                      .get(0)
+                      .beanObject()
+                      .getAttributes()
+                      .get("MeanRate")
+                      .toString());
+        });
   }
 
-  public List<Double> avgBrokersMsgPerSec(Map<Integer, List<Double>> eachMsg) {
-    return IntStream.range(0, eachMsg.values().stream().findFirst().get().size())
-        .mapToDouble(i -> eachMsg.values().stream().map(s -> s.get(i)).reduce(0.0, Double::sum))
-        .map(sum -> sum / eachMsg.size())
-        .boxed()
-        .collect(Collectors.toList());
-  }
-
-  public double standardDeviationImperative(
-      Map<Integer, Double> eachMsg, double avgBrokersMsgPerSec) {
+  public double standardDeviationImperative(double avgBrokersSituation) {
     var variance = new AtomicReference<>(0.0);
-    eachMsg.forEach(
-        (nodeID, msg) ->
-            variance.updateAndGet(
-                v -> v + (msg - avgBrokersMsgPerSec) * (msg - avgBrokersMsgPerSec)));
-    return Math.sqrt(variance.get() / eachMsg.size());
+    brokers
+        .values()
+        .forEach(
+            broker ->
+                variance.updateAndGet(
+                    v ->
+                        v
+                            + (broker.brokerSituationNormalized - avgBrokersSituation)
+                                * (broker.brokerSituationNormalized - avgBrokersSituation)));
+    return Math.sqrt(variance.get() / brokers.size());
   }
 
   /**
    * @param nodeIDReceiver nodes metrics that exists in topic
    * @return the name and corresponding data of the metrics obtained by each node
    */
-  public Map<Integer, Map<String, Receiver>> metricsNameForReceiver(
-      HashMap<Integer, List<Receiver>> nodeIDReceiver) {
-
-    var result = new HashMap<Integer, Map<String, Receiver>>();
-
+  private void metricsNameForReceiver(HashMap<Integer, List<Receiver>> nodeIDReceiver) {
     nodeIDReceiver.forEach(
-        (nodeID, receivers) -> {
-          result.put(
-              nodeID,
-              receivers.stream()
-                  .map(
-                      receiver ->
-                          receiver.current().stream()
-                              .map(
-                                  bean ->
-                                      bean.beanObject().getProperties().values().stream()
-                                          .findAny()
-                                          .get())
-                              .findAny()
-                              .get())
-                  .collect(Collectors.toList())
-                  .stream()
-                  .collect(
-                      Collectors.toMap(
-                          Function.identity(),
-                          name ->
-                              receivers.stream()
-                                  .filter(
-                                      mbean ->
-                                          mbean.current().stream()
-                                              .findAny()
-                                              .get()
-                                              .beanObject()
-                                              .getProperties()
-                                              .values()
-                                              .stream()
-                                              .findAny()
-                                              .get()
-                                              .equals(name))
-                                  .findAny()
-                                  .get())));
-        });
-    return result;
+        (nodeID, receivers) ->
+            receivers.stream()
+                .map(
+                    receiver ->
+                        receiver.current().stream()
+                            .map(
+                                bean ->
+                                    bean.beanObject().getProperties().values().stream()
+                                        .findAny()
+                                        .get())
+                            .findAny()
+                            .get())
+                .collect(Collectors.toList())
+                .forEach(
+                    name ->
+                        brokers
+                            .get(nodeID)
+                            .metrics
+                            .put(
+                                name,
+                                receivers.stream()
+                                    .filter(
+                                        mbean ->
+                                            mbean.current().stream()
+                                                .findAny()
+                                                .get()
+                                                .beanObject()
+                                                .getProperties()
+                                                .values()
+                                                .stream()
+                                                .findAny()
+                                                .get()
+                                                .equals(name))
+                                    .findAny()
+                                    .get())));
   }
 
-  private Map<Integer, Double> brokersMsgSec(int index, Map<Integer, List<Double>> eachMsg) {
-    return eachMsg.entrySet().stream()
-        .collect(Collectors.toMap(Map.Entry::getKey, entry -> entry.getValue().get(index)));
-  }
-
-  private double avgMsgSec(int index, Map<Integer, List<Double>> eachMsg) {
-    return avgBrokersMsgPerSec(eachMsg).get(index);
-  }
-
-  private String ipAddress(Map.Entry<Integer, Map.Entry<String, Integer>> hostPort)
-      throws UnknownHostException {
+  private String ipAddress(Map.Entry<Integer, Map.Entry<String, Integer>> hostPort) {
     var host = "-1.-1.-1.-1";
-    if (!hostPort.getValue().getKey().matches(regex)) {
-      host = InetAddress.getByName(hostPort.getValue().getKey()).toString().split("/")[1];
+    if (notIPAddress(hostPort)) {
+      try {
+        host = InetAddress.getByName(hostPort.getValue().getKey()).toString().split("/")[1];
+      } catch (UnknownHostException e) {
+        e.printStackTrace();
+      }
     } else {
       host = hostPort.getValue().getKey();
     }
     return host;
   }
 
+  private boolean notIPAddress(Map.Entry<Integer, Map.Entry<String, Integer>> hostPort) {
+    return !hostPort.getValue().getKey().matches(regex);
+  }
+
+  private boolean overOneSecond() {
+    return lastTime + Duration.ofSeconds(1).toMillis() <= System.currentTimeMillis();
+  }
+
   public void close() {
     RECEIVER_FACTORY.close(currentJmxAddresses);
+  }
+
+  // visible of test
+  int brokerLoad(double brokerSituation, double avg) {
+    var initialization = 5;
+    var loadDeviationRate = (brokerSituation - avg) * avg;
+    var load = (int) Math.round(initialization + loadDeviationRate * 10);
+    if (load > 10) load = 10;
+    else if (load < 0) load = 0;
+    return load;
+  }
+
+  public double thoughPutComparison(int brokerID) {
+    return brokers.get(brokerID).thoughPutComparison;
+  }
+
+  public double memoryUsage(int brokerID) {
+    return brokers.get(brokerID).memoryUsage();
+  }
+
+  // visible of test
+  static class Broker {
+    private int count = 0;
+    private Map<Integer, Integer> load = new HashMap<>();
+    private Map<String, Receiver> metrics = new HashMap<>();
+    private double input;
+    private double output;
+    private double maxThoughPut;
+    private double brokerSituation;
+    private double thoughPutComparison;
+    private double inputNormalized;
+    private double outputNormalized;
+    private double brokerSituationNormalized;
+    private static final double inputWeights = 0.5;
+    private static final double outputWeights = 0.5;
+
+    private int totalLoad() {
+      return load.values().stream().reduce(0, Integer::sum);
+    }
+
+    private void load(Integer currentLoad) {
+      this.load.put(count % 10, currentLoad);
+      count++;
+    }
+
+    private void brokerSituationNormalized(double totalSituation) {
+      this.brokerSituationNormalized = brokerSituation / totalSituation;
+    }
+
+    private void inputNormalized(double brokersInput) {
+      this.inputNormalized = (input + 1) / (brokersInput + 1);
+    }
+
+    private void outputNormalized(double brokersOutput) {
+      this.outputNormalized = (output + 1) / (brokersOutput + 1);
+    }
+
+    private void brokerSituation() {
+      this.brokerSituation =
+          (inputNormalized * inputWeights + outputNormalized * outputWeights) / thoughPutComparison;
+    }
+
+    private void maxThoughPut() {
+      this.maxThoughPut = Math.max(maxThoughPut, input + output);
+    }
+
+    private void thoughPutComparison(double referenceThoughPut) {
+      if (count >= 20) {
+        this.thoughPutComparison =
+            (maxThoughPut - referenceThoughPut) / (referenceThoughPut + 1) + 1;
+      } else if (count >= 10) {
+        this.thoughPutComparison =
+            (maxThoughPut - referenceThoughPut) / (referenceThoughPut + 1) / 2 + 1;
+      } else if (count >= 0) {
+        this.thoughPutComparison = 1;
+      }
+    }
+
+    private double memoryUsage() {
+      var jvm = (HasJvmMemory) metrics.get("Memory").current().stream().findAny().get();
+      return (jvm.heapMemoryUsage().getUsed() + 0.0) / (jvm.heapMemoryUsage().getMax() + 1);
+    }
   }
 }

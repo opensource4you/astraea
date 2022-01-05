@@ -43,7 +43,7 @@ public class SmoothWeightPartitioner implements Partitioner, DependencyClient {
    * Record the current weight of each node according to Poisson calculation and the weight after
    * partitioner calculation.
    */
-  private Map<Integer, int[]> brokerHashMap = new HashMap<>();
+  private Map<Integer, int[]> brokersWeight = new HashMap<>();
 
   private NodeLoadClient nodeLoadClient;
   private static final DependencyManager dependencyManager = new DependencyManager();
@@ -56,14 +56,13 @@ public class SmoothWeightPartitioner implements Partitioner, DependencyClient {
   @Override
   public int partition(
       String topic, Object key, byte[] keyBytes, Object value, byte[] valueBytes, Cluster cluster) {
-    Map<Integer, Integer> overLoadCount;
+    Map<Integer, Integer> loadCount;
     var rand = new Random();
     switch (dependencyManager.currentState) {
       case Start_Dependency:
-        overLoadCount = overLoadCount(cluster);
-        Objects.requireNonNull(overLoadCount, "OverLoadCount should not be null.");
-        var minOverLoadNode =
-            overLoadCount.entrySet().stream().min(Map.Entry.comparingByValue()).get();
+        loadCount = loadCount(cluster);
+        Objects.requireNonNull(loadCount, "OverLoadCount should not be null.");
+        var minOverLoadNode = loadCount.entrySet().stream().min(Map.Entry.comparingByValue()).get();
         var minOverLoadPartition = cluster.partitionsForNode(minOverLoadNode.getKey());
         targetPartition =
             minOverLoadPartition.get(rand.nextInt(minOverLoadPartition.size())).partition();
@@ -72,35 +71,40 @@ public class SmoothWeightPartitioner implements Partitioner, DependencyClient {
       case IN_Dependency:
         return targetPartition;
       default:
-        overLoadCount = overLoadCount(cluster);
+        loadCount = loadCount(cluster);
         var loadPoisson = new LoadPoisson();
 
-        Objects.requireNonNull(overLoadCount, "OverLoadCount should not be null.");
-        brokerHashMap(loadPoisson.allPoisson(overLoadCount));
+        Objects.requireNonNull(loadCount, "OverLoadCount should not be null.");
+        brokersWeight(loadPoisson.allPoisson(loadCount));
         AtomicReference<Map.Entry<Integer, int[]>> maxWeightServer = new AtomicReference<>();
         var allWeight = allNodesWeight();
-        var currentBrokerHashMap = brokerHashMap();
-        currentBrokerHashMap.forEach(
+        brokersWeight.forEach(
             (nodeID, weight) -> {
               if (maxWeightServer.get() == null
                   || weight[1] > maxWeightServer.get().getValue()[1]) {
                 maxWeightServer.set(Map.entry(nodeID, weight));
               }
-              currentBrokerHashMap.put(nodeID, new int[] {weight[0], weight[1] + weight[0]});
+              brokersWeight.put(nodeID, new int[] {weight[0], weight[1] + weight[0]});
             });
         Objects.requireNonNull(maxWeightServer.get(), "MaxWeightServer should not be null.");
-        currentBrokerHashMap.put(
+        brokersWeight.put(
             maxWeightServer.get().getKey(),
             new int[] {
               maxWeightServer.get().getValue()[0], maxWeightServer.get().getValue()[1] - allWeight
             });
-        currentBrokerHashMap(currentBrokerHashMap);
+        brokersWeight
+            .keySet()
+            .forEach(
+                brokerID -> {
+                  if (memoryWarning(brokerID)) {
+                    subBrokerWeight(brokerID, 100);
+                  }
+                });
 
         ArrayList<Integer> partitionList = new ArrayList<>();
         cluster
             .partitionsForNode(maxWeightServer.get().getKey())
             .forEach(partitionInfo -> partitionList.add(partitionInfo.partition()));
-
         return partitionList.get(rand.nextInt(partitionList.size()));
     }
   }
@@ -133,33 +137,28 @@ public class SmoothWeightPartitioner implements Partitioner, DependencyClient {
 
   /** Change the weight of the node according to the current Poisson. */
   // visible for test
-  public synchronized void brokerHashMap(Map<Integer, Double> poissonMap) {
+  public synchronized void brokersWeight(Map<Integer, Double> poissonMap) {
     poissonMap.forEach(
         (key, value) -> {
-          if (!brokerHashMap.containsKey(key)) {
-            brokerHashMap.put(key, new int[] {(int) ((1 - value) * 20), 0});
+          var thoughPutAbility = nodeLoadClient.thoughPutComparison(key);
+          if (!brokersWeight.containsKey(key)) {
+            brokersWeight.put(key, new int[] {(int) ((1 - value) * 20 * thoughPutAbility), 0});
           } else {
-            brokerHashMap.put(key, new int[] {(int) ((1 - value) * 20), brokerHashMap.get(key)[1]});
+            brokersWeight.put(
+                key,
+                new int[] {(int) ((1 - value) * 20 * thoughPutAbility), brokersWeight.get(key)[1]});
           }
         });
   }
 
+  private void subBrokerWeight(int brokerID, int subNumber) {
+    brokersWeight.put(
+        brokerID,
+        new int[] {brokersWeight.get(brokerID)[0], brokersWeight.get(brokerID)[1] - subNumber});
+  }
+
   private synchronized int allNodesWeight() {
-    return brokerHashMap.values().stream().mapToInt(vs -> vs[0]).sum();
-  }
-
-  // visible for test
-  public synchronized Map<Integer, int[]> brokerHashMap() {
-    return brokerHashMap;
-  }
-
-  private synchronized void currentBrokerHashMap(Map<Integer, int[]> currentBrokerHashMap) {
-    brokerHashMap = currentBrokerHashMap;
-  }
-
-  // visible for test
-  public void brokerHashMapValue(Integer x, int y) {
-    brokerHashMap.put(x, new int[] {0, y});
+    return brokersWeight.values().stream().mapToInt(vs -> vs[0]).sum();
   }
 
   public static synchronized DependencyClient beginDependency(KafkaProducer<?, ?> producer) {
@@ -167,14 +166,18 @@ public class SmoothWeightPartitioner implements Partitioner, DependencyClient {
     return (DependencyClient) Utils.requireField(producer, "partitioner");
   }
 
+  private boolean memoryWarning(int brokerID) {
+    return nodeLoadClient.memoryUsage(brokerID) >= 0.8;
+  }
+
   @Override
   public synchronized void finishDependency() {
     dependencyManager.finishDependency();
   }
 
-  private Map<Integer, Integer> overLoadCount(Cluster cluster) {
+  private Map<Integer, Integer> loadCount(Cluster cluster) {
     try {
-      return nodeLoadClient.nodesOverLoad(cluster);
+      return nodeLoadClient.loadSituation(cluster);
     } catch (UnknownHostException e) {
       throw new IllegalArgumentException(e);
     }
@@ -216,12 +219,16 @@ public class SmoothWeightPartitioner implements Partitioner, DependencyClient {
     }
 
     private void transitionTo(State target) {
-      if (!currentState.isTransitionValid(currentState, target)) {
-        throw new KafkaException(
-            "Invalid transition attempted from state "
-                + currentState.name()
-                + " to state "
-                + target.name());
+      try {
+        if (!currentState.isTransitionValid(currentState, target)) {
+          throw new KafkaException(
+              "Invalid transition attempted from state "
+                  + currentState.name()
+                  + " to state "
+                  + target.name());
+        }
+      } catch (KafkaException e) {
+        System.out.println(e);
       }
       currentState = target;
     }

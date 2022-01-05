@@ -1,7 +1,11 @@
 package org.astraea.partitioner.nodeLoadMetric;
 
+import static org.astraea.Utils.requireField;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.Mockito.when;
 
+import java.lang.reflect.Field;
 import java.time.Duration;
 import java.util.HashMap;
 import java.util.List;
@@ -22,6 +26,7 @@ import org.astraea.service.RequireBrokerCluster;
 import org.astraea.topic.TopicAdmin;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 
 public class PartitionerTest extends RequireBrokerCluster {
   private final String brokerList = bootstrapServers();
@@ -94,20 +99,44 @@ public class PartitionerTest extends RequireBrokerCluster {
 
   @Test
   void testSetBrokerHashMap() {
+    var nodeLoadClient = Mockito.mock(NodeLoadClient.class);
+    when(nodeLoadClient.thoughPutComparison(anyInt())).thenReturn(1.0);
     var poissonMap = new HashMap<Integer, Double>();
     poissonMap.put(0, 0.5);
     poissonMap.put(1, 0.8);
     poissonMap.put(2, 0.3);
 
     var smoothWeightPartitioner = new SmoothWeightPartitioner();
+    setNodeLoadClient(nodeLoadClient, smoothWeightPartitioner);
+    smoothWeightPartitioner.brokersWeight(poissonMap);
 
-    smoothWeightPartitioner.brokerHashMap(poissonMap);
+    var brokerWeight = (Map<Integer, int[]>) requireField(smoothWeightPartitioner, "brokersWeight");
+    assertEquals(brokerWeight.get(0)[0], 10);
+    assertEquals(brokerWeight.get(1)[0], 3);
 
-    assertEquals(smoothWeightPartitioner.brokerHashMap().get(0)[0], 10);
-    assertEquals(smoothWeightPartitioner.brokerHashMap().get(1)[0], 3);
+    brokerWeight.put(0, new int[] {0, 8});
+    smoothWeightPartitioner.brokersWeight(poissonMap);
+    assertEquals(brokerWeight.get(0)[1], 8);
+  }
 
-    smoothWeightPartitioner.brokerHashMapValue(0, 8);
-    smoothWeightPartitioner.brokerHashMap(poissonMap);
-    assertEquals(smoothWeightPartitioner.brokerHashMap().get(0)[1], 8);
+  private void setNodeLoadClient(
+      NodeLoadClient nodeLoadClient, SmoothWeightPartitioner partitioner) {
+    var target = field(partitioner, "nodeLoadClient");
+    try {
+      target.set(partitioner, nodeLoadClient);
+    } catch (IllegalAccessException e) {
+      e.printStackTrace();
+    }
+  }
+
+  private Field field(Object object, String fieldName) {
+    Field field = null;
+    try {
+      field = object.getClass().getDeclaredField(fieldName);
+      field.setAccessible(true);
+    } catch (NoSuchFieldException e) {
+      e.printStackTrace();
+    }
+    return field;
   }
 }
