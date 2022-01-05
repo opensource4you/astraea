@@ -55,7 +55,7 @@ public class NodeLoadClientTest extends RequireBrokerCluster {
     brokers.put(1, new NodeLoadClient.Broker());
     brokers.put(2, new NodeLoadClient.Broker());
     setBrokers(brokers);
-    Assertions.assertEquals(nodeLoadClient.brokerLoad(0.36, 1.0 / 3), 6);
+    Assertions.assertEquals(nodeLoadClient.brokerLoad(0.37, 1.0 / 3), 6);
     Assertions.assertEquals(nodeLoadClient.brokerLoad(0.01, 1.0 / 3), 0);
     Assertions.assertEquals(nodeLoadClient.brokerLoad(0.8, 1.0 / 3), 10);
   }

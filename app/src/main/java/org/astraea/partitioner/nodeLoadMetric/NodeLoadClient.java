@@ -262,7 +262,7 @@ public class NodeLoadClient {
   // visible of test
   int brokerLoad(double brokerSituation, double avg) {
     var initialization = 5;
-    var loadDeviationRate = (brokerSituation - avg) * avg;
+    var loadDeviationRate = (brokerSituation - avg) / avg;
     var load = (int) Math.round(initialization + loadDeviationRate * 10);
     if (load > 10) load = 10;
     else if (load < 0) load = 0;
