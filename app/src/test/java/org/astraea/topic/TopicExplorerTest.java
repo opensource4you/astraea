@@ -9,6 +9,8 @@ import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.regex.Pattern;
+
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.common.TopicPartition;
 import org.astraea.consumer.Consumer;
@@ -158,7 +160,6 @@ public class TopicExplorerTest extends RequireBrokerCluster {
     // assert
     final String output = mockOutput.toString();
     System.out.println(output);
-    assertTrue(output.matches("(?ms).+" + now + ".+"), "time printed");
     assertTrue(output.matches("(?ms).+Topic.+my-topic.+"), "topic name printed");
     assertTrue(
         output.matches("(?ms).+Consumer Group.+my-consumer-group.+"),
