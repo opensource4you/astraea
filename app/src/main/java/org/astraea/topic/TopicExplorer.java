@@ -165,7 +165,7 @@ public class TopicExplorer {
                                 NEXT_LEVEL,
                                 () -> {
                                   printConsumerGroup(entry.getKey(), entry.getValue());
-                                  printPartitionReplica(entry.getValue());
+                                  printPartitionReplica(entry.getKey(), entry.getValue());
                                 });
                           },
                           TERMINATOR);
@@ -276,17 +276,51 @@ public class TopicExplorer {
           });
     }
 
-    private void printPartitionReplica(List<PartitionInfo> partitionInfos) {
+    private void printPartitionReplica(String topic, List<PartitionInfo> partitionInfos) {
       treePrintln("Partitions/Replicas:");
       nextLevel(
           NEXT_LEVEL,
           () -> {
+            treePrintln("Statistics of Topic\"%s\"", topic);
+            nextLevel(
+                "  ",
+                () -> {
+                  treePrintln(
+                      "Topic Size: %s",
+                      DataUnit.Byte.of(
+                          partitionInfos.stream()
+                              .flatMapToLong(x -> x.replicas.stream().mapToLong(Replica::size))
+                              .sum()));
+                  treePrintln("Partition Count: %d", partitionInfos.size());
+                  treePrintln(
+                      "Partition Size Average: %s",
+                      DataUnit.Byte.of(
+                          (long)
+                              partitionInfos.stream()
+                                  .mapToLong(
+                                      x -> x.replicas.stream().mapToLong(Replica::size).sum())
+                                  .summaryStatistics()
+                                  .getAverage()));
+                  treePrintln(
+                      "Replica Count: %d",
+                      partitionInfos.stream().mapToInt(x -> x.replicas.size()).sum());
+                  treePrintln(
+                      "Replica Size Average: %s",
+                      DataUnit.Byte.of(
+                          (long)
+                              partitionInfos.stream()
+                                  .flatMapToLong(x -> x.replicas.stream().mapToLong(Replica::size))
+                                  .summaryStatistics()
+                                  .getAverage()));
+                });
             // print partition & replica info
             partitionInfos.forEach(
                 partitionInfo -> {
                   treePrintln(
-                      "Partition \"%d\" (offset range: [%d, %d])",
+                      "Partition \"%d\" (size: %s) (offset range: [%d, %d])",
                       partitionInfo.topicPartition.partition(),
+                      DataUnit.Byte.of(
+                          partitionInfo.replicas.stream().mapToLong(Replica::size).sum()),
                       partitionInfo.earliestOffset,
                       partitionInfo.latestOffset);
                   nextLevel(

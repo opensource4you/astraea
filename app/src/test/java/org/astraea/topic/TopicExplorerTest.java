@@ -178,7 +178,13 @@ public class TopicExplorerTest extends RequireBrokerCluster {
     assertTrue(output.matches("(?ms).+groupInstanceId.+instance-1.+"), "group instance id printed");
     assertTrue(output.matches("(?ms).+groupInstanceId.+instance-2.+"), "group instance id printed");
     assertTrue(output.matches("(?ms).+groupInstanceId.+instance-3.+"), "group instance id printed");
+    assertTrue(output.matches("(?ms).+Topic Size.+100.+Byte.+"), "statistics");
+    assertTrue(output.matches("(?ms).+Partition Count.+1.+"), "statistics");
+    assertTrue(output.matches("(?ms).+Partition Size Average.+100.+Byte.+"), "statistics");
+    assertTrue(output.matches("(?ms).+Replica Count.+1.+"), "statistics");
+    assertTrue(output.matches("(?ms).+Replica Size Average.+100.+Byte.+"), "statistics");
     assertTrue(output.matches("(?ms).+Partition.+0.+"), "partition info printed");
+    assertTrue(output.matches("(?ms).+size.+100.+Byte.+"), "statistics");
     assertTrue(output.matches("(?ms).+offset range.+0.+100.+"), "partition offset printed");
     assertTrue(output.matches("(?ms).+replica on broker.+55.+"), "broker id printed");
     assertTrue(output.matches("(?ms).+size.+100.+Byte.+"), "replica size printed");
