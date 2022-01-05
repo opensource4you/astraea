@@ -188,10 +188,10 @@ public class TopicExplorerTest extends RequireBrokerCluster {
     assertTrue(output.matches("(?ms).+offset range.+0.+100.+"), "partition offset printed");
     assertTrue(output.matches("(?ms).+replica on broker.+55.+"), "broker id printed");
     assertTrue(output.matches("(?ms).+size.+100.+Byte.+"), "replica size printed");
-    assertTrue(output.matches("(?ms).+[.+leader.+].+"), "descriptor printed");
-    assertTrue(output.matches("(?ms).+[.+lagged.+size.+15.+Byte.+].+"), "descriptor printed");
-    assertTrue(output.matches("(?ms).+[.+non-synced.+].+"), "descriptor printed");
-    assertTrue(output.matches("(?ms).+[.+future.+].+"), "descriptor printed");
+    assertTrue(output.matches("(?ms).+\\[.+leader.+].+"), "descriptor printed");
+    assertTrue(output.matches("(?ms).+\\[.+lagged.+size.+15.+Byte.+].+"), "descriptor printed");
+    assertTrue(output.matches("(?ms).+\\[.+non-synced.+].+"), "descriptor printed");
+    assertTrue(output.matches("(?ms).+\\[.+future.+].+"), "descriptor printed");
     assertTrue(output.matches("(?ms).+/tmp/path0.+"), "path printed");
   }
 }
