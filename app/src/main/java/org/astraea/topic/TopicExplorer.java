@@ -281,7 +281,7 @@ public class TopicExplorer {
       nextLevel(
           NEXT_LEVEL,
           () -> {
-            treePrintln("Statistics of Topic\"%s\"", topic);
+            treePrintln("Statistics of Topic \"%s\"", topic);
             nextLevel(
                 "  ",
                 () -> {
