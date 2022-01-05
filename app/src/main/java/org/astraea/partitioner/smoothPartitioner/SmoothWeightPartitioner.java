@@ -168,6 +168,7 @@ public class SmoothWeightPartitioner implements Partitioner, DependencyClient {
     return (DependencyClient) Utils.requireField(producer, "partitioner");
   }
 
+  @Override
   public synchronized void finishDependency() {
     dependencyManager.finishDependency();
   }

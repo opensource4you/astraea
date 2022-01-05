@@ -1,10 +1,5 @@
 package org.astraea.producer;
 
-import org.apache.kafka.clients.producer.KafkaProducer;
-import org.apache.kafka.clients.producer.ProducerConfig;
-import org.apache.kafka.clients.producer.ProducerRecord;
-import org.astraea.consumer.Header;
-
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
@@ -12,6 +7,10 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
+import org.apache.kafka.clients.producer.KafkaProducer;
+import org.apache.kafka.clients.producer.ProducerConfig;
+import org.apache.kafka.clients.producer.ProducerRecord;
+import org.astraea.consumer.Header;
 
 public class Builder<Key, Value> {
   private final Map<String, Object> configs = new HashMap<>();
