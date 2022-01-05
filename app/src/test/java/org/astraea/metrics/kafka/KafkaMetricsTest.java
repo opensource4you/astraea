@@ -1,6 +1,8 @@
 package org.astraea.metrics.kafka;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.condition.OS.LINUX;
 import static org.junit.jupiter.api.condition.OS.WINDOWS;
 
@@ -9,7 +11,7 @@ import java.lang.management.ManagementFactory;
 import java.util.Arrays;
 import java.util.Set;
 import java.util.stream.Collectors;
-import javax.management.*;
+import javax.management.MBeanServer;
 import javax.management.remote.JMXConnectorServer;
 import javax.management.remote.JMXConnectorServerFactory;
 import javax.management.remote.JMXServiceURL;
