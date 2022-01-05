@@ -32,6 +32,7 @@ RUN git clone https://github.com/skiptests/astraea
 # pre-build project to collect all dependencies
 WORKDIR /tmp/astraea
 RUN ./gradlew clean build -x test --no-daemon
+RUN cp \$(find ./app/build/libs/ -maxdepth 1 -type f -name app-*-all.jar) /tmp/app.jar
 " >"$DOCKER_FILE"
 }
 
@@ -45,7 +46,7 @@ function runContainer() {
   local args=$1
   docker run --rm \
     $IMAGE_NAME \
-    /bin/bash -c "./gradlew run --args=\"$args\""
+    /bin/bash -c "java -jar /tmp/app.jar $args"
 }
 
 # ===================================[main]===================================
