@@ -1,14 +1,19 @@
 package org.astraea.partitioner.nodeLoadMetric;
 
+import static org.astraea.Utils.requireField;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.Mockito.when;
 
 import java.lang.reflect.Field;
 import java.time.Duration;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.serialization.ByteArraySerializer;
@@ -23,6 +28,7 @@ import org.astraea.topic.TopicAdmin;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.mockito.Mockito;
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public class PartitionerTest extends RequireBrokerCluster {
@@ -42,28 +48,27 @@ public class PartitionerTest extends RequireBrokerCluster {
     return props;
   }
 
-  //  @Test
-  //  void testSetBrokerHashMap() {
-  //    var nodeLoadClient = Mockito.mock(NodeLoadClient.class);
-  //    when(nodeLoadClient.thoughPutComparison(anyInt())).thenReturn(1.0);
-  //    var poissonMap = new HashMap<Integer, Double>();
-  //    poissonMap.put(0, 0.5);
-  //    poissonMap.put(1, 0.8);
-  //    poissonMap.put(2, 0.3);
-  //
-  //    var smoothWeightPartitioner = new SmoothWeightPartitioner();
-  //    setNodeLoadClient(nodeLoadClient, smoothWeightPartitioner);
-  //    smoothWeightPartitioner.brokersWeight(poissonMap);
-  //
-  //    var brokerWeight = (Map<Integer, int[]>) requireField(smoothWeightPartitioner,
-  // "brokersWeight");
-  //    assertEquals(brokerWeight.get(0)[0], 10);
-  //    assertEquals(brokerWeight.get(1)[0], 3);
-  //
-  //    brokerWeight.put(0, new int[] {0, 8});
-  //    smoothWeightPartitioner.brokersWeight(poissonMap);
-  //    assertEquals(brokerWeight.get(0)[1], 8);
-  //  }
+  @Test
+  void testSetBrokerHashMap() {
+    var nodeLoadClient = Mockito.mock(NodeLoadClient.class);
+    when(nodeLoadClient.thoughPutComparison(anyInt())).thenReturn(1.0);
+    var poissonMap = new HashMap<Integer, Double>();
+    poissonMap.put(0, 0.5);
+    poissonMap.put(1, 0.8);
+    poissonMap.put(2, 0.3);
+
+    var smoothWeightPartitioner = new SmoothWeightPartitioner();
+    setNodeLoadClient(nodeLoadClient, smoothWeightPartitioner);
+    smoothWeightPartitioner.brokersWeight(poissonMap);
+
+    var brokerWeight = (Map<Integer, int[]>) requireField(smoothWeightPartitioner, "brokersWeight");
+    assertEquals(brokerWeight.get(0)[0], 10);
+    assertEquals(brokerWeight.get(1)[0], 3);
+
+    brokerWeight.put(0, new int[] {0, 8});
+    smoothWeightPartitioner.brokersWeight(poissonMap);
+    assertEquals(brokerWeight.get(0)[1], 8);
+  }
 
   @Test
   void testPartitioner() {
@@ -106,6 +111,7 @@ public class PartitionerTest extends RequireBrokerCluster {
             .keyDeserializer(Deserializer.STRING)
             .build()) {
       var records = consumer.poll(Duration.ofSeconds(10));
+      sleep(3);
       assertEquals(20, records.size());
       var record = records.iterator().next();
       assertEquals(topicName, record.topic());
@@ -136,5 +142,13 @@ public class PartitionerTest extends RequireBrokerCluster {
       e.printStackTrace();
     }
     return field;
+  }
+
+  private static void sleep(int seconds) {
+    try {
+      TimeUnit.SECONDS.sleep(seconds);
+    } catch (InterruptedException e) {
+      throw new RuntimeException(e);
+    }
   }
 }
