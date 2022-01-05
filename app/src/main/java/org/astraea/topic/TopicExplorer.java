@@ -152,26 +152,24 @@ public class TopicExplorer {
       treePrintln("[%s]", time.format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
       nextLevel(
           " ",
-          () -> {
-            info.entrySet().stream()
-                .sorted(Map.Entry.comparingByKey())
-                .forEach(
-                    (entry) -> {
-                      treePrintln("Topic \"%s\"", entry.getKey());
-                      nextLevel(
-                          "",
-                          () -> {
-                            nextLevel(
-                                NEXT_LEVEL,
-                                () -> {
-                                  printStatistics(entry.getKey(), entry.getValue());
-                                  printConsumerGroup(entry.getKey(), entry.getValue());
-                                  printPartitionReplica(entry.getValue());
-                                });
-                          },
-                          TERMINATOR);
-                    });
-          });
+          () ->
+              info.entrySet().stream()
+                  .sorted(Map.Entry.comparingByKey())
+                  .forEach(
+                      (entry) -> {
+                        treePrintln("Topic \"%s\"", entry.getKey());
+                        nextLevel(
+                            "",
+                            () ->
+                                nextLevel(
+                                    NEXT_LEVEL,
+                                    () -> {
+                                      printStatistics(entry.getKey(), entry.getValue());
+                                      printConsumerGroup(entry.getKey(), entry.getValue());
+                                      printPartitionReplica(entry.getValue());
+                                    }),
+                            TERMINATOR);
+                      }));
     }
 
     private void printStatistics(String topic, List<PartitionInfo> partitionInfos) {
@@ -328,23 +326,20 @@ public class TopicExplorer {
                       partitionInfo.latestOffset);
                   nextLevel(
                       "  ",
-                      () -> {
-                        nextLevel(
-                            NEXT_LEVEL,
-                            () -> {
-                              partitionInfo.replicas.stream()
-                                  .sorted(Comparator.comparing(Replica::broker))
-                                  .forEach(
-                                      replica -> {
-                                        treePrintln(
-                                            "replica on broker %-4s %17s %s at \"%s\"",
-                                            "#" + replica.broker(),
-                                            ReplicaHelper.size(replica.size()),
-                                            ReplicaHelper.descriptor(replica),
-                                            replica.path());
-                                      });
-                            });
-                      });
+                      () ->
+                          nextLevel(
+                              NEXT_LEVEL,
+                              () ->
+                                  partitionInfo.replicas.stream()
+                                      .sorted(Comparator.comparing(Replica::broker))
+                                      .forEach(
+                                          replica ->
+                                              treePrintln(
+                                                  "replica on broker %-4s %17s %s at \"%s\"",
+                                                  "#" + replica.broker(),
+                                                  ReplicaHelper.size(replica.size()),
+                                                  ReplicaHelper.descriptor(replica),
+                                                  replica.path()))));
                 });
           });
     }
