@@ -1,6 +1,14 @@
 package org.astraea.partitioner.nodeLoadMetric;
 
-import static org.mockito.Mockito.when;
+import org.apache.kafka.common.Cluster;
+import org.apache.kafka.common.Node;
+import org.astraea.service.RequireBrokerCluster;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.mockito.Mockito;
 
 import java.io.IOException;
 import java.lang.reflect.Field;
@@ -11,15 +19,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
-import org.apache.kafka.common.Cluster;
-import org.apache.kafka.common.Node;
-import org.astraea.service.RequireBrokerCluster;
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInstance;
-import org.mockito.Mockito;
+
+import static org.mockito.Mockito.when;
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public class NodeLoadClientTest extends RequireBrokerCluster {
