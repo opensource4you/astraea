@@ -226,7 +226,7 @@ Run the benchmark from source
 
 ## Topic Explorer
 
-This tool can expose both earliest offset and latest offset for all (public and private) topics.
+This tool can expose both earliest offset, consumer group offset and latest offset for all (public and private) topics.
 
 Run the tool from source code
 ```shell

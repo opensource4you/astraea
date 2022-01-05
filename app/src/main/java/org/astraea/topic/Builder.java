@@ -66,70 +66,59 @@ public class Builder {
     }
 
     @Override
-    public Map<TopicPartition, List<Group>> groups(Set<String> topics) {
-      var groups =
-          Utils.handleException(() -> admin.listConsumerGroups().valid().get()).stream()
-              .map(ConsumerGroupListing::groupId)
-              .collect(Collectors.toList());
+    public Map<String, ConsumerGroup> consumerGroup(Set<String> consumerGroupNames) {
 
-      var allPartitions = partitions(topics);
+      final Set<String> groupIds =
+          !consumerGroupNames.isEmpty()
+              ? consumerGroupNames
+              : Utils.handleException(() -> admin.listConsumerGroups().all().get()).stream()
+                  .map(ConsumerGroupListing::groupId)
+                  .collect(Collectors.toUnmodifiableSet());
 
-      var result = new HashMap<TopicPartition, List<Group>>();
-      Utils.handleException(() -> admin.describeConsumerGroups(groups).all().get())
-          .forEach(
-              (groupId, groupDescription) -> {
-                var partitionOffsets =
-                    Utils.handleException(
-                        () ->
-                            admin
-                                .listConsumerGroupOffsets(groupId)
-                                .partitionsToOffsetAndMetadata()
-                                .get());
+      return Utils.handleException(
+          () -> {
+            var consumerGroupDescriptions = admin.describeConsumerGroups(groupIds).all().get();
 
-                var partitionMembers =
-                    groupDescription.members().stream()
-                        .flatMap(
-                            m ->
-                                m.assignment().topicPartitions().stream()
-                                    .map(tp -> Map.entry(tp, m)))
-                        .collect(Collectors.groupingBy(Map.Entry::getKey))
-                        .entrySet()
-                        .stream()
-                        .collect(
-                            Collectors.toMap(
-                                Map.Entry::getKey,
-                                e ->
-                                    e.getValue().stream()
-                                        .map(Map.Entry::getValue)
-                                        .collect(Collectors.toList())));
+            var consumerGroupMetadata =
+                groupIds.stream()
+                    .map(x -> Map.entry(x, admin.listConsumerGroupOffsets(x)))
+                    .map(
+                        x ->
+                            Map.entry(
+                                x.getKey(),
+                                Utils.handleException(
+                                    () -> x.getValue().partitionsToOffsetAndMetadata().get())))
+                    .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));
 
-                allPartitions.forEach(
-                    tp -> {
-                      var offset =
-                          partitionOffsets.containsKey(tp)
-                              ? OptionalLong.of(partitionOffsets.get(tp).offset())
-                              : OptionalLong.empty();
+            var createMember =
+                (BiFunction<String, MemberDescription, Member>)
+                    (s, x) ->
+                        new Member(s, x.consumerId(), x.groupInstanceId(), x.clientId(), x.host());
+
+            return groupIds.stream()
+                .map(
+                    groupId -> {
                       var members =
-                          partitionMembers.getOrDefault(tp, List.of()).stream()
-                              .map(
-                                  m ->
-                                      new Member(
-                                          m.consumerId(),
-                                          m.groupInstanceId(),
-                                          m.clientId(),
-                                          m.host()))
-                              .collect(Collectors.toList());
-                      // This group is related to the partition only if it has either member or
-                      // offset.
-                      if (offset.isPresent() || !members.isEmpty()) {
-                        result
-                            .computeIfAbsent(tp, ignore -> new ArrayList<>())
-                            .add(new Group(groupId, offset, members));
-                      }
-                    });
-              });
+                          consumerGroupDescriptions.get(groupId).members().stream()
+                              .map(x -> createMember.apply(groupId, x))
+                              .collect(Collectors.toUnmodifiableList());
+                      var consumeOffset =
+                          consumerGroupMetadata.get(groupId).entrySet().stream()
+                              .collect(
+                                  Collectors.toUnmodifiableMap(
+                                      Map.Entry::getKey, x -> x.getValue().offset()));
+                      var assignment =
+                          consumerGroupDescriptions.get(groupId).members().stream()
+                              .collect(
+                                  Collectors.toUnmodifiableMap(
+                                      x -> createMember.apply(groupId, x),
+                                      x -> x.assignment().topicPartitions()));
 
-      return result;
+                      return Map.entry(
+                          groupId, new ConsumerGroup(groupId, members, consumeOffset, assignment));
+                    })
+                .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));
+          });
     }
 
     private Map<TopicPartition, Long> earliestOffset(Set<TopicPartition> partitions) {
