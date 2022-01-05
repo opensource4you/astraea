@@ -1,5 +1,19 @@
 package org.astraea.partitioner.nodeLoadMetric;
 
+import static org.astraea.Utils.requireField;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.Mockito.when;
+
+import java.lang.reflect.Field;
+import java.time.Duration;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Properties;
+import java.util.Set;
+import java.util.concurrent.ExecutionException;
+import java.util.stream.Collectors;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.serialization.ByteArraySerializer;
 import org.astraea.consumer.Consumer;
@@ -13,21 +27,6 @@ import org.astraea.topic.TopicAdmin;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
-
-import java.lang.reflect.Field;
-import java.time.Duration;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Properties;
-import java.util.Set;
-import java.util.concurrent.ExecutionException;
-import java.util.stream.Collectors;
-
-import static org.astraea.Utils.requireField;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.Mockito.when;
 
 public class PartitionerTest extends RequireBrokerCluster {
   private final String brokerList = bootstrapServers();
@@ -45,6 +44,7 @@ public class PartitionerTest extends RequireBrokerCluster {
     props.put("jmx_servers", jmxServiceURL().getHost() + ":" + jmxServiceURL().getPort());
     return props;
   }
+
   @Test
   void testSetBrokerHashMap() {
     var nodeLoadClient = Mockito.mock(NodeLoadClient.class);
@@ -118,8 +118,6 @@ public class PartitionerTest extends RequireBrokerCluster {
       Assertions.assertArrayEquals(header.value(), actualHeader.value());
     }
   }
-
-
 
   private void setNodeLoadClient(
       NodeLoadClient nodeLoadClient, SmoothWeightPartitioner partitioner) {
