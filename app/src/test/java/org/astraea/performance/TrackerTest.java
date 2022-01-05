@@ -1,11 +1,16 @@
 package org.astraea.performance;
 
+import java.io.File;
+import java.util.ArrayList;
 import java.util.List;
 import org.astraea.concurrent.ThreadPool;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 public class TrackerTest {
+  static List<String> createdFiles = new ArrayList<>();
+
   @Test
   public void testTerminate() throws InterruptedException {
     var producerData = List.of(new Metrics());
@@ -16,6 +21,7 @@ public class TrackerTest {
 
     var manager = new Manager(argument, producerData, consumerData);
     try (Tracker tracker = new Tracker(producerData, consumerData, manager)) {
+      createdFiles.add(tracker.CSVName());
       Assertions.assertEquals(ThreadPool.Executor.State.RUNNING, tracker.execute());
       producerData.get(0).accept(1L, 1L);
       consumerData.get(0).accept(1L, 1L);
@@ -27,6 +33,7 @@ public class TrackerTest {
     producerData = List.of(new Metrics());
     manager = new Manager(argument, producerData, empty);
     try (Tracker tracker = new Tracker(producerData, empty, manager)) {
+      createdFiles.add(tracker.CSVName());
       Assertions.assertEquals(ThreadPool.Executor.State.RUNNING, tracker.execute());
       producerData.get(0).accept(1L, 1L);
       manager.producerClosed();
@@ -39,6 +46,7 @@ public class TrackerTest {
     consumerData = List.of(new Metrics());
     manager = new Manager(argument, producerData, consumerData);
     try (Tracker tracker = new Tracker(producerData, consumerData, manager)) {
+      createdFiles.add(tracker.CSVName());
       tracker.start = System.currentTimeMillis();
       Assertions.assertEquals(ThreadPool.Executor.State.RUNNING, tracker.execute());
 
@@ -50,5 +58,10 @@ public class TrackerTest {
 
       Assertions.assertEquals(ThreadPool.Executor.State.DONE, tracker.execute());
     }
+  }
+
+  @AfterAll
+  static void deleteCreatedFiles() {
+    createdFiles.forEach(fileName -> new File(fileName).delete());
   }
 }
