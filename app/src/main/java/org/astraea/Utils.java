@@ -101,6 +101,23 @@ public final class Utils {
     return path.substring(0, indexOf + 7);
   }
 
+  /**
+   * Get the field of the object.
+   *
+   * @param object reflected object.
+   * @param fieldName reflected field name.
+   * @return Required field.
+   */
+  public static Object requireField(Object object, String fieldName) {
+    try {
+      var field = object.getClass().getDeclaredField(fieldName);
+      field.setAccessible(true);
+      return field.get(object);
+    } catch (NoSuchFieldException | IllegalAccessException e) {
+      throw new IllegalArgumentException(e);
+    }
+  }
+
   public static int requirePositive(int value) {
     if (value <= 0)
       throw new IllegalArgumentException("the value: " + value + " must be bigger than zero");

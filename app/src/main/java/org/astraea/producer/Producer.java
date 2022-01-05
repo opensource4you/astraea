@@ -1,6 +1,7 @@
 package org.astraea.producer;
 
 import java.util.Map;
+import org.apache.kafka.clients.producer.KafkaProducer;
 
 /** An interface for sending records. */
 public interface Producer<Key, Value> extends AutoCloseable {
@@ -10,6 +11,8 @@ public interface Producer<Key, Value> extends AutoCloseable {
   void flush();
 
   void close();
+
+  KafkaProducer<Key, Value> kafkaProducer();
 
   static Builder<byte[], byte[]> builder() {
     return new Builder<>();

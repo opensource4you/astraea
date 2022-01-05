@@ -7,7 +7,6 @@ import java.io.IOException;
 import java.time.Duration;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
@@ -54,15 +53,12 @@ import org.astraea.utils.DataUnit;
  */
 public class Performance {
   /** Used in Automation, to achieve the end of one Performance and then start another. */
-  private static CountDownLatch latch;
-
   public static void main(String[] args)
       throws InterruptedException, IOException, ExecutionException {
-    latch = new CountDownLatch(1);
     execute(ArgumentUtil.parseArgument(new Argument(), args));
   }
 
-  public static void execute(final Argument param)
+  public static String execute(final Argument param)
       throws InterruptedException, IOException, ExecutionException {
     try (var topicAdmin = TopicAdmin.of(param.props())) {
       topicAdmin
@@ -119,7 +115,7 @@ public class Performance {
             .executor(tracker)
             .build()) {
       threadPool.waitAll();
-      latch.countDown();
+      return "Complete!";
     }
   }
 
@@ -197,7 +193,7 @@ public class Performance {
     };
   }
 
-  static class Argument extends BasicArgumentWithPropFile {
+  public static class Argument extends BasicArgumentWithPropFile {
 
     @Parameter(
         names = {"--topic"},
@@ -295,9 +291,5 @@ public class Performance {
                     .collect(Collectors.joining(",")));
       }
     }
-  }
-
-  public static CountDownLatch performanceLatch() {
-    return latch;
   }
 }

@@ -1,14 +1,14 @@
 package org.astraea.automation;
 
 import static org.astraea.Utils.astraeaPath;
-import static org.astraea.performance.Performance.performanceLatch;
 
 import java.io.FileInputStream;
 import java.io.IOException;
-import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
+import java.util.concurrent.ExecutionException;
+import org.astraea.argument.ArgumentUtil;
 import org.astraea.performance.Performance;
 
 /**
@@ -33,30 +33,22 @@ public class Automation {
           "--topic");
 
   public static void main(String[] args) {
-    ClassLoader classLoader = Performance.class.getClassLoader();
     try {
       var properties = new Properties();
       properties.load(new FileInputStream(astraeaPath() + "/config/automation.properties"));
 
       var i = 0;
       var times = 0;
-      if (properties.getProperty("--time").equals("Defaults")) times = 5;
+      if (properties.getProperty("--time").equals("Default")) times = 5;
       else times = Integer.parseInt(properties.getProperty("--time"));
 
       while (i < times) {
-        var loadClass = classLoader.loadClass("org.astraea.performance.Performance");
-        var method = loadClass.getMethod("main", String[].class);
-        method.invoke(null, (Object) performanceArgs(properties));
-        performanceLatch().await();
+        Performance.execute(
+            ArgumentUtil.parseArgument(new Performance.Argument(), performanceArgs(properties)));
         i++;
         System.out.println("=============== " + i + " time completed===============");
       }
-    } catch (ClassNotFoundException
-        | InvocationTargetException
-        | NoSuchMethodException
-        | IllegalAccessException
-        | IOException
-        | InterruptedException e) {
+    } catch (IOException | InterruptedException | ExecutionException e) {
       e.printStackTrace();
     }
   }
@@ -67,7 +59,7 @@ public class Automation {
     performanceProperties.forEach(
         str -> {
           var property = properties.getProperty((String) str);
-          if (property != null && !property.equals("Defaults")) {
+          if (property != null && !property.equals("Default")) {
             args.add((String) str);
             args.add(property);
           }

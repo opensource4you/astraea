@@ -32,10 +32,10 @@ RUN git clone https://github.com/skiptests/astraea
 # pre-build project to collect all dependencies
 WORKDIR /tmp/astraea
 RUN ./gradlew clean build -x test --no-daemon
+RUN cp \$(find ./app/build/libs/ -maxdepth 1 -type f -name app-*-all.jar) /tmp/app.jar
 " >"$DOCKER_FILE"
 }
 
-# build image only if the image does not exist locally
 function buildImageIfNeed() {
   if [[ "$(docker images -q $IMAGE_NAME 2>/dev/null)" == "" ]]; then
     docker build --no-cache -t "$IMAGE_NAME" -f "$DOCKER_FILE" "$DOCKER_FOLDER"
@@ -46,7 +46,7 @@ function runContainer() {
   local args=$1
   docker run --rm \
     $IMAGE_NAME \
-    /bin/bash -c "./gradlew run --args=\"$args\""
+    /bin/bash -c "java -jar /tmp/app.jar $args"
 }
 
 # ===================================[main]===================================
@@ -55,7 +55,7 @@ checkDocker
 generateDockerfile
 buildImageIfNeed
 if [[ -n "$1" ]]; then
-  runContainer "$@"
+  runContainer "$*"
 else
   runContainer "help"
 fi

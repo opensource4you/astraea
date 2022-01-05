@@ -1,42 +1,71 @@
 package org.astraea.partitioner.nodeLoadMetric;
 
-import static org.astraea.partitioner.nodeLoadMetric.NodeLoadClient.getBinOneCount;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.mockito.Mockito.mock;
-
-import java.util.ArrayList;
-import java.util.Collection;
+import java.io.IOException;
+import java.util.Arrays;
 import java.util.HashMap;
-import org.junit.jupiter.api.BeforeEach;
+import java.util.List;
+import java.util.Map;
+import java.util.Properties;
+import org.apache.kafka.clients.producer.ProducerConfig;
+import org.apache.kafka.common.serialization.ByteArraySerializer;
+import org.astraea.partitioner.smoothPartitioner.SmoothWeightPartitioner;
+import org.astraea.service.RequireBrokerCluster;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
-public class NodeLoadClientTest {
-  private HashMap<String, String> jmxAddresses;
-  private Collection<NodeMetadata> nodeMetadataCollection;
+@TestInstance(TestInstance.Lifecycle.PER_CLASS)
+public class NodeLoadClientTest extends RequireBrokerCluster {
+  private final String brokerList = bootstrapServers();
+  private NodeLoadClient nodeLoadClient;
+  private String jmxAddress;
+  private Map props;
 
-  @BeforeEach
-  public void setUp() {
-    jmxAddresses = new HashMap<>();
-    jmxAddresses.put("0", "0.0.0.0");
-    jmxAddresses.put("1", "0.0.0.0");
-    jmxAddresses.put("2", "0.0.0.0");
+  @BeforeAll
+  void setUp() throws IOException {
+    props = initProConfig();
+    var map = new HashMap<String, Integer>();
+    map.put(jmxServiceURL().getHost(), jmxServiceURL().getPort());
+    nodeLoadClient = new NodeLoadClient(map);
+  }
 
-    nodeMetadataCollection = new ArrayList<>();
-    NodeMetrics nodeMetrics = mock(NodeMetrics.class);
-    NodeMetadata nodeMetadata0 = new NodeMetadata("0", nodeMetrics);
-    NodeMetadata nodeMetadata1 = new NodeMetadata("1", nodeMetrics);
-    NodeMetadata nodeMetadata2 = new NodeMetadata("2", nodeMetrics);
-    NodeMetadata nodeMetadata3 = new NodeMetadata("3", nodeMetrics);
+  @AfterAll
+  void tearDown() {
+    nodeLoadClient.close();
+  }
 
-    nodeMetadataCollection.add(nodeMetadata0);
-    nodeMetadataCollection.add(nodeMetadata1);
-    nodeMetadataCollection.add(nodeMetadata2);
-    nodeMetadataCollection.add(nodeMetadata3);
+  Properties initProConfig() {
+    Properties props = new Properties();
+    jmxAddress = jmxServiceURL().getHost() + ":" + jmxServiceURL().getPort();
+    props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, brokerList);
+    props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, ByteArraySerializer.class.getName());
+    props.put(ProducerConfig.CLIENT_ID_CONFIG, "id1");
+    props.put(ProducerConfig.PARTITIONER_CLASS_CONFIG, SmoothWeightPartitioner.class.getName());
+    props.put("jmx_servers", jmxAddress);
+    return props;
   }
 
   @Test
-  public void testGetBinOneCount() {
-    assertEquals(getBinOneCount(7), 3);
-    assertEquals(getBinOneCount(10), 2);
+  void testAvgBrokersMsgPerSec() {
+    var testMap = new HashMap<Integer, List<Double>>();
+    testMap.put(0, Arrays.asList(20.0, 30.0, 40.0));
+    testMap.put(1, Arrays.asList(30.0, 20.0, 30.0));
+    testMap.put(2, Arrays.asList(40.0, 40.0, 20.0));
+    Assertions.assertEquals(
+        nodeLoadClient.avgBrokersMsgPerSec(testMap), Arrays.asList(30.0, 30.0, 30.0));
+  }
+
+  @Test
+  void testStandardDeviationImperative() {
+    var testMap = new HashMap<Integer, Double>();
+    testMap.put(0, 15.0);
+    testMap.put(1, 20.0);
+    testMap.put(2, 25.0);
+    testMap.put(3, 20.0);
+    testMap.put(4, 20.0);
+    Assertions.assertEquals(
+        nodeLoadClient.standardDeviationImperative(testMap, 20), 3.1622776601683795);
   }
 }
