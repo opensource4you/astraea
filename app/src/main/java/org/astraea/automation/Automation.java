@@ -16,7 +16,7 @@ import org.astraea.performance.Performance;
  * performance and its configuration parameters.
  */
 public class Automation {
-  private static final List performanceProperties =
+  private static final List<String> performanceProperties =
       List.of(
           "--bootstrap.servers",
           "--record.size",
