@@ -26,8 +26,10 @@ import org.astraea.service.RequireBrokerCluster;
 import org.astraea.topic.TopicAdmin;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 import org.mockito.Mockito;
 
+@TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public class PartitionerTest extends RequireBrokerCluster {
   private final String brokerList = bootstrapServers();
   TopicAdmin admin = TopicAdmin.of(bootstrapServers());
