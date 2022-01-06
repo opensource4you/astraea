@@ -83,23 +83,21 @@ public class PartitionerTest extends RequireBrokerCluster {
                 props.entrySet().stream()
                     .collect(Collectors.toMap(e -> e.getKey().toString(), Map.Entry::getValue)))
             .build()) {
-      var i = 0;
-      while (i < 20) {
-        var key = "tainan" + i;
-        var metadata =
-            producer
-                .sender()
-                .topic(topicName)
-                .key(key)
-                .timestamp(timestamp)
-                .headers(List.of(header))
-                .run()
-                .toCompletableFuture()
-                .get();
-        assertEquals(topicName, metadata.topic());
-        assertEquals(timestamp, metadata.timestamp());
-        i++;
-      }
+
+      var key = "tainan";
+      var metadata =
+          producer
+              .sender()
+              .topic(topicName)
+              .key(key)
+              .timestamp(timestamp)
+              .headers(List.of(header))
+              .run()
+              .toCompletableFuture()
+              .get();
+      assertEquals(topicName, metadata.topic());
+      assertEquals(timestamp, metadata.timestamp());
+
     } catch (ExecutionException | InterruptedException e) {
       e.printStackTrace();
     }
@@ -112,14 +110,7 @@ public class PartitionerTest extends RequireBrokerCluster {
             .keyDeserializer(Deserializer.STRING)
             .build()) {
       var records = consumer.poll(Duration.ofSeconds(10));
-      sleep(3);
-      records.forEach(
-          record -> {
-            System.out.println(record.key());
-            System.out.println(record.partition());
-            System.out.println("===================");
-          });
-      assertEquals(20, records.size());
+      assertEquals(1, records.size());
       var record = records.iterator().next();
       assertEquals(topicName, record.topic());
 
