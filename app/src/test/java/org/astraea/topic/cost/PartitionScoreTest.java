@@ -1,5 +1,7 @@
 package org.astraea.topic.cost;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
@@ -9,6 +11,7 @@ import org.astraea.producer.Serializer;
 import org.astraea.service.RequireBrokerCluster;
 import org.astraea.topic.TopicAdmin;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 
 public class PartitionScoreTest extends RequireBrokerCluster {
   static TopicAdmin admin;
@@ -19,7 +22,7 @@ public class PartitionScoreTest extends RequireBrokerCluster {
     Map<Integer, String> topicName = new HashMap<>();
     topicName.put(0, "testPartitionScore0");
     topicName.put(1, "testPartitionScore1");
-    topicName.put(2, "testPartitionScore2");
+    topicName.put(2, "__consumer_offsets");
     try (var admin = TopicAdmin.of(bootstrapServers())) {
       admin
           .creator()
@@ -47,7 +50,7 @@ public class PartitionScoreTest extends RequireBrokerCluster {
     var producer =
         Producer.builder().brokers(bootstrapServers()).keySerializer(Serializer.STRING).build();
     int size = 10000;
-    for (int t = 0; t <= 2; t++) {
+    for (int t = 0; t <= 1; t++) {
       for (int p = 0; p <= 3; p++) {
         producer
             .sender()
@@ -61,5 +64,18 @@ public class PartitionScoreTest extends RequireBrokerCluster {
       size += 10000;
     }
     producer.close();
+  }
+
+  @Test
+  void testGetScore() {
+    PartitionScore.Argument argument = new PartitionScore.Argument();
+    argument.excludeInternalTopic = false;
+    var score = PartitionScore.execute(argument, admin);
+    assertEquals(3, score.size());
+    assertEquals(3 * 4, score.get(0).size() + score.get(1).size() + score.get(2).size());
+    argument.excludeInternalTopic = true;
+    score = PartitionScore.execute(argument, admin);
+    assertEquals(3, score.size());
+    assertEquals(2 * 4, score.get(0).size() + score.get(1).size() + score.get(2).size());
   }
 }

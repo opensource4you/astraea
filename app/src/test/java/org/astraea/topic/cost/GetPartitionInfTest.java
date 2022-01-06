@@ -15,7 +15,6 @@ import org.junit.jupiter.api.Test;
 
 public class GetPartitionInfTest extends RequireBrokerCluster {
   static TopicAdmin admin;
-  static PartitionScore.Argument argument;
 
   @BeforeAll
   static void setup() throws ExecutionException, InterruptedException {
@@ -69,7 +68,6 @@ public class GetPartitionInfTest extends RequireBrokerCluster {
 
   @Test
   void testGetSize() {
-    argument.excludeInternalTopic = true;
     var brokerPartitionSize = GetPartitionInf.getSize(admin);
     assertEquals(3, brokerPartitionSize.size());
     assertEquals(

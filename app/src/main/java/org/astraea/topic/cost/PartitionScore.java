@@ -59,9 +59,8 @@ public class PartitionScore {
     }
   }
 
-  public static void main(String[] args) {
-    var argument = ArgumentUtil.parseArgument(new Argument(), args);
-    var admin = TopicAdmin.of(argument.brokers);
+  public static Map<Integer, Map<TopicPartition, Double>> execute(
+      Argument argument, TopicAdmin admin) {
     var internalTopic =
         Set.of(
             "__consumer_offsets",
@@ -72,7 +71,13 @@ public class PartitionScore {
     var retentionMillis = GetPartitionInf.getRetentionMillis(admin);
     if (argument.excludeInternalTopic) internalTopic.forEach(retentionMillis::remove);
     var load = CalculateUtils.getLoad(brokerPartitionSize, retentionMillis);
-    var score = CalculateUtils.getScore(load);
+    return CalculateUtils.getScore(load);
+  }
+
+  public static void main(String[] args) {
+    var argument = ArgumentUtil.parseArgument(new Argument(), args);
+    var admin = TopicAdmin.of(argument.brokers);
+    var score = execute(argument, admin);
     printScore(score, argument);
   }
 
@@ -87,8 +92,7 @@ public class PartitionScore {
 
     @Parameter(
         names = {"--hide.balanced"},
-        description =
-            "True if you want to hide topics and partitions thar already balanced.",
+        description = "True if you want to hide topics and partitions thar already balanced.",
         validateWith = ArgumentUtil.NotEmptyString.class,
         converter = ArgumentUtil.BooleanConverter.class)
     boolean hideBalanced = false;
