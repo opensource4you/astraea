@@ -94,13 +94,6 @@ public final class Utils {
     throw new RuntimeException("Timeout to wait procedure");
   }
 
-  /** @return get astraea real path. */
-  public static String astraeaPath() {
-    var path = System.getProperty("user.dir");
-    var indexOf = path.lastIndexOf("astraea");
-    return path.substring(0, indexOf + 7);
-  }
-
   /**
    * Get the field of the object.
    *

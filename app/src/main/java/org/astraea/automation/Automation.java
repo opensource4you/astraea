@@ -1,7 +1,6 @@
 package org.astraea.automation;
 
-import static org.astraea.Utils.astraeaPath;
-
+import com.beust.jcommander.Parameter;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -14,6 +13,10 @@ import org.astraea.performance.Performance;
 /**
  * By configuring the parameters in config/automation.properties, control the execution times of
  * performance and its configuration parameters.
+ *
+ * <ol>
+ *   <li>--file: The address of the automation.properties in config folder.
+ * </ol>
  */
 public class Automation {
   private static final List<String> performanceProperties =
@@ -35,7 +38,8 @@ public class Automation {
   public static void main(String[] args) {
     try {
       var properties = new Properties();
-      properties.load(new FileInputStream(astraeaPath() + "/config/automation.properties"));
+      var arg = ArgumentUtil.parseArgument(new automationArgument(), args);
+      properties.load(new FileInputStream(arg.address));
 
       var i = 0;
       var times = 0;
@@ -58,13 +62,21 @@ public class Automation {
     var args = new ArrayList<String>();
     performanceProperties.forEach(
         str -> {
-          var property = properties.getProperty((String) str);
+          var property = properties.getProperty(str);
           if (property != null && !property.equals("Default")) {
-            args.add((String) str);
+            args.add(str);
             args.add(property);
           }
         });
     var strings = new String[args.size()];
     return args.toArray(strings);
+  }
+
+  private static class automationArgument {
+    @Parameter(
+        names = {"--file"},
+        description = "String: automation.properties address",
+        validateWith = ArgumentUtil.NotEmptyString.class)
+    String address = "";
   }
 }
