@@ -116,10 +116,13 @@ public class PartitionerTest extends RequireBrokerCluster {
       records.forEach(
           record -> {
             System.out.println(record.key());
+            System.out.println(record.partition());
+            System.out.println("===================");
           });
       assertEquals(20, records.size());
       var record = records.iterator().next();
       assertEquals(topicName, record.topic());
+
       //      assertEquals("tainan", record.key());
       assertEquals(1, record.headers().size());
       var actualHeader = record.headers().iterator().next();
