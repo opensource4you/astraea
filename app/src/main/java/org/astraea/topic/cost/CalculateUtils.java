@@ -1,7 +1,9 @@
 package org.astraea.topic.cost;
 
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.TreeMap;
 import org.apache.kafka.common.TopicPartition;
 
 public class CalculateUtils {
@@ -13,10 +15,12 @@ public class CalculateUtils {
     for (var broker : brokerPartitionSize.keySet()) {
       Map<TopicPartition, Double> partitionLoad = new HashMap<>();
       for (var partition : brokerPartitionSize.get(broker).keySet()) {
-        load =
-            (double) brokerPartitionSize.get(broker).get(partition)
-                / retentionMillis.get(partition.topic());
-        partitionLoad.put(partition, load);
+        if (retentionMillis.containsKey(partition.topic())) {
+          load =
+              (double) brokerPartitionSize.get(broker).get(partition)
+                  / retentionMillis.get(partition.topic());
+          partitionLoad.put(partition, load);
+        }
       }
       brokerPartitionLoad.put(broker, partitionLoad);
     }
@@ -58,16 +62,20 @@ public class CalculateUtils {
         Math.pow(
             (LoadSQR - mean * mean * brokerLoad.keySet().size()) / brokerLoad.keySet().size(), 0.5);
     for (var broker : load.keySet()) {
-      Map<TopicPartition, Double> partitionScore = new HashMap<>();
+      Map<TopicPartition, Double> partitionScore =
+          new TreeMap<>(
+              Comparator.comparing(TopicPartition::topic).thenComparing(TopicPartition::partition));
       for (var topicPartition : load.get(broker).keySet()) {
         if (brokerLoad.get(broker) - mean > 0) {
           partitionScore.put(
               topicPartition,
-              ((brokerLoad.get(broker) - mean) / brokerSD)
-                  * ((partitionLoad.get(topicPartition) - partitionMean.get(broker))
-                      / partitionSD.get(broker))
-                  * 60.0);
-
+              Math.round(
+                      (((brokerLoad.get(broker) - mean) / brokerSD)
+                              * ((partitionLoad.get(topicPartition) - partitionMean.get(broker))
+                                  / partitionSD.get(broker))
+                              * 60.0)
+                          * 100.0)
+                  / 100.0);
         } else {
           partitionScore.put(topicPartition, 0.0);
         }

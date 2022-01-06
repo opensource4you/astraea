@@ -1,7 +1,5 @@
 package org.astraea.topic.cost;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
@@ -11,7 +9,6 @@ import org.astraea.producer.Serializer;
 import org.astraea.service.RequireBrokerCluster;
 import org.astraea.topic.TopicAdmin;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Test;
 
 public class PartitionScoreTest extends RequireBrokerCluster {
   static TopicAdmin admin;
@@ -64,16 +61,5 @@ public class PartitionScoreTest extends RequireBrokerCluster {
       size += 10000;
     }
     producer.close();
-  }
-
-  @Test
-  void testGetScore() throws ExecutionException, InterruptedException {
-    PartitionScore partitionScore = new PartitionScore(bootstrapServers());
-    assertEquals(3, partitionScore.score.size());
-    assertEquals(
-        3 * 4,
-        partitionScore.score.get(0).size()
-            + partitionScore.score.get(1).size()
-            + partitionScore.score.get(2).size());
   }
 }
