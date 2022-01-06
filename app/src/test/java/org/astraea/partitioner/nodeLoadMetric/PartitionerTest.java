@@ -1,5 +1,20 @@
 package org.astraea.partitioner.nodeLoadMetric;
 
+import static org.astraea.Utils.requireField;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.Mockito.when;
+
+import java.lang.reflect.Field;
+import java.time.Duration;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Properties;
+import java.util.Set;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.serialization.ByteArraySerializer;
 import org.astraea.consumer.Consumer;
@@ -14,22 +29,6 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.mockito.Mockito;
-
-import java.lang.reflect.Field;
-import java.time.Duration;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Properties;
-import java.util.Set;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
-
-import static org.astraea.Utils.requireField;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.Mockito.when;
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public class PartitionerTest extends RequireBrokerCluster {
@@ -74,18 +73,19 @@ public class PartitionerTest extends RequireBrokerCluster {
   @Test
   void testPartitioner() {
     admin.creator().topic(topicName).numberOfPartitions(10).create();
-    var key = "tainan";
     var timestamp = System.currentTimeMillis() + 10;
     var header = Header.of("a", "b".getBytes());
+    var props = initProConfig();
     try (var producer =
         Producer.builder()
             .keySerializer(Serializer.STRING)
             .configs(
-                initProConfig().entrySet().stream()
+                props.entrySet().stream()
                     .collect(Collectors.toMap(e -> e.getKey().toString(), Map.Entry::getValue)))
             .build()) {
       var i = 0;
       while (i < 20) {
+        var key = "tainan" + i;
         var metadata =
             producer
                 .sender()
@@ -113,10 +113,14 @@ public class PartitionerTest extends RequireBrokerCluster {
             .build()) {
       var records = consumer.poll(Duration.ofSeconds(10));
       sleep(3);
+      records.forEach(
+          record -> {
+            System.out.println(record.key());
+          });
       assertEquals(20, records.size());
       var record = records.iterator().next();
       assertEquals(topicName, record.topic());
-      assertEquals("tainan", record.key());
+      //      assertEquals("tainan", record.key());
       assertEquals(1, record.headers().size());
       var actualHeader = record.headers().iterator().next();
       assertEquals(header.key(), actualHeader.key());
