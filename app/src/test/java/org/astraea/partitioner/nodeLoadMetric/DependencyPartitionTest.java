@@ -46,7 +46,8 @@ public class DependencyPartitionTest extends RequireBrokerCluster {
         ps.entrySet().stream()
             .collect(Collectors.toMap(e -> e.getKey().toString(), Map.Entry::getValue));
     try (var producer = Producer.builder().configs(props).build()) {
-      var dependencyClient = SmoothWeightPartitioner.beginDependency(producer.kafkaProducer());
+      var dependencyClient = SmoothWeightPartitioner.dependencyClient(producer.kafkaProducer());
+      dependencyClient.startDependency();
       var targetPartition = 0;
       var i = 0;
       while (i < 20) {

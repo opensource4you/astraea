@@ -27,7 +27,8 @@ import org.astraea.partitioner.nodeLoadMetric.NodeLoadClient;
  * <pre>{@code
  * KafkaProducer producer = new KafkaProducer(props);
  *
- * var dependencyControl = SmoothWeightPartitioner.beginDependency(producer);
+ * var dependencyControl = SmoothWeightPartitioner.dependencyClient(producer);
+ * dependencyControl.startDependency();
  * try{
  *     producer.send();
  *     producer.send();
@@ -46,7 +47,7 @@ public class SmoothWeightPartitioner implements Partitioner, DependencyClient {
   private Map<Integer, int[]> brokersWeight = new HashMap<>();
 
   private NodeLoadClient nodeLoadClient;
-  private static final DependencyManager dependencyManager = new DependencyManager();
+  private DependencyManager dependencyManager;
   /**
    * This parameter only works in dependency mode.And it will be specified when the dependency is
    * executed for the first time, and no changes will be made afterwards.
@@ -130,6 +131,7 @@ public class SmoothWeightPartitioner implements Partitioner, DependencyClient {
       Objects.requireNonNull(mapAddress, "You must configure jmx_servers correctly.");
 
       nodeLoadClient = new NodeLoadClient(mapAddress);
+      dependencyManager = new DependencyManager();
     } catch (IOException e) {
       throw new RuntimeException();
     }
@@ -161,18 +163,22 @@ public class SmoothWeightPartitioner implements Partitioner, DependencyClient {
     return brokersWeight.values().stream().mapToInt(vs -> vs[0]).sum();
   }
 
-  public static synchronized DependencyClient beginDependency(KafkaProducer<?, ?> producer) {
-    dependencyManager.beginDependency();
+  public static synchronized DependencyClient dependencyClient(KafkaProducer<?, ?> producer) {
     return (DependencyClient) Utils.requireField(producer, "partitioner");
   }
 
-  private boolean memoryWarning(int brokerID) {
-    return nodeLoadClient.memoryUsage(brokerID) >= 0.8;
+  @Override
+  public synchronized void startDependency() {
+    dependencyManager.startDependency();
   }
 
   @Override
   public synchronized void finishDependency() {
     dependencyManager.finishDependency();
+  }
+
+  private boolean memoryWarning(int brokerID) {
+    return nodeLoadClient.memoryUsage(brokerID) >= 0.8;
   }
 
   private Map<Integer, Integer> loadCount(Cluster cluster) {
@@ -189,7 +195,7 @@ public class SmoothWeightPartitioner implements Partitioner, DependencyClient {
   private static class DependencyManager {
     private volatile State currentState = State.UNINITIALIZED;
 
-    private synchronized void beginDependency() {
+    private synchronized void startDependency() {
       transitionTo(State.Start_Dependency);
     }
 

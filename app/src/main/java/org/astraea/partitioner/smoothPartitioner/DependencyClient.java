@@ -6,5 +6,7 @@ package org.astraea.partitioner.smoothPartitioner;
  * @see SmoothWeightPartitioner Enable users to send dependent data.
  */
 public interface DependencyClient {
+  void startDependency();
+
   void finishDependency();
 }
