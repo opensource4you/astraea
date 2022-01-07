@@ -8,7 +8,6 @@ import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.kafka.common.Cluster;
@@ -50,10 +49,10 @@ public class NodeLoadClientTest extends RequireBrokerCluster {
 
   @Test
   void testBrokerLoad() {
-    Map<Integer, NodeLoadClient.Broker> brokers = new HashMap<>();
-    brokers.put(0, new NodeLoadClient.Broker());
-    brokers.put(1, new NodeLoadClient.Broker());
-    brokers.put(2, new NodeLoadClient.Broker());
+    List<NodeLoadClient.Broker> brokers = new ArrayList<>();
+    brokers.add(new NodeLoadClient.Broker(0, "0.0.0.0", 111));
+    brokers.add(new NodeLoadClient.Broker(1, "0.0.0.0", 222));
+    brokers.add(new NodeLoadClient.Broker(2, "0.0.0.0", 333));
     setBrokers(brokers);
     Assertions.assertEquals(nodeLoadClient.brokerLoad(0.37, 1.0 / 3), 6);
     Assertions.assertEquals(nodeLoadClient.brokerLoad(0.01, 1.0 / 3), 0);
@@ -69,12 +68,12 @@ public class NodeLoadClientTest extends RequireBrokerCluster {
     testMap.put(3, 20.0);
     testMap.put(4, 20.0);
 
-    Map<Integer, NodeLoadClient.Broker> brokers = new HashMap<>();
-    brokers.put(0, setSituationNormalized(15.0));
-    brokers.put(1, setSituationNormalized(20.0));
-    brokers.put(2, setSituationNormalized(25.0));
-    brokers.put(3, setSituationNormalized(20.0));
-    brokers.put(4, setSituationNormalized(20.0));
+    List<NodeLoadClient.Broker> brokers = new ArrayList<>();
+    brokers.add(0, setSituationNormalized(0, "0.0.0.0", 111, 15.0));
+    brokers.add(1, setSituationNormalized(0, "0.0.0.0", 222, 20.0));
+    brokers.add(2, setSituationNormalized(0, "0.0.0.0", 333, 25.0));
+    brokers.add(3, setSituationNormalized(0, "0.0.0.0", 444, 20.0));
+    brokers.add(4, setSituationNormalized(0, "0.0.0.0", 555, 20.0));
     setBrokers(brokers);
 
     Assertions.assertEquals(nodeLoadClient.standardDeviationImperative(20), 3.1622776601683795);
@@ -109,8 +108,9 @@ public class NodeLoadClientTest extends RequireBrokerCluster {
     Assertions.assertEquals(load.get(2), 10);
   }
 
-  private NodeLoadClient.Broker setSituationNormalized(double situation) {
-    var broker = new NodeLoadClient.Broker();
+  private NodeLoadClient.Broker setSituationNormalized(
+      int brokerID, String host, int port, double situation) {
+    var broker = new NodeLoadClient.Broker(brokerID, host, port);
     var brokerSituation = field(broker, "brokerSituationNormalized");
     try {
       brokerSituation.set(broker, situation);
@@ -120,7 +120,7 @@ public class NodeLoadClientTest extends RequireBrokerCluster {
     return broker;
   }
 
-  private void setBrokers(Map<Integer, NodeLoadClient.Broker> brokers) {
+  private void setBrokers(List<NodeLoadClient.Broker> brokers) {
     var brokersField = field(nodeLoadClient, "brokers");
     try {
       brokersField.set(nodeLoadClient, brokers);

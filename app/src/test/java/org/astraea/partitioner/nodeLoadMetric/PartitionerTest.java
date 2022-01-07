@@ -73,35 +73,36 @@ public class PartitionerTest extends RequireBrokerCluster {
   @Test
   void testPartitioner() {
     admin.creator().topic(topicName).numberOfPartitions(10).create();
+    var key = "tainan";
     var timestamp = System.currentTimeMillis() + 10;
     var header = Header.of("a", "b".getBytes());
-    var props = initProConfig();
     try (var producer =
         Producer.builder()
             .keySerializer(Serializer.STRING)
             .configs(
-                props.entrySet().stream()
+                initProConfig().entrySet().stream()
                     .collect(Collectors.toMap(e -> e.getKey().toString(), Map.Entry::getValue)))
             .build()) {
-
-      var key = "tainan";
-      var metadata =
-          producer
-              .sender()
-              .topic(topicName)
-              .key(key)
-              .timestamp(timestamp)
-              .headers(List.of(header))
-              .run()
-              .toCompletableFuture()
-              .get();
-      assertEquals(topicName, metadata.topic());
-      assertEquals(timestamp, metadata.timestamp());
-
+      var i = 0;
+      while (i < 20) {
+        var metadata =
+            producer
+                .sender()
+                .topic(topicName)
+                .key(key)
+                .timestamp(timestamp)
+                .headers(List.of(header))
+                .run()
+                .toCompletableFuture()
+                .get();
+        assertEquals(topicName, metadata.topic());
+        assertEquals(timestamp, metadata.timestamp());
+        i++;
+      }
     } catch (ExecutionException | InterruptedException e) {
       e.printStackTrace();
     }
-
+    sleep(1);
     try (var consumer =
         Consumer.builder()
             .brokers(bootstrapServers())
@@ -110,11 +111,10 @@ public class PartitionerTest extends RequireBrokerCluster {
             .keyDeserializer(Deserializer.STRING)
             .build()) {
       var records = consumer.poll(Duration.ofSeconds(10));
-      assertEquals(1, records.size());
+      assertEquals(20, records.size());
       var record = records.iterator().next();
       assertEquals(topicName, record.topic());
-
-      //      assertEquals("tainan", record.key());
+      assertEquals("tainan", record.key());
       assertEquals(1, record.headers().size());
       var actualHeader = record.headers().iterator().next();
       assertEquals(header.key(), actualHeader.key());
