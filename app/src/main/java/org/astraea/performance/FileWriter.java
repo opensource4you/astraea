@@ -35,7 +35,7 @@ public class FileWriter implements ThreadPool.Executor {
     try {
       writer = new BufferedWriter(new java.io.FileWriter(CSVName));
       writer.write(
-          "Time \\ Name, Output throughput (MiB/sec), Input throughput (MiB/sec), "
+          "Time \\ Name, Consumed/Produced, Output throughput (MiB/sec), Input throughput (MiB/sec), "
               + "Publish max latency (ms), Publish min latency (ms), "
               + "End-to-end max latency (ms), End-to-end min latency (ms)");
       IntStream.range(0, tracker.producerResult().bytes.size())
@@ -75,6 +75,11 @@ public class FileWriter implements ThreadPool.Executor {
     var consumerResult = tracker.consumerResult();
     if (writer == null || producerResult.completedRecords == 0L) return false;
     var duration = tracker.duration();
+    var producerPercentage =
+        Math.min(
+            100D,
+            manager.exeTime().percentage(producerResult.completedRecords, duration.toMillis()));
+    var consumerPercentage = consumerResult.completedRecords * 100D / manager.producedRecords();
     try {
       writer.write(
           duration.toHoursPart()
@@ -83,6 +88,7 @@ public class FileWriter implements ThreadPool.Executor {
               + "m"
               + duration.toSecondsPart()
               + "s");
+      writer.write(String.format(",%.2f%% / %.2f%%", consumerPercentage, producerPercentage));
       writer.write("," + producerResult.averageBytes(duration));
       writer.write("," + consumerResult.averageBytes(duration));
       writer.write("," + producerResult.maxLatency + "," + producerResult.minLatency);
