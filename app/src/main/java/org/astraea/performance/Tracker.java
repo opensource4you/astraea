@@ -1,12 +1,7 @@
 package org.astraea.performance;
 
-import java.io.BufferedWriter;
-import java.io.FileWriter;
-import java.io.IOException;
-import java.text.SimpleDateFormat;
 import java.time.Duration;
 import java.util.*;
-import java.util.stream.IntStream;
 import org.astraea.concurrent.ThreadPool;
 
 /** Print out the given metrics. */
@@ -14,34 +9,35 @@ public class Tracker implements ThreadPool.Executor {
   private final List<Metrics> producerData;
   private final List<Metrics> consumerData;
   private final Manager manager;
-  private BufferedWriter writer;
-  private String CSVName;
+  // Snapshot of metrics
+  private Result producerResult;
+  private Result consumerResult;
   long start = 0L;
 
   public Tracker(List<Metrics> producerData, List<Metrics> consumerData, Manager manager) {
     this.producerData = producerData;
     this.consumerData = consumerData;
+    this.producerResult = result(producerData);
+    this.consumerResult = result(consumerData);
     this.manager = manager;
-    initFileWriter();
   }
 
   @Override
   public State execute() throws InterruptedException {
-    var producerResult = result(producerData);
-    var consumerResult = result(consumerData);
-    logToCSV(producerResult, consumerResult);
+    producerResult = result(producerData);
+    consumerResult = result(consumerData);
     if (logProducers(producerResult) & logConsumers(consumerResult)) return State.DONE;
     // Log after waiting for one second
     Thread.sleep(1000);
     return State.RUNNING;
   }
 
-  private Duration duration() {
+  Duration duration() {
     if (start == 0L) start = System.currentTimeMillis() - Duration.ofSeconds(1).toMillis();
     return Duration.ofMillis(System.currentTimeMillis() - start);
   }
 
-  private static double avg(Duration duration, long value) {
+  static double avg(Duration duration, long value) {
     return duration.toSeconds() <= 0
         ? 0
         : ((double) (value / duration.toSeconds())) / 1024D / 1024D;
@@ -100,86 +96,12 @@ public class Tracker implements ThreadPool.Executor {
     return manager.producedDone() && percentage >= 100D;
   }
 
-  private void initFileWriter() {
-    CSVName = "Performance" + new SimpleDateFormat("yyyyMMddHHmmss").format(new Date()) + ".csv";
-    try {
-      writer = new BufferedWriter(new FileWriter(CSVName));
-      writer.write(
-          "Time \\ Name, Output throughput (MiB/sec), Input throughput (MiB/sec), "
-              + "Publish max latency (ms), Publish min latency (ms), "
-              + "End-to-end max latency (ms), End-to-end min latency (ms)");
-      IntStream.range(0, producerData.size())
-          .forEach(
-              i -> {
-                try {
-                  writer.write(
-                      ",Producer["
-                          + i
-                          + "] average throughput (MB/sec), Producer["
-                          + i
-                          + "] average publish latency (ms)");
-                } catch (IOException ignore) {
-                }
-              });
-      IntStream.range(0, consumerData.size())
-          .forEach(
-              i -> {
-                try {
-                  writer.write(
-                      ",Consumer["
-                          + i
-                          + "] average throughput (MB/sec), Consumer["
-                          + i
-                          + "] average ene-to-end latency (ms)");
-                } catch (IOException ignore) {
-                }
-              });
-      writer.newLine();
-    } catch (IOException ignore) {
-      writer = null;
-    }
+  public Result producerResult() {
+    return producerResult;
   }
 
-  private void logToCSV(Result producerResult, Result consumerResult) {
-    if (writer == null || producerResult.completedRecords == 0L) return;
-    var duration = duration();
-    try {
-      writer.write(
-          duration.toHoursPart()
-              + "h"
-              + duration.toMinutesPart()
-              + "m"
-              + duration.toSecondsPart()
-              + "s");
-      writer.write("," + producerResult.averageBytes(duration));
-      writer.write("," + consumerResult.averageBytes(duration));
-      writer.write("," + producerResult.maxLatency + "," + producerResult.minLatency);
-      writer.write("," + consumerResult.maxLatency + "," + consumerResult.minLatency);
-      for (int i = 0; i < producerResult.bytes.size(); ++i) {
-        writer.write("," + avg(duration, producerResult.bytes.get(i)));
-        writer.write("," + producerResult.averageLatencies.get(i));
-      }
-      for (int i = 0; i < consumerResult.bytes.size(); ++i) {
-        writer.write("," + avg(duration, consumerResult.bytes.get(i)));
-        writer.write("," + consumerResult.averageLatencies.get(i));
-      }
-      writer.newLine();
-    } catch (IOException ignore) {
-    }
-  }
-
-  public String CSVName() {
-    return CSVName;
-  }
-
-  @Override
-  public void close() {
-    if (writer != null) {
-      try {
-        writer.close();
-      } catch (IOException ignore) {
-      }
-    }
+  public Result consumerResult() {
+    return consumerResult;
   }
 
   private static Result result(List<Metrics> metrics) {
@@ -203,7 +125,7 @@ public class Tracker implements ThreadPool.Executor {
         max);
   }
 
-  private static class Result {
+  static class Result {
     public final long completedRecords;
     public final List<Long> bytes;
     public final List<Double> averageLatencies;

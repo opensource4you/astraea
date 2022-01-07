@@ -5,6 +5,8 @@ import com.beust.jcommander.Parameter;
 import com.beust.jcommander.ParameterException;
 import java.io.IOException;
 import java.time.Duration;
+import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
@@ -80,6 +82,8 @@ public class Performance {
 
     var manager = new Manager(param, producerMetrics, consumerMetrics);
     var tracker = new Tracker(producerMetrics, consumerMetrics, manager);
+    Collection<ThreadPool.Executor> fileWriter =
+        (param.createCSV) ? List.of(new FileWriter(manager, tracker)) : List.of();
     var groupId = "groupId-" + System.currentTimeMillis();
     try (ThreadPool threadPool =
         ThreadPool.builder()
@@ -113,6 +117,7 @@ public class Performance {
                                 manager))
                     .collect(Collectors.toUnmodifiableList()))
             .executor(tracker)
+            .executors(fileWriter)
             .build()) {
       threadPool.waitAll();
     }
@@ -265,6 +270,11 @@ public class Performance {
       if (!this.jmxServers.isEmpty()) props.put("jmx_servers", this.jmxServers);
       return props;
     }
+
+    @Parameter(
+        names = {"--createCSV"},
+        description = "create the metrics into a csv file if this flag is set")
+    boolean createCSV = false;
 
     @Parameter(
         names = {"--compression"},
