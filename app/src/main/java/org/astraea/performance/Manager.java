@@ -105,6 +105,6 @@ public class Manager {
   /** Randomly choose a key according to the distribution. */
   public Optional<byte[]> getKey() {
     if (distribution == null) return Optional.empty();
-    return Optional.of(("" + distribution.get()).getBytes());
+    return Optional.of((String.valueOf(distribution.get())).getBytes());
   }
 }

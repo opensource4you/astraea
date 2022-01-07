@@ -34,24 +34,25 @@ public interface Distribution {
     }
   }
 
+  /** A distribution for providing a random long number from range [0, 2147483647) */
   static Distribution uniform() {
     return uniform(Integer.MAX_VALUE);
   }
 
-  /** Provide a random long number */
+  /** A distribution for providing a random long number from range [0, N) */
   static Distribution uniform(int N) {
     var rand = new Random();
     return () -> (long) (rand.nextInt(N));
   }
 
-  /** Provide different value every 2 seconds */
+  /** A distribution for providing different value every 2 seconds */
   static Distribution latest() {
     return () -> System.currentTimeMillis() / 2000L;
   }
 
   /**
-   * Building a zipfian distribution with PDF: 1/k/H_N, where H_N is the Nth harmonic number; k is
-   * the key id
+   * Building a zipfian distribution with PDF: 1/k/H_N, where H_N is the Nth harmonic number (= 1/1
+   * + 1/2 + ... + 1/N); k is the key id
    */
   static Distribution zipfian(int N) {
     var rand = new Random();
