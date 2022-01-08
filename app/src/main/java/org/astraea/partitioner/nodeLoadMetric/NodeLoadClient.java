@@ -50,7 +50,6 @@ public class NodeLoadClient {
    *
    * @param cluster from partitioner
    * @return each node load count in preset time
-   * @throws UnknownHostException
    */
   public synchronized Map<Integer, Integer> loadSituation(Cluster cluster)
       throws UnknownHostException {
@@ -66,10 +65,7 @@ public class NodeLoadClient {
     return currentLoadNode;
   }
 
-  /**
-   * @param cluster the cluster from the partitioner
-   * @return each node load count in preset time
-   */
+  /** @param cluster the cluster from the partitioner */
   private synchronized void nodesOverLoad(Cluster cluster) {
     var nodes = cluster.nodes();
     if (lastTime == -1) {
@@ -79,23 +75,22 @@ public class NodeLoadClient {
               .map(node -> new Broker(node.id(), node.host(), node.port()))
               .collect(Collectors.toList());
       referenceBrokerID = brokers.stream().findFirst().get().brokerID;
+      var nodeIDReceiver = new HashMap<Integer, List<Receiver>>();
+      receiverList.forEach(
+          receiver -> {
+            var brokersID = brokerIDOfReceiver(receiver.host());
+            brokersID.forEach(
+                brokerID -> {
+                  if (nodeIDReceiver.containsKey(brokerID)) {
+                    nodeIDReceiver.get(brokerID).add(receiver);
+                  } else {
+                    nodeIDReceiver.put(brokerID, new ArrayList<>(List.of(receiver)));
+                  }
+                });
+          });
+      metricsNameForReceiver(nodeIDReceiver);
     }
 
-    var nodeIDReceiver = new HashMap<Integer, List<Receiver>>();
-    receiverList.forEach(
-        receiver -> {
-          var brokersID = brokerIDOfReceiver(receiver.host());
-          brokersID.forEach(
-              brokerID -> {
-                if (nodeIDReceiver.containsKey(brokerID)) {
-                  nodeIDReceiver.get(brokerID).add(receiver);
-                } else {
-                  nodeIDReceiver.put(brokerID, new ArrayList(List.of(receiver)));
-                }
-              });
-        });
-
-    metricsNameForReceiver(nodeIDReceiver);
     brokersMsgPerSec();
 
     var totalInput = brokers.stream().map(broker -> broker.input).reduce(0.0, Double::sum);
@@ -114,10 +109,7 @@ public class NodeLoadClient {
 
     var totalSituation = totalBrokerSituation.get();
 
-    brokers.forEach(
-        broker -> {
-          broker.brokerSituationNormalized(totalSituation);
-        });
+    brokers.forEach(broker -> broker.brokerSituationNormalized(totalSituation));
 
     var avg = totalSituation / brokers.size();
 
@@ -172,10 +164,7 @@ public class NodeLoadClient {
     return Math.sqrt(variance.get() / brokers.size());
   }
 
-  /**
-   * @param brokerIDReceiver nodes metrics that exists in topic
-   * @return the name and corresponding data of the metrics obtained by each node
-   */
+  /** @param brokerIDReceiver nodes metrics that exists in topic */
   private void metricsNameForReceiver(HashMap<Integer, List<Receiver>> brokerIDReceiver) {
     brokerIDReceiver.forEach(
         (brokerID, receivers) ->
@@ -245,12 +234,10 @@ public class NodeLoadClient {
   }
 
   private List<Integer> brokerIDOfReceiver(String host) {
-    var matchBroker =
-        brokers.stream()
-            .filter(broker -> Objects.equals(ipAddress(broker.host), host))
-            .map(broker -> broker.brokerID)
-            .collect(Collectors.toList());
-    return matchBroker;
+    return brokers.stream()
+        .filter(broker -> Objects.equals(ipAddress(broker.host), host))
+        .map(broker -> broker.brokerID)
+        .collect(Collectors.toList());
   }
 
   // visible of test
@@ -277,8 +264,8 @@ public class NodeLoadClient {
     private final String host;
     private final int port;
     private int count = 0;
-    private Map<Integer, Integer> load = new HashMap<>();
-    private Map<String, Receiver> metrics = new HashMap<>();
+    private final Map<Integer, Integer> load = new HashMap<>();
+    private final Map<String, Receiver> metrics = new HashMap<>();
     private double input;
     private double output;
     private double maxThoughPut;
@@ -340,8 +327,12 @@ public class NodeLoadClient {
     }
 
     private double memoryUsage() {
-      var jvm = (HasJvmMemory) metrics.get("Memory").current().stream().findAny().get();
-      return (jvm.heapMemoryUsage().getUsed() + 0.0) / (jvm.heapMemoryUsage().getMax() + 1);
+      if (count < 10) {
+        return 0.1;
+      } else {
+        var jvm = (HasJvmMemory) metrics.get("Memory").current().stream().findAny().get();
+        return (jvm.heapMemoryUsage().getUsed() + 0.0) / (jvm.heapMemoryUsage().getMax() + 1);
+      }
     }
   }
 }
