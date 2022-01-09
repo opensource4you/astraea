@@ -1,8 +1,6 @@
 package org.astraea.performance;
 
-import java.util.List;
-import java.util.Optional;
-import java.util.Random;
+import java.util.*;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
@@ -25,6 +23,7 @@ public class Manager {
   private final List<Metrics> producerMetrics, consumerMetrics;
   private final long start = System.currentTimeMillis();
   private final AtomicLong payloadNum = new AtomicLong(0);
+  private final Distribution distribution;
 
   /**
    * Used to manage producing/consuming.
@@ -53,6 +52,7 @@ public class Manager {
     this.producerMetrics = producerMetrics;
     this.consumerMetrics = consumerMetrics;
     this.exeTime = argument.exeTime;
+    this.distribution = argument.distribution;
   }
 
   /**
@@ -108,5 +108,11 @@ public class Manager {
   /** Check if we should keep consuming record. */
   public boolean consumedDone() {
     return producedDone() && consumedRecords() >= producedRecords();
+  }
+
+  /** Randomly choose a key according to the distribution. */
+  public Optional<byte[]> getKey() {
+    if (distribution == null) return Optional.empty();
+    return Optional.of((String.valueOf(distribution.get())).getBytes());
   }
 }
