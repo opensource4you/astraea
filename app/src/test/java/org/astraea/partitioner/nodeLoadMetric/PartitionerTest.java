@@ -34,7 +34,6 @@ import org.mockito.Mockito;
 public class PartitionerTest extends RequireBrokerCluster {
   private final String brokerList = bootstrapServers();
   TopicAdmin admin = TopicAdmin.of(bootstrapServers());
-  private final String topicName = "address";
 
   private Properties initProConfig() {
     Properties props = new Properties();
@@ -72,6 +71,7 @@ public class PartitionerTest extends RequireBrokerCluster {
 
   @Test
   void testPartitioner() {
+    var topicName = "address";
     admin.creator().topic(topicName).numberOfPartitions(10).create();
     var key = "tainan";
     var timestamp = System.currentTimeMillis() + 10;
@@ -110,7 +110,7 @@ public class PartitionerTest extends RequireBrokerCluster {
             .topics(Set.of(topicName))
             .keyDeserializer(Deserializer.STRING)
             .build()) {
-      var records = consumer.poll(Duration.ofSeconds(10));
+      var records = consumer.poll(Duration.ofSeconds(20));
       assertEquals(20, records.size());
       var record = records.iterator().next();
       assertEquals(topicName, record.topic());
