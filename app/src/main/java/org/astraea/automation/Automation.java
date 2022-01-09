@@ -47,17 +47,19 @@ public class Automation {
       else times = Integer.parseInt(properties.getProperty("--time"));
 
       while (i < times) {
-        Performance.execute(
-            ArgumentUtil.parseArgument(new Performance.Argument(), performanceArgs(properties)));
+        var str =
+            Performance.execute(
+                ArgumentUtil.parseArgument(
+                    new Performance.Argument(), performanceArgs(properties)));
         i++;
-        System.out.println("=============== " + i + " time completed===============");
+        System.out.println("=============== " + i + " time " + str.get() + " ===============");
       }
     } catch (IOException | InterruptedException | ExecutionException e) {
       e.printStackTrace();
     }
   }
 
-  @SuppressWarnings("unchecked")
+  @SuppressWarnings("unChecked")
   private static String[] performanceArgs(Properties properties) {
     var args = new ArrayList<String>();
     performanceProperties.forEach(

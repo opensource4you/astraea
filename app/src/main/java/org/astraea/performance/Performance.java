@@ -7,7 +7,9 @@ import java.io.IOException;
 import java.time.Duration;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
 import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -58,8 +60,9 @@ public class Performance {
     execute(ArgumentUtil.parseArgument(new Argument(), args));
   }
 
-  public static String execute(final Argument param)
+  public static Future<String> execute(final Argument param)
       throws InterruptedException, IOException, ExecutionException {
+    var future = new CompletableFuture<String>();
     try (var topicAdmin = TopicAdmin.of(param.props())) {
       topicAdmin
           .creator()
@@ -115,7 +118,8 @@ public class Performance {
             .executor(tracker)
             .build()) {
       threadPool.waitAll();
-      return "Complete!";
+      future.complete("Performance Complete!");
+      return future;
     }
   }
 
