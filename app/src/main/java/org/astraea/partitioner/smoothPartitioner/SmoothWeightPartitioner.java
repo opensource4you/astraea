@@ -44,7 +44,7 @@ public class SmoothWeightPartitioner implements Partitioner, DependencyClient {
    * Record the current weight of each node according to Poisson calculation and the weight after
    * partitioner calculation.
    */
-  private Map<Integer, int[]> brokersWeight = new HashMap<>();
+  private final Map<Integer, int[]> brokersWeight = new HashMap<>();
 
   private NodeLoadClient nodeLoadClient;
   private DependencyManager dependencyManager;
