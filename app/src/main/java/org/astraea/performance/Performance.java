@@ -172,6 +172,7 @@ public class Performance {
         producer
             .sender()
             .topic(param.topic)
+            .key(manager.getKey().orElse(null))
             .value(payload.get())
             .timestamp(start)
             .run()
@@ -272,6 +273,13 @@ public class Performance {
             "String: the compression algorithm used by producer. Available algorithm are none, gzip, snappy, lz4, and zstd",
         converter = CompressionArgument.class)
     CompressionType compression = CompressionType.NONE;
+
+    @Parameter(
+        names = {"--key.distribution"},
+        description =
+            "String: Distribution name. Available distribution names: \"uniform\", \"zipfian\", \"latest\". Default: (No key)",
+        converter = Distribution.DistributionConverter.class)
+    Distribution distribution = null;
   }
 
   static class CompressionArgument implements IStringConverter<CompressionType> {
