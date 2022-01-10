@@ -39,23 +39,24 @@ public class ReplicaCollieTest extends RequireBrokerCluster {
           .creator()
           .topic(topicName)
           .numberOfPartitions(1)
-          .numberOfReplicas((short) 1)
+          .numberOfReplicas((short) 2)
           .create();
       // wait for topic creation
       TimeUnit.SECONDS.sleep(5);
       var partitionReplicas = topicAdmin.replicas(Set.of(topicName));
       Assertions.assertEquals(1, partitionReplicas.size());
-      var brokerSource = partitionReplicas.get(new TopicPartition(topicName, 0)).get(0).broker();
+      var brokerSource = partitionReplicas.get(new TopicPartition(topicName, 0)).stream().map(Replica::broker).collect(Collectors.toSet());
       var brokerSink =
-          topicAdmin.brokerIds().stream().filter(b -> b != brokerSource).iterator().next();
-      TreeMap<TopicPartition, Map.Entry<Integer, Integer>> brokerMigrate =
+          topicAdmin.brokerIds().stream().filter(b -> !brokerSource.contains(b)).iterator().next();
+      TreeMap<TopicPartition, Map.Entry<Set<Integer>, Set<Integer>>> brokerMigrate =
           new TreeMap<>(
               Comparator.comparing(TopicPartition::topic).thenComparing(TopicPartition::partition));
-      brokerMigrate.put(new TopicPartition(topicName, 0), Map.entry(brokerSource, brokerSink));
-      Assertions.assertNotEquals(brokerSource, brokerSink);
+      brokerMigrate.put(new TopicPartition(topicName, 0), Map.entry(brokerSource, Set.of(brokerSink)));
+      Assertions.assertEquals(topicAdmin.replicas(Set.of(topicName)).get(new TopicPartition(topicName, 0)).size(), 2);
       ReplicaCollie.brokerMigrator(brokerMigrate, topicAdmin);
       Utils.waitFor(
           () ->
+                  topicAdmin.replicas(Set.of(topicName)).get(new TopicPartition(topicName, 0)).size()==1 &&
               topicAdmin
                       .replicas(Set.of(topicName))
                       .get(new TopicPartition(topicName, 0))
@@ -74,24 +75,27 @@ public class ReplicaCollieTest extends RequireBrokerCluster {
           .creator()
           .topic(topicName)
           .numberOfPartitions(1)
-          .numberOfReplicas((short) 1)
+          .numberOfReplicas((short) 2)
           .create();
       // wait for topic creation
       TimeUnit.SECONDS.sleep(5);
       var partitionReplicas = topicAdmin.replicas(Set.of(topicName));
       Assertions.assertEquals(1, partitionReplicas.size());
       var brokerSource = partitionReplicas.get(new TopicPartition(topicName, 0)).get(0).broker();
-      var pathSource = partitionReplicas.get(new TopicPartition(topicName, 0)).get(0).path();
+      var pathSource = partitionReplicas.get(new TopicPartition(topicName, 0)).stream().map(Replica::path).collect(Collectors.toSet());
       var pathSink =
           topicAdmin.brokerFolders(Set.of(brokerSource)).get(brokerSource).stream()
-              .filter(p -> !p.equals(pathSource))
+              .filter(p -> !pathSource.contains(p))
               .iterator()
               .next();
-      TreeMap<TopicPartition, Map.Entry<String, String>> pathMigrate =
+      TreeMap<TopicPartition, Map.Entry<Set<String>, Set<String>>> pathMigrate =
           new TreeMap<>(
               Comparator.comparing(TopicPartition::topic).thenComparing(TopicPartition::partition));
-      pathMigrate.put(new TopicPartition(topicName, 0), Map.entry(pathSource, pathSink));
-      Assertions.assertNotEquals(pathSource, pathSink);
+      pathMigrate.put(new TopicPartition(topicName, 0), Map.entry(pathSource, Set.of(pathSink)));
+      Assertions.assertFalse(pathSource.contains(pathSink));
+      Assertions.assertEquals(topicAdmin
+              .replicas(Set.of(topicName))
+              .get(new TopicPartition(topicName, 0)).size(),2);
       ReplicaCollie.pathMigrator(pathMigrate, topicAdmin, brokerSource);
       Utils.waitFor(
           () ->
@@ -101,6 +105,9 @@ public class ReplicaCollieTest extends RequireBrokerCluster {
                   .get(0)
                   .path()
                   .equals(pathSink));
+      topicAdmin
+              .replicas(Set.of(topicName))
+              .get(new TopicPartition(topicName, 0));
     }
   }
 
@@ -122,30 +129,22 @@ public class ReplicaCollieTest extends RequireBrokerCluster {
               .filter(Replica::isCurrent)
               .collect(Collectors.toList());
       Assertions.assertEquals(1, replicas.size());
-      var badBroker = replicas.get(0).broker();
-      var badPath = replicas.get(0).path();
+      var badBroker = replicas.stream().map(Replica::broker).collect(Collectors.toSet());
       var targetBroker =
           topicAdmin.brokerIds().stream()
-              .filter(b -> b != badBroker)
-              .collect(Collectors.toSet())
-              .iterator()
-              .next();
-      var targetPath =
-          topicAdmin.brokerFolders(Set.of(targetBroker)).get(targetBroker).iterator().next();
+              .filter(b -> !badBroker.contains(b))
+              .collect(Collectors.toSet());
       var argument = new ReplicaCollie.Argument();
-      argument.fromBrokers = Set.of(badBroker);
-      argument.toBrokers = Set.of(targetBroker);
+      argument.fromBrokers = badBroker;
+      argument.toBrokers = targetBroker;
       argument.brokers = bootstrapServers();
       argument.topics = Set.of(topicName);
       argument.partitions = Set.of(0);
-      argument.path = Set.of(targetPath);
       argument.verify = verify;
       var result = ReplicaCollie.execute(topicAdmin, argument);
       var assignment = result.get(new TopicPartition(topicName, 0));
       Assertions.assertEquals(badBroker, assignment.brokerSource);
       Assertions.assertNotEquals(badBroker, assignment.brokerSink);
-      Assertions.assertEquals(badPath, assignment.pathSource);
-      Assertions.assertNotEquals(badPath, assignment.pathSink);
       if (verify) {
         var currentReplicas = topicAdmin.replicas(Set.of(topicName));
         Assertions.assertEquals(partitionReplicas.size(), currentReplicas.size());
@@ -157,12 +156,12 @@ public class ReplicaCollieTest extends RequireBrokerCluster {
                 Assertions.assertEquals(rs.get(index), currentRs.get(index));
             });
         Assertions.assertEquals(targetBroker, assignment.brokerSink);
-        Assertions.assertEquals(targetPath, assignment.pathSink);
+
       } else {
         Utils.waitFor(
             () -> {
               var rs = topicAdmin.replicas(Set.of(topicName)).get(new TopicPartition(topicName, 0));
-              return rs.size() == 1 && rs.stream().noneMatch(r -> r.broker() == badBroker);
+              return rs.size() == 2 && rs.stream().map(Replica::broker).collect(Collectors.toSet()).containsAll(argument.toBrokers);
             });
       }
     }
