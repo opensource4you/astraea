@@ -84,7 +84,7 @@ public class PartitionerTest extends RequireBrokerCluster {
                     .collect(Collectors.toMap(e -> e.getKey().toString(), Map.Entry::getValue)))
             .build()) {
       var i = 0;
-      while (i < 20) {
+      while (i < 300) {
         var metadata =
             producer
                 .sender()
@@ -111,7 +111,7 @@ public class PartitionerTest extends RequireBrokerCluster {
             .keyDeserializer(Deserializer.STRING)
             .build()) {
       var records = consumer.poll(Duration.ofSeconds(20));
-      assertEquals(20, records.size());
+      assertEquals(300, records.size());
       var record = records.iterator().next();
       assertEquals(topicName, record.topic());
       assertEquals("tainan", record.key());
