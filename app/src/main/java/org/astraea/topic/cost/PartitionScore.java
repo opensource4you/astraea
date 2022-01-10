@@ -66,7 +66,8 @@ public class PartitionScore {
             "__consumer_offsets",
             "_confluent-command",
             "_confluent-metrics",
-            "_confluent-telemetry-metrics");
+            "_confluent-telemetry-metrics",
+            "__transaction_state");
     var brokerPartitionSize = GetPartitionInf.getSize(admin);
     var retentionMillis = GetPartitionInf.getRetentionMillis(admin);
     if (argument.excludeInternalTopic) internalTopic.forEach(retentionMillis::remove);
