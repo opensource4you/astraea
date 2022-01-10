@@ -111,7 +111,11 @@ public class PartitionerTest extends RequireBrokerCluster {
             .keyDeserializer(Deserializer.STRING)
             .build()) {
       var records = consumer.poll(Duration.ofSeconds(20));
-      assertEquals(300, records.size());
+      var recordsCount = records.size();
+      while (recordsCount < 300) {
+        recordsCount += consumer.poll(Duration.ofSeconds(20)).size();
+      }
+      assertEquals(300, recordsCount);
       var record = records.iterator().next();
       assertEquals(topicName, record.topic());
       assertEquals("tainan", record.key());
