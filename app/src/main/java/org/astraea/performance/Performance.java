@@ -118,7 +118,7 @@ public class Performance {
             .executor(tracker)
             .build()) {
       threadPool.waitAll();
-      future.complete("Performance Complete!");
+      future.complete(param.topic);
       return future;
     }
   }

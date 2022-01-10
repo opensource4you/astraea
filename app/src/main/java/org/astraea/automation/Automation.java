@@ -4,9 +4,13 @@ import com.beust.jcommander.Parameter;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Properties;
 import java.util.concurrent.ExecutionException;
+import org.apache.kafka.clients.admin.AdminClient;
+import org.apache.kafka.clients.admin.AdminClientConfig;
+import org.apache.kafka.clients.admin.KafkaAdminClient;
 import org.astraea.argument.ArgumentUtil;
 import org.astraea.performance.Performance;
 
@@ -40,6 +44,10 @@ public class Automation {
       var properties = new Properties();
       var arg = ArgumentUtil.parseArgument(new automationArgument(), args);
       properties.load(new FileInputStream(arg.address));
+      var whetherDeleteTopic = properties.getProperty("--whetherDeleteTopic").equals("true");
+      var bootstrap = properties.getProperty("--bootstrap.servers");
+      var config = new Properties();
+      config.put(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrap);
 
       var i = 0;
       var times = 0;
@@ -52,7 +60,13 @@ public class Automation {
                 ArgumentUtil.parseArgument(
                     new Performance.Argument(), performanceArgs(properties)));
         i++;
-        System.out.println("=============== " + i + " time " + str.get() + " ===============");
+        if (whetherDeleteTopic) {
+          try (final AdminClient adminClient = KafkaAdminClient.create(config)) {
+            var topicName = str.get();
+            adminClient.deleteTopics(Arrays.asList(topicName));
+          }
+        }
+        System.out.println("=============== " + i + " time Performance Complete! ===============");
       }
     } catch (IOException | InterruptedException | ExecutionException e) {
       e.printStackTrace();
