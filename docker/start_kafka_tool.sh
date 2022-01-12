@@ -2,11 +2,23 @@
 
 # ===============================[global variables]===============================
 
-IMAGE_NAME="astraea/astraea:latest"
-DOCKER_FOLDER=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
-DOCKER_FILE=$DOCKER_FOLDER/astraea.dockerfile
+declare -r VERSION=${REVISION:-${VERSION:-main}}
+declare -r REPO=${REPO:-ghcr.io/skiptests/astraea/kafka-tool}
+declare -r IMAGE_NAME="$REPO:$VERSION"
+declare -r DOCKER_FOLDER=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
+declare -r DOCKERFILE=$DOCKER_FOLDER/kafka_tool.dockerfile
+declare -r BUILD=${BUILD:-false}
+declare -r RUN=${RUN:-true}
 
 # ===================================[functions]===================================
+
+function showHelp() {
+  echo "Usage: [ENV] start_kafka_tool.sh"
+  echo "ENV: "
+  echo "    REPO=astraea/kafka-tool    set the docker repo"
+  echo "    BUILD=false                set true if you want to build image locally"
+  echo "    RUN=false                  set false if you want to build/pull image only"
+}
 
 function checkDocker() {
   if [[ "$(which docker)" == "" ]]; then
@@ -31,14 +43,26 @@ RUN git clone https://github.com/skiptests/astraea
 
 # pre-build project to collect all dependencies
 WORKDIR /tmp/astraea
+RUN git checkout $VERSION
 RUN ./gradlew clean build -x test --no-daemon
 RUN cp \$(find ./app/build/libs/ -maxdepth 1 -type f -name app-*-all.jar) /tmp/app.jar
-" >"$DOCKER_FILE"
+" >"$DOCKERFILE"
 }
 
 function buildImageIfNeed() {
   if [[ "$(docker images -q $IMAGE_NAME 2>/dev/null)" == "" ]]; then
-    docker build --no-cache -t "$IMAGE_NAME" -f "$DOCKER_FILE" "$DOCKER_FOLDER"
+    if [[ "$BUILD" == "false" ]]; then
+      docker pull $IMAGE_NAME 2>/dev/null
+      if [[ "$?" == "0" ]]; then
+        exit 0
+      else
+        echo "Can't find $IMAGE_NAME from repo. Will build $IMAGE_NAME on the local"
+      fi
+    fi
+    docker build --no-cache -t "$IMAGE_NAME" -f "$DOCKERFILE" "$DOCKER_FOLDER"
+    if [[ "$?" != "0" ]]; then
+      exit 2
+    fi
   fi
 }
 
@@ -54,7 +78,14 @@ function runContainer() {
 checkDocker
 generateDockerfile
 buildImageIfNeed
+
+if [[ "$RUN" != "true" ]]; then
+  echo "docker image: $IMAGE_NAME is created"
+  exit 0
+fi
+
 if [[ -n "$1" ]]; then
+  showHelp
   runContainer "$*"
 else
   runContainer "help"
