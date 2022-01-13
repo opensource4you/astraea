@@ -1,9 +1,7 @@
 package org.astraea.performance;
 
 import java.time.Duration;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
+import java.util.*;
 import org.astraea.concurrent.ThreadPool;
 
 /** Print out the given metrics. */
@@ -11,36 +9,41 @@ public class Tracker implements ThreadPool.Executor {
   private final List<Metrics> producerData;
   private final List<Metrics> consumerData;
   private final Manager manager;
+  // Snapshot of metrics
+  private Result producerResult;
+  private Result consumerResult;
   long start = 0L;
 
   public Tracker(List<Metrics> producerData, List<Metrics> consumerData, Manager manager) {
     this.producerData = producerData;
     this.consumerData = consumerData;
+    this.producerResult = result(producerData);
+    this.consumerResult = result(consumerData);
     this.manager = manager;
   }
 
   @Override
   public State execute() throws InterruptedException {
-    if (logProducers() & logConsumers()) return State.DONE;
+    producerResult = result(producerData);
+    consumerResult = result(consumerData);
+    if (logProducers(producerResult) & logConsumers(consumerResult)) return State.DONE;
     // Log after waiting for one second
     Thread.sleep(1000);
     return State.RUNNING;
   }
 
-  private Duration duration() {
+  Duration duration() {
     if (start == 0L) start = System.currentTimeMillis() - Duration.ofSeconds(1).toMillis();
     return Duration.ofMillis(System.currentTimeMillis() - start);
   }
 
-  private static double avg(Duration duration, long value) {
+  static double avg(Duration duration, long value) {
     return duration.toSeconds() <= 0
         ? 0
         : ((double) (value / duration.toSeconds())) / 1024D / 1024D;
   }
 
-  private boolean logProducers() {
-    var result = result(producerData);
-
+  private boolean logProducers(Result result) {
     if (result.completedRecords == 0) return false;
 
     var duration = duration();
@@ -70,10 +73,9 @@ public class Tracker implements ThreadPool.Executor {
     return percentage >= 100D;
   }
 
-  private boolean logConsumers() {
+  private boolean logConsumers(Result result) {
     // there is no consumer, so we just complete this log.
     if (consumerData.isEmpty()) return true;
-    var result = result(consumerData);
     if (result.completedRecords == 0) return false;
     var duration = duration();
 
@@ -92,6 +94,14 @@ public class Tracker implements ThreadPool.Executor {
     System.out.println("\n");
     // Target number of records consumed OR consumed all that produced
     return manager.producedDone() && percentage >= 100D;
+  }
+
+  public Result producerResult() {
+    return producerResult;
+  }
+
+  public Result consumerResult() {
+    return consumerResult;
   }
 
   private static Result result(List<Metrics> metrics) {
@@ -115,7 +125,7 @@ public class Tracker implements ThreadPool.Executor {
         max);
   }
 
-  private static class Result {
+  static class Result {
     public final long completedRecords;
     public final List<Long> bytes;
     public final List<Double> averageLatencies;
