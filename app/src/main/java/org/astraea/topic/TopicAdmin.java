@@ -2,7 +2,6 @@ package org.astraea.topic;
 
 import java.io.Closeable;
 import java.util.*;
-import org.apache.kafka.clients.admin.*;
 import org.apache.kafka.common.TopicPartition;
 
 public interface TopicAdmin extends Closeable {
@@ -43,10 +42,11 @@ public interface TopicAdmin extends Closeable {
   Map<TopicPartition, Offset> offsets(Set<String> topics);
 
   /**
-   * @param topics topic names
-   * @return the partition having consumer group id and consumer group offset
+   * @param consumerGroupNames consumer group names. if empty set given, every consume group will
+   *     return.
+   * @return the member info of each consumer group
    */
-  Map<TopicPartition, List<Group>> groups(Set<String> topics);
+  Map<String, ConsumerGroup> consumerGroup(Set<String> consumerGroupNames);
 
   /**
    * @param topics topic names

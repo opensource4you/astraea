@@ -79,6 +79,11 @@ public class Builder<Key, Value> {
       }
 
       @Override
+      public KafkaProducer<Key, Value> kafkaProducer() {
+        return kafkaProducer;
+      }
+
+      @Override
       public void close() {
         kafkaProducer.close();
       }

@@ -1,89 +1,237 @@
 package org.astraea.partitioner.nodeLoadMetric;
 
+import static java.lang.Double.sum;
+
 import java.io.IOException;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
 import java.util.ArrayList;
-import java.util.Collection;
+import java.util.Comparator;
 import java.util.HashMap;
-import java.util.concurrent.TimeUnit;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+import org.apache.kafka.common.Cluster;
+import org.apache.kafka.common.Node;
 import org.astraea.Utils;
-import org.astraea.concurrent.ThreadPool;
+import org.astraea.metrics.collector.Receiver;
+import org.astraea.metrics.kafka.KafkaMetrics;
 
-public class NodeLoadClient implements ThreadPool.Executor {
+/**
+ * this clas is responsible for obtaining jmx metrics from BeanCollector and calculating the
+ * overload status of each node through them.
+ */
+public class NodeLoadClient {
 
-  private final OverLoadNode overLoadNode;
-  private final Collection<NodeMetadata> nodeMetadataCollection = new ArrayList<>();
+  private final List<Receiver> receiverList;
 
-  public NodeLoadClient(HashMap<String, String> jmxAddresses) throws IOException {
-    for (HashMap.Entry<String, String> entry : jmxAddresses.entrySet()) {
-      this.nodeMetadataCollection.add(
-          new NodeMetadata(entry.getKey(), createNodeMetrics(entry.getKey(), entry.getValue())));
+  private Map<Integer, Map<String, Receiver>> eachNodeIDMetrics;
+
+  private final Map<String, Integer> currentJmxAddresses;
+
+  private static final ReceiverFactory RECEIVER_FACTORY = new ReceiverFactory();
+
+  private static final String regex =
+      "((25[0-5]|2[0-4]\\d|1\\d{2}|[1-9]?\\d)\\.){3}" + "(25[0-5]|2[0-4]\\d|1\\d{2}|[1-9]?\\d)$";
+
+  public NodeLoadClient(Map<String, Integer> jmxAddresses) throws IOException {
+    this.receiverList = RECEIVER_FACTORY.receiversList(jmxAddresses);
+    receiverList.forEach(receiver -> Utils.waitFor(() -> receiver.current().size() > 0));
+    currentJmxAddresses = jmxAddresses;
+  }
+
+  /**
+   * @param cluster the cluster from the partitioner
+   * @return each node overLoad count in preset time
+   */
+  public Map<Integer, Integer> nodesOverLoad(Cluster cluster) throws UnknownHostException {
+    var nodeIDReceiver = new HashMap<Integer, List<Receiver>>();
+    var addresses =
+        cluster.nodes().stream()
+            .collect(Collectors.toMap(Node::id, node -> Map.entry(node.host(), node.port())));
+
+    for (Map.Entry<Integer, Map.Entry<String, Integer>> hostPort : addresses.entrySet()) {
+      List<Receiver> matchingNode;
+      var host = ipAddress(hostPort);
+      matchingNode =
+          receiverList.stream()
+              .filter(
+                  receiver ->
+                      (Objects.equals(nodeIDReceiver.size(), 0)
+                              || (nodeIDReceiver.values().stream()
+                                      .map(
+                                          n ->
+                                              Objects.equals(
+                                                  n.stream().findAny().get().host(), host))
+                                      .anyMatch(n -> n.equals(true))
+                                  && nodeIDReceiver.values().stream()
+                                      .map(
+                                          n ->
+                                              !Objects.equals(
+                                                  n.stream().findAny().get().port(),
+                                                  hostPort.getValue().getValue()))
+                                      .anyMatch(n -> n.equals(true))))
+                          && Objects.equals(receiver.host(), host))
+              .collect(Collectors.toList());
+
+      if (matchingNode.size() > 0) {
+        if (!nodeIDReceiver.containsKey(hostPort.getKey()))
+          nodeIDReceiver.put(hostPort.getKey(), matchingNode);
+        else matchingNode.forEach(node -> nodeIDReceiver.get(hostPort.getKey()).add(node));
+      }
     }
-    this.overLoadNode = new OverLoadNode(this.nodeMetadataCollection);
-  }
 
-  public NodeMetrics createNodeMetrics(String key, String value) throws IOException {
-    return new NodeMetrics(key, value);
-  }
-
-  /** A thread that continuously updates metricsfor NodeLoadClient. */
-  @Override
-  public State execute() throws InterruptedException {
-    try {
-      refreshNodesMetrics();
-      overLoadNode.monitorOverLoad();
-      TimeUnit.SECONDS.sleep(1);
-    } catch (InterruptedException e) {
-      e.printStackTrace();
-    }
-    return null;
-  }
-
-  @Override
-  public void close() {
-    for (NodeMetadata nodeMetadata : nodeMetadataCollection) {
-      NodeMetrics nodeMetrics = nodeMetadata.getNodeMetrics();
-      Utils.close(nodeMetrics.getKafkaMetricClient());
-    }
-  }
-
-  public synchronized HashMap<String, Integer> getAllOverLoadCount() {
-    HashMap<String, Integer> overLoadCount = new HashMap<>();
-    for (NodeMetadata nodeMetadata : nodeMetadataCollection) {
-      overLoadCount.put(nodeMetadata.getNodeID(), nodeMetadata.getOverLoadCount());
+    eachNodeIDMetrics = metricsNameForReceiver(nodeIDReceiver);
+    var eachBrokerMsgPerSec = brokersMsgPerSec();
+    var overLoadCount = new HashMap<Integer, Integer>();
+    eachBrokerMsgPerSec.keySet().forEach(e -> overLoadCount.put(e, 0));
+    var i = 0;
+    var minRecordSec =
+        eachBrokerMsgPerSec.values().stream()
+            .map(n -> n.size())
+            .min(Comparator.comparing(Integer::intValue))
+            .get();
+    while (i < minRecordSec) {
+      var avg = avgMsgSec(i, eachBrokerMsgPerSec);
+      var eachMsg = brokersMsgSec(i, eachBrokerMsgPerSec);
+      var standardDeviation = standardDeviationImperative(eachMsg, avg);
+      eachMsg.forEach(
+          (nodeID, msg) -> {
+            if (msg > (avg + standardDeviation)) {
+              overLoadCount.put(nodeID, overLoadCount.get(nodeID) + 1);
+            }
+          });
+      i++;
     }
     return overLoadCount;
   }
 
-  public synchronized int getAvgLoadCount() {
-    double avgLoadCount = 0;
-    for (NodeMetadata nodeMetadata : nodeMetadataCollection) {
-      avgLoadCount += getBinOneCount(nodeMetadata.getOverLoadCount());
+  /** @return data transfer per second per node */
+  private Map<Integer, List<Double>> brokersMsgPerSec() {
+    var eachMsg = new HashMap<Integer, List<Double>>();
+
+    for (Map.Entry<Integer, Map<String, Receiver>> entry : eachNodeIDMetrics.entrySet()) {
+      List<Double> sumList = new ArrayList<>();
+      var outMsg = entry.getValue().get(KafkaMetrics.BrokerTopic.BytesOutPerSec.toString());
+      var inMsg = entry.getValue().get(KafkaMetrics.BrokerTopic.BytesInPerSec.toString());
+      var outMsgBean = outMsg.current();
+      var inMsgBean = inMsg.current();
+      IntStream.range(0, Math.min(outMsgBean.size(), inMsgBean.size()))
+          .forEach(
+              i ->
+                  sumList.add(
+                      sum(
+                          Double.parseDouble(
+                              outMsgBean
+                                  .get(i)
+                                  .beanObject()
+                                  .getAttributes()
+                                  .get("MeanRate")
+                                  .toString()),
+                          Double.parseDouble(
+                              inMsgBean
+                                  .get(i)
+                                  .beanObject()
+                                  .getAttributes()
+                                  .get("MeanRate")
+                                  .toString()))));
+      eachMsg.put(entry.getKey(), sumList);
     }
-    return nodeMetadataCollection.size() > 0
-        ? (int) avgLoadCount / nodeMetadataCollection.size()
-        : 0;
+    return eachMsg;
   }
 
-  /** Get the number of times a node is overloaded. */
-  public static int getBinOneCount(int n) {
-    int index = 0;
-    int count = 0;
-    while (n > 0) {
-      int x = n & 1 << index;
-      if (x != 0) {
-        count++;
-        n = n - (1 << index);
-      }
-      index++;
-    }
-    return count;
+  public List<Double> avgBrokersMsgPerSec(Map<Integer, List<Double>> eachMsg) {
+    return IntStream.range(0, eachMsg.values().stream().findFirst().get().size())
+        .mapToDouble(i -> eachMsg.values().stream().map(s -> s.get(i)).reduce(0.0, Double::sum))
+        .map(sum -> sum / eachMsg.size())
+        .boxed()
+        .collect(Collectors.toList());
   }
 
-  public void refreshNodesMetrics() {
-    for (NodeMetadata nodeMetadata : nodeMetadataCollection) {
-      NodeMetrics nodeMetrics = nodeMetadata.getNodeMetrics();
-      nodeMetrics.refreshMetrics();
-      nodeMetadata.setTotalBytes(nodeMetrics.totalBytesPerSec());
+  public double standardDeviationImperative(
+      Map<Integer, Double> eachMsg, double avgBrokersMsgPerSec) {
+    var variance = new AtomicReference<>(0.0);
+    eachMsg.forEach(
+        (nodeID, msg) ->
+            variance.updateAndGet(
+                v -> v + (msg - avgBrokersMsgPerSec) * (msg - avgBrokersMsgPerSec)));
+    return Math.sqrt(variance.get() / eachMsg.size());
+  }
+
+  /**
+   * @param nodeIDReceiver nodes metrics that exists in topic
+   * @return the name and corresponding data of the metrics obtained by each node
+   */
+  public Map<Integer, Map<String, Receiver>> metricsNameForReceiver(
+      HashMap<Integer, List<Receiver>> nodeIDReceiver) {
+
+    var result = new HashMap<Integer, Map<String, Receiver>>();
+
+    nodeIDReceiver.forEach(
+        (nodeID, receivers) -> {
+          result.put(
+              nodeID,
+              receivers.stream()
+                  .map(
+                      receiver ->
+                          receiver.current().stream()
+                              .map(
+                                  bean ->
+                                      bean.beanObject().getProperties().values().stream()
+                                          .findAny()
+                                          .get())
+                              .findAny()
+                              .get())
+                  .collect(Collectors.toList())
+                  .stream()
+                  .collect(
+                      Collectors.toMap(
+                          Function.identity(),
+                          name ->
+                              receivers.stream()
+                                  .filter(
+                                      mbean ->
+                                          mbean.current().stream()
+                                              .findAny()
+                                              .get()
+                                              .beanObject()
+                                              .getProperties()
+                                              .values()
+                                              .stream()
+                                              .findAny()
+                                              .get()
+                                              .equals(name))
+                                  .findAny()
+                                  .get())));
+        });
+    return result;
+  }
+
+  private Map<Integer, Double> brokersMsgSec(int index, Map<Integer, List<Double>> eachMsg) {
+    return eachMsg.entrySet().stream()
+        .collect(Collectors.toMap(Map.Entry::getKey, entry -> entry.getValue().get(index)));
+  }
+
+  private double avgMsgSec(int index, Map<Integer, List<Double>> eachMsg) {
+    return avgBrokersMsgPerSec(eachMsg).get(index);
+  }
+
+  private String ipAddress(Map.Entry<Integer, Map.Entry<String, Integer>> hostPort)
+      throws UnknownHostException {
+    var host = "-1.-1.-1.-1";
+    if (!hostPort.getValue().getKey().matches(regex)) {
+      host = InetAddress.getByName(hostPort.getValue().getKey()).toString().split("/")[1];
+    } else {
+      host = hostPort.getValue().getKey();
     }
+    return host;
+  }
+
+  public void close() {
+    RECEIVER_FACTORY.close(currentJmxAddresses);
   }
 }

@@ -88,7 +88,7 @@ public class ReplicaSyncingMonitor {
                           List<Replica> thisReplicas = partitionReplicas.get(tp);
 
                           // printing info
-                          System.out.printf("  │ Partition %d:%n", partition);
+                          System.out.printf("  | Partition %d:%n", partition);
                           thisReplicas.stream()
                               .map(
                                   replica ->
@@ -113,7 +113,7 @@ public class ReplicaSyncingMonitor {
                                           "replica on broker %3d => %s",
                                           entry.getKey().broker(),
                                           formatString(entry.getKey(), entry.getValue())))
-                              .map(s -> String.format("  │ │ %s", s))
+                              .map(s -> String.format("  | | %s", s))
                               .forEachOrdered(System.out::println);
 
                           // update previous size

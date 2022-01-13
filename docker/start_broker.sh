@@ -80,7 +80,7 @@ function requireProperty() {
 }
 
 function generateDockerfileBySource() {
-  echo "# this DOCKERFILE is generated dynamically
+  echo "# this dockerfile is generated dynamically
 FROM ubuntu:20.04
 
 # install tools
@@ -110,7 +110,7 @@ WORKDIR "/home/$USER/kafka"
 }
 
 function generateDockerfileByVersion() {
-  echo "# this DOCKERFILE is generated dynamically
+  echo "# this dockerfile is generated dynamically
 FROM ubuntu:20.04
 
 # install tools
@@ -145,7 +145,6 @@ function generateDockerfile() {
   fi
 }
 
-# build image only if the image does not exist locally
 function buildImageIfNeed() {
   if [[ "$(docker images -q $IMAGE_NAME 2>/dev/null)" == "" ]]; then
     docker build --no-cache -t "$IMAGE_NAME" -f "$DOCKERFILE" "$DOCKER_FOLDER"
@@ -220,7 +219,7 @@ function setPropertyIfEmpty() {
 
 function fetchBrokerId() {
   local id=""
-  for i in {1..3}; do
+  for i in {1..10}; do
     id=$(docker logs $CONTAINER_NAME | grep -o "KafkaServer id=[0-9]*" | cut -d = -f 2)
     if [[ "$id" != "" ]]; then
       break

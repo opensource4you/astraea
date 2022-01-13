@@ -4,6 +4,7 @@ import com.beust.jcommander.IStringConverter;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.MathContext;
+import java.math.RoundingMode;
 import java.time.Duration;
 import java.time.temporal.ChronoUnit;
 import java.util.Comparator;
@@ -183,7 +184,9 @@ public class DataSize implements Comparable<DataSize> {
 
   /** Return a string represent current size in given data unit. */
   public String toString(DataUnit unit) {
-    return String.format("%s %s", this.bits.divide(unit.bits), unit.name());
+    var divide =
+        new BigDecimal(this.bits).divide(new BigDecimal(unit.bits), 3, RoundingMode.HALF_EVEN);
+    return String.format("%s %s", divide, unit.name());
   }
 
   /**

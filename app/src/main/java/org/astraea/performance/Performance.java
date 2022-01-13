@@ -182,6 +182,7 @@ public class Performance {
                           producer
                               .sender()
                               .topic(param.topic)
+                              .key(manager.getKey().orElse(null))
                               .value(p.get())
                               .timestamp(System.currentTimeMillis()))
                   .collect(Collectors.toList());
@@ -205,6 +206,7 @@ public class Performance {
           producer
               .sender()
               .topic(param.topic)
+              .key(manager.getKey().orElse(null))
               .value(payload.get())
               .timestamp(start)
               .run()
@@ -322,6 +324,13 @@ public class Performance {
     public boolean transaction() {
       return transactionSize > 1;
     }
+
+    @Parameter(
+        names = {"--key.distribution"},
+        description =
+            "String: Distribution name. Available distribution names: \"uniform\", \"zipfian\", \"latest\". Default: (No key)",
+        converter = Distribution.DistributionConverter.class)
+    Distribution distribution = null;
   }
 
   static class CompressionArgument implements IStringConverter<CompressionType> {

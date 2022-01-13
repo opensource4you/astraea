@@ -53,4 +53,25 @@ public class ManagerTest {
     // Assertion failed with probability < 1/102400
     Assertions.assertFalse(same);
   }
+
+  @Test
+  void testGetKey() {
+    var argument = new Performance.Argument();
+
+    argument.distribution = Distribution.uniform();
+    var manager = new Manager(argument, List.of(), List.of());
+    Assertions.assertTrue(manager.getKey().isPresent());
+
+    argument.distribution = Distribution.zipfian(10);
+    manager = new Manager(argument, List.of(), List.of());
+    Assertions.assertTrue(manager.getKey().isPresent());
+
+    argument.distribution = Distribution.latest();
+    manager = new Manager(argument, List.of(), List.of());
+    Assertions.assertTrue(manager.getKey().isPresent());
+
+    argument.distribution = null;
+    manager = new Manager(argument, List.of(), List.of());
+    Assertions.assertTrue(manager.getKey().isEmpty());
+  }
 }
