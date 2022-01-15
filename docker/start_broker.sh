@@ -201,7 +201,7 @@ function generateMountCommand() {
     declare -i count=0
 
     for folder in "${folders[@]}"; do
-      mount="-v $folder:$DATA_FOLDER_IN_CONTAINER_PREFIX-$count"
+      mount="$mount -v $folder:$DATA_FOLDER_IN_CONTAINER_PREFIX-$count"
       count=$((count + 1))
     done
   fi
