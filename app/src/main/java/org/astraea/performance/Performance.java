@@ -269,6 +269,7 @@ public class Performance {
       var props = props();
       props.put(ProducerConfig.COMPRESSION_TYPE_CONFIG, compression.name);
       if (!this.jmxServers.isEmpty()) props.put("jmx_servers", this.jmxServers);
+      if (!this.specifyBroker.isEmpty()) props.put("specify_broker", this.specifyBroker);
       return props;
     }
 
@@ -290,6 +291,13 @@ public class Performance {
             "String: Distribution name. Available distribution names: \"uniform\", \"zipfian\", \"latest\". Default: (No key)",
         converter = Distribution.DistributionConverter.class)
     Distribution distribution = null;
+
+    @Parameter(
+        names = {"--specify.broker"},
+        description =
+            "String: Used with SpecifyBrokerPartitioner to specify the brokers that partitioner can send.",
+        validateWith = ArgumentUtil.NotEmptyString.class)
+    String specifyBroker = "";
   }
 
   static class CompressionArgument implements IStringConverter<CompressionType> {
