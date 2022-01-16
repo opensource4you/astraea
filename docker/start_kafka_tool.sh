@@ -51,17 +51,20 @@ RUN cp \$(find ./app/build/libs/ -maxdepth 1 -type f -name app-*-all.jar) /tmp/a
 
 function buildImageIfNeed() {
   if [[ "$(docker images -q $IMAGE_NAME 2>/dev/null)" == "" ]]; then
+    local needToBuild="true"
     if [[ "$BUILD" == "false" ]]; then
       docker pull $IMAGE_NAME 2>/dev/null
       if [[ "$?" == "0" ]]; then
-        exit 0
+        needToBuild="false"
       else
         echo "Can't find $IMAGE_NAME from repo. Will build $IMAGE_NAME on the local"
       fi
     fi
-    docker build --no-cache -t "$IMAGE_NAME" -f "$DOCKERFILE" "$DOCKER_FOLDER"
-    if [[ "$?" != "0" ]]; then
-      exit 2
+    if [[ "$needToBuild" == "true" ]]; then
+       docker build --no-cache -t "$IMAGE_NAME" -f "$DOCKERFILE" "$DOCKER_FOLDER"
+       if [[ "$?" != "0" ]]; then
+         exit 2
+       fi
     fi
   fi
 }
