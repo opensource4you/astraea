@@ -88,8 +88,8 @@ if [[ "$RUN" != "true" ]]; then
 fi
 
 if [[ -n "$1" ]]; then
-  showHelp
   runContainer "$*"
 else
+  showHelp
   runContainer "help"
 fi
