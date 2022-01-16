@@ -4,9 +4,10 @@
 
 declare -r USER=astraea
 declare -r VERSION=${VERSION:-3.7.0}
-declare -r REPO=${REPO:-astraea/zookeeper}
+declare -r REPO=${REPO:-ghcr.io/skiptests/astraea/zookeeper}
 declare -r IMAGE_NAME="$REPO:$VERSION"
 declare -r PORT="$(($(($RANDOM % 10000)) + 10000))"
+declare -r BUILD=${BUILD:-false}
 declare -r RUN=${RUN:-true}
 declare -r DOCKER_FOLDER=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
 declare -r DOCKERFILE=$DOCKER_FOLDER/zookeeper.dockerfile
@@ -21,7 +22,8 @@ function showHelp() {
   echo "ENV: "
   echo "    REPO=astraea/zk            set the docker repo"
   echo "    VERSION=3.7.0              set version of zookeeper distribution"
-  echo "    RUN=false                  set false if you want to build image only"
+  echo "    BUILD=false                set true if you want to build image locally"
+  echo "    RUN=false                  set false if you want to build/pull image only"
   echo "    DATA_FOLDER=/tmp/folder1   set host folders used by zookeeper"
 }
 
@@ -68,7 +70,18 @@ RUN echo "clientPort=2181" >> ./conf/zoo.cfg
 
 function buildImageIfNeed() {
   if [[ "$(docker images -q $IMAGE_NAME 2>/dev/null)" == "" ]]; then
+    if [[ "$BUILD" == "false" ]]; then
+      docker pull $IMAGE_NAME 2>/dev/null
+      if [[ "$?" == "0" ]]; then
+        exit 0
+      else
+        echo "Can't find $IMAGE_NAME from repo. Will build $IMAGE_NAME on the local"
+      fi
+    fi
     docker build --no-cache -t "$IMAGE_NAME" -f "$DOCKERFILE" "$DOCKER_FOLDER"
+    if [[ "$?" != "0" ]]; then
+      exit 2
+    fi
   fi
 }
 
