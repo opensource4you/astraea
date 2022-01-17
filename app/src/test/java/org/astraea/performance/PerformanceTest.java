@@ -18,14 +18,13 @@ public class PerformanceTest extends RequireBrokerCluster {
 
   @Test
   void testSpecifyBrokerProducerExecutor() {
-    TopicAdmin admin = TopicAdmin.of(bootstrapServers());
+    var admin = TopicAdmin.of(bootstrapServers());
     var topicName = "testConsumerExecutor-" + System.currentTimeMillis();
     admin.creator().topic(topicName).numberOfPartitions(10).create();
 
     var metrics = new Metrics();
-    Performance.Argument basicArgument = new Performance.Argument();
-    basicArgument.brokers = bootstrapServers();
-    Performance.Argument param = basicArgument;
+    var param = new Performance.Argument();
+    param.brokers = bootstrapServers();
     param.topic = topicName;
     param.fixedSize = true;
     param.exeTime = ExeTime.of("100records");
@@ -61,9 +60,8 @@ public class PerformanceTest extends RequireBrokerCluster {
   @Test
   void testProducerExecutor() throws InterruptedException {
     var metrics = new Metrics();
-    Performance.Argument basicArgument = new Performance.Argument();
-    basicArgument.brokers = bootstrapServers();
-    Performance.Argument param = basicArgument;
+    var param = new Performance.Argument();
+    param.brokers = bootstrapServers();
     param.topic = "testProducerExecutor-" + System.currentTimeMillis();
     param.fixedSize = true;
     param.consumers = 0;
