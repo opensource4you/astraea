@@ -58,6 +58,13 @@ public interface TopicAdmin extends Closeable {
   Set<Integer> brokerIds();
 
   /**
+   * @param topics topic names
+   * @param brokersID brokers ID
+   * @return the partitions of brokers
+   */
+  List<TopicPartition> partitionsOfBrokers(Set<String> topics, Set<Integer> brokersID);
+
+  /**
    * @param brokers a Set containing broker's ID
    * @return all log directory
    */

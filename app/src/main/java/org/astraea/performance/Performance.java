@@ -16,6 +16,7 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.clients.producer.internals.DefaultPartitioner;
+import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.errors.WakeupException;
 import org.apache.kafka.common.record.CompressionType;
 import org.astraea.argument.ArgumentUtil;
@@ -177,6 +178,7 @@ public class Performance {
         producer
             .sender()
             .topic(param.topic)
+            .partition(partitionID(param))
             .key(manager.getKey().orElse(null))
             .value(payload.get())
             .timestamp(start)
@@ -193,6 +195,17 @@ public class Performance {
           producer.close();
         } finally {
           manager.producerClosed();
+        }
+      }
+
+      private int partitionID(Argument param) {
+        try (var topicAdmin = TopicAdmin.of(param.props())) {
+          List<TopicPartition> partitions;
+          if (param.specifyBroker != -1) {
+            partitions =
+                topicAdmin.partitionsOfBrokers(Set.of(param.topic), Set.of(param.specifyBroker));
+            return partitions.get((int) (Math.random() * partitions.size())).partition();
+          } else return -1;
         }
       }
     };
@@ -269,7 +282,6 @@ public class Performance {
       var props = props();
       props.put(ProducerConfig.COMPRESSION_TYPE_CONFIG, compression.name);
       if (!this.jmxServers.isEmpty()) props.put("jmx_servers", this.jmxServers);
-      if (!this.specifyBroker.isEmpty()) props.put("specify_broker", this.specifyBroker);
       return props;
     }
 
@@ -297,7 +309,7 @@ public class Performance {
         description =
             "String: Used with SpecifyBrokerPartitioner to specify the brokers that partitioner can send.",
         validateWith = ArgumentUtil.NotEmptyString.class)
-    String specifyBroker = "";
+    int specifyBroker = -1;
   }
 
   static class CompressionArgument implements IStringConverter<CompressionType> {

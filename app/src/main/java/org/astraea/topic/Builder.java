@@ -212,6 +212,21 @@ public class Builder {
     }
 
     @Override
+    public List<TopicPartition> partitionsOfBrokers(Set<String> topics, Set<Integer> brokersID) {
+      return Utils.handleException(
+          () ->
+              admin.describeTopics(topics).all().get().entrySet().stream()
+                  .flatMap(
+                      e ->
+                          e.getValue().partitions().stream()
+                              .filter(
+                                  topicPartitionInfo ->
+                                      brokersID.contains(topicPartitionInfo.leader().id()))
+                              .map(p -> new TopicPartition(e.getKey(), p.partition())))
+                  .collect(Collectors.toList()));
+    }
+
+    @Override
     public Map<TopicPartition, List<Replica>> replicas(Set<String> topics) {
       var replicaInfos =
           Utils.handleException(() -> admin.describeLogDirs(brokerIds()).allDescriptions().get());
