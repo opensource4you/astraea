@@ -130,7 +130,7 @@ public class PartitionerTest extends RequireBrokerCluster {
 
   @Test
   void testMultipleProducer() {
-    var topicName = "address";
+    var topicName = "addr";
     admin.creator().topic(topicName).numberOfPartitions(10).create();
     var key = "tainan";
     var timestamp = System.currentTimeMillis() + 10;
