@@ -159,10 +159,11 @@ function buildImageIfNeed() {
       fi
     fi
     if [[ "$needToBuild" == "true" ]]; then
-       docker build --no-cache -t "$IMAGE_NAME" -f "$DOCKERFILE" "$DOCKER_FOLDER"
-       if [[ "$?" != "0" ]]; then
-         exit 2
-       fi
+      generateDockerfile
+      docker build --no-cache -t "$IMAGE_NAME" -f "$DOCKERFILE" "$DOCKER_FOLDER"
+      if [[ "$?" != "0" ]]; then
+        exit 2
+      fi
     fi
   fi
 }
