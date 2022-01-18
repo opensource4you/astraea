@@ -6,13 +6,13 @@ declare -r USER=astraea
 declare -r VERSION=${VERSION:-3.7.0}
 declare -r REPO=${REPO:-ghcr.io/skiptests/astraea/zookeeper}
 declare -r IMAGE_NAME="$REPO:$VERSION"
-declare -r PORT="$(($(($RANDOM % 10000)) + 10000))"
+declare -r ZOOKEEPER_PORT=${ZOOKEEPER_PORT:-$(($(($RANDOM % 10000)) + 10000))}
 declare -r BUILD=${BUILD:-false}
 declare -r RUN=${RUN:-true}
 declare -r DOCKER_FOLDER=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
 declare -r DOCKERFILE=$DOCKER_FOLDER/zookeeper.dockerfile
 declare -r DATA_FOLDER_IN_CONTAINER="/tmp/zookeeper-dir"
-declare -r CONTAINER_NAME="zookeeper-$PORT"
+declare -r CONTAINER_NAME="zookeeper-$ZOOKEEPER_PORT"
 declare -r ADDRESS=$([[ "$(which ipconfig)" != "" ]] && ipconfig getifaddr en0 || hostname -i)
 
 # ===================================[functions]===================================
@@ -111,15 +111,15 @@ if [[ -n "$DATA_FOLDER" ]]; then
   echo "mount $DATA_FOLDER to container"
   docker run -d \
     --name $CONTAINER_NAME \
-    -p $PORT:2181 \
+    -p $ZOOKEEPER_PORT:2181 \
     -v "$DATA_FOLDER":$DATA_FOLDER_IN_CONTAINER \
     $IMAGE_NAME ./bin/zkServer.sh start-foreground
 else
   docker run -d \
-    -p $PORT:2181 \
+    -p $ZOOKEEPER_PORT:2181 \
     $IMAGE_NAME ./bin/zkServer.sh start-foreground
 fi
 
 echo "================================================="
-echo "run $DOCKER_FOLDER/start_broker.sh zookeeper.connect=$ADDRESS:$PORT to join kafka broker"
+echo "run $DOCKER_FOLDER/start_broker.sh zookeeper.connect=$ADDRESS:$ZOOKEEPER_PORT to join kafka broker"
 echo "================================================="
