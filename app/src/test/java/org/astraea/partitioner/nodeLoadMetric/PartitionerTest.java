@@ -189,7 +189,7 @@ public class PartitionerTest extends RequireBrokerCluster {
 
       @Override
       public State execute() throws InterruptedException {
-        if (i > 100) return State.DONE;
+        if (i > 99) return State.DONE;
         try {
           producer
               .sender()
