@@ -1,12 +1,5 @@
 package org.astraea.partitioner.nodeLoadMetric;
 
-import java.time.Duration;
-import java.util.List;
-import java.util.Map;
-import java.util.Properties;
-import java.util.Set;
-import java.util.concurrent.ExecutionException;
-import java.util.stream.Collectors;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.serialization.ByteArraySerializer;
 import org.astraea.consumer.Consumer;
@@ -18,6 +11,14 @@ import org.astraea.service.RequireBrokerCluster;
 import org.astraea.topic.TopicAdmin;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+
+import java.time.Duration;
+import java.util.List;
+import java.util.Map;
+import java.util.Properties;
+import java.util.Set;
+import java.util.concurrent.ExecutionException;
+import java.util.stream.Collectors;
 
 public class DependencyPartitionTest extends RequireBrokerCluster {
   private final String brokerList = bootstrapServers();
@@ -86,5 +87,19 @@ public class DependencyPartitionTest extends RequireBrokerCluster {
       Assertions.assertEquals(header.key(), actualHeader.key());
       Assertions.assertArrayEquals(header.value(), actualHeader.value());
     }
+  }
+
+  @Test
+  void testDependencyStateChange() {
+    var props =
+        initProConfig().entrySet().stream()
+            .collect(Collectors.toMap(e -> e.getKey().toString(), Map.Entry::getValue));
+    var producer1 = Producer.builder().configs(props).build();
+    var producer2 = Producer.builder().configs(props).build();
+    var client1 = SmoothWeightPartitioner.dependencyClient(producer1.kafkaProducer());
+    var client2 = SmoothWeightPartitioner.dependencyClient(producer2.kafkaProducer());
+    client1.startDependency();
+    Assertions.assertEquals(client1.state(), "Start_Dependency");
+    Assertions.assertEquals(client2.state(), "UNINITIALIZED");
   }
 }

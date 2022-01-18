@@ -1,5 +1,13 @@
 package org.astraea.partitioner.smoothPartitioner;
 
+import org.apache.kafka.clients.producer.KafkaProducer;
+import org.apache.kafka.clients.producer.Partitioner;
+import org.apache.kafka.common.Cluster;
+import org.apache.kafka.common.KafkaException;
+import org.astraea.Utils;
+import org.astraea.partitioner.nodeLoadMetric.LoadPoisson;
+import org.astraea.partitioner.nodeLoadMetric.NodeLoadClient;
+
 import java.io.IOException;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
@@ -9,13 +17,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Random;
 import java.util.concurrent.atomic.AtomicReference;
-import org.apache.kafka.clients.producer.KafkaProducer;
-import org.apache.kafka.clients.producer.Partitioner;
-import org.apache.kafka.common.Cluster;
-import org.apache.kafka.common.KafkaException;
-import org.astraea.Utils;
-import org.astraea.partitioner.nodeLoadMetric.LoadPoisson;
-import org.astraea.partitioner.nodeLoadMetric.NodeLoadClient;
 
 /**
  * Based on the jmx metrics obtained from Kafka, it records the load status of the node over a
@@ -60,16 +61,16 @@ public class SmoothWeightPartitioner implements Partitioner, DependencyClient {
     Map<Integer, Integer> loadCount;
     var rand = new Random();
     switch (dependencyManager.currentState) {
-      case Start_Dependency:
+      case START_DEPENDENCY:
         loadCount = loadCount(cluster);
         Objects.requireNonNull(loadCount, "OverLoadCount should not be null.");
         var minOverLoadNode = loadCount.entrySet().stream().min(Map.Entry.comparingByValue()).get();
         var minOverLoadPartition = cluster.partitionsForNode(minOverLoadNode.getKey());
         targetPartition =
             minOverLoadPartition.get(rand.nextInt(minOverLoadPartition.size())).partition();
-        dependencyManager.transitionTo(DependencyManager.State.IN_Dependency);
+        dependencyManager.transitionTo(DependencyManager.State.IN_DEPENDENCY);
         return targetPartition;
-      case IN_Dependency:
+      case IN_DEPENDENCY:
         return targetPartition;
       default:
         loadCount = loadCount(cluster);
@@ -163,7 +164,7 @@ public class SmoothWeightPartitioner implements Partitioner, DependencyClient {
     return brokersWeight.values().stream().mapToInt(vs -> vs[0]).sum();
   }
 
-  public static synchronized DependencyClient dependencyClient(KafkaProducer<?, ?> producer) {
+  public static DependencyClient dependencyClient(KafkaProducer<?, ?> producer) {
     return (DependencyClient) Utils.requireField(producer, "partitioner");
   }
 
@@ -189,6 +190,11 @@ public class SmoothWeightPartitioner implements Partitioner, DependencyClient {
     }
   }
 
+  // visible of testing
+  public String state() {
+    return dependencyManager.currentState.toString();
+  }
+
   /**
    * Store the state related to the partitioner dependency and avoid wrong transitions between them.
    */
@@ -196,7 +202,7 @@ public class SmoothWeightPartitioner implements Partitioner, DependencyClient {
     private volatile State currentState = State.UNINITIALIZED;
 
     private synchronized void startDependency() {
-      transitionTo(State.Start_Dependency);
+      transitionTo(State.START_DEPENDENCY);
     }
 
     private synchronized void finishDependency() {
@@ -205,19 +211,19 @@ public class SmoothWeightPartitioner implements Partitioner, DependencyClient {
 
     private enum State {
       UNINITIALIZED,
-      Start_Dependency,
-      IN_Dependency,
+      START_DEPENDENCY,
+      IN_DEPENDENCY,
       FATAL_ERROR;
 
       private boolean isTransitionValid(
           DependencyManager.State source, DependencyManager.State target) {
         switch (target) {
           case UNINITIALIZED:
-            return source == Start_Dependency || source == IN_Dependency;
-          case Start_Dependency:
+            return source == START_DEPENDENCY || source == IN_DEPENDENCY;
+          case START_DEPENDENCY:
             return source == UNINITIALIZED;
-          case IN_Dependency:
-            return source == Start_Dependency;
+          case IN_DEPENDENCY:
+            return source == START_DEPENDENCY;
           default:
             return true;
         }
@@ -234,7 +240,7 @@ public class SmoothWeightPartitioner implements Partitioner, DependencyClient {
                   + target.name());
         }
       } catch (KafkaException e) {
-        System.out.println(e);
+        // TODO
       }
       currentState = target;
     }

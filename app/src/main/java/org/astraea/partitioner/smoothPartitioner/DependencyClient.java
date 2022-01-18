@@ -9,4 +9,6 @@ public interface DependencyClient {
   void startDependency();
 
   void finishDependency();
+
+  String state();
 }

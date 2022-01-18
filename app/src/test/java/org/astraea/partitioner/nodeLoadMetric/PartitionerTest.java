@@ -15,8 +15,10 @@ import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.serialization.ByteArraySerializer;
+import org.astraea.concurrent.ThreadPool;
 import org.astraea.consumer.Consumer;
 import org.astraea.consumer.Deserializer;
 import org.astraea.consumer.Header;
@@ -124,6 +126,93 @@ public class PartitionerTest extends RequireBrokerCluster {
       assertEquals(header.key(), actualHeader.key());
       Assertions.assertArrayEquals(header.value(), actualHeader.value());
     }
+  }
+
+  @Test
+  void testMultipleProducer() {
+    var topicName = "address";
+    admin.creator().topic(topicName).numberOfPartitions(10).create();
+    var key = "tainan";
+    var timestamp = System.currentTimeMillis() + 10;
+    var header = Header.of("a", "b".getBytes());
+    try (ThreadPool threadPool =
+        ThreadPool.builder()
+            .executors(
+                IntStream.range(0, 10)
+                    .mapToObj(
+                        i ->
+                            producerExecutor(
+                                Producer.builder()
+                                    .keySerializer(Serializer.STRING)
+                                    .configs(
+                                        initProConfig().entrySet().stream()
+                                            .collect(
+                                                Collectors.toMap(
+                                                    e -> e.getKey().toString(),
+                                                    Map.Entry::getValue)))
+                                    .build(),
+                                topicName,
+                                key,
+                                header,
+                                timestamp))
+                    .collect(Collectors.toUnmodifiableList()))
+            .build()) {
+      threadPool.waitAll();
+    }
+    try (var consumer =
+        Consumer.builder()
+            .brokers(bootstrapServers())
+            .fromBeginning()
+            .topics(Set.of(topicName))
+            .keyDeserializer(Deserializer.STRING)
+            .build()) {
+      var records = consumer.poll(Duration.ofSeconds(20));
+      var recordsCount = records.size();
+      while (recordsCount < 1000) {
+        recordsCount += consumer.poll(Duration.ofSeconds(20)).size();
+      }
+      assertEquals(1000, recordsCount);
+      var record = records.iterator().next();
+      assertEquals(topicName, record.topic());
+      assertEquals("tainan", record.key());
+      assertEquals(1, record.headers().size());
+      var actualHeader = record.headers().iterator().next();
+      assertEquals(header.key(), actualHeader.key());
+      Assertions.assertArrayEquals(header.value(), actualHeader.value());
+    }
+  }
+
+  private ThreadPool.Executor producerExecutor(
+      Producer<String, byte[]> producer, String topic, String key, Header header, long timeStamp) {
+    return new ThreadPool.Executor() {
+      int i = 0;
+
+      @Override
+      public State execute() throws InterruptedException {
+        if (i > 100) return State.DONE;
+        try {
+          producer
+              .sender()
+              .topic(topic)
+              .key(key)
+              .timestamp(timeStamp)
+              .headers(List.of(header))
+              .run()
+              .toCompletableFuture()
+              .get();
+        } catch (ExecutionException e) {
+          e.printStackTrace();
+        }
+        System.out.println(i);
+        i++;
+        return State.RUNNING;
+      }
+
+      @Override
+      public void close() {
+        producer.close();
+      }
+    };
   }
 
   private void setNodeLoadClient(
