@@ -1,5 +1,12 @@
 package org.astraea.partitioner.nodeLoadMetric;
 
+import java.time.Duration;
+import java.util.List;
+import java.util.Map;
+import java.util.Properties;
+import java.util.Set;
+import java.util.concurrent.ExecutionException;
+import java.util.stream.Collectors;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.serialization.ByteArraySerializer;
 import org.astraea.consumer.Consumer;
@@ -11,14 +18,6 @@ import org.astraea.service.RequireBrokerCluster;
 import org.astraea.topic.TopicAdmin;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
-
-import java.time.Duration;
-import java.util.List;
-import java.util.Map;
-import java.util.Properties;
-import java.util.Set;
-import java.util.concurrent.ExecutionException;
-import java.util.stream.Collectors;
 
 public class DependencyPartitionTest extends RequireBrokerCluster {
   private final String brokerList = bootstrapServers();

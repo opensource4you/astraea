@@ -1,13 +1,5 @@
 package org.astraea.partitioner.smoothPartitioner;
 
-import org.apache.kafka.clients.producer.KafkaProducer;
-import org.apache.kafka.clients.producer.Partitioner;
-import org.apache.kafka.common.Cluster;
-import org.apache.kafka.common.KafkaException;
-import org.astraea.Utils;
-import org.astraea.partitioner.nodeLoadMetric.LoadPoisson;
-import org.astraea.partitioner.nodeLoadMetric.NodeLoadClient;
-
 import java.io.IOException;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
@@ -17,6 +9,13 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Random;
 import java.util.concurrent.atomic.AtomicReference;
+import org.apache.kafka.clients.producer.KafkaProducer;
+import org.apache.kafka.clients.producer.Partitioner;
+import org.apache.kafka.common.Cluster;
+import org.apache.kafka.common.KafkaException;
+import org.astraea.Utils;
+import org.astraea.partitioner.nodeLoadMetric.LoadPoisson;
+import org.astraea.partitioner.nodeLoadMetric.NodeLoadClient;
 
 /**
  * Based on the jmx metrics obtained from Kafka, it records the load status of the node over a
