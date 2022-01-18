@@ -98,7 +98,7 @@ public class DependencyPartitionTest extends RequireBrokerCluster {
     var client1 = SmoothWeightPartitioner.dependencyClient(producer1.kafkaProducer());
     var client2 = SmoothWeightPartitioner.dependencyClient(producer2.kafkaProducer());
     client1.startDependency();
-    Assertions.assertEquals(client1.state(), "Start_Dependency");
+    Assertions.assertEquals(client1.state(), "START_DEPENDENCY");
     Assertions.assertEquals(client2.state(), "UNINITIALIZED");
   }
 }
