@@ -5,9 +5,11 @@ import com.beust.jcommander.Parameter;
 import com.beust.jcommander.ParameterException;
 import java.io.IOException;
 import java.time.Duration;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.function.BiConsumer;
@@ -201,9 +203,13 @@ public class Performance {
       private int partitionID(Argument param) {
         try (var topicAdmin = TopicAdmin.of(param.props())) {
           List<TopicPartition> partitions;
-          if (param.specifyBroker != -1) {
+          if (!Objects.equals(param.specifyBroker, "-1")) {
             partitions =
-                topicAdmin.partitionsOfBrokers(Set.of(param.topic), Set.of(param.specifyBroker));
+                topicAdmin.partitionsOfBrokers(
+                    Set.of(param.topic),
+                    Arrays.stream(param.specifyBroker.split(","))
+                        .map(Integer::parseInt)
+                        .collect(Collectors.toSet()));
             return partitions.get((int) (Math.random() * partitions.size())).partition();
           } else return -1;
         }
@@ -309,7 +315,7 @@ public class Performance {
         description =
             "String: Used with SpecifyBrokerPartitioner to specify the brokers that partitioner can send.",
         validateWith = ArgumentUtil.NotEmptyString.class)
-    int specifyBroker = -1;
+    String specifyBroker = "-1";
   }
 
   static class CompressionArgument implements IStringConverter<CompressionType> {
