@@ -9,6 +9,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Random;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.logging.Logger;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.Partitioner;
 import org.apache.kafka.common.Cluster;
@@ -27,7 +28,8 @@ import org.astraea.partitioner.nodeLoadMetric.NodeLoadClient;
  * <pre>{@code
  * KafkaProducer producer = new KafkaProducer(props);
  *
- * var dependencyControl = SmoothWeightPartitioner.beginDependency(producer);
+ * var dependencyControl = SmoothWeightPartitioner.dependencyClient(producer);
+ * dependencyControl.startDependency();
  * try{
  *     producer.send();
  *     producer.send();
@@ -46,12 +48,13 @@ public class SmoothWeightPartitioner implements Partitioner, DependencyClient {
   private Map<Integer, int[]> brokerHashMap = new HashMap<>();
 
   private NodeLoadClient nodeLoadClient;
-  private static final DependencyManager dependencyManager = new DependencyManager();
+  private final DependencyManager dependencyManager = new DependencyManager();
+  private Logger log;
   /**
    * This parameter only works in dependency mode.And it will be specified when the dependency is
    * executed for the first time, and no changes will be made afterwards.
    */
-  private int targetPartition;
+  private int targetPartition = -1;
 
   @Override
   public int partition(
@@ -59,17 +62,9 @@ public class SmoothWeightPartitioner implements Partitioner, DependencyClient {
     Map<Integer, Integer> overLoadCount;
     var rand = new Random();
     switch (dependencyManager.currentState) {
-      case Start_Dependency:
-        overLoadCount = overLoadCount(cluster);
-        Objects.requireNonNull(overLoadCount, "OverLoadCount should not be null.");
-        var minOverLoadNode =
-            overLoadCount.entrySet().stream().min(Map.Entry.comparingByValue()).get();
-        var minOverLoadPartition = cluster.partitionsForNode(minOverLoadNode.getKey());
-        targetPartition =
-            minOverLoadPartition.get(rand.nextInt(minOverLoadPartition.size())).partition();
-        dependencyManager.transitionTo(DependencyManager.State.IN_Dependency);
-        return targetPartition;
-      case IN_Dependency:
+      case START_DEPENDENCY:
+        targetPartition(cluster);
+      case IN_DEPENDENCY:
         return targetPartition;
       default:
         overLoadCount = overLoadCount(cluster);
@@ -162,9 +157,13 @@ public class SmoothWeightPartitioner implements Partitioner, DependencyClient {
     brokerHashMap.put(x, new int[] {0, y});
   }
 
-  public static synchronized DependencyClient beginDependency(KafkaProducer<?, ?> producer) {
-    dependencyManager.beginDependency();
+  public static DependencyClient dependencyClient(KafkaProducer<?, ?> producer) {
     return (DependencyClient) Utils.requireField(producer, "partitioner");
+  }
+
+  @Override
+  public void startDependency() {
+    dependencyManager.startDependency();
   }
 
   @Override
@@ -180,50 +179,71 @@ public class SmoothWeightPartitioner implements Partitioner, DependencyClient {
     }
   }
 
+  private synchronized int targetPartition(Cluster cluster) {
+    if (targetPartition == -1) {
+      var rand = new Random();
+      var overLoadCount = overLoadCount(cluster);
+      Objects.requireNonNull(overLoadCount, "OverLoadCount should not be null.");
+      var minOverLoadNode =
+          overLoadCount.entrySet().stream().min(Map.Entry.comparingByValue()).get();
+      var minOverLoadPartition = cluster.partitionsForNode(minOverLoadNode.getKey());
+      targetPartition =
+          minOverLoadPartition.get(rand.nextInt(minOverLoadPartition.size())).partition();
+      dependencyManager.transitionTo(DependencyManager.State.IN_DEPENDENCY);
+    }
+    return targetPartition;
+  }
+
   /**
    * Store the state related to the partitioner dependency and avoid wrong transitions between them.
    */
   private static class DependencyManager {
     private volatile State currentState = State.UNINITIALIZED;
 
-    private synchronized void beginDependency() {
-      transitionTo(State.Start_Dependency);
+    private void startDependency() {
+      transitionTo(State.START_DEPENDENCY);
     }
 
-    private synchronized void finishDependency() {
+    private void finishDependency() {
       transitionTo(State.UNINITIALIZED);
     }
 
     private enum State {
       UNINITIALIZED,
-      Start_Dependency,
-      IN_Dependency,
+      START_DEPENDENCY,
+      IN_DEPENDENCY,
       FATAL_ERROR;
 
       private boolean isTransitionValid(
           DependencyManager.State source, DependencyManager.State target) {
         switch (target) {
           case UNINITIALIZED:
-            return source == Start_Dependency || source == IN_Dependency;
-          case Start_Dependency:
+            return source == IN_DEPENDENCY;
+          case START_DEPENDENCY:
             return source == UNINITIALIZED;
-          case IN_Dependency:
-            return source == Start_Dependency;
+          case IN_DEPENDENCY:
+            return source == START_DEPENDENCY;
           default:
             return true;
         }
       }
     }
 
-    private void transitionTo(State target) {
-      if (!currentState.isTransitionValid(currentState, target)) {
-        throw new KafkaException(
-            "Invalid transition attempted from state "
-                + currentState.name()
-                + " to state "
-                + target.name());
+    private synchronized void transitionTo(State target) {
+      try {
+        if (!currentState.isTransitionValid(currentState, target)) {
+          throw new KafkaException(
+              "Invalid transition attempted from state "
+                  + currentState.name()
+                  + " to state "
+                  + target.name());
+        }
+        currentState = target;
+      } catch (KafkaException e) {
+        switch (currentState) {
+          case UNINITIALIZED:
+        }
       }
-      currentState = target;
     }
   }
 }

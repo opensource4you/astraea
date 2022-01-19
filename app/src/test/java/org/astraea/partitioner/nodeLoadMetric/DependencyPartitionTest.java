@@ -46,7 +46,8 @@ public class DependencyPartitionTest extends RequireBrokerCluster {
         ps.entrySet().stream()
             .collect(Collectors.toMap(e -> e.getKey().toString(), Map.Entry::getValue));
     try (var producer = Producer.builder().configs(props).build()) {
-      var dependencyClient = SmoothWeightPartitioner.beginDependency(producer.kafkaProducer());
+      var dependencyClient = SmoothWeightPartitioner.dependencyClient(producer.kafkaProducer());
+      dependencyClient.startDependency();
       var targetPartition = 0;
       var i = 0;
       while (i < 20) {
@@ -84,6 +85,22 @@ public class DependencyPartitionTest extends RequireBrokerCluster {
       var actualHeader = record.headers().iterator().next();
       Assertions.assertEquals(header.key(), actualHeader.key());
       Assertions.assertArrayEquals(header.value(), actualHeader.value());
+    }
+  }
+
+  @Test
+  void testTransitionTo() {
+    admin.creator().topic(topicName).numberOfPartitions(10).create();
+    var ps = initProConfig();
+    var timestamp = System.currentTimeMillis() + 10;
+    var header = Header.of("a", "b".getBytes());
+    ps.put("producerID", 2);
+    var props =
+        ps.entrySet().stream()
+            .collect(Collectors.toMap(e -> e.getKey().toString(), Map.Entry::getValue));
+    try (var producer = Producer.builder().configs(props).build()) {
+      var dependencyClient = SmoothWeightPartitioner.dependencyClient(producer.kafkaProducer());
+      dependencyClient.finishDependency();
     }
   }
 }
