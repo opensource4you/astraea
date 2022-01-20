@@ -213,17 +213,10 @@ public class Builder {
 
     @Override
     public List<TopicPartition> partitionsOfBrokers(Set<String> topics, Set<Integer> brokersID) {
-      return Utils.handleException(
-          () ->
-              admin.describeTopics(topics).all().get().entrySet().stream()
-                  .flatMap(
-                      e ->
-                          e.getValue().partitions().stream()
-                              .filter(
-                                  topicPartitionInfo ->
-                                      brokersID.contains(topicPartitionInfo.leader().id()))
-                              .map(p -> new TopicPartition(e.getKey(), p.partition())))
-                  .collect(Collectors.toList()));
+      return replicas(topics).entrySet().stream()
+          .filter(e -> e.getValue().stream().anyMatch(r -> brokersID.contains(r.broker())))
+          .map(Map.Entry::getKey)
+          .collect(Collectors.toList());
     }
 
     @Override

@@ -69,7 +69,7 @@ public class PerformanceTest extends RequireBrokerCluster {
     param.topic = topicName;
     param.fixedSize = true;
     param.exeTime = ExeTime.of("100records");
-    param.specifyBroker = "1,2";
+    param.specifyBroker = "0,1";
     param.consumers = 0;
     param.partitions = 10;
     try (ThreadPool.Executor executor =
@@ -90,7 +90,7 @@ public class PerformanceTest extends RequireBrokerCluster {
               .map(entry -> entry.getKey().partition())
               .collect(Collectors.toList());
       var partitionsOfBrokers =
-          admin.partitionsOfBrokers(Set.of(topicName), Set.of(1, 2)).stream()
+          admin.partitionsOfBrokers(Set.of(topicName), Set.of(0, 1)).stream()
               .map(TopicPartition::partition)
               .collect(Collectors.toSet());
       partitions.forEach(
