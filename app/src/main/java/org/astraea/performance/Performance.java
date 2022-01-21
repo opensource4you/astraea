@@ -179,7 +179,7 @@ public class Performance {
         producer
             .sender()
             .topic(param.topic)
-            .partition(param.specifyBroker.get(rand.nextInt(param.specifyBroker.size())))
+            .partition(partitions.get(rand.nextInt(partitions.size())))
             .key(manager.getKey().orElse(null))
             .value(payload.get())
             .timestamp(start)
