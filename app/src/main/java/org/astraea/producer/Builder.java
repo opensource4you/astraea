@@ -86,7 +86,7 @@ public class Builder<Key, Value> {
 
           @Override
           public Sender<Key, Value> partition(int partition) {
-            if (partition > 0) this.partition = partition;
+            if (partition >= 0) this.partition = partition;
             return this;
           }
 

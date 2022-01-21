@@ -1,5 +1,7 @@
 package org.astraea.performance;
 
+import static org.astraea.performance.Performance.partition;
+
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
@@ -28,9 +30,10 @@ public class PerformanceTest extends RequireBrokerCluster {
     param.topic = topicName;
     param.fixedSize = true;
     param.exeTime = ExeTime.of("100records");
-    param.specifyBroker = "1";
+    param.specifyBroker = List.of(0);
     param.consumers = 0;
     param.partitions = 10;
+    param.specifyBroker = partition(param, admin);
     try (ThreadPool.Executor executor =
         Performance.producerExecutor(
             Producer.builder().brokers(bootstrapServers()).build(),
@@ -49,7 +52,7 @@ public class PerformanceTest extends RequireBrokerCluster {
               .map(entry -> entry.getKey().partition())
               .collect(Collectors.toList());
       var partitionsOfBrokers =
-          admin.partitionsOfBrokers(Set.of(topicName), Set.of(1)).stream()
+          admin.partitionsOfBrokers(Set.of(topicName), Set.of(0)).stream()
               .map(TopicPartition::partition)
               .collect(Collectors.toSet());
       partitions.forEach(
@@ -69,9 +72,10 @@ public class PerformanceTest extends RequireBrokerCluster {
     param.topic = topicName;
     param.fixedSize = true;
     param.exeTime = ExeTime.of("100records");
-    param.specifyBroker = "0,1";
+    param.specifyBroker = List.of(0, 1);
     param.consumers = 0;
     param.partitions = 10;
+    param.specifyBroker = partition(param, admin);
     try (ThreadPool.Executor executor =
         Performance.producerExecutor(
             Producer.builder().brokers(bootstrapServers()).build(),

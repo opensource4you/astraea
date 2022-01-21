@@ -5,11 +5,7 @@ import com.beust.jcommander.Parameter;
 import com.beust.jcommander.ParameterException;
 import java.io.IOException;
 import java.time.Duration;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.ExecutionException;
 import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
@@ -70,6 +66,8 @@ public class Performance {
           .numberOfPartitions(param.partitions)
           .topic(param.topic)
           .create();
+
+      param.specifyBroker = partition(param, topicAdmin);
     }
 
     var consumerMetrics =
@@ -170,7 +168,7 @@ public class Performance {
       public State execute() throws InterruptedException {
         // Wait for all consumers get assignment.
         manager.awaitPartitionAssignment();
-
+        var rand = new Random();
         var payload = manager.payload();
         if (payload.isEmpty()) return State.DONE;
 
@@ -178,7 +176,7 @@ public class Performance {
         producer
             .sender()
             .topic(param.topic)
-            .partition(partition(param))
+            .partition(param.specifyBroker.get(rand.nextInt(param.specifyBroker.size())))
             .key(manager.getKey().orElse(null))
             .value(payload.get())
             .timestamp(start)
@@ -197,26 +195,22 @@ public class Performance {
           manager.producerClosed();
         }
       }
-
-      private int partition(Argument param) {
-        try (var topicAdmin = TopicAdmin.of(param.props())) {
-          if (positiveSpecifyBroker()) {
-            var partitions =
-                topicAdmin.partitionsOfBrokers(
-                    Set.of(param.topic),
-                    Arrays.stream(param.specifyBroker.split(","))
-                        .map(Integer::parseInt)
-                        .collect(Collectors.toSet()));
-            return partitions.get((int) (Math.random() * partitions.size())).partition();
-          } else return -1;
-        }
-      }
-
-      private boolean positiveSpecifyBroker() {
-        return Arrays.stream(param.specifyBroker.split(","))
-            .allMatch(broker -> Integer.parseInt(broker) >= 0);
-      }
     };
+  }
+
+  // visible for test
+  static List<Integer> partition(Argument param, TopicAdmin topicAdmin) {
+    if (positiveSpecifyBroker(param)) {
+      return topicAdmin
+          .partitionsOfBrokers(Set.of(param.topic), new HashSet<>(param.specifyBroker))
+          .stream()
+          .map(topicPartition -> topicPartition.partition())
+          .collect(Collectors.toList());
+    } else return List.of(-1);
+  }
+
+  private static boolean positiveSpecifyBroker(Argument param) {
+    return param.specifyBroker.stream().allMatch(broker -> broker >= 0);
   }
 
   static class Argument extends BasicArgumentWithPropFile {
@@ -317,7 +311,7 @@ public class Performance {
         description =
             "String: Used with SpecifyBrokerPartitioner to specify the brokers that partitioner can send.",
         validateWith = ArgumentUtil.NotEmptyString.class)
-    String specifyBroker = "-1";
+    List<Integer> specifyBroker = List.of(-1);
   }
 
   static class CompressionArgument implements IStringConverter<CompressionType> {
