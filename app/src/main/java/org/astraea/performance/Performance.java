@@ -6,7 +6,9 @@ import com.beust.jcommander.ParameterException;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
 import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -51,15 +53,16 @@ import org.astraea.utils.DataUnit;
  * To avoid records being produced too fast, producer wait for one millisecond after each send.
  */
 public class Performance {
-
+  /** Used in Automation, to achieve the end of one Performance and then start another. */
   public static void main(String[] args)
       throws InterruptedException, IOException, ExecutionException {
     execute(ArgumentUtil.parseArgument(new Argument(), args));
   }
 
-  public static void execute(final Argument param)
+  public static Future<String> execute(final Argument param)
       throws InterruptedException, IOException, ExecutionException {
     List<Integer> partitions;
+    var future = new CompletableFuture<String>();
     try (var topicAdmin = TopicAdmin.of(param.props())) {
       topicAdmin
           .creator()
@@ -121,6 +124,8 @@ public class Performance {
             .executors(fileWriter)
             .build()) {
       threadPool.waitAll();
+      future.complete(param.topic);
+      return future;
     }
   }
 
@@ -216,7 +221,7 @@ public class Performance {
     return param.specifyBroker.stream().allMatch(broker -> broker >= 0);
   }
 
-  static class Argument extends BasicArgumentWithPropFile {
+  public static class Argument extends BasicArgumentWithPropFile {
 
     @Parameter(
         names = {"--topic"},

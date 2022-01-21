@@ -4,11 +4,12 @@
 
 declare -r USER=astraea
 declare -r VERSION=${REVISION:-${VERSION:-3.1.2}}
-declare -r REPO=${REPO:-astraea/spark}
+declare -r REPO=${REPO:-ghcr.io/skiptests/astraea/spark}
 declare -r IMAGE_NAME="$REPO:$VERSION"
+declare -r BUILD=${BUILD:-false}
 declare -r RUN=${RUN:-true}
-declare -r SPARK_PORT="$(($(($RANDOM % 10000)) + 10000))"
-declare -r SPARK_UI_PORT="$(($(($RANDOM % 10000)) + 10000))"
+declare -r SPARK_PORT=${SPARK_PORT:-$(($(($RANDOM % 10000)) + 10000))}
+declare -r SPARK_UI_PORT=${SPARK_UI_PORT:-$(($(($RANDOM % 10000)) + 10000))}
 declare -r IVY_VERSION=2.5.0
 declare -r DELTA_VERSION=${DELTA_VERSION:-1.0.0}
 declare -r PYTHON_KAFKA_VERSION=${PYTHON_KAFKA_VERSION:-1.7.0}
@@ -27,12 +28,12 @@ function showHelp() {
   echo "Optional Arguments: "
   echo "    master-url=spar://node00:1111    start a spark worker. Or start a spark master if master-url is not defined"
   echo "ENV: "
-  echo "    REPO=astraea/spark               set the docker repo"
   echo "    VERSION=3.1.2                    set version of spark distribution"
   echo "    DELTA_VERSION=1.0.0              set version of delta distribution"
-  echo "    PYTHON_KAFKA_VERSION=1.7.0           set version of confluent kafka distribution"
-  echo "    RUN=false                        set false if you want to build image only"
-  echo "    PYTHON_DEPS=delta-spark=1.0.0    those dependencies will be pre-installed in the docker image"
+  echo "    PYTHON_KAFKA_VERSION=1.7.0       set version of confluent kafka distribution"
+  echo "    BUILD=false                      set true if you want to build image locally"
+  echo "    RUN=false                        set false if you want to build/pull image only"
+  echo "    PYTHON_DEPS=delta-spark=1.0.0    set the python dependencies which are pre-installed in the docker image"
 }
 
 function checkDocker() {
@@ -146,7 +147,22 @@ function generateDockerfile() {
 
 function buildImageIfNeed() {
   if [[ "$(docker images -q $IMAGE_NAME 2>/dev/null)" == "" ]]; then
-    docker build --no-cache -t "$IMAGE_NAME" -f "$DOCKERFILE" "$DOCKER_FOLDER"
+    local needToBuild="true"
+    if [[ "$BUILD" == "false" ]]; then
+      docker pull $IMAGE_NAME 2>/dev/null
+      if [[ "$?" == "0" ]]; then
+        needToBuild="false"
+      else
+        echo "Can't find $IMAGE_NAME from repo. Will build $IMAGE_NAME on the local"
+      fi
+    fi
+    if [[ "$needToBuild" == "true" ]]; then
+      generateDockerfile
+      docker build --no-cache -t "$IMAGE_NAME" -f "$DOCKERFILE" "$DOCKER_FOLDER"
+      if [[ "$?" != "0" ]]; then
+        exit 2
+      fi
+    fi
   fi
 }
 
