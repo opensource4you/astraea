@@ -33,12 +33,12 @@ public class PerformanceTest extends RequireBrokerCluster {
     param.specifyBroker = List.of(0);
     param.consumers = 0;
     param.partitions = 10;
-    param.specifyBroker = partition(param, admin);
     try (ThreadPool.Executor executor =
         Performance.producerExecutor(
             Producer.builder().brokers(bootstrapServers()).build(),
             param,
             metrics,
+            partition(param, admin),
             new Manager(param, List.of(), List.of()))) {
       ThreadPool threadPool = ThreadPool.builder().executor(executor).build();
       threadPool.waitAll();
@@ -75,12 +75,12 @@ public class PerformanceTest extends RequireBrokerCluster {
     param.specifyBroker = List.of(0, 1);
     param.consumers = 0;
     param.partitions = 10;
-    param.specifyBroker = partition(param, admin);
     try (ThreadPool.Executor executor =
         Performance.producerExecutor(
             Producer.builder().brokers(bootstrapServers()).build(),
             param,
             metrics,
+            partition(param, admin),
             new Manager(param, List.of(), List.of()))) {
       ThreadPool threadPool = ThreadPool.builder().executor(executor).build();
       threadPool.waitAll();
@@ -115,6 +115,7 @@ public class PerformanceTest extends RequireBrokerCluster {
             Producer.builder().brokers(bootstrapServers()).build(),
             param,
             metrics,
+            List.of(-1),
             new Manager(param, List.of(), List.of()))) {
       executor.execute();
 

@@ -59,6 +59,7 @@ public class Performance {
 
   public static void execute(final Argument param)
       throws InterruptedException, IOException, ExecutionException {
+    List<Integer> partitions;
     try (var topicAdmin = TopicAdmin.of(param.props())) {
       topicAdmin
           .creator()
@@ -67,7 +68,7 @@ public class Performance {
           .topic(param.topic)
           .create();
 
-      param.specifyBroker = partition(param, topicAdmin);
+      partitions = partition(param, topicAdmin);
     }
 
     var consumerMetrics =
@@ -113,6 +114,7 @@ public class Performance {
                                     .build(),
                                 param,
                                 producerMetrics.get(i),
+                                partitions,
                                 manager))
                     .collect(Collectors.toUnmodifiableList()))
             .executor(tracker)
@@ -162,6 +164,7 @@ public class Performance {
       Producer<byte[], byte[]> producer,
       Argument param,
       BiConsumer<Long, Long> observer,
+      List<Integer> partitions,
       Manager manager) {
     return new ThreadPool.Executor() {
       @Override
