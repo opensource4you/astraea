@@ -4,7 +4,6 @@ import com.beust.jcommander.Parameter;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Properties;
 import java.util.concurrent.ExecutionException;
@@ -63,7 +62,7 @@ public class Automation {
         if (whetherDeleteTopic) {
           try (final AdminClient adminClient = KafkaAdminClient.create(config)) {
             var topicName = str.get();
-            adminClient.deleteTopics(Arrays.asList(topicName));
+            adminClient.deleteTopics(List.of(topicName));
           }
         }
         System.out.println("=============== " + i + " time Performance Complete! ===============");
