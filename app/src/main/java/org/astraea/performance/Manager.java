@@ -14,16 +14,14 @@ import org.astraea.utils.DataUnit;
  */
 public class Manager {
   private final ExeTime exeTime;
-  private final boolean fixedSize;
-  private final DataSize dataSize;
   private final CountDownLatch getAssignment;
   private final AtomicInteger producerClosed;
-  private final Random rand = new Random();
 
   private final List<Metrics> producerMetrics, consumerMetrics;
   private final long start = System.currentTimeMillis();
   private final AtomicLong payloadNum = new AtomicLong(0);
   private final Distribution distribution;
+  private final RandomContent randomContent;
 
   /**
    * Used to manage producing/consuming.
@@ -42,9 +40,7 @@ public class Manager {
    */
   public Manager(
       Performance.Argument argument, List<Metrics> producerMetrics, List<Metrics> consumerMetrics) {
-    this.fixedSize = argument.fixedSize;
-    this.dataSize = argument.recordSize;
-    if (dataSize.greaterThan(DataUnit.Byte.of(Integer.MAX_VALUE)))
+    if (argument.recordSize.greaterThan(DataUnit.Byte.of(Integer.MAX_VALUE)))
       throw new IllegalArgumentException(
           "Record size should be smaller than or equal to 2147483648 (Integer.MAX_VALUE) bytes");
     this.getAssignment = new CountDownLatch(argument.consumers);
@@ -53,6 +49,7 @@ public class Manager {
     this.consumerMetrics = consumerMetrics;
     this.exeTime = argument.exeTime;
     this.distribution = argument.distribution;
+    this.randomContent = new RandomContent(argument.recordSize, argument.fixedSize);
   }
 
   /**
@@ -66,11 +63,7 @@ public class Manager {
     if (exeTime.percentage(payloadNum.getAndIncrement(), System.currentTimeMillis() - start)
         >= 100D) return Optional.empty();
 
-    byte[] payload =
-        (this.fixedSize)
-            ? new byte[dataSize.measurement(DataUnit.Byte).intValue()]
-            : new byte[rand.nextInt(dataSize.measurement(DataUnit.Byte).intValue()) + 1];
-    rand.nextBytes(payload);
+    byte[] payload = randomContent.getContent();
     return Optional.of(payload);
   }
 
@@ -114,5 +107,31 @@ public class Manager {
   public Optional<byte[]> getKey() {
     if (distribution == null) return Optional.empty();
     return Optional.of((String.valueOf(distribution.get())).getBytes());
+  }
+
+  /** Randomly generate content before {@link #getContent()} is called. */
+  private static class RandomContent {
+    private final Random rand = new Random();
+    private final DataSize dataSize;
+    private final boolean fixedSize;
+    private final byte[] content;
+
+    /**
+     * @param dataSize The size of each random generated content in bytes.
+     * @param fixedSize Determine whether to fix the size of random generated content
+     */
+    public RandomContent(DataSize dataSize, boolean fixedSize) {
+      this.dataSize = dataSize;
+      this.fixedSize = fixedSize;
+      content = new byte[dataSize.measurement(DataUnit.Byte).intValue()];
+    }
+
+    public byte[] getContent() {
+      // Randomly change one position of the content;
+      content[rand.nextInt(dataSize.measurement(DataUnit.Byte).intValue())] =
+          (byte) rand.nextInt(256);
+      if (fixedSize) return Arrays.copyOf(content, content.length);
+      else return Arrays.copyOfRange(content, rand.nextInt(content.length), content.length);
+    }
   }
 }
