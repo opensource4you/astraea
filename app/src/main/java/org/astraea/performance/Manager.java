@@ -63,7 +63,7 @@ public class Manager {
     if (exeTime.percentage(payloadNum.getAndIncrement(), System.currentTimeMillis() - start)
         >= 100D) return Optional.empty();
 
-    byte[] payload = randomContent.getContent();
+    var payload = randomContent.getContent();
     return Optional.of(payload);
   }
 
