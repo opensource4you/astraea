@@ -4,15 +4,16 @@
 
 declare -r USER=astraea
 declare -r VERSION=${REVISION:-${VERSION:-2.8.1}}
-declare -r REPO=${REPO:-astraea/broker}
+declare -r REPO=${REPO:-ghcr.io/skiptests/astraea/broker}
 declare -r IMAGE_NAME="$REPO:$VERSION"
+declare -r BUILD=${BUILD:-false}
 declare -r RUN=${RUN:-true}
 declare -r DOCKER_FOLDER=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
 declare -r DOCKERFILE=$DOCKER_FOLDER/broker.dockerfile
 declare -r DATA_FOLDER_IN_CONTAINER_PREFIX="/tmp/log-folder"
 declare -r EXPORTER_VERSION="0.16.1"
-declare -r EXPORTER_PORT="$(($(($RANDOM % 10000)) + 10000))"
-declare -r BROKER_PORT="$(($(($RANDOM % 10000)) + 10000))"
+declare -r EXPORTER_PORT=${EXPORTER_PORT:-$(($(($RANDOM % 10000)) + 10000))}
+declare -r BROKER_PORT=${BROKER_PORT:-$(($(($RANDOM % 10000)) + 10000))}
 declare -r CONTAINER_NAME="broker-$BROKER_PORT"
 declare -r BROKER_JMX_PORT="$(($(($RANDOM % 10000)) + 10000))"
 declare -r ADMIN_NAME="admin"
@@ -45,7 +46,8 @@ function showHelp() {
   echo "    HEAP_OPTS=\"-Xmx2G -Xms2G\"                set broker JVM memory"
   echo "    REVISION=trunk                           set revision of kafka source code to build container"
   echo "    VERSION=2.8.1                            set version of kafka distribution"
-  echo "    RUN=false                                set false if you want to build image only"
+  echo "    BUILD=false                              set true if you want to build image locally"
+  echo "    RUN=false                                set false if you want to build/pull image only"
   echo "    DATA_FOLDERS=/tmp/folder1,/tmp/folder2   set host folders used by broker"
 }
 
@@ -147,7 +149,22 @@ function generateDockerfile() {
 
 function buildImageIfNeed() {
   if [[ "$(docker images -q $IMAGE_NAME 2>/dev/null)" == "" ]]; then
-    docker build --no-cache -t "$IMAGE_NAME" -f "$DOCKERFILE" "$DOCKER_FOLDER"
+    local needToBuild="true"
+    if [[ "$BUILD" == "false" ]]; then
+      docker pull $IMAGE_NAME 2>/dev/null
+      if [[ "$?" == "0" ]]; then
+        needToBuild="false"
+      else
+        echo "Can't find $IMAGE_NAME from repo. Will build $IMAGE_NAME on the local"
+      fi
+    fi
+    if [[ "$needToBuild" == "true" ]]; then
+      generateDockerfile
+      docker build --no-cache -t "$IMAGE_NAME" -f "$DOCKERFILE" "$DOCKER_FOLDER"
+      if [[ "$?" != "0" ]]; then
+        exit 2
+      fi
+    fi
   fi
 }
 
@@ -201,7 +218,7 @@ function generateMountCommand() {
     declare -i count=0
 
     for folder in "${folders[@]}"; do
-      mount="-v $folder:$DATA_FOLDER_IN_CONTAINER_PREFIX-$count"
+      mount="$mount -v $folder:$DATA_FOLDER_IN_CONTAINER_PREFIX-$count"
       count=$((count + 1))
     done
   fi
