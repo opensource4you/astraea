@@ -9,6 +9,8 @@ import org.astraea.argument.ArgumentUtil;
 import org.astraea.argument.BasicArgumentWithPropFile;
 
 public class ReplicaCollie {
+  static final String UNKNOWN = "unknown";
+
   static class MigratorInfo {
     Set<Integer> brokerSource;
     Set<Integer> brokerSink;
@@ -157,7 +159,7 @@ public class ReplicaCollie {
                                     .iterator()
                                     .next());
                           } else {
-                            toPath.add("unknown");
+                            toPath.add(UNKNOWN);
                           }
                         }
                       });
@@ -231,7 +233,7 @@ public class ReplicaCollie {
             migratorInfo.pathSink = assignments.getValue();
             result.put(tp, migratorInfo);
           } else {
-            if (assignments.getValue().contains("unknown")) {
+            if (assignments.getValue().contains(UNKNOWN)) {
               Set<String> newPath = new HashSet<>();
               newPath =
                   !argument.verify
@@ -239,7 +241,7 @@ public class ReplicaCollie {
                           .map(Replica::path)
                           .filter(path -> !assignments.getKey().contains(path))
                           .collect(Collectors.toSet())
-                      : Set.of("unknown");
+                      : Set.of(UNKNOWN);
               if (assignments.getKey().equals(newPath)) {
                 if (!argument.verify) result.remove(tp);
               } else {
