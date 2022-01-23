@@ -5,7 +5,6 @@ import static org.astraea.performance.Performance.partition;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import org.apache.kafka.common.TopicPartition;
 import org.astraea.Utils;
@@ -24,7 +23,8 @@ public class PerformanceTest extends RequireBrokerCluster {
     var admin = TopicAdmin.of(bootstrapServers());
     var topicName = "testConsumerExecutor-" + System.currentTimeMillis();
     admin.creator().topic(topicName).numberOfPartitions(10).create();
-    sleep(1);
+    Utils.waitFor(() -> admin.publicTopicNames().contains(topicName));
+
     var metrics = new Metrics();
     var param = new Performance.Argument();
     param.brokers = bootstrapServers();
@@ -66,7 +66,8 @@ public class PerformanceTest extends RequireBrokerCluster {
     var admin = TopicAdmin.of(bootstrapServers());
     var topicName = "testConsumerExecutor-" + System.currentTimeMillis();
     admin.creator().topic(topicName).numberOfPartitions(10).create();
-    sleep(1);
+    Utils.waitFor(() -> admin.publicTopicNames().contains(topicName));
+
     var metrics = new Metrics();
     var param = new Performance.Argument();
     param.brokers = bootstrapServers();
@@ -148,14 +149,6 @@ public class PerformanceTest extends RequireBrokerCluster {
 
       Assertions.assertEquals(1, metrics.num());
       Assertions.assertNotEquals(1024, metrics.bytes());
-    }
-  }
-
-  private static void sleep(int seconds) {
-    try {
-      TimeUnit.SECONDS.sleep(seconds);
-    } catch (InterruptedException e) {
-      throw new RuntimeException(e);
     }
   }
 }
