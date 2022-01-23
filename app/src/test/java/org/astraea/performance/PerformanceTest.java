@@ -23,6 +23,7 @@ public class PerformanceTest extends RequireBrokerCluster {
     var admin = TopicAdmin.of(bootstrapServers());
     var topicName = "testConsumerExecutor-" + System.currentTimeMillis();
     admin.creator().topic(topicName).numberOfPartitions(10).create();
+    Utils.waitFor(() -> admin.publicTopicNames().contains(topicName));
 
     var metrics = new Metrics();
     var param = new Performance.Argument();
@@ -65,6 +66,7 @@ public class PerformanceTest extends RequireBrokerCluster {
     var admin = TopicAdmin.of(bootstrapServers());
     var topicName = "testConsumerExecutor-" + System.currentTimeMillis();
     admin.creator().topic(topicName).numberOfPartitions(10).create();
+    Utils.waitFor(() -> admin.publicTopicNames().contains(topicName));
 
     var metrics = new Metrics();
     var param = new Performance.Argument();
