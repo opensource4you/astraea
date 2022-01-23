@@ -30,9 +30,7 @@ public class CalculateUtils {
   }
 
   public static Double countSum(Set<Double> in) {
-    double mean = 0.0;
-    for (var element : in) mean += element;
-    return mean;
+    return in.stream().mapToDouble(i -> i).sum();
   }
 
   public static Map<Integer, Map<TopicPartition, Double>> getScore(
@@ -57,10 +55,11 @@ public class CalculateUtils {
                         partitionLoad.put(tp, load.get(broker).get(tp));
                         LoadSQR.add(Math.pow(load.get(broker).get(tp), 2));
                       });
+              var loadSum = countSum(loadSet);
               var partitionNum = load.get(broker).keySet().size();
-              brokerLoad.put(broker, countSum(loadSet));
-              var mean = countSum(loadSet) / loadSet.size();
-              partitionMean.put(broker, countSum(loadSet) / loadSet.size());
+              brokerLoad.put(broker, loadSum);
+              var mean = loadSum / loadSet.size();
+              partitionMean.put(broker, loadSum / loadSet.size());
               var SD =
                   Math.pow((countSum(LoadSQR) - mean * mean * partitionNum) / partitionNum, 0.5);
               partitionSD.put(broker, SD);
