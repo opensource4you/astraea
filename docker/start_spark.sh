@@ -76,13 +76,10 @@ FROM ubuntu:20.04
 ENV DEBIAN_FRONTEND noninteractive
 
 # install tools
-RUN apt-get update && apt-get upgrade -y && apt-get install -y openjdk-11-jdk wget python3 python3-pip unzip
+RUN apt-get update && apt-get upgrade -y && apt-get install -y openjdk-11-jdk wget python3 python3-pip unzip tini
 
 # add user
 RUN groupadd $USER && useradd -ms /bin/bash -g $USER $USER
-
-# change user
-USER $USER
 
 # install python dependencies
 RUN pip3 install confluent-kafka==$PYTHON_KAFKA_VERSION delta-spark==$DELTA_VERSION pyspark==$VERSION
@@ -100,9 +97,16 @@ RUN java -jar ./ivy-${IVY_VERSION}.jar -dependency org.apache.hadoop hadoop-azur
 # download spark
 WORKDIR /tmp
 RUN wget https://archive.apache.org/dist/spark/spark-${VERSION}/spark-${VERSION}-bin-hadoop3.2.tgz
-RUN mkdir /home/$USER/spark
-RUN tar -zxvf spark-${VERSION}-bin-hadoop3.2.tgz -C /home/$USER/spark --strip-components=1
-WORKDIR /home/$USER/spark
+RUN mkdir /opt/spark
+RUN tar -zxvf spark-${VERSION}-bin-hadoop3.2.tgz -C /opt/spark --strip-components=1
+WORKDIR /opt/spark
+
+# export ENV
+ENV SPARK_HOME /opt/spark
+
+# change user
+RUN chown -R $USER:$USER /opt/spark
+USER $USER
 " >"$DOCKERFILE"
 }
 
@@ -122,18 +126,22 @@ RUN pip3 install confluent-kafka==$PYTHON_KAFKA_VERSION
 # add user
 RUN groupadd $USER && useradd -ms /bin/bash -g $USER $USER
 
-# change user
-USER $USER
-
 # build spark from source code
 RUN git clone https://github.com/apache/spark /tmp/spark
 WORKDIR /tmp/spark
 RUN git checkout $VERSION
 RUN ./dev/make-distribution.sh --pip --tgz
-RUN mkdir /home/$USER/spark
-RUN tar -zxvf \$(find ./ -maxdepth 1 -type f -name spark-*SNAPSHOT*.tgz) -C /home/$USER/spark --strip-components=1
+RUN mkdir /opt/spark
+RUN tar -zxvf \$(find ./ -maxdepth 1 -type f -name spark-*SNAPSHOT*.tgz) -C /opt/spark --strip-components=1
 RUN ./build/mvn install -DskipTests
-WORKDIR "/home/$USER/spark"
+WORKDIR /opt/spark
+
+# export ENV
+ENV SPARK_HOME /opt/spark
+
+# change user
+RUN chown -R $USER:$USER /opt/spark
+USER $USER
 " >"$DOCKERFILE"
 }
 
@@ -189,7 +197,7 @@ checkOs
 
 if [[ -n "$master_url" ]]; then
   checkConflictContainer $WORKER_NAME "worker"
-  docker run -d \
+  docker run -d --init \
     -e SPARK_WORKER_WEBUI_PORT=$SPARK_UI_PORT \
     -e SPARK_WORKER_PORT=$SPARK_PORT \
     -e SPARK_NO_DAEMONIZE=true \
@@ -203,7 +211,7 @@ if [[ -n "$master_url" ]]; then
   echo "================================================="
 else
   checkConflictContainer $MASTER_NAME "master"
-  docker run -d \
+  docker run -d --init \
     -e SPARK_MASTER_WEBUI_PORT=$SPARK_UI_PORT \
     -e SPARK_MASTER_PORT=$SPARK_PORT \
     -e SPARK_NO_DAEMONIZE=true \

@@ -72,7 +72,7 @@ function buildImageIfNeed() {
 
 function runContainer() {
   local args=$1
-  docker run --rm \
+  docker run --rm --init \
     $IMAGE_NAME \
     /bin/bash -c "java -jar /tmp/app.jar $args"
 }
