@@ -81,6 +81,19 @@ RUN apt-get update && apt-get upgrade -y && apt-get install -y openjdk-11-jdk wg
 # add user
 RUN groupadd $USER && useradd -ms /bin/bash -g $USER $USER
 
+# download spark
+WORKDIR /tmp
+RUN wget https://archive.apache.org/dist/spark/spark-${VERSION}/spark-${VERSION}-bin-hadoop3.2.tgz
+RUN mkdir /opt/spark
+RUN tar -zxvf spark-${VERSION}-bin-hadoop3.2.tgz -C /opt/spark --strip-components=1
+
+# export ENV
+ENV SPARK_HOME /opt/spark
+
+# change user
+RUN chown -R $USER:$USER /opt/spark
+USER $USER
+
 # install python dependencies
 RUN pip3 install confluent-kafka==$PYTHON_KAFKA_VERSION delta-spark==$DELTA_VERSION pyspark==$VERSION
 
@@ -94,19 +107,7 @@ RUN java -jar ./ivy-${IVY_VERSION}.jar -dependency org.apache.spark spark-sql-ka
 RUN java -jar ./ivy-${IVY_VERSION}.jar -dependency org.apache.spark spark-token-provider-kafka-0-10_2.12 $VERSION
 RUN java -jar ./ivy-${IVY_VERSION}.jar -dependency org.apache.hadoop hadoop-azure $HADOOP_VERSION
 
-# download spark
-WORKDIR /tmp
-RUN wget https://archive.apache.org/dist/spark/spark-${VERSION}/spark-${VERSION}-bin-hadoop3.2.tgz
-RUN mkdir /opt/spark
-RUN tar -zxvf spark-${VERSION}-bin-hadoop3.2.tgz -C /opt/spark --strip-components=1
 WORKDIR /opt/spark
-
-# export ENV
-ENV SPARK_HOME /opt/spark
-
-# change user
-RUN chown -R $USER:$USER /opt/spark
-USER $USER
 " >"$DOCKERFILE"
 }
 
@@ -134,7 +135,6 @@ RUN ./dev/make-distribution.sh --pip --tgz
 RUN mkdir /opt/spark
 RUN tar -zxvf \$(find ./ -maxdepth 1 -type f -name spark-*SNAPSHOT*.tgz) -C /opt/spark --strip-components=1
 RUN ./build/mvn install -DskipTests
-WORKDIR /opt/spark
 
 # export ENV
 ENV SPARK_HOME /opt/spark
@@ -142,6 +142,8 @@ ENV SPARK_HOME /opt/spark
 # change user
 RUN chown -R $USER:$USER /opt/spark
 USER $USER
+
+WORKDIR /opt/spark
 " >"$DOCKERFILE"
 }
 
