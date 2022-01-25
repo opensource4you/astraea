@@ -10,11 +10,6 @@ declare -r BUILD=${BUILD:-false}
 declare -r RUN=${RUN:-true}
 declare -r SPARK_PORT=${SPARK_PORT:-$(($(($RANDOM % 10000)) + 10000))}
 declare -r SPARK_UI_PORT=${SPARK_UI_PORT:-$(($(($RANDOM % 10000)) + 10000))}
-declare -r IVY_VERSION=2.5.0
-declare -r DELTA_VERSION=${DELTA_VERSION:-1.0.0}
-declare -r PYTHON_KAFKA_VERSION=${PYTHON_KAFKA_VERSION:-1.7.0}
-# hardcode hadoop version to avoid NPE (see https://issues.apache.org/jira/browse/HADOOP-16410)
-declare -r HADOOP_VERSION=3.2.2
 declare -r DOCKER_FOLDER=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
 declare -r DOCKERFILE=$DOCKER_FOLDER/spark.dockerfile
 declare -r ADDRESS=$([[ "$(which ipconfig)" != "" ]] && ipconfig getifaddr en0 || hostname -i)
@@ -76,33 +71,25 @@ FROM ubuntu:20.04
 ENV DEBIAN_FRONTEND noninteractive
 
 # install tools
-RUN apt-get update && apt-get upgrade -y && apt-get install -y openjdk-11-jdk wget python3 python3-pip unzip
+RUN apt-get update && apt-get upgrade -y && apt-get install -y openjdk-11-jdk wget python3 python3-pip unzip tini
 
 # add user
 RUN groupadd $USER && useradd -ms /bin/bash -g $USER $USER
 
-# change user
-USER $USER
-
-# install python dependencies
-RUN pip3 install confluent-kafka==$PYTHON_KAFKA_VERSION delta-spark==$DELTA_VERSION pyspark==$VERSION
-
-# install java dependencies
-WORKDIR /tmp
-RUN wget https://dlcdn.apache.org//ant/ivy/${IVY_VERSION}/apache-ivy-${IVY_VERSION}-bin.zip
-RUN unzip apache-ivy-${IVY_VERSION}-bin.zip
-WORKDIR apache-ivy-${IVY_VERSION}
-RUN java -jar ./ivy-${IVY_VERSION}.jar -dependency io.delta delta-core_2.12 $DELTA_VERSION
-RUN java -jar ./ivy-${IVY_VERSION}.jar -dependency org.apache.spark spark-sql-kafka-0-10_2.12 $VERSION
-RUN java -jar ./ivy-${IVY_VERSION}.jar -dependency org.apache.spark spark-token-provider-kafka-0-10_2.12 $VERSION
-RUN java -jar ./ivy-${IVY_VERSION}.jar -dependency org.apache.hadoop hadoop-azure $HADOOP_VERSION
-
 # download spark
 WORKDIR /tmp
 RUN wget https://archive.apache.org/dist/spark/spark-${VERSION}/spark-${VERSION}-bin-hadoop3.2.tgz
-RUN mkdir /home/$USER/spark
-RUN tar -zxvf spark-${VERSION}-bin-hadoop3.2.tgz -C /home/$USER/spark --strip-components=1
-WORKDIR /home/$USER/spark
+RUN mkdir /opt/spark
+RUN tar -zxvf spark-${VERSION}-bin-hadoop3.2.tgz -C /opt/spark --strip-components=1
+
+# export ENV
+ENV SPARK_HOME /opt/spark
+
+# change user
+RUN chown -R $USER:$USER /opt/spark
+USER $USER
+
+WORKDIR /opt/spark
 " >"$DOCKERFILE"
 }
 
@@ -122,18 +109,23 @@ RUN pip3 install confluent-kafka==$PYTHON_KAFKA_VERSION
 # add user
 RUN groupadd $USER && useradd -ms /bin/bash -g $USER $USER
 
-# change user
-USER $USER
-
 # build spark from source code
 RUN git clone https://github.com/apache/spark /tmp/spark
 WORKDIR /tmp/spark
 RUN git checkout $VERSION
 RUN ./dev/make-distribution.sh --pip --tgz
-RUN mkdir /home/$USER/spark
-RUN tar -zxvf \$(find ./ -maxdepth 1 -type f -name spark-*SNAPSHOT*.tgz) -C /home/$USER/spark --strip-components=1
+RUN mkdir /opt/spark
+RUN tar -zxvf \$(find ./ -maxdepth 1 -type f -name spark-*SNAPSHOT*.tgz) -C /opt/spark --strip-components=1
 RUN ./build/mvn install -DskipTests
-WORKDIR "/home/$USER/spark"
+
+# export ENV
+ENV SPARK_HOME /opt/spark
+
+# change user
+RUN chown -R $USER:$USER /opt/spark
+USER $USER
+
+WORKDIR /opt/spark
 " >"$DOCKERFILE"
 }
 
@@ -189,7 +181,7 @@ checkOs
 
 if [[ -n "$master_url" ]]; then
   checkConflictContainer $WORKER_NAME "worker"
-  docker run -d \
+  docker run -d --init \
     -e SPARK_WORKER_WEBUI_PORT=$SPARK_UI_PORT \
     -e SPARK_WORKER_PORT=$SPARK_PORT \
     -e SPARK_NO_DAEMONIZE=true \
@@ -203,7 +195,7 @@ if [[ -n "$master_url" ]]; then
   echo "================================================="
 else
   checkConflictContainer $MASTER_NAME "master"
-  docker run -d \
+  docker run -d --init \
     -e SPARK_MASTER_WEBUI_PORT=$SPARK_UI_PORT \
     -e SPARK_MASTER_PORT=$SPARK_PORT \
     -e SPARK_NO_DAEMONIZE=true \

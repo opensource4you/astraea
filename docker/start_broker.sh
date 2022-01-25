@@ -91,9 +91,6 @@ RUN apt-get update && apt-get upgrade -y && DEBIAN_FRONTEND=noninteractive apt-g
 # add user
 RUN groupadd $USER && useradd -ms /bin/bash -g $USER $USER
 
-# change user
-USER $USER
-
 # download jmx exporter
 RUN mkdir /tmp/jmx_exporter
 WORKDIR /tmp/jmx_exporter
@@ -105,9 +102,16 @@ RUN git clone https://github.com/apache/kafka /tmp/kafka
 WORKDIR /tmp/kafka
 RUN git checkout $VERSION
 RUN ./gradlew clean releaseTarGz
-RUN mkdir /home/$USER/kafka
-RUN tar -zxvf \$(find ./core/build/distributions/ -maxdepth 1 -type f -name kafka_*SNAPSHOT.tgz) -C /home/$USER/kafka --strip-components=1
-WORKDIR "/home/$USER/kafka"
+RUN mkdir /opt/kafka
+RUN tar -zxvf \$(find ./core/build/distributions/ -maxdepth 1 -type f -name kafka_*SNAPSHOT.tgz) -C /opt/kafka --strip-components=1
+WORKDIR /opt/kafka
+
+# export ENV
+ENV KAFKA_HOME /opt/kafka
+
+# change user
+RUN chown -R $USER:$USER /opt/kafka
+USER $USER
 " >"$DOCKERFILE"
 }
 
@@ -121,9 +125,6 @@ RUN apt-get update && apt-get upgrade -y && apt-get install -y openjdk-11-jdk wg
 # add user
 RUN groupadd $USER && useradd -ms /bin/bash -g $USER $USER
 
-# change user
-USER $USER
-
 # download jmx exporter
 RUN mkdir /tmp/jmx_exporter
 WORKDIR /tmp/jmx_exporter
@@ -133,9 +134,16 @@ RUN wget https://REPO1.maven.org/maven2/io/prometheus/jmx/jmx_prometheus_javaage
 # download kafka
 WORKDIR /tmp
 RUN wget https://archive.apache.org/dist/kafka/${VERSION}/kafka_2.13-${VERSION}.tgz
-RUN mkdir /home/$USER/kafka
-RUN tar -zxvf kafka_2.13-${VERSION}.tgz -C /home/$USER/kafka --strip-components=1
-WORKDIR "/home/$USER/kafka"
+RUN mkdir /opt/kafka
+RUN tar -zxvf kafka_2.13-${VERSION}.tgz -C /opt/kafka --strip-components=1
+WORKDIR /opt/kafka
+
+# export ENV
+ENV KAFKA_HOME /opt/kafka
+
+# change user
+RUN chown -R $USER:$USER /opt/kafka
+USER $USER
 " >"$DOCKERFILE"
 }
 
@@ -287,7 +295,7 @@ setPropertyIfEmpty "offsets.topic.replication.factor" "1"
 setPropertyIfEmpty "transaction.state.log.min.isr" "1"
 setLogDirs
 
-docker run -d \
+docker run -d --init \
   --name $CONTAINER_NAME \
   -e KAFKA_HEAP_OPTS="$HEAP_OPTS" \
   -e KAFKA_JMX_OPTS="$JMX_OPTS" \
