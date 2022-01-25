@@ -23,7 +23,7 @@ public class ReceiverFactory {
     beanCollector =
         BeanCollector.builder()
             .interval(Duration.ofSeconds(1))
-            .numberOfObjectsPerNode(10)
+            .numberOfObjectsPerNode(1)
             .clientCreator(MBeanClient::jndi)
             .build();
   }
@@ -50,6 +50,13 @@ public class ReceiverFactory {
                       .host(host)
                       .port(port)
                       .metricsGetter(KafkaMetrics.BrokerTopic.BytesOutPerSec::fetch)
+                      .build());
+              receiversList.add(
+                  beanCollector
+                      .register()
+                      .host(host)
+                      .port(port)
+                      .metricsGetter(KafkaMetrics.Host::jvmMemory)
                       .build());
               count.put(nodeKey(host, port), 1);
             } else {

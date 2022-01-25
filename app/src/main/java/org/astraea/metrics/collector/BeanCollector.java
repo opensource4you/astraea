@@ -1,7 +1,12 @@
 package org.astraea.metrics.collector;
 
 import java.time.Duration;
-import java.util.*;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.locks.Lock;
@@ -121,7 +126,7 @@ public class BeanCollector {
                 }
               }
 
-              private void tryUpdate() {
+              private synchronized void tryUpdate() {
                 var needUpdate =
                     objects.keySet().stream()
                         .max((Long::compare))

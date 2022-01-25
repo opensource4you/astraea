@@ -46,7 +46,8 @@ public class DependencyPartitionTest extends RequireBrokerCluster {
         ps.entrySet().stream()
             .collect(Collectors.toMap(e -> e.getKey().toString(), Map.Entry::getValue));
     try (var producer = Producer.builder().configs(props).build()) {
-      var dependencyClient = SmoothWeightPartitioner.beginDependency(producer.kafkaProducer());
+      var dependencyClient = SmoothWeightPartitioner.dependencyClient(producer.kafkaProducer());
+      dependencyClient.startDependency();
       var targetPartition = 0;
       var i = 0;
       while (i < 20) {
@@ -85,5 +86,19 @@ public class DependencyPartitionTest extends RequireBrokerCluster {
       Assertions.assertEquals(header.key(), actualHeader.key());
       Assertions.assertArrayEquals(header.value(), actualHeader.value());
     }
+  }
+
+  @Test
+  void testDependencyStateChange() {
+    var props =
+        initProConfig().entrySet().stream()
+            .collect(Collectors.toMap(e -> e.getKey().toString(), Map.Entry::getValue));
+    var producer1 = Producer.builder().configs(props).build();
+    var producer2 = Producer.builder().configs(props).build();
+    var client1 = SmoothWeightPartitioner.dependencyClient(producer1.kafkaProducer());
+    var client2 = SmoothWeightPartitioner.dependencyClient(producer2.kafkaProducer());
+    client1.startDependency();
+    Assertions.assertEquals(client1.state(), "START_DEPENDENCY");
+    Assertions.assertEquals(client2.state(), "UNINITIALIZED");
   }
 }
