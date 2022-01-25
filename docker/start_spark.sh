@@ -10,11 +10,6 @@ declare -r BUILD=${BUILD:-false}
 declare -r RUN=${RUN:-true}
 declare -r SPARK_PORT=${SPARK_PORT:-$(($(($RANDOM % 10000)) + 10000))}
 declare -r SPARK_UI_PORT=${SPARK_UI_PORT:-$(($(($RANDOM % 10000)) + 10000))}
-declare -r IVY_VERSION=2.5.0
-declare -r DELTA_VERSION=${DELTA_VERSION:-1.0.0}
-declare -r PYTHON_KAFKA_VERSION=${PYTHON_KAFKA_VERSION:-1.7.0}
-# hardcode hadoop version to avoid NPE (see https://issues.apache.org/jira/browse/HADOOP-16410)
-declare -r HADOOP_VERSION=3.2.2
 declare -r DOCKER_FOLDER=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
 declare -r DOCKERFILE=$DOCKER_FOLDER/spark.dockerfile
 declare -r ADDRESS=$([[ "$(which ipconfig)" != "" ]] && ipconfig getifaddr en0 || hostname -i)
@@ -93,19 +88,6 @@ ENV SPARK_HOME /opt/spark
 # change user
 RUN chown -R $USER:$USER /opt/spark
 USER $USER
-
-# install python dependencies
-RUN pip3 install confluent-kafka==$PYTHON_KAFKA_VERSION delta-spark==$DELTA_VERSION pyspark==$VERSION
-
-# install java dependencies
-WORKDIR /tmp
-RUN wget https://dlcdn.apache.org//ant/ivy/${IVY_VERSION}/apache-ivy-${IVY_VERSION}-bin.zip
-RUN unzip apache-ivy-${IVY_VERSION}-bin.zip
-WORKDIR apache-ivy-${IVY_VERSION}
-RUN java -jar ./ivy-${IVY_VERSION}.jar -dependency io.delta delta-core_2.12 $DELTA_VERSION
-RUN java -jar ./ivy-${IVY_VERSION}.jar -dependency org.apache.spark spark-sql-kafka-0-10_2.12 $VERSION
-RUN java -jar ./ivy-${IVY_VERSION}.jar -dependency org.apache.spark spark-token-provider-kafka-0-10_2.12 $VERSION
-RUN java -jar ./ivy-${IVY_VERSION}.jar -dependency org.apache.hadoop hadoop-azure $HADOOP_VERSION
 
 WORKDIR /opt/spark
 " >"$DOCKERFILE"
