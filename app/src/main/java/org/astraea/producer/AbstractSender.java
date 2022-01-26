@@ -5,13 +5,13 @@ import java.util.List;
 import java.util.Objects;
 import org.astraea.consumer.Header;
 
-public abstract class AbstractSender<Key, Value> implements Sender<Key, Value> {
-  Key key;
-  Value value;
-  String topic;
-  Integer partition;
-  Long timestamp;
-  Collection<Header> headers = List.of();
+abstract class AbstractSender<Key, Value> implements Sender<Key, Value> {
+  protected Key key;
+  protected Value value;
+  protected String topic;
+  protected Integer partition;
+  protected Long timestamp;
+  protected Collection<Header> headers = List.of();
 
   @Override
   public Sender<Key, Value> key(Key key) {

@@ -90,6 +90,7 @@ public class Builder<Key, Value> {
     };
   }
 
+  @SuppressWarnings("unchecked")
   public TransactionalProducer<Key, Value> buildTransactional() {
     var transactionConfigs = new HashMap<>(configs);
     transactionConfigs.putIfAbsent(
@@ -102,37 +103,69 @@ public class Builder<Key, Value> {
             Serializer.of((Serializer<Value>) valueSerializer));
     transactionProducer.initTransactions();
     return new TransactionalProducer<>() {
+      private boolean singleTransaction = true;
+
       @Override
       public Sender<Key, Value> sender() {
         return new AbstractSender<>() {
+          /*
+           * For the Transactional Producer's sender, use transactionalProducer.transaction(sender) instead
+           * of using sender.run();
+           * */
           @Override
           public CompletionStage<Metadata> run() {
             var completableFuture = new CompletableFuture<Metadata>();
-            transactionProducer.send(
-                new ProducerRecord<>(topic, partition, timestamp, key, value, Header.of(headers)),
-                (metadata, exception) -> {
-                  if (exception == null) completableFuture.complete(Metadata.of(metadata));
-                  else completableFuture.completeExceptionally(exception);
-                });
+            synchronized (transactionProducer) {
+              try {
+                if (singleTransaction) transactionProducer.beginTransaction();
+                transactionProducer.send(
+                    new ProducerRecord<>(
+                        topic, partition, timestamp, key, value, Header.of(headers)),
+                    (metadata, exception) -> {
+                      if (exception == null) completableFuture.complete(Metadata.of(metadata));
+                      else completableFuture.completeExceptionally(exception);
+                    });
+                if (singleTransaction) transactionProducer.commitTransaction();
+              } catch (ProducerFencedException
+                  | OutOfOrderSequenceException
+                  | AuthorizationException e) {
+                transactionProducer.close();
+                // Error occur
+                throw e;
+              } catch (KafkaException ke) {
+                transactionProducer.abortTransaction();
+              }
+            }
             return completableFuture;
           }
         };
       }
 
       @Override
+      public KafkaProducer<Key, Value> kafkaProducer() {
+        return transactionProducer;
+      }
+
+      @Override
       public void flush() {}
 
       @Override
-      public void close() {}
+      public void close() {
+        transactionProducer.close();
+      }
 
       @Override
       public Collection<CompletionStage<Metadata>> transaction(
           Collection<Sender<Key, Value>> senders) {
         var futures = new ArrayList<CompletionStage<Metadata>>(senders.size());
         try {
-          transactionProducer.beginTransaction();
-          senders.forEach(sender -> futures.add(sender.run()));
-          transactionProducer.commitTransaction();
+          synchronized (transactionProducer) {
+            singleTransaction = false;
+            transactionProducer.beginTransaction();
+            senders.forEach(sender -> futures.add(sender.run()));
+            transactionProducer.commitTransaction();
+            singleTransaction = true;
+          }
         } catch (ProducerFencedException | OutOfOrderSequenceException | AuthorizationException e) {
           transactionProducer.close();
           // Error occur
