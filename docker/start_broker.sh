@@ -94,7 +94,7 @@ RUN groupadd $USER && useradd -ms /bin/bash -g $USER $USER
 # download jmx exporter
 RUN mkdir /tmp/jmx_exporter
 WORKDIR /tmp/jmx_exporter
-RUN wget https://raw.githubusercontent.com/prometheus/jmx_exporter/master/example_configs/kafka-2_0_0.yml
+RUN wget https://gist.githubusercontent.com/garyparrot/1f2a3715dd2edbe40c560426cda775e4/raw/5b98c5cdc7673c9a6fb440ffad07d6cfc378b0a1/kafka_jmx_exporter.yml
 RUN wget https://REPO1.maven.org/maven2/io/prometheus/jmx/jmx_prometheus_javaagent/${EXPORTER_VERSION}/jmx_prometheus_javaagent-${EXPORTER_VERSION}.jar
 
 # build kafka from source code
@@ -128,7 +128,7 @@ RUN groupadd $USER && useradd -ms /bin/bash -g $USER $USER
 # download jmx exporter
 RUN mkdir /tmp/jmx_exporter
 WORKDIR /tmp/jmx_exporter
-RUN wget https://raw.githubusercontent.com/prometheus/jmx_exporter/master/example_configs/kafka-2_0_0.yml
+RUN wget https://gist.githubusercontent.com/garyparrot/1f2a3715dd2edbe40c560426cda775e4/raw/5b98c5cdc7673c9a6fb440ffad07d6cfc378b0a1/kafka_jmx_exporter.yml
 RUN wget https://REPO1.maven.org/maven2/io/prometheus/jmx/jmx_prometheus_javaagent/${EXPORTER_VERSION}/jmx_prometheus_javaagent-${EXPORTER_VERSION}.jar
 
 # download kafka
@@ -299,7 +299,7 @@ docker run -d --init \
   --name $CONTAINER_NAME \
   -e KAFKA_HEAP_OPTS="$HEAP_OPTS" \
   -e KAFKA_JMX_OPTS="$JMX_OPTS" \
-  -e KAFKA_OPTS="-javaagent:/tmp/jmx_exporter/jmx_prometheus_javaagent-${EXPORTER_VERSION}.jar=$EXPORTER_PORT:/tmp/jmx_exporter/kafka-2_0_0.yml" \
+  -e KAFKA_OPTS="-javaagent:/tmp/jmx_exporter/jmx_prometheus_javaagent-${EXPORTER_VERSION}.jar=$EXPORTER_PORT:/tmp/jmx_exporter/kafka_jmx_exporter.yml" \
   -v $BROKER_PROPERTIES:/tmp/broker.properties:ro \
   $(generateMountCommand) \
   -p $BROKER_PORT:9092 \
