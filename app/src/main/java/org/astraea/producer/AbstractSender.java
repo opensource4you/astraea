@@ -33,7 +33,7 @@ public abstract class AbstractSender<Key, Value> implements Sender<Key, Value> {
 
   @Override
   public Sender<Key, Value> partition(int partition) {
-    this.partition = partition;
+    if (partition >= 0) this.partition = partition;
     return this;
   }
 

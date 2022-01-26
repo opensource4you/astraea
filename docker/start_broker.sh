@@ -4,15 +4,16 @@
 
 declare -r USER=astraea
 declare -r VERSION=${REVISION:-${VERSION:-2.8.1}}
-declare -r REPO=${REPO:-astraea/broker}
+declare -r REPO=${REPO:-ghcr.io/skiptests/astraea/broker}
 declare -r IMAGE_NAME="$REPO:$VERSION"
+declare -r BUILD=${BUILD:-false}
 declare -r RUN=${RUN:-true}
 declare -r DOCKER_FOLDER=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
 declare -r DOCKERFILE=$DOCKER_FOLDER/broker.dockerfile
 declare -r DATA_FOLDER_IN_CONTAINER_PREFIX="/tmp/log-folder"
 declare -r EXPORTER_VERSION="0.16.1"
-declare -r EXPORTER_PORT="$(($(($RANDOM % 10000)) + 10000))"
-declare -r BROKER_PORT="$(($(($RANDOM % 10000)) + 10000))"
+declare -r EXPORTER_PORT=${EXPORTER_PORT:-$(($(($RANDOM % 10000)) + 10000))}
+declare -r BROKER_PORT=${BROKER_PORT:-$(($(($RANDOM % 10000)) + 10000))}
 declare -r CONTAINER_NAME="broker-$BROKER_PORT"
 declare -r BROKER_JMX_PORT="$(($(($RANDOM % 10000)) + 10000))"
 declare -r ADMIN_NAME="admin"
@@ -45,7 +46,8 @@ function showHelp() {
   echo "    HEAP_OPTS=\"-Xmx2G -Xms2G\"                set broker JVM memory"
   echo "    REVISION=trunk                           set revision of kafka source code to build container"
   echo "    VERSION=2.8.1                            set version of kafka distribution"
-  echo "    RUN=false                                set false if you want to build image only"
+  echo "    BUILD=false                              set true if you want to build image locally"
+  echo "    RUN=false                                set false if you want to build/pull image only"
   echo "    DATA_FOLDERS=/tmp/folder1,/tmp/folder2   set host folders used by broker"
 }
 
@@ -89,9 +91,6 @@ RUN apt-get update && apt-get upgrade -y && DEBIAN_FRONTEND=noninteractive apt-g
 # add user
 RUN groupadd $USER && useradd -ms /bin/bash -g $USER $USER
 
-# change user
-USER $USER
-
 # download jmx exporter
 RUN mkdir /tmp/jmx_exporter
 WORKDIR /tmp/jmx_exporter
@@ -103,9 +102,16 @@ RUN git clone https://github.com/apache/kafka /tmp/kafka
 WORKDIR /tmp/kafka
 RUN git checkout $VERSION
 RUN ./gradlew clean releaseTarGz
-RUN mkdir /home/$USER/kafka
-RUN tar -zxvf \$(find ./core/build/distributions/ -maxdepth 1 -type f -name kafka_*SNAPSHOT.tgz) -C /home/$USER/kafka --strip-components=1
-WORKDIR "/home/$USER/kafka"
+RUN mkdir /opt/kafka
+RUN tar -zxvf \$(find ./core/build/distributions/ -maxdepth 1 -type f -name kafka_*SNAPSHOT.tgz) -C /opt/kafka --strip-components=1
+WORKDIR /opt/kafka
+
+# export ENV
+ENV KAFKA_HOME /opt/kafka
+
+# change user
+RUN chown -R $USER:$USER /opt/kafka
+USER $USER
 " >"$DOCKERFILE"
 }
 
@@ -119,9 +125,6 @@ RUN apt-get update && apt-get upgrade -y && apt-get install -y openjdk-11-jdk wg
 # add user
 RUN groupadd $USER && useradd -ms /bin/bash -g $USER $USER
 
-# change user
-USER $USER
-
 # download jmx exporter
 RUN mkdir /tmp/jmx_exporter
 WORKDIR /tmp/jmx_exporter
@@ -131,9 +134,16 @@ RUN wget https://REPO1.maven.org/maven2/io/prometheus/jmx/jmx_prometheus_javaage
 # download kafka
 WORKDIR /tmp
 RUN wget https://archive.apache.org/dist/kafka/${VERSION}/kafka_2.13-${VERSION}.tgz
-RUN mkdir /home/$USER/kafka
-RUN tar -zxvf kafka_2.13-${VERSION}.tgz -C /home/$USER/kafka --strip-components=1
-WORKDIR "/home/$USER/kafka"
+RUN mkdir /opt/kafka
+RUN tar -zxvf kafka_2.13-${VERSION}.tgz -C /opt/kafka --strip-components=1
+WORKDIR /opt/kafka
+
+# export ENV
+ENV KAFKA_HOME /opt/kafka
+
+# change user
+RUN chown -R $USER:$USER /opt/kafka
+USER $USER
 " >"$DOCKERFILE"
 }
 
@@ -147,7 +157,22 @@ function generateDockerfile() {
 
 function buildImageIfNeed() {
   if [[ "$(docker images -q $IMAGE_NAME 2>/dev/null)" == "" ]]; then
-    docker build --no-cache -t "$IMAGE_NAME" -f "$DOCKERFILE" "$DOCKER_FOLDER"
+    local needToBuild="true"
+    if [[ "$BUILD" == "false" ]]; then
+      docker pull $IMAGE_NAME 2>/dev/null
+      if [[ "$?" == "0" ]]; then
+        needToBuild="false"
+      else
+        echo "Can't find $IMAGE_NAME from repo. Will build $IMAGE_NAME on the local"
+      fi
+    fi
+    if [[ "$needToBuild" == "true" ]]; then
+      generateDockerfile
+      docker build --no-cache -t "$IMAGE_NAME" -f "$DOCKERFILE" "$DOCKER_FOLDER"
+      if [[ "$?" != "0" ]]; then
+        exit 2
+      fi
+    fi
   fi
 }
 
@@ -201,7 +226,7 @@ function generateMountCommand() {
     declare -i count=0
 
     for folder in "${folders[@]}"; do
-      mount="-v $folder:$DATA_FOLDER_IN_CONTAINER_PREFIX-$count"
+      mount="$mount -v $folder:$DATA_FOLDER_IN_CONTAINER_PREFIX-$count"
       count=$((count + 1))
     done
   fi
@@ -270,7 +295,7 @@ setPropertyIfEmpty "offsets.topic.replication.factor" "1"
 setPropertyIfEmpty "transaction.state.log.min.isr" "1"
 setLogDirs
 
-docker run -d \
+docker run -d --init \
   --name $CONTAINER_NAME \
   -e KAFKA_HEAP_OPTS="$HEAP_OPTS" \
   -e KAFKA_JMX_OPTS="$JMX_OPTS" \

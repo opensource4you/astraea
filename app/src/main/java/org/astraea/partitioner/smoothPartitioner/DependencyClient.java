@@ -1,6 +1,14 @@
 package org.astraea.partitioner.smoothPartitioner;
 
-// TODO
+/**
+ * The interface for the {@link SmoothWeightPartitioner}
+ *
+ * @see SmoothWeightPartitioner Enable users to send dependent data.
+ */
 public interface DependencyClient {
+  void startDependency();
+
   void finishDependency();
+
+  String state();
 }

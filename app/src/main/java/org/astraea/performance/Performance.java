@@ -6,7 +6,9 @@ import com.beust.jcommander.ParameterException;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
 import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -53,14 +55,16 @@ import org.astraea.utils.DataUnit;
  * To avoid records being produced too fast, producer wait for one millisecond after each send.
  */
 public class Performance {
-
+  /** Used in Automation, to achieve the end of one Performance and then start another. */
   public static void main(String[] args)
       throws InterruptedException, IOException, ExecutionException {
     execute(ArgumentUtil.parseArgument(new Argument(), args));
   }
 
-  public static void execute(final Argument param)
+  public static Future<String> execute(final Argument param)
       throws InterruptedException, IOException, ExecutionException {
+    List<Integer> partitions;
+    var future = new CompletableFuture<String>();
     try (var topicAdmin = TopicAdmin.of(param.props())) {
       topicAdmin
           .creator()
@@ -68,6 +72,8 @@ public class Performance {
           .numberOfPartitions(param.partitions)
           .topic(param.topic)
           .create();
+
+      partitions = partition(param, topicAdmin);
     }
 
     var consumerMetrics =
@@ -81,6 +87,8 @@ public class Performance {
 
     var manager = new Manager(param, producerMetrics, consumerMetrics);
     var tracker = new Tracker(producerMetrics, consumerMetrics, manager);
+    Collection<ThreadPool.Executor> fileWriter =
+        (param.createCSV) ? List.of(new FileWriter(manager, tracker)) : List.of();
     var groupId = "groupId-" + System.currentTimeMillis();
     try (ThreadPool threadPool =
         ThreadPool.builder()
@@ -115,11 +123,15 @@ public class Performance {
                                     .buildTransactional(),
                                 param,
                                 producerMetrics.get(i),
+                                partitions,
                                 manager))
                     .collect(Collectors.toUnmodifiableList()))
             .executor(tracker)
+            .executors(fileWriter)
             .build()) {
       threadPool.waitAll();
+      future.complete(param.topic);
+      return future;
     }
   }
 
@@ -164,12 +176,14 @@ public class Performance {
       TransactionalProducer<byte[], byte[]> transactionalProducer,
       Argument param,
       BiConsumer<Long, Long> observer,
+      List<Integer> partitions,
       Manager manager) {
     return new ThreadPool.Executor() {
       @Override
       public State execute() throws InterruptedException {
         // Wait for all consumers get assignment.
         manager.awaitPartitionAssignment();
+        var rand = new Random();
 
         // Do transactional send.
         if (param.transaction()) {
@@ -182,6 +196,7 @@ public class Performance {
                           producer
                               .sender()
                               .topic(param.topic)
+                              .partition(partitions.get(rand.nextInt(partitions.size())))
                               .key(manager.getKey().orElse(null))
                               .value(p.get())
                               .timestamp(System.currentTimeMillis()))
@@ -206,6 +221,7 @@ public class Performance {
           producer
               .sender()
               .topic(param.topic)
+              .partition(partitions.get(rand.nextInt(partitions.size())))
               .key(manager.getKey().orElse(null))
               .value(payload.get())
               .timestamp(start)
@@ -228,7 +244,22 @@ public class Performance {
     };
   }
 
-  static class Argument extends BasicArgumentWithPropFile {
+  // visible for test
+  static List<Integer> partition(Argument param, TopicAdmin topicAdmin) {
+    if (positiveSpecifyBroker(param)) {
+      return topicAdmin
+          .partitionsOfBrokers(Set.of(param.topic), new HashSet<>(param.specifyBroker))
+          .stream()
+          .map(topicPartition -> topicPartition.partition())
+          .collect(Collectors.toList());
+    } else return List.of(-1);
+  }
+
+  private static boolean positiveSpecifyBroker(Argument param) {
+    return param.specifyBroker.stream().allMatch(broker -> broker >= 0);
+  }
+
+  public static class Argument extends BasicArgumentWithPropFile {
 
     @Parameter(
         names = {"--topic"},
@@ -309,6 +340,11 @@ public class Performance {
     }
 
     @Parameter(
+        names = {"--createCSV"},
+        description = "create the metrics into a csv file if this flag is set")
+    boolean createCSV = false;
+
+    @Parameter(
         names = {"--compression"},
         description =
             "String: the compression algorithm used by producer. Available algorithm are none, gzip, snappy, lz4, and zstd",
@@ -331,6 +367,13 @@ public class Performance {
             "String: Distribution name. Available distribution names: \"uniform\", \"zipfian\", \"latest\". Default: (No key)",
         converter = Distribution.DistributionConverter.class)
     Distribution distribution = null;
+
+    @Parameter(
+        names = {"--specify.broker"},
+        description =
+            "String: Used with SpecifyBrokerPartitioner to specify the brokers that partitioner can send.",
+        validateWith = ArgumentUtil.NotEmptyString.class)
+    List<Integer> specifyBroker = List.of(-1);
   }
 
   static class CompressionArgument implements IStringConverter<CompressionType> {

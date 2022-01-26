@@ -7,6 +7,10 @@ import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.nio.file.Files;
 import java.time.Duration;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
@@ -109,6 +113,22 @@ public final class Utils {
     } catch (NoSuchFieldException | IllegalAccessException e) {
       throw new IllegalArgumentException(e);
     }
+  }
+
+  /**
+   * Separate host and port
+   *
+   * @param address like 0.0.0.0:9092
+   * @return (0.0.0.0,9092)
+   */
+  public static Map<String, Integer> requireHostPort(List<String> address) {
+    var mapAddress = new HashMap<String, Integer>();
+    address.forEach(
+        str ->
+            mapAddress.put(
+                Arrays.asList(str.split(":")).get(0),
+                Integer.parseInt(Arrays.asList(str.split(":")).get(1))));
+    return mapAddress;
   }
 
   public static int requirePositive(int value) {

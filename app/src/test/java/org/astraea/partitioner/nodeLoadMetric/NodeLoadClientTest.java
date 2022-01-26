@@ -1,31 +1,31 @@
 package org.astraea.partitioner.nodeLoadMetric;
 
+import static org.mockito.Mockito.when;
+
 import java.io.IOException;
-import java.util.Arrays;
+import java.lang.reflect.Field;
+import java.net.UnknownHostException;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
-import java.util.Properties;
-import org.apache.kafka.clients.producer.ProducerConfig;
-import org.apache.kafka.common.serialization.ByteArraySerializer;
-import org.astraea.partitioner.smoothPartitioner.SmoothWeightPartitioner;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
+import org.apache.kafka.common.Cluster;
+import org.apache.kafka.common.Node;
 import org.astraea.service.RequireBrokerCluster;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.mockito.Mockito;
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public class NodeLoadClientTest extends RequireBrokerCluster {
-  private final String brokerList = bootstrapServers();
   private NodeLoadClient nodeLoadClient;
-  private String jmxAddress;
-  private Map props;
 
   @BeforeAll
   void setUp() throws IOException {
-    props = initProConfig();
     var map = new HashMap<String, Integer>();
     map.put(jmxServiceURL().getHost(), jmxServiceURL().getPort());
     nodeLoadClient = new NodeLoadClient(map);
@@ -36,25 +36,27 @@ public class NodeLoadClientTest extends RequireBrokerCluster {
     nodeLoadClient.close();
   }
 
-  Properties initProConfig() {
-    Properties props = new Properties();
-    jmxAddress = jmxServiceURL().getHost() + ":" + jmxServiceURL().getPort();
-    props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, brokerList);
-    props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, ByteArraySerializer.class.getName());
-    props.put(ProducerConfig.CLIENT_ID_CONFIG, "id1");
-    props.put(ProducerConfig.PARTITIONER_CLASS_CONFIG, SmoothWeightPartitioner.class.getName());
-    props.put("jmx_servers", jmxAddress);
-    return props;
+  private Field field(Object object, String fieldName) {
+    Field field = null;
+    try {
+      field = object.getClass().getDeclaredField(fieldName);
+      field.setAccessible(true);
+    } catch (NoSuchFieldException e) {
+      e.printStackTrace();
+    }
+    return field;
   }
 
   @Test
-  void testAvgBrokersMsgPerSec() {
-    var testMap = new HashMap<Integer, List<Double>>();
-    testMap.put(0, Arrays.asList(20.0, 30.0, 40.0));
-    testMap.put(1, Arrays.asList(30.0, 20.0, 30.0));
-    testMap.put(2, Arrays.asList(40.0, 40.0, 20.0));
-    Assertions.assertEquals(
-        nodeLoadClient.avgBrokersMsgPerSec(testMap), Arrays.asList(30.0, 30.0, 30.0));
+  void testBrokerLoad() {
+    List<NodeLoadClient.Broker> brokers = new ArrayList<>();
+    brokers.add(new NodeLoadClient.Broker(0, "0.0.0.0", 111));
+    brokers.add(new NodeLoadClient.Broker(1, "0.0.0.0", 222));
+    brokers.add(new NodeLoadClient.Broker(2, "0.0.0.0", 333));
+    setBrokers(brokers);
+    Assertions.assertEquals(nodeLoadClient.brokerLoad(0.37, 1.0 / 3), 6);
+    Assertions.assertEquals(nodeLoadClient.brokerLoad(0.01, 1.0 / 3), 0);
+    Assertions.assertEquals(nodeLoadClient.brokerLoad(0.8, 1.0 / 3), 10);
   }
 
   @Test
@@ -65,7 +67,73 @@ public class NodeLoadClientTest extends RequireBrokerCluster {
     testMap.put(2, 25.0);
     testMap.put(3, 20.0);
     testMap.put(4, 20.0);
-    Assertions.assertEquals(
-        nodeLoadClient.standardDeviationImperative(testMap, 20), 3.1622776601683795);
+
+    List<NodeLoadClient.Broker> brokers = new ArrayList<>();
+    brokers.add(0, setSituationNormalized(0, "0.0.0.0", 111, 15.0));
+    brokers.add(1, setSituationNormalized(0, "0.0.0.0", 222, 20.0));
+    brokers.add(2, setSituationNormalized(0, "0.0.0.0", 333, 25.0));
+    brokers.add(3, setSituationNormalized(0, "0.0.0.0", 444, 20.0));
+    brokers.add(4, setSituationNormalized(0, "0.0.0.0", 555, 20.0));
+    setBrokers(brokers);
+
+    Assertions.assertEquals(nodeLoadClient.standardDeviationImperative(20), 3.1622776601683795);
+  }
+
+  @Test
+  void testLoadSituation() throws UnknownHostException {
+    var bootstrapServers = List.of(bootstrapServers().split(","));
+    List<Node> nodes = new ArrayList<>();
+    AtomicInteger count = new AtomicInteger(0);
+    bootstrapServers.forEach(
+        str -> {
+          var hostPort = str.split(":");
+          nodes.add(new Node(count.get(), hostPort[0], Integer.parseInt(hostPort[1])));
+          count.getAndIncrement();
+        });
+
+    Cluster cluster = Mockito.mock(Cluster.class);
+    when(cluster.nodes()).thenReturn(nodes);
+    var load = nodeLoadClient.loadSituation(cluster);
+    Assertions.assertEquals(load.get(0), 5);
+    Assertions.assertEquals(load.get(1), 5);
+    Assertions.assertEquals(load.get(2), 5);
+    load = nodeLoadClient.loadSituation(cluster);
+    Assertions.assertEquals(load.get(0), 5);
+    Assertions.assertEquals(load.get(1), 5);
+    Assertions.assertEquals(load.get(2), 5);
+    sleep(1);
+    load = nodeLoadClient.loadSituation(cluster);
+    Assertions.assertEquals(load.get(0), 10);
+    Assertions.assertEquals(load.get(1), 10);
+    Assertions.assertEquals(load.get(2), 10);
+  }
+
+  private NodeLoadClient.Broker setSituationNormalized(
+      int brokerID, String host, int port, double situation) {
+    var broker = new NodeLoadClient.Broker(brokerID, host, port);
+    var brokerSituation = field(broker, "brokerSituationNormalized");
+    try {
+      brokerSituation.set(broker, situation);
+    } catch (IllegalAccessException e) {
+      e.printStackTrace();
+    }
+    return broker;
+  }
+
+  private void setBrokers(List<NodeLoadClient.Broker> brokers) {
+    var brokersField = field(nodeLoadClient, "brokers");
+    try {
+      brokersField.set(nodeLoadClient, brokers);
+    } catch (IllegalAccessException e) {
+      e.printStackTrace();
+    }
+  }
+
+  private static void sleep(int seconds) {
+    try {
+      TimeUnit.SECONDS.sleep(seconds);
+    } catch (InterruptedException e) {
+      throw new RuntimeException(e);
+    }
   }
 }
