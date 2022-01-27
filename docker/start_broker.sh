@@ -94,7 +94,7 @@ RUN groupadd $USER && useradd -ms /bin/bash -g $USER $USER
 # download jmx exporter
 RUN mkdir /tmp/jmx_exporter
 WORKDIR /tmp/jmx_exporter
-RUN wget https://gist.githubusercontent.com/garyparrot/1f2a3715dd2edbe40c560426cda775e4/raw/5b98c5cdc7673c9a6fb440ffad07d6cfc378b0a1/kafka_jmx_exporter.yml
+ADD --chown=$USER:$USER kafka_jmx_exporter.yml /tmp/jmx_exporter/
 RUN wget https://REPO1.maven.org/maven2/io/prometheus/jmx/jmx_prometheus_javaagent/${EXPORTER_VERSION}/jmx_prometheus_javaagent-${EXPORTER_VERSION}.jar
 
 # build kafka from source code
@@ -102,8 +102,6 @@ RUN git clone https://github.com/apache/kafka /tmp/kafka
 WORKDIR /tmp/kafka
 RUN git checkout $VERSION
 RUN ./gradlew clean releaseTarGz
-RUN mkdir /opt/kafka
-RUN tar -zxvf \$(find ./core/build/distributions/ -maxdepth 1 -type f -name kafka_*SNAPSHOT.tgz) -C /opt/kafka --strip-components=1
 WORKDIR /opt/kafka
 
 # export ENV
@@ -128,7 +126,7 @@ RUN groupadd $USER && useradd -ms /bin/bash -g $USER $USER
 # download jmx exporter
 RUN mkdir /tmp/jmx_exporter
 WORKDIR /tmp/jmx_exporter
-RUN wget https://gist.githubusercontent.com/garyparrot/1f2a3715dd2edbe40c560426cda775e4/raw/5b98c5cdc7673c9a6fb440ffad07d6cfc378b0a1/kafka_jmx_exporter.yml
+ADD --chown=$USER:$USER kafka_jmx_exporter.yml /tmp/jmx_exporter/
 RUN wget https://REPO1.maven.org/maven2/io/prometheus/jmx/jmx_prometheus_javaagent/${EXPORTER_VERSION}/jmx_prometheus_javaagent-${EXPORTER_VERSION}.jar
 
 # download kafka
@@ -168,7 +166,7 @@ function buildImageIfNeed() {
     fi
     if [[ "$needToBuild" == "true" ]]; then
       generateDockerfile
-      docker build --no-cache -t "$IMAGE_NAME" -f "$DOCKERFILE" "$DOCKER_FOLDER"
+      docker build --no-cache -t "$IMAGE_NAME" -f "$DOCKERFILE" "$(realpath $DOCKER_FOLDER/../config)"
       if [[ "$?" != "0" ]]; then
         exit 2
       fi
