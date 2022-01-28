@@ -27,7 +27,7 @@ declare -r JMX_OPTS="-Dcom.sun.management.jmxremote \
   -Dcom.sun.management.jmxremote.port=$BROKER_JMX_PORT \
   -Dcom.sun.management.jmxremote.rmi.port=$BROKER_JMX_PORT \
   -Djava.rmi.server.hostname=$ADDRESS"
-declare -r HEAP_OPTS="${HEAP_OPTS:-"-Xmx2G -Xms2G"}"
+declare -r HEAP_OPTS="${HEAP_OPTS:-"-Xmx12G -Xms12G"}"
 declare -r BROKER_PROPERTIES="/tmp/server-${BROKER_PORT}.properties"
 # cleanup the file if it is existent
 [[ -f "$BROKER_PROPERTIES" ]] && rm -f "$BROKER_PROPERTIES"
