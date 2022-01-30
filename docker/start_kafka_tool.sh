@@ -1,15 +1,11 @@
 #!/bin/bash
 
 # ===============================[global variables]===============================
-
 declare -r VERSION=${REVISION:-${VERSION:-main}}
 declare -r REPO=${REPO:-ghcr.io/skiptests/astraea/kafka-tool}
-declare -r IMAGE_NAME="$REPO:$VERSION"
-declare -r DOCKER_FOLDER=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
 declare -r DOCKERFILE=$DOCKER_FOLDER/kafka_tool.dockerfile
 declare -r BUILD=${BUILD:-false}
-declare -r RUN=${RUN:-true}
-
+. ./init.sh
 # ===================================[functions]===================================
 
 function showHelp() {
@@ -20,12 +16,6 @@ function showHelp() {
   echo "    RUN=false                  set false if you want to build/pull image only"
 }
 
-function checkDocker() {
-  if [[ "$(which docker)" == "" ]]; then
-    echo "you have to install docker"
-    exit 2
-  fi
-}
 
 function generateDockerfile() {
   echo "# this dockerfile is generated dynamically
@@ -49,26 +39,7 @@ RUN cp \$(find ./app/build/libs/ -maxdepth 1 -type f -name app-*-all.jar) /tmp/a
 " >"$DOCKERFILE"
 }
 
-function buildImageIfNeed() {
-  if [[ "$(docker images -q $IMAGE_NAME 2>/dev/null)" == "" ]]; then
-    local needToBuild="true"
-    if [[ "$BUILD" == "false" ]]; then
-      docker pull $IMAGE_NAME 2>/dev/null
-      if [[ "$?" == "0" ]]; then
-        needToBuild="false"
-      else
-        echo "Can't find $IMAGE_NAME from repo. Will build $IMAGE_NAME on the local"
-      fi
-    fi
-    if [[ "$needToBuild" == "true" ]]; then
-      generateDockerfile
-      docker build --no-cache -t "$IMAGE_NAME" -f "$DOCKERFILE" "$DOCKER_FOLDER"
-      if [[ "$?" != "0" ]]; then
-        exit 2
-      fi
-    fi
-  fi
-}
+
 
 function runContainer() {
   local args=$1

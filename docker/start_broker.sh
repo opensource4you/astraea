@@ -1,14 +1,8 @@
 #!/bin/bash
 
 # ===============================[global variables]===============================
-
-declare -r USER=astraea
 declare -r VERSION=${REVISION:-${VERSION:-2.8.1}}
 declare -r REPO=${REPO:-ghcr.io/skiptests/astraea/broker}
-declare -r IMAGE_NAME="$REPO:$VERSION"
-declare -r BUILD=${BUILD:-false}
-declare -r RUN=${RUN:-true}
-declare -r DOCKER_FOLDER=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
 declare -r DOCKERFILE=$DOCKER_FOLDER/broker.dockerfile
 declare -r DATA_FOLDER_IN_CONTAINER_PREFIX="/tmp/log-folder"
 declare -r EXPORTER_VERSION="0.16.1"
@@ -29,6 +23,7 @@ declare -r JMX_OPTS="-Dcom.sun.management.jmxremote \
   -Djava.rmi.server.hostname=$ADDRESS"
 declare -r HEAP_OPTS="${HEAP_OPTS:-"-Xmx2G -Xms2G"}"
 declare -r BROKER_PROPERTIES="/tmp/server-${BROKER_PORT}.properties"
+. ./init.sh
 # cleanup the file if it is existent
 [[ -f "$BROKER_PROPERTIES" ]] && rm -f "$BROKER_PROPERTIES"
 
@@ -51,19 +46,7 @@ function showHelp() {
   echo "    DATA_FOLDERS=/tmp/folder1,/tmp/folder2   set host folders used by broker"
 }
 
-function checkDocker() {
-  if [[ "$(which docker)" == "" ]]; then
-    echo "you have to install docker"
-    exit 2
-  fi
-}
 
-function checkNetwork() {
-  if [[ "$ADDRESS" == "127.0.0.1" || "$ADDRESS" == "127.0.1.1" ]]; then
-    echo "Either 127.0.0.1 or 127.0.1.1 can't be used in this script. Please check /etc/hosts"
-    exit 2
-  fi
-}
 
 function rejectProperty() {
   local key=$1c
@@ -152,27 +135,6 @@ function generateDockerfile() {
     generateDockerfileBySource
   else
     generateDockerfileByVersion
-  fi
-}
-
-function buildImageIfNeed() {
-  if [[ "$(docker images -q $IMAGE_NAME 2>/dev/null)" == "" ]]; then
-    local needToBuild="true"
-    if [[ "$BUILD" == "false" ]]; then
-      docker pull $IMAGE_NAME 2>/dev/null
-      if [[ "$?" == "0" ]]; then
-        needToBuild="false"
-      else
-        echo "Can't find $IMAGE_NAME from repo. Will build $IMAGE_NAME on the local"
-      fi
-    fi
-    if [[ "$needToBuild" == "true" ]]; then
-      generateDockerfile
-      docker build --no-cache -t "$IMAGE_NAME" -f "$DOCKERFILE" "$DOCKER_FOLDER"
-      if [[ "$?" != "0" ]]; then
-        exit 2
-      fi
-    fi
   fi
 }
 
