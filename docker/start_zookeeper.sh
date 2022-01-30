@@ -125,5 +125,7 @@ else
 fi
 
 echo "================================================="
+echo pick one of two join general kafka or concluent version of kafka.
 echo "run $DOCKER_FOLDER/start_broker.sh zookeeper.connect=$ADDRESS:$ZOOKEEPER_PORT to join kafka broker"
+echo "run $DOCKER_FOLDER/start_confluent_broker.sh zookeeper.connect=$ADDRESS:$ZOOKEEPER_PORT to join confluent kafka broker"
 echo "================================================="
