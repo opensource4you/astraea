@@ -5,11 +5,12 @@ declare -r VERSION=${REVISION:-${VERSION:-3.1.2}}
 declare -r REPO=${REPO:-ghcr.io/skiptests/astraea/spark}
 declare -r SPARK_PORT=${SPARK_PORT:-$(($(($RANDOM % 10000)) + 10000))}
 declare -r SPARK_UI_PORT=${SPARK_UI_PORT:-$(($(($RANDOM % 10000)) + 10000))}
+declare -r DOCKER_FOLDER=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
 declare -r DOCKERFILE=$DOCKER_FOLDER/spark.dockerfile
 declare -r ADDRESS=$([[ "$(which ipconfig)" != "" ]] && ipconfig getifaddr en0 || hostname -i)
 declare -r MASTER_NAME="spark-master"
 declare -r WORKER_NAME="spark-worker"
-. ./init.sh
+source $DOCKER_FOLDER/init.sh
 # ===================================[functions]===================================
 
 function showHelp() {
@@ -118,6 +119,26 @@ function generateDockerfile() {
   fi
 }
 
+function buildImageIfNeed() {
+  if [[ "$(docker images -q $IMAGE_NAME 2>/dev/null)" == "" ]]; then
+    local needToBuild="true"
+    if [[ "$BUILD" == "false" ]]; then
+      docker pull $IMAGE_NAME 2>/dev/null
+      if [[ "$?" == "0" ]]; then
+        needToBuild="false"
+      else
+        echo "Can't find $IMAGE_NAME from repo. Will build $IMAGE_NAME on the local"
+      fi
+    fi
+    if [[ "$needToBuild" == "true" ]]; then
+      generateDockerfile
+      docker build --no-cache -t "$IMAGE_NAME" -f "$DOCKERFILE" "$DOCKER_FOLDER"
+      if [[ "$?" != "0" ]]; then
+        exit 2
+      fi
+    fi
+  fi
+}
 # ===================================[main]===================================
 
 if [[ "$1" == "help" ]]; then

@@ -3,9 +3,10 @@
 # ===============================[global variables]===============================
 declare -r VERSION=${REVISION:-${VERSION:-main}}
 declare -r REPO=${REPO:-ghcr.io/skiptests/astraea/kafka-tool}
+declare -r DOCKER_FOLDER=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
 declare -r DOCKERFILE=$DOCKER_FOLDER/kafka_tool.dockerfile
 declare -r BUILD=${BUILD:-false}
-. ./init.sh
+source $DOCKER_FOLDER/init.sh
 # ===================================[functions]===================================
 
 function showHelp() {
@@ -48,6 +49,26 @@ function runContainer() {
     /bin/bash -c "java -jar /tmp/app.jar $args"
 }
 
+function buildImageIfNeed() {
+  if [[ "$(docker images -q $IMAGE_NAME 2>/dev/null)" == "" ]]; then
+    local needToBuild="true"
+    if [[ "$BUILD" == "false" ]]; then
+      docker pull $IMAGE_NAME 2>/dev/null
+      if [[ "$?" == "0" ]]; then
+        needToBuild="false"
+      else
+        echo "Can't find $IMAGE_NAME from repo. Will build $IMAGE_NAME on the local"
+      fi
+    fi
+    if [[ "$needToBuild" == "true" ]]; then
+      generateDockerfile
+      docker build --no-cache -t "$IMAGE_NAME" -f "$DOCKERFILE" "$DOCKER_FOLDER"
+      if [[ "$?" != "0" ]]; then
+        exit 2
+      fi
+    fi
+  fi
+}
 # ===================================[main]===================================
 
 checkDocker
