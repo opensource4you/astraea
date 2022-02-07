@@ -60,18 +60,18 @@ public class ManagerTest {
 
     argument.distribution = Distribution.uniform();
     var manager = new Manager(argument, List.of(), List.of());
-    Assertions.assertTrue(manager.getKey().isPresent());
+    Assertions.assertTrue(manager.getKey().length > 0);
 
     argument.distribution = Distribution.zipfian(10);
     manager = new Manager(argument, List.of(), List.of());
-    Assertions.assertTrue(manager.getKey().isPresent());
+    Assertions.assertTrue(manager.getKey().length > 0);
 
     argument.distribution = Distribution.latest();
     manager = new Manager(argument, List.of(), List.of());
-    Assertions.assertTrue(manager.getKey().isPresent());
+    Assertions.assertTrue(manager.getKey().length > 0);
 
-    argument.distribution = null;
+    argument.distribution = Distribution.fixed();
     manager = new Manager(argument, List.of(), List.of());
-    Assertions.assertTrue(manager.getKey().isEmpty());
+    Assertions.assertTrue(manager.getKey().length > 0);
   }
 }
