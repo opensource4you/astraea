@@ -59,9 +59,22 @@ public interface Distribution {
     return () -> (long) (rand.nextInt(N));
   }
 
-  /** A distribution for providing different value every 2 seconds */
+  /** A distribution for providing different random value every 2 seconds */
   static Distribution latest() {
-    return () -> System.currentTimeMillis() / 2000L;
+    var rand = new Random();
+    return new Distribution() {
+      private long start = System.currentTimeMillis();
+      private long latest = rand.nextLong();
+
+      @Override
+      public long get() {
+        if (System.currentTimeMillis() - start >= 2000L) {
+          latest = rand.nextLong();
+          start = System.currentTimeMillis();
+        }
+        return latest;
+      }
+    };
   }
 
   /**
