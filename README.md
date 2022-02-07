@@ -217,11 +217,14 @@ Run the benchmark from source
 6. --producers: the number of producers (threads). Default: 1
 7. --run.until: the total number of records sent by the producers. Default: 1000records
 8. --record.size: the (bound of) record size in byte. Default: 1 KiB
-9. --fixed.size: the flag to let all records have the same size
-10. --prop.file: the path to property file.
-11. --partitioner: the partitioner to use in producers
-12. --jmx.servers: the jmx server addresses of the brokers 
-13. --key.distribution: Name of the distribution. Available distribution names: "uniform", "zipfian", "latest". Default: (No key)
+9. --prop.file: the path to property file.
+10. --partitioner: the partitioner to use in producers
+11. --createCSV: put the metrics into a csv file if this flag is set. Default: false
+12. --compression: the compression algorithm used by producer. Available algorithm are none, gzip, snappy, lz4, and zstd. Default: (NONE)
+13. --jmx.servers: the jmx server addresses of the brokers 
+14. --key.distribution: name of the distribution on key. Available distribution names: "uniform", "zipfian", "latest", "fixed". Default: (No key)
+15. --size.distribution: name of the distribution on value size. Available distribution names: "uniform", "zipfian", "latest", "fixed". Default: "uniform"
+16. --specify.broker: list of broker IDs to produce records to. Default: (Do Not Specify)
 
 ---
 

@@ -265,11 +265,6 @@ public class Performance {
     ExeTime exeTime = ExeTime.of("1000records");
 
     @Parameter(
-        names = {"--fixed.size"},
-        description = "boolean: send fixed size records if this flag is set")
-    boolean fixedSize = false;
-
-    @Parameter(
         names = {"--record.size"},
         description = "DataSize: size of each record. e.g. \"500KiB\"",
         converter = DataSize.Converter.class)
@@ -297,7 +292,7 @@ public class Performance {
 
     @Parameter(
         names = {"--createCSV"},
-        description = "create the metrics into a csv file if this flag is set")
+        description = "put the metrics into a csv file if this flag is set")
     boolean createCSV = false;
 
     @Parameter(
@@ -313,6 +308,13 @@ public class Performance {
             "String: Distribution name. Available distribution names: \"fixed\" \"uniform\", \"zipfian\", \"latest\". Default: uniform",
         converter = Distribution.DistributionConverter.class)
     Distribution distribution = Distribution.uniform();
+
+    @Parameter(
+        names = {"--size.distribution"},
+        description =
+            "String: Distribution name. Available distribution names: \"uniform\", \"zipfian\", \"latest\", \"fixed\". Default: \"uniform\"",
+        validateWith = ArgumentUtil.NotEmptyString.class)
+    String sizeDistribution = "uniform";
 
     @Parameter(
         names = {"--specify.broker"},

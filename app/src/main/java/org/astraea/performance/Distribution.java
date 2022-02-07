@@ -29,6 +29,9 @@ public interface Distribution {
         case "zipfian":
           if (args.length > 1) return zipfian(Integer.parseInt(args[1]));
           return zipfian(30);
+        case "fixed":
+          if (args.length > 1) return fixed(Long.parseLong(args[1]));
+          else return fixed(0L);
         default:
           throw new ParameterException(
               "Unknown distribution \"" + name + "\". use \"uniform\", \"latest\", \"zipfian\".");
@@ -81,5 +84,9 @@ public interface Distribution {
       }
       return (long) cumulativeDensityTable.size() - 1L;
     };
+  }
+
+  static Distribution fixed(Long ans) {
+    return () -> ans;
   }
 }

@@ -49,7 +49,14 @@ public class Manager {
     this.consumerMetrics = consumerMetrics;
     this.exeTime = argument.exeTime;
     this.distribution = argument.distribution;
-    this.randomContent = new RandomContent(argument.recordSize, argument.fixedSize);
+    this.randomContent =
+        new RandomContent(
+            argument.recordSize,
+            new Distribution.DistributionConverter()
+                .convert(
+                    argument.sizeDistribution
+                        + ":"
+                        + argument.recordSize.measurement(DataUnit.Byte)));
   }
 
   /**
@@ -112,16 +119,17 @@ public class Manager {
   private static class RandomContent {
     private final Random rand = new Random();
     private final DataSize dataSize;
-    private final boolean fixedSize;
+    private final Distribution distribution;
     private final byte[] content;
 
     /**
      * @param dataSize The size of each random generated content in bytes.
-     * @param fixedSize Determine whether to fix the size of random generated content
+     * @param distribution Determine whether to fix the size of random generated content or random
+     *     size with specified distribution
      */
-    public RandomContent(DataSize dataSize, boolean fixedSize) {
+    public RandomContent(DataSize dataSize, Distribution distribution) {
       this.dataSize = dataSize;
-      this.fixedSize = fixedSize;
+      this.distribution = distribution;
       content = new byte[dataSize.measurement(DataUnit.Byte).intValue()];
     }
 
@@ -129,8 +137,7 @@ public class Manager {
       // Randomly change one position of the content;
       content[rand.nextInt(dataSize.measurement(DataUnit.Byte).intValue())] =
           (byte) rand.nextInt(256);
-      if (fixedSize) return Arrays.copyOf(content, content.length);
-      else return Arrays.copyOfRange(content, rand.nextInt(content.length), content.length);
+      return Arrays.copyOfRange(content, (int) distribution.get() % content.length, content.length);
     }
   }
 }
