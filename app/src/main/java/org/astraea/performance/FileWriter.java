@@ -35,8 +35,10 @@ public class FileWriter implements ThreadPool.Executor {
 
     // check whether to use customized filename
     if (path.endsWith(".csv")) CSVName = path;
-    else CSVName = path + CSVName;
+    else if (path.endsWith("/")) CSVName = path + CSVName;
+    else CSVName = path + "/" + CSVName;
     writer = new BufferedWriter(new java.io.FileWriter(CSVName));
+
     writer.write(
         "Time \\ Name, Consumed/Produced, Output throughput (MiB/sec), Input throughput (MiB/sec), "
             + "Publish max latency (ms), Publish min latency (ms), "
