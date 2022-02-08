@@ -9,6 +9,7 @@ public class Metrics implements BiConsumer<Long, Long> {
   private long max;
   private long min;
   private long bytes;
+  private long currentBytes;
 
   public Metrics() {
     avgLatency = 0;
@@ -16,6 +17,7 @@ public class Metrics implements BiConsumer<Long, Long> {
     max = 0;
     min = Long.MAX_VALUE;
     bytes = 0;
+    currentBytes = 0;
   }
 
   /** Simultaneously add latency and bytes. */
@@ -33,6 +35,7 @@ public class Metrics implements BiConsumer<Long, Long> {
   }
   /** Add a new value to bytes. */
   private synchronized void addBytes(long bytes) {
+    this.currentBytes += bytes;
     this.bytes += bytes;
   }
 
@@ -56,5 +59,11 @@ public class Metrics implements BiConsumer<Long, Long> {
   /** @return total send/received bytes */
   public synchronized long bytes() {
     return bytes;
+  }
+
+  public synchronized long clearAndGetCurrentBytes() {
+    var ans = currentBytes;
+    currentBytes = 0;
+    return ans;
   }
 }
