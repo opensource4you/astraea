@@ -171,4 +171,13 @@ public class ArgumentUtilTest {
 
     Assertions.assertEquals(isLegal, execution.get());
   }
+
+  @Test
+  void testValidPath() {
+    var validPath = new ArgumentUtil.ValidPath();
+    Assertions.assertDoesNotThrow(() -> validPath.validate("ignore", "dir"));
+    Assertions.assertDoesNotThrow(() -> validPath.validate("ignore", "./dir"));
+    Assertions.assertDoesNotThrow(() -> validPath.validate("ignore", "/path/to/desired/dir"));
+    Assertions.assertThrows(ParameterException.class, () -> validPath.validate("ignore", "///"));
+  }
 }

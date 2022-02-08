@@ -68,6 +68,17 @@ public class ArgumentUtil {
     }
   }
 
+  public static class ValidPath implements IParameterValidator {
+    private static final Pattern PATTERN = Pattern.compile("/?([ \\w-.]+/?)*");
+
+    @Override
+    public void validate(String name, String value) throws ParameterException {
+      if (!PATTERN.matcher(value).matches()) {
+        throw new ParameterException(value + " is not a valid path");
+      }
+    }
+  }
+
   /* Converter classes */
   public static class StringSetConverter implements IStringConverter<Set<String>> {
     @Override

@@ -86,7 +86,7 @@ public class Performance {
     var manager = new Manager(param, producerMetrics, consumerMetrics);
     var tracker = new Tracker(producerMetrics, consumerMetrics, manager);
     Collection<ThreadPool.Executor> fileWriter =
-        (param.createCSV) ? List.of(new FileWriter(manager, tracker)) : List.of();
+        (param.createCSV) ? List.of(new FileWriter(param.CSVPath, manager, tracker)) : List.of();
     var groupId = "groupId-" + System.currentTimeMillis();
     try (ThreadPool threadPool =
         ThreadPool.builder()
@@ -320,6 +320,12 @@ public class Performance {
             "String: Used with SpecifyBrokerPartitioner to specify the brokers that partitioner can send.",
         validateWith = ArgumentUtil.NotEmptyString.class)
     List<Integer> specifyBroker = List.of(-1);
+
+    @Parameter(
+        names = {"--CSV.path"},
+        description = "String: A path to place the CSV file.",
+        validateWith = ArgumentUtil.ValidPath.class)
+    String CSVPath = "./";
   }
 
   static class CompressionArgument implements IStringConverter<CompressionType> {

@@ -13,10 +13,10 @@ public class FileWriter implements ThreadPool.Executor {
   private BufferedWriter writer;
   private String CSVName;
 
-  public FileWriter(Manager manager, Tracker tracker) {
+  public FileWriter(String path, Manager manager, Tracker tracker) throws IOException {
     this.manager = manager;
     this.tracker = tracker;
-    initFileWriter();
+    initFileWriter(path);
   }
 
   @Override
@@ -30,50 +30,51 @@ public class FileWriter implements ThreadPool.Executor {
     return CSVName;
   }
 
-  private void initFileWriter() {
+  private void initFileWriter(String path) throws IOException {
     CSVName = "Performance" + new SimpleDateFormat("yyyyMMddHHmmss").format(new Date()) + ".csv";
-    try {
-      writer = new BufferedWriter(new java.io.FileWriter(CSVName));
-      writer.write(
-          "Time \\ Name, Consumed/Produced, Output throughput (MiB/sec), Input throughput (MiB/sec), "
-              + "Publish max latency (ms), Publish min latency (ms), "
-              + "End-to-end max latency (ms), End-to-end min latency (ms)");
-      IntStream.range(0, tracker.producerResult().bytes.size())
-          .forEach(
-              i -> {
-                try {
-                  writer.write(
-                      ",Producer["
-                          + i
-                          + "] average throughput (MB/sec), Producer["
-                          + i
-                          + "] average publish latency (ms)");
-                } catch (IOException ignore) {
-                }
-              });
-      IntStream.range(0, tracker.consumerResult().bytes.size())
-          .forEach(
-              i -> {
-                try {
-                  writer.write(
-                      ",Consumer["
-                          + i
-                          + "] average throughput (MB/sec), Consumer["
-                          + i
-                          + "] average ene-to-end latency (ms)");
-                } catch (IOException ignore) {
-                }
-              });
-      writer.newLine();
-    } catch (IOException ignore) {
-      writer = null;
-    }
+
+    // check whether to use customized filename
+    if (path.endsWith(".csv")) CSVName = path;
+    else CSVName = path + CSVName;
+    writer = new BufferedWriter(new java.io.FileWriter(CSVName));
+    writer.write(
+        "Time \\ Name, Consumed/Produced, Output throughput (MiB/sec), Input throughput (MiB/sec), "
+            + "Publish max latency (ms), Publish min latency (ms), "
+            + "End-to-end max latency (ms), End-to-end min latency (ms)");
+    IntStream.range(0, tracker.producerResult().bytes.size())
+        .forEach(
+            i -> {
+              try {
+                writer.write(
+                    ",Producer["
+                        + i
+                        + "] average throughput (MB/sec), Producer["
+                        + i
+                        + "] average publish latency (ms)");
+              } catch (IOException ignore) {
+              }
+            });
+    IntStream.range(0, tracker.consumerResult().bytes.size())
+        .forEach(
+            i -> {
+              try {
+                writer.write(
+                    ",Consumer["
+                        + i
+                        + "] average throughput (MB/sec), Consumer["
+                        + i
+                        + "] average ene-to-end latency (ms)");
+              } catch (IOException ignore) {
+              }
+            });
+    writer.newLine();
   }
 
   private boolean logToCSV() {
     var producerResult = tracker.producerResult();
     var consumerResult = tracker.consumerResult();
-    if (writer == null || producerResult.completedRecords == 0L) return false;
+    if (writer == null) return true;
+    if (producerResult.completedRecords == 0L) return false;
     var duration = tracker.duration();
     var producerPercentage =
         Math.min(
