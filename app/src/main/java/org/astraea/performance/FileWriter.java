@@ -6,6 +6,7 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.stream.IntStream;
 import org.astraea.concurrent.ThreadPool;
+import org.astraea.utils.DataUnit;
 
 public class FileWriter implements ThreadPool.Executor {
   private final Manager manager;
@@ -35,7 +36,7 @@ public class FileWriter implements ThreadPool.Executor {
     try {
       writer = new BufferedWriter(new java.io.FileWriter(CSVName));
       writer.write(
-          "Time \\ Name, Consumed/Produced, Output throughput (MiB/sec), Input throughput (MiB/sec), "
+          "Time \\ Name, Consumed/Produced, Output throughput (/sec), Input throughput (/sec), "
               + "Publish max latency (ms), Publish min latency (ms), "
               + "End-to-end max latency (ms), End-to-end min latency (ms)");
       IntStream.range(0, tracker.producerResult().bytes.size())
@@ -45,9 +46,9 @@ public class FileWriter implements ThreadPool.Executor {
                   writer.write(
                       ",Producer["
                           + i
-                          + "] average throughput (MB/sec), Producer["
+                          + "] current throughput (/sec), Producer["
                           + i
-                          + "] average publish latency (ms)");
+                          + "] current publish latency (ms)");
                 } catch (IOException ignore) {
                 }
               });
@@ -58,9 +59,9 @@ public class FileWriter implements ThreadPool.Executor {
                   writer.write(
                       ",Consumer["
                           + i
-                          + "] average throughput (MB/sec), Consumer["
+                          + "] current throughput (/sec), Consumer["
                           + i
-                          + "] average ene-to-end latency (ms)");
+                          + "] current ene-to-end latency (ms)");
                 } catch (IOException ignore) {
                 }
               });
@@ -89,16 +90,16 @@ public class FileWriter implements ThreadPool.Executor {
               + duration.toSecondsPart()
               + "s");
       writer.write(String.format(",%.2f%% / %.2f%%", consumerPercentage, producerPercentage));
-      writer.write("," + producerResult.averageBytes(duration));
-      writer.write("," + consumerResult.averageBytes(duration));
+      writer.write("," + DataUnit.Byte.of(producerResult.totalCurrentBytes()));
+      writer.write("," + DataUnit.Byte.of(consumerResult.totalCurrentBytes()));
       writer.write("," + producerResult.maxLatency + "," + producerResult.minLatency);
       writer.write("," + consumerResult.maxLatency + "," + consumerResult.minLatency);
       for (int i = 0; i < producerResult.bytes.size(); ++i) {
-        writer.write("," + Tracker.avg(duration, producerResult.bytes.get(i)));
+        writer.write("," + DataUnit.Byte.of(producerResult.currentBytes.get(i)));
         writer.write("," + producerResult.averageLatencies.get(i));
       }
       for (int i = 0; i < consumerResult.bytes.size(); ++i) {
-        writer.write("," + Tracker.avg(duration, consumerResult.bytes.get(i)));
+        writer.write("," + DataUnit.Byte.of(consumerResult.currentBytes.get(i)));
         writer.write("," + consumerResult.averageLatencies.get(i));
       }
       writer.newLine();
