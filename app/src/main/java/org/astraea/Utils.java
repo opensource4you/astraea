@@ -122,7 +122,7 @@ public final class Utils {
    * Separate host and port
    *
    * @param address like 0.0.0.0:9092
-   * @return (0.0.0.0,9092)
+   * @return e.g. (0.0.0.0,9092)
    */
   public static Map<String, Integer> requireHostPort(List<String> address) {
     var mapAddress = new HashMap<String, Integer>();
@@ -134,6 +134,11 @@ public final class Utils {
     return mapAddress;
   }
 
+  /**
+   *
+   * @param configs configs of producer
+   * @return e.g. (0.0.0.0,9092)
+   */
   public static Map<String, Integer> jmxAddress(Map<String, ?> configs) {
     var jmxAddresses =
         Objects.requireNonNull(
@@ -143,6 +148,11 @@ public final class Utils {
     return requireHostPort(list);
   }
 
+  /**
+   *
+   * @param properties properties of producer
+   * @return map of properties
+   */
   public static Map<String, Object> propsToMap(Properties properties) {
     Map<String, Object> map = new HashMap<>(properties.size());
     for (Map.Entry<Object, Object> entry : properties.entrySet()) {
@@ -161,6 +171,26 @@ public final class Utils {
     if (value <= 0)
       throw new IllegalArgumentException("the value: " + value + " must be bigger than zero");
     return value;
+  }
+
+  /**
+   *
+   * @param host host name
+   * @return host ip
+   */
+  public static String realHost(String host) {
+    var regex = "((25[0-5]|2[0-4]\\d|1\\d{2}|[1-9]?\\d)\\.){3}" + "(25[0-5]|2[0-4]\\d|1\\d{2}|[1-9]?\\d)$";
+    var correctHost = "-1.-1.-1.-1";
+    if (!host.matches(regex)) {
+      try {
+        correctHost = String.valueOf(InetAddress.getByName(host)).split("/")[1];
+      } catch (UnknownHostException e) {
+        e.printStackTrace();
+      }
+    } else {
+      correctHost = host;
+    }
+    return correctHost;
   }
 
   private Utils() {}

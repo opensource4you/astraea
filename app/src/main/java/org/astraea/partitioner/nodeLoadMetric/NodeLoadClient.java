@@ -18,6 +18,8 @@ import org.astraea.metrics.collector.Receiver;
 import org.astraea.metrics.java.HasJvmMemory;
 import org.astraea.metrics.kafka.KafkaMetrics;
 
+import static org.astraea.Utils.realHost;
+
 /**
  * this clas is responsible for obtaining jmx metrics from BeanCollector and calculating the
  * overload status of each node through them.
@@ -34,9 +36,6 @@ public class NodeLoadClient {
   private int referenceBrokerID;
   private CountDownLatch countDownLatch;
   private boolean notInMethod = true;
-
-  private static final String regex =
-      "((25[0-5]|2[0-4]\\d|1\\d{2}|[1-9]?\\d)\\.){3}" + "(25[0-5]|2[0-4]\\d|1\\d{2}|[1-9]?\\d)$";
 
   public NodeLoadClient(Map<String, Integer> jmxAddresses) throws IOException {
     this.receiverList = RECEIVER_FACTORY.receiversList(jmxAddresses);
@@ -207,24 +206,6 @@ public class NodeLoadClient {
     return brokers.stream().filter(broker -> broker.brokerID == brokerID).findAny().get();
   }
 
-  private String ipAddress(String host) {
-    var correctHost = "-1.-1.-1.-1";
-    if (notIPAddress(host)) {
-      try {
-        correctHost = String.valueOf(InetAddress.getByName(host)).split("/")[1];
-      } catch (UnknownHostException e) {
-        e.printStackTrace();
-      }
-    } else {
-      correctHost = host;
-    }
-    return correctHost;
-  }
-
-  private boolean notIPAddress(String host) {
-    return !host.matches(regex);
-  }
-
   private boolean overOneSecond() {
     return lastTime + Duration.ofSeconds(1).toMillis() <= System.currentTimeMillis();
   }
@@ -235,7 +216,7 @@ public class NodeLoadClient {
 
   private List<Integer> brokerIDOfReceiver(String host) {
     return brokers.stream()
-        .filter(broker -> Objects.equals(ipAddress(broker.host), host))
+        .filter(broker -> Objects.equals(realHost(broker.host), host))
         .map(broker -> broker.brokerID)
         .collect(Collectors.toList());
   }

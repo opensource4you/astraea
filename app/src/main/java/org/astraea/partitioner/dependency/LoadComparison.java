@@ -18,6 +18,8 @@ import org.astraea.metrics.kafka.KafkaMetrics;
 import org.astraea.topic.Offset;
 import org.astraea.topic.TopicAdmin;
 
+import static org.astraea.Utils.realHost;
+
 public class LoadComparison {
   private final KafkaProducer<?, ?> producer;
   private final Map<TopicPartition, Offset> offsets;
@@ -53,7 +55,7 @@ public class LoadComparison {
     }
 
     var jmxAddress = jmxAddress(brokers);
-    return goodConditionBroker(jmxAddress);
+    return brokers.get(goodConditionBroker(jmxAddress));
   }
 
   List<Integer> minTwoOffsets() {
@@ -61,7 +63,7 @@ public class LoadComparison {
         .sorted(Comparator.comparing(entry -> entry.getValue().latest()))
         .map(entry -> entry.getKey().partition())
         .collect(Collectors.toList())
-        .subList(0, 1);
+        .subList(0, 2);
   }
 
   ProducerMetadata producerMetadata() {
@@ -73,7 +75,7 @@ public class LoadComparison {
     var bootstrap =
         cluster.nodes().stream()
             .filter(node -> brokers.containsKey(node.id()))
-            .collect(Collectors.toMap(Node::id, Node::host));
+            .collect(Collectors.toMap(Node::id, node -> realHost(node.host())));
 
     var JMXs = new ArrayList<JMXAddress>();
     bootstrap
@@ -101,7 +103,7 @@ public class LoadComparison {
   int goodConditionBroker(List<JMXAddress> jmxAddress) {
     var metrics = jmxAddress.stream().map(this::metrics).collect(Collectors.toList());
     var firstBroker = metrics.get(0);
-    var secondBroker = metrics.get(1);
+    var secondBroker = metrics.get(metrics.size()-1);
 
     var normalized =
         (firstBroker.inPerSec / (firstBroker.inPerSec + secondBroker.inPerSec) - 1) * 0.4
