@@ -7,6 +7,12 @@ declare -r DOCKER_FOLDER=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null
 source $DOCKER_FOLDER/docker_build_common.sh
 declare -r DOCKERFILE=$DOCKER_FOLDER/kafka_tool.dockerfile
 declare -r BUILD=${BUILD:-false}
+declare -r RUN=${RUN:-true}
+declare -r ADDRESS=$([[ "$(which ipconfig)" != "" ]] && ipconfig getifaddr en0 || hostname -i)
+declare -r JMX_PORT=${JMX_PORT:-"$(getRandomPort)"}
+declare -r JMX_OPTS="-Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false \
+                     -Dcom.sun.management.jmxremote.port=$JMX_PORT -Dcom.sun.management.jmxremote.rmi.port=$JMX_PORT -Djava.rmi.server.hostname=$ADDRESS"
+
 # ===================================[functions]===================================
 
 function showHelp() {
@@ -69,6 +75,16 @@ function buildImageIfNeed() {
     fi
   fi
 }
+
+function runContainer() {
+  local args=$1
+  echo "JMX address: $ADDRESS:$JMX_PORT"
+  docker run --rm --init \
+    -p $JMX_PORT:$JMX_PORT \
+    $IMAGE_NAME \
+    /bin/bash -c "java $JMX_OPTS -jar /tmp/app.jar $args"
+}
+
 # ===================================[main]===================================
 
 checkDocker

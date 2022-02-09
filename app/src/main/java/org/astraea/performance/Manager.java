@@ -100,13 +100,13 @@ public class Manager {
 
   /** Check if we should keep consuming record. */
   public boolean consumedDone() {
-    return producedDone() && consumedRecords() >= producedRecords();
+    return producedDone()
+        && (consumerMetrics.size() == 0 || consumedRecords() >= producedRecords());
   }
 
   /** Randomly choose a key according to the distribution. */
-  public Optional<byte[]> getKey() {
-    if (distribution == null) return Optional.empty();
-    return Optional.of((String.valueOf(distribution.get())).getBytes());
+  public byte[] getKey() {
+    return (String.valueOf(distribution.get())).getBytes();
   }
 
   /** Randomly generate content before {@link #getContent()} is called. */
