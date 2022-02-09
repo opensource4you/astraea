@@ -135,7 +135,6 @@ public final class Utils {
   }
 
   /**
-   *
    * @param configs configs of producer
    * @return e.g. (0.0.0.0,9092)
    */
@@ -149,7 +148,6 @@ public final class Utils {
   }
 
   /**
-   *
    * @param properties properties of producer
    * @return map of properties
    */
@@ -174,12 +172,12 @@ public final class Utils {
   }
 
   /**
-   *
    * @param host host name
    * @return host ip
    */
   public static String realHost(String host) {
-    var regex = "((25[0-5]|2[0-4]\\d|1\\d{2}|[1-9]?\\d)\\.){3}" + "(25[0-5]|2[0-4]\\d|1\\d{2}|[1-9]?\\d)$";
+    var regex =
+        "((25[0-5]|2[0-4]\\d|1\\d{2}|[1-9]?\\d)\\.){3}" + "(25[0-5]|2[0-4]\\d|1\\d{2}|[1-9]?\\d)$";
     var correctHost = "-1.-1.-1.-1";
     if (!host.matches(regex)) {
       try {

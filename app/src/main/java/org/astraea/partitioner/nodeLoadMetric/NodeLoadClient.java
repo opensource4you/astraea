@@ -1,7 +1,8 @@
 package org.astraea.partitioner.nodeLoadMetric;
 
+import static org.astraea.Utils.realHost;
+
 import java.io.IOException;
-import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -17,8 +18,6 @@ import org.astraea.Utils;
 import org.astraea.metrics.collector.Receiver;
 import org.astraea.metrics.java.HasJvmMemory;
 import org.astraea.metrics.kafka.KafkaMetrics;
-
-import static org.astraea.Utils.realHost;
 
 /**
  * this clas is responsible for obtaining jmx metrics from BeanCollector and calculating the

@@ -1,5 +1,7 @@
 package org.astraea.partitioner.dependency;
 
+import static org.astraea.Utils.realHost;
+
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -17,8 +19,6 @@ import org.astraea.metrics.jmx.MBeanClient;
 import org.astraea.metrics.kafka.KafkaMetrics;
 import org.astraea.topic.Offset;
 import org.astraea.topic.TopicAdmin;
-
-import static org.astraea.Utils.realHost;
 
 public class LoadComparison {
   private final KafkaProducer<?, ?> producer;
@@ -103,7 +103,7 @@ public class LoadComparison {
   int goodConditionBroker(List<JMXAddress> jmxAddress) {
     var metrics = jmxAddress.stream().map(this::metrics).collect(Collectors.toList());
     var firstBroker = metrics.get(0);
-    var secondBroker = metrics.get(metrics.size()-1);
+    var secondBroker = metrics.get(metrics.size() - 1);
 
     var normalized =
         (firstBroker.inPerSec / (firstBroker.inPerSec + secondBroker.inPerSec) - 1) * 0.4

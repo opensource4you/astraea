@@ -1,5 +1,7 @@
 package org.astraea.partitioner.dependency;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
@@ -19,8 +21,6 @@ import org.astraea.service.RequireBrokerCluster;
 import org.astraea.topic.TopicAdmin;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class DependencyRecordTest extends RequireBrokerCluster {
   private final String brokerList = bootstrapServers();
@@ -46,36 +46,36 @@ public class DependencyRecordTest extends RequireBrokerCluster {
     var timestamp = System.currentTimeMillis() + 10;
     var header = Header.of("a", "b".getBytes());
     try (var producer =
-                 Producer.builder()
-                         .keySerializer(Serializer.STRING)
-                         .configs(
-                                 initProConfig().entrySet().stream()
-                                         .collect(Collectors.toMap(e -> e.getKey().toString(), Map.Entry::getValue)))
-                         .build()) {
+        Producer.builder()
+            .keySerializer(Serializer.STRING)
+            .configs(
+                initProConfig().entrySet().stream()
+                    .collect(Collectors.toMap(e -> e.getKey().toString(), Map.Entry::getValue)))
+            .build()) {
       DependencyRecord<String, byte[]> dependencyRecord1 =
-              new DependencyRecord<>(producer.kafkaProducer(), initProConfig(), topicName);
+          new DependencyRecord<>(producer.kafkaProducer(), initProConfig(), topicName);
       try {
         producer
-                .sender()
-                .topic(topicName)
-                .key(key)
-                .timestamp(timestamp)
-                .headers(List.of(header))
-                .partition(dependencyRecord1.partition())
-                .run()
-                .toCompletableFuture()
-                .get();
+            .sender()
+            .topic(topicName)
+            .key(key)
+            .timestamp(timestamp)
+            .headers(List.of(header))
+            .partition(dependencyRecord1.partition())
+            .run()
+            .toCompletableFuture()
+            .get();
       } catch (InterruptedException | ExecutionException e) {
         e.printStackTrace();
       }
 
       try (var consumer =
-                   Consumer.builder()
-                           .brokers(bootstrapServers())
-                           .fromBeginning()
-                           .topics(Set.of(topicName))
-                           .keyDeserializer(Deserializer.STRING)
-                           .build()) {
+          Consumer.builder()
+              .brokers(bootstrapServers())
+              .fromBeginning()
+              .topics(Set.of(topicName))
+              .keyDeserializer(Deserializer.STRING)
+              .build()) {
         var records = consumer.poll(Duration.ofSeconds(20));
         var record = records.iterator().next();
         assertEquals(topicName, record.topic());
@@ -86,30 +86,30 @@ public class DependencyRecordTest extends RequireBrokerCluster {
         Assertions.assertArrayEquals(header.value(), actualHeader.value());
       }
 
-        DependencyRecord<String, byte[]> dependencyRecord2 =
-                new DependencyRecord<>(producer.kafkaProducer(), initProConfig(), topicName);
+      DependencyRecord<String, byte[]> dependencyRecord2 =
+          new DependencyRecord<>(producer.kafkaProducer(), initProConfig(), topicName);
 
-        Assertions.assertNotEquals(dependencyRecord1.partition(), dependencyRecord2.partition());
+      Assertions.assertNotEquals(dependencyRecord1.partition(), dependencyRecord2.partition());
 
-        try {
-          producer
-                  .sender()
-                  .topic(topicName)
-                  .key(key)
-                  .timestamp(timestamp)
-                  .headers(List.of(header))
-                  .partition(dependencyRecord2.partition())
-                  .run()
-                  .toCompletableFuture()
-                  .get();
-        } catch (InterruptedException | ExecutionException e) {
-          e.printStackTrace();
-        }
+      try {
+        producer
+            .sender()
+            .topic(topicName)
+            .key(key)
+            .timestamp(timestamp)
+            .headers(List.of(header))
+            .partition(dependencyRecord2.partition())
+            .run()
+            .toCompletableFuture()
+            .get();
+      } catch (InterruptedException | ExecutionException e) {
+        e.printStackTrace();
+      }
 
-        DependencyRecord<String, byte[]> dependencyRecord3 =
-                new DependencyRecord<>(producer.kafkaProducer(), initProConfig(), topicName);
-        Assertions.assertNotEquals(dependencyRecord1.partition(), dependencyRecord3.partition());
-        Assertions.assertNotEquals(dependencyRecord2.partition(), dependencyRecord3.partition());
-     }
+      DependencyRecord<String, byte[]> dependencyRecord3 =
+          new DependencyRecord<>(producer.kafkaProducer(), initProConfig(), topicName);
+      Assertions.assertNotEquals(dependencyRecord1.partition(), dependencyRecord3.partition());
+      Assertions.assertNotEquals(dependencyRecord2.partition(), dependencyRecord3.partition());
     }
   }
+}
