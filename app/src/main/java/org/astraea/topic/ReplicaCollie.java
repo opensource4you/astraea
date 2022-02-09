@@ -28,7 +28,10 @@ public class ReplicaCollie {
     if (args.partitions.isEmpty()
         && args.path.isEmpty()
         && args.toBrokers
-            .isEmpty()) { // If the partitions and the broker of to migrate path are not specified at the same time, the topics specified by the broker will be moved to other brokers (if not specified, all topics of the broker will be included).
+            .isEmpty()) { // If the partitions and the broker of to migrate path are not specified
+      // at the same time, the topics specified by the broker will be moved to
+      // other brokers (if not specified, all topics of the broker will be
+      // included).
       argument.toBrokers =
           admin.brokerIds().stream()
               .filter(b -> !args.fromBrokers.contains(b))
