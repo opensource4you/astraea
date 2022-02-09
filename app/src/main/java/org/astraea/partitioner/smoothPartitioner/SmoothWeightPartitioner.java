@@ -3,7 +3,6 @@ package org.astraea.partitioner.smoothPartitioner;
 import java.io.IOException;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -118,16 +117,7 @@ public class SmoothWeightPartitioner implements Partitioner, DependencyClient {
   @Override
   public void configure(Map<String, ?> configs) {
     try {
-      var jmxAddresses =
-          Objects.requireNonNull(
-              configs.get("jmx_servers").toString(), "You must configure jmx_servers correctly");
-      var list = Arrays.asList((jmxAddresses).split(","));
-      HashMap<String, Integer> mapAddress = new HashMap<>();
-      list.forEach(
-          str ->
-              mapAddress.put(
-                  Arrays.asList(str.split(":")).get(0),
-                  Integer.parseInt(Arrays.asList(str.split(":")).get(1))));
+      var mapAddress = Utils.jmxAddress(configs);
       Objects.requireNonNull(mapAddress, "You must configure jmx_servers correctly.");
 
       nodeLoadClient = new NodeLoadClient(mapAddress);

@@ -1,7 +1,11 @@
-package org.astraea.dependency;
+package org.astraea.partitioner.dependency;
 
+import java.util.Properties;
+import java.util.Set;
+import org.apache.kafka.clients.producer.KafkaProducer;
+import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.clients.producer.ProducerRecord;
-import org.apache.kafka.common.header.Header;
+import org.astraea.topic.TopicAdmin;
 
 /**
  * Each group of order records uses the same DependencyRecord instance.
@@ -17,38 +21,18 @@ import org.apache.kafka.common.header.Header;
 public class DependencyRecord<K, V> {
   private final int partition;
 
-  public DependencyRecord() {
-    // TODO
-    this.partition = 0;
-  }
-
-  /**
-   * Creates a record with a specified timestamp to be sent to a specified topic and partition
-   *
-   * @param topic The topic the record will be appended to
-   * @param partition The partition to which the record should be sent
-   * @param timestamp The timestamp of the record, in milliseconds since epoch. If null, the
-   *     producer will assign the timestamp using System.currentTimeMillis().
-   * @param key The key that will be included in the record
-   * @param value The record contents
-   */
-  public ProducerRecord<K, V> orderRecord(
-      String topic, Integer partition, Long timestamp, K key, V value) {
-    return new ProducerRecord<>(topic, partition, timestamp, key, value, null);
-  }
-
-  /**
-   * Creates a record to be sent to a specified topic and partition
-   *
-   * @param topic The topic the record will be appended to
-   * @param partition The partition to which the record should be sent
-   * @param key The key that will be included in the record
-   * @param value The record contents
-   * @param headers The headers that will be included in the record
-   */
-  public ProducerRecord<K, V> orderRecord(
-      String topic, Integer partition, K key, V value, Iterable<Header> headers) {
-    return new ProducerRecord<>(topic, partition, null, key, value, headers);
+  public DependencyRecord(KafkaProducer<?, ?> producer, Properties props, String topicName) {
+    try (var topicAdmin =
+        TopicAdmin.of(props.getProperty(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG))) {
+      var topic = Set.of(topicName);
+      var offsets = topicAdmin.offsets(topic);
+      if (offsets.size() == 1) {
+        this.partition = offsets.keySet().stream().findFirst().get().partition();
+      } else {
+        var loadComparison = new LoadComparison(producer, offsets, topicAdmin, topic, props);
+        this.partition = loadComparison.lessLoad();
+      }
+    }
   }
 
   /**
@@ -82,5 +66,9 @@ public class DependencyRecord<K, V> {
    */
   public ProducerRecord<K, V> orderRecord(String topic, V value) {
     return new ProducerRecord<>(topic, partition, null, null, value, null);
+  }
+
+  public int partition() {
+    return partition;
   }
 }

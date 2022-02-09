@@ -11,9 +11,12 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Properties;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
+import org.apache.kafka.common.config.ConfigException;
 
 public final class Utils {
 
@@ -129,6 +132,29 @@ public final class Utils {
                 Arrays.asList(str.split(":")).get(0),
                 Integer.parseInt(Arrays.asList(str.split(":")).get(1))));
     return mapAddress;
+  }
+
+  public static Map<String, Integer> jmxAddress(Map<String, ?> configs) {
+    var jmxAddresses =
+        Objects.requireNonNull(
+            configs.get("jmx_servers").toString(), "You must configure jmx_servers correctly");
+    var list = Arrays.asList((jmxAddresses).split(","));
+
+    return requireHostPort(list);
+  }
+
+  public static Map<String, Object> propsToMap(Properties properties) {
+    Map<String, Object> map = new HashMap<>(properties.size());
+    for (Map.Entry<Object, Object> entry : properties.entrySet()) {
+      if (entry.getKey() instanceof String) {
+        String k = (String) entry.getKey();
+        map.put(k, properties.get(k));
+      } else {
+        throw new ConfigException(
+            entry.getKey().toString(), entry.getValue(), "Key must be a string.");
+      }
+    }
+    return map;
   }
 
   public static int requirePositive(int value) {
