@@ -4,18 +4,18 @@
 declare -r VERSION=${REVISION:-${VERSION:-2.8.1}}
 declare -r REPO=${REPO:-ghcr.io/skiptests/astraea/broker}
 declare -r DOCKER_FOLDER=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
+source $DOCKER_FOLDER/docker_build_common.sh
 declare -r DOCKERFILE=$DOCKER_FOLDER/broker.dockerfile
 declare -r DATA_FOLDER_IN_CONTAINER_PREFIX="/tmp/log-folder"
 declare -r EXPORTER_VERSION="0.16.1"
-declare -r EXPORTER_PORT=${EXPORTER_PORT:-$(($(($RANDOM % 10000)) + 10000))}
-declare -r BROKER_PORT=${BROKER_PORT:-$(($(($RANDOM % 10000)) + 10000))}
+declare -r EXPORTER_PORT=${EXPORTER_PORT:-"$(getRandomPort)"}
+declare -r BROKER_PORT=${BROKER_PORT:-"$(getRandomPort)"}
 declare -r CONTAINER_NAME="broker-$BROKER_PORT"
-declare -r BROKER_JMX_PORT="$(($(($RANDOM % 10000)) + 10000))"
+declare -r BROKER_JMX_PORT="$(getRandomPort)"
 declare -r ADMIN_NAME="admin"
 declare -r ADMIN_PASSWORD="admin-secret"
 declare -r USER_NAME="user"
 declare -r USER_PASSWORD="user-secret"
-declare -r ADDRESS=$([[ "$(which ipconfig)" != "" ]] && ipconfig getifaddr en0 || hostname -i)
 declare -r JMX_OPTS="-Dcom.sun.management.jmxremote \
   -Dcom.sun.management.jmxremote.authenticate=false \
   -Dcom.sun.management.jmxremote.ssl=false \
@@ -24,10 +24,8 @@ declare -r JMX_OPTS="-Dcom.sun.management.jmxremote \
   -Djava.rmi.server.hostname=$ADDRESS"
 declare -r HEAP_OPTS="${HEAP_OPTS:-"-Xmx2G -Xms2G"}"
 declare -r BROKER_PROPERTIES="/tmp/server-${BROKER_PORT}.properties"
-source $DOCKER_FOLDER/init.sh
 # cleanup the file if it is existent
 [[ -f "$BROKER_PROPERTIES" ]] && rm -f "$BROKER_PROPERTIES"
-
 # ===================================[functions]===================================
 
 function showHelp() {

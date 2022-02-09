@@ -4,9 +4,9 @@
 declare -r VERSION=${REVISION:-${VERSION:-main}}
 declare -r REPO=${REPO:-ghcr.io/skiptests/astraea/kafka-tool}
 declare -r DOCKER_FOLDER=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
+source $DOCKER_FOLDER/docker_build_common.sh
 declare -r DOCKERFILE=$DOCKER_FOLDER/kafka_tool.dockerfile
 declare -r BUILD=${BUILD:-false}
-source $DOCKER_FOLDER/init.sh
 # ===================================[functions]===================================
 
 function showHelp() {

@@ -3,7 +3,10 @@ declare -r USER=astraea
 declare -r IMAGE_NAME="$REPO:$VERSION"
 declare -r BUILD=${BUILD:-false}
 declare -r RUN=${RUN:-true}
-
+declare -r ADDRESS=$([[ "$(which ipconfig)" != "" ]] && ipconfig getifaddr en0 || hostname -i)
+function getRandomPort() {
+  echo $(($(($RANDOM%10000))+10000))
+}
 function checkDocker() {
   if [[ "$(which docker)" == "" ]]; then
     echo "you have to install docker"

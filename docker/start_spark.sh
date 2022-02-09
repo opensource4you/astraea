@@ -3,14 +3,13 @@
 # ===============================[global variables]===============================
 declare -r VERSION=${REVISION:-${VERSION:-3.1.2}}
 declare -r REPO=${REPO:-ghcr.io/skiptests/astraea/spark}
-declare -r SPARK_PORT=${SPARK_PORT:-$(($(($RANDOM % 10000)) + 10000))}
-declare -r SPARK_UI_PORT=${SPARK_UI_PORT:-$(($(($RANDOM % 10000)) + 10000))}
 declare -r DOCKER_FOLDER=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
+source $DOCKER_FOLDER/docker_build_common.sh
+declare -r SPARK_PORT=${SPARK_PORT:-"$(getRandomPort)"}
+declare -r SPARK_UI_PORT=${SPARK_UI_PORT:-"$(getRandomPort)"}
 declare -r DOCKERFILE=$DOCKER_FOLDER/spark.dockerfile
-declare -r ADDRESS=$([[ "$(which ipconfig)" != "" ]] && ipconfig getifaddr en0 || hostname -i)
 declare -r MASTER_NAME="spark-master"
 declare -r WORKER_NAME="spark-worker"
-source $DOCKER_FOLDER/init.sh
 # ===================================[functions]===================================
 
 function showHelp() {

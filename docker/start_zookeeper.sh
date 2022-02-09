@@ -3,13 +3,12 @@
 # ===============================[global variables]===============================
 declare -r VERSION=${VERSION:-3.7.0}
 declare -r REPO=${REPO:-ghcr.io/skiptests/astraea/zookeeper}
-declare -r ZOOKEEPER_PORT=${ZOOKEEPER_PORT:-$(($(($RANDOM % 10000)) + 10000))}
 declare -r DOCKER_FOLDER=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
+source $DOCKER_FOLDER/docker_build_common.sh
+declare -r ZOOKEEPER_PORT=${ZOOKEEPER_PORT:-"$(getRandomPort)"}
 declare -r DOCKERFILE=$DOCKER_FOLDER/zookeeper.dockerfile
 declare -r DATA_FOLDER_IN_CONTAINER="/tmp/zookeeper-dir"
 declare -r CONTAINER_NAME="zookeeper-$ZOOKEEPER_PORT"
-declare -r ADDRESS=$([[ "$(which ipconfig)" != "" ]] && ipconfig getifaddr en0 || hostname -i)
-source $DOCKER_FOLDER/init.sh
 # ===================================[functions]===================================
 
 function showHelp() {
