@@ -110,6 +110,8 @@ public class DependencyRecordTest extends RequireBrokerCluster {
           new DependencyRecord<>(producer.kafkaProducer(), initProConfig(), topicName);
       Assertions.assertNotEquals(dependencyRecord1.partition(), dependencyRecord3.partition());
       Assertions.assertNotEquals(dependencyRecord2.partition(), dependencyRecord3.partition());
+
+      dependencyRecord3.orderRecord(topicName, new byte[128]);
     }
   }
 }
