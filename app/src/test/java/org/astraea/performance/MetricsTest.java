@@ -32,4 +32,15 @@ public class MetricsTest {
     metrics.accept(0L, 1000L);
     Assertions.assertEquals(1000, metrics.bytes());
   }
+
+  @Test
+  void testCurrentBytes() {
+    var metrics = new Metrics();
+
+    Assertions.assertEquals(0, metrics.clearAndGetCurrentBytes());
+    metrics.accept(0L, 100L);
+    metrics.accept(0L, 101L);
+    Assertions.assertEquals(201, metrics.clearAndGetCurrentBytes());
+    Assertions.assertEquals(0, metrics.clearAndGetCurrentBytes());
+  }
 }

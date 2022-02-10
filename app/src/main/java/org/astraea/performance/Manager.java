@@ -100,7 +100,8 @@ public class Manager {
 
   /** Check if we should keep consuming record. */
   public boolean consumedDone() {
-    return producedDone() && consumedRecords() >= producedRecords();
+    return producedDone()
+        && (consumerMetrics.size() == 0 || consumedRecords() >= producedRecords());
   }
 
   /** Randomly choose a key according to the distribution. */
