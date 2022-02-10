@@ -111,7 +111,35 @@ public class DependencyRecordTest extends RequireBrokerCluster {
       Assertions.assertNotEquals(dependencyRecord1.partition(), dependencyRecord3.partition());
       Assertions.assertNotEquals(dependencyRecord2.partition(), dependencyRecord3.partition());
 
-      dependencyRecord3.orderRecord(topicName, new byte[128]);
+      var i = 0;
+      while (i < 299) {
+        var metaData =
+            producer.kafkaProducer().send(dependencyRecord3.orderRecord(topicName, new byte[128]));
+        var keyMetaData =
+            producer
+                .kafkaProducer()
+                .send(dependencyRecord3.orderRecord(topicName, key, new byte[128]));
+        assertEquals(topicName, metaData.get().topic());
+        assertEquals(topicName, keyMetaData.get().topic());
+        i++;
+      }
+    } catch (ExecutionException | InterruptedException e) {
+      e.printStackTrace();
+    }
+
+    try (var consumer =
+        Consumer.builder()
+            .brokers(bootstrapServers())
+            .fromBeginning()
+            .topics(Set.of(topicName))
+            .keyDeserializer(Deserializer.STRING)
+            .build()) {
+      var records = consumer.poll(Duration.ofSeconds(20));
+      var recordsCount = records.size();
+      while (recordsCount < 600) {
+        recordsCount += consumer.poll(Duration.ofSeconds(20)).size();
+      }
+      assertEquals(600, recordsCount);
     }
   }
 }

@@ -1,5 +1,7 @@
 package org.astraea.partitioner.smoothPartitioner;
 
+import static org.astraea.Utils.jmxAddress;
+
 import java.io.IOException;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
@@ -77,7 +79,7 @@ public class SmoothWeightPartitioner implements Partitioner {
   @Override
   public void configure(Map<String, ?> configs) {
     try {
-      var mapAddress = Utils.jmxAddress(configs);
+      var mapAddress = jmxAddress(configs);
       Objects.requireNonNull(mapAddress, "You must configure jmx_servers correctly.");
 
       nodeLoadClient = new NodeLoadClient(mapAddress);
