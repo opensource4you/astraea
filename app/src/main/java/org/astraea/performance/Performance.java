@@ -313,8 +313,9 @@ public class Performance {
         names = {"--size.distribution"},
         description =
             "String: Distribution name. Available distribution names: \"uniform\", \"zipfian\", \"latest\", \"fixed\". Default: \"uniform\"",
-        validateWith = ArgumentUtil.NotEmptyString.class)
-    String sizeDistribution = "uniform";
+        validateWith = ArgumentUtil.NotEmptyString.class,
+        converter = Distribution.DistributionConverter.class)
+    Distribution sizeDistribution = Distribution.uniform(1024);
 
     @Parameter(
         names = {"--specify.broker"},

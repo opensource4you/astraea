@@ -12,6 +12,10 @@ public interface Distribution {
 
   long get();
 
+  default Distribution setParameters(List<String> parameters) {
+    return this;
+  }
+
   class DistributionConverter implements IStringConverter<Distribution> {
     @Override
     public Distribution convert(String rawArgument) {
@@ -43,7 +47,22 @@ public interface Distribution {
   }
 
   static Distribution fixed(long value) {
-    return () -> value;
+    return new Distribution() {
+      private long val = value;
+
+      @Override
+      public long get() {
+        return val;
+      }
+
+      @Override
+      public Distribution setParameters(List<String> parameters) {
+        if (parameters.isEmpty())
+          throw new IllegalArgumentException("Parameter for `Distribution` should not be empty");
+        else this.val = Long.parseLong(parameters.get(0));
+        return this;
+      }
+    };
   }
 
   /** A distribution for providing a random long number from range [0, 2147483647) */
@@ -52,9 +71,24 @@ public interface Distribution {
   }
 
   /** A distribution for providing a random long number from range [0, N) */
-  static Distribution uniform(int N) {
+  static Distribution uniform(int value) {
     var rand = new Random();
-    return () -> (long) (rand.nextInt(N));
+    return new Distribution() {
+      private int N = value;
+
+      @Override
+      public long get() {
+        return rand.nextInt(N);
+      }
+
+      @Override
+      public Distribution setParameters(List<String> parameters) {
+        if (parameters.isEmpty())
+          throw new IllegalArgumentException("Parameter for `Distribution` should not be empty");
+        else this.N = Integer.parseInt(parameters.get(0));
+        return this;
+      }
+    };
   }
 
   /** A distribution for providing different random value every 2 seconds */
@@ -79,8 +113,33 @@ public interface Distribution {
    * Building a zipfian distribution with PDF: 1/k/H_N, where H_N is the Nth harmonic number (= 1/1
    * + 1/2 + ... + 1/N); k is the key id
    */
-  static Distribution zipfian(int N) {
+  static Distribution zipfian(int value) {
     var rand = new Random();
+    return new Distribution() {
+      private List<Double> cumulativeDensityTable =
+          Distribution.zipfianCumulativeDensityTable(value);
+
+      @Override
+      public long get() {
+        final double randNum = rand.nextDouble();
+        for (int i = 0; i < cumulativeDensityTable.size(); ++i) {
+          if (randNum < cumulativeDensityTable.get(i)) return i;
+        }
+        return (long) cumulativeDensityTable.size() - 1L;
+      }
+
+      @Override
+      public Distribution setParameters(List<String> parameters) {
+        if (parameters.isEmpty())
+          throw new IllegalArgumentException("Parameter for `Distribution` should not be empty");
+        cumulativeDensityTable =
+            Distribution.zipfianCumulativeDensityTable(Integer.parseInt(parameters.get(0)));
+        return this;
+      }
+    };
+  }
+
+  private static List<Double> zipfianCumulativeDensityTable(int N) {
     final List<Double> cumulativeDensityTable = new ArrayList<>();
     var H_N = IntStream.range(1, N + 1).mapToDouble(k -> 1D / k).sum();
     cumulativeDensityTable.add(1D / H_N);
@@ -88,12 +147,6 @@ public interface Distribution {
         .forEach(
             i ->
                 cumulativeDensityTable.add(cumulativeDensityTable.get(i - 1) + 1D / (i + 1) / H_N));
-    return () -> {
-      final double randNum = rand.nextDouble();
-      for (int i = 0; i < cumulativeDensityTable.size(); ++i) {
-        if (randNum < cumulativeDensityTable.get(i)) return (long) i;
-      }
-      return (long) cumulativeDensityTable.size() - 1L;
-    };
+    return cumulativeDensityTable;
   }
 }
