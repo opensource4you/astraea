@@ -215,7 +215,7 @@ Run the benchmark from source
 4. --replicas: topic config when creating new topic. Default: 1
 5. --consumers: the number of consumers (threads). Default: 1
 6. --producers: the number of producers (threads). Default: 1
-7. --run.until: the total number of records sent by the producers. Default: 1000records
+7. --run.until: the total number of records sent by the producers or the time for producer to send records. e.g. "--run.until 1m20s" or "--run.until 89242records" Default: 1000records
 8. --record.size: the (bound of) record size in byte. Default: 1 KiB
 9. --fixed.size: the flag to let all records have the same size
 10. --prop.file: the path to property file.

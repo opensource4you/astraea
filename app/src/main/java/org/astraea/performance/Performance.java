@@ -261,6 +261,7 @@ public class Performance {
                 + " The duration formats accepted are (a number) + (a time unit)."
                 + " The time units can be \"days\", \"day\", \"h\", \"m\", \"s, \"ms\","
                 + " \"us\", \"ns\"",
+        validateWith = ExeTime.Validator.class,
         converter = ExeTime.Converter.class)
     ExeTime exeTime = ExeTime.of("1000records");
 
