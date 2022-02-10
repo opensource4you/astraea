@@ -60,18 +60,70 @@ public class ManagerTest {
 
     argument.distribution = Distribution.uniform();
     var manager = new Manager(argument, List.of(), List.of());
-    Assertions.assertTrue(manager.getKey().isPresent());
+    Assertions.assertTrue(manager.getKey().length > 0);
 
     argument.distribution = Distribution.zipfian(10);
     manager = new Manager(argument, List.of(), List.of());
-    Assertions.assertTrue(manager.getKey().isPresent());
+    Assertions.assertTrue(manager.getKey().length > 0);
 
     argument.distribution = Distribution.latest();
     manager = new Manager(argument, List.of(), List.of());
-    Assertions.assertTrue(manager.getKey().isPresent());
+    Assertions.assertTrue(manager.getKey().length > 0);
 
-    argument.distribution = null;
+    argument.distribution = Distribution.fixed();
     manager = new Manager(argument, List.of(), List.of());
-    Assertions.assertTrue(manager.getKey().isEmpty());
+    Assertions.assertTrue(manager.getKey().length > 0);
+  }
+
+  @Test
+  void testConsumerDone() {
+    var argument = new Performance.Argument();
+    var producerMetrics = List.of(new Metrics());
+    var consumerMetrics = List.of(new Metrics());
+
+    argument.exeTime = ExeTime.of("1records");
+    var manager = new Manager(argument, producerMetrics, consumerMetrics);
+    Assertions.assertFalse(manager.consumedDone());
+
+    // Produce one record
+    producerMetrics.get(0).accept(0L, 0L);
+    Assertions.assertFalse(manager.consumedDone());
+
+    // Consume one record
+    consumerMetrics.get(0).accept(0L, 0L);
+    Assertions.assertFalse(manager.consumedDone());
+
+    manager.producerClosed();
+    Assertions.assertTrue(manager.consumedDone());
+
+    // Test zero consumer. (run for one record)
+    producerMetrics = List.of(new Metrics());
+    consumerMetrics = List.of();
+    manager = new Manager(argument, producerMetrics, consumerMetrics);
+    Assertions.assertFalse(manager.consumedDone());
+
+    // Produce one record
+    producerMetrics.get(0).accept(0L, 0L);
+    Assertions.assertFalse(manager.consumedDone());
+
+    manager.producerClosed();
+    Assertions.assertTrue(manager.consumedDone());
+  }
+
+  @Test
+  void testProducerDone() {
+    var argument = new Performance.Argument();
+    argument.exeTime = ExeTime.of("1records");
+    var producerMetrics = List.of(new Metrics());
+    var consumerMetrics = List.of(new Metrics());
+    var manager = new Manager(new Performance.Argument(), producerMetrics, consumerMetrics);
+
+    Assertions.assertFalse(manager.producedDone());
+
+    producerMetrics.get(0).accept(0L, 0L);
+    Assertions.assertFalse(manager.producedDone());
+
+    manager.producerClosed();
+    Assertions.assertTrue(manager.producedDone());
   }
 }

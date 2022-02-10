@@ -185,7 +185,7 @@ public class Performance {
             .sender()
             .topic(param.topic)
             .partition(partitions.get(rand.nextInt(partitions.size())))
-            .key(manager.getKey().orElse(null))
+            .key(manager.getKey())
             .value(payload.get())
             .timestamp(start)
             .run()
@@ -310,9 +310,9 @@ public class Performance {
     @Parameter(
         names = {"--key.distribution"},
         description =
-            "String: Distribution name. Available distribution names: \"uniform\", \"zipfian\", \"latest\". Default: (No key)",
+            "String: Distribution name. Available distribution names: \"fixed\" \"uniform\", \"zipfian\", \"latest\". Default: uniform",
         converter = Distribution.DistributionConverter.class)
-    Distribution distribution = null;
+    Distribution distribution = Distribution.uniform();
 
     @Parameter(
         names = {"--specify.broker"},
