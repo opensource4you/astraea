@@ -5,6 +5,9 @@ import com.beust.jcommander.IStringConverter;
 import com.beust.jcommander.JCommander;
 import com.beust.jcommander.ParameterException;
 import com.beust.jcommander.UnixStyleUsageFormatter;
+import java.nio.file.FileSystems;
+import java.nio.file.InvalidPathException;
+import java.nio.file.Path;
 import java.time.Duration;
 import java.util.Collection;
 import java.util.Set;
@@ -65,17 +68,6 @@ public class ArgumentUtil {
     public void validate(String name, String value) throws ParameterException {
       if (Long.parseLong(value) < 0)
         throw new ParameterException(name + " should not be negative.");
-    }
-  }
-
-  public static class ValidPath implements IParameterValidator {
-    private static final Pattern PATTERN = Pattern.compile("/?([ \\w-.]+/?)*");
-
-    @Override
-    public void validate(String name, String value) throws ParameterException {
-      if (!PATTERN.matcher(value).matches()) {
-        throw new ParameterException(value + " is not a valid path");
-      }
     }
   }
 
@@ -184,6 +176,17 @@ public class ArgumentUtil {
       if (!TIME_PATTERN.matcher(value).find())
         throw new ParameterException(
             "field \"" + name + "\"'s value \"" + value + "\" doesn't match time format");
+    }
+  }
+
+  public static class PathConverter implements IStringConverter<Path> {
+    @Override
+    public Path convert(String value) {
+      try {
+        return FileSystems.getDefault().getPath(value);
+      } catch (InvalidPathException ipe) {
+        throw new ParameterException(ipe);
+      }
     }
   }
 

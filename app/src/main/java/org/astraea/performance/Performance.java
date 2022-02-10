@@ -4,6 +4,8 @@ import com.beust.jcommander.IStringConverter;
 import com.beust.jcommander.Parameter;
 import com.beust.jcommander.ParameterException;
 import java.io.IOException;
+import java.nio.file.FileSystems;
+import java.nio.file.Path;
 import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
@@ -86,7 +88,10 @@ public class Performance {
     var manager = new Manager(param, producerMetrics, consumerMetrics);
     var tracker = new Tracker(producerMetrics, consumerMetrics, manager);
     Collection<ThreadPool.Executor> fileWriter =
-        (param.createCSV) ? List.of(new FileWriter(param.CSVPath, manager, tracker)) : List.of();
+        (param.createCSV)
+            ? List.of(
+                ReportWriter.createFileWriter(param.reportFormat, param.CSVPath, manager, tracker))
+            : List.of();
     var groupId = "groupId-" + System.currentTimeMillis();
     try (ThreadPool threadPool =
         ThreadPool.builder()
@@ -322,10 +327,16 @@ public class Performance {
     List<Integer> specifyBroker = List.of(-1);
 
     @Parameter(
-        names = {"--CSV.path"},
-        description = "String: A path to place the CSV file.",
-        validateWith = ArgumentUtil.ValidPath.class)
-    String CSVPath = "./";
+        names = {"--report.path"},
+        description = "String: A path to place the report.",
+        converter = ArgumentUtil.PathConverter.class)
+    Path CSVPath = FileSystems.getDefault().getPath(".");
+
+    @Parameter(
+        names = {"--report.format"},
+        description = "Output format for the report",
+        converter = ReportWriter.FileFormat.FileFormatConverter.class)
+    ReportWriter.FileFormat reportFormat;
   }
 
   static class CompressionArgument implements IStringConverter<CompressionType> {

@@ -222,7 +222,8 @@ Run the benchmark from source
 11. --partitioner: the partitioner to use in producers
 12. --jmx.servers: the jmx server addresses of the brokers 
 13. --key.distribution: Name of the distribution. Available distribution names: "uniform", "zipfian", "latest". Default: (No key)
-14. --CSV.path: A path to place the CSV file. Default: "./"
+14. --report.path: A path to place the CSV file. Default: "./"
+15. --report.format: Select output file format. Available format: "CSV", "JSON".
 
 ---
 
