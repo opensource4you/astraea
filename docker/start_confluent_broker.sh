@@ -3,15 +3,8 @@
 # ===============================[global variables]===============================
 
 declare -r USER=astraea
-declare -r VERSION=${REVISION:-${VERSION:-2.8.1}}
-declare -r REPO=${REPO:-ghcr.io/skiptests/astraea/broker}
-declare -r IMAGE_NAME="$REPO:$VERSION"
-declare -r BUILD=${BUILD:-false}
-declare -r RUN=${RUN:-true}
 declare -r DOCKER_FOLDER=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
-declare -r DOCKERFILE=$DOCKER_FOLDER/broker.dockerfile
 declare -r DATA_FOLDER_IN_CONTAINER_PREFIX="/tmp/log-folder"
-declare -r EXPORTER_VERSION="0.16.1"
 declare -r EXPORTER_PORT=${EXPORTER_PORT:-$(($(($RANDOM % 10000)) + 10000))}
 declare -r BROKER_PORT=${BROKER_PORT:-$(($(($RANDOM % 10000)) + 10000))}
 declare -r CONTAINER_NAME="broker-$BROKER_PORT"
@@ -208,6 +201,8 @@ setLogDirs
 
 docker run -d --init \
     --name $CONTAINER_NAME \
+    -e KAFKA_HEAP_OPTS="$HEAP_OPTS" \
+    -e KAFKA_JMX_OPTS="$JMX_OPTS" \
     -p $BROKER_JMX_PORT:$BROKER_JMX_PORT \
     -p $EXPORTER_PORT:$EXPORTER_PORT \
     -p $BROKER_PORT:9092 \
