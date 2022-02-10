@@ -51,20 +51,24 @@ RUN apt-get update && apt-get upgrade -y && apt-get install -y openjdk-11-jdk wg
 # add user
 RUN groupadd $USER && useradd -ms /bin/bash -g $USER $USER
 
-# change user
-USER $USER
-
 # download zookeeper
 WORKDIR /tmp
 RUN wget https://archive.apache.org/dist/zookeeper/zookeeper-${VERSION}/apache-zookeeper-${VERSION}-bin.tar.gz
-RUN mkdir /home/$USER/zookeeper
-RUN tar -zxvf apache-zookeeper-${VERSION}-bin.tar.gz -C /home/$USER/zookeeper --strip-components=1
-WORKDIR /home/$USER/zookeeper
+RUN mkdir /opt/zookeeper
+RUN tar -zxvf apache-zookeeper-${VERSION}-bin.tar.gz -C /opt/zookeeper --strip-components=1
+WORKDIR /opt/zookeeper
 
 # create config file
 RUN echo "tickTime=2000" >> ./conf/zoo.cfg
 RUN echo "dataDir=$DATA_FOLDER_IN_CONTAINER" >> ./conf/zoo.cfg
 RUN echo "clientPort=2181" >> ./conf/zoo.cfg
+
+# export ENV
+ENV ZOOKEEPER_HOME /opt/zookeeper
+
+# change user
+RUN chown -R $USER:$USER /opt/zookeeper
+USER $USER
 " >"$DOCKERFILE"
 }
 
@@ -109,13 +113,13 @@ checkNetwork
 if [[ -n "$DATA_FOLDER" ]]; then
   mkdir -p "$DATA_FOLDER"
   echo "mount $DATA_FOLDER to container"
-  docker run -d \
+  docker run -d --init \
     --name $CONTAINER_NAME \
     -p $ZOOKEEPER_PORT:2181 \
     -v "$DATA_FOLDER":$DATA_FOLDER_IN_CONTAINER \
     $IMAGE_NAME ./bin/zkServer.sh start-foreground
 else
-  docker run -d \
+  docker run -d --init \
     -p $ZOOKEEPER_PORT:2181 \
     $IMAGE_NAME ./bin/zkServer.sh start-foreground
 fi
