@@ -53,7 +53,7 @@ interface ExeTime {
     public void validate(String name, String value) throws ParameterException {
       if (!PATTERN.matcher(value).matches()) {
         throw new ParameterException(
-            "Invalid ExeTime format. valid format example: \"1m20s\" or \"89242records\"");
+            "Invalid ExeTime format. valid format example: \"1m\" or \"89242records\"");
       }
     }
   }

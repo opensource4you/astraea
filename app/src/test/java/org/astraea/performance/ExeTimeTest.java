@@ -32,5 +32,7 @@ public class ExeTimeTest {
         ParameterException.class, () -> validator.validate("--run.until", "10record"));
     Assertions.assertThrows(
         ParameterException.class, () -> validator.validate("--run.until", "1000"));
+    Assertions.assertThrows(
+        ParameterException.class, () -> validator.validate("--run.until", "10Ms"));
   }
 }

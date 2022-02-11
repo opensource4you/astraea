@@ -259,7 +259,7 @@ public class Performance {
         description =
             "Run until number of records are produced and consumed or until duration meets."
                 + " The duration formats accepted are (a number) + (a time unit)."
-                + " The time units can be \"days\", \"day\", \"h\", \"m\", \"s, \"ms\","
+                + " The time units can be \"days\", \"day\", \"h\", \"m\", \"s\", \"ms\","
                 + " \"us\", \"ns\"",
         validateWith = ExeTime.Validator.class,
         converter = ExeTime.Converter.class)
@@ -328,7 +328,7 @@ public class Performance {
     @Override
     public CompressionType convert(String value) {
       try {
-        return CompressionType.forName(value.toLowerCase());
+        return CompressionType.forName(value);
       } catch (IllegalArgumentException e) {
         throw new ParameterException(
             "the "
