@@ -8,7 +8,7 @@ declare -r DATA_FOLDER_IN_CONTAINER_PREFIX="/tmp/log-folder"
 declare -r EXPORTER_PORT=${EXPORTER_PORT:-$(($(($RANDOM % 10000)) + 10000))}
 declare -r BROKER_PORT=${BROKER_PORT:-$(($(($RANDOM % 10000)) + 10000))}
 declare -r CONTAINER_NAME="broker-$BROKER_PORT"
-declare -r BROKER_JMX_PORT="$(($(($RANDOM % 10000)) + 10000))"
+declare -r BROKER_JMX_PORT="${BROKER_JMX_PORT:-$(($(($RANDOM % 10000)) + 10000))}"
 declare -r ADMIN_NAME="admin"
 declare -r ADMIN_PASSWORD="admin-secret"
 declare -r USER_NAME="user"
@@ -60,7 +60,7 @@ function checkNetwork() {
 }
 
 function rejectProperty() {
-  local key=$1c
+  local key=$1
   if [[ -f "$BROKER_PROPERTIES" ]] && [[ "$(cat $BROKER_PROPERTIES | grep $key)" != "" ]]; then
     echo "$key is NOT configurable"
     exit 2
