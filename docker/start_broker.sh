@@ -66,7 +66,7 @@ function checkNetwork() {
 }
 
 function rejectProperty() {
-  local key=$1c
+  local key=$1
   if [[ -f "$BROKER_PROPERTIES" ]] && [[ "$(cat $BROKER_PROPERTIES | grep $key)" != "" ]]; then
     echo "$key is NOT configurable"
     exit 2
