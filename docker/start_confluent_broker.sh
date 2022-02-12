@@ -107,7 +107,7 @@ function setLogDirs() {
       count=$((count + 1))
     done
   else
-    count=3
+    count=1
   fi
 
   local logConfigs="log.dirs=$DATA_FOLDER_IN_CONTAINER_PREFIX-0"
