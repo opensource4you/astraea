@@ -208,7 +208,7 @@ docker run -d --init \
     -p $BROKER_PORT:9092 \
     -v $BROKER_PROPERTIES:/tmp/broker.properties:ro \
     $(generateMountCommand) \
-    confluentinc/cp-enterprise-kafka:latest /bin/kafka-server-start /tmp/broker.properties
+    confluentinc/cp-server:latest /bin/kafka-server-start /tmp/broker.properties
 echo "================================================="
 [[ -n "$DATA_FOLDERS" ]] && echo "mount $DATA_FOLDERS to container: $CONTAINER_NAME"
 echo "broker id: $(fetchBrokerId)"
