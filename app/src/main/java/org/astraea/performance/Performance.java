@@ -5,7 +5,12 @@ import com.beust.jcommander.Parameter;
 import com.beust.jcommander.ParameterException;
 import java.io.IOException;
 import java.time.Duration;
-import java.util.*;
+import java.util.Collection;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Random;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
@@ -15,8 +20,10 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.clients.producer.internals.DefaultPartitioner;
+import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.errors.WakeupException;
 import org.apache.kafka.common.record.CompressionType;
+import org.astraea.Utils;
 import org.astraea.argument.ArgumentUtil;
 import org.astraea.argument.BasicArgumentWithPropFile;
 import org.astraea.concurrent.ThreadPool;
@@ -71,6 +78,7 @@ public class Performance {
           .topic(param.topic)
           .create();
 
+      Utils.waitFor(() -> topicAdmin.topicNames().contains(param.topic));
       partitions = partition(param, topicAdmin);
     }
 
@@ -212,7 +220,7 @@ public class Performance {
       return topicAdmin
           .partitionsOfBrokers(Set.of(param.topic), new HashSet<>(param.specifyBroker))
           .stream()
-          .map(topicPartition -> topicPartition.partition())
+          .map(TopicPartition::partition)
           .collect(Collectors.toList());
     } else return List.of(-1);
   }
