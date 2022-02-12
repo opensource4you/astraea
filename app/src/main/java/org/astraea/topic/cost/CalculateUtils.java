@@ -58,8 +58,8 @@ public class CalculateUtils {
               var loadSum = countSum(loadSet);
               var partitionNum = load.get(broker).keySet().size();
               brokerLoad.put(broker, loadSum);
-              var mean = loadSum / loadSet.size();
-              partitionMean.put(broker, loadSum / loadSet.size());
+              var mean = loadSum / load.get(broker).size();
+              partitionMean.put(broker, loadSum / load.get(broker).size());
               var SD =
                   Math.pow((countSum(LoadSQR) - mean * mean * partitionNum) / partitionNum, 0.5);
               partitionSD.put(broker, SD);
