@@ -3,7 +3,7 @@ package org.astraea.performance;
 import com.beust.jcommander.IStringConverter;
 import java.time.Duration;
 import java.util.function.BiFunction;
-import org.astraea.argument.ArgumentUtil;
+import org.astraea.argument.converter.DurationConverter;
 
 /**
  * Two kind of running modes. One runs for a duration of time. The other runs for a number of
@@ -18,7 +18,7 @@ interface ExeTime {
       final long records = Long.parseLong(exeTime.replace("records", ""));
       return ExeTime.of((completeRecords, ignore) -> 100D * completeRecords / records, exeTime);
     }
-    final Duration duration = new ArgumentUtil.DurationConverter().convert(exeTime);
+    final Duration duration = new DurationConverter().convert(exeTime);
     return ExeTime.of((ignore, elapsedTime) -> 100D * elapsedTime / duration.toMillis(), exeTime);
   }
 
