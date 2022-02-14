@@ -13,6 +13,8 @@ import java.util.stream.Stream;
 import org.apache.kafka.common.TopicPartition;
 import org.astraea.argument.ArgumentUtil;
 import org.astraea.argument.BasicArgumentWithPropFile;
+import org.astraea.argument.converter.StringSetConverter;
+import org.astraea.argument.validator.NotEmptyString;
 import org.astraea.utils.DataSize;
 import org.astraea.utils.DataUnit;
 
@@ -424,8 +426,8 @@ public class TopicExplorer {
     @Parameter(
         names = {"--topics"},
         description = "the topics to show all offset-related information. Empty means all topics",
-        validateWith = ArgumentUtil.NotEmptyString.class,
-        converter = ArgumentUtil.StringSetConverter.class)
+        validateWith = NotEmptyString.class,
+        converter = StringSetConverter.class)
     public Set<String> topics = Collections.emptySet();
   }
 }

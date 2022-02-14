@@ -26,6 +26,10 @@ import org.apache.kafka.common.record.CompressionType;
 import org.astraea.Utils;
 import org.astraea.argument.ArgumentUtil;
 import org.astraea.argument.BasicArgumentWithPropFile;
+import org.astraea.argument.converter.ShortConverter;
+import org.astraea.argument.validator.NonNegativeLong;
+import org.astraea.argument.validator.NotEmptyString;
+import org.astraea.argument.validator.PositiveLong;
 import org.astraea.concurrent.ThreadPool;
 import org.astraea.consumer.Consumer;
 import org.astraea.producer.Producer;
@@ -234,32 +238,32 @@ public class Performance {
     @Parameter(
         names = {"--topic"},
         description = "String: topic name",
-        validateWith = ArgumentUtil.NotEmptyString.class)
+        validateWith = NotEmptyString.class)
     String topic = "testPerformance-" + System.currentTimeMillis();
 
     @Parameter(
         names = {"--partitions"},
         description = "Integer: number of partitions to create the topic",
-        validateWith = ArgumentUtil.PositiveLong.class)
+        validateWith = PositiveLong.class)
     int partitions = 1;
 
     @Parameter(
         names = {"--replicas"},
         description = "Integer: number of replica to create the topic",
-        validateWith = ArgumentUtil.PositiveLong.class,
-        converter = ArgumentUtil.ShortConverter.class)
+        validateWith = PositiveLong.class,
+        converter = ShortConverter.class)
     short replicas = 1;
 
     @Parameter(
         names = {"--producers"},
         description = "Integer: number of producers to produce records",
-        validateWith = ArgumentUtil.PositiveLong.class)
+        validateWith = PositiveLong.class)
     int producers = 1;
 
     @Parameter(
         names = {"--consumers"},
         description = "Integer: number of consumers to consume records",
-        validateWith = ArgumentUtil.NonNegativeLong.class)
+        validateWith = NonNegativeLong.class)
     int consumers = 1;
 
     @Parameter(
@@ -288,13 +292,13 @@ public class Performance {
         names = {"--jmx.servers"},
         description =
             "String: server to get jmx metrics <jmx_server>@<broker_id>[,<jmx_server>@<broker_id>]*",
-        validateWith = ArgumentUtil.NotEmptyString.class)
+        validateWith = NotEmptyString.class)
     String jmxServers = "";
 
     @Parameter(
         names = {"--partitioner"},
         description = "String: the full class name of the desired partitioner",
-        validateWith = ArgumentUtil.NotEmptyString.class)
+        validateWith = NotEmptyString.class)
     String partitioner = DefaultPartitioner.class.getName();
 
     public Map<String, Object> producerProps() {
@@ -327,7 +331,7 @@ public class Performance {
         names = {"--specify.broker"},
         description =
             "String: Used with SpecifyBrokerPartitioner to specify the brokers that partitioner can send.",
-        validateWith = ArgumentUtil.NotEmptyString.class)
+        validateWith = NotEmptyString.class)
     List<Integer> specifyBroker = List.of(-1);
   }
 

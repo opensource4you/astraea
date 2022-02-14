@@ -11,6 +11,7 @@ import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.clients.admin.AdminClientConfig;
 import org.apache.kafka.clients.admin.KafkaAdminClient;
 import org.astraea.argument.ArgumentUtil;
+import org.astraea.argument.validator.NotEmptyString;
 import org.astraea.performance.Performance;
 
 /**
@@ -91,7 +92,7 @@ public class Automation {
     @Parameter(
         names = {"--file"},
         description = "String: automation.properties address",
-        validateWith = ArgumentUtil.NotEmptyString.class)
+        validateWith = NotEmptyString.class)
     String address = "";
   }
 }

@@ -6,13 +6,14 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.stream.Collectors;
 import org.apache.kafka.clients.CommonClientConfigs;
+import org.astraea.argument.validator.NotEmptyString;
 
 /** This basic argument defines the common property used by all kafka clients. */
 public abstract class BasicArgument {
   @Parameter(
       names = {"--bootstrap.servers"},
       description = "String: server to connect to",
-      validateWith = ArgumentUtil.NotEmptyString.class,
+      validateWith = NotEmptyString.class,
       required = true)
   public String brokers;
 
