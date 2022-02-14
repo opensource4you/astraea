@@ -325,9 +325,14 @@ public class Performance {
 
   static class CompressionArgument implements IStringConverter<CompressionType> {
 
+    /**
+     * @param value Name of compression type. Accept lower-case name only ("none", "gzip", "snappy",
+     *     "lz4", "zstd").
+     */
     @Override
     public CompressionType convert(String value) {
       try {
+        // `CompressionType#forName` accept lower-case name only.
         return CompressionType.forName(value);
       } catch (IllegalArgumentException e) {
         throw new ParameterException(
