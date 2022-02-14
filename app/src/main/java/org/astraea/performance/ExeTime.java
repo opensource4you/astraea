@@ -1,8 +1,11 @@
 package org.astraea.performance;
 
+import com.beust.jcommander.IParameterValidator;
 import com.beust.jcommander.IStringConverter;
+import com.beust.jcommander.ParameterException;
 import java.time.Duration;
 import java.util.function.BiFunction;
+import java.util.regex.Pattern;
 import org.astraea.argument.ArgumentUtil;
 
 /**
@@ -40,6 +43,18 @@ interface ExeTime {
     @Override
     public ExeTime convert(String value) {
       return ExeTime.of(value);
+    }
+  }
+
+  class Validator implements IParameterValidator {
+    static final Pattern PATTERN = Pattern.compile("^([0-9]+)(days|day|h|m|s|ms|us|ns|records)$");
+
+    @Override
+    public void validate(String name, String value) throws ParameterException {
+      if (!PATTERN.matcher(value).matches()) {
+        throw new ParameterException(
+            "Invalid ExeTime format. valid format example: \"1m\" or \"89242records\"");
+      }
     }
   }
 }

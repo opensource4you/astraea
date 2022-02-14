@@ -61,16 +61,16 @@ public class Tracker implements ThreadPool.Executor {
             + duration.toSecondsPart()
             + "sec");
     System.out.printf("producers completion rate: %.2f%%%n", percentage);
-    System.out.printf("  average Throughput: %.3f MB/second%n", result.averageBytes(duration));
+    System.out.printf("  average throughput: %.3f MB/second%n", result.averageBytes(duration));
     System.out.printf(
         "  current throughput: %s/second%n", DataUnit.Byte.of(result.totalCurrentBytes()));
-    System.out.println("  publish max latency: " + result.maxLatency + "ms");
-    System.out.println("  publish mim latency: " + result.minLatency + "ms");
+    System.out.println("  publish max latency: " + result.maxLatency + " ms");
+    System.out.println("  publish mim latency: " + result.minLatency + " ms");
     for (int i = 0; i < result.bytes.size(); ++i) {
       System.out.printf(
           "  producer[%d] average throughput: %.3f MB%n", i, avg(duration, result.bytes.get(i)));
       System.out.printf(
-          "  producer[%d] average publish latency: %.3fms%n", i, result.averageLatencies.get(i));
+          "  producer[%d] average publish latency: %.3f ms%n", i, result.averageLatencies.get(i));
     }
     System.out.println("\n");
     return percentage >= 100D;
@@ -88,13 +88,14 @@ public class Tracker implements ThreadPool.Executor {
     System.out.printf("  average throughput: %.3f MB/second%n", result.averageBytes(duration));
     System.out.printf(
         "  current throughput: %s/second%n", DataUnit.Byte.of(result.totalCurrentBytes()));
-    System.out.println("  end-to-end max latency: " + result.maxLatency + "ms");
-    System.out.println("  end-to-end mim latency: " + result.minLatency + "ms");
+    System.out.println("  end-to-end max latency: " + result.maxLatency + " ms");
+    System.out.println("  end-to-end mim latency: " + result.minLatency + " ms");
     for (int i = 0; i < result.bytes.size(); ++i) {
       System.out.printf(
           "  consumer[%d] average throughput: %.3f MB%n", i, avg(duration, result.bytes.get(i)));
       System.out.printf(
-          "  consumer[%d] average ene-to-end latency: %.3fms%n", i, result.averageLatencies.get(i));
+          "  consumer[%d] average ene-to-end latency: %.3f ms%n",
+          i, result.averageLatencies.get(i));
     }
     System.out.println("\n");
     // Target number of records consumed OR consumed all that produced

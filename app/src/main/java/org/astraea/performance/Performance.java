@@ -267,8 +267,9 @@ public class Performance {
         description =
             "Run until number of records are produced and consumed or until duration meets."
                 + " The duration formats accepted are (a number) + (a time unit)."
-                + " The time units can be \"days\", \"day\", \"h\", \"m\", \"s, \"ms\","
+                + " The time units can be \"days\", \"day\", \"h\", \"m\", \"s\", \"ms\","
                 + " \"us\", \"ns\"",
+        validateWith = ExeTime.Validator.class,
         converter = ExeTime.Converter.class)
     ExeTime exeTime = ExeTime.of("1000records");
 
@@ -332,10 +333,15 @@ public class Performance {
 
   static class CompressionArgument implements IStringConverter<CompressionType> {
 
+    /**
+     * @param value Name of compression type. Accept lower-case name only ("none", "gzip", "snappy",
+     *     "lz4", "zstd").
+     */
     @Override
     public CompressionType convert(String value) {
       try {
-        return CompressionType.forName(value.toLowerCase());
+        // `CompressionType#forName` accept lower-case name only.
+        return CompressionType.forName(value);
       } catch (IllegalArgumentException e) {
         throw new ParameterException(
             "the "
