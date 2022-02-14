@@ -1,9 +1,11 @@
 #!/bin/bash
 declare -r USER=astraea
-declare -r IMAGE_NAME="$REPO:$VERSION"
 declare -r BUILD=${BUILD:-false}
 declare -r RUN=${RUN:-true}
 declare -r ADDRESS=$([[ "$(which ipconfig)" != "" ]] && ipconfig getifaddr en0 || hostname -i)
+
+# ===================================[functions]===================================
+
 function getRandomPort() {
   echo $(($(($RANDOM%10000))+10000))
 }
@@ -22,19 +24,21 @@ function checkNetwork() {
 }
 
 function buildImageIfNeed() {
-  if [[ "$(docker images -q $IMAGE_NAME 2>/dev/null)" == "" ]]; then
+  local imageName=$1
+  if [[ "$(docker images -q $imageName 2>/dev/null)" == "" ]]; then
+    echo yes
     local needToBuild="true"
     if [[ "$BUILD" == "false" ]]; then
-      docker pull $IMAGE_NAME 2>/dev/null
+      docker pull $imageName 2>/dev/null
       if [[ "$?" == "0" ]]; then
         needToBuild="false"
       else
-        echo "Can't find $IMAGE_NAME from repo. Will build $IMAGE_NAME on the local"
+        echo "Can't find $imageName from repo. Will build $imageName on the local"
       fi
     fi
     if [[ "$needToBuild" == "true" ]]; then
       generateDockerfile
-      docker build --no-cache -t "$IMAGE_NAME" -f "$DOCKERFILE" "$DOCKER_FOLDER"
+      docker build --no-cache -t "$imageName" -f "$DOCKERFILE" "$DOCKER_FOLDER"
       if [[ "$?" != "0" ]]; then
         exit 2
       fi

@@ -3,12 +3,10 @@
 # ===============================[global variables]===============================
 declare -r VERSION=${REVISION:-${VERSION:-main}}
 declare -r REPO=${REPO:-ghcr.io/skiptests/astraea/kafka-tool}
+declare -r IMAGE_NAME="$REPO:$VERSION"
 declare -r DOCKER_FOLDER=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
 source $DOCKER_FOLDER/docker_build_common.sh
 declare -r DOCKERFILE=$DOCKER_FOLDER/kafka_tool.dockerfile
-declare -r BUILD=${BUILD:-false}
-declare -r RUN=${RUN:-true}
-declare -r ADDRESS=$([[ "$(which ipconfig)" != "" ]] && ipconfig getifaddr en0 || hostname -i)
 declare -r JMX_PORT=${JMX_PORT:-"$(getRandomPort)"}
 declare -r JMX_OPTS="-Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false \
                      -Dcom.sun.management.jmxremote.port=$JMX_PORT -Dcom.sun.management.jmxremote.rmi.port=$JMX_PORT -Djava.rmi.server.hostname=$ADDRESS"
@@ -68,7 +66,7 @@ function runContainer() {
 
 checkDocker
 generateDockerfile
-buildImageIfNeed
+buildImageIfNeed $IMAGE_NAME
 
 if [[ "$RUN" != "true" ]]; then
   echo "docker image: $IMAGE_NAME is created"

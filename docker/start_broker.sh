@@ -3,6 +3,7 @@
 # ===============================[global variables]===============================
 declare -r VERSION=${REVISION:-${VERSION:-2.8.1}}
 declare -r REPO=${REPO:-ghcr.io/skiptests/astraea/broker}
+declare -r IMAGE_NAME="$REPO:$VERSION"
 declare -r DOCKER_FOLDER=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
 source $DOCKER_FOLDER/docker_build_common.sh
 declare -r DOCKERFILE=$DOCKER_FOLDER/broker.dockerfile
@@ -26,6 +27,7 @@ declare -r HEAP_OPTS="${HEAP_OPTS:-"-Xmx2G -Xms2G"}"
 declare -r BROKER_PROPERTIES="/tmp/server-${BROKER_PORT}.properties"
 # cleanup the file if it is existent
 [[ -f "$BROKER_PROPERTIES" ]] && rm -f "$BROKER_PROPERTIES"
+
 # ===================================[functions]===================================
 
 function showHelp() {
@@ -225,7 +227,7 @@ function fetchBrokerId() {
 
 checkDocker
 generateDockerfile
-buildImageIfNeed
+buildImageIfNeed $IMAGE_NAME
 
 if [[ "$RUN" != "true" ]]; then
   echo "docker image: $IMAGE_NAME is created"
