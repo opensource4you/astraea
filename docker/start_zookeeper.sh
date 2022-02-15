@@ -43,32 +43,40 @@ function checkNetwork() {
 
 function generateDockerfile() {
   echo "# this dockerfile is generated dynamically
-FROM ubuntu:20.04
+FROM ubuntu:20.04 AS build
 
 # install tools
-RUN apt-get update && apt-get upgrade -y && apt-get install -y openjdk-11-jdk wget
-
-# add user
-RUN groupadd $USER && useradd -ms /bin/bash -g $USER $USER
+RUN apt-get update && apt-get install -y wget
 
 # download zookeeper
 WORKDIR /tmp
 RUN wget https://archive.apache.org/dist/zookeeper/zookeeper-${VERSION}/apache-zookeeper-${VERSION}-bin.tar.gz
 RUN mkdir /opt/zookeeper
 RUN tar -zxvf apache-zookeeper-${VERSION}-bin.tar.gz -C /opt/zookeeper --strip-components=1
-WORKDIR /opt/zookeeper
+
+FROM ubuntu:20.04
+
+# install tools
+RUN apt-get update && apt-get install -y openjdk-11-jre
+
+# copy zookeeper
+COPY --from=build /opt/zookeeper /opt/zookeeper
+
+# add user
+RUN groupadd $USER && useradd -ms /bin/bash -g $USER $USER
 
 # create config file
-RUN echo "tickTime=2000" >> ./conf/zoo.cfg
-RUN echo "dataDir=$DATA_FOLDER_IN_CONTAINER" >> ./conf/zoo.cfg
-RUN echo "clientPort=2181" >> ./conf/zoo.cfg
-
-# export ENV
-ENV ZOOKEEPER_HOME /opt/zookeeper
+RUN echo "tickTime=2000" >> /opt/zookeeper/conf/zoo.cfg
+RUN echo "dataDir=$DATA_FOLDER_IN_CONTAINER" >> /opt/zookeeper/conf/zoo.cfg
+RUN echo "clientPort=2181" >> /opt/zookeeper/conf/zoo.cfg
 
 # change user
 RUN chown -R $USER:$USER /opt/zookeeper
 USER $USER
+
+# export ENV
+ENV ZOOKEEPER_HOME /opt/zookeeper
+WORKDIR /opt/zookeeper
 " >"$DOCKERFILE"
 }
 

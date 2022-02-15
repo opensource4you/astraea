@@ -33,13 +33,13 @@ function checkDocker() {
 
 function generateDockerfile() {
   echo "# this dockerfile is generated dynamically
-FROM ubuntu:20.04
+FROM ubuntu:20.04 AS build
 
 # Do not ask for confirmations when running apt-get, etc.
 ENV DEBIAN_FRONTEND noninteractive
 
 # install tools
-RUN apt-get update && apt-get upgrade -y && apt-get install -y openjdk-11-jdk git curl
+RUN apt-get update && apt-get install -y openjdk-11-jdk git curl
 
 # clone repo
 WORKDIR /tmp
@@ -49,7 +49,27 @@ RUN git clone https://github.com/skiptests/astraea
 WORKDIR /tmp/astraea
 RUN git checkout $VERSION
 RUN ./gradlew clean build -x test --no-daemon
-RUN cp \$(find ./app/build/libs/ -maxdepth 1 -type f -name app-*-all.jar) /tmp/app.jar
+RUN mkdir /opt/astraea
+RUN cp \$(find ./app/build/libs/ -maxdepth 1 -type f -name app-*-all.jar) /opt/astraea/app.jar
+
+FROM ubuntu:20.04
+
+# install tools
+RUN apt-get update && apt-get install -y openjdk-11-jre
+
+# copy astraea
+COPY --from=build /opt/astraea /opt/astraea
+
+# add user
+RUN groupadd $USER && useradd -ms /bin/bash -g $USER $USER
+
+# change user
+RUN chown -R $USER:$USER /opt/astraea
+USER $USER
+
+# export ENV
+ENV ASTRAEA_HOME /opt/astraea
+WORKDIR /opt/astraea
 " >"$DOCKERFILE"
 }
 
@@ -80,7 +100,7 @@ function runContainer() {
   docker run --rm --init \
     -p $JMX_PORT:$JMX_PORT \
     $IMAGE_NAME \
-    /bin/bash -c "java $JMX_OPTS -jar /tmp/app.jar $args"
+    /bin/bash -c "java $JMX_OPTS -jar /opt/astraea/app.jar $args"
 }
 
 # ===================================[main]===================================
