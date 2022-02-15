@@ -49,7 +49,7 @@ RUN cp \$(find ./app/build/libs/ -maxdepth 1 -type f -name app-*-all.jar) /tmp/a
 function runContainer() {
   local args=$1
   docker run --rm --init \
-    $IMAGE_NAME \
+    "$IMAGE_NAME" \
     /bin/bash -c "java -jar /tmp/app.jar $args"
 }
 
@@ -58,7 +58,7 @@ function runContainer() {
   echo "JMX address: $ADDRESS:$JMX_PORT"
   docker run --rm --init \
     -p $JMX_PORT:$JMX_PORT \
-    $IMAGE_NAME \
+    "$IMAGE_NAME" \
     /bin/bash -c "java $JMX_OPTS -jar /tmp/app.jar $args"
 }
 
@@ -66,7 +66,7 @@ function runContainer() {
 
 checkDocker
 generateDockerfile
-buildImageIfNeed $IMAGE_NAME
+buildImageIfNeed "$IMAGE_NAME"
 
 if [[ "$RUN" != "true" ]]; then
   echo "docker image: $IMAGE_NAME is created"

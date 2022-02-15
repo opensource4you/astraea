@@ -131,7 +131,7 @@ declare -r master_url=$1
 
 checkDocker
 generateDockerfile
-buildImageIfNeed $IMAGE_NAME
+buildImageIfNeed "$IMAGE_NAME"
 
 if [[ "$RUN" != "true" ]]; then
   echo "docker image: $IMAGE_NAME is created"
@@ -149,7 +149,7 @@ if [[ -n "$master_url" ]]; then
     -e SPARK_NO_DAEMONIZE=true \
     --name "$WORKER_NAME" \
     --network host \
-    $IMAGE_NAME ./sbin/start-worker.sh "$master_url"
+    "$IMAGE_NAME" ./sbin/start-worker.sh "$master_url"
 
   echo "================================================="
   echo "Starting Spark worker $ADDRESS:$SPARK_PORT"
@@ -163,7 +163,7 @@ else
     -e SPARK_NO_DAEMONIZE=true \
     --name "$MASTER_NAME" \
     --network host \
-    $IMAGE_NAME ./sbin/start-master.sh
+    "$IMAGE_NAME" ./sbin/start-master.sh
 
   echo "================================================="
   echo "Starting Spark master at spark://$ADDRESS:$SPARK_PORT"

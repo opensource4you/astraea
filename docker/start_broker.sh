@@ -227,7 +227,7 @@ function fetchBrokerId() {
 
 checkDocker
 generateDockerfile
-buildImageIfNeed $IMAGE_NAME
+buildImageIfNeed "$IMAGE_NAME"
 
 if [[ "$RUN" != "true" ]]; then
   echo "docker image: $IMAGE_NAME is created"
@@ -269,7 +269,7 @@ docker run -d --init \
   -p $BROKER_PORT:9092 \
   -p $BROKER_JMX_PORT:$BROKER_JMX_PORT \
   -p $EXPORTER_PORT:$EXPORTER_PORT \
-  $IMAGE_NAME ./bin/kafka-server-start.sh /tmp/broker.properties
+  "$IMAGE_NAME" ./bin/kafka-server-start.sh /tmp/broker.properties
 
 echo "================================================="
 [[ -n "$DATA_FOLDERS" ]] && echo "mount $DATA_FOLDERS to container: $CONTAINER_NAME"

@@ -62,7 +62,7 @@ if [[ "$1" == "help" ]]; then
 fi
 
 checkDocker
-buildImageIfNeed $IMAGE_NAME
+buildImageIfNeed "$IMAGE_NAME"
 
 if [[ "$RUN" != "true" ]]; then
   echo "docker image: $IMAGE_NAME is created"
@@ -78,11 +78,11 @@ if [[ -n "$DATA_FOLDER" ]]; then
     --name $CONTAINER_NAME \
     -p $ZOOKEEPER_PORT:2181 \
     -v "$DATA_FOLDER":$DATA_FOLDER_IN_CONTAINER \
-    $IMAGE_NAME ./bin/zkServer.sh start-foreground
+    "$IMAGE_NAME" ./bin/zkServer.sh start-foreground
 else
   docker run -d --init \
     -p $ZOOKEEPER_PORT:2181 \
-    $IMAGE_NAME ./bin/zkServer.sh start-foreground
+    "$IMAGE_NAME" ./bin/zkServer.sh start-foreground
 fi
 
 echo "================================================="
