@@ -20,8 +20,6 @@ function showHelp() {
   echo "    master-url=spar://node00:1111    start a spark worker. Or start a spark master if master-url is not defined"
   echo "ENV: "
   echo "    VERSION=3.1.2                    set version of spark distribution"
-  echo "    DELTA_VERSION=1.0.0              set version of delta distribution"
-  echo "    PYTHON_KAFKA_VERSION=1.7.0       set version of confluent kafka distribution"
   echo "    BUILD=false                      set true if you want to build image locally"
   echo "    RUN=false                        set false if you want to build/pull image only"
   echo "    PYTHON_DEPS=delta-spark=1.0.0    set the python dependencies which are pre-installed in the docker image"
@@ -48,16 +46,10 @@ function checkConflictContainer() {
 
 function generateDockerfileByVersion() {
   echo "# this dockerfile is generated dynamically
-FROM ubuntu:20.04
-
-# Do not ask for confirmations when running apt-get, etc.
-ENV DEBIAN_FRONTEND noninteractive
+FROM ubuntu:20.04 AS build
 
 # install tools
-RUN apt-get update && apt-get upgrade -y && apt-get install -y openjdk-11-jdk wget python3 python3-pip unzip tini
-
-# add user
-RUN groupadd $USER && useradd -ms /bin/bash -g $USER $USER
+RUN apt-get update && apt-get install -y wget unzip
 
 # download spark
 WORKDIR /tmp
@@ -65,49 +57,70 @@ RUN wget https://archive.apache.org/dist/spark/spark-${VERSION}/spark-${VERSION}
 RUN mkdir /opt/spark
 RUN tar -zxvf spark-${VERSION}-bin-hadoop3.2.tgz -C /opt/spark --strip-components=1
 
-# export ENV
-ENV SPARK_HOME /opt/spark
-
-# change user
-RUN chown -R $USER:$USER /opt/spark
-USER $USER
-
-WORKDIR /opt/spark
-" >"$DOCKERFILE"
-}
-
-function generateDockerfileBySource() {
-  echo "# this dockerfile is generated dynamically
 FROM ubuntu:20.04
 
 # Do not ask for confirmations when running apt-get, etc.
 ENV DEBIAN_FRONTEND noninteractive
 
 # install tools
-RUN apt-get update && apt-get upgrade -y && apt-get install -y openjdk-11-jdk python3 python3-pip git curl
+RUN apt-get update && apt-get install -y openjdk-11-jre python3 python3-pip
 
-# install python dependencies
-RUN pip3 install confluent-kafka==$PYTHON_KAFKA_VERSION
+# copy spark
+COPY --from=build /opt/spark /opt/spark
 
 # add user
 RUN groupadd $USER && useradd -ms /bin/bash -g $USER $USER
-
-# build spark from source code
-RUN git clone https://github.com/apache/spark /tmp/spark
-WORKDIR /tmp/spark
-RUN git checkout $VERSION
-RUN ./dev/make-distribution.sh --pip --tgz
-RUN mkdir /opt/spark
-RUN tar -zxvf \$(find ./ -maxdepth 1 -type f -name spark-*SNAPSHOT*.tgz) -C /opt/spark --strip-components=1
-RUN ./build/mvn install -DskipTests
-
-# export ENV
-ENV SPARK_HOME /opt/spark
 
 # change user
 RUN chown -R $USER:$USER /opt/spark
 USER $USER
 
+# export ENV
+ENV SPARK_HOME /opt/spark
+WORKDIR /opt/spark
+" >"$DOCKERFILE"
+}
+
+function generateDockerfileBySource() {
+  echo "# this dockerfile is generated dynamically
+FROM ubuntu:20.04 AS build
+
+# Do not ask for confirmations when running apt-get, etc.
+ENV DEBIAN_FRONTEND noninteractive
+
+# install tools
+RUN apt-get update && apt-get install -y openjdk-11-jdk python3 python3-pip git curl
+
+# build spark from source code
+RUN git clone https://github.com/apache/spark /tmp/spark
+WORKDIR /tmp/spark
+RUN git checkout $VERSION
+ENV MAVEN_OPTS=\"-Xmx3g\"
+RUN ./dev/make-distribution.sh --pip --tgz
+RUN mkdir /opt/spark
+RUN tar -zxvf \$(find ./ -maxdepth 1 -type f -name spark-*SNAPSHOT*.tgz) -C /opt/spark --strip-components=1
+RUN ./build/mvn install -DskipTests
+
+FROM ubuntu:20.04
+
+# Do not ask for confirmations when running apt-get, etc.
+ENV DEBIAN_FRONTEND noninteractive
+
+# install tools
+RUN apt-get update && apt-get install -y openjdk-11-jre python3 python3-pip
+
+# copy spark
+COPY --from=build /opt/spark /opt/spark
+
+# add user
+RUN groupadd $USER && useradd -ms /bin/bash -g $USER $USER
+
+# change user
+RUN chown -R $USER:$USER /opt/spark
+USER $USER
+
+# export ENV
+ENV SPARK_HOME /opt/spark
 WORKDIR /opt/spark
 " >"$DOCKERFILE"
 }

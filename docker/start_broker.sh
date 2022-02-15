@@ -50,7 +50,7 @@ function showHelp() {
 
 
 function rejectProperty() {
-  local key=$1c
+  local key=$1
   if [[ -f "$BROKER_PROPERTIES" ]] && [[ "$(cat $BROKER_PROPERTIES | grep $key)" != "" ]]; then
     echo "$key is NOT configurable"
     exit 2
@@ -67,17 +67,17 @@ function requireProperty() {
 
 function generateDockerfileBySource() {
   echo "# this dockerfile is generated dynamically
-FROM ubuntu:20.04
+FROM ubuntu:20.04 AS build
 
 # install tools
-RUN apt-get update && apt-get upgrade -y && DEBIAN_FRONTEND=noninteractive apt-get install -y openjdk-11-jdk wget git curl
+RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y openjdk-11-jdk wget git curl
 
 # add user
 RUN groupadd $USER && useradd -ms /bin/bash -g $USER $USER
 
 # download jmx exporter
-RUN mkdir /tmp/jmx_exporter
-WORKDIR /tmp/jmx_exporter
+RUN mkdir /opt/jmx_exporter
+WORKDIR /opt/jmx_exporter
 RUN wget https://raw.githubusercontent.com/prometheus/jmx_exporter/master/example_configs/kafka-2_0_0.yml
 RUN wget https://REPO1.maven.org/maven2/io/prometheus/jmx/jmx_prometheus_javaagent/${EXPORTER_VERSION}/jmx_prometheus_javaagent-${EXPORTER_VERSION}.jar
 
@@ -88,30 +88,39 @@ RUN git checkout $VERSION
 RUN ./gradlew clean releaseTarGz
 RUN mkdir /opt/kafka
 RUN tar -zxvf \$(find ./core/build/distributions/ -maxdepth 1 -type f -name kafka_*SNAPSHOT.tgz) -C /opt/kafka --strip-components=1
-WORKDIR /opt/kafka
 
-# export ENV
-ENV KAFKA_HOME /opt/kafka
+FROM ubuntu:20.04
+
+# install tools
+RUN apt-get update && apt-get install -y openjdk-11-jre
+
+# copy kafka
+COPY --from=build /opt/jmx_exporter /opt/jmx_exporter
+COPY --from=build /opt/kafka /opt/kafka
+
+# add user
+RUN groupadd $USER && useradd -ms /bin/bash -g $USER $USER
 
 # change user
 RUN chown -R $USER:$USER /opt/kafka
 USER $USER
+
+# export ENV
+ENV KAFKA_HOME /opt/kafka
+WORKDIR /opt/kafka
 " >"$DOCKERFILE"
 }
 
 function generateDockerfileByVersion() {
   echo "# this dockerfile is generated dynamically
-FROM ubuntu:20.04
+FROM ubuntu:20.04 AS build
 
 # install tools
-RUN apt-get update && apt-get upgrade -y && apt-get install -y openjdk-11-jdk wget
-
-# add user
-RUN groupadd $USER && useradd -ms /bin/bash -g $USER $USER
+RUN apt-get update && apt-get install -y wget
 
 # download jmx exporter
-RUN mkdir /tmp/jmx_exporter
-WORKDIR /tmp/jmx_exporter
+RUN mkdir /opt/jmx_exporter
+WORKDIR /opt/jmx_exporter
 RUN wget https://raw.githubusercontent.com/prometheus/jmx_exporter/master/example_configs/kafka-2_0_0.yml
 RUN wget https://REPO1.maven.org/maven2/io/prometheus/jmx/jmx_prometheus_javaagent/${EXPORTER_VERSION}/jmx_prometheus_javaagent-${EXPORTER_VERSION}.jar
 
@@ -122,12 +131,25 @@ RUN mkdir /opt/kafka
 RUN tar -zxvf kafka_2.13-${VERSION}.tgz -C /opt/kafka --strip-components=1
 WORKDIR /opt/kafka
 
-# export ENV
-ENV KAFKA_HOME /opt/kafka
+FROM ubuntu:20.04
+
+# install tools
+RUN apt-get update && apt-get install -y openjdk-11-jre
+
+# copy kafka
+COPY --from=build /opt/jmx_exporter /opt/jmx_exporter
+COPY --from=build /opt/kafka /opt/kafka
+
+# add user
+RUN groupadd $USER && useradd -ms /bin/bash -g $USER $USER
 
 # change user
 RUN chown -R $USER:$USER /opt/kafka
 USER $USER
+
+# export ENV
+ENV KAFKA_HOME /opt/kafka
+WORKDIR /opt/kafka
 " >"$DOCKERFILE"
 }
 
@@ -263,7 +285,7 @@ docker run -d --init \
   --name $CONTAINER_NAME \
   -e KAFKA_HEAP_OPTS="$HEAP_OPTS" \
   -e KAFKA_JMX_OPTS="$JMX_OPTS" \
-  -e KAFKA_OPTS="-javaagent:/tmp/jmx_exporter/jmx_prometheus_javaagent-${EXPORTER_VERSION}.jar=$EXPORTER_PORT:/tmp/jmx_exporter/kafka-2_0_0.yml" \
+  -e KAFKA_OPTS="-javaagent:/opt/jmx_exporter/jmx_prometheus_javaagent-${EXPORTER_VERSION}.jar=$EXPORTER_PORT:/opt/jmx_exporter/kafka-2_0_0.yml" \
   -v $BROKER_PROPERTIES:/tmp/broker.properties:ro \
   $(generateMountCommand) \
   -p $BROKER_PORT:9092 \
