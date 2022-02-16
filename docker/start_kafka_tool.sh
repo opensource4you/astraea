@@ -23,7 +23,6 @@ function showHelp() {
   echo "    RUN=false                  set false if you want to build/pull image only"
 }
 
-
 function generateDockerfile() {
   echo "# this dockerfile is generated dynamically
 FROM ubuntu:20.04 AS build
@@ -65,8 +64,6 @@ ENV ASTRAEA_HOME /opt/astraea
 WORKDIR /opt/astraea
 " >"$DOCKERFILE"
 }
-
-
 
 function runContainer() {
   local args=$1

@@ -49,8 +49,6 @@ function showHelp() {
   echo "    DATA_FOLDERS=/tmp/folder1,/tmp/folder2   set host folders used by broker"
 }
 
-
-
 function rejectProperty() {
   local key=$1
   if [[ -f "$BROKER_PROPERTIES" ]] && [[ "$(cat $BROKER_PROPERTIES | grep $key)" != "" ]]; then
@@ -162,7 +160,6 @@ function generateDockerfile() {
     generateDockerfileByVersion
   fi
 }
-
 
 function setListener() {
   if [[ "$SASL" == "true" ]]; then

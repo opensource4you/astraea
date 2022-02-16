@@ -26,7 +26,6 @@ function showHelp() {
   echo "    PYTHON_DEPS=delta-spark=1.0.0    set the python dependencies which are pre-installed in the docker image"
 }
 
-
 function checkOs() {
   if [[ "$OSTYPE" == "darwin"* ]]; then
     echo "This script requires to run container with \"--network host\", but the feature is unsupported by Mac OS"

@@ -9,6 +9,7 @@ declare -r ADDRESS=$([[ "$(which ipconfig)" != "" ]] && ipconfig getifaddr en0 |
 function getRandomPort() {
   echo $(($(($RANDOM%10000))+10000))
 }
+
 function checkDocker() {
   if [[ "$(which docker)" == "" ]]; then
     echo "you have to install docker"
