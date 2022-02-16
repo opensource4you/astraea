@@ -14,6 +14,7 @@ import java.util.stream.Stream;
 import javax.management.openmbean.CompositeDataSupport;
 import javax.management.remote.JMXServiceURL;
 import org.astraea.argument.ArgumentUtil;
+import org.astraea.argument.validator.NotEmptyString;
 import org.astraea.metrics.jmx.BeanObject;
 import org.astraea.metrics.jmx.BeanQuery;
 import org.astraea.metrics.jmx.MBeanClient;
@@ -175,7 +176,7 @@ public class MetricExplorer {
         names = {"--jmx.server"},
         description =
             "The JMX server address to connect to, support [hostname:port] style or JMX URI format",
-        validateWith = ArgumentUtil.NotEmptyString.class,
+        validateWith = NotEmptyString.class,
         converter = Argument.JmxServerUrlConverter.class,
         required = true)
     JMXServiceURL jmxServer;

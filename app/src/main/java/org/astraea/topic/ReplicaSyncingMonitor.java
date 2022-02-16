@@ -15,6 +15,8 @@ import org.apache.kafka.common.TopicPartitionReplica;
 import org.astraea.Utils;
 import org.astraea.argument.ArgumentUtil;
 import org.astraea.argument.BasicArgumentWithPropFile;
+import org.astraea.argument.converter.DurationConverter;
+import org.astraea.argument.validator.NotEmptyString;
 import org.astraea.utils.DataRate;
 import org.astraea.utils.DataSize;
 import org.astraea.utils.DataUnit;
@@ -298,7 +300,7 @@ public class ReplicaSyncingMonitor {
     @Parameter(
         names = {"--topics"},
         description = "String: topics to track, use all non-synced topics by default",
-        validateWith = ArgumentUtil.NotEmptyString.class)
+        validateWith = NotEmptyString.class)
     public Set<String> topics = Set.of();
 
     @Parameter(
@@ -312,8 +314,8 @@ public class ReplicaSyncingMonitor {
         description =
             "Time: the time interval between replica state check, support multiple time unit like 10s, 500ms and 100us. "
                 + "If no time unit specified, second unit will be used.",
-        validateWith = ArgumentUtil.DurationConverter.class,
-        converter = ArgumentUtil.DurationConverter.class)
+        validateWith = DurationConverter.class,
+        converter = DurationConverter.class)
     public Duration interval = Duration.ofSeconds(1);
   }
 }

@@ -2,12 +2,13 @@ package org.astraea.argument;
 
 import com.beust.jcommander.Parameter;
 import java.util.Map;
+import org.astraea.argument.validator.NotEmptyString;
 
 public abstract class BasicArgumentWithPropFile extends BasicArgument {
   @Parameter(
       names = {"--prop.file"},
       description = "the file path containing the properties to be passed to kafka admin",
-      validateWith = ArgumentUtil.NotEmptyString.class)
+      validateWith = NotEmptyString.class)
   public String propFile;
 
   /**

@@ -1,18 +1,15 @@
 #!/bin/bash
 
-# ===============================[global variables]===============================
+declare -r DOCKER_FOLDER=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
+source $DOCKER_FOLDER/docker_build_common.sh
 
-declare -r USER=astraea
+# ===============================[global variables]===============================
 declare -r VERSION=${REVISION:-${VERSION:-3.1.2}}
 declare -r REPO=${REPO:-ghcr.io/skiptests/astraea/spark}
 declare -r IMAGE_NAME="$REPO:$VERSION"
-declare -r BUILD=${BUILD:-false}
-declare -r RUN=${RUN:-true}
-declare -r SPARK_PORT=${SPARK_PORT:-$(($(($RANDOM % 10000)) + 10000))}
-declare -r SPARK_UI_PORT=${SPARK_UI_PORT:-$(($(($RANDOM % 10000)) + 10000))}
-declare -r DOCKER_FOLDER=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
+declare -r SPARK_PORT=${SPARK_PORT:-"$(getRandomPort)"}
+declare -r SPARK_UI_PORT=${SPARK_UI_PORT:-"$(getRandomPort)"}
 declare -r DOCKERFILE=$DOCKER_FOLDER/spark.dockerfile
-declare -r ADDRESS=$([[ "$(which ipconfig)" != "" ]] && ipconfig getifaddr en0 || hostname -i)
 declare -r MASTER_NAME="spark-master"
 declare -r WORKER_NAME="spark-worker"
 
@@ -24,25 +21,9 @@ function showHelp() {
   echo "    master-url=spar://node00:1111    start a spark worker. Or start a spark master if master-url is not defined"
   echo "ENV: "
   echo "    VERSION=3.1.2                    set version of spark distribution"
-  echo "    DELTA_VERSION=1.0.0              set version of delta distribution"
-  echo "    PYTHON_KAFKA_VERSION=1.7.0       set version of confluent kafka distribution"
   echo "    BUILD=false                      set true if you want to build image locally"
   echo "    RUN=false                        set false if you want to build/pull image only"
   echo "    PYTHON_DEPS=delta-spark=1.0.0    set the python dependencies which are pre-installed in the docker image"
-}
-
-function checkDocker() {
-  if [[ "$(which docker)" == "" ]]; then
-    echo "you have to install docker"
-    exit 2
-  fi
-}
-
-function checkNetwork() {
-  if [[ "$ADDRESS" == "127.0.0.1" || "$ADDRESS" == "127.0.1.1" ]]; then
-    echo "Either 127.0.0.1 or 127.0.1.1 can't be used in this script. Please check /etc/hosts"
-    exit 2
-  fi
 }
 
 function checkOs() {
@@ -65,16 +46,10 @@ function checkConflictContainer() {
 
 function generateDockerfileByVersion() {
   echo "# this dockerfile is generated dynamically
-FROM ubuntu:20.04
-
-# Do not ask for confirmations when running apt-get, etc.
-ENV DEBIAN_FRONTEND noninteractive
+FROM ubuntu:20.04 AS build
 
 # install tools
-RUN apt-get update && apt-get upgrade -y && apt-get install -y openjdk-11-jdk wget python3 python3-pip unzip tini
-
-# add user
-RUN groupadd $USER && useradd -ms /bin/bash -g $USER $USER
+RUN apt-get update && apt-get install -y wget unzip
 
 # download spark
 WORKDIR /tmp
@@ -82,49 +57,70 @@ RUN wget https://archive.apache.org/dist/spark/spark-${VERSION}/spark-${VERSION}
 RUN mkdir /opt/spark
 RUN tar -zxvf spark-${VERSION}-bin-hadoop3.2.tgz -C /opt/spark --strip-components=1
 
-# export ENV
-ENV SPARK_HOME /opt/spark
-
-# change user
-RUN chown -R $USER:$USER /opt/spark
-USER $USER
-
-WORKDIR /opt/spark
-" >"$DOCKERFILE"
-}
-
-function generateDockerfileBySource() {
-  echo "# this dockerfile is generated dynamically
 FROM ubuntu:20.04
 
 # Do not ask for confirmations when running apt-get, etc.
 ENV DEBIAN_FRONTEND noninteractive
 
 # install tools
-RUN apt-get update && apt-get upgrade -y && apt-get install -y openjdk-11-jdk python3 python3-pip git curl
+RUN apt-get update && apt-get install -y openjdk-11-jre python3 python3-pip
 
-# install python dependencies
-RUN pip3 install confluent-kafka==$PYTHON_KAFKA_VERSION
+# copy spark
+COPY --from=build /opt/spark /opt/spark
 
 # add user
 RUN groupadd $USER && useradd -ms /bin/bash -g $USER $USER
-
-# build spark from source code
-RUN git clone https://github.com/apache/spark /tmp/spark
-WORKDIR /tmp/spark
-RUN git checkout $VERSION
-RUN ./dev/make-distribution.sh --pip --tgz
-RUN mkdir /opt/spark
-RUN tar -zxvf \$(find ./ -maxdepth 1 -type f -name spark-*SNAPSHOT*.tgz) -C /opt/spark --strip-components=1
-RUN ./build/mvn install -DskipTests
-
-# export ENV
-ENV SPARK_HOME /opt/spark
 
 # change user
 RUN chown -R $USER:$USER /opt/spark
 USER $USER
 
+# export ENV
+ENV SPARK_HOME /opt/spark
+WORKDIR /opt/spark
+" >"$DOCKERFILE"
+}
+
+function generateDockerfileBySource() {
+  echo "# this dockerfile is generated dynamically
+FROM ubuntu:20.04 AS build
+
+# Do not ask for confirmations when running apt-get, etc.
+ENV DEBIAN_FRONTEND noninteractive
+
+# install tools
+RUN apt-get update && apt-get install -y openjdk-11-jdk python3 python3-pip git curl
+
+# build spark from source code
+RUN git clone https://github.com/apache/spark /tmp/spark
+WORKDIR /tmp/spark
+RUN git checkout $VERSION
+ENV MAVEN_OPTS=\"-Xmx3g\"
+RUN ./dev/make-distribution.sh --pip --tgz
+RUN mkdir /opt/spark
+RUN tar -zxvf \$(find ./ -maxdepth 1 -type f -name spark-*SNAPSHOT*.tgz) -C /opt/spark --strip-components=1
+RUN ./build/mvn install -DskipTests
+
+FROM ubuntu:20.04
+
+# Do not ask for confirmations when running apt-get, etc.
+ENV DEBIAN_FRONTEND noninteractive
+
+# install tools
+RUN apt-get update && apt-get install -y openjdk-11-jre python3 python3-pip
+
+# copy spark
+COPY --from=build /opt/spark /opt/spark
+
+# add user
+RUN groupadd $USER && useradd -ms /bin/bash -g $USER $USER
+
+# change user
+RUN chown -R $USER:$USER /opt/spark
+USER $USER
+
+# export ENV
+ENV SPARK_HOME /opt/spark
 WORKDIR /opt/spark
 " >"$DOCKERFILE"
 }
@@ -134,27 +130,6 @@ function generateDockerfile() {
     generateDockerfileBySource
   else
     generateDockerfileByVersion
-  fi
-}
-
-function buildImageIfNeed() {
-  if [[ "$(docker images -q $IMAGE_NAME 2>/dev/null)" == "" ]]; then
-    local needToBuild="true"
-    if [[ "$BUILD" == "false" ]]; then
-      docker pull $IMAGE_NAME 2>/dev/null
-      if [[ "$?" == "0" ]]; then
-        needToBuild="false"
-      else
-        echo "Can't find $IMAGE_NAME from repo. Will build $IMAGE_NAME on the local"
-      fi
-    fi
-    if [[ "$needToBuild" == "true" ]]; then
-      generateDockerfile
-      docker build --no-cache -t "$IMAGE_NAME" -f "$DOCKERFILE" "$DOCKER_FOLDER"
-      if [[ "$?" != "0" ]]; then
-        exit 2
-      fi
-    fi
   fi
 }
 
@@ -169,7 +144,7 @@ declare -r master_url=$1
 
 checkDocker
 generateDockerfile
-buildImageIfNeed
+buildImageIfNeed "$IMAGE_NAME"
 
 if [[ "$RUN" != "true" ]]; then
   echo "docker image: $IMAGE_NAME is created"
@@ -187,7 +162,7 @@ if [[ -n "$master_url" ]]; then
     -e SPARK_NO_DAEMONIZE=true \
     --name "$WORKER_NAME" \
     --network host \
-    $IMAGE_NAME ./sbin/start-worker.sh "$master_url"
+    "$IMAGE_NAME" ./sbin/start-worker.sh "$master_url"
 
   echo "================================================="
   echo "Starting Spark worker $ADDRESS:$SPARK_PORT"
@@ -201,7 +176,7 @@ else
     -e SPARK_NO_DAEMONIZE=true \
     --name "$MASTER_NAME" \
     --network host \
-    $IMAGE_NAME ./sbin/start-master.sh
+    "$IMAGE_NAME" ./sbin/start-master.sh
 
   echo "================================================="
   echo "Starting Spark master at spark://$ADDRESS:$SPARK_PORT"
