@@ -1,11 +1,13 @@
 #!/bin/bash
 
+
+declare -r DOCKER_FOLDER=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
+source $DOCKER_FOLDER/docker_build_common.sh
+
 # ===============================[global variables]===============================
 declare -r VERSION=${REVISION:-${VERSION:-main}}
 declare -r REPO=${REPO:-ghcr.io/skiptests/astraea/kafka-tool}
 declare -r IMAGE_NAME="$REPO:$VERSION"
-declare -r DOCKER_FOLDER=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
-source $DOCKER_FOLDER/docker_build_common.sh
 declare -r DOCKERFILE=$DOCKER_FOLDER/kafka_tool.dockerfile
 declare -r JMX_PORT=${JMX_PORT:-"$(getRandomPort)"}
 declare -r JMX_OPTS="-Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false \

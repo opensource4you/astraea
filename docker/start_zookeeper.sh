@@ -1,11 +1,12 @@
 #!/bin/bash
 
+declare -r DOCKER_FOLDER=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
+source $DOCKER_FOLDER/docker_build_common.sh
+
 # ===============================[global variables]===============================
 declare -r VERSION=${VERSION:-3.7.0}
 declare -r REPO=${REPO:-ghcr.io/skiptests/astraea/zookeeper}
 declare -r IMAGE_NAME="$REPO:$VERSION"
-declare -r DOCKER_FOLDER=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
-source $DOCKER_FOLDER/docker_build_common.sh
 declare -r ZOOKEEPER_PORT=${ZOOKEEPER_PORT:-"$(getRandomPort)"}
 declare -r DOCKERFILE=$DOCKER_FOLDER/zookeeper.dockerfile
 declare -r DATA_FOLDER_IN_CONTAINER="/tmp/zookeeper-dir"
