@@ -6,7 +6,7 @@ source $DOCKER_FOLDER/docker_build_common.sh
 # ===============================[global variables]===============================
 declare -r DATA_FOLDER_IN_CONTAINER_PREFIX="/tmp/log-folder"
 declare -r EXPORTER_PORT=${EXPORTER_PORT:-"$(getRandomPort)"}
-declare -r BROKER_PORT=${BROKER_PORT:-"$(getRandomPort)")}
+declare -r BROKER_PORT=${BROKER_PORT:-"$(getRandomPort)"}
 declare -r CONTAINER_NAME="broker-$BROKER_PORT"
 declare -r BROKER_JMX_PORT="${BROKER_JMX_PORT:-"$(getRandomPort)"}"
 declare -r ADMIN_NAME="admin"
