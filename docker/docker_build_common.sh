@@ -26,7 +26,6 @@ function checkNetwork() {
 function buildImageIfNeed() {
   local imageName="$1"
   if [[ "$(docker images -q "$imageName" 2>/dev/null)" == "" ]]; then
-    echo yes
     local needToBuild="true"
     if [[ "$BUILD" == "false" ]]; then
       docker pull "$imageName" 2>/dev/null
