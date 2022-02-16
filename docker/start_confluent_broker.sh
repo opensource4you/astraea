@@ -1,19 +1,18 @@
 #!/bin/bash
 
-# ===============================[global variables]===============================
-
-declare -r USER=astraea
 declare -r DOCKER_FOLDER=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
+source $DOCKER_FOLDER/docker_build_common.sh
+
+# ===============================[global variables]===============================
 declare -r DATA_FOLDER_IN_CONTAINER_PREFIX="/tmp/log-folder"
-declare -r EXPORTER_PORT=${EXPORTER_PORT:-$(($(($RANDOM % 10000)) + 10000))}
-declare -r BROKER_PORT=${BROKER_PORT:-$(($(($RANDOM % 10000)) + 10000))}
+declare -r EXPORTER_PORT=${EXPORTER_PORT:-"$(getRandomPort)"}
+declare -r BROKER_PORT=${BROKER_PORT:-"$(getRandomPort)")}
 declare -r CONTAINER_NAME="broker-$BROKER_PORT"
-declare -r BROKER_JMX_PORT="${BROKER_JMX_PORT:-$(($(($RANDOM % 10000)) + 10000))}"
+declare -r BROKER_JMX_PORT="${BROKER_JMX_PORT:-"$(getRandomPort)"}"
 declare -r ADMIN_NAME="admin"
 declare -r ADMIN_PASSWORD="admin-secret"
 declare -r USER_NAME="user"
 declare -r USER_PASSWORD="user-secret"
-declare -r ADDRESS=$([[ "$(which ipconfig)" != "" ]] && ipconfig getifaddr en0 || hostname -i)
 declare -r JMX_OPTS="-Dcom.sun.management.jmxremote \
   -Dcom.sun.management.jmxremote.authenticate=false \
   -Dcom.sun.management.jmxremote.ssl=false \
@@ -43,20 +42,6 @@ function showHelp() {
   echo "    BUILD=false                              set true if you want to build image locally"
   echo "    RUN=false                                set false if you want to build/pull image only"
   echo "    DATA_FOLDERS=/tmp/folder1,/tmp/folder2   set host folders used by broker"
-}
-
-function checkDocker() {
-  if [[ "$(which docker)" == "" ]]; then
-    echo "you have to install docker"
-    exit 2
-  fi
-}
-
-function checkNetwork() {
-  if [[ "$ADDRESS" == "127.0.0.1" || "$ADDRESS" == "127.0.1.1" ]]; then
-    echo "Either 127.0.0.1 or 127.0.1.1 can't be used in this script. Please check /etc/hosts"
-    exit 2
-  fi
 }
 
 function rejectProperty() {
