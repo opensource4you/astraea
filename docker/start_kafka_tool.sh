@@ -67,13 +67,6 @@ WORKDIR /opt/astraea
 
 function runContainer() {
   local args=$1
-  docker run --rm --init \
-    "$IMAGE_NAME" \
-    /bin/bash -c "java -jar /tmp/app.jar $args"
-}
-
-function runContainer() {
-  local args=$1
   echo "JMX address: $ADDRESS:$JMX_PORT"
   docker run --rm --init \
     -p $JMX_PORT:$JMX_PORT \
