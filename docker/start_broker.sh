@@ -1,26 +1,23 @@
 #!/bin/bash
 
-# ===============================[global variables]===============================
+declare -r DOCKER_FOLDER=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
+source $DOCKER_FOLDER/docker_build_common.sh
 
-declare -r USER=astraea
+# ===============================[global variables]===============================
 declare -r VERSION=${REVISION:-${VERSION:-2.8.1}}
 declare -r REPO=${REPO:-ghcr.io/skiptests/astraea/broker}
 declare -r IMAGE_NAME="$REPO:$VERSION"
-declare -r BUILD=${BUILD:-false}
-declare -r RUN=${RUN:-true}
-declare -r DOCKER_FOLDER=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
 declare -r DOCKERFILE=$DOCKER_FOLDER/broker.dockerfile
 declare -r DATA_FOLDER_IN_CONTAINER_PREFIX="/tmp/log-folder"
 declare -r EXPORTER_VERSION="0.16.1"
-declare -r EXPORTER_PORT=${EXPORTER_PORT:-$(($(($RANDOM % 10000)) + 10000))}
-declare -r BROKER_PORT=${BROKER_PORT:-$(($(($RANDOM % 10000)) + 10000))}
+declare -r EXPORTER_PORT=${EXPORTER_PORT:-"$(getRandomPort)"}
+declare -r BROKER_PORT=${BROKER_PORT:-"$(getRandomPort)"}
 declare -r CONTAINER_NAME="broker-$BROKER_PORT"
-declare -r BROKER_JMX_PORT="${BROKER_JMX_PORT:-$(($(($RANDOM % 10000)) + 10000))}"
+declare -r BROKER_JMX_PORT="${BROKER_JMX_PORT:-"$(getRandomPort)"}"
 declare -r ADMIN_NAME="admin"
 declare -r ADMIN_PASSWORD="admin-secret"
 declare -r USER_NAME="user"
 declare -r USER_PASSWORD="user-secret"
-declare -r ADDRESS=$([[ "$(which ipconfig)" != "" ]] && ipconfig getifaddr en0 || hostname -i)
 declare -r JMX_OPTS="-Dcom.sun.management.jmxremote \
   -Dcom.sun.management.jmxremote.authenticate=false \
   -Dcom.sun.management.jmxremote.ssl=false \
@@ -29,6 +26,7 @@ declare -r JMX_OPTS="-Dcom.sun.management.jmxremote \
   -Djava.rmi.server.hostname=$ADDRESS"
 declare -r HEAP_OPTS="${HEAP_OPTS:-"-Xmx2G -Xms2G"}"
 declare -r BROKER_PROPERTIES="/tmp/server-${BROKER_PORT}.properties"
+
 # cleanup the file if it is existent
 [[ -f "$BROKER_PROPERTIES" ]] && rm -f "$BROKER_PROPERTIES"
 
@@ -49,20 +47,6 @@ function showHelp() {
   echo "    BUILD=false                              set true if you want to build image locally"
   echo "    RUN=false                                set false if you want to build/pull image only"
   echo "    DATA_FOLDERS=/tmp/folder1,/tmp/folder2   set host folders used by broker"
-}
-
-function checkDocker() {
-  if [[ "$(which docker)" == "" ]]; then
-    echo "you have to install docker"
-    exit 2
-  fi
-}
-
-function checkNetwork() {
-  if [[ "$ADDRESS" == "127.0.0.1" || "$ADDRESS" == "127.0.1.1" ]]; then
-    echo "Either 127.0.0.1 or 127.0.1.1 can't be used in this script. Please check /etc/hosts"
-    exit 2
-  fi
 }
 
 function rejectProperty() {
@@ -177,27 +161,6 @@ function generateDockerfile() {
   fi
 }
 
-function buildImageIfNeed() {
-  if [[ "$(docker images -q $IMAGE_NAME 2>/dev/null)" == "" ]]; then
-    local needToBuild="true"
-    if [[ "$BUILD" == "false" ]]; then
-      docker pull $IMAGE_NAME 2>/dev/null
-      if [[ "$?" == "0" ]]; then
-        needToBuild="false"
-      else
-        echo "Can't find $IMAGE_NAME from repo. Will build $IMAGE_NAME on the local"
-      fi
-    fi
-    if [[ "$needToBuild" == "true" ]]; then
-      generateDockerfile
-      docker build --no-cache -t "$IMAGE_NAME" -f "$DOCKERFILE" "$DOCKER_FOLDER"
-      if [[ "$?" != "0" ]]; then
-        exit 2
-      fi
-    fi
-  fi
-}
-
 function setListener() {
   if [[ "$SASL" == "true" ]]; then
     echo "listeners=SASL_PLAINTEXT://:9092" >>"$BROKER_PROPERTIES"
@@ -285,7 +248,7 @@ function fetchBrokerId() {
 
 checkDocker
 generateDockerfile
-buildImageIfNeed
+buildImageIfNeed "$IMAGE_NAME"
 
 if [[ "$RUN" != "true" ]]; then
   echo "docker image: $IMAGE_NAME is created"
@@ -327,7 +290,7 @@ docker run -d --init \
   -p $BROKER_PORT:9092 \
   -p $BROKER_JMX_PORT:$BROKER_JMX_PORT \
   -p $EXPORTER_PORT:$EXPORTER_PORT \
-  $IMAGE_NAME ./bin/kafka-server-start.sh /tmp/broker.properties
+  "$IMAGE_NAME" ./bin/kafka-server-start.sh /tmp/broker.properties
 
 echo "================================================="
 [[ -n "$DATA_FOLDERS" ]] && echo "mount $DATA_FOLDERS to container: $CONTAINER_NAME"
