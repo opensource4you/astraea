@@ -3,6 +3,7 @@ package org.astraea.performance;
 import com.beust.jcommander.IStringConverter;
 import com.beust.jcommander.Parameter;
 import com.beust.jcommander.ParameterException;
+import com.beust.jcommander.converters.PathConverter;
 import java.io.IOException;
 import java.nio.file.FileSystems;
 import java.nio.file.Path;
@@ -20,8 +21,6 @@ import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
-
-import com.beust.jcommander.converters.PathConverter;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.clients.producer.internals.DefaultPartitioner;
 import org.apache.kafka.common.TopicPartition;
@@ -102,7 +101,7 @@ public class Performance {
     var manager = new Manager(param, producerMetrics, consumerMetrics);
     var tracker = new Tracker(producerMetrics, consumerMetrics, manager);
     Collection<ThreadPool.Executor> fileWriter =
-        (param.createCSV)
+        (param.createReport)
             ? List.of(
                 ReportWriter.createFileWriter(param.reportFormat, param.CSVPath, manager, tracker))
             : List.of();
@@ -316,9 +315,9 @@ public class Performance {
     }
 
     @Parameter(
-        names = {"--createCSV"},
+        names = {"--create.report"},
         description = "create the metrics into a csv file if this flag is set")
-    boolean createCSV = false;
+    boolean createReport = false;
 
     @Parameter(
         names = {"--compression"},
@@ -351,7 +350,7 @@ public class Performance {
         names = {"--report.format"},
         description = "Output format for the report",
         converter = ReportWriter.FileFormat.FileFormatConverter.class)
-    ReportWriter.FileFormat reportFormat;
+    ReportWriter.FileFormat reportFormat = ReportWriter.FileFormat.CSV;
   }
 
   static class CompressionArgument implements IStringConverter<CompressionType> {

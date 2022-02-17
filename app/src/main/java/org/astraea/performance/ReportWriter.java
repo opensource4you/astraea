@@ -192,8 +192,8 @@ public interface ReportWriter extends ThreadPool.Executor {
   }
 
   enum FileFormat {
-    CSV("CSV"),
-    JSON("JSON");
+    CSV("csv"),
+    JSON("json");
 
     private final String name;
 
@@ -210,7 +210,7 @@ public interface ReportWriter extends ThreadPool.Executor {
           case "json":
             return FileFormat.JSON;
           default:
-            throw new ParameterException("Invalid file format. Use \"CSV\" or \"JSON\"");
+            throw new ParameterException("Invalid file format. Use \"csv\" or \"json\"");
         }
       }
     }
