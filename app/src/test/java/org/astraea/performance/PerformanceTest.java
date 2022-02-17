@@ -3,9 +3,11 @@ package org.astraea.performance;
 import static org.astraea.performance.Performance.partition;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
+import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.TopicPartition;
 import org.astraea.Utils;
 import org.astraea.concurrent.ThreadPool;
@@ -13,6 +15,7 @@ import org.astraea.consumer.Consumer;
 import org.astraea.producer.Producer;
 import org.astraea.service.RequireBrokerCluster;
 import org.astraea.topic.TopicAdmin;
+import org.astraea.utils.DataUnit;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -149,6 +152,34 @@ public class PerformanceTest extends RequireBrokerCluster {
 
       Assertions.assertEquals(1, metrics.num());
       Assertions.assertNotEquals(1024, metrics.bytes());
+    }
+  }
+
+  @Test
+  void testRealThroughput() throws InterruptedException {
+    Map<String, Object> prop = Map.of(ProducerConfig.COMPRESSION_TYPE_CONFIG, "lz4");
+    Metrics producerMetrics = new Metrics();
+    var param = new Performance.Argument();
+    param.brokers = bootstrapServers();
+    param.topic = "testProducerExecutor-" + System.currentTimeMillis();
+    param.recordSize = DataUnit.KiB.of(100);
+    param.fixedSize = true;
+    param.consumers = 0;
+    try (ThreadPool.Executor executor =
+        Performance.producerExecutor(
+            Producer.builder().brokers(bootstrapServers()).configs(prop).build(),
+            new Performance.Argument(),
+            producerMetrics,
+            List.of(-1),
+            new Manager(param, List.of(producerMetrics), List.of()))) {
+
+      // Compressed size should be less than raw record size.
+      executor.execute();
+      Thread.sleep(100);
+      Assertions.assertTrue(
+          producerMetrics.currentRealBytes() < producerMetrics.clearAndGetCurrentBytes());
+      Assertions.assertEquals(0, producerMetrics.currentRealBytes());
+      Assertions.assertEquals(0, producerMetrics.clearAndGetCurrentBytes());
     }
   }
 }

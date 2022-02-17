@@ -2,6 +2,7 @@ package org.astraea.producer;
 
 import java.util.Map;
 import org.apache.kafka.clients.producer.KafkaProducer;
+import org.apache.kafka.common.Metric;
 
 /** An interface for sending records. */
 public interface Producer<Key, Value> extends AutoCloseable {
@@ -11,6 +12,9 @@ public interface Producer<Key, Value> extends AutoCloseable {
   void flush();
 
   void close();
+
+  /** Get a kafkaMetric by name. */
+  Metric getMetric(String metricName);
 
   KafkaProducer<Key, Value> kafkaProducer();
 

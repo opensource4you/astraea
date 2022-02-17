@@ -6,6 +6,7 @@ import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
+import org.apache.kafka.common.Metric;
 
 public class Builder<Key, Value> {
 
@@ -96,6 +97,16 @@ public class Builder<Key, Value> {
         return StreamSupport.stream(records.spliterator(), false)
             .map(Record::of)
             .collect(Collectors.toList());
+      }
+
+      /** Get a kafkaMetric by name. */
+      @Override
+      public Metric getMetric(String metricName) {
+        return kafkaConsumer.metrics().entrySet().stream()
+            .filter(e -> e.getKey().name().equals(metricName))
+            .findFirst()
+            .orElseThrow()
+            .getValue();
       }
 
       @Override

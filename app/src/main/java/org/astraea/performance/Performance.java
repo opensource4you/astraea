@@ -143,6 +143,9 @@ public class Performance {
 
   static ThreadPool.Executor consumerExecutor(
       Consumer<byte[], byte[]> consumer, BiConsumer<Long, Long> observer, Manager manager) {
+    if (observer instanceof Metrics) {
+      ((Metrics) observer).setRealBytesMetric(consumer.getMetric("incoming-byte-total"));
+    }
     return new ThreadPool.Executor() {
       @Override
       public State execute() {
@@ -183,6 +186,9 @@ public class Performance {
       BiConsumer<Long, Long> observer,
       List<Integer> partitions,
       Manager manager) {
+    if (observer instanceof Metrics) {
+      ((Metrics) observer).setRealBytesMetric(producer.getMetric("outgoing-byte-total"));
+    }
     return new ThreadPool.Executor() {
       @Override
       public State execute() throws InterruptedException {

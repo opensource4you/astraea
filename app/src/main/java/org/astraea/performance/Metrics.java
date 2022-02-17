@@ -1,6 +1,7 @@
 package org.astraea.performance;
 
 import java.util.function.BiConsumer;
+import org.apache.kafka.common.Metric;
 
 /** Used to record statistics. This is thread safe. */
 public class Metrics implements BiConsumer<Long, Long> {
@@ -10,6 +11,8 @@ public class Metrics implements BiConsumer<Long, Long> {
   private long min;
   private long bytes;
   private long currentBytes;
+  private Metric realBytes = null;
+  private long lastRealBytes = 0L;
 
   public Metrics() {
     avgLatency = 0;
@@ -65,5 +68,24 @@ public class Metrics implements BiConsumer<Long, Long> {
     var ans = currentBytes;
     currentBytes = 0;
     return ans;
+  }
+
+  public void setRealBytesMetric(Metric realBytesMetric) {
+    this.realBytes = realBytesMetric;
+  }
+
+  /**
+   * Get current real bytes since last call. Warning: Real bytes is recorded in `realBytes`. Please
+   * #setRealBytesMetric before get #currentRealBytes
+   */
+  public synchronized long currentRealBytes() {
+    if (realBytes != null && realBytes.metricValue() instanceof Double) {
+      var totalRealBytes = (long) Double.parseDouble(realBytes.metricValue().toString());
+      var ans = totalRealBytes - lastRealBytes;
+      lastRealBytes = totalRealBytes;
+      return ans;
+    } else {
+      return 0L;
+    }
   }
 }

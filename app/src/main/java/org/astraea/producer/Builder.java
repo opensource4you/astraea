@@ -10,6 +10,7 @@ import java.util.concurrent.CompletionStage;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.clients.producer.ProducerRecord;
+import org.apache.kafka.common.Metric;
 import org.astraea.consumer.Header;
 
 public class Builder<Key, Value> {
@@ -119,6 +120,15 @@ public class Builder<Key, Value> {
       @Override
       public void flush() {
         kafkaProducer.flush();
+      }
+
+      @Override
+      public Metric getMetric(String metricName) {
+        return kafkaProducer.metrics().entrySet().stream()
+            .filter(e -> e.getKey().name().equals(metricName))
+            .findFirst()
+            .orElseThrow()
+            .getValue();
       }
 
       @Override

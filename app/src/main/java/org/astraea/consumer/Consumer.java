@@ -3,6 +3,7 @@ package org.astraea.consumer;
 import java.time.Duration;
 import java.util.Collection;
 import java.util.Map;
+import org.apache.kafka.common.Metric;
 
 /** An interface for polling records. */
 public interface Consumer<Key, Value> extends AutoCloseable {
@@ -17,6 +18,9 @@ public interface Consumer<Key, Value> extends AutoCloseable {
    * will raise it instead.
    */
   void wakeup();
+
+  /** Get a kafkaMetric by name. */
+  Metric getMetric(String metricName);
 
   @Override
   void close();
