@@ -4,15 +4,18 @@ import com.beust.jcommander.IStringConverter;
 import com.beust.jcommander.ParameterException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
 import java.util.stream.IntStream;
 
 /** Randomly generate a long number with respect to some distribution */
 public interface Distribution {
+  String RANGE = "range";
+  String VALUE = "value";
 
   long get();
 
-  default Distribution setParameters(List<String> parameters) {
+  default Distribution configure(Map<String, String> parameters) {
     return this;
   }
 
@@ -56,10 +59,10 @@ public interface Distribution {
       }
 
       @Override
-      public Distribution setParameters(List<String> parameters) {
+      public Distribution configure(Map<String, String> parameters) {
         if (parameters.isEmpty())
           throw new IllegalArgumentException("Parameter for `Distribution` should not be empty");
-        else this.val = Long.parseLong(parameters.get(0));
+        else this.val = Long.parseLong(parameters.get(VALUE));
         return this;
       }
     };
@@ -71,10 +74,10 @@ public interface Distribution {
   }
 
   /** A distribution for providing a random long number from range [0, N) */
-  static Distribution uniform(int value) {
+  static Distribution uniform(int range) {
     var rand = new Random();
     return new Distribution() {
-      private int N = value;
+      private int N = range;
 
       @Override
       public long get() {
@@ -82,10 +85,10 @@ public interface Distribution {
       }
 
       @Override
-      public Distribution setParameters(List<String> parameters) {
+      public Distribution configure(Map<String, String> parameters) {
         if (parameters.isEmpty())
           throw new IllegalArgumentException("Parameter for `Distribution` should not be empty");
-        else this.N = Integer.parseInt(parameters.get(0));
+        else this.N = Integer.parseInt(parameters.get(RANGE));
         return this;
       }
     };
@@ -129,21 +132,21 @@ public interface Distribution {
       }
 
       @Override
-      public Distribution setParameters(List<String> parameters) {
+      public Distribution configure(Map<String, String> parameters) {
         if (parameters.isEmpty())
           throw new IllegalArgumentException("Parameter for `Distribution` should not be empty");
         cumulativeDensityTable =
-            Distribution.zipfianCumulativeDensityTable(Integer.parseInt(parameters.get(0)));
+            Distribution.zipfianCumulativeDensityTable(Integer.parseInt(parameters.get(RANGE)));
         return this;
       }
     };
   }
 
-  private static List<Double> zipfianCumulativeDensityTable(int N) {
+  private static List<Double> zipfianCumulativeDensityTable(int range) {
     final List<Double> cumulativeDensityTable = new ArrayList<>();
-    var H_N = IntStream.range(1, N + 1).mapToDouble(k -> 1D / k).sum();
+    var H_N = IntStream.range(1, range + 1).mapToDouble(k -> 1D / k).sum();
     cumulativeDensityTable.add(1D / H_N);
-    IntStream.range(1, N)
+    IntStream.range(1, range)
         .forEach(
             i ->
                 cumulativeDensityTable.add(cumulativeDensityTable.get(i - 1) + 1D / (i + 1) / H_N));

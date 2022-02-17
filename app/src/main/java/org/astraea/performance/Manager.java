@@ -52,8 +52,12 @@ public class Manager {
     this.randomContent =
         new RandomContent(
             argument.recordSize,
-            argument.sizeDistribution.setParameters(
-                List.of(argument.recordSize.measurement(DataUnit.Byte).toString())));
+            argument.sizeDistribution.configure(
+                Map.of(
+                    Distribution.VALUE,
+                    argument.recordSize.measurement(DataUnit.Byte).toString(),
+                    Distribution.RANGE,
+                    argument.recordSize.measurement(DataUnit.Byte).toString())));
   }
 
   /**

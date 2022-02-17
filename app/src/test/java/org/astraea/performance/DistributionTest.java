@@ -1,6 +1,6 @@
 package org.astraea.performance;
 
-import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.junit.jupiter.api.Assertions;
@@ -19,7 +19,7 @@ public class DistributionTest {
             .size());
 
     // test setParameters
-    distribution.setParameters(List.of("1234"));
+    distribution.configure(Map.of(Distribution.VALUE, "1234"));
     Assertions.assertEquals(1234L, distribution.get());
   }
 
@@ -29,7 +29,7 @@ public class DistributionTest {
     Assertions.assertTrue(distribution.get() < 5);
 
     // test setParameters
-    distribution.setParameters(List.of("2"));
+    distribution.configure(Map.of(Distribution.RANGE, "2"));
     Assertions.assertTrue(distribution.get() < 2);
   }
 
@@ -50,7 +50,7 @@ public class DistributionTest {
     Assertions.assertTrue(distribution.get() < 5);
 
     // test setParameters
-    distribution.setParameters(List.of("2"));
+    distribution.configure(Map.of(Distribution.RANGE, "2"));
     Assertions.assertTrue(distribution.get() < 2);
   }
 }
