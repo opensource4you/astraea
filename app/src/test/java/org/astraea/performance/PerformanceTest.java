@@ -175,7 +175,7 @@ public class PerformanceTest extends RequireBrokerCluster {
 
       // Compressed size should be less than raw record size.
       executor.execute();
-      Thread.sleep(100);
+      Utils.waitFor(() -> producerMetrics.num() == 1);
       Assertions.assertTrue(
           producerMetrics.currentRealBytes() < producerMetrics.clearAndGetCurrentBytes());
       Assertions.assertEquals(0, producerMetrics.currentRealBytes());
