@@ -7,6 +7,8 @@ function showHelp() {
   echo "COMMAND: "
   echo "    start <kafka-broker-jmx-addresses> <node-exporter-addresses>    create/start the prometheus docker instance"
   echo "    refresh <kafka-broker-jmx-addresses> <node-exporter-addresses>  refresh and apply the prometheus config"
+  echo "    refresh <config-file>                                           refresh and apply the prometheus config"
+  echo "    refresh                                                         start a editor for you to edit the config file manually"
   echo "    help                                                            show this dialog"
 }
 
@@ -46,7 +48,8 @@ function wrap_address() {
 prometheus_port="${PROMETHEUS_PORT:-9090}"
 image_name=prom/prometheus:v2.32.1
 container_name="prometheus-${prometheus_port}"
-file=/tmp/prometheus-${prometheus_port}.yml
+file="/tmp/prometheus-${prometheus_port}.yml"
+temp_file="/tmp/prometheus-${prometheus_port}-editing.yml"
 scrape_interval="5s"
 volume_name_1="prometheus-${prometheus_port}-etc"
 volume_name_2="prometheus-${prometheus_port}-prometheus"
@@ -91,8 +94,8 @@ function info() {
 }
 
 function refresh_config_from_file() {
-  info "Refresh prometheus configuration from config file $file"
-  docker cp "$file" "$container_name:/etc/prometheus/prometheus.yml"
+  info "Refresh prometheus configuration from config file $1"
+  docker cp "$1" "$container_name:/etc/prometheus/prometheus.yml"
   docker kill --signal="SIGHUP" "$container_name"
 }
 
@@ -134,16 +137,19 @@ function main() {
   info "================================================="
 }
 
-
 # shellcheck disable=SC2199
 if [[ "$1" == "start" ]]; then
   # shellcheck disable=SC2068
   main "$2" "$3"
-elif [[ "$1" == "refresh" ]] && [[ "$2" != "" ]]; then
+elif [[ "$1" == "refresh" ]] && [[ "$#" -eq 3 ]]; then
   # shellcheck disable=SC2068
   refresh_config "$2" "$3"
-elif [[ "$1" == "refresh" ]]; then
-  refresh_config_from_file
+elif [[ "$1" == "refresh" ]] && [[ "$#" -eq 2 ]]; then
+  refresh_config_from_file "$2"
+elif [[ "$1" == "refresh" ]] && [[ "$#" -eq 1 ]]; then
+  # bring the config file inside docker config to local for further editing
+  docker cp "$container_name:/etc/prometheus/prometheus.yml" "$temp_file"
+  ${EDITOR:-vi} "$temp_file" && refresh_config_from_file "$temp_file"
 elif [[ "$1" == "help" ]]; then
   showHelp
 else
