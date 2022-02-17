@@ -19,6 +19,8 @@ public interface Distribution {
       var name = rawArgument.split(":")[0];
 
       switch (name) {
+        case "fixed":
+          return fixed();
         case "uniform":
           if (args.length > 1) return uniform(Integer.parseInt(args[1]));
           return uniform();
@@ -32,6 +34,15 @@ public interface Distribution {
               "Unknown distribution \"" + name + "\". use \"uniform\", \"latest\", \"zipfian\".");
       }
     }
+  }
+
+  static Distribution fixed() {
+    var rand = new Random();
+    return fixed(rand.nextLong());
+  }
+
+  static Distribution fixed(long value) {
+    return () -> value;
   }
 
   /** A distribution for providing a random long number from range [0, 2147483647) */

@@ -1,26 +1,23 @@
 #!/bin/bash
 
-# ===============================[global variables]===============================
+declare -r DOCKER_FOLDER=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
+source $DOCKER_FOLDER/docker_build_common.sh
 
-declare -r USER=astraea
+# ===============================[global variables]===============================
 declare -r VERSION=${REVISION:-${VERSION:-2.8.1}}
 declare -r REPO=${REPO:-ghcr.io/skiptests/astraea/broker}
 declare -r IMAGE_NAME="$REPO:$VERSION"
-declare -r BUILD=${BUILD:-false}
-declare -r RUN=${RUN:-true}
-declare -r DOCKER_FOLDER=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
 declare -r DOCKERFILE=$DOCKER_FOLDER/broker.dockerfile
 declare -r DATA_FOLDER_IN_CONTAINER_PREFIX="/tmp/log-folder"
 declare -r EXPORTER_VERSION="0.16.1"
-declare -r EXPORTER_PORT=${EXPORTER_PORT:-$(($(($RANDOM % 10000)) + 10000))}
-declare -r BROKER_PORT=${BROKER_PORT:-$(($(($RANDOM % 10000)) + 10000))}
+declare -r EXPORTER_PORT=${EXPORTER_PORT:-"$(getRandomPort)"}
+declare -r BROKER_PORT=${BROKER_PORT:-"$(getRandomPort)"}
 declare -r CONTAINER_NAME="broker-$BROKER_PORT"
-declare -r BROKER_JMX_PORT="$(($(($RANDOM % 10000)) + 10000))"
+declare -r BROKER_JMX_PORT="${BROKER_JMX_PORT:-"$(getRandomPort)"}"
 declare -r ADMIN_NAME="admin"
 declare -r ADMIN_PASSWORD="admin-secret"
 declare -r USER_NAME="user"
 declare -r USER_PASSWORD="user-secret"
-declare -r ADDRESS=$([[ "$(which ipconfig)" != "" ]] && ipconfig getifaddr en0 || hostname -i)
 declare -r JMX_OPTS="-Dcom.sun.management.jmxremote \
   -Dcom.sun.management.jmxremote.authenticate=false \
   -Dcom.sun.management.jmxremote.ssl=false \
@@ -29,6 +26,7 @@ declare -r JMX_OPTS="-Dcom.sun.management.jmxremote \
   -Djava.rmi.server.hostname=$ADDRESS"
 declare -r HEAP_OPTS="${HEAP_OPTS:-"-Xmx2G -Xms2G"}"
 declare -r BROKER_PROPERTIES="/tmp/server-${BROKER_PORT}.properties"
+
 # cleanup the file if it is existent
 [[ -f "$BROKER_PROPERTIES" ]] && rm -f "$BROKER_PROPERTIES"
 
@@ -51,22 +49,8 @@ function showHelp() {
   echo "    DATA_FOLDERS=/tmp/folder1,/tmp/folder2   set host folders used by broker"
 }
 
-function checkDocker() {
-  if [[ "$(which docker)" == "" ]]; then
-    echo "you have to install docker"
-    exit 2
-  fi
-}
-
-function checkNetwork() {
-  if [[ "$ADDRESS" == "127.0.0.1" || "$ADDRESS" == "127.0.1.1" ]]; then
-    echo "Either 127.0.0.1 or 127.0.1.1 can't be used in this script. Please check /etc/hosts"
-    exit 2
-  fi
-}
-
 function rejectProperty() {
-  local key=$1c
+  local key=$1
   if [[ -f "$BROKER_PROPERTIES" ]] && [[ "$(cat $BROKER_PROPERTIES | grep $key)" != "" ]]; then
     echo "$key is NOT configurable"
     exit 2
@@ -83,17 +67,17 @@ function requireProperty() {
 
 function generateDockerfileBySource() {
   echo "# this dockerfile is generated dynamically
-FROM ubuntu:20.04
+FROM ubuntu:20.04 AS build
 
 # install tools
-RUN apt-get update && apt-get upgrade -y && DEBIAN_FRONTEND=noninteractive apt-get install -y openjdk-11-jdk wget git curl
+RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y openjdk-11-jdk wget git curl
 
 # add user
 RUN groupadd $USER && useradd -ms /bin/bash -g $USER $USER
 
 # download jmx exporter
-RUN mkdir /tmp/jmx_exporter
-WORKDIR /tmp/jmx_exporter
+RUN mkdir /opt/jmx_exporter
+WORKDIR /opt/jmx_exporter
 RUN wget https://raw.githubusercontent.com/prometheus/jmx_exporter/master/example_configs/kafka-2_0_0.yml
 RUN wget https://REPO1.maven.org/maven2/io/prometheus/jmx/jmx_prometheus_javaagent/${EXPORTER_VERSION}/jmx_prometheus_javaagent-${EXPORTER_VERSION}.jar
 
@@ -104,30 +88,39 @@ RUN git checkout $VERSION
 RUN ./gradlew clean releaseTarGz
 RUN mkdir /opt/kafka
 RUN tar -zxvf \$(find ./core/build/distributions/ -maxdepth 1 -type f -name kafka_*SNAPSHOT.tgz) -C /opt/kafka --strip-components=1
-WORKDIR /opt/kafka
 
-# export ENV
-ENV KAFKA_HOME /opt/kafka
+FROM ubuntu:20.04
+
+# install tools
+RUN apt-get update && apt-get install -y openjdk-11-jre
+
+# copy kafka
+COPY --from=build /opt/jmx_exporter /opt/jmx_exporter
+COPY --from=build /opt/kafka /opt/kafka
+
+# add user
+RUN groupadd $USER && useradd -ms /bin/bash -g $USER $USER
 
 # change user
 RUN chown -R $USER:$USER /opt/kafka
 USER $USER
+
+# export ENV
+ENV KAFKA_HOME /opt/kafka
+WORKDIR /opt/kafka
 " >"$DOCKERFILE"
 }
 
 function generateDockerfileByVersion() {
   echo "# this dockerfile is generated dynamically
-FROM ubuntu:20.04
+FROM ubuntu:20.04 AS build
 
 # install tools
-RUN apt-get update && apt-get upgrade -y && apt-get install -y openjdk-11-jdk wget
-
-# add user
-RUN groupadd $USER && useradd -ms /bin/bash -g $USER $USER
+RUN apt-get update && apt-get install -y wget
 
 # download jmx exporter
-RUN mkdir /tmp/jmx_exporter
-WORKDIR /tmp/jmx_exporter
+RUN mkdir /opt/jmx_exporter
+WORKDIR /opt/jmx_exporter
 RUN wget https://raw.githubusercontent.com/prometheus/jmx_exporter/master/example_configs/kafka-2_0_0.yml
 RUN wget https://REPO1.maven.org/maven2/io/prometheus/jmx/jmx_prometheus_javaagent/${EXPORTER_VERSION}/jmx_prometheus_javaagent-${EXPORTER_VERSION}.jar
 
@@ -138,12 +131,25 @@ RUN mkdir /opt/kafka
 RUN tar -zxvf kafka_2.13-${VERSION}.tgz -C /opt/kafka --strip-components=1
 WORKDIR /opt/kafka
 
-# export ENV
-ENV KAFKA_HOME /opt/kafka
+FROM ubuntu:20.04
+
+# install tools
+RUN apt-get update && apt-get install -y openjdk-11-jre
+
+# copy kafka
+COPY --from=build /opt/jmx_exporter /opt/jmx_exporter
+COPY --from=build /opt/kafka /opt/kafka
+
+# add user
+RUN groupadd $USER && useradd -ms /bin/bash -g $USER $USER
 
 # change user
 RUN chown -R $USER:$USER /opt/kafka
 USER $USER
+
+# export ENV
+ENV KAFKA_HOME /opt/kafka
+WORKDIR /opt/kafka
 " >"$DOCKERFILE"
 }
 
@@ -152,27 +158,6 @@ function generateDockerfile() {
     generateDockerfileBySource
   else
     generateDockerfileByVersion
-  fi
-}
-
-function buildImageIfNeed() {
-  if [[ "$(docker images -q $IMAGE_NAME 2>/dev/null)" == "" ]]; then
-    local needToBuild="true"
-    if [[ "$BUILD" == "false" ]]; then
-      docker pull $IMAGE_NAME 2>/dev/null
-      if [[ "$?" == "0" ]]; then
-        needToBuild="false"
-      else
-        echo "Can't find $IMAGE_NAME from repo. Will build $IMAGE_NAME on the local"
-      fi
-    fi
-    if [[ "$needToBuild" == "true" ]]; then
-      generateDockerfile
-      docker build --no-cache -t "$IMAGE_NAME" -f "$DOCKERFILE" "$DOCKER_FOLDER"
-      if [[ "$?" != "0" ]]; then
-        exit 2
-      fi
-    fi
   fi
 }
 
@@ -263,7 +248,7 @@ function fetchBrokerId() {
 
 checkDocker
 generateDockerfile
-buildImageIfNeed
+buildImageIfNeed "$IMAGE_NAME"
 
 if [[ "$RUN" != "true" ]]; then
   echo "docker image: $IMAGE_NAME is created"
@@ -299,13 +284,13 @@ docker run -d --init \
   --name $CONTAINER_NAME \
   -e KAFKA_HEAP_OPTS="$HEAP_OPTS" \
   -e KAFKA_JMX_OPTS="$JMX_OPTS" \
-  -e KAFKA_OPTS="-javaagent:/tmp/jmx_exporter/jmx_prometheus_javaagent-${EXPORTER_VERSION}.jar=$EXPORTER_PORT:/tmp/jmx_exporter/kafka-2_0_0.yml" \
+  -e KAFKA_OPTS="-javaagent:/opt/jmx_exporter/jmx_prometheus_javaagent-${EXPORTER_VERSION}.jar=$EXPORTER_PORT:/opt/jmx_exporter/kafka-2_0_0.yml" \
   -v $BROKER_PROPERTIES:/tmp/broker.properties:ro \
   $(generateMountCommand) \
   -p $BROKER_PORT:9092 \
   -p $BROKER_JMX_PORT:$BROKER_JMX_PORT \
   -p $EXPORTER_PORT:$EXPORTER_PORT \
-  $IMAGE_NAME ./bin/kafka-server-start.sh /tmp/broker.properties
+  "$IMAGE_NAME" ./bin/kafka-server-start.sh /tmp/broker.properties
 
 echo "================================================="
 [[ -n "$DATA_FOLDERS" ]] && echo "mount $DATA_FOLDERS to container: $CONTAINER_NAME"

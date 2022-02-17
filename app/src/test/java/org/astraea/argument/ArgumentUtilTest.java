@@ -6,6 +6,11 @@ import java.time.Duration;
 import java.util.Set;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
+import org.astraea.argument.converter.DurationConverter;
+import org.astraea.argument.converter.StringSetConverter;
+import org.astraea.argument.validator.NonNegativeLong;
+import org.astraea.argument.validator.NotEmptyString;
+import org.astraea.argument.validator.PositiveLong;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -17,28 +22,28 @@ public class ArgumentUtilTest {
   public static class FakeParameter {
     @Parameter(
         names = {"--require"},
-        validateWith = ArgumentUtil.NotEmptyString.class,
+        validateWith = NotEmptyString.class,
         required = true)
     public String require;
 
     @Parameter(
         names = {"--longPositive"},
-        validateWith = ArgumentUtil.PositiveLong.class)
+        validateWith = PositiveLong.class)
     public long longPositive;
 
     @Parameter(
         names = {"--longNotNegative"},
-        validateWith = ArgumentUtil.NonNegativeLong.class)
+        validateWith = NonNegativeLong.class)
     public int longNotNegative = 1;
 
     @Parameter(
         names = {"--durationConvert"},
-        converter = ArgumentUtil.DurationConverter.class)
+        converter = DurationConverter.class)
     public Duration durationConvert;
 
     @Parameter(
         names = {"--setConverter"},
-        converter = ArgumentUtil.StringSetConverter.class,
+        converter = StringSetConverter.class,
         variableArity = true)
     public Set<String> setConverter;
   }
@@ -124,7 +129,7 @@ public class ArgumentUtilTest {
   @ParameterizedTest(name = "[{index}] time string \"{0}\" will match duration \"{1}\"")
   @MethodSource("testDurationConvertorTestcases")
   public void testDurationConvertorConvert(String timeString, Duration expectedDuration) {
-    ArgumentUtil.DurationConverter durationConverter = new ArgumentUtil.DurationConverter();
+    var durationConverter = new DurationConverter();
 
     Assertions.assertEquals(expectedDuration, durationConverter.convert(timeString));
   }
@@ -160,8 +165,7 @@ public class ArgumentUtilTest {
         (Supplier<Boolean>)
             () -> {
               try {
-                ArgumentUtil.DurationConverter durationConverter =
-                    new ArgumentUtil.DurationConverter();
+                var durationConverter = new DurationConverter();
                 durationConverter.validate("key", timeString);
                 return true;
               } catch (ParameterException ignored) {

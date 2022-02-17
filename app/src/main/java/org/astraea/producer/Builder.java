@@ -109,7 +109,7 @@ public class Builder<Key, Value> {
       public Sender<Key, Value> sender() {
         return new AbstractSender<>() {
           /*
-           * For the Transactional Producer's sender, use transactionalProducer.transaction(sender) instead
+           * For the Transactional Producer's sender, use transactionalProducer.transaction(senders) instead
            * of using sender.run();
            * */
           @Override
@@ -147,7 +147,9 @@ public class Builder<Key, Value> {
       }
 
       @Override
-      public void flush() {}
+      public void flush() {
+        transactionProducer.flush();
+      }
 
       @Override
       public void close() {

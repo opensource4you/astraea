@@ -215,7 +215,10 @@ Run the benchmark from source
 4. --replicas: topic config when creating new topic. Default: 1
 5. --consumers: the number of consumers (threads). Default: 1
 6. --producers: the number of producers (threads). Default: 1
-7. --run.until: the total number of records sent by the producers. Default: 1000records
+7. --run.until: the total number of records sent by the producers or the time for producer to send records.
+  The duration formats accepted are (a number) + (a time unit). 
+  The time units can be "days", "day", "h", "m", "s", "ms", "us", "ns".
+  e.g. "--run.until 1m" or "--run.until 89242records" Default: 1000records
 8. --record.size: the (bound of) record size in byte. Default: 1 KiB
 9. --fixed.size: the flag to let all records have the same size
 10. --prop.file: the path to property file.
@@ -295,24 +298,47 @@ java -jar app-0.0.1-SNAPSHOT-all.jar metrics --jmx.server 192.168.50.178:1099 --
 
 ## Replica Collie
 
-This tool offers an effective way to migrate all replicas from specific brokers to others.
+This tool offers an effective way to migrate specify replicas from specific brokers to others brokers.
 
 ### Move all replicas from broker_0 and broker_1 to other brokers
 
-```shell
+```shell 
 ./gradlew run --args="replica --bootstrap.servers 192.168.50.178:19993 --from 0,1"
 ```
 
 ### Move all replicas of topic "abc" from broker_0 to broker_1
 
 ```shell
-./gradlew run --args="replica --bootstrap.servers 192.168.50.178:19993 --from 0 --to 1 --topics abc"
+./gradlew run --args="replica --bootstrap.servers 192.168.50.178:19993 --from 0,1 --to 2,3 --topics abc"
+```
+
+### Move all replicas of topic "abc" in broker_0 to other folders
+
+```shell
+./gradlew run --args="replica --bootstrap.servers 192.168.50.178:19993 --from 0 --to 0 -topics abc"
+```
+
+### Move specify replicas of topic "abc" and "def" from broker_0 to broker_1
+
+```shell
+./gradlew run --args="replica --bootstrap.servers 192.168.50.178:19993 --from 0 --to 1 --topic abc --partitions 0,1"
+```
+
+### Move specify replicas of topic "abc"  and "def" from broker_0 to broker_1 specify folder
+
+```shell
+./gradlew run --args="replica --bootstrap.servers 192.168.50.178:19993 --from 0 --to 1 --topic abc --partitions 0,1 --path /tmp/log1"
 ```
 
 ### Replica Collie Configurations
+
 1. --bootstrap.servers: the server to connect to
-2. --topics: the topics to be moved
-3. --admin.props.file: the file path containing the properties to be passed to kafka admin
+2. --from: the broker of the specified replica
+3. --prop.file: the file path containing the properties to be passed to kafka admin
+4. --to: the replica moved target broker
+5. --topics: the topics to be moved
+6. --partitions : all partitions that will be moved
+7. --path: the replica that will move to
 
 ## Kafka Partition Score
 

@@ -3,6 +3,7 @@ package org.astraea.performance;
 import java.time.Duration;
 import java.util.*;
 import org.astraea.concurrent.ThreadPool;
+import org.astraea.utils.DataUnit;
 
 /** Print out the given metrics. */
 public class Tracker implements ThreadPool.Executor {
@@ -60,14 +61,16 @@ public class Tracker implements ThreadPool.Executor {
             + duration.toSecondsPart()
             + "sec");
     System.out.printf("producers completion rate: %.2f%%%n", percentage);
-    System.out.printf("  Throughput: %.3fMB/second%n", result.averageBytes(duration));
-    System.out.println("  publish max latency: " + result.maxLatency + "ms");
-    System.out.println("  publish mim latency: " + result.minLatency + "ms");
+    System.out.printf("  average throughput: %.3f MB/second%n", result.averageBytes(duration));
+    System.out.printf(
+        "  current throughput: %s/second%n", DataUnit.Byte.of(result.totalCurrentBytes()));
+    System.out.println("  publish max latency: " + result.maxLatency + " ms");
+    System.out.println("  publish mim latency: " + result.minLatency + " ms");
     for (int i = 0; i < result.bytes.size(); ++i) {
       System.out.printf(
-          "  producer[%d] average throughput: %.3fMB%n", i, avg(duration, result.bytes.get(i)));
+          "  producer[%d] average throughput: %.3f MB%n", i, avg(duration, result.bytes.get(i)));
       System.out.printf(
-          "  producer[%d] average publish latency: %.3fms%n", i, result.averageLatencies.get(i));
+          "  producer[%d] average publish latency: %.3f ms%n", i, result.averageLatencies.get(i));
     }
     System.out.println("\n");
     return percentage >= 100D;
@@ -82,14 +85,17 @@ public class Tracker implements ThreadPool.Executor {
     // Print out percentage of (consumed records) and (produced records)
     var percentage = result.completedRecords * 100D / manager.producedRecords();
     System.out.printf("consumer completion rate: %.2f%%%n", percentage);
-    System.out.printf("  throughput: %.3fMB/second%n", result.averageBytes(duration));
-    System.out.println("  end-to-end max latency: " + result.maxLatency + "ms");
-    System.out.println("  end-to-end mim latency: " + result.minLatency + "ms");
+    System.out.printf("  average throughput: %.3f MB/second%n", result.averageBytes(duration));
+    System.out.printf(
+        "  current throughput: %s/second%n", DataUnit.Byte.of(result.totalCurrentBytes()));
+    System.out.println("  end-to-end max latency: " + result.maxLatency + " ms");
+    System.out.println("  end-to-end mim latency: " + result.minLatency + " ms");
     for (int i = 0; i < result.bytes.size(); ++i) {
       System.out.printf(
-          "  consumer[%d] average throughput: %.3fMB%n", i, avg(duration, result.bytes.get(i)));
+          "  consumer[%d] average throughput: %.3f MB%n", i, avg(duration, result.bytes.get(i)));
       System.out.printf(
-          "  consumer[%d] average ene-to-end latency: %.3fms%n", i, result.averageLatencies.get(i));
+          "  consumer[%d] average ene-to-end latency: %.3f ms%n",
+          i, result.averageLatencies.get(i));
     }
     System.out.println("\n");
     // Target number of records consumed OR consumed all that produced
@@ -107,12 +113,14 @@ public class Tracker implements ThreadPool.Executor {
   private static Result result(List<Metrics> metrics) {
     var completed = 0;
     var bytes = new ArrayList<Long>();
+    var currentBytes = new ArrayList<Long>();
     var averageLatencies = new ArrayList<Double>();
     var max = 0L;
     var min = Long.MAX_VALUE;
     for (Metrics data : metrics) {
       completed += data.num();
       bytes.add(data.bytes());
+      currentBytes.add(data.clearAndGetCurrentBytes());
       averageLatencies.add(data.avgLatency());
       max = Math.max(max, data.max());
       min = Math.min(min, data.min());
@@ -120,6 +128,7 @@ public class Tracker implements ThreadPool.Executor {
     return new Result(
         completed,
         Collections.unmodifiableList(bytes),
+        Collections.unmodifiableList(currentBytes),
         Collections.unmodifiableList(averageLatencies),
         min,
         max);
@@ -128,6 +137,7 @@ public class Tracker implements ThreadPool.Executor {
   static class Result {
     public final long completedRecords;
     public final List<Long> bytes;
+    public final List<Long> currentBytes;
     public final List<Double> averageLatencies;
     public final long minLatency;
     public final long maxLatency;
@@ -135,11 +145,13 @@ public class Tracker implements ThreadPool.Executor {
     Result(
         long completedRecords,
         List<Long> bytes,
+        List<Long> currentBytes,
         List<Double> averageLatencies,
         long minLatency,
         long maxLatency) {
       this.completedRecords = completedRecords;
       this.bytes = bytes;
+      this.currentBytes = currentBytes;
       this.averageLatencies = averageLatencies;
       this.minLatency = minLatency;
       this.maxLatency = maxLatency;
@@ -151,6 +163,10 @@ public class Tracker implements ThreadPool.Executor {
 
     long totalBytes() {
       return bytes.stream().mapToLong(i -> i).sum();
+    }
+
+    long totalCurrentBytes() {
+      return currentBytes.stream().mapToLong(i -> i).sum();
     }
   }
 }
