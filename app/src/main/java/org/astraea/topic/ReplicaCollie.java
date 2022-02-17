@@ -1,12 +1,16 @@
 package org.astraea.topic;
 
 import com.beust.jcommander.Parameter;
+import com.beust.jcommander.converters.BooleanConverter;
 import java.io.IOException;
 import java.util.*;
 import java.util.stream.Collectors;
 import org.apache.kafka.common.TopicPartition;
 import org.astraea.argument.ArgumentUtil;
 import org.astraea.argument.BasicArgumentWithPropFile;
+import org.astraea.argument.converter.IntegerSetConverter;
+import org.astraea.argument.converter.StringSetConverter;
+import org.astraea.argument.validator.NotEmptyString;
 
 public class ReplicaCollie {
   static final String UNKNOWN = "unknown";
@@ -297,45 +301,45 @@ public class ReplicaCollie {
     @Parameter(
         names = {"--topics"},
         description = "Those topics' partitions will get reassigned. Empty means all topics",
-        validateWith = ArgumentUtil.NotEmptyString.class,
-        converter = ArgumentUtil.StringSetConverter.class)
+        validateWith = NotEmptyString.class,
+        converter = StringSetConverter.class)
     public Set<String> topics = Collections.emptySet();
 
     @Parameter(
         names = {"--from"},
         description = "Those brokers won't hold any replicas of topics (defined by --topics)",
-        validateWith = ArgumentUtil.NotEmptyString.class,
-        converter = ArgumentUtil.IntegerSetConverter.class,
+        validateWith = NotEmptyString.class,
+        converter = IntegerSetConverter.class,
         required = true)
     Set<Integer> fromBrokers;
 
     @Parameter(
         names = {"--to"},
         description = "The replicas of topics (defined by --topic) will be moved to those brokers",
-        validateWith = ArgumentUtil.NotEmptyString.class,
-        converter = ArgumentUtil.IntegerSetConverter.class)
+        validateWith = NotEmptyString.class,
+        converter = IntegerSetConverter.class)
     Set<Integer> toBrokers = Collections.emptySet();
 
     @Parameter(
         names = {"--partitions"},
         description = "all partitions that will be moved",
-        validateWith = ArgumentUtil.NotEmptyString.class,
-        converter = ArgumentUtil.IntegerSetConverter.class)
+        validateWith = NotEmptyString.class,
+        converter = IntegerSetConverter.class)
     Set<Integer> partitions = Collections.emptySet();
 
     @Parameter(
         names = {"--path"},
         description = "The partition that will be moved to",
-        validateWith = ArgumentUtil.NotEmptyString.class,
-        converter = ArgumentUtil.StringSetConverter.class)
+        validateWith = NotEmptyString.class,
+        converter = StringSetConverter.class)
     Set<String> path = Collections.emptySet();
 
     @Parameter(
         names = {"--verify"},
         description =
             "True if you just want to see the new assignment instead of executing the plan",
-        validateWith = ArgumentUtil.NotEmptyString.class,
-        converter = ArgumentUtil.BooleanConverter.class)
+        validateWith = NotEmptyString.class,
+        converter = BooleanConverter.class)
     boolean verify = false;
   }
 }

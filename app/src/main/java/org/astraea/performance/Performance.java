@@ -7,7 +7,12 @@ import java.io.IOException;
 import java.nio.file.FileSystems;
 import java.nio.file.Path;
 import java.time.Duration;
-import java.util.*;
+import java.util.Collection;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Random;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
@@ -15,12 +20,20 @@ import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
+
+import com.beust.jcommander.converters.PathConverter;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.clients.producer.internals.DefaultPartitioner;
+import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.errors.WakeupException;
 import org.apache.kafka.common.record.CompressionType;
+import org.astraea.Utils;
 import org.astraea.argument.ArgumentUtil;
 import org.astraea.argument.BasicArgumentWithPropFile;
+import org.astraea.argument.converter.ShortConverter;
+import org.astraea.argument.validator.NonNegativeLong;
+import org.astraea.argument.validator.NotEmptyString;
+import org.astraea.argument.validator.PositiveLong;
 import org.astraea.concurrent.ThreadPool;
 import org.astraea.consumer.Consumer;
 import org.astraea.producer.Producer;
@@ -73,6 +86,7 @@ public class Performance {
           .topic(param.topic)
           .create();
 
+      Utils.waitFor(() -> topicAdmin.topicNames().contains(param.topic));
       partitions = partition(param, topicAdmin);
     }
 
@@ -217,7 +231,7 @@ public class Performance {
       return topicAdmin
           .partitionsOfBrokers(Set.of(param.topic), new HashSet<>(param.specifyBroker))
           .stream()
-          .map(topicPartition -> topicPartition.partition())
+          .map(TopicPartition::partition)
           .collect(Collectors.toList());
     } else return List.of(-1);
   }
@@ -231,32 +245,32 @@ public class Performance {
     @Parameter(
         names = {"--topic"},
         description = "String: topic name",
-        validateWith = ArgumentUtil.NotEmptyString.class)
+        validateWith = NotEmptyString.class)
     String topic = "testPerformance-" + System.currentTimeMillis();
 
     @Parameter(
         names = {"--partitions"},
         description = "Integer: number of partitions to create the topic",
-        validateWith = ArgumentUtil.PositiveLong.class)
+        validateWith = PositiveLong.class)
     int partitions = 1;
 
     @Parameter(
         names = {"--replicas"},
         description = "Integer: number of replica to create the topic",
-        validateWith = ArgumentUtil.PositiveLong.class,
-        converter = ArgumentUtil.ShortConverter.class)
+        validateWith = PositiveLong.class,
+        converter = ShortConverter.class)
     short replicas = 1;
 
     @Parameter(
         names = {"--producers"},
         description = "Integer: number of producers to produce records",
-        validateWith = ArgumentUtil.PositiveLong.class)
+        validateWith = PositiveLong.class)
     int producers = 1;
 
     @Parameter(
         names = {"--consumers"},
         description = "Integer: number of consumers to consume records",
-        validateWith = ArgumentUtil.NonNegativeLong.class)
+        validateWith = NonNegativeLong.class)
     int consumers = 1;
 
     @Parameter(
@@ -264,8 +278,9 @@ public class Performance {
         description =
             "Run until number of records are produced and consumed or until duration meets."
                 + " The duration formats accepted are (a number) + (a time unit)."
-                + " The time units can be \"days\", \"day\", \"h\", \"m\", \"s, \"ms\","
+                + " The time units can be \"days\", \"day\", \"h\", \"m\", \"s\", \"ms\","
                 + " \"us\", \"ns\"",
+        validateWith = ExeTime.Validator.class,
         converter = ExeTime.Converter.class)
     ExeTime exeTime = ExeTime.of("1000records");
 
@@ -284,13 +299,13 @@ public class Performance {
         names = {"--jmx.servers"},
         description =
             "String: server to get jmx metrics <jmx_server>@<broker_id>[,<jmx_server>@<broker_id>]*",
-        validateWith = ArgumentUtil.NotEmptyString.class)
+        validateWith = NotEmptyString.class)
     String jmxServers = "";
 
     @Parameter(
         names = {"--partitioner"},
         description = "String: the full class name of the desired partitioner",
-        validateWith = ArgumentUtil.NotEmptyString.class)
+        validateWith = NotEmptyString.class)
     String partitioner = DefaultPartitioner.class.getName();
 
     public Map<String, Object> producerProps() {
@@ -323,13 +338,13 @@ public class Performance {
         names = {"--specify.broker"},
         description =
             "String: Used with SpecifyBrokerPartitioner to specify the brokers that partitioner can send.",
-        validateWith = ArgumentUtil.NotEmptyString.class)
+        validateWith = NotEmptyString.class)
     List<Integer> specifyBroker = List.of(-1);
 
     @Parameter(
         names = {"--report.path"},
         description = "String: A path to place the report.",
-        converter = ArgumentUtil.PathConverter.class)
+        converter = PathConverter.class)
     Path CSVPath = FileSystems.getDefault().getPath(".");
 
     @Parameter(
@@ -341,10 +356,15 @@ public class Performance {
 
   static class CompressionArgument implements IStringConverter<CompressionType> {
 
+    /**
+     * @param value Name of compression type. Accept lower-case name only ("none", "gzip", "snappy",
+     *     "lz4", "zstd").
+     */
     @Override
     public CompressionType convert(String value) {
       try {
-        return CompressionType.forName(value.toLowerCase());
+        // `CompressionType#forName` accept lower-case name only.
+        return CompressionType.forName(value);
       } catch (IllegalArgumentException e) {
         throw new ParameterException(
             "the "
