@@ -50,7 +50,7 @@ image_name=prom/prometheus:v2.32.1
 container_name="prometheus-${prometheus_port}"
 file="/tmp/prometheus-${prometheus_port}.yml"
 temp_file="/tmp/prometheus-${prometheus_port}-editing.yml"
-scrape_interval="5s"
+scrape_interval="100ms"
 volume_name_1="prometheus-${prometheus_port}-etc"
 volume_name_2="prometheus-${prometheus_port}-prometheus"
 
@@ -150,6 +150,7 @@ elif [[ "$1" == "refresh" ]] && [[ "$#" -eq 1 ]]; then
   # bring the config file inside docker config to local for further editing
   docker cp "$container_name:/etc/prometheus/prometheus.yml" "$temp_file"
   ${EDITOR:-vi} "$temp_file" && refresh_config_from_file "$temp_file"
+  rm "$temp_file"
 elif [[ "$1" == "help" ]]; then
   showHelp
 else
