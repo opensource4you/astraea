@@ -350,7 +350,7 @@ This tool will score the partition on brokers, the higher score the heavier load
 ### Partition Score Configurations
 
 1. --bootstrap.servers: the server to connect to
-2. ----exclude.internal.topics: True if you want to ignore internal topics like _consumer_offsets while counting score. 
+2. --exclude.internal.topics: True if you want to ignore internal topics like _consumer_offsets while counting score. 
 3. --hide.balanced: True if you want to hide topics and partitions thar already balanced.:q
 
 ## Kafka Replica Syncing Monitor

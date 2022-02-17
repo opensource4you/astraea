@@ -29,7 +29,7 @@ public class CalculateUtils {
     return brokerPartitionLoad;
   }
 
-  public static Double countSum(Set<Double> in) {
+  private static Double countSum(Set<Double> in) {
     return in.stream().mapToDouble(i -> i).sum();
   }
 

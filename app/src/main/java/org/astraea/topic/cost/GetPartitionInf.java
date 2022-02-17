@@ -20,8 +20,11 @@ public class GetPartitionInf {
                   .replicas(client.topicNames())
                   .forEach(
                       (tp, assignment) -> {
-                        if (assignment.get(0).broker() == broker)
-                          partitionSize.put(tp, (int) assignment.get(0).size());
+                        assignment.forEach(
+                            partition -> {
+                              if (partition.broker() == broker)
+                                partitionSize.put(tp, (int) partition.size());
+                            });
                         brokerPartitionSize.put(broker, partitionSize);
                       });
             });
