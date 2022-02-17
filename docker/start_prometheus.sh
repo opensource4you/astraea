@@ -12,6 +12,29 @@ function showHelp() {
   echo "    help                                                            show this dialog"
 }
 
+function gradle_project_directory {
+    local script_folder="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)"
+    local target_folder="$script_folder"
+
+    # attempt to find the nearest parent directory that contains the gradlew file
+    # we recognize such directory as a Gradle repo that contains the build directory
+    while [ "$target_folder" != "/" ]; do
+        target_folder="$(dirname $target_folder)"
+
+        if [ -f "$target_folder/gradlew" ]; then
+            break
+        fi
+    done
+
+    if [ "$target_folder" == "/" ]; then
+        echo "cannot find the gradle directory from $script_folder."
+        echo "Is the repository exists?"
+        exit 5
+    fi
+
+    echo "$target_folder"
+}
+
 # ===============================[checks]===============================
 
 if [[ "$(which docker)" == "" ]]; then
@@ -48,11 +71,14 @@ function wrap_address() {
 prometheus_port="${PROMETHEUS_PORT:-9090}"
 image_name=prom/prometheus:v2.32.1
 container_name="prometheus-${prometheus_port}"
-file="/tmp/prometheus-${prometheus_port}.yml"
-temp_file="/tmp/prometheus-${prometheus_port}-editing.yml"
+file_prefix="$(gradle_project_directory)/build/docker/prometheus"
+file="${file_prefix}/prometheus-${prometheus_port}.yml"
+temp_file="${file_prefix}/prometheus-${prometheus_port}-editing.yml"
 scrape_interval="100ms"
 volume_name_1="prometheus-${prometheus_port}-etc"
 volume_name_2="prometheus-${prometheus_port}-prometheus"
+
+mkdir -p "$file_prefix"
 
 function write_config() {
   kafka_jmx_addresses="$(wrap_address "$1")"
