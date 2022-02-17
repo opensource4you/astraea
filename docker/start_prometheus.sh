@@ -8,7 +8,7 @@ function showHelp() {
   echo "    start <kafka-broker-jmx-addresses> <node-exporter-addresses>    create/start the prometheus docker instance"
   echo "    refresh <kafka-broker-jmx-addresses> <node-exporter-addresses>  refresh and apply the prometheus config"
   echo "    refresh <config-file>                                           refresh and apply the prometheus config"
-  echo "    refresh                                                         start a editor for you to edit the config file manually"
+  echo "    refresh                                                         start an editor for you to edit the config file manually"
   echo "    help                                                            show this dialog"
 }
 
@@ -27,8 +27,8 @@ function gradle_project_directory {
     done
 
     if [ "$target_folder" == "/" ]; then
-        echo "cannot find the gradle directory from $script_folder."
-        echo "Is the repository exists?"
+        echo "Cannot find the gradle directory from $script_folder."
+        echo "Is the directory exists?"
         exit 5
     fi
 
