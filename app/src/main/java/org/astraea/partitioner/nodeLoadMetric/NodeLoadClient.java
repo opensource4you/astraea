@@ -1,15 +1,15 @@
 package org.astraea.partitioner.nodeLoadMetric;
 
+import static org.astraea.Utils.overOneSecond;
+
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
-import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import org.apache.kafka.common.Cluster;
@@ -32,7 +32,6 @@ public class NodeLoadClient {
   List<Broker> brokers;
   private Map<Integer, Integer> currentLoadNode;
   private int referenceBrokerID;
-  private CountDownLatch countDownLatch;
   private boolean notInMethod = true;
 
   private static final String regex =
@@ -53,15 +52,12 @@ public class NodeLoadClient {
    */
   public synchronized Map<Integer, Integer> loadSituation(Cluster cluster)
       throws UnknownHostException {
-    if (overOneSecond() && notInMethod) {
+    if (overOneSecond(lastTime) && notInMethod) {
       notInMethod = false;
       nodesOverLoad(cluster);
+      notInMethod = true;
     }
-    try {
-      countDownLatch.await();
-    } catch (InterruptedException e) {
-      e.printStackTrace();
-    }
+    Utils.waitFor(() -> currentLoadNode != null);
     return currentLoadNode;
   }
 
@@ -69,7 +65,6 @@ public class NodeLoadClient {
   private synchronized void nodesOverLoad(Cluster cluster) {
     var nodes = cluster.nodes();
     if (lastTime == -1) {
-      countDownLatch = new CountDownLatch(1);
       brokers =
           nodes.stream()
               .map(node -> new Broker(node.id(), node.host(), node.port()))
@@ -120,8 +115,6 @@ public class NodeLoadClient {
     currentLoadNode =
         brokers.stream().collect(Collectors.toMap(broker -> broker.brokerID, Broker::totalLoad));
     lastTime = System.currentTimeMillis();
-    countDownLatch.countDown();
-    notInMethod = true;
   }
 
   private void brokersMsgPerSec() {
@@ -223,10 +216,6 @@ public class NodeLoadClient {
 
   private boolean notIPAddress(String host) {
     return !host.matches(regex);
-  }
-
-  private boolean overOneSecond() {
-    return lastTime + Duration.ofSeconds(1).toMillis() <= System.currentTimeMillis();
   }
 
   public void close() {

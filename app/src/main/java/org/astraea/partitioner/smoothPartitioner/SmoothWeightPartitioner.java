@@ -1,5 +1,7 @@
 package org.astraea.partitioner.smoothPartitioner;
 
+import static org.astraea.Utils.overOneSecond;
+
 import java.io.IOException;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
@@ -29,16 +31,26 @@ public class SmoothWeightPartitioner implements Partitioner {
 
   private NodeLoadClient nodeLoadClient;
 
+  private long lastTime = -1;
+  private final Random rand = new Random();
+  private final LoadPoisson loadPoisson = new LoadPoisson();
+
+  @Override
+  public void onNewBatch(String topic, Cluster cluster, int prevPartition) {
+    Partitioner.super.onNewBatch(topic, cluster, prevPartition);
+  }
+
   @Override
   public int partition(
       String topic, Object key, byte[] keyBytes, Object value, byte[] valueBytes, Cluster cluster) {
     Map<Integer, Integer> loadCount;
-    var rand = new Random();
     loadCount = loadCount(cluster);
-    var loadPoisson = new LoadPoisson();
 
     Objects.requireNonNull(loadCount, "OverLoadCount should not be null.");
-    brokersWeight(loadPoisson.allPoisson(loadCount));
+    if (overOneSecond(lastTime)) {
+      brokersWeight(loadPoisson.allPoisson(loadCount));
+      lastTime = System.currentTimeMillis();
+    }
     AtomicReference<Map.Entry<Integer, int[]>> maxWeightServer = new AtomicReference<>();
     var allWeight = allNodesWeight();
     brokersWeight.forEach(
