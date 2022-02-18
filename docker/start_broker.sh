@@ -18,6 +18,7 @@ declare -r ADMIN_NAME="admin"
 declare -r ADMIN_PASSWORD="admin-secret"
 declare -r USER_NAME="user"
 declare -r USER_PASSWORD="user-secret"
+declare -r JMX_CONFIG_FILE="${JMX_CONFIG_FILE}"
 declare -r JMX_OPTS="-Dcom.sun.management.jmxremote \
   -Dcom.sun.management.jmxremote.authenticate=false \
   -Dcom.sun.management.jmxremote.ssl=false \
@@ -203,7 +204,15 @@ function setLogDirs() {
   echo $logConfigs >>"$BROKER_PROPERTIES"
 }
 
-function generateMountCommand() {
+function generateJmxConfigMountCommand() {
+    if [[ "$JMX_CONFIG_FILE" != "" ]]; then
+        echo "--mount type=bind,source=$JMX_CONFIG_FILE,target=/opt/jmx_exporter/kafka-2_0_0.yml"
+    else
+        echo ""
+    fi
+}
+
+function generateDataFolderMountCommand() {
   local mount=""
   if [[ -n "$DATA_FOLDERS" ]]; then
     IFS=',' read -ra folders <<<"$DATA_FOLDERS"
@@ -286,7 +295,8 @@ docker run -d --init \
   -e KAFKA_JMX_OPTS="$JMX_OPTS" \
   -e KAFKA_OPTS="-javaagent:/opt/jmx_exporter/jmx_prometheus_javaagent-${EXPORTER_VERSION}.jar=$EXPORTER_PORT:/opt/jmx_exporter/kafka-2_0_0.yml" \
   -v $BROKER_PROPERTIES:/tmp/broker.properties:ro \
-  $(generateMountCommand) \
+  $(generateJmxConfigMountCommand) \
+  $(generateDataFolderMountCommand) \
   -p $BROKER_PORT:9092 \
   -p $BROKER_JMX_PORT:$BROKER_JMX_PORT \
   -p $EXPORTER_PORT:$EXPORTER_PORT \
