@@ -8,21 +8,31 @@ import org.astraea.topic.TopicAdmin;
 public class GetPartitionInf {
   static Map<Integer, Map<TopicPartition, Integer>> getSize(TopicAdmin client) {
     Map<Integer, Map<TopicPartition, Integer>> brokerPartitionSize = new HashMap<>();
-    for (var broker : client.brokerIds()) {
-      Map<TopicPartition, Integer> partitionSize = new HashMap<>();
-      for (var partition : client.replicas(client.publicTopics().keySet()).keySet())
-        if (client.replicas(client.publicTopics().keySet()).get(partition).get(0).broker()
-            == broker)
-          partitionSize.put(
-              partition,
-              (int) client.replicas(client.publicTopics().keySet()).get(partition).get(0).size());
-      brokerPartitionSize.put(broker, partitionSize);
-    }
+    client
+        .brokerIds()
+        .forEach(
+            (broker) -> {
+              TreeMap<TopicPartition, Integer> partitionSize =
+                  new TreeMap<>(
+                      Comparator.comparing(TopicPartition::topic)
+                          .thenComparing(TopicPartition::partition));
+              client
+                  .replicas(client.topicNames())
+                  .forEach(
+                      (tp, assignment) -> {
+                        assignment.forEach(
+                            partition -> {
+                              if (partition.broker() == broker)
+                                partitionSize.put(tp, (int) partition.size());
+                            });
+                        brokerPartitionSize.put(broker, partitionSize);
+                      });
+            });
     return brokerPartitionSize;
   }
 
   static Map<String, Integer> getRetentionMillis(TopicAdmin client) {
-    return client.publicTopics().entrySet().stream()
+    return client.topics().entrySet().stream()
         .collect(
             Collectors.toMap(
                 Map.Entry::getKey,

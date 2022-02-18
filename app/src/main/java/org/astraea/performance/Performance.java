@@ -191,7 +191,6 @@ public class Performance {
         // Wait for all consumers get assignment.
         manager.awaitPartitionAssignment();
         var rand = new Random();
-
         // Do transactional send.
         if (param.transaction()) {
           var senders =
