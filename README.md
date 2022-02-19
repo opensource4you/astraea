@@ -42,7 +42,9 @@ The script creates a zookeeper instance by container. Also, it will show the com
 
 ```shell
 =================================================
+pick one of two join general kafka or concluent version of kafka.
 run ./docker/start_broker.sh zookeeper.connect=192.168.50.178:17228 to join kafka broker
+run ./docker/start_confluent_broker.sh zookeeper.connect=192.168.50.178:17228 to join confluent kafka broker
 =================================================
 ```
 
@@ -51,6 +53,7 @@ You can define `VERSION` to change the binary version.
 ### Run Kafka Broker
 
 After the zk env is running, you can copy the command (see above example) from zk script output to set up kafka. For example:
+
 ```shell
 ./docker/start_broker.sh zookeeper.connect=192.168.50.178:17228
 ```
@@ -59,10 +62,10 @@ The console will show the broker connection information and JMX address. For exa
 
 ```shell
 =================================================
+broker id: 677
 broker address: 192.168.50.178:12747
 jmx address: 192.168.50.178:10216
 exporter address: 192.168.50.178:10558
-broker id: 677
 =================================================
 ```
 
@@ -71,6 +74,35 @@ broker id: 677
 3. `exporter address` is the address of prometheus exporter.
 
 There are 4 useful ENVs which can change JVM/container configuration.
+
+1. VERSION -> define the kafka version
+2. REVISION -> define the revision of kafka source code. If this is defined, it will run distribution based on the source code
+3. HEAP_OPTS -> define JVM memory options
+4. DATA_FOLDERS -> define the host folders used by broker. You should define it if you want to keep data after terminating container
+
+### Run Confluent Kafka Broker
+
+After the zk env is running, you can copy the command (see above example) from zk script output to set up confluent kafka. For example:
+
+```shell
+./docker/start_confluent_broker.sh zookeeper.connect=192.168.103.39:16117
+```
+
+The console will show the broker connection information and JMX address. For example:
+
+```shell
+=================================================
+broker id: 1001
+broker address: 192.168.103.39:19038
+exporter address: 192.168.103.39:17356
+=================================================
+```
+
+1. `broker address` is used by kafka client code. The alias is bootstrap server.
+2. `exporter address` is the address of prometheus exporter.
+
+There are 4 useful ENVs which can change JVM/container configuration.
+
 1. VERSION -> define the kafka version
 2. REVISION -> define the revision of kafka source code. If this is defined, it will run distribution based on the source code
 3. HEAP_OPTS -> define JVM memory options
@@ -353,6 +385,8 @@ This tool will score the partition on brokers, the higher score the heavier load
 ### Partition Score Configurations
 
 1. --bootstrap.servers: the server to connect to
+2. --exclude.internal.topics: True if you want to ignore internal topics like _consumer_offsets while counting score. 
+3. --hide.balanced: True if you want to hide topics and partitions thar already balanced.:q
 
 ## Kafka Replica Syncing Monitor
 

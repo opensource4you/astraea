@@ -46,7 +46,7 @@ function showHelp() {
   echo "    VERSION=2.8.1                            set version of kafka distribution"
   echo "    BUILD=false                              set true if you want to build image locally"
   echo "    RUN=false                                set false if you want to build/pull image only"
-  echo "    DATA_FOLDERS=/tmp/folder1,/tmp/folder2   set host folders used by broker"
+  echo "    DATA_FOLDERS=/tmp/folder1                set host folders used by broker"
 }
 
 function rejectProperty() {
