@@ -52,7 +52,6 @@ public class SmoothWeightPartitioner implements Partitioner {
       lastTime = System.currentTimeMillis();
     }
     AtomicReference<Map.Entry<Integer, int[]>> maxWeightServer = new AtomicReference<>();
-    var allWeight = allNodesWeight();
     brokersWeight.forEach(
         (nodeID, weight) -> {
           if (maxWeightServer.get() == null || weight[1] > maxWeightServer.get().getValue()[1]) {
@@ -64,7 +63,8 @@ public class SmoothWeightPartitioner implements Partitioner {
     brokersWeight.put(
         maxWeightServer.get().getKey(),
         new int[] {
-          maxWeightServer.get().getValue()[0], maxWeightServer.get().getValue()[1] - allWeight
+          maxWeightServer.get().getValue()[0],
+          maxWeightServer.get().getValue()[1] - allNodesWeight()
         });
     brokersWeight
         .keySet()

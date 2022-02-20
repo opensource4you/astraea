@@ -33,6 +33,8 @@ public class NodeLoadClient {
   private Map<Integer, Integer> currentLoadNode;
   private int referenceBrokerID;
   private boolean notInMethod = true;
+  private double totalInput;
+  private double totalOutput;
 
   private static final String regex =
       "((25[0-5]|2[0-4]\\d|1\\d{2}|[1-9]?\\d)\\.){3}" + "(25[0-5]|2[0-4]\\d|1\\d{2}|[1-9]?\\d)$";
@@ -50,8 +52,7 @@ public class NodeLoadClient {
    * @param cluster from partitioner
    * @return each node load count in preset time
    */
-  public synchronized Map<Integer, Integer> loadSituation(Cluster cluster)
-      throws UnknownHostException {
+  public Map<Integer, Integer> loadSituation(Cluster cluster) throws UnknownHostException {
     if (overOneSecond(lastTime) && notInMethod) {
       notInMethod = false;
       nodesOverLoad(cluster);
@@ -63,8 +64,8 @@ public class NodeLoadClient {
 
   /** @param cluster the cluster from the partitioner */
   private synchronized void nodesOverLoad(Cluster cluster) {
-    var nodes = cluster.nodes();
     if (lastTime == -1) {
+      var nodes = cluster.nodes();
       brokers =
           nodes.stream()
               .map(node -> new Broker(node.id(), node.host(), node.port()))
@@ -87,9 +88,8 @@ public class NodeLoadClient {
     }
 
     brokersMsgPerSec();
-
-    var totalInput = brokers.stream().map(broker -> broker.input).reduce(0.0, Double::sum);
-    var totalOutput = brokers.stream().map(broker -> broker.output).reduce(0.0, Double::sum);
+    totalInput = totalInput();
+    totalOutput = totalOutput();
 
     AtomicReference<Double> totalBrokerSituation = new AtomicReference<>(0.0);
     brokers.forEach(
@@ -102,16 +102,12 @@ public class NodeLoadClient {
           totalBrokerSituation.updateAndGet(v -> v + broker.brokerSituation);
         });
 
-    var totalSituation = totalBrokerSituation.get();
+    brokers.forEach(broker -> broker.brokerSituationNormalized(totalBrokerSituation.get()));
 
-    brokers.forEach(broker -> broker.brokerSituationNormalized(totalSituation));
-
-    var avg = totalSituation / brokers.size();
-
-    // TODO Regarding countermeasures against cluster conditions
-    var standardDeviation = standardDeviationImperative(avg);
-
-    brokers.forEach(broker -> broker.load(brokerLoad(broker.brokerSituation, avg)));
+    brokers.forEach(
+        broker ->
+            broker.load(
+                brokerLoad(broker.brokerSituation, totalBrokerSituation.get() / brokers.size())));
     currentLoadNode =
         brokers.stream().collect(Collectors.toMap(broker -> broker.brokerID, Broker::totalLoad));
     lastTime = System.currentTimeMillis();
@@ -142,9 +138,13 @@ public class NodeLoadClient {
                       .getAttributes()
                       .get("MeanRate")
                       .toString());
+          broker.jvm =
+              (HasJvmMemory)
+                  broker.metrics.get("Memory").current().stream().findAny().orElse(broker.jvm);
         });
   }
 
+  // TODO Regarding countermeasures against cluster conditions
   public double standardDeviationImperative(double avgBrokersSituation) {
     var variance = new AtomicReference<>(0.0);
     brokers.forEach(
@@ -229,6 +229,14 @@ public class NodeLoadClient {
         .collect(Collectors.toList());
   }
 
+  private double totalInput() {
+    return brokers.stream().map(broker -> broker.input).reduce(0.0, Double::sum);
+  }
+
+  private double totalOutput() {
+    return brokers.stream().map(broker -> broker.output).reduce(0.0, Double::sum);
+  }
+
   // visible of test
   int brokerLoad(double brokerSituation, double avg) {
     var initialization = 5;
@@ -263,6 +271,7 @@ public class NodeLoadClient {
     private double inputNormalized;
     private double outputNormalized;
     private double brokerSituationNormalized;
+    private HasJvmMemory jvm;
     private static final double inputWeights = 0.5;
     private static final double outputWeights = 0.5;
 
@@ -319,7 +328,6 @@ public class NodeLoadClient {
       if (count < 10) {
         return 0.1;
       } else {
-        var jvm = (HasJvmMemory) metrics.get("Memory").current().stream().findAny().get();
         return (jvm.heapMemoryUsage().getUsed() + 0.0) / (jvm.heapMemoryUsage().getMax() + 1);
       }
     }
