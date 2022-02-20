@@ -74,7 +74,8 @@ container_name="prometheus-${prometheus_port}"
 file_prefix="$(gradle_project_directory)/build/docker/prometheus"
 file="${file_prefix}/prometheus-${prometheus_port}.yml"
 temp_file="${file_prefix}/prometheus-${prometheus_port}-editing.yml"
-scrape_interval="100ms"
+scrape_interval="${scrape_interval:-200ms}"
+scrape_timeout="${scrape_timeout:-200ms}"
 volume_name_1="prometheus-${prometheus_port}-etc"
 volume_name_2="prometheus-${prometheus_port}-prometheus"
 
@@ -94,11 +95,13 @@ scrape_configs:
 
   - job_name: 'kafka'
     scrape_interval: $scrape_interval
+    scrape_timeout: $scrape_timeout
     static_configs:
       - targets: [$kafka_jmx_addresses]
 
   - job_name: 'node'
     scrape_interval: $scrape_interval
+    scrape_timeout: $scrape_timeout
     static_configs:
       - targets: [$node_exporter_addresses]
 EOT
