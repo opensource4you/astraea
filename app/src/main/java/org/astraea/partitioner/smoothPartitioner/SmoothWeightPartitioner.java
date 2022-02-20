@@ -36,11 +36,6 @@ public class SmoothWeightPartitioner implements Partitioner {
   private final LoadPoisson loadPoisson = new LoadPoisson();
 
   @Override
-  public void onNewBatch(String topic, Cluster cluster, int prevPartition) {
-    Partitioner.super.onNewBatch(topic, cluster, prevPartition);
-  }
-
-  @Override
   public int partition(
       String topic, Object key, byte[] keyBytes, Object value, byte[] valueBytes, Cluster cluster) {
     Map<Integer, Integer> loadCount;

@@ -312,13 +312,12 @@ public class NodeLoadClient {
       this.maxThoughPut = Math.max(maxThoughPut, input + output);
     }
 
+    // TODO Algorithms adapted to computers of different specifications
     private void thoughPutComparison(double referenceThoughPut) {
       if (count >= 20) {
-        this.thoughPutComparison =
-            (maxThoughPut - referenceThoughPut) / (referenceThoughPut + 1) + 1;
+        this.thoughPutComparison = 1;
       } else if (count >= 10) {
-        this.thoughPutComparison =
-            (maxThoughPut - referenceThoughPut) / (referenceThoughPut + 1) / 2 + 1;
+        this.thoughPutComparison = 1;
       } else if (count >= 0) {
         this.thoughPutComparison = 1;
       }
