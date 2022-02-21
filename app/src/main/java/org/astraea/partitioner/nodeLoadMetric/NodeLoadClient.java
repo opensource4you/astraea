@@ -53,7 +53,7 @@ public class NodeLoadClient {
    * @return each node load count in preset time
    */
   public Map<Integer, Integer> loadSituation(Cluster cluster) throws UnknownHostException {
-    if (overSecond(lastTime,1) && notInMethod) {
+    if (overSecond(lastTime, 1) && notInMethod) {
       notInMethod = false;
       nodesOverLoad(cluster);
       notInMethod = true;

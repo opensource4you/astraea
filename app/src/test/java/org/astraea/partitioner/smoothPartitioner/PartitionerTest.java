@@ -24,7 +24,6 @@ import org.astraea.consumer.Consumer;
 import org.astraea.consumer.Deserializer;
 import org.astraea.consumer.Header;
 import org.astraea.partitioner.nodeLoadMetric.NodeLoadClient;
-import org.astraea.partitioner.smoothPartitioner.SmoothWeightPartitioner;
 import org.astraea.producer.Producer;
 import org.astraea.producer.Serializer;
 import org.astraea.service.RequireBrokerCluster;
@@ -187,25 +186,25 @@ public class PartitionerTest extends RequireBrokerCluster {
   @Test
   void teatUpdateWeightIfNeed() throws NoSuchFieldException, IllegalAccessException {
     SmoothWeightPartitioner smoothWeightPartitioner = new SmoothWeightPartitioner();
-    var loadCount = new HashMap<Integer,Integer>();
-    loadCount.put(0,10);
-    loadCount.put(1,12);
+    var loadCount = new HashMap<Integer, Integer>();
+    loadCount.put(0, 10);
+    loadCount.put(1, 12);
     var nodeLoadClient = mock(NodeLoadClient.class);
     var field = smoothWeightPartitioner.getClass().getDeclaredField("nodeLoadClient");
     field.setAccessible(true);
-    field.set(smoothWeightPartitioner,nodeLoadClient);
+    field.set(smoothWeightPartitioner, nodeLoadClient);
     when(nodeLoadClient.thoughPutComparison(anyInt())).thenReturn(1.0);
     smoothWeightPartitioner.updateWeightIfNeed(loadCount);
     var firstBrokersWeight = smoothWeightPartitioner.brokersWeight().get(0)[0];
     smoothWeightPartitioner.updateWeightIfNeed(loadCount);
     var secondBrokersWeight = smoothWeightPartitioner.brokersWeight().get(0)[0];
-    Assertions.assertEquals(firstBrokersWeight,secondBrokersWeight);
-    loadCount.put(0,6);
-    loadCount.put(2,5);
+    Assertions.assertEquals(firstBrokersWeight, secondBrokersWeight);
+    loadCount.put(0, 6);
+    loadCount.put(2, 5);
     sleep(1);
     smoothWeightPartitioner.updateWeightIfNeed(loadCount);
     var thirdBrokersWeight = smoothWeightPartitioner.brokersWeight();
-    Assertions.assertNotEquals(secondBrokersWeight,thirdBrokersWeight.get(2)[0]);
+    Assertions.assertNotEquals(secondBrokersWeight, thirdBrokersWeight.get(2)[0]);
   }
 
   private ThreadPool.Executor producerExecutor(
