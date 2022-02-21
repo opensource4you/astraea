@@ -105,7 +105,6 @@ function generateDockerfile() {
   echo "# this dockerfile is generated dynamically
 FROM ubuntu:20.04
 
-
 RUN groupadd $USER && useradd -ms /bin/bash -g $USER $USER
 RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y openjdk-11-jre wget git curl && apt-get install unzip
 
@@ -120,9 +119,6 @@ RUN mkdir /opt/jmx_exporter
 WORKDIR /opt/jmx_exporter
 RUN wget https://raw.githubusercontent.com/prometheus/jmx_exporter/master/example_configs/kafka-2_0_0.yml
 RUN wget https://REPO1.maven.org/maven2/io/prometheus/jmx/jmx_prometheus_javaagent/${EXPORTER_VERSION}/jmx_prometheus_javaagent-${EXPORTER_VERSION}.jar
-
-# COPY --from=build /opt/confluent/confluent-${VERSION} /opt/confluent/
-# COPY --from=build /opt/jmx_exporter /opt/jmx_exporter
 
 # change user
 RUN chown -R $USER:$USER /tmp
