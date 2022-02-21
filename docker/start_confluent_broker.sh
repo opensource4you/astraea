@@ -103,16 +103,10 @@ function setLogDirs() {
 
 function generateDockerfile() {
   echo "# this dockerfile is generated dynamically
-FROM ubuntu:20.04
-
+FROM confluentinc/cp-server:latest
+USER root
 RUN groupadd $USER && useradd -ms /bin/bash -g $USER $USER
-RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y openjdk-11-jre wget git curl && apt-get install unzip
-
-# download confluent
-WORKDIR /opt
-RUN wget http://packages.confluent.io/archive/${VERSION:0:3}/confluent-${VERSION}.zip
-RUN cd /opt && unzip confluent-${VERSION}.zip && rm confluent-${VERSION}.zip
-RUN mv /opt/confluent-${VERSION} /opt/confluent
+RUN yum -y update && yum -y install git unzip
 
 # download jmx exporter
 RUN mkdir /opt/jmx_exporter
@@ -122,12 +116,10 @@ RUN wget https://REPO1.maven.org/maven2/io/prometheus/jmx/jmx_prometheus_javaage
 
 # change user
 RUN chown -R $USER:$USER /tmp
-RUN chown -R $USER:$USER /opt/confluent
+RUN chown -R $USER:$USER /var
 USER $USER
 
-# export ENV
-ENV KAFKA_HOME /opt/confluent
-WORKDIR /opt/confluent
+WORKDIR /
 " >"$DOCKERFILE"
 }
 
