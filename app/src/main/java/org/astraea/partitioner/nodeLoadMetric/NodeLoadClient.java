@@ -1,6 +1,6 @@
 package org.astraea.partitioner.nodeLoadMetric;
 
-import static org.astraea.Utils.overOneSecond;
+import static org.astraea.Utils.overSecond;
 
 import java.io.IOException;
 import java.net.InetAddress;
@@ -53,7 +53,7 @@ public class NodeLoadClient {
    * @return each node load count in preset time
    */
   public Map<Integer, Integer> loadSituation(Cluster cluster) throws UnknownHostException {
-    if (overOneSecond(lastTime) && notInMethod) {
+    if (overSecond(lastTime,1) && notInMethod) {
       notInMethod = false;
       nodesOverLoad(cluster);
       notInMethod = true;

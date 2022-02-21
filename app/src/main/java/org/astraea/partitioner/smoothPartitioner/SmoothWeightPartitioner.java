@@ -1,6 +1,7 @@
 package org.astraea.partitioner.smoothPartitioner;
 
-import static org.astraea.Utils.overOneSecond;
+import static org.astraea.Utils.overSecond;
+import static org.astraea.partitioner.nodeLoadMetric.PartitionerUtils.allPoisson;
 
 import java.io.IOException;
 import java.net.UnknownHostException;
@@ -13,7 +14,6 @@ import java.util.Random;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.kafka.clients.producer.Partitioner;
 import org.apache.kafka.common.Cluster;
-import org.astraea.partitioner.nodeLoadMetric.LoadPoisson;
 import org.astraea.partitioner.nodeLoadMetric.NodeLoadClient;
 
 /**
@@ -33,19 +33,14 @@ public class SmoothWeightPartitioner implements Partitioner {
 
   private long lastTime = -1;
   private final Random rand = new Random();
-  private final LoadPoisson loadPoisson = new LoadPoisson();
 
   @Override
   public int partition(
       String topic, Object key, byte[] keyBytes, Object value, byte[] valueBytes, Cluster cluster) {
     Map<Integer, Integer> loadCount;
     loadCount = loadCount(cluster);
-
     Objects.requireNonNull(loadCount, "OverLoadCount should not be null.");
-    if (overOneSecond(lastTime)) {
-      brokersWeight(loadPoisson.allPoisson(loadCount));
-      lastTime = System.currentTimeMillis();
-    }
+    updateWeightIfNeed(loadCount);
     AtomicReference<Map.Entry<Integer, int[]>> maxWeightServer = new AtomicReference<>();
     brokersWeight.forEach(
         (nodeID, weight) -> {
@@ -119,6 +114,17 @@ public class SmoothWeightPartitioner implements Partitioner {
         });
   }
 
+  void updateWeightIfNeed(Map<Integer,Integer> loadCount) {
+    var bool = overSecond(lastTime,1);
+    if (bool) {
+      brokersWeight(allPoisson(loadCount));
+      lastTime = System.currentTimeMillis();
+    }
+  }
+
+  Map<Integer, int[]> brokersWeight(){
+    return this.brokersWeight;
+  }
   private void subBrokerWeight(int brokerID, int subNumber) {
     brokersWeight.put(
         brokerID,
