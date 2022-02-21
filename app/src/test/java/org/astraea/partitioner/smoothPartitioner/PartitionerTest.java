@@ -3,8 +3,7 @@ package org.astraea.partitioner.smoothPartitioner;
 import static org.astraea.Utils.requireField;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 import java.lang.reflect.Field;
 import java.time.Duration;
@@ -184,7 +183,7 @@ public class PartitionerTest extends RequireBrokerCluster {
   }
 
   @Test
-  void teatUpdateWeightIfNeed() throws NoSuchFieldException, IllegalAccessException {
+  void testUpdateWeightIfNeed() throws NoSuchFieldException, IllegalAccessException {
     SmoothWeightPartitioner smoothWeightPartitioner = new SmoothWeightPartitioner();
     var loadCount = new HashMap<Integer, Integer>();
     loadCount.put(0, 10);
@@ -199,12 +198,12 @@ public class PartitionerTest extends RequireBrokerCluster {
     smoothWeightPartitioner.updateWeightIfNeed(loadCount);
     var secondBrokersWeight = smoothWeightPartitioner.brokersWeight().get(0)[0];
     Assertions.assertEquals(firstBrokersWeight, secondBrokersWeight);
-    loadCount.put(0, 6);
+    loadCount.put(0, 5);
     loadCount.put(2, 5);
-    sleep(1);
+    sleep(2);
     smoothWeightPartitioner.updateWeightIfNeed(loadCount);
-    var thirdBrokersWeight = smoothWeightPartitioner.brokersWeight();
-    Assertions.assertNotEquals(secondBrokersWeight, thirdBrokersWeight.get(2)[0]);
+    var thirdBrokersWeight = smoothWeightPartitioner.brokersWeight().get(0)[0];
+    Assertions.assertNotEquals(secondBrokersWeight, thirdBrokersWeight);
   }
 
   private ThreadPool.Executor producerExecutor(

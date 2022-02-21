@@ -115,15 +115,14 @@ public class SmoothWeightPartitioner implements Partitioner {
   }
 
   void updateWeightIfNeed(Map<Integer, Integer> loadCount) {
-    var bool = overSecond(lastTime, 1);
-    if (bool) {
+    if (overSecond(lastTime, 1)) {
       brokersWeight(allPoisson(loadCount));
       lastTime = System.currentTimeMillis();
     }
   }
 
   Map<Integer, int[]> brokersWeight() {
-    return this.brokersWeight;
+    return brokersWeight;
   }
 
   private void subBrokerWeight(int brokerID, int subNumber) {
