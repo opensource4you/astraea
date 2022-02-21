@@ -103,42 +103,30 @@ function setLogDirs() {
 
 function generateDockerfile() {
   echo "# this dockerfile is generated dynamically
-FROM ubuntu:20.04 AS build
+FROM ubuntu:20.04
 
 
 RUN groupadd $USER && useradd -ms /bin/bash -g $USER $USER
-RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y openjdk-11-jdk wget git curl && apt-get install unzip
+RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y openjdk-11-jre wget git curl && apt-get install unzip
+
 # download confluent
-
-RUN mkdir /opt/confluent
-WORKDIR /opt/confluent
-
+WORKDIR /opt
 RUN wget http://packages.confluent.io/archive/${VERSION:0:3}/confluent-${VERSION}.zip
-RUN cd /opt/confluent/ && unzip confluent-${VERSION}.zip && rm confluent-${VERSION}.zip
+RUN cd /opt && unzip confluent-${VERSION}.zip && rm confluent-${VERSION}.zip
+RUN mv /opt/confluent-${VERSION} /opt/confluent
 
 # download jmx exporter
 RUN mkdir /opt/jmx_exporter
 WORKDIR /opt/jmx_exporter
 RUN wget https://raw.githubusercontent.com/prometheus/jmx_exporter/master/example_configs/kafka-2_0_0.yml
 RUN wget https://REPO1.maven.org/maven2/io/prometheus/jmx/jmx_prometheus_javaagent/${EXPORTER_VERSION}/jmx_prometheus_javaagent-${EXPORTER_VERSION}.jar
-WORKDIR /opt/confluent
 
-FROM ubuntu:20.04
-
-# install tools
-RUN apt-get update && apt-get install -y openjdk-11-jre
-
-# copy 
-COPY --from=build /opt/confluent/confluent-${VERSION} /opt/confluent/
-COPY --from=build /opt/jmx_exporter /opt/jmx_exporter
-
-# add user
-RUN groupadd $USER && useradd -ms /bin/bash -g $USER $USER
+# COPY --from=build /opt/confluent/confluent-${VERSION} /opt/confluent/
+# COPY --from=build /opt/jmx_exporter /opt/jmx_exporter
 
 # change user
 RUN chown -R $USER:$USER /tmp
 RUN chown -R $USER:$USER /opt/confluent
-
 USER $USER
 
 # export ENV
