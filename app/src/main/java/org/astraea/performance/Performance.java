@@ -5,7 +5,6 @@ import com.beust.jcommander.Parameter;
 import com.beust.jcommander.ParameterException;
 import com.beust.jcommander.converters.PathConverter;
 import java.io.IOException;
-import java.nio.file.FileSystems;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.Collection;
@@ -101,7 +100,7 @@ public class Performance {
     var manager = new Manager(param, producerMetrics, consumerMetrics);
     var tracker = new Tracker(producerMetrics, consumerMetrics, manager);
     Collection<ThreadPool.Executor> fileWriter =
-        (param.createReport)
+        (param.CSVPath != null)
             ? List.of(
                 ReportWriter.createFileWriter(param.reportFormat, param.CSVPath, manager, tracker))
             : List.of();
@@ -315,11 +314,6 @@ public class Performance {
     }
 
     @Parameter(
-        names = {"--create.report"},
-        description = "create the metrics into a csv file if this flag is set")
-    boolean createReport = false;
-
-    @Parameter(
         names = {"--compression"},
         description =
             "String: the compression algorithm used by producer. Available algorithm are none, gzip, snappy, lz4, and zstd",
@@ -342,9 +336,9 @@ public class Performance {
 
     @Parameter(
         names = {"--report.path"},
-        description = "String: A path to place the report.",
+        description = "String: A path to place the report. Default: (no report)",
         converter = PathConverter.class)
-    Path CSVPath = FileSystems.getDefault().getPath(".");
+    Path CSVPath = null;
 
     @Parameter(
         names = {"--report.format"},
