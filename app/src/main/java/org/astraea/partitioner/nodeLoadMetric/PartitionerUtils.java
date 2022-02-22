@@ -4,17 +4,17 @@ import java.util.HashMap;
 import java.util.Map;
 
 /** do poisson for node's load situation */
-public class LoadPoisson {
+public class PartitionerUtils {
+  private PartitionerUtils() {}
 
-  public HashMap<Integer, Double> allPoisson(Map<Integer, Integer> overLoadCount) {
+  public static HashMap<Integer, Double> allPoisson(Map<Integer, Integer> overLoadCount) {
     var poissonMap = new HashMap<Integer, Double>();
     var lambda = avgLoadCount(overLoadCount);
     overLoadCount.forEach((nodeID, count) -> poissonMap.put(nodeID, doPoisson(lambda, count)));
     return poissonMap;
   }
 
-  // visible for test
-  double doPoisson(int lambda, int x) {
+  static double doPoisson(int lambda, int x) {
     var Probability = 0.0;
     var ans = 0.0;
     var i = 0;
@@ -29,13 +29,12 @@ public class LoadPoisson {
     return ans;
   }
 
-  // visible for test
-  long factorial(long number) {
+  static long factorial(long number) {
     if (number <= 1) return 1;
     else return number * factorial(number - 1);
   }
 
-  private int avgLoadCount(Map<Integer, Integer> overLoadCount) {
+  private static int avgLoadCount(Map<Integer, Integer> overLoadCount) {
     var avgLoadCount =
         overLoadCount.values().stream().mapToDouble(Integer::doubleValue).average().orElse(0);
     return (int) avgLoadCount;

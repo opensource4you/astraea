@@ -1,15 +1,15 @@
 package org.astraea.partitioner.nodeLoadMetric;
 
+import static org.astraea.Utils.overSecond;
+
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
-import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import org.apache.kafka.common.Cluster;
@@ -32,8 +32,9 @@ public class NodeLoadClient {
   List<Broker> brokers;
   private Map<Integer, Integer> currentLoadNode;
   private int referenceBrokerID;
-  private CountDownLatch countDownLatch;
   private boolean notInMethod = true;
+  private double totalInput;
+  private double totalOutput;
 
   private static final String regex =
       "((25[0-5]|2[0-4]\\d|1\\d{2}|[1-9]?\\d)\\.){3}" + "(25[0-5]|2[0-4]\\d|1\\d{2}|[1-9]?\\d)$";
@@ -51,25 +52,20 @@ public class NodeLoadClient {
    * @param cluster from partitioner
    * @return each node load count in preset time
    */
-  public synchronized Map<Integer, Integer> loadSituation(Cluster cluster)
-      throws UnknownHostException {
-    if (overOneSecond() && notInMethod) {
+  public Map<Integer, Integer> loadSituation(Cluster cluster) throws UnknownHostException {
+    if (overSecond(lastTime, 1) && notInMethod) {
       notInMethod = false;
       nodesOverLoad(cluster);
+      notInMethod = true;
     }
-    try {
-      countDownLatch.await();
-    } catch (InterruptedException e) {
-      e.printStackTrace();
-    }
+    Utils.waitFor(() -> currentLoadNode != null);
     return currentLoadNode;
   }
 
   /** @param cluster the cluster from the partitioner */
   private synchronized void nodesOverLoad(Cluster cluster) {
-    var nodes = cluster.nodes();
     if (lastTime == -1) {
-      countDownLatch = new CountDownLatch(1);
+      var nodes = cluster.nodes();
       brokers =
           nodes.stream()
               .map(node -> new Broker(node.id(), node.host(), node.port()))
@@ -92,9 +88,8 @@ public class NodeLoadClient {
     }
 
     brokersMsgPerSec();
-
-    var totalInput = brokers.stream().map(broker -> broker.input).reduce(0.0, Double::sum);
-    var totalOutput = brokers.stream().map(broker -> broker.output).reduce(0.0, Double::sum);
+    totalInput = totalInput();
+    totalOutput = totalOutput();
 
     AtomicReference<Double> totalBrokerSituation = new AtomicReference<>(0.0);
     brokers.forEach(
@@ -107,21 +102,15 @@ public class NodeLoadClient {
           totalBrokerSituation.updateAndGet(v -> v + broker.brokerSituation);
         });
 
-    var totalSituation = totalBrokerSituation.get();
+    brokers.forEach(broker -> broker.brokerSituationNormalized(totalBrokerSituation.get()));
 
-    brokers.forEach(broker -> broker.brokerSituationNormalized(totalSituation));
-
-    var avg = totalSituation / brokers.size();
-
-    // TODO Regarding countermeasures against cluster conditions
-    var standardDeviation = standardDeviationImperative(avg);
-
-    brokers.forEach(broker -> broker.load(brokerLoad(broker.brokerSituation, avg)));
+    brokers.forEach(
+        broker ->
+            broker.load(
+                brokerLoad(broker.brokerSituation, totalBrokerSituation.get() / brokers.size())));
     currentLoadNode =
         brokers.stream().collect(Collectors.toMap(broker -> broker.brokerID, Broker::totalLoad));
     lastTime = System.currentTimeMillis();
-    countDownLatch.countDown();
-    notInMethod = true;
   }
 
   private void brokersMsgPerSec() {
@@ -149,9 +138,13 @@ public class NodeLoadClient {
                       .getAttributes()
                       .get("MeanRate")
                       .toString());
+          broker.jvm =
+              (HasJvmMemory)
+                  broker.metrics.get("Memory").current().stream().findAny().orElse(broker.jvm);
         });
   }
 
+  // TODO Regarding countermeasures against cluster conditions
   public double standardDeviationImperative(double avgBrokersSituation) {
     var variance = new AtomicReference<>(0.0);
     brokers.forEach(
@@ -225,10 +218,6 @@ public class NodeLoadClient {
     return !host.matches(regex);
   }
 
-  private boolean overOneSecond() {
-    return lastTime + Duration.ofSeconds(1).toMillis() <= System.currentTimeMillis();
-  }
-
   public void close() {
     RECEIVER_FACTORY.close(currentJmxAddresses);
   }
@@ -238,6 +227,14 @@ public class NodeLoadClient {
         .filter(broker -> Objects.equals(ipAddress(broker.host), host))
         .map(broker -> broker.brokerID)
         .collect(Collectors.toList());
+  }
+
+  private double totalInput() {
+    return brokers.stream().map(broker -> broker.input).reduce(0.0, Double::sum);
+  }
+
+  private double totalOutput() {
+    return brokers.stream().map(broker -> broker.output).reduce(0.0, Double::sum);
   }
 
   // visible of test
@@ -274,6 +271,7 @@ public class NodeLoadClient {
     private double inputNormalized;
     private double outputNormalized;
     private double brokerSituationNormalized;
+    private HasJvmMemory jvm;
     private static final double inputWeights = 0.5;
     private static final double outputWeights = 0.5;
 
@@ -314,13 +312,12 @@ public class NodeLoadClient {
       this.maxThoughPut = Math.max(maxThoughPut, input + output);
     }
 
+    // TODO Algorithms adapted to computers of different specifications
     private void thoughPutComparison(double referenceThoughPut) {
       if (count >= 20) {
-        this.thoughPutComparison =
-            (maxThoughPut - referenceThoughPut) / (referenceThoughPut + 1) + 1;
+        this.thoughPutComparison = 1;
       } else if (count >= 10) {
-        this.thoughPutComparison =
-            (maxThoughPut - referenceThoughPut) / (referenceThoughPut + 1) / 2 + 1;
+        this.thoughPutComparison = 1;
       } else if (count >= 0) {
         this.thoughPutComparison = 1;
       }
@@ -330,7 +327,6 @@ public class NodeLoadClient {
       if (count < 10) {
         return 0.1;
       } else {
-        var jvm = (HasJvmMemory) metrics.get("Memory").current().stream().findAny().get();
         return (jvm.heapMemoryUsage().getUsed() + 0.0) / (jvm.heapMemoryUsage().getMax() + 1);
       }
     }

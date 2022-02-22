@@ -1,5 +1,8 @@
 package org.astraea.partitioner.smoothPartitioner;
 
+import static org.astraea.Utils.overSecond;
+import static org.astraea.partitioner.nodeLoadMetric.PartitionerUtils.allPoisson;
+
 import java.io.IOException;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
@@ -11,7 +14,6 @@ import java.util.Random;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.kafka.clients.producer.Partitioner;
 import org.apache.kafka.common.Cluster;
-import org.astraea.partitioner.nodeLoadMetric.LoadPoisson;
 import org.astraea.partitioner.nodeLoadMetric.NodeLoadClient;
 
 /**
@@ -29,18 +31,17 @@ public class SmoothWeightPartitioner implements Partitioner {
 
   private NodeLoadClient nodeLoadClient;
 
+  private long lastTime = -1;
+  private final Random rand = new Random();
+
   @Override
   public int partition(
       String topic, Object key, byte[] keyBytes, Object value, byte[] valueBytes, Cluster cluster) {
     Map<Integer, Integer> loadCount;
-    var rand = new Random();
     loadCount = loadCount(cluster);
-    var loadPoisson = new LoadPoisson();
-
     Objects.requireNonNull(loadCount, "OverLoadCount should not be null.");
-    brokersWeight(loadPoisson.allPoisson(loadCount));
+    updateWeightIfNeed(loadCount);
     AtomicReference<Map.Entry<Integer, int[]>> maxWeightServer = new AtomicReference<>();
-    var allWeight = allNodesWeight();
     brokersWeight.forEach(
         (nodeID, weight) -> {
           if (maxWeightServer.get() == null || weight[1] > maxWeightServer.get().getValue()[1]) {
@@ -52,7 +53,8 @@ public class SmoothWeightPartitioner implements Partitioner {
     brokersWeight.put(
         maxWeightServer.get().getKey(),
         new int[] {
-          maxWeightServer.get().getValue()[0], maxWeightServer.get().getValue()[1] - allWeight
+          maxWeightServer.get().getValue()[0],
+          maxWeightServer.get().getValue()[1] - allNodesWeight()
         });
     brokersWeight
         .keySet()
@@ -110,6 +112,17 @@ public class SmoothWeightPartitioner implements Partitioner {
                 new int[] {(int) ((1 - value) * 20 * thoughPutAbility), brokersWeight.get(key)[1]});
           }
         });
+  }
+
+  void updateWeightIfNeed(Map<Integer, Integer> loadCount) {
+    if (overSecond(lastTime, 1)) {
+      brokersWeight(allPoisson(loadCount));
+      lastTime = System.currentTimeMillis();
+    }
+  }
+
+  Map<Integer, int[]> brokersWeight() {
+    return brokersWeight;
   }
 
   private void subBrokerWeight(int brokerID, int subNumber) {
