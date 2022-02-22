@@ -5,6 +5,7 @@ import java.util.Map;
 
 /** do poisson for node's load situation */
 public class PartitionerUtils {
+  private PartitionerUtils() {}
 
   public static HashMap<Integer, Double> allPoisson(Map<Integer, Integer> overLoadCount) {
     var poissonMap = new HashMap<Integer, Double>();
@@ -13,7 +14,7 @@ public class PartitionerUtils {
     return poissonMap;
   }
 
-  public static double doPoisson(int lambda, int x) {
+  static double doPoisson(int lambda, int x) {
     var Probability = 0.0;
     var ans = 0.0;
     var i = 0;
@@ -28,7 +29,7 @@ public class PartitionerUtils {
     return ans;
   }
 
-  public static long factorial(long number) {
+  static long factorial(long number) {
     if (number <= 1) return 1;
     else return number * factorial(number - 1);
   }
