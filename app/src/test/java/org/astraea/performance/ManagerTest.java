@@ -58,19 +58,19 @@ public class ManagerTest {
   void testGetKey() {
     var argument = new Performance.Argument();
 
-    argument.distribution = Distribution.uniform();
+    argument.keyDistribution = Distribution.UNIFORM;
     var manager = new Manager(argument, List.of(), List.of());
     Assertions.assertTrue(manager.getKey().length > 0);
 
-    argument.distribution = Distribution.zipfian(10);
+    argument.keyDistribution = Distribution.ZIPFIAN;
     manager = new Manager(argument, List.of(), List.of());
     Assertions.assertTrue(manager.getKey().length > 0);
 
-    argument.distribution = Distribution.latest();
+    argument.keyDistribution = Distribution.LATEST;
     manager = new Manager(argument, List.of(), List.of());
     Assertions.assertTrue(manager.getKey().length > 0);
 
-    argument.distribution = Distribution.fixed();
+    argument.keyDistribution = Distribution.FIXED;
     manager = new Manager(argument, List.of(), List.of());
     Assertions.assertTrue(manager.getKey().length > 0);
   }

@@ -1,6 +1,6 @@
 package org.astraea.performance;
 
-import java.util.Map;
+import java.util.Random;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.junit.jupiter.api.Assertions;
@@ -10,32 +10,25 @@ public class DistributionTest {
 
   @Test
   void testFixed() {
-    var distribution = Distribution.fixed();
+    var distribution = Distribution.FIXED.create(new Random().nextInt());
     Assertions.assertEquals(
         1,
         IntStream.range(0, 10)
             .mapToObj(ignored -> distribution.get())
             .collect(Collectors.toSet())
             .size());
-
-    // test setParameters
-    distribution.configure(Map.of(Distribution.VALUE, "1234"));
-    Assertions.assertEquals(1234L, distribution.get());
   }
 
   @Test
   void testUniform() {
-    var distribution = Distribution.uniform(5);
+    var distribution = Distribution.UNIFORM.create(5);
     Assertions.assertTrue(distribution.get() < 5);
-
-    // test setParameters
-    distribution.configure(Map.of(Distribution.RANGE, "2"));
-    Assertions.assertTrue(distribution.get() < 2);
+    Assertions.assertTrue(distribution.get() >= 0);
   }
 
   @Test
   void testLatest() throws InterruptedException {
-    var distribution = Distribution.latest();
+    var distribution = Distribution.LATEST.create(Integer.MAX_VALUE);
     Assertions.assertEquals(distribution.get(), distribution.get());
 
     long first = distribution.get();
@@ -46,11 +39,8 @@ public class DistributionTest {
 
   @Test
   void testZipfian() {
-    var distribution = Distribution.zipfian(5);
+    var distribution = Distribution.ZIPFIAN.create(5);
     Assertions.assertTrue(distribution.get() < 5);
-
-    // test setParameters
-    distribution.configure(Map.of(Distribution.RANGE, "2"));
-    Assertions.assertTrue(distribution.get() < 2);
+    Assertions.assertTrue(distribution.get() >= 0);
   }
 }

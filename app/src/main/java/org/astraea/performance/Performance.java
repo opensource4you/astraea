@@ -202,8 +202,10 @@ public class Performance {
             .timestamp(start)
             .run()
             .whenComplete(
-                (m, e) ->
-                    observer.accept(System.currentTimeMillis() - start, m.serializedValueSize()));
+                (m, e) -> {
+                  if (e == null)
+                    observer.accept(System.currentTimeMillis() - start, m.serializedValueSize());
+                });
         return State.RUNNING;
       }
 
@@ -319,16 +321,16 @@ public class Performance {
         names = {"--key.distribution"},
         description =
             "String: Distribution name. Available distribution names: \"fixed\" \"uniform\", \"zipfian\", \"latest\". Default: uniform",
-        converter = Distribution.DistributionConverter.class)
-    Distribution distribution = Distribution.uniform();
+        converter = Distribution.Converter.class)
+    Distribution keyDistribution = Distribution.UNIFORM;
 
     @Parameter(
         names = {"--size.distribution"},
         description =
             "String: Distribution name. Available distribution names: \"uniform\", \"zipfian\", \"latest\", \"fixed\". Default: \"uniform\"",
         validateWith = NotEmptyString.class,
-        converter = Distribution.DistributionConverter.class)
-    Distribution sizeDistribution = Distribution.uniform(1024);
+        converter = Distribution.Converter.class)
+    Distribution sizeDistribution = Distribution.UNIFORM;
 
     @Parameter(
         names = {"--specify.broker"},

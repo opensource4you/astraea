@@ -73,7 +73,7 @@ public class Tracker implements ThreadPool.Executor {
           "  producer[%d] average publish latency: %.3f ms%n", i, result.averageLatencies.get(i));
     }
     System.out.println("\n");
-    return percentage >= 100D;
+    return manager.producedDone();
   }
 
   private boolean logConsumers(Result result) {
