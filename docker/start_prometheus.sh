@@ -8,7 +8,6 @@ function showHelp() {
   echo "    start <kafka-broker-jmx-addresses> <node-exporter-addresses>    create/start the prometheus docker instance"
   echo "    refresh <kafka-broker-jmx-addresses> <node-exporter-addresses>  refresh and apply the prometheus config"
   echo "    refresh <config-file>                                           refresh and apply the prometheus config"
-  echo "    refresh                                                         start an editor for you to edit the config file manually"
   echo "    help                                                            show this dialog"
 }
 
@@ -175,11 +174,6 @@ elif [[ "$1" == "refresh" ]] && [[ "$#" -eq 3 ]]; then
   refresh_config "$2" "$3"
 elif [[ "$1" == "refresh" ]] && [[ "$#" -eq 2 ]]; then
   refresh_config_from_file "$2"
-elif [[ "$1" == "refresh" ]] && [[ "$#" -eq 1 ]]; then
-  # bring the config file inside docker config to local for further editing
-  docker cp "$container_name:/etc/prometheus/prometheus.yml" "$temp_file"
-  ${EDITOR:-vi} "$temp_file" && refresh_config_from_file "$temp_file"
-  rm "$temp_file"
 elif [[ "$1" == "help" ]]; then
   showHelp
 else

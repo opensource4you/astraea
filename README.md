@@ -129,7 +129,7 @@ prometheus-9090
 [INFO] =================================================
 ```
 
-There are three ways to change the prometheus configuration.
+There are two ways to change the prometheus configuration.
 
 ```shell
 # refresh prometheus config by command-line arguments
@@ -137,9 +137,6 @@ There are three ways to change the prometheus configuration.
 
 # refresh prometheus config by specific file
 ./docker/start_prometheus.sh refresh ./path/to/config/file/prometheus.yml
-
-# launch an editor (by default `vi`, can be changed by `EDITOR` env) to edit the prometheus config
-./docker/start_prometheus.sh refresh
 ```
 
 #### Update Prometheus configuration
