@@ -56,10 +56,10 @@ function run_node_exporter() {
 container_id="$(run_node_exporter)"
 info Container ID of node_exporter: "$container_id"
 
-if [[ "$(curl --connect-timeout 1 --retry 3 -s "http://0.0.0.0:$PORT")" == "" ]] || [[ "$(docker_container_running "$container_id")" == "false" ]]; then
-  error Cannot access node_exporter metric server: "http://0.0.0.0:$PORT". Something go wrong!
+if curl --connect-timeout 1 --retry 3 -s "http://$address:$PORT/metrics" > /dev/null; then
+  info node_exporter running at "http://$address:$PORT"
+else
+  error Cannot access node_exporter metric server: "http://$address:$PORT/metrics". Something go wrong!
   error Execute \"docker logs "$container_id"\" to see what\'s going on.
   exit 3
 fi
-
-info node_exporter running at "http://$address:$PORT"
