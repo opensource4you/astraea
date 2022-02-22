@@ -117,7 +117,6 @@ public class Manager {
   /** Randomly generate content before {@link #getContent()} is called. */
   private static class RandomContent {
     private final Random rand = new Random();
-    private final DataSize dataSize;
     private final Supplier<Long> distribution;
     private final byte[] content;
 
@@ -127,17 +126,18 @@ public class Manager {
      *     size with specified distribution
      */
     public RandomContent(DataSize dataSize, Supplier<Long> distribution) {
-      this.dataSize = dataSize;
       this.distribution = distribution;
       content = new byte[dataSize.measurement(DataUnit.Byte).intValue()];
     }
 
     public byte[] getContent() {
-      // Randomly change one position of the content;
-      content[rand.nextInt(dataSize.measurement(DataUnit.Byte).intValue())] =
-          (byte) rand.nextInt(256);
-      return Arrays.copyOfRange(
-          content, (int) (distribution.get() % content.length), content.length);
+      // Randomly change 10 positions of the content;
+      int recordSize = (int) (distribution.get() % content.length);
+      if (recordSize == 0) recordSize = content.length;
+      for (int i = 0; i < 10; ++i) {
+        content[content.length - 1 - rand.nextInt(recordSize)] = (byte) rand.nextInt(256);
+      }
+      return Arrays.copyOfRange(content, content.length - recordSize, content.length);
     }
   }
 }
