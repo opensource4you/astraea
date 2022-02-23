@@ -103,7 +103,7 @@ function setLogDirs() {
 
 function generateDockerfile() {
   echo "# this dockerfile is generated dynamically
-FROM confluentinc/cp-server:latest
+FROM confluentinc/cp-server:$VERSION
 USER root
 RUN groupadd $USER && useradd -ms /bin/bash -g $USER $USER
 RUN yum -y update && yum -y install git unzip
