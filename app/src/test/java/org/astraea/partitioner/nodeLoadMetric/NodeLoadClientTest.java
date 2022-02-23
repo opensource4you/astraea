@@ -4,7 +4,6 @@ import static org.mockito.Mockito.when;
 
 import java.io.IOException;
 import java.lang.reflect.Field;
-import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -54,20 +53,13 @@ public class NodeLoadClientTest extends RequireBrokerCluster {
     brokers.add(new NodeLoadClient.Broker(1, "0.0.0.0", 222));
     brokers.add(new NodeLoadClient.Broker(2, "0.0.0.0", 333));
     setBrokers(brokers);
-    Assertions.assertEquals(nodeLoadClient.brokerLoad(0.37, 1.0 / 3), 6);
+    Assertions.assertEquals(nodeLoadClient.brokerLoad(0.37, 1.0 / 3), 1);
     Assertions.assertEquals(nodeLoadClient.brokerLoad(0.01, 1.0 / 3), 0);
-    Assertions.assertEquals(nodeLoadClient.brokerLoad(0.8, 1.0 / 3), 10);
+    Assertions.assertEquals(nodeLoadClient.brokerLoad(0.8, 1.0 / 3), 2);
   }
 
   @Test
   void testStandardDeviationImperative() {
-    var testMap = new HashMap<Integer, Double>();
-    testMap.put(0, 15.0);
-    testMap.put(1, 20.0);
-    testMap.put(2, 25.0);
-    testMap.put(3, 20.0);
-    testMap.put(4, 20.0);
-
     List<NodeLoadClient.Broker> brokers = new ArrayList<>();
     brokers.add(0, setSituationNormalized(0, "0.0.0.0", 111, 15.0));
     brokers.add(1, setSituationNormalized(0, "0.0.0.0", 222, 20.0));
@@ -80,7 +72,7 @@ public class NodeLoadClientTest extends RequireBrokerCluster {
   }
 
   @Test
-  void testLoadSituation() throws UnknownHostException {
+  void testLoadSituation() {
     var bootstrapServers = List.of(bootstrapServers().split(","));
     List<Node> nodes = new ArrayList<>();
     AtomicInteger count = new AtomicInteger(0);
@@ -94,18 +86,18 @@ public class NodeLoadClientTest extends RequireBrokerCluster {
     Cluster cluster = Mockito.mock(Cluster.class);
     when(cluster.nodes()).thenReturn(nodes);
     var load = nodeLoadClient.loadSituation(cluster);
-    Assertions.assertEquals(load.get(0), 5);
-    Assertions.assertEquals(load.get(1), 5);
-    Assertions.assertEquals(load.get(2), 5);
+    Assertions.assertEquals(load.get(0), 1);
+    Assertions.assertEquals(load.get(1), 1);
+    Assertions.assertEquals(load.get(2), 1);
     load = nodeLoadClient.loadSituation(cluster);
-    Assertions.assertEquals(load.get(0), 5);
-    Assertions.assertEquals(load.get(1), 5);
-    Assertions.assertEquals(load.get(2), 5);
-    sleep(1);
+    Assertions.assertEquals(load.get(0), 1);
+    Assertions.assertEquals(load.get(1), 1);
+    Assertions.assertEquals(load.get(2), 1);
+    sleep(2);
     load = nodeLoadClient.loadSituation(cluster);
-    Assertions.assertEquals(load.get(0), 10);
-    Assertions.assertEquals(load.get(1), 10);
-    Assertions.assertEquals(load.get(2), 10);
+    Assertions.assertEquals(load.get(0), 2);
+    Assertions.assertEquals(load.get(1), 2);
+    Assertions.assertEquals(load.get(2), 2);
   }
 
   private NodeLoadClient.Broker setSituationNormalized(

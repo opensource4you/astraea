@@ -1,4 +1,4 @@
-package org.astraea.partitioner.smoothPartitioner;
+package org.astraea.partitioner;
 
 import static org.astraea.Utils.requireField;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -7,11 +7,7 @@ import static org.mockito.Mockito.*;
 
 import java.lang.reflect.Field;
 import java.time.Duration;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Properties;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -33,7 +29,7 @@ import org.junit.jupiter.api.TestInstance;
 import org.mockito.Mockito;
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
-public class PartitionerTest extends RequireBrokerCluster {
+public class SmoothPartitionerTest extends RequireBrokerCluster {
   private final String brokerList = bootstrapServers();
   TopicAdmin admin = TopicAdmin.of(bootstrapServers());
 
@@ -43,7 +39,8 @@ public class PartitionerTest extends RequireBrokerCluster {
     props.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, ByteArraySerializer.class.getName());
     props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, ByteArraySerializer.class.getName());
     props.put(ProducerConfig.CLIENT_ID_CONFIG, "id1");
-    props.put(ProducerConfig.PARTITIONER_CLASS_CONFIG, SmoothWeightPartitioner.class.getName());
+    props.put(ProducerConfig.PARTITIONER_CLASS_CONFIG, LoadPartitioner.class.getName());
+    props.put("partition_method", "smooth");
     props.put("producerID", 1);
     props.put("jmx_servers", jmxServiceURL().getHost() + ":" + jmxServiceURL().getPort());
     return props;
@@ -58,7 +55,7 @@ public class PartitionerTest extends RequireBrokerCluster {
     poissonMap.put(1, 0.8);
     poissonMap.put(2, 0.3);
 
-    var smoothWeightPartitioner = new SmoothWeightPartitioner();
+    var smoothWeightPartitioner = new SmoothWeightPartitioner(nodeLoadClient);
     setNodeLoadClient(nodeLoadClient, smoothWeightPartitioner);
     smoothWeightPartitioner.brokersWeight(poissonMap);
 
@@ -184,11 +181,11 @@ public class PartitionerTest extends RequireBrokerCluster {
 
   @Test
   void testUpdateWeightIfNeed() throws NoSuchFieldException, IllegalAccessException {
-    SmoothWeightPartitioner smoothWeightPartitioner = new SmoothWeightPartitioner();
     var loadCount = new HashMap<Integer, Integer>();
     loadCount.put(0, 10);
     loadCount.put(1, 12);
     var nodeLoadClient = mock(NodeLoadClient.class);
+    SmoothWeightPartitioner smoothWeightPartitioner = new SmoothWeightPartitioner(nodeLoadClient);
     var field = smoothWeightPartitioner.getClass().getDeclaredField("nodeLoadClient");
     field.setAccessible(true);
     field.set(smoothWeightPartitioner, nodeLoadClient);

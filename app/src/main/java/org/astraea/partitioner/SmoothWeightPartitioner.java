@@ -1,18 +1,14 @@
-package org.astraea.partitioner.smoothPartitioner;
+package org.astraea.partitioner;
 
 import static org.astraea.Utils.overSecond;
 import static org.astraea.partitioner.nodeLoadMetric.PartitionerUtils.allPoisson;
 
-import java.io.IOException;
-import java.net.UnknownHostException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Random;
 import java.util.concurrent.atomic.AtomicReference;
-import org.apache.kafka.clients.producer.Partitioner;
 import org.apache.kafka.common.Cluster;
 import org.astraea.partitioner.nodeLoadMetric.NodeLoadClient;
 
@@ -21,24 +17,27 @@ import org.astraea.partitioner.nodeLoadMetric.NodeLoadClient;
  * period of time. Predict the future status of each node through the poisson of the load status.
  * Finally, the result of poisson is used as the weight to perform smooth weighted RoundRobin.
  */
-public class SmoothWeightPartitioner implements Partitioner {
-
+public class SmoothWeightPartitioner implements AstraeaPartition {
   /**
    * Record the current weight of each node according to Poisson calculation and the weight after
    * partitioner calculation.
    */
   private final Map<Integer, int[]> brokersWeight = new HashMap<>();
 
-  private NodeLoadClient nodeLoadClient;
+  private final NodeLoadClient nodeLoadClient;
 
   private long lastTime = -1;
   private final Random rand = new Random();
 
+  SmoothWeightPartitioner(NodeLoadClient nodeLoadClient) {
+    this.nodeLoadClient = nodeLoadClient;
+  }
+
   @Override
-  public int partition(
+  public int loadPartition(
       String topic, Object key, byte[] keyBytes, Object value, byte[] valueBytes, Cluster cluster) {
-    Map<Integer, Integer> loadCount;
-    loadCount = loadCount(cluster);
+    Map<Integer, Integer> loadCount = nodeLoadClient.loadSituation(cluster);
+
     Objects.requireNonNull(loadCount, "OverLoadCount should not be null.");
     updateWeightIfNeed(loadCount);
     AtomicReference<Map.Entry<Integer, int[]>> maxWeightServer = new AtomicReference<>();
@@ -70,32 +69,6 @@ public class SmoothWeightPartitioner implements Partitioner {
         .partitionsForNode(maxWeightServer.get().getKey())
         .forEach(partitionInfo -> partitionList.add(partitionInfo.partition()));
     return partitionList.get(rand.nextInt(partitionList.size()));
-  }
-
-  @Override
-  public void close() {
-    nodeLoadClient.close();
-  }
-
-  @Override
-  public void configure(Map<String, ?> configs) {
-    try {
-      var jmxAddresses =
-          Objects.requireNonNull(
-              configs.get("jmx_servers").toString(), "You must configure jmx_servers correctly");
-      var list = Arrays.asList((jmxAddresses).split(","));
-      HashMap<String, Integer> mapAddress = new HashMap<>();
-      list.forEach(
-          str ->
-              mapAddress.put(
-                  Arrays.asList(str.split(":")).get(0),
-                  Integer.parseInt(Arrays.asList(str.split(":")).get(1))));
-      Objects.requireNonNull(mapAddress, "You must configure jmx_servers correctly.");
-
-      nodeLoadClient = new NodeLoadClient(mapAddress);
-    } catch (IOException e) {
-      throw new RuntimeException();
-    }
   }
 
   /** Change the weight of the node according to the current Poisson. */
@@ -137,13 +110,5 @@ public class SmoothWeightPartitioner implements Partitioner {
 
   private boolean memoryWarning(int brokerID) {
     return nodeLoadClient.memoryUsage(brokerID) >= 0.8;
-  }
-
-  private Map<Integer, Integer> loadCount(Cluster cluster) {
-    try {
-      return nodeLoadClient.loadSituation(cluster);
-    } catch (UnknownHostException e) {
-      throw new IllegalArgumentException(e);
-    }
   }
 }
