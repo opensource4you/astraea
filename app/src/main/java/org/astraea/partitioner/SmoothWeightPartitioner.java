@@ -17,7 +17,7 @@ import org.astraea.partitioner.nodeLoadMetric.NodeLoadClient;
  * period of time. Predict the future status of each node through the poisson of the load status.
  * Finally, the result of poisson is used as the weight to perform smooth weighted RoundRobin.
  */
-public class SmoothWeightPartitioner implements AstraeaPartition {
+public class SmoothWeightPartitioner implements AstraeaPartitioner {
   /**
    * Record the current weight of each node according to Poisson calculation and the weight after
    * partitioner calculation.

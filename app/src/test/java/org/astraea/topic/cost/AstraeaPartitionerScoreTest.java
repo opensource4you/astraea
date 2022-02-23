@@ -13,7 +13,7 @@ import org.astraea.topic.TopicAdmin;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
-public class AstraeaPartitionScoreTest extends RequireBrokerCluster {
+public class AstraeaPartitionerScoreTest extends RequireBrokerCluster {
   static TopicAdmin admin;
 
   @BeforeAll

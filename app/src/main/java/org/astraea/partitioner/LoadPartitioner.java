@@ -11,12 +11,12 @@ import org.astraea.partitioner.nodeLoadMetric.NodeLoadClient;
 
 public class LoadPartitioner implements Partitioner {
   private NodeLoadClient nodeLoadClient;
-  private AstraeaPartition astraeaPartition;
+  private AstraeaPartitioner astraeaPartitioner;
 
   @Override
   public int partition(
       String topic, Object key, byte[] keyBytes, Object value, byte[] valueBytes, Cluster cluster) {
-    return astraeaPartition.loadPartition(topic, key, keyBytes, value, valueBytes, cluster);
+    return astraeaPartitioner.loadPartition(topic, key, keyBytes, value, valueBytes, cluster);
   }
 
   @Override
@@ -45,9 +45,9 @@ public class LoadPartitioner implements Partitioner {
       }
       switch (partitioner) {
         case ("flexible"):
-          astraeaPartition = new FlexibleRoundRobinPartitioner(nodeLoadClient);
+          astraeaPartitioner = new FlexibleRoundRobinPartitioner(nodeLoadClient);
         case ("smooth"):
-          astraeaPartition = new SmoothWeightPartitioner(nodeLoadClient);
+          astraeaPartitioner = new SmoothWeightPartitioner(nodeLoadClient);
       }
     } catch (IOException e) {
       throw new RuntimeException();

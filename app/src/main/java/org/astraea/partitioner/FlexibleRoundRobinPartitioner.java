@@ -15,7 +15,7 @@ import org.apache.kafka.common.utils.Utils;
 import org.astraea.partitioner.nodeLoadMetric.NodeLoadClient;
 
 /** We'll skip heavily loaded partitions, simple and effective. */
-public class FlexibleRoundRobinPartitioner implements AstraeaPartition {
+public class FlexibleRoundRobinPartitioner implements AstraeaPartitioner {
   private final ConcurrentMap<String, AtomicInteger> topicCounterMap = new ConcurrentHashMap<>();
   private long lastTime;
   private final NodeLoadClient nodeLoadClient;
@@ -31,13 +31,13 @@ public class FlexibleRoundRobinPartitioner implements AstraeaPartition {
   @Override
   public int loadPartition(
       String topic, Object key, byte[] keyBytes, Object value, byte[] valueBytes, Cluster cluster) {
-    Map<Integer, Integer> loadCount = nodeLoadClient.loadSituation(cluster);
+    var loadCount = nodeLoadClient.loadSituation(cluster);
     Objects.requireNonNull(loadCount, "OverLoadCount should not be null.");
     updatePoissonIfNeed(loadCount);
 
-    List<PartitionInfo> partitions = cluster.partitionsForTopic(topic);
-    int numPartitions = partitions.size();
-    List<PartitionInfo> availablePartitions = cluster.availablePartitionsForTopic(topic);
+    var partitions = cluster.partitionsForTopic(topic);
+    var numPartitions = partitions.size();
+    var availablePartitions = cluster.availablePartitionsForTopic(topic);
     if (!availablePartitions.isEmpty()) {
       return choosePartition(availablePartitions, topic);
     } else {
@@ -48,7 +48,7 @@ public class FlexibleRoundRobinPartitioner implements AstraeaPartition {
   }
 
   private int nextValue(String topic) {
-    AtomicInteger counter = topicCounterMap.computeIfAbsent(topic, k -> new AtomicInteger(0));
+    var counter = topicCounterMap.computeIfAbsent(topic, k -> new AtomicInteger(0));
     return counter.getAndIncrement();
   }
 
