@@ -56,7 +56,7 @@ function run_node_exporter() {
 container_id="$(run_node_exporter)"
 info Container ID of node_exporter: "$container_id"
 
-if curl --connect-timeout 1 --retry 3 -s "http://$address:$PORT/metrics" > /dev/null; then
+if curl --connect-timeout 1 --retry 3 --retry-connrefused -s "http://$address:$PORT/metrics" > /dev/null; then
   info node_exporter running at "http://$address:$PORT"
 else
   error Cannot access node_exporter metric server: "http://$address:$PORT/metrics". Something go wrong!
