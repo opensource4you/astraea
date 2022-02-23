@@ -119,7 +119,7 @@ public class Manager {
     private final Random rand = new Random();
     private final DataSize dataSize;
     private final Supplier<Long> distribution;
-    private final byte[][] contentPool;
+    private final byte[] content;
 
     /**
      * @param dataSize The size of each random generated content in bytes.
@@ -129,26 +129,15 @@ public class Manager {
     public RandomContent(DataSize dataSize, Supplier<Long> distribution) {
       this.dataSize = dataSize;
       this.distribution = distribution;
-      contentPool =
-          new byte[10]
-              [Math.max(
-                  dataSize.measurement(DataUnit.Byte).intValue(),
-                  DataUnit.KiB.of(16).measurement(DataUnit.Byte).intValue())];
+      content = new byte[dataSize.measurement(DataUnit.Byte).intValue()];
     }
 
     public byte[] getContent() {
-      // Get record size by distribution
-      int recordSize = (int) (distribution.get() % dataSize.measurement(DataUnit.Byte).intValue());
-      if (recordSize == 0) recordSize = dataSize.measurement(DataUnit.Byte).intValue();
-
-      // Randomly choose the content
-      int target = rand.nextInt(10);
-      int start =
-          rand.nextInt(contentPool[0].length - dataSize.measurement(DataUnit.Byte).intValue() + 1);
-
-      contentPool[target][start + rand.nextInt(recordSize)] = (byte) rand.nextInt(256);
-
-      return Arrays.copyOfRange(contentPool[target], start, start + recordSize);
+      // Randomly change one position of the content;
+      content[rand.nextInt(dataSize.measurement(DataUnit.Byte).intValue())] =
+          (byte) rand.nextInt(256);
+      return Arrays.copyOfRange(
+          content, (int) (distribution.get() % content.length), content.length);
     }
   }
 }
