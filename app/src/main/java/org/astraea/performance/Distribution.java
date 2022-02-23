@@ -32,13 +32,10 @@ public enum Distribution {
     @Override
     public Supplier<Long> create(int n) {
       var rand = new Random();
-      var startAndValue = new ArrayList<>(List.of(System.currentTimeMillis(), rand.nextLong()));
       return () -> {
-        if (System.currentTimeMillis() - startAndValue.get(0) > 2000) {
-          startAndValue.set(1, (long) rand.nextInt(n));
-          startAndValue.set(0, System.currentTimeMillis());
-        }
-        return startAndValue.get(1);
+        var time = System.currentTimeMillis();
+        rand.setSeed(time - time % 2000);
+        return (long) rand.nextInt(n);
       };
     }
   },

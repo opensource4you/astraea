@@ -117,8 +117,9 @@ public class Manager {
   /** Randomly generate content before {@link #getContent()} is called. */
   private static class RandomContent {
     private final Random rand = new Random();
+    private final DataSize dataSize;
     private final Supplier<Long> distribution;
-    private final byte[] content;
+    private final byte[][] contentPool;
 
     /**
      * @param dataSize The size of each random generated content in bytes.
@@ -126,18 +127,28 @@ public class Manager {
      *     size with specified distribution
      */
     public RandomContent(DataSize dataSize, Supplier<Long> distribution) {
+      this.dataSize = dataSize;
       this.distribution = distribution;
-      content = new byte[dataSize.measurement(DataUnit.Byte).intValue()];
+      contentPool =
+          new byte[10]
+              [Math.max(
+                  dataSize.measurement(DataUnit.Byte).intValue(),
+                  DataUnit.KiB.of(16).measurement(DataUnit.Byte).intValue())];
     }
 
     public byte[] getContent() {
-      // Randomly change 10 positions of the content;
-      int recordSize = (int) (distribution.get() % content.length);
-      if (recordSize == 0) recordSize = content.length;
-      for (int i = 0; i < 10; ++i) {
-        content[content.length - 1 - rand.nextInt(recordSize)] = (byte) rand.nextInt(256);
-      }
-      return Arrays.copyOfRange(content, content.length - recordSize, content.length);
+      // Get record size by distribution
+      int recordSize = (int) (distribution.get() % dataSize.measurement(DataUnit.Byte).intValue());
+      if (recordSize == 0) recordSize = dataSize.measurement(DataUnit.Byte).intValue();
+
+      // Randomly choose the content
+      int target = rand.nextInt(10);
+      int start =
+          rand.nextInt(contentPool[0].length - dataSize.measurement(DataUnit.Byte).intValue() + 1);
+
+      contentPool[target][start + rand.nextInt(recordSize)] = (byte) rand.nextInt(256);
+
+      return Arrays.copyOfRange(contentPool[target], start, start + recordSize);
     }
   }
 }
