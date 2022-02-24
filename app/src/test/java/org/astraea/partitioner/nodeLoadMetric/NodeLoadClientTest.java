@@ -12,6 +12,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.kafka.common.Cluster;
 import org.apache.kafka.common.Node;
+import org.astraea.Utils;
 import org.astraea.service.RequireBrokerCluster;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
@@ -101,7 +102,8 @@ public class NodeLoadClientTest extends RequireBrokerCluster {
     Assertions.assertEquals(load.get(0), 5);
     Assertions.assertEquals(load.get(1), 5);
     Assertions.assertEquals(load.get(2), 5);
-    sleep(2);
+    var lastTime = System.currentTimeMillis();
+    Utils.waitFor(() -> Utils.overSecond(lastTime, 1));
     load = nodeLoadClient.loadSituation(cluster);
     Assertions.assertEquals(load.get(0), 10);
     Assertions.assertEquals(load.get(1), 10);
