@@ -10,9 +10,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
-import org.apache.kafka.common.Cluster;
-import org.apache.kafka.common.Node;
 import org.astraea.Utils;
+import org.astraea.partitioner.ClusterInfo;
+import org.astraea.partitioner.NodeInfo;
 import org.astraea.service.RequireBrokerCluster;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
@@ -83,16 +83,16 @@ public class NodeLoadClientTest extends RequireBrokerCluster {
   @Test
   void testLoadSituation() throws UnknownHostException {
     var bootstrapServers = List.of(bootstrapServers().split(","));
-    List<Node> nodes = new ArrayList<>();
+    List<NodeInfo> nodes = new ArrayList<>();
     AtomicInteger count = new AtomicInteger(0);
     bootstrapServers.forEach(
         str -> {
           var hostPort = str.split(":");
-          nodes.add(new Node(count.get(), hostPort[0], Integer.parseInt(hostPort[1])));
+          nodes.add(NodeInfo.of(count.get(), hostPort[0], Integer.parseInt(hostPort[1])));
           count.getAndIncrement();
         });
 
-    Cluster cluster = Mockito.mock(Cluster.class);
+    var cluster = Mockito.mock(ClusterInfo.class);
     when(cluster.nodes()).thenReturn(nodes);
     var load = nodeLoadClient.loadSituation(cluster);
     Assertions.assertEquals(load.get(0), 5);
