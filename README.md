@@ -225,6 +225,7 @@ Run the benchmark from source
 11. --partitioner: the partitioner to use in producers
 12. --jmx.servers: the jmx server addresses of the brokers 
 13. --key.distribution: Name of the distribution. Available distribution names: "uniform", "zipfian", "latest". Default: (No key)
+14. --throughput: the produce rate for all producers. e.g. "--throughput 2MiB". Default: 500 GiB (per second)
 
 ---
 

@@ -188,6 +188,7 @@ public class Performance {
       public State execute() throws InterruptedException {
         // Wait for all consumers get assignment.
         manager.awaitPartitionAssignment();
+        Utils.waitFor(manager::notThrottled);
         var rand = new Random();
         var payload = manager.payload();
         if (payload.isEmpty()) return State.DONE;
@@ -333,6 +334,12 @@ public class Performance {
             "String: Used with SpecifyBrokerPartitioner to specify the brokers that partitioner can send.",
         validateWith = NotEmptyString.class)
     List<Integer> specifyBroker = List.of(-1);
+
+    @Parameter(
+        names = {"--throughput"},
+        description = "dataSize: size output per second. e.g. \"500KiB\"",
+        converter = DataSize.Converter.class)
+    DataSize throughput = DataUnit.GB.of(500);
   }
 
   static class CompressionArgument implements IStringConverter<CompressionType> {

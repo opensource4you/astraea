@@ -126,4 +126,25 @@ public class ManagerTest {
     manager.producerClosed();
     Assertions.assertTrue(manager.producedDone());
   }
+
+  @Test
+  void testNotThrottled() throws InterruptedException {
+    var argument = new Performance.Argument();
+    argument.recordSize = DataUnit.KiB.of(1);
+    argument.throughput = DataUnit.KiB.of(3);
+    argument.fixedSize = true;
+    var manager = new Manager(argument, List.of(), List.of());
+
+    Assertions.assertTrue(manager.notThrottled());
+    manager.payload();
+    Assertions.assertTrue(manager.notThrottled());
+    manager.payload();
+    Assertions.assertTrue(manager.notThrottled());
+    manager.payload();
+    Assertions.assertFalse(manager.notThrottled());
+
+    Thread.sleep(1001);
+
+    Assertions.assertTrue(manager.notThrottled());
+  }
 }

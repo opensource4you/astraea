@@ -22,6 +22,9 @@ public class Manager {
   private final AtomicLong payloadNum = new AtomicLong(0);
   private final Distribution distribution;
   private final RandomContent randomContent;
+  private Long intervalStart = System.currentTimeMillis();
+  private final AtomicLong payloadBytes = new AtomicLong(0);
+  private final DataSize throughput;
 
   /**
    * Used to manage producing/consuming.
@@ -50,6 +53,7 @@ public class Manager {
     this.exeTime = argument.exeTime;
     this.distribution = argument.distribution;
     this.randomContent = new RandomContent(argument.recordSize, argument.fixedSize);
+    this.throughput = argument.throughput;
   }
 
   /**
@@ -59,12 +63,21 @@ public class Manager {
    *     Whether the payload should be generated is determined in construct time. "Number of
    *     records" and "execution time" are considered.
    */
-  public Optional<byte[]> payload() {
+  public synchronized Optional<byte[]> payload() {
     if (exeTime.percentage(payloadNum.getAndIncrement(), System.currentTimeMillis() - start)
         >= 100D) return Optional.empty();
 
     var payload = randomContent.getContent();
+    payloadBytes.addAndGet(payload.length);
     return Optional.of(payload);
+  }
+
+  public synchronized boolean notThrottled() {
+    if (System.currentTimeMillis() - intervalStart > 1000) {
+      intervalStart = System.currentTimeMillis();
+      payloadBytes.set(0L);
+    }
+    return payloadBytes.get() < throughput.measurement(DataUnit.Byte).intValue();
   }
 
   public long producedRecords() {
