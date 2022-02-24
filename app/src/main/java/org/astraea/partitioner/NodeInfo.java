@@ -1,6 +1,8 @@
 package org.astraea.partitioner;
 
-public interface NodeInfo {
+import java.util.Objects;
+
+public interface NodeInfo extends Comparable<NodeInfo> {
 
   static NodeInfo of(org.apache.kafka.common.Node node) {
     return of(node.id(), node.host(), node.port());
@@ -21,6 +23,26 @@ public interface NodeInfo {
       @Override
       public int port() {
         return port;
+      }
+
+      @Override
+      public int hashCode() {
+        return Objects.hash(id, host, port);
+      }
+
+      @Override
+      public boolean equals(Object other) {
+        if (other instanceof NodeInfo) return compareTo((NodeInfo) other) == 0;
+        return false;
+      }
+
+      @Override
+      public int compareTo(NodeInfo other) {
+        int r = Integer.compare(id(), other.id());
+        if (r != 0) return r;
+        r = host().compareTo(other.host());
+        if (r != 0) return r;
+        return Integer.compare(port(), other.port());
       }
     };
   }

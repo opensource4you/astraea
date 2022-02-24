@@ -28,6 +28,13 @@ public interface ClusterInfo {
     };
   }
 
+  default NodeInfo node(String host, int port) {
+    return nodes().stream()
+        .filter(n -> n.host().equals(host) && n.port() == port)
+        .findAny()
+        .orElseThrow(() -> new IllegalArgumentException(host + ":" + port + " is nonexistent"));
+  }
+
   /** @return The known set of nodes */
   List<NodeInfo> nodes();
 
