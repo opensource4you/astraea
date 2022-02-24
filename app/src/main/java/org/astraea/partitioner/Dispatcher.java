@@ -15,7 +15,16 @@ public interface Dispatcher extends Partitioner {
    */
   int partition(String topic, byte[] key, byte[] value, ClusterInfo clusterInfo);
 
-  void configure(Configuration config);
+  /**
+   * configure this dispatcher. This method is called only once.
+   *
+   * @param config configuration
+   */
+  default void configure(Configuration config) {}
+
+  /** close this dispatcher. This method is executed only once. */
+  @Override
+  default void close() {}
 
   @Override
   default void configure(Map<String, ?> configs) {
