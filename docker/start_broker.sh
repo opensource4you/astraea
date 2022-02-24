@@ -4,7 +4,7 @@ declare -r DOCKER_FOLDER=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null
 source $DOCKER_FOLDER/docker_build_common.sh
 
 # ===============================[global variables]===============================
-declare -r VERSION=${REVISION:-${VERSION:-2.8.1}}
+declare -r VERSION=${REVISION:-${VERSION:-3.1.0}}
 declare -r REPO=${REPO:-ghcr.io/skiptests/astraea/broker}
 declare -r IMAGE_NAME="$REPO:$VERSION"
 declare -r DOCKERFILE=$DOCKER_FOLDER/broker.dockerfile
@@ -46,7 +46,7 @@ function showHelp() {
   echo "    REPO=astraea/broker                      set the docker repo"
   echo "    HEAP_OPTS=\"-Xmx2G -Xms2G\"                set broker JVM memory"
   echo "    REVISION=trunk                           set revision of kafka source code to build container"
-  echo "    VERSION=2.8.1                            set version of kafka distribution"
+  echo "    VERSION=3.1.0                            set version of kafka distribution"
   echo "    BUILD=false                              set true if you want to build image locally"
   echo "    RUN=false                                set false if you want to build/pull image only"
   echo "    DATA_FOLDERS=/tmp/folder1,/tmp/folder2   set host folders used by broker"
