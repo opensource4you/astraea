@@ -3,8 +3,6 @@ package org.astraea.partitioner.smoothPartitioner;
 import static org.astraea.Utils.overSecond;
 import static org.astraea.partitioner.nodeLoadMetric.PartitionerUtils.allPoisson;
 
-import java.io.IOException;
-import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -14,6 +12,7 @@ import java.util.Random;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.kafka.clients.producer.Partitioner;
 import org.apache.kafka.common.Cluster;
+import org.astraea.partitioner.ClusterInfo;
 import org.astraea.partitioner.nodeLoadMetric.NodeLoadClient;
 
 /**
@@ -38,7 +37,7 @@ public class SmoothWeightPartitioner implements Partitioner {
   public int partition(
       String topic, Object key, byte[] keyBytes, Object value, byte[] valueBytes, Cluster cluster) {
     Map<Integer, Integer> loadCount;
-    loadCount = loadCount(cluster);
+    loadCount = nodeLoadClient.loadSituation(ClusterInfo.of(cluster));
     Objects.requireNonNull(loadCount, "OverLoadCount should not be null.");
     updateWeightIfNeed(loadCount);
     AtomicReference<Map.Entry<Integer, int[]>> maxWeightServer = new AtomicReference<>();
@@ -79,23 +78,19 @@ public class SmoothWeightPartitioner implements Partitioner {
 
   @Override
   public void configure(Map<String, ?> configs) {
-    try {
-      var jmxAddresses =
-          Objects.requireNonNull(
-              configs.get("jmx_servers").toString(), "You must configure jmx_servers correctly");
-      var list = Arrays.asList((jmxAddresses).split(","));
-      HashMap<String, Integer> mapAddress = new HashMap<>();
-      list.forEach(
-          str ->
-              mapAddress.put(
-                  Arrays.asList(str.split(":")).get(0),
-                  Integer.parseInt(Arrays.asList(str.split(":")).get(1))));
-      Objects.requireNonNull(mapAddress, "You must configure jmx_servers correctly.");
+    var jmxAddresses =
+        Objects.requireNonNull(
+            configs.get("jmx_servers").toString(), "You must configure jmx_servers correctly");
+    var list = Arrays.asList((jmxAddresses).split(","));
+    HashMap<String, Integer> mapAddress = new HashMap<>();
+    list.forEach(
+        str ->
+            mapAddress.put(
+                Arrays.asList(str.split(":")).get(0),
+                Integer.parseInt(Arrays.asList(str.split(":")).get(1))));
+    Objects.requireNonNull(mapAddress, "You must configure jmx_servers correctly.");
 
-      nodeLoadClient = new NodeLoadClient(mapAddress);
-    } catch (IOException e) {
-      throw new RuntimeException();
-    }
+    nodeLoadClient = new NodeLoadClient(mapAddress);
   }
 
   /** Change the weight of the node according to the current Poisson. */
@@ -137,13 +132,5 @@ public class SmoothWeightPartitioner implements Partitioner {
 
   private boolean memoryWarning(int brokerID) {
     return nodeLoadClient.memoryUsage(brokerID) >= 0.8;
-  }
-
-  private Map<Integer, Integer> loadCount(Cluster cluster) {
-    try {
-      return nodeLoadClient.loadSituation(cluster);
-    } catch (UnknownHostException e) {
-      throw new IllegalArgumentException(e);
-    }
   }
 }
