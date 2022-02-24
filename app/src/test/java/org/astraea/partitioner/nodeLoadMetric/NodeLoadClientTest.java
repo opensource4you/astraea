@@ -101,7 +101,7 @@ public class NodeLoadClientTest extends RequireBrokerCluster {
     Assertions.assertEquals(load.get(0), 5);
     Assertions.assertEquals(load.get(1), 5);
     Assertions.assertEquals(load.get(2), 5);
-    sleep(1);
+    sleep(2);
     load = nodeLoadClient.loadSituation(cluster);
     Assertions.assertEquals(load.get(0), 10);
     Assertions.assertEquals(load.get(1), 10);
