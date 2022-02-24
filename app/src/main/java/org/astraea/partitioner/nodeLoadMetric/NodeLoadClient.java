@@ -2,7 +2,6 @@ package org.astraea.partitioner.nodeLoadMetric;
 
 import static org.astraea.Utils.overSecond;
 
-import java.io.IOException;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
@@ -12,11 +11,11 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
-import org.apache.kafka.common.Cluster;
 import org.astraea.Utils;
 import org.astraea.metrics.collector.Receiver;
 import org.astraea.metrics.java.HasJvmMemory;
 import org.astraea.metrics.kafka.KafkaMetrics;
+import org.astraea.partitioner.ClusterInfo;
 
 /**
  * this clas is responsible for obtaining jmx metrics from BeanCollector and calculating the
@@ -39,7 +38,7 @@ public class NodeLoadClient {
   private static final String regex =
       "((25[0-5]|2[0-4]\\d|1\\d{2}|[1-9]?\\d)\\.){3}" + "(25[0-5]|2[0-4]\\d|1\\d{2}|[1-9]?\\d)$";
 
-  public NodeLoadClient(Map<String, Integer> jmxAddresses) throws IOException {
+  public NodeLoadClient(Map<String, Integer> jmxAddresses) {
     this.receiverList = RECEIVER_FACTORY.receiversList(jmxAddresses);
     receiverList.forEach(receiver -> Utils.waitFor(() -> receiver.current().size() > 0));
     currentJmxAddresses = jmxAddresses;
@@ -52,7 +51,7 @@ public class NodeLoadClient {
    * @param cluster from partitioner
    * @return each node load count in preset time
    */
-  public Map<Integer, Integer> loadSituation(Cluster cluster) throws UnknownHostException {
+  public Map<Integer, Integer> loadSituation(ClusterInfo cluster) {
     if (overSecond(lastTime, 1) && notInMethod) {
       notInMethod = false;
       nodesOverLoad(cluster);
@@ -63,7 +62,7 @@ public class NodeLoadClient {
   }
 
   /** @param cluster the cluster from the partitioner */
-  private synchronized void nodesOverLoad(Cluster cluster) {
+  private synchronized void nodesOverLoad(ClusterInfo cluster) {
     if (lastTime == -1) {
       var nodes = cluster.nodes();
       brokers =
