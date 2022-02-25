@@ -10,6 +10,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import org.astraea.Utils;
 import org.astraea.partitioner.ClusterInfo;
 import org.astraea.partitioner.NodeInfo;
 import org.astraea.service.RequireBrokerCluster;
@@ -101,7 +102,8 @@ public class NodeLoadClientTest extends RequireBrokerCluster {
     Assertions.assertEquals(load.get(0), 5);
     Assertions.assertEquals(load.get(1), 5);
     Assertions.assertEquals(load.get(2), 5);
-    sleep(1);
+    var lastTime = System.currentTimeMillis();
+    Utils.waitFor(() -> Utils.overSecond(lastTime, 1));
     load = nodeLoadClient.loadSituation(cluster);
     Assertions.assertEquals(load.get(0), 10);
     Assertions.assertEquals(load.get(1), 10);
