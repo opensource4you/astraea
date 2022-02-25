@@ -1,7 +1,8 @@
 package org.astraea.partitioner.smoothPartitioner;
 
-import java.io.IOException;
-import java.net.UnknownHostException;
+import static org.astraea.Utils.overSecond;
+import static org.astraea.partitioner.nodeLoadMetric.PartitionerUtils.allPoisson;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -11,7 +12,7 @@ import java.util.Random;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.kafka.clients.producer.Partitioner;
 import org.apache.kafka.common.Cluster;
-import org.astraea.partitioner.nodeLoadMetric.LoadPoisson;
+import org.astraea.partitioner.ClusterInfo;
 import org.astraea.partitioner.nodeLoadMetric.NodeLoadClient;
 
 /**
@@ -29,18 +30,17 @@ public class SmoothWeightPartitioner implements Partitioner {
 
   private NodeLoadClient nodeLoadClient;
 
+  private long lastTime = -1;
+  private final Random rand = new Random();
+
   @Override
   public int partition(
       String topic, Object key, byte[] keyBytes, Object value, byte[] valueBytes, Cluster cluster) {
     Map<Integer, Integer> loadCount;
-    var rand = new Random();
-    loadCount = loadCount(cluster);
-    var loadPoisson = new LoadPoisson();
-
+    loadCount = nodeLoadClient.loadSituation(ClusterInfo.of(cluster));
     Objects.requireNonNull(loadCount, "OverLoadCount should not be null.");
-    brokersWeight(loadPoisson.allPoisson(loadCount));
+    updateWeightIfNeed(loadCount);
     AtomicReference<Map.Entry<Integer, int[]>> maxWeightServer = new AtomicReference<>();
-    var allWeight = allNodesWeight();
     brokersWeight.forEach(
         (nodeID, weight) -> {
           if (maxWeightServer.get() == null || weight[1] > maxWeightServer.get().getValue()[1]) {
@@ -52,7 +52,8 @@ public class SmoothWeightPartitioner implements Partitioner {
     brokersWeight.put(
         maxWeightServer.get().getKey(),
         new int[] {
-          maxWeightServer.get().getValue()[0], maxWeightServer.get().getValue()[1] - allWeight
+          maxWeightServer.get().getValue()[0],
+          maxWeightServer.get().getValue()[1] - allNodesWeight()
         });
     brokersWeight
         .keySet()
@@ -77,23 +78,19 @@ public class SmoothWeightPartitioner implements Partitioner {
 
   @Override
   public void configure(Map<String, ?> configs) {
-    try {
-      var jmxAddresses =
-          Objects.requireNonNull(
-              configs.get("jmx_servers").toString(), "You must configure jmx_servers correctly");
-      var list = Arrays.asList((jmxAddresses).split(","));
-      HashMap<String, Integer> mapAddress = new HashMap<>();
-      list.forEach(
-          str ->
-              mapAddress.put(
-                  Arrays.asList(str.split(":")).get(0),
-                  Integer.parseInt(Arrays.asList(str.split(":")).get(1))));
-      Objects.requireNonNull(mapAddress, "You must configure jmx_servers correctly.");
+    var jmxAddresses =
+        Objects.requireNonNull(
+            configs.get("jmx_servers").toString(), "You must configure jmx_servers correctly");
+    var list = Arrays.asList((jmxAddresses).split(","));
+    HashMap<String, Integer> mapAddress = new HashMap<>();
+    list.forEach(
+        str ->
+            mapAddress.put(
+                Arrays.asList(str.split(":")).get(0),
+                Integer.parseInt(Arrays.asList(str.split(":")).get(1))));
+    Objects.requireNonNull(mapAddress, "You must configure jmx_servers correctly.");
 
-      nodeLoadClient = new NodeLoadClient(mapAddress);
-    } catch (IOException e) {
-      throw new RuntimeException();
-    }
+    nodeLoadClient = new NodeLoadClient(mapAddress);
   }
 
   /** Change the weight of the node according to the current Poisson. */
@@ -112,6 +109,17 @@ public class SmoothWeightPartitioner implements Partitioner {
         });
   }
 
+  void updateWeightIfNeed(Map<Integer, Integer> loadCount) {
+    if (overSecond(lastTime, 1)) {
+      brokersWeight(allPoisson(loadCount));
+      lastTime = System.currentTimeMillis();
+    }
+  }
+
+  Map<Integer, int[]> brokersWeight() {
+    return brokersWeight;
+  }
+
   private void subBrokerWeight(int brokerID, int subNumber) {
     brokersWeight.put(
         brokerID,
@@ -124,13 +132,5 @@ public class SmoothWeightPartitioner implements Partitioner {
 
   private boolean memoryWarning(int brokerID) {
     return nodeLoadClient.memoryUsage(brokerID) >= 0.8;
-  }
-
-  private Map<Integer, Integer> loadCount(Cluster cluster) {
-    try {
-      return nodeLoadClient.loadSituation(cluster);
-    } catch (UnknownHostException e) {
-      throw new IllegalArgumentException(e);
-    }
   }
 }

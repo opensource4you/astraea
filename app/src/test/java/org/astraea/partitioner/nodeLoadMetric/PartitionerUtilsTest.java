@@ -1,28 +1,25 @@
 package org.astraea.partitioner.nodeLoadMetric;
 
+import static org.astraea.partitioner.nodeLoadMetric.PartitionerUtils.*;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.HashMap;
 import org.junit.jupiter.api.Test;
 
-public class LoadPoissonTest {
+public class PartitionerUtilsTest {
 
   @Test
   void testFactorial() {
-    LoadPoisson loadPoisson = new LoadPoisson();
-
-    assertEquals(loadPoisson.factorial(3), 6);
-    assertEquals(loadPoisson.factorial(5), 120);
+    assertEquals(factorial(3), 6);
+    assertEquals(factorial(5), 120);
   }
 
   @Test
   void testDoPoisson() {
-    LoadPoisson loadPoisson = new LoadPoisson();
-
-    assertEquals(loadPoisson.doPoisson(10, 15), 0.9512595966960214);
-    assertEquals(loadPoisson.doPoisson(5, 5), 0.6159606548330632);
-    assertEquals(loadPoisson.doPoisson(5, 8), 0.9319063652781515);
-    assertEquals(loadPoisson.doPoisson(5, 2), 0.12465201948308113);
+    assertEquals(doPoisson(10, 15), 0.9512595966960214);
+    assertEquals(doPoisson(5, 5), 0.6159606548330632);
+    assertEquals(doPoisson(5, 8), 0.9319063652781515);
+    assertEquals(doPoisson(5, 2), 0.12465201948308113);
   }
 
   @Test
@@ -38,9 +35,7 @@ public class LoadPoissonTest {
     testPoissonMap.put(1, 0.6159606548330632);
     testPoissonMap.put(2, 0.9319063652781515);
 
-    LoadPoisson loadPoisson = new LoadPoisson();
-
-    poissonMap = loadPoisson.allPoisson(testNodesLoadCount);
+    poissonMap = allPoisson(testNodesLoadCount);
 
     assertEquals(poissonMap, testPoissonMap);
   }
