@@ -3,7 +3,8 @@ package org.astraea.partitioner.smoothPartitioner;
 import static org.astraea.Utils.requireField;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import java.lang.reflect.Field;
 import java.time.Duration;
@@ -62,13 +63,11 @@ public class PartitionerTest extends RequireBrokerCluster {
     setNodeLoadClient(nodeLoadClient, smoothWeightPartitioner);
     smoothWeightPartitioner.brokersWeight(poissonMap);
 
-    var brokerWeight = (Map<Integer, int[]>) requireField(smoothWeightPartitioner, "brokersWeight");
-    assertEquals(brokerWeight.get(0)[0], 10);
-    assertEquals(brokerWeight.get(1)[0], 3);
-
-    brokerWeight.put(0, new int[] {0, 8});
-    smoothWeightPartitioner.brokersWeight(poissonMap);
-    assertEquals(brokerWeight.get(0)[1], 8);
+    var brokerWeight =
+        (Map<Integer, SmoothWeightPartitioner.SmoothWeightServer>)
+            requireField(smoothWeightPartitioner, "brokersWeight");
+    assertEquals(brokerWeight.get(0).originalWeight(), 10);
+    assertEquals((brokerWeight.get(1).originalWeight()), 3);
   }
 
   @Test
@@ -194,16 +193,25 @@ public class PartitionerTest extends RequireBrokerCluster {
     field.set(smoothWeightPartitioner, nodeLoadClient);
     when(nodeLoadClient.thoughPutComparison(anyInt())).thenReturn(1.0);
     smoothWeightPartitioner.updateWeightIfNeed(loadCount);
-    var firstBrokersWeight = smoothWeightPartitioner.brokersWeight().get(0)[0];
+    var firstBrokersWeight = smoothWeightPartitioner.brokersWeight().get(0).originalWeight();
     smoothWeightPartitioner.updateWeightIfNeed(loadCount);
-    var secondBrokersWeight = smoothWeightPartitioner.brokersWeight().get(0)[0];
+    var secondBrokersWeight = smoothWeightPartitioner.brokersWeight().get(0).originalWeight();
     Assertions.assertEquals(firstBrokersWeight, secondBrokersWeight);
     loadCount.put(0, 5);
     loadCount.put(2, 5);
     sleep(2);
     smoothWeightPartitioner.updateWeightIfNeed(loadCount);
-    var thirdBrokersWeight = smoothWeightPartitioner.brokersWeight().get(0)[0];
+    var thirdBrokersWeight = smoothWeightPartitioner.brokersWeight().get(0).originalWeight();
     Assertions.assertNotEquals(secondBrokersWeight, thirdBrokersWeight);
+  }
+
+  @Test
+  void testUpdateOriginalWeight() {
+    var smoothWeightServer = new SmoothWeightPartitioner.SmoothWeightServer(1, 1);
+
+    Assertions.assertEquals(smoothWeightServer.updateOriginalWeight(5), 1);
+    Assertions.assertEquals(smoothWeightServer.updateOriginalWeight(5), -4);
+    Assertions.assertEquals(smoothWeightServer.originalWeight(), -9);
   }
 
   private ThreadPool.Executor producerExecutor(
