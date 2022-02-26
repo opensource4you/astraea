@@ -22,18 +22,19 @@ public interface Configuration {
       }
 
       @Override
-      public <T> Map<String, T> map(
+      public <K, V> Map<K, V> map(
           String key,
           String listSeparator,
           String mapSeparator,
-          Function<String, T> valueConverter) {
-        Function<String, Map.Entry<String, T>> split =
+          Function<String, K> keyConverter,
+          Function<String, V> valueConverter) {
+        Function<String, Map.Entry<K, V>> split =
             s -> {
               var items = s.split(mapSeparator);
               if (items.length != 2)
                 throw new IllegalArgumentException(
                     "the value: " + s + " is using incorrect separator");
-              return Map.entry(items[0], valueConverter.apply(items[1]));
+              return Map.entry(keyConverter.apply(items[0]), valueConverter.apply(items[1]));
             };
         return list(key, listSeparator).stream()
             .map(split)
@@ -72,6 +73,15 @@ public interface Configuration {
    * @param valueConverter used to convert string to specify type
    * @return string map. never null
    */
-  <T> Map<String, T> map(
-      String key, String listSeparator, String mapSeparator, Function<String, T> valueConverter);
+  default <T> Map<String, T> map(
+      String key, String listSeparator, String mapSeparator, Function<String, T> valueConverter) {
+    return map(key, listSeparator, mapSeparator, s -> s, valueConverter);
+  }
+
+  <K, V> Map<K, V> map(
+      String key,
+      String listSeparator,
+      String mapSeparator,
+      Function<String, K> keyConverter,
+      Function<String, V> valueConverter);
 }

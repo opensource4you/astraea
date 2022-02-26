@@ -2,7 +2,7 @@ package org.astraea.partitioner;
 
 import java.util.Objects;
 
-public interface NodeInfo extends Comparable<NodeInfo> {
+public interface NodeInfo extends Comparable<NodeInfo>, NodeId {
 
   static NodeInfo of(org.apache.kafka.common.Node node) {
     return of(node.id(), node.host(), node.port());
@@ -50,9 +50,6 @@ public interface NodeInfo extends Comparable<NodeInfo> {
   /** @return The host name for this node */
   String host();
 
-  /** @return The id for this node */
-  int id();
-
-  /** @return The client port for this node */
+  /** @return The client (kafka data, jmx, etc.) port for this node */
   int port();
 }

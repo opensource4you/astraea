@@ -1,6 +1,7 @@
 package org.astraea.partitioner;
 
 import java.util.List;
+import java.util.NoSuchElementException;
 import java.util.stream.Collectors;
 
 public interface ClusterInfo {
@@ -28,11 +29,34 @@ public interface ClusterInfo {
     };
   }
 
+  /**
+   * find the node associated to specify node and port. Normally, the node + port should be unique
+   * in cluster.
+   *
+   * @param host hostname
+   * @param port client port
+   * @return the node information. It throws NoSuchElementException if specify node and port is not
+   *     associated to any node
+   */
   default NodeInfo node(String host, int port) {
     return nodes().stream()
         .filter(n -> n.host().equals(host) && n.port() == port)
         .findAny()
-        .orElseThrow(() -> new IllegalArgumentException(host + ":" + port + " is nonexistent"));
+        .orElseThrow(() -> new NoSuchElementException(host + ":" + port + " is nonexistent"));
+  }
+
+  /**
+   * find the node associated to node id.
+   *
+   * @param id node id
+   * @return the node information. It throws NoSuchElementException if specify node id is not
+   *     associated to any node
+   */
+  default NodeInfo node(int id) {
+    return nodes().stream()
+        .filter(n -> n.id() == id)
+        .findAny()
+        .orElseThrow(() -> new IllegalArgumentException(id + " is nonexistent"));
   }
 
   /** @return The known set of nodes */
