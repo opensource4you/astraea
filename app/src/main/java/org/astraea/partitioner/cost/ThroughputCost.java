@@ -17,23 +17,26 @@ public class ThroughputCost implements CostFunction {
   @Override
   public Map<NodeInfo, Double> cost(
       Map<NodeInfo, List<HasBeanObject>> beans, ClusterInfo clusterInfo) {
-    // TODO: this implementation only consider the oneMinuteRate ...
-    var merged =
-        beans.entrySet().stream()
-            .collect(
-                Collectors.toMap(
-                    Map.Entry::getKey,
-                    e ->
-                        e.getValue().stream()
-                            .filter(b -> b instanceof BrokerTopicMetricsResult)
-                            .map(b -> (BrokerTopicMetricsResult) b)
-                            .mapToDouble(BrokerTopicMetricsResult::oneMinuteRate)
-                            .sum()));
+    var score = score(beans);
 
-    var max = merged.values().stream().mapToDouble(v -> v).max().orElse(1);
+    var max = score.values().stream().mapToDouble(v -> v).max().orElse(1);
 
     return clusterInfo.nodes().stream()
-        .collect(Collectors.toMap(n -> n, n -> merged.getOrDefault(n, 0.0D) / max));
+        .collect(Collectors.toMap(n -> n, n -> score.getOrDefault(n, 0.0D) / max));
+  }
+
+  Map<NodeInfo, Double> score(Map<NodeInfo, List<HasBeanObject>> beans) {
+    // TODO: this implementation only consider the oneMinuteRate ...
+    return beans.entrySet().stream()
+        .collect(
+            Collectors.toMap(
+                Map.Entry::getKey,
+                e ->
+                    e.getValue().stream()
+                        .filter(b -> b instanceof BrokerTopicMetricsResult)
+                        .map(b -> (BrokerTopicMetricsResult) b)
+                        .mapToDouble(BrokerTopicMetricsResult::oneMinuteRate)
+                        .sum()));
   }
 
   @Override
