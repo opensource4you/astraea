@@ -271,23 +271,6 @@ public class PartitionerTest extends RequireBrokerCluster {
     return field;
   }
 
-  @Test
-  void test() {
-    Random random = new Random();
-    var test = new AtomicInteger(0);
-    System.out.println(test.updateAndGet(v -> v + 1));
-    System.out.println(test);
-    var num = 0;
-    var map = new HashMap<Integer, Integer>();
-    while (num < 10) {
-      System.out.println(num % 10);
-
-      map.put(num, 1);
-      num++;
-    }
-    System.out.println(map.values().stream().reduce(Integer::sum));
-  }
-
   private static void sleep(int seconds) {
     try {
       TimeUnit.SECONDS.sleep(seconds);
