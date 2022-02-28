@@ -9,6 +9,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
@@ -60,15 +62,15 @@ public class NodeLoadClient {
         nodesOverLoad(cluster);
       } finally {
         lock.unlock();
+        lastTime = System.currentTimeMillis();
       }
     }
     Utils.waitFor(() -> currentLoadNode != null);
-    lastTime = System.currentTimeMillis();
     return currentLoadNode;
   }
 
   /** @param cluster the cluster from the partitioner */
-  private synchronized void nodesOverLoad(ClusterInfo cluster) {
+  private void nodesOverLoad(ClusterInfo cluster) {
     if (lastTime == -1) {
       var nodes = cluster.nodes();
       brokers =
@@ -113,7 +115,7 @@ public class NodeLoadClient {
         broker ->
             broker.load(
                 brokerLoad(broker.brokerSituation, totalBrokerSituation.get() / brokers.size())));
-    currentLoadNode =
+    this.currentLoadNode =
         brokers.stream().collect(Collectors.toMap(broker -> broker.brokerID, Broker::totalLoad));
   }
 
@@ -252,14 +254,14 @@ public class NodeLoadClient {
     return brokers.stream().map(broker -> broker.output).reduce(0, Integer::sum);
   }
 
-  // visible of test
   int brokerLoad(double brokerSituation, double avg) {
-    var initialization = 5;
-    var loadDeviationRate = (brokerSituation - avg) / avg;
-    var load = (int) Math.round(initialization + loadDeviationRate * 10);
-    if (load > 10) load = 10;
-    else if (load < 0) load = 0;
-    return load;
+    if (brokerSituation <= (1 - 0.5) * avg) {
+      return 0;
+    } else if (brokerSituation >= (1 + 0.5) * avg) {
+      return 2;
+    } else {
+      return 1;
+    }
   }
 
   public double thoughPutComparison(int brokerID) {
@@ -275,8 +277,8 @@ public class NodeLoadClient {
     private final String host;
     private final int port;
     private int count = 0;
-    private final Map<Integer, Integer> load = new HashMap<>();
-    private final Map<String, Receiver> metrics = new HashMap<>();
+    private final ConcurrentMap<Integer, Integer> load = new ConcurrentHashMap<>();
+    private final ConcurrentMap<String, Receiver> metrics = new ConcurrentHashMap<>();
     private int input;
     private long lastInput = -1;
     private int output;
@@ -303,7 +305,7 @@ public class NodeLoadClient {
     }
 
     private void load(Integer currentLoad) {
-      this.load.put(count % 10, currentLoad);
+      load.put(count % 10, currentLoad);
       count++;
     }
 

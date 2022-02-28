@@ -12,13 +12,16 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.serialization.ByteArraySerializer;
+import org.astraea.Utils;
 import org.astraea.concurrent.ThreadPool;
 import org.astraea.consumer.Consumer;
 import org.astraea.consumer.Deserializer;
@@ -67,7 +70,7 @@ public class PartitionerTest extends RequireBrokerCluster {
         (Map<Integer, SmoothWeightPartitioner.SmoothWeightServer>)
             requireField(smoothWeightPartitioner, "brokersWeight");
     assertEquals(brokerWeight.get(0).originalWeight(), 10);
-    assertEquals((brokerWeight.get(1).originalWeight()), 3);
+    assertEquals((brokerWeight.get(1).originalWeight()), 1);
   }
 
   @Test
@@ -193,15 +196,16 @@ public class PartitionerTest extends RequireBrokerCluster {
     field.set(smoothWeightPartitioner, nodeLoadClient);
     when(nodeLoadClient.thoughPutComparison(anyInt())).thenReturn(1.0);
     smoothWeightPartitioner.updateWeightIfNeed(loadCount);
-    var firstBrokersWeight = smoothWeightPartitioner.brokersWeight().get(0).originalWeight();
+    var firstBrokersWeight = smoothWeightPartitioner.brokersWeight().get(0).currentWeight();
     smoothWeightPartitioner.updateWeightIfNeed(loadCount);
-    var secondBrokersWeight = smoothWeightPartitioner.brokersWeight().get(0).originalWeight();
+    var secondBrokersWeight = smoothWeightPartitioner.brokersWeight().get(0).currentWeight();
     Assertions.assertEquals(firstBrokersWeight, secondBrokersWeight);
     loadCount.put(0, 5);
     loadCount.put(2, 5);
-    sleep(2);
+    var lastTime = System.currentTimeMillis();
+    Utils.waitFor(() -> Utils.overSecond(lastTime, 1));
     smoothWeightPartitioner.updateWeightIfNeed(loadCount);
-    var thirdBrokersWeight = smoothWeightPartitioner.brokersWeight().get(0).originalWeight();
+    var thirdBrokersWeight = smoothWeightPartitioner.brokersWeight().get(0).currentWeight();
     Assertions.assertNotEquals(secondBrokersWeight, thirdBrokersWeight);
   }
 
@@ -265,6 +269,23 @@ public class PartitionerTest extends RequireBrokerCluster {
       e.printStackTrace();
     }
     return field;
+  }
+
+  @Test
+  void test() {
+    Random random = new Random();
+    var test = new AtomicInteger(0);
+    System.out.println(test.updateAndGet(v -> v + 1));
+    System.out.println(test);
+    var num = 0;
+    var map = new HashMap<Integer, Integer>();
+    while (num < 10) {
+      System.out.println(num % 10);
+
+      map.put(num, 1);
+      num++;
+    }
+    System.out.println(map.values().stream().reduce(Integer::sum));
   }
 
   private static void sleep(int seconds) {

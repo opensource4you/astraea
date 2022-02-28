@@ -2,8 +2,8 @@ package org.astraea.partitioner.smoothPartitioner;
 
 import static org.astraea.Utils.overSecond;
 import static org.astraea.partitioner.nodeLoadMetric.PartitionerUtils.allPoisson;
+import static org.astraea.partitioner.nodeLoadMetric.PartitionerUtils.weightPoisson;
 
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -43,8 +43,7 @@ public class SmoothWeightPartitioner implements Partitioner {
   @Override
   public int partition(
       String topic, Object key, byte[] keyBytes, Object value, byte[] valueBytes, Cluster cluster) {
-    Map<Integer, Integer> loadCount;
-    loadCount = nodeLoadClient.loadSituation(ClusterInfo.of(cluster));
+    var loadCount = nodeLoadClient.loadSituation(ClusterInfo.of(cluster));
     Objects.requireNonNull(loadCount, "OverLoadCount should not be null.");
     updateWeightIfNeed(loadCount);
 
@@ -53,9 +52,10 @@ public class SmoothWeightPartitioner implements Partitioner {
     Iterator<Integer> iterator = brokersWeight.keySet().iterator();
     var currentWrightSum = weightSum;
     while (iterator.hasNext()) {
-      SmoothWeightServer smoothWeightServer = brokersWeight.get(iterator.next());
+      var smoothWeightServer = brokersWeight.get(iterator.next());
       if (smoothWeightServer != null) {
-        weightSum += smoothWeightServer.currentWeight;
+        smoothWeightServer.originalWeight.updateAndGet((v) -> v + smoothWeightServer.currentWeight);
+
         if (maxWeightServer == null) {
           maxWeightServer = smoothWeightServer;
         }
@@ -68,20 +68,9 @@ public class SmoothWeightPartitioner implements Partitioner {
     Objects.requireNonNull(maxWeightServer, "MaxWeightServer should not be null.");
     maxWeightServer.updateOriginalWeight(currentWrightSum);
 
-    brokersWeight
-        .keySet()
-        .forEach(
-            brokerID -> {
-              if (memoryWarning(brokerID)) {
-                subBrokerWeight(brokerID, 100);
-              }
-            });
+    var partitions = cluster.partitionsForNode(maxWeightServer.brokerID);
 
-    ArrayList<Integer> partitionList = new ArrayList<>();
-    cluster
-        .partitionsForNode(maxWeightServer.brokerID)
-        .forEach(partitionInfo -> partitionList.add(partitionInfo.partition()));
-    return partitionList.get(rand.nextInt(partitionList.size()));
+    return partitions.get(rand.nextInt(partitions.size())).partition();
   }
 
   @Override
@@ -107,22 +96,24 @@ public class SmoothWeightPartitioner implements Partitioner {
   }
 
   /** Change the weight of the node according to the current Poisson. */
-  void brokersWeight(Map<Integer, Double> poissonMap) {
+  synchronized void brokersWeight(Map<Integer, Double> poissonMap) {
     AtomicInteger sum = new AtomicInteger(0);
     poissonMap.forEach(
         (key, value) -> {
           var thoughPutAbility = nodeLoadClient.thoughPutComparison(key);
           if (!brokersWeight.containsKey(key))
             brokersWeight.putIfAbsent(
-                key,
-                new SmoothWeightServer(key, (int) Math.floor((1 - value) * 20 * thoughPutAbility)));
+                key, new SmoothWeightServer(key, weightPoisson(value, thoughPutAbility)));
           else {
             var broker = brokersWeight.get(key);
-            broker.currentWeight((int) Math.floor((1 - value) * 20 * thoughPutAbility));
-            broker.originalWeight.updateAndGet((v) -> v + broker.currentWeight);
+            broker.currentWeight(weightPoisson(value, thoughPutAbility));
+          }
+          if (memoryWarning(key)) {
+            subBrokerWeight(key, 100);
           }
           sum.addAndGet(brokersWeight.get(key).currentWeight);
         });
+
     weightSum = sum.get();
   }
 
@@ -171,6 +162,10 @@ public class SmoothWeightPartitioner implements Partitioner {
 
     void currentWeight(int currentWeight) {
       this.currentWeight = currentWeight;
+    }
+
+    int currentWeight() {
+      return currentWeight;
     }
   }
 }
