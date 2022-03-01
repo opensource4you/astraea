@@ -1,12 +1,10 @@
 package org.astraea.partitioner.cost;
 
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.astraea.metrics.HasBeanObject;
-import org.astraea.metrics.jmx.MBeanClient;
+import org.astraea.metrics.collector.Fetcher;
 import org.astraea.metrics.kafka.BrokerTopicMetricsResult;
 import org.astraea.metrics.kafka.KafkaMetrics;
 import org.astraea.partitioner.ClusterInfo;
@@ -39,9 +37,10 @@ public class ThroughputCost implements CostFunction {
   }
 
   @Override
-  public Collection<Function<MBeanClient, HasBeanObject>> metricsGetters() {
-    return List.of(
-        KafkaMetrics.BrokerTopic.BytesInPerSec::fetch,
-        KafkaMetrics.BrokerTopic.BytesOutPerSec::fetch);
+  public Fetcher fetcher() {
+    return client ->
+        List.of(
+            KafkaMetrics.BrokerTopic.BytesInPerSec.fetch(client),
+            KafkaMetrics.BrokerTopic.BytesOutPerSec.fetch(client));
   }
 }
