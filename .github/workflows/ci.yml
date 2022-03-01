@@ -19,5 +19,5 @@ jobs:
           distribution: 'adopt'
       - name: build
         run: ./gradlew clean build -x test --no-daemon
-      - name: run unit tests
+      - name: unit tests
         run: ./gradlew clean test --no-daemon --console plain
