@@ -18,6 +18,6 @@ jobs:
           java-version: '11'
           distribution: 'adopt'
       - name: build
-        run: ./gradlew clean build
-      - name: run unit tests
-        run: ./gradlew clean test
+        run: ./gradlew clean build -x test --no-daemon
+      - name: unit tests
+        run: ./gradlew clean test --no-daemon --console plain
