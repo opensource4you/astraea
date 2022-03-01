@@ -8,7 +8,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
 import org.apache.kafka.common.TopicPartition;
-import org.astraea.argument.ArgumentUtil;
 import org.astraea.producer.Producer;
 import org.astraea.producer.Sender;
 import org.astraea.service.RequireBrokerCluster;
@@ -53,7 +52,7 @@ class ReplicaSyncingMonitorIntegrationTest extends RequireBrokerCluster {
                 topicAdmin.migrator().partition(TOPIC_NAME, 0).moveTo(Set.of(moveToBroker));
                 ReplicaSyncingMonitor.execute(
                     topicAdmin,
-                    ArgumentUtil.parseArgument(
+                    org.astraea.argument.Argument.parse(
                         new ReplicaSyncingMonitor.Argument(),
                         new String[] {
                           "--bootstrap.servers",

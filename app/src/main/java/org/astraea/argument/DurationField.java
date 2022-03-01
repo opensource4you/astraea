@@ -1,7 +1,5 @@
-package org.astraea.argument.converter;
+package org.astraea.argument;
 
-import com.beust.jcommander.IParameterValidator;
-import com.beust.jcommander.IStringConverter;
 import com.beust.jcommander.ParameterException;
 import java.time.Duration;
 import java.util.regex.Matcher;
@@ -42,7 +40,7 @@ import java.util.regex.Pattern;
  *   <li><b>(doesn't work)</b> {@code "0.5" to {@code Duration.ofMillis(500)}}
  * </ul>
  */
-public class DurationConverter implements IStringConverter<Duration>, IParameterValidator {
+public class DurationField implements Field<Duration> {
 
   static final Pattern TIME_PATTERN =
       Pattern.compile("^(?<value>[0-9]+)(?<unit>days|day|h|m|s|ms|us|ns|)$");

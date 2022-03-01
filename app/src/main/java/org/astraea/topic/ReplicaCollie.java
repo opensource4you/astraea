@@ -1,16 +1,18 @@
 package org.astraea.topic;
 
 import com.beust.jcommander.Parameter;
-import com.beust.jcommander.converters.BooleanConverter;
 import java.io.IOException;
-import java.util.*;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
+import java.util.TreeMap;
 import java.util.stream.Collectors;
 import org.apache.kafka.common.TopicPartition;
-import org.astraea.argument.ArgumentUtil;
-import org.astraea.argument.BasicArgumentWithPropFile;
-import org.astraea.argument.converter.IntegerSetConverter;
-import org.astraea.argument.converter.StringSetConverter;
-import org.astraea.argument.validator.NotEmptyString;
+import org.astraea.argument.BooleanField;
+import org.astraea.argument.IntegerSetField;
+import org.astraea.argument.StringSetField;
 
 public class ReplicaCollie {
   static final String UNKNOWN = "unknown";
@@ -276,7 +278,7 @@ public class ReplicaCollie {
   }
 
   public static void main(String[] args) throws IOException {
-    var argument = ArgumentUtil.parseArgument(new Argument(), args);
+    var argument = org.astraea.argument.Argument.parse(new Argument(), args);
     try (var admin = TopicAdmin.of(argument.props())) {
       execute(admin, argument)
           .forEach(
@@ -297,49 +299,49 @@ public class ReplicaCollie {
     }
   }
 
-  static class Argument extends BasicArgumentWithPropFile {
+  static class Argument extends org.astraea.argument.Argument {
     @Parameter(
         names = {"--topics"},
         description = "Those topics' partitions will get reassigned. Empty means all topics",
-        validateWith = NotEmptyString.class,
-        converter = StringSetConverter.class)
+        validateWith = StringSetField.class,
+        converter = StringSetField.class)
     public Set<String> topics = Collections.emptySet();
 
     @Parameter(
         names = {"--from"},
         description = "Those brokers won't hold any replicas of topics (defined by --topics)",
-        validateWith = NotEmptyString.class,
-        converter = IntegerSetConverter.class,
+        validateWith = IntegerSetField.class,
+        converter = IntegerSetField.class,
         required = true)
     Set<Integer> fromBrokers;
 
     @Parameter(
         names = {"--to"},
         description = "The replicas of topics (defined by --topic) will be moved to those brokers",
-        validateWith = NotEmptyString.class,
-        converter = IntegerSetConverter.class)
+        validateWith = IntegerSetField.class,
+        converter = IntegerSetField.class)
     Set<Integer> toBrokers = Collections.emptySet();
 
     @Parameter(
         names = {"--partitions"},
         description = "all partitions that will be moved",
-        validateWith = NotEmptyString.class,
-        converter = IntegerSetConverter.class)
+        validateWith = IntegerSetField.class,
+        converter = IntegerSetField.class)
     Set<Integer> partitions = Collections.emptySet();
 
     @Parameter(
         names = {"--path"},
         description = "The partition that will be moved to",
-        validateWith = NotEmptyString.class,
-        converter = StringSetConverter.class)
+        validateWith = StringSetField.class,
+        converter = StringSetField.class)
     Set<String> path = Collections.emptySet();
 
     @Parameter(
         names = {"--verify"},
         description =
             "True if you just want to see the new assignment instead of executing the plan",
-        validateWith = NotEmptyString.class,
-        converter = BooleanConverter.class)
+        validateWith = BooleanField.class,
+        converter = BooleanField.class)
     boolean verify = false;
   }
 }

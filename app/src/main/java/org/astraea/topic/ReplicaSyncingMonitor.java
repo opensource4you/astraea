@@ -13,10 +13,8 @@ import java.util.stream.Stream;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.TopicPartitionReplica;
 import org.astraea.Utils;
-import org.astraea.argument.ArgumentUtil;
-import org.astraea.argument.BasicArgumentWithPropFile;
-import org.astraea.argument.converter.DurationConverter;
-import org.astraea.argument.validator.NotEmptyString;
+import org.astraea.argument.DurationField;
+import org.astraea.argument.NonEmptyStringField;
 import org.astraea.utils.DataRate;
 import org.astraea.utils.DataSize;
 import org.astraea.utils.DataUnit;
@@ -24,7 +22,7 @@ import org.astraea.utils.DataUnit;
 public class ReplicaSyncingMonitor {
 
   public static void main(String[] args) {
-    Argument argument = ArgumentUtil.parseArgument(new Argument(), args);
+    Argument argument = org.astraea.argument.Argument.parse(new Argument(), args);
     try (TopicAdmin topicAdmin = TopicAdmin.of(argument.props())) {
       execute(topicAdmin, argument);
     }
@@ -295,12 +293,12 @@ public class ReplicaSyncingMonitor {
         .collect(Collectors.joining(", ", "[", "]"));
   }
 
-  static class Argument extends BasicArgumentWithPropFile {
+  static class Argument extends org.astraea.argument.Argument {
 
     @Parameter(
         names = {"--topics"},
         description = "String: topics to track, use all non-synced topics by default",
-        validateWith = NotEmptyString.class)
+        validateWith = NonEmptyStringField.class)
     public Set<String> topics = Set.of();
 
     @Parameter(
@@ -314,8 +312,8 @@ public class ReplicaSyncingMonitor {
         description =
             "Time: the time interval between replica state check, support multiple time unit like 10s, 500ms and 100us. "
                 + "If no time unit specified, second unit will be used.",
-        validateWith = DurationConverter.class,
-        converter = DurationConverter.class)
+        validateWith = DurationField.class,
+        converter = DurationField.class)
     public Duration interval = Duration.ofSeconds(1);
   }
 }
