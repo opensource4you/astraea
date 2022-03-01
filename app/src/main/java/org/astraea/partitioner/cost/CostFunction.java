@@ -1,11 +1,9 @@
 package org.astraea.partitioner.cost;
 
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-import java.util.function.Function;
 import org.astraea.metrics.HasBeanObject;
-import org.astraea.metrics.jmx.MBeanClient;
+import org.astraea.metrics.collector.Fetcher;
 import org.astraea.partitioner.ClusterInfo;
 import org.astraea.partitioner.NodeId;
 
@@ -25,5 +23,5 @@ public interface CostFunction {
   Map<NodeId, Double> cost(Map<NodeId, List<HasBeanObject>> beans, ClusterInfo clusterInfo);
 
   /** @return the metrics getters. Those getters are used to fetch mbeans. */
-  Collection<Function<MBeanClient, HasBeanObject>> metricsGetters();
+  Fetcher fetcher();
 }

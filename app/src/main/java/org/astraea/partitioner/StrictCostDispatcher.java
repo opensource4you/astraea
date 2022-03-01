@@ -10,6 +10,7 @@ import java.util.TreeMap;
 import java.util.stream.Collectors;
 import org.astraea.Utils;
 import org.astraea.metrics.collector.BeanCollector;
+import org.astraea.metrics.collector.Fetcher;
 import org.astraea.metrics.collector.Receiver;
 import org.astraea.partitioner.cost.CostFunction;
 
@@ -42,6 +43,11 @@ public class StrictCostDispatcher implements Dispatcher {
     this.functions = functions;
   }
 
+  private static Fetcher of(Collection<Fetcher> fs) {
+    return client ->
+        fs.stream().flatMap(f -> f.fetch(client).stream()).collect(Collectors.toUnmodifiableList());
+  }
+
   @Override
   public int partition(String topic, byte[] key, byte[] value, ClusterInfo clusterInfo) {
     var partitions = clusterInfo.availablePartitions(topic);
@@ -59,10 +65,11 @@ public class StrictCostDispatcher implements Dispatcher {
                         .register()
                         .host(p.leader().host())
                         .port(jmxPort(p.leader().id()))
-                        .metricsGetters(
-                            functions.stream()
-                                .flatMap(c -> c.metricsGetters().stream())
-                                .collect(Collectors.toUnmodifiableList()))
+                        .fetcher(
+                            Fetcher.of(
+                                functions.stream()
+                                    .map(CostFunction::fetcher)
+                                    .collect(Collectors.toUnmodifiableList())))
                         .build()));
 
     // get latest beans for each node

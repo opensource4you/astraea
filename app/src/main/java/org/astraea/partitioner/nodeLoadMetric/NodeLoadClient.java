@@ -154,7 +154,7 @@ public class NodeLoadClient {
           broker.lastOutPut = currentOutput;
           broker.input = Integer.parseInt(String.valueOf((currentInput - broker.lastInput) / 1024));
           broker.lastInput = currentInput;
-
+          Objects.requireNonNull(broker.metrics.get("Memory"));
           broker.jvm =
               (HasJvmMemory)
                   broker.metrics.get("Memory").current().stream().findAny().orElse(broker.jvm);

@@ -1,23 +1,20 @@
 package org.astraea.metrics.collector;
 
 import java.time.Duration;
-import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.BiFunction;
-import java.util.function.Function;
 import org.astraea.Utils;
 import org.astraea.metrics.HasBeanObject;
 import org.astraea.metrics.jmx.MBeanClient;
+import org.astraea.metrics.kafka.KafkaMetrics;
 
 public class BeanCollector {
 
@@ -72,7 +69,7 @@ public class BeanCollector {
     return new Register() {
       private String host;
       private int port = -1;
-      private final List<Function<MBeanClient, HasBeanObject>> getters = new ArrayList<>();
+      private Fetcher fetcher = client -> List.of(KafkaMetrics.Host.jvmMemory(client));
 
       @Override
       public Register host(String host) {
@@ -87,8 +84,8 @@ public class BeanCollector {
       }
 
       @Override
-      public Register metricsGetters(Collection<Function<MBeanClient, HasBeanObject>> getters) {
-        this.getters.addAll(Objects.requireNonNull(getters));
+      public Register fetcher(Fetcher fetcher) {
+        this.fetcher = Objects.requireNonNull(fetcher);
         return this;
       }
 
@@ -98,7 +95,7 @@ public class BeanCollector {
         var node = nodes.computeIfAbsent(nodeKey, ignored -> new Node(host, port));
         var receiver =
             new Receiver() {
-              private final Map<Long, HasBeanObject> objects = new ConcurrentHashMap<>();
+              private final Map<Long, HasBeanObject> objects = new ConcurrentSkipListMap<>();
 
               @Override
               public String host() {
@@ -138,14 +135,14 @@ public class BeanCollector {
                   try {
                     if (node.mBeanClient == null)
                       node.mBeanClient = clientCreator.apply(host, port);
-                    getters.forEach(
-                        getter -> {
-                          if (objects.size() >= numberOfObjectsPerNode)
-                            objects.keySet().stream()
-                                .min((Long::compare))
-                                .ifPresent(objects::remove);
-                          objects.put(System.currentTimeMillis(), getter.apply(node.mBeanClient));
-                        });
+                    var beans = fetcher.fetch(node.mBeanClient);
+                    // remove old beans if the queue is full
+                    for (var t : objects.keySet()) {
+                      if (objects.size() + beans.size() <= numberOfObjectsPerNode) break;
+                      objects.remove(t);
+                    }
+                    long now = System.currentTimeMillis();
+                    for (var bean : beans) objects.put(now++, bean);
                   } finally {
                     node.lock.unlock();
                   }
