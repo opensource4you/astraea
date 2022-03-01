@@ -2,6 +2,7 @@ package org.astraea.partitioner;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -10,7 +11,8 @@ public class ConfigurationTest {
   @Test
   void testString() {
     var config = Configuration.of(Map.of("key", "value"));
-    Assertions.assertEquals("value", config.string("key"));
+    Assertions.assertEquals(Optional.of("value"), config.string("key"));
+    Assertions.assertEquals("value", config.requireString("key"));
   }
 
   @Test
