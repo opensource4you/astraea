@@ -30,47 +30,10 @@ public interface ThreadPool extends AutoCloseable {
     return new Builder();
   }
 
-  @FunctionalInterface
-  interface Executor extends AutoCloseable {
-
-    enum State {
-      DONE,
-      RUNNING
-    }
-
-    /**
-     * @return the state of this executor
-     * @throws InterruptedException This is an expected exception if your executor needs to call
-     *     blocking method. This exception is not printed to console.
-     */
-    State execute() throws InterruptedException;
-
-    /** close this executor. */
-    default void close() {}
-
-    /**
-     * If this executor is in blocking mode, this method offers a way to wake up executor to close.
-     */
-    default void wakeup() {}
-  }
-
   class Builder {
     private final List<Executor> executors = new ArrayList<>();
 
     private Builder() {}
-
-    public Builder runnable(Runnable runnable) {
-      return executor(
-          () -> {
-            runnable.run();
-            return Executor.State.RUNNING;
-          });
-    }
-
-    public Builder runnables(Collection<Runnable> runnables) {
-      runnables.forEach(this::runnable);
-      return this;
-    }
 
     public Builder executor(Executor executor) {
       return executors(List.of(executor));
@@ -91,7 +54,7 @@ public interface ThreadPool extends AutoCloseable {
                   () -> {
                     try {
                       while (!closed.get()) {
-                        if (executor.execute() == Executor.State.DONE) break;
+                        if (executor.execute() == State.DONE) break;
                       }
                     } catch (InterruptedException e) {
                       // swallow
