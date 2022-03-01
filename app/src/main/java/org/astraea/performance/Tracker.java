@@ -1,7 +1,9 @@
 package org.astraea.performance;
 
 import java.time.Duration;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import org.astraea.concurrent.ThreadPool;
 import org.astraea.utils.DataUnit;
 

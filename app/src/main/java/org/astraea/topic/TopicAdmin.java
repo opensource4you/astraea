@@ -1,7 +1,9 @@
 package org.astraea.topic;
 
 import java.io.Closeable;
-import java.util.*;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import org.apache.kafka.common.TopicPartition;
 
 public interface TopicAdmin extends Closeable {

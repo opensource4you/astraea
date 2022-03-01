@@ -1,8 +1,10 @@
 package org.astraea.metrics.jmx;
 
-import static java.util.Map.*;
+import static java.util.Map.Entry;
 
-import java.util.*;
+import java.util.Collections;
+import java.util.Map;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 /** Snapshot of remote MBean value */

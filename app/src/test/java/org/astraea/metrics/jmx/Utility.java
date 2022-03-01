@@ -1,9 +1,19 @@
 package org.astraea.metrics.jmx;
 
 import java.util.Map;
-import javax.management.*;
+import javax.management.Attribute;
+import javax.management.AttributeList;
+import javax.management.AttributeNotFoundException;
+import javax.management.MBeanAttributeInfo;
+import javax.management.MBeanConstructorInfo;
+import javax.management.MBeanException;
+import javax.management.MBeanInfo;
+import javax.management.MBeanNotificationInfo;
+import javax.management.MBeanOperationInfo;
+import javax.management.ReflectionException;
+import javax.management.RuntimeOperationsException;
 
-public class Utility {
+class Utility {
 
   static class DynamicMBean implements javax.management.DynamicMBean {
 
