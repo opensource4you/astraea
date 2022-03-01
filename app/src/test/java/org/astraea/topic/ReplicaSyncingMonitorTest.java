@@ -17,7 +17,6 @@ import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.kafka.common.TopicPartition;
-import org.astraea.argument.ArgumentUtil;
 import org.astraea.utils.DataUnit;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -86,7 +85,7 @@ class ReplicaSyncingMonitorTest {
             () -> {
               ReplicaSyncingMonitor.execute(
                   mockTopicAdmin,
-                  ArgumentUtil.parseArgument(
+                  org.astraea.argument.Argument.parse(
                       new ReplicaSyncingMonitor.Argument(),
                       new String[] {
                         "--bootstrap.servers", "whatever:9092", "--interval", interval + "ms"
@@ -159,7 +158,7 @@ class ReplicaSyncingMonitorTest {
               try {
                 ReplicaSyncingMonitor.execute(
                     mockTopicAdmin,
-                    ArgumentUtil.parseArgument(
+                    org.astraea.argument.Argument.parse(
                         new ReplicaSyncingMonitor.Argument(),
                         new String[] {
                           "--bootstrap.servers",
@@ -211,7 +210,7 @@ class ReplicaSyncingMonitorTest {
           try {
             ReplicaSyncingMonitor.execute(
                 mockTopicAdmin,
-                ArgumentUtil.parseArgument(
+                org.astraea.argument.Argument.parse(
                     new ReplicaSyncingMonitor.Argument(),
                     new String[] {
                       "--bootstrap.servers",
@@ -282,7 +281,8 @@ class ReplicaSyncingMonitorTest {
 
     // act
     Consumer<String[]> execution =
-        (String[] args) -> ArgumentUtil.parseArgument(new ReplicaSyncingMonitor.Argument(), args);
+        (String[] args) ->
+            org.astraea.argument.Argument.parse(new ReplicaSyncingMonitor.Argument(), args);
 
     // assert
     correct.stream()
