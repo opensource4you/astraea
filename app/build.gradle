@@ -44,7 +44,7 @@ java {
 }
 
 tasks.named('test') {
-    int numberOfForks = Math.max((int) (Runtime.runtime.availableProcessors() / 2), 1)
+    int numberOfForks = project.hasProperty('maxParallelForks') ? maxParallelForks.toInteger() : Math.max((int) (Runtime.runtime.availableProcessors() / 2), 1)
 
     // Use JUnit Platform for unit tests.
     useJUnitPlatform()
