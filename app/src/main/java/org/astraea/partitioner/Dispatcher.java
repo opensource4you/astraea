@@ -1,6 +1,7 @@
 package org.astraea.partitioner;
 
 import java.util.Map;
+import java.util.stream.Collectors;
 import org.apache.kafka.clients.producer.Partitioner;
 import org.apache.kafka.common.Cluster;
 
@@ -15,11 +16,23 @@ public interface Dispatcher extends Partitioner {
    */
   int partition(String topic, byte[] key, byte[] value, ClusterInfo clusterInfo);
 
-  void configure(Configuration config);
+  /**
+   * configure this dispatcher. This method is called only once.
+   *
+   * @param config configuration
+   */
+  default void configure(Configuration config) {}
+
+  /** close this dispatcher. This method is executed only once. */
+  @Override
+  default void close() {}
 
   @Override
   default void configure(Map<String, ?> configs) {
-    configure(Configuration.of(configs));
+    configure(
+        Configuration.of(
+            configs.entrySet().stream()
+                .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().toString()))));
   }
 
   @Override
