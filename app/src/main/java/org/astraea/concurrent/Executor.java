@@ -3,13 +3,6 @@ package org.astraea.concurrent;
 @FunctionalInterface
 public interface Executor extends AutoCloseable {
 
-  static Executor of(Runnable runnable) {
-    return () -> {
-      runnable.run();
-      return State.RUNNING;
-    };
-  }
-
   /**
    * @return the state of this executor
    * @throws InterruptedException This is an expected exception if your executor needs to call
