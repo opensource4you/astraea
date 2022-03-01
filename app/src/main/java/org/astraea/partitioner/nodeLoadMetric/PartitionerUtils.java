@@ -14,6 +14,11 @@ public class PartitionerUtils {
     return poissonMap;
   }
 
+  public static int weightPoisson(Double value, Double thoughPutAbility) {
+    if (value < 0.8) return (int) (Math.round((1 - value) * 20 * thoughPutAbility));
+    else return (int) Math.pow(Math.round((1 - value) * 20 * thoughPutAbility), 2) / 10;
+  }
+
   static double doPoisson(int lambda, int x) {
     var Probability = 0.0;
     var ans = 0.0;
@@ -37,7 +42,7 @@ public class PartitionerUtils {
   private static int avgLoadCount(Map<Integer, Integer> overLoadCount) {
     var avgLoadCount =
         overLoadCount.values().stream().mapToDouble(Integer::doubleValue).average().orElse(0);
-    return (int) avgLoadCount;
+    return (int) Math.round(avgLoadCount);
   }
 
   /**
