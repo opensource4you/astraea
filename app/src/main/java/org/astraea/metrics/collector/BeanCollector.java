@@ -128,7 +128,7 @@ public class BeanCollector {
                 }
               }
 
-              private void tryUpdate() {
+              private synchronized void tryUpdate() {
                 var needUpdate =
                     objects.keySet().stream()
                         .max((Long::compare))
