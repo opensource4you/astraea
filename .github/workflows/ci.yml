@@ -20,4 +20,4 @@ jobs:
       - name: build
         run: ./gradlew clean build -x test --no-daemon
       - name: unit tests
-        run: ./gradlew clean test --no-daemon --console plain
+        run: ./gradlew clean test --no-daemon --console plain -PmaxParallelForks=1
