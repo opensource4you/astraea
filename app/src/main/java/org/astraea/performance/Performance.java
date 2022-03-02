@@ -335,6 +335,6 @@ public class Performance {
         names = {"--throughput"},
         description = "dataSize: size output per second. e.g. \"500KiB\"",
         converter = DataSize.Field.class)
-    DataSize throughput = DataUnit.GB.of(500);
+    DataSize throughput = DataUnit.GiB.of(500);
   }
 }

@@ -84,7 +84,7 @@ public class Manager {
       intervalStart = System.currentTimeMillis();
       payloadBytes = 0L;
     }
-    return payloadBytes < throughput.measurement(DataUnit.Byte).intValue();
+    return payloadBytes < throughput.measurement(DataUnit.Byte).longValue();
   }
 
   public long producedRecords() {
