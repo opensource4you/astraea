@@ -3,7 +3,6 @@ package org.astraea.performance;
 import com.beust.jcommander.Parameter;
 import java.io.IOException;
 import java.time.Duration;
-import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -26,6 +25,8 @@ import org.astraea.argument.NonEmptyStringField;
 import org.astraea.argument.NonNegativeLongField;
 import org.astraea.argument.PositiveLongField;
 import org.astraea.argument.PositiveShortField;
+import org.astraea.concurrent.Executor;
+import org.astraea.concurrent.State;
 import org.astraea.concurrent.ThreadPool;
 import org.astraea.consumer.Consumer;
 import org.astraea.producer.Producer;
@@ -93,10 +94,8 @@ public class Performance {
 
     var manager = new Manager(param, producerMetrics, consumerMetrics);
     var tracker = new Tracker(producerMetrics, consumerMetrics, manager);
-    Collection<ThreadPool.Executor> fileWriter =
-        (param.createCSV) ? List.of(new FileWriter(manager, tracker)) : List.of();
     var groupId = "groupId-" + System.currentTimeMillis();
-    try (ThreadPool threadPool =
+    try (var threadPool =
         ThreadPool.builder()
             .executors(
                 IntStream.range(0, param.consumers)
@@ -129,7 +128,7 @@ public class Performance {
                                 manager))
                     .collect(Collectors.toUnmodifiableList()))
             .executor(tracker)
-            .executors(fileWriter)
+            .executor((param.createCSV) ? new FileWriter(manager, tracker) : () -> State.DONE)
             .build()) {
       threadPool.waitAll();
       future.complete(param.topic);
@@ -137,9 +136,9 @@ public class Performance {
     }
   }
 
-  static ThreadPool.Executor consumerExecutor(
+  static Executor consumerExecutor(
       Consumer<byte[], byte[]> consumer, BiConsumer<Long, Long> observer, Manager manager) {
-    return new ThreadPool.Executor() {
+    return new Executor() {
       @Override
       public State execute() {
         try {
@@ -173,13 +172,13 @@ public class Performance {
     };
   }
 
-  static ThreadPool.Executor producerExecutor(
+  static Executor producerExecutor(
       Producer<byte[], byte[]> producer,
       Argument param,
       BiConsumer<Long, Long> observer,
       List<Integer> partitions,
       Manager manager) {
-    return new ThreadPool.Executor() {
+    return new Executor() {
       @Override
       public State execute() throws InterruptedException {
         // Wait for all consumers get assignment.

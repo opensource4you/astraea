@@ -8,6 +8,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 import org.apache.kafka.common.TopicPartition;
 import org.astraea.Utils;
+import org.astraea.concurrent.Executor;
 import org.astraea.concurrent.ThreadPool;
 import org.astraea.consumer.Consumer;
 import org.astraea.producer.Producer;
@@ -34,7 +35,7 @@ public class PerformanceTest extends RequireBrokerCluster {
     param.specifyBroker = List.of(0);
     param.consumers = 0;
     param.partitions = 10;
-    try (ThreadPool.Executor executor =
+    try (var executor =
         Performance.producerExecutor(
             Producer.builder().brokers(bootstrapServers()).build(),
             param,
@@ -77,7 +78,7 @@ public class PerformanceTest extends RequireBrokerCluster {
     param.specifyBroker = List.of(0, 1);
     param.consumers = 0;
     param.partitions = 10;
-    try (ThreadPool.Executor executor =
+    try (Executor executor =
         Performance.producerExecutor(
             Producer.builder().brokers(bootstrapServers()).build(),
             param,
@@ -112,7 +113,7 @@ public class PerformanceTest extends RequireBrokerCluster {
     param.topic = "testProducerExecutor-" + System.currentTimeMillis();
     param.fixedSize = true;
     param.consumers = 0;
-    try (ThreadPool.Executor executor =
+    try (Executor executor =
         Performance.producerExecutor(
             Producer.builder().brokers(bootstrapServers()).build(),
             param,
@@ -132,7 +133,7 @@ public class PerformanceTest extends RequireBrokerCluster {
     var topicName = "testConsumerExecutor-" + System.currentTimeMillis();
     var param = new Performance.Argument();
     param.fixedSize = true;
-    try (ThreadPool.Executor executor =
+    try (Executor executor =
         Performance.consumerExecutor(
             Consumer.builder().topics(Set.of(topicName)).brokers(bootstrapServers()).build(),
             metrics,
