@@ -16,6 +16,9 @@ def versions = [
     jcommander: project.properties['jcommander.version'] ?: "1.81",
     slf4j: project.properties['slf4j.version'] ?: "1.7.32",
     zookeeper: project.properties['zookeeper.version'] ?: "3.6.3",
+    json: project.properties['json.version']?: "20090211",
+    yaml: project.properties['yaml.version']?: "1.8"
+
 ]
 
 dependencies {
@@ -30,6 +33,9 @@ dependencies {
     implementation "com.beust:jcommander:${versions["jcommander"]}"
     // we don't use slf4j actually, and it is used by kafka so we swallow the log.
     implementation "org.slf4j:slf4j-nop:${versions["slf4j"]}"
+    implementation "org.json:json:${versions["json"]}"
+    implementation "org.yaml:snakeyaml:${versions["yaml"]}"
+
 }
 
 application {
