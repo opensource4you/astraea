@@ -41,12 +41,14 @@ public class NodeLoadClient {
   private int totalInput;
   private int totalOutput;
   private Map<Integer, Integer> jmxOfBrokerID;
+  private Map<String, Integer> jmxAddress;
 
   private static final String regex =
       "((25[0-5]|2[0-4]\\d|1\\d{2}|[1-9]?\\d)\\.){3}" + "(25[0-5]|2[0-4]\\d|1\\d{2}|[1-9]?\\d)$";
 
-  public NodeLoadClient(Map<Integer, Integer> jmxAddresses, Optional<Integer> jmxPortDefault) {
-    this.jmxPortDefault = jmxPortDefault;
+  public NodeLoadClient(Map<Integer, Integer> jmxAddresses, int jmxPortDefault) {
+    if (jmxPortDefault != -1) this.jmxPortDefault = Optional.of(jmxPortDefault);
+    else this.jmxPortDefault = Optional.empty();
     jmxOfBrokerID = jmxAddresses;
   }
 
@@ -82,9 +84,15 @@ public class NodeLoadClient {
         idHost.remove(id);
       }
     }
-    jmxPortDefault.ifPresent(
-        port -> idHost.values().forEach(host -> currentJmxAddresses.put(ipAddress(host), port)));
 
+    if (idHost.size() > 0) {
+      jmxPortDefault.ifPresentOrElse(
+          port -> idHost.forEach((key, value) -> currentJmxAddresses.put(ipAddress(value), port)),
+          () -> {
+            var notFindJMX = new ArrayList<>(idHost.keySet());
+            throw new RuntimeException(notFindJMX + "jmx servers not found.");
+          });
+    }
     return currentJmxAddresses;
   }
 
@@ -97,7 +105,8 @@ public class NodeLoadClient {
               .map(node -> new Broker(node.id(), node.host(), node.port()))
               .collect(Collectors.toList());
       referenceBrokerID = brokers.stream().findFirst().get().brokerID;
-      List<Receiver> receiverList = RECEIVER_FACTORY.receiversList(jmxAddress(cluster));
+      jmxAddress = jmxAddress(cluster);
+      var receiverList = RECEIVER_FACTORY.receiversList(jmxAddress);
       receiverList.forEach(receiver -> Utils.waitFor(() -> receiver.current().size() > 0));
       var nodeIDReceiver = new HashMap<Integer, List<Receiver>>();
       receiverList.forEach(
@@ -257,7 +266,7 @@ public class NodeLoadClient {
   }
 
   public void close() {
-    RECEIVER_FACTORY.close();
+    RECEIVER_FACTORY.close(jmxAddress);
   }
 
   private List<Integer> brokerIDOfReceiver(String host) {

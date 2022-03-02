@@ -17,7 +17,6 @@ public class ReceiverFactory {
   private final List<Receiver> receiversList = new ArrayList<>();
   private final BeanCollector beanCollector;
   private final Map<String, Integer> count = new HashMap<>();
-  private Map<String, Integer> jmxAddresses;
 
   /** create a factory with specific comparator. * */
   public ReceiverFactory() {
@@ -34,7 +33,6 @@ public class ReceiverFactory {
    *     receiversList for all node's Receivers.Otherwise, it returns the existent receiversList.
    */
   public List<Receiver> receiversList(Map<String, Integer> jmxAddresses) {
-    this.jmxAddresses = jmxAddresses;
     synchronized (lock) {
       jmxAddresses.forEach(
           (host, port) -> {
@@ -71,9 +69,9 @@ public class ReceiverFactory {
     return receiversList;
   }
 
-  public void close() {
+  public void close(Map<String, Integer> jmxAddress) {
     synchronized (lock) {
-      jmxAddresses.forEach(
+      jmxAddress.forEach(
           (host, port) -> {
             if (count.containsKey(nodeKey(host, port))) {
               if (count.get(nodeKey(host, port)) == 1) {

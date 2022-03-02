@@ -219,14 +219,14 @@ public class PartitionerTest extends RequireBrokerCluster {
   @Test
   void testJmxConfig() {
     var props = initProConfig();
-    props.remove("jmx.port");
+    props.remove("jmx.defaultPort");
     props.put(
         "jmx.servers",
         "0."
             + jmxServiceURL().getPort()
-            + "1."
+            + ",1."
             + jmxServiceURL().getPort()
-            + "2."
+            + ",2."
             + jmxServiceURL().getPort());
     var topicName = "addressN";
     admin.creator().topic(topicName).numberOfPartitions(10).create();
@@ -238,7 +238,7 @@ public class PartitionerTest extends RequireBrokerCluster {
         Producer.builder()
             .keySerializer(Serializer.STRING)
             .configs(
-                initProConfig().entrySet().stream()
+                props.entrySet().stream()
                     .collect(Collectors.toMap(e -> e.getKey().toString(), Map.Entry::getValue)))
             .build()) {
       var metadata =

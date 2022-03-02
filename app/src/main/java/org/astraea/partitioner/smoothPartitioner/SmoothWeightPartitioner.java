@@ -8,7 +8,6 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.Random;
 import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
@@ -38,7 +37,6 @@ public class SmoothWeightPartitioner implements Partitioner {
   private final ConcurrentMap<Integer, SmoothWeightServer> brokersWeight =
       new ConcurrentHashMap<>();
 
-  private Optional<Integer> jmxPortDefault = Optional.empty();
   private final Map<NodeId, Integer> jmxPorts = new TreeMap<>();
   private NodeLoadClient nodeLoadClient;
   private long lastTime = -1;
@@ -90,7 +88,7 @@ public class SmoothWeightPartitioner implements Partitioner {
         Configuration.of(
             configs.entrySet().stream()
                 .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().toString())));
-    jmxPortDefault = config.integer(JMX_PORT);
+    var jmxPortDefault = config.integer(JMX_PORT);
 
     // seeks for custom jmx ports.
     config.entrySet().stream()
@@ -111,7 +109,7 @@ public class SmoothWeightPartitioner implements Partitioner {
             mapAddress.put(Integer.parseInt(arr.get(0)), Integer.parseInt(arr.get(1)));
           });
     }
-    nodeLoadClient = new NodeLoadClient(mapAddress, jmxPortDefault);
+    nodeLoadClient = new NodeLoadClient(mapAddress, jmxPortDefault.orElse(-1));
   }
 
   /** Change the weight of the node according to the current Poisson. */

@@ -6,7 +6,6 @@ import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.astraea.Utils;
 import org.astraea.partitioner.ClusterInfo;
@@ -27,7 +26,7 @@ public class NodeLoadClientTest extends RequireBrokerCluster {
   void setUp() {
     var map = new HashMap<Integer, Integer>();
     map.put(0, jmxServiceURL().getPort());
-    nodeLoadClient = new NodeLoadClient(map, Optional.of(jmxServiceURL().getPort()));
+    nodeLoadClient = new NodeLoadClient(map, jmxServiceURL().getPort());
   }
 
   @AfterAll
