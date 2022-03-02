@@ -3,7 +3,9 @@ package org.astraea.topic;
 import static org.junit.jupiter.api.condition.OS.WINDOWS;
 
 import java.time.Duration;
-import java.util.*;
+import java.util.Collection;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;

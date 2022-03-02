@@ -8,5 +8,10 @@ spotless {
         removeUnusedImports()
         target '**/java/**/*.java'
         googleJavaFormat()
+        custom 'refuse wildcard', {
+            if (it.contains('*;\n')) {
+                throw new Error("Wildcard imports is disallowed")
+            }
+        }
     }
 }

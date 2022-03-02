@@ -4,12 +4,11 @@ import static org.mockito.Mockito.when;
 
 import java.io.IOException;
 import java.lang.reflect.Field;
-import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import org.astraea.Utils;
 import org.astraea.partitioner.ClusterInfo;
 import org.astraea.partitioner.NodeInfo;
 import org.astraea.service.RequireBrokerCluster;
@@ -54,9 +53,9 @@ public class NodeLoadClientTest extends RequireBrokerCluster {
     brokers.add(new NodeLoadClient.Broker(1, "0.0.0.0", 222));
     brokers.add(new NodeLoadClient.Broker(2, "0.0.0.0", 333));
     setBrokers(brokers);
-    Assertions.assertEquals(nodeLoadClient.brokerLoad(0.37, 1.0 / 3), 6);
+    Assertions.assertEquals(nodeLoadClient.brokerLoad(0.37, 1.0 / 3), 1);
     Assertions.assertEquals(nodeLoadClient.brokerLoad(0.01, 1.0 / 3), 0);
-    Assertions.assertEquals(nodeLoadClient.brokerLoad(0.8, 1.0 / 3), 10);
+    Assertions.assertEquals(nodeLoadClient.brokerLoad(0.8, 1.0 / 3), 2);
   }
 
   @Test
@@ -80,7 +79,7 @@ public class NodeLoadClientTest extends RequireBrokerCluster {
   }
 
   @Test
-  void testLoadSituation() throws UnknownHostException {
+  void testLoadSituation() {
     var bootstrapServers = List.of(bootstrapServers().split(","));
     List<NodeInfo> nodes = new ArrayList<>();
     AtomicInteger count = new AtomicInteger(0);
@@ -94,18 +93,19 @@ public class NodeLoadClientTest extends RequireBrokerCluster {
     var cluster = Mockito.mock(ClusterInfo.class);
     when(cluster.nodes()).thenReturn(nodes);
     var load = nodeLoadClient.loadSituation(cluster);
-    Assertions.assertEquals(load.get(0), 5);
-    Assertions.assertEquals(load.get(1), 5);
-    Assertions.assertEquals(load.get(2), 5);
+    Assertions.assertEquals(load.get(0), 1);
+    Assertions.assertEquals(load.get(1), 1);
+    Assertions.assertEquals(load.get(2), 1);
     load = nodeLoadClient.loadSituation(cluster);
-    Assertions.assertEquals(load.get(0), 5);
-    Assertions.assertEquals(load.get(1), 5);
-    Assertions.assertEquals(load.get(2), 5);
-    sleep(1);
+    Assertions.assertEquals(load.get(0), 1);
+    Assertions.assertEquals(load.get(1), 1);
+    Assertions.assertEquals(load.get(2), 1);
+    var lastTime = System.currentTimeMillis();
+    Utils.waitFor(() -> Utils.overSecond(lastTime, 1));
     load = nodeLoadClient.loadSituation(cluster);
-    Assertions.assertEquals(load.get(0), 10);
-    Assertions.assertEquals(load.get(1), 10);
-    Assertions.assertEquals(load.get(2), 10);
+    Assertions.assertEquals(load.get(0), 2);
+    Assertions.assertEquals(load.get(1), 2);
+    Assertions.assertEquals(load.get(2), 2);
   }
 
   private NodeLoadClient.Broker setSituationNormalized(
@@ -126,14 +126,6 @@ public class NodeLoadClientTest extends RequireBrokerCluster {
       brokersField.set(nodeLoadClient, brokers);
     } catch (IllegalAccessException e) {
       e.printStackTrace();
-    }
-  }
-
-  private static void sleep(int seconds) {
-    try {
-      TimeUnit.SECONDS.sleep(seconds);
-    } catch (InterruptedException e) {
-      throw new RuntimeException(e);
     }
   }
 }
