@@ -188,7 +188,6 @@ public class Performance {
       public State execute() throws InterruptedException {
         // Wait for all consumers get assignment.
         manager.awaitPartitionAssignment();
-        Utils.waitFor(manager::notThrottled);
         var rand = new Random();
         var payload = manager.payload();
         if (payload.isEmpty()) return State.DONE;

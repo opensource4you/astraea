@@ -4,6 +4,7 @@ import java.util.*;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+import org.astraea.Utils;
 import org.astraea.utils.DataSize;
 import org.astraea.utils.DataUnit;
 
@@ -22,8 +23,8 @@ public class Manager {
   private final AtomicLong payloadNum = new AtomicLong(0);
   private final Distribution distribution;
   private final RandomContent randomContent;
-  private Long intervalStart = System.currentTimeMillis();
-  private final AtomicLong payloadBytes = new AtomicLong(0);
+  private long intervalStart = System.currentTimeMillis();
+  private long payloadBytes = 0L;
   private final DataSize throughput;
 
   /**
@@ -57,27 +58,30 @@ public class Manager {
   }
 
   /**
-   * Generate random byte array in random/fixed length.
+   * Generate random byte array in random/fixed length. Warning: This method will block when the
+   * throughput (content generating rate) is higher than the given number (argument.throughput).
    *
    * @return random byte array. When no payload should be generated, Optional.empty() is generated.
    *     Whether the payload should be generated is determined in construct time. "Number of
    *     records" and "execution time" are considered.
    */
-  public synchronized Optional<byte[]> payload() {
+  public Optional<byte[]> payload() {
     if (exeTime.percentage(payloadNum.getAndIncrement(), System.currentTimeMillis() - start)
         >= 100D) return Optional.empty();
 
     var payload = randomContent.getContent();
-    payloadBytes.addAndGet(payload.length);
+
+    Utils.waitFor(this::notThrottled);
+    payloadBytes += payload.length;
     return Optional.of(payload);
   }
 
-  public synchronized boolean notThrottled() {
+  synchronized boolean notThrottled() {
     if (System.currentTimeMillis() - intervalStart > 1000) {
       intervalStart = System.currentTimeMillis();
-      payloadBytes.set(0L);
+      payloadBytes = 0L;
     }
-    return payloadBytes.get() < throughput.measurement(DataUnit.Byte).intValue();
+    return payloadBytes < throughput.measurement(DataUnit.Byte).intValue();
   }
 
   public long producedRecords() {
