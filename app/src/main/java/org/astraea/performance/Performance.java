@@ -23,7 +23,7 @@ import org.apache.kafka.common.record.CompressionType;
 import org.astraea.Utils;
 import org.astraea.argument.CompressionField;
 import org.astraea.argument.NonEmptyStringField;
-import org.astraea.argument.NonNegativeLongField;
+import org.astraea.argument.NonNegativeIntegerField;
 import org.astraea.argument.PositiveLongField;
 import org.astraea.argument.PositiveShortField;
 import org.astraea.concurrent.ThreadPool;
@@ -260,8 +260,8 @@ public class Performance {
     @Parameter(
         names = {"--consumers"},
         description = "Integer: number of consumers to consume records",
-        validateWith = NonNegativeLongField.class,
-        converter = NonNegativeLongField.class)
+        validateWith = NonNegativeIntegerField.class,
+        converter = NonNegativeIntegerField.class)
     int consumers = 1;
 
     @Parameter(
@@ -289,9 +289,16 @@ public class Performance {
     @Parameter(
         names = {"--jmx.servers"},
         description =
-            "String: server to get jmx metrics <jmx_server>@<broker_id>[,<jmx_server>@<broker_id>]*",
+            "String: server to get jmx metrics <broker_id>.<jmx_serverPort>[,<broker_id>.<jmx_serverPort>]*",
         validateWith = NonEmptyStringField.class)
     String jmxServers = "";
+
+    @Parameter(
+        names = {"--jmx.defaultPort"},
+        description =
+            "String: server to get jmx metrics <jmx_server>@<broker_id>[,<jmx_server>@<broker_id>]*",
+        validateWith = NonEmptyStringField.class)
+    String jmxDefaultPort = "";
 
     @Parameter(
         names = {"--partitioner"},
@@ -303,6 +310,7 @@ public class Performance {
       var props = props();
       props.put(ProducerConfig.COMPRESSION_TYPE_CONFIG, compression.name);
       if (!this.jmxServers.isEmpty()) props.put("jmx_servers", this.jmxServers);
+      if (!this.jmxServers.isEmpty()) props.put("jmx_DefaultPort", this.jmxDefaultPort);
       return props;
     }
 

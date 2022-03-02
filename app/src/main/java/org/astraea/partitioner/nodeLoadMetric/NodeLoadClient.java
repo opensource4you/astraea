@@ -9,6 +9,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
+import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicReference;
@@ -20,6 +22,7 @@ import org.astraea.metrics.collector.Receiver;
 import org.astraea.metrics.java.HasJvmMemory;
 import org.astraea.metrics.kafka.KafkaMetrics;
 import org.astraea.partitioner.ClusterInfo;
+import org.astraea.partitioner.NodeInfo;
 
 /**
  * this clas is responsible for obtaining jmx metrics from BeanCollector and calculating the
@@ -27,9 +30,8 @@ import org.astraea.partitioner.ClusterInfo;
  */
 public class NodeLoadClient {
 
-  private final List<Receiver> receiverList;
-  private final Map<String, Integer> currentJmxAddresses;
   private final Lock lock = new ReentrantLock();
+  private final Optional<Integer> jmxPortDefault;
   private static final ReceiverFactory RECEIVER_FACTORY = new ReceiverFactory();
   private long lastTime = -1;
   // visible for testing
@@ -38,14 +40,14 @@ public class NodeLoadClient {
   private int referenceBrokerID;
   private int totalInput;
   private int totalOutput;
+  private Map<Integer, Integer> jmxOfBrokerID;
 
   private static final String regex =
       "((25[0-5]|2[0-4]\\d|1\\d{2}|[1-9]?\\d)\\.){3}" + "(25[0-5]|2[0-4]\\d|1\\d{2}|[1-9]?\\d)$";
 
-  public NodeLoadClient(Map<String, Integer> jmxAddresses) {
-    this.receiverList = RECEIVER_FACTORY.receiversList(jmxAddresses);
-    receiverList.forEach(receiver -> Utils.waitFor(() -> receiver.current().size() > 0));
-    currentJmxAddresses = jmxAddresses;
+  public NodeLoadClient(Map<Integer, Integer> jmxAddresses, Optional<Integer> jmxPortDefault) {
+    this.jmxPortDefault = jmxPortDefault;
+    jmxOfBrokerID = jmxAddresses;
   }
 
   /**
@@ -69,6 +71,23 @@ public class NodeLoadClient {
     return currentLoadNode;
   }
 
+  Map<String, Integer> jmxAddress(ClusterInfo cluster) {
+    var iterator = jmxOfBrokerID.keySet().iterator();
+    var currentJmxAddresses = new TreeMap<String, Integer>();
+    var idHost = cluster.nodes().stream().collect(Collectors.toMap(NodeInfo::id, NodeInfo::host));
+    while (iterator.hasNext()) {
+      var id = iterator.next();
+      if (idHost.containsKey(id)) {
+        currentJmxAddresses.put(ipAddress(idHost.get(id)), jmxOfBrokerID.get(id));
+        idHost.remove(id);
+      }
+    }
+    jmxPortDefault.ifPresent(
+        port -> idHost.values().forEach(host -> currentJmxAddresses.put(ipAddress(host), port)));
+
+    return currentJmxAddresses;
+  }
+
   /** @param cluster the cluster from the partitioner */
   private void nodesOverLoad(ClusterInfo cluster) {
     if (lastTime == -1) {
@@ -78,6 +97,8 @@ public class NodeLoadClient {
               .map(node -> new Broker(node.id(), node.host(), node.port()))
               .collect(Collectors.toList());
       referenceBrokerID = brokers.stream().findFirst().get().brokerID;
+      List<Receiver> receiverList = RECEIVER_FACTORY.receiversList(jmxAddress(cluster));
+      receiverList.forEach(receiver -> Utils.waitFor(() -> receiver.current().size() > 0));
       var nodeIDReceiver = new HashMap<Integer, List<Receiver>>();
       receiverList.forEach(
           receiver -> {
@@ -137,7 +158,7 @@ public class NodeLoadClient {
               Long.parseLong(
                   broker
                       .metrics
-                      .get(KafkaMetrics.BrokerTopic.BytesInPerSec.name())
+                      .get(KafkaMetrics.BrokerTopic.BytesOutPerSec.name())
                       .current()
                       .get(0)
                       .beanObject()
@@ -236,7 +257,7 @@ public class NodeLoadClient {
   }
 
   public void close() {
-    RECEIVER_FACTORY.close(currentJmxAddresses);
+    RECEIVER_FACTORY.close();
   }
 
   private List<Integer> brokerIDOfReceiver(String host) {

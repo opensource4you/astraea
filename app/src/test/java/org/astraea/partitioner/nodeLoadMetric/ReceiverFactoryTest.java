@@ -16,16 +16,16 @@ public class ReceiverFactoryTest extends RequireBrokerCluster {
     var bc3 = FACTORY.receiversList(jmxAddress);
     var bc4 = FACTORY.receiversList(jmxAddress);
     Assertions.assertEquals(FACTORY.factoryCount(jmxAddress), 4);
-    FACTORY.close(jmxAddress);
+    FACTORY.close();
     Assertions.assertEquals(FACTORY.factoryCount(jmxAddress), 3);
-    FACTORY.close(jmxAddress);
-    FACTORY.close(jmxAddress);
+    FACTORY.close();
+    FACTORY.close();
     Assertions.assertEquals(FACTORY.factoryCount(jmxAddress), 1);
-    FACTORY.close(jmxAddress);
+    FACTORY.close();
     Assertions.assertEquals(FACTORY.factoryCount(jmxAddress), 0);
     var bc5 = FACTORY.receiversList(jmxAddress);
     Assertions.assertEquals(FACTORY.factoryCount(jmxAddress), 1);
-    FACTORY.close(jmxAddress);
+    FACTORY.close();
     Assertions.assertEquals(FACTORY.factoryCount(jmxAddress), 0);
   }
 }

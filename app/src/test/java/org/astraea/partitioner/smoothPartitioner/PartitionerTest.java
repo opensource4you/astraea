@@ -47,7 +47,7 @@ public class PartitionerTest extends RequireBrokerCluster {
     props.put(ProducerConfig.CLIENT_ID_CONFIG, "id1");
     props.put(ProducerConfig.PARTITIONER_CLASS_CONFIG, SmoothWeightPartitioner.class.getName());
     props.put("producerID", 1);
-    props.put("jmx_servers", jmxServiceURL().getHost() + ":" + jmxServiceURL().getPort());
+    props.put("jmx.defaultPort", jmxServiceURL().getPort());
     return props;
   }
 
@@ -214,6 +214,48 @@ public class PartitionerTest extends RequireBrokerCluster {
     Assertions.assertEquals(smoothWeightServer.updateOriginalWeight(5), 1);
     Assertions.assertEquals(smoothWeightServer.updateOriginalWeight(5), -4);
     Assertions.assertEquals(smoothWeightServer.originalWeight(), -9);
+  }
+
+  @Test
+  void testJmxConfig() {
+    var props = initProConfig();
+    props.remove("jmx.port");
+    props.put(
+        "jmx.servers",
+        "0."
+            + jmxServiceURL().getPort()
+            + "1."
+            + jmxServiceURL().getPort()
+            + "2."
+            + jmxServiceURL().getPort());
+    var topicName = "addressN";
+    admin.creator().topic(topicName).numberOfPartitions(10).create();
+    var key = "tainan";
+    var timestamp = System.currentTimeMillis() + 10;
+    var header = Header.of("a", "b".getBytes());
+
+    try (var producer =
+        Producer.builder()
+            .keySerializer(Serializer.STRING)
+            .configs(
+                initProConfig().entrySet().stream()
+                    .collect(Collectors.toMap(e -> e.getKey().toString(), Map.Entry::getValue)))
+            .build()) {
+      var metadata =
+          producer
+              .sender()
+              .topic(topicName)
+              .key(key)
+              .timestamp(timestamp)
+              .headers(List.of(header))
+              .run()
+              .toCompletableFuture()
+              .get();
+      assertEquals(topicName, metadata.topic());
+      assertEquals(timestamp, metadata.timestamp());
+    } catch (ExecutionException | InterruptedException e) {
+      e.printStackTrace();
+    }
   }
 
   private ThreadPool.Executor producerExecutor(

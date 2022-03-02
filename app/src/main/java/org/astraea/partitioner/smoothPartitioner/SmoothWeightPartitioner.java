@@ -6,18 +6,22 @@ import static org.astraea.partitioner.nodeLoadMetric.PartitionerUtils.weightPois
 
 import java.util.Arrays;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Random;
+import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.stream.Collectors;
 import org.apache.kafka.clients.producer.Partitioner;
 import org.apache.kafka.common.Cluster;
 import org.astraea.partitioner.ClusterInfo;
+import org.astraea.partitioner.Configuration;
+import org.astraea.partitioner.NodeId;
 import org.astraea.partitioner.nodeLoadMetric.NodeLoadClient;
 
 /**
@@ -26,14 +30,16 @@ import org.astraea.partitioner.nodeLoadMetric.NodeLoadClient;
  * Finally, the result of poisson is used as the weight to perform smooth weighted RoundRobin.
  */
 public class SmoothWeightPartitioner implements Partitioner {
+  private static final String JMX_PORT = "jmx.defaultPort";
+  private static final String JMX_SERVERS = "jmx.servers";
 
-  /**
-   * Record the current weight of each node according to Poisson calculation and the weight after
-   * partitioner calculation.
-   */
+  //  Record the current weight of each node according to Poisson calculation and the weight after
+  // partitioner calculation.
   private final ConcurrentMap<Integer, SmoothWeightServer> brokersWeight =
       new ConcurrentHashMap<>();
 
+  private Optional<Integer> jmxPortDefault = Optional.empty();
+  private final Map<NodeId, Integer> jmxPorts = new TreeMap<>();
   private NodeLoadClient nodeLoadClient;
   private long lastTime = -1;
   private final Random rand = new Random();
@@ -49,7 +55,7 @@ public class SmoothWeightPartitioner implements Partitioner {
 
     SmoothWeightServer maxWeightServer = null;
 
-    Iterator<Integer> iterator = brokersWeight.keySet().iterator();
+    var iterator = brokersWeight.keySet().iterator();
     var currentWrightSum = weightSum;
     while (iterator.hasNext()) {
       var smoothWeightServer = brokersWeight.get(iterator.next());
@@ -80,19 +86,32 @@ public class SmoothWeightPartitioner implements Partitioner {
 
   @Override
   public void configure(Map<String, ?> configs) {
-    var jmxAddresses =
-        Objects.requireNonNull(
-            configs.get("jmx_servers").toString(), "You must configure jmx_servers correctly");
-    var list = Arrays.asList((jmxAddresses).split(","));
-    HashMap<String, Integer> mapAddress = new HashMap<>();
-    list.forEach(
-        str ->
-            mapAddress.put(
-                Arrays.asList(str.split(":")).get(0),
-                Integer.parseInt(Arrays.asList(str.split(":")).get(1))));
-    Objects.requireNonNull(mapAddress, "You must configure jmx_servers correctly.");
+    var config =
+        Configuration.of(
+            configs.entrySet().stream()
+                .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().toString())));
+    jmxPortDefault = config.integer(JMX_PORT);
 
-    nodeLoadClient = new NodeLoadClient(mapAddress);
+    // seeks for custom jmx ports.
+    config.entrySet().stream()
+        .filter(e -> e.getKey().startsWith("broker."))
+        .forEach(
+            e ->
+                jmxPorts.put(
+                    NodeId.of(Integer.parseInt(e.getKey())), Integer.parseInt(e.getValue())));
+
+    var jmxAddresses = config.string(JMX_SERVERS);
+    var mapAddress = new HashMap<Integer, Integer>();
+
+    if (jmxAddresses.isPresent()) {
+      var list = Arrays.asList((jmxAddresses.get()).split(","));
+      list.forEach(
+          str -> {
+            var arr = Arrays.asList(str.split("\\."));
+            mapAddress.put(Integer.parseInt(arr.get(0)), Integer.parseInt(arr.get(1)));
+          });
+    }
+    nodeLoadClient = new NodeLoadClient(mapAddress, jmxPortDefault);
   }
 
   /** Change the weight of the node according to the current Poisson. */

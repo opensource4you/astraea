@@ -2,11 +2,11 @@ package org.astraea.partitioner.nodeLoadMetric;
 
 import static org.mockito.Mockito.when;
 
-import java.io.IOException;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.astraea.Utils;
 import org.astraea.partitioner.ClusterInfo;
@@ -24,10 +24,10 @@ public class NodeLoadClientTest extends RequireBrokerCluster {
   private NodeLoadClient nodeLoadClient;
 
   @BeforeAll
-  void setUp() throws IOException {
-    var map = new HashMap<String, Integer>();
-    map.put(jmxServiceURL().getHost(), jmxServiceURL().getPort());
-    nodeLoadClient = new NodeLoadClient(map);
+  void setUp() {
+    var map = new HashMap<Integer, Integer>();
+    map.put(0, jmxServiceURL().getPort());
+    nodeLoadClient = new NodeLoadClient(map, Optional.of(jmxServiceURL().getPort()));
   }
 
   @AfterAll
@@ -89,7 +89,6 @@ public class NodeLoadClientTest extends RequireBrokerCluster {
           nodes.add(NodeInfo.of(count.get(), hostPort[0], Integer.parseInt(hostPort[1])));
           count.getAndIncrement();
         });
-
     var cluster = Mockito.mock(ClusterInfo.class);
     when(cluster.nodes()).thenReturn(nodes);
     var load = nodeLoadClient.loadSituation(cluster);
