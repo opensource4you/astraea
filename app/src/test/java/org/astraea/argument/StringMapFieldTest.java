@@ -1,5 +1,6 @@
 package org.astraea.argument;
 
+import com.beust.jcommander.ParameterException;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -12,5 +13,12 @@ public class StringMapFieldTest {
     Assertions.assertEquals(2, result.size());
     Assertions.assertEquals("v0", result.get("k0"));
     Assertions.assertEquals("v1", result.get("k1"));
+  }
+
+  @Test
+  void testNonMap() {
+    var field = new StringMapField();
+    Assertions.assertThrows(ParameterException.class, () -> field.validate("a", "bb"));
+    Assertions.assertThrows(ParameterException.class, () -> field.validate("a", "bb="));
   }
 }
