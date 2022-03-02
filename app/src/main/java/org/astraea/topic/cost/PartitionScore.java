@@ -1,14 +1,15 @@
 package org.astraea.topic.cost;
 
-import static org.astraea.argument.ArgumentUtil.parseArgument;
-
 import com.beust.jcommander.Parameter;
-import com.beust.jcommander.converters.BooleanConverter;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 import org.apache.kafka.common.TopicPartition;
-import org.astraea.argument.BasicArgument;
-import org.astraea.argument.validator.NotEmptyString;
+import org.astraea.argument.BooleanField;
 import org.astraea.topic.TopicAdmin;
 
 public class PartitionScore {
@@ -79,26 +80,26 @@ public class PartitionScore {
   }
 
   public static void main(String[] args) {
-    var argument = parseArgument(new Argument(), args);
+    var argument = org.astraea.argument.Argument.parse(new Argument(), args);
     var admin = TopicAdmin.of(argument.brokers);
     var score = execute(argument, admin);
     printScore(score, argument);
   }
 
-  static class Argument extends BasicArgument {
+  static class Argument extends org.astraea.argument.Argument {
     @Parameter(
         names = {"--exclude.internal.topics"},
         description =
             "True if you want to ignore internal topics like _consumer_offsets while counting score.",
-        validateWith = NotEmptyString.class,
-        converter = BooleanConverter.class)
+        validateWith = BooleanField.class,
+        converter = BooleanField.class)
     boolean excludeInternalTopic = false;
 
     @Parameter(
         names = {"--hide.balanced"},
         description = "True if you want to hide topics and partitions thar already balanced.",
-        validateWith = NotEmptyString.class,
-        converter = BooleanConverter.class)
+        validateWith = BooleanField.class,
+        converter = BooleanField.class)
     boolean hideBalanced = false;
   }
 }

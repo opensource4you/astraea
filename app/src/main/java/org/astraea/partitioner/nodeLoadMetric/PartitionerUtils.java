@@ -14,6 +14,11 @@ public class PartitionerUtils {
     return poissonMap;
   }
 
+  public static int weightPoisson(Double value, Double thoughPutAbility) {
+    if (value < 0.8) return (int) (Math.round((1 - value) * 20 * thoughPutAbility));
+    else return (int) Math.pow(Math.round((1 - value) * 20 * thoughPutAbility), 2) / 10;
+  }
+
   static double doPoisson(int lambda, int x) {
     var Probability = 0.0;
     var ans = 0.0;
@@ -37,6 +42,23 @@ public class PartitionerUtils {
   private static int avgLoadCount(Map<Integer, Integer> overLoadCount) {
     var avgLoadCount =
         overLoadCount.values().stream().mapToDouble(Integer::doubleValue).average().orElse(0);
-    return (int) avgLoadCount;
+    return (int) Math.round(avgLoadCount);
+  }
+
+  /**
+   * A cheap way to deterministically convert a number to a positive value. When the input is
+   * positive, the original value is returned. When the input number is negative, the returned
+   * positive value is the original value bit AND against 0x7fffffff which is not its absolute
+   * value.
+   *
+   * <p>Note: changing this method in the future will possibly cause partition selection not to be
+   * compatible with the existing messages already placed on a partition since it is used in
+   * producer's {@link org.apache.kafka.clients.producer.internals.DefaultPartitioner}
+   *
+   * @param number a given number
+   * @return a positive number.
+   */
+  public static int toPositive(int number) {
+    return number & 0x7fffffff;
   }
 }

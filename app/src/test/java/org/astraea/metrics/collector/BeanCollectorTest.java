@@ -9,6 +9,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import org.astraea.concurrent.Executor;
+import org.astraea.concurrent.State;
 import org.astraea.concurrent.ThreadPool;
 import org.astraea.metrics.HasBeanObject;
 import org.astraea.metrics.jmx.MBeanClient;
@@ -38,7 +40,7 @@ public class BeanCollectorTest {
             .register()
             .host("unknown")
             .port(100)
-            .metricsGetter(client -> Mockito.mock(HasBeanObject.class))
+            .fetcher(client -> List.of(Mockito.mock(HasBeanObject.class)))
             .build();
     Assertions.assertEquals("unknown", receiver.host());
     Assertions.assertEquals(100, receiver.port());
@@ -68,7 +70,7 @@ public class BeanCollectorTest {
             .register()
             .host("unknown")
             .port(100)
-            .metricsGetter(client -> Mockito.mock(HasBeanObject.class))
+            .fetcher(client -> List.of(Mockito.mock(HasBeanObject.class)))
             .build();
 
     var c0 = receiver.current();
@@ -103,8 +105,7 @@ public class BeanCollectorTest {
     var collector = BeanCollector.builder().clientCreator(clientCreator).build();
     Assertions.assertThrows(NullPointerException.class, () -> collector.register().host(null));
     Assertions.assertThrows(IllegalArgumentException.class, () -> collector.register().port(-1));
-    Assertions.assertThrows(
-        NullPointerException.class, () -> collector.register().metricsGetter(null));
+    Assertions.assertThrows(NullPointerException.class, () -> collector.register().fetcher(null));
   }
 
   private List<Receiver> receivers(BeanCollector collector) {
@@ -117,7 +118,7 @@ public class BeanCollectorTest {
                     .register()
                     .host("unknown")
                     .port(100)
-                    .metricsGetter(client -> mbean)
+                    .fetcher(client -> List.of(mbean))
                     .build();
             synchronized (receivers) {
               receivers.add(receiver);
@@ -129,7 +130,10 @@ public class BeanCollectorTest {
 
     try (var pool =
         ThreadPool.builder()
-            .runnables(IntStream.range(0, 3).mapToObj(i -> runnable).collect(Collectors.toList()))
+            .executors(
+                IntStream.range(0, 3)
+                    .mapToObj(i -> executor(runnable))
+                    .collect(Collectors.toList()))
             .build()) {
       sleep(1);
     }
@@ -165,9 +169,9 @@ public class BeanCollectorTest {
 
     try (var pool =
         ThreadPool.builder()
-            .runnables(
+            .executors(
                 receivers.stream()
-                    .map(receiver -> ((Runnable) receiver::current))
+                    .map(receiver -> executor(receiver::current))
                     .collect(Collectors.toList()))
             .build()) {
       sleep(3);
@@ -193,10 +197,10 @@ public class BeanCollectorTest {
             .register()
             .host("unknown")
             .port(100)
-            .metricsGetter(
-                c -> {
+            .fetcher(
+                client -> {
                   count.incrementAndGet();
-                  return mbean;
+                  return List.of(mbean);
                 })
             .build();
 
@@ -226,10 +230,10 @@ public class BeanCollectorTest {
                           .register()
                           .host("unknown")
                           .port(100)
-                          .metricsGetter(
-                              c -> {
+                          .fetcher(
+                              client -> {
                                 count.incrementAndGet();
-                                return mbean;
+                                return List.of(mbean);
                               })
                           .build());
                 })
@@ -241,5 +245,12 @@ public class BeanCollectorTest {
     sleep(1);
     receivers.forEach(e -> Assertions.assertEquals(1, e.getValue().current().size()));
     receivers.forEach(e -> Assertions.assertEquals(1, e.getKey().get()));
+  }
+
+  private static Executor executor(Runnable runnable) {
+    return () -> {
+      runnable.run();
+      return State.RUNNING;
+    };
   }
 }

@@ -1,9 +1,13 @@
 package org.astraea.partitioner.nodeLoadMetric;
 
-import static org.astraea.partitioner.nodeLoadMetric.PartitionerUtils.*;
+import static org.astraea.partitioner.nodeLoadMetric.PartitionerUtils.allPoisson;
+import static org.astraea.partitioner.nodeLoadMetric.PartitionerUtils.doPoisson;
+import static org.astraea.partitioner.nodeLoadMetric.PartitionerUtils.factorial;
+import static org.astraea.partitioner.nodeLoadMetric.PartitionerUtils.weightPoisson;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.HashMap;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 public class PartitionerUtilsTest {
@@ -38,5 +42,15 @@ public class PartitionerUtilsTest {
     poissonMap = allPoisson(testNodesLoadCount);
 
     assertEquals(poissonMap, testPoissonMap);
+  }
+
+  @Test
+  void testWeightPoisson() {
+    Assertions.assertEquals(weightPoisson(0.5, 1.0), 10);
+    Assertions.assertEquals(weightPoisson(1.0, 1.0), 0);
+    Assertions.assertEquals(weightPoisson(0.95, 1.0), 0);
+    Assertions.assertEquals(weightPoisson(0.9, 1.0), 0);
+    Assertions.assertEquals(weightPoisson(0.0, 1.0), 20);
+    Assertions.assertEquals(weightPoisson(0.8, 1.0), 1);
   }
 }
