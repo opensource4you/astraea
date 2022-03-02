@@ -22,7 +22,7 @@ import org.apache.kafka.common.record.CompressionType;
 import org.astraea.Utils;
 import org.astraea.argument.CompressionField;
 import org.astraea.argument.NonEmptyStringField;
-import org.astraea.argument.NonNegativeLongField;
+import org.astraea.argument.NonNegativeShortField;
 import org.astraea.argument.PositiveLongField;
 import org.astraea.argument.PositiveShortField;
 import org.astraea.concurrent.Executor;
@@ -259,8 +259,8 @@ public class Performance {
     @Parameter(
         names = {"--consumers"},
         description = "Integer: number of consumers to consume records",
-        validateWith = NonNegativeLongField.class,
-        converter = NonNegativeLongField.class)
+        validateWith = NonNegativeShortField.class,
+        converter = NonNegativeShortField.class)
     int consumers = 1;
 
     @Parameter(
