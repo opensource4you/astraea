@@ -2,15 +2,14 @@ package org.astraea.argument;
 
 import com.beust.jcommander.ParameterException;
 
-public class BooleanField implements NonEmptyField<Boolean> {
+public class BooleanField extends Field<Boolean> {
   @Override
   public Boolean convert(String value) {
     return Boolean.parseBoolean(value);
   }
 
   @Override
-  public void validate(String name, String value) throws ParameterException {
-    NonEmptyField.super.validate(name, value);
+  protected void check(String name, String value) throws ParameterException {
     if (!("false".equalsIgnoreCase(value) || "true".equalsIgnoreCase(value)))
       throw new ParameterException(value + " is not boolean type");
   }

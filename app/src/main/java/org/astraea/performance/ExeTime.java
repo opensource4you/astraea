@@ -5,7 +5,6 @@ import java.time.Duration;
 import java.util.function.BiFunction;
 import java.util.regex.Pattern;
 import org.astraea.argument.DurationField;
-import org.astraea.argument.NonEmptyField;
 
 /**
  * Two kind of running modes. One runs for a duration of time. The other runs for a number of
@@ -38,11 +37,11 @@ interface ExeTime {
     };
   }
 
-  class Field implements NonEmptyField<ExeTime> {
+  class Field extends org.astraea.argument.Field<ExeTime> {
     static final Pattern PATTERN = Pattern.compile("^([0-9]+)(days|day|h|m|s|ms|us|ns|records)$");
 
     @Override
-    public void validate(String name, String value) throws ParameterException {
+    protected void check(String name, String value) throws ParameterException {
       if (!PATTERN.matcher(value).matches()) {
         throw new ParameterException(
             "Invalid ExeTime format. valid format example: \"1m\" or \"89242records\"");

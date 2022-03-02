@@ -5,7 +5,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.kafka.common.record.CompressionType;
 
-public class CompressionField implements NonEmptyField<CompressionType> {
+public class CompressionField extends Field<CompressionType> {
   /**
    * @param value Name of compression type. Accept lower-case name only ("none", "gzip", "snappy",
    *     "lz4", "zstd").
@@ -27,8 +27,7 @@ public class CompressionField implements NonEmptyField<CompressionType> {
   }
 
   @Override
-  public void validate(String name, String value) throws ParameterException {
-    NonEmptyField.super.validate(name, value);
+  protected void check(String name, String value) throws ParameterException {
     convert(value);
   }
 }
