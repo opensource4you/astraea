@@ -40,7 +40,7 @@ import java.util.regex.Pattern;
  *   <li><b>(doesn't work)</b> {@code "0.5" to {@code Duration.ofMillis(500)}}
  * </ul>
  */
-public class DurationField implements Field<Duration> {
+public class DurationField extends Field<Duration> {
 
   static final Pattern TIME_PATTERN =
       Pattern.compile("^(?<value>[0-9]+)(?<unit>days|day|h|m|s|ms|us|ns|)$");
@@ -75,7 +75,7 @@ public class DurationField implements Field<Duration> {
   }
 
   @Override
-  public void validate(String name, String value) throws ParameterException {
+  protected void check(String name, String value) throws ParameterException {
     if (!TIME_PATTERN.matcher(value).find())
       throw new ParameterException(
           "field \"" + name + "\"'s value \"" + value + "\" doesn't match time format");

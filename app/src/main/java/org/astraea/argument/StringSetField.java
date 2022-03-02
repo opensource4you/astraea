@@ -2,7 +2,7 @@ package org.astraea.argument;
 
 import java.util.Set;
 
-public class StringSetField implements SetField<String> {
+public class StringSetField extends SetField<String> {
 
   @Override
   public Set<String> convert(String value) {
