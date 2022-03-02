@@ -9,6 +9,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import org.astraea.concurrent.Executor;
+import org.astraea.concurrent.State;
 import org.astraea.concurrent.ThreadPool;
 import org.astraea.metrics.HasBeanObject;
 import org.astraea.metrics.jmx.MBeanClient;
@@ -128,7 +130,10 @@ public class BeanCollectorTest {
 
     try (var pool =
         ThreadPool.builder()
-            .runnables(IntStream.range(0, 3).mapToObj(i -> runnable).collect(Collectors.toList()))
+            .executors(
+                IntStream.range(0, 3)
+                    .mapToObj(i -> executor(runnable))
+                    .collect(Collectors.toList()))
             .build()) {
       sleep(1);
     }
@@ -164,9 +169,9 @@ public class BeanCollectorTest {
 
     try (var pool =
         ThreadPool.builder()
-            .runnables(
+            .executors(
                 receivers.stream()
-                    .map(receiver -> ((Runnable) receiver::current))
+                    .map(receiver -> executor(receiver::current))
                     .collect(Collectors.toList()))
             .build()) {
       sleep(3);
@@ -240,5 +245,12 @@ public class BeanCollectorTest {
     sleep(1);
     receivers.forEach(e -> Assertions.assertEquals(1, e.getValue().current().size()));
     receivers.forEach(e -> Assertions.assertEquals(1, e.getKey().get()));
+  }
+
+  private static Executor executor(Runnable runnable) {
+    return () -> {
+      runnable.run();
+      return State.RUNNING;
+    };
   }
 }

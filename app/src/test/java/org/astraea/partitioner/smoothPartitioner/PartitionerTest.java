@@ -20,6 +20,8 @@ import java.util.stream.IntStream;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.serialization.ByteArraySerializer;
 import org.astraea.Utils;
+import org.astraea.concurrent.Executor;
+import org.astraea.concurrent.State;
 import org.astraea.concurrent.ThreadPool;
 import org.astraea.consumer.Consumer;
 import org.astraea.consumer.Deserializer;
@@ -135,7 +137,7 @@ public class PartitionerTest extends RequireBrokerCluster {
     var key = "tainan";
     var timestamp = System.currentTimeMillis() + 10;
     var header = Header.of("a", "b".getBytes());
-    try (ThreadPool threadPool =
+    try (var threadPool =
         ThreadPool.builder()
             .executors(
                 IntStream.range(0, 10)
@@ -258,9 +260,9 @@ public class PartitionerTest extends RequireBrokerCluster {
     }
   }
 
-  private ThreadPool.Executor producerExecutor(
+  private Executor producerExecutor(
       Producer<String, byte[]> producer, String topic, String key, Header header, long timeStamp) {
-    return new ThreadPool.Executor() {
+    return new Executor() {
       int i = 0;
 
       @Override

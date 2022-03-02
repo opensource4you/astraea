@@ -16,7 +16,6 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import javax.management.openmbean.CompositeDataSupport;
 import javax.management.remote.JMXServiceURL;
-import org.astraea.argument.NonEmptyField;
 import org.astraea.metrics.jmx.BeanObject;
 import org.astraea.metrics.jmx.BeanQuery;
 import org.astraea.metrics.jmx.MBeanClient;
@@ -206,7 +205,7 @@ public class MetricExplorer {
         description = "Show the list view of MBeans' domain name & properties")
     boolean viewObjectNameList = false;
 
-    public static class JmxServerUrlField implements NonEmptyField<JMXServiceURL> {
+    public static class JmxServerUrlField extends org.astraea.argument.Field<JMXServiceURL> {
 
       /** This regex used to test if a string look like a JMX URL */
       static Pattern patternOfJmxUrlStart = Pattern.compile("^service:jmx:rmi://");
