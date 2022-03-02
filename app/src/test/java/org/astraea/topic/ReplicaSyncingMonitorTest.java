@@ -1,7 +1,19 @@
 package org.astraea.topic;
 
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.*;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.anySet;
+import static org.mockito.Mockito.atLeast;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
@@ -17,7 +29,6 @@ import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.kafka.common.TopicPartition;
-import org.astraea.argument.ArgumentUtil;
 import org.astraea.utils.DataUnit;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -86,7 +97,7 @@ class ReplicaSyncingMonitorTest {
             () -> {
               ReplicaSyncingMonitor.execute(
                   mockTopicAdmin,
-                  ArgumentUtil.parseArgument(
+                  org.astraea.argument.Argument.parse(
                       new ReplicaSyncingMonitor.Argument(),
                       new String[] {
                         "--bootstrap.servers", "whatever:9092", "--interval", interval + "ms"
@@ -159,7 +170,7 @@ class ReplicaSyncingMonitorTest {
               try {
                 ReplicaSyncingMonitor.execute(
                     mockTopicAdmin,
-                    ArgumentUtil.parseArgument(
+                    org.astraea.argument.Argument.parse(
                         new ReplicaSyncingMonitor.Argument(),
                         new String[] {
                           "--bootstrap.servers",
@@ -211,7 +222,7 @@ class ReplicaSyncingMonitorTest {
           try {
             ReplicaSyncingMonitor.execute(
                 mockTopicAdmin,
-                ArgumentUtil.parseArgument(
+                org.astraea.argument.Argument.parse(
                     new ReplicaSyncingMonitor.Argument(),
                     new String[] {
                       "--bootstrap.servers",
@@ -282,7 +293,8 @@ class ReplicaSyncingMonitorTest {
 
     // act
     Consumer<String[]> execution =
-        (String[] args) -> ArgumentUtil.parseArgument(new ReplicaSyncingMonitor.Argument(), args);
+        (String[] args) ->
+            org.astraea.argument.Argument.parse(new ReplicaSyncingMonitor.Argument(), args);
 
     // assert
     correct.stream()

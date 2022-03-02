@@ -38,7 +38,7 @@ public class BeanCollectorTest {
             .register()
             .host("unknown")
             .port(100)
-            .metricsGetter(client -> Mockito.mock(HasBeanObject.class))
+            .fetcher(client -> List.of(Mockito.mock(HasBeanObject.class)))
             .build();
     Assertions.assertEquals("unknown", receiver.host());
     Assertions.assertEquals(100, receiver.port());
@@ -68,7 +68,7 @@ public class BeanCollectorTest {
             .register()
             .host("unknown")
             .port(100)
-            .metricsGetter(client -> Mockito.mock(HasBeanObject.class))
+            .fetcher(client -> List.of(Mockito.mock(HasBeanObject.class)))
             .build();
 
     var c0 = receiver.current();
@@ -103,8 +103,7 @@ public class BeanCollectorTest {
     var collector = BeanCollector.builder().clientCreator(clientCreator).build();
     Assertions.assertThrows(NullPointerException.class, () -> collector.register().host(null));
     Assertions.assertThrows(IllegalArgumentException.class, () -> collector.register().port(-1));
-    Assertions.assertThrows(
-        NullPointerException.class, () -> collector.register().metricsGetter(null));
+    Assertions.assertThrows(NullPointerException.class, () -> collector.register().fetcher(null));
   }
 
   private List<Receiver> receivers(BeanCollector collector) {
@@ -117,7 +116,7 @@ public class BeanCollectorTest {
                     .register()
                     .host("unknown")
                     .port(100)
-                    .metricsGetter(client -> mbean)
+                    .fetcher(client -> List.of(mbean))
                     .build();
             synchronized (receivers) {
               receivers.add(receiver);
@@ -193,10 +192,10 @@ public class BeanCollectorTest {
             .register()
             .host("unknown")
             .port(100)
-            .metricsGetter(
-                c -> {
+            .fetcher(
+                client -> {
                   count.incrementAndGet();
-                  return mbean;
+                  return List.of(mbean);
                 })
             .build();
 
@@ -226,10 +225,10 @@ public class BeanCollectorTest {
                           .register()
                           .host("unknown")
                           .port(100)
-                          .metricsGetter(
-                              c -> {
+                          .fetcher(
+                              client -> {
                                 count.incrementAndGet();
-                                return mbean;
+                                return List.of(mbean);
                               })
                           .build());
                 })
