@@ -182,10 +182,13 @@ public class PerformanceTest extends RequireBrokerCluster {
       "--key.distribution",
       "zipfian",
       "--specify.broker",
-      "1"
+      "1",
+      "--configs",
+      "key=value"
     };
-    Assertions.assertDoesNotThrow(
-        () -> org.astraea.argument.Argument.parse(new Performance.Argument(), arguments1));
+
+    var arg = org.astraea.argument.Argument.parse(new Performance.Argument(), arguments1);
+    Assertions.assertEquals("value", arg.producerProps().get("key").toString());
 
     String[] arguments2 = {"--bootstrap.servers", "localhost:9092", "--topic", ""};
     Assertions.assertThrows(
