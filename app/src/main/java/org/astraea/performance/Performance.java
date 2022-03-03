@@ -8,9 +8,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Future;
 import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -68,10 +66,9 @@ public class Performance {
     execute(org.astraea.argument.Argument.parse(new Argument(), args));
   }
 
-  public static Future<String> execute(final Argument param)
+  public static Result execute(final Argument param)
       throws InterruptedException, IOException, ExecutionException {
     List<Integer> partitions;
-    var future = new CompletableFuture<String>();
     try (var topicAdmin = TopicAdmin.of(param.props())) {
       topicAdmin
           .creator()
@@ -132,8 +129,7 @@ public class Performance {
             .executor((param.createCSV) ? new FileWriter(manager, tracker) : () -> State.DONE)
             .build()) {
       threadPool.waitAll();
-      future.complete(param.topic);
-      return future;
+      return new Result(param.topic);
     }
   }
 
@@ -339,5 +335,17 @@ public class Performance {
             "String: Used with SpecifyBrokerPartitioner to specify the brokers that partitioner can send.",
         validateWith = NonEmptyStringField.class)
     List<Integer> specifyBroker = List.of(-1);
+  }
+
+  public static class Result {
+    private final String topicName;
+
+    private Result(String topicName) {
+      this.topicName = topicName;
+    }
+
+    public String topicName() {
+      return topicName;
+    }
   }
 }
