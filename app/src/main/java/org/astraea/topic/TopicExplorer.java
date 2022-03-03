@@ -73,8 +73,8 @@ public class TopicExplorer {
                     .thenComparing(TopicPartition::partition))
             .collect(Collectors.toUnmodifiableList());
     if (!invalidTopics.isEmpty()) {
-      // The AdminClient#listOffsets API call will time out if any of the requested partitions
-      // has no leader yet.
+      // The metadata request sent by Kafka admin succeeds only if the leaders of all partitions are
+      // alive. Hence, we throw exception here to make consistent behavior with Kafka.
       throw new IllegalStateException("Some partitions have no leader: " + invalidTopics);
     }
 
