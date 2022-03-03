@@ -25,6 +25,7 @@ import org.astraea.argument.NonEmptyStringField;
 import org.astraea.argument.NonNegativeShortField;
 import org.astraea.argument.PositiveLongField;
 import org.astraea.argument.PositiveShortField;
+import org.astraea.argument.StringMapField;
 import org.astraea.concurrent.Executor;
 import org.astraea.concurrent.State;
 import org.astraea.concurrent.ThreadPool;
@@ -298,10 +299,18 @@ public class Performance {
         validateWith = NonEmptyStringField.class)
     String partitioner = DefaultPartitioner.class.getName();
 
+    @Parameter(
+        names = {"--configs"},
+        description = "Map: set the configuration passed to producer/partitioner",
+        converter = StringMapField.class,
+        validateWith = StringMapField.class)
+    Map<String, String> configs = Map.of();
+
     public Map<String, Object> producerProps() {
       var props = props();
       props.put(ProducerConfig.COMPRESSION_TYPE_CONFIG, compression.name);
       if (!this.jmxServers.isEmpty()) props.put("jmx_servers", this.jmxServers);
+      props.putAll(configs);
       return props;
     }
 
