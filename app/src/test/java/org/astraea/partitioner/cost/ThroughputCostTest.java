@@ -19,9 +19,9 @@ public class ThroughputCostTest {
     var bean = Mockito.mock(BrokerTopicMetricsResult.class);
     Mockito.when(bean.oneMinuteRate()).thenReturn(100D);
 
-    var score = throughputCost.score(Map.of(node, List.of(bean)));
+    var score = throughputCost.score(Map.of(10, List.of(bean)));
     Assertions.assertEquals(1, score.size());
-    Assertions.assertEquals(100D, score.get(node));
+    Assertions.assertEquals(100D, score.get(10));
   }
 
   @Test
@@ -35,8 +35,8 @@ public class ThroughputCostTest {
     var cluster = Mockito.mock(ClusterInfo.class);
     Mockito.when(cluster.nodes()).thenReturn(List.of(node));
 
-    var cost = throughputCost.cost(Map.of(node, List.of(bean)), cluster);
+    var cost = throughputCost.cost(Map.of(10, List.of(bean)), cluster);
     Assertions.assertEquals(1, cost.size());
-    Assertions.assertEquals(1, cost.get(node));
+    Assertions.assertEquals(1, cost.get(10));
   }
 }
