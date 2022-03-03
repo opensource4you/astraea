@@ -15,6 +15,7 @@ public interface NodeInfo extends Comparable<NodeInfo> {
         return host;
       }
 
+      @Override
       public int id() {
         return id;
       }
