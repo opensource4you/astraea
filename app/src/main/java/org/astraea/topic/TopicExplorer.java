@@ -68,6 +68,9 @@ public class TopicExplorer {
         replicas.entrySet().stream()
             .filter(x -> x.getValue().stream().noneMatch(Replica::leader))
             .map(Map.Entry::getKey)
+            .sorted(
+                Comparator.comparing(TopicPartition::topic)
+                    .thenComparing(TopicPartition::partition))
             .collect(Collectors.toUnmodifiableList());
     if (!invalidTopics.isEmpty()) {
       // The AdminClient#listOffsets API call will time out if any of the requested partitions
