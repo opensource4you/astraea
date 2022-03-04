@@ -1,6 +1,11 @@
 package org.astraea.utils;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -148,7 +153,7 @@ class DataSizeTest {
 
   @Test
   void parseDataSize() {
-    var converter = new DataSize.Converter();
+    var converter = new DataSize.Field();
     assertEquals(DataUnit.Bit.of(100).toString(), converter.convert("100Bit").toString());
     assertEquals(DataUnit.Kb.of(100).toString(), converter.convert("100 Kb").toString());
     assertEquals(DataUnit.Mb.of(100).toString(), converter.convert("100 Mb").toString());

@@ -1,6 +1,6 @@
 package org.astraea.topic.cost;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -54,14 +54,14 @@ public class CalculateUtilsTest extends RequireBrokerCluster {
     assertEquals(2, Load.size());
     assertEquals(4, Load.get(0).size());
     assertEquals(4, Load.get(1).size());
-    assertEquals(0.165, round(Load.get(0).get(new TopicPartition("test0", 0))));
-    assertEquals(0.331, round(Load.get(0).get(new TopicPartition("test0", 1))));
-    assertEquals(0.496, round(Load.get(0).get(new TopicPartition("test0", 2))));
-    assertEquals(0.661, round(Load.get(0).get(new TopicPartition("test0", 3))));
-    assertEquals(0.827, round(Load.get(1).get(new TopicPartition("test1", 0))));
-    assertEquals(0.992, round(Load.get(1).get(new TopicPartition("test1", 1))));
-    assertEquals(1.157, round(Load.get(1).get(new TopicPartition("test1", 2))));
-    assertEquals(1.323, round(Load.get(1).get(new TopicPartition("test1", 3))));
+    assertEquals(0.17, round(Load.get(0).get(new TopicPartition("test0", 0))));
+    assertEquals(0.33, round(Load.get(0).get(new TopicPartition("test0", 1))));
+    assertEquals(0.50, round(Load.get(0).get(new TopicPartition("test0", 2))));
+    assertEquals(0.66, round(Load.get(0).get(new TopicPartition("test0", 3))));
+    assertEquals(0.83, round(Load.get(1).get(new TopicPartition("test1", 0))));
+    assertEquals(0.99, round(Load.get(1).get(new TopicPartition("test1", 1))));
+    assertEquals(1.16, round(Load.get(1).get(new TopicPartition("test1", 2))));
+    assertEquals(1.32, round(Load.get(1).get(new TopicPartition("test1", 3))));
   }
 
   @Test
@@ -74,13 +74,13 @@ public class CalculateUtilsTest extends RequireBrokerCluster {
     assertEquals(0.0, round(Score.get(0).get(new TopicPartition("test0", 1))));
     assertEquals(0.0, round(Score.get(0).get(new TopicPartition("test0", 2))));
     assertEquals(0.0, round(Score.get(0).get(new TopicPartition("test0", 3))));
-    assertEquals(-80.498, round(Score.get(1).get(new TopicPartition("test1", 0))));
-    assertEquals(-26.833, round(Score.get(1).get(new TopicPartition("test1", 1))));
-    assertEquals(26.833, round(Score.get(1).get(new TopicPartition("test1", 2))));
-    assertEquals(80.498, round(Score.get(1).get(new TopicPartition("test1", 3))));
+    assertEquals(-80.50, round(Score.get(1).get(new TopicPartition("test1", 0))));
+    assertEquals(-26.83, round(Score.get(1).get(new TopicPartition("test1", 1))));
+    assertEquals(26.83, round(Score.get(1).get(new TopicPartition("test1", 2))));
+    assertEquals(80.50, round(Score.get(1).get(new TopicPartition("test1", 3))));
   }
 
   double round(double score) {
-    return Math.round(1000 * score) / 1000.0;
+    return Math.round(100 * score) / 100.0;
   }
 }

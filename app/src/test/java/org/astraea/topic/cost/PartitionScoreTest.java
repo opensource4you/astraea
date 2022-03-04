@@ -22,7 +22,7 @@ public class PartitionScoreTest extends RequireBrokerCluster {
     Map<Integer, String> topicName = new HashMap<>();
     topicName.put(0, "testPartitionScore0");
     topicName.put(1, "testPartitionScore1");
-    topicName.put(2, "testPartitionScore2");
+    topicName.put(2, "__consumer_offsets");
     try (var admin = TopicAdmin.of(bootstrapServers())) {
       admin
           .creator()
@@ -50,7 +50,7 @@ public class PartitionScoreTest extends RequireBrokerCluster {
     var producer =
         Producer.builder().brokers(bootstrapServers()).keySerializer(Serializer.STRING).build();
     int size = 10000;
-    for (int t = 0; t <= 2; t++) {
+    for (int t = 0; t <= 1; t++) {
       for (int p = 0; p <= 3; p++) {
         producer
             .sender()
@@ -67,13 +67,15 @@ public class PartitionScoreTest extends RequireBrokerCluster {
   }
 
   @Test
-  void testGetScore() throws ExecutionException, InterruptedException {
-    PartitionScore partitionScore = new PartitionScore(bootstrapServers());
-    assertEquals(3, partitionScore.score.size());
-    assertEquals(
-        3 * 4,
-        partitionScore.score.get(0).size()
-            + partitionScore.score.get(1).size()
-            + partitionScore.score.get(2).size());
+  void testGetScore() {
+    PartitionScore.Argument argument = new PartitionScore.Argument();
+    argument.excludeInternalTopic = false;
+    var score = PartitionScore.execute(argument, admin);
+    assertEquals(3, score.size());
+    assertEquals(3 * 4, score.get(0).size() + score.get(1).size() + score.get(2).size());
+    argument.excludeInternalTopic = true;
+    score = PartitionScore.execute(argument, admin);
+    assertEquals(3, score.size());
+    assertEquals(2 * 4, score.get(0).size() + score.get(1).size() + score.get(2).size());
   }
 }

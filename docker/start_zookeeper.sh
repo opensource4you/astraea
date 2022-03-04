@@ -11,6 +11,7 @@ declare -r ZOOKEEPER_PORT=${ZOOKEEPER_PORT:-"$(getRandomPort)"}
 declare -r DOCKERFILE=$DOCKER_FOLDER/zookeeper.dockerfile
 declare -r DATA_FOLDER_IN_CONTAINER="/tmp/zookeeper-dir"
 declare -r CONTAINER_NAME="zookeeper-$ZOOKEEPER_PORT"
+declare -r HEAP_OPTS="${HEAP_OPTS:-"-Xmx1G -Xms256m"}"
 
 # ===================================[functions]===================================
 
@@ -85,11 +86,13 @@ if [[ -n "$DATA_FOLDER" ]]; then
   echo "mount $DATA_FOLDER to container"
   docker run -d --init \
     --name $CONTAINER_NAME \
+    -e JVMFLAGS="$HEAP_OPTS" \
     -p $ZOOKEEPER_PORT:2181 \
     -v "$DATA_FOLDER":$DATA_FOLDER_IN_CONTAINER \
     "$IMAGE_NAME" ./bin/zkServer.sh start-foreground
 else
   docker run -d --init \
+    -e JVMFLAGS="$HEAP_OPTS" \
     -p $ZOOKEEPER_PORT:2181 \
     "$IMAGE_NAME" ./bin/zkServer.sh start-foreground
 fi

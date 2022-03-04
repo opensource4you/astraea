@@ -137,5 +137,9 @@ public final class Utils {
     return value;
   }
 
+  public static boolean overSecond(long lastTime, int second) {
+    return (lastTime + Duration.ofSeconds(second).toMillis()) < System.currentTimeMillis();
+  }
+
   private Utils() {}
 }

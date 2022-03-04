@@ -1,12 +1,21 @@
 package org.astraea.topic;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.io.*;
+import java.io.ByteArrayOutputStream;
+import java.io.Closeable;
+import java.io.IOException;
+import java.io.PrintStream;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
@@ -15,6 +24,7 @@ import org.astraea.consumer.Consumer;
 import org.astraea.service.RequireBrokerCluster;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 
 public class TopicExplorerTest extends RequireBrokerCluster {
 
@@ -192,5 +202,31 @@ public class TopicExplorerTest extends RequireBrokerCluster {
     assertTrue(output.matches("(?ms).+\\[.*non-synced.*].+"), "descriptor printed");
     assertTrue(output.matches("(?ms).+\\[.*future.*].+"), "descriptor printed");
     assertTrue(output.matches("(?ms).+/tmp/path0.+"), "path printed");
+  }
+
+  @Test
+  void somePartitionsHaveNoLeader() {
+    String topicName0 = "poor_topic0";
+    String topicName1 = "poor_topic1";
+    var payload0 =
+        Map.of(
+            new TopicPartition(topicName0, 0),
+            List.of(new Replica(1000, 0, 0, false, false, false, "?")));
+    var payload1 =
+        Map.of(
+            new TopicPartition(topicName1, 0),
+            List.of(
+                new Replica(1000, 0, 0, false, false, false, "?"),
+                new Replica(1001, 0, 0, false, false, false, "?"),
+                new Replica(1002, 0, 0, false, false, false, "?")));
+    TopicAdmin mock = Mockito.mock(TopicAdmin.class);
+
+    Mockito.when(mock.replicas(Set.of(topicName0))).thenReturn(payload0);
+    Mockito.when(mock.replicas(Set.of(topicName1))).thenReturn(payload1);
+
+    assertThrows(
+        IllegalStateException.class, () -> TopicExplorer.execute(mock, Set.of(topicName0)));
+    assertThrows(
+        IllegalStateException.class, () -> TopicExplorer.execute(mock, Set.of(topicName1)));
   }
 }

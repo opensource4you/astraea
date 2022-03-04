@@ -12,7 +12,7 @@ declare -r DOCKERFILE=$DOCKER_FOLDER/kafka_tool.dockerfile
 declare -r JMX_PORT=${JMX_PORT:-"$(getRandomPort)"}
 declare -r JMX_OPTS="-Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false \
                      -Dcom.sun.management.jmxremote.port=$JMX_PORT -Dcom.sun.management.jmxremote.rmi.port=$JMX_PORT -Djava.rmi.server.hostname=$ADDRESS"
-
+declare -r HEAP_OPTS="${HEAP_OPTS:-"-Xmx2G -Xms2G"}"
 # ===================================[functions]===================================
 
 function showHelp() {
@@ -71,7 +71,7 @@ function runContainer() {
   docker run --rm --init \
     -p $JMX_PORT:$JMX_PORT \
     "$IMAGE_NAME" \
-    /bin/bash -c "java $JMX_OPTS -jar /opt/astraea/app.jar $args"
+    /bin/bash -c "java $JMX_OPTS $HEAP_OPTS -jar /opt/astraea/app.jar $args"
 }
 
 # ===================================[main]===================================

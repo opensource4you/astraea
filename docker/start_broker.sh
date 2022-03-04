@@ -4,7 +4,7 @@ declare -r DOCKER_FOLDER=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null
 source $DOCKER_FOLDER/docker_build_common.sh
 
 # ===============================[global variables]===============================
-declare -r VERSION=${REVISION:-${VERSION:-2.8.1}}
+declare -r VERSION=${REVISION:-${VERSION:-3.1.0}}
 declare -r REPO=${REPO:-ghcr.io/skiptests/astraea/broker}
 declare -r IMAGE_NAME="$REPO:$VERSION"
 declare -r DOCKERFILE=$DOCKER_FOLDER/broker.dockerfile
@@ -18,6 +18,8 @@ declare -r ADMIN_NAME="admin"
 declare -r ADMIN_PASSWORD="admin-secret"
 declare -r USER_NAME="user"
 declare -r USER_PASSWORD="user-secret"
+declare -r JMX_CONFIG_FILE="${JMX_CONFIG_FILE}"
+declare -r JMX_CONFIG_FILE_IN_CONTAINER_PATH="/opt/jmx_exporter/jmx_exporter_config.yml"
 declare -r JMX_OPTS="-Dcom.sun.management.jmxremote \
   -Dcom.sun.management.jmxremote.authenticate=false \
   -Dcom.sun.management.jmxremote.ssl=false \
@@ -29,6 +31,7 @@ declare -r BROKER_PROPERTIES="/tmp/server-${BROKER_PORT}.properties"
 
 # cleanup the file if it is existent
 [[ -f "$BROKER_PROPERTIES" ]] && rm -f "$BROKER_PROPERTIES"
+
 
 # ===================================[functions]===================================
 
@@ -43,7 +46,7 @@ function showHelp() {
   echo "    REPO=astraea/broker                      set the docker repo"
   echo "    HEAP_OPTS=\"-Xmx2G -Xms2G\"                set broker JVM memory"
   echo "    REVISION=trunk                           set revision of kafka source code to build container"
-  echo "    VERSION=2.8.1                            set version of kafka distribution"
+  echo "    VERSION=3.1.0                            set version of kafka distribution"
   echo "    BUILD=false                              set true if you want to build image locally"
   echo "    RUN=false                                set false if you want to build/pull image only"
   echo "    DATA_FOLDERS=/tmp/folder1                set host folders used by broker"
@@ -78,7 +81,7 @@ RUN groupadd $USER && useradd -ms /bin/bash -g $USER $USER
 # download jmx exporter
 RUN mkdir /opt/jmx_exporter
 WORKDIR /opt/jmx_exporter
-RUN wget https://raw.githubusercontent.com/prometheus/jmx_exporter/master/example_configs/kafka-2_0_0.yml
+RUN wget https://raw.githubusercontent.com/prometheus/jmx_exporter/master/example_configs/kafka-2_0_0.yml --output-document=$JMX_CONFIG_FILE_IN_CONTAINER_PATH
 RUN wget https://REPO1.maven.org/maven2/io/prometheus/jmx/jmx_prometheus_javaagent/${EXPORTER_VERSION}/jmx_prometheus_javaagent-${EXPORTER_VERSION}.jar
 
 # build kafka from source code
@@ -121,7 +124,7 @@ RUN apt-get update && apt-get install -y wget
 # download jmx exporter
 RUN mkdir /opt/jmx_exporter
 WORKDIR /opt/jmx_exporter
-RUN wget https://raw.githubusercontent.com/prometheus/jmx_exporter/master/example_configs/kafka-2_0_0.yml
+RUN wget https://raw.githubusercontent.com/prometheus/jmx_exporter/master/example_configs/kafka-2_0_0.yml --output-document=$JMX_CONFIG_FILE_IN_CONTAINER_PATH
 RUN wget https://REPO1.maven.org/maven2/io/prometheus/jmx/jmx_prometheus_javaagent/${EXPORTER_VERSION}/jmx_prometheus_javaagent-${EXPORTER_VERSION}.jar
 
 # download kafka
@@ -203,7 +206,15 @@ function setLogDirs() {
   echo $logConfigs >>"$BROKER_PROPERTIES"
 }
 
-function generateMountCommand() {
+function generateJmxConfigMountCommand() {
+    if [[ "$JMX_CONFIG_FILE" != "" ]]; then
+        echo "--mount type=bind,source=$JMX_CONFIG_FILE,target=$JMX_CONFIG_FILE_IN_CONTAINER_PATH"
+    else
+        echo ""
+    fi
+}
+
+function generateDataFolderMountCommand() {
   local mount=""
   if [[ -n "$DATA_FOLDERS" ]]; then
     IFS=',' read -ra folders <<<"$DATA_FOLDERS"
@@ -284,9 +295,10 @@ docker run -d --init \
   --name $CONTAINER_NAME \
   -e KAFKA_HEAP_OPTS="$HEAP_OPTS" \
   -e KAFKA_JMX_OPTS="$JMX_OPTS" \
-  -e KAFKA_OPTS="-javaagent:/opt/jmx_exporter/jmx_prometheus_javaagent-${EXPORTER_VERSION}.jar=$EXPORTER_PORT:/opt/jmx_exporter/kafka-2_0_0.yml" \
+  -e KAFKA_OPTS="-javaagent:/opt/jmx_exporter/jmx_prometheus_javaagent-${EXPORTER_VERSION}.jar=$EXPORTER_PORT:$JMX_CONFIG_FILE_IN_CONTAINER_PATH" \
   -v $BROKER_PROPERTIES:/tmp/broker.properties:ro \
-  $(generateMountCommand) \
+  $(generateJmxConfigMountCommand) \
+  $(generateDataFolderMountCommand) \
   -p $BROKER_PORT:9092 \
   -p $BROKER_JMX_PORT:$BROKER_JMX_PORT \
   -p $EXPORTER_PORT:$EXPORTER_PORT \

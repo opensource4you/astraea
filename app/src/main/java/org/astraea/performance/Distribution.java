@@ -1,18 +1,18 @@
 package org.astraea.performance;
 
-import com.beust.jcommander.IStringConverter;
 import com.beust.jcommander.ParameterException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 import java.util.stream.IntStream;
+import org.astraea.argument.Field;
 
 /** Randomly generate a long number with respect to some distribution */
 public interface Distribution {
 
   long get();
 
-  class DistributionConverter implements IStringConverter<Distribution> {
+  class DistributionField extends Field<Distribution> {
     @Override
     public Distribution convert(String rawArgument) {
       var args = rawArgument.split(":");
