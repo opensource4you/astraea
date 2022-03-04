@@ -81,7 +81,7 @@ function generateConfluentDockerfile() {
   echo "# this dockerfile is generated dynamically
 FROM confluentinc/cp-server:$CONFLUENT_VERSION
 USER root
-RUN groupadd $USER && useradd -ms /bin/bash -g $USER $USER
+RUN usermod -l $USER appuser && groupadd $USER && usermod -a -G $USER $USER
 RUN yum -y update && yum -y install git unzip
 
 # download jmx exporter
