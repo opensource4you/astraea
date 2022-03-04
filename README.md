@@ -42,9 +42,7 @@ The script creates a zookeeper instance by container. Also, it will show the com
 
 ```shell
 =================================================
-pick one of two join general kafka or concluent version of kafka.
 run ./docker/start_broker.sh zookeeper.connect=192.168.50.178:17228 to join kafka broker
-run ./docker/start_confluent_broker.sh zookeeper.connect=192.168.50.178:17228 to join confluent kafka broker
 =================================================
 ```
 
@@ -73,33 +71,21 @@ exporter address: 192.168.50.178:10558
 2. `jmx address` exports the java metrics by JMX
 3. `exporter address` is the address of prometheus exporter.
 
-There are 4 useful ENVs which can change JVM/container configuration.
-
-1. VERSION -> define the kafka version
-2. REVISION -> define the revision of kafka source code. If this is defined, it will run distribution based on the source code
-3. HEAP_OPTS -> define JVM memory options
-4. DATA_FOLDERS -> define the host folders used by broker. You should define it if you want to keep data after terminating container
-
-### Run Confluent Kafka Broker
-
-After the zk env is running, you can copy the command (see above example) from zk script output to set up confluent kafka. For example:
+You can set `CONFLUENT_BROKER` to true, if you want start the confluent version of the kafka cluster. For example:
 
 ```shell
-./docker/start_confluent_broker.sh zookeeper.connect=192.168.103.39:16117
+env CONFLUENT_BROKER=true ./docker/start_broker.sh zookeeper.connect=192.168.50.178:17228
 ```
 
-The console will show the broker connection information and JMX address. For example:
+The console will show the broker connection information and exporter address. For example:
 
 ```shell
 =================================================
 broker id: 1001
-broker address: 192.168.103.39:19038
-exporter address: 192.168.103.39:17356
+broker address: 192.168.103.39:15230
+exporter address: 192.168.103.39:18928
 =================================================
 ```
-
-1. `broker address` is used by kafka client code. The alias is bootstrap server.
-2. `exporter address` is the address of prometheus exporter.
 
 There are 4 useful ENVs which can change JVM/container configuration.
 
