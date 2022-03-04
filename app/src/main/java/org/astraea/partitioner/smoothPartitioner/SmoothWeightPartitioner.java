@@ -1,17 +1,23 @@
 package org.astraea.partitioner.smoothPartitioner;
 
-import java.io.IOException;
-import java.net.UnknownHostException;
-import java.util.ArrayList;
+import static org.astraea.Utils.overSecond;
+import static org.astraea.partitioner.nodeLoadMetric.PartitionerUtils.allPoisson;
+import static org.astraea.partitioner.nodeLoadMetric.PartitionerUtils.weightPoisson;
+
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Random;
-import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 import org.apache.kafka.clients.producer.Partitioner;
 import org.apache.kafka.common.Cluster;
-import org.astraea.partitioner.nodeLoadMetric.LoadPoisson;
+import org.astraea.partitioner.ClusterInfo;
 import org.astraea.partitioner.nodeLoadMetric.NodeLoadClient;
 
 /**
@@ -25,49 +31,46 @@ public class SmoothWeightPartitioner implements Partitioner {
    * Record the current weight of each node according to Poisson calculation and the weight after
    * partitioner calculation.
    */
-  private final Map<Integer, int[]> brokersWeight = new HashMap<>();
+  private final ConcurrentMap<Integer, SmoothWeightServer> brokersWeight =
+      new ConcurrentHashMap<>();
 
   private NodeLoadClient nodeLoadClient;
+  private long lastTime = -1;
+  private final Random rand = new Random();
+  private final Lock lock = new ReentrantLock();
+  private int weightSum = -1;
 
   @Override
   public int partition(
       String topic, Object key, byte[] keyBytes, Object value, byte[] valueBytes, Cluster cluster) {
-    Map<Integer, Integer> loadCount;
-    var rand = new Random();
-    loadCount = loadCount(cluster);
-    var loadPoisson = new LoadPoisson();
-
+    var loadCount = nodeLoadClient.loadSituation(ClusterInfo.of(cluster));
     Objects.requireNonNull(loadCount, "OverLoadCount should not be null.");
-    brokersWeight(loadPoisson.allPoisson(loadCount));
-    AtomicReference<Map.Entry<Integer, int[]>> maxWeightServer = new AtomicReference<>();
-    var allWeight = allNodesWeight();
-    brokersWeight.forEach(
-        (nodeID, weight) -> {
-          if (maxWeightServer.get() == null || weight[1] > maxWeightServer.get().getValue()[1]) {
-            maxWeightServer.set(Map.entry(nodeID, weight));
-          }
-          brokersWeight.put(nodeID, new int[] {weight[0], weight[1] + weight[0]});
-        });
-    Objects.requireNonNull(maxWeightServer.get(), "MaxWeightServer should not be null.");
-    brokersWeight.put(
-        maxWeightServer.get().getKey(),
-        new int[] {
-          maxWeightServer.get().getValue()[0], maxWeightServer.get().getValue()[1] - allWeight
-        });
-    brokersWeight
-        .keySet()
-        .forEach(
-            brokerID -> {
-              if (memoryWarning(brokerID)) {
-                subBrokerWeight(brokerID, 100);
-              }
-            });
+    updateWeightIfNeed(loadCount);
 
-    ArrayList<Integer> partitionList = new ArrayList<>();
-    cluster
-        .partitionsForNode(maxWeightServer.get().getKey())
-        .forEach(partitionInfo -> partitionList.add(partitionInfo.partition()));
-    return partitionList.get(rand.nextInt(partitionList.size()));
+    SmoothWeightServer maxWeightServer = null;
+
+    Iterator<Integer> iterator = brokersWeight.keySet().iterator();
+    var currentWrightSum = weightSum;
+    while (iterator.hasNext()) {
+      var smoothWeightServer = brokersWeight.get(iterator.next());
+      if (smoothWeightServer != null) {
+        smoothWeightServer.originalWeight.updateAndGet((v) -> v + smoothWeightServer.currentWeight);
+
+        if (maxWeightServer == null) {
+          maxWeightServer = smoothWeightServer;
+        }
+        if (smoothWeightServer.originalWeight() > maxWeightServer.originalWeight()) {
+          maxWeightServer = smoothWeightServer;
+        }
+      }
+    }
+
+    Objects.requireNonNull(maxWeightServer, "MaxWeightServer should not be null.");
+    maxWeightServer.updateOriginalWeight(currentWrightSum);
+
+    var partitions = cluster.partitionsForNode(maxWeightServer.brokerID);
+
+    return partitions.get(rand.nextInt(partitions.size())).partition();
   }
 
   @Override
@@ -77,60 +80,92 @@ public class SmoothWeightPartitioner implements Partitioner {
 
   @Override
   public void configure(Map<String, ?> configs) {
-    try {
-      var jmxAddresses =
-          Objects.requireNonNull(
-              configs.get("jmx_servers").toString(), "You must configure jmx_servers correctly");
-      var list = Arrays.asList((jmxAddresses).split(","));
-      HashMap<String, Integer> mapAddress = new HashMap<>();
-      list.forEach(
-          str ->
-              mapAddress.put(
-                  Arrays.asList(str.split(":")).get(0),
-                  Integer.parseInt(Arrays.asList(str.split(":")).get(1))));
-      Objects.requireNonNull(mapAddress, "You must configure jmx_servers correctly.");
+    var jmxAddresses =
+        Objects.requireNonNull(
+            configs.get("jmx_servers").toString(), "You must configure jmx_servers correctly");
+    var list = Arrays.asList((jmxAddresses).split(","));
+    HashMap<String, Integer> mapAddress = new HashMap<>();
+    list.forEach(
+        str ->
+            mapAddress.put(
+                Arrays.asList(str.split(":")).get(0),
+                Integer.parseInt(Arrays.asList(str.split(":")).get(1))));
+    Objects.requireNonNull(mapAddress, "You must configure jmx_servers correctly.");
 
-      nodeLoadClient = new NodeLoadClient(mapAddress);
-    } catch (IOException e) {
-      throw new RuntimeException();
-    }
+    nodeLoadClient = new NodeLoadClient(mapAddress);
   }
 
   /** Change the weight of the node according to the current Poisson. */
-  // visible for test
-  public synchronized void brokersWeight(Map<Integer, Double> poissonMap) {
+  synchronized void brokersWeight(Map<Integer, Double> poissonMap) {
+    AtomicInteger sum = new AtomicInteger(0);
     poissonMap.forEach(
         (key, value) -> {
           var thoughPutAbility = nodeLoadClient.thoughPutComparison(key);
-          if (!brokersWeight.containsKey(key)) {
-            brokersWeight.put(key, new int[] {(int) ((1 - value) * 20 * thoughPutAbility), 0});
-          } else {
-            brokersWeight.put(
-                key,
-                new int[] {(int) ((1 - value) * 20 * thoughPutAbility), brokersWeight.get(key)[1]});
+          if (!brokersWeight.containsKey(key))
+            brokersWeight.putIfAbsent(
+                key, new SmoothWeightServer(key, weightPoisson(value, thoughPutAbility)));
+          else {
+            var broker = brokersWeight.get(key);
+            broker.currentWeight(weightPoisson(value, thoughPutAbility));
           }
+          if (memoryWarning(key)) {
+            subBrokerWeight(key, 100);
+          }
+          sum.addAndGet(brokersWeight.get(key).currentWeight);
         });
+
+    weightSum = sum.get();
+  }
+
+  void updateWeightIfNeed(Map<Integer, Integer> loadCount) {
+    if (overSecond(lastTime, 1) && lock.tryLock()) {
+      try {
+        lock.lock();
+        brokersWeight(allPoisson(loadCount));
+      } finally {
+        lock.unlock();
+        lastTime = System.currentTimeMillis();
+      }
+    }
+  }
+
+  Map<Integer, SmoothWeightServer> brokersWeight() {
+    return brokersWeight;
   }
 
   private void subBrokerWeight(int brokerID, int subNumber) {
-    brokersWeight.put(
-        brokerID,
-        new int[] {brokersWeight.get(brokerID)[0], brokersWeight.get(brokerID)[1] - subNumber});
-  }
-
-  private synchronized int allNodesWeight() {
-    return brokersWeight.values().stream().mapToInt(vs -> vs[0]).sum();
+    brokersWeight.get(brokerID).updateOriginalWeight(subNumber);
   }
 
   private boolean memoryWarning(int brokerID) {
     return nodeLoadClient.memoryUsage(brokerID) >= 0.8;
   }
 
-  private Map<Integer, Integer> loadCount(Cluster cluster) {
-    try {
-      return nodeLoadClient.loadSituation(cluster);
-    } catch (UnknownHostException e) {
-      throw new IllegalArgumentException(e);
+  static class SmoothWeightServer {
+    private final int brokerID;
+    private AtomicInteger originalWeight;
+    private int currentWeight;
+
+    SmoothWeightServer(int brokerID, int currentWeight) {
+      this.brokerID = brokerID;
+      this.currentWeight = currentWeight;
+      this.originalWeight = new AtomicInteger(currentWeight);
+    }
+
+    int updateOriginalWeight(int subWeight) {
+      return originalWeight.getAndUpdate((v) -> v - subWeight);
+    }
+
+    int originalWeight() {
+      return originalWeight.get();
+    }
+
+    void currentWeight(int currentWeight) {
+      this.currentWeight = currentWeight;
+    }
+
+    int currentWeight() {
+      return currentWeight;
     }
   }
 }

@@ -10,10 +10,11 @@ import java.nio.file.Path;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.stream.IntStream;
-import org.astraea.concurrent.ThreadPool;
+import org.astraea.concurrent.Executor;
+import org.astraea.concurrent.State;
 import org.astraea.utils.DataUnit;
 
-public interface ReportWriter extends ThreadPool.Executor {
+public interface ReportWriter extends Executor {
 
   static ReportWriter createFileWriter(
       FileFormat fileFormat, Path path, Manager manager, Tracker tracker) throws IOException {
@@ -29,7 +30,7 @@ public interface ReportWriter extends ThreadPool.Executor {
             writer, tracker.producerResult().bytes.size(), tracker.consumerResult().bytes.size());
         return new ReportWriter() {
           @Override
-          public ThreadPool.Executor.State execute() throws InterruptedException {
+          public State execute() throws InterruptedException {
             if (logToCSV(writer, manager, tracker)) return State.DONE;
             Thread.sleep(1000);
             return State.RUNNING;
@@ -47,7 +48,7 @@ public interface ReportWriter extends ThreadPool.Executor {
         writer.write("{");
         return new ReportWriter() {
           @Override
-          public ThreadPool.Executor.State execute() throws InterruptedException {
+          public State execute() throws InterruptedException {
             if (logToJSON(writer, manager, tracker)) return State.DONE;
             Thread.sleep(1000);
             return State.RUNNING;

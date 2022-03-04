@@ -1,6 +1,5 @@
 package org.astraea.utils;
 
-import com.beust.jcommander.IStringConverter;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.MathContext;
@@ -215,7 +214,7 @@ public class DataSize implements Comparable<DataSize> {
     return Objects.hash(bits);
   }
 
-  public static class Converter implements IStringConverter<DataSize> {
+  public static class Field extends org.astraea.argument.Field<DataSize> {
     // Parse number and DataUnit
     private static final Pattern DATA_SIZE_PATTERN =
         Pattern.compile("(?<measurement>[0-9]+)\\s?(?<dataUnit>[a-zA-Z]+)");

@@ -1,22 +1,25 @@
 package org.astraea.partitioner.nodeLoadMetric;
 
-import java.io.IOException;
+import static org.astraea.Utils.overSecond;
+
 import java.net.InetAddress;
 import java.net.UnknownHostException;
-import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Collectors;
-import org.apache.kafka.common.Cluster;
 import org.astraea.Utils;
 import org.astraea.metrics.collector.Receiver;
 import org.astraea.metrics.java.HasJvmMemory;
 import org.astraea.metrics.kafka.KafkaMetrics;
+import org.astraea.partitioner.ClusterInfo;
 
 /**
  * this clas is responsible for obtaining jmx metrics from BeanCollector and calculating the
@@ -26,19 +29,20 @@ public class NodeLoadClient {
 
   private final List<Receiver> receiverList;
   private final Map<String, Integer> currentJmxAddresses;
+  private final Lock lock = new ReentrantLock();
   private static final ReceiverFactory RECEIVER_FACTORY = new ReceiverFactory();
   private long lastTime = -1;
   // visible for testing
   List<Broker> brokers;
   private Map<Integer, Integer> currentLoadNode;
   private int referenceBrokerID;
-  private CountDownLatch countDownLatch;
-  private boolean notInMethod = true;
+  private int totalInput;
+  private int totalOutput;
 
   private static final String regex =
       "((25[0-5]|2[0-4]\\d|1\\d{2}|[1-9]?\\d)\\.){3}" + "(25[0-5]|2[0-4]\\d|1\\d{2}|[1-9]?\\d)$";
 
-  public NodeLoadClient(Map<String, Integer> jmxAddresses) throws IOException {
+  public NodeLoadClient(Map<String, Integer> jmxAddresses) {
     this.receiverList = RECEIVER_FACTORY.receiversList(jmxAddresses);
     receiverList.forEach(receiver -> Utils.waitFor(() -> receiver.current().size() > 0));
     currentJmxAddresses = jmxAddresses;
@@ -51,25 +55,24 @@ public class NodeLoadClient {
    * @param cluster from partitioner
    * @return each node load count in preset time
    */
-  public synchronized Map<Integer, Integer> loadSituation(Cluster cluster)
-      throws UnknownHostException {
-    if (overOneSecond() && notInMethod) {
-      notInMethod = false;
-      nodesOverLoad(cluster);
+  public Map<Integer, Integer> loadSituation(ClusterInfo cluster) {
+    if (overSecond(lastTime, 1) && lock.tryLock()) {
+      try {
+        lock.lock();
+        nodesOverLoad(cluster);
+      } finally {
+        lock.unlock();
+        lastTime = System.currentTimeMillis();
+      }
     }
-    try {
-      countDownLatch.await();
-    } catch (InterruptedException e) {
-      e.printStackTrace();
-    }
+    Utils.waitFor(() -> currentLoadNode != null);
     return currentLoadNode;
   }
 
   /** @param cluster the cluster from the partitioner */
-  private synchronized void nodesOverLoad(Cluster cluster) {
-    var nodes = cluster.nodes();
+  private void nodesOverLoad(ClusterInfo cluster) {
     if (lastTime == -1) {
-      countDownLatch = new CountDownLatch(1);
+      var nodes = cluster.nodes();
       brokers =
           nodes.stream()
               .map(node -> new Broker(node.id(), node.host(), node.port()))
@@ -92,9 +95,8 @@ public class NodeLoadClient {
     }
 
     brokersMsgPerSec();
-
-    var totalInput = brokers.stream().map(broker -> broker.input).reduce(0.0, Double::sum);
-    var totalOutput = brokers.stream().map(broker -> broker.output).reduce(0.0, Double::sum);
+    totalInput = totalInput();
+    totalOutput = totalOutput();
 
     AtomicReference<Double> totalBrokerSituation = new AtomicReference<>(0.0);
     brokers.forEach(
@@ -107,39 +109,21 @@ public class NodeLoadClient {
           totalBrokerSituation.updateAndGet(v -> v + broker.brokerSituation);
         });
 
-    var totalSituation = totalBrokerSituation.get();
+    brokers.forEach(broker -> broker.brokerSituationNormalized(totalBrokerSituation.get()));
 
-    brokers.forEach(broker -> broker.brokerSituationNormalized(totalSituation));
-
-    var avg = totalSituation / brokers.size();
-
-    // TODO Regarding countermeasures against cluster conditions
-    var standardDeviation = standardDeviationImperative(avg);
-
-    brokers.forEach(broker -> broker.load(brokerLoad(broker.brokerSituation, avg)));
-    currentLoadNode =
+    brokers.forEach(
+        broker ->
+            broker.load(
+                brokerLoad(broker.brokerSituation, totalBrokerSituation.get() / brokers.size())));
+    this.currentLoadNode =
         brokers.stream().collect(Collectors.toMap(broker -> broker.brokerID, Broker::totalLoad));
-    lastTime = System.currentTimeMillis();
-    countDownLatch.countDown();
-    notInMethod = true;
   }
 
   private void brokersMsgPerSec() {
     brokers.forEach(
         broker -> {
-          broker.output =
-              Double.parseDouble(
-                  broker
-                      .metrics
-                      .get(KafkaMetrics.BrokerTopic.BytesOutPerSec.name())
-                      .current()
-                      .get(0)
-                      .beanObject()
-                      .getAttributes()
-                      .get("MeanRate")
-                      .toString());
-          broker.input =
-              Double.parseDouble(
+          var currentOutput =
+              Long.parseLong(
                   broker
                       .metrics
                       .get(KafkaMetrics.BrokerTopic.BytesInPerSec.name())
@@ -147,11 +131,37 @@ public class NodeLoadClient {
                       .get(0)
                       .beanObject()
                       .getAttributes()
-                      .get("MeanRate")
+                      .get("Count")
                       .toString());
+          var currentInput =
+              Long.parseLong(
+                  broker
+                      .metrics
+                      .get(KafkaMetrics.BrokerTopic.BytesInPerSec.name())
+                      .current()
+                      .get(0)
+                      .beanObject()
+                      .getAttributes()
+                      .get("Count")
+                      .toString());
+          if (broker.lastInput == -1) {
+            broker.lastInput = currentInput;
+            broker.lastOutPut = currentOutput;
+          }
+
+          broker.output =
+              Integer.parseInt(String.valueOf((currentOutput - broker.lastOutPut) / 1024));
+          broker.lastOutPut = currentOutput;
+          broker.input = Integer.parseInt(String.valueOf((currentInput - broker.lastInput) / 1024));
+          broker.lastInput = currentInput;
+          Objects.requireNonNull(broker.metrics.get("Memory"));
+          broker.jvm =
+              (HasJvmMemory)
+                  broker.metrics.get("Memory").current().stream().findAny().orElse(broker.jvm);
         });
   }
 
+  // TODO Regarding countermeasures against cluster conditions
   public double standardDeviationImperative(double avgBrokersSituation) {
     var variance = new AtomicReference<>(0.0);
     brokers.forEach(
@@ -225,10 +235,6 @@ public class NodeLoadClient {
     return !host.matches(regex);
   }
 
-  private boolean overOneSecond() {
-    return lastTime + Duration.ofSeconds(1).toMillis() <= System.currentTimeMillis();
-  }
-
   public void close() {
     RECEIVER_FACTORY.close(currentJmxAddresses);
   }
@@ -240,14 +246,22 @@ public class NodeLoadClient {
         .collect(Collectors.toList());
   }
 
-  // visible of test
+  private int totalInput() {
+    return brokers.stream().map(broker -> broker.input).reduce(0, Integer::sum);
+  }
+
+  private int totalOutput() {
+    return brokers.stream().map(broker -> broker.output).reduce(0, Integer::sum);
+  }
+
   int brokerLoad(double brokerSituation, double avg) {
-    var initialization = 5;
-    var loadDeviationRate = (brokerSituation - avg) / avg;
-    var load = (int) Math.round(initialization + loadDeviationRate * 10);
-    if (load > 10) load = 10;
-    else if (load < 0) load = 0;
-    return load;
+    if (brokerSituation <= (1 - 0.5) * avg) {
+      return 0;
+    } else if (brokerSituation >= (1 + 0.5) * avg) {
+      return 2;
+    } else {
+      return 1;
+    }
   }
 
   public double thoughPutComparison(int brokerID) {
@@ -258,22 +272,24 @@ public class NodeLoadClient {
     return findBroker(brokerID).memoryUsage();
   }
 
-  // visible of test
   static class Broker {
     private final int brokerID;
     private final String host;
     private final int port;
     private int count = 0;
-    private final Map<Integer, Integer> load = new HashMap<>();
-    private final Map<String, Receiver> metrics = new HashMap<>();
-    private double input;
-    private double output;
+    private final ConcurrentMap<Integer, Integer> load = new ConcurrentHashMap<>();
+    private final ConcurrentMap<String, Receiver> metrics = new ConcurrentHashMap<>();
+    private int input;
+    private long lastInput = -1;
+    private int output;
+    private long lastOutPut = -1;
     private double maxThoughPut;
     private double brokerSituation;
     private double thoughPutComparison;
     private double inputNormalized;
     private double outputNormalized;
     private double brokerSituationNormalized;
+    private HasJvmMemory jvm;
     private static final double inputWeights = 0.5;
     private static final double outputWeights = 0.5;
 
@@ -289,7 +305,7 @@ public class NodeLoadClient {
     }
 
     private void load(Integer currentLoad) {
-      this.load.put(count % 10, currentLoad);
+      load.put(count % 10, currentLoad);
       count++;
     }
 
@@ -297,12 +313,12 @@ public class NodeLoadClient {
       this.brokerSituationNormalized = brokerSituation / totalSituation;
     }
 
-    private void inputNormalized(double brokersInput) {
-      this.inputNormalized = (input + 1) / (brokersInput + 1);
+    private void inputNormalized(int brokersInput) {
+      this.inputNormalized = (input + 1.0) / (brokersInput + 1);
     }
 
-    private void outputNormalized(double brokersOutput) {
-      this.outputNormalized = (output + 1) / (brokersOutput + 1);
+    private void outputNormalized(int brokersOutput) {
+      this.outputNormalized = (output + 1.0) / (brokersOutput + 1);
     }
 
     private void brokerSituation() {
@@ -314,13 +330,12 @@ public class NodeLoadClient {
       this.maxThoughPut = Math.max(maxThoughPut, input + output);
     }
 
+    // TODO Algorithms adapted to computers of different specifications
     private void thoughPutComparison(double referenceThoughPut) {
       if (count >= 20) {
-        this.thoughPutComparison =
-            (maxThoughPut - referenceThoughPut) / (referenceThoughPut + 1) + 1;
+        this.thoughPutComparison = 1;
       } else if (count >= 10) {
-        this.thoughPutComparison =
-            (maxThoughPut - referenceThoughPut) / (referenceThoughPut + 1) / 2 + 1;
+        this.thoughPutComparison = 1;
       } else if (count >= 0) {
         this.thoughPutComparison = 1;
       }
@@ -330,7 +345,6 @@ public class NodeLoadClient {
       if (count < 10) {
         return 0.1;
       } else {
-        var jvm = (HasJvmMemory) metrics.get("Memory").current().stream().findAny().get();
         return (jvm.heapMemoryUsage().getUsed() + 0.0) / (jvm.heapMemoryUsage().getMax() + 1);
       }
     }

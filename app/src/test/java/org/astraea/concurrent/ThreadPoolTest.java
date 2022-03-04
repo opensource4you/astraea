@@ -8,7 +8,7 @@ import org.junit.jupiter.api.Timeout;
 
 public class ThreadPoolTest {
 
-  private static class CountExecutor implements ThreadPool.Executor {
+  private static class CountExecutor implements Executor {
 
     private final AtomicInteger executeCount = new AtomicInteger();
     private final AtomicInteger closeCount = new AtomicInteger();
@@ -44,7 +44,7 @@ public class ThreadPoolTest {
 
   @Test
   void testWaitAll() {
-    try (var pool = ThreadPool.builder().executor(() -> ThreadPool.Executor.State.DONE).build()) {
+    try (var pool = ThreadPool.builder().executor(() -> State.DONE).build()) {
       pool.waitAll();
     }
   }
@@ -57,7 +57,7 @@ public class ThreadPoolTest {
             .executor(
                 () -> {
                   TimeUnit.SECONDS.sleep(1000);
-                  return ThreadPool.Executor.State.DONE;
+                  return State.DONE;
                 })
             .build();
     pool.close();
