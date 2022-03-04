@@ -1,11 +1,14 @@
 package org.astraea.metrics;
 
 import com.beust.jcommander.IParameterValidator;
-import com.beust.jcommander.IStringConverter;
 import com.beust.jcommander.Parameter;
 import com.beust.jcommander.ParameterException;
 import java.net.MalformedURLException;
-import java.util.*;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -13,8 +16,6 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import javax.management.openmbean.CompositeDataSupport;
 import javax.management.remote.JMXServiceURL;
-import org.astraea.argument.ArgumentUtil;
-import org.astraea.argument.validator.NotEmptyString;
 import org.astraea.metrics.jmx.BeanObject;
 import org.astraea.metrics.jmx.BeanQuery;
 import org.astraea.metrics.jmx.MBeanClient;
@@ -164,7 +165,7 @@ public class MetricExplorer {
   }
 
   public static void main(String[] args) {
-    var arguments = ArgumentUtil.parseArgument(new Argument(), args);
+    var arguments = org.astraea.argument.Argument.parse(new Argument(), args);
 
     try (var mBeanClient = MBeanClient.of(arguments.jmxServer)) {
       execute(mBeanClient, arguments);
@@ -176,8 +177,8 @@ public class MetricExplorer {
         names = {"--jmx.server"},
         description =
             "The JMX server address to connect to, support [hostname:port] style or JMX URI format",
-        validateWith = NotEmptyString.class,
-        converter = Argument.JmxServerUrlConverter.class,
+        validateWith = JmxServerUrlField.class,
+        converter = JmxServerUrlField.class,
         required = true)
     JMXServiceURL jmxServer;
 
@@ -204,7 +205,7 @@ public class MetricExplorer {
         description = "Show the list view of MBeans' domain name & properties")
     boolean viewObjectNameList = false;
 
-    public static class JmxServerUrlConverter implements IStringConverter<JMXServiceURL> {
+    public static class JmxServerUrlField extends org.astraea.argument.Field<JMXServiceURL> {
 
       /** This regex used to test if a string look like a JMX URL */
       static Pattern patternOfJmxUrlStart = Pattern.compile("^service:jmx:rmi://");

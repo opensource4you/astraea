@@ -5,10 +5,11 @@ import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.stream.IntStream;
-import org.astraea.concurrent.ThreadPool;
+import org.astraea.concurrent.Executor;
+import org.astraea.concurrent.State;
 import org.astraea.utils.DataUnit;
 
-public class FileWriter implements ThreadPool.Executor {
+public class FileWriter implements Executor {
   private final Manager manager;
   private final Tracker tracker;
   private BufferedWriter writer;
@@ -21,7 +22,7 @@ public class FileWriter implements ThreadPool.Executor {
   }
 
   @Override
-  public ThreadPool.Executor.State execute() throws InterruptedException {
+  public State execute() throws InterruptedException {
     if (logToCSV()) return State.DONE;
     Thread.sleep(1000);
     return State.RUNNING;

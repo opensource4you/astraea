@@ -1,10 +1,12 @@
 package org.astraea.performance;
 
-import com.beust.jcommander.IStringConverter;
 import com.beust.jcommander.ParameterException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Random;
 import java.util.function.Supplier;
 import java.util.stream.IntStream;
+import org.astraea.argument.Field;
 
 /**
  * Random distribution generator. Example: {@code Supplier<long> uniformDistribution =
@@ -74,7 +76,7 @@ public enum Distribution {
     this.name = name;
   }
 
-  static class Converter implements IStringConverter<Distribution> {
+  static class DistributionField extends Field<Distribution> {
     @Override
     public Distribution convert(String name) {
       return Arrays.stream(Distribution.values())

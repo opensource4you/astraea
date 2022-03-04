@@ -1,8 +1,13 @@
 package org.astraea.metrics;
 
-import static org.astraea.metrics.MetricExplorer.*;
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.*;
+import static org.astraea.metrics.MetricExplorer.Argument;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
@@ -10,7 +15,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import org.astraea.argument.ArgumentUtil;
 import org.astraea.metrics.jmx.BeanObject;
 import org.astraea.metrics.jmx.MBeanClient;
 import org.junit.jupiter.api.function.Executable;
@@ -33,7 +37,7 @@ class MetricExplorerTest {
       })
   void testPatternJmxUrlStart(String url, String expected) {
     // arrange
-    Pattern pattern = Argument.JmxServerUrlConverter.patternOfJmxUrlStart;
+    Pattern pattern = Argument.JmxServerUrlField.patternOfJmxUrlStart;
 
     // act
     Matcher matcher = pattern.matcher(url);
@@ -73,7 +77,7 @@ class MetricExplorerTest {
       })
   void executeDoesPrintSomething(String args) {
     // arrange
-    var argument = ArgumentUtil.parseArgument(new Argument(), args.split(" "));
+    var argument = org.astraea.argument.Argument.parse(new Argument(), args.split(" "));
     var mockMBeanClient = mock(MBeanClient.class);
     when(mockMBeanClient.queryBeans(any()))
         .thenReturn(List.of(new BeanObject("example.com", Map.of("key", "value"), Map.of())));
@@ -111,7 +115,7 @@ class MetricExplorerTest {
     String[] arguments = argumentString.split(" ");
 
     // act
-    Executable doParsing = () -> ArgumentUtil.parseArgument(new Argument(), arguments);
+    Executable doParsing = () -> org.astraea.argument.Argument.parse(new Argument(), arguments);
 
     // assert
     if (outcome.equals("ok")) {

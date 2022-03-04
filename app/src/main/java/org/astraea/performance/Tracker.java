@@ -1,12 +1,15 @@
 package org.astraea.performance;
 
 import java.time.Duration;
-import java.util.*;
-import org.astraea.concurrent.ThreadPool;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import org.astraea.concurrent.Executor;
+import org.astraea.concurrent.State;
 import org.astraea.utils.DataUnit;
 
 /** Print out the given metrics. */
-public class Tracker implements ThreadPool.Executor {
+public class Tracker implements Executor {
   private final List<Metrics> producerData;
   private final List<Metrics> consumerData;
   private final Manager manager;
