@@ -5,16 +5,21 @@ import java.io.IOException;
 import java.io.PrintStream;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.*;
-import java.util.function.*;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.Set;
+import java.util.Stack;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.apache.kafka.common.TopicPartition;
-import org.astraea.argument.ArgumentUtil;
-import org.astraea.argument.BasicArgumentWithPropFile;
-import org.astraea.argument.converter.StringSetConverter;
-import org.astraea.argument.validator.NotEmptyString;
+import org.astraea.argument.NonEmptyStringField;
+import org.astraea.argument.StringSetField;
 import org.astraea.utils.DataSize;
 import org.astraea.utils.DataUnit;
 
@@ -58,6 +63,21 @@ public class TopicExplorer {
 
   static Result execute(TopicAdmin admin, Set<String> topics) {
     var replicas = admin.replicas(topics);
+
+    var invalidTopics =
+        replicas.entrySet().stream()
+            .filter(x -> x.getValue().stream().noneMatch(Replica::leader))
+            .map(Map.Entry::getKey)
+            .sorted(
+                Comparator.comparing(TopicPartition::topic)
+                    .thenComparing(TopicPartition::partition))
+            .collect(Collectors.toUnmodifiableList());
+    if (!invalidTopics.isEmpty()) {
+      // The metadata request sent by Kafka admin succeeds only if the leaders of all partitions are
+      // alive. Hence, we throw exception here to make consistent behavior with Kafka.
+      throw new IllegalStateException("Some partitions have no leader: " + invalidTopics);
+    }
+
     var offsets = admin.offsets(topics);
     var consumerGroups = admin.consumerGroup(Set.of());
     var time = LocalDateTime.now();
@@ -92,7 +112,7 @@ public class TopicExplorer {
   }
 
   public static void main(String[] args) throws IOException {
-    var argument = ArgumentUtil.parseArgument(new Argument(), args);
+    var argument = org.astraea.argument.Argument.parse(new Argument(), args);
     try (var admin = TopicAdmin.of(argument.props())) {
       var result = execute(admin, argument.topics.isEmpty() ? admin.topicNames() : argument.topics);
       TreeOutput.print(result, System.out);
@@ -422,12 +442,12 @@ public class TopicExplorer {
     }
   }
 
-  static class Argument extends BasicArgumentWithPropFile {
+  static class Argument extends org.astraea.argument.Argument {
     @Parameter(
         names = {"--topics"},
         description = "the topics to show all offset-related information. Empty means all topics",
-        validateWith = NotEmptyString.class,
-        converter = StringSetConverter.class)
+        validateWith = NonEmptyStringField.class,
+        converter = StringSetField.class)
     public Set<String> topics = Collections.emptySet();
   }
 }

@@ -3,7 +3,12 @@ package org.astraea.producer;
 import java.util.Collection;
 import java.util.List;
 import org.apache.kafka.common.header.Headers;
-import org.apache.kafka.common.serialization.*;
+import org.apache.kafka.common.serialization.ByteArraySerializer;
+import org.apache.kafka.common.serialization.DoubleSerializer;
+import org.apache.kafka.common.serialization.FloatSerializer;
+import org.apache.kafka.common.serialization.IntegerSerializer;
+import org.apache.kafka.common.serialization.LongSerializer;
+import org.apache.kafka.common.serialization.StringSerializer;
 import org.astraea.consumer.Header;
 
 @FunctionalInterface

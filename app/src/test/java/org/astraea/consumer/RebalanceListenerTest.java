@@ -4,6 +4,7 @@ import java.time.Duration;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.astraea.Utils;
+import org.astraea.concurrent.State;
 import org.astraea.concurrent.ThreadPool;
 import org.astraea.service.RequireBrokerCluster;
 import org.junit.jupiter.api.Test;
@@ -19,12 +20,12 @@ public class RebalanceListenerTest extends RequireBrokerCluster {
             .topics(Set.of(topicName))
             .consumerRebalanceListener(ignore -> getAssignment.incrementAndGet())
             .build()) {
-      try (ThreadPool threadPool =
+      try (var threadPool =
           ThreadPool.builder()
               .executor(
                   () -> {
                     consumer.poll(Duration.ofSeconds(10));
-                    return ThreadPool.Executor.State.DONE;
+                    return State.DONE;
                   })
               .build()) {
         Utils.waitFor(() -> getAssignment.get() == 1, Duration.ofSeconds(10));

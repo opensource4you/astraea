@@ -42,21 +42,23 @@ public class ReceiverFactory {
                       .register()
                       .host(host)
                       .port(port)
-                      .metricsGetter(KafkaMetrics.BrokerTopic.BytesInPerSec::fetch)
+                      .fetcher(
+                          client -> List.of(KafkaMetrics.BrokerTopic.BytesInPerSec.fetch(client)))
                       .build());
               receiversList.add(
                   beanCollector
                       .register()
                       .host(host)
                       .port(port)
-                      .metricsGetter(KafkaMetrics.BrokerTopic.BytesOutPerSec::fetch)
+                      .fetcher(
+                          client -> List.of(KafkaMetrics.BrokerTopic.BytesOutPerSec.fetch(client)))
                       .build());
               receiversList.add(
                   beanCollector
                       .register()
                       .host(host)
                       .port(port)
-                      .metricsGetter(KafkaMetrics.Host::jvmMemory)
+                      .fetcher(client -> List.of(KafkaMetrics.Host.jvmMemory(client)))
                       .build());
               count.put(nodeKey(host, port), 1);
             } else {

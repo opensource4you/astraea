@@ -1,7 +1,7 @@
 package org.astraea.performance;
 
 import java.util.List;
-import org.astraea.concurrent.ThreadPool;
+import org.astraea.concurrent.State;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -16,21 +16,21 @@ public class TrackerTest {
 
     var manager = new Manager(argument, producerData, consumerData);
     try (Tracker tracker = new Tracker(producerData, consumerData, manager)) {
-      Assertions.assertEquals(ThreadPool.Executor.State.RUNNING, tracker.execute());
+      Assertions.assertEquals(State.RUNNING, tracker.execute());
       producerData.get(0).accept(1L, 1L);
       consumerData.get(0).accept(1L, 1L);
       manager.producerClosed();
-      Assertions.assertEquals(ThreadPool.Executor.State.DONE, tracker.execute());
+      Assertions.assertEquals(State.DONE, tracker.execute());
     }
 
     // Zero consumer
     producerData = List.of(new Metrics());
     manager = new Manager(argument, producerData, empty);
     try (Tracker tracker = new Tracker(producerData, empty, manager)) {
-      Assertions.assertEquals(ThreadPool.Executor.State.RUNNING, tracker.execute());
+      Assertions.assertEquals(State.RUNNING, tracker.execute());
       producerData.get(0).accept(1L, 1L);
       manager.producerClosed();
-      Assertions.assertEquals(ThreadPool.Executor.State.DONE, tracker.execute());
+      Assertions.assertEquals(State.DONE, tracker.execute());
     }
 
     // Stop by duration time out
@@ -40,7 +40,7 @@ public class TrackerTest {
     manager = new Manager(argument, producerData, consumerData);
     try (Tracker tracker = new Tracker(producerData, consumerData, manager)) {
       tracker.start = System.currentTimeMillis();
-      Assertions.assertEquals(ThreadPool.Executor.State.RUNNING, tracker.execute());
+      Assertions.assertEquals(State.RUNNING, tracker.execute());
 
       // Mock record producing
       producerData.get(0).accept(1L, 1L);
@@ -48,7 +48,7 @@ public class TrackerTest {
       Thread.sleep(2000);
       manager.producerClosed();
 
-      Assertions.assertEquals(ThreadPool.Executor.State.DONE, tracker.execute());
+      Assertions.assertEquals(State.DONE, tracker.execute());
     }
   }
 }
