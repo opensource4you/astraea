@@ -26,11 +26,10 @@ declare -r JMX_OPTS="-Dcom.sun.management.jmxremote \
   -Dcom.sun.management.jmxremote.port=$BROKER_JMX_PORT \
   -Dcom.sun.management.jmxremote.rmi.port=$BROKER_JMX_PORT \
   -Djava.rmi.server.hostname=$ADDRESS"
-declare -r ZOOKEEPER_CONNECT=${1:18}
+declare -r ZOOKEEPER_CONNECT=$(echo $1 | sed -n 's/^zookeeper.connect=\(.\+\)$/\1/p')
 declare -r HEAP_OPTS="${HEAP_OPTS:-"-Xmx2G -Xms2G"}"
 declare -r BROKER_PROPERTIES="/tmp/server-${BROKER_PORT}.properties"
-if [ "$CONFLUENT_BROKER" = "true" ]
-then
+if [[ "$CONFLUENT_BROKER" = "true" ]]; then
     declare -r REPO=${REPO:-ghcr.io/skiptests/astraea/confluent.broker}
     declare -r IMAGE_NAME="$REPO:$CONFLUENT_VERSION"
     declare -r SCRIPT_LOCATION_IN_CONTAINER="./bin/kafka-server-start"
@@ -213,7 +212,9 @@ function setListener() {
   else
     echo "listeners=PLAINTEXT://:9092" >>"$BROKER_PROPERTIES"
     echo "advertised.listeners=PLAINTEXT://${ADDRESS}:$BROKER_PORT" >>"$BROKER_PROPERTIES"
-    echo "confluent.metadata.server.listeners=http://0.0.0.0:$BROKER_PORT" >>"$BROKER_PROPERTIES"
+    if [[ "$confluent_broker" = "true" ]]; then
+      echo "confluent.metadata.server.listeners=http://0.0.0.0:$BROKER_PORT" >>"$BROKER_PROPERTIES"
+    fi
   fi
 }
 
@@ -289,8 +290,7 @@ function fetchBrokerId() {
 # ===================================[main]===================================
 
 checkDocker
-if [ "$CONFLUENT_BROKER" = "true" ]
-then
+if [[ "$confluent_broker" = "true" ]]; then
     generateConfluentDockerfile
 else
     generateDockerfile
@@ -325,8 +325,7 @@ setPropertyIfEmpty "num.partitions" "8"
 setPropertyIfEmpty "transaction.state.log.replication.factor" "1"
 setPropertyIfEmpty "offsets.topic.replication.factor" "1"
 setPropertyIfEmpty "transaction.state.log.min.isr" "1"
-if [ "$CONFLUENT_BROKER" = "true" ]
-then
+if [[ "$confluent_broker" = "true" ]]; then
     rejectProperty "metric.reporters"
     setPropertyIfEmpty "confluent.metrics.reporter.zookeeper.connect" "$ZOOKEEPER_CONNECT"
     setPropertyIfEmpty "metric.reporters" "io.confluent.metrics.reporter.ConfluentMetricsReporter"
@@ -359,8 +358,9 @@ echo "================================================="
 [[ -n "$DATA_FOLDERS" ]] && echo "mount $DATA_FOLDERS to container: $CONTAINER_NAME"
 echo "broker id: $(fetchBrokerId)"
 echo "broker address: ${ADDRESS}:$BROKER_PORT"
-if [ "$CONFLUENT_BROKER" != "true" ]
-then
+
+#confluent broker may not support JMX server now,so remove it temporarily
+if [[ "$CONFLUENT_BROKER" != "true" ]]; then
     echo "jmx address: ${ADDRESS}:$BROKER_JMX_PORT"
 fi
 echo "exporter address: ${ADDRESS}:$EXPORTER_PORT"
