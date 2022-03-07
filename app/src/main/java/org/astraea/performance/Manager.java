@@ -74,17 +74,21 @@ public class Manager {
 
     var payload = randomContent.getContent();
 
-    Utils.waitFor(this::notThrottled);
-    payloadBytes += payload.length;
+    Utils.waitFor(() -> checkAndAdd(payload.length));
     return Optional.of(payload);
   }
 
-  synchronized boolean notThrottled() {
+  synchronized boolean checkAndAdd(int payloadLength) {
     if (System.currentTimeMillis() - intervalStart > 1000) {
       intervalStart = System.currentTimeMillis();
-      payloadBytes = 0L;
+      payloadBytes = payloadLength;
+      return true;
+    } else if (payloadBytes < throughput.measurement(DataUnit.Byte).longValue()) {
+      payloadBytes += payloadLength;
+      return true;
+    } else {
+      return false;
     }
-    return payloadBytes < throughput.measurement(DataUnit.Byte).longValue();
   }
 
   public long producedRecords() {

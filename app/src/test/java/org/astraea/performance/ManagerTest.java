@@ -128,23 +128,19 @@ public class ManagerTest {
   }
 
   @Test
-  void testNotThrottled() throws InterruptedException {
+  void testCheckAndAdd() throws InterruptedException {
     var argument = new Performance.Argument();
-    argument.recordSize = DataUnit.KiB.of(1);
     argument.throughput = DataUnit.KiB.of(3);
-    argument.fixedSize = true;
+    var recordSize = DataUnit.KiB.of(1).measurement(DataUnit.Byte).intValue();
     var manager = new Manager(argument, List.of(), List.of());
 
-    Assertions.assertTrue(manager.notThrottled());
-    manager.payload();
-    Assertions.assertTrue(manager.notThrottled());
-    manager.payload();
-    Assertions.assertTrue(manager.notThrottled());
-    manager.payload();
-    Assertions.assertFalse(manager.notThrottled());
+    Assertions.assertTrue(manager.checkAndAdd(recordSize));
+    Assertions.assertTrue(manager.checkAndAdd(recordSize));
+    Assertions.assertTrue(manager.checkAndAdd(recordSize));
+    Assertions.assertFalse(manager.checkAndAdd(recordSize));
 
     Thread.sleep(1001);
 
-    Assertions.assertTrue(manager.notThrottled());
+    Assertions.assertTrue(manager.checkAndAdd(recordSize));
   }
 }
