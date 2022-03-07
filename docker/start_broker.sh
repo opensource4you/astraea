@@ -212,7 +212,7 @@ function setListener() {
   else
     echo "listeners=PLAINTEXT://:9092" >>"$BROKER_PROPERTIES"
     echo "advertised.listeners=PLAINTEXT://${ADDRESS}:$BROKER_PORT" >>"$BROKER_PROPERTIES"
-    if [[ "$confluent_broker" = "true" ]]; then
+    if [[ "$CONFLUENT_BROKER" = "true" ]]; then
       echo "confluent.metadata.server.listeners=http://0.0.0.0:$BROKER_PORT" >>"$BROKER_PROPERTIES"
     fi
   fi
@@ -290,7 +290,7 @@ function fetchBrokerId() {
 # ===================================[main]===================================
 
 checkDocker
-if [[ "$confluent_broker" = "true" ]]; then
+if [[ "$CONFLUENT_BROKER" = "true" ]]; then
     generateConfluentDockerfile
 else
     generateDockerfile
@@ -325,7 +325,7 @@ setPropertyIfEmpty "num.partitions" "8"
 setPropertyIfEmpty "transaction.state.log.replication.factor" "1"
 setPropertyIfEmpty "offsets.topic.replication.factor" "1"
 setPropertyIfEmpty "transaction.state.log.min.isr" "1"
-if [[ "$confluent_broker" = "true" ]]; then
+if [[ "$CONFLUENT_BROKER" = "true" ]]; then
     rejectProperty "metric.reporters"
     setPropertyIfEmpty "confluent.metrics.reporter.zookeeper.connect" "$ZOOKEEPER_CONNECT"
     setPropertyIfEmpty "metric.reporters" "io.confluent.metrics.reporter.ConfluentMetricsReporter"
