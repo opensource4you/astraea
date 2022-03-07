@@ -5,7 +5,6 @@ import java.util.Map;
 import org.astraea.metrics.HasBeanObject;
 import org.astraea.metrics.collector.Fetcher;
 import org.astraea.partitioner.ClusterInfo;
-import org.astraea.partitioner.NodeId;
 
 public interface CostFunction {
 
@@ -20,7 +19,7 @@ public interface CostFunction {
    * @param clusterInfo cluster information
    * @return the score of each node. the score range is [0 - 1]
    */
-  Map<NodeId, Double> cost(Map<NodeId, List<HasBeanObject>> beans, ClusterInfo clusterInfo);
+  Map<Integer, Double> cost(Map<Integer, List<HasBeanObject>> beans, ClusterInfo clusterInfo);
 
   /** @return the metrics getters. Those getters are used to fetch mbeans. */
   Fetcher fetcher();

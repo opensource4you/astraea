@@ -18,9 +18,9 @@ import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Collectors;
 import org.apache.kafka.clients.producer.Partitioner;
 import org.apache.kafka.common.Cluster;
+import org.apache.kafka.common.Node;
 import org.astraea.partitioner.ClusterInfo;
 import org.astraea.partitioner.Configuration;
-import org.astraea.partitioner.NodeId;
 import org.astraea.partitioner.nodeLoadMetric.NodeLoadClient;
 
 /**
@@ -37,7 +37,7 @@ public class SmoothWeightPartitioner implements Partitioner {
   private final ConcurrentMap<Integer, SmoothWeightServer> brokersWeight =
       new ConcurrentHashMap<>();
 
-  private final Map<NodeId, Integer> jmxPorts = new TreeMap<>();
+    private final Map<Integer, Integer> jmxPorts = new TreeMap<>();
   private NodeLoadClient nodeLoadClient;
   private long lastTime = -1;
   private final Random rand = new Random();
@@ -96,7 +96,7 @@ public class SmoothWeightPartitioner implements Partitioner {
         .forEach(
             e ->
                 jmxPorts.put(
-                    NodeId.of(Integer.parseInt(e.getKey())), Integer.parseInt(e.getValue())));
+                    Integer.parseInt(e.getKey()), Integer.parseInt(e.getValue())));
 
     var jmxAddresses = config.string(JMX_SERVERS);
     var mapAddress = new HashMap<Integer, Integer>();
