@@ -52,11 +52,11 @@ public class Manager {
     this.producerMetrics = producerMetrics;
     this.consumerMetrics = consumerMetrics;
     this.exeTime = argument.exeTime;
-    this.keyDistribution = argument.keyDistribution.create(100000);
+    this.keyDistribution = argument.keyDistributionType.create(100000);
     this.randomContent =
         new RandomContent(
             argument.recordSize,
-            argument.sizeDistribution.create(
+            argument.sizeDistributionType.create(
                 argument.recordSize.measurement(DataUnit.Byte).intValue()));
   }
 

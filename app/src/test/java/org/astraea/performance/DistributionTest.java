@@ -10,7 +10,7 @@ public class DistributionTest {
 
   @Test
   void testFixed() {
-    var distribution = Distribution.FIXED.create(new Random().nextInt());
+    var distribution = DistributionType.FIXED.create(new Random().nextInt());
     Assertions.assertEquals(
         1,
         IntStream.range(0, 10)
@@ -21,14 +21,14 @@ public class DistributionTest {
 
   @Test
   void testUniform() {
-    var distribution = Distribution.UNIFORM.create(5);
+    var distribution = DistributionType.UNIFORM.create(5);
     Assertions.assertTrue(distribution.get() < 5);
     Assertions.assertTrue(distribution.get() >= 0);
   }
 
   @Test
   void testLatest() throws InterruptedException {
-    var distribution = Distribution.LATEST.create(Integer.MAX_VALUE);
+    var distribution = DistributionType.LATEST.create(Integer.MAX_VALUE);
     Assertions.assertEquals(distribution.get(), distribution.get());
 
     long first = distribution.get();
@@ -39,7 +39,7 @@ public class DistributionTest {
 
   @Test
   void testZipfian() {
-    var distribution = Distribution.ZIPFIAN.create(5);
+    var distribution = DistributionType.ZIPFIAN.create(5);
     Assertions.assertTrue(distribution.get() < 5);
     Assertions.assertTrue(distribution.get() >= 0);
   }

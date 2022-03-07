@@ -13,7 +13,7 @@ import org.astraea.argument.Field;
  * Distribution.UNIFORM.create(100); while (true){ // the value will in range [0, 100)
  * uniformDistribution.get(); } }
  */
-public enum Distribution {
+public enum DistributionType {
   FIXED("fixed") {
     @Override
     public Supplier<Long> create(int n) {
@@ -72,14 +72,18 @@ public enum Distribution {
 
   abstract Supplier<Long> create(int n);
 
-  Distribution(String name) {
+  DistributionType(String name) {
     this.name = name;
   }
 
-  static class DistributionField extends Field<Distribution> {
+  /**
+   * convert(String): Accept lower-case name only e.g. "fixed", "uniform", "latest" and "zipfian"
+   * are legal e.g. "Fixed" and "UNIFORM" are illegal
+   */
+  static class DistributionField extends Field<DistributionType> {
     @Override
-    public Distribution convert(String name) {
-      return Arrays.stream(Distribution.values())
+    public DistributionType convert(String name) {
+      return Arrays.stream(DistributionType.values())
           .filter(distribute -> distribute.name.equals(name))
           .findFirst()
           .orElseThrow(
