@@ -16,23 +16,45 @@ import org.astraea.concurrent.Executor;
 import org.astraea.concurrent.State;
 import org.astraea.utils.DataUnit;
 
-public interface ReportWriter extends Executor {
+public enum ReportFormat {
+  CSV("csv"),
+  JSON("json");
 
-  static ReportWriter createFileWriter(
-      FileFormat fileFormat, Path path, Manager manager, Tracker tracker) throws IOException {
+  private final String name;
+
+  ReportFormat(String name) {
+    this.name = name;
+  }
+
+  public static class ReportFormatConverter implements IStringConverter<ReportFormat> {
+    @Override
+    public ReportFormat convert(String value) {
+      switch (value.toLowerCase()) {
+        case "csv":
+          return ReportFormat.CSV;
+        case "json":
+          return ReportFormat.JSON;
+        default:
+          throw new ParameterException("Invalid file format. Use \"csv\" or \"json\"");
+      }
+    }
+  }
+
+  public static Executor createFileWriter(
+      ReportFormat reportFormat, Path path, Manager manager, Tracker tracker) throws IOException {
     var filePath =
         FileSystems.getDefault()
             .getPath(
                 path.toString(),
                 "Performance"
                     + new SimpleDateFormat("yyyyMMddHHmmss").format(new Date())
-                    + fileFormat);
+                    + reportFormat);
     var writer = new BufferedWriter(new FileWriter(filePath.toFile()));
-    switch (fileFormat) {
+    switch (reportFormat) {
       case CSV:
         initCSVFormat(
             writer, tracker.producerResult().bytes.size(), tracker.consumerResult().bytes.size());
-        return new ReportWriter() {
+        return new Executor() {
           @Override
           public State execute() throws InterruptedException {
             if (logToCSV(writer, manager, tracker)) return State.DONE;
@@ -47,7 +69,7 @@ public interface ReportWriter extends Executor {
         };
       case JSON:
         writer.write("{");
-        return new ReportWriter() {
+        return new Executor() {
           @Override
           public State execute() throws InterruptedException {
             if (logToJSON(writer, manager, tracker)) return State.DONE;
@@ -104,7 +126,7 @@ public interface ReportWriter extends Executor {
     writer.newLine();
   }
 
-  static boolean logToCSV(BufferedWriter writer, Manager manager, Tracker tracker) {
+  private static boolean logToCSV(BufferedWriter writer, Manager manager, Tracker tracker) {
     var result = processResult(manager, tracker);
     if (result.producerResult.completedRecords == 0) return false;
     try {
@@ -136,7 +158,7 @@ public interface ReportWriter extends Executor {
   }
 
   /** Write to writer. Output: "(timestamp)": { (many metrics ...) } */
-  static boolean logToJSON(BufferedWriter writer, Manager manager, Tracker tracker) {
+  private static boolean logToJSON(BufferedWriter writer, Manager manager, Tracker tracker) {
     var result = processResult(manager, tracker);
     if (result.producerResult.completedRecords == 0) return false;
     try {
@@ -195,7 +217,7 @@ public interface ReportWriter extends Executor {
         consumerResult.completedRecords * 100D / manager.producedRecords());
   }
 
-  class ProcessedResult {
+  static class ProcessedResult {
     public final Tracker.Result consumerResult;
     public final Tracker.Result producerResult;
     public final Duration duration;
@@ -216,33 +238,8 @@ public interface ReportWriter extends Executor {
     }
   }
 
-  enum FileFormat {
-    CSV("csv"),
-    JSON("json");
-
-    private final String name;
-
-    FileFormat(String name) {
-      this.name = name;
-    }
-
-    public static class FileFormatConverter implements IStringConverter<FileFormat> {
-      @Override
-      public FileFormat convert(String value) {
-        switch (value.toLowerCase()) {
-          case "csv":
-            return FileFormat.CSV;
-          case "json":
-            return FileFormat.JSON;
-          default:
-            throw new ParameterException("Invalid file format. Use \"csv\" or \"json\"");
-        }
-      }
-    }
-
-    @Override
-    public String toString() {
-      return name;
-    }
+  @Override
+  public String toString() {
+    return name;
   }
 }

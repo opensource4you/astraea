@@ -98,7 +98,7 @@ public class Performance {
     Collection<Executor> fileWriter =
         (param.CSVPath != null)
             ? List.of(
-                ReportWriter.createFileWriter(param.reportFormat, param.CSVPath, manager, tracker))
+                ReportFormat.createFileWriter(param.reportFormat, param.CSVPath, manager, tracker))
             : List.of();
     var groupId = "groupId-" + System.currentTimeMillis();
     try (var threadPool =
@@ -348,8 +348,8 @@ public class Performance {
     @Parameter(
         names = {"--report.format"},
         description = "Output format for the report",
-        converter = ReportWriter.FileFormat.FileFormatConverter.class)
-    ReportWriter.FileFormat reportFormat = ReportWriter.FileFormat.CSV;
+        converter = ReportFormat.ReportFormatConverter.class)
+    ReportFormat reportFormat = ReportFormat.CSV;
   }
 
   public static class Result {
