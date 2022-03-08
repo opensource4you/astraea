@@ -87,9 +87,9 @@ public class SmoothWeightPartitioner implements Partitioner {
             properties.entrySet().stream()
                 .collect(
                     Collectors.toMap(e -> e.getKey().toString(), e -> e.getValue().toString())));
-    var jmxPortDefault = config.integer(JMX_PORT);
+    var jmxPort = config.integer(JMX_PORT);
 
-    jmxPortDefault = config.integer(JMX_PORT);
+    jmxPort = config.integer(JMX_PORT);
 
     // seeks for custom jmx ports.
     config.entrySet().stream()
@@ -100,7 +100,7 @@ public class SmoothWeightPartitioner implements Partitioner {
                 jmxPorts.put(
                     Integer.parseInt(e.getKey().split("\\.")[1]), Integer.parseInt(e.getValue())));
 
-    nodeLoadClient = new NodeLoadClient(jmxPorts, jmxPortDefault.orElse(-1));
+    nodeLoadClient = new NodeLoadClient(jmxPorts, jmxPort.orElse(-1));
   }
 
   /** Change the weight of the node according to the current Poisson. */
