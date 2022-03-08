@@ -1,26 +1,21 @@
 package org.astraea.yunikorn.client;
-
 import java.io.IOException;
-
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpClient.Redirect;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
-
+import org.astraea.yunikorn.config.NodeSortingPolicy;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.yaml.snakeyaml.Yaml;
 import org.yaml.snakeyaml.constructor.Constructor;
-
 import java.time.Duration;
-import java.util.List;
-import java.util.Map;
-
 import org.astraea.yunikorn.core.Evaluation;
 import org.astraea.yunikorn.config.SchedulerConfig;
+
 public class Client {
-    private SchedulerConfig schedulerConfig;
+    private SchedulerConfig schedulerConfig ;
     private Evaluation evaluation = new Evaluation();
     public void getPartitionConfig(String ip){
         HttpClient client = HttpClient.newBuilder()
@@ -63,7 +58,6 @@ public class Client {
             HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
             if (response.statusCode()==200) {
                 var body = response.body();
-
                 if(getApplication(body)==0){
                     return false;
                 }
@@ -127,16 +121,16 @@ public class Client {
                 var body = response.body();
                 getUtilization(body);
 
-                this.schedulerConfig
+                schedulerConfig
                         .getPartitions()
                         .get(0)
                         .getNodesortpolicy()
-                        .putResourceweights("vcore", this.evaluation.calculate());
-                this.schedulerConfig
+                        .putResourceweights(NodeSortingPolicy.CORE_KEY, evaluation.calculate());
+                schedulerConfig
                         .getPartitions()
                         .get(0)
                         .getNodesortpolicy()
-                        .putResourceweights("memory",1.0);
+                        .putResourceweights(NodeSortingPolicy.MEMORY_KEY,1.0);
             }
             else {
                 System.out.println(response.statusCode());

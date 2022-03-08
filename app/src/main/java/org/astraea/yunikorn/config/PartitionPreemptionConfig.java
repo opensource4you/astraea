@@ -1,13 +1,10 @@
 package org.astraea.yunikorn.config;
 
+import lombok.*;
+@Getter @Setter
 class PartitionPreemptionConfig {
-    private Boolean enabled;
-    public Boolean getEnabled(){
-        return this.enabled;
-    }
 
-    public void setEnabled(Boolean enabled) {
-        this.enabled = enabled;
-    }
+    private Boolean enabled;
+
 
 }

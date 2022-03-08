@@ -2,31 +2,20 @@ package org.astraea.yunikorn.config;
 
 import java.util.HashMap;
 import java.util.Map;
-
+import lombok.*;
+@Getter @Setter
 public class NodeSortingPolicy {
+    public static final String CORE_KEY = "vcore";
+    public static final String MEMORY_KEY = "memory";
     private String type ;
-    private Map<String, Double> resourceweights = new HashMap<>();
-    public String getType(){
-        return this.type;
-    }
+   private Map<String, Double> resourceweights = new HashMap<>();
     NodeSortingPolicy(){
-        resourceweights.put("memory", 1.0);
-        resourceweights.put("vcore", 1.0);
+        resourceweights.put(MEMORY_KEY, 1.0);
+        resourceweights.put(CORE_KEY, 1.0);
 
     }
-
-    public void setType(String type) {
-        this.type = type;
-    }
-
     public void putResourceweights (String resourceType, Double resourceweights){
         this.resourceweights.put(resourceType, resourceweights);
     }
-    public Map<String, Double> getResourceweights() {
-        return resourceweights;
-    }
 
-    public void setResourceweights(Map<String, Double> resourceweights) {
-        this.resourceweights = resourceweights;
-    }
 }
