@@ -8,9 +8,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Future;
 import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -22,9 +20,10 @@ import org.apache.kafka.common.record.CompressionType;
 import org.astraea.Utils;
 import org.astraea.argument.CompressionField;
 import org.astraea.argument.NonEmptyStringField;
-import org.astraea.argument.NonNegativeLongField;
+import org.astraea.argument.NonNegativeShortField;
 import org.astraea.argument.PositiveLongField;
 import org.astraea.argument.PositiveShortField;
+import org.astraea.argument.StringMapField;
 import org.astraea.concurrent.Executor;
 import org.astraea.concurrent.State;
 import org.astraea.concurrent.ThreadPool;
@@ -67,10 +66,9 @@ public class Performance {
     execute(org.astraea.argument.Argument.parse(new Argument(), args));
   }
 
-  public static Future<String> execute(final Argument param)
+  public static Result execute(final Argument param)
       throws InterruptedException, IOException, ExecutionException {
     List<Integer> partitions;
-    var future = new CompletableFuture<String>();
     try (var topicAdmin = TopicAdmin.of(param.props())) {
       topicAdmin
           .creator()
@@ -131,8 +129,7 @@ public class Performance {
             .executor((param.createCSV) ? new FileWriter(manager, tracker) : () -> State.DONE)
             .build()) {
       threadPool.waitAll();
-      future.complete(param.topic);
-      return future;
+      return new Result(param.topic);
     }
   }
 
@@ -259,8 +256,8 @@ public class Performance {
     @Parameter(
         names = {"--consumers"},
         description = "Integer: number of consumers to consume records",
-        validateWith = NonNegativeLongField.class,
-        converter = NonNegativeLongField.class)
+        validateWith = NonNegativeShortField.class,
+        converter = NonNegativeShortField.class)
     int consumers = 1;
 
     @Parameter(
@@ -298,10 +295,18 @@ public class Performance {
         validateWith = NonEmptyStringField.class)
     String partitioner = DefaultPartitioner.class.getName();
 
+    @Parameter(
+        names = {"--configs"},
+        description = "Map: set the configuration passed to producer/partitioner",
+        converter = StringMapField.class,
+        validateWith = StringMapField.class)
+    Map<String, String> configs = Map.of();
+
     public Map<String, Object> producerProps() {
       var props = props();
       props.put(ProducerConfig.COMPRESSION_TYPE_CONFIG, compression.name);
       if (!this.jmxServers.isEmpty()) props.put("jmx_servers", this.jmxServers);
+      props.putAll(configs);
       return props;
     }
 
@@ -330,5 +335,17 @@ public class Performance {
             "String: Used with SpecifyBrokerPartitioner to specify the brokers that partitioner can send.",
         validateWith = NonEmptyStringField.class)
     List<Integer> specifyBroker = List.of(-1);
+  }
+
+  public static class Result {
+    private final String topicName;
+
+    private Result(String topicName) {
+      this.topicName = topicName;
+    }
+
+    public String topicName() {
+      return topicName;
+    }
   }
 }

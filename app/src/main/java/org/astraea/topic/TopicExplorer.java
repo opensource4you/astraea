@@ -63,6 +63,21 @@ public class TopicExplorer {
 
   static Result execute(TopicAdmin admin, Set<String> topics) {
     var replicas = admin.replicas(topics);
+
+    var invalidTopics =
+        replicas.entrySet().stream()
+            .filter(x -> x.getValue().stream().noneMatch(Replica::leader))
+            .map(Map.Entry::getKey)
+            .sorted(
+                Comparator.comparing(TopicPartition::topic)
+                    .thenComparing(TopicPartition::partition))
+            .collect(Collectors.toUnmodifiableList());
+    if (!invalidTopics.isEmpty()) {
+      // The metadata request sent by Kafka admin succeeds only if the leaders of all partitions are
+      // alive. Hence, we throw exception here to make consistent behavior with Kafka.
+      throw new IllegalStateException("Some partitions have no leader: " + invalidTopics);
+    }
+
     var offsets = admin.offsets(topics);
     var consumerGroups = admin.consumerGroup(Set.of());
     var time = LocalDateTime.now();
