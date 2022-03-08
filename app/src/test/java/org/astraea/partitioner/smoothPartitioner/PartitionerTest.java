@@ -6,6 +6,9 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.lang.reflect.Field;
 import java.time.Duration;
 import java.util.HashMap;
@@ -49,12 +52,24 @@ public class PartitionerTest extends RequireBrokerCluster {
     props.put(ProducerConfig.CLIENT_ID_CONFIG, "id1");
     props.put(ProducerConfig.PARTITIONER_CLASS_CONFIG, SmoothWeightPartitioner.class.getName());
     props.put("producerID", 1);
-    props.put("jmx.defaultPort", jmxServiceURL().getPort());
+    var file = new File(PartitionerTest.class.getResource("").getPath() + "PartitionerConfigTest");
+    try {
+      var fileWriter = new FileWriter(file);
+      fileWriter.write("jmx.port=" + jmxServiceURL().getPort());
+      fileWriter.flush();
+      fileWriter.close();
+    } catch (IOException e) {
+      e.printStackTrace();
+    }
+    props.put(
+        "partitioner.config",
+        PartitionerTest.class.getResource("").getPath() + "PartitionerConfigTest");
     return props;
   }
 
   @Test
   void testSetBrokerHashMap() {
+    initProConfig();
     var nodeLoadClient = Mockito.mock(NodeLoadClient.class);
     when(nodeLoadClient.thoughPutComparison(anyInt())).thenReturn(1.0);
     var poissonMap = new HashMap<Integer, Double>();
@@ -221,15 +236,24 @@ public class PartitionerTest extends RequireBrokerCluster {
   @Test
   void testJmxConfig() {
     var props = initProConfig();
-    props.remove("jmx.defaultPort");
-    props.put(
-        "jmx.servers",
-        "0."
-            + jmxServiceURL().getPort()
-            + ",1."
-            + jmxServiceURL().getPort()
-            + ",2."
-            + jmxServiceURL().getPort());
+    var file = new File(PartitionerTest.class.getResource("").getPath() + "PartitionerConfigTest");
+    try {
+      var fileWriter = new FileWriter(file);
+      fileWriter.write(
+          "broker.0.jmx.port="
+              + jmxServiceURL().getPort()
+              + "\n"
+              + "broker.1.jmx.port="
+              + jmxServiceURL().getPort()
+              + "\n"
+              + "broker.2.jmx.port="
+              + jmxServiceURL().getPort()
+              + "\n");
+      fileWriter.flush();
+      fileWriter.close();
+    } catch (IOException e) {
+      e.printStackTrace();
+    }
     var topicName = "addressN";
     admin.creator().topic(topicName).numberOfPartitions(10).create();
     var key = "tainan";

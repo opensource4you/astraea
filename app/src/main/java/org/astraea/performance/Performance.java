@@ -290,13 +290,6 @@ public class Performance {
     String jmxServers = "";
 
     @Parameter(
-        names = {"--jmx.defaultPort"},
-        description =
-            "String: server to get jmx metrics <jmx_server>@<broker_id>[,<jmx_server>@<broker_id>]*",
-        validateWith = NonEmptyStringField.class)
-    String jmxDefaultPort = "";
-
-    @Parameter(
         names = {"--partitioner"},
         description = "String: the full class name of the desired partitioner",
         validateWith = NonEmptyStringField.class)
