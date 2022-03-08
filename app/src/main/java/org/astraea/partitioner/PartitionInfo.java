@@ -3,20 +3,24 @@ package org.astraea.partitioner;
 public interface PartitionInfo {
 
   static PartitionInfo of(org.apache.kafka.common.PartitionInfo pf) {
+    return of(pf.topic(), pf.partition(), NodeInfo.of(pf.leader()));
+  }
+
+  static PartitionInfo of(String topic, int partition, NodeInfo leader) {
     return new PartitionInfo() {
       @Override
       public String topic() {
-        return pf.topic();
+        return topic;
       }
 
       @Override
       public int partition() {
-        return pf.partition();
+        return partition;
       }
 
       @Override
       public NodeInfo leader() {
-        return NodeInfo.of(pf.leader());
+        return leader;
       }
     };
   }
