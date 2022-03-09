@@ -3,7 +3,7 @@ package org.astraea.consumer;
 import java.time.Duration;
 import java.util.Collection;
 import java.util.Map;
-import org.apache.kafka.common.Metric;
+import org.astraea.performance.Metric;
 
 /** An interface for polling records. */
 public interface Consumer<Key, Value> extends AutoCloseable {

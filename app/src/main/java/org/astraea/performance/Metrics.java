@@ -1,7 +1,6 @@
 package org.astraea.performance;
 
 import java.util.function.BiConsumer;
-import org.apache.kafka.common.Metric;
 
 /** Used to record statistics. This is thread safe. */
 public class Metrics implements BiConsumer<Long, Long> {

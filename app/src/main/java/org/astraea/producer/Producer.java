@@ -2,7 +2,7 @@ package org.astraea.producer;
 
 import java.util.Map;
 import org.apache.kafka.clients.producer.KafkaProducer;
-import org.apache.kafka.common.Metric;
+import org.astraea.performance.Metric;
 
 /** An interface for sending records. */
 public interface Producer<Key, Value> extends AutoCloseable {

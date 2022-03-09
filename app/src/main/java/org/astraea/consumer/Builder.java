@@ -11,7 +11,7 @@ import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
-import org.apache.kafka.common.Metric;
+import org.astraea.performance.Metric;
 
 public class Builder<Key, Value> {
 
@@ -107,11 +107,23 @@ public class Builder<Key, Value> {
       /** Get a kafkaMetric by name. */
       @Override
       public Metric getMetric(String metricName) {
-        return kafkaConsumer.metrics().entrySet().stream()
-            .filter(e -> e.getKey().name().equals(metricName))
-            .findFirst()
-            .orElseThrow()
-            .getValue();
+        var kafkaMetric =
+            kafkaConsumer.metrics().entrySet().stream()
+                .filter(e -> e.getKey().name().equals(metricName))
+                .findFirst()
+                .orElseThrow()
+                .getValue();
+        return new org.astraea.performance.Metric() {
+          @Override
+          public String metricName() {
+            return metricName;
+          }
+
+          @Override
+          public Object metricValue() {
+            return kafkaMetric.metricValue();
+          }
+        };
       }
 
       @Override

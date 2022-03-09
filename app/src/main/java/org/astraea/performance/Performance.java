@@ -98,32 +98,37 @@ public class Performance {
             .executors(
                 IntStream.range(0, param.consumers)
                     .mapToObj(
-                        i ->
-                            consumerExecutor(
-                                Consumer.builder()
-                                    .brokers(param.brokers)
-                                    .topics(Set.of(param.topic))
-                                    .groupId(groupId)
-                                    .configs(param.props())
-                                    .consumerRebalanceListener(
-                                        ignore -> manager.countDownGetAssignment())
-                                    .build(),
-                                consumerMetrics.get(i),
-                                manager))
+                        i -> {
+                          var consumer =
+                              Consumer.builder()
+                                  .brokers(param.brokers)
+                                  .topics(Set.of(param.topic))
+                                  .groupId(groupId)
+                                  .configs(param.props())
+                                  .consumerRebalanceListener(
+                                      ignore -> manager.countDownGetAssignment())
+                                  .build();
+                          consumerMetrics
+                              .get(i)
+                              .setRealBytesMetric(consumer.getMetric("incoming-byte-total"));
+                          return consumerExecutor(consumer, consumerMetrics.get(i), manager);
+                        })
                     .collect(Collectors.toUnmodifiableList()))
             .executors(
                 IntStream.range(0, param.producers)
                     .mapToObj(
-                        i ->
-                            producerExecutor(
-                                Producer.builder()
-                                    .configs(param.producerProps())
-                                    .partitionClassName(param.partitioner)
-                                    .build(),
-                                param,
-                                producerMetrics.get(i),
-                                partitions,
-                                manager))
+                        i -> {
+                          var producer =
+                              Producer.builder()
+                                  .configs(param.producerProps())
+                                  .partitionClassName(param.partitioner)
+                                  .build();
+                          producerMetrics
+                              .get(i)
+                              .setRealBytesMetric(producer.getMetric("outgoing-byte-total"));
+                          return producerExecutor(
+                              producer, param, producerMetrics.get(i), partitions, manager);
+                        })
                     .collect(Collectors.toUnmodifiableList()))
             .executor(tracker)
             .executor((param.createCSV) ? new FileWriter(manager, tracker) : () -> State.DONE)
@@ -135,9 +140,6 @@ public class Performance {
 
   static Executor consumerExecutor(
       Consumer<byte[], byte[]> consumer, BiConsumer<Long, Long> observer, Manager manager) {
-    if (observer instanceof Metrics) {
-      ((Metrics) observer).setRealBytesMetric(consumer.getMetric("incoming-byte-total"));
-    }
     return new Executor() {
       @Override
       public State execute() {
@@ -178,9 +180,6 @@ public class Performance {
       BiConsumer<Long, Long> observer,
       List<Integer> partitions,
       Manager manager) {
-    if (observer instanceof Metrics) {
-      ((Metrics) observer).setRealBytesMetric(producer.getMetric("outgoing-byte-total"));
-    }
     return new Executor() {
       @Override
       public State execute() throws InterruptedException {

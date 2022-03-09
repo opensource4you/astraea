@@ -10,8 +10,8 @@ import java.util.concurrent.CompletionStage;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.clients.producer.ProducerRecord;
-import org.apache.kafka.common.Metric;
 import org.astraea.consumer.Header;
+import org.astraea.performance.Metric;
 
 public class Builder<Key, Value> {
   private final Map<String, Object> configs = new HashMap<>();
@@ -124,11 +124,23 @@ public class Builder<Key, Value> {
 
       @Override
       public Metric getMetric(String metricName) {
-        return kafkaProducer.metrics().entrySet().stream()
-            .filter(e -> e.getKey().name().equals(metricName))
-            .findFirst()
-            .orElseThrow()
-            .getValue();
+        var kafkaMetric =
+            kafkaProducer.metrics().entrySet().stream()
+                .filter(e -> e.getKey().name().equals(metricName))
+                .findFirst()
+                .orElseThrow()
+                .getValue();
+        return new Metric() {
+          @Override
+          public String metricName() {
+            return metricName;
+          }
+
+          @Override
+          public Object metricValue() {
+            return kafkaMetric.metricValue();
+          }
+        };
       }
 
       @Override
