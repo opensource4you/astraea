@@ -10,8 +10,7 @@ import java.util.concurrent.ExecutionException;
 import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.clients.admin.AdminClientConfig;
 import org.apache.kafka.clients.admin.KafkaAdminClient;
-import org.astraea.argument.ArgumentUtil;
-import org.astraea.argument.validator.NotEmptyString;
+import org.astraea.argument.NonEmptyStringField;
 import org.astraea.performance.Performance;
 
 /**
@@ -42,7 +41,7 @@ public class Automation {
   public static void main(String[] args) {
     try {
       var properties = new Properties();
-      var arg = ArgumentUtil.parseArgument(new automationArgument(), args);
+      var arg = org.astraea.argument.Argument.parse(new Argument(), args);
       properties.load(new FileInputStream(arg.address));
       var whetherDeleteTopic = properties.getProperty("--whetherDeleteTopic").equals("true");
       var bootstrap = properties.getProperty("--bootstrap.servers");
@@ -55,15 +54,14 @@ public class Automation {
       else times = Integer.parseInt(properties.getProperty("--time"));
 
       while (i < times) {
-        var str =
+        var result =
             Performance.execute(
-                ArgumentUtil.parseArgument(
+                org.astraea.argument.Argument.parse(
                     new Performance.Argument(), performanceArgs(properties)));
         i++;
         if (whetherDeleteTopic) {
           try (final AdminClient adminClient = KafkaAdminClient.create(config)) {
-            var topicName = str.get();
-            adminClient.deleteTopics(List.of(topicName));
+            adminClient.deleteTopics(List.of(result.topicName()));
           }
         }
         System.out.println("=============== " + i + " time Performance Complete! ===============");
@@ -88,11 +86,11 @@ public class Automation {
     return args.toArray(strings);
   }
 
-  private static class automationArgument {
+  private static class Argument {
     @Parameter(
         names = {"--file"},
         description = "String: automation.properties address",
-        validateWith = NotEmptyString.class)
+        validateWith = NonEmptyStringField.class)
     String address = "";
   }
 }

@@ -1,6 +1,8 @@
 package org.astraea.argument;
 
-import java.io.*;
+import java.io.BufferedWriter;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.nio.file.Files;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -16,12 +18,13 @@ public class BasicArgumentTest {
       output.write("key2=value2");
     }
     var argument =
-        ArgumentUtil.parseArgument(new DumbArgument(), new String[] {"--bootstrap.servers", "abc"});
+        org.astraea.argument.Argument.parse(
+            new DumbArgument(), new String[] {"--bootstrap.servers", "abc"});
     Assertions.assertEquals(3, argument.properties(file.toString()).size());
     Assertions.assertEquals("abc", argument.brokers);
     Assertions.assertEquals("value1", argument.properties(file.toString()).get("key1").toString());
     Assertions.assertEquals("value2", argument.properties(file.toString()).get("key2").toString());
   }
 
-  private static class DumbArgument extends BasicArgument {}
+  private static class DumbArgument extends Argument {}
 }

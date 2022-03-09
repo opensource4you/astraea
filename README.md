@@ -112,7 +112,7 @@ For example. Assume you have two Kafka brokers,
 You can execute the following command to create a Prometheus instance that fetches data from the above 4 exporters.
 
 ```shell
-./docker/start_prometheus.sh start 192.168.0.1:10558,192.168.0.2:10558 192.168.0.1:9100,192.168.0.2:9100
+./docker/start_prometheus.sh start
 ```
 
 The console will show the http address of prometheus service, also some hints for you to set up Grafana. See next [section](#run-grafana) for
@@ -127,6 +127,16 @@ prometheus-9090
 [INFO] command to run grafana at this host: ./docker/start_grafana.sh start
 [INFO] command to add prometheus to grafana datasource: ./docker/start_grafana.sh add_prom_source <USERNAME>:<PASSWORD> Prometheus http://192.168.0.2:9090
 [INFO] =================================================
+```
+
+There are two ways to change the prometheus configuration.
+
+```shell
+# refresh prometheus config by command-line arguments
+./docker/start_prometheus.sh refresh host1:1111,host2:1111 host1:2222,host2:2222
+
+# refresh prometheus config by specific file
+./docker/start_prometheus.sh refresh ./path/to/config/file/prometheus.yml
 ```
 
 #### Update Prometheus configuration
@@ -353,6 +363,8 @@ This tool will score the partition on brokers, the higher score the heavier load
 ### Partition Score Configurations
 
 1. --bootstrap.servers: the server to connect to
+2. --exclude.internal.topics: True if you want to ignore internal topics like _consumer_offsets while counting score. 
+3. --hide.balanced: True if you want to hide topics and partitions thar already balanced.:q
 
 ## Kafka Replica Syncing Monitor
 

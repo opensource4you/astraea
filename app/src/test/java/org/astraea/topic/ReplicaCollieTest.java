@@ -33,7 +33,7 @@ public class ReplicaCollieTest extends RequireBrokerCluster {
   @Test
   @DisabledOnOs(WINDOWS)
   void testBrokerMigrator() throws IOException, InterruptedException {
-    var topicName = "ReplicaCollieTest";
+    var topicName = "ReplicaCollieTest-Broker";
     try (var topicAdmin = TopicAdmin.of(bootstrapServers())) {
       topicAdmin
           .creator()
@@ -75,7 +75,7 @@ public class ReplicaCollieTest extends RequireBrokerCluster {
   @Test
   @DisabledOnOs(WINDOWS)
   void testPathMigrator() throws IOException, InterruptedException {
-    var topicName = "ReplicaCollieTest";
+    var topicName = "ReplicaCollieTest-Path";
     try (var topicAdmin = TopicAdmin.of(bootstrapServers())) {
       topicAdmin
           .creator()

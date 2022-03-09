@@ -1,35 +1,31 @@
 package org.astraea.performance;
 
-import com.beust.jcommander.IStringConverter;
 import com.beust.jcommander.Parameter;
-import com.beust.jcommander.ParameterException;
 import java.io.IOException;
 import java.time.Duration;
-import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Future;
 import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-import java.util.stream.Stream;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.clients.producer.internals.DefaultPartitioner;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.errors.WakeupException;
 import org.apache.kafka.common.record.CompressionType;
 import org.astraea.Utils;
-import org.astraea.argument.ArgumentUtil;
-import org.astraea.argument.BasicArgumentWithPropFile;
-import org.astraea.argument.converter.ShortConverter;
-import org.astraea.argument.validator.NonNegativeLong;
-import org.astraea.argument.validator.NotEmptyString;
-import org.astraea.argument.validator.PositiveLong;
+import org.astraea.argument.CompressionField;
+import org.astraea.argument.NonEmptyStringField;
+import org.astraea.argument.NonNegativeShortField;
+import org.astraea.argument.PositiveLongField;
+import org.astraea.argument.PositiveShortField;
+import org.astraea.argument.StringMapField;
+import org.astraea.concurrent.Executor;
+import org.astraea.concurrent.State;
 import org.astraea.concurrent.ThreadPool;
 import org.astraea.consumer.Consumer;
 import org.astraea.producer.Producer;
@@ -67,13 +63,12 @@ public class Performance {
   /** Used in Automation, to achieve the end of one Performance and then start another. */
   public static void main(String[] args)
       throws InterruptedException, IOException, ExecutionException {
-    execute(ArgumentUtil.parseArgument(new Argument(), args));
+    execute(org.astraea.argument.Argument.parse(new Argument(), args));
   }
 
-  public static Future<String> execute(final Argument param)
+  public static Result execute(final Argument param)
       throws InterruptedException, IOException, ExecutionException {
     List<Integer> partitions;
-    var future = new CompletableFuture<String>();
     try (var topicAdmin = TopicAdmin.of(param.props())) {
       topicAdmin
           .creator()
@@ -97,10 +92,8 @@ public class Performance {
 
     var manager = new Manager(param, producerMetrics, consumerMetrics);
     var tracker = new Tracker(producerMetrics, consumerMetrics, manager);
-    Collection<ThreadPool.Executor> fileWriter =
-        (param.createCSV) ? List.of(new FileWriter(manager, tracker)) : List.of();
     var groupId = "groupId-" + System.currentTimeMillis();
-    try (ThreadPool threadPool =
+    try (var threadPool =
         ThreadPool.builder()
             .executors(
                 IntStream.range(0, param.consumers)
@@ -133,20 +126,19 @@ public class Performance {
                                 manager))
                     .collect(Collectors.toUnmodifiableList()))
             .executor(tracker)
-            .executors(fileWriter)
+            .executor((param.createCSV) ? new FileWriter(manager, tracker) : () -> State.DONE)
             .build()) {
       threadPool.waitAll();
-      future.complete(param.topic);
-      return future;
+      return new Result(param.topic);
     }
   }
 
-  static ThreadPool.Executor consumerExecutor(
+  static Executor consumerExecutor(
       Consumer<byte[], byte[]> consumer, BiConsumer<Long, Long> observer, Manager manager) {
     if (observer instanceof Metrics) {
       ((Metrics) observer).setRealBytesMetric(consumer.getMetric("incoming-byte-total"));
     }
-    return new ThreadPool.Executor() {
+    return new Executor() {
       @Override
       public State execute() {
         try {
@@ -180,7 +172,7 @@ public class Performance {
     };
   }
 
-  static ThreadPool.Executor producerExecutor(
+  static Executor producerExecutor(
       Producer<byte[], byte[]> producer,
       Argument param,
       BiConsumer<Long, Long> observer,
@@ -189,7 +181,7 @@ public class Performance {
     if (observer instanceof Metrics) {
       ((Metrics) observer).setRealBytesMetric(producer.getMetric("outgoing-byte-total"));
     }
-    return new ThreadPool.Executor() {
+    return new Executor() {
       @Override
       public State execute() throws InterruptedException {
         // Wait for all consumers get assignment.
@@ -239,37 +231,39 @@ public class Performance {
     return param.specifyBroker.stream().allMatch(broker -> broker >= 0);
   }
 
-  public static class Argument extends BasicArgumentWithPropFile {
+  public static class Argument extends org.astraea.argument.Argument {
 
     @Parameter(
         names = {"--topic"},
         description = "String: topic name",
-        validateWith = NotEmptyString.class)
+        validateWith = NonEmptyStringField.class)
     String topic = "testPerformance-" + System.currentTimeMillis();
 
     @Parameter(
         names = {"--partitions"},
         description = "Integer: number of partitions to create the topic",
-        validateWith = PositiveLong.class)
+        validateWith = PositiveLongField.class)
     int partitions = 1;
 
     @Parameter(
         names = {"--replicas"},
         description = "Integer: number of replica to create the topic",
-        validateWith = PositiveLong.class,
-        converter = ShortConverter.class)
+        validateWith = PositiveShortField.class,
+        converter = PositiveShortField.class)
     short replicas = 1;
 
     @Parameter(
         names = {"--producers"},
         description = "Integer: number of producers to produce records",
-        validateWith = PositiveLong.class)
+        validateWith = PositiveShortField.class,
+        converter = PositiveShortField.class)
     int producers = 1;
 
     @Parameter(
         names = {"--consumers"},
         description = "Integer: number of consumers to consume records",
-        validateWith = NonNegativeLong.class)
+        validateWith = NonNegativeShortField.class,
+        converter = NonNegativeShortField.class)
     int consumers = 1;
 
     @Parameter(
@@ -279,8 +273,8 @@ public class Performance {
                 + " The duration formats accepted are (a number) + (a time unit)."
                 + " The time units can be \"days\", \"day\", \"h\", \"m\", \"s\", \"ms\","
                 + " \"us\", \"ns\"",
-        validateWith = ExeTime.Validator.class,
-        converter = ExeTime.Converter.class)
+        validateWith = ExeTime.Field.class,
+        converter = ExeTime.Field.class)
     ExeTime exeTime = ExeTime.of("1000records");
 
     @Parameter(
@@ -291,26 +285,34 @@ public class Performance {
     @Parameter(
         names = {"--record.size"},
         description = "DataSize: size of each record. e.g. \"500KiB\"",
-        converter = DataSize.Converter.class)
+        converter = DataSize.Field.class)
     DataSize recordSize = DataUnit.KiB.of(1);
 
     @Parameter(
         names = {"--jmx.servers"},
         description =
             "String: server to get jmx metrics <jmx_server>@<broker_id>[,<jmx_server>@<broker_id>]*",
-        validateWith = NotEmptyString.class)
+        validateWith = NonEmptyStringField.class)
     String jmxServers = "";
 
     @Parameter(
         names = {"--partitioner"},
         description = "String: the full class name of the desired partitioner",
-        validateWith = NotEmptyString.class)
+        validateWith = NonEmptyStringField.class)
     String partitioner = DefaultPartitioner.class.getName();
+
+    @Parameter(
+        names = {"--configs"},
+        description = "Map: set the configuration passed to producer/partitioner",
+        converter = StringMapField.class,
+        validateWith = StringMapField.class)
+    Map<String, String> configs = Map.of();
 
     public Map<String, Object> producerProps() {
       var props = props();
       props.put(ProducerConfig.COMPRESSION_TYPE_CONFIG, compression.name);
       if (!this.jmxServers.isEmpty()) props.put("jmx_servers", this.jmxServers);
+      props.putAll(configs);
       return props;
     }
 
@@ -323,44 +325,33 @@ public class Performance {
         names = {"--compression"},
         description =
             "String: the compression algorithm used by producer. Available algorithm are none, gzip, snappy, lz4, and zstd",
-        converter = CompressionArgument.class)
+        converter = CompressionField.class)
     CompressionType compression = CompressionType.NONE;
 
     @Parameter(
         names = {"--key.distribution"},
         description =
             "String: Distribution name. Available distribution names: \"fixed\" \"uniform\", \"zipfian\", \"latest\". Default: uniform",
-        converter = Distribution.DistributionConverter.class)
+        converter = Distribution.DistributionField.class)
     Distribution distribution = Distribution.uniform();
 
     @Parameter(
         names = {"--specify.broker"},
         description =
             "String: Used with SpecifyBrokerPartitioner to specify the brokers that partitioner can send.",
-        validateWith = NotEmptyString.class)
+        validateWith = NonEmptyStringField.class)
     List<Integer> specifyBroker = List.of(-1);
   }
 
-  static class CompressionArgument implements IStringConverter<CompressionType> {
+  public static class Result {
+    private final String topicName;
 
-    /**
-     * @param value Name of compression type. Accept lower-case name only ("none", "gzip", "snappy",
-     *     "lz4", "zstd").
-     */
-    @Override
-    public CompressionType convert(String value) {
-      try {
-        // `CompressionType#forName` accept lower-case name only.
-        return CompressionType.forName(value);
-      } catch (IllegalArgumentException e) {
-        throw new ParameterException(
-            "the "
-                + value
-                + " is unsupported. The supported algorithms are "
-                + Stream.of(CompressionType.values())
-                    .map(CompressionType::name)
-                    .collect(Collectors.joining(",")));
-      }
+    private Result(String topicName) {
+      this.topicName = topicName;
+    }
+
+    public String topicName() {
+      return topicName;
     }
   }
 }
