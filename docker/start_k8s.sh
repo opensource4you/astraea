@@ -14,6 +14,71 @@ function showHelp() {
   echo "ENV: "
   echo "    VERSION=1.20.14-00                       set host folders used by broker"
 }
+
+
+function buildExampleConfigmap(){
+cat > $CONFIGMAP << EOF
+partitions:
+  - name: default
+    nodesortpolicy:
+        type: fair
+    queues:
+    - name: root
+      submitacl: '*'
+      queues:
+        - name: stateaware
+          submitacl: '*'
+          properties:
+            application.sort.policy: stateaware
+        - name: fifo
+          submitacl: '*'
+          properties:
+            application.sort.policy: fifo
+
+EOF
+}
+
+function applyYunKorn(){
+kubectl create configmap yunikorn-configs --from-file=queues.yaml
+cat <<EOF | kubectl apply  -f -
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: yunikorn
+  name: yunikorn-scheduler
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: yunikorn
+  template:
+    metadata:
+      labels:
+        app: yunikorn
+        component: yunikorn-scheduler
+      name: yunikorn-scheduler
+    spec:
+      hostNetwork: true
+      serviceAccountName: yunikorn-admin
+      containers:
+        - name: yunikorn-scheduler-k8s
+          image: ghcr.io/skiptests/astraea/yunikorn:latest
+env:
+            - name: ENABLE_CONFIG_HOT_REFRESH
+              value: "false"
+            - name: LOG_ENCODING
+              value: console
+            - name: LOG_LEVEL
+              value: '-1'
+            - name: CLUSTER_ID
+              value: myCluster
+            - name: CLUSTER_VERSION
+              value: latest
+
+EOF
+}
+
 # ===================================[main]===================================
 if [[ "$1" == "help" ]]; then
     showHelp
@@ -46,5 +111,5 @@ if [[ $1 == "worker" ]]; then
 sudo kubeadm join $2 --discovery-token $3 --discovery-token-ca-cert-hash sha256:$4
 exit 0
 fi
-
-
+buildExampleConfigmap
+applyYunKorn
