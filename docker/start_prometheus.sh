@@ -7,7 +7,31 @@ function showHelp() {
   echo "COMMAND: "
   echo "    start <kafka-broker-jmx-addresses> <node-exporter-addresses>    create/start the prometheus docker instance"
   echo "    refresh <kafka-broker-jmx-addresses> <node-exporter-addresses>  refresh and apply the prometheus config"
+  echo "    refresh <config-file>                                           refresh and apply the prometheus config"
   echo "    help                                                            show this dialog"
+}
+
+function gradle_project_directory {
+    local script_folder="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)"
+    local target_folder="$script_folder"
+
+    # attempt to find the nearest parent directory that contains the gradlew file
+    # we recognize such directory as a Gradle repo that contains the build directory
+    while [ "$target_folder" != "/" ]; do
+        target_folder="$(dirname $target_folder)"
+
+        if [ -f "$target_folder/gradlew" ]; then
+            break
+        fi
+    done
+
+    if [ "$target_folder" == "/" ]; then
+        echo "Cannot find the gradle directory from $script_folder."
+        echo "Is the directory exists?"
+        exit 5
+    fi
+
+    echo "$target_folder"
 }
 
 # ===============================[checks]===============================
@@ -46,10 +70,15 @@ function wrap_address() {
 prometheus_port="${PROMETHEUS_PORT:-9090}"
 image_name=prom/prometheus:v2.32.1
 container_name="prometheus-${prometheus_port}"
-file=/tmp/prometheus-${prometheus_port}.yml
-scrape_interval="5s"
+file_prefix="$(gradle_project_directory)/build/docker/prometheus"
+file="${file_prefix}/prometheus-${prometheus_port}.yml"
+temp_file="${file_prefix}/prometheus-${prometheus_port}-editing.yml"
+scrape_interval="${scrape_interval:-200ms}"
+scrape_timeout="${scrape_timeout:-200ms}"
 volume_name_1="prometheus-${prometheus_port}-etc"
 volume_name_2="prometheus-${prometheus_port}-prometheus"
+
+mkdir -p "$file_prefix"
 
 function write_config() {
   kafka_jmx_addresses="$(wrap_address "$1")"
@@ -65,11 +94,13 @@ scrape_configs:
 
   - job_name: 'kafka'
     scrape_interval: $scrape_interval
+    scrape_timeout: $scrape_timeout
     static_configs:
       - targets: [$kafka_jmx_addresses]
 
   - job_name: 'node'
     scrape_interval: $scrape_interval
+    scrape_timeout: $scrape_timeout
     static_configs:
       - targets: [$node_exporter_addresses]
 EOT
@@ -91,8 +122,8 @@ function info() {
 }
 
 function refresh_config_from_file() {
-  info "Refresh prometheus configuration from config file $file"
-  docker cp "$file" "$container_name:/etc/prometheus/prometheus.yml"
+  info "Refresh prometheus configuration from config file $1"
+  docker cp "$1" "$container_name:/etc/prometheus/prometheus.yml"
   docker kill --signal="SIGHUP" "$container_name"
 }
 
@@ -134,16 +165,15 @@ function main() {
   info "================================================="
 }
 
-
 # shellcheck disable=SC2199
 if [[ "$1" == "start" ]]; then
   # shellcheck disable=SC2068
   main "$2" "$3"
-elif [[ "$1" == "refresh" ]] && [[ "$2" != "" ]]; then
+elif [[ "$1" == "refresh" ]] && [[ "$#" -eq 3 ]]; then
   # shellcheck disable=SC2068
   refresh_config "$2" "$3"
-elif [[ "$1" == "refresh" ]]; then
-  refresh_config_from_file
+elif [[ "$1" == "refresh" ]] && [[ "$#" -eq 2 ]]; then
+  refresh_config_from_file "$2"
 elif [[ "$1" == "help" ]]; then
   showHelp
 else
