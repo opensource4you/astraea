@@ -14,7 +14,13 @@ declare -r DATE=$(date +"%d-%m-%Y")
 
 
 # ===================================[functions]===================================
-
+function showHelp() {
+  echo "Usage: [ENV] start_broker.sh [ ARGUMENTS ]"
+  echo "ENV: "
+  echo "    REPO=astraea/yunikorn                      set the docker repo"
+  echo "    BUILD=false                              set true if you want to build image locally"
+  echo "    RUN=false                                set false if you want to build/pull image only"
+}
 function generateDockerfile() {
 cat > $DOCKERFILE << EOF
 # this dockerfile is generate dynamically
