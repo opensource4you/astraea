@@ -8,7 +8,7 @@ public class NodeSortingPolicy {
     public static final String CORE_KEY = "vcore";
     public static final String MEMORY_KEY = "memory";
     private String type ;
-   private Map<String, Double> resourceweights = new HashMap<>();
+    private Map<String, Double> resourceweights = new HashMap<>();
     NodeSortingPolicy(){
         resourceweights.put(MEMORY_KEY, 1.0);
         resourceweights.put(CORE_KEY, 1.0);

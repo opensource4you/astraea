@@ -80,7 +80,7 @@ public class Client {
             long[] totalResources = {0, 0};
             for (int i= 0;i<totalApplication;i++){
                 var application = json.getJSONObject(i);
-                String state= application
+                var state= application
                         .get("applicationState")
                         .toString();
                 var resources = application

@@ -18,7 +18,9 @@ def versions = [
     zookeeper: project.properties['zookeeper.version'] ?: "3.6.3",
     json: project.properties['json.version']?: "20090211",
     yaml: project.properties['yaml.version']?: "1.8",
-    lombok: project.properties['lombok.version']?: "1.18.22"
+    lombok: project.properties['lombok.version']?: "1.18.22",
+    gson: project.properties['gson.version']?: "2.7"
+
 
 ]
 
@@ -38,6 +40,7 @@ dependencies {
     implementation "org.yaml:snakeyaml:${versions["yaml"]}"
     compileOnly "org.projectlombok:lombok:${versions["lombok"]}"
     annotationProcessor "org.projectlombok:lombok:${versions["lombok"]}"
+    implementation "com.google.code.gson:gson:${versions["gson"]}"
 
 }
 
