@@ -285,7 +285,7 @@ public class Performance {
     @Parameter(
         names = {"--jmx.servers"},
         description =
-            "String: server to get jmx metrics <jmx_server>@<broker_id>[,<jmx_server>@<broker_id>]*",
+            "String: server to get jmx metrics <broker_id>.<jmx_serverPort>[,<broker_id>.<jmx_serverPort>]*",
         validateWith = NonEmptyStringField.class)
     String jmxServers = "";
 
