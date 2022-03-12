@@ -1,4 +1,4 @@
-
+.
 # ===============================[global variables]===============================
 declare -r VERSION="1.20.14-00"
 declare -r NETCIDR="10.244.0.0/16"
@@ -64,7 +64,7 @@ spec:
       containers:
         - name: yunikorn-scheduler-k8s
           image: ghcr.io/skiptests/astraea/yunikorn:latest
-env:
+          env:
             - name: ENABLE_CONFIG_HOT_REFRESH
               value: "false"
             - name: LOG_ENCODING
