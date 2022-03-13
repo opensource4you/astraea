@@ -323,14 +323,14 @@ public class Performance {
         names = {"--key.distribution"},
         description =
             "String: Distribution name. Available distribution names: \"fixed\" \"uniform\", \"zipfian\", \"latest\". Default: uniform",
-        converter = DistributionType.DistributionField.class)
+        converter = DistributionType.DistributionTypeField.class)
     DistributionType keyDistributionType = DistributionType.UNIFORM;
 
     @Parameter(
         names = {"--size.distribution"},
         description =
             "String: Distribution name. Available distribution names: \"uniform\", \"zipfian\", \"latest\", \"fixed\". Default: \"uniform\"",
-        converter = DistributionType.DistributionField.class)
+        converter = DistributionType.DistributionTypeField.class)
     DistributionType sizeDistributionType = DistributionType.UNIFORM;
 
     @Parameter(

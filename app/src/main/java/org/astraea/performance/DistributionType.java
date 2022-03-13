@@ -80,7 +80,7 @@ public enum DistributionType {
    * convert(String): Accept lower-case name only e.g. "fixed", "uniform", "latest" and "zipfian"
    * are legal e.g. "Fixed" and "UNIFORM" are illegal
    */
-  static class DistributionField extends Field<DistributionType> {
+  static class DistributionTypeField extends Field<DistributionType> {
     @Override
     public DistributionType convert(String name) {
       return Arrays.stream(DistributionType.values())
