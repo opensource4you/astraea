@@ -31,7 +31,7 @@ public class PerformanceTest extends RequireBrokerCluster {
     var param = new Performance.Argument();
     param.brokers = bootstrapServers();
     param.topic = topicName;
-    param.fixedSize = true;
+    param.sizeDistributionType = DistributionType.FIXED;
     param.exeTime = ExeTime.of("100records");
     param.specifyBroker = List.of(0);
     param.consumers = 0;
@@ -74,7 +74,7 @@ public class PerformanceTest extends RequireBrokerCluster {
     var param = new Performance.Argument();
     param.brokers = bootstrapServers();
     param.topic = topicName;
-    param.fixedSize = true;
+    param.sizeDistributionType = DistributionType.FIXED;
     param.exeTime = ExeTime.of("100records");
     param.specifyBroker = List.of(0, 1);
     param.consumers = 0;
@@ -112,7 +112,7 @@ public class PerformanceTest extends RequireBrokerCluster {
     var param = new Performance.Argument();
     param.brokers = bootstrapServers();
     param.topic = "testProducerExecutor-" + System.currentTimeMillis();
-    param.fixedSize = true;
+    param.sizeDistributionType = DistributionType.FIXED;
     param.consumers = 0;
     try (Executor executor =
         Performance.producerExecutor(
@@ -133,7 +133,7 @@ public class PerformanceTest extends RequireBrokerCluster {
     Metrics metrics = new Metrics();
     var topicName = "testConsumerExecutor-" + System.currentTimeMillis();
     var param = new Performance.Argument();
-    param.fixedSize = true;
+    param.sizeDistributionType = DistributionType.FIXED;
     try (Executor executor =
         Performance.consumerExecutor(
             Consumer.builder().topics(Set.of(topicName)).brokers(bootstrapServers()).build(),
