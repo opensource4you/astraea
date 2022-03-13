@@ -5,10 +5,12 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import org.astraea.metrics.HasBeanObject;
+import org.astraea.cost.ClusterInfo;
+import org.astraea.cost.CostFunction;
+import org.astraea.cost.NodeInfo;
+import org.astraea.cost.PartitionInfo;
 import org.astraea.metrics.collector.Fetcher;
 import org.astraea.metrics.collector.Receiver;
-import org.astraea.partitioner.cost.CostFunction;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
@@ -65,9 +67,8 @@ public class StrictCostDispatcherTest {
     var costFunction =
         new CostFunction() {
           @Override
-          public Map<Integer, Double> cost(
-              Map<Integer, List<HasBeanObject>> beans, ClusterInfo clusterInfo) {
-            return beans.keySet().stream()
+          public Map<Integer, Double> cost(ClusterInfo clusterInfo) {
+            return clusterInfo.allBeans().keySet().stream()
                 .collect(
                     Collectors.toMap(Function.identity(), id -> id.equals(n0.id()) ? 0.9D : 0.5D));
           }

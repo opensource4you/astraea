@@ -18,11 +18,11 @@ import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Collectors;
 import org.astraea.Utils;
+import org.astraea.cost.ClusterInfo;
+import org.astraea.cost.NodeInfo;
 import org.astraea.metrics.collector.Receiver;
 import org.astraea.metrics.java.HasJvmMemory;
 import org.astraea.metrics.kafka.KafkaMetrics;
-import org.astraea.partitioner.ClusterInfo;
-import org.astraea.partitioner.NodeInfo;
 
 /**
  * this clas is responsible for obtaining jmx metrics from BeanCollector and calculating the
@@ -158,7 +158,8 @@ public class NodeLoadClient {
                       .metrics
                       .get(KafkaMetrics.BrokerTopic.BytesInPerSec.name())
                       .current()
-                      .get(0)
+                      .iterator()
+                      .next()
                       .beanObject()
                       .getAttributes()
                       .get("Count")
@@ -169,7 +170,8 @@ public class NodeLoadClient {
                       .metrics
                       .get(KafkaMetrics.BrokerTopic.BytesOutPerSec.name())
                       .current()
-                      .get(0)
+                      .iterator()
+                      .next()
                       .beanObject()
                       .getAttributes()
                       .get("Count")
