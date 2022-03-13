@@ -17,7 +17,7 @@ import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Collectors;
 import org.apache.kafka.clients.producer.Partitioner;
 import org.apache.kafka.common.Cluster;
-import org.astraea.partitioner.ClusterInfo;
+import org.astraea.cost.ClusterInfo;
 import org.astraea.partitioner.Configuration;
 import org.astraea.partitioner.nodeLoadMetric.NodeLoadClient;
 

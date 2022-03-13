@@ -9,10 +9,12 @@ import java.util.Optional;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
 import org.astraea.Utils;
+import org.astraea.cost.ClusterInfo;
+import org.astraea.cost.CostFunction;
+import org.astraea.cost.PartitionInfo;
 import org.astraea.metrics.collector.BeanCollector;
 import org.astraea.metrics.collector.Fetcher;
 import org.astraea.metrics.collector.Receiver;
-import org.astraea.partitioner.cost.CostFunction;
 
 /**
  * this dispatcher scores the nodes by multiples cost functions. Each function evaluate the target
@@ -68,7 +70,7 @@ public class StrictCostDispatcher implements Dispatcher {
     // get scores from all cost functions
     var scores =
         functions.stream()
-            .map(f -> f.cost(beans, clusterInfo))
+            .map(f -> f.cost(ClusterInfo.of(clusterInfo, beans)))
             .collect(Collectors.toUnmodifiableList());
 
     return bestPartition(partitions, scores).map(e -> e.getKey().partition()).orElse(0);

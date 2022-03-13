@@ -1,10 +1,8 @@
-package org.astraea.partitioner.cost;
+package org.astraea.cost;
 
 import java.util.List;
 import java.util.Map;
 import org.astraea.metrics.kafka.BrokerTopicMetricsResult;
-import org.astraea.partitioner.ClusterInfo;
-import org.astraea.partitioner.NodeInfo;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
@@ -34,8 +32,9 @@ public class ThroughputCostTest {
 
     var cluster = Mockito.mock(ClusterInfo.class);
     Mockito.when(cluster.nodes()).thenReturn(List.of(node));
+    Mockito.when(cluster.allBeans()).thenReturn(Map.of());
 
-    var cost = throughputCost.cost(Map.of(10, List.of(bean)), cluster);
+    var cost = throughputCost.cost(ClusterInfo.of(cluster, Map.of(10, List.of(bean))));
     Assertions.assertEquals(1, cost.size());
     Assertions.assertEquals(1, cost.get(10));
   }
