@@ -1,22 +1,22 @@
 package org.astraea.yunikorn.config;
 
-import lombok.*;
-
 import java.util.List;
-@Getter @Setter
+import lombok.Getter;
+import lombok.Setter;
+
+@Getter
+@Setter
 public class PartitionConfig {
-    private String name;
-    private List<QueueConfig> queues;
+  private String name;
+  private List<QueueConfig> queues;
 
-    private List<PlacementRule> placementrules;
+  private List<PlacementRule> placementrules;
 
-    private List<Limit> limits;
+  private List<Limit> limits;
 
-    private PartitionPreemptionConfig preemption;
+  private PartitionPreemptionConfig preemption;
 
-    private NodeSortingPolicy nodesortpolicy;
+  private NodeSortingPolicy nodesortpolicy;
 
-    private String statedumpfilepath;
-
-
+  private String statedumpfilepath;
 }
