@@ -1,8 +1,12 @@
-.
+#!/bin/bash
+
 # ===============================[global variables]===============================
+
 declare -r VERSION="1.20.14-00"
 declare -r NETCIDR="10.244.0.0/16"
+
 # ===================================[functions]===================================
+
 function showHelp() {
   echo "Usage: [ENV] start_broker.sh [ ARGUMENTS ]"
   echo "Required Argument: "
@@ -17,7 +21,7 @@ function showHelp() {
 
 
 function buildExampleConfigmap(){
-cat > $CONFIGMAP << EOF
+  cat > $CONFIGMAP << EOF
 partitions:
   - name: default
     nodesortpolicy:
@@ -39,8 +43,8 @@ EOF
 }
 
 function applyYunKorn(){
-kubectl create configmap yunikorn-configs --from-file=queues.yaml
-cat <<EOF | kubectl apply  -f -
+  kubectl create configmap yunikorn-configs --from-file=queues.yaml
+  cat <<EOF | kubectl apply  -f -
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -79,37 +83,40 @@ spec:
 EOF
 }
 
-# ===================================[main]===================================
-if [[ "$1" == "help" ]]; then
-    showHelp
-    exit 0
-fi
-curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key add
-sudo apt-add-repository "deb http://apt.kubernetes.io/ kubernetes-xenial main"
-sudo apt-get update
-sudo apt-get install -y  docker.io
-sudo apt-get install -y kubeadm=$VERSION kubelet=&VERSION kubectl=$VERSION
-sudo apt-mark hold kubeadm kubelet kubectl
-sudo swapoff -a
-
 function controlPlan(){
-sudo kubeadm init --pod-network-cidr=$NETCIDR
-mkdir -p $HOME/.kube
-sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
-sudo chown $(id -u):$(id -g) $HOME/.kube/config
-sudo kubectl apply -f https://raw.githubusercontent.com/coreos/flannel/master/Documentation/kube-flannel.yml
-
-
+  sudo kubeadm init --pod-network-cidr=$NETCIDR
+  mkdir -p $HOME/.kube
+  sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
+  sudo chown $(id -u):$(id -g) $HOME/.kube/config
+  sudo kubectl apply -f https://raw.githubusercontent.com/coreos/flannel/master/Documentation/kube-flannel.yml
 }
 
+function installKubernetes() {
+  curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key add
+  sudo apt-add-repository "deb http://apt.kubernetes.io/ kubernetes-xenial main"
+  sudo apt-get update
+  sudo apt-get install -y  docker.io
+  sudo apt-get install -y kubeadm=$VERSION kubelet=&VERSION kubectl=$VERSION
+  sudo apt-mark hold kubeadm kubelet kubectl
+  sudo swapoff -a
+}
+
+# ===================================[main]===================================
+if [[ "$1" == "help" ]]; then
+  showHelp
+  exit 0
+fi
+
+installKubernetes
 
 if [[ $1 == "controlplan" ]]; then
-controlPlan
-exit 0
+  controlPlan
+  exit 0
 fi
 if [[ $1 == "worker" ]]; then
-sudo kubeadm join $2 --discovery-token $3 --discovery-token-ca-cert-hash sha256:$4
-exit 0
+  sudo kubeadm join $2 --discovery-token $3 --discovery-token-ca-cert-hash sha256:$4
+  exit 0
 fi
+
 buildExampleConfigmap
 applyYunKorn
