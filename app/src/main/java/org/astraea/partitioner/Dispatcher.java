@@ -4,6 +4,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 import org.apache.kafka.clients.producer.Partitioner;
 import org.apache.kafka.common.Cluster;
+import org.astraea.cost.ClusterInfo;
 
 public interface Dispatcher extends Partitioner {
   /**

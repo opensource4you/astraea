@@ -1,8 +1,14 @@
-package org.astraea.partitioner;
+package org.astraea.cost;
 
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.stream.Collectors;
+import org.astraea.metrics.HasBeanObject;
 
 public interface ClusterInfo {
 
@@ -25,6 +31,58 @@ public interface ClusterInfo {
         return cluster.partitionsForTopic(topic).stream()
             .map(PartitionInfo::of)
             .collect(Collectors.toUnmodifiableList());
+      }
+
+      @Override
+      public Collection<HasBeanObject> beans(int brokerId) {
+        return List.of();
+      }
+
+      @Override
+      public Map<Integer, Collection<HasBeanObject>> allBeans() {
+        return Map.of();
+      }
+    };
+  }
+
+  /**
+   * merge the beans into cluster information
+   *
+   * @param cluster cluster information
+   * @param beans extra beans
+   * @return a new cluster information with extra beans
+   */
+  static ClusterInfo of(ClusterInfo cluster, Map<Integer, Collection<HasBeanObject>> beans) {
+    var all = new HashMap<Integer, List<HasBeanObject>>();
+    cluster
+        .allBeans()
+        .forEach((key, value) -> all.computeIfAbsent(key, k -> new ArrayList<>()).addAll(value));
+    beans.forEach((key, value) -> all.computeIfAbsent(key, k -> new ArrayList<>()).addAll(value));
+    return new ClusterInfo() {
+
+      @Override
+      public List<NodeInfo> nodes() {
+        return cluster.nodes();
+      }
+
+      @Override
+      public List<PartitionInfo> availablePartitions(String topic) {
+        return cluster.availablePartitions(topic);
+      }
+
+      @Override
+      public List<PartitionInfo> partitions(String topic) {
+        return cluster.partitions(topic);
+      }
+
+      @Override
+      public Collection<HasBeanObject> beans(int brokerId) {
+        return all.getOrDefault(brokerId, List.of());
+      }
+
+      @Override
+      public Map<Integer, Collection<HasBeanObject>> allBeans() {
+        return Collections.unmodifiableMap(all);
       }
     };
   }
@@ -77,4 +135,14 @@ public interface ClusterInfo {
    * @return A list of partitions
    */
   List<PartitionInfo> partitions(String topic);
+
+  /**
+   * @param brokerId broker id
+   * @return return the metrics of broker. It returns empty collection if the broker id is
+   *     nonexistent
+   */
+  Collection<HasBeanObject> beans(int brokerId);
+
+  /** @return all beans of all brokers */
+  Map<Integer, Collection<HasBeanObject>> allBeans();
 }
