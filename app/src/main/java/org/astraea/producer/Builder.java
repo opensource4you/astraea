@@ -3,6 +3,7 @@ package org.astraea.producer;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Random;
@@ -108,39 +109,25 @@ public class Builder<Key, Value> {
             Serializer.of((Serializer<Value>) valueSerializer));
     transactionProducer.initTransactions();
     return new TransactionalProducer<>() {
-      private boolean singleTransaction = true;
 
       @Override
       public Sender<Key, Value> sender() {
-        return new AbstractSender<>() {
-          /*
-           * For the Transactional Producer's sender, use transactionalProducer.transaction(senders) instead
-           * of using sender.run();
-           * */
+        return new TransactionalSender<>() {
+          /** Send one transactional record. */
           @Override
           public CompletionStage<Metadata> run() {
+            return transaction(List.of(this)).stream().findFirst().orElseThrow();
+          }
+
+          @Override
+          CompletionStage<Metadata> send() {
             var completableFuture = new CompletableFuture<Metadata>();
-            synchronized (transactionProducer) {
-              try {
-                if (singleTransaction) transactionProducer.beginTransaction();
-                transactionProducer.send(
-                    new ProducerRecord<>(
-                        topic, partition, timestamp, key, value, Header.of(headers)),
-                    (metadata, exception) -> {
-                      if (exception == null) completableFuture.complete(Metadata.of(metadata));
-                      else completableFuture.completeExceptionally(exception);
-                    });
-                if (singleTransaction) transactionProducer.commitTransaction();
-              } catch (ProducerFencedException
-                  | OutOfOrderSequenceException
-                  | AuthorizationException e) {
-                transactionProducer.close();
-                // Error occur
-                throw e;
-              } catch (KafkaException ke) {
-                transactionProducer.abortTransaction();
-              }
-            }
+            transactionProducer.send(
+                new ProducerRecord<>(topic, partition, timestamp, key, value, Header.of(headers)),
+                (metadata, exception) -> {
+                  if (exception == null) completableFuture.complete(Metadata.of(metadata));
+                  else completableFuture.completeExceptionally(exception);
+                });
             return completableFuture;
           }
         };
@@ -161,17 +148,28 @@ public class Builder<Key, Value> {
         transactionProducer.close();
       }
 
+      /**
+       * Send a collection of records as a transaction operation. For example,
+       *
+       * <pre>{@code
+       * try(var producer = Producer.builder().brokers("localhost:9092").buildTransactional()){
+       *     producer.transaction(
+       *             IntStream.range(0, 10)
+       *                     .mapToObj(i -> producer.sender().topic("topic1").value(new byte[10]))
+       *                     .collect(Collectors.toList()));
+       * }
+       * }</pre>
+       */
       @Override
       public Collection<CompletionStage<Metadata>> transaction(
           Collection<Sender<Key, Value>> senders) {
         var futures = new ArrayList<CompletionStage<Metadata>>(senders.size());
         try {
           synchronized (transactionProducer) {
-            singleTransaction = false;
             transactionProducer.beginTransaction();
-            senders.forEach(sender -> futures.add(sender.run()));
+            senders.forEach(
+                sender -> futures.add(((TransactionalSender<Key, Value>) sender).send()));
             transactionProducer.commitTransaction();
-            singleTransaction = true;
           }
         } catch (ProducerFencedException | OutOfOrderSequenceException | AuthorizationException e) {
           transactionProducer.close();
