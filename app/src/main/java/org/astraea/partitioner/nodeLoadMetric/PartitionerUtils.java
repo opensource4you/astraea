@@ -1,7 +1,10 @@
 package org.astraea.partitioner.nodeLoadMetric;
 
+import java.io.FileInputStream;
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Properties;
 
 /** do poisson for node's load situation */
 public class PartitionerUtils {
@@ -45,20 +48,13 @@ public class PartitionerUtils {
     return (int) Math.round(avgLoadCount);
   }
 
-  /**
-   * A cheap way to deterministically convert a number to a positive value. When the input is
-   * positive, the original value is returned. When the input number is negative, the returned
-   * positive value is the original value bit AND against 0x7fffffff which is not its absolute
-   * value.
-   *
-   * <p>Note: changing this method in the future will possibly cause partition selection not to be
-   * compatible with the existing messages already placed on a partition since it is used in
-   * producer's {@link org.apache.kafka.clients.producer.internals.DefaultPartitioner}
-   *
-   * @param number a given number
-   * @return a positive number.
-   */
-  public static int toPositive(int number) {
-    return number & 0x7fffffff;
+  public static Properties partitionerConfig(Map<String, ?> configs) {
+    var properties = new Properties();
+    try {
+      properties.load(new FileInputStream((String) configs.get("partitioner.config")));
+    } catch (IOException e) {
+      e.printStackTrace();
+    }
+    return properties;
   }
 }

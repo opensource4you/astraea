@@ -1,6 +1,6 @@
 package org.astraea.metrics.collector;
 
-import java.util.List;
+import java.util.Collection;
 import org.astraea.metrics.HasBeanObject;
 
 /**
@@ -20,7 +20,7 @@ public interface Receiver extends AutoCloseable {
    *
    * @return current mbeans.
    */
-  List<HasBeanObject> current();
+  Collection<HasBeanObject> current();
 
   @Override
   void close();
