@@ -17,7 +17,7 @@ public class Yunikorn {
             if(client.listen(args.ip)){
                 client.adjust(args.ip);
 
-            };
+            }
             try {
                 Thread.sleep(1000);
             } catch (InterruptedException e) {

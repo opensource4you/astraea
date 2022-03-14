@@ -90,11 +90,11 @@ public class Client {
                     continue;
                 if(state.compareTo("Starting")==0){
                     resources = resources.substring(1, resources.length()-1);
-                    String[] pairs = resources.split(" ");
+                    var pairs = resources.split(" ");
                     totalRunning++;
                     for(int j = 0;j<pairs.length;j++){
                         var pair = pairs[j];
-                        String[] keyValue = pair.split(":");
+                        var keyValue = pair.split(":");
                         totalResources[j] = totalResources[j]+Long.valueOf(keyValue[1]);
                     }
                 }

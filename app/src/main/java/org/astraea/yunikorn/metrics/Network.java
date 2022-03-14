@@ -1,10 +1,13 @@
 package org.astraea.yunikorn.metrics;
 
+
+import io.prometheus.client.CollectorRegistry;
+import io.prometheus.client.exporter.HTTPServer;
 import org.astraea.yunikorn.metrics.Infos.Info;
 import org.astraea.yunikorn.metrics.Infos.Node;
 import org.json.JSONArray;
 import org.json.JSONException;
-import com.google.gson.*;
+
 import java.io.IOException;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -15,7 +18,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class Network {
-    public InfoCollector getInfo(String ip) {
+    public static final String NODE_KEY = "nodesInfo";
+    public Info getInfo(String ip, Info info) {
         HttpClient client = HttpClient.newBuilder()
                 .followRedirects(HttpClient.Redirect.NORMAL)
                 .connectTimeout(Duration.ofSeconds(20))
@@ -24,29 +28,33 @@ public class Network {
                 .uri(URI.create("http://" + ip + "/ws/v1/nodes"))
                 .GET()
                 .build();
-        var infoCollector = new InfoCollector();
+        List<Node> nodes = new ArrayList<>();
         try {
             HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
             var body = response.body();
-            var nodes = getNodes(body);
-            var info = new Info(nodes);
-
+            nodes = getNodes(body);
         } catch (IOException e) {
             e.printStackTrace();
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
-        return infoCollector;
+        info.update(nodes);
+        return info;
     }
-
-    private List<Node> getNodes(String body){
+    public static void exporter() throws IOException {
+        HTTPServer server = new HTTPServer.Builder()
+                .withPort(9999)
+                .build();
+    }
+    public List<Node> getNodes(String body){
         List<Node> nodes = new ArrayList<>();
         try {
             var json = new JSONArray(body);
-            var gson = new Gson();
-            for (int i = 0; i < json.length();i++){
-                var node = gson.fromJson(json.getJSONObject(i).toString(), Node.class);
-                nodes.add(node);
+            for (int i = 0; i < json.getJSONObject(0).getJSONArray(NODE_KEY).length();i++){
+                    var node = new Node(json.getJSONObject(0)
+                            .getJSONArray(NODE_KEY)
+                            .getJSONObject(i));
+                    nodes.add(node);
             }
 
         } catch (JSONException e) {
