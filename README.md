@@ -226,9 +226,9 @@ Run the benchmark from source
 5. --consumers: the number of consumers (threads). Default: 1
 6. --producers: the number of producers (threads). Default: 1
 7. --run.until: the total number of records sent by the producers or the time for producer to send records.
-  The duration formats accepted are (a number) + (a time unit). 
-  The time units can be "days", "day", "h", "m", "s", "ms", "us", "ns".
-  e.g. "--run.until 1m" or "--run.until 89242records" Default: 1000records
+    The duration formats accepted are (a number) + (a time unit). 
+    The time units can be "days", "day", "h", "m", "s", "ms", "us", "ns".
+    e.g. "--run.until 1m" or "--run.until 89242records" Default: 1000records
 8. --record.size: the (bound of) record size in byte. Default: 1 KiB
 9. --prop.file: the path to property file.
 10. --partitioner: the partitioner to use in producers
@@ -322,7 +322,7 @@ This tool offers an effective way to migrate specify replicas from specific brok
 ### Move all replicas of topic "abc" from broker_0 to broker_1
 
 ```shell
-./gradlew run --args="replica --bootstrap.servers 192.168.50.178:19993 --from 0,1 --to 2,3 --topics abc"
+./gradlew run --args="replica --bootstrap.servers 192.168.50.178:19993 --from 0 --to 1 --topics abc"
 ```
 
 ### Move all replicas of topic "abc" in broker_0 to other folders
@@ -334,13 +334,13 @@ This tool offers an effective way to migrate specify replicas from specific brok
 ### Move specify replicas of topic "abc" and "def" from broker_0 to broker_1
 
 ```shell
-./gradlew run --args="replica --bootstrap.servers 192.168.50.178:19993 --from 0 --to 1 --topic abc --partitions 0,1"
+./gradlew run --args="replica --bootstrap.servers 192.168.50.178:19993 --from 0 --to 1 --topic abc,def --partitions 0,1"
 ```
 
 ### Move specify replicas of topic "abc"  and "def" from broker_0 to broker_1 specify folder
 
 ```shell
-./gradlew run --args="replica --bootstrap.servers 192.168.50.178:19993 --from 0 --to 1 --topic abc --partitions 0,1 --path /tmp/log1"
+./gradlew run --args="replica --bootstrap.servers 192.168.50.178:19993 --from 0 --to 1 --topic abc,def --partitions 0,1 --path /tmp/log1"
 ```
 
 ### Replica Collie Configurations
