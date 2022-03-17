@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.condition.OS.WINDOWS;
 
 import java.time.Duration;
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
@@ -162,7 +163,7 @@ public class TopicAdminTest extends RequireBrokerCluster {
       // wait for syncing topic creation
       TimeUnit.SECONDS.sleep(5);
       var broker = topicAdmin.brokerIds().iterator().next();
-      topicAdmin.migrator().partition(topicName, 0).moveTo(Set.of(broker));
+      topicAdmin.migrator().partition(topicName, 0).moveTo(List.of(broker));
       Utils.waitFor(
           () -> {
             var replicas = topicAdmin.replicas(Set.of(topicName));
@@ -214,7 +215,7 @@ public class TopicAdminTest extends RequireBrokerCluster {
       // wait for syncing topic creation
       TimeUnit.SECONDS.sleep(5);
       var broker = topicAdmin.brokerIds().iterator().next();
-      topicAdmin.migrator().topic(topicName).moveTo(Set.of(broker));
+      topicAdmin.migrator().topic(topicName).moveTo(List.of(broker));
       Utils.waitFor(
           () -> {
             var replicas = topicAdmin.replicas(Set.of(topicName));

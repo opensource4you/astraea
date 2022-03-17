@@ -73,7 +73,7 @@ public class Builder {
     }
 
     @Override
-    public Map<Integer, Set<String>> brokerFolders(Set<Integer> brokers) {
+    public Map<Integer, Set<String>> brokerFolders(Collection<Integer> brokers) {
       return Utils.handleException(
           () ->
               admin.describeLogDirs(brokers).allDescriptions().get().entrySet().stream()
@@ -467,7 +467,7 @@ public class Builder {
     }
 
     @Override
-    public void moveTo(Set<Integer> brokers) {
+    public void moveTo(List<Integer> brokers) {
       Utils.handleException(
           () ->
               admin

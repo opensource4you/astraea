@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.condition.OS.WINDOWS;
 
 import java.io.IOException;
 import java.util.Comparator;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
@@ -48,14 +49,14 @@ public class ReplicaCollieTest extends RequireBrokerCluster {
       var brokerSource =
           partitionReplicas.get(new TopicPartition(topicName, 0)).stream()
               .map(Replica::broker)
-              .collect(Collectors.toSet());
+              .collect(Collectors.toList());
       var brokerSink =
           topicAdmin.brokerIds().stream().filter(b -> !brokerSource.contains(b)).iterator().next();
-      TreeMap<TopicPartition, Map.Entry<Set<Integer>, Set<Integer>>> brokerMigrate =
+      TreeMap<TopicPartition, Map.Entry<List<Integer>, List<Integer>>> brokerMigrate =
           new TreeMap<>(
               Comparator.comparing(TopicPartition::topic).thenComparing(TopicPartition::partition));
       brokerMigrate.put(
-          new TopicPartition(topicName, 0), Map.entry(brokerSource, Set.of(brokerSink)));
+          new TopicPartition(topicName, 0), Map.entry(brokerSource, List.of(brokerSink)));
       Assertions.assertEquals(
           topicAdmin.replicas(Set.of(topicName)).get(new TopicPartition(topicName, 0)).size(), 2);
       ReplicaCollie.brokerMigrator(brokerMigrate, topicAdmin);
@@ -135,14 +136,14 @@ public class ReplicaCollieTest extends RequireBrokerCluster {
               .filter(Replica::isCurrent)
               .collect(Collectors.toList());
       Assertions.assertEquals(1, replicas.size());
-      var badBroker = replicas.stream().map(Replica::broker).collect(Collectors.toSet());
+      var badBroker = replicas.stream().map(Replica::broker).collect(Collectors.toList());
       var targetBroker =
           topicAdmin.brokerIds().stream()
               .filter(b -> !badBroker.contains(b))
-              .collect(Collectors.toSet());
+              .collect(Collectors.toList());
       var argument = new ReplicaCollie.Argument();
       argument.fromBrokers = badBroker;
-      argument.toBrokers = targetBroker;
+      argument.toBrokers = targetBroker.subList(0, 1);
       argument.brokers = bootstrapServers();
       argument.topics = Set.of(topicName);
       argument.partitions = Set.of(0);
@@ -161,8 +162,7 @@ public class ReplicaCollieTest extends RequireBrokerCluster {
               for (var index = 0; index != rs.size(); ++index)
                 Assertions.assertEquals(rs.get(index), currentRs.get(index));
             });
-        Assertions.assertEquals(targetBroker, assignment.brokerSink);
-
+        Assertions.assertEquals(argument.toBrokers, assignment.brokerSink);
       } else {
         Utils.waitFor(
             () -> {

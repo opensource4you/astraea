@@ -1,6 +1,7 @@
 package org.astraea.topic;
 
 import java.io.Closeable;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -70,7 +71,7 @@ public interface TopicAdmin extends Closeable {
    * @param brokers a Set containing broker's ID
    * @return all log directory
    */
-  Map<Integer, Set<String>> brokerFolders(Set<Integer> brokers);
+  Map<Integer, Set<String>> brokerFolders(Collection<Integer> brokers);
 
   /** @return a partition migrator used to move partitions to another broker or folder. */
   Migrator migrator();
