@@ -208,6 +208,31 @@ public class TopicAdminTest extends RequireBrokerCluster {
 
   @Test
   @DisabledOnOs(WINDOWS)
+  void testChangeReplicaLeader() throws InterruptedException {
+    var topicName = "testChangeReplicaLeader";
+    var tp = new TopicPartition(topicName, 0);
+    try (var topicAdmin = TopicAdmin.of(bootstrapServers())) {
+      topicAdmin
+          .creator()
+          .topic(topicName)
+          .numberOfPartitions(1)
+          .numberOfReplicas((short) 2)
+          .create();
+      // wait for syncing topic creation
+      TimeUnit.SECONDS.sleep(5);
+      topicAdmin.replicas(Set.of(topicName)).get(tp);
+      var replicas = topicAdmin.replicas(Set.of(topicName)).get(tp);
+      var oldLeader =
+          replicas.stream().filter(Replica::leader).collect(Collectors.toList()).get(0).broker();
+      var newLeader =
+          replicas.stream().filter(b -> !b.leader()).collect(Collectors.toList()).get(0).broker();
+      topicAdmin.changeReplicaLeader(Map.of(tp, newLeader));
+      Utils.waitFor(() -> topicAdmin.replicas(Set.of(topicName)).get(tp).get(0).leader());
+    }
+  }
+
+  @Test
+  @DisabledOnOs(WINDOWS)
   void testMigrateAllPartitions() throws InterruptedException {
     var topicName = "testMigrateAllPartitions";
     try (var topicAdmin = TopicAdmin.of(bootstrapServers())) {

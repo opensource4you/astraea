@@ -301,6 +301,7 @@ public class ReplicaCollie {
 
   public static void main(String[] args) throws IOException {
     var argument = org.astraea.argument.Argument.parse(new Argument(), args);
+
     try (var admin = TopicAdmin.of(argument.props())) {
       execute(admin, argument)
           .forEach(

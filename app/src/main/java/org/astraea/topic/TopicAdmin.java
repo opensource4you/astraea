@@ -61,6 +61,12 @@ public interface TopicAdmin extends Closeable {
   Set<Integer> brokerIds();
 
   /**
+   * @parm partitions map of TopicPartition and target brokers
+   * @return true if the leader is change successful changed
+   */
+  Map<TopicPartition, Boolean> changeReplicaLeader(Map<TopicPartition, Integer> partitions);
+
+  /**
    * @param topics topic names
    * @param brokersID brokers ID
    * @return the partitions of brokers
