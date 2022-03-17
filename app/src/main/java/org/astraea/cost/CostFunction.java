@@ -12,7 +12,6 @@ public interface CostFunction {
   /**
    * score all nodes according to passed beans and cluster information.
    *
-   * @param beans beans of each node (key is node id)
    * @param clusterInfo cluster information
    * @return the score of each node. the score range is [0 - 1]
    */
