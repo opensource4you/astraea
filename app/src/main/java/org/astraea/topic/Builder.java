@@ -256,8 +256,7 @@ public class Builder {
             try {
               electLeadersResult.all().get(10L, TimeUnit.SECONDS);
             } catch (InterruptedException | TimeoutException | ExecutionException e) {
-              System.out.println(tp + ": ");
-              e.printStackTrace();
+              throw new RuntimeException(e);
             }
             result.put(tp, electLeadersResult.partitions().isDone());
           });

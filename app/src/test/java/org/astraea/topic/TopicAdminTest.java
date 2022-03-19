@@ -227,7 +227,14 @@ public class TopicAdminTest extends RequireBrokerCluster {
       var newLeader =
           replicas.stream().filter(b -> !b.leader()).collect(Collectors.toList()).get(0).broker();
       topicAdmin.changeReplicaLeader(Map.of(tp, newLeader));
-      Utils.waitFor(() -> topicAdmin.replicas(Set.of(topicName)).get(tp).get(0).leader());
+      Assertions.assertNotEquals(oldLeader, newLeader);
+      Utils.waitFor(
+          () ->
+              topicAdmin.replicas(Set.of(topicName)).get(tp).stream()
+                  .filter(r -> r.broker() == newLeader)
+                  .iterator()
+                  .next()
+                  .leader());
     }
   }
 
