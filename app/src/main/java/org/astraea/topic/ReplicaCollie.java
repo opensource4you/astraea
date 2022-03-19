@@ -255,14 +255,16 @@ public class ReplicaCollie {
             if (assignments.getValue().contains(UNKNOWN)) {
               Set<String> newPath;
               if (!argument.verify) {
-                var oldPaths = admin.replicas(argument.topics).get(tp).stream().map(Replica::path);
+                var replicas = admin.replicas(argument.topics).get(tp);
                 newPath =
-                    oldPaths
+                    replicas.stream()
+                            .map(Replica::path)
                             .filter(p -> !assignments.getKey().contains(p))
                             .collect(Collectors.toSet())
                             .isEmpty()
-                        ? oldPaths.collect(Collectors.toSet())
-                        : oldPaths
+                        ? replicas.stream().map(Replica::path).collect(Collectors.toSet())
+                        : replicas.stream()
+                            .map(Replica::path)
                             .filter(p -> !assignments.getKey().contains(p))
                             .collect(Collectors.toSet());
               } else {
