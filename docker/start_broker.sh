@@ -290,13 +290,7 @@ function fetchBrokerId() {
 # ===================================[main]===================================
 
 checkDocker
-if [[ "$CONFLUENT_BROKER" = "true" ]]; then
-    generateConfluentDockerfile
-else
-    generateDockerfile
-fi
 buildImageIfNeed "$IMAGE_NAME"
-
 if [[ "$RUN" != "true" ]]; then
   echo "docker image: $IMAGE_NAME is created"
   exit 0

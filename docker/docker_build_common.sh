@@ -38,8 +38,11 @@ function buildImageIfNeed() {
     fi
     if [[ "$needToBuild" == "true" ]]; then
       if [[ "$CONFLUENT_BROKER" != "true" ]]; then
+        generateConfluentDockerfile
+      else
         generateDockerfile
       fi
+      
       docker build --no-cache -t "$imageName" -f "$DOCKERFILE" "$DOCKER_FOLDER"
       if [[ "$?" != "0" ]]; then
         exit 2
