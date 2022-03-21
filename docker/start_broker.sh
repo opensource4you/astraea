@@ -258,7 +258,6 @@ function fetchBrokerId() {
 # ===================================[main]===================================
 
 checkDocker
-generateDockerfile
 buildImageIfNeed "$IMAGE_NAME"
 
 if [[ "$RUN" != "true" ]]; then
