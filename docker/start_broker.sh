@@ -187,10 +187,14 @@ WORKDIR /opt/kafka
 }
 
 function generateDockerfile() {
-  if [[ -n "$REVISION" ]]; then
-    generateDockerfileBySource
+  if [[ "$CONFLUENT_BROKER" = "true" ]]; then
+    generateConfluentDockerfile
   else
-    generateDockerfileByVersion
+    if [[ -n "$REVISION" ]]; then
+      generateDockerfileBySource
+    else
+      generateDockerfileByVersion
+    fi
   fi
 }
 
@@ -290,11 +294,6 @@ function fetchBrokerId() {
 # ===================================[main]===================================
 
 checkDocker
-if [[ "$CONFLUENT_BROKER" = "true" ]]; then
-    generateConfluentDockerfile
-else
-    generateDockerfile
-fi
 buildImageIfNeed "$IMAGE_NAME"
 if [[ "$RUN" != "true" ]]; then
   echo "docker image: $IMAGE_NAME is created"
