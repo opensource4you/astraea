@@ -37,9 +37,7 @@ function buildImageIfNeed() {
       fi
     fi
     if [[ "$needToBuild" == "true" ]]; then
-      if [[ "$CONFLUENT_BROKER" != "true" ]]; then
-        generateConfluentDockerfile
-      else
+      if [[ "$CONFLUENT_BROKER" != "true" ]]; then  
         generateDockerfile
       fi
       
