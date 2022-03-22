@@ -11,12 +11,12 @@ function showHelp() {
   echo "Usage: [ENV] start_broker.sh [ ARGUMENTS ]"
   echo "Required Argument: "
   echo "    controlplan                              set controlplan or worker" 
-  echo " ===========if worker need to set the followers======================"
+  echo " ===========[if worker need to set the followers]===================="
   echo "    192.168.103.207:6443                     set zookeeper connection" 
   echo "    abcdef.1234567890abcdefm                 set discover token"
   echo "    1234..cdef 1.2.3.4:6443                  set discovery token ca-cert-hash"
   echo "ENV: "
-  echo "    VERSION=1.20.14-00                       set host folders used by broker"
+  echo "    VERSION=1.20.14-00                       set kubernetes version"
 }
 
 
@@ -96,7 +96,7 @@ function installKubernetes() {
   sudo apt-add-repository "deb http://apt.kubernetes.io/ kubernetes-xenial main"
   sudo apt-get update
   sudo apt-get install -y  docker.io
-  sudo apt-get install -y kubeadm=$VERSION kubelet=&VERSION kubectl=$VERSION
+  sudo apt-get install -y kubeadm=$VERSION kubelet=$VERSION kubectl=$VERSION
   sudo apt-mark hold kubeadm kubelet kubectl
   sudo swapoff -a
 }

@@ -415,7 +415,7 @@ Run it on the node which you want to be the master node.
 ```shell
 ./docker/start_k8s.sh controlplan
 ```
-After that, there will be an instruction of k8s to add a worker node.
+It would be better to generate the command which can add worker directly. The k8s command is good but using our script can add more friendly helpers in the future.
 For example:
 ```shell
 kubeadm join --discovery-token abcdef.1234567890abcdef --discovery-token-ca-cert-hash sha256:1234..cdef 1.2.3.4:6443
@@ -423,10 +423,11 @@ kubeadm join --discovery-token abcdef.1234567890abcdef --discovery-token-ca-cert
 The token and the hash of the token will be used for adding a new worker node.
 
 ### Run Worker Node 
+
 ```shell
 ./docker/start_k8s.sh worker <control-plan-ip>  <--discovery-token> <--discovery-token-ca-cert-hash>
 ```
-For example
+For example:
 ```shell
 ./docker/start_k8s.sh worker  1.2.3.4:6443  abcdef.1234567890abcdef  1234..cdef
 ```
