@@ -111,6 +111,8 @@ installKubernetes
 
 if [[ $1 == "controlplan" ]]; then
   controlPlan
+  buildExampleConfigmap
+  applyYunKorn
   exit 0
 fi
 if [[ $1 == "worker" ]]; then
@@ -118,5 +120,3 @@ if [[ $1 == "worker" ]]; then
   exit 0
 fi
 
-buildExampleConfigmap
-applyYunKorn

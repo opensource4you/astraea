@@ -403,3 +403,47 @@ $ ./gradlew run --args="monitor --bootstrap.servers 192.168.103.39:9092"
 3. --prop.file: the path to a file that containing the properties to be passed to kafka admin.
 4. --topic: topics to track (default: track all non-synced partition by default)
 5. --track: keep track even if all the replicas are synced. Also attempts to discover any non-synced replicas. (default: false)
+
+## Kubernetes Cluster Quick Start
+
+The following scripts can build a kubernetes cluster.
+
+### Run Control Node
+
+The script creates a control plan of kubernetes, and also run yunikorn on it. 
+Run it on the node which you want to be the master node.
+```shell
+./docker/start_k8s.sh controlplan
+```
+After that, there will be an instruction of k8s to add a worker node.
+For example:
+```shell
+kubeadm join --discovery-token abcdef.1234567890abcdef --discovery-token-ca-cert-hash sha256:1234..cdef 1.2.3.4:6443
+```
+The token and the hash of the token will be used for adding a new worker node.
+
+### Run Worker Node 
+```shell
+./docker/start_k8s.sh worker <control-plan-ip>  <--discovery-token> <--discovery-token-ca-cert-hash>
+```
+For example
+```shell
+./docker/start_k8s.sh worker  1.2.3.4:6443  abcdef.1234567890abcdef  1234..cdef
+```
+
+### Check the Nodes
+
+Switch to the master server, and enter:
+```shell
+kubectl get no
+```
+The console will show the status of the nodes. 
+For example:
+```shell
+NAME         STATUS   ROLES                  AGE   VERSION
+yunikorn01   Ready    control-plane,master   61d   v1.20.14
+yunikorn02   Ready    <none>                 31d   v1.20.14
+yunikorn03   Ready    <none>                 61d   v1.20.14
+yunikorn04   Ready    <none>                 31d   v1.20.14
+yunikorn05   Ready    <none>                 31d   v1.20.14
+```
