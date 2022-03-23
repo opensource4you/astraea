@@ -51,6 +51,7 @@ You can define `VERSION` to change the binary version.
 ### Run Kafka Broker
 
 After the zk env is running, you can copy the command (see above example) from zk script output to set up kafka. For example:
+
 ```shell
 ./docker/start_broker.sh zookeeper.connect=192.168.50.178:17228
 ```
@@ -59,10 +60,10 @@ The console will show the broker connection information and JMX address. For exa
 
 ```shell
 =================================================
+broker id: 677
 broker address: 192.168.50.178:12747
 jmx address: 192.168.50.178:10216
 exporter address: 192.168.50.178:10558
-broker id: 677
 =================================================
 ```
 
@@ -70,7 +71,24 @@ broker id: 677
 2. `jmx address` exports the java metrics by JMX
 3. `exporter address` is the address of prometheus exporter.
 
+You can set `CONFLUENT_BROKER` to true, if you want start the confluent version of the kafka cluster. For example:
+
+```shell
+env CONFLUENT_BROKER=true ./docker/start_broker.sh zookeeper.connect=192.168.50.178:17228
+```
+
+The console will show the broker connection information and exporter address. For example:
+
+```shell
+=================================================
+broker id: 1001
+broker address: 192.168.103.39:15230
+exporter address: 192.168.103.39:18928
+=================================================
+```
+
 There are 4 useful ENVs which can change JVM/container configuration.
+
 1. VERSION -> define the kafka version
 2. REVISION -> define the revision of kafka source code. If this is defined, it will run distribution based on the source code
 3. HEAP_OPTS -> define JVM memory options

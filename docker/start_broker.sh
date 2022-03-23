@@ -5,9 +5,9 @@ source $DOCKER_FOLDER/docker_build_common.sh
 
 # ===============================[global variables]===============================
 declare -r VERSION=${REVISION:-${VERSION:-3.1.0}}
-declare -r REPO=${REPO:-ghcr.io/skiptests/astraea/broker}
-declare -r IMAGE_NAME="$REPO:$VERSION"
 declare -r DOCKERFILE=$DOCKER_FOLDER/broker.dockerfile
+declare -r CONFLUENT_BROKER=${CONFLUENT_BROKER:-false}
+declare -r CONFLUENT_VERSION=${CONFLUENT_VERSION:-7.0.1}
 declare -r DATA_FOLDER_IN_CONTAINER_PREFIX="/tmp/log-folder"
 declare -r EXPORTER_VERSION="0.16.1"
 declare -r EXPORTER_PORT=${EXPORTER_PORT:-"$(getRandomPort)"}
@@ -26,12 +26,20 @@ declare -r JMX_OPTS="-Dcom.sun.management.jmxremote \
   -Dcom.sun.management.jmxremote.port=$BROKER_JMX_PORT \
   -Dcom.sun.management.jmxremote.rmi.port=$BROKER_JMX_PORT \
   -Djava.rmi.server.hostname=$ADDRESS"
+declare -r ZOOKEEPER_CONNECT=$(echo $1 | sed -n 's/^zookeeper.connect=\(.\+\)$/\1/p')
 declare -r HEAP_OPTS="${HEAP_OPTS:-"-Xmx2G -Xms2G"}"
 declare -r BROKER_PROPERTIES="/tmp/server-${BROKER_PORT}.properties"
-
+if [[ "$CONFLUENT_BROKER" = "true" ]]; then
+    declare -r REPO=${REPO:-ghcr.io/skiptests/astraea/confluent.broker}
+    declare -r IMAGE_NAME="$REPO:$CONFLUENT_VERSION"
+    declare -r SCRIPT_LOCATION_IN_CONTAINER="./bin/kafka-server-start"
+else
+    declare -r REPO=${REPO:-ghcr.io/skiptests/astraea/broker}
+    declare -r IMAGE_NAME="$REPO:$VERSION"
+    declare -r SCRIPT_LOCATION_IN_CONTAINER="./bin/kafka-server-start.sh"
+fi
 # cleanup the file if it is existent
 [[ -f "$BROKER_PROPERTIES" ]] && rm -f "$BROKER_PROPERTIES"
-
 
 # ===================================[functions]===================================
 
@@ -49,7 +57,7 @@ function showHelp() {
   echo "    VERSION=3.1.0                            set version of kafka distribution"
   echo "    BUILD=false                              set true if you want to build image locally"
   echo "    RUN=false                                set false if you want to build/pull image only"
-  echo "    DATA_FOLDERS=/tmp/folder1,/tmp/folder2   set host folders used by broker"
+  echo "    DATA_FOLDERS=/tmp/folder1                set host folders used by broker"
 }
 
 function rejectProperty() {
@@ -66,6 +74,28 @@ function requireProperty() {
     echo "$key is required"
     exit 2
   fi
+}
+
+function generateConfluentDockerfile() {
+  echo "# this dockerfile is generated dynamically
+FROM confluentinc/cp-server:$CONFLUENT_VERSION
+USER root
+RUN usermod -l $USER appuser && groupadd $USER && usermod -a -G $USER $USER
+RUN yum -y update && yum -y install git unzip
+
+# download jmx exporter
+RUN mkdir /opt/jmx_exporter
+WORKDIR /opt/jmx_exporter
+RUN wget https://raw.githubusercontent.com/prometheus/jmx_exporter/master/example_configs/kafka-2_0_0.yml --output-document=$JMX_CONFIG_FILE_IN_CONTAINER_PATH
+RUN wget https://REPO1.maven.org/maven2/io/prometheus/jmx/jmx_prometheus_javaagent/${EXPORTER_VERSION}/jmx_prometheus_javaagent-${EXPORTER_VERSION}.jar
+
+# change user
+RUN chown -R $USER:$USER /tmp
+RUN chown -R $USER:$USER /var
+USER $USER
+
+WORKDIR /
+" >"$DOCKERFILE"
 }
 
 function generateDockerfileBySource() {
@@ -157,10 +187,14 @@ WORKDIR /opt/kafka
 }
 
 function generateDockerfile() {
-  if [[ -n "$REVISION" ]]; then
-    generateDockerfileBySource
+  if [[ "$CONFLUENT_BROKER" = "true" ]]; then
+    generateConfluentDockerfile
   else
-    generateDockerfileByVersion
+    if [[ -n "$REVISION" ]]; then
+      generateDockerfileBySource
+    else
+      generateDockerfileByVersion
+    fi
   fi
 }
 
@@ -182,6 +216,9 @@ function setListener() {
   else
     echo "listeners=PLAINTEXT://:9092" >>"$BROKER_PROPERTIES"
     echo "advertised.listeners=PLAINTEXT://${ADDRESS}:$BROKER_PORT" >>"$BROKER_PROPERTIES"
+    if [[ "$CONFLUENT_BROKER" = "true" ]]; then
+      echo "confluent.metadata.server.listeners=http://0.0.0.0:$BROKER_PORT" >>"$BROKER_PROPERTIES"
+    fi
   fi
 }
 
@@ -252,14 +289,12 @@ function fetchBrokerId() {
   else
     echo "$id"
   fi
-
 }
 
 # ===================================[main]===================================
 
 checkDocker
 buildImageIfNeed "$IMAGE_NAME"
-
 if [[ "$RUN" != "true" ]]; then
   echo "docker image: $IMAGE_NAME is created"
   exit 0
@@ -288,6 +323,20 @@ setPropertyIfEmpty "num.partitions" "8"
 setPropertyIfEmpty "transaction.state.log.replication.factor" "1"
 setPropertyIfEmpty "offsets.topic.replication.factor" "1"
 setPropertyIfEmpty "transaction.state.log.min.isr" "1"
+if [[ "$CONFLUENT_BROKER" = "true" ]]; then
+    rejectProperty "metric.reporters"
+    setPropertyIfEmpty "confluent.metrics.reporter.zookeeper.connect" "$ZOOKEEPER_CONNECT"
+    setPropertyIfEmpty "metric.reporters" "io.confluent.metrics.reporter.ConfluentMetricsReporter"
+    setPropertyIfEmpty "confluent.metrics.reporter.bootstrap.servers" "${ADDRESS}:$BROKER_PORT"
+    setPropertyIfEmpty "confluent.metrics.reporter.topic.replicas" "1"
+    setPropertyIfEmpty "confluent.topic.replication.factor" "1"
+    setPropertyIfEmpty "confluent.license.topic.replication.factor" "1"
+    setPropertyIfEmpty "confluent.metadata.topic.replication.factor" "1"
+    setPropertyIfEmpty "confluent.security.event.logger.exporter.kafka.topic.replicas" "1"
+    setPropertyIfEmpty "confluent.balancer.topic.replication.factor" "1"
+    setPropertyIfEmpty "confluent.balancer.enable" "true"
+    setPropertyIfEmpty "confluent.topic.bootstrap.servers" "${ADDRESS}:$BROKER_PORT"
+fi
 setLogDirs
 
 docker run -d --init \
@@ -301,13 +350,17 @@ docker run -d --init \
   -p $BROKER_PORT:9092 \
   -p $BROKER_JMX_PORT:$BROKER_JMX_PORT \
   -p $EXPORTER_PORT:$EXPORTER_PORT \
-  "$IMAGE_NAME" ./bin/kafka-server-start.sh /tmp/broker.properties
+  "$IMAGE_NAME" "$SCRIPT_LOCATION_IN_CONTAINER" /tmp/broker.properties
 
 echo "================================================="
 [[ -n "$DATA_FOLDERS" ]] && echo "mount $DATA_FOLDERS to container: $CONTAINER_NAME"
 echo "broker id: $(fetchBrokerId)"
 echo "broker address: ${ADDRESS}:$BROKER_PORT"
-echo "jmx address: ${ADDRESS}:$BROKER_JMX_PORT"
+
+#confluent broker may not support JMX server now,so remove it temporarily
+if [[ "$CONFLUENT_BROKER" != "true" ]]; then
+    echo "jmx address: ${ADDRESS}:$BROKER_JMX_PORT"
+fi
 echo "exporter address: ${ADDRESS}:$EXPORTER_PORT"
 if [[ "$SASL" == "true" ]]; then
   user_jaas_file=/tmp/user-jaas-${BROKER_PORT}.conf
