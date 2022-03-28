@@ -173,8 +173,6 @@ public class PerformanceTest extends RequireBrokerCluster {
       "1000records",
       "--record.size",
       "10KiB",
-      "--jmx.servers",
-      "localhost:9000@1",
       "--partitioner",
       "org.astraea.partitioner.smoothPartitioner.SmoothWeightPartitioner",
       "--compression",
@@ -223,11 +221,6 @@ public class PerformanceTest extends RequireBrokerCluster {
     Assertions.assertThrows(
         IllegalArgumentException.class,
         () -> org.astraea.argument.Argument.parse(new Performance.Argument(), arguments8));
-
-    String[] arguments9 = {"--bootstrap.servers", "localhost:9092", "--jmx.servers", ""};
-    Assertions.assertThrows(
-        ParameterException.class,
-        () -> org.astraea.argument.Argument.parse(new Performance.Argument(), arguments9));
 
     String[] arguments10 = {"--bootstrap.servers", "localhost:9092", "--partitioner", ""};
     Assertions.assertThrows(

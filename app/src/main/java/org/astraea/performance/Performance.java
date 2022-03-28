@@ -280,13 +280,6 @@ public class Performance {
     DataSize recordSize = DataUnit.KiB.of(1);
 
     @Parameter(
-        names = {"--jmx.servers"},
-        description =
-            "String: server to get jmx metrics <broker_id>.<jmx_serverPort>[,<broker_id>.<jmx_serverPort>]*",
-        validateWith = NonEmptyStringField.class)
-    String jmxServers = "";
-
-    @Parameter(
         names = {"--partitioner"},
         description = "String: the full class name of the desired partitioner",
         validateWith = NonEmptyStringField.class)
@@ -302,7 +295,6 @@ public class Performance {
     public Map<String, Object> producerProps() {
       var props = props();
       props.put(ProducerConfig.COMPRESSION_TYPE_CONFIG, compression.name);
-      if (!this.jmxServers.isEmpty()) props.put("jmx_servers", this.jmxServers);
       props.putAll(configs);
       return props;
     }
