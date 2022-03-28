@@ -39,6 +39,7 @@ public class PerformanceTest extends RequireBrokerCluster {
     try (var executor =
         Performance.producerExecutor(
             Producer.builder().brokers(bootstrapServers()).build(),
+            Producer.builder().brokers(bootstrapServers()).buildTransactional(),
             param,
             metrics,
             partition(param, admin),
@@ -82,6 +83,7 @@ public class PerformanceTest extends RequireBrokerCluster {
     try (Executor executor =
         Performance.producerExecutor(
             Producer.builder().brokers(bootstrapServers()).build(),
+            Producer.builder().brokers(bootstrapServers()).buildTransactional(),
             param,
             metrics,
             partition(param, admin),
@@ -117,6 +119,7 @@ public class PerformanceTest extends RequireBrokerCluster {
     try (Executor executor =
         Performance.producerExecutor(
             Producer.builder().brokers(bootstrapServers()).build(),
+            Producer.builder().brokers(bootstrapServers()).buildTransactional(),
             param,
             metrics,
             List.of(-1),
@@ -152,6 +155,14 @@ public class PerformanceTest extends RequireBrokerCluster {
       Assertions.assertEquals(1, metrics.num());
       Assertions.assertNotEquals(1024, metrics.bytes());
     }
+  }
+
+  @Test
+  void testTransactionSet() {
+    var argument = new Performance.Argument();
+    Assertions.assertFalse(argument.transaction());
+    argument.transactionSize = 3;
+    Assertions.assertTrue(argument.transaction());
   }
 
   @Test

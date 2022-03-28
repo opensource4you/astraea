@@ -6,12 +6,14 @@ import java.time.Duration;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.clients.producer.internals.DefaultPartitioner;
 import org.apache.kafka.common.TopicPartition;
@@ -29,6 +31,7 @@ import org.astraea.concurrent.State;
 import org.astraea.concurrent.ThreadPool;
 import org.astraea.consumer.Consumer;
 import org.astraea.producer.Producer;
+import org.astraea.producer.TransactionalProducer;
 import org.astraea.topic.TopicAdmin;
 import org.astraea.utils.DataSize;
 import org.astraea.utils.DataUnit;
@@ -104,7 +107,7 @@ public class Performance {
                                     .brokers(param.brokers)
                                     .topics(Set.of(param.topic))
                                     .groupId(groupId)
-                                    .configs(param.props())
+                                    .configs(param.consumerProps())
                                     .consumerRebalanceListener(
                                         ignore -> manager.countDownGetAssignment())
                                     .build(),
@@ -120,6 +123,10 @@ public class Performance {
                                     .configs(param.producerProps())
                                     .partitionClassName(param.partitioner)
                                     .build(),
+                                Producer.builder()
+                                    .configs(param.producerProps())
+                                    .partitionClassName(param.partitioner)
+                                    .buildTransactional(),
                                 param,
                                 producerMetrics.get(i),
                                 partitions,
@@ -171,6 +178,7 @@ public class Performance {
 
   static Executor producerExecutor(
       Producer<byte[], byte[]> producer,
+      TransactionalProducer<byte[], byte[]> transactionalProducer,
       Argument param,
       BiConsumer<Long, Long> observer,
       List<Integer> partitions,
@@ -181,23 +189,51 @@ public class Performance {
         // Wait for all consumers get assignment.
         manager.awaitPartitionAssignment();
         var rand = new Random();
-        var payload = manager.payload();
-        if (payload.isEmpty()) return State.DONE;
+        // Do transactional send.
+        if (param.transaction()) {
+          var senders =
+              IntStream.range(0, param.transactionSize)
+                  .mapToObj(i -> manager.payload())
+                  .filter(Optional::isPresent)
+                  .map(
+                      p ->
+                          producer
+                              .sender()
+                              .topic(param.topic)
+                              .partition(partitions.get(rand.nextInt(partitions.size())))
+                              .key(manager.getKey())
+                              .value(p.get())
+                              .timestamp(System.currentTimeMillis()))
+                  .collect(Collectors.toList());
 
-        long start = System.currentTimeMillis();
-        producer
-            .sender()
-            .topic(param.topic)
-            .partition(partitions.get(rand.nextInt(partitions.size())))
-            .key(manager.getKey())
-            .value(payload.get())
-            .timestamp(start)
-            .run()
-            .whenComplete(
-                (m, e) -> {
-                  if (e == null)
-                    observer.accept(System.currentTimeMillis() - start, m.serializedValueSize());
-                });
+          // No records to send
+          if (senders.isEmpty()) return State.DONE;
+          transactionalProducer
+              .transaction(senders)
+              .forEach(
+                  future ->
+                      future.whenComplete(
+                          (m, e) ->
+                              observer.accept(
+                                  System.currentTimeMillis() - m.timestamp(),
+                                  m.serializedValueSize())));
+        } else {
+          var payload = manager.payload();
+          if (payload.isEmpty()) return State.DONE;
+
+          long start = System.currentTimeMillis();
+          producer
+              .sender()
+              .topic(param.topic)
+              .partition(partitions.get(rand.nextInt(partitions.size())))
+              .key(manager.getKey())
+              .value(payload.get())
+              .timestamp(start)
+              .run()
+              .whenComplete(
+                  (m, e) ->
+                      observer.accept(System.currentTimeMillis() - start, m.serializedValueSize()));
+        }
         return State.RUNNING;
       }
 
@@ -299,6 +335,12 @@ public class Performance {
       return props;
     }
 
+    public Map<String, Object> consumerProps() {
+      var props = props();
+      if (transaction()) props.put(ConsumerConfig.ISOLATION_LEVEL_CONFIG, "read_committed");
+      return props;
+    }
+
     @Parameter(
         names = {"--createCSV"},
         description = "put the metrics into a csv file if this flag is set")
@@ -310,6 +352,16 @@ public class Performance {
             "String: the compression algorithm used by producer. Available algorithm are none, gzip, snappy, lz4, and zstd",
         converter = CompressionField.class)
     CompressionType compression = CompressionType.NONE;
+
+    @Parameter(
+        names = {"--transaction.size"},
+        description = "integer: number of records in each transaction",
+        validateWith = PositiveLongField.class)
+    int transactionSize = 1;
+
+    public boolean transaction() {
+      return transactionSize > 1;
+    }
 
     @Parameter(
         names = {"--key.distribution"},
