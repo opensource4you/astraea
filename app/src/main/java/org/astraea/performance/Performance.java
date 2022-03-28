@@ -194,8 +194,10 @@ public class Performance {
             .timestamp(start)
             .run()
             .whenComplete(
-                (m, e) ->
-                    observer.accept(System.currentTimeMillis() - start, m.serializedValueSize()));
+                (m, e) -> {
+                  if (e == null)
+                    observer.accept(System.currentTimeMillis() - start, m.serializedValueSize());
+                });
         return State.RUNNING;
       }
 
@@ -272,11 +274,6 @@ public class Performance {
     ExeTime exeTime = ExeTime.of("1000records");
 
     @Parameter(
-        names = {"--fixed.size"},
-        description = "boolean: send fixed size records if this flag is set")
-    boolean fixedSize = false;
-
-    @Parameter(
         names = {"--record.size"},
         description = "DataSize: size of each record. e.g. \"500KiB\"",
         converter = DataSize.Field.class)
@@ -304,7 +301,7 @@ public class Performance {
 
     @Parameter(
         names = {"--createCSV"},
-        description = "create the metrics into a csv file if this flag is set")
+        description = "put the metrics into a csv file if this flag is set")
     boolean createCSV = false;
 
     @Parameter(
@@ -318,8 +315,15 @@ public class Performance {
         names = {"--key.distribution"},
         description =
             "String: Distribution name. Available distribution names: \"fixed\" \"uniform\", \"zipfian\", \"latest\". Default: uniform",
-        converter = Distribution.DistributionField.class)
-    Distribution distribution = Distribution.uniform();
+        converter = DistributionType.DistributionTypeField.class)
+    DistributionType keyDistributionType = DistributionType.UNIFORM;
+
+    @Parameter(
+        names = {"--size.distribution"},
+        description =
+            "String: Distribution name. Available distribution names: \"uniform\", \"zipfian\", \"latest\", \"fixed\". Default: \"uniform\"",
+        converter = DistributionType.DistributionTypeField.class)
+    DistributionType sizeDistributionType = DistributionType.UNIFORM;
 
     @Parameter(
         names = {"--specify.broker"},

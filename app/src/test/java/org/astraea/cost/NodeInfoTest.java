@@ -1,4 +1,4 @@
-package org.astraea.partitioner;
+package org.astraea.cost;
 
 import org.apache.kafka.common.Node;
 import org.junit.jupiter.api.Assertions;
