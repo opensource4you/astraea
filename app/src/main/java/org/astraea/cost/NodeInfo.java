@@ -1,8 +1,8 @@
-package org.astraea.partitioner;
+package org.astraea.cost;
 
 import java.util.Objects;
 
-public interface NodeInfo extends Comparable<NodeInfo>, NodeId {
+public interface NodeInfo extends Comparable<NodeInfo> {
 
   static NodeInfo of(org.apache.kafka.common.Node node) {
     return of(node.id(), node.host(), node.port());
@@ -52,4 +52,7 @@ public interface NodeInfo extends Comparable<NodeInfo>, NodeId {
 
   /** @return The client (kafka data, jmx, etc.) port for this node */
   int port();
+
+  /** @return id of broker node. it must be unique. */
+  int id();
 }

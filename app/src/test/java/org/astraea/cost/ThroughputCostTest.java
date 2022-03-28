@@ -1,10 +1,8 @@
-package org.astraea.partitioner.cost;
+package org.astraea.cost;
 
 import java.util.List;
 import java.util.Map;
 import org.astraea.metrics.kafka.BrokerTopicMetricsResult;
-import org.astraea.partitioner.ClusterInfo;
-import org.astraea.partitioner.NodeInfo;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
@@ -19,9 +17,9 @@ public class ThroughputCostTest {
     var bean = Mockito.mock(BrokerTopicMetricsResult.class);
     Mockito.when(bean.oneMinuteRate()).thenReturn(100D);
 
-    var score = throughputCost.score(Map.of(node, List.of(bean)));
+    var score = throughputCost.score(Map.of(10, List.of(bean)));
     Assertions.assertEquals(1, score.size());
-    Assertions.assertEquals(100D, score.get(node));
+    Assertions.assertEquals(100D, score.get(10));
   }
 
   @Test
@@ -34,9 +32,10 @@ public class ThroughputCostTest {
 
     var cluster = Mockito.mock(ClusterInfo.class);
     Mockito.when(cluster.nodes()).thenReturn(List.of(node));
+    Mockito.when(cluster.allBeans()).thenReturn(Map.of());
 
-    var cost = throughputCost.cost(Map.of(node, List.of(bean)), cluster);
+    var cost = throughputCost.cost(ClusterInfo.of(cluster, Map.of(10, List.of(bean))));
     Assertions.assertEquals(1, cost.size());
-    Assertions.assertEquals(1, cost.get(node));
+    Assertions.assertEquals(1, cost.get(10));
   }
 }

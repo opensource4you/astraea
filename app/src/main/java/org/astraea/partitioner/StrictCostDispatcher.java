@@ -9,10 +9,12 @@ import java.util.Optional;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
 import org.astraea.Utils;
+import org.astraea.cost.ClusterInfo;
+import org.astraea.cost.CostFunction;
+import org.astraea.cost.PartitionInfo;
 import org.astraea.metrics.collector.BeanCollector;
 import org.astraea.metrics.collector.Fetcher;
 import org.astraea.metrics.collector.Receiver;
-import org.astraea.partitioner.cost.CostFunction;
 
 /**
  * this dispatcher scores the nodes by multiples cost functions. Each function evaluate the target
@@ -31,8 +33,8 @@ public class StrictCostDispatcher implements Dispatcher {
       BeanCollector.builder().interval(Duration.ofSeconds(4)).build();
   private final Collection<CostFunction> functions;
   private Optional<Integer> jmxPortDefault = Optional.empty();
-  private final Map<NodeId, Integer> jmxPorts = new TreeMap<>();
-  private final Map<NodeId, Receiver> receivers = new TreeMap<>();
+  private final Map<Integer, Integer> jmxPorts = new TreeMap<>();
+  final Map<Integer, Receiver> receivers = new TreeMap<>();
 
   public StrictCostDispatcher() {
     this(List.of(CostFunction.throughput()));
@@ -43,34 +45,22 @@ public class StrictCostDispatcher implements Dispatcher {
     this.functions = functions;
   }
 
-  private static Fetcher of(Collection<Fetcher> fs) {
-    return client ->
-        fs.stream().flatMap(f -> f.fetch(client).stream()).collect(Collectors.toUnmodifiableList());
-  }
-
   @Override
   public int partition(String topic, byte[] key, byte[] value, ClusterInfo clusterInfo) {
     var partitions = clusterInfo.availablePartitions(topic);
     // just return first partition if there is no available partitions
     if (partitions.isEmpty()) return 0;
 
+    // just return the only one available partition
+    if (partitions.size() == 1) return partitions.iterator().next().partition();
+
     // add new receivers for new brokers
     partitions.stream()
-        .filter(p -> !receivers.containsKey(NodeId.of(p.leader().id())))
+        .filter(p -> !receivers.containsKey(p.leader().id()))
         .forEach(
             p ->
                 receivers.put(
-                    p.leader(),
-                    beanCollector
-                        .register()
-                        .host(p.leader().host())
-                        .port(jmxPort(p.leader().id()))
-                        .fetcher(
-                            Fetcher.of(
-                                functions.stream()
-                                    .map(CostFunction::fetcher)
-                                    .collect(Collectors.toUnmodifiableList())))
-                        .build()));
+                    p.leader().id(), receiver(p.leader().host(), jmxPort(p.leader().id()))));
 
     // get latest beans for each node
     var beans =
@@ -80,18 +70,35 @@ public class StrictCostDispatcher implements Dispatcher {
     // get scores from all cost functions
     var scores =
         functions.stream()
-            .map(f -> f.cost(beans, clusterInfo))
+            .map(f -> f.cost(ClusterInfo.of(clusterInfo, beans)))
             .collect(Collectors.toUnmodifiableList());
 
-    // return the partition (node) having min score
+    return bestPartition(partitions, scores).map(e -> e.getKey().partition()).orElse(0);
+  }
+
+  // visible for testing
+  static Optional<Map.Entry<PartitionInfo, Double>> bestPartition(
+      List<PartitionInfo> partitions, List<Map<Integer, Double>> scores) {
     return partitions.stream()
         .map(
             p ->
                 Map.entry(
-                    p, scores.stream().mapToDouble(s -> s.getOrDefault(p.leader(), 0.0D)).sum()))
-        .min(Map.Entry.comparingByValue())
-        .map(e -> e.getKey().partition())
-        .orElse(0);
+                    p,
+                    scores.stream().mapToDouble(s -> s.getOrDefault(p.leader().id(), 0.0D)).sum()))
+        .min(Map.Entry.comparingByValue());
+  }
+
+  Receiver receiver(String host, int port) {
+    return beanCollector
+        .register()
+        .host(host)
+        .port(port)
+        .fetcher(
+            Fetcher.of(
+                functions.stream()
+                    .map(CostFunction::fetcher)
+                    .collect(Collectors.toUnmodifiableList())))
+        .build();
   }
 
   @Override
@@ -102,15 +109,12 @@ public class StrictCostDispatcher implements Dispatcher {
     config.entrySet().stream()
         .filter(e -> e.getKey().startsWith("broker."))
         .filter(e -> e.getKey().endsWith(JMX_PORT))
-        .forEach(
-            e ->
-                jmxPorts.put(
-                    NodeId.of(Integer.parseInt(e.getKey())), Integer.parseInt(e.getValue())));
+        .forEach(e -> jmxPorts.put(Integer.parseInt(e.getKey()), Integer.parseInt(e.getValue())));
   }
 
   // visible for testing
   int jmxPort(int id) {
-    if (jmxPorts.containsKey(NodeId.of(id))) return jmxPorts.get(NodeId.of(id));
+    if (jmxPorts.containsKey(id)) return jmxPorts.get(id);
     return jmxPortDefault.orElseThrow(
         () -> new NoSuchElementException("broker: " + id + " does not have jmx port"));
   }
@@ -118,5 +122,6 @@ public class StrictCostDispatcher implements Dispatcher {
   @Override
   public void close() {
     receivers.values().forEach(Utils::close);
+    receivers.clear();
   }
 }

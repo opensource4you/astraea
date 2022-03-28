@@ -51,6 +51,7 @@ You can define `VERSION` to change the binary version.
 ### Run Kafka Broker
 
 After the zk env is running, you can copy the command (see above example) from zk script output to set up kafka. For example:
+
 ```shell
 ./docker/start_broker.sh zookeeper.connect=192.168.50.178:17228
 ```
@@ -59,10 +60,10 @@ The console will show the broker connection information and JMX address. For exa
 
 ```shell
 =================================================
+broker id: 677
 broker address: 192.168.50.178:12747
 jmx address: 192.168.50.178:10216
 exporter address: 192.168.50.178:10558
-broker id: 677
 =================================================
 ```
 
@@ -70,7 +71,24 @@ broker id: 677
 2. `jmx address` exports the java metrics by JMX
 3. `exporter address` is the address of prometheus exporter.
 
+You can set `CONFLUENT_BROKER` to true, if you want start the confluent version of the kafka cluster. For example:
+
+```shell
+env CONFLUENT_BROKER=true ./docker/start_broker.sh zookeeper.connect=192.168.50.178:17228
+```
+
+The console will show the broker connection information and exporter address. For example:
+
+```shell
+=================================================
+broker id: 1001
+broker address: 192.168.103.39:15230
+exporter address: 192.168.103.39:18928
+=================================================
+```
+
 There are 4 useful ENVs which can change JVM/container configuration.
+
 1. VERSION -> define the kafka version
 2. REVISION -> define the revision of kafka source code. If this is defined, it will run distribution based on the source code
 3. HEAP_OPTS -> define JVM memory options
@@ -112,7 +130,7 @@ For example. Assume you have two Kafka brokers,
 You can execute the following command to create a Prometheus instance that fetches data from the above 4 exporters.
 
 ```shell
-./docker/start_prometheus.sh start 192.168.0.1:10558,192.168.0.2:10558 192.168.0.1:9100,192.168.0.2:9100
+./docker/start_prometheus.sh start
 ```
 
 The console will show the http address of prometheus service, also some hints for you to set up Grafana. See next [section](#run-grafana) for
@@ -127,6 +145,16 @@ prometheus-9090
 [INFO] command to run grafana at this host: ./docker/start_grafana.sh start
 [INFO] command to add prometheus to grafana datasource: ./docker/start_grafana.sh add_prom_source <USERNAME>:<PASSWORD> Prometheus http://192.168.0.2:9090
 [INFO] =================================================
+```
+
+There are two ways to change the prometheus configuration.
+
+```shell
+# refresh prometheus config by command-line arguments
+./docker/start_prometheus.sh refresh host1:1111,host2:1111 host1:2222,host2:2222
+
+# refresh prometheus config by specific file
+./docker/start_prometheus.sh refresh ./path/to/config/file/prometheus.yml
 ```
 
 #### Update Prometheus configuration
@@ -224,9 +252,11 @@ Run the benchmark from source
 10. --prop.file: the path to property file.
 11. --partitioner: the partitioner to use in producers
 12. --jmx.servers: the jmx server addresses of the brokers 
-13. --key.distribution: Name of the distribution. Available distribution names: "uniform", "zipfian", "latest". Default: (No key)
-14. --report.path: A path to place the report file. Default: (no report)
-15. --report.format: Select output file format. Available format: "csv", "json".
+13. --key.distribution: name of the distribution on key. Available distribution names: "uniform", "zipfian", "latest", "fixed". Default: (No key)
+14. --size.distribution: name of the distribution on value size. Available distribution names: "uniform", "zipfian", "latest", "fixed". Default: "uniform"
+15. --specify.broker: list of broker IDs to produce records to. Default: (Do Not Specify)
+16. --report.path: A path to place the report file. Default: (no report)
+17. --report.format: Select output file format. Available format: "csv", "json".
 
 ---
 
