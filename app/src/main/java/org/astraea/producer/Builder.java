@@ -1,6 +1,5 @@
 package org.astraea.producer;
 
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
@@ -9,6 +8,7 @@ import java.util.Objects;
 import java.util.Random;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
+import java.util.stream.Collectors;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.clients.producer.ProducerRecord;
@@ -53,6 +53,18 @@ public class Builder<Key, Value> {
     return this;
   }
 
+  private static <Key, Value> CompletionStage<Metadata> doSend(
+      KafkaProducer<Key, Value> producer, ProducerRecord<Key, Value> record) {
+    var completableFuture = new CompletableFuture<Metadata>();
+    producer.send(
+        record,
+        (metadata, exception) -> {
+          if (exception == null) completableFuture.complete(Metadata.of(metadata));
+          else completableFuture.completeExceptionally(exception);
+        });
+    return completableFuture;
+  }
+
   @SuppressWarnings("unchecked")
   public Producer<Key, Value> build() {
     var kafkaProducer =
@@ -67,14 +79,9 @@ public class Builder<Key, Value> {
         return new AbstractSender<>() {
           @Override
           public CompletionStage<Metadata> run() {
-            var completableFuture = new CompletableFuture<Metadata>();
-            kafkaProducer.send(
-                new ProducerRecord<>(topic, partition, timestamp, key, value, Header.of(headers)),
-                (metadata, exception) -> {
-                  if (exception == null) completableFuture.complete(Metadata.of(metadata));
-                  else completableFuture.completeExceptionally(exception);
-                });
-            return completableFuture;
+            return doSend(
+                kafkaProducer,
+                new ProducerRecord<>(topic, partition, timestamp, key, value, Header.of(headers)));
           }
         };
       }
@@ -121,14 +128,9 @@ public class Builder<Key, Value> {
 
           @Override
           CompletionStage<Metadata> send() {
-            var completableFuture = new CompletableFuture<Metadata>();
-            transactionProducer.send(
-                new ProducerRecord<>(topic, partition, timestamp, key, value, Header.of(headers)),
-                (metadata, exception) -> {
-                  if (exception == null) completableFuture.complete(Metadata.of(metadata));
-                  else completableFuture.completeExceptionally(exception);
-                });
-            return completableFuture;
+            return doSend(
+                transactionProducer,
+                new ProducerRecord<>(topic, partition, timestamp, key, value, Header.of(headers)));
           }
         };
       }
@@ -163,13 +165,18 @@ public class Builder<Key, Value> {
       @Override
       public Collection<CompletionStage<Metadata>> transaction(
           Collection<Sender<Key, Value>> senders) {
-        var futures = new ArrayList<CompletionStage<Metadata>>(senders.size());
+        if (!senders.stream().allMatch(s -> s instanceof TransactionalSender))
+          throw new IllegalArgumentException(
+              "Don't pass non-transactional sender: to transactional producer");
         try {
           synchronized (transactionProducer) {
             transactionProducer.beginTransaction();
-            senders.forEach(
-                sender -> futures.add(((TransactionalSender<Key, Value>) sender).send()));
+            var futures =
+                senders.stream()
+                    .map(s -> ((TransactionalSender<Key, Value>) s).send())
+                    .collect(Collectors.toUnmodifiableList());
             transactionProducer.commitTransaction();
+            return futures;
           }
         } catch (ProducerFencedException | OutOfOrderSequenceException | AuthorizationException e) {
           transactionProducer.close();
@@ -177,9 +184,13 @@ public class Builder<Key, Value> {
           throw e;
         } catch (KafkaException ke) {
           transactionProducer.abortTransaction();
+          return transaction(senders);
         }
-        return futures;
       }
     };
+  }
+
+  private abstract static class TransactionalSender<Key, Value> extends AbstractSender<Key, Value> {
+    abstract CompletionStage<Metadata> send();
   }
 }
