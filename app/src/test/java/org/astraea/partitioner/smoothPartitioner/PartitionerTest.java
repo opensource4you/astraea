@@ -8,6 +8,7 @@ import static org.mockito.Mockito.when;
 
 import java.lang.reflect.Field;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -62,9 +63,14 @@ public class PartitionerTest extends RequireBrokerCluster {
     poissonMap.put(1, 0.8);
     poissonMap.put(2, 0.3);
 
+    var availableNodeID = new ArrayList<Integer>();
+    availableNodeID.add(0);
+    availableNodeID.add(1);
+    availableNodeID.add(2);
+
     var smoothWeightPartitioner = new SmoothWeightPartitioner();
     setNodeLoadClient(nodeLoadClient, smoothWeightPartitioner);
-    smoothWeightPartitioner.brokersWeight(poissonMap);
+    smoothWeightPartitioner.brokersWeight(poissonMap, availableNodeID);
 
     var brokerWeight =
         (Map<Integer, SmoothWeightPartitioner.SmoothWeightServer>)
@@ -187,6 +193,10 @@ public class PartitionerTest extends RequireBrokerCluster {
   @Test
   void testUpdateWeightIfNeed() throws NoSuchFieldException, IllegalAccessException {
     SmoothWeightPartitioner smoothWeightPartitioner = new SmoothWeightPartitioner();
+    var availableNodeID = new ArrayList<Integer>();
+    availableNodeID.add(0);
+    availableNodeID.add(1);
+    availableNodeID.add(2);
     var loadCount = new HashMap<Integer, Integer>();
     loadCount.put(0, 10);
     loadCount.put(1, 12);
@@ -195,16 +205,16 @@ public class PartitionerTest extends RequireBrokerCluster {
     field.setAccessible(true);
     field.set(smoothWeightPartitioner, nodeLoadClient);
     when(nodeLoadClient.thoughPutComparison(anyInt())).thenReturn(1.0);
-    smoothWeightPartitioner.updateWeightIfNeed(loadCount);
+    smoothWeightPartitioner.updateWeightIfNeed(loadCount, availableNodeID);
     var firstBrokersWeight = smoothWeightPartitioner.brokersWeight().get(0).currentWeight();
-    smoothWeightPartitioner.updateWeightIfNeed(loadCount);
+    smoothWeightPartitioner.updateWeightIfNeed(loadCount, availableNodeID);
     var secondBrokersWeight = smoothWeightPartitioner.brokersWeight().get(0).currentWeight();
     Assertions.assertEquals(firstBrokersWeight, secondBrokersWeight);
     loadCount.put(0, 5);
     loadCount.put(2, 5);
     var lastTime = System.currentTimeMillis();
     Utils.waitFor(() -> Utils.overSecond(lastTime, 1));
-    smoothWeightPartitioner.updateWeightIfNeed(loadCount);
+    smoothWeightPartitioner.updateWeightIfNeed(loadCount, availableNodeID);
     var thirdBrokersWeight = smoothWeightPartitioner.brokersWeight().get(0).currentWeight();
     Assertions.assertNotEquals(secondBrokersWeight, thirdBrokersWeight);
   }

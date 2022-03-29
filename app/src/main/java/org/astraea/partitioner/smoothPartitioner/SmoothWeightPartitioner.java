@@ -7,6 +7,7 @@ import static org.astraea.partitioner.nodeLoadMetric.PartitionerUtils.weightPois
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Random;
@@ -15,8 +16,11 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.stream.Collectors;
 import org.apache.kafka.clients.producer.Partitioner;
 import org.apache.kafka.common.Cluster;
+import org.apache.kafka.common.Node;
+import org.apache.kafka.common.PartitionInfo;
 import org.astraea.partitioner.ClusterInfo;
 import org.astraea.partitioner.nodeLoadMetric.NodeLoadClient;
 
@@ -45,7 +49,13 @@ public class SmoothWeightPartitioner implements Partitioner {
       String topic, Object key, byte[] keyBytes, Object value, byte[] valueBytes, Cluster cluster) {
     var loadCount = nodeLoadClient.loadSituation(ClusterInfo.of(cluster));
     Objects.requireNonNull(loadCount, "OverLoadCount should not be null.");
-    updateWeightIfNeed(loadCount);
+    var availableNodeID =
+        cluster.availablePartitionsForTopic(topic).stream()
+            .map(PartitionInfo::leader)
+            .map(Node::id)
+            .distinct()
+            .collect(Collectors.toList());
+    updateWeightIfNeed(loadCount, availableNodeID);
 
     SmoothWeightServer maxWeightServer = null;
 
@@ -96,32 +106,34 @@ public class SmoothWeightPartitioner implements Partitioner {
   }
 
   /** Change the weight of the node according to the current Poisson. */
-  synchronized void brokersWeight(Map<Integer, Double> poissonMap) {
+  synchronized void brokersWeight(Map<Integer, Double> poissonMap, List<Integer> availableNodeID) {
     AtomicInteger sum = new AtomicInteger(0);
     poissonMap.forEach(
         (key, value) -> {
-          var thoughPutAbility = nodeLoadClient.thoughPutComparison(key);
-          if (!brokersWeight.containsKey(key))
-            brokersWeight.putIfAbsent(
-                key, new SmoothWeightServer(key, weightPoisson(value, thoughPutAbility)));
-          else {
-            var broker = brokersWeight.get(key);
-            broker.currentWeight(weightPoisson(value, thoughPutAbility));
+          if (availableNodeID.stream().anyMatch(ID -> ID.equals(key))) {
+            var thoughPutAbility = nodeLoadClient.thoughPutComparison(key);
+            if (!brokersWeight.containsKey(key))
+              brokersWeight.putIfAbsent(
+                  key, new SmoothWeightServer(key, weightPoisson(value, thoughPutAbility)));
+            else {
+              var broker = brokersWeight.get(key);
+              broker.currentWeight(weightPoisson(value, thoughPutAbility));
+            }
+            if (memoryWarning(key)) {
+              subBrokerWeight(key, 100);
+            }
+            sum.addAndGet(brokersWeight.get(key).currentWeight);
           }
-          if (memoryWarning(key)) {
-            subBrokerWeight(key, 100);
-          }
-          sum.addAndGet(brokersWeight.get(key).currentWeight);
         });
 
     weightSum = sum.get();
   }
 
-  void updateWeightIfNeed(Map<Integer, Integer> loadCount) {
+  void updateWeightIfNeed(Map<Integer, Integer> loadCount, List<Integer> availableNodeID) {
     if (overSecond(lastTime, 1) && lock.tryLock()) {
       try {
         lock.lock();
-        brokersWeight(allPoisson(loadCount));
+        brokersWeight(allPoisson(loadCount), availableNodeID);
       } finally {
         lock.unlock();
         lastTime = System.currentTimeMillis();
