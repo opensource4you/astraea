@@ -2,15 +2,15 @@ package org.astraea.partitioner.smoothPartitioner;
 
 import static org.astraea.Utils.overSecond;
 import static org.astraea.partitioner.nodeLoadMetric.PartitionerUtils.allPoisson;
+import static org.astraea.partitioner.nodeLoadMetric.PartitionerUtils.partitionerConfig;
 import static org.astraea.partitioner.nodeLoadMetric.PartitionerUtils.weightPoisson;
 
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
+
 import java.util.Map;
 import java.util.Objects;
 import java.util.Random;
+import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -21,7 +21,9 @@ import org.apache.kafka.clients.producer.Partitioner;
 import org.apache.kafka.common.Cluster;
 import org.apache.kafka.common.Node;
 import org.apache.kafka.common.PartitionInfo;
-import org.astraea.partitioner.ClusterInfo;
+
+import org.astraea.cost.ClusterInfo;
+import org.astraea.partitioner.Configuration;
 import org.astraea.partitioner.nodeLoadMetric.NodeLoadClient;
 
 /**
@@ -30,14 +32,14 @@ import org.astraea.partitioner.nodeLoadMetric.NodeLoadClient;
  * Finally, the result of poisson is used as the weight to perform smooth weighted RoundRobin.
  */
 public class SmoothWeightPartitioner implements Partitioner {
+  private static final String JMX_PORT = "jmx.port";
 
-  /**
-   * Record the current weight of each node according to Poisson calculation and the weight after
-   * partitioner calculation.
-   */
+  //  Record the current weight of each node according to Poisson calculation and the weight after
+  // partitioner calculation.
   private final ConcurrentMap<Integer, SmoothWeightServer> brokersWeight =
       new ConcurrentHashMap<>();
 
+  private final Map<Integer, Integer> jmxPorts = new TreeMap<>();
   private NodeLoadClient nodeLoadClient;
   private long lastTime = -1;
   private final Random rand = new Random();
@@ -59,7 +61,7 @@ public class SmoothWeightPartitioner implements Partitioner {
 
     SmoothWeightServer maxWeightServer = null;
 
-    Iterator<Integer> iterator = brokersWeight.keySet().iterator();
+    var iterator = brokersWeight.keySet().iterator();
     var currentWrightSum = weightSum;
     while (iterator.hasNext()) {
       var smoothWeightServer = brokersWeight.get(iterator.next());
@@ -90,19 +92,26 @@ public class SmoothWeightPartitioner implements Partitioner {
 
   @Override
   public void configure(Map<String, ?> configs) {
-    var jmxAddresses =
-        Objects.requireNonNull(
-            configs.get("jmx_servers").toString(), "You must configure jmx_servers correctly");
-    var list = Arrays.asList((jmxAddresses).split(","));
-    HashMap<String, Integer> mapAddress = new HashMap<>();
-    list.forEach(
-        str ->
-            mapAddress.put(
-                Arrays.asList(str.split(":")).get(0),
-                Integer.parseInt(Arrays.asList(str.split(":")).get(1))));
-    Objects.requireNonNull(mapAddress, "You must configure jmx_servers correctly.");
+    var properties = partitionerConfig(configs);
+    var config =
+        Configuration.of(
+            properties.entrySet().stream()
+                .collect(
+                    Collectors.toMap(e -> e.getKey().toString(), e -> e.getValue().toString())));
+    var jmxPort = config.integer(JMX_PORT);
 
-    nodeLoadClient = new NodeLoadClient(mapAddress);
+    jmxPort = config.integer(JMX_PORT);
+
+    // seeks for custom jmx ports.
+    config.entrySet().stream()
+        .filter(e -> e.getKey().startsWith("broker."))
+        .filter(e -> e.getKey().endsWith(JMX_PORT))
+        .forEach(
+            e ->
+                jmxPorts.put(
+                    Integer.parseInt(e.getKey().split("\\.")[1]), Integer.parseInt(e.getValue())));
+
+    nodeLoadClient = new NodeLoadClient(jmxPorts, jmxPort.orElse(-1));
   }
 
   /** Change the weight of the node according to the current Poisson. */

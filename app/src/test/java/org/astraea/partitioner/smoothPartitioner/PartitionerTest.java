@@ -6,6 +6,9 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.lang.reflect.Field;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -50,12 +53,24 @@ public class PartitionerTest extends RequireBrokerCluster {
     props.put(ProducerConfig.CLIENT_ID_CONFIG, "id1");
     props.put(ProducerConfig.PARTITIONER_CLASS_CONFIG, SmoothWeightPartitioner.class.getName());
     props.put("producerID", 1);
-    props.put("jmx_servers", jmxServiceURL().getHost() + ":" + jmxServiceURL().getPort());
+    var file = new File(PartitionerTest.class.getResource("").getPath() + "PartitionerConfigTest");
+    try {
+      var fileWriter = new FileWriter(file);
+      fileWriter.write("jmx.port=" + jmxServiceURL().getPort());
+      fileWriter.flush();
+      fileWriter.close();
+    } catch (IOException e) {
+      e.printStackTrace();
+    }
+    props.put(
+        "partitioner.config",
+        PartitionerTest.class.getResource("").getPath() + "PartitionerConfigTest");
     return props;
   }
 
   @Test
   void testSetBrokerHashMap() {
+    initProConfig();
     var nodeLoadClient = Mockito.mock(NodeLoadClient.class);
     when(nodeLoadClient.thoughPutComparison(anyInt())).thenReturn(1.0);
     var poissonMap = new HashMap<Integer, Double>();
@@ -226,6 +241,57 @@ public class PartitionerTest extends RequireBrokerCluster {
     Assertions.assertEquals(smoothWeightServer.updateOriginalWeight(5), 1);
     Assertions.assertEquals(smoothWeightServer.updateOriginalWeight(5), -4);
     Assertions.assertEquals(smoothWeightServer.originalWeight(), -9);
+  }
+
+  @Test
+  void testJmxConfig() {
+    var props = initProConfig();
+    var file = new File(PartitionerTest.class.getResource("").getPath() + "PartitionerConfigTest");
+    try {
+      var fileWriter = new FileWriter(file);
+      fileWriter.write(
+          "broker.0.jmx.port="
+              + jmxServiceURL().getPort()
+              + "\n"
+              + "broker.1.jmx.port="
+              + jmxServiceURL().getPort()
+              + "\n"
+              + "broker.2.jmx.port="
+              + jmxServiceURL().getPort()
+              + "\n");
+      fileWriter.flush();
+      fileWriter.close();
+    } catch (IOException e) {
+      e.printStackTrace();
+    }
+    var topicName = "addressN";
+    admin.creator().topic(topicName).numberOfPartitions(10).create();
+    var key = "tainan";
+    var timestamp = System.currentTimeMillis() + 10;
+    var header = Header.of("a", "b".getBytes());
+
+    try (var producer =
+        Producer.builder()
+            .keySerializer(Serializer.STRING)
+            .configs(
+                props.entrySet().stream()
+                    .collect(Collectors.toMap(e -> e.getKey().toString(), Map.Entry::getValue)))
+            .build()) {
+      var metadata =
+          producer
+              .sender()
+              .topic(topicName)
+              .key(key)
+              .timestamp(timestamp)
+              .headers(List.of(header))
+              .run()
+              .toCompletableFuture()
+              .get();
+      assertEquals(topicName, metadata.topic());
+      assertEquals(timestamp, metadata.timestamp());
+    } catch (ExecutionException | InterruptedException e) {
+      e.printStackTrace();
+    }
   }
 
   private Executor producerExecutor(
