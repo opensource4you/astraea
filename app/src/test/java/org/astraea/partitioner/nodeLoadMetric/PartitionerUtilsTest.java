@@ -7,6 +7,7 @@ import static org.astraea.partitioner.nodeLoadMetric.PartitionerUtils.weightPois
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.HashMap;
+import java.util.Map;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -33,7 +34,7 @@ public class PartitionerUtilsTest {
     testNodesLoadCount.put(1, 5);
     testNodesLoadCount.put(2, 8);
 
-    HashMap<Integer, Double> poissonMap;
+    Map<Integer, Double> poissonMap;
     HashMap<Integer, Double> testPoissonMap = new HashMap<>();
     testPoissonMap.put(0, 0.12465201948308113);
     testPoissonMap.put(1, 0.6159606548330632);
