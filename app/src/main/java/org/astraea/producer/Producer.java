@@ -6,7 +6,6 @@ import org.apache.kafka.clients.producer.KafkaProducer;
 /** An interface for sending records. */
 public interface Producer<Key, Value> extends AutoCloseable {
   Sender<Key, Value> sender();
-
   /** this method is blocked until all data in buffer are sent. */
   void flush();
 

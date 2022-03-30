@@ -99,4 +99,5 @@ fi
 
 echo "================================================="
 echo "run $DOCKER_FOLDER/start_broker.sh zookeeper.connect=$ADDRESS:$ZOOKEEPER_PORT to join kafka broker"
+echo "run env CONFLUENT_BROKER=true $DOCKER_FOLDER/start_broker.sh zookeeper.connect=$ADDRESS:$ZOOKEEPER_PORT to join confluent kafka broker"
 echo "================================================="
