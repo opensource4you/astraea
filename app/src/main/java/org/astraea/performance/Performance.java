@@ -2,7 +2,9 @@ package org.astraea.performance;
 
 import com.beust.jcommander.Parameter;
 import java.io.IOException;
+import java.nio.file.Path;
 import java.time.Duration;
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -23,6 +25,7 @@ import org.astraea.Utils;
 import org.astraea.argument.CompressionField;
 import org.astraea.argument.NonEmptyStringField;
 import org.astraea.argument.NonNegativeShortField;
+import org.astraea.argument.PathField;
 import org.astraea.argument.PositiveLongField;
 import org.astraea.argument.PositiveShortField;
 import org.astraea.argument.StringMapField;
@@ -95,6 +98,11 @@ public class Performance {
 
     var manager = new Manager(param, producerMetrics, consumerMetrics);
     var tracker = new Tracker(producerMetrics, consumerMetrics, manager);
+    Collection<Executor> fileWriter =
+        (param.CSVPath != null)
+            ? List.of(
+                ReportFormat.createFileWriter(param.reportFormat, param.CSVPath, manager, tracker))
+            : List.of();
     var groupId = "groupId-" + System.currentTimeMillis();
     try (var threadPool =
         ThreadPool.builder()
@@ -133,7 +141,7 @@ public class Performance {
                                 manager))
                     .collect(Collectors.toUnmodifiableList()))
             .executor(tracker)
-            .executor((param.createCSV) ? new FileWriter(manager, tracker) : () -> State.DONE)
+            .executors(fileWriter)
             .build()) {
       threadPool.waitAll();
       return new Result(param.topic);
@@ -342,11 +350,6 @@ public class Performance {
     }
 
     @Parameter(
-        names = {"--createCSV"},
-        description = "put the metrics into a csv file if this flag is set")
-    boolean createCSV = false;
-
-    @Parameter(
         names = {"--compression"},
         description =
             "String: the compression algorithm used by producer. Available algorithm are none, gzip, snappy, lz4, and zstd",
@@ -383,6 +386,18 @@ public class Performance {
             "String: Used with SpecifyBrokerPartitioner to specify the brokers that partitioner can send.",
         validateWith = NonEmptyStringField.class)
     List<Integer> specifyBroker = List.of(-1);
+
+    @Parameter(
+        names = {"--report.path"},
+        description = "String: A path to place the report. Default: (no report)",
+        converter = PathField.class)
+    Path CSVPath = null;
+
+    @Parameter(
+        names = {"--report.format"},
+        description = "Output format for the report",
+        converter = ReportFormat.ReportFormatConverter.class)
+    ReportFormat reportFormat = ReportFormat.CSV;
   }
 
   public static class Result {
