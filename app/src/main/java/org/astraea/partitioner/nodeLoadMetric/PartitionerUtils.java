@@ -10,7 +10,7 @@ import java.util.Properties;
 public class PartitionerUtils {
   private PartitionerUtils() {}
 
-  public static HashMap<Integer, Double> allPoisson(Map<Integer, Integer> overLoadCount) {
+  public static Map<Integer, Double> allPoisson(Map<Integer, Integer> overLoadCount) {
     var poissonMap = new HashMap<Integer, Double>();
     var lambda = avgLoadCount(overLoadCount);
     overLoadCount.forEach((nodeID, count) -> poissonMap.put(nodeID, doPoisson(lambda, count)));
