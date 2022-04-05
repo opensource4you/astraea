@@ -2,16 +2,20 @@ package org.astraea.performance;
 
 import com.beust.jcommander.Parameter;
 import java.io.IOException;
+import java.nio.file.Path;
 import java.time.Duration;
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.clients.producer.internals.DefaultPartitioner;
 import org.apache.kafka.common.TopicPartition;
@@ -21,6 +25,7 @@ import org.astraea.Utils;
 import org.astraea.argument.CompressionField;
 import org.astraea.argument.NonEmptyStringField;
 import org.astraea.argument.NonNegativeShortField;
+import org.astraea.argument.PathField;
 import org.astraea.argument.PositiveLongField;
 import org.astraea.argument.PositiveShortField;
 import org.astraea.argument.StringMapField;
@@ -29,6 +34,7 @@ import org.astraea.concurrent.State;
 import org.astraea.concurrent.ThreadPool;
 import org.astraea.consumer.Consumer;
 import org.astraea.producer.Producer;
+import org.astraea.producer.TransactionalProducer;
 import org.astraea.topic.TopicAdmin;
 import org.astraea.utils.DataSize;
 import org.astraea.utils.DataUnit;
@@ -92,6 +98,11 @@ public class Performance {
 
     var manager = new Manager(param, producerMetrics, consumerMetrics);
     var tracker = new Tracker(producerMetrics, consumerMetrics, manager);
+    Collection<Executor> fileWriter =
+        (param.CSVPath != null)
+            ? List.of(
+                ReportFormat.createFileWriter(param.reportFormat, param.CSVPath, manager, tracker))
+            : List.of();
     var groupId = "groupId-" + System.currentTimeMillis();
     try (var threadPool =
         ThreadPool.builder()
@@ -110,7 +121,7 @@ public class Performance {
                                   .build();
                           consumerMetrics
                               .get(i)
-                              .setRealBytesMetric(consumer.getMetric("incoming-byte-total"));
+                              .putRealBytesMetric(consumer.getMetric("incoming-byte-total"));
                           return consumerExecutor(consumer, consumerMetrics.get(i), manager);
                         })
                     .collect(Collectors.toUnmodifiableList()))
@@ -125,13 +136,27 @@ public class Performance {
                                   .build();
                           producerMetrics
                               .get(i)
-                              .setRealBytesMetric(producer.getMetric("outgoing-byte-total"));
+                              .putRealBytesMetric(producer.getMetric("outgoing-byte-total"));
+                          var transactionalProducer =
+                              Producer.builder()
+                                  .configs(param.producerProps())
+                                  .partitionClassName(param.partitioner)
+                                  .buildTransactional();
+                          producerMetrics
+                              .get(i)
+                              .putRealBytesMetric(
+                                  transactionalProducer.getMetric("outgoing-byte-total"));
                           return producerExecutor(
-                              producer, param, producerMetrics.get(i), partitions, manager);
+                              producer,
+                              transactionalProducer,
+                              param,
+                              producerMetrics.get(i),
+                              partitions,
+                              manager);
                         })
                     .collect(Collectors.toUnmodifiableList()))
             .executor(tracker)
-            .executor((param.createCSV) ? new FileWriter(manager, tracker) : () -> State.DONE)
+            .executors(fileWriter)
             .build()) {
       threadPool.waitAll();
       return new Result(param.topic);
@@ -176,6 +201,7 @@ public class Performance {
 
   static Executor producerExecutor(
       Producer<byte[], byte[]> producer,
+      TransactionalProducer<byte[], byte[]> transactionalProducer,
       Argument param,
       BiConsumer<Long, Long> observer,
       List<Integer> partitions,
@@ -186,21 +212,51 @@ public class Performance {
         // Wait for all consumers get assignment.
         manager.awaitPartitionAssignment();
         var rand = new Random();
-        var payload = manager.payload();
-        if (payload.isEmpty()) return State.DONE;
+        // Do transactional send.
+        if (param.transaction()) {
+          var senders =
+              IntStream.range(0, param.transactionSize)
+                  .mapToObj(i -> manager.payload())
+                  .filter(Optional::isPresent)
+                  .map(
+                      p ->
+                          producer
+                              .sender()
+                              .topic(param.topic)
+                              .partition(partitions.get(rand.nextInt(partitions.size())))
+                              .key(manager.getKey())
+                              .value(p.get())
+                              .timestamp(System.currentTimeMillis()))
+                  .collect(Collectors.toList());
 
-        long start = System.currentTimeMillis();
-        producer
-            .sender()
-            .topic(param.topic)
-            .partition(partitions.get(rand.nextInt(partitions.size())))
-            .key(manager.getKey())
-            .value(payload.get())
-            .timestamp(start)
-            .run()
-            .whenComplete(
-                (m, e) ->
-                    observer.accept(System.currentTimeMillis() - start, m.serializedValueSize()));
+          // No records to send
+          if (senders.isEmpty()) return State.DONE;
+          transactionalProducer
+              .transaction(senders)
+              .forEach(
+                  future ->
+                      future.whenComplete(
+                          (m, e) ->
+                              observer.accept(
+                                  System.currentTimeMillis() - m.timestamp(),
+                                  m.serializedValueSize())));
+        } else {
+          var payload = manager.payload();
+          if (payload.isEmpty()) return State.DONE;
+
+          long start = System.currentTimeMillis();
+          producer
+              .sender()
+              .topic(param.topic)
+              .partition(partitions.get(rand.nextInt(partitions.size())))
+              .key(manager.getKey())
+              .value(payload.get())
+              .timestamp(start)
+              .run()
+              .whenComplete(
+                  (m, e) ->
+                      observer.accept(System.currentTimeMillis() - start, m.serializedValueSize()));
+        }
         return State.RUNNING;
       }
 
@@ -277,22 +333,10 @@ public class Performance {
     ExeTime exeTime = ExeTime.of("1000records");
 
     @Parameter(
-        names = {"--fixed.size"},
-        description = "boolean: send fixed size records if this flag is set")
-    boolean fixedSize = false;
-
-    @Parameter(
         names = {"--record.size"},
         description = "DataSize: size of each record. e.g. \"500KiB\"",
         converter = DataSize.Field.class)
     DataSize recordSize = DataUnit.KiB.of(1);
-
-    @Parameter(
-        names = {"--jmx.servers"},
-        description =
-            "String: server to get jmx metrics <jmx_server>@<broker_id>[,<jmx_server>@<broker_id>]*",
-        validateWith = NonEmptyStringField.class)
-    String jmxServers = "";
 
     @Parameter(
         names = {"--partitioner"},
@@ -310,15 +354,15 @@ public class Performance {
     public Map<String, Object> producerProps() {
       var props = props();
       props.put(ProducerConfig.COMPRESSION_TYPE_CONFIG, compression.name);
-      if (!this.jmxServers.isEmpty()) props.put("jmx_servers", this.jmxServers);
       props.putAll(configs);
       return props;
     }
 
-    @Parameter(
-        names = {"--createCSV"},
-        description = "create the metrics into a csv file if this flag is set")
-    boolean createCSV = false;
+    public Map<String, Object> consumerProps() {
+      var props = props();
+      if (transaction()) props.put(ConsumerConfig.ISOLATION_LEVEL_CONFIG, "read_committed");
+      return props;
+    }
 
     @Parameter(
         names = {"--compression"},
@@ -328,11 +372,28 @@ public class Performance {
     CompressionType compression = CompressionType.NONE;
 
     @Parameter(
+        names = {"--transaction.size"},
+        description = "integer: number of records in each transaction",
+        validateWith = PositiveLongField.class)
+    int transactionSize = 1;
+
+    public boolean transaction() {
+      return transactionSize > 1;
+    }
+
+    @Parameter(
         names = {"--key.distribution"},
         description =
             "String: Distribution name. Available distribution names: \"fixed\" \"uniform\", \"zipfian\", \"latest\". Default: uniform",
-        converter = Distribution.DistributionField.class)
-    Distribution distribution = Distribution.uniform();
+        converter = DistributionType.DistributionTypeField.class)
+    DistributionType keyDistributionType = DistributionType.UNIFORM;
+
+    @Parameter(
+        names = {"--size.distribution"},
+        description =
+            "String: Distribution name. Available distribution names: \"uniform\", \"zipfian\", \"latest\", \"fixed\". Default: \"uniform\"",
+        converter = DistributionType.DistributionTypeField.class)
+    DistributionType sizeDistributionType = DistributionType.UNIFORM;
 
     @Parameter(
         names = {"--specify.broker"},
@@ -340,6 +401,18 @@ public class Performance {
             "String: Used with SpecifyBrokerPartitioner to specify the brokers that partitioner can send.",
         validateWith = NonEmptyStringField.class)
     List<Integer> specifyBroker = List.of(-1);
+
+    @Parameter(
+        names = {"--report.path"},
+        description = "String: A path to place the report. Default: (no report)",
+        converter = PathField.class)
+    Path CSVPath = null;
+
+    @Parameter(
+        names = {"--report.format"},
+        description = "Output format for the report",
+        converter = ReportFormat.ReportFormatConverter.class)
+    ReportFormat reportFormat = ReportFormat.CSV;
   }
 
   public static class Result {

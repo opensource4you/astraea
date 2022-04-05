@@ -34,7 +34,7 @@ public class PerformanceTest extends RequireBrokerCluster {
     var param = new Performance.Argument();
     param.brokers = bootstrapServers();
     param.topic = topicName;
-    param.fixedSize = true;
+    param.sizeDistributionType = DistributionType.FIXED;
     param.exeTime = ExeTime.of("100records");
     param.specifyBroker = List.of(0);
     param.consumers = 0;
@@ -42,6 +42,7 @@ public class PerformanceTest extends RequireBrokerCluster {
     try (var executor =
         Performance.producerExecutor(
             Producer.builder().brokers(bootstrapServers()).build(),
+            Producer.builder().brokers(bootstrapServers()).buildTransactional(),
             param,
             metrics,
             partition(param, admin),
@@ -77,7 +78,7 @@ public class PerformanceTest extends RequireBrokerCluster {
     var param = new Performance.Argument();
     param.brokers = bootstrapServers();
     param.topic = topicName;
-    param.fixedSize = true;
+    param.sizeDistributionType = DistributionType.FIXED;
     param.exeTime = ExeTime.of("100records");
     param.specifyBroker = List.of(0, 1);
     param.consumers = 0;
@@ -85,6 +86,7 @@ public class PerformanceTest extends RequireBrokerCluster {
     try (Executor executor =
         Performance.producerExecutor(
             Producer.builder().brokers(bootstrapServers()).build(),
+            Producer.builder().brokers(bootstrapServers()).buildTransactional(),
             param,
             metrics,
             partition(param, admin),
@@ -115,11 +117,12 @@ public class PerformanceTest extends RequireBrokerCluster {
     var param = new Performance.Argument();
     param.brokers = bootstrapServers();
     param.topic = "testProducerExecutor-" + System.currentTimeMillis();
-    param.fixedSize = true;
+    param.sizeDistributionType = DistributionType.FIXED;
     param.consumers = 0;
     try (Executor executor =
         Performance.producerExecutor(
             Producer.builder().brokers(bootstrapServers()).build(),
+            Producer.builder().brokers(bootstrapServers()).buildTransactional(),
             param,
             metrics,
             List.of(-1),
@@ -136,7 +139,7 @@ public class PerformanceTest extends RequireBrokerCluster {
     Metrics metrics = new Metrics();
     var topicName = "testConsumerExecutor-" + System.currentTimeMillis();
     var param = new Performance.Argument();
-    param.fixedSize = true;
+    param.sizeDistributionType = DistributionType.FIXED;
     try (Executor executor =
         Performance.consumerExecutor(
             Consumer.builder().topics(Set.of(topicName)).brokers(bootstrapServers()).build(),
@@ -165,12 +168,13 @@ public class PerformanceTest extends RequireBrokerCluster {
     param.brokers = bootstrapServers();
     param.topic = "testProducerExecutor-" + System.currentTimeMillis();
     param.recordSize = DataUnit.KiB.of(100);
-    param.fixedSize = true;
+    param.sizeDistributionType = DistributionType.FIXED;
     param.consumers = 0;
     try (Executor executor =
         Performance.producerExecutor(
             Producer.builder().brokers(bootstrapServers()).configs(prop).build(),
-            new Performance.Argument(),
+            Producer.builder().brokers(bootstrapServers()).configs(prop).buildTransactional(),
+            param,
             producerMetrics,
             List.of(-1),
             new Manager(param, List.of(producerMetrics), List.of()))) {
@@ -183,6 +187,14 @@ public class PerformanceTest extends RequireBrokerCluster {
       Assertions.assertEquals(0, producerMetrics.currentRealBytes());
       Assertions.assertEquals(0, producerMetrics.clearAndGetCurrentBytes());
     }
+  }
+
+  @Test
+  void testTransactionSet() {
+    var argument = new Performance.Argument();
+    Assertions.assertFalse(argument.transaction());
+    argument.transactionSize = 3;
+    Assertions.assertTrue(argument.transaction());
   }
 
   @Test
@@ -204,8 +216,6 @@ public class PerformanceTest extends RequireBrokerCluster {
       "1000records",
       "--record.size",
       "10KiB",
-      "--jmx.servers",
-      "localhost:9000@1",
       "--partitioner",
       "org.astraea.partitioner.smoothPartitioner.SmoothWeightPartitioner",
       "--compression",
@@ -254,11 +264,6 @@ public class PerformanceTest extends RequireBrokerCluster {
     Assertions.assertThrows(
         IllegalArgumentException.class,
         () -> org.astraea.argument.Argument.parse(new Performance.Argument(), arguments8));
-
-    String[] arguments9 = {"--bootstrap.servers", "localhost:9092", "--jmx.servers", ""};
-    Assertions.assertThrows(
-        ParameterException.class,
-        () -> org.astraea.argument.Argument.parse(new Performance.Argument(), arguments9));
 
     String[] arguments10 = {"--bootstrap.servers", "localhost:9092", "--partitioner", ""};
     Assertions.assertThrows(

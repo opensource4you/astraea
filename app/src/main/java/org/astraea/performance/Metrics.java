@@ -1,5 +1,8 @@
 package org.astraea.performance;
 
+import java.util.HashMap;
+import java.util.Map;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiConsumer;
 
 /** Used to record statistics. This is thread safe. */
@@ -10,8 +13,7 @@ public class Metrics implements BiConsumer<Long, Long> {
   private long min;
   private long bytes;
   private long currentBytes;
-  private Metric realBytes = null;
-  private long lastRealBytes = 0L;
+  private final Map<Metric, Long> realBytes = new HashMap<>();
 
   public Metrics() {
     avgLatency = 0;
@@ -69,8 +71,8 @@ public class Metrics implements BiConsumer<Long, Long> {
     return ans;
   }
 
-  public void setRealBytesMetric(Metric realBytesMetric) {
-    this.realBytes = realBytesMetric;
+  public void putRealBytesMetric(Metric realBytesMetric) {
+    this.realBytes.put(realBytesMetric, 0L);
   }
 
   /**
@@ -78,13 +80,16 @@ public class Metrics implements BiConsumer<Long, Long> {
    * #setRealBytesMetric before get #currentRealBytes
    */
   public synchronized long currentRealBytes() {
-    if (realBytes != null && realBytes.metricValue() instanceof Double) {
-      var totalRealBytes = (long) Double.parseDouble(realBytes.metricValue().toString());
-      var ans = totalRealBytes - lastRealBytes;
-      lastRealBytes = totalRealBytes;
-      return ans;
-    } else {
-      return 0L;
-    }
+    AtomicLong all = new AtomicLong(0L);
+
+    // Get sum of all instances and update
+    realBytes.replaceAll(
+        (metric, last) -> {
+          var totalRealBytes = (long) Double.parseDouble(metric.metricValue().toString());
+          all.addAndGet(totalRealBytes - last);
+          return totalRealBytes;
+        });
+
+    return all.get();
   }
 }

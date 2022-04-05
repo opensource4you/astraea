@@ -7,7 +7,6 @@ import org.astraea.performance.Metric;
 /** An interface for sending records. */
 public interface Producer<Key, Value> extends AutoCloseable {
   Sender<Key, Value> sender();
-
   /** this method is blocked until all data in buffer are sent. */
   void flush();
 
