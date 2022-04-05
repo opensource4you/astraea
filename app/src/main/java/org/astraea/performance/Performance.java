@@ -220,7 +220,7 @@ public class Performance {
                   .filter(Optional::isPresent)
                   .map(
                       p ->
-                          producer
+                          transactionalProducer
                               .sender()
                               .topic(param.topic)
                               .partition(partitions.get(rand.nextInt(partitions.size())))
@@ -264,6 +264,7 @@ public class Performance {
       public void close() {
         try {
           producer.close();
+          transactionalProducer.close();
         } finally {
           manager.producerClosed();
         }

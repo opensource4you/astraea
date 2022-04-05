@@ -170,20 +170,57 @@ public class PerformanceTest extends RequireBrokerCluster {
     param.recordSize = DataUnit.KiB.of(100);
     param.sizeDistributionType = DistributionType.FIXED;
     param.consumers = 0;
-    try (Executor executor =
-        Performance.producerExecutor(
-            Producer.builder().brokers(bootstrapServers()).configs(prop).build(),
-            Producer.builder().brokers(bootstrapServers()).configs(prop).buildTransactional(),
-            param,
-            producerMetrics,
-            List.of(-1),
-            new Manager(param, List.of(producerMetrics), List.of()))) {
+
+    try (var producer = Producer.builder().brokers(bootstrapServers()).configs(prop).build();
+        var transactional =
+            Producer.builder().brokers(bootstrapServers()).configs(prop).buildTransactional();
+        Executor executor =
+            Performance.producerExecutor(
+                producer,
+                transactional,
+                param,
+                producerMetrics,
+                List.of(-1),
+                new Manager(param, List.of(producerMetrics), List.of()))) {
+      producerMetrics.putRealBytesMetric(producer.getMetric("outgoing-byte-total"));
+      producerMetrics.putRealBytesMetric(transactional.getMetric("outgoing-byte-total"));
 
       // Compressed size should be less than raw record size.
       executor.execute();
       Utils.waitFor(() -> producerMetrics.num() == 1);
-      Assertions.assertTrue(
-          producerMetrics.currentRealBytes() < producerMetrics.clearAndGetCurrentBytes());
+      var currentBytes = producerMetrics.clearAndGetCurrentBytes();
+      var realBytes = producerMetrics.currentRealBytes();
+      Assertions.assertNotEquals(0, currentBytes);
+      Assertions.assertNotEquals(0, realBytes);
+      Assertions.assertTrue(currentBytes > realBytes);
+      Assertions.assertEquals(0, producerMetrics.currentRealBytes());
+      Assertions.assertEquals(0, producerMetrics.clearAndGetCurrentBytes());
+    }
+
+    // Check for transactional producer real outgoing bytes
+    param.transactionSize = 5;
+    try (var producer = Producer.builder().brokers(bootstrapServers()).configs(prop).build();
+        var transactional =
+            Producer.builder().brokers(bootstrapServers()).configs(prop).buildTransactional();
+        Executor executor =
+            Performance.producerExecutor(
+                producer,
+                transactional,
+                param,
+                producerMetrics,
+                List.of(-1),
+                new Manager(param, List.of(producerMetrics), List.of()))) {
+      producerMetrics.putRealBytesMetric(producer.getMetric("outgoing-byte-total"));
+      producerMetrics.putRealBytesMetric(transactional.getMetric("outgoing-byte-total"));
+
+      // Compressed size should be less than raw record size.
+      executor.execute();
+      Utils.waitFor(() -> producerMetrics.num() >= 1);
+      var currentBytes = producerMetrics.clearAndGetCurrentBytes();
+      var realBytes = producerMetrics.currentRealBytes();
+      Assertions.assertNotEquals(0, currentBytes);
+      Assertions.assertNotEquals(0, realBytes);
+      Assertions.assertTrue(currentBytes > realBytes);
       Assertions.assertEquals(0, producerMetrics.currentRealBytes());
       Assertions.assertEquals(0, producerMetrics.clearAndGetCurrentBytes());
     }
