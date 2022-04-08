@@ -75,7 +75,7 @@ public class BeanCollectorTest {
 
     var c0 = receiver.current();
     Assertions.assertEquals(1, c0.size());
-    var firstObject = c0.get(0);
+    var firstObject = c0.iterator().next();
     sleep(1);
 
     var c1 = receiver.current();

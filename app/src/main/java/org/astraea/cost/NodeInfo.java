@@ -1,4 +1,4 @@
-package org.astraea.partitioner;
+package org.astraea.cost;
 
 import java.util.Objects;
 
