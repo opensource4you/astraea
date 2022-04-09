@@ -21,6 +21,8 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import javax.management.remote.JMXServiceURL;
+
+import org.apache.kafka.common.Cluster;
 import org.astraea.Utils;
 import org.astraea.argument.Field;
 import org.astraea.balancer.alpha.generator.MonkeyPlanGenerator;
@@ -75,7 +77,7 @@ public class Balancer implements Runnable {
     final long periodMs = Duration.ofMinutes(1).toMillis();
     while (!Thread.interrupted()) {
       // generate cluster info
-      final var clusterInfo = clusterSnapShot(topicAdmin);
+      final var clusterInfo = ClusterInfo.of(clusterSnapShot(topicAdmin), metricCollector.fetchMetrics());
 
       // dump metrics into cost function
       Map<CostFunction, Map<Integer, Double>> brokerScores =
