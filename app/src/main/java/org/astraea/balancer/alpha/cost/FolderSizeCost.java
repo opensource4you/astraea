@@ -105,7 +105,13 @@ public class FolderSizeCost implements CostFunction {
             return partitionInfo;
           }
 
-          @Override
+            @Override
+            public Set<String> topics() {
+                // TODO: fix this
+                return null;
+            }
+
+            @Override
           public List<PartitionInfo> partitions(String topic) {
             List<PartitionInfo> partitionInfo = new ArrayList<>();
             admin
