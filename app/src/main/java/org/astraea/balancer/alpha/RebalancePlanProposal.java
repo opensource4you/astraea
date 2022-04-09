@@ -8,7 +8,7 @@ public interface RebalancePlanProposal {
 
   boolean isPlanGenerated();
 
-  Optional<RebalancePlan> rebalancePlan();
+  Optional<ClusterLogAllocation> rebalancePlan();
 
   List<String> info();
 
@@ -21,37 +21,37 @@ public interface RebalancePlanProposal {
   }
 
   class Build {
-    RebalancePlan rebalancePlan = null;
+    ClusterLogAllocation rebalancePlan = null;
     List<String> info = List.of();
     List<String> warnings = List.of();
     List<Exception> exceptions = List.of();
 
-    Build noRebalancePlan() {
+    public Build noRebalancePlan() {
       this.rebalancePlan = null;
       return this;
     }
 
-    Build withRebalancePlan(RebalancePlan plan) {
+    public Build withRebalancePlan(ClusterLogAllocation plan) {
       this.rebalancePlan = Objects.requireNonNull(plan);
       return this;
     }
 
-    Build withWarnings(List<String> warning) {
+    public Build withWarnings(List<String> warning) {
       this.warnings = List.copyOf(warning);
       return this;
     }
 
-    Build withInfo(List<String> info) {
+    public Build withInfo(List<String> info) {
       this.info = List.copyOf(info);
       return this;
     }
 
-    Build withFailure(List<Exception> exceptions) {
+    public Build withFailure(List<Exception> exceptions) {
       this.exceptions = List.copyOf(exceptions);
       return this;
     }
 
-    RebalancePlanProposal build() {
+    public RebalancePlanProposal build() {
       return new RebalancePlanProposal() {
 
         @Override
@@ -60,7 +60,7 @@ public interface RebalancePlanProposal {
         }
 
         @Override
-        public Optional<RebalancePlan> rebalancePlan() {
+        public Optional<ClusterLogAllocation> rebalancePlan() {
           return Optional.ofNullable(rebalancePlan);
         }
 

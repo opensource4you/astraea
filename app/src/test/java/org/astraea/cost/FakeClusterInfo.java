@@ -3,6 +3,7 @@ package org.astraea.cost;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import org.astraea.metrics.HasBeanObject;
 
 public class FakeClusterInfo implements ClusterInfo {
@@ -14,6 +15,11 @@ public class FakeClusterInfo implements ClusterInfo {
   @Override
   public List<PartitionInfo> availablePartitions(String topic) {
     return List.of();
+  }
+
+  @Override
+  public Set<String> topics() {
+    return Set.of();
   }
 
   @Override

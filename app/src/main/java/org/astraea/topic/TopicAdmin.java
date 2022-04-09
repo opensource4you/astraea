@@ -4,6 +4,7 @@ import java.io.Closeable;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import org.apache.kafka.clients.admin.Admin;
 import org.apache.kafka.common.TopicPartition;
 
 public interface TopicAdmin extends Closeable {
@@ -74,6 +75,9 @@ public interface TopicAdmin extends Closeable {
 
   /** @return a partition migrator used to move partitions to another broker or folder. */
   Migrator migrator();
+
+  /** @return access the admin client */
+  Admin adminClient();
 
   @Override
   void close();
