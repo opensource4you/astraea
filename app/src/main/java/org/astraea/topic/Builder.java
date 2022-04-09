@@ -86,6 +86,11 @@ public class Builder {
     }
 
     @Override
+    public Admin adminClient() {
+      return admin;
+    }
+
+    @Override
     public Map<String, ConsumerGroup> consumerGroup(Set<String> consumerGroupNames) {
 
       final Set<String> groupIds =
