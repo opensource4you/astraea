@@ -19,10 +19,7 @@ import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 import javax.management.remote.JMXServiceURL;
-
-import org.apache.kafka.common.Cluster;
 import org.astraea.Utils;
 import org.astraea.argument.Field;
 import org.astraea.balancer.alpha.generator.MonkeyPlanGenerator;
@@ -77,7 +74,8 @@ public class Balancer implements Runnable {
     final long periodMs = Duration.ofMinutes(1).toMillis();
     while (!Thread.interrupted()) {
       // generate cluster info
-      final var clusterInfo = ClusterInfo.of(clusterSnapShot(topicAdmin), metricCollector.fetchMetrics());
+      final var clusterInfo =
+          ClusterInfo.of(clusterSnapShot(topicAdmin), metricCollector.fetchMetrics());
 
       // dump metrics into cost function
       Map<CostFunction, Map<Integer, Double>> brokerScores =
@@ -94,18 +92,6 @@ public class Balancer implements Runnable {
         // describe the proposal
         BalancerUtils.describeProposal(
             proposal, BalancerUtils.currentAllocation(topicAdmin, clusterInfo));
-
-        // print info, warnings, exceptions
-        System.out.println("[Information]");
-        proposal.info().forEach(info -> System.out.printf(" * %s%n", info));
-        System.out.println("[Warnings]");
-        proposal.warnings().forEach(warning -> System.out.printf(" * %s%n", warning));
-        IntStream.range(0, proposal.exceptions().size())
-            .forEachOrdered(
-                index -> {
-                  System.out.printf("[Exception %d/%d]%n", index + 1, proposal.exceptions().size());
-                  proposal.exceptions().get(index).printStackTrace();
-                });
       }
       try {
         TimeUnit.MILLISECONDS.sleep(periodMs);
@@ -184,6 +170,7 @@ public class Balancer implements Runnable {
   public static void main(String[] args) throws InterruptedException {
     final Argument argument = org.astraea.argument.Argument.parse(new Argument(), args);
     final Balancer balancer = new Balancer(argument);
+    balancer.start();
     balancer.balancerThread.join();
     balancer.stop();
   }
@@ -201,7 +188,7 @@ public class Balancer implements Runnable {
     public static class JmxServiceUrlMappingFileField extends Field<Map<Integer, JMXServiceURL>> {
 
       static final Pattern serviceUrlKeyPattern =
-          Pattern.compile("broker\\.(<brokerId>?[1-9][0-9]{0,4})");
+          Pattern.compile("broker\\.(?<brokerId>[1-9][0-9]{0,9})");
 
       static Map.Entry<Integer, JMXServiceURL> transformEntry(Map.Entry<String, String> entry) {
         final Matcher matcher = serviceUrlKeyPattern.matcher(entry.getKey());
@@ -220,7 +207,7 @@ public class Balancer implements Runnable {
           throw new IllegalArgumentException(
               "Bad key format for "
                   + entry.getKey()
-                  + "no match for the following format :"
+                  + " no match for the following format :"
                   + serviceUrlKeyPattern.pattern());
         }
       }

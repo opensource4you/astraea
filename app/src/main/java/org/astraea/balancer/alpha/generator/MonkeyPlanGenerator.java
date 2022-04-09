@@ -51,9 +51,6 @@ public class MonkeyPlanGenerator implements RebalancePlanGenerator<Void> {
                                             .collect(Collectors.toUnmodifiableList())))))
             .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));
 
-    System.out.println("After Rebalance");
-    System.out.println(afterRebalance);
-
     // aggregate new result
     ClusterLogAllocation rebalancePlan = new ClusterLogAllocation(afterRebalance);
     return RebalancePlanProposal.builder()

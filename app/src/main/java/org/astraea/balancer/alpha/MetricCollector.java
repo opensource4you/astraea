@@ -1,19 +1,16 @@
 package org.astraea.balancer.alpha;
 
 import java.time.Duration;
-import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -22,7 +19,6 @@ import org.astraea.Utils;
 import org.astraea.metrics.HasBeanObject;
 import org.astraea.metrics.collector.Fetcher;
 import org.astraea.metrics.jmx.MBeanClient;
-import org.astraea.metrics.kafka.KafkaMetrics;
 
 /** Doing metric collector for balancer. */
 public class MetricCollector implements AutoCloseable {
@@ -70,16 +66,17 @@ public class MetricCollector implements AutoCloseable {
     jmxServiceURLMap.forEach(
         (brokerId, serviceUrl) -> mBeanClientMap.put(brokerId, MBeanClient.of(serviceUrl)));
 
-    Consumer<Integer> task = (brokerId) -> {
-      // the following code section perform multiple modification on this data structure without
-      // atomic guarantee. this is done by the thread confinement technique. So for any time
-      // moment, only one thread can be the writer to this data structure.
-      metricTimeSeries
-              .get(brokerId)
+    Consumer<Integer> task =
+        (brokerId) -> {
+          // the following code section perform multiple modification on this data structure without
+          // atomic guarantee. this is done by the thread confinement technique. So for any time
+          // moment, only one thread can be the writer to this data structure.
+          metricTimeSeries
+              .computeIfAbsent(brokerId, (ignore) -> new ConcurrentLinkedQueue<>())
               .addAll(aggregatedFetcher.fetch(mBeanClientMap.get(brokerId)));
-      while (metricTimeSeries.get(brokerId).size() > timeSeriesKeeps)
-        metricTimeSeries.get(brokerId).poll();
-    };
+          while (metricTimeSeries.get(brokerId).size() > timeSeriesKeeps)
+            metricTimeSeries.get(brokerId).poll();
+        };
 
     // schedule the fetching process for every broker.
     var futures =
@@ -100,16 +97,14 @@ public class MetricCollector implements AutoCloseable {
    */
   public synchronized List<HasBeanObject> fetchBrokerMetrics(Integer brokerId) {
     // concurrent data structure + thread confinement to one writer + immutable objects
-    if(!started.get())
-      throw new IllegalStateException("This MetricCollector haven't started");
-    return List.copyOf(metricTimeSeries.get(brokerId));
+    if (!started.get()) throw new IllegalStateException("This MetricCollector haven't started");
+    return List.copyOf(
+        metricTimeSeries.computeIfAbsent(brokerId, (ignore) -> new ConcurrentLinkedQueue<>()));
   }
 
   public synchronized Map<Integer, Collection<HasBeanObject>> fetchMetrics() {
-    return this.jmxServiceURLMap.keySet().stream().collect(Collectors.toUnmodifiableMap(
-            Function.identity(),
-            this::fetchBrokerMetrics
-    ));
+    return this.jmxServiceURLMap.keySet().stream()
+        .collect(Collectors.toUnmodifiableMap(Function.identity(), this::fetchBrokerMetrics));
   }
 
   @Override
@@ -122,5 +117,4 @@ public class MetricCollector implements AutoCloseable {
     mBeanClientMap.clear();
     metricTimeSeries.clear();
   }
-
 }
