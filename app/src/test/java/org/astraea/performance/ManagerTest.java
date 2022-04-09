@@ -126,4 +126,21 @@ public class ManagerTest {
     manager.producerClosed();
     Assertions.assertTrue(manager.producedDone());
   }
+
+  @Test
+  void testCheckAndAdd() throws InterruptedException {
+    var argument = new Performance.Argument();
+    argument.throughput = DataUnit.KiB.of(3);
+    var recordSize = DataUnit.KiB.of(1).measurement(DataUnit.Byte).intValue();
+    var manager = new Manager(argument, List.of(), List.of());
+
+    Assertions.assertTrue(manager.checkAndAdd(recordSize));
+    Assertions.assertTrue(manager.checkAndAdd(recordSize));
+    Assertions.assertTrue(manager.checkAndAdd(recordSize));
+    Assertions.assertFalse(manager.checkAndAdd(recordSize));
+
+    Thread.sleep(1001);
+
+    Assertions.assertTrue(manager.checkAndAdd(recordSize));
+  }
 }
