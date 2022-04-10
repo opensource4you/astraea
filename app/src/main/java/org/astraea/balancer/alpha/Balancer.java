@@ -1,5 +1,7 @@
 package org.astraea.balancer.alpha;
 
+import static org.astraea.balancer.alpha.BalancerUtils.clusterSnapShot;
+
 import com.beust.jcommander.Parameter;
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -7,8 +9,6 @@ import java.net.MalformedURLException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
-import java.util.Collection;
-import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
@@ -20,14 +20,10 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import javax.management.remote.JMXServiceURL;
-import org.astraea.Utils;
 import org.astraea.argument.Field;
 import org.astraea.balancer.alpha.generator.MonkeyPlanGenerator;
 import org.astraea.cost.ClusterInfo;
 import org.astraea.cost.CostFunction;
-import org.astraea.cost.NodeInfo;
-import org.astraea.cost.PartitionInfo;
-import org.astraea.metrics.HasBeanObject;
 import org.astraea.metrics.collector.Fetcher;
 import org.astraea.topic.TopicAdmin;
 
@@ -100,61 +96,6 @@ public class Balancer implements Runnable {
         break;
       }
     }
-  }
-
-  private ClusterInfo clusterSnapShot(TopicAdmin topicAdmin) {
-    final var nodeInfo =
-        Utils.handleException(() -> topicAdmin.adminClient().describeCluster().nodes().get())
-            .stream()
-            .map(NodeInfo::of)
-            .collect(Collectors.toUnmodifiableList());
-    final var topics = topicAdmin.topicNames();
-    final var topicInfo =
-        Utils.handleException(
-            () -> topicAdmin.adminClient().describeTopics(topics).allTopicNames().get());
-    final var partitionInfo =
-        topicInfo.entrySet().stream()
-            .flatMap(
-                entry ->
-                    entry.getValue().partitions().stream()
-                        .map(
-                            x ->
-                                PartitionInfo.of(
-                                    entry.getKey(), x.partition(), NodeInfo.of(x.leader()))))
-            .collect(Collectors.toUnmodifiableList());
-
-    return new ClusterInfo() {
-      @Override
-      public List<NodeInfo> nodes() {
-        return nodeInfo;
-      }
-
-      @Override
-      public List<PartitionInfo> availablePartitions(String topic) {
-        // TODO: Fix this?
-        return partitionInfo;
-      }
-
-      @Override
-      public Set<String> topics() {
-        return topics;
-      }
-
-      @Override
-      public List<PartitionInfo> partitions(String topic) {
-        return partitionInfo;
-      }
-
-      @Override
-      public Collection<HasBeanObject> beans(int brokerId) {
-        return List.of();
-      }
-
-      @Override
-      public Map<Integer, Collection<HasBeanObject>> allBeans() {
-        return Map.of();
-      }
-    };
   }
 
   private boolean isClusterImbalance() {

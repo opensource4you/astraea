@@ -1,11 +1,18 @@
 package org.astraea.balancer.alpha;
 
 import java.time.LocalDateTime;
+import java.util.Collection;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import org.astraea.Utils;
 import org.astraea.cost.ClusterInfo;
 import org.astraea.cost.CostFunction;
+import org.astraea.cost.NodeInfo;
+import org.astraea.cost.PartitionInfo;
+import org.astraea.metrics.HasBeanObject;
 import org.astraea.topic.Replica;
 import org.astraea.topic.TopicAdmin;
 
@@ -112,5 +119,61 @@ public class BalancerUtils {
               proposal.exceptions().get(index).printStackTrace();
             });
     System.out.println();
+  }
+
+  public static ClusterInfo clusterSnapShot(TopicAdmin topicAdmin) {
+    final var nodeInfo =
+        Utils.handleException(() -> topicAdmin.adminClient().describeCluster().nodes().get())
+            .stream()
+            .map(NodeInfo::of)
+            .collect(Collectors.toUnmodifiableList());
+    final var topics = topicAdmin.topicNames();
+    final var topicInfo =
+        Utils.handleException(
+            () -> topicAdmin.adminClient().describeTopics(topics).allTopicNames().get());
+    final var partitionInfo =
+        topicInfo.entrySet().stream()
+            .flatMap(
+                entry ->
+                    entry.getValue().partitions().stream()
+                        .map(
+                            x ->
+                                PartitionInfo.of(
+                                    entry.getKey(), x.partition(), NodeInfo.of(x.leader()))))
+            .collect(Collectors.toUnmodifiableList());
+
+    return new ClusterInfo() {
+      @Override
+      public List<NodeInfo> nodes() {
+        return nodeInfo;
+      }
+
+      @Override
+      public List<PartitionInfo> availablePartitions(String topic) {
+        return partitions(topic).stream()
+            .filter(x -> x.leader() != null)
+            .collect(Collectors.toUnmodifiableList());
+      }
+
+      @Override
+      public Set<String> topics() {
+        return topics;
+      }
+
+      @Override
+      public List<PartitionInfo> partitions(String topic) {
+        return partitionInfo;
+      }
+
+      @Override
+      public Collection<HasBeanObject> beans(int brokerId) {
+        return allBeans().get(brokerId);
+      }
+
+      @Override
+      public Map<Integer, Collection<HasBeanObject>> allBeans() {
+        return Map.of();
+      }
+    };
   }
 }
