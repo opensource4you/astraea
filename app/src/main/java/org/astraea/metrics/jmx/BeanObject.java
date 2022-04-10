@@ -12,6 +12,7 @@ public class BeanObject {
   private final String domainName;
   private final Map<String, String> properties;
   private final Map<String, Object> attributes;
+  private final long createdTimestamp = System.currentTimeMillis();
 
   /**
    * construct a {@link BeanObject}
@@ -54,6 +55,10 @@ public class BeanObject {
 
   public Map<String, Object> getAttributes() {
     return attributes;
+  }
+
+  public long createdTimestamp() {
+    return createdTimestamp;
   }
 
   @Override

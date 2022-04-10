@@ -388,6 +388,12 @@ public class Performance {
     List<Integer> specifyBroker = List.of(-1);
 
     @Parameter(
+        names = {"--throughput"},
+        description = "dataSize: size output per second. e.g. \"500KiB\"",
+        converter = DataSize.Field.class)
+    DataSize throughput = DataUnit.GiB.of(500);
+
+    @Parameter(
         names = {"--report.path"},
         description = "String: A path to place the report. Default: (no report)",
         converter = PathField.class)

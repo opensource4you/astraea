@@ -252,11 +252,12 @@ Run the benchmark from source
 10. --prop.file: the path to property file.
 11. --partitioner: the partitioner to use in producers
 12. --jmx.servers: the jmx server addresses of the brokers 
-13. --key.distribution: name of the distribution on key. Available distribution names: "uniform", "zipfian", "latest", "fixed". Default: (No key)
-14. --size.distribution: name of the distribution on value size. Available distribution names: "uniform", "zipfian", "latest", "fixed". Default: "uniform"
-15. --specify.broker: list of broker IDs to produce records to. Default: (Do Not Specify)
-16. --report.path: A path to place the report file. Default: (no report)
-17. --report.format: Select output file format. Available format: "csv", "json".
+13--throughput: the produce rate for all producers. e.g. "--throughput 2MiB". Default: 500 GiB (per second)
+14--key.distribution: name of the distribution on key. Available distribution names: "uniform", "zipfian", "latest", "fixed". Default: (No key)
+15--size.distribution: name of the distribution on value size. Available distribution names: "uniform", "zipfian", "latest", "fixed". Default: "uniform"
+16--specify.broker: list of broker IDs to produce records to. Default: (Do Not Specify)
+17--report.path: A path to place the report file. Default: (no report)
+18--report.format: Select output file format. Available format: "csv", "json".
 
 ---
 
