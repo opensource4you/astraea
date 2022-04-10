@@ -6,7 +6,6 @@ import static org.astraea.partitioner.nodeLoadMetric.PartitionerUtils.partitione
 import static org.astraea.partitioner.nodeLoadMetric.PartitionerUtils.weightPoisson;
 
 import java.util.List;
-
 import java.util.Map;
 import java.util.Objects;
 import java.util.Random;
@@ -21,7 +20,6 @@ import org.apache.kafka.clients.producer.Partitioner;
 import org.apache.kafka.common.Cluster;
 import org.apache.kafka.common.Node;
 import org.apache.kafka.common.PartitionInfo;
-
 import org.astraea.cost.ClusterInfo;
 import org.astraea.partitioner.Configuration;
 import org.astraea.partitioner.nodeLoadMetric.NodeLoadClient;

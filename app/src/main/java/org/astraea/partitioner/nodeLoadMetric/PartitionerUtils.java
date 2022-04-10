@@ -4,7 +4,9 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.Properties;
+import org.astraea.partitioner.Configuration;
 
 /** do poisson for node's load situation */
 public class PartitionerUtils {
@@ -46,6 +48,20 @@ public class PartitionerUtils {
     var avgLoadCount =
         overLoadCount.values().stream().mapToDouble(Integer::doubleValue).average().orElse(0);
     return (int) Math.round(avgLoadCount);
+  }
+
+  public static Properties partitionerConfig(Configuration configs) {
+    var properties = new Properties();
+    try {
+      properties.load(
+          new FileInputStream(
+              (configs
+                  .string("partitioner.config")
+                  .orElseThrow(() -> new NoSuchElementException("ConfigFile cannot be found.")))));
+    } catch (IOException e) {
+      e.printStackTrace();
+    }
+    return properties;
   }
 
   public static Properties partitionerConfig(Map<String, ?> configs) {

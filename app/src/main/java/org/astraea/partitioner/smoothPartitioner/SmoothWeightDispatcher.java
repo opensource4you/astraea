@@ -1,8 +1,9 @@
 package org.astraea.partitioner.smoothPartitioner;
 
+import static org.astraea.partitioner.nodeLoadMetric.PartitionerUtils.partitionerConfig;
+
 import java.time.Duration;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
@@ -15,11 +16,12 @@ import java.util.stream.Collectors;
 import org.astraea.Utils;
 import org.astraea.cost.ClusterInfo;
 import org.astraea.cost.CostFunction;
-import org.astraea.cost.LoadCost;
-import org.astraea.cost.MemoryWarningCost;
+import org.astraea.cost.ThroughputLoadCost;
+import org.astraea.metrics.HasBeanObject;
 import org.astraea.metrics.collector.BeanCollector;
 import org.astraea.metrics.collector.Fetcher;
 import org.astraea.metrics.collector.Receiver;
+import org.astraea.metrics.jmx.MBeanClient;
 import org.astraea.partitioner.Configuration;
 import org.astraea.partitioner.Dispatcher;
 
@@ -31,18 +33,18 @@ import org.astraea.partitioner.Dispatcher;
 public class SmoothWeightDispatcher implements Dispatcher {
   public static final String JMX_PORT = "jmx.port";
   private final BeanCollector beanCollector =
-      BeanCollector.builder().interval(Duration.ofSeconds(1)).build();
+      BeanCollector.builder()
+          .interval(Duration.ofSeconds(1))
+          .numberOfObjectsPerNode(1)
+          .clientCreator(MBeanClient::jndi)
+          .build();
   private Optional<Integer> jmxPortDefault = Optional.empty();
   private final Map<Integer, Integer> jmxPorts = new TreeMap<>();
   private final Map<Integer, Receiver> receivers = new TreeMap<>();
 
-  private final Collection<CostFunction> functions =
-      List.of(new LoadCost(), new MemoryWarningCost());
-  // Memory warning can dominate the score.
-  private final Map<Object, Double> costFraction =
-      Map.of(LoadCost.class, 1.0, MemoryWarningCost.class, -100.0);
+  private final Collection<CostFunction> functions = List.of(new ThroughputLoadCost());
 
-  private final SmoothWeight smoothWeightCal = new SmoothWeight();
+  private Map<Integer, Collection<HasBeanObject>> beans;
   private final Random random = new Random();
   // Fetch data every n seconds
   private long lastFetchTime = 0L;
@@ -67,40 +69,49 @@ public class SmoothWeightDispatcher implements Dispatcher {
                     receivers.put(
                         p.leader().id(), receiver(p.leader().host(), jmxPort(p.leader().id()))));
 
-        // fetch the latest beans for each node
-        var beans =
+        beans =
             receivers.entrySet().stream()
                 .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().current()));
 
-        var compoundScore =
-            functions.stream()
-                .map(
-                    f -> {
-                      var map = f.cost(ClusterInfo.of(clusterInfo, beans));
-                      map.replaceAll((k, v) -> v * costFraction.get(f.getClass()));
-                      return map;
-                    })
-                .reduce(new HashMap<>(), SmoothWeightDispatcher::costCompound)
-                .entrySet()
-                .stream()
-                .map(e -> Map.entry(e.getKey(), (int) (double) e.getValue()))
-                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+        //        functions.forEach(
+        //            costFunction -> {
+        //              System.out.println("1.0");
+        //              System.out.println(costFunction.smoothWeightMetrics().inputCount());
+        //            });
 
-        smoothWeightCal.init(compoundScore);
+        functions.forEach(
+            costFunction -> costFunction.updateLoad(ClusterInfo.of(clusterInfo, beans)));
       } finally {
         lastFetchTime = System.currentTimeMillis();
         lock.unlock();
       }
     }
-
+    Utils.waitFor(() -> lastFetchTime != 0L);
     // Make "smooth weight choosing" on the score.
-    var targetBroker = smoothWeightCal.getAndChoose();
+    // fetch the latest beans for each node
+
+    var targetBroker =
+        functions.stream()
+            .findFirst()
+            .get()
+            .cost(ClusterInfo.of(clusterInfo, beans))
+            .entrySet()
+            .stream()
+            .max(Map.Entry.comparingByValue())
+            .get()
+            .getKey();
+    //    System.out.println(targetBroker);
+    //    System.out.println("target:" + targetBroker);
     var targetPartitions =
         partitions.stream()
             .filter(p -> p.leader().id() == targetBroker)
             .collect(Collectors.toList());
-
-    return targetPartitions.get(random.nextInt(targetPartitions.size())).partition();
+    //    System.out.println(
+    //        "leader:" +
+    // targetPartitions.get(random.nextInt(targetPartitions.size())).leader().id());
+    var test = targetPartitions.get(random.nextInt(targetPartitions.size())).partition();
+    //    System.out.println(test);
+    return test;
   }
 
   // Just add all cost function score together
@@ -125,19 +136,22 @@ public class SmoothWeightDispatcher implements Dispatcher {
   }
 
   @Override
-  public void configure(Configuration config) {
-    jmxPortDefault = config.integer(JMX_PORT);
+  public void configure(Configuration configs) {
+    var properties = partitionerConfig(configs);
+    var config =
+        Configuration.of(
+            properties.entrySet().stream()
+                .collect(
+                    Collectors.toMap(e -> e.getKey().toString(), e -> e.getValue().toString())));
 
     // seeks for custom jmx ports.
     config.entrySet().stream()
         .filter(e -> e.getKey().startsWith("broker."))
         .filter(e -> e.getKey().endsWith(JMX_PORT))
-        .map(
+        .forEach(
             e ->
-                Map.entry(
-                    e.getKey().replaceAll("^broker[.]", "").replaceAll("[.]" + JMX_PORT + "$", ""),
-                    e.getValue()))
-        .forEach(e -> jmxPorts.put(Integer.parseInt(e.getKey()), Integer.parseInt(e.getValue())));
+                jmxPorts.put(
+                    Integer.parseInt(e.getKey().split("\\.")[1]), Integer.parseInt(e.getValue())));
   }
 
   // visible for testing

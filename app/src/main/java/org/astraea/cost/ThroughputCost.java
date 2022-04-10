@@ -8,6 +8,7 @@ import org.astraea.metrics.HasBeanObject;
 import org.astraea.metrics.collector.Fetcher;
 import org.astraea.metrics.kafka.BrokerTopicMetricsResult;
 import org.astraea.metrics.kafka.KafkaMetrics;
+import org.astraea.partitioner.smoothPartitioner.SmoothWeightMetrics;
 
 public class ThroughputCost implements CostFunction {
 
@@ -42,5 +43,13 @@ public class ThroughputCost implements CostFunction {
         List.of(
             KafkaMetrics.BrokerTopic.BytesInPerSec.fetch(client),
             KafkaMetrics.BrokerTopic.BytesOutPerSec.fetch(client));
+  }
+
+  @Override
+  public void updateLoad(ClusterInfo clusterInfo) {}
+
+  @Override
+  public SmoothWeightMetrics smoothWeightMetrics() {
+    return null;
   }
 }

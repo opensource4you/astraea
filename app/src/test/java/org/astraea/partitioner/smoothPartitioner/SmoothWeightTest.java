@@ -7,7 +7,7 @@ import org.junit.jupiter.api.Test;
 public class SmoothWeightTest {
   @Test
   public void testGetAndChoose() {
-    var smoothWeight = new SmoothWeight(Map.of(1, 5, 2, 3, 3, 1));
+    var smoothWeight = new SmoothWeight(Map.of(1, 5.0, 2, 3.0, 3, 1.0));
 
     Assertions.assertEquals(1, smoothWeight.getAndChoose());
     Assertions.assertEquals(2, smoothWeight.getAndChoose());
