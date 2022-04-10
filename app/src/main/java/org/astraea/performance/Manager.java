@@ -8,6 +8,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
+import org.astraea.Utils;
 import org.astraea.utils.DataSize;
 import org.astraea.utils.DataUnit;
 
@@ -26,6 +27,9 @@ public class Manager {
   private final AtomicLong payloadNum = new AtomicLong(0);
   private final Supplier<Long> keyDistribution;
   private final RandomContent randomContent;
+  private long intervalStart = System.currentTimeMillis();
+  private long payloadBytes = 0L;
+  private final DataSize throughput;
 
   /**
    * Used to manage producing/consuming.
@@ -52,6 +56,7 @@ public class Manager {
     this.producerMetrics = producerMetrics;
     this.consumerMetrics = consumerMetrics;
     this.exeTime = argument.exeTime;
+    this.throughput = argument.throughput;
     this.keyDistribution = argument.keyDistributionType.create(100000);
     this.randomContent =
         new RandomContent(
@@ -61,7 +66,8 @@ public class Manager {
   }
 
   /**
-   * Generate random byte array in random/fixed length.
+   * Generate random byte array in random/fixed length. Warning: This method will block when the
+   * throughput (content generating rate) is higher than the given number (argument.throughput).
    *
    * @return random byte array. When no payload should be generated, Optional.empty() is generated.
    *     Whether the payload should be generated is determined in construct time. "Number of
@@ -72,7 +78,22 @@ public class Manager {
         >= 100D) return Optional.empty();
 
     var payload = randomContent.getContent();
+
+    Utils.waitFor(() -> checkAndAdd(payload.length));
     return Optional.of(payload);
+  }
+
+  synchronized boolean checkAndAdd(int payloadLength) {
+    if (System.currentTimeMillis() - intervalStart > 1000) {
+      intervalStart = System.currentTimeMillis();
+      payloadBytes = payloadLength;
+      return true;
+    } else if (payloadBytes < throughput.measurement(DataUnit.Byte).longValue()) {
+      payloadBytes += payloadLength;
+      return true;
+    } else {
+      return false;
+    }
   }
 
   public long producedRecords() {
