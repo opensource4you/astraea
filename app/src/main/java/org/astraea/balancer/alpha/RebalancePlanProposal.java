@@ -1,5 +1,6 @@
 package org.astraea.balancer.alpha;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -22,9 +23,9 @@ public interface RebalancePlanProposal {
 
   class Build {
     ClusterLogAllocation rebalancePlan = null;
-    List<String> info = List.of();
-    List<String> warnings = List.of();
-    List<Exception> exceptions = List.of();
+    List<String> info = new ArrayList<>();
+    List<String> warnings = new ArrayList<>();
+    List<Exception> exceptions = new ArrayList<>();
 
     public Build noRebalancePlan() {
       this.rebalancePlan = null;
@@ -36,18 +37,18 @@ public interface RebalancePlanProposal {
       return this;
     }
 
-    public Build withWarnings(List<String> warning) {
-      this.warnings = List.copyOf(warning);
+    public Build addWarning(List<String> warning) {
+      this.warnings.addAll(warning);
       return this;
     }
 
-    public Build withInfo(List<String> info) {
-      this.info = List.copyOf(info);
+    public Build addInfo(List<String> info) {
+      this.info.addAll(info);
       return this;
     }
 
-    public Build withFailure(List<Exception> exceptions) {
-      this.exceptions = List.copyOf(exceptions);
+    public Build addExceptions(List<Exception> exceptions) {
+      this.exceptions.addAll(exceptions);
       return this;
     }
 

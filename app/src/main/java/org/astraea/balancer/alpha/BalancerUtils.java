@@ -2,14 +2,16 @@ package org.astraea.balancer.alpha;
 
 import java.time.LocalDateTime;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import org.apache.kafka.common.TopicPartitionReplica;
 import org.astraea.Utils;
 import org.astraea.cost.ClusterInfo;
-import org.astraea.cost.CostFunction;
 import org.astraea.cost.NodeInfo;
 import org.astraea.cost.PartitionInfo;
 import org.astraea.metrics.HasBeanObject;
@@ -42,7 +44,28 @@ public class BalancerUtils {
                                     y -> y.getKey().partition(), Map.Entry::getValue)))));
   }
 
-  public static void printCostFunction(Map<CostFunction, Map<Integer, Double>> brokerScores) {
+  public static void printTopicPartitionReplicaCost(
+      Map<?, Map<TopicPartitionReplica, Double>> tprScores) {
+    tprScores.forEach(
+        (key, value) -> {
+          System.out.printf("[%s]%n", key.getClass().getSimpleName());
+          value.entrySet().stream()
+              .sorted(
+                  Comparator.comparing(
+                          (Map.Entry<TopicPartitionReplica, Double> x) -> x.getKey().topic())
+                      .thenComparing(
+                          (Map.Entry<TopicPartitionReplica, Double> x) -> x.getKey().partition())
+                      .thenComparing(
+                          (Map.Entry<TopicPartitionReplica, Double> x) -> x.getKey().brokerId()))
+              .forEachOrdered(
+                  entry ->
+                      System.out.printf(
+                          " TPR %s: %f%n", entry.getKey().toString(), entry.getValue()));
+          System.out.println();
+        });
+  }
+
+  public static void printCost(Map<?, Map<Integer, Double>> brokerScores) {
     brokerScores.forEach(
         (key, value) -> {
           System.out.printf("[%s]%n", key.getClass().getSimpleName());
@@ -90,10 +113,13 @@ public class BalancerUtils {
                                 .sorted()
                                 .collect(Collectors.toUnmodifiableList());
 
-                        System.out.printf("   Partition #%d%n", partitionId);
-                        System.out.println("       no change: " + noChange);
-                        System.out.println("       to delete: " + toDelete);
-                        System.out.println("       to replicate: " + toReplicate);
+                        boolean noChangeAtAll = toDelete.size() == 0 && toReplicate.size() == 0;
+                        if (!noChangeAtAll) {
+                          System.out.printf("   Partition #%d%n", partitionId);
+                          System.out.println("       no change: " + noChange);
+                          System.out.println("       to delete: " + toDelete);
+                          System.out.println("       to replicate: " + toReplicate);
+                        }
                       });
                 });
       } else {
@@ -127,19 +153,29 @@ public class BalancerUtils {
             .stream()
             .map(NodeInfo::of)
             .collect(Collectors.toUnmodifiableList());
+    final var nodeInfoMap =
+        nodeInfo.stream().collect(Collectors.toUnmodifiableMap(NodeInfo::id, Function.identity()));
     final var topics = topicAdmin.topicNames();
-    final var topicInfo =
-        Utils.handleException(
-            () -> topicAdmin.adminClient().describeTopics(topics).allTopicNames().get());
     final var partitionInfo =
-        topicInfo.entrySet().stream()
+        topicAdmin.replicas(topics).entrySet().stream()
             .flatMap(
-                entry ->
-                    entry.getValue().partitions().stream()
-                        .map(
-                            x ->
-                                PartitionInfo.of(
-                                    entry.getKey(), x.partition(), NodeInfo.of(x.leader()))))
+                entry -> {
+                  var leaderReplica =
+                      entry.getValue().stream().filter(Replica::leader).findFirst().orElseThrow();
+                  var leaderNode = nodeInfoMap.get(leaderReplica.broker());
+                  var allNodes =
+                      entry.getValue().stream()
+                          .map(x -> nodeInfoMap.get(x.broker()))
+                          .collect(Collectors.toUnmodifiableList());
+                  return entry.getValue().stream()
+                      .map(
+                          replica ->
+                              PartitionInfo.of(
+                                  entry.getKey().topic(),
+                                  entry.getKey().partition(),
+                                  leaderNode,
+                                  allNodes));
+                })
             .collect(Collectors.toUnmodifiableList());
 
     return new ClusterInfo() {
@@ -162,7 +198,9 @@ public class BalancerUtils {
 
       @Override
       public List<PartitionInfo> partitions(String topic) {
-        return partitionInfo;
+        return partitionInfo.stream()
+            .filter(x -> x.topic().equals(topic))
+            .collect(Collectors.toUnmodifiableList());
       }
 
       @Override
