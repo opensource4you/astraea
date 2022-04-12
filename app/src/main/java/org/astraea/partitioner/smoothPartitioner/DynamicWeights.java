@@ -27,8 +27,10 @@ public final class DynamicWeights {
       var zCurrentLoad = CostUtils.ZScore(currentWeight);
       this.load.replaceAll(
           (k, v) -> {
+            var zLoad = zCurrentLoad.get(k);
             var score =
-                Math.round(10000 * (v - zCurrentLoad.get(k) * 0.05 / this.load.size())) / 10000.0;
+                Math.round(10000 * (v - (zLoad.isNaN() ? 0.0 : zLoad) * 0.05 / this.load.size()))
+                    / 10000.0;
             if (score > 1.0) {
               return 1.0;
             } else if (score < 0.0) {
