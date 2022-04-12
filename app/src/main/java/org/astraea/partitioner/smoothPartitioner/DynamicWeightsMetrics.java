@@ -10,7 +10,7 @@ import org.astraea.metrics.java.OperatingSystemInfo;
 import org.astraea.metrics.kafka.BrokerTopicMetricsResult;
 import org.astraea.metrics.kafka.KafkaMetrics;
 
-public class SmoothWeightMetrics {
+public class DynamicWeightsMetrics {
   private final Map<Integer, BrokerMetric> brokersMetric = new HashMap<>();
 
   public enum BrokerMetrics {

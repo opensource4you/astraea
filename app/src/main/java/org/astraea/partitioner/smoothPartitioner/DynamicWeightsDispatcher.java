@@ -8,15 +8,16 @@ import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
-import java.util.Random;
 import java.util.TreeMap;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Collectors;
 import org.astraea.Utils;
 import org.astraea.cost.ClusterInfo;
 import org.astraea.cost.CostFunction;
-import org.astraea.cost.ThroughputLoadCost;
+import org.astraea.cost.DynamicWeightsLoadCost;
+import org.astraea.cost.PartitionInfo;
 import org.astraea.metrics.HasBeanObject;
 import org.astraea.metrics.collector.BeanCollector;
 import org.astraea.metrics.collector.Fetcher;
@@ -28,9 +29,9 @@ import org.astraea.partitioner.Dispatcher;
 /**
  * Based on the jmx metrics obtained from Kafka, it records the load status of the node over a
  * period of time. Predict the future status of each node through the poisson of the load status.
- * Finally, the result of poisson is used as the weight to perform smooth weighted RoundRobin.
+ * Finally, the result of poisson is used as the weight to perform dynamic weighted RoundRobin.
  */
-public class SmoothWeightDispatcher implements Dispatcher {
+public class DynamicWeightsDispatcher implements Dispatcher {
   public static final String JMX_PORT = "jmx.port";
   private final BeanCollector beanCollector =
       BeanCollector.builder()
@@ -42,24 +43,19 @@ public class SmoothWeightDispatcher implements Dispatcher {
   private final Map<Integer, Integer> jmxPorts = new TreeMap<>();
   private final Map<Integer, Receiver> receivers = new TreeMap<>();
 
-  private final Collection<CostFunction> functions = List.of(new ThroughputLoadCost());
+  private final Collection<CostFunction> functions = List.of(new DynamicWeightsLoadCost());
 
   private Map<Integer, Collection<HasBeanObject>> beans;
-  private final Random random = new Random();
+  private final ThreadLocalRandom random = ThreadLocalRandom.current();
   // Fetch data every n seconds
   private long lastFetchTime = 0L;
   private final Lock lock = new ReentrantLock();
+  private List<PartitionInfo> partitions;
 
   @Override
   public int partition(String topic, byte[] key, byte[] value, ClusterInfo clusterInfo) {
-    var partitions = clusterInfo.availablePartitions(topic);
-    // just return first partition if there is no available partitions
-    if (partitions.isEmpty()) return 0;
-
-    // just return the only one available partition
-    if (partitions.size() == 1) return partitions.iterator().next().partition();
-
     if (Utils.overSecond(lastFetchTime, 1) && lock.tryLock()) {
+      partitions = clusterInfo.availablePartitions(topic);
       try {
         // add new receivers for new brokers
         partitions.stream()
@@ -73,12 +69,6 @@ public class SmoothWeightDispatcher implements Dispatcher {
             receivers.entrySet().stream()
                 .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().current()));
 
-        //        functions.forEach(
-        //            costFunction -> {
-        //              System.out.println("1.0");
-        //              System.out.println(costFunction.smoothWeightMetrics().inputCount());
-        //            });
-
         functions.forEach(
             costFunction -> costFunction.updateLoad(ClusterInfo.of(clusterInfo, beans)));
       } finally {
@@ -87,39 +77,34 @@ public class SmoothWeightDispatcher implements Dispatcher {
       }
     }
     Utils.waitFor(() -> lastFetchTime != 0L);
-    // Make "smooth weight choosing" on the score.
-    // fetch the latest beans for each node
+
+    // just return first partition if there is no available partitions
+    if (partitions.isEmpty()) return 0;
+
+    // just return the only one available partition
+    if (partitions.size() == 1) return partitions.iterator().next().partition();
 
     var targetBroker =
-        functions.stream()
-            .findFirst()
-            .get()
-            .cost(ClusterInfo.of(clusterInfo, beans))
-            .entrySet()
-            .stream()
-            .max(Map.Entry.comparingByValue())
-            .get()
-            .getKey();
-    //    System.out.println(targetBroker);
-    //    System.out.println("target:" + targetBroker);
+        functions.stream().findFirst().get().cost(ClusterInfo.of(clusterInfo, beans));
+
+    var sum = targetBroker.values().stream().mapToDouble(i -> i).sum();
+    var target = random.nextDouble();
+    var targetID = 0;
+    for (var score : targetBroker.entrySet()) {
+      target -= score.getValue() / sum;
+      if (target < 0) {
+        targetID = score.getKey();
+        break;
+      }
+    }
+
+    var finalTargetID = targetID;
     var targetPartitions =
         partitions.stream()
-            .filter(p -> p.leader().id() == targetBroker)
+            .filter(p -> p.leader().id() == finalTargetID)
             .collect(Collectors.toList());
-    //    System.out.println(
-    //        "leader:" +
-    // targetPartitions.get(random.nextInt(targetPartitions.size())).leader().id());
-    var test = targetPartitions.get(random.nextInt(targetPartitions.size())).partition();
-    //    System.out.println(test);
-    return test;
-  }
 
-  // Just add all cost function score together
-  static Map<Integer, Double> costCompound(
-      Map<Integer, Double> identity, Map<Integer, Double> cost) {
-    cost.forEach((ID, value) -> identity.computeIfPresent(ID, (k, v) -> v + value));
-    cost.forEach(identity::putIfAbsent);
-    return identity;
+    return targetPartitions.get(random.nextInt(targetPartitions.size())).partition();
   }
 
   Receiver receiver(String host, int port) {

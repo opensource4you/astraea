@@ -79,7 +79,6 @@ public class SmoothWeightPartitioner implements Partitioner {
     maxWeightServer.updateOriginalWeight(currentWrightSum);
 
     var partitions = cluster.partitionsForNode(maxWeightServer.brokerID);
-
     return partitions.get(rand.nextInt(partitions.size())).partition();
   }
 

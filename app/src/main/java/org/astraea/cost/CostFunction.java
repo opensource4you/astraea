@@ -2,7 +2,6 @@ package org.astraea.cost;
 
 import java.util.Map;
 import org.astraea.metrics.collector.Fetcher;
-import org.astraea.partitioner.smoothPartitioner.SmoothWeightMetrics;
 
 public interface CostFunction {
 
@@ -22,6 +21,4 @@ public interface CostFunction {
   Fetcher fetcher();
 
   void updateLoad(ClusterInfo clusterInfo);
-
-  SmoothWeightMetrics smoothWeightMetrics();
 }

@@ -5,35 +5,41 @@ import static org.mockito.ArgumentMatchers.any;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 import org.astraea.metrics.HasBeanObject;
 import org.astraea.metrics.jmx.BeanObject;
 import org.astraea.metrics.kafka.BrokerTopicMetricsResult;
 import org.astraea.metrics.kafka.KafkaMetrics;
-import org.astraea.partitioner.smoothPartitioner.SmoothWeightMetrics;
+import org.astraea.partitioner.smoothPartitioner.DynamicWeightsMetrics;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
-public class ThroughputLoadCostTest {
+public class DynamicWeightsLoadCostTest {
   @Test
-  void testComputeLoad() {
+  void testComputeLoad() throws InterruptedException {
     var smooth = mockSmoothWeightMetrics();
-    var loadCostFunction = new ThroughputLoadCost(smooth);
+    var loadCostFunction = new DynamicWeightsLoadCost(smooth);
     var allBeans = exampleClusterInfo().allBeans();
     loadCostFunction.updateLoad(exampleClusterInfo());
     var load = loadCostFunction.cost(exampleClusterInfo());
 
-    Assertions.assertEquals(0.61, load.get(1));
-    Assertions.assertEquals(0.53, load.get(2));
-    Assertions.assertEquals(0.37, load.get(3));
-
-    smooth.updateMetrics(allBeans);
     loadCostFunction.updateLoad(exampleClusterInfo());
+    Assertions.assertEquals(0.33, load.get(0));
+    Assertions.assertEquals(0.33, load.get(1));
+    Assertions.assertEquals(0.33, load.get(2));
 
+    var i = 0;
+    while (i < 12) {
+      loadCostFunction.updateLoad(exampleClusterInfo());
+      sleep(1);
+      i++;
+    }
+    load = loadCostFunction.cost(exampleClusterInfo());
     // count does not change so all broker get one more score
-    Assertions.assertEquals(0.81, load.get(1));
-    Assertions.assertEquals(0.77, load.get(2));
-    Assertions.assertEquals(0.69, load.get(3));
+    Assertions.assertEquals(0.3088, load.get(0));
+    Assertions.assertEquals(0.3316, load.get(1));
+    Assertions.assertEquals(0.3495, load.get(2));
   }
 
   private ClusterInfo exampleClusterInfo() {
@@ -65,13 +71,21 @@ public class ThroughputLoadCostTest {
     return result;
   }
 
-  private SmoothWeightMetrics mockSmoothWeightMetrics() {
-    var smoothWeightMetrics = Mockito.mock(SmoothWeightMetrics.class);
+  private DynamicWeightsMetrics mockSmoothWeightMetrics() {
+    var smoothWeightMetrics = Mockito.mock(DynamicWeightsMetrics.class);
     Mockito.when(smoothWeightMetrics.inputCount()).thenReturn(Map.of(0, 10.0, 1, 5.0, 2, 1.0));
     Mockito.when(smoothWeightMetrics.outputCount()).thenReturn(Map.of(0, 10.0, 1, 5.0, 2, 1.0));
     Mockito.when(smoothWeightMetrics.jvmUsage()).thenReturn(Map.of(0, 10.0, 1, 5.0, 2, 1.0));
     Mockito.when(smoothWeightMetrics.cpuUsage()).thenReturn(Map.of(0, 10.0, 1, 5.0, 2, 1.0));
     Mockito.doNothing().when(smoothWeightMetrics).updateMetrics(any());
     return smoothWeightMetrics;
+  }
+
+  private static void sleep(int seconds) {
+    try {
+      TimeUnit.SECONDS.sleep(seconds);
+    } catch (InterruptedException e) {
+      throw new RuntimeException(e);
+    }
   }
 }

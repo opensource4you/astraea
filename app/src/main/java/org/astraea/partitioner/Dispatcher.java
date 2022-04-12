@@ -45,7 +45,4 @@ public interface Dispatcher extends Partitioner {
         valueBytes == null ? new byte[0] : valueBytes,
         ClusterInfo.of(cluster));
   }
-
-  @Override
-  default void onNewBatch(String topic, Cluster cluster, int prevPartition) {}
 }

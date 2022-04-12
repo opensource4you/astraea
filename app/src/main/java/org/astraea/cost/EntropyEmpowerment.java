@@ -4,24 +4,30 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.stream.Collectors;
-import org.astraea.partitioner.smoothPartitioner.SmoothWeightMetrics;
+import org.astraea.partitioner.smoothPartitioner.DynamicWeightsMetrics;
 
+/**
+ * Entropy weight method (EWM) is a commonly used weighting method that measures value dispersion in
+ * decision-making. The greater the degree of dispersion, the greater the degree of differentiation,
+ * and more information can be derived. Meanwhile, higher weight should be given to the index, and
+ * vice versa.
+ */
 public class EntropyEmpowerment {
 
   public Map<String, Double> empowerment(Map<String, Map<Integer, Double>> bMetrics) {
     var metrics = new HashMap<String, Double>();
     metrics.put(
-        SmoothWeightMetrics.BrokerMetrics.inputThroughput.metricName(),
-        entropy(bMetrics.get(SmoothWeightMetrics.BrokerMetrics.inputThroughput.metricName())));
+        DynamicWeightsMetrics.BrokerMetrics.inputThroughput.metricName(),
+        entropy(bMetrics.get(DynamicWeightsMetrics.BrokerMetrics.inputThroughput.metricName())));
     metrics.put(
-        SmoothWeightMetrics.BrokerMetrics.outputThroughput.metricName(),
-        entropy(bMetrics.get(SmoothWeightMetrics.BrokerMetrics.outputThroughput.metricName())));
+        DynamicWeightsMetrics.BrokerMetrics.outputThroughput.metricName(),
+        entropy(bMetrics.get(DynamicWeightsMetrics.BrokerMetrics.outputThroughput.metricName())));
     metrics.put(
-        SmoothWeightMetrics.BrokerMetrics.jvm.metricName(),
-        entropy(bMetrics.get(SmoothWeightMetrics.BrokerMetrics.jvm.metricName())));
+        DynamicWeightsMetrics.BrokerMetrics.jvm.metricName(),
+        entropy(bMetrics.get(DynamicWeightsMetrics.BrokerMetrics.jvm.metricName())));
     metrics.put(
-        SmoothWeightMetrics.BrokerMetrics.cpu.metricName(),
-        entropy(bMetrics.get(SmoothWeightMetrics.BrokerMetrics.cpu.metricName())));
+        DynamicWeightsMetrics.BrokerMetrics.cpu.metricName(),
+        entropy(bMetrics.get(DynamicWeightsMetrics.BrokerMetrics.cpu.metricName())));
     var sum = metrics.values().stream().mapToDouble(i -> i).sum();
 
     return metrics.entrySet().stream()
@@ -54,11 +60,6 @@ public class EntropyEmpowerment {
   }
 
   double entropy(Map<Integer, Double> metrics) {
-    //    System.out.println(positiveIndicator(metrics) + ":" + metrics);
-    //    System.out.println(
-    //        metricsWeight(positiveIndicator(metrics)).values().stream()
-    //            .filter(weight -> !weight.equals(0.0))
-    //            .collect(Collectors.toList()));
     return 1
         - metricsWeight(positiveIndicator(metrics)).values().stream()
                 .filter(weight -> !weight.equals(0.0))

@@ -1,22 +1,28 @@
 package org.astraea.cost;
 
 import java.util.Map;
-import org.astraea.partitioner.smoothPartitioner.SmoothWeightMetrics;
+import org.astraea.partitioner.smoothPartitioner.DynamicWeightsMetrics;
 
+/**
+ * AHP is a structured technique for organizing and solving complex decision-making problems based
+ * on mathematics and psychology. AHP provides a comprehensive and logical framework to quantify
+ * each structural decision-making element within a hierarchical structure. The AHP begins with
+ * choosing the decision criteria.
+ */
 // TODO
 public class ANPEmpowerment {
   private static Map<String, Double> balanceThroughput =
       Map.of(
-          SmoothWeightMetrics.BrokerMetrics.inputThroughput.metricName(),
+          DynamicWeightsMetrics.BrokerMetrics.inputThroughput.metricName(),
           0.7,
-          SmoothWeightMetrics.BrokerMetrics.outputThroughput.metricName(),
+          DynamicWeightsMetrics.BrokerMetrics.outputThroughput.metricName(),
           0.2,
-          SmoothWeightMetrics.BrokerMetrics.cpu.metricName(),
+          DynamicWeightsMetrics.BrokerMetrics.cpu.metricName(),
           0.1,
-          SmoothWeightMetrics.BrokerMetrics.jvm.metricName(),
+          DynamicWeightsMetrics.BrokerMetrics.jvm.metricName(),
           0.1);
 
-  public Map<String, Double> empowerment(SmoothWeightMetrics smoothWeightMetrics) {
+  public Map<String, Double> empowerment(DynamicWeightsMetrics dynamicWeightsMetrics) {
     return balanceThroughput;
   }
 }
