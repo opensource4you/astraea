@@ -1,8 +1,8 @@
-package org.astraea.balancer.alpha;
+package org.astraea.balancer.alpha.generator;
 
+import org.astraea.balancer.alpha.RebalancePlanProposal;
 import org.astraea.cost.ClusterInfo;
 
-@FunctionalInterface
 public interface RebalancePlanGenerator {
 
   /**

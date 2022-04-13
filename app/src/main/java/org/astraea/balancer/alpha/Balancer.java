@@ -27,6 +27,7 @@ import org.apache.kafka.common.TopicPartitionReplica;
 import org.astraea.Utils;
 import org.astraea.argument.Field;
 import org.astraea.balancer.alpha.cost.FolderSizeCost;
+import org.astraea.balancer.alpha.generator.RebalancePlanGenerator;
 import org.astraea.balancer.alpha.generator.ShufflePlanGenerator;
 import org.astraea.cost.ClusterInfo;
 import org.astraea.cost.CostFunction;

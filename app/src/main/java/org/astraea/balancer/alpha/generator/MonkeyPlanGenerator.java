@@ -6,7 +6,6 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.astraea.balancer.alpha.ClusterLogAllocation;
-import org.astraea.balancer.alpha.RebalancePlanGenerator;
 import org.astraea.balancer.alpha.RebalancePlanProposal;
 import org.astraea.cost.ClusterInfo;
 import org.astraea.topic.TopicAdmin;

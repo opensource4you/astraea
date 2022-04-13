@@ -11,7 +11,6 @@ import java.util.stream.IntStream;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.TopicPartitionReplica;
 import org.astraea.balancer.alpha.ClusterLogAllocation;
-import org.astraea.balancer.alpha.RebalancePlanGenerator;
 import org.astraea.balancer.alpha.RebalancePlanProposal;
 import org.astraea.cost.ClusterInfo;
 import org.astraea.cost.NodeInfo;
