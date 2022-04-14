@@ -9,12 +9,16 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.stream.Collectors;
+import org.astraea.Utils;
 import org.astraea.metrics.HasBeanObject;
 
 public interface ClusterInfo {
 
   static ClusterInfo of(org.apache.kafka.common.Cluster cluster) {
     return new ClusterInfo() {
+      long lastFetchTime = 0L;
+      List<PartitionInfo> availablePartitions;
+
       @Override
       public List<NodeInfo> nodes() {
         return cluster.nodes().stream().map(NodeInfo::of).collect(Collectors.toUnmodifiableList());
@@ -26,9 +30,16 @@ public interface ClusterInfo {
 
       @Override
       public List<PartitionInfo> availablePartitions(String topic) {
-        return cluster.availablePartitionsForTopic(topic).stream()
-            .map(PartitionInfo::of)
-            .collect(Collectors.toUnmodifiableList());
+        if (Utils.overSecond(lastFetchTime, 1)) {
+          try {
+            cluster.availablePartitionsForTopic(topic).stream()
+                .map(PartitionInfo::of)
+                .collect(Collectors.toUnmodifiableList());
+          } finally {
+            lastFetchTime = System.currentTimeMillis();
+          }
+        }
+        return availablePartitions;
       }
 
       @Override
@@ -64,6 +75,8 @@ public interface ClusterInfo {
         .forEach((key, value) -> all.computeIfAbsent(key, k -> new ArrayList<>()).addAll(value));
     beans.forEach((key, value) -> all.computeIfAbsent(key, k -> new ArrayList<>()).addAll(value));
     return new ClusterInfo() {
+      long lastFetchTime = 0L;
+      List<PartitionInfo> availablePartitions;
 
       @Override
       public List<NodeInfo> nodes() {
@@ -72,7 +85,14 @@ public interface ClusterInfo {
 
       @Override
       public List<PartitionInfo> availablePartitions(String topic) {
-        return cluster.availablePartitions(topic);
+        if (Utils.overSecond(lastFetchTime, 1)) {
+          try {
+            availablePartitions = cluster.availablePartitions(topic);
+          } finally {
+            lastFetchTime = System.currentTimeMillis();
+          }
+        }
+        return availablePartitions;
       }
 
       @Override
