@@ -44,7 +44,7 @@ public class MemoryWarningCost implements CostFunction {
         .collect(
             Collectors.toMap(
                 p -> new TopicPartitionReplica(p.topic(), p.partition(), p.leader().id()),
-                p -> brokerScore.get(p.leader().id())));
+                p -> brokerScore.getOrDefault(p.leader().id(), 1.0)));
   }
 
   @Override
