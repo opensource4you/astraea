@@ -1,4 +1,4 @@
-package org.astraea.cost;
+package org.astraea.cost.DynamicWeightsUtils;
 
 import java.util.HashMap;
 import java.util.Map;

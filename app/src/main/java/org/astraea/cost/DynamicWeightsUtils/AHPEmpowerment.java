@@ -1,4 +1,4 @@
-package org.astraea.cost;
+package org.astraea.cost.DynamicWeightsUtils;
 
 import java.util.Map;
 import org.astraea.partitioner.smoothPartitioner.DynamicWeightsMetrics;
@@ -10,11 +10,11 @@ import org.astraea.partitioner.smoothPartitioner.DynamicWeightsMetrics;
  * choosing the decision criteria.
  */
 // TODO
-public class ANPEmpowerment {
+public class AHPEmpowerment {
   private static Map<String, Double> balanceThroughput =
       Map.of(
           DynamicWeightsMetrics.BrokerMetrics.inputThroughput.metricName(),
-          0.7,
+          0.6,
           DynamicWeightsMetrics.BrokerMetrics.outputThroughput.metricName(),
           0.2,
           DynamicWeightsMetrics.BrokerMetrics.cpu.metricName(),

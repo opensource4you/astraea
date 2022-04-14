@@ -69,8 +69,6 @@ public class DynamicWeightsDispatcher implements Dispatcher {
             receivers.entrySet().stream()
                 .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().current()));
 
-        functions.forEach(
-            costFunction -> costFunction.updateLoad(ClusterInfo.of(clusterInfo, beans)));
       } finally {
         lastFetchTime = System.currentTimeMillis();
         lock.unlock();

@@ -19,6 +19,4 @@ public interface CostFunction {
 
   /** @return the metrics getters. Those getters are used to fetch mbeans. */
   Fetcher fetcher();
-
-  void updateLoad(ClusterInfo clusterInfo);
 }

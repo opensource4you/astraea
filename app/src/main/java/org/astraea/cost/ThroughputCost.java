@@ -43,7 +43,4 @@ public class ThroughputCost implements CostFunction {
             KafkaMetrics.BrokerTopic.BytesInPerSec.fetch(client),
             KafkaMetrics.BrokerTopic.BytesOutPerSec.fetch(client));
   }
-
-  @Override
-  public void updateLoad(ClusterInfo clusterInfo) {}
 }

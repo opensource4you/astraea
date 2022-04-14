@@ -1,4 +1,4 @@
-package org.astraea.cost;
+package org.astraea.cost.DynamicWeightsUtils;
 
 import java.util.Comparator;
 import java.util.HashMap;
@@ -34,6 +34,12 @@ public class EntropyEmpowerment {
         .collect(Collectors.toMap(Map.Entry::getKey, entry -> entry.getValue() / sum));
   }
 
+  /**
+   * To the cost indexes
+   *
+   * @param metrics JMX metrics for each broker.
+   * @return Standardization of result
+   */
   Map<Integer, Double> negativeIndicator(Map<Integer, Double> metrics) {
     Comparator<Double> comparator = Comparator.comparing(Double::doubleValue);
     var max = metrics.values().stream().max(comparator).orElse(0.0);
@@ -43,6 +49,12 @@ public class EntropyEmpowerment {
             Collectors.toMap(Map.Entry::getKey, entry -> (max - entry.getValue()) / (max - min)));
   }
 
+  /**
+   * To the benefit indexes.
+   *
+   * @param metrics JMX metrics for each broker.
+   * @return Standardization of result
+   */
   Map<Integer, Double> positiveIndicator(Map<Integer, Double> metrics) {
     Comparator<Double> comparator = Comparator.comparing(Double::doubleValue);
     var max = metrics.values().stream().max(comparator).orElse(0.0) + 0.01;

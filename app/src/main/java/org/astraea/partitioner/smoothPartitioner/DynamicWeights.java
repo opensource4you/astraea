@@ -2,7 +2,7 @@ package org.astraea.partitioner.smoothPartitioner;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import org.astraea.cost.CostUtils;
+import org.astraea.cost.DynamicWeightsUtils.CostUtils;
 
 /**
  * Given initial key-score pair, it will output a preferred key with higher score. The score of the
@@ -29,7 +29,7 @@ public final class DynamicWeights {
           (k, v) -> {
             var zLoad = zCurrentLoad.get(k);
             var score =
-                Math.round(10000 * (v - (zLoad.isNaN() ? 0.0 : zLoad) * 0.05 / this.load.size()))
+                Math.round(10000 * (v - (zLoad.isNaN() ? 0.0 : zLoad) * 0.01 / this.load.size()))
                     / 10000.0;
             if (score > 1.0) {
               return 1.0;

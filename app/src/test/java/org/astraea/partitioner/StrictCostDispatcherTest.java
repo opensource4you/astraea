@@ -77,9 +77,6 @@ public class StrictCostDispatcherTest {
           public Fetcher fetcher() {
             return client -> List.of();
           }
-
-          @Override
-          public void updateLoad(ClusterInfo clusterInfo) {}
         };
 
     var dispatcher =

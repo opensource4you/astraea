@@ -1,6 +1,6 @@
 package org.astraea.cost;
 
-import static org.astraea.cost.CostUtils.TScore;
+import static org.astraea.cost.DynamicWeightsUtils.CostUtils.TScore;
 
 import java.util.Collection;
 import java.util.HashMap;
@@ -11,6 +11,8 @@ import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.astraea.Utils;
+import org.astraea.cost.DynamicWeightsUtils.AHPEmpowerment;
+import org.astraea.cost.DynamicWeightsUtils.EntropyEmpowerment;
 import org.astraea.metrics.HasBeanObject;
 import org.astraea.metrics.collector.Fetcher;
 import org.astraea.metrics.kafka.KafkaMetrics;
@@ -26,11 +28,13 @@ public class DynamicWeightsLoadCost implements CostFunction {
           DynamicWeightsMetrics.BrokerMetrics.cpu.metricName(), new HashMap<>());
 
   private final EntropyEmpowerment entropyEmpowerment = new EntropyEmpowerment();
-  private final ANPEmpowerment anpEmpowerment = new ANPEmpowerment();
+  private final AHPEmpowerment AHPEmpowerment = new AHPEmpowerment();
   private final DynamicWeightsMetrics dynamicWeightsMetrics;
   private final DynamicWeights dynamicWeightsCal = new DynamicWeights();
-  private final Lock lock = new ReentrantLock();
+  private final Lock lastFetchLock = new ReentrantLock();
+  private final Lock lastUpdateLock = new ReentrantLock();
   private long lastFetchTime = 0L;
+  private long lastUpdateTime = 0L;
 
   public DynamicWeightsLoadCost() {
     this.dynamicWeightsMetrics = new DynamicWeightsMetrics();
@@ -55,19 +59,27 @@ public class DynamicWeightsLoadCost implements CostFunction {
    */
   @Override
   public Map<Integer, Double> cost(ClusterInfo clusterInfo) {
-    if (Utils.overSecond(lastFetchTime, 10) && lock.tryLock()) {
+    if (Utils.overSecond(lastUpdateTime, 1) && lastUpdateLock.tryLock()) {
+      updateLoad(clusterInfo);
       try {
-        var compoundScore = computeLoad(clusterInfo.allBeans());
-        dynamicWeightsCal.init(compoundScore);
+        if (Utils.overSecond(lastFetchTime, 10) && lastFetchLock.tryLock()) {
+          try {
+            var compoundScore = computeLoad(clusterInfo.allBeans());
+            dynamicWeightsCal.init(compoundScore);
+            System.out.println(dynamicWeightsCal.getLoad());
+          } finally {
+            lastFetchTime = System.currentTimeMillis();
+            lastFetchLock.unlock();
+          }
+        }
       } finally {
-        lastFetchTime = System.currentTimeMillis();
-        lock.unlock();
+        lastUpdateTime = System.currentTimeMillis();
+        lastUpdateLock.unlock();
       }
     }
     return dynamicWeightsCal.getLoad();
   }
 
-  @Override
   public void updateLoad(ClusterInfo clusterInfo) {
     dynamicWeightsMetrics.updateMetrics(clusterInfo.allBeans());
     brokersMetrics.forEach(
@@ -178,7 +190,7 @@ public class DynamicWeightsLoadCost implements CostFunction {
   }
 
   private Map<String, Double> costFraction(Map<String, Map<Integer, Double>> bMetrics) {
-    var anp = anpEmpowerment.empowerment(dynamicWeightsMetrics);
+    var anp = AHPEmpowerment.empowerment(dynamicWeightsMetrics);
     return entropyEmpowerment.empowerment(bMetrics).entrySet().stream()
         .collect(
             Collectors.toMap(
