@@ -37,9 +37,9 @@ public class DynamicWeightsLoadCostTest {
     }
     load = loadCostFunction.cost(exampleClusterInfo());
     // count does not change so all broker get one more score
-    Assertions.assertEquals(0.3088, load.get(0));
-    Assertions.assertEquals(0.3316, load.get(1));
-    Assertions.assertEquals(0.3495, load.get(2));
+    Assertions.assertEquals(0.3258, load.get(0));
+    Assertions.assertEquals(0.3302, load.get(1));
+    Assertions.assertEquals(0.334, load.get(2));
   }
 
   private ClusterInfo exampleClusterInfo() {
