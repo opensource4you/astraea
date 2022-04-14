@@ -1,4 +1,4 @@
-package org.astraea.partitioner.nodeLoadMetric;
+package org.astraea.partitioner;
 
 import java.io.FileInputStream;
 import java.io.IOException;

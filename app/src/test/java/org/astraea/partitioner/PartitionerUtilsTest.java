@@ -1,9 +1,9 @@
-package org.astraea.partitioner.nodeLoadMetric;
+package org.astraea.partitioner;
 
-import static org.astraea.partitioner.nodeLoadMetric.PartitionerUtils.allPoisson;
-import static org.astraea.partitioner.nodeLoadMetric.PartitionerUtils.doPoisson;
-import static org.astraea.partitioner.nodeLoadMetric.PartitionerUtils.factorial;
-import static org.astraea.partitioner.nodeLoadMetric.PartitionerUtils.weightPoisson;
+import static org.astraea.partitioner.PartitionerUtils.allPoisson;
+import static org.astraea.partitioner.PartitionerUtils.doPoisson;
+import static org.astraea.partitioner.PartitionerUtils.factorial;
+import static org.astraea.partitioner.PartitionerUtils.weightPoisson;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.HashMap;
