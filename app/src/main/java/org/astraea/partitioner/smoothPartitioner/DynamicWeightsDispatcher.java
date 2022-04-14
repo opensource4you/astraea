@@ -69,6 +69,7 @@ public class DynamicWeightsDispatcher implements Dispatcher {
     // just return the only one available partition
     if (partitions.size() == 1) return partitions.iterator().next().partition();
 
+    // TODO Will be removed when merged into StrictCostDispatcher
     var targetBroker =
         functions.stream().findFirst().get().cost(ClusterInfo.of(clusterInfo, beans));
 
