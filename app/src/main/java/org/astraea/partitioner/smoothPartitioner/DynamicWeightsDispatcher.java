@@ -10,8 +10,6 @@ import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.TreeMap;
 import java.util.concurrent.ThreadLocalRandom;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Collectors;
 import org.astraea.Utils;
 import org.astraea.cost.ClusterInfo;
@@ -47,34 +45,23 @@ public class DynamicWeightsDispatcher implements Dispatcher {
 
   private Map<Integer, Collection<HasBeanObject>> beans;
   private final ThreadLocalRandom random = ThreadLocalRandom.current();
-  // Fetch data every n seconds
-  private long lastFetchTime = 0L;
-  private final Lock lock = new ReentrantLock();
   private List<PartitionInfo> partitions;
 
   @Override
   public int partition(String topic, byte[] key, byte[] value, ClusterInfo clusterInfo) {
-    if (Utils.overSecond(lastFetchTime, 1) && lock.tryLock()) {
-      partitions = clusterInfo.availablePartitions(topic);
-      try {
-        // add new receivers for new brokers
-        partitions.stream()
-            .filter(p -> !receivers.containsKey(p.leader().id()))
-            .forEach(
-                p ->
-                    receivers.put(
-                        p.leader().id(), receiver(p.leader().host(), jmxPort(p.leader().id()))));
 
-        beans =
-            receivers.entrySet().stream()
-                .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().current()));
+    partitions = clusterInfo.availablePartitions(topic);
 
-      } finally {
-        lastFetchTime = System.currentTimeMillis();
-        lock.unlock();
-      }
-    }
-    Utils.waitFor(() -> lastFetchTime != 0L);
+    partitions.stream()
+        .filter(p -> !receivers.containsKey(p.leader().id()))
+        .forEach(
+            p ->
+                receivers.put(
+                    p.leader().id(), receiver(p.leader().host(), jmxPort(p.leader().id()))));
+
+    beans =
+        receivers.entrySet().stream()
+            .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().current()));
 
     // just return first partition if there is no available partitions
     if (partitions.isEmpty()) return 0;

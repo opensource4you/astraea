@@ -19,6 +19,7 @@ def versions = [
 ]
 
 dependencies {
+    implementation 'org.jetbrains:annotations:20.1.0'
     testImplementation "org.junit.jupiter:junit-jupiter:${versions["junit"]}"
     testImplementation "org.mockito:mockito-core:${versions["mockito"]}"
     testImplementation "org.mockito:mockito-inline:${versions["mockito"]}"

@@ -2,11 +2,14 @@ package org.astraea.cost;
 
 import java.util.Map;
 import org.astraea.metrics.collector.Fetcher;
+import org.jetbrains.annotations.Contract;
+import org.jetbrains.annotations.NotNull;
 
 public interface CostFunction {
 
-  static CostFunction throughput() {
-    return new ThroughputCost();
+  @Contract(value = " -> new", pure = true)
+  static @NotNull CostFunction throughput() {
+    return new DynamicWeightsLoadCost();
   }
 
   /**
