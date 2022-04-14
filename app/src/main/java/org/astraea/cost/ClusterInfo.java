@@ -32,9 +32,10 @@ public interface ClusterInfo {
       public List<PartitionInfo> availablePartitions(String topic) {
         if (Utils.overSecond(lastFetchTime, 1)) {
           try {
-            cluster.availablePartitionsForTopic(topic).stream()
-                .map(PartitionInfo::of)
-                .collect(Collectors.toUnmodifiableList());
+            availablePartitions =
+                cluster.availablePartitionsForTopic(topic).stream()
+                    .map(PartitionInfo::of)
+                    .collect(Collectors.toUnmodifiableList());
           } finally {
             lastFetchTime = System.currentTimeMillis();
           }
