@@ -4,6 +4,7 @@ import java.lang.management.MemoryUsage;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import org.astraea.metrics.HasBeanObject;
 import org.astraea.metrics.java.HasJvmMemory;
 import org.junit.jupiter.api.Assertions;
@@ -26,20 +27,72 @@ public class MemoryWarningCostTest {
           public Map<Integer, Collection<HasBeanObject>> allBeans() {
             return Map.of(1, broker1, 2, broker2, 3, broker3);
           }
+
+          @Override
+          public Set<String> topics() {
+            return Set.of("t");
+          }
+
+          @Override
+          public List<PartitionInfo> availablePartitions(String topic) {
+            return List.of(
+                PartitionInfo.of(
+                    "t", 0, NodeInfo.of(1, "host1", 9092), List.of(), List.of(), List.of()),
+                PartitionInfo.of(
+                    "t", 0, NodeInfo.of(2, "host2", 9092), List.of(), List.of(), List.of()),
+                PartitionInfo.of(
+                    "t", 0, NodeInfo.of(3, "host3", 9092), List.of(), List.of(), List.of()));
+          }
         };
 
     var memoryWarning = new MemoryWarningCost();
     var scores = memoryWarning.cost(clusterInfo);
-    Assertions.assertEquals(0.0, scores.get(1));
-    Assertions.assertEquals(0.0, scores.get(2));
-    Assertions.assertEquals(0.0, scores.get(3));
+    Assertions.assertEquals(
+        0.0,
+        scores.entrySet().stream()
+            .filter(e -> e.getKey().brokerId() == 1)
+            .map(Map.Entry::getValue)
+            .findAny()
+            .orElse(3.0));
+    Assertions.assertEquals(
+        0.0,
+        scores.entrySet().stream()
+            .filter(e -> e.getKey().brokerId() == 2)
+            .map(Map.Entry::getValue)
+            .findAny()
+            .orElse(3.0));
+    Assertions.assertEquals(
+        0.0,
+        scores.entrySet().stream()
+            .filter(e -> e.getKey().brokerId() == 3)
+            .map(Map.Entry::getValue)
+            .findAny()
+            .orElse(3.0));
 
     Thread.sleep(10000);
 
     scores = memoryWarning.cost(clusterInfo);
-    Assertions.assertEquals(0.0, scores.get(1));
-    Assertions.assertEquals(1.0, scores.get(2));
-    Assertions.assertEquals(0.0, scores.get(3));
+    Assertions.assertEquals(
+        0.0,
+        scores.entrySet().stream()
+            .filter(e -> e.getKey().brokerId() == 1)
+            .map(Map.Entry::getValue)
+            .findAny()
+            .orElse(3.0));
+    Assertions.assertEquals(
+        1.0,
+        scores.entrySet().stream()
+            .filter(e -> e.getKey().brokerId() == 2)
+            .map(Map.Entry::getValue)
+            .findAny()
+            .orElse(3.0));
+    Assertions.assertEquals(
+        0.0,
+        scores.entrySet().stream()
+            .filter(e -> e.getKey().brokerId() == 3)
+            .map(Map.Entry::getValue)
+            .findAny()
+            .orElse(3.0));
   }
 
   private HasJvmMemory mockResult(long used, long max) {

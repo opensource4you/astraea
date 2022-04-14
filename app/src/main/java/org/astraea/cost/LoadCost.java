@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import org.apache.kafka.common.TopicPartitionReplica;
 import org.astraea.metrics.HasBeanObject;
 import org.astraea.metrics.collector.Fetcher;
 import org.astraea.metrics.kafka.BrokerTopicMetricsResult;
@@ -23,13 +24,22 @@ public class LoadCost implements CostFunction {
 
   /** Do "Poisson" and "weightPoisson" calculation on "load". And change output to double. */
   @Override
-  public Map<Integer, Double> cost(ClusterInfo clusterInfo) {
+  public Map<TopicPartitionReplica, Double> cost(ClusterInfo clusterInfo) {
     var load = computeLoad(clusterInfo.allBeans());
 
     // Poisson calculation (-> Poisson -> throughputAbility -> to double)
-    return PartitionerUtils.allPoisson(load).entrySet().stream()
-        .map(e -> Map.entry(e.getKey(), PartitionerUtils.weightPoisson(e.getValue(), 1.0)))
-        .collect(Collectors.toMap(Map.Entry::getKey, e -> (double) e.getValue()));
+    var brokerScore =
+        PartitionerUtils.allPoisson(load).entrySet().stream()
+            .map(e -> Map.entry(e.getKey(), PartitionerUtils.weightPoisson(e.getValue(), 1.0)))
+            .collect(Collectors.toMap(Map.Entry::getKey, e -> (double) e.getValue()));
+    return clusterInfo.topics().stream()
+        .flatMap(topic -> clusterInfo.availablePartitions(topic).stream())
+        .map(
+            p ->
+                Map.entry(
+                    new TopicPartitionReplica(p.topic(), p.partition(), p.leader().id()),
+                    brokerScore.get(p.leader().id())))
+        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
   }
 
   /**

@@ -3,8 +3,9 @@ package org.astraea.partitioner;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
-import java.util.function.Function;
+import java.util.Set;
 import java.util.stream.Collectors;
+import org.apache.kafka.common.TopicPartitionReplica;
 import org.astraea.cost.ClusterInfo;
 import org.astraea.cost.CostFunction;
 import org.astraea.cost.NodeInfo;
@@ -79,7 +80,10 @@ public class StrictCostDispatcherTest {
             createFakePartitionInfo("t", 0, NodeInfo.of(10, "h0", 1000)),
             createFakePartitionInfo("t", 1, NodeInfo.of(11, "h1", 1000)));
 
-    var score = List.of(Map.of(10, 0.8D), Map.of(11, 0.7D));
+    var score =
+        List.of(
+            Map.of(new TopicPartitionReplica("t", 0, 10), 0.8D),
+            Map.of(new TopicPartitionReplica("t", 1, 11), 0.7D));
 
     var result = StrictCostDispatcher.bestPartition(partitions, score).get();
 
@@ -102,10 +106,15 @@ public class StrictCostDispatcherTest {
     var costFunction =
         new CostFunction() {
           @Override
-          public Map<Integer, Double> cost(ClusterInfo clusterInfo) {
-            return clusterInfo.allBeans().keySet().stream()
-                .collect(
-                    Collectors.toMap(Function.identity(), id -> id.equals(n0.id()) ? 0.9D : 0.5D));
+          public Map<TopicPartitionReplica, Double> cost(ClusterInfo clusterInfo) {
+            return clusterInfo.topics().stream()
+                .flatMap(topic -> clusterInfo.availablePartitions(topic).stream())
+                .map(
+                    p ->
+                        Map.entry(
+                            new TopicPartitionReplica(p.topic(), p.partition(), p.leader().id()),
+                            p.leader().id() == n0.id() ? 0.9D : 0.5D))
+                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
           }
 
           @Override
@@ -130,6 +139,7 @@ public class StrictCostDispatcherTest {
 
     // there is no available partition
     Mockito.when(clusterInfo.availablePartitions("aa")).thenReturn(List.of());
+    Mockito.when(clusterInfo.topics()).thenReturn(Set.of("aa"));
     Assertions.assertEquals(0, dispatcher.partition("aa", new byte[0], new byte[0], clusterInfo));
 
     // there is only one available partition

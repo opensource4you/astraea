@@ -12,6 +12,7 @@ import java.util.TreeMap;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Collectors;
+import org.apache.kafka.common.TopicPartitionReplica;
 import org.astraea.Utils;
 import org.astraea.cost.ClusterInfo;
 import org.astraea.cost.CostFunction;
@@ -86,7 +87,15 @@ public class SmoothWeightDispatcher implements Dispatcher {
                 .map(e -> Map.entry(e.getKey(), (int) (double) e.getValue()))
                 .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
 
-        smoothWeightCal.init(compoundScore);
+        var brokerScore = new HashMap<Integer, Integer>();
+        compoundScore.entrySet().stream()
+            // We care about the brokers that has partitions of our topic
+            .filter(e -> e.getKey().topic().equals(topic))
+            .forEach(
+                pAndScore ->
+                    brokerScore.putIfAbsent(pAndScore.getKey().brokerId(), pAndScore.getValue()));
+
+        smoothWeightCal.init(brokerScore);
       } finally {
         lastFetchTime = System.currentTimeMillis();
         lock.unlock();
@@ -104,9 +113,9 @@ public class SmoothWeightDispatcher implements Dispatcher {
   }
 
   // Just add all cost function score together
-  static Map<Integer, Double> costCompound(
-      Map<Integer, Double> identity, Map<Integer, Double> cost) {
-    cost.forEach((ID, value) -> identity.computeIfPresent(ID, (k, v) -> v + value));
+  static Map<TopicPartitionReplica, Double> costCompound(
+      Map<TopicPartitionReplica, Double> identity, Map<TopicPartitionReplica, Double> cost) {
+    cost.forEach((p, value) -> identity.computeIfPresent(p, (k, v) -> v + value));
     cost.forEach(identity::putIfAbsent);
     return identity;
   }

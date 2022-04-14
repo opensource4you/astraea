@@ -2,6 +2,7 @@ package org.astraea.cost;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import org.astraea.metrics.kafka.BrokerTopicMetricsResult;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -33,9 +34,18 @@ public class ThroughputCostTest {
     var cluster = Mockito.mock(ClusterInfo.class);
     Mockito.when(cluster.nodes()).thenReturn(List.of(node));
     Mockito.when(cluster.allBeans()).thenReturn(Map.of());
+    Mockito.when(cluster.topics()).thenReturn(Set.of("t"));
+    Mockito.when(cluster.availablePartitions("t"))
+        .thenReturn(List.of(PartitionInfo.of("t", 0, node, List.of(), List.of(), List.of())));
 
     var cost = throughputCost.cost(ClusterInfo.of(cluster, Map.of(10, List.of(bean))));
     Assertions.assertEquals(1, cost.size());
-    Assertions.assertEquals(1, cost.get(10));
+    Assertions.assertEquals(
+        1,
+        cost.entrySet().stream()
+            .filter(e -> e.getKey().brokerId() == 10)
+            .map(Map.Entry::getValue)
+            .findAny()
+            .orElse(5.0));
   }
 }

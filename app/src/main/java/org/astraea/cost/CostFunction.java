@@ -1,6 +1,7 @@
 package org.astraea.cost;
 
 import java.util.Map;
+import org.apache.kafka.common.TopicPartitionReplica;
 import org.astraea.metrics.collector.Fetcher;
 
 public interface CostFunction {
@@ -15,7 +16,7 @@ public interface CostFunction {
    * @param clusterInfo cluster information
    * @return the score of each node. the score range is [0 - 1]
    */
-  Map<Integer, Double> cost(ClusterInfo clusterInfo);
+  Map<TopicPartitionReplica, Double> cost(ClusterInfo clusterInfo);
 
   /** @return the metrics getters. Those getters are used to fetch mbeans. */
   Fetcher fetcher();
