@@ -20,40 +20,6 @@ public interface PartitionInfo {
             .collect(Collectors.toUnmodifiableList()));
   }
 
-  static PartitionInfo of(String topic, int partition, NodeInfo leader) {
-    return new PartitionInfo() {
-      @Override
-      public String topic() {
-        return topic;
-      }
-
-      @Override
-      public int partition() {
-        return partition;
-      }
-
-      @Override
-      public NodeInfo leader() {
-        return leader;
-      }
-
-      @Override
-      public List<NodeInfo> replicas() {
-        return null;
-      }
-
-      @Override
-      public List<NodeInfo> inSyncReplica() {
-        return null;
-      }
-
-      @Override
-      public List<NodeInfo> offlineReplicas() {
-        return null;
-      }
-    };
-  }
-
   static PartitionInfo of(
       String topic,
       int partition,
