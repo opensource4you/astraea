@@ -36,13 +36,12 @@ public interface TopicPartitionReplica extends Comparable<TopicPartitionReplica>
 
       @Override
       public int compareTo(TopicPartitionReplica topicPartitionReplica) {
-        int res = hashCode() - topicPartitionReplica.hashCode();
-        if (res != 0) {
-          return res;
+        if (this.brokerId() != topicPartitionReplica.brokerId()) {
+          return this.brokerId() - topicPartitionReplica.brokerId();
+        } else if (!this.topic().equals(topicPartitionReplica.topic())) {
+          return this.topic().compareTo(topicPartitionReplica.topic());
         } else if (this.partition() != topicPartitionReplica.partition()) {
           return this.partition() - topicPartitionReplica.partition();
-        } else if (this.brokerId() != topicPartitionReplica.brokerId()) {
-          return this.brokerId() - topicPartitionReplica.brokerId();
         } else {
           return 0;
         }
