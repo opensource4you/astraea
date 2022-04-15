@@ -1,5 +1,7 @@
 package org.astraea.cost;
 
+import java.util.stream.Stream;
+
 public interface TopicPartitionReplica {
   static TopicPartitionReplica of(String topic, int partition, int brokerID) {
     final int prime = 31;
@@ -72,6 +74,14 @@ public interface TopicPartitionReplica {
 
   static TopicPartitionReplica leaderOf(PartitionInfo partitionInfo) {
     return of(partitionInfo.topic(), partitionInfo.partition(), partitionInfo.leader().id());
+  }
+
+  static Stream<TopicPartitionReplica> streamOf(PartitionInfo partitionInfo) {
+    return partitionInfo.replicas().stream()
+        .map(
+            node ->
+                TopicPartitionReplica.of(
+                    partitionInfo.topic(), partitionInfo.partition(), node.id()));
   }
 
   String topic();
