@@ -5,11 +5,11 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.stream.Collectors;
-import org.apache.kafka.common.TopicPartitionReplica;
 import org.astraea.cost.ClusterInfo;
 import org.astraea.cost.CostFunction;
 import org.astraea.cost.NodeInfo;
 import org.astraea.cost.PartitionInfo;
+import org.astraea.cost.TopicPartitionReplica;
 import org.astraea.metrics.collector.Fetcher;
 import org.astraea.metrics.collector.Receiver;
 import org.junit.jupiter.api.Assertions;
@@ -82,8 +82,8 @@ public class StrictCostDispatcherTest {
 
     var score =
         List.of(
-            Map.of(new TopicPartitionReplica("t", 0, 10), 0.8D),
-            Map.of(new TopicPartitionReplica("t", 1, 11), 0.7D));
+            Map.of(TopicPartitionReplica.of("t", 0, 10), 0.8D),
+            Map.of(TopicPartitionReplica.of("t", 1, 11), 0.7D));
 
     var result = StrictCostDispatcher.bestPartition(partitions, score).get();
 
@@ -112,7 +112,7 @@ public class StrictCostDispatcherTest {
                 .map(
                     p ->
                         Map.entry(
-                            new TopicPartitionReplica(p.topic(), p.partition(), p.leader().id()),
+                            TopicPartitionReplica.of(p.topic(), p.partition(), p.leader().id()),
                             p.leader().id() == n0.id() ? 0.9D : 0.5D))
                 .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
           }

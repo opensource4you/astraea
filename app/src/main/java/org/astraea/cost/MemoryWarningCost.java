@@ -3,7 +3,6 @@ package org.astraea.cost;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
-import org.apache.kafka.common.TopicPartitionReplica;
 import org.astraea.Utils;
 import org.astraea.metrics.collector.Fetcher;
 import org.astraea.metrics.java.HasJvmMemory;
@@ -43,7 +42,7 @@ public class MemoryWarningCost implements CostFunction {
         .flatMap(topic -> clusterInfo.availablePartitions(topic).stream())
         .collect(
             Collectors.toMap(
-                p -> new TopicPartitionReplica(p.topic(), p.partition(), p.leader().id()),
+                TopicPartitionReplica::leaderOf,
                 p -> brokerScore.getOrDefault(p.leader().id(), 1.0)));
   }
 

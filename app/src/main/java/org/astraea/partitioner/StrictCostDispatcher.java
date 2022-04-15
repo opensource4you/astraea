@@ -8,11 +8,11 @@ import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
-import org.apache.kafka.common.TopicPartitionReplica;
 import org.astraea.Utils;
 import org.astraea.cost.ClusterInfo;
 import org.astraea.cost.CostFunction;
 import org.astraea.cost.PartitionInfo;
+import org.astraea.cost.TopicPartitionReplica;
 import org.astraea.metrics.collector.BeanCollector;
 import org.astraea.metrics.collector.Fetcher;
 import org.astraea.metrics.collector.Receiver;
@@ -86,12 +86,7 @@ public class StrictCostDispatcher implements Dispatcher {
                 Map.entry(
                     p,
                     scores.stream()
-                        .mapToDouble(
-                            s ->
-                                s.getOrDefault(
-                                    new TopicPartitionReplica(
-                                        p.topic(), p.partition(), p.leader().id()),
-                                    0.0D))
+                        .mapToDouble(s -> s.getOrDefault(TopicPartitionReplica.leaderOf(p), 0.0D))
                         .sum()))
         .min(Map.Entry.comparingByValue());
   }

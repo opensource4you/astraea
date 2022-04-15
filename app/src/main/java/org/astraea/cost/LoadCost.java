@@ -6,7 +6,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-import org.apache.kafka.common.TopicPartitionReplica;
 import org.astraea.metrics.HasBeanObject;
 import org.astraea.metrics.collector.Fetcher;
 import org.astraea.metrics.kafka.BrokerTopicMetricsResult;
@@ -37,7 +36,7 @@ public class LoadCost implements CostFunction {
         .map(
             p ->
                 Map.entry(
-                    new TopicPartitionReplica(p.topic(), p.partition(), p.leader().id()),
+                    TopicPartitionReplica.leaderOf(p),
                     brokerScore.getOrDefault(p.leader().id(), 1.0)))
         .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
   }

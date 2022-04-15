@@ -4,7 +4,6 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
-import org.apache.kafka.common.TopicPartitionReplica;
 import org.astraea.metrics.HasBeanObject;
 import org.astraea.metrics.collector.Fetcher;
 import org.astraea.metrics.kafka.BrokerTopicMetricsResult;
@@ -24,7 +23,7 @@ public class ThroughputCost implements CostFunction {
         .flatMap(Collection::stream)
         .collect(
             Collectors.toMap(
-                p -> new TopicPartitionReplica(p.topic(), p.partition(), p.leader().id()),
+                TopicPartitionReplica::leaderOf,
                 p -> score.getOrDefault(p.leader().id(), 0.0) / max));
   }
 
