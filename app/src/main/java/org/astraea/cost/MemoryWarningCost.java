@@ -42,8 +42,7 @@ public class MemoryWarningCost implements CostFunction {
         .flatMap(topic -> clusterInfo.availablePartitions(topic).stream())
         .collect(
             Collectors.toMap(
-                TopicPartitionReplica::leaderOf,
-                p -> brokerScore.getOrDefault(p.leader().id(), 1.0)));
+                PartitionInfo::leaderReplica, p -> brokerScore.getOrDefault(p.leader().id(), 1.0)));
   }
 
   @Override

@@ -1,11 +1,9 @@
 package org.astraea.cost;
 
-import java.util.stream.Stream;
-
-public interface TopicPartitionReplica {
-  static TopicPartitionReplica of(String topic, int partition, int brokerID) {
+public interface TopicPartitionReplica extends Comparable<TopicPartitionReplica> {
+  static TopicPartitionReplica of(String topic, int partition, int brokerId) {
     final int prime = 31;
-    final int hash = ((prime + topic.hashCode()) * prime + partition) * prime + brokerID;
+    final int hash = ((prime + topic.hashCode()) * prime + partition) * prime + brokerId;
     return new TopicPartitionReplica() {
       @Override
       public String topic() {
@@ -19,7 +17,7 @@ public interface TopicPartitionReplica {
 
       @Override
       public int brokerId() {
-        return brokerID;
+        return brokerId;
       }
 
       @Override
@@ -35,53 +33,29 @@ public interface TopicPartitionReplica {
             && topicPartitionReplica.partition() == partition()
             && topicPartitionReplica.brokerId() == brokerId();
       }
+
+      @Override
+      public int compareTo(TopicPartitionReplica topicPartitionReplica) {
+        int res = hashCode() - topicPartitionReplica.hashCode();
+        if (res != 0) {
+          return res;
+        } else if (this.partition() != topicPartitionReplica.partition()) {
+          return this.partition() - topicPartitionReplica.partition();
+        } else if (this.brokerId() != topicPartitionReplica.brokerId()) {
+          return this.brokerId() - topicPartitionReplica.brokerId();
+        } else {
+          return 0;
+        }
+      }
     };
   }
 
   static TopicPartitionReplica of(
       org.apache.kafka.common.TopicPartitionReplica topicPartitionReplica) {
-    return new TopicPartitionReplica() {
-      @Override
-      public String topic() {
-        return topicPartitionReplica.topic();
-      }
-
-      @Override
-      public int partition() {
-        return topicPartitionReplica.partition();
-      }
-
-      @Override
-      public int brokerId() {
-        return topicPartitionReplica.brokerId();
-      }
-
-      @Override
-      public int hashCode() {
-        return topicPartitionReplica.hashCode();
-      }
-
-      @Override
-      public boolean equals(Object o) {
-        if (!(o instanceof TopicPartitionReplica)) return false;
-        var topicPartitionReplica = (TopicPartitionReplica) o;
-        return topicPartitionReplica.topic().equals(topic())
-            && topicPartitionReplica.partition() == partition()
-            && topicPartitionReplica.brokerId() == brokerId();
-      }
-    };
-  }
-
-  static TopicPartitionReplica leaderOf(PartitionInfo partitionInfo) {
-    return of(partitionInfo.topic(), partitionInfo.partition(), partitionInfo.leader().id());
-  }
-
-  static Stream<TopicPartitionReplica> streamOf(PartitionInfo partitionInfo) {
-    return partitionInfo.replicas().stream()
-        .map(
-            node ->
-                TopicPartitionReplica.of(
-                    partitionInfo.topic(), partitionInfo.partition(), node.id()));
+    return TopicPartitionReplica.of(
+        topicPartitionReplica.topic(),
+        topicPartitionReplica.partition(),
+        topicPartitionReplica.brokerId());
   }
 
   String topic();

@@ -36,8 +36,7 @@ public class LoadCost implements CostFunction {
         .map(
             p ->
                 Map.entry(
-                    TopicPartitionReplica.leaderOf(p),
-                    brokerScore.getOrDefault(p.leader().id(), 1.0)))
+                    PartitionInfo.leaderReplica(p), brokerScore.getOrDefault(p.leader().id(), 1.0)))
         .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
   }
 

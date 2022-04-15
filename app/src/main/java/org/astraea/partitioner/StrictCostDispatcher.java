@@ -86,7 +86,7 @@ public class StrictCostDispatcher implements Dispatcher {
                 Map.entry(
                     p,
                     scores.stream()
-                        .mapToDouble(s -> s.getOrDefault(TopicPartitionReplica.leaderOf(p), 0.0D))
+                        .mapToDouble(s -> s.getOrDefault(PartitionInfo.leaderReplica(p), 0.0D))
                         .sum()))
         .min(Map.Entry.comparingByValue());
   }

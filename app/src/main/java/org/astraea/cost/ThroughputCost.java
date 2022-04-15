@@ -23,8 +23,7 @@ public class ThroughputCost implements CostFunction {
         .flatMap(Collection::stream)
         .collect(
             Collectors.toMap(
-                TopicPartitionReplica::leaderOf,
-                p -> score.getOrDefault(p.leader().id(), 0.0) / max));
+                PartitionInfo::leaderReplica, p -> score.getOrDefault(p.leader().id(), 0.0) / max));
   }
 
   /* Score by broker. */
