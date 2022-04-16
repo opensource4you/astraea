@@ -46,53 +46,17 @@ public class MemoryWarningCostTest {
         };
 
     var memoryWarning = new MemoryWarningCost();
-    var scores = memoryWarning.cost(clusterInfo);
-    Assertions.assertEquals(
-        0.0,
-        scores.entrySet().stream()
-            .filter(e -> e.getKey().brokerId() == 1)
-            .map(Map.Entry::getValue)
-            .findAny()
-            .orElse(3.0));
-    Assertions.assertEquals(
-        0.0,
-        scores.entrySet().stream()
-            .filter(e -> e.getKey().brokerId() == 2)
-            .map(Map.Entry::getValue)
-            .findAny()
-            .orElse(3.0));
-    Assertions.assertEquals(
-        0.0,
-        scores.entrySet().stream()
-            .filter(e -> e.getKey().brokerId() == 3)
-            .map(Map.Entry::getValue)
-            .findAny()
-            .orElse(3.0));
+    var scores = memoryWarning.cost(clusterInfo).brokerCost();
+    Assertions.assertEquals(0.0, scores.get(1));
+    Assertions.assertEquals(0.0, scores.get(2));
+    Assertions.assertEquals(0.0, scores.get(3));
 
     Thread.sleep(10000);
 
-    scores = memoryWarning.cost(clusterInfo);
-    Assertions.assertEquals(
-        0.0,
-        scores.entrySet().stream()
-            .filter(e -> e.getKey().brokerId() == 1)
-            .map(Map.Entry::getValue)
-            .findAny()
-            .orElse(3.0));
-    Assertions.assertEquals(
-        1.0,
-        scores.entrySet().stream()
-            .filter(e -> e.getKey().brokerId() == 2)
-            .map(Map.Entry::getValue)
-            .findAny()
-            .orElse(3.0));
-    Assertions.assertEquals(
-        0.0,
-        scores.entrySet().stream()
-            .filter(e -> e.getKey().brokerId() == 3)
-            .map(Map.Entry::getValue)
-            .findAny()
-            .orElse(3.0));
+    scores = memoryWarning.cost(clusterInfo).brokerCost();
+    Assertions.assertEquals(0.0, scores.get(1));
+    Assertions.assertEquals(1.0, scores.get(2));
+    Assertions.assertEquals(0.0, scores.get(3));
   }
 
   private HasJvmMemory mockResult(long used, long max) {

@@ -12,7 +12,6 @@ import org.astraea.Utils;
 import org.astraea.cost.ClusterInfo;
 import org.astraea.cost.CostFunction;
 import org.astraea.cost.PartitionInfo;
-import org.astraea.cost.TopicPartitionReplica;
 import org.astraea.metrics.collector.BeanCollector;
 import org.astraea.metrics.collector.Fetcher;
 import org.astraea.metrics.collector.Receiver;
@@ -71,7 +70,7 @@ public class StrictCostDispatcher implements Dispatcher {
     // get scores from all cost functions
     var scores =
         functions.stream()
-            .map(f -> f.cost(ClusterInfo.of(clusterInfo, beans)))
+            .map(f -> f.cost(ClusterInfo.of(clusterInfo, beans)).brokerCost())
             .collect(Collectors.toUnmodifiableList());
 
     return bestPartition(partitions, scores).map(e -> e.getKey().partition()).orElse(0);
@@ -79,15 +78,13 @@ public class StrictCostDispatcher implements Dispatcher {
 
   // visible for testing
   static Optional<Map.Entry<PartitionInfo, Double>> bestPartition(
-      List<PartitionInfo> partitions, List<Map<TopicPartitionReplica, Double>> scores) {
+      List<PartitionInfo> partitions, List<Map<Integer, Double>> scores) {
     return partitions.stream()
         .map(
             p ->
                 Map.entry(
                     p,
-                    scores.stream()
-                        .mapToDouble(s -> s.getOrDefault(PartitionInfo.leaderReplica(p), 0.0D))
-                        .sum()))
+                    scores.stream().mapToDouble(s -> s.getOrDefault(p.leader().id(), 0.0D)).sum()))
         .min(Map.Entry.comparingByValue());
   }
 

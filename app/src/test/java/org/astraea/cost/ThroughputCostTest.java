@@ -38,14 +38,8 @@ public class ThroughputCostTest {
     Mockito.when(cluster.availablePartitions("t"))
         .thenReturn(List.of(PartitionInfo.of("t", 0, node, List.of(), List.of(), List.of())));
 
-    var cost = throughputCost.cost(ClusterInfo.of(cluster, Map.of(10, List.of(bean))));
+    var cost = throughputCost.cost(ClusterInfo.of(cluster, Map.of(10, List.of(bean)))).brokerCost();
     Assertions.assertEquals(1, cost.size());
-    Assertions.assertEquals(
-        1,
-        cost.entrySet().stream()
-            .filter(e -> e.getKey().brokerId() == 10)
-            .map(Map.Entry::getValue)
-            .findAny()
-            .orElse(5.0));
+    Assertions.assertEquals(1, cost.get(10));
   }
 }

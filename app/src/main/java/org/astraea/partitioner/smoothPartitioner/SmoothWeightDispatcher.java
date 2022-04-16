@@ -17,7 +17,6 @@ import org.astraea.cost.ClusterInfo;
 import org.astraea.cost.CostFunction;
 import org.astraea.cost.LoadCost;
 import org.astraea.cost.MemoryWarningCost;
-import org.astraea.cost.TopicPartitionReplica;
 import org.astraea.metrics.collector.BeanCollector;
 import org.astraea.metrics.collector.Fetcher;
 import org.astraea.metrics.collector.Receiver;
@@ -77,7 +76,7 @@ public class SmoothWeightDispatcher implements Dispatcher {
             functions.stream()
                 .map(
                     f -> {
-                      var map = f.cost(ClusterInfo.of(clusterInfo, beans));
+                      var map = f.cost(ClusterInfo.of(clusterInfo, beans)).brokerCost();
                       map.replaceAll((k, v) -> v * costFraction.get(f.getClass()));
                       return map;
                     })
@@ -87,15 +86,7 @@ public class SmoothWeightDispatcher implements Dispatcher {
                 .map(e -> Map.entry(e.getKey(), (int) (double) e.getValue()))
                 .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
 
-        var brokerScore = new HashMap<Integer, Integer>();
-        compoundScore.entrySet().stream()
-            // We care about the brokers that has partitions of our topic
-            .filter(e -> e.getKey().topic().equals(topic))
-            .forEach(
-                pAndScore ->
-                    brokerScore.putIfAbsent(pAndScore.getKey().brokerId(), pAndScore.getValue()));
-
-        smoothWeightCal.init(brokerScore);
+        smoothWeightCal.init(compoundScore);
       } finally {
         lastFetchTime = System.currentTimeMillis();
         lock.unlock();
@@ -113,9 +104,9 @@ public class SmoothWeightDispatcher implements Dispatcher {
   }
 
   // Just add all cost function score together
-  static Map<TopicPartitionReplica, Double> costCompound(
-      Map<TopicPartitionReplica, Double> identity, Map<TopicPartitionReplica, Double> cost) {
-    cost.forEach((p, value) -> identity.computeIfPresent(p, (k, v) -> v + value));
+  static Map<Integer, Double> costCompound(
+      Map<Integer, Double> identity, Map<Integer, Double> cost) {
+    cost.forEach((id, value) -> identity.computeIfPresent(id, (k, v) -> v + value));
     cost.forEach(identity::putIfAbsent);
     return identity;
   }

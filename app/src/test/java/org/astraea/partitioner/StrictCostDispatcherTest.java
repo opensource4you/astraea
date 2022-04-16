@@ -4,12 +4,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
+import org.astraea.cost.ClusterCost;
 import org.astraea.cost.ClusterInfo;
 import org.astraea.cost.CostFunction;
 import org.astraea.cost.NodeInfo;
 import org.astraea.cost.PartitionInfo;
-import org.astraea.cost.TopicPartitionReplica;
 import org.astraea.metrics.collector.Fetcher;
 import org.astraea.metrics.collector.Receiver;
 import org.junit.jupiter.api.Assertions;
@@ -80,10 +81,7 @@ public class StrictCostDispatcherTest {
             createFakePartitionInfo("t", 0, NodeInfo.of(10, "h0", 1000)),
             createFakePartitionInfo("t", 1, NodeInfo.of(11, "h1", 1000)));
 
-    var score =
-        List.of(
-            Map.of(TopicPartitionReplica.of("t", 0, 10), 0.8D),
-            Map.of(TopicPartitionReplica.of("t", 1, 11), 0.7D));
+    var score = List.of(Map.of(10, 0.8D), Map.of(11, 0.7D));
 
     var result = StrictCostDispatcher.bestPartition(partitions, score).get();
 
@@ -106,15 +104,14 @@ public class StrictCostDispatcherTest {
     var costFunction =
         new CostFunction() {
           @Override
-          public Map<TopicPartitionReplica, Double> cost(ClusterInfo clusterInfo) {
-            return clusterInfo.topics().stream()
-                .flatMap(topic -> clusterInfo.availablePartitions(topic).stream())
-                .map(
-                    p ->
-                        Map.entry(
-                            TopicPartitionReplica.of(p.topic(), p.partition(), p.leader().id()),
-                            p.leader().id() == n0.id() ? 0.9D : 0.5D))
-                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+          public ClusterCost cost(ClusterInfo clusterInfo) {
+            var partitionInfos = clusterInfo.availablePartitions("aa");
+            var brokerCost =
+                clusterInfo.allBeans().keySet().stream()
+                    .collect(
+                        Collectors.toMap(
+                            Function.identity(), id -> id.equals(n0.id()) ? 0.9D : 0.5D));
+            return ClusterCost.scoreByBroker(partitionInfos, brokerCost);
           }
 
           @Override

@@ -14,7 +14,7 @@ public class MemoryWarningCost implements CostFunction {
 
   /** @return 1 if the heap usage >= 80%, 0 otherwise. */
   @Override
-  public Map<TopicPartitionReplica, Double> cost(ClusterInfo clusterInfo) {
+  public ClusterCost cost(ClusterInfo clusterInfo) {
     var brokerScore =
         clusterInfo.allBeans().entrySet().stream()
             .map(
@@ -38,11 +38,11 @@ public class MemoryWarningCost implements CostFunction {
                             .findAny()
                             .orElseThrow()))
             .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-    return clusterInfo.topics().stream()
-        .flatMap(topic -> clusterInfo.availablePartitions(topic).stream())
-        .collect(
-            Collectors.toMap(
-                PartitionInfo::leaderReplica, p -> brokerScore.getOrDefault(p.leader().id(), 1.0)));
+    var allPartitions =
+        clusterInfo.topics().stream()
+            .flatMap(topic -> clusterInfo.availablePartitions(topic).stream())
+            .collect(Collectors.toList());
+    return ClusterCost.scoreByBroker(allPartitions, brokerScore);
   }
 
   @Override

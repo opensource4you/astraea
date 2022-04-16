@@ -12,18 +12,20 @@ import org.astraea.metrics.kafka.KafkaMetrics;
 public class ThroughputCost implements CostFunction {
 
   @Override
-  public Map<TopicPartitionReplica, Double> cost(ClusterInfo clusterInfo) {
+  public ClusterCost cost(ClusterInfo clusterInfo) {
     var score = score(clusterInfo.allBeans());
 
     var max = score.values().stream().mapToDouble(v -> v).max().orElse(1);
 
-    /* In partitioner, we don't care about replica. So we just return the score of the leader. */
-    return clusterInfo.topics().stream()
-        .map(clusterInfo::availablePartitions)
-        .flatMap(Collection::stream)
-        .collect(
-            Collectors.toMap(
-                PartitionInfo::leaderReplica, p -> score.getOrDefault(p.leader().id(), 0.0) / max));
+    var allPartitions =
+        clusterInfo.topics().stream()
+            .map(clusterInfo::availablePartitions)
+            .flatMap(Collection::stream)
+            .collect(Collectors.toUnmodifiableList());
+
+    score.replaceAll((k, v) -> v / max);
+
+    return ClusterCost.scoreByBroker(allPartitions, score);
   }
 
   /* Score by broker. */

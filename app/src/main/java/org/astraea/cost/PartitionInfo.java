@@ -60,11 +60,6 @@ public interface PartitionInfo {
     };
   }
 
-  static TopicPartitionReplica leaderReplica(PartitionInfo partitionInfo) {
-    return TopicPartitionReplica.of(
-        partitionInfo.topic(), partitionInfo.partition(), partitionInfo.leader().id());
-  }
-
   /** @return topic name */
   String topic();
 
