@@ -26,7 +26,8 @@ import javax.management.remote.JMXServiceURL;
 import org.apache.kafka.common.TopicPartitionReplica;
 import org.astraea.Utils;
 import org.astraea.argument.Field;
-import org.astraea.balancer.alpha.cost.FolderSizeCost;
+import org.astraea.balancer.alpha.executor.RebalancePlanExecutor;
+import org.astraea.balancer.alpha.executor.StraightPlanExecutor;
 import org.astraea.balancer.alpha.generator.RebalancePlanGenerator;
 import org.astraea.balancer.alpha.generator.ShufflePlanGenerator;
 import org.astraea.cost.ClusterInfo;
@@ -50,13 +51,14 @@ public class Balancer implements Runnable {
   private final ScheduledExecutorService scheduledExecutorService;
   private final RebalancePlanGenerator rebalancePlanGenerator;
   private final TopicAdmin topicAdmin;
+  private final RebalancePlanExecutor rebalancePlanExecutor;
 
   public Balancer(Argument argument) {
     // initialize member variables
     this.argument = argument;
     this.jmxServiceURLMap = argument.jmxServiceURLMap;
     this.registeredBrokerCostFunction = Set.of(new LoadCost(), new MemoryWarningCost());
-    this.registeredTopicPartitionCostFunction = Set.of(new FolderSizeCost());
+    this.registeredTopicPartitionCostFunction = Set.of();
     this.scheduledExecutorService = Executors.newScheduledThreadPool(8);
 
     // initialize main component
@@ -70,6 +72,7 @@ public class Balancer implements Runnable {
             this.scheduledExecutorService);
     this.topicAdmin = TopicAdmin.of(argument.props());
     this.rebalancePlanGenerator = new ShufflePlanGenerator(2, 5);
+    this.rebalancePlanExecutor = new StraightPlanExecutor(argument.brokers, topicAdmin);
   }
 
   public void start() {
@@ -141,6 +144,9 @@ public class Balancer implements Runnable {
         System.out.println("Proposed cost sum: " + proposedCostSum);
         BalancerUtils.describeProposal(
             selectedProposal.proposal, BalancerUtils.currentAllocation(topicAdmin, clusterInfo));
+
+        System.out.println("[Execution Started]");
+        if (rebalancePlanExecutor != null) rebalancePlanExecutor.run(selectedProposal.proposal);
       } else {
         System.out.println("[No Usable Proposal Found]");
         System.out.println("Current cost sum: " + currentCostSum);
