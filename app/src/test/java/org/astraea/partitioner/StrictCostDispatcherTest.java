@@ -17,6 +17,41 @@ import org.mockito.Mockito;
 
 public class StrictCostDispatcherTest {
 
+  private static PartitionInfo createFakePartitionInfo(
+      String topic, int partition, NodeInfo leaderNode) {
+    return new PartitionInfo() {
+      @Override
+      public String topic() {
+        return topic;
+      }
+
+      @Override
+      public int partition() {
+        return partition;
+      }
+
+      @Override
+      public NodeInfo leader() {
+        return leaderNode;
+      }
+
+      @Override
+      public List<NodeInfo> replicas() {
+        return null;
+      }
+
+      @Override
+      public List<NodeInfo> inSyncReplica() {
+        return null;
+      }
+
+      @Override
+      public List<NodeInfo> offlineReplicas() {
+        return null;
+      }
+    };
+  }
+
   @Test
   void testClose() {
     var dispatcher = new StrictCostDispatcher();
@@ -41,8 +76,8 @@ public class StrictCostDispatcherTest {
   void testBestPartition() {
     var partitions =
         List.of(
-            PartitionInfo.of("t", 0, NodeInfo.of(10, "h0", 1000)),
-            PartitionInfo.of("t", 1, NodeInfo.of(11, "h1", 1000)));
+            createFakePartitionInfo("t", 0, NodeInfo.of(10, "h0", 1000)),
+            createFakePartitionInfo("t", 1, NodeInfo.of(11, "h1", 1000)));
 
     var score = List.of(Map.of(10, 0.8D), Map.of(11, 0.7D));
 
@@ -56,10 +91,10 @@ public class StrictCostDispatcherTest {
   void testPartition() {
     // n0 is busy
     var n0 = NodeInfo.of(10, "host0", 12345);
-    var p0 = PartitionInfo.of("aa", 1, n0);
+    var p0 = createFakePartitionInfo("aa", 1, n0);
     // n1 is free
     var n1 = NodeInfo.of(11, "host1", 12345);
-    var p1 = PartitionInfo.of("aa", 2, n1);
+    var p1 = createFakePartitionInfo("aa", 2, n1);
 
     var receiver = Mockito.mock(Receiver.class);
     Mockito.when(receiver.current()).thenReturn(List.of());

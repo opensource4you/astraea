@@ -7,6 +7,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.Set;
 import java.util.stream.Collectors;
 import org.astraea.metrics.HasBeanObject;
 
@@ -17,6 +18,10 @@ public interface ClusterInfo {
       @Override
       public List<NodeInfo> nodes() {
         return cluster.nodes().stream().map(NodeInfo::of).collect(Collectors.toUnmodifiableList());
+      }
+
+      public Set<String> topics() {
+        return cluster.topics();
       }
 
       @Override
@@ -68,6 +73,11 @@ public interface ClusterInfo {
       @Override
       public List<PartitionInfo> availablePartitions(String topic) {
         return cluster.availablePartitions(topic);
+      }
+
+      @Override
+      public Set<String> topics() {
+        return cluster.topics();
       }
 
       @Override
@@ -127,6 +137,13 @@ public interface ClusterInfo {
    * @return A list of partitions
    */
   List<PartitionInfo> availablePartitions(String topic);
+
+  /**
+   * All topic names
+   *
+   * @return return a set of topic names
+   */
+  Set<String> topics();
 
   /**
    * Get the list of partitions for this topic

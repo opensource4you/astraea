@@ -184,7 +184,7 @@ public class NodeLoadClient {
           broker.output =
               Integer.parseInt(String.valueOf((currentOutput - broker.lastOutPut) / 1024));
           broker.lastOutPut = currentOutput;
-          broker.input = Integer.parseInt(String.valueOf((currentInput - broker.lastInput) / 1024));
+          broker.input = (int) ((currentInput - broker.lastInput) / 1024);
           broker.lastInput = currentInput;
           Objects.requireNonNull(broker.metrics.get("Memory"));
           broker.jvm =
