@@ -6,9 +6,9 @@ import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import org.astraea.cost.ClusterCost;
+import org.astraea.cost.BrokerCost;
 import org.astraea.cost.ClusterInfo;
-import org.astraea.cost.CostFunction;
+import org.astraea.cost.HasBrokerCost;
 import org.astraea.cost.NodeInfo;
 import org.astraea.cost.PartitionInfo;
 import org.astraea.metrics.collector.Fetcher;
@@ -102,16 +102,16 @@ public class StrictCostDispatcherTest {
     Mockito.when(receiver.current()).thenReturn(List.of());
 
     var costFunction =
-        new CostFunction() {
+        new HasBrokerCost() {
           @Override
-          public ClusterCost cost(ClusterInfo clusterInfo) {
+          public BrokerCost brokerCost(ClusterInfo clusterInfo) {
             var partitionInfos = clusterInfo.availablePartitions("aa");
             var brokerCost =
                 clusterInfo.allBeans().keySet().stream()
                     .collect(
                         Collectors.toMap(
                             Function.identity(), id -> id.equals(n0.id()) ? 0.9D : 0.5D));
-            return ClusterCost.scoreByBroker(partitionInfos, brokerCost);
+            return () -> brokerCost;
           }
 
           @Override

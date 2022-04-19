@@ -46,14 +46,14 @@ public class MemoryWarningCostTest {
         };
 
     var memoryWarning = new MemoryWarningCost();
-    var scores = memoryWarning.cost(clusterInfo).brokerCost();
+    var scores = memoryWarning.brokerCost(clusterInfo).value();
     Assertions.assertEquals(0.0, scores.get(1));
     Assertions.assertEquals(0.0, scores.get(2));
     Assertions.assertEquals(0.0, scores.get(3));
 
     Thread.sleep(10000);
 
-    scores = memoryWarning.cost(clusterInfo).brokerCost();
+    scores = memoryWarning.brokerCost(clusterInfo).value();
     Assertions.assertEquals(0.0, scores.get(1));
     Assertions.assertEquals(1.0, scores.get(2));
     Assertions.assertEquals(0.0, scores.get(3));

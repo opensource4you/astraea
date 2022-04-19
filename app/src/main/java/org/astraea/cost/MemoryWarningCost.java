@@ -9,12 +9,12 @@ import org.astraea.metrics.java.HasJvmMemory;
 import org.astraea.metrics.kafka.KafkaMetrics;
 
 /** Warning on heap usage >= 80%. */
-public class MemoryWarningCost implements CostFunction {
+public class MemoryWarningCost implements HasBrokerCost {
   private final long constructTime = System.currentTimeMillis();
 
   /** @return 1 if the heap usage >= 80%, 0 otherwise. */
   @Override
-  public ClusterCost cost(ClusterInfo clusterInfo) {
+  public BrokerCost brokerCost(ClusterInfo clusterInfo) {
     var brokerScore =
         clusterInfo.allBeans().entrySet().stream()
             .map(
@@ -38,11 +38,7 @@ public class MemoryWarningCost implements CostFunction {
                             .findAny()
                             .orElseThrow()))
             .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-    var allPartitions =
-        clusterInfo.topics().stream()
-            .flatMap(topic -> clusterInfo.availablePartitions(topic).stream())
-            .collect(Collectors.toList());
-    return ClusterCost.scoreByBroker(allPartitions, brokerScore);
+    return () -> brokerScore;
   }
 
   @Override

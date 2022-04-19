@@ -9,23 +9,18 @@ import org.astraea.metrics.collector.Fetcher;
 import org.astraea.metrics.kafka.BrokerTopicMetricsResult;
 import org.astraea.metrics.kafka.KafkaMetrics;
 
-public class ThroughputCost implements CostFunction {
+public class ThroughputCost implements HasBrokerCost {
 
   @Override
-  public ClusterCost cost(ClusterInfo clusterInfo) {
+  public BrokerCost brokerCost(ClusterInfo clusterInfo) {
     var score = score(clusterInfo.allBeans());
 
     var max = score.values().stream().mapToDouble(v -> v).max().orElse(1);
 
-    var allPartitions =
-        clusterInfo.topics().stream()
-            .map(clusterInfo::availablePartitions)
-            .flatMap(Collection::stream)
-            .collect(Collectors.toUnmodifiableList());
-
-    score.replaceAll((k, v) -> v / max);
-
-    return ClusterCost.scoreByBroker(allPartitions, score);
+    return () ->
+        clusterInfo.nodes().stream()
+            .map(NodeInfo::id)
+            .collect(Collectors.toMap(n -> n, n -> score.getOrDefault(n, 0.0D) / max));
   }
 
   /* Score by broker. */
