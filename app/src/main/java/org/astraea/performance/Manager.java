@@ -7,6 +7,8 @@ import java.util.Random;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Supplier;
+import org.astraea.Utils;
 import org.astraea.utils.DataSize;
 import org.astraea.utils.DataUnit;
 
@@ -23,8 +25,11 @@ public class Manager {
   private final List<Metrics> producerMetrics, consumerMetrics;
   private final long start = System.currentTimeMillis();
   private final AtomicLong payloadNum = new AtomicLong(0);
-  private final Distribution distribution;
+  private final Supplier<Long> keyDistribution;
   private final RandomContent randomContent;
+  private long intervalStart = System.currentTimeMillis();
+  private long payloadBytes = 0L;
+  private final DataSize throughput;
 
   /**
    * Used to manage producing/consuming.
@@ -51,12 +56,18 @@ public class Manager {
     this.producerMetrics = producerMetrics;
     this.consumerMetrics = consumerMetrics;
     this.exeTime = argument.exeTime;
-    this.distribution = argument.distribution;
-    this.randomContent = new RandomContent(argument.recordSize, argument.fixedSize);
+    this.throughput = argument.throughput;
+    this.keyDistribution = argument.keyDistributionType.create(100000);
+    this.randomContent =
+        new RandomContent(
+            argument.recordSize,
+            argument.sizeDistributionType.create(
+                argument.recordSize.measurement(DataUnit.Byte).intValue()));
   }
 
   /**
-   * Generate random byte array in random/fixed length.
+   * Generate random byte array in random/fixed length. Warning: This method will block when the
+   * throughput (content generating rate) is higher than the given number (argument.throughput).
    *
    * @return random byte array. When no payload should be generated, Optional.empty() is generated.
    *     Whether the payload should be generated is determined in construct time. "Number of
@@ -67,7 +78,22 @@ public class Manager {
         >= 100D) return Optional.empty();
 
     var payload = randomContent.getContent();
+
+    Utils.waitFor(() -> checkAndAdd(payload.length));
     return Optional.of(payload);
+  }
+
+  synchronized boolean checkAndAdd(int payloadLength) {
+    if (System.currentTimeMillis() - intervalStart > 1000) {
+      intervalStart = System.currentTimeMillis();
+      payloadBytes = payloadLength;
+      return true;
+    } else if (payloadBytes < throughput.measurement(DataUnit.Byte).longValue()) {
+      payloadBytes += payloadLength;
+      return true;
+    } else {
+      return false;
+    }
   }
 
   public long producedRecords() {
@@ -109,23 +135,24 @@ public class Manager {
 
   /** Randomly choose a key according to the distribution. */
   public byte[] getKey() {
-    return (String.valueOf(distribution.get())).getBytes();
+    return (String.valueOf(keyDistribution.get())).getBytes();
   }
 
   /** Randomly generate content before {@link #getContent()} is called. */
   private static class RandomContent {
     private final Random rand = new Random();
     private final DataSize dataSize;
-    private final boolean fixedSize;
+    private final Supplier<Long> distribution;
     private final byte[] content;
 
     /**
      * @param dataSize The size of each random generated content in bytes.
-     * @param fixedSize Determine whether to fix the size of random generated content
+     * @param distribution Determine whether to fix the size of random generated content or random
+     *     size with specified distribution
      */
-    public RandomContent(DataSize dataSize, boolean fixedSize) {
+    public RandomContent(DataSize dataSize, Supplier<Long> distribution) {
       this.dataSize = dataSize;
-      this.fixedSize = fixedSize;
+      this.distribution = distribution;
       content = new byte[dataSize.measurement(DataUnit.Byte).intValue()];
     }
 
@@ -133,8 +160,8 @@ public class Manager {
       // Randomly change one position of the content;
       content[rand.nextInt(dataSize.measurement(DataUnit.Byte).intValue())] =
           (byte) rand.nextInt(256);
-      if (fixedSize) return Arrays.copyOf(content, content.length);
-      else return Arrays.copyOfRange(content, rand.nextInt(content.length), content.length);
+      return Arrays.copyOfRange(
+          content, (int) (distribution.get() % content.length), content.length);
     }
   }
 }

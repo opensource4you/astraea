@@ -69,9 +69,9 @@ public class ReceiverFactory {
     return receiversList;
   }
 
-  public void close(Map<String, Integer> jmxAddresses) {
+  public void close(Map<String, Integer> jmxAddress) {
     synchronized (lock) {
-      jmxAddresses.forEach(
+      jmxAddress.forEach(
           (host, port) -> {
             if (count.containsKey(nodeKey(host, port))) {
               if (count.get(nodeKey(host, port)) == 1) {

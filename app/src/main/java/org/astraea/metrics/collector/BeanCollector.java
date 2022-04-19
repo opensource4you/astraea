@@ -141,7 +141,11 @@ public class BeanCollector {
                       if (objects.size() + beans.size() <= numberOfObjectsPerNode) break;
                       objects.remove(t);
                     }
-                    long now = System.currentTimeMillis();
+                    long now =
+                        beans.stream()
+                            .mapToLong(HasBeanObject::createdTimestamp)
+                            .min()
+                            .orElse(System.currentTimeMillis());
                     for (var bean : beans) objects.put(now++, bean);
                   } finally {
                     node.lock.unlock();

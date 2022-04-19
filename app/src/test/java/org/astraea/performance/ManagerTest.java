@@ -58,19 +58,19 @@ public class ManagerTest {
   void testGetKey() {
     var argument = new Performance.Argument();
 
-    argument.distribution = Distribution.uniform();
+    argument.keyDistributionType = DistributionType.UNIFORM;
     var manager = new Manager(argument, List.of(), List.of());
     Assertions.assertTrue(manager.getKey().length > 0);
 
-    argument.distribution = Distribution.zipfian(10);
+    argument.keyDistributionType = DistributionType.ZIPFIAN;
     manager = new Manager(argument, List.of(), List.of());
     Assertions.assertTrue(manager.getKey().length > 0);
 
-    argument.distribution = Distribution.latest();
+    argument.keyDistributionType = DistributionType.LATEST;
     manager = new Manager(argument, List.of(), List.of());
     Assertions.assertTrue(manager.getKey().length > 0);
 
-    argument.distribution = Distribution.fixed();
+    argument.keyDistributionType = DistributionType.FIXED;
     manager = new Manager(argument, List.of(), List.of());
     Assertions.assertTrue(manager.getKey().length > 0);
   }
@@ -125,5 +125,22 @@ public class ManagerTest {
 
     manager.producerClosed();
     Assertions.assertTrue(manager.producedDone());
+  }
+
+  @Test
+  void testCheckAndAdd() throws InterruptedException {
+    var argument = new Performance.Argument();
+    argument.throughput = DataUnit.KiB.of(3);
+    var recordSize = DataUnit.KiB.of(1).measurement(DataUnit.Byte).intValue();
+    var manager = new Manager(argument, List.of(), List.of());
+
+    Assertions.assertTrue(manager.checkAndAdd(recordSize));
+    Assertions.assertTrue(manager.checkAndAdd(recordSize));
+    Assertions.assertTrue(manager.checkAndAdd(recordSize));
+    Assertions.assertFalse(manager.checkAndAdd(recordSize));
+
+    Thread.sleep(1001);
+
+    Assertions.assertTrue(manager.checkAndAdd(recordSize));
   }
 }
