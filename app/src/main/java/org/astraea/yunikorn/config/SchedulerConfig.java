@@ -2,8 +2,6 @@ package org.astraea.yunikorn.config;
 
 import java.util.List;
 
-
-
 public class SchedulerConfig {
 
   private List<PartitionConfig> partitions;

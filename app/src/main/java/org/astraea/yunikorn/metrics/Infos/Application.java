@@ -1,7 +1,5 @@
 package org.astraea.yunikorn.metrics.Infos;
 
-
-
 public class Application {
   private String applicationID;
 
@@ -38,9 +36,7 @@ public class Application {
     return submissionTime;
   }
 
-
   public String getApplicationState() {
     return applicationState;
   }
-
 }

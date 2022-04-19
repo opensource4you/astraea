@@ -148,9 +148,8 @@ public class YunikornClient extends TimerTask {
       HttpResponse<String> response = client.send(putRequest, HttpResponse.BodyHandlers.ofString());
       if (response.statusCode() == 200) {
         System.out.println(response.body());
-        System.out.printf("resourceweights:\n" +
-                "      memory: 1\n" +
-                "      vcore: %f\n", vcoreResourceWeight);
+        System.out.printf(
+            "resourceweights:\n" + "      memory: 1\n" + "      vcore: %f\n", vcoreResourceWeight);
       }
     } catch (IOException e) {
       e.printStackTrace();

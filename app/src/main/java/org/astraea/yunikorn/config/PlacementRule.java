@@ -1,6 +1,5 @@
 package org.astraea.yunikorn.config;
 
-
 public class PlacementRule {
   private String name;
   private Boolean create;

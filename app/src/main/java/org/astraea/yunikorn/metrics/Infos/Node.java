@@ -34,6 +34,7 @@ public class Node {
     this.capacity = capacity;
     this.available = available;
   }
+
   public Map<String, BigInteger> getAvailable() {
     return available;
   }
@@ -42,9 +43,7 @@ public class Node {
     return capacity;
   }
 
-
   public String getNodeID() {
     return nodeID;
   }
-
 }

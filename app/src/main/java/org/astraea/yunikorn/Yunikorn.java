@@ -1,8 +1,8 @@
 package org.astraea.yunikorn;
+
 import com.beust.jcommander.JCommander;
 import com.beust.jcommander.Parameter;
 import java.util.Timer;
-
 import org.astraea.argument.NonEmptyStringField;
 import org.astraea.yunikorn.client.YunikornClient;
 

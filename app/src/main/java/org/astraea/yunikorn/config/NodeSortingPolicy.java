@@ -3,7 +3,6 @@ package org.astraea.yunikorn.config;
 import java.util.HashMap;
 import java.util.Map;
 
-
 public class NodeSortingPolicy {
   public static final String CORE_KEY = "vcore";
   public static final String MEMORY_KEY = "memory";

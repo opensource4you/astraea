@@ -14,9 +14,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-
 import org.astraea.yunikorn.config.NodeSortingPolicy;
-
 
 public class MetricsCollector extends Collector {
   private static final String RUNNING_APPS = "runningApps";
