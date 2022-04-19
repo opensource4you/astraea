@@ -8,6 +8,9 @@ import java.util.stream.Collectors;
 public interface ClusterCost {
   double INVALID_COST = -1.0;
 
+  /**
+   * Create a ClusterCost by giving the broker's costs, and the set of all partition information.
+   * */
   static ClusterCost scoreByBroker(
       List<PartitionInfo> partitionInfo, Map<Integer, Double> brokerCost) {
     return new ClusterCost() {
@@ -16,6 +19,9 @@ public interface ClusterCost {
         return Collections.unmodifiableMap(brokerCost);
       }
 
+      /**
+       * Assign the cost of each partition by the broker it locates.
+       * */
       @Override
       public Map<TopicPartitionReplica, Double> partitionCost() {
         return partitionInfo.stream()
