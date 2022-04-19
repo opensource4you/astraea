@@ -417,7 +417,7 @@ $ ./gradlew run --args="monitor --bootstrap.servers 192.168.103.39:9092"
 ## Build YuniKorn image
 The following scripts can build YuniKorn image in one command line.
 ```shell
-./docker/start_yunikorn.sh
+./docker/build_yunikorn.sh
 ```
 You can define `REPO` to set your docker repository.
 
