@@ -1,10 +1,7 @@
 package org.astraea.yunikorn.metrics.Infos;
 
-import lombok.Getter;
-import lombok.Setter;
 
-@Setter
-@Getter
+
 public class Application {
   private String applicationID;
 
@@ -28,4 +25,22 @@ public class Application {
     this.finishedTime = finishedTime;
     this.applicationState = applicationState;
   }
+
+  public String getPartition() {
+    return partition;
+  }
+
+  public long getFinishedTime() {
+    return finishedTime;
+  }
+
+  public long getSubmissionTime() {
+    return submissionTime;
+  }
+
+
+  public String getApplicationState() {
+    return applicationState;
+  }
+
 }

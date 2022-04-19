@@ -15,7 +15,7 @@ import java.util.Map;
 import java.util.TimerTask;
 import org.astraea.yunikorn.config.NodeSortingPolicy;
 import org.astraea.yunikorn.metrics.Infos.Application;
-import org.astraea.yunikorn.metrics.Infos.Info;
+import org.astraea.yunikorn.metrics.Infos.MetricsCollector;
 import org.astraea.yunikorn.metrics.Infos.Node;
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -25,7 +25,7 @@ public class Network extends TimerTask {
   public static final String NODE_KEY = "nodesInfo";
   private String ip;
   private String controlPlan;
-  private Info info = new Info();
+  private MetricsCollector info = new MetricsCollector();
   private HttpClient client;
   private HttpRequest nodesRequest;
   private HttpRequest appsRequest;
@@ -86,7 +86,7 @@ public class Network extends TimerTask {
         if (json.getJSONObject(0)
                 .getJSONArray(NODE_KEY)
                 .getJSONObject(i)
-                .get(Info.NODEID)
+                .get(MetricsCollector.NODEID)
                 .toString()
                 .compareTo(controlPlan)
             == 0) continue;
@@ -95,7 +95,7 @@ public class Network extends TimerTask {
             json.getJSONObject(0)
                 .getJSONArray(NODE_KEY)
                 .getJSONObject(i)
-                .get(Info.NODEID)
+                .get(MetricsCollector.NODEID)
                 .toString();
         var hostName =
             json.getJSONObject(0)

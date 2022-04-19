@@ -19,15 +19,14 @@ import org.json.JSONException;
 import org.yaml.snakeyaml.Yaml;
 import org.yaml.snakeyaml.constructor.Constructor;
 
-public class Client extends TimerTask {
+public class YunikornClient extends TimerTask {
   private SchedulerConfig schedulerConfig;
   private Evaluation evaluation = new Evaluation();
   private HttpClient client;
   private String ip;
   private ExecutorService executor;
-  private int i;
 
-  public Client(String ip) {
+  public YunikornClient(String ip) {
     executor = Executors.newSingleThreadExecutor();
     this.client =
         HttpClient.newBuilder()
@@ -109,6 +108,7 @@ public class Client extends TimerTask {
   }
 
   public void adjust() {
+    var vcoreResourceWeight = 1.0;
     HttpRequest getRequest =
         HttpRequest.newBuilder()
             .uri(URI.create("http://" + ip + "/ws/v1/clusters/utilization"))
@@ -119,11 +119,12 @@ public class Client extends TimerTask {
       if (response.statusCode() == 200) {
         var body = response.body();
         getUtilization(body);
+        vcoreResourceWeight = evaluation.calculate();
         schedulerConfig
             .getPartitions()
             .get(0)
             .getNodesortpolicy()
-            .putResourceweights(NodeSortingPolicy.CORE_KEY, evaluation.calculate());
+            .putResourceweights(NodeSortingPolicy.CORE_KEY, vcoreResourceWeight);
         schedulerConfig
             .getPartitions()
             .get(0)
@@ -146,8 +147,10 @@ public class Client extends TimerTask {
     try {
       HttpResponse<String> response = client.send(putRequest, HttpResponse.BodyHandlers.ofString());
       if (response.statusCode() == 200) {
-        System.out.printf("number %d %s\n", i, response.body());
-        i++;
+        System.out.println(response.body());
+        System.out.printf("resourceweights:\n" +
+                "      memory: 1\n" +
+                "      vcore: %f\n", vcoreResourceWeight);
       }
     } catch (IOException e) {
       e.printStackTrace();

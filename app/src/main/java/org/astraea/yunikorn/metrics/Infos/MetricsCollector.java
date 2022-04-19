@@ -14,13 +14,11 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import lombok.Getter;
-import lombok.Setter;
+
 import org.astraea.yunikorn.config.NodeSortingPolicy;
 
-@Getter
-@Setter
-public class Info extends Collector {
+
+public class MetricsCollector extends Collector {
   private static final String RUNNING_APPS = "runningApps";
   private static final String COMPLETED_APPS = "completedApps";
 
@@ -53,7 +51,7 @@ public class Info extends Collector {
 
   private long completedApps;
 
-  public Info() {
+  public MetricsCollector() {
     Map<String, BigInteger> tmp = new HashMap<>();
     tmp.put(NodeSortingPolicy.CORE_KEY, BigInteger.ZERO);
     tmp.put(NodeSortingPolicy.MEMORY_KEY, BigInteger.ZERO);

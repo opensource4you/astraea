@@ -2,6 +2,8 @@ package org.astraea.yunikorn.metrics;
 
 import com.beust.jcommander.JCommander;
 import com.beust.jcommander.Parameter;
+import org.astraea.argument.NonEmptyStringField;
+
 import java.io.IOException;
 import java.util.Timer;
 
@@ -22,12 +24,16 @@ public class MetricsExplorer {
   private static class Args {
     @Parameter(
         names = {"-ip"},
-        description = "Address of yunikorn")
-    private String ip = "";
+        description = "Address of yunikorn",
+        validateWith = NonEmptyStringField .class,
+        required = true)
+    private String ip = "0.0.0.0:9080";
 
     @Parameter(
         names = {"-controlPlan"},
-        description = "control plan of kubernetes")
+        description = "control plan of kubernetes",
+        validateWith = NonEmptyStringField .class,
+        required = true)
     private String controlPlan = "";
   }
 }

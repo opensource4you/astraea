@@ -39,12 +39,8 @@ dependencies {
     implementation "org.slf4j:slf4j-nop:${versions["slf4j"]}"
     implementation "org.json:json:${versions["json"]}"
     implementation "org.yaml:snakeyaml:${versions["yaml"]}"
-    compileOnly "org.projectlombok:lombok:${versions["lombok"]}"
-    annotationProcessor "org.projectlombok:lombok:${versions["lombok"]}"
-    implementation "com.google.code.gson:gson:${versions["gson"]}"
     implementation "io.prometheus:simpleclient:${versions["prometheus"]}"
     implementation "io.prometheus:simpleclient_httpserver:${versions["prometheus"]}"
-    implementation "io.prometheus:simpleclient_hotspot:${versions["prometheus"]}"
 
 
 }

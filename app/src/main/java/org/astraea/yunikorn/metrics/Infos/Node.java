@@ -3,11 +3,7 @@ package org.astraea.yunikorn.metrics.Infos;
 import java.math.BigInteger;
 import java.util.HashMap;
 import java.util.Map;
-import lombok.Getter;
-import lombok.Setter;
 
-@Getter
-@Setter
 public class Node {
   public static final String NODEID_KEY = "nodeID";
   public static final String HOSTNAME_KEY = "hostName";
@@ -38,4 +34,17 @@ public class Node {
     this.capacity = capacity;
     this.available = available;
   }
+  public Map<String, BigInteger> getAvailable() {
+    return available;
+  }
+
+  public Map<String, BigInteger> getCapacity() {
+    return capacity;
+  }
+
+
+  public String getNodeID() {
+    return nodeID;
+  }
+
 }
