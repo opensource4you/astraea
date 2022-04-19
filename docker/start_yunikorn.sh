@@ -22,10 +22,10 @@ function showHelp() {
   echo "    BUILD=false                              set true if you want to build image locally"
 }
 function generateDockerfile() {
-cat > $DOCKERFILE << EOF
+cat > $DOCKERFILE << "EOF"
 # this dockerfile is generate dynamically
 FROM golang:latest as build
-RUN git clone https://github.com/apache/incubator-yunikorn-k8shim.git /tmp/yunikorn
+RUN git clone https://github.com/apache/yunikorn-k8shim.git /tmp/yunikorn
 WORKDIR /tmp/yunikorn
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
         go build -a -o=k8s_yunikorn_scheduler -ldflags \
@@ -51,22 +51,24 @@ ENV OPERATOR_PLUGINS "general"
 ENV ENABLE_CONFIG_HOT_REFRESH "true"
 ENV DISABLE_GANG_SCHEDULING "false"
 ENV USER_LABEL_KEY "yunikorn.apache.org/username"
+ENV PLACEHOLDER_IMAGE "k8s.gcr.io/pause"
 ENTRYPOINT ["sh", "-c", "/k8s_yunikorn_scheduler \
--clusterId=mycluster \
--clusterVersion=latest \
--policyGroup=queues \
--interval=1s \
--logLevel=0 \
--logEncoding=console \
--volumeBindTimeout=10s \
--eventChannelCapacity=1048576 \
--dispatchTimeout=300s \
--kubeQPS=1000 \
--kubeBurst=1000 \
--operatorPlugins=general \
--enableConfigHotRefresh=false \
--disableGangScheduling=false \
--userLabelKey=yunikorn.apache.org/username"]
+  -clusterId="${CLUSTER_ID}" \
+  -clusterVersion="${CLUSTER_VERSION}" \
+  -policyGroup="${POLICY_GROUP}" \
+  -interval="${SCHEDULING_INTERVAL}" \
+  -logLevel="${LOG_LEVEL}" \
+  -logEncoding="${LOG_ENCODING}" \
+  -volumeBindTimeout="${VOLUME_BINDING_TIMEOUT}" \
+  -eventChannelCapacity="${EVENT_CHANNEL_CAPACITY}" \
+  -dispatchTimeout="${DISPATCHER_TIMEOUT}" \
+  -kubeQPS="${KUBE_CLIENT_QPS}" \
+  -kubeBurst="${KUBE_CLIENT_BURST}" \
+  -operatorPlugins="${OPERATOR_PLUGINS}" \
+  -enableConfigHotRefresh="${ENABLE_CONFIG_HOT_REFRESH}" \
+  -disableGangScheduling="${DISABLE_GANG_SCHEDULING}" \
+  -userLabelKey="${USER_LABEL_KEY}" \
+  -placeHolderImage="${PLACEHOLDER_IMAGE}"
 EOF
 }
 # ===================================[main]===================================
