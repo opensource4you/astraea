@@ -5,9 +5,7 @@ import java.util.HashMap;
 import java.util.Map;
 import lombok.Getter;
 import lombok.Setter;
-import org.astraea.yunikorn.config.NodeSortingPolicy;
-import org.json.JSONException;
-import org.json.JSONObject;
+
 
 @Getter
 @Setter
@@ -29,35 +27,13 @@ public class Node {
   private Map<String, BigInteger> available = new HashMap<>();
   private Map<String, BigInteger> utilized = new HashMap<>();
 
-  public Node(JSONObject json) {
-    try {
-      nodeID = json.get(NODEID_KEY).toString();
-      hostName = json.get(HOSTNAME_KEY).toString();
-      rackName = json.get(RACKNAME_KEY).toString();
-      capacity.putAll(unmarshall(json.get(CAPACITY_KEY).toString()));
-      allocated.putAll(unmarshall(json.get(ALLOCATED_KEY).toString()));
-      occupied.putAll(unmarshall(json.get(OCCUPIED_KEY).toString()));
-      available.putAll(unmarshall(json.get(AVAILABLE_KEY).toString()));
-      utilized.putAll(unmarshall(json.get(UTILIZED_KEY).toString()));
-    } catch (JSONException e) {
-      e.printStackTrace();
-    }
+  public Node(String nodeID, String hostName, String rackName, Map<String, BigInteger> capacity, Map<String, BigInteger> available) {
+    this.nodeID = nodeID;
+    this.hostName = hostName;
+    this.rackName = rackName;
+    this.capacity = capacity;
+    this.available = available;
   }
 
-  private Map<String, BigInteger> unmarshall(String str) {
-    str = str.substring(1, str.length() - 1);
-    Map<String, BigInteger> tmp = new HashMap<>();
-    if (str.length() < 2) {
-      tmp.put(NodeSortingPolicy.CORE_KEY, BigInteger.ZERO);
-      tmp.put(NodeSortingPolicy.MEMORY_KEY, BigInteger.ZERO);
-      return tmp;
-    }
-    var pairs = str.split(" ");
-    for (int j = 0; j < pairs.length; j++) {
-      var pair = pairs[j];
-      var keyValue = pair.split(":");
-      tmp.put(keyValue[0], new BigInteger(keyValue[1]));
-    }
-    return tmp;
-  }
+
 }

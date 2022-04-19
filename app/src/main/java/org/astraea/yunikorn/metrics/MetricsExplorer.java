@@ -3,29 +3,31 @@ package org.astraea.yunikorn.metrics;
 import com.beust.jcommander.JCommander;
 import com.beust.jcommander.Parameter;
 import java.io.IOException;
-import org.astraea.yunikorn.metrics.Infos.Info;
+import java.util.Timer;
 
 public class MetricsExplorer {
-  public static void main(String... argv) {
+  public static void main(String... argv) throws IOException {
     var args = new Args();
     JCommander.newBuilder().addObject(args).build().parse(argv);
-    var info = new Info();
-    info.register();
     try {
       Network.exporter();
     } catch (IOException e) {
       e.printStackTrace();
     }
-    while (true) {
-      var network = new Network();
-      info = network.getInfo(args.ip, info);
-    }
+    Timer timer = new Timer();
+    Network network = new Network(args.ip, args.controlPlan);
+    timer.schedule(network, 0, 1000);
   }
 
   private static class Args {
     @Parameter(
-        names = {"-ip"},
-        description = "Address of yunikorn")
+            names = {"-ip"},
+            description = "Address of yunikorn")
     private String ip = "";
+    @Parameter(
+            names = {"-controlPlan"},
+            description = "control plan of kubernetes")
+    private String controlPlan = "";
+
   }
 }
