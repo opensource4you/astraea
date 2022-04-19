@@ -413,3 +413,11 @@ $ ./gradlew run --args="monitor --bootstrap.servers 192.168.103.39:9092"
 3. --prop.file: the path to a file that containing the properties to be passed to kafka admin.
 4. --topic: topics to track (default: track all non-synced partition by default)
 5. --track: keep track even if all the replicas are synced. Also attempts to discover any non-synced replicas. (default: false)
+
+## Build YuniKorn image
+The following scripts can build YuniKorn image in one command line.
+```shell
+./docker/start_zookeeper.sh
+```
+You can define `REPO` to set your docker repository.
+

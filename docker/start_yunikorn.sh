@@ -1,4 +1,5 @@
 #!/bin/bash
+RUN=false
 declare -r DOCKER_FOLDER=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
 source $DOCKER_FOLDER/docker_build_common.sh
 
@@ -17,9 +18,8 @@ declare -r DATE=$(date +"%d-%m-%Y")
 function showHelp() {
   echo "Usage: [ENV] start_broker.sh [ ARGUMENTS ]"
   echo "ENV: "
-  echo "    REPO=astraea/yunikorn                      set the docker repo"
+  echo "    REPO=astraea/yunikorn                    set the docker repo"
   echo "    BUILD=false                              set true if you want to build image locally"
-  echo "    RUN=false                                set false if you want to build/pull image only"
 }
 function generateDockerfile() {
 cat > $DOCKERFILE << EOF
