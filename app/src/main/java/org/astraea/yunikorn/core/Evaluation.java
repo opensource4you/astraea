@@ -28,13 +28,13 @@ public class Evaluation {
   public double calculate() {
     double resourceweight = 1;
     var usedMemory =
-            Double.valueOf(resources.get(NodeSortingPolicy.MEMORY_KEY))
-                    / Double.valueOf(unused.get(NodeSortingPolicy.MEMORY_KEY));
+        Double.valueOf(resources.get(NodeSortingPolicy.MEMORY_KEY))
+            / Double.valueOf(unused.get(NodeSortingPolicy.MEMORY_KEY));
 
     var usedCore =
-            Double.valueOf(resources.get(NodeSortingPolicy.CORE_KEY))
-                    / Double.valueOf(unused.get(NodeSortingPolicy.CORE_KEY));
-    resourceweight = usedCore/usedMemory;
+        Double.valueOf(resources.get(NodeSortingPolicy.CORE_KEY))
+            / Double.valueOf(unused.get(NodeSortingPolicy.CORE_KEY));
+    resourceweight = usedCore / usedMemory;
 
     return resourceweight;
   }

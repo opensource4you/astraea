@@ -6,7 +6,6 @@ import java.util.Map;
 import lombok.Getter;
 import lombok.Setter;
 
-
 @Getter
 @Setter
 public class Node {
@@ -27,13 +26,16 @@ public class Node {
   private Map<String, BigInteger> available = new HashMap<>();
   private Map<String, BigInteger> utilized = new HashMap<>();
 
-  public Node(String nodeID, String hostName, String rackName, Map<String, BigInteger> capacity, Map<String, BigInteger> available) {
+  public Node(
+      String nodeID,
+      String hostName,
+      String rackName,
+      Map<String, BigInteger> capacity,
+      Map<String, BigInteger> available) {
     this.nodeID = nodeID;
     this.hostName = hostName;
     this.rackName = rackName;
     this.capacity = capacity;
     this.available = available;
   }
-
-
 }

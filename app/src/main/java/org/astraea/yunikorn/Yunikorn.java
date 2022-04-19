@@ -2,9 +2,8 @@ package org.astraea.yunikorn;
 
 import com.beust.jcommander.JCommander;
 import com.beust.jcommander.Parameter;
-import org.astraea.yunikorn.client.Client;
-
 import java.util.Timer;
+import org.astraea.yunikorn.client.Client;
 
 public class Yunikorn {
   public static void main(String... argv) {
@@ -17,8 +16,8 @@ public class Yunikorn {
 
   private static class Args {
     @Parameter(
-            names = {"-ip"},
-            description = "Address of yunikorn")
+        names = {"-ip"},
+        description = "Address of yunikorn")
     private String ip = "";
   }
 }

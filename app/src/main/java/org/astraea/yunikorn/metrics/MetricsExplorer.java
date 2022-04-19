@@ -21,13 +21,13 @@ public class MetricsExplorer {
 
   private static class Args {
     @Parameter(
-            names = {"-ip"},
-            description = "Address of yunikorn")
+        names = {"-ip"},
+        description = "Address of yunikorn")
     private String ip = "";
-    @Parameter(
-            names = {"-controlPlan"},
-            description = "control plan of kubernetes")
-    private String controlPlan = "";
 
+    @Parameter(
+        names = {"-controlPlan"},
+        description = "control plan of kubernetes")
+    private String controlPlan = "";
   }
 }
