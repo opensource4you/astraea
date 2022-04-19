@@ -1,12 +1,13 @@
 package org.astraea.yunikorn.config;
 
-
-import lombok.*;
-
 import java.util.List;
-@Getter @Setter
+import lombok.Getter;
+import lombok.Setter;
+
+@Getter
+@Setter
 public class Fliter {
-    private String type;
-    private List<String> users ;
-    private List<String> groups ;
+  private String type;
+  private List<String> users;
+  private List<String> groups;
 }
