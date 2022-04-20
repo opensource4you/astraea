@@ -2,11 +2,7 @@ package org.astraea.yunikorn.config;
 
 import java.util.HashMap;
 import java.util.Map;
-import lombok.Getter;
-import lombok.Setter;
 
-@Getter
-@Setter
 public class NodeSortingPolicy {
   public static final String CORE_KEY = "vcore";
   public static final String MEMORY_KEY = "memory";
@@ -20,5 +16,21 @@ public class NodeSortingPolicy {
 
   public void putResourceweights(String resourceType, Double resourceweights) {
     this.resourceweights.put(resourceType, resourceweights);
+  }
+
+  public void setType(String type) {
+    this.type = type;
+  }
+
+  public void setResourceweights(Map<String, Double> resourceweights) {
+    this.resourceweights = resourceweights;
+  }
+
+  public String getType() {
+    return type;
+  }
+
+  public Map<String, Double> getResourceweights() {
+    return resourceweights;
   }
 }
