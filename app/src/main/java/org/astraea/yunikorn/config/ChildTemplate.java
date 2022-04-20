@@ -33,5 +33,4 @@ public class ChildTemplate {
   public void setResourves(Resources resourves) {
     this.resourves = resourves;
   }
-
 }

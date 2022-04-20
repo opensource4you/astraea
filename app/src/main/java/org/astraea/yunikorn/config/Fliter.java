@@ -7,7 +7,6 @@ public class Fliter {
   private List<String> users;
   private List<String> groups;
 
-
   public void setType(String type) {
     this.type = type;
   }
@@ -31,5 +30,4 @@ public class Fliter {
   public List<String> getUsers() {
     return users;
   }
-
 }

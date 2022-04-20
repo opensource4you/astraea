@@ -2,6 +2,7 @@ package org.astraea.yunikorn.config;
 
 import java.util.List;
 import java.util.Map;
+
 public class QueueConfig {
   private String name;
   private Boolean parent;
@@ -13,7 +14,6 @@ public class QueueConfig {
   private ChildTemplate childtemplate;
   private List<QueueConfig> queues;
   private List<Limit> limits;
-
 
   public void setParent(Boolean parent) {
     this.parent = parent;
