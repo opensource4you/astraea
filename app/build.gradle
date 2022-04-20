@@ -18,9 +18,7 @@ def versions = [
     zookeeper: project.properties['zookeeper.version'] ?: "3.6.3",
     json: project.properties['json.version']?: "20090211",
     yaml: project.properties['yaml.version']?: "1.8",
-    lombok: project.properties['lombok.version']?: "1.18.22",
-    gson: project.properties['gson.version']?: "2.7",
-    prometheus: project.properties['gson.version']?: "0.15.0",
+    prometheus: project.properties['prometheus.version']?: "0.15.0"
 
 
 ]
