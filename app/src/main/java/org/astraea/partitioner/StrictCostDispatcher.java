@@ -11,6 +11,7 @@ import java.util.stream.Collectors;
 import org.astraea.Utils;
 import org.astraea.cost.ClusterInfo;
 import org.astraea.cost.CostFunction;
+import org.astraea.cost.HasBrokerCost;
 import org.astraea.cost.PartitionInfo;
 import org.astraea.metrics.collector.BeanCollector;
 import org.astraea.metrics.collector.Fetcher;
@@ -70,7 +71,9 @@ public class StrictCostDispatcher implements Dispatcher {
     // get scores from all cost functions
     var scores =
         functions.stream()
-            .map(f -> f.cost(ClusterInfo.of(clusterInfo, beans)))
+            .filter(f -> f instanceof HasBrokerCost)
+            .map(f -> (HasBrokerCost) f)
+            .map(f -> f.brokerCost(ClusterInfo.of(clusterInfo, beans)).value())
             .collect(Collectors.toUnmodifiableList());
 
     return bestPartition(partitions, scores).map(e -> e.getKey().partition()).orElse(0);

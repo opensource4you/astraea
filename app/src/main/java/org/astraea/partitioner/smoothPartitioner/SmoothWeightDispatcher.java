@@ -15,6 +15,7 @@ import java.util.stream.Collectors;
 import org.astraea.Utils;
 import org.astraea.cost.ClusterInfo;
 import org.astraea.cost.CostFunction;
+import org.astraea.cost.HasBrokerCost;
 import org.astraea.cost.LoadCost;
 import org.astraea.cost.MemoryWarningCost;
 import org.astraea.metrics.collector.BeanCollector;
@@ -74,9 +75,11 @@ public class SmoothWeightDispatcher implements Dispatcher {
 
         var compoundScore =
             functions.stream()
+                .filter(f -> f instanceof HasBrokerCost)
+                .map(f -> (HasBrokerCost) f)
                 .map(
                     f -> {
-                      var map = f.cost(ClusterInfo.of(clusterInfo, beans));
+                      var map = f.brokerCost(ClusterInfo.of(clusterInfo, beans)).value();
                       map.replaceAll((k, v) -> v * costFraction.get(f.getClass()));
                       return map;
                     })
@@ -106,7 +109,7 @@ public class SmoothWeightDispatcher implements Dispatcher {
   // Just add all cost function score together
   static Map<Integer, Double> costCompound(
       Map<Integer, Double> identity, Map<Integer, Double> cost) {
-    cost.forEach((ID, value) -> identity.computeIfPresent(ID, (k, v) -> v + value));
+    cost.forEach((id, value) -> identity.computeIfPresent(id, (k, v) -> v + value));
     cost.forEach(identity::putIfAbsent);
     return identity;
   }

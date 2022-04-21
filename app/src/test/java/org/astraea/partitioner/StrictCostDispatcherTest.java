@@ -3,10 +3,12 @@ package org.astraea.partitioner;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import org.astraea.cost.BrokerCost;
 import org.astraea.cost.ClusterInfo;
-import org.astraea.cost.CostFunction;
+import org.astraea.cost.HasBrokerCost;
 import org.astraea.cost.NodeInfo;
 import org.astraea.cost.PartitionInfo;
 import org.astraea.metrics.collector.Fetcher;
@@ -100,12 +102,16 @@ public class StrictCostDispatcherTest {
     Mockito.when(receiver.current()).thenReturn(List.of());
 
     var costFunction =
-        new CostFunction() {
+        new HasBrokerCost() {
           @Override
-          public Map<Integer, Double> cost(ClusterInfo clusterInfo) {
-            return clusterInfo.allBeans().keySet().stream()
-                .collect(
-                    Collectors.toMap(Function.identity(), id -> id.equals(n0.id()) ? 0.9D : 0.5D));
+          public BrokerCost brokerCost(ClusterInfo clusterInfo) {
+            var partitionInfos = clusterInfo.availablePartitions("aa");
+            var brokerCost =
+                clusterInfo.allBeans().keySet().stream()
+                    .collect(
+                        Collectors.toMap(
+                            Function.identity(), id -> id.equals(n0.id()) ? 0.9D : 0.5D));
+            return () -> brokerCost;
           }
 
           @Override
@@ -130,6 +136,7 @@ public class StrictCostDispatcherTest {
 
     // there is no available partition
     Mockito.when(clusterInfo.availablePartitions("aa")).thenReturn(List.of());
+    Mockito.when(clusterInfo.topics()).thenReturn(Set.of("aa"));
     Assertions.assertEquals(0, dispatcher.partition("aa", new byte[0], new byte[0], clusterInfo));
 
     // there is only one available partition

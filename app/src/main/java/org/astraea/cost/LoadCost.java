@@ -12,7 +12,7 @@ import org.astraea.metrics.kafka.BrokerTopicMetricsResult;
 import org.astraea.metrics.kafka.KafkaMetrics;
 import org.astraea.partitioner.nodeLoadMetric.PartitionerUtils;
 
-public class LoadCost implements CostFunction {
+public class LoadCost implements HasBrokerCost {
   private final Map<Integer, BrokerMetric> brokersMetric = new HashMap<>();
   private final Map<String, Double> metricNameAndWeight =
       Map.of(
@@ -23,13 +23,15 @@ public class LoadCost implements CostFunction {
 
   /** Do "Poisson" and "weightPoisson" calculation on "load". And change output to double. */
   @Override
-  public Map<Integer, Double> cost(ClusterInfo clusterInfo) {
+  public BrokerCost brokerCost(ClusterInfo clusterInfo) {
     var load = computeLoad(clusterInfo.allBeans());
 
     // Poisson calculation (-> Poisson -> throughputAbility -> to double)
-    return PartitionerUtils.allPoisson(load).entrySet().stream()
-        .map(e -> Map.entry(e.getKey(), PartitionerUtils.weightPoisson(e.getValue(), 1.0)))
-        .collect(Collectors.toMap(Map.Entry::getKey, e -> (double) e.getValue()));
+    var brokerScore =
+        PartitionerUtils.allPoisson(load).entrySet().stream()
+            .map(e -> Map.entry(e.getKey(), PartitionerUtils.weightPoisson(e.getValue(), 1.0)))
+            .collect(Collectors.toMap(Map.Entry::getKey, e -> (double) e.getValue()));
+    return () -> brokerScore;
   }
 
   /**
