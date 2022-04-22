@@ -51,6 +51,7 @@ You can define `VERSION` to change the binary version.
 ### Run Kafka Broker
 
 After the zk env is running, you can copy the command (see above example) from zk script output to set up kafka. For example:
+
 ```shell
 ./docker/start_broker.sh zookeeper.connect=192.168.50.178:17228
 ```
@@ -70,7 +71,24 @@ exporter address: 192.168.50.178:10558
 2. `jmx address` exports the java metrics by JMX
 3. `exporter address` is the address of prometheus exporter.
 
+You can set `CONFLUENT_BROKER` to true, if you want start the confluent version of the kafka cluster. For example:
+
+```shell
+env CONFLUENT_BROKER=true ./docker/start_broker.sh zookeeper.connect=192.168.50.178:17228
+```
+
+The console will show the broker connection information and exporter address. For example:
+
+```shell
+=================================================
+broker id: 1001
+broker address: 192.168.103.39:15230
+exporter address: 192.168.103.39:18928
+=================================================
+```
+
 There are 4 useful ENVs which can change JVM/container configuration.
+
 1. VERSION -> define the kafka version
 2. REVISION -> define the revision of kafka source code. If this is defined, it will run distribution based on the source code
 3. HEAP_OPTS -> define JVM memory options
@@ -230,14 +248,16 @@ Run the benchmark from source
   The time units can be "days", "day", "h", "m", "s", "ms", "us", "ns".
   e.g. "--run.until 1m" or "--run.until 89242records" Default: 1000records
 8. --record.size: the (bound of) record size in byte. Default: 1 KiB
-9. --prop.file: the path to property file.
-10. --partitioner: the partitioner to use in producers
-11. --createCSV: put the metrics into a csv file if this flag is set. Default: false
-12. --compression: the compression algorithm used by producer. Available algorithm are none, gzip, snappy, lz4, and zstd. Default: (NONE)
-13. --jmx.servers: the jmx server addresses of the brokers 
-14. --key.distribution: name of the distribution on key. Available distribution names: "uniform", "zipfian", "latest", "fixed". Default: (No key)
-15. --size.distribution: name of the distribution on value size. Available distribution names: "uniform", "zipfian", "latest", "fixed". Default: "uniform"
-16. --specify.broker: list of broker IDs to produce records to. Default: (Do Not Specify)
+9. --fixed.size: the flag to let all records have the same size
+10. --prop.file: the path to property file.
+11. --partitioner: the partitioner to use in producers
+12. --jmx.servers: the jmx server addresses of the brokers 
+13--throughput: the produce rate for all producers. e.g. "--throughput 2MiB". Default: 500 GiB (per second)
+14--key.distribution: name of the distribution on key. Available distribution names: "uniform", "zipfian", "latest", "fixed". Default: (No key)
+15--size.distribution: name of the distribution on value size. Available distribution names: "uniform", "zipfian", "latest", "fixed". Default: "uniform"
+16--specify.broker: list of broker IDs to produce records to. Default: (Do Not Specify)
+17--report.path: A path to place the report file. Default: (no report)
+18--report.format: Select output file format. Available format: "csv", "json".
 
 ---
 

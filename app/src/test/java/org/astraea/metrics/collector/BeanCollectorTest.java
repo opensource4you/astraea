@@ -13,13 +13,13 @@ import org.astraea.concurrent.Executor;
 import org.astraea.concurrent.State;
 import org.astraea.concurrent.ThreadPool;
 import org.astraea.metrics.HasBeanObject;
+import org.astraea.metrics.jmx.BeanObject;
 import org.astraea.metrics.jmx.MBeanClient;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
 public class BeanCollectorTest {
-  private final HasBeanObject mbean = Mockito.mock(HasBeanObject.class);
   private final MBeanClient mbeanClient = Mockito.mock(MBeanClient.class);
   private final BiFunction<String, Integer, MBeanClient> clientCreator =
       (host, port) -> mbeanClient;
@@ -30,6 +30,18 @@ public class BeanCollectorTest {
     } catch (InterruptedException e) {
       throw new RuntimeException(e);
     }
+  }
+
+  private static Executor executor(Runnable runnable) {
+    return () -> {
+      runnable.run();
+      return State.RUNNING;
+    };
+  }
+
+  private static HasBeanObject createBeanObject() {
+    var obj = new BeanObject("domain", Map.of(), Map.of());
+    return () -> obj;
   }
 
   @Test
@@ -53,7 +65,7 @@ public class BeanCollectorTest {
     receivers.forEach(
         r ->
             Assertions.assertThrows(
-                UnsupportedOperationException.class, () -> r.current().add(mbean)));
+                UnsupportedOperationException.class, () -> r.current().add(createBeanObject())));
   }
 
   @Test
@@ -70,7 +82,7 @@ public class BeanCollectorTest {
             .register()
             .host("unknown")
             .port(100)
-            .fetcher(client -> List.of(Mockito.mock(HasBeanObject.class)))
+            .fetcher(client -> List.of(createBeanObject()))
             .build();
 
     var c0 = receiver.current();
@@ -118,7 +130,7 @@ public class BeanCollectorTest {
                     .register()
                     .host("unknown")
                     .port(100)
-                    .fetcher(client -> List.of(mbean))
+                    .fetcher(client -> List.of(createBeanObject()))
                     .build();
             synchronized (receivers) {
               receivers.add(receiver);
@@ -200,7 +212,7 @@ public class BeanCollectorTest {
             .fetcher(
                 client -> {
                   count.incrementAndGet();
-                  return List.of(mbean);
+                  return List.of(createBeanObject());
                 })
             .build();
 
@@ -233,7 +245,7 @@ public class BeanCollectorTest {
                           .fetcher(
                               client -> {
                                 count.incrementAndGet();
-                                return List.of(mbean);
+                                return List.of(createBeanObject());
                               })
                           .build());
                 })
@@ -247,10 +259,26 @@ public class BeanCollectorTest {
     receivers.forEach(e -> Assertions.assertEquals(1, e.getKey().get()));
   }
 
-  private static Executor executor(Runnable runnable) {
-    return () -> {
-      runnable.run();
-      return State.RUNNING;
-    };
+  @Test
+  void testCreatedTimestamp() throws InterruptedException {
+    var collector =
+        BeanCollector.builder()
+            .interval(Duration.ofSeconds(1))
+            .clientCreator(clientCreator)
+            .build();
+    var obj = new BeanObject("domain", Map.of(), Map.of());
+    try (var receiver =
+        collector
+            .register()
+            .host("unknown")
+            .port(100)
+            .fetcher(client -> List.of(() -> obj))
+            .build()) {
+      // wait for updating cache
+      TimeUnit.SECONDS.sleep(1);
+      var objs = receiver.current();
+      Assertions.assertEquals(1, objs.size());
+      Assertions.assertEquals(obj.createdTimestamp(), objs.iterator().next().createdTimestamp());
+    }
   }
 }
