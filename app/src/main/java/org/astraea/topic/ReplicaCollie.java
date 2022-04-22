@@ -72,9 +72,6 @@ public class ReplicaCollie {
               + topics.iterator().next()
               + " does not exist partition: "
               + args.partitions.toString());
-    if (!args.toBrokers.isEmpty() && args.fromBrokers.size() != args.toBrokers.size())
-      throw new IllegalArgumentException(
-          "The number of 'from broker' must be the same as the number of 'to broker'");
     if (args.fromBrokers.containsAll(admin.brokerIds()))
       throw new IllegalArgumentException(
           "No enough available brokers!" + " removed at least one: " + args.fromBrokers);

@@ -59,10 +59,10 @@ The console will show the broker connection information and JMX address. For exa
 
 ```shell
 =================================================
+broker id: 677
 broker address: 192.168.50.178:12747
 jmx address: 192.168.50.178:10216
 exporter address: 192.168.50.178:10558
-broker id: 677
 =================================================
 ```
 

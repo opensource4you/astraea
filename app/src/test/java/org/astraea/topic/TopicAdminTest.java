@@ -155,6 +155,8 @@ public class TopicAdminTest extends RequireBrokerCluster {
   }
 
   @Test
+  // There is a problem when migrating the log folder under Windows because the migrated source
+  // cannot be deleted, so disabled this test on Windows for now.
   @DisabledOnOs(WINDOWS)
   void testMigrateSinglePartition() throws InterruptedException {
     var topicName = "testMigrateSinglePartition";
