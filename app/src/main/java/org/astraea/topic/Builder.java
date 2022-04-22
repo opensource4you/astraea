@@ -259,7 +259,7 @@ public class Builder {
 
       return Utils.handleException(
           () ->
-              admin.describeTopics(topics).all().get().entrySet().stream()
+              admin.describeTopics(topics).allTopicNames().get().entrySet().stream()
                   .flatMap(
                       e ->
                           e.getValue().partitions().stream()
@@ -272,8 +272,10 @@ public class Builder {
                                         partition,
                                         topicPartitionInfo.replicas().stream()
                                             .flatMap(
-                                                node ->
-                                                    findReplicas
+                                                node -> {
+                                                  if (!(node.host().equals("")
+                                                      && node.port() == -1)) {
+                                                    return findReplicas
                                                         .apply(node.id(), partition)
                                                         .stream()
                                                         .map(
@@ -288,7 +290,32 @@ public class Builder {
                                                                         .isr()
                                                                         .contains(node),
                                                                     entry.getValue().isFuture(),
-                                                                    entry.getKey())))
+                                                                    !topicPartitionInfo
+                                                                        .isr()
+                                                                        .contains(node),
+                                                                    entry.getKey()));
+                                                  } else {
+                                                    return e.getValue().partitions().stream()
+                                                        .filter(
+                                                            p ->
+                                                                p.partition()
+                                                                    == partition.partition())
+                                                        .map(
+                                                            entry ->
+                                                                new Replica(
+                                                                    node.id(),
+                                                                    0,
+                                                                    0,
+                                                                    topicPartitionInfo.leader().id()
+                                                                        == node.id(),
+                                                                    topicPartitionInfo
+                                                                        .isr()
+                                                                        .contains(node),
+                                                                    false,
+                                                                    true,
+                                                                    null));
+                                                  }
+                                                })
                                             .sorted(Comparator.comparing(Replica::broker))
                                             .collect(Collectors.toList()));
                                   }))
