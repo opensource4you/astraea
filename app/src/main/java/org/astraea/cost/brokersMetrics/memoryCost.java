@@ -7,19 +7,16 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-import org.astraea.Utils;
 import org.astraea.cost.BrokerCost;
 import org.astraea.cost.ClusterInfo;
 import org.astraea.cost.HasBrokerCost;
+import org.astraea.cost.Periodic;
 import org.astraea.metrics.collector.Fetcher;
 import org.astraea.metrics.java.HasJvmMemory;
 import org.astraea.metrics.kafka.KafkaMetrics;
 
-public class JvmCost implements HasBrokerCost {
+public class memoryCost extends Periodic<BrokerCost> implements HasBrokerCost {
   private final Map<Integer, BrokerMetric> brokersMetric = new HashMap<>();
-
-  private long lastFetchTime = 0L;
-  private Map<Integer, Double> currentLoad;
 
   /**
    * The result is computed by "HasJvmMemory.getUsed/getMax".
@@ -33,37 +30,32 @@ public class JvmCost implements HasBrokerCost {
    */
   @Override
   public BrokerCost brokerCost(ClusterInfo clusterInfo) {
-    if (Utils.overSecond(lastFetchTime, 1)) {
-      try {
-        var costMetrics =
-            clusterInfo.allBeans().entrySet().stream()
-                .collect(Collectors.toMap(Map.Entry::getKey, entry -> 0.0));
-        clusterInfo
-            .allBeans()
-            .forEach(
-                (brokerID, value) -> {
-                  if (!brokersMetric.containsKey(brokerID)) {
-                    brokersMetric.put(brokerID, new BrokerMetric(brokerID));
-                  }
-                  value.stream()
-                      .filter(beanObject -> beanObject instanceof HasJvmMemory)
-                      .forEach(
-                          hasBeanObject -> {
-                            var broker = brokersMetric.get(brokerID);
-                            var jvmBean = (HasJvmMemory) hasBeanObject;
-                            costMetrics.put(
-                                brokerID,
-                                ((jvmBean.heapMemoryUsage().getUsed() + 0.0)
-                                    / (jvmBean.heapMemoryUsage().getMax() + 1)));
-                          });
-                });
-        TScore(costMetrics).forEach((broker, v) -> brokersMetric.get(broker).updateLoad(v));
-        currentLoad = computeLoad();
-      } finally {
-        lastFetchTime = System.currentTimeMillis();
-      }
-    }
-    return () -> currentLoad;
+    return tryUpdate(
+        () -> {
+          var costMetrics =
+              clusterInfo.allBeans().entrySet().stream()
+                  .collect(Collectors.toMap(Map.Entry::getKey, entry -> 0.0));
+          clusterInfo
+              .allBeans()
+              .forEach(
+                  (brokerID, value) -> {
+                    if (!brokersMetric.containsKey(brokerID)) {
+                      brokersMetric.put(brokerID, new BrokerMetric(brokerID));
+                    }
+                    value.stream()
+                        .filter(beanObject -> beanObject instanceof HasJvmMemory)
+                        .forEach(
+                            hasBeanObject -> {
+                              var jvmBean = (HasJvmMemory) hasBeanObject;
+                              costMetrics.put(
+                                  brokerID,
+                                  ((jvmBean.heapMemoryUsage().getUsed() + 0.0)
+                                      / (jvmBean.heapMemoryUsage().getMax() + 1)));
+                            });
+                  });
+          TScore(costMetrics).forEach((broker, v) -> brokersMetric.get(broker).updateLoad(v));
+          return this::computeLoad;
+        });
   }
 
   Map<Integer, Double> computeLoad() {

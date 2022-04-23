@@ -15,7 +15,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
-public class JvmCostTest {
+public class memoryCostTest {
   @Test
   void testCost() throws InterruptedException {
     var jvmMemory1 = mockResult(50L, 100L);
@@ -49,8 +49,8 @@ public class JvmCostTest {
           }
         };
 
-    var jvmCost = new JvmCost();
-    var scores = jvmCost.brokerCost(clusterInfo).value();
+    var memoryCost = new memoryCost();
+    var scores = memoryCost.brokerCost(clusterInfo).value();
     Assertions.assertEquals(0.42, scores.get(1));
     Assertions.assertEquals(0.64, scores.get(2));
     Assertions.assertEquals(0.44, scores.get(3));
@@ -86,7 +86,7 @@ public class JvmCostTest {
                     "t", 0, NodeInfo.of(3, "host3", 9092), List.of(), List.of(), List.of()));
           }
         };
-    scores = jvmCost.brokerCost(clusterInfo2).value();
+    scores = memoryCost.brokerCost(clusterInfo2).value();
     Assertions.assertEquals(0.53, scores.get(1));
     Assertions.assertEquals(0.52, scores.get(2));
     Assertions.assertEquals(0.45, scores.get(3));
