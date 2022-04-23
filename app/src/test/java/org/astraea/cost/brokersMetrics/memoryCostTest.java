@@ -49,7 +49,7 @@ public class memoryCostTest {
           }
         };
 
-    var memoryCost = new memoryCost();
+    var memoryCost = new MemoryCost();
     var scores = memoryCost.brokerCost(clusterInfo).value();
     Assertions.assertEquals(0.42, scores.get(1));
     Assertions.assertEquals(0.64, scores.get(2));
