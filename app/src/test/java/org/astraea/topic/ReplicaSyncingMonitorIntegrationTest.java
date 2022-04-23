@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
@@ -50,7 +51,7 @@ class ReplicaSyncingMonitorIntegrationTest extends RequireBrokerCluster {
       Thread executionThread =
           new Thread(
               () -> {
-                topicAdmin.migrator().partition(TOPIC_NAME, 0).moveTo(Set.of(moveToBroker));
+                topicAdmin.migrator().partition(TOPIC_NAME, 0).moveTo(List.of(moveToBroker));
                 ReplicaSyncingMonitor.execute(
                     topicAdmin,
                     org.astraea.argument.Argument.parse(

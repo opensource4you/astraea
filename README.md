@@ -342,25 +342,25 @@ This tool offers an effective way to migrate specify replicas from specific brok
 ### Move all replicas of topic "abc" from broker_0 to broker_1
 
 ```shell
-./gradlew run --args="replica --bootstrap.servers 192.168.50.178:19993 --from 0,1 --to 2,3 --topics abc"
+./gradlew run --args="replica --bootstrap.servers 192.168.50.178:19993 --from 0 --to 1 --topics abc"
 ```
 
 ### Move all replicas of topic "abc" in broker_0 to other folders
 
 ```shell
-./gradlew run --args="replica --bootstrap.servers 192.168.50.178:19993 --from 0 --to 0 -topics abc"
+./gradlew run --args="replica --bootstrap.servers 192.168.50.178:19993 --from 0 --to 0 --topics abc"
 ```
 
 ### Move specify replicas of topic "abc" and "def" from broker_0 to broker_1
 
 ```shell
-./gradlew run --args="replica --bootstrap.servers 192.168.50.178:19993 --from 0 --to 1 --topic abc --partitions 0,1"
+./gradlew run --args="replica --bootstrap.servers 192.168.50.178:19993 --from 0 --to 1 --topic abc,def --partitions 0,1"
 ```
 
 ### Move specify replicas of topic "abc"  and "def" from broker_0 to broker_1 specify folder
 
 ```shell
-./gradlew run --args="replica --bootstrap.servers 192.168.50.178:19993 --from 0 --to 1 --topic abc --partitions 0,1 --path /tmp/log1"
+./gradlew run --args="replica --bootstrap.servers 192.168.50.178:19993 --from 0 --to 1 --topic abc,def --partitions 0,1 --path /tmp/log1"
 ```
 
 ### Replica Collie Configurations
