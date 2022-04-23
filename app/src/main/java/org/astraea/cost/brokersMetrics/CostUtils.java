@@ -38,13 +38,14 @@ public class CostUtils {
         .entrySet()
         .forEach(
             entry -> {
-              var score = 1 - ((((entry.getValue() - avg) / standardDeviation) * 10 + 50) / 100.0);
+              var score =
+                  Math.round((((entry.getValue() - avg) / standardDeviation) * 10 + 50)) / 100.0;
               if (score > 1) {
                 score = 1.0;
               } else if (score < 0) {
                 score = 0.0;
               }
-              tScore.put(entry.getKey(), 1.0 - score);
+              tScore.put(entry.getKey(), score);
             });
     return tScore;
   }

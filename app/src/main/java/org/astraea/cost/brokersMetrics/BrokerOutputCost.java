@@ -7,46 +7,67 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import org.astraea.Utils;
+import org.astraea.cost.BrokerCost;
 import org.astraea.cost.ClusterInfo;
-import org.astraea.cost.CostFunction;
+import org.astraea.cost.HasBrokerCost;
 import org.astraea.metrics.collector.Fetcher;
 import org.astraea.metrics.kafka.BrokerTopicMetricsResult;
 import org.astraea.metrics.kafka.KafkaMetrics;
 
-public class BrokerOutputCost implements CostFunction {
+/**
+ * The result is computed by "BytesOutPerSec.count".
+ *
+ * <ol>
+ *   <li>We normalize the metric as score(by T-score).
+ *   <li>We record these data of each second.
+ *   <li>We only keep the last ten seconds of data.
+ *   <li>The final result is the average of the ten-second data.
+ * </ol>
+ */
+public class BrokerOutputCost implements HasBrokerCost {
   private final Map<Integer, BrokerMetric> brokersMetric = new HashMap<>();
+  private long lastFetchTime = 0L;
+  private Map<Integer, Double> currentLoad;
 
   @Override
-  public Map<Integer, Double> cost(ClusterInfo clusterInfo) {
-    var costMetrics =
-        clusterInfo.allBeans().entrySet().stream()
-            .collect(Collectors.toMap(Map.Entry::getKey, entry -> 0.0));
-    clusterInfo
-        .allBeans()
-        .forEach(
-            (brokerID, value) -> {
-              if (!brokersMetric.containsKey(brokerID)) {
-                brokersMetric.put(brokerID, new BrokerMetric(brokerID));
-              }
-              value.stream()
-                  .filter(
-                      hasBeanObject ->
-                          hasBeanObject
-                              .beanObject()
-                              .getProperties()
-                              .get("name")
-                              .equals(KafkaMetrics.BrokerTopic.BytesInPerSec.metricName()))
-                  .forEach(
-                      hasBeanObject -> {
-                        var broker = brokersMetric.get(brokerID);
-                        var outBean = (BrokerTopicMetricsResult) hasBeanObject;
-                        costMetrics.put(
-                            brokerID, (double) (outBean.count() - broker.accumulateCount));
-                        broker.accumulateCount = outBean.count();
-                      });
-              TScore(costMetrics).forEach((broker, v) -> brokersMetric.get(broker).updateLoad(v));
-            });
-    return computeLoad();
+  public BrokerCost brokerCost(ClusterInfo clusterInfo) {
+    if (Utils.overSecond(lastFetchTime, 1)) {
+      try {
+        var costMetrics =
+            clusterInfo.allBeans().entrySet().stream()
+                .collect(Collectors.toMap(Map.Entry::getKey, entry -> 0.0));
+        clusterInfo
+            .allBeans()
+            .forEach(
+                (brokerID, value) -> {
+                  if (!brokersMetric.containsKey(brokerID)) {
+                    brokersMetric.put(brokerID, new BrokerMetric(brokerID));
+                  }
+                  value.stream()
+                      .filter(
+                          hasBeanObject ->
+                              hasBeanObject
+                                  .beanObject()
+                                  .getProperties()
+                                  .get("name")
+                                  .equals(KafkaMetrics.BrokerTopic.BytesOutPerSec.metricName()))
+                      .forEach(
+                          hasBeanObject -> {
+                            var broker = brokersMetric.get(brokerID);
+                            var outBean = (BrokerTopicMetricsResult) hasBeanObject;
+                            costMetrics.put(
+                                brokerID, (double) (outBean.count() - broker.accumulateCount));
+                            broker.accumulateCount = outBean.count();
+                          });
+                });
+        TScore(costMetrics).forEach((broker, v) -> brokersMetric.get(broker).updateLoad(v));
+        currentLoad = computeLoad();
+      } finally {
+        lastFetchTime = System.currentTimeMillis();
+      }
+    }
+    return () -> currentLoad;
   }
 
   Map<Integer, Double> computeLoad() {
@@ -55,11 +76,14 @@ public class BrokerOutputCost implements CostFunction {
             Collectors.toMap(
                 Map.Entry::getKey,
                 e ->
-                    (e.getValue().load.stream()
-                        .filter(aDouble -> !aDouble.equals(-1.0))
-                        .mapToDouble(i -> i)
-                        .average()
-                        .getAsDouble())));
+                    Math.round(
+                            e.getValue().load.stream()
+                                    .filter(aDouble -> !aDouble.equals(-1.0))
+                                    .mapToDouble(i -> i)
+                                    .average()
+                                    .orElse(0.5)
+                                * 100)
+                        / 100.0));
   }
 
   @Override
@@ -70,7 +94,7 @@ public class BrokerOutputCost implements CostFunction {
   private static class BrokerMetric {
     private final int brokerID;
 
-    // mbean data. BytesInPerSec.count
+    // mbean data. BytesOutPerSec.count
     private long accumulateCount = 0L;
     private long currentCount = 0L;
 
