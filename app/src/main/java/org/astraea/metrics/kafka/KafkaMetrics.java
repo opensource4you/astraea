@@ -2,7 +2,6 @@ package org.astraea.metrics.kafka;
 
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import org.astraea.metrics.HasBeanObject;
@@ -140,17 +139,17 @@ public final class KafkaMetrics {
       return metricName;
     }
 
-    public  Collection<HasBeanObject> fetch(MBeanClient mBeanClient) {
-      return
-          mBeanClient.queryBeans(
+    public Collection<HasBeanObject> fetch(MBeanClient mBeanClient) {
+      return mBeanClient
+          .queryBeans(
               BeanQuery.builder("kafka.server")
                   .property("type", "DelayedOperationPurgatory")
                   .property("delayedOperation", metricName)
                   .property("name", "PurgatorySize")
                   .build())
-      .stream()
-              .map(HasValue::of)
-              .collect(Collectors.toUnmodifiableList());
+          .stream()
+          .map(HasValue::of)
+          .collect(Collectors.toUnmodifiableList());
     }
 
     public int size(MBeanClient mBeanClient) {

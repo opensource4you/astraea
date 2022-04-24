@@ -29,7 +29,6 @@ import javax.management.ObjectName;
 import javax.management.remote.JMXConnectorServer;
 import javax.management.remote.JMXConnectorServerFactory;
 import javax.management.remote.JMXServiceURL;
-
 import org.astraea.metrics.collector.BeanCollector;
 import org.astraea.metrics.collector.Fetcher;
 import org.astraea.metrics.kafka.KafkaMetrics;
@@ -86,16 +85,20 @@ class MBeanClientTest {
   @Test
   void testFetchAttributes() {
     var firstBeanObjects =
-            BeanCollector.builder()
-                    .interval(Duration.ofSeconds(4))
-                    .build()
-                    .register()
-                    .host("localhost")
-                    .port(19457)
-                    .fetcher(Fetcher.of(Set.of(client1 ->
-                            new java.util.ArrayList<>(KafkaMetrics.Purgatory.Fetch.fetch(client1)) )))
-                    .build()
-                    .current();
+        BeanCollector.builder()
+            .interval(Duration.ofSeconds(4))
+            .build()
+            .register()
+            .host("localhost")
+            .port(19457)
+            .fetcher(
+                Fetcher.of(
+                    Set.of(
+                        client1 ->
+                            new java.util.ArrayList<>(
+                                KafkaMetrics.Purgatory.Fetch.fetch(client1)))))
+            .build()
+            .current();
 
     // arrange
     try (var client = MBeanClient.of(jmxServer.getAddress())) {
