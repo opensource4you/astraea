@@ -170,6 +170,77 @@ public class Builder {
                   .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().offset())));
     }
 
+    public Map<TopicPartition, List<Replica>> mapOfTPReplicas(
+        Set<String> topics,
+        BiFunction<Integer, TopicPartition, List<Map.Entry<String, ReplicaInfo>>> findReplicas) {
+      return Utils.handleException(
+          () ->
+              admin.describeTopics(topics).allTopicNames().get().entrySet().stream()
+                  .flatMap(
+                      e ->
+                          e.getValue().partitions().stream()
+                              .map(
+                                  topicPartitionInfo -> {
+                                    var partition =
+                                        new TopicPartition(
+                                            e.getKey(), topicPartitionInfo.partition());
+                                    return Map.entry(
+                                        partition,
+                                        topicPartitionInfo.replicas().stream()
+                                            .flatMap(
+                                                node -> {
+                                                  if (!(node.isEmpty() && node.port() == -1)) {
+                                                    return findReplicas
+                                                        .apply(node.id(), partition)
+                                                        .stream()
+                                                        .map(
+                                                            entry ->
+                                                                new Replica(
+                                                                    node.id(),
+                                                                    entry.getValue().offsetLag(),
+                                                                    entry.getValue().size(),
+                                                                    topicPartitionInfo.leader().id()
+                                                                        == node.id(),
+                                                                    topicPartitionInfo
+                                                                        .isr()
+                                                                        .contains(node),
+                                                                    entry.getValue().isFuture(),
+                                                                    !topicPartitionInfo
+                                                                        .isr()
+                                                                        .contains(node),
+                                                                    entry.getKey()));
+                                                  } else {
+                                                    return e.getValue().partitions().stream()
+                                                        .filter(
+                                                            p ->
+                                                                p.partition()
+                                                                    == partition.partition())
+                                                        .map(
+                                                            entry ->
+                                                                new Replica(
+                                                                    node.id(),
+                                                                    0,
+                                                                    0,
+                                                                    topicPartitionInfo.leader()
+                                                                            != null
+                                                                        && (topicPartitionInfo
+                                                                                .leader()
+                                                                                .id()
+                                                                            == node.id()),
+                                                                    topicPartitionInfo
+                                                                        .isr()
+                                                                        .contains(node),
+                                                                    false,
+                                                                    true,
+                                                                    null));
+                                                  }
+                                                })
+                                            .sorted(Comparator.comparing(Replica::broker))
+                                            .collect(Collectors.toList()));
+                                  }))
+                  .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue)));
+    }
+
     @Override
     public Map<String, TopicConfig> topics() {
       return topics(true);
@@ -243,7 +314,6 @@ public class Builder {
     public Map<TopicPartition, List<Replica>> replicas(Set<String> topics) {
       var replicaInfos =
           Utils.handleException(() -> admin.describeLogDirs(brokerIds()).allDescriptions().get());
-
       BiFunction<Integer, TopicPartition, List<Map.Entry<String, ReplicaInfo>>> findReplicas =
           (id, partition) ->
               replicaInfos.getOrDefault(id, Map.of()).entrySet().stream()
@@ -256,70 +326,7 @@ public class Builder {
                             .map(e -> Map.entry(path, e.getValue()));
                       })
                   .collect(Collectors.toList());
-
-      return Utils.handleException(
-          () ->
-              admin.describeTopics(topics).allTopicNames().get().entrySet().stream()
-                  .flatMap(
-                      e ->
-                          e.getValue().partitions().stream()
-                              .map(
-                                  topicPartitionInfo -> {
-                                    var partition =
-                                        new TopicPartition(
-                                            e.getKey(), topicPartitionInfo.partition());
-                                    return Map.entry(
-                                        partition,
-                                        topicPartitionInfo.replicas().stream()
-                                            .flatMap(
-                                                node -> {
-                                                  if (!(node.host().equals("")
-                                                      && node.port() == -1)) {
-                                                    return findReplicas
-                                                        .apply(node.id(), partition)
-                                                        .stream()
-                                                        .map(
-                                                            entry ->
-                                                                new Replica(
-                                                                    node.id(),
-                                                                    entry.getValue().offsetLag(),
-                                                                    entry.getValue().size(),
-                                                                    topicPartitionInfo.leader().id()
-                                                                        == node.id(),
-                                                                    topicPartitionInfo
-                                                                        .isr()
-                                                                        .contains(node),
-                                                                    entry.getValue().isFuture(),
-                                                                    !topicPartitionInfo
-                                                                        .isr()
-                                                                        .contains(node),
-                                                                    entry.getKey()));
-                                                  } else {
-                                                    return e.getValue().partitions().stream()
-                                                        .filter(
-                                                            p ->
-                                                                p.partition()
-                                                                    == partition.partition())
-                                                        .map(
-                                                            entry ->
-                                                                new Replica(
-                                                                    node.id(),
-                                                                    0,
-                                                                    0,
-                                                                    topicPartitionInfo.leader().id()
-                                                                        == node.id(),
-                                                                    topicPartitionInfo
-                                                                        .isr()
-                                                                        .contains(node),
-                                                                    false,
-                                                                    true,
-                                                                    null));
-                                                  }
-                                                })
-                                            .sorted(Comparator.comparing(Replica::broker))
-                                            .collect(Collectors.toList()));
-                                  }))
-                  .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue)));
+      return mapOfTPReplicas(topics, findReplicas);
     }
 
     @Override

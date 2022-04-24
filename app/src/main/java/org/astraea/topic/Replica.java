@@ -42,6 +42,7 @@ public final class Replica {
         && leader == replica.leader
         && inSync == replica.inSync
         && isFuture == replica.isFuture
+        && offline == replica.offline
         && path.equals(replica.path);
   }
 
@@ -67,6 +68,8 @@ public final class Replica {
         + isFuture
         + ", path='"
         + path
+        + ", offline="
+        + offline
         + '\''
         + '}';
   }
@@ -107,6 +110,7 @@ public final class Replica {
     return !isFuture;
   }
 
+  /** @return true if the replica on the broker is offline. */
   public boolean isOffline() {
     return offline;
   }

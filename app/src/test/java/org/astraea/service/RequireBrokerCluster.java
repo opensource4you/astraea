@@ -21,6 +21,10 @@ public abstract class RequireBrokerCluster extends RequireJmxServer {
     return BROKER_CLUSTER.logFolders();
   }
 
+  protected static void closeBroker(Integer brokerID) {
+    BROKER_CLUSTER.close(brokerID);
+  }
+
   @AfterAll
   static void shutdownClusters() {
     Utils.close(BROKER_CLUSTER);

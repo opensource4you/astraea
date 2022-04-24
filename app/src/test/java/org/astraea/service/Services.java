@@ -70,6 +70,12 @@ public final class Services {
             .map(broker -> Utils.hostname() + ":" + broker.boundPort(new ListenerName("PLAINTEXT")))
             .collect(Collectors.joining(","));
     return new BrokerCluster() {
+      @Override
+      public void close(Integer brokerID) {
+        brokers.get(brokerID).shutdown();
+        brokers.get(brokerID).awaitShutdown();
+        tempFolders.get(brokerID).forEach(f -> Utils.delete(new File(f)));
+      }
 
       @Override
       public void close() {
