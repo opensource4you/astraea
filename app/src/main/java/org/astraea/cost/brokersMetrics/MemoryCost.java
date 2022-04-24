@@ -19,7 +19,8 @@ public class MemoryCost extends Periodic<Map<Integer, Double>> implements HasBro
   private final Map<Integer, BrokerMetric> brokersMetric = new HashMap<>();
 
   /**
-   * The result is computed by "HasJvmMemory.getUsed/getMax".
+   * The result is computed by "HasJvmMemory.getUsed/getMax". "HasJvmMemory.getUsed/getMax" responds
+   * to the memory usage of brokers.
    *
    * <ol>
    *   <li>We normalize the metric as score(by T-score).
@@ -41,7 +42,7 @@ public class MemoryCost extends Periodic<Map<Integer, Double>> implements HasBro
                   .forEach(
                       (brokerID, value) -> {
                         if (!brokersMetric.containsKey(brokerID)) {
-                          brokersMetric.put(brokerID, new BrokerMetric(brokerID));
+                          brokersMetric.put(brokerID, new BrokerMetric());
                         }
                         value.stream()
                             .filter(beanObject -> beanObject instanceof HasJvmMemory)
@@ -81,17 +82,13 @@ public class MemoryCost extends Periodic<Map<Integer, Double>> implements HasBro
   }
 
   private static class BrokerMetric {
-    private final int brokerID;
-
     // mbean data.JvmUsage
     // Record the latest 10 numbers only.
     private final List<Double> load =
         IntStream.range(0, 10).mapToObj(i -> -1.0).collect(Collectors.toList());
     private int loadIndex = 0;
 
-    BrokerMetric(int brokerID) {
-      this.brokerID = brokerID;
-    }
+    private BrokerMetric() {}
 
     /**
      * This method record input data into a list. This list contains the latest 10 record. Each time

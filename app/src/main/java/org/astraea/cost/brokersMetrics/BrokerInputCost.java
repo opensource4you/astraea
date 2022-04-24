@@ -16,7 +16,8 @@ import org.astraea.metrics.kafka.BrokerTopicMetricsResult;
 import org.astraea.metrics.kafka.KafkaMetrics;
 
 /**
- * The result is computed by "BytesInPerSec.count".
+ * The result is computed by "BytesInPerSec.count". "BytesInPerSec.count" responds to the input
+ * throughput of brokers.
  *
  * <ol>
  *   <li>We normalize the metric as score(by T-score).
@@ -41,7 +42,7 @@ public class BrokerInputCost extends Periodic<Map<Integer, Double>> implements H
                   .forEach(
                       (brokerID, value) -> {
                         if (!brokersMetric.containsKey(brokerID)) {
-                          brokersMetric.put(brokerID, new BrokerMetric(brokerID));
+                          brokersMetric.put(brokerID, new BrokerMetric());
                         }
                         value.stream()
                             .filter(
@@ -89,8 +90,6 @@ public class BrokerInputCost extends Periodic<Map<Integer, Double>> implements H
   }
 
   private static class BrokerMetric {
-    private final int brokerID;
-
     // mbean data.  BytesInPerSec.count
     private long accumulateCount = 0L;
 
@@ -99,9 +98,7 @@ public class BrokerInputCost extends Periodic<Map<Integer, Double>> implements H
         IntStream.range(0, 10).mapToObj(i -> -1.0).collect(Collectors.toList());
     private int loadIndex = 0;
 
-    BrokerMetric(int brokerID) {
-      this.brokerID = brokerID;
-    }
+    private BrokerMetric() {}
 
     /**
      * This method record input data into a list. This list contains the latest 10 record. Each time

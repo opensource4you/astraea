@@ -17,6 +17,7 @@ import org.astraea.metrics.kafka.KafkaMetrics;
 
 /**
  * The result is computed by "OperatingSystemInfo.systemCpuLoad".
+ * "OperatingSystemInfo.systemCpuLoad" responds to the cpu usage of brokers.
  *
  * <ol>
  *   <li>We normalize the metric as score(by T-score).
@@ -41,7 +42,7 @@ public class CpuCost extends Periodic<Map<Integer, Double>> implements HasBroker
                   .forEach(
                       (brokerID, value) -> {
                         if (!brokersMetric.containsKey(brokerID)) {
-                          brokersMetric.put(brokerID, new BrokerMetric(brokerID));
+                          brokersMetric.put(brokerID, new BrokerMetric());
                         }
                         value.stream()
                             .filter(beanObject -> beanObject instanceof OperatingSystemInfo)
@@ -78,17 +79,13 @@ public class CpuCost extends Periodic<Map<Integer, Double>> implements HasBroker
   }
 
   private static class BrokerMetric {
-    private final int brokerID;
-
     // mbean data.CpuUsage
     // Record the latest 10 numbers only.
     private final List<Double> load =
         IntStream.range(0, 10).mapToObj(i -> -1.0).collect(Collectors.toList());
     private int loadIndex = 0;
 
-    BrokerMetric(int brokerID) {
-      this.brokerID = brokerID;
-    }
+    private BrokerMetric() {}
 
     /**
      * This method record input data into a list. This list contains the latest 10 record. Each time
