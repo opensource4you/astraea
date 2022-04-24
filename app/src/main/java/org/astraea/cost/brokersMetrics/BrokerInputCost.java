@@ -31,7 +31,7 @@ public class BrokerInputCost extends Periodic<Map<Integer, Double>> implements H
 
   @Override
   public BrokerCost brokerCost(ClusterInfo clusterInfo) {
-    return () ->
+    var brokerScore =
         tryUpdate(
             () -> {
               var costMetrics =
@@ -66,6 +66,7 @@ public class BrokerInputCost extends Periodic<Map<Integer, Double>> implements H
 
               return computeLoad();
             });
+    return () -> brokerScore;
   }
 
   Map<Integer, Double> computeLoad() {

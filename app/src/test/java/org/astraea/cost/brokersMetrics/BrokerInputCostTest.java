@@ -23,7 +23,7 @@ public class BrokerInputCostTest {
     Assertions.assertEquals(0.47, scores.get(1));
     Assertions.assertEquals(0.63, scores.get(2));
     Assertions.assertEquals(0.39, scores.get(3));
-
+    var scores5 = brokerInputCost.brokerCost(clusterInfo).value();
     Thread.sleep(1000);
 
     ClusterInfo clusterInfo2 = exampleClusterInfo(55555L, 25352L, 25000L);

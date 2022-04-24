@@ -31,7 +31,7 @@ public class CpuCost extends Periodic<Map<Integer, Double>> implements HasBroker
 
   @Override
   public BrokerCost brokerCost(ClusterInfo clusterInfo) {
-    return () ->
+    var brokerScore =
         tryUpdate(
             () -> {
               var costMetrics =
@@ -55,6 +55,7 @@ public class CpuCost extends Periodic<Map<Integer, Double>> implements HasBroker
               TScore(costMetrics).forEach((broker, v) -> brokersMetric.get(broker).updateLoad(v));
               return computeLoad();
             });
+    return () -> brokerScore;
   }
 
   Map<Integer, Double> computeLoad() {

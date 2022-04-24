@@ -31,7 +31,7 @@ public class BrokerOutputCost extends Periodic<Map<Integer, Double>> implements 
 
   @Override
   public BrokerCost brokerCost(ClusterInfo clusterInfo) {
-    return () ->
+    var brokerScore =
         tryUpdate(
             () -> {
               var costMetrics =
@@ -66,6 +66,7 @@ public class BrokerOutputCost extends Periodic<Map<Integer, Double>> implements 
               TScore(costMetrics).forEach((broker, v) -> brokersMetric.get(broker).updateLoad(v));
               return computeLoad();
             });
+    return () -> brokerScore;
   }
 
   Map<Integer, Double> computeLoad() {
@@ -92,7 +93,6 @@ public class BrokerOutputCost extends Periodic<Map<Integer, Double>> implements 
   private static class BrokerMetric {
     // mbean data. BytesOutPerSec.count
     private long accumulateCount = 0L;
-    private long currentCount = 0L;
 
     // Record the latest 10 numbers only.
     private final List<Double> load =

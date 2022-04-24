@@ -15,7 +15,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
-public class memoryCostTest {
+public class MemoryCostTest {
   @Test
   void testCost() throws InterruptedException {
     var jvmMemory1 = mockResult(50L, 100L);
