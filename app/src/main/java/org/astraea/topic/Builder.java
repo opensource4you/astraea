@@ -189,7 +189,7 @@ public class Builder {
                                         topicPartitionInfo.replicas().stream()
                                             .flatMap(
                                                 node -> {
-                                                  if (!(node.isEmpty() && node.port() == -1)) {
+                                                  if (!(node.isEmpty())) {
                                                     return findReplicas
                                                         .apply(node.id(), partition)
                                                         .stream()
