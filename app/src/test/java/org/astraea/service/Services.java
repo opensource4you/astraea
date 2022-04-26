@@ -71,7 +71,7 @@ public final class Services {
             .collect(Collectors.joining(","));
     return new BrokerCluster() {
       @Override
-      public void close(Integer brokerID) {
+      public void close(int brokerID) {
         brokers.get(brokerID).shutdown();
         brokers.get(brokerID).awaitShutdown();
         tempFolders.get(brokerID).forEach(f -> Utils.delete(new File(f)));

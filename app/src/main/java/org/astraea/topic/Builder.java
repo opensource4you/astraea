@@ -189,27 +189,7 @@ public class Builder {
                                         topicPartitionInfo.replicas().stream()
                                             .flatMap(
                                                 node -> {
-                                                  if (!(node.isEmpty())) {
-                                                    return findReplicas
-                                                        .apply(node.id(), partition)
-                                                        .stream()
-                                                        .map(
-                                                            entry ->
-                                                                new Replica(
-                                                                    node.id(),
-                                                                    entry.getValue().offsetLag(),
-                                                                    entry.getValue().size(),
-                                                                    topicPartitionInfo.leader().id()
-                                                                        == node.id(),
-                                                                    topicPartitionInfo
-                                                                        .isr()
-                                                                        .contains(node),
-                                                                    entry.getValue().isFuture(),
-                                                                    !topicPartitionInfo
-                                                                        .isr()
-                                                                        .contains(node),
-                                                                    entry.getKey()));
-                                                  } else {
+                                                  if (node.isEmpty()) {
                                                     return e.getValue().partitions().stream()
                                                         .filter(
                                                             p ->
@@ -233,6 +213,26 @@ public class Builder {
                                                                     false,
                                                                     true,
                                                                     null));
+                                                  } else {
+                                                    return findReplicas
+                                                        .apply(node.id(), partition)
+                                                        .stream()
+                                                        .map(
+                                                            entry ->
+                                                                new Replica(
+                                                                    node.id(),
+                                                                    entry.getValue().offsetLag(),
+                                                                    entry.getValue().size(),
+                                                                    topicPartitionInfo.leader().id()
+                                                                        == node.id(),
+                                                                    topicPartitionInfo
+                                                                        .isr()
+                                                                        .contains(node),
+                                                                    entry.getValue().isFuture(),
+                                                                    !topicPartitionInfo
+                                                                        .isr()
+                                                                        .contains(node),
+                                                                    entry.getKey()));
                                                   }
                                                 })
                                             .sorted(Comparator.comparing(Replica::broker))
