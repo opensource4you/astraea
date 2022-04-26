@@ -4,18 +4,18 @@ import java.util.Map;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-public class IntegratedEmpowermentTest {
+public class IntegratedScoreTest {
   @Test
   void testEntropyEmpowerment() {
-    var integratedEmpowerment = new IntegratedEmpowerment();
+    var integratedEmpowerment = new IntegratedScore();
     var brokers =
         Map.of(
             0,
-            new IntegratedEmpowerment.BrokerMetrics(),
+            new IntegratedScore.BrokerMetrics(),
             1,
-            new IntegratedEmpowerment.BrokerMetrics(),
+            new IntegratedScore.BrokerMetrics(),
             2,
-            new IntegratedEmpowerment.BrokerMetrics());
+            new IntegratedScore.BrokerMetrics());
     brokers.get(0).cpuScore = 0.1252;
     brokers.get(0).inputScore = 550.0;
     brokers.get(0).outputScore = 545.0;

@@ -12,7 +12,7 @@ import org.astraea.cost.HasBrokerCost;
 import org.astraea.cost.Periodic;
 import org.astraea.metrics.collector.Fetcher;
 
-public class IntegratedEmpowerment extends Periodic<Map<Integer, Double>> implements HasBrokerCost {
+public class IntegratedScore extends Periodic<Map<Integer, Double>> implements HasBrokerCost {
   private final List<HasBrokerCost> metricsCost =
       List.of(new BrokerInputCost(), new BrokerOutputCost(), new CpuCost(), new MemoryCost());
   private final Map<Integer, BrokerMetrics> brokersMetric = new HashMap<>();
