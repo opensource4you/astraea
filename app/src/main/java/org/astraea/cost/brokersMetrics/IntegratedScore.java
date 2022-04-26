@@ -200,13 +200,13 @@ public class IntegratedScore extends Periodic<Map<Integer, Double>> implements H
    *
    * <p>This is the pairwise comparison matrix currently being used by Astraea Partitioner.
    *
-   * <p>||=================||===============||================||================||================||=================||
-   * || Metrics ||InputThroughput||OutputThroughput|| CpuUsage || MemoryUsage || Weight || || || ||
-   * || || || || || InputThroughput || 1 || 4 || 6 || 6 || 0.6003 || || || || || || || || || || ||
-   * || || || || || outputThroughput|| 1/4 || 1 || 4 || 4 || 0.2434 || || || || || || || || || || ||
-   * || || || || || CpuUsage || 1/6 || 1/4 || 1 || 1/2 || 0.0914 || || || || || || || || || || || ||
-   * || || || || MemoryUsage || 1/6 || 1/4 || 2 || 1 || 0.0649 ||
-   * ||=================||===============||================||================||================||=================||
+   * <p>||==============||===============||================||==========||=============||========||
+   * || Metrics --------||InputThroughput||OutputThroughput|| CpuUsage || MemoryUsage || Weight ||
+   * || InputThroughput-||------ 1 ------||------ 4 -------||--- 6 ----||----- 6 -----|| 0.6003 ||
+   * || outputThroughput||----- 1/4 -----||------ 1 -------||--- 4 ----||----- 4 -----|| 0.2434 ||
+   * || CpuUsage--------||----- 1/6 -----||----- 1/4 ------||--- 1 ----||---- 1/2 ----|| 0.0914 ||
+   * || MemoryUsage-----||----- 1/6 -----||----- 1/4 ------||--- 2 ----||----- 1 -----|| 0.0649 ||
+   * ||=================||===============||================||==========||=============||========||
    */
   private static class AHPEmpowerment {
     private final Map<String, Double> balanceThroughput =
