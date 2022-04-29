@@ -12,7 +12,14 @@ import org.astraea.cost.HasBrokerCost;
 import org.astraea.cost.Periodic;
 import org.astraea.metrics.collector.Fetcher;
 
-public class IntegratedScore extends Periodic<Map<Integer, Double>> implements HasBrokerCost {
+/**
+ * The result is computed by four cost function.There are "BrokerInputCost", "BrokerOutputCost",
+ * "CpuCost" and "MemoryCost". We used a combination of AHP(Analytic Hierarchy Process) and entropy
+ * weighting to integrate these data into a score that is representative of Broker's load profile.
+ * Because AHP is a subjective evaluation method and entropy method is an objective evaluation
+ * method, so I named it NeutralIntegratedCost.
+ */
+public class NeutralIntegratedCost extends Periodic<Map<Integer, Double>> implements HasBrokerCost {
   private final List<HasBrokerCost> metricsCost =
       List.of(new BrokerInputCost(), new BrokerOutputCost(), new CpuCost(), new MemoryCost());
   private final Map<Integer, BrokerMetrics> brokersMetric = new HashMap<>();

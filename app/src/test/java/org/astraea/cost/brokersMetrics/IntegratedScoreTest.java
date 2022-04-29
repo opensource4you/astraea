@@ -7,15 +7,15 @@ import org.junit.jupiter.api.Test;
 public class IntegratedScoreTest {
   @Test
   void testEntropyEmpowerment() {
-    var integratedEmpowerment = new IntegratedScore();
+    var neutralIntegratedCost = new NeutralIntegratedCost();
     var brokers =
         Map.of(
             0,
-            new IntegratedScore.BrokerMetrics(),
+            new NeutralIntegratedCost.BrokerMetrics(),
             1,
-            new IntegratedScore.BrokerMetrics(),
+            new NeutralIntegratedCost.BrokerMetrics(),
             2,
-            new IntegratedScore.BrokerMetrics());
+            new NeutralIntegratedCost.BrokerMetrics());
     brokers.get(0).cpuScore = 0.1252;
     brokers.get(0).inputScore = 550.0;
     brokers.get(0).outputScore = 545.0;
@@ -31,7 +31,7 @@ public class IntegratedScoreTest {
     brokers.get(2).memoryScore = 0.235;
     brokers.get(2).cpuScore = 0.1522;
 
-    var metrics = integratedEmpowerment.entropyEmpowerment().empowerment(brokers);
+    var metrics = neutralIntegratedCost.entropyEmpowerment().empowerment(brokers);
 
     Assertions.assertEquals(0.46689278143812796, metrics.get("inputThroughput"));
     Assertions.assertEquals(0.4200836938888968, metrics.get("outputThroughput"));
