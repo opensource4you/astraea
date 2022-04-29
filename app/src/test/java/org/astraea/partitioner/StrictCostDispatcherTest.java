@@ -21,37 +21,7 @@ public class StrictCostDispatcherTest {
 
   private static PartitionInfo createFakePartitionInfo(
       String topic, int partition, NodeInfo leaderNode) {
-    return new PartitionInfo() {
-      @Override
-      public String topic() {
-        return topic;
-      }
-
-      @Override
-      public int partition() {
-        return partition;
-      }
-
-      @Override
-      public NodeInfo leader() {
-        return leaderNode;
-      }
-
-      @Override
-      public List<NodeInfo> replicas() {
-        return null;
-      }
-
-      @Override
-      public List<NodeInfo> inSyncReplica() {
-        return null;
-      }
-
-      @Override
-      public List<NodeInfo> offlineReplicas() {
-        return null;
-      }
-    };
+    return PartitionInfo.of(topic, partition, leaderNode, null, null, null);
   }
 
   @Test

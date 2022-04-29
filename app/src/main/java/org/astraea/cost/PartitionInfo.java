@@ -11,12 +11,14 @@ public interface PartitionInfo {
         pf.topic(),
         pf.partition(),
         NodeInfo.of(pf.leader()),
-        Arrays.stream(pf.replicas()).map(NodeInfo::of).collect(Collectors.toUnmodifiableList()),
+        Arrays.stream(pf.replicas())
+            .map(node -> ReplicaInfo.of(NodeInfo.of(node)))
+            .collect(Collectors.toUnmodifiableList()),
         Arrays.stream(pf.inSyncReplicas())
-            .map(NodeInfo::of)
+            .map(node -> ReplicaInfo.of(NodeInfo.of(node)))
             .collect(Collectors.toUnmodifiableList()),
         Arrays.stream(pf.offlineReplicas())
-            .map(NodeInfo::of)
+            .map(node -> ReplicaInfo.of(NodeInfo.of(node)))
             .collect(Collectors.toUnmodifiableList()));
   }
 
@@ -24,9 +26,9 @@ public interface PartitionInfo {
       String topic,
       int partition,
       NodeInfo leader,
-      List<NodeInfo> replicas,
-      List<NodeInfo> inSyncReplicas,
-      List<NodeInfo> offlineReplicas) {
+      List<ReplicaInfo> replicas,
+      List<ReplicaInfo> inSyncReplicas,
+      List<ReplicaInfo> offlineReplicas) {
     return new PartitionInfo() {
       @Override
       public String topic() {
@@ -44,17 +46,17 @@ public interface PartitionInfo {
       }
 
       @Override
-      public List<NodeInfo> replicas() {
+      public List<ReplicaInfo> replicas() {
         return List.copyOf(replicas);
       }
 
       @Override
-      public List<NodeInfo> inSyncReplica() {
+      public List<ReplicaInfo> inSyncReplica() {
         return List.copyOf(inSyncReplicas);
       }
 
       @Override
-      public List<NodeInfo> offlineReplicas() {
+      public List<ReplicaInfo> offlineReplicas() {
         return List.copyOf(offlineReplicas);
       }
     };
@@ -66,15 +68,15 @@ public interface PartitionInfo {
   /** @return partition id */
   int partition();
 
-  /** @return information of leader node */
+  /** @return information of leader replica */
   NodeInfo leader();
 
   /** @return a list of replicas */
-  List<NodeInfo> replicas();
+  List<ReplicaInfo> replicas();
 
   /** @return a list of in-sync replicas */
-  List<NodeInfo> inSyncReplica();
+  List<ReplicaInfo> inSyncReplica();
 
   /** @return a list of offline replicas */
-  List<NodeInfo> offlineReplicas();
+  List<ReplicaInfo> offlineReplicas();
 }
