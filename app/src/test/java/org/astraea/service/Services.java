@@ -35,36 +35,44 @@ public final class Services {
                             Utils.createTempDirectory("local_kafka").getAbsolutePath())));
 
     var brokers =
-        IntStream.range(0, numberOfBrokers)
-            .mapToObj(
-                index -> {
-                  Properties config = new Properties();
-                  // reduce the backoff of compact thread to test it quickly
-                  config.setProperty(
-                      KafkaConfig$.MODULE$.LogCleanerBackoffMsProp(), String.valueOf(2000));
-                  // reduce the number from partitions and replicas to speedup the mini cluster
-                  config.setProperty(
-                      KafkaConfig$.MODULE$.OffsetsTopicPartitionsProp(), String.valueOf(1));
-                  config.setProperty(
-                      KafkaConfig$.MODULE$.OffsetsTopicReplicationFactorProp(), String.valueOf(1));
-                  config.setProperty(KafkaConfig$.MODULE$.ZkConnectProp(), zk.connectionProps());
-                  config.setProperty(KafkaConfig$.MODULE$.BrokerIdProp(), String.valueOf(index));
-                  // bind broker on random port
-                  config.setProperty(KafkaConfig$.MODULE$.ListenersProp(), "PLAINTEXT://:0");
-                  config.setProperty(
-                      KafkaConfig$.MODULE$.LogDirsProp(), String.join(",", tempFolders.get(index)));
+        new java.util.ArrayList<>(
+            IntStream.range(0, numberOfBrokers)
+                .mapToObj(
+                    index -> {
+                      Properties config = new Properties();
+                      // reduce the backoff of compact thread to test it quickly
+                      config.setProperty(
+                          KafkaConfig$.MODULE$.LogCleanerBackoffMsProp(), String.valueOf(2000));
+                      // reduce the number from partitions and replicas to speedup the mini cluster
+                      config.setProperty(
+                          KafkaConfig$.MODULE$.OffsetsTopicPartitionsProp(), String.valueOf(1));
+                      config.setProperty(
+                          KafkaConfig$.MODULE$.OffsetsTopicReplicationFactorProp(),
+                          String.valueOf(1));
+                      config.setProperty(
+                          KafkaConfig$.MODULE$.ZkConnectProp(), zk.connectionProps());
+                      config.setProperty(
+                          KafkaConfig$.MODULE$.BrokerIdProp(), String.valueOf(index));
+                      // bind broker on random port
+                      config.setProperty(KafkaConfig$.MODULE$.ListenersProp(), "PLAINTEXT://:0");
+                      config.setProperty(
+                          KafkaConfig$.MODULE$.LogDirsProp(),
+                          String.join(",", tempFolders.get(index)));
 
-                  // increase the timeout in order to avoid ZkTimeoutException
-                  config.setProperty(
-                      KafkaConfig$.MODULE$.ZkSessionTimeoutMsProp(), String.valueOf(30 * 1000));
-                  KafkaServer broker =
-                      new KafkaServer(
-                          new KafkaConfig(config), SystemTime.SYSTEM, scala.Option.empty(), false);
+                      // increase the timeout in order to avoid ZkTimeoutException
+                      config.setProperty(
+                          KafkaConfig$.MODULE$.ZkSessionTimeoutMsProp(), String.valueOf(30 * 1000));
+                      KafkaServer broker =
+                          new KafkaServer(
+                              new KafkaConfig(config),
+                              SystemTime.SYSTEM,
+                              scala.Option.empty(),
+                              false);
 
-                  broker.startup();
-                  return broker;
-                })
-            .collect(Collectors.toUnmodifiableList());
+                      broker.startup();
+                      return broker;
+                    })
+                .collect(Collectors.toUnmodifiableList()));
     String connectionProps =
         brokers.stream()
             .map(broker -> Utils.hostname() + ":" + broker.boundPort(new ListenerName("PLAINTEXT")))
@@ -74,17 +82,13 @@ public final class Services {
       public void close(int brokerID) {
         brokers.get(brokerID).shutdown();
         brokers.get(brokerID).awaitShutdown();
+        brokers.remove(0);
         tempFolders.get(brokerID).forEach(f -> Utils.delete(new File(f)));
       }
 
       @Override
       public void close() {
-        brokers.forEach(
-            broker -> {
-              broker.shutdown();
-              broker.awaitShutdown();
-            });
-        tempFolders.values().forEach(fs -> fs.forEach(f -> Utils.delete(new File(f))));
+        for (int i = 0; i < brokers.size(); i++) close(i);
       }
 
       @Override
