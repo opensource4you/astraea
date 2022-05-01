@@ -76,7 +76,7 @@ public class CpuCost extends Periodic<Map<Integer, Double>> implements HasBroker
 
   @Override
   public Fetcher fetcher() {
-    return client -> List.of(KafkaMetrics.Host.jvmMemory(client));
+    return client -> List.of(KafkaMetrics.Host.operatingSystem(client));
   }
 
   private static class BrokerMetric {

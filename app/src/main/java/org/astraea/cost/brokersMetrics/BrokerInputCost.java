@@ -50,7 +50,7 @@ public class BrokerInputCost extends Periodic<Map<Integer, Double>> implements H
                                     hasBeanObject
                                         .beanObject()
                                         .getProperties()
-                                        .get("name")
+                                        .getOrDefault("name", "Not match!")
                                         .equals(
                                             KafkaMetrics.BrokerTopic.BytesInPerSec.metricName()))
                             .forEach(

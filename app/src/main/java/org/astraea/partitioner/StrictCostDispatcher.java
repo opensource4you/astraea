@@ -5,6 +5,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
@@ -32,7 +33,9 @@ public class StrictCostDispatcher implements Dispatcher {
 
   private final BeanCollector beanCollector =
       BeanCollector.builder().interval(Duration.ofSeconds(4)).build();
-  private final Collection<CostFunction> functions;
+
+  /* The cost-functions we consider and the weight of them. */
+  private Map<CostFunction, Double> functions;
   private Optional<Integer> jmxPortDefault = Optional.empty();
   private final Map<Integer, Integer> jmxPorts = new TreeMap<>();
   final Map<Integer, Receiver> receivers = new TreeMap<>();
@@ -43,7 +46,10 @@ public class StrictCostDispatcher implements Dispatcher {
 
   // visible for testing
   StrictCostDispatcher(Collection<CostFunction> functions) {
-    this.functions = functions;
+    this.functions =
+        functions.stream()
+            .map(f -> Map.entry(f, 1.0))
+            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
   }
 
   @Override
@@ -70,10 +76,25 @@ public class StrictCostDispatcher implements Dispatcher {
 
     // get scores from all cost functions
     var scores =
-        functions.stream()
-            .filter(f -> f instanceof HasBrokerCost)
-            .map(f -> (HasBrokerCost) f)
-            .map(f -> f.brokerCost(ClusterInfo.of(clusterInfo, beans)).value())
+        functions.entrySet().stream()
+            .filter(e -> e.getKey() instanceof HasBrokerCost)
+            .map(e -> Map.entry((HasBrokerCost) e.getKey(), e.getValue()))
+            .map(
+                functionWeight ->
+                    functionWeight
+                        .getKey()
+                        // Execute all cost functions
+                        .brokerCost(ClusterInfo.of(clusterInfo, beans))
+                        .value()
+                        .entrySet()
+                        .stream()
+                        // Weight on cost functions result
+                        .map(
+                            IdScore ->
+                                Map.entry(
+                                    IdScore.getKey(),
+                                    IdScore.getValue() * functionWeight.getValue()))
+                        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue)))
             .collect(Collectors.toUnmodifiableList());
 
     return bestPartition(partitions, scores).map(e -> e.getKey().partition()).orElse(0);
@@ -98,7 +119,7 @@ public class StrictCostDispatcher implements Dispatcher {
         .port(port)
         .fetcher(
             Fetcher.of(
-                functions.stream()
+                functions.keySet().stream()
                     .map(CostFunction::fetcher)
                     .collect(Collectors.toUnmodifiableList())))
         .build();
@@ -112,7 +133,44 @@ public class StrictCostDispatcher implements Dispatcher {
     config.entrySet().stream()
         .filter(e -> e.getKey().startsWith("broker."))
         .filter(e -> e.getKey().endsWith(JMX_PORT))
+        .map(
+            e ->
+                Map.entry(
+                    e.getKey().replaceAll("broker[.]", "").replaceAll("[.]" + JMX_PORT, ""),
+                    e.getValue()))
         .forEach(e -> jmxPorts.put(Integer.parseInt(e.getKey()), Integer.parseInt(e.getValue())));
+
+    functions =
+        config.entrySet().stream()
+            .map(
+                nameAndWeight -> {
+                  Class<?> name;
+                  double weight;
+                  try {
+                    name = Class.forName(nameAndWeight.getKey());
+                    weight = Double.parseDouble(nameAndWeight.getValue());
+                    if (weight < 0.0)
+                      throw new IllegalArgumentException(
+                          "Cost-function weight should not be negative");
+                  } catch (ClassNotFoundException ignore) {
+                    /* To delete all config option that is not for configuring cost-function. */
+                    return null;
+                  }
+                  return Map.entry(name, weight);
+                })
+            .filter(Objects::nonNull)
+            .filter(e -> CostFunction.class.isAssignableFrom(e.getKey()))
+            .map(
+                e -> {
+                  try {
+                    return Map.entry(
+                        (CostFunction) e.getKey().getConstructor().newInstance(), e.getValue());
+                  } catch (Exception ex) {
+                    ex.printStackTrace();
+                    throw new IllegalArgumentException(ex);
+                  }
+                })
+            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
   }
 
   // visible for testing
