@@ -13,7 +13,7 @@ public class FakeClusterInfo implements ClusterInfo {
   }
 
   @Override
-  public List<PartitionInfo> availablePartitions(String topic) {
+  public List<ReplicaInfo> availablePartitions(String topic) {
     return List.of();
   }
 
@@ -23,7 +23,7 @@ public class FakeClusterInfo implements ClusterInfo {
   }
 
   @Override
-  public List<PartitionInfo> partitions(String topic) {
+  public List<ReplicaInfo> partitions(String topic) {
     return List.of();
   }
 

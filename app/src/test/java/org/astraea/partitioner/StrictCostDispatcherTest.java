@@ -10,7 +10,7 @@ import org.astraea.cost.BrokerCost;
 import org.astraea.cost.ClusterInfo;
 import org.astraea.cost.HasBrokerCost;
 import org.astraea.cost.NodeInfo;
-import org.astraea.cost.PartitionInfo;
+import org.astraea.cost.ReplicaInfo;
 import org.astraea.metrics.collector.Fetcher;
 import org.astraea.metrics.collector.Receiver;
 import org.junit.jupiter.api.Assertions;
@@ -19,9 +19,9 @@ import org.mockito.Mockito;
 
 public class StrictCostDispatcherTest {
 
-  private static PartitionInfo createFakePartitionInfo(
+  private static ReplicaInfo createFakePartitionInfo(
       String topic, int partition, NodeInfo leaderNode) {
-    return PartitionInfo.of(topic, partition, leaderNode, null, null, null);
+    return ReplicaInfo.of(topic, partition, leaderNode, null, null, null);
   }
 
   @Test

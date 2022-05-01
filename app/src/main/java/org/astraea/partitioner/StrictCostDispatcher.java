@@ -12,7 +12,7 @@ import org.astraea.Utils;
 import org.astraea.cost.ClusterInfo;
 import org.astraea.cost.CostFunction;
 import org.astraea.cost.HasBrokerCost;
-import org.astraea.cost.PartitionInfo;
+import org.astraea.cost.ReplicaInfo;
 import org.astraea.metrics.collector.BeanCollector;
 import org.astraea.metrics.collector.Fetcher;
 import org.astraea.metrics.collector.Receiver;
@@ -80,8 +80,8 @@ public class StrictCostDispatcher implements Dispatcher {
   }
 
   // visible for testing
-  static Optional<Map.Entry<PartitionInfo, Double>> bestPartition(
-      List<PartitionInfo> partitions, List<Map<Integer, Double>> scores) {
+  static Optional<Map.Entry<ReplicaInfo, Double>> bestPartition(
+      List<ReplicaInfo> partitions, List<Map<Integer, Double>> scores) {
     return partitions.stream()
         .map(
             p ->

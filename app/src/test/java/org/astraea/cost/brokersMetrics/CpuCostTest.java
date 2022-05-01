@@ -7,7 +7,7 @@ import java.util.Set;
 import org.astraea.cost.ClusterInfo;
 import org.astraea.cost.FakeClusterInfo;
 import org.astraea.cost.NodeInfo;
-import org.astraea.cost.PartitionInfo;
+import org.astraea.cost.ReplicaInfo;
 import org.astraea.metrics.HasBeanObject;
 import org.astraea.metrics.java.OperatingSystemInfo;
 import org.junit.jupiter.api.Assertions;
@@ -37,13 +37,13 @@ public class CpuCostTest {
           }
 
           @Override
-          public List<PartitionInfo> availablePartitions(String topic) {
+          public List<ReplicaInfo> availablePartitions(String topic) {
             return List.of(
-                PartitionInfo.of(
+                ReplicaInfo.of(
                     "t", 0, NodeInfo.of(1, "host1", 9092), List.of(), List.of(), List.of()),
-                PartitionInfo.of(
+                ReplicaInfo.of(
                     "t", 0, NodeInfo.of(2, "host2", 9092), List.of(), List.of(), List.of()),
-                PartitionInfo.of(
+                ReplicaInfo.of(
                     "t", 0, NodeInfo.of(3, "host3", 9092), List.of(), List.of(), List.of()));
           }
         };
@@ -75,13 +75,13 @@ public class CpuCostTest {
           }
 
           @Override
-          public List<PartitionInfo> availablePartitions(String topic) {
+          public List<ReplicaInfo> availablePartitions(String topic) {
             return List.of(
-                PartitionInfo.of(
+                ReplicaInfo.of(
                     "t", 0, NodeInfo.of(1, "host1", 9092), List.of(), List.of(), List.of()),
-                PartitionInfo.of(
+                ReplicaInfo.of(
                     "t", 0, NodeInfo.of(2, "host2", 9092), List.of(), List.of(), List.of()),
-                PartitionInfo.of(
+                ReplicaInfo.of(
                     "t", 0, NodeInfo.of(3, "host3", 9092), List.of(), List.of(), List.of()));
           }
         };

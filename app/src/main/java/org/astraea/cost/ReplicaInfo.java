@@ -1,50 +1,78 @@
 package org.astraea.cost;
 
-import java.util.Objects;
+import java.util.List;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 
-public interface ReplicaInfo extends Comparable<ReplicaInfo> {
-  /**
-   * The node that serving this replica
-   *
-   * @return a {@link NodeInfo} of a broker that store this replica.
-   */
-  NodeInfo nodeInfo();
+public interface ReplicaInfo {
 
-  /**
-   * The path to the data folder which hosts this replica. Since this information is not very openly
-   * available. An application might find it hard to retrieve this information(for example, the
-   * producer client might need to initialize an AdminClient to access this information). To provide
-   * this information or not is totally up to the caller, If anyone has problem access this info,
-   * try use {@link #of(NodeInfo)} to constructor the {@link ReplicaInfo} object.
-   *
-   * @return a {@link Optional<String>} that indicates the data folder path which stored this
-   *     replica on a specific Kafka node.
-   */
-  Optional<String> dataFolder();
+  static Set<ReplicaInfo> of(org.apache.kafka.common.PartitionInfo pf) {
+    final var replicas = List.of(pf.replicas());
+    final var leaderReplica = List.of(pf.leader());
+    final var inSyncReplicas = List.of(pf.inSyncReplicas());
+    final var offlineReplicas = List.of(pf.offlineReplicas());
 
-  /**
-   * Create a {@link ReplicaInfo} without the information of the data folder which stored this
-   * replica.
-   *
-   * @param node the Kafka node which hosts this replica.
-   */
-  static ReplicaInfo of(NodeInfo node) {
-    return of(node, null);
+    return replicas.stream()
+        .map(
+            node ->
+                of(
+                    pf.topic(),
+                    pf.partition(),
+                    NodeInfo.of(node),
+                    leaderReplica.contains(node),
+                    inSyncReplicas.contains(node),
+                    offlineReplicas.contains(node)))
+        .collect(Collectors.toUnmodifiableSet());
   }
 
-  /**
-   * Create a {@link ReplicaInfo}.
-   *
-   * @param node the Kafka node which hosts this replica.
-   * @param dataFolder the data folder path which stored this replica.
-   */
-  static ReplicaInfo of(NodeInfo node, String dataFolder) {
-    Objects.requireNonNull(node);
+  static ReplicaInfo of(
+      String topic,
+      int partition,
+      NodeInfo nodeInfo,
+      boolean isLeader,
+      boolean isSynced,
+      boolean isOfflineReplica) {
+    return of(topic, partition, nodeInfo, isLeader, isSynced, isOfflineReplica, null);
+  }
+
+  static ReplicaInfo of(
+      String topic,
+      int partition,
+      NodeInfo nodeInfo,
+      boolean isLeader,
+      boolean isSynced,
+      boolean isOfflineReplica,
+      String dataFolder) {
     return new ReplicaInfo() {
       @Override
+      public String topic() {
+        return topic;
+      }
+
+      @Override
+      public int partition() {
+        return partition;
+      }
+
+      @Override
       public NodeInfo nodeInfo() {
-        return node;
+        return nodeInfo;
+      }
+
+      @Override
+      public boolean isLeader() {
+        return isLeader;
+      }
+
+      @Override
+      public boolean inSync() {
+        return isSynced;
+      }
+
+      @Override
+      public boolean isOfflineReplica() {
+        return isOfflineReplica;
       }
 
       @Override
@@ -53,30 +81,73 @@ public interface ReplicaInfo extends Comparable<ReplicaInfo> {
       }
 
       @Override
+      public String toString() {
+        return "ReplicaInfo {"
+            + " topic="
+            + topic
+            + " partition="
+            + partition
+            + " replicaAtBroker="
+            + nodeInfo.id()
+            + " dataFolder="
+            + (dataFolder().map(String::toString).orElse("unknown"))
+            + (isLeader() ? " leader:" : "")
+            + (isFollower() ? " follower:" : "")
+            + (inSync() ? ":synced" : "")
+            + (isOfflineReplica() ? ":offline" : "")
+            + " }";
+      }
+
+      @Override
       public boolean equals(Object obj) {
         if (obj instanceof ReplicaInfo) {
-          ReplicaInfo that = (ReplicaInfo) obj;
-          return this.nodeInfo().equals(that.nodeInfo())
+          var that = ((ReplicaInfo) obj);
+
+          return this.topic().equals(that.topic())
+              && this.partition() == that.partition()
+              && this.nodeInfo().equals(that.nodeInfo())
+              && this.isLeader() == that.isLeader()
+              && this.isFollower() == that.isFollower()
+              && this.inSync() == that.inSync()
+              && this.isOfflineReplica() == that.isOfflineReplica()
               && this.dataFolder().equals(that.dataFolder());
         }
         return false;
       }
-
-      @Override
-      public String toString() {
-        return "ReplicaInfo{ nodeInfo=" + nodeInfo() + ", dataFolder=" + dataFolder() + "}";
-      }
-
-      @Override
-      public int compareTo(ReplicaInfo that) {
-        Objects.requireNonNull(that);
-        int compare0 = this.nodeInfo().compareTo(that.nodeInfo());
-        if (compare0 != 0) return compare0;
-        if (this.dataFolder().isEmpty() && that.dataFolder().isEmpty()) return 0;
-        if (this.dataFolder().isEmpty()) return -1;
-        if (that.dataFolder().isEmpty()) return 1;
-        return this.dataFolder().get().compareTo(that.dataFolder().get());
-      }
     };
   }
+
+  /** @return topic name */
+  String topic();
+
+  /** @return partition id */
+  int partition();
+
+  /** @return information of the node hosts this replica */
+  NodeInfo nodeInfo();
+
+  /** @return true if this replica is a leader replica */
+  boolean isLeader();
+
+  /** @return true if this replica is a follower replica */
+  default boolean isFollower() {
+    return !isLeader();
+  }
+
+  /** @return true if this replica is synced */
+  boolean inSync();
+
+  /** @return true if this replica is offline */
+  boolean isOfflineReplica();
+
+  /**
+   * The path to the data folder which hosts this replica. Since this information is not very openly
+   * available. An application might find it hard to retrieve this information(for example, the
+   * producer client might need to initialize an AdminClient to access this information). To provide
+   * this information or not is totally up to the caller.
+   *
+   * @return a {@link Optional<String>} that indicates the data folder path which stored this
+   *     replica on a specific Kafka node.
+   */
+  Optional<String> dataFolder();
 }

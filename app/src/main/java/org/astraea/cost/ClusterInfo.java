@@ -25,16 +25,16 @@ public interface ClusterInfo {
       }
 
       @Override
-      public List<PartitionInfo> availablePartitions(String topic) {
+      public List<ReplicaInfo> availablePartitions(String topic) {
         return cluster.availablePartitionsForTopic(topic).stream()
-            .map(PartitionInfo::of)
+            .map(ReplicaInfo::of)
             .collect(Collectors.toUnmodifiableList());
       }
 
       @Override
-      public List<PartitionInfo> partitions(String topic) {
+      public List<ReplicaInfo> partitions(String topic) {
         return cluster.partitionsForTopic(topic).stream()
-            .map(PartitionInfo::of)
+            .map(ReplicaInfo::of)
             .collect(Collectors.toUnmodifiableList());
       }
 
@@ -71,7 +71,7 @@ public interface ClusterInfo {
       }
 
       @Override
-      public List<PartitionInfo> availablePartitions(String topic) {
+      public List<ReplicaInfo> availablePartitions(String topic) {
         return cluster.availablePartitions(topic);
       }
 
@@ -81,7 +81,7 @@ public interface ClusterInfo {
       }
 
       @Override
-      public List<PartitionInfo> partitions(String topic) {
+      public List<ReplicaInfo> partitions(String topic) {
         return cluster.partitions(topic);
       }
 
@@ -136,7 +136,7 @@ public interface ClusterInfo {
    * @param topic The topic name
    * @return A list of partitions
    */
-  List<PartitionInfo> availablePartitions(String topic);
+  List<ReplicaInfo> availablePartitions(String topic);
 
   /**
    * All topic names
@@ -151,7 +151,7 @@ public interface ClusterInfo {
    * @param topic The topic name
    * @return A list of partitions
    */
-  List<PartitionInfo> partitions(String topic);
+  List<ReplicaInfo> partitions(String topic);
 
   /**
    * @param brokerId broker id

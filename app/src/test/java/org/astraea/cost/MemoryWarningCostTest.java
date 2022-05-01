@@ -34,13 +34,13 @@ public class MemoryWarningCostTest {
           }
 
           @Override
-          public List<PartitionInfo> availablePartitions(String topic) {
+          public List<ReplicaInfo> availablePartitions(String topic) {
             return List.of(
-                PartitionInfo.of(
+                ReplicaInfo.of(
                     "t", 0, NodeInfo.of(1, "host1", 9092), List.of(), List.of(), List.of()),
-                PartitionInfo.of(
+                ReplicaInfo.of(
                     "t", 0, NodeInfo.of(2, "host2", 9092), List.of(), List.of(), List.of()),
-                PartitionInfo.of(
+                ReplicaInfo.of(
                     "t", 0, NodeInfo.of(3, "host3", 9092), List.of(), List.of(), List.of()));
           }
         };
