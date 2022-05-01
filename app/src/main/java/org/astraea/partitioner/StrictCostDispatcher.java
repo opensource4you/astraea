@@ -27,6 +27,9 @@ import org.astraea.metrics.collector.Receiver;
  * Normally, all brokers use the same JMX port, so you can just define the `jmx.port=12345`. If one
  * of brokers uses different JMX client port, you can define `broker.1000.jmx.port=11111` (`1000` is
  * the broker id) to replace the value of `jmx.port`.
+ *
+ * <p>You can configure the cost functions you want to use. By giving the name of that cost function
+ * and its weight. For example, `org.astraea.cost.ThroughputCost=1,`.
  */
 public class StrictCostDispatcher implements Dispatcher {
   public static final String JMX_PORT = "jmx.port";
