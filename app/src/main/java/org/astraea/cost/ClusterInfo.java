@@ -25,9 +25,20 @@ public interface ClusterInfo {
       }
 
       @Override
+      public List<ReplicaInfo> availablePartitionLeaders(String topic) {
+        return cluster.availablePartitionsForTopic(topic).stream()
+            .map(ReplicaInfo::of)
+            .map(
+                replicas ->
+                    replicas.stream().filter(ReplicaInfo::isLeader).findFirst().orElseThrow())
+            .collect(Collectors.toUnmodifiableList());
+      }
+
+      @Override
       public List<ReplicaInfo> availablePartitions(String topic) {
         return cluster.availablePartitionsForTopic(topic).stream()
             .map(ReplicaInfo::of)
+            .flatMap(Collection::stream)
             .collect(Collectors.toUnmodifiableList());
       }
 
@@ -35,6 +46,7 @@ public interface ClusterInfo {
       public List<ReplicaInfo> partitions(String topic) {
         return cluster.partitionsForTopic(topic).stream()
             .map(ReplicaInfo::of)
+            .flatMap(Collection::stream)
             .collect(Collectors.toUnmodifiableList());
       }
 
@@ -68,6 +80,11 @@ public interface ClusterInfo {
       @Override
       public List<NodeInfo> nodes() {
         return cluster.nodes();
+      }
+
+      @Override
+      public List<ReplicaInfo> availablePartitionLeaders(String topic) {
+        return cluster.availablePartitionLeaders(topic);
       }
 
       @Override
@@ -129,6 +146,14 @@ public interface ClusterInfo {
 
   /** @return The known set of nodes */
   List<NodeInfo> nodes();
+
+  /**
+   * TODO: fix this
+   *
+   * @param topic
+   * @return
+   */
+  public List<ReplicaInfo> availablePartitionLeaders(String topic);
 
   /**
    * Get the list of available partitions for this topic
