@@ -37,8 +37,8 @@ public class StrictCostDispatcher implements Dispatcher {
   private final BeanCollector beanCollector =
       BeanCollector.builder().interval(Duration.ofSeconds(4)).build();
 
-  /* The cost-functions we consider and the weight of them. */
-  private Map<CostFunction, Double> functions;
+  /* The cost-functions we consider and the weight of them. It is visible for test.*/
+  Map<CostFunction, Double> functions;
   private Optional<Integer> jmxPortDefault = Optional.empty();
   private final Map<Integer, Integer> jmxPorts = new TreeMap<>();
   final Map<Integer, Receiver> receivers = new TreeMap<>();
