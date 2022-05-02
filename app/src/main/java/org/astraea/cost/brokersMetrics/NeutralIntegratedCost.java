@@ -94,7 +94,8 @@ public class NeutralIntegratedCost extends Periodic<Map<Integer, Double>> implem
                                       * integratedEmpowerment.get(Metrics.cpu.metricName)
                                   + entry.getValue().memoryScore
                                       * integratedEmpowerment.get(Metrics.memory.metricName)));
-            });
+            },
+            1);
 
     return () -> score;
   }

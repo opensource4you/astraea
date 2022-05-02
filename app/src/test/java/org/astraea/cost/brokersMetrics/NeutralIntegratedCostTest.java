@@ -4,7 +4,8 @@ import java.util.Map;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-public class IntegratedScoreTest {
+// TODO Add more test.
+public class NeutralIntegratedCostTest {
   @Test
   void testEntropyEmpowerment() {
     var neutralIntegratedCost = new NeutralIntegratedCost();

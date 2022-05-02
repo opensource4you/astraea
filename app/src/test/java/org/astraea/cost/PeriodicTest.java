@@ -11,12 +11,12 @@ public class PeriodicTest extends Periodic<Map<Integer, Double>> {
 
   @Test
   void testTryUpdate() {
-    var broker1 = tryUpdate(this::testMap);
+    var broker1 = tryUpdate(this::testMap, 1);
     Assertions.assertEquals(broker1.get(0), 0.0);
-    var broker2 = tryUpdate(this::testMap);
+    var broker2 = tryUpdate(this::testMap, 1);
     Assertions.assertEquals(broker2.get(0), 0.0);
     sleep(1);
-    broker2 = tryUpdate(this::testMap);
+    broker2 = tryUpdate(this::testMap, 1);
     Assertions.assertEquals(broker2.get(0), 1.0);
   }
 

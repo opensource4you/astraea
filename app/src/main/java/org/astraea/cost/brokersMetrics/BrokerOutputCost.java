@@ -46,13 +46,16 @@ public class BrokerOutputCost extends Periodic<Map<Integer, Double>> implements 
                         }
                         value.stream()
                             .filter(
-                                hasBeanObject ->
-                                    hasBeanObject
-                                        .beanObject()
-                                        .getProperties()
-                                        .get("name")
-                                        .equals(
-                                            KafkaMetrics.BrokerTopic.BytesOutPerSec.metricName()))
+                                hasBeanObject -> {
+                                  var metricsName =
+                                      hasBeanObject.beanObject().getProperties().get("name");
+                                  if (metricsName == null) {
+                                    return false;
+                                  } else {
+                                    return metricsName.equals(
+                                        KafkaMetrics.BrokerTopic.BytesOutPerSec.metricName());
+                                  }
+                                })
                             .forEach(
                                 hasBeanObject -> {
                                   var broker = brokersMetric.get(brokerID);
@@ -65,7 +68,8 @@ public class BrokerOutputCost extends Periodic<Map<Integer, Double>> implements 
                       });
               TScore(costMetrics).forEach((broker, v) -> brokersMetric.get(broker).updateLoad(v));
               return computeLoad();
-            });
+            },
+            1);
     return () -> brokerScore;
   }
 

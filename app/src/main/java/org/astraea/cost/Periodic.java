@@ -12,10 +12,11 @@ public abstract class Periodic<Value> {
    * Updates the value each second.
    *
    * @param updater Methods that need to be updated regularly.
+   * @param second Required interval.
    * @return an object of type Value created from the parameter value.
    */
-  protected Value tryUpdate(Supplier<Value> updater) {
-    if (Utils.overSecond(lastUpdate, 1)) {
+  protected Value tryUpdate(Supplier<Value> updater, int second) {
+    if (Utils.overSecond(lastUpdate, second)) {
       value = updater.get();
       lastUpdate = currentTime();
     }

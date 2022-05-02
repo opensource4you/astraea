@@ -50,7 +50,7 @@ public class BrokerInputCost extends Periodic<Map<Integer, Double>> implements H
                                     hasBeanObject
                                         .beanObject()
                                         .getProperties()
-                                        .get("name")
+                                        .getOrDefault("name", "Not match")
                                         .equals(
                                             KafkaMetrics.BrokerTopic.BytesInPerSec.metricName()))
                             .forEach(
@@ -65,7 +65,8 @@ public class BrokerInputCost extends Periodic<Map<Integer, Double>> implements H
               TScore(costMetrics).forEach((broker, v) -> brokersMetric.get(broker).updateLoad(v));
 
               return computeLoad();
-            });
+            },
+            1);
     return () -> brokerScore;
   }
 

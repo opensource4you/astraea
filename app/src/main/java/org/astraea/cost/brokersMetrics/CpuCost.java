@@ -54,7 +54,8 @@ public class CpuCost extends Periodic<Map<Integer, Double>> implements HasBroker
                       });
               TScore(costMetrics).forEach((broker, v) -> brokersMetric.get(broker).updateLoad(v));
               return computeLoad();
-            });
+            },
+            1);
     return () -> brokerScore;
   }
 
@@ -76,7 +77,7 @@ public class CpuCost extends Periodic<Map<Integer, Double>> implements HasBroker
 
   @Override
   public Fetcher fetcher() {
-    return client -> List.of(KafkaMetrics.Host.jvmMemory(client));
+    return client -> List.of(KafkaMetrics.Host.operatingSystem(client));
   }
 
   private static class BrokerMetric {
