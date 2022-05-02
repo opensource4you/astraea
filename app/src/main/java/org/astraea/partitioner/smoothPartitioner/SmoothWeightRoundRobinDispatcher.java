@@ -30,7 +30,7 @@ import org.astraea.partitioner.Configuration;
 import org.astraea.partitioner.Dispatcher;
 
 public class SmoothWeightRoundRobinDispatcher extends Periodic<Void> implements Dispatcher {
-  private ConcurrentLinkedDeque<Integer> unusedPartitions = new ConcurrentLinkedDeque<>();
+  private final ConcurrentLinkedDeque<Integer> unusedPartitions = new ConcurrentLinkedDeque<>();
   private final ConcurrentMap<String, BrokerNextCounter> topicCounter = new ConcurrentHashMap<>();
   private final BeanCollector beanCollector =
       BeanCollector.builder()
@@ -38,7 +38,7 @@ public class SmoothWeightRoundRobinDispatcher extends Periodic<Void> implements 
           .numberOfObjectsPerNode(1)
           .clientCreator(MBeanClient::jndi)
           .build();
-  private Optional<Integer> jmxPortDefault = Optional.empty();
+  private final Optional<Integer> jmxPortDefault = Optional.empty();
   private final Map<Integer, Integer> jmxPorts = new TreeMap<>();
   private final Map<Integer, Receiver> receivers = new TreeMap<>();
 
