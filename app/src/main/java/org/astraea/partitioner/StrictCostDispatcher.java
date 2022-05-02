@@ -29,7 +29,8 @@ import org.astraea.metrics.collector.Receiver;
  * the broker id) to replace the value of `jmx.port`.
  *
  * <p>You can configure the cost functions you want to use. By giving the name of that cost function
- * and its weight. For example, `org.astraea.cost.ThroughputCost=1,`.
+ * and its weight. For example,
+ * `org.astraea.cost.ThroughputCost=1,org.astraea.cost.brokersMetrics.BrokerOutputCost=1`.
  */
 public class StrictCostDispatcher implements Dispatcher {
   public static final String JMX_PORT = "jmx.port";
