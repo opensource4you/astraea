@@ -393,31 +393,36 @@ public class TopicExplorer {
       }
 
       private String progressBar() {
-        if (!hasCommittedOffset()) return "unknown";
-        int totalBlocks = 20;
-        int filledBlocks =
-            Math.min(
-                (int) (20.0 * ((double) (current() - earliest()) / (latest() - earliest()))), 20);
-        int emptyBlocks = totalBlocks - filledBlocks;
-        return Stream.concat(
-                Collections.nCopies(filledBlocks, "#").stream(),
-                Collections.nCopies(emptyBlocks, " ").stream())
-            .collect(Collectors.joining("", "[", "]"));
+
+        if (hasCommittedOffset()) {
+          int totalBlocks = 20;
+          int filledBlocks =
+              Math.min(
+                  (int) (20.0 * ((double) (current() - earliest()) / (latest() - earliest()))), 20);
+          int emptyBlocks = totalBlocks - filledBlocks;
+          return Stream.concat(
+                  Collections.nCopies(filledBlocks, "#").stream(),
+                  Collections.nCopies(emptyBlocks, " ").stream())
+              .collect(Collectors.joining("", "[", "]"));
+        }
+        return "-1";
       }
 
       @Override
       public String toString() {
-        var partitionDigits = Math.max((int) (Math.log10(map.get(topic).size() - 1)) + 1, 1);
-        if (!hasCommittedOffset()) return "no committed offset for partition " + index;
-        return String.format(
-            "consume progress of partition #%"
-                + partitionDigits
-                + "d %s (earliest/current/latest offset %d/%d/%d)",
-            index,
-            progressBar(),
-            earliest(),
-            current(),
-            latest());
+        if (hasCommittedOffset()) {
+          var partitionDigits = Math.max((int) (Math.log10(map.get(topic).size() - 1)) + 1, 1);
+          return String.format(
+              "consume progress of partition #%"
+                  + partitionDigits
+                  + "d %s (earliest/current/latest offset %d/%d/%d)",
+              index,
+              progressBar(),
+              earliest(),
+              current(),
+              latest());
+        }
+        return "no committed offset for partition " + index;
       }
     }
 
