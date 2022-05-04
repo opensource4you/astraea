@@ -13,25 +13,18 @@ import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 
 public class Builder<Key, Value> {
-
-  public enum OffsetPolicy {
-    EARLIEST,
-    LATEST
-  }
-
-  private final Map<String, Object> configs = new HashMap<>();
+  private final Map<String, Object> configs =
+      new HashMap<>(
+          Map.of(ConsumerConfig.GROUP_ID_CONFIG, "groupId-" + System.currentTimeMillis()));
   private Deserializer<?> keyDeserializer = Deserializer.BYTE_ARRAY;
   private Deserializer<?> valueDeserializer = Deserializer.BYTE_ARRAY;
-  private OffsetPolicy offsetPolicy = OffsetPolicy.LATEST;
-  private String groupId = "groupId-" + System.currentTimeMillis();
   private final Set<String> topics = new HashSet<>();
   private ConsumerRebalanceListener listener = ignore -> {};
 
   Builder() {}
 
   public Builder<Key, Value> groupId(String groupId) {
-    this.groupId = Objects.requireNonNull(groupId);
-    return this;
+    return config(ConsumerConfig.GROUP_ID_CONFIG, Objects.requireNonNull(groupId));
   }
 
   /**
@@ -40,8 +33,7 @@ public class Builder<Key, Value> {
    * @return this builder
    */
   public Builder<Key, Value> fromBeginning() {
-    this.offsetPolicy = OffsetPolicy.EARLIEST;
-    return this;
+    return config(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
   }
 
   public Builder<Key, Value> topics(Set<String> topics) {
@@ -62,14 +54,18 @@ public class Builder<Key, Value> {
     return (Builder<Key, NewValue>) this;
   }
 
-  public Builder<Key, Value> configs(Map<String, Object> configs) {
+  public Builder<Key, Value> config(String key, String value) {
+    this.configs.put(key, value);
+    return this;
+  }
+
+  public Builder<Key, Value> configs(Map<String, String> configs) {
     this.configs.putAll(configs);
     return this;
   }
 
   public Builder<Key, Value> brokers(String brokers) {
-    this.configs.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, Objects.requireNonNull(brokers));
-    return this;
+    return config(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, Objects.requireNonNull(brokers));
   }
 
   public Builder<Key, Value> consumerRebalanceListener(ConsumerRebalanceListener listener) {
@@ -77,17 +73,12 @@ public class Builder<Key, Value> {
     return this;
   }
 
+  public Builder<Key, Value> isolation(Isolation isolation) {
+    return config(ConsumerConfig.ISOLATION_LEVEL_CONFIG, isolation.nameOfKafka());
+  }
+
   @SuppressWarnings("unchecked")
   public Consumer<Key, Value> build() {
-    configs.put(ConsumerConfig.GROUP_ID_CONFIG, Objects.requireNonNull(groupId));
-    switch (offsetPolicy) {
-      case EARLIEST:
-        configs.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
-        break;
-      case LATEST:
-        configs.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "latest");
-        break;
-    }
     var kafkaConsumer =
         new KafkaConsumer<>(
             configs,

@@ -29,7 +29,7 @@ public interface Consumer<Key, Value> extends AutoCloseable {
     return builder().brokers(brokers).build();
   }
 
-  static Consumer<byte[], byte[]> of(Map<String, Object> configs) {
+  static Consumer<byte[], byte[]> of(Map<String, String> configs) {
     return builder().configs(configs).build();
   }
 }
