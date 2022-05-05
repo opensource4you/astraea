@@ -90,7 +90,7 @@ public interface ReplicaInfo {
             + " replicaAtBroker="
             + nodeInfo.id()
             + " dataFolder="
-            + (dataFolder().map(String::toString).orElse("unknown"))
+            + (dataFolder().map(x -> "\"" + x + "\"").orElse("unknown"))
             + (isLeader() ? " leader" : "")
             + (isFollower() ? " follower" : "")
             + (inSync() ? ":synced" : "")
