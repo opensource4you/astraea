@@ -4,17 +4,18 @@ import com.beust.jcommander.ParameterException;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.kafka.common.record.CompressionType;
+import org.astraea.topic.Compression;
 
-public class CompressionField extends Field<CompressionType> {
+public class CompressionField extends Field<Compression> {
   /**
    * @param value Name of compression type. Accept lower-case name only ("none", "gzip", "snappy",
    *     "lz4", "zstd").
    */
   @Override
-  public CompressionType convert(String value) {
+  public Compression convert(String value) {
     try {
       // `CompressionType#forName` accept lower-case name only.
-      return CompressionType.forName(value);
+      return Compression.of(value);
     } catch (IllegalArgumentException e) {
       throw new ParameterException(
           "the "
