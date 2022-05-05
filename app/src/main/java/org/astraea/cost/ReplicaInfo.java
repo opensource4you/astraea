@@ -83,19 +83,19 @@ public interface ReplicaInfo {
       @Override
       public String toString() {
         return "ReplicaInfo {"
-            + " topic="
+            + "topic=\""
             + topic
-            + " partition="
+            + "\" partition="
             + partition
             + " replicaAtBroker="
             + nodeInfo.id()
             + " dataFolder="
             + (dataFolder().map(String::toString).orElse("unknown"))
-            + (isLeader() ? " leader:" : "")
-            + (isFollower() ? " follower:" : "")
+            + (isLeader() ? " leader" : "")
+            + (isFollower() ? " follower" : "")
             + (inSync() ? ":synced" : "")
             + (isOfflineReplica() ? ":offline" : "")
-            + " }";
+            + "}";
       }
 
       @Override
