@@ -148,18 +148,19 @@ public interface ClusterInfo {
   List<NodeInfo> nodes();
 
   /**
-   * TODO: fix this
+   * Get the list of replica leader information of each available partition for the given topic
    *
-   * @param topic
-   * @return
+   * @param topic The Topic name
+   * @return A list of {@link ReplicaInfo}
    */
-  public List<ReplicaInfo> availablePartitionLeaders(String topic);
+  List<ReplicaInfo> availablePartitionLeaders(String topic);
 
   /**
-   * Get the list of available partitions for this topic
+   * Get the list of replica information of each available partition/replica pair for the given
+   * topic
    *
    * @param topic The topic name
-   * @return A list of partitions
+   * @return A list of {@link ReplicaInfo}
    */
   List<ReplicaInfo> availablePartitions(String topic);
 
@@ -171,10 +172,10 @@ public interface ClusterInfo {
   Set<String> topics();
 
   /**
-   * Get the list of partitions for this topic
+   * Get the list of replica information of each partition/replica pair for the given topic
    *
    * @param topic The topic name
-   * @return A list of partitions
+   * @return A list of {@link ReplicaInfo}
    */
   List<ReplicaInfo> partitions(String topic);
 
