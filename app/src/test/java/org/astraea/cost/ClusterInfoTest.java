@@ -14,7 +14,7 @@ public class ClusterInfoTest {
   @Test
   void testNode() {
     var node = NodeInfoTest.node();
-    var partition = PartitionInfoTest.partitionInfo();
+    var partition = ReplicaInfoTest.partitionInfo();
     var kafkaCluster = Mockito.mock(Cluster.class);
     Mockito.when(kafkaCluster.availablePartitionsForTopic(partition.topic()))
         .thenReturn(List.of(partition));
@@ -29,9 +29,12 @@ public class ClusterInfoTest {
     Assertions.assertEquals(1, clusterInfo.availablePartitions(partition.topic()).size());
     Assertions.assertEquals(1, clusterInfo.partitions(partition.topic()).size());
     Assertions.assertEquals(
-        NodeInfo.of(node), clusterInfo.availablePartitions(partition.topic()).get(0).leader());
+        NodeInfo.of(node), clusterInfo.availablePartitions(partition.topic()).get(0).nodeInfo());
     Assertions.assertEquals(
-        NodeInfo.of(node), clusterInfo.partitions(partition.topic()).get(0).leader());
+        NodeInfo.of(node),
+        clusterInfo.availablePartitionLeaders(partition.topic()).get(0).nodeInfo());
+    Assertions.assertEquals(
+        NodeInfo.of(node), clusterInfo.partitions(partition.topic()).get(0).nodeInfo());
   }
 
   @Test
