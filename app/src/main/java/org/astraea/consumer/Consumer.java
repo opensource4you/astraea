@@ -7,7 +7,18 @@ import java.util.Map;
 /** An interface for polling records. */
 public interface Consumer<Key, Value> extends AutoCloseable {
 
-  Collection<Record<Key, Value>> poll(Duration timeout);
+  default Collection<Record<Key, Value>> poll(Duration timeout) {
+    return poll(Integer.MAX_VALUE, timeout);
+  }
+
+  /**
+   * try to poll data until there are enough records to return or the timeout is reached.
+   *
+   * @param recordCount max number of returned records.
+   * @param timeout max time to wait data
+   * @return records
+   */
+  Collection<Record<Key, Value>> poll(int recordCount, Duration timeout);
 
   /**
    * Wakeup the consumer. This method is thread-safe and is useful in particular to abort a long
