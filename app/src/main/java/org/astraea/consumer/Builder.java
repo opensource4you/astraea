@@ -1,14 +1,14 @@
 package org.astraea.consumer;
 
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.stream.Collectors;
-import java.util.stream.StreamSupport;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 
@@ -34,6 +34,15 @@ public class Builder<Key, Value> {
    */
   public Builder<Key, Value> fromBeginning() {
     return config(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
+  }
+
+  /**
+   * make the consumer read data from latest. this is default setting.
+   *
+   * @return this builder
+   */
+  public Builder<Key, Value> fromLatest() {
+    return config(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "latest");
   }
 
   public Builder<Key, Value> topics(Set<String> topics) {
@@ -87,11 +96,15 @@ public class Builder<Key, Value> {
     kafkaConsumer.subscribe(topics, ConsumerRebalanceListener.of(listener));
     return new Consumer<>() {
       @Override
-      public Collection<Record<Key, Value>> poll(Duration timeout) {
-        var records = kafkaConsumer.poll(timeout);
-        return StreamSupport.stream(records.spliterator(), false)
-            .map(Record::of)
-            .collect(Collectors.toList());
+      public Collection<Record<Key, Value>> poll(int recordCount, Duration timeout) {
+        var end = System.currentTimeMillis() + timeout.toMillis();
+        var records = new ArrayList<Record<Key, Value>>();
+        while (records.size() < recordCount) {
+          var remaining = end - System.currentTimeMillis();
+          if (remaining <= 0) break;
+          kafkaConsumer.poll(Duration.ofMillis(remaining)).forEach(r -> records.add(Record.of(r)));
+        }
+        return Collections.unmodifiableList(records);
       }
 
       @Override
