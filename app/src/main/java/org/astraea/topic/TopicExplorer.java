@@ -233,101 +233,97 @@ public class TopicExplorer {
       nextLevel(
           NEXT_LEVEL,
           () -> {
+            if (consumerGroups.isEmpty()) {
+              treePrintln("no consumer group.");
+              return;
+            }
+
             // find all the consumer groups that are related to this topic
             var consumerGroupList =
                 consumerGroups.values().stream()
-                    .filter(
-                        consumerGroup ->
-                            consumerGroup.consumeProgress().keySet().stream()
-                                .anyMatch(tp -> tp.topic().equals(topic)))
                     .map(ConsumerGroup::groupId)
                     .distinct()
                     .map(consumerGroups::get)
                     .collect(Collectors.toUnmodifiableList());
 
-            if (consumerGroupList.isEmpty()) {
-              treePrintln("no consumer group.");
-            } else {
-              consumerGroupList.forEach(
-                  consumerGroup -> {
+            consumerGroupList.forEach(
+                consumerGroup -> {
 
-                    // print out consumer group
-                    treePrintln("Consumer Group \"%s\"", consumerGroup.groupId());
-                    nextLevel(
-                        "  ",
-                        () -> {
-                          IntStream.range(0, partitionInfos.size())
-                              .mapToObj(x -> new ConsumeProgress(topic, x, consumerGroup, info))
-                              .forEach(x -> treePrintln("%s", x));
+                  // print out consumer group
+                  treePrintln("Consumer Group \"%s\"", consumerGroup.groupId());
+                  nextLevel(
+                      "  ",
+                      () -> {
+                        IntStream.range(0, partitionInfos.size())
+                            .mapToObj(x -> new ConsumeProgress(topic, x, consumerGroup, info))
+                            .forEach(x -> treePrintln("%s", x));
 
-                          // print out the active member of this consumer group
-                          treePrintln("Members:");
-                          nextLevel(
-                              "  ",
-                              () -> {
-                                var memberAssignment =
-                                    consumerGroup.activeMembers().stream()
-                                        .collect(
-                                            Collectors.toUnmodifiableMap(
-                                                x -> x,
-                                                x ->
-                                                    consumerGroup
-                                                        .assignment()
-                                                        .getOrDefault(x, Set.of())
-                                                        .stream()
-                                                        .filter(tp -> tp.topic().equals(topic))
-                                                        .map(TopicPartition::partition)
-                                                        .collect(Collectors.toUnmodifiableSet())));
+                        // print out the active member of this consumer group
+                        treePrintln("Members:");
+                        nextLevel(
+                            "  ",
+                            () -> {
+                              var memberAssignment =
+                                  consumerGroup.activeMembers().stream()
+                                      .collect(
+                                          Collectors.toUnmodifiableMap(
+                                              x -> x,
+                                              x ->
+                                                  consumerGroup
+                                                      .assignment()
+                                                      .getOrDefault(x, Set.of())
+                                                      .stream()
+                                                      .filter(tp -> tp.topic().equals(topic))
+                                                      .map(TopicPartition::partition)
+                                                      .collect(Collectors.toUnmodifiableSet())));
 
-                                int totalAssignedPartition =
-                                    memberAssignment.values().stream().mapToInt(Set::size).sum();
+                              int totalAssignedPartition =
+                                  memberAssignment.values().stream().mapToInt(Set::size).sum();
 
-                                // how to tell if this consumer group is working on the specific
-                                // 1. there must be some active member(of course).
-                                // 2. at least one partition is assigned to some member. It is
-                                // possible that a consumer group used to work on a specific topic
-                                // in the past. But no longer work at it at this moment. In such a
-                                // situation, Kafka API will still tell you the consumer group
-                                // belongs to that topic(of course there are offsets stored here so
-                                // Kafka cannot just delete it). But you will realize even though
-                                // there are some live members here but none of them are assigned to
-                                // the topic. Because they didn't declare to work on that topic(used
-                                // to, but not now).
-                                if (memberAssignment.isEmpty() || totalAssignedPartition == 0)
-                                  treePrintln("no active member.");
-                                else {
-                                  memberAssignment.keySet().stream()
-                                      .sorted(Comparator.comparing(Member::memberId))
-                                      .forEach(
-                                          member -> {
-                                            treePrintln("member \"%s\"", member.memberId());
-                                            nextLevel(
-                                                NEXT_LEVEL,
-                                                () -> {
-                                                  if (memberAssignment.get(member).size() == 0)
-                                                    treePrintln("no partition assigned.");
-                                                  else
-                                                    treePrintln(
-                                                        "working on partition %s.",
-                                                        memberAssignment.get(member).stream()
-                                                            .sorted()
-                                                            .map(Object::toString)
-                                                            .collect(Collectors.joining(", ")));
-                                                  treePrintln(
-                                                      "clientId: \"%s\"", member.clientId());
-                                                  treePrintln("host: \"%s\"", member.host());
-                                                  if (member.groupInstanceId().isPresent())
-                                                    treePrintln(
-                                                        "groupInstanceId: \"%s\"",
-                                                        member.groupInstanceId().get());
-                                                  else treePrintln("groupInstanceId: none");
-                                                });
-                                          });
-                                }
-                              });
-                        });
-                  });
-            }
+                              // how to tell if this consumer group is working on the specific
+                              // 1. there must be some active member(of course).
+                              // 2. at least one partition is assigned to some member. It is
+                              // possible that a consumer group used to work on a specific topic
+                              // in the past. But no longer work at it at this moment. In such a
+                              // situation, Kafka API will still tell you the consumer group
+                              // belongs to that topic(of course there are offsets stored here so
+                              // Kafka cannot just delete it). But you will realize even though
+                              // there are some live members here but none of them are assigned to
+                              // the topic. Because they didn't declare to work on that topic(used
+                              // to, but not now).
+                              if (memberAssignment.isEmpty() || totalAssignedPartition == 0) {
+                                treePrintln("no active member.");
+                                return;
+                              }
+                              memberAssignment.keySet().stream()
+                                  .sorted(Comparator.comparing(Member::memberId))
+                                  .forEach(
+                                      member -> {
+                                        treePrintln("member \"%s\"", member.memberId());
+                                        nextLevel(
+                                            NEXT_LEVEL,
+                                            () -> {
+                                              if (memberAssignment.get(member).size() == 0)
+                                                treePrintln("no partition assigned.");
+                                              else
+                                                treePrintln(
+                                                    "working on partition %s.",
+                                                    memberAssignment.get(member).stream()
+                                                        .sorted()
+                                                        .map(Object::toString)
+                                                        .collect(Collectors.joining(", ")));
+                                              treePrintln("clientId: \"%s\"", member.clientId());
+                                              treePrintln("host: \"%s\"", member.host());
+                                              if (member.groupInstanceId().isPresent())
+                                                treePrintln(
+                                                    "groupInstanceId: \"%s\"",
+                                                    member.groupInstanceId().get());
+                                              else treePrintln("groupInstanceId: none");
+                                            });
+                                      });
+                            });
+                      });
+                });
           });
     }
 
@@ -389,33 +385,44 @@ public class TopicExplorer {
       }
 
       private long current() {
-        return group.consumeProgress().get(new TopicPartition(topic, index));
+        return group.consumeProgress().getOrDefault(new TopicPartition(topic, index), -1L);
+      }
+
+      private boolean hasCommittedOffset() {
+        return current() >= 0;
       }
 
       private String progressBar() {
-        int totalBlocks = 20;
-        int filledBlocks =
-            Math.min(
-                (int) (20.0 * ((double) (current() - earliest()) / (latest() - earliest()))), 20);
-        int emptyBlocks = totalBlocks - filledBlocks;
-        return Stream.concat(
-                Collections.nCopies(filledBlocks, "#").stream(),
-                Collections.nCopies(emptyBlocks, " ").stream())
-            .collect(Collectors.joining("", "[", "]"));
+
+        if (hasCommittedOffset()) {
+          int totalBlocks = 20;
+          int filledBlocks =
+              Math.min(
+                  (int) (20.0 * ((double) (current() - earliest()) / (latest() - earliest()))), 20);
+          int emptyBlocks = totalBlocks - filledBlocks;
+          return Stream.concat(
+                  Collections.nCopies(filledBlocks, "#").stream(),
+                  Collections.nCopies(emptyBlocks, " ").stream())
+              .collect(Collectors.joining("", "[", "]"));
+        }
+        return "-1";
       }
 
       @Override
       public String toString() {
-        var partitionDigits = Math.max((int) (Math.log10(map.get(topic).size() - 1)) + 1, 1);
-        return String.format(
-            "consume progress of partition #%"
-                + partitionDigits
-                + "d %s (earliest/current/latest offset %d/%d/%d)",
-            index,
-            progressBar(),
-            earliest(),
-            current(),
-            latest());
+        if (hasCommittedOffset()) {
+          var partitionDigits = Math.max((int) (Math.log10(map.get(topic).size() - 1)) + 1, 1);
+          return String.format(
+              "consume progress of partition #%"
+                  + partitionDigits
+                  + "d %s (earliest/current/latest offset %d/%d/%d)",
+              index,
+              progressBar(),
+              earliest(),
+              current(),
+              latest());
+        }
+        return "no committed offset for partition " + index;
       }
     }
 

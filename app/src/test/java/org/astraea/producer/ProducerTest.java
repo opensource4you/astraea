@@ -3,13 +3,12 @@ package org.astraea.producer;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
-import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.astraea.consumer.Consumer;
 import org.astraea.consumer.Deserializer;
 import org.astraea.consumer.Header;
+import org.astraea.consumer.Isolation;
 import org.astraea.service.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -81,14 +80,13 @@ public class ProducerTest extends RequireBrokerCluster {
       producer.transaction(senders);
     }
 
-    Map<String, Object> prop = Map.of(ConsumerConfig.ISOLATION_LEVEL_CONFIG, "read_committed");
     try (var consumer =
         Consumer.builder()
             .brokers(bootstrapServers())
             .fromBeginning()
             .topics(Set.of(topicName))
             .keyDeserializer(Deserializer.STRING)
-            .configs(prop)
+            .isolation(Isolation.READ_COMMITTED)
             .build()) {
       var records = consumer.poll(Duration.ofSeconds(10));
       Assertions.assertEquals(3, records.size());

@@ -19,8 +19,8 @@ import org.apache.kafka.common.Cluster;
 import org.astraea.Utils;
 import org.astraea.cost.ClusterInfo;
 import org.astraea.cost.NodeInfo;
-import org.astraea.cost.PartitionInfo;
 import org.astraea.cost.Periodic;
+import org.astraea.cost.ReplicaInfo;
 import org.astraea.cost.brokersMetrics.NeutralIntegratedCost;
 import org.astraea.metrics.HasBeanObject;
 import org.astraea.metrics.collector.BeanCollector;
@@ -49,7 +49,7 @@ public class SmoothWeightRoundRobinDispatcher extends Periodic<Void> implements 
   private final NeutralIntegratedCost neutralIntegratedCost = new NeutralIntegratedCost();
 
   private Map<Integer, Collection<HasBeanObject>> beans;
-  private List<PartitionInfo> partitions;
+  private List<ReplicaInfo> partitions;
 
   public static final String JMX_PORT = "jmx.port";
 
@@ -153,15 +153,15 @@ public class SmoothWeightRoundRobinDispatcher extends Periodic<Void> implements 
     partitions.forEach(
         p ->
             hasPartitions
-                .computeIfAbsent(p.leader().id(), k -> new ArrayList<>())
+                .computeIfAbsent(p.nodeInfo().id(), k -> new ArrayList<>())
                 .add(p.partition()));
 
     partitions.stream()
-        .filter(p -> !receivers.containsKey(p.leader().id()))
+        .filter(p -> !receivers.containsKey(p.nodeInfo().id()))
         .forEach(
             p ->
                 receivers.put(
-                    p.leader().id(), receiver(p.leader().host(), jmxPort(p.leader().id()))));
+                    p.nodeInfo().id(), receiver(p.nodeInfo().host(), jmxPort(p.nodeInfo().id()))));
   }
 
   private static class BrokerNextCounter {

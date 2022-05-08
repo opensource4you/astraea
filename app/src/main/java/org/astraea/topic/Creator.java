@@ -17,7 +17,7 @@ public interface Creator {
    * @return this creator
    */
   default Creator compacted() {
-    return configs(Map.of(TopicConfig.CLEANUP_POLICY_CONFIG, TopicConfig.CLEANUP_POLICY_COMPACT));
+    return config(TopicConfig.CLEANUP_POLICY_CONFIG, TopicConfig.CLEANUP_POLICY_COMPACT);
   }
 
   /**
@@ -28,9 +28,14 @@ public interface Creator {
    */
   default Creator compactionMaxLag(Duration value) {
     return compacted()
-        .configs(
-            Map.of(TopicConfig.MAX_COMPACTION_LAG_MS_CONFIG, String.valueOf(value.toMillis())));
+        .config(TopicConfig.MAX_COMPACTION_LAG_MS_CONFIG, String.valueOf(value.toMillis()));
   }
+
+  default Creator compression(Compression compression) {
+    return config(TopicConfig.COMPRESSION_TYPE_CONFIG, compression.nameOfKafka());
+  }
+
+  Creator config(String key, String value);
 
   /**
    * @param configs used to create new topic

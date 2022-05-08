@@ -21,7 +21,7 @@ public interface Producer<Key, Value> extends AutoCloseable {
     return builder().brokers(brokers).build();
   }
 
-  static Producer<byte[], byte[]> of(Map<String, Object> configs) {
+  static Producer<byte[], byte[]> of(Map<String, String> configs) {
     return builder().configs(configs).build();
   }
 }
