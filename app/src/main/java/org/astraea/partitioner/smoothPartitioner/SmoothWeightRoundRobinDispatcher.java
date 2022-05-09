@@ -1,6 +1,6 @@
 package org.astraea.partitioner.smoothPartitioner;
 
-import static org.astraea.partitioner.nodeLoadMetric.PartitionerUtils.partitionerConfig;
+import static org.astraea.partitioner.PartitionerUtils.partitionerConfig;
 
 import java.time.Duration;
 import java.util.ArrayList;

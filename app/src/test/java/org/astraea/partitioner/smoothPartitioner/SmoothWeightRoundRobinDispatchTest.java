@@ -42,7 +42,10 @@ public class SmoothWeightRoundRobinDispatchTest extends RequireBrokerCluster {
     props.put(
         ProducerConfig.PARTITIONER_CLASS_CONFIG, SmoothWeightRoundRobinDispatcher.class.getName());
     props.put("producerID", 1);
-    var file = new File(PartitionerTest.class.getResource("").getPath() + "PartitionerConfigTest");
+    var file =
+        new File(
+            SmoothWeightRoundRobinDispatchTest.class.getResource("").getPath()
+                + "PartitionerConfigTest");
     try {
       var fileWriter = new FileWriter(file);
       fileWriter.write("jmx.port=" + jmxServiceURL().getPort() + "\n");
@@ -56,7 +59,8 @@ public class SmoothWeightRoundRobinDispatchTest extends RequireBrokerCluster {
     }
     props.put(
         "partitioner.config",
-        PartitionerTest.class.getResource("").getPath() + "PartitionerConfigTest");
+        SmoothWeightRoundRobinDispatchTest.class.getResource("").getPath()
+            + "PartitionerConfigTest");
     return props;
   }
 
@@ -175,7 +179,10 @@ public class SmoothWeightRoundRobinDispatchTest extends RequireBrokerCluster {
   @Test
   void testJmxConfig() {
     var props = initProConfig();
-    var file = new File(PartitionerTest.class.getResource("").getPath() + "PartitionerConfigTest");
+    var file =
+        new File(
+            SmoothWeightRoundRobinDispatchTest.class.getResource("").getPath()
+                + "PartitionerConfigTest");
     try {
       var fileWriter = new FileWriter(file);
       fileWriter.write(

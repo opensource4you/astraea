@@ -27,7 +27,7 @@ public class PeriodicTest extends Periodic<Map<Integer, Double>> {
     Assertions.assertEquals(broker1.get(0), 0.0);
     var broker2 = tryUpdate(this::testMap, Duration.ofSeconds(3));
     Assertions.assertEquals(broker2.get(0), 0.0);
-    sleep(3);
+    sleep(4);
     broker2 = tryUpdate(this::testMap, Duration.ofSeconds(3));
     Assertions.assertEquals(broker2.get(0), 1.0);
   }
