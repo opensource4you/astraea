@@ -399,6 +399,12 @@ public class Builder {
     }
 
     @Override
+    public Creator config(String key, String value) {
+      this.configs.put(key, value);
+      return this;
+    }
+
+    @Override
     public Creator configs(Map<String, String> configs) {
       this.configs.putAll(configs);
       return this;

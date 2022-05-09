@@ -10,7 +10,7 @@ import org.astraea.cost.BrokerCost;
 import org.astraea.cost.ClusterInfo;
 import org.astraea.cost.HasBrokerCost;
 import org.astraea.cost.NodeInfo;
-import org.astraea.cost.PartitionInfo;
+import org.astraea.cost.ReplicaInfo;
 import org.astraea.cost.ThroughputCost;
 import org.astraea.cost.brokersMetrics.BrokerInputCost;
 import org.astraea.metrics.collector.Fetcher;
@@ -21,39 +21,9 @@ import org.mockito.Mockito;
 
 public class StrictCostDispatcherTest {
 
-  private static PartitionInfo createFakePartitionInfo(
-      String topic, int partition, NodeInfo leaderNode) {
-    return new PartitionInfo() {
-      @Override
-      public String topic() {
-        return topic;
-      }
-
-      @Override
-      public int partition() {
-        return partition;
-      }
-
-      @Override
-      public NodeInfo leader() {
-        return leaderNode;
-      }
-
-      @Override
-      public List<NodeInfo> replicas() {
-        return null;
-      }
-
-      @Override
-      public List<NodeInfo> inSyncReplica() {
-        return null;
-      }
-
-      @Override
-      public List<NodeInfo> offlineReplicas() {
-        return null;
-      }
-    };
+  private static ReplicaInfo createFakeReplicaLeaderInfo(
+      String topic, int partition, NodeInfo replicaNode) {
+    return ReplicaInfo.of(topic, partition, replicaNode, true, true, false);
   }
 
   @Test
@@ -94,8 +64,8 @@ public class StrictCostDispatcherTest {
   void testBestPartition() {
     var partitions =
         List.of(
-            createFakePartitionInfo("t", 0, NodeInfo.of(10, "h0", 1000)),
-            createFakePartitionInfo("t", 1, NodeInfo.of(11, "h1", 1000)));
+            createFakeReplicaLeaderInfo("t", 0, NodeInfo.of(10, "h0", 1000)),
+            createFakeReplicaLeaderInfo("t", 1, NodeInfo.of(11, "h1", 1000)));
 
     var score = List.of(Map.of(10, 0.8D), Map.of(11, 0.7D));
 
@@ -109,10 +79,10 @@ public class StrictCostDispatcherTest {
   void testPartition() {
     // n0 is busy
     var n0 = NodeInfo.of(10, "host0", 12345);
-    var p0 = createFakePartitionInfo("aa", 1, n0);
+    var p0 = createFakeReplicaLeaderInfo("aa", 1, n0);
     // n1 is free
     var n1 = NodeInfo.of(11, "host1", 12345);
-    var p1 = createFakePartitionInfo("aa", 2, n1);
+    var p1 = createFakeReplicaLeaderInfo("aa", 2, n1);
 
     var receiver = Mockito.mock(Receiver.class);
     Mockito.when(receiver.current()).thenReturn(List.of());
@@ -167,16 +137,16 @@ public class StrictCostDispatcherTest {
       var clusterInfo = Mockito.mock(ClusterInfo.class);
 
       // there is no available partition
-      Mockito.when(clusterInfo.availablePartitions("aa")).thenReturn(List.of());
+      Mockito.when(clusterInfo.availablePartitionLeaders("aa")).thenReturn(List.of());
       Mockito.when(clusterInfo.topics()).thenReturn(Set.of("aa"));
       Assertions.assertEquals(0, dispatcher.partition("aa", new byte[0], new byte[0], clusterInfo));
 
       // there is only one available partition
-      Mockito.when(clusterInfo.availablePartitions("aa")).thenReturn(List.of(p0));
+      Mockito.when(clusterInfo.availablePartitionLeaders("aa")).thenReturn(List.of(p0));
       Assertions.assertEquals(1, dispatcher.partition("aa", new byte[0], new byte[0], clusterInfo));
 
       // there is no beans, so it just returns the partition.
-      Mockito.when(clusterInfo.availablePartitions("aa")).thenReturn(List.of(p0, p1));
+      Mockito.when(clusterInfo.availablePartitionLeaders("aa")).thenReturn(List.of(p0, p1));
       Assertions.assertEquals(2, dispatcher.partition("aa", new byte[0], new byte[0], clusterInfo));
 
       // cost functions with weight

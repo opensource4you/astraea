@@ -17,6 +17,7 @@ import org.apache.kafka.common.errors.AuthorizationException;
 import org.apache.kafka.common.errors.OutOfOrderSequenceException;
 import org.apache.kafka.common.errors.ProducerFencedException;
 import org.astraea.consumer.Header;
+import org.astraea.topic.Compression;
 
 public class Builder<Key, Value> {
   private final Map<String, Object> configs = new HashMap<>();
@@ -37,20 +38,27 @@ public class Builder<Key, Value> {
     return (Builder<Key, NewValue>) this;
   }
 
-  public Builder<Key, Value> configs(Map<String, Object> configs) {
+  public Builder<Key, Value> config(String key, String value) {
+    this.configs.put(key, value);
+    return this;
+  }
+
+  public Builder<Key, Value> configs(Map<String, String> configs) {
     this.configs.putAll(configs);
     return this;
   }
 
   public Builder<Key, Value> brokers(String brokers) {
-    this.configs.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, Objects.requireNonNull(brokers));
-    return this;
+    return config(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, Objects.requireNonNull(brokers));
   }
 
   public Builder<Key, Value> partitionClassName(String partitionClassName) {
-    this.configs.put(
+    return config(
         ProducerConfig.PARTITIONER_CLASS_CONFIG, Objects.requireNonNull(partitionClassName));
-    return this;
+  }
+
+  public Builder<Key, Value> compression(Compression compression) {
+    return config(ProducerConfig.COMPRESSION_TYPE_CONFIG, compression.nameOfKafka());
   }
 
   private static <Key, Value> CompletionStage<Metadata> doSend(

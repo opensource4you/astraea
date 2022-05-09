@@ -100,7 +100,8 @@ public class PartitionerTest extends RequireBrokerCluster {
             .keySerializer(Serializer.STRING)
             .configs(
                 initProConfig().entrySet().stream()
-                    .collect(Collectors.toMap(e -> e.getKey().toString(), Map.Entry::getValue)))
+                    .collect(
+                        Collectors.toMap(e -> e.getKey().toString(), e -> e.getValue().toString())))
             .build()) {
       var i = 0;
       while (i < 300) {
@@ -166,7 +167,7 @@ public class PartitionerTest extends RequireBrokerCluster {
                                             .collect(
                                                 Collectors.toMap(
                                                     e -> e.getKey().toString(),
-                                                    Map.Entry::getValue)))
+                                                    e -> e.getValue().toString())))
                                     .build(),
                                 topicName,
                                 key,
@@ -265,7 +266,8 @@ public class PartitionerTest extends RequireBrokerCluster {
             .keySerializer(Serializer.STRING)
             .configs(
                 props.entrySet().stream()
-                    .collect(Collectors.toMap(e -> e.getKey().toString(), Map.Entry::getValue)))
+                    .collect(
+                        Collectors.toMap(e -> e.getKey().toString(), e -> e.getValue().toString())))
             .build()) {
       var metadata =
           producer
