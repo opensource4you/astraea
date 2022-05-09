@@ -63,6 +63,8 @@ public class ProducerExecutorTest extends RequireBrokerCluster {
           .values()
           .forEach(o -> Assertions.assertEquals(0, o.latest()));
       Assertions.assertEquals(State.RUNNING, executor.execute());
+      // wait for syncing data
+      TimeUnit.SECONDS.sleep(2);
       // only specified partition gets value
       // for normal producer, there is only one record
       // for transactional producer, the size of transaction is 10
