@@ -39,7 +39,7 @@ public interface ThreadPool extends AutoCloseable {
       return executors(List.of(executor));
     }
 
-    public Builder executors(Collection<Executor> executors) {
+    public Builder executors(Collection<? extends Executor> executors) {
       this.executors.addAll(Objects.requireNonNull(executors));
       return this;
     }
