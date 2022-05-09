@@ -219,7 +219,7 @@ public class PartitionerTest extends RequireBrokerCluster {
     loadCount.put(0, 5);
     loadCount.put(2, 5);
     var lastTime = System.currentTimeMillis();
-    Utils.waitFor(() -> Utils.overSecond(lastTime, 1));
+    Utils.waitFor(() -> Utils.isExpired(lastTime, 1));
     smoothWeightPartitioner.updateWeightIfNeed(loadCount);
     var thirdBrokersWeight = smoothWeightPartitioner.brokersWeight().get(0).currentWeight();
     Assertions.assertNotEquals(secondBrokersWeight, thirdBrokersWeight);

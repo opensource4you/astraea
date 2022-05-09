@@ -99,7 +99,7 @@ public class NodeLoadClientTest extends RequireBrokerCluster {
     Assertions.assertEquals(load.get(1), 1);
     Assertions.assertEquals(load.get(2), 1);
     var lastTime = System.currentTimeMillis();
-    Utils.waitFor(() -> Utils.overSecond(lastTime, 1));
+    Utils.waitFor(() -> Utils.isExpired(lastTime, 1));
     load = nodeLoadClient.loadSituation(cluster);
     Assertions.assertEquals(load.get(0), 2);
     Assertions.assertEquals(load.get(1), 2);

@@ -56,7 +56,7 @@ public class SmoothWeightRoundRobinDispatcher extends Periodic<Void> implements 
   @Override
   public int partition(String topic, byte[] key, byte[] value, ClusterInfo clusterInfo) {
     var targetPartition = unusedPartitions.poll();
-    tryUpdate(
+    tryUpdateAfterOneSecond(
         () -> {
           refreshPartitionMetaData(clusterInfo, topic);
           // fetch the latest beans for each node
@@ -69,8 +69,7 @@ public class SmoothWeightRoundRobinDispatcher extends Periodic<Void> implements 
 
           smoothWeightRoundRobinCal.init(compoundScore);
           return null;
-        },
-        1);
+        });
     // just return first partition if there is no available partitions
     if (partitions.isEmpty()) return 0;
 
@@ -88,11 +87,6 @@ public class SmoothWeightRoundRobinDispatcher extends Periodic<Void> implements 
     }
 
     return targetPartition;
-  }
-
-  @Override
-  public void configure(Configuration config) {
-    Dispatcher.super.configure(config);
   }
 
   @Override

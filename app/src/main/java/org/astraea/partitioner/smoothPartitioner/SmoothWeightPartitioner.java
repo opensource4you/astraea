@@ -1,6 +1,6 @@
 package org.astraea.partitioner.smoothPartitioner;
 
-import static org.astraea.Utils.overSecond;
+import static org.astraea.Utils.isExpired;
 import static org.astraea.partitioner.nodeLoadMetric.PartitionerUtils.allPoisson;
 import static org.astraea.partitioner.nodeLoadMetric.PartitionerUtils.partitionerConfig;
 import static org.astraea.partitioner.nodeLoadMetric.PartitionerUtils.weightPoisson;
@@ -126,7 +126,7 @@ public class SmoothWeightPartitioner implements Partitioner {
   }
 
   void updateWeightIfNeed(Map<Integer, Integer> loadCount) {
-    if (overSecond(lastTime, 1) && lock.tryLock()) {
+    if (isExpired(lastTime, 1) && lock.tryLock()) {
       try {
         lock.lock();
         brokersWeight(allPoisson(loadCount));

@@ -1,5 +1,6 @@
 package org.astraea.partitioner.smoothPartitioner;
 
+import java.time.Duration;
 import java.util.Comparator;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -77,7 +78,7 @@ public final class SmoothWeightRoundRobin extends Periodic<Void> {
           }
           return null;
         },
-        10);
+        Duration.ofSeconds(10));
   }
 
   /**

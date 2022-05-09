@@ -1,5 +1,6 @@
 package org.astraea.cost;
 
+import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
@@ -10,13 +11,24 @@ public class PeriodicTest extends Periodic<Map<Integer, Double>> {
   private double brokerValue = 0.0;
 
   @Test
-  void testTryUpdate() {
-    var broker1 = tryUpdate(this::testMap, 1);
+  void testTryUpdateAfterOneSecond() {
+    var broker1 = tryUpdateAfterOneSecond(this::testMap);
     Assertions.assertEquals(broker1.get(0), 0.0);
-    var broker2 = tryUpdate(this::testMap, 1);
+    var broker2 = tryUpdateAfterOneSecond(this::testMap);
     Assertions.assertEquals(broker2.get(0), 0.0);
     sleep(1);
-    broker2 = tryUpdate(this::testMap, 1);
+    broker2 = tryUpdateAfterOneSecond(this::testMap);
+    Assertions.assertEquals(broker2.get(0), 1.0);
+  }
+
+  @Test
+  void testTryUpdate() {
+    var broker1 = tryUpdate(this::testMap, Duration.ofSeconds(3));
+    Assertions.assertEquals(broker1.get(0), 0.0);
+    var broker2 = tryUpdate(this::testMap, Duration.ofSeconds(3));
+    Assertions.assertEquals(broker2.get(0), 0.0);
+    sleep(3);
+    broker2 = tryUpdate(this::testMap, Duration.ofSeconds(3));
     Assertions.assertEquals(broker2.get(0), 1.0);
   }
 

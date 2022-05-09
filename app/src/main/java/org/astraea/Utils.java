@@ -137,7 +137,7 @@ public final class Utils {
     return value;
   }
 
-  public static boolean overSecond(long lastTime, int second) {
+  public static boolean isExpired(long lastTime, int second) {
     return (lastTime + Duration.ofSeconds(second).toMillis()) < System.currentTimeMillis();
   }
 
