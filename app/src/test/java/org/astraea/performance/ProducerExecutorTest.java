@@ -67,9 +67,10 @@ public class ProducerExecutorTest extends RequireBrokerCluster {
       TimeUnit.SECONDS.sleep(2);
       // only specified partition gets value
       // for normal producer, there is only one record
-      // for transactional producer, the size of transaction is 10
+      // for transactional producer, the size of transaction is 10 and there is one transaction
+      // control marker
       Assertions.assertEquals(
-          executor.transactional() ? 10 : 1,
+          executor.transactional() ? 11 : 1,
           admin
               .offsets(Set.of(executor.topic()))
               .get(new TopicPartition(executor.topic(), specifiedPartition))
