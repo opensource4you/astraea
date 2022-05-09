@@ -15,6 +15,7 @@ import java.util.stream.Collectors;
 import org.astraea.Utils;
 import org.astraea.cost.ClusterInfo;
 import org.astraea.cost.CostFunction;
+import org.astraea.cost.HasBrokerCost;
 import org.astraea.cost.LoadCost;
 import org.astraea.cost.MemoryWarningCost;
 import org.astraea.metrics.collector.BeanCollector;
@@ -50,22 +51,23 @@ public class SmoothWeightDispatcher implements Dispatcher {
 
   @Override
   public int partition(String topic, byte[] key, byte[] value, ClusterInfo clusterInfo) {
-    var partitions = clusterInfo.availablePartitions(topic);
+    var partitionLeaders = clusterInfo.availablePartitionLeaders(topic);
     // just return first partition if there is no available partitions
-    if (partitions.isEmpty()) return 0;
+    if (partitionLeaders.isEmpty()) return 0;
 
     // just return the only one available partition
-    if (partitions.size() == 1) return partitions.iterator().next().partition();
+    if (partitionLeaders.size() == 1) return partitionLeaders.iterator().next().partition();
 
     if (Utils.overSecond(lastFetchTime, 1) && lock.tryLock()) {
       try {
         // add new receivers for new brokers
-        partitions.stream()
-            .filter(p -> !receivers.containsKey(p.leader().id()))
+        partitionLeaders.stream()
+            .filter(p -> !receivers.containsKey(p.nodeInfo().id()))
             .forEach(
                 p ->
                     receivers.put(
-                        p.leader().id(), receiver(p.leader().host(), jmxPort(p.leader().id()))));
+                        p.nodeInfo().id(),
+                        receiver(p.nodeInfo().host(), jmxPort(p.nodeInfo().id()))));
 
         // fetch the latest beans for each node
         var beans =
@@ -74,9 +76,11 @@ public class SmoothWeightDispatcher implements Dispatcher {
 
         var compoundScore =
             functions.stream()
+                .filter(f -> f instanceof HasBrokerCost)
+                .map(f -> (HasBrokerCost) f)
                 .map(
                     f -> {
-                      var map = f.cost(ClusterInfo.of(clusterInfo, beans));
+                      var map = f.brokerCost(ClusterInfo.of(clusterInfo, beans)).value();
                       map.replaceAll((k, v) -> v * costFraction.get(f.getClass()));
                       return map;
                     })
@@ -96,8 +100,8 @@ public class SmoothWeightDispatcher implements Dispatcher {
     // Make "smooth weight choosing" on the score.
     var targetBroker = smoothWeightCal.getAndChoose();
     var targetPartitions =
-        partitions.stream()
-            .filter(p -> p.leader().id() == targetBroker)
+        partitionLeaders.stream()
+            .filter(p -> p.nodeInfo().id() == targetBroker)
             .collect(Collectors.toList());
 
     return targetPartitions.get(random.nextInt(targetPartitions.size())).partition();
@@ -106,7 +110,7 @@ public class SmoothWeightDispatcher implements Dispatcher {
   // Just add all cost function score together
   static Map<Integer, Double> costCompound(
       Map<Integer, Double> identity, Map<Integer, Double> cost) {
-    cost.forEach((ID, value) -> identity.computeIfPresent(ID, (k, v) -> v + value));
+    cost.forEach((id, value) -> identity.computeIfPresent(id, (k, v) -> v + value));
     cost.forEach(identity::putIfAbsent);
     return identity;
   }

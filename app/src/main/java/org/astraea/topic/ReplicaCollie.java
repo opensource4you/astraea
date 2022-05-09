@@ -2,9 +2,11 @@ package org.astraea.topic;
 
 import com.beust.jcommander.Parameter;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
@@ -18,8 +20,8 @@ public class ReplicaCollie {
   static final String UNKNOWN = "unknown";
 
   static class MigratorInfo {
-    Set<Integer> brokerSource;
-    Set<Integer> brokerSink;
+    List<Integer> brokerSource;
+    List<Integer> brokerSink;
     Set<String> pathSource;
     Set<String> pathSink;
   }
@@ -39,7 +41,7 @@ public class ReplicaCollie {
       argument.toBrokers =
           admin.brokerIds().stream()
               .filter(b -> !args.fromBrokers.contains(b))
-              .collect(Collectors.toSet());
+              .collect(Collectors.toList());
     } else {
       argument.toBrokers = args.toBrokers.isEmpty() ? args.fromBrokers : args.toBrokers;
     }
@@ -70,7 +72,6 @@ public class ReplicaCollie {
               + topics.iterator().next()
               + " does not exist partition: "
               + args.partitions.toString());
-
     if (args.fromBrokers.containsAll(admin.brokerIds()))
       throw new IllegalArgumentException(
           "No enough available brokers!" + " removed at least one: " + args.fromBrokers);
@@ -87,9 +88,9 @@ public class ReplicaCollie {
     }
   }
 
-  static TreeMap<TopicPartition, Map.Entry<Set<Integer>, Set<Integer>>> checkMigratorBroker(
+  static TreeMap<TopicPartition, Map.Entry<List<Integer>, List<Integer>>> checkMigratorBroker(
       TopicAdmin admin, Argument argument) {
-    TreeMap<TopicPartition, Map.Entry<Set<Integer>, Set<Integer>>> brokerMigrate =
+    TreeMap<TopicPartition, Map.Entry<List<Integer>, List<Integer>>> brokerMigrate =
         new TreeMap<>(
             Comparator.comparing(TopicPartition::topic).thenComparing(TopicPartition::partition));
     admin.replicas(argument.topics).entrySet().stream()
@@ -102,7 +103,7 @@ public class ReplicaCollie {
         .forEach(
             (tp) -> {
               var currentBrokers =
-                  tp.getValue().stream().map(Replica::broker).collect(Collectors.toSet());
+                  tp.getValue().stream().map(Replica::broker).collect(Collectors.toList());
               var keptBrokers =
                   currentBrokers.stream()
                       .filter(i -> !argument.fromBrokers.contains(i))
@@ -112,7 +113,7 @@ public class ReplicaCollie {
                 var availableBrokers =
                     argument.toBrokers.stream()
                         .filter(i -> !keptBrokers.contains(i) && !argument.fromBrokers.contains(i))
-                        .collect(Collectors.toSet());
+                        .collect(Collectors.toList());
                 if (availableBrokers.size() < numberOfMigratedReplicas)
                   throw new IllegalArgumentException(
                       "No enough available brokers! Available: "
@@ -121,7 +122,15 @@ public class ReplicaCollie {
                           + currentBrokers
                           + " removed: "
                           + argument.fromBrokers);
-                brokerMigrate.put(tp.getKey(), Map.entry(currentBrokers, argument.toBrokers));
+                var targetBrokers = new ArrayList<>(keptBrokers);
+                if (numberOfMigratedReplicas < argument.toBrokers.size())
+                  targetBrokers.addAll(
+                      new ArrayList<>(availableBrokers)
+                          .subList(0, argument.fromBrokers.size() - keptBrokers.size()));
+                else
+                  targetBrokers.addAll(
+                      new ArrayList<>(availableBrokers).subList(0, argument.toBrokers.size()));
+                brokerMigrate.put(tp.getKey(), Map.entry(argument.fromBrokers, targetBrokers));
               } else {
                 brokerMigrate.put(tp.getKey(), Map.entry(currentBrokers, currentBrokers));
               }
@@ -176,7 +185,7 @@ public class ReplicaCollie {
   }
 
   static void brokerMigrator(
-      TreeMap<TopicPartition, Map.Entry<Set<Integer>, Set<Integer>>> brokerMigrate,
+      TreeMap<TopicPartition, Map.Entry<List<Integer>, List<Integer>>> brokerMigrate,
       TopicAdmin admin) {
     brokerMigrate.forEach(
         (tp, assignments) -> {
@@ -201,7 +210,7 @@ public class ReplicaCollie {
   }
 
   static TreeMap<TopicPartition, MigratorInfo> getResult(
-      TreeMap<TopicPartition, Map.Entry<Set<Integer>, Set<Integer>>> brokerMigrate,
+      TreeMap<TopicPartition, Map.Entry<List<Integer>, List<Integer>>> brokerMigrate,
       TreeMap<TopicPartition, Map.Entry<Set<String>, Set<String>>> pathMigrate,
       Argument argument,
       TopicAdmin admin) {
@@ -223,8 +232,8 @@ public class ReplicaCollie {
         });
     pathMigrate.forEach(
         (tp, assignments) -> {
-          Set<Integer> fromBroker;
-          Set<Integer> toBroker;
+          List<Integer> fromBroker;
+          List<Integer> toBroker;
           if (argument.fromBrokers.containsAll(argument.toBrokers)) {
             fromBroker = argument.fromBrokers;
             toBroker = fromBroker;
@@ -241,15 +250,24 @@ public class ReplicaCollie {
             result.put(tp, migratorInfo);
           } else {
             if (assignments.getValue().contains(UNKNOWN)) {
-              Set<String> newPath = new HashSet<>();
-              newPath =
-                  !argument.verify
-                      ? admin.replicas(argument.topics).get(tp).stream()
-                          .map(Replica::path)
-                          .filter(path -> !assignments.getKey().contains(path))
-                          .collect(Collectors.toSet())
-                      : Set.of(UNKNOWN);
-              if (assignments.getKey().equals(newPath)) {
+              Set<String> newPath;
+              if (!argument.verify) {
+                var replicas = admin.replicas(argument.topics).get(tp);
+                newPath =
+                    replicas.stream()
+                            .map(Replica::path)
+                            .filter(p -> !assignments.getKey().contains(p))
+                            .collect(Collectors.toSet())
+                            .isEmpty()
+                        ? replicas.stream().map(Replica::path).collect(Collectors.toSet())
+                        : replicas.stream()
+                            .map(Replica::path)
+                            .filter(p -> !assignments.getKey().contains(p))
+                            .collect(Collectors.toSet());
+              } else {
+                newPath = Set.of(UNKNOWN);
+              }
+              if (assignments.getKey().equals(newPath) && fromBroker == toBroker) {
                 if (!argument.verify) result.remove(tp);
               } else {
                 MigratorInfo migratorInfo = new MigratorInfo();
@@ -279,6 +297,7 @@ public class ReplicaCollie {
 
   public static void main(String[] args) throws IOException {
     var argument = org.astraea.argument.Argument.parse(new Argument(), args);
+
     try (var admin = TopicAdmin.of(argument.props())) {
       execute(admin, argument)
           .forEach(
@@ -310,17 +329,13 @@ public class ReplicaCollie {
     @Parameter(
         names = {"--from"},
         description = "Those brokers won't hold any replicas of topics (defined by --topics)",
-        validateWith = IntegerSetField.class,
-        converter = IntegerSetField.class,
         required = true)
-    Set<Integer> fromBrokers;
+    List<Integer> fromBrokers;
 
     @Parameter(
         names = {"--to"},
-        description = "The replicas of topics (defined by --topic) will be moved to those brokers",
-        validateWith = IntegerSetField.class,
-        converter = IntegerSetField.class)
-    Set<Integer> toBrokers = Collections.emptySet();
+        description = "The replicas of topics (defined by --topic) will be moved to those brokers")
+    List<Integer> toBrokers = List.of();
 
     @Parameter(
         names = {"--partitions"},

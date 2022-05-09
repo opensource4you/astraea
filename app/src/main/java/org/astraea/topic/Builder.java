@@ -12,6 +12,9 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -19,12 +22,14 @@ import org.apache.kafka.clients.admin.Admin;
 import org.apache.kafka.clients.admin.AdminClientConfig;
 import org.apache.kafka.clients.admin.ConfigEntry;
 import org.apache.kafka.clients.admin.ConsumerGroupListing;
+import org.apache.kafka.clients.admin.ElectLeadersResult;
 import org.apache.kafka.clients.admin.ListTopicsOptions;
 import org.apache.kafka.clients.admin.MemberDescription;
 import org.apache.kafka.clients.admin.NewPartitionReassignment;
 import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.clients.admin.OffsetSpec;
 import org.apache.kafka.clients.admin.ReplicaInfo;
+import org.apache.kafka.common.ElectionType;
 import org.apache.kafka.common.Node;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.TopicPartitionReplica;
@@ -73,7 +78,7 @@ public class Builder {
     }
 
     @Override
-    public Map<Integer, Set<String>> brokerFolders(Set<Integer> brokers) {
+    public Map<Integer, Set<String>> brokerFolders(Collection<Integer> brokers) {
       return Utils.handleException(
           () ->
               admin.describeLogDirs(brokers).allDescriptions().get().entrySet().stream()
@@ -232,6 +237,33 @@ public class Builder {
     }
 
     @Override
+    public Map<TopicPartition, Boolean> changeReplicaLeader(
+        Map<TopicPartition, Integer> partitions) {
+      Map<TopicPartition, Boolean> result = new HashMap<>();
+      partitions.forEach(
+          (tp, broker) -> {
+            var brokers =
+                replicas(Set.of(tp.topic())).get(tp).stream()
+                    .map(Replica::broker)
+                    .collect(Collectors.toList());
+            if (!brokers.contains(broker))
+              throw new IllegalArgumentException("replica " + tp + " is not in broker " + broker);
+            brokers.remove(broker);
+            brokers.add(0, broker);
+            migrator().partition(tp.topic(), tp.partition()).moveTo(brokers);
+            ElectLeadersResult electLeadersResult =
+                admin.electLeaders(ElectionType.PREFERRED, Set.of(tp));
+            try {
+              electLeadersResult.all().get(10L, TimeUnit.SECONDS);
+            } catch (InterruptedException | TimeoutException | ExecutionException e) {
+              throw new RuntimeException(e);
+            }
+            result.put(tp, electLeadersResult.partitions().isDone());
+          });
+      return result;
+    }
+
+    @Override
     public List<TopicPartition> partitionsOfBrokers(Set<String> topics, Set<Integer> brokersID) {
       return replicas(topics).entrySet().stream()
           .filter(e -> e.getValue().stream().anyMatch(r -> brokersID.contains(r.broker())))
@@ -367,6 +399,12 @@ public class Builder {
     }
 
     @Override
+    public Creator config(String key, String value) {
+      this.configs.put(key, value);
+      return this;
+    }
+
+    @Override
     public Creator configs(Map<String, String> configs) {
       this.configs.putAll(configs);
       return this;
@@ -467,7 +505,7 @@ public class Builder {
     }
 
     @Override
-    public void moveTo(Set<Integer> brokers) {
+    public void moveTo(List<Integer> brokers) {
       Utils.handleException(
           () ->
               admin

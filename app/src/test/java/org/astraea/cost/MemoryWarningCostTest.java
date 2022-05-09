@@ -4,6 +4,7 @@ import java.lang.management.MemoryUsage;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import org.astraea.metrics.HasBeanObject;
 import org.astraea.metrics.java.HasJvmMemory;
 import org.junit.jupiter.api.Assertions;
@@ -26,17 +27,30 @@ public class MemoryWarningCostTest {
           public Map<Integer, Collection<HasBeanObject>> allBeans() {
             return Map.of(1, broker1, 2, broker2, 3, broker3);
           }
+
+          @Override
+          public Set<String> topics() {
+            return Set.of("t");
+          }
+
+          @Override
+          public List<ReplicaInfo> availablePartitions(String topic) {
+            return List.of(
+                ReplicaInfo.of("t", 0, NodeInfo.of(1, "host1", 9092), true, true, false),
+                ReplicaInfo.of("t", 0, NodeInfo.of(2, "host2", 9092), false, true, false),
+                ReplicaInfo.of("t", 0, NodeInfo.of(3, "host3", 9092), false, true, false));
+          }
         };
 
     var memoryWarning = new MemoryWarningCost();
-    var scores = memoryWarning.cost(clusterInfo);
+    var scores = memoryWarning.brokerCost(clusterInfo).value();
     Assertions.assertEquals(0.0, scores.get(1));
     Assertions.assertEquals(0.0, scores.get(2));
     Assertions.assertEquals(0.0, scores.get(3));
 
     Thread.sleep(10000);
 
-    scores = memoryWarning.cost(clusterInfo);
+    scores = memoryWarning.brokerCost(clusterInfo).value();
     Assertions.assertEquals(0.0, scores.get(1));
     Assertions.assertEquals(1.0, scores.get(2));
     Assertions.assertEquals(0.0, scores.get(3));

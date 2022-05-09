@@ -12,6 +12,7 @@ import org.astraea.Utils;
 import org.astraea.concurrent.Executor;
 import org.astraea.concurrent.ThreadPool;
 import org.astraea.consumer.Consumer;
+import org.astraea.consumer.Isolation;
 import org.astraea.producer.Producer;
 import org.astraea.service.RequireBrokerCluster;
 import org.astraea.topic.TopicAdmin;
@@ -160,9 +161,9 @@ public class PerformanceTest extends RequireBrokerCluster {
   @Test
   void testTransactionSet() {
     var argument = new Performance.Argument();
-    Assertions.assertFalse(argument.transaction());
+    Assertions.assertEquals(Isolation.READ_UNCOMMITTED, argument.isolation());
     argument.transactionSize = 3;
-    Assertions.assertTrue(argument.transaction());
+    Assertions.assertEquals(Isolation.READ_COMMITTED, argument.isolation());
   }
 
   @Test
@@ -197,7 +198,7 @@ public class PerformanceTest extends RequireBrokerCluster {
     };
 
     var arg = org.astraea.argument.Argument.parse(new Performance.Argument(), arguments1);
-    Assertions.assertEquals("value", arg.producerProps().get("key").toString());
+    Assertions.assertEquals("value", arg.configs.get("key"));
 
     String[] arguments2 = {"--bootstrap.servers", "localhost:9092", "--topic", ""};
     Assertions.assertThrows(

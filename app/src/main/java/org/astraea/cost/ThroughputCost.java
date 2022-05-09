@@ -9,19 +9,21 @@ import org.astraea.metrics.collector.Fetcher;
 import org.astraea.metrics.kafka.BrokerTopicMetricsResult;
 import org.astraea.metrics.kafka.KafkaMetrics;
 
-public class ThroughputCost implements CostFunction {
+public class ThroughputCost implements HasBrokerCost {
 
   @Override
-  public Map<Integer, Double> cost(ClusterInfo clusterInfo) {
+  public BrokerCost brokerCost(ClusterInfo clusterInfo) {
     var score = score(clusterInfo.allBeans());
 
     var max = score.values().stream().mapToDouble(v -> v).max().orElse(1);
 
-    return clusterInfo.nodes().stream()
-        .map(NodeInfo::id)
-        .collect(Collectors.toMap(n -> n, n -> score.getOrDefault(n, 0.0D) / max));
+    return () ->
+        clusterInfo.nodes().stream()
+            .map(NodeInfo::id)
+            .collect(Collectors.toMap(n -> n, n -> score.getOrDefault(n, 0.0D) / max));
   }
 
+  /* Score by broker. */
   Map<Integer, Double> score(Map<Integer, Collection<HasBeanObject>> beans) {
     // TODO: this implementation only consider the oneMinuteRate ...
     return beans.entrySet().stream()

@@ -15,12 +15,9 @@ import java.util.concurrent.ExecutionException;
 import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-import org.apache.kafka.clients.consumer.ConsumerConfig;
-import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.clients.producer.internals.DefaultPartitioner;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.errors.WakeupException;
-import org.apache.kafka.common.record.CompressionType;
 import org.astraea.Utils;
 import org.astraea.argument.CompressionField;
 import org.astraea.argument.NonEmptyStringField;
@@ -33,8 +30,10 @@ import org.astraea.concurrent.Executor;
 import org.astraea.concurrent.State;
 import org.astraea.concurrent.ThreadPool;
 import org.astraea.consumer.Consumer;
+import org.astraea.consumer.Isolation;
 import org.astraea.producer.Producer;
 import org.astraea.producer.TransactionalProducer;
+import org.astraea.topic.Compression;
 import org.astraea.topic.TopicAdmin;
 import org.astraea.utils.DataSize;
 import org.astraea.utils.DataUnit;
@@ -115,7 +114,8 @@ public class Performance {
                                     .brokers(param.brokers)
                                     .topics(Set.of(param.topic))
                                     .groupId(groupId)
-                                    .configs(param.consumerProps())
+                                    .configs(param.configs)
+                                    .isolation(param.isolation())
                                     .consumerRebalanceListener(
                                         ignore -> manager.countDownGetAssignment())
                                     .build(),
@@ -128,11 +128,13 @@ public class Performance {
                         i ->
                             producerExecutor(
                                 Producer.builder()
-                                    .configs(param.producerProps())
+                                    .configs(param.configs)
+                                    .compression(param.compression)
                                     .partitionClassName(param.partitioner)
                                     .build(),
                                 Producer.builder()
-                                    .configs(param.producerProps())
+                                    .configs(param.configs)
+                                    .compression(param.compression)
                                     .partitionClassName(param.partitioner)
                                     .buildTransactional(),
                                 param,
@@ -192,57 +194,71 @@ public class Performance {
       List<Integer> partitions,
       Manager manager) {
     return new Executor() {
+
+      private State doTransaction() {
+        var rand = new Random();
+        var senders =
+            IntStream.range(0, param.transactionSize)
+                .mapToObj(i -> manager.payload())
+                .filter(Optional::isPresent)
+                .map(
+                    p ->
+                        producer
+                            .sender()
+                            .topic(param.topic)
+                            .partition(partitions.get(rand.nextInt(partitions.size())))
+                            .key(manager.getKey())
+                            .value(p.get())
+                            .timestamp(System.currentTimeMillis()))
+                .collect(Collectors.toList());
+
+        // No records to send
+        if (senders.isEmpty()) return State.DONE;
+        transactionalProducer
+            .transaction(senders)
+            .forEach(
+                future ->
+                    future.whenComplete(
+                        (m, e) ->
+                            observer.accept(
+                                System.currentTimeMillis() - m.timestamp(),
+                                m.serializedValueSize())));
+        return State.RUNNING;
+      }
+
+      private State doSend() {
+        var rand = new Random();
+        var payload = manager.payload();
+        if (payload.isEmpty()) return State.DONE;
+
+        long start = System.currentTimeMillis();
+        producer
+            .sender()
+            .topic(param.topic)
+            .partition(partitions.get(rand.nextInt(partitions.size())))
+            .key(manager.getKey())
+            .value(payload.get())
+            .timestamp(start)
+            .run()
+            .whenComplete(
+                (m, e) ->
+                    observer.accept(System.currentTimeMillis() - start, m.serializedValueSize()));
+        return State.RUNNING;
+      }
+
       @Override
       public State execute() throws InterruptedException {
         // Wait for all consumers get assignment.
         manager.awaitPartitionAssignment();
-        var rand = new Random();
         // Do transactional send.
-        if (param.transaction()) {
-          var senders =
-              IntStream.range(0, param.transactionSize)
-                  .mapToObj(i -> manager.payload())
-                  .filter(Optional::isPresent)
-                  .map(
-                      p ->
-                          producer
-                              .sender()
-                              .topic(param.topic)
-                              .partition(partitions.get(rand.nextInt(partitions.size())))
-                              .key(manager.getKey())
-                              .value(p.get())
-                              .timestamp(System.currentTimeMillis()))
-                  .collect(Collectors.toList());
-
-          // No records to send
-          if (senders.isEmpty()) return State.DONE;
-          transactionalProducer
-              .transaction(senders)
-              .forEach(
-                  future ->
-                      future.whenComplete(
-                          (m, e) ->
-                              observer.accept(
-                                  System.currentTimeMillis() - m.timestamp(),
-                                  m.serializedValueSize())));
-        } else {
-          var payload = manager.payload();
-          if (payload.isEmpty()) return State.DONE;
-
-          long start = System.currentTimeMillis();
-          producer
-              .sender()
-              .topic(param.topic)
-              .partition(partitions.get(rand.nextInt(partitions.size())))
-              .key(manager.getKey())
-              .value(payload.get())
-              .timestamp(start)
-              .run()
-              .whenComplete(
-                  (m, e) ->
-                      observer.accept(System.currentTimeMillis() - start, m.serializedValueSize()));
+        switch (param.isolation()) {
+          case READ_COMMITTED:
+            return doTransaction();
+          case READ_UNCOMMITTED:
+            return doSend();
+          default:
+            return State.RUNNING;
         }
-        return State.RUNNING;
       }
 
       @Override
@@ -336,25 +352,12 @@ public class Performance {
         validateWith = StringMapField.class)
     Map<String, String> configs = Map.of();
 
-    public Map<String, Object> producerProps() {
-      var props = props();
-      props.put(ProducerConfig.COMPRESSION_TYPE_CONFIG, compression.name);
-      props.putAll(configs);
-      return props;
-    }
-
-    public Map<String, Object> consumerProps() {
-      var props = props();
-      if (transaction()) props.put(ConsumerConfig.ISOLATION_LEVEL_CONFIG, "read_committed");
-      return props;
-    }
-
     @Parameter(
         names = {"--compression"},
         description =
             "String: the compression algorithm used by producer. Available algorithm are none, gzip, snappy, lz4, and zstd",
         converter = CompressionField.class)
-    CompressionType compression = CompressionType.NONE;
+    Compression compression = Compression.NONE;
 
     @Parameter(
         names = {"--transaction.size"},
@@ -362,8 +365,8 @@ public class Performance {
         validateWith = PositiveLongField.class)
     int transactionSize = 1;
 
-    public boolean transaction() {
-      return transactionSize > 1;
+    Isolation isolation() {
+      return transactionSize > 1 ? Isolation.READ_COMMITTED : Isolation.READ_UNCOMMITTED;
     }
 
     @Parameter(

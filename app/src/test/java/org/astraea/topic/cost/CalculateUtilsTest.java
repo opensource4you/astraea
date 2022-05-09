@@ -5,11 +5,10 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import java.util.HashMap;
 import java.util.Map;
 import org.apache.kafka.common.TopicPartition;
-import org.astraea.service.RequireBrokerCluster;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
-public class CalculateUtilsTest extends RequireBrokerCluster {
+public class CalculateUtilsTest {
   static Map<Integer, Map<TopicPartition, Integer>> fakeBrokerPartitionSize = new HashMap<>();
   static Map<String, Integer> fakeRetentionMillis = new HashMap<>();
   static Map<Integer, Map<TopicPartition, Double>> fakePartitionLoad = new HashMap<>();

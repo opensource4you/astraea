@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.condition.OS.WINDOWS;
 
 import java.time.Duration;
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
@@ -154,6 +155,8 @@ public class TopicAdminTest extends RequireBrokerCluster {
   }
 
   @Test
+  // There is a problem when migrating the log folder under Windows because the migrated source
+  // cannot be deleted, so disabled this test on Windows for now.
   @DisabledOnOs(WINDOWS)
   void testMigrateSinglePartition() throws InterruptedException {
     var topicName = "testMigrateSinglePartition";
@@ -162,7 +165,7 @@ public class TopicAdminTest extends RequireBrokerCluster {
       // wait for syncing topic creation
       TimeUnit.SECONDS.sleep(5);
       var broker = topicAdmin.brokerIds().iterator().next();
-      topicAdmin.migrator().partition(topicName, 0).moveTo(Set.of(broker));
+      topicAdmin.migrator().partition(topicName, 0).moveTo(List.of(broker));
       Utils.waitFor(
           () -> {
             var replicas = topicAdmin.replicas(Set.of(topicName));
@@ -207,6 +210,38 @@ public class TopicAdminTest extends RequireBrokerCluster {
 
   @Test
   @DisabledOnOs(WINDOWS)
+  void testChangeReplicaLeader() throws InterruptedException {
+    var topicName = "testChangeReplicaLeader";
+    var tp = new TopicPartition(topicName, 0);
+    try (var topicAdmin = TopicAdmin.of(bootstrapServers())) {
+      topicAdmin
+          .creator()
+          .topic(topicName)
+          .numberOfPartitions(1)
+          .numberOfReplicas((short) 2)
+          .create();
+      // wait for syncing topic creation
+      TimeUnit.SECONDS.sleep(5);
+      topicAdmin.replicas(Set.of(topicName)).get(tp);
+      var replicas = topicAdmin.replicas(Set.of(topicName)).get(tp);
+      var oldLeader =
+          replicas.stream().filter(Replica::leader).collect(Collectors.toList()).get(0).broker();
+      var newLeader =
+          replicas.stream().filter(b -> !b.leader()).collect(Collectors.toList()).get(0).broker();
+      topicAdmin.changeReplicaLeader(Map.of(tp, newLeader));
+      Assertions.assertNotEquals(oldLeader, newLeader);
+      Utils.waitFor(
+          () ->
+              topicAdmin.replicas(Set.of(topicName)).get(tp).stream()
+                  .filter(r -> r.broker() == newLeader)
+                  .iterator()
+                  .next()
+                  .leader());
+    }
+  }
+
+  @Test
+  @DisabledOnOs(WINDOWS)
   void testMigrateAllPartitions() throws InterruptedException {
     var topicName = "testMigrateAllPartitions";
     try (var topicAdmin = TopicAdmin.of(bootstrapServers())) {
@@ -214,7 +249,7 @@ public class TopicAdminTest extends RequireBrokerCluster {
       // wait for syncing topic creation
       TimeUnit.SECONDS.sleep(5);
       var broker = topicAdmin.brokerIds().iterator().next();
-      topicAdmin.migrator().topic(topicName).moveTo(Set.of(broker));
+      topicAdmin.migrator().topic(topicName).moveTo(List.of(broker));
       Utils.waitFor(
           () -> {
             var replicas = topicAdmin.replicas(Set.of(topicName));

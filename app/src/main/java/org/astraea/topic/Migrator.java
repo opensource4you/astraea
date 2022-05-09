@@ -1,7 +1,7 @@
 package org.astraea.topic;
 
+import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 /** used to migrate partitions to another broker or broker folder. */
 public interface Migrator {
@@ -24,11 +24,11 @@ public interface Migrator {
 
   /**
    * move partitions to specify brokers. Noted that the number of brokers must be equal to the
-   * number of replicas
+   * number of replicas,and the first broker in the list will be set as the preferred leader
    *
    * @param brokers to host partitions
    */
-  void moveTo(Set<Integer> brokers);
+  void moveTo(List<Integer> brokers);
 
   /**
    * move partition to specify folder.

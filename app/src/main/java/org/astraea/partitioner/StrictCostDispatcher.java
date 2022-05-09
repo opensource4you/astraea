@@ -11,7 +11,8 @@ import java.util.stream.Collectors;
 import org.astraea.Utils;
 import org.astraea.cost.ClusterInfo;
 import org.astraea.cost.CostFunction;
-import org.astraea.cost.PartitionInfo;
+import org.astraea.cost.HasBrokerCost;
+import org.astraea.cost.ReplicaInfo;
 import org.astraea.metrics.collector.BeanCollector;
 import org.astraea.metrics.collector.Fetcher;
 import org.astraea.metrics.collector.Receiver;
@@ -47,20 +48,20 @@ public class StrictCostDispatcher implements Dispatcher {
 
   @Override
   public int partition(String topic, byte[] key, byte[] value, ClusterInfo clusterInfo) {
-    var partitions = clusterInfo.availablePartitions(topic);
+    var partitionLeaders = clusterInfo.availablePartitionLeaders(topic);
     // just return first partition if there is no available partitions
-    if (partitions.isEmpty()) return 0;
+    if (partitionLeaders.isEmpty()) return 0;
 
     // just return the only one available partition
-    if (partitions.size() == 1) return partitions.iterator().next().partition();
+    if (partitionLeaders.size() == 1) return partitionLeaders.iterator().next().partition();
 
     // add new receivers for new brokers
-    partitions.stream()
-        .filter(p -> !receivers.containsKey(p.leader().id()))
+    partitionLeaders.stream()
+        .filter(p -> !receivers.containsKey(p.nodeInfo().id()))
         .forEach(
             p ->
                 receivers.put(
-                    p.leader().id(), receiver(p.leader().host(), jmxPort(p.leader().id()))));
+                    p.nodeInfo().id(), receiver(p.nodeInfo().host(), jmxPort(p.nodeInfo().id()))));
 
     // get latest beans for each node
     var beans =
@@ -70,21 +71,25 @@ public class StrictCostDispatcher implements Dispatcher {
     // get scores from all cost functions
     var scores =
         functions.stream()
-            .map(f -> f.cost(ClusterInfo.of(clusterInfo, beans)))
+            .filter(f -> f instanceof HasBrokerCost)
+            .map(f -> (HasBrokerCost) f)
+            .map(f -> f.brokerCost(ClusterInfo.of(clusterInfo, beans)).value())
             .collect(Collectors.toUnmodifiableList());
 
-    return bestPartition(partitions, scores).map(e -> e.getKey().partition()).orElse(0);
+    return bestPartition(partitionLeaders, scores).map(e -> e.getKey().partition()).orElse(0);
   }
 
   // visible for testing
-  static Optional<Map.Entry<PartitionInfo, Double>> bestPartition(
-      List<PartitionInfo> partitions, List<Map<Integer, Double>> scores) {
+  static Optional<Map.Entry<ReplicaInfo, Double>> bestPartition(
+      List<ReplicaInfo> partitions, List<Map<Integer, Double>> scores) {
     return partitions.stream()
         .map(
             p ->
                 Map.entry(
                     p,
-                    scores.stream().mapToDouble(s -> s.getOrDefault(p.leader().id(), 0.0D)).sum()))
+                    scores.stream()
+                        .mapToDouble(s -> s.getOrDefault(p.nodeInfo().id(), 0.0D))
+                        .sum()))
         .min(Map.Entry.comparingByValue());
   }
 
