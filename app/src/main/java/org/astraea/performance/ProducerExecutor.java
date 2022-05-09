@@ -168,10 +168,6 @@ abstract class ProducerExecutor implements Executor {
     return closed.get();
   }
 
-  void flush() {
-    producer.flush();
-  }
-
   @Override
   public void close() {
     try {
