@@ -17,7 +17,7 @@ abstract class ProducerExecutor implements Executor {
 
   static ProducerExecutor of(
       String topic,
-      int transactionSize,
+      int batchSize,
       Producer<byte[], byte[]> producer,
       BiConsumer<Long, Long> observer,
       Supplier<Integer> partitionSupplier,
@@ -27,7 +27,7 @@ abstract class ProducerExecutor implements Executor {
       @Override
       public State execute() {
         var data =
-            IntStream.range(0, transactionSize)
+            IntStream.range(0, batchSize)
                 .mapToObj(i -> dataSupplier.get())
                 .collect(Collectors.toUnmodifiableList());
 

@@ -22,33 +22,6 @@ import org.junit.jupiter.params.provider.MethodSource;
 
 public class ProducerExecutorTest extends RequireBrokerCluster {
 
-  private static ProducerExecutor ofProducer(
-      String topic,
-      Supplier<Integer> partitionSupplier,
-      BiConsumer<Long, Long> observer,
-      DataSupplier dataSupplier) {
-    return ProducerExecutor.of(
-        topic,
-        Producer.builder().brokers(bootstrapServers()).build(),
-        observer,
-        partitionSupplier,
-        dataSupplier);
-  }
-
-  private static ProducerExecutor ofTransactionalProducer(
-      String topic,
-      Supplier<Integer> partitionSupplier,
-      BiConsumer<Long, Long> observer,
-      DataSupplier dataSupplier) {
-    return ProducerExecutor.of(
-        topic,
-        10,
-        Producer.builder().brokers(bootstrapServers()).buildTransactional(),
-        observer,
-        partitionSupplier,
-        dataSupplier);
-  }
-
   @ParameterizedTest
   @MethodSource("offerProducerExecutors")
   void testSpecifiedPartition(ProducerExecutor executor) throws InterruptedException {
@@ -147,15 +120,22 @@ public class ProducerExecutorTest extends RequireBrokerCluster {
         Arguments.of(
             Named.of(
                 "normal producer for topic: " + normalTopic,
-                ofProducer(
-                    normalTopic, new MyPartitionSupplier(), new Observer(), new MyDataSupplier()))),
+                ProducerExecutor.of(
+                    normalTopic,
+                    1,
+                    Producer.builder().brokers(bootstrapServers()).build(),
+                    new Observer(),
+                    new MyPartitionSupplier(),
+                    new MyDataSupplier()))),
         Arguments.of(
             Named.of(
                 "transactional producer for topic: " + transactionalTopic,
-                ofTransactionalProducer(
+                ProducerExecutor.of(
                     transactionalTopic,
-                    new MyPartitionSupplier(),
+                    10,
+                    Producer.builder().brokers(bootstrapServers()).buildTransactional(),
                     new Observer(),
+                    new MyPartitionSupplier(),
                     new MyDataSupplier()))));
   }
 }
