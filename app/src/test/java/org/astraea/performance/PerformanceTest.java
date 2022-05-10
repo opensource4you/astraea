@@ -1,18 +1,81 @@
 package org.astraea.performance;
 
 import com.beust.jcommander.ParameterException;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.function.BiConsumer;
+import org.apache.kafka.common.TopicPartition;
 import org.astraea.concurrent.Executor;
+import org.astraea.concurrent.State;
 import org.astraea.consumer.Consumer;
 import org.astraea.consumer.Isolation;
 import org.astraea.producer.Producer;
 import org.astraea.service.RequireBrokerCluster;
+import org.astraea.topic.TopicAdmin;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 public class PerformanceTest extends RequireBrokerCluster {
+
+  @Test
+  void testTransactionalProducer() {
+    var topic = "testTransactionalProducer";
+    String[] arguments1 = {
+      "--bootstrap.servers", bootstrapServers(), "--topic", topic, "--transaction.size", "2"
+    };
+    var latch = new CountDownLatch(1);
+    BiConsumer<Long, Long> observer = (x, y) -> latch.countDown();
+    var argument = org.astraea.argument.Argument.parse(new Performance.Argument(), arguments1);
+    var producerExecutors =
+        Performance.producerExecutors(
+            argument,
+            List.of(observer),
+            () ->
+                DataSupplier.data(
+                    "key".getBytes(StandardCharsets.UTF_8),
+                    "value".getBytes(StandardCharsets.UTF_8)),
+            () -> -1);
+    Assertions.assertEquals(1, producerExecutors.size());
+    Assertions.assertTrue(producerExecutors.get(0).transactional());
+  }
+
+  @Test
+  void testProducerExecutor() throws InterruptedException {
+    var topic = "testProducerExecutor";
+    String[] arguments1 = {
+      "--bootstrap.servers", bootstrapServers(), "--topic", topic, "--compression", "gzip"
+    };
+    var latch = new CountDownLatch(1);
+    BiConsumer<Long, Long> observer = (x, y) -> latch.countDown();
+    var argument = org.astraea.argument.Argument.parse(new Performance.Argument(), arguments1);
+    var producerExecutors =
+        Performance.producerExecutors(
+            argument,
+            List.of(observer),
+            () ->
+                DataSupplier.data(
+                    "key".getBytes(StandardCharsets.UTF_8),
+                    "value".getBytes(StandardCharsets.UTF_8)),
+            () -> -1);
+    Assertions.assertEquals(1, producerExecutors.size());
+    Assertions.assertFalse(producerExecutors.get(0).transactional());
+
+    try (var admin = TopicAdmin.of(bootstrapServers())) {
+      admin.creator().topic(topic).numberOfPartitions(1).create();
+      // wait for topic creation
+      TimeUnit.SECONDS.sleep(2);
+      admin.offsets(Set.of(topic)).values().forEach(o -> Assertions.assertEquals(0, o.latest()));
+
+      Assertions.assertEquals(State.RUNNING, producerExecutors.get(0).execute());
+      latch.await();
+      Assertions.assertEquals(
+          1, admin.offsets(Set.of(topic)).get(new TopicPartition(topic, 0)).latest());
+    }
+  }
 
   @Test
   void testConsumerExecutor() throws InterruptedException, ExecutionException {
@@ -44,6 +107,8 @@ public class PerformanceTest extends RequireBrokerCluster {
   @Test
   void testTransactionSet() {
     var argument = new Performance.Argument();
+    Assertions.assertEquals(Isolation.READ_UNCOMMITTED, argument.isolation());
+    argument.transactionSize = 1;
     Assertions.assertEquals(Isolation.READ_UNCOMMITTED, argument.isolation());
     argument.transactionSize = 3;
     Assertions.assertEquals(Isolation.READ_COMMITTED, argument.isolation());

@@ -5,6 +5,7 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -15,6 +16,7 @@ import java.util.function.BiConsumer;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.clients.producer.internals.DefaultPartitioner;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.errors.WakeupException;
@@ -80,6 +82,41 @@ public class Performance {
         argument.throughput);
   }
 
+  static List<ProducerExecutor> producerExecutors(
+      Performance.Argument argument,
+      List<? extends BiConsumer<Long, Long>> observers,
+      DataSupplier dataSupplier,
+      Supplier<Integer> partitionSupplier) {
+    return IntStream.range(0, argument.producers)
+        .mapToObj(
+            index ->
+                argument.isolation() == Isolation.READ_COMMITTED
+                    ? ProducerExecutor.of(
+                        argument.topic,
+                        argument.transactionSize,
+                        Producer.builder()
+                            .configs(argument.allConfigs())
+                            .brokers(argument.brokers)
+                            .compression(argument.compression)
+                            .partitionClassName(argument.partitioner)
+                            .buildTransactional(),
+                        observers.get(index),
+                        partitionSupplier,
+                        dataSupplier)
+                    : ProducerExecutor.of(
+                        argument.topic,
+                        Producer.builder()
+                            .configs(argument.allConfigs())
+                            .brokers(argument.brokers)
+                            .compression(argument.compression)
+                            .partitionClassName(argument.partitioner)
+                            .build(),
+                        observers.get(index),
+                        partitionSupplier,
+                        dataSupplier))
+        .collect(Collectors.toUnmodifiableList());
+  }
+
   public static Result execute(final Argument param)
       throws InterruptedException, IOException, ExecutionException {
     List<Integer> partitions;
@@ -112,32 +149,7 @@ public class Performance {
         () -> partitions.isEmpty() ? -1 : partitions.get((int) (Math.random() * partitions.size()));
 
     var producerExecutors =
-        IntStream.range(0, param.producers)
-            .mapToObj(
-                index ->
-                    param.transactionSize > 0
-                        ? ProducerExecutor.of(
-                            param.topic,
-                            param.transactionSize,
-                            Producer.builder()
-                                .configs(param.configs)
-                                .compression(param.compression)
-                                .partitionClassName(param.partitioner)
-                                .buildTransactional(),
-                            producerMetrics.get(index),
-                            partitionSupplier,
-                            dataSupplier)
-                        : ProducerExecutor.of(
-                            param.topic,
-                            Producer.builder()
-                                .configs(param.configs)
-                                .compression(param.compression)
-                                .partitionClassName(param.partitioner)
-                                .build(),
-                            producerMetrics.get(index),
-                            partitionSupplier,
-                            dataSupplier))
-            .collect(Collectors.toUnmodifiableList());
+        producerExecutors(param, producerMetrics, dataSupplier, partitionSupplier);
 
     Supplier<Boolean> producerDone =
         () -> producerExecutors.stream().allMatch(ProducerExecutor::closed);
@@ -162,7 +174,7 @@ public class Performance {
                                     .brokers(param.brokers)
                                     .topics(Set.of(param.topic))
                                     .groupId(groupId)
-                                    .configs(param.configs)
+                                    .configs(param.allConfigs())
                                     .isolation(param.isolation())
                                     .consumerRebalanceListener(
                                         ignore -> consumerBalancerLatch.countDown())
@@ -244,6 +256,13 @@ public class Performance {
 
   public static class Argument extends org.astraea.argument.Argument {
 
+    Map<String, String> allConfigs() {
+      var all = new HashMap<>(configs);
+      props().forEach((k, v) -> all.put(k, v.toString()));
+      all.put(ProducerConfig.COMPRESSION_TYPE_CONFIG, compression.nameOfKafka());
+      return all;
+    }
+
     @Parameter(
         names = {"--topic"},
         description = "String: topic name",
@@ -316,7 +335,8 @@ public class Performance {
 
     @Parameter(
         names = {"--transaction.size"},
-        description = "integer: number of records in each transaction",
+        description =
+            "integer: number of records in each transaction. the value larger than 1 means the producer works for transaction",
         validateWith = PositiveLongField.class)
     int transactionSize = 1;
 
