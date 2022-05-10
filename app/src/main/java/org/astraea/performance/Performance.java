@@ -90,30 +90,26 @@ public class Performance {
     return IntStream.range(0, argument.producers)
         .mapToObj(
             index ->
-                argument.isolation() == Isolation.READ_COMMITTED
-                    ? ProducerExecutor.of(
-                        argument.topic,
-                        argument.transactionSize,
-                        Producer.builder()
+                ProducerExecutor.of(
+                    argument.topic,
+                    // Only transactional producer needs to process batch data
+                    argument.isolation() == Isolation.READ_COMMITTED ? argument.transactionSize : 1,
+                    argument.isolation() == Isolation.READ_COMMITTED
+                        ? Producer.builder()
                             .configs(argument.allConfigs())
                             .brokers(argument.brokers)
                             .compression(argument.compression)
                             .partitionClassName(argument.partitioner)
-                            .buildTransactional(),
-                        observers.get(index),
-                        partitionSupplier,
-                        dataSupplier)
-                    : ProducerExecutor.of(
-                        argument.topic,
-                        Producer.builder()
+                            .buildTransactional()
+                        : Producer.builder()
                             .configs(argument.allConfigs())
                             .brokers(argument.brokers)
                             .compression(argument.compression)
                             .partitionClassName(argument.partitioner)
                             .build(),
-                        observers.get(index),
-                        partitionSupplier,
-                        dataSupplier))
+                    observers.get(index),
+                    partitionSupplier,
+                    dataSupplier))
         .collect(Collectors.toUnmodifiableList());
   }
 

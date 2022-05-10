@@ -12,14 +12,13 @@ import org.astraea.concurrent.Executor;
 import org.astraea.concurrent.State;
 import org.astraea.producer.Producer;
 import org.astraea.producer.Sender;
-import org.astraea.producer.TransactionalProducer;
 
 abstract class ProducerExecutor implements Executor {
 
   static ProducerExecutor of(
       String topic,
-      int transactionSize,
-      TransactionalProducer<byte[], byte[]> producer,
+      int batchSize,
+      Producer<byte[], byte[]> producer,
       BiConsumer<Long, Long> observer,
       Supplier<Integer> partitionSupplier,
       DataSupplier dataSupplier) {
@@ -28,7 +27,7 @@ abstract class ProducerExecutor implements Executor {
       @Override
       public State execute() {
         var data =
-            IntStream.range(0, transactionSize)
+            IntStream.range(0, batchSize)
                 .mapToObj(i -> dataSupplier.get())
                 .collect(Collectors.toUnmodifiableList());
 
@@ -64,7 +63,7 @@ abstract class ProducerExecutor implements Executor {
 
       State doSend(List<Sender<byte[], byte[]>> senders) {
         producer
-            .transaction(senders)
+            .send(senders)
             .forEach(
                 future ->
                     future.whenComplete(
@@ -160,7 +159,7 @@ abstract class ProducerExecutor implements Executor {
 
   /** @return true if the producer in this executor is transactional. */
   boolean transactional() {
-    return producer instanceof TransactionalProducer;
+    return producer.transactional();
   }
 
   /** @return true if this executor is closed. otherwise, false */

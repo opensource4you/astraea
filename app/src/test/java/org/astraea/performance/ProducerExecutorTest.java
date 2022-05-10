@@ -22,35 +22,8 @@ import org.junit.jupiter.params.provider.MethodSource;
 
 public class ProducerExecutorTest extends RequireBrokerCluster {
 
-  private static ProducerExecutor ofProducer(
-      String topic,
-      Supplier<Integer> partitionSupplier,
-      BiConsumer<Long, Long> observer,
-      DataSupplier dataSupplier) {
-    return ProducerExecutor.of(
-        topic,
-        Producer.builder().brokers(bootstrapServers()).build(),
-        observer,
-        partitionSupplier,
-        dataSupplier);
-  }
-
-  private static ProducerExecutor ofTransactionalProducer(
-      String topic,
-      Supplier<Integer> partitionSupplier,
-      BiConsumer<Long, Long> observer,
-      DataSupplier dataSupplier) {
-    return ProducerExecutor.of(
-        topic,
-        10,
-        Producer.builder().brokers(bootstrapServers()).buildTransactional(),
-        observer,
-        partitionSupplier,
-        dataSupplier);
-  }
-
   @ParameterizedTest
-  @MethodSource("offsetProducerExecutors")
+  @MethodSource("offerProducerExecutors")
   void testSpecifiedPartition(ProducerExecutor executor) throws InterruptedException {
     var specifiedPartition = 1;
     ((MyPartitionSupplier) executor.partitionSupplier()).partition = specifiedPartition;
@@ -83,21 +56,21 @@ public class ProducerExecutorTest extends RequireBrokerCluster {
   }
 
   @ParameterizedTest
-  @MethodSource("offsetProducerExecutors")
+  @MethodSource("offerProducerExecutors")
   void testDone(ProducerExecutor executor) throws InterruptedException {
     ((MyDataSupplier) executor.dataSupplier()).data = DataSupplier.NO_MORE_DATA;
     Assertions.assertEquals(State.DONE, executor.execute());
   }
 
   @ParameterizedTest
-  @MethodSource("offsetProducerExecutors")
+  @MethodSource("offerProducerExecutors")
   void testClose(ProducerExecutor executor) {
     executor.close();
     Assertions.assertTrue(executor.closed());
   }
 
   @ParameterizedTest
-  @MethodSource("offsetProducerExecutors")
+  @MethodSource("offerProducerExecutors")
   void testObserver(ProducerExecutor executor) throws InterruptedException {
     Assertions.assertEquals(State.RUNNING, executor.execute());
     // wait for async call
@@ -140,22 +113,29 @@ public class ProducerExecutorTest extends RequireBrokerCluster {
     }
   }
 
-  private static Stream<Arguments> offsetProducerExecutors() {
+  private static Stream<Arguments> offerProducerExecutors() {
     var normalTopic = Utils.randomString(10);
     var transactionalTopic = Utils.randomString(10);
     return Stream.of(
         Arguments.of(
             Named.of(
                 "normal producer for topic: " + normalTopic,
-                ofProducer(
-                    normalTopic, new MyPartitionSupplier(), new Observer(), new MyDataSupplier()))),
+                ProducerExecutor.of(
+                    normalTopic,
+                    1,
+                    Producer.builder().brokers(bootstrapServers()).build(),
+                    new Observer(),
+                    new MyPartitionSupplier(),
+                    new MyDataSupplier()))),
         Arguments.of(
             Named.of(
                 "transactional producer for topic: " + transactionalTopic,
-                ofTransactionalProducer(
+                ProducerExecutor.of(
                     transactionalTopic,
-                    new MyPartitionSupplier(),
+                    10,
+                    Producer.builder().brokers(bootstrapServers()).buildTransactional(),
                     new Observer(),
+                    new MyPartitionSupplier(),
                     new MyDataSupplier()))));
   }
 }
