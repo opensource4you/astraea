@@ -81,7 +81,7 @@ public class PartitionScore {
 
   public static void main(String[] args) {
     var argument = org.astraea.argument.Argument.parse(new Argument(), args);
-    var admin = TopicAdmin.of(argument.brokers);
+    var admin = TopicAdmin.of(argument.bootstrapServers());
     var score = execute(argument, admin);
     printScore(score, argument);
   }

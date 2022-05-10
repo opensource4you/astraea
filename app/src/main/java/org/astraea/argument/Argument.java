@@ -7,13 +7,19 @@ import com.beust.jcommander.UnixStyleUsageFormatter;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
-import java.util.stream.Collectors;
 import org.apache.kafka.clients.CommonClientConfigs;
 
 /** This basic argument defines the common property used by all kafka clients. */
 public abstract class Argument {
+
+  static String[] filterEmpty(String[] args) {
+    return Arrays.stream(args).filter(s -> !s.trim().isEmpty()).toArray(String[]::new);
+  }
 
   /**
    * Side effect: parse args into toolArgument
@@ -25,7 +31,8 @@ public abstract class Argument {
     JCommander jc = JCommander.newBuilder().addObject(toolArgument).build();
     jc.setUsageFormatter(new UnixStyleUsageFormatter(jc));
     try {
-      jc.parse(args);
+      // filter the empty string
+      jc.parse(filterEmpty(args));
     } catch (ParameterException pe) {
       var sb = new StringBuilder();
       jc.getUsageFormatter().usage(sb);
@@ -39,38 +46,41 @@ public abstract class Argument {
       description = "String: server to connect to",
       validateWith = NonEmptyStringField.class,
       required = true)
-  public String brokers;
+  String bootstrapServers;
 
   /**
-   * @param propsFile file path containing the properties to be passed to kafka
-   * @return the kafka props consists of bootstrap servers and all props from file (if it is
-   *     existent)
+   * @return all configs from both "--configs" and "--prop.file". Other kafka-related configs are
+   *     added also.
    */
-  Map<String, Object> properties(String propsFile) {
-    var props = new Properties();
-    if (propsFile != null) {
-      try (var input = new FileInputStream(propsFile)) {
+  public Map<String, String> configs() {
+    var all = new HashMap<>(configs);
+    if (propFile != null) {
+      var props = new Properties();
+      try (var input = new FileInputStream(propFile)) {
         props.load(input);
       } catch (IOException e) {
         throw new UncheckedIOException(e);
       }
+      props.forEach((k, v) -> all.put(k.toString(), v.toString()));
     }
-    props.setProperty(CommonClientConfigs.BOOTSTRAP_SERVERS_CONFIG, brokers);
-    return props.entrySet().stream()
-        .collect(Collectors.toMap(e -> e.getKey().toString(), Map.Entry::getValue));
+    all.put(CommonClientConfigs.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
+    return Collections.unmodifiableMap(all);
+  }
+
+  public String bootstrapServers() {
+    return bootstrapServers;
   }
 
   @Parameter(
       names = {"--prop.file"},
       description = "the file path containing the properties to be passed to kafka admin",
       validateWith = NonEmptyStringField.class)
-  public String propFile;
+  String propFile;
 
-  /**
-   * @return the kafka props consists of bootstrap servers and all props from file (if it is
-   *     existent)
-   */
-  public Map<String, Object> props() {
-    return properties(propFile);
-  }
+  @Parameter(
+      names = {"--configs"},
+      description = "Map: set configs by command-line. For example: --configs a=b,c=d",
+      converter = StringMapField.class,
+      validateWith = StringMapField.class)
+  Map<String, String> configs = Map.of();
 }

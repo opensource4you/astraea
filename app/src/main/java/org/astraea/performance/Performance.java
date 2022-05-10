@@ -5,10 +5,8 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
@@ -16,7 +14,6 @@ import java.util.function.BiConsumer;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.clients.producer.internals.DefaultPartitioner;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.errors.WakeupException;
@@ -27,7 +24,6 @@ import org.astraea.argument.NonNegativeShortField;
 import org.astraea.argument.PathField;
 import org.astraea.argument.PositiveLongField;
 import org.astraea.argument.PositiveShortField;
-import org.astraea.argument.StringMapField;
 import org.astraea.concurrent.Executor;
 import org.astraea.concurrent.State;
 import org.astraea.concurrent.ThreadPool;
@@ -96,14 +92,14 @@ public class Performance {
                     argument.isolation() == Isolation.READ_COMMITTED ? argument.transactionSize : 1,
                     argument.isolation() == Isolation.READ_COMMITTED
                         ? Producer.builder()
-                            .configs(argument.allConfigs())
-                            .brokers(argument.brokers)
+                            .configs(argument.configs())
+                            .bootstrapServers(argument.bootstrapServers())
                             .compression(argument.compression)
                             .partitionClassName(argument.partitioner)
                             .buildTransactional()
                         : Producer.builder()
-                            .configs(argument.allConfigs())
-                            .brokers(argument.brokers)
+                            .configs(argument.configs())
+                            .bootstrapServers(argument.bootstrapServers())
                             .compression(argument.compression)
                             .partitionClassName(argument.partitioner)
                             .build(),
@@ -116,7 +112,7 @@ public class Performance {
   public static Result execute(final Argument param)
       throws InterruptedException, IOException, ExecutionException {
     List<Integer> partitions;
-    try (var topicAdmin = TopicAdmin.of(param.props())) {
+    try (var topicAdmin = TopicAdmin.of(param.configs())) {
       topicAdmin
           .creator()
           .numberOfReplicas(param.replicas)
@@ -167,10 +163,10 @@ public class Performance {
                         i ->
                             consumerExecutor(
                                 Consumer.builder()
-                                    .brokers(param.brokers)
+                                    .bootstrapServers(param.bootstrapServers())
                                     .topics(Set.of(param.topic))
                                     .groupId(groupId)
-                                    .configs(param.allConfigs())
+                                    .configs(param.configs())
                                     .isolation(param.isolation())
                                     .consumerRebalanceListener(
                                         ignore -> consumerBalancerLatch.countDown())
@@ -252,13 +248,6 @@ public class Performance {
 
   public static class Argument extends org.astraea.argument.Argument {
 
-    Map<String, String> allConfigs() {
-      var all = new HashMap<>(configs);
-      props().forEach((k, v) -> all.put(k, v.toString()));
-      all.put(ProducerConfig.COMPRESSION_TYPE_CONFIG, compression.nameOfKafka());
-      return all;
-    }
-
     @Parameter(
         names = {"--topic"},
         description = "String: topic name",
@@ -314,13 +303,6 @@ public class Performance {
         description = "String: the full class name of the desired partitioner",
         validateWith = NonEmptyStringField.class)
     String partitioner = DefaultPartitioner.class.getName();
-
-    @Parameter(
-        names = {"--configs"},
-        description = "Map: set the configuration passed to producer/partitioner",
-        converter = StringMapField.class,
-        validateWith = StringMapField.class)
-    Map<String, String> configs = Map.of();
 
     @Parameter(
         names = {"--compression"},

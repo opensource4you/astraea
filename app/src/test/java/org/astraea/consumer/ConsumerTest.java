@@ -16,7 +16,7 @@ import org.junit.jupiter.api.Timeout;
 public class ConsumerTest extends RequireBrokerCluster {
 
   private static void produceData(String topic, int size) {
-    try (var producer = Producer.builder().brokers(bootstrapServers()).build()) {
+    try (var producer = Producer.builder().bootstrapServers(bootstrapServers()).build()) {
       IntStream.range(0, size)
           .forEach(
               i ->
@@ -37,7 +37,7 @@ public class ConsumerTest extends RequireBrokerCluster {
     try (var consumer =
         Consumer.builder()
             .topics(Set.of(topic))
-            .brokers(bootstrapServers())
+            .bootstrapServers(bootstrapServers())
             .fromBeginning()
             .build()) {
 
@@ -51,7 +51,11 @@ public class ConsumerTest extends RequireBrokerCluster {
     var topic = "testFromLatest";
     produceData(topic, 1);
     try (var consumer =
-        Consumer.builder().topics(Set.of(topic)).brokers(bootstrapServers()).fromLatest().build()) {
+        Consumer.builder()
+            .topics(Set.of(topic))
+            .bootstrapServers(bootstrapServers())
+            .fromLatest()
+            .build()) {
 
       Assertions.assertEquals(0, consumer.poll(Duration.ofSeconds(3)).size());
     }
@@ -62,7 +66,11 @@ public class ConsumerTest extends RequireBrokerCluster {
   void testWakeup() throws InterruptedException {
     var topic = "testWakeup";
     try (var consumer =
-        Consumer.builder().topics(Set.of(topic)).brokers(bootstrapServers()).fromLatest().build()) {
+        Consumer.builder()
+            .topics(Set.of(topic))
+            .bootstrapServers(bootstrapServers())
+            .fromLatest()
+            .build()) {
       var service = Executors.newSingleThreadExecutor();
       service.execute(
           () -> {
@@ -92,7 +100,7 @@ public class ConsumerTest extends RequireBrokerCluster {
           try (var consumer =
               Consumer.builder()
                   .topics(Set.of(topic))
-                  .brokers(bootstrapServers())
+                  .bootstrapServers(bootstrapServers())
                   .fromBeginning()
                   .groupId(id)
                   .build()) {

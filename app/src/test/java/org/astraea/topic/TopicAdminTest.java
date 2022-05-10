@@ -141,7 +141,7 @@ public class TopicAdminTest extends RequireBrokerCluster {
     try (var topicAdmin = TopicAdmin.of(bootstrapServers())) {
       topicAdmin.creator().topic(topicName).numberOfPartitions(3).create();
       Consumer.builder()
-          .brokers(bootstrapServers())
+          .bootstrapServers(bootstrapServers())
           .topics(Set.of(topicName))
           .groupId(consumerGroup)
           .build();
@@ -265,7 +265,7 @@ public class TopicAdminTest extends RequireBrokerCluster {
   void testReplicaSize() throws ExecutionException, InterruptedException {
     var topicName = "testReplicaSize";
     try (var topicAdmin = TopicAdmin.of(bootstrapServers());
-        var producer = Producer.builder().brokers(bootstrapServers()).build()) {
+        var producer = Producer.builder().bootstrapServers(bootstrapServers()).build()) {
       producer.sender().topic(topicName).key(new byte[100]).run().toCompletableFuture().get();
       var originSize =
           topicAdmin
@@ -306,7 +306,7 @@ public class TopicAdminTest extends RequireBrokerCluster {
           Producer.builder()
               .keySerializer(Serializer.STRING)
               .valueSerializer(Serializer.STRING)
-              .brokers(bootstrapServers())
+              .bootstrapServers(bootstrapServers())
               .build()) {
         IntStream.range(0, 10)
             .forEach(i -> producer.sender().key(key).value(value).topic(topicName).run());
@@ -328,7 +328,7 @@ public class TopicAdminTest extends RequireBrokerCluster {
               .keyDeserializer(Deserializer.STRING)
               .valueDeserializer(Deserializer.STRING)
               .fromBeginning()
-              .brokers(bootstrapServers())
+              .bootstrapServers(bootstrapServers())
               .topics(Set.of(topicName))
               .build()) {
 

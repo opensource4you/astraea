@@ -85,7 +85,10 @@ public class PerformanceTest extends RequireBrokerCluster {
     param.sizeDistributionType = DistributionType.FIXED;
     try (Executor executor =
         Performance.consumerExecutor(
-            Consumer.builder().topics(Set.of(topicName)).brokers(bootstrapServers()).build(),
+            Consumer.builder()
+                .topics(Set.of(topicName))
+                .bootstrapServers(bootstrapServers())
+                .build(),
             metrics,
             new Manager(param, List.of(), List.of()),
             () -> false)) {
@@ -94,7 +97,7 @@ public class PerformanceTest extends RequireBrokerCluster {
       Assertions.assertEquals(0, metrics.num());
       Assertions.assertEquals(0, metrics.bytes());
 
-      try (var producer = Producer.builder().brokers(bootstrapServers()).build()) {
+      try (var producer = Producer.builder().bootstrapServers(bootstrapServers()).build()) {
         producer.sender().topic(topicName).value(new byte[1024]).run().toCompletableFuture().get();
       }
       executor.execute();
@@ -146,7 +149,7 @@ public class PerformanceTest extends RequireBrokerCluster {
     };
 
     var arg = org.astraea.argument.Argument.parse(new Performance.Argument(), arguments1);
-    Assertions.assertEquals("value", arg.configs.get("key"));
+    Assertions.assertEquals("value", arg.configs().get("key"));
 
     String[] arguments2 = {"--bootstrap.servers", "localhost:9092", "--topic", ""};
     Assertions.assertThrows(
