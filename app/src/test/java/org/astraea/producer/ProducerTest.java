@@ -4,14 +4,24 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+import java.util.stream.Stream;
+import org.astraea.Utils;
 import org.astraea.consumer.Consumer;
 import org.astraea.consumer.Deserializer;
 import org.astraea.consumer.Header;
 import org.astraea.consumer.Isolation;
 import org.astraea.service.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Named;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
+import org.mockito.Mockito;
 
 public class ProducerTest extends RequireBrokerCluster {
 
@@ -23,6 +33,7 @@ public class ProducerTest extends RequireBrokerCluster {
     var header = Header.of("a", "b".getBytes());
     try (var producer =
         Producer.builder().brokers(bootstrapServers()).keySerializer(Serializer.STRING).build()) {
+      Assertions.assertFalse(producer.transactional());
       var metadata =
           producer
               .sender()
@@ -67,6 +78,7 @@ public class ProducerTest extends RequireBrokerCluster {
             .brokers(bootstrapServers())
             .keySerializer(Serializer.STRING)
             .buildTransactional()) {
+      Assertions.assertTrue(producer.transactional());
       var senders = new ArrayList<Sender<String, byte[]>>(3);
       while (senders.size() < 3) {
         senders.add(
@@ -77,7 +89,7 @@ public class ProducerTest extends RequireBrokerCluster {
                 .timestamp(timestamp)
                 .headers(List.of(header)));
       }
-      producer.transaction(senders);
+      producer.send(senders);
     }
 
     try (var consumer =
@@ -91,5 +103,72 @@ public class ProducerTest extends RequireBrokerCluster {
       var records = consumer.poll(Duration.ofSeconds(10));
       Assertions.assertEquals(3, records.size());
     }
+  }
+
+  @SuppressWarnings("unchecked")
+  @Test
+  void testInvalidSender() {
+    try (var producer = Producer.builder().brokers(bootstrapServers()).buildTransactional()) {
+      Assertions.assertThrows(
+          IllegalArgumentException.class,
+          () -> producer.send(List.of((Sender<byte[], byte[]>) Mockito.mock(Sender.class))));
+    }
+  }
+
+  @ParameterizedTest
+  @MethodSource("offerProducers")
+  void testSingleSend(Producer<byte[], byte[]> producer)
+      throws ExecutionException, InterruptedException {
+    var topic = Utils.randomString(10);
+
+    producer.sender().topic(topic).value(new byte[10]).run().toCompletableFuture().get();
+
+    try (var consumer =
+        Consumer.builder()
+            .brokers(bootstrapServers())
+            .fromBeginning()
+            .topics(Set.of(topic))
+            .isolation(
+                producer.transactional() ? Isolation.READ_COMMITTED : Isolation.READ_UNCOMMITTED)
+            .build()) {
+      Assertions.assertEquals(1, consumer.poll(Duration.ofSeconds(10)).size());
+    }
+  }
+
+  @ParameterizedTest
+  @MethodSource("offerProducers")
+  void testMultiplesSend(Producer<byte[], byte[]> producer) throws InterruptedException {
+    var topic = Utils.randomString(10);
+    var count = 10;
+    var latch = new CountDownLatch(count);
+    producer
+        .send(
+            IntStream.range(0, count)
+                .mapToObj(i -> producer.sender().topic(topic).value(new byte[10]))
+                .collect(Collectors.toUnmodifiableList()))
+        .forEach(f -> f.whenComplete((m, e) -> latch.countDown()));
+
+    latch.await();
+
+    try (var consumer =
+        Consumer.builder()
+            .brokers(bootstrapServers())
+            .fromBeginning()
+            .topics(Set.of(topic))
+            .isolation(
+                producer.transactional() ? Isolation.READ_COMMITTED : Isolation.READ_UNCOMMITTED)
+            .build()) {
+      Assertions.assertEquals(count, consumer.poll(count, Duration.ofSeconds(10)).size());
+    }
+  }
+
+  private static Stream<Arguments> offerProducers() {
+    return Stream.of(
+        Arguments.of(
+            Named.of("normal producer", Producer.builder().brokers(bootstrapServers()).build())),
+        Arguments.of(
+            Named.of(
+                "transactional producer",
+                Producer.builder().brokers(bootstrapServers()).buildTransactional())));
   }
 }
