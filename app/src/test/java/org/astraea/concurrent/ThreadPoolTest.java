@@ -63,4 +63,13 @@ public class ThreadPoolTest {
     pool.close();
     Assertions.assertTrue(pool.isClosed());
   }
+
+  @Test
+  void testEmpty() {
+    try (var empty = ThreadPool.builder().build()) {
+      Assertions.assertEquals(ThreadPool.EMPTY, empty);
+      Assertions.assertEquals(0, empty.size());
+      Assertions.assertTrue(empty.isClosed());
+    }
+  }
 }
