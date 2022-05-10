@@ -18,7 +18,10 @@ import org.apache.kafka.clients.CommonClientConfigs;
 public abstract class Argument {
 
   static String[] filterEmpty(String[] args) {
-    return Arrays.stream(args).filter(s -> !s.trim().isEmpty()).toArray(String[]::new);
+    return Arrays.stream(args)
+        .map(String::trim)
+        .filter(trim -> !trim.isEmpty())
+        .toArray(String[]::new);
   }
 
   /**
