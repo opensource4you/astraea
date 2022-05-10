@@ -1,15 +1,7 @@
 package org.astraea.performance;
 
-import java.util.Arrays;
 import java.util.List;
-import java.util.Optional;
-import java.util.Random;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
-import org.astraea.Utils;
-import org.astraea.utils.DataSize;
 import org.astraea.utils.DataUnit;
 
 /**
@@ -19,17 +11,8 @@ import org.astraea.utils.DataUnit;
  */
 public class Manager {
   private final ExeTime exeTime;
-  private final CountDownLatch getAssignment;
-  private final AtomicInteger producerClosed;
-
   private final List<Metrics> producerMetrics, consumerMetrics;
-  private final long start = System.currentTimeMillis();
-  private final AtomicLong payloadNum = new AtomicLong(0);
   private final Supplier<Long> keyDistribution;
-  private final RandomContent randomContent;
-  private long intervalStart = System.currentTimeMillis();
-  private long payloadBytes = 0L;
-  private final DataSize throughput;
 
   /**
    * Used to manage producing/consuming.
@@ -51,49 +34,10 @@ public class Manager {
     if (argument.recordSize.greaterThan(DataUnit.Byte.of(Integer.MAX_VALUE)))
       throw new IllegalArgumentException(
           "Record size should be smaller than or equal to 2147483648 (Integer.MAX_VALUE) bytes");
-    this.getAssignment = new CountDownLatch(argument.consumers);
-    this.producerClosed = new AtomicInteger(argument.producers);
     this.producerMetrics = producerMetrics;
     this.consumerMetrics = consumerMetrics;
     this.exeTime = argument.exeTime;
-    this.throughput = argument.throughput;
     this.keyDistribution = argument.keyDistributionType.create(100000);
-    this.randomContent =
-        new RandomContent(
-            argument.recordSize,
-            argument.sizeDistributionType.create(
-                argument.recordSize.measurement(DataUnit.Byte).intValue()));
-  }
-
-  /**
-   * Generate random byte array in random/fixed length. Warning: This method will block when the
-   * throughput (content generating rate) is higher than the given number (argument.throughput).
-   *
-   * @return random byte array. When no payload should be generated, Optional.empty() is generated.
-   *     Whether the payload should be generated is determined in construct time. "Number of
-   *     records" and "execution time" are considered.
-   */
-  public Optional<byte[]> payload() {
-    if (exeTime.percentage(payloadNum.getAndIncrement(), System.currentTimeMillis() - start)
-        >= 100D) return Optional.empty();
-
-    var payload = randomContent.getContent();
-
-    Utils.waitFor(() -> checkAndAdd(payload.length));
-    return Optional.of(payload);
-  }
-
-  synchronized boolean checkAndAdd(int payloadLength) {
-    if (System.currentTimeMillis() - intervalStart > 1000) {
-      intervalStart = System.currentTimeMillis();
-      payloadBytes = payloadLength;
-      return true;
-    } else if (payloadBytes < throughput.measurement(DataUnit.Byte).longValue()) {
-      payloadBytes += payloadLength;
-      return true;
-    } else {
-      return false;
-    }
   }
 
   public long producedRecords() {
@@ -104,64 +48,17 @@ public class Manager {
     return consumerMetrics.stream().mapToLong(Metrics::num).sum();
   }
 
-  /** Used in "consumerRebalanceListener" callback. To */
-  public void countDownGetAssignment() {
-    this.getAssignment.countDown();
-  }
-
-  /** Called after producer is closed. For informing consumers there will be no new records */
-  public void producerClosed() {
-    this.producerClosed.decrementAndGet();
-  }
-
-  public void awaitPartitionAssignment() throws InterruptedException {
-    getAssignment.await();
-  }
-
   public ExeTime exeTime() {
     return exeTime;
   }
 
-  /** Check if all producer are closed. */
-  public boolean producedDone() {
-    return producerClosed.get() == 0;
-  }
-
   /** Check if we should keep consuming record. */
   public boolean consumedDone() {
-    return producedDone()
-        && (consumerMetrics.size() == 0 || consumedRecords() >= producedRecords());
+    return consumerMetrics.size() == 0 || consumedRecords() >= producedRecords();
   }
 
   /** Randomly choose a key according to the distribution. */
   public byte[] getKey() {
     return (String.valueOf(keyDistribution.get())).getBytes();
-  }
-
-  /** Randomly generate content before {@link #getContent()} is called. */
-  private static class RandomContent {
-    private final Random rand = new Random();
-    private final DataSize dataSize;
-    private final Supplier<Long> distribution;
-    private final byte[] content;
-
-    /**
-     * @param dataSize The size of each random generated content in bytes.
-     * @param distribution Determine whether to fix the size of random generated content or random
-     *     size with specified distribution
-     */
-    public RandomContent(DataSize dataSize, Supplier<Long> distribution) {
-      this.dataSize = dataSize;
-      this.distribution = distribution;
-      content = new byte[dataSize.measurement(DataUnit.Byte).intValue()];
-    }
-
-    public byte[] getContent() {
-      // Randomly change one position of the content;
-      content[rand.nextInt(dataSize.measurement(DataUnit.Byte).intValue())] =
-          (byte) rand.nextInt(256);
-      return Arrays.copyOfRange(
-          content, (int) (distribution.get() % content.length), content.length);
-    }
   }
 }

@@ -1,16 +1,16 @@
 package org.astraea.performance;
 
-import static org.astraea.performance.Performance.partition;
-
 import com.beust.jcommander.ParameterException;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
-import java.util.stream.Collectors;
+import java.util.concurrent.TimeUnit;
+import java.util.function.BiConsumer;
 import org.apache.kafka.common.TopicPartition;
-import org.astraea.Utils;
 import org.astraea.concurrent.Executor;
-import org.astraea.concurrent.ThreadPool;
+import org.astraea.concurrent.State;
 import org.astraea.consumer.Consumer;
 import org.astraea.consumer.Isolation;
 import org.astraea.producer.Producer;
@@ -22,113 +22,58 @@ import org.junit.jupiter.api.Test;
 public class PerformanceTest extends RequireBrokerCluster {
 
   @Test
-  void testSpecifyBrokerProducerExecutor() {
-    var admin = TopicAdmin.of(bootstrapServers());
-    var topicName = "testConsumerExecutor-" + System.currentTimeMillis();
-    admin.creator().topic(topicName).numberOfPartitions(10).create();
-    Utils.waitFor(() -> admin.publicTopicNames().contains(topicName));
-
-    var metrics = new Metrics();
-    var param = new Performance.Argument();
-    param.brokers = bootstrapServers();
-    param.topic = topicName;
-    param.sizeDistributionType = DistributionType.FIXED;
-    param.exeTime = ExeTime.of("100records");
-    param.specifyBroker = List.of(0);
-    param.consumers = 0;
-    param.partitions = 10;
-    try (var executor =
-        Performance.producerExecutor(
-            Producer.builder().brokers(bootstrapServers()).build(),
-            Producer.builder().brokers(bootstrapServers()).buildTransactional(),
-            param,
-            metrics,
-            partition(param, admin),
-            new Manager(param, List.of(), List.of()))) {
-      ThreadPool threadPool = ThreadPool.builder().executor(executor).build();
-      threadPool.waitAll();
-      threadPool.close();
-
-      Utils.waitFor(() -> metrics.num() == 100);
-      var offsets = admin.offsets(Set.of(topicName));
-      var partitions =
-          offsets.entrySet().stream()
-              .filter(entry -> entry.getValue().latest() > 0)
-              .map(entry -> entry.getKey().partition())
-              .collect(Collectors.toList());
-      var partitionsOfBrokers =
-          admin.partitionsOfBrokers(Set.of(topicName), Set.of(0)).stream()
-              .map(TopicPartition::partition)
-              .collect(Collectors.toSet());
-      partitions.forEach(
-          partition -> Assertions.assertTrue(partitionsOfBrokers.contains(partition)));
-    }
-  }
-
-  @Test
-  void testMultipleSpecifyBrokersProducerExecutor() {
-    var admin = TopicAdmin.of(bootstrapServers());
-    var topicName = "testConsumerExecutor-" + System.currentTimeMillis();
-    admin.creator().topic(topicName).numberOfPartitions(10).create();
-    Utils.waitFor(() -> admin.publicTopicNames().contains(topicName));
-
-    var metrics = new Metrics();
-    var param = new Performance.Argument();
-    param.brokers = bootstrapServers();
-    param.topic = topicName;
-    param.sizeDistributionType = DistributionType.FIXED;
-    param.exeTime = ExeTime.of("100records");
-    param.specifyBroker = List.of(0, 1);
-    param.consumers = 0;
-    param.partitions = 10;
-    try (Executor executor =
-        Performance.producerExecutor(
-            Producer.builder().brokers(bootstrapServers()).build(),
-            Producer.builder().brokers(bootstrapServers()).buildTransactional(),
-            param,
-            metrics,
-            partition(param, admin),
-            new Manager(param, List.of(), List.of()))) {
-      ThreadPool threadPool = ThreadPool.builder().executor(executor).build();
-      threadPool.waitAll();
-      threadPool.close();
-
-      Utils.waitFor(() -> metrics.num() == 100);
-      var offsets = admin.offsets(Set.of(topicName));
-      var partitions =
-          offsets.entrySet().stream()
-              .filter(entry -> entry.getValue().latest() > 0)
-              .map(entry -> entry.getKey().partition())
-              .collect(Collectors.toList());
-      var partitionsOfBrokers =
-          admin.partitionsOfBrokers(Set.of(topicName), Set.of(0, 1)).stream()
-              .map(TopicPartition::partition)
-              .collect(Collectors.toSet());
-      partitions.forEach(
-          partition -> Assertions.assertTrue(partitionsOfBrokers.contains(partition)));
-    }
+  void testTransactionalProducer() {
+    var topic = "testTransactionalProducer";
+    String[] arguments1 = {
+      "--bootstrap.servers", bootstrapServers(), "--topic", topic, "--transaction.size", "2"
+    };
+    var latch = new CountDownLatch(1);
+    BiConsumer<Long, Long> observer = (x, y) -> latch.countDown();
+    var argument = org.astraea.argument.Argument.parse(new Performance.Argument(), arguments1);
+    var producerExecutors =
+        Performance.producerExecutors(
+            argument,
+            List.of(observer),
+            () ->
+                DataSupplier.data(
+                    "key".getBytes(StandardCharsets.UTF_8),
+                    "value".getBytes(StandardCharsets.UTF_8)),
+            () -> -1);
+    Assertions.assertEquals(1, producerExecutors.size());
+    Assertions.assertTrue(producerExecutors.get(0).transactional());
   }
 
   @Test
   void testProducerExecutor() throws InterruptedException {
-    var metrics = new Metrics();
-    var param = new Performance.Argument();
-    param.brokers = bootstrapServers();
-    param.topic = "testProducerExecutor-" + System.currentTimeMillis();
-    param.sizeDistributionType = DistributionType.FIXED;
-    param.consumers = 0;
-    try (Executor executor =
-        Performance.producerExecutor(
-            Producer.builder().brokers(bootstrapServers()).build(),
-            Producer.builder().brokers(bootstrapServers()).buildTransactional(),
-            param,
-            metrics,
-            List.of(-1),
-            new Manager(param, List.of(), List.of()))) {
-      executor.execute();
+    var topic = "testProducerExecutor";
+    String[] arguments1 = {
+      "--bootstrap.servers", bootstrapServers(), "--topic", topic, "--compression", "gzip"
+    };
+    var latch = new CountDownLatch(1);
+    BiConsumer<Long, Long> observer = (x, y) -> latch.countDown();
+    var argument = org.astraea.argument.Argument.parse(new Performance.Argument(), arguments1);
+    var producerExecutors =
+        Performance.producerExecutors(
+            argument,
+            List.of(observer),
+            () ->
+                DataSupplier.data(
+                    "key".getBytes(StandardCharsets.UTF_8),
+                    "value".getBytes(StandardCharsets.UTF_8)),
+            () -> -1);
+    Assertions.assertEquals(1, producerExecutors.size());
+    Assertions.assertFalse(producerExecutors.get(0).transactional());
 
-      Utils.waitFor(() -> metrics.num() == 1);
-      Assertions.assertEquals(1024, metrics.bytes());
+    try (var admin = TopicAdmin.of(bootstrapServers())) {
+      admin.creator().topic(topic).numberOfPartitions(1).create();
+      // wait for topic creation
+      TimeUnit.SECONDS.sleep(2);
+      admin.offsets(Set.of(topic)).values().forEach(o -> Assertions.assertEquals(0, o.latest()));
+
+      Assertions.assertEquals(State.RUNNING, producerExecutors.get(0).execute());
+      latch.await();
+      Assertions.assertEquals(
+          1, admin.offsets(Set.of(topic)).get(new TopicPartition(topic, 0)).latest());
     }
   }
 
@@ -142,7 +87,8 @@ public class PerformanceTest extends RequireBrokerCluster {
         Performance.consumerExecutor(
             Consumer.builder().topics(Set.of(topicName)).brokers(bootstrapServers()).build(),
             metrics,
-            new Manager(param, List.of(), List.of()))) {
+            new Manager(param, List.of(), List.of()),
+            () -> false)) {
       executor.execute();
 
       Assertions.assertEquals(0, metrics.num());
@@ -161,6 +107,8 @@ public class PerformanceTest extends RequireBrokerCluster {
   @Test
   void testTransactionSet() {
     var argument = new Performance.Argument();
+    Assertions.assertEquals(Isolation.READ_UNCOMMITTED, argument.isolation());
+    argument.transactionSize = 1;
     Assertions.assertEquals(Isolation.READ_UNCOMMITTED, argument.isolation());
     argument.transactionSize = 3;
     Assertions.assertEquals(Isolation.READ_COMMITTED, argument.isolation());

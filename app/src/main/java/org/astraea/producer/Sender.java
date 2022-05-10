@@ -14,7 +14,7 @@ public interface Sender<Key, Value> {
   /**
    * define the data route if you don't want to partitioner to decide the target.
    *
-   * @param partition target partition
+   * @param partition target partition. negative value is ignored
    * @return this sender
    */
   Sender<Key, Value> partition(int partition);
