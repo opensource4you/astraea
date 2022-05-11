@@ -2,7 +2,6 @@ package org.astraea.topic;
 
 import static org.junit.jupiter.api.condition.OS.WINDOWS;
 
-import java.io.IOException;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -12,6 +11,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import org.apache.kafka.common.TopicPartition;
 import org.astraea.Utils;
+import org.astraea.argument.Argument;
 import org.astraea.service.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -21,19 +21,19 @@ public class ReplicaCollieTest extends RequireBrokerCluster {
 
   @Test
   @DisabledOnOs(WINDOWS)
-  void testVerify() throws IOException, InterruptedException {
+  void testVerify() throws InterruptedException {
     test(true);
   }
 
   @Test
   @DisabledOnOs(WINDOWS)
-  void testExecute() throws IOException, InterruptedException {
+  void testExecute() throws InterruptedException {
     test(false);
   }
 
   @Test
   @DisabledOnOs(WINDOWS)
-  void testBrokerMigrator() throws IOException, InterruptedException {
+  void testBrokerMigrator() throws InterruptedException {
     var topicName = "ReplicaCollieTest-Broker";
     try (var topicAdmin = TopicAdmin.of(bootstrapServers())) {
       topicAdmin
@@ -75,7 +75,7 @@ public class ReplicaCollieTest extends RequireBrokerCluster {
 
   @Test
   @DisabledOnOs(WINDOWS)
-  void testPathMigrator() throws IOException, InterruptedException {
+  void testPathMigrator() throws InterruptedException {
     var topicName = "ReplicaCollieTest-Path";
     try (var topicAdmin = TopicAdmin.of(bootstrapServers())) {
       topicAdmin
@@ -118,7 +118,7 @@ public class ReplicaCollieTest extends RequireBrokerCluster {
     }
   }
 
-  private void test(boolean verify) throws IOException, InterruptedException {
+  private void test(boolean verify) throws InterruptedException {
     var topicName = "ReplicaCollieTest-" + verify;
     try (var topicAdmin = TopicAdmin.of(bootstrapServers())) {
       topicAdmin
@@ -141,13 +141,25 @@ public class ReplicaCollieTest extends RequireBrokerCluster {
           topicAdmin.brokerIds().stream()
               .filter(b -> !badBroker.contains(b))
               .collect(Collectors.toList());
-      var argument = new ReplicaCollie.Argument();
-      argument.fromBrokers = badBroker;
-      argument.toBrokers = targetBroker.subList(0, 1);
-      argument.brokers = bootstrapServers();
-      argument.topics = Set.of(topicName);
-      argument.partitions = Set.of(0);
-      argument.verify = verify;
+
+      var argument =
+          Argument.parse(
+              new ReplicaCollie.Argument(),
+              new String[] {
+                "--from",
+                badBroker.stream().map(String::valueOf).collect(Collectors.joining(",")),
+                "--to",
+                targetBroker.subList(0, 1).stream()
+                    .map(String::valueOf)
+                    .collect(Collectors.joining(",")),
+                "--bootstrap.servers",
+                bootstrapServers(),
+                "--topics",
+                topicName,
+                "--partitions",
+                "0",
+                verify ? "--verify" : ""
+              });
       var result = ReplicaCollie.execute(topicAdmin, argument);
       var assignment = result.get(new TopicPartition(topicName, 0));
       Assertions.assertEquals(badBroker, assignment.brokerSource);

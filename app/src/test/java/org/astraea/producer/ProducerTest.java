@@ -32,7 +32,10 @@ public class ProducerTest extends RequireBrokerCluster {
     var timestamp = System.currentTimeMillis() + 10;
     var header = Header.of("a", "b".getBytes());
     try (var producer =
-        Producer.builder().brokers(bootstrapServers()).keySerializer(Serializer.STRING).build()) {
+        Producer.builder()
+            .bootstrapServers(bootstrapServers())
+            .keySerializer(Serializer.STRING)
+            .build()) {
       Assertions.assertFalse(producer.transactional());
       var metadata =
           producer
@@ -50,7 +53,7 @@ public class ProducerTest extends RequireBrokerCluster {
 
     try (var consumer =
         Consumer.builder()
-            .brokers(bootstrapServers())
+            .bootstrapServers(bootstrapServers())
             .fromBeginning()
             .topics(Set.of(topicName))
             .keyDeserializer(Deserializer.STRING)
@@ -75,7 +78,7 @@ public class ProducerTest extends RequireBrokerCluster {
     var header = Header.of("a", "b".getBytes());
     try (var producer =
         Producer.builder()
-            .brokers(bootstrapServers())
+            .bootstrapServers(bootstrapServers())
             .keySerializer(Serializer.STRING)
             .buildTransactional()) {
       Assertions.assertTrue(producer.transactional());
@@ -94,7 +97,7 @@ public class ProducerTest extends RequireBrokerCluster {
 
     try (var consumer =
         Consumer.builder()
-            .brokers(bootstrapServers())
+            .bootstrapServers(bootstrapServers())
             .fromBeginning()
             .topics(Set.of(topicName))
             .keyDeserializer(Deserializer.STRING)
@@ -108,7 +111,8 @@ public class ProducerTest extends RequireBrokerCluster {
   @SuppressWarnings("unchecked")
   @Test
   void testInvalidSender() {
-    try (var producer = Producer.builder().brokers(bootstrapServers()).buildTransactional()) {
+    try (var producer =
+        Producer.builder().bootstrapServers(bootstrapServers()).buildTransactional()) {
       Assertions.assertThrows(
           IllegalArgumentException.class,
           () -> producer.send(List.of((Sender<byte[], byte[]>) Mockito.mock(Sender.class))));
@@ -125,7 +129,7 @@ public class ProducerTest extends RequireBrokerCluster {
 
     try (var consumer =
         Consumer.builder()
-            .brokers(bootstrapServers())
+            .bootstrapServers(bootstrapServers())
             .fromBeginning()
             .topics(Set.of(topic))
             .isolation(
@@ -152,7 +156,7 @@ public class ProducerTest extends RequireBrokerCluster {
 
     try (var consumer =
         Consumer.builder()
-            .brokers(bootstrapServers())
+            .bootstrapServers(bootstrapServers())
             .fromBeginning()
             .topics(Set.of(topic))
             .isolation(
@@ -165,10 +169,12 @@ public class ProducerTest extends RequireBrokerCluster {
   private static Stream<Arguments> offerProducers() {
     return Stream.of(
         Arguments.of(
-            Named.of("normal producer", Producer.builder().brokers(bootstrapServers()).build())),
+            Named.of(
+                "normal producer",
+                Producer.builder().bootstrapServers(bootstrapServers()).build())),
         Arguments.of(
             Named.of(
                 "transactional producer",
-                Producer.builder().brokers(bootstrapServers()).buildTransactional())));
+                Producer.builder().bootstrapServers(bootstrapServers()).buildTransactional())));
   }
 }

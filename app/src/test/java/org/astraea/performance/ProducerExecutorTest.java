@@ -123,7 +123,7 @@ public class ProducerExecutorTest extends RequireBrokerCluster {
                 ProducerExecutor.of(
                     normalTopic,
                     1,
-                    Producer.builder().brokers(bootstrapServers()).build(),
+                    Producer.builder().bootstrapServers(bootstrapServers()).build(),
                     new Observer(),
                     new MyPartitionSupplier(),
                     new MyDataSupplier()))),
@@ -133,7 +133,7 @@ public class ProducerExecutorTest extends RequireBrokerCluster {
                 ProducerExecutor.of(
                     transactionalTopic,
                     10,
-                    Producer.builder().brokers(bootstrapServers()).buildTransactional(),
+                    Producer.builder().bootstrapServers(bootstrapServers()).buildTransactional(),
                     new Observer(),
                     new MyPartitionSupplier(),
                     new MyDataSupplier()))));

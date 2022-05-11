@@ -113,7 +113,7 @@ public class TopicExplorer {
 
   public static void main(String[] args) throws IOException {
     var argument = org.astraea.argument.Argument.parse(new Argument(), args);
-    try (var admin = TopicAdmin.of(argument.props())) {
+    try (var admin = TopicAdmin.of(argument.bootstrapServers())) {
       var result = execute(admin, argument.topics.isEmpty() ? admin.topicNames() : argument.topics);
       TreeOutput.print(result, System.out);
     }

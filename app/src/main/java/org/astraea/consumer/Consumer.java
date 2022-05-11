@@ -36,8 +36,8 @@ public interface Consumer<Key, Value> extends AutoCloseable {
     return new Builder<>();
   }
 
-  static Consumer<byte[], byte[]> of(String brokers) {
-    return builder().brokers(brokers).build();
+  static Consumer<byte[], byte[]> of(String bootstrapServers) {
+    return builder().bootstrapServers(bootstrapServers).build();
   }
 
   static Consumer<byte[], byte[]> of(Map<String, String> configs) {

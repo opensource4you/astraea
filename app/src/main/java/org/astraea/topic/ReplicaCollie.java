@@ -298,7 +298,7 @@ public class ReplicaCollie {
   public static void main(String[] args) throws IOException {
     var argument = org.astraea.argument.Argument.parse(new Argument(), args);
 
-    try (var admin = TopicAdmin.of(argument.props())) {
+    try (var admin = TopicAdmin.of(argument.bootstrapServers())) {
       execute(admin, argument)
           .forEach(
               (tp, assignments) ->
@@ -353,8 +353,7 @@ public class ReplicaCollie {
 
     @Parameter(
         names = {"--verify"},
-        description =
-            "True if you just want to see the new assignment instead of executing the plan",
+        description = "add this flag if all you want to do is to review the plan",
         validateWith = BooleanField.class,
         converter = BooleanField.class)
     boolean verify = false;

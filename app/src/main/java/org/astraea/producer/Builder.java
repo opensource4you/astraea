@@ -47,8 +47,9 @@ public class Builder<Key, Value> {
     return this;
   }
 
-  public Builder<Key, Value> brokers(String brokers) {
-    return config(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, Objects.requireNonNull(brokers));
+  public Builder<Key, Value> bootstrapServers(String bootstrapServers) {
+    return config(
+        ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, Objects.requireNonNull(bootstrapServers));
   }
 
   public Builder<Key, Value> partitionClassName(String partitionClassName) {

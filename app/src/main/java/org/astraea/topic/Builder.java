@@ -42,12 +42,13 @@ public class Builder {
 
   Builder() {}
 
-  public Builder brokers(String brokers) {
-    this.configs.put(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, Objects.requireNonNull(brokers));
+  public Builder bootstrapServers(String bootstrapServers) {
+    this.configs.put(
+        AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, Objects.requireNonNull(bootstrapServers));
     return this;
   }
 
-  public Builder configs(Map<String, Object> configs) {
+  public Builder configs(Map<String, String> configs) {
     this.configs.putAll(configs);
     return this;
   }

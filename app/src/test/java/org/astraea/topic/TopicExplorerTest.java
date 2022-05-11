@@ -58,7 +58,7 @@ public class TopicExplorerTest extends RequireBrokerCluster {
                     () -> {
                       var consumer =
                           Consumer.builder()
-                              .brokers(bootstrapServers())
+                              .bootstrapServers(bootstrapServers())
                               .topics(topics)
                               .groupId(groupName)
                               .configs(
