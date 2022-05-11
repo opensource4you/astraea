@@ -13,11 +13,11 @@ public interface TopicAdmin extends Closeable {
     return new Builder();
   }
 
-  static TopicAdmin of(String brokers) {
-    return builder().brokers(brokers).build();
+  static TopicAdmin of(String bootstrapServers) {
+    return builder().bootstrapServers(bootstrapServers).build();
   }
 
-  static TopicAdmin of(Map<String, Object> configs) {
+  static TopicAdmin of(Map<String, String> configs) {
     return builder().configs(configs).build();
   }
 

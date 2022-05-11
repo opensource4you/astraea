@@ -17,7 +17,6 @@ import org.astraea.cost.ReplicaInfo;
 import org.astraea.metrics.collector.BeanCollector;
 import org.astraea.metrics.collector.Fetcher;
 import org.astraea.metrics.collector.Receiver;
-import org.astraea.partitioner.nodeLoadMetric.PartitionerUtils;
 
 /**
  * this dispatcher scores the nodes by multiples cost functions. Each function evaluate the target

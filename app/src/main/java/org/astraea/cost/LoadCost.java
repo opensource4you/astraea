@@ -10,7 +10,7 @@ import org.astraea.metrics.HasBeanObject;
 import org.astraea.metrics.collector.Fetcher;
 import org.astraea.metrics.kafka.BrokerTopicMetricsResult;
 import org.astraea.metrics.kafka.KafkaMetrics;
-import org.astraea.partitioner.nodeLoadMetric.PartitionerUtils;
+import org.astraea.partitioner.PartitionerUtils;
 
 public class LoadCost implements HasBrokerCost {
   private final Map<Integer, BrokerMetric> brokersMetric = new HashMap<>();

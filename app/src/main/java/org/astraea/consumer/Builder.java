@@ -73,8 +73,9 @@ public class Builder<Key, Value> {
     return this;
   }
 
-  public Builder<Key, Value> brokers(String brokers) {
-    return config(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, Objects.requireNonNull(brokers));
+  public Builder<Key, Value> bootstrapServers(String bootstrapServers) {
+    return config(
+        ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, Objects.requireNonNull(bootstrapServers));
   }
 
   public Builder<Key, Value> consumerRebalanceListener(ConsumerRebalanceListener listener) {

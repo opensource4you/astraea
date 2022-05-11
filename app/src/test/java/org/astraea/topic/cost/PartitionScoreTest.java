@@ -48,7 +48,10 @@ public class PartitionScoreTest extends RequireBrokerCluster {
       e.printStackTrace();
     }
     var producer =
-        Producer.builder().brokers(bootstrapServers()).keySerializer(Serializer.STRING).build();
+        Producer.builder()
+            .bootstrapServers(bootstrapServers())
+            .keySerializer(Serializer.STRING)
+            .build();
     int size = 10000;
     for (int t = 0; t <= 1; t++) {
       for (int p = 0; p <= 3; p++) {

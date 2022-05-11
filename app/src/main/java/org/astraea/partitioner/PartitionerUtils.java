@@ -1,4 +1,4 @@
-package org.astraea.partitioner.nodeLoadMetric;
+package org.astraea.partitioner;
 
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -6,7 +6,6 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
 import java.util.stream.Collectors;
-import org.astraea.partitioner.Configuration;
 
 /** do poisson for node's load situation */
 public class PartitionerUtils {

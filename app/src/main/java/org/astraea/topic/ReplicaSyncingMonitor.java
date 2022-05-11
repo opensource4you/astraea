@@ -28,7 +28,7 @@ public class ReplicaSyncingMonitor {
 
   public static void main(String[] args) {
     Argument argument = org.astraea.argument.Argument.parse(new Argument(), args);
-    try (TopicAdmin topicAdmin = TopicAdmin.of(argument.props())) {
+    try (TopicAdmin topicAdmin = TopicAdmin.of(argument.bootstrapServers())) {
       execute(topicAdmin, argument);
     }
   }

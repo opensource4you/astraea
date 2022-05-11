@@ -3,6 +3,7 @@ package org.astraea.producer;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
+import org.apache.kafka.clients.producer.ProducerRecord;
 import org.astraea.consumer.Header;
 
 abstract class AbstractSender<Key, Value> implements Sender<Key, Value> {
@@ -47,5 +48,14 @@ abstract class AbstractSender<Key, Value> implements Sender<Key, Value> {
   public Sender<Key, Value> headers(Collection<Header> headers) {
     this.headers = headers;
     return this;
+  }
+
+  /**
+   * this helper method is used by our producer only.
+   *
+   * @return a kafka producer record
+   */
+  ProducerRecord<Key, Value> record() {
+    return new ProducerRecord<>(topic, partition, timestamp, key, value, Header.of(headers));
   }
 }
