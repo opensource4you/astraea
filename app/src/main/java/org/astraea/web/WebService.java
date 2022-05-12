@@ -4,7 +4,7 @@ import com.beust.jcommander.Parameter;
 import com.sun.net.httpserver.HttpServer;
 import java.io.IOException;
 import java.net.InetSocketAddress;
-import org.astraea.argument.NonNegativeShortField;
+import org.astraea.argument.NonNegativeIntegerField;
 import org.astraea.topic.TopicAdmin;
 
 public class WebService {
@@ -20,12 +20,12 @@ public class WebService {
     server.start();
   }
 
-  public static class Argument extends org.astraea.argument.Argument {
+  static class Argument extends org.astraea.argument.Argument {
     @Parameter(
         names = {"--port"},
         description = "Integer: the port to bind",
-        validateWith = NonNegativeShortField.class,
-        converter = NonNegativeShortField.class)
+        validateWith = NonNegativeIntegerField.class,
+        converter = NonNegativeIntegerField.class)
     int port = 8001;
   }
 }
