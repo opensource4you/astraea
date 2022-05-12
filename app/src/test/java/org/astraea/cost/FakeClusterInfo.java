@@ -13,6 +13,11 @@ public class FakeClusterInfo implements ClusterInfo {
   }
 
   @Override
+  public List<String> dataDirectories(int brokerId) {
+    return List.of();
+  }
+
+  @Override
   public List<ReplicaInfo> availablePartitionLeaders(String topic) {
     return List.of();
   }

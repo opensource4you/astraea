@@ -20,6 +20,12 @@ public interface ClusterInfo {
         return cluster.nodes().stream().map(NodeInfo::of).collect(Collectors.toUnmodifiableList());
       }
 
+      @Override
+      public List<String> dataDirectories(int brokerId) {
+        // org.apache.kafka.common.Cluster doesn't have such information.
+        throw new UnsupportedOperationException("This information is not available");
+      }
+
       public Set<String> topics() {
         return cluster.topics();
       }
@@ -80,6 +86,11 @@ public interface ClusterInfo {
       @Override
       public List<NodeInfo> nodes() {
         return cluster.nodes();
+      }
+
+      @Override
+      public List<String> dataDirectories(int brokerId) {
+        return cluster.dataDirectories(brokerId);
       }
 
       @Override
@@ -146,6 +157,9 @@ public interface ClusterInfo {
 
   /** @return The known set of nodes */
   List<NodeInfo> nodes();
+
+  /** @return return the data directories on specific broker */
+  List<String> dataDirectories(int brokerId);
 
   /**
    * Get the list of replica leader information of each available partition for the given topic
