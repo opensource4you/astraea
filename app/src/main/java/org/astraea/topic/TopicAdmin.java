@@ -44,6 +44,11 @@ public interface TopicAdmin extends Closeable {
    */
   Map<TopicPartition, Offset> offsets(Set<String> topics);
 
+  /** @return all consumer groups */
+  default Map<String, ConsumerGroup> consumerGroup() {
+    return consumerGroup(Set.of());
+  }
+
   /**
    * @param consumerGroupNames consumer group names. if empty set given, every consume group will
    *     return.

@@ -12,6 +12,7 @@ import org.astraea.topic.ReplicaCollie;
 import org.astraea.topic.ReplicaSyncingMonitor;
 import org.astraea.topic.TopicExplorer;
 import org.astraea.topic.cost.PartitionScore;
+import org.astraea.web.WebService;
 
 public class App {
   private static final Map<String, Class<?>> MAIN_CLASSES =
@@ -22,7 +23,8 @@ public class App {
           "score", PartitionScore.class,
           "performance", Performance.class,
           "monitor", ReplicaSyncingMonitor.class,
-          "automation", Automation.class);
+          "automation", Automation.class,
+          "web", WebService.class);
 
   static void execute(Map<String, Class<?>> mains, List<String> args) throws Throwable {
 
