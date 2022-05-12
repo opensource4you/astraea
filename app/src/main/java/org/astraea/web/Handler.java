@@ -13,12 +13,19 @@ import java.util.stream.Collectors;
 interface Handler extends HttpHandler {
 
   default JsonObject response(HttpExchange exchange) {
+    var start = System.currentTimeMillis();
     try {
       return response(
           parseTarget(exchange.getRequestURI()), parseQueries(exchange.getRequestURI()));
     } catch (Exception e) {
       e.printStackTrace();
       return new ErrorObject(e);
+    } finally {
+      System.out.println(
+          "take "
+              + (System.currentTimeMillis() - start)
+              + "ms to process request from "
+              + exchange.getRequestURI());
     }
   }
 
