@@ -439,3 +439,32 @@ $ ./gradlew run --args="monitor --bootstrap.servers 192.168.103.39:9092"
 3. --prop.file: the path to a file that containing the properties to be passed to kafka admin.
 4. --topic: topics to track (default: track all non-synced partition by default)
 5. --track: keep track even if all the replicas are synced. Also attempts to discover any non-synced replicas. (default: false)
+
+### Web service to inspect details of your Kafka data
+
+1. --bootstrap.servers: the server to connect to
+2. --port: the port used by web server
+
+```shell
+./docker/start_kafka_tool.sh web --bootstrap.servers 192.168.50.178:19993 --port 12345"
+```
+
+## Query all topics 
+```shell
+GET http://localhost:12345/topics
+```
+
+## Query single topic
+```shell
+GET http://localhost:12345/topics/t0
+```
+
+## Query all groups
+```shell
+GET http://localhost:12345/groups
+```
+
+## Query single group
+```shell
+GET http://localhost:12345/groups/g1
+```

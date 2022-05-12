@@ -1,6 +1,5 @@
 #!/bin/bash
 
-
 declare -r DOCKER_FOLDER=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
 source $DOCKER_FOLDER/docker_build_common.sh
 
@@ -10,6 +9,8 @@ declare -r REPO=${REPO:-ghcr.io/skiptests/astraea/kafka-tool}
 declare -r IMAGE_NAME="$REPO:$VERSION"
 declare -r DOCKERFILE=$DOCKER_FOLDER/kafka_tool.dockerfile
 declare -r JMX_PORT=${JMX_PORT:-"$(getRandomPort)"}
+# for web service
+declare -r WEB_PORT=${JMX_PORT:-"$(getRandomPort)"}
 declare -r JMX_OPTS="-Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false \
                      -Dcom.sun.management.jmxremote.port=$JMX_PORT -Dcom.sun.management.jmxremote.rmi.port=$JMX_PORT -Djava.rmi.server.hostname=$ADDRESS"
 declare -r HEAP_OPTS="${HEAP_OPTS:-"-Xmx2G -Xms2G"}"
@@ -68,8 +69,34 @@ WORKDIR /opt/astraea
 function runContainer() {
   local args=$1
   echo "JMX address: $ADDRESS:$JMX_PORT"
+
+  # web service needs to bind a port to expose Restful APIs, so we have to open a port of container
+  need_to_bind_web=""
+  if [[ "$args" == web* ]]; then
+    sentence=($args)
+    defined_port="false"
+    # use random port by default
+    web_port="$WEB_PORT"
+    for word in "${sentence[@]}"; do
+      # user has pre-defined port, so we will replace the random port by this one in next loop
+      if [[ "$word" == "--port" ]]; then
+        defined_port="true"
+      fi
+      # this element must be port
+      if [[ "$defined_port" == "true" ]]; then
+        web_port="$word"
+      fi
+    done
+    # manually add "--port" to make sure web service bind on random port we pass
+    if [[ "$defined_port" == "false" ]]; then
+      args="$args --port $web_port"
+    fi
+    need_to_bind_web="-p $web_port:$web_port"
+  fi
+
   docker run --rm --init \
     -p $JMX_PORT:$JMX_PORT \
+    $need_to_bind_web \
     "$IMAGE_NAME" \
     /bin/bash -c "java $JMX_OPTS $HEAP_OPTS -jar /opt/astraea/app.jar $args"
 }
