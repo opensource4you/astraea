@@ -10,7 +10,7 @@ declare -r IMAGE_NAME="$REPO:$VERSION"
 declare -r DOCKERFILE=$DOCKER_FOLDER/kafka_tool.dockerfile
 declare -r JMX_PORT=${JMX_PORT:-"$(getRandomPort)"}
 # for web service
-declare -r WEB_PORT=${JMX_PORT:-"$(getRandomPort)"}
+declare -r WEB_PORT=${WEB_PORT:-"$(getRandomPort)"}
 declare -r JMX_OPTS="-Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false \
                      -Dcom.sun.management.jmxremote.port=$JMX_PORT -Dcom.sun.management.jmxremote.rmi.port=$JMX_PORT -Djava.rmi.server.hostname=$ADDRESS"
 declare -r HEAP_OPTS="${HEAP_OPTS:-"-Xmx2G -Xms2G"}"
@@ -92,6 +92,7 @@ function runContainer() {
       args="$args --port $web_port"
     fi
     need_to_bind_web="-p $web_port:$web_port"
+    echo "web address: $ADDRESS:$web_port"
   fi
 
   docker run --rm --init \
