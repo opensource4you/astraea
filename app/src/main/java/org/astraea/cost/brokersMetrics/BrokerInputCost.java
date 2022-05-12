@@ -47,12 +47,9 @@ public class BrokerInputCost extends Periodic<Map<Integer, Double>> implements H
                         value.stream()
                             .filter(
                                 hasBeanObject ->
-                                    hasBeanObject
-                                        .beanObject()
-                                        .getProperties()
-                                        .get("name")
+                                    KafkaMetrics.BrokerTopic.BytesInPerSec.metricName()
                                         .equals(
-                                            KafkaMetrics.BrokerTopic.BytesInPerSec.metricName()))
+                                            hasBeanObject.beanObject().getProperties().get("name")))
                             .forEach(
                                 hasBeanObject -> {
                                   var broker = brokersMetric.get(brokerID);

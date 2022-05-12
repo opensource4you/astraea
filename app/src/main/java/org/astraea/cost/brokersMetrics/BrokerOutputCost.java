@@ -47,12 +47,9 @@ public class BrokerOutputCost extends Periodic<Map<Integer, Double>> implements 
                         value.stream()
                             .filter(
                                 hasBeanObject ->
-                                    hasBeanObject
-                                        .beanObject()
-                                        .getProperties()
-                                        .get("name")
+                                    KafkaMetrics.BrokerTopic.BytesOutPerSec.metricName()
                                         .equals(
-                                            KafkaMetrics.BrokerTopic.BytesOutPerSec.metricName()))
+                                            hasBeanObject.beanObject().getProperties().get("name")))
                             .forEach(
                                 hasBeanObject -> {
                                   var broker = brokersMetric.get(brokerID);

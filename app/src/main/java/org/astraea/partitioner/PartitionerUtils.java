@@ -5,6 +5,7 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
+import java.util.stream.Collectors;
 
 /** do poisson for node's load situation */
 public class PartitionerUtils {
@@ -56,5 +57,26 @@ public class PartitionerUtils {
       e.printStackTrace();
     }
     return properties;
+  }
+
+  /**
+   * This method helps extract the config of form "broker.<brokerID>.jmx.port"="<port>" to a map.
+   * For example, the configuration {"broker.1001.jmx.port"="8000", "broker.1002.jmx.port"="8001"}
+   * will be parsed to map {(1001,8000), (1002,8001)}.
+   *
+   * @param config contains the config of broker id and its jmx port.
+   * @return pairs of broker id and its jmx port
+   */
+  public static Map<Integer, Integer> parseIdJMXPort(Configuration config) {
+    return config.entrySet().stream()
+        .filter(e -> e.getKey().startsWith("broker."))
+        .filter(e -> e.getKey().endsWith("jmx.port"))
+        .map(
+            e ->
+                Map.entry(
+                    e.getKey().replaceAll("broker[.]", "").replaceAll("[.]jmx[.]port", ""),
+                    e.getValue()))
+        .map(e -> Map.entry(Integer.parseInt(e.getKey()), Integer.parseInt(e.getValue())))
+        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
   }
 }
