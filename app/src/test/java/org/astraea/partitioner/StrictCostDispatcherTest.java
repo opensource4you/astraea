@@ -160,24 +160,20 @@ public class StrictCostDispatcherTest {
     var config =
         Configuration.of(
             Map.of(
-                "org.astraea.cost.brokersMetrics.BrokerInputCost",
+                "org.astraea.cost.broker.BrokerInputCost",
                 "20",
-                "org.astraea.cost.brokersMetrics.BrokerOutputCost",
+                "org.astraea.cost.broker.BrokerOutputCost",
                 "1.25"));
     var ans = StrictCostDispatcher.parseCostFunctionWeight(config);
     Assertions.assertEquals(2, ans.size());
     for (var entry : ans.entrySet()) {
-      if (entry
-          .getKey()
-          .getClass()
-          .getName()
-          .equals("org.astraea.cost.brokersMetrics.BrokerInputCost")) {
+      if (entry.getKey().getClass().getName().equals("org.astraea.cost.broker.BrokerInputCost")) {
         Assertions.assertEquals(20.0, entry.getValue());
       } else if (entry
           .getKey()
           .getClass()
           .getName()
-          .equals("org.astraea.cost.brokersMetrics.BrokerOutputCost")) {
+          .equals("org.astraea.cost.broker.BrokerOutputCost")) {
         Assertions.assertEquals(1.25, entry.getValue());
       } else {
         Assertions.assertEquals(0.0, entry.getValue());
@@ -188,9 +184,9 @@ public class StrictCostDispatcherTest {
     var config2 =
         Configuration.of(
             Map.of(
-                "org.astraea.cost.brokersMetrics.BrokerInputCost",
+                "org.astraea.cost.broker.BrokerInputCost",
                 "-20",
-                "org.astraea.cost.brokersMetrics.BrokerOutputCost",
+                "org.astraea.cost.broker.BrokerOutputCost",
                 "1.25"));
     Assertions.assertThrows(
         IllegalArgumentException.class,
