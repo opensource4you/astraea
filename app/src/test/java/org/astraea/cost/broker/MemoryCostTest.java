@@ -81,7 +81,7 @@ public class MemoryCostTest {
           }
         };
     scores = memoryCost.brokerCost(clusterInfo2).value();
-    Assertions.assertEquals(0.52, scores.get(1));
+    Assertions.assertEquals(0.53, scores.get(1));
     Assertions.assertEquals(0.52, scores.get(2));
     Assertions.assertEquals(0.45, scores.get(3));
   }
