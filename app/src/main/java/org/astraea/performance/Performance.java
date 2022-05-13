@@ -18,6 +18,8 @@ import org.apache.kafka.clients.producer.internals.DefaultPartitioner;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.errors.WakeupException;
 import org.astraea.Utils;
+import org.astraea.admin.Compression;
+import org.astraea.admin.TopicAdmin;
 import org.astraea.argument.CompressionField;
 import org.astraea.argument.NonEmptyStringField;
 import org.astraea.argument.NonNegativeShortField;
@@ -30,8 +32,6 @@ import org.astraea.concurrent.ThreadPool;
 import org.astraea.consumer.Consumer;
 import org.astraea.consumer.Isolation;
 import org.astraea.producer.Producer;
-import org.astraea.topic.Compression;
-import org.astraea.topic.TopicAdmin;
 import org.astraea.utils.DataSize;
 import org.astraea.utils.DataUnit;
 

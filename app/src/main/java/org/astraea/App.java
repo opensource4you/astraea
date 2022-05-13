@@ -5,13 +5,13 @@ import java.lang.reflect.InvocationTargetException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import org.astraea.admin.ReplicaCollie;
+import org.astraea.admin.ReplicaSyncingMonitor;
+import org.astraea.admin.TopicExplorer;
 import org.astraea.automation.Automation;
+import org.astraea.cost.topic.PartitionScore;
 import org.astraea.metrics.MetricExplorer;
 import org.astraea.performance.Performance;
-import org.astraea.topic.ReplicaCollie;
-import org.astraea.topic.ReplicaSyncingMonitor;
-import org.astraea.topic.TopicExplorer;
-import org.astraea.topic.cost.PartitionScore;
 import org.astraea.web.WebService;
 
 public class App {
