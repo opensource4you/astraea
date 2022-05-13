@@ -8,14 +8,14 @@ import java.util.Optional;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
-import org.astraea.admin.TopicAdmin;
-import org.astraea.admin.TopicConfig;
+import org.astraea.admin.Admin;
+import org.astraea.admin.Config;
 
 class TopicHandler implements Handler {
 
-  private final TopicAdmin admin;
+  private final Admin admin;
 
-  TopicHandler(TopicAdmin admin) {
+  TopicHandler(Admin admin) {
     this.admin = admin;
   }
 
@@ -66,7 +66,7 @@ class TopicHandler implements Handler {
     final List<Partition> partitions;
     final Map<String, String> configs;
 
-    private TopicInfo(String name, List<Partition> partitions, TopicConfig configs) {
+    private TopicInfo(String name, List<Partition> partitions, Config configs) {
       this.name = name;
       this.partitions = partitions;
       this.configs =

@@ -6,13 +6,13 @@ import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
-import org.astraea.admin.TopicAdmin;
+import org.astraea.admin.Admin;
 
 public class GroupHandler implements Handler {
 
-  private final TopicAdmin admin;
+  private final Admin admin;
 
-  GroupHandler(TopicAdmin admin) {
+  GroupHandler(Admin admin) {
     this.admin = admin;
   }
 
@@ -21,7 +21,7 @@ public class GroupHandler implements Handler {
     Predicate<Map.Entry<String, ?>> groupFilter =
         e -> target.stream().allMatch(t -> t.equals(e.getKey()));
     var topics = admin.topicNames();
-    var consumerGroups = admin.consumerGroup();
+    var consumerGroups = admin.consumerGroups();
     var offsets = admin.offsets(topics);
 
     var groups =

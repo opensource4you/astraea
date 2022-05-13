@@ -9,7 +9,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BiConsumer;
 import org.apache.kafka.common.TopicPartition;
-import org.astraea.admin.TopicAdmin;
+import org.astraea.admin.Admin;
 import org.astraea.concurrent.Executor;
 import org.astraea.concurrent.State;
 import org.astraea.consumer.Consumer;
@@ -64,7 +64,7 @@ public class PerformanceTest extends RequireBrokerCluster {
     Assertions.assertEquals(1, producerExecutors.size());
     Assertions.assertFalse(producerExecutors.get(0).transactional());
 
-    try (var admin = TopicAdmin.of(bootstrapServers())) {
+    try (var admin = Admin.of(bootstrapServers())) {
       admin.creator().topic(topic).numberOfPartitions(1).create();
       // wait for topic creation
       TimeUnit.SECONDS.sleep(2);

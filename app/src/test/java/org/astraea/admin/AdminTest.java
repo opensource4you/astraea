@@ -24,12 +24,12 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledOnOs;
 
-public class TopicAdminTest extends RequireBrokerCluster {
+public class AdminTest extends RequireBrokerCluster {
 
   @Test
   void testCreator() {
     var topicName = "testCreator";
-    try (var topicAdmin = TopicAdmin.of(bootstrapServers())) {
+    try (var topicAdmin = Admin.of(bootstrapServers())) {
       topicAdmin
           .creator()
           .topic(topicName)
@@ -55,7 +55,7 @@ public class TopicAdminTest extends RequireBrokerCluster {
   @Test
   void testCreateTopicRepeatedly() {
     var topicName = "testCreateTopicRepeatedly";
-    try (var topicAdmin = TopicAdmin.of(bootstrapServers())) {
+    try (var topicAdmin = Admin.of(bootstrapServers())) {
       Runnable createTopic =
           () ->
               topicAdmin
@@ -95,7 +95,7 @@ public class TopicAdminTest extends RequireBrokerCluster {
   @Test
   void testPartitions() throws InterruptedException {
     var topicName = "testPartitions";
-    try (var topicAdmin = TopicAdmin.of(bootstrapServers())) {
+    try (var topicAdmin = Admin.of(bootstrapServers())) {
       topicAdmin.creator().topic(topicName).numberOfPartitions(3).create();
       // wait for syncing topic creation
       TimeUnit.SECONDS.sleep(5);
@@ -118,7 +118,7 @@ public class TopicAdminTest extends RequireBrokerCluster {
   @Test
   void testOffsets() throws InterruptedException {
     var topicName = "testOffsets";
-    try (var topicAdmin = TopicAdmin.of(bootstrapServers())) {
+    try (var topicAdmin = Admin.of(bootstrapServers())) {
       topicAdmin.creator().topic(topicName).numberOfPartitions(3).create();
       // wait for syncing topic creation
       TimeUnit.SECONDS.sleep(5);
@@ -138,7 +138,7 @@ public class TopicAdminTest extends RequireBrokerCluster {
   void testConsumerGroups() throws InterruptedException {
     var topicName = "testConsumerGroups-Topic";
     var consumerGroup = "testConsumerGroups-Group";
-    try (var topicAdmin = TopicAdmin.of(bootstrapServers())) {
+    try (var topicAdmin = Admin.of(bootstrapServers())) {
       topicAdmin.creator().topic(topicName).numberOfPartitions(3).create();
       Consumer.builder()
           .bootstrapServers(bootstrapServers())
@@ -147,7 +147,7 @@ public class TopicAdminTest extends RequireBrokerCluster {
           .build();
       // wait for syncing topic creation
       TimeUnit.SECONDS.sleep(5);
-      var consumerGroupMap = topicAdmin.consumerGroup(Set.of(consumerGroup));
+      var consumerGroupMap = topicAdmin.consumerGroups(Set.of(consumerGroup));
       Assertions.assertEquals(1, consumerGroupMap.size());
       Assertions.assertTrue(consumerGroupMap.containsKey(consumerGroup));
       Assertions.assertEquals(consumerGroup, consumerGroupMap.get(consumerGroup).groupId());
@@ -160,7 +160,7 @@ public class TopicAdminTest extends RequireBrokerCluster {
   @DisabledOnOs(WINDOWS)
   void testMigrateSinglePartition() throws InterruptedException {
     var topicName = "testMigrateSinglePartition";
-    try (var topicAdmin = TopicAdmin.of(bootstrapServers())) {
+    try (var topicAdmin = Admin.of(bootstrapServers())) {
       topicAdmin.creator().topic(topicName).numberOfPartitions(1).create();
       // wait for syncing topic creation
       TimeUnit.SECONDS.sleep(5);
@@ -213,7 +213,7 @@ public class TopicAdminTest extends RequireBrokerCluster {
   void testChangeReplicaLeader() throws InterruptedException {
     var topicName = "testChangeReplicaLeader";
     var tp = new TopicPartition(topicName, 0);
-    try (var topicAdmin = TopicAdmin.of(bootstrapServers())) {
+    try (var topicAdmin = Admin.of(bootstrapServers())) {
       topicAdmin
           .creator()
           .topic(topicName)
@@ -244,7 +244,7 @@ public class TopicAdminTest extends RequireBrokerCluster {
   @DisabledOnOs(WINDOWS)
   void testMigrateAllPartitions() throws InterruptedException {
     var topicName = "testMigrateAllPartitions";
-    try (var topicAdmin = TopicAdmin.of(bootstrapServers())) {
+    try (var topicAdmin = Admin.of(bootstrapServers())) {
       topicAdmin.creator().topic(topicName).numberOfPartitions(3).create();
       // wait for syncing topic creation
       TimeUnit.SECONDS.sleep(5);
@@ -264,7 +264,7 @@ public class TopicAdminTest extends RequireBrokerCluster {
   @Test
   void testReplicaSize() throws ExecutionException, InterruptedException {
     var topicName = "testReplicaSize";
-    try (var topicAdmin = TopicAdmin.of(bootstrapServers());
+    try (var topicAdmin = Admin.of(bootstrapServers());
         var producer = Producer.builder().bootstrapServers(bootstrapServers()).build()) {
       producer.sender().topic(topicName).key(new byte[100]).run().toCompletableFuture().get();
       var originSize =
@@ -296,7 +296,7 @@ public class TopicAdminTest extends RequireBrokerCluster {
   @Test
   void testCompact() throws InterruptedException {
     var topicName = "testCompacted";
-    try (var topicAdmin = TopicAdmin.of(bootstrapServers())) {
+    try (var topicAdmin = Admin.of(bootstrapServers())) {
       topicAdmin.creator().topic(topicName).compactionMaxLag(Duration.ofSeconds(1)).create();
 
       var key = "key";
@@ -345,6 +345,15 @@ public class TopicAdminTest extends RequireBrokerCluster {
         Assertions.assertEquals(
             10, records.stream().filter(record -> record.key().equals(anotherKey)).count());
       }
+    }
+  }
+
+  @Test
+  void testBrokerConfigs() {
+    try (var admin = Admin.of(bootstrapServers())) {
+      var brokerConfigs = admin.brokers();
+      Assertions.assertEquals(3, brokerConfigs.size());
+      brokerConfigs.values().forEach(c -> Assertions.assertNotEquals(0, c.keys().size()));
     }
   }
 }

@@ -18,8 +18,8 @@ import org.apache.kafka.clients.producer.internals.DefaultPartitioner;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.errors.WakeupException;
 import org.astraea.Utils;
+import org.astraea.admin.Admin;
 import org.astraea.admin.Compression;
-import org.astraea.admin.TopicAdmin;
 import org.astraea.argument.CompressionField;
 import org.astraea.argument.NonEmptyStringField;
 import org.astraea.argument.NonNegativeShortField;
@@ -112,7 +112,7 @@ public class Performance {
   public static Result execute(final Argument param)
       throws InterruptedException, IOException, ExecutionException {
     List<Integer> partitions;
-    try (var topicAdmin = TopicAdmin.of(param.configs())) {
+    try (var topicAdmin = Admin.of(param.configs())) {
       topicAdmin
           .creator()
           .numberOfReplicas(param.replicas)
@@ -232,7 +232,7 @@ public class Performance {
   }
 
   // visible for test
-  static List<Integer> partition(Argument param, TopicAdmin topicAdmin) {
+  static List<Integer> partition(Argument param, Admin topicAdmin) {
     if (positiveSpecifyBroker(param)) {
       return topicAdmin
           .partitionsOfBrokers(Set.of(param.topic), new HashSet<>(param.specifyBroker))

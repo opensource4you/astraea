@@ -61,7 +61,7 @@ public class TopicExplorer {
     }
   }
 
-  static Result execute(TopicAdmin admin, Set<String> topics) {
+  static Result execute(Admin admin, Set<String> topics) {
     var replicas = admin.replicas(topics);
 
     var invalidTopics =
@@ -79,7 +79,7 @@ public class TopicExplorer {
     }
 
     var offsets = admin.offsets(topics);
-    var consumerGroups = admin.consumerGroup(Set.of());
+    var consumerGroups = admin.consumerGroups(Set.of());
     var time = LocalDateTime.now();
 
     // Given topic name, return the partition count
@@ -113,7 +113,7 @@ public class TopicExplorer {
 
   public static void main(String[] args) throws IOException {
     var argument = org.astraea.argument.Argument.parse(new Argument(), args);
-    try (var admin = TopicAdmin.of(argument.bootstrapServers())) {
+    try (var admin = Admin.of(argument.bootstrapServers())) {
       var result = execute(admin, argument.topics.isEmpty() ? admin.topicNames() : argument.topics);
       TreeOutput.print(result, System.out);
     }

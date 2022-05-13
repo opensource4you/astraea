@@ -6,7 +6,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
-import org.astraea.admin.TopicAdmin;
+import org.astraea.admin.Admin;
 import org.astraea.producer.Producer;
 import org.astraea.producer.Serializer;
 import org.astraea.service.RequireBrokerCluster;
@@ -14,17 +14,17 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 public class GetPartitionInfTest extends RequireBrokerCluster {
-  static TopicAdmin admin;
+  static Admin admin;
 
   @BeforeAll
   static void setup() throws ExecutionException, InterruptedException {
-    admin = TopicAdmin.of(bootstrapServers());
+    admin = Admin.of(bootstrapServers());
     Map<Integer, String> topicName = new HashMap<>();
     topicName.put(0, "testPartitionScore0");
     topicName.put(1, "testPartitionScore1");
     topicName.put(2, "testPartitionScore2");
 
-    try (var admin = TopicAdmin.of(bootstrapServers())) {
+    try (var admin = Admin.of(bootstrapServers())) {
       admin
           .creator()
           .topic(topicName.get(0))

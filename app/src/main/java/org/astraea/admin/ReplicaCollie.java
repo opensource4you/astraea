@@ -26,7 +26,7 @@ public class ReplicaCollie {
     Set<String> pathSink;
   }
 
-  static Argument setArguments(TopicAdmin admin, Argument args) {
+  static Argument setArguments(Admin admin, Argument args) {
     Argument argument = new Argument();
     argument.topics = args.topics.isEmpty() ? admin.topicNames() : args.topics;
     argument.fromBrokers = args.fromBrokers;
@@ -48,7 +48,7 @@ public class ReplicaCollie {
     return argument;
   }
 
-  static void checkArgs(TopicAdmin admin, Argument args) {
+  static void checkArgs(Admin admin, Argument args) {
     var topics = args.topics.isEmpty() ? admin.topicNames() : args.topics;
     var path = args.path.isEmpty() ? null : args.path.iterator().next();
     var targetBrokers = args.toBrokers.isEmpty() ? args.fromBrokers : args.toBrokers;
@@ -89,7 +89,7 @@ public class ReplicaCollie {
   }
 
   static TreeMap<TopicPartition, Map.Entry<List<Integer>, List<Integer>>> checkMigratorBroker(
-      TopicAdmin admin, Argument argument) {
+      Admin admin, Argument argument) {
     TreeMap<TopicPartition, Map.Entry<List<Integer>, List<Integer>>> brokerMigrate =
         new TreeMap<>(
             Comparator.comparing(TopicPartition::topic).thenComparing(TopicPartition::partition));
@@ -139,7 +139,7 @@ public class ReplicaCollie {
   }
 
   static TreeMap<TopicPartition, Map.Entry<Set<String>, Set<String>>> checkMigratorPath(
-      TopicAdmin admin, Argument argument) {
+      Admin admin, Argument argument) {
     TreeMap<TopicPartition, Map.Entry<Set<String>, Set<String>>> pathMigrate =
         new TreeMap<>(
             Comparator.comparing(TopicPartition::topic).thenComparing(TopicPartition::partition));
@@ -185,8 +185,7 @@ public class ReplicaCollie {
   }
 
   static void brokerMigrator(
-      TreeMap<TopicPartition, Map.Entry<List<Integer>, List<Integer>>> brokerMigrate,
-      TopicAdmin admin) {
+      TreeMap<TopicPartition, Map.Entry<List<Integer>, List<Integer>>> brokerMigrate, Admin admin) {
     brokerMigrate.forEach(
         (tp, assignments) -> {
           if (!assignments.getKey().equals(assignments.getValue())) {
@@ -197,7 +196,7 @@ public class ReplicaCollie {
 
   static void pathMigrator(
       TreeMap<TopicPartition, Map.Entry<Set<String>, Set<String>>> pathMigrate,
-      TopicAdmin admin,
+      Admin admin,
       Integer broker) {
     pathMigrate.forEach(
         (tp, assignments) -> {
@@ -213,7 +212,7 @@ public class ReplicaCollie {
       TreeMap<TopicPartition, Map.Entry<List<Integer>, List<Integer>>> brokerMigrate,
       TreeMap<TopicPartition, Map.Entry<Set<String>, Set<String>>> pathMigrate,
       Argument argument,
-      TopicAdmin admin) {
+      Admin admin) {
     var result =
         new TreeMap<TopicPartition, MigratorInfo>(
             Comparator.comparing(TopicPartition::topic).thenComparing(TopicPartition::partition));
@@ -283,7 +282,7 @@ public class ReplicaCollie {
     return result;
   }
 
-  static Map<TopicPartition, MigratorInfo> execute(TopicAdmin admin, Argument args) {
+  static Map<TopicPartition, MigratorInfo> execute(Admin admin, Argument args) {
     checkArgs(admin, args);
     Argument argument = setArguments(admin, args);
     var brokerMigrate = checkMigratorBroker(admin, argument);
@@ -298,7 +297,7 @@ public class ReplicaCollie {
   public static void main(String[] args) throws IOException {
     var argument = org.astraea.argument.Argument.parse(new Argument(), args);
 
-    try (var admin = TopicAdmin.of(argument.bootstrapServers())) {
+    try (var admin = Admin.of(argument.bootstrapServers())) {
       execute(admin, argument)
           .forEach(
               (tp, assignments) ->

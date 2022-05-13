@@ -35,7 +35,7 @@ public class ReplicaCollieTest extends RequireBrokerCluster {
   @DisabledOnOs(WINDOWS)
   void testBrokerMigrator() throws InterruptedException {
     var topicName = "ReplicaCollieTest-Broker";
-    try (var topicAdmin = TopicAdmin.of(bootstrapServers())) {
+    try (var topicAdmin = Admin.of(bootstrapServers())) {
       topicAdmin
           .creator()
           .topic(topicName)
@@ -77,7 +77,7 @@ public class ReplicaCollieTest extends RequireBrokerCluster {
   @DisabledOnOs(WINDOWS)
   void testPathMigrator() throws InterruptedException {
     var topicName = "ReplicaCollieTest-Path";
-    try (var topicAdmin = TopicAdmin.of(bootstrapServers())) {
+    try (var topicAdmin = Admin.of(bootstrapServers())) {
       topicAdmin
           .creator()
           .topic(topicName)
@@ -120,7 +120,7 @@ public class ReplicaCollieTest extends RequireBrokerCluster {
 
   private void test(boolean verify) throws InterruptedException {
     var topicName = "ReplicaCollieTest-" + verify;
-    try (var topicAdmin = TopicAdmin.of(bootstrapServers())) {
+    try (var topicAdmin = Admin.of(bootstrapServers())) {
       topicAdmin
           .creator()
           .topic(topicName)

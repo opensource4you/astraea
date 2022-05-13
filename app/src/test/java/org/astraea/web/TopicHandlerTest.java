@@ -5,7 +5,7 @@ import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import org.astraea.Utils;
-import org.astraea.admin.TopicAdmin;
+import org.astraea.admin.Admin;
 import org.astraea.service.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -15,7 +15,7 @@ public class TopicHandlerTest extends RequireBrokerCluster {
   @Test
   void testListTopics() throws InterruptedException {
     var topicName = Utils.randomString(10);
-    try (TopicAdmin admin = TopicAdmin.of(bootstrapServers())) {
+    try (Admin admin = Admin.of(bootstrapServers())) {
       admin.creator().topic(topicName).create();
       TimeUnit.SECONDS.sleep(3);
       var handler = new TopicHandler(admin);
@@ -30,7 +30,7 @@ public class TopicHandlerTest extends RequireBrokerCluster {
 
   @Test
   void testQueryNonexistentTopic() {
-    try (TopicAdmin admin = TopicAdmin.of(bootstrapServers())) {
+    try (Admin admin = Admin.of(bootstrapServers())) {
       var handler = new TopicHandler(admin);
       var exception =
           Assertions.assertThrows(
@@ -43,7 +43,7 @@ public class TopicHandlerTest extends RequireBrokerCluster {
   @Test
   void testQuerySingleTopic() throws InterruptedException {
     var topicName = Utils.randomString(10);
-    try (TopicAdmin admin = TopicAdmin.of(bootstrapServers())) {
+    try (Admin admin = Admin.of(bootstrapServers())) {
       admin.creator().topic(topicName).create();
       TimeUnit.SECONDS.sleep(3);
       var handler = new TopicHandler(admin);
