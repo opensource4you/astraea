@@ -15,8 +15,9 @@ public class WebService {
 
   private static void execute(Argument arg) throws IOException {
     var server = HttpServer.create(new InetSocketAddress(arg.port), 0);
-    server.createContext("/topics", new TopicHandler(Admin.of(arg.bootstrapServers())));
-    server.createContext("/groups", new GroupHandler(Admin.of(arg.bootstrapServers())));
+    server.createContext("/topics", new TopicHandler(Admin.of(arg.configs())));
+    server.createContext("/groups", new GroupHandler(Admin.of(arg.configs())));
+    server.createContext("/brokers", new BrokerHandler(Admin.of(arg.configs())));
     server.start();
   }
 
