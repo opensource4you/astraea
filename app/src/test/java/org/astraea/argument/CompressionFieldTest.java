@@ -3,7 +3,7 @@ package org.astraea.argument;
 import com.beust.jcommander.Parameter;
 import com.beust.jcommander.ParameterException;
 import java.util.stream.Stream;
-import org.astraea.topic.Compression;
+import org.astraea.admin.Compression;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 

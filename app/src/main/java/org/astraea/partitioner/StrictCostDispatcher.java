@@ -30,7 +30,7 @@ import org.astraea.metrics.collector.Receiver;
  *
  * <p>You can configure the cost functions you want to use. By giving the name of that cost function
  * and its weight. For example,
- * `org.astraea.cost.ThroughputCost=1,org.astraea.cost.brokersMetrics.BrokerOutputCost=1`.
+ * `org.astraea.cost.ThroughputCost=1,org.astraea.cost.broker.BrokerOutputCost=1`.
  */
 public class StrictCostDispatcher implements Dispatcher {
   public static final String JMX_PORT = "jmx.port";
@@ -153,8 +153,8 @@ public class StrictCostDispatcher implements Dispatcher {
 
   /**
    * Helps parse cost-function names and weights. The format of the key and value is "<CostFunction
-   * name>"="<weight>". For example, {"org.astraea.cost.brokersMetrics.BrokerInputCost", "20"} will
-   * be parsed to {(BrokerInputCost object), 20.0}.
+   * name>"="<weight>". For example, {"org.astraea.cost.broker.BrokerInputCost", "20"} will be
+   * parsed to {(BrokerInputCost object), 20.0}.
    *
    * @param config that contains cost-function names and its corresponding weight
    * @return pairs of cost-function object and its corresponding weight

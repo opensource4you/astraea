@@ -8,8 +8,8 @@ import java.util.Optional;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
-import org.astraea.topic.TopicAdmin;
-import org.astraea.topic.TopicConfig;
+import org.astraea.admin.TopicAdmin;
+import org.astraea.admin.TopicConfig;
 
 class TopicHandler implements Handler {
 
@@ -98,7 +98,7 @@ class TopicHandler implements Handler {
     private final boolean isFuture;
     private final String path;
 
-    Replica(org.astraea.topic.Replica replica) {
+    Replica(org.astraea.admin.Replica replica) {
       this(
           replica.broker(),
           replica.lag(),

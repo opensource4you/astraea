@@ -6,7 +6,7 @@ import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
-import org.astraea.topic.TopicAdmin;
+import org.astraea.admin.TopicAdmin;
 
 public class GroupHandler implements Handler {
 
