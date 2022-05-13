@@ -24,7 +24,7 @@ class ReplicaSyncingMonitorIntegrationTest extends RequireBrokerCluster {
   @Test
   void execute() throws IOException, InterruptedException {
     // arrange
-    try (TopicAdmin topicAdmin = TopicAdmin.of(bootstrapServers())) {
+    try (Admin topicAdmin = Admin.of(bootstrapServers())) {
       topicAdmin
           .creator()
           .topic(TOPIC_NAME)

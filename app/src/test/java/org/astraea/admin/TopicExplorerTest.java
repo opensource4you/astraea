@@ -86,7 +86,7 @@ public class TopicExplorerTest extends RequireBrokerCluster {
     // arrange
     var topicName = "TopicExplorerTest-testExecute-Topic";
     var groupName = "TopicExplorerTest-testExecute-ConsumerGroup";
-    try (var admin = TopicAdmin.of(bootstrapServers())) {
+    try (var admin = Admin.of(bootstrapServers())) {
       admin.creator().topic(topicName).numberOfPartitions(3).numberOfReplicas((short) 1).create();
       consumer(Set.of(topicName), groupName, "alpha");
       consumer(Set.of(topicName), groupName, "beta");
@@ -219,7 +219,7 @@ public class TopicExplorerTest extends RequireBrokerCluster {
                 new Replica(1000, 0, 0, false, false, false, "?"),
                 new Replica(1001, 0, 0, false, false, false, "?"),
                 new Replica(1002, 0, 0, false, false, false, "?")));
-    TopicAdmin mock = Mockito.mock(TopicAdmin.class);
+    Admin mock = Mockito.mock(Admin.class);
 
     Mockito.when(mock.replicas(Set.of(topicName0))).thenReturn(payload0);
     Mockito.when(mock.replicas(Set.of(topicName1))).thenReturn(payload1);

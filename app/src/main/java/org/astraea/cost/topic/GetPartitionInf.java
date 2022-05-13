@@ -7,10 +7,10 @@ import java.util.NoSuchElementException;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
 import org.apache.kafka.common.TopicPartition;
-import org.astraea.admin.TopicAdmin;
+import org.astraea.admin.Admin;
 
 public class GetPartitionInf {
-  static Map<Integer, Map<TopicPartition, Integer>> getSize(TopicAdmin client) {
+  static Map<Integer, Map<TopicPartition, Integer>> getSize(Admin client) {
     Map<Integer, Map<TopicPartition, Integer>> brokerPartitionSize = new HashMap<>();
     client
         .brokerIds()
@@ -35,7 +35,7 @@ public class GetPartitionInf {
     return brokerPartitionSize;
   }
 
-  static Map<String, Integer> getRetentionMillis(TopicAdmin client) {
+  static Map<String, Integer> getRetentionMillis(Admin client) {
     return client.topics().entrySet().stream()
         .collect(
             Collectors.toMap(

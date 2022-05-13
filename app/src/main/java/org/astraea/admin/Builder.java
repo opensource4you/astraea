@@ -18,7 +18,6 @@ import java.util.concurrent.TimeoutException;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import org.apache.kafka.clients.admin.Admin;
 import org.apache.kafka.clients.admin.AdminClientConfig;
 import org.apache.kafka.clients.admin.ConfigEntry;
 import org.apache.kafka.clients.admin.ConsumerGroupListing;
@@ -53,14 +52,14 @@ public class Builder {
     return this;
   }
 
-  public TopicAdmin build() {
-    return new TopicAdminImpl(Admin.create(configs));
+  public Admin build() {
+    return new AdminImpl(org.apache.kafka.clients.admin.Admin.create(configs));
   }
 
-  private static class TopicAdminImpl implements TopicAdmin {
-    private final Admin admin;
+  private static class AdminImpl implements Admin {
+    private final org.apache.kafka.clients.admin.Admin admin;
 
-    TopicAdminImpl(Admin admin) {
+    AdminImpl(org.apache.kafka.clients.admin.Admin admin) {
       this.admin = Objects.requireNonNull(admin);
     }
 
@@ -92,7 +91,7 @@ public class Builder {
     }
 
     @Override
-    public Map<String, ConsumerGroup> consumerGroup(Set<String> consumerGroupNames) {
+    public Map<String, ConsumerGroup> consumerGroups(Set<String> consumerGroupNames) {
 
       final Set<String> groupIds =
           !consumerGroupNames.isEmpty()
@@ -177,16 +176,16 @@ public class Builder {
     }
 
     @Override
-    public Map<String, TopicConfig> topics() {
+    public Map<String, Config> topics() {
       return topics(true);
     }
 
     @Override
-    public Map<String, TopicConfig> publicTopics() {
+    public Map<String, Config> publicTopics() {
       return topics(false);
     }
 
-    private Map<String, TopicConfig> topics(boolean listInternal) {
+    private Map<String, Config> topics(boolean listInternal) {
       var topics =
           Utils.handleException(
               () ->
@@ -205,13 +204,29 @@ public class Builder {
                       .get())
           .entrySet()
           .stream()
+          .collect(Collectors.toMap(e -> e.getKey().name(), e -> new ConfigImpl(e.getValue())));
+    }
+
+    @Override
+    public Map<Integer, Config> brokers() {
+      var brokerIds = brokerIds();
+      return Utils.handleException(
+              () ->
+                  admin
+                      .describeConfigs(
+                          brokerIds.stream()
+                              .map(
+                                  id ->
+                                      new ConfigResource(
+                                          ConfigResource.Type.BROKER, String.valueOf(id)))
+                              .collect(Collectors.toList()))
+                      .all()
+                      .get())
+          .entrySet()
+          .stream()
           .collect(
               Collectors.toMap(
-                  e -> e.getKey().name(),
-                  e ->
-                      new TopicConfigImpl(
-                          e.getValue().entries().stream()
-                              .collect(Collectors.toMap(ConfigEntry::name, ConfigEntry::value)))));
+                  e -> Integer.valueOf(e.getKey().name()), e -> new ConfigImpl(e.getValue())));
     }
 
     @Override
@@ -335,10 +350,17 @@ public class Builder {
     }
   }
 
-  private static class TopicConfigImpl implements TopicConfig {
+  private static class ConfigImpl implements Config {
     private final Map<String, String> configs;
 
-    TopicConfigImpl(Map<String, String> configs) {
+    ConfigImpl(org.apache.kafka.clients.admin.Config config) {
+      this(
+          config.entries().stream()
+              .filter(e -> e.value() != null)
+              .collect(Collectors.toMap(ConfigEntry::name, ConfigEntry::value)));
+    }
+
+    ConfigImpl(Map<String, String> configs) {
       this.configs = Collections.unmodifiableMap(configs);
     }
 
@@ -364,18 +386,18 @@ public class Builder {
   }
 
   private static class CreatorImpl implements Creator {
-    private final Admin admin;
+    private final org.apache.kafka.clients.admin.Admin admin;
     private final Function<String, Map<TopicPartition, List<Replica>>> replicasGetter;
-    private final Function<String, TopicConfig> configsGetter;
+    private final Function<String, Config> configsGetter;
     private String topic;
     private int numberOfPartitions = 1;
     private short numberOfReplicas = 1;
     private final Map<String, String> configs = new HashMap<>();
 
     CreatorImpl(
-        Admin admin,
+        org.apache.kafka.clients.admin.Admin admin,
         Function<String, Map<TopicPartition, List<Replica>>> replicasGetter,
-        Function<String, TopicConfig> configsGetter) {
+        Function<String, Config> configsGetter) {
       this.admin = admin;
       this.replicasGetter = replicasGetter;
       this.configsGetter = configsGetter;
@@ -468,11 +490,13 @@ public class Builder {
   }
 
   private static class MigratorImpl implements Migrator {
-    private final Admin admin;
+    private final org.apache.kafka.clients.admin.Admin admin;
     private final Function<Set<String>, Set<TopicPartition>> partitionGetter;
     private final Set<TopicPartition> partitions = new HashSet<>();
 
-    MigratorImpl(Admin admin, Function<Set<String>, Set<TopicPartition>> partitionGetter) {
+    MigratorImpl(
+        org.apache.kafka.clients.admin.Admin admin,
+        Function<Set<String>, Set<TopicPartition>> partitionGetter) {
       this.admin = admin;
       this.partitionGetter = partitionGetter;
     }

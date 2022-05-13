@@ -28,12 +28,12 @@ public class ReplicaSyncingMonitor {
 
   public static void main(String[] args) {
     Argument argument = org.astraea.argument.Argument.parse(new Argument(), args);
-    try (TopicAdmin topicAdmin = TopicAdmin.of(argument.bootstrapServers())) {
+    try (Admin topicAdmin = Admin.of(argument.bootstrapServers())) {
       execute(topicAdmin, argument);
     }
   }
 
-  static void execute(final TopicAdmin topicAdmin, final Argument argument) {
+  static void execute(final Admin topicAdmin, final Argument argument) {
 
     // this supplier will give you all the topic names that the client is interested in.
     // discover any newly happened non-synced replica can be a quiet useful scenario, so here we use
@@ -193,7 +193,7 @@ public class ReplicaSyncingMonitor {
   }
 
   static Set<TopicPartition> findNonSyncedTopicPartition(
-      TopicAdmin topicAdmin, Set<String> topicToTrack) {
+      Admin topicAdmin, Set<String> topicToTrack) {
     return topicAdmin.replicas(topicToTrack).entrySet().stream()
         .filter(tpr -> tpr.getValue().stream().anyMatch(replica -> !replica.inSync()))
         .map(Map.Entry::getKey)

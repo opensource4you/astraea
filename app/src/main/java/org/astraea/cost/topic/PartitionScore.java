@@ -9,7 +9,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.apache.kafka.common.TopicPartition;
-import org.astraea.admin.TopicAdmin;
+import org.astraea.admin.Admin;
 import org.astraea.argument.BooleanField;
 
 public class PartitionScore {
@@ -63,8 +63,7 @@ public class PartitionScore {
     }
   }
 
-  public static Map<Integer, Map<TopicPartition, Double>> execute(
-      Argument argument, TopicAdmin admin) {
+  public static Map<Integer, Map<TopicPartition, Double>> execute(Argument argument, Admin admin) {
     var internalTopic =
         Set.of(
             "__consumer_offsets",
@@ -81,7 +80,7 @@ public class PartitionScore {
 
   public static void main(String[] args) {
     var argument = org.astraea.argument.Argument.parse(new Argument(), args);
-    var admin = TopicAdmin.of(argument.bootstrapServers());
+    var admin = Admin.of(argument.bootstrapServers());
     var score = execute(argument, admin);
     printScore(score, argument);
   }

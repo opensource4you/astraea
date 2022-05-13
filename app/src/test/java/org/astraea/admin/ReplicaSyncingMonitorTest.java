@@ -70,7 +70,7 @@ class ReplicaSyncingMonitorTest {
   void execute() throws InterruptedException {
     // arrange
     int interval = 10;
-    TopicAdmin mockTopicAdmin = mock(TopicAdmin.class);
+    Admin mockTopicAdmin = mock(Admin.class);
     when(mockTopicAdmin.topicNames()).thenReturn(Set.of("topic-1", "topic-2", "topic-3"));
     when(mockTopicAdmin.replicas(anySet()))
         .thenReturn(
@@ -129,7 +129,7 @@ class ReplicaSyncingMonitorTest {
   void executeWithKeepTrack() throws InterruptedException {
     // arrange
     int interval = 10;
-    TopicAdmin mockTopicAdmin = mock(TopicAdmin.class);
+    Admin mockTopicAdmin = mock(Admin.class);
     when(mockTopicAdmin.topicNames()).thenReturn(Set.of("topic-1"));
     when(mockTopicAdmin.replicas(anySet()))
         .thenReturn(
@@ -210,7 +210,7 @@ class ReplicaSyncingMonitorTest {
   void executeWithTopic() {
     // arrange
     int interval = 10;
-    TopicAdmin mockTopicAdmin = mock(TopicAdmin.class);
+    Admin mockTopicAdmin = mock(Admin.class);
     when(mockTopicAdmin.replicas(Set.of("target-topic")))
         .thenReturn(
             Map.of(
@@ -248,7 +248,7 @@ class ReplicaSyncingMonitorTest {
   @Test
   void findNonSyncedTopicPartition() {
     // arrange
-    final TopicAdmin mockTopicAdmin = mock(TopicAdmin.class);
+    final Admin mockTopicAdmin = mock(Admin.class);
     final Set<String> topics = Set.of("topic1", "topic2");
     final List<Replica> replicaList1 =
         List.of(

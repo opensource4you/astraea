@@ -7,7 +7,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import org.astraea.Utils;
-import org.astraea.admin.TopicAdmin;
+import org.astraea.admin.Admin;
 import org.astraea.consumer.Consumer;
 import org.astraea.service.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
@@ -19,7 +19,7 @@ public class GroupHandlerTest extends RequireBrokerCluster {
   void testListGroups() throws InterruptedException {
     var topicName = Utils.randomString(10);
     var groupId = Utils.randomString(10);
-    try (TopicAdmin admin = TopicAdmin.of(bootstrapServers())) {
+    try (Admin admin = Admin.of(bootstrapServers())) {
       admin.creator().topic(topicName).create();
       TimeUnit.SECONDS.sleep(3);
 
@@ -43,7 +43,7 @@ public class GroupHandlerTest extends RequireBrokerCluster {
 
   @Test
   void testQueryNonexistentGroup() {
-    try (TopicAdmin admin = TopicAdmin.of(bootstrapServers())) {
+    try (Admin admin = Admin.of(bootstrapServers())) {
       var handler = new GroupHandler(admin);
       var exception =
           Assertions.assertThrows(
@@ -57,7 +57,7 @@ public class GroupHandlerTest extends RequireBrokerCluster {
   void testQuerySingleGroup() throws InterruptedException {
     var topicName = Utils.randomString(10);
     var groupId = Utils.randomString(10);
-    try (TopicAdmin admin = TopicAdmin.of(bootstrapServers())) {
+    try (Admin admin = Admin.of(bootstrapServers())) {
       var handler = new GroupHandler(admin);
 
       try (var consumer =
