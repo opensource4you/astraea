@@ -1,8 +1,8 @@
 package org.astraea.partitioner.smoothPartitioner;
 
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 import org.astraea.cost.Periodic;
 import org.astraea.cost.brokersMetrics.CostUtils;
 
@@ -30,12 +30,10 @@ import org.astraea.cost.brokersMetrics.CostUtils;
  * ||----------7-----------||------ {7, 0, 0} ------||----Broker1----||----- { 0, 0, 0} -----||
  * ||======================||=======================||===============||======================||
  */
-public final class SmoothWeightRoundRobin extends Periodic<Void> {
-  private Map<Integer, Double> effectiveWeight;
-  private double effectiveWeightSum;
+public final class SmoothWeightRoundRobin
+    extends Periodic<SmoothWeightRoundRobin.EffectiveWeightResult> {
+  private EffectiveWeightResult effectiveWeightResult;
   public Map<Integer, Double> currentWeight;
-
-  public SmoothWeightRoundRobin() {}
 
   public SmoothWeightRoundRobin(Map<Integer, Double> effectiveWeight) {
     init(effectiveWeight);
@@ -44,17 +42,17 @@ public final class SmoothWeightRoundRobin extends Periodic<Void> {
   public synchronized void init(Map<Integer, Double> brokerScore) {
     tryUpdate(
         () -> {
-          if (effectiveWeight == null) {
-            this.effectiveWeight = new ConcurrentHashMap<>(brokerScore);
-            this.effectiveWeight.replaceAll(
+          Map<Integer, Double> effectiveWeight;
+          if (effectiveWeightResult == null) {
+            effectiveWeight = new HashMap<>(brokerScore);
+            effectiveWeight.replaceAll(
                 (k, v) -> (double) Math.round(100 * (1.0 / brokerScore.size())) / 100.0);
-            this.currentWeight = new ConcurrentHashMap<>(brokerScore);
+            this.currentWeight = new HashMap<>(brokerScore);
             this.currentWeight.replaceAll((k, v) -> 0.0);
-            this.effectiveWeightSum =
-                this.effectiveWeight.values().stream().mapToDouble(i -> i).sum();
           } else {
             var zCurrentLoad = CostUtils.ZScore(brokerScore);
-            this.effectiveWeight.replaceAll(
+            effectiveWeight = this.effectiveWeightResult.effectiveWeight;
+            effectiveWeight.replaceAll(
                 (k, v) -> {
                   var zLoad = zCurrentLoad.get(k);
                   var score =
@@ -63,7 +61,7 @@ public final class SmoothWeightRoundRobin extends Periodic<Void> {
                                   * (v
                                       - (zLoad.isNaN() ? 0.0 : zLoad)
                                           * 0.01
-                                          / this.effectiveWeight.size()))
+                                          / effectiveWeight.size()))
                           / 10000.0;
                   if (score > 1.0) {
                     return 1.0;
@@ -72,10 +70,8 @@ public final class SmoothWeightRoundRobin extends Periodic<Void> {
                   }
                   return score;
                 });
-            this.effectiveWeightSum =
-                this.effectiveWeight.values().stream().mapToDouble(i -> i).sum();
           }
-          return null;
+          return new EffectiveWeightResult(effectiveWeight);
         },
         10);
   }
@@ -85,13 +81,26 @@ public final class SmoothWeightRoundRobin extends Periodic<Void> {
    *
    * @return the preferred ID
    */
-  public int getAndChoose() {
+  public synchronized int getAndChoose() {
+    var effective = effectiveWeightResult.effectiveWeight;
+    this.currentWeight.replaceAll((k, v) -> v + effective.get(k));
     var maxID =
         this.currentWeight.entrySet().stream()
             .max(Comparator.comparingDouble(Map.Entry::getValue))
             .orElseGet(() -> Map.entry(0, 0.0))
             .getKey();
-    this.currentWeight.computeIfPresent(maxID, (ID, value) -> value - effectiveWeightSum);
+    this.currentWeight.computeIfPresent(
+        maxID, (ID, value) -> value - effectiveWeightResult.effectiveWeightSum);
     return maxID;
+  }
+
+  public static class EffectiveWeightResult {
+    private final Map<Integer, Double> effectiveWeight;
+    private final double effectiveWeightSum;
+
+    EffectiveWeightResult(Map<Integer, Double> effectiveWeight) {
+      this.effectiveWeight = effectiveWeight;
+      this.effectiveWeightSum = effectiveWeight.values().stream().mapToDouble(i -> i).sum();
+    }
   }
 }
