@@ -16,7 +16,7 @@ import org.apache.kafka.common.KafkaException;
 import org.apache.kafka.common.errors.AuthorizationException;
 import org.apache.kafka.common.errors.OutOfOrderSequenceException;
 import org.apache.kafka.common.errors.ProducerFencedException;
-import org.astraea.topic.Compression;
+import org.astraea.admin.Compression;
 
 public class Builder<Key, Value> {
   private final Map<String, Object> configs = new HashMap<>();

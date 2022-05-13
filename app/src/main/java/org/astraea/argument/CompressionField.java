@@ -4,7 +4,7 @@ import com.beust.jcommander.ParameterException;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.kafka.common.record.CompressionType;
-import org.astraea.topic.Compression;
+import org.astraea.admin.Compression;
 
 public class CompressionField extends Field<Compression> {
   /**

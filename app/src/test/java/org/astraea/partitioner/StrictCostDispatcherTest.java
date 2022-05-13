@@ -12,7 +12,7 @@ import org.astraea.cost.HasBrokerCost;
 import org.astraea.cost.NodeInfo;
 import org.astraea.cost.ReplicaInfo;
 import org.astraea.cost.ThroughputCost;
-import org.astraea.cost.brokersMetrics.BrokerInputCost;
+import org.astraea.cost.broker.BrokerInputCost;
 import org.astraea.metrics.collector.Fetcher;
 import org.astraea.metrics.collector.Receiver;
 import org.junit.jupiter.api.Assertions;

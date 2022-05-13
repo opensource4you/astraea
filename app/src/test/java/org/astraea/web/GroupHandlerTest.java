@@ -7,9 +7,9 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import org.astraea.Utils;
+import org.astraea.admin.TopicAdmin;
 import org.astraea.consumer.Consumer;
 import org.astraea.service.RequireBrokerCluster;
-import org.astraea.topic.TopicAdmin;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 

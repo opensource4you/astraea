@@ -4,8 +4,8 @@ import com.beust.jcommander.Parameter;
 import com.sun.net.httpserver.HttpServer;
 import java.io.IOException;
 import java.net.InetSocketAddress;
+import org.astraea.admin.TopicAdmin;
 import org.astraea.argument.NonNegativeIntegerField;
-import org.astraea.topic.TopicAdmin;
 
 public class WebService {
 
