@@ -36,7 +36,9 @@ public class GroupHandler implements Handler {
                                 entry ->
                                     new Member(
                                         entry.getKey().memberId(),
-                                        entry.getKey().groupInstanceId(),
+                                        // gson does not support Optional
+                                        // see https://github.com/google/gson/issues/1102
+                                        entry.getKey().groupInstanceId().orElse(null),
                                         entry.getKey().clientId(),
                                         entry.getKey().host(),
                                         entry.getValue().stream()
@@ -87,15 +89,15 @@ public class GroupHandler implements Handler {
   }
 
   static class Member implements JsonObject {
-    private final String memberId;
-    private final Optional<String> groupInstanceId;
-    private final String clientId;
-    private final String host;
-    private final List<OffsetProgress> offsetProgress;
+    final String memberId;
+    final String groupInstanceId;
+    final String clientId;
+    final String host;
+    final List<OffsetProgress> offsetProgress;
 
     Member(
         String memberId,
-        Optional<String> groupInstanceId,
+        String groupInstanceId,
         String clientId,
         String host,
         List<OffsetProgress> offsetProgress) {

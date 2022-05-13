@@ -37,6 +37,12 @@ public class GroupHandlerTest extends RequireBrokerCluster {
         Assertions.assertEquals(1, response.groups.size());
         Assertions.assertEquals(groupId, response.groups.iterator().next().groupId);
         Assertions.assertEquals(1, response.groups.iterator().next().members.size());
+        response
+            .groups
+            .iterator()
+            .next()
+            .members
+            .forEach(m -> Assertions.assertNull(m.groupInstanceId));
       }
     }
   }
