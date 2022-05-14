@@ -22,6 +22,8 @@ import org.astraea.service.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledOnOs;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 public class AdminTest extends RequireBrokerCluster {
 
@@ -356,8 +358,9 @@ public class AdminTest extends RequireBrokerCluster {
     }
   }
 
-  @Test
-  void testMigrateAndLeader() throws InterruptedException {
+  @ParameterizedTest
+  @ValueSource(booleans = {true, false})
+  void testMoveTo(boolean needFollower) throws InterruptedException {
     var topic = Utils.randomString(10);
     try (var admin = Admin.of(bootstrapServers())) {
       admin.creator().topic(topic).numberOfPartitions(1).numberOfReplicas((short) 3).create();
@@ -377,7 +380,9 @@ public class AdminTest extends RequireBrokerCluster {
           .partition(topic, 0)
           .moveTo(
               newLeader,
-              brokerIds().stream().filter(i -> i != newLeader).collect(Collectors.toSet()));
+              needFollower
+                  ? brokerIds().stream().filter(i -> i != newLeader).collect(Collectors.toSet())
+                  : Set.of());
       TimeUnit.SECONDS.sleep(2);
       Assertions.assertEquals(
           newLeader,

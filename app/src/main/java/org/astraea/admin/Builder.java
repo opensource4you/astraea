@@ -524,14 +524,16 @@ public class Builder {
       var all = new ArrayList<>(followers);
       all.add(0, leader);
       moveTo(all);
-      Utils.handleException(
-          () ->
-              admin
-                  .electLeaders(
-                      ElectionType.PREFERRED,
-                      partitions.stream().map(TopicPartition::to).collect(Collectors.toSet()))
-                  .all()
-                  .get());
+      // kafka produces error if re-election happens in single node
+      if (all.size() > 1)
+        Utils.handleException(
+            () ->
+                admin
+                    .electLeaders(
+                        ElectionType.PREFERRED,
+                        partitions.stream().map(TopicPartition::to).collect(Collectors.toSet()))
+                    .all()
+                    .get());
     }
   }
 }
