@@ -45,30 +45,22 @@ public final class SmoothWeightRoundRobin
           Map<Integer, Double> effectiveWeight;
           if (effectiveWeightResult == null) {
             effectiveWeight = new HashMap<>(brokerScore);
-            effectiveWeight.replaceAll(
-                (k, v) -> (double) Math.round(100 * (1.0 / brokerScore.size())) / 100.0);
+            effectiveWeight.replaceAll((k, v) -> 1.0);
             this.currentWeight = new HashMap<>(brokerScore);
             this.currentWeight.replaceAll((k, v) -> 0.0);
           } else {
-            var zCurrentLoad = CostUtils.ZScore(brokerScore);
+            var normalizationLoad = CostUtils.normalize(brokerScore);
             effectiveWeight = this.effectiveWeightResult.effectiveWeight;
             effectiveWeight.replaceAll(
                 (k, v) -> {
-                  var zLoad = zCurrentLoad.get(k);
-                  var score =
-                      Math.round(
-                              10000
-                                  * (v
-                                      - (zLoad.isNaN() ? 0.0 : zLoad)
-                                          * 0.01
-                                          / effectiveWeight.size()))
-                          / 10000.0;
-                  if (score > 1.0) {
+                  var nLoad = normalizationLoad.get(k);
+                  var weight = v * (nLoad.isNaN() ? 1.0 : ((nLoad + 1) > 0 ? nLoad + 1 : 0.1));
+                  if (weight > 2.0) {
                     return 1.0;
-                  } else if (score < 0.0) {
+                  } else if (weight < 0.0) {
                     return 0.0;
                   }
-                  return score;
+                  return weight;
                 });
           }
           return new EffectiveWeightResult(effectiveWeight);
