@@ -56,7 +56,7 @@ public final class SmoothWeightRoundRobin
                   var nLoad = normalizationLoad.get(k);
                   var weight = v * (nLoad.isNaN() ? 1.0 : ((nLoad + 1) > 0 ? nLoad + 1 : 0.1));
                   if (weight > 2.0) {
-                    return 1.0;
+                    return 2.0;
                   } else if (weight < 0.0) {
                     return 0.0;
                   }
