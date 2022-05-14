@@ -1,7 +1,6 @@
 package org.astraea.admin;
 
 import java.io.Closeable;
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -20,22 +19,30 @@ public interface Admin extends Closeable {
     return builder().configs(configs).build();
   }
 
-  default Set<String> topicNames() {
-    return topics().keySet();
-  }
+  /** @return names of all topics */
+  Set<String> topicNames();
 
   /** @return the topic name and its configurations. */
   Map<String, Config> topics();
 
-  default Set<String> publicTopicNames() {
-    return publicTopics().keySet();
+  /** @return all partitions */
+  default Set<TopicPartition> partitions() {
+    return partitions(topicNames());
   }
 
-  /** @return the topic name and its configurations. (Without internal topics) */
-  Map<String, Config> publicTopics();
+  /**
+   * @param topics target
+   * @return the partitions belong to input topics
+   */
+  Set<TopicPartition> partitions(Set<String> topics);
 
   /** @return a topic creator to set all topic configs and then run the procedure. */
   Creator creator();
+
+  /** @return offsets of all partitions */
+  default Map<TopicPartition, Offset> offsets() {
+    return offsets(topicNames());
+  }
 
   /**
    * @param topics topic names
@@ -45,14 +52,22 @@ public interface Admin extends Closeable {
 
   /** @return all consumer groups */
   default Map<String, ConsumerGroup> consumerGroups() {
-    return consumerGroups(Set.of());
+    return consumerGroups(consumerGroupIds());
   }
+
+  /** @return all consumer group ids */
+  Set<String> consumerGroupIds();
 
   /**
    * @param consumerGroupNames consumer group names.
    * @return the member info of each consumer group
    */
   Map<String, ConsumerGroup> consumerGroups(Set<String> consumerGroupNames);
+
+  /** @return replica info of all partitions */
+  default Map<TopicPartition, List<Replica>> replicas() {
+    return replicas(topicNames());
+  }
 
   /**
    * @param topics topic names
@@ -67,23 +82,22 @@ public interface Admin extends Closeable {
   Set<Integer> brokerIds();
 
   /**
-   * @parm partitions map of TopicPartition and target brokers
-   * @return true if the leader is change successful changed
-   */
-  Map<TopicPartition, Boolean> changeReplicaLeader(Map<TopicPartition, Integer> partitions);
-
-  /**
    * @param topics topic names
    * @param brokersID brokers ID
    * @return the partitions of brokers
    */
-  List<TopicPartition> partitionsOfBrokers(Set<String> topics, Set<Integer> brokersID);
+  Set<TopicPartition> partitionsOfBrokers(Set<String> topics, Set<Integer> brokersID);
+
+  /** @return data folders of all broker nodes */
+  default Map<Integer, Set<String>> brokerFolders() {
+    return brokerFolders(brokerIds());
+  }
 
   /**
    * @param brokers a Set containing broker's ID
    * @return all log directory
    */
-  Map<Integer, Set<String>> brokerFolders(Collection<Integer> brokers);
+  Map<Integer, Set<String>> brokerFolders(Set<Integer> brokers);
 
   /** @return a partition migrator used to move partitions to another broker or folder. */
   Migrator migrator();

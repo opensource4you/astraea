@@ -76,7 +76,7 @@ public class TopicExplorer {
     }
 
     var offsets = admin.offsets(topics);
-    var consumerGroups = admin.consumerGroups(Set.of());
+    var consumerGroups = admin.consumerGroups();
     var time = LocalDateTime.now();
 
     // Given topic name, return the partition count
