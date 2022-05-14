@@ -393,4 +393,22 @@ public class AdminTest extends RequireBrokerCluster {
               .broker());
     }
   }
+
+  @Test
+  void testProducerStates() throws ExecutionException, InterruptedException {
+    var topic = Utils.randomString(10);
+    try (var producer = Producer.of(bootstrapServers());
+        var admin = Admin.of(bootstrapServers())) {
+      producer.sender().topic(topic).value(new byte[1]).run().toCompletableFuture().get();
+
+      var states = admin.producerStates();
+      Assertions.assertNotEquals(0, states.size());
+      var producerState =
+          states.entrySet().stream()
+              .filter(tp -> tp.getKey().topic().equals(topic))
+              .flatMap(e -> e.getValue().stream())
+              .collect(Collectors.toUnmodifiableList());
+      Assertions.assertEquals(1, producerState.size());
+    }
+  }
 }

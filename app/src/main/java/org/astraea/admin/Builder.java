@@ -86,6 +86,29 @@ public class Builder {
     }
 
     @Override
+    public Map<TopicPartition, Collection<ProducerState>> producerStates(
+        Set<TopicPartition> partitions) {
+      return Utils.handleException(
+          () ->
+              admin
+                  .describeProducers(
+                      partitions.stream()
+                          .map(TopicPartition::to)
+                          .collect(Collectors.toUnmodifiableList()))
+                  .all()
+                  .get()
+                  .entrySet()
+                  .stream()
+                  .collect(
+                      Collectors.toMap(
+                          e -> TopicPartition.from(e.getKey()),
+                          e ->
+                              e.getValue().activeProducers().stream()
+                                  .map(ProducerState::from)
+                                  .collect(Collectors.toUnmodifiableList()))));
+    }
+
+    @Override
     public Set<String> consumerGroupIds() {
       return Utils.handleException(() -> admin.listConsumerGroups().all().get()).stream()
           .map(ConsumerGroupListing::groupId)

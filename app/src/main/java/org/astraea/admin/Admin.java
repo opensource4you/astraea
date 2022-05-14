@@ -1,6 +1,7 @@
 package org.astraea.admin;
 
 import java.io.Closeable;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -101,6 +102,17 @@ public interface Admin extends Closeable {
 
   /** @return a partition migrator used to move partitions to another broker or folder. */
   Migrator migrator();
+
+  /** @return producer states of all topic partitions */
+  default Map<TopicPartition, Collection<ProducerState>> producerStates() {
+    return producerStates(partitions());
+  }
+
+  /**
+   * @param partitions to search
+   * @return producer states of input topic partitions
+   */
+  Map<TopicPartition, Collection<ProducerState>> producerStates(Set<TopicPartition> partitions);
 
   @Override
   void close();
