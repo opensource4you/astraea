@@ -525,7 +525,7 @@ public class Builder {
       all.add(0, leader);
       moveTo(all);
       // kafka produces error if re-election happens in single node
-      if (all.size() > 1)
+      if (!followers.isEmpty())
         Utils.handleException(
             () ->
                 admin
