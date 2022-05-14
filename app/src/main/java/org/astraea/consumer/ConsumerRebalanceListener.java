@@ -1,9 +1,9 @@
 package org.astraea.consumer;
 
 import java.util.Collection;
-import java.util.HashSet;
 import java.util.Set;
-import org.apache.kafka.common.TopicPartition;
+import java.util.stream.Collectors;
+import org.astraea.admin.TopicPartition;
 
 @FunctionalInterface
 public interface ConsumerRebalanceListener {
@@ -20,11 +20,13 @@ public interface ConsumerRebalanceListener {
       ConsumerRebalanceListener listener) {
     return new org.apache.kafka.clients.consumer.ConsumerRebalanceListener() {
       @Override
-      public void onPartitionsRevoked(Collection<TopicPartition> ignore) {}
+      public void onPartitionsRevoked(Collection<org.apache.kafka.common.TopicPartition> ignore) {}
 
       @Override
-      public void onPartitionsAssigned(Collection<TopicPartition> partitions) {
-        listener.onPartitionAssigned(new HashSet<>(partitions));
+      public void onPartitionsAssigned(
+          Collection<org.apache.kafka.common.TopicPartition> partitions) {
+        listener.onPartitionAssigned(
+            partitions.stream().map(TopicPartition::from).collect(Collectors.toSet()));
       }
     };
   }

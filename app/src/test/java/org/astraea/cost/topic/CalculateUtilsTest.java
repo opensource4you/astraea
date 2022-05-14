@@ -4,7 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.HashMap;
 import java.util.Map;
-import org.apache.kafka.common.TopicPartition;
+import org.astraea.admin.TopicPartition;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 

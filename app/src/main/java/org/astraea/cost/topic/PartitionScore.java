@@ -2,14 +2,13 @@ package org.astraea.cost.topic;
 
 import com.beust.jcommander.Parameter;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
-import org.apache.kafka.common.TopicPartition;
 import org.astraea.admin.Admin;
+import org.astraea.admin.TopicPartition;
 import org.astraea.argument.BooleanField;
 
 public class PartitionScore {
@@ -53,11 +52,10 @@ public class PartitionScore {
                   .map(Map.Entry::getKey)
                   .collect(Collectors.toSet()));
 
-      partitionGood.sort(
-          Comparator.comparing(TopicPartition::topic).thenComparing(TopicPartition::partition));
       System.out.println(
           "The following partitions are balanced: "
               + partitionGood.stream()
+                  .sorted()
                   .map(String::valueOf)
                   .collect(Collectors.joining(", ", "[", "]")));
     }

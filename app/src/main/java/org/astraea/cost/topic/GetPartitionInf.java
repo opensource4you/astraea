@@ -1,13 +1,12 @@
 package org.astraea.cost.topic;
 
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
-import org.apache.kafka.common.TopicPartition;
 import org.astraea.admin.Admin;
+import org.astraea.admin.TopicPartition;
 
 public class GetPartitionInf {
   static Map<Integer, Map<TopicPartition, Integer>> getSize(Admin client) {
@@ -16,10 +15,7 @@ public class GetPartitionInf {
         .brokerIds()
         .forEach(
             (broker) -> {
-              TreeMap<TopicPartition, Integer> partitionSize =
-                  new TreeMap<>(
-                      Comparator.comparing(TopicPartition::topic)
-                          .thenComparing(TopicPartition::partition));
+              var partitionSize = new TreeMap<TopicPartition, Integer>();
               client
                   .replicas(client.topicNames())
                   .forEach(

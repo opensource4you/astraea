@@ -4,7 +4,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import org.apache.kafka.common.TopicPartition;
 
 public class ConsumerGroup {
   private final String groupId;

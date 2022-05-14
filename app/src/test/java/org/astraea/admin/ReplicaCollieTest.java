@@ -2,14 +2,12 @@ package org.astraea.admin;
 
 import static org.junit.jupiter.api.condition.OS.WINDOWS;
 
-import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
-import org.apache.kafka.common.TopicPartition;
 import org.astraea.Utils;
 import org.astraea.argument.Argument;
 import org.astraea.service.RequireBrokerCluster;
@@ -52,9 +50,7 @@ public class ReplicaCollieTest extends RequireBrokerCluster {
               .collect(Collectors.toList());
       var brokerSink =
           topicAdmin.brokerIds().stream().filter(b -> !brokerSource.contains(b)).iterator().next();
-      TreeMap<TopicPartition, Map.Entry<List<Integer>, List<Integer>>> brokerMigrate =
-          new TreeMap<>(
-              Comparator.comparing(TopicPartition::topic).thenComparing(TopicPartition::partition));
+      var brokerMigrate = new TreeMap<TopicPartition, Map.Entry<List<Integer>, List<Integer>>>();
       brokerMigrate.put(
           new TopicPartition(topicName, 0), Map.entry(brokerSource, List.of(brokerSink)));
       Assertions.assertEquals(
@@ -98,9 +94,7 @@ public class ReplicaCollieTest extends RequireBrokerCluster {
               .filter(p -> !pathSource.contains(p))
               .iterator()
               .next();
-      TreeMap<TopicPartition, Map.Entry<Set<String>, Set<String>>> pathMigrate =
-          new TreeMap<>(
-              Comparator.comparing(TopicPartition::topic).thenComparing(TopicPartition::partition));
+      var pathMigrate = new TreeMap<TopicPartition, Map.Entry<Set<String>, Set<String>>>();
       pathMigrate.put(new TopicPartition(topicName, 0), Map.entry(pathSource, Set.of(pathSink)));
       Assertions.assertFalse(pathSource.contains(pathSink));
       Assertions.assertEquals(

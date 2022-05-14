@@ -19,7 +19,6 @@ import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
-import org.apache.kafka.common.TopicPartition;
 import org.astraea.consumer.Consumer;
 import org.astraea.service.RequireBrokerCluster;
 import org.junit.jupiter.api.AfterEach;

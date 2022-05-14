@@ -17,7 +17,6 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
-import org.apache.kafka.common.TopicPartition;
 import org.astraea.argument.NonEmptyStringField;
 import org.astraea.argument.StringSetField;
 import org.astraea.utils.DataSize;
@@ -68,9 +67,7 @@ public class TopicExplorer {
         replicas.entrySet().stream()
             .filter(x -> x.getValue().stream().noneMatch(Replica::leader))
             .map(Map.Entry::getKey)
-            .sorted(
-                Comparator.comparing(TopicPartition::topic)
-                    .thenComparing(TopicPartition::partition))
+            .sorted()
             .collect(Collectors.toUnmodifiableList());
     if (!invalidTopics.isEmpty()) {
       // The metadata request sent by Kafka admin succeeds only if the leaders of all partitions are
