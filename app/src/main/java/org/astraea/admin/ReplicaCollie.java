@@ -4,14 +4,12 @@ import com.beust.jcommander.Parameter;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
-import org.apache.kafka.common.TopicPartition;
 import org.astraea.argument.BooleanField;
 import org.astraea.argument.IntegerSetField;
 import org.astraea.argument.StringSetField;
@@ -90,9 +88,7 @@ public class ReplicaCollie {
 
   static TreeMap<TopicPartition, Map.Entry<List<Integer>, List<Integer>>> checkMigratorBroker(
       Admin admin, Argument argument) {
-    TreeMap<TopicPartition, Map.Entry<List<Integer>, List<Integer>>> brokerMigrate =
-        new TreeMap<>(
-            Comparator.comparing(TopicPartition::topic).thenComparing(TopicPartition::partition));
+    var brokerMigrate = new TreeMap<TopicPartition, Map.Entry<List<Integer>, List<Integer>>>();
     admin.replicas(argument.topics).entrySet().stream()
         .filter(
             tp ->
@@ -140,9 +136,7 @@ public class ReplicaCollie {
 
   static TreeMap<TopicPartition, Map.Entry<Set<String>, Set<String>>> checkMigratorPath(
       Admin admin, Argument argument) {
-    TreeMap<TopicPartition, Map.Entry<Set<String>, Set<String>>> pathMigrate =
-        new TreeMap<>(
-            Comparator.comparing(TopicPartition::topic).thenComparing(TopicPartition::partition));
+    var pathMigrate = new TreeMap<TopicPartition, Map.Entry<Set<String>, Set<String>>>();
     admin.replicas(argument.topics).entrySet().stream()
         .filter(
             tp ->
@@ -213,9 +207,7 @@ public class ReplicaCollie {
       TreeMap<TopicPartition, Map.Entry<Set<String>, Set<String>>> pathMigrate,
       Argument argument,
       Admin admin) {
-    var result =
-        new TreeMap<TopicPartition, MigratorInfo>(
-            Comparator.comparing(TopicPartition::topic).thenComparing(TopicPartition::partition));
+    var result = new TreeMap<TopicPartition, MigratorInfo>();
     brokerMigrate.forEach(
         (tp, assignments) -> {
           if (!assignments.getKey().equals(assignments.getValue())) {

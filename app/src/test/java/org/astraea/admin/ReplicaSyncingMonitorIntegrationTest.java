@@ -9,7 +9,6 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
-import org.apache.kafka.common.TopicPartition;
 import org.astraea.producer.Producer;
 import org.astraea.producer.Sender;
 import org.astraea.service.RequireBrokerCluster;

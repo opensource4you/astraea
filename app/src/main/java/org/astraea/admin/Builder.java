@@ -30,7 +30,6 @@ import org.apache.kafka.clients.admin.OffsetSpec;
 import org.apache.kafka.clients.admin.ReplicaInfo;
 import org.apache.kafka.common.ElectionType;
 import org.apache.kafka.common.Node;
-import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.TopicPartitionReplica;
 import org.apache.kafka.common.config.ConfigResource;
 import org.astraea.Utils;
@@ -131,13 +130,17 @@ public class Builder {
                           consumerGroupMetadata.get(groupId).entrySet().stream()
                               .collect(
                                   Collectors.toUnmodifiableMap(
-                                      Map.Entry::getKey, x -> x.getValue().offset()));
+                                      tp -> TopicPartition.from(tp.getKey()),
+                                      x -> x.getValue().offset()));
                       var assignment =
                           consumerGroupDescriptions.get(groupId).members().stream()
                               .collect(
                                   Collectors.toUnmodifiableMap(
                                       x -> createMember.apply(groupId, x),
-                                      x -> x.assignment().topicPartitions()));
+                                      x ->
+                                          x.assignment().topicPartitions().stream()
+                                              .map(TopicPartition::from)
+                                              .collect(Collectors.toSet())));
 
                       return Map.entry(
                           groupId, new ConsumerGroup(groupId, members, consumeOffset, assignment));
@@ -153,12 +156,16 @@ public class Builder {
               admin
                   .listOffsets(
                       partitions.stream()
-                          .collect(Collectors.toMap(e -> e, e -> new OffsetSpec.EarliestSpec())))
+                          .collect(
+                              Collectors.toMap(
+                                  TopicPartition::to, e -> new OffsetSpec.EarliestSpec())))
                   .all()
                   .get()
                   .entrySet()
                   .stream()
-                  .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().offset())));
+                  .collect(
+                      Collectors.toMap(
+                          e -> TopicPartition.from(e.getKey()), e -> e.getValue().offset())));
     }
 
     private Map<TopicPartition, Long> latestOffset(Set<TopicPartition> partitions) {
@@ -167,12 +174,16 @@ public class Builder {
               admin
                   .listOffsets(
                       partitions.stream()
-                          .collect(Collectors.toMap(e -> e, e -> new OffsetSpec.LatestSpec())))
+                          .collect(
+                              Collectors.toMap(
+                                  TopicPartition::to, e -> new OffsetSpec.LatestSpec())))
                   .all()
                   .get()
                   .entrySet()
                   .stream()
-                  .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().offset())));
+                  .collect(
+                      Collectors.toMap(
+                          e -> TopicPartition.from(e.getKey()), e -> e.getValue().offset())));
     }
 
     @Override
@@ -268,7 +279,9 @@ public class Builder {
             brokers.add(0, broker);
             migrator().partition(tp.topic(), tp.partition()).moveTo(brokers);
             ElectLeadersResult electLeadersResult =
-                admin.electLeaders(ElectionType.PREFERRED, Set.of(tp));
+                admin.electLeaders(
+                    ElectionType.PREFERRED,
+                    Set.of(new org.apache.kafka.common.TopicPartition(tp.topic(), tp.partition())));
             try {
               electLeadersResult.all().get(10L, TimeUnit.SECONDS);
             } catch (InterruptedException | TimeoutException | ExecutionException e) {
@@ -300,7 +313,7 @@ public class Builder {
                         var path = entry.getKey();
                         var replicas = entry.getValue().replicaInfos();
                         return replicas.entrySet().stream()
-                            .filter(e -> e.getKey().equals(partition))
+                            .filter(e -> e.getKey().equals(TopicPartition.to(partition)))
                             .map(e -> Map.entry(path, e.getValue()));
                       })
                   .collect(Collectors.toList());
@@ -538,7 +551,7 @@ public class Builder {
                       partitions.stream()
                           .collect(
                               Collectors.toMap(
-                                  Function.identity(),
+                                  TopicPartition::to,
                                   ignore ->
                                       Optional.of(
                                           new NewPartitionReassignment(new ArrayList<>(brokers))))))

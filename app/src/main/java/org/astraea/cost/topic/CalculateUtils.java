@@ -1,6 +1,5 @@
 package org.astraea.cost.topic;
 
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -8,7 +7,7 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import org.apache.kafka.common.TopicPartition;
+import org.astraea.admin.TopicPartition;
 
 public class CalculateUtils {
   public static Map<Integer, Map<TopicPartition, Double>> getLoad(
@@ -89,10 +88,7 @@ public class CalculateUtils {
     load.keySet()
         .forEach(
             broker -> {
-              Map<TopicPartition, Double> partitionScore =
-                  new TreeMap<>(
-                      Comparator.comparing(TopicPartition::topic)
-                          .thenComparing(TopicPartition::partition));
+              var partitionScore = new TreeMap<TopicPartition, Double>();
               load.get(broker)
                   .keySet()
                   .forEach(
