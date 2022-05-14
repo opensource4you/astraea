@@ -161,7 +161,7 @@ public class ReplicaCollie {
                           if (argument.fromBrokers.contains(argument.toBrokers.iterator().next())) {
                             toPath.add(
                                 admin
-                                    .brokerFolders(argument.toBrokers)
+                                    .brokerFolders(new HashSet<>(argument.toBrokers))
                                     .get(argument.toBrokers.iterator().next())
                                     .stream()
                                     .filter(p -> !currentPath.contains(p))

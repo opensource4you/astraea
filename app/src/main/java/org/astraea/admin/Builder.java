@@ -77,7 +77,7 @@ public class Builder {
     }
 
     @Override
-    public Map<Integer, Set<String>> brokerFolders(Collection<Integer> brokers) {
+    public Map<Integer, Set<String>> brokerFolders(Set<Integer> brokers) {
       return Utils.handleException(
           () ->
               admin.describeLogDirs(brokers).allDescriptions().get().entrySet().stream()
@@ -90,21 +90,21 @@ public class Builder {
     }
 
     @Override
+    public Set<String> consumerGroupIds() {
+      return Utils.handleException(() -> admin.listConsumerGroups().all().get()).stream()
+          .map(ConsumerGroupListing::groupId)
+          .collect(Collectors.toUnmodifiableSet());
+    }
+
+    @Override
     public Map<String, ConsumerGroup> consumerGroups(Set<String> consumerGroupNames) {
-
-      final Set<String> groupIds =
-          !consumerGroupNames.isEmpty()
-              ? consumerGroupNames
-              : Utils.handleException(() -> admin.listConsumerGroups().all().get()).stream()
-                  .map(ConsumerGroupListing::groupId)
-                  .collect(Collectors.toUnmodifiableSet());
-
       return Utils.handleException(
           () -> {
-            var consumerGroupDescriptions = admin.describeConsumerGroups(groupIds).all().get();
+            var consumerGroupDescriptions =
+                admin.describeConsumerGroups(consumerGroupNames).all().get();
 
             var consumerGroupMetadata =
-                groupIds.stream()
+                consumerGroupNames.stream()
                     .map(x -> Map.entry(x, admin.listConsumerGroupOffsets(x)))
                     .map(
                         x ->
@@ -119,7 +119,7 @@ public class Builder {
                     (s, x) ->
                         new Member(s, x.consumerId(), x.groupInstanceId(), x.clientId(), x.host());
 
-            return groupIds.stream()
+            return consumerGroupNames.stream()
                 .map(
                     groupId -> {
                       var members =
@@ -188,22 +188,9 @@ public class Builder {
 
     @Override
     public Map<String, Config> topics() {
-      return topics(true);
-    }
-
-    @Override
-    public Map<String, Config> publicTopics() {
-      return topics(false);
-    }
-
-    private Map<String, Config> topics(boolean listInternal) {
       var topics =
           Utils.handleException(
-              () ->
-                  admin
-                      .listTopics(new ListTopicsOptions().listInternal(listInternal))
-                      .names()
-                      .get());
+              () -> admin.listTopics(new ListTopicsOptions().listInternal(true)).names().get());
       return Utils.handleException(
               () ->
                   admin
@@ -216,6 +203,12 @@ public class Builder {
           .entrySet()
           .stream()
           .collect(Collectors.toMap(e -> e.getKey().name(), e -> new ConfigImpl(e.getValue())));
+    }
+
+    @Override
+    public Set<String> topicNames() {
+      return Utils.handleException(
+          () -> admin.listTopics(new ListTopicsOptions().listInternal(true)).names().get());
     }
 
     @Override
@@ -252,7 +245,8 @@ public class Builder {
                   Map.Entry::getKey, e -> new Offset(e.getValue(), latest.get(e.getKey()))));
     }
 
-    private Set<TopicPartition> partitions(Set<String> topics) {
+    @Override
+    public Set<TopicPartition> partitions(Set<String> topics) {
       return Utils.handleException(
           () ->
               admin.describeTopics(topics).all().get().entrySet().stream()
@@ -264,9 +258,7 @@ public class Builder {
     }
 
     @Override
-    public Map<TopicPartition, Boolean> changeReplicaLeader(
-        Map<TopicPartition, Integer> partitions) {
-      Map<TopicPartition, Boolean> result = new HashMap<>();
+    public void changeReplicaLeader(Map<TopicPartition, Integer> partitions) {
       partitions.forEach(
           (tp, broker) -> {
             var brokers =
@@ -287,17 +279,15 @@ public class Builder {
             } catch (InterruptedException | TimeoutException | ExecutionException e) {
               throw new RuntimeException(e);
             }
-            result.put(tp, electLeadersResult.partitions().isDone());
           });
-      return result;
     }
 
     @Override
-    public List<TopicPartition> partitionsOfBrokers(Set<String> topics, Set<Integer> brokersID) {
+    public Set<TopicPartition> partitionsOfBrokers(Set<String> topics, Set<Integer> brokersID) {
       return replicas(topics).entrySet().stream()
           .filter(e -> e.getValue().stream().anyMatch(r -> brokersID.contains(r.broker())))
           .map(Map.Entry::getKey)
-          .collect(Collectors.toList());
+          .collect(Collectors.toSet());
     }
 
     @Override
