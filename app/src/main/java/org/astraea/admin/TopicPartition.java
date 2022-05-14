@@ -1,6 +1,5 @@
 package org.astraea.admin;
 
-import java.util.Comparator;
 import java.util.Objects;
 
 public final class TopicPartition implements Comparable<TopicPartition> {
