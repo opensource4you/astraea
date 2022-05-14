@@ -224,33 +224,6 @@ public class AdminTest extends RequireBrokerCluster {
 
   @Test
   @DisabledOnOs(WINDOWS)
-  void testChangeReplicaLeader() throws InterruptedException {
-    var topicName = "testChangeReplicaLeader";
-    var tp = new TopicPartition(topicName, 0);
-    try (var admin = Admin.of(bootstrapServers())) {
-      admin.creator().topic(topicName).numberOfPartitions(1).numberOfReplicas((short) 2).create();
-      // wait for syncing topic creation
-      TimeUnit.SECONDS.sleep(5);
-      admin.replicas(Set.of(topicName)).get(tp);
-      var replicas = admin.replicas(Set.of(topicName)).get(tp);
-      var oldLeader =
-          replicas.stream().filter(Replica::leader).collect(Collectors.toList()).get(0).broker();
-      var newLeader =
-          replicas.stream().filter(b -> !b.leader()).collect(Collectors.toList()).get(0).broker();
-      admin.changeReplicaLeader(Map.of(tp, newLeader));
-      Assertions.assertNotEquals(oldLeader, newLeader);
-      Utils.waitFor(
-          () ->
-              admin.replicas(Set.of(topicName)).get(tp).stream()
-                  .filter(r -> r.broker() == newLeader)
-                  .iterator()
-                  .next()
-                  .leader());
-    }
-  }
-
-  @Test
-  @DisabledOnOs(WINDOWS)
   void testMigrateAllPartitions() throws InterruptedException {
     var topicName = "testMigrateAllPartitions";
     try (var admin = Admin.of(bootstrapServers())) {
@@ -380,6 +353,39 @@ public class AdminTest extends RequireBrokerCluster {
 
       var count = admin.topicNames().stream().mapToInt(t -> admin.replicas(Set.of(t)).size()).sum();
       Assertions.assertEquals(count, admin.replicas().size());
+    }
+  }
+
+  @Test
+  void testMigrateAndLeader() throws InterruptedException {
+    var topic = Utils.randomString(10);
+    try (var admin = Admin.of(bootstrapServers())) {
+      admin.creator().topic(topic).numberOfPartitions(1).numberOfReplicas((short) 3).create();
+      TimeUnit.SECONDS.sleep(2);
+
+      int originLeader =
+          admin.replicas(Set.of(topic)).get(new TopicPartition(topic, 0)).stream()
+              .filter(Replica::leader)
+              .findFirst()
+              .get()
+              .broker();
+
+      int newLeader = brokerIds().stream().filter(i -> i != originLeader).findFirst().get();
+
+      admin
+          .migrator()
+          .partition(topic, 0)
+          .moveTo(
+              newLeader,
+              brokerIds().stream().filter(i -> i != newLeader).collect(Collectors.toSet()));
+      TimeUnit.SECONDS.sleep(2);
+      Assertions.assertEquals(
+          newLeader,
+          admin.replicas(Set.of(topic)).get(new TopicPartition(topic, 0)).stream()
+              .filter(Replica::leader)
+              .findFirst()
+              .get()
+              .broker());
     }
   }
 }

@@ -81,9 +81,6 @@ public interface Admin extends Closeable {
   /** @return all brokers' ids */
   Set<Integer> brokerIds();
 
-  /** @param partitions map of TopicPartition and target brokers */
-  void changeReplicaLeader(Map<TopicPartition, Integer> partitions);
-
   /**
    * @param topics topic names
    * @param brokersID brokers ID

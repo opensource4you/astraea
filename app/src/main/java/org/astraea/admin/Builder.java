@@ -12,16 +12,12 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.kafka.clients.admin.AdminClientConfig;
 import org.apache.kafka.clients.admin.ConfigEntry;
 import org.apache.kafka.clients.admin.ConsumerGroupListing;
-import org.apache.kafka.clients.admin.ElectLeadersResult;
 import org.apache.kafka.clients.admin.ListTopicsOptions;
 import org.apache.kafka.clients.admin.MemberDescription;
 import org.apache.kafka.clients.admin.NewPartitionReassignment;
@@ -258,31 +254,6 @@ public class Builder {
     }
 
     @Override
-    public void changeReplicaLeader(Map<TopicPartition, Integer> partitions) {
-      partitions.forEach(
-          (tp, broker) -> {
-            var brokers =
-                replicas(Set.of(tp.topic())).get(tp).stream()
-                    .map(Replica::broker)
-                    .collect(Collectors.toList());
-            if (!brokers.contains(broker))
-              throw new IllegalArgumentException("replica " + tp + " is not in broker " + broker);
-            brokers.remove(broker);
-            brokers.add(0, broker);
-            migrator().partition(tp.topic(), tp.partition()).moveTo(brokers);
-            ElectLeadersResult electLeadersResult =
-                admin.electLeaders(
-                    ElectionType.PREFERRED,
-                    Set.of(new org.apache.kafka.common.TopicPartition(tp.topic(), tp.partition())));
-            try {
-              electLeadersResult.all().get(10L, TimeUnit.SECONDS);
-            } catch (InterruptedException | TimeoutException | ExecutionException e) {
-              throw new RuntimeException(e);
-            }
-          });
-    }
-
-    @Override
     public Set<TopicPartition> partitionsOfBrokers(Set<String> topics, Set<Integer> brokersID) {
       return replicas(topics).entrySet().stream()
           .filter(e -> e.getValue().stream().anyMatch(r -> brokersID.contains(r.broker())))
@@ -496,6 +467,7 @@ public class Builder {
     private final org.apache.kafka.clients.admin.Admin admin;
     private final Function<Set<String>, Set<TopicPartition>> partitionGetter;
     private final Set<TopicPartition> partitions = new HashSet<>();
+    private boolean updateLeader = false;
 
     MigratorImpl(
         org.apache.kafka.clients.admin.Admin admin,
@@ -542,9 +514,22 @@ public class Builder {
                           .collect(
                               Collectors.toMap(
                                   TopicPartition::to,
-                                  ignore ->
-                                      Optional.of(
-                                          new NewPartitionReassignment(new ArrayList<>(brokers))))))
+                                  ignore -> Optional.of(new NewPartitionReassignment(brokers)))))
+                  .all()
+                  .get());
+    }
+
+    @Override
+    public void moveTo(int leader, Set<Integer> followers) {
+      var all = new ArrayList<>(followers);
+      all.add(0, leader);
+      moveTo(all);
+      Utils.handleException(
+          () ->
+              admin
+                  .electLeaders(
+                      ElectionType.PREFERRED,
+                      partitions.stream().map(TopicPartition::to).collect(Collectors.toSet()))
                   .all()
                   .get());
     }
