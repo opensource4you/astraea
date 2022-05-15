@@ -18,6 +18,7 @@ public class WebService {
     server.createContext("/topics", new TopicHandler(Admin.of(arg.configs())));
     server.createContext("/groups", new GroupHandler(Admin.of(arg.configs())));
     server.createContext("/brokers", new BrokerHandler(Admin.of(arg.configs())));
+    server.createContext("/producers", new ProducerHandler(Admin.of(arg.configs())));
     server.start();
   }
 

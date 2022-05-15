@@ -17,8 +17,7 @@ interface Handler extends HttpHandler {
 
   static <T> Set<T> compare(Set<T> all, Optional<T> target) {
     var nonexistent = target.stream().filter(id -> !all.contains(id)).collect(Collectors.toSet());
-    if (!nonexistent.isEmpty())
-      throw new NoSuchElementException("[" + nonexistent + "] does not exist");
+    if (!nonexistent.isEmpty()) throw new NoSuchElementException(nonexistent + " does not exist");
     return target.map(Set::of).orElse(all);
   }
 
