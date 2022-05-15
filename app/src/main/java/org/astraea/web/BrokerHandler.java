@@ -27,7 +27,7 @@ class BrokerHandler implements Handler {
   }
 
   @Override
-  public JsonObject response(Optional<String> target, Map<String, String> queries) {
+  public JsonObject get(Optional<String> target, Map<String, String> queries) {
     mustBeNumber(target);
     Predicate<Map.Entry<Integer, ?>> brokerId =
         e -> target.stream().map(Integer::valueOf).allMatch(t -> t.equals(e.getKey()));

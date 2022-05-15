@@ -18,7 +18,8 @@ public class HandlerTest {
 
     var httpExchange = Mockito.mock(HttpExchange.class);
     Mockito.when(httpExchange.getRequestURI()).thenReturn(URI.create("http://localhost:8888/abc"));
-    var r = Assertions.assertInstanceOf(ErrorObject.class, handler.response(httpExchange));
+    Mockito.when(httpExchange.getRequestMethod()).thenReturn("get");
+    var r = Assertions.assertInstanceOf(ErrorObject.class, handler.process(httpExchange));
     Assertions.assertNotEquals(200, r.code);
     Assertions.assertEquals(exception.getMessage(), r.message);
   }

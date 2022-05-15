@@ -16,7 +16,7 @@ public class BrokerHandlerTest extends RequireBrokerCluster {
       var handler = new BrokerHandler(admin);
       var response =
           Assertions.assertInstanceOf(
-              BrokerHandler.Brokers.class, handler.response(Optional.empty(), Map.of()));
+              BrokerHandler.Brokers.class, handler.get(Optional.empty(), Map.of()));
       Assertions.assertEquals(brokerIds().size(), response.brokers.size());
       brokerIds()
           .forEach(
@@ -32,7 +32,7 @@ public class BrokerHandlerTest extends RequireBrokerCluster {
       var handler = new BrokerHandler(admin);
       var exception =
           Assertions.assertThrows(
-              NoSuchElementException.class, () -> handler.response(Optional.of("99999"), Map.of()));
+              NoSuchElementException.class, () -> handler.get(Optional.of("99999"), Map.of()));
       Assertions.assertTrue(exception.getMessage().contains("99999"));
     }
   }
@@ -43,7 +43,7 @@ public class BrokerHandlerTest extends RequireBrokerCluster {
       var handler = new BrokerHandler(admin);
       var exception =
           Assertions.assertThrows(
-              NoSuchElementException.class, () -> handler.response(Optional.of("abc"), Map.of()));
+              NoSuchElementException.class, () -> handler.get(Optional.of("abc"), Map.of()));
       Assertions.assertTrue(exception.getMessage().contains("abc"));
     }
   }
@@ -56,7 +56,7 @@ public class BrokerHandlerTest extends RequireBrokerCluster {
       var broker =
           Assertions.assertInstanceOf(
               BrokerHandler.Broker.class,
-              handler.response(Optional.of(String.valueOf(brokerId)), Map.of()));
+              handler.get(Optional.of(String.valueOf(brokerId)), Map.of()));
       Assertions.assertEquals(brokerId, broker.id);
       Assertions.assertNotEquals(0, broker.configs.size());
     }

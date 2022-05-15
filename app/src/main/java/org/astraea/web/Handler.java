@@ -6,17 +6,29 @@ import java.io.IOException;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
 interface Handler extends HttpHandler {
 
-  default JsonObject response(HttpExchange exchange) {
+  default JsonObject process(HttpExchange exchange) {
+    var method = exchange.getRequestMethod().toUpperCase(Locale.ROOT);
     var start = System.currentTimeMillis();
+    JsonObject response;
     try {
-      return response(
-          parseTarget(exchange.getRequestURI()), parseQueries(exchange.getRequestURI()));
+      switch (method) {
+        case "GET":
+          return get(parseTarget(exchange.getRequestURI()), parseQueries(exchange.getRequestURI()));
+        case "POST":
+          return post(PostRequest.of(exchange));
+        case "DELETE":
+          var target = parseTarget(exchange.getRequestURI());
+          if (target.isPresent()) return delete(target.get());
+        default:
+          return ErrorObject.for404(method + " is not supported yet");
+      }
     } catch (Exception e) {
       e.printStackTrace();
       return new ErrorObject(e);
@@ -31,7 +43,8 @@ interface Handler extends HttpHandler {
 
   @Override
   default void handle(HttpExchange exchange) throws IOException {
-    var response = response(exchange);
+    JsonObject response = process(exchange);
+
     var responseData = response.json().getBytes(StandardCharsets.UTF_8);
     exchange
         .getResponseHeaders()
@@ -62,5 +75,32 @@ interface Handler extends HttpHandler {
         .collect(Collectors.toMap(p -> p.split("=")[0], p -> p.split("=")[1]));
   }
 
-  JsonObject response(Optional<String> target, Map<String, String> queries);
+  /**
+   * handle the get request.
+   *
+   * @param target the last keyword of url
+   * @param queries queries from url
+   * @return json object to return
+   */
+  JsonObject get(Optional<String> target, Map<String, String> queries);
+
+  /**
+   * handle the post request.
+   *
+   * @param request the last keyword of url
+   * @return json object to return
+   */
+  default JsonObject post(PostRequest request) {
+    return ErrorObject.for404("POST is not supported yet");
+  }
+
+  /**
+   * handle the delete request.
+   *
+   * @param target the last keyword of url
+   * @return json object to return
+   */
+  default JsonObject delete(String target) {
+    return ErrorObject.for404("DELETE is not supported yet");
+  }
 }
