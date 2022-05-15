@@ -3,9 +3,8 @@ package org.astraea.web;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-import java.util.NoSuchElementException;
 import java.util.Optional;
-import java.util.function.Predicate;
+import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 import org.astraea.admin.Admin;
@@ -19,11 +18,13 @@ class TopicHandler implements Handler {
     this.admin = admin;
   }
 
+  Set<String> topicNames(Optional<String> target) {
+    return Handler.compare(admin.topicNames(), target);
+  }
+
   @Override
   public JsonObject get(Optional<String> target, Map<String, String> queries) {
-    Predicate<Map.Entry<String, ?>> topicFilter =
-        e -> target.stream().allMatch(t -> t.equals(e.getKey()));
-    var topics = admin.topics();
+    var topics = admin.topics(topicNames(target));
     var replicas = admin.replicas(topics.keySet());
     var partitions =
         admin.offsets(topics.keySet()).entrySet().stream()
@@ -43,14 +44,11 @@ class TopicHandler implements Handler {
 
     var topicInfos =
         topics.entrySet().stream()
-            .filter(topicFilter)
             .map(p -> new TopicInfo(p.getKey(), partitions.get(p.getKey()), p.getValue()))
             .collect(Collectors.toUnmodifiableList());
 
     if (target.isPresent() && topicInfos.size() == 1) return topicInfos.get(0);
-    else if (target.isPresent())
-      throw new NoSuchElementException("topic: " + target.get() + " does not exist");
-    else return new Topics(topicInfos);
+    return new Topics(topicInfos);
   }
 
   static class Topics implements JsonObject {

@@ -12,12 +12,17 @@ class ErrorObject implements JsonObject {
   final String message;
 
   ErrorObject(Exception exception) {
-    this.code = exception instanceof NoSuchElementException ? 404 : 400;
-    this.message = exception.getMessage();
+    this(code(exception), exception.getMessage());
   }
 
   ErrorObject(int code, String message) {
     this.code = code;
     this.message = message;
+  }
+
+  private static int code(Exception exception) {
+    if (exception instanceof IllegalArgumentException) return 400;
+    if (exception instanceof NoSuchElementException) return 404;
+    return 400;
   }
 }

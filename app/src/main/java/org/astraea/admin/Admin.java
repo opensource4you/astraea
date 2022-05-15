@@ -24,7 +24,12 @@ public interface Admin extends Closeable {
   Set<String> topicNames();
 
   /** @return the topic name and its configurations. */
-  Map<String, Config> topics();
+  default Map<String, Config> topics() {
+    return topics(topicNames());
+  }
+
+  /** @return the topic name and its configurations. */
+  Map<String, Config> topics(Set<String> topicNames);
 
   /** @return all partitions */
   default Set<TopicPartition> partitions() {
@@ -77,7 +82,15 @@ public interface Admin extends Closeable {
   Map<TopicPartition, List<Replica>> replicas(Set<String> topics);
 
   /** @return all broker id and their configuration */
-  Map<Integer, Config> brokers();
+  default Map<Integer, Config> brokers() {
+    return brokers(brokerIds());
+  }
+
+  /**
+   * @param brokerIds to search
+   * @return broker information
+   */
+  Map<Integer, Config> brokers(Set<Integer> brokerIds);
 
   /** @return all brokers' ids */
   Set<Integer> brokerIds();

@@ -3,6 +3,7 @@ package org.astraea.web;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
+import java.util.Set;
 import org.astraea.admin.Admin;
 import org.astraea.service.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
@@ -30,10 +31,8 @@ public class BrokerHandlerTest extends RequireBrokerCluster {
   void testQueryNonexistentBroker() {
     try (Admin admin = Admin.of(bootstrapServers())) {
       var handler = new BrokerHandler(admin);
-      var exception =
-          Assertions.assertThrows(
-              NoSuchElementException.class, () -> handler.get(Optional.of("99999"), Map.of()));
-      Assertions.assertTrue(exception.getMessage().contains("99999"));
+      Assertions.assertThrows(
+          NoSuchElementException.class, () -> handler.get(Optional.of("99999"), Map.of()));
     }
   }
 
@@ -41,15 +40,13 @@ public class BrokerHandlerTest extends RequireBrokerCluster {
   void testQueryInvalidBroker() {
     try (Admin admin = Admin.of(bootstrapServers())) {
       var handler = new BrokerHandler(admin);
-      var exception =
-          Assertions.assertThrows(
-              NoSuchElementException.class, () -> handler.get(Optional.of("abc"), Map.of()));
-      Assertions.assertTrue(exception.getMessage().contains("abc"));
+      Assertions.assertThrows(
+          NoSuchElementException.class, () -> handler.get(Optional.of("abc"), Map.of()));
     }
   }
 
   @Test
-  void testQuerySingleBroker() throws InterruptedException {
+  void testQuerySingleBroker() {
     var brokerId = brokerIds().iterator().next();
     try (Admin admin = Admin.of(bootstrapServers())) {
       var handler = new BrokerHandler(admin);
@@ -59,6 +56,19 @@ public class BrokerHandlerTest extends RequireBrokerCluster {
               handler.get(Optional.of(String.valueOf(brokerId)), Map.of()));
       Assertions.assertEquals(brokerId, broker.id);
       Assertions.assertNotEquals(0, broker.configs.size());
+    }
+  }
+
+  @Test
+  void testBrokers() {
+    try (Admin admin = Admin.of(bootstrapServers())) {
+      var handler = new BrokerHandler(admin);
+      Assertions.assertEquals(
+          Set.of(brokerIds().iterator().next()),
+          handler.brokers(Optional.of(String.valueOf(brokerIds().iterator().next()))));
+      Assertions.assertEquals(brokerIds(), handler.brokers(Optional.empty()));
+      Assertions.assertThrows(
+          NoSuchElementException.class, () -> handler.brokers(Optional.of("aaa")));
     }
   }
 }

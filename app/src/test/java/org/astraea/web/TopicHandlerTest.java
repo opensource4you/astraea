@@ -3,6 +3,7 @@ package org.astraea.web;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import org.astraea.Utils;
 import org.astraea.admin.Admin;
@@ -32,10 +33,8 @@ public class TopicHandlerTest extends RequireBrokerCluster {
   void testQueryNonexistentTopic() {
     try (Admin admin = Admin.of(bootstrapServers())) {
       var handler = new TopicHandler(admin);
-      var exception =
-          Assertions.assertThrows(
-              NoSuchElementException.class, () -> handler.get(Optional.of("unknown"), Map.of()));
-      Assertions.assertTrue(exception.getMessage().contains("unknown"));
+      Assertions.assertThrows(
+          NoSuchElementException.class, () -> handler.get(Optional.of("unknown"), Map.of()));
     }
   }
 
@@ -51,6 +50,21 @@ public class TopicHandlerTest extends RequireBrokerCluster {
               TopicHandler.TopicInfo.class, handler.get(Optional.of(topicName), Map.of()));
       Assertions.assertEquals(topicName, topicInfo.name);
       Assertions.assertNotEquals(0, topicInfo.configs.size());
+    }
+  }
+
+  @Test
+  void testTopics() throws InterruptedException {
+    var topicName = Utils.randomString(10);
+    try (Admin admin = Admin.of(bootstrapServers())) {
+      admin.creator().topic(topicName).create();
+      TimeUnit.SECONDS.sleep(3);
+      var handler = new TopicHandler(admin);
+      Assertions.assertEquals(Set.of(topicName), handler.topicNames(Optional.of(topicName)));
+      Assertions.assertThrows(
+          NoSuchElementException.class,
+          () -> handler.topicNames(Optional.of(Utils.randomString(10))));
+      Assertions.assertTrue(handler.topicNames(Optional.empty()).contains(topicName));
     }
   }
 }

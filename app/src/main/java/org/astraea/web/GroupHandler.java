@@ -2,9 +2,8 @@ package org.astraea.web;
 
 import java.util.List;
 import java.util.Map;
-import java.util.NoSuchElementException;
 import java.util.Optional;
-import java.util.function.Predicate;
+import java.util.Set;
 import java.util.stream.Collectors;
 import org.astraea.admin.Admin;
 
@@ -16,17 +15,18 @@ public class GroupHandler implements Handler {
     this.admin = admin;
   }
 
+  Set<String> groupIds(Optional<String> target) {
+    return Handler.compare(admin.consumerGroupIds(), target);
+  }
+
   @Override
   public JsonObject get(Optional<String> target, Map<String, String> queries) {
-    Predicate<Map.Entry<String, ?>> groupFilter =
-        e -> target.stream().allMatch(t -> t.equals(e.getKey()));
     var topics = admin.topicNames();
-    var consumerGroups = admin.consumerGroups();
+    var consumerGroups = admin.consumerGroups(groupIds(target));
     var offsets = admin.offsets(topics);
 
     var groups =
         consumerGroups.entrySet().stream()
-            .filter(groupFilter)
             .map(
                 cgAndTp ->
                     new Group(
@@ -67,9 +67,7 @@ public class GroupHandler implements Handler {
             .collect(Collectors.toUnmodifiableList());
 
     if (target.isPresent() && groups.size() == 1) return groups.get(0);
-    else if (target.isPresent())
-      throw new NoSuchElementException("group: " + target.get() + " does not exist");
-    else return new Groups(groups);
+    return new Groups(groups);
   }
 
   static class OffsetProgress implements JsonObject {

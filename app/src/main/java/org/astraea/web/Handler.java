@@ -8,10 +8,19 @@ import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Locale;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 interface Handler extends HttpHandler {
+
+  static <T> Set<T> compare(Set<T> all, Optional<T> target) {
+    var nonexistent = target.stream().filter(id -> !all.contains(id)).collect(Collectors.toSet());
+    if (!nonexistent.isEmpty())
+      throw new NoSuchElementException("[" + nonexistent + "] does not exist");
+    return target.map(Set::of).orElse(all);
+  }
 
   default JsonObject process(HttpExchange exchange) {
     var method = exchange.getRequestMethod().toUpperCase(Locale.ROOT);
