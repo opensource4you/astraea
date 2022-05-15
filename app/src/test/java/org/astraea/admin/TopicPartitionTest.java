@@ -22,4 +22,15 @@ public class TopicPartitionTest {
     Assertions.assertEquals(0, tp0.compareTo(tp0));
     Assertions.assertEquals(tp0, tp0);
   }
+
+  @Test
+  void testString() {
+    Assertions.assertEquals(0, TopicPartition.of("a-a", "0").partition());
+    Assertions.assertThrows(IllegalArgumentException.class, () -> TopicPartition.of("a", "a"));
+
+    Assertions.assertEquals(0, TopicPartition.of("a-a-0").partition());
+    Assertions.assertThrows(IllegalArgumentException.class, () -> TopicPartition.of("a-a"));
+    Assertions.assertThrows(IllegalArgumentException.class, () -> TopicPartition.of("a-a-"));
+    Assertions.assertThrows(IllegalArgumentException.class, () -> TopicPartition.of("aaa"));
+  }
 }

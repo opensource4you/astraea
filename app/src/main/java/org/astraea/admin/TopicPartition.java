@@ -12,6 +12,23 @@ public final class TopicPartition implements Comparable<TopicPartition> {
     return new org.apache.kafka.common.TopicPartition(tp.topic(), tp.partition());
   }
 
+  public static TopicPartition of(String topic, String partition) {
+    return of(topic + "-" + partition);
+  }
+
+  public static TopicPartition of(String value) {
+    var lhs = value.lastIndexOf("-");
+    if (lhs <= 0 || lhs == value.length() - 1)
+      throw new IllegalArgumentException(
+          value + " has illegal format. It should be {topic}-{partition}");
+    try {
+      return new TopicPartition(
+          value.substring(0, lhs), Integer.parseInt(value.substring(lhs + 1)));
+    } catch (NumberFormatException e) {
+      throw new IllegalArgumentException("partition id must be number");
+    }
+  }
+
   private final int partition;
   private final String topic;
 

@@ -99,6 +99,7 @@ public class Builder {
                   .get()
                   .entrySet()
                   .stream()
+                  .filter(e -> !e.getValue().activeProducers().isEmpty())
                   .collect(
                       Collectors.toMap(
                           e -> TopicPartition.from(e.getKey()),
