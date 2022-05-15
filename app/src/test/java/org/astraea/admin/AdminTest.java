@@ -122,7 +122,7 @@ public class AdminTest extends RequireBrokerCluster {
     try (var admin = Admin.of(bootstrapServers())) {
       admin.creator().topic(topicName).numberOfPartitions(3).create();
       // wait for syncing topic creation
-      TimeUnit.SECONDS.sleep(5);
+      TimeUnit.SECONDS.sleep(3);
       var offsets = admin.offsets(Set.of(topicName));
       Assertions.assertEquals(3, offsets.size());
       offsets
@@ -134,6 +134,8 @@ public class AdminTest extends RequireBrokerCluster {
               });
 
       admin.creator().topic("a").numberOfPartitions(3).create();
+      // wait for syncing topic creation
+      TimeUnit.SECONDS.sleep(3);
       Assertions.assertEquals(6, admin.offsets().size());
     }
   }
