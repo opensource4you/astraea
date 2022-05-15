@@ -5,14 +5,14 @@ import java.util.Map;
 import java.util.Set;
 
 /** used to migrate partitions to another broker or broker folder. */
-public interface Migrator {
+public interface ReplicaMigrator {
   /**
    * move all partitions (leader replica and follower replicas) of topic
    *
    * @param topic topic name
    * @return this migrator
    */
-  Migrator topic(String topic);
+  ReplicaMigrator topic(String topic);
 
   /**
    * move one partition (leader replica and follower replicas) of topic
@@ -21,7 +21,7 @@ public interface Migrator {
    * @param partition partition id
    * @return this migrator
    */
-  Migrator partition(String topic, int partition);
+  ReplicaMigrator partition(String topic, int partition);
 
   /**
    * move partitions to specify brokers. Noted that this method won't invoke leader election
