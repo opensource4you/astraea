@@ -24,7 +24,12 @@ public interface Admin extends Closeable {
   Set<String> topicNames();
 
   /** @return the topic name and its configurations. */
-  Map<String, Config> topics();
+  default Map<String, Config> topics() {
+    return topics(topicNames());
+  }
+
+  /** @return the topic name and its configurations. */
+  Map<String, Config> topics(Set<String> topicNames);
 
   /** @return all partitions */
   default Set<TopicPartition> partitions() {

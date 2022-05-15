@@ -78,4 +78,27 @@ public class GroupHandlerTest extends RequireBrokerCluster {
       }
     }
   }
+
+  @Test
+  void testGroups() {
+    var topicName = Utils.randomString(10);
+    var groupId = Utils.randomString(10);
+    try (Admin admin = Admin.of(bootstrapServers())) {
+      var handler = new GroupHandler(admin);
+
+      try (var consumer =
+          Consumer.builder()
+              .groupId(groupId)
+              .topics(Set.of(topicName))
+              .bootstrapServers(bootstrapServers())
+              .build()) {
+        Assertions.assertEquals(0, consumer.poll(Duration.ofSeconds(3)).size());
+        Assertions.assertEquals(Set.of(groupId), handler.groupIds(Optional.of(groupId)));
+        Assertions.assertThrows(
+            NoSuchElementException.class,
+            () -> handler.groupIds(Optional.of(Utils.randomString(10))));
+        Assertions.assertTrue(handler.groupIds(Optional.empty()).contains(groupId));
+      }
+    }
+  }
 }

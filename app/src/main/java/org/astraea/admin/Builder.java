@@ -206,15 +206,12 @@ public class Builder {
     }
 
     @Override
-    public Map<String, Config> topics() {
-      var topics =
-          Utils.handleException(
-              () -> admin.listTopics(new ListTopicsOptions().listInternal(true)).names().get());
+    public Map<String, Config> topics(Set<String> topicNames) {
       return Utils.handleException(
               () ->
                   admin
                       .describeConfigs(
-                          topics.stream()
+                          topicNames.stream()
                               .map(topic -> new ConfigResource(ConfigResource.Type.TOPIC, topic))
                               .collect(Collectors.toList()))
                       .all()

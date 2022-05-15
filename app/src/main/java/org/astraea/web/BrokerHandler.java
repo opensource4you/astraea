@@ -20,7 +20,7 @@ class BrokerHandler implements Handler {
 
   Set<Integer> brokers(Optional<String> target) {
     try {
-      return target.map(Integer::valueOf).map(Set::of).orElse(admin.brokerIds());
+      return Handler.compare(admin.brokerIds(), target.map(Integer::valueOf));
     } catch (NumberFormatException e) {
       throw new NoSuchElementException("the broker id must be number");
     }
@@ -32,11 +32,8 @@ class BrokerHandler implements Handler {
         admin.brokers(brokers(target)).entrySet().stream()
             .map(e -> new Broker(e.getKey(), e.getValue()))
             .collect(Collectors.toUnmodifiableList());
-
     if (target.isPresent() && brokers.size() == 1) return brokers.get(0);
-    else if (target.isPresent())
-      throw new NoSuchElementException("broker: " + target.get() + " does not exist");
-    else return new Brokers(brokers);
+    return new Brokers(brokers);
   }
 
   static class Broker implements JsonObject {

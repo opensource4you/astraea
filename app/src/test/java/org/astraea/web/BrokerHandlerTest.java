@@ -63,7 +63,9 @@ public class BrokerHandlerTest extends RequireBrokerCluster {
   void testBrokers() {
     try (Admin admin = Admin.of(bootstrapServers())) {
       var handler = new BrokerHandler(admin);
-      Assertions.assertEquals(Set.of(10), handler.brokers(Optional.of("10")));
+      Assertions.assertEquals(
+          Set.of(brokerIds().iterator().next()),
+          handler.brokers(Optional.of(String.valueOf(brokerIds().iterator().next()))));
       Assertions.assertEquals(brokerIds(), handler.brokers(Optional.empty()));
       Assertions.assertThrows(
           NoSuchElementException.class, () -> handler.brokers(Optional.of("aaa")));
