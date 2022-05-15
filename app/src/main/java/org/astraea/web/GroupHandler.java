@@ -17,7 +17,7 @@ public class GroupHandler implements Handler {
   }
 
   @Override
-  public JsonObject response(Optional<String> target, Map<String, String> queries) {
+  public JsonObject get(Optional<String> target, Map<String, String> queries) {
     Predicate<Map.Entry<String, ?>> groupFilter =
         e -> target.stream().allMatch(t -> t.equals(e.getKey()));
     var topics = admin.topicNames();

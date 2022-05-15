@@ -21,7 +21,7 @@ public class TopicHandlerTest extends RequireBrokerCluster {
       var handler = new TopicHandler(admin);
       var response =
           Assertions.assertInstanceOf(
-              TopicHandler.Topics.class, handler.response(Optional.empty(), Map.of()));
+              TopicHandler.Topics.class, handler.get(Optional.empty(), Map.of()));
       Assertions.assertEquals(1, response.topics.size());
       Assertions.assertEquals(topicName, response.topics.iterator().next().name);
       Assertions.assertNotEquals(0, response.topics.iterator().next().configs.size());
@@ -34,8 +34,7 @@ public class TopicHandlerTest extends RequireBrokerCluster {
       var handler = new TopicHandler(admin);
       var exception =
           Assertions.assertThrows(
-              NoSuchElementException.class,
-              () -> handler.response(Optional.of("unknown"), Map.of()));
+              NoSuchElementException.class, () -> handler.get(Optional.of("unknown"), Map.of()));
       Assertions.assertTrue(exception.getMessage().contains("unknown"));
     }
   }
@@ -49,7 +48,7 @@ public class TopicHandlerTest extends RequireBrokerCluster {
       var handler = new TopicHandler(admin);
       var topicInfo =
           Assertions.assertInstanceOf(
-              TopicHandler.TopicInfo.class, handler.response(Optional.of(topicName), Map.of()));
+              TopicHandler.TopicInfo.class, handler.get(Optional.of(topicName), Map.of()));
       Assertions.assertEquals(topicName, topicInfo.name);
       Assertions.assertNotEquals(0, topicInfo.configs.size());
     }

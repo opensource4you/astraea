@@ -33,7 +33,7 @@ public class GroupHandlerTest extends RequireBrokerCluster {
         var handler = new GroupHandler(admin);
         var response =
             Assertions.assertInstanceOf(
-                GroupHandler.Groups.class, handler.response(Optional.empty(), Map.of()));
+                GroupHandler.Groups.class, handler.get(Optional.empty(), Map.of()));
         Assertions.assertEquals(1, response.groups.size());
         Assertions.assertEquals(groupId, response.groups.iterator().next().groupId);
         Assertions.assertEquals(1, response.groups.iterator().next().members.size());
@@ -53,8 +53,7 @@ public class GroupHandlerTest extends RequireBrokerCluster {
       var handler = new GroupHandler(admin);
       var exception =
           Assertions.assertThrows(
-              NoSuchElementException.class,
-              () -> handler.response(Optional.of("unknown"), Map.of()));
+              NoSuchElementException.class, () -> handler.get(Optional.of("unknown"), Map.of()));
       Assertions.assertTrue(exception.getMessage().contains("unknown"));
     }
   }
@@ -75,7 +74,7 @@ public class GroupHandlerTest extends RequireBrokerCluster {
         Assertions.assertEquals(0, consumer.poll(Duration.ofSeconds(3)).size());
         var group =
             Assertions.assertInstanceOf(
-                GroupHandler.Group.class, handler.response(Optional.of(groupId), Map.of()));
+                GroupHandler.Group.class, handler.get(Optional.of(groupId), Map.of()));
         Assertions.assertEquals(groupId, group.groupId);
         Assertions.assertEquals(1, group.members.size());
       }
