@@ -231,8 +231,7 @@ public class Builder {
     }
 
     @Override
-    public Map<Integer, Config> brokers() {
-      var brokerIds = brokerIds();
+    public Map<Integer, Config> brokers(Set<Integer> brokerIds) {
       return Utils.handleException(
               () ->
                   admin

@@ -32,10 +32,8 @@ public class TopicHandlerTest extends RequireBrokerCluster {
   void testQueryNonexistentTopic() {
     try (Admin admin = Admin.of(bootstrapServers())) {
       var handler = new TopicHandler(admin);
-      var exception =
-          Assertions.assertThrows(
-              NoSuchElementException.class, () -> handler.get(Optional.of("unknown"), Map.of()));
-      Assertions.assertTrue(exception.getMessage().contains("unknown"));
+      Assertions.assertThrows(
+          NoSuchElementException.class, () -> handler.get(Optional.of("unknown"), Map.of()));
     }
   }
 

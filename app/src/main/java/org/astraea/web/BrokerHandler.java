@@ -4,7 +4,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
-import java.util.function.Predicate;
+import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 import org.astraea.admin.Admin;
@@ -18,22 +18,18 @@ class BrokerHandler implements Handler {
     this.admin = admin;
   }
 
-  private static void mustBeNumber(Optional<String> target) {
+  Set<Integer> brokers(Optional<String> target) {
     try {
-      target.ifPresent(Integer::valueOf);
+      return target.map(Integer::valueOf).map(Set::of).orElse(admin.brokerIds());
     } catch (NumberFormatException e) {
-      throw new NoSuchElementException("broker: " + target.get() + " does not exist");
+      throw new NoSuchElementException("the broker id must be number");
     }
   }
 
   @Override
   public JsonObject get(Optional<String> target, Map<String, String> queries) {
-    mustBeNumber(target);
-    Predicate<Map.Entry<Integer, ?>> brokerId =
-        e -> target.stream().map(Integer::valueOf).allMatch(t -> t.equals(e.getKey()));
     var brokers =
-        admin.brokers().entrySet().stream()
-            .filter(brokerId)
+        admin.brokers(brokers(target)).entrySet().stream()
             .map(e -> new Broker(e.getKey(), e.getValue()))
             .collect(Collectors.toUnmodifiableList());
 

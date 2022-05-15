@@ -51,15 +51,13 @@ public class GroupHandlerTest extends RequireBrokerCluster {
   void testQueryNonexistentGroup() {
     try (Admin admin = Admin.of(bootstrapServers())) {
       var handler = new GroupHandler(admin);
-      var exception =
-          Assertions.assertThrows(
-              NoSuchElementException.class, () -> handler.get(Optional.of("unknown"), Map.of()));
-      Assertions.assertTrue(exception.getMessage().contains("unknown"));
+      Assertions.assertThrows(
+          NoSuchElementException.class, () -> handler.get(Optional.of("unknown"), Map.of()));
     }
   }
 
   @Test
-  void testQuerySingleGroup() throws InterruptedException {
+  void testQuerySingleGroup() {
     var topicName = Utils.randomString(10);
     var groupId = Utils.randomString(10);
     try (Admin admin = Admin.of(bootstrapServers())) {

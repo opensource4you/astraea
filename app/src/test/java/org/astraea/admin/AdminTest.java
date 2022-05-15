@@ -326,6 +326,7 @@ public class AdminTest extends RequireBrokerCluster {
       var brokerConfigs = admin.brokers();
       Assertions.assertEquals(3, brokerConfigs.size());
       brokerConfigs.values().forEach(c -> Assertions.assertNotEquals(0, c.keys().size()));
+      Assertions.assertEquals(1, admin.brokers(Set.of(brokerIds().iterator().next())).size());
     }
   }
 
