@@ -5,6 +5,7 @@ import com.sun.net.httpserver.HttpExchange;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.stream.Collectors;
 
 public interface PostRequest {
@@ -22,4 +23,23 @@ public interface PostRequest {
 
   /** @return body represented by key-value */
   Map<String, String> raw();
+
+  default String value(String key) {
+    var value = raw().get(key);
+    if (value == null) throw new NoSuchElementException("the value for " + key + " is nonexistent");
+    return value;
+  }
+
+  default double doubleValue(String key) {
+    try {
+      return Double.parseDouble(value(key));
+    } catch (NumberFormatException e) {
+      throw new IllegalArgumentException(e);
+    }
+  }
+
+  default int intValue(String key) {
+    // the number in GSON is always DOUBLE>
+    return (int) doubleValue(key);
+  }
 }
