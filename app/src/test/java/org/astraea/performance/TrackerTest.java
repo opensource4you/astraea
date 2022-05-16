@@ -1,6 +1,7 @@
 package org.astraea.performance;
 
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.astraea.concurrent.State;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -15,21 +16,24 @@ public class TrackerTest {
     argument.exeTime = ExeTime.of("1records");
 
     var manager = new Manager(argument, producerData, consumerData);
-    try (Tracker tracker = new Tracker(producerData, consumerData, manager)) {
+    var producerDone = new AtomicBoolean(false);
+    try (Tracker tracker = new Tracker(producerData, consumerData, manager, producerDone::get)) {
+      producerDone.set(false);
       Assertions.assertEquals(State.RUNNING, tracker.execute());
       producerData.get(0).accept(1L, 1L);
       consumerData.get(0).accept(1L, 1L);
-      manager.producerClosed();
+      producerDone.set(true);
       Assertions.assertEquals(State.DONE, tracker.execute());
     }
 
     // Zero consumer
     producerData = List.of(new Metrics());
     manager = new Manager(argument, producerData, empty);
-    try (Tracker tracker = new Tracker(producerData, empty, manager)) {
+    try (Tracker tracker = new Tracker(producerData, empty, manager, producerDone::get)) {
+      producerDone.set(false);
       Assertions.assertEquals(State.RUNNING, tracker.execute());
       producerData.get(0).accept(1L, 1L);
-      manager.producerClosed();
+      producerDone.set(true);
       Assertions.assertEquals(State.DONE, tracker.execute());
     }
 
@@ -38,7 +42,8 @@ public class TrackerTest {
     producerData = List.of(new Metrics());
     consumerData = List.of(new Metrics());
     manager = new Manager(argument, producerData, consumerData);
-    try (Tracker tracker = new Tracker(producerData, consumerData, manager)) {
+    try (Tracker tracker = new Tracker(producerData, consumerData, manager, producerDone::get)) {
+      producerDone.set(false);
       tracker.start = System.currentTimeMillis();
       Assertions.assertEquals(State.RUNNING, tracker.execute());
 
@@ -46,8 +51,7 @@ public class TrackerTest {
       producerData.get(0).accept(1L, 1L);
       consumerData.get(0).accept(1L, 1L);
       Thread.sleep(2000);
-      manager.producerClosed();
-
+      producerDone.set(true);
       Assertions.assertEquals(State.DONE, tracker.execute());
     }
   }

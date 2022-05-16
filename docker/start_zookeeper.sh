@@ -27,7 +27,7 @@ function showHelp() {
 
 function generateDockerfile() {
   echo "# this dockerfile is generated dynamically
-FROM ubuntu:20.04 AS build
+FROM ubuntu:22.04 AS build
 
 # install tools
 RUN apt-get update && apt-get install -y wget
@@ -38,7 +38,7 @@ RUN wget https://archive.apache.org/dist/zookeeper/zookeeper-${VERSION}/apache-z
 RUN mkdir /opt/zookeeper
 RUN tar -zxvf apache-zookeeper-${VERSION}-bin.tar.gz -C /opt/zookeeper --strip-components=1
 
-FROM ubuntu:20.04
+FROM ubuntu:22.04
 
 # install tools
 RUN apt-get update && apt-get install -y openjdk-11-jre

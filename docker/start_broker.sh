@@ -4,7 +4,7 @@ declare -r DOCKER_FOLDER=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null
 source $DOCKER_FOLDER/docker_build_common.sh
 
 # ===============================[global variables]===============================
-declare -r VERSION=${REVISION:-${VERSION:-3.1.0}}
+declare -r VERSION=${REVISION:-${VERSION:-3.1.1}}
 declare -r DOCKERFILE=$DOCKER_FOLDER/broker.dockerfile
 declare -r CONFLUENT_BROKER=${CONFLUENT_BROKER:-false}
 declare -r CONFLUENT_VERSION=${CONFLUENT_VERSION:-7.0.1}
@@ -54,7 +54,7 @@ function showHelp() {
   echo "    REPO=astraea/broker                      set the docker repo"
   echo "    HEAP_OPTS=\"-Xmx2G -Xms2G\"                set broker JVM memory"
   echo "    REVISION=trunk                           set revision of kafka source code to build container"
-  echo "    VERSION=3.1.0                            set version of kafka distribution"
+  echo "    VERSION=3.1.1                            set version of kafka distribution"
   echo "    BUILD=false                              set true if you want to build image locally"
   echo "    RUN=false                                set false if you want to build/pull image only"
   echo "    DATA_FOLDERS=/tmp/folder1                set host folders used by broker"
@@ -100,7 +100,7 @@ WORKDIR /
 
 function generateDockerfileBySource() {
   echo "# this dockerfile is generated dynamically
-FROM ubuntu:20.04 AS build
+FROM ubuntu:22.04 AS build
 
 # install tools
 RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y openjdk-11-jdk wget git curl
@@ -122,7 +122,7 @@ RUN ./gradlew clean releaseTarGz
 RUN mkdir /opt/kafka
 RUN tar -zxvf \$(find ./core/build/distributions/ -maxdepth 1 -type f -name kafka_*SNAPSHOT.tgz) -C /opt/kafka --strip-components=1
 
-FROM ubuntu:20.04
+FROM ubuntu:22.04
 
 # install tools
 RUN apt-get update && apt-get install -y openjdk-11-jre
@@ -146,7 +146,7 @@ WORKDIR /opt/kafka
 
 function generateDockerfileByVersion() {
   echo "# this dockerfile is generated dynamically
-FROM ubuntu:20.04 AS build
+FROM ubuntu:22.04 AS build
 
 # install tools
 RUN apt-get update && apt-get install -y wget
@@ -164,7 +164,7 @@ RUN mkdir /opt/kafka
 RUN tar -zxvf kafka_2.13-${VERSION}.tgz -C /opt/kafka --strip-components=1
 WORKDIR /opt/kafka
 
-FROM ubuntu:20.04
+FROM ubuntu:22.04
 
 # install tools
 RUN apt-get update && apt-get install -y openjdk-11-jre

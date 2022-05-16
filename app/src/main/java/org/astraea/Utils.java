@@ -148,5 +148,33 @@ public final class Utils {
     return (lastTime + interval.toMillis()) < System.currentTimeMillis();
   }
 
+  public static boolean overSecond(long lastTime, Duration second) {
+    return (lastTime + second.toMillis()) < System.currentTimeMillis();
+  }
+
+  public static void sleep(Duration duration) {
+    try {
+      TimeUnit.MILLISECONDS.sleep(duration.toMillis());
+    } catch (InterruptedException ignored) {
+    }
+  }
+
+  public static String randomString(int len) {
+    StringBuilder string = new StringBuilder(randomString());
+    while (string.length() < len) {
+      string.append(string).append(randomString());
+    }
+    return string.substring(0, len);
+  }
+
+  /**
+   * a random string based on uuid without "-"
+   *
+   * @return random string
+   */
+  public static String randomString() {
+    return java.util.UUID.randomUUID().toString().replaceAll("-", "");
+  }
+
   private Utils() {}
 }

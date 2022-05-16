@@ -16,7 +16,7 @@ public class RebalanceListenerTest extends RequireBrokerCluster {
     var topicName = "testRebalanceListener-" + System.currentTimeMillis();
     try (var consumer =
         Consumer.builder()
-            .brokers(bootstrapServers())
+            .bootstrapServers(bootstrapServers())
             .topics(Set.of(topicName))
             .consumerRebalanceListener(ignore -> getAssignment.incrementAndGet())
             .build()) {

@@ -5,6 +5,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
@@ -26,13 +27,19 @@ import org.astraea.metrics.collector.Receiver;
  * Normally, all brokers use the same JMX port, so you can just define the `jmx.port=12345`. If one
  * of brokers uses different JMX client port, you can define `broker.1000.jmx.port=11111` (`1000` is
  * the broker id) to replace the value of `jmx.port`.
+ *
+ * <p>You can configure the cost functions you want to use. By giving the name of that cost function
+ * and its weight. For example,
+ * `org.astraea.cost.ThroughputCost=1,org.astraea.cost.broker.BrokerOutputCost=1`.
  */
 public class StrictCostDispatcher implements Dispatcher {
   public static final String JMX_PORT = "jmx.port";
 
   private final BeanCollector beanCollector =
       BeanCollector.builder().interval(Duration.ofSeconds(4)).build();
-  private final Collection<CostFunction> functions;
+
+  /* The cost-functions we consider and the weight of them. It is visible for test.*/
+  Map<CostFunction, Double> functions;
   private Optional<Integer> jmxPortDefault = Optional.empty();
   private final Map<Integer, Integer> jmxPorts = new TreeMap<>();
   final Map<Integer, Receiver> receivers = new TreeMap<>();
@@ -43,7 +50,10 @@ public class StrictCostDispatcher implements Dispatcher {
 
   // visible for testing
   StrictCostDispatcher(Collection<CostFunction> functions) {
-    this.functions = functions;
+    this.functions =
+        functions.stream()
+            .map(f -> Map.entry(f, 1.0))
+            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
   }
 
   @Override
@@ -69,14 +79,39 @@ public class StrictCostDispatcher implements Dispatcher {
             .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().current()));
 
     // get scores from all cost functions
-    var scores =
-        functions.stream()
-            .filter(f -> f instanceof HasBrokerCost)
-            .map(f -> (HasBrokerCost) f)
-            .map(f -> f.brokerCost(ClusterInfo.of(clusterInfo, beans)).value())
-            .collect(Collectors.toUnmodifiableList());
+    var scores = computeScore(functions, ClusterInfo.of(clusterInfo, beans));
 
     return bestPartition(partitionLeaders, scores).map(e -> e.getKey().partition()).orElse(0);
+  }
+
+  /**
+   * Pass clusterInfo into all cost-functions. The result of each cost-function will multiply on
+   * their corresponding weight.
+   *
+   * @param functions the cost-function objects and their corresponding weight
+   * @return cost-function result multiplied on their corresponding weight
+   */
+  static List<Map<Integer, Double>> computeScore(
+      Map<CostFunction, Double> functions, ClusterInfo clusterInfo) {
+    return functions.entrySet().stream()
+        .filter(e -> e.getKey() instanceof HasBrokerCost)
+        .map(e -> Map.entry((HasBrokerCost) e.getKey(), e.getValue()))
+        .map(
+            functionWeight ->
+                functionWeight
+                    .getKey()
+                    // Execute all cost functions
+                    .brokerCost(clusterInfo)
+                    .value()
+                    .entrySet()
+                    .stream()
+                    // Weight on cost functions result
+                    .map(
+                        IdScore ->
+                            Map.entry(
+                                IdScore.getKey(), IdScore.getValue() * functionWeight.getValue()))
+                    .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue)))
+        .collect(Collectors.toUnmodifiableList());
   }
 
   // visible for testing
@@ -100,7 +135,7 @@ public class StrictCostDispatcher implements Dispatcher {
         .port(port)
         .fetcher(
             Fetcher.of(
-                functions.stream()
+                functions.keySet().stream()
                     .map(CostFunction::fetcher)
                     .collect(Collectors.toUnmodifiableList())))
         .build();
@@ -111,10 +146,49 @@ public class StrictCostDispatcher implements Dispatcher {
     jmxPortDefault = config.integer(JMX_PORT);
 
     // seeks for custom jmx ports.
-    config.entrySet().stream()
-        .filter(e -> e.getKey().startsWith("broker."))
-        .filter(e -> e.getKey().endsWith(JMX_PORT))
-        .forEach(e -> jmxPorts.put(Integer.parseInt(e.getKey()), Integer.parseInt(e.getValue())));
+    jmxPorts.putAll(PartitionerUtils.parseIdJMXPort(config));
+
+    functions = parseCostFunctionWeight(config);
+  }
+
+  /**
+   * Helps parse cost-function names and weights. The format of the key and value is "<CostFunction
+   * name>"="<weight>". For example, {"org.astraea.cost.broker.BrokerInputCost", "20"} will be
+   * parsed to {(BrokerInputCost object), 20.0}.
+   *
+   * @param config that contains cost-function names and its corresponding weight
+   * @return pairs of cost-function object and its corresponding weight
+   */
+  public static Map<CostFunction, Double> parseCostFunctionWeight(Configuration config) {
+    return config.entrySet().stream()
+        .map(
+            nameAndWeight -> {
+              Class<?> name;
+              double weight;
+              try {
+                name = Class.forName(nameAndWeight.getKey());
+                weight = Double.parseDouble(nameAndWeight.getValue());
+                if (weight < 0.0)
+                  throw new IllegalArgumentException("Cost-function weight should not be negative");
+              } catch (ClassNotFoundException ignore) {
+                /* To delete all config option that is not for configuring cost-function. */
+                return null;
+              }
+              return Map.entry(name, weight);
+            })
+        .filter(Objects::nonNull)
+        .filter(e -> CostFunction.class.isAssignableFrom(e.getKey()))
+        .map(
+            e -> {
+              try {
+                return Map.entry(
+                    (CostFunction) e.getKey().getConstructor().newInstance(), e.getValue());
+              } catch (Exception ex) {
+                ex.printStackTrace();
+                throw new IllegalArgumentException(ex);
+              }
+            })
+        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
   }
 
   // visible for testing

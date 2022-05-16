@@ -14,6 +14,26 @@ import java.util.concurrent.atomic.AtomicBoolean;
  */
 public interface ThreadPool extends AutoCloseable {
 
+  // nothing to run.
+  ThreadPool EMPTY =
+      new ThreadPool() {
+        @Override
+        public void close() {}
+
+        @Override
+        public void waitAll() {}
+
+        @Override
+        public boolean isClosed() {
+          return true;
+        }
+
+        @Override
+        public int size() {
+          return 0;
+        }
+      };
+
   /** close all running threads. */
   @Override
   void close();
@@ -39,12 +59,13 @@ public interface ThreadPool extends AutoCloseable {
       return executors(List.of(executor));
     }
 
-    public Builder executors(Collection<Executor> executors) {
+    public Builder executors(Collection<? extends Executor> executors) {
       this.executors.addAll(Objects.requireNonNull(executors));
       return this;
     }
 
     public ThreadPool build() {
+      if (executors.isEmpty()) return EMPTY;
       var closed = new AtomicBoolean(false);
       var latch = new CountDownLatch(executors.size());
       var service = Executors.newFixedThreadPool(executors.size());
