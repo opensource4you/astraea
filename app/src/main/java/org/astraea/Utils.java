@@ -148,9 +148,6 @@ public final class Utils {
     return (lastTime + interval.toMillis()) < System.currentTimeMillis();
   }
 
-  public static boolean overSecond(long lastTime, Duration second) {
-    return (lastTime + second.toMillis()) < System.currentTimeMillis();
-  }
 
   public static void sleep(Duration duration) {
     try {
