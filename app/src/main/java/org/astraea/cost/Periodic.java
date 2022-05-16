@@ -1,5 +1,6 @@
 package org.astraea.cost;
 
+import java.time.Duration;
 import java.util.function.Supplier;
 import org.astraea.Utils;
 
@@ -34,6 +35,14 @@ public abstract class Periodic<Value> {
    * @return an object of type Value created from the parameter value.
    */
   protected Value tryUpdate(Supplier<Value> updater, int interval) {
+    if (Utils.overSecond(lastUpdate, interval)) {
+      value = updater.get();
+      lastUpdate = currentTime();
+    }
+    return value;
+  }
+
+  protected Value tryUpdate(Supplier<Value> updater, Duration interval) {
     if (Utils.overSecond(lastUpdate, interval)) {
       value = updater.get();
       lastUpdate = currentTime();

@@ -141,6 +141,10 @@ public final class Utils {
     return (lastTime + Duration.ofSeconds(second).toMillis()) < System.currentTimeMillis();
   }
 
+  public static boolean overSecond(long lastTime, Duration second) {
+    return (lastTime + second.toMillis()) < System.currentTimeMillis();
+  }
+
   public static void sleep(Duration duration) {
     try {
       TimeUnit.MILLISECONDS.sleep(duration.toMillis());
