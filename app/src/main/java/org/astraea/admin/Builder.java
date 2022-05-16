@@ -278,11 +278,19 @@ public class Builder {
     }
 
     @Override
-    public Set<TopicPartition> partitionsOfBrokers(Set<String> topics, Set<Integer> brokersID) {
+    public Map<Integer, Set<TopicPartition>> partitions(
+        Set<String> topics, Set<Integer> brokerIds) {
       return replicas(topics).entrySet().stream()
-          .filter(e -> e.getValue().stream().anyMatch(r -> brokersID.contains(r.broker())))
-          .map(Map.Entry::getKey)
-          .collect(Collectors.toSet());
+          .flatMap(
+              e -> e.getValue().stream().map(replica -> Map.entry(replica.broker(), e.getKey())))
+          .filter(e -> brokerIds.contains(e.getKey()))
+          .collect(Collectors.groupingBy(Map.Entry::getKey))
+          .entrySet()
+          .stream()
+          .collect(
+              Collectors.toMap(
+                  Map.Entry::getKey,
+                  e -> e.getValue().stream().map(Map.Entry::getValue).collect(Collectors.toSet())));
     }
 
     @Override

@@ -4,6 +4,8 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
+import org.astraea.Utils;
 import org.astraea.admin.Admin;
 import org.astraea.service.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
@@ -12,8 +14,11 @@ import org.junit.jupiter.api.Test;
 public class BrokerHandlerTest extends RequireBrokerCluster {
 
   @Test
-  void testListBrokers() {
+  void testListBrokers() throws InterruptedException {
+    var topic = Utils.randomString(10);
     try (Admin admin = Admin.of(bootstrapServers())) {
+      admin.creator().topic(topic).numberOfPartitions(10).create();
+      TimeUnit.SECONDS.sleep(2);
       var handler = new BrokerHandler(admin);
       var response =
           Assertions.assertInstanceOf(
@@ -24,6 +29,8 @@ public class BrokerHandlerTest extends RequireBrokerCluster {
               id ->
                   Assertions.assertEquals(
                       1, response.brokers.stream().filter(b -> b.id == id).count()));
+      response.brokers.forEach(
+          b -> Assertions.assertTrue(b.topics.stream().anyMatch(t -> t.topic.equals(topic))));
     }
   }
 
@@ -46,9 +53,12 @@ public class BrokerHandlerTest extends RequireBrokerCluster {
   }
 
   @Test
-  void testQuerySingleBroker() {
+  void testQuerySingleBroker() throws InterruptedException {
+    var topic = Utils.randomString(10);
     var brokerId = brokerIds().iterator().next();
     try (Admin admin = Admin.of(bootstrapServers())) {
+      admin.creator().topic(topic).numberOfPartitions(10).create();
+      TimeUnit.SECONDS.sleep(2);
       var handler = new BrokerHandler(admin);
       var broker =
           Assertions.assertInstanceOf(
@@ -56,6 +66,7 @@ public class BrokerHandlerTest extends RequireBrokerCluster {
               handler.get(Optional.of(String.valueOf(brokerId)), Map.of()));
       Assertions.assertEquals(brokerId, broker.id);
       Assertions.assertNotEquals(0, broker.configs.size());
+      Assertions.assertTrue(broker.topics.stream().anyMatch(t -> t.topic.equals(topic)));
     }
   }
 
