@@ -4,7 +4,6 @@ import java.time.Duration;
 import java.util.Comparator;
 import java.util.Map;
 import java.util.stream.Collectors;
-
 import org.astraea.cost.Periodic;
 import org.astraea.cost.broker.CostUtils;
 
@@ -33,80 +32,80 @@ import org.astraea.cost.broker.CostUtils;
  * ||======================||=======================||===============||======================||
  */
 public final class SmoothWeightRoundRobin
-        extends Periodic<SmoothWeightRoundRobin.EffectiveWeightResult> {
-    private EffectiveWeightResult effectiveWeightResult;
-    public Map<Integer, Double> currentWeight;
+    extends Periodic<SmoothWeightRoundRobin.EffectiveWeightResult> {
+  private EffectiveWeightResult effectiveWeightResult;
+  public Map<Integer, Double> currentWeight;
 
-    public SmoothWeightRoundRobin(Map<Integer, Double> effectiveWeight) {
-        effectiveWeightResult =
-                new EffectiveWeightResult(
-                        effectiveWeight.entrySet().stream()
-                                .collect(Collectors.toMap(Map.Entry::getKey, ignored -> 1.0)));
-        currentWeight =
-                effectiveWeight.entrySet().stream()
-                        .collect(Collectors.toMap(Map.Entry::getKey, ignored -> 0.0));
+  public SmoothWeightRoundRobin(Map<Integer, Double> effectiveWeight) {
+    effectiveWeightResult =
+        new EffectiveWeightResult(
+            effectiveWeight.entrySet().stream()
+                .collect(Collectors.toMap(Map.Entry::getKey, ignored -> 1.0)));
+    currentWeight =
+        effectiveWeight.entrySet().stream()
+            .collect(Collectors.toMap(Map.Entry::getKey, ignored -> 0.0));
+  }
+
+  public synchronized void init(Map<Integer, Double> brokerScore) {
+    effectiveWeightResult =
+        tryUpdate(
+            () -> {
+              var normalizationLoad = CostUtils.normalize(brokerScore);
+              return new EffectiveWeightResult(
+                  this.effectiveWeightResult.effectiveWeight.entrySet().stream()
+                      .collect(
+                          Collectors.toMap(
+                              entry -> entry.getKey(),
+                              entry -> {
+                                var nLoad = normalizationLoad.get(entry.getKey());
+                                var weight =
+                                    entry.getValue()
+                                        * (nLoad.isNaN()
+                                            ? 1.0
+                                            : ((nLoad + 1) > 0 ? nLoad + 1 : 0.1));
+                                if (weight > 2.0) return 2.0;
+                                return Math.max(weight, 0.0);
+                              })));
+            },
+            Duration.ofSeconds(10));
+  }
+
+  /**
+   * Get the preferred ID, and update the state.
+   *
+   * @return the preferred ID
+   */
+  public synchronized int getAndChoose() {
+    this.currentWeight =
+        this.currentWeight.entrySet().stream()
+            .collect(
+                Collectors.toMap(
+                    Map.Entry::getKey,
+                    e -> e.getValue() + effectiveWeightResult.effectiveWeight.get(e.getKey())));
+    var maxID =
+        this.currentWeight.entrySet().stream()
+            .max(Comparator.comparingDouble(Map.Entry::getValue))
+            .map(Map.Entry::getKey)
+            .orElse(0);
+    this.currentWeight =
+        this.currentWeight.entrySet().stream()
+            .collect(
+                Collectors.toMap(
+                    Map.Entry::getKey,
+                    e ->
+                        e.getKey().equals(maxID)
+                            ? e.getValue() - effectiveWeightResult.effectiveWeightSum
+                            : e.getValue()));
+    return maxID;
+  }
+
+  public static class EffectiveWeightResult {
+    private final Map<Integer, Double> effectiveWeight;
+    private final double effectiveWeightSum;
+
+    EffectiveWeightResult(Map<Integer, Double> effectiveWeight) {
+      this.effectiveWeight = effectiveWeight;
+      this.effectiveWeightSum = effectiveWeight.values().stream().mapToDouble(i -> i).sum();
     }
-
-    public synchronized void init(Map<Integer, Double> brokerScore) {
-        effectiveWeightResult =
-                tryUpdate(
-                        () -> {
-                            var normalizationLoad = CostUtils.normalize(brokerScore);
-                            return new EffectiveWeightResult(
-                                    this.effectiveWeightResult.effectiveWeight.entrySet().stream()
-                                            .collect(
-                                                    Collectors.toMap(
-                                                            entry -> entry.getKey(),
-                                                            entry -> {
-                                                                var nLoad = normalizationLoad.get(entry.getKey());
-                                                                var weight =
-                                                                        entry.getValue()
-                                                                                * (nLoad.isNaN()
-                                                                                ? 1.0
-                                                                                : ((nLoad + 1) > 0 ? nLoad + 1 : 0.1));
-                                                                if (weight > 2.0) return 2.0;
-                                                                return Math.max(weight, 0.0);
-                                                            })));
-                        },
-                        Duration.ofSeconds(10));
-    }
-
-    /**
-     * Get the preferred ID, and update the state.
-     *
-     * @return the preferred ID
-     */
-    public synchronized int getAndChoose() {
-        this.currentWeight =
-                this.currentWeight.entrySet().stream()
-                        .collect(
-                                Collectors.toMap(
-                                        Map.Entry::getKey,
-                                        e -> e.getValue() + effectiveWeightResult.effectiveWeight.get(e.getKey())));
-        var maxID =
-                this.currentWeight.entrySet().stream()
-                        .max(Comparator.comparingDouble(Map.Entry::getValue))
-                        .map(Map.Entry::getKey)
-                        .orElse(0);
-        this.currentWeight =
-                this.currentWeight.entrySet().stream()
-                        .collect(
-                                Collectors.toMap(
-                                        Map.Entry::getKey,
-                                        e ->
-                                                e.getKey().equals(maxID)
-                                                        ? e.getValue() - effectiveWeightResult.effectiveWeightSum
-                                                        : e.getValue()));
-        return maxID;
-    }
-
-    public static class EffectiveWeightResult {
-        private final Map<Integer, Double> effectiveWeight;
-        private final double effectiveWeightSum;
-
-        EffectiveWeightResult(Map<Integer, Double> effectiveWeight) {
-            this.effectiveWeight = effectiveWeight;
-            this.effectiveWeightSum = effectiveWeight.values().stream().mapToDouble(i -> i).sum();
-        }
-    }
+  }
 }
