@@ -100,7 +100,7 @@ WORKDIR /
 
 function generateDockerfileBySource() {
   echo "# this dockerfile is generated dynamically
-FROM ubuntu:20.04 AS build
+FROM ubuntu:22.04 AS build
 
 # install tools
 RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y openjdk-11-jdk wget git curl
@@ -122,7 +122,7 @@ RUN ./gradlew clean releaseTarGz
 RUN mkdir /opt/kafka
 RUN tar -zxvf \$(find ./core/build/distributions/ -maxdepth 1 -type f -name kafka_*SNAPSHOT.tgz) -C /opt/kafka --strip-components=1
 
-FROM ubuntu:20.04
+FROM ubuntu:22.04
 
 # install tools
 RUN apt-get update && apt-get install -y openjdk-11-jre
@@ -146,7 +146,7 @@ WORKDIR /opt/kafka
 
 function generateDockerfileByVersion() {
   echo "# this dockerfile is generated dynamically
-FROM ubuntu:20.04 AS build
+FROM ubuntu:22.04 AS build
 
 # install tools
 RUN apt-get update && apt-get install -y wget
@@ -164,7 +164,7 @@ RUN mkdir /opt/kafka
 RUN tar -zxvf kafka_2.13-${VERSION}.tgz -C /opt/kafka --strip-components=1
 WORKDIR /opt/kafka
 
-FROM ubuntu:20.04
+FROM ubuntu:22.04
 
 # install tools
 RUN apt-get update && apt-get install -y openjdk-11-jre

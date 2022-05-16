@@ -26,7 +26,7 @@ function showHelp() {
 
 function generateDockerfile() {
   echo "# this dockerfile is generated dynamically
-FROM ubuntu:20.04 AS build
+FROM ubuntu:22.04 AS build
 
 # Do not ask for confirmations when running apt-get, etc.
 ENV DEBIAN_FRONTEND noninteractive
@@ -45,7 +45,7 @@ RUN ./gradlew clean build -x test --no-daemon
 RUN mkdir /opt/astraea
 RUN cp \$(find ./app/build/libs/ -maxdepth 1 -type f -name app-*-all.jar) /opt/astraea/app.jar
 
-FROM ubuntu:20.04
+FROM ubuntu:22.04
 
 # install tools
 RUN apt-get update && apt-get install -y openjdk-11-jre
