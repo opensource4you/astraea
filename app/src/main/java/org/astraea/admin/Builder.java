@@ -28,6 +28,10 @@ import org.apache.kafka.common.ElectionType;
 import org.apache.kafka.common.Node;
 import org.apache.kafka.common.TopicPartitionReplica;
 import org.apache.kafka.common.config.ConfigResource;
+import org.apache.kafka.common.quota.ClientQuotaAlteration;
+import org.apache.kafka.common.quota.ClientQuotaEntity;
+import org.apache.kafka.common.quota.ClientQuotaFilter;
+import org.apache.kafka.common.quota.ClientQuotaFilterComponent;
 import org.astraea.Utils;
 
 public class Builder {
@@ -81,7 +85,7 @@ public class Builder {
     }
 
     @Override
-    public Migrator migrator() {
+    public ReplicaMigrator migrator() {
       return new MigratorImpl(admin, this::partitions);
     }
 
@@ -338,9 +342,38 @@ public class Builder {
     }
 
     @Override
-    public Creator creator() {
+    public TopicCreator creator() {
       return new CreatorImpl(
           admin, topic -> this.replicas(Set.of(topic)), topic -> topics().get(topic));
+    }
+
+    @Override
+    public QuotaCreator quotaCreator() {
+      return new QuotaImpl(admin);
+    }
+
+    @Override
+    public Collection<Quota> quotas(Quota.Target target) {
+      return quotas(
+          ClientQuotaFilter.contains(
+              List.of(ClientQuotaFilterComponent.ofEntityType(target.nameOfKafka()))));
+    }
+
+    @Override
+    public Collection<Quota> quotas(Quota.Target target, String value) {
+      return quotas(
+          ClientQuotaFilter.contains(
+              List.of(ClientQuotaFilterComponent.ofEntity(target.nameOfKafka(), value))));
+    }
+
+    @Override
+    public Collection<Quota> quotas() {
+      return quotas(ClientQuotaFilter.all());
+    }
+
+    private Collection<Quota> quotas(ClientQuotaFilter filter) {
+      return Quota.of(
+          Utils.handleException(() -> admin.describeClientQuotas(filter).entities().get()));
     }
   }
 
@@ -379,7 +412,7 @@ public class Builder {
     }
   }
 
-  private static class CreatorImpl implements Creator {
+  private static class CreatorImpl implements TopicCreator {
     private final org.apache.kafka.clients.admin.Admin admin;
     private final Function<String, Map<TopicPartition, List<Replica>>> replicasGetter;
     private final Function<String, Config> configsGetter;
@@ -398,31 +431,31 @@ public class Builder {
     }
 
     @Override
-    public Creator topic(String topic) {
+    public TopicCreator topic(String topic) {
       this.topic = Objects.requireNonNull(topic);
       return this;
     }
 
     @Override
-    public Creator numberOfPartitions(int numberOfPartitions) {
+    public TopicCreator numberOfPartitions(int numberOfPartitions) {
       this.numberOfPartitions = numberOfPartitions;
       return this;
     }
 
     @Override
-    public Creator numberOfReplicas(short numberOfReplicas) {
+    public TopicCreator numberOfReplicas(short numberOfReplicas) {
       this.numberOfReplicas = numberOfReplicas;
       return this;
     }
 
     @Override
-    public Creator config(String key, String value) {
+    public TopicCreator config(String key, String value) {
       this.configs.put(key, value);
       return this;
     }
 
     @Override
-    public Creator configs(Map<String, String> configs) {
+    public TopicCreator configs(Map<String, String> configs) {
       this.configs.putAll(configs);
       return this;
     }
@@ -483,7 +516,7 @@ public class Builder {
     }
   }
 
-  private static class MigratorImpl implements Migrator {
+  private static class MigratorImpl implements ReplicaMigrator {
     private final org.apache.kafka.clients.admin.Admin admin;
     private final Function<Set<String>, Set<TopicPartition>> partitionGetter;
     private final Set<TopicPartition> partitions = new HashSet<>();
@@ -497,13 +530,13 @@ public class Builder {
     }
 
     @Override
-    public Migrator topic(String topic) {
+    public ReplicaMigrator topic(String topic) {
       partitions.addAll(partitionGetter.apply(Set.of(topic)));
       return this;
     }
 
     @Override
-    public Migrator partition(String topic, int partition) {
+    public ReplicaMigrator partition(String topic, int partition) {
       partitions.add(new TopicPartition(topic, partition));
       return this;
     }
@@ -554,6 +587,81 @@ public class Builder {
                         partitions.stream().map(TopicPartition::to).collect(Collectors.toSet()))
                     .all()
                     .get());
+    }
+  }
+
+  private static class QuotaImpl implements QuotaCreator {
+    private final org.apache.kafka.clients.admin.Admin admin;
+
+    QuotaImpl(org.apache.kafka.clients.admin.Admin admin) {
+      this.admin = admin;
+    }
+
+    @Override
+    public Ip ip(String ip) {
+      return new Ip() {
+        private int connectionRate = Integer.MAX_VALUE;
+
+        @Override
+        public Ip connectionRate(int value) {
+          this.connectionRate = value;
+          return this;
+        }
+
+        @Override
+        public void create() {
+          Utils.handleException(
+              () ->
+                  admin
+                      .alterClientQuotas(
+                          List.of(
+                              new ClientQuotaAlteration(
+                                  new ClientQuotaEntity(Map.of(ClientQuotaEntity.IP, ip)),
+                                  List.of(
+                                      new ClientQuotaAlteration.Op(
+                                          "connection_creation_rate", (double) connectionRate)))))
+                      .all()
+                      .get());
+        }
+      };
+    }
+
+    @Override
+    public Client clientId(String id) {
+      return new Client() {
+        private int produceRate = Integer.MAX_VALUE;
+        private int consumeRate = Integer.MAX_VALUE;
+
+        @Override
+        public Client produceRate(int value) {
+          this.produceRate = value;
+          return this;
+        }
+
+        @Override
+        public Client consumeRate(int value) {
+          this.consumeRate = value;
+          return this;
+        }
+
+        @Override
+        public void create() {
+          Utils.handleException(
+              () ->
+                  admin
+                      .alterClientQuotas(
+                          List.of(
+                              new ClientQuotaAlteration(
+                                  new ClientQuotaEntity(Map.of(ClientQuotaEntity.CLIENT_ID, id)),
+                                  List.of(
+                                      new ClientQuotaAlteration.Op(
+                                          "producer_byte_rate", (double) produceRate),
+                                      new ClientQuotaAlteration.Op(
+                                          "consumer_byte_rate", (double) consumeRate)))))
+                      .all()
+                      .get());
+        }
+      };
     }
   }
 }

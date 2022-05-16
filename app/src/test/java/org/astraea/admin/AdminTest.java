@@ -414,4 +414,90 @@ public class AdminTest extends RequireBrokerCluster {
       Assertions.assertEquals(1, producerState.size());
     }
   }
+
+  @Test
+  void testIpQuota() throws InterruptedException {
+    try (var admin = Admin.of(bootstrapServers())) {
+      admin.quotaCreator().ip("192.168.11.11").connectionRate(10).create();
+      TimeUnit.SECONDS.sleep(2);
+
+      java.util.function.Consumer<List<Quota>> checker =
+          (quotas) -> {
+            Assertions.assertEquals(1, quotas.size());
+            Assertions.assertEquals(
+                Set.of(Quota.Target.IP),
+                quotas.stream().map(Quota::target).collect(Collectors.toSet()));
+            Assertions.assertEquals(
+                Set.of(Quota.Action.IP_CONNECTION_RATE),
+                quotas.stream().map(Quota::action).collect(Collectors.toSet()));
+            Assertions.assertEquals("192.168.11.11", quotas.iterator().next().targetValue());
+            Assertions.assertEquals(10, quotas.iterator().next().actionValue());
+          };
+
+      // only target
+      checker.accept(
+          admin.quotas(Quota.Target.IP).stream().collect(Collectors.toUnmodifiableList()));
+
+      // only target and name
+      checker.accept(
+          admin.quotas(Quota.Target.IP, "192.168.11.11").stream()
+              .collect(Collectors.toUnmodifiableList()));
+    }
+  }
+
+  @Test
+  void testClientQuota() throws InterruptedException {
+    try (var admin = Admin.of(bootstrapServers())) {
+      admin.quotaCreator().clientId("my-id").produceRate(10).consumeRate(100).create();
+      TimeUnit.SECONDS.sleep(2);
+
+      java.util.function.Consumer<List<Quota>> checker =
+          (quotas) -> {
+            Assertions.assertEquals(2, quotas.size());
+            Assertions.assertEquals(
+                Set.of(Quota.Target.CLIENT_ID),
+                quotas.stream().map(Quota::target).collect(Collectors.toSet()));
+            Assertions.assertEquals(
+                Set.of(Quota.Action.PRODUCER_BYTE_RATE, Quota.Action.CONSUMER_BYTE_RATE),
+                quotas.stream().map(Quota::action).collect(Collectors.toSet()));
+            Assertions.assertEquals(
+                10,
+                quotas.stream()
+                    .filter(q -> q.action() == Quota.Action.PRODUCER_BYTE_RATE)
+                    .findFirst()
+                    .get()
+                    .actionValue());
+            Assertions.assertEquals(
+                "my-id",
+                quotas.stream()
+                    .filter(q -> q.action() == Quota.Action.PRODUCER_BYTE_RATE)
+                    .findFirst()
+                    .get()
+                    .targetValue());
+            Assertions.assertEquals(
+                100,
+                quotas.stream()
+                    .filter(q -> q.action() == Quota.Action.CONSUMER_BYTE_RATE)
+                    .findFirst()
+                    .get()
+                    .actionValue());
+            Assertions.assertEquals(
+                "my-id",
+                quotas.stream()
+                    .filter(q -> q.action() == Quota.Action.CONSUMER_BYTE_RATE)
+                    .findFirst()
+                    .get()
+                    .targetValue());
+          };
+
+      // only target
+      checker.accept(
+          admin.quotas(Quota.Target.CLIENT_ID).stream().collect(Collectors.toUnmodifiableList()));
+
+      // only target and name
+      checker.accept(
+          admin.quotas(Quota.Target.CLIENT_ID, "my-id").stream()
+              .collect(Collectors.toUnmodifiableList()));
+    }
+  }
 }

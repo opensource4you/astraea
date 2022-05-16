@@ -43,7 +43,7 @@ public interface Admin extends Closeable {
   Set<TopicPartition> partitions(Set<String> topics);
 
   /** @return a topic creator to set all topic configs and then run the procedure. */
-  Creator creator();
+  TopicCreator creator();
 
   /** @return offsets of all partitions */
   default Map<TopicPartition, Offset> offsets() {
@@ -114,7 +114,7 @@ public interface Admin extends Closeable {
   Map<Integer, Set<String>> brokerFolders(Set<Integer> brokers);
 
   /** @return a partition migrator used to move partitions to another broker or folder. */
-  Migrator migrator();
+  ReplicaMigrator migrator();
 
   /** @return producer states of all topic partitions */
   default Map<TopicPartition, Collection<ProducerState>> producerStates() {
@@ -126,6 +126,25 @@ public interface Admin extends Closeable {
    * @return producer states of input topic partitions
    */
   Map<TopicPartition, Collection<ProducerState>> producerStates(Set<TopicPartition> partitions);
+
+  /** @return a progress to set quota */
+  QuotaCreator quotaCreator();
+
+  /**
+   * @param target to search
+   * @return quotas
+   */
+  Collection<Quota> quotas(Quota.Target target);
+
+  /**
+   * @param target to search
+   * @param value assoicated to target
+   * @return quotas
+   */
+  Collection<Quota> quotas(Quota.Target target, String value);
+
+  /** @return all quotas */
+  Collection<Quota> quotas();
 
   @Override
   void close();
