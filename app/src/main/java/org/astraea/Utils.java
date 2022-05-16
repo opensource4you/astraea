@@ -148,7 +148,6 @@ public final class Utils {
     return (lastTime + interval.toMillis()) < System.currentTimeMillis();
   }
 
-
   public static void sleep(Duration duration) {
     try {
       TimeUnit.MILLISECONDS.sleep(duration.toMillis());
