@@ -4,6 +4,7 @@ import com.beust.jcommander.Parameter;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
@@ -121,7 +122,7 @@ public class Performance {
           .create();
 
       Utils.waitFor(() -> topicAdmin.topicNames().contains(param.topic));
-      partitions = partition(param, topicAdmin);
+      partitions = new ArrayList<>(partition(param, topicAdmin));
     }
 
     var consumerMetrics =
@@ -232,14 +233,16 @@ public class Performance {
   }
 
   // visible for test
-  static List<Integer> partition(Argument param, Admin topicAdmin) {
+  static Set<Integer> partition(Argument param, Admin topicAdmin) {
     if (positiveSpecifyBroker(param)) {
       return topicAdmin
-          .partitionsOfBrokers(Set.of(param.topic), new HashSet<>(param.specifyBroker))
+          .partitions(Set.of(param.topic), new HashSet<>(param.specifyBroker))
+          .values()
           .stream()
+          .flatMap(Collection::stream)
           .map(TopicPartition::partition)
-          .collect(Collectors.toList());
-    } else return List.of(-1);
+          .collect(Collectors.toSet());
+    } else return Set.of(-1);
   }
 
   private static boolean positiveSpecifyBroker(Argument param) {

@@ -96,11 +96,21 @@ public interface Admin extends Closeable {
   Set<Integer> brokerIds();
 
   /**
+   * list all partitions belongs to input brokers
+   *
+   * @param brokerId to search
+   * @return all partition belongs to brokers
+   */
+  default Set<TopicPartition> partitions(int brokerId) {
+    return partitions(topicNames(), Set.of(brokerId)).getOrDefault(brokerId, Set.of());
+  }
+
+  /**
    * @param topics topic names
-   * @param brokersID brokers ID
+   * @param brokerIds brokers ID
    * @return the partitions of brokers
    */
-  Set<TopicPartition> partitionsOfBrokers(Set<String> topics, Set<Integer> brokersID);
+  Map<Integer, Set<TopicPartition>> partitions(Set<String> topics, Set<Integer> brokerIds);
 
   /** @return data folders of all broker nodes */
   default Map<Integer, Set<String>> brokerFolders() {
