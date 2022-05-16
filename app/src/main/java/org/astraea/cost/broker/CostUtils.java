@@ -43,4 +43,10 @@ public class CostUtils {
                   return score;
                 }));
   }
+
+  public static Map<Integer, Double> normalize(Map<Integer, Double> score) {
+    var sum = score.values().stream().mapToDouble(d -> d).sum();
+    return score.entrySet().stream()
+        .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getKey() / sum));
+  }
 }
