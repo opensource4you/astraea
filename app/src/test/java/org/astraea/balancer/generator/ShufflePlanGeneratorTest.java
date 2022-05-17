@@ -73,7 +73,7 @@ class ShufflePlanGeneratorTest {
     final var proposal = shufflePlanGenerator.generate(fakeClusterInfo).iterator().next();
 
     System.out.println(proposal);
-    Assertions.assertFalse(proposal.isPlanGenerated());
+    Assertions.assertFalse(proposal.rebalancePlan().isPresent());
     Assertions.assertTrue(proposal.warnings().size() >= 1);
   }
 
@@ -85,7 +85,7 @@ class ShufflePlanGeneratorTest {
     final var proposal = shufflePlanGenerator.generate(fakeClusterInfo).iterator().next();
 
     System.out.println(proposal);
-    Assertions.assertFalse(proposal.isPlanGenerated());
+    Assertions.assertFalse(proposal.rebalancePlan().isPresent());
     Assertions.assertTrue(proposal.warnings().size() >= 1);
   }
 
@@ -97,7 +97,7 @@ class ShufflePlanGeneratorTest {
     final var proposal = shufflePlanGenerator.generate(fakeClusterInfo).iterator().next();
 
     System.out.println(proposal);
-    Assertions.assertFalse(proposal.isPlanGenerated());
+    Assertions.assertFalse(proposal.rebalancePlan().isPresent());
     Assertions.assertTrue(proposal.warnings().size() >= 1);
   }
 }

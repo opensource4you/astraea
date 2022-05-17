@@ -7,8 +7,6 @@ import java.util.Optional;
 
 public interface RebalancePlanProposal {
 
-  boolean isPlanGenerated();
-
   Optional<ClusterLogAllocation> rebalancePlan();
 
   List<String> info();
@@ -46,11 +44,6 @@ public interface RebalancePlanProposal {
 
     public RebalancePlanProposal build() {
       return new RebalancePlanProposal() {
-
-        @Override
-        public boolean isPlanGenerated() {
-          return rebalancePlan().isPresent();
-        }
 
         @Override
         public Optional<ClusterLogAllocation> rebalancePlan() {
