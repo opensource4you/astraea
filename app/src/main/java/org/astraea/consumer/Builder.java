@@ -20,6 +20,7 @@ public class Builder<Key, Value> {
   private Deserializer<?> valueDeserializer = Deserializer.BYTE_ARRAY;
   private final Set<String> topics = new HashSet<>();
   private ConsumerRebalanceListener listener = ignore -> {};
+  private int distanceFromLatest = -1;
 
   Builder() {}
 
@@ -43,6 +44,18 @@ public class Builder<Key, Value> {
    */
   public Builder<Key, Value> fromLatest() {
     return config(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "latest");
+  }
+
+  /**
+   * set the offset to read from the latest offset. For example, the end offset is 5, and you set
+   * distanceFromLatest to 2, then you will read data from offset: 3
+   *
+   * @param distanceFromLatest the distance from the latest offset
+   * @return this builder
+   */
+  public Builder<Key, Value> distanceFromLatest(int distanceFromLatest) {
+    this.distanceFromLatest = distanceFromLatest;
+    return this;
   }
 
   public Builder<Key, Value> topics(Set<String> topics) {
@@ -95,6 +108,18 @@ public class Builder<Key, Value> {
             Deserializer.of((Deserializer<Key>) keyDeserializer),
             Deserializer.of((Deserializer<Value>) valueDeserializer));
     kafkaConsumer.subscribe(topics, ConsumerRebalanceListener.of(listener));
+
+    // this mode is not supported by kafka, so we have to calculate the offset first
+    if (distanceFromLatest > 0) {
+      // 1) poll data until the assignment is completed
+      while (kafkaConsumer.assignment().isEmpty()) kafkaConsumer.poll(Duration.ofMillis(500));
+      var partitions = kafkaConsumer.assignment();
+      // 2) get the end offsets from all subscribed partitions
+      var endOffsets = kafkaConsumer.endOffsets(partitions);
+      // 3) calculate and then seek to the correct offset (end offset - recent offset)
+      endOffsets.forEach(
+          (tp, latest) -> kafkaConsumer.seek(tp, Math.max(0, latest - distanceFromLatest)));
+    }
     return new Consumer<>() {
       @Override
       public Collection<Record<Key, Value>> poll(int recordCount, Duration timeout) {
