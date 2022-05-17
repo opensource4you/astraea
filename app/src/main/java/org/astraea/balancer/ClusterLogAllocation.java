@@ -194,9 +194,4 @@ public class ClusterLogAllocation {
 
   // TODO: add a method to calculate the difference between two ClusterLogAllocation
 
-  public static class IllegalMigrationException extends RuntimeException {
-    public IllegalMigrationException(String s) {
-      super(s);
-    }
-  }
 }
