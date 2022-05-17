@@ -71,8 +71,10 @@ function runContainer() {
   echo "JMX address: $ADDRESS:$JMX_PORT"
 
   # web service needs to bind a port to expose Restful APIs, so we have to open a port of container
-  need_to_bind_web=""
+  local need_to_bind_web=""
+  local background=""
   if [[ "$args" == web* ]]; then
+    background="-d"
     sentence=($args)
     defined_port="false"
     # use random port by default
@@ -96,6 +98,7 @@ function runContainer() {
   fi
 
   docker run --rm --init \
+    $background \
     -p $JMX_PORT:$JMX_PORT \
     $need_to_bind_web \
     "$IMAGE_NAME" \
