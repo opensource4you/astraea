@@ -14,7 +14,7 @@ public class QuotaTest {
 
   @Test
   void testAction() {
-    Arrays.stream(Quota.Action.values())
-        .forEach(t -> Assertions.assertEquals(t, Quota.action(t.nameOfKafka())));
+    Arrays.stream(Quota.Limit.values())
+        .forEach(t -> Assertions.assertEquals(t, Quota.limit(t.nameOfKafka())));
   }
 }

@@ -54,26 +54,41 @@ public class QuotaHandler implements Handler {
     return ErrorObject.for404("You must define either " + CLIENT_ID_KEY + " or " + IP_KEY);
   }
 
-  static class Quota implements JsonObject {
-    final String target;
+  static class Target implements JsonObject {
+    final String name;
+    final String value;
 
-    final String targetValue;
-    final String action;
-    final double actionValue;
+    Target(String name, String value) {
+      this.name = name;
+      this.value = value;
+    }
+  }
+
+  static class Limit implements JsonObject {
+    final String name;
+    final double value;
+
+    Limit(String name, double value) {
+      this.name = name;
+      this.value = value;
+    }
+  }
+
+  static class Quota implements JsonObject {
+    final Target target;
+    final Limit limit;
 
     public Quota(org.astraea.admin.Quota quota) {
       this(
           quota.target().nameOfKafka(),
           quota.targetValue(),
-          quota.action().nameOfKafka(),
-          quota.actionValue());
+          quota.limit().nameOfKafka(),
+          quota.limitValue());
     }
 
-    public Quota(String target, String targetValue, String action, double actionValue) {
-      this.target = target;
-      this.targetValue = targetValue;
-      this.action = action;
-      this.actionValue = actionValue;
+    public Quota(String target, String targetValue, String limit, double limitValue) {
+      this.target = new Target(target, targetValue);
+      this.limit = new Limit(limit, limitValue);
     }
   }
 
