@@ -9,7 +9,6 @@ import org.astraea.cost.BrokerCost;
 import org.astraea.cost.ClusterInfo;
 import org.astraea.cost.CostFunction;
 import org.astraea.cost.HasBrokerCost;
-import org.astraea.cost.Periodic;
 import org.astraea.metrics.collector.Fetcher;
 
 /**
@@ -19,7 +18,7 @@ import org.astraea.metrics.collector.Fetcher;
  * Because AHP is a subjective evaluation method and entropy method is an objective evaluation
  * method, so I named it NeutralIntegratedCost.
  */
-public class NeutralIntegratedCost extends Periodic<Map<Integer, Double>> implements HasBrokerCost {
+public class NeutralIntegratedCost implements HasBrokerCost {
   private final List<HasBrokerCost> metricsCost =
       List.of(new BrokerInputCost(), new BrokerOutputCost(), new CpuCost(), new MemoryCost());
   private final Map<Integer, BrokerMetrics> brokersMetric = new HashMap<>();
@@ -28,75 +27,64 @@ public class NeutralIntegratedCost extends Periodic<Map<Integer, Double>> implem
 
   @Override
   public BrokerCost brokerCost(ClusterInfo clusterInfo) {
-    var score =
-        tryUpdateAfterOneSecond(
-            () -> {
-              var costMetrics =
-                  clusterInfo.allBeans().entrySet().stream()
-                      .collect(Collectors.toMap(Map.Entry::getKey, entry -> 0.0));
-              costMetrics.forEach(
-                  (key, value) -> {
-                    if (!brokersMetric.containsKey(key)) {
-                      brokersMetric.put(key, new BrokerMetrics());
-                    }
-                  });
+    var costMetrics =
+        clusterInfo.allBeans().entrySet().stream()
+            .collect(Collectors.toMap(Map.Entry::getKey, entry -> 0.0));
+    costMetrics.forEach(
+        (key, value) -> {
+          if (!brokersMetric.containsKey(key)) {
+            brokersMetric.put(key, new BrokerMetrics());
+          }
+        });
 
-              metricsCost.forEach(
-                  hasBrokerCost -> {
-                    if (hasBrokerCost instanceof BrokerInputCost) {
-                      hasBrokerCost
-                          .brokerCost(clusterInfo)
-                          .value()
-                          .forEach(
-                              (brokerID, value) -> brokersMetric.get(brokerID).inputScore = value);
-                    } else if (hasBrokerCost instanceof BrokerOutputCost) {
-                      hasBrokerCost
-                          .brokerCost(clusterInfo)
-                          .value()
-                          .forEach(
-                              (brokerID, value) -> brokersMetric.get(brokerID).outputScore = value);
-                    } else if (hasBrokerCost instanceof CpuCost) {
-                      hasBrokerCost
-                          .brokerCost(clusterInfo)
-                          .value()
-                          .forEach(
-                              (brokerID, value) -> brokersMetric.get(brokerID).cpuScore = value);
-                    } else if (hasBrokerCost instanceof MemoryCost) {
-                      hasBrokerCost
-                          .brokerCost(clusterInfo)
-                          .value()
-                          .forEach(
-                              (brokerID, value) -> brokersMetric.get(brokerID).memoryScore = value);
-                    }
-                  });
+    metricsCost.forEach(
+        hasBrokerCost -> {
+          if (hasBrokerCost instanceof BrokerInputCost) {
+            hasBrokerCost
+                .brokerCost(clusterInfo)
+                .value()
+                .forEach((brokerID, value) -> brokersMetric.get(brokerID).inputScore = value);
+          } else if (hasBrokerCost instanceof BrokerOutputCost) {
+            hasBrokerCost
+                .brokerCost(clusterInfo)
+                .value()
+                .forEach((brokerID, value) -> brokersMetric.get(brokerID).outputScore = value);
+          } else if (hasBrokerCost instanceof CpuCost) {
+            hasBrokerCost
+                .brokerCost(clusterInfo)
+                .value()
+                .forEach((brokerID, value) -> brokersMetric.get(brokerID).cpuScore = value);
+          } else if (hasBrokerCost instanceof MemoryCost) {
+            hasBrokerCost
+                .brokerCost(clusterInfo)
+                .value()
+                .forEach((brokerID, value) -> brokersMetric.get(brokerID).memoryScore = value);
+          }
+        });
 
-              var integratedEmpowerment =
-                  entropyEmpowerment.empowerment(brokersMetric).entrySet().stream()
-                      .collect(
-                          Collectors.toMap(
-                              Map.Entry::getKey,
-                              entry ->
-                                  entry.getValue() * 0.5
-                                      + ahpEmpowerment.empowerment().get(entry.getKey()) * 0.5));
+    var integratedEmpowerment =
+        entropyEmpowerment.empowerment(brokersMetric).entrySet().stream()
+            .collect(
+                Collectors.toMap(
+                    Map.Entry::getKey,
+                    entry ->
+                        entry.getValue() * 0.5
+                            + ahpEmpowerment.empowerment().get(entry.getKey()) * 0.5));
 
-              return brokersMetric.entrySet().stream()
-                  .collect(
-                      Collectors.toMap(
-                          Map.Entry::getKey,
-                          entry ->
-                              entry.getValue().inputScore
-                                      * integratedEmpowerment.get(
-                                          Metrics.inputThroughput.metricName)
-                                  + entry.getValue().outputScore
-                                      * integratedEmpowerment.get(
-                                          Metrics.outputThroughput.metricName)
-                                  + entry.getValue().cpuScore
-                                      * integratedEmpowerment.get(Metrics.cpu.metricName)
-                                  + entry.getValue().memoryScore
-                                      * integratedEmpowerment.get(Metrics.memory.metricName)));
-            });
-
-    return () -> score;
+    return () ->
+        brokersMetric.entrySet().stream()
+            .collect(
+                Collectors.toMap(
+                    Map.Entry::getKey,
+                    entry ->
+                        entry.getValue().inputScore
+                                * integratedEmpowerment.get(Metrics.inputThroughput.metricName)
+                            + entry.getValue().outputScore
+                                * integratedEmpowerment.get(Metrics.outputThroughput.metricName)
+                            + entry.getValue().cpuScore
+                                * integratedEmpowerment.get(Metrics.cpu.metricName)
+                            + entry.getValue().memoryScore
+                                * integratedEmpowerment.get(Metrics.memory.metricName)));
   }
 
   @Override

@@ -31,11 +31,7 @@ public abstract class Periodic<Value> {
    * @return an object of type Value created from the parameter value.
    */
   protected Value tryUpdateAfterOneSecond(Supplier<Value> updater) {
-    if (Utils.isExpired(lastUpdate, Duration.ofSeconds(1))) {
-      value = updater.get();
-      lastUpdate = currentTime();
-    }
-    return value;
+    return tryUpdate(updater, Duration.ofSeconds(1));
   }
 
   protected long currentTime() {

@@ -29,7 +29,8 @@ import org.astraea.metrics.jmx.MBeanClient;
 import org.astraea.partitioner.Configuration;
 import org.astraea.partitioner.Dispatcher;
 
-public class SmoothWeightRoundRobinDispatcher extends Periodic<Void> implements Dispatcher {
+public class SmoothWeightRoundRobinDispatcher extends Periodic<Map<Integer, Double>>
+    implements Dispatcher {
   private final ConcurrentLinkedDeque<Integer> unusedPartitions = new ConcurrentLinkedDeque<>();
   private final ConcurrentMap<String, BrokerNextCounter> topicCounter = new ConcurrentHashMap<>();
   private final BeanCollector beanCollector =
@@ -44,7 +45,7 @@ public class SmoothWeightRoundRobinDispatcher extends Periodic<Void> implements 
 
   private final Map<Integer, List<Integer>> hasPartitions = new TreeMap<>();
 
-  private final Map<String, SmoothWeightRoundRobin> smoothWeightRoundRobinCal = new TreeMap<>();
+  private SmoothWeightRoundRobin smoothWeightRoundRobinCal;
 
   private final NeutralIntegratedCost neutralIntegratedCost = new NeutralIntegratedCost();
 
@@ -67,10 +68,12 @@ public class SmoothWeightRoundRobinDispatcher extends Periodic<Void> implements 
           var compoundScore =
               neutralIntegratedCost.brokerCost(ClusterInfo.of(clusterInfo, beans)).value();
 
-          smoothWeightRoundRobinCal
-              .computeIfAbsent(topic, SWRR -> new SmoothWeightRoundRobin(compoundScore))
-              .init(compoundScore);
-          return null;
+          if (smoothWeightRoundRobinCal == null) {
+            smoothWeightRoundRobinCal = new SmoothWeightRoundRobin(compoundScore);
+          }
+          smoothWeightRoundRobinCal.init(compoundScore);
+
+          return compoundScore;
         });
     // just return first partition if there is no available partitions
     if (partitions.isEmpty()) return 0;
@@ -79,7 +82,7 @@ public class SmoothWeightRoundRobinDispatcher extends Periodic<Void> implements 
     if (partitions.size() == 1) return partitions.iterator().next().partition();
 
     if (targetPartition == null) {
-      var targetBroker = smoothWeightRoundRobinCal.get(topic).getAndChoose();
+      var targetBroker = smoothWeightRoundRobinCal.getAndChoose();
       targetPartition =
           hasPartitions
               .get(targetBroker)

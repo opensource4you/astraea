@@ -24,8 +24,6 @@ public class BrokerOutPutCostTest {
     Assertions.assertEquals(0.63, scores.get(2));
     Assertions.assertEquals(0.39, scores.get(3));
 
-    Thread.sleep(1000);
-
     ClusterInfo clusterInfo2 = exampleClusterInfo(55555L, 25352L, 25000L);
     scores = brokerOutputCost.brokerCost(clusterInfo2).value();
     Assertions.assertEquals(0.55, scores.get(1));
