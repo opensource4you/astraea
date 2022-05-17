@@ -157,13 +157,9 @@ public class ShufflePlanGenerator implements RebalancePlanGenerator {
                           targetBroker));
                 };
             Consumer<LogPlacement> leaderFollowerMigration =
-                (targetBroker) -> {
-                  if (sourceIsLeader)
-                    currentAllocation.letLeaderBecomeFollower(
-                        sourceTopicPartition, targetBroker.broker());
-                  else
-                    currentAllocation.letReplicaBecomeLeader(
-                        sourceTopicPartition, targetBroker.broker());
+                (newLeaderReplicaCandidate) -> {
+                  currentAllocation.letReplicaBecomeLeader(
+                      sourceTopicPartition, newLeaderReplicaCandidate.broker());
                   rebalancePlanBuilder.addInfo(
                       String.format(
                           "Change the log identity of topic %s partition %d replica at broker %d, from %s to %s",
@@ -203,16 +199,15 @@ public class ShufflePlanGenerator implements RebalancePlanGenerator {
                 sourceLogPlacements.stream()
                     .skip(1)
                     .map(
-                        targetBroker ->
-                            (Runnable) () -> leaderFollowerMigration.accept(targetBroker))
+                        followerReplica ->
+                            (Runnable) () -> leaderFollowerMigration.accept(followerReplica))
                     .map(Movement::replicaSetMovement)
                     .forEach(validMigrationCandidates::add);
               } else {
                 // follower can migrate its identity to leader.
-                final var leaderLogBroker = sourceLogPlacements.get(0);
                 validMigrationCandidates.add(
                     Movement.replicaSetMovement(
-                        () -> leaderFollowerMigration.accept(leaderLogBroker)));
+                        () -> leaderFollowerMigration.accept(sourceLogPlacement)));
               }
             }
             // [Valid movement 3] change the data directory of selected replica

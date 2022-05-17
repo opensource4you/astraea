@@ -81,22 +81,6 @@ class ClusterLogAllocationTest {
   }
 
   @Test
-  void letLeaderBecomeFollower() {
-    final var fakeClusterInfo =
-        ClusterInfoProvider.fakeClusterInfo(3, 1, 1, 2, (i) -> Set.of("topic"));
-    final var clusterLogAllocation = ClusterLogAllocation.ofMutable(fakeClusterInfo);
-    final var sourceTopicPartition = TopicPartition.of("topic", 0);
-
-    clusterLogAllocation.letLeaderBecomeFollower(sourceTopicPartition, 1);
-
-    Assertions.assertEquals(
-        1, clusterLogAllocation.allocation().get(sourceTopicPartition).get(0).broker());
-    Assertions.assertEquals(
-        0, clusterLogAllocation.allocation().get(sourceTopicPartition).get(1).broker());
-    Assertions.assertDoesNotThrow(() -> ClusterLogAllocation.of(clusterLogAllocation.allocation()));
-  }
-
-  @Test
   void changeDataDirectory() {
     final var fakeClusterInfo =
         ClusterInfoProvider.fakeClusterInfo(3, 1, 1, 1, (i) -> Set.of("topic"));

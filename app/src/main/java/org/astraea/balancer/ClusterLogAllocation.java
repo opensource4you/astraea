@@ -111,59 +111,27 @@ public class ClusterLogAllocation {
   }
 
   /** let specific follower log become the leader log of this topic/partition. */
-  public void letReplicaBecomeLeader(TopicPartition topicPartition, int broker) {
+  public void letReplicaBecomeLeader(TopicPartition topicPartition, int followerReplica) {
     final List<LogPlacement> sourceLogPlacements = this.allocation().get(topicPartition);
     if (sourceLogPlacements == null)
       throw new IllegalMigrationException(
           topicPartition.topic() + "-" + topicPartition.partition() + " no such topic/partition");
-    final LogPlacement sourceLog =
+    final LogPlacement followerLog =
         sourceLogPlacements.stream()
-            .filter(log -> log.broker() == broker)
+            .filter(log -> log.broker() == followerReplica)
             .findFirst()
             .orElseThrow(
                 () ->
                     new IllegalArgumentException(
-                        broker + " is not part of the replica set for " + topicPartition));
+                        followerReplica + " is not part of the replica set for " + topicPartition));
     final LogPlacement leaderLog = sourceLogPlacements.stream().findFirst().orElseThrow();
-    if (leaderLog.broker() == sourceLog.broker()) return; // nothing to do
+    if (leaderLog.broker() == followerLog.broker()) return; // nothing to do
     final List<LogPlacement> finalLogPlacements =
         sourceLogPlacements.stream()
             .map(
                 log -> {
-                  if (log.broker() == sourceLog.broker()) return leaderLog;
-                  else if (log.broker() == leaderLog.broker()) return sourceLog;
-                  else return log;
-                })
-            .collect(Collectors.toUnmodifiableList());
-
-    this.allocation().put(topicPartition, finalLogPlacements);
-  }
-
-  /**
-   * let specific follower log become the leader log of this topic/partition, the original leader
-   * will be replaced by the given replica.
-   */
-  public void letLeaderBecomeFollower(TopicPartition topicPartition, int replaceBy) {
-    final List<LogPlacement> sourceLogPlacements = this.allocation().get(topicPartition);
-    if (sourceLogPlacements == null)
-      throw new IllegalMigrationException(
-          topicPartition.topic() + "-" + topicPartition.partition() + " no such topic/partition");
-    final LogPlacement replaceByLog =
-        sourceLogPlacements.stream()
-            .filter(log -> log.broker() == replaceBy)
-            .findFirst()
-            .orElseThrow(
-                () ->
-                    new IllegalArgumentException(
-                        replaceBy + " is not part of the replica set for " + topicPartition));
-    final LogPlacement leaderLog = sourceLogPlacements.stream().findFirst().orElseThrow();
-    if (leaderLog.broker() == replaceByLog.broker()) return; // nothing to do
-    final List<LogPlacement> finalLogPlacements =
-        sourceLogPlacements.stream()
-            .map(
-                log -> {
-                  if (log.broker() == replaceByLog.broker()) return leaderLog;
-                  else if (log.broker() == leaderLog.broker()) return replaceByLog;
+                  if (log.broker() == followerLog.broker()) return leaderLog;
+                  else if (log.broker() == leaderLog.broker()) return followerLog;
                   else return log;
                 })
             .collect(Collectors.toUnmodifiableList());
