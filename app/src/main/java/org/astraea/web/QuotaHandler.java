@@ -6,14 +6,18 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import org.astraea.admin.Admin;
+import org.astraea.admin.Quota;
 
 public class QuotaHandler implements Handler {
 
-  static final String IP_KEY = "ip";
-  static final String CLIENT_ID_KEY = "client-id";
-  static final String CONNECTION_RATE_KEY = "connection-rate";
-  static final String PRODUCE_RATE_KEY = "produce-rate";
-  static final String CONSUME_RATE_KEY = "consume-rate";
+  static final String IP_KEY = org.astraea.admin.Quota.Target.IP.nameOfKafka();
+  static final String CLIENT_ID_KEY = org.astraea.admin.Quota.Target.CLIENT_ID.nameOfKafka();
+  static final String CONNECTION_RATE_KEY =
+      org.astraea.admin.Quota.Limit.IP_CONNECTION_RATE.nameOfKafka();
+  static final String PRODUCE_RATE_KEY =
+      org.astraea.admin.Quota.Limit.PRODUCER_BYTE_RATE.nameOfKafka();
+  static final String CONSUME_RATE_KEY =
+      org.astraea.admin.Quota.Limit.CONSUMER_BYTE_RATE.nameOfKafka();
 
   private final Admin admin;
 
