@@ -618,6 +618,7 @@ public class Builder {
 
         @Override
         public void create() {
+          if (connectionRate == Integer.MAX_VALUE) return;
           Utils.handleException(
               () ->
                   admin
