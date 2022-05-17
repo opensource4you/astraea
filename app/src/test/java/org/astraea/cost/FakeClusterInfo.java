@@ -13,8 +13,8 @@ public class FakeClusterInfo implements ClusterInfo {
   }
 
   @Override
-  public List<String> dataDirectories(int brokerId) {
-    return List.of();
+  public Set<String> dataDirectories(int brokerId) {
+    return Set.of();
   }
 
   @Override

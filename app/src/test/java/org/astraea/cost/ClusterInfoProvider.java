@@ -51,7 +51,8 @@ public class ClusterInfoProvider {
     final var dataDirectories =
         IntStream.range(0, dataDirCount)
             .mapToObj(i -> "/tmp/data-directory-" + i)
-            .collect(Collectors.toUnmodifiableList());
+            .collect(Collectors.toUnmodifiableSet());
+    final var dataDirectoryList = List.copyOf(dataDirectories);
     final var topics = topicNameGenerator.apply(topicCount);
     final var replicas =
         topics.stream()
@@ -70,7 +71,8 @@ public class ClusterInfoProvider {
                                     r == 0,
                                     true,
                                     false,
-                                    dataDirectories.get(tp.partition() % dataDirectories.size()))))
+                                    dataDirectoryList.get(
+                                        tp.partition() % dataDirectories.size()))))
             .collect(Collectors.groupingBy(ReplicaInfo::topic));
 
     return new ClusterInfo() {
@@ -80,7 +82,7 @@ public class ClusterInfoProvider {
       }
 
       @Override
-      public List<String> dataDirectories(int brokerId) {
+      public Set<String> dataDirectories(int brokerId) {
         return dataDirectories;
       }
 
