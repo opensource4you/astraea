@@ -428,10 +428,10 @@ public class AdminTest extends RequireBrokerCluster {
                 Set.of(Quota.Target.IP),
                 quotas.stream().map(Quota::target).collect(Collectors.toSet()));
             Assertions.assertEquals(
-                Set.of(Quota.Action.IP_CONNECTION_RATE),
-                quotas.stream().map(Quota::action).collect(Collectors.toSet()));
+                Set.of(Quota.Limit.IP_CONNECTION_RATE),
+                quotas.stream().map(Quota::limit).collect(Collectors.toSet()));
             Assertions.assertEquals("192.168.11.11", quotas.iterator().next().targetValue());
-            Assertions.assertEquals(10, quotas.iterator().next().actionValue());
+            Assertions.assertEquals(10, quotas.iterator().next().limitValue());
           };
 
       // only target
@@ -469,33 +469,33 @@ public class AdminTest extends RequireBrokerCluster {
                 Set.of(Quota.Target.CLIENT_ID),
                 quotas.stream().map(Quota::target).collect(Collectors.toSet()));
             Assertions.assertEquals(
-                Set.of(Quota.Action.PRODUCER_BYTE_RATE, Quota.Action.CONSUMER_BYTE_RATE),
-                quotas.stream().map(Quota::action).collect(Collectors.toSet()));
+                Set.of(Quota.Limit.PRODUCER_BYTE_RATE, Quota.Limit.CONSUMER_BYTE_RATE),
+                quotas.stream().map(Quota::limit).collect(Collectors.toSet()));
             Assertions.assertEquals(
                 10,
                 quotas.stream()
-                    .filter(q -> q.action() == Quota.Action.PRODUCER_BYTE_RATE)
+                    .filter(q -> q.limit() == Quota.Limit.PRODUCER_BYTE_RATE)
                     .findFirst()
                     .get()
-                    .actionValue());
+                    .limitValue());
             Assertions.assertEquals(
                 "my-id",
                 quotas.stream()
-                    .filter(q -> q.action() == Quota.Action.PRODUCER_BYTE_RATE)
+                    .filter(q -> q.limit() == Quota.Limit.PRODUCER_BYTE_RATE)
                     .findFirst()
                     .get()
                     .targetValue());
             Assertions.assertEquals(
                 100,
                 quotas.stream()
-                    .filter(q -> q.action() == Quota.Action.CONSUMER_BYTE_RATE)
+                    .filter(q -> q.limit() == Quota.Limit.CONSUMER_BYTE_RATE)
                     .findFirst()
                     .get()
-                    .actionValue());
+                    .limitValue());
             Assertions.assertEquals(
                 "my-id",
                 quotas.stream()
-                    .filter(q -> q.action() == Quota.Action.CONSUMER_BYTE_RATE)
+                    .filter(q -> q.limit() == Quota.Limit.CONSUMER_BYTE_RATE)
                     .findFirst()
                     .get()
                     .targetValue());

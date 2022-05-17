@@ -24,11 +24,11 @@ public class QuotaHandlerTest extends RequireBrokerCluster {
                       Map.of(QuotaHandler.IP_KEY, ip, QuotaHandler.CONNECTION_RATE_KEY, "10"))));
       Assertions.assertEquals(1, result.quotas.size());
       Assertions.assertEquals(
-          Quota.Target.IP.nameOfKafka(), result.quotas.iterator().next().target);
-      Assertions.assertEquals(ip, result.quotas.iterator().next().targetValue);
+          Quota.Target.IP.nameOfKafka(), result.quotas.iterator().next().target.name);
+      Assertions.assertEquals(ip, result.quotas.iterator().next().target.value);
       Assertions.assertEquals(
-          Quota.Action.IP_CONNECTION_RATE.nameOfKafka(), result.quotas.iterator().next().action);
-      Assertions.assertEquals(10, result.quotas.iterator().next().actionValue);
+          Quota.Limit.IP_CONNECTION_RATE.nameOfKafka(), result.quotas.iterator().next().limit.name);
+      Assertions.assertEquals(10, result.quotas.iterator().next().limit.value);
     }
   }
 

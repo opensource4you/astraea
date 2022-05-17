@@ -618,6 +618,7 @@ public class Builder {
 
         @Override
         public void create() {
+          if (connectionRate == Integer.MAX_VALUE) return;
           Utils.handleException(
               () ->
                   admin
@@ -627,7 +628,8 @@ public class Builder {
                                   new ClientQuotaEntity(Map.of(ClientQuotaEntity.IP, ip)),
                                   List.of(
                                       new ClientQuotaAlteration.Op(
-                                          "connection_creation_rate", (double) connectionRate)))))
+                                          Quota.Limit.IP_CONNECTION_RATE.nameOfKafka(),
+                                          (double) connectionRate)))))
                       .all()
                       .get());
         }
@@ -656,9 +658,13 @@ public class Builder {
         public void create() {
           var q = new ArrayList<ClientQuotaAlteration.Op>();
           if (produceRate != Integer.MAX_VALUE)
-            q.add(new ClientQuotaAlteration.Op("producer_byte_rate", (double) produceRate));
+            q.add(
+                new ClientQuotaAlteration.Op(
+                    Quota.Limit.PRODUCER_BYTE_RATE.nameOfKafka(), (double) produceRate));
           if (consumeRate != Integer.MAX_VALUE)
-            q.add(new ClientQuotaAlteration.Op("consumer_byte_rate", (double) consumeRate));
+            q.add(
+                new ClientQuotaAlteration.Op(
+                    Quota.Limit.CONSUMER_BYTE_RATE.nameOfKafka(), (double) consumeRate));
           if (!q.isEmpty())
             Utils.handleException(
                 () ->

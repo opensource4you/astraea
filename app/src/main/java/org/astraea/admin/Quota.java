@@ -22,7 +22,7 @@ public class Quota {
                                         new Quota(
                                             target(stringStringEntry.getKey()),
                                             stringStringEntry.getValue(),
-                                            action(v.getKey()),
+                                            limit(v.getKey()),
                                             v.getValue()))))
         .collect(Collectors.toUnmodifiableList());
   }
@@ -34,8 +34,8 @@ public class Quota {
         .orElseThrow(() -> new RuntimeException("unknown: " + value));
   }
 
-  static Action action(String value) {
-    return Arrays.stream(Action.values())
+  static Limit limit(String value) {
+    return Arrays.stream(Limit.values())
         .filter(p -> p.nameOfKafka.equalsIgnoreCase(value))
         .findFirst()
         .orElseThrow(() -> new RuntimeException("unknown: " + value));
@@ -56,7 +56,7 @@ public class Quota {
     }
   }
 
-  public enum Action {
+  public enum Limit {
     PRODUCER_BYTE_RATE("producer_byte_rate"),
     CONSUMER_BYTE_RATE("consumer_byte_rate"),
     REQUEST_PERCENTAGE("request_percentage"),
@@ -64,7 +64,7 @@ public class Quota {
     IP_CONNECTION_RATE("connection_creation_rate");
     private final String nameOfKafka;
 
-    Action(String nameOfKafka) {
+    Limit(String nameOfKafka) {
       this.nameOfKafka = nameOfKafka;
     }
 
@@ -76,14 +76,14 @@ public class Quota {
   private final Target target;
 
   private final String targetValue;
-  private final Action action;
-  private final double actionValue;
+  private final Limit limit;
+  private final double limitValue;
 
-  public Quota(Target target, String targetValue, Action action, double actionValue) {
+  public Quota(Target target, String targetValue, Limit limit, double limitValue) {
     this.target = target;
     this.targetValue = targetValue;
-    this.action = action;
-    this.actionValue = actionValue;
+    this.limit = limit;
+    this.limitValue = limitValue;
   }
 
   public Target target() {
@@ -94,12 +94,12 @@ public class Quota {
     return targetValue;
   }
 
-  public Action action() {
-    return action;
+  public Limit limit() {
+    return limit;
   }
 
-  public double actionValue() {
-    return actionValue;
+  public double limitValue() {
+    return limitValue;
   }
 
   @Override
@@ -107,15 +107,15 @@ public class Quota {
     if (this == o) return true;
     if (o == null || getClass() != o.getClass()) return false;
     Quota quota = (Quota) o;
-    return Double.compare(quota.actionValue, actionValue) == 0
+    return Double.compare(quota.limitValue, limitValue) == 0
         && target == quota.target
         && Objects.equals(targetValue, quota.targetValue)
-        && action == quota.action;
+        && limit == quota.limit;
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(target, targetValue, action, actionValue);
+    return Objects.hash(target, targetValue, limit, limitValue);
   }
 
   @Override
@@ -126,10 +126,10 @@ public class Quota {
         + ", targetValue='"
         + targetValue
         + '\''
-        + ", action="
-        + action
-        + ", actionValue="
-        + actionValue
+        + ", limit="
+        + limit
+        + ", limitValue="
+        + limitValue
         + '}';
   }
 }
