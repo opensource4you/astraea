@@ -7,6 +7,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
 import org.apache.kafka.common.errors.WakeupException;
+import org.astraea.Utils;
 import org.astraea.producer.Producer;
 import org.astraea.service.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
@@ -116,5 +117,39 @@ public class ConsumerTest extends RequireBrokerCluster {
 
     // use different group id
     testConsumer.accept("another_group", 0);
+  }
+
+  @Test
+  void testDistanceFromLatest() {
+    var count = 10;
+    var topic = Utils.randomString(10);
+    try (var producer = Producer.of(bootstrapServers())) {
+      IntStream.range(0, count)
+          .forEach(
+              i ->
+                  producer
+                      .sender()
+                      .topic(topic)
+                      .value(String.valueOf(count).getBytes(StandardCharsets.UTF_8))
+                      .run());
+      producer.flush();
+    }
+    try (var consumer =
+        Consumer.builder()
+            .bootstrapServers(bootstrapServers())
+            .topics(Set.of(topic))
+            .distanceFromLatest(3)
+            .build()) {
+      Assertions.assertEquals(3, consumer.poll(4, Duration.ofSeconds(5)).size());
+    }
+
+    try (var consumer =
+        Consumer.builder()
+            .bootstrapServers(bootstrapServers())
+            .topics(Set.of(topic))
+            .distanceFromLatest(1000)
+            .build()) {
+      Assertions.assertEquals(10, consumer.poll(11, Duration.ofSeconds(5)).size());
+    }
   }
 }
