@@ -41,7 +41,7 @@ public class Quota {
         .orElseThrow(() -> new RuntimeException("unknown: " + value));
   }
 
-  enum Target {
+  public enum Target {
     USER(ClientQuotaEntity.USER),
     CLIENT_ID(ClientQuotaEntity.CLIENT_ID),
     IP(ClientQuotaEntity.IP);
@@ -51,12 +51,12 @@ public class Quota {
       this.nameOfKafka = nameOfKafka;
     }
 
-    String nameOfKafka() {
+    public String nameOfKafka() {
       return nameOfKafka;
     }
   }
 
-  enum Action {
+  public enum Action {
     PRODUCER_BYTE_RATE("producer_byte_rate"),
     CONSUMER_BYTE_RATE("consumer_byte_rate"),
     REQUEST_PERCENTAGE("request_percentage"),
@@ -68,7 +68,7 @@ public class Quota {
       this.nameOfKafka = nameOfKafka;
     }
 
-    String nameOfKafka() {
+    public String nameOfKafka() {
       return nameOfKafka;
     }
   }

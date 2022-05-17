@@ -654,20 +654,22 @@ public class Builder {
 
         @Override
         public void create() {
-          Utils.handleException(
-              () ->
-                  admin
-                      .alterClientQuotas(
-                          List.of(
-                              new ClientQuotaAlteration(
-                                  new ClientQuotaEntity(Map.of(ClientQuotaEntity.CLIENT_ID, id)),
-                                  List.of(
-                                      new ClientQuotaAlteration.Op(
-                                          "producer_byte_rate", (double) produceRate),
-                                      new ClientQuotaAlteration.Op(
-                                          "consumer_byte_rate", (double) consumeRate)))))
-                      .all()
-                      .get());
+          var q = new ArrayList<ClientQuotaAlteration.Op>();
+          if (produceRate != Integer.MAX_VALUE)
+            q.add(new ClientQuotaAlteration.Op("producer_byte_rate", (double) produceRate));
+          if (consumeRate != Integer.MAX_VALUE)
+            q.add(new ClientQuotaAlteration.Op("consumer_byte_rate", (double) consumeRate));
+          if (!q.isEmpty())
+            Utils.handleException(
+                () ->
+                    admin
+                        .alterClientQuotas(
+                            List.of(
+                                new ClientQuotaAlteration(
+                                    new ClientQuotaEntity(Map.of(ClientQuotaEntity.CLIENT_ID, id)),
+                                    q)))
+                        .all()
+                        .get());
         }
       };
     }

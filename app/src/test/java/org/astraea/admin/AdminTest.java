@@ -446,6 +446,17 @@ public class AdminTest extends RequireBrokerCluster {
   }
 
   @Test
+  void testMultipleIpQuota() throws InterruptedException {
+    try (var admin = Admin.of(bootstrapServers())) {
+      admin.quotaCreator().ip("192.168.11.11").connectionRate(10).create();
+      admin.quotaCreator().ip("192.168.11.11").connectionRate(12).create();
+      admin.quotaCreator().ip("192.168.11.11").connectionRate(9).create();
+      TimeUnit.SECONDS.sleep(2);
+      Assertions.assertEquals(1, admin.quotas(Quota.Target.IP, "192.168.11.11").size());
+    }
+  }
+
+  @Test
   void testClientQuota() throws InterruptedException {
     try (var admin = Admin.of(bootstrapServers())) {
       admin.quotaCreator().clientId("my-id").produceRate(10).consumeRate(100).create();
@@ -498,6 +509,16 @@ public class AdminTest extends RequireBrokerCluster {
       checker.accept(
           admin.quotas(Quota.Target.CLIENT_ID, "my-id").stream()
               .collect(Collectors.toUnmodifiableList()));
+    }
+  }
+
+  @Test
+  void testMultipleClientQuota() throws InterruptedException {
+    try (var admin = Admin.of(bootstrapServers())) {
+      admin.quotaCreator().clientId("my-id").consumeRate(100).create();
+      admin.quotaCreator().clientId("my-id").produceRate(999).create();
+      TimeUnit.SECONDS.sleep(2);
+      Assertions.assertEquals(2, admin.quotas(Quota.Target.CLIENT_ID, "my-id").size());
     }
   }
 }
