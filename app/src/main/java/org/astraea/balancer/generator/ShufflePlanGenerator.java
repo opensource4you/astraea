@@ -9,12 +9,12 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
+import org.astraea.admin.TopicPartition;
 import org.astraea.balancer.ClusterLogAllocation;
 import org.astraea.balancer.LogPlacement;
 import org.astraea.balancer.RebalancePlanProposal;
 import org.astraea.cost.ClusterInfo;
 import org.astraea.cost.NodeInfo;
-import org.astraea.cost.TopicPartition;
 
 /**
  * The {@link ShufflePlanGenerator} proposes a new log placement based on the current log placement,

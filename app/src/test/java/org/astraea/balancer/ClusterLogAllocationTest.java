@@ -3,8 +3,8 @@ package org.astraea.balancer;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import org.astraea.admin.TopicPartition;
 import org.astraea.cost.ClusterInfoProvider;
-import org.astraea.cost.TopicPartition;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 

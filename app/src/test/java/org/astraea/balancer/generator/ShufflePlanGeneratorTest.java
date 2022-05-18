@@ -3,11 +3,11 @@ package org.astraea.balancer.generator;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.IntStream;
+import org.astraea.admin.TopicPartition;
 import org.astraea.balancer.ClusterLogAllocation;
 import org.astraea.balancer.LogPlacement;
 import org.astraea.balancer.RebalancePlanProposal;
 import org.astraea.cost.ClusterInfoProvider;
-import org.astraea.cost.TopicPartition;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
@@ -32,7 +32,7 @@ class ShufflePlanGeneratorTest {
         ClusterInfoProvider.fakeClusterInfo(
             100, 3, 10, 1, (ignore) -> Set.of("breaking-news", "chess", "animal"));
     final var shuffleCount = 1;
-    final var shuffleSourceTopicPartition = TopicPartition.of("breaking-news", 0);
+    final var shuffleSourceTopicPartition = TopicPartition.of("breaking-news", "0");
     final var shuffleSourceLogs =
         ClusterLogAllocation.of(fakeClusterInfo).allocation().get(shuffleSourceTopicPartition);
     final var shufflePlanGenerator =

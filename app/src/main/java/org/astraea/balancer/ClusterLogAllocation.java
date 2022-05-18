@@ -6,9 +6,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import org.astraea.admin.TopicPartition;
 import org.astraea.cost.ClusterInfo;
 import org.astraea.cost.ReplicaInfo;
-import org.astraea.cost.TopicPartition;
 
 public class ClusterLogAllocation {
 
