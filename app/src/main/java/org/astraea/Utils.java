@@ -149,12 +149,15 @@ public final class Utils {
     return value;
   }
 
-  public static boolean overSecond(long lastTime, int second) {
-    return (lastTime + Duration.ofSeconds(second).toMillis()) < System.currentTimeMillis();
-  }
-
-  public static boolean overSecond(long lastTime, Duration second) {
-    return (lastTime + second.toMillis()) < System.currentTimeMillis();
+  /**
+   * Check if the time is expired.
+   *
+   * @param lastTime Check time.
+   * @param interval Interval.
+   * @return Is expired.
+   */
+  public static boolean isExpired(long lastTime, Duration interval) {
+    return (lastTime + interval.toMillis()) < System.currentTimeMillis();
   }
 
   public static void sleep(Duration duration) {

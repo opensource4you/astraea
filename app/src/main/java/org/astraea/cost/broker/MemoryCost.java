@@ -31,34 +31,33 @@ public class MemoryCost extends Periodic<Map<Integer, Double>> implements HasBro
    */
   @Override
   public BrokerCost brokerCost(ClusterInfo clusterInfo) {
-    var brokerScore =
-        tryUpdate(
-            () -> {
-              var costMetrics =
-                  clusterInfo.allBeans().entrySet().stream()
-                      .collect(Collectors.toMap(Map.Entry::getKey, entry -> 0.0));
-              clusterInfo
-                  .allBeans()
-                  .forEach(
-                      (brokerID, value) -> {
-                        if (!brokersMetric.containsKey(brokerID)) {
-                          brokersMetric.put(brokerID, new BrokerMetric());
-                        }
-                        value.stream()
-                            .filter(beanObject -> beanObject instanceof HasJvmMemory)
-                            .forEach(
-                                hasBeanObject -> {
-                                  var jvmBean = (HasJvmMemory) hasBeanObject;
-                                  costMetrics.put(
-                                      brokerID,
-                                      ((jvmBean.heapMemoryUsage().getUsed() + 0.0)
-                                          / (jvmBean.heapMemoryUsage().getMax() + 1)));
-                                });
-                      });
-              TScore(costMetrics).forEach((broker, v) -> brokersMetric.get(broker).updateLoad(v));
-              return computeLoad();
-            });
-    return () -> brokerScore;
+    var costMetrics =
+        clusterInfo.allBeans().entrySet().stream()
+            .collect(
+                Collectors.toMap(
+                    Map.Entry::getKey,
+                    entry ->
+                        entry.getValue().stream()
+                            .filter(hasBeanObject -> hasBeanObject instanceof HasJvmMemory)
+                            .findAny()
+                            .orElseThrow()))
+            .entrySet()
+            .stream()
+            .collect(
+                Collectors.toMap(
+                    Map.Entry::getKey,
+                    entry -> {
+                      if (!brokersMetric.containsKey(entry.getKey())) {
+                        brokersMetric.put(entry.getKey(), new BrokerMetric());
+                      }
+                      var jvmBean = (HasJvmMemory) entry.getValue();
+                      return (jvmBean.heapMemoryUsage().getUsed() + 0.0)
+                          / (jvmBean.heapMemoryUsage().getMax() + 1);
+                    }));
+
+    TScore(costMetrics).forEach((broker, v) -> brokersMetric.get(broker).updateLoad(v));
+
+    return this::computeLoad;
   }
 
   Map<Integer, Double> computeLoad() {

@@ -10,7 +10,6 @@ import java.util.stream.IntStream;
 import org.astraea.cost.BrokerCost;
 import org.astraea.cost.ClusterInfo;
 import org.astraea.cost.HasBrokerCost;
-import org.astraea.cost.Periodic;
 import org.astraea.metrics.collector.Fetcher;
 import org.astraea.metrics.java.OperatingSystemInfo;
 import org.astraea.metrics.kafka.KafkaMetrics;
@@ -26,36 +25,37 @@ import org.astraea.metrics.kafka.KafkaMetrics;
  *   <li>The final result is the average of the ten-second data.
  * </ol>
  */
-public class CpuCost extends Periodic<Map<Integer, Double>> implements HasBrokerCost {
+public class CpuCost implements HasBrokerCost {
   private final Map<Integer, BrokerMetric> brokersMetric = new HashMap<>();
 
   @Override
   public BrokerCost brokerCost(ClusterInfo clusterInfo) {
-    var brokerScore =
-        tryUpdate(
-            () -> {
-              var costMetrics =
-                  clusterInfo.allBeans().entrySet().stream()
-                      .collect(Collectors.toMap(Map.Entry::getKey, entry -> 0.0));
-              clusterInfo
-                  .allBeans()
-                  .forEach(
-                      (brokerID, value) -> {
-                        if (!brokersMetric.containsKey(brokerID)) {
-                          brokersMetric.put(brokerID, new BrokerMetric());
-                        }
-                        value.stream()
-                            .filter(beanObject -> beanObject instanceof OperatingSystemInfo)
-                            .forEach(
-                                hasBeanObject -> {
-                                  var cpuBean = (OperatingSystemInfo) hasBeanObject;
-                                  costMetrics.put(brokerID, cpuBean.systemCpuLoad());
-                                });
-                      });
-              TScore(costMetrics).forEach((broker, v) -> brokersMetric.get(broker).updateLoad(v));
-              return computeLoad();
-            });
-    return () -> brokerScore;
+    var costMetrics =
+        clusterInfo.allBeans().entrySet().stream()
+            .collect(
+                Collectors.toMap(
+                    Map.Entry::getKey,
+                    entry ->
+                        entry.getValue().stream()
+                            .filter(hasBeanObject -> hasBeanObject instanceof OperatingSystemInfo)
+                            .findAny()
+                            .orElseThrow()))
+            .entrySet()
+            .stream()
+            .collect(
+                Collectors.toMap(
+                    Map.Entry::getKey,
+                    entry -> {
+                      if (!brokersMetric.containsKey(entry.getKey())) {
+                        brokersMetric.put(entry.getKey(), new BrokerMetric());
+                      }
+                      var cpuBean = (OperatingSystemInfo) entry.getValue();
+                      return cpuBean.systemCpuLoad();
+                    }));
+
+    TScore(costMetrics).forEach((broker, v) -> brokersMetric.get(broker).updateLoad(v));
+
+    return this::computeLoad;
   }
 
   Map<Integer, Double> computeLoad() {

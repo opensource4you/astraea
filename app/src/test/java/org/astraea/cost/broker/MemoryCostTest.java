@@ -18,7 +18,7 @@ import org.mockito.Mockito;
 public class MemoryCostTest {
   @Test
   void testCost() throws InterruptedException {
-    var jvmMemory1 = mockResult(50L, 100L);
+    var jvmMemory1 = mockResult(40L, 100L);
     var jvmMemory2 = mockResult(81L, 100L);
     var jvmMemory3 = mockResult(80L, 150L);
 
@@ -48,12 +48,12 @@ public class MemoryCostTest {
 
     var memoryCost = new MemoryCost();
     var scores = memoryCost.brokerCost(clusterInfo).value();
-    Assertions.assertEquals(0.42, scores.get(1));
-    Assertions.assertEquals(0.64, scores.get(2));
-    Assertions.assertEquals(0.44, scores.get(3));
+    Assertions.assertEquals(0.39, scores.get(1));
+    Assertions.assertEquals(0.63, scores.get(2));
+    Assertions.assertEquals(0.47, scores.get(3));
 
     Thread.sleep(1000);
-    jvmMemory1 = mockResult(50L, 50L);
+    jvmMemory1 = mockResult(50L, 150L);
     jvmMemory2 = mockResult(30L, 100L);
     jvmMemory3 = mockResult(80L, 150L);
 
@@ -81,9 +81,9 @@ public class MemoryCostTest {
           }
         };
     scores = memoryCost.brokerCost(clusterInfo2).value();
-    Assertions.assertEquals(0.53, scores.get(1));
+    Assertions.assertEquals(0.42, scores.get(1));
     Assertions.assertEquals(0.52, scores.get(2));
-    Assertions.assertEquals(0.45, scores.get(3));
+    Assertions.assertEquals(0.55, scores.get(3));
   }
 
   private HasJvmMemory mockResult(long used, long max) {

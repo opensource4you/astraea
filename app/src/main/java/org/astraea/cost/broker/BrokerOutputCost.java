@@ -10,7 +10,6 @@ import java.util.stream.IntStream;
 import org.astraea.cost.BrokerCost;
 import org.astraea.cost.ClusterInfo;
 import org.astraea.cost.HasBrokerCost;
-import org.astraea.cost.Periodic;
 import org.astraea.metrics.collector.Fetcher;
 import org.astraea.metrics.kafka.BrokerTopicMetricsResult;
 import org.astraea.metrics.kafka.KafkaMetrics;
@@ -26,44 +25,44 @@ import org.astraea.metrics.kafka.KafkaMetrics;
  *   <li>The final result is the average of the ten-second data.
  * </ol>
  */
-public class BrokerOutputCost extends Periodic<Map<Integer, Double>> implements HasBrokerCost {
+public class BrokerOutputCost implements HasBrokerCost {
   private final Map<Integer, BrokerMetric> brokersMetric = new HashMap<>();
 
   @Override
   public BrokerCost brokerCost(ClusterInfo clusterInfo) {
-    var brokerScore =
-        tryUpdate(
-            () -> {
-              var costMetrics =
-                  clusterInfo.allBeans().entrySet().stream()
-                      .collect(Collectors.toMap(Map.Entry::getKey, entry -> 0.0));
-              clusterInfo
-                  .allBeans()
-                  .forEach(
-                      (brokerID, value) -> {
-                        if (!brokersMetric.containsKey(brokerID)) {
-                          brokersMetric.put(brokerID, new BrokerMetric());
-                        }
-                        value.stream()
+    var costMetrics =
+        clusterInfo.allBeans().entrySet().stream()
+            .collect(
+                Collectors.toMap(
+                    Map.Entry::getKey,
+                    entry ->
+                        entry.getValue().stream()
                             .filter(
                                 hasBeanObject ->
                                     KafkaMetrics.BrokerTopic.BytesOutPerSec.metricName()
                                         .equals(
                                             hasBeanObject.beanObject().getProperties().get("name")))
-                            .forEach(
-                                hasBeanObject -> {
-                                  var broker = brokersMetric.get(brokerID);
-                                  var outBean = (BrokerTopicMetricsResult) hasBeanObject;
-                                  costMetrics.put(
-                                      brokerID,
-                                      (double) (outBean.count() - broker.accumulateCount));
-                                  broker.accumulateCount = outBean.count();
-                                });
-                      });
-              TScore(costMetrics).forEach((broker, v) -> brokersMetric.get(broker).updateLoad(v));
-              return computeLoad();
-            });
-    return () -> brokerScore;
+                            .findAny()
+                            .orElseThrow()))
+            .entrySet()
+            .stream()
+            .collect(
+                Collectors.toMap(
+                    Map.Entry::getKey,
+                    entry -> {
+                      if (!brokersMetric.containsKey(entry.getKey())) {
+                        brokersMetric.put(entry.getKey(), new BrokerMetric());
+                      }
+                      var broker = brokersMetric.get(entry.getKey());
+                      var inBean = (BrokerTopicMetricsResult) entry.getValue();
+                      var count = (double) (inBean.count() - broker.accumulateCount);
+                      broker.accumulateCount = inBean.count();
+                      return count;
+                    }));
+
+    TScore(costMetrics).forEach((broker, v) -> brokersMetric.get(broker).updateLoad(v));
+
+    return this::computeLoad;
   }
 
   Map<Integer, Double> computeLoad() {
