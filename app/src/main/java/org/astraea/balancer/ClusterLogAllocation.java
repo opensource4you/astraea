@@ -63,7 +63,8 @@ public class ClusterLogAllocation {
             .flatMap(Collection::stream)
             .collect(
                 Collectors.groupingBy(
-                    replica -> TopicPartition.of(replica.topic(), replica.partition())))
+                    replica ->
+                        TopicPartition.of(replica.topic(), Integer.toString(replica.partition()))))
             .entrySet()
             .stream()
             .map(

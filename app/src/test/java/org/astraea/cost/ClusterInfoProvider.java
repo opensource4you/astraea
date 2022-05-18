@@ -8,6 +8,7 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import org.astraea.admin.TopicPartition;
 import org.astraea.metrics.HasBeanObject;
 
 public class ClusterInfoProvider {
@@ -58,7 +59,8 @@ public class ClusterInfoProvider {
         topics.stream()
             .flatMap(
                 topic ->
-                    IntStream.range(0, partitionCount).mapToObj(p -> TopicPartition.of(topic, p)))
+                    IntStream.range(0, partitionCount)
+                        .mapToObj(p -> TopicPartition.of(topic, Integer.toString(p))))
             .flatMap(
                 tp ->
                     IntStream.range(0, replicaCount)
