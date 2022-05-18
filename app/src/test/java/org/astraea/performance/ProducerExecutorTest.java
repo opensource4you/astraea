@@ -8,12 +8,12 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.BiConsumer;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
-import org.apache.kafka.common.TopicPartition;
 import org.astraea.Utils;
+import org.astraea.admin.Admin;
+import org.astraea.admin.TopicPartition;
 import org.astraea.concurrent.State;
 import org.astraea.producer.Producer;
 import org.astraea.service.RequireBrokerCluster;
-import org.astraea.topic.TopicAdmin;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Named;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -27,7 +27,7 @@ public class ProducerExecutorTest extends RequireBrokerCluster {
   void testSpecifiedPartition(ProducerExecutor executor) throws InterruptedException {
     var specifiedPartition = 1;
     ((MyPartitionSupplier) executor.partitionSupplier()).partition = specifiedPartition;
-    try (var admin = TopicAdmin.of(bootstrapServers())) {
+    try (var admin = Admin.of(bootstrapServers())) {
       admin.creator().topic(executor.topic()).numberOfPartitions(specifiedPartition + 1).create();
       // wait for topic creation
       TimeUnit.SECONDS.sleep(2);

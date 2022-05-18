@@ -11,17 +11,29 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
 
 public final class Utils {
 
+  private static Throwable unpack(Throwable exception) {
+    Throwable current = exception;
+    while (current instanceof ExecutionException) {
+      current = current.getCause();
+    }
+    return current;
+  }
+
   public static <R> R handleException(Getter<R> getter) {
     try {
       return getter.get();
-    } catch (Exception e) {
-      throw new RuntimeException(e);
+    } catch (Throwable exception) {
+      var current = unpack(exception);
+      if (current instanceof RuntimeException) throw (RuntimeException) current;
+      if (current == null) throw new RuntimeException("unknown error");
+      throw new RuntimeException(current);
     }
   }
 
@@ -139,6 +151,10 @@ public final class Utils {
 
   public static boolean overSecond(long lastTime, int second) {
     return (lastTime + Duration.ofSeconds(second).toMillis()) < System.currentTimeMillis();
+  }
+
+  public static boolean overSecond(long lastTime, Duration second) {
+    return (lastTime + second.toMillis()) < System.currentTimeMillis();
   }
 
   public static void sleep(Duration duration) {

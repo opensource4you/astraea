@@ -8,14 +8,14 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BiConsumer;
-import org.apache.kafka.common.TopicPartition;
+import org.astraea.admin.Admin;
+import org.astraea.admin.TopicPartition;
 import org.astraea.concurrent.Executor;
 import org.astraea.concurrent.State;
 import org.astraea.consumer.Consumer;
 import org.astraea.consumer.Isolation;
 import org.astraea.producer.Producer;
 import org.astraea.service.RequireBrokerCluster;
-import org.astraea.topic.TopicAdmin;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -64,7 +64,7 @@ public class PerformanceTest extends RequireBrokerCluster {
     Assertions.assertEquals(1, producerExecutors.size());
     Assertions.assertFalse(producerExecutors.get(0).transactional());
 
-    try (var admin = TopicAdmin.of(bootstrapServers())) {
+    try (var admin = Admin.of(bootstrapServers())) {
       admin.creator().topic(topic).numberOfPartitions(1).create();
       // wait for topic creation
       TimeUnit.SECONDS.sleep(2);
@@ -137,7 +137,7 @@ public class PerformanceTest extends RequireBrokerCluster {
       "--record.size",
       "10KiB",
       "--partitioner",
-      "org.astraea.partitioner.smoothPartitioner.SmoothWeightPartitioner",
+      "org.astraea.partitioner.smooth.SmoothWeightPartitioner",
       "--compression",
       "lz4",
       "--key.distribution",
