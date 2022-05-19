@@ -11,6 +11,6 @@ public interface BrokerCluster extends AutoCloseable {
   /** @return the log folders used by each broker */
   Map<Integer, Set<String>> logFolders();
 
-  /** @param the broker id want to close */
+  /** @param brokerID the broker id want to close */
   void close(int brokerID);
 }

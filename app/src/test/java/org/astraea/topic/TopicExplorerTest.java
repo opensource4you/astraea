@@ -1,6 +1,8 @@
 package org.astraea.topic;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -248,11 +250,15 @@ public class TopicExplorerTest extends RequireBrokerCluster {
               .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
       replicaOnBroker0.forEach((tp, replica) -> Assertions.assertFalse(replica.get(0).isOffline()));
       closeBroker(0);
+      assertNull(logFolders().get(0));
+      assertNotNull(logFolders().get(1));
+      assertNotNull(logFolders().get(2));
       var offlineReplicaOnBroker0 =
           admin.replicas(admin.topicNames()).entrySet().stream()
               .filter(replica -> replica.getValue().get(0).broker() == 0)
               .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
       offlineReplicaOnBroker0.forEach((tp, replica) -> assertTrue(replica.get(0).isOffline()));
+
     } catch (InterruptedException e) {
       throw new RuntimeException(e);
     }

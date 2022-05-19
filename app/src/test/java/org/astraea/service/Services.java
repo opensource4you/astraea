@@ -3,6 +3,7 @@ package org.astraea.service;
 import java.io.File;
 import java.net.InetSocketAddress;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Properties;
 import java.util.Set;
 import java.util.function.Function;
@@ -68,22 +69,32 @@ public final class Services {
                               SystemTime.SYSTEM,
                               scala.Option.empty(),
                               false);
-
                       broker.startup();
                       return broker;
                     })
                 .collect(Collectors.toUnmodifiableList()));
-    String connectionProps =
-        brokers.stream()
-            .map(broker -> Utils.hostname() + ":" + broker.boundPort(new ListenerName("PLAINTEXT")))
-            .collect(Collectors.joining(","));
+    final String[] connectionProps = {
+      brokers.stream()
+          .map(broker -> Utils.hostname() + ":" + broker.boundPort(new ListenerName("PLAINTEXT")))
+          .collect(Collectors.joining(","))
+    };
     return new BrokerCluster() {
       @Override
       public void close(int brokerID) {
-        brokers.get(brokerID).shutdown();
-        brokers.get(brokerID).awaitShutdown();
-        brokers.remove(0);
-        tempFolders.get(brokerID).forEach(f -> Utils.delete(new File(f)));
+        if (brokers.get(brokerID) != null) {
+          brokers.get(brokerID).shutdown();
+          brokers.get(brokerID).awaitShutdown();
+          brokers.set(brokerID, null);
+          tempFolders.get(brokerID).forEach(f -> Utils.delete(new File(f)));
+          tempFolders.remove(brokerID);
+          connectionProps[0] =
+              brokers.stream()
+                  .filter(Objects::nonNull)
+                  .map(
+                      broker ->
+                          Utils.hostname() + ":" + broker.boundPort(new ListenerName("PLAINTEXT")))
+                  .collect(Collectors.joining(","));
+        }
       }
 
       @Override
@@ -93,13 +104,14 @@ public final class Services {
 
       @Override
       public String bootstrapServers() {
-        return connectionProps;
+        return connectionProps[0];
       }
 
       @Override
       public Map<Integer, Set<String>> logFolders() {
-        return IntStream.range(0, numberOfBrokers)
+        return IntStream.range(0, brokers.size())
             .boxed()
+            .filter(tempFolders::containsKey)
             .collect(Collectors.toMap(Function.identity(), tempFolders::get));
       }
     };
