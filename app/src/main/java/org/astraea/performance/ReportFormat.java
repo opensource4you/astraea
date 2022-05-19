@@ -10,6 +10,7 @@ import java.nio.file.Path;
 import java.text.SimpleDateFormat;
 import java.time.Duration;
 import java.util.Date;
+import java.util.function.Supplier;
 import java.util.stream.IntStream;
 import org.astraea.Utils;
 import org.astraea.concurrent.Executor;
@@ -41,7 +42,12 @@ public enum ReportFormat {
   }
 
   public static Executor createFileWriter(
-      ReportFormat reportFormat, Path path, Manager manager, Tracker tracker) throws IOException {
+      ReportFormat reportFormat,
+      Path path,
+      Manager manager,
+      Supplier<Boolean> producerDone,
+      Tracker tracker)
+      throws IOException {
     var filePath =
         FileSystems.getDefault()
             .getPath(
@@ -57,7 +63,7 @@ public enum ReportFormat {
         return new Executor() {
           @Override
           public State execute() throws InterruptedException {
-            if (logToCSV(writer, manager, tracker)) return State.DONE;
+            if (logToCSV(writer, manager, producerDone, tracker)) return State.DONE;
             Thread.sleep(1000);
             return State.RUNNING;
           }
@@ -72,7 +78,7 @@ public enum ReportFormat {
         return new Executor() {
           @Override
           public State execute() throws InterruptedException {
-            if (logToJSON(writer, manager, tracker)) return State.DONE;
+            if (logToJSON(writer, manager, producerDone, tracker)) return State.DONE;
             Thread.sleep(1000);
             return State.RUNNING;
           }
@@ -126,7 +132,8 @@ public enum ReportFormat {
     writer.newLine();
   }
 
-  private static boolean logToCSV(BufferedWriter writer, Manager manager, Tracker tracker) {
+  private static boolean logToCSV(
+      BufferedWriter writer, Manager manager, Supplier<Boolean> producerDone, Tracker tracker) {
     var result = processResult(manager, tracker);
     if (result.producerResult.completedRecords == 0) return false;
     try {
@@ -154,11 +161,12 @@ public enum ReportFormat {
       writer.newLine();
     } catch (IOException ignore) {
     }
-    return manager.producedDone() && manager.consumedDone();
+    return producerDone.get() && manager.consumedDone();
   }
 
   /** Write to writer. Output: "(timestamp)": { (many metrics ...) } */
-  private static boolean logToJSON(BufferedWriter writer, Manager manager, Tracker tracker) {
+  private static boolean logToJSON(
+      BufferedWriter writer, Manager manager, Supplier<Boolean> producerDone, Tracker tracker) {
     var result = processResult(manager, tracker);
     if (result.producerResult.completedRecords == 0) return false;
     try {
@@ -200,7 +208,7 @@ public enum ReportFormat {
       writer.newLine();
     } catch (IOException ignore) {
     }
-    return manager.producedDone() && manager.consumedDone();
+    return producerDone.get() && manager.consumedDone();
   }
 
   private static ProcessedResult processResult(Manager manager, Tracker tracker) {

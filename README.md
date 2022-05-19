@@ -238,26 +238,29 @@ Run the benchmark from source
 ```
 ### Performance Benchmark Configurations
 1. --bootstrap.servers: the server to connect to
-2. --topic: the topic name. Default: testPerformance-{Time in millis}
-3. --partitions: topic config when creating new topic. Default: 1 
-4. --replicas: topic config when creating new topic. Default: 1
-5. --consumers: the number of consumers (threads). Default: 1
-6. --producers: the number of producers (threads). Default: 1
-7. --run.until: the total number of records sent by the producers or the time for producer to send records.
+2. --compression: the compression algorithm used by producer.
+3. --topic: the topic name. Default: testPerformance-{Time in millis}
+4. --partitions: topic config when creating new topic. Default: 1 
+5. --replicas: topic config when creating new topic. Default: 1
+6. --consumers: the number of consumers (threads). Default: 1
+7. --producers: the number of producers (threads). Default: 1
+8. --run.until: the total number of records sent by the producers or the time for producer to send records.
   The duration formats accepted are (a number) + (a time unit). 
   The time units can be "days", "day", "h", "m", "s", "ms", "us", "ns".
   e.g. "--run.until 1m" or "--run.until 89242records" Default: 1000records
-8. --record.size: the (bound of) record size in byte. Default: 1 KiB
-9. --fixed.size: the flag to let all records have the same size
+9. --record.size: the (bound of) record size in byte. Default: 1 KiB
 10. --prop.file: the path to property file.
-11. --partitioner: the partitioner to use in producers
-12. --jmx.servers: the jmx server addresses of the brokers 
-13--throughput: the produce rate for all producers. e.g. "--throughput 2MiB". Default: 500 GiB (per second)
-14--key.distribution: name of the distribution on key. Available distribution names: "uniform", "zipfian", "latest", "fixed". Default: (No key)
-15--size.distribution: name of the distribution on value size. Available distribution names: "uniform", "zipfian", "latest", "fixed". Default: "uniform"
-16--specify.broker: list of broker IDs to produce records to. Default: (Do Not Specify)
-17--report.path: A path to place the report file. Default: (no report)
-18--report.format: Select output file format. Available format: "csv", "json".
+11. --partitioner: the partitioner to use in producers.
+12. --configs: the configurations pass to partitioner. 
+  The configuration format is "\<key1\>=\<value1\>[,\<key2\>=\<value2\>]*". 
+  eg. "--configs broker.1001.jmx.port=14338,org.astraea.cost.ThroughputCost=1"
+13. --throughput: the produce rate for all producers. e.g. "--throughput 2MiB". Default: 500 GiB (per second)
+14. --key.distribution: name of the distribution on key. Available distribution names: "uniform", "zipfian", "latest", "fixed". Default: (No key)
+15. --size.distribution: name of the distribution on value size. Available distribution names: "uniform", "zipfian", "latest", "fixed". Default: "uniform"
+16. --specify.broker: list of broker IDs to produce records to. Default: (Do Not Specify)
+17. --report.path: A path to place the report file. Default: (no report)
+18. --report.format: Select output file format. Available format: "csv", "json". Default: "csv"
+19. --transaction.size: number of records in each transaction. Default: 1
 
 ---
 
@@ -342,25 +345,25 @@ This tool offers an effective way to migrate specify replicas from specific brok
 ### Move all replicas of topic "abc" from broker_0 to broker_1
 
 ```shell
-./gradlew run --args="replica --bootstrap.servers 192.168.50.178:19993 --from 0,1 --to 2,3 --topics abc"
+./gradlew run --args="replica --bootstrap.servers 192.168.50.178:19993 --from 0 --to 1 --topics abc"
 ```
 
 ### Move all replicas of topic "abc" in broker_0 to other folders
 
 ```shell
-./gradlew run --args="replica --bootstrap.servers 192.168.50.178:19993 --from 0 --to 0 -topics abc"
+./gradlew run --args="replica --bootstrap.servers 192.168.50.178:19993 --from 0 --to 0 --topics abc"
 ```
 
 ### Move specify replicas of topic "abc" and "def" from broker_0 to broker_1
 
 ```shell
-./gradlew run --args="replica --bootstrap.servers 192.168.50.178:19993 --from 0 --to 1 --topic abc --partitions 0,1"
+./gradlew run --args="replica --bootstrap.servers 192.168.50.178:19993 --from 0 --to 1 --topic abc,def --partitions 0,1"
 ```
 
 ### Move specify replicas of topic "abc"  and "def" from broker_0 to broker_1 specify folder
 
 ```shell
-./gradlew run --args="replica --bootstrap.servers 192.168.50.178:19993 --from 0 --to 1 --topic abc --partitions 0,1 --path /tmp/log1"
+./gradlew run --args="replica --bootstrap.servers 192.168.50.178:19993 --from 0 --to 1 --topic abc,def --partitions 0,1 --path /tmp/log1"
 ```
 
 ### Replica Collie Configurations
@@ -436,3 +439,32 @@ $ ./gradlew run --args="monitor --bootstrap.servers 192.168.103.39:9092"
 3. --prop.file: the path to a file that containing the properties to be passed to kafka admin.
 4. --topic: topics to track (default: track all non-synced partition by default)
 5. --track: keep track even if all the replicas are synced. Also attempts to discover any non-synced replicas. (default: false)
+
+### Web service to inspect details of your Kafka data
+
+1. --bootstrap.servers: the server to connect to
+2. --port: the port used by web server
+
+```shell
+./docker/start_kafka_tool.sh web --bootstrap.servers 192.168.50.178:19993 --port 12345"
+```
+
+## Query all topics 
+```shell
+GET http://localhost:12345/topics
+```
+
+## Query single topic
+```shell
+GET http://localhost:12345/topics/t0
+```
+
+## Query all groups
+```shell
+GET http://localhost:12345/groups
+```
+
+## Query single group
+```shell
+GET http://localhost:12345/groups/g1
+```

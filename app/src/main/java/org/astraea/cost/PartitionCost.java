@@ -1,6 +1,7 @@
 package org.astraea.cost;
 
 import java.util.Map;
+import org.astraea.admin.TopicPartition;
 
 /** Return type of cost function, `HasPartitionCost`. It returns the score of partitions. */
 public interface PartitionCost {

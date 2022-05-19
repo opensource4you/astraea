@@ -4,6 +4,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Map;
 import java.util.stream.Collectors;
+import org.astraea.metrics.HasBeanObject;
 import org.astraea.metrics.java.JvmMemory;
 import org.astraea.metrics.java.OperatingSystemInfo;
 import org.astraea.metrics.jmx.BeanObject;
@@ -120,13 +121,36 @@ public final class KafkaMetrics {
   }
 
   public enum Purgatory {
-    AlterAcls,
-    DeleteRecords,
-    ElectLeader,
-    Fetch,
-    Heartbeat,
-    Produce,
-    Rebalance;
+    AlterAcls("AlterAcls"),
+    DeleteRecords("DeleteRecords"),
+    ElectLeader("ElectLeader"),
+    Fetch("Fetch"),
+    Heartbeat("Heartbeat"),
+    Produce("Produce"),
+    Rebalance("Rebalance");
+
+    private final String metricName;
+
+    Purgatory(String name) {
+      this.metricName = name;
+    }
+
+    public String metricName() {
+      return metricName;
+    }
+
+    public Collection<HasBeanObject> fetch(MBeanClient mBeanClient) {
+      return mBeanClient
+          .queryBeans(
+              BeanQuery.builder("kafka.server")
+                  .property("type", "DelayedOperationPurgatory")
+                  .property("delayedOperation", metricName)
+                  .property("name", "PurgatorySize")
+                  .build())
+          .stream()
+          .map(HasValue::of)
+          .collect(Collectors.toUnmodifiableList());
+    }
 
     public int size(MBeanClient mBeanClient) {
       return (int)
@@ -158,9 +182,79 @@ public final class KafkaMetrics {
     }
   }
 
-  public static final class TopicPartition {
+  public enum ReplicaManager {
+    AtMinIsrPartitionCount("AtMinIsrPartitionCount"),
+    LeaderCount("LeaderCount"),
+    OfflineReplicaCount("OfflineReplicaCount"),
+    PartitionCount("PartitionCount"),
+    ReassigningPartitions("ReassigningPartitions"),
+    UnderMinIsrPartitionCount("UnderMinIsrPartitionCount"),
+    UnderReplicatedPartitions("UnderReplicatedPartition");
+    private final String metricName;
 
-    private TopicPartition() {}
+    ReplicaManager(String name) {
+      this.metricName = name;
+    }
+
+    public String metricName() {
+      return metricName;
+    }
+
+    public static ReplicaManager of(String metricName) {
+      return Arrays.stream(ReplicaManager.values())
+          .filter(metric -> metric.metricName().equalsIgnoreCase(metricName))
+          .findFirst()
+          .orElseThrow(() -> new IllegalArgumentException("No such metric: " + metricName));
+    }
+
+    public Collection<HasBeanObject> fetch(MBeanClient mBeanClient) {
+      return mBeanClient
+          .queryBeans(
+              BeanQuery.builder("kafka.server")
+                  .property("type", "ReplicaManager")
+                  .property("name", metricName)
+                  .build())
+          .stream()
+          .map(HasValue::of)
+          .collect(Collectors.toUnmodifiableList());
+    }
+  }
+
+  public enum TopicPartition {
+    LodEndOffset("LodEndOffset"),
+    LogStartOffset("LogStartOffset"),
+    NumLogSegments("NumLogSegments"),
+    Size("Size");
+    private final String metricName;
+
+    TopicPartition(String name) {
+      this.metricName = name;
+    }
+
+    public String metricName() {
+      return metricName;
+    }
+
+    public static TopicPartition of(String metricName) {
+      return Arrays.stream(TopicPartition.values())
+          .filter(metric -> metric.metricName().equalsIgnoreCase(metricName))
+          .findFirst()
+          .orElseThrow(() -> new IllegalArgumentException("No such metric: " + metricName));
+    }
+
+    public Collection<HasBeanObject> fetch(MBeanClient mBeanClient) {
+      return mBeanClient
+          .queryBeans(
+              BeanQuery.builder("kafka.log")
+                  .property("type", "Log")
+                  .property("topic", "*")
+                  .property("partition", "*")
+                  .property("name", metricName)
+                  .build())
+          .stream()
+          .map(HasValue::of)
+          .collect(Collectors.toUnmodifiableList());
+    }
 
     /**
      * Number of partitions across all topics in the cluster.
@@ -207,17 +301,15 @@ public final class KafkaMetrics {
      *     pair of partition id and its log size
      */
     public static Map<Integer, Long> size(MBeanClient client, String topicName) {
-      Collection<BeanObject> beanObjects =
-          client.queryBeans(
+      return client
+          .queryBeans(
               BeanQuery.builder("kafka.log")
                   .property("type", "Log")
                   .property("topic", topicName)
                   .property("partition", "*")
                   .property("name", "Size")
-                  .build());
-
-      // collect result as a map.
-      return beanObjects.stream()
+                  .build())
+          .stream()
           .collect(
               Collectors.toMap(
                   (BeanObject a) -> Integer.parseInt(a.getProperties().get("partition")),

@@ -46,7 +46,7 @@ function checkConflictContainer() {
 
 function generateDockerfileByVersion() {
   echo "# this dockerfile is generated dynamically
-FROM ubuntu:20.04 AS build
+FROM ubuntu:22.04 AS build
 
 # install tools
 RUN apt-get update && apt-get install -y wget unzip
@@ -57,7 +57,7 @@ RUN wget https://archive.apache.org/dist/spark/spark-${VERSION}/spark-${VERSION}
 RUN mkdir /opt/spark
 RUN tar -zxvf spark-${VERSION}-bin-hadoop3.2.tgz -C /opt/spark --strip-components=1
 
-FROM ubuntu:20.04
+FROM ubuntu:22.04
 
 # Do not ask for confirmations when running apt-get, etc.
 ENV DEBIAN_FRONTEND noninteractive
@@ -83,7 +83,7 @@ WORKDIR /opt/spark
 
 function generateDockerfileBySource() {
   echo "# this dockerfile is generated dynamically
-FROM ubuntu:20.04 AS build
+FROM ubuntu:22.04 AS build
 
 # Do not ask for confirmations when running apt-get, etc.
 ENV DEBIAN_FRONTEND noninteractive
@@ -101,7 +101,7 @@ RUN mkdir /opt/spark
 RUN tar -zxvf \$(find ./ -maxdepth 1 -type f -name spark-*SNAPSHOT*.tgz) -C /opt/spark --strip-components=1
 RUN ./build/mvn install -DskipTests
 
-FROM ubuntu:20.04
+FROM ubuntu:22.04
 
 # Do not ask for confirmations when running apt-get, etc.
 ENV DEBIAN_FRONTEND noninteractive
