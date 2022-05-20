@@ -10,12 +10,16 @@ import org.astraea.cost.FakeClusterInfo;
 import org.astraea.cost.NodeInfo;
 import org.astraea.cost.ReplicaInfo;
 import org.astraea.metrics.HasBeanObject;
+import org.astraea.metrics.collector.BeanCollector;
+import org.astraea.metrics.collector.Receiver;
 import org.astraea.metrics.java.HasJvmMemory;
+import org.astraea.metrics.java.JvmMemory;
+import org.astraea.service.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
-public class MemoryCostTest {
+public class MemoryCostTest extends RequireBrokerCluster {
   @Test
   void testCost() throws InterruptedException {
     var jvmMemory1 = mockResult(40L, 100L);
@@ -84,6 +88,21 @@ public class MemoryCostTest {
     Assertions.assertEquals(0.42, scores.get(1));
     Assertions.assertEquals(0.52, scores.get(2));
     Assertions.assertEquals(0.55, scores.get(3));
+  }
+
+  @Test
+  void testFetcher() {
+    try (Receiver receiver =
+        BeanCollector.builder()
+            .build()
+            .register()
+            .host(jmxServiceURL().getHost())
+            .port(jmxServiceURL().getPort())
+            .fetcher(new MemoryCost().fetcher())
+            .build()) {
+      Assertions.assertFalse(receiver.current().isEmpty());
+      Assertions.assertTrue(receiver.current().stream().allMatch(o -> o instanceof JvmMemory));
+    }
   }
 
   private HasJvmMemory mockResult(long used, long max) {

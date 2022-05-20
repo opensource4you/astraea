@@ -6,14 +6,17 @@ import java.util.Map;
 import org.astraea.cost.ClusterInfo;
 import org.astraea.cost.FakeClusterInfo;
 import org.astraea.metrics.HasBeanObject;
+import org.astraea.metrics.collector.BeanCollector;
+import org.astraea.metrics.collector.Receiver;
 import org.astraea.metrics.jmx.BeanObject;
 import org.astraea.metrics.kafka.BrokerTopicMetricsResult;
 import org.astraea.metrics.kafka.KafkaMetrics;
+import org.astraea.service.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
-public class BrokerOutPutCostTest {
+public class BrokerOutPutCostTest extends RequireBrokerCluster {
   @Test
   void testCost() throws InterruptedException {
     ClusterInfo clusterInfo = exampleClusterInfo(10000L, 20000L, 5000L);
@@ -29,6 +32,22 @@ public class BrokerOutPutCostTest {
     Assertions.assertEquals(0.55, scores.get(1));
     Assertions.assertEquals(0.51, scores.get(2));
     Assertions.assertEquals(0.44, scores.get(3));
+  }
+
+  @Test
+  void testFetcher() {
+    try (Receiver receiver =
+        BeanCollector.builder()
+            .build()
+            .register()
+            .host(jmxServiceURL().getHost())
+            .port(jmxServiceURL().getPort())
+            .fetcher(new BrokerOutputCost().fetcher())
+            .build()) {
+      Assertions.assertFalse(receiver.current().isEmpty());
+      Assertions.assertTrue(
+          receiver.current().stream().allMatch(o -> o instanceof BrokerTopicMetricsResult));
+    }
   }
 
   private ClusterInfo exampleClusterInfo(long out1, long out2, long out3) {

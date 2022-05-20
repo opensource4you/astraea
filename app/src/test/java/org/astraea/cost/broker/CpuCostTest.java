@@ -9,12 +9,15 @@ import org.astraea.cost.FakeClusterInfo;
 import org.astraea.cost.NodeInfo;
 import org.astraea.cost.ReplicaInfo;
 import org.astraea.metrics.HasBeanObject;
+import org.astraea.metrics.collector.BeanCollector;
+import org.astraea.metrics.collector.Receiver;
 import org.astraea.metrics.java.OperatingSystemInfo;
+import org.astraea.service.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
-public class CpuCostTest {
+public class CpuCostTest extends RequireBrokerCluster {
   @Test
   void testCost() throws InterruptedException {
     var cpuUsage1 = mockResult(0.5);
@@ -83,6 +86,22 @@ public class CpuCostTest {
     Assertions.assertEquals(0.51, scores.get(1));
     Assertions.assertEquals(0.55, scores.get(2));
     Assertions.assertEquals(0.44, scores.get(3));
+  }
+
+  @Test
+  void testFetcher() {
+    try (Receiver receiver =
+        BeanCollector.builder()
+            .build()
+            .register()
+            .host(jmxServiceURL().getHost())
+            .port(jmxServiceURL().getPort())
+            .fetcher(new CpuCost().fetcher())
+            .build()) {
+      Assertions.assertFalse(receiver.current().isEmpty());
+      Assertions.assertTrue(
+          receiver.current().stream().allMatch(o -> o instanceof OperatingSystemInfo));
+    }
   }
 
   private OperatingSystemInfo mockResult(double usage) {
