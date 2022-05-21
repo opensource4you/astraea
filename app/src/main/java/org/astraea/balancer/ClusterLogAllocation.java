@@ -2,9 +2,9 @@ package org.astraea.balancer;
 
 import java.util.Collection;
 import java.util.Comparator;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 import org.astraea.admin.TopicPartition;
 import org.astraea.cost.ClusterInfo;
@@ -12,6 +12,7 @@ import org.astraea.cost.ReplicaInfo;
 
 public class ClusterLogAllocation {
 
+  // guard by this
   private final Map<TopicPartition, List<LogPlacement>> allocation;
 
   private ClusterLogAllocation(Map<TopicPartition, List<LogPlacement>> allocation) {
@@ -41,22 +42,10 @@ public class ClusterLogAllocation {
   }
 
   public static ClusterLogAllocation of(Map<TopicPartition, List<LogPlacement>> allocation) {
-    return new ClusterLogAllocation(Map.copyOf(allocation));
-  }
-
-  public static ClusterLogAllocation ofMutable(Map<TopicPartition, List<LogPlacement>> allocation) {
-    return new ClusterLogAllocation(new HashMap<>(allocation));
+    return new ClusterLogAllocation(new ConcurrentHashMap<>(allocation));
   }
 
   public static ClusterLogAllocation of(ClusterInfo clusterInfo) {
-    return of(clusterInfo, true);
-  }
-
-  public static ClusterLogAllocation ofMutable(ClusterInfo clusterInfo) {
-    return of(clusterInfo, false);
-  }
-
-  private static ClusterLogAllocation of(ClusterInfo clusterInfo, boolean immutable) {
     final Map<TopicPartition, List<LogPlacement>> allocation =
         clusterInfo.topics().stream()
             .map(clusterInfo::partitions)
@@ -87,12 +76,12 @@ public class ClusterLogAllocation {
                   return Map.entry(topicPartition, logPlacements);
                 })
             .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));
-    if (immutable) return ClusterLogAllocation.of(allocation);
-    else return ClusterLogAllocation.ofMutable(allocation);
+    return ClusterLogAllocation.of(allocation);
   }
 
   /** let specific broker leave the replica set and let another broker join the replica set. */
-  public void migrateReplica(TopicPartition topicPartition, int broker, int destinationBroker) {
+  public synchronized void migrateReplica(
+      TopicPartition topicPartition, int broker, int destinationBroker) {
     final List<LogPlacement> sourceLogPlacements = this.allocation().get(topicPartition);
     if (sourceLogPlacements == null)
       throw new IllegalMigrationException(
@@ -108,11 +97,12 @@ public class ClusterLogAllocation {
             .map(log -> log.broker() == broker ? LogPlacement.of(destinationBroker) : log)
             .collect(Collectors.toUnmodifiableList());
 
-    this.allocation().put(topicPartition, finalLogPlacements);
+    this.allocation.put(topicPartition, finalLogPlacements);
   }
 
   /** let specific follower log become the leader log of this topic/partition. */
-  public void letReplicaBecomeLeader(TopicPartition topicPartition, int followerReplica) {
+  public synchronized void letReplicaBecomeLeader(
+      TopicPartition topicPartition, int followerReplica) {
     final List<LogPlacement> sourceLogPlacements = this.allocation().get(topicPartition);
     if (sourceLogPlacements == null)
       throw new IllegalMigrationException(
@@ -137,11 +127,12 @@ public class ClusterLogAllocation {
                 })
             .collect(Collectors.toUnmodifiableList());
 
-    this.allocation().put(topicPartition, finalLogPlacements);
+    this.allocation.put(topicPartition, finalLogPlacements);
   }
 
   /** change the data directory of specific log */
-  public void changeDataDirectory(TopicPartition topicPartition, int broker, String path) {
+  public synchronized void changeDataDirectory(
+      TopicPartition topicPartition, int broker, String path) {
     final List<LogPlacement> sourceLogPlacements = this.allocation().get(topicPartition);
     if (sourceLogPlacements == null)
       throw new IllegalMigrationException(
@@ -154,11 +145,14 @@ public class ClusterLogAllocation {
             .map(log -> log.broker() == broker ? LogPlacement.of(broker, path) : log)
             .collect(Collectors.toUnmodifiableList());
 
-    this.allocation().put(topicPartition, finalLogPlacements);
+    this.allocation.put(topicPartition, finalLogPlacements);
   }
 
+  /**
+   * Access the allocation of the current log, noted that the return instance is an immutable copy.
+   */
   public Map<TopicPartition, List<LogPlacement>> allocation() {
-    return allocation;
+    return Map.copyOf(allocation);
   }
 
   // TODO: add a method to calculate the difference between two ClusterLogAllocation

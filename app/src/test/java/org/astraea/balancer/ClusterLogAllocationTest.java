@@ -42,19 +42,10 @@ class ClusterLogAllocationTest {
   }
 
   @Test
-  void ofMutable() {
-    final ClusterLogAllocation mutable = ClusterLogAllocation.ofMutable(Map.of());
-    final TopicPartition topicPartition = TopicPartition.of("topic", "0");
-    final List<LogPlacement> logPlacements = List.of(LogPlacement.of(0));
-
-    Assertions.assertDoesNotThrow(() -> mutable.allocation().put(topicPartition, logPlacements));
-  }
-
-  @Test
   void migrateReplica() {
     final var fakeClusterInfo =
         ClusterInfoProvider.fakeClusterInfo(3, 1, 1, 1, (i) -> Set.of("topic"));
-    final var clusterLogAllocation = ClusterLogAllocation.ofMutable(fakeClusterInfo);
+    final var clusterLogAllocation = ClusterLogAllocation.of(fakeClusterInfo);
     final var sourceTopicPartition = TopicPartition.of("topic", "0");
 
     clusterLogAllocation.migrateReplica(sourceTopicPartition, 0, 1);
@@ -68,7 +59,7 @@ class ClusterLogAllocationTest {
   void letReplicaBecomeLeader() {
     final var fakeClusterInfo =
         ClusterInfoProvider.fakeClusterInfo(3, 1, 1, 2, (i) -> Set.of("topic"));
-    final var clusterLogAllocation = ClusterLogAllocation.ofMutable(fakeClusterInfo);
+    final var clusterLogAllocation = ClusterLogAllocation.of(fakeClusterInfo);
     final var sourceTopicPartition = TopicPartition.of("topic", "0");
 
     clusterLogAllocation.letReplicaBecomeLeader(sourceTopicPartition, 1);
@@ -84,7 +75,7 @@ class ClusterLogAllocationTest {
   void changeDataDirectory() {
     final var fakeClusterInfo =
         ClusterInfoProvider.fakeClusterInfo(3, 1, 1, 1, (i) -> Set.of("topic"));
-    final var clusterLogAllocation = ClusterLogAllocation.ofMutable(fakeClusterInfo);
+    final var clusterLogAllocation = ClusterLogAllocation.of(fakeClusterInfo);
     final var sourceTopicPartition = TopicPartition.of("topic", "0");
 
     clusterLogAllocation.changeDataDirectory(sourceTopicPartition, 0, "/path/to/somewhere");
