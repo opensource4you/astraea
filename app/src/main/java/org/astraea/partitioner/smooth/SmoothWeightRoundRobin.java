@@ -2,6 +2,7 @@ package org.astraea.partitioner.smooth;
 
 import java.time.Duration;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -36,9 +37,9 @@ import org.astraea.cost.broker.CostUtils;
 public final class SmoothWeightRoundRobin
     extends Periodic<SmoothWeightRoundRobin.EffectiveWeightResult> {
   private EffectiveWeightResult effectiveWeightResult;
-  public Map<Integer, Double> currentWeight;
+  private Map<Integer, Double> currentWeight;
 
-  public Map<String, List<Integer>> brokerIDForTopic;
+  private final Map<String, List<Integer>> brokersIDofTopic = new HashMap<>();
 
   public SmoothWeightRoundRobin(Map<Integer, Double> effectiveWeight) {
     effectiveWeightResult =
@@ -80,10 +81,14 @@ public final class SmoothWeightRoundRobin
    * @return the preferred ID
    */
   public synchronized int getAndChoose(String topic, ClusterInfo clusterInfo) {
+    // TODO Update brokerID with ClusterInfo frequency.
     var brokerID =
-        clusterInfo.availablePartitionLeaders(topic).stream()
-            .map(replicaInfo -> replicaInfo.nodeInfo().id())
-            .collect(Collectors.toList());
+        brokersIDofTopic.computeIfAbsent(
+            topic,
+            e ->
+                clusterInfo.availablePartitionLeaders(topic).stream()
+                    .map(replicaInfo -> replicaInfo.nodeInfo().id())
+                    .collect(Collectors.toList()));
     this.currentWeight =
         this.currentWeight.entrySet().stream()
             .collect(
