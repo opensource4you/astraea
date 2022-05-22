@@ -75,8 +75,8 @@ public class ClusterLogAllocation {
 
                   return Map.entry(topicPartition, logPlacements);
                 })
-            .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));
-    return ClusterLogAllocation.of(allocation);
+            .collect(Collectors.toConcurrentMap(Map.Entry::getKey, Map.Entry::getValue));
+    return new ClusterLogAllocation(allocation);
   }
 
   /** let specific broker leave the replica set and let another broker join the replica set. */

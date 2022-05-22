@@ -127,18 +127,16 @@ public class ShufflePlanGenerator implements RebalancePlanGenerator {
                 .build();
 
           final var shuffleCount = numberOfShuffle.get();
-          final var currentAllocation = ClusterLogAllocation.of(baseAllocation.allocation());
+          final var newAllocation = ClusterLogAllocation.of(baseAllocation.allocation());
           final var pickingList =
-              currentAllocation.allocation().keySet().stream()
-                  .collect(Collectors.toUnmodifiableList());
+              newAllocation.allocation().keySet().stream().collect(Collectors.toUnmodifiableList());
 
           rebalancePlanBuilder.addInfo(
               "Make " + shuffleCount + (shuffleCount > 0 ? " shuffles." : " shuffle."));
           for (int i = 0; i < shuffleCount; i++) {
             final var sourceTopicPartitionIndex = sourceTopicPartitionSelector(pickingList);
             final var sourceTopicPartition = pickingList.get(sourceTopicPartitionIndex);
-            final var sourceLogPlacements =
-                currentAllocation.allocation().get(sourceTopicPartition);
+            final var sourceLogPlacements = newAllocation.allocation().get(sourceTopicPartition);
             final var sourceLogPlacementIndex = sourceLogPlacementSelector(sourceLogPlacements);
             final var sourceLogPlacement = sourceLogPlacements.get(sourceLogPlacementIndex);
             final var sourceIsLeader = sourceLogPlacementIndex == 0;
@@ -146,8 +144,7 @@ public class ShufflePlanGenerator implements RebalancePlanGenerator {
 
             Consumer<Integer> replicaSetMigration =
                 (targetBroker) -> {
-                  currentAllocation.migrateReplica(
-                      sourceTopicPartition, sourceBroker, targetBroker);
+                  newAllocation.migrateReplica(sourceTopicPartition, sourceBroker, targetBroker);
                   rebalancePlanBuilder.addInfo(
                       String.format(
                           "Change replica set of topic %s partition %d, from %d to %d.",
@@ -158,7 +155,7 @@ public class ShufflePlanGenerator implements RebalancePlanGenerator {
                 };
             Consumer<LogPlacement> leaderFollowerMigration =
                 (newLeaderReplicaCandidate) -> {
-                  currentAllocation.letReplicaBecomeLeader(
+                  newAllocation.letReplicaBecomeLeader(
                       sourceTopicPartition, newLeaderReplicaCandidate.broker());
                   rebalancePlanBuilder.addInfo(
                       String.format(
@@ -171,7 +168,7 @@ public class ShufflePlanGenerator implements RebalancePlanGenerator {
                 };
             Consumer<String> dataDirectoryMigration =
                 (dataDirectory) -> {
-                  currentAllocation.changeDataDirectory(
+                  newAllocation.changeDataDirectory(
                       sourceTopicPartition, sourceBroker, dataDirectory);
                   rebalancePlanBuilder.addInfo(
                       String.format(
@@ -222,9 +219,7 @@ public class ShufflePlanGenerator implements RebalancePlanGenerator {
             validMigrationCandidates.get(selectedMigrationIndex).run();
           }
 
-          return rebalancePlanBuilder
-              .withRebalancePlan(ClusterLogAllocation.of(currentAllocation.allocation()))
-              .build();
+          return rebalancePlanBuilder.withRebalancePlan(newAllocation).build();
         });
   }
 
