@@ -18,17 +18,17 @@ public interface RebalancePlanProposal {
   }
 
   class Build {
-    ClusterLogAllocation rebalancePlan = null;
+    ClusterLogAllocation allocation = null;
     List<String> info = new ArrayList<>();
     List<String> warnings = new ArrayList<>();
 
     public Build noRebalancePlan() {
-      this.rebalancePlan = null;
+      this.allocation = null;
       return this;
     }
 
     public Build withRebalancePlan(ClusterLogAllocation clusterLogAllocation) {
-      this.rebalancePlan = Objects.requireNonNull(clusterLogAllocation);
+      this.allocation = Objects.requireNonNull(clusterLogAllocation);
       return this;
     }
 
@@ -45,19 +45,25 @@ public interface RebalancePlanProposal {
     public RebalancePlanProposal build() {
       return new RebalancePlanProposal() {
 
+        private final List<String> infoList = List.copyOf(info);
+        private final List<String> warningList = List.copyOf(warnings);
+        private final ClusterLogAllocation allocation =
+                Build.this.allocation == null ? null :
+                ClusterLogAllocation.of(Build.this.allocation.allocation());
+
         @Override
         public Optional<ClusterLogAllocation> rebalancePlan() {
-          return Optional.ofNullable(rebalancePlan);
+          return Optional.ofNullable(allocation);
         }
 
         @Override
         public List<String> info() {
-          return List.copyOf(info);
+          return infoList;
         }
 
         @Override
         public List<String> warnings() {
-          return List.copyOf(warnings);
+          return warningList;
         }
 
         @Override
