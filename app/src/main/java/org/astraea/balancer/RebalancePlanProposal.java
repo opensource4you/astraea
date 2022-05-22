@@ -1,6 +1,7 @@
 package org.astraea.balancer;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -19,8 +20,11 @@ public interface RebalancePlanProposal {
 
   class Build {
     ClusterLogAllocation allocation = null;
-    List<String> info = new ArrayList<>();
-    List<String> warnings = new ArrayList<>();
+    List<String> info = Collections.synchronizedList(new ArrayList<>());
+    List<String> warnings = Collections.synchronizedList(new ArrayList<>());
+
+    // guard by this
+    private volatile boolean built = false;
 
     public Build noRebalancePlan() {
       this.allocation = null;
@@ -42,14 +46,10 @@ public interface RebalancePlanProposal {
       return this;
     }
 
-    public RebalancePlanProposal build() {
+    public synchronized RebalancePlanProposal build() {
+      if (built) throw new IllegalStateException("This builder already built.");
+      else built = true;
       return new RebalancePlanProposal() {
-
-        private final List<String> infoList = List.copyOf(info);
-        private final List<String> warningList = List.copyOf(warnings);
-        private final ClusterLogAllocation allocation =
-                Build.this.allocation == null ? null :
-                ClusterLogAllocation.of(Build.this.allocation.allocation());
 
         @Override
         public Optional<ClusterLogAllocation> rebalancePlan() {
@@ -58,12 +58,16 @@ public interface RebalancePlanProposal {
 
         @Override
         public List<String> info() {
-          return infoList;
+          // use Collections.unmodifiableList instead of List.copyOf to avoid excessive memory
+          // footprint
+          return Collections.unmodifiableList(info);
         }
 
         @Override
         public List<String> warnings() {
-          return warningList;
+          // use Collections.unmodifiableList instead of List.copyOf to avoid excessive memory
+          // footprint
+          return Collections.unmodifiableList(warnings);
         }
 
         @Override
