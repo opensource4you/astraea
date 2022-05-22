@@ -42,4 +42,16 @@ class RebalancePlanProposalTest {
     Assertions.assertDoesNotThrow(build::build);
     Assertions.assertThrows(IllegalStateException.class, build::build);
   }
+
+  @Test
+  void testNoModifyAfterBuild() {
+    final var fakeClusterInfo = ClusterInfoProvider.fakeClusterInfo(10, 10, 10, 10);
+    final var logAllocation = ClusterLogAllocation.of(fakeClusterInfo);
+    final var build = RebalancePlanProposal.builder().withRebalancePlan(logAllocation);
+
+    RebalancePlanProposal proposal = build.build();
+    Assertions.assertThrows(
+        IllegalStateException.class, () -> build.addInfo("modify after built."));
+    Assertions.assertFalse(proposal.info().contains("modify after built."));
+  }
 }

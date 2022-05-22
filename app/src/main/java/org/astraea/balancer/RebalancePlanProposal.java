@@ -24,50 +24,67 @@ public interface RebalancePlanProposal {
     List<String> warnings = Collections.synchronizedList(new ArrayList<>());
 
     // guard by this
-    private volatile boolean built = false;
+    private boolean built = false;
 
-    public Build noRebalancePlan() {
+    public synchronized Build noRebalancePlan() {
+      ensureNotBuiltYet();
       this.allocation = null;
       return this;
     }
 
-    public Build withRebalancePlan(ClusterLogAllocation clusterLogAllocation) {
+    public synchronized Build withRebalancePlan(ClusterLogAllocation clusterLogAllocation) {
+      ensureNotBuiltYet();
       this.allocation = Objects.requireNonNull(clusterLogAllocation);
       return this;
     }
 
-    public Build addWarning(String warning) {
+    public synchronized Build addWarning(String warning) {
+      ensureNotBuiltYet();
       this.warnings.add(warning);
       return this;
     }
 
-    public Build addInfo(String info) {
+    public synchronized Build addInfo(String info) {
+      ensureNotBuiltYet();
       this.info.add(info);
       return this;
     }
 
-    public synchronized RebalancePlanProposal build() {
+    private synchronized void ensureNotBuiltYet() {
       if (built) throw new IllegalStateException("This builder already built.");
-      else built = true;
+    }
+
+    public synchronized RebalancePlanProposal build() {
+      final var allocationRef = allocation;
+      final var infoRef = info;
+      final var warningRef = warnings;
+
+      ensureNotBuiltYet();
+
+      built = true;
+      allocation = null;
+      info = null;
+      warnings = null;
+
       return new RebalancePlanProposal() {
 
         @Override
         public Optional<ClusterLogAllocation> rebalancePlan() {
-          return Optional.ofNullable(allocation);
+          return Optional.ofNullable(allocationRef);
         }
 
         @Override
         public List<String> info() {
           // use Collections.unmodifiableList instead of List.copyOf to avoid excessive memory
           // footprint
-          return Collections.unmodifiableList(info);
+          return Collections.unmodifiableList(infoRef);
         }
 
         @Override
         public List<String> warnings() {
           // use Collections.unmodifiableList instead of List.copyOf to avoid excessive memory
           // footprint
-          return Collections.unmodifiableList(warnings);
+          return Collections.unmodifiableList(warningRef);
         }
 
         @Override
@@ -77,12 +94,12 @@ public interface RebalancePlanProposal {
           sb.append("[RebalancePlanProposal]").append(System.lineSeparator());
 
           sb.append("  Info:").append(System.lineSeparator());
-          if (info.isEmpty()) sb.append(String.format("    no information%n"));
-          else info.forEach(infoString -> sb.append(String.format("    * %s%n", infoString)));
-          if (!warnings.isEmpty()) {
+          if (info().isEmpty()) sb.append(String.format("    no information%n"));
+          else info().forEach(infoString -> sb.append(String.format("    * %s%n", infoString)));
+          if (!warnings().isEmpty()) {
             sb.append("  Warning:").append(System.lineSeparator());
-            warnings.forEach(
-                warningString -> sb.append(String.format("    * %s%n", warningString)));
+            warnings()
+                .forEach(warningString -> sb.append(String.format("    * %s%n", warningString)));
           }
 
           return sb.toString();
