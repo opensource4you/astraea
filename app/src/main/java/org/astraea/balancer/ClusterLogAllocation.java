@@ -1,11 +1,14 @@
 package org.astraea.balancer;
 
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import org.astraea.admin.TopicPartition;
 import org.astraea.cost.ClusterInfo;
 import org.astraea.cost.ReplicaInfo;
@@ -42,7 +45,9 @@ public class ClusterLogAllocation {
   }
 
   public static ClusterLogAllocation of(Map<TopicPartition, List<LogPlacement>> allocation) {
-    return new ClusterLogAllocation(new ConcurrentHashMap<>(allocation));
+    final var map = new ConcurrentHashMap<TopicPartition, List<LogPlacement>>();
+    allocation.forEach((tp, list) -> map.put(tp, new ArrayList<>(list)));
+    return new ClusterLogAllocation(map);
   }
 
   public static ClusterLogAllocation of(ClusterInfo clusterInfo) {
@@ -71,7 +76,7 @@ public class ClusterLogAllocation {
                               replica ->
                                   LogPlacement.of(
                                       replica.nodeInfo().id(), replica.dataFolder().orElse(null)))
-                          .collect(Collectors.toUnmodifiableList());
+                          .collect(Collectors.toList());
 
                   return Map.entry(topicPartition, logPlacements);
                 })
@@ -86,18 +91,23 @@ public class ClusterLogAllocation {
     if (sourceLogPlacements == null)
       throw new IllegalMigrationException(
           topicPartition.topic() + "-" + topicPartition.partition() + " no such topic/partition");
-    if (sourceLogPlacements.stream().noneMatch(log -> log.broker() == broker))
+    int sourceLogIndex =
+        IntStream.range(0, sourceLogPlacements.size())
+            .filter(index -> sourceLogPlacements.get(index).broker() == broker)
+            .findFirst()
+            .orElse(-1);
+    if (sourceLogIndex == -1)
       throw new IllegalMigrationException(
           broker + " is not part of the replica set for " + topicPartition);
-    if (sourceLogPlacements.stream().anyMatch(log -> log.broker() == destinationBroker))
+    int destinationLogIndex =
+        IntStream.range(0, sourceLogPlacements.size())
+            .filter(index -> sourceLogPlacements.get(index).broker() == destinationBroker)
+            .findFirst()
+            .orElse(-1);
+    if (destinationLogIndex != -1)
       throw new IllegalMigrationException(
           destinationBroker + " is already part of the replica set, no need to move");
-    final List<LogPlacement> finalLogPlacements =
-        sourceLogPlacements.stream()
-            .map(log -> log.broker() == broker ? LogPlacement.of(destinationBroker) : log)
-            .collect(Collectors.toUnmodifiableList());
-
-    this.allocation.put(topicPartition, finalLogPlacements);
+    this.allocation.get(topicPartition).set(sourceLogIndex, LogPlacement.of(destinationBroker));
   }
 
   /** let specific follower log become the leader log of this topic/partition. */
@@ -107,27 +117,23 @@ public class ClusterLogAllocation {
     if (sourceLogPlacements == null)
       throw new IllegalMigrationException(
           topicPartition.topic() + "-" + topicPartition.partition() + " no such topic/partition");
-    final LogPlacement followerLog =
-        sourceLogPlacements.stream()
-            .filter(log -> log.broker() == followerReplica)
+    int followerLogIndex =
+        IntStream.range(0, sourceLogPlacements.size())
+            .filter(index -> sourceLogPlacements.get(index).broker() == followerReplica)
             .findFirst()
             .orElseThrow(
                 () ->
                     new IllegalArgumentException(
                         followerReplica + " is not part of the replica set for " + topicPartition));
-    final LogPlacement leaderLog = sourceLogPlacements.stream().findFirst().orElseThrow();
-    if (leaderLog.broker() == followerLog.broker()) return; // nothing to do
-    final List<LogPlacement> finalLogPlacements =
-        sourceLogPlacements.stream()
-            .map(
-                log -> {
-                  if (log.broker() == followerLog.broker()) return leaderLog;
-                  else if (log.broker() == leaderLog.broker()) return followerLog;
-                  else return log;
-                })
-            .collect(Collectors.toUnmodifiableList());
+    int leaderLogIndex = 0;
+    if (sourceLogPlacements.size() == 0) throw new IllegalStateException();
+    if (leaderLogIndex == followerLogIndex) return; // nothing to do
 
-    this.allocation.put(topicPartition, finalLogPlacements);
+    final var leaderLog = this.allocation.get(topicPartition).get(leaderLogIndex);
+    final var followerLog = this.allocation.get(topicPartition).get(followerLogIndex);
+
+    this.allocation.get(topicPartition).set(followerLogIndex, leaderLog);
+    this.allocation.get(topicPartition).set(leaderLogIndex, followerLog);
   }
 
   /** change the data directory of specific log */
@@ -137,22 +143,25 @@ public class ClusterLogAllocation {
     if (sourceLogPlacements == null)
       throw new IllegalMigrationException(
           topicPartition.topic() + "-" + topicPartition.partition() + " no such topic/partition");
-    if (sourceLogPlacements.stream().noneMatch(log -> log.broker() == broker))
+    int sourceLogIndex =
+        IntStream.range(0, sourceLogPlacements.size())
+            .filter(index -> sourceLogPlacements.get(index).broker() == broker)
+            .findFirst()
+            .orElse(-1);
+    if (sourceLogIndex == -1)
       throw new IllegalMigrationException(
           broker + " is not part of the replica set for " + topicPartition);
-    final List<LogPlacement> finalLogPlacements =
-        sourceLogPlacements.stream()
-            .map(log -> log.broker() == broker ? LogPlacement.of(broker, path) : log)
-            .collect(Collectors.toUnmodifiableList());
-
-    this.allocation.put(topicPartition, finalLogPlacements);
+    final var oldLog = this.allocation.get(topicPartition).get(sourceLogIndex);
+    final var newLog = LogPlacement.of(oldLog.broker(), path);
+    this.allocation.get(topicPartition).set(sourceLogIndex, newLog);
   }
 
   /**
-   * Access the allocation of the current log, noted that the return instance is an immutable copy.
+   * Access the allocation of the current log, noted that the return instance is an unmodifiable
+   * map.
    */
   public Map<TopicPartition, List<LogPlacement>> allocation() {
-    return Map.copyOf(allocation);
+    return Collections.unmodifiableMap(allocation);
   }
 
   // TODO: add a method to calculate the difference between two ClusterLogAllocation
