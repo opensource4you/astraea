@@ -27,8 +27,7 @@ public interface RebalancePlanGenerator {
    *
    * @param clusterInfo the cluster state, implementation can take advantage of the data inside to
    *     proposal the plan it feels confident to improve the cluster.
-   * @param baseAllocation the cluster log allocation as the based of proposal generation, the given
-   *     instance is considered safe to modify. No need to make an extra copy.
+   * @param baseAllocation the cluster log allocation as the based of proposal generation.
    * @return a {@link Stream} generating rebalance plan regarding the given {@link ClusterInfo}
    */
   Stream<RebalancePlanProposal> generate(

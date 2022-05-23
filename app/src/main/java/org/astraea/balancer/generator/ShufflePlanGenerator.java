@@ -113,7 +113,7 @@ public class ShufflePlanGenerator implements RebalancePlanGenerator {
                 .build();
 
           final var shuffleCount = numberOfShuffle.get();
-          final var newAllocation = baseAllocation;
+          final var newAllocation = ClusterLogAllocation.of(baseAllocation.allocation());
           final var pickingList =
               newAllocation.allocation().keySet().stream().collect(Collectors.toUnmodifiableList());
 

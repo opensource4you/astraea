@@ -111,17 +111,27 @@ class ShufflePlanGeneratorTest {
     Assertions.assertTrue(proposal.warnings().size() >= 1);
   }
 
-  @ParameterizedTest(name = "[{0}] {1} nodes, {2} topics, {3} partitions, {4} replicas")
+  @ParameterizedTest(
+      name = "[{0}] {1} nodes, {2} topics, {3} partitions, {4} replicas (parallel: {5})")
   @CsvSource(
       value = {
-        //      scenario, node, topic, partition, replica
-        "  small cluster,    3,    10,        30,       3",
-        " medium cluster,   30,    50,        50,       3",
-        "    big cluster,  100,   100,       100,       1",
-        "  many replicas, 1000,    30,       100,      30",
+        //      scenario, node, topic, partition, replica,   parallel
+        "    small cluster,    3,    10,        30,       3, false   ",
+        "    small cluster,    3,    10,        30,       3, true    ",
+        "   medium cluster,   30,    50,        50,       3, false   ",
+        "   medium cluster,   30,    50,        50,       3, true    ",
+        "      big cluster,  100,   100,       100,       1, false   ",
+        "      big cluster,  100,   100,       100,       1, true    ",
+        "    many replicas, 1000,    30,       100,      30, false   ",
+        "    many replicas, 1000,    30,       100,      30, true    ",
       })
   void performanceTest(
-      String scenario, int nodeCount, int topicCount, int partitionCount, int replicaCount) {
+      String scenario,
+      int nodeCount,
+      int topicCount,
+      int partitionCount,
+      int replicaCount,
+      boolean parallel) {
     // This test is not intended for any performance guarantee.
     // It only served the purpose of keeping track of the generator performance change in the CI
     // log.
@@ -131,10 +141,13 @@ class ShufflePlanGeneratorTest {
     final var size = 1000;
 
     final long s = System.nanoTime();
-    final var count = shufflePlanGenerator.generate(fakeClusterInfo).limit(size).count();
+    final var count =
+        parallel
+            ? shufflePlanGenerator.generate(fakeClusterInfo).parallel().limit(size).count()
+            : shufflePlanGenerator.generate(fakeClusterInfo).limit(size).count();
     final long t = System.nanoTime();
     Assertions.assertEquals(size, count);
-    System.out.printf("[%s]%n", scenario);
+    System.out.printf("[%s] (%s)%n", scenario, parallel ? "Parallel" : "Sequential");
     System.out.printf(
         "%d nodes, %d topics, %d partitions, %d replicas.%n",
         nodeCount, topicCount, partitionCount, replicaCount);
