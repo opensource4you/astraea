@@ -1,18 +1,17 @@
 package org.astraea.balancer.generator;
 
 import java.util.List;
-import java.util.Set;
-import java.util.stream.IntStream;
+import java.util.Map;
+import java.util.concurrent.atomic.LongAdder;
 import org.astraea.admin.TopicPartition;
 import org.astraea.balancer.ClusterLogAllocation;
 import org.astraea.balancer.LogPlacement;
-import org.astraea.balancer.RebalancePlanProposal;
 import org.astraea.cost.ClusterInfoProvider;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 class ShufflePlanGeneratorTest {
 
@@ -28,43 +27,52 @@ class ShufflePlanGeneratorTest {
     Assertions.assertDoesNotThrow(() -> System.out.println(iterator.next()));
   }
 
-  @RepeatedTest(10)
-  void testMovement() {
-    final var fakeClusterInfo =
-        ClusterInfoProvider.fakeClusterInfo(
-            100, 3, 10, 1, (ignore) -> Set.of("breaking-news", "chess", "animal"));
-    final var shuffleCount = 1;
-    final var shuffleSourceTopicPartition = TopicPartition.of("breaking-news", "0");
-    final var shuffleSourceLogs =
-        ClusterLogAllocation.of(fakeClusterInfo).allocation().get(shuffleSourceTopicPartition);
-    final var shufflePlanGenerator =
-        new ShufflePlanGenerator(() -> shuffleCount) {
+  @ParameterizedTest
+  @ValueSource(ints = {3, 5, 7, 11, 13, 17, 19, 23, 29, 31})
+  void testMovement(int shuffle) {
+    final var fakeClusterInfo = ClusterInfoProvider.fakeClusterInfo(10, 10, 10, 3);
+    final var innerLogAllocation = ClusterLogAllocation.of(fakeClusterInfo);
+    final var shufflePlanGenerator = new ShufflePlanGenerator(() -> shuffle);
+    final var counter = new LongAdder();
+
+    final var mockedAllocation =
+        new ClusterLogAllocation() {
+
           @Override
-          int sourceTopicPartitionSelector(List<TopicPartition> migrationCandidates) {
-            return IntStream.range(0, migrationCandidates.size())
-                .filter(i -> migrationCandidates.get(i).equals(shuffleSourceTopicPartition))
-                .findFirst()
-                .orElseThrow();
+          public synchronized void migrateReplica(
+              TopicPartition topicPartition, int broker, int destinationBroker) {
+            counter.increment();
+            innerLogAllocation.migrateReplica(topicPartition, broker, destinationBroker);
           }
 
           @Override
-          int sourceLogPlacementSelector(List<LogPlacement> migrationCandidates) {
-            return super.sourceLogPlacementSelector(migrationCandidates);
+          public synchronized void letReplicaBecomeLeader(
+              TopicPartition topicPartition, int followerReplica) {
+            counter.increment();
+            innerLogAllocation.letReplicaBecomeLeader(topicPartition, followerReplica);
           }
 
           @Override
-          int migrationSelector(List<ShufflePlanGenerator.Movement> movementCandidates) {
-            return super.migrationSelector(movementCandidates);
+          public synchronized void changeDataDirectory(
+              TopicPartition topicPartition, int broker, String path) {
+            counter.increment();
+            innerLogAllocation.changeDataDirectory(topicPartition, broker, path);
+          }
+
+          @Override
+          public Map<TopicPartition, List<LogPlacement>> allocation() {
+            return innerLogAllocation.allocation();
           }
         };
 
-    RebalancePlanProposal proposal =
-        shufflePlanGenerator.generate(fakeClusterInfo).iterator().next();
-    System.out.println(proposal);
+    final var iterator =
+        shufflePlanGenerator.generate(fakeClusterInfo, mockedAllocation).iterator();
 
-    Assertions.assertNotEquals(
-        shuffleSourceLogs,
-        proposal.rebalancePlan().orElseThrow().allocation().get(shuffleSourceTopicPartition));
+    for (int i = 0; i < 100; i++) {
+      iterator.next();
+      Assertions.assertEquals(shuffle, counter.sum());
+      counter.reset();
+    }
   }
 
   @Test

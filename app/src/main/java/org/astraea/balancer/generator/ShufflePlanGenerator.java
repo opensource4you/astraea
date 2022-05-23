@@ -46,29 +46,15 @@ public class ShufflePlanGenerator implements RebalancePlanGenerator {
     this.numberOfShuffle = numberOfShuffle;
   }
 
-  /**
-   * Select the index of one topic partition from the given pool of candidates, as the shuffle
-   * source. The default operation is random, the method is visible and overridable for testing
-   * purpose.
-   */
-  int sourceTopicPartitionSelector(List<TopicPartition> migrationCandidates) {
+  private int sourceTopicPartitionSelector(List<TopicPartition> migrationCandidates) {
     return ThreadLocalRandom.current().nextInt(0, migrationCandidates.size());
   }
 
-  /**
-   * Select the index of one source log from the given pool of candidates, as the shuffle source.
-   * The default operation is random, the method is visible and overridable for testing purpose.
-   */
-  int sourceLogPlacementSelector(List<LogPlacement> migrationCandidates) {
+  private int sourceLogPlacementSelector(List<LogPlacement> migrationCandidates) {
     return ThreadLocalRandom.current().nextInt(0, migrationCandidates.size());
   }
 
-  /**
-   * Select the index of one movement operation from the given pool of candidates, as the shuffle
-   * operation we will execute. The default operation is random, the method is visible and
-   * overridable for testing purpose.
-   */
-  int migrationSelector(List<Movement> movementCandidates) {
+  private int migrationSelector(List<Movement> movementCandidates) {
     // There are two kinds of Movement, each operating on different kind of candidate.
     // * The Movement#replicaSetMovement selecting target by the broker ID
     // * The Movement#dataDirectoryMovement selecting target by the data dir on the specific broker
