@@ -74,7 +74,6 @@ function main() {
 
 checkDocker
 checkNetwork
-mkdir
 
 # shellcheck disable=SC2199
 if [[ "$1" == "start" ]]; then
