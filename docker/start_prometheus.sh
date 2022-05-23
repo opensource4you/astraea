@@ -66,7 +66,7 @@ function main() {
   info "config file: $CONFIGURATION_FILE"
   info "prometheus address: http://${ADDRESS}:$PROMETHEUS_PORT"
   info "command to run grafana at this host: $DOCKER_FOLDER/start_grafana.sh start"
-  info "command to add prometheus to grafana datasource: ./docker/start_grafana.sh add_prom_source <USERNAME>:<PASSWORD> Prometheus http://$address:$PROMETHEUS_PORT"
+  info "command to add prometheus to grafana datasource: $DOCKER_FOLDER/start_grafana.sh add_prom_source <USERNAME>:<PASSWORD> Prometheus http://$ADDRESS:$PROMETHEUS_PORT"
   info "================================================="
 }
 
