@@ -13,7 +13,8 @@ public interface RebalancePlanGenerator {
    * same plan for the same input argument. There can be some randomization that takes part in this
    * process.
    *
-   * @param clusterInfo the cluster state
+   * @param clusterInfo the cluster state, implementation can take advantage of the data inside to
+   *     proposal the plan it feels confident to improve the cluster.
    * @return a {@link Stream} generating rebalance plan regarding the given {@link ClusterInfo}
    */
   default Stream<RebalancePlanProposal> generate(ClusterInfo clusterInfo) {

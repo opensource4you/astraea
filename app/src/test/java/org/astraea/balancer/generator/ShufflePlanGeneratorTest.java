@@ -1,8 +1,12 @@
 package org.astraea.balancer.generator;
 
+import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.LongAdder;
 import org.astraea.balancer.ClusterLogAllocation;
 import org.astraea.cost.ClusterInfoProvider;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
@@ -75,47 +79,83 @@ class ShufflePlanGeneratorTest {
     Assertions.assertTrue(proposal.warnings().size() >= 1);
   }
 
-  @ParameterizedTest(
-      name = "[{0}] {1} nodes, {2} topics, {3} partitions, {4} replicas (parallel: {5})")
+  @ParameterizedTest(name = "[{0}] {1} nodes, {2} topics, {3} partitions, {4} replicas")
   @CsvSource(
       value = {
-        //      scenario, node, topic, partition, replica,   parallel
-        "    small cluster,    3,    10,        30,       3, false   ",
-        "    small cluster,    3,    10,        30,       3, true    ",
-        "   medium cluster,   30,    50,        50,       3, false   ",
-        "   medium cluster,   30,    50,        50,       3, true    ",
-        "      big cluster,  100,   100,       100,       1, false   ",
-        "      big cluster,  100,   100,       100,       1, true    ",
-        "    many replicas, 1000,    30,       100,      30, false   ",
-        "    many replicas, 1000,    30,       100,      30, true    ",
+        //      scenario, node, topic, partition, replica
+        "  small cluster,    3,    10,        30,       3",
+        " medium cluster,   30,    50,        50,       3",
+        "    big cluster,  100,   100,       100,       1",
+        "  many replicas, 1000,    30,       100,      30",
       })
   void performanceTest(
-      String scenario,
-      int nodeCount,
-      int topicCount,
-      int partitionCount,
-      int replicaCount,
-      boolean parallel) {
+      String scenario, int nodeCount, int topicCount, int partitionCount, int replicaCount) {
     // This test is not intended for any performance guarantee.
     // It only served the purpose of keeping track of the generator performance change in the CI
     // log.
+    // Notice: Stream#limit() will hurt performance. the number here might not reflect the actual
+    // performance.
     final var shufflePlanGenerator = new ShufflePlanGenerator(0, 10);
     final var fakeClusterInfo =
         ClusterInfoProvider.fakeClusterInfo(nodeCount, topicCount, partitionCount, replicaCount);
     final var size = 1000;
 
     final long s = System.nanoTime();
-    final var count =
-        parallel
-            ? shufflePlanGenerator.generate(fakeClusterInfo).parallel().limit(size).count()
-            : shufflePlanGenerator.generate(fakeClusterInfo).limit(size).count();
+    final var count = shufflePlanGenerator.generate(fakeClusterInfo).limit(size).count();
     final long t = System.nanoTime();
     Assertions.assertEquals(size, count);
-    System.out.printf("[%s] (%s)%n", scenario, parallel ? "Parallel" : "Sequential");
+    System.out.printf("[%s]%n", scenario);
     System.out.printf(
         "%d nodes, %d topics, %d partitions, %d replicas.%n",
         nodeCount, topicCount, partitionCount, replicaCount);
     System.out.printf("Generate %.3f proposals per second.%n", count / (((double) (t - s) / 1e9)));
     System.out.println();
+  }
+
+  @Test
+  void parallelStreamWorks() {
+    final var shufflePlanGenerator = new ShufflePlanGenerator(0, 10);
+    final var fakeClusterInfo = ClusterInfoProvider.fakeClusterInfo(10, 20, 10, 3);
+
+    // generator can do parallel without error.
+    Assertions.assertDoesNotThrow(
+        () -> shufflePlanGenerator.generate(fakeClusterInfo).parallel().limit(100).count());
+  }
+
+  @Test
+  @Disabled
+  void parallelPerformanceTests() throws InterruptedException {
+    final var shufflePlanGenerator = new ShufflePlanGenerator(0, 10);
+    final var fakeClusterInfo = ClusterInfoProvider.fakeClusterInfo(50, 500, 30, 2);
+    final var counter = new LongAdder();
+    final var forkJoinPool = new ForkJoinPool(ForkJoinPool.getCommonPoolParallelism());
+    final var startTime = System.nanoTime();
+
+    forkJoinPool.submit(
+        () ->
+            shufflePlanGenerator
+                .generate(fakeClusterInfo)
+                .parallel()
+                .forEach((ignore) -> counter.increment()));
+
+    // report progress
+    final var reportThread =
+        new Thread(
+            () -> {
+              while (!Thread.currentThread().isInterrupted()) {
+                try {
+                  TimeUnit.SECONDS.sleep(1);
+                  long now = System.nanoTime();
+                  System.out.printf(
+                      "%.3f proposal/s %n", counter.sum() / ((now - startTime) / 1e9));
+                } catch (InterruptedException e) {
+                  break;
+                }
+              }
+            });
+
+    reportThread.start();
+    reportThread.join();
+    forkJoinPool.shutdownNow();
   }
 }
