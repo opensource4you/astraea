@@ -1,11 +1,6 @@
 package org.astraea.balancer.generator;
 
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.atomic.LongAdder;
-import org.astraea.admin.TopicPartition;
 import org.astraea.balancer.ClusterLogAllocation;
-import org.astraea.balancer.LogPlacement;
 import org.astraea.cost.ClusterInfoProvider;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -28,51 +23,20 @@ class ShufflePlanGeneratorTest {
   }
 
   @ParameterizedTest
-  @ValueSource(ints = {3, 5, 7, 11, 13, 17, 19, 23, 29, 31})
+  @ValueSource(ints = {3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 301})
   void testMovement(int shuffle) {
-    final var fakeClusterInfo = ClusterInfoProvider.fakeClusterInfo(10, 10, 10, 3);
-    final var innerLogAllocation = ClusterLogAllocation.of(fakeClusterInfo);
+    final var fakeClusterInfo = ClusterInfoProvider.fakeClusterInfo(30, 30, 20, 5);
+    final var allocation = ClusterLogAllocation.of(fakeClusterInfo).allocation();
     final var shufflePlanGenerator = new ShufflePlanGenerator(() -> shuffle);
-    final var counter = new LongAdder();
 
-    final var mockedAllocation =
-        new ClusterLogAllocation() {
-
-          @Override
-          public synchronized void migrateReplica(
-              TopicPartition topicPartition, int broker, int destinationBroker) {
-            counter.increment();
-            innerLogAllocation.migrateReplica(topicPartition, broker, destinationBroker);
-          }
-
-          @Override
-          public synchronized void letReplicaBecomeLeader(
-              TopicPartition topicPartition, int followerReplica) {
-            counter.increment();
-            innerLogAllocation.letReplicaBecomeLeader(topicPartition, followerReplica);
-          }
-
-          @Override
-          public synchronized void changeDataDirectory(
-              TopicPartition topicPartition, int broker, String path) {
-            counter.increment();
-            innerLogAllocation.changeDataDirectory(topicPartition, broker, path);
-          }
-
-          @Override
-          public Map<TopicPartition, List<LogPlacement>> allocation() {
-            return innerLogAllocation.allocation();
-          }
-        };
-
-    final var iterator =
-        shufflePlanGenerator.generate(fakeClusterInfo, mockedAllocation).iterator();
-
-    for (int i = 0; i < 100; i++) {
-      iterator.next();
-      Assertions.assertEquals(shuffle, counter.sum());
-      counter.reset();
-    }
+    shufflePlanGenerator
+        .generate(fakeClusterInfo)
+        .limit(100)
+        .forEach(
+            proposal -> {
+              Assertions.assertNotEquals(
+                  allocation, proposal.rebalancePlan().orElseThrow().allocation());
+            });
   }
 
   @Test
