@@ -8,8 +8,6 @@ declare -r CONTAINER_NAME="prometheus-${PROMETHEUS_PORT}"
 declare -r CONFIGURATION_FILE="/tmp/prometheus-${PROMETHEUS_PORT}.yml"
 declare -r SCRAPE_INTERVAL="${SCRAPE_INTERVAL:-1s}"
 declare -r SCRAPE_TIMEOUT="${SCRAPE_TIMEOUT:-1s}"
-declare -r VOLUME_1="prometheus-${PROMETHEUS_PORT}-etc"
-declare -r VOLUME_2="prometheus-${PROMETHEUS_PORT}-prometheus"
 
 # =============================[functions]=============================
 
