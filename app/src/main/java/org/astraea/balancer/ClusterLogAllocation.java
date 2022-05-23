@@ -4,7 +4,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -18,10 +17,6 @@ public class ClusterLogAllocation {
 
   // guard by this
   private final Map<TopicPartition, List<LogPlacement>> allocation;
-
-  public ClusterLogAllocation() {
-    this.allocation = new HashMap<>();
-  }
 
   private ClusterLogAllocation(Map<TopicPartition, List<LogPlacement>> allocation) {
     allocation.keySet().stream()
