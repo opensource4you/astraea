@@ -11,6 +11,7 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.astraea.admin.TopicPartition;
 import org.astraea.balancer.RebalancePlanProposal;
+import org.astraea.balancer.log.ClusterLogAllocation;
 import org.astraea.balancer.log.LayeredClusterLogAllocation;
 import org.astraea.balancer.log.LogPlacement;
 import org.astraea.cost.ClusterInfo;
@@ -85,7 +86,7 @@ public class ShufflePlanGenerator implements RebalancePlanGenerator {
 
   @Override
   public Stream<RebalancePlanProposal> generate(
-      ClusterInfo clusterInfo, LayeredClusterLogAllocation baseAllocation) {
+      ClusterInfo clusterInfo, ClusterLogAllocation baseAllocation) {
     return Stream.generate(
         () -> {
           final var rebalancePlanBuilder = RebalancePlanProposal.builder();

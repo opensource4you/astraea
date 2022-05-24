@@ -2,6 +2,7 @@ package org.astraea.balancer.generator;
 
 import java.util.stream.Stream;
 import org.astraea.balancer.RebalancePlanProposal;
+import org.astraea.balancer.log.ClusterLogAllocation;
 import org.astraea.balancer.log.LayeredClusterLogAllocation;
 import org.astraea.cost.ClusterInfo;
 
@@ -32,5 +33,5 @@ public interface RebalancePlanGenerator {
    * @return a {@link Stream} generating rebalance plan regarding the given {@link ClusterInfo}
    */
   Stream<RebalancePlanProposal> generate(
-      ClusterInfo clusterInfo, LayeredClusterLogAllocation baseAllocation);
+      ClusterInfo clusterInfo, ClusterLogAllocation baseAllocation);
 }

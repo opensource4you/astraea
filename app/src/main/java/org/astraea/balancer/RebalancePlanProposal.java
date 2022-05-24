@@ -5,11 +5,11 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
-import org.astraea.balancer.log.LayeredClusterLogAllocation;
+import org.astraea.balancer.log.ClusterLogAllocation;
 
 public interface RebalancePlanProposal {
 
-  Optional<LayeredClusterLogAllocation> rebalancePlan();
+  Optional<ClusterLogAllocation> rebalancePlan();
 
   List<String> info();
 
@@ -20,7 +20,7 @@ public interface RebalancePlanProposal {
   }
 
   class Build {
-    LayeredClusterLogAllocation allocation = null;
+    ClusterLogAllocation allocation = null;
     List<String> info = Collections.synchronizedList(new ArrayList<>());
     List<String> warnings = Collections.synchronizedList(new ArrayList<>());
 
@@ -33,7 +33,7 @@ public interface RebalancePlanProposal {
       return this;
     }
 
-    public synchronized Build withRebalancePlan(LayeredClusterLogAllocation clusterLogAllocation) {
+    public synchronized Build withRebalancePlan(ClusterLogAllocation clusterLogAllocation) {
       ensureNotBuiltYet();
       this.allocation = Objects.requireNonNull(clusterLogAllocation);
       return this;
@@ -70,7 +70,7 @@ public interface RebalancePlanProposal {
       return new RebalancePlanProposal() {
 
         @Override
-        public Optional<LayeredClusterLogAllocation> rebalancePlan() {
+        public Optional<ClusterLogAllocation> rebalancePlan() {
           return Optional.ofNullable(allocationRef);
         }
 
