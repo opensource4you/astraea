@@ -11,7 +11,7 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.astraea.admin.TopicPartition;
 import org.astraea.balancer.RebalancePlanProposal;
-import org.astraea.balancer.log.ClusterLogAllocation;
+import org.astraea.balancer.log.LayeredClusterLogAllocation;
 import org.astraea.balancer.log.LogPlacement;
 import org.astraea.cost.ClusterInfo;
 import org.astraea.cost.NodeInfo;
@@ -85,7 +85,7 @@ public class ShufflePlanGenerator implements RebalancePlanGenerator {
 
   @Override
   public Stream<RebalancePlanProposal> generate(
-      ClusterInfo clusterInfo, ClusterLogAllocation baseAllocation) {
+      ClusterInfo clusterInfo, LayeredClusterLogAllocation baseAllocation) {
     return Stream.generate(
         () -> {
           final var rebalancePlanBuilder = RebalancePlanProposal.builder();
@@ -113,16 +113,16 @@ public class ShufflePlanGenerator implements RebalancePlanGenerator {
                 .build();
 
           final var shuffleCount = numberOfShuffle.get();
-          final var newAllocation = ClusterLogAllocation.of(baseAllocation.allocation());
+          final var newAllocation = LayeredClusterLogAllocation.of(baseAllocation);
           final var pickingList =
-              newAllocation.allocation().keySet().stream().collect(Collectors.toUnmodifiableList());
+              newAllocation.topicPartitionStream().collect(Collectors.toUnmodifiableList());
 
           rebalancePlanBuilder.addInfo(
               "Make " + shuffleCount + (shuffleCount > 0 ? " shuffles." : " shuffle."));
           for (int i = 0; i < shuffleCount; i++) {
             final var sourceTopicPartitionIndex = sourceTopicPartitionSelector(pickingList);
             final var sourceTopicPartition = pickingList.get(sourceTopicPartitionIndex);
-            final var sourceLogPlacements = newAllocation.allocation().get(sourceTopicPartition);
+            final var sourceLogPlacements = newAllocation.logPlacements(sourceTopicPartition);
             final var sourceLogPlacementIndex = sourceLogPlacementSelector(sourceLogPlacements);
             final var sourceLogPlacement = sourceLogPlacements.get(sourceLogPlacementIndex);
             final var sourceIsLeader = sourceLogPlacementIndex == 0;

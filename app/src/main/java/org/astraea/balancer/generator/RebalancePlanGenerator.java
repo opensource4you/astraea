@@ -2,7 +2,7 @@ package org.astraea.balancer.generator;
 
 import java.util.stream.Stream;
 import org.astraea.balancer.RebalancePlanProposal;
-import org.astraea.balancer.log.ClusterLogAllocation;
+import org.astraea.balancer.log.LayeredClusterLogAllocation;
 import org.astraea.cost.ClusterInfo;
 
 /** */
@@ -18,7 +18,7 @@ public interface RebalancePlanGenerator {
    * @return a {@link Stream} generating rebalance plan regarding the given {@link ClusterInfo}
    */
   default Stream<RebalancePlanProposal> generate(ClusterInfo clusterInfo) {
-    return generate(clusterInfo, ClusterLogAllocation.of(clusterInfo));
+    return generate(clusterInfo, LayeredClusterLogAllocation.of(clusterInfo));
   }
 
   /**
@@ -32,5 +32,5 @@ public interface RebalancePlanGenerator {
    * @return a {@link Stream} generating rebalance plan regarding the given {@link ClusterInfo}
    */
   Stream<RebalancePlanProposal> generate(
-      ClusterInfo clusterInfo, ClusterLogAllocation baseAllocation);
+      ClusterInfo clusterInfo, LayeredClusterLogAllocation baseAllocation);
 }
