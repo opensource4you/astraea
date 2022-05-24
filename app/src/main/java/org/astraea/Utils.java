@@ -11,17 +11,29 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
 
 public final class Utils {
 
+  private static Throwable unpack(Throwable exception) {
+    Throwable current = exception;
+    while (current instanceof ExecutionException) {
+      current = current.getCause();
+    }
+    return current;
+  }
+
   public static <R> R handleException(Getter<R> getter) {
     try {
       return getter.get();
-    } catch (Exception e) {
-      throw new RuntimeException(e);
+    } catch (Throwable exception) {
+      var current = unpack(exception);
+      if (current instanceof RuntimeException) throw (RuntimeException) current;
+      if (current == null) throw new RuntimeException("unknown error");
+      throw new RuntimeException(current);
     }
   }
 
@@ -137,8 +149,39 @@ public final class Utils {
     return value;
   }
 
-  public static boolean overSecond(long lastTime, int second) {
-    return (lastTime + Duration.ofSeconds(second).toMillis()) < System.currentTimeMillis();
+  /**
+   * Check if the time is expired.
+   *
+   * @param lastTime Check time.
+   * @param interval Interval.
+   * @return Is expired.
+   */
+  public static boolean isExpired(long lastTime, Duration interval) {
+    return (lastTime + interval.toMillis()) < System.currentTimeMillis();
+  }
+
+  public static void sleep(Duration duration) {
+    try {
+      TimeUnit.MILLISECONDS.sleep(duration.toMillis());
+    } catch (InterruptedException ignored) {
+    }
+  }
+
+  public static String randomString(int len) {
+    StringBuilder string = new StringBuilder(randomString());
+    while (string.length() < len) {
+      string.append(string).append(randomString());
+    }
+    return string.substring(0, len);
+  }
+
+  /**
+   * a random string based on uuid without "-"
+   *
+   * @return random string
+   */
+  public static String randomString() {
+    return java.util.UUID.randomUUID().toString().replaceAll("-", "");
   }
 
   private Utils() {}

@@ -15,11 +15,11 @@ import javax.management.MBeanServer;
 import javax.management.remote.JMXConnectorServer;
 import javax.management.remote.JMXConnectorServerFactory;
 import javax.management.remote.JMXServiceURL;
+import org.astraea.admin.Admin;
 import org.astraea.metrics.java.JvmMemory;
 import org.astraea.metrics.java.OperatingSystemInfo;
 import org.astraea.metrics.jmx.MBeanClient;
 import org.astraea.service.RequireBrokerCluster;
-import org.astraea.topic.TopicAdmin;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -123,7 +123,7 @@ class KafkaMetricsTest extends RequireBrokerCluster {
   @Test
   void testSize() throws IOException {
     // arrange
-    try (TopicAdmin admin = TopicAdmin.of(bootstrapServers())) {
+    try (Admin admin = Admin.of(bootstrapServers())) {
       String topicName = getClass().getName();
       admin.creator().topic(topicName).numberOfPartitions(10).create();
 

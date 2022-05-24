@@ -4,6 +4,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.function.Supplier;
 import org.astraea.concurrent.Executor;
 import org.astraea.concurrent.State;
 import org.astraea.utils.DataUnit;
@@ -13,17 +14,23 @@ public class Tracker implements Executor {
   private final List<Metrics> producerData;
   private final List<Metrics> consumerData;
   private final Manager manager;
+  private final Supplier<Boolean> producerDone;
   // Snapshot of metrics
   private Result producerResult;
   private Result consumerResult;
   long start = 0L;
 
-  public Tracker(List<Metrics> producerData, List<Metrics> consumerData, Manager manager) {
+  public Tracker(
+      List<Metrics> producerData,
+      List<Metrics> consumerData,
+      Manager manager,
+      Supplier<Boolean> producerDone) {
     this.producerData = producerData;
     this.consumerData = consumerData;
     this.producerResult = result(producerData);
     this.consumerResult = result(consumerData);
     this.manager = manager;
+    this.producerDone = producerDone;
   }
 
   @Override
@@ -76,7 +83,7 @@ public class Tracker implements Executor {
           "  producer[%d] average publish latency: %.3f ms%n", i, result.averageLatencies.get(i));
     }
     System.out.println("\n");
-    return manager.producedDone();
+    return producerDone.get();
   }
 
   private boolean logConsumers(Result result) {
@@ -102,7 +109,7 @@ public class Tracker implements Executor {
     }
     System.out.println("\n");
     // Target number of records consumed OR consumed all that produced
-    return manager.producedDone() && percentage >= 100D;
+    return producerDone.get() && percentage >= 100D;
   }
 
   public Result producerResult() {

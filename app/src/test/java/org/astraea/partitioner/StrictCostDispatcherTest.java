@@ -10,7 +10,9 @@ import org.astraea.cost.BrokerCost;
 import org.astraea.cost.ClusterInfo;
 import org.astraea.cost.HasBrokerCost;
 import org.astraea.cost.NodeInfo;
-import org.astraea.cost.PartitionInfo;
+import org.astraea.cost.ReplicaInfo;
+import org.astraea.cost.ThroughputCost;
+import org.astraea.cost.broker.BrokerInputCost;
 import org.astraea.metrics.collector.Fetcher;
 import org.astraea.metrics.collector.Receiver;
 import org.junit.jupiter.api.Assertions;
@@ -19,39 +21,9 @@ import org.mockito.Mockito;
 
 public class StrictCostDispatcherTest {
 
-  private static PartitionInfo createFakePartitionInfo(
-      String topic, int partition, NodeInfo leaderNode) {
-    return new PartitionInfo() {
-      @Override
-      public String topic() {
-        return topic;
-      }
-
-      @Override
-      public int partition() {
-        return partition;
-      }
-
-      @Override
-      public NodeInfo leader() {
-        return leaderNode;
-      }
-
-      @Override
-      public List<NodeInfo> replicas() {
-        return null;
-      }
-
-      @Override
-      public List<NodeInfo> inSyncReplica() {
-        return null;
-      }
-
-      @Override
-      public List<NodeInfo> offlineReplicas() {
-        return null;
-      }
-    };
+  private static ReplicaInfo createFakeReplicaLeaderInfo(
+      String topic, int partition, NodeInfo replicaNode) {
+    return ReplicaInfo.of(topic, partition, replicaNode, true, true, false);
   }
 
   @Test
@@ -72,14 +44,28 @@ public class StrictCostDispatcherTest {
       dispatcher.configure(Configuration.of(Map.of(StrictCostDispatcher.JMX_PORT, "12345")));
       Assertions.assertEquals(12345, dispatcher.jmxPort(0));
     }
+
+    try (var dispatcher = new StrictCostDispatcher()) {
+      // Test for negative weight.
+      Assertions.assertThrows(
+          IllegalArgumentException.class,
+          () ->
+              dispatcher.configure(Configuration.of(Map.of(ThroughputCost.class.getName(), "-1"))));
+
+      // Test for cost functions configuring
+      dispatcher.configure(
+          Configuration.of(
+              Map.of(ThroughputCost.class.getName(), "0.1", BrokerInputCost.class.getName(), "2")));
+      Assertions.assertEquals(2, dispatcher.functions.size());
+    }
   }
 
   @Test
   void testBestPartition() {
     var partitions =
         List.of(
-            createFakePartitionInfo("t", 0, NodeInfo.of(10, "h0", 1000)),
-            createFakePartitionInfo("t", 1, NodeInfo.of(11, "h1", 1000)));
+            createFakeReplicaLeaderInfo("t", 0, NodeInfo.of(10, "h0", 1000)),
+            createFakeReplicaLeaderInfo("t", 1, NodeInfo.of(11, "h1", 1000)));
 
     var score = List.of(Map.of(10, 0.8D), Map.of(11, 0.7D));
 
@@ -93,19 +79,18 @@ public class StrictCostDispatcherTest {
   void testPartition() {
     // n0 is busy
     var n0 = NodeInfo.of(10, "host0", 12345);
-    var p0 = createFakePartitionInfo("aa", 1, n0);
+    var p0 = createFakeReplicaLeaderInfo("aa", 1, n0);
     // n1 is free
     var n1 = NodeInfo.of(11, "host1", 12345);
-    var p1 = createFakePartitionInfo("aa", 2, n1);
+    var p1 = createFakeReplicaLeaderInfo("aa", 2, n1);
 
     var receiver = Mockito.mock(Receiver.class);
     Mockito.when(receiver.current()).thenReturn(List.of());
 
-    var costFunction =
+    var costFunction1 =
         new HasBrokerCost() {
           @Override
           public BrokerCost brokerCost(ClusterInfo clusterInfo) {
-            var partitionInfos = clusterInfo.availablePartitions("aa");
             var brokerCost =
                 clusterInfo.allBeans().keySet().stream()
                     .collect(
@@ -119,9 +104,26 @@ public class StrictCostDispatcherTest {
             return client -> List.of();
           }
         };
+    var costFunction2 =
+        new HasBrokerCost() {
+          @Override
+          public BrokerCost brokerCost(ClusterInfo clusterInfo) {
+            var brokerCost =
+                clusterInfo.allBeans().keySet().stream()
+                    .collect(
+                        Collectors.toMap(
+                            Function.identity(), id -> id.equals(n0.id()) ? 0.6D : 0.8D));
+            return () -> brokerCost;
+          }
 
-    var dispatcher =
-        new StrictCostDispatcher(List.of(costFunction)) {
+          @Override
+          public Fetcher fetcher() {
+            return client -> List.of();
+          }
+        };
+
+    try (var dispatcher =
+        new StrictCostDispatcher(List.of(costFunction1, costFunction2)) {
           @Override
           Receiver receiver(String host, int port) {
             return receiver;
@@ -131,20 +133,63 @@ public class StrictCostDispatcherTest {
           int jmxPort(int id) {
             return 0;
           }
-        };
-    var clusterInfo = Mockito.mock(ClusterInfo.class);
+        }) {
+      var clusterInfo = Mockito.mock(ClusterInfo.class);
 
-    // there is no available partition
-    Mockito.when(clusterInfo.availablePartitions("aa")).thenReturn(List.of());
-    Mockito.when(clusterInfo.topics()).thenReturn(Set.of("aa"));
-    Assertions.assertEquals(0, dispatcher.partition("aa", new byte[0], new byte[0], clusterInfo));
+      // there is no available partition
+      Mockito.when(clusterInfo.availablePartitionLeaders("aa")).thenReturn(List.of());
+      Mockito.when(clusterInfo.topics()).thenReturn(Set.of("aa"));
+      Assertions.assertEquals(0, dispatcher.partition("aa", new byte[0], new byte[0], clusterInfo));
 
-    // there is only one available partition
-    Mockito.when(clusterInfo.availablePartitions("aa")).thenReturn(List.of(p0));
-    Assertions.assertEquals(1, dispatcher.partition("aa", new byte[0], new byte[0], clusterInfo));
+      // there is only one available partition
+      Mockito.when(clusterInfo.availablePartitionLeaders("aa")).thenReturn(List.of(p0));
+      Assertions.assertEquals(1, dispatcher.partition("aa", new byte[0], new byte[0], clusterInfo));
 
-    // there is no beans, so it just returns the partition.
-    Mockito.when(clusterInfo.availablePartitions("aa")).thenReturn(List.of(p0, p1));
-    Assertions.assertEquals(2, dispatcher.partition("aa", new byte[0], new byte[0], clusterInfo));
+      // there is no beans, so it just returns the partition.
+      Mockito.when(clusterInfo.availablePartitionLeaders("aa")).thenReturn(List.of(p0, p1));
+      Assertions.assertEquals(2, dispatcher.partition("aa", new byte[0], new byte[0], clusterInfo));
+
+      // cost functions with weight
+      dispatcher.functions = Map.of(costFunction1, 0.1, costFunction2, 0.9);
+      Assertions.assertEquals(1, dispatcher.partition("aa", new byte[0], new byte[0], clusterInfo));
+    }
+  }
+
+  @Test
+  void testParseCostFunctionWeight() {
+    var config =
+        Configuration.of(
+            Map.of(
+                "org.astraea.cost.broker.BrokerInputCost",
+                "20",
+                "org.astraea.cost.broker.BrokerOutputCost",
+                "1.25"));
+    var ans = StrictCostDispatcher.parseCostFunctionWeight(config);
+    Assertions.assertEquals(2, ans.size());
+    for (var entry : ans.entrySet()) {
+      if (entry.getKey().getClass().getName().equals("org.astraea.cost.broker.BrokerInputCost")) {
+        Assertions.assertEquals(20.0, entry.getValue());
+      } else if (entry
+          .getKey()
+          .getClass()
+          .getName()
+          .equals("org.astraea.cost.broker.BrokerOutputCost")) {
+        Assertions.assertEquals(1.25, entry.getValue());
+      } else {
+        Assertions.assertEquals(0.0, entry.getValue());
+      }
+    }
+
+    // test negative weight
+    var config2 =
+        Configuration.of(
+            Map.of(
+                "org.astraea.cost.broker.BrokerInputCost",
+                "-20",
+                "org.astraea.cost.broker.BrokerOutputCost",
+                "1.25"));
+    Assertions.assertThrows(
+        IllegalArgumentException.class,
+        () -> StrictCostDispatcher.parseCostFunctionWeight(config2));
   }
 }
