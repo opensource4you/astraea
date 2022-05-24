@@ -1,5 +1,6 @@
 package org.astraea.balancer;
 
+import org.astraea.balancer.log.ClusterLogAllocation;
 import org.astraea.cost.ClusterInfoProvider;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;

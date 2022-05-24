@@ -1,8 +1,8 @@
 package org.astraea.balancer.generator;
 
 import java.util.stream.Stream;
-import org.astraea.balancer.ClusterLogAllocation;
 import org.astraea.balancer.RebalancePlanProposal;
+import org.astraea.balancer.log.ClusterLogAllocation;
 import org.astraea.cost.ClusterInfo;
 
 /** */

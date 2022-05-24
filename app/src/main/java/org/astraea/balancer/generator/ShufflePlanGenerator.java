@@ -10,9 +10,9 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.astraea.admin.TopicPartition;
-import org.astraea.balancer.ClusterLogAllocation;
-import org.astraea.balancer.LogPlacement;
 import org.astraea.balancer.RebalancePlanProposal;
+import org.astraea.balancer.log.ClusterLogAllocation;
+import org.astraea.balancer.log.LogPlacement;
 import org.astraea.cost.ClusterInfo;
 import org.astraea.cost.NodeInfo;
 

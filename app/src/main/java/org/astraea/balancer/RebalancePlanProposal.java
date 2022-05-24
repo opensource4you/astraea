@@ -5,6 +5,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import org.astraea.balancer.log.ClusterLogAllocation;
 
 public interface RebalancePlanProposal {
 

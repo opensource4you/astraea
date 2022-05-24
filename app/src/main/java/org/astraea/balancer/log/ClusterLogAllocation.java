@@ -1,4 +1,4 @@
-package org.astraea.balancer;
+package org.astraea.balancer.log;
 
 import java.util.ArrayList;
 import java.util.Collection;

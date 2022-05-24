@@ -3,7 +3,7 @@ package org.astraea.balancer.generator;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.LongAdder;
-import org.astraea.balancer.ClusterLogAllocation;
+import org.astraea.balancer.log.ClusterLogAllocation;
 import org.astraea.cost.ClusterInfoProvider;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Disabled;
