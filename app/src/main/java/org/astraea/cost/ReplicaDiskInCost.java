@@ -60,7 +60,7 @@ public class ReplicaDiskInCost implements HasBrokerCost {
                 entry ->
                     Map.entry(
                         entry.getKey(),
-                        entry.getValue() / brokerBandwidthCap.get(entry.getKey()) / 1000 / 1000))
+                        entry.getValue() / brokerBandwidthCap.get(entry.getKey()) / 1024 / 1024))
             .map(entry -> Map.entry(entry.getKey(), Math.min(entry.getValue(), 1)))
             .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
 
@@ -139,7 +139,6 @@ public class ReplicaDiskInCost implements HasBrokerCost {
 
   public PartitionCost partitionCost(ClusterInfo clusterInfo) {
     var replicaIn = replicaInCount(clusterInfo);
-
     var dataInRate =
         new TreeMap<TopicPartitionReplica, Double>(
             Comparator.comparing(TopicPartitionReplica::brokerId)
@@ -213,52 +212,54 @@ public class ReplicaDiskInCost implements HasBrokerCost {
                             clusterInfo
                                 .partitions(topic)
                                 .forEach(
-                                    partitionInfo ->
+                                    partitionInfo -> {
+                                      var beanObject =
+                                          beanObjects.stream()
+                                              .filter(
+                                                  b ->
+                                                      b.beanObject()
+                                                              .getProperties()
+                                                              .get("topic")
+                                                              .equals(partitionInfo.topic())
+                                                          && Integer.parseInt(
+                                                                  b.beanObject()
+                                                                      .getProperties()
+                                                                      .get("partition"))
+                                                              == (partitionInfo.partition()))
+                                              .collect(Collectors.toList());
+                                      if (!beanObject.isEmpty())
                                         tpBeanObjects.put(
                                             new TopicPartitionReplica(
                                                 partitionInfo.topic(),
                                                 partitionInfo.partition(),
                                                 broker),
-                                            beanObjects.stream()
-                                                .filter(
-                                                    beanObject ->
-                                                        beanObject
-                                                                .beanObject()
-                                                                .getProperties()
-                                                                .get("topic")
-                                                                .equals(partitionInfo.topic())
-                                                            && Integer.parseInt(
-                                                                    beanObject
-                                                                        .beanObject()
-                                                                        .getProperties()
-                                                                        .get("partition"))
-                                                                == (partitionInfo.partition()))
-                                                .collect(Collectors.toList()))))));
-    Map<TopicPartitionReplica, Double> replicaIn = new HashMap<>();
-    tpBeanObjects.forEach(
-        (tpr, beanObjects) -> {
-          var sortedBeanObjects =
-              beanObjects.stream()
-                  .sorted(
-                      Comparator.comparing(
-                          HasBeanObject::createdTimestamp, Comparator.reverseOrder()))
-                  .collect(Collectors.toList());
-          var duration = 2;
-          if (sortedBeanObjects.size() < duration) {
-            throw new IllegalArgumentException("need more than two metrics to score replicas");
-          } else {
-            var beanObjectNew = sortedBeanObjects.get(0).beanObject();
-            var beanObjectOld = sortedBeanObjects.get(duration - 1).beanObject();
-            var a =
-                (double)
-                        ((long) beanObjectNew.getAttributes().get("Value")
-                            - (long) beanObjectOld.getAttributes().get("Value"))
-                    / ((beanObjectNew.createdTimestamp() - beanObjectOld.createdTimestamp())
-                        / 1000.0)
-                    / 1048576.0;
-            replicaIn.put(tpr, a);
-          }
-        });
-    return replicaIn;
+                                            beanObject);
+                                    }))));
+    return tpBeanObjects.entrySet().stream()
+        .flatMap(
+            tprEntry -> {
+              var sortedBeanObjects =
+                  tprEntry.getValue().stream()
+                      .sorted(
+                          Comparator.comparing(
+                              HasBeanObject::createdTimestamp, Comparator.reverseOrder()))
+                      .collect(Collectors.toList());
+              var duration = 2;
+              if (sortedBeanObjects.size() < duration) {
+                throw new IllegalArgumentException("need more than two metrics to score replicas");
+              } else {
+                var beanObjectNew = (HasValue) sortedBeanObjects.get(0);
+                var beanObjectOld = (HasValue) sortedBeanObjects.get(duration - 1);
+                return Map.of(
+                    tprEntry.getKey(),
+                    (double) (beanObjectNew.value() - beanObjectOld.value())
+                        / ((beanObjectNew.createdTimestamp() - beanObjectOld.createdTimestamp())
+                            / 1000.0)
+                        / 1048576.0)
+                    .entrySet()
+                    .stream();
+              }
+            })
+        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
   }
 }

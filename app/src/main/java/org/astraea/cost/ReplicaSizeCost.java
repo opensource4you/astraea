@@ -1,7 +1,6 @@
 package org.astraea.cost;
 
 import java.util.Comparator;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
@@ -29,23 +28,25 @@ public class ReplicaSizeCost implements HasBrokerCost, HasPartitionCost {
   @Override
   public BrokerCost brokerCost(ClusterInfo clusterInfo) {
     var sizeOfReplica = getReplicaSize(clusterInfo);
-    var totalReplicaSizeInBroker = new HashMap<Integer, Long>();
-    var brokerSizeScore = new HashMap<Integer, Double>();
-    clusterInfo
-        .nodes()
-        .forEach(
-            nodeInfo ->
-                totalReplicaSizeInBroker.put(
-                    nodeInfo.id(),
-                    sizeOfReplica.entrySet().stream()
-                        .filter(tpr -> tpr.getKey().brokerId() == nodeInfo.id())
-                        .mapToLong(Map.Entry::getValue)
-                        .sum()));
-    totalReplicaSizeInBroker.forEach(
-        (broker, score) -> {
-          brokerSizeScore.put(
-              broker, Double.valueOf(score) / totalBrokerCapacity.get(broker) / 1048576);
-        });
+    var totalReplicaSizeInBroker =
+        clusterInfo.nodes().stream()
+            .collect(
+                Collectors.toMap(
+                    NodeInfo::id,
+                    y ->
+                        sizeOfReplica.entrySet().stream()
+                            .filter(tpr -> tpr.getKey().brokerId() == y.id())
+                            .mapToLong(Map.Entry::getValue)
+                            .sum()));
+    var brokerSizeScore =
+        totalReplicaSizeInBroker.entrySet().stream()
+            .collect(
+                Collectors.toMap(
+                    Map.Entry::getKey,
+                    y ->
+                        Double.valueOf(y.getValue())
+                            / totalBrokerCapacity.get(y.getKey())
+                            / 1048576));
     return () -> brokerSizeScore;
   }
 
@@ -114,26 +115,25 @@ public class ReplicaSizeCost implements HasBrokerCost, HasPartitionCost {
    * @return a map contain the replica log size of each topic/partition
    */
   public Map<TopicPartitionReplica, Long> getReplicaSize(ClusterInfo clusterInfo) {
-    Map<TopicPartitionReplica, Long> sizeOfReplica = new HashMap<>();
-    clusterInfo
-        .allBeans()
-        .forEach(
-            (broker, beanObjects) -> {
-              beanObjects.stream()
-                  .filter(x -> x instanceof HasValue)
-                  .filter(x -> x.beanObject().getProperties().get("type").equals("Log"))
-                  .filter(x -> x.beanObject().getProperties().get("name").equals("Size"))
-                  .map(x -> (HasValue) x)
-                  .forEach(
-                      beanObject ->
-                          sizeOfReplica.put(
-                              new TopicPartitionReplica(
-                                  beanObject.beanObject().getProperties().get("topic"),
-                                  Integer.parseInt(
-                                      beanObject.beanObject().getProperties().get("partition")),
-                                  broker),
-                              (beanObject).value()));
-            });
-    return sizeOfReplica;
+    return clusterInfo.allBeans().entrySet().stream()
+        .flatMap(
+            brokerBeanObjects ->
+                brokerBeanObjects.getValue().stream()
+                    .filter(x -> x instanceof HasValue)
+                    .filter(x -> x.beanObject().getProperties().get("type").equals("Log"))
+                    .filter(x -> x.beanObject().getProperties().get("name").equals("Size"))
+                    .map(x -> (HasValue) x)
+                    .collect(
+                        Collectors.toMap(
+                            x ->
+                                new TopicPartitionReplica(
+                                    x.beanObject().getProperties().get("topic"),
+                                    Integer.parseInt(
+                                        x.beanObject().getProperties().get("partition")),
+                                    brokerBeanObjects.getKey()),
+                            HasValue::value))
+                    .entrySet()
+                    .stream())
+        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
   }
 }
