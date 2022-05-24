@@ -1,6 +1,5 @@
 package org.astraea.balancer.log;
 
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
@@ -247,25 +246,18 @@ public class LayeredClusterLogAllocation implements ClusterLogAllocation {
   public Stream<TopicPartition> topicPartitionStream() {
     if (upperLayer == null) return this.allocation.keySet().stream();
     else {
-      final var layers = new ArrayList<LayeredClusterLogAllocation>();
-      for (var layer = this; layer != null; layer = layer.upperLayer) layers.add(layer);
-
-      return IntStream.range(0, layers.size())
-          .mapToObj(
-              index -> {
-                var stream = layers.get(index).allocation.keySet().stream();
-                if (index > 0) {
-                  stream =
-                      stream.filter(
-                          tp -> {
-                            for (int i = 0; i < index; i++)
-                              if (layers.get(i).allocation.containsKey(tp)) return false;
-                            return true;
-                          });
-                }
-                return stream;
-              })
-          .flatMap(stream -> stream);
+      LayeredClusterLogAllocation baseAllocationLookUp = this;
+      while (baseAllocationLookUp.upperLayer != null)
+        baseAllocationLookUp = baseAllocationLookUp.upperLayer;
+      // Ignore all the intermediate layers, just return the keys set of the base layer.
+      // THIS WILL WORK, AS LONG AS THE UPPER LAYERS DO NOT DO THE FOLLOWING.
+      // 1. delete topic (should balancer do this?)
+      // 2. create topic (should balancer do this?)
+      // 3. shrink partition size (impossible for the current Kafka)
+      // 4. expand partition size (should balancer do this?)
+      // Of course, we can consider every element in all the layers, but doing that hurt
+      // performance.
+      return baseAllocationLookUp.allocation.keySet().stream();
     }
   }
 }
