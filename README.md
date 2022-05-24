@@ -468,3 +468,5 @@ GET http://localhost:12345/groups
 ```shell
 GET http://localhost:12345/groups/g1
 ```
+
+## [Web API 中文文件連結](./docs/web_server/README.md)
