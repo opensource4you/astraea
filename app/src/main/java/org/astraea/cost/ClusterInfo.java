@@ -20,12 +20,18 @@ public interface ClusterInfo {
         return cluster.nodes().stream().map(NodeInfo::of).collect(Collectors.toUnmodifiableList());
       }
 
+      @Override
+      public Set<String> dataDirectories(int brokerId) {
+        // org.apache.kafka.common.Cluster doesn't have such information.
+        throw new UnsupportedOperationException("This information is not available");
+      }
+
       public Set<String> topics() {
         return cluster.topics();
       }
 
       @Override
-      public List<ReplicaInfo> availablePartitionLeaders(String topic) {
+      public List<ReplicaInfo> availableReplicaLeaders(String topic) {
         return cluster.availablePartitionsForTopic(topic).stream()
             .map(ReplicaInfo::of)
             .map(
@@ -35,7 +41,7 @@ public interface ClusterInfo {
       }
 
       @Override
-      public List<ReplicaInfo> availablePartitions(String topic) {
+      public List<ReplicaInfo> availableReplicas(String topic) {
         return cluster.availablePartitionsForTopic(topic).stream()
             .map(ReplicaInfo::of)
             .flatMap(Collection::stream)
@@ -43,7 +49,7 @@ public interface ClusterInfo {
       }
 
       @Override
-      public List<ReplicaInfo> partitions(String topic) {
+      public List<ReplicaInfo> replicas(String topic) {
         return cluster.partitionsForTopic(topic).stream()
             .map(ReplicaInfo::of)
             .flatMap(Collection::stream)
@@ -83,13 +89,18 @@ public interface ClusterInfo {
       }
 
       @Override
-      public List<ReplicaInfo> availablePartitionLeaders(String topic) {
-        return cluster.availablePartitionLeaders(topic);
+      public Set<String> dataDirectories(int brokerId) {
+        return cluster.dataDirectories(brokerId);
       }
 
       @Override
-      public List<ReplicaInfo> availablePartitions(String topic) {
-        return cluster.availablePartitions(topic);
+      public List<ReplicaInfo> availableReplicaLeaders(String topic) {
+        return cluster.availableReplicaLeaders(topic);
+      }
+
+      @Override
+      public List<ReplicaInfo> availableReplicas(String topic) {
+        return cluster.availableReplicas(topic);
       }
 
       @Override
@@ -98,8 +109,8 @@ public interface ClusterInfo {
       }
 
       @Override
-      public List<ReplicaInfo> partitions(String topic) {
-        return cluster.partitions(topic);
+      public List<ReplicaInfo> replicas(String topic) {
+        return cluster.replicas(topic);
       }
 
       @Override
@@ -147,13 +158,17 @@ public interface ClusterInfo {
   /** @return The known set of nodes */
   List<NodeInfo> nodes();
 
+  /** @return return the data directories on specific broker */
+  Set<String> dataDirectories(int brokerId);
+  // TODO: provide a ClusterInfo implementation with this info
+
   /**
    * Get the list of replica leader information of each available partition for the given topic
    *
    * @param topic The Topic name
    * @return A list of {@link ReplicaInfo}
    */
-  List<ReplicaInfo> availablePartitionLeaders(String topic);
+  List<ReplicaInfo> availableReplicaLeaders(String topic);
 
   /**
    * Get the list of replica information of each available partition/replica pair for the given
@@ -162,7 +177,7 @@ public interface ClusterInfo {
    * @param topic The topic name
    * @return A list of {@link ReplicaInfo}
    */
-  List<ReplicaInfo> availablePartitions(String topic);
+  List<ReplicaInfo> availableReplicas(String topic);
 
   /**
    * All topic names
@@ -177,7 +192,7 @@ public interface ClusterInfo {
    * @param topic The topic name
    * @return A list of {@link ReplicaInfo}
    */
-  List<ReplicaInfo> partitions(String topic);
+  List<ReplicaInfo> replicas(String topic);
 
   /**
    * @param brokerId broker id
