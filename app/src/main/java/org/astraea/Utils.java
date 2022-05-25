@@ -4,6 +4,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.net.InetAddress;
+import java.net.ServerSocket;
 import java.net.UnknownHostException;
 import java.nio.file.Files;
 import java.time.Duration;
@@ -182,6 +183,22 @@ public final class Utils {
    */
   public static String randomString() {
     return java.util.UUID.randomUUID().toString().replaceAll("-", "");
+  }
+
+  public static int availablePort() {
+    try (ServerSocket socket = new ServerSocket(0)) {
+      socket.setReuseAddress(true);
+      var port = socket.getLocalPort();
+      // the port smaller than 1024 may be protected by OS.
+      return port > 1024 ? port : port + 1024;
+    } catch (IOException e) {
+      throw new RuntimeException(e);
+    }
+  }
+
+  public static int resolvePort(int port) {
+    if (port <= 0) return availablePort();
+    return port;
   }
 
   private Utils() {}
