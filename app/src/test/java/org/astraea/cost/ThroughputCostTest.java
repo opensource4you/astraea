@@ -35,7 +35,7 @@ public class ThroughputCostTest {
     Mockito.when(cluster.nodes()).thenReturn(List.of(node));
     Mockito.when(cluster.allBeans()).thenReturn(Map.of());
     Mockito.when(cluster.topics()).thenReturn(Set.of("t"));
-    Mockito.when(cluster.availablePartitions("t"))
+    Mockito.when(cluster.availableReplicas("t"))
         .thenReturn(List.of(ReplicaInfo.of("t", 0, node, true, true, false)));
 
     var cost =

@@ -31,7 +31,7 @@ public interface ClusterInfo {
       }
 
       @Override
-      public List<ReplicaInfo> availablePartitionLeaders(String topic) {
+      public List<ReplicaInfo> availableReplicaLeaders(String topic) {
         return cluster.availablePartitionsForTopic(topic).stream()
             .map(ReplicaInfo::of)
             .map(
@@ -41,7 +41,7 @@ public interface ClusterInfo {
       }
 
       @Override
-      public List<ReplicaInfo> availablePartitions(String topic) {
+      public List<ReplicaInfo> availableReplicas(String topic) {
         return cluster.availablePartitionsForTopic(topic).stream()
             .map(ReplicaInfo::of)
             .flatMap(Collection::stream)
@@ -49,7 +49,7 @@ public interface ClusterInfo {
       }
 
       @Override
-      public List<ReplicaInfo> partitions(String topic) {
+      public List<ReplicaInfo> replicas(String topic) {
         return cluster.partitionsForTopic(topic).stream()
             .map(ReplicaInfo::of)
             .flatMap(Collection::stream)
@@ -94,13 +94,13 @@ public interface ClusterInfo {
       }
 
       @Override
-      public List<ReplicaInfo> availablePartitionLeaders(String topic) {
-        return cluster.availablePartitionLeaders(topic);
+      public List<ReplicaInfo> availableReplicaLeaders(String topic) {
+        return cluster.availableReplicaLeaders(topic);
       }
 
       @Override
-      public List<ReplicaInfo> availablePartitions(String topic) {
-        return cluster.availablePartitions(topic);
+      public List<ReplicaInfo> availableReplicas(String topic) {
+        return cluster.availableReplicas(topic);
       }
 
       @Override
@@ -109,8 +109,8 @@ public interface ClusterInfo {
       }
 
       @Override
-      public List<ReplicaInfo> partitions(String topic) {
-        return cluster.partitions(topic);
+      public List<ReplicaInfo> replicas(String topic) {
+        return cluster.replicas(topic);
       }
 
       @Override
@@ -168,7 +168,7 @@ public interface ClusterInfo {
    * @param topic The Topic name
    * @return A list of {@link ReplicaInfo}
    */
-  List<ReplicaInfo> availablePartitionLeaders(String topic);
+  List<ReplicaInfo> availableReplicaLeaders(String topic);
 
   /**
    * Get the list of replica information of each available partition/replica pair for the given
@@ -177,7 +177,7 @@ public interface ClusterInfo {
    * @param topic The topic name
    * @return A list of {@link ReplicaInfo}
    */
-  List<ReplicaInfo> availablePartitions(String topic);
+  List<ReplicaInfo> availableReplicas(String topic);
 
   /**
    * All topic names
@@ -192,7 +192,7 @@ public interface ClusterInfo {
    * @param topic The topic name
    * @return A list of {@link ReplicaInfo}
    */
-  List<ReplicaInfo> partitions(String topic);
+  List<ReplicaInfo> replicas(String topic);
 
   /**
    * @param brokerId broker id

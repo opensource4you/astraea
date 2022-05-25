@@ -148,7 +148,7 @@ public class SmoothWeightRoundRobinDispatcher extends Periodic<Map<Integer, Doub
   }
 
   private void refreshPartitionMetaData(ClusterInfo clusterInfo, String topic) {
-    partitions = clusterInfo.availablePartitions(topic);
+    partitions = clusterInfo.availableReplicas(topic);
     partitions.forEach(
         p ->
             hasPartitions

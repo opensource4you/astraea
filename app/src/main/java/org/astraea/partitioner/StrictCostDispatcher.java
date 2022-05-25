@@ -58,7 +58,7 @@ public class StrictCostDispatcher implements Dispatcher {
 
   @Override
   public int partition(String topic, byte[] key, byte[] value, ClusterInfo clusterInfo) {
-    var partitionLeaders = clusterInfo.availablePartitionLeaders(topic);
+    var partitionLeaders = clusterInfo.availableReplicaLeaders(topic);
     // just return first partition if there is no available partitions
     if (partitionLeaders.isEmpty()) return 0;
 

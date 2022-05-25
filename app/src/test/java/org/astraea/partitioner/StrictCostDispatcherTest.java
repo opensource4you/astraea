@@ -137,16 +137,16 @@ public class StrictCostDispatcherTest {
       var clusterInfo = Mockito.mock(ClusterInfo.class);
 
       // there is no available partition
-      Mockito.when(clusterInfo.availablePartitionLeaders("aa")).thenReturn(List.of());
+      Mockito.when(clusterInfo.availableReplicaLeaders("aa")).thenReturn(List.of());
       Mockito.when(clusterInfo.topics()).thenReturn(Set.of("aa"));
       Assertions.assertEquals(0, dispatcher.partition("aa", new byte[0], new byte[0], clusterInfo));
 
       // there is only one available partition
-      Mockito.when(clusterInfo.availablePartitionLeaders("aa")).thenReturn(List.of(p0));
+      Mockito.when(clusterInfo.availableReplicaLeaders("aa")).thenReturn(List.of(p0));
       Assertions.assertEquals(1, dispatcher.partition("aa", new byte[0], new byte[0], clusterInfo));
 
       // there is no beans, so it just returns the partition.
-      Mockito.when(clusterInfo.availablePartitionLeaders("aa")).thenReturn(List.of(p0, p1));
+      Mockito.when(clusterInfo.availableReplicaLeaders("aa")).thenReturn(List.of(p0, p1));
       Assertions.assertEquals(2, dispatcher.partition("aa", new byte[0], new byte[0], clusterInfo));
 
       // cost functions with weight

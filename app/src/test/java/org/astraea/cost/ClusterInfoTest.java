@@ -26,15 +26,15 @@ public class ClusterInfoTest {
     Assertions.assertEquals(1, clusterInfo.nodes().size());
     Assertions.assertEquals(NodeInfo.of(node), clusterInfo.nodes().get(0));
     Assertions.assertEquals(clusterInfo.nodes().get(0), clusterInfo.node(node.host(), node.port()));
-    Assertions.assertEquals(1, clusterInfo.availablePartitions(partition.topic()).size());
-    Assertions.assertEquals(1, clusterInfo.partitions(partition.topic()).size());
+    Assertions.assertEquals(1, clusterInfo.availableReplicas(partition.topic()).size());
+    Assertions.assertEquals(1, clusterInfo.replicas(partition.topic()).size());
     Assertions.assertEquals(
-        NodeInfo.of(node), clusterInfo.availablePartitions(partition.topic()).get(0).nodeInfo());
+        NodeInfo.of(node), clusterInfo.availableReplicas(partition.topic()).get(0).nodeInfo());
     Assertions.assertEquals(
         NodeInfo.of(node),
-        clusterInfo.availablePartitionLeaders(partition.topic()).get(0).nodeInfo());
+        clusterInfo.availableReplicaLeaders(partition.topic()).get(0).nodeInfo());
     Assertions.assertEquals(
-        NodeInfo.of(node), clusterInfo.partitions(partition.topic()).get(0).nodeInfo());
+        NodeInfo.of(node), clusterInfo.replicas(partition.topic()).get(0).nodeInfo());
   }
 
   @Test

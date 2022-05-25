@@ -108,7 +108,7 @@ class LayeredClusterLogAllocationTest {
     final var allocation0 = LayeredClusterLogAllocation.of(fakeClusterInfo);
     final var allocation1 = LayeredClusterLogAllocation.of(allocation0);
     fakeClusterInfo.topics().stream()
-        .flatMap(x -> fakeClusterInfo.partitions(x).stream())
+        .flatMap(x -> fakeClusterInfo.replicas(x).stream())
         .forEach(
             replica ->
                 allocation1.changeDataDirectory(
@@ -126,7 +126,7 @@ class LayeredClusterLogAllocationTest {
     Assertions.assertEquals(10 * 10, allTopicPartitions.size());
     final var expectedTopicPartitions =
         fakeClusterInfo.topics().stream()
-            .flatMap(x -> fakeClusterInfo.partitions(x).stream())
+            .flatMap(x -> fakeClusterInfo.replicas(x).stream())
             .map(x -> TopicPartition.of(x.topic(), Integer.toString(x.partition())))
             .distinct()
             .sorted(
