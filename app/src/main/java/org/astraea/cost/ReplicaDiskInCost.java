@@ -8,6 +8,7 @@ import java.util.Map;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
 import org.apache.kafka.common.TopicPartitionReplica;
+import org.astraea.admin.TopicPartition;
 import org.astraea.metrics.HasBeanObject;
 import org.astraea.metrics.collector.Fetcher;
 import org.astraea.metrics.kafka.HasValue;
@@ -25,15 +26,10 @@ public class ReplicaDiskInCost implements HasBrokerCost {
     final Map<Integer, List<TopicPartitionReplica>> topicPartitionOfEachBroker =
         clusterInfo.topics().stream()
             .flatMap(topic -> clusterInfo.partitions(topic).stream())
-            .flatMap(
-                partitionInfo ->
-                    partitionInfo.replicas().stream()
-                        .map(
-                            replica ->
-                                new TopicPartitionReplica(
-                                    partitionInfo.topic(),
-                                    partitionInfo.partition(),
-                                    replica.id())))
+            .map(
+                replica ->
+                    new TopicPartitionReplica(
+                        replica.topic(), replica.partition(), replica.nodeInfo().id()))
             .collect(Collectors.groupingBy(TopicPartitionReplica::brokerId));
     final var actual =
         clusterInfo.nodes().stream()
@@ -54,7 +50,7 @@ public class ReplicaDiskInCost implements HasBrokerCost {
                             .mapToDouble(
                                 x ->
                                     topicPartitionDataRate.get(
-                                        TopicPartition.of(x.topic(), x.partition())))
+                                        new TopicPartition(x.topic(), x.partition())))
                             .sum()))
             .map(
                 entry ->
@@ -90,8 +86,9 @@ public class ReplicaDiskInCost implements HasBrokerCost {
                             bean ->
                                 TopicPartition.of(
                                     bean.beanObject().getProperties().get("topic"),
-                                    Integer.parseInt(
-                                        bean.beanObject().getProperties().get("partition")))))
+                                    String.valueOf(
+                                        Integer.parseInt(
+                                            bean.beanObject().getProperties().get("partition"))))))
                     .entrySet()
                     .parallelStream()
                     .map(
@@ -157,7 +154,7 @@ public class ReplicaDiskInCost implements HasBrokerCost {
             .filter(x -> x.getKey().topic().equals(topic))
             .collect(
                 Collectors.groupingBy(
-                    x -> TopicPartition.of(x.getKey().topic(), x.getKey().partition())))
+                    x -> new TopicPartition(x.getKey().topic(), x.getKey().partition())))
             .entrySet()
             .stream()
             .map(
@@ -177,7 +174,7 @@ public class ReplicaDiskInCost implements HasBrokerCost {
             .filter(x -> x.getKey().brokerId() == brokerId)
             .collect(
                 Collectors.groupingBy(
-                    x -> TopicPartition.of(x.getKey().topic(), x.getKey().partition())))
+                    x -> new TopicPartition(x.getKey().topic(), x.getKey().partition())))
             .entrySet()
             .stream()
             .map(

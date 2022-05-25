@@ -5,6 +5,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import org.astraea.admin.TopicPartition;
 import org.astraea.metrics.HasBeanObject;
 import org.astraea.metrics.jmx.BeanObject;
 import org.astraea.metrics.kafka.HasValue;
@@ -27,23 +28,19 @@ class ReplicaDiskInCostTest {
     var broker3ReplicaLoad = loadCostFunction.partitionCost(exampleClusterInfo()).value(3);
     // broker1
     Assertions.assertEquals(
-        0.23841381072998047,
-        broker1ReplicaLoad.get(org.astraea.cost.TopicPartition.of("test-1", 0)));
+        0.23841381072998047, broker1ReplicaLoad.get(new TopicPartition("test-1", 0)));
     Assertions.assertEquals(
-        0.1907339096069336,
-        broker1ReplicaLoad.get(org.astraea.cost.TopicPartition.of("test-2", 0)));
+        0.1907339096069336, broker1ReplicaLoad.get(new TopicPartition("test-2", 0)));
     // broker2
     Assertions.assertEquals(
-        0.23841381072998047,
-        broker2ReplicaLoad.get(org.astraea.cost.TopicPartition.of("test-1", 0)));
+        0.23841381072998047, broker2ReplicaLoad.get(new TopicPartition("test-1", 0)));
     Assertions.assertEquals(
-        0.476834774017334, broker2ReplicaLoad.get(org.astraea.cost.TopicPartition.of("test-1", 1)));
+        0.476834774017334, broker2ReplicaLoad.get(new TopicPartition("test-1", 1)));
     // broker3
     Assertions.assertEquals(
-        0.476834774017334, broker3ReplicaLoad.get(org.astraea.cost.TopicPartition.of("test-1", 1)));
+        0.476834774017334, broker3ReplicaLoad.get(new TopicPartition("test-1", 1)));
     Assertions.assertEquals(
-        0.1907339096069336,
-        broker3ReplicaLoad.get(org.astraea.cost.TopicPartition.of("test-2", 0)));
+        0.1907339096069336, broker3ReplicaLoad.get(new TopicPartition("test-2", 0)));
   }
 
   @Test
@@ -97,32 +94,17 @@ class ReplicaDiskInCostTest {
       }
 
       @Override
-      public List<PartitionInfo> partitions(String topic) {
+      public List<ReplicaInfo> partitions(String topic) {
         if (topic.equals("test-1"))
           return List.of(
-              PartitionInfo.of(
-                  "test-1",
-                  0,
-                  null,
-                  List.of(NodeInfo.of(1, "", -1), NodeInfo.of(2, "", -1)),
-                  null,
-                  null),
-              PartitionInfo.of(
-                  "test-1",
-                  1,
-                  null,
-                  List.of(NodeInfo.of(2, "", -1), NodeInfo.of(3, "", -1)),
-                  null,
-                  null));
+              ReplicaInfo.of("test-1", 0, NodeInfo.of(1, "", -1), true, true, false),
+              ReplicaInfo.of("test-1", 0, NodeInfo.of(2, "", -1), false, true, false),
+              ReplicaInfo.of("test-1", 1, NodeInfo.of(2, "", -1), false, true, false),
+              ReplicaInfo.of("test-1", 1, NodeInfo.of(3, "", -1), true, true, false));
         else
           return List.of(
-              PartitionInfo.of(
-                  "test-2",
-                  0,
-                  null,
-                  List.of(NodeInfo.of(1, "", -1), NodeInfo.of(3, "", -1)),
-                  null,
-                  null));
+              ReplicaInfo.of("test-2", 0, NodeInfo.of(1, "", -1), false, true, false),
+              ReplicaInfo.of("test-2", 0, NodeInfo.of(3, "", -1), true, true, false));
       }
 
       @Override

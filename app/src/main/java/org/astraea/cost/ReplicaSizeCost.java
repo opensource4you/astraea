@@ -5,6 +5,7 @@ import java.util.Map;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
 import org.apache.kafka.common.TopicPartitionReplica;
+import org.astraea.admin.TopicPartition;
 import org.astraea.metrics.collector.Fetcher;
 import org.astraea.metrics.kafka.HasValue;
 import org.astraea.metrics.kafka.KafkaMetrics;
@@ -75,7 +76,7 @@ public class ReplicaSizeCost implements HasBrokerCost, HasPartitionCost {
         return clusterInfo.partitions(topic).stream()
             .map(
                 partitionInfo ->
-                    TopicPartition.of(partitionInfo.topic(), partitionInfo.partition()))
+                    new TopicPartition(partitionInfo.topic(), partitionInfo.partition()))
             .map(
                 tp -> {
                   final var score =
@@ -104,7 +105,7 @@ public class ReplicaSizeCost implements HasBrokerCost, HasPartitionCost {
             .filter((tprScore) -> tprScore.getKey().brokerId() == brokerId)
             .collect(
                 Collectors.toMap(
-                    x -> TopicPartition.of(x.getKey().topic(), x.getKey().partition()),
+                    x -> new TopicPartition(x.getKey().topic(), x.getKey().partition()),
                     Map.Entry::getValue));
       }
     };
