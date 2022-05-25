@@ -203,7 +203,7 @@ public class Performance {
       public State execute() {
         try {
           consumer
-              .poll(1, Duration.ofSeconds(10))
+              .poll(Duration.ofSeconds(10))
               .forEach(
                   record -> {
                     // record ene-to-end latency, and record input byte (header and timestamp size
