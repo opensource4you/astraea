@@ -89,15 +89,15 @@ public class ClusterInfoProvider {
       }
 
       @Override
-      public List<ReplicaInfo> availablePartitionLeaders(String topic) {
-        return partitions(topic).stream()
+      public List<ReplicaInfo> availableReplicaLeaders(String topic) {
+        return replicas(topic).stream()
             .filter(ReplicaInfo::isLeader)
             .collect(Collectors.toUnmodifiableList());
       }
 
       @Override
-      public List<ReplicaInfo> availablePartitions(String topic) {
-        return partitions(topic);
+      public List<ReplicaInfo> availableReplicas(String topic) {
+        return replicas(topic);
       }
 
       @Override
@@ -106,7 +106,7 @@ public class ClusterInfoProvider {
       }
 
       @Override
-      public List<ReplicaInfo> partitions(String topic) {
+      public List<ReplicaInfo> replicas(String topic) {
         return replicas.get(topic);
       }
 
