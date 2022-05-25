@@ -48,7 +48,7 @@ public interface Database extends Closeable {
   class Builder {
     private Builder() {}
 
-    private String databaseName = "ohara";
+    private String databaseName = Utils.randomString(5);
     private String user = "user";
     private String password = "password";
     private int port = 0;
