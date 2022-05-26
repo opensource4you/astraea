@@ -1,4 +1,4 @@
-package org.astraea.cost;
+package org.astraea.cost.broker;
 
 import java.util.Collection;
 import java.util.HashMap;
@@ -6,6 +6,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import org.astraea.admin.TopicPartition;
+import org.astraea.cost.ClusterInfo;
+import org.astraea.cost.FakeClusterInfo;
+import org.astraea.cost.NodeInfo;
+import org.astraea.cost.ReplicaInfo;
 import org.astraea.metrics.HasBeanObject;
 import org.astraea.metrics.jmx.BeanObject;
 import org.astraea.metrics.kafka.HasValue;
@@ -66,7 +70,7 @@ class ReplicaSizeCostTest {
       }
 
       @Override
-      public List<ReplicaInfo> partitions(String topic) {
+      public List<ReplicaInfo> replicas(String topic) {
         if (topic.equals("test-1"))
           return List.of(
               ReplicaInfo.of("test-1", 0, NodeInfo.of(1, "", -1), true, true, false),

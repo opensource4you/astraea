@@ -1,4 +1,4 @@
-package org.astraea.cost;
+package org.astraea.cost.broker;
 
 import java.time.Duration;
 import java.util.Comparator;
@@ -9,6 +9,11 @@ import java.util.TreeMap;
 import java.util.stream.Collectors;
 import org.apache.kafka.common.TopicPartitionReplica;
 import org.astraea.admin.TopicPartition;
+import org.astraea.cost.BrokerCost;
+import org.astraea.cost.ClusterInfo;
+import org.astraea.cost.HasBrokerCost;
+import org.astraea.cost.NodeInfo;
+import org.astraea.cost.PartitionCost;
 import org.astraea.metrics.HasBeanObject;
 import org.astraea.metrics.collector.Fetcher;
 import org.astraea.metrics.kafka.HasValue;
@@ -25,7 +30,7 @@ public class ReplicaDiskInCost implements HasBrokerCost {
   public BrokerCost brokerCost(ClusterInfo clusterInfo) {
     final Map<Integer, List<TopicPartitionReplica>> topicPartitionOfEachBroker =
         clusterInfo.topics().stream()
-            .flatMap(topic -> clusterInfo.partitions(topic).stream())
+            .flatMap(topic -> clusterInfo.replicas(topic).stream())
             .map(
                 replica ->
                     new TopicPartitionReplica(
@@ -207,7 +212,7 @@ public class ReplicaDiskInCost implements HasBrokerCost {
                     .forEach(
                         topic ->
                             clusterInfo
-                                .partitions(topic)
+                                .replicas(topic)
                                 .forEach(
                                     partitionInfo -> {
                                       var beanObject =

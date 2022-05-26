@@ -1,4 +1,4 @@
-package org.astraea.cost;
+package org.astraea.cost.broker;
 
 import java.util.Comparator;
 import java.util.Map;
@@ -6,6 +6,12 @@ import java.util.TreeMap;
 import java.util.stream.Collectors;
 import org.apache.kafka.common.TopicPartitionReplica;
 import org.astraea.admin.TopicPartition;
+import org.astraea.cost.BrokerCost;
+import org.astraea.cost.ClusterInfo;
+import org.astraea.cost.HasBrokerCost;
+import org.astraea.cost.HasPartitionCost;
+import org.astraea.cost.NodeInfo;
+import org.astraea.cost.PartitionCost;
 import org.astraea.metrics.collector.Fetcher;
 import org.astraea.metrics.kafka.HasValue;
 import org.astraea.metrics.kafka.KafkaMetrics;
@@ -73,7 +79,7 @@ public class ReplicaSizeCost implements HasBrokerCost, HasPartitionCost {
 
       @Override
       public Map<TopicPartition, Double> value(String topic) {
-        return clusterInfo.partitions(topic).stream()
+        return clusterInfo.replicas(topic).stream()
             .map(
                 partitionInfo ->
                     new TopicPartition(partitionInfo.topic(), partitionInfo.partition()))

@@ -1,8 +1,10 @@
-package org.astraea.cost;
+package org.astraea.cost.broker;
 
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import org.astraea.cost.ClusterInfo;
+import org.astraea.cost.FakeClusterInfo;
 import org.astraea.metrics.HasBeanObject;
 import org.astraea.metrics.jmx.BeanObject;
 import org.astraea.metrics.kafka.HasValue;
