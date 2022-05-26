@@ -58,7 +58,7 @@ public class SmoothWeightRoundRobinTest {
     Mockito.when(node3.id()).thenReturn(3);
     return new FakeClusterInfo() {
       @Override
-      public List<ReplicaInfo> availablePartitionLeaders(String topic) {
+      public List<ReplicaInfo> availableReplicaLeaders(String topic) {
         return List.of(re1, re2, re3);
       }
     };

@@ -296,7 +296,7 @@ public class SmoothWeightRoundRobinDispatchTest extends RequireBrokerCluster {
     var testCluster =
         new FakeClusterInfo() {
           @Override
-          public List<ReplicaInfo> availablePartitionLeaders(String topic) {
+          public List<ReplicaInfo> availableReplicaLeaders(String topic) {
             return List.of(re1, re2, re3);
           }
         };
