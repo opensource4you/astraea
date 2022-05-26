@@ -2,8 +2,11 @@ package org.astraea.partitioner.smooth;
 
 import java.time.Duration;
 import java.util.Comparator;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import org.astraea.cost.ClusterInfo;
 import org.astraea.cost.Periodic;
 import org.astraea.cost.broker.CostUtils;
 
@@ -34,7 +37,9 @@ import org.astraea.cost.broker.CostUtils;
 public final class SmoothWeightRoundRobin
     extends Periodic<SmoothWeightRoundRobin.EffectiveWeightResult> {
   private EffectiveWeightResult effectiveWeightResult;
-  public Map<Integer, Double> currentWeight;
+  private Map<Integer, Double> currentWeight;
+
+  private final Map<String, List<Integer>> brokersIDofTopic = new HashMap<>();
 
   public SmoothWeightRoundRobin(Map<Integer, Double> effectiveWeight) {
     effectiveWeightResult =
@@ -75,15 +80,27 @@ public final class SmoothWeightRoundRobin
    *
    * @return the preferred ID
    */
-  public synchronized int getAndChoose() {
+  public synchronized int getAndChoose(String topic, ClusterInfo clusterInfo) {
+    // TODO Update brokerID with ClusterInfo frequency.
+    var brokerID =
+        brokersIDofTopic.computeIfAbsent(
+            topic,
+            e ->
+                clusterInfo.availablePartitionLeaders(topic).stream()
+                    .map(replicaInfo -> replicaInfo.nodeInfo().id())
+                    .collect(Collectors.toList()));
     this.currentWeight =
         this.currentWeight.entrySet().stream()
             .collect(
                 Collectors.toMap(
                     Map.Entry::getKey,
-                    e -> e.getValue() + effectiveWeightResult.effectiveWeight.get(e.getKey())));
+                    e ->
+                        brokerID.contains(e.getKey())
+                            ? e.getValue() + effectiveWeightResult.effectiveWeight.get(e.getKey())
+                            : e.getValue()));
     var maxID =
         this.currentWeight.entrySet().stream()
+            .filter(entry -> brokerID.contains(entry.getKey()))
             .max(Comparator.comparingDouble(Map.Entry::getValue))
             .map(Map.Entry::getKey)
             .orElse(0);
@@ -94,18 +111,23 @@ public final class SmoothWeightRoundRobin
                     Map.Entry::getKey,
                     e ->
                         e.getKey().equals(maxID)
-                            ? e.getValue() - effectiveWeightResult.effectiveWeightSum
+                            ? e.getValue() - effectiveWeightResult.effectiveWeightSum(brokerID)
                             : e.getValue()));
     return maxID;
   }
 
   public static class EffectiveWeightResult {
     private final Map<Integer, Double> effectiveWeight;
-    private final double effectiveWeightSum;
 
     EffectiveWeightResult(Map<Integer, Double> effectiveWeight) {
       this.effectiveWeight = effectiveWeight;
-      this.effectiveWeightSum = effectiveWeight.values().stream().mapToDouble(i -> i).sum();
+    }
+
+    double effectiveWeightSum(List<Integer> brokerID) {
+      return effectiveWeight.entrySet().stream()
+          .filter(entry -> brokerID.contains(entry.getKey()))
+          .mapToDouble(Map.Entry::getValue)
+          .sum();
     }
   }
 }
