@@ -54,7 +54,7 @@ public class LayeredClusterLogAllocation implements ClusterLogAllocation {
   public static LayeredClusterLogAllocation of(ClusterInfo clusterInfo) {
     final Map<TopicPartition, List<LogPlacement>> allocation =
         clusterInfo.topics().stream()
-            .map(clusterInfo::partitions)
+            .map(clusterInfo::replicas)
             .flatMap(Collection::stream)
             .collect(
                 Collectors.groupingBy(

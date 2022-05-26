@@ -18,12 +18,12 @@ public class FakeClusterInfo implements ClusterInfo {
   }
 
   @Override
-  public List<ReplicaInfo> availablePartitionLeaders(String topic) {
+  public List<ReplicaInfo> availableReplicaLeaders(String topic) {
     return List.of();
   }
 
   @Override
-  public List<ReplicaInfo> availablePartitions(String topic) {
+  public List<ReplicaInfo> availableReplicas(String topic) {
     return List.of();
   }
 
@@ -33,7 +33,7 @@ public class FakeClusterInfo implements ClusterInfo {
   }
 
   @Override
-  public List<ReplicaInfo> partitions(String topic) {
+  public List<ReplicaInfo> replicas(String topic) {
     return List.of();
   }
 

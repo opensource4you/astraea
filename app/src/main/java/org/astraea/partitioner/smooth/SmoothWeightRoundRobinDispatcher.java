@@ -82,7 +82,7 @@ public class SmoothWeightRoundRobinDispatcher extends Periodic<Map<Integer, Doub
     if (partitions.size() == 1) return partitions.iterator().next().partition();
 
     if (targetPartition == null) {
-      var targetBroker = smoothWeightRoundRobinCal.getAndChoose();
+      var targetBroker = smoothWeightRoundRobinCal.getAndChoose(topic, clusterInfo);
       targetPartition =
           hasPartitions
               .get(targetBroker)
@@ -148,7 +148,7 @@ public class SmoothWeightRoundRobinDispatcher extends Periodic<Map<Integer, Doub
   }
 
   private void refreshPartitionMetaData(ClusterInfo clusterInfo, String topic) {
-    partitions = clusterInfo.availablePartitions(topic);
+    partitions = clusterInfo.availableReplicas(topic);
     partitions.forEach(
         p ->
             hasPartitions
