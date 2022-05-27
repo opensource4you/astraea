@@ -16,6 +16,7 @@ import org.apache.kafka.common.config.TopicConfig;
 import org.astraea.Utils;
 import org.astraea.consumer.Consumer;
 import org.astraea.consumer.Deserializer;
+import org.astraea.cost.NodeInfo;
 import org.astraea.producer.Producer;
 import org.astraea.producer.Serializer;
 import org.astraea.service.RequireBrokerCluster;
@@ -519,6 +520,16 @@ public class AdminTest extends RequireBrokerCluster {
       admin.quotaCreator().clientId("my-id").produceRate(999).create();
       TimeUnit.SECONDS.sleep(2);
       Assertions.assertEquals(2, admin.quotas(Quota.Target.CLIENT_ID, "my-id").size());
+    }
+  }
+
+  @Test
+  void testNodes() {
+    try (var admin = Admin.of(bootstrapServers())) {
+      final Set<NodeInfo> nodes = admin.nodes();
+      Assertions.assertEquals(brokerIds(), nodes.stream()
+              .map(NodeInfo::id)
+              .collect(Collectors.toUnmodifiableSet()));
     }
   }
 }

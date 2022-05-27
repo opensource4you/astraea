@@ -8,7 +8,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Set;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
+import org.astraea.Utils;
+import org.astraea.admin.Admin;
 import org.astraea.metrics.HasBeanObject;
 
 public interface ClusterInfo {
@@ -64,6 +67,99 @@ public interface ClusterInfo {
       @Override
       public Map<Integer, Collection<HasBeanObject>> allBeans() {
         return Map.of();
+      }
+    };
+  }
+
+  static ClusterInfo of(Admin admin) {
+    return of(admin, (ignore) -> true);
+  }
+
+  static ClusterInfo of(Admin admin, Predicate<String> topicPattern) {
+    final var nodeInfo = admin.nodes().stream().collect(Collectors.toUnmodifiableList());
+    final var filteredTopics =
+        admin.topicNames().stream().filter(topicPattern).collect(Collectors.toUnmodifiableSet());
+
+    final var topicToReplicasMap =
+            Utils.handleException(() -> admin.replicas(filteredTopics)).entrySet().stream()
+            .flatMap(
+                entry -> {
+                  // TODO: there is a bug in here. Admin#replicas doesn't return the full
+                  // information of each replica if there are some offline here. might be fix in
+                  // #308?
+                  final var topicPartition = entry.getKey();
+                  final var replicas = entry.getValue();
+
+                  return replicas.stream()
+                      .map(
+                          replica ->
+                              ReplicaInfo.of(
+                                  topicPartition.topic(),
+                                  topicPartition.partition(),
+                                  nodeInfo.stream()
+                                      .filter(x -> x.id() == replica.broker())
+                                      .findFirst()
+                                      .orElseThrow(),
+                                  replica.leader(),
+                                  replica.inSync(),
+                                  // TODO: fix the isOfflineReplica flag once the #308 is merged
+                                  false,
+                                  replica.path()));
+                })
+            .collect(Collectors.groupingBy(ReplicaInfo::topic));
+    final var dataDirectories =
+        admin
+            .brokerFolders(
+                nodeInfo.stream().map(NodeInfo::id).collect(Collectors.toUnmodifiableSet()))
+            .entrySet()
+            .stream()
+            .collect(
+                Collectors.toUnmodifiableMap(Map.Entry::getKey, x -> Set.copyOf(x.getValue())));
+
+    return new ClusterInfo() {
+      @Override
+      public List<NodeInfo> nodes() {
+        return nodeInfo;
+      }
+
+      @Override
+      public Set<String> dataDirectories(int brokerId) {
+        return dataDirectories.get(brokerId);
+      }
+
+      @Override
+      public List<ReplicaInfo> availableReplicaLeaders(String topic) {
+        return topicToReplicasMap.get(topic).stream()
+            .filter(ReplicaInfo::isLeader)
+            .collect(Collectors.toUnmodifiableList());
+      }
+
+      @Override
+      public List<ReplicaInfo> availableReplicas(String topic) {
+        return topicToReplicasMap.get(topic).stream()
+            .filter((ReplicaInfo x) -> !x.isOfflineReplica())
+            .collect(Collectors.toUnmodifiableList());
+      }
+
+      @Override
+      public Set<String> topics() {
+        return filteredTopics;
+      }
+
+      @Override
+      public List<ReplicaInfo> replicas(String topic) {
+        return topicToReplicasMap.get(topic);
+      }
+
+      @Override
+      public Collection<HasBeanObject> beans(int brokerId) {
+        return List.of();
+      }
+
+      @Override
+      public Map<Integer, Collection<HasBeanObject>> allBeans() {
+        return nodeInfo.stream()
+            .collect(Collectors.toUnmodifiableMap(NodeInfo::id, ignore -> List.of()));
       }
     };
   }
@@ -160,7 +256,6 @@ public interface ClusterInfo {
 
   /** @return return the data directories on specific broker */
   Set<String> dataDirectories(int brokerId);
-  // TODO: provide a ClusterInfo implementation with this info
 
   /**
    * Get the list of replica leader information of each available partition for the given topic

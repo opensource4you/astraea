@@ -33,6 +33,7 @@ import org.apache.kafka.common.quota.ClientQuotaEntity;
 import org.apache.kafka.common.quota.ClientQuotaFilter;
 import org.apache.kafka.common.quota.ClientQuotaFilterComponent;
 import org.astraea.Utils;
+import org.astraea.cost.NodeInfo;
 
 public class Builder {
 
@@ -74,6 +75,15 @@ public class Builder {
               admin.describeCluster().nodes().get().stream()
                   .map(Node::id)
                   .collect(Collectors.toSet()));
+    }
+
+    @Override
+    public Set<NodeInfo> nodes() {
+      return Utils.handleException(
+          () ->
+              admin.describeCluster().nodes().get().stream()
+                  .map(NodeInfo::of)
+                  .collect(Collectors.toUnmodifiableSet()));
     }
 
     @Override

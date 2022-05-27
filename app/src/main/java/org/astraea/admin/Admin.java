@@ -5,6 +5,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import org.astraea.cost.NodeInfo;
 
 public interface Admin extends Closeable {
 
@@ -94,6 +95,9 @@ public interface Admin extends Closeable {
 
   /** @return all brokers' ids */
   Set<Integer> brokerIds();
+
+  /** @return all node information in the cluster */
+  Set<NodeInfo> nodes();
 
   /**
    * list all partitions belongs to input brokers
