@@ -10,17 +10,20 @@ import java.io.IOException;
 import java.lang.management.ManagementFactory;
 import java.util.Arrays;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import javax.management.MBeanServer;
 import javax.management.remote.JMXConnectorServer;
 import javax.management.remote.JMXConnectorServerFactory;
 import javax.management.remote.JMXServiceURL;
 import org.astraea.admin.Admin;
+import org.astraea.common.Utils;
 import org.astraea.metrics.java.JvmMemory;
 import org.astraea.metrics.java.OperatingSystemInfo;
 import org.astraea.metrics.jmx.MBeanClient;
 import org.astraea.service.RequireBrokerCluster;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledOnOs;
@@ -109,6 +112,21 @@ class KafkaMetricsTest extends RequireBrokerCluster {
     assertDoesNotThrow(totalTimeMs::stdDev);
   }
 
+  @ParameterizedTest()
+  @EnumSource(value = KafkaMetrics.TopicPartition.class)
+  void testTopicPartitionMetrics(KafkaMetrics.TopicPartition request) throws InterruptedException {
+    try (var admin = Admin.of(bootstrapServers())) {
+      // there are only 3 brokers, so 10 partitions can make each broker has some partitions
+      admin.creator().topic(Utils.randomString(5)).numberOfPartitions(10).create();
+    }
+
+    // wait for topic creation
+    TimeUnit.SECONDS.sleep(2);
+
+    var beans = request.fetch(mBeanClient);
+    Assertions.assertNotEquals(0, beans.size());
+  }
+
   @Test
   void testGlobalPartitionCount() {
     // act
@@ -121,7 +139,7 @@ class KafkaMetricsTest extends RequireBrokerCluster {
   }
 
   @Test
-  void testSize() throws IOException {
+  void testSize() {
     // arrange
     try (Admin admin = Admin.of(bootstrapServers())) {
       String topicName = getClass().getName();
