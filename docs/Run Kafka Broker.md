@@ -45,5 +45,3 @@ exporter address: 192.168.103.24:18928
 2. REVISION : 設置Kafka source code版本，若被設置，會去執行source code版本的distribution
 3. HEAP_OPTS : 設置 JVM memory options
 4. DATA_FOLDERS : 選擇broker要在host端使用的資料夾，如果關閉broker的container後還會用到broker儲存的資料，就要設置此ENVs
-
-### 
