@@ -17,7 +17,8 @@ def versions = [
     slf4j: project.properties['slf4j.version'] ?: "1.7.32",
     zookeeper: project.properties['zookeeper.version'] ?: "3.6.3",
     gson: project.properties['gson.version'] ?: "2.9.0",
-    mysql: project.properties['mysql.version'] ?: "4.6.2",
+    wix: project.properties['wix.version'] ?: "4.6.2",
+    mysql: project.properties['mysql.version'] ?: "8.0.29",
 ]
 
 dependencies {
@@ -26,7 +27,8 @@ dependencies {
     testImplementation "org.mockito:mockito-inline:${versions["mockito"]}"
     testImplementation "org.apache.zookeeper:zookeeper:${versions["zookeeper"]}"
     testImplementation "org.apache.kafka:kafka_2.12:${versions["kafka"]}"
-    testImplementation "com.wix:wix-embedded-mysql:${versions["mysql"]}"
+    testImplementation "com.wix:wix-embedded-mysql:${versions["wix"]}"
+    testImplementation "mysql:mysql-connector-java:${versions["mysql"]}"
 
 
     implementation "org.apache.kafka:kafka-clients:${versions["kafka"]}"
