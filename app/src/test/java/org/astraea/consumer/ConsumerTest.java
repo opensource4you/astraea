@@ -155,7 +155,7 @@ public class ConsumerTest extends RequireBrokerCluster {
 
   @Test
   void testRecordsPollingTime() {
-    var count = 10;
+    var count = 1;
     var topic = "testPollingTime";
     try (var consumer =
         Consumer.builder()
@@ -163,8 +163,11 @@ public class ConsumerTest extends RequireBrokerCluster {
             .topics(Set.of(topic))
             .fromBeginning()
             .build()) {
+
+      // poll() returns immediately, if there is(/are) record(s) to poll.
       produceData(topic, count);
-      Assertions.assertTimeout(Duration.ofSeconds(9), () -> consumer.poll(Duration.ofSeconds(10)));
+      Assertions.assertTimeout(
+          Duration.ofSeconds(10), () -> consumer.poll(Duration.ofSeconds(Integer.MAX_VALUE)));
     }
   }
 }
