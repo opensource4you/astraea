@@ -9,7 +9,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
-import org.astraea.Utils;
+import org.astraea.common.Utils;
 import org.astraea.consumer.Consumer;
 import org.astraea.consumer.Deserializer;
 import org.astraea.consumer.Header;

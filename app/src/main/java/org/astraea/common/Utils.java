@@ -1,17 +1,10 @@
-package org.astraea;
+package org.astraea.common;
 
 import java.io.File;
-import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.net.InetAddress;
 import java.net.ServerSocket;
-import java.net.UnknownHostException;
 import java.nio.file.Files;
 import java.time.Duration;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
@@ -27,7 +20,15 @@ public final class Utils {
     return current;
   }
 
-  public static <R> R handleException(Getter<R> getter) {
+  /**
+   * Convert the exception thrown by getter to RuntimeException. This method can eliminate the
+   * exception from Java signature.
+   *
+   * @param getter to execute
+   * @param <R> type of returned object
+   * @return the object created by getter
+   */
+  public static <R> R packException(Getter<R> getter) {
     try {
       return getter.get();
     } catch (Throwable exception) {
@@ -38,8 +39,39 @@ public final class Utils {
     }
   }
 
+  /**
+   * Convert the exception thrown by getter to RuntimeException. This method can eliminate the
+   * exception from Java signature.
+   *
+   * @param runner to execute
+   */
+  public static void packException(Runner runner) {
+    Utils.packException(
+        () -> {
+          runner.run();
+          return null;
+        });
+  }
+
+  /**
+   * Swallow any exception caused by runner.
+   *
+   * @param runner to execute
+   */
+  public static void swallowException(Runner runner) {
+    Utils.packException(
+        () -> {
+          runner.run();
+          return null;
+        });
+  }
+
   public interface Getter<R> {
     R get() throws Exception;
+  }
+
+  public interface Runner {
+    void run() throws Exception;
   }
 
   /**
@@ -48,39 +80,22 @@ public final class Utils {
    * @param file path to file or folder
    */
   public static void delete(File file) {
-    try {
-      if (file.isDirectory()) {
-        var fs = file.listFiles();
-        if (fs != null) Stream.of(fs).forEach(Utils::delete);
-      }
-      Files.deleteIfExists(file.toPath());
-    } catch (IOException e) {
-      throw new IllegalStateException(e);
-    }
+    Utils.packException(
+        () -> {
+          if (file.isDirectory()) {
+            var fs = file.listFiles();
+            if (fs != null) Stream.of(fs).forEach(Utils::delete);
+          }
+          Files.deleteIfExists(file.toPath());
+        });
   }
 
   public static String hostname() {
-    try {
-      return InetAddress.getLocalHost().getHostName();
-    } catch (UnknownHostException e) {
-      throw new IllegalArgumentException(e);
-    }
+    return Utils.packException(() -> InetAddress.getLocalHost().getHostName());
   }
 
   public static File createTempDirectory(String prefix) {
-    try {
-      return Files.createTempDirectory(prefix).toFile();
-    } catch (IOException e) {
-      throw new UncheckedIOException(e);
-    }
-  }
-
-  public static void close(AutoCloseable closeable) {
-    try {
-      if (closeable != null) closeable.close();
-    } catch (Exception e) {
-      e.printStackTrace();
-    }
+    return Utils.packException(() -> Files.createTempDirectory(prefix).toFile());
   }
 
   /**
@@ -111,39 +126,6 @@ public final class Utils {
     throw new RuntimeException("Timeout to wait procedure");
   }
 
-  /**
-   * Get the field of the object.
-   *
-   * @param object reflected object.
-   * @param fieldName reflected field name.
-   * @return Required field.
-   */
-  public static Object requireField(Object object, String fieldName) {
-    try {
-      var field = object.getClass().getDeclaredField(fieldName);
-      field.setAccessible(true);
-      return field.get(object);
-    } catch (NoSuchFieldException | IllegalAccessException e) {
-      throw new IllegalArgumentException(e);
-    }
-  }
-
-  /**
-   * Separate host and port
-   *
-   * @param address like 0.0.0.0:9092
-   * @return (0.0.0.0,9092)
-   */
-  public static Map<String, Integer> requireHostPort(List<String> address) {
-    var mapAddress = new HashMap<String, Integer>();
-    address.forEach(
-        str ->
-            mapAddress.put(
-                Arrays.asList(str.split(":")).get(0),
-                Integer.parseInt(Arrays.asList(str.split(":")).get(1))));
-    return mapAddress;
-  }
-
   public static int requirePositive(int value) {
     if (value <= 0)
       throw new IllegalArgumentException("the value: " + value + " must be bigger than zero");
@@ -162,10 +144,7 @@ public final class Utils {
   }
 
   public static void sleep(Duration duration) {
-    try {
-      TimeUnit.MILLISECONDS.sleep(duration.toMillis());
-    } catch (InterruptedException ignored) {
-    }
+    Utils.swallowException(() -> TimeUnit.MILLISECONDS.sleep(duration.toMillis()));
   }
 
   public static String randomString(int len) {
@@ -186,14 +165,15 @@ public final class Utils {
   }
 
   public static int availablePort() {
-    try (ServerSocket socket = new ServerSocket(0)) {
-      socket.setReuseAddress(true);
-      var port = socket.getLocalPort();
-      // the port smaller than 1024 may be protected by OS.
-      return port > 1024 ? port : port + 1024;
-    } catch (IOException e) {
-      throw new RuntimeException(e);
-    }
+    return Utils.packException(
+        () -> {
+          try (ServerSocket socket = new ServerSocket(0)) {
+            socket.setReuseAddress(true);
+            var port = socket.getLocalPort();
+            // the port smaller than 1024 may be protected by OS.
+            return port > 1024 ? port : port + 1024;
+          }
+        });
   }
 
   public static int resolvePort(int port) {

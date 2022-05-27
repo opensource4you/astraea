@@ -7,7 +7,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
 import org.apache.kafka.common.errors.WakeupException;
-import org.astraea.Utils;
+import org.astraea.common.Utils;
 import org.astraea.producer.Producer;
 import org.astraea.service.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
