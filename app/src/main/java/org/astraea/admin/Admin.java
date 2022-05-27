@@ -5,6 +5,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import org.astraea.cost.ClusterInfo;
 import org.astraea.cost.NodeInfo;
 
 public interface Admin extends Closeable {
@@ -159,6 +160,17 @@ public interface Admin extends Closeable {
 
   /** @return all quotas */
   Collection<Quota> quotas();
+
+  /** @return a snapshot object of cluster state at the moment */
+  default ClusterInfo clusterInfo() {
+    return clusterInfo(topicNames());
+  }
+
+  /**
+   * @param topics query only this subset of topics
+   * @return a snapshot object of cluster state at the moment
+   */
+  ClusterInfo clusterInfo(Set<String> topics);
 
   @Override
   void close();

@@ -33,7 +33,9 @@ import org.apache.kafka.common.quota.ClientQuotaEntity;
 import org.apache.kafka.common.quota.ClientQuotaFilter;
 import org.apache.kafka.common.quota.ClientQuotaFilterComponent;
 import org.astraea.Utils;
+import org.astraea.cost.ClusterInfo;
 import org.astraea.cost.NodeInfo;
+import org.astraea.metrics.HasBeanObject;
 
 public class Builder {
 
@@ -392,6 +394,93 @@ public class Builder {
     private Collection<Quota> quotas(ClientQuotaFilter filter) {
       return Quota.of(
           Utils.handleException(() -> admin.describeClientQuotas(filter).entities().get()));
+    }
+
+    @Override
+    public ClusterInfo clusterInfo(Set<String> topics) {
+      final var nodeInfo = this.nodes().stream().collect(Collectors.toUnmodifiableList());
+
+      final var topicToReplicasMap =
+          Utils.handleException(() -> this.replicas(topics)).entrySet().stream()
+              .flatMap(
+                  entry -> {
+                    // TODO: there is a bug in here. Admin#replicas doesn't return the full
+                    // information of each replica if there are some offline here. might be fix in
+                    // #308?
+                    final var topicPartition = entry.getKey();
+                    final var replicas = entry.getValue();
+
+                    return replicas.stream()
+                        .map(
+                            replica ->
+                                org.astraea.cost.ReplicaInfo.of(
+                                    topicPartition.topic(),
+                                    topicPartition.partition(),
+                                    nodeInfo.stream()
+                                        .filter(x -> x.id() == replica.broker())
+                                        .findFirst()
+                                        .orElseThrow(),
+                                    replica.leader(),
+                                    replica.inSync(),
+                                    // TODO: fix the isOfflineReplica flag once the #308 is merged
+                                    false,
+                                    replica.path()));
+                  })
+              .collect(Collectors.groupingBy(org.astraea.cost.ReplicaInfo::topic));
+      final var dataDirectories =
+          this.brokerFolders(
+                  nodeInfo.stream().map(NodeInfo::id).collect(Collectors.toUnmodifiableSet()))
+              .entrySet()
+              .stream()
+              .collect(
+                  Collectors.toUnmodifiableMap(Map.Entry::getKey, x -> Set.copyOf(x.getValue())));
+
+      return new ClusterInfo() {
+        @Override
+        public List<NodeInfo> nodes() {
+          return nodeInfo;
+        }
+
+        @Override
+        public Set<String> dataDirectories(int brokerId) {
+          return dataDirectories.get(brokerId);
+        }
+
+        @Override
+        public List<org.astraea.cost.ReplicaInfo> availableReplicaLeaders(String topic) {
+          return topicToReplicasMap.get(topic).stream()
+              .filter(org.astraea.cost.ReplicaInfo::isLeader)
+              .collect(Collectors.toUnmodifiableList());
+        }
+
+        @Override
+        public List<org.astraea.cost.ReplicaInfo> availableReplicas(String topic) {
+          return topicToReplicasMap.get(topic).stream()
+              .filter((org.astraea.cost.ReplicaInfo x) -> !x.isOfflineReplica())
+              .collect(Collectors.toUnmodifiableList());
+        }
+
+        @Override
+        public Set<String> topics() {
+          return topics;
+        }
+
+        @Override
+        public List<org.astraea.cost.ReplicaInfo> replicas(String topic) {
+          return topicToReplicasMap.get(topic);
+        }
+
+        @Override
+        public Collection<HasBeanObject> beans(int brokerId) {
+          return List.of();
+        }
+
+        @Override
+        public Map<Integer, Collection<HasBeanObject>> allBeans() {
+          return nodeInfo.stream()
+              .collect(Collectors.toUnmodifiableMap(NodeInfo::id, ignore -> List.of()));
+        }
+      };
     }
   }
 
