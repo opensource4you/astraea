@@ -5,6 +5,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 import org.astraea.cost.ClusterInfo;
 import org.astraea.cost.NodeInfo;
 
@@ -95,7 +96,9 @@ public interface Admin extends Closeable {
   Map<Integer, Config> brokers(Set<Integer> brokerIds);
 
   /** @return all brokers' ids */
-  Set<Integer> brokerIds();
+  default Set<Integer> brokerIds() {
+    return nodes().stream().map(NodeInfo::id).collect(Collectors.toUnmodifiableSet());
+  }
 
   /** @return all node information in the cluster */
   Set<NodeInfo> nodes();

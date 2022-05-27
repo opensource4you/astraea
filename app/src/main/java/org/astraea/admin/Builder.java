@@ -25,7 +25,6 @@ import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.clients.admin.OffsetSpec;
 import org.apache.kafka.clients.admin.ReplicaInfo;
 import org.apache.kafka.common.ElectionType;
-import org.apache.kafka.common.Node;
 import org.apache.kafka.common.TopicPartitionReplica;
 import org.apache.kafka.common.config.ConfigResource;
 import org.apache.kafka.common.quota.ClientQuotaAlteration;
@@ -68,15 +67,6 @@ public class Builder {
     @Override
     public void close() {
       admin.close();
-    }
-
-    @Override
-    public Set<Integer> brokerIds() {
-      return Utils.handleException(
-          () ->
-              admin.describeCluster().nodes().get().stream()
-                  .map(Node::id)
-                  .collect(Collectors.toSet()));
     }
 
     @Override
