@@ -2,6 +2,7 @@ package org.astraea.metrics.kafka;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.condition.OS.LINUX;
 import static org.junit.jupiter.api.condition.OS.WINDOWS;
@@ -23,7 +24,6 @@ import org.astraea.metrics.java.OperatingSystemInfo;
 import org.astraea.metrics.jmx.MBeanClient;
 import org.astraea.service.RequireBrokerCluster;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledOnOs;
@@ -124,7 +124,7 @@ class KafkaMetricsTest extends RequireBrokerCluster {
     TimeUnit.SECONDS.sleep(2);
 
     var beans = request.fetch(mBeanClient);
-    Assertions.assertNotEquals(0, beans.size());
+    assertNotEquals(0, beans.size());
   }
 
   @Test
