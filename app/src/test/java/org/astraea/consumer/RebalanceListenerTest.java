@@ -3,7 +3,7 @@ package org.astraea.consumer;
 import java.time.Duration;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
-import org.astraea.Utils;
+import org.astraea.common.Utils;
 import org.astraea.concurrent.State;
 import org.astraea.concurrent.ThreadPool;
 import org.astraea.service.RequireBrokerCluster;

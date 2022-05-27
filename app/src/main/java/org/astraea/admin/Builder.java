@@ -32,7 +32,7 @@ import org.apache.kafka.common.quota.ClientQuotaAlteration;
 import org.apache.kafka.common.quota.ClientQuotaEntity;
 import org.apache.kafka.common.quota.ClientQuotaFilter;
 import org.apache.kafka.common.quota.ClientQuotaFilterComponent;
-import org.astraea.Utils;
+import org.astraea.common.Utils;
 
 public class Builder {
 
@@ -69,7 +69,7 @@ public class Builder {
 
     @Override
     public Set<Integer> brokerIds() {
-      return Utils.handleException(
+      return Utils.packException(
           () ->
               admin.describeCluster().nodes().get().stream()
                   .map(Node::id)
@@ -78,7 +78,7 @@ public class Builder {
 
     @Override
     public Map<Integer, Set<String>> brokerFolders(Set<Integer> brokers) {
-      return Utils.handleException(
+      return Utils.packException(
           () ->
               admin.describeLogDirs(brokers).allDescriptions().get().entrySet().stream()
                   .collect(Collectors.toMap(Map.Entry::getKey, map -> map.getValue().keySet())));
@@ -92,7 +92,7 @@ public class Builder {
     @Override
     public Map<TopicPartition, Collection<ProducerState>> producerStates(
         Set<TopicPartition> partitions) {
-      return Utils.handleException(
+      return Utils.packException(
           () ->
               admin
                   .describeProducers(
@@ -115,14 +115,14 @@ public class Builder {
 
     @Override
     public Set<String> consumerGroupIds() {
-      return Utils.handleException(() -> admin.listConsumerGroups().all().get()).stream()
+      return Utils.packException(() -> admin.listConsumerGroups().all().get()).stream()
           .map(ConsumerGroupListing::groupId)
           .collect(Collectors.toUnmodifiableSet());
     }
 
     @Override
     public Map<String, ConsumerGroup> consumerGroups(Set<String> consumerGroupNames) {
-      return Utils.handleException(
+      return Utils.packException(
           () -> {
             var consumerGroupDescriptions =
                 admin.describeConsumerGroups(consumerGroupNames).all().get();
@@ -134,7 +134,7 @@ public class Builder {
                         x ->
                             Map.entry(
                                 x.getKey(),
-                                Utils.handleException(
+                                Utils.packException(
                                     () -> x.getValue().partitionsToOffsetAndMetadata().get())))
                     .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));
 
@@ -175,7 +175,7 @@ public class Builder {
 
     private Map<TopicPartition, Long> earliestOffset(Set<TopicPartition> partitions) {
 
-      return Utils.handleException(
+      return Utils.packException(
           () ->
               admin
                   .listOffsets(
@@ -193,7 +193,7 @@ public class Builder {
     }
 
     private Map<TopicPartition, Long> latestOffset(Set<TopicPartition> partitions) {
-      return Utils.handleException(
+      return Utils.packException(
           () ->
               admin
                   .listOffsets(
@@ -212,7 +212,7 @@ public class Builder {
 
     @Override
     public Map<String, Config> topics(Set<String> topicNames) {
-      return Utils.handleException(
+      return Utils.packException(
               () ->
                   admin
                       .describeConfigs(
@@ -228,13 +228,13 @@ public class Builder {
 
     @Override
     public Set<String> topicNames() {
-      return Utils.handleException(
+      return Utils.packException(
           () -> admin.listTopics(new ListTopicsOptions().listInternal(true)).names().get());
     }
 
     @Override
     public Map<Integer, Config> brokers(Set<Integer> brokerIds) {
-      return Utils.handleException(
+      return Utils.packException(
               () ->
                   admin
                       .describeConfigs(
@@ -267,7 +267,7 @@ public class Builder {
 
     @Override
     public Set<TopicPartition> partitions(Set<String> topics) {
-      return Utils.handleException(
+      return Utils.packException(
           () ->
               admin.describeTopics(topics).all().get().entrySet().stream()
                   .flatMap(
@@ -296,7 +296,7 @@ public class Builder {
     @Override
     public Map<TopicPartition, List<Replica>> replicas(Set<String> topics) {
       var replicaInfos =
-          Utils.handleException(() -> admin.describeLogDirs(brokerIds()).allDescriptions().get());
+          Utils.packException(() -> admin.describeLogDirs(brokerIds()).allDescriptions().get());
 
       BiFunction<Integer, TopicPartition, List<Map.Entry<String, ReplicaInfo>>> findReplicas =
           (id, partition) ->
@@ -311,7 +311,7 @@ public class Builder {
                       })
                   .collect(Collectors.toList());
 
-      return Utils.handleException(
+      return Utils.packException(
           () ->
               admin.describeTopics(topics).all().get().entrySet().stream()
                   .flatMap(
@@ -381,7 +381,7 @@ public class Builder {
 
     private Collection<Quota> quotas(ClientQuotaFilter filter) {
       return Quota.of(
-          Utils.handleException(() -> admin.describeClientQuotas(filter).entities().get()));
+          Utils.packException(() -> admin.describeClientQuotas(filter).entities().get()));
     }
   }
 
@@ -470,7 +470,7 @@ public class Builder {
 
     @Override
     public void create() {
-      if (Utils.handleException(() -> admin.listTopics().names().get()).contains(topic)) {
+      if (Utils.packException(() -> admin.listTopics().names().get()).contains(topic)) {
         var partitionReplicas = replicasGetter.apply(topic);
         partitionReplicas.forEach(
             (tp, replicas) -> {
@@ -483,7 +483,7 @@ public class Builder {
                         + numberOfReplicas);
             });
         var result =
-            Utils.handleException(() -> admin.describeTopics(Set.of(topic)).all().get().get(topic));
+            Utils.packException(() -> admin.describeTopics(Set.of(topic)).all().get().get(topic));
         if (result.partitions().size() != numberOfPartitions)
           throw new IllegalArgumentException(
               topic
@@ -512,7 +512,7 @@ public class Builder {
         return;
       }
 
-      Utils.handleException(
+      Utils.packException(
           () ->
               admin
                   .createTopics(
@@ -551,7 +551,7 @@ public class Builder {
 
     @Override
     public void moveTo(Map<Integer, String> brokerFolders) {
-      Utils.handleException(
+      Utils.packException(
           () ->
               admin.alterReplicaLogDirs(
                   brokerFolders.entrySet().stream()
@@ -567,7 +567,7 @@ public class Builder {
 
     @Override
     public void moveTo(List<Integer> brokers) {
-      Utils.handleException(
+      Utils.packException(
           () ->
               admin
                   .alterPartitionReassignments(
@@ -587,7 +587,7 @@ public class Builder {
       moveTo(all);
       // kafka produces error if re-election happens in single node
       if (!followers.isEmpty())
-        Utils.handleException(
+        Utils.packException(
             () ->
                 admin
                     .electLeaders(
@@ -619,7 +619,7 @@ public class Builder {
         @Override
         public void create() {
           if (connectionRate == Integer.MAX_VALUE) return;
-          Utils.handleException(
+          Utils.packException(
               () ->
                   admin
                       .alterClientQuotas(
@@ -666,7 +666,7 @@ public class Builder {
                 new ClientQuotaAlteration.Op(
                     Quota.Limit.CONSUMER_BYTE_RATE.nameOfKafka(), (double) consumeRate));
           if (!q.isEmpty())
-            Utils.handleException(
+            Utils.packException(
                 () ->
                     admin
                         .alterClientQuotas(

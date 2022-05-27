@@ -1,6 +1,8 @@
 package org.astraea.metrics.collector;
 
 import java.time.Duration;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -11,7 +13,7 @@ import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.BiFunction;
-import org.astraea.Utils;
+import org.astraea.common.Utils;
 import org.astraea.metrics.HasBeanObject;
 import org.astraea.metrics.jmx.MBeanClient;
 import org.astraea.metrics.kafka.KafkaMetrics;
@@ -108,9 +110,9 @@ public class BeanCollector {
               }
 
               @Override
-              public List<HasBeanObject> current() {
+              public Collection<HasBeanObject> current() {
                 tryUpdate();
-                return List.copyOf(objects.values());
+                return Collections.unmodifiableCollection(objects.values());
               }
 
               @Override
@@ -118,7 +120,8 @@ public class BeanCollector {
                 node.lock.lock();
                 try {
                   node.receivers.remove(this);
-                  if (node.receivers.isEmpty()) Utils.close(node.mBeanClient);
+                  if (node.receivers.isEmpty() && node.mBeanClient != null)
+                    Utils.swallowException(node.mBeanClient::close);
                   node.mBeanClient = null;
                 } finally {
                   node.lock.unlock();

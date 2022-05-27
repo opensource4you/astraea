@@ -22,7 +22,7 @@ import javax.management.ReflectionException;
 import javax.management.remote.JMXConnector;
 import javax.management.remote.JMXConnectorFactory;
 import javax.management.remote.JMXServiceURL;
-import org.astraea.Utils;
+import org.astraea.common.Utils;
 
 class MBeanClientImpl implements MBeanClient {
 
@@ -178,7 +178,7 @@ class MBeanClientImpl implements MBeanClient {
   public void close() {
     if (!isClosed) {
       isClosed = true;
-      Utils.close(jmxConnector);
+      Utils.packException(jmxConnector::close);
     }
   }
 }

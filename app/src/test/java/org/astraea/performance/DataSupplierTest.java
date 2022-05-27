@@ -1,7 +1,7 @@
 package org.astraea.performance;
 
 import java.util.concurrent.TimeUnit;
-import org.astraea.utils.DataUnit;
+import org.astraea.common.DataUnit;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
