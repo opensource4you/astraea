@@ -527,9 +527,8 @@ public class AdminTest extends RequireBrokerCluster {
   void testNodes() {
     try (var admin = Admin.of(bootstrapServers())) {
       final Set<NodeInfo> nodes = admin.nodes();
-      Assertions.assertEquals(brokerIds(), nodes.stream()
-              .map(NodeInfo::id)
-              .collect(Collectors.toUnmodifiableSet()));
+      Assertions.assertEquals(
+          brokerIds(), nodes.stream().map(NodeInfo::id).collect(Collectors.toUnmodifiableSet()));
     }
   }
 }

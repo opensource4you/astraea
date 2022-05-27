@@ -81,7 +81,7 @@ public interface ClusterInfo {
         admin.topicNames().stream().filter(topicPattern).collect(Collectors.toUnmodifiableSet());
 
     final var topicToReplicasMap =
-            Utils.handleException(() -> admin.replicas(filteredTopics)).entrySet().stream()
+        Utils.handleException(() -> admin.replicas(filteredTopics)).entrySet().stream()
             .flatMap(
                 entry -> {
                   // TODO: there is a bug in here. Admin#replicas doesn't return the full
