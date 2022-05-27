@@ -19,8 +19,8 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.astraea.argument.NonEmptyStringField;
 import org.astraea.argument.StringSetField;
-import org.astraea.utils.DataSize;
-import org.astraea.utils.DataUnit;
+import org.astraea.common.DataSize;
+import org.astraea.common.DataUnit;
 
 public class TopicExplorer {
 

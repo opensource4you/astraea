@@ -2,7 +2,7 @@ package org.astraea.service;
 
 import java.util.Map;
 import java.util.Set;
-import org.astraea.Utils;
+import org.astraea.common.Utils;
 import org.junit.jupiter.api.AfterAll;
 
 /**
@@ -27,7 +27,7 @@ public abstract class RequireBrokerCluster extends RequireJmxServer {
 
   @AfterAll
   static void shutdownClusters() {
-    Utils.close(BROKER_CLUSTER);
-    Utils.close(ZOOKEEPER_CLUSTER);
+    Utils.swallowException(BROKER_CLUSTER::close);
+    Utils.swallowException(ZOOKEEPER_CLUSTER::close);
   }
 }

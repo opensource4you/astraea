@@ -10,7 +10,7 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.util.Calendar;
 import java.util.concurrent.TimeUnit;
-import org.astraea.Utils;
+import org.astraea.common.Utils;
 
 public interface Database extends Closeable {
   static Database mysql() {

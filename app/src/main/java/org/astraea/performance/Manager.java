@@ -2,7 +2,7 @@ package org.astraea.performance;
 
 import java.util.List;
 import java.util.function.Supplier;
-import org.astraea.utils.DataUnit;
+import org.astraea.common.DataUnit;
 
 /**
  * Thread safe This class is used for managing the start/end of the producer/consumer threads.

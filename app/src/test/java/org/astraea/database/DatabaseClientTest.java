@@ -1,6 +1,6 @@
 package org.astraea.database;
 
-import org.astraea.Utils;
+import org.astraea.common.Utils;
 import org.astraea.service.Database;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
