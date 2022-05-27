@@ -152,4 +152,19 @@ public class ConsumerTest extends RequireBrokerCluster {
       Assertions.assertEquals(10, consumer.poll(11, Duration.ofSeconds(5)).size());
     }
   }
+
+  @Test
+  void testRecordsPollingTime() {
+    var count = 10;
+    var topic = "testPollingTime";
+    try (var consumer =
+        Consumer.builder()
+            .bootstrapServers(bootstrapServers())
+            .topics(Set.of(topic))
+            .fromBeginning()
+            .build()) {
+      produceData(topic, count);
+      Assertions.assertTimeout(Duration.ofSeconds(9), () -> consumer.poll(Duration.ofSeconds(10)));
+    }
+  }
 }
