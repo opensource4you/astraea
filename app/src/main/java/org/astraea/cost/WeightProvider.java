@@ -4,9 +4,23 @@ import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+/**
+ * Used to provide the weight to score the node or partition
+ *
+ * @param <Metric> used to represent the "resource". For example, throughput, memory usage, etc.
+ * @param <Object> used to represent the "target". For example, broker node, topic partition, etc.
+ */
 @FunctionalInterface
 public interface WeightProvider<Metric, Object> {
 
+  /**
+   * create a weight provider based on entropy
+   *
+   * @param normalizer to normalize input values
+   * @param <Metric> metrics type
+   * @param <Object> object type
+   * @return weight for each metrics
+   */
   static <Metric, Object> WeightProvider<Metric, Object> entropy(Normalizer<Object> normalizer) {
     // reverse the entropy to simplify following statics
     Function<Map<Object, Double>, Double> entropy =
@@ -14,7 +28,7 @@ public interface WeightProvider<Metric, Object> {
             1
                 - rescaledValues.values().stream()
                         // remove the zero value as it does not influence entropy
-                        .filter(v -> v != 0)
+                        .filter(weight -> weight != 0)
                         .mapToDouble(weight -> weight * Math.log(weight))
                         .sum()
                     / (-Math.log(rescaledValues.size()));
