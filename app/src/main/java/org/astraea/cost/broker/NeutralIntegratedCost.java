@@ -1,6 +1,5 @@
 package org.astraea.cost.broker;
 
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -9,6 +8,8 @@ import org.astraea.cost.BrokerCost;
 import org.astraea.cost.ClusterInfo;
 import org.astraea.cost.CostFunction;
 import org.astraea.cost.HasBrokerCost;
+import org.astraea.cost.Normalizer;
+import org.astraea.cost.WeightProvider;
 import org.astraea.metrics.collector.Fetcher;
 
 /**
@@ -22,8 +23,9 @@ public class NeutralIntegratedCost implements HasBrokerCost {
   private final List<HasBrokerCost> metricsCost =
       List.of(new BrokerInputCost(), new BrokerOutputCost(), new CpuCost(), new MemoryCost());
   private final Map<Integer, BrokerMetrics> brokersMetric = new HashMap<>();
-  private final EntropyEmpowerment entropyEmpowerment = new EntropyEmpowerment();
   private final AHPEmpowerment ahpEmpowerment = new AHPEmpowerment();
+  private final WeightProvider<String, Integer> weightProvider =
+      WeightProvider.entropy(Normalizer.minMax(true));
 
   @Override
   public BrokerCost brokerCost(ClusterInfo clusterInfo) {
@@ -63,7 +65,7 @@ public class NeutralIntegratedCost implements HasBrokerCost {
         });
 
     var integratedEmpowerment =
-        entropyEmpowerment.empowerment(brokersMetric).entrySet().stream()
+        weight(weightProvider, brokersMetric).entrySet().stream()
             .collect(
                 Collectors.toMap(
                     Map.Entry::getKey,
@@ -87,6 +89,44 @@ public class NeutralIntegratedCost implements HasBrokerCost {
                                 * integratedEmpowerment.get(Metrics.memory.metricName)));
   }
 
+  static Map<String, Double> weight(
+      WeightProvider<String, Integer> weightProvider, Map<Integer, BrokerMetrics> brokerMetrics) {
+    var values = new HashMap<String, Map<Integer, Double>>();
+    for (var m : Metrics.values()) {
+      Map<Integer, Double> data;
+      switch (m) {
+        case inputThroughput:
+          data =
+              brokerMetrics.entrySet().stream()
+                  .collect(
+                      Collectors.toMap(Map.Entry::getKey, entry -> entry.getValue().inputScore));
+          break;
+        case outputThroughput:
+          data =
+              brokerMetrics.entrySet().stream()
+                  .collect(
+                      Collectors.toMap(Map.Entry::getKey, entry -> entry.getValue().outputScore));
+          break;
+        case memory:
+          data =
+              brokerMetrics.entrySet().stream()
+                  .collect(
+                      Collectors.toMap(Map.Entry::getKey, entry -> entry.getValue().memoryScore));
+          break;
+        case cpu:
+          data =
+              brokerMetrics.entrySet().stream()
+                  .collect(Collectors.toMap(Map.Entry::getKey, entry -> entry.getValue().cpuScore));
+          break;
+        default:
+          data = Map.of();
+          break;
+      }
+      values.put(m.metricName, data);
+    }
+    return weightProvider.compute(values);
+  }
+
   @Override
   public Fetcher fetcher() {
     return Fetcher.of(metricsCost.stream().map(CostFunction::fetcher).collect(Collectors.toList()));
@@ -99,92 +139,6 @@ public class NeutralIntegratedCost implements HasBrokerCost {
     double memoryScore = 0.0;
 
     BrokerMetrics() {}
-  }
-
-  /**
-   * Entropy weight method (EWM) is a commonly used weighting method that measures value dispersion
-   * in decision-making. The greater the degree of dispersion, the greater the degree of
-   * differentiation, and more information can be derived. Meanwhile, higher weight should be given
-   * to the index, and vice versa.
-   */
-  static class EntropyEmpowerment {
-    public Map<String, Double> empowerment(Map<Integer, BrokerMetrics> brokerMetrics) {
-      var metrics = new HashMap<String, Double>();
-      metrics.put(
-          Metrics.inputThroughput.metricName,
-          entropy(
-              brokerMetrics.entrySet().stream()
-                  .collect(
-                      Collectors.toMap(Map.Entry::getKey, entry -> entry.getValue().inputScore))));
-      metrics.put(
-          Metrics.outputThroughput.metricName,
-          entropy(
-              brokerMetrics.entrySet().stream()
-                  .collect(
-                      Collectors.toMap(Map.Entry::getKey, entry -> entry.getValue().outputScore))));
-      metrics.put(
-          Metrics.memory.metricName,
-          entropy(
-              brokerMetrics.entrySet().stream()
-                  .collect(
-                      Collectors.toMap(Map.Entry::getKey, entry -> entry.getValue().memoryScore))));
-      metrics.put(
-          Metrics.cpu.metricName,
-          entropy(
-              brokerMetrics.entrySet().stream()
-                  .collect(
-                      Collectors.toMap(Map.Entry::getKey, entry -> entry.getValue().cpuScore))));
-      var sum = metrics.values().stream().mapToDouble(i -> i).sum();
-
-      return metrics.entrySet().stream()
-          .collect(Collectors.toMap(Map.Entry::getKey, entry -> entry.getValue() / sum));
-    }
-
-    /**
-     * To the cost indexes
-     *
-     * @param metrics JMX metrics for each broker.
-     * @return Standardization of result
-     */
-    Map<Integer, Double> negativeIndicator(Map<Integer, Double> metrics) {
-      Comparator<Double> comparator = Comparator.comparing(Double::doubleValue);
-      var max = metrics.values().stream().max(comparator).orElse(0.0);
-      var min = metrics.values().stream().min(comparator).orElse(0.0);
-      return metrics.entrySet().stream()
-          .collect(
-              Collectors.toMap(Map.Entry::getKey, entry -> (max - entry.getValue()) / (max - min)));
-    }
-
-    /**
-     * To the benefit indexes.
-     *
-     * @param metrics JMX metrics for each broker.
-     * @return Standardization of result
-     */
-    Map<Integer, Double> positiveIndicator(Map<Integer, Double> metrics) {
-      Comparator<Double> comparator = Comparator.comparing(Double::doubleValue);
-      var max = metrics.values().stream().max(comparator).orElse(0.0) + 0.01;
-      double min = metrics.values().stream().min(comparator).orElse(0.0);
-      return metrics.entrySet().stream()
-          .collect(
-              Collectors.toMap(
-                  Map.Entry::getKey, entry -> (entry.getValue() + 0.01 - min) / (max - min)));
-    }
-
-    Map<Integer, Double> metricsWeight(Map<Integer, Double> indicator) {
-      var sum = indicator.values().stream().mapToDouble(i -> i).sum();
-      return indicator.entrySet().stream()
-          .collect(Collectors.toMap(Map.Entry::getKey, entry -> entry.getValue() / sum));
-    }
-
-    double entropy(Map<Integer, Double> metrics) {
-      return 1
-          - metricsWeight(positiveIndicator(metrics)).values().stream()
-                  .filter(weight -> !weight.equals(0.0))
-                  .mapToDouble(weight -> weight * Math.log(weight))
-                  .sum()
-              / (-Math.log(metrics.size()));
-    }
   }
 
   /**
@@ -235,9 +189,5 @@ public class NeutralIntegratedCost implements HasBrokerCost {
     public String metricName() {
       return metricName;
     }
-  }
-
-  EntropyEmpowerment entropyEmpowerment() {
-    return entropyEmpowerment;
   }
 }
