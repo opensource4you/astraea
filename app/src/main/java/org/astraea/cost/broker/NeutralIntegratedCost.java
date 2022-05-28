@@ -124,7 +124,7 @@ public class NeutralIntegratedCost implements HasBrokerCost {
       }
       values.put(m.metricName, data);
     }
-    return weightProvider.compute(values);
+    return weightProvider.weight(values);
   }
 
   @Override

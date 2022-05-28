@@ -28,19 +28,19 @@ public interface WeightProvider<Metric, Object> {
             1
                 - rescaledValues.values().stream()
                         // remove the zero value as it does not influence entropy
-                        .filter(weight -> weight != 0)
-                        .mapToDouble(weight -> weight * Math.log(weight))
+                        .filter(value -> value != 0)
+                        .mapToDouble(value -> value * Math.log(value))
                         .sum()
                     / (-Math.log(rescaledValues.size()));
 
     return values -> {
-      var entropys =
+      var entropies =
           values.entrySet().stream()
               .collect(
                   Collectors.toMap(
                       Map.Entry::getKey, e -> entropy.apply(normalizer.normalize(e.getValue()))));
-      var sum = entropys.values().stream().mapToDouble(d -> d).sum();
-      return entropys.entrySet().stream()
+      var sum = entropies.values().stream().mapToDouble(d -> d).sum();
+      return entropies.entrySet().stream()
           .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue() / sum));
     };
   }
@@ -51,5 +51,5 @@ public interface WeightProvider<Metric, Object> {
    * @param values origin data
    * @return metric and its weight
    */
-  Map<Metric, Double> compute(Map<Metric, Map<Object, Double>> values);
+  Map<Metric, Double> weight(Map<Metric, Map<Object, Double>> values);
 }

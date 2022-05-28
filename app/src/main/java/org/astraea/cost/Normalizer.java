@@ -10,8 +10,6 @@ public interface Normalizer<K> {
     return values -> {
       double max = values.values().stream().max(comparator).orElse(0.0);
       double min = values.values().stream().min(comparator).orElse(0.0);
-      System.out.println("max=" + max);
-      System.out.println("min=" + min);
       // there is nothing to rescale, so we just all same values
       if (max == min)
         return values.entrySet().stream()
