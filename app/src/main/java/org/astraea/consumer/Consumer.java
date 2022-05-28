@@ -8,7 +8,7 @@ import java.util.Map;
 public interface Consumer<Key, Value> extends AutoCloseable {
 
   default Collection<Record<Key, Value>> poll(Duration timeout) {
-    return poll(Integer.MAX_VALUE, timeout);
+    return poll(1, timeout);
   }
 
   /**
