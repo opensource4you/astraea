@@ -1,8 +1,6 @@
 package org.astraea.admin;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -20,12 +18,10 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.stream.Collectors;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.astraea.consumer.Consumer;
 import org.astraea.service.RequireBrokerCluster;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
@@ -231,34 +227,5 @@ public class TopicExplorerTest extends RequireBrokerCluster {
         IllegalStateException.class, () -> TopicExplorer.execute(mock, Set.of(topicName0)));
     assertThrows(
         IllegalStateException.class, () -> TopicExplorer.execute(mock, Set.of(topicName1)));
-  }
-
-  @Test
-  void somePartitionsOffline() {
-    String topicName1 = "testOfflineTopic-1";
-    String topicName2 = "testOfflineTopic-2";
-    try (var admin = Admin.of(bootstrapServers())) {
-      admin.creator().topic(topicName1).numberOfPartitions(4).numberOfReplicas((short) 1).create();
-      admin.creator().topic(topicName2).numberOfPartitions(4).numberOfReplicas((short) 1).create();
-      // wait for topic creation
-      TimeUnit.SECONDS.sleep(10);
-      var replicaOnBroker0 =
-          admin.replicas(admin.topicNames()).entrySet().stream()
-              .filter(replica -> replica.getValue().get(0).broker() == 0)
-              .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-      replicaOnBroker0.forEach((tp, replica) -> Assertions.assertFalse(replica.get(0).isOffline()));
-      closeBroker(0);
-      assertNull(logFolders().get(0));
-      assertNotNull(logFolders().get(1));
-      assertNotNull(logFolders().get(2));
-      var offlineReplicaOnBroker0 =
-          admin.replicas(admin.topicNames()).entrySet().stream()
-              .filter(replica -> replica.getValue().get(0).broker() == 0)
-              .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-      offlineReplicaOnBroker0.forEach((tp, replica) -> assertTrue(replica.get(0).isOffline()));
-
-    } catch (InterruptedException e) {
-      throw new RuntimeException(e);
-    }
   }
 }

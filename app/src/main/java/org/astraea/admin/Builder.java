@@ -210,7 +210,7 @@ public class Builder {
                           e -> TopicPartition.from(e.getKey()), e -> e.getValue().offset())));
     }
 
-    public Map<TopicPartition, List<Replica>> mapOfTPReplicas(
+    private Map<TopicPartition, List<Replica>> mapOfTPReplicas(
         Set<String> topics,
         BiFunction<Integer, TopicPartition, List<Map.Entry<String, ReplicaInfo>>> findReplicas) {
       return Utils.handleException(
@@ -229,6 +229,9 @@ public class Builder {
                                         topicPartitionInfo.replicas().stream()
                                             .flatMap(
                                                 node -> {
+                                                  // Because there is no api to get offline
+                                                  // replicas, temporarily use not in-sync
+                                                  // replicas as offline replicas
                                                   if (node.isEmpty()) {
                                                     return e.getValue().partitions().stream()
                                                         .filter(
@@ -239,8 +242,8 @@ public class Builder {
                                                             entry ->
                                                                 new Replica(
                                                                     node.id(),
-                                                                    0,
-                                                                    0,
+                                                                    -1,
+                                                                    -1,
                                                                     topicPartitionInfo.leader()
                                                                             != null
                                                                         && (topicPartitionInfo
