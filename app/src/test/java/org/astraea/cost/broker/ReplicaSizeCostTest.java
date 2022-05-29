@@ -1,7 +1,6 @@
 package org.astraea.cost.broker;
 
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -22,10 +21,7 @@ class ReplicaSizeCostTest {
 
   @Test
   void partitionCost() {
-    Map<Integer, Integer> brokerDiskSize = new HashMap<>();
-    brokerDiskSize.put(1, 1000);
-    brokerDiskSize.put(2, 1000);
-    brokerDiskSize.put(3, 1000);
+    var brokerDiskSize = Map.of(1, 1000, 2, 1000, 3, 1000);
     var loadCostFunction = new ReplicaSizeCost(brokerDiskSize);
     var broker1ReplicaLoad = loadCostFunction.partitionCost(exampleClusterInfo()).value(1);
     var broker2ReplicaLoad = loadCostFunction.partitionCost(exampleClusterInfo()).value(2);
@@ -44,7 +40,14 @@ class ReplicaSizeCostTest {
   }
 
   @Test
-  void brokerCost() {}
+  void brokerCost() {
+    var brokerDiskSize = Map.of(1, 1000, 2, 1000, 3, 1000);
+    var loadCostFunction = new ReplicaSizeCost(brokerDiskSize);
+    var brokerReplicaLoad = loadCostFunction.brokerCost(exampleClusterInfo()).value();
+    Assertions.assertEquals(brokerReplicaLoad.get(1), 0.85 + 0.45 + 0.35);
+    Assertions.assertEquals(brokerReplicaLoad.get(2), 0.45);
+    Assertions.assertEquals(brokerReplicaLoad.get(3), 0.85 + 0.35);
+  }
 
   private ClusterInfo exampleClusterInfo() {
     var sizeTP1_0 =
