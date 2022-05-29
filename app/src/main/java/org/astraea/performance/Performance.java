@@ -17,7 +17,6 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.kafka.clients.producer.internals.DefaultPartitioner;
 import org.apache.kafka.common.errors.WakeupException;
-import org.astraea.Utils;
 import org.astraea.admin.Admin;
 import org.astraea.admin.Compression;
 import org.astraea.admin.TopicPartition;
@@ -27,14 +26,15 @@ import org.astraea.argument.NonNegativeShortField;
 import org.astraea.argument.PathField;
 import org.astraea.argument.PositiveLongField;
 import org.astraea.argument.PositiveShortField;
+import org.astraea.common.DataSize;
+import org.astraea.common.DataUnit;
+import org.astraea.common.Utils;
 import org.astraea.concurrent.Executor;
 import org.astraea.concurrent.State;
 import org.astraea.concurrent.ThreadPool;
 import org.astraea.consumer.Consumer;
 import org.astraea.consumer.Isolation;
 import org.astraea.producer.Producer;
-import org.astraea.utils.DataSize;
-import org.astraea.utils.DataUnit;
 
 /**
  * Performance benchmark which includes

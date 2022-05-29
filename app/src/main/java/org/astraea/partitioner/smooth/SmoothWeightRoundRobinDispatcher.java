@@ -16,7 +16,7 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import org.apache.kafka.common.Cluster;
-import org.astraea.Utils;
+import org.astraea.common.Utils;
 import org.astraea.cost.ClusterInfo;
 import org.astraea.cost.NodeInfo;
 import org.astraea.cost.Periodic;
@@ -82,7 +82,7 @@ public class SmoothWeightRoundRobinDispatcher extends Periodic<Map<Integer, Doub
     if (partitions.size() == 1) return partitions.iterator().next().partition();
 
     if (targetPartition == null) {
-      var targetBroker = smoothWeightRoundRobinCal.getAndChoose();
+      var targetBroker = smoothWeightRoundRobinCal.getAndChoose(topic, clusterInfo);
       targetPartition =
           hasPartitions
               .get(targetBroker)
@@ -96,7 +96,7 @@ public class SmoothWeightRoundRobinDispatcher extends Periodic<Map<Integer, Doub
 
   @Override
   public void close() {
-    receivers.values().forEach(Utils::close);
+    receivers.values().forEach(r -> Utils.swallowException(r::close));
     receivers.clear();
   }
 

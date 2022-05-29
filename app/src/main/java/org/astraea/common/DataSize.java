@@ -1,4 +1,4 @@
-package org.astraea.utils;
+package org.astraea.common;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;

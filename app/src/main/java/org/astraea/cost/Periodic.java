@@ -2,7 +2,7 @@ package org.astraea.cost;
 
 import java.time.Duration;
 import java.util.function.Supplier;
-import org.astraea.Utils;
+import org.astraea.common.Utils;
 
 /** Enables methods to be updated periodically, not calculated every time they are called. */
 public abstract class Periodic<Value> {

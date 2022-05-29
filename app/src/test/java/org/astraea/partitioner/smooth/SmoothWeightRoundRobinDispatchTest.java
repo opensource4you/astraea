@@ -23,11 +23,15 @@ import org.astraea.concurrent.ThreadPool;
 import org.astraea.consumer.Consumer;
 import org.astraea.consumer.Deserializer;
 import org.astraea.consumer.Header;
+import org.astraea.cost.FakeClusterInfo;
+import org.astraea.cost.NodeInfo;
+import org.astraea.cost.ReplicaInfo;
 import org.astraea.producer.Producer;
 import org.astraea.producer.Serializer;
 import org.astraea.service.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 
 public class SmoothWeightRoundRobinDispatchTest extends RequireBrokerCluster {
   private final String brokerList = bootstrapServers();
@@ -273,14 +277,35 @@ public class SmoothWeightRoundRobinDispatchTest extends RequireBrokerCluster {
 
   @Test
   public void testGetAndChoose() {
+    var topic = "test";
     var smoothWeight = new SmoothWeightRoundRobin(Map.of(1, 5.0, 2, 3.0, 3, 1.0));
+    var re1 = Mockito.mock(ReplicaInfo.class);
+    var node1 = Mockito.mock(NodeInfo.class);
+    Mockito.when(re1.nodeInfo()).thenReturn(node1);
+    Mockito.when(node1.id()).thenReturn(1);
 
-    Assertions.assertEquals(1, smoothWeight.getAndChoose());
-    Assertions.assertEquals(2, smoothWeight.getAndChoose());
-    Assertions.assertEquals(3, smoothWeight.getAndChoose());
-    Assertions.assertEquals(1, smoothWeight.getAndChoose());
-    Assertions.assertEquals(2, smoothWeight.getAndChoose());
-    Assertions.assertEquals(3, smoothWeight.getAndChoose());
-    Assertions.assertEquals(1, smoothWeight.getAndChoose());
+    var re2 = Mockito.mock(ReplicaInfo.class);
+    var node2 = Mockito.mock(NodeInfo.class);
+    Mockito.when(re2.nodeInfo()).thenReturn(node2);
+    Mockito.when(node2.id()).thenReturn(2);
+
+    var re3 = Mockito.mock(ReplicaInfo.class);
+    var node3 = Mockito.mock(NodeInfo.class);
+    Mockito.when(re3.nodeInfo()).thenReturn(node3);
+    Mockito.when(node3.id()).thenReturn(3);
+    var testCluster =
+        new FakeClusterInfo() {
+          @Override
+          public List<ReplicaInfo> availableReplicaLeaders(String topic) {
+            return List.of(re1, re2, re3);
+          }
+        };
+    Assertions.assertEquals(1, smoothWeight.getAndChoose(topic, testCluster));
+    Assertions.assertEquals(2, smoothWeight.getAndChoose(topic, testCluster));
+    Assertions.assertEquals(3, smoothWeight.getAndChoose(topic, testCluster));
+    Assertions.assertEquals(1, smoothWeight.getAndChoose(topic, testCluster));
+    Assertions.assertEquals(2, smoothWeight.getAndChoose(topic, testCluster));
+    Assertions.assertEquals(3, smoothWeight.getAndChoose(topic, testCluster));
+    Assertions.assertEquals(1, smoothWeight.getAndChoose(topic, testCluster));
   }
 }

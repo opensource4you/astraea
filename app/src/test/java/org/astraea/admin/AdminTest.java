@@ -16,7 +16,7 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.StreamSupport;
 import org.apache.kafka.common.config.TopicConfig;
-import org.astraea.Utils;
+import org.astraea.common.Utils;
 import org.astraea.consumer.Consumer;
 import org.astraea.consumer.Deserializer;
 import org.astraea.producer.Producer;
@@ -552,5 +552,6 @@ public class AdminTest extends RequireBrokerCluster {
     } catch (InterruptedException e) {
       throw new RuntimeException(e);
     }
+    restartBrokers();
   }
 }

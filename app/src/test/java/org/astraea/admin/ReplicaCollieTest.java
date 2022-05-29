@@ -8,15 +8,14 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
-import org.astraea.Utils;
 import org.astraea.argument.Argument;
+import org.astraea.common.Utils;
 import org.astraea.service.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledOnOs;
 
 public class ReplicaCollieTest extends RequireBrokerCluster {
-
   @Test
   @DisabledOnOs(WINDOWS)
   void testVerify() throws InterruptedException {

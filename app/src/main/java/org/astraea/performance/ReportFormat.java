@@ -12,10 +12,10 @@ import java.time.Duration;
 import java.util.Date;
 import java.util.function.Supplier;
 import java.util.stream.IntStream;
-import org.astraea.Utils;
+import org.astraea.common.DataUnit;
+import org.astraea.common.Utils;
 import org.astraea.concurrent.Executor;
 import org.astraea.concurrent.State;
-import org.astraea.utils.DataUnit;
 
 public enum ReportFormat {
   CSV("csv"),
@@ -70,7 +70,7 @@ public enum ReportFormat {
 
           @Override
           public void close() {
-            Utils.close(writer);
+            Utils.packException(writer::close);
           }
         };
       case JSON:
@@ -85,11 +85,8 @@ public enum ReportFormat {
 
           @Override
           public void close() {
-            try {
-              writer.write("}");
-              Utils.close(writer);
-            } catch (IOException ignore) {
-            }
+            Utils.swallowException(() -> writer.write("}"));
+            Utils.packException(writer::close);
           }
         };
       default:

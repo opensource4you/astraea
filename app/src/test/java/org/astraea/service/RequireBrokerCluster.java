@@ -2,7 +2,7 @@ package org.astraea.service;
 
 import java.util.Map;
 import java.util.Set;
-import org.astraea.Utils;
+import org.astraea.common.Utils;
 import org.junit.jupiter.api.AfterAll;
 
 /**
@@ -10,8 +10,10 @@ import org.junit.jupiter.api.AfterAll;
  * depended on true cluster.
  */
 public abstract class RequireBrokerCluster extends RequireJmxServer {
-  private static final ZookeeperCluster ZOOKEEPER_CLUSTER = Services.zookeeperCluster();
-  private static final BrokerCluster BROKER_CLUSTER = Services.brokerCluster(ZOOKEEPER_CLUSTER, 3);
+  private static final int NUMBER_OF_BROKERS = 3;
+  private static ZookeeperCluster ZOOKEEPER_CLUSTER = Services.zookeeperCluster();
+  private static BrokerCluster BROKER_CLUSTER =
+      Services.brokerCluster(ZOOKEEPER_CLUSTER, NUMBER_OF_BROKERS);
 
   protected static String bootstrapServers() {
     return BROKER_CLUSTER.bootstrapServers();
@@ -19,6 +21,12 @@ public abstract class RequireBrokerCluster extends RequireJmxServer {
 
   protected static Map<Integer, Set<String>> logFolders() {
     return BROKER_CLUSTER.logFolders();
+  }
+
+  protected static void restartBrokers() {
+    shutdownClusters();
+    ZOOKEEPER_CLUSTER = Services.zookeeperCluster();
+    BROKER_CLUSTER = Services.brokerCluster(ZOOKEEPER_CLUSTER, NUMBER_OF_BROKERS);
   }
 
   protected static void closeBroker(int brokerID) {
@@ -31,7 +39,7 @@ public abstract class RequireBrokerCluster extends RequireJmxServer {
 
   @AfterAll
   static void shutdownClusters() {
-    Utils.close(BROKER_CLUSTER);
-    Utils.close(ZOOKEEPER_CLUSTER);
+    Utils.swallowException(BROKER_CLUSTER::close);
+    Utils.swallowException(ZOOKEEPER_CLUSTER::close);
   }
 }

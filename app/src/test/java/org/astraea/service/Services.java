@@ -16,7 +16,7 @@ import org.apache.kafka.common.network.ListenerName;
 import org.apache.kafka.common.utils.SystemTime;
 import org.apache.zookeeper.server.NIOServerCnxnFactory;
 import org.apache.zookeeper.server.ZooKeeperServer;
-import org.astraea.Utils;
+import org.astraea.common.Utils;
 
 public final class Services {
 

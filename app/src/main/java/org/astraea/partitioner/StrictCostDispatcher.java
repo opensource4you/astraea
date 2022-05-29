@@ -9,7 +9,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
-import org.astraea.Utils;
+import org.astraea.common.Utils;
 import org.astraea.cost.ClusterInfo;
 import org.astraea.cost.CostFunction;
 import org.astraea.cost.HasBrokerCost;
@@ -200,7 +200,7 @@ public class StrictCostDispatcher implements Dispatcher {
 
   @Override
   public void close() {
-    receivers.values().forEach(Utils::close);
+    receivers.values().forEach(r -> Utils.swallowException(r::close));
     receivers.clear();
   }
 }

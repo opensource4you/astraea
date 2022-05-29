@@ -16,12 +16,12 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.kafka.common.TopicPartitionReplica;
-import org.astraea.Utils;
 import org.astraea.argument.DurationField;
 import org.astraea.argument.NonEmptyStringField;
-import org.astraea.utils.DataRate;
-import org.astraea.utils.DataSize;
-import org.astraea.utils.DataUnit;
+import org.astraea.common.DataRate;
+import org.astraea.common.DataSize;
+import org.astraea.common.DataUnit;
+import org.astraea.common.Utils;
 
 public class ReplicaSyncingMonitor {
 
@@ -168,7 +168,7 @@ public class ReplicaSyncingMonitor {
             .forEach(tpr -> previousCheckedSize.remove(tpr.getKey()));
       }
 
-      Utils.handleException(
+      Utils.packException(
           () -> {
             long expectedWaitNs = argument.interval.toNanos();
             long elapsedNs = (System.nanoTime() - startTime);

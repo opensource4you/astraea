@@ -5,9 +5,9 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.function.Supplier;
+import org.astraea.common.DataUnit;
 import org.astraea.concurrent.Executor;
 import org.astraea.concurrent.State;
-import org.astraea.utils.DataUnit;
 
 /** Print out the given metrics. */
 public class Tracker implements Executor {
