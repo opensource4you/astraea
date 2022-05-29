@@ -1,4 +1,4 @@
-package org.astraea;
+package org.astraea.common;
 
 import java.io.IOException;
 import java.util.concurrent.ExecutionException;
@@ -12,7 +12,7 @@ public class UtilsTest {
     Assertions.assertThrows(
         IllegalArgumentException.class,
         () ->
-            Utils.handleException(
+            Utils.packException(
                 () -> {
                   throw new ExecutionException(new IllegalArgumentException());
                 }));
@@ -20,7 +20,7 @@ public class UtilsTest {
     Assertions.assertThrows(
         IllegalArgumentException.class,
         () ->
-            Utils.handleException(
+            Utils.packException(
                 () -> {
                   throw new IllegalArgumentException();
                 }));
@@ -28,7 +28,7 @@ public class UtilsTest {
     Assertions.assertThrows(
         RuntimeException.class,
         () ->
-            Utils.handleException(
+            Utils.packException(
                 () -> {
                   throw new IOException();
                 }));
