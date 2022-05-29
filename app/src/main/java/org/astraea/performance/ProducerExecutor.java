@@ -7,7 +7,7 @@ import java.util.function.BiConsumer;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-import org.astraea.Utils;
+import org.astraea.common.Utils;
 import org.astraea.concurrent.Executor;
 import org.astraea.concurrent.State;
 import org.astraea.producer.Producer;

@@ -16,7 +16,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
-import org.astraea.Utils;
+import org.astraea.common.Utils;
 
 public class Builder {
   private String url;
@@ -43,7 +43,7 @@ public class Builder {
   public DatabaseClient build() {
     return new DatabaseClient() {
       private final Connection connection =
-          Utils.handleException(
+          Utils.packException(
               () ->
                   DriverManager.getConnection(
                       Objects.requireNonNull(url, "url must be defined"),
@@ -77,7 +77,7 @@ public class Builder {
 
           @Override
           public Collection<TableInfo> run() {
-            return Utils.handleException(
+            return Utils.packException(
                 () -> {
                   var md = connection.getMetaData();
                   return catalogAndNames(md.getTables(catalog, schema, tableName, null)).stream()
@@ -87,11 +87,11 @@ public class Builder {
                             var tableName = e.getValue();
                             var pks =
                                 primaryKeys(
-                                    Utils.handleException(
+                                    Utils.packException(
                                         () -> md.getPrimaryKeys(catalog, null, tableName)));
                             var columnNameAndTypes =
                                 columnNameAndTypes(
-                                    Utils.handleException(
+                                    Utils.packException(
                                         () -> md.getColumns(catalog, null, tableName, null)));
                             return new TableInfo(
                                 tableName,
@@ -159,7 +159,7 @@ public class Builder {
 
       @Override
       public void close() {
-        Utils.close(connection);
+        Utils.packException(connection::close);
       }
 
       private void execute(String sql) {
@@ -205,23 +205,23 @@ public class Builder {
   }
 
   private static String catalog(ResultSet rs) {
-    return Utils.handleException(() -> rs.getString("TABLE_CAT"));
+    return Utils.packException(() -> rs.getString("TABLE_CAT"));
   }
 
   private static String tableName(ResultSet rs) {
-    return Utils.handleException(() -> rs.getString("TABLE_NAME"));
+    return Utils.packException(() -> rs.getString("TABLE_NAME"));
   }
 
   private static String columnName(ResultSet rs) {
-    return Utils.handleException(() -> rs.getString("COLUMN_NAME"));
+    return Utils.packException(() -> rs.getString("COLUMN_NAME"));
   }
 
   private static String columnType(ResultSet rs) {
-    return Utils.handleException(() -> rs.getString("TYPE_NAME"));
+    return Utils.packException(() -> rs.getString("TYPE_NAME"));
   }
 
   private static boolean isNormalTable(ResultSet rs) {
-    return Utils.handleException(
+    return Utils.packException(
         () -> {
           var r = rs.getString("TABLE_TYPE");
           if (r == null) return true;

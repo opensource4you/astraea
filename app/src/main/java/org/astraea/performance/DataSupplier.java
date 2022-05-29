@@ -4,8 +4,8 @@ import java.util.Arrays;
 import java.util.Random;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
-import org.astraea.utils.DataSize;
-import org.astraea.utils.DataUnit;
+import org.astraea.common.DataSize;
+import org.astraea.common.DataUnit;
 
 @FunctionalInterface
 interface DataSupplier extends Supplier<DataSupplier.Data> {

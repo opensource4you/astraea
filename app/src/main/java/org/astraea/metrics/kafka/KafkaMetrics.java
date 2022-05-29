@@ -221,7 +221,7 @@ public final class KafkaMetrics {
   }
 
   public enum TopicPartition {
-    LodEndOffset("LodEndOffset"),
+    LogEndOffset("LogEndOffset"),
     LogStartOffset("LogStartOffset"),
     NumLogSegments("NumLogSegments"),
     Size("Size");

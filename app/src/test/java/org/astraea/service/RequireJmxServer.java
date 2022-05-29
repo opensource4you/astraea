@@ -10,7 +10,7 @@ import java.rmi.registry.LocateRegistry;
 import javax.management.remote.JMXConnectorServer;
 import javax.management.remote.JMXConnectorServerFactory;
 import javax.management.remote.JMXServiceURL;
-import org.astraea.Utils;
+import org.astraea.common.Utils;
 import org.junit.jupiter.api.AfterAll;
 
 public abstract class RequireJmxServer {
@@ -23,7 +23,7 @@ public abstract class RequireJmxServer {
 
   @AfterAll
   static void shutdownJmxServer() {
-    Utils.close(JMX_CONNECTOR_SERVER::stop);
+    Utils.packException(JMX_CONNECTOR_SERVER::stop);
   }
 
   /**
