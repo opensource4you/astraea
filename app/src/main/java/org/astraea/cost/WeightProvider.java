@@ -1,5 +1,6 @@
 package org.astraea.cost;
 
+import java.util.Collection;
 import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -21,12 +22,12 @@ public interface WeightProvider<Metric, Object> {
    * @param <Object> object type
    * @return weight for each metrics
    */
-  static <Metric, Object> WeightProvider<Metric, Object> entropy(Normalizer<Object> normalizer) {
+  static <Metric, Object> WeightProvider<Metric, Object> entropy(Normalizer normalizer) {
     // reverse the entropy to simplify following statics
-    Function<Map<Object, Double>, Double> entropy =
+    Function<Collection<Double>, Double> entropy =
         rescaledValues ->
             1
-                - rescaledValues.values().stream()
+                - rescaledValues.stream()
                         // remove the zero value as it does not influence entropy
                         .filter(value -> value != 0)
                         .mapToDouble(value -> value * Math.log(value))
@@ -38,7 +39,8 @@ public interface WeightProvider<Metric, Object> {
           values.entrySet().stream()
               .collect(
                   Collectors.toMap(
-                      Map.Entry::getKey, e -> entropy.apply(normalizer.normalize(e.getValue()))));
+                      Map.Entry::getKey,
+                      e -> entropy.apply(normalizer.normalize(e.getValue().values()))));
       var sum = entropies.values().stream().mapToDouble(d -> d).sum();
       return entropies.entrySet().stream()
           .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue() / sum));
