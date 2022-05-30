@@ -4,7 +4,23 @@ import java.util.Comparator;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+/**
+ * used to normalize data into a range between [0, 1]
+ *
+ * @param <K> kind of data. For example, broker data or partition data
+ */
 public interface Normalizer<K> {
+  /**
+   * implement the min-max normalization.
+   *
+   * <p>positive indexes: (value - min) / (max - min) negative
+   *
+   * <p>indexes: (max - value) / (max - min)
+   *
+   * @param positive true if the data is positive indexes. Otherwise, false
+   * @param <K> kind of data
+   * @return min-max normalizer
+   */
   static <K> Normalizer<K> minMax(boolean positive) {
     var comparator = Comparator.comparing(Double::doubleValue);
     return values -> {
