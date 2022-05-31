@@ -1,26 +1,21 @@
 package org.astraea.cost;
 
-import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 public class NormalizerTest {
 
-  @Test
-  void testAllSameValues() {
-    var normalizer = Normalizer.<String>minMax(true);
-    Assertions.assertEquals(List.of(1D, 1D), normalizer.normalize(List.of(10D, 10D)));
-    Assertions.assertEquals(List.of(1D, 1D), normalizer.normalize(List.of(0D, 0D)));
-  }
-
-  @Test
-  void testRange() {
+  @ParameterizedTest
+  @MethodSource("normalizers")
+  void testRandomValues(Normalizer normalizer) {
     IntStream.range(0, 100)
         .forEach(
             index -> {
-              var normalizer = Normalizer.<String>minMax(index % 2 == 0);
               // generate random data
               var data =
                   IntStream.range(0, 100)
@@ -34,5 +29,29 @@ public class NormalizerTest {
               // make sure all values are in the range between 0 and 1
               result.forEach(v -> Assertions.assertTrue(0 <= v && v <= 1));
             });
+  }
+
+  @ParameterizedTest
+  @MethodSource("normalizers")
+  void testSmallValues(Normalizer normalizer) {
+    IntStream.range(0, 100)
+        .forEach(
+            index -> {
+              // generate random data
+              var data =
+                  IntStream.range(0, 100)
+                      .mapToObj(i -> Math.max(0.3, Math.min(0.7, Math.random())))
+                      .collect(Collectors.toUnmodifiableList());
+              var result = normalizer.normalize(data);
+              Assertions.assertNotEquals(0, result.size());
+              // make sure there is no NaN
+              result.forEach(v -> Assertions.assertNotEquals(Double.NaN, v));
+              // make sure all values are in the range between 0 and 1
+              result.forEach(v -> Assertions.assertTrue(0 <= v && v <= 1));
+            });
+  }
+
+  private static Stream<Arguments> normalizers() {
+    return Normalizer.all().stream().map(Arguments::of);
   }
 }

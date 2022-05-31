@@ -2,11 +2,18 @@ package org.astraea.cost;
 
 import java.util.Collection;
 import java.util.Comparator;
+import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 /** used to normalize data into a range between [0, 1] */
 public interface Normalizer {
+
+  /** @return all normalizers */
+  static List<Normalizer> all() {
+    return List.of(Normalizer.proportion(), Normalizer.minMax(true), Normalizer.minMax(false));
+  }
+
   /**
    * implement the min-max normalization.
    *
@@ -30,6 +37,20 @@ public interface Normalizer {
       return values.stream()
           .map(value -> (positive ? value - min : max - value) / (max - min))
           .collect(Collectors.toUnmodifiableList());
+    };
+  }
+
+  /**
+   * rescale the value by the proportion
+   *
+   * <p>value / sum of all values
+   *
+   * @return proportion normalizer
+   */
+  static Normalizer proportion() {
+    return values -> {
+      var sum = values.stream().mapToDouble(i -> i).sum();
+      return values.stream().map(v -> v / sum).collect(Collectors.toUnmodifiableList());
     };
   }
 

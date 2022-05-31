@@ -2,56 +2,64 @@ package org.astraea.cost;
 
 import java.util.Collection;
 import java.util.Map;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
-/**
- * Used to provide the weight to score the node or partition
- *
- * @param <Metric> used to represent the "resource". For example, throughput, memory usage, etc.
- * @param <Object> used to represent the "target". For example, broker node, topic partition, etc.
- */
+/** Used to provide the weight to score the node or partition */
 @FunctionalInterface
-public interface WeightProvider<Metric, Object> {
+public interface WeightProvider {
 
   /**
    * create a weight provider based on entropy
    *
    * @param normalizer to normalize input values
-   * @param <Metric> metrics type
-   * @param <Object> object type
    * @return weight for each metrics
    */
-  static <Metric, Object> WeightProvider<Metric, Object> entropy(Normalizer normalizer) {
-    // reverse the entropy to simplify following statics
-    Function<Collection<Double>, Double> entropy =
-        rescaledValues ->
-            1
-                - rescaledValues.stream()
-                        // remove the zero value as it does not influence entropy
-                        .filter(value -> value != 0)
-                        .mapToDouble(value -> value * Math.log(value))
-                        .sum()
-                    / (-Math.log(rescaledValues.size()));
-
-    return values -> {
-      var entropies =
-          values.entrySet().stream()
-              .collect(
-                  Collectors.toMap(
-                      Map.Entry::getKey,
-                      e -> entropy.apply(normalizer.normalize(e.getValue().values()))));
-      var sum = entropies.values().stream().mapToDouble(d -> d).sum();
-      return entropies.entrySet().stream()
-          .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue() / sum));
-    };
+  static WeightProvider entropy(Normalizer normalizer) {
+    return new EntropyWeightProvider(normalizer);
   }
 
   /**
    * compute the weights for each metric
    *
+   * @param <Metrics> used to represent the "resource". For example, throughput, memory usage, etc.
+   * @param <T> used to represent the "target". For example, broker node, topic partition, etc.
    * @param values origin data
    * @return metric and its weight
    */
-  Map<Metric, Double> weight(Map<Metric, Map<Object, Double>> values);
+  <Metrics, T extends Collection<Double>> Map<Metrics, Double> weight(Map<Metrics, T> values);
+
+  class EntropyWeightProvider implements WeightProvider {
+    private final Normalizer normalizer;
+
+    EntropyWeightProvider(Normalizer normalizer) {
+      this.normalizer = normalizer;
+    }
+
+    @Override
+    public <Metrics, T extends Collection<Double>> Map<Metrics, Double> weight(
+        Map<Metrics, T> values) {
+      var entropies = entropies(values);
+      // use difference to calculate the weight
+      var diff =
+          entropies.entrySet().stream()
+              .collect(Collectors.toMap(Map.Entry::getKey, e -> 1D - e.getValue()));
+      var sum = diff.values().stream().mapToDouble(d -> d).sum();
+      return diff.entrySet().stream()
+          .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue() / sum));
+    }
+
+    // used for testing
+    <Metric, T extends Collection<Double>> Map<Metric, Double> entropies(Map<Metric, T> values) {
+      return values.entrySet().stream()
+          .collect(
+              Collectors.toMap(
+                  Map.Entry::getKey,
+                  e ->
+                      normalizer.normalize(e.getValue()).stream()
+                              // return 0 if value is 0 (just convenience of calculation)
+                              .mapToDouble(value -> value * (value == 0 ? 0 : Math.log(value)))
+                              .sum()
+                          / (-Math.log(e.getValue().size()))));
+    }
+  }
 }

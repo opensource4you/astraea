@@ -1,5 +1,6 @@
 package org.astraea.cost.broker;
 
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -24,8 +25,7 @@ public class NeutralIntegratedCost implements HasBrokerCost {
       List.of(new BrokerInputCost(), new BrokerOutputCost(), new CpuCost(), new MemoryCost());
   private final Map<Integer, BrokerMetrics> brokersMetric = new HashMap<>();
   private final AHPEmpowerment ahpEmpowerment = new AHPEmpowerment();
-  private final WeightProvider<String, Integer> weightProvider =
-      WeightProvider.entropy(Normalizer.minMax(true));
+  private final WeightProvider weightProvider = WeightProvider.entropy(Normalizer.proportion());
 
   @Override
   public BrokerCost brokerCost(ClusterInfo clusterInfo) {
@@ -90,40 +90,35 @@ public class NeutralIntegratedCost implements HasBrokerCost {
   }
 
   static Map<String, Double> weight(
-      WeightProvider<String, Integer> weightProvider, Map<Integer, BrokerMetrics> brokerMetrics) {
-    var values = new HashMap<String, Map<Integer, Double>>();
-    for (var m : Metrics.values()) {
-      Map<Integer, Double> data;
-      switch (m) {
-        case inputThroughput:
-          data =
-              brokerMetrics.entrySet().stream()
-                  .collect(
-                      Collectors.toMap(Map.Entry::getKey, entry -> entry.getValue().inputScore));
-          break;
-        case outputThroughput:
-          data =
-              brokerMetrics.entrySet().stream()
-                  .collect(
-                      Collectors.toMap(Map.Entry::getKey, entry -> entry.getValue().outputScore));
-          break;
-        case memory:
-          data =
-              brokerMetrics.entrySet().stream()
-                  .collect(
-                      Collectors.toMap(Map.Entry::getKey, entry -> entry.getValue().memoryScore));
-          break;
-        case cpu:
-          data =
-              brokerMetrics.entrySet().stream()
-                  .collect(Collectors.toMap(Map.Entry::getKey, entry -> entry.getValue().cpuScore));
-          break;
-        default:
-          data = Map.of();
-          break;
-      }
-      values.put(m.metricName, data);
-    }
+      WeightProvider weightProvider, Map<Integer, BrokerMetrics> brokerMetrics) {
+
+    var values =
+        Arrays.stream(Metrics.values())
+            .collect(
+                Collectors.toMap(
+                    m -> m.metricName,
+                    m -> {
+                      switch (m) {
+                        case inputThroughput:
+                          return brokerMetrics.values().stream()
+                              .map(metrics -> metrics.inputScore)
+                              .collect(Collectors.toUnmodifiableList());
+                        case outputThroughput:
+                          return brokerMetrics.values().stream()
+                              .map(metrics -> metrics.outputScore)
+                              .collect(Collectors.toUnmodifiableList());
+                        case memory:
+                          return brokerMetrics.values().stream()
+                              .map(metrics -> metrics.memoryScore)
+                              .collect(Collectors.toUnmodifiableList());
+                        case cpu:
+                          return brokerMetrics.values().stream()
+                              .map(metrics -> metrics.cpuScore)
+                              .collect(Collectors.toUnmodifiableList());
+                        default:
+                          return List.<Double>of();
+                      }
+                    }));
     return weightProvider.weight(values);
   }
 
