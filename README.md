@@ -412,3 +412,7 @@ GET http://localhost:12345/groups
 ```shell
 GET http://localhost:12345/groups/g1
 ```
+
+## Smooth dispatch
+[Smooth Dispatch](docs/SmoothDispatch.md) is a system based on monitoring the cluster status and calculating the load score of each node by processing the collected data, so as to arrange and plan the amount of data load each node should bear.
+When a node in a cluster reaches its load limit, Smooth dispatch can improve the throughput performance in an unevenly loaded cluster without taking the running business offline, and the more uneven the load of the cluster is, the more obvious the improvement will be.
