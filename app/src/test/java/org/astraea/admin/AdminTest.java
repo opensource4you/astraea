@@ -22,8 +22,6 @@ import org.astraea.service.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledOnOs;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
 
 public class AdminTest extends RequireBrokerCluster {
 
@@ -358,42 +356,6 @@ public class AdminTest extends RequireBrokerCluster {
 
       var count = admin.topicNames().stream().mapToInt(t -> admin.replicas(Set.of(t)).size()).sum();
       Assertions.assertEquals(count, admin.replicas().size());
-    }
-  }
-
-  @ParameterizedTest
-  @ValueSource(booleans = {true, false})
-  void testMoveTo(boolean needFollower) throws InterruptedException {
-    var topic = Utils.randomString(10);
-    try (var admin = Admin.of(bootstrapServers())) {
-      admin.creator().topic(topic).numberOfPartitions(1).numberOfReplicas((short) 3).create();
-      TimeUnit.SECONDS.sleep(2);
-
-      int originLeader =
-          admin.replicas(Set.of(topic)).get(new TopicPartition(topic, 0)).stream()
-              .filter(Replica::leader)
-              .findFirst()
-              .get()
-              .broker();
-
-      int newLeader = brokerIds().stream().filter(i -> i != originLeader).findFirst().get();
-
-      admin
-          .migrator()
-          .partition(topic, 0)
-          .moveTo(
-              newLeader,
-              needFollower
-                  ? brokerIds().stream().filter(i -> i != newLeader).collect(Collectors.toSet())
-                  : Set.of());
-      TimeUnit.SECONDS.sleep(2);
-      Assertions.assertEquals(
-          newLeader,
-          admin.replicas(Set.of(topic)).get(new TopicPartition(topic, 0)).stream()
-              .filter(Replica::leader)
-              .findFirst()
-              .get()
-              .broker());
     }
   }
 

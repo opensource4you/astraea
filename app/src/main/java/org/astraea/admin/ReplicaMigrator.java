@@ -2,7 +2,6 @@ package org.astraea.admin;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 /** used to migrate partitions to another broker or broker folder. */
 public interface ReplicaMigrator {
@@ -30,15 +29,6 @@ public interface ReplicaMigrator {
    * @param brokers to host partitions
    */
   void moveTo(List<Integer> brokers);
-
-  /**
-   * move the leader and followers to specify nodes. Noted that this method will invoke leader
-   * election.
-   *
-   * @param leader the node to host leader
-   * @param followers the nodes to host followers
-   */
-  void moveTo(int leader, Set<Integer> followers);
 
   /**
    * move partition to specify folder.

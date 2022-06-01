@@ -24,7 +24,6 @@ import org.apache.kafka.clients.admin.NewPartitionReassignment;
 import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.clients.admin.OffsetSpec;
 import org.apache.kafka.clients.admin.ReplicaInfo;
-import org.apache.kafka.common.ElectionType;
 import org.apache.kafka.common.Node;
 import org.apache.kafka.common.TopicPartitionReplica;
 import org.apache.kafka.common.config.ConfigResource;
@@ -578,23 +577,6 @@ public class Builder {
                                   ignore -> Optional.of(new NewPartitionReassignment(brokers)))))
                   .all()
                   .get());
-    }
-
-    @Override
-    public void moveTo(int leader, Set<Integer> followers) {
-      var all = new ArrayList<>(followers);
-      all.add(0, leader);
-      moveTo(all);
-      // kafka produces error if re-election happens in single node
-      if (!followers.isEmpty())
-        Utils.packException(
-            () ->
-                admin
-                    .electLeaders(
-                        ElectionType.PREFERRED,
-                        partitions.stream().map(TopicPartition::to).collect(Collectors.toSet()))
-                    .all()
-                    .get());
     }
   }
 
