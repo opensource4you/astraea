@@ -25,7 +25,7 @@ public class NeutralIntegratedCost implements HasBrokerCost {
       List.of(new BrokerInputCost(), new BrokerOutputCost(), new CpuCost(), new MemoryCost());
   private final Map<Integer, BrokerMetrics> brokersMetric = new HashMap<>();
   private final AHPEmpowerment ahpEmpowerment = new AHPEmpowerment();
-  private final WeightProvider weightProvider = WeightProvider.entropy(Normalizer.proportion());
+  private final WeightProvider weightProvider = WeightProvider.entropy(Normalizer.minMax(true));
 
   @Override
   public BrokerCost brokerCost(ClusterInfo clusterInfo) {
