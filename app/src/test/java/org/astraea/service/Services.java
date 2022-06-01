@@ -54,6 +54,10 @@ public final class Services {
                   config.setProperty(
                       KafkaConfig$.MODULE$.LogDirsProp(), String.join(",", tempFolders.get(index)));
 
+                  // disable auto leader balance to ensure migration test works correctly.
+                  config.setProperty(
+                      KafkaConfig$.MODULE$.AutoLeaderRebalanceEnableProp(), String.valueOf(false));
+
                   // increase the timeout in order to avoid ZkTimeoutException
                   config.setProperty(
                       KafkaConfig$.MODULE$.ZkSessionTimeoutMsProp(), String.valueOf(30 * 1000));

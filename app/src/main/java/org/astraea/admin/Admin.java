@@ -126,6 +126,9 @@ public interface Admin extends Closeable {
   /** @return a partition migrator used to move partitions to another broker or folder. */
   ReplicaMigrator migrator();
 
+  /** @param topicPartitions to perform preferred leader election */
+  void preferredLeaderElection(Set<TopicPartition> topicPartitions);
+
   /** @return producer states of all topic partitions */
   default Map<TopicPartition, Collection<ProducerState>> producerStates() {
     return producerStates(partitions());

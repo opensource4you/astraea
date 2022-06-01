@@ -24,6 +24,7 @@ import org.apache.kafka.clients.admin.NewPartitionReassignment;
 import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.clients.admin.OffsetSpec;
 import org.apache.kafka.clients.admin.ReplicaInfo;
+import org.apache.kafka.common.ElectionType;
 import org.apache.kafka.common.Node;
 import org.apache.kafka.common.TopicPartitionReplica;
 import org.apache.kafka.common.config.ConfigResource;
@@ -86,6 +87,21 @@ public class Builder {
     @Override
     public ReplicaMigrator migrator() {
       return new MigratorImpl(admin, this::partitions);
+    }
+
+    @Override
+    public void preferredLeaderElection(Set<TopicPartition> topicPartitions) {
+      Utils.packException(
+          () -> {
+            admin
+                .electLeaders(
+                    ElectionType.PREFERRED,
+                    topicPartitions.stream()
+                        .map(TopicPartition::to)
+                        .collect(Collectors.toUnmodifiableSet()))
+                .all()
+                .get();
+          });
     }
 
     @Override
