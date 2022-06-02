@@ -1,7 +1,5 @@
 package org.astraea.cost.broker;
 
-import static org.astraea.cost.broker.CostUtils.TScore;
-
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -10,6 +8,7 @@ import java.util.stream.IntStream;
 import org.astraea.cost.BrokerCost;
 import org.astraea.cost.ClusterInfo;
 import org.astraea.cost.HasBrokerCost;
+import org.astraea.cost.Normalizer;
 import org.astraea.metrics.collector.Fetcher;
 import org.astraea.metrics.kafka.BrokerTopicMetricsResult;
 import org.astraea.metrics.kafka.KafkaMetrics;
@@ -29,7 +28,7 @@ public class BrokerInputCost implements HasBrokerCost {
   private final Map<Integer, BrokerMetric> brokersMetric = new HashMap<>();
 
   @Override
-  public BrokerCost brokerCost(ClusterInfo clusterInfo) {
+  public BrokerCost brokerCost(ClusterInfo clusterInfo, Normalizer normalizer) {
     var costMetrics =
         clusterInfo.allBeans().entrySet().stream()
             .collect(
@@ -59,8 +58,9 @@ public class BrokerInputCost implements HasBrokerCost {
                       broker.accumulateCount = inBean.count();
                       return count;
                     }));
-
-    TScore(costMetrics).forEach((broker, v) -> brokersMetric.get(broker).updateLoad(v));
+    var normalization = normalizer.normalize(costMetrics.values()).iterator();
+    costMetrics.replaceAll((broker, v) -> normalization.next());
+    costMetrics.forEach((broker, v) -> brokersMetric.get(broker).updateLoad(v));
 
     return this::computeLoad;
   }

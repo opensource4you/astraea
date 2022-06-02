@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Map;
 import org.astraea.cost.ClusterInfo;
 import org.astraea.cost.FakeClusterInfo;
+import org.astraea.cost.Normalizer;
 import org.astraea.metrics.HasBeanObject;
 import org.astraea.metrics.jmx.BeanObject;
 import org.astraea.metrics.kafka.BrokerTopicMetricsResult;
@@ -19,13 +20,13 @@ public class BrokerOutPutCostTest {
     ClusterInfo clusterInfo = exampleClusterInfo(10000L, 20000L, 5000L);
 
     var brokerOutputCost = new BrokerOutputCost();
-    var scores = brokerOutputCost.brokerCost(clusterInfo).value();
+    var scores = brokerOutputCost.brokerCost(clusterInfo, Normalizer.TScore()).value();
     Assertions.assertEquals(0.47, scores.get(1));
     Assertions.assertEquals(0.63, scores.get(2));
     Assertions.assertEquals(0.39, scores.get(3));
 
     ClusterInfo clusterInfo2 = exampleClusterInfo(55555L, 25352L, 25000L);
-    scores = brokerOutputCost.brokerCost(clusterInfo2).value();
+    scores = brokerOutputCost.brokerCost(clusterInfo2, Normalizer.TScore()).value();
     Assertions.assertEquals(0.55, scores.get(1));
     Assertions.assertEquals(0.51, scores.get(2));
     Assertions.assertEquals(0.44, scores.get(3));

@@ -39,7 +39,10 @@ public class ThroughputCostTest {
         .thenReturn(List.of(ReplicaInfo.of("t", 0, node, true, true, false)));
 
     var cost =
-        throughputCost.brokerCost(ClusterInfo.of(cluster, Map.of(10, List.of(bean)))).value();
+        throughputCost
+            .brokerCost(
+                ClusterInfo.of(cluster, Map.of(10, List.of(bean))), Normalizer.noNormalize())
+            .value();
     Assertions.assertEquals(1, cost.size());
     Assertions.assertEquals(1, cost.get(10));
   }

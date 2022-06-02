@@ -10,6 +10,7 @@ import java.util.stream.IntStream;
 import org.astraea.cost.BrokerCost;
 import org.astraea.cost.ClusterInfo;
 import org.astraea.cost.HasBrokerCost;
+import org.astraea.cost.Normalizer;
 import org.astraea.metrics.collector.Fetcher;
 import org.astraea.metrics.java.OperatingSystemInfo;
 import org.astraea.metrics.kafka.KafkaMetrics;
@@ -29,7 +30,7 @@ public class CpuCost implements HasBrokerCost {
   private final Map<Integer, BrokerMetric> brokersMetric = new HashMap<>();
 
   @Override
-  public BrokerCost brokerCost(ClusterInfo clusterInfo) {
+  public BrokerCost brokerCost(ClusterInfo clusterInfo, Normalizer normalizer) {
     var costMetrics =
         clusterInfo.allBeans().entrySet().stream()
             .collect(

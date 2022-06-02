@@ -10,6 +10,7 @@ import org.astraea.cost.BrokerCost;
 import org.astraea.cost.ClusterInfo;
 import org.astraea.cost.HasBrokerCost;
 import org.astraea.cost.NodeInfo;
+import org.astraea.cost.Normalizer;
 import org.astraea.cost.ReplicaInfo;
 import org.astraea.cost.ThroughputCost;
 import org.astraea.cost.broker.BrokerInputCost;
@@ -90,7 +91,7 @@ public class StrictCostDispatcherTest {
     var costFunction1 =
         new HasBrokerCost() {
           @Override
-          public BrokerCost brokerCost(ClusterInfo clusterInfo) {
+          public BrokerCost brokerCost(ClusterInfo clusterInfo, Normalizer normalizer) {
             var brokerCost =
                 clusterInfo.allBeans().keySet().stream()
                     .collect(
@@ -107,7 +108,7 @@ public class StrictCostDispatcherTest {
     var costFunction2 =
         new HasBrokerCost() {
           @Override
-          public BrokerCost brokerCost(ClusterInfo clusterInfo) {
+          public BrokerCost brokerCost(ClusterInfo clusterInfo, Normalizer normalizer) {
             var brokerCost =
                 clusterInfo.allBeans().keySet().stream()
                     .collect(

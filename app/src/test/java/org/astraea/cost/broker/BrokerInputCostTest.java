@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Map;
 import org.astraea.cost.ClusterInfo;
 import org.astraea.cost.FakeClusterInfo;
+import org.astraea.cost.Normalizer;
 import org.astraea.metrics.HasBeanObject;
 import org.astraea.metrics.jmx.BeanObject;
 import org.astraea.metrics.kafka.BrokerTopicMetricsResult;
@@ -15,20 +16,33 @@ import org.mockito.Mockito;
 
 public class BrokerInputCostTest {
   @Test
-  void testCost() {
+  void testTScoreCost() {
     ClusterInfo clusterInfo = exampleClusterInfo(10000L, 20000L, 5000L);
 
     var brokerInputCost = new BrokerInputCost();
-    var scores = brokerInputCost.brokerCost(clusterInfo).value();
+    var scores = brokerInputCost.brokerCost(clusterInfo, Normalizer.TScore()).value();
     Assertions.assertEquals(0.47, scores.get(1));
     Assertions.assertEquals(0.63, scores.get(2));
     Assertions.assertEquals(0.39, scores.get(3));
 
     ClusterInfo clusterInfo2 = exampleClusterInfo(55555L, 25352L, 25000L);
-    scores = brokerInputCost.brokerCost(clusterInfo2).value();
+    scores = brokerInputCost.brokerCost(clusterInfo2, Normalizer.TScore()).value();
     Assertions.assertEquals(0.55, scores.get(1));
     Assertions.assertEquals(0.51, scores.get(2));
     Assertions.assertEquals(0.44, scores.get(3));
+  }
+
+  @Test
+  void testNoNormalize() {
+    ClusterInfo clusterInfo = exampleClusterInfo(10000L, 20000L, 5000L);
+
+    var brokerInputCost = new BrokerInputCost();
+    var scores = brokerInputCost.brokerCost(clusterInfo, Normalizer.noNormalize()).value();
+    Assertions.assertEquals(10000.0, scores.get(1));
+    Assertions.assertEquals(20000.0, scores.get(2));
+    Assertions.assertEquals(5000.0, scores.get(3));
+
+    ClusterInfo clusterInfo2 = exampleClusterInfo(55555L, 25352L, 25000L);
   }
 
   private ClusterInfo exampleClusterInfo(long in1, long in2, long in3) {
