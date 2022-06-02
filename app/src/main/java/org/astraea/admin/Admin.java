@@ -126,7 +126,14 @@ public interface Admin extends Closeable {
   /** @return a partition migrator used to move partitions to another broker or folder. */
   ReplicaMigrator migrator();
 
-  /** @param topicPartitions to perform preferred leader election */
+  /**
+   * Perform preferred leader election for the specified topic/partitions. Let the first replica(the
+   * preferred leader) in the partition replica list becomes the leader of its corresponding
+   * topic/partition. Noted that the first replica(the preferred leader) must be in-sync state and
+   * not be the current leader. Otherwise, an exception might be raised.
+   *
+   * @param topicPartitions to perform preferred leader election
+   */
   void preferredLeaderElection(Set<TopicPartition> topicPartitions);
 
   /** @return producer states of all topic partitions */

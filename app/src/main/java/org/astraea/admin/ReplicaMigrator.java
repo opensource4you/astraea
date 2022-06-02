@@ -23,8 +23,9 @@ public interface ReplicaMigrator {
   ReplicaMigrator partition(String topic, int partition);
 
   /**
-   * move partitions to specify brokers. Noted that this method won't invoke leader election
-   * explicitly.
+   * change the partition replica list. If the current partition leader is kicked out of the
+   * partition replica list. A leader election will occur implicitly. The first replica(the
+   * preferred leader) will become the new leader of this topic/partition
    *
    * @param brokers to host partitions
    */

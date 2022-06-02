@@ -54,7 +54,8 @@ public final class Services {
                   config.setProperty(
                       KafkaConfig$.MODULE$.LogDirsProp(), String.join(",", tempFolders.get(index)));
 
-                  // disable auto leader balance to ensure migration test works correctly.
+                  // disable auto leader balance to ensure AdminTest#preferredLeaderElection works
+                  // correctly.
                   config.setProperty(
                       KafkaConfig$.MODULE$.AutoLeaderRebalanceEnableProp(), String.valueOf(false));
 
