@@ -15,6 +15,11 @@ curl -X GET http://localhost:8001/brokers
 ```
 
 JSON Response 範例
+- `id`: broker id
+- `topics`: 此 broker 下所有 topic
+  - `topic`: topic 名稱
+  - `partitionCount`: 此 topic 所擁有的 partition 數量
+- `configs`: 此 broker 所設定的所有 configs
 ```json
 {
   "brokers": [
@@ -49,11 +54,6 @@ curl -X GET http://localhost:8001/brokers/1001
 ```
 
 JSON Response 範例
-- `id`: broker id
-- `topics`: 此 broker 下所有 topic 
-  - `topic`: topic 名稱
-  - `partitionCount`: 此 topic 所擁有的 partition 數量
-- `configs`: 此 broker 所設定的所有 configs
 ```json
 {
   "id": 1001,
