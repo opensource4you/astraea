@@ -1,25 +1,26 @@
 /quotas
 ===
 
-- [建立/變更 quotas](#建立/變更 quotas)
-  - [建立/變更 ip quotas](#建立/變更 ip quotas)
-  - [建立/變更 client quotas](#建立/變更 client quotas)
+- [建立/變更 quotas](#建立或變更-quotas)
+  - [建立/變更 ip quotas](#建立或變更-ip-quotas)
+  - [建立/變更 client quotas](#建立或變更-client-quotas)
 - [查詢 quotas](#查詢 quotas)
 
-## 建立/變更 quotas
+## 建立或變更 quotas
 ```shell
 POST /quotas
 ```
-可透過此 api 設定 `ip` 以及 `client` quotas
+以 ip 或是 client 為目標對象來增設 quotas
 
-### 建立/變更 ip quotas
+### 建立或變更 ip quotas
 
 參數
 
-| 名稱                       | 說明               |
-|--------------------------|------------------|
-| ip                       | (必填) ip 地址       |
-| connection_creation_rate | (選填) 每秒建立的最大連線數量 |
+| 名稱                       | 說明               | 預設  |
+|--------------------------|------------------|-----|
+| ip                       | (必填) ip 地址       | 無   |
+| connection_creation_rate | (選填) 每秒建立的最大連線數量 | 無上限 |
+- 除了 ip 以外的參數都不填寫的話，quotas 不會建立
 
 cURL 範例
 
@@ -51,14 +52,15 @@ JSON Response 範例
 }
 ```
 
-### 建立/變更 client quotas
+### 建立或變更 client quotas
 參數
 
-| 名稱                 | 說明                           |
-|--------------------|------------------------------|
-| client-id          | (必填) client id               |
-| producer_byte_rate | (選填) producer 每秒發佈的最大 byte 數 |
-| consumer_byte_rate | (選填) consumer 每秒提取的最大 byte 數 |
+| 名稱                 | 說明                           | 預設  |
+|--------------------|------------------------------|-----|
+| client-id          | (必填) client id               | 無   |
+| producer_byte_rate | (選填) producer 每秒發佈的最大 byte 數 | 無上限 |
+| consumer_byte_rate | (選填) consumer 每秒提取的最大 byte 數 | 無上限 |
+- 除了 client-id 以外的參數都不填寫的話，quotas 不會建立
 
 cURL 範例
 

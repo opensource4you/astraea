@@ -1,7 +1,7 @@
 /producers
 ===
 
-- [查詢 producers](#查詢 producers)
+- [查詢 producers](#查詢-producers)
 
 ## 查詢 producers
 ```shell
@@ -14,7 +14,7 @@ GET /producers
 |-----------|-------------------|
 | topic     | (選填) topic 名稱     |
 | partition | (選填) partition id |
-
+- 僅能指定查詢 topic 或者 topic + partition，其他狀況均會回傳全部結果
 
 cURL 範例
 
@@ -23,7 +23,7 @@ cURL 範例
 curl -X GET http://localhost:8001/producers
 ```
 
-查詢所有 topic 為 test1 且 partition 為 0 的 producers
+查詢所有 producers 其 topic = test1 且 partition = 0
 ```shell
 curl -X GET http://localhost:8001/producers?topic=test1&partition=0
 ```

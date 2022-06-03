@@ -1,9 +1,9 @@
 /topics
 ===
 
-- [建立 topic](#建立 topic)
-- [查詢所有 topics](#查詢所有 topics)
-- [查詢指定 topic](#查詢指定 topic)
+- [建立 topic](#建立-topic)
+- [查詢所有 topics](#查詢所有-topics)
+- [查詢指定 topic](#查詢指定-topic)
 
 ## 建立 topic
 ```shell
@@ -31,7 +31,18 @@ curl -X POST http://localhost:8001/topics \
     }'
 ```
 
+所有在 JSON Response `configs` 裡頭的參數也可以透過此 api 來設定。範例如下
+```shell
+curl -X POST http://localhost:8001/topics \
+    -H "Content-Type: application/json" \
+    -d '{
+    "name": "test1",
+    "max.message.bytes": 1000
+    }'
+```
+
 JSON Response 範例
+
 ```json
 {
   "name": "test1",
