@@ -15,13 +15,13 @@ curl -X GET http://localhost:8001/groups
 ```
 
 JSON Response 範例
-- `memberId`: consumer id
-- `clientId`: consumer client id
+- `memberId`: consumer 加入群組時由 (broker) coordinator所給予的唯一值
+- `clientId`: consumer 送出請求時使用的名稱，使用者可以自定義，預設值為隨機字串
 - `host`: consumer 運行的位址
 - `offsetProgress`: consumer 目前消化資料的進度
   - `topicName`: consumer 提取資料的 topic 名稱
   - `partitionId`: consumer 提取資料的 partition id
-  - `earliest`: partition 最早的紀錄位置
+  - `earliest`: partition 現存的資料最早的紀錄位置
   - `current`: consumer 於 partition 目前處理的數據位置
   - `latest`: partition 最新紀錄位置
 ```json

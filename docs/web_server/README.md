@@ -9,8 +9,8 @@ Astraea 建立了一套 Web Server 服務，使用者可以透過簡易好上手
 ./docker/start_kafka_tool.sh web --bootstrap.servers 192.168.50.5:9092 --port 12345
 ```
 
-- `--bootstrap.servers`: broker 位址與連接埠，如果有多台 brokers，請以 `,` 做區隔
-- `--port`: web server 連接埠，預設為 8001
+- `--bootstrap.servers`: broker 位址與連接埠，用以索取叢集資訊，可填寫多台 brokers，並以 `,` 做區隔
+- `--port`: web server 連接埠
 
 ## Web APIs
 - [/topics](./web_api_topics_chinese.md)

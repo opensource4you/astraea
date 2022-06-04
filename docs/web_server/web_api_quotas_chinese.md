@@ -4,7 +4,7 @@
 - [建立/變更 quotas](#建立或變更-quotas)
   - [建立/變更 ip quotas](#建立或變更-ip-quotas)
   - [建立/變更 client quotas](#建立或變更-client-quotas)
-- [查詢 quotas](#查詢 quotas)
+- [查詢 quotas](#查詢-quotas)
 
 ## 建立或變更 quotas
 ```shell

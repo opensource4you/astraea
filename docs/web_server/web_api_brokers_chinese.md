@@ -15,11 +15,11 @@ curl -X GET http://localhost:8001/brokers
 ```
 
 JSON Response 範例
-- `id`: broker id
+- `id`: broker 在叢集中的識別碼
 - `topics`: 此 broker 下所有 topic
   - `topic`: topic 名稱
-  - `partitionCount`: 此 topic 所擁有的 partition 數量
-- `configs`: 此 broker 所設定的所有 configs
+  - `partitionCount`: 此 topic 有多少個 partitions 在這個節點身上
+- `configs`: 此 broker 正在使用的參數。這個參數列表為下列項目的組合，啟動節點時所用的參數檔、系統內預設值以及使用者動態修改的參數
 ```json
 {
   "brokers": [
