@@ -506,7 +506,7 @@ public class AdminTest extends RequireBrokerCluster {
               () ->
                   admin.replicas(Set.of(topic)).entrySet().stream()
                       .collect(
-                          Utils.toTreeMap(
+                          Utils.toSortedMap(
                               Map.Entry::getKey,
                               e ->
                                   e.getValue().stream()
@@ -517,7 +517,7 @@ public class AdminTest extends RequireBrokerCluster {
       var expectedReplicaList =
           currentLeaderMap.get().entrySet().stream()
               .collect(
-                  Utils.toTreeMap(
+                  Utils.toSortedMap(
                       Map.Entry::getKey,
                       entry -> {
                         int leaderBroker = entry.getValue();
@@ -532,7 +532,7 @@ public class AdminTest extends RequireBrokerCluster {
               () ->
                   expectedReplicaList.entrySet().stream()
                       .collect(
-                          Utils.toTreeMap(
+                          Utils.toSortedMap(
                               Map.Entry::getKey,
                               e -> e.getValue().stream().findFirst().orElseThrow()));
 

@@ -100,7 +100,7 @@ public class Builder {
                   .all()
                   .get();
             });
-      } catch (ElectionNotNeededException e) {
+      } catch (ElectionNotNeededException ignored) {
         // Swallow the ElectionNotNeededException.
         // This error occurred if the preferred leader of the given topic/partition is already the
         // leader. It is ok to swallow the exception since the preferred leader be the actual

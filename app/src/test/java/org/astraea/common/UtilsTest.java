@@ -2,7 +2,7 @@ package org.astraea.common;
 
 import java.io.IOException;
 import java.util.Map;
-import java.util.TreeMap;
+import java.util.SortedMap;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -41,12 +41,13 @@ public class UtilsTest {
   @Test
   void testCollectToTreeMap() {
     Assertions.assertInstanceOf(
-        TreeMap.class, IntStream.range(0, 100).boxed().collect(Utils.toTreeMap(i -> i, i -> i)));
+        SortedMap.class,
+        IntStream.range(0, 100).boxed().collect(Utils.toSortedMap(i -> i, i -> i)));
     //noinspection ResultOfMethodCallIgnored
     Assertions.assertThrows(
         IllegalStateException.class,
         () ->
             Stream.of(Map.entry(1, "hello"), Map.entry(1, "world"))
-                .collect(Utils.toTreeMap(Map.Entry::getKey, Map.Entry::getValue)));
+                .collect(Utils.toSortedMap(Map.Entry::getKey, Map.Entry::getValue)));
   }
 }

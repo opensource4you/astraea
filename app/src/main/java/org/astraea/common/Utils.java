@@ -5,6 +5,7 @@ import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.nio.file.Files;
 import java.time.Duration;
+import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -185,7 +186,7 @@ public final class Utils {
     return port;
   }
 
-  public static <T, K, U> Collector<T, ?, TreeMap<K, U>> toTreeMap(
+  public static <T, K, U> Collector<T, ?, SortedMap<K, U>> toSortedMap(
       Function<? super T, K> keyMapper, Function<? super T, U> valueMapper) {
     return Collectors.toMap(
         keyMapper,
