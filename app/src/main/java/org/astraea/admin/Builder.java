@@ -12,6 +12,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ExecutionException;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -28,6 +29,7 @@ import org.apache.kafka.common.ElectionType;
 import org.apache.kafka.common.Node;
 import org.apache.kafka.common.TopicPartitionReplica;
 import org.apache.kafka.common.config.ConfigResource;
+import org.apache.kafka.common.errors.ElectionNotNeededException;
 import org.apache.kafka.common.quota.ClientQuotaAlteration;
 import org.apache.kafka.common.quota.ClientQuotaEntity;
 import org.apache.kafka.common.quota.ClientQuotaFilter;
@@ -90,17 +92,19 @@ public class Builder {
     }
 
     @Override
-    public void preferredLeaderElection(Set<TopicPartition> topicPartitions) {
+    public void preferredLeaderElection(TopicPartition topicPartition) {
       Utils.packException(
           () -> {
-            admin
-                .electLeaders(
-                    ElectionType.PREFERRED,
-                    topicPartitions.stream()
-                        .map(TopicPartition::to)
-                        .collect(Collectors.toUnmodifiableSet()))
-                .all()
-                .get();
+            try {
+              admin
+                  .electLeaders(ElectionType.PREFERRED, Set.of(TopicPartition.to(topicPartition)))
+                  .all()
+                  .get();
+            } catch (ExecutionException e) {
+              // Swallow the ElectionNotNeededException error. this error occurred if the preferred
+              // leader of the given topic/partition is already the leader
+              if (!(e.getCause() instanceof ElectionNotNeededException)) throw e;
+            }
           });
     }
 

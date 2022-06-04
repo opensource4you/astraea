@@ -129,12 +129,12 @@ public interface Admin extends Closeable {
   /**
    * Perform preferred leader election for the specified topic/partitions. Let the first replica(the
    * preferred leader) in the partition replica list becomes the leader of its corresponding
-   * topic/partition. Noted that the first replica(the preferred leader) must be in-sync state and
-   * not be the current leader. Otherwise, an exception might be raised.
+   * topic/partition. Noted that the first replica(the preferred leader) must be in-sync state.
+   * Otherwise, an exception might be raised.
    *
-   * @param topicPartitions to perform preferred leader election
+   * @param topicPartition to perform preferred leader election
    */
-  void preferredLeaderElection(Set<TopicPartition> topicPartitions);
+  void preferredLeaderElection(TopicPartition topicPartition);
 
   /** @return producer states of all topic partitions */
   default Map<TopicPartition, Collection<ProducerState>> producerStates() {

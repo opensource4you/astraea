@@ -551,34 +551,39 @@ public class AdminTest extends RequireBrokerCluster {
 
       // change replica list
       topicPartitions.forEach(
-          tp ->
+          topicPartition ->
               admin
                   .migrator()
-                  .partition(tp.topic(), tp.partition())
-                  .moveTo(expectedReplicaList.get(tp)));
-      TimeUnit.SECONDS.sleep(3);
+                  .partition(topicPartition.topic(), topicPartition.partition())
+                  .moveTo(expectedReplicaList.get(topicPartition)));
+      TimeUnit.SECONDS.sleep(8);
 
-      // before election
-      if (replicaSize > 1) {
-        // ReplicaMigrator#moveTo will trigger leader election if current leader being kicked out of
-        // replica list. This case is always true for replica size equals to 1.
-        Assertions.assertNotEquals(expectedLeaderMap.get(), currentLeaderMap.get());
-      } else {
+      // ReplicaMigrator#moveTo will trigger leader election if current leader being kicked out of
+      // replica list. This case is always true for replica size equals to 1.
+      if (replicaSize == 1) {
+        // ReplicaMigrator#moveTo will trigger leader election implicitly if  the original leader is
+        // kicked out of the replica list.
         // test if ReplicaMigrator#moveTo actually trigger leader election implicitly.
         Assertions.assertEquals(expectedLeaderMap.get(), currentLeaderMap.get());
-      }
 
-      // act
-      if (replicaSize > 1) {
-        // ReplicaMigrator#moveTo will trigger leader election if current leader being kicked out of
-        // replica list. This case is always true for replica size equals to 1.
-        // Doing redundant election will raise exception, client should do the check & handling
-        // itself.
-        admin.preferredLeaderElection(topicPartitions);
-      }
+        // act, the Admin#preferredLeaderElection won't throw a ElectionNotNeededException
+        topicPartitions.forEach(
+            tp -> Assertions.assertDoesNotThrow(() -> admin.preferredLeaderElection(tp)));
+        TimeUnit.SECONDS.sleep(2);
 
-      // after election
-      Assertions.assertEquals(expectedLeaderMap.get(), currentLeaderMap.get());
+        // after election
+        Assertions.assertEquals(expectedLeaderMap.get(), currentLeaderMap.get());
+      } else {
+        // before election
+        Assertions.assertNotEquals(expectedLeaderMap.get(), currentLeaderMap.get());
+
+        // act
+        topicPartitions.forEach(admin::preferredLeaderElection);
+        TimeUnit.SECONDS.sleep(2);
+
+        // after election
+        Assertions.assertEquals(expectedLeaderMap.get(), currentLeaderMap.get());
+      }
     }
   }
 }
