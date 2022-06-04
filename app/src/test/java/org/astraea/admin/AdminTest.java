@@ -563,6 +563,9 @@ public class AdminTest extends RequireBrokerCluster {
         // ReplicaMigrator#moveTo will trigger leader election if current leader being kicked out of
         // replica list. This case is always true for replica size equals to 1.
         Assertions.assertNotEquals(expectedLeaderMap.get(), currentLeaderMap.get());
+      } else {
+        // test if ReplicaMigrator#moveTo actually trigger leader election implicitly.
+        Assertions.assertEquals(expectedLeaderMap.get(), currentLeaderMap.get());
       }
 
       // act

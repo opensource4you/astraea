@@ -54,6 +54,10 @@ public final class Services {
                   config.setProperty(
                       KafkaConfig$.MODULE$.LogDirsProp(), String.join(",", tempFolders.get(index)));
 
+                  // TODO: provide a mechanism to offer customized embedded cluster for specialized
+                  // test scenario. keeping adding config to this method might cause configuration
+                  // requirement to conflict.
+
                   // disable auto leader balance to ensure AdminTest#preferredLeaderElection works
                   // correctly.
                   config.setProperty(

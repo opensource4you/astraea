@@ -2,6 +2,7 @@ package org.astraea.admin;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /** used to migrate partitions to another broker or broker folder. */
 public interface ReplicaMigrator {
@@ -24,8 +25,10 @@ public interface ReplicaMigrator {
 
   /**
    * change the partition replica list. If the current partition leader is kicked out of the
-   * partition replica list. A leader election will occur implicitly. The first replica(the
-   * preferred leader) will become the new leader of this topic/partition
+   * partition replica list. A preferred leader election will occur implicitly. The preferred
+   * leader(the first replica in the list) will become the new leader of this topic/partition. If
+   * one wants the preferred leader election to occur explicitly. Consider using {@link
+   * Admin#preferredLeaderElection(Set)}.
    *
    * @param brokers to host partitions
    */
