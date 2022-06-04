@@ -7,7 +7,6 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.TreeMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
@@ -507,22 +506,18 @@ public class AdminTest extends RequireBrokerCluster {
               () ->
                   admin.replicas(Set.of(topic)).entrySet().stream()
                       .collect(
-                          Collectors.toMap(
+                          Utils.toTreeMap(
                               Map.Entry::getKey,
                               e ->
                                   e.getValue().stream()
                                       .filter(Replica::leader)
                                       .findFirst()
                                       .orElseThrow()
-                                      .broker(),
-                              (x, y) -> {
-                                throw new RuntimeException();
-                              },
-                              TreeMap::new));
+                                      .broker()));
       var expectedReplicaList =
           currentLeaderMap.get().entrySet().stream()
               .collect(
-                  Collectors.toMap(
+                  Utils.toTreeMap(
                       Map.Entry::getKey,
                       entry -> {
                         int leaderBroker = entry.getValue();
@@ -531,23 +526,15 @@ public class AdminTest extends RequireBrokerCluster {
                                 leaderBroker, // original leader
                                 (leaderBroker + 1) % clusterSize)
                             .subList(0, replicaSize);
-                      },
-                      (x, y) -> {
-                        throw new RuntimeException();
-                      },
-                      TreeMap::new));
+                      }));
       var expectedLeaderMap =
           (Supplier<Map<TopicPartition, Integer>>)
               () ->
                   expectedReplicaList.entrySet().stream()
                       .collect(
-                          Collectors.toMap(
+                          Utils.toTreeMap(
                               Map.Entry::getKey,
-                              e -> e.getValue().stream().findFirst().orElseThrow(),
-                              (x, y) -> {
-                                throw new RuntimeException();
-                              },
-                              TreeMap::new));
+                              e -> e.getValue().stream().findFirst().orElseThrow()));
 
       // change replica list
       topicPartitions.forEach(
@@ -561,14 +548,13 @@ public class AdminTest extends RequireBrokerCluster {
       // ReplicaMigrator#moveTo will trigger leader election if current leader being kicked out of
       // replica list. This case is always true for replica size equals to 1.
       if (replicaSize == 1) {
-        // ReplicaMigrator#moveTo will trigger leader election implicitly if  the original leader is
-        // kicked out of the replica list.
-        // test if ReplicaMigrator#moveTo actually trigger leader election implicitly.
+        // ReplicaMigrator#moveTo will trigger leader election implicitly if the original leader is
+        // kicked out of the replica list. Test if ReplicaMigrator#moveTo actually trigger leader
+        // election implicitly.
         Assertions.assertEquals(expectedLeaderMap.get(), currentLeaderMap.get());
 
         // act, the Admin#preferredLeaderElection won't throw a ElectionNotNeededException
-        topicPartitions.forEach(
-            tp -> Assertions.assertDoesNotThrow(() -> admin.preferredLeaderElection(tp)));
+        topicPartitions.forEach(admin::preferredLeaderElection);
         TimeUnit.SECONDS.sleep(2);
 
         // after election

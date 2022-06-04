@@ -1,7 +1,11 @@
 package org.astraea.common;
 
 import java.io.IOException;
+import java.util.Map;
+import java.util.TreeMap;
 import java.util.concurrent.ExecutionException;
+import java.util.stream.IntStream;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -32,5 +36,17 @@ public class UtilsTest {
                 () -> {
                   throw new IOException();
                 }));
+  }
+
+  @Test
+  void testCollectToTreeMap() {
+    Assertions.assertInstanceOf(
+        TreeMap.class, IntStream.range(0, 100).boxed().collect(Utils.toTreeMap(i -> i, i -> i)));
+    //noinspection ResultOfMethodCallIgnored
+    Assertions.assertThrows(
+        IllegalStateException.class,
+        () ->
+            Stream.of(Map.entry(1, "hello"), Map.entry(1, "world"))
+                .collect(Utils.toTreeMap(Map.Entry::getKey, Map.Entry::getValue)));
   }
 }

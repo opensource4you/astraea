@@ -56,7 +56,8 @@ public final class Services {
 
                   // TODO: provide a mechanism to offer customized embedded cluster for specialized
                   // test scenario. keeping adding config to this method might cause configuration
-                  // requirement to conflict.
+                  // requirement to conflict. See https://github.com/skiptests/astraea/issues/391
+                  // for further discussion.
 
                   // disable auto leader balance to ensure AdminTest#preferredLeaderElection works
                   // correctly.

@@ -12,7 +12,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.ExecutionException;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -93,19 +92,20 @@ public class Builder {
 
     @Override
     public void preferredLeaderElection(TopicPartition topicPartition) {
-      Utils.packException(
-          () -> {
-            try {
+      try {
+        Utils.packException(
+            () -> {
               admin
                   .electLeaders(ElectionType.PREFERRED, Set.of(TopicPartition.to(topicPartition)))
                   .all()
                   .get();
-            } catch (ExecutionException e) {
-              // Swallow the ElectionNotNeededException error. this error occurred if the preferred
-              // leader of the given topic/partition is already the leader
-              if (!(e.getCause() instanceof ElectionNotNeededException)) throw e;
-            }
-          });
+            });
+      } catch (ElectionNotNeededException e) {
+        // Swallow the ElectionNotNeededException.
+        // This error occurred if the preferred leader of the given topic/partition is already the
+        // leader. It is ok to swallow the exception since the preferred leader be the actual
+        // leader. That is what the caller wants to be.
+      }
     }
 
     @Override
