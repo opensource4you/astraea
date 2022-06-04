@@ -17,6 +17,7 @@ POST /topics
 | name       | (必填) topic 名稱       | 無   |
 | partitions | (選填) partition 數量   | 1   |
 | replicas   | (選填) replication 數量 | 1   |
+- replicas 數量須 <= brokers 數量
 
 cURL 範例
 
@@ -42,6 +43,20 @@ curl -X POST http://localhost:8001/topics \
 ```
 
 JSON Response 範例
+- `name`: topic 名稱
+- `partitions`: 該 topic 下所有 partitions
+  - `id`: partition id，從 0 開始遞增
+  - `earliest`: partition 現存的資料最早的紀錄位置
+  - `latest`: partition 最新紀錄位置
+  - `replicas`: partition 副本資料
+    - `broker`: 儲存此副本的 broker 在叢集中的識別碼
+    - `lag`: 副本同步狀況，計算公式為副本 LEO (Log End offset) - HW (High Watermark)，用以判斷副本最新資料與所有 ISR 資料水位比較
+    - `size`: 副本資料大小，單位為 bytes
+    - `leader`: 此副本所在的節點是否為 leader
+    - `inSync`: 此副本所在的節點是否位於 ISR (In-Sync Replicas) 列表裡頭。每個 partition 都會有一個 ISR，由能夠和 leader 保持同步的 follower 與 leader 組成的集合 
+    - `isFuture`: 此副本是否正準備由另一份新的副本取代，可能的觸發時機點為 reassign partitions，副本準備要搬移到不同節點，或者副本準備移到同節點的不同路徑下
+    - `path`: 副本於節點中的路徑
+- `configs`: 此 topic 正在使用的參數，這些參數都可以在建立 topic 時設定
 
 ```json
 {
