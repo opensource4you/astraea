@@ -5,9 +5,14 @@ import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.nio.file.Files;
 import java.time.Duration;
+import java.util.SortedMap;
+import java.util.TreeMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 import java.util.function.Supplier;
+import java.util.stream.Collector;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public final class Utils {
@@ -179,6 +184,17 @@ public final class Utils {
   public static int resolvePort(int port) {
     if (port <= 0) return availablePort();
     return port;
+  }
+
+  public static <T, K, U> Collector<T, ?, SortedMap<K, U>> toSortedMap(
+      Function<? super T, K> keyMapper, Function<? super T, U> valueMapper) {
+    return Collectors.toMap(
+        keyMapper,
+        valueMapper,
+        (x, y) -> {
+          throw new IllegalStateException("Duplicate key");
+        },
+        TreeMap::new);
   }
 
   private Utils() {}

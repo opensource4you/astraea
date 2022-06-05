@@ -27,6 +27,7 @@ import org.apache.kafka.clients.admin.ReplicaInfo;
 import org.apache.kafka.common.ElectionType;
 import org.apache.kafka.common.TopicPartitionReplica;
 import org.apache.kafka.common.config.ConfigResource;
+import org.apache.kafka.common.errors.ElectionNotNeededException;
 import org.apache.kafka.common.quota.ClientQuotaAlteration;
 import org.apache.kafka.common.quota.ClientQuotaEntity;
 import org.apache.kafka.common.quota.ClientQuotaFilter;
@@ -89,6 +90,24 @@ public class Builder {
     @Override
     public ReplicaMigrator migrator() {
       return new MigratorImpl(admin, this::partitions);
+    }
+
+    @Override
+    public void preferredLeaderElection(TopicPartition topicPartition) {
+      try {
+        Utils.packException(
+            () -> {
+              admin
+                  .electLeaders(ElectionType.PREFERRED, Set.of(TopicPartition.to(topicPartition)))
+                  .all()
+                  .get();
+            });
+      } catch (ElectionNotNeededException ignored) {
+        // Swallow the ElectionNotNeededException.
+        // This error occurred if the preferred leader of the given topic/partition is already the
+        // leader. It is ok to swallow the exception since the preferred leader be the actual
+        // leader. That is what the caller wants to be.
+      }
     }
 
     @Override
@@ -667,23 +686,6 @@ public class Builder {
                                   ignore -> Optional.of(new NewPartitionReassignment(brokers)))))
                   .all()
                   .get());
-    }
-
-    @Override
-    public void moveTo(int leader, Set<Integer> followers) {
-      var all = new ArrayList<>(followers);
-      all.add(0, leader);
-      moveTo(all);
-      // kafka produces error if re-election happens in single node
-      if (!followers.isEmpty())
-        Utils.packException(
-            () ->
-                admin
-                    .electLeaders(
-                        ElectionType.PREFERRED,
-                        partitions.stream().map(TopicPartition::to).collect(Collectors.toSet()))
-                    .all()
-                    .get());
     }
   }
 

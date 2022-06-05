@@ -54,6 +54,16 @@ public final class Services {
                   config.setProperty(
                       KafkaConfig$.MODULE$.LogDirsProp(), String.join(",", tempFolders.get(index)));
 
+                  // TODO: provide a mechanism to offer customized embedded cluster for specialized
+                  // test scenario. keeping adding config to this method might cause configuration
+                  // requirement to conflict. See https://github.com/skiptests/astraea/issues/391
+                  // for further discussion.
+
+                  // disable auto leader balance to ensure AdminTest#preferredLeaderElection works
+                  // correctly.
+                  config.setProperty(
+                      KafkaConfig$.MODULE$.AutoLeaderRebalanceEnableProp(), String.valueOf(false));
+
                   // increase the timeout in order to avoid ZkTimeoutException
                   config.setProperty(
                       KafkaConfig$.MODULE$.ZkSessionTimeoutMsProp(), String.valueOf(30 * 1000));

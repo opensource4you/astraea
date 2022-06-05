@@ -9,6 +9,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -363,42 +364,6 @@ public class AdminTest extends RequireBrokerCluster {
     }
   }
 
-  @ParameterizedTest
-  @ValueSource(booleans = {true, false})
-  void testMoveTo(boolean needFollower) throws InterruptedException {
-    var topic = Utils.randomString(10);
-    try (var admin = Admin.of(bootstrapServers())) {
-      admin.creator().topic(topic).numberOfPartitions(1).numberOfReplicas((short) 3).create();
-      TimeUnit.SECONDS.sleep(2);
-
-      int originLeader =
-          admin.replicas(Set.of(topic)).get(new TopicPartition(topic, 0)).stream()
-              .filter(Replica::leader)
-              .findFirst()
-              .get()
-              .broker();
-
-      int newLeader = brokerIds().stream().filter(i -> i != originLeader).findFirst().get();
-
-      admin
-          .migrator()
-          .partition(topic, 0)
-          .moveTo(
-              newLeader,
-              needFollower
-                  ? brokerIds().stream().filter(i -> i != newLeader).collect(Collectors.toSet())
-                  : Set.of());
-      TimeUnit.SECONDS.sleep(2);
-      Assertions.assertEquals(
-          newLeader,
-          admin.replicas(Set.of(topic)).get(new TopicPartition(topic, 0)).stream()
-              .filter(Replica::leader)
-              .findFirst()
-              .get()
-              .broker());
-    }
-  }
-
   @Test
   void testProducerStates() throws ExecutionException, InterruptedException {
     var topic = Utils.randomString(10);
@@ -563,6 +528,92 @@ public class AdminTest extends RequireBrokerCluster {
       brokerIds()
           .forEach(
               id -> Assertions.assertEquals(logFolders().get(id), clusterInfo.dataDirectories(id)));
+    }
+  }
+
+  @ParameterizedTest
+  @ValueSource(shorts = {1, 2, 3})
+  void preferredLeaderElection(short replicaSize) throws InterruptedException {
+    var clusterSize = brokerIds().size();
+    var topic = "preferredLeaderElection_" + Utils.randomString(6);
+    try (var admin = Admin.of(bootstrapServers())) {
+      admin.creator().topic(topic).numberOfPartitions(30).numberOfReplicas(replicaSize).create();
+      TimeUnit.SECONDS.sleep(3);
+
+      var topicPartitions =
+          IntStream.range(0, 30)
+              .mapToObj(i -> new TopicPartition(topic, i))
+              .collect(Collectors.toUnmodifiableSet());
+
+      var currentLeaderMap =
+          (Supplier<Map<TopicPartition, Integer>>)
+              () ->
+                  admin.replicas(Set.of(topic)).entrySet().stream()
+                      .collect(
+                          Utils.toSortedMap(
+                              Map.Entry::getKey,
+                              e ->
+                                  e.getValue().stream()
+                                      .filter(Replica::leader)
+                                      .findFirst()
+                                      .orElseThrow()
+                                      .broker()));
+      var expectedReplicaList =
+          currentLeaderMap.get().entrySet().stream()
+              .collect(
+                  Utils.toSortedMap(
+                      Map.Entry::getKey,
+                      entry -> {
+                        int leaderBroker = entry.getValue();
+                        return List.of(
+                                (leaderBroker + 2) % clusterSize,
+                                leaderBroker, // original leader
+                                (leaderBroker + 1) % clusterSize)
+                            .subList(0, replicaSize);
+                      }));
+      var expectedLeaderMap =
+          (Supplier<Map<TopicPartition, Integer>>)
+              () ->
+                  expectedReplicaList.entrySet().stream()
+                      .collect(
+                          Utils.toSortedMap(
+                              Map.Entry::getKey,
+                              e -> e.getValue().stream().findFirst().orElseThrow()));
+
+      // change replica list
+      topicPartitions.forEach(
+          topicPartition ->
+              admin
+                  .migrator()
+                  .partition(topicPartition.topic(), topicPartition.partition())
+                  .moveTo(expectedReplicaList.get(topicPartition)));
+      TimeUnit.SECONDS.sleep(8);
+
+      // ReplicaMigrator#moveTo will trigger leader election if current leader being kicked out of
+      // replica list. This case is always true for replica size equals to 1.
+      if (replicaSize == 1) {
+        // ReplicaMigrator#moveTo will trigger leader election implicitly if the original leader is
+        // kicked out of the replica list. Test if ReplicaMigrator#moveTo actually trigger leader
+        // election implicitly.
+        Assertions.assertEquals(expectedLeaderMap.get(), currentLeaderMap.get());
+
+        // act, the Admin#preferredLeaderElection won't throw a ElectionNotNeededException
+        topicPartitions.forEach(admin::preferredLeaderElection);
+        TimeUnit.SECONDS.sleep(2);
+
+        // after election
+        Assertions.assertEquals(expectedLeaderMap.get(), currentLeaderMap.get());
+      } else {
+        // before election
+        Assertions.assertNotEquals(expectedLeaderMap.get(), currentLeaderMap.get());
+
+        // act
+        topicPartitions.forEach(admin::preferredLeaderElection);
+        TimeUnit.SECONDS.sleep(2);
+
+        // after election
+        Assertions.assertEquals(expectedLeaderMap.get(), currentLeaderMap.get());
+      }
     }
   }
 }
