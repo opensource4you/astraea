@@ -81,19 +81,10 @@ public interface Normalizer {
                 } else if (score < 0) {
                   score = 0.0;
                 }
-                return score;
+                return Math.round(score * 100) / 100.0;
               })
           .collect(Collectors.toUnmodifiableList());
     };
-  }
-
-  /**
-   * no need normalize
-   *
-   * @return no normalize
-   */
-  static Normalizer noNormalize() {
-    return values -> values;
   }
 
   /**

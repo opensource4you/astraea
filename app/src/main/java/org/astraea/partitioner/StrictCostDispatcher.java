@@ -13,7 +13,6 @@ import org.astraea.common.Utils;
 import org.astraea.cost.ClusterInfo;
 import org.astraea.cost.CostFunction;
 import org.astraea.cost.HasBrokerCost;
-import org.astraea.cost.Normalizer;
 import org.astraea.cost.ReplicaInfo;
 import org.astraea.metrics.collector.BeanCollector;
 import org.astraea.metrics.collector.Fetcher;
@@ -102,7 +101,7 @@ public class StrictCostDispatcher implements Dispatcher {
                 functionWeight
                     .getKey()
                     // Execute all cost functions
-                    .brokerCost(clusterInfo, Normalizer.noNormalize())
+                    .brokerCost(clusterInfo)
                     .value()
                     .entrySet()
                     .stream()

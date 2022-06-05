@@ -8,7 +8,6 @@ import java.util.stream.IntStream;
 import org.astraea.cost.BrokerCost;
 import org.astraea.cost.ClusterInfo;
 import org.astraea.cost.HasBrokerCost;
-import org.astraea.cost.Normalizer;
 import org.astraea.cost.Periodic;
 import org.astraea.metrics.collector.Fetcher;
 import org.astraea.metrics.java.HasJvmMemory;
@@ -29,7 +28,7 @@ public class MemoryCost extends Periodic<Map<Integer, Double>> implements HasBro
    * </ol>
    */
   @Override
-  public BrokerCost brokerCost(ClusterInfo clusterInfo, Normalizer normalizer) {
+  public BrokerCost brokerCost(ClusterInfo clusterInfo) {
     var costMetrics =
         clusterInfo.allBeans().entrySet().stream()
             .collect(
@@ -53,9 +52,6 @@ public class MemoryCost extends Periodic<Map<Integer, Double>> implements HasBro
                       return (jvmBean.heapMemoryUsage().getUsed() + 0.0)
                           / (jvmBean.heapMemoryUsage().getMax() + 1);
                     }));
-
-    var normalization = normalizer.normalize(costMetrics.values()).iterator();
-    costMetrics.replaceAll((broker, v) -> normalization.next());
     costMetrics.forEach((broker, v) -> brokersMetric.get(broker).updateLoad(v));
 
     return this::computeLoad;

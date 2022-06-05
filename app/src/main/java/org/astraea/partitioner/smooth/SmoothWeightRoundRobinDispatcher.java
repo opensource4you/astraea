@@ -19,7 +19,6 @@ import org.apache.kafka.common.Cluster;
 import org.astraea.common.Utils;
 import org.astraea.cost.ClusterInfo;
 import org.astraea.cost.NodeInfo;
-import org.astraea.cost.Normalizer;
 import org.astraea.cost.Periodic;
 import org.astraea.cost.ReplicaInfo;
 import org.astraea.cost.broker.NeutralIntegratedCost;
@@ -67,9 +66,7 @@ public class SmoothWeightRoundRobinDispatcher extends Periodic<Map<Integer, Doub
                   .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().current()));
 
           var compoundScore =
-              neutralIntegratedCost
-                  .brokerCost(ClusterInfo.of(clusterInfo, beans), Normalizer.noNormalize())
-                  .value();
+              neutralIntegratedCost.brokerCost(ClusterInfo.of(clusterInfo, beans)).value();
 
           if (smoothWeightRoundRobinCal == null) {
             smoothWeightRoundRobinCal = new SmoothWeightRoundRobin(compoundScore);

@@ -12,7 +12,7 @@ import org.astraea.metrics.kafka.KafkaMetrics;
 public class ThroughputCost implements HasBrokerCost {
 
   @Override
-  public BrokerCost brokerCost(ClusterInfo clusterInfo, Normalizer normalizer) {
+  public BrokerCost brokerCost(ClusterInfo clusterInfo) {
     var score = score(clusterInfo.allBeans());
 
     var max = score.values().stream().mapToDouble(v -> v).max().orElse(1);

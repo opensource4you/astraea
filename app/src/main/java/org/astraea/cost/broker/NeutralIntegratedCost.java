@@ -28,7 +28,7 @@ public class NeutralIntegratedCost implements HasBrokerCost {
   private final WeightProvider weightProvider = WeightProvider.entropy(Normalizer.minMax(true));
 
   @Override
-  public BrokerCost brokerCost(ClusterInfo clusterInfo, Normalizer normalizer) {
+  public BrokerCost brokerCost(ClusterInfo clusterInfo) {
     var costMetrics =
         clusterInfo.allBeans().entrySet().stream()
             .collect(Collectors.toMap(Map.Entry::getKey, entry -> 0.0));
@@ -43,22 +43,26 @@ public class NeutralIntegratedCost implements HasBrokerCost {
         hasBrokerCost -> {
           if (hasBrokerCost instanceof BrokerInputCost) {
             hasBrokerCost
-                .brokerCost(clusterInfo, Normalizer.TScore())
+                .brokerCost(clusterInfo)
+                .normalize(Normalizer.TScore())
                 .value()
                 .forEach((brokerID, value) -> brokersMetric.get(brokerID).inputScore = value);
           } else if (hasBrokerCost instanceof BrokerOutputCost) {
             hasBrokerCost
-                .brokerCost(clusterInfo, Normalizer.TScore())
+                .brokerCost(clusterInfo)
+                .normalize(Normalizer.TScore())
                 .value()
                 .forEach((brokerID, value) -> brokersMetric.get(brokerID).outputScore = value);
           } else if (hasBrokerCost instanceof CpuCost) {
             hasBrokerCost
-                .brokerCost(clusterInfo, Normalizer.TScore())
+                .brokerCost(clusterInfo)
+                .normalize(Normalizer.TScore())
                 .value()
                 .forEach((brokerID, value) -> brokersMetric.get(brokerID).cpuScore = value);
           } else if (hasBrokerCost instanceof MemoryCost) {
             hasBrokerCost
-                .brokerCost(clusterInfo, Normalizer.TScore())
+                .brokerCost(clusterInfo)
+                .normalize(Normalizer.TScore())
                 .value()
                 .forEach((brokerID, value) -> brokersMetric.get(brokerID).memoryScore = value);
           }

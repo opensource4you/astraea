@@ -8,7 +8,6 @@ import java.util.stream.IntStream;
 import org.astraea.cost.BrokerCost;
 import org.astraea.cost.ClusterInfo;
 import org.astraea.cost.HasBrokerCost;
-import org.astraea.cost.Normalizer;
 import org.astraea.metrics.collector.Fetcher;
 import org.astraea.metrics.kafka.BrokerTopicMetricsResult;
 import org.astraea.metrics.kafka.KafkaMetrics;
@@ -28,7 +27,7 @@ public class BrokerInputCost implements HasBrokerCost {
   private final Map<Integer, BrokerMetric> brokersMetric = new HashMap<>();
 
   @Override
-  public BrokerCost brokerCost(ClusterInfo clusterInfo, Normalizer normalizer) {
+  public BrokerCost brokerCost(ClusterInfo clusterInfo) {
     var costMetrics =
         clusterInfo.allBeans().entrySet().stream()
             .collect(
@@ -58,8 +57,7 @@ public class BrokerInputCost implements HasBrokerCost {
                       broker.accumulateCount = inBean.count();
                       return count;
                     }));
-    var normalization = normalizer.normalize(costMetrics.values()).iterator();
-    costMetrics.replaceAll((broker, v) -> normalization.next());
+
     costMetrics.forEach((broker, v) -> brokersMetric.get(broker).updateLoad(v));
 
     return this::computeLoad;
