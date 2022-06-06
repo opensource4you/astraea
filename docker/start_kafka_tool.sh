@@ -1,4 +1,18 @@
 #!/bin/bash
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.
+# The ASF licenses this file to You under the Apache License, Version 2.0
+# (the "License"); you may not use this file except in compliance with
+# the License.  You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
 declare -r DOCKER_FOLDER=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
 source $DOCKER_FOLDER/docker_build_common.sh
@@ -26,13 +40,7 @@ function showHelp() {
 
 function generateDockerfile() {
   echo "# this dockerfile is generated dynamically
-FROM ubuntu:22.04 AS build
-
-# Do not ask for confirmations when running apt-get, etc.
-ENV DEBIAN_FRONTEND noninteractive
-
-# install tools
-RUN apt-get update && apt-get install -y openjdk-11-jdk git curl
+FROM ghcr.io/skiptests/astraea/deps AS build
 
 # clone repo
 WORKDIR /tmp
@@ -43,7 +51,7 @@ WORKDIR /tmp/astraea
 RUN git checkout $VERSION
 RUN ./gradlew clean build -x test --no-daemon
 RUN mkdir /opt/astraea
-RUN cp \$(find ./app/build/libs/ -maxdepth 1 -type f -name app-*-all.jar) /opt/astraea/app.jar
+RUN tar -xvf \$(find ./app/build/distributions/ -maxdepth 1 -type f -name app-*.tar) -C /opt/astraea/ --strip-components=1
 
 FROM ubuntu:22.04
 
@@ -99,10 +107,11 @@ function runContainer() {
 
   docker run --rm --init \
     $background \
+    -e JAVA_OPTS="$JMX_OPTS $HEAP_OPTS" \
     -p $JMX_PORT:$JMX_PORT \
     $need_to_bind_web \
     "$IMAGE_NAME" \
-    /bin/bash -c "java $JMX_OPTS $HEAP_OPTS -jar /opt/astraea/app.jar $args"
+    /opt/astraea/bin/app $args
 }
 
 # ===================================[main]===================================
