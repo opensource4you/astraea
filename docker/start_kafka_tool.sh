@@ -37,7 +37,7 @@ WORKDIR /tmp/astraea
 RUN git checkout $VERSION
 RUN ./gradlew clean build -x test --no-daemon
 RUN mkdir /opt/astraea
-RUN tar -zxvf \$(find ./app/build/distributions/ -maxdepth 1 -type f -name app-*.tar) -C /opt/astraea/ --strip-components=1
+RUN tar -xvf \$(find ./app/build/distributions/ -maxdepth 1 -type f -name app-*.tar) -C /opt/astraea/ --strip-components=1
 
 FROM ubuntu:22.04
 
@@ -93,11 +93,11 @@ function runContainer() {
 
   docker run --rm --init \
     $background \
-    -e "$JAVA_OPTS=$JMX_OPTS $HEAP_OPTS" \
+    -e JAVA_OPTS="$JMX_OPTS $HEAP_OPTS" \
     -p $JMX_PORT:$JMX_PORT \
     $need_to_bind_web \
     "$IMAGE_NAME" \
-    /bin/bash -c "java $JMX_OPTS $HEAP_OPTS -jar /opt/astraea/app.jar $args"
+    /opt/astraea/bin/app $args
 }
 
 # ===================================[main]===================================
