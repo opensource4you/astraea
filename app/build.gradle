@@ -1,7 +1,6 @@
 plugins {
     // Apply the application plugin to add support for building a CLI application in Java.
     id 'application'
-    id 'com.github.johnrengelman.shadow' version '7.1.0'
     id 'maven-publish'
 }
 
@@ -41,8 +40,8 @@ dependencies {
 
 application {
     // Define the main class for the application.
-    mainClass = 'org.astraea.App'
-    applicationDefaultJvmArgs = ["-server", "-XX:+UseG1GC", "-Djava.awt.headless=true", "-Xms4G", "-Xmx4G"]
+    mainClass = 'org.astraea.app.App'
+    applicationDefaultJvmArgs = ["-server", "-XX:+UseG1GC", "-Djava.awt.headless=true"]
 }
 
 java {
