@@ -18,12 +18,10 @@ import org.apache.kafka.clients.admin.AdminClientConfig;
 import org.apache.kafka.clients.admin.ConfigEntry;
 import org.apache.kafka.clients.admin.ConsumerGroupListing;
 import org.apache.kafka.clients.admin.ListTopicsOptions;
-import org.apache.kafka.clients.admin.LogDirDescription;
 import org.apache.kafka.clients.admin.MemberDescription;
 import org.apache.kafka.clients.admin.NewPartitionReassignment;
 import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.clients.admin.OffsetSpec;
-import org.apache.kafka.clients.admin.ReplicaInfo;
 import org.apache.kafka.common.ElectionType;
 import org.apache.kafka.common.Node;
 import org.apache.kafka.common.TopicPartitionReplica;
@@ -360,16 +358,18 @@ public class Builder {
                                             .getOrDefault(topicPartition, Map.of())
                                             .getOrDefault(broker, null);
                                     var replicaInfo =
-                                        Optional.ofNullable(logInfo.getOrDefault(broker, null))
-                                            .map(x -> x.getOrDefault(dataPath, null))
-                                            .map(LogDirDescription::replicaInfos)
-                                            .map(x -> x.get(TopicPartition.to(topicPartition)));
+                                        node.isEmpty()
+                                            ? null
+                                            : logInfo
+                                                .get(broker)
+                                                .get(dataPath)
+                                                .replicaInfos()
+                                                .get(TopicPartition.to(topicPartition));
                                     boolean isLeader = node.id() == replicaLeaderId;
                                     boolean inSync = isrSet.contains(node);
-                                    long lag = replicaInfo.map(ReplicaInfo::offsetLag).orElse(-1L);
-                                    long size = replicaInfo.map(ReplicaInfo::size).orElse(-1L);
-                                    boolean future =
-                                        replicaInfo.map(ReplicaInfo::isFuture).orElse(false);
+                                    long lag = replicaInfo != null ? replicaInfo.offsetLag() : -1L;
+                                    long size = replicaInfo != null ? replicaInfo.size() : -1L;
+                                    boolean future = replicaInfo != null && replicaInfo.isFuture();
                                     boolean offline = node.isEmpty();
                                     return new Replica(
                                         broker, lag, size, isLeader, inSync, future, offline,
