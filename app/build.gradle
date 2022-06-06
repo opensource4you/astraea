@@ -2,6 +2,7 @@ plugins {
     // Apply the application plugin to add support for building a CLI application in Java.
     id 'application'
     id 'com.github.johnrengelman.shadow' version '7.1.0'
+    id 'maven-publish'
 }
 
 repositories {
@@ -65,4 +66,22 @@ tasks.named('test') {
 
     minHeapSize = "512m"
     maxHeapSize = "2048m"
+}
+
+publishing {
+    publications {
+        mavenJava(MavenPublication) {
+            groupId = 'org.astraea'
+            from components.java
+        }
+    }
+    repositories {
+        maven {
+            url = "https://maven.pkg.github.com/skiptests/astraea"
+            credentials {
+                username = System.getenv("GITHUB_ACTOR")
+                password = System.getenv("GITHUB_TOKEN")
+            }
+        }
+    }
 }
