@@ -455,6 +455,7 @@ public class TopicExplorer {
                 Optional.of(replica.leader() ? "leader" : "follower"),
                 Optional.ofNullable(replica.lag() > 0 ? "lagged" + size(replica.lag()) : null),
                 Optional.ofNullable(replica.inSync() ? null : "non-synced"),
+                Optional.of(replica.isOffline() ? "offline" : "online"),
                 Optional.ofNullable(replica.isFuture() ? "future" : null))
             .flatMap(Optional::stream)
             .collect(Collectors.joining(", ", "[", "]"));

@@ -164,7 +164,7 @@ public class TopicExplorerTest extends RequireBrokerCluster {
                 new TopicPartition("my-topic", 0),
                 0,
                 100,
-                List.of(new Replica(55, 15, 100, true, false, true, "/tmp/path0"))));
+                List.of(new Replica(55, 15, 100, true, false, true, false, "/tmp/path0"))));
     var result =
         new TopicExplorer.Result(
             now,
@@ -215,6 +215,7 @@ public class TopicExplorerTest extends RequireBrokerCluster {
     assertTrue(output.matches("(?ms).+\\[.*leader.*].+"), "descriptor printed");
     assertTrue(output.matches("(?ms).+\\[.*lagged.+size.+15.+Byte.*].+"), "descriptor printed");
     assertTrue(output.matches("(?ms).+\\[.*non-synced.*].+"), "descriptor printed");
+    assertTrue(output.matches("(?ms).+\\[.*online.*].+"), "descriptor printed");
     assertTrue(output.matches("(?ms).+\\[.*future.*].+"), "descriptor printed");
     assertTrue(output.matches("(?ms).+/tmp/path0.+"), "path printed");
   }
@@ -226,16 +227,15 @@ public class TopicExplorerTest extends RequireBrokerCluster {
     var payload0 =
         Map.of(
             new TopicPartition(topicName0, 0),
-            List.of(new Replica(1000, 0, 0, false, false, false, "?")));
+            List.of(new Replica(1000, 0, 0, false, false, false, false, "?")));
     var payload1 =
         Map.of(
             new TopicPartition(topicName1, 0),
             List.of(
-                new Replica(1000, 0, 0, false, false, false, "?"),
-                new Replica(1001, 0, 0, false, false, false, "?"),
-                new Replica(1002, 0, 0, false, false, false, "?")));
+                new Replica(1000, 0, 0, false, false, false, false, "?"),
+                new Replica(1001, 0, 0, false, false, false, false, "?"),
+                new Replica(1002, 0, 0, false, false, false, false, "?")));
     Admin mock = Mockito.mock(Admin.class);
-
     Mockito.when(mock.replicas(Set.of(topicName0))).thenReturn(payload0);
     Mockito.when(mock.replicas(Set.of(topicName1))).thenReturn(payload1);
 

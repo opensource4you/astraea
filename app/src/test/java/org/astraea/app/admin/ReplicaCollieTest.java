@@ -32,7 +32,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledOnOs;
 
 public class ReplicaCollieTest extends RequireBrokerCluster {
-
   @Test
   @DisabledOnOs(WINDOWS)
   void testVerify() throws InterruptedException {
