@@ -219,7 +219,7 @@ Run the tool from source code
 
 Run the tool from release
 ```shell
-./docker/start_kafka_tool.sh offset --bootstrap.servers 192.168.50.178:19993
+./docker/start_app.sh offset --bootstrap.servers 192.168.50.178:19993
 ```
 
 ### Offset Explorer Configurations
@@ -253,17 +253,17 @@ Run the tool from source code
 Run the tool from release
 ```shell
 # fetch every Mbeans from specific JMX server.
-./docker/start_kafka_tool.sh metrics --jmx.server 192.168.50.178:1099
+./docker/start_app.sh metrics --jmx.server 192.168.50.178:1099
 
 # fetch any Mbean that its object name contains property "type=Memory".
-./docker/start_kafka_tool.sh metrics --jmx.server 192.168.50.178:1099 --property type=Memory
+./docker/start_app.sh metrics --jmx.server 192.168.50.178:1099 --property type=Memory
 
 # fetch any Mbean that belongs to "kafka.network" domain name,
 # and it's object name contains two properties "request=Metadata" and "name=LocalTimeMs".
-./docker/start_kafka_tool.sh metrics --jmx.server 192.168.50.178:1099 --domain kafka.network --property request=Metadata --property name=LocalTimeMs
+./docker/start_app.sh metrics --jmx.server 192.168.50.178:1099 --domain kafka.network --property request=Metadata --property name=LocalTimeMs
 
 # list all Mbeans' object name on specific JMX server.
-./docker/start_kafka_tool.sh metrics --jmx.server 192.168.50.178:1099 --view-object-name-list
+./docker/start_app.sh metrics --jmx.server 192.168.50.178:1099 --view-object-name-list
 ```
 
 ### Metric Explorer Configurations
@@ -390,7 +390,7 @@ $ ./gradlew run --args="monitor --bootstrap.servers 192.168.103.39:9092"
 2. --port: the port used by web server
 
 ```shell
-./docker/start_kafka_tool.sh web --bootstrap.servers 192.168.50.178:19993 --port 12345"
+./docker/start_app.sh web --bootstrap.servers 192.168.50.178:19993 --port 12345"
 ```
 
 ## Query all topics 
