@@ -19,9 +19,9 @@ source $DOCKER_FOLDER/docker_build_common.sh
 
 # ===============================[global variables]===============================
 declare -r VERSION=${REVISION:-${VERSION:-main}}
-declare -r REPO=${REPO:-ghcr.io/skiptests/astraea/kafka-tool}
+declare -r REPO=${REPO:-ghcr.io/skiptests/astraea/app}
 declare -r IMAGE_NAME="$REPO:$VERSION"
-declare -r DOCKERFILE=$DOCKER_FOLDER/kafka_tool.dockerfile
+declare -r DOCKERFILE=$DOCKER_FOLDER/app.dockerfile
 declare -r JMX_PORT=${JMX_PORT:-"$(getRandomPort)"}
 # for web service
 declare -r WEB_PORT=${WEB_PORT:-"$(getRandomPort)"}
@@ -31,9 +31,9 @@ declare -r HEAP_OPTS="${HEAP_OPTS:-"-Xmx2G -Xms2G"}"
 # ===================================[functions]===================================
 
 function showHelp() {
-  echo "Usage: [ENV] start_kafka_tool.sh"
+  echo "Usage: [ENV] start_app.sh"
   echo "ENV: "
-  echo "    REPO=astraea/kafka-tool    set the docker repo"
+  echo "    REPO=astraea/app    set the docker repo"
   echo "    BUILD=false                set true if you want to build image locally"
   echo "    RUN=false                  set false if you want to build/pull image only"
 }
