@@ -316,20 +316,16 @@ public class Builder {
           () -> {
             var logInfo = admin.describeLogDirs(brokerIds()).allDescriptions().get();
             var tpPathMap = new HashMap<TopicPartition, Map<Integer, String>>();
-            logInfo.forEach(
-                (broker, logDirMap) ->
-                    logDirMap.forEach(
-                        (dataPath, replicaInfoMap) ->
-                            replicaInfoMap
-                                .replicaInfos()
-                                .forEach(
-                                    (tp, replicaInfo) -> {
-                                      var topicPartition = TopicPartition.from(tp);
-                                      tpPathMap
-                                          .computeIfAbsent(
-                                              topicPartition, (ignore) -> new HashMap<>())
-                                          .put(broker, dataPath);
-                                    })));
+            for (var entry0 : logInfo.entrySet()) {
+              for (var entry1 : entry0.getValue().entrySet()) {
+                for (var entry2 : entry1.getValue().replicaInfos().entrySet()) {
+                  var tp = TopicPartition.from(entry2.getKey());
+                  var broker = entry0.getKey();
+                  var dataPath = entry1.getKey();
+                  tpPathMap.computeIfAbsent(tp, (ignore) -> new HashMap<>()).put(broker, dataPath);
+                }
+              }
+            }
             return admin.describeTopics(topics).allTopicNames().get().entrySet().stream()
                 .flatMap(
                     entry ->

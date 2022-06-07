@@ -517,7 +517,7 @@ public class AdminTest extends RequireBrokerCluster {
     } catch (InterruptedException e) {
       throw new RuntimeException(e);
     }
-    restartBrokers();
+    restartCluster();
   }
 
   @ParameterizedTest

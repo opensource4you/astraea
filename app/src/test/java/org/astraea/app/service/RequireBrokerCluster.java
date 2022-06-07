@@ -23,7 +23,7 @@ public abstract class RequireBrokerCluster extends RequireJmxServer {
     return BROKER_CLUSTER.logFolders();
   }
 
-  protected static void restartBrokers() {
+  protected static void restartCluster() {
     shutdownClusters();
     ZOOKEEPER_CLUSTER = Services.zookeeperCluster();
     BROKER_CLUSTER = Services.brokerCluster(ZOOKEEPER_CLUSTER, NUMBER_OF_BROKERS);
