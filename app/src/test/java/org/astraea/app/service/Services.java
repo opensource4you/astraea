@@ -21,6 +21,7 @@ import java.net.InetSocketAddress;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -86,36 +87,52 @@ public final class Services {
                   KafkaServer broker =
                       new KafkaServer(
                           new KafkaConfig(config), SystemTime.SYSTEM, scala.Option.empty(), false);
-
                   broker.startup();
-                  return broker;
+                  return Map.entry(index, broker);
                 })
-            .collect(Collectors.toUnmodifiableList());
-    String connectionProps =
-        brokers.stream()
-            .map(broker -> Utils.hostname() + ":" + broker.boundPort(new ListenerName("PLAINTEXT")))
-            .collect(Collectors.joining(","));
+            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+    AtomicReference<String> connectionProps = new AtomicReference<>();
+    connectionProps.set(
+        brokers.values().stream()
+            .map(
+                kafkaServer ->
+                    Utils.hostname() + ":" + kafkaServer.boundPort(new ListenerName("PLAINTEXT")))
+            .collect(Collectors.joining(",")));
     return new BrokerCluster() {
+      @Override
+      public void close(int brokerID) {
+        var broker = brokers.remove(brokerID);
+        if (broker != null) {
+          broker.shutdown();
+          broker.awaitShutdown();
+          var folders = tempFolders.remove(brokerID);
+          if (folders != null) folders.forEach(f -> Utils.delete(new File(f)));
+          connectionProps.set(
+              brokers.values().stream()
+                  .map(
+                      kafkaServer ->
+                          Utils.hostname()
+                              + ":"
+                              + kafkaServer.boundPort(new ListenerName("PLAINTEXT")))
+                  .collect(Collectors.joining(",")));
+        }
+      }
 
       @Override
       public void close() {
-        brokers.forEach(
-            broker -> {
-              broker.shutdown();
-              broker.awaitShutdown();
-            });
-        tempFolders.values().forEach(fs -> fs.forEach(f -> Utils.delete(new File(f))));
+        for (int i = 0; i < brokers.size(); i++) close(i);
       }
 
       @Override
       public String bootstrapServers() {
-        return connectionProps;
+        return connectionProps.get();
       }
 
       @Override
       public Map<Integer, Set<String>> logFolders() {
         return IntStream.range(0, numberOfBrokers)
             .boxed()
+            .filter(tempFolders::containsKey)
             .collect(Collectors.toMap(Function.identity(), tempFolders::get));
       }
     };

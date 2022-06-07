@@ -25,6 +25,7 @@ public final class Replica {
   private final boolean leader;
   private final boolean inSync;
   private final boolean isFuture;
+  private final boolean offline;
   private final String path;
 
   Replica(
@@ -34,6 +35,7 @@ public final class Replica {
       boolean leader,
       boolean inSync,
       boolean isFuture,
+      boolean offline,
       String path) {
     this.broker = broker;
     this.lag = lag;
@@ -41,6 +43,7 @@ public final class Replica {
     this.leader = leader;
     this.inSync = inSync;
     this.isFuture = isFuture;
+    this.offline = offline;
     this.path = path;
   }
 
@@ -55,6 +58,7 @@ public final class Replica {
         && leader == replica.leader
         && inSync == replica.inSync
         && isFuture == replica.isFuture
+        && offline == replica.offline
         && path.equals(replica.path);
   }
 
@@ -80,6 +84,8 @@ public final class Replica {
         + isFuture
         + ", path='"
         + path
+        + ", offline="
+        + offline
         + '\''
         + '}';
   }
@@ -118,6 +124,11 @@ public final class Replica {
   /** @return true if this is current log of replica. */
   public boolean isCurrent() {
     return !isFuture;
+  }
+
+  /** @return true if the replica on the broker is offline. */
+  public boolean isOffline() {
+    return offline;
   }
 
   public String path() {

@@ -19,7 +19,6 @@ package org.astraea.app.admin;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -332,62 +331,68 @@ public class Builder {
 
     @Override
     public Map<TopicPartition, List<Replica>> replicas(Set<String> topics) {
-      var replicaInfos =
-          Utils.packException(() -> admin.describeLogDirs(brokerIds()).allDescriptions().get());
-
-      BiFunction<
-              Integer,
-              TopicPartition,
-              List<Map.Entry<String, org.apache.kafka.clients.admin.ReplicaInfo>>>
-          findReplicas =
-              (id, partition) ->
-                  replicaInfos.getOrDefault(id, Map.of()).entrySet().stream()
-                      .flatMap(
-                          entry -> {
-                            var path = entry.getKey();
-                            var replicas = entry.getValue().replicaInfos();
-                            return replicas.entrySet().stream()
-                                .filter(e -> e.getKey().equals(TopicPartition.to(partition)))
-                                .map(e -> Map.entry(path, e.getValue()));
-                          })
-                      .collect(Collectors.toList());
-
       return Utils.packException(
-          () ->
-              admin.describeTopics(topics).all().get().entrySet().stream()
-                  .flatMap(
-                      e ->
-                          e.getValue().partitions().stream()
+          () -> {
+            var logInfo = admin.describeLogDirs(brokerIds()).allDescriptions().get();
+            var tpPathMap = new HashMap<TopicPartition, Map<Integer, String>>();
+            for (var entry0 : logInfo.entrySet()) {
+              for (var entry1 : entry0.getValue().entrySet()) {
+                for (var entry2 : entry1.getValue().replicaInfos().entrySet()) {
+                  var tp = TopicPartition.from(entry2.getKey());
+                  var broker = entry0.getKey();
+                  var dataPath = entry1.getKey();
+                  tpPathMap.computeIfAbsent(tp, (ignore) -> new HashMap<>()).put(broker, dataPath);
+                }
+              }
+            }
+            return admin.describeTopics(topics).allTopicNames().get().entrySet().stream()
+                .flatMap(
+                    entry ->
+                        entry.getValue().partitions().stream()
+                            .map(
+                                tpInfo -> {
+                                  var topicName = entry.getKey();
+                                  var partition = tpInfo.partition();
+                                  var topicPartition = new TopicPartition(topicName, partition);
+                                  return Map.entry(topicPartition, tpInfo);
+                                }))
+                .collect(
+                    Collectors.toUnmodifiableMap(
+                        Map.Entry::getKey,
+                        (entry) -> {
+                          var topicPartition = entry.getKey();
+                          var tpInfo = entry.getValue();
+                          var replicaLeaderId = tpInfo.leader() != null ? tpInfo.leader().id() : -1;
+                          var isrSet = tpInfo.isr();
+                          return entry.getValue().replicas().stream()
                               .map(
-                                  topicPartitionInfo -> {
-                                    var partition =
-                                        new TopicPartition(
-                                            e.getKey(), topicPartitionInfo.partition());
-                                    return Map.entry(
-                                        partition,
-                                        topicPartitionInfo.replicas().stream()
-                                            .flatMap(
-                                                node ->
-                                                    findReplicas
-                                                        .apply(node.id(), partition)
-                                                        .stream()
-                                                        .map(
-                                                            entry ->
-                                                                new Replica(
-                                                                    node.id(),
-                                                                    entry.getValue().offsetLag(),
-                                                                    entry.getValue().size(),
-                                                                    topicPartitionInfo.leader().id()
-                                                                        == node.id(),
-                                                                    topicPartitionInfo
-                                                                        .isr()
-                                                                        .contains(node),
-                                                                    entry.getValue().isFuture(),
-                                                                    entry.getKey())))
-                                            .sorted(Comparator.comparing(Replica::broker))
-                                            .collect(Collectors.toList()));
-                                  }))
-                  .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue)));
+                                  node -> {
+                                    int broker = node.id();
+                                    var dataPath =
+                                        tpPathMap
+                                            .getOrDefault(topicPartition, Map.of())
+                                            .getOrDefault(broker, null);
+                                    var replicaInfo =
+                                        node.isEmpty() || dataPath == null
+                                            ? null
+                                            : logInfo
+                                                .get(broker)
+                                                .get(dataPath)
+                                                .replicaInfos()
+                                                .get(TopicPartition.to(topicPartition));
+                                    boolean isLeader = node.id() == replicaLeaderId;
+                                    boolean inSync = isrSet.contains(node);
+                                    long lag = replicaInfo != null ? replicaInfo.offsetLag() : -1L;
+                                    long size = replicaInfo != null ? replicaInfo.size() : -1L;
+                                    boolean future = replicaInfo != null && replicaInfo.isFuture();
+                                    boolean offline = node.isEmpty();
+                                    return new Replica(
+                                        broker, lag, size, isLeader, inSync, future, offline,
+                                        dataPath);
+                                  })
+                              .collect(Collectors.toList());
+                        }));
+          });
     }
 
     @Override
