@@ -438,9 +438,6 @@ public class Builder {
           Utils.packException(() -> this.replicas(topics)).entrySet().stream()
               .flatMap(
                   entry -> {
-                    // TODO: there is a bug in here. Admin#replicas doesn't return the full
-                    // information of each replica if there are some offline here. might be fix in
-                    // #308?
                     final var topicPartition = entry.getKey();
                     final var replicas = entry.getValue();
 
@@ -453,11 +450,10 @@ public class Builder {
                                     nodeInfo.stream()
                                         .filter(x -> x.id() == replica.broker())
                                         .findFirst()
-                                        .orElseThrow(),
+                                        .orElse(NodeInfo.ofUnreachableNode(replica.broker())),
                                     replica.leader(),
                                     replica.inSync(),
-                                    // TODO: fix the isOfflineReplica flag once the #308 is merged
-                                    false,
+                                    replica.isOffline(),
                                     replica.path()));
                   })
               .collect(Collectors.groupingBy(ReplicaInfo::topic));

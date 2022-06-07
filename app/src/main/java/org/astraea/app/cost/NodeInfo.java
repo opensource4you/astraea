@@ -24,6 +24,14 @@ public interface NodeInfo extends Comparable<NodeInfo> {
     return of(node.id(), node.host(), node.port());
   }
 
+  /**
+   * Represent a location unknown Kafka node. The node used to be in the cluster but probably become
+   * offline and unreachable for some reason.
+   */
+  static NodeInfo ofUnreachableNode(int id) {
+    return of(id, "", -1);
+  }
+
   static NodeInfo of(int id, String host, int port) {
     return new NodeInfo() {
       @Override

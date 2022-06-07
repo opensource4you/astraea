@@ -111,12 +111,12 @@ public interface Admin extends Closeable {
    */
   Map<Integer, Config> brokers(Set<Integer> brokerIds);
 
-  /** @return all brokers' ids */
+  /** @return all alive brokers' ids */
   default Set<Integer> brokerIds() {
     return nodes().stream().map(NodeInfo::id).collect(Collectors.toUnmodifiableSet());
   }
 
-  /** @return all node information in the cluster */
+  /** @return all alive node information in the cluster */
   Set<NodeInfo> nodes();
 
   /**
