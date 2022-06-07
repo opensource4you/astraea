@@ -370,7 +370,7 @@ public class Builder {
                                             .getOrDefault(topicPartition, Map.of())
                                             .getOrDefault(broker, null);
                                     var replicaInfo =
-                                        node.isEmpty()
+                                        node.isEmpty() || dataPath == null
                                             ? null
                                             : logInfo
                                                 .get(broker)
