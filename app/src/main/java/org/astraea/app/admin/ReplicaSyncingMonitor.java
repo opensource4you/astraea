@@ -202,7 +202,7 @@ public class ReplicaSyncingMonitor {
                 replica.leader() || replica.inSync()
                     ? null
                     : "(" + value.estimateFinishTimeString() + ")"),
-            Optional.ofNullable(replicaDescriptor(replica)))
+            Optional.ofNullable(replicaDescriptor(replica, value)))
         .flatMap(Optional::stream)
         .collect(Collectors.joining(" "));
   }
@@ -223,7 +223,6 @@ public class ReplicaSyncingMonitor {
 
     ProgressInfo(
         DataSize leaderSize, DataSize previousSize, DataSize currentSize, Duration interval) {
-      if (previousSize.greaterThan(leaderSize)) throw new IllegalArgumentException();
       this.leaderSize = leaderSize;
       this.previousSize = previousSize;
       this.currentSize = currentSize;
@@ -233,6 +232,8 @@ public class ReplicaSyncingMonitor {
     public double progress() {
       var currentBit = currentSize.measurement(DataUnit.Bit).doubleValue();
       var leaderBit = leaderSize.measurement(DataUnit.Bit).doubleValue();
+      if (currentBit == leaderBit) return 100;
+      if (currentBit > leaderBit) return Double.NaN;
       return currentBit / leaderBit * 100.0;
     }
 
@@ -250,25 +251,56 @@ public class ReplicaSyncingMonitor {
     }
 
     public DataRate dataRate() {
-      return currentSize.subtract(previousSize).dataRate(interval);
+      if (isProgressFallback()) {
+        // log retention/compaction occurred, we don't know the actual data rate at this moment.
+        return DataRate.of(0, DataUnit.Byte, interval);
+      } else {
+        return currentSize.subtract(previousSize).dataRate(interval);
+      }
     }
 
     public double dataRate(DataUnit dataUnit, ChronoUnit chronoUnit) {
       return dataRate().toBigDecimal(dataUnit, chronoUnit).doubleValue();
     }
 
-    public boolean isStalled() {
+    boolean isStalled() {
       return currentSize.equals(previousSize);
     }
 
     /**
-     * estimated finish time, return a negative duration if the progress is stalled
+     * For some reason the log size decreased. This might occur due to various reasons, for example:
+     * log retention/compaction.
+     */
+    boolean isProgressFallback() {
+      return currentSize.compareTo(previousSize) < 0;
+    }
+
+    /**
+     * For some reason the current log size is smaller than leader size. This might occur due to
+     * various reasons, for example: race condition between API fetching data.
+     */
+    boolean isProgressOverflow() {
+      return currentSize.compareTo(leaderSize) > 0;
+    }
+
+    /**
+     * Estimated the finish time, return a negative duration if we can't infer the actual finished
+     * time. This might happen due to the following reason:
+     *
+     * <ol>
+     *   <li>The replica syncing progress stalled.
+     *   <li>Log retention/compaction: cause the actual log size changed.
+     *   <li>Significant log size changed between replica data RPC call. The size of a log is a
+     *       moving target. It is hard to find the actual size without strong synchronization. But
+     *       doing that probably hurts performance and offers not much value to the user.
+     * </ol>
      *
      * @return a {@link Duration} represent the estimated finish time, negative if progress is
      *     stalled.
      */
     public Duration estimateFinishTime() {
-      if (isStalled()) return Duration.ofSeconds(-1);
+      if (isStalled() || isProgressFallback() || isProgressOverflow())
+        return Duration.ofSeconds(-1);
       else {
         final double leaderByte = leaderSize.measurement(DataUnit.Byte).doubleValue();
         final double currentByte = currentSize.measurement(DataUnit.Byte).doubleValue();
@@ -294,7 +326,11 @@ public class ReplicaSyncingMonitor {
     }
 
     public String dataRateString() {
-      return dataRate().toString(ChronoUnit.SECONDS);
+      if (isProgressFallback()) {
+        return dataRate().toString(ChronoUnit.SECONDS).replaceAll("[+\\-\\d.]+", "?");
+      } else {
+        return dataRate().toString(ChronoUnit.SECONDS);
+      }
     }
 
     @Override
@@ -304,11 +340,13 @@ public class ReplicaSyncingMonitor {
     }
   }
 
-  static String replicaDescriptor(Replica replica) {
+  static String replicaDescriptor(Replica replica, ProgressInfo progressInfo) {
+    var logShrinkage = progressInfo.isProgressFallback() | progressInfo.isProgressOverflow();
     return Stream.of(
             Optional.ofNullable(replica.leader() ? "leader" : null),
             Optional.ofNullable(replica.inSync() ? "synced" : null),
-            Optional.ofNullable(replica.lag() > 0 ? "lagged" : null))
+            Optional.ofNullable(replica.lag() > 0 ? "lagged" : null),
+            Optional.ofNullable(logShrinkage ? "log-shrunk" : null))
         .flatMap(Optional::stream)
         .collect(Collectors.joining(", ", "[", "]"));
   }

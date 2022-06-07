@@ -94,21 +94,63 @@ class ReplicaSyncingMonitorTest {
         .thenReturn(
             Map.of(
                 /* progress 0% */
-                topicPartition.apply("topic-1", 0), replica.apply(3, new long[] {100, 0, 0}),
-                topicPartition.apply("topic-2", 0), replica.apply(3, new long[] {100, 0, 0}),
-                topicPartition.apply("topic-3", 0), replica.apply(3, new long[] {100, 0, 0})))
+                topicPartition.apply("topic-1", 0), replica.apply(2, new long[] {100, 0}),
+                topicPartition.apply("topic-2", 0), replica.apply(2, new long[] {100, 0}),
+                topicPartition.apply("topic-3", 0), replica.apply(2, new long[] {100, 0})))
+        .thenReturn(
+            Map.of(
+                /* progress 25% */
+                topicPartition.apply("topic-1", 0), replica.apply(2, new long[] {100, 25}),
+                topicPartition.apply("topic-2", 0), replica.apply(2, new long[] {100, 25}),
+                topicPartition.apply("topic-3", 0), replica.apply(2, new long[] {100, 25})))
         .thenReturn(
             Map.of(
                 /* progress 50% */
-                topicPartition.apply("topic-1", 0), replica.apply(3, new long[] {100, 50, 50}),
-                topicPartition.apply("topic-2", 0), replica.apply(3, new long[] {100, 50, 50}),
-                topicPartition.apply("topic-3", 0), replica.apply(3, new long[] {100, 50, 50})))
+                topicPartition.apply("topic-1", 0), replica.apply(2, new long[] {100, 50}),
+                topicPartition.apply("topic-2", 0), replica.apply(2, new long[] {100, 50}),
+                topicPartition.apply("topic-3", 0), replica.apply(2, new long[] {100, 50})))
+        .thenReturn(
+            Map.of(
+                /* progress 43.75% (log shrink, progress fall) */
+                topicPartition.apply("topic-1", 0), replica.apply(2, new long[] {80, 35}),
+                topicPartition.apply("topic-2", 0), replica.apply(2, new long[] {80, 35}),
+                topicPartition.apply("topic-3", 0), replica.apply(2, new long[] {80, 35})))
+        .thenReturn(
+            Map.of(
+                /* progress 50% (data catch up) */
+                topicPartition.apply("topic-1", 0), replica.apply(2, new long[] {100, 50}),
+                topicPartition.apply("topic-2", 0), replica.apply(2, new long[] {100, 50}),
+                topicPartition.apply("topic-3", 0), replica.apply(2, new long[] {100, 50})))
+        .thenReturn(
+            Map.of(
+                /* progress NaN% (progress overflow due to non-atomic return result) */
+                topicPartition.apply("topic-1", 0), replica.apply(2, new long[] {50, 80}),
+                topicPartition.apply("topic-2", 0), replica.apply(2, new long[] {50, 80}),
+                topicPartition.apply("topic-3", 0), replica.apply(2, new long[] {50, 80})))
+        .thenReturn(
+            Map.of(
+                /* progress 60% */
+                topicPartition.apply("topic-1", 0), replica.apply(2, new long[] {50, 30}),
+                topicPartition.apply("topic-2", 0), replica.apply(2, new long[] {50, 30}),
+                topicPartition.apply("topic-3", 0), replica.apply(2, new long[] {50, 30})))
+        .thenReturn(
+            Map.of(
+                /* progress 80% */
+                topicPartition.apply("topic-1", 0), replica.apply(2, new long[] {50, 40}),
+                topicPartition.apply("topic-2", 0), replica.apply(2, new long[] {50, 40}),
+                topicPartition.apply("topic-3", 0), replica.apply(2, new long[] {50, 40})))
+        .thenReturn(
+            Map.of(
+                /* progress 90% */
+                topicPartition.apply("topic-1", 0), replica.apply(2, new long[] {50, 45}),
+                topicPartition.apply("topic-2", 0), replica.apply(2, new long[] {50, 45}),
+                topicPartition.apply("topic-3", 0), replica.apply(2, new long[] {50, 45})))
         .thenReturn(
             Map.of(
                 /* progress 100% */
-                topicPartition.apply("topic-1", 0), replica.apply(3, new long[] {100, 100, 100}),
-                topicPartition.apply("topic-2", 0), replica.apply(3, new long[] {100, 100, 100}),
-                topicPartition.apply("topic-3", 0), replica.apply(3, new long[] {100, 100, 100})));
+                topicPartition.apply("topic-1", 0), replica.apply(2, new long[] {50, 50}),
+                topicPartition.apply("topic-2", 0), replica.apply(2, new long[] {50, 50}),
+                topicPartition.apply("topic-3", 0), replica.apply(2, new long[] {50, 50})));
 
     Thread executionThread =
         new Thread(
@@ -137,6 +179,7 @@ class ReplicaSyncingMonitorTest {
     assertSame(Thread.State.TERMINATED, executionThread.getState());
 
     // assert important info has been printed
+    System.err.println(mockOutput.toString());
     assertTrue(mockOutput.toString().contains("topic-1"));
     assertTrue(mockOutput.toString().contains("topic-2"));
     assertTrue(mockOutput.toString().contains("topic-3"));
@@ -332,6 +375,13 @@ class ReplicaSyncingMonitorTest {
         "  100   , 25      , 50     , 1000    , 25.0          , 50      , 2        , test",
         "  100   , 0       , 10     , 10000   , 1.0           , 10      , 90       , 10 sec interval",
         "  100   , 50      , 50     , 1000    , 0.0           , 50      , -1       , stalled progress",
+        "  0     , 50      , 0      , 1000    , 0.0           , 100     , -1       , log shrink(zero)",
+        "  40    , 50      , 10     , 1000    , 0.0           , 25      , -1       , log shrink(progress fall)",
+        "  40    , 50      , 20     , 1000    , 0.0           , 50      , -1       , log shrink(progress fall)",
+        "  100   , 50      , 20     , 1000    , 0.0           , 20      , -1       , log shrink(progress fall)",
+        "  10    , 50      , 30     , 1000    , 0.0           , NaN     , -1       , log shrink(progress fall, overflow)",
+        "  10    , 30      , 50     , 1000    , 20.0          , NaN     , -1       , log shrink(overflow)",
+        "  100   , 50      , 120    , 1000    , 70.0          , NaN     , -1       , log shrink(overflow)",
       })
   void dataRate(
       long leaderSize,
