@@ -25,6 +25,7 @@ import java.time.Duration;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ThreadLocalRandom;
@@ -596,6 +597,17 @@ public class AdminTest extends RequireBrokerCluster {
       Assertions.assertEquals(partitionCount, clusterInfo.availableReplicaLeaders(topic0).size());
       Assertions.assertEquals(partitionCount, clusterInfo.availableReplicaLeaders(topic1).size());
       Assertions.assertEquals(partitionCount, clusterInfo.availableReplicaLeaders(topic2).size());
+      // No resource match found will raise exception
+      Assertions.assertThrows(
+          NoSuchElementException.class, () -> clusterInfo.replicas("Unknown Topic"));
+      Assertions.assertThrows(
+          NoSuchElementException.class, () -> clusterInfo.availableReplicas("Unknown Topic"));
+      Assertions.assertThrows(
+          NoSuchElementException.class, () -> clusterInfo.availableReplicaLeaders("Unknown Topic"));
+      Assertions.assertThrows(NoSuchElementException.class, () -> clusterInfo.dataDirectories(-1));
+      Assertions.assertThrows(IllegalArgumentException.class, () -> clusterInfo.node(-1));
+      Assertions.assertThrows(
+          NoSuchElementException.class, () -> clusterInfo.node("unknown", 1024));
     }
   }
 
