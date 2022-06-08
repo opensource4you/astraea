@@ -30,7 +30,7 @@ public interface BrokerCost {
     var map = this.value();
     var keys = map.keySet().iterator();
     var normalization = normalizer.normalize(map.values()).iterator();
-    if (normalization.hasNext()) {
+    while (normalization.hasNext()) {
       map.replace(keys.next(), normalization.next());
     }
     return () -> map;
