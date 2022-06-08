@@ -486,7 +486,7 @@ public class Builder {
         @Override
         public List<ReplicaInfo> availableReplicas(String topic) {
           return topicToReplicasMap.get(topic).stream()
-              .filter((ReplicaInfo x) -> !x.isOfflineReplica())
+              .filter(ReplicaInfo::isOnlineReplica)
               .collect(Collectors.toUnmodifiableList());
         }
 
