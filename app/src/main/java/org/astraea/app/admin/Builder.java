@@ -450,7 +450,7 @@ public class Builder {
                                     nodeInfo.stream()
                                         .filter(x -> x.id() == replica.broker())
                                         .findFirst()
-                                        .orElse(NodeInfo.ofUnreachableNode(replica.broker())),
+                                        .orElse(NodeInfo.ofOfflineNode(replica.broker())),
                                     replica.leader(),
                                     replica.inSync(),
                                     replica.isOffline(),
