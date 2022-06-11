@@ -791,4 +791,21 @@ public class AdminTest extends RequireBrokerCluster {
       }
     }
   }
+
+  @Test
+  void testTransactionIds() throws ExecutionException, InterruptedException {
+
+    try (var admin = Admin.of(bootstrapServers());
+        var producer =
+            Producer.builder().bootstrapServers(bootstrapServers()).buildTransactional()) {
+      Assertions.assertTrue(producer.transactional());
+      producer.sender().key(new byte[10]).topic("topic").run().toCompletableFuture().get();
+
+      Assertions.assertTrue(admin.transactionIds().contains(producer.transactionId().get()));
+
+      var transaction = admin.transactions().get(producer.transactionId().get());
+      Assertions.assertNotNull(transaction);
+      Assertions.assertEquals(TransactionState.COMPLETE_COMMIT, transaction.state());
+    }
+  }
 }
