@@ -78,6 +78,17 @@ public class Builder<Key, Value> {
     return config(ProducerConfig.COMPRESSION_TYPE_CONFIG, compression.nameOfKafka());
   }
 
+  /**
+   * set the transaction id. If you set the transaction id, the builder will always build
+   * transactional producer.
+   *
+   * @param transactionId used to trace by server
+   * @return this builder
+   */
+  public Builder<Key, Value> transactionId(String transactionId) {
+    return config(ProducerConfig.TRANSACTIONAL_ID_CONFIG, transactionId);
+  }
+
   private static <Key, Value> CompletionStage<Metadata> doSend(
       org.apache.kafka.clients.producer.Producer<Key, Value> producer,
       ProducerRecord<Key, Value> record) {
@@ -91,6 +102,10 @@ public class Builder<Key, Value> {
     return completableFuture;
   }
 
+  /**
+   * @return normal producer if there is no transaction id in configs. Otherwise, a transactional
+   *     producer is returned
+   */
   @SuppressWarnings("unchecked")
   public Producer<Key, Value> build() {
     // if user configs the transaction id, we should build transactional producer
@@ -102,6 +117,10 @@ public class Builder<Key, Value> {
             Serializer.of((Serializer<Value>) valueSerializer)));
   }
 
+  /**
+   * @return always returns a transactional producer. The transaction id is generated automatically
+   *     if it is absent
+   */
   @SuppressWarnings("unchecked")
   public Producer<Key, Value> buildTransactional() {
     var transactionConfigs = new HashMap<>(configs);
