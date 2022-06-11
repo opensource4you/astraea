@@ -179,4 +179,42 @@ class LayeredClusterLogAllocationTest {
     Assertions.assertDoesNotThrow(() -> extended.letReplicaBecomeLeader(toModify, 0));
     Assertions.assertDoesNotThrow(() -> extended.changeDataDirectory(toModify, 2, "/anywhere"));
   }
+
+  @Test
+  void findNonFulfilledAllocation() {
+    final var clusterInfo = ClusterInfoProvider.fakeClusterInfo(3, 10, 10, 2);
+    final var a = LayeredClusterLogAllocation.of(clusterInfo);
+    final var b = LayeredClusterLogAllocation.of(clusterInfo);
+    Assertions.assertEquals(Set.of(), ClusterLogAllocation.findNonFulfilledAllocation(a, b));
+
+    final var source = LayeredClusterLogAllocation.of(clusterInfo);
+    final var oneTopicPartition = source.topicPartitionStream().findFirst().orElseThrow();
+    final var twoTopicPartition = source.topicPartitionStream().skip(1).findFirst().orElseThrow();
+
+    final var target0 = LayeredClusterLogAllocation.of(a);
+    target0.changeDataDirectory(oneTopicPartition, 0, "/somewhere");
+    Assertions.assertEquals(
+        Set.of(oneTopicPartition),
+        ClusterLogAllocation.findNonFulfilledAllocation(source, target0));
+
+    final var target1 = LayeredClusterLogAllocation.of(a);
+    target1.migrateReplica(oneTopicPartition, 0, 2);
+    Assertions.assertEquals(
+        Set.of(oneTopicPartition),
+        ClusterLogAllocation.findNonFulfilledAllocation(source, target1));
+
+    final var target2 = LayeredClusterLogAllocation.of(a);
+    target2.letReplicaBecomeLeader(oneTopicPartition, 1);
+    Assertions.assertEquals(
+        Set.of(oneTopicPartition),
+        ClusterLogAllocation.findNonFulfilledAllocation(source, target2));
+
+    final var target3 = LayeredClusterLogAllocation.of(a);
+    target3.migrateReplica(oneTopicPartition, 0, 2);
+    target3.changeDataDirectory(oneTopicPartition, 2, "/somewhere");
+    target3.letReplicaBecomeLeader(twoTopicPartition, 1);
+    Assertions.assertEquals(
+        Set.of(oneTopicPartition, twoTopicPartition),
+        ClusterLogAllocation.findNonFulfilledAllocation(source, target3));
+  }
 }

@@ -21,6 +21,9 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
+import org.astraea.app.cost.ClusterInfo;
+import org.astraea.app.cost.NodeInfo;
 
 public interface Admin extends Closeable {
 
@@ -108,8 +111,13 @@ public interface Admin extends Closeable {
    */
   Map<Integer, Config> brokers(Set<Integer> brokerIds);
 
-  /** @return all brokers' ids */
-  Set<Integer> brokerIds();
+  /** @return all alive brokers' ids */
+  default Set<Integer> brokerIds() {
+    return nodes().stream().map(NodeInfo::id).collect(Collectors.toUnmodifiableSet());
+  }
+
+  /** @return all alive node information in the cluster */
+  Set<NodeInfo> nodes();
 
   /**
    * list all partitions belongs to input brokers
@@ -181,6 +189,17 @@ public interface Admin extends Closeable {
 
   /** @return all quotas */
   Collection<Quota> quotas();
+
+  /** @return a snapshot object of cluster state at the moment */
+  default ClusterInfo clusterInfo() {
+    return clusterInfo(topicNames());
+  }
+
+  /**
+   * @param topics query only this subset of topics
+   * @return a snapshot object of cluster state at the moment
+   */
+  ClusterInfo clusterInfo(Set<String> topics);
 
   @Override
   void close();

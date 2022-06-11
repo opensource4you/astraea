@@ -176,7 +176,6 @@ public interface ClusterInfo {
 
   /** @return return the data directories on specific broker */
   Set<String> dataDirectories(int brokerId);
-  // TODO: provide a ClusterInfo implementation with this info
 
   /**
    * Get the list of replica leader information of each available partition for the given topic
