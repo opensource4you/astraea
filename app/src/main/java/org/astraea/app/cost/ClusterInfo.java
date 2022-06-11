@@ -199,8 +199,8 @@ public interface ClusterInfo {
    * Get the list of replica leader information of each available partition for the given topic
    *
    * @param topic The Topic name
-   * @return A list of {@link ReplicaInfo}. It throws NoSuchElementException if specify node id is
-   *     not associated to any node.
+   * @return A list of {@link ReplicaInfo}. It throws NoSuchElementException if the replica info of
+   *     the given topic is unknown to this ClusterInfo
    */
   List<ReplicaInfo> availableReplicaLeaders(String topic);
 
@@ -209,8 +209,8 @@ public interface ClusterInfo {
    * topic
    *
    * @param topic The topic name
-   * @return A list of {@link ReplicaInfo}. It throws NoSuchElementException if specify node id is
-   *     not associated to any node.
+   * @return A list of {@link ReplicaInfo}. It throws NoSuchElementException if the replica info of
+   *     the given topic is unknown to this ClusterInfo
    */
   List<ReplicaInfo> availableReplicas(String topic);
 
@@ -225,8 +225,8 @@ public interface ClusterInfo {
    * Get the list of replica information of each partition/replica pair for the given topic
    *
    * @param topic The topic name
-   * @return A list of {@link ReplicaInfo}. It throws NoSuchElementException if specify node id is
-   *     not associated to any node.
+   * @return A list of {@link ReplicaInfo}. It throws NoSuchElementException if the replica info of
+   *     the given topic is unknown to this ClusterInfo
    */
   List<ReplicaInfo> replicas(String topic);
 
