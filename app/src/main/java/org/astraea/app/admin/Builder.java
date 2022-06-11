@@ -365,6 +365,10 @@ public class Builder {
                           var tpInfo = entry.getValue();
                           var replicaLeaderId = tpInfo.leader() != null ? tpInfo.leader().id() : -1;
                           var isrSet = tpInfo.isr();
+                          // The first replica in the return result is the preferred leader. This
+                          // only works with Kafka broker version after 0.11. Version before 0.11
+                          // returns the replicas in unspecified order due to a bug.
+                          var preferredLeader = entry.getValue().replicas().get(0);
                           return entry.getValue().replicas().stream()
                               .map(
                                   node -> {
@@ -387,8 +391,16 @@ public class Builder {
                                     long size = replicaInfo != null ? replicaInfo.size() : -1L;
                                     boolean future = replicaInfo != null && replicaInfo.isFuture();
                                     boolean offline = node.isEmpty();
+                                    boolean isPreferredLeader = preferredLeader.id() == broker;
                                     return new Replica(
-                                        broker, lag, size, isLeader, inSync, future, offline,
+                                        broker,
+                                        lag,
+                                        size,
+                                        isLeader,
+                                        inSync,
+                                        future,
+                                        offline,
+                                        isPreferredLeader,
                                         dataPath);
                                   })
                               .collect(Collectors.toList());
