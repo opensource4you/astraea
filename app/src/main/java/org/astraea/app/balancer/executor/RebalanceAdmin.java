@@ -44,12 +44,14 @@ public interface RebalanceAdmin {
   }
 
   /**
-   * Attempt to migrate the target topic/partition to given replica log placement state. This method
-   * will perform both replica list migration and data directory migration. This method will return
-   * after triggering the migration. It won't wait until the migration processes are fulfilled.
+   * Attempt to migrate the target topic/partition to the given replica log placement state. This
+   * method will perform both replica list migration and data directory migration. This method will
+   * return after triggering the migration. It won't wait until the migration processes are
+   * fulfilled.
    *
    * @param topicPartition the topic/partition to perform migration
    * @param expectedPlacement the expected placement after this request accomplished
+   * @return a list of task trackers regarding each log
    */
   List<RebalanceTask<TopicPartitionReplica, SyncingProgress>> alterReplicaPlacements(
       TopicPartition topicPartition, List<LogPlacement> expectedPlacement);
@@ -57,29 +59,53 @@ public interface RebalanceAdmin {
   /** Access the syncing progress of the specific topic/partitions */
   SyncingProgress syncingProgress(TopicPartitionReplica topicPartitionReplica);
 
-  /** Wait until all given topic/partitions are synced. */
+  /**
+   * Wait until the given log is synced or the timeout is due.
+   *
+   * @param log target to wait
+   * @param timeout the max time to wait
+   * @return true if the target is synced
+   */
   boolean waitLogSynced(TopicPartitionReplica log, Duration timeout) throws InterruptedException;
 
+  /**
+   * Wait until the given log is synced.
+   *
+   * @param log target to wait
+   * @return true if the target is synced
+   */
   default boolean waitLogSynced(TopicPartitionReplica log) throws InterruptedException {
     return waitLogSynced(log, ChronoUnit.FOREVER.getDuration());
   }
 
   /**
-   * Wait until the given topic/partition have its preferred leader be the actual leader.
+   * Wait until the given topic/partition have its preferred leader be the actual leader, or the
+   * timeout due.
    *
    * @param topicPartition the topic/partition to wait
-   * @param timeout for the waiting process
-   * @return true if the target is synced
+   * @param timeout the max time to wait
+   * @return true if the preferred leader becomes the leader
    */
   boolean waitPreferredLeaderSynced(TopicPartition topicPartition, Duration timeout)
       throws InterruptedException;
 
+  /**
+   * Wait until the given topic/partition have its preferred leader be the actual leader.
+   *
+   * @param topicPartition the topic/partition to wait
+   * @return true if the preferred leader becomes the leader
+   */
   default boolean waitPreferredLeaderSynced(TopicPartition topicPartition)
       throws InterruptedException {
     return waitPreferredLeaderSynced(topicPartition, ChronoUnit.FOREVER.getDuration());
   }
 
-  /** Perform preferred leader election for specific topic/partition. */
+  /**
+   * Perform preferred leader election for specific topic/partition.
+   *
+   * @param topicPartition the topic/partition to trigger preferred leader election
+   * @return a task tracker to track the election progress.
+   */
   RebalanceTask<TopicPartition, Boolean> leaderElection(TopicPartition topicPartition);
 
   ClusterInfo clusterInfo();
