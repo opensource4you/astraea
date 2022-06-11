@@ -361,6 +361,9 @@ public class Builder {
                           var tpInfo = entry.getValue();
                           var replicaLeaderId = tpInfo.leader() != null ? tpInfo.leader().id() : -1;
                           var isrSet = tpInfo.isr();
+                          // The first replica in the return result is the preferred leader. This
+                          // only works with Kafka broker version after 0.11. Version before 0.11
+                          // returns the replicas in unspecified order due to a bug.
                           var preferredLeader = entry.getValue().replicas().get(0);
                           return entry.getValue().replicas().stream()
                               .map(
