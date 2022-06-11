@@ -21,6 +21,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Random;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
@@ -77,6 +78,17 @@ public class Builder<Key, Value> {
     return config(ProducerConfig.COMPRESSION_TYPE_CONFIG, compression.nameOfKafka());
   }
 
+  /**
+   * set the transaction id. If you set the transaction id, the builder will always build
+   * transactional producer.
+   *
+   * @param transactionId used to trace by server
+   * @return this builder
+   */
+  public Builder<Key, Value> transactionId(String transactionId) {
+    return config(ProducerConfig.TRANSACTIONAL_ID_CONFIG, transactionId);
+  }
+
   private static <Key, Value> CompletionStage<Metadata> doSend(
       org.apache.kafka.clients.producer.Producer<Key, Value> producer,
       ProducerRecord<Key, Value> record) {
@@ -90,8 +102,14 @@ public class Builder<Key, Value> {
     return completableFuture;
   }
 
+  /**
+   * @return normal producer if there is no transaction id in configs. Otherwise, a transactional
+   *     producer is returned
+   */
   @SuppressWarnings("unchecked")
   public Producer<Key, Value> build() {
+    // if user configs the transaction id, we should build transactional producer
+    if (configs.containsKey(ProducerConfig.TRANSACTIONAL_ID_CONFIG)) return buildTransactional();
     return new NormalProducer<>(
         new KafkaProducer<>(
             configs,
@@ -99,11 +117,18 @@ public class Builder<Key, Value> {
             Serializer.of((Serializer<Value>) valueSerializer)));
   }
 
+  /**
+   * @return always returns a transactional producer. The transaction id is generated automatically
+   *     if it is absent
+   */
   @SuppressWarnings("unchecked")
   public Producer<Key, Value> buildTransactional() {
     var transactionConfigs = new HashMap<>(configs);
-    transactionConfigs.putIfAbsent(
-        ProducerConfig.TRANSACTIONAL_ID_CONFIG, "id" + new Random().nextLong());
+    var transactionId =
+        (String)
+            transactionConfigs.computeIfAbsent(
+                ProducerConfig.TRANSACTIONAL_ID_CONFIG,
+                ignored -> "transaction-id-" + new Random().nextLong());
     // For transactional send
     var transactionProducer =
         new KafkaProducer<>(
@@ -111,7 +136,7 @@ public class Builder<Key, Value> {
             Serializer.of((Serializer<Key>) keySerializer),
             Serializer.of((Serializer<Value>) valueSerializer));
     transactionProducer.initTransactions();
-    return new TransactionalProducer<>(transactionProducer);
+    return new TransactionalProducer<>(transactionProducer, transactionId);
   }
 
   private abstract static class BaseProducer<Key, Value> implements Producer<Key, Value> {
@@ -153,17 +178,20 @@ public class Builder<Key, Value> {
     }
 
     @Override
-    public boolean transactional() {
-      return false;
+    public Optional<String> transactionId() {
+      return Optional.empty();
     }
   }
 
   private static class TransactionalProducer<Key, Value> extends BaseProducer<Key, Value> {
     private final Object lock = new Object();
+    private final String transactionId;
 
     private TransactionalProducer(
-        org.apache.kafka.clients.producer.Producer<Key, Value> kafkaProducer) {
+        org.apache.kafka.clients.producer.Producer<Key, Value> kafkaProducer,
+        String transactionId) {
       super(kafkaProducer);
+      this.transactionId = transactionId;
     }
 
     @Override
@@ -214,6 +242,11 @@ public class Builder<Key, Value> {
     @Override
     public boolean transactional() {
       return true;
+    }
+
+    @Override
+    public Optional<String> transactionId() {
+      return Optional.of(transactionId);
     }
   }
 }

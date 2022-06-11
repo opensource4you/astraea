@@ -201,6 +201,21 @@ public interface Admin extends Closeable {
    */
   ClusterInfo clusterInfo(Set<String> topics);
 
+  /** @return all transaction ids */
+  Set<String> transactionIds();
+
+  /** @return all transaction states */
+  default Map<String, Transaction> transactions() {
+    return transactions(transactionIds());
+  }
+  /**
+   * return transaction states associated to input ids
+   *
+   * @param transactionIds to query state
+   * @return transaction states
+   */
+  Map<String, Transaction> transactions(Set<String> transactionIds);
+
   @Override
   void close();
 }
