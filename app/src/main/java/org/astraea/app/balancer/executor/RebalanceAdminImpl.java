@@ -211,8 +211,11 @@ public class RebalanceAdminImpl implements RebalanceAdmin {
                 .map(Map.Entry::getValue)
                 .map(
                     replicas -> {
-                      // TODO: should use a flag to find the preferred leader
-                      var preferred = replicas.get(0);
+                      var preferred =
+                          replicas.stream()
+                              .filter(Replica::isPreferredLeader)
+                              .findFirst()
+                              .orElseThrow();
                       return preferred.leader();
                     })
                 .orElseThrow(),
@@ -238,8 +241,11 @@ public class RebalanceAdminImpl implements RebalanceAdmin {
             .findFirst()
             .map(
                 x -> {
-                  // TODO: use isPreferredLeader flag instead
-                  var replica = x.getValue().get(0);
+                  var replica =
+                      x.getValue().stream()
+                          .filter(Replica::isPreferredLeader)
+                          .findFirst()
+                          .orElseThrow();
                   return replica.inSync();
                 })
             .orElseThrow();
