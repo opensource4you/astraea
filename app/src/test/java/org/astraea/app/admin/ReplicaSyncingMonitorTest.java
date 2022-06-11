@@ -81,7 +81,15 @@ class ReplicaSyncingMonitorTest {
               .mapToObj(
                   i ->
                       new Replica(
-                          i, 0, size[i], i == 0, size[i] == size[0], false, false, "/tmp/log"))
+                          i,
+                          0,
+                          size[i],
+                          i == 0,
+                          size[i] == size[0],
+                          false,
+                          false,
+                          i == 0,
+                          "/tmp/log"))
               .collect(Collectors.toUnmodifiableList());
 
   @Test
@@ -270,12 +278,12 @@ class ReplicaSyncingMonitorTest {
     final Set<String> topics = Set.of("topic1", "topic2");
     final List<Replica> replicaList1 =
         List.of(
-            new Replica(0, 0, 0, true, true, false, false, "/tmp/broker0/logA"),
-            new Replica(1, 0, 0, true, true, false, false, "/tmp/broker1/logA"));
+            new Replica(0, 0, 0, true, true, false, false, true, "/tmp/broker0/logA"),
+            new Replica(1, 0, 0, true, true, false, false, false, "/tmp/broker1/logA"));
     final List<Replica> replicaList2 =
         List.of(
-            new Replica(0, 0, 100, true, false, false, false, "/tmp/broker0/logB"),
-            new Replica(1, 0, 100, true, true, false, false, "/tmp/broker1/logB"));
+            new Replica(0, 0, 100, true, false, false, false, true, "/tmp/broker0/logB"),
+            new Replica(1, 0, 100, true, true, false, false, false, "/tmp/broker1/logB"));
     when(mockTopicAdmin.replicas(any()))
         .thenReturn(
             Map.of(

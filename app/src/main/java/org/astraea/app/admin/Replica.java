@@ -25,6 +25,7 @@ public final class Replica {
   private final boolean leader;
   private final boolean inSync;
   private final boolean isFuture;
+  private final boolean isPreferredLeader;
   private final boolean offline;
   private final String path;
 
@@ -36,6 +37,7 @@ public final class Replica {
       boolean inSync,
       boolean isFuture,
       boolean offline,
+      boolean isPreferredLeader,
       String path) {
     this.broker = broker;
     this.lag = lag;
@@ -43,6 +45,7 @@ public final class Replica {
     this.leader = leader;
     this.inSync = inSync;
     this.isFuture = isFuture;
+    this.isPreferredLeader = isPreferredLeader;
     this.offline = offline;
     this.path = path;
   }
@@ -58,13 +61,15 @@ public final class Replica {
         && leader == replica.leader
         && inSync == replica.inSync
         && isFuture == replica.isFuture
+        && isPreferredLeader == replica.isPreferredLeader
         && offline == replica.offline
         && path.equals(replica.path);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(broker, lag, size, leader, inSync, isFuture, path);
+    return Objects.hash(
+        broker, lag, size, leader, inSync, isFuture, isPreferredLeader, offline, path);
   }
 
   @Override
@@ -82,10 +87,12 @@ public final class Replica {
         + inSync
         + ", isFuture="
         + isFuture
-        + ", path='"
-        + path
+        + ", isPreferredLeader="
+        + isPreferredLeader
         + ", offline="
         + offline
+        + ", path='"
+        + path
         + '\''
         + '}';
   }
@@ -124,6 +131,11 @@ public final class Replica {
   /** @return true if this is current log of replica. */
   public boolean isCurrent() {
     return !isFuture;
+  }
+
+  /** @return true if the replica is the preferred leader */
+  public boolean isPreferredLeader() {
+    return isPreferredLeader;
   }
 
   /** @return true if the replica on the broker is offline. */

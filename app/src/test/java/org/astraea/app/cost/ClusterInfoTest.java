@@ -19,6 +19,7 @@ package org.astraea.app.cost;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import org.apache.kafka.common.Cluster;
 import org.astraea.app.metrics.HasBeanObject;
 import org.junit.jupiter.api.Assertions;
@@ -69,5 +70,20 @@ public class ClusterInfoTest {
     Assertions.assertEquals(1, clusterInfo.allBeans().size());
     Assertions.assertEquals(0, clusterInfo.beans(19).size());
     Assertions.assertEquals(1, clusterInfo.beans(1).size());
+  }
+
+  @Test
+  void testIllegalQuery() {
+    var clusterInfo = ClusterInfo.of(Cluster.empty());
+
+    Assertions.assertThrows(NoSuchElementException.class, () -> clusterInfo.replicas("unknown"));
+    Assertions.assertThrows(NoSuchElementException.class, () -> clusterInfo.node(0));
+    Assertions.assertThrows(NoSuchElementException.class, () -> clusterInfo.node("", -1));
+    Assertions.assertThrows(
+        NoSuchElementException.class, () -> clusterInfo.availableReplicas("unknown"));
+    Assertions.assertThrows(
+        NoSuchElementException.class, () -> clusterInfo.availableReplicaLeaders("unknown"));
+    Assertions.assertThrows(
+        UnsupportedOperationException.class, () -> clusterInfo.dataDirectories(0));
   }
 }

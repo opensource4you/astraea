@@ -24,6 +24,7 @@ import java.util.Set;
 import org.astraea.app.cost.ClusterInfo;
 import org.astraea.app.cost.FakeClusterInfo;
 import org.astraea.app.cost.NodeInfo;
+import org.astraea.app.cost.Normalizer;
 import org.astraea.app.cost.ReplicaInfo;
 import org.astraea.app.metrics.HasBeanObject;
 import org.astraea.app.metrics.java.HasJvmMemory;
@@ -63,7 +64,7 @@ public class MemoryCostTest {
         };
 
     var memoryCost = new MemoryCost();
-    var scores = memoryCost.brokerCost(clusterInfo).value();
+    var scores = memoryCost.brokerCost(clusterInfo).normalize(Normalizer.TScore()).value();
     Assertions.assertEquals(0.39, scores.get(1));
     Assertions.assertEquals(0.63, scores.get(2));
     Assertions.assertEquals(0.47, scores.get(3));
@@ -96,10 +97,10 @@ public class MemoryCostTest {
                 ReplicaInfo.of("t", 0, NodeInfo.of(3, "host3", 9092), false, true, false));
           }
         };
-    scores = memoryCost.brokerCost(clusterInfo2).value();
-    Assertions.assertEquals(0.42, scores.get(1));
-    Assertions.assertEquals(0.52, scores.get(2));
-    Assertions.assertEquals(0.55, scores.get(3));
+    scores = memoryCost.brokerCost(clusterInfo2).normalize(Normalizer.TScore()).value();
+    Assertions.assertEquals(0.36, scores.get(1));
+    Assertions.assertEquals(0.58, scores.get(2));
+    Assertions.assertEquals(0.56, scores.get(3));
   }
 
   private HasJvmMemory mockResult(long used, long max) {
