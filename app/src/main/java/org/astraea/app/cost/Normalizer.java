@@ -27,7 +27,11 @@ public interface Normalizer {
 
   /** @return all normalizers */
   static List<Normalizer> all() {
-    return List.of(Normalizer.proportion(), Normalizer.minMax(true), Normalizer.minMax(false));
+    return List.of(
+        Normalizer.proportion(),
+        Normalizer.minMax(true),
+        Normalizer.minMax(false),
+        Normalizer.TScore());
   }
 
   /**
@@ -67,6 +71,35 @@ public interface Normalizer {
     return values -> {
       var sum = values.stream().mapToDouble(i -> i).sum();
       return values.stream().map(v -> v / sum).collect(Collectors.toUnmodifiableList());
+    };
+  }
+
+  /**
+   * implement the TScore normalization
+   *
+   * <p>(value -avg/standardDeviation)*10+50
+   *
+   * @return TScore normalizer
+   */
+  static Normalizer TScore() {
+    return values -> {
+      var avg = values.stream().mapToDouble(i -> i).sum() / values.size();
+      var standardDeviation =
+          Math.sqrt(values.stream().mapToDouble(i -> (i - avg) * (i - avg)).sum() / values.size());
+
+      return values.stream()
+          .map(i -> (i - avg) / standardDeviation)
+          .map(
+              i -> {
+                var score = (i * 10 + 50) / 100.0;
+                if (score > 1) {
+                  score = 1.0;
+                } else if (score < 0) {
+                  score = 0.0;
+                }
+                return Math.round(score * 100) / 100.0;
+              })
+          .collect(Collectors.toUnmodifiableList());
     };
   }
 

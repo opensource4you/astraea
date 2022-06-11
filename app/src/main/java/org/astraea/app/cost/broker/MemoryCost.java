@@ -68,8 +68,7 @@ public class MemoryCost extends Periodic<Map<Integer, Double>> implements HasBro
                       return (jvmBean.heapMemoryUsage().getUsed() + 0.0)
                           / (jvmBean.heapMemoryUsage().getMax() + 1);
                     }));
-
-    CostUtils.TScore(costMetrics).forEach((broker, v) -> brokersMetric.get(broker).updateLoad(v));
+    costMetrics.forEach((broker, v) -> brokersMetric.get(broker).updateLoad(v));
 
     return this::computeLoad;
   }
