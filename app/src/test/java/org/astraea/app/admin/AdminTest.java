@@ -18,6 +18,7 @@ package org.astraea.app.admin;
 
 import static org.junit.jupiter.api.condition.OS.WINDOWS;
 
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Collection;
 import java.util.List;
@@ -794,18 +795,45 @@ public class AdminTest extends RequireBrokerCluster {
 
   @Test
   void testTransactionIds() throws ExecutionException, InterruptedException {
-
+    var topicName = Utils.randomString(10);
     try (var admin = Admin.of(bootstrapServers());
         var producer =
             Producer.builder().bootstrapServers(bootstrapServers()).buildTransactional()) {
       Assertions.assertTrue(producer.transactional());
-      producer.sender().key(new byte[10]).topic("topic").run().toCompletableFuture().get();
+      producer.sender().key(new byte[10]).topic(topicName).run().toCompletableFuture().get();
 
       Assertions.assertTrue(admin.transactionIds().contains(producer.transactionId().get()));
 
       var transaction = admin.transactions().get(producer.transactionId().get());
       Assertions.assertNotNull(transaction);
       Assertions.assertEquals(TransactionState.COMPLETE_COMMIT, transaction.state());
+      Assertions.assertEquals(0, transaction.topicPartitions().size());
+    }
+  }
+
+  @Test
+  void testTransactionIdsWithMultiPuts() throws ExecutionException, InterruptedException {
+    var topicName = Utils.randomString(10);
+    try (var admin = Admin.of(bootstrapServers());
+        var producer =
+            Producer.builder().bootstrapServers(bootstrapServers()).buildTransactional()) {
+      Assertions.assertTrue(producer.transactional());
+      IntStream.range(0, 10)
+          .forEach(
+              index ->
+                  producer
+                      .sender()
+                      .key(String.valueOf(index).getBytes(StandardCharsets.UTF_8))
+                      .topic(topicName)
+                      .run());
+      producer.flush();
+
+      Assertions.assertTrue(admin.transactionIds().contains(producer.transactionId().get()));
+
+      var transaction = admin.transactions().get(producer.transactionId().get());
+      Assertions.assertNotNull(transaction);
+      Assertions.assertEquals(TransactionState.COMPLETE_COMMIT, transaction.state());
+      Assertions.assertEquals(0, transaction.topicPartitions().size());
     }
   }
 }
