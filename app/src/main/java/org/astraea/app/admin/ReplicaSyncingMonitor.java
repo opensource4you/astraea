@@ -233,6 +233,10 @@ public class ReplicaSyncingMonitor {
       var currentBit = currentSize.measurement(DataUnit.Bit).doubleValue();
       var leaderBit = leaderSize.measurement(DataUnit.Bit).doubleValue();
       if (currentBit == leaderBit) return 100;
+      // The Admin API doesn't offer any concurrency guarantee for these log size numbers. It is
+      // hard ensure the relationship between these two numbers, So we just assume the follower log
+      // size might somehow be larger than the leader log.
+      // TODO: prove the below condition is impossible to occur so it is safe to remove it.
       if (currentBit > leaderBit) return Double.NaN;
       return currentBit / leaderBit * 100.0;
     }
