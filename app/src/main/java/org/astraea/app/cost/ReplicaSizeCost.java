@@ -91,44 +91,69 @@ public class ReplicaSizeCost implements HasBrokerCost, HasPartitionCost {
             replicaCost.put(
                 tpr, (double) size / totalBrokerCapacity.get(tpr.brokerId()) / ONEMEGA));
 
+    var scoreForTopic =
+        clusterInfo.topics().stream()
+            .map(
+                topic ->
+                    Map.entry(
+                        topic,
+                        clusterInfo.replicas(topic).stream()
+                            .filter(ReplicaInfo::isLeader)
+                            .map(
+                                partitionInfo ->
+                                    new TopicPartitionReplica(
+                                        partitionInfo.topic(),
+                                        partitionInfo.partition(),
+                                        partitionInfo.nodeInfo().id()))
+                            .map(
+                                tpr -> {
+                                  final var score =
+                                      replicaCost.entrySet().stream()
+                                          .filter(
+                                              x ->
+                                                  x.getKey().topic().equals(tpr.topic())
+                                                      && (x.getKey().partition()
+                                                          == tpr.partition()))
+                                          .mapToDouble(Map.Entry::getValue)
+                                          .max()
+                                          .orElseThrow(
+                                              () ->
+                                                  new IllegalStateException(
+                                                      tpr + " topic/partition size not found"));
+                                  return Map.entry(
+                                      new TopicPartition(tpr.topic(), tpr.partition()), score);
+                                })
+                            .collect(
+                                Collectors.toUnmodifiableMap(
+                                    Map.Entry::getKey, Map.Entry::getValue))))
+            .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));
+
+    var scoreForBroker =
+        clusterInfo.nodes().stream()
+            .map(
+                node ->
+                    Map.entry(
+                        node.id(),
+                        replicaCost.entrySet().stream()
+                            .filter((tprScore) -> tprScore.getKey().brokerId() == node.id())
+                            .collect(
+                                Collectors.toMap(
+                                    x ->
+                                        new TopicPartition(
+                                            x.getKey().topic(), x.getKey().partition()),
+                                    Map.Entry::getValue))))
+            .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));
+
     return new PartitionCost() {
 
       @Override
       public Map<TopicPartition, Double> value(String topic) {
-        return clusterInfo.replicas(topic).stream()
-            .map(
-                partitionInfo ->
-                    new TopicPartition(partitionInfo.topic(), partitionInfo.partition()))
-            .map(
-                tp -> {
-                  final var score =
-                      replicaCost.entrySet().stream()
-                          .filter(
-                              x ->
-                                  x.getKey().topic().equals(tp.topic())
-                                      && (x.getKey().partition() == tp.partition()))
-                          .mapToDouble(Map.Entry::getValue)
-                          .max()
-                          .orElseThrow(
-                              () ->
-                                  new IllegalStateException(
-                                      tp + " topic/partition size not found"));
-                  return Map.entry(tp, score);
-                })
-            .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));
+        return scoreForTopic.get(topic);
       }
 
       @Override
       public Map<TopicPartition, Double> value(int brokerId) {
-        return replicaCost.entrySet().stream()
-            .sorted(Comparator.comparing(x -> x.getKey().topic()))
-            .collect(Collectors.toList())
-            .stream()
-            .filter((tprScore) -> tprScore.getKey().brokerId() == brokerId)
-            .collect(
-                Collectors.toMap(
-                    x -> new TopicPartition(x.getKey().topic(), x.getKey().partition()),
-                    Map.Entry::getValue));
+        return scoreForBroker.get(brokerId);
       }
     };
   }

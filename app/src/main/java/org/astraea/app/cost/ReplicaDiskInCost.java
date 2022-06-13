@@ -168,45 +168,71 @@ public class ReplicaDiskInCost implements HasBrokerCost, HasPartitionCost {
           if (score >= 1) score = 1;
           dataInRate.put(tpr, score);
         });
+    var scoreForTopic =
+        clusterInfo.topics().stream()
+            .map(
+                topic ->
+                    Map.entry(
+                        topic,
+                        dataInRate.entrySet().stream()
+                            .filter(x -> x.getKey().topic().equals(topic))
+                            .collect(
+                                Collectors.groupingBy(
+                                    x ->
+                                        new TopicPartition(
+                                            x.getKey().topic(), x.getKey().partition())))
+                            .entrySet()
+                            .stream()
+                            .map(
+                                entry ->
+                                    Map.entry(
+                                        entry.getKey(),
+                                        entry.getValue().stream()
+                                            .mapToDouble(Map.Entry::getValue)
+                                            .max()
+                                            .orElseThrow()))
+                            .collect(
+                                Collectors.toUnmodifiableMap(
+                                    Map.Entry::getKey, Map.Entry::getValue))))
+            .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));
+
+    var scoreForBroker =
+        clusterInfo.nodes().stream()
+            .map(
+                node ->
+                    Map.entry(
+                        node.id(),
+                        dataInRate.entrySet().stream()
+                            .filter(x -> x.getKey().brokerId() == node.id())
+                            .collect(
+                                Collectors.groupingBy(
+                                    x ->
+                                        new TopicPartition(
+                                            x.getKey().topic(), x.getKey().partition())))
+                            .entrySet()
+                            .stream()
+                            .map(
+                                entry ->
+                                    Map.entry(
+                                        entry.getKey(),
+                                        entry.getValue().stream()
+                                            .mapToDouble(Map.Entry::getValue)
+                                            .max()
+                                            .orElseThrow()))
+                            .collect(
+                                Collectors.toUnmodifiableMap(
+                                    Map.Entry::getKey, Map.Entry::getValue))))
+            .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));
+
     return new PartitionCost() {
       @Override
       public Map<TopicPartition, Double> value(String topic) {
-        return dataInRate.entrySet().stream()
-            .filter(x -> x.getKey().topic().equals(topic))
-            .collect(
-                Collectors.groupingBy(
-                    x -> new TopicPartition(x.getKey().topic(), x.getKey().partition())))
-            .entrySet()
-            .stream()
-            .map(
-                entry ->
-                    Map.entry(
-                        entry.getKey(),
-                        entry.getValue().stream()
-                            .mapToDouble(Map.Entry::getValue)
-                            .max()
-                            .orElseThrow()))
-            .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));
+        return scoreForTopic.get(topic);
       }
 
       @Override
       public Map<TopicPartition, Double> value(int brokerId) {
-        return dataInRate.entrySet().stream()
-            .filter(x -> x.getKey().brokerId() == brokerId)
-            .collect(
-                Collectors.groupingBy(
-                    x -> new TopicPartition(x.getKey().topic(), x.getKey().partition())))
-            .entrySet()
-            .stream()
-            .map(
-                entry ->
-                    Map.entry(
-                        entry.getKey(),
-                        entry.getValue().stream()
-                            .mapToDouble(Map.Entry::getValue)
-                            .max()
-                            .orElseThrow()))
-            .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));
+        return scoreForBroker.get(brokerId);
       }
     };
   }
