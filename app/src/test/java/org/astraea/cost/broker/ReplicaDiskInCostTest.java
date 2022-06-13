@@ -5,6 +5,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import org.astraea.admin.BeansGetter;
 import org.astraea.admin.TopicPartition;
 import org.astraea.cost.ClusterInfo;
 import org.astraea.cost.FakeClusterInfo;
@@ -16,7 +17,6 @@ import org.astraea.metrics.kafka.HasValue;
 import org.astraea.metrics.kafka.KafkaMetrics;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mockito;
 
 class ReplicaDiskInCostTest {
 
@@ -112,22 +112,20 @@ class ReplicaDiskInCostTest {
       }
 
       @Override
-      public Map<Integer, Collection<HasBeanObject>> allBeans() {
-        return Map.of(1, broker1, 2, broker2, 3, broker3);
+      public BeansGetter beans() {
+        return BeansGetter.of(Map.of(1, broker1, 2, broker2, 3, broker3));
       }
     };
   }
 
   private HasValue mockResult(
       String type, String name, String topic, String partition, long size, long time) {
-    var result = Mockito.mock(HasValue.class);
-    var bean = Mockito.mock(BeanObject.class);
-    Mockito.when(result.beanObject()).thenReturn(bean);
-    Mockito.when(result.createdTimestamp()).thenReturn(time);
-    Mockito.when(bean.getProperties())
-        .thenReturn(Map.of("name", name, "type", type, "topic", topic, "partition", partition));
-
-    Mockito.when(result.value()).thenReturn(size);
-    return result;
+    BeanObject beanObject =
+        new BeanObject(
+            "",
+            Map.of("name", name, "type", type, "topic", topic, "partition", partition),
+            Map.of("Value", size),
+            time);
+    return HasValue.of(beanObject);
   }
 }

@@ -4,6 +4,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import org.astraea.admin.BeansGetter;
 import org.astraea.admin.TopicPartition;
 import org.astraea.cost.ClusterInfo;
 import org.astraea.cost.FakeClusterInfo;
@@ -89,8 +90,8 @@ class ReplicaSizeCostTest {
       }
 
       @Override
-      public Map<Integer, Collection<HasBeanObject>> allBeans() {
-        return Map.of(1, broker1, 2, broker2, 3, broker3);
+      public BeansGetter beans() {
+        return BeansGetter.of(Map.of(1, broker1, 2, broker2, 3, broker3));
       }
     };
   }

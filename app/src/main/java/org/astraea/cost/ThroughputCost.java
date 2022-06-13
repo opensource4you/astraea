@@ -13,7 +13,7 @@ public class ThroughputCost implements HasBrokerCost {
 
   @Override
   public BrokerCost brokerCost(ClusterInfo clusterInfo) {
-    var score = score(clusterInfo.allBeans());
+    var score = score(clusterInfo.beans().broker());
 
     var max = score.values().stream().mapToDouble(v -> v).max().orElse(1);
 

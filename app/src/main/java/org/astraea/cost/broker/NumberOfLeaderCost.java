@@ -11,11 +11,15 @@ import org.astraea.metrics.collector.Fetcher;
 import org.astraea.metrics.kafka.HasValue;
 import org.astraea.metrics.kafka.KafkaMetrics;
 
+/**
+ * The result is computed by "LeaderCount.Value". "LeaderCount.Value"" responds to the replica
+ * leader number of brokers. The calculation method of the score is the total leader number divided
+ * by the total leader number in broker
+ */
 public class NumberOfLeaderCost implements HasBrokerCost {
   @Override
   public Fetcher fetcher() {
-    return client ->
-        new java.util.ArrayList<>(KafkaMetrics.ReplicaManager.LeaderCount.fetch(client));
+    return KafkaMetrics.ReplicaManager.LeaderCount::fetch;
   }
 
   /**
@@ -25,7 +29,7 @@ public class NumberOfLeaderCost implements HasBrokerCost {
   @Override
   public BrokerCost brokerCost(ClusterInfo clusterInfo) {
     var leaderCount =
-        clusterInfo.allBeans().entrySet().stream()
+        clusterInfo.beans().broker().entrySet().stream()
             .flatMap(
                 e ->
                     e.getValue().stream()

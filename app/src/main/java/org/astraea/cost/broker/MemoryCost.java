@@ -32,7 +32,7 @@ public class MemoryCost extends Periodic<Map<Integer, Double>> implements HasBro
   @Override
   public BrokerCost brokerCost(ClusterInfo clusterInfo) {
     var costMetrics =
-        clusterInfo.allBeans().entrySet().stream()
+        clusterInfo.beans().broker().entrySet().stream()
             .collect(
                 Collectors.toMap(
                     Map.Entry::getKey,

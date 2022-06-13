@@ -1,10 +1,9 @@
 package org.astraea.cost;
 
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import org.astraea.metrics.HasBeanObject;
+import org.astraea.admin.BeansGetter;
 
 public class FakeClusterInfo implements ClusterInfo {
   @Override
@@ -38,12 +37,7 @@ public class FakeClusterInfo implements ClusterInfo {
   }
 
   @Override
-  public Collection<HasBeanObject> beans(int brokerId) {
-    return List.of();
-  }
-
-  @Override
-  public Map<Integer, Collection<HasBeanObject>> allBeans() {
-    return Map.of();
+  public BeansGetter beans() {
+    return BeansGetter.of(Map.of());
   }
 }

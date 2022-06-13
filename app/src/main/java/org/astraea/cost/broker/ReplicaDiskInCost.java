@@ -12,6 +12,7 @@ import org.astraea.admin.TopicPartition;
 import org.astraea.cost.BrokerCost;
 import org.astraea.cost.ClusterInfo;
 import org.astraea.cost.HasBrokerCost;
+import org.astraea.cost.HasPartitionCost;
 import org.astraea.cost.NodeInfo;
 import org.astraea.cost.PartitionCost;
 import org.astraea.metrics.HasBeanObject;
@@ -19,7 +20,12 @@ import org.astraea.metrics.collector.Fetcher;
 import org.astraea.metrics.kafka.HasValue;
 import org.astraea.metrics.kafka.KafkaMetrics;
 
-public class ReplicaDiskInCost implements HasBrokerCost {
+/**
+ * The result is computed by "Size.Value" ,and createdTimestamp in the metrics. "Size.Value"
+ * responds to the replica log size of brokers. The calculation method of the score is the rate of
+ * increase of log size per unit time divided by the upper limit of broker bandwidth.
+ */
+public class ReplicaDiskInCost implements HasBrokerCost, HasPartitionCost {
   Map<Integer, Integer> brokerBandwidthCap;
 
   public ReplicaDiskInCost(Map<Integer, Integer> brokerBandwidthCap) {
@@ -78,7 +84,7 @@ public class ReplicaDiskInCost implements HasBrokerCost {
    */
   public static Map<TopicPartition, Double> topicPartitionDataRate(
       ClusterInfo clusterInfo, Duration sampleWindow) {
-    return clusterInfo.allBeans().entrySet().parallelStream()
+    return clusterInfo.beans().broker().entrySet().parallelStream()
         .map(
             entry ->
                 entry.getValue().parallelStream()
@@ -198,13 +204,14 @@ public class ReplicaDiskInCost implements HasBrokerCost {
   /** @return the metrics getters. Those getters are used to fetch mbeans. */
   @Override
   public Fetcher fetcher() {
-    return client -> new java.util.ArrayList<>(KafkaMetrics.TopicPartition.Size.fetch(client));
+    return KafkaMetrics.TopicPartition.Size::fetch;
   }
 
   public Map<TopicPartitionReplica, Double> replicaInCount(ClusterInfo clusterInfo) {
     Map<TopicPartitionReplica, List<HasBeanObject>> tpBeanObjects = new HashMap<>();
     clusterInfo
-        .allBeans()
+        .beans()
+        .broker()
         .forEach(
             ((broker, beanObjects) ->
                 clusterInfo
@@ -215,6 +222,9 @@ public class ReplicaDiskInCost implements HasBrokerCost {
                                 .replicas(topic)
                                 .forEach(
                                     partitionInfo -> {
+                                      var tp =
+                                          new TopicPartition(
+                                              partitionInfo.topic(), partitionInfo.partition());
                                       var beanObject =
                                           beanObjects.stream()
                                               .filter(
@@ -222,12 +232,12 @@ public class ReplicaDiskInCost implements HasBrokerCost {
                                                       b.beanObject()
                                                               .getProperties()
                                                               .get("topic")
-                                                              .equals(partitionInfo.topic())
+                                                              .equals(tp.topic())
                                                           && Integer.parseInt(
                                                                   b.beanObject()
                                                                       .getProperties()
                                                                       .get("partition"))
-                                                              == (partitionInfo.partition()))
+                                                              == (tp.partition()))
                                               .collect(Collectors.toList());
                                       if (!beanObject.isEmpty())
                                         tpBeanObjects.put(

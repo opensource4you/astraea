@@ -24,7 +24,7 @@ public class LoadCost implements HasBrokerCost {
   /** Do "Poisson" and "weightPoisson" calculation on "load". And change output to double. */
   @Override
   public BrokerCost brokerCost(ClusterInfo clusterInfo) {
-    var load = computeLoad(clusterInfo.allBeans());
+    var load = computeLoad(clusterInfo.beans().broker());
 
     // Poisson calculation (-> Poisson -> throughputAbility -> to double)
     var brokerScore =

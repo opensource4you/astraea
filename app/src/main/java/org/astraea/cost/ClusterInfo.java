@@ -9,6 +9,7 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.stream.Collectors;
+import org.astraea.admin.BeansGetter;
 import org.astraea.metrics.HasBeanObject;
 
 public interface ClusterInfo {
@@ -57,13 +58,8 @@ public interface ClusterInfo {
       }
 
       @Override
-      public Collection<HasBeanObject> beans(int brokerId) {
-        return List.of();
-      }
-
-      @Override
-      public Map<Integer, Collection<HasBeanObject>> allBeans() {
-        return Map.of();
+      public BeansGetter beans() {
+        return BeansGetter.of(Map.of());
       }
     };
   }
@@ -78,7 +74,8 @@ public interface ClusterInfo {
   static ClusterInfo of(ClusterInfo cluster, Map<Integer, Collection<HasBeanObject>> beans) {
     var all = new HashMap<Integer, List<HasBeanObject>>();
     cluster
-        .allBeans()
+        .beans()
+        .broker()
         .forEach((key, value) -> all.computeIfAbsent(key, k -> new ArrayList<>()).addAll(value));
     beans.forEach((key, value) -> all.computeIfAbsent(key, k -> new ArrayList<>()).addAll(value));
     return new ClusterInfo() {
@@ -114,13 +111,8 @@ public interface ClusterInfo {
       }
 
       @Override
-      public Collection<HasBeanObject> beans(int brokerId) {
-        return all.getOrDefault(brokerId, List.of());
-      }
-
-      @Override
-      public Map<Integer, Collection<HasBeanObject>> allBeans() {
-        return Collections.unmodifiableMap(all);
+      public BeansGetter beans() {
+        return BeansGetter.of(Collections.unmodifiableMap(all));
       }
     };
   }
@@ -194,13 +186,6 @@ public interface ClusterInfo {
    */
   List<ReplicaInfo> replicas(String topic);
 
-  /**
-   * @param brokerId broker id
-   * @return return the metrics of broker. It returns empty collection if the broker id is
-   *     nonexistent
-   */
-  Collection<HasBeanObject> beans(int brokerId);
-
-  /** @return all beans of all brokers */
-  Map<Integer, Collection<HasBeanObject>> allBeans();
+  /** @return */
+  BeansGetter beans();
 }

@@ -3,6 +3,7 @@ package org.astraea.cost.broker;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import org.astraea.admin.BeansGetter;
 import org.astraea.cost.ClusterInfo;
 import org.astraea.cost.FakeClusterInfo;
 import org.astraea.metrics.HasBeanObject;
@@ -41,8 +42,8 @@ public class BrokerInputCostTest {
     Collection<HasBeanObject> broker3 = List.of(BytesInPerSec3);
     return new FakeClusterInfo() {
       @Override
-      public Map<Integer, Collection<HasBeanObject>> allBeans() {
-        return Map.of(1, broker1, 2, broker2, 3, broker3);
+      public BeansGetter beans() {
+        return BeansGetter.of(Map.of(1, broker1, 2, broker2, 3, broker3));
       }
     };
   }

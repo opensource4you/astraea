@@ -4,8 +4,8 @@ import java.util.Comparator;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
-import org.apache.kafka.common.TopicPartitionReplica;
 import org.astraea.admin.TopicPartition;
+import org.astraea.admin.TopicPartitionReplica;
 import org.astraea.cost.BrokerCost;
 import org.astraea.cost.ClusterInfo;
 import org.astraea.cost.HasBrokerCost;
@@ -16,6 +16,11 @@ import org.astraea.metrics.collector.Fetcher;
 import org.astraea.metrics.kafka.HasValue;
 import org.astraea.metrics.kafka.KafkaMetrics;
 
+/**
+ * The result is computed by "Size.Value". "Size.Value" responds to the replica log size of brokers.
+ * The calculation method of the score is the replica log usage space divided by the available space
+ * on the hard disk
+ */
 public class ReplicaSizeCost implements HasBrokerCost, HasPartitionCost {
   Map<Integer, Integer> totalBrokerCapacity;
 
@@ -25,7 +30,7 @@ public class ReplicaSizeCost implements HasBrokerCost, HasPartitionCost {
 
   @Override
   public Fetcher fetcher() {
-    return client -> new java.util.ArrayList<>(KafkaMetrics.TopicPartition.Size.fetch(client));
+    return KafkaMetrics.TopicPartition.Size::fetch;
   }
 
   /**
@@ -64,17 +69,18 @@ public class ReplicaSizeCost implements HasBrokerCost, HasPartitionCost {
    */
   @Override
   public PartitionCost partitionCost(ClusterInfo clusterInfo) {
+    final long ONEMEGA = Math.round(Math.pow(2, 20));
     var sizeOfReplica = getReplicaSize(clusterInfo);
     TreeMap<TopicPartitionReplica, Double> replicaCost =
         new TreeMap<>(
-            Comparator.comparing(TopicPartitionReplica::topic)
-                .thenComparing(TopicPartitionReplica::partition)
-                .thenComparing(TopicPartitionReplica::brokerId));
-
+            Comparator.comparing(TopicPartitionReplica::brokerId)
+                .thenComparing(TopicPartitionReplica::topic)
+                .thenComparing(TopicPartitionReplica::partition));
     sizeOfReplica.forEach(
         (tpr, size) ->
             replicaCost.put(
-                tpr, (double) size / totalBrokerCapacity.get(tpr.brokerId()) / 1048576));
+                tpr, (double) size / totalBrokerCapacity.get(tpr.brokerId()) / ONEMEGA));
+
     return new PartitionCost() {
 
       @Override
@@ -122,7 +128,7 @@ public class ReplicaSizeCost implements HasBrokerCost, HasPartitionCost {
    * @return a map contain the replica log size of each topic/partition
    */
   public Map<TopicPartitionReplica, Long> getReplicaSize(ClusterInfo clusterInfo) {
-    return clusterInfo.allBeans().entrySet().stream()
+    return clusterInfo.beans().broker().entrySet().stream()
         .flatMap(
             brokerBeanObjects ->
                 brokerBeanObjects.getValue().stream()
