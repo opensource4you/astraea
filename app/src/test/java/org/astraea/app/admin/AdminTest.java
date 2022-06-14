@@ -834,8 +834,8 @@ public class AdminTest extends RequireBrokerCluster {
       var transaction = admin.transactions().get(producer.transactionId().get());
       Assertions.assertNotNull(transaction);
       Assertions.assertEquals(
-              transaction.state() == TransactionState.COMPLETE_COMMIT ? 0 : 1,
-              transaction.topicPartitions().size());
+          transaction.state() == TransactionState.COMPLETE_COMMIT ? 0 : 1,
+          transaction.topicPartitions().size());
     }
   }
 }
