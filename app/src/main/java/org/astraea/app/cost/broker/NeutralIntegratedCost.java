@@ -58,36 +58,40 @@ public class NeutralIntegratedCost implements HasBrokerCost {
     metricsCost.forEach(
         hasBrokerCost -> {
           if (hasBrokerCost instanceof BrokerInputCost) {
-            hasBrokerCost.brokerCost(clusterInfo).value().forEach((brokerID, value) ->
-                    brokersMetric.get(brokerID).inputScore= value
-            );
+            hasBrokerCost
+                .brokerCost(clusterInfo)
+                .value()
+                .forEach((brokerID, value) -> brokersMetric.get(brokerID).inputScore = value);
             hasBrokerCost
                 .brokerCost(clusterInfo)
                 .normalize(Normalizer.TScore())
                 .value()
                 .forEach((brokerID, value) -> brokersMetric.get(brokerID).inputTScore = value);
           } else if (hasBrokerCost instanceof BrokerOutputCost) {
-            hasBrokerCost.brokerCost(clusterInfo).value().forEach((brokerID, value) ->
-                    brokersMetric.get(brokerID).outputScore= value
-            );
+            hasBrokerCost
+                .brokerCost(clusterInfo)
+                .value()
+                .forEach((brokerID, value) -> brokersMetric.get(brokerID).outputScore = value);
             hasBrokerCost
                 .brokerCost(clusterInfo)
                 .normalize(Normalizer.TScore())
                 .value()
                 .forEach((brokerID, value) -> brokersMetric.get(brokerID).outputTScore = value);
           } else if (hasBrokerCost instanceof CpuCost) {
-            hasBrokerCost.brokerCost(clusterInfo).value().forEach((brokerID, value) ->
-                    brokersMetric.get(brokerID).cpuScore= value
-            );
+            hasBrokerCost
+                .brokerCost(clusterInfo)
+                .value()
+                .forEach((brokerID, value) -> brokersMetric.get(brokerID).cpuScore = value);
             hasBrokerCost
                 .brokerCost(clusterInfo)
                 .normalize(Normalizer.TScore())
                 .value()
                 .forEach((brokerID, value) -> brokersMetric.get(brokerID).cpuTScore = value);
           } else if (hasBrokerCost instanceof MemoryCost) {
-            hasBrokerCost.brokerCost(clusterInfo).value().forEach((brokerID, value) ->
-                    brokersMetric.get(brokerID).memoryScore= value
-            );
+            hasBrokerCost
+                .brokerCost(clusterInfo)
+                .value()
+                .forEach((brokerID, value) -> brokersMetric.get(brokerID).memoryScore = value);
             hasBrokerCost
                 .brokerCost(clusterInfo)
                 .normalize(Normalizer.TScore())
@@ -97,29 +101,36 @@ public class NeutralIntegratedCost implements HasBrokerCost {
         });
 
     var entropyEmpowerment = weight(weightProvider, brokersMetric);
-    var entropyEmpowermentSum = entropyEmpowerment.entrySet().stream().mapToDouble(entry->entry.getValue()*ahpEmpowerment.empowerment().get(entry.getKey())).sum();
-    //The weight of each metric is obtained by combining Entropy and AHP.
+    var entropyEmpowermentSum =
+        entropyEmpowerment.entrySet().stream()
+            .mapToDouble(
+                entry -> entry.getValue() * ahpEmpowerment.empowerment().get(entry.getKey()))
+            .sum();
+    // The weight of each metric is obtained by combining Entropy and AHP.
     var integratedEmpowerment =
-            entropyEmpowerment.entrySet().stream()
+        entropyEmpowerment.entrySet().stream()
             .collect(
                 Collectors.toMap(
                     Map.Entry::getKey,
                     entry ->
-                            entry.getValue()*ahpEmpowerment.empowerment().get(entry.getKey())/entropyEmpowermentSum));
+                        entry.getValue()
+                            * ahpEmpowerment.empowerment().get(entry.getKey())
+                            / entropyEmpowermentSum));
 
-    var integratedScore = brokersMetric.entrySet().stream()
+    var integratedScore =
+        brokersMetric.entrySet().stream()
             .collect(
-                    Collectors.toMap(
-                            Map.Entry::getKey,
-                            entry ->
-                                    entry.getValue().inputTScore
-                                            * integratedEmpowerment.get(Metrics.inputThroughput.metricName)
-                                            + entry.getValue().outputTScore
-                                            * integratedEmpowerment.get(Metrics.outputThroughput.metricName)
-                                            + entry.getValue().cpuTScore
-                                            * integratedEmpowerment.get(Metrics.cpu.metricName)
-                                            + entry.getValue().memoryTScore
-                                            * integratedEmpowerment.get(Metrics.memory.metricName)));
+                Collectors.toMap(
+                    Map.Entry::getKey,
+                    entry ->
+                        entry.getValue().inputTScore
+                                * integratedEmpowerment.get(Metrics.inputThroughput.metricName)
+                            + entry.getValue().outputTScore
+                                * integratedEmpowerment.get(Metrics.outputThroughput.metricName)
+                            + entry.getValue().cpuTScore
+                                * integratedEmpowerment.get(Metrics.cpu.metricName)
+                            + entry.getValue().memoryTScore
+                                * integratedEmpowerment.get(Metrics.memory.metricName)));
 
     return () -> integratedScore;
   }
@@ -171,6 +182,7 @@ public class NeutralIntegratedCost implements HasBrokerCost {
     double outputTScore = 0.0;
     double cpuTScore = 0.0;
     double memoryTScore = 0.0;
+
     BrokerMetrics() {}
   }
 
