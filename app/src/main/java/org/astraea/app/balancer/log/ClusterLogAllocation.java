@@ -28,7 +28,7 @@ import org.astraea.app.admin.TopicPartition;
 public interface ClusterLogAllocation {
 
   /** let specific broker leave the replica set and let another broker join the replica set. */
-  void migrateReplica(TopicPartition topicPartition, int atBroker, int toBroker);
+  void migrateReplica(TopicPartition topicPartition, int atBroker, int toBroker, String toDataDir);
 
   /** let specific follower log become the leader log of this topic/partition. */
   void letReplicaBecomeLeader(TopicPartition topicPartition, int followerReplica);

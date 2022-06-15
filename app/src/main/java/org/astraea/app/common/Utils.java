@@ -21,9 +21,11 @@ import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.nio.file.Files;
 import java.time.Duration;
+import java.util.Collection;
 import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -211,6 +213,14 @@ public final class Utils {
           throw new IllegalStateException("Duplicate key");
         },
         TreeMap::new);
+  }
+
+  /** @return a random element from the given collection. */
+  public static <T> T randomElement(Collection<T> collection) {
+    return collection.stream()
+        .skip(ThreadLocalRandom.current().nextInt(0, collection.size()))
+        .findFirst()
+        .orElseThrow();
   }
 
   private Utils() {}

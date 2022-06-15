@@ -30,6 +30,7 @@ import org.astraea.app.balancer.RebalancePlanProposal;
 import org.astraea.app.balancer.log.ClusterLogAllocation;
 import org.astraea.app.balancer.log.LayeredClusterLogAllocation;
 import org.astraea.app.balancer.log.LogPlacement;
+import org.astraea.app.common.Utils;
 import org.astraea.app.cost.ClusterInfo;
 import org.astraea.app.cost.NodeInfo;
 
@@ -147,7 +148,11 @@ public class ShufflePlanGenerator implements RebalancePlanGenerator {
 
             Consumer<Integer> replicaSetMigration =
                 (targetBroker) -> {
-                  newAllocation.migrateReplica(sourceTopicPartition, sourceBroker, targetBroker);
+                  newAllocation.migrateReplica(
+                      sourceTopicPartition,
+                      sourceBroker,
+                      targetBroker,
+                      Utils.randomElement(clusterInfo.dataDirectories(targetBroker)));
                   rebalancePlanBuilder.addInfo(
                       String.format(
                           "Change replica set of topic %s partition %d, from %d to %d.",
@@ -179,7 +184,7 @@ public class ShufflePlanGenerator implements RebalancePlanGenerator {
                           sourceTopicPartition.topic(),
                           sourceTopicPartition.partition(),
                           sourceLogPlacement.broker(),
-                          sourceLogPlacement.logDirectory().map(Object::toString).orElse("unknown"),
+                          sourceLogPlacement.logDirectory(),
                           dataDirectory));
                 };
 
@@ -212,7 +217,7 @@ public class ShufflePlanGenerator implements RebalancePlanGenerator {
             }
             // [Valid movement 3] change the data directory of selected replica
             clusterInfo.dataDirectories(sourceLogPlacement.broker()).stream()
-                .filter(dir -> !dir.equals(sourceLogPlacement.logDirectory().orElse(null)))
+                .filter(dir -> !dir.equals(sourceLogPlacement.logDirectory()))
                 .map(dir -> (Runnable) () -> dataDirectoryMigration.accept(dir))
                 .map(Movement::dataDirectoryMovement)
                 .forEach(validMigrationCandidates::add);

@@ -16,20 +16,17 @@
  */
 package org.astraea.app.balancer.log;
 
-import java.util.Optional;
+import java.util.Objects;
 
 /** This class describe the placement state of one kafka log. */
 public interface LogPlacement {
 
   int broker();
 
-  Optional<String> logDirectory();
-
-  static LogPlacement of(int broker) {
-    return of(broker, null);
-  }
+  String logDirectory();
 
   static LogPlacement of(int broker, String logDirectory) {
+    Objects.requireNonNull(logDirectory);
     return new LogPlacement() {
       @Override
       public int broker() {
@@ -37,8 +34,8 @@ public interface LogPlacement {
       }
 
       @Override
-      public Optional<String> logDirectory() {
-        return Optional.ofNullable(logDirectory);
+      public String logDirectory() {
+        return logDirectory;
       }
 
       @Override

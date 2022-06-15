@@ -20,6 +20,7 @@ import java.io.IOException;
 import java.util.Map;
 import java.util.SortedMap;
 import java.util.concurrent.ExecutionException;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.Assertions;
@@ -65,5 +66,16 @@ public class UtilsTest {
         () ->
             Stream.of(Map.entry(1, "hello"), Map.entry(1, "world"))
                 .collect(Utils.toSortedMap(Map.Entry::getKey, Map.Entry::getValue)));
+  }
+
+  @Test
+  void testRandomElement() {
+    final var numbers = IntStream.range(0, 50).boxed().collect(Collectors.toUnmodifiableList());
+
+    int[] counter = new int[50];
+
+    for (int i = 0; i < 10000; i++) counter[Utils.randomElement(numbers)]++;
+
+    for (int count : counter) Assertions.assertTrue(count > 0);
   }
 }

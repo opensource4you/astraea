@@ -36,7 +36,8 @@ class LayeredClusterLogAllocationTest {
         IllegalArgumentException.class, () -> LayeredClusterLogAllocation.of(badAllocation0));
 
     // partial topic/partition
-    var badAllocation1 = Map.of(TopicPartition.of("topic", "999"), List.of(LogPlacement.of(1001)));
+    var badAllocation1 =
+        Map.of(TopicPartition.of("topic", "999"), List.of(LogPlacement.of(1001, "/ignore")));
     Assertions.assertThrows(
         IllegalArgumentException.class, () -> LayeredClusterLogAllocation.of(badAllocation1));
 
@@ -44,7 +45,10 @@ class LayeredClusterLogAllocationTest {
     var badAllocation2 =
         Map.of(
             TopicPartition.of("topic", "0"),
-            List.of(LogPlacement.of(1001), LogPlacement.of(1001), LogPlacement.of(1001)));
+            List.of(
+                LogPlacement.of(1001, "/A"),
+                LogPlacement.of(1001, "/B"),
+                LogPlacement.of(1001, "/C")));
     Assertions.assertThrows(
         IllegalArgumentException.class, () -> LayeredClusterLogAllocation.of(badAllocation2));
   }
@@ -56,10 +60,13 @@ class LayeredClusterLogAllocationTest {
     final var clusterLogAllocation = LayeredClusterLogAllocation.of(fakeClusterInfo);
     final var sourceTopicPartition = TopicPartition.of("topic", "0");
 
-    clusterLogAllocation.migrateReplica(sourceTopicPartition, 0, 1);
+    clusterLogAllocation.migrateReplica(sourceTopicPartition, 0, 1, "/somewhere");
 
     Assertions.assertEquals(
         1, clusterLogAllocation.logPlacements(sourceTopicPartition).get(0).broker());
+    Assertions.assertEquals(
+        "/somewhere",
+        clusterLogAllocation.logPlacements(sourceTopicPartition).get(0).logDirectory());
     Assertions.assertDoesNotThrow(() -> LayeredClusterLogAllocation.of(clusterLogAllocation));
   }
 
@@ -90,11 +97,7 @@ class LayeredClusterLogAllocationTest {
 
     Assertions.assertEquals(
         "/path/to/somewhere",
-        clusterLogAllocation
-            .logPlacements(sourceTopicPartition)
-            .get(0)
-            .logDirectory()
-            .orElseThrow());
+        clusterLogAllocation.logPlacements(sourceTopicPartition).get(0).logDirectory());
     Assertions.assertDoesNotThrow(() -> LayeredClusterLogAllocation.of(clusterLogAllocation));
   }
 
@@ -109,11 +112,7 @@ class LayeredClusterLogAllocationTest {
         0, allocation.logPlacements(TopicPartition.of("topic", "0")).get(0).broker());
     Assertions.assertEquals(
         "/nowhere",
-        allocation
-            .logPlacements(TopicPartition.of("topic", "0"))
-            .get(0)
-            .logDirectory()
-            .orElseThrow());
+        allocation.logPlacements(TopicPartition.of("topic", "0")).get(0).logDirectory());
     Assertions.assertNull(allocation.logPlacements(TopicPartition.of("no", "0")));
     allocation.logPlacements(TopicPartition.of("no", "0"));
   }
@@ -159,7 +158,7 @@ class LayeredClusterLogAllocationTest {
     final var toModify = allocation.topicPartitionStream().findFirst().orElseThrow();
 
     // can modify before lock
-    Assertions.assertDoesNotThrow(() -> allocation.migrateReplica(toModify, 0, 9));
+    Assertions.assertDoesNotThrow(() -> allocation.migrateReplica(toModify, 0, 9, "/dir0"));
     Assertions.assertDoesNotThrow(() -> allocation.letReplicaBecomeLeader(toModify, 1));
     Assertions.assertDoesNotThrow(() -> allocation.changeDataDirectory(toModify, 2, "/nowhere"));
 
@@ -167,7 +166,7 @@ class LayeredClusterLogAllocationTest {
 
     // cannot modify after some other layer rely on it
     Assertions.assertThrows(
-        IllegalStateException.class, () -> allocation.migrateReplica(toModify, 9, 0));
+        IllegalStateException.class, () -> allocation.migrateReplica(toModify, 9, 0, "/dir0"));
     Assertions.assertThrows(
         IllegalStateException.class, () -> allocation.letReplicaBecomeLeader(toModify, 0));
     Assertions.assertThrows(
@@ -175,7 +174,7 @@ class LayeredClusterLogAllocationTest {
         () -> allocation.changeDataDirectory(toModify, 2, "/anywhere"));
 
     // the extended one can modify
-    Assertions.assertDoesNotThrow(() -> extended.migrateReplica(toModify, 9, 0));
+    Assertions.assertDoesNotThrow(() -> extended.migrateReplica(toModify, 9, 0, "/dir0"));
     Assertions.assertDoesNotThrow(() -> extended.letReplicaBecomeLeader(toModify, 0));
     Assertions.assertDoesNotThrow(() -> extended.changeDataDirectory(toModify, 2, "/anywhere"));
   }
