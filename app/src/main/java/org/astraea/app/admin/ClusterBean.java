@@ -86,13 +86,15 @@ public interface ClusterBean {
   /**
    * @param brokerId broker Id
    * @return a {@link Map} collection that contains {@link TopicPartition} as key and a {@link
-   *     HasBeanObject} as value.
+   *     HasBeanObject} as value,note that this can only be used to get partition-related
+   *     beanObjects.
    */
   Map<TopicPartition, HasBeanObject> getBeanObjectByPartition(int brokerId);
 
   /**
    * @return a {@link Map} collection that contains {@link TopicPartitionReplica} as key and a
-   *     {@link HasBeanObject} as value.
+   *     {@link HasBeanObject} as value,note that this can only be used to get partition-related
+   *     beanObjects.
    */
   Map<TopicPartitionReplica, HasBeanObject> getBeanObjectByReplica();
 }
