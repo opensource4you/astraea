@@ -19,6 +19,7 @@ package org.astraea.app.cost;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import org.astraea.app.admin.ClusterBean;
 import org.astraea.app.metrics.HasBeanObject;
 import org.astraea.app.metrics.jmx.BeanObject;
 import org.astraea.app.metrics.kafka.BrokerTopicMetricsResult;
@@ -31,7 +32,7 @@ public class LoadCostTest {
   @Test
   void testComputeLoad() {
     var loadCostFunction = new LoadCost();
-    var allBeans = exampleClusterInfo().allBeans();
+    var allBeans = exampleClusterInfo().beans().all();
     var load = loadCostFunction.computeLoad(allBeans);
 
     Assertions.assertEquals(2, load.get(1));
@@ -59,8 +60,8 @@ public class LoadCostTest {
     Collection<HasBeanObject> broker3 = List.of(BytesInPerSec3, BytesOutPerSec3);
     return new FakeClusterInfo() {
       @Override
-      public Map<Integer, Collection<HasBeanObject>> allBeans() {
-        return Map.of(1, broker1, 2, broker2, 3, broker3);
+      public ClusterBean beans() {
+        return ClusterBean.of(Map.of(1, broker1, 2, broker2, 3, broker3));
       }
     };
   }

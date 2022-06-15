@@ -45,7 +45,7 @@ public class BrokerInputCost implements HasBrokerCost {
   @Override
   public BrokerCost brokerCost(ClusterInfo clusterInfo) {
     var costMetrics =
-        clusterInfo.allBeans().entrySet().stream()
+        clusterInfo.beans().all().entrySet().stream()
             .collect(
                 Collectors.toMap(
                     Map.Entry::getKey,
