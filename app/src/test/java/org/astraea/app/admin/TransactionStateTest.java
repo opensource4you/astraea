@@ -14,14 +14,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.app.cost;
+package org.astraea.app.admin;
 
-public interface HasBrokerCost extends CostFunction {
-  /**
-   * score all nodes for a particular metrics according to passed beans and cluster information.
-   *
-   * @param clusterInfo cluster information
-   * @return the score of each broker.
-   */
-  BrokerCost brokerCost(ClusterInfo clusterInfo);
+import java.util.Arrays;
+import java.util.stream.Collectors;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
+
+public class TransactionStateTest {
+
+  @Test
+  void testConversion() {
+    var r =
+        Arrays.stream(org.apache.kafka.clients.admin.TransactionState.values())
+            .map(TransactionState::from)
+            .collect(Collectors.toSet());
+    Assertions.assertEquals(
+        r.size(), org.apache.kafka.clients.admin.TransactionState.values().length);
+  }
 }

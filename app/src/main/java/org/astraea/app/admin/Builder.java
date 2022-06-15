@@ -24,6 +24,7 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -38,8 +39,8 @@ import org.apache.kafka.clients.admin.MemberDescription;
 import org.apache.kafka.clients.admin.NewPartitionReassignment;
 import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.clients.admin.OffsetSpec;
+import org.apache.kafka.clients.admin.TransactionListing;
 import org.apache.kafka.common.ElectionType;
-import org.apache.kafka.common.Node;
 import org.apache.kafka.common.TopicPartitionReplica;
 import org.apache.kafka.common.config.ConfigResource;
 import org.apache.kafka.common.errors.ElectionNotNeededException;
@@ -48,6 +49,10 @@ import org.apache.kafka.common.quota.ClientQuotaEntity;
 import org.apache.kafka.common.quota.ClientQuotaFilter;
 import org.apache.kafka.common.quota.ClientQuotaFilterComponent;
 import org.astraea.app.common.Utils;
+import org.astraea.app.cost.ClusterInfo;
+import org.astraea.app.cost.NodeInfo;
+import org.astraea.app.cost.ReplicaInfo;
+import org.astraea.app.metrics.HasBeanObject;
 
 public class Builder {
 
@@ -83,12 +88,12 @@ public class Builder {
     }
 
     @Override
-    public Set<Integer> brokerIds() {
+    public Set<NodeInfo> nodes() {
       return Utils.packException(
           () ->
               admin.describeCluster().nodes().get().stream()
-                  .map(Node::id)
-                  .collect(Collectors.toSet()));
+                  .map(NodeInfo::of)
+                  .collect(Collectors.toUnmodifiableSet()));
     }
 
     @Override
@@ -361,6 +366,10 @@ public class Builder {
                           var tpInfo = entry.getValue();
                           var replicaLeaderId = tpInfo.leader() != null ? tpInfo.leader().id() : -1;
                           var isrSet = tpInfo.isr();
+                          // The first replica in the return result is the preferred leader. This
+                          // only works with Kafka broker version after 0.11. Version before 0.11
+                          // returns the replicas in unspecified order due to a bug.
+                          var preferredLeader = entry.getValue().replicas().get(0);
                           return entry.getValue().replicas().stream()
                               .map(
                                   node -> {
@@ -383,8 +392,16 @@ public class Builder {
                                     long size = replicaInfo != null ? replicaInfo.size() : -1L;
                                     boolean future = replicaInfo != null && replicaInfo.isFuture();
                                     boolean offline = node.isEmpty();
+                                    boolean isPreferredLeader = preferredLeader.id() == broker;
                                     return new Replica(
-                                        broker, lag, size, isLeader, inSync, future, offline,
+                                        broker,
+                                        lag,
+                                        size,
+                                        isLeader,
+                                        inSync,
+                                        future,
+                                        offline,
+                                        isPreferredLeader,
                                         dataPath);
                                   })
                               .collect(Collectors.toList());
@@ -425,6 +442,114 @@ public class Builder {
     private Collection<Quota> quotas(ClientQuotaFilter filter) {
       return Quota.of(
           Utils.packException(() -> admin.describeClientQuotas(filter).entities().get()));
+    }
+
+    @Override
+    public ClusterInfo clusterInfo(Set<String> topics) {
+      final var nodeInfo = this.nodes().stream().collect(Collectors.toUnmodifiableList());
+
+      final Map<String, List<ReplicaInfo>> topicToReplicasMap =
+          Utils.packException(() -> this.replicas(topics)).entrySet().stream()
+              .flatMap(
+                  entry -> {
+                    final var topicPartition = entry.getKey();
+                    final var replicas = entry.getValue();
+
+                    return replicas.stream()
+                        .map(
+                            replica ->
+                                ReplicaInfo.of(
+                                    topicPartition.topic(),
+                                    topicPartition.partition(),
+                                    nodeInfo.stream()
+                                        .filter(x -> x.id() == replica.broker())
+                                        .findFirst()
+                                        .orElse(NodeInfo.ofOfflineNode(replica.broker())),
+                                    replica.leader(),
+                                    replica.inSync(),
+                                    replica.isOffline(),
+                                    replica.path()));
+                  })
+              .collect(Collectors.groupingBy(ReplicaInfo::topic));
+      final var dataDirectories =
+          this.brokerFolders(
+                  nodeInfo.stream().map(NodeInfo::id).collect(Collectors.toUnmodifiableSet()))
+              .entrySet()
+              .stream()
+              .collect(
+                  Collectors.toUnmodifiableMap(Map.Entry::getKey, x -> Set.copyOf(x.getValue())));
+
+      return new ClusterInfo() {
+        @Override
+        public List<NodeInfo> nodes() {
+          return nodeInfo;
+        }
+
+        @Override
+        public Set<String> dataDirectories(int brokerId) {
+          final var set = dataDirectories.get(brokerId);
+          if (set == null) throw new NoSuchElementException("Unknown broker \"" + brokerId + "\"");
+          else return set;
+        }
+
+        @Override
+        public List<ReplicaInfo> availableReplicaLeaders(String topic) {
+          return replicas(topic).stream()
+              .filter(ReplicaInfo::isLeader)
+              .filter(ReplicaInfo::isOnlineReplica)
+              .collect(Collectors.toUnmodifiableList());
+        }
+
+        @Override
+        public List<ReplicaInfo> availableReplicas(String topic) {
+          return replicas(topic).stream()
+              .filter(ReplicaInfo::isOnlineReplica)
+              .collect(Collectors.toUnmodifiableList());
+        }
+
+        @Override
+        public Set<String> topics() {
+          return topics;
+        }
+
+        @Override
+        public List<ReplicaInfo> replicas(String topic) {
+          final var replicaInfos = topicToReplicasMap.get(topic);
+          if (replicaInfos == null)
+            throw new NoSuchElementException(
+                "This ClusterInfo have no information about topic \"" + topic + "\"");
+          else return replicaInfos;
+        }
+
+        @Override
+        public Collection<HasBeanObject> beans(int brokerId) {
+          return List.of();
+        }
+
+        @Override
+        public Map<Integer, Collection<HasBeanObject>> allBeans() {
+          return nodeInfo.stream()
+              .collect(Collectors.toUnmodifiableMap(NodeInfo::id, ignore -> List.of()));
+        }
+      };
+    }
+
+    @Override
+    public Set<String> transactionIds() {
+      return Utils.packException(
+          () ->
+              admin.listTransactions().all().get().stream()
+                  .map(TransactionListing::transactionalId)
+                  .collect(Collectors.toUnmodifiableSet()));
+    }
+
+    @Override
+    public Map<String, Transaction> transactions(Set<String> transactionIds) {
+      return Utils.packException(
+          () ->
+              admin.describeTransactions(transactionIds).all().get().entrySet().stream()
+                  .collect(
+                      Collectors.toMap(Map.Entry::getKey, e -> Transaction.from(e.getValue()))));
     }
   }
 

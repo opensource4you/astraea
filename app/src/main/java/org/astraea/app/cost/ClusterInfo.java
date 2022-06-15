@@ -48,28 +48,43 @@ public interface ClusterInfo {
 
       @Override
       public List<ReplicaInfo> availableReplicaLeaders(String topic) {
-        return cluster.availablePartitionsForTopic(topic).stream()
-            .map(ReplicaInfo::of)
-            .map(
-                replicas ->
-                    replicas.stream().filter(ReplicaInfo::isLeader).findFirst().orElseThrow())
-            .collect(Collectors.toUnmodifiableList());
+        var info =
+            cluster.availablePartitionsForTopic(topic).stream()
+                .map(ReplicaInfo::of)
+                .map(
+                    replicas ->
+                        replicas.stream().filter(ReplicaInfo::isLeader).findFirst().orElseThrow())
+                .collect(Collectors.toUnmodifiableList());
+        if (info.isEmpty())
+          throw new NoSuchElementException(
+              "This ClusterInfo have no information about topic \"" + topic + "\"");
+        return info;
       }
 
       @Override
       public List<ReplicaInfo> availableReplicas(String topic) {
-        return cluster.availablePartitionsForTopic(topic).stream()
-            .map(ReplicaInfo::of)
-            .flatMap(Collection::stream)
-            .collect(Collectors.toUnmodifiableList());
+        var info =
+            cluster.availablePartitionsForTopic(topic).stream()
+                .map(ReplicaInfo::of)
+                .flatMap(Collection::stream)
+                .collect(Collectors.toUnmodifiableList());
+        if (info.isEmpty())
+          throw new NoSuchElementException(
+              "This ClusterInfo have no information about topic \"" + topic + "\"");
+        return info;
       }
 
       @Override
       public List<ReplicaInfo> replicas(String topic) {
-        return cluster.partitionsForTopic(topic).stream()
-            .map(ReplicaInfo::of)
-            .flatMap(Collection::stream)
-            .collect(Collectors.toUnmodifiableList());
+        var info =
+            cluster.partitionsForTopic(topic).stream()
+                .map(ReplicaInfo::of)
+                .flatMap(Collection::stream)
+                .collect(Collectors.toUnmodifiableList());
+        if (info.isEmpty())
+          throw new NoSuchElementException(
+              "This ClusterInfo have no information about topic \"" + topic + "\"");
+        return info;
       }
 
       @Override
@@ -168,21 +183,24 @@ public interface ClusterInfo {
     return nodes().stream()
         .filter(n -> n.id() == id)
         .findAny()
-        .orElseThrow(() -> new IllegalArgumentException(id + " is nonexistent"));
+        .orElseThrow(() -> new NoSuchElementException(id + " is nonexistent"));
   }
 
   /** @return The known set of nodes */
   List<NodeInfo> nodes();
 
-  /** @return return the data directories on specific broker */
+  /**
+   * @return return the data directories on specific broker. It throws NoSuchElementException if
+   *     specify node id is not associated to any node.
+   */
   Set<String> dataDirectories(int brokerId);
-  // TODO: provide a ClusterInfo implementation with this info
 
   /**
    * Get the list of replica leader information of each available partition for the given topic
    *
    * @param topic The Topic name
-   * @return A list of {@link ReplicaInfo}
+   * @return A list of {@link ReplicaInfo}. It throws NoSuchElementException if the replica info of
+   *     the given topic is unknown to this ClusterInfo
    */
   List<ReplicaInfo> availableReplicaLeaders(String topic);
 
@@ -191,7 +209,8 @@ public interface ClusterInfo {
    * topic
    *
    * @param topic The topic name
-   * @return A list of {@link ReplicaInfo}
+   * @return A list of {@link ReplicaInfo}. It throws NoSuchElementException if the replica info of
+   *     the given topic is unknown to this ClusterInfo
    */
   List<ReplicaInfo> availableReplicas(String topic);
 
@@ -206,7 +225,8 @@ public interface ClusterInfo {
    * Get the list of replica information of each partition/replica pair for the given topic
    *
    * @param topic The topic name
-   * @return A list of {@link ReplicaInfo}
+   * @return A list of {@link ReplicaInfo}. It throws NoSuchElementException if the replica info of
+   *     the given topic is unknown to this ClusterInfo
    */
   List<ReplicaInfo> replicas(String topic);
 

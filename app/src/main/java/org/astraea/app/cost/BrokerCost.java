@@ -20,6 +20,22 @@ import java.util.Map;
 
 /** Return type of cost function, `HasBrokerCost`. It returns the score of brokers. */
 public interface BrokerCost {
+  /**
+   * A new BrokerCost has been normalized.
+   *
+   * @param normalizer
+   * @return A normalized BrokerCost.
+   */
+  default BrokerCost normalize(Normalizer normalizer) {
+    var map = this.value();
+    var keys = map.keySet().iterator();
+    var normalization = normalizer.normalize(map.values()).iterator();
+    while (normalization.hasNext()) {
+      map.replace(keys.next(), normalization.next());
+    }
+    return () -> map;
+  }
+
   /** @return broker-id and its "cost" */
   Map<Integer, Double> value();
 }

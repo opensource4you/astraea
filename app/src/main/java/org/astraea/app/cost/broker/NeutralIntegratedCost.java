@@ -60,21 +60,25 @@ public class NeutralIntegratedCost implements HasBrokerCost {
           if (hasBrokerCost instanceof BrokerInputCost) {
             hasBrokerCost
                 .brokerCost(clusterInfo)
+                .normalize(Normalizer.TScore())
                 .value()
                 .forEach((brokerID, value) -> brokersMetric.get(brokerID).inputScore = value);
           } else if (hasBrokerCost instanceof BrokerOutputCost) {
             hasBrokerCost
                 .brokerCost(clusterInfo)
+                .normalize(Normalizer.TScore())
                 .value()
                 .forEach((brokerID, value) -> brokersMetric.get(brokerID).outputScore = value);
           } else if (hasBrokerCost instanceof CpuCost) {
             hasBrokerCost
                 .brokerCost(clusterInfo)
+                .normalize(Normalizer.TScore())
                 .value()
                 .forEach((brokerID, value) -> brokersMetric.get(brokerID).cpuScore = value);
           } else if (hasBrokerCost instanceof MemoryCost) {
             hasBrokerCost
                 .brokerCost(clusterInfo)
+                .normalize(Normalizer.TScore())
                 .value()
                 .forEach((brokerID, value) -> brokersMetric.get(brokerID).memoryScore = value);
           }
