@@ -8,7 +8,7 @@ Kafka Cluster由多個brokers組成，一個broker內儲存多個topics，一個
 
 部署一個Kafka cluster需耗費許多時間設置參數、測試與Zookeeper通訊是否正常。
 
-此專案提供了一鍵部署Kafka broker的腳本，利用Docker將Kafka容器化，讓使用者在建置上能夠更容易、簡單，省去大量安裝環境的時間。腳本內還提供了JMX、Exporter Address，讓使用者可以監控Mbeans、hardware、OS的metrics。
+此專案提供了一鍵部署Kafka broker的腳本，利用Docker將Kafka容器化，讓使用者在建置上能夠更容易、簡單，省去大量安裝環境的時間。腳本內還整合了JMX以及Prometheus exporter，讓使用者可以監控Mbeans、hardware、OS的metrics。
 
 部署broker前請先確認Zookeeper已經部署成功，因為需要取得Zookeeper的host與port當作啟動broker腳本的參數。
 
@@ -55,9 +55,9 @@ exporter address: 192.168.103.24:18928
 
 #### 環境變數設置
 
-有四個好用/常用的 ENVs，它們可以修改 JVM/container的配置
+有四個好用/常用的 ENVs，它們可以修改 JVM/container的配置，使用者可隨著自己的需求改動
 
-1. VERSION : 設置Kafka版本
-2. REVISION : 設置Kafka source code版本，若被設置，會去執行source code版本的distribution
+1. VERSION : 設置Kafka版本，會去下載官方已經建置好的distribution
+2. REVISION : 設置Kafka source code版本，會去下載原始碼並編譯建置可執行檔後部署
 3. HEAP_OPTS : 設置 JVM memory options
-4. DATA_FOLDERS : 選擇broker要在host端使用的資料夾，如果關閉broker的container後還會用到broker儲存的資料，就要設置此ENVs
+4. DATA_FOLDERS : 選擇broker要在host端使用的資料夾，如果關閉容器後還會用到broker儲存的資料，就要設置此環境變數
