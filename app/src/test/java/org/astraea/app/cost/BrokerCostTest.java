@@ -16,12 +16,30 @@
  */
 package org.astraea.app.cost;
 
-public interface HasBrokerCost extends CostFunction {
-  /**
-   * score all nodes for a particular metrics according to passed beans and cluster information.
-   *
-   * @param clusterInfo cluster information
-   * @return the score of each broker.
-   */
-  BrokerCost brokerCost(ClusterInfo clusterInfo);
+import java.util.Map;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
+
+public class BrokerCostTest {
+  @Test
+  void testNormalize() {
+    var testMap =
+        IntStream.range(0, 100).boxed().collect(Collectors.toMap(i -> i, i -> i * 2 + 0.0));
+    var oldKey = -1;
+    var oldValue = -1.0;
+    brokerCost(testMap)
+        .normalize(Normalizer.TScore())
+        .value()
+        .forEach(
+            (key, value) -> {
+              Assertions.assertTrue(key > oldKey);
+              Assertions.assertTrue(value > oldValue);
+            });
+  }
+
+  BrokerCost brokerCost(Map<Integer, Double> map) {
+    return () -> map;
+  }
 }

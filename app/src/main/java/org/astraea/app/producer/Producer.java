@@ -18,6 +18,7 @@ package org.astraea.app.producer;
 
 import java.util.Collection;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.CompletionStage;
 
 /** An interface for sending records. */
@@ -39,7 +40,12 @@ public interface Producer<Key, Value> extends AutoCloseable {
   void close();
 
   /** @return true if the producer supports transactional. */
-  boolean transactional();
+  default boolean transactional() {
+    return transactionId().isPresent();
+  }
+
+  /** @return the transaction id or empty if the producer does not support transaction. */
+  Optional<String> transactionId();
 
   static Builder<byte[], byte[]> builder() {
     return new Builder<>();

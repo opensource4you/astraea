@@ -412,3 +412,5 @@ GET http://localhost:12345/groups
 ```shell
 GET http://localhost:12345/groups/g1
 ```
+
+## [Astraea Web Server 中文文件連結](./docs/web_server/README.md)

@@ -87,14 +87,14 @@ public class GroupHandler implements Handler {
   }
 
   static class OffsetProgress implements JsonObject {
-    final String topicName;
+    final String topic;
     final int partitionId;
     final long earliest;
     final long current;
     final long latest;
 
     OffsetProgress(String topicName, int partitionId, long earliest, long current, long latest) {
-      this.topicName = topicName;
+      this.topic = topicName;
       this.partitionId = partitionId;
       this.earliest = earliest;
       this.current = current;

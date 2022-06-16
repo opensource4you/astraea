@@ -193,4 +193,13 @@ public class ProducerTest extends RequireBrokerCluster {
                 "transactional producer",
                 Producer.builder().bootstrapServers(bootstrapServers()).buildTransactional())));
   }
+
+  @Test
+  void testSetTransactionIdManually() {
+    try (var producer =
+        Producer.builder().bootstrapServers(bootstrapServers()).transactionId("chia").build()) {
+      Assertions.assertTrue(producer.transactional());
+      Assertions.assertTrue(producer.transactionId().isPresent());
+    }
+  }
 }

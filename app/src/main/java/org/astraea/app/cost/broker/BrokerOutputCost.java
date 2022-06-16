@@ -73,8 +73,7 @@ public class BrokerOutputCost implements HasBrokerCost {
                       broker.accumulateCount = inBean.count();
                       return count;
                     }));
-
-    CostUtils.TScore(costMetrics).forEach((broker, v) -> brokersMetric.get(broker).updateLoad(v));
+    costMetrics.forEach((broker, v) -> brokersMetric.get(broker).updateLoad(v));
 
     return this::computeLoad;
   }

@@ -37,6 +37,7 @@ public class WebService {
     server.createContext("/producers", new ProducerHandler(Admin.of(arg.configs())));
     server.createContext("/quotas", new QuotaHandler(Admin.of(arg.configs())));
     server.createContext("/pipelines", new PipelineHandler(Admin.of(arg.configs())));
+    server.createContext("/transactions", new TransactionHandler(Admin.of(arg.configs())));
     server.start();
   }
 

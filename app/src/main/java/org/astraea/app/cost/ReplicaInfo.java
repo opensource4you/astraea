@@ -156,6 +156,11 @@ public interface ReplicaInfo {
   /** @return true if this replica is offline */
   boolean isOfflineReplica();
 
+  /** @return true if this replica is online */
+  default boolean isOnlineReplica() {
+    return !isOfflineReplica();
+  }
+
   /**
    * The path to the data folder which hosts this replica. Since this information is not very openly
    * available. An application might find it hard to retrieve this information(for example, the
