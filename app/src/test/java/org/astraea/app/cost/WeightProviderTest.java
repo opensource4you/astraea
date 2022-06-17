@@ -72,6 +72,27 @@ public class WeightProviderTest {
             List.of(metrics1 * 10, metrics1 * 10, metrics2));
     var ABEntropy = weightProvider.weight(AABAndABB);
     Assertions.assertEquals(ABEntropy.get(0), ABEntropy.get(1));
+
+    var uniformDistribution =
+        IntStream.range(0, 1)
+            .boxed()
+            .collect(
+                Collectors.toMap(
+                    String::valueOf,
+                    ignored ->
+                        IntStream.range(0, 100)
+                            .mapToObj(i -> 1.0 + i % 10 * 0.1)
+                            .collect(Collectors.toUnmodifiableList())));
+    // Since entropy represents the degree of uncertainty, uniform distribution does not represent
+    // certainty in the concept of information entropy. On the contrary, because the uniform
+    // distribution means that it is possible at every point, the degree of uncertainty is greater
+    // and the weight given by the entropy method is also greater.
+    uniformDistribution.put(
+        "1",
+        IntStream.range(0, 100).mapToObj(i -> 0.0 + i).collect(Collectors.toUnmodifiableList()));
+
+    var uniformEntropy = weightProvider.weight(uniformDistribution);
+    Assertions.assertTrue(uniformEntropy.get("0") < uniformEntropy.get("1"));
   }
 
   @ParameterizedTest
