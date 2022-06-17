@@ -17,16 +17,62 @@
 package org.astraea.app.cost;
 
 import java.util.Comparator;
+import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
 public class WeightProviderTest {
+  @Test
+  void testPositiveEntropy() {
+    Normalizer normalizer = Normalizer.minMax(true);
+    var weightProvider = new WeightProvider.EntropyWeightProvider(normalizer);
+    var confusion =
+        IntStream.range(0, 1)
+            .boxed()
+            .collect(
+                Collectors.toMap(
+                    String::valueOf,
+                    ignored ->
+                        IntStream.range(0, 100)
+                            .mapToObj(i -> Math.random() * i)
+                            .collect(Collectors.toUnmodifiableList())));
+    confusion.put(
+        "1",
+        IntStream.range(0, 100)
+            .mapToObj(i -> 1.0 + i % 10 * 0.1)
+            .collect(Collectors.toUnmodifiableList()));
+    var entropy = weightProvider.weight(confusion);
+    Assertions.assertTrue(entropy.get("0") > entropy.get("1"));
+
+    var metrics1 = Math.random();
+    var metrics2 = Math.random();
+    var metrics3 = Math.random();
+    var metrics =
+        Map.of(
+            0,
+            List.of(metrics1, metrics2, metrics3),
+            1,
+            List.of(metrics1 * 100, metrics2 * 100, metrics3 * 100));
+    var sameEntropy = weightProvider.weight(metrics);
+    Assertions.assertEquals(
+        Math.round(sameEntropy.get(0) * 100) / 100, Math.round(sameEntropy.get(1) * 100) / 100);
+
+    var AABAndABB =
+        Map.of(
+            0,
+            List.of(metrics1 * 10, metrics2, metrics2),
+            1,
+            List.of(metrics1 * 10, metrics1 * 10, metrics2));
+    var ABEntropy = weightProvider.weight(AABAndABB);
+    Assertions.assertEquals(ABEntropy.get(0), ABEntropy.get(1));
+  }
 
   @ParameterizedTest
   @MethodSource("normalizers")
@@ -51,7 +97,6 @@ public class WeightProviderTest {
         weightProvider.entropies(raw).entrySet().stream()
             .sorted(Map.Entry.comparingByValue())
             .collect(Collectors.toUnmodifiableList());
-
     entropies.forEach(e -> Assertions.assertTrue(0 <= e.getValue() && e.getValue() <= 1));
 
     var weights =
