@@ -21,28 +21,18 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 
-public class Builder<Key, Value> {
-  private final Map<String, Object> configs =
-      new HashMap<>(
-          Map.of(ConsumerConfig.GROUP_ID_CONFIG, "groupId-" + System.currentTimeMillis()));
+abstract class Builder<Key, Value> {
+  private final Map<String, Object> configs = new HashMap<>();
   private Deserializer<?> keyDeserializer = Deserializer.BYTE_ARRAY;
   private Deserializer<?> valueDeserializer = Deserializer.BYTE_ARRAY;
-  private final Set<String> topics = new HashSet<>();
-  private ConsumerRebalanceListener listener = ignore -> {};
   private int distanceFromLatest = -1;
 
   Builder() {}
-
-  public Builder<Key, Value> groupId(String groupId) {
-    return config(ConsumerConfig.GROUP_ID_CONFIG, Objects.requireNonNull(groupId));
-  }
 
   /**
    * make the consumer read data from beginning. By default, it reads the latest data.
@@ -74,11 +64,6 @@ public class Builder<Key, Value> {
     return this;
   }
 
-  public Builder<Key, Value> topics(Set<String> topics) {
-    this.topics.addAll(topics);
-    return this;
-  }
-
   @SuppressWarnings("unchecked")
   public <NewKey> Builder<NewKey, Value> keyDeserializer(Deserializer<NewKey> keyDeserializer) {
     this.keyDeserializer = Objects.requireNonNull(keyDeserializer);
@@ -107,14 +92,12 @@ public class Builder<Key, Value> {
         ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, Objects.requireNonNull(bootstrapServers));
   }
 
-  public Builder<Key, Value> consumerRebalanceListener(ConsumerRebalanceListener listener) {
-    this.listener = Objects.requireNonNull(listener);
-    return this;
-  }
-
   public Builder<Key, Value> isolation(Isolation isolation) {
     return config(ConsumerConfig.ISOLATION_LEVEL_CONFIG, isolation.nameOfKafka());
   }
+
+  protected abstract void assignOrSubscribe(
+      org.apache.kafka.clients.consumer.Consumer<Key, Value> kafkaConsumer);
 
   @SuppressWarnings("unchecked")
   public Consumer<Key, Value> build() {
@@ -123,7 +106,8 @@ public class Builder<Key, Value> {
             configs,
             Deserializer.of((Deserializer<Key>) keyDeserializer),
             Deserializer.of((Deserializer<Value>) valueDeserializer));
-    kafkaConsumer.subscribe(topics, ConsumerRebalanceListener.of(listener));
+
+    assignOrSubscribe(kafkaConsumer);
 
     // this mode is not supported by kafka, so we have to calculate the offset first
     if (distanceFromLatest > 0) {

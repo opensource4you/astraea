@@ -40,9 +40,8 @@ public class GroupHandlerTest extends RequireBrokerCluster {
       TimeUnit.SECONDS.sleep(3);
 
       try (var consumer =
-          Consumer.builder()
+          Consumer.forTopics(Set.of(topicName))
               .groupId(groupId)
-              .topics(Set.of(topicName))
               .bootstrapServers(bootstrapServers())
               .build()) {
         Assertions.assertEquals(0, consumer.poll(Duration.ofSeconds(3)).size());
@@ -80,9 +79,8 @@ public class GroupHandlerTest extends RequireBrokerCluster {
       var handler = new GroupHandler(admin);
 
       try (var consumer =
-          Consumer.builder()
+          Consumer.forTopics(Set.of(topicName))
               .groupId(groupId)
-              .topics(Set.of(topicName))
               .bootstrapServers(bootstrapServers())
               .build()) {
         Assertions.assertEquals(0, consumer.poll(Duration.ofSeconds(3)).size());
@@ -103,9 +101,8 @@ public class GroupHandlerTest extends RequireBrokerCluster {
       var handler = new GroupHandler(admin);
 
       try (var consumer =
-          Consumer.builder()
+          Consumer.forTopics(Set.of(topicName))
               .groupId(groupId)
-              .topics(Set.of(topicName))
               .bootstrapServers(bootstrapServers())
               .build()) {
         Assertions.assertEquals(0, consumer.poll(Duration.ofSeconds(3)).size());

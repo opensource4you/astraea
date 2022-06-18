@@ -179,9 +179,8 @@ public class Performance {
                     .mapToObj(
                         i ->
                             consumerExecutor(
-                                Consumer.builder()
+                                Consumer.forTopics(Set.of(param.topic))
                                     .bootstrapServers(param.bootstrapServers())
-                                    .topics(Set.of(param.topic))
                                     .groupId(groupId)
                                     .configs(param.configs())
                                     .isolation(param.isolation())
