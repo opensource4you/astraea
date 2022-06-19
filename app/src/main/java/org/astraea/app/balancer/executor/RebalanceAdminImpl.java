@@ -40,6 +40,14 @@ class RebalanceAdminImpl implements RebalanceAdmin {
   private final Admin admin;
   private final Supplier<Map<Integer, Collection<HasBeanObject>>> metricSource;
 
+  /**
+   * Construct a implementation of {@link RebalanceAdmin}
+   *
+   * @param topicFilter to determine which topics are permitted for balance operation
+   * @param admin the actual {@link Admin} implementation
+   * @param metricSource the supplier for new metrics, this supplier should return the metrics that
+   *     {@link RebalancePlanExecutor#fetcher()} is interested.
+   */
   public RebalanceAdminImpl(
       Predicate<String> topicFilter,
       Admin admin,
