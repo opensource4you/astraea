@@ -34,7 +34,7 @@ import org.astraea.app.balancer.log.LogPlacement;
 import org.astraea.app.cost.ClusterInfo;
 import org.astraea.app.metrics.HasBeanObject;
 
-public class RebalanceAdminImpl implements RebalanceAdmin {
+class RebalanceAdminImpl implements RebalanceAdmin {
 
   private final Predicate<String> topicFilter;
   private final Admin admin;
