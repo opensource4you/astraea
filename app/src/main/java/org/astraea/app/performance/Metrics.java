@@ -19,7 +19,7 @@ package org.astraea.app.performance;
 import java.util.function.BiConsumer;
 
 /** Used to record statistics. This is thread safe. */
-public class Metrics implements BiConsumer<Long, Long> {
+public class Metrics implements BiConsumer<Long, Integer> {
   private double avgLatency;
   private long num;
   private long max;
@@ -38,11 +38,12 @@ public class Metrics implements BiConsumer<Long, Long> {
 
   /** Simultaneously add latency and bytes. */
   @Override
-  public synchronized void accept(Long latency, Long bytes) {
+  public synchronized void accept(Long latency, Integer bytes) {
     ++num;
     putLatency(latency);
     addBytes(bytes);
   }
+
   /** Add a new value to latency metric. */
   private synchronized void putLatency(long latency) {
     min = Math.min(min, latency);

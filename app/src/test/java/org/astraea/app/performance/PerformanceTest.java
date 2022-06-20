@@ -45,7 +45,7 @@ public class PerformanceTest extends RequireBrokerCluster {
       "--bootstrap.servers", bootstrapServers(), "--topic", topic, "--transaction.size", "2"
     };
     var latch = new CountDownLatch(1);
-    BiConsumer<Long, Long> observer = (x, y) -> latch.countDown();
+    BiConsumer<Long, Integer> observer = (x, y) -> latch.countDown();
     var argument = Argument.parse(new Performance.Argument(), arguments1);
     var producerExecutors =
         Performance.producerExecutors(
@@ -67,7 +67,7 @@ public class PerformanceTest extends RequireBrokerCluster {
       "--bootstrap.servers", bootstrapServers(), "--topic", topic, "--compression", "gzip"
     };
     var latch = new CountDownLatch(1);
-    BiConsumer<Long, Long> observer = (x, y) -> latch.countDown();
+    BiConsumer<Long, Integer> observer = (x, y) -> latch.countDown();
     var argument = Argument.parse(new Performance.Argument(), arguments1);
     var producerExecutors =
         Performance.producerExecutors(
