@@ -97,7 +97,7 @@ public class Performance {
 
   static List<ProducerExecutor> producerExecutors(
       Performance.Argument argument,
-      List<? extends BiConsumer<Long, Long>> observers,
+      List<? extends BiConsumer<Long, Integer>> observers,
       DataSupplier dataSupplier,
       Supplier<Integer> partitionSupplier) {
     return IntStream.range(0, argument.producers)
@@ -211,7 +211,7 @@ public class Performance {
 
   static Executor consumerExecutor(
       Consumer<byte[], byte[]> consumer,
-      BiConsumer<Long, Long> observer,
+      BiConsumer<Long, Integer> observer,
       Manager manager,
       Supplier<Boolean> producerDone) {
     return new Executor() {
@@ -226,7 +226,7 @@ public class Performance {
                     // excluded)
                     observer.accept(
                         System.currentTimeMillis() - record.timestamp(),
-                        (long) record.serializedKeySize() + record.serializedValueSize());
+                        record.serializedKeySize() + record.serializedValueSize());
                   });
           // Consumer reached the record upperbound or consumed all the record producer produced.
           return producerDone.get() && manager.consumedDone() ? State.DONE : State.RUNNING;

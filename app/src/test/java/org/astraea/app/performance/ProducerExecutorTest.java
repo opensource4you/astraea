@@ -97,12 +97,12 @@ public class ProducerExecutorTest extends RequireBrokerCluster {
         executor.transactional() ? 10 : 1, ((Observer) executor.observer()).elapsedHook.size());
   }
 
-  private static class Observer implements BiConsumer<Long, Long> {
+  private static class Observer implements BiConsumer<Long, Integer> {
     private final BlockingQueue<Long> recordsHook = new LinkedBlockingDeque<>();
-    private final BlockingQueue<Long> elapsedHook = new LinkedBlockingDeque<>();
+    private final BlockingQueue<Integer> elapsedHook = new LinkedBlockingDeque<>();
 
     @Override
-    public void accept(Long records, Long elapsed) {
+    public void accept(Long records, Integer elapsed) {
       Assertions.assertTrue(recordsHook.offer(records));
       Assertions.assertTrue(elapsedHook.offer(elapsed));
     }

@@ -35,7 +35,7 @@ abstract class ProducerExecutor implements Executor {
       String topic,
       int batchSize,
       Producer<byte[], byte[]> producer,
-      BiConsumer<Long, Long> observer,
+      BiConsumer<Long, Integer> observer,
       Supplier<Integer> partitionSupplier,
       DataSupplier dataSupplier) {
     return new ProducerExecutor(topic, producer, partitionSupplier, observer, dataSupplier) {
@@ -95,7 +95,7 @@ abstract class ProducerExecutor implements Executor {
   static ProducerExecutor of(
       String topic,
       Producer<byte[], byte[]> producer,
-      BiConsumer<Long, Long> observer,
+      BiConsumer<Long, Integer> observer,
       Supplier<Integer> partitionSupplier,
       DataSupplier dataSupplier) {
     return new ProducerExecutor(topic, producer, partitionSupplier, observer, dataSupplier) {
@@ -139,14 +139,14 @@ abstract class ProducerExecutor implements Executor {
   private final String topic;
   private final Producer<byte[], byte[]> producer;
   private final Supplier<Integer> partitionSupplier;
-  private final BiConsumer<Long, Long> observer;
+  private final BiConsumer<Long, Integer> observer;
   private final DataSupplier dataSupplier;
 
   ProducerExecutor(
       String topic,
       Producer<byte[], byte[]> producer,
       Supplier<Integer> partitionSupplier,
-      BiConsumer<Long, Long> observer,
+      BiConsumer<Long, Integer> observer,
       DataSupplier dataSupplier) {
     this.topic = topic;
     this.producer = producer;
@@ -165,7 +165,7 @@ abstract class ProducerExecutor implements Executor {
     return partitionSupplier;
   }
 
-  BiConsumer<Long, Long> observer() {
+  BiConsumer<Long, Integer> observer() {
     return observer;
   }
 
