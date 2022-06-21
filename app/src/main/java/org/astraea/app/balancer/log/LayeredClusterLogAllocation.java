@@ -163,7 +163,7 @@ public class LayeredClusterLogAllocation implements ClusterLogAllocation {
 
   @Override
   public synchronized void migrateReplica(
-      TopicPartition topicPartition, int broker, int destinationBroker) {
+      TopicPartition topicPartition, int broker, int destinationBroker, String toDir) {
     ensureNotLocked();
 
     final List<LogPlacement> sourceLogPlacements = this.logPlacements(topicPartition);
@@ -187,7 +187,7 @@ public class LayeredClusterLogAllocation implements ClusterLogAllocation {
             .mapToObj(
                 index ->
                     index == sourceLogIndex
-                        ? LogPlacement.of(destinationBroker)
+                        ? LogPlacement.of(destinationBroker, toDir)
                         : sourceLogPlacements.get(index))
             .collect(Collectors.toUnmodifiableList()));
   }

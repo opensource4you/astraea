@@ -27,8 +27,29 @@ import org.astraea.app.admin.TopicPartition;
  */
 public interface ClusterLogAllocation {
 
-  /** let specific broker leave the replica set and let another broker join the replica set. */
-  void migrateReplica(TopicPartition topicPartition, int atBroker, int toBroker);
+  /**
+   * let specific broker leave the replica set and let another broker join the replica set. Which
+   * data directory the migrated replica will be is up to the Kafka broker implementation to decide.
+   *
+   * @param topicPartition the topic/partition to perform replica migration
+   * @param atBroker the id of the broker about to remove
+   * @param toBroker the id of the broker about to replace the removed broker
+   */
+  default void migrateReplica(TopicPartition topicPartition, int atBroker, int toBroker) {
+    migrateReplica(topicPartition, atBroker, toBroker, null);
+  }
+
+  /**
+   * let specific broker leave the replica set and let another broker join the replica set.
+   *
+   * @param topicPartition the topic/partition to perform replica migration
+   * @param atBroker the id of the broker about to remove
+   * @param toBroker the id of the broker about to replace the removed broker
+   * @param toDir the absolute path of the data directory this migrated replica is supposed to be on
+   *     the destination broker, if {@code null} is specified then the data directory choice is left
+   *     up to the Kafka broker implementation.
+   */
+  void migrateReplica(TopicPartition topicPartition, int atBroker, int toBroker, String toDir);
 
   /** let specific follower log become the leader log of this topic/partition. */
   void letReplicaBecomeLeader(TopicPartition topicPartition, int followerReplica);

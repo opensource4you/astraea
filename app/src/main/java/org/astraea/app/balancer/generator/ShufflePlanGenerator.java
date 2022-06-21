@@ -17,6 +17,7 @@
 package org.astraea.app.balancer.generator;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
@@ -100,6 +101,13 @@ public class ShufflePlanGenerator implements RebalancePlanGenerator {
     return selectedMigration.get(ThreadLocalRandom.current().nextInt(0, selectedMigration.size()));
   }
 
+  private <T> T randomElement(Collection<T> collection) {
+    return collection.stream()
+        .skip(ThreadLocalRandom.current().nextInt(0, collection.size()))
+        .findFirst()
+        .orElseThrow();
+  }
+
   @Override
   public Stream<RebalancePlanProposal> generate(
       ClusterInfo clusterInfo, ClusterLogAllocation baseAllocation) {
@@ -147,14 +155,17 @@ public class ShufflePlanGenerator implements RebalancePlanGenerator {
 
             Consumer<Integer> replicaSetMigration =
                 (targetBroker) -> {
-                  newAllocation.migrateReplica(sourceTopicPartition, sourceBroker, targetBroker);
+                  var destDir = randomElement(clusterInfo.dataDirectories(targetBroker));
+                  newAllocation.migrateReplica(
+                      sourceTopicPartition, sourceBroker, targetBroker, destDir);
                   rebalancePlanBuilder.addInfo(
                       String.format(
-                          "Change replica set of topic %s partition %d, from %d to %d.",
+                          "Change replica set of topic %s partition %d, from %d to %d at %s.",
                           sourceTopicPartition.topic(),
                           sourceTopicPartition.partition(),
                           sourceLogPlacement.broker(),
-                          targetBroker));
+                          targetBroker,
+                          destDir));
                 };
             Consumer<LogPlacement> leaderFollowerMigration =
                 (newLeaderReplicaCandidate) -> {

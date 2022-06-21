@@ -25,6 +25,8 @@ import org.astraea.app.admin.TopicPartition;
 import org.astraea.app.cost.ClusterInfoProvider;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 class LayeredClusterLogAllocationTest {
 
@@ -60,6 +62,36 @@ class LayeredClusterLogAllocationTest {
 
     Assertions.assertEquals(
         1, clusterLogAllocation.logPlacements(sourceTopicPartition).get(0).broker());
+    Assertions.assertNull(
+        clusterLogAllocation
+            .logPlacements(sourceTopicPartition)
+            .get(0)
+            .logDirectory()
+            .orElse(null));
+    Assertions.assertDoesNotThrow(() -> LayeredClusterLogAllocation.of(clusterLogAllocation));
+  }
+
+  @ParameterizedTest
+  @ValueSource(
+      strings = {"null", "/tmp/data-directory-0", "/tmp/data-directory-1", "/tmp/data-directory-2"})
+  void migrateReplica(String dataDirectory) {
+    dataDirectory = dataDirectory.equals("null") ? null : dataDirectory;
+    final var fakeClusterInfo =
+        ClusterInfoProvider.fakeClusterInfo(3, 1, 1, 1, (i) -> Set.of("topic"));
+    final var clusterLogAllocation = LayeredClusterLogAllocation.of(fakeClusterInfo);
+    final var sourceTopicPartition = TopicPartition.of("topic", "0");
+
+    clusterLogAllocation.migrateReplica(sourceTopicPartition, 0, 1, dataDirectory);
+
+    Assertions.assertEquals(
+        1, clusterLogAllocation.logPlacements(sourceTopicPartition).get(0).broker());
+    Assertions.assertEquals(
+        dataDirectory,
+        clusterLogAllocation
+            .logPlacements(sourceTopicPartition)
+            .get(0)
+            .logDirectory()
+            .orElse(null));
     Assertions.assertDoesNotThrow(() -> LayeredClusterLogAllocation.of(clusterLogAllocation));
   }
 
