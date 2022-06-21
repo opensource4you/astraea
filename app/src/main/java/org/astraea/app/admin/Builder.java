@@ -39,6 +39,7 @@ import org.apache.kafka.clients.admin.MemberDescription;
 import org.apache.kafka.clients.admin.NewPartitionReassignment;
 import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.clients.admin.OffsetSpec;
+import org.apache.kafka.clients.admin.TransactionListing;
 import org.apache.kafka.common.ElectionType;
 import org.apache.kafka.common.TopicPartitionReplica;
 import org.apache.kafka.common.config.ConfigResource;
@@ -531,6 +532,24 @@ public class Builder {
               .collect(Collectors.toUnmodifiableMap(NodeInfo::id, ignore -> List.of()));
         }
       };
+    }
+
+    @Override
+    public Set<String> transactionIds() {
+      return Utils.packException(
+          () ->
+              admin.listTransactions().all().get().stream()
+                  .map(TransactionListing::transactionalId)
+                  .collect(Collectors.toUnmodifiableSet()));
+    }
+
+    @Override
+    public Map<String, Transaction> transactions(Set<String> transactionIds) {
+      return Utils.packException(
+          () ->
+              admin.describeTransactions(transactionIds).all().get().entrySet().stream()
+                  .collect(
+                      Collectors.toMap(Map.Entry::getKey, e -> Transaction.from(e.getValue()))));
     }
   }
 

@@ -19,7 +19,7 @@ JSON Response 範例
 - `clientId`: consumer 送出請求時使用的名稱，使用者可以自定義，預設值為隨機字串
 - `host`: consumer 運行的位址
 - `offsetProgress`: consumer 目前消化資料的進度
-  - `topicName`: consumer 提取資料的 topic 名稱
+  - `topic`: consumer 提取資料的 topic 名稱
   - `partitionId`: consumer 提取資料的 partition id
   - `earliest`: partition 現存的資料最早的紀錄位置
   - `current`: consumer 於 partition 目前處理的數據位置
@@ -40,7 +40,7 @@ JSON Response 範例
           "host": "/172.17.0.1",
           "offsetProgress": [
             {
-              "topicName": "test1",
+              "topic": "test1",
               "partitionId": 0,
               "earliest": 0,
               "current": 2,
@@ -76,7 +76,7 @@ JSON Response 範例
       "host": "/172.17.0.1",
       "offsetProgress": [
         {
-          "topicName": "test1",
+          "topic": "test1",
           "partitionId": 0,
           "earliest": 0,
           "current": 0,
