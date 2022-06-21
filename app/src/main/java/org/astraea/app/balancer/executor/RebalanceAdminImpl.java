@@ -110,7 +110,7 @@ class RebalanceAdminImpl implements RebalanceAdmin {
   }
 
   @Override
-  public List<RebalanceTask<TopicPartitionReplica, SyncingProgress>> alterReplicaPlacements(
+  public List<ReplicaMigrationTask> alterReplicaPlacements(
       TopicPartition topicPartition, List<LogPlacement> expectedPlacement) {
     ensureTopicPermitted(topicPartition.topic());
 
@@ -141,29 +141,7 @@ class RebalanceAdminImpl implements RebalanceAdmin {
             log ->
                 new TopicPartitionReplica(
                     topicPartition.topic(), topicPartition.partition(), log.broker()))
-        .map(
-            log ->
-                new RebalanceTask<TopicPartitionReplica, SyncingProgress>() {
-                  @Override
-                  public TopicPartitionReplica info() {
-                    return log;
-                  }
-
-                  @Override
-                  public SyncingProgress progress() {
-                    return syncingProgress(log);
-                  }
-
-                  @Override
-                  public boolean await(Duration timeout) {
-                    try {
-                      return waitLogSynced(log, timeout);
-                    } catch (InterruptedException e) {
-                      Thread.currentThread().interrupt();
-                      return false;
-                    }
-                  }
-                })
+        .map(log -> new ReplicaMigrationTask(this, log))
         .collect(Collectors.toUnmodifiableList());
   }
 
@@ -231,44 +209,12 @@ class RebalanceAdminImpl implements RebalanceAdmin {
   }
 
   @Override
-  public RebalanceTask<TopicPartition, Boolean> leaderElection(TopicPartition topicPartition) {
+  public LeaderElectionTask leaderElection(TopicPartition topicPartition) {
     ensureTopicPermitted(topicPartition.topic());
 
     admin.preferredLeaderElection(topicPartition);
 
-    return new RebalanceTask<>() {
-      @Override
-      public TopicPartition info() {
-        return topicPartition;
-      }
-
-      @Override
-      public Boolean progress() {
-        return admin.replicas(Set.of(topicPartition.topic())).entrySet().stream()
-            .filter(x -> x.getKey().equals(topicPartition))
-            .findFirst()
-            .map(
-                x -> {
-                  var replica =
-                      x.getValue().stream()
-                          .filter(Replica::isPreferredLeader)
-                          .findFirst()
-                          .orElseThrow();
-                  return replica.inSync();
-                })
-            .orElseThrow();
-      }
-
-      @Override
-      public boolean await(Duration timeout) {
-        try {
-          return waitPreferredLeaderSynced(topicPartition, timeout);
-        } catch (InterruptedException e) {
-          Thread.currentThread().interrupt();
-          return false;
-        }
-      }
-    };
+    return new LeaderElectionTask(this, topicPartition);
   }
 
   @Override

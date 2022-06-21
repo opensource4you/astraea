@@ -19,7 +19,6 @@ package org.astraea.app.balancer.executor;
 import java.util.Collection;
 import java.util.List;
 import java.util.function.Function;
-import org.apache.kafka.common.TopicPartitionReplica;
 import org.astraea.app.admin.TopicPartition;
 import org.astraea.app.balancer.log.ClusterLogAllocation;
 import org.astraea.app.balancer.log.LayeredClusterLogAllocation;
@@ -39,7 +38,7 @@ public class StraightPlanExecutor implements RebalancePlanExecutor {
               context.expectedAllocation(), currentLogAllocation);
 
       var executeReplicaMigration =
-          (Function<TopicPartition, List<RebalanceTask<TopicPartitionReplica, SyncingProgress>>>)
+          (Function<TopicPartition, List<ReplicaMigrationTask>>)
               (topicPartition) ->
                   context
                       .rebalanceAdmin()

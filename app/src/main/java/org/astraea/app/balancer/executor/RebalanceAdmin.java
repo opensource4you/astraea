@@ -53,7 +53,7 @@ public interface RebalanceAdmin {
    * @param expectedPlacement the expected placement after this request accomplished
    * @return a list of task trackers regarding each log
    */
-  List<RebalanceTask<TopicPartitionReplica, SyncingProgress>> alterReplicaPlacements(
+  List<ReplicaMigrationTask> alterReplicaPlacements(
       TopicPartition topicPartition, List<LogPlacement> expectedPlacement);
 
   /** Access the syncing progress of the specific topic/partitions */
@@ -106,7 +106,7 @@ public interface RebalanceAdmin {
    * @param topicPartition the topic/partition to trigger preferred leader election
    * @return a task tracker to track the election progress.
    */
-  RebalanceTask<TopicPartition, Boolean> leaderElection(TopicPartition topicPartition);
+  LeaderElectionTask leaderElection(TopicPartition topicPartition);
 
   ClusterInfo clusterInfo();
 
