@@ -164,7 +164,7 @@ class RebalanceAdminTest extends RequireBrokerCluster {
   }
 
   @Test
-  void clusterInfo() {
+  void clusterInfo() throws InterruptedException {
     try (Admin admin = Admin.of(bootstrapServers())) {
       final var rebalanceAdmin = RebalanceAdmin.of(admin, Map::of, (ignore) -> true);
       final var clusterInfo = rebalanceAdmin.clusterInfo();
@@ -172,6 +172,8 @@ class RebalanceAdminTest extends RequireBrokerCluster {
 
       final var name = "RebalanceAdminTest" + Utils.randomString(6);
       admin.creator().topic(name).numberOfPartitions(3).create();
+      TimeUnit.SECONDS.sleep(1);
+
       final var rebalanceAdmin1 = RebalanceAdmin.of(admin, Map::of, name::equals);
       final var clusterInfo1 = rebalanceAdmin1.clusterInfo();
       Assertions.assertEquals(Set.of(name), clusterInfo1.topics());
