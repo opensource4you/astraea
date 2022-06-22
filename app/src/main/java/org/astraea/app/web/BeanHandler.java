@@ -26,11 +26,10 @@ import org.astraea.app.metrics.jmx.BeanObject;
 import org.astraea.app.metrics.jmx.BeanQuery;
 import org.astraea.app.metrics.jmx.MBeanClient;
 
-public class BeansHandler implements Handler {
-  static final String DOMAIN_NAME_KEY = "domain";
+public class BeanHandler implements Handler {
   private final List<MBeanClient> clients;
 
-  BeansHandler(Admin admin, Function<String, Integer> jmxPorts) {
+  BeanHandler(Admin admin, Function<String, Integer> jmxPorts) {
     clients =
         admin.nodes().stream()
             .map(n -> MBeanClient.jndi(n.host(), jmxPorts.apply(n.host())))
@@ -38,19 +37,16 @@ public class BeansHandler implements Handler {
   }
 
   @Override
-  public JsonObject get(Optional<String> target, Map<String, String> queries) {
+  public JsonObject get(Optional<String> domain, Map<String, String> properties) {
+    var builder = BeanQuery.builder().usePropertyListPattern().properties(properties);
+    domain.ifPresent(builder::domainName);
     return new NodeBeans(
         clients.stream()
             .map(
                 c ->
                     new NodeBean(
                         c.host(),
-                        c
-                            .queryBeans(
-                                BeanQuery.builder(queries.getOrDefault(DOMAIN_NAME_KEY, "*"))
-                                    .usePropertyListPattern()
-                                    .build())
-                            .stream()
+                        c.queryBeans(builder.build()).stream()
                             .map(Bean::new)
                             .collect(Collectors.toUnmodifiableList())))
             .collect(Collectors.toUnmodifiableList()));
