@@ -31,7 +31,8 @@ class BeanQueryTest {
   @Test
   void domainName() {
     BeanQuery beanQuery =
-        BeanQuery.builder("java.lang")
+        BeanQuery.builder()
+            .domainName("java.lang")
             .property("type", "MemoryManager")
             .property("name", "CodeCacheManager")
             .build();
@@ -42,7 +43,8 @@ class BeanQueryTest {
   @Test
   void propertyView() {
     BeanQuery beanQuery =
-        BeanQuery.builder("java.lang")
+        BeanQuery.builder()
+            .domainName("java.lang")
             .property("type", "MemoryManager")
             .property("name", "CodeCacheManager")
             .build();
@@ -54,7 +56,8 @@ class BeanQueryTest {
   @Test
   void objectName() throws MalformedObjectNameException {
     BeanQuery beanQuery =
-        BeanQuery.builder("java.lang")
+        BeanQuery.builder()
+            .domainName("java.lang")
             .property("type", "MemoryManager")
             .property("name", "CodeCacheManager")
             .build();
@@ -66,8 +69,9 @@ class BeanQueryTest {
 
   @Test
   void whereProperty() {
-    BeanQuery.BeanQueryBuilder beanQueryBuilder =
-        BeanQuery.builder("java.lang")
+    BeanQuery.Builder beanQueryBuilder =
+        BeanQuery.builder()
+            .domainName("java.lang")
             .property("type", "MemoryManager")
             .property("name", "CodeCacheManager");
 
@@ -89,7 +93,8 @@ class BeanQueryTest {
     assertEquals(Map.of("type", "Memory"), beanQueryFromObjectName.properties());
 
     // map version
-    BeanQuery beanQueryFromMap = BeanQuery.builder("java.lang", Map.of("type", "Memory")).build();
+    BeanQuery beanQueryFromMap =
+        BeanQuery.builder().domainName("java.lang").properties(Map.of("type", "Memory")).build();
     assertEquals("java.lang", beanQueryFromMap.domainName());
     assertEquals(Map.of("type", "Memory"), beanQueryFromMap.properties());
 
@@ -105,7 +110,8 @@ class BeanQueryTest {
 
     // usePropertyListPattern
     BeanQuery withPattern =
-        BeanQuery.builder("java.lang")
+        BeanQuery.builder()
+            .domainName("java.lang")
             .property("type", "MemoryManager")
             .usePropertyListPattern()
             .build();
@@ -113,9 +119,9 @@ class BeanQueryTest {
 
     // invalid query: query whole domain name without specify "property list pattern"
     assertThrows(
-        IllegalArgumentException.class,
+        RuntimeException.class,
         () -> {
-          BeanQuery.builder("java.lang").build();
+          BeanQuery.builder().domainName("java.lang").build();
         });
   }
 }

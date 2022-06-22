@@ -19,6 +19,7 @@ package org.astraea.app.web;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
+import java.util.concurrent.TimeUnit;
 import org.astraea.app.admin.Admin;
 import org.astraea.app.common.Utils;
 import org.astraea.app.service.RequireBrokerCluster;
@@ -47,11 +48,23 @@ public class BeanHandlerTest extends RequireBrokerCluster {
   void testBeans() throws InterruptedException {
     var topic = Utils.randomString(10);
     try (Admin admin = Admin.of(bootstrapServers())) {
-      var handler = new BeansHandler(admin, name -> jmxServiceURL().getPort());
+      admin.creator().topic(topic).numberOfPartitions(10).create();
+      TimeUnit.SECONDS.sleep(2);
+      var handler = new BeanHandler(admin, name -> jmxServiceURL().getPort());
       var response =
           Assertions.assertInstanceOf(
-              BeansHandler.NodeBeans.class, handler.get(Optional.empty(), Map.of()));
+              BeanHandler.NodeBeans.class, handler.get(Optional.empty(), Map.of()));
       Assertions.assertNotEquals(0, response.nodeBeans.size());
+
+      var response1 =
+          Assertions.assertInstanceOf(
+              BeanHandler.NodeBeans.class, handler.get(Optional.of("kafka.server"), Map.of()));
+      Assertions.assertNotEquals(0, response1.nodeBeans.size());
+
+      var response2 =
+          Assertions.assertInstanceOf(
+              BeanHandler.NodeBeans.class, handler.get(Optional.empty(), Map.of("topic", topic)));
+      Assertions.assertNotEquals(0, response2.nodeBeans.size());
     }
   }
 }
