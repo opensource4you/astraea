@@ -25,7 +25,6 @@ public interface LogPlacement {
 
   int broker();
 
-  // TODO: remove the Optional thing
   Optional<String> logDirectory();
 
   static boolean isMatch(List<LogPlacement> sourcePlacements, List<LogPlacement> targetPlacements) {
