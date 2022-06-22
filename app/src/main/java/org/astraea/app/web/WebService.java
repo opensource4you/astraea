@@ -38,6 +38,9 @@ public class WebService {
     server.createContext("/quotas", new QuotaHandler(Admin.of(arg.configs())));
     server.createContext("/pipelines", new PipelineHandler(Admin.of(arg.configs())));
     server.createContext("/transactions", new TransactionHandler(Admin.of(arg.configs())));
+    // jmx port is optional
+    if (arg.jmxPort > 0)
+      server.createContext("/beans", new BeansHandler(Admin.of(arg.configs()), arg.jmxPort));
     server.start();
   }
 
@@ -48,5 +51,12 @@ public class WebService {
         validateWith = NonNegativeIntegerField.class,
         converter = NonNegativeIntegerField.class)
     int port = 8001;
+
+    @Parameter(
+        names = {"--jmx.port"},
+        description = "Integer: the port to query JMX for each server",
+        validateWith = NonNegativeIntegerField.class,
+        converter = NonNegativeIntegerField.class)
+    int jmxPort = -1;
   }
 }
