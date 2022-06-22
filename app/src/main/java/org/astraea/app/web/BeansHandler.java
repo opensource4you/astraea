@@ -19,6 +19,7 @@ package org.astraea.app.web;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.astraea.app.admin.Admin;
 import org.astraea.app.metrics.jmx.BeanObject;
@@ -29,10 +30,10 @@ public class BeansHandler implements Handler {
   static final String DOMAIN_NAME_KEY = "domain";
   private final List<MBeanClient> clients;
 
-  BeansHandler(Admin admin, int jmxPort) {
+  BeansHandler(Admin admin, Function<String, Integer> jmxPorts) {
     clients =
         admin.nodes().stream()
-            .map(n -> MBeanClient.jndi(n.host(), jmxPort))
+            .map(n -> MBeanClient.jndi(n.host(), jmxPorts.apply(n.host())))
             .collect(Collectors.toUnmodifiableList());
   }
 
