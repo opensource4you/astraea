@@ -18,11 +18,12 @@ package org.astraea.app.consumer;
 
 import static java.util.Objects.requireNonNull;
 
+import java.time.Duration;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
+import org.apache.kafka.clients.consumer.KafkaConsumer;
 
 public class TopicsBuilder<Key, Value> extends Builder<Key, Value> {
   private final Set<String> topics;
@@ -114,8 +115,46 @@ public class TopicsBuilder<Key, Value> extends Builder<Key, Value> {
     return this;
   }
 
+  public TopicsBuilder<Key, Value> disableAutoCommitOffsets() {
+    return config(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "false");
+  }
+
+  @SuppressWarnings("unchecked")
   @Override
-  protected void assignOrSubscribe(Consumer<Key, Value> kafkaConsumer) {
+  public SubscribedConsumer<Key, Value> build() {
+    var kafkaConsumer =
+        new KafkaConsumer<>(
+            configs,
+            Deserializer.of((Deserializer<Key>) keyDeserializer),
+            Deserializer.of((Deserializer<Value>) valueDeserializer));
     kafkaConsumer.subscribe(topics, ConsumerRebalanceListener.of(listener));
+
+    // this mode is not supported by kafka, so we have to calculate the offset first
+    if (distanceFromLatest > 0) {
+      // 1) poll data until the assignment is completed
+      while (kafkaConsumer.assignment().isEmpty()) kafkaConsumer.poll(Duration.ofMillis(500));
+      var partitions = kafkaConsumer.assignment();
+      // 2) get the end offsets from all subscribed partitions
+      var endOffsets = kafkaConsumer.endOffsets(partitions);
+      // 3) calculate and then seek to the correct offset (end offset - recent offset)
+      endOffsets.forEach(
+          (tp, latest) -> kafkaConsumer.seek(tp, Math.max(0, latest - distanceFromLatest)));
+    }
+
+    return new SubscribedConsumerImpl<>(kafkaConsumer);
+  }
+
+  private static class SubscribedConsumerImpl<Key, Value> extends Builder.BaseConsumer<Key, Value>
+      implements SubscribedConsumer<Key, Value> {
+
+    public SubscribedConsumerImpl(
+        org.apache.kafka.clients.consumer.Consumer<Key, Value> kafkaConsumer) {
+      super(kafkaConsumer);
+    }
+
+    @Override
+    public void commitOffsets(Duration timeout) {
+      kafkaConsumer.commitSync(timeout);
+    }
   }
 }
