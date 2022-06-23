@@ -521,7 +521,7 @@ public class Builder {
         }
 
         @Override
-        public ClusterBean beans() {
+        public ClusterBean clusterBean() {
           return ClusterBean.of(Map.of());
         }
       };

@@ -46,7 +46,7 @@ public class MemoryCostTest {
     ClusterInfo clusterInfo =
         new FakeClusterInfo() {
           @Override
-          public ClusterBean beans() {
+          public ClusterBean clusterBean() {
             return ClusterBean.of(Map.of(1, broker1, 2, broker2, 3, broker3));
           }
 
@@ -81,7 +81,7 @@ public class MemoryCostTest {
     ClusterInfo clusterInfo2 =
         new FakeClusterInfo() {
           @Override
-          public ClusterBean beans() {
+          public ClusterBean clusterBean() {
             return ClusterBean.of(Map.of(1, broker12, 2, broker22, 3, broker32));
           }
 

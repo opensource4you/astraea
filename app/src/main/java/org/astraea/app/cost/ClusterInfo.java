@@ -89,7 +89,7 @@ public interface ClusterInfo {
       }
 
       @Override
-      public ClusterBean beans() {
+      public ClusterBean clusterBean() {
         return ClusterBean.of(Map.of());
       }
     };
@@ -105,7 +105,7 @@ public interface ClusterInfo {
   static ClusterInfo of(ClusterInfo cluster, Map<Integer, Collection<HasBeanObject>> beans) {
     var all = new HashMap<Integer, List<HasBeanObject>>();
     cluster
-        .beans()
+        .clusterBean()
         .all()
         .forEach((key, value) -> all.computeIfAbsent(key, k -> new ArrayList<>()).addAll(value));
     beans.forEach((key, value) -> all.computeIfAbsent(key, k -> new ArrayList<>()).addAll(value));
@@ -142,7 +142,7 @@ public interface ClusterInfo {
       }
 
       @Override
-      public ClusterBean beans() {
+      public ClusterBean clusterBean() {
         return ClusterBean.of(Collections.unmodifiableMap(all));
       }
     };
@@ -223,5 +223,5 @@ public interface ClusterInfo {
   List<ReplicaInfo> replicas(String topic);
 
   /** @return a {@link ClusterBean} used to get beanObject using a variety of different keys. */
-  ClusterBean beans();
+  ClusterBean clusterBean();
 }

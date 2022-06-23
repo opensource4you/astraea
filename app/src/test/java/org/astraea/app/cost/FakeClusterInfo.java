@@ -53,7 +53,7 @@ public class FakeClusterInfo implements ClusterInfo {
   }
 
   @Override
-  public ClusterBean beans() {
+  public ClusterBean clusterBean() {
     return ClusterBean.of(Map.of());
   }
 }

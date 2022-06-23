@@ -18,9 +18,10 @@ package org.astraea.app.admin;
 
 import java.util.Collection;
 import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
-import org.apache.kafka.common.TopicPartitionReplica;
+import java.util.stream.Stream;
 import org.astraea.app.metrics.HasBeanObject;
 
 /** Used to get beanObject using a variety of different keys . */
@@ -33,28 +34,43 @@ public interface ClusterBean {
       }
 
       @Override
-      public Map<TopicPartition, HasBeanObject> getBeanObjectByPartition(int brokerId) {
+      public Map<TopicPartition, Collection<HasBeanObject>> beanObjectByPartition() {
         return allBeans.entrySet().stream()
-            .filter(entry -> entry.getKey() == brokerId)
             .flatMap(
-                entry ->
-                    entry.getValue().stream()
-                        .filter(
-                            x ->
-                                x.beanObject().getProperties().containsKey("topic")
-                                    && x.beanObject().getProperties().containsKey("partition"))
-                        .map(
-                            hasBeanObject -> {
-                              var properties = hasBeanObject.beanObject().getProperties();
-                              var topic = properties.get("topic");
-                              var partition = properties.get("partition");
-                              return Map.entry(TopicPartition.of(topic, partition), hasBeanObject);
-                            }))
-            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+                entry -> {
+                  return entry.getValue().stream()
+                      .filter(
+                          hasBeanObject ->
+                              hasBeanObject.beanObject().getProperties().containsKey("topic")
+                                  && hasBeanObject
+                                      .beanObject()
+                                      .getProperties()
+                                      .containsKey("partition"))
+                      .map(
+                          hasBeanObject -> {
+                            var properties = hasBeanObject.beanObject().getProperties();
+                            var topic = properties.get("topic");
+                            var partition = properties.get("partition");
+                            return Map.entry(
+                                TopicPartition.of(topic, partition), List.of(hasBeanObject));
+                          });
+                })
+            .collect(
+                Collectors.toMap(
+                    Map.Entry::getKey,
+                    Map.Entry::getValue,
+                    (x1, x2) -> {
+                      var beanObject1 = x1.iterator().next().beanObject();
+                      var beanObject2 = x2.iterator().next().beanObject();
+                      if (beanObject1.getProperties().equals(beanObject2.getProperties())
+                          && beanObject1.domainName().equals(beanObject2.domainName())) return x1;
+                      else
+                        return Stream.concat(x1.stream(), x2.stream()).collect(Collectors.toList());
+                    }));
       }
 
       @Override
-      public Map<TopicPartitionReplica, HasBeanObject> getBeanObjectByReplica() {
+      public Map<TopicPartitionReplica, Collection<HasBeanObject>> beanObjectByReplica() {
         return allBeans.entrySet().stream()
             .flatMap(
                 entry ->
@@ -70,9 +86,20 @@ public interface ClusterBean {
                               var partition = Integer.parseInt(properties.get("partition"));
                               return Map.entry(
                                   new TopicPartitionReplica(topic, partition, entry.getKey()),
-                                  hasBeanObject);
+                                  List.of(hasBeanObject));
                             }))
-            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+            .collect(
+                Collectors.toMap(
+                    Map.Entry::getKey,
+                    Map.Entry::getValue,
+                    (x1, x2) -> {
+                      var beanObject1 = x1.iterator().next().beanObject();
+                      var beanObject2 = x2.iterator().next().beanObject();
+                      if (beanObject1.getProperties().equals(beanObject2.getProperties())
+                          && beanObject1.domainName().equals(beanObject2.domainName())) return x1;
+                      else
+                        return Stream.concat(x1.stream(), x2.stream()).collect(Collectors.toList());
+                    }));
       }
     };
   }
@@ -84,17 +111,16 @@ public interface ClusterBean {
   Map<Integer, Collection<HasBeanObject>> all();
 
   /**
-   * @param brokerId broker Id
    * @return a {@link Map} collection that contains {@link TopicPartition} as key and a {@link
    *     HasBeanObject} as value,note that this can only be used to get partition-related
    *     beanObjects.
    */
-  Map<TopicPartition, HasBeanObject> getBeanObjectByPartition(int brokerId);
+  Map<TopicPartition, Collection<HasBeanObject>> beanObjectByPartition();
 
   /**
    * @return a {@link Map} collection that contains {@link TopicPartitionReplica} as key and a
    *     {@link HasBeanObject} as value,note that this can only be used to get partition-related
    *     beanObjects.
    */
-  Map<TopicPartitionReplica, HasBeanObject> getBeanObjectByReplica();
+  Map<TopicPartitionReplica, Collection<HasBeanObject>> beanObjectByReplica();
 }

@@ -59,7 +59,7 @@ public class BrokerOutPutCostTest {
     Collection<HasBeanObject> broker3 = List.of(BytesInPerSec3);
     return new FakeClusterInfo() {
       @Override
-      public ClusterBean beans() {
+      public ClusterBean clusterBean() {
         return ClusterBean.of(Map.of(1, broker1, 2, broker2, 3, broker3));
       }
     };

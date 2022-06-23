@@ -125,7 +125,7 @@ public class ClusterInfoProvider {
       }
 
       @Override
-      public ClusterBean beans() {
+      public ClusterBean clusterBean() {
         throw new UnsupportedOperationException();
       }
     };

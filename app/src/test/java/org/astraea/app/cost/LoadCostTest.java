@@ -32,7 +32,7 @@ public class LoadCostTest {
   @Test
   void testComputeLoad() {
     var loadCostFunction = new LoadCost();
-    var allBeans = exampleClusterInfo().beans().all();
+    var allBeans = exampleClusterInfo().clusterBean().all();
     var load = loadCostFunction.computeLoad(allBeans);
 
     Assertions.assertEquals(2, load.get(1));
@@ -60,7 +60,7 @@ public class LoadCostTest {
     Collection<HasBeanObject> broker3 = List.of(BytesInPerSec3, BytesOutPerSec3);
     return new FakeClusterInfo() {
       @Override
-      public ClusterBean beans() {
+      public ClusterBean clusterBean() {
         return ClusterBean.of(Map.of(1, broker1, 2, broker2, 3, broker3));
       }
     };

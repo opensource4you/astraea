@@ -46,7 +46,7 @@ public class NeutralIntegratedCost implements HasBrokerCost {
   @Override
   public BrokerCost brokerCost(ClusterInfo clusterInfo) {
     var costMetrics =
-        clusterInfo.beans().all().entrySet().stream()
+        clusterInfo.clusterBean().all().entrySet().stream()
             .collect(Collectors.toMap(Map.Entry::getKey, entry -> 0.0));
     costMetrics.forEach(
         (key, value) -> {
