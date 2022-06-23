@@ -25,6 +25,7 @@ import java.util.concurrent.TimeUnit;
 import org.astraea.app.admin.Admin;
 import org.astraea.app.common.Utils;
 import org.astraea.app.consumer.Consumer;
+import org.astraea.app.producer.Producer;
 import org.astraea.app.service.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -111,6 +112,48 @@ public class GroupHandlerTest extends RequireBrokerCluster {
             NoSuchElementException.class,
             () -> handler.groupIds(Optional.of(Utils.randomString(10))));
         Assertions.assertTrue(handler.groupIds(Optional.empty()).contains(groupId));
+      }
+    }
+  }
+
+  @Test
+  void testSpecifyTopic() throws InterruptedException {
+    var topicName0 = Utils.randomString(10);
+    var topicName1 = Utils.randomString(10);
+    var groupId0 = Utils.randomString(10);
+    try (Admin admin = Admin.of(bootstrapServers())) {
+      var handler = new GroupHandler(admin);
+
+      try (var consumer0 =
+              Consumer.forTopics(Set.of(topicName0))
+                  .groupId(groupId0)
+                  .bootstrapServers(bootstrapServers())
+                  .fromBeginning()
+                  .build();
+          var consumer1 =
+              Consumer.forTopics(Set.of(topicName1)).bootstrapServers(bootstrapServers()).build();
+          var producer = Producer.builder().bootstrapServers(bootstrapServers()).build()) {
+        producer.sender().topic(topicName0).key(new byte[2]).run();
+        producer.flush();
+        Assertions.assertEquals(1, consumer0.poll(1, Duration.ofSeconds(10)).size());
+        Assertions.assertEquals(0, consumer1.poll(Duration.ofSeconds(2)).size());
+
+        TimeUnit.SECONDS.sleep(3);
+
+        // query for only topicName0 so only group of consumer0 can be returned.
+        consumer0.commitOffsets(Duration.ofSeconds(3));
+        var response =
+            Assertions.assertInstanceOf(
+                GroupHandler.Groups.class,
+                handler.get(Optional.empty(), Map.of(GroupHandler.TOPIC_KEY, topicName0)));
+        Assertions.assertEquals(1, response.groups.size());
+        Assertions.assertEquals(groupId0, response.groups.get(0).groupId);
+
+        // query all
+        var all =
+            Assertions.assertInstanceOf(
+                GroupHandler.Groups.class, handler.get(Optional.empty(), Map.of()));
+        Assertions.assertNotEquals(1, all.groups.size());
       }
     }
   }

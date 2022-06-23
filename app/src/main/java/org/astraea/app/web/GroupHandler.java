@@ -22,9 +22,10 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.astraea.app.admin.Admin;
+import org.astraea.app.admin.TopicPartition;
 
 public class GroupHandler implements Handler {
-
+  static final String TOPIC_KEY = "topic";
   private final Admin admin;
 
   GroupHandler(Admin admin) {
@@ -37,17 +38,26 @@ public class GroupHandler implements Handler {
 
   @Override
   public JsonObject get(Optional<String> target, Map<String, String> queries) {
-    var topics = admin.topicNames();
+    var topics =
+        queries.containsKey(TOPIC_KEY) ? Set.of(queries.get(TOPIC_KEY)) : admin.topicNames();
     var consumerGroups = admin.consumerGroups(groupIds(target));
     var offsets = admin.offsets(topics);
 
     var groups =
         consumerGroups.entrySet().stream()
+            // if users want to search groups for specify topic only, we remove the group having no
+            // offsets related to specify topic
+            .filter(
+                idAndGroup ->
+                    !queries.containsKey(TOPIC_KEY)
+                        || idAndGroup.getValue().consumeProgress().keySet().stream()
+                            .map(TopicPartition::topic)
+                            .anyMatch(topics::contains))
             .map(
-                cgAndTp ->
+                idAndGroup ->
                     new Group(
-                        cgAndTp.getKey(),
-                        cgAndTp.getValue().assignment().entrySet().stream()
+                        idAndGroup.getKey(),
+                        idAndGroup.getValue().assignment().entrySet().stream()
                             .map(
                                 entry ->
                                     new Member(
@@ -61,7 +71,7 @@ public class GroupHandler implements Handler {
                                             .map(
                                                 tp ->
                                                     offsets.containsKey(tp)
-                                                            && cgAndTp
+                                                            && idAndGroup
                                                                 .getValue()
                                                                 .consumeProgress()
                                                                 .containsKey(tp)
@@ -70,7 +80,7 @@ public class GroupHandler implements Handler {
                                                                 tp.topic(),
                                                                 tp.partition(),
                                                                 offsets.get(tp).earliest(),
-                                                                cgAndTp
+                                                                idAndGroup
                                                                     .getValue()
                                                                     .consumeProgress()
                                                                     .get(tp),
