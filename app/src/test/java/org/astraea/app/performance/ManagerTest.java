@@ -53,11 +53,11 @@ public class ManagerTest {
     var manager = new Manager(argument, List.of(producerMetrics), List.of(consumerMetrics));
 
     // Produce one record
-    producerMetrics.accept(0L, 0L);
+    producerMetrics.accept(0L, 0);
     Assertions.assertFalse(manager.consumedDone());
 
     // Consume one record
-    consumerMetrics.accept(0L, 0L);
+    consumerMetrics.accept(0L, 0);
     Assertions.assertTrue(manager.consumedDone());
 
     // Test zero consumer. (run for one record)

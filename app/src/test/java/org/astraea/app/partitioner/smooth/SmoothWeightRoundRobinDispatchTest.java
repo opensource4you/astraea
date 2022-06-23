@@ -120,10 +120,9 @@ public class SmoothWeightRoundRobinDispatchTest extends RequireBrokerCluster {
     }
     sleep(1);
     try (var consumer =
-        Consumer.builder()
+        Consumer.forTopics(Set.of(topicName))
             .bootstrapServers(bootstrapServers())
             .fromBeginning()
-            .topics(Set.of(topicName))
             .keyDeserializer(Deserializer.STRING)
             .build()) {
       var records = consumer.poll(Duration.ofSeconds(20));
@@ -174,10 +173,9 @@ public class SmoothWeightRoundRobinDispatchTest extends RequireBrokerCluster {
       threadPool.waitAll();
     }
     try (var consumer =
-        Consumer.builder()
+        Consumer.forTopics(Set.of(topicName))
             .bootstrapServers(bootstrapServers())
             .fromBeginning()
-            .topics(Set.of(topicName))
             .keyDeserializer(Deserializer.STRING)
             .build()) {
       var records = consumer.poll(Duration.ofSeconds(20));

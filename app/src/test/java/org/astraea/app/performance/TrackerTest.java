@@ -36,8 +36,8 @@ public class TrackerTest {
     try (Tracker tracker = new Tracker(producerData, consumerData, manager, producerDone::get)) {
       producerDone.set(false);
       Assertions.assertEquals(State.RUNNING, tracker.execute());
-      producerData.get(0).accept(1L, 1L);
-      consumerData.get(0).accept(1L, 1L);
+      producerData.get(0).accept(1L, 1);
+      consumerData.get(0).accept(1L, 1);
       producerDone.set(true);
       Assertions.assertEquals(State.DONE, tracker.execute());
     }
@@ -48,7 +48,7 @@ public class TrackerTest {
     try (Tracker tracker = new Tracker(producerData, empty, manager, producerDone::get)) {
       producerDone.set(false);
       Assertions.assertEquals(State.RUNNING, tracker.execute());
-      producerData.get(0).accept(1L, 1L);
+      producerData.get(0).accept(1L, 1);
       producerDone.set(true);
       Assertions.assertEquals(State.DONE, tracker.execute());
     }
@@ -64,8 +64,8 @@ public class TrackerTest {
       Assertions.assertEquals(State.RUNNING, tracker.execute());
 
       // Mock record producing
-      producerData.get(0).accept(1L, 1L);
-      consumerData.get(0).accept(1L, 1L);
+      producerData.get(0).accept(1L, 1);
+      consumerData.get(0).accept(1L, 1);
       Thread.sleep(2000);
       producerDone.set(true);
       Assertions.assertEquals(State.DONE, tracker.execute());

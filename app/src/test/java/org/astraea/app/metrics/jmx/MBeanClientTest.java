@@ -98,7 +98,8 @@ class MBeanClientTest {
   void testFetchAttributes() {
     // arrange
     try (var client = MBeanClient.of(jmxServer.getAddress())) {
-      BeanQuery beanQuery = BeanQuery.builder("java.lang").property("type", "Memory").build();
+      BeanQuery beanQuery =
+          BeanQuery.builder().domainName("java.lang").property("type", "Memory").build();
 
       // act
       BeanObject beanObject = client.queryBean(beanQuery);
@@ -115,11 +116,13 @@ class MBeanClientTest {
     // arrange
     try (var client = MBeanClient.of(jmxServer.getAddress())) {
       BeanQuery query1 =
-          BeanQuery.builder(
-                  "java.lang", Map.of("type", "MemoryManager", "name", "CodeCacheManager"))
+          BeanQuery.builder()
+              .domainName("java.lang")
+              .properties(Map.of("type", "MemoryManager", "name", "CodeCacheManager"))
               .build();
       BeanQuery query2 =
-          BeanQuery.builder("java.lang")
+          BeanQuery.builder()
+              .domainName("java.lang")
               .property("type", "MemoryManager")
               .property("name", "CodeCacheManager")
               .build();
@@ -149,7 +152,8 @@ class MBeanClientTest {
   void testFetchSelectedAttributes() {
     // arrange
     try (var client = MBeanClient.of(jmxServer.getAddress())) {
-      BeanQuery beanQuery = BeanQuery.builder("java.lang").property("type", "Memory").build();
+      BeanQuery beanQuery =
+          BeanQuery.builder().domainName("java.lang").property("type", "Memory").build();
       List<String> selectedAttribute = List.of("HeapMemoryUsage");
 
       // act
@@ -166,7 +170,8 @@ class MBeanClientTest {
   void testQueryBeans() {
     // arrange 1 query beans
     try (var client = MBeanClient.of(jmxServer.getAddress())) {
-      BeanQuery beanQuery = BeanQuery.builder("java.lang").property("type", "C*").build();
+      BeanQuery beanQuery =
+          BeanQuery.builder().domainName("java.lang").property("type", "C*").build();
 
       // act 1
       Collection<BeanObject> beanObjects = client.queryBeans(beanQuery);
@@ -203,7 +208,8 @@ class MBeanClientTest {
   void testQueryNonExistsBeans() {
     // arrange
     try (var client = MBeanClient.of(jmxServer.getAddress())) {
-      BeanQuery beanQuery = BeanQuery.builder("java.lang").property("type", "Something").build();
+      BeanQuery beanQuery =
+          BeanQuery.builder().domainName("java.lang").property("type", "Something").build();
 
       // act
       Collection<BeanObject> beanObjects = client.queryBeans(beanQuery);
@@ -217,7 +223,8 @@ class MBeanClientTest {
   void testFetchNonExistsBeans() {
     // arrange
     try (var client = MBeanClient.of(jmxServer.getAddress())) {
-      BeanQuery beanQuery = BeanQuery.builder("java.lang").property("type", "Something").build();
+      BeanQuery beanQuery =
+          BeanQuery.builder().domainName("java.lang").property("type", "Something").build();
 
       // act assert
       assertThrows(NoSuchElementException.class, () -> client.queryBean(beanQuery));
@@ -230,7 +237,8 @@ class MBeanClientTest {
   void testUseClosedClientWillThrowError() {
     // arrange
     var client = MBeanClient.of(jmxServer.getAddress());
-    BeanQuery query = BeanQuery.builder("java.lang").property("type", "Memory").build();
+    BeanQuery query =
+        BeanQuery.builder().domainName("java.lang").property("type", "Memory").build();
 
     // act
     client.close();
@@ -305,7 +313,11 @@ class MBeanClientTest {
     // arrange
     try (var client = MBeanClient.of(jmxServer.getAddress())) {
       BeanQuery patternQuery =
-          BeanQuery.builder("java.lang").property("type", "*").usePropertyListPattern().build();
+          BeanQuery.builder()
+              .domainName("java.lang")
+              .property("type", "*")
+              .usePropertyListPattern()
+              .build();
 
       // act
       Collection<BeanObject> beanObjects = client.queryBeans(patternQuery);
@@ -387,7 +399,8 @@ class MBeanClientTest {
 
       // act
       Collection<BeanObject> all =
-          client.queryBeans(BeanQuery.builder("com.example").property("type", "test*").build());
+          client.queryBeans(
+              BeanQuery.builder().domainName("com.example").property("type", "test*").build());
 
       // assert
       Map<String, Object> mergedCollect =
@@ -413,7 +426,8 @@ class MBeanClientTest {
 
       // act
       Collection<BeanObject> all =
-          client.queryBeans(BeanQuery.builder("com.example").property("type", "test*").build());
+          client.queryBeans(
+              BeanQuery.builder().domainName("com.example").property("type", "test*").build());
 
       // assert
       List<Map.Entry<String, String>> properties =

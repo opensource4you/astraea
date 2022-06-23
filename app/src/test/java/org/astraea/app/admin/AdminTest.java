@@ -170,9 +170,8 @@ public class AdminTest extends RequireBrokerCluster {
     try (var admin = Admin.of(bootstrapServers())) {
       admin.creator().topic(topicName).numberOfPartitions(3).create();
       try (var c1 =
-          Consumer.builder()
+          Consumer.forTopics(Set.of(topicName))
               .bootstrapServers(bootstrapServers())
-              .topics(Set.of(topicName))
               .groupId(consumerGroup)
               .build()) {
         // wait for syncing topic creation
@@ -183,9 +182,8 @@ public class AdminTest extends RequireBrokerCluster {
         Assertions.assertEquals(consumerGroup, consumerGroupMap.get(consumerGroup).groupId());
 
         try (var c2 =
-            Consumer.builder()
+            Consumer.forTopics(Set.of(topicName))
                 .bootstrapServers(bootstrapServers())
-                .topics(Set.of(topicName))
                 .groupId("abc")
                 .build()) {
           var count =
@@ -319,12 +317,11 @@ public class AdminTest extends RequireBrokerCluster {
       TimeUnit.SECONDS.sleep(3);
 
       try (var consumer =
-          Consumer.builder()
+          Consumer.forTopics(Set.of(topicName))
               .keyDeserializer(Deserializer.STRING)
               .valueDeserializer(Deserializer.STRING)
               .fromBeginning()
               .bootstrapServers(bootstrapServers())
-              .topics(Set.of(topicName))
               .build()) {
 
         var records =
