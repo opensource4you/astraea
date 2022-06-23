@@ -16,13 +16,20 @@
  */
 package org.astraea.app.consumer;
 
+import static java.util.Collections.nCopies;
+import static java.util.stream.Collectors.toList;
+
+import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Set;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 import org.apache.kafka.common.errors.WakeupException;
+import org.astraea.app.admin.Admin;
+import org.astraea.app.admin.TopicPartition;
 import org.astraea.app.common.Utils;
 import org.astraea.app.producer.Producer;
 import org.astraea.app.service.RequireBrokerCluster;
@@ -52,8 +59,7 @@ public class ConsumerTest extends RequireBrokerCluster {
     var topic = "testPoll";
     produceData(topic, recordCount);
     try (var consumer =
-        Consumer.builder()
-            .topics(Set.of(topic))
+        Consumer.forTopics(Set.of(topic))
             .bootstrapServers(bootstrapServers())
             .fromBeginning()
             .build()) {
@@ -68,8 +74,7 @@ public class ConsumerTest extends RequireBrokerCluster {
     var topic = "testFromLatest";
     produceData(topic, 1);
     try (var consumer =
-        Consumer.builder()
-            .topics(Set.of(topic))
+        Consumer.forTopics(Set.of(topic))
             .bootstrapServers(bootstrapServers())
             .fromLatest()
             .build()) {
@@ -83,8 +88,7 @@ public class ConsumerTest extends RequireBrokerCluster {
   void testWakeup() throws InterruptedException {
     var topic = "testWakeup";
     try (var consumer =
-        Consumer.builder()
-            .topics(Set.of(topic))
+        Consumer.forTopics(Set.of(topic))
             .bootstrapServers(bootstrapServers())
             .fromLatest()
             .build()) {
@@ -115,8 +119,7 @@ public class ConsumerTest extends RequireBrokerCluster {
     java.util.function.BiConsumer<String, Integer> testConsumer =
         (id, expectedSize) -> {
           try (var consumer =
-              Consumer.builder()
-                  .topics(Set.of(topic))
+              Consumer.forTopics(Set.of(topic))
                   .bootstrapServers(bootstrapServers())
                   .fromBeginning()
                   .groupId(id)
@@ -151,18 +154,16 @@ public class ConsumerTest extends RequireBrokerCluster {
       producer.flush();
     }
     try (var consumer =
-        Consumer.builder()
+        Consumer.forTopics(Set.of(topic))
             .bootstrapServers(bootstrapServers())
-            .topics(Set.of(topic))
             .distanceFromLatest(3)
             .build()) {
       Assertions.assertEquals(3, consumer.poll(4, Duration.ofSeconds(5)).size());
     }
 
     try (var consumer =
-        Consumer.builder()
+        Consumer.forTopics(Set.of(topic))
             .bootstrapServers(bootstrapServers())
-            .topics(Set.of(topic))
             .distanceFromLatest(1000)
             .build()) {
       Assertions.assertEquals(10, consumer.poll(11, Duration.ofSeconds(5)).size());
@@ -174,9 +175,8 @@ public class ConsumerTest extends RequireBrokerCluster {
     var count = 1;
     var topic = "testPollingTime";
     try (var consumer =
-        Consumer.builder()
+        Consumer.forTopics(Set.of(topic))
             .bootstrapServers(bootstrapServers())
-            .topics(Set.of(topic))
             .fromBeginning()
             .build()) {
 
@@ -184,6 +184,52 @@ public class ConsumerTest extends RequireBrokerCluster {
       produceData(topic, count);
       Assertions.assertTimeout(
           Duration.ofSeconds(10), () -> consumer.poll(Duration.ofSeconds(Integer.MAX_VALUE)));
+    }
+  }
+
+  @Test
+  void testAssignment() throws InterruptedException {
+    var topic = Utils.randomString(10);
+    try (var admin = Admin.of(bootstrapServers());
+        var producer = Producer.of(bootstrapServers())) {
+      var partitionNum = 2;
+      admin.creator().topic(topic).numberOfPartitions(partitionNum).create();
+      TimeUnit.SECONDS.sleep(2);
+
+      for (int partitionId = 0; partitionId < partitionNum; partitionId++) {
+        for (int recordIdx = 0; recordIdx < 10; recordIdx++) {
+          producer
+              .sender()
+              .topic(topic)
+              .partition(partitionId)
+              .value(ByteBuffer.allocate(4).putInt(recordIdx).array())
+              .run();
+        }
+      }
+      producer.flush();
+    }
+
+    try (var consumer =
+        Consumer.forPartitions(Set.of(TopicPartition.of(topic, "1")))
+            .bootstrapServers(bootstrapServers())
+            .distanceFromLatest(20)
+            .build()) {
+      var records = consumer.poll(20, Duration.ofSeconds(5));
+      Assertions.assertEquals(10, records.size());
+      Assertions.assertEquals(
+          nCopies(10, 1), records.stream().map(Record::partition).collect(toList()));
+    }
+
+    try (var consumer =
+        Consumer.forPartitions(Set.of(TopicPartition.of(topic, "0"), TopicPartition.of(topic, "1")))
+            .bootstrapServers(bootstrapServers())
+            .distanceFromLatest(20)
+            .build()) {
+      var records = consumer.poll(20, Duration.ofSeconds(5));
+      Assertions.assertEquals(20, records.size());
+      Assertions.assertEquals(
+          Stream.concat(nCopies(10, 0).stream(), nCopies(10, 1).stream()).collect(toList()),
+          records.stream().map(Record::partition).sorted().collect(toList()));
     }
   }
 }

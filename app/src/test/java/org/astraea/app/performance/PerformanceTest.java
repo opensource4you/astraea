@@ -102,10 +102,7 @@ public class PerformanceTest extends RequireBrokerCluster {
     param.sizeDistributionType = DistributionType.FIXED;
     try (Executor executor =
         Performance.consumerExecutor(
-            Consumer.builder()
-                .topics(Set.of(topicName))
-                .bootstrapServers(bootstrapServers())
-                .build(),
+            Consumer.forTopics(Set.of(topicName)).bootstrapServers(bootstrapServers()).build(),
             metrics,
             new Manager(param, List.of(), List.of()),
             () -> false)) {

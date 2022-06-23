@@ -72,9 +72,8 @@ public class TopicExplorerTest extends RequireBrokerCluster {
             new Thread(
                     () -> {
                       var consumer =
-                          Consumer.builder()
+                          Consumer.forTopics(topics)
                               .bootstrapServers(bootstrapServers())
-                              .topics(topics)
                               .groupId(groupName)
                               .configs(
                                   Map.of(ConsumerConfig.GROUP_INSTANCE_ID_CONFIG, instanceName))
