@@ -26,6 +26,7 @@ import org.astraea.app.admin.TopicPartition;
 
 public class GroupHandler implements Handler {
   static final String TOPIC_KEY = "topic";
+  static final String INSTANCE_KEY = "instance";
   private final Admin admin;
 
   GroupHandler(Admin admin) {
@@ -34,6 +35,20 @@ public class GroupHandler implements Handler {
 
   Set<String> groupIds(Optional<String> target) {
     return Handler.compare(admin.consumerGroupIds(), target);
+  }
+
+  @Override
+  public Response delete(String groupId, Map<String, String> queries) {
+    var groupInstanceId = queries.get(INSTANCE_KEY);
+    var activeMembers = admin.consumerGroups(Set.of(groupId)).get(groupId).activeMembers();
+    // Deleting all members can't work when there is no members already.
+    if (groupInstanceId == null && !activeMembers.isEmpty()) admin.removeAllMembers(groupId);
+    // Deleting nonexistent instance id can cause error
+    if (groupInstanceId != null
+        && activeMembers.stream()
+            .anyMatch(m -> m.groupInstanceId().filter(g -> g.equals(groupInstanceId)).isPresent()))
+      admin.removeStaticMembers(groupId, Set.of(groupInstanceId));
+    return Response.OK;
   }
 
   @Override

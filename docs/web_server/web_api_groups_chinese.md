@@ -6,6 +6,7 @@ Consumer groups 是 Kafka 提供給讀取端的負載平衡機制，該機制允
 
 - [查詢所有 groups](#查詢所有-groups)
 - [查詢指定 group](#查詢指定-group)
+- [清除 members](#清除-members)
 
 ## 查詢所有 groups
 ```shell
@@ -101,4 +102,22 @@ JSON Response 範例
     }
   ]
 }
+```
+
+## 清除 members
+```shell
+DELETE /groups/{groupId}?{instance=id}
+```
+
+參數
+
+| 名稱                       | 說明                                             | 預設  |
+|--------------------------|------------------------------------------------|-----|
+| groupId                    | (必填) 清除此group底下所有的consumer members             | 無   |
+| instance                    | (選填) 只清除此group instance id 關聯的 consumer member | 無   |
+
+cURL 範例
+刪除 group-1 底下所有的 consumer members
+```shell
+curl -X DELETE http://localhost:8001/groups/group-1
 ```
