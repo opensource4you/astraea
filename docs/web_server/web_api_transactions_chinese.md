@@ -2,7 +2,7 @@
 ===
 
 - [查詢所有 transactions](#查詢所有-transactions)
-- [查詢指定 topic](#查詢指定-transaction)
+- [查詢指定 transaction](#查詢指定-transaction)
 
 ## 查詢所有 transactions
 ```shell
