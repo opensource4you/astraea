@@ -27,7 +27,7 @@ JSON Response 範例
   - `topic`: topic 名稱
   - `partition`: partition id
   - `from`: 有哪些 producers 正在寫資料到這個 partition ，注意，只有啟動 idempotent/transaction producer 才會被kafka所紀錄
-  - `to`: 有哪些 consumers 正在讀取資料，注意，只有使用 consumer group 的才會被kafka所紀錄
+  - `to`: 有哪些 consumers 正在讀取資料，注意，只有使用 consumer group 的 consumers 才會被kafka所紀錄
 ```json
 {
   "topicPartitions": [
