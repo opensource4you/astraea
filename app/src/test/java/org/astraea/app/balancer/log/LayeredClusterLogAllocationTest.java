@@ -169,10 +169,9 @@ class LayeredClusterLogAllocationTest {
     final var allocation = LayeredClusterLogAllocation.of(fakeClusterInfo);
     final var toModify = allocation.topicPartitionStream().findFirst().orElseThrow();
 
-    // TODO test CLA#migrateReplica(a,b,c,d)
-
     // can modify before lock
     Assertions.assertDoesNotThrow(() -> allocation.migrateReplica(toModify, 0, 9));
+    Assertions.assertDoesNotThrow(() -> allocation.migrateReplica(toModify, 0, 9, "somewhere"));
     Assertions.assertDoesNotThrow(() -> allocation.letReplicaBecomeLeader(toModify, 1));
 
     final var extended = LayeredClusterLogAllocation.of(allocation);
@@ -181,10 +180,13 @@ class LayeredClusterLogAllocationTest {
     Assertions.assertThrows(
         IllegalStateException.class, () -> allocation.migrateReplica(toModify, 9, 0));
     Assertions.assertThrows(
+        IllegalStateException.class, () -> allocation.migrateReplica(toModify, 0, 9, "somewhere"));
+    Assertions.assertThrows(
         IllegalStateException.class, () -> allocation.letReplicaBecomeLeader(toModify, 0));
 
     // the extended one can modify
     Assertions.assertDoesNotThrow(() -> extended.migrateReplica(toModify, 9, 0));
+    Assertions.assertDoesNotThrow(() -> extended.migrateReplica(toModify, 0, 9, "somewhere"));
     Assertions.assertDoesNotThrow(() -> extended.letReplicaBecomeLeader(toModify, 0));
   }
 }
