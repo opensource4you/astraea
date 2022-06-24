@@ -39,7 +39,8 @@ abstract class Builder<Key, Value> {
    * @return this builder
    */
   public Builder<Key, Value> fromBeginning() {
-    return config(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
+    this.configs.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
+    return this;
   }
 
   /**
@@ -48,7 +49,8 @@ abstract class Builder<Key, Value> {
    * @return this builder
    */
   public Builder<Key, Value> fromLatest() {
-    return config(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "latest");
+    this.configs.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "latest");
+    return this;
   }
 
   /**
@@ -76,23 +78,15 @@ abstract class Builder<Key, Value> {
     return (Builder<Key, NewValue>) this;
   }
 
-  public Builder<Key, Value> config(String key, String value) {
-    this.configs.put(key, value);
-    return this;
-  }
-
-  public Builder<Key, Value> configs(Map<String, String> configs) {
-    this.configs.putAll(configs);
-    return this;
-  }
-
   public Builder<Key, Value> bootstrapServers(String bootstrapServers) {
-    return config(
+    this.configs.put(
         ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, Objects.requireNonNull(bootstrapServers));
+    return this;
   }
 
   public Builder<Key, Value> isolation(Isolation isolation) {
-    return config(ConsumerConfig.ISOLATION_LEVEL_CONFIG, isolation.nameOfKafka());
+    this.configs.put(ConsumerConfig.ISOLATION_LEVEL_CONFIG, isolation.nameOfKafka());
+    return this;
   }
 
   /** @return consumer instance. The different builders may return inherited consumer interface. */

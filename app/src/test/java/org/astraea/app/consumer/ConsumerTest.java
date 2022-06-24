@@ -112,8 +112,8 @@ public class ConsumerTest extends RequireBrokerCluster {
 
   @Test
   void testGroupId() {
-    var groupId = "testGroupId";
-    var topic = "testGroupId";
+    var groupId = Utils.randomString(10);
+    var topic = Utils.randomString(10);
     produceData(topic, 1);
 
     java.util.function.BiConsumer<String, Integer> testConsumer =
@@ -126,6 +126,9 @@ public class ConsumerTest extends RequireBrokerCluster {
                   .build()) {
             Assertions.assertEquals(
                 expectedSize, consumer.poll(expectedSize, Duration.ofSeconds(5)).size());
+            Assertions.assertEquals(id, consumer.groupId());
+            Assertions.assertNotNull(consumer.memberId());
+            Assertions.assertFalse(consumer.groupInstanceId().isPresent());
           }
         };
 
@@ -136,6 +139,19 @@ public class ConsumerTest extends RequireBrokerCluster {
 
     // use different group id
     testConsumer.accept("another_group", 0);
+  }
+
+  @Test
+  void testGroupInstanceId() {
+    var staticId = Utils.randomString(10);
+    try (var consumer =
+        Consumer.forTopics(Set.of(Utils.randomString(10)))
+            .bootstrapServers(bootstrapServers())
+            .groupInstanceId(staticId)
+            .build()) {
+      Assertions.assertEquals(0, consumer.poll(Duration.ofSeconds(2)).size());
+      Assertions.assertEquals(staticId, consumer.groupInstanceId().get());
+    }
   }
 
   @Test

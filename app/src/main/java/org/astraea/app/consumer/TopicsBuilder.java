@@ -21,6 +21,7 @@ import static java.util.Objects.requireNonNull;
 import java.time.Duration;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
@@ -31,12 +32,15 @@ public class TopicsBuilder<Key, Value> extends Builder<Key, Value> {
 
   TopicsBuilder(Set<String> topics) {
     this.topics = requireNonNull(topics);
-    config(ConsumerConfig.GROUP_ID_CONFIG, "groupId-" + System.currentTimeMillis());
   }
 
   public TopicsBuilder<Key, Value> groupId(String groupId) {
-    config(ConsumerConfig.GROUP_ID_CONFIG, requireNonNull(groupId));
-    return this;
+    return config(ConsumerConfig.GROUP_ID_CONFIG, requireNonNull(groupId));
+  }
+
+  public TopicsBuilder<Key, Value> groupInstanceId(String groupInstanceId) {
+    this.configs.remove(ConsumerConfig.GROUP_ID_CONFIG);
+    return config(ConsumerConfig.GROUP_INSTANCE_ID_CONFIG, requireNonNull(groupInstanceId));
   }
 
   public TopicsBuilder<Key, Value> consumerRebalanceListener(ConsumerRebalanceListener listener) {
@@ -91,15 +95,13 @@ public class TopicsBuilder<Key, Value> extends Builder<Key, Value> {
     return (TopicsBuilder<Key, NewValue>) super.valueDeserializer(valueDeserializer);
   }
 
-  @Override
   public TopicsBuilder<Key, Value> config(String key, String value) {
-    super.config(key, value);
+    this.configs.put(key, value);
     return this;
   }
 
-  @Override
   public TopicsBuilder<Key, Value> configs(Map<String, String> configs) {
-    super.configs(configs);
+    this.configs.putAll(configs);
     return this;
   }
 
@@ -122,6 +124,9 @@ public class TopicsBuilder<Key, Value> extends Builder<Key, Value> {
   @SuppressWarnings("unchecked")
   @Override
   public SubscribedConsumer<Key, Value> build() {
+    // generate group id if it is empty
+    configs.putIfAbsent(ConsumerConfig.GROUP_ID_CONFIG, "groupId-" + System.currentTimeMillis());
+
     var kafkaConsumer =
         new KafkaConsumer<>(
             configs,
@@ -155,6 +160,20 @@ public class TopicsBuilder<Key, Value> extends Builder<Key, Value> {
     @Override
     public void commitOffsets(Duration timeout) {
       kafkaConsumer.commitSync(timeout);
+    }
+
+    @Override
+    public String groupId() {
+      return kafkaConsumer.groupMetadata().groupId();
+    }
+
+    @Override
+    public String memberId() {
+      return kafkaConsumer.groupMetadata().memberId();
+    }
+
+    public Optional<String> groupInstanceId() {
+      return kafkaConsumer.groupMetadata().groupInstanceId();
     }
   }
 }
