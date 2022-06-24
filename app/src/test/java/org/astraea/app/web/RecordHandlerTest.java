@@ -102,7 +102,7 @@ public class RecordHandlerTest extends RequireBrokerCluster {
     var currentTimestamp = System.currentTimeMillis();
     var result =
         Assertions.assertInstanceOf(
-            JsonObject.class,
+            Response.class,
             handler.post(
                 PostRequest.of(
                     Map.of(
@@ -114,7 +114,7 @@ public class RecordHandlerTest extends RequireBrokerCluster {
                         TIMESTAMP, "" + currentTimestamp,
                         ASYNC, "true",
                         PARTITION, "0"))));
-    Assertions.assertEquals(new JsonObject() {}.json(), result.json());
+    Assertions.assertEquals(Response.ACCEPT, result);
 
     handler.producer.flush();
 

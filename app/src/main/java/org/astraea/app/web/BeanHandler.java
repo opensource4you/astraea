@@ -37,7 +37,7 @@ public class BeanHandler implements Handler {
   }
 
   @Override
-  public JsonObject get(Optional<String> domain, Map<String, String> properties) {
+  public Response get(Optional<String> domain, Map<String, String> properties) {
     var builder = BeanQuery.builder().usePropertyListPattern().properties(properties);
     domain.ifPresent(builder::domainName);
     return new NodeBeans(
@@ -52,7 +52,7 @@ public class BeanHandler implements Handler {
             .collect(Collectors.toUnmodifiableList()));
   }
 
-  static class Property implements JsonObject {
+  static class Property implements Response {
     final String key;
     final String value;
 
@@ -62,7 +62,7 @@ public class BeanHandler implements Handler {
     }
   }
 
-  static class Attribute implements JsonObject {
+  static class Attribute implements Response {
     final String key;
     final String value;
 
@@ -72,7 +72,7 @@ public class BeanHandler implements Handler {
     }
   }
 
-  static class Bean implements JsonObject {
+  static class Bean implements Response {
     final String domainName;
     final List<Property> properties;
     final List<Attribute> attributes;
@@ -90,7 +90,7 @@ public class BeanHandler implements Handler {
     }
   }
 
-  static class NodeBean implements JsonObject {
+  static class NodeBean implements Response {
     final String host;
     final List<Bean> beans;
 
@@ -100,7 +100,7 @@ public class BeanHandler implements Handler {
     }
   }
 
-  static class NodeBeans implements JsonObject {
+  static class NodeBeans implements Response {
     final List<NodeBean> nodeBeans;
 
     NodeBeans(List<NodeBean> nodeBeans) {

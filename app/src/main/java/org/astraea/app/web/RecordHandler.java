@@ -45,13 +45,13 @@ public class RecordHandler implements Handler {
   }
 
   @Override
-  public JsonObject get(Optional<String> target, Map<String, String> queries) {
+  public Response get(Optional<String> target, Map<String, String> queries) {
     // TODO: Implement topic read web apis (https://github.com/skiptests/astraea/pull/405)
-    return ErrorObject.for404("GET is not supported yet");
+    return Response.NOT_FOUND;
   }
 
   @Override
-  public JsonObject post(PostRequest request) {
+  public Response post(PostRequest request) {
     var topic =
         request.get(TOPIC).orElseThrow(() -> new IllegalArgumentException("topic must be set"));
     var keySerDe =
@@ -71,11 +71,8 @@ public class RecordHandler implements Handler {
 
     var senderFuture = sender.run().toCompletableFuture();
 
-    if (async) {
-      // TODO: Return HTTP status code 202 instead of 200
-      //  (https://github.com/skiptests/astraea/issues/420)
-      return new JsonObject() {};
-    }
+    if (async) return Response.ACCEPT;
+
     return Utils.packException(() -> new Metadata(senderFuture.get()));
   }
 
@@ -120,7 +117,7 @@ public class RecordHandler implements Handler {
     }
   }
 
-  static class Metadata implements JsonObject {
+  static class Metadata implements Response {
     final String topic;
     final int partition;
     final long offset;

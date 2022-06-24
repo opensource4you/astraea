@@ -23,7 +23,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.astraea.app.admin.Admin;
-import org.astraea.app.admin.ProducerState;
 import org.astraea.app.admin.TopicPartition;
 
 class ProducerHandler implements Handler {
@@ -57,7 +56,7 @@ class ProducerHandler implements Handler {
     return new Partitions(topics);
   }
 
-  static class ProducerState implements JsonObject {
+  static class ProducerState implements Response {
 
     final long producerId;
     final int producerEpoch;
@@ -72,7 +71,7 @@ class ProducerHandler implements Handler {
     }
   }
 
-  static class Partition implements JsonObject {
+  static class Partition implements Response {
     final String topic;
     final int partition;
     final List<ProducerState> states;
@@ -87,7 +86,7 @@ class ProducerHandler implements Handler {
     }
   }
 
-  static class Partitions implements JsonObject {
+  static class Partitions implements Response {
     final List<Partition> partitions;
 
     Partitions(List<Partition> partitions) {
