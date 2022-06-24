@@ -51,7 +51,7 @@ interface Handler extends HttpHandler {
           if (target.isPresent())
             return delete(target.get(), parseQueries(exchange.getRequestURI()));
         default:
-          return Response.for404(method + " is not supported yet");
+          return Response.NOT_FOUND;
       }
     } catch (Exception e) {
       e.printStackTrace();
@@ -118,7 +118,7 @@ interface Handler extends HttpHandler {
    * @return json object to return
    */
   default Response post(PostRequest request) {
-    return Response.for404("POST is not supported yet");
+    return Response.NOT_FOUND;
   }
 
   /**
@@ -128,6 +128,6 @@ interface Handler extends HttpHandler {
    * @return json object to return
    */
   default Response delete(String target, Map<String, String> queries) {
-    return Response.for404("DELETE is not supported yet");
+    return Response.NOT_FOUND;
   }
 }

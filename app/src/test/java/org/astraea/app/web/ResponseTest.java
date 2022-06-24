@@ -23,23 +23,23 @@ import org.junit.jupiter.api.Test;
 public class ResponseTest {
 
   @Test
-  void test404() {
-    var error = Assertions.assertInstanceOf(Response.ResponseImpl.class, Response.for404("this"));
-    Assertions.assertEquals(404, error.code);
-    Assertions.assertEquals("this", error.message);
+  void testNotFound() {
+    Assertions.assertEquals(0, Response.NOT_FOUND.json().length());
+    Assertions.assertEquals(404, Response.NOT_FOUND.code());
+    Assertions.assertEquals(0, Response.NOT_FOUND.json().getBytes(StandardCharsets.UTF_8).length);
   }
 
   @Test
   void testOk() {
-    var response = Response.ok();
-    Assertions.assertEquals(0, response.json().length());
-    Assertions.assertEquals(0, response.json().getBytes(StandardCharsets.UTF_8).length);
+    Assertions.assertEquals(0, Response.OK.json().length());
+    Assertions.assertEquals(200, Response.OK.code());
+    Assertions.assertEquals(0, Response.OK.json().getBytes(StandardCharsets.UTF_8).length);
   }
 
   @Test
   void testAccept() {
-    var response = Response.accept();
-    Assertions.assertEquals(0, response.json().length());
-    Assertions.assertEquals(0, response.json().getBytes(StandardCharsets.UTF_8).length);
+    Assertions.assertEquals(0, Response.ACCEPT.json().length());
+    Assertions.assertEquals(202, Response.ACCEPT.code());
+    Assertions.assertEquals(0, Response.ACCEPT.json().getBytes(StandardCharsets.UTF_8).length);
   }
 }

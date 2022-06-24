@@ -70,7 +70,7 @@ public class QuotaHandler implements Handler {
       return new Quotas(
           admin.quotas(org.astraea.app.admin.Quota.Target.CLIENT_ID, request.value(CLIENT_ID_KEY)));
     }
-    return Response.for404("You must define either " + CLIENT_ID_KEY + " or " + IP_KEY);
+    return Response.NOT_FOUND;
   }
 
   static class Target implements Response {

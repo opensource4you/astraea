@@ -75,7 +75,7 @@ public class HandlerTest {
 
           @Override
           public Response process(HttpExchange exchange) {
-            return Response.ok();
+            return Response.OK;
           }
         };
     var he = Mockito.mock(HttpExchange.class);

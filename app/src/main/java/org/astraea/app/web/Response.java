@@ -21,16 +21,12 @@ import java.util.NoSuchElementException;
 
 interface Response {
 
+  Response OK = new ResponseImpl(200);
+  Response ACCEPT = new ResponseImpl(202);
+  Response NOT_FOUND = new ResponseImpl(404);
+
   static Response of(Exception exception) {
     return new ResponseImpl(code(exception), exception.getMessage());
-  }
-
-  static Response ok() {
-    return new ResponseImpl(200);
-  }
-
-  static Response accept() {
-    return new ResponseImpl(202);
   }
 
   static Response for404(String message) {
@@ -63,6 +59,11 @@ interface Response {
     ResponseImpl(int code, String message) {
       this.code = code;
       this.message = message;
+    }
+
+    @Override
+    public int code() {
+      return code;
     }
 
     @Override
