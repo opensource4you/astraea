@@ -38,6 +38,7 @@ public interface ClusterLogAllocation {
   default void migrateReplica(TopicPartition topicPartition, int atBroker, int toBroker) {
     migrateReplica(topicPartition, atBroker, toBroker, null);
   }
+  // TODO: Revise the log argument by TopicPartitionReplica, once #411 is merged
 
   /**
    * let specific broker leave the replica set and let another broker join the replica set.
@@ -50,12 +51,14 @@ public interface ClusterLogAllocation {
    *     up to the Kafka broker implementation.
    */
   void migrateReplica(TopicPartition topicPartition, int atBroker, int toBroker, String toDir);
+  // TODO: Revise the log argument by TopicPartitionReplica, once #411 is merged
 
   /** let specific follower log become the leader log of this topic/partition. */
   void letReplicaBecomeLeader(TopicPartition topicPartition, int followerReplica);
 
   /** change the data directory of specific log */
   void changeDataDirectory(TopicPartition topicPartition, int atBroker, String newPath);
+  // TODO: Revise the log argument by TopicPartitionReplica, once #411 is merged
 
   /** Retrieve the log placements of specific {@link TopicPartition}. */
   List<LogPlacement> logPlacements(TopicPartition topicPartition);
