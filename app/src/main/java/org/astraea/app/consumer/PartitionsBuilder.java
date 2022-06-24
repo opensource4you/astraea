@@ -79,15 +79,13 @@ public class PartitionsBuilder<Key, Value> extends Builder<Key, Value> {
     return (PartitionsBuilder<Key, NewValue>) super.valueDeserializer(valueDeserializer);
   }
 
-  @Override
   public PartitionsBuilder<Key, Value> config(String key, String value) {
-    super.config(key, value);
+    this.configs.put(key, value);
     return this;
   }
 
-  @Override
   public PartitionsBuilder<Key, Value> configs(Map<String, String> configs) {
-    super.configs(configs);
+    this.configs.putAll(configs);
     return this;
   }
 

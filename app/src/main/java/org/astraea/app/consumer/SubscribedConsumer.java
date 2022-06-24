@@ -17,6 +17,7 @@
 package org.astraea.app.consumer;
 
 import java.time.Duration;
+import java.util.Optional;
 
 /**
  * This inherited consumer offers function related to consumer group.
@@ -32,4 +33,13 @@ public interface SubscribedConsumer<Key, Value> extends Consumer<Key, Value> {
    * @param timeout to wait commit.
    */
   void commitOffsets(Duration timeout);
+
+  /** @return the group id including this consumer */
+  String groupId();
+
+  /** @return the member id used by this consumer */
+  String memberId();
+
+  /** @return group instance id (static member) */
+  Optional<String> groupInstanceId();
 }
