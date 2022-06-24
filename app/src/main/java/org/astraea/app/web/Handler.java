@@ -73,7 +73,6 @@ interface Handler extends HttpHandler {
         .getResponseHeaders()
         .set("Content-Type", String.format("application/json; charset=%s", StandardCharsets.UTF_8));
     exchange.sendResponseHeaders(response.code(), responseData.length);
-    // if the response contains only code, we skip to write body.
     try (var os = exchange.getResponseBody()) {
       os.write(responseData);
     }
