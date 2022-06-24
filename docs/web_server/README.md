@@ -18,3 +18,6 @@ Astraea 建立了一套 Web Server 服務，使用者可以透過簡易好上手
 - [/brokers](./web_api_brokers_chinese.md)
 - [/producers](./web_api_producers_chinese.md)
 - [/quotas](./web_api_quotas_chinese.md)
+- [/transactions](./web_api_transactions_chinese.md)
+- [/pipelines](./web_api_pipelines_chinese.md)
+- [/beans](./web_api_beans_chinese.md)
