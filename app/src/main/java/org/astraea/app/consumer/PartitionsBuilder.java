@@ -22,6 +22,7 @@ import static java.util.stream.Collectors.toList;
 import java.util.Map;
 import java.util.Set;
 import org.apache.kafka.clients.consumer.Consumer;
+import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.astraea.app.admin.TopicPartition;
 
 public class PartitionsBuilder<Key, Value> extends Builder<Key, Value> {
@@ -78,15 +79,13 @@ public class PartitionsBuilder<Key, Value> extends Builder<Key, Value> {
     return (PartitionsBuilder<Key, NewValue>) super.valueDeserializer(valueDeserializer);
   }
 
-  @Override
   public PartitionsBuilder<Key, Value> config(String key, String value) {
-    super.config(key, value);
+    this.configs.put(key, value);
     return this;
   }
 
-  @Override
   public PartitionsBuilder<Key, Value> configs(Map<String, String> configs) {
-    super.configs(configs);
+    this.configs.putAll(configs);
     return this;
   }
 
@@ -102,8 +101,34 @@ public class PartitionsBuilder<Key, Value> extends Builder<Key, Value> {
     return this;
   }
 
+  @SuppressWarnings("unchecked")
   @Override
-  protected void assignOrSubscribe(Consumer<Key, Value> kafkaConsumer) {
+  public AssignedConsumer<Key, Value> build() {
+    var kafkaConsumer =
+        new KafkaConsumer<>(
+            configs,
+            Deserializer.of((Deserializer<Key>) keyDeserializer),
+            Deserializer.of((Deserializer<Value>) valueDeserializer));
     kafkaConsumer.assign(partitions.stream().map(TopicPartition::to).collect(toList()));
+
+    // this mode is not supported by kafka, so we have to calculate the offset first
+    if (distanceFromLatest > 0) {
+      var partitions = kafkaConsumer.assignment();
+      // 1) get the end offsets from all subscribed partitions
+      var endOffsets = kafkaConsumer.endOffsets(partitions);
+      // 2) calculate and then seek to the correct offset (end offset - recent offset)
+      endOffsets.forEach(
+          (tp, latest) -> kafkaConsumer.seek(tp, Math.max(0, latest - distanceFromLatest)));
+    }
+
+    return new AssignedConsumerImpl<>(kafkaConsumer);
+  }
+
+  private static class AssignedConsumerImpl<Key, Value> extends Builder.BaseConsumer<Key, Value>
+      implements AssignedConsumer<Key, Value> {
+
+    public AssignedConsumerImpl(Consumer<Key, Value> kafkaConsumer) {
+      super(kafkaConsumer);
+    }
   }
 }

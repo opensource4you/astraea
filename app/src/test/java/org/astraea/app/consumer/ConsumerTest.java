@@ -112,8 +112,8 @@ public class ConsumerTest extends RequireBrokerCluster {
 
   @Test
   void testGroupId() {
-    var groupId = "testGroupId";
-    var topic = "testGroupId";
+    var groupId = Utils.randomString(10);
+    var topic = Utils.randomString(10);
     produceData(topic, 1);
 
     java.util.function.BiConsumer<String, Integer> testConsumer =
@@ -126,6 +126,9 @@ public class ConsumerTest extends RequireBrokerCluster {
                   .build()) {
             Assertions.assertEquals(
                 expectedSize, consumer.poll(expectedSize, Duration.ofSeconds(5)).size());
+            Assertions.assertEquals(id, consumer.groupId());
+            Assertions.assertNotNull(consumer.memberId());
+            Assertions.assertFalse(consumer.groupInstanceId().isPresent());
           }
         };
 
@@ -136,6 +139,19 @@ public class ConsumerTest extends RequireBrokerCluster {
 
     // use different group id
     testConsumer.accept("another_group", 0);
+  }
+
+  @Test
+  void testGroupInstanceId() {
+    var staticId = Utils.randomString(10);
+    try (var consumer =
+        Consumer.forTopics(Set.of(Utils.randomString(10)))
+            .bootstrapServers(bootstrapServers())
+            .groupInstanceId(staticId)
+            .build()) {
+      Assertions.assertEquals(0, consumer.poll(Duration.ofSeconds(2)).size());
+      Assertions.assertEquals(staticId, consumer.groupInstanceId().get());
+    }
   }
 
   @Test
@@ -230,6 +246,53 @@ public class ConsumerTest extends RequireBrokerCluster {
       Assertions.assertEquals(
           Stream.concat(nCopies(10, 0).stream(), nCopies(10, 1).stream()).collect(toList()),
           records.stream().map(Record::partition).sorted().collect(toList()));
+    }
+  }
+
+  @Test
+  void testCommitOffset() throws InterruptedException {
+    var topic = Utils.randomString(10);
+    try (var admin = Admin.of(bootstrapServers());
+        var producer = Producer.of(bootstrapServers())) {
+      admin.creator().topic(topic).numberOfPartitions(1).create();
+      TimeUnit.SECONDS.sleep(2);
+      producer.sender().topic(topic).value(new byte[10]).run();
+      producer.flush();
+
+      var groupId = Utils.randomString(10);
+      try (var consumer =
+          Consumer.forTopics(Set.of(topic))
+              .groupId(groupId)
+              .bootstrapServers(bootstrapServers())
+              .fromBeginning()
+              .disableAutoCommitOffsets()
+              .build()) {
+        Assertions.assertEquals(1, consumer.poll(1, Duration.ofSeconds(4)).size());
+        Assertions.assertEquals(1, admin.consumerGroups(Set.of(groupId)).size());
+        // no offsets are committed, so there is no progress.
+        Assertions.assertEquals(
+            0,
+            admin
+                .consumerGroups(Set.of(groupId))
+                .values()
+                .iterator()
+                .next()
+                .consumeProgress()
+                .size());
+
+        // commit offsets manually, so we can "see" the progress now.
+        consumer.commitOffsets(Duration.ofSeconds(3));
+        Assertions.assertEquals(1, admin.consumerGroups(Set.of(groupId)).size());
+        Assertions.assertEquals(
+            1,
+            admin
+                .consumerGroups(Set.of(groupId))
+                .values()
+                .iterator()
+                .next()
+                .consumeProgress()
+                .size());
+      }
     }
   }
 }

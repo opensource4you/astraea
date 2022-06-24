@@ -36,9 +36,11 @@ import org.apache.kafka.clients.admin.ConfigEntry;
 import org.apache.kafka.clients.admin.ConsumerGroupListing;
 import org.apache.kafka.clients.admin.ListTopicsOptions;
 import org.apache.kafka.clients.admin.MemberDescription;
+import org.apache.kafka.clients.admin.MemberToRemove;
 import org.apache.kafka.clients.admin.NewPartitionReassignment;
 import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.clients.admin.OffsetSpec;
+import org.apache.kafka.clients.admin.RemoveMembersFromConsumerGroupOptions;
 import org.apache.kafka.clients.admin.TransactionListing;
 import org.apache.kafka.common.ElectionType;
 import org.apache.kafka.common.TopicPartitionReplica;
@@ -543,6 +545,32 @@ public class Builder {
               admin.describeTransactions(transactionIds).all().get().entrySet().stream()
                   .collect(
                       Collectors.toMap(Map.Entry::getKey, e -> Transaction.from(e.getValue()))));
+    }
+
+    @Override
+    public void removeAllMembers(String groupId) {
+      Utils.packException(
+          () ->
+              admin
+                  .removeMembersFromConsumerGroup(
+                      groupId, new RemoveMembersFromConsumerGroupOptions())
+                  .all()
+                  .get());
+    }
+
+    @Override
+    public void removeStaticMembers(String groupId, Set<String> members) {
+      Utils.packException(
+          () ->
+              admin
+                  .removeMembersFromConsumerGroup(
+                      groupId,
+                      new RemoveMembersFromConsumerGroupOptions(
+                          members.stream()
+                              .map(MemberToRemove::new)
+                              .collect(Collectors.toUnmodifiableList())))
+                  .all()
+                  .get());
     }
   }
 

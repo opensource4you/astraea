@@ -18,11 +18,13 @@ package org.astraea.app.consumer;
 
 import static java.util.Objects.requireNonNull;
 
+import java.time.Duration;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
-import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
+import org.apache.kafka.clients.consumer.KafkaConsumer;
 
 public class TopicsBuilder<Key, Value> extends Builder<Key, Value> {
   private final Set<String> topics;
@@ -30,12 +32,15 @@ public class TopicsBuilder<Key, Value> extends Builder<Key, Value> {
 
   TopicsBuilder(Set<String> topics) {
     this.topics = requireNonNull(topics);
-    config(ConsumerConfig.GROUP_ID_CONFIG, "groupId-" + System.currentTimeMillis());
   }
 
   public TopicsBuilder<Key, Value> groupId(String groupId) {
-    config(ConsumerConfig.GROUP_ID_CONFIG, requireNonNull(groupId));
-    return this;
+    return config(ConsumerConfig.GROUP_ID_CONFIG, requireNonNull(groupId));
+  }
+
+  public TopicsBuilder<Key, Value> groupInstanceId(String groupInstanceId) {
+    this.configs.remove(ConsumerConfig.GROUP_ID_CONFIG);
+    return config(ConsumerConfig.GROUP_INSTANCE_ID_CONFIG, requireNonNull(groupInstanceId));
   }
 
   public TopicsBuilder<Key, Value> consumerRebalanceListener(ConsumerRebalanceListener listener) {
@@ -90,15 +95,13 @@ public class TopicsBuilder<Key, Value> extends Builder<Key, Value> {
     return (TopicsBuilder<Key, NewValue>) super.valueDeserializer(valueDeserializer);
   }
 
-  @Override
   public TopicsBuilder<Key, Value> config(String key, String value) {
-    super.config(key, value);
+    this.configs.put(key, value);
     return this;
   }
 
-  @Override
   public TopicsBuilder<Key, Value> configs(Map<String, String> configs) {
-    super.configs(configs);
+    this.configs.putAll(configs);
     return this;
   }
 
@@ -114,8 +117,63 @@ public class TopicsBuilder<Key, Value> extends Builder<Key, Value> {
     return this;
   }
 
+  public TopicsBuilder<Key, Value> disableAutoCommitOffsets() {
+    return config(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "false");
+  }
+
+  @SuppressWarnings("unchecked")
   @Override
-  protected void assignOrSubscribe(Consumer<Key, Value> kafkaConsumer) {
+  public SubscribedConsumer<Key, Value> build() {
+    // generate group id if it is empty
+    configs.putIfAbsent(ConsumerConfig.GROUP_ID_CONFIG, "groupId-" + System.currentTimeMillis());
+
+    var kafkaConsumer =
+        new KafkaConsumer<>(
+            configs,
+            Deserializer.of((Deserializer<Key>) keyDeserializer),
+            Deserializer.of((Deserializer<Value>) valueDeserializer));
     kafkaConsumer.subscribe(topics, ConsumerRebalanceListener.of(listener));
+
+    // this mode is not supported by kafka, so we have to calculate the offset first
+    if (distanceFromLatest > 0) {
+      // 1) poll data until the assignment is completed
+      while (kafkaConsumer.assignment().isEmpty()) kafkaConsumer.poll(Duration.ofMillis(500));
+      var partitions = kafkaConsumer.assignment();
+      // 2) get the end offsets from all subscribed partitions
+      var endOffsets = kafkaConsumer.endOffsets(partitions);
+      // 3) calculate and then seek to the correct offset (end offset - recent offset)
+      endOffsets.forEach(
+          (tp, latest) -> kafkaConsumer.seek(tp, Math.max(0, latest - distanceFromLatest)));
+    }
+
+    return new SubscribedConsumerImpl<>(kafkaConsumer);
+  }
+
+  private static class SubscribedConsumerImpl<Key, Value> extends Builder.BaseConsumer<Key, Value>
+      implements SubscribedConsumer<Key, Value> {
+
+    public SubscribedConsumerImpl(
+        org.apache.kafka.clients.consumer.Consumer<Key, Value> kafkaConsumer) {
+      super(kafkaConsumer);
+    }
+
+    @Override
+    public void commitOffsets(Duration timeout) {
+      kafkaConsumer.commitSync(timeout);
+    }
+
+    @Override
+    public String groupId() {
+      return kafkaConsumer.groupMetadata().groupId();
+    }
+
+    @Override
+    public String memberId() {
+      return kafkaConsumer.groupMetadata().memberId();
+    }
+
+    public Optional<String> groupInstanceId() {
+      return kafkaConsumer.groupMetadata().groupInstanceId();
+    }
   }
 }
