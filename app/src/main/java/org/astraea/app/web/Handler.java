@@ -69,17 +69,12 @@ interface Handler extends HttpHandler {
   default void handle(HttpExchange exchange) throws IOException {
     Response response = process(exchange);
     var responseData = response.json().getBytes(StandardCharsets.UTF_8);
+    exchange
+        .getResponseHeaders()
+        .set("Content-Type", String.format("application/json; charset=%s", StandardCharsets.UTF_8));
     exchange.sendResponseHeaders(response.code(), responseData.length);
-    // if the response contains only code, we skip to write body.
-    if (responseData.length > 0) {
-      exchange
-          .getResponseHeaders()
-          .set(
-              "Content-Type",
-              String.format("application/json; charset=%s", StandardCharsets.UTF_8));
-      try (var os = exchange.getResponseBody()) {
-        os.write(responseData);
-      }
+    try (var os = exchange.getResponseBody()) {
+      os.write(responseData);
     }
   }
 

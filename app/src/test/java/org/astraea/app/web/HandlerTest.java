@@ -16,8 +16,10 @@
  */
 package org.astraea.app.web;
 
+import com.sun.net.httpserver.Headers;
 import com.sun.net.httpserver.HttpExchange;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.net.URI;
 import java.util.Map;
 import java.util.Optional;
@@ -79,8 +81,8 @@ public class HandlerTest {
           }
         };
     var he = Mockito.mock(HttpExchange.class);
-    // there is no response body, so getRequestMethod should not be called.
-    Mockito.when(he.getRequestMethod()).thenThrow(new RuntimeException());
+    Mockito.when(he.getResponseHeaders()).thenReturn(Mockito.mock(Headers.class));
+    Mockito.when(he.getResponseBody()).thenReturn(Mockito.mock(OutputStream.class));
     handler.handle(he);
     Mockito.verify(he).sendResponseHeaders(200, 0);
   }
