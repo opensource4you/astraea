@@ -91,10 +91,12 @@ function runContainer() {
       # user has pre-defined port, so we will replace the random port by this one in next loop
       if [[ "$word" == "--port" ]]; then
         defined_port="true"
+        continue
       fi
       # this element must be port
       if [[ "$defined_port" == "true" ]]; then
         web_port="$word"
+        break
       fi
     done
     # manually add "--port" to make sure web service bind on random port we pass
