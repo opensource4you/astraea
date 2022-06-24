@@ -122,7 +122,7 @@ class ClusterBeanTest {
         clusterInfo
             .clusterBean()
             .beanObjectByReplica()
-            .get(TopicPartitionReplica.of("testBeans", "0", 2))
+            .get(TopicPartitionReplica.of("testBeans", 0, 2))
             .size());
   }
 }
