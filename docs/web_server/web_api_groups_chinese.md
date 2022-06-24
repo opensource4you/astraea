@@ -1,6 +1,9 @@
 /groups
 ===
 
+Consumer groups 是 Kafka 提供給讀取端的負載平衡機制，該機制允許我們建立多個 consumer instances，它們會透過 Kafka broker 來互相溝通，
+並且協調各自該負責讀取哪些 partitions，藉此達到平衡以及容錯等功能。 Groups APIs 可以幫助我們觀察 groups 內各個 consumer member 的狀態
+
 - [查詢所有 groups](#查詢所有-groups)
 - [查詢指定 group](#查詢指定-group)
 
@@ -8,6 +11,12 @@
 ```shell
 GET /groups
 ```
+
+參數
+
+| 名稱                       | 說明                                   | 預設  |
+|--------------------------|--------------------------------------|-----|
+| topic                    | (選填) 只查詢跟此 topic 有關的 consumer groups | 無   |
 
 cURL 範例
 ```shell
@@ -58,6 +67,12 @@ JSON Response 範例
 ```shell
 GET /groups/{groupId}
 ```
+
+參數
+
+| 名稱                       | 說明                                   | 預設  |
+|--------------------------|--------------------------------------|-----|
+| topic                    | (選填) 只查詢跟此 topic 有關的 consumer groups | 無   |
 
 cURL 範例
 查詢名為 group-1 的 group 資訊
