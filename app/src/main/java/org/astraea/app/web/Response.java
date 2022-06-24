@@ -16,29 +16,58 @@
  */
 package org.astraea.app.web;
 
+import com.google.gson.Gson;
 import java.util.NoSuchElementException;
 
-class ErrorObject implements JsonObject {
+interface Response {
 
-  static ErrorObject for404(String message) {
-    return new ErrorObject(404, message);
+  static Response of(Exception exception) {
+    return new ResponseImpl(code(exception), exception.getMessage());
   }
 
-  final int code;
-  final String message;
-
-  ErrorObject(Exception exception) {
-    this(code(exception), exception.getMessage());
+  static Response ok() {
+    return new ResponseImpl(200);
   }
 
-  ErrorObject(int code, String message) {
-    this.code = code;
-    this.message = message;
+  static Response accept() {
+    return new ResponseImpl(202);
+  }
+
+  static Response for404(String message) {
+    return new ResponseImpl(404, message);
   }
 
   private static int code(Exception exception) {
     if (exception instanceof IllegalArgumentException) return 400;
     if (exception instanceof NoSuchElementException) return 404;
     return 400;
+  }
+
+  /** @return http code */
+  default int code() {
+    return 200;
+  }
+
+  default String json() {
+    return new Gson().toJson(this);
+  }
+
+  class ResponseImpl implements Response {
+    final int code;
+    final String message;
+
+    ResponseImpl(int code) {
+      this(code, "");
+    }
+
+    ResponseImpl(int code, String message) {
+      this.code = code;
+      this.message = message;
+    }
+
+    @Override
+    public String json() {
+      return message == null || message.isEmpty() ? "" : new Gson().toJson(this);
+    }
   }
 }

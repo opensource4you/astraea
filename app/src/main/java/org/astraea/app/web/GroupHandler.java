@@ -37,7 +37,7 @@ public class GroupHandler implements Handler {
   }
 
   @Override
-  public JsonObject get(Optional<String> target, Map<String, String> queries) {
+  public Response get(Optional<String> target, Map<String, String> queries) {
     var topics =
         queries.containsKey(TOPIC_KEY) ? Set.of(queries.get(TOPIC_KEY)) : admin.topicNames();
     var consumerGroups = admin.consumerGroups(groupIds(target));
@@ -96,7 +96,7 @@ public class GroupHandler implements Handler {
     return new Groups(groups);
   }
 
-  static class OffsetProgress implements JsonObject {
+  static class OffsetProgress implements Response {
     final String topic;
     final int partitionId;
     final long earliest;
@@ -112,7 +112,7 @@ public class GroupHandler implements Handler {
     }
   }
 
-  static class Member implements JsonObject {
+  static class Member implements Response {
     final String memberId;
     final String groupInstanceId;
     final String clientId;
@@ -133,7 +133,7 @@ public class GroupHandler implements Handler {
     }
   }
 
-  static class Group implements JsonObject {
+  static class Group implements Response {
     final String groupId;
     final List<Member> members;
 
@@ -143,7 +143,7 @@ public class GroupHandler implements Handler {
     }
   }
 
-  static class Groups implements JsonObject {
+  static class Groups implements Response {
     final List<Group> groups;
 
     Groups(List<Group> groups) {

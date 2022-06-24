@@ -45,11 +45,11 @@ class TopicHandler implements Handler {
   }
 
   @Override
-  public JsonObject get(Optional<String> target, Map<String, String> queries) {
+  public Response get(Optional<String> target, Map<String, String> queries) {
     return get(topicNames(target));
   }
 
-  private JsonObject get(Set<String> topicNames) {
+  private Response get(Set<String> topicNames) {
     var topics = admin.topics(topicNames);
     var replicas = admin.replicas(topics.keySet());
     var partitions =
@@ -86,7 +86,7 @@ class TopicHandler implements Handler {
   }
 
   @Override
-  public JsonObject post(PostRequest request) {
+  public Response post(PostRequest request) {
     admin
         .creator()
         .topic(request.value(TOPIC_NAME_KEY))
@@ -106,7 +106,7 @@ class TopicHandler implements Handler {
     return new TopicInfo(request.value(TOPIC_NAME_KEY), List.of(), Map.of());
   }
 
-  static class Topics implements JsonObject {
+  static class Topics implements Response {
     final Collection<TopicInfo> topics;
 
     private Topics(Collection<TopicInfo> topics) {
@@ -114,7 +114,7 @@ class TopicHandler implements Handler {
     }
   }
 
-  static class TopicInfo implements JsonObject {
+  static class TopicInfo implements Response {
     final String name;
     final List<Partition> partitions;
     final Map<String, String> configs;
@@ -134,7 +134,7 @@ class TopicHandler implements Handler {
     }
   }
 
-  static class Partition implements JsonObject {
+  static class Partition implements Response {
     final int id;
     final long earliest;
     final long latest;
@@ -148,7 +148,7 @@ class TopicHandler implements Handler {
     }
   }
 
-  static class Replica implements JsonObject {
+  static class Replica implements Response {
     final int broker;
     final long lag;
     final long size;

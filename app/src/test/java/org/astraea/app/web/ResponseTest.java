@@ -16,15 +16,30 @@
  */
 package org.astraea.app.web;
 
+import java.nio.charset.StandardCharsets;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-public class ErrorObjectTest {
+public class ResponseTest {
 
   @Test
   void test404() {
-    var error = ErrorObject.for404("this");
+    var error = Assertions.assertInstanceOf(Response.ResponseImpl.class, Response.for404("this"));
     Assertions.assertEquals(404, error.code);
     Assertions.assertEquals("this", error.message);
+  }
+
+  @Test
+  void testOk() {
+    var response = Response.ok();
+    Assertions.assertEquals(0, response.json().length());
+    Assertions.assertEquals(0, response.json().getBytes(StandardCharsets.UTF_8).length);
+  }
+
+  @Test
+  void testAccept() {
+    var response = Response.accept();
+    Assertions.assertEquals(0, response.json().length());
+    Assertions.assertEquals(0, response.json().getBytes(StandardCharsets.UTF_8).length);
   }
 }

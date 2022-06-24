@@ -17,7 +17,10 @@
 package org.astraea.app.web;
 
 import com.sun.net.httpserver.HttpExchange;
+import java.io.IOException;
 import java.net.URI;
+import java.util.Map;
+import java.util.Optional;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
@@ -35,7 +38,7 @@ public class HandlerTest {
     var exchange = Mockito.mock(HttpExchange.class);
     Mockito.when(exchange.getRequestURI()).thenReturn(URI.create("http://localhost:8888/abc"));
     Mockito.when(exchange.getRequestMethod()).thenReturn("get");
-    var r = Assertions.assertInstanceOf(ErrorObject.class, handler.process(exchange));
+    var r = Assertions.assertInstanceOf(Response.ResponseImpl.class, handler.process(exchange));
     Assertions.assertNotEquals(200, r.code);
     Assertions.assertEquals(exception.getMessage(), r.message);
   }
@@ -59,5 +62,26 @@ public class HandlerTest {
     Assertions.assertEquals(2, queries.size());
     Assertions.assertEquals("v", queries.get("k"));
     Assertions.assertEquals("b", queries.get("a"));
+  }
+
+  @Test
+  void testNoResponseBody() throws IOException {
+    Handler handler =
+        new Handler() {
+          @Override
+          public Response get(Optional<String> target, Map<String, String> queries) {
+            return null;
+          }
+
+          @Override
+          public Response process(HttpExchange exchange) {
+            return Response.ok();
+          }
+        };
+    var he = Mockito.mock(HttpExchange.class);
+    // there is no response body, so getRequestMethod should not be called.
+    Mockito.when(he.getRequestMethod()).thenThrow(new RuntimeException());
+    handler.handle(he);
+    Mockito.verify(he).sendResponseHeaders(200, 0);
   }
 }
