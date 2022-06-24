@@ -171,8 +171,8 @@ class LayeredClusterLogAllocationTest {
 
     // can modify before lock
     Assertions.assertDoesNotThrow(() -> allocation.migrateReplica(toModify, 0, 9));
-    Assertions.assertDoesNotThrow(() -> allocation.migrateReplica(toModify, 0, 9, "somewhere"));
-    Assertions.assertDoesNotThrow(() -> allocation.letReplicaBecomeLeader(toModify, 1));
+    Assertions.assertDoesNotThrow(() -> allocation.migrateReplica(toModify, 1, 8, "somewhere"));
+    Assertions.assertDoesNotThrow(() -> allocation.letReplicaBecomeLeader(toModify, 2));
 
     final var extended = LayeredClusterLogAllocation.of(allocation);
 
@@ -186,7 +186,7 @@ class LayeredClusterLogAllocationTest {
 
     // the extended one can modify
     Assertions.assertDoesNotThrow(() -> extended.migrateReplica(toModify, 9, 0));
-    Assertions.assertDoesNotThrow(() -> extended.migrateReplica(toModify, 0, 9, "somewhere"));
+    Assertions.assertDoesNotThrow(() -> extended.migrateReplica(toModify, 8, 1, "somewhere"));
     Assertions.assertDoesNotThrow(() -> extended.letReplicaBecomeLeader(toModify, 0));
   }
 }

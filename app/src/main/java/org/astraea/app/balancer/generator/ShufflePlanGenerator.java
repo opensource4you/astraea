@@ -19,12 +19,10 @@ package org.astraea.app.balancer.generator;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.astraea.app.admin.TopicPartition;
 import org.astraea.app.balancer.RebalancePlanProposal;
@@ -68,35 +66,6 @@ public class ShufflePlanGenerator implements RebalancePlanGenerator {
 
   private int sourceLogPlacementSelector(List<LogPlacement> migrationCandidates) {
     return ThreadLocalRandom.current().nextInt(0, migrationCandidates.size());
-  }
-
-  private int migrationSelector(List<Movement> movementCandidates) {
-    // There are two kinds of Movement, each operating on different kind of candidate.
-    // * The Movement#replicaSetMovement selecting target by the broker ID
-    // * The Movement#dataDirectoryMovement selecting target by the data dir on the specific broker
-    // If we mix all these movements and randomly picking one as the selected migration, doing so
-    // will cause fairness issue. Given a concrete example, there are 100 brokers, and each broker
-    // have 3 data directories. Now the leader log of a topic/partition with 3 replicas is being
-    // selected. How many possible migrations over here? The Answer is:
-    // 1. 99 from Movement#replicaSetMigration since the leader log can move to any other broker.
-    // 2. 2 from Movement#dataDirectoryMigration since the leader log can move to the other 2 dirs.
-    // So there are 101 possible migrations. But these "two ways" of migration have different
-    // probability to occur. We can expect a large number of replica set changes occur but only a
-    // few for the data directory migration. This will make the ShufflePlanGenerator hard to address
-    // specific kind of balance issue due to <strong>it rarely propose them</strong>.
-    final var migrationTypeList =
-        IntStream.range(0, movementCandidates.size())
-            .mapToObj(i -> Map.entry(movementCandidates.get(i).getClass(), i))
-            .collect(
-                Collectors.groupingBy(
-                    Map.Entry::getKey,
-                    Collectors.mapping(Map.Entry::getValue, Collectors.toUnmodifiableList())))
-            .values()
-            .stream()
-            .collect(Collectors.toUnmodifiableList());
-    final var selectedMigration =
-        migrationTypeList.get(ThreadLocalRandom.current().nextInt(0, migrationTypeList.size()));
-    return selectedMigration.get(ThreadLocalRandom.current().nextInt(0, selectedMigration.size()));
   }
 
   private <T> T randomElement(Collection<T> collection) {
@@ -208,8 +177,8 @@ public class ShufflePlanGenerator implements RebalancePlanGenerator {
             }
 
             // pick a migration and execute
-            final var selectedMigrationIndex = migrationSelector(validMigrationCandidates);
-            validMigrationCandidates.get(selectedMigrationIndex).run();
+            final var selectedMigrationIndex = randomElement(validMigrationCandidates);
+            selectedMigrationIndex.run();
           }
 
           return rebalancePlanBuilder.withRebalancePlan(newAllocation).build();
@@ -221,13 +190,7 @@ public class ShufflePlanGenerator implements RebalancePlanGenerator {
     static ReplicaSetMovement replicaSetMovement(Runnable runnable) {
       return runnable::run;
     }
-
-    static DataDirectoryMovement dataDirectoryMovement(Runnable runnable) {
-      return runnable::run;
-    }
   }
 
   interface ReplicaSetMovement extends Movement {}
-
-  interface DataDirectoryMovement extends Movement {}
 }
