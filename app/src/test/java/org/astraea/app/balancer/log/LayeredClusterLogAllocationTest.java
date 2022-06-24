@@ -112,25 +112,6 @@ class LayeredClusterLogAllocationTest {
   }
 
   @Test
-  void changeDataDirectory() {
-    final var fakeClusterInfo =
-        ClusterInfoProvider.fakeClusterInfo(3, 1, 1, 1, (i) -> Set.of("topic"));
-    final var clusterLogAllocation = LayeredClusterLogAllocation.of(fakeClusterInfo);
-    final var sourceTopicPartition = TopicPartition.of("topic", "0");
-
-    clusterLogAllocation.changeDataDirectory(sourceTopicPartition, 0, "/path/to/somewhere");
-
-    Assertions.assertEquals(
-        "/path/to/somewhere",
-        clusterLogAllocation
-            .logPlacements(sourceTopicPartition)
-            .get(0)
-            .logDirectory()
-            .orElseThrow());
-    Assertions.assertDoesNotThrow(() -> LayeredClusterLogAllocation.of(clusterLogAllocation));
-  }
-
-  @Test
   void logPlacements() {
     final var allocation =
         LayeredClusterLogAllocation.of(
@@ -159,10 +140,8 @@ class LayeredClusterLogAllocationTest {
         .flatMap(x -> fakeClusterInfo.replicas(x).stream())
         .forEach(
             replica ->
-                allocation1.changeDataDirectory(
-                    TopicPartition.of(replica.topic(), Integer.toString(replica.partition())),
-                    0,
-                    "/yeah"));
+                allocation1.letReplicaBecomeLeader(
+                    TopicPartition.of(replica.topic(), Integer.toString(replica.partition())), 1));
 
     final var allTopicPartitions =
         allocation1
@@ -190,10 +169,11 @@ class LayeredClusterLogAllocationTest {
     final var allocation = LayeredClusterLogAllocation.of(fakeClusterInfo);
     final var toModify = allocation.topicPartitionStream().findFirst().orElseThrow();
 
+    // TODO test CLA#migrateReplica(a,b,c,d)
+
     // can modify before lock
     Assertions.assertDoesNotThrow(() -> allocation.migrateReplica(toModify, 0, 9));
     Assertions.assertDoesNotThrow(() -> allocation.letReplicaBecomeLeader(toModify, 1));
-    Assertions.assertDoesNotThrow(() -> allocation.changeDataDirectory(toModify, 2, "/nowhere"));
 
     final var extended = LayeredClusterLogAllocation.of(allocation);
 
@@ -202,13 +182,9 @@ class LayeredClusterLogAllocationTest {
         IllegalStateException.class, () -> allocation.migrateReplica(toModify, 9, 0));
     Assertions.assertThrows(
         IllegalStateException.class, () -> allocation.letReplicaBecomeLeader(toModify, 0));
-    Assertions.assertThrows(
-        IllegalStateException.class,
-        () -> allocation.changeDataDirectory(toModify, 2, "/anywhere"));
 
     // the extended one can modify
     Assertions.assertDoesNotThrow(() -> extended.migrateReplica(toModify, 9, 0));
     Assertions.assertDoesNotThrow(() -> extended.letReplicaBecomeLeader(toModify, 0));
-    Assertions.assertDoesNotThrow(() -> extended.changeDataDirectory(toModify, 2, "/anywhere"));
   }
 }

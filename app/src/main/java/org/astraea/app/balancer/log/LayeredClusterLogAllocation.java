@@ -228,30 +228,6 @@ public class LayeredClusterLogAllocation implements ClusterLogAllocation {
   }
 
   @Override
-  public synchronized void changeDataDirectory(
-      TopicPartition topicPartition, int broker, String path) {
-    ensureNotLocked();
-
-    final List<LogPlacement> sourceLogPlacements = this.logPlacements(topicPartition);
-    if (sourceLogPlacements == null)
-      throw new IllegalMigrationException(
-          topicPartition.topic() + "-" + topicPartition.partition() + " no such topic/partition");
-
-    int sourceLogIndex = indexOfBroker(sourceLogPlacements, broker).orElse(-1);
-    if (sourceLogIndex == -1)
-      throw new IllegalMigrationException(
-          broker + " is not part of the replica set for " + topicPartition);
-
-    final var oldLog = this.logPlacements(topicPartition).get(sourceLogIndex);
-    final var newLog = LogPlacement.of(oldLog.broker(), path);
-    this.allocation.put(
-        topicPartition,
-        IntStream.range(0, sourceLogPlacements.size())
-            .mapToObj(index -> index == sourceLogIndex ? newLog : sourceLogPlacements.get(index))
-            .collect(Collectors.toUnmodifiableList()));
-  }
-
-  @Override
   public List<LogPlacement> logPlacements(TopicPartition topicPartition) {
     if (allocation.containsKey(topicPartition)) return allocation.get(topicPartition);
     else if (upperLayer != null) return upperLayer.logPlacements(topicPartition);

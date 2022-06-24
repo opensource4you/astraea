@@ -48,8 +48,6 @@ import org.astraea.app.cost.NodeInfo;
  *       LogManager#nextLogDirs method implementation in Apache Kafka server for more details.
  *   <li>Change the leader/follower of a partition by a member of this replica set, the original
  *       leader/follower becomes a follower/leader.
- *   <li>Change the data directory of one replica from current data directory to another on the
- *       current broker.
  * </ol>
  */
 public class ShufflePlanGenerator implements RebalancePlanGenerator {
@@ -180,19 +178,6 @@ public class ShufflePlanGenerator implements RebalancePlanGenerator {
                           sourceIsLeader ? "leader" : "follower",
                           sourceIsLeader ? "follower" : "leader"));
                 };
-            Consumer<String> dataDirectoryMigration =
-                (dataDirectory) -> {
-                  newAllocation.changeDataDirectory(
-                      sourceTopicPartition, sourceBroker, dataDirectory);
-                  rebalancePlanBuilder.addInfo(
-                      String.format(
-                          "Change the data directory of topic %s partition %d replica at broker %d, from %s to %s",
-                          sourceTopicPartition.topic(),
-                          sourceTopicPartition.partition(),
-                          sourceLogPlacement.broker(),
-                          sourceLogPlacement.logDirectory().map(Object::toString).orElse("unknown"),
-                          dataDirectory));
-                };
 
             // generate a set of valid migration broker for given placement.
             final var validMigrationCandidates = new ArrayList<Movement>();
@@ -221,12 +206,6 @@ public class ShufflePlanGenerator implements RebalancePlanGenerator {
                         () -> leaderFollowerMigration.accept(sourceLogPlacement)));
               }
             }
-            // [Valid movement 3] change the data directory of selected replica
-            clusterInfo.dataDirectories(sourceLogPlacement.broker()).stream()
-                .filter(dir -> !dir.equals(sourceLogPlacement.logDirectory().orElse(null)))
-                .map(dir -> (Runnable) () -> dataDirectoryMigration.accept(dir))
-                .map(Movement::dataDirectoryMovement)
-                .forEach(validMigrationCandidates::add);
 
             // pick a migration and execute
             final var selectedMigrationIndex = migrationSelector(validMigrationCandidates);

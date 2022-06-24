@@ -56,10 +56,6 @@ public interface ClusterLogAllocation {
   /** let specific follower log become the leader log of this topic/partition. */
   void letReplicaBecomeLeader(TopicPartition topicPartition, int followerReplica);
 
-  /** change the data directory of specific log */
-  void changeDataDirectory(TopicPartition topicPartition, int atBroker, String newPath);
-  // TODO: Revise the log argument by TopicPartitionReplica, once #411 is merged
-
   /** Retrieve the log placements of specific {@link TopicPartition}. */
   List<LogPlacement> logPlacements(TopicPartition topicPartition);
 
