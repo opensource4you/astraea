@@ -34,6 +34,7 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 import org.apache.kafka.common.config.TopicConfig;
+import org.apache.kafka.common.errors.GroupNotEmptyException;
 import org.astraea.app.common.Utils;
 import org.astraea.app.consumer.Consumer;
 import org.astraea.app.consumer.Deserializer;
@@ -884,6 +885,48 @@ public class AdminTest extends RequireBrokerCluster {
               .get(consumer.groupId())
               .activeMembers()
               .size());
+    }
+  }
+
+  @Test
+  void testRemoveGroupWithDynamicMembers() {
+    var groupId = Utils.randomString(10);
+    var topicName = Utils.randomString(10);
+    try (var consumer =
+        Consumer.forTopics(Set.of(topicName))
+            .bootstrapServers(bootstrapServers())
+            .groupId(groupId)
+            .build()) {
+      Assertions.assertEquals(0, consumer.poll(Duration.ofSeconds(3)).size());
+    }
+    try (var admin = Admin.of(bootstrapServers())) {
+      Assertions.assertTrue(admin.consumerGroupIds().contains(groupId));
+      admin.removeGroup(groupId);
+      Assertions.assertFalse(admin.consumerGroupIds().contains(groupId));
+    }
+  }
+
+  @Test
+  void testRemoveGroupWithStaticMembers() throws InterruptedException, ExecutionException {
+    var groupId = Utils.randomString(10);
+    var topicName = Utils.randomString(10);
+    try (var consumer =
+        Consumer.forTopics(Set.of(topicName))
+            .bootstrapServers(bootstrapServers())
+            .groupId(groupId)
+            .groupInstanceId(Utils.randomString(10))
+            .build()) {
+      Assertions.assertEquals(0, consumer.poll(Duration.ofSeconds(3)).size());
+    }
+
+    try (var admin = Admin.of(bootstrapServers())) {
+      Assertions.assertTrue(admin.consumerGroupIds().contains(groupId));
+      // the static member is existent
+      Assertions.assertThrows(GroupNotEmptyException.class, () -> admin.removeGroup(groupId));
+      // cleanup members
+      admin.removeAllMembers(groupId);
+      admin.removeGroup(groupId);
+      Assertions.assertFalse(admin.consumerGroupIds().contains(groupId));
     }
   }
 }

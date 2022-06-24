@@ -555,6 +555,11 @@ public class Builder {
     }
 
     @Override
+    public void removeGroup(String groupId) {
+      Utils.packException(() -> admin.deleteConsumerGroups(Set.of(groupId)).all().get());
+    }
+
+    @Override
     public void removeAllMembers(String groupId) {
       Utils.packException(
           () ->

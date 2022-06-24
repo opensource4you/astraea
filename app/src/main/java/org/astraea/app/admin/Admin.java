@@ -216,6 +216,13 @@ public interface Admin extends Closeable {
    */
   Map<String, Transaction> transactions(Set<String> transactionIds);
 
+  /**
+   * remove an empty group. It causes error if the group has memebrs.
+   *
+   * @param groupId to remove
+   */
+  void removeGroup(String groupId);
+
   /** @param groupId to remove all (dynamic and static) members */
   void removeAllMembers(String groupId);
 

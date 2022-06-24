@@ -39,7 +39,6 @@ public class TopicsBuilder<Key, Value> extends Builder<Key, Value> {
   }
 
   public TopicsBuilder<Key, Value> groupInstanceId(String groupInstanceId) {
-    this.configs.remove(ConsumerConfig.GROUP_ID_CONFIG);
     return config(ConsumerConfig.GROUP_INSTANCE_ID_CONFIG, requireNonNull(groupInstanceId));
   }
 
