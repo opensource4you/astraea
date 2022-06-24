@@ -30,6 +30,7 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.kafka.common.TopicPartitionReplica;
+import org.apache.zookeeper.server.admin.DummyAdminServer;
 import org.astraea.app.admin.Admin;
 import org.astraea.app.admin.Replica;
 import org.astraea.app.admin.TopicPartition;
@@ -332,6 +333,20 @@ class RebalanceAdminTest extends RequireBrokerCluster {
       // assert it is the leader
       Assertions.assertEquals(newPreferredLeader, currentLeader.get());
     }
+  }
+
+  @Test
+  void debouncedAwait() throws InterruptedException {
+    Assertions.assertTrue(RebalanceAdminImpl.debouncedAwait(() -> true, Duration.ofSeconds(1), Duration.ofSeconds(3)));
+    Assertions.assertFalse(RebalanceAdminImpl.debouncedAwait(() -> false, Duration.ofSeconds(1), Duration.ofSeconds(3)));
+
+    Assertions.assertTrue(RebalanceAdminImpl.debouncedAwait(new Supplier<Boolean>() {
+      final AtomicInteger i = new AtomicInteger(0);
+      @Override
+      public Boolean get() {
+        return i.getAndIncrement() > 0;
+      }
+    }, Duration.ofMillis(500), Duration.ofSeconds(3)));
   }
 
   @Test

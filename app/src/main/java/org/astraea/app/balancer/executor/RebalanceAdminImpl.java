@@ -31,6 +31,7 @@ import org.astraea.app.admin.Admin;
 import org.astraea.app.admin.Replica;
 import org.astraea.app.admin.TopicPartition;
 import org.astraea.app.balancer.log.LogPlacement;
+import org.astraea.app.common.Utils;
 import org.astraea.app.cost.ClusterInfo;
 import org.astraea.app.metrics.HasBeanObject;
 
@@ -171,7 +172,7 @@ class RebalanceAdminImpl implements RebalanceAdmin {
   public boolean waitLogSynced(TopicPartitionReplica log, Duration timeout)
       throws InterruptedException {
     ensureTopicPermitted(log.topic());
-    return await(
+    return debouncedAwait(
         () ->
             admin.replicas(Set.of(log.topic())).entrySet().stream()
                 .filter(x -> x.getKey().partition() == log.partition())
@@ -181,7 +182,8 @@ class RebalanceAdminImpl implements RebalanceAdmin {
                 .findFirst()
                 .map(Replica::inSync)
                 .orElse(false),
-        timeout);
+        timeout,
+        Duration.ofSeconds(3));
   }
 
   @Override
@@ -189,7 +191,7 @@ class RebalanceAdminImpl implements RebalanceAdmin {
       throws InterruptedException {
     ensureTopicPermitted(topicPartition.topic());
     // the set of interested topics.
-    return await(
+    return debouncedAwait(
         () ->
             admin.replicas(Set.of(topicPartition.topic())).entrySet().stream()
                 .filter(x -> x.getKey().equals(topicPartition))
@@ -205,7 +207,8 @@ class RebalanceAdminImpl implements RebalanceAdmin {
                       return preferred.leader();
                     })
                 .orElseThrow(),
-        timeout);
+        timeout,
+        Duration.ofSeconds(3));
   }
 
   @Override
@@ -226,6 +229,19 @@ class RebalanceAdminImpl implements RebalanceAdmin {
   @Override
   public ClusterInfo refreshMetrics(ClusterInfo oldClusterInfo) {
     return ClusterInfo.of(oldClusterInfo, metricSource.get());
+  }
+
+  /** Wait until the condition is hold true over certain amount of time */
+  static boolean debouncedAwait(Supplier<Boolean> task, Duration timeout, Duration debounce)
+      throws InterruptedException {
+    return await(
+        () -> {
+          if (!task.get()) return false;
+          Utils.packException(() -> Thread.sleep(debounce.toMillis()));
+          if (!task.get()) return false;
+          return true;
+        },
+        timeout);
   }
 
   static boolean await(Supplier<Boolean> task, Duration timeout) throws InterruptedException {
