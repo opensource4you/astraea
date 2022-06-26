@@ -28,6 +28,7 @@ import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -36,6 +37,8 @@ import java.util.stream.StreamSupport;
 import org.apache.kafka.common.config.TopicConfig;
 import org.apache.kafka.common.errors.GroupNotEmptyException;
 import org.astraea.app.common.Utils;
+import org.astraea.app.concurrent.State;
+import org.astraea.app.concurrent.ThreadPool;
 import org.astraea.app.consumer.Consumer;
 import org.astraea.app.consumer.Deserializer;
 import org.astraea.app.cost.NodeInfo;
@@ -44,6 +47,7 @@ import org.astraea.app.producer.Producer;
 import org.astraea.app.producer.Serializer;
 import org.astraea.app.service.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledOnOs;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -927,6 +931,103 @@ public class AdminTest extends RequireBrokerCluster {
       admin.removeAllMembers(groupId);
       admin.removeGroup(groupId);
       Assertions.assertFalse(admin.consumerGroupIds().contains(groupId));
+    }
+  }
+
+  @RepeatedTest(5) // this test is timer-based, so it needs to be looped for stability
+  void testReassignmentWhenMovingPartitionToAnotherBroker() throws InterruptedException {
+    var topicName = Utils.randomString(10);
+    try (var admin = Admin.of(bootstrapServers())) {
+      admin.creator().topic(topicName).numberOfPartitions(1).create();
+      TimeUnit.SECONDS.sleep(3);
+
+      var currentBroker =
+          admin.replicas(Set.of(topicName)).get(new TopicPartition(topicName, 0)).get(0).broker();
+      var nextBroker = brokerIds().stream().filter(i -> i != currentBroker).findAny().get();
+
+      try (var producer = Producer.of(bootstrapServers())) {
+        var done = new AtomicBoolean(false);
+        var data = new byte[1000];
+        try (var pool =
+            ThreadPool.builder()
+                .executor(
+                    () -> {
+                      producer.sender().topic(topicName).key(data).value(data).run();
+                      return done.get() ? State.DONE : State.RUNNING;
+                    })
+                .build()) {
+
+          try {
+            admin.migrator().topic(topicName).moveTo(List.of(nextBroker));
+            var reassignment =
+                admin.reassignments(Set.of(topicName)).get(new TopicPartition(topicName, 0));
+
+            // Don't verify the result if the migration is done
+            if (reassignment != null) {
+              Assertions.assertEquals(1, reassignment.from().size());
+              var from = reassignment.from().iterator().next();
+              Assertions.assertEquals(currentBroker, from.broker());
+              Assertions.assertEquals(1, reassignment.to().size());
+              var to = reassignment.to().iterator().next();
+              Assertions.assertEquals(nextBroker, to.broker());
+            }
+          } finally {
+            done.set(true);
+          }
+        }
+      }
+    }
+  }
+
+  @RepeatedTest(5) // this test is timer-based, so it needs to be looped for stability
+  void testReassignmentWhenMovingPartitionToAnotherPath() throws InterruptedException {
+    var topicName = Utils.randomString(10);
+    try (var admin = Admin.of(bootstrapServers())) {
+      admin.creator().topic(topicName).numberOfPartitions(1).create();
+      TimeUnit.SECONDS.sleep(3);
+
+      var currentReplica =
+          admin.replicas(Set.of(topicName)).get(new TopicPartition(topicName, 0)).get(0);
+      var currentBroker = currentReplica.broker();
+      var currentPath = currentReplica.path();
+      var nextPath =
+          logFolders().get(currentBroker).stream()
+              .filter(p -> !p.equals(currentPath))
+              .findFirst()
+              .get();
+
+      try (var producer = Producer.of(bootstrapServers())) {
+        var done = new AtomicBoolean(false);
+        var data = new byte[1000];
+        try (var pool =
+            ThreadPool.builder()
+                .executor(
+                    () -> {
+                      producer.sender().topic(topicName).key(data).value(data).run();
+                      return done.get() ? State.DONE : State.RUNNING;
+                    })
+                .build()) {
+
+          try {
+            admin.migrator().topic(topicName).moveTo(Map.of(currentReplica.broker(), nextPath));
+            var reassignment =
+                admin.reassignments(Set.of(topicName)).get(new TopicPartition(topicName, 0));
+            // Don't verify the result if the migration is done
+            if (reassignment != null) {
+              Assertions.assertEquals(1, reassignment.from().size());
+              var from = reassignment.from().iterator().next();
+              Assertions.assertEquals(currentBroker, from.broker());
+              Assertions.assertEquals(currentPath, from.path());
+              Assertions.assertEquals(1, reassignment.to().size());
+              var to = reassignment.to().iterator().next();
+              Assertions.assertEquals(currentBroker, to.broker());
+              Assertions.assertEquals(nextPath, to.path());
+            }
+          } finally {
+            done.set(true);
+          }
+        }
+      }
     }
   }
 }

@@ -134,11 +134,24 @@ public final class Utils {
    * @param done a flag indicating the result.
    */
   public static void waitFor(Supplier<Boolean> done, Duration timeout) {
+    waitForNonNull(() -> done.get() ? "good" : null, timeout);
+  }
+
+  /**
+   * loop the supplier until it returns non-null value
+   *
+   * @param supplier to loop
+   * @param timeout to break the loop
+   * @param <T> returned type
+   * @return value from supplier
+   */
+  public static <T> T waitForNonNull(Supplier<T> supplier, Duration timeout) {
     var endTime = System.currentTimeMillis() + timeout.toMillis();
     Exception lastError = null;
     while (System.currentTimeMillis() <= endTime)
       try {
-        if (done.get()) return;
+        var r = supplier.get();
+        if (r != null) return r;
         TimeUnit.SECONDS.sleep(1);
       } catch (Exception e) {
         lastError = e;
