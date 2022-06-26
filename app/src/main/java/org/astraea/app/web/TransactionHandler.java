@@ -32,7 +32,7 @@ class TransactionHandler implements Handler {
   }
 
   @Override
-  public JsonObject get(Optional<String> target, Map<String, String> queries) {
+  public Response get(Optional<String> target, Map<String, String> queries) {
     var transactions =
         admin.transactions(Handler.compare(admin.transactionIds(), target)).entrySet().stream()
             .map(e -> new Transaction(e.getKey(), e.getValue()))
@@ -41,7 +41,7 @@ class TransactionHandler implements Handler {
     return new Transactions(transactions);
   }
 
-  static class TopicPartition implements JsonObject {
+  static class TopicPartition implements Response {
     final String topic;
     final int partition;
 
@@ -51,7 +51,7 @@ class TransactionHandler implements Handler {
     }
   }
 
-  static class Transaction implements JsonObject {
+  static class Transaction implements Response {
     final String id;
     final int coordinatorId;
     final String state;
@@ -74,7 +74,7 @@ class TransactionHandler implements Handler {
     }
   }
 
-  static class Transactions implements JsonObject {
+  static class Transactions implements Response {
     final List<Transaction> transactions;
 
     Transactions(List<Transaction> transactions) {

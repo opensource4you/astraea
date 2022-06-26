@@ -50,15 +50,9 @@ public class GroupHandlerTest extends RequireBrokerCluster {
         var response =
             Assertions.assertInstanceOf(
                 GroupHandler.Groups.class, handler.get(Optional.empty(), Map.of()));
-        Assertions.assertEquals(1, response.groups.size());
-        Assertions.assertEquals(groupId, response.groups.iterator().next().groupId);
-        Assertions.assertEquals(1, response.groups.iterator().next().members.size());
-        response
-            .groups
-            .iterator()
-            .next()
-            .members
-            .forEach(m -> Assertions.assertNull(m.groupInstanceId));
+        var group = response.groups.stream().filter(g -> g.groupId.equals(groupId)).findAny().get();
+        Assertions.assertEquals(1, group.members.size());
+        group.members.forEach(m -> Assertions.assertNull(m.groupInstanceId));
       }
     }
   }
@@ -154,6 +148,71 @@ public class GroupHandlerTest extends RequireBrokerCluster {
             Assertions.assertInstanceOf(
                 GroupHandler.Groups.class, handler.get(Optional.empty(), Map.of()));
         Assertions.assertNotEquals(1, all.groups.size());
+      }
+    }
+  }
+
+  @Test
+  void testDeleteMembers() {
+    var topicName = Utils.randomString(10);
+    try (Admin admin = Admin.of(bootstrapServers())) {
+      var handler = new GroupHandler(admin);
+
+      // test 0: delete all members
+      try (var consumer =
+          Consumer.forTopics(Set.of(topicName)).bootstrapServers(bootstrapServers()).build()) {
+        Assertions.assertEquals(0, consumer.poll(Duration.ofSeconds(3)).size());
+        Assertions.assertEquals(
+            1,
+            admin
+                .consumerGroups(Set.of(consumer.groupId()))
+                .get(consumer.groupId())
+                .activeMembers()
+                .size());
+
+        handler.delete(consumer.groupId(), Map.of());
+        Assertions.assertEquals(
+            0,
+            admin
+                .consumerGroups(Set.of(consumer.groupId()))
+                .get(consumer.groupId())
+                .activeMembers()
+                .size());
+
+        // idempotent test
+        handler.delete(consumer.groupId(), Map.of());
+      }
+
+      // test 1: delete static member
+      try (var consumer =
+          Consumer.forTopics(Set.of(topicName))
+              .bootstrapServers(bootstrapServers())
+              .groupInstanceId(Utils.randomString(10))
+              .build()) {
+        Assertions.assertEquals(0, consumer.poll(Duration.ofSeconds(3)).size());
+        Assertions.assertEquals(
+            1,
+            admin
+                .consumerGroups(Set.of(consumer.groupId()))
+                .get(consumer.groupId())
+                .activeMembers()
+                .size());
+
+        handler.delete(
+            consumer.groupId(),
+            Map.of(GroupHandler.INSTANCE_KEY, consumer.groupInstanceId().get()));
+        Assertions.assertEquals(
+            0,
+            admin
+                .consumerGroups(Set.of(consumer.groupId()))
+                .get(consumer.groupId())
+                .activeMembers()
+                .size());
+
+        // idempotent test
+        handler.delete(
+            consumer.groupId(),
+            Map.of(GroupHandler.INSTANCE_KEY, consumer.groupInstanceId().get()));
       }
     }
   }

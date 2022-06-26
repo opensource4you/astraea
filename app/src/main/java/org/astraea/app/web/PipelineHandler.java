@@ -39,7 +39,7 @@ class PipelineHandler implements Handler {
   }
 
   @Override
-  public JsonObject get(Optional<String> target, Map<String, String> queries) {
+  public Response get(Optional<String> target, Map<String, String> queries) {
     var tps =
         topicPartitions(admin).stream()
             .filter(filter(queries))
@@ -85,7 +85,7 @@ class PipelineHandler implements Handler {
         .collect(Collectors.toUnmodifiableList());
   }
 
-  static class Producer implements JsonObject {
+  static class Producer implements Response {
     final long producerId;
     final int producerEpoch;
     final int lastSequence;
@@ -99,7 +99,7 @@ class PipelineHandler implements Handler {
     }
   }
 
-  static class Consumer implements JsonObject {
+  static class Consumer implements Response {
     final String groupId;
     final String memberId;
     final String groupInstanceId;
@@ -115,7 +115,7 @@ class PipelineHandler implements Handler {
     }
   }
 
-  static class TopicPartition implements JsonObject {
+  static class TopicPartition implements Response {
     final String topic;
     final int partition;
     final Collection<Producer> from = new ArrayList<>();
@@ -127,7 +127,7 @@ class PipelineHandler implements Handler {
     }
   }
 
-  static class TopicPartitions implements JsonObject {
+  static class TopicPartitions implements Response {
     final Collection<TopicPartition> topicPartitions;
 
     TopicPartitions(Collection<TopicPartition> topicPartitions) {
