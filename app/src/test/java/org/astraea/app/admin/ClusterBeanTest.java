@@ -32,8 +32,8 @@ class ClusterBeanTest {
   void testEmptyBeans() {
     var clusterInfo = ClusterInfo.of(Mockito.mock(org.apache.kafka.common.Cluster.class));
     Assertions.assertEquals(0, clusterInfo.clusterBean().all().size());
-    Assertions.assertEquals(0, clusterInfo.clusterBean().beanObjectByPartition().size());
-    Assertions.assertEquals(0, clusterInfo.clusterBean().beanObjectByReplica().size());
+    Assertions.assertEquals(0, clusterInfo.clusterBean().mapByPartition().size());
+    Assertions.assertEquals(0, clusterInfo.clusterBean().mapByReplica().size());
   }
 
   @Test
@@ -100,7 +100,7 @@ class ClusterBeanTest {
                         HasValue.of(testBeanObjectWithPartition2),
                         HasValue.of(testBeanObjectWithPartition3)))));
     // test all
-    clusterInfo.clusterBean().beanObjectByPartition();
+    clusterInfo.clusterBean().mapByPartition();
     Assertions.assertEquals(2, clusterInfo.clusterBean().all().size());
     Assertions.assertEquals(1, clusterInfo.clusterBean().all().get(1).size());
     Assertions.assertEquals(3, clusterInfo.clusterBean().all().get(2).size());
@@ -110,18 +110,14 @@ class ClusterBeanTest {
     // ignore replicas and get the metrics of first replicas
     Assertions.assertEquals(
         2,
-        clusterInfo
-            .clusterBean()
-            .beanObjectByPartition()
-            .get(TopicPartition.of("testBeans", "0"))
-            .size());
+        clusterInfo.clusterBean().mapByPartition().get(TopicPartition.of("testBeans", "0")).size());
     // test get beanObject by replica
-    Assertions.assertEquals(2, clusterInfo.clusterBean().beanObjectByReplica().size());
+    Assertions.assertEquals(2, clusterInfo.clusterBean().mapByReplica().size());
     Assertions.assertEquals(
         2,
         clusterInfo
             .clusterBean()
-            .beanObjectByReplica()
+            .mapByReplica()
             .get(TopicPartitionReplica.of("testBeans", 0, 2))
             .size());
   }
