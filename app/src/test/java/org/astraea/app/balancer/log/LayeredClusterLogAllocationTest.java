@@ -215,7 +215,7 @@ class LayeredClusterLogAllocationTest {
     final var twoTopicPartition = source.topicPartitionStream().skip(1).findFirst().orElseThrow();
 
     final var target0 = LayeredClusterLogAllocation.of(a);
-    target0.changeDataDirectory(oneTopicPartition, 0, "/somewhere");
+    target0.migrateReplica(oneTopicPartition, 0, 0, "/somewhere");
     Assertions.assertEquals(
         Set.of(oneTopicPartition),
         ClusterLogAllocation.findNonFulfilledAllocation(source, target0));
@@ -234,7 +234,7 @@ class LayeredClusterLogAllocationTest {
 
     final var target3 = LayeredClusterLogAllocation.of(a);
     target3.migrateReplica(oneTopicPartition, 0, 2);
-    target3.changeDataDirectory(oneTopicPartition, 2, "/somewhere");
+    target3.migrateReplica(oneTopicPartition, 2, 2, "/somewhere");
     target3.letReplicaBecomeLeader(twoTopicPartition, 1);
     Assertions.assertEquals(
         Set.of(oneTopicPartition, twoTopicPartition),
