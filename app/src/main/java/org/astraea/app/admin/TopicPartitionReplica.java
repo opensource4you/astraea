@@ -65,12 +65,12 @@ public class TopicPartitionReplica implements Comparable<TopicPartitionReplica> 
 
   @Override
   public int hashCode() {
-    return Objects.hash(topic, partition, brokerId);
+    return Objects.hash(brokerId, topic, partition);
   }
 
   @Override
   public String toString() {
-    return String.format("%s-%d-%d", topic, partition, brokerId);
+    return String.format("%d-%s-%d", brokerId, topic, partition);
   }
 
   @Override
