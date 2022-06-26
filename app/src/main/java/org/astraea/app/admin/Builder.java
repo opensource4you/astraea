@@ -54,7 +54,6 @@ import org.astraea.app.common.Utils;
 import org.astraea.app.cost.ClusterInfo;
 import org.astraea.app.cost.NodeInfo;
 import org.astraea.app.cost.ReplicaInfo;
-import org.astraea.app.metrics.HasBeanObject;
 
 public class Builder {
 
@@ -524,14 +523,8 @@ public class Builder {
         }
 
         @Override
-        public Collection<HasBeanObject> beans(int brokerId) {
-          return List.of();
-        }
-
-        @Override
-        public Map<Integer, Collection<HasBeanObject>> allBeans() {
-          return nodeInfo.stream()
-              .collect(Collectors.toUnmodifiableMap(NodeInfo::id, ignore -> List.of()));
+        public ClusterBean clusterBean() {
+          return ClusterBean.of(Map.of());
         }
       };
     }

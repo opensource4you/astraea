@@ -21,6 +21,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import org.astraea.app.admin.ClusterBean;
 import org.astraea.app.cost.ClusterInfo;
 import org.astraea.app.cost.FakeClusterInfo;
 import org.astraea.app.cost.NodeInfo;
@@ -45,8 +46,8 @@ public class MemoryCostTest {
     ClusterInfo clusterInfo =
         new FakeClusterInfo() {
           @Override
-          public Map<Integer, Collection<HasBeanObject>> allBeans() {
-            return Map.of(1, broker1, 2, broker2, 3, broker3);
+          public ClusterBean clusterBean() {
+            return ClusterBean.of(Map.of(1, broker1, 2, broker2, 3, broker3));
           }
 
           @Override
@@ -80,8 +81,8 @@ public class MemoryCostTest {
     ClusterInfo clusterInfo2 =
         new FakeClusterInfo() {
           @Override
-          public Map<Integer, Collection<HasBeanObject>> allBeans() {
-            return Map.of(1, broker12, 2, broker22, 3, broker32);
+          public ClusterBean clusterBean() {
+            return ClusterBean.of(Map.of(1, broker12, 2, broker22, 3, broker32));
           }
 
           @Override
