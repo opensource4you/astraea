@@ -93,6 +93,13 @@ public class WeightProviderTest {
 
     var uniformEntropy = weightProvider.weight(uniformDistribution);
     Assertions.assertTrue(uniformEntropy.get("0") < uniformEntropy.get("1"));
+
+    uniformDistribution.put(
+        "2",
+        IntStream.range(0, 200).mapToObj(i -> i / 2.0).collect(Collectors.toUnmodifiableList()));
+    System.out.println(uniformDistribution);
+    var test = weightProvider.weight(uniformDistribution);
+    System.out.println(test);
   }
 
   @ParameterizedTest

@@ -55,50 +55,7 @@ public class NeutralIntegratedCost implements HasBrokerCost {
           }
         });
 
-    metricsCost.forEach(
-        hasBrokerCost -> {
-          if (hasBrokerCost instanceof BrokerInputCost) {
-            hasBrokerCost
-                .brokerCost(clusterInfo)
-                .value()
-                .forEach((brokerID, value) -> brokersMetric.get(brokerID).inputScore = value);
-            hasBrokerCost
-                .brokerCost(clusterInfo)
-                .normalize(Normalizer.TScore())
-                .value()
-                .forEach((brokerID, value) -> brokersMetric.get(brokerID).inputTScore = value);
-          } else if (hasBrokerCost instanceof BrokerOutputCost) {
-            hasBrokerCost
-                .brokerCost(clusterInfo)
-                .value()
-                .forEach((brokerID, value) -> brokersMetric.get(brokerID).outputScore = value);
-            hasBrokerCost
-                .brokerCost(clusterInfo)
-                .normalize(Normalizer.TScore())
-                .value()
-                .forEach((brokerID, value) -> brokersMetric.get(brokerID).outputTScore = value);
-          } else if (hasBrokerCost instanceof CpuCost) {
-            hasBrokerCost
-                .brokerCost(clusterInfo)
-                .value()
-                .forEach((brokerID, value) -> brokersMetric.get(brokerID).cpuScore = value);
-            hasBrokerCost
-                .brokerCost(clusterInfo)
-                .normalize(Normalizer.TScore())
-                .value()
-                .forEach((brokerID, value) -> brokersMetric.get(brokerID).cpuTScore = value);
-          } else if (hasBrokerCost instanceof MemoryCost) {
-            hasBrokerCost
-                .brokerCost(clusterInfo)
-                .value()
-                .forEach((brokerID, value) -> brokersMetric.get(brokerID).memoryScore = value);
-            hasBrokerCost
-                .brokerCost(clusterInfo)
-                .normalize(Normalizer.TScore())
-                .value()
-                .forEach((brokerID, value) -> brokersMetric.get(brokerID).memoryTScore = value);
-          }
-        });
+    metricsCost.forEach(hasBrokerCost -> setBrokerMetrics(hasBrokerCost, clusterInfo));
 
     var entropyEmpowerment = weight(weightProvider, brokersMetric);
     var entropyEmpowermentSum =
@@ -133,6 +90,44 @@ public class NeutralIntegratedCost implements HasBrokerCost {
                                 * integratedEmpowerment.get(Metrics.memory.metricName)));
 
     return () -> integratedScore;
+  }
+
+  // Save the original value of each metric and the value of the metric after the TScore
+  // calculation.
+  void setBrokerMetrics(HasBrokerCost hasBrokerCost, ClusterInfo clusterInfo) {
+    if (hasBrokerCost instanceof BrokerInputCost) {
+      var inputBrokerCost = hasBrokerCost.brokerCost(clusterInfo);
+      inputBrokerCost
+          .value()
+          .forEach((brokerID, value) -> brokersMetric.get(brokerID).inputScore = value);
+      inputBrokerCost
+          .normalize(Normalizer.TScore())
+          .value()
+          .forEach((brokerID, value) -> brokersMetric.get(brokerID).inputTScore = value);
+    } else if (hasBrokerCost instanceof BrokerOutputCost) {
+      var outPutBrokerCost = hasBrokerCost.brokerCost(clusterInfo);
+      outPutBrokerCost
+          .value()
+          .forEach((brokerID, value) -> brokersMetric.get(brokerID).outputScore = value);
+      outPutBrokerCost
+          .normalize(Normalizer.TScore())
+          .value()
+          .forEach((brokerID, value) -> brokersMetric.get(brokerID).outputTScore = value);
+    } else if (hasBrokerCost instanceof CpuCost) {
+      var CPUBrokerCost = hasBrokerCost.brokerCost(clusterInfo);
+      CPUBrokerCost.value()
+          .forEach((brokerID, value) -> brokersMetric.get(brokerID).cpuScore = value);
+      CPUBrokerCost.normalize(Normalizer.TScore())
+          .value()
+          .forEach((brokerID, value) -> brokersMetric.get(brokerID).cpuTScore = value);
+    } else if (hasBrokerCost instanceof MemoryCost) {
+      var MemoryBrokerCost = hasBrokerCost.brokerCost(clusterInfo);
+      MemoryBrokerCost.value()
+          .forEach((brokerID, value) -> brokersMetric.get(brokerID).memoryScore = value);
+      MemoryBrokerCost.normalize(Normalizer.TScore())
+          .value()
+          .forEach((brokerID, value) -> brokersMetric.get(brokerID).memoryTScore = value);
+    }
   }
 
   static Map<String, Double> weight(
