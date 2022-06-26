@@ -79,19 +79,32 @@ class LayeredClusterLogAllocationTest {
     final var fakeClusterInfo =
         ClusterInfoProvider.fakeClusterInfo(3, 1, 1, 1, (i) -> Set.of("topic"));
     final var clusterLogAllocation = LayeredClusterLogAllocation.of(fakeClusterInfo);
-    final var sourceTopicPartition = TopicPartition.of("topic", "0");
+    final var sourceTopicPartition0 = TopicPartition.of("topic", "0");
 
-    clusterLogAllocation.migrateReplica(sourceTopicPartition, 0, 1, dataDirectory);
+    clusterLogAllocation.migrateReplica(sourceTopicPartition0, 0, 1, dataDirectory);
 
     Assertions.assertEquals(
-        1, clusterLogAllocation.logPlacements(sourceTopicPartition).get(0).broker());
+        1, clusterLogAllocation.logPlacements(sourceTopicPartition0).get(0).broker());
     Assertions.assertEquals(
         dataDirectory,
         clusterLogAllocation
-            .logPlacements(sourceTopicPartition)
+            .logPlacements(sourceTopicPartition0)
             .get(0)
             .logDirectory()
             .orElse(null));
+
+    final var sourceTopicPartition1 = TopicPartition.of("topic", "0");
+    clusterLogAllocation.migrateReplica(sourceTopicPartition1, 1, 1, dataDirectory);
+    Assertions.assertEquals(
+        1, clusterLogAllocation.logPlacements(sourceTopicPartition1).get(0).broker());
+    Assertions.assertEquals(
+        dataDirectory,
+        clusterLogAllocation
+            .logPlacements(sourceTopicPartition1)
+            .get(0)
+            .logDirectory()
+            .orElse(null));
+
     Assertions.assertDoesNotThrow(() -> LayeredClusterLogAllocation.of(clusterLogAllocation));
   }
 

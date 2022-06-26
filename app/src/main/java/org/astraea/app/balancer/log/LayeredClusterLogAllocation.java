@@ -176,11 +176,6 @@ public class LayeredClusterLogAllocation implements ClusterLogAllocation {
       throw new IllegalMigrationException(
           broker + " is not part of the replica set for " + topicPartition);
 
-    int destinationLogIndex = indexOfBroker(sourceLogPlacements, destinationBroker).orElse(-1);
-    if (destinationLogIndex != -1)
-      throw new IllegalArgumentException(
-          destinationBroker + " is already part of the replica set, no need to move");
-
     this.allocation.put(
         topicPartition,
         IntStream.range(0, sourceLogPlacements.size())
