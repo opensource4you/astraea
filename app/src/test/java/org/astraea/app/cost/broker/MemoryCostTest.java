@@ -120,6 +120,12 @@ public class MemoryCostTest extends RequireBrokerCluster {
             .build()) {
       Assertions.assertFalse(receiver.current().isEmpty());
       Assertions.assertTrue(receiver.current().stream().allMatch(o -> o instanceof JvmMemory));
+
+      // Test if we can get "used memory" and "max memory".
+      Assertions.assertTrue(
+          receiver.current().stream()
+              .map(o -> (JvmMemory) o)
+              .allMatch(mem -> mem.heapMemoryUsage().getUsed() <= mem.heapMemoryUsage().getMax()));
     }
   }
 

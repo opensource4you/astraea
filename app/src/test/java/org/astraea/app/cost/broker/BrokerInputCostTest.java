@@ -76,8 +76,21 @@ public class BrokerInputCostTest extends RequireBrokerCluster {
             .fetcher(new BrokerInputCost().fetcher())
             .build()) {
       Assertions.assertFalse(receiver.current().isEmpty());
+
+      // Test the fetched object's type, and its metric name.
       Assertions.assertTrue(
-          receiver.current().stream().allMatch(o -> o instanceof BrokerTopicMetricsResult));
+          receiver.current().stream()
+              .allMatch(
+                  o ->
+                      (o instanceof BrokerTopicMetricsResult)
+                          && (KafkaMetrics.BrokerTopic.BytesInPerSec.metricName()
+                              .equals(o.beanObject().getProperties().get("name")))));
+
+      // Test the fetched object's value.
+      Assertions.assertTrue(
+          receiver.current().stream()
+              .map(o -> (BrokerTopicMetricsResult) o)
+              .allMatch(result -> result.count() == 0));
     }
   }
 

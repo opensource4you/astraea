@@ -119,6 +119,13 @@ public class CpuCostTest extends RequireBrokerCluster {
       Assertions.assertFalse(receiver.current().isEmpty());
       Assertions.assertTrue(
           receiver.current().stream().allMatch(o -> o instanceof OperatingSystemInfo));
+
+      // Test if we can get the value between 0 ~ 1
+      Assertions.assertTrue(
+          receiver.current().stream()
+              .map(o -> (OperatingSystemInfo) o)
+              .allMatch(
+                  OSInfo -> (OSInfo.systemCpuLoad() <= 1.0) && (OSInfo.systemCpuLoad() >= 0.0)));
     }
   }
 
