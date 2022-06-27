@@ -1,5 +1,4 @@
-# Astraea
-a collection of tools used to balance Kafka data
+![alt text](https://github.com/skiptests/astraea/blob/main/logo/logo_with_background.png?raw=true)
 
 # Authors
 - Chia-Ping Tsai <chia7712@gmail.com>
@@ -97,7 +96,7 @@ There are 4 useful ENVs which can change JVM/container configuration.
 ### Run Node Exporter
 
 [Node Exporter](https://github.com/prometheus/node_exporter) is a famous utility for exporting machine metrics. It is 
-recommended using node exporter in conjunction with [Prometheus](#run-prometheus) to observe the test environment state.
+recommended using node exporter in conjunction with Prometheus to observe the test environment state.
 
 ```shell
 ./docker/start_node_exporter.sh
@@ -108,66 +107,10 @@ recommended using node exporter in conjunction with [Prometheus](#run-prometheus
 [INFO] node_exporter running at http://192.168.0.2:9100
 ```
 
-### Run Prometheus
-
-[Prometheus](https://github.com/prometheus/prometheus) is a famous application for monitor and gather time-series metrics. 
-
-#### Start Prometheus
-
-This project offers some scripts to set up Prometheus for your test environment quickly.
-
-If you have an exporter installed on your broker(all Kafka instances created by `start_broker.sh` will have JMX exporter installed),
-and [node exporter](#run-node-exporter) installed on your machine. You can follow the below instruction to observe the performance metrics
-of Kafka & your machine.
-
-For example. Assume you have two Kafka brokers, 
-
-* the first broker has an exporter running at `192.168.0.1:10558` 
-* the second broker has an exporter running at `192.168.0.2:10558`
-* the first machine has node exporter running at `192.168.0.1:9100`
-* the second machine has node exporter running at `192.168.0.2:9100`
-
-You can execute the following command to create a Prometheus instance that fetches data from the above 4 exporters.
-
-```shell
-./docker/start_prometheus.sh start
-```
-
-The console will show the http address of prometheus service, also some hints for you to set up Grafana. See next [section](#run-grafana) for
-further detail.
-
-```shell
-[INFO] Start existing prometheus instance
-prometheus-9090
-[INFO] =================================================
-[INFO] config file: /tmp/prometheus-9090.yml
-[INFO] prometheus address: http://192.168.0.2:9090
-[INFO] command to run grafana at this host: ./docker/start_grafana.sh start
-[INFO] command to add prometheus to grafana datasource: ./docker/start_grafana.sh add_prom_source <USERNAME>:<PASSWORD> Prometheus http://192.168.0.2:9090
-[INFO] =================================================
-```
-
-There are two ways to change the prometheus configuration.
-
-```shell
-# refresh prometheus config by command-line arguments
-./docker/start_prometheus.sh refresh host1:1111,host2:1111 host1:2222,host2:2222
-
-# refresh prometheus config by specific file
-./docker/start_prometheus.sh refresh ./path/to/config/file/prometheus.yml
-```
-
-#### Update Prometheus configuration
-
-To update your Prometheus configuration, there are two ways.
-
-1. Execute ``./docker/start_prometheus.sh refresh <kafka-exporter-addresses> <node-exporter-addresses>``.
-2. Go edit ``/tmp/prometheus-9090.yml``, and execute ``./docker/start_prometheus.sh refresh``.
-
 ### Run Grafana
 
 [Grafana](https://github.com/grafana/grafana) is a famous application for display system states. It is recommended to use Grafana
-in conjunction with [Prometheus](#run-prometheus) to observe the test environment state.
+in conjunction with Prometheus to observe the test environment state.
 
 #### Start Grafana
 
@@ -275,7 +218,7 @@ Run the tool from source code
 
 Run the tool from release
 ```shell
-java -jar app-0.0.1-SNAPSHOT-all.jar offset --bootstrap.servers 192.168.50.178:19993
+./docker/start_app.sh offset --bootstrap.servers 192.168.50.178:19993
 ```
 
 ### Offset Explorer Configurations
@@ -309,17 +252,17 @@ Run the tool from source code
 Run the tool from release
 ```shell
 # fetch every Mbeans from specific JMX server.
-java -jar app-0.0.1-SNAPSHOT-all.jar metrics --jmx.server 192.168.50.178:1099
+./docker/start_app.sh metrics --jmx.server 192.168.50.178:1099
 
 # fetch any Mbean that its object name contains property "type=Memory".
-java -jar app-0.0.1-SNAPSHOT-all.jar metrics --jmx.server 192.168.50.178:1099 --property type=Memory
+./docker/start_app.sh metrics --jmx.server 192.168.50.178:1099 --property type=Memory
 
 # fetch any Mbean that belongs to "kafka.network" domain name,
 # and it's object name contains two properties "request=Metadata" and "name=LocalTimeMs".
-java -jar app-0.0.1-SNAPSHOT-all.jar metrics --jmx.server 192.168.50.178:1099 --domain kafka.network --property request=Metadata --property name=LocalTimeMs
+./docker/start_app.sh metrics --jmx.server 192.168.50.178:1099 --domain kafka.network --property request=Metadata --property name=LocalTimeMs
 
 # list all Mbeans' object name on specific JMX server.
-java -jar app-0.0.1-SNAPSHOT-all.jar metrics --jmx.server 192.168.50.178:1099 --view-object-name-list
+./docker/start_app.sh metrics --jmx.server 192.168.50.178:1099 --view-object-name-list
 ```
 
 ### Metric Explorer Configurations
@@ -446,7 +389,7 @@ $ ./gradlew run --args="monitor --bootstrap.servers 192.168.103.39:9092"
 2. --port: the port used by web server
 
 ```shell
-./docker/start_kafka_tool.sh web --bootstrap.servers 192.168.50.178:19993 --port 12345"
+./docker/start_app.sh web --bootstrap.servers 192.168.50.178:19993 --port 12345"
 ```
 
 ## Query all topics 
@@ -468,3 +411,5 @@ GET http://localhost:12345/groups
 ```shell
 GET http://localhost:12345/groups/g1
 ```
+
+## [Astraea Web Server 中文文件連結](./docs/web_server/README.md)
