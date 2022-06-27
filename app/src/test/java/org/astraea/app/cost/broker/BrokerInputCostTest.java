@@ -61,8 +61,6 @@ public class BrokerInputCostTest extends RequireBrokerCluster {
     Assertions.assertEquals(10000.0, scores.get(1));
     Assertions.assertEquals(20000.0, scores.get(2));
     Assertions.assertEquals(5000.0, scores.get(3));
-
-    ClusterInfo clusterInfo2 = exampleClusterInfo(55555L, 25352L, 25000L);
   }
 
   @Test

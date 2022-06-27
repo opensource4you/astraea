@@ -36,7 +36,7 @@ import org.mockito.Mockito;
 
 public class BrokerOutPutCostTest extends RequireBrokerCluster {
   @Test
-  void testCost() throws InterruptedException {
+  void testCost() {
     ClusterInfo clusterInfo = exampleClusterInfo(10000L, 20000L, 5000L);
 
     var brokerOutputCost = new BrokerOutputCost();
