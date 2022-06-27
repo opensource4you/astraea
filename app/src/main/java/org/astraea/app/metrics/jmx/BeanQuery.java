@@ -21,8 +21,8 @@ import java.util.Hashtable;
 import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
-import javax.management.MalformedObjectNameException;
 import javax.management.ObjectName;
+import org.astraea.app.common.Utils;
 
 /**
  * MBean query class.
@@ -55,6 +55,29 @@ import javax.management.ObjectName;
  */
 public class BeanQuery {
 
+  public static Builder builder() {
+    return new Builder();
+  }
+
+  /**
+   * construct a {@link BeanQuery} that target all MBeans under every domain name
+   *
+   * @return a {@link BeanQuery} object that target all MBeans under every domain name
+   */
+  public static BeanQuery all() {
+    return builder().usePropertyListPattern().build();
+  }
+
+  /**
+   * construct a {@link BeanQuery} that target all MBeans under specific domain name
+   *
+   * @param domainName the domain name to query
+   * @return a {@link BeanQuery} object that target all MBeans under specific domain name
+   */
+  public static BeanQuery all(String domainName) {
+    return builder().domainName(domainName).usePropertyListPattern().build();
+  }
+
   private final String domainName;
   private final Map<String, String> properties;
   private final ObjectName objectName;
@@ -71,25 +94,19 @@ public class BeanQuery {
       String domainName, Map<String, String> properties, boolean usePropertyListPattern) {
     this.domainName = Objects.requireNonNull(domainName);
     this.properties = Map.copyOf(Objects.requireNonNull(properties));
-    try {
-      if (usePropertyListPattern) {
-        String propertyList =
-            properties.entrySet().stream()
-                .map((entry -> String.format("%s=%s", entry.getKey(), entry.getValue())))
-                .collect(Collectors.joining(","));
-        StringBuilder sb = new StringBuilder();
-        sb.append(domainName);
-        sb.append(":");
-        sb.append(propertyList);
-        sb.append((properties.size() > 0) ? ",*" : "*");
-        this.objectName = ObjectName.getInstance(sb.toString());
-      } else {
-        Hashtable<String, String> ht = new Hashtable<>(this.properties);
-        this.objectName = ObjectName.getInstance(domainName, ht);
-      }
-    } catch (MalformedObjectNameException e) {
-      throw new IllegalArgumentException(e);
-    }
+    this.objectName =
+        Utils.packException(
+            () -> {
+              if (usePropertyListPattern) {
+                var propertyList =
+                    properties.entrySet().stream()
+                        .map((entry -> String.format("%s=%s", entry.getKey(), entry.getValue())))
+                        .collect(Collectors.joining(","));
+                return ObjectName.getInstance(
+                    domainName + ":" + propertyList + ((properties.isEmpty()) ? "*" : ",*"));
+              }
+              return ObjectName.getInstance(domainName, new Hashtable<>(this.properties));
+            });
   }
 
   public String domainName() {
@@ -104,23 +121,13 @@ public class BeanQuery {
     return this.objectName;
   }
 
-  public static class BeanQueryBuilder {
+  public static class Builder {
 
-    private final String domainName;
-    private final Map<String, String> properties;
-    private boolean usePropertyListPattern;
+    private String domainName = "*";
+    private final Map<String, String> properties = new HashMap<>();
+    private boolean usePropertyListPattern = false;
 
-    BeanQueryBuilder(String domainName) {
-      this.domainName = domainName;
-      this.properties = new HashMap<>();
-      this.usePropertyListPattern = false;
-    }
-
-    BeanQueryBuilder(String domainName, Map<String, String> properties) {
-      this.domainName = domainName;
-      this.properties = new HashMap<>(properties);
-      this.usePropertyListPattern = false;
-    }
+    private Builder() {}
 
     /**
      * Apply new search property to the query being built.
@@ -130,10 +137,33 @@ public class BeanQuery {
      * @see <a
      *     href="https://docs.oracle.com/javase/7/docs/api/javax/management/ObjectName.html">ObjectName</a>
      *     for how Oracle documentation describe property.
-     * @return the current {@link BeanQueryBuilder} instance with the new property applied.
+     * @return the current {@link Builder} instance with the new property applied.
      */
-    public BeanQueryBuilder property(String key, String value) {
+    public Builder property(String key, String value) {
       this.properties.put(key, value);
+      return this;
+    }
+
+    public Builder properties(Map<String, String> properties) {
+      this.properties.putAll(properties);
+      return this;
+    }
+
+    /**
+     * construct a {@link Builder} that target specific domainName.
+     *
+     * <pre>{@code
+     * // A typical usage of BeanQuery#builder
+     * BeanQuery myQuery = BeanQuery.builder("java.lang")
+     *      .property("type", "Memory")
+     *      .build();
+     * }</pre>
+     *
+     * @param domainName the domain name to query
+     * @return a {@link BeanQuery} object that target all MBeans under specific domain name
+     */
+    public Builder domainName(String domainName) {
+      this.domainName = domainName;
       return this;
     }
 
@@ -147,9 +177,9 @@ public class BeanQuery {
      * @see <a
      *     href="https://docs.oracle.com/javase/7/docs/api/javax/management/ObjectName.html">ObjectName</a>
      *     for explanation of property list pattern from Oracle documentation.
-     * @return the current {@link BeanQueryBuilder} instance with property list pattern applied.
+     * @return the current {@link Builder} instance with property list pattern applied.
      */
-    public BeanQueryBuilder usePropertyListPattern() {
+    public Builder usePropertyListPattern() {
       this.usePropertyListPattern = true;
       return this;
     }
@@ -158,61 +188,11 @@ public class BeanQuery {
      * Build a {@link BeanQuery} object based on current builder state.
      *
      * @return a {@link BeanQuery} with specific MBeans domain name & properties, based on the
-     *     previous calling to {@link BeanQueryBuilder#property(String, String)}.
+     *     previous calling to {@link Builder#property(String, String)}.
      */
     public BeanQuery build() {
       return new BeanQuery(domainName, properties, usePropertyListPattern);
     }
-  }
-
-  /**
-   * construct a {@link BeanQuery} that target all MBeans under every domain name
-   *
-   * @return a {@link BeanQuery} object that target all MBeans under every domain name
-   */
-  public static BeanQuery all() {
-    return new BeanQueryBuilder("*").usePropertyListPattern().build();
-  }
-
-  /**
-   * construct a {@link BeanQuery} that target all MBeans under specific domain name
-   *
-   * @param domainName the domain name to query
-   * @return a {@link BeanQuery} object that target all MBeans under specific domain name
-   */
-  public static BeanQuery all(String domainName) {
-    return new BeanQueryBuilder(domainName).usePropertyListPattern().build();
-  }
-
-  /**
-   * construct a {@link BeanQueryBuilder} that target specific domainName.
-   *
-   * <pre>{@code
-   * // A typical usage of BeanQuery#builder
-   * BeanQuery myQuery = BeanQuery.builder("java.lang")
-   *      .property("type", "Memory")
-   *      .build();
-   * }</pre>
-   *
-   * @param domainName the query target domain name for Builder
-   * @return a {@link BeanQueryBuilder} that can be used to construct a query against specific MBean
-   *     domain name
-   */
-  public static BeanQueryBuilder builder(String domainName) {
-    return new BeanQueryBuilder(domainName);
-  }
-
-  /**
-   * construct a {@link BeanQueryBuilder} that target specific domainName. With some properties
-   * given already.
-   *
-   * @param domainName the query target domain name for Builder
-   * @param properties a {@link Map} of property entries, used to initialize the builder
-   * @return a {@link BeanQueryBuilder} that can be used to construct a query against specific MBean
-   *     domain name
-   */
-  public static BeanQueryBuilder builder(String domainName, Map<String, String> properties) {
-    return new BeanQueryBuilder(domainName, properties);
   }
 
   static BeanQuery fromObjectName(ObjectName objectName) {

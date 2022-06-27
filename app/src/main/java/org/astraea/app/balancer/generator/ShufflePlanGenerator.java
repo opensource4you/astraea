@@ -17,13 +17,12 @@
 package org.astraea.app.balancer.generator;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.astraea.app.admin.TopicPartition;
 import org.astraea.app.balancer.RebalancePlanProposal;
@@ -47,8 +46,6 @@ import org.astraea.app.cost.NodeInfo;
  *       LogManager#nextLogDirs method implementation in Apache Kafka server for more details.
  *   <li>Change the leader/follower of a partition by a member of this replica set, the original
  *       leader/follower becomes a follower/leader.
- *   <li>Change the data directory of one replica from current data directory to another on the
- *       current broker.
  * </ol>
  */
 public class ShufflePlanGenerator implements RebalancePlanGenerator {
@@ -71,33 +68,11 @@ public class ShufflePlanGenerator implements RebalancePlanGenerator {
     return ThreadLocalRandom.current().nextInt(0, migrationCandidates.size());
   }
 
-  private int migrationSelector(List<Movement> movementCandidates) {
-    // There are two kinds of Movement, each operating on different kind of candidate.
-    // * The Movement#replicaSetMovement selecting target by the broker ID
-    // * The Movement#dataDirectoryMovement selecting target by the data dir on the specific broker
-    // If we mix all these movements and randomly picking one as the selected migration, doing so
-    // will cause fairness issue. Given a concrete example, there are 100 brokers, and each broker
-    // have 3 data directories. Now the leader log of a topic/partition with 3 replicas is being
-    // selected. How many possible migrations over here? The Answer is:
-    // 1. 99 from Movement#replicaSetMigration since the leader log can move to any other broker.
-    // 2. 2 from Movement#dataDirectoryMigration since the leader log can move to the other 2 dirs.
-    // So there are 101 possible migrations. But these "two ways" of migration have different
-    // probability to occur. We can expect a large number of replica set changes occur but only a
-    // few for the data directory migration. This will make the ShufflePlanGenerator hard to address
-    // specific kind of balance issue due to <strong>it rarely propose them</strong>.
-    final var migrationTypeList =
-        IntStream.range(0, movementCandidates.size())
-            .mapToObj(i -> Map.entry(movementCandidates.get(i).getClass(), i))
-            .collect(
-                Collectors.groupingBy(
-                    Map.Entry::getKey,
-                    Collectors.mapping(Map.Entry::getValue, Collectors.toUnmodifiableList())))
-            .values()
-            .stream()
-            .collect(Collectors.toUnmodifiableList());
-    final var selectedMigration =
-        migrationTypeList.get(ThreadLocalRandom.current().nextInt(0, migrationTypeList.size()));
-    return selectedMigration.get(ThreadLocalRandom.current().nextInt(0, selectedMigration.size()));
+  private <T> T randomElement(Collection<T> collection) {
+    return collection.stream()
+        .skip(ThreadLocalRandom.current().nextInt(0, collection.size()))
+        .findFirst()
+        .orElseThrow();
   }
 
   @Override
@@ -147,14 +122,17 @@ public class ShufflePlanGenerator implements RebalancePlanGenerator {
 
             Consumer<Integer> replicaSetMigration =
                 (targetBroker) -> {
-                  newAllocation.migrateReplica(sourceTopicPartition, sourceBroker, targetBroker);
+                  var destDir = randomElement(clusterInfo.dataDirectories(targetBroker));
+                  newAllocation.migrateReplica(
+                      sourceTopicPartition, sourceBroker, targetBroker, destDir);
                   rebalancePlanBuilder.addInfo(
                       String.format(
-                          "Change replica set of topic %s partition %d, from %d to %d.",
+                          "Change replica set of topic %s partition %d, from %d to %d at %s.",
                           sourceTopicPartition.topic(),
                           sourceTopicPartition.partition(),
                           sourceLogPlacement.broker(),
-                          targetBroker));
+                          targetBroker,
+                          destDir));
                 };
             Consumer<LogPlacement> leaderFollowerMigration =
                 (newLeaderReplicaCandidate) -> {
@@ -168,19 +146,6 @@ public class ShufflePlanGenerator implements RebalancePlanGenerator {
                           sourceLogPlacement.broker(),
                           sourceIsLeader ? "leader" : "follower",
                           sourceIsLeader ? "follower" : "leader"));
-                };
-            Consumer<String> dataDirectoryMigration =
-                (dataDirectory) -> {
-                  newAllocation.changeDataDirectory(
-                      sourceTopicPartition, sourceBroker, dataDirectory);
-                  rebalancePlanBuilder.addInfo(
-                      String.format(
-                          "Change the data directory of topic %s partition %d replica at broker %d, from %s to %s",
-                          sourceTopicPartition.topic(),
-                          sourceTopicPartition.partition(),
-                          sourceLogPlacement.broker(),
-                          sourceLogPlacement.logDirectory().map(Object::toString).orElse("unknown"),
-                          dataDirectory));
                 };
 
             // generate a set of valid migration broker for given placement.
@@ -210,16 +175,10 @@ public class ShufflePlanGenerator implements RebalancePlanGenerator {
                         () -> leaderFollowerMigration.accept(sourceLogPlacement)));
               }
             }
-            // [Valid movement 3] change the data directory of selected replica
-            clusterInfo.dataDirectories(sourceLogPlacement.broker()).stream()
-                .filter(dir -> !dir.equals(sourceLogPlacement.logDirectory().orElse(null)))
-                .map(dir -> (Runnable) () -> dataDirectoryMigration.accept(dir))
-                .map(Movement::dataDirectoryMovement)
-                .forEach(validMigrationCandidates::add);
 
             // pick a migration and execute
-            final var selectedMigrationIndex = migrationSelector(validMigrationCandidates);
-            validMigrationCandidates.get(selectedMigrationIndex).run();
+            final var selectedMigrationIndex = randomElement(validMigrationCandidates);
+            selectedMigrationIndex.run();
           }
 
           return rebalancePlanBuilder.withRebalancePlan(newAllocation).build();
@@ -231,13 +190,7 @@ public class ShufflePlanGenerator implements RebalancePlanGenerator {
     static ReplicaSetMovement replicaSetMovement(Runnable runnable) {
       return runnable::run;
     }
-
-    static DataDirectoryMovement dataDirectoryMovement(Runnable runnable) {
-      return runnable::run;
-    }
   }
 
   interface ReplicaSetMovement extends Movement {}
-
-  interface DataDirectoryMovement extends Movement {}
 }

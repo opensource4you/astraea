@@ -68,10 +68,9 @@ public class ProducerTest extends RequireBrokerCluster {
     }
 
     try (var consumer =
-        Consumer.builder()
+        Consumer.forTopics(Set.of(topicName))
             .bootstrapServers(bootstrapServers())
             .fromBeginning()
-            .topics(Set.of(topicName))
             .keyDeserializer(Deserializer.STRING)
             .build()) {
       var records = consumer.poll(Duration.ofSeconds(10));
@@ -112,10 +111,9 @@ public class ProducerTest extends RequireBrokerCluster {
     }
 
     try (var consumer =
-        Consumer.builder()
+        Consumer.forTopics(Set.of(topicName))
             .bootstrapServers(bootstrapServers())
             .fromBeginning()
-            .topics(Set.of(topicName))
             .keyDeserializer(Deserializer.STRING)
             .isolation(Isolation.READ_COMMITTED)
             .build()) {
@@ -144,10 +142,9 @@ public class ProducerTest extends RequireBrokerCluster {
     producer.sender().topic(topic).value(new byte[10]).run().toCompletableFuture().get();
 
     try (var consumer =
-        Consumer.builder()
+        Consumer.forTopics(Set.of(topic))
             .bootstrapServers(bootstrapServers())
             .fromBeginning()
-            .topics(Set.of(topic))
             .isolation(
                 producer.transactional() ? Isolation.READ_COMMITTED : Isolation.READ_UNCOMMITTED)
             .build()) {
@@ -171,10 +168,9 @@ public class ProducerTest extends RequireBrokerCluster {
     latch.await();
 
     try (var consumer =
-        Consumer.builder()
+        Consumer.forTopics(Set.of(topic))
             .bootstrapServers(bootstrapServers())
             .fromBeginning()
-            .topics(Set.of(topic))
             .isolation(
                 producer.transactional() ? Isolation.READ_COMMITTED : Isolation.READ_UNCOMMITTED)
             .build()) {

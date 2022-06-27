@@ -27,7 +27,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.astraea.app.admin.Admin;
-import org.astraea.app.admin.BeansGetter;
+import org.astraea.app.admin.ClusterBean;
 import org.astraea.app.metrics.HasBeanObject;
 import org.astraea.app.metrics.collector.BeanCollector;
 import org.astraea.app.metrics.collector.Fetcher;
@@ -163,8 +163,8 @@ class NumberOfLeaderCostTest extends RequireBrokerCluster {
     Collection<HasBeanObject> broker3 = List.of(LeaderCount3);
     return new FakeClusterInfo() {
       @Override
-      public BeansGetter beans() {
-        return BeansGetter.of(Map.of(1, broker1, 2, broker2, 3, broker3));
+      public ClusterBean clusterBean() {
+        return ClusterBean.of(Map.of(1, broker1, 2, broker2, 3, broker3));
       }
     };
   }

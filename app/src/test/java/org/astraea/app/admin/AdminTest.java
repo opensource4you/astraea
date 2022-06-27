@@ -34,6 +34,7 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 import org.apache.kafka.common.config.TopicConfig;
+import org.apache.kafka.common.errors.GroupNotEmptyException;
 import org.astraea.app.common.Utils;
 import org.astraea.app.consumer.Consumer;
 import org.astraea.app.consumer.Deserializer;
@@ -155,11 +156,6 @@ public class AdminTest extends RequireBrokerCluster {
                 Assertions.assertEquals(0, offset.earliest());
                 Assertions.assertEquals(0, offset.latest());
               });
-
-      admin.creator().topic("a").numberOfPartitions(3).create();
-      // wait for syncing topic creation
-      TimeUnit.SECONDS.sleep(3);
-      Assertions.assertEquals(6, admin.offsets().size());
     }
   }
 
@@ -170,9 +166,8 @@ public class AdminTest extends RequireBrokerCluster {
     try (var admin = Admin.of(bootstrapServers())) {
       admin.creator().topic(topicName).numberOfPartitions(3).create();
       try (var c1 =
-          Consumer.builder()
+          Consumer.forTopics(Set.of(topicName))
               .bootstrapServers(bootstrapServers())
-              .topics(Set.of(topicName))
               .groupId(consumerGroup)
               .build()) {
         // wait for syncing topic creation
@@ -183,9 +178,8 @@ public class AdminTest extends RequireBrokerCluster {
         Assertions.assertEquals(consumerGroup, consumerGroupMap.get(consumerGroup).groupId());
 
         try (var c2 =
-            Consumer.builder()
+            Consumer.forTopics(Set.of(topicName))
                 .bootstrapServers(bootstrapServers())
-                .topics(Set.of(topicName))
                 .groupId("abc")
                 .build()) {
           var count =
@@ -319,12 +313,11 @@ public class AdminTest extends RequireBrokerCluster {
       TimeUnit.SECONDS.sleep(3);
 
       try (var consumer =
-          Consumer.builder()
+          Consumer.forTopics(Set.of(topicName))
               .keyDeserializer(Deserializer.STRING)
               .valueDeserializer(Deserializer.STRING)
               .fromBeginning()
               .bootstrapServers(bootstrapServers())
-              .topics(Set.of(topicName))
               .build()) {
 
         var records =
@@ -804,8 +797,9 @@ public class AdminTest extends RequireBrokerCluster {
 
       var transaction = admin.transactions().get(producer.transactionId().get());
       Assertions.assertNotNull(transaction);
-      Assertions.assertEquals(TransactionState.COMPLETE_COMMIT, transaction.state());
-      Assertions.assertEquals(0, transaction.topicPartitions().size());
+      Assertions.assertEquals(
+          transaction.state() == TransactionState.COMPLETE_COMMIT ? 0 : 1,
+          transaction.topicPartitions().size());
     }
   }
 
@@ -830,8 +824,107 @@ public class AdminTest extends RequireBrokerCluster {
 
       var transaction = admin.transactions().get(producer.transactionId().get());
       Assertions.assertNotNull(transaction);
-      Assertions.assertEquals(TransactionState.COMPLETE_COMMIT, transaction.state());
-      Assertions.assertEquals(0, transaction.topicPartitions().size());
+      Assertions.assertEquals(
+          transaction.state() == TransactionState.COMPLETE_COMMIT ? 0 : 1,
+          transaction.topicPartitions().size());
+    }
+  }
+
+  @Test
+  void testRemoveAllMembers() {
+    var topicName = Utils.randomString(10);
+    try (var admin = Admin.of(bootstrapServers());
+        var producer = Producer.builder().bootstrapServers(bootstrapServers()).build();
+        var consumer =
+            Consumer.forTopics(Set.of(topicName))
+                .bootstrapServers(bootstrapServers())
+                .fromBeginning()
+                .build()) {
+      producer.sender().topic(topicName).key(new byte[10]).run();
+      producer.flush();
+      Assertions.assertEquals(1, consumer.poll(1, Duration.ofSeconds(5)).size());
+
+      producer.sender().topic(topicName).key(new byte[10]).run();
+      producer.flush();
+      admin.removeAllMembers(consumer.groupId());
+      Assertions.assertEquals(
+          0,
+          admin
+              .consumerGroups(Set.of(consumer.groupId()))
+              .get(consumer.groupId())
+              .activeMembers()
+              .size());
+    }
+  }
+
+  @Test
+  void testRemoveStaticMembers() {
+    var topicName = Utils.randomString(10);
+    var staticId = Utils.randomString(10);
+    try (var admin = Admin.of(bootstrapServers());
+        var producer = Producer.builder().bootstrapServers(bootstrapServers()).build();
+        var consumer =
+            Consumer.forTopics(Set.of(topicName))
+                .bootstrapServers(bootstrapServers())
+                .groupInstanceId(staticId)
+                .fromBeginning()
+                .build()) {
+      producer.sender().topic(topicName).key(new byte[10]).run();
+      producer.flush();
+      Assertions.assertEquals(1, consumer.poll(1, Duration.ofSeconds(5)).size());
+
+      producer.sender().topic(topicName).key(new byte[10]).run();
+      producer.flush();
+      admin.removeStaticMembers(consumer.groupId(), Set.of(consumer.groupInstanceId().get()));
+      Assertions.assertEquals(
+          0,
+          admin
+              .consumerGroups(Set.of(consumer.groupId()))
+              .get(consumer.groupId())
+              .activeMembers()
+              .size());
+    }
+  }
+
+  @Test
+  void testRemoveGroupWithDynamicMembers() {
+    var groupId = Utils.randomString(10);
+    var topicName = Utils.randomString(10);
+    try (var consumer =
+        Consumer.forTopics(Set.of(topicName))
+            .bootstrapServers(bootstrapServers())
+            .groupId(groupId)
+            .build()) {
+      Assertions.assertEquals(0, consumer.poll(Duration.ofSeconds(3)).size());
+    }
+    try (var admin = Admin.of(bootstrapServers())) {
+      Assertions.assertTrue(admin.consumerGroupIds().contains(groupId));
+      admin.removeGroup(groupId);
+      Assertions.assertFalse(admin.consumerGroupIds().contains(groupId));
+    }
+  }
+
+  @Test
+  void testRemoveGroupWithStaticMembers() throws InterruptedException, ExecutionException {
+    var groupId = Utils.randomString(10);
+    var topicName = Utils.randomString(10);
+    try (var consumer =
+        Consumer.forTopics(Set.of(topicName))
+            .bootstrapServers(bootstrapServers())
+            .groupId(groupId)
+            .groupInstanceId(Utils.randomString(10))
+            .build()) {
+      Assertions.assertEquals(0, consumer.poll(Duration.ofSeconds(3)).size());
+    }
+
+    try (var admin = Admin.of(bootstrapServers())) {
+      Assertions.assertTrue(admin.consumerGroupIds().contains(groupId));
+      // the static member is existent
+      Assertions.assertThrows(GroupNotEmptyException.class, () -> admin.removeGroup(groupId));
+      // cleanup members
+      admin.removeAllMembers(groupId);
+      admin.removeGroup(groupId);
+      Assertions.assertFalse(admin.consumerGroupIds().contains(groupId));
     }
   }
 }

@@ -1,5 +1,4 @@
-# Astraea
-a collection of tools used to balance Kafka data
+![alt text](https://github.com/skiptests/astraea/blob/main/logo/logo_with_background.png?raw=true)
 
 # Authors
 - Chia-Ping Tsai <chia7712@gmail.com>

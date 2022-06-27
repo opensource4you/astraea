@@ -1,6 +1,8 @@
 /producers
 ===
 
+producers APIs 可以幫助我們查看啟動 idempotent/transaction 行為的 producers
+
 - [查詢 producers](#查詢-producers)
 
 ## 查詢 producers

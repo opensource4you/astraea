@@ -28,24 +28,8 @@ public class TopicPartitionReplica implements Comparable<TopicPartitionReplica> 
         tpr.topic, tpr.partition, tpr.brokerId());
   }
 
-  public static TopicPartitionReplica of(String topic, String partition, int brokerId) {
-    return of(brokerId + ": " + topic + "-" + partition);
-  }
-
-  public static TopicPartitionReplica of(String value) {
-    var b = value.lastIndexOf(":");
-    var lhs = value.lastIndexOf("-");
-    if (b <= 0 || b == value.length() - 1 || lhs <= 0 || lhs == value.length() - 1)
-      throw new IllegalArgumentException(
-          value + " has illegal format. It should be {brokerId}:{topic}-{partition}");
-    try {
-      return new TopicPartitionReplica(
-          value.substring(b + 1, lhs),
-          Integer.parseInt(value.substring(lhs + 1)),
-          Integer.parseInt(value.substring(0, b)));
-    } catch (NumberFormatException e) {
-      throw new IllegalArgumentException("broker id and partition id must be number");
-    }
+  public static TopicPartitionReplica of(String topic, int partition, int brokerId) {
+    return new TopicPartitionReplica(topic, partition, brokerId);
   }
 
   private final int brokerId;
@@ -60,11 +44,11 @@ public class TopicPartitionReplica implements Comparable<TopicPartitionReplica> 
 
   @Override
   public int compareTo(TopicPartitionReplica o) {
+    var b = Integer.compare(brokerId, o.brokerId);
+    if (b != 0) return b;
     var t = topic.compareTo(o.topic);
     if (t != 0) return t;
-    var r = Integer.compare(partition, o.partition);
-    if (r != 0) return r;
-    return Integer.compare(brokerId, o.brokerId);
+    return Integer.compare(partition, o.partition);
   }
 
   public int brokerId() {
@@ -81,12 +65,12 @@ public class TopicPartitionReplica implements Comparable<TopicPartitionReplica> 
 
   @Override
   public int hashCode() {
-    return Objects.hash(topic, partition, brokerId);
+    return Objects.hash(brokerId, topic, partition);
   }
 
   @Override
   public String toString() {
-    return brokerId + ": " + topic + "-" + partition;
+    return String.format("%d-%s-%d", brokerId, topic, partition);
   }
 
   @Override

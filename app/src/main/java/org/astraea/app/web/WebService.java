@@ -20,8 +20,13 @@ import com.beust.jcommander.Parameter;
 import com.sun.net.httpserver.HttpServer;
 import java.io.IOException;
 import java.net.InetSocketAddress;
+import java.util.Map;
+import java.util.NoSuchElementException;
+import java.util.Optional;
+import java.util.function.Function;
 import org.astraea.app.admin.Admin;
 import org.astraea.app.argument.NonNegativeIntegerField;
+import org.astraea.app.argument.StringMapField;
 
 public class WebService {
 
@@ -37,7 +42,10 @@ public class WebService {
     server.createContext("/producers", new ProducerHandler(Admin.of(arg.configs())));
     server.createContext("/quotas", new QuotaHandler(Admin.of(arg.configs())));
     server.createContext("/pipelines", new PipelineHandler(Admin.of(arg.configs())));
-    server.createContext("/transaction", new TransactionHandler(Admin.of(arg.configs())));
+    server.createContext("/transactions", new TransactionHandler(Admin.of(arg.configs())));
+    if (arg.needJmx())
+      server.createContext("/beans", new BeanHandler(Admin.of(arg.configs()), arg.jmxPorts()));
+    server.createContext("/records", new RecordHandler(arg.bootstrapServers()));
     server.start();
   }
 
@@ -48,5 +56,31 @@ public class WebService {
         validateWith = NonNegativeIntegerField.class,
         converter = NonNegativeIntegerField.class)
     int port = 8001;
+
+    @Parameter(
+        names = {"--jmx.port"},
+        description = "Integer: the port to query JMX for each server",
+        validateWith = NonNegativeIntegerField.class,
+        converter = NonNegativeIntegerField.class)
+    int jmxPort = -1;
+
+    @Parameter(
+        names = {"--jmx.ports"},
+        description = "Map: the jmx port for each node. For example: 192.168.50.2=19999",
+        validateWith = StringMapField.class,
+        converter = StringMapField.class)
+    Map<String, String> jmxPorts = Map.of();
+
+    boolean needJmx() {
+      return jmxPort > 0 || !jmxPorts.isEmpty();
+    }
+
+    Function<String, Integer> jmxPorts() {
+      return name ->
+          Optional.of(jmxPorts.getOrDefault(name, String.valueOf(jmxPort)))
+              .map(Integer::valueOf)
+              .filter(i -> i > 0)
+              .orElseThrow(() -> new NoSuchElementException(name + " has no jmx port"));
+    }
   }
 }

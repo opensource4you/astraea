@@ -25,7 +25,7 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.stream.Collectors;
-import org.astraea.app.admin.BeansGetter;
+import org.astraea.app.admin.ClusterBean;
 import org.astraea.app.metrics.HasBeanObject;
 
 public interface ClusterInfo {
@@ -89,8 +89,8 @@ public interface ClusterInfo {
       }
 
       @Override
-      public BeansGetter beans() {
-        return BeansGetter.of(Map.of());
+      public ClusterBean clusterBean() {
+        return ClusterBean.of(Map.of());
       }
     };
   }
@@ -105,8 +105,8 @@ public interface ClusterInfo {
   static ClusterInfo of(ClusterInfo cluster, Map<Integer, Collection<HasBeanObject>> beans) {
     var all = new HashMap<Integer, List<HasBeanObject>>();
     cluster
-        .beans()
-        .broker()
+        .clusterBean()
+        .all()
         .forEach((key, value) -> all.computeIfAbsent(key, k -> new ArrayList<>()).addAll(value));
     beans.forEach((key, value) -> all.computeIfAbsent(key, k -> new ArrayList<>()).addAll(value));
     return new ClusterInfo() {
@@ -142,8 +142,8 @@ public interface ClusterInfo {
       }
 
       @Override
-      public BeansGetter beans() {
-        return BeansGetter.of(Collections.unmodifiableMap(all));
+      public ClusterBean clusterBean() {
+        return ClusterBean.of(Collections.unmodifiableMap(all));
       }
     };
   }
@@ -222,6 +222,6 @@ public interface ClusterInfo {
    */
   List<ReplicaInfo> replicas(String topic);
 
-  /** @return */
-  BeansGetter beans();
+  /** @return a {@link ClusterBean} used to get beanObject using a variety of different keys. */
+  ClusterBean clusterBean();
 }

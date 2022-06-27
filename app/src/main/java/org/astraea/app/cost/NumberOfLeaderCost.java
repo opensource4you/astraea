@@ -42,7 +42,7 @@ public class NumberOfLeaderCost implements HasBrokerCost {
   @Override
   public BrokerCost brokerCost(ClusterInfo clusterInfo) {
     var leaderCount =
-        clusterInfo.beans().broker().entrySet().stream()
+        clusterInfo.clusterBean().all().entrySet().stream()
             .flatMap(
                 e ->
                     e.getValue().stream()

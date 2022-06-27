@@ -34,7 +34,7 @@ public class MetricsTest {
     for (int i = 0; i < num; ++i) {
       long next = rand.nextInt();
       avg += ((double) next - avg) / (i + 1);
-      metrics.accept(next, 0L);
+      metrics.accept(next, 0);
     }
 
     Assertions.assertEquals(avg, metrics.avgLatency());
@@ -45,7 +45,7 @@ public class MetricsTest {
     var metrics = new Metrics();
 
     Assertions.assertEquals(0, metrics.bytes());
-    metrics.accept(0L, 1000L);
+    metrics.accept(0L, 1000);
     Assertions.assertEquals(1000, metrics.bytes());
   }
 
@@ -54,8 +54,8 @@ public class MetricsTest {
     var metrics = new Metrics();
 
     Assertions.assertEquals(0, metrics.clearAndGetCurrentBytes());
-    metrics.accept(0L, 100L);
-    metrics.accept(0L, 101L);
+    metrics.accept(0L, 100);
+    metrics.accept(0L, 101);
     Assertions.assertEquals(201, metrics.clearAndGetCurrentBytes());
     Assertions.assertEquals(0, metrics.clearAndGetCurrentBytes());
   }

@@ -21,7 +21,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import org.astraea.app.admin.BeansGetter;
+import org.astraea.app.admin.ClusterBean;
 import org.astraea.app.admin.TopicPartition;
 import org.astraea.app.metrics.HasBeanObject;
 import org.astraea.app.metrics.jmx.BeanObject;
@@ -75,20 +75,22 @@ class ReplicaDiskInCostTest extends RequireBrokerCluster {
 
   private ClusterInfo exampleClusterInfo() {
     var oldTP1_0 =
-        mockResult(
+        fakeBeanObject(
             "Log", KafkaMetrics.TopicPartition.Size.metricName(), "test-1", "0", 1000, 1000L);
     var newTP1_0 =
-        mockResult(
+        fakeBeanObject(
             "Log", KafkaMetrics.TopicPartition.Size.metricName(), "test-1", "0", 50000000, 5000L);
     var oldTP1_1 =
-        mockResult("Log", KafkaMetrics.TopicPartition.Size.metricName(), "test-1", "1", 500, 1000L);
+        fakeBeanObject(
+            "Log", KafkaMetrics.TopicPartition.Size.metricName(), "test-1", "1", 500, 1000L);
     var newTP1_1 =
-        mockResult(
+        fakeBeanObject(
             "Log", KafkaMetrics.TopicPartition.Size.metricName(), "test-1", "1", 100000000, 5000L);
     var oldTP2_0 =
-        mockResult("Log", KafkaMetrics.TopicPartition.Size.metricName(), "test-2", "0", 200, 1000L);
+        fakeBeanObject(
+            "Log", KafkaMetrics.TopicPartition.Size.metricName(), "test-2", "0", 200, 1000L);
     var newTP2_0 =
-        mockResult(
+        fakeBeanObject(
             "Log", KafkaMetrics.TopicPartition.Size.metricName(), "test-2", "0", 40000000, 5000L);
     /*
     test replica distribution :
@@ -125,13 +127,13 @@ class ReplicaDiskInCostTest extends RequireBrokerCluster {
       }
 
       @Override
-      public BeansGetter beans() {
-        return BeansGetter.of(Map.of(1, broker1, 2, broker2, 3, broker3));
+      public ClusterBean clusterBean() {
+        return ClusterBean.of(Map.of(1, broker1, 2, broker2, 3, broker3));
       }
     };
   }
 
-  private HasValue mockResult(
+  private HasValue fakeBeanObject(
       String type, String name, String topic, String partition, long size, long time) {
     BeanObject beanObject =
         new BeanObject(

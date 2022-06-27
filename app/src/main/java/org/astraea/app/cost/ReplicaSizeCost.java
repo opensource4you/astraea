@@ -20,8 +20,8 @@ import java.util.Comparator;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
-import org.apache.kafka.common.TopicPartitionReplica;
 import org.astraea.app.admin.TopicPartition;
+import org.astraea.app.admin.TopicPartitionReplica;
 import org.astraea.app.metrics.collector.Fetcher;
 import org.astraea.app.metrics.kafka.HasValue;
 import org.astraea.app.metrics.kafka.KafkaMetrics;
@@ -163,25 +163,16 @@ public class ReplicaSizeCost implements HasBrokerCost, HasPartitionCost {
    * @return a map contain the replica log size of each topic/partition
    */
   public Map<TopicPartitionReplica, Long> getReplicaSize(ClusterInfo clusterInfo) {
-    return clusterInfo.beans().broker().entrySet().stream()
+    return clusterInfo.clusterBean().mapByReplica().entrySet().stream()
         .flatMap(
-            brokerBeanObjects ->
-                brokerBeanObjects.getValue().stream()
+            e ->
+                e.getValue().stream()
                     .filter(x -> x instanceof HasValue)
+                    .filter(x -> x.beanObject().domainName().equals("kafka.log"))
                     .filter(x -> x.beanObject().getProperties().get("type").equals("Log"))
                     .filter(x -> x.beanObject().getProperties().get("name").equals("Size"))
                     .map(x -> (HasValue) x)
-                    .collect(
-                        Collectors.toMap(
-                            x ->
-                                new TopicPartitionReplica(
-                                    x.beanObject().getProperties().get("topic"),
-                                    Integer.parseInt(
-                                        x.beanObject().getProperties().get("partition")),
-                                    brokerBeanObjects.getKey()),
-                            HasValue::value))
-                    .entrySet()
-                    .stream())
+                    .map(x -> Map.entry(e.getKey(), x.value())))
         .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
   }
 }

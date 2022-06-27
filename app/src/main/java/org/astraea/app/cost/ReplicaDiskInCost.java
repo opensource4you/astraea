@@ -18,13 +18,12 @@ package org.astraea.app.cost;
 
 import java.time.Duration;
 import java.util.Comparator;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
-import org.apache.kafka.common.TopicPartitionReplica;
 import org.astraea.app.admin.TopicPartition;
+import org.astraea.app.admin.TopicPartitionReplica;
 import org.astraea.app.metrics.HasBeanObject;
 import org.astraea.app.metrics.collector.Fetcher;
 import org.astraea.app.metrics.kafka.HasValue;
@@ -84,89 +83,19 @@ public class ReplicaDiskInCost implements HasBrokerCost, HasPartitionCost {
     return () -> brokerLoad;
   }
 
-  /**
-   * Calculate the maximum increase rate of each topic/partition, across the whole cluster.
-   *
-   * @param clusterInfo the clusterInfo that offers the metrics related to topic/partition size
-   * @param sampleWindow the time interval for calculating the data rate, noted that if the metrics
-   *     doesn't have the sufficient old metric then an exception will likely be thrown.
-   * @return a map contain the maximum increase rate of each topic/partition log
-   */
-  public static Map<TopicPartition, Double> topicPartitionDataRate(
-      ClusterInfo clusterInfo, Duration sampleWindow) {
-    return clusterInfo.beans().broker().entrySet().parallelStream()
-        .map(
-            entry ->
-                entry.getValue().parallelStream()
-                    .filter(bean -> bean instanceof HasValue)
-                    .filter(bean -> bean.beanObject().getProperties().get("type").equals("Log"))
-                    .filter(bean -> bean.beanObject().getProperties().get("name").equals("Size"))
-                    .map(bean -> (HasValue) bean)
-                    .collect(
-                        Collectors.groupingBy(
-                            bean ->
-                                TopicPartition.of(
-                                    bean.beanObject().getProperties().get("topic"),
-                                    String.valueOf(
-                                        Integer.parseInt(
-                                            bean.beanObject().getProperties().get("partition"))))))
-                    .entrySet()
-                    .parallelStream()
-                    .map(
-                        metrics -> {
-                          // calculate the increase rate over a specific window of time
-                          var sizeTimeSeries =
-                              metrics.getValue().stream()
-                                  .sorted(
-                                      Comparator.comparingLong(HasBeanObject::createdTimestamp)
-                                          .reversed())
-                                  .collect(Collectors.toUnmodifiableList());
-                          var latestSize = sizeTimeSeries.stream().findFirst().orElseThrow();
-                          var windowSize =
-                              sizeTimeSeries.stream()
-                                  .dropWhile(
-                                      bean ->
-                                          bean.createdTimestamp()
-                                              > latestSize.createdTimestamp()
-                                                  - sampleWindow.toMillis())
-                                  .findFirst()
-                                  .orElseThrow(
-                                      () ->
-                                          new IllegalStateException(
-                                              "No sufficient info to determine data rate, try later."));
-                          var dataRate =
-                              ((double) (latestSize.value() - windowSize.value()))
-                                  / ((double)
-                                          (latestSize.createdTimestamp()
-                                              - windowSize.createdTimestamp())
-                                      / 1000);
-                          return Map.entry(metrics.getKey(), dataRate);
-                        })
-                    .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue)))
-        .flatMap(logSizeMap -> logSizeMap.entrySet().stream())
-        .collect(
-            Collectors.groupingBy(
-                Map.Entry::getKey,
-                Collectors.mapping(
-                    Map.Entry::getValue, Collectors.maxBy(Comparator.comparingDouble(x -> x)))))
-        .entrySet()
-        .parallelStream()
-        .map(x -> Map.entry(x.getKey(), x.getValue().orElseThrow()))
-        .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));
-  }
-
+  @Override
   public PartitionCost partitionCost(ClusterInfo clusterInfo) {
-    var replicaIn = replicaInCount(clusterInfo);
-    var dataInRate =
+    var replicaIn = replicaDataRate(clusterInfo, Duration.ofSeconds(2));
+    var replicaScore =
         new TreeMap<TopicPartitionReplica, Double>(
             Comparator.comparing(TopicPartitionReplica::brokerId)
                 .thenComparing(TopicPartitionReplica::topic)
                 .thenComparing(TopicPartitionReplica::partition));
     replicaIn.forEach(
         (tpr, rate) -> {
-          var score = rate / brokerBandwidthCap.get(tpr.brokerId());
+          var score = rate / brokerBandwidthCap.get(tpr.brokerId()) / 1024.0 / 1024.0;
           if (score >= 1) score = 1;
-          dataInRate.put(tpr, score);
+          replicaScore.put(tpr, score);
         });
     var scoreForTopic =
         clusterInfo.topics().stream()
@@ -174,7 +103,7 @@ public class ReplicaDiskInCost implements HasBrokerCost, HasPartitionCost {
                 topic ->
                     Map.entry(
                         topic,
-                        dataInRate.entrySet().stream()
+                        replicaScore.entrySet().stream()
                             .filter(x -> x.getKey().topic().equals(topic))
                             .collect(
                                 Collectors.groupingBy(
@@ -202,7 +131,7 @@ public class ReplicaDiskInCost implements HasBrokerCost, HasPartitionCost {
                 node ->
                     Map.entry(
                         node.id(),
-                        dataInRate.entrySet().stream()
+                        replicaScore.entrySet().stream()
                             .filter(x -> x.getKey().brokerId() == node.id())
                             .collect(
                                 Collectors.groupingBy(
@@ -243,71 +172,57 @@ public class ReplicaDiskInCost implements HasBrokerCost, HasPartitionCost {
     return KafkaMetrics.TopicPartition.Size::fetch;
   }
 
-  public Map<TopicPartitionReplica, Double> replicaInCount(ClusterInfo clusterInfo) {
-    Map<TopicPartitionReplica, List<HasBeanObject>> tpBeanObjects = new HashMap<>();
-    clusterInfo
-        .beans()
-        .broker()
-        .forEach(
-            ((broker, beanObjects) ->
-                clusterInfo
-                    .topics()
-                    .forEach(
-                        topic ->
-                            clusterInfo
-                                .replicas(topic)
-                                .forEach(
-                                    partitionInfo -> {
-                                      var tp =
-                                          new TopicPartition(
-                                              partitionInfo.topic(), partitionInfo.partition());
-                                      var beanObject =
-                                          beanObjects.stream()
-                                              .filter(
-                                                  b ->
-                                                      b.beanObject()
-                                                              .getProperties()
-                                                              .get("topic")
-                                                              .equals(tp.topic())
-                                                          && Integer.parseInt(
-                                                                  b.beanObject()
-                                                                      .getProperties()
-                                                                      .get("partition"))
-                                                              == (tp.partition()))
-                                              .collect(Collectors.toList());
-                                      if (!beanObject.isEmpty())
-                                        tpBeanObjects.put(
-                                            new TopicPartitionReplica(
-                                                partitionInfo.topic(),
-                                                partitionInfo.partition(),
-                                                broker),
-                                            beanObject);
-                                    }))));
-    return tpBeanObjects.entrySet().stream()
-        .flatMap(
-            tprEntry -> {
-              var sortedBeanObjects =
-                  tprEntry.getValue().stream()
-                      .sorted(
-                          Comparator.comparing(
-                              HasBeanObject::createdTimestamp, Comparator.reverseOrder()))
-                      .collect(Collectors.toList());
-              var duration = 2;
-              if (sortedBeanObjects.size() < duration) {
-                throw new IllegalArgumentException("need more than two metrics to score replicas");
-              } else {
-                var beanObjectNew = (HasValue) sortedBeanObjects.get(0);
-                var beanObjectOld = (HasValue) sortedBeanObjects.get(duration - 1);
-                return Map.of(
-                    tprEntry.getKey(),
-                    (double) (beanObjectNew.value() - beanObjectOld.value())
-                        / ((beanObjectNew.createdTimestamp() - beanObjectOld.createdTimestamp())
-                            / 1000.0)
-                        / 1048576.0)
-                    .entrySet()
-                    .stream();
-              }
+  /**
+   * Calculate the maximum increase rate of each topic/partition, across the whole cluster.
+   *
+   * @param clusterInfo the clusterInfo that offers the metrics related to topic/partition size
+   * @param sampleWindow the time interval for calculating the data rate, noted that if the metrics
+   *     doesn't have the sufficient old metric then an exception will likely be thrown.
+   * @return a map contain the maximum increase rate of each topic/partition log
+   */
+  public static Map<TopicPartition, Double> topicPartitionDataRate(
+      ClusterInfo clusterInfo, Duration sampleWindow) {
+    return replicaDataRate(clusterInfo, sampleWindow).entrySet().stream()
+        .map(
+            x -> {
+              var tpr = x.getKey();
+              return Map.entry(new TopicPartition(tpr.topic(), tpr.partition()), x.getValue());
             })
-        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue, (x1, x2) -> x1));
+  }
+
+  public static Map<TopicPartitionReplica, Double> replicaDataRate(
+      ClusterInfo clusterInfo, Duration sampleWindow) {
+    return clusterInfo.clusterBean().mapByReplica().entrySet().parallelStream()
+        .map(
+            metrics -> {
+              // calculate the increase rate over a specific window of time
+              var sizeTimeSeries =
+                  metrics.getValue().stream()
+                      .filter(bean -> bean instanceof HasValue)
+                      .filter(bean -> bean.beanObject().getProperties().get("type").equals("Log"))
+                      .filter(bean -> bean.beanObject().getProperties().get("name").equals("Size"))
+                      .map(bean -> (HasValue) bean)
+                      .sorted(Comparator.comparingLong(HasBeanObject::createdTimestamp).reversed())
+                      .collect(Collectors.toUnmodifiableList());
+              var latestSize = sizeTimeSeries.stream().findFirst().orElseThrow();
+              var windowSize =
+                  sizeTimeSeries.stream()
+                      .dropWhile(
+                          bean ->
+                              bean.createdTimestamp()
+                                  > latestSize.createdTimestamp() - sampleWindow.toMillis())
+                      .findFirst()
+                      .orElseThrow(
+                          () ->
+                              new IllegalStateException(
+                                  "No sufficient info to determine data rate, try later."));
+              var dataRate =
+                  ((double) (latestSize.value() - windowSize.value()))
+                      / ((double) (latestSize.createdTimestamp() - windowSize.createdTimestamp())
+                          / 1000);
+              return Map.entry(metrics.getKey(), dataRate);
+            })
+        .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));
   }
 }

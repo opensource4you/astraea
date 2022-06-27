@@ -19,7 +19,7 @@ package org.astraea.app.cost;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import org.astraea.app.admin.BeansGetter;
+import org.astraea.app.admin.ClusterBean;
 
 public class FakeClusterInfo implements ClusterInfo {
   @Override
@@ -53,7 +53,7 @@ public class FakeClusterInfo implements ClusterInfo {
   }
 
   @Override
-  public BeansGetter beans() {
-    return BeansGetter.of(Map.of());
+  public ClusterBean clusterBean() {
+    return ClusterBean.of(Map.of());
   }
 }

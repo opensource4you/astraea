@@ -37,10 +37,9 @@ interface Handler extends HttpHandler {
     return target.map(Set::of).orElse(all);
   }
 
-  default JsonObject process(HttpExchange exchange) {
+  default Response process(HttpExchange exchange) {
     var method = exchange.getRequestMethod().toUpperCase(Locale.ROOT);
     var start = System.currentTimeMillis();
-    JsonObject response;
     try {
       switch (method) {
         case "GET":
@@ -49,13 +48,14 @@ interface Handler extends HttpHandler {
           return post(PostRequest.of(exchange));
         case "DELETE":
           var target = parseTarget(exchange.getRequestURI());
-          if (target.isPresent()) return delete(target.get());
+          if (target.isPresent())
+            return delete(target.get(), parseQueries(exchange.getRequestURI()));
         default:
-          return ErrorObject.for404(method + " is not supported yet");
+          return Response.NOT_FOUND;
       }
     } catch (Exception e) {
       e.printStackTrace();
-      return new ErrorObject(e);
+      return Response.of(e);
     } finally {
       System.out.println(
           "take "
@@ -67,14 +67,12 @@ interface Handler extends HttpHandler {
 
   @Override
   default void handle(HttpExchange exchange) throws IOException {
-    JsonObject response = process(exchange);
-
+    Response response = process(exchange);
     var responseData = response.json().getBytes(StandardCharsets.UTF_8);
     exchange
         .getResponseHeaders()
         .set("Content-Type", String.format("application/json; charset=%s", StandardCharsets.UTF_8));
-    exchange.sendResponseHeaders(
-        response instanceof ErrorObject ? ((ErrorObject) response).code : 200, responseData.length);
+    exchange.sendResponseHeaders(response.code(), responseData.length);
     try (var os = exchange.getResponseBody()) {
       os.write(responseData);
     }
@@ -106,7 +104,7 @@ interface Handler extends HttpHandler {
    * @param queries queries from url
    * @return json object to return
    */
-  JsonObject get(Optional<String> target, Map<String, String> queries);
+  Response get(Optional<String> target, Map<String, String> queries);
 
   /**
    * handle the post request.
@@ -114,8 +112,8 @@ interface Handler extends HttpHandler {
    * @param request the last keyword of url
    * @return json object to return
    */
-  default JsonObject post(PostRequest request) {
-    return ErrorObject.for404("POST is not supported yet");
+  default Response post(PostRequest request) {
+    return Response.NOT_FOUND;
   }
 
   /**
@@ -124,7 +122,7 @@ interface Handler extends HttpHandler {
    * @param target the last keyword of url
    * @return json object to return
    */
-  default JsonObject delete(String target) {
-    return ErrorObject.for404("DELETE is not supported yet");
+  default Response delete(String target, Map<String, String> queries) {
+    return Response.NOT_FOUND;
   }
 }

@@ -41,12 +41,13 @@ public class MetricExplorer {
 
   static void execute(MBeanClient mBeanClient, Argument args) {
     // compile query
-    BeanQuery.BeanQueryBuilder builder =
-        BeanQuery.builder(
-            args.fromDomainName,
-            args.properties.stream()
-                .map(Argument.CorrectPropertyFormat::toEntry)
-                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue)));
+    BeanQuery.Builder builder =
+        BeanQuery.builder()
+            .domainName(args.fromDomainName)
+            .properties(
+                args.properties.stream()
+                    .map(Argument.CorrectPropertyFormat::toEntry)
+                    .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue)));
     if (!args.strictMatch) builder.usePropertyListPattern();
 
     // execute query

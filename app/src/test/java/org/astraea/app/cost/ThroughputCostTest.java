@@ -19,7 +19,7 @@ package org.astraea.app.cost;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import org.astraea.app.admin.BeansGetter;
+import org.astraea.app.admin.ClusterBean;
 import org.astraea.app.metrics.kafka.BrokerTopicMetricsResult;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -50,7 +50,7 @@ public class ThroughputCostTest {
 
     var cluster = Mockito.mock(ClusterInfo.class);
     Mockito.when(cluster.nodes()).thenReturn(List.of(node));
-    Mockito.when(cluster.beans()).thenReturn(BeansGetter.of(Map.of()));
+    Mockito.when(cluster.clusterBean()).thenReturn(ClusterBean.of(Map.of()));
     Mockito.when(cluster.topics()).thenReturn(Set.of("t"));
     Mockito.when(cluster.availableReplicas("t"))
         .thenReturn(List.of(ReplicaInfo.of("t", 0, node, true, true, false)));
