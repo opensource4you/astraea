@@ -612,17 +612,15 @@ public class Builder {
 
       var result =
           new HashMap<
-              TopicPartition,
-              Map.Entry<List<Reassignment.Location>, List<Reassignment.Location>>>();
+              TopicPartition, Map.Entry<Set<Reassignment.Location>, Set<Reassignment.Location>>>();
 
       dirs.forEach(
           (replica, logDir) -> {
             var brokerId = replica.brokerId();
             var tp = new TopicPartition(replica.topic(), replica.partition());
             var ls =
-                result.computeIfAbsent(
-                    tp, ignored -> Map.entry(new ArrayList<>(), new ArrayList<>()));
-            // case 0: the replica is moved from a folder to another folder (in the same node)
+                result.computeIfAbsent(tp, ignored -> Map.entry(new HashSet<>(), new HashSet<>()));
+            // the replica is moved from a folder to another folder (in the same node)
             if (logDir.getFutureReplicaLogDir() != null)
               ls.getValue()
                   .add(new Reassignment.Location(brokerId, logDir.getFutureReplicaLogDir()));
@@ -647,8 +645,8 @@ public class Builder {
                   Map.Entry::getKey,
                   e ->
                       new Reassignment(
-                          Collections.unmodifiableList(e.getValue().getKey()),
-                          Collections.unmodifiableList(e.getValue().getValue()))));
+                          Collections.unmodifiableSet(e.getValue().getKey()),
+                          Collections.unmodifiableSet(e.getValue().getValue()))));
     }
   }
 

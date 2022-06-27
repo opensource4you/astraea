@@ -20,6 +20,7 @@ import static org.junit.jupiter.api.condition.OS.WINDOWS;
 
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -1028,6 +1029,58 @@ public class AdminTest extends RequireBrokerCluster {
           }
         }
       }
+    }
+  }
+
+  @RepeatedTest(5) // this test is timer-based, so it needs to be looped for stability
+  void testMultiReassignments() throws InterruptedException {
+    var topicName = Utils.randomString(10);
+    try (var admin = Admin.of(bootstrapServers())) {
+      admin.creator().topic(topicName).numberOfPartitions(1).numberOfReplicas((short) 3).create();
+      TimeUnit.SECONDS.sleep(3);
+
+      var brokers = new ArrayList<>(brokerIds()).subList(0, 2);
+      try (var producer = Producer.of(bootstrapServers())) {
+        var done = new AtomicBoolean(false);
+        var data = new byte[1000];
+        try (var pool =
+            ThreadPool.builder()
+                .executor(
+                    () -> {
+                      producer.sender().topic(topicName).key(data).value(data).run();
+                      return done.get() ? State.DONE : State.RUNNING;
+                    })
+                .build()) {
+
+          try {
+            admin.migrator().topic(topicName).moveTo(brokers);
+            var reassignment =
+                admin.reassignments(Set.of(topicName)).get(new TopicPartition(topicName, 0));
+            // Don't verify the result if the migration is done
+            if (reassignment != null) {
+              Assertions.assertEquals(3, reassignment.from().size());
+              Assertions.assertEquals(2, reassignment.to().size());
+            }
+          } finally {
+            done.set(true);
+          }
+        }
+      }
+    }
+  }
+
+  @Test
+  void testReassignmentWithNothing() throws InterruptedException {
+    var topicName = Utils.randomString(10);
+    try (var admin = Admin.of(bootstrapServers())) {
+      admin.creator().topic(topicName).numberOfPartitions(1).numberOfReplicas((short) 3).create();
+      TimeUnit.SECONDS.sleep(3);
+      var brokers = new ArrayList<>(brokerIds()).subList(0, 2);
+      try (var producer = Producer.of(bootstrapServers())) {
+        producer.sender().topic(topicName).value(new byte[100]).run();
+        producer.flush();
+      }
+      Assertions.assertEquals(0, admin.reassignments(Set.of(topicName)).size());
     }
   }
 }
