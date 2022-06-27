@@ -27,12 +27,15 @@ import org.astraea.app.cost.NodeInfo;
 import org.astraea.app.cost.Normalizer;
 import org.astraea.app.cost.ReplicaInfo;
 import org.astraea.app.metrics.HasBeanObject;
+import org.astraea.app.metrics.collector.BeanCollector;
+import org.astraea.app.metrics.collector.Receiver;
 import org.astraea.app.metrics.java.OperatingSystemInfo;
+import org.astraea.app.service.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
-public class CpuCostTest {
+public class CpuCostTest extends RequireBrokerCluster {
   @Test
   void testCost() throws InterruptedException {
     var cpuUsage1 = mockResult(0.5);
@@ -101,6 +104,29 @@ public class CpuCostTest {
     Assertions.assertEquals(0.52, scores.get(1));
     Assertions.assertEquals(0.61, scores.get(2));
     Assertions.assertEquals(0.37, scores.get(3));
+  }
+
+  @Test
+  void testFetcher() {
+    try (Receiver receiver =
+        BeanCollector.builder()
+            .build()
+            .register()
+            .host(jmxServiceURL().getHost())
+            .port(jmxServiceURL().getPort())
+            .fetcher(new CpuCost().fetcher())
+            .build()) {
+      Assertions.assertFalse(receiver.current().isEmpty());
+      Assertions.assertTrue(
+          receiver.current().stream().allMatch(o -> o instanceof OperatingSystemInfo));
+
+      // Test if we can get the value between 0 ~ 1
+      Assertions.assertTrue(
+          receiver.current().stream()
+              .map(o -> (OperatingSystemInfo) o)
+              .allMatch(
+                  OSInfo -> (OSInfo.systemCpuLoad() <= 1.0) && (OSInfo.systemCpuLoad() >= 0.0)));
+    }
   }
 
   private OperatingSystemInfo mockResult(double usage) {
