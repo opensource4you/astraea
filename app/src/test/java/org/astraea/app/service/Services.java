@@ -120,7 +120,8 @@ public final class Services {
 
       @Override
       public void close() {
-        for (int i = 0; i < brokers.size(); i++) close(i);
+        final int brokerSize = brokers.size();
+        for (int i = 0; i < brokerSize; i++) close(i);
       }
 
       @Override
