@@ -55,7 +55,7 @@ exporter address: 192.168.103.24:18928
 
 #### 環境變數設置
 
-有四個好用/常用的 ENVs，它們可以修改 JVM/container的配置，使用者可隨著自己的需求改動
+有四個好用的 ENVs，它們可以修改 JVM/container的配置，使用者可隨著自己的需求改動
 
 1. VERSION : 設置Kafka版本，會去下載官方已經建置好的distribution
 2. REVISION : 設置Kafka source code版本，會去下載原始碼並編譯建置可執行檔後部署
