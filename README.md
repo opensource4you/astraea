@@ -1,5 +1,4 @@
-# Astraea
-a collection of tools used to balance Kafka data
+![alt text](https://github.com/skiptests/astraea/blob/main/logo/logo_with_background.png?raw=true)
 
 # Authors
 - Chia-Ping Tsai <chia7712@gmail.com>
@@ -219,7 +218,7 @@ Run the tool from source code
 
 Run the tool from release
 ```shell
-java -jar app-0.0.1-SNAPSHOT-all.jar offset --bootstrap.servers 192.168.50.178:19993
+./docker/start_app.sh offset --bootstrap.servers 192.168.50.178:19993
 ```
 
 ### Offset Explorer Configurations
@@ -253,17 +252,17 @@ Run the tool from source code
 Run the tool from release
 ```shell
 # fetch every Mbeans from specific JMX server.
-java -jar app-0.0.1-SNAPSHOT-all.jar metrics --jmx.server 192.168.50.178:1099
+./docker/start_app.sh metrics --jmx.server 192.168.50.178:1099
 
 # fetch any Mbean that its object name contains property "type=Memory".
-java -jar app-0.0.1-SNAPSHOT-all.jar metrics --jmx.server 192.168.50.178:1099 --property type=Memory
+./docker/start_app.sh metrics --jmx.server 192.168.50.178:1099 --property type=Memory
 
 # fetch any Mbean that belongs to "kafka.network" domain name,
 # and it's object name contains two properties "request=Metadata" and "name=LocalTimeMs".
-java -jar app-0.0.1-SNAPSHOT-all.jar metrics --jmx.server 192.168.50.178:1099 --domain kafka.network --property request=Metadata --property name=LocalTimeMs
+./docker/start_app.sh metrics --jmx.server 192.168.50.178:1099 --domain kafka.network --property request=Metadata --property name=LocalTimeMs
 
 # list all Mbeans' object name on specific JMX server.
-java -jar app-0.0.1-SNAPSHOT-all.jar metrics --jmx.server 192.168.50.178:1099 --view-object-name-list
+./docker/start_app.sh metrics --jmx.server 192.168.50.178:1099 --view-object-name-list
 ```
 
 ### Metric Explorer Configurations
@@ -390,7 +389,7 @@ $ ./gradlew run --args="monitor --bootstrap.servers 192.168.103.39:9092"
 2. --port: the port used by web server
 
 ```shell
-./docker/start_kafka_tool.sh web --bootstrap.servers 192.168.50.178:19993 --port 12345"
+./docker/start_app.sh web --bootstrap.servers 192.168.50.178:19993 --port 12345"
 ```
 
 ## Query all topics 
@@ -412,3 +411,5 @@ GET http://localhost:12345/groups
 ```shell
 GET http://localhost:12345/groups/g1
 ```
+
+## [Astraea Web Server 中文文件連結](./docs/web_server/README.md)
