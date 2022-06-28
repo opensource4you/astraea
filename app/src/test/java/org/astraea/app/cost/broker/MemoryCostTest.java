@@ -21,18 +21,23 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import org.astraea.app.admin.ClusterBean;
 import org.astraea.app.cost.ClusterInfo;
 import org.astraea.app.cost.FakeClusterInfo;
 import org.astraea.app.cost.NodeInfo;
 import org.astraea.app.cost.Normalizer;
 import org.astraea.app.cost.ReplicaInfo;
 import org.astraea.app.metrics.HasBeanObject;
+import org.astraea.app.metrics.collector.BeanCollector;
+import org.astraea.app.metrics.collector.Receiver;
 import org.astraea.app.metrics.java.HasJvmMemory;
+import org.astraea.app.metrics.java.JvmMemory;
+import org.astraea.app.service.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
-public class MemoryCostTest {
+public class MemoryCostTest extends RequireBrokerCluster {
   @Test
   void testCost() throws InterruptedException {
     var jvmMemory1 = mockResult(40L, 100L);
@@ -45,8 +50,8 @@ public class MemoryCostTest {
     ClusterInfo clusterInfo =
         new FakeClusterInfo() {
           @Override
-          public Map<Integer, Collection<HasBeanObject>> allBeans() {
-            return Map.of(1, broker1, 2, broker2, 3, broker3);
+          public ClusterBean clusterBean() {
+            return ClusterBean.of(Map.of(1, broker1, 2, broker2, 3, broker3));
           }
 
           @Override
@@ -80,8 +85,8 @@ public class MemoryCostTest {
     ClusterInfo clusterInfo2 =
         new FakeClusterInfo() {
           @Override
-          public Map<Integer, Collection<HasBeanObject>> allBeans() {
-            return Map.of(1, broker12, 2, broker22, 3, broker32);
+          public ClusterBean clusterBean() {
+            return ClusterBean.of(Map.of(1, broker12, 2, broker22, 3, broker32));
           }
 
           @Override
@@ -101,6 +106,27 @@ public class MemoryCostTest {
     Assertions.assertEquals(0.36, scores.get(1));
     Assertions.assertEquals(0.58, scores.get(2));
     Assertions.assertEquals(0.56, scores.get(3));
+  }
+
+  @Test
+  void testFetcher() {
+    try (Receiver receiver =
+        BeanCollector.builder()
+            .build()
+            .register()
+            .host(jmxServiceURL().getHost())
+            .port(jmxServiceURL().getPort())
+            .fetcher(new MemoryCost().fetcher())
+            .build()) {
+      Assertions.assertFalse(receiver.current().isEmpty());
+      Assertions.assertTrue(receiver.current().stream().allMatch(o -> o instanceof JvmMemory));
+
+      // Test if we can get "used memory" and "max memory".
+      Assertions.assertTrue(
+          receiver.current().stream()
+              .map(o -> (JvmMemory) o)
+              .allMatch(mem -> mem.heapMemoryUsage().getUsed() <= mem.heapMemoryUsage().getMax()));
+    }
   }
 
   private HasJvmMemory mockResult(long used, long max) {

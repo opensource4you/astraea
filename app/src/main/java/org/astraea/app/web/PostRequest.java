@@ -89,4 +89,12 @@ public interface PostRequest {
   default short shortValue(String key) {
     return Short.parseShort(value(key));
   }
+
+  default boolean booleanValue(String key, boolean defaultValue) {
+    return get(key).map(Boolean::parseBoolean).orElse(defaultValue);
+  }
+
+  default boolean booleanValue(String key) {
+    return Boolean.parseBoolean(value(key));
+  }
 }

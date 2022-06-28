@@ -21,28 +21,17 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
-import org.apache.kafka.clients.consumer.KafkaConsumer;
 
-public class Builder<Key, Value> {
-  private final Map<String, Object> configs =
-      new HashMap<>(
-          Map.of(ConsumerConfig.GROUP_ID_CONFIG, "groupId-" + System.currentTimeMillis()));
-  private Deserializer<?> keyDeserializer = Deserializer.BYTE_ARRAY;
-  private Deserializer<?> valueDeserializer = Deserializer.BYTE_ARRAY;
-  private final Set<String> topics = new HashSet<>();
-  private ConsumerRebalanceListener listener = ignore -> {};
-  private int distanceFromLatest = -1;
+abstract class Builder<Key, Value> {
+  protected final Map<String, Object> configs = new HashMap<>();
+  protected Deserializer<?> keyDeserializer = Deserializer.BYTE_ARRAY;
+  protected Deserializer<?> valueDeserializer = Deserializer.BYTE_ARRAY;
+  protected int distanceFromLatest = -1;
 
   Builder() {}
-
-  public Builder<Key, Value> groupId(String groupId) {
-    return config(ConsumerConfig.GROUP_ID_CONFIG, Objects.requireNonNull(groupId));
-  }
 
   /**
    * make the consumer read data from beginning. By default, it reads the latest data.
@@ -50,7 +39,8 @@ public class Builder<Key, Value> {
    * @return this builder
    */
   public Builder<Key, Value> fromBeginning() {
-    return config(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
+    this.configs.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
+    return this;
   }
 
   /**
@@ -59,7 +49,8 @@ public class Builder<Key, Value> {
    * @return this builder
    */
   public Builder<Key, Value> fromLatest() {
-    return config(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "latest");
+    this.configs.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "latest");
+    return this;
   }
 
   /**
@@ -71,11 +62,6 @@ public class Builder<Key, Value> {
    */
   public Builder<Key, Value> distanceFromLatest(int distanceFromLatest) {
     this.distanceFromLatest = distanceFromLatest;
-    return this;
-  }
-
-  public Builder<Key, Value> topics(Set<String> topics) {
-    this.topics.addAll(topics);
     return this;
   }
 
@@ -92,72 +78,47 @@ public class Builder<Key, Value> {
     return (Builder<Key, NewValue>) this;
   }
 
-  public Builder<Key, Value> config(String key, String value) {
-    this.configs.put(key, value);
-    return this;
-  }
-
-  public Builder<Key, Value> configs(Map<String, String> configs) {
-    this.configs.putAll(configs);
-    return this;
-  }
-
   public Builder<Key, Value> bootstrapServers(String bootstrapServers) {
-    return config(
+    this.configs.put(
         ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, Objects.requireNonNull(bootstrapServers));
-  }
-
-  public Builder<Key, Value> consumerRebalanceListener(ConsumerRebalanceListener listener) {
-    this.listener = Objects.requireNonNull(listener);
     return this;
   }
 
   public Builder<Key, Value> isolation(Isolation isolation) {
-    return config(ConsumerConfig.ISOLATION_LEVEL_CONFIG, isolation.nameOfKafka());
+    this.configs.put(ConsumerConfig.ISOLATION_LEVEL_CONFIG, isolation.nameOfKafka());
+    return this;
   }
 
-  @SuppressWarnings("unchecked")
-  public Consumer<Key, Value> build() {
-    var kafkaConsumer =
-        new KafkaConsumer<>(
-            configs,
-            Deserializer.of((Deserializer<Key>) keyDeserializer),
-            Deserializer.of((Deserializer<Value>) valueDeserializer));
-    kafkaConsumer.subscribe(topics, ConsumerRebalanceListener.of(listener));
+  /** @return consumer instance. The different builders may return inherited consumer interface. */
+  public abstract Consumer<Key, Value> build();
 
-    // this mode is not supported by kafka, so we have to calculate the offset first
-    if (distanceFromLatest > 0) {
-      // 1) poll data until the assignment is completed
-      while (kafkaConsumer.assignment().isEmpty()) kafkaConsumer.poll(Duration.ofMillis(500));
-      var partitions = kafkaConsumer.assignment();
-      // 2) get the end offsets from all subscribed partitions
-      var endOffsets = kafkaConsumer.endOffsets(partitions);
-      // 3) calculate and then seek to the correct offset (end offset - recent offset)
-      endOffsets.forEach(
-          (tp, latest) -> kafkaConsumer.seek(tp, Math.max(0, latest - distanceFromLatest)));
+  protected static class BaseConsumer<Key, Value> implements Consumer<Key, Value> {
+    protected final org.apache.kafka.clients.consumer.Consumer<Key, Value> kafkaConsumer;
+
+    public BaseConsumer(org.apache.kafka.clients.consumer.Consumer<Key, Value> kafkaConsumer) {
+      this.kafkaConsumer = kafkaConsumer;
     }
-    return new Consumer<>() {
-      @Override
-      public Collection<Record<Key, Value>> poll(int recordCount, Duration timeout) {
-        var end = System.currentTimeMillis() + timeout.toMillis();
-        var records = new ArrayList<Record<Key, Value>>();
-        while (records.size() < recordCount) {
-          var remaining = end - System.currentTimeMillis();
-          if (remaining <= 0) break;
-          kafkaConsumer.poll(Duration.ofMillis(remaining)).forEach(r -> records.add(Record.of(r)));
-        }
-        return Collections.unmodifiableList(records);
-      }
 
-      @Override
-      public void wakeup() {
-        kafkaConsumer.wakeup();
+    @Override
+    public Collection<Record<Key, Value>> poll(int recordCount, Duration timeout) {
+      var end = System.currentTimeMillis() + timeout.toMillis();
+      var records = new ArrayList<Record<Key, Value>>();
+      while (records.size() < recordCount) {
+        var remaining = end - System.currentTimeMillis();
+        if (remaining <= 0) break;
+        kafkaConsumer.poll(Duration.ofMillis(remaining)).forEach(r -> records.add(Record.of(r)));
       }
+      return Collections.unmodifiableList(records);
+    }
 
-      @Override
-      public void close() {
-        kafkaConsumer.close();
-      }
-    };
+    @Override
+    public void wakeup() {
+      kafkaConsumer.wakeup();
+    }
+
+    @Override
+    public void close() {
+      kafkaConsumer.close();
+    }
   }
 }

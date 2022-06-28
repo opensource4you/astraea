@@ -18,7 +18,8 @@ package org.astraea.app.consumer;
 
 import java.time.Duration;
 import java.util.Collection;
-import java.util.Map;
+import java.util.Set;
+import org.astraea.app.admin.TopicPartition;
 
 /** An interface for polling records. */
 public interface Consumer<Key, Value> extends AutoCloseable {
@@ -48,15 +49,23 @@ public interface Consumer<Key, Value> extends AutoCloseable {
   @Override
   void close();
 
-  static Builder<byte[], byte[]> builder() {
-    return new Builder<>();
+  /**
+   * Create a consumer builder by setting specific topics
+   *
+   * @param topics set of topic names
+   * @return consumer builder for topics
+   */
+  static TopicsBuilder<byte[], byte[]> forTopics(Set<String> topics) {
+    return new TopicsBuilder<>(topics);
   }
 
-  static Consumer<byte[], byte[]> of(String bootstrapServers) {
-    return builder().bootstrapServers(bootstrapServers).build();
-  }
-
-  static Consumer<byte[], byte[]> of(Map<String, String> configs) {
-    return builder().configs(configs).build();
+  /**
+   * Create a consumer builder by setting specific topic partitions
+   *
+   * @param partitions set of TopicPartition
+   * @return consumer builder for partitions
+   */
+  static PartitionsBuilder<byte[], byte[]> forPartitions(Set<TopicPartition> partitions) {
+    return new PartitionsBuilder<>(partitions);
   }
 }

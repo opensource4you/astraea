@@ -65,7 +65,7 @@ public final class Metadata {
    * @return The size of the serialized, uncompressed key in bytes. If key is null, the returned
    *     size is -1.
    */
-  public long serializedKeySize() {
+  public int serializedKeySize() {
     return serializedKeySize;
   }
 
@@ -73,7 +73,7 @@ public final class Metadata {
    * @return The size of the serialized, uncompressed value in bytes. If value is null, the returned
    *     size is -1.
    */
-  public long serializedValueSize() {
+  public int serializedValueSize() {
     return serializedValueSize;
   }
 
