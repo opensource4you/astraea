@@ -210,7 +210,9 @@ public class ReplicaCollie {
       Integer broker) {
     pathMigrate.forEach(
         (tp, assignments) -> {
-          if (assignments.getValue().size() > 0)
+          // TODO: this code is a bit ugly, but it is fine as we are going to remove this class.
+          if (assignments.getValue().size() > 0
+              && !assignments.getValue().iterator().next().equals(UNKNOWN))
             admin
                 .migrator()
                 .partition(tp.topic(), tp.partition())
