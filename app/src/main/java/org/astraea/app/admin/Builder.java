@@ -54,7 +54,6 @@ import org.astraea.app.common.Utils;
 import org.astraea.app.cost.ClusterInfo;
 import org.astraea.app.cost.NodeInfo;
 import org.astraea.app.cost.ReplicaInfo;
-import org.astraea.app.metrics.HasBeanObject;
 
 public class Builder {
 
@@ -524,14 +523,8 @@ public class Builder {
         }
 
         @Override
-        public Collection<HasBeanObject> beans(int brokerId) {
-          return List.of();
-        }
-
-        @Override
-        public Map<Integer, Collection<HasBeanObject>> allBeans() {
-          return nodeInfo.stream()
-              .collect(Collectors.toUnmodifiableMap(NodeInfo::id, ignore -> List.of()));
+        public ClusterBean clusterBean() {
+          return ClusterBean.of(Map.of());
         }
       };
     }
@@ -583,6 +576,77 @@ public class Builder {
                               .collect(Collectors.toUnmodifiableList())))
                   .all()
                   .get());
+    }
+
+    @Override
+    public Map<TopicPartition, Reassignment> reassignments(Set<String> topics) {
+      var assignments =
+          Utils.packException(
+              () ->
+                  admin
+                      .listPartitionReassignments(
+                          partitions(topics).stream()
+                              .map(TopicPartition::to)
+                              .collect(Collectors.toSet()))
+                      .reassignments()
+                      .get());
+
+      var dirs =
+          Utils.packException(
+              () ->
+                  admin
+                      .describeReplicaLogDirs(
+                          replicas(topics).entrySet().stream()
+                              .flatMap(
+                                  e ->
+                                      e.getValue().stream()
+                                          .map(
+                                              r ->
+                                                  new org.apache.kafka.common.TopicPartitionReplica(
+                                                      e.getKey().topic(),
+                                                      e.getKey().partition(),
+                                                      r.broker())))
+                              .collect(Collectors.toUnmodifiableList()))
+                      .all()
+                      .get());
+
+      var result =
+          new HashMap<
+              TopicPartition, Map.Entry<Set<Reassignment.Location>, Set<Reassignment.Location>>>();
+
+      dirs.forEach(
+          (replica, logDir) -> {
+            var brokerId = replica.brokerId();
+            var tp = new TopicPartition(replica.topic(), replica.partition());
+            var ls =
+                result.computeIfAbsent(tp, ignored -> Map.entry(new HashSet<>(), new HashSet<>()));
+            // the replica is moved from a folder to another folder (in the same node)
+            if (logDir.getFutureReplicaLogDir() != null)
+              ls.getValue()
+                  .add(new Reassignment.Location(brokerId, logDir.getFutureReplicaLogDir()));
+            if (logDir.getCurrentReplicaLogDir() != null) {
+              var assignment = assignments.get(TopicPartition.to(tp));
+              // the replica is moved from a node to another node
+              if (assignment != null && assignment.addingReplicas().contains(brokerId)) {
+                ls.getValue()
+                    .add(new Reassignment.Location(brokerId, logDir.getCurrentReplicaLogDir()));
+              } else {
+                ls.getKey()
+                    .add(new Reassignment.Location(brokerId, logDir.getCurrentReplicaLogDir()));
+              }
+            }
+          });
+
+      return result.entrySet().stream()
+          // empty "to" means there is no reassignment
+          .filter(e -> !e.getValue().getValue().isEmpty())
+          .collect(
+              Collectors.toMap(
+                  Map.Entry::getKey,
+                  e ->
+                      new Reassignment(
+                          Collections.unmodifiableSet(e.getValue().getKey()),
+                          Collections.unmodifiableSet(e.getValue().getValue()))));
     }
   }
 
