@@ -27,7 +27,6 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
-import java.util.function.BiConsumer;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -97,32 +96,36 @@ public class Performance {
 
   static List<ProducerExecutor> producerExecutors(
       Performance.Argument argument,
-      List<? extends BiConsumer<Long, Integer>> observers,
+      List<Metrics> metrics,
       DataSupplier dataSupplier,
       Supplier<Integer> partitionSupplier) {
     return IntStream.range(0, argument.producers)
         .mapToObj(
-            index ->
-                ProducerExecutor.of(
-                    argument.topic,
-                    // Only transactional producer needs to process batch data
-                    argument.isolation() == Isolation.READ_COMMITTED ? argument.transactionSize : 1,
-                    argument.isolation() == Isolation.READ_COMMITTED
-                        ? Producer.builder()
-                            .configs(argument.configs())
-                            .bootstrapServers(argument.bootstrapServers())
-                            .compression(argument.compression)
-                            .partitionClassName(argument.partitioner)
-                            .buildTransactional()
-                        : Producer.builder()
-                            .configs(argument.configs())
-                            .bootstrapServers(argument.bootstrapServers())
-                            .compression(argument.compression)
-                            .partitionClassName(argument.partitioner)
-                            .build(),
-                    observers.get(index),
-                    partitionSupplier,
-                    dataSupplier))
+            index -> {
+              var producer =
+                  argument.isolation() == Isolation.READ_COMMITTED
+                      ? Producer.builder()
+                          .configs(argument.configs())
+                          .bootstrapServers(argument.bootstrapServers())
+                          .compression(argument.compression)
+                          .partitionClassName(argument.partitioner)
+                          .buildTransactional()
+                      : Producer.builder()
+                          .configs(argument.configs())
+                          .bootstrapServers(argument.bootstrapServers())
+                          .compression(argument.compression)
+                          .partitionClassName(argument.partitioner)
+                          .build();
+              metrics.get(index).putRealBytesMetric(producer.getMetric("outgoing-byte-total"));
+              return ProducerExecutor.of(
+                  argument.topic,
+                  // Only transactional producer needs to process batch data
+                  argument.isolation() == Isolation.READ_COMMITTED ? argument.transactionSize : 1,
+                  producer,
+                  metrics.get(index),
+                  partitionSupplier,
+                  dataSupplier);
+            })
         .collect(Collectors.toUnmodifiableList());
   }
 
@@ -210,9 +213,10 @@ public class Performance {
 
   static Executor consumerExecutor(
       Consumer<byte[], byte[]> consumer,
-      BiConsumer<Long, Integer> observer,
+      Metrics metrics,
       Manager manager,
       Supplier<Boolean> producerDone) {
+    metrics.putRealBytesMetric(consumer.getMetric("incoming-byte-total"));
     return new Executor() {
       @Override
       public State execute() {
@@ -223,7 +227,7 @@ public class Performance {
                   record -> {
                     // record ene-to-end latency, and record input byte (header and timestamp size
                     // excluded)
-                    observer.accept(
+                    metrics.accept(
                         System.currentTimeMillis() - record.timestamp(),
                         record.serializedKeySize() + record.serializedValueSize());
                   });
@@ -247,79 +251,6 @@ public class Performance {
     };
   }
 
-  /*<<<<<<< HEAD:app/src/main/java/org/astraea/performance/Performance.java
-  static Executor producerExecutor(
-      Producer<byte[], byte[]> producer,
-      TransactionalProducer<byte[], byte[]> transactionalProducer,
-      Argument param,
-      BiConsumer<Long, Long> observer,
-      List<Integer> partitions,
-      Manager manager) {
-    return new Executor() {
-      @Override
-      public State execute() throws InterruptedException {
-        // Wait for all consumers get assignment.
-        manager.awaitPartitionAssignment();
-        var rand = new Random();
-        // Do transactional send.
-        if (param.transaction()) {
-          var senders =
-              IntStream.range(0, param.transactionSize)
-                  .mapToObj(i -> manager.payload())
-                  .filter(Optional::isPresent)
-                  .map(
-                      p ->
-                          transactionalProducer
-                              .sender()
-                              .topic(param.topic)
-                              .partition(partitions.get(rand.nextInt(partitions.size())))
-                              .key(manager.getKey())
-                              .value(p.get())
-                              .timestamp(System.currentTimeMillis()))
-                  .collect(Collectors.toList());
-
-          // No records to send
-          if (senders.isEmpty()) return State.DONE;
-          transactionalProducer
-              .transaction(senders)
-              .forEach(
-                  future ->
-                      future.whenComplete(
-                          (m, e) ->
-                              observer.accept(
-                                  System.currentTimeMillis() - m.timestamp(),
-                                  m.serializedValueSize())));
-        } else {
-          var payload = manager.payload();
-          if (payload.isEmpty()) return State.DONE;
-
-          long start = System.currentTimeMillis();
-          producer
-              .sender()
-              .topic(param.topic)
-              .partition(partitions.get(rand.nextInt(partitions.size())))
-              .key(manager.getKey())
-              .value(payload.get())
-              .timestamp(start)
-              .run()
-              .whenComplete(
-                  (m, e) ->
-                      observer.accept(System.currentTimeMillis() - start, m.serializedValueSize()));
-        }
-        return State.RUNNING;
-      }
-
-      @Override
-      public void close() {
-        try {
-          producer.close();
-          transactionalProducer.close();
-        } finally {
-          manager.producerClosed();
-        }
-      }
-    };
-  }*/
   // visible for test
   static Set<Integer> partition(Argument param, Admin topicAdmin) {
     if (positiveSpecifyBroker(param)) {

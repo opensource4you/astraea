@@ -24,7 +24,6 @@ import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
-import java.util.function.BiConsumer;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.astraea.app.admin.Admin;
 import org.astraea.app.admin.TopicPartition;
@@ -48,7 +47,13 @@ public class PerformanceTest extends RequireBrokerCluster {
       "--bootstrap.servers", bootstrapServers(), "--topic", topic, "--transaction.size", "2"
     };
     var latch = new CountDownLatch(1);
-    BiConsumer<Long, Integer> observer = (x, y) -> latch.countDown();
+    Metrics observer =
+        new Metrics() {
+          @Override
+          public void accept(Long x, Integer y) {
+            latch.countDown();
+          }
+        };
     var argument = Argument.parse(new Performance.Argument(), arguments1);
     var producerExecutors =
         Performance.producerExecutors(
@@ -70,7 +75,13 @@ public class PerformanceTest extends RequireBrokerCluster {
       "--bootstrap.servers", bootstrapServers(), "--topic", topic, "--compression", "gzip"
     };
     var latch = new CountDownLatch(1);
-    BiConsumer<Long, Integer> observer = (x, y) -> latch.countDown();
+    Metrics observer =
+        new Metrics() {
+          @Override
+          public void accept(Long x, Integer y) {
+            latch.countDown();
+          }
+        };
     var argument = Argument.parse(new Performance.Argument(), arguments1);
     var producerExecutors =
         Performance.producerExecutors(
@@ -126,6 +137,7 @@ public class PerformanceTest extends RequireBrokerCluster {
 
   @Test
   void testRealThroughput() throws InterruptedException {
+    var topic = "testProducerExecutor-" + System.currentTimeMillis();
     Map<String, String> prop = Map.of(ProducerConfig.COMPRESSION_TYPE_CONFIG, "lz4");
     Metrics producerMetrics = new Metrics();
 
@@ -133,7 +145,7 @@ public class PerformanceTest extends RequireBrokerCluster {
             Producer.builder().bootstrapServers(bootstrapServers()).configs(prop).build();
         Executor executor =
             ProducerExecutor.of(
-                "testProducerExecutor-" + System.currentTimeMillis(),
+                topic,
                 producer,
                 producerMetrics,
                 () -> -1,
@@ -160,7 +172,7 @@ public class PerformanceTest extends RequireBrokerCluster {
                 .buildTransactional();
         Executor executor =
             ProducerExecutor.of(
-                "testProducerExecutor-" + System.currentTimeMillis(),
+                topic,
                 5,
                 transactional,
                 producerMetrics,
@@ -178,6 +190,30 @@ public class PerformanceTest extends RequireBrokerCluster {
       Assertions.assertTrue(currentBytes > realBytes);
       Assertions.assertEquals(0, producerMetrics.currentRealBytes());
       Assertions.assertEquals(0, producerMetrics.clearAndGetCurrentBytes());
+    }
+
+    Metrics consumerMetrics = new Metrics();
+    try (var consumer =
+            Consumer.forTopics(Set.of(topic))
+                .bootstrapServers(bootstrapServers())
+                .fromBeginning()
+                .build();
+        var executor =
+            Performance.consumerExecutor(
+                consumer,
+                consumerMetrics,
+                new Manager(new Performance.Argument(), List.of(), List.of()),
+                () -> false)) {
+
+      // Compressed size should be less than raw record size.
+      executor.execute();
+      var currentBytes = consumerMetrics.clearAndGetCurrentBytes();
+      var realBytes = consumerMetrics.currentRealBytes();
+      Assertions.assertNotEquals(0, currentBytes);
+      Assertions.assertNotEquals(0, realBytes);
+      Assertions.assertTrue(currentBytes > realBytes);
+      Assertions.assertEquals(0, consumerMetrics.currentRealBytes());
+      Assertions.assertEquals(0, consumerMetrics.clearAndGetCurrentBytes());
     }
   }
 
