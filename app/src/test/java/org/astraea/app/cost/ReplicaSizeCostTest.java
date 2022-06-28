@@ -16,20 +16,68 @@
  */
 package org.astraea.app.cost;
 
+import java.time.Duration;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
+import org.astraea.app.admin.Admin;
 import org.astraea.app.admin.ClusterBean;
 import org.astraea.app.admin.TopicPartition;
 import org.astraea.app.metrics.HasBeanObject;
+import org.astraea.app.metrics.collector.BeanCollector;
+import org.astraea.app.metrics.collector.Fetcher;
 import org.astraea.app.metrics.jmx.BeanObject;
 import org.astraea.app.metrics.kafka.HasValue;
 import org.astraea.app.metrics.kafka.KafkaMetrics;
+import org.astraea.app.producer.Producer;
+import org.astraea.app.service.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-class ReplicaSizeCostTest {
+class ReplicaSizeCostTest extends RequireBrokerCluster {
+  @Test
+  void testGetMetrics() {
+    var brokerDiskSize = Map.of(1, 1000, 2, 1000, 3, 1000);
+    restartCluster(1);
+    var topicName = "testGetMetrics-1";
+    try (var admin = Admin.of(bootstrapServers())) {
+      var host = "localhost";
+      admin.creator().topic(topicName).numberOfPartitions(1).numberOfReplicas((short) 1).create();
+      // wait for topic creation
+      TimeUnit.SECONDS.sleep(5);
+      var producer = Producer.builder().bootstrapServers(bootstrapServers()).build();
+      producer.sender().topic(topicName).key(new byte[10000]).run().toCompletableFuture().get();
+      ReplicaSizeCost costFunction = new ReplicaSizeCost(brokerDiskSize);
+      var beanObjects =
+          BeanCollector.builder()
+              .interval(Duration.ofSeconds(4))
+              .build()
+              .register()
+              .host(host)
+              .port(jmxServiceURL().getPort())
+              .fetcher(Fetcher.of(Set.of(costFunction.fetcher())))
+              .build()
+              .current();
+      var replicaSize =
+          beanObjects.stream()
+              .filter(x -> x instanceof HasValue)
+              .filter(x -> x.beanObject().getProperties().get("name").equals("Size"))
+              .filter(x -> x.beanObject().getProperties().get("type").equals("Log"))
+              .sorted(Comparator.comparing(HasBeanObject::createdTimestamp).reversed())
+              .map(x -> (HasValue) x)
+              .limit(1)
+              .map(e2 -> (int) e2.value())
+              .collect(Collectors.toList());
+      Assertions.assertTrue(replicaSize.get(0) >= 10000);
+    } catch (InterruptedException | ExecutionException e) {
+      throw new RuntimeException(e);
+    }
+  }
 
   @Test
   void partitionCost() {
