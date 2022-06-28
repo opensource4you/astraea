@@ -26,6 +26,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -34,8 +35,11 @@ import org.astraea.app.admin.Admin;
 import org.astraea.app.admin.Replica;
 import org.astraea.app.admin.TopicPartition;
 import org.astraea.app.balancer.log.LogPlacement;
+import org.astraea.app.common.DataSize;
+import org.astraea.app.common.DataUnit;
 import org.astraea.app.common.Utils;
 import org.astraea.app.metrics.HasBeanObject;
+import org.astraea.app.metrics.jmx.BeanObject;
 import org.astraea.app.producer.Producer;
 import org.astraea.app.service.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
@@ -44,89 +48,61 @@ import org.junit.jupiter.api.Test;
 class RebalanceAdminTest extends RequireBrokerCluster {
 
   @Test
-  void alterReplicaPlacements() throws InterruptedException {
+  void alterReplicaPlacementByList() throws InterruptedException {
+    // arrange
     try (var admin = Admin.of(bootstrapServers())) {
-      var topic = "alterReplicaPlacements_" + Utils.randomString();
-      var rebalanceAdmin = RebalanceAdmin.of(admin, Map::of, (ignore) -> true);
-      var selectedLogFolder =
-          logFolders().entrySet().stream()
-              .collect(
-                  Collectors.toUnmodifiableMap(
-                      Map.Entry::getKey,
-                      x ->
-                          List.copyOf(x.getValue())
-                              .get(ThreadLocalRandom.current().nextInt(0, x.getValue().size()))));
+      var topic = prepareTopic(admin, 1, (short) 1);
+      var rebalanceAdmin = prepareRebalanceAdmin(admin);
 
-      admin.creator().topic(topic).numberOfPartitions(1).numberOfReplicas((short) 1).create();
-      TimeUnit.SECONDS.sleep(2);
+      // scale the replica size from 1 to 3, to the following data dir
+      var logFolder0 = randomElement(logFolders().get(0));
+      var logFolder1 = randomElement(logFolders().get(1));
+      var logFolder2 = randomElement(logFolders().get(2));
 
+      // act
       var tasks =
           rebalanceAdmin.alterReplicaPlacements(
               new TopicPartition(topic, 0),
               List.of(
-                  LogPlacement.of(0, selectedLogFolder.get(0)),
-                  LogPlacement.of(1, selectedLogFolder.get(1)),
-                  LogPlacement.of(2, selectedLogFolder.get(2))));
-      TimeUnit.SECONDS.sleep(3);
+                  LogPlacement.of(0, logFolder0),
+                  LogPlacement.of(1, logFolder1),
+                  LogPlacement.of(2, logFolder2)));
+      tasks.forEach(task -> task.await(Duration.ofSeconds(5)));
 
-      var replicas =
-          admin.replicas(Set.of(topic)).entrySet().stream()
-              .filter(x -> x.getKey().topic().equals(topic))
-              .filter(x -> x.getKey().partition() == 0)
-              .map(Map.Entry::getValue)
-              .findFirst()
-              .orElseThrow();
+      // assert
+      var topicPartition = new TopicPartition(topic, 0);
+      var replicas = admin.replicas(Set.of(topic)).get(topicPartition);
 
       Assertions.assertEquals(
-          Set.of(0, 1, 2),
-          replicas.stream().map(Replica::broker).collect(Collectors.toUnmodifiableSet()));
-      List.of(0, 1, 2)
-          .forEach(
-              brokerId ->
-                  Assertions.assertEquals(
-                      selectedLogFolder.get(brokerId),
-                      replicas.stream()
-                          .filter(x -> x.broker() == brokerId)
-                          .findFirst()
-                          .map(Replica::path)
-                          .orElseThrow()));
+          List.of(0, 1, 2), replicas.stream().map(Replica::broker).collect(Collectors.toList()));
+      Assertions.assertEquals(logFolder0, replicas.get(0).path());
+      Assertions.assertEquals(logFolder1, replicas.get(1).path());
+      Assertions.assertEquals(logFolder2, replicas.get(2).path());
+
       for (int i = 0; i < 3; i++) {
-        var replicaMigrationTask = tasks.get(i);
-        Assertions.assertTrue(replicaMigrationTask.progress().synced());
-        Assertions.assertEquals(i, replicaMigrationTask.progress().brokerId());
-        Assertions.assertEquals(1, replicaMigrationTask.progress().percentage());
-        Assertions.assertTrue(replicaMigrationTask.await());
-        Assertions.assertEquals(
-            new TopicPartitionReplica(topic, 0, i), replicaMigrationTask.info());
+        var task = tasks.get(i);
+        Assertions.assertTrue(task.progress().synced());
+        Assertions.assertEquals(i, task.progress().brokerId());
+        Assertions.assertEquals(1, task.progress().percentage());
+        Assertions.assertTrue(task.await());
+        Assertions.assertEquals(new TopicPartitionReplica(topic, 0, i), task.info());
       }
     }
   }
 
+  // TODO: add a test alterReplicaPlacementByDir, and assert the syncing progress works
+
   @Test
-  void syncingProgress() {
+  void syncingProgress() throws InterruptedException {
     try (Admin admin = Admin.of(bootstrapServers())) {
-      final var rebalanceAdmin = RebalanceAdmin.of(admin, Map::of, (ignore) -> true);
+      var topic = prepareTopic(admin, 3, (short) 2);
+      var rebalanceAdmin = prepareRebalanceAdmin(admin);
 
-      final var name = "SyncingProgress_" + Utils.randomString(6);
-      admin.creator().topic(name).numberOfPartitions(3).numberOfReplicas((short) 2).create();
-      IntStream.range(0, 3)
-          .forEach(
-              partition ->
-                  Utils.packException(
-                      () -> {
-                        try (var producer = Producer.of(bootstrapServers())) {
-                          producer
-                              .sender()
-                              .topic(name)
-                              .partition(partition)
-                              .value(new byte[1024 * (partition + 1)])
-                              .run()
-                              .toCompletableFuture()
-                              .get();
-                        }
-                      }));
+      prepareData(topic, 0, DataUnit.KiB.of(1024));
+      prepareData(topic, 1, DataUnit.KiB.of(2048));
+      prepareData(topic, 2, DataUnit.KiB.of(3072));
 
-      final var replicaMap = admin.replicas(Set.of(name));
+      final var replicaMap = admin.replicas(Set.of(topic));
       final var logs =
           (Set<TopicPartitionReplica>)
               replicaMap.entrySet().stream()
@@ -147,16 +123,24 @@ class RebalanceAdminTest extends RequireBrokerCluster {
           log -> {
             var syncingProgress = rebalanceAdmin.syncingProgress(log);
 
+            // assert synced
             Assertions.assertTrue(syncingProgress.synced());
-            Assertions.assertEquals(log.brokerId(), syncingProgress.brokerId());
+
+            // assert topic/partition/replica correct
             Assertions.assertEquals(log.topic(), syncingProgress.topicPartition().topic());
             Assertions.assertEquals(log.partition(), syncingProgress.topicPartition().partition());
+            Assertions.assertEquals(log.brokerId(), syncingProgress.brokerId());
+
+            // assert log size correct
             Assertions.assertEquals(
                 syncingProgress.leaderLogSize().orElseThrow(), syncingProgress.logSize());
+
+            // assert percentage ok
             Assertions.assertEquals(1, syncingProgress.percentage());
 
+            // assert size
             long expectedMinLogSize = 1024L * (log.partition()) + 1;
-            // the log contain metadata and record content, it supposed to be bigger than the actual
+            // log contain metadata and record content, it supposed to be bigger than the actual
             // data
             Assertions.assertTrue(expectedMinLogSize < syncingProgress.logSize());
           });
@@ -166,17 +150,18 @@ class RebalanceAdminTest extends RequireBrokerCluster {
   @Test
   void clusterInfo() throws InterruptedException {
     try (Admin admin = Admin.of(bootstrapServers())) {
+      // test if all topics are covered
       final var rebalanceAdmin = RebalanceAdmin.of(admin, Map::of, (ignore) -> true);
       final var clusterInfo = rebalanceAdmin.clusterInfo();
       Assertions.assertEquals(admin.topicNames(), clusterInfo.topics());
 
-      final var name = "RebalanceAdminTest" + Utils.randomString(6);
-      admin.creator().topic(name).numberOfPartitions(3).create();
-      TimeUnit.SECONDS.sleep(1);
+      // create topic
+      final var topic = prepareTopic(admin, 3, (short) 1);
 
-      final var rebalanceAdmin1 = RebalanceAdmin.of(admin, Map::of, name::equals);
+      // test if topic filter works
+      final var rebalanceAdmin1 = RebalanceAdmin.of(admin, Map::of, topic::equals);
       final var clusterInfo1 = rebalanceAdmin1.clusterInfo();
-      Assertions.assertEquals(Set.of(name), clusterInfo1.topics());
+      Assertions.assertEquals(Set.of(topic), clusterInfo1.topics());
     }
   }
 
@@ -184,59 +169,82 @@ class RebalanceAdminTest extends RequireBrokerCluster {
   void refreshMetrics() {
     try (Admin admin = Admin.of(bootstrapServers())) {
       final var next = new AtomicInteger();
+      final var idBean =
+          (Function<Integer, BeanObject>)
+              (i) -> new BeanObject(Integer.toString(i), Map.of(), Map.of());
       Supplier<Map<Integer, Collection<HasBeanObject>>> metricSource =
-          () -> Map.of(next.get(), List.of());
+          () ->
+              Map.of(
+                  0, List.of(() -> idBean.apply(next.get())),
+                  1, List.of(() -> idBean.apply(next.get())),
+                  2, List.of(() -> idBean.apply(next.get())));
 
       final var rebalanceAdmin = RebalanceAdmin.of(admin, metricSource, (ignore) -> true);
-      final var clusterInfo = rebalanceAdmin.refreshMetrics(rebalanceAdmin.clusterInfo());
 
-      Assertions.assertEquals(List.of(), clusterInfo.beans(0));
+      var clusterInfo = rebalanceAdmin.refreshMetrics(rebalanceAdmin.clusterInfo());
+      Assertions.assertEquals(
+          "0", clusterInfo.beans(0).iterator().next().beanObject().domainName());
+      Assertions.assertEquals(
+          "0", clusterInfo.beans(1).iterator().next().beanObject().domainName());
+      Assertions.assertEquals(
+          "0", clusterInfo.beans(2).iterator().next().beanObject().domainName());
       next.incrementAndGet();
-      Assertions.assertEquals(List.of(), clusterInfo.beans(1));
+      clusterInfo = rebalanceAdmin.refreshMetrics(rebalanceAdmin.clusterInfo());
+      Assertions.assertEquals(
+          "1", clusterInfo.beans(0).iterator().next().beanObject().domainName());
+      Assertions.assertEquals(
+          "1", clusterInfo.beans(1).iterator().next().beanObject().domainName());
+      Assertions.assertEquals(
+          "1", clusterInfo.beans(2).iterator().next().beanObject().domainName());
       next.incrementAndGet();
-      Assertions.assertEquals(List.of(), clusterInfo.beans(2));
+      clusterInfo = rebalanceAdmin.refreshMetrics(rebalanceAdmin.clusterInfo());
+      Assertions.assertEquals(
+          "2", clusterInfo.beans(0).iterator().next().beanObject().domainName());
+      Assertions.assertEquals(
+          "2", clusterInfo.beans(1).iterator().next().beanObject().domainName());
+      Assertions.assertEquals(
+          "2", clusterInfo.beans(2).iterator().next().beanObject().domainName());
     }
   }
 
   @Test
   void waitLogSynced() throws InterruptedException {
-    try (var admin = Admin.of(bootstrapServers());
-        var producer = Producer.of(bootstrapServers())) {
-      var topic = "WaitLogSynced_" + Utils.randomString();
-      var rebalanceAdmin = RebalanceAdmin.of(admin, Map::of, (ignore) -> true);
-      var dummy = new byte[1024];
+    // arrange
+    try (var admin = Admin.of(bootstrapServers())) {
+      var topic = prepareTopic(admin, 1, (short) 1);
+      var topicPartition = new TopicPartition(topic, 0);
+      var rebalanceAdmin = prepareRebalanceAdmin(admin);
+      var beginReplica = admin.replicas().get(topicPartition).get(0);
+      var otherDataDir =
+          admin.brokerFolders().get(beginReplica.broker()).stream()
+              .filter(dir -> !dir.equals(beginReplica.path()))
+              .findAny()
+              .orElseThrow();
+      prepareData(topic, 0, DataUnit.MiB.of(32));
+      // let two brokers join the replica list
+      admin.migrator().partition(topic, 0).moveTo(List.of(0, 1, 2));
+      // let the existing replica change its directory
+      // TODO: fix this test, the data directory migration doesn't work, but the debounceAwait with
+      // high waiting time covered this error.
+      admin.migrator().partition(topic, 0).moveTo(Map.of(beginReplica.broker(), otherDataDir));
 
-      admin.creator().topic(topic).numberOfPartitions(1).numberOfReplicas((short) 1).create();
-      TimeUnit.SECONDS.sleep(2);
-
-      // Send 32 MiB data
-      IntStream.range(0, 1024 * 32)
-          .mapToObj(
-              i ->
-                  producer
-                      .sender()
-                      .topic(topic)
-                      .partition(0)
-                      .value(dummy)
-                      .run()
-                      .toCompletableFuture())
-          .forEach(CompletableFuture::join);
-      TimeUnit.SECONDS.sleep(1);
-
-      admin.migrator().partition(topic, 0).moveTo(List.copyOf(brokerIds()));
-
+      // act
       long time0 = System.currentTimeMillis();
-      brokerIds()
-          .forEach(
-              id ->
-                  Utils.packException(
-                      () -> rebalanceAdmin.waitLogSynced(new TopicPartitionReplica(topic, 0, id))));
+      rebalanceAdmin.waitLogSynced(new TopicPartitionReplica(topic, 0, 0));
+      rebalanceAdmin.waitLogSynced(new TopicPartitionReplica(topic, 0, 1));
+      rebalanceAdmin.waitLogSynced(new TopicPartitionReplica(topic, 0, 2));
       long time1 = System.currentTimeMillis();
 
+      // assert all replica synced
       Assertions.assertTrue(
           admin.replicas(Set.of(topic)).entrySet().stream()
               .flatMap(x -> x.getValue().stream())
               .allMatch(Replica::inSync));
+      // assert all data directory migration synced
+      Assertions.assertTrue(
+          admin.replicas(Set.of(topic)).entrySet().stream()
+              .flatMap(x -> x.getValue().stream())
+              .noneMatch(Replica::isFuture));
       Assertions.assertTrue((time1 - time0) > 100, "This should takes awhile");
     }
   }
@@ -244,13 +252,11 @@ class RebalanceAdminTest extends RequireBrokerCluster {
   @Test
   void waitPreferredLeaderSynced() throws InterruptedException {
     try (var admin = Admin.of(bootstrapServers())) {
-      var topic = "WaitPreferredLeaderSynced_" + Utils.randomString();
-      var rebalanceAdmin = RebalanceAdmin.of(admin, Map::of, (ignore) -> true);
+      var topic = prepareTopic(admin, 1, (short) 3);
+      var rebalanceAdmin = prepareRebalanceAdmin(admin);
+      var topicPartition = new TopicPartition(topic, 0);
 
-      admin.creator().topic(topic).numberOfPartitions(1).numberOfReplicas((short) 3).create();
-      TimeUnit.SECONDS.sleep(2);
-
-      var currentLeader =
+      var leaderNow =
           (Supplier<Integer>)
               () ->
                   admin.replicas(Set.of(topic)).entrySet().stream()
@@ -262,7 +268,7 @@ class RebalanceAdminTest extends RequireBrokerCluster {
                       .orElseThrow()
                       .broker();
 
-      int oldLeader = currentLeader.get();
+      int oldLeader = leaderNow.get();
 
       // change the preferred leader
       int newPreferredLeader = (oldLeader + 2) % 3;
@@ -272,30 +278,27 @@ class RebalanceAdminTest extends RequireBrokerCluster {
           .moveTo(List.of(newPreferredLeader, (oldLeader + 1) % 3, oldLeader));
 
       // assert not leader yet
-      Assertions.assertNotEquals(newPreferredLeader, currentLeader.get());
+      Assertions.assertNotEquals(newPreferredLeader, leaderNow.get());
 
       // do election
-      rebalanceAdmin.leaderElection(new TopicPartition(topic, 0));
+      rebalanceAdmin.leaderElection(topicPartition);
 
       // wait for this
-      Assertions.assertTrue(rebalanceAdmin.waitPreferredLeaderSynced(new TopicPartition(topic, 0)));
+      Assertions.assertTrue(rebalanceAdmin.waitPreferredLeaderSynced(topicPartition));
 
       // assert it is the leader
-      Assertions.assertEquals(newPreferredLeader, currentLeader.get());
+      Assertions.assertEquals(newPreferredLeader, leaderNow.get());
     }
   }
 
   @Test
   void leaderElection() throws InterruptedException {
-    // this test can guard leaderElection too.
     try (var admin = Admin.of(bootstrapServers())) {
-      var topic = "WaitPreferredLeaderSynced_" + Utils.randomString();
-      var rebalanceAdmin = RebalanceAdmin.of(admin, Map::of, (ignore) -> true);
+      var topic = prepareTopic(admin, 1, (short) 3);
+      var rebalanceAdmin = prepareRebalanceAdmin(admin);
+      var topicPartition = new TopicPartition(topic, 0);
 
-      admin.creator().topic(topic).numberOfPartitions(1).numberOfReplicas((short) 3).create();
-      TimeUnit.SECONDS.sleep(2);
-
-      var currentLeader =
+      var leaderNow =
           (Supplier<Integer>)
               () ->
                   admin.replicas(Set.of(topic)).entrySet().stream()
@@ -307,7 +310,7 @@ class RebalanceAdminTest extends RequireBrokerCluster {
                       .orElseThrow()
                       .broker();
 
-      int oldLeader = currentLeader.get();
+      int oldLeader = leaderNow.get();
 
       // change the preferred leader
       int newPreferredLeader = (oldLeader + 2) % 3;
@@ -317,20 +320,20 @@ class RebalanceAdminTest extends RequireBrokerCluster {
           .moveTo(List.of(newPreferredLeader, (oldLeader + 1) % 3, oldLeader));
 
       // assert not leader yet
-      Assertions.assertNotEquals(newPreferredLeader, currentLeader.get());
+      Assertions.assertNotEquals(newPreferredLeader, leaderNow.get());
 
       // do election
-      var task = rebalanceAdmin.leaderElection(new TopicPartition(topic, 0));
+      var task = rebalanceAdmin.leaderElection(topicPartition);
 
       // wait for this
-      Assertions.assertTrue(rebalanceAdmin.waitPreferredLeaderSynced(new TopicPartition(topic, 0)));
+      Assertions.assertTrue(rebalanceAdmin.waitPreferredLeaderSynced(topicPartition));
 
       // the task object works
       Assertions.assertTrue(task.progress());
       Assertions.assertTrue(task.await());
 
-      // assert it is the leader
-      Assertions.assertEquals(newPreferredLeader, currentLeader.get());
+      // assert it is the leader now
+      Assertions.assertEquals(newPreferredLeader, leaderNow.get());
     }
   }
 
@@ -345,7 +348,7 @@ class RebalanceAdminTest extends RequireBrokerCluster {
 
     Assertions.assertTrue(
         RebalanceAdminImpl.debouncedAwait(
-            new Supplier<Boolean>() {
+            new Supplier<>() {
               final AtomicInteger i = new AtomicInteger(0);
 
               @Override
@@ -404,5 +407,43 @@ class RebalanceAdminTest extends RequireBrokerCluster {
       long now2 = System.currentTimeMillis();
       Assertions.assertTrue(5000 >= (now2 - now0) && (now2 - now0) >= 1000);
     }
+  }
+
+  String prepareTopic(Admin admin, int partition, short replica) throws InterruptedException {
+    var topicName = Utils.randomString();
+
+    admin
+        .creator()
+        .topic(topicName)
+        .numberOfPartitions(partition)
+        .numberOfReplicas(replica)
+        .create();
+    TimeUnit.SECONDS.sleep(1);
+
+    return topicName;
+  }
+
+  RebalanceAdmin prepareRebalanceAdmin(Admin admin) {
+    return RebalanceAdmin.of(admin, Map::of, (ignore) -> true);
+  }
+
+  void prepareData(String topic, int partition, DataSize dataSize) {
+    var dummy = new byte[1024];
+    int sends = dataSize.measurement(DataUnit.KiB).intValue();
+    try (var producer = Producer.of(bootstrapServers())) {
+      var sender = producer.sender().topic(topic).partition(partition).value(dummy);
+      IntStream.range(0, sends)
+          .parallel()
+          .mapToObj(i -> sender.run().toCompletableFuture())
+          .collect(Collectors.toSet())
+          .forEach(CompletableFuture::join);
+    }
+  }
+
+  <T> T randomElement(Collection<T> collection) {
+    return collection.stream()
+        .skip(ThreadLocalRandom.current().nextInt(0, collection.size()))
+        .findFirst()
+        .orElseThrow();
   }
 }
