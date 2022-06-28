@@ -26,6 +26,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -38,6 +39,7 @@ import org.astraea.app.balancer.log.LogPlacement;
 import org.astraea.app.common.DataSize;
 import org.astraea.app.common.DataUnit;
 import org.astraea.app.common.Utils;
+import org.astraea.app.cost.ClusterInfo;
 import org.astraea.app.metrics.HasBeanObject;
 import org.astraea.app.metrics.jmx.BeanObject;
 import org.astraea.app.producer.Producer;
@@ -178,32 +180,26 @@ class RebalanceAdminTest extends RequireBrokerCluster {
                   0, List.of(() -> idBean.apply(next.get())),
                   1, List.of(() -> idBean.apply(next.get())),
                   2, List.of(() -> idBean.apply(next.get())));
+      BiFunction<ClusterInfo, Integer, BeanObject> firstBeanObject =
+          (clusterInfo, broker) ->
+              clusterInfo.clusterBean().all().get(broker).iterator().next().beanObject();
 
       final var rebalanceAdmin = RebalanceAdmin.of(admin, metricSource, (ignore) -> true);
 
       var clusterInfo = rebalanceAdmin.refreshMetrics(rebalanceAdmin.clusterInfo());
-      Assertions.assertEquals(
-          "0", clusterInfo.beans(0).iterator().next().beanObject().domainName());
-      Assertions.assertEquals(
-          "0", clusterInfo.beans(1).iterator().next().beanObject().domainName());
-      Assertions.assertEquals(
-          "0", clusterInfo.beans(2).iterator().next().beanObject().domainName());
+      Assertions.assertEquals("0", firstBeanObject.apply(clusterInfo, 0).domainName());
+      Assertions.assertEquals("0", firstBeanObject.apply(clusterInfo, 1).domainName());
+      Assertions.assertEquals("0", firstBeanObject.apply(clusterInfo, 2).domainName());
       next.incrementAndGet();
       clusterInfo = rebalanceAdmin.refreshMetrics(rebalanceAdmin.clusterInfo());
-      Assertions.assertEquals(
-          "1", clusterInfo.beans(0).iterator().next().beanObject().domainName());
-      Assertions.assertEquals(
-          "1", clusterInfo.beans(1).iterator().next().beanObject().domainName());
-      Assertions.assertEquals(
-          "1", clusterInfo.beans(2).iterator().next().beanObject().domainName());
+      Assertions.assertEquals("1", firstBeanObject.apply(clusterInfo, 0).domainName());
+      Assertions.assertEquals("1", firstBeanObject.apply(clusterInfo, 1).domainName());
+      Assertions.assertEquals("1", firstBeanObject.apply(clusterInfo, 2).domainName());
       next.incrementAndGet();
       clusterInfo = rebalanceAdmin.refreshMetrics(rebalanceAdmin.clusterInfo());
-      Assertions.assertEquals(
-          "2", clusterInfo.beans(0).iterator().next().beanObject().domainName());
-      Assertions.assertEquals(
-          "2", clusterInfo.beans(1).iterator().next().beanObject().domainName());
-      Assertions.assertEquals(
-          "2", clusterInfo.beans(2).iterator().next().beanObject().domainName());
+      Assertions.assertEquals("2", firstBeanObject.apply(clusterInfo, 0).domainName());
+      Assertions.assertEquals("2", firstBeanObject.apply(clusterInfo, 1).domainName());
+      Assertions.assertEquals("2", firstBeanObject.apply(clusterInfo, 2).domainName());
     }
   }
 
