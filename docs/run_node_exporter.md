@@ -19,3 +19,12 @@
 [INFO] node_exporter running at http://192.168.0.2:9100
 ```
 
+##### 網頁界面
+
+當存取`http://192.168.0.2:9100`後，可以看到下圖的Node Exporter
+
+![image-20220628230243574](/home/harry/.config/Typora/typora-user-images/image-20220628230243574.png)
+
+如下圖，點進去Metrics後，可以看到暴露的資訊(Memory、CPU......)
+
+![image-20220628230511180](/home/harry/.config/Typora/typora-user-images/image-20220628230511180.png)
