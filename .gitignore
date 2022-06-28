@@ -13,7 +13,8 @@ build
 # generated dockerfiles
 zookeeper.dockerfile
 broker.dockerfile
-kafka_tool.dockerfile
+app.dockerfile
 spark.dockerfile
+deps.dockerfile
 # we don't put binary file to git repo
 gradle-wrapper.jar

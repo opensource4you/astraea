@@ -1,4 +1,18 @@
 #!/bin/bash
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.
+# The ASF licenses this file to You under the Apache License, Version 2.0
+# (the "License"); you may not use this file except in compliance with
+# the License.  You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
 declare -r DOCKER_FOLDER=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
 source $DOCKER_FOLDER/docker_build_common.sh
@@ -57,6 +71,8 @@ RUN wget https://archive.apache.org/dist/spark/spark-${VERSION}/spark-${VERSION}
 RUN mkdir /opt/spark
 RUN tar -zxvf spark-${VERSION}-bin-hadoop3.2.tgz -C /opt/spark --strip-components=1
 
+# the python3 in ubuntu 22.04 is 3.10 by default, and it has a known issue (https://github.com/vmprof/vmprof-python/issues/240)
+# The issue obstructs us from installing 3-third python libraries, so we downgrade the ubuntu to 20.04
 FROM ubuntu:20.04
 
 # Do not ask for confirmations when running apt-get, etc.
@@ -83,7 +99,7 @@ WORKDIR /opt/spark
 
 function generateDockerfileBySource() {
   echo "# this dockerfile is generated dynamically
-FROM ubuntu:20.04 AS build
+FROM ubuntu:22.04 AS build
 
 # Do not ask for confirmations when running apt-get, etc.
 ENV DEBIAN_FRONTEND noninteractive
@@ -101,6 +117,8 @@ RUN mkdir /opt/spark
 RUN tar -zxvf \$(find ./ -maxdepth 1 -type f -name spark-*SNAPSHOT*.tgz) -C /opt/spark --strip-components=1
 RUN ./build/mvn install -DskipTests
 
+# the python3 in ubuntu 22.04 is 3.10 by default, and it has a known issue (https://github.com/vmprof/vmprof-python/issues/240)
+# The issue obstructs us from installing 3-third python libraries, so we downgrade the ubuntu to 20.04
 FROM ubuntu:20.04
 
 # Do not ask for confirmations when running apt-get, etc.
