@@ -14,12 +14,32 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.app.web;
+package org.astraea.app.consumer;
 
-import com.google.gson.Gson;
+import java.time.Duration;
+import java.util.Optional;
 
-interface JsonObject {
-  default String json() {
-    return new Gson().toJson(this);
-  }
+/**
+ * This inherited consumer offers function related to consumer group.
+ *
+ * @param <Key> key
+ * @param <Value> value
+ */
+public interface SubscribedConsumer<Key, Value> extends Consumer<Key, Value> {
+
+  /**
+   * commit the consumed offsets right now.
+   *
+   * @param timeout to wait commit.
+   */
+  void commitOffsets(Duration timeout);
+
+  /** @return the group id including this consumer */
+  String groupId();
+
+  /** @return the member id used by this consumer */
+  String memberId();
+
+  /** @return group instance id (static member) */
+  Optional<String> groupInstanceId();
 }
