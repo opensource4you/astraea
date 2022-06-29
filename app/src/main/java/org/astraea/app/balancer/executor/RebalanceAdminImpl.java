@@ -183,7 +183,7 @@ class RebalanceAdminImpl implements RebalanceAdmin {
                 .map(Replica::inSync)
                 .orElse(false),
         timeout,
-        Duration.ofSeconds(3));
+        Duration.ofSeconds(1));
   }
 
   @Override
@@ -208,7 +208,7 @@ class RebalanceAdminImpl implements RebalanceAdmin {
                     })
                 .orElseThrow(),
         timeout,
-        Duration.ofSeconds(3));
+        Duration.ofSeconds(1));
   }
 
   @Override
