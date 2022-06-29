@@ -54,4 +54,31 @@ public class PostRequestTest {
     Assertions.assertEquals(1234.0, request.shortValue("a"));
     Assertions.assertEquals(3.34, request.doubleValue("b"));
   }
+
+  @Test
+  void testStringArray() throws IOException {
+    var input =
+        new ByteArrayInputStream(
+            "{\"a\":\"b\",\"c\":[\"1\",\"2\"]}".getBytes(StandardCharsets.UTF_8));
+    var exchange = Mockito.mock(HttpExchange.class);
+    Mockito.when(exchange.getRequestBody()).thenReturn(input);
+
+    var request = PostRequest.of(exchange);
+    Assertions.assertEquals(2, request.values("c").size());
+    Assertions.assertEquals("1", request.values("c").get(0));
+    Assertions.assertEquals("2", request.values("c").get(1));
+  }
+
+  @Test
+  void testIntegerArray() throws IOException {
+    var input =
+        new ByteArrayInputStream("{\"a\":\"b\",\"c\":[1,2]}".getBytes(StandardCharsets.UTF_8));
+    var exchange = Mockito.mock(HttpExchange.class);
+    Mockito.when(exchange.getRequestBody()).thenReturn(input);
+
+    var request = PostRequest.of(exchange);
+    Assertions.assertEquals(2, request.ints("c").size());
+    Assertions.assertEquals(1, request.ints("c").get(0));
+    Assertions.assertEquals(2, request.ints("c").get(1));
+  }
 }
