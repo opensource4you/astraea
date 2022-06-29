@@ -21,8 +21,19 @@ import java.time.temporal.ChronoUnit;
 
 public interface CanAwait {
 
+  /**
+   * Wait for specific condition fulfilled.
+   *
+   * @param timeout the timeout for waiting for a specific condition to fulfill
+   * @return true if the condition is fulfilled.
+   */
   boolean await(Duration timeout);
 
+  /**
+   * Wait for specific condition fulfilled, with no timeout.
+   *
+   * @return true if the condition is fulfilled.
+   */
   default boolean await() {
     return await(ChronoUnit.FOREVER.getDuration());
   }
