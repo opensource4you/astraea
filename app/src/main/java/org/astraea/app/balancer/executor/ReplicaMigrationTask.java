@@ -19,7 +19,7 @@ package org.astraea.app.balancer.executor;
 import java.time.Duration;
 import org.astraea.app.admin.TopicPartitionReplica;
 
-public class ReplicaMigrationTask implements RebalanceTask<TopicPartitionReplica, SyncingProgress> {
+public class ReplicaMigrationTask implements RebalanceTask<TopicPartitionReplica, MigrationProgress> {
 
   private final RebalanceAdmin admin;
   private final TopicPartitionReplica log;
@@ -34,7 +34,7 @@ public class ReplicaMigrationTask implements RebalanceTask<TopicPartitionReplica
   }
 
   @Override
-  public SyncingProgress progress() {
+  public MigrationProgress progress() {
     return admin.syncingProgress(log);
   }
 

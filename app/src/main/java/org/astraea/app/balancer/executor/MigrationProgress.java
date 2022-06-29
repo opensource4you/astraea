@@ -21,11 +21,11 @@ import org.astraea.app.admin.Replica;
 import org.astraea.app.admin.TopicPartition;
 
 /** Monitoring the migration progress of specific replica log */
-public interface SyncingProgress {
+public interface MigrationProgress {
 
-  private static SyncingProgress of(
+  private static MigrationProgress of(
       TopicPartition topicPartition, Replica replica, long leaderSize) {
-    return new SyncingProgress() {
+    return new MigrationProgress() {
       @Override
       public TopicPartition topicPartition() {
         return topicPartition;
@@ -64,11 +64,11 @@ public interface SyncingProgress {
     };
   }
 
-  static SyncingProgress of(TopicPartition topicPartition, Replica replica, Replica leaderReplica) {
+  static MigrationProgress of(TopicPartition topicPartition, Replica replica, Replica leaderReplica) {
     return of(topicPartition, replica, leaderReplica.size());
   }
 
-  static SyncingProgress leaderlessProgress(TopicPartition topicPartition, Replica replica) {
+  static MigrationProgress leaderlessProgress(TopicPartition topicPartition, Replica replica) {
     return of(topicPartition, replica, -1);
   }
 

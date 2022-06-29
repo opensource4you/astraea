@@ -148,7 +148,7 @@ class RebalanceAdminImpl implements RebalanceAdmin {
   }
 
   @Override
-  public SyncingProgress syncingProgress(TopicPartitionReplica log) {
+  public MigrationProgress syncingProgress(TopicPartitionReplica log) {
     this.ensureTopicPermitted(log.topic());
 
     List<Replica> replicas =
@@ -165,8 +165,8 @@ class RebalanceAdminImpl implements RebalanceAdmin {
         replicas.stream().filter(x -> x.broker() == log.brokerId()).findFirst().orElseThrow();
 
     return leader
-        .map(leaderLog -> SyncingProgress.of(topicPartition, replica, leaderLog))
-        .orElse(SyncingProgress.leaderlessProgress(topicPartition, replica));
+        .map(leaderLog -> MigrationProgress.of(topicPartition, replica, leaderLog))
+        .orElse(MigrationProgress.leaderlessProgress(topicPartition, replica));
   }
 
   @Override
