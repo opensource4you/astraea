@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
@@ -183,7 +184,7 @@ class RebalanceAdminImpl implements RebalanceAdmin {
                 .map(Replica::inSync)
                 .orElse(false),
         timeout,
-        Duration.ofSeconds(1));
+        debounceTime.get());
   }
 
   @Override
@@ -208,7 +209,7 @@ class RebalanceAdminImpl implements RebalanceAdmin {
                     })
                 .orElseThrow(),
         timeout,
-        Duration.ofSeconds(1));
+        debounceTime.get());
   }
 
   @Override
@@ -265,5 +266,13 @@ class RebalanceAdminImpl implements RebalanceAdmin {
     } while (!isDone && timeoutMs > nowMs);
 
     return isDone;
+  }
+
+  private static final AtomicReference<Duration> debounceTime =
+      new AtomicReference<>(Duration.ofSeconds(1));
+
+  // visible for test
+  static void changeDebounceTime(Duration newDebounceTime) {
+    debounceTime.set(newDebounceTime);
   }
 }
