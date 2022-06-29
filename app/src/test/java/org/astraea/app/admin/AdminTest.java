@@ -263,7 +263,8 @@ public class AdminTest extends RequireBrokerCluster {
 
       // act, declare the preferred data directory
       Assertions.assertDoesNotThrow(
-          () -> admin.migrator().partition(topic, 0).moveTo(Map.of(nextBroker, nextDir)),
+          () ->
+              admin.migrator().partition(topic, 0).declarePreferredDir(Map.of(nextBroker, nextDir)),
           "The Migrator API should ignore the error");
       TimeUnit.SECONDS.sleep(1);
 
@@ -278,6 +279,45 @@ public class AdminTest extends RequireBrokerCluster {
       // assert, everything on the exact broker & dir
       Assertions.assertEquals(nextBroker, replicaNow.get().broker());
       Assertions.assertEquals(nextDir, replicaNow.get().path());
+    }
+  }
+
+  @Test
+  void testIllegalMigrationArgument() throws InterruptedException {
+    try (Admin admin = Admin.of(bootstrapServers())) {
+      var topic = Utils.randomString();
+      var topicPartition = new TopicPartition(topic, 0);
+      admin.creator().topic(topic).numberOfPartitions(1).numberOfReplicas((short) 1).create();
+      TimeUnit.SECONDS.sleep(1);
+      var currentReplica = admin.replicas(Set.of(topic)).get(topicPartition).get(0);
+      var currentBroker = currentReplica.broker();
+      var notExistReplica = (currentBroker + 1) % brokerIds().size();
+      var nextDir = logFolders().get(notExistReplica).iterator().next();
+
+      Assertions.assertThrows(
+          IllegalStateException.class,
+          () -> admin.migrator().partition(topic, 0).moveTo(Map.of(notExistReplica, nextDir)));
+    }
+  }
+
+  @Test
+  void testIllegalPreferredDirArgument() throws InterruptedException {
+    try (Admin admin = Admin.of(bootstrapServers())) {
+      var topic = Utils.randomString();
+      var topicPartition = new TopicPartition(topic, 0);
+      admin.creator().topic(topic).numberOfPartitions(1).numberOfReplicas((short) 1).create();
+      TimeUnit.SECONDS.sleep(1);
+      var currentReplica = admin.replicas(Set.of(topic)).get(topicPartition).get(0);
+      var currentBroker = currentReplica.broker();
+      var nextDir = logFolders().get(currentBroker).iterator().next();
+
+      Assertions.assertThrows(
+          IllegalStateException.class,
+          () ->
+              admin
+                  .migrator()
+                  .partition(topic, 0)
+                  .declarePreferredDir(Map.of(currentBroker, nextDir)));
     }
   }
 
