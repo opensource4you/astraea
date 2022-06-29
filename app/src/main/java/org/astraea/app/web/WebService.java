@@ -46,6 +46,7 @@ public class WebService {
     if (arg.needJmx())
       server.createContext("/beans", new BeanHandler(Admin.of(arg.configs()), arg.jmxPorts()));
     server.createContext("/records", new RecordHandler(arg.bootstrapServers()));
+    server.createContext("/reassignments", new ReassignmentHandler(Admin.of(arg.configs())));
     server.start();
   }
 
