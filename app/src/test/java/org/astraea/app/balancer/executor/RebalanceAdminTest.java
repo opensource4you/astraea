@@ -45,6 +45,7 @@ import org.astraea.app.metrics.jmx.BeanObject;
 import org.astraea.app.producer.Producer;
 import org.astraea.app.service.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 
 class RebalanceAdminTest extends RequireBrokerCluster {
@@ -55,6 +56,7 @@ class RebalanceAdminTest extends RequireBrokerCluster {
     try (var admin = Admin.of(bootstrapServers())) {
       var topic = prepareTopic(admin, 1, (short) 1);
       var rebalanceAdmin = prepareRebalanceAdmin(admin);
+      RebalanceAdminImpl.changeDebounceTime(Duration.ofMillis(50));
 
       // scale the replica size from 1 to 3, to the following data dir
       var logFolder0 = randomElement(logFolders().get(0));
@@ -92,7 +94,44 @@ class RebalanceAdminTest extends RequireBrokerCluster {
     }
   }
 
-  // TODO: add a test alterReplicaPlacementByDir, and assert the syncing progress works
+  // repeat the test so it has higher chance to fail
+  @RepeatedTest(value = 3)
+  void alterReplicaPlacementByDirectory() throws InterruptedException {
+    // arrange
+    try (Admin admin = Admin.of(bootstrapServers())) {
+      var topic = prepareTopic(admin, 1, (short) 1);
+      var topicPartition = new TopicPartition(topic, 0);
+      var rebalanceAdmin = prepareRebalanceAdmin(admin);
+      // decrease the debouncing time so the test has higher chance to fail
+      RebalanceAdminImpl.changeDebounceTime(Duration.ofMillis(150));
+      prepareData(topic, 0, DataUnit.MiB.of(256));
+      Supplier<Replica> replicaNow = () -> admin.replicas(Set.of(topic)).get(topicPartition).get(0);
+      var originalReplica = replicaNow.get();
+      var nextDir =
+          logFolders().get(originalReplica.broker()).stream()
+              .filter(name -> !name.equals(originalReplica.path()))
+              .findAny()
+              .orElseThrow();
+      var expectedPlacement = LogPlacement.of(originalReplica.broker(), nextDir);
+
+      // act, change the dir of the only replica
+      var task =
+          rebalanceAdmin.alterReplicaPlacements(topicPartition, List.of(expectedPlacement)).get(0);
+
+      // assert
+      Assertions.assertTrue(task.await());
+      var finalReplica = replicaNow.get();
+      Assertions.assertTrue(finalReplica.inSync());
+      Assertions.assertFalse(finalReplica.isFuture());
+      Assertions.assertEquals(originalReplica.broker(), finalReplica.broker());
+      Assertions.assertTrue(task.progress().synced());
+      Assertions.assertEquals(1.0, task.progress().percentage());
+      Assertions.assertEquals(topicPartition, task.progress().topicPartition());
+      Assertions.assertEquals(originalReplica.broker(), task.progress().brokerId());
+      Assertions.assertEquals(
+          new TopicPartitionReplica(topic, 0, originalReplica.broker()), task.info());
+    }
+  }
 
   @Test
   void syncingProgress() throws InterruptedException {
@@ -216,12 +255,11 @@ class RebalanceAdminTest extends RequireBrokerCluster {
               .filter(dir -> !dir.equals(beginReplica.path()))
               .findAny()
               .orElseThrow();
+      RebalanceAdminImpl.changeDebounceTime(Duration.ofMillis(150));
       prepareData(topic, 0, DataUnit.MiB.of(32));
       // let two brokers join the replica list
       admin.migrator().partition(topic, 0).moveTo(List.of(0, 1, 2));
       // let the existing replica change its directory
-      // TODO: fix this test, the data directory migration doesn't work, but the debounceAwait with
-      // high waiting time covered this error.
       admin.migrator().partition(topic, 0).moveTo(Map.of(beginReplica.broker(), otherDataDir));
 
       // act
