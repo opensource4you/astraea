@@ -159,7 +159,7 @@ class RebalanceAdminImpl implements RebalanceAdmin {
                 .flatMap(x -> x.getValue().stream())
                 .filter(x -> x.broker() == log.brokerId())
                 .findFirst()
-                .map(Replica::inSync)
+                .map(x -> x.inSync() && !x.isFuture())
                 .orElse(false),
         timeout,
         debounceTime.get());
