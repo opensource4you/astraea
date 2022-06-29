@@ -64,9 +64,6 @@ public interface RebalanceAdmin {
   List<ReplicaMigrationTask> alterReplicaPlacements(
       TopicPartition topicPartition, List<LogPlacement> expectedPlacement);
 
-  /** Access the syncing progress of the specific topic/partitions */
-  MigrationProgress syncingProgress(TopicPartitionReplica topicPartitionReplica);
-
   /**
    * Wait until the given log is synced or the timeout is due.
    *

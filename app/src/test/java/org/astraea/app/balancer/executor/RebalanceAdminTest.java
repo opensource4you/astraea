@@ -85,11 +85,7 @@ class RebalanceAdminTest extends RequireBrokerCluster {
 
       for (int i = 0; i < 3; i++) {
         var task = tasks.get(i);
-        Assertions.assertTrue(task.progress().synced());
-        Assertions.assertEquals(i, task.progress().brokerId());
-        Assertions.assertEquals(1, task.progress().percentage());
         Assertions.assertTrue(task.await());
-        Assertions.assertEquals(new TopicPartitionReplica(topic, 0, i), task.info());
       }
     }
   }
@@ -124,67 +120,6 @@ class RebalanceAdminTest extends RequireBrokerCluster {
       Assertions.assertTrue(finalReplica.inSync());
       Assertions.assertFalse(finalReplica.isFuture());
       Assertions.assertEquals(originalReplica.broker(), finalReplica.broker());
-      Assertions.assertTrue(task.progress().synced());
-      Assertions.assertEquals(1.0, task.progress().percentage());
-      Assertions.assertEquals(topicPartition, task.progress().topicPartition());
-      Assertions.assertEquals(originalReplica.broker(), task.progress().brokerId());
-      Assertions.assertEquals(
-          new TopicPartitionReplica(topic, 0, originalReplica.broker()), task.info());
-    }
-  }
-
-  @Test
-  void syncingProgress() throws InterruptedException {
-    try (Admin admin = Admin.of(bootstrapServers())) {
-      var topic = prepareTopic(admin, 3, (short) 2);
-      var rebalanceAdmin = prepareRebalanceAdmin(admin);
-
-      prepareData(topic, 0, DataUnit.KiB.of(1024));
-      prepareData(topic, 1, DataUnit.KiB.of(2048));
-      prepareData(topic, 2, DataUnit.KiB.of(3072));
-
-      final var replicaMap = admin.replicas(Set.of(topic));
-      final var logs =
-          (Set<TopicPartitionReplica>)
-              replicaMap.entrySet().stream()
-                  .flatMap(
-                      entry -> {
-                        var tp = entry.getKey();
-                        var replicas = entry.getValue();
-
-                        return replicas.stream()
-                            .map(
-                                log ->
-                                    new TopicPartitionReplica(
-                                        tp.topic(), tp.partition(), log.broker()));
-                      })
-                  .collect(Collectors.toUnmodifiableSet());
-
-      logs.forEach(
-          log -> {
-            var syncingProgress = rebalanceAdmin.syncingProgress(log);
-
-            // assert synced
-            Assertions.assertTrue(syncingProgress.synced());
-
-            // assert topic/partition/replica correct
-            Assertions.assertEquals(log.topic(), syncingProgress.topicPartition().topic());
-            Assertions.assertEquals(log.partition(), syncingProgress.topicPartition().partition());
-            Assertions.assertEquals(log.brokerId(), syncingProgress.brokerId());
-
-            // assert log size correct
-            Assertions.assertEquals(
-                syncingProgress.leaderLogSize().orElseThrow(), syncingProgress.logSize());
-
-            // assert percentage ok
-            Assertions.assertEquals(1, syncingProgress.percentage());
-
-            // assert size
-            long expectedMinLogSize = 1024L * (log.partition()) + 1;
-            // log contain metadata and record content, it supposed to be bigger than the actual
-            // data
-            Assertions.assertTrue(expectedMinLogSize < syncingProgress.logSize());
-          });
     }
   }
 
@@ -363,7 +298,6 @@ class RebalanceAdminTest extends RequireBrokerCluster {
       Assertions.assertTrue(rebalanceAdmin.waitPreferredLeaderSynced(topicPartition));
 
       // the task object works
-      Assertions.assertTrue(task.progress());
       Assertions.assertTrue(task.await());
 
       // assert it is the leader now

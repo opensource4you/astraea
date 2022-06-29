@@ -148,28 +148,6 @@ class RebalanceAdminImpl implements RebalanceAdmin {
   }
 
   @Override
-  public MigrationProgress syncingProgress(TopicPartitionReplica log) {
-    this.ensureTopicPermitted(log.topic());
-
-    List<Replica> replicas =
-        admin.replicas(Set.of(log.topic())).entrySet().stream()
-            .filter(x -> x.getKey().partition() == log.partition())
-            .filter(x -> x.getKey().topic().equals(log.topic()))
-            .map(Map.Entry::getValue)
-            .findFirst()
-            .orElseThrow();
-
-    var topicPartition = new TopicPartition(log.topic(), log.partition());
-    var leader = replicas.stream().filter(Replica::leader).findFirst();
-    var replica =
-        replicas.stream().filter(x -> x.broker() == log.brokerId()).findFirst().orElseThrow();
-
-    return leader
-        .map(leaderLog -> MigrationProgress.of(topicPartition, replica, leaderLog))
-        .orElse(MigrationProgress.leaderlessProgress(topicPartition, replica));
-  }
-
-  @Override
   public boolean waitLogSynced(TopicPartitionReplica log, Duration timeout)
       throws InterruptedException {
     ensureTopicPermitted(log.topic());

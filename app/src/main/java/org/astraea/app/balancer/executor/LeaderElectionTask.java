@@ -19,7 +19,7 @@ package org.astraea.app.balancer.executor;
 import java.time.Duration;
 import org.astraea.app.admin.TopicPartition;
 
-public class LeaderElectionTask implements RebalanceTask<TopicPartition, Boolean> {
+public class LeaderElectionTask implements CanAwait {
 
   private final RebalanceAdmin admin;
   private final TopicPartition topicPartition;
@@ -27,16 +27,6 @@ public class LeaderElectionTask implements RebalanceTask<TopicPartition, Boolean
   public LeaderElectionTask(RebalanceAdmin admin, TopicPartition topicPartition) {
     this.admin = admin;
     this.topicPartition = topicPartition;
-  }
-
-  @Override
-  public TopicPartition info() {
-    return topicPartition;
-  }
-
-  @Override
-  public Boolean progress() {
-    return await(Duration.ZERO);
   }
 
   @Override
