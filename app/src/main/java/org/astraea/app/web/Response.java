@@ -23,6 +23,7 @@ interface Response {
 
   Response OK = new ResponseImpl(200);
   Response ACCEPT = new ResponseImpl(202);
+  Response BAD_REQUEST = new ResponseImpl(400);
   Response NOT_FOUND = new ResponseImpl(404);
 
   static Response of(Exception exception) {

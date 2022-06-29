@@ -818,17 +818,20 @@ public class Builder {
     public void moveTo(Map<Integer, String> brokerFolders) {
       Utils.packException(
           () ->
-              admin.alterReplicaLogDirs(
-                  brokerFolders.entrySet().stream()
-                      .collect(
-                          Collectors.toMap(
-                              x ->
-                                  TopicPartitionReplica.to(
-                                      new TopicPartitionReplica(
-                                          partitions.iterator().next().topic(),
-                                          partitions.iterator().next().partition(),
-                                          x.getKey())),
-                              Map.Entry::getValue))));
+              admin
+                  .alterReplicaLogDirs(
+                      brokerFolders.entrySet().stream()
+                          .collect(
+                              Collectors.toMap(
+                                  x ->
+                                      TopicPartitionReplica.to(
+                                          new TopicPartitionReplica(
+                                              partitions.iterator().next().topic(),
+                                              partitions.iterator().next().partition(),
+                                              x.getKey())),
+                                  Map.Entry::getValue)))
+                  .all()
+                  .get());
     }
 
     @Override
