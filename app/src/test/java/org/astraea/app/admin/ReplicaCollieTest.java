@@ -28,6 +28,7 @@ import org.astraea.app.argument.Argument;
 import org.astraea.app.common.Utils;
 import org.astraea.app.service.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledOnOs;
 
@@ -85,7 +86,7 @@ public class ReplicaCollieTest extends RequireBrokerCluster {
   }
 
   @Test
-  @DisabledOnOs(WINDOWS)
+  @Disabled("ReplicaCollie is about to get deleted")
   void testPathMigrator() throws InterruptedException {
     var topicName = "ReplicaCollieTest-Path";
     try (var topicAdmin = Admin.of(bootstrapServers())) {
