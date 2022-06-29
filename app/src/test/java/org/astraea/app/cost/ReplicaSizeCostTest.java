@@ -35,15 +35,14 @@ import org.astraea.app.metrics.jmx.BeanObject;
 import org.astraea.app.metrics.kafka.HasValue;
 import org.astraea.app.metrics.kafka.KafkaMetrics;
 import org.astraea.app.producer.Producer;
-import org.astraea.app.service.RequireBrokerCluster;
+import org.astraea.app.service.RequireSingleBrokerCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-class ReplicaSizeCostTest extends RequireBrokerCluster {
+class ReplicaSizeCostTest extends RequireSingleBrokerCluster {
   @Test
   void testGetMetrics() {
     var brokerDiskSize = Map.of(1, 1000, 2, 1000, 3, 1000);
-    restartCluster(1);
     var topicName = "testGetMetrics-1";
     try (var admin = Admin.of(bootstrapServers())) {
       var host = "localhost";

@@ -18,7 +18,6 @@ package org.astraea.app.cost;
 
 import java.time.Duration;
 import java.util.Collection;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -42,63 +41,8 @@ import org.mockito.Mockito;
 class NumberOfLeaderCostTest extends RequireBrokerCluster {
 
   @Test
-  void testGetMetrics() {
-    restartCluster(1);
-    var topicName = List.of("testGetMetrics-1", "testGetMetrics-2", "testGetMetrics-3");
-    try (var admin = Admin.of(bootstrapServers())) {
-      var host = "localhost";
-      admin
-          .creator()
-          .topic(topicName.get(0))
-          .numberOfPartitions(4)
-          .numberOfReplicas((short) 1)
-          .create();
-      admin
-          .creator()
-          .topic(topicName.get(1))
-          .numberOfPartitions(5)
-          .numberOfReplicas((short) 1)
-          .create();
-      admin
-          .creator()
-          .topic(topicName.get(2))
-          .numberOfPartitions(6)
-          .numberOfReplicas((short) 1)
-          .create();
-      // wait for topic creation
-      TimeUnit.SECONDS.sleep(5);
-
-      NumberOfLeaderCost costFunction = new NumberOfLeaderCost();
-      var beanObjects =
-          BeanCollector.builder()
-              .interval(Duration.ofSeconds(4))
-              .build()
-              .register()
-              .host(host)
-              .port(jmxServiceURL().getPort())
-              .fetcher(Fetcher.of(Set.of(costFunction.fetcher())))
-              .build()
-              .current();
-      var leaderNum =
-          beanObjects.stream()
-              .filter(x -> x instanceof HasValue)
-              .filter(x -> x.beanObject().getProperties().get("name").equals("LeaderCount"))
-              .filter(x -> x.beanObject().getProperties().get("type").equals("ReplicaManager"))
-              .sorted(Comparator.comparing(HasBeanObject::createdTimestamp).reversed())
-              .map(x -> (HasValue) x)
-              .limit(1)
-              .map(e2 -> (int) e2.value())
-              .collect(Collectors.toList());
-      Assertions.assertEquals(leaderNum.get(0), 4 + 5 + 6);
-    } catch (InterruptedException e) {
-      throw new RuntimeException(e);
-    }
-  }
-
-  @Test
   void testBrokerCost() {
-    var topicName =
-        List.of("ReplicaCollieTest-Path-1", "ReplicaCollieTest-Path-2", "ReplicaCollieTest-Path-3");
+    var topicName = List.of("testLeaderCost-1", "testLeaderCost-2", "testLeaderCost-3");
     try (var admin = Admin.of(bootstrapServers())) {
       var host = "localhost";
       for (var topic : topicName)
