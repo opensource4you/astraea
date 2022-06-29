@@ -17,6 +17,8 @@
 package org.astraea.app.balancer.log;
 
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.astraea.app.admin.TopicPartition;
 
@@ -62,5 +64,49 @@ public interface ClusterLogAllocation {
   /** Retrieve the stream of all topic/partition pairs in allocation. */
   Stream<TopicPartition> topicPartitionStream();
 
-  // TODO: add a method to calculate the difference between two ClusterLogAllocation
+  static Set<TopicPartition> findNonFulfilledAllocation(
+      ClusterLogAllocation source, ClusterLogAllocation target) {
+
+    final var targetTopicPartition =
+        target.topicPartitionStream().collect(Collectors.toUnmodifiableSet());
+
+    final var disappearedTopicPartitions =
+        source
+            .topicPartitionStream()
+            .filter(sourceTp -> !targetTopicPartition.contains(sourceTp))
+            .collect(Collectors.toUnmodifiableSet());
+
+    if (!disappearedTopicPartitions.isEmpty())
+      throw new IllegalArgumentException(
+          "Some of the topic/partitions in source allocation is disappeared in the target allocation. Balancer can't do topic deletion or shrinking partition size: "
+              + disappearedTopicPartitions);
+
+    return source
+        .topicPartitionStream()
+        .filter(tp -> !LogPlacement.isMatch(source.logPlacements(tp), target.logPlacements(tp)))
+        .collect(Collectors.toUnmodifiableSet());
+  }
+
+  static String describeAllocation(ClusterLogAllocation allocation) {
+    StringBuilder stringBuilder = new StringBuilder();
+
+    allocation
+        .topicPartitionStream()
+        .sorted()
+        .forEach(
+            tp -> {
+              stringBuilder.append("[").append(tp).append("] ");
+
+              allocation
+                  .logPlacements(tp)
+                  .forEach(
+                      log ->
+                          stringBuilder.append(
+                              String.format("%s(%s) ", log.broker(), log.logDirectory())));
+
+              stringBuilder.append(System.lineSeparator());
+            });
+
+    return stringBuilder.toString();
+  }
 }

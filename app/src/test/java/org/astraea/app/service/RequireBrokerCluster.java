@@ -19,7 +19,6 @@ package org.astraea.app.service;
 import java.util.Map;
 import java.util.Set;
 import org.astraea.app.common.Utils;
-import org.junit.jupiter.api.AfterAll;
 
 /**
  * This class offers a way to have embedded kafka cluster. It is useful to test code which is
@@ -53,7 +52,7 @@ public abstract class RequireBrokerCluster extends RequireJmxServer {
     return logFolders().keySet();
   }
 
-  @AfterAll
+  // @AfterAll
   static void shutdownClusters() {
     Utils.swallowException(BROKER_CLUSTER::close);
     Utils.swallowException(ZOOKEEPER_CLUSTER::close);
