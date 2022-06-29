@@ -46,6 +46,7 @@ import org.apache.kafka.common.ElectionType;
 import org.apache.kafka.common.TopicPartitionReplica;
 import org.apache.kafka.common.config.ConfigResource;
 import org.apache.kafka.common.errors.ElectionNotNeededException;
+import org.apache.kafka.common.errors.ReplicaNotAvailableException;
 import org.apache.kafka.common.quota.ClientQuotaAlteration;
 import org.apache.kafka.common.quota.ClientQuotaEntity;
 import org.apache.kafka.common.quota.ClientQuotaFilter;
@@ -816,21 +817,27 @@ public class Builder {
 
     @Override
     public void moveTo(Map<Integer, String> brokerFolders) {
-      Utils.packException(
-          () ->
-              admin
-                  .alterReplicaLogDirs(
-                      brokerFolders.entrySet().stream()
-                          .collect(
-                              Collectors.toMap(
-                                  x ->
-                                      new TopicPartitionReplica(
-                                          partitions.iterator().next().topic(),
-                                          partitions.iterator().next().partition(),
-                                          x.getKey()),
-                                  Map.Entry::getValue)))
-                  .all()
-                  .get());
+      try {
+        Utils.packException(
+            () ->
+                admin
+                    .alterReplicaLogDirs(
+                        brokerFolders.entrySet().stream()
+                            .collect(
+                                Collectors.toMap(
+                                    x ->
+                                        new TopicPartitionReplica(
+                                            partitions.iterator().next().topic(),
+                                            partitions.iterator().next().partition(),
+                                            x.getKey()),
+                                    Map.Entry::getValue)))
+                    .all()
+                    .get());
+      } catch (ReplicaNotAvailableException ignore) {
+        // The call is probably trying to declare the preferred data directory. Swallow the
+        // exception since this is a supported operation. See the Javadoc of
+        // AdminClient#alterReplicaLogDirs for details.
+      }
     }
 
     @Override

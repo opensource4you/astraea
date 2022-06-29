@@ -249,6 +249,39 @@ public class AdminTest extends RequireBrokerCluster {
   }
 
   @Test
+  void testDeclarePreferredLogDirectory() throws InterruptedException {
+    // arrange
+    try (Admin admin = Admin.of(bootstrapServers())) {
+      var topic = "DeclarePreferredLogDirectory_" + Utils.randomString();
+      var topicPartition = new TopicPartition(topic, 0);
+      admin.creator().topic(topic).numberOfPartitions(1).numberOfReplicas((short) 1).create();
+      TimeUnit.SECONDS.sleep(1);
+      var originalBroker = admin.replicas(Set.of(topic)).get(topicPartition).get(0).broker();
+      var nextBroker = (originalBroker + 1) % brokerIds().size();
+      var nextDir = logFolders().get(nextBroker).stream().findAny().orElseThrow();
+      Supplier<Replica> replicaNow = () -> admin.replicas(Set.of(topic)).get(topicPartition).get(0);
+
+      // act, declare the preferred data directory
+      Assertions.assertDoesNotThrow(
+          () -> admin.migrator().partition(topic, 0).moveTo(Map.of(nextBroker, nextDir)),
+          "The Migrator API should ignore the error");
+      TimeUnit.SECONDS.sleep(1);
+
+      // assert, nothing happened until the actual movement
+      Assertions.assertNotEquals(nextBroker, replicaNow.get().broker());
+      Assertions.assertNotEquals(nextDir, replicaNow.get().path());
+
+      // act, perform the actual movement
+      admin.migrator().partition(topic, 0).moveTo(List.of(nextBroker));
+      TimeUnit.SECONDS.sleep(1);
+
+      // assert, everything on the exact broker & dir
+      Assertions.assertEquals(nextBroker, replicaNow.get().broker());
+      Assertions.assertEquals(nextDir, replicaNow.get().path());
+    }
+  }
+
+  @Test
   @DisabledOnOs(WINDOWS)
   void testMigrateAllPartitions() throws InterruptedException {
     var topicName = "testMigrateAllPartitions";
