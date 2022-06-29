@@ -42,7 +42,7 @@ class RebalanceAdminImpl implements RebalanceAdmin {
   private final Supplier<Map<Integer, Collection<HasBeanObject>>> metricSource;
 
   /**
-   * Construct a implementation of {@link RebalanceAdmin}
+   * Construct an implementation of {@link RebalanceAdmin}
    *
    * @param topicFilter to determine which topics are permitted for balance operation
    * @param admin the actual {@link Admin} implementation
