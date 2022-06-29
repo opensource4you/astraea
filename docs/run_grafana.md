@@ -22,11 +22,11 @@ aa8a47da91a2e0974a38690525f9148c9697f7ffc752611ef06248ffb09ef53a
 
 進入`http://192.168.0.2:3000`後，會出現下圖
 
-![image-20220628231924579](/home/harry/.config/Typora/typora-user-images/image-20220628231924579.png)
+![image-20220628231924579](pictures/grafana.jpg)
 
 預設的使用者帳號/密碼為admin，登錄後可看到Grafana的界面
 
-![image-20220628232312952](/home/harry/.config/Typora/typora-user-images/image-20220628232312952.png)
+![image-20220628232312952](pictures/grafana_overview.jpg)
 
 #### Add Prometheus DataSource
 
