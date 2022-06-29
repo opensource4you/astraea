@@ -17,9 +17,13 @@
 package org.astraea.app.web;
 
 import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
 import com.sun.net.httpserver.HttpExchange;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
@@ -41,7 +45,7 @@ public interface PostRequest {
   }
 
   static String handleDouble(Object obj) {
-    // the number in GSON is always DOUBLE>
+    // the number in GSON is always DOUBLE
     if (obj instanceof Double) {
       var value = (double) obj;
       if (value - Math.floor(value) == 0) return String.valueOf((long) Math.floor(value));
@@ -56,6 +60,14 @@ public interface PostRequest {
   /** @return body represented by key-value */
   Map<String, String> raw();
 
+  /**
+   * @param keys to check
+   * @return true if all keys has an associated value.
+   */
+  default boolean has(String... keys) {
+    return Arrays.stream(keys).allMatch(raw()::containsKey);
+  }
+
   default Optional<String> get(String key) {
     return Optional.ofNullable(raw().get(key));
   }
@@ -64,6 +76,16 @@ public interface PostRequest {
     var value = raw().get(key);
     if (value == null) throw new NoSuchElementException("the value for " + key + " is nonexistent");
     return value;
+  }
+
+  /**
+   * parse the value as a string array
+   *
+   * @param key to search value
+   * @return string array
+   */
+  default List<String> values(String key) {
+    return new Gson().fromJson(value(key), new TypeToken<ArrayList<String>>() {}.getType());
   }
 
   default double doubleValue(String key, double defaultValue) {
@@ -80,6 +102,14 @@ public interface PostRequest {
 
   default int intValue(String key) {
     return Integer.parseInt(value(key));
+  }
+
+  default List<Integer> ints(String key) {
+    return values(key).stream()
+        // the number in GSON is always DOUBLE
+        .map(Double::valueOf)
+        .map(Double::intValue)
+        .collect(Collectors.toUnmodifiableList());
   }
 
   default short shortValue(String key, short defaultValue) {
