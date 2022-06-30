@@ -49,8 +49,8 @@ public class WeightProviderTest {
             .mapToObj(i -> 0.0 + i % 10 * 0.1)
             .collect(Collectors.toUnmodifiableList()));
     var entropy = weightProvider.weight(confusion);
-    // "0" range of 1 to 2 numbers.The number is accurate to one decimal places.
-    // "1" range of 0 to 100 integer numbers.
+    // "0" range of 0 to 100 numbers * Math.random().
+    // "1" range of 0 to 1 numbers.The number is accurate to one decimal places.
     // "0" is more confusing than "1".
     Assertions.assertTrue(entropy.get("0") > entropy.get("1"));
 
