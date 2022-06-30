@@ -95,8 +95,8 @@ class RebalanceAdminImpl implements RebalanceAdmin {
     final var currentBrokerAllocation =
         currentPlacement.stream().map(LogPlacement::broker).collect(Collectors.toUnmodifiableSet());
 
-    // TODO: this operation is not supposed to trigger a log movement. But there might be a
-    // small window of time to actually trigger it (race condition).
+    // this operation is not supposed to trigger a log movement. But there might be a small window
+    // of time to actually trigger it (race condition).
     final var declareMap =
         preferredPlacements.stream()
             .filter(futurePlacement -> !currentBrokerAllocation.contains(futurePlacement.broker()))
@@ -108,7 +108,7 @@ class RebalanceAdminImpl implements RebalanceAdmin {
     admin
         .migrator()
         .partition(topicPartition.topic(), topicPartition.partition())
-        .moveTo(declareMap);
+        .declarePreferredDir(declareMap);
   }
 
   @Override
@@ -119,6 +119,13 @@ class RebalanceAdminImpl implements RebalanceAdmin {
     // ensure replica will be placed in the correct data directory at destination broker.
     declarePreferredDataDirectories(topicPartition, expectedPlacement);
 
+    var currentReplicaBrokers =
+        fetchCurrentPlacement(topicPartition).stream()
+            .map(LogPlacement::broker)
+            .collect(Collectors.toUnmodifiableSet());
+    System.out.println(currentReplicaBrokers);
+    System.out.println(expectedPlacement);
+
     // do cross broker migration
     admin
         .migrator()
@@ -128,15 +135,18 @@ class RebalanceAdminImpl implements RebalanceAdmin {
                 .map(LogPlacement::broker)
                 .collect(Collectors.toUnmodifiableList()));
     // do inter-data-directories migration
+    var forCrossDirMigration =
+        expectedPlacement.stream()
+            .filter(placement -> currentReplicaBrokers.contains(placement.broker()))
+            .filter(placement -> placement.logDirectory().isPresent())
+            .collect(
+                Collectors.toUnmodifiableMap(
+                    LogPlacement::broker, placement -> placement.logDirectory().orElseThrow()));
+    System.out.println(forCrossDirMigration);
     admin
         .migrator()
         .partition(topicPartition.topic(), topicPartition.partition())
-        .moveTo(
-            expectedPlacement.stream()
-                .filter(placement -> placement.logDirectory().isPresent())
-                .collect(
-                    Collectors.toUnmodifiableMap(
-                        LogPlacement::broker, x -> x.logDirectory().orElseThrow())));
+        .moveTo(forCrossDirMigration);
 
     return expectedPlacement.stream()
         .map(
