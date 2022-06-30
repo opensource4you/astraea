@@ -67,24 +67,42 @@ public final class SmoothWeightRoundRobin
             .collect(Collectors.toMap(Map.Entry::getKey, ignored -> 0.0));
   }
 
+  /**
+   * Update effective weight.
+   *
+   * @param brokerScore Broker Score.
+   */
   public synchronized void init(Map<Integer, Double> brokerScore) {
     effectiveWeightResult =
         tryUpdate(
             () -> {
-              var normalizationLoad = CostUtils.normalize(brokerScore);
+              var avgScore =
+                  brokerScore.values().stream().mapToDouble(i -> i).average().getAsDouble();
+              var offsetRateOfBroker =
+                  brokerScore.entrySet().stream()
+                      .collect(
+                          Collectors.toMap(
+                              Map.Entry::getKey,
+                              entry -> (entry.getValue() - avgScore) / avgScore));
+              var balance = false;
+              // If the average offset of all brokers from the cluster is greater than 0.1, it is
+              // unbalanced.
+              balance =
+                  CostUtils.standardDeviationImperative(avgScore, brokerScore)
+                      > 0.1 / offsetRateOfBroker.size();
+              var finalFactory = balance;
+
               return new EffectiveWeightResult(
                   this.effectiveWeightResult.effectiveWeight.entrySet().stream()
                       .collect(
                           Collectors.toMap(
                               entry -> entry.getKey(),
                               entry -> {
-                                var nLoad = normalizationLoad.get(entry.getKey());
+                                var offsetRate = offsetRateOfBroker.get(entry.getKey());
                                 var weight =
-                                    entry.getValue()
-                                        * (nLoad.isNaN()
-                                            ? 1.0
-                                            : ((nLoad + 1) > 0 ? nLoad + 1 : 0.1));
-                                if (weight > 2.0) return 2.0;
+                                    finalFactory
+                                        ? entry.getValue() * (1 - offsetRate)
+                                        : entry.getValue();
                                 return Math.max(weight, 0.0);
                               })));
             },
