@@ -32,6 +32,7 @@ import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledOnOs;
 
+@Disabled("ReplicaCollie is about to get deleted")
 public class ReplicaCollieTest extends RequireBrokerCluster {
   @Test
   @DisabledOnOs(WINDOWS)
@@ -86,7 +87,7 @@ public class ReplicaCollieTest extends RequireBrokerCluster {
   }
 
   @Test
-  @Disabled("ReplicaCollie is about to get deleted")
+  @DisabledOnOs(WINDOWS)
   void testPathMigrator() throws InterruptedException {
     var topicName = "ReplicaCollieTest-Path";
     try (var topicAdmin = Admin.of(bootstrapServers())) {
