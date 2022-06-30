@@ -28,26 +28,25 @@ import org.mockito.Mockito;
 
 public class NeutralIntegratedCostTest {
   @Test
-  void testSetBrokerMetrics() throws NoSuchFieldException, IllegalAccessException {
+  void testSetBrokerMetrics() {
     var neutralIntegratedCost = new NeutralIntegratedCost();
-    var brokerMetricsField = neutralIntegratedCost.getClass().getDeclaredField("brokersMetric");
     var clusterInfo = Mockito.mock(ClusterInfo.class);
-    brokerMetricsField.setAccessible(true);
-    brokerMetricsField.set(
-        neutralIntegratedCost,
-        Map.of(
-            0,
-            new NeutralIntegratedCost.BrokerMetrics(),
-            1,
-            new NeutralIntegratedCost.BrokerMetrics(),
-            2,
-            new NeutralIntegratedCost.BrokerMetrics()));
+    neutralIntegratedCost.brokersMetric =
+        new HashMap<>(
+            Map.of(
+                0,
+                new NeutralIntegratedCost.BrokerMetrics(),
+                1,
+                new NeutralIntegratedCost.BrokerMetrics(),
+                2,
+                new NeutralIntegratedCost.BrokerMetrics()));
 
     HasBrokerCost input = Mockito.mock(BrokerInputCost.class);
     HasBrokerCost output = Mockito.mock(BrokerOutputCost.class);
     HasBrokerCost cpu = Mockito.mock(CpuCost.class);
     HasBrokerCost memory = Mockito.mock(MemoryCost.class);
 
+    // Convert Map to BrokerCost, Map represents the score of each node metrics
     var inputBrokerCost = getBrokerCost(new HashMap<>(Map.of(0, 50.0, 1, 100.0, 2, 150.0)));
     var outputBrokerCost = getBrokerCost(new HashMap<>(Map.of(0, 500.0, 1, 1000.0, 2, 1500.0)));
     var cpuBrokerCost = getBrokerCost(new HashMap<>(Map.of(0, 0.05, 1, 0.1, 2, 0.15)));
@@ -60,27 +59,19 @@ public class NeutralIntegratedCostTest {
     metricsCost.forEach(
         hasBrokerCost -> neutralIntegratedCost.setBrokerMetrics(hasBrokerCost, clusterInfo));
 
-    var metrics = (Map) brokerMetricsField.get(neutralIntegratedCost);
-    var inputField = NeutralIntegratedCost.BrokerMetrics.class.getDeclaredField("inputScore");
-    var outputField = NeutralIntegratedCost.BrokerMetrics.class.getDeclaredField("outputScore");
-    var memoryTField = NeutralIntegratedCost.BrokerMetrics.class.getDeclaredField("memoryTScore");
-    var cpuTField = NeutralIntegratedCost.BrokerMetrics.class.getDeclaredField("cpuTScore");
+    Assertions.assertEquals(neutralIntegratedCost.brokersMetric.get(0).inputScore, 50.0);
+    Assertions.assertEquals(neutralIntegratedCost.brokersMetric.get(1).inputScore, 100.0);
+    Assertions.assertEquals(neutralIntegratedCost.brokersMetric.get(2).inputScore, 150.0);
+    Assertions.assertEquals(neutralIntegratedCost.brokersMetric.get(0).outputScore, 500.0);
+    Assertions.assertEquals(neutralIntegratedCost.brokersMetric.get(1).outputScore, 1000.0);
+    Assertions.assertEquals(neutralIntegratedCost.brokersMetric.get(2).outputScore, 1500.0);
 
-    Assertions.assertEquals(inputField.get(metrics.get(0)), 50.0);
-    Assertions.assertEquals(inputField.get(metrics.get(1)), 100.0);
-    Assertions.assertEquals(inputField.get(metrics.get(2)), 150.0);
-    Assertions.assertEquals(outputField.get(metrics.get(0)), 500.0);
-    Assertions.assertEquals(outputField.get(metrics.get(1)), 1000.0);
-    Assertions.assertEquals(outputField.get(metrics.get(2)), 1500.0);
-    cpuTField.setAccessible(true);
-    memoryTField.setAccessible(true);
-
-    Assertions.assertEquals(cpuTField.get(metrics.get(0)), 0.38);
-    Assertions.assertEquals(cpuTField.get(metrics.get(1)), 0.5);
-    Assertions.assertEquals(cpuTField.get(metrics.get(2)), 0.62);
-    Assertions.assertEquals(memoryTField.get(metrics.get(0)), 0.38);
-    Assertions.assertEquals(memoryTField.get(metrics.get(1)), 0.5);
-    Assertions.assertEquals(memoryTField.get(metrics.get(2)), 0.62);
+    Assertions.assertEquals(neutralIntegratedCost.brokersMetric.get(0).cpuTScore, 0.38);
+    Assertions.assertEquals(neutralIntegratedCost.brokersMetric.get(1).cpuTScore, 0.5);
+    Assertions.assertEquals(neutralIntegratedCost.brokersMetric.get(2).cpuTScore, 0.62);
+    Assertions.assertEquals(neutralIntegratedCost.brokersMetric.get(0).memoryTScore, 0.38);
+    Assertions.assertEquals(neutralIntegratedCost.brokersMetric.get(1).memoryTScore, 0.5);
+    Assertions.assertEquals(neutralIntegratedCost.brokersMetric.get(2).memoryTScore, 0.62);
   }
 
   BrokerCost getBrokerCost(Map<Integer, Double> map) {

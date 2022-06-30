@@ -39,7 +39,8 @@ import org.astraea.app.metrics.collector.Fetcher;
 public class NeutralIntegratedCost implements HasBrokerCost {
   private final List<HasBrokerCost> metricsCost =
       List.of(new BrokerInputCost(), new BrokerOutputCost(), new CpuCost(), new MemoryCost());
-  private final Map<Integer, BrokerMetrics> brokersMetric = new HashMap<>();
+  // Visible for test
+  Map<Integer, BrokerMetrics> brokersMetric = new HashMap<>();
   private final AHPEmpowerment ahpEmpowerment = new AHPEmpowerment();
   private final WeightProvider weightProvider = WeightProvider.entropy(Normalizer.minMax(true));
 

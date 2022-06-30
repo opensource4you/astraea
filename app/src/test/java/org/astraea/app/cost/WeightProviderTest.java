@@ -46,9 +46,12 @@ public class WeightProviderTest {
     confusion.put(
         "1",
         IntStream.range(0, 100)
-            .mapToObj(i -> 1.0 + i % 10 * 0.1)
+            .mapToObj(i -> 0.0 + i % 10 * 0.1)
             .collect(Collectors.toUnmodifiableList()));
     var entropy = weightProvider.weight(confusion);
+    // "0" range of 1 to 2 numbers.The number is accurate to one decimal places.
+    // "1" range of 0 to 100 integer numbers.
+    // "0" is more confusing than "1".
     Assertions.assertTrue(entropy.get("0") > entropy.get("1"));
 
     var metrics1 = Math.random();
@@ -93,13 +96,6 @@ public class WeightProviderTest {
 
     var uniformEntropy = weightProvider.weight(uniformDistribution);
     Assertions.assertTrue(uniformEntropy.get("0") < uniformEntropy.get("1"));
-
-    uniformDistribution.put(
-        "2",
-        IntStream.range(0, 200).mapToObj(i -> i / 2.0).collect(Collectors.toUnmodifiableList()));
-    System.out.println(uniformDistribution);
-    var test = weightProvider.weight(uniformDistribution);
-    System.out.println(test);
   }
 
   @ParameterizedTest
