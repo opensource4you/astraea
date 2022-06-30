@@ -328,12 +328,28 @@ public class AdminTest extends RequireBrokerCluster {
       var topic = Utils.randomString();
       admin.creator().topic(topic).numberOfPartitions(1).numberOfReplicas((short) 3).create();
       TimeUnit.SECONDS.sleep(1);
+      var replica0 = 0;
+      var replica1 = 1;
+      var replica2 = 2;
+      var folder0 = logFolders().get(replica0).iterator().next();
+      var folder1 = logFolders().get(replica1).iterator().next();
+      var folder2 = logFolders().get(replica2).iterator().next();
 
       // act, assert
-      var replica0 = 0;
-      var folder0 = logFolders().get(replica0).iterator().next();
       Assertions.assertDoesNotThrow(
           () -> admin.migrator().partition(topic, 0).moveTo(Map.of(replica0, folder0)));
+      Assertions.assertDoesNotThrow(
+          () ->
+              admin
+                  .migrator()
+                  .partition(topic, 0)
+                  .moveTo(Map.of(replica0, folder0, replica1, folder1)));
+      Assertions.assertDoesNotThrow(
+          () ->
+              admin
+                  .migrator()
+                  .partition(topic, 0)
+                  .moveTo(Map.of(replica0, folder0, replica1, folder1, replica2, folder2)));
     }
   }
 
