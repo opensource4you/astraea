@@ -322,6 +322,22 @@ public class AdminTest extends RequireBrokerCluster {
   }
 
   @Test
+  void testPartialMoveToArgument() throws InterruptedException {
+    // arrange
+    try (Admin admin = Admin.of(bootstrapServers())) {
+      var topic = Utils.randomString();
+      admin.creator().topic(topic).numberOfPartitions(1).numberOfReplicas((short) 3).create();
+      TimeUnit.SECONDS.sleep(1);
+
+      // act, assert
+      var replica0 = 0;
+      var folder0 = logFolders().get(replica0).iterator().next();
+      Assertions.assertDoesNotThrow(
+          () -> admin.migrator().partition(topic, 0).moveTo(Map.of(replica0, folder0)));
+    }
+  }
+
+  @Test
   @DisabledOnOs(WINDOWS)
   void testMigrateAllPartitions() throws InterruptedException {
     var topicName = "testMigrateAllPartitions";
