@@ -43,9 +43,11 @@ import org.apache.kafka.clients.admin.OffsetSpec;
 import org.apache.kafka.clients.admin.RemoveMembersFromConsumerGroupOptions;
 import org.apache.kafka.clients.admin.TransactionListing;
 import org.apache.kafka.common.ElectionType;
+import org.apache.kafka.common.Node;
 import org.apache.kafka.common.TopicPartitionReplica;
 import org.apache.kafka.common.config.ConfigResource;
 import org.apache.kafka.common.errors.ElectionNotNeededException;
+import org.apache.kafka.common.errors.ReplicaNotAvailableException;
 import org.apache.kafka.common.quota.ClientQuotaAlteration;
 import org.apache.kafka.common.quota.ClientQuotaEntity;
 import org.apache.kafka.common.quota.ClientQuotaFilter;
@@ -816,21 +818,74 @@ public class Builder {
 
     @Override
     public void moveTo(Map<Integer, String> brokerFolders) {
-      Utils.packException(
-          () ->
-              admin
-                  .alterReplicaLogDirs(
-                      brokerFolders.entrySet().stream()
-                          .collect(
-                              Collectors.toMap(
-                                  x ->
-                                      new TopicPartitionReplica(
-                                          partitions.iterator().next().topic(),
-                                          partitions.iterator().next().partition(),
-                                          x.getKey()),
-                                  Map.Entry::getValue)))
-                  .all()
-                  .get());
+      // ensure this partition is host on the given map
+      var topicPartition = partitions.iterator().next();
+      var currentReplicas =
+          Utils.packException(
+                  () -> admin.describeTopics(Set.of(topicPartition.topic())).allTopicNames().get())
+              .get(topicPartition.topic())
+              .partitions()
+              .get(topicPartition.partition())
+              .replicas()
+              .stream()
+              .map(Node::id)
+              .collect(Collectors.toUnmodifiableSet());
+      var notHere =
+          brokerFolders.keySet().stream()
+              .filter(id -> !currentReplicas.contains(id))
+              .collect(Collectors.toUnmodifiableSet());
+
+      if (!notHere.isEmpty())
+        throw new IllegalStateException(
+            "The following specified broker is not part of the replica list: " + notHere);
+
+      var payload =
+          brokerFolders.entrySet().stream()
+              .collect(
+                  Collectors.toUnmodifiableMap(
+                      entry ->
+                          new TopicPartitionReplica(
+                              topicPartition.topic(), topicPartition.partition(), entry.getKey()),
+                      Map.Entry::getValue));
+      Utils.packException(() -> admin.alterReplicaLogDirs(payload).all().get());
+    }
+
+    @Override
+    public void declarePreferredDir(Map<Integer, String> preferredDirMap) {
+      // ensure this partition is not host on the given map
+      var topicPartition = partitions.iterator().next();
+      var currentReplicas =
+          Utils.packException(
+                  () -> admin.describeTopics(Set.of(topicPartition.topic())).allTopicNames().get())
+              .get(topicPartition.topic())
+              .partitions()
+              .get(topicPartition.partition())
+              .replicas();
+      var alreadyHere =
+          currentReplicas.stream()
+              .map(Node::id)
+              .filter(preferredDirMap::containsKey)
+              .collect(Collectors.toUnmodifiableSet());
+
+      if (!alreadyHere.isEmpty())
+        throw new IllegalStateException(
+            "The following specified broker is already part of the replica list: " + alreadyHere);
+
+      try {
+        var payload =
+            preferredDirMap.entrySet().stream()
+                .collect(
+                    Collectors.toUnmodifiableMap(
+                        entry ->
+                            new TopicPartitionReplica(
+                                topicPartition.topic(), topicPartition.partition(), entry.getKey()),
+                        Map.Entry::getValue));
+        Utils.packException(() -> admin.alterReplicaLogDirs(payload).all().get());
+      } catch (ReplicaNotAvailableException ignore) {
+        // The call is probably trying to declare the preferred data directory. Swallow the
+        // exception since this is a supported operation. See the Javadoc of
+        // AdminClient#alterReplicaLogDirs for details.
+      }
     }
 
     @Override
