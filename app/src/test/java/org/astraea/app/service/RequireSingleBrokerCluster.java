@@ -20,7 +20,6 @@ import java.util.Map;
 import java.util.Set;
 import org.astraea.app.common.Utils;
 import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.AfterEach;
 
 /**
  * This class offers a way to have embedded kafka cluster. It is useful to test code which is
@@ -28,8 +27,8 @@ import org.junit.jupiter.api.AfterEach;
  */
 public abstract class RequireSingleBrokerCluster extends RequireBrokerCluster {
   private static final int NUMBER_OF_BROKERS = 1;
-  private static ZookeeperCluster ZOOKEEPER_CLUSTER = Services.zookeeperCluster();
-  private static BrokerCluster BROKER_CLUSTER =
+  private static final ZookeeperCluster ZOOKEEPER_CLUSTER = Services.zookeeperCluster();
+  private static final BrokerCluster BROKER_CLUSTER =
       Services.brokerCluster(ZOOKEEPER_CLUSTER, NUMBER_OF_BROKERS);
 
   protected static String bootstrapServers() {
@@ -40,21 +39,8 @@ public abstract class RequireSingleBrokerCluster extends RequireBrokerCluster {
     return BROKER_CLUSTER.logFolders();
   }
 
-  protected static void restartCluster() {
-    shutdownClusters();
-    ZOOKEEPER_CLUSTER = Services.zookeeperCluster();
-    BROKER_CLUSTER = Services.brokerCluster(ZOOKEEPER_CLUSTER, NUMBER_OF_BROKERS);
-  }
-
   protected static Set<Integer> brokerIds() {
     return logFolders().keySet();
-  }
-
-  @AfterEach
-  private void checkBrokerNum() {
-    if (NUMBER_OF_BROKERS != 1) {
-      restartCluster(1);
-    }
   }
 
   @AfterAll
