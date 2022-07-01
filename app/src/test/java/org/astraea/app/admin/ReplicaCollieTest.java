@@ -28,9 +28,11 @@ import org.astraea.app.argument.Argument;
 import org.astraea.app.common.Utils;
 import org.astraea.app.service.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledOnOs;
 
+@Disabled("ReplicaCollie is about to get deleted")
 public class ReplicaCollieTest extends RequireBrokerCluster {
   @Test
   @DisabledOnOs(WINDOWS)
