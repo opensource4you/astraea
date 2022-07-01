@@ -19,6 +19,23 @@
 [INFO] node_exporter running at http://192.168.0.2:9100
 ```
 
+##### 參數設置
+
+腳本提供port參數設置，若使用者想設置node exporter的port，可加上`env PORT="使用者指定的port"`，若無設置，則port會使用預設的9100
+
+###### 範例指令
+
+```ba
+env PORT="10000" ./docker/start_node_exporter.sh
+```
+
+成功啟動腳本後的輸出為
+
+```bash
+[INFO] Container ID of node_exporter: 2c1b67fca5b7b816317b608b15c87f947bb3d83a4b7a9c708da725f453d06b09
+[INFO] node_exporter running at http://192.168.103.24:10000
+```
+
 ##### 網頁介面
 
 當存取`http://192.168.0.2:9100`後，可以看到下圖的Node Exporter
