@@ -26,7 +26,7 @@ import org.junit.jupiter.api.AfterAll;
  * depended on true cluster.
  */
 public abstract class RequireBrokerCluster extends RequireJmxServer {
-  private static int NUMBER_OF_BROKERS = 3;
+  private static final int NUMBER_OF_BROKERS = 3;
   private static final ZookeeperCluster ZOOKEEPER_CLUSTER = Services.zookeeperCluster();
   private static final BrokerCluster BROKER_CLUSTER =
       Services.brokerCluster(ZOOKEEPER_CLUSTER, NUMBER_OF_BROKERS);
@@ -40,7 +40,6 @@ public abstract class RequireBrokerCluster extends RequireJmxServer {
   }
 
   protected static void closeBroker(int brokerID) {
-    NUMBER_OF_BROKERS -= 1;
     BROKER_CLUSTER.close(brokerID);
   }
 
