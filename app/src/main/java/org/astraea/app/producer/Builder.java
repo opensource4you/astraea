@@ -70,8 +70,10 @@ public class Builder<Key, Value> {
   }
 
   public Builder<Key, Value> partitionClassName(String partitionClassName) {
-    return config(
-        ProducerConfig.PARTITIONER_CLASS_CONFIG, Objects.requireNonNull(partitionClassName));
+    // Don't set partitioner to make sure DefaultPartitioner (old default) or BuiltInPartitioner
+    // (new default) both works.
+    if (partitionClassName == null || partitionClassName.isEmpty()) return this;
+    return config(ProducerConfig.PARTITIONER_CLASS_CONFIG, partitionClassName);
   }
 
   public Builder<Key, Value> compression(Compression compression) {

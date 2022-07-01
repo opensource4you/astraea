@@ -31,7 +31,6 @@ import java.util.function.BiConsumer;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-import org.apache.kafka.clients.producer.internals.DefaultPartitioner;
 import org.apache.kafka.common.errors.WakeupException;
 import org.astraea.app.admin.Admin;
 import org.astraea.app.admin.Compression;
@@ -88,6 +87,7 @@ public class Performance {
   private static DataSupplier dataSupplier(Performance.Argument argument) {
     return DataSupplier.of(
         argument.exeTime,
+        argument.noKey,
         argument.keyDistributionType.create(10000),
         argument.recordSize,
         argument.sizeDistributionType.create(
@@ -320,7 +320,7 @@ public class Performance {
         names = {"--partitioner"},
         description = "String: the full class name of the desired partitioner",
         validateWith = NonEmptyStringField.class)
-    String partitioner = DefaultPartitioner.class.getName();
+    String partitioner = null;
 
     @Parameter(
         names = {"--compression"},
@@ -339,6 +339,11 @@ public class Performance {
     Isolation isolation() {
       return transactionSize > 1 ? Isolation.READ_COMMITTED : Isolation.READ_UNCOMMITTED;
     }
+
+    @Parameter(
+        names = {"--no.key"},
+        description = "A flag to make all records produced without key")
+    boolean noKey = false;
 
     @Parameter(
         names = {"--key.distribution"},

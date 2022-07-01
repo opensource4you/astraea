@@ -28,6 +28,7 @@ public class DataSupplierTest {
     var dataSupplier =
         DataSupplier.of(
             ExeTime.of("2s"),
+            false,
             DistributionType.FIXED.create(10),
             DataUnit.KiB.of(100),
             DistributionType.FIXED.create(10),
@@ -42,6 +43,7 @@ public class DataSupplierTest {
     var dataSupplier =
         DataSupplier.of(
             ExeTime.of("2records"),
+            false,
             DistributionType.FIXED.create(10),
             DataUnit.KiB.of(100),
             DistributionType.FIXED.create(10),
@@ -56,6 +58,7 @@ public class DataSupplierTest {
     var dataSupplier =
         DataSupplier.of(
             ExeTime.of("10s"),
+            false,
             DistributionType.FIXED.create(9),
             DataUnit.KiB.of(100),
             DistributionType.FIXED.create(10),
@@ -71,6 +74,7 @@ public class DataSupplierTest {
     var dataSupplier =
         DataSupplier.of(
             ExeTime.of("10s"),
+            false,
             DistributionType.FIXED.create(10),
             DataUnit.KiB.of(100),
             DistributionType.FIXED.create(0),
@@ -86,6 +90,7 @@ public class DataSupplierTest {
     var dataSupplier =
         DataSupplier.of(
             ExeTime.of("10s"),
+            false,
             DistributionType.FIXED.create(10),
             DataUnit.KiB.of(100),
             DistributionType.FIXED.create(10),
@@ -102,6 +107,7 @@ public class DataSupplierTest {
     var dataSupplier =
         DataSupplier.of(
             ExeTime.of("10s"),
+            false,
             DistributionType.FIXED.create(10),
             DataUnit.KiB.of(100),
             DistributionType.FIXED.create(0),
@@ -112,5 +118,20 @@ public class DataSupplierTest {
     Assertions.assertTrue(dataSupplier.get().hasData());
     // throttled
     Assertions.assertFalse(dataSupplier.get().hasData());
+  }
+
+  @Test
+  void testNoKey() {
+    var dataSupplier =
+        DataSupplier.of(
+            ExeTime.of("10s"),
+            true,
+            DistributionType.FIXED.create(10),
+            DataUnit.KiB.of(100),
+            DistributionType.FIXED.create(0),
+            DataUnit.KiB.of(150));
+
+    Assertions.assertTrue(dataSupplier.get().hasData());
+    Assertions.assertNull(dataSupplier.get().key());
   }
 }

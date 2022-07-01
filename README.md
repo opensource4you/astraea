@@ -204,6 +204,7 @@ Run the benchmark from source
 17. --report.path: A path to place the report file. Default: (no report)
 18. --report.format: Select output file format. Available format: "csv", "json". Default: "csv"
 19. --transaction.size: number of records in each transaction. Default: 1
+20. --no.key: A flag to make all records produced without key. Default: (Not set)
 
 ---
 

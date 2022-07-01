@@ -118,6 +118,7 @@ interface DataSupplier extends Supplier<DataSupplier.Data> {
 
   static DataSupplier of(
       ExeTime exeTime,
+      boolean noKey,
       Supplier<Long> keyDistribution,
       DataSize valueSize,
       Supplier<Long> valueDistribution,
@@ -151,6 +152,7 @@ interface DataSupplier extends Supplier<DataSupplier.Data> {
       }
 
       public byte[] key() {
+        if (noKey) return null;
         return (String.valueOf(keyDistribution.get())).getBytes();
       }
 
