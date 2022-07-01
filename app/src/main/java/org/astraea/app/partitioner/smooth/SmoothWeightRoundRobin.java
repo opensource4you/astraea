@@ -54,8 +54,8 @@ public final class SmoothWeightRoundRobin
     extends Periodic<SmoothWeightRoundRobin.EffectiveWeightResult> {
   private EffectiveWeightResult effectiveWeightResult;
   private Map<Integer, Double> currentWeight;
-
   private final Map<String, List<Integer>> brokersIDofTopic = new HashMap<>();
+  private final double upperLimitOffsetRatio = 0.1;
 
   public SmoothWeightRoundRobin(Map<Integer, Double> effectiveWeight) {
     effectiveWeightResult =
@@ -78,7 +78,7 @@ public final class SmoothWeightRoundRobin
             () -> {
               var avgScore =
                   brokerScore.values().stream().mapToDouble(i -> i).average().getAsDouble();
-              var offsetRateOfBroker =
+              var offsetRatioOfBroker =
                   brokerScore.entrySet().stream()
                       .collect(
                           Collectors.toMap(
@@ -89,7 +89,7 @@ public final class SmoothWeightRoundRobin
               // unbalanced.
               balance =
                   CostUtils.standardDeviationImperative(avgScore, brokerScore)
-                      > 0.1 / offsetRateOfBroker.size();
+                      > upperLimitOffsetRatio * avgScore;
               var finalFactory = balance;
 
               return new EffectiveWeightResult(
@@ -98,10 +98,10 @@ public final class SmoothWeightRoundRobin
                           Collectors.toMap(
                               entry -> entry.getKey(),
                               entry -> {
-                                var offsetRate = offsetRateOfBroker.get(entry.getKey());
+                                var offsetRatio = offsetRatioOfBroker.get(entry.getKey());
                                 var weight =
                                     finalFactory
-                                        ? entry.getValue() * (1 - offsetRate)
+                                        ? entry.getValue() * (1 - offsetRatio)
                                         : entry.getValue();
                                 return Math.max(weight, 0.0);
                               })));
