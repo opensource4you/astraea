@@ -29,22 +29,19 @@ public class StraightPlanExecutor implements RebalancePlanExecutor {
   public StraightPlanExecutor() {}
 
   @Override
-  public RebalanceExecutionResult run(RebalanceExecutionContext context) {
+  public RebalanceExecutionResult run(
+      RebalanceAdmin rebalanceAdmin, ClusterLogAllocation logAllocation) {
     try {
-      final var clusterInfo = context.rebalanceAdmin().clusterInfo();
+      final var clusterInfo = rebalanceAdmin.clusterInfo();
       final var currentLogAllocation = LayeredClusterLogAllocation.of(clusterInfo);
       final var migrationTargets =
-          ClusterLogAllocation.findNonFulfilledAllocation(
-              context.expectedAllocation(), currentLogAllocation);
+          ClusterLogAllocation.findNonFulfilledAllocation(logAllocation, currentLogAllocation);
 
       var executeReplicaMigration =
           (Function<TopicPartition, List<ReplicaMigrationTask>>)
               (topicPartition) ->
-                  context
-                      .rebalanceAdmin()
-                      .alterReplicaPlacements(
-                          topicPartition,
-                          context.expectedAllocation().logPlacements(topicPartition));
+                  rebalanceAdmin.alterReplicaPlacements(
+                      topicPartition, logAllocation.logPlacements(topicPartition));
 
       // do log migration
       migrationTargets.stream()
@@ -57,7 +54,7 @@ public class StraightPlanExecutor implements RebalancePlanExecutor {
 
       // do leader election
       migrationTargets.stream()
-          .map(tp -> context.rebalanceAdmin().leaderElection(tp))
+          .map(rebalanceAdmin::leaderElection)
           .forEach(
               task -> {
                 if (!task.await())
