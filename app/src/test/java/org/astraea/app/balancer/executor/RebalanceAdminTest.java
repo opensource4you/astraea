@@ -17,7 +17,6 @@
 package org.astraea.app.balancer.executor;
 
 import java.time.Duration;
-import java.time.temporal.ChronoUnit;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -176,7 +175,7 @@ class RebalanceAdminTest extends RequireBrokerCluster {
   }
 
   @Test
-  void waitLogSynced() throws InterruptedException, ExecutionException {
+  void checkLogSynced() throws InterruptedException, ExecutionException {
     // arrange
     try (var admin = Admin.of(bootstrapServers())) {
       var topic = prepareTopic(admin, 1, (short) 1);
@@ -197,9 +196,9 @@ class RebalanceAdminTest extends RequireBrokerCluster {
 
       // act
       long time0 = System.currentTimeMillis();
-      rebalanceAdmin.waitLogSynced(new TopicPartitionReplica(topic, 0, 0)).get();
-      rebalanceAdmin.waitLogSynced(new TopicPartitionReplica(topic, 0, 1)).get();
-      rebalanceAdmin.waitLogSynced(new TopicPartitionReplica(topic, 0, 2)).get();
+      rebalanceAdmin.checkLogSynced(new TopicPartitionReplica(topic, 0, 0)).get();
+      rebalanceAdmin.checkLogSynced(new TopicPartitionReplica(topic, 0, 1)).get();
+      rebalanceAdmin.checkLogSynced(new TopicPartitionReplica(topic, 0, 2)).get();
       long time1 = System.currentTimeMillis();
 
       // assert all replica synced
@@ -217,7 +216,7 @@ class RebalanceAdminTest extends RequireBrokerCluster {
   }
 
   @Test
-  void waitPreferredLeaderSynced()
+  void checkPreferredLeaderSynced()
       throws InterruptedException, ExecutionException, TimeoutException {
     try (var admin = Admin.of(bootstrapServers())) {
       var topic = prepareTopic(admin, 1, (short) 3);
@@ -252,7 +251,7 @@ class RebalanceAdminTest extends RequireBrokerCluster {
       rebalanceAdmin.leaderElection(topicPartition).completableFuture().get();
 
       // wait for this
-      rebalanceAdmin.waitPreferredLeaderSynced(topicPartition).get(5, TimeUnit.SECONDS);
+      rebalanceAdmin.checkPreferredLeaderSynced(topicPartition).get(5, TimeUnit.SECONDS);
 
       // assert it is the leader
       Assertions.assertEquals(newPreferredLeader, leaderNow.get());
@@ -294,7 +293,7 @@ class RebalanceAdminTest extends RequireBrokerCluster {
       var task = rebalanceAdmin.leaderElection(topicPartition);
 
       // wait for this
-      rebalanceAdmin.waitPreferredLeaderSynced(topicPartition).get(5, TimeUnit.SECONDS);
+      rebalanceAdmin.checkPreferredLeaderSynced(topicPartition).get(5, TimeUnit.SECONDS);
 
       // assert it is the leader now
       Assertions.assertEquals(newPreferredLeader, leaderNow.get());

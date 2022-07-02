@@ -26,7 +26,7 @@ public class LeaderElectionTask {
 
   public LeaderElectionTask(RebalanceAdmin admin, TopicPartition topicPartition) {
     this.topicPartition = topicPartition;
-    this.completableFuture = admin.waitPreferredLeaderSynced(topicPartition);
+    this.completableFuture = admin.checkPreferredLeaderSynced(topicPartition);
   }
 
   public TopicPartition topicPartition() {

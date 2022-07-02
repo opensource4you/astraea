@@ -22,9 +22,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -33,7 +31,6 @@ import org.astraea.app.admin.Replica;
 import org.astraea.app.admin.TopicPartition;
 import org.astraea.app.admin.TopicPartitionReplica;
 import org.astraea.app.balancer.log.LogPlacement;
-import org.astraea.app.common.Utils;
 import org.astraea.app.cost.ClusterInfo;
 import org.astraea.app.metrics.HasBeanObject;
 
@@ -156,7 +153,7 @@ class RebalanceAdminImpl implements RebalanceAdmin {
   }
 
   @Override
-  public CompletableFuture<Void> waitLogSynced(TopicPartitionReplica log) {
+  public CompletableFuture<Void> checkLogSynced(TopicPartitionReplica log) {
     ensureTopicPermitted(log.topic());
     return RebalanceAdminUtils.submitProgressCheck(
         retrialTime.get(),
@@ -173,7 +170,7 @@ class RebalanceAdminImpl implements RebalanceAdmin {
   }
 
   @Override
-  public CompletableFuture<Void> waitPreferredLeaderSynced(TopicPartition topicPartition) {
+  public CompletableFuture<Void> checkPreferredLeaderSynced(TopicPartition topicPartition) {
     ensureTopicPermitted(topicPartition.topic());
     return RebalanceAdminUtils.submitProgressCheck(
         retrialTime.get(),

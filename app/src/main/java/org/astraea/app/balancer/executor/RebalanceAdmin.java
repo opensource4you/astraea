@@ -63,22 +63,14 @@ public interface RebalanceAdmin {
   List<ReplicaMigrationTask> alterReplicaPlacements(
       TopicPartition topicPartition, List<LogPlacement> expectedPlacement);
 
-  /**
-   * Wait until the given log is synced or the timeout is due.
-   *
-   * @param log target to wait
-   * @return true if the target is synced
-   */
-  CompletableFuture<Void> waitLogSynced(TopicPartitionReplica log);
+  /** @return a {@link CompletableFuture} that indicate the specific log has become synced. */
+  CompletableFuture<Void> checkLogSynced(TopicPartitionReplica log);
 
   /**
-   * Wait until the given topic/partition have its preferred leader be the actual leader, or the
-   * timeout due.
-   *
-   * @param topicPartition the topic/partition to wait
-   * @return true if the preferred leader becomes the leader
+   * @return a {@link CompletableFuture} that indicate the specific topic/partition has its
+   *     preferred leader becomes the actual leader.
    */
-  CompletableFuture<Void> waitPreferredLeaderSynced(TopicPartition topicPartition);
+  CompletableFuture<Void> checkPreferredLeaderSynced(TopicPartition topicPartition);
 
   /**
    * Perform preferred leader election for specific topic/partition.

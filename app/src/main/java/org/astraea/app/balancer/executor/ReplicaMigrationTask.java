@@ -26,7 +26,7 @@ public class ReplicaMigrationTask {
 
   public ReplicaMigrationTask(RebalanceAdmin admin, TopicPartitionReplica log) {
     this.log = log;
-    this.completableFuture = admin.waitLogSynced(log);
+    this.completableFuture = admin.checkLogSynced(log);
   }
 
   public TopicPartitionReplica log() {
