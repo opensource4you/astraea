@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.app.cost.broker;
+package org.astraea.app.cost;
 
 import java.lang.management.MemoryUsage;
 import java.util.Collection;
@@ -22,11 +22,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import org.astraea.app.admin.ClusterBean;
-import org.astraea.app.cost.ClusterInfo;
-import org.astraea.app.cost.FakeClusterInfo;
-import org.astraea.app.cost.NodeInfo;
-import org.astraea.app.cost.Normalizer;
-import org.astraea.app.cost.ReplicaInfo;
 import org.astraea.app.metrics.HasBeanObject;
 import org.astraea.app.metrics.collector.BeanCollector;
 import org.astraea.app.metrics.collector.Receiver;
