@@ -34,7 +34,6 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
-
 import org.astraea.app.admin.Admin;
 import org.astraea.app.admin.Replica;
 import org.astraea.app.admin.TopicPartition;
@@ -324,7 +323,8 @@ class RebalanceAdminTest extends RequireBrokerCluster {
       Assertions.assertFalse(rebalanceAdmin.topicFilter().test("Something"));
       Assertions.assertDoesNotThrow(() -> rebalanceAdmin.leaderElection(topicPartition1));
       Assertions.assertDoesNotThrow(() -> rebalanceAdmin.leaderElection(topicPartition2));
-      Assertions.assertThrows(IllegalArgumentException.class, () -> rebalanceAdmin.leaderElection(topicPartition3));
+      Assertions.assertThrows(
+          IllegalArgumentException.class, () -> rebalanceAdmin.leaderElection(topicPartition3));
     }
   }
 
