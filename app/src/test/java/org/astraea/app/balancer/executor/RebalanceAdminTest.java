@@ -29,9 +29,12 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiFunction;
 import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
+
 import org.astraea.app.admin.Admin;
 import org.astraea.app.admin.Replica;
 import org.astraea.app.admin.TopicPartition;
@@ -297,6 +300,31 @@ class RebalanceAdminTest extends RequireBrokerCluster {
 
       // assert it is the leader now
       Assertions.assertEquals(newPreferredLeader, leaderNow.get());
+    }
+  }
+
+  @Test
+  void testTopicFilter() {
+    try (Admin admin = Admin.of(bootstrapServers())) {
+      var topic1 = Utils.randomString();
+      var topic2 = Utils.randomString();
+      var topic3 = Utils.randomString();
+      var topicPartition1 = new TopicPartition(topic1, 0);
+      var topicPartition2 = new TopicPartition(topic2, 0);
+      var topicPartition3 = new TopicPartition(topic3, 0);
+      Stream.of(topic1, topic2, topic3)
+          .forEach(i -> admin.creator().topic(i).numberOfPartitions(1).create());
+      var allowed = List.of(topic1, topic2);
+      Predicate<String> filter = allowed::contains;
+      var rebalanceAdmin = RebalanceAdmin.of(admin, Map::of, filter);
+
+      Assertions.assertTrue(rebalanceAdmin.topicFilter().test(topic1));
+      Assertions.assertTrue(rebalanceAdmin.topicFilter().test(topic2));
+      Assertions.assertFalse(rebalanceAdmin.topicFilter().test(topic3));
+      Assertions.assertFalse(rebalanceAdmin.topicFilter().test("Something"));
+      Assertions.assertDoesNotThrow(() -> rebalanceAdmin.leaderElection(topicPartition1));
+      Assertions.assertDoesNotThrow(() -> rebalanceAdmin.leaderElection(topicPartition2));
+      Assertions.assertThrows(IllegalArgumentException.class, () -> rebalanceAdmin.leaderElection(topicPartition3));
     }
   }
 

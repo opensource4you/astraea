@@ -84,6 +84,12 @@ public interface RebalanceAdmin {
 
   ClusterInfo refreshMetrics(ClusterInfo oldClusterInfo);
 
+  /**
+   * @return a {@link Predicate<String>} indicate which topic name is allowed to operate by this
+   *     {@link RebalanceAdmin}.
+   */
+  Predicate<String> topicFilter();
+
   // TODO: add method to apply reassignment bandwidth throttle.
   // TODO: add method to fetch topic configuration
   // TODO: add method to fetch broker configuration

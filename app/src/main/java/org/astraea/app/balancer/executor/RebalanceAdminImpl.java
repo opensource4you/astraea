@@ -212,6 +212,11 @@ class RebalanceAdminImpl implements RebalanceAdmin {
     return ClusterInfo.of(oldClusterInfo, metricSource.get());
   }
 
+  @Override
+  public Predicate<String> topicFilter() {
+    return topicFilter;
+  }
+
   private static final AtomicReference<Duration> retrialTime =
       new AtomicReference<>(Duration.ofSeconds(1));
 
