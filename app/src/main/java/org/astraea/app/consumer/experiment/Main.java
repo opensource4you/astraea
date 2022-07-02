@@ -19,15 +19,14 @@ package org.astraea.app.consumer.experiment;
 import com.beust.jcommander.Parameter;
 import java.util.ArrayList;
 import java.util.Map;
-import java.util.Set;
+import java.util.Random;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ConcurrentSkipListMap;
-import java.util.stream.IntStream;
-import org.apache.kafka.clients.consumer.ConsumerConfig;
-import org.apache.kafka.clients.consumer.KafkaConsumer;
+import java.util.concurrent.TimeUnit;
+import org.apache.kafka.clients.admin.AdminClient;
+import org.apache.kafka.clients.admin.AdminClientConfig;
 import org.apache.kafka.clients.consumer.RangeAssignor;
 import org.apache.kafka.common.serialization.StringDeserializer;
-import org.astraea.app.admin.Admin;
 
 public class Main {
   static Map<Integer, ConcurrentLinkedQueue<RebalanceTime>> generationIDTime =
@@ -35,53 +34,27 @@ public class Main {
 
   public static void main(String[] args) throws InterruptedException {
     Argument argument = org.astraea.app.argument.Argument.parse(new Argument(), args);
-    ArrayList<Consumer> consumers = createConsumers(argument);
-    Trigger trigger = new Trigger();
+    AdminClient admin =
+        AdminClient.create(
+            Map.of(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, argument.bootstrapServers()));
+    ConsumerPool consumerPool = new ConsumerPool(new ArrayList<>(), argument, admin);
+    Trigger trigger = new Trigger(consumerPool, admin);
+    Random random = new Random(System.currentTimeMillis());
+    int task = 0;
 
-    consumers.forEach(consumer -> consumer.start());
-    trigger.killConsumers(consumers);
+    consumerPool.initialPool(generationIDTime);
 
-    for (Consumer consumer : consumers) {
-      consumer.join();
+    long startTime = System.currentTimeMillis() / 1000;
+
+    while (time(startTime) < 180) {
+      TimeUnit.SECONDS.sleep(10);
+      task = random.nextInt(2);
+      if (task == 0) trigger.killConsumer();
+      else if (task == 1) trigger.addConsumer(generationIDTime);
     }
+    trigger.killAll();
+
     printAvgTime();
-  }
-
-  private static Set<String> queryTopics(String bootstrapServer) {
-    Admin admin = Admin.of(bootstrapServer);
-    Set<String> topics = admin.topicNames();
-    topics.remove("__consumer_offsets");
-    admin.close();
-    return topics;
-  }
-
-  private static ArrayList<Consumer> createConsumers(Argument argument) {
-    ArrayList<Consumer> consumers = new ArrayList<>();
-    Set<String> topics = queryTopics(argument.bootstrapServers());
-
-    IntStream.range(0, argument.consumers)
-        .boxed()
-        .forEach(
-            i -> {
-              consumers.add(
-                  new Consumer(
-                      i,
-                      new KafkaConsumer<>(
-                          Map.of(
-                              ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG,
-                              argument.bootstrapServers(),
-                              ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG,
-                              argument.keyDeserializer,
-                              ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG,
-                              argument.valueDeserializer,
-                              ConsumerConfig.GROUP_ID_CONFIG,
-                              argument.groupId,
-                              ConsumerConfig.PARTITION_ASSIGNMENT_STRATEGY_CONFIG,
-                              argument.strategy)),
-                      generationIDTime));
-              consumers.get(i).doSubscribe(topics);
-            });
-    return consumers;
   }
 
   static class Argument extends org.astraea.app.argument.Argument {
@@ -115,5 +88,9 @@ public class Main {
                   / size;
           System.out.printf("Average time : %.2fms\n", avgTime);
         });
+  }
+
+  static long time(long startTime) {
+    return ((System.currentTimeMillis() / 1000) - startTime);
   }
 }

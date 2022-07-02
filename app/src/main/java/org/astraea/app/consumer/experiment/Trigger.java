@@ -16,15 +16,32 @@
  */
 package org.astraea.app.consumer.experiment;
 
-import java.util.ArrayList;
-import java.util.concurrent.TimeUnit;
+import java.util.Map;
+import java.util.Random;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import org.apache.kafka.clients.admin.AdminClient;
 
+/** This class is responsible for trigger rebalance event. */
 public class Trigger {
+  private final AdminClient admin;
+  private final ConsumerPool consumerPool;
+  private final Random randomGenerator = new Random(System.currentTimeMillis());
 
-  public void killConsumers(ArrayList<Consumer> consumers) throws InterruptedException {
-    for (Consumer consumer : consumers) {
-      consumer.interrupt();
-      TimeUnit.SECONDS.sleep(10);
-    }
+  Trigger(ConsumerPool consumerPool, AdminClient admin) {
+    this.consumerPool = consumerPool;
+    this.admin = admin;
+  }
+
+  public void killAll() throws InterruptedException {
+    consumerPool.killConsumers();
+  }
+
+  public void killConsumer() {
+    int victim = randomGenerator.nextInt(consumerPool.range());
+    if (consumerPool.range() > 0) consumerPool.killConsumer(victim);
+  }
+
+  public void addConsumer(Map<Integer, ConcurrentLinkedQueue<RebalanceTime>> generationIDTime) {
+    consumerPool.addConsumer(generationIDTime);
   }
 }
