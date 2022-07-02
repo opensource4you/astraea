@@ -14,19 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.app.cost.broker;
+package org.astraea.app.cost;
 
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
-import org.astraea.app.cost.BrokerCost;
-import org.astraea.app.cost.ClusterInfo;
-import org.astraea.app.cost.CostFunction;
-import org.astraea.app.cost.HasBrokerCost;
-import org.astraea.app.cost.Normalizer;
-import org.astraea.app.cost.WeightProvider;
 import org.astraea.app.metrics.collector.Fetcher;
 
 /**

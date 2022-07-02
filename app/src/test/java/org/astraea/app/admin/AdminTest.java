@@ -27,7 +27,6 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
@@ -43,7 +42,6 @@ import org.astraea.app.concurrent.ThreadPool;
 import org.astraea.app.consumer.Consumer;
 import org.astraea.app.consumer.Deserializer;
 import org.astraea.app.cost.NodeInfo;
-import org.astraea.app.cost.ReplicaInfo;
 import org.astraea.app.producer.Producer;
 import org.astraea.app.producer.Serializer;
 import org.astraea.app.service.RequireBrokerCluster;
@@ -653,37 +651,6 @@ public class AdminTest extends RequireBrokerCluster {
   }
 
   @Test
-  void somePartitionsOffline() {
-    String topicName1 = "testOfflineTopic-1";
-    String topicName2 = "testOfflineTopic-2";
-    try (var admin = Admin.of(bootstrapServers())) {
-      admin.creator().topic(topicName1).numberOfPartitions(4).numberOfReplicas((short) 1).create();
-      admin.creator().topic(topicName2).numberOfPartitions(4).numberOfReplicas((short) 1).create();
-      // wait for topic creation
-      TimeUnit.SECONDS.sleep(10);
-      var replicaOnBroker0 =
-          admin.replicas(admin.topicNames()).entrySet().stream()
-              .filter(replica -> replica.getValue().get(0).broker() == 0)
-              .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-      replicaOnBroker0.forEach((tp, replica) -> Assertions.assertFalse(replica.get(0).isOffline()));
-      closeBroker(0);
-      Assertions.assertNull(logFolders().get(0));
-      Assertions.assertNotNull(logFolders().get(1));
-      Assertions.assertNotNull(logFolders().get(2));
-      var offlineReplicaOnBroker0 =
-          admin.replicas(admin.topicNames()).entrySet().stream()
-              .filter(replica -> replica.getValue().get(0).broker() == 0)
-              .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-      offlineReplicaOnBroker0.forEach(
-          (tp, replica) -> Assertions.assertTrue(replica.get(0).isOffline()));
-
-    } catch (InterruptedException e) {
-      throw new RuntimeException(e);
-    }
-    restartCluster();
-  }
-
-  @Test
   void testNodes() {
     try (var admin = Admin.of(bootstrapServers())) {
       final Set<NodeInfo> nodes = admin.nodes();
@@ -751,63 +718,6 @@ public class AdminTest extends RequireBrokerCluster {
       Assertions.assertThrows(
           NoSuchElementException.class, () -> clusterInfo.node("unknown", 1024));
     }
-  }
-
-  @Test
-  void testClusterInfoWithOfflineNode() throws InterruptedException {
-    try (Admin admin = Admin.of(bootstrapServers())) {
-      var topicName = "ClusterInfo_Offline_" + Utils.randomString();
-      var partitionCount = 30;
-      var replicaCount = (short) 3;
-      admin
-          .creator()
-          .topic(topicName)
-          .numberOfPartitions(partitionCount)
-          .numberOfReplicas(replicaCount)
-          .create();
-      TimeUnit.SECONDS.sleep(3);
-
-      // before node offline
-      var before = admin.clusterInfo(Set.of(topicName));
-      Assertions.assertEquals(
-          partitionCount * replicaCount,
-          before.replicas(topicName).stream().filter(x -> !x.isOfflineReplica()).count());
-      Assertions.assertEquals(
-          partitionCount * replicaCount, before.availableReplicas(topicName).size());
-      Assertions.assertEquals(partitionCount, before.availableReplicaLeaders(topicName).size());
-
-      // act
-      int brokerToClose = ThreadLocalRandom.current().nextInt(0, 3);
-      closeBroker(brokerToClose);
-      TimeUnit.SECONDS.sleep(1);
-
-      // after node offline
-      var after = admin.clusterInfo(Set.of(topicName));
-      Assertions.assertEquals(
-          partitionCount * (replicaCount - 1),
-          after.replicas(topicName).stream().filter(x -> !x.isOfflineReplica()).count());
-      Assertions.assertEquals(
-          partitionCount * (replicaCount - 1), after.availableReplicas(topicName).size());
-      Assertions.assertEquals(
-          partitionCount,
-          after.availableReplicaLeaders(topicName).size(),
-          "One of the rest replicas should take over the leadership");
-      Assertions.assertTrue(
-          after.availableReplicas(topicName).stream()
-              .allMatch(x -> x.nodeInfo().id() != brokerToClose));
-      Assertions.assertTrue(
-          after.availableReplicaLeaders(topicName).stream()
-              .allMatch(x -> x.nodeInfo().id() != brokerToClose));
-      Assertions.assertTrue(
-          after.replicas(topicName).stream()
-              .filter(ReplicaInfo::isOfflineReplica)
-              .allMatch(x -> x.nodeInfo().id() == brokerToClose));
-      Assertions.assertTrue(
-          after.replicas(topicName).stream()
-              .filter(x -> !x.isOfflineReplica())
-              .allMatch(x -> x.nodeInfo().id() != brokerToClose));
-    }
-    restartCluster();
   }
 
   @ParameterizedTest

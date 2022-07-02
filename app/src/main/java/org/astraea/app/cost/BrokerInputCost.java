@@ -14,23 +14,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.app.cost.broker;
+package org.astraea.app.cost;
 
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-import org.astraea.app.cost.BrokerCost;
-import org.astraea.app.cost.ClusterInfo;
-import org.astraea.app.cost.HasBrokerCost;
 import org.astraea.app.metrics.collector.Fetcher;
-import org.astraea.app.metrics.java.OperatingSystemInfo;
+import org.astraea.app.metrics.kafka.BrokerTopicMetricsResult;
 import org.astraea.app.metrics.kafka.KafkaMetrics;
 
 /**
- * The result is computed by "OperatingSystemInfo.systemCpuLoad".
- * "OperatingSystemInfo.systemCpuLoad" responds to the cpu usage of brokers.
+ * The result is computed by "BytesInPerSec.count". "BytesInPerSec.count" responds to the input
+ * throughput of brokers.
  *
  * <ol>
  *   <li>We normalize the metric as score(by T-score).
@@ -39,7 +36,7 @@ import org.astraea.app.metrics.kafka.KafkaMetrics;
  *   <li>The final result is the average of the ten-second data.
  * </ol>
  */
-public class CpuCost implements HasBrokerCost {
+public class BrokerInputCost implements HasBrokerCost {
   private final Map<Integer, BrokerMetric> brokersMetric = new HashMap<>();
 
   @Override
@@ -51,7 +48,11 @@ public class CpuCost implements HasBrokerCost {
                     Map.Entry::getKey,
                     entry ->
                         entry.getValue().stream()
-                            .filter(hasBeanObject -> hasBeanObject instanceof OperatingSystemInfo)
+                            .filter(
+                                hasBeanObject ->
+                                    KafkaMetrics.BrokerTopic.BytesInPerSec.metricName()
+                                        .equals(
+                                            hasBeanObject.beanObject().getProperties().get("name")))
                             .findAny()
                             .orElseThrow()))
             .entrySet()
@@ -63,11 +64,13 @@ public class CpuCost implements HasBrokerCost {
                       if (!brokersMetric.containsKey(entry.getKey())) {
                         brokersMetric.put(entry.getKey(), new BrokerMetric());
                       }
-                      var cpuBean = (OperatingSystemInfo) entry.getValue();
-                      return cpuBean.systemCpuLoad();
+                      var broker = brokersMetric.get(entry.getKey());
+                      var inBean = (BrokerTopicMetricsResult) entry.getValue();
+                      var count = (double) (inBean.count() - broker.accumulateCount);
+                      broker.accumulateCount = inBean.count();
+                      return count;
                     }));
-
-    CostUtils.TScore(costMetrics).forEach((broker, v) -> brokersMetric.get(broker).updateLoad(v));
+    costMetrics.forEach((broker, v) -> brokersMetric.get(broker).updateLoad(v));
 
     return this::computeLoad;
   }
@@ -90,11 +93,13 @@ public class CpuCost implements HasBrokerCost {
 
   @Override
   public Fetcher fetcher() {
-    return client -> List.of(KafkaMetrics.Host.operatingSystem(client));
+    return client -> List.of(KafkaMetrics.BrokerTopic.BytesInPerSec.fetch(client));
   }
 
   private static class BrokerMetric {
-    // mbean data.CpuUsage
+    // mbean data.  BytesInPerSec.count
+    private long accumulateCount = 0L;
+
     // Record the latest 10 numbers only.
     private final List<Double> load =
         IntStream.range(0, 10).mapToObj(i -> -1.0).collect(Collectors.toList());
