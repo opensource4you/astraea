@@ -20,13 +20,15 @@ import java.time.Duration;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 
 class RebalanceAdminUtils {
 
   static CompletableFuture<Void> submitProgressCheck(
       Duration delay, int debounceCount, Callable<Boolean> check) {
     final var completableFuture = new CompletableFuture<Void>();
-    submitProgressCheck(completableFuture, check, debounceCount, 0, delay);
+    final var nextDelay = (Function<Duration, Duration>) (current) -> delay;
+    submitProgressCheck(completableFuture, check, debounceCount, 0, Duration.ZERO, nextDelay);
     return completableFuture;
   }
 
@@ -35,7 +37,8 @@ class RebalanceAdminUtils {
       Callable<Boolean> check,
       int debounceCount,
       int acc,
-      Duration delay) {
+      Duration delay,
+      Function<Duration, Duration> nextDelay) {
     CompletableFuture.delayedExecutor(delay.toMillis(), TimeUnit.MILLISECONDS)
         .execute(
             () -> {
@@ -51,10 +54,22 @@ class RebalanceAdminUtils {
                   completableFuture.complete(null);
                 } else if (fulfilled) {
                   // condition fulfilled, but we have to debounce a few times to ensure it is stable
-                  submitProgressCheck(completableFuture, check, debounceCount, acc + 1, delay);
+                  submitProgressCheck(
+                      completableFuture,
+                      check,
+                      debounceCount,
+                      acc + 1,
+                      nextDelay.apply(delay),
+                      nextDelay);
                 } else {
                   // the condition is not fulfilled yet, submit another progress check
-                  submitProgressCheck(completableFuture, check, debounceCount, 0, delay);
+                  submitProgressCheck(
+                      completableFuture,
+                      check,
+                      debounceCount,
+                      0,
+                      nextDelay.apply(delay),
+                      nextDelay);
                 }
               } catch (Exception e) {
                 if (!completableFuture.isDone()) completableFuture.completeExceptionally(e);
