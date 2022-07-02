@@ -17,6 +17,8 @@
 package org.astraea.app.metrics.collector;
 
 import java.util.List;
+import java.util.Optional;
+import org.astraea.app.cost.CostFunction;
 import org.astraea.app.metrics.HasBeanObject;
 import org.astraea.app.metrics.jmx.MBeanClient;
 import org.junit.jupiter.api.Assertions;
@@ -32,12 +34,42 @@ public class FetcherTest {
     var mbean1 = Mockito.mock(HasBeanObject.class);
     Fetcher fetcher1 = client -> List.of(mbean1);
 
-    var fetcher = Fetcher.of(List.of(fetcher1, fetcher0));
+    var fetcher =
+        Fetcher.of(
+                List.of(
+                    new CostFunction() {
+                      @Override
+                      public Optional<Fetcher> fetcher() {
+                        return Optional.of(fetcher0);
+                      }
+                    },
+                    new CostFunction() {
+                      @Override
+                      public Optional<Fetcher> fetcher() {
+                        return Optional.of(fetcher1);
+                      }
+                    }))
+            .get();
 
     var result = fetcher.fetch(Mockito.mock(MBeanClient.class));
 
     Assertions.assertEquals(2, result.size());
     Assertions.assertTrue(result.contains(mbean0));
     Assertions.assertTrue(result.contains(mbean1));
+  }
+
+  @Test
+  void testEmptyCostFunction() {
+    Assertions.assertEquals(Optional.empty(), Fetcher.of(List.of()));
+    Assertions.assertEquals(
+        Optional.empty(),
+        Fetcher.of(
+            List.of(
+                new CostFunction() {
+                  @Override
+                  public Optional<Fetcher> fetcher() {
+                    return Optional.empty();
+                  }
+                })));
   }
 }

@@ -18,6 +18,7 @@ package org.astraea.app.cost;
 
 import java.util.Comparator;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 import org.astraea.app.metrics.HasBeanObject;
 import org.astraea.app.metrics.collector.Fetcher;
@@ -31,8 +32,8 @@ import org.astraea.app.metrics.kafka.KafkaMetrics;
  */
 public class NumberOfLeaderCost implements HasBrokerCost {
   @Override
-  public Fetcher fetcher() {
-    return KafkaMetrics.ReplicaManager.LeaderCount::fetch;
+  public Optional<Fetcher> fetcher() {
+    return Optional.of(KafkaMetrics.ReplicaManager.LeaderCount::fetch);
   }
 
   /**

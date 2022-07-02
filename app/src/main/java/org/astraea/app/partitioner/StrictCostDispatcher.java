@@ -149,11 +149,8 @@ public class StrictCostDispatcher implements Dispatcher {
         .register()
         .host(host)
         .port(port)
-        .fetcher(
-            Fetcher.of(
-                functions.keySet().stream()
-                    .map(CostFunction::fetcher)
-                    .collect(Collectors.toUnmodifiableList())))
+        // TODO: return optional receiver
+        .fetcher(Fetcher.of(functions.keySet()).get())
         .build();
   }
 

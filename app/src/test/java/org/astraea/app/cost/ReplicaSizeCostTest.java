@@ -30,7 +30,6 @@ import org.astraea.app.admin.ClusterBean;
 import org.astraea.app.admin.TopicPartition;
 import org.astraea.app.metrics.HasBeanObject;
 import org.astraea.app.metrics.collector.BeanCollector;
-import org.astraea.app.metrics.collector.Fetcher;
 import org.astraea.app.metrics.jmx.BeanObject;
 import org.astraea.app.metrics.kafka.HasValue;
 import org.astraea.app.metrics.kafka.KafkaMetrics;
@@ -59,7 +58,7 @@ class ReplicaSizeCostTest extends RequireSingleBrokerCluster {
               .register()
               .host(host)
               .port(jmxServiceURL().getPort())
-              .fetcher(Fetcher.of(Set.of(costFunction.fetcher())))
+              .fetcher(costFunction.fetcher().get())
               .build()
               .current();
       var replicaSize =

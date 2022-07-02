@@ -19,6 +19,7 @@ package org.astraea.app.cost;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 import org.astraea.app.metrics.HasBeanObject;
 import org.astraea.app.metrics.collector.Fetcher;
@@ -55,10 +56,11 @@ public class ThroughputCost implements HasBrokerCost {
   }
 
   @Override
-  public Fetcher fetcher() {
-    return client ->
-        List.of(
-            KafkaMetrics.BrokerTopic.BytesInPerSec.fetch(client),
-            KafkaMetrics.BrokerTopic.BytesOutPerSec.fetch(client));
+  public Optional<Fetcher> fetcher() {
+    return Optional.of(
+        client ->
+            List.of(
+                KafkaMetrics.BrokerTopic.BytesInPerSec.fetch(client),
+                KafkaMetrics.BrokerTopic.BytesOutPerSec.fetch(client)));
   }
 }
