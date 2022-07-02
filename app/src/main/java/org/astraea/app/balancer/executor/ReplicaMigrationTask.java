@@ -16,26 +16,24 @@
  */
 package org.astraea.app.balancer.executor;
 
-import java.time.Duration;
+import java.util.concurrent.CompletableFuture;
 import org.astraea.app.admin.TopicPartitionReplica;
 
-public class ReplicaMigrationTask implements CanAwait {
+public class ReplicaMigrationTask {
 
-  private final RebalanceAdmin admin;
   private final TopicPartitionReplica log;
+  private final CompletableFuture<Void> completableFuture;
 
   public ReplicaMigrationTask(RebalanceAdmin admin, TopicPartitionReplica log) {
-    this.admin = admin;
     this.log = log;
+    this.completableFuture = admin.waitLogSynced(log);
   }
 
-  @Override
-  public boolean await(Duration timeout) {
-    try {
-      return admin.waitLogSynced(log, timeout);
-    } catch (InterruptedException e) {
-      Thread.currentThread().interrupt();
-      return false;
-    }
+  public TopicPartitionReplica log() {
+    return log;
+  }
+
+  public CompletableFuture<Void> completableFuture() {
+    return completableFuture;
   }
 }

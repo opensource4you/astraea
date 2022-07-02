@@ -16,11 +16,10 @@
  */
 package org.astraea.app.balancer.executor;
 
-import java.time.Duration;
-import java.time.temporal.ChronoUnit;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import org.astraea.app.admin.Admin;
@@ -68,42 +67,18 @@ public interface RebalanceAdmin {
    * Wait until the given log is synced or the timeout is due.
    *
    * @param log target to wait
-   * @param timeout the max time to wait
    * @return true if the target is synced
    */
-  boolean waitLogSynced(TopicPartitionReplica log, Duration timeout) throws InterruptedException;
-
-  /**
-   * Wait until the given log is synced.
-   *
-   * @param log target to wait
-   * @return true if the target is synced
-   */
-  default boolean waitLogSynced(TopicPartitionReplica log) throws InterruptedException {
-    return waitLogSynced(log, ChronoUnit.FOREVER.getDuration());
-  }
+  CompletableFuture<Void> waitLogSynced(TopicPartitionReplica log);
 
   /**
    * Wait until the given topic/partition have its preferred leader be the actual leader, or the
    * timeout due.
    *
    * @param topicPartition the topic/partition to wait
-   * @param timeout the max time to wait
    * @return true if the preferred leader becomes the leader
    */
-  boolean waitPreferredLeaderSynced(TopicPartition topicPartition, Duration timeout)
-      throws InterruptedException;
-
-  /**
-   * Wait until the given topic/partition have its preferred leader be the actual leader.
-   *
-   * @param topicPartition the topic/partition to wait
-   * @return true if the preferred leader becomes the leader
-   */
-  default boolean waitPreferredLeaderSynced(TopicPartition topicPartition)
-      throws InterruptedException {
-    return waitPreferredLeaderSynced(topicPartition, ChronoUnit.FOREVER.getDuration());
-  }
+  CompletableFuture<Void> waitPreferredLeaderSynced(TopicPartition topicPartition);
 
   /**
    * Perform preferred leader election for specific topic/partition.

@@ -21,6 +21,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
@@ -123,8 +124,6 @@ class RebalanceAdminImpl implements RebalanceAdmin {
         fetchCurrentPlacement(topicPartition).stream()
             .map(LogPlacement::broker)
             .collect(Collectors.toUnmodifiableSet());
-    System.out.println(currentReplicaBrokers);
-    System.out.println(expectedPlacement);
 
     // do cross broker migration
     admin
@@ -142,7 +141,6 @@ class RebalanceAdminImpl implements RebalanceAdmin {
             .collect(
                 Collectors.toUnmodifiableMap(
                     LogPlacement::broker, placement -> placement.logDirectory().orElseThrow()));
-    System.out.println(forCrossDirMigration);
     admin
         .migrator()
         .partition(topicPartition.topic(), topicPartition.partition())
@@ -158,10 +156,11 @@ class RebalanceAdminImpl implements RebalanceAdmin {
   }
 
   @Override
-  public boolean waitLogSynced(TopicPartitionReplica log, Duration timeout)
-      throws InterruptedException {
+  public CompletableFuture<Void> waitLogSynced(TopicPartitionReplica log) {
     ensureTopicPermitted(log.topic());
-    return debouncedAwait(
+    return RebalanceAdminUtils.submitProgressCheck(
+        retrialTime.get(),
+        2,
         () ->
             admin.replicas(Set.of(log.topic())).entrySet().stream()
                 .filter(x -> x.getKey().partition() == log.partition())
@@ -170,17 +169,15 @@ class RebalanceAdminImpl implements RebalanceAdmin {
                 .filter(x -> x.broker() == log.brokerId())
                 .findFirst()
                 .map(x -> x.inSync() && !x.isFuture())
-                .orElse(false),
-        timeout,
-        debounceTime.get());
+                .orElse(false));
   }
 
   @Override
-  public boolean waitPreferredLeaderSynced(TopicPartition topicPartition, Duration timeout)
-      throws InterruptedException {
+  public CompletableFuture<Void> waitPreferredLeaderSynced(TopicPartition topicPartition) {
     ensureTopicPermitted(topicPartition.topic());
-    // the set of interested topics.
-    return debouncedAwait(
+    return RebalanceAdminUtils.submitProgressCheck(
+        retrialTime.get(),
+        2,
         () ->
             admin.replicas(Set.of(topicPartition.topic())).entrySet().stream()
                 .filter(x -> x.getKey().equals(topicPartition))
@@ -195,9 +192,7 @@ class RebalanceAdminImpl implements RebalanceAdmin {
                               .orElseThrow();
                       return preferred.leader();
                     })
-                .orElseThrow(),
-        timeout,
-        debounceTime.get());
+                .orElseThrow());
   }
 
   @Override
@@ -220,47 +215,11 @@ class RebalanceAdminImpl implements RebalanceAdmin {
     return ClusterInfo.of(oldClusterInfo, metricSource.get());
   }
 
-  /** Wait until the condition is hold true over certain amount of time */
-  static boolean debouncedAwait(Supplier<Boolean> task, Duration timeout, Duration debounce)
-      throws InterruptedException {
-    return await(
-        () -> {
-          if (!task.get()) return false;
-          Utils.packException(() -> Thread.sleep(debounce.toMillis()));
-          if (!task.get()) return false;
-          return true;
-        },
-        timeout);
-  }
-
-  static boolean await(Supplier<Boolean> task, Duration timeout) throws InterruptedException {
-    long retryInterval = Duration.ofSeconds(0).toMillis();
-    Function<Long, Long> nextRetry = (current) -> Math.min(5000, current + 1000);
-    long nowMs = System.currentTimeMillis();
-    long oldMs = nowMs;
-    long timeoutMs = timeout.getSeconds() * 1000 + timeout.toMillisPart() + nowMs;
-
-    // overflow detection
-    if (timeoutMs < timeout.getSeconds()) timeoutMs = Long.MAX_VALUE;
-
-    boolean isDone;
-    do {
-      TimeUnit.MILLISECONDS.sleep(Math.max(0, retryInterval - (nowMs - oldMs)));
-
-      oldMs = nowMs;
-      isDone = task.get();
-      retryInterval = nextRetry.apply(retryInterval);
-      nowMs = System.currentTimeMillis();
-    } while (!isDone && timeoutMs > nowMs);
-
-    return isDone;
-  }
-
-  private static final AtomicReference<Duration> debounceTime =
+  private static final AtomicReference<Duration> retrialTime =
       new AtomicReference<>(Duration.ofSeconds(1));
 
   // visible for test
-  static void changeDebounceTime(Duration newDebounceTime) {
-    debounceTime.set(newDebounceTime);
+  static void changeRetrialTime(Duration newDebounceTime) {
+    retrialTime.set(newDebounceTime);
   }
 }

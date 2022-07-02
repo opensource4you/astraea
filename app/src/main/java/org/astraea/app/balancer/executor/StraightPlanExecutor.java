@@ -18,7 +18,9 @@ package org.astraea.app.balancer.executor;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 import org.astraea.app.admin.TopicPartition;
 import org.astraea.app.balancer.log.ClusterLogAllocation;
 import org.astraea.app.balancer.log.LayeredClusterLogAllocation;
@@ -47,19 +49,16 @@ public class StraightPlanExecutor implements RebalancePlanExecutor {
       migrationTargets.stream()
           .map(executeReplicaMigration)
           .flatMap(Collection::stream)
-          .forEach(
-              task -> {
-                if (!task.await()) throw new IllegalStateException("Log should be synced");
-              });
+          .map(ReplicaMigrationTask::completableFuture)
+          .collect(Collectors.toUnmodifiableSet())
+          .forEach(CompletableFuture::join);
 
       // do leader election
       migrationTargets.stream()
           .map(rebalanceAdmin::leaderElection)
-          .forEach(
-              task -> {
-                if (!task.await())
-                  throw new IllegalStateException("Preferred leader should be the leader");
-              });
+          .map(LeaderElectionTask::completableFuture)
+          .collect(Collectors.toUnmodifiableSet())
+          .forEach(CompletableFuture::join);
 
       return RebalanceExecutionResult.done();
     } catch (Exception e) {
