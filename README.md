@@ -1,4 +1,4 @@
-![alt text](https://github.com/skiptests/astraea/blob/main/logo/logo_with_background.png?raw=true)
+![alt text](./logo/logo_with_background.png)
 
 # Authors
 - Chia-Ping Tsai <chia7712@gmail.com>
@@ -15,14 +15,15 @@ This project offers many kafka tools to simplify the life for kafka users.
 1. [Kafka quick start](#kafka-cluster-quick-start): set up a true kafka cluster in one minute
 2. [Kafka performance](#Performance-Benchmark): check producing/consuming performance.
 3. [Kafka offset explorer](#topic-explorer): check the start/end offsets of kafka topics
-5. [Kafka metric explorer](#kafka-metric-explorer): utility for accessing kafka Mbean metrics via JMX.
-6. [Replica Collie](#replica-collie): move replicas from brokers to others. You can use this tool to obstruct specific brokers from hosting specific topics.
-7. [Kafka partition score](#Kafka-partition-score): score all broker's partitions. 
-8. [Kafka replica syncing monitor](#Kafka-replica-syncing-monitor): Tracking replica syncing progress.
+4. [Kafka metric explorer](#kafka-metric-explorer): utility for accessing kafka Mbean metrics via JMX.
+5. [Replica Collie](#replica-collie): move replicas from brokers to others. You can use this tool to obstruct specific brokers from hosting specific topics.
+6. [Kafka partition score](#Kafka-partition-score): score all broker's partitions. 
+7. [Kafka replica syncing monitor](#Kafka-replica-syncing-monitor): Tracking replica syncing progress.
+8. [Astraea Web Server 中文文件連結](./docs/web_server/README.md)
 
-[Release page](https://github.com/skiptests/astraea/releases) offers the uber jar including all tools.
+[Github packages](https://github.com/orgs/skiptests/packages?repo_name=astraea) offers the docker image to run mentioned tools
 ```shell
-java -jar astraea-0.0.1-alpha.1-all.jar [tool] [args]
+./docker/start_app.sh web --bootstrap.servers 192.168.50.178:19993 --port 12345"
 ```
 
 ---
@@ -382,34 +383,3 @@ $ ./gradlew run --args="monitor --bootstrap.servers 192.168.103.39:9092"
 3. --prop.file: the path to a file that containing the properties to be passed to kafka admin.
 4. --topic: topics to track (default: track all non-synced partition by default)
 5. --track: keep track even if all the replicas are synced. Also attempts to discover any non-synced replicas. (default: false)
-
-### Web service to inspect details of your Kafka data
-
-1. --bootstrap.servers: the server to connect to
-2. --port: the port used by web server
-
-```shell
-./docker/start_app.sh web --bootstrap.servers 192.168.50.178:19993 --port 12345"
-```
-
-## Query all topics 
-```shell
-GET http://localhost:12345/topics
-```
-
-## Query single topic
-```shell
-GET http://localhost:12345/topics/t0
-```
-
-## Query all groups
-```shell
-GET http://localhost:12345/groups
-```
-
-## Query single group
-```shell
-GET http://localhost:12345/groups/g1
-```
-
-## [Astraea Web Server 中文文件連結](./docs/web_server/README.md)

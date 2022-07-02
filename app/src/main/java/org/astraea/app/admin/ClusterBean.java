@@ -29,11 +29,7 @@ public interface ClusterBean {
   private static Collection<HasBeanObject> compareBeanObject(
       Collection<HasBeanObject> x1, Collection<HasBeanObject> x2) {
     var beanObject2 = x2.iterator().next().beanObject();
-    if (x1.stream()
-        .noneMatch(
-            hasBeanObject ->
-                hasBeanObject.beanObject().getProperties().equals(beanObject2.getProperties())
-                    && hasBeanObject.beanObject().domainName().equals(beanObject2.domainName())))
+    if (x1.stream().noneMatch(hasBeanObject -> hasBeanObject.beanObject().equals(beanObject2)))
       return Stream.concat(x1.stream(), x2.stream()).collect(Collectors.toList());
     return x1;
   }
