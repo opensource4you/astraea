@@ -127,6 +127,8 @@ public class RecordHandler implements Handler {
           consumer
               .poll(
                   maxRecords,
+                  // TODO: Use DurationField format in timeout
+                  // (https://github.com/skiptests/astraea/issues/450)
                   Duration.ofSeconds(Integer.parseInt(queries.getOrDefault(TIMEOUT, "5"))))
               .stream()
               .map(Record::new)
