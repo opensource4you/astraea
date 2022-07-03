@@ -14,16 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.app.cost.broker;
+package org.astraea.app.cost;
 
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-import org.astraea.app.cost.BrokerCost;
-import org.astraea.app.cost.ClusterInfo;
-import org.astraea.app.cost.HasBrokerCost;
 import org.astraea.app.metrics.collector.Fetcher;
 import org.astraea.app.metrics.kafka.BrokerTopicMetricsResult;
 import org.astraea.app.metrics.kafka.KafkaMetrics;
@@ -45,7 +42,7 @@ public class BrokerInputCost implements HasBrokerCost {
   @Override
   public BrokerCost brokerCost(ClusterInfo clusterInfo) {
     var costMetrics =
-        clusterInfo.allBeans().entrySet().stream()
+        clusterInfo.clusterBean().all().entrySet().stream()
             .collect(
                 Collectors.toMap(
                     Map.Entry::getKey,

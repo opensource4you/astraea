@@ -22,9 +22,11 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.astraea.app.admin.Admin;
+import org.astraea.app.admin.TopicPartition;
 
 public class GroupHandler implements Handler {
-
+  static final String TOPIC_KEY = "topic";
+  static final String INSTANCE_KEY = "instance";
   private final Admin admin;
 
   GroupHandler(Admin admin) {
@@ -36,18 +38,41 @@ public class GroupHandler implements Handler {
   }
 
   @Override
-  public JsonObject get(Optional<String> target, Map<String, String> queries) {
-    var topics = admin.topicNames();
+  public Response delete(String groupId, Map<String, String> queries) {
+    var groupInstanceId = queries.get(INSTANCE_KEY);
+    var activeMembers = admin.consumerGroups(Set.of(groupId)).get(groupId).activeMembers();
+    // Deleting all members can't work when there is no members already.
+    if (groupInstanceId == null && !activeMembers.isEmpty()) admin.removeAllMembers(groupId);
+    // Deleting nonexistent instance id can cause error
+    if (groupInstanceId != null
+        && activeMembers.stream()
+            .anyMatch(m -> m.groupInstanceId().filter(g -> g.equals(groupInstanceId)).isPresent()))
+      admin.removeStaticMembers(groupId, Set.of(groupInstanceId));
+    return Response.OK;
+  }
+
+  @Override
+  public Response get(Optional<String> target, Map<String, String> queries) {
+    var topics =
+        queries.containsKey(TOPIC_KEY) ? Set.of(queries.get(TOPIC_KEY)) : admin.topicNames();
     var consumerGroups = admin.consumerGroups(groupIds(target));
     var offsets = admin.offsets(topics);
 
     var groups =
         consumerGroups.entrySet().stream()
+            // if users want to search groups for specify topic only, we remove the group having no
+            // offsets related to specify topic
+            .filter(
+                idAndGroup ->
+                    !queries.containsKey(TOPIC_KEY)
+                        || idAndGroup.getValue().consumeProgress().keySet().stream()
+                            .map(TopicPartition::topic)
+                            .anyMatch(topics::contains))
             .map(
-                cgAndTp ->
+                idAndGroup ->
                     new Group(
-                        cgAndTp.getKey(),
-                        cgAndTp.getValue().assignment().entrySet().stream()
+                        idAndGroup.getKey(),
+                        idAndGroup.getValue().assignment().entrySet().stream()
                             .map(
                                 entry ->
                                     new Member(
@@ -61,7 +86,7 @@ public class GroupHandler implements Handler {
                                             .map(
                                                 tp ->
                                                     offsets.containsKey(tp)
-                                                            && cgAndTp
+                                                            && idAndGroup
                                                                 .getValue()
                                                                 .consumeProgress()
                                                                 .containsKey(tp)
@@ -70,7 +95,7 @@ public class GroupHandler implements Handler {
                                                                 tp.topic(),
                                                                 tp.partition(),
                                                                 offsets.get(tp).earliest(),
-                                                                cgAndTp
+                                                                idAndGroup
                                                                     .getValue()
                                                                     .consumeProgress()
                                                                     .get(tp),
@@ -86,7 +111,7 @@ public class GroupHandler implements Handler {
     return new Groups(groups);
   }
 
-  static class OffsetProgress implements JsonObject {
+  static class OffsetProgress implements Response {
     final String topic;
     final int partitionId;
     final long earliest;
@@ -102,7 +127,7 @@ public class GroupHandler implements Handler {
     }
   }
 
-  static class Member implements JsonObject {
+  static class Member implements Response {
     final String memberId;
     final String groupInstanceId;
     final String clientId;
@@ -123,7 +148,7 @@ public class GroupHandler implements Handler {
     }
   }
 
-  static class Group implements JsonObject {
+  static class Group implements Response {
     final String groupId;
     final List<Member> members;
 
@@ -133,7 +158,7 @@ public class GroupHandler implements Handler {
     }
   }
 
-  static class Groups implements JsonObject {
+  static class Groups implements Response {
     final List<Group> groups;
 
     Groups(List<Group> groups) {

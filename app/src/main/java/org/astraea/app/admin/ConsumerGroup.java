@@ -53,4 +53,19 @@ public class ConsumerGroup {
   public List<Member> activeMembers() {
     return activeMembers;
   }
+
+  @Override
+  public String toString() {
+    return "ConsumerGroup{"
+        + "groupId='"
+        + groupId
+        + '\''
+        + ", activeMembers="
+        + activeMembers
+        + ", consumeProgress="
+        + consumeProgress
+        + ", assignment="
+        + assignment
+        + '}';
+  }
 }

@@ -50,9 +50,30 @@ public interface ReplicaMigrator {
   void moveTo(List<Integer> brokers);
 
   /**
-   * move partition to specify folder.
+   * move the replica to specified data directory. All the specified brokers must be part of the
+   * partition's current replica list. Otherwise, an {@link IllegalStateException} will be raised.
+   * Noted that this method performs some validation to ensure the declared movement are correct.
+   * There is a small chance to declare preferred data directory instead of moving it, due to race
+   * condition on the stale data.
    *
-   * @param brokerFolders contain
+   * @param brokerFolders the map contains the declared movement destination. All the specified
+   *     brokers must be part of the partition's current replica list. Otherwise, an {@link
+   *     IllegalStateException} exception will be raised.
    */
   void moveTo(Map<Integer, String> brokerFolders);
+
+  /**
+   * declare the preferred data directories for the specified topic/partition. This method can only
+   * declare preferred data directory for the broker that doesn't host a replica for the specified
+   * partition. To move specific replica from one data directory to another on the same broker,
+   * consider use {@link ReplicaMigrator#moveTo(Map)}. Noted that this method performs some
+   * validation to ensure user declaring preferred data directory. There is a small chance to
+   * accidentally perform a data directory movement due to stale data.
+   *
+   * @param preferredDirMap the preferred directory map. With each entry indicate the preferred data
+   *     directory(value) for a broker(key). All the specified brokers must not be part of the
+   *     partition's current replica list. Otherwise, an {@link IllegalStateException} exception
+   *     will be raised.
+   */
+  void declarePreferredDir(Map<Integer, String> preferredDirMap);
 }

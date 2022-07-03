@@ -51,7 +51,7 @@ public class QuotaHandler implements Handler {
   }
 
   @Override
-  public JsonObject post(PostRequest request) {
+  public Response post(PostRequest request) {
     if (request.get(IP_KEY).isPresent()) {
       admin
           .quotaCreator()
@@ -70,10 +70,10 @@ public class QuotaHandler implements Handler {
       return new Quotas(
           admin.quotas(org.astraea.app.admin.Quota.Target.CLIENT_ID, request.value(CLIENT_ID_KEY)));
     }
-    return ErrorObject.for404("You must define either " + CLIENT_ID_KEY + " or " + IP_KEY);
+    return Response.NOT_FOUND;
   }
 
-  static class Target implements JsonObject {
+  static class Target implements Response {
     final String name;
     final String value;
 
@@ -83,7 +83,7 @@ public class QuotaHandler implements Handler {
     }
   }
 
-  static class Limit implements JsonObject {
+  static class Limit implements Response {
     final String name;
     final double value;
 
@@ -93,7 +93,7 @@ public class QuotaHandler implements Handler {
     }
   }
 
-  static class Quota implements JsonObject {
+  static class Quota implements Response {
     final Target target;
     final Limit limit;
 
@@ -111,7 +111,7 @@ public class QuotaHandler implements Handler {
     }
   }
 
-  static class Quotas implements JsonObject {
+  static class Quotas implements Response {
     final List<Quota> quotas;
 
     Quotas(Collection<org.astraea.app.admin.Quota> quotas) {

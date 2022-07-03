@@ -120,4 +120,13 @@ public final class Record<Key, Value> {
   public Collection<Header> headers() {
     return headers;
   }
+
+  /**
+   * Get the leader epoch for the record if available
+   *
+   * @return the leader epoch or empty for legacy record formats
+   */
+  public Optional<Integer> leaderEpoch() {
+    return leaderEpoch;
+  }
 }

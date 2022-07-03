@@ -14,25 +14,26 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.app.cost.broker;
+package org.astraea.app.cost;
 
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-import org.astraea.app.cost.ClusterInfo;
-import org.astraea.app.cost.FakeClusterInfo;
-import org.astraea.app.cost.Normalizer;
+import org.astraea.app.admin.ClusterBean;
 import org.astraea.app.metrics.HasBeanObject;
+import org.astraea.app.metrics.collector.BeanCollector;
+import org.astraea.app.metrics.collector.Receiver;
 import org.astraea.app.metrics.jmx.BeanObject;
 import org.astraea.app.metrics.kafka.BrokerTopicMetricsResult;
 import org.astraea.app.metrics.kafka.KafkaMetrics;
+import org.astraea.app.service.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
-public class BrokerOutPutCostTest {
+public class BrokerOutPutCostTest extends RequireBrokerCluster {
   @Test
-  void testCost() throws InterruptedException {
+  void testCost() {
     ClusterInfo clusterInfo = exampleClusterInfo(10000L, 20000L, 5000L);
 
     var brokerOutputCost = new BrokerOutputCost();
@@ -48,6 +49,35 @@ public class BrokerOutPutCostTest {
     Assertions.assertEquals(0.43, scores.get(3));
   }
 
+  @Test
+  void testFetcher() {
+    try (Receiver receiver =
+        BeanCollector.builder()
+            .build()
+            .register()
+            .host(jmxServiceURL().getHost())
+            .port(jmxServiceURL().getPort())
+            .fetcher(new BrokerOutputCost().fetcher())
+            .build()) {
+      Assertions.assertFalse(receiver.current().isEmpty());
+
+      // Test the fetched object's type, and its metric name.
+      Assertions.assertTrue(
+          receiver.current().stream()
+              .allMatch(
+                  o ->
+                      (o instanceof BrokerTopicMetricsResult)
+                          && (KafkaMetrics.BrokerTopic.BytesOutPerSec.metricName()
+                              .equals(o.beanObject().getProperties().get("name")))));
+
+      // Test the fetched object's value.
+      Assertions.assertTrue(
+          receiver.current().stream()
+              .map(o -> (BrokerTopicMetricsResult) o)
+              .allMatch(result -> result.count() == 0));
+    }
+  }
+
   private ClusterInfo exampleClusterInfo(long out1, long out2, long out3) {
     var BytesInPerSec1 = mockResult(KafkaMetrics.BrokerTopic.BytesOutPerSec.metricName(), out1);
     var BytesInPerSec2 = mockResult(KafkaMetrics.BrokerTopic.BytesOutPerSec.metricName(), out2);
@@ -58,8 +88,8 @@ public class BrokerOutPutCostTest {
     Collection<HasBeanObject> broker3 = List.of(BytesInPerSec3);
     return new FakeClusterInfo() {
       @Override
-      public Map<Integer, Collection<HasBeanObject>> allBeans() {
-        return Map.of(1, broker1, 2, broker2, 3, broker3);
+      public ClusterBean clusterBean() {
+        return ClusterBean.of(Map.of(1, broker1, 2, broker2, 3, broker3));
       }
     };
   }

@@ -16,33 +16,26 @@
  */
 package org.astraea.app.consumer;
 
+import static java.util.Objects.requireNonNull;
+
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
+import java.util.function.BiConsumer;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
-import org.apache.kafka.clients.consumer.KafkaConsumer;
 
-public class Builder<Key, Value> {
-  private final Map<String, Object> configs =
-      new HashMap<>(
-          Map.of(ConsumerConfig.GROUP_ID_CONFIG, "groupId-" + System.currentTimeMillis()));
-  private Deserializer<?> keyDeserializer = Deserializer.BYTE_ARRAY;
-  private Deserializer<?> valueDeserializer = Deserializer.BYTE_ARRAY;
-  private final Set<String> topics = new HashSet<>();
-  private ConsumerRebalanceListener listener = ignore -> {};
-  private int distanceFromLatest = -1;
+public abstract class Builder<Key, Value> {
+  protected final Map<String, Object> configs = new HashMap<>();
+  protected Deserializer<?> keyDeserializer = Deserializer.BYTE_ARRAY;
+  protected Deserializer<?> valueDeserializer = Deserializer.BYTE_ARRAY;
+
+  protected SeekStrategy seekStrategy = SeekStrategy.NONE;
+  protected long seekValue = -1;
 
   Builder() {}
-
-  public Builder<Key, Value> groupId(String groupId) {
-    return config(ConsumerConfig.GROUP_ID_CONFIG, Objects.requireNonNull(groupId));
-  }
 
   /**
    * make the consumer read data from beginning. By default, it reads the latest data.
@@ -50,7 +43,8 @@ public class Builder<Key, Value> {
    * @return this builder
    */
   public Builder<Key, Value> fromBeginning() {
-    return config(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
+    this.configs.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
+    return this;
   }
 
   /**
@@ -59,105 +53,134 @@ public class Builder<Key, Value> {
    * @return this builder
    */
   public Builder<Key, Value> fromLatest() {
-    return config(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "latest");
-  }
-
-  /**
-   * set the offset to read from the latest offset. For example, the end offset is 5, and you set
-   * distanceFromLatest to 2, then you will read data from offset: 3
-   *
-   * @param distanceFromLatest the distance from the latest offset
-   * @return this builder
-   */
-  public Builder<Key, Value> distanceFromLatest(int distanceFromLatest) {
-    this.distanceFromLatest = distanceFromLatest;
+    this.configs.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "latest");
     return this;
   }
 
-  public Builder<Key, Value> topics(Set<String> topics) {
-    this.topics.addAll(topics);
+  /**
+   * Set seek strategy name and its accepted value, seek strategies are as follows:
+   * <li>{@link SeekStrategy#DISTANCE_FROM_LATEST DISTANCE_FROM_LATEST}: set the offset to read from
+   *     the latest offset. For example, the end offset is 5, and you set {@code value} to 2,then
+   *     you will read data from offset: 3
+   * <li>{@link SeekStrategy#DISTANCE_FROM_BEGINNING DISTANCE_FROM_BEGINNING}: set the offset to
+   *     read from the beginning offset. For example, the beginning offset is 0, and you set {@code
+   *     value} to 2, then you will read data from offset: 2
+   * <li>{@link SeekStrategy#SEEK_TO SEEK_TO}: set the offset to read from. For example, the {@code
+   *     value} is 15, then you will read data from offset: 15
+   *
+   * @param seekStrategy seek strategy
+   * @param value the value that will send to seek strategy, if value < 0, throw {@code
+   *     IllegalArgumentException}
+   * @return this builder
+   */
+  public Builder<Key, Value> seekStrategy(SeekStrategy seekStrategy, long value) {
+    this.seekStrategy = requireNonNull(seekStrategy);
+    if (value < 0) {
+      throw new IllegalArgumentException("seek value should >= 0");
+    }
+    this.seekValue = value;
     return this;
   }
 
   @SuppressWarnings("unchecked")
   public <NewKey> Builder<NewKey, Value> keyDeserializer(Deserializer<NewKey> keyDeserializer) {
-    this.keyDeserializer = Objects.requireNonNull(keyDeserializer);
+    this.keyDeserializer = requireNonNull(keyDeserializer);
     return (Builder<NewKey, Value>) this;
   }
 
   @SuppressWarnings("unchecked")
   public <NewValue> Builder<Key, NewValue> valueDeserializer(
       Deserializer<NewValue> valueDeserializer) {
-    this.valueDeserializer = Objects.requireNonNull(valueDeserializer);
+    this.valueDeserializer = requireNonNull(valueDeserializer);
     return (Builder<Key, NewValue>) this;
   }
 
-  public Builder<Key, Value> config(String key, String value) {
-    this.configs.put(key, value);
-    return this;
-  }
-
-  public Builder<Key, Value> configs(Map<String, String> configs) {
-    this.configs.putAll(configs);
-    return this;
-  }
-
   public Builder<Key, Value> bootstrapServers(String bootstrapServers) {
-    return config(
-        ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, Objects.requireNonNull(bootstrapServers));
-  }
-
-  public Builder<Key, Value> consumerRebalanceListener(ConsumerRebalanceListener listener) {
-    this.listener = Objects.requireNonNull(listener);
+    this.configs.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, requireNonNull(bootstrapServers));
     return this;
   }
 
   public Builder<Key, Value> isolation(Isolation isolation) {
-    return config(ConsumerConfig.ISOLATION_LEVEL_CONFIG, isolation.nameOfKafka());
+    this.configs.put(ConsumerConfig.ISOLATION_LEVEL_CONFIG, isolation.nameOfKafka());
+    return this;
   }
 
-  @SuppressWarnings("unchecked")
-  public Consumer<Key, Value> build() {
-    var kafkaConsumer =
-        new KafkaConsumer<>(
-            configs,
-            Deserializer.of((Deserializer<Key>) keyDeserializer),
-            Deserializer.of((Deserializer<Value>) valueDeserializer));
-    kafkaConsumer.subscribe(topics, ConsumerRebalanceListener.of(listener));
+  /** @return consumer instance. The different builders may return inherited consumer interface. */
+  public abstract Consumer<Key, Value> build();
 
-    // this mode is not supported by kafka, so we have to calculate the offset first
-    if (distanceFromLatest > 0) {
-      // 1) poll data until the assignment is completed
-      while (kafkaConsumer.assignment().isEmpty()) kafkaConsumer.poll(Duration.ofMillis(500));
-      var partitions = kafkaConsumer.assignment();
-      // 2) get the end offsets from all subscribed partitions
-      var endOffsets = kafkaConsumer.endOffsets(partitions);
-      // 3) calculate and then seek to the correct offset (end offset - recent offset)
-      endOffsets.forEach(
-          (tp, latest) -> kafkaConsumer.seek(tp, Math.max(0, latest - distanceFromLatest)));
+  protected static class BaseConsumer<Key, Value> implements Consumer<Key, Value> {
+    protected final org.apache.kafka.clients.consumer.Consumer<Key, Value> kafkaConsumer;
+
+    public BaseConsumer(org.apache.kafka.clients.consumer.Consumer<Key, Value> kafkaConsumer) {
+      this.kafkaConsumer = kafkaConsumer;
     }
-    return new Consumer<>() {
-      @Override
-      public Collection<Record<Key, Value>> poll(int recordCount, Duration timeout) {
-        var end = System.currentTimeMillis() + timeout.toMillis();
-        var records = new ArrayList<Record<Key, Value>>();
-        while (records.size() < recordCount) {
-          var remaining = end - System.currentTimeMillis();
-          if (remaining <= 0) break;
-          kafkaConsumer.poll(Duration.ofMillis(remaining)).forEach(r -> records.add(Record.of(r)));
-        }
-        return Collections.unmodifiableList(records);
-      }
 
-      @Override
-      public void wakeup() {
-        kafkaConsumer.wakeup();
+    @Override
+    public Collection<Record<Key, Value>> poll(int recordCount, Duration timeout) {
+      var end = System.currentTimeMillis() + timeout.toMillis();
+      var records = new ArrayList<Record<Key, Value>>();
+      while (records.size() < recordCount) {
+        var remaining = end - System.currentTimeMillis();
+        if (remaining <= 0) break;
+        kafkaConsumer.poll(Duration.ofMillis(remaining)).forEach(r -> records.add(Record.of(r)));
       }
+      return Collections.unmodifiableList(records);
+    }
 
-      @Override
-      public void close() {
-        kafkaConsumer.close();
-      }
-    };
+    @Override
+    public void wakeup() {
+      kafkaConsumer.wakeup();
+    }
+
+    @Override
+    public void close() {
+      kafkaConsumer.close();
+    }
+  }
+
+  public enum SeekStrategy {
+    NONE((consumer, seekValue) -> {}),
+    DISTANCE_FROM_LATEST(
+        (kafkaConsumer, distanceFromLatest) -> {
+          // this mode is not supported by kafka, so we have to calculate the offset first
+          // 1) poll data until the assignment is completed
+          while (kafkaConsumer.assignment().isEmpty()) {
+            kafkaConsumer.poll(Duration.ofMillis(500));
+          }
+          var partitions = kafkaConsumer.assignment();
+          // 2) get the end offsets from all subscribed partitions
+          var endOffsets = kafkaConsumer.endOffsets(partitions);
+          // 3) calculate and then seek to the correct offset (end offset - recent offset)
+          endOffsets.forEach(
+              (tp, latest) -> kafkaConsumer.seek(tp, Math.max(0, latest - distanceFromLatest)));
+        }),
+    DISTANCE_FROM_BEGINNING(
+        (kafkaConsumer, distanceFromBeginning) -> {
+          while (kafkaConsumer.assignment().isEmpty()) {
+            kafkaConsumer.poll(Duration.ofMillis(500));
+          }
+          var partitions = kafkaConsumer.assignment();
+          var beginningOffsets = kafkaConsumer.beginningOffsets(partitions);
+          beginningOffsets.forEach(
+              (tp, beginning) -> kafkaConsumer.seek(tp, beginning + distanceFromBeginning));
+        }),
+    SEEK_TO(
+        (kafkaConsumer, seekTo) -> {
+          while (kafkaConsumer.assignment().isEmpty()) {
+            kafkaConsumer.poll(Duration.ofMillis(500));
+          }
+          var partitions = kafkaConsumer.assignment();
+          partitions.forEach(tp -> kafkaConsumer.seek(tp, seekTo));
+        });
+
+    private final BiConsumer<org.apache.kafka.clients.consumer.Consumer<?, ?>, Long> function;
+
+    SeekStrategy(BiConsumer<org.apache.kafka.clients.consumer.Consumer<?, ?>, Long> function) {
+      this.function = requireNonNull(function);
+    }
+
+    void apply(org.apache.kafka.clients.consumer.Consumer<?, ?> kafkaConsumer, long seekValue) {
+      function.accept(kafkaConsumer, seekValue);
+    }
   }
 }

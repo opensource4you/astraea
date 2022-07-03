@@ -92,7 +92,8 @@ public final class KafkaMetrics {
     public BrokerTopicMetricsResult fetch(MBeanClient mBeanClient) {
       return new BrokerTopicMetricsResult(
           mBeanClient.queryBean(
-              BeanQuery.builder("kafka.server")
+              BeanQuery.builder()
+                  .domainName("kafka.server")
                   .property("type", "BrokerTopicMetrics")
                   .property("name", this.metricName())
                   .build()));
@@ -115,7 +116,8 @@ public final class KafkaMetrics {
       return (long)
           mBeanClient
               .queryBean(
-                  BeanQuery.builder("kafka.server")
+                  BeanQuery.builder()
+                      .domainName("kafka.server")
                       .property("type", "KafkaServer")
                       .property("name", "linux-disk-read-bytes")
                       .build())
@@ -127,7 +129,8 @@ public final class KafkaMetrics {
       return (long)
           mBeanClient
               .queryBean(
-                  BeanQuery.builder("kafka.server")
+                  BeanQuery.builder()
+                      .domainName("kafka.server")
                       .property("type", "KafkaServer")
                       .property("name", "linux-disk-write-bytes")
                       .build())
@@ -158,7 +161,8 @@ public final class KafkaMetrics {
     public Collection<HasBeanObject> fetch(MBeanClient mBeanClient) {
       return mBeanClient
           .queryBeans(
-              BeanQuery.builder("kafka.server")
+              BeanQuery.builder()
+                  .domainName("kafka.server")
                   .property("type", "DelayedOperationPurgatory")
                   .property("delayedOperation", metricName)
                   .property("name", "PurgatorySize")
@@ -172,7 +176,8 @@ public final class KafkaMetrics {
       return (int)
           mBeanClient
               .queryBean(
-                  BeanQuery.builder("kafka.server")
+                  BeanQuery.builder()
+                      .domainName("kafka.server")
                       .property("type", "DelayedOperationPurgatory")
                       .property("delayedOperation", this.name())
                       .property("name", "PurgatorySize")
@@ -190,7 +195,8 @@ public final class KafkaMetrics {
     public TotalTimeMs totalTimeMs(MBeanClient mBeanClient) {
       return new TotalTimeMs(
           mBeanClient.queryBean(
-              BeanQuery.builder("kafka.network")
+              BeanQuery.builder()
+                  .domainName("kafka.network")
                   .property("type", "RequestMetrics")
                   .property("request", this.name())
                   .property("name", "TotalTimeMs")
@@ -226,7 +232,8 @@ public final class KafkaMetrics {
     public Collection<HasBeanObject> fetch(MBeanClient mBeanClient) {
       return mBeanClient
           .queryBeans(
-              BeanQuery.builder("kafka.server")
+              BeanQuery.builder()
+                  .domainName("kafka.server")
                   .property("type", "ReplicaManager")
                   .property("name", metricName)
                   .build())
@@ -261,7 +268,8 @@ public final class KafkaMetrics {
     public Collection<HasBeanObject> fetch(MBeanClient mBeanClient) {
       return mBeanClient
           .queryBeans(
-              BeanQuery.builder("kafka.log")
+              BeanQuery.builder()
+                  .domainName("kafka.log")
                   .property("type", "Log")
                   .property("topic", "*")
                   .property("partition", "*")
@@ -281,7 +289,8 @@ public final class KafkaMetrics {
       return (int)
           mBeanClient
               .queryBean(
-                  BeanQuery.builder("kafka.controller")
+                  BeanQuery.builder()
+                      .domainName("kafka.controller")
                       .property("type", "KafkaController")
                       .property("name", "GlobalPartitionCount")
                       .build())
@@ -300,7 +309,8 @@ public final class KafkaMetrics {
       return (int)
           mBeanClient
               .queryBean(
-                  BeanQuery.builder("kafka.server")
+                  BeanQuery.builder()
+                      .domainName("kafka.server")
                       .property("type", "ReplicaManager")
                       .property("name", "UnderReplicatedPartitions")
                       .build())
@@ -319,7 +329,8 @@ public final class KafkaMetrics {
     public static Map<Integer, Long> size(MBeanClient client, String topicName) {
       return client
           .queryBeans(
-              BeanQuery.builder("kafka.log")
+              BeanQuery.builder()
+                  .domainName("kafka.log")
                   .property("type", "Log")
                   .property("topic", topicName)
                   .property("partition", "*")
@@ -347,12 +358,16 @@ public final class KafkaMetrics {
     public static OperatingSystemInfo operatingSystem(MBeanClient mBeanClient) {
       return new OperatingSystemInfo(
           mBeanClient.queryBean(
-              BeanQuery.builder("java.lang").property("type", "OperatingSystem").build()));
+              BeanQuery.builder()
+                  .domainName("java.lang")
+                  .property("type", "OperatingSystem")
+                  .build()));
     }
 
     public static JvmMemory jvmMemory(MBeanClient mBeanClient) {
       return new JvmMemory(
-          mBeanClient.queryBean(BeanQuery.builder("java.lang").property("type", "Memory").build()));
+          mBeanClient.queryBean(
+              BeanQuery.builder().domainName("java.lang").property("type", "Memory").build()));
     }
   }
 }

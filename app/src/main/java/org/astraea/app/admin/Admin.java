@@ -216,6 +216,39 @@ public interface Admin extends Closeable {
    */
   Map<String, Transaction> transactions(Set<String> transactionIds);
 
+  /**
+   * remove an empty group. It causes error if the group has memebrs.
+   *
+   * @param groupId to remove
+   */
+  void removeGroup(String groupId);
+
+  /** @param groupId to remove all (dynamic and static) members */
+  void removeAllMembers(String groupId);
+
+  /**
+   * @param groupId to remove static members
+   * @param members group instance id (static member)
+   */
+  void removeStaticMembers(String groupId, Set<String> members);
+
+  /**
+   * Get the reassignments of all topics.
+   *
+   * @return reassignment
+   */
+  default Map<TopicPartition, Reassignment> reassignments() {
+    return reassignments(topicNames());
+  }
+
+  /**
+   * Get the reassignments of topics. It returns nothing if the partitions are not migrating.
+   *
+   * @param topics to search
+   * @return reassignment
+   */
+  Map<TopicPartition, Reassignment> reassignments(Set<String> topics);
+
   @Override
   void close();
 }

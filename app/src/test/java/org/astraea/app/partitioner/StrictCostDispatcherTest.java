@@ -22,13 +22,14 @@ import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import org.astraea.app.admin.ClusterBean;
 import org.astraea.app.cost.BrokerCost;
+import org.astraea.app.cost.BrokerInputCost;
 import org.astraea.app.cost.ClusterInfo;
 import org.astraea.app.cost.HasBrokerCost;
 import org.astraea.app.cost.NodeInfo;
 import org.astraea.app.cost.ReplicaInfo;
 import org.astraea.app.cost.ThroughputCost;
-import org.astraea.app.cost.broker.BrokerInputCost;
 import org.astraea.app.metrics.collector.Fetcher;
 import org.astraea.app.metrics.collector.Receiver;
 import org.junit.jupiter.api.Assertions;
@@ -108,7 +109,7 @@ public class StrictCostDispatcherTest {
           @Override
           public BrokerCost brokerCost(ClusterInfo clusterInfo) {
             var brokerCost =
-                clusterInfo.allBeans().keySet().stream()
+                clusterInfo.clusterBean().all().keySet().stream()
                     .collect(
                         Collectors.toMap(
                             Function.identity(), id -> id.equals(n0.id()) ? 0.9D : 0.5D));
@@ -125,7 +126,7 @@ public class StrictCostDispatcherTest {
           @Override
           public BrokerCost brokerCost(ClusterInfo clusterInfo) {
             var brokerCost =
-                clusterInfo.allBeans().keySet().stream()
+                clusterInfo.clusterBean().all().keySet().stream()
                     .collect(
                         Collectors.toMap(
                             Function.identity(), id -> id.equals(n0.id()) ? 0.6D : 0.8D));
@@ -155,6 +156,7 @@ public class StrictCostDispatcherTest {
       // there is no available partition
       Mockito.when(clusterInfo.availableReplicaLeaders("aa")).thenReturn(List.of());
       Mockito.when(clusterInfo.topics()).thenReturn(Set.of("aa"));
+      Mockito.when(clusterInfo.clusterBean()).thenReturn(ClusterBean.of(Map.of()));
       Assertions.assertEquals(0, dispatcher.partition("aa", new byte[0], new byte[0], clusterInfo));
 
       // there is only one available partition
@@ -176,24 +178,20 @@ public class StrictCostDispatcherTest {
     var config =
         Configuration.of(
             Map.of(
-                "org.astraea.app.cost.broker.BrokerInputCost",
+                "org.astraea.app.cost.BrokerInputCost",
                 "20",
-                "org.astraea.app.cost.broker.BrokerOutputCost",
+                "org.astraea.app.cost.BrokerOutputCost",
                 "1.25"));
     var ans = StrictCostDispatcher.parseCostFunctionWeight(config);
     Assertions.assertEquals(2, ans.size());
     for (var entry : ans.entrySet()) {
-      if (entry
-          .getKey()
-          .getClass()
-          .getName()
-          .equals("org.astraea.app.cost.broker.BrokerInputCost")) {
+      if (entry.getKey().getClass().getName().equals("org.astraea.app.cost.BrokerInputCost")) {
         Assertions.assertEquals(20.0, entry.getValue());
       } else if (entry
           .getKey()
           .getClass()
           .getName()
-          .equals("org.astraea.app.cost.broker.BrokerOutputCost")) {
+          .equals("org.astraea.app.cost.BrokerOutputCost")) {
         Assertions.assertEquals(1.25, entry.getValue());
       } else {
         Assertions.assertEquals(0.0, entry.getValue());
@@ -204,9 +202,9 @@ public class StrictCostDispatcherTest {
     var config2 =
         Configuration.of(
             Map.of(
-                "org.astraea.app.cost.broker.BrokerInputCost",
+                "org.astraea.app.cost.BrokerInputCost",
                 "-20",
-                "org.astraea.app.cost.broker.BrokerOutputCost",
+                "org.astraea.app.cost.BrokerOutputCost",
                 "1.25"));
     Assertions.assertThrows(
         IllegalArgumentException.class,
