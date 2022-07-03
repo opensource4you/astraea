@@ -111,7 +111,7 @@ public class MemoryCostTest extends RequireBrokerCluster {
             .register()
             .host(jmxServiceURL().getHost())
             .port(jmxServiceURL().getPort())
-            .fetcher(new MemoryCost().fetcher())
+            .fetcher(new MemoryCost().fetcher().get())
             .build()) {
       Assertions.assertFalse(receiver.current().isEmpty());
       Assertions.assertTrue(receiver.current().stream().allMatch(o -> o instanceof JvmMemory));

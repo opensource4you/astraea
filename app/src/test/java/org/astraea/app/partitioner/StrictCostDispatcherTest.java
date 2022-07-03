@@ -30,7 +30,6 @@ import org.astraea.app.cost.HasBrokerCost;
 import org.astraea.app.cost.NodeInfo;
 import org.astraea.app.cost.ReplicaInfo;
 import org.astraea.app.cost.ThroughputCost;
-import org.astraea.app.metrics.collector.Fetcher;
 import org.astraea.app.metrics.collector.Receiver;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -115,11 +114,6 @@ public class StrictCostDispatcherTest {
                             Function.identity(), id -> id.equals(n0.id()) ? 0.9D : 0.5D));
             return () -> brokerCost;
           }
-
-          @Override
-          public Fetcher fetcher() {
-            return client -> List.of();
-          }
         };
     var costFunction2 =
         new HasBrokerCost() {
@@ -131,11 +125,6 @@ public class StrictCostDispatcherTest {
                         Collectors.toMap(
                             Function.identity(), id -> id.equals(n0.id()) ? 0.6D : 0.8D));
             return () -> brokerCost;
-          }
-
-          @Override
-          public Fetcher fetcher() {
-            return client -> List.of();
           }
         };
 

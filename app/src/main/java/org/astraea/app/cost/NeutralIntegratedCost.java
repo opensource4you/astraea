@@ -20,6 +20,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 import org.astraea.app.metrics.collector.Fetcher;
 
@@ -160,8 +161,8 @@ public class NeutralIntegratedCost implements HasBrokerCost {
   }
 
   @Override
-  public Fetcher fetcher() {
-    return Fetcher.of(metricsCost.stream().map(CostFunction::fetcher).collect(Collectors.toList()));
+  public Optional<Fetcher> fetcher() {
+    return Fetcher.of(metricsCost);
   }
 
   static class BrokerMetrics {

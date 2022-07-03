@@ -20,6 +20,7 @@ import java.time.Duration;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
 import org.astraea.app.admin.TopicPartition;
@@ -168,8 +169,8 @@ public class ReplicaDiskInCost implements HasBrokerCost, HasPartitionCost {
 
   /** @return the metrics getters. Those getters are used to fetch mbeans. */
   @Override
-  public Fetcher fetcher() {
-    return KafkaMetrics.TopicPartition.Size::fetch;
+  public Optional<Fetcher> fetcher() {
+    return Optional.of(KafkaMetrics.TopicPartition.Size::fetch);
   }
 
   /**
