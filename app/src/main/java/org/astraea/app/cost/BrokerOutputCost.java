@@ -14,35 +14,31 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.app.cost.broker;
+package org.astraea.app.cost;
 
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-import org.astraea.app.cost.BrokerCost;
-import org.astraea.app.cost.ClusterInfo;
-import org.astraea.app.cost.HasBrokerCost;
-import org.astraea.app.cost.Periodic;
 import org.astraea.app.metrics.collector.Fetcher;
-import org.astraea.app.metrics.java.HasJvmMemory;
+import org.astraea.app.metrics.kafka.BrokerTopicMetricsResult;
 import org.astraea.app.metrics.kafka.KafkaMetrics;
 
-public class MemoryCost extends Periodic<Map<Integer, Double>> implements HasBrokerCost {
+/**
+ * The result is computed by "BytesOutPerSec.count". "BytesOutPerSec.count" responds to the output
+ * throughput of brokers.
+ *
+ * <ol>
+ *   <li>We normalize the metric as score(by T-score).
+ *   <li>We record these data of each second.
+ *   <li>We only keep the last ten seconds of data.
+ *   <li>The final result is the average of the ten-second data.
+ * </ol>
+ */
+public class BrokerOutputCost implements HasBrokerCost {
   private final Map<Integer, BrokerMetric> brokersMetric = new HashMap<>();
 
-  /**
-   * The result is computed by "HasJvmMemory.getUsed/getMax". "HasJvmMemory.getUsed/getMax" responds
-   * to the memory usage of brokers.
-   *
-   * <ol>
-   *   <li>We normalize the metric as score(by T-score).
-   *   <li>We record these data of each second.
-   *   <li>We only keep the last ten seconds of data.
-   *   <li>The final result is the average of the ten-second data.
-   * </ol>
-   */
   @Override
   public BrokerCost brokerCost(ClusterInfo clusterInfo) {
     var costMetrics =
@@ -52,7 +48,11 @@ public class MemoryCost extends Periodic<Map<Integer, Double>> implements HasBro
                     Map.Entry::getKey,
                     entry ->
                         entry.getValue().stream()
-                            .filter(hasBeanObject -> hasBeanObject instanceof HasJvmMemory)
+                            .filter(
+                                hasBeanObject ->
+                                    KafkaMetrics.BrokerTopic.BytesOutPerSec.metricName()
+                                        .equals(
+                                            hasBeanObject.beanObject().getProperties().get("name")))
                             .findAny()
                             .orElseThrow()))
             .entrySet()
@@ -64,9 +64,11 @@ public class MemoryCost extends Periodic<Map<Integer, Double>> implements HasBro
                       if (!brokersMetric.containsKey(entry.getKey())) {
                         brokersMetric.put(entry.getKey(), new BrokerMetric());
                       }
-                      var jvmBean = (HasJvmMemory) entry.getValue();
-                      return (jvmBean.heapMemoryUsage().getUsed() + 0.0)
-                          / (jvmBean.heapMemoryUsage().getMax() + 1);
+                      var broker = brokersMetric.get(entry.getKey());
+                      var inBean = (BrokerTopicMetricsResult) entry.getValue();
+                      var count = (double) (inBean.count() - broker.accumulateCount);
+                      broker.accumulateCount = inBean.count();
+                      return count;
                     }));
     costMetrics.forEach((broker, v) -> brokersMetric.get(broker).updateLoad(v));
 
@@ -91,11 +93,13 @@ public class MemoryCost extends Periodic<Map<Integer, Double>> implements HasBro
 
   @Override
   public Fetcher fetcher() {
-    return client -> List.of(KafkaMetrics.Host.jvmMemory(client));
+    return client -> List.of(KafkaMetrics.BrokerTopic.BytesOutPerSec.fetch(client));
   }
 
   private static class BrokerMetric {
-    // mbean data.JvmUsage
+    // mbean data. BytesOutPerSec.count
+    private long accumulateCount = 0L;
+
     // Record the latest 10 numbers only.
     private final List<Double> load =
         IntStream.range(0, 10).mapToObj(i -> -1.0).collect(Collectors.toList());

@@ -826,11 +826,13 @@ public class Builder {
               .get(topicPartition.topic())
               .partitions()
               .get(topicPartition.partition())
-              .replicas();
-      var notHere =
-          currentReplicas.stream()
+              .replicas()
+              .stream()
               .map(Node::id)
-              .filter(id -> !brokerFolders.containsKey(id))
+              .collect(Collectors.toUnmodifiableSet());
+      var notHere =
+          brokerFolders.keySet().stream()
+              .filter(id -> !currentReplicas.contains(id))
               .collect(Collectors.toUnmodifiableSet());
 
       if (!notHere.isEmpty())
