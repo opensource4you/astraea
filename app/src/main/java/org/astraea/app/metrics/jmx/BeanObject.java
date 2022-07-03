@@ -28,7 +28,7 @@ public class BeanObject {
   private final String domainName;
   private final Map<String, String> properties;
   private final Map<String, Object> attributes;
-  private final long createdTimestamp = System.currentTimeMillis();
+  private final long createdTimestamp;
 
   /**
    * construct a {@link BeanObject}
@@ -42,6 +42,14 @@ public class BeanObject {
    */
   public BeanObject(
       String domainName, Map<String, String> properties, Map<String, Object> attributes) {
+    this(domainName, properties, attributes, System.currentTimeMillis());
+  }
+
+  public BeanObject(
+      String domainName,
+      Map<String, String> properties,
+      Map<String, Object> attributes,
+      long createdTimestamp) {
     this.domainName = Objects.requireNonNull(domainName);
 
     // copy properties, and remove null key or null value
@@ -59,6 +67,7 @@ public class BeanObject {
             .filter(entry -> entry.getKey() != null && entry.getValue() != null)
             .collect(Collectors.toMap(Entry::getKey, Entry::getValue));
     this.attributes = Collections.unmodifiableMap(attributeMap);
+    this.createdTimestamp = createdTimestamp;
   }
 
   public String domainName() {
