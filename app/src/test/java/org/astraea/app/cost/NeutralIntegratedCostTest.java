@@ -14,14 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.app.cost.broker;
+package org.astraea.app.cost;
 
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import org.astraea.app.cost.BrokerCost;
-import org.astraea.app.cost.ClusterInfo;
-import org.astraea.app.cost.HasBrokerCost;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;

@@ -89,6 +89,7 @@ public class NeutralIntegratedCost implements HasBrokerCost {
 
   // Save the original value of each metric and the value of the metric after the TScore
   // calculation.
+  // TODO Refactor
   void setBrokerMetrics(HasBrokerCost hasBrokerCost, ClusterInfo clusterInfo) {
     if (hasBrokerCost instanceof BrokerInputCost) {
       var inputBrokerCost = hasBrokerCost.brokerCost(clusterInfo);
