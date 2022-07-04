@@ -116,6 +116,13 @@ public class StrictCostDispatcher implements Dispatcher {
     }
     return roundRobin
         .next(partitionLeaders.stream().map(r -> r.nodeInfo().id()).collect(Collectors.toSet()))
+        .map(
+            brokerId ->
+                partitionLeaders.stream()
+                    .filter(r -> r.nodeInfo().id() == brokerId)
+                    .map(ReplicaInfo::partition)
+                    .findFirst()
+                    .orElse(0))
         .orElse(0);
   }
 
