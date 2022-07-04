@@ -19,6 +19,8 @@ package org.astraea.app.partitioner;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.Optional;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.astraea.app.admin.ClusterBean;
 import org.astraea.app.cost.BrokerInputCost;
 import org.astraea.app.cost.ClusterInfo;
@@ -26,6 +28,7 @@ import org.astraea.app.cost.CostFunction;
 import org.astraea.app.cost.NodeInfo;
 import org.astraea.app.cost.ReplicaInfo;
 import org.astraea.app.cost.ThroughputCost;
+import org.astraea.app.metrics.collector.Fetcher;
 import org.astraea.app.metrics.collector.Receiver;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -147,15 +150,57 @@ public class StrictCostDispatcherTest {
     var replicaInfo0 = ReplicaInfo.of("topic", 0, NodeInfo.of(10, "host", 11111), true, true, true);
     var replicaInfo1 =
         ReplicaInfo.of("topic", 1, NodeInfo.of(12, "host2", 11111), true, true, true);
-    var clusterBean = ClusterBean.of(Map.of());
     var clusterInfo = Mockito.mock(ClusterInfo.class);
     Mockito.when(clusterInfo.availableReplicaLeaders(Mockito.anyString()))
         .thenReturn(List.of(replicaInfo0, replicaInfo1));
-    Mockito.when(clusterInfo.clusterBean()).thenReturn(clusterBean);
+    Mockito.when(clusterInfo.clusterBean()).thenReturn(ClusterBean.of(Map.of()));
     try (var dispatcher = new StrictCostDispatcher(List.of(costFunction))) {
       dispatcher.partition("topic", new byte[0], new byte[0], clusterInfo);
       Assertions.assertNotNull(dispatcher.roundRobin);
       Assertions.assertEquals(0, dispatcher.receivers.size());
     }
+  }
+
+  @Test
+  void testReceivers() {
+    var costFunction =
+        new CostFunction() {
+          @Override
+          public Optional<Fetcher> fetcher() {
+            return Optional.of(Mockito.mock(Fetcher.class));
+          }
+        };
+    var jmxPort = 12345;
+    var count = new AtomicInteger();
+    var dispatcher =
+        new StrictCostDispatcher(List.of(costFunction)) {
+          @Override
+          Receiver receiver(String host, int port, Fetcher fetcher) {
+            Assertions.assertEquals(jmxPort, port);
+            count.incrementAndGet();
+            return Mockito.mock(Receiver.class);
+          }
+        };
+    dispatcher.jmxPortGetter = ignored -> jmxPort;
+    var replicaInfo0 = ReplicaInfo.of("topic", 0, NodeInfo.of(10, "host", 11111), true, true, true);
+    var replicaInfo1 = ReplicaInfo.of("topic", 1, NodeInfo.of(10, "host", 11111), true, true, true);
+    var replicaInfo2 =
+        ReplicaInfo.of("topic", 1, NodeInfo.of(11, "host2", 11111), true, true, true);
+    var clusterInfo = Mockito.mock(ClusterInfo.class);
+    Mockito.when(clusterInfo.availableReplicaLeaders(Mockito.anyString()))
+        .thenReturn(List.of(replicaInfo0, replicaInfo1, replicaInfo2));
+    Mockito.when(clusterInfo.clusterBean()).thenReturn(ClusterBean.of(Map.of()));
+    // there is no receivers by default
+    Assertions.assertEquals(0, dispatcher.receivers.size());
+
+    // generate two receivers since there are two brokers (hosting three replicas)
+    dispatcher.partition("topic", new byte[0], new byte[0], clusterInfo);
+    Assertions.assertEquals(2, dispatcher.receivers.size());
+    Assertions.assertEquals(2, count.get());
+
+    // all brokers have receivers already so no new receiver is born
+    dispatcher.partition("topic", new byte[0], new byte[0], clusterInfo);
+    Assertions.assertEquals(2, dispatcher.receivers.size());
+    Assertions.assertEquals(2, count.get());
   }
 }

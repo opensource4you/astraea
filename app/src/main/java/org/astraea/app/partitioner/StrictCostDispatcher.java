@@ -31,6 +31,8 @@ import org.astraea.app.common.Utils;
 import org.astraea.app.cost.ClusterInfo;
 import org.astraea.app.cost.CostFunction;
 import org.astraea.app.cost.HasBrokerCost;
+import org.astraea.app.cost.NodeInfo;
+import org.astraea.app.cost.ReplicaInfo;
 import org.astraea.app.metrics.collector.BeanCollector;
 import org.astraea.app.metrics.collector.Fetcher;
 import org.astraea.app.metrics.collector.Receiver;
@@ -81,6 +83,11 @@ public class StrictCostDispatcher implements Dispatcher {
             .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
   }
 
+  // visible for testing
+  Receiver receiver(String host, int port, Fetcher fetcher) {
+    return beanCollector.register().host(host).port(port).fetcher(fetcher).build();
+  }
+
   @Override
   public int partition(String topic, byte[] key, byte[] value, ClusterInfo clusterInfo) {
     var partitionLeaders = clusterInfo.availableReplicaLeaders(topic);
@@ -96,17 +103,17 @@ public class StrictCostDispatcher implements Dispatcher {
             .map(
                 fetcher ->
                     partitionLeaders.stream()
-                        .filter(replica -> !receivers.containsKey(replica.nodeInfo().id()))
+                        .map(ReplicaInfo::nodeInfo)
+                        .filter(nodeInfo -> !receivers.containsKey(nodeInfo.id()))
+                        .distinct()
                         .collect(
                             Collectors.toMap(
-                                replica -> replica.nodeInfo().id(),
-                                replica ->
-                                    beanCollector
-                                        .register()
-                                        .host(replica.nodeInfo().host())
-                                        .port(jmxPortGetter.apply(replica.nodeInfo().id()))
-                                        .fetcher(fetcher)
-                                        .build())))
+                                NodeInfo::id,
+                                nodeInfo ->
+                                    receiver(
+                                        nodeInfo.host(),
+                                        jmxPortGetter.apply(nodeInfo.id()),
+                                        fetcher))))
             .orElse(Map.of()));
 
     // get latest beans for each node
