@@ -27,6 +27,7 @@ class Consumer extends Thread {
   private final KafkaConsumer<?, ?> consumer;
   private final Listener listener;
   private final Map<Integer, ConcurrentLinkedQueue<RebalanceTime>> timePerGeneration;
+  private boolean isEnforce;
 
   Consumer(
       int id,
@@ -41,13 +42,18 @@ class Consumer extends Thread {
   public void doSubscribe(Set<String> topics) {
     consumer.subscribe(topics, listener);
   }
-
+  public void enforce() { isEnforce = true; }
+  public int id() { return id; }
   @Override
   public void run() {
     try {
       System.out.println("Start consumer #" + id);
       while (!Thread.currentThread().isInterrupted()) {
         consumer.poll(Duration.ofMillis(250));
+        if(isEnforce) {
+          consumer.enforceRebalance();
+          isEnforce = false;
+        }
       }
     } catch (Exception e) {
       System.out.println("Close consumer #" + id);

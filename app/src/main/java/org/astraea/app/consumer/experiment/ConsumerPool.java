@@ -112,4 +112,9 @@ public class ConsumerPool {
     consumer.start();
     id += 1;
   }
+
+  public void enforceRebalance(int victim) {
+    consumers.get(victim).enforce();
+    System.out.println("consumer #" + consumers.get(0).id() + " enforce rebalance");
+  }
 }

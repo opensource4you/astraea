@@ -46,11 +46,17 @@ public class Main {
 
     long startTime = System.currentTimeMillis() / 1000;
 
-    while (time(startTime) < 180) {
+    while (time(startTime) < argument.duration) {
       TimeUnit.SECONDS.sleep(10);
-      task = random.nextInt(2);
+      task = random.nextInt(3);
       if (task == 0) trigger.killConsumer();
       else if (task == 1) trigger.addConsumer(generationIDTime);
+      else if (task == 2) {
+        trigger.addPartitionCount();
+        trigger.enforce();
+        TimeUnit.SECONDS.sleep(20);
+        }
+      System.out.println(time(startTime));
     }
     trigger.killAll();
 
@@ -72,6 +78,11 @@ public class Main {
 
     @Parameter(names = "--consumers")
     int consumers = 1;
+
+    @Parameter(names = "--duration"
+    )
+    int duration = 600;
+
   }
 
   static void printAvgTime() {
