@@ -22,9 +22,11 @@ import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.astraea.app.admin.ClusterBean;
+import org.astraea.app.cost.BrokerCost;
 import org.astraea.app.cost.BrokerInputCost;
 import org.astraea.app.cost.ClusterInfo;
 import org.astraea.app.cost.CostFunction;
+import org.astraea.app.cost.HasBrokerCost;
 import org.astraea.app.cost.NodeInfo;
 import org.astraea.app.cost.ReplicaInfo;
 import org.astraea.app.cost.ThroughputCost;
@@ -233,5 +235,33 @@ public class StrictCostDispatcherTest {
 
     // pass due to specify port
     dispatcher.configure(Map.of(CostFunction.throughput(), 1D), Optional.empty(), Map.of(222, 111));
+  }
+
+  @Test
+  void testReturnedPartition() {
+    var brokerId = 22;
+    var partitionId = 123;
+    var dispatcher = new StrictCostDispatcher();
+    var costFunction =
+        new HasBrokerCost() {
+          @Override
+          public BrokerCost brokerCost(ClusterInfo clusterInfo) {
+            return () -> Map.of(brokerId, 10D);
+          }
+        };
+    dispatcher.configure(Map.of(costFunction, 1D), Optional.empty(), Map.of());
+
+    var replicaInfo0 =
+        ReplicaInfo.of(
+            "topic", partitionId, NodeInfo.of(brokerId, "host", 11111), true, true, true);
+    var replicaInfo1 =
+        ReplicaInfo.of("topic", 1, NodeInfo.of(1111, "host2", 11111), true, true, true);
+    var clusterInfo = Mockito.mock(ClusterInfo.class);
+    Mockito.when(clusterInfo.availableReplicaLeaders(Mockito.anyString()))
+        .thenReturn(List.of(replicaInfo0, replicaInfo1));
+    Mockito.when(clusterInfo.clusterBean()).thenReturn(ClusterBean.of(Map.of()));
+
+    Assertions.assertEquals(
+        partitionId, dispatcher.partition("topic", new byte[0], new byte[0], clusterInfo));
   }
 }
