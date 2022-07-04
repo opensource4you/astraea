@@ -68,7 +68,13 @@ public class StrictCostDispatcherTest {
       // Test for cost functions configuring
       dispatcher.configure(
           Configuration.of(
-              Map.of(ThroughputCost.class.getName(), "0.1", BrokerInputCost.class.getName(), "2")));
+              Map.of(
+                  ThroughputCost.class.getName(),
+                  "0.1",
+                  BrokerInputCost.class.getName(),
+                  "2",
+                  "jmx.port",
+                  "1111")));
       Assertions.assertEquals(2, dispatcher.functions.size());
     }
   }
@@ -78,7 +84,13 @@ public class StrictCostDispatcherTest {
     try (var dispatcher = new StrictCostDispatcher()) {
       dispatcher.configure(
           Configuration.of(
-              Map.of(ThroughputCost.class.getName(), "0.1", BrokerInputCost.class.getName(), "2")));
+              Map.of(
+                  ThroughputCost.class.getName(),
+                  "0.1",
+                  BrokerInputCost.class.getName(),
+                  "2",
+                  "jmx.port",
+                  "1111")));
       Assertions.assertEquals(2, dispatcher.functions.size());
     }
   }
@@ -87,7 +99,8 @@ public class StrictCostDispatcherTest {
   void testNoAvailableBrokers() {
     var clusterInfo = Mockito.mock(ClusterInfo.class);
     Mockito.when(clusterInfo.availableReplicaLeaders(Mockito.anyString())).thenReturn(List.of());
-    try (var dispatcher = new StrictCostDispatcher(List.of())) {
+    try (var dispatcher = new StrictCostDispatcher()) {
+      dispatcher.configure(Map.of(), Optional.empty(), Map.of());
       Assertions.assertEquals(
           0, dispatcher.partition("topic", new byte[0], new byte[0], clusterInfo));
     }
@@ -100,7 +113,8 @@ public class StrictCostDispatcherTest {
     var clusterInfo = Mockito.mock(ClusterInfo.class);
     Mockito.when(clusterInfo.availableReplicaLeaders(Mockito.anyString()))
         .thenReturn(List.of(replicaInfo));
-    try (var dispatcher = new StrictCostDispatcher(List.of())) {
+    try (var dispatcher = new StrictCostDispatcher()) {
+      dispatcher.configure(Map.of(), Optional.empty(), Map.of());
       Assertions.assertEquals(
           10, dispatcher.partition("topic", new byte[0], new byte[0], clusterInfo));
     }
@@ -154,7 +168,8 @@ public class StrictCostDispatcherTest {
     Mockito.when(clusterInfo.availableReplicaLeaders(Mockito.anyString()))
         .thenReturn(List.of(replicaInfo0, replicaInfo1));
     Mockito.when(clusterInfo.clusterBean()).thenReturn(ClusterBean.of(Map.of()));
-    try (var dispatcher = new StrictCostDispatcher(List.of(costFunction))) {
+    try (var dispatcher = new StrictCostDispatcher()) {
+      dispatcher.configure(Map.of(costFunction, 1D), Optional.empty(), Map.of());
       dispatcher.partition("topic", new byte[0], new byte[0], clusterInfo);
       Assertions.assertNotNull(dispatcher.roundRobin);
       Assertions.assertEquals(0, dispatcher.receivers.size());
@@ -173,7 +188,7 @@ public class StrictCostDispatcherTest {
     var jmxPort = 12345;
     var count = new AtomicInteger();
     var dispatcher =
-        new StrictCostDispatcher(List.of(costFunction)) {
+        new StrictCostDispatcher() {
           @Override
           Receiver receiver(String host, int port, Fetcher fetcher) {
             Assertions.assertEquals(jmxPort, port);
@@ -181,7 +196,7 @@ public class StrictCostDispatcherTest {
             return Mockito.mock(Receiver.class);
           }
         };
-    dispatcher.jmxPortGetter = ignored -> jmxPort;
+    dispatcher.configure(Map.of(costFunction, 1D), Optional.of(jmxPort), Map.of());
     var replicaInfo0 = ReplicaInfo.of("topic", 0, NodeInfo.of(10, "host", 11111), true, true, true);
     var replicaInfo1 = ReplicaInfo.of("topic", 1, NodeInfo.of(10, "host", 11111), true, true, true);
     var replicaInfo2 =
@@ -202,5 +217,21 @@ public class StrictCostDispatcherTest {
     dispatcher.partition("topic", new byte[0], new byte[0], clusterInfo);
     Assertions.assertEquals(2, dispatcher.receivers.size());
     Assertions.assertEquals(2, count.get());
+  }
+
+  @Test
+  void testEmptyJmxPort() {
+    var dispatcher = new StrictCostDispatcher();
+    Assertions.assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            dispatcher.configure(
+                Map.of(CostFunction.throughput(), 1D), Optional.empty(), Map.of()));
+
+    // pass due to default port
+    dispatcher.configure(Map.of(CostFunction.throughput(), 1D), Optional.of(111), Map.of());
+
+    // pass due to specify port
+    dispatcher.configure(Map.of(CostFunction.throughput(), 1D), Optional.empty(), Map.of(222, 111));
   }
 }
