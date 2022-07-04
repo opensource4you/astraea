@@ -16,17 +16,24 @@
  */
 package org.astraea.app.cost;
 
-import java.util.Optional;
-import org.astraea.app.metrics.collector.Fetcher;
+import java.util.List;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
-/**
- * It is meaningless to implement this interface. Instead, we should implement interfaces like
- * {@link HasBrokerCost} or {@link HasPartitionCost}.
- */
-public interface CostFunction {
+public class ReplicaLeaderCostTest {
 
-  /** @return the metrics getters. Those getters are used to fetch mbeans. */
-  default Optional<Fetcher> fetcher() {
-    return Optional.empty();
+  @Test
+  void testCost() {
+    var replicas =
+        List.of(
+            ReplicaInfo.of("topic", 0, NodeInfo.of(10, "broker0", 1111), true, true, true),
+            ReplicaInfo.of("topic", 0, NodeInfo.of(10, "broker0", 1111), true, true, true),
+            ReplicaInfo.of("topic", 0, NodeInfo.of(11, "broker1", 1111), true, true, true));
+    var function = new ReplicaLeaderCost();
+    var cost = function.brokerCost(replicas.stream());
+    Assertions.assertTrue(cost.value().containsKey(10));
+    Assertions.assertTrue(cost.value().containsKey(11));
+    Assertions.assertEquals(2, cost.value().size());
+    Assertions.assertTrue(cost.value().get(10) > cost.value().get(11));
   }
 }

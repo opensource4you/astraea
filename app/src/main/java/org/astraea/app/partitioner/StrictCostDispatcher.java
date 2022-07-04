@@ -31,14 +31,15 @@ import org.astraea.app.cost.CostFunction;
 import org.astraea.app.cost.HasBrokerCost;
 import org.astraea.app.cost.NodeInfo;
 import org.astraea.app.cost.ReplicaInfo;
+import org.astraea.app.cost.ReplicaLeaderCost;
 import org.astraea.app.metrics.collector.BeanCollector;
 import org.astraea.app.metrics.collector.Fetcher;
 import org.astraea.app.metrics.collector.Receiver;
 
 /**
  * this dispatcher scores the nodes by multiples cost functions. Each function evaluate the target
- * node by different metrics. The default cost function ranks nodes by throughput. It means the node
- * having lower throughput get higher score.
+ * node by different metrics. The default cost function ranks nodes by replica leader. It means the
+ * node having lower replica leaders get higher score.
  *
  * <p>The requisite config is JMX port. Most cost functions need the JMX metrics to score nodes.
  * Normally, all brokers use the same JMX port, so you can just define the `jmx.port=12345`. If one
@@ -57,7 +58,7 @@ public class StrictCostDispatcher implements Dispatcher {
       BeanCollector.builder().interval(Duration.ofSeconds(4)).build();
 
   // The cost-functions we consider and the weight of them. It is visible for test
-  Map<CostFunction, Double> functions = Map.of(CostFunction.throughput(), 1D);
+  Map<CostFunction, Double> functions = Map.of(new ReplicaLeaderCost(), 1D);
 
   // all-in-one fetcher referenced to cost functions
   Optional<Fetcher> fetcher;
@@ -178,7 +179,7 @@ public class StrictCostDispatcher implements Dispatcher {
       Map<CostFunction, Double> functions,
       Optional<Integer> jmxPortDefault,
       Map<Integer, Integer> customJmxPort) {
-    this.functions = functions;
+    if (!functions.isEmpty()) this.functions = functions;
     this.fetcher = Fetcher.of(functions.keySet());
     this.jmxPortGetter =
         id ->

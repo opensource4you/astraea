@@ -16,17 +16,26 @@
  */
 package org.astraea.app.cost;
 
-import java.util.Optional;
-import org.astraea.app.metrics.collector.Fetcher;
+import java.util.Map;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
-/**
- * It is meaningless to implement this interface. Instead, we should implement interfaces like
- * {@link HasBrokerCost} or {@link HasPartitionCost}.
- */
-public interface CostFunction {
+/** more replica leaders -> higher cost */
+public class ReplicaLeaderCost implements HasBrokerCost {
 
-  /** @return the metrics getters. Those getters are used to fetch mbeans. */
-  default Optional<Fetcher> fetcher() {
-    return Optional.empty();
+  @Override
+  public BrokerCost brokerCost(ClusterInfo clusterInfo) {
+    return brokerCost(
+        clusterInfo.topics().stream()
+            .flatMap(t -> clusterInfo.availableReplicaLeaders(t).stream()));
+  }
+
+  // visible for testing
+  BrokerCost brokerCost(Stream<ReplicaInfo> replicas) {
+    var result =
+        replicas.collect(Collectors.groupingBy(r -> r.nodeInfo().id())).entrySet().stream()
+            .collect(
+                Collectors.toUnmodifiableMap(Map.Entry::getKey, e -> (double) e.getValue().size()));
+    return () -> result;
   }
 }
