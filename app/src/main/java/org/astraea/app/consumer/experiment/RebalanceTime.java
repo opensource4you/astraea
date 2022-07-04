@@ -21,6 +21,7 @@ import java.time.Duration;
 public class RebalanceTime {
   private int id;
   private Duration rebalanceTime;
+
   public RebalanceTime(Duration rebalanceTime, int id) {
     this.id = id;
     this.rebalanceTime = rebalanceTime;

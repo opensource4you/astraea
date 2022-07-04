@@ -55,7 +55,7 @@ public class Main {
         trigger.addPartitionCount();
         trigger.enforce();
         TimeUnit.SECONDS.sleep(20);
-        }
+      }
       System.out.println(time(startTime));
     }
     trigger.killAll();
@@ -79,10 +79,8 @@ public class Main {
     @Parameter(names = "--consumers")
     int consumers = 1;
 
-    @Parameter(names = "--duration"
-    )
+    @Parameter(names = "--duration")
     int duration = 600;
-
   }
 
   static void printAvgTime() {

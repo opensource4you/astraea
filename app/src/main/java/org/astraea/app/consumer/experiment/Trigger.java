@@ -16,16 +16,11 @@
  */
 package org.astraea.app.consumer.experiment;
 
-import java.util.Arrays;
-import java.util.HashSet;
 import java.util.Map;
 import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
-import java.util.stream.IntStream;
-
 import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.clients.admin.ListTopicsOptions;
 import org.apache.kafka.clients.admin.NewPartitions;
@@ -51,7 +46,9 @@ public class Trigger {
     if (consumerPool.range() > 1) consumerPool.killConsumer(victim());
   }
 
-  private int victim() { return randomGenerator.nextInt(consumerPool.range()); }
+  private int victim() {
+    return randomGenerator.nextInt(consumerPool.range());
+  }
 
   public void addConsumer(Map<Integer, ConcurrentLinkedQueue<RebalanceTime>> generationIDTime) {
     consumerPool.addConsumer(generationIDTime);
@@ -59,25 +56,29 @@ public class Trigger {
 
   public void addPartitionCount() {
     String topic = topic();
-    Map<String, NewPartitions> addPartition = Map.of(topic, NewPartitions.increaseTo(partitions(Set.of(topic))+1));
+    Map<String, NewPartitions> addPartition =
+        Map.of(topic, NewPartitions.increaseTo(partitions(Set.of(topic)) + 1));
     admin.createPartitions(addPartition);
     System.out.println("topic #" + topic + " increased partition");
   }
+
   private int partitions(Set<String> topics) {
     return Utils.packException(
-          () ->
-              admin.describeTopics(topics).all().get().entrySet().stream()
-                  .flatMap(
-                      e ->
-                          e.getValue().partitions().stream()
-                              .map(p -> new TopicPartition(e.getKey(), p.partition())))
-                  .collect(Collectors.toSet()).size());
+        () ->
+            admin.describeTopics(topics).all().get().entrySet().stream()
+                .flatMap(
+                    e ->
+                        e.getValue().partitions().stream()
+                            .map(p -> new TopicPartition(e.getKey(), p.partition())))
+                .collect(Collectors.toSet())
+                .size());
   }
 
   private String topic() {
     Set<String> topics;
-    topics = Utils.packException(
-        () -> admin.listTopics(new ListTopicsOptions().listInternal(false)).names().get());
+    topics =
+        Utils.packException(
+            () -> admin.listTopics(new ListTopicsOptions().listInternal(false)).names().get());
     return topics.iterator().next();
   }
 
