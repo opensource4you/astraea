@@ -17,9 +17,7 @@
 package org.astraea.app.partitioner;
 
 import java.time.Duration;
-import java.util.Collection;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Objects;
@@ -58,8 +56,11 @@ public class StrictCostDispatcher implements Dispatcher {
   private final BeanCollector beanCollector =
       BeanCollector.builder().interval(Duration.ofSeconds(4)).build();
 
-  /* The cost-functions we consider and the weight of them. It is visible for test.*/
-  Map<CostFunction, Double> functions;
+  // The cost-functions we consider and the weight of them. It is visible for test
+  Map<CostFunction, Double> functions = Map.of(CostFunction.throughput(), 1D);
+
+  // all-in-one fetcher referenced to cost functions
+  Optional<Fetcher> fetcher;
 
   Function<Integer, Integer> jmxPortGetter =
       (id) -> {
@@ -70,18 +71,6 @@ public class StrictCostDispatcher implements Dispatcher {
 
   volatile RoundRobin<Integer> roundRobin;
   volatile long timeToUpdateRoundRobin = -1;
-
-  public StrictCostDispatcher() {
-    this(List.of(CostFunction.throughput()));
-  }
-
-  // visible for testing
-  StrictCostDispatcher(Collection<CostFunction> functions) {
-    this.functions =
-        functions.stream()
-            .map(f -> Map.entry(f, 1.0))
-            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-  }
 
   // visible for testing
   Receiver receiver(String host, int port, Fetcher fetcher) {
@@ -99,7 +88,7 @@ public class StrictCostDispatcher implements Dispatcher {
 
     // add new receivers for new brokers
     receivers.putAll(
-        Fetcher.of(functions.keySet())
+        fetcher
             .map(
                 fetcher ->
                     partitionLeaders.stream()
@@ -165,16 +154,34 @@ public class StrictCostDispatcher implements Dispatcher {
 
   @Override
   public void configure(Configuration config) {
-    var jmxPortDefault = config.integer(JMX_PORT);
-    var customJmxPort = PartitionerUtils.parseIdJMXPort(config);
-    jmxPortGetter =
+    configure(
+        parseCostFunctionWeight(config),
+        config.integer(JMX_PORT),
+        PartitionerUtils.parseIdJMXPort(config));
+  }
+
+  /**
+   * configure this StrictCostDispatcher. This method is extracted for testing.
+   *
+   * @param functions cost functions used by this dispatcher.
+   * @param jmxPortDefault jmx port by default
+   * @param customJmxPort jmx port for each node
+   */
+  void configure(
+      Map<CostFunction, Double> functions,
+      Optional<Integer> jmxPortDefault,
+      Map<Integer, Integer> customJmxPort) {
+    this.functions = functions;
+    this.fetcher = Fetcher.of(functions.keySet());
+    this.jmxPortGetter =
         id ->
             Optional.ofNullable(customJmxPort.get(id))
                 .or(() -> jmxPortDefault)
                 .orElseThrow(
                     () -> new NoSuchElementException("broker: " + id + " does not have jmx port"));
-
-    functions = parseCostFunctionWeight(config);
+    if (fetcher.isPresent() && jmxPortDefault.isEmpty() && customJmxPort.isEmpty())
+      throw new IllegalArgumentException(
+          "JMX port is empty but the cost functions need metrics from JMX server");
   }
 
   /**
