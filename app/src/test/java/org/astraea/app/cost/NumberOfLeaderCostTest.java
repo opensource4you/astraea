@@ -21,7 +21,6 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -29,7 +28,6 @@ import org.astraea.app.admin.Admin;
 import org.astraea.app.admin.ClusterBean;
 import org.astraea.app.metrics.HasBeanObject;
 import org.astraea.app.metrics.collector.BeanCollector;
-import org.astraea.app.metrics.collector.Fetcher;
 import org.astraea.app.metrics.jmx.BeanObject;
 import org.astraea.app.metrics.kafka.HasValue;
 import org.astraea.app.metrics.kafka.KafkaMetrics;
@@ -73,7 +71,7 @@ class NumberOfLeaderCostTest extends RequireBrokerCluster {
                     .register()
                     .host(host)
                     .port(port)
-                    .fetcher(Fetcher.of(Set.of(costFunction.fetcher())))
+                    .fetcher(costFunction.fetcher().get())
                     .build()
                     .current();
             allBeans.put(

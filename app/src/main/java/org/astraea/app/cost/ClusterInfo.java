@@ -16,15 +16,13 @@
  */
 package org.astraea.app.cost;
 
-import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.astraea.app.admin.ClusterBean;
 import org.astraea.app.metrics.HasBeanObject;
 
@@ -98,52 +96,60 @@ public interface ClusterInfo {
   /**
    * merge the beans into cluster information
    *
-   * @param cluster cluster information
+   * @param clusterInfo cluster information
    * @param beans extra beans
    * @return a new cluster information with extra beans
    */
-  static ClusterInfo of(ClusterInfo cluster, Map<Integer, Collection<HasBeanObject>> beans) {
-    var all = new HashMap<Integer, List<HasBeanObject>>();
-    cluster
-        .clusterBean()
-        .all()
-        .forEach((key, value) -> all.computeIfAbsent(key, k -> new ArrayList<>()).addAll(value));
-    beans.forEach((key, value) -> all.computeIfAbsent(key, k -> new ArrayList<>()).addAll(value));
+  static ClusterInfo of(
+      ClusterInfo clusterInfo, Map<Integer, ? extends Collection<HasBeanObject>> beans) {
+    var clusterBean =
+        ClusterBean.of(
+            Stream.concat(
+                    clusterInfo.clusterBean().all().entrySet().stream(), beans.entrySet().stream())
+                .collect(
+                    Collectors.toMap(
+                        Map.Entry::getKey,
+                        Map.Entry::getValue,
+                        // Normally, the cluster info used to merge with beans has no beans. Hence,
+                        // the cost of merge is acceptable
+                        (l, r) ->
+                            Stream.concat(l.stream(), r.stream())
+                                .collect(Collectors.toUnmodifiableList()))));
     return new ClusterInfo() {
 
       @Override
       public List<NodeInfo> nodes() {
-        return cluster.nodes();
+        return clusterInfo.nodes();
       }
 
       @Override
       public Set<String> dataDirectories(int brokerId) {
-        return cluster.dataDirectories(brokerId);
+        return clusterInfo.dataDirectories(brokerId);
       }
 
       @Override
       public List<ReplicaInfo> availableReplicaLeaders(String topic) {
-        return cluster.availableReplicaLeaders(topic);
+        return clusterInfo.availableReplicaLeaders(topic);
       }
 
       @Override
       public List<ReplicaInfo> availableReplicas(String topic) {
-        return cluster.availableReplicas(topic);
+        return clusterInfo.availableReplicas(topic);
       }
 
       @Override
       public Set<String> topics() {
-        return cluster.topics();
+        return clusterInfo.topics();
       }
 
       @Override
       public List<ReplicaInfo> replicas(String topic) {
-        return cluster.replicas(topic);
+        return clusterInfo.replicas(topic);
       }
 
       @Override
       public ClusterBean clusterBean() {
-        return ClusterBean.of(Collections.unmodifiableMap(all));
+        return clusterBean;
       }
     };
   }

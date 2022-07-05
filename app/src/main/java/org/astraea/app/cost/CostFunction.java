@@ -16,6 +16,7 @@
  */
 package org.astraea.app.cost;
 
+import java.util.Optional;
 import org.astraea.app.metrics.collector.Fetcher;
 
 /**
@@ -29,5 +30,7 @@ public interface CostFunction {
   }
 
   /** @return the metrics getters. Those getters are used to fetch mbeans. */
-  Fetcher fetcher();
+  default Optional<Fetcher> fetcher() {
+    return Optional.empty();
+  }
 }

@@ -68,7 +68,7 @@ public class BrokerInputCostTest extends RequireBrokerCluster {
             .register()
             .host(jmxServiceURL().getHost())
             .port(jmxServiceURL().getPort())
-            .fetcher(new BrokerInputCost().fetcher())
+            .fetcher(new BrokerInputCost().fetcher().get())
             .build()) {
       Assertions.assertFalse(receiver.current().isEmpty());
 

@@ -150,7 +150,8 @@ public class SmoothWeightRoundRobinDispatcher extends Periodic<Map<Integer, Doub
         .register()
         .host(host)
         .port(port)
-        .fetcher(neutralIntegratedCost.fetcher())
+        // TODO: handle the empty fetcher
+        .fetcher(neutralIntegratedCost.fetcher().get())
         .build();
   }
 

@@ -17,18 +17,19 @@
 package org.astraea.app.partitioner;
 
 import java.time.Duration;
-import java.util.Collection;
-import java.util.List;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.TreeMap;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.astraea.app.common.Utils;
 import org.astraea.app.cost.ClusterInfo;
 import org.astraea.app.cost.CostFunction;
 import org.astraea.app.cost.HasBrokerCost;
+import org.astraea.app.cost.NodeInfo;
 import org.astraea.app.cost.ReplicaInfo;
 import org.astraea.app.metrics.collector.BeanCollector;
 import org.astraea.app.metrics.collector.Fetcher;
@@ -50,26 +51,30 @@ import org.astraea.app.metrics.collector.Receiver;
  */
 public class StrictCostDispatcher implements Dispatcher {
   public static final String JMX_PORT = "jmx.port";
+  private static final Duration ROUND_ROBIN_LEASE = Duration.ofSeconds(30);
 
   private final BeanCollector beanCollector =
       BeanCollector.builder().interval(Duration.ofSeconds(4)).build();
 
-  /* The cost-functions we consider and the weight of them. It is visible for test.*/
-  Map<CostFunction, Double> functions;
-  private Optional<Integer> jmxPortDefault = Optional.empty();
-  private final Map<Integer, Integer> jmxPorts = new TreeMap<>();
+  // The cost-functions we consider and the weight of them. It is visible for test
+  Map<CostFunction, Double> functions = Map.of(CostFunction.throughput(), 1D);
+
+  // all-in-one fetcher referenced to cost functions
+  Optional<Fetcher> fetcher;
+
+  Function<Integer, Integer> jmxPortGetter =
+      (id) -> {
+        throw new NoSuchElementException("broker: " + id + " does not have jmx port");
+      };
+
   final Map<Integer, Receiver> receivers = new TreeMap<>();
 
-  public StrictCostDispatcher() {
-    this(List.of(CostFunction.throughput()));
-  }
+  volatile RoundRobin<Integer> roundRobin;
+  volatile long timeToUpdateRoundRobin = -1;
 
   // visible for testing
-  StrictCostDispatcher(Collection<CostFunction> functions) {
-    this.functions =
-        functions.stream()
-            .map(f -> Map.entry(f, 1.0))
-            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+  Receiver receiver(String host, int port, Fetcher fetcher) {
+    return beanCollector.register().host(host).port(port).fetcher(fetcher).build();
   }
 
   @Override
@@ -82,89 +87,108 @@ public class StrictCostDispatcher implements Dispatcher {
     if (partitionLeaders.size() == 1) return partitionLeaders.iterator().next().partition();
 
     // add new receivers for new brokers
-    partitionLeaders.stream()
-        .filter(p -> !receivers.containsKey(p.nodeInfo().id()))
-        .forEach(
-            p ->
-                receivers.put(
-                    p.nodeInfo().id(), receiver(p.nodeInfo().host(), jmxPort(p.nodeInfo().id()))));
+    receivers.putAll(
+        fetcher
+            .map(
+                fetcher ->
+                    partitionLeaders.stream()
+                        .map(ReplicaInfo::nodeInfo)
+                        .filter(nodeInfo -> !receivers.containsKey(nodeInfo.id()))
+                        .distinct()
+                        .collect(
+                            Collectors.toMap(
+                                NodeInfo::id,
+                                nodeInfo ->
+                                    receiver(
+                                        nodeInfo.host(),
+                                        jmxPortGetter.apply(nodeInfo.id()),
+                                        fetcher))))
+            .orElse(Map.of()));
 
     // get latest beans for each node
     var beans =
         receivers.entrySet().stream()
             .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().current()));
 
-    // get scores from all cost functions
-    var scores = computeScore(functions, ClusterInfo.of(clusterInfo, beans));
-
-    return bestPartition(partitionLeaders, scores).map(e -> e.getKey().partition()).orElse(0);
+    if (roundRobin == null || System.currentTimeMillis() >= timeToUpdateRoundRobin) {
+      roundRobin = newRoundRobin(functions, ClusterInfo.of(clusterInfo, beans));
+      timeToUpdateRoundRobin = System.currentTimeMillis() + ROUND_ROBIN_LEASE.toMillis();
+    }
+    return roundRobin
+        .next(partitionLeaders.stream().map(r -> r.nodeInfo().id()).collect(Collectors.toSet()))
+        .flatMap(
+            brokerId ->
+                // TODO: which partition is better when all of them are in same node?
+                partitionLeaders.stream()
+                    .filter(r -> r.nodeInfo().id() == brokerId)
+                    .map(ReplicaInfo::partition)
+                    .findAny())
+        .orElse(0);
   }
 
   /**
-   * Pass clusterInfo into all cost-functions. The result of each cost-function will multiply on
-   * their corresponding weight.
+   * create new Round-Robin based.
    *
-   * @param functions the cost-function objects and their corresponding weight
-   * @return cost-function result multiplied on their corresponding weight
+   * @param costFunctions used to calculate weights
+   * @param clusterInfo used to calculate costs
+   * @return SmoothWeightedRoundRobin
    */
-  static List<Map<Integer, Double>> computeScore(
-      Map<CostFunction, Double> functions, ClusterInfo clusterInfo) {
-    return functions.entrySet().stream()
-        .filter(e -> e.getKey() instanceof HasBrokerCost)
-        .map(e -> Map.entry((HasBrokerCost) e.getKey(), e.getValue()))
-        .map(
-            functionWeight ->
-                functionWeight
-                    .getKey()
-                    // Execute all cost functions
-                    .brokerCost(clusterInfo)
-                    .value()
-                    .entrySet()
-                    .stream()
-                    // Weight on cost functions result
-                    .map(
-                        IdScore ->
-                            Map.entry(
-                                IdScore.getKey(), IdScore.getValue() * functionWeight.getValue()))
-                    .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue)))
-        .collect(Collectors.toUnmodifiableList());
-  }
-
-  // visible for testing
-  static Optional<Map.Entry<ReplicaInfo, Double>> bestPartition(
-      List<ReplicaInfo> partitions, List<Map<Integer, Double>> scores) {
-    return partitions.stream()
-        .map(
-            p ->
-                Map.entry(
-                    p,
-                    scores.stream()
-                        .mapToDouble(s -> s.getOrDefault(p.nodeInfo().id(), 0.0D))
-                        .sum()))
-        .min(Map.Entry.comparingByValue());
-  }
-
-  Receiver receiver(String host, int port) {
-    return beanCollector
-        .register()
-        .host(host)
-        .port(port)
-        .fetcher(
-            Fetcher.of(
-                functions.keySet().stream()
-                    .map(CostFunction::fetcher)
-                    .collect(Collectors.toUnmodifiableList())))
-        .build();
+  static RoundRobin<Integer> newRoundRobin(
+      Map<CostFunction, Double> costFunctions, ClusterInfo clusterInfo) {
+    return RoundRobin.smoothWeighted(
+        costFunctions.entrySet().stream()
+            .filter(e -> e.getKey() instanceof HasBrokerCost)
+            .map(e -> Map.entry((HasBrokerCost) e.getKey(), e.getValue()))
+            .flatMap(
+                functionWeight ->
+                    functionWeight
+                        .getKey()
+                        // Execute all cost functions
+                        .brokerCost(clusterInfo)
+                        .value()
+                        .entrySet()
+                        .stream()
+                        // Weight on cost functions result
+                        .map(
+                            IdScore ->
+                                Map.entry(
+                                    IdScore.getKey(),
+                                    IdScore.getValue() * functionWeight.getValue())))
+            .collect(
+                Collectors.toMap(
+                    Map.Entry::getKey, Map.Entry::getValue, Double::sum, HashMap::new)));
   }
 
   @Override
   public void configure(Configuration config) {
-    jmxPortDefault = config.integer(JMX_PORT);
+    configure(
+        parseCostFunctionWeight(config),
+        config.integer(JMX_PORT),
+        PartitionerUtils.parseIdJMXPort(config));
+  }
 
-    // seeks for custom jmx ports.
-    jmxPorts.putAll(PartitionerUtils.parseIdJMXPort(config));
-
-    functions = parseCostFunctionWeight(config);
+  /**
+   * configure this StrictCostDispatcher. This method is extracted for testing.
+   *
+   * @param functions cost functions used by this dispatcher.
+   * @param jmxPortDefault jmx port by default
+   * @param customJmxPort jmx port for each node
+   */
+  void configure(
+      Map<CostFunction, Double> functions,
+      Optional<Integer> jmxPortDefault,
+      Map<Integer, Integer> customJmxPort) {
+    this.functions = functions;
+    this.fetcher = Fetcher.of(functions.keySet());
+    this.jmxPortGetter =
+        id ->
+            Optional.ofNullable(customJmxPort.get(id))
+                .or(() -> jmxPortDefault)
+                .orElseThrow(
+                    () -> new NoSuchElementException("broker: " + id + " does not have jmx port"));
+    if (fetcher.isPresent() && jmxPortDefault.isEmpty() && customJmxPort.isEmpty())
+      throw new IllegalArgumentException(
+          "JMX port is empty but the cost functions need metrics from JMX server");
   }
 
   /**
@@ -205,13 +229,6 @@ public class StrictCostDispatcher implements Dispatcher {
               }
             })
         .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-  }
-
-  // visible for testing
-  int jmxPort(int id) {
-    if (jmxPorts.containsKey(id)) return jmxPorts.get(id);
-    return jmxPortDefault.orElseThrow(
-        () -> new NoSuchElementException("broker: " + id + " does not have jmx port"));
   }
 
   @Override
