@@ -37,7 +37,7 @@ public class StraightPlanExecutor implements RebalancePlanExecutor {
       final var clusterInfo = rebalanceAdmin.clusterInfo();
       final var currentLogAllocation = LayeredClusterLogAllocation.of(clusterInfo);
       final var migrationTargets =
-          ClusterLogAllocation.findNonFulfilledAllocation(logAllocation, currentLogAllocation);
+          ClusterLogAllocation.findNonFulfilledAllocation(currentLogAllocation, logAllocation);
 
       var executeReplicaMigration =
           (Function<TopicPartition, List<ReplicaMigrationTask>>)
