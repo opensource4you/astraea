@@ -32,6 +32,6 @@ public interface RebalancePlanExecutor {
    *     metrics to monitor cluster state, perform appropriate migration decision.
    */
   default Fetcher fetcher() {
-    return Fetcher.of(List.of());
+    return (ignore) -> List.of();
   }
 }
