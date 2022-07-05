@@ -87,7 +87,7 @@ public class Performance {
   private static DataSupplier dataSupplier(Performance.Argument argument) {
     return DataSupplier.of(
         argument.exeTime,
-        argument.noKey,
+        argument.keySize,
         argument.keyDistributionType.create(10000),
         argument.recordSize,
         argument.sizeDistributionType.create(
@@ -341,9 +341,11 @@ public class Performance {
     }
 
     @Parameter(
-        names = {"--no.key"},
-        description = "A flag to make all records produced without key")
-    boolean noKey = false;
+        names = {"--key.size"},
+        description =
+            "DataSize: size of the key of each record. null if the size is set to zero. Default: 4Byte",
+        converter = DataSize.Field.class)
+    DataSize keySize = DataUnit.Byte.of(4);
 
     @Parameter(
         names = {"--key.distribution"},

@@ -28,7 +28,7 @@ public class DataSupplierTest {
     var dataSupplier =
         DataSupplier.of(
             ExeTime.of("2s"),
-            false,
+            DataUnit.Byte.of(20),
             DistributionType.FIXED.create(10),
             DataUnit.KiB.of(100),
             DistributionType.FIXED.create(10),
@@ -43,11 +43,11 @@ public class DataSupplierTest {
     var dataSupplier =
         DataSupplier.of(
             ExeTime.of("2records"),
-            false,
+            DataUnit.KiB.of(2),
             DistributionType.FIXED.create(10),
             DataUnit.KiB.of(100),
             DistributionType.FIXED.create(10),
-            DataUnit.KiB.of(100));
+            DataUnit.KiB.of(102));
     Assertions.assertTrue(dataSupplier.get().hasData());
     Assertions.assertTrue(dataSupplier.get().hasData());
     Assertions.assertFalse(dataSupplier.get().hasData());
@@ -58,7 +58,7 @@ public class DataSupplierTest {
     var dataSupplier =
         DataSupplier.of(
             ExeTime.of("10s"),
-            false,
+            DataUnit.Byte.of(20),
             DistributionType.FIXED.create(9),
             DataUnit.KiB.of(100),
             DistributionType.FIXED.create(10),
@@ -66,7 +66,7 @@ public class DataSupplierTest {
     var data = dataSupplier.get();
     Assertions.assertTrue(data.hasData());
     // key content is fixed to "9", so the size is 1 byte
-    Assertions.assertEquals(1, data.key().length);
+    Assertions.assertEquals(20, data.key().length);
   }
 
   @Test
@@ -74,7 +74,7 @@ public class DataSupplierTest {
     var dataSupplier =
         DataSupplier.of(
             ExeTime.of("10s"),
-            false,
+            DataUnit.Byte.of(20),
             DistributionType.FIXED.create(10),
             DataUnit.KiB.of(100),
             DistributionType.FIXED.create(0),
@@ -90,7 +90,7 @@ public class DataSupplierTest {
     var dataSupplier =
         DataSupplier.of(
             ExeTime.of("10s"),
-            false,
+            DataUnit.Byte.of(20),
             DistributionType.FIXED.create(10),
             DataUnit.KiB.of(100),
             DistributionType.FIXED.create(10),
@@ -107,9 +107,9 @@ public class DataSupplierTest {
     var dataSupplier =
         DataSupplier.of(
             ExeTime.of("10s"),
-            false,
+            DataUnit.KiB.of(2),
             DistributionType.FIXED.create(10),
-            DataUnit.KiB.of(100),
+            DataUnit.KiB.of(98),
             DistributionType.FIXED.create(0),
             DataUnit.KiB.of(150));
     // total: 100KB, limit: 150KB -> no throttle
@@ -125,7 +125,7 @@ public class DataSupplierTest {
     var dataSupplier =
         DataSupplier.of(
             ExeTime.of("10s"),
-            true,
+            DataUnit.Byte.of(0),
             DistributionType.FIXED.create(10),
             DataUnit.KiB.of(100),
             DistributionType.FIXED.create(0),

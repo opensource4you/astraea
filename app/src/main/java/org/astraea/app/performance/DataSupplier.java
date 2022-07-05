@@ -17,7 +17,9 @@
 package org.astraea.app.performance;
 
 import java.util.Arrays;
+import java.util.Map;
 import java.util.Random;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
 import org.astraea.app.common.DataSize;
@@ -118,7 +120,7 @@ interface DataSupplier extends Supplier<DataSupplier.Data> {
 
   static DataSupplier of(
       ExeTime exeTime,
-      boolean noKey,
+      DataSize keySize,
       Supplier<Long> keyDistribution,
       DataSize valueSize,
       Supplier<Long> valueDistribution,
@@ -130,6 +132,7 @@ interface DataSupplier extends Supplier<DataSupplier.Data> {
       private final AtomicLong dataCount = new AtomicLong(0);
       private long intervalStart = 0;
       private long payloadBytes;
+      private final Map<Long, byte[]> recordKeyTable = new ConcurrentHashMap<>();
 
       synchronized boolean checkAndAdd(int payloadLength) {
         if (System.currentTimeMillis() - intervalStart > 1000) {
@@ -152,8 +155,17 @@ interface DataSupplier extends Supplier<DataSupplier.Data> {
       }
 
       public byte[] key() {
-        if (noKey) return null;
-        return (String.valueOf(keyDistribution.get())).getBytes();
+        if (keySize.equals(DataUnit.Byte.of(0))) return null;
+
+        // Find the key from the table, if the record has been produced before.
+        var k = keyDistribution.get();
+        return recordKeyTable.computeIfAbsent(
+            k,
+            ignore -> {
+              var recordKey = new byte[keySize.measurement(DataUnit.Byte).intValue()];
+              rand.nextBytes(recordKey);
+              return recordKey;
+            });
       }
 
       @Override
@@ -162,7 +174,7 @@ interface DataSupplier extends Supplier<DataSupplier.Data> {
             >= 100D) return NO_MORE_DATA;
         var key = key();
         var value = value();
-        if (checkAndAdd(value.length)) return data(key, value);
+        if (checkAndAdd(value.length + (key != null ? key.length : 0))) return data(key, value);
         return THROTTLED_DATA;
       }
     };

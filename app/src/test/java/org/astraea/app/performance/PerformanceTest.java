@@ -193,6 +193,11 @@ public class PerformanceTest extends RequireBrokerCluster {
         IllegalArgumentException.class,
         () -> Argument.parse(new Performance.Argument(), arguments8));
 
+    String[] arguments9 = {"--bootstrap.servers", "localhost:9092", "--record.size", "1"};
+    Assertions.assertThrows(
+        IllegalArgumentException.class,
+        () -> Argument.parse(new Performance.Argument(), arguments9));
+
     String[] arguments10 = {"--bootstrap.servers", "localhost:9092", "--partitioner", ""};
     Assertions.assertThrows(
         ParameterException.class, () -> Argument.parse(new Performance.Argument(), arguments10));
