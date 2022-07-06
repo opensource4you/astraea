@@ -45,6 +45,7 @@ import javax.management.remote.JMXConnectorServer;
 import javax.management.remote.JMXConnectorServerFactory;
 import javax.management.remote.JMXServiceURL;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -234,23 +235,6 @@ class MBeanClientTest {
   }
 
   @Test
-  void testUseClosedClientWillThrowError() {
-    // arrange
-    var client = MBeanClient.of(jmxServer.getAddress());
-    BeanQuery query =
-        BeanQuery.builder().domainName("java.lang").property("type", "Memory").build();
-
-    // act
-    client.close();
-
-    // assert
-    assertThrows(IllegalStateException.class, () -> client.queryBean(query));
-    assertThrows(
-        IllegalStateException.class, () -> client.queryBean(query, Collections.emptyList()));
-    assertThrows(IllegalStateException.class, () -> client.queryBeans(query));
-  }
-
-  @Test
   void testCloseOnceMore() {
     // arrange
     var client = MBeanClient.of(jmxServer.getAddress());
@@ -309,9 +293,18 @@ class MBeanClientTest {
   }
 
   @Test
-  void testUsePropertyListPattern() {
+  void testUsePropertyListPatternForRemote() {
+    testUsePropertyListPattern(MBeanClient.of(jmxServer.getAddress()));
+  }
+
+  @Test
+  void testUsePropertyListPatternForLocal() {
+    testUsePropertyListPattern(MBeanClient.local());
+  }
+
+  private void testUsePropertyListPattern(MBeanClient client) {
     // arrange
-    try (var client = MBeanClient.of(jmxServer.getAddress())) {
+    try (client) {
       BeanQuery patternQuery =
           BeanQuery.builder()
               .domainName("java.lang")
@@ -456,5 +449,11 @@ class MBeanClientTest {
       assertEquals(IntStream.range(0, 100).mapToObj(x -> "test" + x).collect(toSet()), propValues);
       assertEquals(IntStream.range(0, 100).boxed().collect(toSet()), attrValues);
     }
+  }
+
+  @Test
+  void testLocal() {
+    var client = MBeanClient.local();
+    Assertions.assertNotEquals(0, client.queryBeans(BeanQuery.all()).size());
   }
 }
