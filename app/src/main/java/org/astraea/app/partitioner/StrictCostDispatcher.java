@@ -58,7 +58,7 @@ public class StrictCostDispatcher implements Dispatcher {
       BeanCollector.builder().interval(Duration.ofSeconds(4)).build();
 
   // The cost-functions we consider and the weight of them. It is visible for test
-  Map<CostFunction, Double> functions = Map.of(new ReplicaLeaderCost(), 1D);
+  Map<CostFunction, Double> functions = Map.of(new ReplicaLeaderCost.NoMetrics(), 1D);
 
   // all-in-one fetcher referenced to cost functions
   Optional<Fetcher> fetcher;
