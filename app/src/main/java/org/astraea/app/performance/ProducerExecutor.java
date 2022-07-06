@@ -86,7 +86,7 @@ abstract class ProducerExecutor implements Executor {
                         (m, e) ->
                             observer.accept(
                                 System.currentTimeMillis() - m.timestamp(),
-                                m.serializedValueSize())));
+                                m.serializedValueSize() + m.serializedKeySize())));
         return State.RUNNING;
       }
     };
