@@ -23,6 +23,7 @@ import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiConsumer;
 import org.astraea.app.admin.Admin;
 import org.astraea.app.admin.TopicPartition;
@@ -99,13 +100,17 @@ public class PerformanceTest extends RequireBrokerCluster {
     Metrics metrics = new Metrics();
     var topicName = "testConsumerExecutor-" + System.currentTimeMillis();
     var param = new Performance.Argument();
+    var isKilled = new AtomicBoolean(false);
+    var isRestarted = new AtomicBoolean(false);
     param.sizeDistributionType = DistributionType.FIXED;
     try (Executor executor =
         Performance.consumerExecutor(
             Consumer.forTopics(Set.of(topicName)).bootstrapServers(bootstrapServers()).build(),
             metrics,
             new Manager(param, List.of(), List.of()),
-            () -> false)) {
+            () -> false,
+            isKilled,
+            isRestarted)) {
       executor.execute();
 
       Assertions.assertEquals(0, metrics.num());
