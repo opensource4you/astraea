@@ -298,7 +298,7 @@ public class Performance {
             return State.RUNNING;
           }
           consumer
-              .poll(Duration.ofSeconds(1)) //need lower than max.poll.interval.ms
+              .poll(Duration.ofSeconds(10)) //need lower than max.poll.interval.ms
               .forEach(
                   record -> {
                     // record ene-to-end latency, and record input byte (header and timestamp size
