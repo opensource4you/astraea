@@ -26,7 +26,7 @@ import org.astraea.app.metrics.kafka.HasValue;
 import org.astraea.app.metrics.kafka.KafkaMetrics;
 
 /** more replica leaders -> higher cost */
-public abstract class ReplicaLeaderCost implements HasBrokerCost {
+public class ReplicaLeaderCost implements HasBrokerCost {
 
   @Override
   public BrokerCost brokerCost(ClusterInfo clusterInfo) {
@@ -36,7 +36,26 @@ public abstract class ReplicaLeaderCost implements HasBrokerCost {
     return () -> result;
   }
 
-  abstract Map<Integer, Integer> leaderCount(ClusterInfo clusterInfo);
+  Map<Integer, Integer> leaderCount(ClusterInfo clusterInfo) {
+    return clusterInfo.clusterBean().all().entrySet().stream()
+        .flatMap(
+            e ->
+                e.getValue().stream()
+                    .filter(x -> x instanceof HasValue)
+                    .filter(x -> "LeaderCount".equals(x.beanObject().getProperties().get("name")))
+                    .filter(
+                        x -> "ReplicaManager".equals(x.beanObject().getProperties().get("type")))
+                    .sorted(Comparator.comparing(HasBeanObject::createdTimestamp).reversed())
+                    .map(x -> (HasValue) x)
+                    .limit(1)
+                    .map(e2 -> Map.entry(e.getKey(), (int) e2.value())))
+        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+  }
+
+  @Override
+  public Optional<Fetcher> fetcher() {
+    return Optional.of(KafkaMetrics.ReplicaManager.LeaderCount::fetch);
+  }
 
   public static class NoMetrics extends ReplicaLeaderCost {
 
@@ -49,30 +68,10 @@ public abstract class ReplicaLeaderCost implements HasBrokerCost {
           .stream()
           .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, e -> e.getValue().size()));
     }
-  }
-
-  public static class HasMetrics extends ReplicaLeaderCost {
-
-    @Override
-    Map<Integer, Integer> leaderCount(ClusterInfo clusterInfo) {
-      return clusterInfo.clusterBean().all().entrySet().stream()
-          .flatMap(
-              e ->
-                  e.getValue().stream()
-                      .filter(x -> x instanceof HasValue)
-                      .filter(x -> "LeaderCount".equals(x.beanObject().getProperties().get("name")))
-                      .filter(
-                          x -> "ReplicaManager".equals(x.beanObject().getProperties().get("type")))
-                      .sorted(Comparator.comparing(HasBeanObject::createdTimestamp).reversed())
-                      .map(x -> (HasValue) x)
-                      .limit(1)
-                      .map(e2 -> Map.entry(e.getKey(), (int) e2.value())))
-          .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-    }
 
     @Override
     public Optional<Fetcher> fetcher() {
-      return Optional.of(KafkaMetrics.ReplicaManager.LeaderCount::fetch);
+      return Optional.empty();
     }
   }
 }
