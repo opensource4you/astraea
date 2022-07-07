@@ -87,7 +87,7 @@ public interface ClusterLogAllocation {
         .collect(Collectors.toUnmodifiableSet());
   }
 
-  static String describeAllocation(ClusterLogAllocation allocation) {
+  static String toString(ClusterLogAllocation allocation) {
     StringBuilder stringBuilder = new StringBuilder();
 
     allocation

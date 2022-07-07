@@ -90,11 +90,11 @@ class StraightPlanExecutorTest extends RequireBrokerCluster {
                   "Testing for " + topicPartition));
 
       System.out.println("Expected:");
-      System.out.println(ClusterLogAllocation.describeAllocation(expectedAllocation));
+      System.out.println(ClusterLogAllocation.toString(expectedAllocation));
       System.out.println("Current:");
-      System.out.println(ClusterLogAllocation.describeAllocation(currentAllocation));
+      System.out.println(ClusterLogAllocation.toString(currentAllocation));
       System.out.println("Original:");
-      System.out.println(ClusterLogAllocation.describeAllocation(originalAllocation));
+      System.out.println(ClusterLogAllocation.toString(originalAllocation));
     }
   }
 
@@ -151,11 +151,11 @@ class StraightPlanExecutorTest extends RequireBrokerCluster {
                       expectedAllocation.logPlacements(topicPartition))));
 
       System.out.println("Expected:");
-      System.out.println(ClusterLogAllocation.describeAllocation(expectedAllocation));
+      System.out.println(ClusterLogAllocation.toString(expectedAllocation));
       System.out.println("Current:");
-      System.out.println(ClusterLogAllocation.describeAllocation(currentAllocation));
+      System.out.println(ClusterLogAllocation.toString(currentAllocation));
       System.out.println("Original:");
-      System.out.println(ClusterLogAllocation.describeAllocation(originalAllocation));
+      System.out.println(ClusterLogAllocation.toString(originalAllocation));
     }
   }
 }
