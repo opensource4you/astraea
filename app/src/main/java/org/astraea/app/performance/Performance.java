@@ -232,11 +232,10 @@ public class Performance {
               .executors(producerExecutors)
               .executor(tracker)
               .executors(fileWriter)
+              .executor(monkeyExecutor)
               .build()) {
-        var monkey = ThreadPool.builder().executor(monkeyExecutor).build();
         threadPool.waitAll();
         consumersPool.waitAll();
-        monkey.close();
         printTime(generationIDTime);
         return new Result(param.topic);
       }
@@ -298,7 +297,7 @@ public class Performance {
             return State.RUNNING;
           }
           consumer
-              .poll(Duration.ofSeconds(10)) // need lower than max.poll.interval.ms
+              .poll(Duration.ofSeconds(1)) // need lower than max.poll.interval.ms
               .forEach(
                   record -> {
                     // record ene-to-end latency, and record input byte (header and timestamp size

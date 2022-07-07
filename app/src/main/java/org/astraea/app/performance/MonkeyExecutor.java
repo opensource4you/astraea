@@ -22,6 +22,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
 import org.apache.kafka.common.errors.WakeupException;
 import org.astraea.app.concurrent.Executor;
+import org.astraea.app.concurrent.State;
 
 public class MonkeyExecutor implements Executor {
 
@@ -48,8 +49,9 @@ public class MonkeyExecutor implements Executor {
   }
 
   @Override
-  public org.astraea.app.concurrent.State execute() throws InterruptedException {
+  public State execute() throws InterruptedException {
     try {
+      if (producerDone.get() && manager.consumedDone()) return State.DONE;
       int task = random.nextInt(2);
       TimeUnit.SECONDS.sleep((random.nextInt(argument.monkeyFreq) + 1));
       switch (Task.select(task)) {
@@ -58,21 +60,19 @@ public class MonkeyExecutor implements Executor {
             killed.set(true);
             livedConsumers -= 1;
             System.out.println("live consumer #" + livedConsumers);
-            return org.astraea.app.concurrent.State.RUNNING;
+            break;
           }
         case RESTART:
           if (livedConsumers != argument.consumers) {
             restarted.set(true);
             livedConsumers += 1;
             System.out.println("live consumer #" + livedConsumers);
-            return org.astraea.app.concurrent.State.RUNNING;
+            break;
           }
       }
-      return producerDone.get() && manager.consumedDone()
-          ? org.astraea.app.concurrent.State.DONE
-          : org.astraea.app.concurrent.State.RUNNING;
+      return State.RUNNING;
     } catch (WakeupException ignore) {
-      return org.astraea.app.concurrent.State.DONE;
+      return State.DONE;
     }
   }
 
