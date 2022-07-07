@@ -191,20 +191,20 @@ Run the benchmark from source
   The duration formats accepted are (a number) + (a time unit). 
   The time units can be "days", "day", "h", "m", "s", "ms", "us", "ns".
   e.g. "--run.until 1m" or "--run.until 89242records" Default: 1000records
-9. --record.size: the (bound of) record size in byte. Default: 1 KiB
-10. --prop.file: the path to property file.
-11. --partitioner: the partitioner to use in producers.
-12. --configs: the configurations pass to partitioner. 
+9. --key.size: size of the key of each record. null if the size is set to zero. Default: 4Byte
+10. --record.size: the (bound of) record value size. null if the size is set to zero. Default: 1 KiB
+11. --prop.file: the path to property file.
+12. --partitioner: the partitioner to use in producers.
+13. --configs: the configurations pass to partitioner. 
   The configuration format is "\<key1\>=\<value1\>[,\<key2\>=\<value2\>]*". 
   eg. "--configs broker.1001.jmx.port=14338,org.astraea.cost.ThroughputCost=1"
-13. --throughput: the produce rate for all producers. e.g. "--throughput 2MiB". Default: 500 GiB (per second)
-14. --key.distribution: name of the distribution on key. Available distribution names: "uniform", "zipfian", "latest", "fixed". Default: (No key)
-15. --size.distribution: name of the distribution on value size. Available distribution names: "uniform", "zipfian", "latest", "fixed". Default: "uniform"
-16. --specify.broker: list of broker IDs to produce records to. Default: (Do Not Specify)
-17. --report.path: A path to place the report file. Default: (no report)
-18. --report.format: Select output file format. Available format: "csv", "json". Default: "csv"
-19. --transaction.size: number of records in each transaction. Default: 1
-20. --no.key: A flag to make all records produced without key. Default: (Not set)
+14. --throughput: the produce rate for all producers. e.g. "--throughput 2MiB". Default: 500 GiB (per second)
+15. --key.distribution: name of the distribution on key. Available distribution names: "uniform", "zipfian", "latest", "fixed". Default: (No key)
+16. --size.distribution: name of the distribution on value size. Available distribution names: "uniform", "zipfian", "latest", "fixed". Default: "uniform"
+17. --specify.broker: list of broker IDs to produce records to. Default: (Do Not Specify)
+18. --report.path: A path to place the report file. Default: (no report)
+19. --report.format: Select output file format. Available format: "csv", "json". Default: "csv"
+20. --transaction.size: number of records in each transaction. Default: 1
 
 ---
 

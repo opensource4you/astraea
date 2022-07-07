@@ -120,19 +120,21 @@ interface DataSupplier extends Supplier<DataSupplier.Data> {
 
   static DataSupplier of(
       ExeTime exeTime,
-      DataSize keySize,
+      DataSize keysize,
       Supplier<Long> keyDistribution,
-      DataSize valueSize,
+      DataSize valuesize,
       Supplier<Long> valueDistribution,
       DataSize throughput) {
     return new DataSupplier() {
       private final long start = System.currentTimeMillis();
       private final Random rand = new Random();
-      private final byte[] content = new byte[valueSize.measurement(DataUnit.Byte).intValue()];
       private final AtomicLong dataCount = new AtomicLong(0);
       private long intervalStart = 0;
       private long payloadBytes;
+      private final int keySize = keysize.measurement(DataUnit.Byte).intValue();
+      private final int valueSize = valuesize.measurement(DataUnit.Byte).intValue();
       private final Map<Long, byte[]> recordKeyTable = new ConcurrentHashMap<>();
+      private final Map<Long, byte[]> recordValueTable = new ConcurrentHashMap<>();
 
       synchronized boolean checkAndAdd(int payloadLength) {
         if (System.currentTimeMillis() - intervalStart > 1000) {
@@ -148,23 +150,29 @@ interface DataSupplier extends Supplier<DataSupplier.Data> {
       }
 
       byte[] value() {
-        // Randomly change one position of the content;
-        content[rand.nextInt(content.length)] = (byte) rand.nextInt(256);
+        if (valueSize == 0) return null;
+
+        var value = getOrNew(recordValueTable, valueDistribution, valueSize);
         return Arrays.copyOfRange(
-            content, (int) (valueDistribution.get() % content.length), content.length);
+            value, (int) (valueDistribution.get() % value.length), value.length);
       }
 
       public byte[] key() {
-        if (keySize.equals(DataUnit.Byte.of(0))) return null;
+        if (keySize == 0) return null;
 
-        // Find the key from the table, if the record has been produced before.
-        var k = keyDistribution.get();
-        return recordKeyTable.computeIfAbsent(
-            k,
+        return getOrNew(recordKeyTable, keyDistribution, keySize);
+      }
+
+      // Find the key from the table, if the record has been produced before. Randomly generate a
+      // byte array if
+      // the record has not been produced.
+      private byte[] getOrNew(Map<Long, byte[]> table, Supplier<Long> distribution, int size) {
+        return table.computeIfAbsent(
+            distribution.get(),
             ignore -> {
-              var recordKey = new byte[keySize.measurement(DataUnit.Byte).intValue()];
-              rand.nextBytes(recordKey);
-              return recordKey;
+              var value = new byte[size];
+              rand.nextBytes(value);
+              return value;
             });
       }
 
@@ -174,7 +182,8 @@ interface DataSupplier extends Supplier<DataSupplier.Data> {
             >= 100D) return NO_MORE_DATA;
         var key = key();
         var value = value();
-        if (checkAndAdd(value.length + (key != null ? key.length : 0))) return data(key, value);
+        if (checkAndAdd((value != null ? value.length : 0) + (key != null ? key.length : 0)))
+          return data(key, value);
         return THROTTLED_DATA;
       }
     };

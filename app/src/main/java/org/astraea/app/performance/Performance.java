@@ -90,8 +90,7 @@ public class Performance {
         argument.keySize,
         argument.keyDistributionType.create(10000),
         argument.recordSize,
-        argument.sizeDistributionType.create(
-            argument.recordSize.measurement(DataUnit.Byte).intValue()),
+        argument.sizeDistributionType.create(10000),
         argument.throughput);
   }
 
@@ -311,8 +310,8 @@ public class Performance {
     ExeTime exeTime = ExeTime.of("1000records");
 
     @Parameter(
-        names = {"--record.size"},
-        description = "DataSize: size of each record. e.g. \"500KiB\"",
+        names = {"--record.size", "--value.size"},
+        description = "DataSize: bound size of each record value. e.g. \"500KiB\"",
         converter = DataSize.Field.class)
     DataSize recordSize = DataUnit.KiB.of(1);
 
