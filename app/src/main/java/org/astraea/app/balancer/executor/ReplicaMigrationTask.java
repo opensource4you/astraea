@@ -22,18 +22,18 @@ import org.astraea.app.admin.TopicPartitionReplica;
 public class ReplicaMigrationTask {
 
   private final TopicPartitionReplica log;
-  private final CompletableFuture<Void> completableFuture;
+  private final CompletableFuture<Boolean> completableFuture;
 
   public ReplicaMigrationTask(RebalanceAdmin admin, TopicPartitionReplica log) {
     this.log = log;
-    this.completableFuture = admin.checkLogSynced(log);
+    this.completableFuture = admin.waitLogSynced(log);
   }
 
   public TopicPartitionReplica log() {
     return log;
   }
 
-  public CompletableFuture<Void> completableFuture() {
+  public CompletableFuture<Boolean> completableFuture() {
     return completableFuture;
   }
 }

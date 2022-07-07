@@ -21,6 +21,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
@@ -29,6 +30,7 @@ import org.astraea.app.admin.Replica;
 import org.astraea.app.admin.TopicPartition;
 import org.astraea.app.admin.TopicPartitionReplica;
 import org.astraea.app.balancer.log.LogPlacement;
+import org.astraea.app.common.Utils;
 import org.astraea.app.cost.ClusterInfo;
 
 class RebalanceAdminImpl implements RebalanceAdmin {
@@ -142,44 +144,77 @@ class RebalanceAdminImpl implements RebalanceAdmin {
         .collect(Collectors.toUnmodifiableList());
   }
 
-  @Override
-  public CompletableFuture<Void> checkLogSynced(TopicPartitionReplica log) {
-    ensureTopicPermitted(log.topic());
-    return RebalanceAdminUtils.submitProgressCheck(
-        retrialTime.get(),
-        2,
-        () ->
-            admin.replicas(Set.of(log.topic())).entrySet().stream()
-                .filter(x -> x.getKey().partition() == log.partition())
-                .filter(x -> x.getKey().topic().equals(log.topic()))
-                .flatMap(x -> x.getValue().stream())
-                .filter(x -> x.broker() == log.brokerId())
-                .findFirst()
-                .map(x -> x.inSync() && !x.isFuture())
-                .orElse(false));
+  private long getEndTime(Duration timeout) {
+    try {
+      return Math.addExact(System.currentTimeMillis(), timeout.toMillis());
+    } catch (ArithmeticException e) {
+      return Long.MAX_VALUE;
+    }
   }
 
   @Override
-  public CompletableFuture<Void> checkPreferredLeaderSynced(TopicPartition topicPartition) {
+  public CompletableFuture<Boolean> waitLogSynced(TopicPartitionReplica log, Duration timeout) {
+    ensureTopicPermitted(log.topic());
+
+    return CompletableFuture.supplyAsync(
+        () -> {
+          var endTime = getEndTime(timeout);
+          while (!Thread.currentThread().isInterrupted()) {
+            boolean synced =
+                admin.replicas(Set.of(log.topic())).entrySet().stream()
+                    .filter(x -> x.getKey().partition() == log.partition())
+                    .filter(x -> x.getKey().topic().equals(log.topic()))
+                    .flatMap(x -> x.getValue().stream())
+                    .filter(x -> x.broker() == log.brokerId())
+                    .findFirst()
+                    .map(x -> x.inSync() && !x.isFuture())
+                    .orElse(false);
+            // debounce & retrial interval
+            Utils.packException(() -> TimeUnit.MILLISECONDS.sleep(retrialTime.get().toMillis()));
+            // synced
+            if (synced) return true;
+            // timeout
+            if (System.currentTimeMillis() > endTime) return false;
+          }
+          return false;
+        });
+  }
+
+  @Override
+  public CompletableFuture<Boolean> waitPreferredLeaderSynced(
+      TopicPartition topicPartition, Duration timeout) {
     ensureTopicPermitted(topicPartition.topic());
-    return RebalanceAdminUtils.submitProgressCheck(
-        retrialTime.get(),
-        2,
-        () ->
-            admin.replicas(Set.of(topicPartition.topic())).entrySet().stream()
-                .filter(x -> x.getKey().equals(topicPartition))
-                .findFirst()
-                .map(Map.Entry::getValue)
-                .map(
-                    replicas -> {
-                      var preferred =
-                          replicas.stream()
-                              .filter(Replica::isPreferredLeader)
-                              .findFirst()
-                              .orElseThrow();
-                      return preferred.leader();
-                    })
-                .orElseThrow());
+
+    return CompletableFuture.supplyAsync(
+        () -> {
+          var endTime = getEndTime(timeout);
+          // overflow check
+          if (endTime < System.currentTimeMillis()) endTime = Long.MAX_VALUE;
+          while (!Thread.currentThread().isInterrupted()) {
+            var synced =
+                admin.replicas(Set.of(topicPartition.topic())).entrySet().stream()
+                    .filter(x -> x.getKey().equals(topicPartition))
+                    .findFirst()
+                    .map(Map.Entry::getValue)
+                    .map(
+                        replicas -> {
+                          var preferred =
+                              replicas.stream()
+                                  .filter(Replica::isPreferredLeader)
+                                  .findFirst()
+                                  .orElseThrow();
+                          return preferred.leader();
+                        })
+                    .orElseThrow();
+            // debounce & retrial interval
+            Utils.packException(() -> TimeUnit.MILLISECONDS.sleep(retrialTime.get().toMillis()));
+            // synced
+            if (synced) return true;
+            // timeout
+            if (System.currentTimeMillis() > endTime) return false;
+          }
+          return false;
+        });
   }
 
   @Override

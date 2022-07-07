@@ -22,18 +22,18 @@ import org.astraea.app.admin.TopicPartition;
 public class LeaderElectionTask {
 
   private final TopicPartition topicPartition;
-  private final CompletableFuture<Void> completableFuture;
+  private final CompletableFuture<Boolean> completableFuture;
 
   public LeaderElectionTask(RebalanceAdmin admin, TopicPartition topicPartition) {
     this.topicPartition = topicPartition;
-    this.completableFuture = admin.checkPreferredLeaderSynced(topicPartition);
+    this.completableFuture = admin.waitPreferredLeaderSynced(topicPartition);
   }
 
   public TopicPartition topicPartition() {
     return topicPartition;
   }
 
-  public CompletableFuture<Void> completableFuture() {
+  public CompletableFuture<Boolean> completableFuture() {
     return completableFuture;
   }
 }

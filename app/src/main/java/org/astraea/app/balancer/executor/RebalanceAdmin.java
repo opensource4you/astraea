@@ -16,6 +16,8 @@
  */
 package org.astraea.app.balancer.executor;
 
+import java.time.Duration;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Predicate;
@@ -55,13 +57,27 @@ public interface RebalanceAdmin {
       TopicPartition topicPartition, List<LogPlacement> expectedPlacement);
 
   /** @return a {@link CompletableFuture} that indicate the specific log has become synced. */
-  CompletableFuture<Void> checkLogSynced(TopicPartitionReplica log);
+  CompletableFuture<Boolean> waitLogSynced(TopicPartitionReplica log, Duration timeout);
+
+  /** @return a {@link CompletableFuture} that indicate the specific log has become synced. */
+  default CompletableFuture<Boolean> waitLogSynced(TopicPartitionReplica log) {
+    return waitLogSynced(log, ChronoUnit.ERAS.getDuration());
+  }
 
   /**
    * @return a {@link CompletableFuture} that indicate the specific topic/partition has its
    *     preferred leader becomes the actual leader.
    */
-  CompletableFuture<Void> checkPreferredLeaderSynced(TopicPartition topicPartition);
+  CompletableFuture<Boolean> waitPreferredLeaderSynced(
+      TopicPartition topicPartition, Duration timeout);
+
+  /**
+   * @return a {@link CompletableFuture} that indicate the specific topic/partition has its
+   *     preferred leader becomes the actual leader.
+   */
+  default CompletableFuture<Boolean> waitPreferredLeaderSynced(TopicPartition topicPartition) {
+    return waitPreferredLeaderSynced(topicPartition, ChronoUnit.ERAS.getDuration());
+  }
 
   /**
    * Perform preferred leader election for specific topic/partition.
