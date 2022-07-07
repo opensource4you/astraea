@@ -188,8 +188,6 @@ class RebalanceAdminImpl implements RebalanceAdmin {
     return CompletableFuture.supplyAsync(
         () -> {
           var endTime = getEndTime(timeout);
-          // overflow check
-          if (endTime < System.currentTimeMillis()) endTime = Long.MAX_VALUE;
           while (!Thread.currentThread().isInterrupted()) {
             var synced =
                 admin.replicas(Set.of(topicPartition.topic())).entrySet().stream()

@@ -61,7 +61,7 @@ public interface RebalanceAdmin {
 
   /** @return a {@link CompletableFuture} that indicate the specific log has become synced. */
   default CompletableFuture<Boolean> waitLogSynced(TopicPartitionReplica log) {
-    return waitLogSynced(log, ChronoUnit.ERAS.getDuration());
+    return waitLogSynced(log, ChronoUnit.FOREVER.getDuration());
   }
 
   /**
@@ -76,7 +76,7 @@ public interface RebalanceAdmin {
    *     preferred leader becomes the actual leader.
    */
   default CompletableFuture<Boolean> waitPreferredLeaderSynced(TopicPartition topicPartition) {
-    return waitPreferredLeaderSynced(topicPartition, ChronoUnit.ERAS.getDuration());
+    return waitPreferredLeaderSynced(topicPartition, ChronoUnit.FOREVER.getDuration());
   }
 
   /**
