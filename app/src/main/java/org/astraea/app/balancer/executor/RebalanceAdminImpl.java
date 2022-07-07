@@ -159,6 +159,7 @@ class RebalanceAdminImpl implements RebalanceAdmin {
     return CompletableFuture.supplyAsync(
         () -> {
           var endTime = getEndTime(timeout);
+          var debounce = 2;
           while (!Thread.currentThread().isInterrupted()) {
             boolean synced =
                 admin.replicas(Set.of(log.topic())).entrySet().stream()
@@ -171,8 +172,9 @@ class RebalanceAdminImpl implements RebalanceAdmin {
                     .orElse(false);
             // debounce & retrial interval
             Utils.packException(() -> TimeUnit.MILLISECONDS.sleep(retrialTime.get().toMillis()));
+            debounce = synced ? (debounce - 1) : 2;
             // synced
-            if (synced) return true;
+            if (synced && debounce <= 0) return true;
             // timeout
             if (System.currentTimeMillis() > endTime) return false;
           }
@@ -188,6 +190,7 @@ class RebalanceAdminImpl implements RebalanceAdmin {
     return CompletableFuture.supplyAsync(
         () -> {
           var endTime = getEndTime(timeout);
+          var debounce = 2;
           while (!Thread.currentThread().isInterrupted()) {
             var synced =
                 admin.replicas(Set.of(topicPartition.topic())).entrySet().stream()
@@ -206,8 +209,9 @@ class RebalanceAdminImpl implements RebalanceAdmin {
                     .orElseThrow();
             // debounce & retrial interval
             Utils.packException(() -> TimeUnit.MILLISECONDS.sleep(retrialTime.get().toMillis()));
+            debounce = synced ? (debounce - 1) : 2;
             // synced
-            if (synced) return true;
+            if (synced && debounce <= 0) return true;
             // timeout
             if (System.currentTimeMillis() > endTime) return false;
           }
