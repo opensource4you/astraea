@@ -26,9 +26,6 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.BiFunction;
-import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -42,9 +39,6 @@ import org.astraea.app.balancer.log.LogPlacement;
 import org.astraea.app.common.DataSize;
 import org.astraea.app.common.DataUnit;
 import org.astraea.app.common.Utils;
-import org.astraea.app.cost.ClusterInfo;
-import org.astraea.app.metrics.HasBeanObject;
-import org.astraea.app.metrics.jmx.BeanObject;
 import org.astraea.app.producer.Producer;
 import org.astraea.app.service.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
@@ -126,7 +120,7 @@ class RebalanceAdminTest extends RequireBrokerCluster {
   void clusterInfo() throws InterruptedException {
     try (Admin admin = Admin.of(bootstrapServers())) {
       // test if all topics are covered
-      final var rebalanceAdmin = RebalanceAdmin.of(admin, Map::of, (ignore) -> true);
+      final var rebalanceAdmin = RebalanceAdmin.of(admin, (ignore) -> true);
       final var clusterInfo = rebalanceAdmin.clusterInfo();
       Assertions.assertEquals(admin.topicNames(), clusterInfo.topics());
 
@@ -134,45 +128,9 @@ class RebalanceAdminTest extends RequireBrokerCluster {
       final var topic = prepareTopic(admin, 3, (short) 1);
 
       // test if topic filter works
-      final var rebalanceAdmin1 = RebalanceAdmin.of(admin, Map::of, topic::equals);
+      final var rebalanceAdmin1 = RebalanceAdmin.of(admin, topic::equals);
       final var clusterInfo1 = rebalanceAdmin1.clusterInfo();
       Assertions.assertEquals(Set.of(topic), clusterInfo1.topics());
-    }
-  }
-
-  @Test
-  void refreshMetrics() {
-    try (Admin admin = Admin.of(bootstrapServers())) {
-      final var next = new AtomicInteger();
-      final var idBean =
-          (Function<Integer, BeanObject>)
-              (i) -> new BeanObject(Integer.toString(i), Map.of(), Map.of());
-      Supplier<Map<Integer, Collection<HasBeanObject>>> metricSource =
-          () ->
-              Map.of(
-                  0, List.of(() -> idBean.apply(next.get())),
-                  1, List.of(() -> idBean.apply(next.get())),
-                  2, List.of(() -> idBean.apply(next.get())));
-      BiFunction<ClusterInfo, Integer, BeanObject> firstBeanObject =
-          (clusterInfo, broker) ->
-              clusterInfo.clusterBean().all().get(broker).iterator().next().beanObject();
-
-      final var rebalanceAdmin = RebalanceAdmin.of(admin, metricSource, (ignore) -> true);
-
-      var clusterInfo = rebalanceAdmin.refreshMetrics(rebalanceAdmin.clusterInfo());
-      Assertions.assertEquals("0", firstBeanObject.apply(clusterInfo, 0).domainName());
-      Assertions.assertEquals("0", firstBeanObject.apply(clusterInfo, 1).domainName());
-      Assertions.assertEquals("0", firstBeanObject.apply(clusterInfo, 2).domainName());
-      next.incrementAndGet();
-      clusterInfo = rebalanceAdmin.refreshMetrics(rebalanceAdmin.clusterInfo());
-      Assertions.assertEquals("1", firstBeanObject.apply(clusterInfo, 0).domainName());
-      Assertions.assertEquals("1", firstBeanObject.apply(clusterInfo, 1).domainName());
-      Assertions.assertEquals("1", firstBeanObject.apply(clusterInfo, 2).domainName());
-      next.incrementAndGet();
-      clusterInfo = rebalanceAdmin.refreshMetrics(rebalanceAdmin.clusterInfo());
-      Assertions.assertEquals("2", firstBeanObject.apply(clusterInfo, 0).domainName());
-      Assertions.assertEquals("2", firstBeanObject.apply(clusterInfo, 1).domainName());
-      Assertions.assertEquals("2", firstBeanObject.apply(clusterInfo, 2).domainName());
     }
   }
 
@@ -315,7 +273,7 @@ class RebalanceAdminTest extends RequireBrokerCluster {
           .forEach(i -> admin.creator().topic(i).numberOfPartitions(1).create());
       var allowed = List.of(topic1, topic2);
       Predicate<String> filter = allowed::contains;
-      var rebalanceAdmin = RebalanceAdmin.of(admin, Map::of, filter);
+      var rebalanceAdmin = RebalanceAdmin.of(admin, filter);
 
       Assertions.assertTrue(rebalanceAdmin.topicFilter().test(topic1));
       Assertions.assertTrue(rebalanceAdmin.topicFilter().test(topic2));
@@ -343,7 +301,7 @@ class RebalanceAdminTest extends RequireBrokerCluster {
   }
 
   RebalanceAdmin prepareRebalanceAdmin(Admin admin) {
-    return RebalanceAdmin.of(admin, Map::of, (ignore) -> true);
+    return RebalanceAdmin.of(admin, (ignore) -> true);
   }
 
   void prepareData(String topic, int partition, DataSize dataSize) {

@@ -19,7 +19,6 @@ package org.astraea.app.balancer.executor;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -59,7 +58,7 @@ class StraightPlanExecutorTest extends RequireBrokerCluster {
       final var expectedAllocation = LayeredClusterLogAllocation.of(allocationMap);
       final var expectedTopicPartition =
           expectedAllocation.topicPartitionStream().collect(Collectors.toUnmodifiableSet());
-      final var rebalanceAdmin = RebalanceAdmin.of(admin, Map::of, (s) -> s.equals(topicName));
+      final var rebalanceAdmin = RebalanceAdmin.of(admin, (s) -> s.equals(topicName));
 
       // act
       final var result = new StraightPlanExecutor().run(rebalanceAdmin, expectedAllocation);
@@ -120,7 +119,7 @@ class StraightPlanExecutorTest extends RequireBrokerCluster {
       final var expectedAllocation = LayeredClusterLogAllocation.of(allocationMap);
       final var expectedTopicPartition =
           expectedAllocation.topicPartitionStream().collect(Collectors.toUnmodifiableSet());
-      final var rebalanceAdmin = RebalanceAdmin.of(admin, Map::of, (s) -> s.equals(topicName));
+      final var rebalanceAdmin = RebalanceAdmin.of(admin, (s) -> s.equals(topicName));
 
       // act
       final var result = new StraightPlanExecutor().run(rebalanceAdmin, expectedAllocation);

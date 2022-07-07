@@ -17,14 +17,12 @@
 package org.astraea.app.balancer.executor;
 
 import java.time.Duration;
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Predicate;
-import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.astraea.app.admin.Admin;
 import org.astraea.app.admin.Replica;
@@ -32,29 +30,21 @@ import org.astraea.app.admin.TopicPartition;
 import org.astraea.app.admin.TopicPartitionReplica;
 import org.astraea.app.balancer.log.LogPlacement;
 import org.astraea.app.cost.ClusterInfo;
-import org.astraea.app.metrics.HasBeanObject;
 
 class RebalanceAdminImpl implements RebalanceAdmin {
 
   private final Predicate<String> topicFilter;
   private final Admin admin;
-  private final Supplier<Map<Integer, Collection<HasBeanObject>>> metricSource;
 
   /**
    * Construct an implementation of {@link RebalanceAdmin}
    *
    * @param topicFilter to determine which topics are permitted for balance operation
    * @param admin the actual {@link Admin} implementation
-   * @param metricSource the supplier for new metrics, this supplier should return the metrics that
-   *     {@link RebalancePlanExecutor#fetcher()} is interested.
    */
-  public RebalanceAdminImpl(
-      Predicate<String> topicFilter,
-      Admin admin,
-      Supplier<Map<Integer, Collection<HasBeanObject>>> metricSource) {
+  public RebalanceAdminImpl(Predicate<String> topicFilter, Admin admin) {
     this.topicFilter = topicFilter;
     this.admin = admin;
-    this.metricSource = metricSource;
   }
 
   private void ensureTopicPermitted(String topic) {
@@ -205,11 +195,6 @@ class RebalanceAdminImpl implements RebalanceAdmin {
   public ClusterInfo clusterInfo() {
     return admin.clusterInfo(
         admin.topicNames().stream().filter(topicFilter).collect(Collectors.toUnmodifiableSet()));
-  }
-
-  @Override
-  public ClusterInfo refreshMetrics(ClusterInfo oldClusterInfo) {
-    return ClusterInfo.of(oldClusterInfo, metricSource.get());
   }
 
   @Override

@@ -16,18 +16,14 @@
  */
 package org.astraea.app.balancer.executor;
 
-import java.util.Collection;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Predicate;
-import java.util.function.Supplier;
 import org.astraea.app.admin.Admin;
 import org.astraea.app.admin.TopicPartition;
 import org.astraea.app.admin.TopicPartitionReplica;
 import org.astraea.app.balancer.log.LogPlacement;
 import org.astraea.app.cost.ClusterInfo;
-import org.astraea.app.metrics.HasBeanObject;
 
 /**
  * The wrapper of {@link Admin}. Offer only the essential functionalities & some utilities to
@@ -40,14 +36,9 @@ public interface RebalanceAdmin {
    *
    * @param topicFilter to determine which topics are permitted for balance operation
    * @param admin the actual {@link Admin} implementation
-   * @param metricSource the supplier for new metrics, this supplier should return the metrics that
-   *     {@link RebalancePlanExecutor#fetcher()} is interested.
    */
-  static RebalanceAdmin of(
-      Admin admin,
-      Supplier<Map<Integer, Collection<HasBeanObject>>> metricSource,
-      Predicate<String> topicFilter) {
-    return new RebalanceAdminImpl(topicFilter, admin, metricSource);
+  static RebalanceAdmin of(Admin admin, Predicate<String> topicFilter) {
+    return new RebalanceAdminImpl(topicFilter, admin);
   }
 
   /**
@@ -81,8 +72,6 @@ public interface RebalanceAdmin {
   LeaderElectionTask leaderElection(TopicPartition topicPartition);
 
   ClusterInfo clusterInfo();
-
-  ClusterInfo refreshMetrics(ClusterInfo oldClusterInfo);
 
   /**
    * @return a {@link Predicate<String>} indicate which topic name is allowed to operate by this
