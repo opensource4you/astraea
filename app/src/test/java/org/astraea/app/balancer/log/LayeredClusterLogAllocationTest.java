@@ -239,5 +239,12 @@ class LayeredClusterLogAllocationTest {
     Assertions.assertEquals(
         Set.of(oneTopicPartition, twoTopicPartition),
         ClusterLogAllocation.findNonFulfilledAllocation(source, target3));
+
+    final var map4 = a.topicPartitionStream().collect(Collectors.toMap(x -> x, a::logPlacements));
+    map4.put(new TopicPartition("NewTopic", 0), List.of(LogPlacement.of(0, "?")));
+    final var target4 = LayeredClusterLogAllocation.of(map4);
+    Assertions.assertThrows(
+        IllegalArgumentException.class,
+        () -> ClusterLogAllocation.findNonFulfilledAllocation(source, target4));
   }
 }
