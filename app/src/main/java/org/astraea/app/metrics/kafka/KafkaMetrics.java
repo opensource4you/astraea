@@ -26,6 +26,8 @@ import org.astraea.app.metrics.java.OperatingSystemInfo;
 import org.astraea.app.metrics.jmx.BeanObject;
 import org.astraea.app.metrics.jmx.BeanQuery;
 import org.astraea.app.metrics.jmx.MBeanClient;
+import org.astraea.app.metrics.producer.HasProducerNodeMetrics;
+import org.astraea.app.metrics.producer.HasProducerTopicMetrics;
 
 public final class KafkaMetrics {
 
@@ -368,6 +370,54 @@ public final class KafkaMetrics {
       return new JvmMemory(
           mBeanClient.queryBean(
               BeanQuery.builder().domainName("java.lang").property("type", "Memory").build()));
+    }
+  }
+
+  public static final class Producer {
+
+    private Producer() {}
+
+    /**
+     * node metrics traced by producer
+     *
+     * @param mBeanClient to query beans
+     * @param brokerId broker ids
+     * @return key is client id used by producer, and value is node metrics traced by each producer
+     */
+    public static Map<String, HasProducerNodeMetrics> node(MBeanClient mBeanClient, int brokerId) {
+      return mBeanClient
+          .queryBeans(
+              BeanQuery.builder()
+                  .domainName("kafka.producer")
+                  .property("type", "producer-node-metrics")
+                  .property("node-id", "node-" + brokerId)
+                  .property("client-id", "*")
+                  .build())
+          .stream()
+          .collect(
+              Collectors.toUnmodifiableMap(b -> b.getProperties().get("client-id"), b -> () -> b));
+    }
+
+    /**
+     * topic metrics traced by producer
+     *
+     * @param mBeanClient to query beans
+     * @param topic topic name
+     * @return key is client id used by producer, and value is topic metrics traced by each producer
+     */
+    public static Map<String, HasProducerTopicMetrics> topic(
+        MBeanClient mBeanClient, String topic) {
+      return mBeanClient
+          .queryBeans(
+              BeanQuery.builder()
+                  .domainName("kafka.producer")
+                  .property("type", "producer-topic-metrics")
+                  .property("client-id", "*")
+                  .property("topic", topic)
+                  .build())
+          .stream()
+          .collect(
+              Collectors.toUnmodifiableMap(b -> b.getProperties().get("client-id"), b -> () -> b));
     }
   }
 }
