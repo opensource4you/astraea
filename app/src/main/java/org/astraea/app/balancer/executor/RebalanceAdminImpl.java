@@ -158,8 +158,13 @@ class RebalanceAdminImpl implements RebalanceAdmin {
 
     return CompletableFuture.supplyAsync(
         () -> {
-          var endTime = getEndTime(timeout);
+          // due to the state consistency issue in Kafka broker design. the cluster state returned
+          // from the API might bounce between the `old state` and the `new state` during the very
+          // beginning and accomplishment of the cluster state alteration API. to fix this we use
+          // debounce technique, to ensure the target condition is held over a few successive tries,
+          // which mean the cluster state alteration is considered stable.
           var debounce = 2;
+          var endTime = getEndTime(timeout);
           while (!Thread.currentThread().isInterrupted()) {
             boolean synced =
                 admin.replicas(Set.of(log.topic())).entrySet().stream()
@@ -189,8 +194,13 @@ class RebalanceAdminImpl implements RebalanceAdmin {
 
     return CompletableFuture.supplyAsync(
         () -> {
-          var endTime = getEndTime(timeout);
+          // due to the state consistency issue in Kafka broker design. the cluster state returned
+          // from the API might bounce between the `old state` and the `new state` during the very
+          // beginning and accomplishment of the cluster state alteration API. to fix this we use
+          // debounce technique, to ensure the target condition is held over a few successive tries,
+          // which mean the cluster state alteration is considered stable.
           var debounce = 2;
+          var endTime = getEndTime(timeout);
           while (!Thread.currentThread().isInterrupted()) {
             var synced =
                 admin.replicas(Set.of(topicPartition.topic())).entrySet().stream()
@@ -208,7 +218,7 @@ class RebalanceAdminImpl implements RebalanceAdmin {
                         })
                     .orElseThrow();
             // debounce & retrial interval
-            Utils.packException(() -> TimeUnit.MILLISECONDS.sleep(retrialTime.get().toMillis()));
+            Utils.sleep(retrialTime.get());
             debounce = synced ? (debounce - 1) : 2;
             // synced
             if (synced && debounce <= 0) return true;
