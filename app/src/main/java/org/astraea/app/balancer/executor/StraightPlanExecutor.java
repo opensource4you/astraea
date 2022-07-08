@@ -31,38 +31,31 @@ public class StraightPlanExecutor implements RebalancePlanExecutor {
   public StraightPlanExecutor() {}
 
   @Override
-  public RebalanceExecutionResult run(
-      RebalanceAdmin rebalanceAdmin, ClusterLogAllocation logAllocation) {
-    try {
-      final var clusterInfo = rebalanceAdmin.clusterInfo();
-      final var currentLogAllocation = LayeredClusterLogAllocation.of(clusterInfo);
-      final var migrationTargets =
-          ClusterLogAllocation.findNonFulfilledAllocation(currentLogAllocation, logAllocation);
+  public void run(RebalanceAdmin rebalanceAdmin, ClusterLogAllocation logAllocation) {
+    final var clusterInfo = rebalanceAdmin.clusterInfo();
+    final var currentLogAllocation = LayeredClusterLogAllocation.of(clusterInfo);
+    final var migrationTargets =
+        ClusterLogAllocation.findNonFulfilledAllocation(currentLogAllocation, logAllocation);
 
-      var executeReplicaMigration =
-          (Function<TopicPartition, List<ReplicaMigrationTask>>)
-              (topicPartition) ->
-                  rebalanceAdmin.alterReplicaPlacements(
-                      topicPartition, logAllocation.logPlacements(topicPartition));
+    var executeReplicaMigration =
+        (Function<TopicPartition, List<ReplicaMigrationTask>>)
+            (topicPartition) ->
+                rebalanceAdmin.alterReplicaPlacements(
+                    topicPartition, logAllocation.logPlacements(topicPartition));
 
-      // do log migration
-      migrationTargets.stream()
-          .map(executeReplicaMigration)
-          .flatMap(Collection::stream)
-          .map(ReplicaMigrationTask::completableFuture)
-          .collect(Collectors.toUnmodifiableSet())
-          .forEach(CompletableFuture::join);
+    // do log migration
+    migrationTargets.stream()
+        .map(executeReplicaMigration)
+        .flatMap(Collection::stream)
+        .map(ReplicaMigrationTask::completableFuture)
+        .collect(Collectors.toUnmodifiableSet())
+        .forEach(CompletableFuture::join);
 
-      // do leader election
-      migrationTargets.stream()
-          .map(rebalanceAdmin::leaderElection)
-          .map(LeaderElectionTask::completableFuture)
-          .collect(Collectors.toUnmodifiableSet())
-          .forEach(CompletableFuture::join);
-
-      return RebalanceExecutionResult.done();
-    } catch (Exception e) {
-      return RebalanceExecutionResult.failed(e);
-    }
+    // do leader election
+    migrationTargets.stream()
+        .map(rebalanceAdmin::leaderElection)
+        .map(LeaderElectionTask::completableFuture)
+        .collect(Collectors.toUnmodifiableSet())
+        .forEach(CompletableFuture::join);
   }
 }

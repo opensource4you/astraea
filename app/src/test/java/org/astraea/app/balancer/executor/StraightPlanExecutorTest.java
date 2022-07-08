@@ -16,8 +16,6 @@
  */
 package org.astraea.app.balancer.executor;
 
-import java.io.PrintWriter;
-import java.io.StringWriter;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
@@ -61,25 +59,13 @@ class StraightPlanExecutorTest extends RequireBrokerCluster {
       final var rebalanceAdmin = RebalanceAdmin.of(admin, (s) -> s.equals(topicName));
 
       // act
-      final var result = new StraightPlanExecutor().run(rebalanceAdmin, expectedAllocation);
+      new StraightPlanExecutor().run(rebalanceAdmin, expectedAllocation);
 
       // assert
       final var currentAllocation =
           LayeredClusterLogAllocation.of(admin.clusterInfo(Set.of(topicName)));
       final var currentTopicPartition =
           currentAllocation.topicPartitionStream().collect(Collectors.toUnmodifiableSet());
-      Assertions.assertTrue(
-          result.isDone(),
-          () ->
-              result
-                  .exception()
-                  .map(
-                      ex -> {
-                        StringWriter sw = new StringWriter();
-                        ex.printStackTrace(new PrintWriter(sw));
-                        return sw.toString();
-                      })
-                  .orElse("Failed with unknown reason"));
       Assertions.assertEquals(expectedTopicPartition, currentTopicPartition);
       expectedTopicPartition.forEach(
           topicPartition ->
@@ -122,25 +108,13 @@ class StraightPlanExecutorTest extends RequireBrokerCluster {
       final var rebalanceAdmin = RebalanceAdmin.of(admin, (s) -> s.equals(topicName));
 
       // act
-      final var result = new StraightPlanExecutor().run(rebalanceAdmin, expectedAllocation);
+      new StraightPlanExecutor().run(rebalanceAdmin, expectedAllocation);
 
       // assert
       final var currentAllocation =
           LayeredClusterLogAllocation.of(admin.clusterInfo(Set.of(topicName)));
       final var currentTopicPartition =
           currentAllocation.topicPartitionStream().collect(Collectors.toUnmodifiableSet());
-      Assertions.assertTrue(
-          result.isDone(),
-          () ->
-              result
-                  .exception()
-                  .map(
-                      ex -> {
-                        StringWriter sw = new StringWriter();
-                        ex.printStackTrace(new PrintWriter(sw));
-                        return sw.toString();
-                      })
-                  .orElse("Failed with unknown reason"));
       Assertions.assertEquals(expectedTopicPartition, currentTopicPartition);
       expectedTopicPartition.forEach(
           topicPartition ->
