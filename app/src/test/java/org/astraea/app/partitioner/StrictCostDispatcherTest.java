@@ -29,6 +29,7 @@ import org.astraea.app.cost.CostFunction;
 import org.astraea.app.cost.HasBrokerCost;
 import org.astraea.app.cost.NodeInfo;
 import org.astraea.app.cost.ReplicaInfo;
+import org.astraea.app.cost.ReplicaLeaderCost;
 import org.astraea.app.cost.ThroughputCost;
 import org.astraea.app.metrics.collector.Fetcher;
 import org.astraea.app.metrics.collector.Receiver;
@@ -65,13 +66,14 @@ public class StrictCostDispatcherTest {
       Assertions.assertThrows(
           IllegalArgumentException.class,
           () ->
-              dispatcher.configure(Configuration.of(Map.of(ThroughputCost.class.getName(), "-1"))));
+              dispatcher.configure(
+                  Configuration.of(Map.of(ReplicaLeaderCost.NoMetrics.class.getName(), "-1"))));
 
       // Test for cost functions configuring
       dispatcher.configure(
           Configuration.of(
               Map.of(
-                  ThroughputCost.class.getName(),
+                  ReplicaLeaderCost.NoMetrics.class.getName(),
                   "0.1",
                   BrokerInputCost.class.getName(),
                   "2",
@@ -87,7 +89,7 @@ public class StrictCostDispatcherTest {
       dispatcher.configure(
           Configuration.of(
               Map.of(
-                  ThroughputCost.class.getName(),
+                  ReplicaLeaderCost.NoMetrics.class.getName(),
                   "0.1",
                   BrokerInputCost.class.getName(),
                   "2",
@@ -226,15 +228,13 @@ public class StrictCostDispatcherTest {
     var dispatcher = new StrictCostDispatcher();
     Assertions.assertThrows(
         IllegalArgumentException.class,
-        () ->
-            dispatcher.configure(
-                Map.of(CostFunction.throughput(), 1D), Optional.empty(), Map.of()));
+        () -> dispatcher.configure(Map.of(new ThroughputCost(), 1D), Optional.empty(), Map.of()));
 
     // pass due to default port
-    dispatcher.configure(Map.of(CostFunction.throughput(), 1D), Optional.of(111), Map.of());
+    dispatcher.configure(Map.of(new ThroughputCost(), 1D), Optional.of(111), Map.of());
 
     // pass due to specify port
-    dispatcher.configure(Map.of(CostFunction.throughput(), 1D), Optional.empty(), Map.of(222, 111));
+    dispatcher.configure(Map.of(new ThroughputCost(), 1D), Optional.empty(), Map.of(222, 111));
   }
 
   @Test
@@ -263,5 +263,12 @@ public class StrictCostDispatcherTest {
 
     Assertions.assertEquals(
         partitionId, dispatcher.partition("topic", new byte[0], new byte[0], clusterInfo));
+  }
+
+  @Test
+  void testDefaultFunction() {
+    var dispatcher = new StrictCostDispatcher();
+    dispatcher.configure(Map.of(), Optional.empty(), Map.of());
+    Assertions.assertEquals(1, dispatcher.functions.size());
   }
 }
