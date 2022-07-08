@@ -75,8 +75,7 @@ public class ReplicaDiskInCost implements HasBrokerCost, HasPartitionCost {
             .map(
                 entry ->
                     Map.entry(
-                        entry.getKey(),
-                        entry.getValue() / brokerBandwidthCap.get(entry.getKey()) / 1024 / 1024))
+                        entry.getKey(), entry.getValue() / brokerBandwidthCap.get(entry.getKey())))
             .map(entry -> Map.entry(entry.getKey(), Math.min(entry.getValue(), 1)))
             .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
 
@@ -93,7 +92,7 @@ public class ReplicaDiskInCost implements HasBrokerCost, HasPartitionCost {
                 .thenComparing(TopicPartitionReplica::partition));
     replicaIn.forEach(
         (tpr, rate) -> {
-          var score = rate / brokerBandwidthCap.get(tpr.brokerId()) / 1024.0 / 1024.0;
+          var score = rate / brokerBandwidthCap.get(tpr.brokerId());
           if (score >= 1) score = 1;
           replicaScore.put(tpr, score);
         });
@@ -180,7 +179,7 @@ public class ReplicaDiskInCost implements HasBrokerCost, HasPartitionCost {
    *     doesn't have the sufficient old metric then an exception will likely be thrown.
    * @return a map contain the maximum increase rate of each topic/partition log
    */
-  public static Map<TopicPartition, Double> topicPartitionDataRate(
+  public Map<TopicPartition, Double> topicPartitionDataRate(
       ClusterInfo clusterInfo, Duration sampleWindow) {
     return replicaDataRate(clusterInfo, sampleWindow).entrySet().stream()
         .map(
@@ -191,7 +190,7 @@ public class ReplicaDiskInCost implements HasBrokerCost, HasPartitionCost {
         .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue, (x1, x2) -> x1));
   }
 
-  public static Map<TopicPartitionReplica, Double> replicaDataRate(
+  public Map<TopicPartitionReplica, Double> replicaDataRate(
       ClusterInfo clusterInfo, Duration sampleWindow) {
     return clusterInfo.clusterBean().mapByReplica().entrySet().parallelStream()
         .map(
@@ -213,14 +212,14 @@ public class ReplicaDiskInCost implements HasBrokerCost, HasPartitionCost {
                               bean.createdTimestamp()
                                   > latestSize.createdTimestamp() - sampleWindow.toMillis())
                       .findFirst()
-                      .orElseThrow(
-                          () ->
-                              new IllegalStateException(
-                                  "No sufficient info to determine data rate, try later."));
+                      .orElse(latestSize);
               var dataRate =
                   ((double) (latestSize.value() - windowSize.value()))
                       / ((double) (latestSize.createdTimestamp() - windowSize.createdTimestamp())
-                          / 1000);
+                          / 1000)
+                      / 1024.0
+                      / 1024.0;
+              if (latestSize == windowSize) dataRate = 0;
               return Map.entry(metrics.getKey(), dataRate);
             })
         .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));

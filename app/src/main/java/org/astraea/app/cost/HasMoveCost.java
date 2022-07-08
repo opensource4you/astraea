@@ -16,8 +16,15 @@
  */
 package org.astraea.app.cost;
 
+import java.util.Collection;
 import org.astraea.app.balancer.log.ClusterLogAllocation;
 
 public interface HasMoveCost extends CostFunction {
   PartitionCost moveCost(ClusterInfo clusterInfo, ClusterLogAllocation clusterLogAllocation);
+
+  boolean overflow();
+
+  Collection<String> EstimatedMigrateSize();
+
+  Collection<String> EstimatedMigrateTime();
 }
