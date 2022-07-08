@@ -78,7 +78,7 @@ GET /records/{topic}
 | partition             | (選填) 指定要讀取之 partition                                                                                        | 無      |
 | keyDeserializer       | (選填) key deserializer                                                                                        | string |
 | valueDeserializer     | (選填) value deserializer                                                                                      | string |
-| records               | (選填) 回傳資料筆數上限                                                                                                | 1      |
+| limit                 | (選填) 回傳資料筆數上限                                                                                                | 1      |
 | timeout               | (選填) 請求資料最大時限，逾時便中斷本次操作。格式為 `數值` + `單位`，單位可填寫 `days`, `day`, `h`, `m`, `s`, `ms`, `us`, `ns`。範例：1h，5s，1000ms | 5s     |
 | distanceFromLatest    | (選填) 距離最新 offset 往前多少位移量開始拉取資料                                                                               | 無      |
 | distanceFromBeginning | (選填) 距離起始 offset 往後多少位移量開始拉取資料                                                                               | 無      |
@@ -98,7 +98,7 @@ GET /records/{topic}
 cURL 範例
 
 ```shell
-curl -X GET "http://localhost:8001/records/test?distanceFromLatest=3&records=2&keyDeserializer=string&valueDeserializer=integer"
+curl -X GET "http://localhost:8001/records/test?distanceFromLatest=3&limit=2&keyDeserializer=string&valueDeserializer=integer"
 ```
 
 JSON Response
@@ -152,7 +152,7 @@ JSON Response
 cURL 範例
 
 ```shell
-curl -X GET "http://localhost:8001/records/test?distanceFromBeginning=3&records=2&keyDeserializer=string&valueDeserializer=integer"
+curl -X GET "http://localhost:8001/records/test?distanceFromBeginning=3&limit=2&keyDeserializer=string&valueDeserializer=integer"
 ```
 
 JSON Response
@@ -195,7 +195,7 @@ JSON Response
 cURL 範例 - 從 offset=1 開始拉取共兩筆資料
 
 ```shell
-curl -X GET "http://localhost:8001/records/test?seekTo=1&records=2&keyDeserializer=string&valueDeserializer=integer"
+curl -X GET "http://localhost:8001/records/test?seekTo=1&limit=2&keyDeserializer=string&valueDeserializer=integer"
 ```
 
 JSON Response

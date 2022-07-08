@@ -60,7 +60,7 @@ public class RecordHandler implements Handler {
   static final String SEEK_TO = "seekTo";
   static final String KEY_DESERIALIZER = "keyDeserializer";
   static final String VALUE_DESERIALIZER = "valueDeserializer";
-  static final String RECORDS = "records";
+  static final String LIMIT = "limit";
   static final String TIMEOUT = "timeout";
 
   final String bootstrapServers;
@@ -128,12 +128,12 @@ public class RecordHandler implements Handler {
         .ifPresent(seekTo -> consumerBuilder.seekStrategy(Builder.SeekStrategy.SEEK_TO, seekTo));
 
     try (var consumer = consumerBuilder.build()) {
-      var maxRecords = Integer.parseInt(queries.getOrDefault(RECORDS, "1"));
+      var limit = Integer.parseInt(queries.getOrDefault(LIMIT, "1"));
       return new Records(
-          consumer.poll(maxRecords, timeout).stream()
+          consumer.poll(limit, timeout).stream()
               .map(Record::new)
               // TODO: remove limit here (https://github.com/skiptests/astraea/issues/441)
-              .limit(maxRecords)
+              .limit(limit)
               .collect(toList()));
     }
   }

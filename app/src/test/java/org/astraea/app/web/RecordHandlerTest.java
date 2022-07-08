@@ -24,8 +24,8 @@ import static org.astraea.app.web.RecordHandler.DISTANCE_FROM_LATEST;
 import static org.astraea.app.web.RecordHandler.KEY;
 import static org.astraea.app.web.RecordHandler.KEY_DESERIALIZER;
 import static org.astraea.app.web.RecordHandler.KEY_SERIALIZER;
+import static org.astraea.app.web.RecordHandler.LIMIT;
 import static org.astraea.app.web.RecordHandler.PARTITION;
-import static org.astraea.app.web.RecordHandler.RECORDS;
 import static org.astraea.app.web.RecordHandler.SEEK_TO;
 import static org.astraea.app.web.RecordHandler.TIMEOUT;
 import static org.astraea.app.web.RecordHandler.TIMESTAMP;
@@ -306,7 +306,7 @@ public class RecordHandlerTest extends RequireBrokerCluster {
   }
 
   @Test
-  void testRecordNum() {
+  void testLimit() {
     var topic = Utils.randomString(10);
     produceData(topic, 10);
 
@@ -316,7 +316,7 @@ public class RecordHandlerTest extends RequireBrokerCluster {
             RecordHandler.Records.class,
             handler.get(
                 Optional.of(topic),
-                Map.of(DISTANCE_FROM_BEGINNING, "2", RECORDS, "3", VALUE_DESERIALIZER, "integer")));
+                Map.of(DISTANCE_FROM_BEGINNING, "2", LIMIT, "3", VALUE_DESERIALIZER, "integer")));
 
     Assertions.assertEquals(3, response.data.size());
     Assertions.assertEquals(
