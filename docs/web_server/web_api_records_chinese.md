@@ -14,20 +14,28 @@ POST /records
 
 參數
 
+| 名稱            | 說明                                        | 預設值   |
+|---------------|-------------------------------------------|-------|
+| records       | (必填) 本次寫入資料，需填寫至少一比資料                     | 無     |
+| transactionId | (選填) 填入 transaction id 以執行 transaction 寫入 | 無     |
+| async         | (選填) 是否要等到資料寫入 topic 再回傳                  | false |
+
+- 若 async = true，且操作成功，僅回傳 HTTP 202
+
+records 每筆資料欄位
+
 | 名稱              | 說明                        | 預設值    |
 |-----------------|---------------------------|--------|
 | topic           | (必填) topic 名稱             | 無      |
 | partition       | (選填) 指定要寫入此筆資料的 partition | 無      |
 | keySerializer   | (選填) key serializer       | string |
 | valueSerializer | (選填) value serializer     | string |
-| async           | (選填) 是否要等到資料寫入 topic 再回傳  | false  |
 | key             | (選填) key 值                | null   |
 | value           | (選填) value 值              | null   |
 | timestamp       | (選填) 此筆資料時間戳記             | null   |
 
 - keySerializer/valueSerializer 可選擇 `bytearray`/`strinng`/`long`/`integer`/`float`/`double`
 - 若 serializer 選擇 `bytearray`，需將值為 byte array 的 key/value 做 base64 encoding 轉字串
-- 若 async = true，且操作成功，僅回傳 HTTP 202
 
 cURL 範例
 
@@ -35,15 +43,28 @@ cURL 範例
 curl -X POST http://localhost:8001/records \
     -H "Content-Type: application/json" \
     -d '{
-    "topic": "test1",
-    "partition": 0,
-    "keySerializer": "string",
-    "valueSerializer": "bytearray",
     "async": false,
-    "key": "test",
-    "value": "dGVzdA==", #此為 "test" 經 base64 encoding 後之字串
-    "timestamp": 1656337829
-    }'
+    "transactionId": "trx-1",
+    "records": [
+      {
+        "topic": "test1",
+        "partition": 0,
+        "keySerializer": "string",
+        "valueSerializer": "bytearray",
+        "key": "test",
+        "value": "dGVzdA==", #此為 "test" 經 base64 encoding 後之字串
+        "timestamp": 1656337829
+      },
+      {
+        "topic": "test1",
+        "partition": 0,
+        "keySerializer": "string",
+        "valueSerializer": "bytearray",
+        "key": "test",
+        "value": "dGVzdA==", #此為 "test" 經 base64 encoding 後之字串
+        "timestamp": 1656337829
+      }
+    ]}'
 ```
 JSON Response (僅在 async = false 時回傳)
 
@@ -56,12 +77,24 @@ JSON Response (僅在 async = false 時回傳)
 
 ```json
 {
-  "topic": "test1",
-  "partition": 0,
-  "offset": 0,
-  "timestamp": 1656337829,
-  "serializedKeySize": 4,
-  "serializedValueSize": 4
+  "results": [
+    {
+      "topic": "test1",
+      "partition": 0,
+      "offset": 0,
+      "timestamp": 1656337829,
+      "serializedKeySize": 4,
+      "serializedValueSize": 4
+    },
+    {
+      "topic": "test1",
+      "partition": 0,
+      "offset": 1,
+      "timestamp": 1656337829,
+      "serializedKeySize": 4,
+      "serializedValueSize": 4
+    }
+  ]
 }
 ```
 
