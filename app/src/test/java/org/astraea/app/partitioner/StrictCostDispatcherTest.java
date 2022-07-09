@@ -18,7 +18,6 @@ package org.astraea.app.partitioner;
 
 import java.util.List;
 import java.util.Map;
-import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.astraea.app.admin.ClusterBean;
@@ -53,10 +52,9 @@ public class StrictCostDispatcherTest {
   void testJmxPort() {
     try (var dispatcher = new StrictCostDispatcher()) {
       dispatcher.configure(Configuration.of(Map.of()));
-      Assertions.assertThrows(
-          NoSuchElementException.class, () -> dispatcher.jmxPortGetter.apply(0));
+      Assertions.assertEquals(Optional.empty(), dispatcher.jmxPortGetter.apply(0));
       dispatcher.configure(Configuration.of(Map.of(StrictCostDispatcher.JMX_PORT, "12345")));
-      Assertions.assertEquals(12345, dispatcher.jmxPortGetter.apply(0));
+      Assertions.assertEquals(Optional.of(12345), dispatcher.jmxPortGetter.apply(0));
     }
   }
 

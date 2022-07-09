@@ -16,6 +16,7 @@
  */
 package org.astraea.app.cost;
 
+import java.util.Collection;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -48,6 +49,7 @@ public class NodeLatencyCost implements HasBrokerCost {
     return Optional.of(
         client ->
             KafkaMetrics.Producer.nodes(client).values().stream()
+                .flatMap(Collection::stream)
                 .map(b -> (HasBeanObject) b)
                 .collect(Collectors.toUnmodifiableList()));
   }

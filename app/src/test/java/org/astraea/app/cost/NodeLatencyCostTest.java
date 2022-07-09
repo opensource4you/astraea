@@ -17,6 +17,7 @@
 package org.astraea.app.cost;
 
 import java.time.Duration;
+import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import org.astraea.app.admin.Admin;
@@ -25,6 +26,7 @@ import org.astraea.app.admin.ClusterInfo;
 import org.astraea.app.common.Utils;
 import org.astraea.app.metrics.HasBeanObject;
 import org.astraea.app.metrics.KafkaMetrics;
+import org.astraea.app.metrics.jmx.BeanObject;
 import org.astraea.app.metrics.jmx.MBeanClient;
 import org.astraea.app.producer.Producer;
 import org.astraea.app.service.RequireBrokerCluster;
@@ -61,5 +63,19 @@ public class NodeLatencyCostTest extends RequireBrokerCluster {
       Assertions.assertEquals(1, cost.value().size());
       Assertions.assertNotNull(cost.value().get(brokerId));
     }
+  }
+
+  @Test
+  void testFetcher() {
+    var function = new NodeLatencyCost();
+    var client = Mockito.mock(MBeanClient.class);
+    Mockito.when(client.queryBeans(Mockito.any()))
+        .thenReturn(
+            List.of(
+                new BeanObject("a", Map.of("node-id", "node-10"), Map.of()),
+                new BeanObject("a", Map.of("node-id", "node-10"), Map.of()),
+                new BeanObject("a", Map.of("node-id", "node-11"), Map.of())));
+    var result = function.fetcher().get().fetch(client);
+    Assertions.assertEquals(3, result.size());
   }
 }
