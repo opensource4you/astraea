@@ -273,4 +273,11 @@ public class StrictCostDispatcherTest {
     Assertions.assertEquals(1, dispatcher.functions.size());
     Assertions.assertEquals(1, dispatcher.receivers.size());
   }
+
+  @Test
+  void testCostToScore() {
+    var cost = Map.of(1, 100D, 2, 10D);
+    var score = StrictCostDispatcher.costToScore(cost);
+    Assertions.assertTrue(score.get(2) > score.get(1));
+  }
 }
