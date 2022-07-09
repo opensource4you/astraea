@@ -19,6 +19,7 @@ package org.astraea.app.metrics;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Map;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.astraea.app.metrics.broker.BrokerTopicMetricsResult;
 import org.astraea.app.metrics.broker.HasValue;
@@ -398,6 +399,36 @@ public final class KafkaMetrics {
           .stream()
           .collect(
               Collectors.toUnmodifiableMap(b -> b.properties().get("client-id"), b -> () -> b));
+    }
+
+    /**
+     * collect HasProducerNodeMetrics from all producers.
+     *
+     * @param mBeanClient to query metrics
+     * @return key is broker id, and value is associated to broker metrics recorded by all producers
+     */
+    public static Map<Integer, Collection<HasProducerNodeMetrics>> nodes(MBeanClient mBeanClient) {
+      Function<String, Integer> brokerId =
+          string -> Integer.parseInt(string.substring(string.indexOf("-") + 1));
+      return mBeanClient
+          .queryBeans(
+              BeanQuery.builder()
+                  .domainName("kafka.producer")
+                  .property("type", "producer-node-metrics")
+                  .property("node-id", "*")
+                  .property("client-id", "*")
+                  .build())
+          .stream()
+          .collect(Collectors.groupingBy(b -> brokerId.apply(b.properties().get("node-id"))))
+          .entrySet()
+          .stream()
+          .collect(
+              Collectors.toMap(
+                  Map.Entry::getKey,
+                  e ->
+                      e.getValue().stream()
+                          .map(b -> (HasProducerNodeMetrics) (() -> b))
+                          .collect(Collectors.toUnmodifiableList())));
     }
 
     /**

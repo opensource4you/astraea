@@ -30,8 +30,8 @@ import java.util.stream.Collectors;
  */
 public interface RoundRobin<E> {
 
-  static <E> RoundRobin<E> smoothWeighted(Map<E, Double> weights) {
-    return new SmoothWeightedRoundRobin<>(weights);
+  static <E> RoundRobin<E> smooth(Map<E, Double> scores) {
+    return new SmoothRoundRobin<>(scores);
   }
 
   /**
@@ -42,44 +42,44 @@ public interface RoundRobin<E> {
    */
   Optional<E> next(Set<E> availableTargets);
 
-  class SmoothWeightedRoundRobin<E> implements RoundRobin<E> {
+  class SmoothRoundRobin<E> implements RoundRobin<E> {
 
-    private final Map<E, Double> effectiveWeights;
-    private volatile Map<E, Double> currentWeights;
+    private final Map<E, Double> effectiveScores;
+    private volatile Map<E, Double> currentScores;
 
-    private SmoothWeightedRoundRobin(Map<E, Double> weights) {
-      this.effectiveWeights = Collections.unmodifiableMap(weights);
-      this.currentWeights =
-          weights.keySet().stream()
+    private SmoothRoundRobin(Map<E, Double> scores) {
+      this.effectiveScores = Collections.unmodifiableMap(scores);
+      this.currentScores =
+          scores.keySet().stream()
               .collect(Collectors.toUnmodifiableMap(Function.identity(), ignored -> 0D));
     }
 
     @Override
     public Optional<E> next(Set<E> availableTargets) {
       // no data no answer
-      if (effectiveWeights.isEmpty() || availableTargets.isEmpty()) return Optional.empty();
+      if (effectiveScores.isEmpty() || availableTargets.isEmpty()) return Optional.empty();
 
-      // 1) calculate the sum of all effective weights
-      var sum = effectiveWeights.values().stream().mapToDouble(d -> d).sum();
-      // 2) add effective weight to each current weight
-      var nextWeights =
-          currentWeights.entrySet().stream()
+      // 1) calculate the sum of all effective scores
+      var sum = effectiveScores.values().stream().mapToDouble(d -> d).sum();
+      // 2) add effective score to each current score
+      var nextScores =
+          currentScores.entrySet().stream()
               .collect(
                   Collectors.toMap(
                       Map.Entry::getKey,
-                      e -> effectiveWeights.getOrDefault(e.getKey(), 0D) + e.getValue()));
+                      e -> effectiveScores.getOrDefault(e.getKey(), 0D) + e.getValue()));
       // 3) get the E which has max value
       var maxObj =
-          nextWeights.entrySet().stream()
+          nextScores.entrySet().stream()
               .filter(e -> availableTargets.contains(e.getKey()))
               .max(Map.Entry.comparingByValue())
               .map(Map.Entry::getKey);
-      // 4) subtract weight from max (effective weight)
+      // 4) subtract score from max (effective score)
       maxObj.ifPresent(
           o -> {
-            nextWeights.put(o, nextWeights.get(o) - sum);
-            // 5) update current weights by next weights
-            currentWeights = Collections.unmodifiableMap(nextWeights);
+            nextScores.put(o, nextScores.get(o) - sum);
+            // 5) update current scores by next scores
+            currentScores = Collections.unmodifiableMap(nextScores);
           });
       return maxObj;
     }

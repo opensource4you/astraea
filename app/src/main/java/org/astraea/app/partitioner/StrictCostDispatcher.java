@@ -31,7 +31,7 @@ import org.astraea.app.admin.ReplicaInfo;
 import org.astraea.app.common.Utils;
 import org.astraea.app.cost.CostFunction;
 import org.astraea.app.cost.HasBrokerCost;
-import org.astraea.app.cost.ReplicaLeaderCost;
+import org.astraea.app.cost.NodeLatencyCost;
 import org.astraea.app.metrics.collector.BeanCollector;
 import org.astraea.app.metrics.collector.Fetcher;
 import org.astraea.app.metrics.collector.Receiver;
@@ -41,10 +41,11 @@ import org.astraea.app.metrics.collector.Receiver;
  * node by different metrics. The default cost function ranks nodes by replica leader. It means the
  * node having lower replica leaders get higher score.
  *
- * <p>The requisite config is JMX port. Most cost functions need the JMX metrics to score nodes.
+ * <p>The important config is JMX port. Most cost functions need the JMX metrics to score nodes.
  * Normally, all brokers use the same JMX port, so you can just define the `jmx.port=12345`. If one
  * of brokers uses different JMX client port, you can define `broker.1000.jmx.port=11111` (`1000` is
- * the broker id) to replace the value of `jmx.port`.
+ * the broker id) to replace the value of `jmx.port`. If the jmx port is undefined, only local mbean
+ * client is created for each cost function
  *
  * <p>You can configure the cost functions you want to use. By giving the name of that cost function
  * and its weight. For example,
@@ -58,7 +59,7 @@ public class StrictCostDispatcher implements Dispatcher {
       BeanCollector.builder().interval(Duration.ofSeconds(4)).build();
 
   // The cost-functions we consider and the weight of them. It is visible for test
-  Map<CostFunction, Double> functions = Map.of(new ReplicaLeaderCost.NoMetrics(), 1D);
+  Map<CostFunction, Double> functions = Map.of();
 
   // all-in-one fetcher referenced to cost functions
   Optional<Fetcher> fetcher;
@@ -128,6 +129,22 @@ public class StrictCostDispatcher implements Dispatcher {
   }
 
   /**
+   * The value of cost returned from cost function is conflict to score, since the higher cost
+   * represents lower score. This helper reverses the cost by subtracting the cost from "max cost".
+   *
+   * @param cost to convert
+   * @return weights
+   */
+  static Map<Integer, Double> costToScore(Map<Integer, Double> cost) {
+    var max = cost.values().stream().max(Double::compare);
+    return max.map(
+            m ->
+                cost.entrySet().stream()
+                    .collect(Collectors.toMap(Map.Entry::getKey, e -> m - e.getValue())))
+        .orElse(cost);
+  }
+
+  /**
    * create new Round-Robin based.
    *
    * @param costFunctions used to calculate weights
@@ -136,34 +153,30 @@ public class StrictCostDispatcher implements Dispatcher {
    */
   static RoundRobin<Integer> newRoundRobin(
       Map<CostFunction, Double> costFunctions, ClusterInfo clusterInfo) {
-    return RoundRobin.smoothWeighted(
+    var weightedCost =
         costFunctions.entrySet().stream()
             .filter(e -> e.getKey() instanceof HasBrokerCost)
-            .map(e -> Map.entry((HasBrokerCost) e.getKey(), e.getValue()))
             .flatMap(
                 functionWeight ->
-                    functionWeight
-                        .getKey()
-                        // Execute all cost functions
-                        .brokerCost(clusterInfo)
-                        .value()
-                        .entrySet()
-                        .stream()
-                        // Weight on cost functions result
-                        .map(
-                            IdScore ->
-                                Map.entry(
-                                    IdScore.getKey(),
-                                    IdScore.getValue() * functionWeight.getValue())))
+                    ((HasBrokerCost) functionWeight.getKey())
+                        .brokerCost(clusterInfo).value().entrySet().stream()
+                            .map(
+                                idAndCost ->
+                                    Map.entry(
+                                        idAndCost.getKey(),
+                                        idAndCost.getValue() * functionWeight.getValue())))
             .collect(
                 Collectors.toMap(
-                    Map.Entry::getKey, Map.Entry::getValue, Double::sum, HashMap::new)));
+                    Map.Entry::getKey, Map.Entry::getValue, Double::sum, HashMap::new));
+    return RoundRobin.smooth(costToScore(weightedCost));
   }
 
   @Override
   public void configure(Configuration config) {
+    var configuredFunctions = parseCostFunctionWeight(config);
+
     configure(
-        parseCostFunctionWeight(config),
+        configuredFunctions.isEmpty() ? Map.of(new NodeLatencyCost(), 1D) : configuredFunctions,
         config.integer(JMX_PORT),
         PartitionerUtils.parseIdJMXPort(config));
   }
@@ -179,17 +192,18 @@ public class StrictCostDispatcher implements Dispatcher {
       Map<CostFunction, Double> functions,
       Optional<Integer> jmxPortDefault,
       Map<Integer, Integer> customJmxPort) {
-    if (!functions.isEmpty()) this.functions = functions;
-    this.fetcher = Fetcher.of(functions.keySet());
+    this.functions = functions;
+    this.fetcher = Fetcher.of(this.functions.keySet());
     this.jmxPortGetter =
         id ->
             Optional.ofNullable(customJmxPort.get(id))
                 .or(() -> jmxPortDefault)
                 .orElseThrow(
                     () -> new NoSuchElementException("broker: " + id + " does not have jmx port"));
-    if (fetcher.isPresent() && jmxPortDefault.isEmpty() && customJmxPort.isEmpty())
-      throw new IllegalArgumentException(
-          "JMX port is empty but the cost functions need metrics from JMX server");
+
+    // put local mbean client first
+    this.fetcher.ifPresent(
+        f -> receivers.put(-1, beanCollector.register().local().fetcher(f).build()));
   }
 
   /**
