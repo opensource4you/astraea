@@ -19,7 +19,6 @@ package org.astraea.app.partitioner;
 import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.TreeMap;
@@ -64,10 +63,7 @@ public class StrictCostDispatcher implements Dispatcher {
   // all-in-one fetcher referenced to cost functions
   Optional<Fetcher> fetcher;
 
-  Function<Integer, Integer> jmxPortGetter =
-      (id) -> {
-        throw new NoSuchElementException("broker: " + id + " does not have jmx port");
-      };
+  Function<Integer, Optional<Integer>> jmxPortGetter = (id) -> Optional.empty();
 
   final Map<Integer, Receiver> receivers = new TreeMap<>();
 
@@ -97,13 +93,14 @@ public class StrictCostDispatcher implements Dispatcher {
                         .map(ReplicaInfo::nodeInfo)
                         .filter(nodeInfo -> !receivers.containsKey(nodeInfo.id()))
                         .distinct()
+                        .filter(nodeInfo -> jmxPortGetter.apply(nodeInfo.id()).isPresent())
                         .collect(
                             Collectors.toMap(
                                 NodeInfo::id,
                                 nodeInfo ->
                                     receiver(
                                         nodeInfo.host(),
-                                        jmxPortGetter.apply(nodeInfo.id()),
+                                        jmxPortGetter.apply(nodeInfo.id()).get(),
                                         fetcher))))
             .orElse(Map.of()));
 
@@ -194,12 +191,7 @@ public class StrictCostDispatcher implements Dispatcher {
       Map<Integer, Integer> customJmxPort) {
     this.functions = functions;
     this.fetcher = Fetcher.of(this.functions.keySet());
-    this.jmxPortGetter =
-        id ->
-            Optional.ofNullable(customJmxPort.get(id))
-                .or(() -> jmxPortDefault)
-                .orElseThrow(
-                    () -> new NoSuchElementException("broker: " + id + " does not have jmx port"));
+    this.jmxPortGetter = id -> Optional.ofNullable(customJmxPort.get(id)).or(() -> jmxPortDefault);
 
     // put local mbean client first
     this.fetcher.ifPresent(
