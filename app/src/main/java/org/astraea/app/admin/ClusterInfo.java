@@ -28,8 +28,8 @@ import org.astraea.app.metrics.HasBeanObject;
 public interface ClusterInfo {
 
   /**
-   * convert the kafka ClusterInfo to our ClusterInfo. All data structure are converted immediately,
-   * so you should cache the result if the performance is critical
+   * convert the kafka Cluster to our ClusterInfo. All data structure are converted immediately, so
+   * you should cache the result if the performance is critical
    *
    * @param cluster kafka ClusterInfo
    * @return astraea ClusterInfo

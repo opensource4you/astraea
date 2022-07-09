@@ -24,7 +24,10 @@ import org.apache.kafka.common.Cluster;
 import org.astraea.app.admin.ClusterInfo;
 
 public interface Dispatcher extends Partitioner {
-  /** cache the cluster info to reduce the cost of converting cluster. */
+  /**
+   * cache the cluster info to reduce the cost of converting cluster. Producer does not update
+   * Cluster frequently, so it is ok to cache it.
+   */
   ConcurrentHashMap<Cluster, ClusterInfo> CLUSTER_CACHE = new ConcurrentHashMap<>();
 
   /**
