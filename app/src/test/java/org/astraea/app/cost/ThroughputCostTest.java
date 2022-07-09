@@ -20,7 +20,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import org.astraea.app.admin.ClusterBean;
-import org.astraea.app.metrics.kafka.BrokerTopicMetricsResult;
+import org.astraea.app.metrics.broker.BrokerTopicMetricsResult;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;

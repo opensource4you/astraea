@@ -14,18 +14,34 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.app.metrics.kafka;
+package org.astraea.app.metrics.broker;
 
-import org.astraea.app.metrics.HasBeanObject;
+import java.util.Map;
 import org.astraea.app.metrics.jmx.BeanObject;
 
-public interface HasValue extends HasBeanObject {
-  default long value() {
-    var value = beanObject().getAttributes().getOrDefault("Value", 0);
-    return ((Number) value).longValue();
+public class TotalTimeMs implements HasPercentiles, HasCount, HasStatistics {
+
+  private final BeanObject beanObject;
+
+  public TotalTimeMs(BeanObject beanObject) {
+    this.beanObject = beanObject;
   }
 
-  static HasValue of(BeanObject beanObject) {
-    return () -> beanObject;
+  @Override
+  public String toString() {
+    StringBuilder sb = new StringBuilder();
+    for (Map.Entry<String, Object> e : beanObject().attributes().entrySet()) {
+      sb.append(System.lineSeparator())
+          .append("  ")
+          .append(e.getKey())
+          .append("=")
+          .append(e.getValue());
+    }
+    return beanObject.properties().get("request") + " TotalTimeMs {" + sb + "}";
+  }
+
+  @Override
+  public BeanObject beanObject() {
+    return beanObject;
   }
 }

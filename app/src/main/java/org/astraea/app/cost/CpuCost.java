@@ -22,9 +22,9 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import org.astraea.app.metrics.KafkaMetrics;
 import org.astraea.app.metrics.collector.Fetcher;
-import org.astraea.app.metrics.java.OperatingSystemInfo;
-import org.astraea.app.metrics.kafka.KafkaMetrics;
+import org.astraea.app.metrics.platform.OperatingSystemInfo;
 
 /**
  * The result is computed by "OperatingSystemInfo.systemCpuLoad".

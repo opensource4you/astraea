@@ -106,9 +106,9 @@ class MBeanClientTest {
       BeanObject beanObject = client.queryBean(beanQuery);
 
       // assert
-      assertTrue(beanObject.getProperties().containsKey("type"));
-      assertTrue(beanObject.getAttributes().containsKey("HeapMemoryUsage"));
-      assertTrue(beanObject.getAttributes().containsKey("NonHeapMemoryUsage"));
+      assertTrue(beanObject.properties().containsKey("type"));
+      assertTrue(beanObject.attributes().containsKey("HeapMemoryUsage"));
+      assertTrue(beanObject.attributes().containsKey("NonHeapMemoryUsage"));
     }
   }
 
@@ -133,19 +133,19 @@ class MBeanClientTest {
       BeanObject beanObject2 = client.queryBean(query2);
 
       // assert
-      assertTrue(beanObject1.getProperties().containsKey("type"));
-      assertTrue(beanObject1.getProperties().containsKey("name"));
-      assertTrue(beanObject1.getAttributes().containsKey("MemoryPoolNames"));
-      assertTrue(beanObject1.getAttributes().containsKey("Name"));
-      assertTrue(beanObject1.getAttributes().containsKey("ObjectName"));
-      assertTrue(beanObject1.getAttributes().containsKey("Valid"));
+      assertTrue(beanObject1.properties().containsKey("type"));
+      assertTrue(beanObject1.properties().containsKey("name"));
+      assertTrue(beanObject1.attributes().containsKey("MemoryPoolNames"));
+      assertTrue(beanObject1.attributes().containsKey("Name"));
+      assertTrue(beanObject1.attributes().containsKey("ObjectName"));
+      assertTrue(beanObject1.attributes().containsKey("Valid"));
 
-      assertTrue(beanObject2.getProperties().containsKey("type"));
-      assertTrue(beanObject2.getProperties().containsKey("name"));
-      assertTrue(beanObject2.getAttributes().containsKey("MemoryPoolNames"));
-      assertTrue(beanObject2.getAttributes().containsKey("Name"));
-      assertTrue(beanObject2.getAttributes().containsKey("ObjectName"));
-      assertTrue(beanObject2.getAttributes().containsKey("Valid"));
+      assertTrue(beanObject2.properties().containsKey("type"));
+      assertTrue(beanObject2.properties().containsKey("name"));
+      assertTrue(beanObject2.attributes().containsKey("MemoryPoolNames"));
+      assertTrue(beanObject2.attributes().containsKey("Name"));
+      assertTrue(beanObject2.attributes().containsKey("ObjectName"));
+      assertTrue(beanObject2.attributes().containsKey("Valid"));
     }
   }
 
@@ -161,9 +161,9 @@ class MBeanClientTest {
       BeanObject beanObject = client.queryBean(beanQuery, selectedAttribute);
 
       // assert
-      assertTrue(beanObject.getProperties().containsKey("type"));
-      assertTrue(beanObject.getAttributes().containsKey("HeapMemoryUsage"));
-      assertFalse(beanObject.getAttributes().containsKey("NonHeapMemoryUsage"));
+      assertTrue(beanObject.properties().containsKey("type"));
+      assertTrue(beanObject.attributes().containsKey("HeapMemoryUsage"));
+      assertFalse(beanObject.attributes().containsKey("NonHeapMemoryUsage"));
     }
   }
 
@@ -180,28 +180,28 @@ class MBeanClientTest {
       // assert 1
       assertEquals(2, beanObjects.size());
       assertTrue(
-          beanObjects.stream().anyMatch(x -> x.getProperties().get("type").equals("ClassLoading")));
+          beanObjects.stream().anyMatch(x -> x.properties().get("type").equals("ClassLoading")));
       assertTrue(
-          beanObjects.stream().anyMatch(x -> x.getProperties().get("type").equals("Compilation")));
+          beanObjects.stream().anyMatch(x -> x.properties().get("type").equals("Compilation")));
 
       // arrange 2 look into ClassLoading content
 
       // act
       Optional<BeanObject> classLoading =
           beanObjects.stream()
-              .filter(x -> x.getProperties().get("type").equals("ClassLoading"))
+              .filter(x -> x.properties().get("type").equals("ClassLoading"))
               .findFirst();
 
       // assert
       assertTrue(classLoading.isPresent());
       assertEquals("java.lang", classLoading.get().domainName());
-      assertEquals(5, classLoading.get().getAttributes().size());
-      assertTrue(classLoading.get().getAttributes().containsKey("LoadedClassCount"));
-      assertTrue(classLoading.get().getAttributes().containsKey("ObjectName"));
-      assertTrue(classLoading.get().getAttributes().containsKey("TotalLoadedClassCount"));
-      assertTrue(classLoading.get().getAttributes().containsKey("UnloadedClassCount"));
-      assertTrue(classLoading.get().getAttributes().containsKey("Verbose"));
-      assertTrue(classLoading.get().getAttributes().get("Verbose") instanceof Boolean);
+      assertEquals(5, classLoading.get().attributes().size());
+      assertTrue(classLoading.get().attributes().containsKey("LoadedClassCount"));
+      assertTrue(classLoading.get().attributes().containsKey("ObjectName"));
+      assertTrue(classLoading.get().attributes().containsKey("TotalLoadedClassCount"));
+      assertTrue(classLoading.get().attributes().containsKey("UnloadedClassCount"));
+      assertTrue(classLoading.get().attributes().containsKey("Verbose"));
+      assertTrue(classLoading.get().attributes().get("Verbose") instanceof Boolean);
     }
   }
 
@@ -350,7 +350,7 @@ class MBeanClientTest {
       java.lang:{type=ClassLoading}
       Notice how everything with "type" is match, even those with "name"
       */
-      assertTrue(beanObjects.stream().anyMatch(x -> x.getProperties().containsKey("name")));
+      assertTrue(beanObjects.stream().anyMatch(x -> x.properties().containsKey("name")));
     }
   }
 
@@ -398,7 +398,7 @@ class MBeanClientTest {
       // assert
       Map<String, Object> mergedCollect =
           all.stream()
-              .flatMap(beanObject -> beanObject.getAttributes().entrySet().stream())
+              .flatMap(beanObject -> beanObject.attributes().entrySet().stream())
               .collect(toMap(Map.Entry::getKey, Map.Entry::getValue));
 
       assertEquals(500, mergedCollect.size());
@@ -425,7 +425,7 @@ class MBeanClientTest {
       // assert
       List<Map.Entry<String, String>> properties =
           all.stream()
-              .map(BeanObject::getProperties)
+              .map(BeanObject::properties)
               .map(Map::entrySet)
               .flatMap(Collection::stream)
               .collect(toList());
@@ -434,7 +434,7 @@ class MBeanClientTest {
 
       List<Map.Entry<String, Object>> attributes =
           all.stream()
-              .map(BeanObject::getAttributes)
+              .map(BeanObject::attributes)
               .map(Map::entrySet)
               .flatMap(Collection::stream)
               .collect(toList());

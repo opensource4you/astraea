@@ -14,12 +14,33 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.app.metrics.kafka;
+package org.astraea.app.metrics.broker;
 
 import org.astraea.app.metrics.HasBeanObject;
 
-public interface HasCount extends HasBeanObject {
-  default long count() {
-    return (long) beanObject().getAttributes().getOrDefault("Count", 0);
+public interface HasPercentiles extends HasBeanObject {
+
+  default double percentile50() {
+    return (double) beanObject().attributes().get("50thPercentile");
+  }
+
+  default double percentile75() {
+    return (double) beanObject().attributes().get("75thPercentile");
+  }
+
+  default double percentile95() {
+    return (double) beanObject().attributes().get("95thPercentile");
+  }
+
+  default double percentile98() {
+    return (double) beanObject().attributes().get("98thPercentile");
+  }
+
+  default double percentile99() {
+    return (double) beanObject().attributes().get("99thPercentile");
+  }
+
+  default double percentile999() {
+    return (double) beanObject().attributes().get("999thPercentile");
   }
 }

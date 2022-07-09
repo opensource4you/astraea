@@ -74,11 +74,11 @@ public class BeanObject {
     return domainName;
   }
 
-  public Map<String, String> getProperties() {
+  public Map<String, String> properties() {
     return properties;
   }
 
-  public Map<String, Object> getAttributes() {
+  public Map<String, Object> attributes() {
     return attributes;
   }
 

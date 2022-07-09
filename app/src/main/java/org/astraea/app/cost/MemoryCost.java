@@ -22,9 +22,9 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import org.astraea.app.metrics.KafkaMetrics;
 import org.astraea.app.metrics.collector.Fetcher;
-import org.astraea.app.metrics.java.HasJvmMemory;
-import org.astraea.app.metrics.kafka.KafkaMetrics;
+import org.astraea.app.metrics.platform.HasJvmMemory;
 
 public class MemoryCost extends Periodic<Map<Integer, Double>> implements HasBrokerCost {
   private final Map<Integer, BrokerMetric> brokersMetric = new HashMap<>();

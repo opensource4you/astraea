@@ -22,9 +22,9 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import org.astraea.app.metrics.KafkaMetrics;
+import org.astraea.app.metrics.broker.BrokerTopicMetricsResult;
 import org.astraea.app.metrics.collector.Fetcher;
-import org.astraea.app.metrics.kafka.BrokerTopicMetricsResult;
-import org.astraea.app.metrics.kafka.KafkaMetrics;
 
 /**
  * The result is computed by "BytesOutPerSec.count". "BytesOutPerSec.count" responds to the output
@@ -53,7 +53,7 @@ public class BrokerOutputCost implements HasBrokerCost {
                                 hasBeanObject ->
                                     KafkaMetrics.BrokerTopic.BytesOutPerSec.metricName()
                                         .equals(
-                                            hasBeanObject.beanObject().getProperties().get("name")))
+                                            hasBeanObject.beanObject().properties().get("name")))
                             .findAny()
                             .orElseThrow()))
             .entrySet()

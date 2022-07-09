@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.app.metrics.java;
+package org.astraea.app.metrics.platform;
 
 import org.astraea.app.metrics.HasBeanObject;
 
@@ -22,12 +22,12 @@ public interface HasOperatingSystemInfo extends HasBeanObject {
 
   /** The operating system architecture. */
   default String arch() {
-    return (String) beanObject().getAttributes().get("Arch");
+    return (String) beanObject().attributes().get("Arch");
   }
 
   /** The number of processors available to the JVM. */
   default int availableProcessors() {
-    return (int) beanObject().getAttributes().get("AvailableProcessors");
+    return (int) beanObject().attributes().get("AvailableProcessors");
   }
 
   /**
@@ -35,32 +35,32 @@ public interface HasOperatingSystemInfo extends HasBeanObject {
    * if this operating is not supported.
    */
   default long committedVirtualMemorySize() {
-    return (long) beanObject().getAttributes().get("CommittedVirtualMemorySize");
+    return (long) beanObject().attributes().get("CommittedVirtualMemorySize");
   }
 
   /** The amount of free physical memory. */
   default long freePhysicalMemorySize() {
-    return (long) beanObject().getAttributes().get("FreePhysicalMemorySize");
+    return (long) beanObject().attributes().get("FreePhysicalMemorySize");
   }
 
   /** The amount of free swap memory space. */
   default long freeSwapSpaceSize() {
-    return (long) beanObject().getAttributes().get("FreeSwapSpaceSize");
+    return (long) beanObject().attributes().get("FreeSwapSpaceSize");
   }
 
   /** The maximum number of file descriptors. */
   default long maxFileDescriptorCount() {
-    return (long) beanObject().getAttributes().get("MaxFileDescriptorCount");
+    return (long) beanObject().attributes().get("MaxFileDescriptorCount");
   }
 
   /** The number of open file descriptors. */
   default long openFileDescriptorCount() {
-    return (long) beanObject().getAttributes().get("OpenFileDescriptorCount");
+    return (long) beanObject().attributes().get("OpenFileDescriptorCount");
   }
 
   /** The operating system name. */
   default String name() {
-    return (String) beanObject().getAttributes().get("Name");
+    return (String) beanObject().attributes().get("Name");
   }
 
   /**
@@ -69,7 +69,7 @@ public interface HasOperatingSystemInfo extends HasBeanObject {
    * negative.
    */
   default double processCpuLoad() {
-    return (double) beanObject().getAttributes().get("ProcessCpuLoad");
+    return (double) beanObject().attributes().get("ProcessCpuLoad");
   }
 
   /**
@@ -78,7 +78,7 @@ public interface HasOperatingSystemInfo extends HasBeanObject {
    * method returns -1 if the platform does not support this operation.
    */
   default long processCpuTime() {
-    return (long) beanObject().getAttributes().get("ProcessCpuTime");
+    return (long) beanObject().attributes().get("ProcessCpuTime");
   }
 
   /**
@@ -87,26 +87,26 @@ public interface HasOperatingSystemInfo extends HasBeanObject {
    * negative.
    */
   default double systemCpuLoad() {
-    return (double) beanObject().getAttributes().get("SystemCpuLoad");
+    return (double) beanObject().attributes().get("SystemCpuLoad");
   }
 
   /** The system load average for the last minute (or a negative value if not available). */
   default double systemLoadAverage() {
-    return (double) beanObject().getAttributes().get("SystemLoadAverage");
+    return (double) beanObject().attributes().get("SystemLoadAverage");
   }
 
   /** The total amount of physical memory */
   default long totalPhysicalMemorySize() {
-    return (long) beanObject().getAttributes().get("TotalPhysicalMemorySize");
+    return (long) beanObject().attributes().get("TotalPhysicalMemorySize");
   }
 
   /** The total amount of swap space memory. */
   default long totalSwapSpaceSize() {
-    return (long) beanObject().getAttributes().get("TotalSwapSpaceSize");
+    return (long) beanObject().attributes().get("TotalSwapSpaceSize");
   }
 
   /** The operating system version. */
   default String version() {
-    return (String) beanObject().getAttributes().get("Version");
+    return (String) beanObject().attributes().get("Version");
   }
 }
