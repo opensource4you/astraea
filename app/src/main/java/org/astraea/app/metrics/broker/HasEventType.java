@@ -14,19 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.app.metrics.java;
+package org.astraea.app.metrics.broker;
 
-import java.lang.management.MemoryUsage;
-import javax.management.openmbean.CompositeData;
 import org.astraea.app.metrics.HasBeanObject;
 
-public interface HasJvmMemory extends HasBeanObject {
-
-  default MemoryUsage heapMemoryUsage() {
-    return MemoryUsage.from((CompositeData) beanObject().getAttributes().get("HeapMemoryUsage"));
-  }
-
-  default MemoryUsage nonHeapMemoryUsage() {
-    return MemoryUsage.from((CompositeData) beanObject().getAttributes().get("NonHeapMemoryUsage"));
+public interface HasEventType extends HasBeanObject {
+  default String eventType() {
+    return (String) beanObject().attributes().get("EventType");
   }
 }

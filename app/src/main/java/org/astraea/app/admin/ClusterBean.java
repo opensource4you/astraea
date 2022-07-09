@@ -43,18 +43,18 @@ public interface ClusterBean {
                         .filter(
                             x ->
                                 x.beanObject() != null
-                                    && x.beanObject().getProperties().containsKey("topic")
-                                    && x.beanObject().getProperties().containsKey("partition"))
+                                    && x.beanObject().properties().containsKey("topic")
+                                    && x.beanObject().properties().containsKey("partition"))
                         .filter(
                             hasBeanObject ->
-                                hasBeanObject.beanObject().getProperties().containsKey("topic")
+                                hasBeanObject.beanObject().properties().containsKey("topic")
                                     && hasBeanObject
                                         .beanObject()
-                                        .getProperties()
+                                        .properties()
                                         .containsKey("partition"))
                         .map(
                             hasBeanObject -> {
-                              var properties = hasBeanObject.beanObject().getProperties();
+                              var properties = hasBeanObject.beanObject().properties();
                               var topic = properties.get("topic");
                               var partition = properties.get("partition");
                               return Map.entry(
@@ -71,11 +71,11 @@ public interface ClusterBean {
                         .filter(
                             x ->
                                 x.beanObject() != null
-                                    && x.beanObject().getProperties().containsKey("topic")
-                                    && x.beanObject().getProperties().containsKey("partition"))
+                                    && x.beanObject().properties().containsKey("topic")
+                                    && x.beanObject().properties().containsKey("partition"))
                         .map(
                             hasBeanObject -> {
-                              var properties = hasBeanObject.beanObject().getProperties();
+                              var properties = hasBeanObject.beanObject().properties();
                               var topic = properties.get("topic");
                               var partition = Integer.parseInt(properties.get("partition"));
                               return Map.entry(

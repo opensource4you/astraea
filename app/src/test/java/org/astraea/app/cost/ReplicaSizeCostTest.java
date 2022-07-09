@@ -29,10 +29,10 @@ import org.astraea.app.admin.Admin;
 import org.astraea.app.admin.ClusterBean;
 import org.astraea.app.admin.TopicPartition;
 import org.astraea.app.metrics.HasBeanObject;
+import org.astraea.app.metrics.KafkaMetrics;
+import org.astraea.app.metrics.broker.HasValue;
 import org.astraea.app.metrics.collector.BeanCollector;
 import org.astraea.app.metrics.jmx.BeanObject;
-import org.astraea.app.metrics.kafka.HasValue;
-import org.astraea.app.metrics.kafka.KafkaMetrics;
 import org.astraea.app.producer.Producer;
 import org.astraea.app.service.RequireSingleBrokerCluster;
 import org.junit.jupiter.api.Assertions;
@@ -64,8 +64,8 @@ class ReplicaSizeCostTest extends RequireSingleBrokerCluster {
       var replicaSize =
           beanObjects.stream()
               .filter(x -> x instanceof HasValue)
-              .filter(x -> x.beanObject().getProperties().get("name").equals("Size"))
-              .filter(x -> x.beanObject().getProperties().get("type").equals("Log"))
+              .filter(x -> x.beanObject().properties().get("name").equals("Size"))
+              .filter(x -> x.beanObject().properties().get("type").equals("Log"))
               .sorted(Comparator.comparing(HasBeanObject::createdTimestamp).reversed())
               .map(x -> (HasValue) x)
               .limit(1)

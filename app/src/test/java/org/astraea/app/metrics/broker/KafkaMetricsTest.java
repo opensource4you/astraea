@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.app.metrics.kafka;
+package org.astraea.app.metrics.broker;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -35,9 +35,10 @@ import javax.management.remote.JMXConnectorServerFactory;
 import javax.management.remote.JMXServiceURL;
 import org.astraea.app.admin.Admin;
 import org.astraea.app.common.Utils;
-import org.astraea.app.metrics.java.JvmMemory;
-import org.astraea.app.metrics.java.OperatingSystemInfo;
+import org.astraea.app.metrics.KafkaMetrics;
 import org.astraea.app.metrics.jmx.MBeanClient;
+import org.astraea.app.metrics.platform.JvmMemory;
+import org.astraea.app.metrics.platform.OperatingSystemInfo;
 import org.astraea.app.service.RequireBrokerCluster;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;

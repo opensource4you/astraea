@@ -18,8 +18,8 @@ package org.astraea.app.metrics.producer;
 
 import java.util.concurrent.ExecutionException;
 import org.astraea.app.common.Utils;
+import org.astraea.app.metrics.KafkaMetrics;
 import org.astraea.app.metrics.jmx.MBeanClient;
-import org.astraea.app.metrics.kafka.KafkaMetrics;
 import org.astraea.app.producer.Producer;
 import org.astraea.app.service.RequireSingleBrokerCluster;
 import org.junit.jupiter.api.Assertions;

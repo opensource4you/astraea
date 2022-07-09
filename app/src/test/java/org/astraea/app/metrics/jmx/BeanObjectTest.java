@@ -42,7 +42,7 @@ class BeanObjectTest {
   void getPropertyView() {
     BeanObject beanObject = createBeanObject();
 
-    Map<String, String> propertyView = beanObject.getProperties();
+    Map<String, String> propertyView = beanObject.properties();
 
     assertEquals(Map.of("type", "Memory"), propertyView);
   }
@@ -51,7 +51,7 @@ class BeanObjectTest {
   void getAttributeView() {
     BeanObject beanObject = createBeanObject();
 
-    Map<String, Object> result = beanObject.getAttributes();
+    Map<String, Object> result = beanObject.attributes();
 
     assertEquals(Map.of("HeapMemoryUsage", "content"), result);
   }

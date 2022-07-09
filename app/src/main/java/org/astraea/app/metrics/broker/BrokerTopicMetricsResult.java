@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.app.metrics.kafka;
+package org.astraea.app.metrics.broker;
 
 import java.util.Map;
 import java.util.Objects;
@@ -31,14 +31,14 @@ public class BrokerTopicMetricsResult implements HasCount, HasEventType, HasRate
   @Override
   public String toString() {
     StringBuilder sb = new StringBuilder();
-    for (Map.Entry<String, Object> e : beanObject().getAttributes().entrySet()) {
+    for (Map.Entry<String, Object> e : beanObject().attributes().entrySet()) {
       sb.append(System.lineSeparator())
           .append("  ")
           .append(e.getKey())
           .append("=")
           .append(e.getValue());
     }
-    return beanObject().getProperties().get("name") + "{" + sb + "}";
+    return beanObject().properties().get("name") + "{" + sb + "}";
   }
 
   @Override

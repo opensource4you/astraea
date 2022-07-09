@@ -26,9 +26,9 @@ import java.util.stream.Collectors;
 import org.astraea.app.admin.TopicPartition;
 import org.astraea.app.admin.TopicPartitionReplica;
 import org.astraea.app.metrics.HasBeanObject;
+import org.astraea.app.metrics.KafkaMetrics;
+import org.astraea.app.metrics.broker.HasValue;
 import org.astraea.app.metrics.collector.Fetcher;
-import org.astraea.app.metrics.kafka.HasValue;
-import org.astraea.app.metrics.kafka.KafkaMetrics;
 
 /**
  * The result is computed by "Size.Value" ,and createdTimestamp in the metrics. "Size.Value"
@@ -201,8 +201,8 @@ public class ReplicaDiskInCost implements HasBrokerCost, HasPartitionCost {
               var sizeTimeSeries =
                   metrics.getValue().stream()
                       .filter(bean -> bean instanceof HasValue)
-                      .filter(bean -> bean.beanObject().getProperties().get("type").equals("Log"))
-                      .filter(bean -> bean.beanObject().getProperties().get("name").equals("Size"))
+                      .filter(bean -> bean.beanObject().properties().get("type").equals("Log"))
+                      .filter(bean -> bean.beanObject().properties().get("name").equals("Size"))
                       .map(bean -> (HasValue) bean)
                       .sorted(Comparator.comparingLong(HasBeanObject::createdTimestamp).reversed())
                       .collect(Collectors.toUnmodifiableList());

@@ -21,38 +21,38 @@ import org.astraea.app.metrics.HasBeanObject;
 public interface HasProducerTopicMetrics extends HasBeanObject {
 
   default double byteRate() {
-    return (double) beanObject().getAttributes().get("byte-rate");
+    return (double) beanObject().attributes().get("byte-rate");
   }
 
   default double byteTotal() {
-    return (double) beanObject().getAttributes().get("byte-total");
+    return (double) beanObject().attributes().get("byte-total");
   }
 
   default double compressionRate() {
-    return (double) beanObject().getAttributes().get("compression-rate");
+    return (double) beanObject().attributes().get("compression-rate");
   }
 
   default double recordErrorRate() {
-    return (double) beanObject().getAttributes().get("record-error-rate");
+    return (double) beanObject().attributes().get("record-error-rate");
   }
 
   default double recordErrorTotal() {
-    return (double) beanObject().getAttributes().get("record-error-total");
+    return (double) beanObject().attributes().get("record-error-total");
   }
 
   default double recordRetryRate() {
-    return (double) beanObject().getAttributes().get("record-retry-rate");
+    return (double) beanObject().attributes().get("record-retry-rate");
   }
 
   default double recordRetryTotal() {
-    return (double) beanObject().getAttributes().get("record-retry-total");
+    return (double) beanObject().attributes().get("record-retry-total");
   }
 
   default double recordSendRate() {
-    return (double) beanObject().getAttributes().get("record-send-rate");
+    return (double) beanObject().attributes().get("record-send-rate");
   }
 
   default double recordSendTotal() {
-    return (double) beanObject().getAttributes().get("record-send-total");
+    return (double) beanObject().attributes().get("record-send-total");
   }
 }

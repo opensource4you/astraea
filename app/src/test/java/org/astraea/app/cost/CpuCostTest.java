@@ -24,7 +24,7 @@ import org.astraea.app.admin.ClusterBean;
 import org.astraea.app.metrics.HasBeanObject;
 import org.astraea.app.metrics.collector.BeanCollector;
 import org.astraea.app.metrics.collector.Receiver;
-import org.astraea.app.metrics.java.OperatingSystemInfo;
+import org.astraea.app.metrics.platform.OperatingSystemInfo;
 import org.astraea.app.service.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;

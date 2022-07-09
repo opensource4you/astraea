@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.app.metrics.java;
+package org.astraea.app.metrics.platform;
 
 import java.lang.management.MemoryUsage;
 import org.astraea.app.metrics.jmx.BeanObject;

@@ -14,34 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.app.metrics.java;
+package org.astraea.app.metrics.broker;
 
-import java.util.Map;
-import org.astraea.app.metrics.jmx.BeanObject;
+import org.astraea.app.metrics.HasBeanObject;
 
-public class OperatingSystemInfo implements HasOperatingSystemInfo {
-
-  private final BeanObject beanObject;
-
-  public OperatingSystemInfo(BeanObject beanObject) {
-    this.beanObject = beanObject;
-  }
-
-  @Override
-  public BeanObject beanObject() {
-    return beanObject;
-  }
-
-  @Override
-  public String toString() {
-    StringBuilder sb = new StringBuilder();
-    for (Map.Entry<String, Object> e : beanObject().getAttributes().entrySet()) {
-      sb.append(System.lineSeparator())
-          .append("  ")
-          .append(e.getKey())
-          .append("=")
-          .append(e.getValue());
-    }
-    return "Operating System Info {" + sb + "}";
+public interface HasCount extends HasBeanObject {
+  default long count() {
+    return (long) beanObject().attributes().getOrDefault("Count", 0);
   }
 }

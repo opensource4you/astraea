@@ -14,34 +14,34 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.app.metrics.kafka;
+package org.astraea.app.metrics.platform;
 
 import java.util.Map;
 import org.astraea.app.metrics.jmx.BeanObject;
 
-public class TotalTimeMs implements HasPercentiles, HasCount, HasStatistics {
+public class OperatingSystemInfo implements HasOperatingSystemInfo {
 
   private final BeanObject beanObject;
 
-  public TotalTimeMs(BeanObject beanObject) {
+  public OperatingSystemInfo(BeanObject beanObject) {
     this.beanObject = beanObject;
+  }
+
+  @Override
+  public BeanObject beanObject() {
+    return beanObject;
   }
 
   @Override
   public String toString() {
     StringBuilder sb = new StringBuilder();
-    for (Map.Entry<String, Object> e : beanObject().getAttributes().entrySet()) {
+    for (Map.Entry<String, Object> e : beanObject().attributes().entrySet()) {
       sb.append(System.lineSeparator())
           .append("  ")
           .append(e.getKey())
           .append("=")
           .append(e.getValue());
     }
-    return beanObject.getProperties().get("request") + " TotalTimeMs {" + sb + "}";
-  }
-
-  @Override
-  public BeanObject beanObject() {
-    return beanObject;
+    return "Operating System Info {" + sb + "}";
   }
 }

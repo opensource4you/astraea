@@ -23,9 +23,9 @@ import java.util.TreeMap;
 import java.util.stream.Collectors;
 import org.astraea.app.admin.TopicPartition;
 import org.astraea.app.admin.TopicPartitionReplica;
+import org.astraea.app.metrics.KafkaMetrics;
+import org.astraea.app.metrics.broker.HasValue;
 import org.astraea.app.metrics.collector.Fetcher;
-import org.astraea.app.metrics.kafka.HasValue;
-import org.astraea.app.metrics.kafka.KafkaMetrics;
 
 /**
  * The result is computed by "Size.Value". "Size.Value" responds to the replica log size of brokers.
@@ -170,8 +170,8 @@ public class ReplicaSizeCost implements HasBrokerCost, HasPartitionCost {
                 e.getValue().stream()
                     .filter(x -> x instanceof HasValue)
                     .filter(x -> x.beanObject().domainName().equals("kafka.log"))
-                    .filter(x -> x.beanObject().getProperties().get("type").equals("Log"))
-                    .filter(x -> x.beanObject().getProperties().get("name").equals("Size"))
+                    .filter(x -> x.beanObject().properties().get("type").equals("Log"))
+                    .filter(x -> x.beanObject().properties().get("name").equals("Size"))
                     .map(x -> (HasValue) x)
                     .map(x -> Map.entry(e.getKey(), x.value())))
         .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));

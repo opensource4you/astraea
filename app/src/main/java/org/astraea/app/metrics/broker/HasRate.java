@@ -14,12 +14,29 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.app.metrics.kafka;
+package org.astraea.app.metrics.broker;
 
+import java.util.concurrent.TimeUnit;
 import org.astraea.app.metrics.HasBeanObject;
 
-public interface HasEventType extends HasBeanObject {
-  default String eventType() {
-    return (String) beanObject().getAttributes().get("EventType");
+public interface HasRate extends HasBeanObject {
+  default double meanRate() {
+    return (double) beanObject().attributes().getOrDefault("MeanRate", 0);
+  }
+
+  default double oneMinuteRate() {
+    return (double) beanObject().attributes().getOrDefault("OneMinuteRate", 0);
+  }
+
+  default double fiveMinuteRate() {
+    return (double) beanObject().attributes().getOrDefault("FiveMinuteRate", 0);
+  }
+
+  default double fifteenMinuteRate() {
+    return (double) beanObject().attributes().getOrDefault("FifteenMinuteRate", 0);
+  }
+
+  default TimeUnit rateUnit() {
+    return (TimeUnit) beanObject().attributes().get("RateUnit");
   }
 }

@@ -21,9 +21,9 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import org.astraea.app.metrics.HasBeanObject;
+import org.astraea.app.metrics.KafkaMetrics;
+import org.astraea.app.metrics.broker.HasValue;
 import org.astraea.app.metrics.collector.Fetcher;
-import org.astraea.app.metrics.kafka.HasValue;
-import org.astraea.app.metrics.kafka.KafkaMetrics;
 
 /** more replica leaders -> higher cost */
 public class ReplicaLeaderCost implements HasBrokerCost {
@@ -42,9 +42,8 @@ public class ReplicaLeaderCost implements HasBrokerCost {
             e ->
                 e.getValue().stream()
                     .filter(x -> x instanceof HasValue)
-                    .filter(x -> "LeaderCount".equals(x.beanObject().getProperties().get("name")))
-                    .filter(
-                        x -> "ReplicaManager".equals(x.beanObject().getProperties().get("type")))
+                    .filter(x -> "LeaderCount".equals(x.beanObject().properties().get("name")))
+                    .filter(x -> "ReplicaManager".equals(x.beanObject().properties().get("type")))
                     .sorted(Comparator.comparing(HasBeanObject::createdTimestamp).reversed())
                     .map(x -> (HasValue) x)
                     .limit(1)

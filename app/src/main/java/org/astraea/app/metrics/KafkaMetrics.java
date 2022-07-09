@@ -14,18 +14,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.app.metrics.kafka;
+package org.astraea.app.metrics;
 
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Map;
 import java.util.stream.Collectors;
-import org.astraea.app.metrics.HasBeanObject;
-import org.astraea.app.metrics.java.JvmMemory;
-import org.astraea.app.metrics.java.OperatingSystemInfo;
+import org.astraea.app.metrics.broker.BrokerTopicMetricsResult;
+import org.astraea.app.metrics.broker.HasValue;
+import org.astraea.app.metrics.broker.TotalTimeMs;
 import org.astraea.app.metrics.jmx.BeanObject;
 import org.astraea.app.metrics.jmx.BeanQuery;
 import org.astraea.app.metrics.jmx.MBeanClient;
+import org.astraea.app.metrics.platform.JvmMemory;
+import org.astraea.app.metrics.platform.OperatingSystemInfo;
 import org.astraea.app.metrics.producer.HasProducerNodeMetrics;
 import org.astraea.app.metrics.producer.HasProducerTopicMetrics;
 
@@ -123,7 +125,7 @@ public final class KafkaMetrics {
                       .property("type", "KafkaServer")
                       .property("name", "linux-disk-read-bytes")
                       .build())
-              .getAttributes()
+              .attributes()
               .get("Value");
     }
 
@@ -136,7 +138,7 @@ public final class KafkaMetrics {
                       .property("type", "KafkaServer")
                       .property("name", "linux-disk-write-bytes")
                       .build())
-              .getAttributes()
+              .attributes()
               .get("Value");
     }
   }
@@ -184,7 +186,7 @@ public final class KafkaMetrics {
                       .property("delayedOperation", this.name())
                       .property("name", "PurgatorySize")
                       .build())
-              .getAttributes()
+              .attributes()
               .get("Value");
     }
   }
@@ -296,7 +298,7 @@ public final class KafkaMetrics {
                       .property("type", "KafkaController")
                       .property("name", "GlobalPartitionCount")
                       .build())
-              .getAttributes()
+              .attributes()
               .get("Value");
     }
 
@@ -316,7 +318,7 @@ public final class KafkaMetrics {
                       .property("type", "ReplicaManager")
                       .property("name", "UnderReplicatedPartitions")
                       .build())
-              .getAttributes()
+              .attributes()
               .get("Value");
     }
 
@@ -341,8 +343,8 @@ public final class KafkaMetrics {
           .stream()
           .collect(
               Collectors.toMap(
-                  (BeanObject a) -> Integer.parseInt(a.getProperties().get("partition")),
-                  (BeanObject a) -> (Long) a.getAttributes().get("Value")));
+                  (BeanObject a) -> Integer.parseInt(a.properties().get("partition")),
+                  (BeanObject a) -> (Long) a.attributes().get("Value")));
     }
   }
 
@@ -395,7 +397,7 @@ public final class KafkaMetrics {
                   .build())
           .stream()
           .collect(
-              Collectors.toUnmodifiableMap(b -> b.getProperties().get("client-id"), b -> () -> b));
+              Collectors.toUnmodifiableMap(b -> b.properties().get("client-id"), b -> () -> b));
     }
 
     /**
@@ -417,7 +419,7 @@ public final class KafkaMetrics {
                   .build())
           .stream()
           .collect(
-              Collectors.toUnmodifiableMap(b -> b.getProperties().get("client-id"), b -> () -> b));
+              Collectors.toUnmodifiableMap(b -> b.properties().get("client-id"), b -> () -> b));
     }
   }
 }
