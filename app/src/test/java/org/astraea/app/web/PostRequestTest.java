@@ -20,6 +20,8 @@ import com.sun.net.httpserver.HttpExchange;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
@@ -44,6 +46,14 @@ public class PostRequestTest {
     Assertions.assertEquals("10", PostRequest.handleDouble(10.00));
     Assertions.assertEquals("10.01", PostRequest.handleDouble(10.01));
     Assertions.assertEquals("xxxx", PostRequest.handleDouble("xxxx"));
+    Assertions.assertEquals("{\"foo\":1}", PostRequest.handleDouble(Map.of("foo", 1)));
+    Assertions.assertEquals("[\"a\",1]", PostRequest.handleDouble(List.of("a", 1)));
+    Assertions.assertEquals(
+        "[{\"foo\":{\"bar\":10}}]",
+        PostRequest.handleDouble(List.of(Map.of("foo", Map.of("bar", 10)))));
+    Assertions.assertEquals(
+        "[{\"foo\":{\"bar\":1.1}}]",
+        PostRequest.handleDouble(List.of(Map.of("foo", Map.of("bar", 1.1d)))));
   }
 
   @Test

@@ -18,6 +18,7 @@ package org.astraea.app.web;
 
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
+import static org.astraea.app.web.PostRequest.handleDouble;
 
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonDeserializationContext;
@@ -27,16 +28,22 @@ import com.google.gson.JsonParseException;
 import com.google.gson.JsonPrimitive;
 import com.google.gson.JsonSerializationContext;
 import com.google.gson.JsonSerializer;
+import com.google.gson.reflect.TypeToken;
 import java.lang.reflect.Type;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Collection;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.CompletionStage;
+import java.util.concurrent.CountDownLatch;
 import java.util.function.BiFunction;
+import java.util.function.Function;
 import org.astraea.app.admin.TopicPartition;
 import org.astraea.app.argument.DurationField;
 import org.astraea.app.common.Utils;
@@ -47,12 +54,8 @@ import org.astraea.app.producer.Producer;
 import org.astraea.app.producer.Serializer;
 
 public class RecordHandler implements Handler {
-  static final String KEY_SERIALIZER = "keySerializer";
-  static final String VALUE_SERIALIZER = "valueSerializer";
-  static final String TOPIC = "topic";
-  static final String KEY = "key";
-  static final String VALUE = "value";
-  static final String TIMESTAMP = "timestamp";
+  static final String RECORDS = "records";
+  static final String TRANSACTION_ID = "transactionId";
   static final String PARTITION = "partition";
   static final String ASYNC = "async";
   static final String DISTANCE_FROM_LATEST = "distanceFromLatest";
@@ -140,25 +143,93 @@ public class RecordHandler implements Handler {
 
   @Override
   public Response post(PostRequest request) {
-    var topic =
-        request.get(TOPIC).orElseThrow(() -> new IllegalArgumentException("topic must be set"));
-    var keySerializer = request.get(KEY_SERIALIZER).map(SerDe::of).orElse(SerDe.STRING).serializer;
-    var valueSerializer =
-        request.get(VALUE_SERIALIZER).map(SerDe::of).orElse(SerDe.STRING).serializer;
     var async = request.booleanValue(ASYNC, false);
-    var sender = producer.sender().topic(topic);
+    Function<String, List<PostRecord>> toPostRecordList =
+        (data) ->
+            new GsonBuilder()
+                .create()
+                .fromJson(data, new TypeToken<ArrayList<PostRecord>>() {}.getType());
+    var records =
+        request
+            .get(RECORDS)
+            .map(toPostRecordList)
+            .filter(list -> list.size() > 0)
+            .orElseThrow(
+                () -> new IllegalArgumentException("records should contain at least one record"));
 
-    // TODO: Support headers (https://github.com/skiptests/astraea/issues/422)
-    request.get(KEY).ifPresent(k -> sender.key(keySerializer.apply(topic, k)));
-    request.get(VALUE).ifPresent(v -> sender.value(valueSerializer.apply(topic, v)));
-    request.get(TIMESTAMP).ifPresent(t -> sender.timestamp(Long.parseLong(t)));
-    request.get(PARTITION).ifPresent(p -> sender.partition(Integer.parseInt(p)));
+    var producer =
+        request
+            .get(TRANSACTION_ID)
+            .map(
+                transactionId ->
+                    Producer.builder()
+                        .transactionId(transactionId)
+                        .bootstrapServers(bootstrapServers)
+                        .build())
+            .orElse(this.producer);
 
-    var senderFuture = sender.run().toCompletableFuture();
+    Collection<CompletionStage<org.astraea.app.producer.Metadata>> senderFutures;
+    try {
+      senderFutures =
+          producer.send(
+              records.stream()
+                  .map(
+                      postRecord -> {
+                        var topic =
+                            Optional.ofNullable(postRecord.topic)
+                                .orElseThrow(
+                                    () -> new IllegalArgumentException("topic must be set"));
+                        var sender = producer.sender().topic(topic);
+                        // TODO: Support headers (https://github.com/skiptests/astraea/issues/422)
+                        var keySerializer =
+                            Optional.ofNullable(postRecord.keySerializer)
+                                .map(name -> SerDe.of(name).serializer)
+                                .orElse(SerDe.STRING.serializer);
+                        var valueSerializer =
+                            Optional.ofNullable(postRecord.valueSerializer)
+                                .map(name -> SerDe.of(name).serializer)
+                                .orElse(SerDe.STRING.serializer);
+
+                        Optional.ofNullable(postRecord.key)
+                            .ifPresent(
+                                key -> sender.key(keySerializer.apply(topic, handleDouble(key))));
+                        Optional.ofNullable(postRecord.value)
+                            .ifPresent(
+                                value ->
+                                    sender.value(
+                                        valueSerializer.apply(topic, handleDouble(value))));
+                        Optional.ofNullable(postRecord.timestamp).ifPresent(sender::timestamp);
+                        Optional.ofNullable(postRecord.partition).ifPresent(sender::partition);
+                        return sender;
+                      })
+                  .collect(toList()));
+    } finally {
+      if (producer.transactional()) {
+        producer.close();
+      }
+    }
 
     if (async) return Response.ACCEPT;
 
-    return Utils.packException(() -> new Metadata(senderFuture.get()));
+    var latch = new CountDownLatch(senderFutures.size());
+    var results = new ArrayList<Response>(senderFutures.size());
+    senderFutures.forEach(
+        future ->
+            future.whenComplete(
+                (metadata, exception) -> {
+                  if (metadata != null) {
+                    results.add(new Metadata(metadata));
+                  } else if (exception != null) {
+                    results.add(Response.for500(exception.getMessage()));
+                  } else {
+                    // this shouldn't happen, but still add error 404 here
+                    results.add(Response.for404("missing result"));
+                  }
+                  latch.countDown();
+                }));
+    Utils.packException(() -> latch.await());
+
+    return new PostResponse(results);
   }
 
   enum SerDe {
@@ -295,6 +366,60 @@ public class RecordHandler implements Handler {
 
     public JsonElement serialize(byte[] src, Type type, JsonSerializationContext context) {
       return new JsonPrimitive(Base64.getEncoder().encodeToString(src));
+    }
+  }
+
+  static class PostRecord {
+    final String topic;
+    final Integer partition;
+    final String keySerializer;
+    final String valueSerializer;
+    final Object key;
+    final Object value;
+    final Long timestamp;
+
+    PostRecord(
+        String topic,
+        Integer partition,
+        String keySerializer,
+        String valueSerializer,
+        Object key,
+        Object value,
+        Long timestamp) {
+      this.topic = topic;
+      this.partition = partition;
+      this.keySerializer = keySerializer;
+      this.valueSerializer = valueSerializer;
+      this.key = key;
+      this.value = value;
+      this.timestamp = timestamp;
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+      if (this == obj) {
+        return true;
+      }
+      if (obj == null || getClass() != obj.getClass()) {
+        return false;
+      }
+
+      PostRecord that = (PostRecord) obj;
+      return Objects.equals(this.topic, that.topic)
+          && Objects.equals(this.partition, that.partition)
+          && Objects.equals(this.keySerializer, that.keySerializer)
+          && Objects.equals(this.valueSerializer, that.valueSerializer)
+          && Objects.equals(this.key, that.key)
+          && Objects.equals(this.value, that.value)
+          && Objects.equals(this.timestamp, that.timestamp);
+    }
+  }
+
+  static class PostResponse implements Response {
+    final List<Response> results;
+
+    PostResponse(List<Response> results) {
+      this.results = results;
     }
   }
 }

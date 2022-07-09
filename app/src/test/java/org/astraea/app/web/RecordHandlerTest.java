@@ -21,24 +21,22 @@ import static java.util.stream.Collectors.toList;
 import static org.astraea.app.web.RecordHandler.ASYNC;
 import static org.astraea.app.web.RecordHandler.DISTANCE_FROM_BEGINNING;
 import static org.astraea.app.web.RecordHandler.DISTANCE_FROM_LATEST;
-import static org.astraea.app.web.RecordHandler.KEY;
 import static org.astraea.app.web.RecordHandler.KEY_DESERIALIZER;
-import static org.astraea.app.web.RecordHandler.KEY_SERIALIZER;
 import static org.astraea.app.web.RecordHandler.LIMIT;
 import static org.astraea.app.web.RecordHandler.PARTITION;
+import static org.astraea.app.web.RecordHandler.RECORDS;
 import static org.astraea.app.web.RecordHandler.SEEK_TO;
 import static org.astraea.app.web.RecordHandler.TIMEOUT;
-import static org.astraea.app.web.RecordHandler.TIMESTAMP;
-import static org.astraea.app.web.RecordHandler.TOPIC;
-import static org.astraea.app.web.RecordHandler.VALUE;
+import static org.astraea.app.web.RecordHandler.TRANSACTION_ID;
 import static org.astraea.app.web.RecordHandler.VALUE_DESERIALIZER;
-import static org.astraea.app.web.RecordHandler.VALUE_SERIALIZER;
 import static org.junit.jupiter.params.provider.Arguments.arguments;
 
+import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import java.nio.ByteBuffer;
 import java.time.Duration;
 import java.util.Base64;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -49,6 +47,7 @@ import java.util.stream.Stream;
 import org.astraea.app.admin.Admin;
 import org.astraea.app.common.Utils;
 import org.astraea.app.consumer.Consumer;
+import org.astraea.app.consumer.Deserializer;
 import org.astraea.app.consumer.Header;
 import org.astraea.app.producer.Producer;
 import org.astraea.app.service.RequireBrokerCluster;
@@ -59,6 +58,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 public class RecordHandlerTest extends RequireBrokerCluster {
 
@@ -68,47 +68,89 @@ public class RecordHandlerTest extends RequireBrokerCluster {
     Assertions.assertThrows(
         IllegalArgumentException.class,
         () -> handler.post(PostRequest.of(Map.of())),
+        "records should contain at least one record");
+    Assertions.assertThrows(
+        IllegalArgumentException.class,
+        () -> handler.post(PostRequest.of(Map.of(RECORDS, ""))),
+        "records should contain at least one record");
+    Assertions.assertThrows(
+        IllegalArgumentException.class,
+        () -> handler.post(PostRequest.of(Map.of(RECORDS, "[]"))),
+        "records should contain at least one record");
+    Assertions.assertThrows(
+        IllegalArgumentException.class,
+        () -> handler.post(PostRequest.of(Map.of(RECORDS, "[{}]"))),
         "topic must be set");
   }
 
-  @Test
-  void testPost() {
+  @ParameterizedTest
+  @ValueSource(booleans = {true, false})
+  void testPost(boolean isTransaction) {
     var topic = Utils.randomString(10);
-    var handler = new RecordHandler(bootstrapServers());
     var currentTimestamp = System.currentTimeMillis();
-    var result =
+    var requestParams = new HashMap<String, Object>();
+    requestParams.put(
+        RECORDS,
+        List.of(
+            new RecordHandler.PostRecord(
+                topic, 0, "string", "integer", "foo", 100, currentTimestamp),
+            new RecordHandler.PostRecord(
+                topic, 0, "string", "integer", "bar", 200, currentTimestamp)));
+    if (isTransaction) {
+      requestParams.put(TRANSACTION_ID, "trx-" + topic);
+    }
+    var response =
         Assertions.assertInstanceOf(
-            Metadata.class,
-            handler.post(
-                PostRequest.of(
-                    Map.of(
-                        KEY_SERIALIZER, "string",
-                        VALUE_SERIALIZER, "integer",
-                        TOPIC, topic,
-                        KEY, "foo",
-                        VALUE, "100",
-                        TIMESTAMP, "" + currentTimestamp,
-                        PARTITION, "0"))));
+            RecordHandler.PostResponse.class,
+            new RecordHandler(bootstrapServers())
+                .post(PostRequest.of(new Gson().toJson(requestParams))));
 
-    Assertions.assertEquals(0, result.offset);
-    Assertions.assertEquals(0, result.partition);
-    Assertions.assertEquals(topic, result.topic);
-    Assertions.assertEquals("foo".getBytes(UTF_8).length, result.serializedKeySize);
-    Assertions.assertEquals(4, result.serializedValueSize);
+    Assertions.assertEquals(2, response.results.size());
+
+    var results = response.results;
+    var metadata = (Metadata) results.get(0);
+    Assertions.assertEquals(0, metadata.offset);
+    Assertions.assertEquals(0, metadata.partition);
+    Assertions.assertEquals(topic, metadata.topic);
+    Assertions.assertEquals("foo".getBytes(UTF_8).length, metadata.serializedKeySize);
+    Assertions.assertEquals(4, metadata.serializedValueSize);
+
+    metadata = (Metadata) results.get(1);
+    Assertions.assertEquals(1, metadata.offset);
+    Assertions.assertEquals(0, metadata.partition);
+    Assertions.assertEquals(topic, metadata.topic);
+    Assertions.assertEquals("bar".getBytes(UTF_8).length, metadata.serializedKeySize);
+    Assertions.assertEquals(4, metadata.serializedValueSize);
 
     try (var consumer =
         Consumer.forTopics(Set.of(topic))
             .bootstrapServers(bootstrapServers())
             .fromBeginning()
+            .keyDeserializer(Deserializer.STRING)
+            .valueDeserializer(Deserializer.INTEGER)
             .build()) {
-      var record = consumer.poll(1, Duration.ofSeconds(10)).iterator().next();
+      var records = List.copyOf(consumer.poll(2, Duration.ofSeconds(10)));
+      Assertions.assertEquals(2, records.size());
+
+      var record = records.get(0);
       Assertions.assertEquals(topic, record.topic());
       Assertions.assertEquals(currentTimestamp, record.timestamp());
       Assertions.assertEquals(0, record.partition());
+      Assertions.assertEquals(0, record.offset());
       Assertions.assertEquals("foo".getBytes(UTF_8).length, record.serializedKeySize());
       Assertions.assertEquals(4, record.serializedValueSize());
-      Assertions.assertArrayEquals("foo".getBytes(UTF_8), record.key());
-      Assertions.assertArrayEquals(ByteBuffer.allocate(4).putInt(100).array(), record.value());
+      Assertions.assertEquals("foo", record.key());
+      Assertions.assertEquals(100, record.value());
+
+      record = records.get(1);
+      Assertions.assertEquals(topic, record.topic());
+      Assertions.assertEquals(currentTimestamp, record.timestamp());
+      Assertions.assertEquals(0, record.partition());
+      Assertions.assertEquals(1, record.offset());
+      Assertions.assertEquals("bar".getBytes(UTF_8).length, record.serializedKeySize());
+      Assertions.assertEquals(4, record.serializedValueSize());
+      Assertions.assertEquals("bar", record.key());
+      Assertions.assertEquals(200, record.value());
     }
   }
 
@@ -122,15 +164,21 @@ public class RecordHandlerTest extends RequireBrokerCluster {
             Response.class,
             handler.post(
                 PostRequest.of(
-                    Map.of(
-                        KEY_SERIALIZER, "string",
-                        VALUE_SERIALIZER, "integer",
-                        TOPIC, topic,
-                        KEY, "foo",
-                        VALUE, "100",
-                        TIMESTAMP, "" + currentTimestamp,
-                        ASYNC, "true",
-                        PARTITION, "0"))));
+                    new Gson()
+                        .toJson(
+                            Map.of(
+                                ASYNC,
+                                "true",
+                                RECORDS,
+                                List.of(
+                                    new RecordHandler.PostRecord(
+                                        topic,
+                                        0,
+                                        "string",
+                                        "integer",
+                                        "foo",
+                                        "100",
+                                        currentTimestamp)))))));
     Assertions.assertEquals(Response.ACCEPT, result);
 
     handler.producer.flush();
@@ -157,9 +205,16 @@ public class RecordHandlerTest extends RequireBrokerCluster {
     var topic = Utils.randomString(10);
     var handler = new RecordHandler(bootstrapServers());
     Assertions.assertInstanceOf(
-        Metadata.class,
+        RecordHandler.PostResponse.class,
         handler.post(
-            PostRequest.of(Map.of(KEY_SERIALIZER, serializer, TOPIC, topic, KEY, actual))));
+            PostRequest.of(
+                new Gson()
+                    .toJson(
+                        Map.of(
+                            RECORDS,
+                            List.of(
+                                new RecordHandler.PostRecord(
+                                    topic, null, serializer, null, actual, null, null)))))));
 
     try (var consumer =
         Consumer.forTopics(Set.of(topic))
@@ -492,17 +547,22 @@ public class RecordHandlerTest extends RequireBrokerCluster {
     var handler = new RecordHandler(bootstrapServers());
     var currentTimestamp = System.currentTimeMillis();
     Assertions.assertInstanceOf(
-        Metadata.class,
+        RecordHandler.PostResponse.class,
         handler.post(
             PostRequest.of(
-                Map.of(
-                    KEY_SERIALIZER, "string",
-                    VALUE_SERIALIZER, "integer",
-                    TOPIC, topic,
-                    KEY, "foo",
-                    VALUE, "100",
-                    TIMESTAMP, "" + currentTimestamp,
-                    PARTITION, "0"))));
+                new Gson()
+                    .toJson(
+                        Map.of(
+                            RECORDS,
+                            List.of(
+                                new RecordHandler.PostRecord(
+                                    topic,
+                                    0,
+                                    "string",
+                                    "integer",
+                                    "foo",
+                                    "100",
+                                    currentTimestamp)))))));
 
     var records =
         Assertions.assertInstanceOf(
