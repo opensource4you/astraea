@@ -27,6 +27,7 @@ import java.util.stream.Collectors;
 import org.astraea.app.admin.ClusterInfo;
 import org.astraea.app.admin.NodeInfo;
 import org.astraea.app.admin.ReplicaInfo;
+import org.astraea.app.argument.DurationField;
 import org.astraea.app.common.Utils;
 import org.astraea.app.cost.CostFunction;
 import org.astraea.app.cost.HasBrokerCost;
@@ -52,10 +53,12 @@ import org.astraea.app.metrics.collector.Receiver;
  */
 public class StrictCostDispatcher implements Dispatcher {
   public static final String JMX_PORT = "jmx.port";
-  private static final Duration ROUND_ROBIN_LEASE = Duration.ofSeconds(30);
+  public static final String ROUND_ROBIN_LEASE_KEY = "round.robin.lease";
 
   private final BeanCollector beanCollector =
       BeanCollector.builder().interval(Duration.ofSeconds(4)).build();
+
+  Duration roundRobinLease;
 
   // The cost-functions we consider and the weight of them. It is visible for test
   Map<CostFunction, Double> functions = Map.of();
@@ -104,15 +107,8 @@ public class StrictCostDispatcher implements Dispatcher {
                                         fetcher))))
             .orElse(Map.of()));
 
-    // get latest beans for each node
-    var beans =
-        receivers.entrySet().stream()
-            .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().current()));
+    tryToUpdateRoundRobin(clusterInfo);
 
-    if (roundRobin == null || System.currentTimeMillis() >= timeToUpdateRoundRobin) {
-      roundRobin = newRoundRobin(functions, ClusterInfo.of(clusterInfo, beans));
-      timeToUpdateRoundRobin = System.currentTimeMillis() + ROUND_ROBIN_LEASE.toMillis();
-    }
     return roundRobin
         .next(partitionLeaders.stream().map(r -> r.nodeInfo().id()).collect(Collectors.toSet()))
         .flatMap(
@@ -123,6 +119,19 @@ public class StrictCostDispatcher implements Dispatcher {
                     .map(ReplicaInfo::partition)
                     .findAny())
         .orElse(0);
+  }
+
+  void tryToUpdateRoundRobin(ClusterInfo clusterInfo) {
+    if (roundRobin == null || System.currentTimeMillis() >= timeToUpdateRoundRobin) {
+      roundRobin =
+          newRoundRobin(
+              functions,
+              ClusterInfo.of(
+                  clusterInfo,
+                  receivers.entrySet().stream()
+                      .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().current()))));
+      timeToUpdateRoundRobin = System.currentTimeMillis() + roundRobinLease.toMillis();
+    }
   }
 
   /**
@@ -175,7 +184,13 @@ public class StrictCostDispatcher implements Dispatcher {
     configure(
         configuredFunctions.isEmpty() ? Map.of(new NodeLatencyCost(), 1D) : configuredFunctions,
         config.integer(JMX_PORT),
-        PartitionerUtils.parseIdJMXPort(config));
+        PartitionerUtils.parseIdJMXPort(config),
+        config
+            .string(ROUND_ROBIN_LEASE_KEY)
+            .map(DurationField::toDuration)
+            // The duration of updating beans is 4 seconds, so
+            // the default duration of updating RR is 4 seconds.
+            .orElse(Duration.ofSeconds(4)));
   }
 
   /**
@@ -188,7 +203,8 @@ public class StrictCostDispatcher implements Dispatcher {
   void configure(
       Map<CostFunction, Double> functions,
       Optional<Integer> jmxPortDefault,
-      Map<Integer, Integer> customJmxPort) {
+      Map<Integer, Integer> customJmxPort,
+      Duration roundRobinLease) {
     this.functions = functions;
     this.fetcher = Fetcher.of(this.functions.keySet());
     this.jmxPortGetter = id -> Optional.ofNullable(customJmxPort.get(id)).or(() -> jmxPortDefault);
@@ -196,6 +212,7 @@ public class StrictCostDispatcher implements Dispatcher {
     // put local mbean client first
     this.fetcher.ifPresent(
         f -> receivers.put(-1, beanCollector.register().local().fetcher(f).build()));
+    this.roundRobinLease = roundRobinLease;
   }
 
   /**

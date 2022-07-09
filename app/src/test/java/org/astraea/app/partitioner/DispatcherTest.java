@@ -16,9 +16,12 @@
  */
 package org.astraea.app.partitioner;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
+import org.apache.kafka.common.Cluster;
 import org.astraea.app.admin.ClusterInfo;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -44,10 +47,27 @@ public class DispatcherTest {
           }
         };
     Assertions.assertEquals(0, count.get());
-    // it should not throw NPE
-    dispatcher.partition("t", null, null, null, null, null);
+    dispatcher.partition(
+        "t", null, null, null, null, new Cluster("aa", List.of(), List.of(), Set.of(), Set.of()));
     Assertions.assertEquals(1, count.get());
     dispatcher.configure(Map.of("a", "b"));
     Assertions.assertEquals(2, count.get());
+  }
+
+  @Test
+  void testClusterCache() {
+    var dispatcher =
+        new Dispatcher() {
+          @Override
+          public int partition(String topic, byte[] key, byte[] value, ClusterInfo clusterInfo) {
+            return 0;
+          }
+        };
+    var initialCount = Dispatcher.CLUSTER_CACHE.size();
+    var cluster = new Cluster("aa", List.of(), List.of(), Set.of(), Set.of());
+    dispatcher.partition("topic", "a", new byte[0], "v", new byte[0], cluster);
+    Assertions.assertEquals(initialCount + 1, Dispatcher.CLUSTER_CACHE.size());
+    dispatcher.partition("topic", "a", new byte[0], "v", new byte[0], cluster);
+    Assertions.assertEquals(initialCount + 1, Dispatcher.CLUSTER_CACHE.size());
   }
 }
