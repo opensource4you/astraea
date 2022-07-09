@@ -18,10 +18,10 @@ package org.astraea.app.partitioner.smooth;
 
 import java.util.List;
 import java.util.Map;
-import org.astraea.app.cost.ClusterInfo;
+import org.astraea.app.admin.ClusterInfo;
+import org.astraea.app.admin.NodeInfo;
+import org.astraea.app.admin.ReplicaInfo;
 import org.astraea.app.cost.FakeClusterInfo;
-import org.astraea.app.cost.NodeInfo;
-import org.astraea.app.cost.ReplicaInfo;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;

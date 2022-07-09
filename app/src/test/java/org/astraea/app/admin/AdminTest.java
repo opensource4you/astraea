@@ -41,7 +41,6 @@ import org.astraea.app.concurrent.State;
 import org.astraea.app.concurrent.ThreadPool;
 import org.astraea.app.consumer.Consumer;
 import org.astraea.app.consumer.Deserializer;
-import org.astraea.app.cost.NodeInfo;
 import org.astraea.app.producer.Producer;
 import org.astraea.app.producer.Serializer;
 import org.astraea.app.service.RequireBrokerCluster;

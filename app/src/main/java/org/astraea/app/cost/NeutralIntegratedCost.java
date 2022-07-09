@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import org.astraea.app.admin.ClusterInfo;
 import org.astraea.app.metrics.collector.Fetcher;
 
 /**

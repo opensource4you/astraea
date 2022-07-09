@@ -16,6 +16,8 @@
  */
 package org.astraea.app.cost;
 
+import org.astraea.app.admin.ClusterInfo;
+
 public interface HasPartitionCost extends CostFunction {
   /**
    * score all nodes according to passed beans and cluster information.

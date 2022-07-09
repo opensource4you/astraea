@@ -16,6 +16,8 @@
  */
 package org.astraea.app.cost;
 
+import org.astraea.app.admin.ClusterInfo;
+
 public interface HasBrokerCost extends CostFunction {
   /**
    * score all nodes for a particular metrics according to passed beans and cluster information.

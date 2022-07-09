@@ -22,8 +22,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
-import org.astraea.app.cost.ClusterInfo;
-import org.astraea.app.cost.NodeInfo;
 
 public interface Admin extends Closeable {
 

@@ -20,6 +20,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import org.astraea.app.admin.ClusterBean;
+import org.astraea.app.admin.ClusterInfo;
 import org.astraea.app.metrics.HasBeanObject;
 import org.astraea.app.metrics.KafkaMetrics;
 import org.astraea.app.metrics.broker.BrokerTopicMetricsResult;

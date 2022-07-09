@@ -19,6 +19,7 @@ package org.astraea.app.cost;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import org.astraea.app.admin.ClusterInfo;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;

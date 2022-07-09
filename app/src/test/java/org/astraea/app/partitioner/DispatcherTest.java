@@ -19,7 +19,7 @@ package org.astraea.app.partitioner;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicInteger;
-import org.astraea.app.cost.ClusterInfo;
+import org.astraea.app.admin.ClusterInfo;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
