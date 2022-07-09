@@ -22,10 +22,10 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Predicate;
 import org.astraea.app.admin.Admin;
+import org.astraea.app.admin.ClusterInfo;
 import org.astraea.app.admin.TopicPartition;
 import org.astraea.app.admin.TopicPartitionReplica;
 import org.astraea.app.balancer.log.LogPlacement;
-import org.astraea.app.cost.ClusterInfo;
 
 /**
  * The wrapper of {@link Admin}. Offer only the essential functionalities & some utilities to

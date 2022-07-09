@@ -26,12 +26,12 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import org.astraea.app.admin.Admin;
+import org.astraea.app.admin.ClusterInfo;
 import org.astraea.app.admin.Replica;
 import org.astraea.app.admin.TopicPartition;
 import org.astraea.app.admin.TopicPartitionReplica;
 import org.astraea.app.balancer.log.LogPlacement;
 import org.astraea.app.common.Utils;
-import org.astraea.app.cost.ClusterInfo;
 
 class RebalanceAdminImpl implements RebalanceAdmin {
 

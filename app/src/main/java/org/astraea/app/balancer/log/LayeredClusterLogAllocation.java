@@ -26,9 +26,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
+import org.astraea.app.admin.ClusterInfo;
+import org.astraea.app.admin.ReplicaInfo;
 import org.astraea.app.admin.TopicPartition;
-import org.astraea.app.cost.ClusterInfo;
-import org.astraea.app.cost.ReplicaInfo;
 
 public class LayeredClusterLogAllocation implements ClusterLogAllocation {
 

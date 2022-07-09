@@ -21,6 +21,8 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import org.apache.kafka.common.Cluster;
 import org.astraea.app.admin.ClusterBean;
+import org.astraea.app.admin.ClusterInfo;
+import org.astraea.app.admin.NodeInfo;
 import org.astraea.app.metrics.HasBeanObject;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;

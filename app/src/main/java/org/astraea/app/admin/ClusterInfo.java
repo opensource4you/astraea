@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.app.cost;
+package org.astraea.app.admin;
 
 import java.util.Collection;
 import java.util.List;
@@ -23,7 +23,6 @@ import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import org.astraea.app.admin.ClusterBean;
 import org.astraea.app.metrics.HasBeanObject;
 
 public interface ClusterInfo {
