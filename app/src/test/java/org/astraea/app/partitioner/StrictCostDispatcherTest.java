@@ -209,26 +209,27 @@ public class StrictCostDispatcherTest {
     Mockito.when(clusterInfo.availableReplicaLeaders(Mockito.anyString()))
         .thenReturn(List.of(replicaInfo0, replicaInfo1, replicaInfo2));
     Mockito.when(clusterInfo.clusterBean()).thenReturn(ClusterBean.of(Map.of()));
-    // there is no receivers by default
-    Assertions.assertEquals(0, dispatcher.receivers.size());
+    // there is one local receiver by default
+    Assertions.assertEquals(1, dispatcher.receivers.size());
+    Assertions.assertEquals(-1, dispatcher.receivers.keySet().iterator().next());
 
     // generate two receivers since there are two brokers (hosting three replicas)
     dispatcher.partition("topic", new byte[0], new byte[0], clusterInfo);
-    Assertions.assertEquals(2, dispatcher.receivers.size());
+    Assertions.assertEquals(3, dispatcher.receivers.size());
     Assertions.assertEquals(2, count.get());
 
     // all brokers have receivers already so no new receiver is born
     dispatcher.partition("topic", new byte[0], new byte[0], clusterInfo);
-    Assertions.assertEquals(2, dispatcher.receivers.size());
+    Assertions.assertEquals(3, dispatcher.receivers.size());
     Assertions.assertEquals(2, count.get());
   }
 
   @Test
   void testEmptyJmxPort() {
     var dispatcher = new StrictCostDispatcher();
-    Assertions.assertThrows(
-        IllegalArgumentException.class,
-        () -> dispatcher.configure(Map.of(new ThroughputCost(), 1D), Optional.empty(), Map.of()));
+
+    // pass due to local mbean
+    dispatcher.configure(Map.of(new ThroughputCost(), 1D), Optional.empty(), Map.of());
 
     // pass due to default port
     dispatcher.configure(Map.of(new ThroughputCost(), 1D), Optional.of(111), Map.of());
@@ -268,7 +269,15 @@ public class StrictCostDispatcherTest {
   @Test
   void testDefaultFunction() {
     var dispatcher = new StrictCostDispatcher();
-    dispatcher.configure(Map.of(), Optional.empty(), Map.of());
+    dispatcher.configure(Configuration.of(Map.of()));
     Assertions.assertEquals(1, dispatcher.functions.size());
+    Assertions.assertEquals(1, dispatcher.receivers.size());
+  }
+
+  @Test
+  void testCostToScore() {
+    var cost = Map.of(1, 100D, 2, 10D);
+    var score = StrictCostDispatcher.costToScore(cost);
+    Assertions.assertTrue(score.get(2) > score.get(1));
   }
 }
