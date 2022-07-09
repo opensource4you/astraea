@@ -61,8 +61,7 @@ public class DurationField extends Field<Duration> {
   static final Pattern TIME_PATTERN =
       Pattern.compile("^(?<value>[0-9]+)(?<unit>days|day|h|m|s|ms|us|ns|)$");
 
-  @Override
-  public Duration convert(String input) {
+  public static Duration toDuration(String input) {
     Matcher matcher = TIME_PATTERN.matcher(input);
     if (matcher.find()) {
       long value = Long.parseLong(matcher.group("value"));
@@ -88,6 +87,11 @@ public class DurationField extends Field<Duration> {
     } else {
       throw new IllegalArgumentException("value \"" + input + "\" doesn't match any time format");
     }
+  }
+
+  @Override
+  public Duration convert(String input) {
+    return toDuration(input);
   }
 
   @Override
