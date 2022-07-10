@@ -83,6 +83,27 @@ public class RecordHandlerTest extends RequireBrokerCluster {
         "topic must be set");
   }
 
+  @Test
+  void testPostTimeout() {
+    Assertions.assertThrows(
+        IllegalArgumentException.class,
+        () -> new RecordHandler(bootstrapServers()).post(PostRequest.of(Map.of(TIMEOUT, "foo"))));
+    Assertions.assertInstanceOf(
+        RecordHandler.PostResponse.class,
+        new RecordHandler(bootstrapServers())
+            .post(
+                PostRequest.of(
+                    new Gson()
+                        .toJson(
+                            Map.of(
+                                TIMEOUT,
+                                "10s",
+                                RECORDS,
+                                List.of(
+                                    new RecordHandler.PostRecord(
+                                        "test", null, null, null, null, null, null)))))));
+  }
+
   @ParameterizedTest
   @ValueSource(booleans = {true, false})
   void testPost(boolean isTransaction) {
