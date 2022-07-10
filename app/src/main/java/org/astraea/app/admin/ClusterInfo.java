@@ -27,11 +27,35 @@ import org.astraea.app.metrics.HasBeanObject;
 
 public interface ClusterInfo {
 
+  /**
+   * convert the kafka Cluster to our ClusterInfo. All data structure are converted immediately, so
+   * you should cache the result if the performance is critical
+   *
+   * @param cluster kafka ClusterInfo
+   * @return astraea ClusterInfo
+   */
   static ClusterInfo of(org.apache.kafka.common.Cluster cluster) {
+    var nodes = cluster.nodes().stream().map(NodeInfo::of).collect(Collectors.toUnmodifiableList());
+    var topics = cluster.topics();
+    var replicas =
+        topics.stream()
+            .flatMap(t -> cluster.availablePartitionsForTopic(t).stream())
+            .flatMap(p -> ReplicaInfo.of(p).stream())
+            .collect(Collectors.toUnmodifiableList());
+    var availableReplicas = replicas.stream().collect(Collectors.groupingBy(ReplicaInfo::topic));
+    var availableReplicaLeaders =
+        availableReplicas.entrySet().stream()
+            .collect(
+                Collectors.toMap(
+                    Map.Entry::getKey,
+                    e ->
+                        e.getValue().stream()
+                            .filter(ReplicaInfo::isLeader)
+                            .collect(Collectors.toUnmodifiableList())));
     return new ClusterInfo() {
       @Override
       public List<NodeInfo> nodes() {
-        return cluster.nodes().stream().map(NodeInfo::of).collect(Collectors.toUnmodifiableList());
+        return nodes;
       }
 
       @Override
@@ -41,48 +65,22 @@ public interface ClusterInfo {
       }
 
       public Set<String> topics() {
-        return cluster.topics();
+        return topics;
       }
 
       @Override
       public List<ReplicaInfo> availableReplicaLeaders(String topic) {
-        var info =
-            cluster.availablePartitionsForTopic(topic).stream()
-                .map(ReplicaInfo::of)
-                .map(
-                    replicas ->
-                        replicas.stream().filter(ReplicaInfo::isLeader).findFirst().orElseThrow())
-                .collect(Collectors.toUnmodifiableList());
-        if (info.isEmpty())
-          throw new NoSuchElementException(
-              "This ClusterInfo have no information about topic \"" + topic + "\"");
-        return info;
+        return availableReplicaLeaders.getOrDefault(topic, List.of());
       }
 
       @Override
       public List<ReplicaInfo> availableReplicas(String topic) {
-        var info =
-            cluster.availablePartitionsForTopic(topic).stream()
-                .map(ReplicaInfo::of)
-                .flatMap(Collection::stream)
-                .collect(Collectors.toUnmodifiableList());
-        if (info.isEmpty())
-          throw new NoSuchElementException(
-              "This ClusterInfo have no information about topic \"" + topic + "\"");
-        return info;
+        return availableReplicas.getOrDefault(topic, List.of());
       }
 
       @Override
       public List<ReplicaInfo> replicas(String topic) {
-        var info =
-            cluster.partitionsForTopic(topic).stream()
-                .map(ReplicaInfo::of)
-                .flatMap(Collection::stream)
-                .collect(Collectors.toUnmodifiableList());
-        if (info.isEmpty())
-          throw new NoSuchElementException(
-              "This ClusterInfo have no information about topic \"" + topic + "\"");
-        return info;
+        return replicas;
       }
 
       @Override
