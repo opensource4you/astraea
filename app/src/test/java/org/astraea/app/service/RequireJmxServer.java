@@ -27,6 +27,7 @@ import javax.management.remote.JMXConnectorServer;
 import javax.management.remote.JMXConnectorServerFactory;
 import javax.management.remote.JMXServiceURL;
 import org.astraea.app.common.Utils;
+import org.junit.jupiter.api.AfterAll;
 
 public abstract class RequireJmxServer {
 
@@ -36,7 +37,7 @@ public abstract class RequireJmxServer {
     return JMX_CONNECTOR_SERVER.getAddress();
   }
 
-  // @AfterAll
+  @AfterAll
   static void shutdownJmxServer() {
     Utils.packException(JMX_CONNECTOR_SERVER::stop);
   }
