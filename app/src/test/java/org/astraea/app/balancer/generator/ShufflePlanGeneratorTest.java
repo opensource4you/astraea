@@ -20,7 +20,7 @@ import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.LongAdder;
 import java.util.stream.Collectors;
-import org.astraea.app.balancer.log.LayeredClusterLogAllocation;
+import org.astraea.app.balancer.log.ClusterLogAllocation;
 import org.astraea.app.cost.ClusterInfoProvider;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Disabled;
@@ -47,7 +47,7 @@ class ShufflePlanGeneratorTest {
   @ValueSource(ints = {3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 301})
   void testMovement(int shuffle) {
     final var fakeClusterInfo = ClusterInfoProvider.fakeClusterInfo(30, 30, 20, 5);
-    final var allocation = LayeredClusterLogAllocation.of(fakeClusterInfo);
+    final var allocation = ClusterLogAllocation.of(fakeClusterInfo);
     final var shufflePlanGenerator = new ShufflePlanGenerator(() -> shuffle);
 
     shufflePlanGenerator
@@ -56,10 +56,8 @@ class ShufflePlanGeneratorTest {
         .forEach(
             proposal -> {
               final var that = proposal.rebalancePlan().orElseThrow();
-              final var thisTps =
-                  allocation.topicPartitionStream().collect(Collectors.toUnmodifiableSet());
-              final var thatTps =
-                  that.topicPartitionStream().collect(Collectors.toUnmodifiableSet());
+              final var thisTps = allocation.topicPartitions();
+              final var thatTps = that.topicPartitions();
               final var thisMap =
                   thisTps.stream()
                       .collect(Collectors.toUnmodifiableMap(x -> x, allocation::logPlacements));
