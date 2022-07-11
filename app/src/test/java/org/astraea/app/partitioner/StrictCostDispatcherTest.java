@@ -30,8 +30,8 @@ import org.astraea.app.cost.BrokerCost;
 import org.astraea.app.cost.BrokerInputCost;
 import org.astraea.app.cost.CostFunction;
 import org.astraea.app.cost.HasBrokerCost;
+import org.astraea.app.cost.NodeThroughputCost;
 import org.astraea.app.cost.ReplicaLeaderCost;
-import org.astraea.app.cost.ThroughputCost;
 import org.astraea.app.metrics.collector.Fetcher;
 import org.astraea.app.metrics.collector.Receiver;
 import org.junit.jupiter.api.Assertions;
@@ -232,15 +232,15 @@ public class StrictCostDispatcherTest {
 
     // pass due to local mbean
     dispatcher.configure(
-        Map.of(new ThroughputCost(), 1D), Optional.empty(), Map.of(), Duration.ofSeconds(10));
+        Map.of(new NodeThroughputCost(), 1D), Optional.empty(), Map.of(), Duration.ofSeconds(10));
 
     // pass due to default port
     dispatcher.configure(
-        Map.of(new ThroughputCost(), 1D), Optional.of(111), Map.of(), Duration.ofSeconds(10));
+        Map.of(new NodeThroughputCost(), 1D), Optional.of(111), Map.of(), Duration.ofSeconds(10));
 
     // pass due to specify port
     dispatcher.configure(
-        Map.of(new ThroughputCost(), 1D),
+        Map.of(new NodeThroughputCost(), 1D),
         Optional.empty(),
         Map.of(222, 111),
         Duration.ofSeconds(10));
