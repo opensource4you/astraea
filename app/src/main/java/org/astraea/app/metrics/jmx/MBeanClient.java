@@ -54,7 +54,11 @@ public interface MBeanClient extends AutoCloseable {
   }
 
   static MBeanClient of(JMXServiceURL url) {
-    return new MBeanClientImpl(url);
+    return MBeanClientImpl.remote(url);
+  }
+
+  static MBeanClient local() {
+    return MBeanClientImpl.local();
   }
 
   /**

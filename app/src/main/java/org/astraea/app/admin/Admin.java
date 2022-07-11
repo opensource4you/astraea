@@ -22,8 +22,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
-import org.astraea.app.cost.ClusterInfo;
-import org.astraea.app.cost.NodeInfo;
 
 public interface Admin extends Closeable {
 
@@ -231,6 +229,23 @@ public interface Admin extends Closeable {
    * @param members group instance id (static member)
    */
   void removeStaticMembers(String groupId, Set<String> members);
+
+  /**
+   * Get the reassignments of all topics.
+   *
+   * @return reassignment
+   */
+  default Map<TopicPartition, Reassignment> reassignments() {
+    return reassignments(topicNames());
+  }
+
+  /**
+   * Get the reassignments of topics. It returns nothing if the partitions are not migrating.
+   *
+   * @param topics to search
+   * @return reassignment
+   */
+  Map<TopicPartition, Reassignment> reassignments(Set<String> topics);
 
   @Override
   void close();

@@ -19,10 +19,12 @@ package org.astraea.app.cost;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import org.astraea.app.admin.ClusterBean;
+import org.astraea.app.admin.ClusterInfo;
 import org.astraea.app.metrics.HasBeanObject;
+import org.astraea.app.metrics.KafkaMetrics;
+import org.astraea.app.metrics.broker.BrokerTopicMetricsResult;
 import org.astraea.app.metrics.jmx.BeanObject;
-import org.astraea.app.metrics.kafka.BrokerTopicMetricsResult;
-import org.astraea.app.metrics.kafka.KafkaMetrics;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
@@ -31,7 +33,7 @@ public class LoadCostTest {
   @Test
   void testComputeLoad() {
     var loadCostFunction = new LoadCost();
-    var allBeans = exampleClusterInfo().allBeans();
+    var allBeans = exampleClusterInfo().clusterBean().all();
     var load = loadCostFunction.computeLoad(allBeans);
 
     Assertions.assertEquals(2, load.get(1));
@@ -59,8 +61,8 @@ public class LoadCostTest {
     Collection<HasBeanObject> broker3 = List.of(BytesInPerSec3, BytesOutPerSec3);
     return new FakeClusterInfo() {
       @Override
-      public Map<Integer, Collection<HasBeanObject>> allBeans() {
-        return Map.of(1, broker1, 2, broker2, 3, broker3);
+      public ClusterBean clusterBean() {
+        return ClusterBean.of(Map.of(1, broker1, 2, broker2, 3, broker3));
       }
     };
   }
@@ -69,7 +71,7 @@ public class LoadCostTest {
     var result = Mockito.mock(BrokerTopicMetricsResult.class);
     var bean = Mockito.mock(BeanObject.class);
     Mockito.when(result.beanObject()).thenReturn(bean);
-    Mockito.when(bean.getProperties()).thenReturn(Map.of("name", name));
+    Mockito.when(bean.properties()).thenReturn(Map.of("name", name));
     Mockito.when(result.count()).thenReturn(count);
     return result;
   }

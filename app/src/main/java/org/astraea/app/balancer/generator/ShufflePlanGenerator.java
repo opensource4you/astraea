@@ -24,13 +24,13 @@ import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import org.astraea.app.admin.ClusterInfo;
+import org.astraea.app.admin.NodeInfo;
 import org.astraea.app.admin.TopicPartition;
 import org.astraea.app.balancer.RebalancePlanProposal;
 import org.astraea.app.balancer.log.ClusterLogAllocation;
 import org.astraea.app.balancer.log.LayeredClusterLogAllocation;
 import org.astraea.app.balancer.log.LogPlacement;
-import org.astraea.app.cost.ClusterInfo;
-import org.astraea.app.cost.NodeInfo;
 import org.astraea.app.partitioner.Configuration;
 
 /**
@@ -51,16 +51,16 @@ import org.astraea.app.partitioner.Configuration;
  */
 public class ShufflePlanGenerator implements RebalancePlanGenerator {
 
-  private final Supplier<Integer> numberOfShuffle;
-
   public ShufflePlanGenerator(Configuration configuration) {
-    this(
-        () ->
-            configuration
-                .string("shuffle.plan.generator.shuffle.count")
-                .map(Integer::parseInt)
-                .orElse(3));
+    int cnt =
+        configuration
+            .string("shuffle.plan.generator.shuffle.count")
+            .map(Integer::parseInt)
+            .orElse(3);
+    this.numberOfShuffle = () -> cnt;
   }
+
+  private final Supplier<Integer> numberOfShuffle;
 
   public ShufflePlanGenerator(int origin, int bound) {
     this(() -> ThreadLocalRandom.current().nextInt(origin, bound));

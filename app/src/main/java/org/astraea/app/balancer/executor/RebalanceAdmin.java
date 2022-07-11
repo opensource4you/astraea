@@ -18,17 +18,14 @@ package org.astraea.app.balancer.executor;
 
 import java.time.Duration;
 import java.time.temporal.ChronoUnit;
-import java.util.Collection;
 import java.util.List;
-import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Predicate;
-import java.util.function.Supplier;
-import org.apache.kafka.common.TopicPartitionReplica;
 import org.astraea.app.admin.Admin;
+import org.astraea.app.admin.ClusterInfo;
 import org.astraea.app.admin.TopicPartition;
+import org.astraea.app.admin.TopicPartitionReplica;
 import org.astraea.app.balancer.log.LogPlacement;
-import org.astraea.app.cost.ClusterInfo;
-import org.astraea.app.metrics.HasBeanObject;
 
 /**
  * The wrapper of {@link Admin}. Offer only the essential functionalities & some utilities to
@@ -36,11 +33,14 @@ import org.astraea.app.metrics.HasBeanObject;
  */
 public interface RebalanceAdmin {
 
-  static RebalanceAdmin of(
-      Admin admin,
-      Supplier<Map<Integer, Collection<HasBeanObject>>> metricSource,
-      Predicate<String> topicFilter) {
-    return new RebalanceAdminImpl(topicFilter, admin, metricSource);
+  /**
+   * Construct an implementation of {@link RebalanceAdmin}
+   *
+   * @param topicFilter to determine which topics are permitted for balance operation
+   * @param admin the actual {@link Admin} implementation
+   */
+  static RebalanceAdmin of(Admin admin, Predicate<String> topicFilter) {
+    return new RebalanceAdminImpl(topicFilter, admin);
   }
 
   /**
@@ -56,47 +56,26 @@ public interface RebalanceAdmin {
   List<ReplicaMigrationTask> alterReplicaPlacements(
       TopicPartition topicPartition, List<LogPlacement> expectedPlacement);
 
-  /** Access the syncing progress of the specific topic/partitions */
-  SyncingProgress syncingProgress(TopicPartitionReplica topicPartitionReplica);
+  /** @return a {@link CompletableFuture} that indicate the specific log has become synced. */
+  CompletableFuture<Boolean> waitLogSynced(TopicPartitionReplica log, Duration timeout);
 
-  /**
-   * Wait until the given log is synced or the timeout is due.
-   *
-   * @param log target to wait
-   * @param timeout the max time to wait
-   * @return true if the target is synced
-   */
-  boolean waitLogSynced(TopicPartitionReplica log, Duration timeout) throws InterruptedException;
-
-  /**
-   * Wait until the given log is synced.
-   *
-   * @param log target to wait
-   * @return true if the target is synced
-   */
-  default boolean waitLogSynced(TopicPartitionReplica log) throws InterruptedException {
+  /** @return a {@link CompletableFuture} that indicate the specific log has become synced. */
+  default CompletableFuture<Boolean> waitLogSynced(TopicPartitionReplica log) {
     return waitLogSynced(log, ChronoUnit.FOREVER.getDuration());
   }
 
   /**
-   * Wait until the given topic/partition have its preferred leader be the actual leader, or the
-   * timeout due.
-   *
-   * @param topicPartition the topic/partition to wait
-   * @param timeout the max time to wait
-   * @return true if the preferred leader becomes the leader
+   * @return a {@link CompletableFuture} that indicate the specific topic/partition has its
+   *     preferred leader becomes the actual leader.
    */
-  boolean waitPreferredLeaderSynced(TopicPartition topicPartition, Duration timeout)
-      throws InterruptedException;
+  CompletableFuture<Boolean> waitPreferredLeaderSynced(
+      TopicPartition topicPartition, Duration timeout);
 
   /**
-   * Wait until the given topic/partition have its preferred leader be the actual leader.
-   *
-   * @param topicPartition the topic/partition to wait
-   * @return true if the preferred leader becomes the leader
+   * @return a {@link CompletableFuture} that indicate the specific topic/partition has its
+   *     preferred leader becomes the actual leader.
    */
-  default boolean waitPreferredLeaderSynced(TopicPartition topicPartition)
-      throws InterruptedException {
+  default CompletableFuture<Boolean> waitPreferredLeaderSynced(TopicPartition topicPartition) {
     return waitPreferredLeaderSynced(topicPartition, ChronoUnit.FOREVER.getDuration());
   }
 
@@ -110,7 +89,11 @@ public interface RebalanceAdmin {
 
   ClusterInfo clusterInfo();
 
-  ClusterInfo refreshMetrics(ClusterInfo oldClusterInfo);
+  /**
+   * @return a {@link Predicate<String>} indicate which topic name is allowed to operate by this
+   *     {@link RebalanceAdmin}.
+   */
+  Predicate<String> topicFilter();
 
   // TODO: add method to apply reassignment bandwidth throttle.
   // TODO: add method to fetch topic configuration

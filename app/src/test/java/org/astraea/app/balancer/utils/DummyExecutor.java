@@ -16,13 +16,11 @@
  */
 package org.astraea.app.balancer.utils;
 
-import org.astraea.app.balancer.executor.RebalanceExecutionContext;
-import org.astraea.app.balancer.executor.RebalanceExecutionResult;
+import org.astraea.app.balancer.executor.RebalanceAdmin;
 import org.astraea.app.balancer.executor.RebalancePlanExecutor;
+import org.astraea.app.balancer.log.ClusterLogAllocation;
 
 public class DummyExecutor implements RebalancePlanExecutor {
   @Override
-  public RebalanceExecutionResult run(RebalanceExecutionContext executionContext) {
-    return RebalanceExecutionResult.done();
-  }
+  public void run(RebalanceAdmin admin, ClusterLogAllocation allocation) {}
 }

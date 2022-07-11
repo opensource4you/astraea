@@ -20,17 +20,17 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.astraea.app.admin.Admin;
+import org.astraea.app.admin.ClusterInfo;
+import org.astraea.app.admin.NodeInfo;
 import org.astraea.app.admin.TopicPartition;
-import org.astraea.app.balancer.executor.RebalanceExecutionContext;
-import org.astraea.app.balancer.executor.RebalanceExecutionResult;
 import org.astraea.app.balancer.generator.RebalancePlanGenerator;
 import org.astraea.app.balancer.log.ClusterLogAllocation;
 import org.astraea.app.balancer.log.LayeredClusterLogAllocation;
@@ -40,9 +40,7 @@ import org.astraea.app.balancer.utils.DummyExecutor;
 import org.astraea.app.balancer.utils.DummyMetricSource;
 import org.astraea.app.common.Utils;
 import org.astraea.app.cost.BrokerCost;
-import org.astraea.app.cost.ClusterInfo;
 import org.astraea.app.cost.HasBrokerCost;
-import org.astraea.app.cost.NodeInfo;
 import org.astraea.app.metrics.HasBeanObject;
 import org.astraea.app.metrics.collector.Fetcher;
 import org.astraea.app.metrics.jmx.BeanObject;
@@ -66,8 +64,8 @@ class BalancerTest extends RequireBrokerCluster {
     public RandomCostFunction(Configuration configuration) {}
 
     @Override
-    public Fetcher fetcher() {
-      return Fetcher.of(List.of(ignore -> List.of(randomBean())));
+    public Optional<Fetcher> fetcher() {
+      return Optional.of(ignore -> List.of(randomBean()));
     }
 
     @Override
@@ -323,51 +321,6 @@ class BalancerTest extends RequireBrokerCluster {
     }
   }
 
-  static class SpiedExecutor extends DummyExecutor {
-    static AtomicReference<ClusterInfo> info1 = new AtomicReference<>();
-    static AtomicReference<ClusterInfo> info2 = new AtomicReference<>();
-
-    public SpiedExecutor(Configuration configuration) {}
-
-    @Override
-    public RebalanceExecutionResult run(RebalanceExecutionContext executionContext) {
-      ClusterInfo clusterInfo0 = executionContext.rebalanceAdmin().clusterInfo();
-      Utils.packException(() -> TimeUnit.MILLISECONDS.sleep(500));
-      ClusterInfo clusterInfo1 = executionContext.rebalanceAdmin().refreshMetrics(clusterInfo0);
-      Utils.packException(() -> TimeUnit.MILLISECONDS.sleep(500));
-      ClusterInfo clusterInfo2 = executionContext.rebalanceAdmin().refreshMetrics(clusterInfo0);
-
-      info1.set(clusterInfo1);
-      info2.set(clusterInfo2);
-
-      return super.run(executionContext);
-    }
-  }
-
-  @Test
-  void testMetricSourceUpdate() {
-    // arrange
-    var topic = "BalancerTest_testMetricSourceUpdate_" + Utils.randomString();
-    try (Admin admin = Admin.of(bootstrapServers())) {
-      admin.creator().topic(topic).numberOfPartitions(3).numberOfReplicas((short) 3).create();
-    }
-
-    var extraConfigs =
-        Map.of(
-            BalancerConfigs.BALANCER_METRIC_SOURCE_CLASS, RandomMetricSource.class.getName(),
-            BalancerConfigs.BALANCER_REBALANCE_PLAN_EXECUTOR, SpiedExecutor.class.getName());
-    withPredefinedScenario(
-        Set.of(topic),
-        extraConfigs,
-        (bConfig, balancer) -> {
-          // act
-          balancer.run();
-
-          // assert the metrics do update over time.
-          Assertions.assertNotEquals(SpiedExecutor.info2.get(), SpiedExecutor.info1.get());
-        });
-  }
-
   static class TestCostFunction0 implements HasBrokerCost {
 
     public TestCostFunction0(Configuration configuration) {}
@@ -378,13 +331,13 @@ class BalancerTest extends RequireBrokerCluster {
     static HasBeanObject bean0 = () -> new BeanObject("Bean0", Map.of(), Map.of());
 
     @Override
-    public Fetcher fetcher() {
-      return (ignore) -> List.of(bean0);
+    public Optional<Fetcher> fetcher() {
+      return Optional.of((ignore) -> List.of(bean0));
     }
 
     @Override
     public BrokerCost brokerCost(ClusterInfo clusterInfo) {
-      metrics.set(clusterInfo.allBeans());
+      metrics.set(clusterInfo.clusterBean().all());
       return () ->
           clusterInfo.nodes().stream()
               .collect(
@@ -403,13 +356,13 @@ class BalancerTest extends RequireBrokerCluster {
     static HasBeanObject bean1 = () -> new BeanObject("Bean1", Map.of(), Map.of());
 
     @Override
-    public Fetcher fetcher() {
-      return (ignore) -> List.of(bean1);
+    public Optional<Fetcher> fetcher() {
+      return Optional.of((ignore) -> List.of(bean1));
     }
 
     @Override
     public BrokerCost brokerCost(ClusterInfo clusterInfo) {
-      metrics.set(clusterInfo.allBeans());
+      metrics.set(clusterInfo.clusterBean().all());
       return () ->
           clusterInfo.nodes().stream()
               .collect(

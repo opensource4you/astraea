@@ -64,30 +64,30 @@ public interface ClusterLogAllocation {
   /** Retrieve the stream of all topic/partition pairs in allocation. */
   Stream<TopicPartition> topicPartitionStream();
 
+  /**
+   * Find a subset of topic/partitions in the source allocation, that has any non-fulfilled log
+   * placement in the given target allocation. Note that the given two allocations must have the
+   * exactly same topic/partitions set. Otherwise, an {@link IllegalArgumentException} will be
+   * raised.
+   */
   static Set<TopicPartition> findNonFulfilledAllocation(
       ClusterLogAllocation source, ClusterLogAllocation target) {
 
+    final var sourceTopicPartition =
+        source.topicPartitionStream().collect(Collectors.toUnmodifiableSet());
     final var targetTopicPartition =
         target.topicPartitionStream().collect(Collectors.toUnmodifiableSet());
 
-    final var disappearedTopicPartitions =
-        source
-            .topicPartitionStream()
-            .filter(sourceTp -> !targetTopicPartition.contains(sourceTp))
-            .collect(Collectors.toUnmodifiableSet());
-
-    if (!disappearedTopicPartitions.isEmpty())
+    if (!sourceTopicPartition.equals(targetTopicPartition))
       throw new IllegalArgumentException(
-          "Some of the topic/partitions in source allocation is disappeared in the target allocation. Balancer can't do topic deletion or shrinking partition size: "
-              + disappearedTopicPartitions);
+          "source allocation and target allocation has different topic/partition set");
 
-    return source
-        .topicPartitionStream()
+    return sourceTopicPartition.stream()
         .filter(tp -> !LogPlacement.isMatch(source.logPlacements(tp), target.logPlacements(tp)))
         .collect(Collectors.toUnmodifiableSet());
   }
 
-  static String describeAllocation(ClusterLogAllocation allocation) {
+  static String toString(ClusterLogAllocation allocation) {
     StringBuilder stringBuilder = new StringBuilder();
 
     allocation

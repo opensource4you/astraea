@@ -18,7 +18,9 @@ package org.astraea.app.balancer.executor;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 import org.astraea.app.admin.TopicPartition;
 import org.astraea.app.balancer.log.ClusterLogAllocation;
 import org.astraea.app.balancer.log.LayeredClusterLogAllocation;
@@ -29,44 +31,31 @@ public class StraightPlanExecutor implements RebalancePlanExecutor {
   public StraightPlanExecutor() {}
 
   @Override
-  public RebalanceExecutionResult run(RebalanceExecutionContext context) {
-    try {
-      final var clusterInfo = context.rebalanceAdmin().clusterInfo();
-      final var currentLogAllocation = LayeredClusterLogAllocation.of(clusterInfo);
-      final var migrationTargets =
-          ClusterLogAllocation.findNonFulfilledAllocation(
-              context.expectedAllocation(), currentLogAllocation);
+  public void run(RebalanceAdmin rebalanceAdmin, ClusterLogAllocation logAllocation) {
+    final var clusterInfo = rebalanceAdmin.clusterInfo();
+    final var currentLogAllocation = LayeredClusterLogAllocation.of(clusterInfo);
+    final var migrationTargets =
+        ClusterLogAllocation.findNonFulfilledAllocation(currentLogAllocation, logAllocation);
 
-      var executeReplicaMigration =
-          (Function<TopicPartition, List<ReplicaMigrationTask>>)
-              (topicPartition) ->
-                  context
-                      .rebalanceAdmin()
-                      .alterReplicaPlacements(
-                          topicPartition,
-                          context.expectedAllocation().logPlacements(topicPartition));
+    var executeReplicaMigration =
+        (Function<TopicPartition, List<ReplicaMigrationTask>>)
+            (topicPartition) ->
+                rebalanceAdmin.alterReplicaPlacements(
+                    topicPartition, logAllocation.logPlacements(topicPartition));
 
-      // do log migration
-      migrationTargets.stream()
-          .map(executeReplicaMigration)
-          .flatMap(Collection::stream)
-          .forEach(
-              task -> {
-                if (!task.await()) throw new IllegalStateException("Log should be synced");
-              });
+    // do log migration
+    migrationTargets.stream()
+        .map(executeReplicaMigration)
+        .flatMap(Collection::stream)
+        .map(ReplicaMigrationTask::completableFuture)
+        .collect(Collectors.toUnmodifiableSet())
+        .forEach(CompletableFuture::join);
 
-      // do leader election
-      migrationTargets.stream()
-          .map(tp -> context.rebalanceAdmin().leaderElection(tp))
-          .forEach(
-              task -> {
-                if (!task.await())
-                  throw new IllegalStateException("Preferred leader should be the leader");
-              });
-
-      return RebalanceExecutionResult.done();
-    } catch (Exception e) {
-      return RebalanceExecutionResult.failed(e);
-    }
+    // do leader election
+    migrationTargets.stream()
+        .map(rebalanceAdmin::leaderElection)
+        .map(LeaderElectionTask::completableFuture)
+        .collect(Collectors.toUnmodifiableSet())
+        .forEach(CompletableFuture::join);
   }
 }

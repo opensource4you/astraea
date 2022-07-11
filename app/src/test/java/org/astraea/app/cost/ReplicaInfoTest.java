@@ -22,6 +22,8 @@ import java.util.Set;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.kafka.common.Node;
+import org.astraea.app.admin.NodeInfo;
+import org.astraea.app.admin.ReplicaInfo;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 

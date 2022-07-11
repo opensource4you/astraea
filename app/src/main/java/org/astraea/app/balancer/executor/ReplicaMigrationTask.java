@@ -16,35 +16,24 @@
  */
 package org.astraea.app.balancer.executor;
 
-import java.time.Duration;
-import org.apache.kafka.common.TopicPartitionReplica;
+import java.util.concurrent.CompletableFuture;
+import org.astraea.app.admin.TopicPartitionReplica;
 
-public class ReplicaMigrationTask implements RebalanceTask<TopicPartitionReplica, SyncingProgress> {
+public class ReplicaMigrationTask {
 
-  private final RebalanceAdmin admin;
   private final TopicPartitionReplica log;
+  private final CompletableFuture<Boolean> completableFuture;
 
   public ReplicaMigrationTask(RebalanceAdmin admin, TopicPartitionReplica log) {
-    this.admin = admin;
     this.log = log;
+    this.completableFuture = admin.waitLogSynced(log);
   }
 
-  public TopicPartitionReplica info() {
+  public TopicPartitionReplica log() {
     return log;
   }
 
-  @Override
-  public SyncingProgress progress() {
-    return admin.syncingProgress(log);
-  }
-
-  @Override
-  public boolean await(Duration timeout) {
-    try {
-      return admin.waitLogSynced(log, timeout);
-    } catch (InterruptedException e) {
-      Thread.currentThread().interrupt();
-      return false;
-    }
+  public CompletableFuture<Boolean> completableFuture() {
+    return completableFuture;
   }
 }

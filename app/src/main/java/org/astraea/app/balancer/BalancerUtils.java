@@ -31,6 +31,10 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
+import org.astraea.app.admin.ClusterBean;
+import org.astraea.app.admin.ClusterInfo;
+import org.astraea.app.admin.NodeInfo;
+import org.astraea.app.admin.ReplicaInfo;
 import org.astraea.app.admin.TopicPartition;
 import org.astraea.app.balancer.executor.RebalancePlanExecutor;
 import org.astraea.app.balancer.generator.RebalancePlanGenerator;
@@ -38,11 +42,7 @@ import org.astraea.app.balancer.log.ClusterLogAllocation;
 import org.astraea.app.balancer.log.LayeredClusterLogAllocation;
 import org.astraea.app.balancer.metrics.IdentifiedFetcher;
 import org.astraea.app.balancer.metrics.MetricSource;
-import org.astraea.app.cost.ClusterInfo;
 import org.astraea.app.cost.CostFunction;
-import org.astraea.app.cost.NodeInfo;
-import org.astraea.app.cost.ReplicaInfo;
-import org.astraea.app.metrics.HasBeanObject;
 import org.astraea.app.partitioner.Configuration;
 
 class BalancerUtils {
@@ -83,16 +83,6 @@ class BalancerUtils {
             .topicPartitionStream()
             .map(TopicPartition::topic)
             .collect(Collectors.toUnmodifiableSet());
-      }
-
-      @Override
-      public Collection<HasBeanObject> beans(int brokerId) {
-        return clusterInfo.beans(brokerId);
-      }
-
-      @Override
-      public Map<Integer, Collection<HasBeanObject>> allBeans() {
-        return clusterInfo.allBeans();
       }
 
       @Override
@@ -140,6 +130,11 @@ class BalancerUtils {
         if (result.isEmpty()) throw new NoSuchElementException();
 
         return result;
+      }
+
+      @Override
+      public ClusterBean clusterBean() {
+        return clusterInfo.clusterBean();
       }
     };
   }

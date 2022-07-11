@@ -40,7 +40,7 @@ import org.astraea.app.balancer.metrics.JmxMetricSampler;
 import org.astraea.app.balancer.metrics.MetricSource;
 import org.astraea.app.common.Utils;
 import org.astraea.app.cost.CostFunction;
-import org.astraea.app.cost.broker.CpuCost;
+import org.astraea.app.cost.CpuCost;
 import org.astraea.app.partitioner.Configuration;
 
 public class BalancerConfigs implements Configuration {

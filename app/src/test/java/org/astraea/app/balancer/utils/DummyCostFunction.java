@@ -16,13 +16,6 @@
  */
 package org.astraea.app.balancer.utils;
 
-import java.util.List;
 import org.astraea.app.cost.CostFunction;
-import org.astraea.app.metrics.collector.Fetcher;
 
-public class DummyCostFunction implements CostFunction {
-  @Override
-  public Fetcher fetcher() {
-    return Fetcher.of(List.of());
-  }
-}
+public class DummyCostFunction implements CostFunction {}

@@ -16,16 +16,17 @@
  */
 package org.astraea.app.cost;
 
-import java.util.Collection;
 import java.util.List;
-import java.util.Map;
 import java.util.Random;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import org.astraea.app.admin.ClusterBean;
+import org.astraea.app.admin.ClusterInfo;
+import org.astraea.app.admin.NodeInfo;
+import org.astraea.app.admin.ReplicaInfo;
 import org.astraea.app.admin.TopicPartition;
-import org.astraea.app.metrics.HasBeanObject;
 
 public class ClusterInfoProvider {
 
@@ -127,12 +128,7 @@ public class ClusterInfoProvider {
       }
 
       @Override
-      public Collection<HasBeanObject> beans(int brokerId) {
-        throw new UnsupportedOperationException();
-      }
-
-      @Override
-      public Map<Integer, Collection<HasBeanObject>> allBeans() {
+      public ClusterBean clusterBean() {
         throw new UnsupportedOperationException();
       }
     };

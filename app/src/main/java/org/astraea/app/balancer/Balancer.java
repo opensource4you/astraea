@@ -29,18 +29,17 @@ import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.astraea.app.admin.Admin;
+import org.astraea.app.admin.ClusterInfo;
+import org.astraea.app.admin.NodeInfo;
 import org.astraea.app.balancer.executor.RebalanceAdmin;
-import org.astraea.app.balancer.executor.RebalanceExecutionContext;
 import org.astraea.app.balancer.executor.RebalancePlanExecutor;
 import org.astraea.app.balancer.generator.RebalancePlanGenerator;
 import org.astraea.app.balancer.metrics.IdentifiedFetcher;
 import org.astraea.app.balancer.metrics.MetricSource;
 import org.astraea.app.common.Utils;
-import org.astraea.app.cost.ClusterInfo;
 import org.astraea.app.cost.CostFunction;
 import org.astraea.app.cost.HasBrokerCost;
 import org.astraea.app.cost.HasPartitionCost;
-import org.astraea.app.cost.NodeInfo;
 import org.astraea.app.metrics.HasBeanObject;
 import org.astraea.app.partitioner.Configuration;
 
@@ -82,8 +81,10 @@ public class Balancer implements AutoCloseable {
 
     this.fetcherOwnership =
         costFunctions.stream()
-            .collect(Collectors.toMap(cf -> cf, cf -> new IdentifiedFetcher(cf.fetcher())));
-    this.fetcherOwnership.put(planExecutor, new IdentifiedFetcher(planExecutor.fetcher()));
+            .filter(cf -> cf.fetcher().isPresent())
+            .collect(
+                Collectors.toMap(
+                    cf -> cf, cf -> new IdentifiedFetcher(cf.fetcher().orElseThrow())));
 
     this.metricSource =
         BalancerUtils.constructMetricSource(
@@ -214,11 +215,10 @@ public class Balancer implements AutoCloseable {
                           .map(NodeInfo::id)
                           .collect(Collectors.toUnmodifiableSet()),
                       executorFetcher);
-      var rebalanceAdmin = RebalanceAdmin.of(newAdmin, metricSource, topicFilter);
-      var context = RebalanceExecutionContext.of(rebalanceAdmin, allocation);
+      var rebalanceAdmin = RebalanceAdmin.of(newAdmin, topicFilter);
 
       // execute
-      planExecutor.run(context);
+      planExecutor.run(rebalanceAdmin, allocation);
     }
   }
 

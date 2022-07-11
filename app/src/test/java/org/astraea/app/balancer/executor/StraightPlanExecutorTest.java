@@ -16,10 +16,7 @@
  */
 package org.astraea.app.balancer.executor;
 
-import java.io.PrintWriter;
-import java.io.StringWriter;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -42,6 +39,7 @@ class StraightPlanExecutorTest extends RequireBrokerCluster {
     try (Admin admin = Admin.of(bootstrapServers())) {
       final var topicName = "StraightPlanExecutorTest_" + Utils.randomString(8);
       admin.creator().topic(topicName).numberOfPartitions(10).numberOfReplicas((short) 2).create();
+      TimeUnit.SECONDS.sleep(2);
       final var originalAllocation =
           LayeredClusterLogAllocation.of(admin.clusterInfo(Set.of(topicName)));
       TimeUnit.SECONDS.sleep(3);
@@ -58,29 +56,16 @@ class StraightPlanExecutorTest extends RequireBrokerCluster {
       final var expectedAllocation = LayeredClusterLogAllocation.of(allocationMap);
       final var expectedTopicPartition =
           expectedAllocation.topicPartitionStream().collect(Collectors.toUnmodifiableSet());
-      final var rebalanceAdmin = RebalanceAdmin.of(admin, Map::of, (ignore) -> true);
-      final var context = RebalanceExecutionContext.of(rebalanceAdmin, expectedAllocation);
+      final var rebalanceAdmin = RebalanceAdmin.of(admin, (s) -> s.equals(topicName));
 
       // act
-      final var result = new StraightPlanExecutor().run(context);
+      new StraightPlanExecutor().run(rebalanceAdmin, expectedAllocation);
 
       // assert
       final var currentAllocation =
           LayeredClusterLogAllocation.of(admin.clusterInfo(Set.of(topicName)));
       final var currentTopicPartition =
           currentAllocation.topicPartitionStream().collect(Collectors.toUnmodifiableSet());
-      Assertions.assertTrue(
-          result.isDone(),
-          () ->
-              result
-                  .exception()
-                  .map(
-                      ex -> {
-                        StringWriter sw = new StringWriter();
-                        ex.printStackTrace(new PrintWriter(sw));
-                        return sw.toString();
-                      })
-                  .orElse("Failed with unknown reason"));
       Assertions.assertEquals(expectedTopicPartition, currentTopicPartition);
       expectedTopicPartition.forEach(
           topicPartition ->
@@ -90,11 +75,60 @@ class StraightPlanExecutorTest extends RequireBrokerCluster {
                   "Testing for " + topicPartition));
 
       System.out.println("Expected:");
-      System.out.println(ClusterLogAllocation.describeAllocation(expectedAllocation));
+      System.out.println(ClusterLogAllocation.toString(expectedAllocation));
       System.out.println("Current:");
-      System.out.println(ClusterLogAllocation.describeAllocation(currentAllocation));
+      System.out.println(ClusterLogAllocation.toString(currentAllocation));
       System.out.println("Original:");
-      System.out.println(ClusterLogAllocation.describeAllocation(originalAllocation));
+      System.out.println(ClusterLogAllocation.toString(originalAllocation));
+    }
+  }
+
+  @Test
+  void testRunNoDirSpecified() throws InterruptedException {
+    // arrange
+    try (Admin admin = Admin.of(bootstrapServers())) {
+      final var topicName = "StraightPlanExecutorTest_" + Utils.randomString(8);
+      admin.creator().topic(topicName).numberOfPartitions(10).numberOfReplicas((short) 3).create();
+      TimeUnit.SECONDS.sleep(2);
+      final var originalAllocation =
+          LayeredClusterLogAllocation.of(admin.clusterInfo(Set.of(topicName)));
+      TimeUnit.SECONDS.sleep(3);
+      final var broker0 = 0;
+      final var broker1 = 1;
+      final var broker2 = 2;
+      final var onlyPlacement =
+          List.of(LogPlacement.of(broker0), LogPlacement.of(broker1), LogPlacement.of(broker2));
+      final var allocationMap =
+          IntStream.range(0, 10)
+              .mapToObj(i -> new TopicPartition(topicName, i))
+              .collect(Collectors.toUnmodifiableMap(tp -> tp, tp -> onlyPlacement));
+      final var expectedAllocation = LayeredClusterLogAllocation.of(allocationMap);
+      final var expectedTopicPartition =
+          expectedAllocation.topicPartitionStream().collect(Collectors.toUnmodifiableSet());
+      final var rebalanceAdmin = RebalanceAdmin.of(admin, (s) -> s.equals(topicName));
+
+      // act
+      new StraightPlanExecutor().run(rebalanceAdmin, expectedAllocation);
+
+      // assert
+      final var currentAllocation =
+          LayeredClusterLogAllocation.of(admin.clusterInfo(Set.of(topicName)));
+      final var currentTopicPartition =
+          currentAllocation.topicPartitionStream().collect(Collectors.toUnmodifiableSet());
+      Assertions.assertEquals(expectedTopicPartition, currentTopicPartition);
+      expectedTopicPartition.forEach(
+          topicPartition ->
+              Assertions.assertTrue(
+                  LogPlacement.isMatch(
+                      currentAllocation.logPlacements(topicPartition),
+                      expectedAllocation.logPlacements(topicPartition))));
+
+      System.out.println("Expected:");
+      System.out.println(ClusterLogAllocation.toString(expectedAllocation));
+      System.out.println("Current:");
+      System.out.println(ClusterLogAllocation.toString(currentAllocation));
+      System.out.println("Original:");
+      System.out.println(ClusterLogAllocation.toString(originalAllocation));
     }
   }
 }
