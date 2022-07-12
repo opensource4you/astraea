@@ -418,8 +418,9 @@ public class Performance {
       this.distributionType = distributionType;
       this.dataSize = dataSize;
     }
+
     @Override
-    public String toString(){
+    public String toString() {
       return distributionType.name + dataSize.toString();
     }
   }

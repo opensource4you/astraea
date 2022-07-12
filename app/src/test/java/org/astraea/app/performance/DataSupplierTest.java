@@ -135,7 +135,7 @@ public class DataSupplierTest {
     var counter = new AtomicLong(0);
     var counter2 = new AtomicLong(0);
 
-    // Round-Robin on 2 values. Round-Robin value size between 100Byte and 101Byte
+    // Round-robin on 2 values. Round-robin value size between 100Byte and 101Byte
     var dataSupplier =
         DataSupplier.of(
             ExeTime.of("10s"),
