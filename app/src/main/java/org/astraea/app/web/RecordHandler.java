@@ -28,10 +28,8 @@ import com.google.gson.JsonParseException;
 import com.google.gson.JsonPrimitive;
 import com.google.gson.JsonSerializationContext;
 import com.google.gson.JsonSerializer;
-import com.google.gson.reflect.TypeToken;
 import java.lang.reflect.Type;
 import java.time.Duration;
-import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Collection;
 import java.util.List;
@@ -40,7 +38,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.CompletionStage;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BiFunction;
 import org.astraea.app.admin.TopicPartition;
@@ -50,6 +48,7 @@ import org.astraea.app.consumer.Builder;
 import org.astraea.app.consumer.Consumer;
 import org.astraea.app.consumer.Deserializer;
 import org.astraea.app.producer.Producer;
+import org.astraea.app.producer.Sender;
 import org.astraea.app.producer.Serializer;
 
 public class RecordHandler implements Handler {
@@ -144,15 +143,10 @@ public class RecordHandler implements Handler {
   public Response post(PostRequest request) {
     var async = request.booleanValue(ASYNC, false);
     var timeout = request.get(TIMEOUT).map(DurationField::toDuration).orElse(Duration.ofSeconds(5));
-
-    Optional<List<PostRecord>> recordsArg =
-        request.get(RECORDS, new TypeToken<ArrayList<PostRecord>>() {}.getType());
-
-    var records =
-        recordsArg
-            .filter(list -> !list.isEmpty())
-            .orElseThrow(
-                () -> new IllegalArgumentException("records should contain at least one record"));
+    var records = request.values(RECORDS, PostRecord.class);
+    if (records.isEmpty()) {
+      throw new IllegalArgumentException("records should contain at least one record");
+    }
 
     var producer =
         request
@@ -173,43 +167,7 @@ public class RecordHandler implements Handler {
                   try {
                     return producer.send(
                         records.stream()
-                            .map(
-                                postRecord -> {
-                                  var topic =
-                                      Optional.ofNullable(postRecord.topic)
-                                          .orElseThrow(
-                                              () ->
-                                                  new IllegalArgumentException(
-                                                      "topic must be set"));
-                                  var sender = producer.sender().topic(topic);
-                                  // TODO: Support headers
-                                  // (https://github.com/skiptests/astraea/issues/422)
-                                  var keySerializer =
-                                      Optional.ofNullable(postRecord.keySerializer)
-                                          .map(name -> SerDe.of(name).serializer)
-                                          .orElse(SerDe.STRING.serializer);
-                                  var valueSerializer =
-                                      Optional.ofNullable(postRecord.valueSerializer)
-                                          .map(name -> SerDe.of(name).serializer)
-                                          .orElse(SerDe.STRING.serializer);
-
-                                  Optional.ofNullable(postRecord.key)
-                                      .ifPresent(
-                                          key ->
-                                              sender.key(
-                                                  keySerializer.apply(topic, handleDouble(key))));
-                                  Optional.ofNullable(postRecord.value)
-                                      .ifPresent(
-                                          value ->
-                                              sender.value(
-                                                  valueSerializer.apply(
-                                                      topic, handleDouble(value))));
-                                  Optional.ofNullable(postRecord.timestamp)
-                                      .ifPresent(sender::timestamp);
-                                  Optional.ofNullable(postRecord.partition)
-                                      .ifPresent(sender::partition);
-                                  return sender;
-                                })
+                            .map(record -> createSender(producer, record))
                             .collect(toList()));
                   } finally {
                     if (producer.transactional()) {
@@ -217,33 +175,26 @@ public class RecordHandler implements Handler {
                     }
                   }
                 })
-            .thenApply(
-                senderFutures -> {
-                  var latch = new CountDownLatch(senderFutures.size());
-                  var results = new ArrayList<Response>(senderFutures.size());
-                  senderFutures.forEach(
-                      future ->
-                          future.whenComplete(
-                              (metadata, exception) -> {
-                                try {
-                                  if (metadata != null) {
-                                    results.add(new Metadata(metadata));
-                                  } else if (exception != null) {
-                                    results.add(Response.for500(exception.getMessage()));
-                                  } else {
-                                    // this shouldn't happen, but still add error 404 here
-                                    results.add(Response.for404("missing result"));
-                                  }
-                                } finally {
-                                  latch.countDown();
-                                }
-                              }));
-                  Utils.packException(() -> latch.await());
-                  return new PostResponse(results);
-                });
+            .thenCompose(
+                senderFutures ->
+                    Utils.sequence(
+                        senderFutures.stream()
+                            .map(
+                                s ->
+                                    s.handle(
+                                        (metadata, exception) -> {
+                                          if (metadata != null) return new Metadata(metadata);
+                                          if (exception != null)
+                                            return Response.for500(exception.getMessage());
+                                          // this shouldn't happen, but still add error 404 here
+                                          return Response.for404("missing result");
+                                        }))
+                            .map(CompletionStage::toCompletableFuture)
+                            .collect(toList())));
 
     if (async) return Response.ACCEPT;
-    return Utils.packException(() -> result.get(timeout.toNanos(), TimeUnit.NANOSECONDS));
+    return Utils.packException(
+        () -> new PostResponse(result.get(timeout.toNanos(), TimeUnit.NANOSECONDS)));
   }
 
   enum SerDe {
@@ -297,6 +248,32 @@ public class RecordHandler implements Handler {
     static SerDe of(String name) {
       return valueOf(name.toUpperCase(Locale.ROOT));
     }
+  }
+
+  private static Sender<byte[], byte[]> createSender(
+      Producer<byte[], byte[]> producer, PostRecord postRecord) {
+    var topic =
+        Optional.ofNullable(postRecord.topic)
+            .orElseThrow(() -> new IllegalArgumentException("topic must be set"));
+    var sender = producer.sender().topic(topic);
+    // TODO: Support headers
+    // (https://github.com/skiptests/astraea/issues/422)
+    var keySerializer =
+        Optional.ofNullable(postRecord.keySerializer)
+            .map(name -> SerDe.of(name).serializer)
+            .orElse(SerDe.STRING.serializer);
+    var valueSerializer =
+        Optional.ofNullable(postRecord.valueSerializer)
+            .map(name -> SerDe.of(name).serializer)
+            .orElse(SerDe.STRING.serializer);
+
+    Optional.ofNullable(postRecord.key)
+        .ifPresent(key -> sender.key(keySerializer.apply(topic, handleDouble(key))));
+    Optional.ofNullable(postRecord.value)
+        .ifPresent(value -> sender.value(valueSerializer.apply(topic, handleDouble(value))));
+    Optional.ofNullable(postRecord.timestamp).ifPresent(sender::timestamp);
+    Optional.ofNullable(postRecord.partition).ifPresent(sender::partition);
+    return sender;
   }
 
   static class Metadata implements Response {

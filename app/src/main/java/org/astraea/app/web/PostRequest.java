@@ -21,7 +21,6 @@ import com.google.gson.GsonBuilder;
 import com.google.gson.reflect.TypeToken;
 import com.sun.net.httpserver.HttpExchange;
 import java.io.IOException;
-import java.lang.reflect.Type;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -80,8 +79,13 @@ public interface PostRequest {
     return Optional.ofNullable(raw().get(key));
   }
 
-  default <T> Optional<T> get(String key, Type type) {
-    return Optional.ofNullable(raw().get(key)).map(str -> new Gson().fromJson(str, type));
+  default <T> List<T> values(String key, Class<T> clz) {
+    return new Gson()
+        .fromJson(value(key), TypeToken.getParameterized(ArrayList.class, clz).getType());
+  }
+
+  default <T> T value(String key, Class<T> clz) {
+    return new Gson().fromJson(value(key), TypeToken.get(clz).getType());
   }
 
   default String value(String key) {

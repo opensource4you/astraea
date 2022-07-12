@@ -21,8 +21,11 @@ import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.nio.file.Files;
 import java.time.Duration;
+import java.util.Collection;
+import java.util.List;
 import java.util.SortedMap;
 import java.util.TreeMap;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
@@ -224,6 +227,11 @@ public final class Utils {
           throw new IllegalStateException("Duplicate key");
         },
         TreeMap::new);
+  }
+
+  public static <T> CompletableFuture<List<T>> sequence(Collection<CompletableFuture<T>> futures) {
+    return CompletableFuture.allOf(futures.toArray(new CompletableFuture<?>[0]))
+        .thenApply(f -> futures.stream().map(CompletableFuture::join).collect(Collectors.toList()));
   }
 
   private Utils() {}

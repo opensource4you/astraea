@@ -17,8 +17,10 @@
 package org.astraea.app.common;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.Map;
 import java.util.SortedMap;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -65,5 +67,13 @@ public class UtilsTest {
         () ->
             Stream.of(Map.entry(1, "hello"), Map.entry(1, "world"))
                 .collect(Utils.toSortedMap(Map.Entry::getKey, Map.Entry::getValue)));
+  }
+
+  @Test
+  void testSequence() {
+    var future1 = CompletableFuture.supplyAsync(() -> 1);
+    var future2 = CompletableFuture.supplyAsync(() -> 2);
+
+    Assertions.assertEquals(Utils.sequence(List.of(future1, future2)).join(), List.of(1, 2));
   }
 }

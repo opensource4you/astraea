@@ -67,14 +67,6 @@ public class RecordHandlerTest extends RequireBrokerCluster {
     var handler = new RecordHandler(bootstrapServers());
     Assertions.assertThrows(
         IllegalArgumentException.class,
-        () -> handler.post(PostRequest.of(Map.of())),
-        "records should contain at least one record");
-    Assertions.assertThrows(
-        IllegalArgumentException.class,
-        () -> handler.post(PostRequest.of(Map.of(RECORDS, ""))),
-        "records should contain at least one record");
-    Assertions.assertThrows(
-        IllegalArgumentException.class,
         () -> handler.post(PostRequest.of(Map.of(RECORDS, "[]"))),
         "records should contain at least one record");
     Assertions.assertThrows(
