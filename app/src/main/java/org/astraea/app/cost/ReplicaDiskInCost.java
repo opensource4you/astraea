@@ -24,6 +24,7 @@ import java.util.TreeMap;
 import java.util.stream.Collectors;
 import org.astraea.app.admin.TopicPartition;
 import org.astraea.app.admin.TopicPartitionReplica;
+import org.astraea.app.balancer.log.ClusterLogAllocation;
 import org.astraea.app.metrics.HasBeanObject;
 import org.astraea.app.metrics.collector.Fetcher;
 import org.astraea.app.metrics.kafka.HasValue;
@@ -34,8 +35,9 @@ import org.astraea.app.metrics.kafka.KafkaMetrics;
  * responds to the replica log size of brokers. The calculation method of the score is the rate of
  * increase of log size per unit time divided by the upper limit of broker bandwidth.
  */
-public class ReplicaDiskInCost implements HasBrokerCost, HasPartitionCost {
+public class ReplicaDiskInCost implements HasBrokerCost, HasPartitionCost, HasClusterCost {
   Map<Integer, Integer> brokerBandwidthCap;
+  Map<Integer, Double> brokerLoad;
 
   public ReplicaDiskInCost(Map<Integer, Integer> brokerBandwidthCap) {
     this.brokerBandwidthCap = brokerBandwidthCap;
@@ -60,7 +62,7 @@ public class ReplicaDiskInCost implements HasBrokerCost, HasPartitionCost {
 
     final var topicPartitionDataRate = topicPartitionDataRate(clusterInfo, Duration.ofSeconds(3));
 
-    final var brokerLoad =
+    brokerLoad =
         actual.entrySet().stream()
             .map(
                 entry ->
@@ -163,6 +165,17 @@ public class ReplicaDiskInCost implements HasBrokerCost, HasPartitionCost {
         return scoreForBroker.get(brokerId);
       }
     };
+  }
+
+  @Override
+  public ClusterCost clusterCost(
+      ClusterInfo clusterInfo, ClusterLogAllocation clusterLogAllocation) {
+    var brokerSizeScore = brokerLoad;
+    var mean = brokerSizeScore.values().stream().mapToDouble(x -> x).sum() / brokerSizeScore.size();
+    var sd =
+        brokerSizeScore.values().stream().mapToDouble(score -> Math.sqrt(score - mean)).sum()
+            / brokerSizeScore.size();
+    return () -> sd;
   }
 
   /** @return the metrics getters. Those getters are used to fetch mbeans. */

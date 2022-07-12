@@ -19,6 +19,7 @@ package org.astraea.app.cost;
 import java.util.Comparator;
 import java.util.Map;
 import java.util.stream.Collectors;
+import org.astraea.app.balancer.log.ClusterLogAllocation;
 import org.astraea.app.metrics.HasBeanObject;
 import org.astraea.app.metrics.collector.Fetcher;
 import org.astraea.app.metrics.kafka.HasValue;
@@ -29,7 +30,9 @@ import org.astraea.app.metrics.kafka.KafkaMetrics;
  * leader number of brokers. The calculation method of the score is the total leader number divided
  * by the total leader number in broker
  */
-public class NumberOfLeaderCost implements HasBrokerCost {
+public class NumberOfLeaderCost implements HasBrokerCost, HasClusterCost {
+  Map<Integer, Double> leaderCost;
+
   @Override
   public Fetcher fetcher() {
     return KafkaMetrics.ReplicaManager.LeaderCount::fetch;
@@ -58,9 +61,20 @@ public class NumberOfLeaderCost implements HasBrokerCost {
                         .map(e2 -> Map.entry(e.getKey(), (int) e2.value())))
             .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
     var totalLeader = leaderCount.values().stream().mapToInt(Integer::intValue).sum();
-    var leaderCost =
+    leaderCost =
         leaderCount.entrySet().stream()
             .collect(Collectors.toMap(Map.Entry::getKey, e -> (double) e.getValue() / totalLeader));
     return () -> leaderCost;
+  }
+
+  @Override
+  public ClusterCost clusterCost(
+      ClusterInfo clusterInfo, ClusterLogAllocation clusterLogAllocation) {
+    var brokerSizeScore = leaderCost;
+    var mean = brokerSizeScore.values().stream().mapToDouble(x -> x).sum() / brokerSizeScore.size();
+    var sd =
+        brokerSizeScore.values().stream().mapToDouble(score -> Math.sqrt(score - mean)).sum()
+            / brokerSizeScore.size();
+    return () -> sd;
   }
 }

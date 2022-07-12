@@ -24,6 +24,7 @@ import java.util.TreeMap;
 import java.util.stream.Collectors;
 import org.astraea.app.admin.TopicPartition;
 import org.astraea.app.admin.TopicPartitionReplica;
+import org.astraea.app.balancer.log.ClusterLogAllocation;
 import org.astraea.app.metrics.collector.Fetcher;
 import org.astraea.app.metrics.kafka.HasValue;
 import org.astraea.app.metrics.kafka.KafkaMetrics;
@@ -33,7 +34,7 @@ import org.astraea.app.metrics.kafka.KafkaMetrics;
  * The calculation method of the score is the replica log usage space divided by the available space
  * on the hard disk
  */
-public class ReplicaSizeCost implements HasBrokerCost, HasPartitionCost {
+public class ReplicaSizeCost implements HasBrokerCost, HasPartitionCost, HasClusterCost {
   Map<Integer, Map<String, Integer>> totalBrokerCapacity;
   Map<Integer, Map<String, Long>> totalReplicaSizeInPath;
 
@@ -83,24 +84,8 @@ public class ReplicaSizeCost implements HasBrokerCost, HasPartitionCost {
                       return map;
                     }));
     checkBrokerPath(totalReplicaSizeInPath);
-    var brokerSizeScore =
-        totalReplicaSizeInPath.entrySet().stream()
-            .map(
-                brokerPath ->
-                    Map.entry(
-                        brokerPath.getKey(),
-                        brokerPath.getValue().entrySet().stream()
-                            .mapToDouble(
-                                x ->
-                                    x.getValue()
-                                        / 1024.0
-                                        / 1024.0
-                                        / totalBrokerCapacity
-                                            .get(brokerPath.getKey())
-                                            .get(x.getKey())
-                                        / totalBrokerCapacity.get(brokerPath.getKey()).size())
-                            .sum()))
-            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+    var brokerSizeScore = brokerScore();
+
     return () -> brokerSizeScore;
   }
 
@@ -136,7 +121,7 @@ public class ReplicaSizeCost implements HasBrokerCost, HasPartitionCost {
                                         partitionInfo.nodeInfo().id()))
                             .map(
                                 tpr -> {
-                                  final var score =
+                                  var score =
                                       replicaCost.entrySet().stream()
                                           .filter(
                                               x ->
@@ -149,6 +134,7 @@ public class ReplicaSizeCost implements HasBrokerCost, HasPartitionCost {
                                               () ->
                                                   new IllegalStateException(
                                                       tpr + " topic/partition size not found"));
+                                  if (score > 1) score = 1.0;
                                   return Map.entry(
                                       new TopicPartition(tpr.topic(), tpr.partition()), score);
                                 })
@@ -211,7 +197,35 @@ public class ReplicaSizeCost implements HasBrokerCost, HasPartitionCost {
                     .filter(x -> x.beanObject().getProperties().get("name").equals("Size"))
                     .map(x -> (HasValue) x)
                     .map(x -> Map.entry(e.getKey(), x.value())))
-        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue,
-                (x1,x2)->x2));
+        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue, (x1, x2) -> x2));
+  }
+
+  public Map<Integer, Double> brokerScore() {
+    return totalReplicaSizeInPath.entrySet().stream()
+        .map(
+            brokerPath ->
+                Map.entry(
+                    brokerPath.getKey(),
+                    brokerPath.getValue().entrySet().stream()
+                        .mapToDouble(
+                            x ->
+                                x.getValue()
+                                    / 1024.0
+                                    / 1024.0
+                                    / totalBrokerCapacity.get(brokerPath.getKey()).get(x.getKey())
+                                    / totalBrokerCapacity.get(brokerPath.getKey()).size())
+                        .sum()))
+        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+  }
+
+  @Override
+  public ClusterCost clusterCost(
+      ClusterInfo clusterInfo, ClusterLogAllocation clusterLogAllocation) {
+    var brokerSizeScore = brokerScore();
+    var mean = brokerSizeScore.values().stream().mapToDouble(x -> x).sum() / brokerSizeScore.size();
+    var sd =
+        brokerSizeScore.values().stream().mapToDouble(score -> Math.sqrt(score - mean)).sum()
+            / brokerSizeScore.size();
+    return () -> sd;
   }
 }
