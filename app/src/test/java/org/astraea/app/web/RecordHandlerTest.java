@@ -27,6 +27,7 @@ import static org.astraea.app.web.RecordHandler.KEY_SERIALIZER;
 import static org.astraea.app.web.RecordHandler.PARTITION;
 import static org.astraea.app.web.RecordHandler.RECORDS;
 import static org.astraea.app.web.RecordHandler.SEEK_TO;
+import static org.astraea.app.web.RecordHandler.TIMEOUT;
 import static org.astraea.app.web.RecordHandler.TIMESTAMP;
 import static org.astraea.app.web.RecordHandler.TOPIC;
 import static org.astraea.app.web.RecordHandler.VALUE;
@@ -528,5 +529,16 @@ public class RecordHandlerTest extends RequireBrokerCluster {
     Assertions.assertEquals(100, record.value);
     Assertions.assertEquals(currentTimestamp, record.timestamp);
     Assertions.assertEquals(List.of(), record.headers);
+  }
+
+  @Test
+  void testTimeout() {
+    Assertions.assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            new RecordHandler(bootstrapServers()).get(Optional.of("test"), Map.of(TIMEOUT, "foo")));
+    Assertions.assertInstanceOf(
+        RecordHandler.Records.class,
+        new RecordHandler(bootstrapServers()).get(Optional.of("test"), Map.of(TIMEOUT, "10s")));
   }
 }

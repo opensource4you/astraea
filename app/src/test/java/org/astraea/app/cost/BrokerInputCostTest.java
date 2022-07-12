@@ -20,12 +20,13 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import org.astraea.app.admin.ClusterBean;
+import org.astraea.app.admin.ClusterInfo;
 import org.astraea.app.metrics.HasBeanObject;
+import org.astraea.app.metrics.KafkaMetrics;
+import org.astraea.app.metrics.broker.BrokerTopicMetricsResult;
 import org.astraea.app.metrics.collector.BeanCollector;
 import org.astraea.app.metrics.collector.Receiver;
 import org.astraea.app.metrics.jmx.BeanObject;
-import org.astraea.app.metrics.kafka.BrokerTopicMetricsResult;
-import org.astraea.app.metrics.kafka.KafkaMetrics;
 import org.astraea.app.service.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -68,7 +69,7 @@ public class BrokerInputCostTest extends RequireBrokerCluster {
             .register()
             .host(jmxServiceURL().getHost())
             .port(jmxServiceURL().getPort())
-            .fetcher(new BrokerInputCost().fetcher())
+            .fetcher(new BrokerInputCost().fetcher().get())
             .build()) {
       Assertions.assertFalse(receiver.current().isEmpty());
 
@@ -79,7 +80,7 @@ public class BrokerInputCostTest extends RequireBrokerCluster {
                   o ->
                       (o instanceof BrokerTopicMetricsResult)
                           && (KafkaMetrics.BrokerTopic.BytesInPerSec.metricName()
-                              .equals(o.beanObject().getProperties().get("name")))));
+                              .equals(o.beanObject().properties().get("name")))));
 
       // Test the fetched object's value.
       Assertions.assertTrue(
@@ -109,7 +110,7 @@ public class BrokerInputCostTest extends RequireBrokerCluster {
     var result = Mockito.mock(BrokerTopicMetricsResult.class);
     var bean = Mockito.mock(BeanObject.class);
     Mockito.when(result.beanObject()).thenReturn(bean);
-    Mockito.when(bean.getProperties()).thenReturn(Map.of("name", name));
+    Mockito.when(bean.properties()).thenReturn(Map.of("name", name));
     Mockito.when(result.count()).thenReturn(count);
     return result;
   }

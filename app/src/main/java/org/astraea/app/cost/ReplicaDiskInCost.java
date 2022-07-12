@@ -20,15 +20,18 @@ import java.time.Duration;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
+import org.astraea.app.admin.ClusterInfo;
+import org.astraea.app.admin.NodeInfo;
 import org.astraea.app.admin.TopicPartition;
 import org.astraea.app.admin.TopicPartitionReplica;
 import org.astraea.app.balancer.log.ClusterLogAllocation;
 import org.astraea.app.metrics.HasBeanObject;
+import org.astraea.app.metrics.KafkaMetrics;
+import org.astraea.app.metrics.broker.HasValue;
 import org.astraea.app.metrics.collector.Fetcher;
-import org.astraea.app.metrics.kafka.HasValue;
-import org.astraea.app.metrics.kafka.KafkaMetrics;
 
 /**
  * The result is computed by "Size.Value" ,and createdTimestamp in the metrics. "Size.Value"
@@ -180,8 +183,8 @@ public class ReplicaDiskInCost implements HasBrokerCost, HasPartitionCost, HasCl
 
   /** @return the metrics getters. Those getters are used to fetch mbeans. */
   @Override
-  public Fetcher fetcher() {
-    return KafkaMetrics.TopicPartition.Size::fetch;
+  public Optional<Fetcher> fetcher() {
+    return Optional.of(KafkaMetrics.TopicPartition.Size::fetch);
   }
 
   /**
@@ -212,8 +215,8 @@ public class ReplicaDiskInCost implements HasBrokerCost, HasPartitionCost, HasCl
               var sizeTimeSeries =
                   metrics.getValue().stream()
                       .filter(bean -> bean instanceof HasValue)
-                      .filter(bean -> bean.beanObject().getProperties().get("type").equals("Log"))
-                      .filter(bean -> bean.beanObject().getProperties().get("name").equals("Size"))
+                      .filter(bean -> bean.beanObject().properties().get("type").equals("Log"))
+                      .filter(bean -> bean.beanObject().properties().get("name").equals("Size"))
                       .map(bean -> (HasValue) bean)
                       .sorted(Comparator.comparingLong(HasBeanObject::createdTimestamp).reversed())
                       .collect(Collectors.toUnmodifiableList());

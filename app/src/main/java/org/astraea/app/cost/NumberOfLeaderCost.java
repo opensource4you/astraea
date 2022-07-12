@@ -18,12 +18,14 @@ package org.astraea.app.cost;
 
 import java.util.Comparator;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
+import org.astraea.app.admin.ClusterInfo;
 import org.astraea.app.balancer.log.ClusterLogAllocation;
 import org.astraea.app.metrics.HasBeanObject;
+import org.astraea.app.metrics.KafkaMetrics;
+import org.astraea.app.metrics.broker.HasValue;
 import org.astraea.app.metrics.collector.Fetcher;
-import org.astraea.app.metrics.kafka.HasValue;
-import org.astraea.app.metrics.kafka.KafkaMetrics;
 
 /**
  * The result is computed by "LeaderCount.Value". "LeaderCount.Value"" responds to the replica
@@ -34,8 +36,8 @@ public class NumberOfLeaderCost implements HasBrokerCost, HasClusterCost {
   Map<Integer, Double> leaderCost;
 
   @Override
-  public Fetcher fetcher() {
-    return KafkaMetrics.ReplicaManager.LeaderCount::fetch;
+  public Optional<Fetcher> fetcher() {
+    return Optional.of(KafkaMetrics.ReplicaManager.LeaderCount::fetch);
   }
 
   /**
@@ -50,11 +52,9 @@ public class NumberOfLeaderCost implements HasBrokerCost, HasClusterCost {
                 e ->
                     e.getValue().stream()
                         .filter(x -> x instanceof HasValue)
+                        .filter(x -> x.beanObject().properties().get("name").equals("LeaderCount"))
                         .filter(
-                            x -> x.beanObject().getProperties().get("name").equals("LeaderCount"))
-                        .filter(
-                            x ->
-                                x.beanObject().getProperties().get("type").equals("ReplicaManager"))
+                            x -> x.beanObject().properties().get("type").equals("ReplicaManager"))
                         .sorted(Comparator.comparing(HasBeanObject::createdTimestamp).reversed())
                         .map(x -> (HasValue) x)
                         .limit(1)

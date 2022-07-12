@@ -20,10 +20,11 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import org.astraea.app.admin.ClusterBean;
+import org.astraea.app.admin.ClusterInfo;
 import org.astraea.app.metrics.HasBeanObject;
+import org.astraea.app.metrics.KafkaMetrics;
+import org.astraea.app.metrics.broker.BrokerTopicMetricsResult;
 import org.astraea.app.metrics.jmx.BeanObject;
-import org.astraea.app.metrics.kafka.BrokerTopicMetricsResult;
-import org.astraea.app.metrics.kafka.KafkaMetrics;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
@@ -70,7 +71,7 @@ public class LoadCostTest {
     var result = Mockito.mock(BrokerTopicMetricsResult.class);
     var bean = Mockito.mock(BeanObject.class);
     Mockito.when(result.beanObject()).thenReturn(bean);
-    Mockito.when(bean.getProperties()).thenReturn(Map.of("name", name));
+    Mockito.when(bean.properties()).thenReturn(Map.of("name", name));
     Mockito.when(result.count()).thenReturn(count);
     return result;
   }

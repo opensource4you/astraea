@@ -22,11 +22,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import org.astraea.app.admin.ClusterBean;
+import org.astraea.app.admin.ClusterInfo;
+import org.astraea.app.admin.NodeInfo;
+import org.astraea.app.admin.ReplicaInfo;
 import org.astraea.app.metrics.HasBeanObject;
 import org.astraea.app.metrics.collector.BeanCollector;
 import org.astraea.app.metrics.collector.Receiver;
-import org.astraea.app.metrics.java.HasJvmMemory;
-import org.astraea.app.metrics.java.JvmMemory;
+import org.astraea.app.metrics.platform.HasJvmMemory;
+import org.astraea.app.metrics.platform.JvmMemory;
 import org.astraea.app.service.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -111,7 +114,7 @@ public class MemoryCostTest extends RequireBrokerCluster {
             .register()
             .host(jmxServiceURL().getHost())
             .port(jmxServiceURL().getPort())
-            .fetcher(new MemoryCost().fetcher())
+            .fetcher(new MemoryCost().fetcher().get())
             .build()) {
       Assertions.assertFalse(receiver.current().isEmpty());
       Assertions.assertTrue(receiver.current().stream().allMatch(o -> o instanceof JvmMemory));

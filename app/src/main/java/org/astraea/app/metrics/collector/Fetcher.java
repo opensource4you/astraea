@@ -17,7 +17,9 @@
 package org.astraea.app.metrics.collector;
 
 import java.util.Collection;
+import java.util.Optional;
 import java.util.stream.Collectors;
+import org.astraea.app.cost.CostFunction;
 import org.astraea.app.metrics.HasBeanObject;
 import org.astraea.app.metrics.jmx.MBeanClient;
 
@@ -25,14 +27,24 @@ import org.astraea.app.metrics.jmx.MBeanClient;
 public interface Fetcher {
 
   /**
-   * merge multiples fetchers to single one.
+   * merge all fetchers into single one
    *
-   * @param fs fetchers
-   * @return single fetcher
+   * @param functions cost function
+   * @return fetcher if there is available fetcher. Otherwise, empty is returned
    */
-  static Fetcher of(Collection<Fetcher> fs) {
-    return client ->
-        fs.stream().flatMap(f -> f.fetch(client).stream()).collect(Collectors.toUnmodifiableList());
+  static Optional<Fetcher> of(Collection<? extends CostFunction> functions) {
+    var fs =
+        functions.stream()
+            .map(CostFunction::fetcher)
+            .filter(Optional::isPresent)
+            .map(Optional::get)
+            .collect(Collectors.toUnmodifiableList());
+    if (fs.isEmpty()) return Optional.empty();
+    return Optional.of(
+        client ->
+            fs.stream()
+                .flatMap(f -> f.fetch(client).stream())
+                .collect(Collectors.toUnmodifiableList()));
   }
 
   /**

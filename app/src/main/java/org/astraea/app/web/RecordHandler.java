@@ -38,6 +38,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.BiFunction;
 import org.astraea.app.admin.TopicPartition;
+import org.astraea.app.argument.DurationField;
 import org.astraea.app.common.Utils;
 import org.astraea.app.consumer.Builder;
 import org.astraea.app.consumer.Consumer;
@@ -78,6 +79,11 @@ public class RecordHandler implements Handler {
     if (queries.keySet().stream().filter(seekStrategies::contains).count() > 1) {
       throw new IllegalArgumentException("only one seek strategy is allowed");
     }
+
+    var timeout =
+        Optional.ofNullable(queries.get(TIMEOUT))
+            .map(DurationField::toDuration)
+            .orElse(Duration.ofSeconds(5));
 
     var consumerBuilder =
         Optional.ofNullable(queries.get(PARTITION))
@@ -124,11 +130,7 @@ public class RecordHandler implements Handler {
     try (var consumer = consumerBuilder.build()) {
       var maxRecords = Integer.parseInt(queries.getOrDefault(RECORDS, "1"));
       return new Records(
-          consumer
-              .poll(
-                  maxRecords,
-                  Duration.ofSeconds(Integer.parseInt(queries.getOrDefault(TIMEOUT, "5"))))
-              .stream()
+          consumer.poll(maxRecords, timeout).stream()
               .map(Record::new)
               // TODO: remove limit here (https://github.com/skiptests/astraea/issues/441)
               .limit(maxRecords)

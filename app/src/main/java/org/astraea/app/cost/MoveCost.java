@@ -23,15 +23,18 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
+import org.astraea.app.admin.ClusterInfo;
 import org.astraea.app.admin.TopicPartition;
 import org.astraea.app.admin.TopicPartitionReplica;
 import org.astraea.app.balancer.log.ClusterLogAllocation;
 import org.astraea.app.metrics.HasBeanObject;
+import org.astraea.app.metrics.KafkaMetrics;
+import org.astraea.app.metrics.broker.HasCount;
 import org.astraea.app.metrics.collector.Fetcher;
-import org.astraea.app.metrics.kafka.HasCount;
-import org.astraea.app.metrics.kafka.KafkaMetrics;
 
 public class MoveCost implements HasClusterCost, HasBrokerCost {
   static class ReplicaMigrateInfo {
@@ -77,8 +80,8 @@ public class MoveCost implements HasClusterCost, HasBrokerCost {
   private static boolean filterBean(HasBeanObject hasBeanObject, String metricName) {
     var beanObject = hasBeanObject.beanObject();
     return beanObject != null
-        && beanObject.getProperties().containsKey("name")
-        && beanObject.getProperties().get("name").equals(metricName);
+        && beanObject.properties().containsKey("name")
+        && beanObject.properties().get("name").equals(metricName);
   }
 
   private static Map<Integer, Double> brokerTrafficMetrics(
@@ -208,16 +211,18 @@ public class MoveCost implements HasClusterCost, HasBrokerCost {
   }
 
   @Override
-  public Fetcher fetcher() {
-    return Fetcher.of(
-        List.of(
-            client ->
-                List.of(
+  public Optional<Fetcher> fetcher() {
+    return Optional.of(
+        client ->
+            Stream.of(
                     KafkaMetrics.BrokerTopic.BytesInPerSec.fetch(client),
                     KafkaMetrics.BrokerTopic.BytesOutPerSec.fetch(client),
                     KafkaMetrics.BrokerTopic.ReplicationBytesInPerSec.fetch(client),
-                    KafkaMetrics.BrokerTopic.ReplicationBytesOutPerSec.fetch(client)),
-            KafkaMetrics.TopicPartition.Size::fetch));
+                    KafkaMetrics.BrokerTopic.ReplicationBytesOutPerSec.fetch(client),
+                    (Fetcher) KafkaMetrics.TopicPartition.Size::fetch)
+                .map(x -> (Fetcher) x)
+                .flatMap(f -> f.fetch(client).stream())
+                .collect(Collectors.toUnmodifiableList()));
   }
 
   public MoveCost(ReplicaSizeCost replicaSizeCost, ReplicaDiskInCost replicaDiskInCost) {

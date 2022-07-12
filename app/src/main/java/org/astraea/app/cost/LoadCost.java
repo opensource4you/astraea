@@ -20,12 +20,14 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import org.astraea.app.admin.ClusterInfo;
 import org.astraea.app.metrics.HasBeanObject;
+import org.astraea.app.metrics.KafkaMetrics;
+import org.astraea.app.metrics.broker.BrokerTopicMetricsResult;
 import org.astraea.app.metrics.collector.Fetcher;
-import org.astraea.app.metrics.kafka.BrokerTopicMetricsResult;
-import org.astraea.app.metrics.kafka.KafkaMetrics;
 import org.astraea.app.partitioner.PartitionerUtils;
 
 public class LoadCost implements HasBrokerCost {
@@ -91,7 +93,7 @@ public class LoadCost implements HasBrokerCost {
                       brokersMetric
                           .get(brokerID)
                           .updateCount(
-                              result.beanObject().getProperties().get("name"), result.count()));
+                              result.beanObject().properties().get("name"), result.count()));
         });
 
     // Sum all count with the same mbean name
@@ -145,11 +147,13 @@ public class LoadCost implements HasBrokerCost {
 
   /** @return the metrics getters. Those getters are used to fetch mbeans. */
   @Override
-  public Fetcher fetcher() {
-    return client ->
-        List.of(
-            KafkaMetrics.BrokerTopic.BytesInPerSec.fetch(client),
-            KafkaMetrics.BrokerTopic.BytesOutPerSec.fetch(client));
+  public Optional<Fetcher> fetcher() {
+    return Optional.of(
+        client -> {
+          return List.of(
+              KafkaMetrics.BrokerTopic.BytesInPerSec.fetch(client),
+              KafkaMetrics.BrokerTopic.BytesOutPerSec.fetch(client));
+        });
   }
 
   private static class BrokerMetric {

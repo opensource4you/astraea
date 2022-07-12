@@ -30,12 +30,12 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import org.apache.kafka.common.Cluster;
+import org.astraea.app.admin.ClusterInfo;
+import org.astraea.app.admin.NodeInfo;
+import org.astraea.app.admin.ReplicaInfo;
 import org.astraea.app.common.Utils;
-import org.astraea.app.cost.ClusterInfo;
 import org.astraea.app.cost.NeutralIntegratedCost;
-import org.astraea.app.cost.NodeInfo;
 import org.astraea.app.cost.Periodic;
-import org.astraea.app.cost.ReplicaInfo;
 import org.astraea.app.metrics.HasBeanObject;
 import org.astraea.app.metrics.collector.BeanCollector;
 import org.astraea.app.metrics.collector.Receiver;
@@ -150,7 +150,8 @@ public class SmoothWeightRoundRobinDispatcher extends Periodic<Map<Integer, Doub
         .register()
         .host(host)
         .port(port)
-        .fetcher(neutralIntegratedCost.fetcher())
+        // TODO: handle the empty fetcher
+        .fetcher(neutralIntegratedCost.fetcher().get())
         .build();
   }
 

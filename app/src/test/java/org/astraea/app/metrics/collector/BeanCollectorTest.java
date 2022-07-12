@@ -25,10 +25,12 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import org.astraea.app.common.Utils;
 import org.astraea.app.concurrent.Executor;
 import org.astraea.app.concurrent.State;
 import org.astraea.app.concurrent.ThreadPool;
 import org.astraea.app.metrics.HasBeanObject;
+import org.astraea.app.metrics.KafkaMetrics;
 import org.astraea.app.metrics.jmx.BeanObject;
 import org.astraea.app.metrics.jmx.MBeanClient;
 import org.junit.jupiter.api.Assertions;
@@ -295,6 +297,26 @@ public class BeanCollectorTest {
       var objs = receiver.current();
       Assertions.assertEquals(1, objs.size());
       Assertions.assertEquals(obj.createdTimestamp(), objs.iterator().next().createdTimestamp());
+    }
+  }
+
+  @Test
+  void testLocal() {
+    var collector =
+        BeanCollector.builder()
+            .interval(Duration.ofSeconds(1))
+            .clientCreator(clientCreator)
+            .build();
+    try (var receiver =
+        collector
+            .register()
+            .local()
+            .fetcher(client -> List.of(KafkaMetrics.Host.jvmMemory(client)))
+            .build()) {
+
+      // wait for updating cache
+      Utils.sleep(Duration.ofSeconds(1));
+      Assertions.assertNotEquals(0, receiver.current().size());
     }
   }
 }

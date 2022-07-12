@@ -19,11 +19,13 @@ package org.astraea.app.cost;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import org.astraea.app.admin.ClusterInfo;
+import org.astraea.app.metrics.KafkaMetrics;
+import org.astraea.app.metrics.broker.BrokerTopicMetricsResult;
 import org.astraea.app.metrics.collector.Fetcher;
-import org.astraea.app.metrics.kafka.BrokerTopicMetricsResult;
-import org.astraea.app.metrics.kafka.KafkaMetrics;
 
 /**
  * The result is computed by "BytesInPerSec.count". "BytesInPerSec.count" responds to the input
@@ -52,7 +54,7 @@ public class BrokerInputCost implements HasBrokerCost {
                                 hasBeanObject ->
                                     KafkaMetrics.BrokerTopic.BytesInPerSec.metricName()
                                         .equals(
-                                            hasBeanObject.beanObject().getProperties().get("name")))
+                                            hasBeanObject.beanObject().properties().get("name")))
                             .findAny()
                             .orElseThrow()))
             .entrySet()
@@ -92,8 +94,8 @@ public class BrokerInputCost implements HasBrokerCost {
   }
 
   @Override
-  public Fetcher fetcher() {
-    return client -> List.of(KafkaMetrics.BrokerTopic.BytesInPerSec.fetch(client));
+  public Optional<Fetcher> fetcher() {
+    return Optional.of(client -> List.of(KafkaMetrics.BrokerTopic.BytesInPerSec.fetch(client)));
   }
 
   private static class BrokerMetric {

@@ -21,10 +21,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import org.astraea.app.admin.ClusterBean;
+import org.astraea.app.admin.ClusterInfo;
+import org.astraea.app.admin.NodeInfo;
+import org.astraea.app.admin.ReplicaInfo;
 import org.astraea.app.metrics.HasBeanObject;
 import org.astraea.app.metrics.collector.BeanCollector;
 import org.astraea.app.metrics.collector.Receiver;
-import org.astraea.app.metrics.java.OperatingSystemInfo;
+import org.astraea.app.metrics.platform.OperatingSystemInfo;
 import org.astraea.app.service.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -109,7 +112,7 @@ public class CpuCostTest extends RequireBrokerCluster {
             .register()
             .host(jmxServiceURL().getHost())
             .port(jmxServiceURL().getPort())
-            .fetcher(new CpuCost().fetcher())
+            .fetcher(new CpuCost().fetcher().get())
             .build()) {
       Assertions.assertFalse(receiver.current().isEmpty());
       Assertions.assertTrue(
