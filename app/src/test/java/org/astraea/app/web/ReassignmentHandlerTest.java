@@ -16,10 +16,10 @@
  */
 package org.astraea.app.web;
 
+import java.time.Duration;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.TimeUnit;
 import org.astraea.app.admin.Admin;
 import org.astraea.app.admin.TopicPartition;
 import org.astraea.app.common.Utils;
@@ -30,12 +30,12 @@ import org.junit.jupiter.api.Test;
 public class ReassignmentHandlerTest extends RequireBrokerCluster {
 
   @Test
-  void testMigrateToAnotherBroker() throws InterruptedException {
+  void testMigrateToAnotherBroker() {
     var topicName = Utils.randomString(10);
     try (Admin admin = Admin.of(bootstrapServers())) {
       var handler = new ReassignmentHandler(admin);
       admin.creator().topic(topicName).numberOfPartitions(1).create();
-      TimeUnit.SECONDS.sleep(3);
+      Utils.sleep(Duration.ofSeconds(3));
 
       var currentBroker =
           admin.replicas(Set.of(topicName)).get(new TopicPartition(topicName, 0)).get(0).broker();
@@ -53,7 +53,7 @@ public class ReassignmentHandlerTest extends RequireBrokerCluster {
                       ReassignmentHandler.TO_KEY,
                       "[\"" + nextBroker + "\"]"))));
 
-      TimeUnit.SECONDS.sleep(2);
+      Utils.sleep(Duration.ofSeconds(2));
       var reassignments = handler.get(Optional.of(topicName), Map.of());
       // the reassignment should be completed
       Assertions.assertEquals(0, reassignments.reassignments.size());
@@ -65,12 +65,12 @@ public class ReassignmentHandlerTest extends RequireBrokerCluster {
   }
 
   @Test
-  void testMigrateToAnotherPath() throws InterruptedException {
+  void testMigrateToAnotherPath() {
     var topicName = Utils.randomString(10);
     try (Admin admin = Admin.of(bootstrapServers())) {
       var handler = new ReassignmentHandler(admin);
       admin.creator().topic(topicName).numberOfPartitions(1).create();
-      TimeUnit.SECONDS.sleep(3);
+      Utils.sleep(Duration.ofSeconds(3));
 
       var currentReplica =
           admin.replicas(Set.of(topicName)).get(new TopicPartition(topicName, 0)).get(0);
@@ -96,7 +96,7 @@ public class ReassignmentHandlerTest extends RequireBrokerCluster {
                       ReassignmentHandler.TO_KEY,
                       nextPath))));
 
-      TimeUnit.SECONDS.sleep(2);
+      Utils.sleep(Duration.ofSeconds(2));
       var reassignments = handler.get(Optional.of(topicName), Map.of());
       // the reassignment should be completed
       Assertions.assertEquals(0, reassignments.reassignments.size());

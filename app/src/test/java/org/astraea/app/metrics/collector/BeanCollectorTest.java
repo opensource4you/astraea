@@ -20,7 +20,6 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
@@ -41,14 +40,6 @@ public class BeanCollectorTest {
   private final MBeanClient mbeanClient = Mockito.mock(MBeanClient.class);
   private final BiFunction<String, Integer, MBeanClient> clientCreator =
       (host, port) -> mbeanClient;
-
-  private static void sleep(int seconds) {
-    try {
-      TimeUnit.SECONDS.sleep(seconds);
-    } catch (InterruptedException e) {
-      throw new RuntimeException(e);
-    }
-  }
 
   private static Executor executor(Runnable runnable) {
     return () -> {
@@ -106,12 +97,12 @@ public class BeanCollectorTest {
     var c0 = receiver.current();
     Assertions.assertEquals(1, c0.size());
     var firstObject = c0.iterator().next();
-    sleep(1);
+    Utils.sleep(Duration.ofSeconds(1));
 
     var c1 = receiver.current();
     Assertions.assertEquals(2, c1.size());
     var secondObject = c1.stream().filter(o -> o != firstObject).findFirst().get();
-    sleep(1);
+    Utils.sleep(Duration.ofSeconds(1));
 
     var c2 = receiver.current();
     Assertions.assertEquals(2, c2.size());
@@ -154,7 +145,7 @@ public class BeanCollectorTest {
               receivers.add(receiver);
             }
           } finally {
-            sleep(1);
+            Utils.sleep(Duration.ofSeconds(1));
           }
         };
 
@@ -165,7 +156,7 @@ public class BeanCollectorTest {
                     .mapToObj(i -> executor(runnable))
                     .collect(Collectors.toList()))
             .build()) {
-      sleep(1);
+      Utils.sleep(Duration.ofSeconds(1));
     }
     return receivers;
   }
@@ -204,7 +195,7 @@ public class BeanCollectorTest {
                     .map(receiver -> executor(receiver::current))
                     .collect(Collectors.toList()))
             .build()) {
-      sleep(3);
+      Utils.sleep(Duration.ofSeconds(3));
     }
     receivers.forEach(r -> Assertions.assertEquals(1, r.current().size()));
   }
@@ -237,7 +228,7 @@ public class BeanCollectorTest {
     for (var expect : expectedSizes) {
       Assertions.assertEquals(expect, receiver.current().size());
       Assertions.assertEquals(expect, count.get());
-      sleep(1);
+      Utils.sleep(Duration.ofSeconds(1));
     }
   }
 
@@ -269,16 +260,16 @@ public class BeanCollectorTest {
                 })
             .collect(Collectors.toList());
 
-    sleep(1);
+    Utils.sleep(Duration.ofSeconds(1));
     receivers.forEach(e -> Assertions.assertEquals(0, e.getKey().get()));
 
-    sleep(1);
+    Utils.sleep(Duration.ofSeconds(1));
     receivers.forEach(e -> Assertions.assertEquals(1, e.getValue().current().size()));
     receivers.forEach(e -> Assertions.assertEquals(1, e.getKey().get()));
   }
 
   @Test
-  void testCreatedTimestamp() throws InterruptedException {
+  void testCreatedTimestamp() {
     var collector =
         BeanCollector.builder()
             .interval(Duration.ofSeconds(1))
@@ -293,7 +284,7 @@ public class BeanCollectorTest {
             .fetcher(client -> List.of(() -> obj))
             .build()) {
       // wait for updating cache
-      TimeUnit.SECONDS.sleep(1);
+      Utils.sleep(Duration.ofSeconds(1));
       var objs = receiver.current();
       Assertions.assertEquals(1, objs.size());
       Assertions.assertEquals(obj.createdTimestamp(), objs.iterator().next().createdTimestamp());
