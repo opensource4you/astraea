@@ -16,9 +16,9 @@
  */
 package org.astraea.app.balancer.executor;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.astraea.app.admin.Admin;
@@ -34,15 +34,15 @@ import org.junit.jupiter.api.Test;
 class StraightPlanExecutorTest extends RequireBrokerCluster {
 
   @Test
-  void testRun() throws InterruptedException {
+  void testRun() {
     // arrange
     try (Admin admin = Admin.of(bootstrapServers())) {
       final var topicName = "StraightPlanExecutorTest_" + Utils.randomString(8);
       admin.creator().topic(topicName).numberOfPartitions(10).numberOfReplicas((short) 2).create();
-      TimeUnit.SECONDS.sleep(2);
+      Utils.sleep(Duration.ofSeconds(2));
       final var originalAllocation =
           LayeredClusterLogAllocation.of(admin.clusterInfo(Set.of(topicName)));
-      TimeUnit.SECONDS.sleep(3);
+      Utils.sleep(Duration.ofSeconds(3));
       final var broker0 = 0;
       final var broker1 = 1;
       final var logFolder0 = logFolders().get(broker0).stream().findAny().orElseThrow();
@@ -84,15 +84,15 @@ class StraightPlanExecutorTest extends RequireBrokerCluster {
   }
 
   @Test
-  void testRunNoDirSpecified() throws InterruptedException {
+  void testRunNoDirSpecified() {
     // arrange
     try (Admin admin = Admin.of(bootstrapServers())) {
       final var topicName = "StraightPlanExecutorTest_" + Utils.randomString(8);
       admin.creator().topic(topicName).numberOfPartitions(10).numberOfReplicas((short) 3).create();
-      TimeUnit.SECONDS.sleep(2);
+      Utils.sleep(Duration.ofSeconds(2));
       final var originalAllocation =
           LayeredClusterLogAllocation.of(admin.clusterInfo(Set.of(topicName)));
-      TimeUnit.SECONDS.sleep(3);
+      Utils.sleep(Duration.ofSeconds(3));
       final var broker0 = 0;
       final var broker1 = 1;
       final var broker2 = 2;

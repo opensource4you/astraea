@@ -99,12 +99,8 @@ public class ConsumerTest extends RequireBrokerCluster {
       var service = Executors.newSingleThreadExecutor();
       service.execute(
           () -> {
-            try {
-              TimeUnit.SECONDS.sleep(3);
-              consumer.wakeup();
-            } catch (InterruptedException ignored) {
-              // swallow
-            }
+            Utils.sleep(Duration.ofSeconds(3));
+            consumer.wakeup();
           });
       // this call will be broken after 3 seconds
       Assertions.assertThrows(WakeupException.class, () -> consumer.poll(Duration.ofSeconds(100)));
@@ -208,13 +204,13 @@ public class ConsumerTest extends RequireBrokerCluster {
   }
 
   @Test
-  void testAssignment() throws InterruptedException {
+  void testAssignment() {
     var topic = Utils.randomString(10);
     try (var admin = Admin.of(bootstrapServers());
         var producer = Producer.of(bootstrapServers())) {
       var partitionNum = 2;
       admin.creator().topic(topic).numberOfPartitions(partitionNum).create();
-      TimeUnit.SECONDS.sleep(2);
+      Utils.sleep(Duration.ofSeconds(2));
 
       for (int partitionId = 0; partitionId < partitionNum; partitionId++) {
         for (int recordIdx = 0; recordIdx < 10; recordIdx++) {
@@ -254,12 +250,12 @@ public class ConsumerTest extends RequireBrokerCluster {
   }
 
   @Test
-  void testCommitOffset() throws InterruptedException {
+  void testCommitOffset() {
     var topic = Utils.randomString(10);
     try (var admin = Admin.of(bootstrapServers());
         var producer = Producer.of(bootstrapServers())) {
       admin.creator().topic(topic).numberOfPartitions(1).create();
-      TimeUnit.SECONDS.sleep(2);
+      Utils.sleep(Duration.ofSeconds(2));
       producer.sender().topic(topic).value(new byte[10]).run();
       producer.flush();
 

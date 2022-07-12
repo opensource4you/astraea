@@ -16,15 +16,16 @@
  */
 package org.astraea.app.performance;
 
-import java.util.concurrent.TimeUnit;
+import java.time.Duration;
 import org.astraea.app.common.DataUnit;
+import org.astraea.app.common.Utils;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 public class DataSupplierTest {
 
   @Test
-  void testDuration() throws InterruptedException {
+  void testDuration() {
     var dataSupplier =
         DataSupplier.of(
             ExeTime.of("2s"),
@@ -33,7 +34,7 @@ public class DataSupplierTest {
             DistributionType.FIXED.create(10),
             DataUnit.KiB.of(100));
     Assertions.assertTrue(dataSupplier.get().hasData());
-    TimeUnit.SECONDS.sleep(3);
+    Utils.sleep(Duration.ofSeconds(3));
     Assertions.assertFalse(dataSupplier.get().hasData());
   }
 

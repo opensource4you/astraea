@@ -16,11 +16,12 @@
  */
 package org.astraea.app.balancer.generator;
 
+import java.time.Duration;
 import java.util.concurrent.ForkJoinPool;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.LongAdder;
 import java.util.stream.Collectors;
 import org.astraea.app.balancer.log.LayeredClusterLogAllocation;
+import org.astraea.app.common.Utils;
 import org.astraea.app.cost.ClusterInfoProvider;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Disabled;
@@ -171,14 +172,9 @@ class ShufflePlanGeneratorTest {
         new Thread(
             () -> {
               while (!Thread.currentThread().isInterrupted()) {
-                try {
-                  TimeUnit.SECONDS.sleep(1);
-                  long now = System.nanoTime();
-                  System.out.printf(
-                      "%.3f proposal/s %n", counter.sum() / ((now - startTime) / 1e9));
-                } catch (InterruptedException e) {
-                  break;
-                }
+                Utils.sleep(Duration.ofSeconds(1));
+                long now = System.nanoTime();
+                System.out.printf("%.3f proposal/s %n", counter.sum() / ((now - startTime) / 1e9));
               }
             });
 

@@ -152,7 +152,7 @@ public final class Utils {
       try {
         var r = supplier.get();
         if (r != null) return r;
-        TimeUnit.SECONDS.sleep(1);
+        Utils.sleep(Duration.ofSeconds(1));
       } catch (Exception e) {
         lastError = e;
       }
@@ -177,6 +177,11 @@ public final class Utils {
     return (lastTime + interval.toMillis()) < System.currentTimeMillis();
   }
 
+  /**
+   * Perform a sleep using the duration. InterruptedException is wrapped to RuntimeException.
+   *
+   * @param duration to sleep
+   */
   public static void sleep(Duration duration) {
     Utils.swallowException(() -> TimeUnit.MILLISECONDS.sleep(duration.toMillis()));
   }

@@ -20,12 +20,14 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 
 import java.io.IOException;
+import java.time.Duration;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
 import org.astraea.app.argument.Argument;
+import org.astraea.app.common.Utils;
 import org.astraea.app.producer.Producer;
 import org.astraea.app.producer.Sender;
 import org.astraea.app.service.RequireBrokerCluster;
@@ -85,7 +87,7 @@ class ReplicaSyncingMonitorIntegrationTest extends RequireBrokerCluster {
       // act
       executionThread.start();
       TimeUnit.SECONDS.timedJoin(executionThread, 8); // wait until the thread exit
-      TimeUnit.SECONDS.sleep(2); // sleep 2 extra seconds to ensure test run in stable
+      Utils.sleep(Duration.ofSeconds(2)); // sleep 2 extra seconds to ensure test run in stable
 
       // assert
       assertSame(Thread.State.TERMINATED, executionThread.getState());

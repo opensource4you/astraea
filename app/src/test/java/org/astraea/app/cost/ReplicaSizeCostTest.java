@@ -23,7 +23,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import org.astraea.app.admin.Admin;
 import org.astraea.app.admin.ClusterBean;
@@ -31,6 +30,7 @@ import org.astraea.app.admin.ClusterInfo;
 import org.astraea.app.admin.NodeInfo;
 import org.astraea.app.admin.ReplicaInfo;
 import org.astraea.app.admin.TopicPartition;
+import org.astraea.app.common.Utils;
 import org.astraea.app.metrics.HasBeanObject;
 import org.astraea.app.metrics.KafkaMetrics;
 import org.astraea.app.metrics.broker.HasValue;
@@ -43,14 +43,14 @@ import org.junit.jupiter.api.Test;
 
 class ReplicaSizeCostTest extends RequireSingleBrokerCluster {
   @Test
-  void testGetMetrics() {
+  void testGetMetrics() throws ExecutionException, InterruptedException {
     var brokerDiskSize = Map.of(1, 1000, 2, 1000, 3, 1000);
     var topicName = "testGetMetrics-1";
     try (var admin = Admin.of(bootstrapServers())) {
       var host = "localhost";
       admin.creator().topic(topicName).numberOfPartitions(1).numberOfReplicas((short) 1).create();
       // wait for topic creation
-      TimeUnit.SECONDS.sleep(5);
+      Utils.sleep(Duration.ofSeconds(5));
       var producer = Producer.builder().bootstrapServers(bootstrapServers()).build();
       producer.sender().topic(topicName).key(new byte[10000]).run().toCompletableFuture().get();
       ReplicaSizeCost costFunction = new ReplicaSizeCost(brokerDiskSize);
@@ -75,8 +75,6 @@ class ReplicaSizeCostTest extends RequireSingleBrokerCluster {
               .map(e2 -> (int) e2.value())
               .collect(Collectors.toList());
       Assertions.assertTrue(replicaSize.get(0) >= 10000);
-    } catch (InterruptedException | ExecutionException e) {
-      throw new RuntimeException(e);
     }
   }
 
