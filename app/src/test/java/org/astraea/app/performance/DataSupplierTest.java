@@ -16,7 +16,9 @@
  */
 package org.astraea.app.performance;
 
+import java.util.Arrays;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 import org.astraea.app.common.DataUnit;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -27,12 +29,7 @@ public class DataSupplierTest {
   void testDuration() throws InterruptedException {
     var dataSupplier =
         DataSupplier.of(
-            ExeTime.of("2s"),
-            DataUnit.Byte.of(20),
-            DistributionType.FIXED.create(10),
-            DataUnit.KiB.of(100),
-            DistributionType.FIXED.create(10),
-            DataUnit.KiB.of(100));
+            ExeTime.of("2s"), () -> 1L, () -> 4L, () -> 1L, () -> 10L, DataUnit.KiB.of(100));
     Assertions.assertTrue(dataSupplier.get().hasData());
     TimeUnit.SECONDS.sleep(3);
     Assertions.assertFalse(dataSupplier.get().hasData());
@@ -43,10 +40,10 @@ public class DataSupplierTest {
     var dataSupplier =
         DataSupplier.of(
             ExeTime.of("2records"),
-            DataUnit.KiB.of(2),
-            DistributionType.FIXED.create(10),
-            DataUnit.KiB.of(100),
-            DistributionType.FIXED.create(10),
+            () -> DataUnit.KiB.of(2).measurement(DataUnit.Byte).longValue(),
+            () -> 10L,
+            () -> DataUnit.KiB.of(100).measurement(DataUnit.Byte).longValue(),
+            () -> 10L,
             DataUnit.KiB.of(102));
     Assertions.assertTrue(dataSupplier.get().hasData());
     Assertions.assertTrue(dataSupplier.get().hasData());
@@ -58,15 +55,17 @@ public class DataSupplierTest {
     var dataSupplier =
         DataSupplier.of(
             ExeTime.of("10s"),
-            DataUnit.Byte.of(20),
-            DistributionType.FIXED.create(9),
-            DataUnit.KiB.of(100),
-            DistributionType.FIXED.create(10),
-            DataUnit.KiB.of(100));
-    var data = dataSupplier.get();
-    Assertions.assertTrue(data.hasData());
-    // key content is fixed to "9", so the size is 1 byte
-    Assertions.assertEquals(20, data.key().length);
+            () -> 1L,
+            () -> DataUnit.Byte.of(20).measurement(DataUnit.Byte).longValue(),
+            () -> 2L,
+            () -> DataUnit.KiB.of(100).measurement(DataUnit.Byte).longValue(),
+            DataUnit.KiB.of(200));
+    var data1 = dataSupplier.get();
+    Assertions.assertTrue(data1.hasData());
+    var data2 = dataSupplier.get();
+    Assertions.assertTrue(data2.hasData());
+    // key content is fixed, the keys are the same
+    Assertions.assertEquals(data1.key(), data2.key());
   }
 
   @Test
@@ -74,10 +73,10 @@ public class DataSupplierTest {
     var dataSupplier =
         DataSupplier.of(
             ExeTime.of("10s"),
-            DataUnit.Byte.of(20),
-            DistributionType.FIXED.create(10),
-            DataUnit.KiB.of(100),
-            DistributionType.FIXED.create(0),
+            () -> 1L,
+            () -> DataUnit.Byte.of(20).measurement(DataUnit.Byte).longValue(),
+            () -> 2L,
+            () -> DataUnit.KiB.of(100).measurement(DataUnit.Byte).longValue(),
             DataUnit.KiB.of(100));
     var data = dataSupplier.get();
     Assertions.assertTrue(data.hasData());
@@ -86,20 +85,95 @@ public class DataSupplierTest {
   }
 
   @Test
-  void testDistributedValueSize() {
+  void testKeyDistribution() {
+    var counter = new AtomicLong(0L);
+    var counter2 = new AtomicLong(0L);
+
+    // Round-robin on 2 keys. Round-robin key size between 100Byte and 101Byte
     var dataSupplier =
         DataSupplier.of(
             ExeTime.of("10s"),
-            DataUnit.Byte.of(20),
-            DistributionType.FIXED.create(10),
-            DataUnit.KiB.of(100),
-            DistributionType.FIXED.create(10),
+            () -> counter.getAndIncrement() % 2,
+            () -> 100L + counter2.getAndIncrement(),
+            () -> 10L,
+            () -> 10L,
+            DataUnit.KiB.of(200));
+    var data1 = dataSupplier.get();
+    Assertions.assertTrue(data1.hasData());
+    var data2 = dataSupplier.get();
+    Assertions.assertTrue(data2.hasData());
+    var data3 = dataSupplier.get();
+    Assertions.assertTrue(data3.hasData());
+
+    // The key of data1 and data2 should have size 100 bytes and 101 bytes respectively.
+    Assertions.assertEquals(100, data1.key().length);
+    Assertions.assertEquals(101, data2.key().length);
+    // Round-robin key distribution with 2 possible key.
+    Assertions.assertEquals(data1.key(), data3.key());
+
+    // Round-robin on 2 keys. Fixed key size to 100 bytes.
+    dataSupplier =
+        DataSupplier.of(
+            ExeTime.of("10s"),
+            () -> counter.getAndIncrement() % 2,
+            () -> 100L,
+            () -> 10L,
+            () -> 10L,
+            DataUnit.KiB.of(200));
+    data1 = dataSupplier.get();
+    Assertions.assertTrue(data1.hasData());
+    data2 = dataSupplier.get();
+    Assertions.assertTrue(data2.hasData());
+    // Same size but different content
+    Assertions.assertEquals(100, data1.key().length);
+    Assertions.assertEquals(100, data2.key().length);
+    Assertions.assertFalse(Arrays.equals(data1.key(), data2.key()));
+  }
+
+  @Test
+  void testDistributedValueSize() {
+    var counter = new AtomicLong(0);
+    var counter2 = new AtomicLong(0);
+
+    // Round-Robin on 2 values. Round-Robin value size between 100Byte and 101Byte
+    var dataSupplier =
+        DataSupplier.of(
+            ExeTime.of("10s"),
+            () -> 10L,
+            () -> 10L,
+            () -> counter.getAndIncrement() % 2,
+            () -> 100L + counter2.getAndIncrement(),
             DataUnit.KiB.of(100));
-    var data = dataSupplier.get();
-    Assertions.assertTrue(data.hasData());
-    // initial value size is 100KB and the distributed is fixed to 10, so the final size is between
-    // (102400 - 10, 102400 + 10)
-    Assertions.assertTrue(data.value().length >= 102400 - 10 && data.value().length <= 102400 + 10);
+    var data1 = dataSupplier.get();
+    Assertions.assertTrue(data1.hasData());
+    var data2 = dataSupplier.get();
+    Assertions.assertTrue(data2.hasData());
+    var data3 = dataSupplier.get();
+    Assertions.assertTrue(data3.hasData());
+
+    // The value of data1 and data2 should have size 100 bytes and 101 bytes respectively.
+    Assertions.assertEquals(100, data1.value().length);
+    Assertions.assertEquals(101, data2.value().length);
+    // Round-robin value distribution with 2 possible value.
+    Assertions.assertEquals(data1.value(), data3.value());
+
+    // Round-robin on 2 values. Fixed value size.
+    dataSupplier =
+        DataSupplier.of(
+            ExeTime.of("10s"),
+            () -> 10L,
+            () -> 10L,
+            () -> counter.getAndIncrement() % 2,
+            () -> 100L,
+            DataUnit.KiB.of(100));
+    data1 = dataSupplier.get();
+    Assertions.assertTrue(data1.hasData());
+    data2 = dataSupplier.get();
+    Assertions.assertTrue(data2.hasData());
+    // Same size but different content
+    Assertions.assertEquals(100, data1.value().length);
+    Assertions.assertEquals(100, data2.value().length);
+    Assertions.assertFalse(Arrays.equals(data1.value(), data2.value()));
   }
 
   @Test
@@ -107,10 +181,10 @@ public class DataSupplierTest {
     var dataSupplier =
         DataSupplier.of(
             ExeTime.of("10s"),
-            DataUnit.KiB.of(2),
-            DistributionType.FIXED.create(10),
-            DataUnit.KiB.of(98),
-            DistributionType.FIXED.create(0),
+            () -> 10L,
+            () -> DataUnit.KiB.of(50).measurement(DataUnit.Byte).longValue(),
+            () -> 10L,
+            () -> DataUnit.KiB.of(50).measurement(DataUnit.Byte).longValue(),
             DataUnit.KiB.of(150));
     // total: 100KB, limit: 150KB -> no throttle
     Assertions.assertTrue(dataSupplier.get().hasData());
@@ -124,14 +198,20 @@ public class DataSupplierTest {
   void testNoKey() {
     var dataSupplier =
         DataSupplier.of(
-            ExeTime.of("10s"),
-            DataUnit.Byte.of(0),
-            DistributionType.FIXED.create(10),
-            DataUnit.KiB.of(100),
-            DistributionType.FIXED.create(0),
-            DataUnit.KiB.of(150));
+            ExeTime.of("10s"), () -> 10L, () -> 0L, () -> 10L, () -> 10L, DataUnit.KiB.of(200));
 
-    Assertions.assertTrue(dataSupplier.get().hasData());
-    Assertions.assertNull(dataSupplier.get().key());
+    var data = dataSupplier.get();
+    Assertions.assertTrue(data.hasData());
+    Assertions.assertNull(data.key());
+  }
+
+  @Test
+  void testNoValue() {
+    var dataSupplier =
+        DataSupplier.of(
+            ExeTime.of("10s"), () -> 10L, () -> 10L, () -> 10L, () -> 0L, DataUnit.KiB.of(200));
+    var data = dataSupplier.get();
+    Assertions.assertTrue(data.hasData());
+    Assertions.assertNull(data.value());
   }
 }

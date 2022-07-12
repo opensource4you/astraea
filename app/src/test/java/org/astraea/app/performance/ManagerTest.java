@@ -21,28 +21,6 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 public class ManagerTest {
-
-  @Test
-  void testGetKey() {
-    var argument = new Performance.Argument();
-
-    argument.keyDistributionType = DistributionType.UNIFORM;
-    var manager = new Manager(argument, List.of(), List.of());
-    Assertions.assertTrue(manager.getKey().length > 0);
-
-    argument.keyDistributionType = DistributionType.ZIPFIAN;
-    manager = new Manager(argument, List.of(), List.of());
-    Assertions.assertTrue(manager.getKey().length > 0);
-
-    argument.keyDistributionType = DistributionType.LATEST;
-    manager = new Manager(argument, List.of(), List.of());
-    Assertions.assertTrue(manager.getKey().length > 0);
-
-    argument.keyDistributionType = DistributionType.FIXED;
-    manager = new Manager(argument, List.of(), List.of());
-    Assertions.assertTrue(manager.getKey().length > 0);
-  }
-
   @Test
   void testConsumerDone() {
     var argument = new Performance.Argument();

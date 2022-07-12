@@ -16,7 +16,6 @@
  */
 package org.astraea.app.performance;
 
-import java.util.Arrays;
 import java.util.Map;
 import java.util.Random;
 import java.util.concurrent.ConcurrentHashMap;
@@ -118,12 +117,39 @@ interface DataSupplier extends Supplier<DataSupplier.Data> {
     byte[] value();
   }
 
+  /**
+   * Generate Data according to the given arguments. The returned supplier map the 64-bit number
+   * supplied by key(/value) distribution to a byte array. That is, if we want the DataSupplier to
+   * produce the same content, the key(/value) distribution should always produce the same number.
+   * For example,
+   *
+   * <pre>{@code
+   * DataSupplier.of(exeTime,
+   *                 ()->1,
+   *                 keySizeDistribution,
+   *                 ()->1,
+   *                 valueSizeDistribution,
+   *                 throughput)
+   * }</pre>
+   *
+   * It is not recommend to supply too many unique number. This DataSupplier store every unique
+   * number and its content in a map structure.
+   *
+   * @param exeTime the time for stop supplying data
+   * @param keyDistribution supply abstract keys which is represented by a 64-bit integer
+   * @param keySizeDistribution supply the size of newly created key
+   * @param valueDistribution supply abstract value which is represented by a 64-bit integer
+   * @param valueSizeDistribution supply the size of newly created value
+   * @param throughput the limit on data produced per second
+   * @return supply data with given distribution. It will map the 64-bit number supplied by
+   *     key(/value) distribution to a byte array.
+   */
   static DataSupplier of(
       ExeTime exeTime,
-      DataSize keysize,
       Supplier<Long> keyDistribution,
-      DataSize valuesize,
+      Supplier<Long> keySizeDistribution,
       Supplier<Long> valueDistribution,
+      Supplier<Long> valueSizeDistribution,
       DataSize throughput) {
     return new DataSupplier() {
       private final long start = System.currentTimeMillis();
@@ -131,8 +157,6 @@ interface DataSupplier extends Supplier<DataSupplier.Data> {
       private final AtomicLong dataCount = new AtomicLong(0);
       private long intervalStart = 0;
       private long payloadBytes;
-      private final int keySize = keysize.measurement(DataUnit.Byte).intValue();
-      private final int valueSize = valuesize.measurement(DataUnit.Byte).intValue();
       private final Map<Long, byte[]> recordKeyTable = new ConcurrentHashMap<>();
       private final Map<Long, byte[]> recordValueTable = new ConcurrentHashMap<>();
 
@@ -150,30 +174,13 @@ interface DataSupplier extends Supplier<DataSupplier.Data> {
       }
 
       byte[] value() {
-        if (valueSize == 0) return null;
-
-        var value = getOrNew(recordValueTable, valueDistribution, valueSize);
-        return Arrays.copyOfRange(
-            value, (int) (valueDistribution.get() % value.length), value.length);
+        return getOrNew(
+            recordValueTable, valueDistribution, valueSizeDistribution.get().intValue(), rand);
       }
 
       public byte[] key() {
-        if (keySize == 0) return null;
-
-        return getOrNew(recordKeyTable, keyDistribution, keySize);
-      }
-
-      // Find the key from the table, if the record has been produced before. Randomly generate a
-      // byte array if
-      // the record has not been produced.
-      private byte[] getOrNew(Map<Long, byte[]> table, Supplier<Long> distribution, int size) {
-        return table.computeIfAbsent(
-            distribution.get(),
-            ignore -> {
-              var value = new byte[size];
-              rand.nextBytes(value);
-              return value;
-            });
+        return getOrNew(
+            recordKeyTable, keyDistribution, keySizeDistribution.get().intValue(), rand);
       }
 
       @Override
@@ -187,5 +194,20 @@ interface DataSupplier extends Supplier<DataSupplier.Data> {
         return THROTTLED_DATA;
       }
     };
+  }
+
+  // Find the key from the table, if the record has been produced before. Randomly generate a
+  // byte array if
+  // the record has not been produced.
+  private static byte[] getOrNew(
+      Map<Long, byte[]> table, Supplier<Long> distribution, int size, Random rand) {
+    return table.computeIfAbsent(
+        distribution.get(),
+        ignore -> {
+          if (size == 0) return null;
+          var value = new byte[size];
+          rand.nextBytes(value);
+          return value;
+        });
   }
 }
