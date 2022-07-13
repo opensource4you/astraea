@@ -121,8 +121,10 @@ public class ShufflePlanGenerator implements RebalancePlanGenerator {
       final var sourceBroker = sourceLogPlacement.broker();
       var targetPlacements =
           sourceLogPlacements.size() > 1
-              ? sourceIsLeader ? sourceLogPlacements.stream().skip(1) : Stream.<LogPlacement>of()
-              : Stream.of(sourceLogPlacement);
+              ? sourceIsLeader
+                  ? sourceLogPlacements.stream().skip(1).collect(Collectors.toUnmodifiableList())
+                  : List.of(sourceLogPlacement)
+              : List.<LogPlacement>of();
       // generate a set of valid migration broker for given placement.
       final var validMigrationCandidates =
           Stream.concat(
@@ -152,20 +154,21 @@ public class ShufflePlanGenerator implements RebalancePlanGenerator {
                                   }),
                   // [Valid movement 2] add all leader/follower change
                   // candidate
-                  targetPlacements.map(
-                      followerReplica ->
-                          () -> {
-                            rebalancePlanBuilder.addInfo(
-                                String.format(
-                                    "Change the log identity of topic %s partition %d replica at broker %d, from %s to %s",
-                                    sourceTopicPartition.topic(),
-                                    sourceTopicPartition.partition(),
-                                    sourceLogPlacement.broker(),
-                                    sourceIsLeader ? "leader" : "follower",
-                                    sourceIsLeader ? "follower" : "leader"));
-                            return currentAllocation.letReplicaBecomeLeader(
-                                sourceTopicPartition, followerReplica.broker());
-                          }))
+                  targetPlacements.stream()
+                      .map(
+                          followerReplica ->
+                              () -> {
+                                rebalancePlanBuilder.addInfo(
+                                    String.format(
+                                        "Change the log identity of topic %s partition %d replica at broker %d, from %s to %s",
+                                        sourceTopicPartition.topic(),
+                                        sourceTopicPartition.partition(),
+                                        sourceLogPlacement.broker(),
+                                        sourceIsLeader ? "leader" : "follower",
+                                        sourceIsLeader ? "follower" : "leader"));
+                                return currentAllocation.letReplicaBecomeLeader(
+                                    sourceTopicPartition, followerReplica.broker());
+                              }))
               .collect(Collectors.toUnmodifiableList());
       // pick a migration and execute
       final var selectedMigrationIndex = randomElement(validMigrationCandidates);
