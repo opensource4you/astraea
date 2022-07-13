@@ -43,29 +43,21 @@ public class CpuCostTest extends RequireBrokerCluster {
     Collection<HasBeanObject> broker1 = List.of(cpuUsage1);
     Collection<HasBeanObject> broker2 = List.of(cpuUsage2);
     Collection<HasBeanObject> broker3 = List.of(cpuUsage3);
-    ClusterInfo clusterInfo =
-        new FakeClusterInfo() {
-          @Override
-          public ClusterBean clusterBean() {
-            return ClusterBean.of(Map.of(1, broker1, 2, broker2, 3, broker3));
-          }
 
-          @Override
-          public Set<String> topics() {
-            return Set.of("t");
-          }
-
-          @Override
-          public List<ReplicaInfo> availableReplicas(String topic) {
-            return List.of(
+    ClusterInfo clusterInfo = Mockito.mock(ClusterInfo.class);
+    Mockito.when(clusterInfo.topics()).thenReturn(Set.of("t"));
+    Mockito.when(clusterInfo.availableReplicas(Mockito.anyString()))
+        .thenReturn(
+            List.of(
                 ReplicaInfo.of("t", 0, NodeInfo.of(1, "host1", 9092), true, true, false),
                 ReplicaInfo.of("t", 0, NodeInfo.of(2, "host2", 9092), false, true, false),
-                ReplicaInfo.of("t", 0, NodeInfo.of(3, "host3", 9092), false, true, false));
-          }
-        };
-
+                ReplicaInfo.of("t", 0, NodeInfo.of(3, "host3", 9092), false, true, false)));
     var cpuCost = new CpuCost();
-    var scores = cpuCost.brokerCost(clusterInfo).normalize(Normalizer.TScore()).value();
+    var scores =
+        cpuCost
+            .brokerCost(clusterInfo, ClusterBean.of(Map.of(1, broker1, 2, broker2, 3, broker3)))
+            .normalize(Normalizer.TScore())
+            .value();
     Assertions.assertEquals(0.39, scores.get(1));
     Assertions.assertEquals(0.63, scores.get(2));
     Assertions.assertEquals(0.48, scores.get(3));
@@ -78,27 +70,20 @@ public class CpuCostTest extends RequireBrokerCluster {
     Collection<HasBeanObject> broker12 = List.of(cpuUsage1);
     Collection<HasBeanObject> broker22 = List.of(cpuUsage2);
     Collection<HasBeanObject> broker32 = List.of(cpuUsage3);
-    ClusterInfo clusterInfo2 =
-        new FakeClusterInfo() {
-          @Override
-          public ClusterBean clusterBean() {
-            return ClusterBean.of(Map.of(1, broker12, 2, broker22, 3, broker32));
-          }
 
-          @Override
-          public Set<String> topics() {
-            return Set.of("t");
-          }
-
-          @Override
-          public List<ReplicaInfo> availableReplicas(String topic) {
-            return List.of(
+    ClusterInfo clusterInfo2 = Mockito.mock(ClusterInfo.class);
+    Mockito.when(clusterInfo2.topics()).thenReturn(Set.of("t"));
+    Mockito.when(clusterInfo2.availableReplicas(Mockito.anyString()))
+        .thenReturn(
+            List.of(
                 ReplicaInfo.of("t", 0, NodeInfo.of(1, "host1", 9092), true, true, false),
                 ReplicaInfo.of("t", 0, NodeInfo.of(2, "host2", 9092), false, true, false),
-                ReplicaInfo.of("t", 0, NodeInfo.of(3, "host3", 9092), false, true, false));
-          }
-        };
-    scores = cpuCost.brokerCost(clusterInfo2).normalize(Normalizer.TScore()).value();
+                ReplicaInfo.of("t", 0, NodeInfo.of(3, "host3", 9092), false, true, false)));
+    scores =
+        cpuCost
+            .brokerCost(clusterInfo2, ClusterBean.of(Map.of(1, broker12, 2, broker22, 3, broker32)))
+            .normalize(Normalizer.TScore())
+            .value();
     Assertions.assertEquals(0.52, scores.get(1));
     Assertions.assertEquals(0.61, scores.get(2));
     Assertions.assertEquals(0.37, scores.get(3));

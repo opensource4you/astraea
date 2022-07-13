@@ -35,16 +35,21 @@ import org.mockito.Mockito;
 public class BrokerOutPutCostTest extends RequireBrokerCluster {
   @Test
   void testCost() {
-    ClusterInfo clusterInfo = exampleClusterInfo(10000L, 20000L, 5000L);
-
     var brokerOutputCost = new BrokerOutputCost();
-    var scores = brokerOutputCost.brokerCost(clusterInfo).normalize(Normalizer.TScore()).value();
+    var scores =
+        brokerOutputCost
+            .brokerCost(ClusterInfo.EMPTY, clusterBean(10000L, 20000L, 5000L))
+            .normalize(Normalizer.TScore())
+            .value();
     Assertions.assertEquals(0.47, scores.get(1));
     Assertions.assertEquals(0.63, scores.get(2));
     Assertions.assertEquals(0.39, scores.get(3));
 
-    ClusterInfo clusterInfo2 = exampleClusterInfo(55555L, 25352L, 25000L);
-    scores = brokerOutputCost.brokerCost(clusterInfo2).normalize(Normalizer.TScore()).value();
+    scores =
+        brokerOutputCost
+            .brokerCost(ClusterInfo.EMPTY, clusterBean(55555L, 25352L, 25000L))
+            .normalize(Normalizer.TScore())
+            .value();
     Assertions.assertEquals(0.64, scores.get(1));
     Assertions.assertEquals(0.43, scores.get(2));
     Assertions.assertEquals(0.43, scores.get(3));
@@ -79,7 +84,7 @@ public class BrokerOutPutCostTest extends RequireBrokerCluster {
     }
   }
 
-  private ClusterInfo exampleClusterInfo(long out1, long out2, long out3) {
+  private ClusterBean clusterBean(long out1, long out2, long out3) {
     var BytesInPerSec1 = mockResult(KafkaMetrics.BrokerTopic.BytesOutPerSec.metricName(), out1);
     var BytesInPerSec2 = mockResult(KafkaMetrics.BrokerTopic.BytesOutPerSec.metricName(), out2);
     var BytesInPerSec3 = mockResult(KafkaMetrics.BrokerTopic.BytesOutPerSec.metricName(), out3);
@@ -87,12 +92,7 @@ public class BrokerOutPutCostTest extends RequireBrokerCluster {
     Collection<HasBeanObject> broker1 = List.of(BytesInPerSec1);
     Collection<HasBeanObject> broker2 = List.of(BytesInPerSec2);
     Collection<HasBeanObject> broker3 = List.of(BytesInPerSec3);
-    return new FakeClusterInfo() {
-      @Override
-      public ClusterBean clusterBean() {
-        return ClusterBean.of(Map.of(1, broker1, 2, broker2, 3, broker3));
-      }
-    };
+    return ClusterBean.of(Map.of(1, broker1, 2, broker2, 3, broker3));
   }
 
   private BrokerTopicMetricsResult mockResult(String name, long count) {

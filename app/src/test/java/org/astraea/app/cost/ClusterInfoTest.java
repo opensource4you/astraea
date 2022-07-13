@@ -17,14 +17,11 @@
 package org.astraea.app.cost;
 
 import java.util.List;
-import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Set;
 import org.apache.kafka.common.Cluster;
-import org.astraea.app.admin.ClusterBean;
 import org.astraea.app.admin.ClusterInfo;
 import org.astraea.app.admin.NodeInfo;
-import org.astraea.app.metrics.HasBeanObject;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
@@ -68,18 +65,5 @@ public class ClusterInfoTest {
     Assertions.assertEquals(0, clusterInfo.availableReplicaLeaders("unknown").size());
     Assertions.assertThrows(
         UnsupportedOperationException.class, () -> clusterInfo.dataDirectories(0));
-  }
-
-  @Test
-  void testMergeWithBeans() {
-    var bean0 = Mockito.mock(HasBeanObject.class);
-    var bean1 = Mockito.mock(HasBeanObject.class);
-    var clusterBean = ClusterBean.of(Map.of(10, List.of(bean0)));
-    var mergedBeans = Map.of(10, List.of(bean1));
-    var origin = Mockito.mock(ClusterInfo.class);
-    Mockito.when(origin.clusterBean()).thenReturn(clusterBean);
-    var newClusterInfo = ClusterInfo.of(origin, mergedBeans);
-    Assertions.assertEquals(1, newClusterInfo.clusterBean().all().size());
-    Assertions.assertEquals(2, newClusterInfo.clusterBean().all().get(10).size());
   }
 }

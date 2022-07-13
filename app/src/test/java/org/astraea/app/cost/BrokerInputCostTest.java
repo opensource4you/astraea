@@ -35,16 +35,21 @@ import org.mockito.Mockito;
 public class BrokerInputCostTest extends RequireBrokerCluster {
   @Test
   void testTScoreCost() {
-    ClusterInfo clusterInfo = exampleClusterInfo(50000L, 20000L, 5000L);
-
     var brokerInputCost = new BrokerInputCost();
-    var scores = brokerInputCost.brokerCost(clusterInfo).normalize(Normalizer.TScore()).value();
+    var scores =
+        brokerInputCost
+            .brokerCost(ClusterInfo.EMPTY, clusterBean(50000L, 20000L, 5000L))
+            .normalize(Normalizer.TScore())
+            .value();
     Assertions.assertEquals(0.63, scores.get(1));
     Assertions.assertEquals(0.47, scores.get(2));
     Assertions.assertEquals(0.39, scores.get(3));
 
-    ClusterInfo clusterInfo2 = exampleClusterInfo(55555L, 25352L, 25000L);
-    scores = brokerInputCost.brokerCost(clusterInfo2).normalize(Normalizer.TScore()).value();
+    scores =
+        brokerInputCost
+            .brokerCost(ClusterInfo.EMPTY, clusterBean(55555L, 25352L, 25000L))
+            .normalize(Normalizer.TScore())
+            .value();
     Assertions.assertEquals(0.64, scores.get(1));
     Assertions.assertEquals(0.43, scores.get(2));
     Assertions.assertEquals(0.43, scores.get(3));
@@ -52,10 +57,9 @@ public class BrokerInputCostTest extends RequireBrokerCluster {
 
   @Test
   void testNoNormalize() {
-    ClusterInfo clusterInfo = exampleClusterInfo(10000L, 20000L, 5000L);
-
     var brokerInputCost = new BrokerInputCost();
-    var scores = brokerInputCost.brokerCost(clusterInfo).value();
+    var scores =
+        brokerInputCost.brokerCost(ClusterInfo.EMPTY, clusterBean(10000L, 20000L, 5000L)).value();
     Assertions.assertEquals(10000.0, scores.get(1));
     Assertions.assertEquals(20000.0, scores.get(2));
     Assertions.assertEquals(5000.0, scores.get(3));
@@ -90,7 +94,7 @@ public class BrokerInputCostTest extends RequireBrokerCluster {
     }
   }
 
-  private ClusterInfo exampleClusterInfo(long in1, long in2, long in3) {
+  private ClusterBean clusterBean(long in1, long in2, long in3) {
     var BytesInPerSec1 = mockResult(KafkaMetrics.BrokerTopic.BytesInPerSec.metricName(), in1);
     var BytesInPerSec2 = mockResult(KafkaMetrics.BrokerTopic.BytesInPerSec.metricName(), in2);
     var BytesInPerSec3 = mockResult(KafkaMetrics.BrokerTopic.BytesInPerSec.metricName(), in3);
@@ -98,12 +102,7 @@ public class BrokerInputCostTest extends RequireBrokerCluster {
     Collection<HasBeanObject> broker1 = List.of(BytesInPerSec1);
     Collection<HasBeanObject> broker2 = List.of(BytesInPerSec2);
     Collection<HasBeanObject> broker3 = List.of(BytesInPerSec3);
-    return new FakeClusterInfo() {
-      @Override
-      public ClusterBean clusterBean() {
-        return ClusterBean.of(Map.of(1, broker1, 2, broker2, 3, broker3));
-      }
-    };
+    return ClusterBean.of(Map.of(1, broker1, 2, broker2, 3, broker3));
   }
 
   private BrokerTopicMetricsResult mockResult(String name, long count) {

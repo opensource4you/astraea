@@ -520,11 +520,6 @@ public class Builder {
                 "This ClusterInfo have no information about topic \"" + topic + "\"");
           else return replicaInfos;
         }
-
-        @Override
-        public ClusterBean clusterBean() {
-          return ClusterBean.of(Map.of());
-        }
       };
     }
 

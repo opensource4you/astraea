@@ -21,6 +21,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
+import org.astraea.app.admin.ClusterBean;
 import org.astraea.app.admin.ClusterInfo;
 import org.astraea.app.admin.NodeInfo;
 import org.astraea.app.admin.ReplicaInfo;
@@ -52,8 +53,8 @@ public class ReplicaSizeCost implements HasBrokerCost, HasPartitionCost {
    * @return a BrokerCost contains the ratio of the used space to the free space of each broker
    */
   @Override
-  public BrokerCost brokerCost(ClusterInfo clusterInfo) {
-    var sizeOfReplica = getReplicaSize(clusterInfo);
+  public BrokerCost brokerCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
+    var sizeOfReplica = getReplicaSize(clusterBean);
     var totalReplicaSizeInBroker =
         clusterInfo.nodes().stream()
             .collect(
@@ -82,9 +83,9 @@ public class ReplicaSizeCost implements HasBrokerCost, HasPartitionCost {
    *     each broker
    */
   @Override
-  public PartitionCost partitionCost(ClusterInfo clusterInfo) {
+  public PartitionCost partitionCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
     final long ONEMEGA = Math.round(Math.pow(2, 20));
-    var sizeOfReplica = getReplicaSize(clusterInfo);
+    var sizeOfReplica = getReplicaSize(clusterBean);
     TreeMap<TopicPartitionReplica, Double> replicaCost =
         new TreeMap<>(
             Comparator.comparing(TopicPartitionReplica::brokerId)
@@ -163,11 +164,11 @@ public class ReplicaSizeCost implements HasBrokerCost, HasPartitionCost {
   }
 
   /**
-   * @param clusterInfo the clusterInfo that offers the metrics related to topic/partition size
+   * @param clusterBean offers the metrics related to topic/partition size
    * @return a map contain the replica log size of each topic/partition
    */
-  public Map<TopicPartitionReplica, Long> getReplicaSize(ClusterInfo clusterInfo) {
-    return clusterInfo.clusterBean().mapByReplica().entrySet().stream()
+  public Map<TopicPartitionReplica, Long> getReplicaSize(ClusterBean clusterBean) {
+    return clusterBean.mapByReplica().entrySet().stream()
         .flatMap(
             e ->
                 e.getValue().stream()

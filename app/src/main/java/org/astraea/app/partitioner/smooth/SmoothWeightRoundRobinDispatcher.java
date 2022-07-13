@@ -30,6 +30,7 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import org.apache.kafka.common.Cluster;
+import org.astraea.app.admin.ClusterBean;
 import org.astraea.app.admin.ClusterInfo;
 import org.astraea.app.admin.NodeInfo;
 import org.astraea.app.admin.ReplicaInfo;
@@ -81,7 +82,7 @@ public class SmoothWeightRoundRobinDispatcher extends Periodic<Map<Integer, Doub
                   .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().current()));
 
           var compoundScore =
-              neutralIntegratedCost.brokerCost(ClusterInfo.of(clusterInfo, beans)).value();
+              neutralIntegratedCost.brokerCost(clusterInfo, ClusterBean.of(beans)).value();
 
           if (smoothWeightRoundRobinCal == null) {
             smoothWeightRoundRobinCal = new SmoothWeightRoundRobin(compoundScore);
