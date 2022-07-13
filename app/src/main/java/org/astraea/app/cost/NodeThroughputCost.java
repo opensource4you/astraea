@@ -22,12 +22,11 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 import org.astraea.app.admin.ClusterBean;
 import org.astraea.app.admin.ClusterInfo;
-import org.astraea.app.metrics.HasBeanObject;
 import org.astraea.app.metrics.KafkaMetrics;
 import org.astraea.app.metrics.collector.Fetcher;
 import org.astraea.app.metrics.producer.HasProducerNodeMetrics;
 
-public class NodeLatencyCost implements HasBrokerCost {
+public class NodeThroughputCost implements HasBrokerCost {
 
   @Override
   public BrokerCost brokerCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
@@ -40,7 +39,7 @@ public class NodeLatencyCost implements HasBrokerCost {
                         e.getValue().stream()
                             .filter(b -> b instanceof HasProducerNodeMetrics)
                             .map(b -> (HasProducerNodeMetrics) b)
-                            .mapToDouble(HasProducerNodeMetrics::requestLatencyAvg)
+                            .mapToDouble(b -> b.incomingByteRate() + b.outgoingByteRate())
                             .sum()));
     return () -> result;
   }
@@ -51,7 +50,6 @@ public class NodeLatencyCost implements HasBrokerCost {
         client ->
             KafkaMetrics.Producer.nodes(client).values().stream()
                 .flatMap(Collection::stream)
-                .map(b -> (HasBeanObject) b)
                 .collect(Collectors.toUnmodifiableList()));
   }
 }

@@ -18,11 +18,11 @@ package org.astraea.app.admin;
 
 import static org.junit.jupiter.api.condition.OS.WINDOWS;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import org.astraea.app.argument.Argument;
 import org.astraea.app.common.Utils;
@@ -36,19 +36,19 @@ import org.junit.jupiter.api.condition.DisabledOnOs;
 public class ReplicaCollieTest extends RequireBrokerCluster {
   @Test
   @DisabledOnOs(WINDOWS)
-  void testVerify() throws InterruptedException {
+  void testVerify() {
     test(true);
   }
 
   @Test
   @DisabledOnOs(WINDOWS)
-  void testExecute() throws InterruptedException {
+  void testExecute() {
     test(false);
   }
 
   @Test
   @DisabledOnOs(WINDOWS)
-  void testBrokerMigrator() throws InterruptedException {
+  void testBrokerMigrator() {
     var topicName = "ReplicaCollieTest-Broker";
     try (var topicAdmin = Admin.of(bootstrapServers())) {
       topicAdmin
@@ -58,7 +58,7 @@ public class ReplicaCollieTest extends RequireBrokerCluster {
           .numberOfReplicas((short) 2)
           .create();
       // wait for topic creation
-      TimeUnit.SECONDS.sleep(5);
+      Utils.sleep(Duration.ofSeconds(5));
       var partitionReplicas = topicAdmin.replicas(Set.of(topicName));
       Assertions.assertEquals(1, partitionReplicas.size());
       var brokerSource =
@@ -88,7 +88,7 @@ public class ReplicaCollieTest extends RequireBrokerCluster {
 
   @Test
   @DisabledOnOs(WINDOWS)
-  void testPathMigrator() throws InterruptedException {
+  void testPathMigrator() {
     var topicName = "ReplicaCollieTest-Path";
     try (var topicAdmin = Admin.of(bootstrapServers())) {
       topicAdmin
@@ -98,7 +98,7 @@ public class ReplicaCollieTest extends RequireBrokerCluster {
           .numberOfReplicas((short) 2)
           .create();
       // wait for topic creation
-      TimeUnit.SECONDS.sleep(5);
+      Utils.sleep(Duration.ofSeconds(5));
       var partitionReplicas = topicAdmin.replicas(Set.of(topicName));
       Assertions.assertEquals(1, partitionReplicas.size());
       var brokerSource = partitionReplicas.get(new TopicPartition(topicName, 0)).get(0).broker();
@@ -129,7 +129,7 @@ public class ReplicaCollieTest extends RequireBrokerCluster {
     }
   }
 
-  private void test(boolean verify) throws InterruptedException {
+  private void test(boolean verify) {
     var topicName = "ReplicaCollieTest-" + verify;
     try (var topicAdmin = Admin.of(bootstrapServers())) {
       topicAdmin
@@ -139,7 +139,7 @@ public class ReplicaCollieTest extends RequireBrokerCluster {
           .numberOfReplicas((short) 1)
           .create();
       // wait for topic creation
-      TimeUnit.SECONDS.sleep(5);
+      Utils.sleep(Duration.ofSeconds(5));
       var partitionReplicas = topicAdmin.replicas(Set.of(topicName));
       Assertions.assertEquals(1, partitionReplicas.size());
       var replicas =

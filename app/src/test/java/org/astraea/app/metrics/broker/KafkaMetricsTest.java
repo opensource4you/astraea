@@ -25,9 +25,9 @@ import static org.junit.jupiter.api.condition.OS.WINDOWS;
 
 import java.io.IOException;
 import java.lang.management.ManagementFactory;
+import java.time.Duration;
 import java.util.Arrays;
 import java.util.Set;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import javax.management.MBeanServer;
 import javax.management.remote.JMXConnectorServer;
@@ -131,14 +131,14 @@ class KafkaMetricsTest extends RequireBrokerCluster {
 
   @ParameterizedTest()
   @EnumSource(value = KafkaMetrics.TopicPartition.class)
-  void testTopicPartitionMetrics(KafkaMetrics.TopicPartition request) throws InterruptedException {
+  void testTopicPartitionMetrics(KafkaMetrics.TopicPartition request) {
     try (var admin = Admin.of(bootstrapServers())) {
       // there are only 3 brokers, so 10 partitions can make each broker has some partitions
       admin.creator().topic(Utils.randomString(5)).numberOfPartitions(10).create();
     }
 
     // wait for topic creation
-    TimeUnit.SECONDS.sleep(2);
+    Utils.sleep(Duration.ofSeconds(2));
 
     var beans = request.fetch(mBeanClient);
     assertNotEquals(0, beans.size());

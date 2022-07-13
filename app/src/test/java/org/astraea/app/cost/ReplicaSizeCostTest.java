@@ -23,7 +23,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import org.astraea.app.admin.Admin;
 import org.astraea.app.admin.ClusterBean;
@@ -31,6 +30,7 @@ import org.astraea.app.admin.ClusterInfo;
 import org.astraea.app.admin.NodeInfo;
 import org.astraea.app.admin.ReplicaInfo;
 import org.astraea.app.admin.TopicPartition;
+import org.astraea.app.common.Utils;
 import org.astraea.app.metrics.HasBeanObject;
 import org.astraea.app.metrics.KafkaMetrics;
 import org.astraea.app.metrics.broker.HasValue;
@@ -40,17 +40,35 @@ import org.astraea.app.producer.Producer;
 import org.astraea.app.service.RequireSingleBrokerCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 
 class ReplicaSizeCostTest extends RequireSingleBrokerCluster {
+  private static final HasValue SIZE_TP1_0 =
+      fakeBeanObject(
+          "Log", KafkaMetrics.TopicPartition.Size.metricName(), "test-1", "0", 891289600);
+  private static final HasValue SIZE_TP1_1 =
+      fakeBeanObject(
+          "Log", KafkaMetrics.TopicPartition.Size.metricName(), "test-1", "1", 471859200);
+  private static final HasValue SIZE_TP2_0 =
+      fakeBeanObject("Log", KafkaMetrics.TopicPartition.Size.metricName(), "test-2", "0", 0);
+  private static final HasValue SIZE_TP2_1 =
+      fakeBeanObject(
+          "Log", KafkaMetrics.TopicPartition.Size.metricName(), "test-2", "1", 367001600);
+  private static final Collection<HasBeanObject> BROKER_1 =
+      List.of(SIZE_TP1_0, SIZE_TP1_1, SIZE_TP2_1);
+  private static final Collection<HasBeanObject> BROKER_2 = List.of(SIZE_TP1_1, SIZE_TP2_0);
+  private static final Collection<HasBeanObject> BROKER_3 =
+      List.of(SIZE_TP2_1, SIZE_TP1_0, SIZE_TP2_0);
+
   @Test
-  void testGetMetrics() {
+  void testGetMetrics() throws ExecutionException, InterruptedException {
     var brokerDiskSize = Map.of(1, 1000, 2, 1000, 3, 1000);
     var topicName = "testGetMetrics-1";
     try (var admin = Admin.of(bootstrapServers())) {
       var host = "localhost";
       admin.creator().topic(topicName).numberOfPartitions(1).numberOfReplicas((short) 1).create();
       // wait for topic creation
-      TimeUnit.SECONDS.sleep(5);
+      Utils.sleep(Duration.ofSeconds(5));
       var producer = Producer.builder().bootstrapServers(bootstrapServers()).build();
       producer.sender().topic(topicName).key(new byte[10000]).run().toCompletableFuture().get();
       ReplicaSizeCost costFunction = new ReplicaSizeCost(brokerDiskSize);
@@ -75,8 +93,6 @@ class ReplicaSizeCostTest extends RequireSingleBrokerCluster {
               .map(e2 -> (int) e2.value())
               .collect(Collectors.toList());
       Assertions.assertTrue(replicaSize.get(0) >= 10000);
-    } catch (InterruptedException | ExecutionException e) {
-      throw new RuntimeException(e);
     }
   }
 
@@ -84,82 +100,60 @@ class ReplicaSizeCostTest extends RequireSingleBrokerCluster {
   void partitionCost() {
     var brokerDiskSize = Map.of(1, 1000, 2, 1000, 3, 1000);
     var loadCostFunction = new ReplicaSizeCost(brokerDiskSize);
-    var broker1ReplicaLoad = loadCostFunction.partitionCost(exampleClusterInfo()).value(1);
-    var broker2ReplicaLoad = loadCostFunction.partitionCost(exampleClusterInfo()).value(2);
-    var broker3ReplicaLoad = loadCostFunction.partitionCost(exampleClusterInfo()).value(3);
+    var broker1ReplicaLoad = loadCostFunction.partitionCost(clusterInfo(), clusterBean()).value(1);
+    var BROKER_2ReplicaLoad = loadCostFunction.partitionCost(clusterInfo(), clusterBean()).value(2);
+    var BROKER_3ReplicaLoad = loadCostFunction.partitionCost(clusterInfo(), clusterBean()).value(3);
     // broker1
     Assertions.assertEquals(0.85, broker1ReplicaLoad.get(new TopicPartition("test-1", 0)));
     Assertions.assertEquals(0.45, broker1ReplicaLoad.get(new TopicPartition("test-1", 1)));
     Assertions.assertEquals(0.35, broker1ReplicaLoad.get(new TopicPartition("test-2", 1)));
-    // broker2
-    Assertions.assertEquals(0.45, broker2ReplicaLoad.get(new TopicPartition("test-1", 1)));
-    Assertions.assertEquals(0, broker2ReplicaLoad.get(new TopicPartition("test-2", 0)));
-    // broker3
-    Assertions.assertEquals(0.85, broker3ReplicaLoad.get(new TopicPartition("test-1", 0)));
-    Assertions.assertEquals(0, broker3ReplicaLoad.get(new TopicPartition("test-2", 0)));
-    Assertions.assertEquals(0.35, broker3ReplicaLoad.get(new TopicPartition("test-2", 1)));
+    // BROKER_2
+    Assertions.assertEquals(0.45, BROKER_2ReplicaLoad.get(new TopicPartition("test-1", 1)));
+    Assertions.assertEquals(0, BROKER_2ReplicaLoad.get(new TopicPartition("test-2", 0)));
+    // BROKER_3
+    Assertions.assertEquals(0.85, BROKER_3ReplicaLoad.get(new TopicPartition("test-1", 0)));
+    Assertions.assertEquals(0, BROKER_3ReplicaLoad.get(new TopicPartition("test-2", 0)));
+    Assertions.assertEquals(0.35, BROKER_3ReplicaLoad.get(new TopicPartition("test-2", 1)));
   }
 
   @Test
   void brokerCost() {
     var brokerDiskSize = Map.of(1, 1000, 2, 1000, 3, 1000);
     var loadCostFunction = new ReplicaSizeCost(brokerDiskSize);
-    var brokerReplicaLoad = loadCostFunction.brokerCost(exampleClusterInfo()).value();
+    var brokerReplicaLoad = loadCostFunction.brokerCost(clusterInfo(), clusterBean()).value();
     Assertions.assertEquals(brokerReplicaLoad.get(1), 0.85 + 0.45 + 0.35);
     Assertions.assertEquals(brokerReplicaLoad.get(2), 0.45);
     Assertions.assertEquals(brokerReplicaLoad.get(3), 0.85 + 0.35);
   }
 
-  private ClusterInfo exampleClusterInfo() {
-    var sizeTP1_0 =
-        fakeBeanObject(
-            "Log", KafkaMetrics.TopicPartition.Size.metricName(), "test-1", "0", 891289600);
-    var sizeTP1_1 =
-        fakeBeanObject(
-            "Log", KafkaMetrics.TopicPartition.Size.metricName(), "test-1", "1", 471859200);
-    var sizeTP2_0 =
-        fakeBeanObject("Log", KafkaMetrics.TopicPartition.Size.metricName(), "test-2", "0", 0);
-    var sizeTP2_1 =
-        fakeBeanObject(
-            "Log", KafkaMetrics.TopicPartition.Size.metricName(), "test-2", "1", 367001600);
-    Collection<HasBeanObject> broker1 = List.of(sizeTP1_0, sizeTP1_1, sizeTP2_1);
-    Collection<HasBeanObject> broker2 = List.of(sizeTP1_1, sizeTP2_0);
-    Collection<HasBeanObject> broker3 = List.of(sizeTP2_1, sizeTP1_0, sizeTP2_0);
-    return new FakeClusterInfo() {
-      @Override
-      public List<NodeInfo> nodes() {
-        return List.of(NodeInfo.of(1, "", -1), NodeInfo.of(2, "", -1), NodeInfo.of(3, "", -1));
-      }
-
-      @Override
-      public Set<String> topics() {
-        return Set.of("test-1", "test-2");
-      }
-
-      @Override
-      public List<ReplicaInfo> replicas(String topic) {
-        if (topic.equals("test-1"))
-          return List.of(
-              ReplicaInfo.of("test-1", 0, NodeInfo.of(1, "", -1), true, true, false),
-              ReplicaInfo.of("test-1", 0, NodeInfo.of(3, "", -1), false, true, false),
-              ReplicaInfo.of("test-1", 1, NodeInfo.of(1, "", -1), false, true, false),
-              ReplicaInfo.of("test-1", 1, NodeInfo.of(2, "", -1), true, true, false));
-        else
-          return List.of(
-              ReplicaInfo.of("test-2", 0, NodeInfo.of(2, "", -1), false, true, false),
-              ReplicaInfo.of("test-2", 0, NodeInfo.of(3, "", -1), true, true, false),
-              ReplicaInfo.of("test-2", 1, NodeInfo.of(1, "", -1), false, true, false),
-              ReplicaInfo.of("test-2", 1, NodeInfo.of(3, "", -1), true, true, false));
-      }
-
-      @Override
-      public ClusterBean clusterBean() {
-        return ClusterBean.of(Map.of(1, broker1, 2, broker2, 3, broker3));
-      }
-    };
+  private static ClusterInfo clusterInfo() {
+    ClusterInfo clusterInfo = Mockito.mock(ClusterInfo.class);
+    Mockito.when(clusterInfo.nodes())
+        .thenReturn(
+            List.of(NodeInfo.of(1, "", -1), NodeInfo.of(2, "", -1), NodeInfo.of(3, "", -1)));
+    Mockito.when(clusterInfo.topics()).thenReturn(Set.of("test-1", "test-2"));
+    Mockito.when(clusterInfo.replicas(Mockito.anyString()))
+        .thenAnswer(
+            topic ->
+                topic.getArgument(0).equals("test-1")
+                    ? List.of(
+                        ReplicaInfo.of("test-1", 0, NodeInfo.of(1, "", -1), true, true, false),
+                        ReplicaInfo.of("test-1", 0, NodeInfo.of(3, "", -1), false, true, false),
+                        ReplicaInfo.of("test-1", 1, NodeInfo.of(1, "", -1), false, true, false),
+                        ReplicaInfo.of("test-1", 1, NodeInfo.of(2, "", -1), true, true, false))
+                    : List.of(
+                        ReplicaInfo.of("test-2", 0, NodeInfo.of(2, "", -1), false, true, false),
+                        ReplicaInfo.of("test-2", 0, NodeInfo.of(3, "", -1), true, true, false),
+                        ReplicaInfo.of("test-2", 1, NodeInfo.of(1, "", -1), false, true, false),
+                        ReplicaInfo.of("test-2", 1, NodeInfo.of(3, "", -1), true, true, false)));
+    return clusterInfo;
   }
 
-  private HasValue fakeBeanObject(
+  private static ClusterBean clusterBean() {
+    return ClusterBean.of(Map.of(1, BROKER_1, 2, BROKER_2, 3, BROKER_3));
+  }
+
+  private static HasValue fakeBeanObject(
       String type, String name, String topic, String partition, long size) {
     BeanObject beanObject =
         new BeanObject(

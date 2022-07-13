@@ -20,7 +20,6 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import org.astraea.app.admin.ClusterBean;
-import org.astraea.app.admin.ClusterInfo;
 import org.astraea.app.metrics.HasBeanObject;
 import org.astraea.app.metrics.KafkaMetrics;
 import org.astraea.app.metrics.broker.BrokerTopicMetricsResult;
@@ -33,7 +32,7 @@ public class LoadCostTest {
   @Test
   void testComputeLoad() {
     var loadCostFunction = new LoadCost();
-    var allBeans = exampleClusterInfo().clusterBean().all();
+    var allBeans = clusterBean().all();
     var load = loadCostFunction.computeLoad(allBeans);
 
     Assertions.assertEquals(2, load.get(1));
@@ -48,7 +47,7 @@ public class LoadCostTest {
     Assertions.assertEquals(2, load.get(3));
   }
 
-  private ClusterInfo exampleClusterInfo() {
+  private ClusterBean clusterBean() {
     var BytesInPerSec1 = mockResult(KafkaMetrics.BrokerTopic.BytesInPerSec.metricName(), 50000L);
     var BytesInPerSec2 = mockResult(KafkaMetrics.BrokerTopic.BytesInPerSec.metricName(), 100000L);
     var BytesInPerSec3 = mockResult(KafkaMetrics.BrokerTopic.BytesInPerSec.metricName(), 200000L);
@@ -59,12 +58,7 @@ public class LoadCostTest {
     Collection<HasBeanObject> broker1 = List.of(BytesInPerSec1, BytesOutPerSec1);
     Collection<HasBeanObject> broker2 = List.of(BytesInPerSec2, BytesOutPerSec2);
     Collection<HasBeanObject> broker3 = List.of(BytesInPerSec3, BytesOutPerSec3);
-    return new FakeClusterInfo() {
-      @Override
-      public ClusterBean clusterBean() {
-        return ClusterBean.of(Map.of(1, broker1, 2, broker2, 3, broker3));
-      }
-    };
+    return ClusterBean.of(Map.of(1, broker1, 2, broker2, 3, broker3));
   }
 
   private BrokerTopicMetricsResult mockResult(String name, long count) {

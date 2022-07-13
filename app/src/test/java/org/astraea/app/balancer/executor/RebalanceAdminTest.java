@@ -48,7 +48,7 @@ import org.junit.jupiter.api.Test;
 class RebalanceAdminTest extends RequireBrokerCluster {
 
   @Test
-  void alterReplicaPlacementByList() throws InterruptedException {
+  void alterReplicaPlacementByList() {
     // arrange
     try (var admin = Admin.of(bootstrapServers())) {
       var topic = prepareTopic(admin, 1, (short) 1);
@@ -85,7 +85,7 @@ class RebalanceAdminTest extends RequireBrokerCluster {
 
   // repeat the test so it has higher chance to fail
   @RepeatedTest(value = 3)
-  void alterReplicaPlacementByDirectory() throws InterruptedException {
+  void alterReplicaPlacementByDirectory() {
     // arrange
     try (Admin admin = Admin.of(bootstrapServers())) {
       var topic = prepareTopic(admin, 1, (short) 1);
@@ -117,7 +117,7 @@ class RebalanceAdminTest extends RequireBrokerCluster {
   }
 
   @Test
-  void clusterInfo() throws InterruptedException {
+  void clusterInfo() {
     try (Admin admin = Admin.of(bootstrapServers())) {
       // test if all topics are covered
       final var rebalanceAdmin = RebalanceAdmin.of(admin, (ignore) -> true);
@@ -286,7 +286,7 @@ class RebalanceAdminTest extends RequireBrokerCluster {
     }
   }
 
-  String prepareTopic(Admin admin, int partition, short replica) throws InterruptedException {
+  String prepareTopic(Admin admin, int partition, short replica) {
     var topicName = Utils.randomString();
 
     admin
@@ -295,7 +295,7 @@ class RebalanceAdminTest extends RequireBrokerCluster {
         .numberOfPartitions(partition)
         .numberOfReplicas(replica)
         .create();
-    TimeUnit.SECONDS.sleep(1);
+    Utils.sleep(Duration.ofSeconds(1));
 
     return topicName;
   }

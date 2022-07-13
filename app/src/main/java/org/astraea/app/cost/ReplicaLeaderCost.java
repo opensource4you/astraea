@@ -20,6 +20,7 @@ import java.util.Comparator;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import org.astraea.app.admin.ClusterBean;
 import org.astraea.app.admin.ClusterInfo;
 import org.astraea.app.metrics.HasBeanObject;
 import org.astraea.app.metrics.KafkaMetrics;
@@ -30,15 +31,15 @@ import org.astraea.app.metrics.collector.Fetcher;
 public class ReplicaLeaderCost implements HasBrokerCost {
 
   @Override
-  public BrokerCost brokerCost(ClusterInfo clusterInfo) {
+  public BrokerCost brokerCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
     var result =
-        leaderCount(clusterInfo).entrySet().stream()
+        leaderCount(clusterInfo, clusterBean).entrySet().stream()
             .collect(Collectors.toMap(Map.Entry::getKey, e -> (double) e.getValue()));
     return () -> result;
   }
 
-  Map<Integer, Integer> leaderCount(ClusterInfo clusterInfo) {
-    return clusterInfo.clusterBean().all().entrySet().stream()
+  Map<Integer, Integer> leaderCount(ClusterInfo ignored, ClusterBean clusterBean) {
+    return clusterBean.all().entrySet().stream()
         .flatMap(
             e ->
                 e.getValue().stream()
@@ -60,7 +61,7 @@ public class ReplicaLeaderCost implements HasBrokerCost {
   public static class NoMetrics extends ReplicaLeaderCost {
 
     @Override
-    Map<Integer, Integer> leaderCount(ClusterInfo clusterInfo) {
+    Map<Integer, Integer> leaderCount(ClusterInfo clusterInfo, ClusterBean ignored) {
       return clusterInfo.topics().stream()
           .flatMap(t -> clusterInfo.availableReplicaLeaders(t).stream())
           .collect(Collectors.groupingBy(r -> r.nodeInfo().id()))

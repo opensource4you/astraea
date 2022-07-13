@@ -26,6 +26,8 @@ import org.astraea.app.metrics.HasBeanObject;
 
 /** Used to get beanObject using a variety of different keys . */
 public interface ClusterBean {
+  ClusterBean EMPTY = ClusterBean.of(Map.of());
+
   private static Collection<HasBeanObject> compareBeanObject(
       Collection<HasBeanObject> x1, Collection<HasBeanObject> x2) {
     var beanObject2 = x2.iterator().next().beanObject();

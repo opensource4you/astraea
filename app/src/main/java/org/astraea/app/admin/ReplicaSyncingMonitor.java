@@ -27,7 +27,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -184,13 +183,9 @@ public class ReplicaSyncingMonitor {
             .forEach(tpr -> previousCheckedSize.remove(tpr.getKey()));
       }
 
-      Utils.packException(
-          () -> {
-            long expectedWaitNs = argument.interval.toNanos();
-            long elapsedNs = (System.nanoTime() - startTime);
-            TimeUnit.NANOSECONDS.sleep(Math.max(expectedWaitNs - elapsedNs, 0));
-            return 0;
-          });
+      long expectedWaitNs = argument.interval.toNanos();
+      long elapsedNs = (System.nanoTime() - startTime);
+      Utils.sleep(Duration.ofNanos(Math.max(expectedWaitNs - elapsedNs, 0)));
     }
   }
 
