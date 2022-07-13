@@ -49,7 +49,11 @@ public final class TopicThrottleSetting {
   }
 
   private TopicThrottleSetting(Set<TopicPartitionReplica> throttledLog) {
-    String topic = throttledLog.stream().findAny().orElseThrow().topic();
+    String topic =
+        throttledLog.stream()
+            .findAny()
+            .orElseThrow(() -> new IllegalArgumentException("No log specified"))
+            .topic();
 
     if (!throttledLog.stream().allMatch(l -> l.topic().equals(topic)))
       throw new IllegalArgumentException("Some given log belongs to different log");

@@ -23,10 +23,10 @@ import org.astraea.app.common.DataRate;
 public final class BrokerThrottleRate {
 
   @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
-  Optional<DataRate> leaderThrottle;
+  private Optional<DataRate> leaderThrottle;
 
   @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
-  Optional<DataRate> followerThrottle;
+  private Optional<DataRate> followerThrottle;
 
   public static BrokerThrottleRate noRateLimit() {
     return new BrokerThrottleRate(Optional.empty(), Optional.empty());
