@@ -32,6 +32,7 @@ import java.util.stream.IntStream;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.serialization.ByteArraySerializer;
 import org.astraea.app.admin.Admin;
+import org.astraea.app.admin.ClusterInfo;
 import org.astraea.app.admin.NodeInfo;
 import org.astraea.app.admin.ReplicaInfo;
 import org.astraea.app.common.Utils;
@@ -41,7 +42,6 @@ import org.astraea.app.concurrent.ThreadPool;
 import org.astraea.app.consumer.Consumer;
 import org.astraea.app.consumer.Deserializer;
 import org.astraea.app.consumer.Header;
-import org.astraea.app.cost.FakeClusterInfo;
 import org.astraea.app.producer.Producer;
 import org.astraea.app.producer.Serializer;
 import org.astraea.app.service.RequireBrokerCluster;
@@ -299,13 +299,9 @@ public class SmoothWeightRoundRobinDispatchTest extends RequireBrokerCluster {
     var node3 = Mockito.mock(NodeInfo.class);
     Mockito.when(re3.nodeInfo()).thenReturn(node3);
     Mockito.when(node3.id()).thenReturn(3);
-    var testCluster =
-        new FakeClusterInfo() {
-          @Override
-          public List<ReplicaInfo> availableReplicaLeaders(String topic) {
-            return List.of(re1, re2, re3);
-          }
-        };
+    var testCluster = Mockito.mock(ClusterInfo.class);
+    Mockito.when(testCluster.availableReplicaLeaders(Mockito.anyString()))
+        .thenReturn(List.of(re1, re2, re3));
     Assertions.assertEquals(1, smoothWeight.getAndChoose(topic, testCluster));
     Assertions.assertEquals(2, smoothWeight.getAndChoose(topic, testCluster));
     Assertions.assertEquals(3, smoothWeight.getAndChoose(topic, testCluster));

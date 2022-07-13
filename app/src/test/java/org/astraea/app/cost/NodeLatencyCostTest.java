@@ -56,10 +56,8 @@ public class NodeLatencyCostTest extends RequireBrokerCluster {
                       .map(b -> (HasBeanObject) b)
                       .collect(Collectors.toUnmodifiableList())));
       var clusterInfo = Mockito.mock(ClusterInfo.class);
-      Mockito.when(clusterInfo.clusterBean()).thenReturn(clusterBean);
-
       var function = new NodeLatencyCost();
-      var cost = function.brokerCost(clusterInfo);
+      var cost = function.brokerCost(clusterInfo, clusterBean);
       Assertions.assertEquals(1, cost.value().size());
       Assertions.assertNotNull(cost.value().get(brokerId));
     }

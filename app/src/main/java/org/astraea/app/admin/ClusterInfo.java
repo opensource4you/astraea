@@ -16,16 +16,46 @@
  */
 package org.astraea.app.admin;
 
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
-import org.astraea.app.metrics.HasBeanObject;
 
 public interface ClusterInfo {
+  ClusterInfo EMPTY =
+      new ClusterInfo() {
+
+        @Override
+        public List<NodeInfo> nodes() {
+          return List.of();
+        }
+
+        @Override
+        public Set<String> dataDirectories(int brokerId) {
+          return Set.of();
+        }
+
+        @Override
+        public List<ReplicaInfo> availableReplicaLeaders(String topic) {
+          return List.of();
+        }
+
+        @Override
+        public List<ReplicaInfo> availableReplicas(String topic) {
+          return List.of();
+        }
+
+        @Override
+        public Set<String> topics() {
+          return Set.of();
+        }
+
+        @Override
+        public List<ReplicaInfo> replicas(String topic) {
+          return List.of();
+        }
+      };
 
   /**
    * convert the kafka Cluster to our ClusterInfo. All data structure are converted immediately, so
@@ -81,72 +111,6 @@ public interface ClusterInfo {
       @Override
       public List<ReplicaInfo> replicas(String topic) {
         return replicas;
-      }
-
-      @Override
-      public ClusterBean clusterBean() {
-        return ClusterBean.of(Map.of());
-      }
-    };
-  }
-
-  /**
-   * merge the beans into cluster information
-   *
-   * @param clusterInfo cluster information
-   * @param beans extra beans
-   * @return a new cluster information with extra beans
-   */
-  static ClusterInfo of(
-      ClusterInfo clusterInfo, Map<Integer, ? extends Collection<HasBeanObject>> beans) {
-    var clusterBean =
-        ClusterBean.of(
-            Stream.concat(
-                    clusterInfo.clusterBean().all().entrySet().stream(), beans.entrySet().stream())
-                .collect(
-                    Collectors.toMap(
-                        Map.Entry::getKey,
-                        Map.Entry::getValue,
-                        // Normally, the cluster info used to merge with beans has no beans. Hence,
-                        // the cost of merge is acceptable
-                        (l, r) ->
-                            Stream.concat(l.stream(), r.stream())
-                                .collect(Collectors.toUnmodifiableList()))));
-    return new ClusterInfo() {
-
-      @Override
-      public List<NodeInfo> nodes() {
-        return clusterInfo.nodes();
-      }
-
-      @Override
-      public Set<String> dataDirectories(int brokerId) {
-        return clusterInfo.dataDirectories(brokerId);
-      }
-
-      @Override
-      public List<ReplicaInfo> availableReplicaLeaders(String topic) {
-        return clusterInfo.availableReplicaLeaders(topic);
-      }
-
-      @Override
-      public List<ReplicaInfo> availableReplicas(String topic) {
-        return clusterInfo.availableReplicas(topic);
-      }
-
-      @Override
-      public Set<String> topics() {
-        return clusterInfo.topics();
-      }
-
-      @Override
-      public List<ReplicaInfo> replicas(String topic) {
-        return clusterInfo.replicas(topic);
-      }
-
-      @Override
-      public ClusterBean clusterBean() {
-        return clusterBean;
       }
     };
   }
@@ -224,7 +188,4 @@ public interface ClusterInfo {
    *     the given topic is unknown to this ClusterInfo
    */
   List<ReplicaInfo> replicas(String topic);
-
-  /** @return a {@link ClusterBean} used to get beanObject using a variety of different keys. */
-  ClusterBean clusterBean();
 }

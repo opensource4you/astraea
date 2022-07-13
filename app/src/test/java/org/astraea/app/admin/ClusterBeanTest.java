@@ -28,14 +28,6 @@ import org.mockito.Mockito;
 class ClusterBeanTest {
 
   @Test
-  void testEmptyBeans() {
-    var clusterInfo = ClusterInfo.of(Mockito.mock(org.apache.kafka.common.Cluster.class));
-    Assertions.assertEquals(0, clusterInfo.clusterBean().all().size());
-    Assertions.assertEquals(0, clusterInfo.clusterBean().mapByPartition().size());
-    Assertions.assertEquals(0, clusterInfo.clusterBean().mapByReplica().size());
-  }
-
-  @Test
   void testBeans() {
     var clusterInfo = Mockito.mock(ClusterInfo.class);
     // BeanObject1 and BeanObject2 is same partition in different broker
@@ -87,37 +79,30 @@ class ClusterBeanTest {
                 "type",
                 "ReplicaManager"),
             Map.of("Value", 300));
-    Mockito.when(clusterInfo.clusterBean())
-        .thenReturn(
-            ClusterBean.of(
-                Map.of(
-                    1,
-                    List.of(HasValue.of(testBeanObjectWithPartition1)),
-                    2,
-                    List.of(
-                        HasValue.of(testBeanObjectWithoutPartition),
-                        HasValue.of(testBeanObjectWithPartition2),
-                        HasValue.of(testBeanObjectWithPartition3)))));
+    var clusterBean =
+        ClusterBean.of(
+            Map.of(
+                1,
+                List.of(HasValue.of(testBeanObjectWithPartition1)),
+                2,
+                List.of(
+                    HasValue.of(testBeanObjectWithoutPartition),
+                    HasValue.of(testBeanObjectWithPartition2),
+                    HasValue.of(testBeanObjectWithPartition3))));
     // test all
-    clusterInfo.clusterBean().mapByPartition();
-    Assertions.assertEquals(2, clusterInfo.clusterBean().all().size());
-    Assertions.assertEquals(1, clusterInfo.clusterBean().all().get(1).size());
-    Assertions.assertEquals(3, clusterInfo.clusterBean().all().get(2).size());
+    clusterBean.mapByPartition();
+    Assertions.assertEquals(2, clusterBean.all().size());
+    Assertions.assertEquals(1, clusterBean.all().get(1).size());
+    Assertions.assertEquals(3, clusterBean.all().get(2).size());
 
     // test get beanObject by partition
     // when call beanObjectByPartition() will return a map and the key is TopicPartition it's will
     // ignore replicas and get the metrics of first replicas
     Assertions.assertEquals(
-        2,
-        clusterInfo.clusterBean().mapByPartition().get(TopicPartition.of("testBeans", "0")).size());
+        2, clusterBean.mapByPartition().get(TopicPartition.of("testBeans", "0")).size());
     // test get beanObject by replica
-    Assertions.assertEquals(2, clusterInfo.clusterBean().mapByReplica().size());
+    Assertions.assertEquals(2, clusterBean.mapByReplica().size());
     Assertions.assertEquals(
-        2,
-        clusterInfo
-            .clusterBean()
-            .mapByReplica()
-            .get(TopicPartitionReplica.of("testBeans", 0, 2))
-            .size());
+        2, clusterBean.mapByReplica().get(TopicPartitionReplica.of("testBeans", 0, 2)).size());
   }
 }

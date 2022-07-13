@@ -21,7 +21,6 @@ import java.util.Map;
 import org.astraea.app.admin.ClusterInfo;
 import org.astraea.app.admin.NodeInfo;
 import org.astraea.app.admin.ReplicaInfo;
-import org.astraea.app.cost.FakeClusterInfo;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
@@ -72,11 +71,9 @@ public class SmoothWeightRoundRobinTest {
     var node3 = Mockito.mock(NodeInfo.class);
     Mockito.when(re3.nodeInfo()).thenReturn(node3);
     Mockito.when(node3.id()).thenReturn(3);
-    return new FakeClusterInfo() {
-      @Override
-      public List<ReplicaInfo> availableReplicaLeaders(String topic) {
-        return List.of(re1, re2, re3);
-      }
-    };
+    var clusterInfo = Mockito.mock(ClusterInfo.class);
+    Mockito.when(clusterInfo.availableReplicaLeaders(Mockito.anyString()))
+        .thenReturn(List.of(re1, re2, re3));
+    return clusterInfo;
   }
 }
