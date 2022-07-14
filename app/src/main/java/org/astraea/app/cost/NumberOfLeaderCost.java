@@ -69,12 +69,32 @@ public class NumberOfLeaderCost implements HasBrokerCost, HasClusterCost {
 
   @Override
   public ClusterCost clusterCost(
-      ClusterInfo clusterInfo, ClusterLogAllocation clusterLogAllocation) {
+      ClusterInfo clusterInfo) {
+    var leaderCount =
+            clusterInfo.clusterBean().all().entrySet().stream()
+                    .flatMap(
+                            e ->
+                                    e.getValue().stream()
+                                            .filter(x -> x instanceof HasValue)
+                                            .filter(x -> x.beanObject().properties().get("name").equals("LeaderCount"))
+                                            .filter(
+                                                    x -> x.beanObject().properties().get("type").equals("ReplicaManager"))
+                                            .sorted(Comparator.comparing(HasBeanObject::createdTimestamp).reversed())
+                                            .map(x -> (HasValue) x)
+                                            .limit(1)
+                                            .map(e2 -> Map.entry(e.getKey(), (int) e2.value())))
+                    .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+    var totalLeader = leaderCount.values().stream().mapToInt(Integer::intValue).sum();
+    leaderCost =
+            leaderCount.entrySet().stream()
+                    .collect(Collectors.toMap(Map.Entry::getKey, e -> (double) e.getValue() / totalLeader));
     var brokerSizeScore = leaderCost;
     var mean = brokerSizeScore.values().stream().mapToDouble(x -> x).sum() / brokerSizeScore.size();
     var sd =
-        brokerSizeScore.values().stream().mapToDouble(score -> Math.sqrt(score - mean)).sum()
-            / brokerSizeScore.size();
+            Math.sqrt(brokerSizeScore.values().stream().mapToDouble(
+                    score ->
+                            Math.pow((score - mean),2)).sum()
+                    / brokerSizeScore.size());
     return () -> sd;
   }
 }

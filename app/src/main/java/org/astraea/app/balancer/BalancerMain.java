@@ -22,6 +22,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.util.Map;
 import java.util.Properties;
 import java.util.stream.Collectors;
 import org.astraea.app.partitioner.Configuration;
@@ -58,7 +59,7 @@ public class BalancerMain {
   private static void printConfig(Configuration configuration) {
     System.out.println("[Configuration]");
     configuration.entrySet().stream()
-        .sorted()
+        .sorted(Map.Entry.comparingByKey())
         .forEach(entry -> System.out.printf("%s=%s%n", entry.getKey(), entry.getValue()));
   }
 

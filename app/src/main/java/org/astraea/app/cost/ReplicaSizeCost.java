@@ -16,12 +16,18 @@
  */
 package org.astraea.app.cost;
 
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
+import java.util.Properties;
 import java.util.TreeMap;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import org.astraea.app.admin.ClusterInfo;
 import org.astraea.app.admin.ReplicaInfo;
@@ -31,6 +37,7 @@ import org.astraea.app.balancer.log.ClusterLogAllocation;
 import org.astraea.app.metrics.KafkaMetrics;
 import org.astraea.app.metrics.broker.HasValue;
 import org.astraea.app.metrics.collector.Fetcher;
+import org.astraea.app.partitioner.Configuration;
 
 /**
  * The result is computed by "Size.Value". "Size.Value" responds to the replica log size of brokers.
@@ -38,11 +45,12 @@ import org.astraea.app.metrics.collector.Fetcher;
  * on the hard disk
  */
 public class ReplicaSizeCost implements HasBrokerCost, HasPartitionCost, HasClusterCost {
+  static final String BROKERCAPACITY = "brokerCapacityConfig";
   Map<Integer, Map<String, Integer>> totalBrokerCapacity;
   Map<Integer, Map<String, Long>> totalReplicaSizeInPath;
 
-  public ReplicaSizeCost(Map<Integer, Map<String, Integer>> totalBrokerCapacity) {
-    this.totalBrokerCapacity = totalBrokerCapacity;
+  public ReplicaSizeCost(Configuration configuration) {
+    this.totalBrokerCapacity = convert(configuration.requireString(BROKERCAPACITY));
   }
 
   @Override
@@ -56,7 +64,37 @@ public class ReplicaSizeCost implements HasBrokerCost, HasPartitionCost, HasClus
    */
   @Override
   public BrokerCost brokerCost(ClusterInfo clusterInfo) {
-    var sizeOfReplica = getReplicaSize(clusterInfo);
+      var sizeOfPartition = getReplicaSize(clusterInfo);
+      totalReplicaSizeInPath =
+              clusterInfo.topics().stream()
+                      .flatMap(
+                              topic ->
+                                      clusterInfo.replicas(topic).stream()
+                                              .map(
+                                                      replicaInfo ->
+                                                              Map.entry(
+                                                                      replicaInfo.nodeInfo().id(),
+                                                                      Map.of(
+                                                                              replicaInfo.dataFolder().orElseThrow(),
+                                                                              sizeOfPartition.get(
+                                                                                      new TopicPartition(
+                                                                                              replicaInfo.topic(),
+                                                                                              replicaInfo.partition()
+                                                                                      ))
+                                                                      ))))
+                      .collect(
+                              Collectors.toMap(
+                                      Map.Entry::getKey,
+                                      Map.Entry::getValue,
+                                      (x1, x2) -> {
+                                          var path = x2.keySet().iterator().next();
+                                          var map = new HashMap<String, Long>();
+                                          map.putAll(x1);
+                                          map.putAll(x2);
+                                          if (x1.containsKey(path)) map.put(path, x1.get(path) + x2.get(path));
+                                          return map;
+                                      }));
+      checkBrokerPath(totalReplicaSizeInPath);
     totalReplicaSizeInPath =
         clusterInfo.topics().stream()
             .flatMap(
@@ -67,13 +105,13 @@ public class ReplicaSizeCost implements HasBrokerCost, HasPartitionCost, HasClus
                                 Map.entry(
                                     replicaInfo.nodeInfo().id(),
                                     Map.of(
-                                        Objects.requireNonNull(
-                                            replicaInfo.dataFolder().orElse(null)),
-                                        sizeOfReplica.get(
-                                            TopicPartitionReplica.of(
+                                        replicaInfo.dataFolder().orElseThrow(),
+                                        sizeOfPartition.get(
+                                            new TopicPartition(
                                                 replicaInfo.topic(),
-                                                replicaInfo.partition(),
-                                                replicaInfo.nodeInfo().id()))))))
+                                                replicaInfo.partition()
+                                               ))
+                                    ))))
             .collect(
                 Collectors.toMap(
                     Map.Entry::getKey,
@@ -100,13 +138,14 @@ public class ReplicaSizeCost implements HasBrokerCost, HasPartitionCost, HasClus
   @Override
   public PartitionCost partitionCost(ClusterInfo clusterInfo) {
     final long ONEMEGA = Math.round(Math.pow(2, 20));
-    var sizeOfReplica = getReplicaSize(clusterInfo);
+    var sizeOfPartition = getReplicaSize(clusterInfo);
     TreeMap<TopicPartitionReplica, Double> replicaCost =
         new TreeMap<>(
             Comparator.comparing(TopicPartitionReplica::brokerId)
                 .thenComparing(TopicPartitionReplica::topic)
                 .thenComparing(TopicPartitionReplica::partition));
-    sizeOfReplica.forEach((tpr, size) -> replicaCost.put(tpr, null));
+      clusterInfo.clusterBean().mapByReplica().keySet().forEach((tpr) ->
+              replicaCost.put(tpr, sizeOfPartition.get(new TopicPartition(tpr.topic(),tpr.partition()))/1.0));
 
     var scoreForTopic =
         clusterInfo.topics().stream()
@@ -189,8 +228,8 @@ public class ReplicaSizeCost implements HasBrokerCost, HasPartitionCost, HasClus
    * @param clusterInfo the clusterInfo that offers the metrics related to topic/partition size
    * @return a map contain the replica log size of each topic/partition
    */
-  public Map<TopicPartitionReplica, Long> getReplicaSize(ClusterInfo clusterInfo) {
-    return clusterInfo.clusterBean().mapByReplica().entrySet().stream()
+  public Map<TopicPartition, Long> getReplicaSize(ClusterInfo clusterInfo) {
+    return clusterInfo.clusterBean().mapByPartition().entrySet().stream()
         .flatMap(
             e ->
                 e.getValue().stream()
@@ -223,12 +262,94 @@ public class ReplicaSizeCost implements HasBrokerCost, HasPartitionCost, HasClus
 
   @Override
   public ClusterCost clusterCost(
-      ClusterInfo clusterInfo, ClusterLogAllocation clusterLogAllocation) {
+      ClusterInfo clusterInfo) {
+      var sizeOfPartition = getReplicaSize(clusterInfo);
+      totalReplicaSizeInPath =
+              clusterInfo.topics().stream()
+                      .flatMap(
+                              topic ->
+                                      clusterInfo.replicas(topic).stream()
+                                              .map(
+                                                      replicaInfo ->
+                                                              Map.entry(
+                                                                      replicaInfo.nodeInfo().id(),
+                                                                      Map.of(
+                                                                              replicaInfo.dataFolder().orElseThrow(),
+                                                                              sizeOfPartition.get(
+                                                                                      new TopicPartition(
+                                                                                              replicaInfo.topic(),
+                                                                                              replicaInfo.partition()
+                                                                                      ))
+                                                                      ))))
+                      .collect(
+                              Collectors.toMap(
+                                      Map.Entry::getKey,
+                                      Map.Entry::getValue,
+                                      (x1, x2) -> {
+                                          var path = x2.keySet().iterator().next();
+                                          var map = new HashMap<String, Long>();
+                                          map.putAll(x1);
+                                          map.putAll(x2);
+                                          if (x1.containsKey(path)) map.put(path, x1.get(path) + x2.get(path));
+                                          return map;
+                                      }));
     var brokerSizeScore = brokerScore();
     var mean = brokerSizeScore.values().stream().mapToDouble(x -> x).sum() / brokerSizeScore.size();
     var sd =
-        brokerSizeScore.values().stream().mapToDouble(score -> Math.sqrt(score - mean)).sum()
-            / brokerSizeScore.size();
+        Math.sqrt(brokerSizeScore.values().stream().mapToDouble(
+                score ->
+                        Math.pow((score - mean),2)).sum()
+            / brokerSizeScore.size());
     return () -> sd;
+  }
+
+  static Map.Entry<Integer, String> transformEntry(String entry) {
+    Map<String, Integer> brokerPath = new HashMap<>();
+    final Pattern serviceUrlKeyPattern =
+        Pattern.compile("broker\\.(?<brokerId>[1-9][0-9]{0,9})\\.(?<path>/.{0,50})");
+    final Matcher matcher = serviceUrlKeyPattern.matcher(entry);
+    if (matcher.matches()) {
+      try {
+        int brokerId = Integer.parseInt(matcher.group("brokerId"));
+        var path = matcher.group("path");
+        return Map.entry(brokerId, path);
+      } catch (NumberFormatException e) {
+        throw new IllegalArgumentException("Bad integer format for " + entry, e);
+      }
+    } else {
+      throw new IllegalArgumentException(
+          "Bad key format for "
+              + entry
+              + " no match for the following format :"
+              + serviceUrlKeyPattern.pattern());
+    }
+  }
+
+  public static Map<Integer, Map<String, Integer>> convert(String value) {
+    final Properties properties = new Properties();
+
+    try (var reader = Files.newBufferedReader(Path.of(value))) {
+      properties.load(reader);
+    } catch (IOException e) {
+      throw new UncheckedIOException(e);
+    }
+    return properties.entrySet().stream()
+        .map(entry -> Map.entry((String) entry.getKey(), (String) entry.getValue()))
+        .map(
+            entry -> {
+              var brokerId = transformEntry(entry.getKey()).getKey();
+              var path = transformEntry(entry.getKey()).getValue();
+              return Map.entry(brokerId, Map.of(path, Integer.parseInt(entry.getValue())));
+            })
+        .collect(
+            Collectors.toMap(
+                Map.Entry::getKey,
+                Map.Entry::getValue,
+                (x1, x2) -> {
+                  var map = new HashMap<String, Integer>();
+                  map.putAll(x1);
+                  map.putAll(x2);
+                  return map;
+                }));
   }
 }

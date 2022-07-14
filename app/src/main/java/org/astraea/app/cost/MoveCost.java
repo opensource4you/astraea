@@ -16,6 +16,9 @@
  */
 package org.astraea.app.cost;
 
+import static org.astraea.app.cost.ReplicaDiskInCost.BROKERBANDWIDTH;
+import static org.astraea.app.cost.ReplicaSizeCost.BROKERCAPACITY;
+
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -34,9 +37,17 @@ import org.astraea.app.balancer.log.ClusterLogAllocation;
 import org.astraea.app.metrics.HasBeanObject;
 import org.astraea.app.metrics.KafkaMetrics;
 import org.astraea.app.metrics.broker.HasCount;
+import org.astraea.app.metrics.broker.HasValue;
 import org.astraea.app.metrics.collector.Fetcher;
+import org.astraea.app.partitioner.Configuration;
 
-public class MoveCost implements HasClusterCost, HasBrokerCost {
+public class MoveCost implements HasMoveCost {
+  public MoveCost(Configuration configuration) {
+    this.totalBrokerCapacity = ReplicaSizeCost.convert(configuration.requireString(BROKERCAPACITY));
+    this.brokerBandwidthCap =
+        ReplicaDiskInCost.convert(configuration.requireString(BROKERBANDWIDTH));
+  }
+
   static class ReplicaMigrateInfo {
     TopicPartition topicPartition;
     int brokerSource;
@@ -74,8 +85,9 @@ public class MoveCost implements HasClusterCost, HasBrokerCost {
   Map<Integer, Double> replicationBytesInPerSec;
   Map<Integer, Double> replicationBytesOutPerSec;
   Map<Integer, Double> availableMigrateBandwidth;
-  ReplicaSizeCost replicaSizeCost;
-  ReplicaDiskInCost replicaDiskInCost;
+  Map<Integer, Double> brokerScore;
+  Map<Integer, Map<String, Integer>> totalBrokerCapacity;
+  Map<Integer, Integer> brokerBandwidthCap;
 
   private static boolean filterBean(HasBeanObject hasBeanObject, String metricName) {
     var beanObject = hasBeanObject.beanObject();
@@ -118,7 +130,7 @@ public class MoveCost implements HasClusterCost, HasBrokerCost {
 
   boolean checkBrokerInTraffic() {
     // TODO: need replicaOutRate and estimated migrate traffic.
-    var brokerBandwidthCap = replicaDiskInCost.brokerBandwidthCap;
+    var brokerBandwidthCap = this.brokerBandwidthCap;
     AtomicReference<Boolean> overflow = new AtomicReference<>(false);
     var replicaDataRate = this.replicaDataRate;
     var migratedReplicas = this.migratedReplicas;
@@ -138,7 +150,7 @@ public class MoveCost implements HasClusterCost, HasBrokerCost {
         });
     brokerBandwidthCap.forEach(
         (broker, bandwidth) -> {
-          if (brokerByteIn.get(broker) + brokerTrafficChange.get(broker) > bandwidth)
+          if (brokerByteIn.get(broker) + brokerTrafficChange.getOrDefault(broker, 0.0) > bandwidth)
             overflow.set(true);
         });
     return overflow.get();
@@ -146,7 +158,7 @@ public class MoveCost implements HasClusterCost, HasBrokerCost {
 
   boolean checkFolderSize() {
     AtomicReference<Boolean> overflow = new AtomicReference<>(false);
-    var totalBrokerCapacity = replicaSizeCost.totalBrokerCapacity;
+    var totalBrokerCapacity = this.totalBrokerCapacity;
     var replicaSize = this.replicaSize;
     var distributionChange = this.distributionChange;
     var pathSizeChange = new HashMap<Map.Entry<Integer, String>, Long>();
@@ -171,7 +183,7 @@ public class MoveCost implements HasClusterCost, HasBrokerCost {
         (broker, pathSize) ->
             pathSize.forEach(
                 (path, size) -> {
-                  if ((replicaSizeCost.totalReplicaSizeInPath.get(broker).getOrDefault(path, 0L)
+                  if ((totalBrokerCapacity.get(broker).getOrDefault(path, 0)
                               + pathSizeChange.getOrDefault(Map.entry(broker, path), 0L))
                           / 1024.0
                           / 1024.0
@@ -188,51 +200,24 @@ public class MoveCost implements HasClusterCost, HasBrokerCost {
   }
 
   double countMigrateCost() {
-    var brokerMigrateInSize =
-        migratedReplicas.stream()
-            .map(
-                replicaMigrateInfo ->
-                    Map.entry(
-                        replicaMigrateInfo.brokerSink,
-                        replicaSize.get(replicaMigrateInfo.sourceTPR())))
-            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue, Long::sum));
-    var brokerScore =
-        brokerMigrateInSize.entrySet().stream()
-            .map(
-                e -> {
-                  var y =
-                      replicaSizeCost.totalReplicaSizeInPath.get(e.getKey()).values().stream()
-                          .mapToLong(x -> x)
-                          .sum();
-                  return Map.entry(e.getKey(), e.getValue() / 1.0 / y);
-                })
-            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
     return brokerScore.values().stream().mapToDouble(x -> x / brokerScore.size()).sum();
   }
 
   @Override
   public Optional<Fetcher> fetcher() {
+
     return Optional.of(
         client ->
             Stream.of(
-                    KafkaMetrics.BrokerTopic.BytesInPerSec.fetch(client),
-                    KafkaMetrics.BrokerTopic.BytesOutPerSec.fetch(client),
-                    KafkaMetrics.BrokerTopic.ReplicationBytesInPerSec.fetch(client),
-                    KafkaMetrics.BrokerTopic.ReplicationBytesOutPerSec.fetch(client),
+                    client12 ->
+                        List.of(
+                            KafkaMetrics.BrokerTopic.BytesInPerSec.fetch(client12),
+                            KafkaMetrics.BrokerTopic.BytesOutPerSec.fetch(client12),
+                            KafkaMetrics.BrokerTopic.ReplicationBytesInPerSec.fetch(client12),
+                            KafkaMetrics.BrokerTopic.ReplicationBytesOutPerSec.fetch(client12)),
                     (Fetcher) KafkaMetrics.TopicPartition.Size::fetch)
-                .map(x -> (Fetcher) x)
                 .flatMap(f -> f.fetch(client).stream())
                 .collect(Collectors.toUnmodifiableList()));
-  }
-
-  public MoveCost(ReplicaSizeCost replicaSizeCost, ReplicaDiskInCost replicaDiskInCost) {
-    this.replicaSizeCost = replicaSizeCost;
-    this.replicaDiskInCost = replicaDiskInCost;
-  }
-
-  @Override
-  public BrokerCost brokerCost(ClusterInfo clusterInfo) {
-    return null;
   }
 
   @Override
@@ -241,8 +226,8 @@ public class MoveCost implements HasClusterCost, HasBrokerCost {
     var duration = Duration.ofSeconds(10);
     distributionChange = getMigrateReplicas(clusterInfo, clusterLogAllocation, false);
     migratedReplicas = getMigrateReplicas(clusterInfo, clusterLogAllocation, true);
-    replicaSize = replicaSizeCost.getReplicaSize(clusterInfo);
-    replicaDataRate = replicaDiskInCost.replicaDataRate(clusterInfo, duration);
+    replicaSize = getReplicaSize(clusterInfo);
+    replicaDataRate = replicaDataRate(clusterInfo, duration);
     brokerBytesInPerSec = brokerTrafficMetrics(clusterInfo, "BytesInPerSec", duration);
     brokerBytesOutPerSec = brokerTrafficMetrics(clusterInfo, "BytesOutPerSec", duration);
     replicationBytesInPerSec =
@@ -250,7 +235,7 @@ public class MoveCost implements HasClusterCost, HasBrokerCost {
     replicationBytesOutPerSec =
         brokerTrafficMetrics(clusterInfo, "ReplicationBytesOutPerSec", duration);
     availableMigrateBandwidth =
-        replicaDiskInCost.brokerBandwidthCap.entrySet().stream()
+        brokerBandwidthCap.entrySet().stream()
             .map(
                 brokerBandWidth ->
                     Map.entry(
@@ -259,11 +244,81 @@ public class MoveCost implements HasClusterCost, HasBrokerCost {
                             - brokerBytesInPerSec.get(brokerBandWidth.getKey())
                             - replicationBytesInPerSec.get(brokerBandWidth.getKey())))
             .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-    checkFolderSize();
-    checkBrokerInTraffic();
-    checkMigrateSpeed();
-    var migrateCost = countMigrateCost();
+    var brokerMigrateInSize =
+        migratedReplicas.stream()
+            .map(
+                replicaMigrateInfo ->
+                    Map.entry(
+                        replicaMigrateInfo.brokerSink,
+                        replicaSize.get(replicaMigrateInfo.sourceTPR())))
+            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue, Long::sum));
+    brokerScore =
+        brokerMigrateInSize.entrySet().stream()
+            .map(
+                e -> {
+                  var y =
+                      totalBrokerCapacity.get(e.getKey()).values().stream().mapToLong(x -> x).sum();
+                  return Map.entry(e.getKey(), e.getValue() / 1.0 / y);
+                })
+            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+
+    brokerScore.forEach((broker, score) -> {
+        if (overflow() || score >1)
+            brokerScore.put(broker, 1.0);
+        else
+            brokerScore.put(broker, 0.0);
+    });
+     var migrateCost = countMigrateCost();
     return () -> migrateCost;
+  }
+
+  public Map<TopicPartitionReplica, Long> getReplicaSize(ClusterInfo clusterInfo) {
+    return clusterInfo.clusterBean().mapByReplica().entrySet().stream()
+        .flatMap(
+            e ->
+                e.getValue().stream()
+                    .filter(x -> x instanceof HasValue)
+                    .filter(x -> x.beanObject().domainName().equals("kafka.log"))
+                    .filter(x -> x.beanObject().properties().get("type").equals("Log"))
+                    .filter(x -> x.beanObject().properties().get("name").equals("Size"))
+                    .map(x -> (HasValue) x)
+                    .map(x -> Map.entry(e.getKey(), x.value())))
+        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue, (x1, x2) -> x2));
+  }
+
+  public Map<TopicPartitionReplica, Double> replicaDataRate(
+      ClusterInfo clusterInfo, Duration sampleWindow) {
+    return clusterInfo.clusterBean().mapByReplica().entrySet().parallelStream()
+        .map(
+            metrics -> {
+              // calculate the increase rate over a specific window of time
+              var sizeTimeSeries =
+                  metrics.getValue().stream()
+                      .filter(bean -> bean instanceof HasValue)
+                      .filter(bean -> bean.beanObject().properties().get("type").equals("Log"))
+                      .filter(bean -> bean.beanObject().properties().get("name").equals("Size"))
+                      .map(bean -> (HasValue) bean)
+                      .sorted(Comparator.comparingLong(HasBeanObject::createdTimestamp).reversed())
+                      .collect(Collectors.toUnmodifiableList());
+              var latestSize = sizeTimeSeries.stream().findFirst().orElseThrow();
+              var windowSize =
+                  sizeTimeSeries.stream()
+                      .dropWhile(
+                          bean ->
+                              bean.createdTimestamp()
+                                  > latestSize.createdTimestamp() - sampleWindow.toMillis())
+                      .findFirst()
+                      .orElse(latestSize);
+              var dataRate =
+                  ((double) (latestSize.value() - windowSize.value()))
+                      / ((double) (latestSize.createdTimestamp() - windowSize.createdTimestamp())
+                          / 1000)
+                      / 1024.0
+                      / 1024.0;
+              if (latestSize == windowSize) dataRate = 0;
+              return Map.entry(metrics.getKey(), dataRate);
+            })
+        .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));
   }
 
   public boolean overflow() {

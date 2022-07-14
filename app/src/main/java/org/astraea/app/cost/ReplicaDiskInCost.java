@@ -16,12 +16,19 @@
  */
 package org.astraea.app.cost;
 
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Duration;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Properties;
 import java.util.TreeMap;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import org.astraea.app.admin.ClusterInfo;
 import org.astraea.app.admin.NodeInfo;
@@ -32,6 +39,7 @@ import org.astraea.app.metrics.HasBeanObject;
 import org.astraea.app.metrics.KafkaMetrics;
 import org.astraea.app.metrics.broker.HasValue;
 import org.astraea.app.metrics.collector.Fetcher;
+import org.astraea.app.partitioner.Configuration;
 
 /**
  * The result is computed by "Size.Value" ,and createdTimestamp in the metrics. "Size.Value"
@@ -39,11 +47,12 @@ import org.astraea.app.metrics.collector.Fetcher;
  * increase of log size per unit time divided by the upper limit of broker bandwidth.
  */
 public class ReplicaDiskInCost implements HasBrokerCost, HasPartitionCost, HasClusterCost {
+  static final String BROKERBANDWIDTH = "brokerBandwidthConfig";
   Map<Integer, Integer> brokerBandwidthCap;
   Map<Integer, Double> brokerLoad;
 
-  public ReplicaDiskInCost(Map<Integer, Integer> brokerBandwidthCap) {
-    this.brokerBandwidthCap = brokerBandwidthCap;
+  public ReplicaDiskInCost(Configuration configuration) {
+    this.brokerBandwidthCap = convert(configuration.requireString(BROKERBANDWIDTH));
   }
 
   @Override
@@ -172,12 +181,46 @@ public class ReplicaDiskInCost implements HasBrokerCost, HasPartitionCost, HasCl
 
   @Override
   public ClusterCost clusterCost(
-      ClusterInfo clusterInfo, ClusterLogAllocation clusterLogAllocation) {
-    var brokerSizeScore = brokerLoad;
+      ClusterInfo clusterInfo) {
+    final Map<Integer, List<TopicPartitionReplica>> topicPartitionOfEachBroker =
+            clusterInfo.topics().stream()
+                    .flatMap(topic -> clusterInfo.replicas(topic).stream())
+                    .map(
+                            replica ->
+                                    new TopicPartitionReplica(
+                                            replica.topic(), replica.partition(), replica.nodeInfo().id()))
+                    .collect(Collectors.groupingBy(TopicPartitionReplica::brokerId));
+    final var actual =
+            clusterInfo.nodes().stream()
+                    .collect(
+                            Collectors.toUnmodifiableMap(
+                                    NodeInfo::id,
+                                    node -> topicPartitionOfEachBroker.getOrDefault(node.id(), List.of())));
+    final var topicPartitionDataRate = topicPartitionDataRate(clusterInfo, Duration.ofSeconds(3));
+    var brokerSizeScore  =
+            actual.entrySet().stream()
+                    .map(
+                            entry ->
+                                    Map.entry(
+                                            entry.getKey(),
+                                            entry.getValue().stream()
+                                                    .mapToDouble(
+                                                            x ->
+                                                                    topicPartitionDataRate.get(
+                                                                            new TopicPartition(x.topic(), x.partition())))
+                                                    .sum()))
+                    .map(
+                            entry ->
+                                    Map.entry(
+                                            entry.getKey(), entry.getValue() / brokerBandwidthCap.get(entry.getKey())))
+                    .map(entry -> Map.entry(entry.getKey(), Math.min(entry.getValue(), 1)))
+                    .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
     var mean = brokerSizeScore.values().stream().mapToDouble(x -> x).sum() / brokerSizeScore.size();
     var sd =
-        brokerSizeScore.values().stream().mapToDouble(score -> Math.sqrt(score - mean)).sum()
-            / brokerSizeScore.size();
+            Math.sqrt(brokerSizeScore.values().stream().mapToDouble(
+                    score ->
+                            Math.pow((score - mean),2)).sum()
+                    / brokerSizeScore.size());
     return () -> sd;
   }
 
@@ -238,6 +281,39 @@ public class ReplicaDiskInCost implements HasBrokerCost, HasPartitionCost, HasCl
               if (latestSize == windowSize) dataRate = 0;
               return Map.entry(metrics.getKey(), dataRate);
             })
+        .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));
+  }
+
+  static Map.Entry<Integer, Integer> transformEntry(Map.Entry<String, String> entry) {
+    final Pattern serviceUrlKeyPattern = Pattern.compile("broker\\.(?<brokerId>[1-9][0-9]{0,9})");
+    final Matcher matcher = serviceUrlKeyPattern.matcher(entry.getKey());
+    if (matcher.matches()) {
+      try {
+        int brokerId = Integer.parseInt(matcher.group("brokerId"));
+        return Map.entry(brokerId, Integer.parseInt(entry.getValue()));
+      } catch (NumberFormatException e) {
+        throw new IllegalArgumentException("Bad integer format for " + entry.getKey(), e);
+      }
+    } else {
+      throw new IllegalArgumentException(
+          "Bad key format for "
+              + entry.getKey()
+              + " no match for the following format :"
+              + serviceUrlKeyPattern.pattern());
+    }
+  }
+
+  public static Map<Integer, Integer> convert(String value) {
+    final Properties properties = new Properties();
+
+    try (var reader = Files.newBufferedReader(Path.of(value))) {
+      properties.load(reader);
+    } catch (IOException e) {
+      throw new UncheckedIOException(e);
+    }
+    return properties.entrySet().stream()
+        .map(entry -> Map.entry((String) entry.getKey(), (String) entry.getValue()))
+        .map(ReplicaDiskInCost::transformEntry)
         .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));
   }
 }

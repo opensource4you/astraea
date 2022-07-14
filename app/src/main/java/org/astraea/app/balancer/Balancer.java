@@ -34,11 +34,15 @@ import org.astraea.app.admin.NodeInfo;
 import org.astraea.app.balancer.executor.RebalanceAdmin;
 import org.astraea.app.balancer.executor.RebalancePlanExecutor;
 import org.astraea.app.balancer.generator.RebalancePlanGenerator;
+import org.astraea.app.balancer.log.ClusterLogAllocation;
+import org.astraea.app.balancer.log.LayeredClusterLogAllocation;
 import org.astraea.app.balancer.metrics.IdentifiedFetcher;
 import org.astraea.app.balancer.metrics.MetricSource;
 import org.astraea.app.common.Utils;
 import org.astraea.app.cost.CostFunction;
 import org.astraea.app.cost.HasBrokerCost;
+import org.astraea.app.cost.HasClusterCost;
+import org.astraea.app.cost.HasMoveCost;
 import org.astraea.app.cost.HasPartitionCost;
 import org.astraea.app.metrics.HasBeanObject;
 import org.astraea.app.partitioner.Configuration;
@@ -255,7 +259,20 @@ public class Balancer implements AutoCloseable {
 
   private double costFunctionScore(ClusterInfo clusterInfo, CostFunction costFunction) {
 
-    if (costFunction instanceof HasBrokerCost) {
+    if (costFunction instanceof HasMoveCost){
+      var metrics = metricSource.allBeans().get(fetcherOwnership.get(costFunction));
+      var originalClusterInfo = ClusterInfo.of(newClusterInfo(), metrics);
+      var targetAllocation = LayeredClusterLogAllocation.of(clusterInfo);
+      return ((HasMoveCost) costFunction).clusterCost(originalClusterInfo,targetAllocation).value();
+    }
+    else if (costFunction instanceof HasClusterCost) {
+      var metrics = metricSource.allBeans().get(fetcherOwnership.get(costFunction));
+      var originalClusterInfo = ClusterInfo.of(newClusterInfo(), metrics);
+      var originalAllocation = LayeredClusterLogAllocation.of(originalClusterInfo);
+      return ((HasClusterCost) costFunction)
+              .clusterCost(originalClusterInfo)
+              .value();
+    }else if (costFunction instanceof HasBrokerCost) {
       return brokerCostScore(clusterInfo, (HasBrokerCost) costFunction);
     } else if (costFunction instanceof HasPartitionCost) {
       return partitionCostScore(clusterInfo, (HasPartitionCost) clusterInfo);
