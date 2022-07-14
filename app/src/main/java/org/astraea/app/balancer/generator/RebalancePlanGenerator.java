@@ -17,10 +17,10 @@
 package org.astraea.app.balancer.generator;
 
 import java.util.stream.Stream;
+import org.astraea.app.admin.ClusterInfo;
 import org.astraea.app.balancer.RebalancePlanProposal;
 import org.astraea.app.balancer.log.ClusterLogAllocation;
 import org.astraea.app.balancer.log.LayeredClusterLogAllocation;
-import org.astraea.app.cost.ClusterInfo;
 
 /** */
 public interface RebalancePlanGenerator {

@@ -18,15 +18,16 @@ package org.astraea.app.performance;
 
 import com.beust.jcommander.ParameterException;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
 import java.util.function.BiConsumer;
 import org.astraea.app.admin.Admin;
 import org.astraea.app.admin.TopicPartition;
 import org.astraea.app.argument.Argument;
+import org.astraea.app.common.Utils;
 import org.astraea.app.concurrent.Executor;
 import org.astraea.app.concurrent.State;
 import org.astraea.app.consumer.Consumer;
@@ -84,7 +85,7 @@ public class PerformanceTest extends RequireBrokerCluster {
     try (var admin = Admin.of(bootstrapServers())) {
       admin.creator().topic(topic).numberOfPartitions(1).create();
       // wait for topic creation
-      TimeUnit.SECONDS.sleep(2);
+      Utils.sleep(Duration.ofSeconds(2));
       admin.offsets(Set.of(topic)).values().forEach(o -> Assertions.assertEquals(0, o.latest()));
 
       Assertions.assertEquals(State.RUNNING, producerExecutors.get(0).execute());

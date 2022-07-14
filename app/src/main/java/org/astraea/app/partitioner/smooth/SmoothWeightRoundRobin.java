@@ -22,9 +22,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
-import org.astraea.app.cost.ClusterInfo;
+import org.astraea.app.admin.ClusterInfo;
+import org.astraea.app.cost.CostUtils;
 import org.astraea.app.cost.Periodic;
-import org.astraea.app.cost.broker.CostUtils;
 
 /**
  * Given initial key-score pair, it will output a preferred key with the highest current weight. The

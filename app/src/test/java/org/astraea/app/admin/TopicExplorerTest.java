@@ -32,9 +32,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
+import org.astraea.app.common.Utils;
 import org.astraea.app.consumer.Consumer;
 import org.astraea.app.service.RequireBrokerCluster;
 import org.junit.jupiter.api.AfterEach;
@@ -96,7 +96,7 @@ public class TopicExplorerTest extends RequireBrokerCluster {
   }
 
   @Test
-  void testExecute() throws InterruptedException {
+  void testExecute() {
     // arrange
     var topicName = "TopicExplorerTest-testExecute-Topic";
     var groupName = "TopicExplorerTest-testExecute-ConsumerGroup";
@@ -106,7 +106,7 @@ public class TopicExplorerTest extends RequireBrokerCluster {
       consumer(Set.of(topicName), groupName, "beta");
       consumer(Set.of(topicName), groupName, "gamma");
 
-      TimeUnit.SECONDS.sleep(10); // wait for broker process resource creation
+      Utils.sleep(Duration.ofSeconds(5)); // wait for broker process resource creation
 
       // act
       var result = TopicExplorer.execute(admin, Set.of(topicName));

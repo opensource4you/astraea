@@ -53,9 +53,6 @@ import org.apache.kafka.common.quota.ClientQuotaEntity;
 import org.apache.kafka.common.quota.ClientQuotaFilter;
 import org.apache.kafka.common.quota.ClientQuotaFilterComponent;
 import org.astraea.app.common.Utils;
-import org.astraea.app.cost.ClusterInfo;
-import org.astraea.app.cost.NodeInfo;
-import org.astraea.app.cost.ReplicaInfo;
 
 public class Builder {
 
@@ -523,11 +520,6 @@ public class Builder {
                 "This ClusterInfo have no information about topic \"" + topic + "\"");
           else return replicaInfos;
         }
-
-        @Override
-        public ClusterBean clusterBean() {
-          return ClusterBean.of(Map.of());
-        }
       };
     }
 
@@ -826,11 +818,13 @@ public class Builder {
               .get(topicPartition.topic())
               .partitions()
               .get(topicPartition.partition())
-              .replicas();
-      var notHere =
-          currentReplicas.stream()
+              .replicas()
+              .stream()
               .map(Node::id)
-              .filter(id -> !brokerFolders.containsKey(id))
+              .collect(Collectors.toUnmodifiableSet());
+      var notHere =
+          brokerFolders.keySet().stream()
+              .filter(id -> !currentReplicas.contains(id))
               .collect(Collectors.toUnmodifiableSet());
 
       if (!notHere.isEmpty())

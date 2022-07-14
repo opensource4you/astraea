@@ -17,6 +17,8 @@
 package org.astraea.app.balancer.log;
 
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.astraea.app.admin.TopicPartition;
 
@@ -62,5 +64,49 @@ public interface ClusterLogAllocation {
   /** Retrieve the stream of all topic/partition pairs in allocation. */
   Stream<TopicPartition> topicPartitionStream();
 
-  // TODO: add a method to calculate the difference between two ClusterLogAllocation
+  /**
+   * Find a subset of topic/partitions in the source allocation, that has any non-fulfilled log
+   * placement in the given target allocation. Note that the given two allocations must have the
+   * exactly same topic/partitions set. Otherwise, an {@link IllegalArgumentException} will be
+   * raised.
+   */
+  static Set<TopicPartition> findNonFulfilledAllocation(
+      ClusterLogAllocation source, ClusterLogAllocation target) {
+
+    final var sourceTopicPartition =
+        source.topicPartitionStream().collect(Collectors.toUnmodifiableSet());
+    final var targetTopicPartition =
+        target.topicPartitionStream().collect(Collectors.toUnmodifiableSet());
+
+    if (!sourceTopicPartition.equals(targetTopicPartition))
+      throw new IllegalArgumentException(
+          "source allocation and target allocation has different topic/partition set");
+
+    return sourceTopicPartition.stream()
+        .filter(tp -> !LogPlacement.isMatch(source.logPlacements(tp), target.logPlacements(tp)))
+        .collect(Collectors.toUnmodifiableSet());
+  }
+
+  static String toString(ClusterLogAllocation allocation) {
+    StringBuilder stringBuilder = new StringBuilder();
+
+    allocation
+        .topicPartitionStream()
+        .sorted()
+        .forEach(
+            tp -> {
+              stringBuilder.append("[").append(tp).append("] ");
+
+              allocation
+                  .logPlacements(tp)
+                  .forEach(
+                      log ->
+                          stringBuilder.append(
+                              String.format("%s(%s) ", log.broker(), log.logDirectory())));
+
+              stringBuilder.append(System.lineSeparator());
+            });
+
+    return stringBuilder.toString();
+  }
 }

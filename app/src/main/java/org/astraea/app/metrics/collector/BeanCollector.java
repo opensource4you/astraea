@@ -31,8 +31,8 @@ import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.BiFunction;
 import org.astraea.app.common.Utils;
 import org.astraea.app.metrics.HasBeanObject;
+import org.astraea.app.metrics.KafkaMetrics;
 import org.astraea.app.metrics.jmx.MBeanClient;
-import org.astraea.app.metrics.kafka.KafkaMetrics;
 
 public class BeanCollector {
 
@@ -85,6 +85,7 @@ public class BeanCollector {
 
   public Register register() {
     return new Register() {
+      private boolean local = false;
       private String host;
       private int port = -1;
       private Fetcher fetcher = client -> List.of(KafkaMetrics.Host.jvmMemory(client));
@@ -98,6 +99,14 @@ public class BeanCollector {
       @Override
       public Register port(int port) {
         this.port = Utils.requirePositive(port);
+        return this;
+      }
+
+      @Override
+      public Register local() {
+        this.local = true;
+        this.port = -1;
+        this.host = Utils.hostname();
         return this;
       }
 
@@ -153,7 +162,8 @@ public class BeanCollector {
                 if (needUpdate && node.lock.tryLock()) {
                   try {
                     if (node.mBeanClient == null)
-                      node.mBeanClient = clientCreator.apply(host, port);
+                      node.mBeanClient =
+                          local ? MBeanClient.local() : clientCreator.apply(host, port);
                     var beans = fetcher.fetch(node.mBeanClient);
                     // remove old beans if the queue is full
                     for (var t : objects.keySet()) {

@@ -17,12 +17,19 @@
 package org.astraea.app.partitioner;
 
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 import org.apache.kafka.clients.producer.Partitioner;
 import org.apache.kafka.common.Cluster;
-import org.astraea.app.cost.ClusterInfo;
+import org.astraea.app.admin.ClusterInfo;
 
 public interface Dispatcher extends Partitioner {
+  /**
+   * cache the cluster info to reduce the cost of converting cluster. Producer does not update
+   * Cluster frequently, so it is ok to cache it.
+   */
+  ConcurrentHashMap<Cluster, ClusterInfo> CLUSTER_CACHE = new ConcurrentHashMap<>();
+
   /**
    * Compute the partition for the given record.
    *
@@ -59,7 +66,7 @@ public interface Dispatcher extends Partitioner {
         topic,
         keyBytes == null ? new byte[0] : keyBytes,
         valueBytes == null ? new byte[0] : valueBytes,
-        ClusterInfo.of(cluster));
+        CLUSTER_CACHE.computeIfAbsent(cluster, ignored -> ClusterInfo.of(cluster)));
   }
 
   @Override
