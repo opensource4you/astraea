@@ -17,12 +17,10 @@
 package org.astraea.app.performance;
 
 import com.beust.jcommander.Parameter;
-import com.beust.jcommander.ParameterException;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
@@ -89,12 +87,11 @@ public class Performance {
   private static DataSupplier dataSupplier(Performance.Argument argument) {
     return DataSupplier.of(
         argument.exeTime,
-        argument.keyDistributionSize.distributionType.create(10000),
-        argument.keyDistributionSize.distributionType.create(
-            argument.keyDistributionSize.dataSize.measurement(DataUnit.Byte).intValue()),
-        argument.valueDistributionSize.distributionType.create(10000),
-        argument.valueDistributionSize.distributionType.create(
-            argument.valueDistributionSize.dataSize.measurement(DataUnit.Byte).intValue()),
+        argument.keyDistributionType.create(10000),
+        argument.keyDistributionType.create(argument.keySize.measurement(DataUnit.Byte).intValue()),
+        argument.valueDistributionType.create(10000),
+        argument.valueDistributionType.create(
+            argument.valueSize.measurement(DataUnit.Byte).intValue()),
         argument.throughput);
   }
 
@@ -338,20 +335,30 @@ public class Performance {
     }
 
     @Parameter(
+        names = {"--key.size"},
+        description = "DataSize of the key. Default: 4Byte",
+        converter = DataSize.Field.class)
+    DataSize keySize = DataUnit.Byte.of(4);
+
+    @Parameter(
+        names = {"--value.size"},
+        description = "DataSize of the value. Default: 1KiB",
+        converter = DataSize.Field.class)
+    DataSize valueSize = DataUnit.Byte.of(4);
+
+    @Parameter(
         names = {"--key.distribution"},
         description =
-            "Distribution name and size for each record key. Available distribution names: \"fixed\" \"uniform\", \"zipfian\", \"latest\". Default: uniform",
-        converter = DistributionAndSize.Field.class)
-    DistributionAndSize keyDistributionSize =
-        new DistributionAndSize(DistributionType.FIXED, DataUnit.Byte.of(4));
+            "Distribution name for key. Available distribution names: \"fixed\" \"uniform\", \"zipfian\", \"latest\". Default: uniform",
+        converter = DistributionType.DistributionTypeField.class)
+    DistributionType keyDistributionType = DistributionType.FIXED;
 
     @Parameter(
         names = {"--value.distribution"},
         description =
-            "Distribution name and size for each record value. Available distribution names: \"uniform\", \"zipfian\", \"latest\", \"fixed\". Default: \"uniform\"",
-        converter = DistributionAndSize.Field.class)
-    DistributionAndSize valueDistributionSize =
-        new DistributionAndSize(DistributionType.UNIFORM, DataUnit.KiB.of(1));
+            "Distribution name for record value. Available distribution names: \"uniform\", \"zipfian\", \"latest\", \"fixed\". Default: \"uniform\"",
+        converter = DistributionType.DistributionTypeField.class)
+    DistributionType valueDistributionType = DistributionType.UNIFORM;
 
     @Parameter(
         names = {"--specify.broker"},
@@ -388,40 +395,6 @@ public class Performance {
 
     public String topicName() {
       return topicName;
-    }
-  }
-
-  public static class DistributionAndSize {
-    final DistributionType distributionType;
-    final DataSize dataSize;
-
-    public static class Field extends org.astraea.app.argument.Field<DistributionAndSize> {
-      @Override
-      public DistributionAndSize convert(String name) {
-        var distributionType =
-            Arrays.stream(DistributionType.values())
-                .filter(distribution -> name.startsWith(distribution.name))
-                .findFirst()
-                .orElseThrow(
-                    () ->
-                        new ParameterException(
-                            "Start with unknown distribution \""
-                                + name
-                                + "\". use \"fixed\" \"uniform\", \"latest\", \"zipfian\"."));
-        return new DistributionAndSize(
-            distributionType,
-            new DataSize.Field().convert(name.substring(distributionType.name.length())));
-      }
-    }
-
-    public DistributionAndSize(DistributionType distributionType, DataSize dataSize) {
-      this.distributionType = distributionType;
-      this.dataSize = dataSize;
-    }
-
-    @Override
-    public String toString() {
-      return distributionType.name + dataSize.toString();
     }
   }
 }

@@ -27,7 +27,6 @@ import java.util.function.BiConsumer;
 import org.astraea.app.admin.Admin;
 import org.astraea.app.admin.TopicPartition;
 import org.astraea.app.argument.Argument;
-import org.astraea.app.common.DataUnit;
 import org.astraea.app.concurrent.Executor;
 import org.astraea.app.concurrent.State;
 import org.astraea.app.consumer.Consumer;
@@ -100,8 +99,7 @@ public class PerformanceTest extends RequireBrokerCluster {
     Metrics metrics = new Metrics();
     var topicName = "testConsumerExecutor-" + System.currentTimeMillis();
     var param = new Performance.Argument();
-    param.valueDistributionSize =
-        new Performance.DistributionAndSize(DistributionType.FIXED, DataUnit.KiB.of(1));
+    param.valueDistributionType = DistributionType.FIXED;
     try (Executor executor =
         Performance.consumerExecutor(
             Consumer.forTopics(Set.of(topicName)).bootstrapServers(bootstrapServers()).build(),
@@ -150,14 +148,18 @@ public class PerformanceTest extends RequireBrokerCluster {
       "1",
       "--run.until",
       "1000records",
+      "--value.size",
+      "10KiB",
       "--value.distribution",
-      "uniform10KiB",
+      "uniform",
       "--partitioner",
       "org.astraea.partitioner.smooth.SmoothWeightPartitioner",
       "--compression",
       "lz4",
+      "--key.size",
+      "4Byte",
       "--key.distribution",
-      "zipfian4Byte",
+      "zipfian",
       "--specify.broker",
       "1",
       "--configs",
@@ -190,48 +192,34 @@ public class PerformanceTest extends RequireBrokerCluster {
     Assertions.assertThrows(
         ParameterException.class, () -> Argument.parse(new Performance.Argument(), arguments7));
 
-    String[] arguments8 = {"--bootstrap.servers", "localhost:9092", "--key.distribution", "1"};
+    String[] arguments8 = {"--bootstrap.servers", "localhost:9092", "--key.distribution", "f"};
     Assertions.assertThrows(
         ParameterException.class, () -> Argument.parse(new Performance.Argument(), arguments8));
 
-    String[] arguments9 = {"--bootstrap.servers", "localhost:9092", "--key.distribution", "1KiB"};
-    Assertions.assertThrows(
-        ParameterException.class, () -> Argument.parse(new Performance.Argument(), arguments9));
-
-    String[] arguments10 = {
-      "--bootstrap.servers", "localhost:9092", "--key.distribution", "uniform"
-    };
+    String[] arguments9 = {"--bootstrap.servers", "localhost:9092", "--key.size", "1"};
     Assertions.assertThrows(
         IllegalArgumentException.class,
-        () -> Argument.parse(new Performance.Argument(), arguments10));
+        () -> Argument.parse(new Performance.Argument(), arguments9));
 
-    String[] arguments11 = {"--bootstrap.servers", "localhost:9092", "--value.distribution", "1"};
+    String[] arguments10 = {"--bootstrap.servers", "localhost:9092", "--value.distribution", "u"};
     Assertions.assertThrows(
-        ParameterException.class, () -> Argument.parse(new Performance.Argument(), arguments11));
+        ParameterException.class, () -> Argument.parse(new Performance.Argument(), arguments10));
 
-    String[] arguments12 = {
-      "--bootstrap.servers", "localhost:9092", "--value.distribution", "1Byte"
-    };
+    String[] arguments11 = {"--bootstrap.servers", "localhost:9092", "--value.size", "2"};
+    Assertions.assertThrows(
+        IllegalArgumentException.class,
+        () -> Argument.parse(new Performance.Argument(), arguments11));
+
+    String[] arguments12 = {"--bootstrap.servers", "localhost:9092", "--partitioner", ""};
     Assertions.assertThrows(
         ParameterException.class, () -> Argument.parse(new Performance.Argument(), arguments12));
 
-    String[] arguments13 = {
-      "--bootstrap.servers", "localhost:9092", "--value.distribution", "fixed"
-    };
+    String[] arguments13 = {"--bootstrap.servers", "localhost:9092", "--compression", ""};
     Assertions.assertThrows(
-        IllegalArgumentException.class,
-        () -> Argument.parse(new Performance.Argument(), arguments13));
+        ParameterException.class, () -> Argument.parse(new Performance.Argument(), arguments13));
 
-    String[] arguments14 = {"--bootstrap.servers", "localhost:9092", "--partitioner", ""};
+    String[] arguments14 = {"--bootstrap.servers", "localhost:9092", "--specify.broker", ""};
     Assertions.assertThrows(
         ParameterException.class, () -> Argument.parse(new Performance.Argument(), arguments14));
-
-    String[] arguments15 = {"--bootstrap.servers", "localhost:9092", "--compression", ""};
-    Assertions.assertThrows(
-        ParameterException.class, () -> Argument.parse(new Performance.Argument(), arguments15));
-
-    String[] arguments16 = {"--bootstrap.servers", "localhost:9092", "--specify.broker", ""};
-    Assertions.assertThrows(
-        ParameterException.class, () -> Argument.parse(new Performance.Argument(), arguments16));
   }
 }
