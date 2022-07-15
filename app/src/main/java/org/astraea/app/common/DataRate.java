@@ -198,7 +198,7 @@ public class DataRate {
    * @param bytesPerSecond the double value that represent a data rate in bytes/second unit
    * @return a {@link DataRate} converted from the given parameter.
    */
-  public static DataRate fromDouble(double bytesPerSecond) {
+  public static DataRate ofDouble(double bytesPerSecond) {
     var bits =
         BigDecimal.valueOf(bytesPerSecond)
             .multiply(new BigDecimal(DataUnit.Byte.bits))
@@ -211,7 +211,7 @@ public class DataRate {
    * @param bytesPerSecond the double value that represent a data rate in bytes/second unit
    * @return a {@link DataRate} converted from the given parameter.
    */
-  public static DataRate fromLong(long bytesPerSecond) {
+  public static DataRate ofLong(long bytesPerSecond) {
     var bits =
         BigDecimal.valueOf(bytesPerSecond)
             .multiply(new BigDecimal(DataUnit.Byte.bits))
