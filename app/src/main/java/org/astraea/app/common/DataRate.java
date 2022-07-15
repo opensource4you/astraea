@@ -94,18 +94,10 @@ public class DataRate {
 
   /**
    * @return the data rate with bytes/second unit as a double value. If the value is beyond the
-   *     range of double, it will become {@link Double#POSITIVE_INFINITY}.
+   *     range of double, {@link Double#POSITIVE_INFINITY} will be returned.
    */
   public double doubleByteRate() {
     return toBigDecimal(DataUnit.Byte, ChronoUnit.SECONDS).doubleValue();
-  }
-
-  /**
-   * @return the data rate with bytes/second unit as a long value
-   * @throws ArithmeticException if the value overflowed.
-   */
-  public long longByteRate() {
-    return toBigDecimal(DataUnit.Byte, ChronoUnit.SECONDS).toBigInteger().longValueExact();
   }
 
   /** @return the data rate per second as a {@link DataSize}. */

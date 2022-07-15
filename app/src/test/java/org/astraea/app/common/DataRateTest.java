@@ -125,21 +125,21 @@ class DataRateTest {
 
   @Test
   void testLongByteRate() {
-    Assertions.assertEquals(1024L, DataUnit.Byte.of(1024).perSecond().longByteRate());
-    Assertions.assertEquals(1024L * 1024, DataUnit.KiB.of(1024).perSecond().longByteRate());
+    Assertions.assertEquals(1024L, DataUnit.Byte.of(1024).perSecond().doubleByteRate());
+    Assertions.assertEquals(1024L * 1024, DataUnit.KiB.of(1024).perSecond().doubleByteRate());
   }
 
   @Test
   void testFromLong() {
     Assertions.assertEquals(
-        DataRate.of(1024, DataUnit.Byte, ChronoUnit.SECONDS).longByteRate(),
-        DataRate.fromLong(1024).longByteRate());
+        DataRate.of(1024, DataUnit.Byte, ChronoUnit.SECONDS).doubleByteRate(),
+        DataRate.fromLong(1024).doubleByteRate());
   }
 
   @Test
   void testFromDouble() {
     Assertions.assertEquals(
-        DataRate.of(1024, DataUnit.Byte, ChronoUnit.SECONDS).longByteRate(),
-        DataRate.fromDouble(1024).longByteRate());
+        DataRate.of(1024, DataUnit.Byte, ChronoUnit.SECONDS).doubleByteRate(),
+        DataRate.fromDouble(1024).doubleByteRate());
   }
 }
