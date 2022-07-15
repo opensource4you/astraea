@@ -175,7 +175,7 @@ public class DataSize implements Comparable<DataSize> {
    * @return a {@link BigDecimal} describe current data size in term of specific data unit.
    */
   public BigDecimal measurement(DataUnit dataUnit) {
-    return new BigDecimal(this.bits).divide(new BigDecimal(dataUnit.bits), MathContext.UNLIMITED);
+    return new BigDecimal(this.bits).divide(new BigDecimal(dataUnit.bits), MathContext.DECIMAL128);
   }
 
   /**

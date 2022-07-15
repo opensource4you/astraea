@@ -89,7 +89,7 @@ public class DataRate {
     return this.totalBitTransmitted
         .measurement(dataUnit)
         .multiply(fromDurationToBigDecimalSafely(duration))
-        .divide(durationInNanoSecond, MathContext.UNLIMITED);
+        .divide(durationInNanoSecond, MathContext.DECIMAL128);
   }
 
   /**
