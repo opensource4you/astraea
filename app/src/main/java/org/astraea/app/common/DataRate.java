@@ -96,7 +96,7 @@ public class DataRate {
    * @return the data rate with bytes/second unit as a double value. If the value is beyond the
    *     range of double, {@link Double#POSITIVE_INFINITY} will be returned.
    */
-  public double doubleByteRate() {
+  public double byteRate() {
     return toBigDecimal(DataUnit.Byte, ChronoUnit.SECONDS).doubleValue();
   }
 

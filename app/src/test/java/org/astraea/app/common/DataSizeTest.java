@@ -95,7 +95,7 @@ class DataSizeTest {
     DataRate normal = DataRate.of(1000, DataUnit.Byte, ChronoUnit.SECONDS);
 
     // data rate to other types
-    double dataRateDouble = DataUnit.Byte.of(1000).perSecond().doubleByteRate();
+    double dataRateDouble = DataUnit.Byte.of(1000).perSecond().byteRate();
     DataSize dataRateSize = DataUnit.Byte.of(1000).perSecond().dataSize();
 
     // fast way to get DataSize & DataRate from primitive type
