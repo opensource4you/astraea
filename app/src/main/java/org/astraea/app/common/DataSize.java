@@ -36,8 +36,28 @@ public class DataSize implements Comparable<DataSize> {
     this(BigInteger.valueOf(volume).multiply(dataUnit.bits));
   }
 
-  DataSize(BigInteger bigInteger) {
-    this.bits = bigInteger;
+  public DataSize(BigInteger bits) {
+    this.bits = bits;
+  }
+
+  /**
+   * Add data volume.
+   *
+   * @param bytes value to add
+   * @return a new {@link DataSize} that have applied the math operation.
+   */
+  public DataSize add(long bytes) {
+    return add(bytes, DataUnit.Byte);
+  }
+
+  /**
+   * Subtract data volume.
+   *
+   * @param bytes value to subtract
+   * @return a new {@link DataSize} that have applied the math operation.
+   */
+  public DataSize subtract(long bytes) {
+    return subtract(bytes, DataUnit.Byte);
   }
 
   /**
@@ -140,13 +160,22 @@ public class DataSize implements Comparable<DataSize> {
   }
 
   /**
+   * @return the current bytes in long primitive type. All the remaining bits that can't become a
+   *     byte are discarded from the return value.
+   * @throws ArithmeticException if the value will not exactly fit into a long.
+   */
+  public long bytes() {
+    return bits().divide(BigInteger.valueOf(8)).longValueExact();
+  }
+
+  /**
    * The measurement value in term of specific data unit.
    *
    * @param dataUnit data unit to describe current size.
    * @return a {@link BigDecimal} describe current data size in term of specific data unit.
    */
   public BigDecimal measurement(DataUnit dataUnit) {
-    return new BigDecimal(this.bits).divide(new BigDecimal(dataUnit.bits), MathContext.DECIMAL32);
+    return new BigDecimal(this.bits).divide(new BigDecimal(dataUnit.bits), MathContext.UNLIMITED);
   }
 
   /**
@@ -195,6 +224,11 @@ public class DataSize implements Comparable<DataSize> {
    */
   public DataRate dataRate(Duration timePassed) {
     return DataRate.of(this, timePassed);
+  }
+
+  /** @return a {@link DataRate} based on current data size over one second. */
+  public DataRate perSecond() {
+    return dataRate(ChronoUnit.SECONDS);
   }
 
   /** Return a string represent current size in given data unit. */

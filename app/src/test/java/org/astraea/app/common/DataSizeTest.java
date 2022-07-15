@@ -30,6 +30,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
@@ -84,6 +85,29 @@ class DataSizeTest {
     double double1 = DataRate.ofDouble(1000, DataUnit.Byte, Duration.ofSeconds(1));
     double double2 = DataRate.ofDouble(randomSize, DataUnit.Byte, ChronoUnit.SECONDS);
     double double3 = DataRate.ofDouble(randomSize, DataUnit.Byte, Duration.ofSeconds(1));
+
+    // fast way to get bytes, be aware of exception caused by overflow.
+    long bytesInLong = randomSize.bytes();
+    long bytes10Gib = DataUnit.Gib.of(10).bytes();
+
+    // fast way & normal way to get second rate
+    DataRate faster = DataUnit.Byte.of(1000).perSecond();
+    DataRate normal = DataRate.of(1000, DataUnit.Byte, ChronoUnit.SECONDS);
+
+    // data rate to other types
+    long dataRateLong = DataUnit.Byte.of(1000).perSecond().longByteRate();
+    double dataRateDouble = DataUnit.Byte.of(1000).perSecond().doubleByteRate();
+    DataSize dataRateSize = DataUnit.Byte.of(1000).perSecond().dataSize();
+
+    // fast way to get DataSize & DataRate from primitive type
+    DataSize primitive0 = DataUnit.Byte.of(1000);
+    DataSize primitive1 = DataUnit.Byte.of((long) 1000.0);
+    DataRate primitive2 = DataRate.fromDouble(123.0);
+    DataRate primitive3 = DataRate.fromLong(1024);
+
+    // fast way to add/subtract data from primitive type
+    DataUnit.Byte.of(1000).subtract(500);
+    DataUnit.Byte.of(1024).add(1024);
 
     // solve the above problem
     var dataVolume = DataUnit.YB.of(1);
@@ -314,5 +338,57 @@ class DataSizeTest {
     assertFalse(DataUnit.MB.of(2).smallerEqualTo(DataUnit.KB.of(1000)));
     assertFalse(DataUnit.MB.of(0).greaterEqualTo(DataUnit.KB.of(1000)));
     assertFalse(DataUnit.MB.of(1).greaterThan(DataUnit.KB.of(1001)));
+  }
+
+  @ParameterizedTest
+  @CsvSource(
+      delimiterString = " ",
+      value = {"1000 KiB", "1234 Kib", "5566 GB", "42 Byte"})
+  void perSecond(long measurement, DataUnit unit) {
+    var dataSize = unit.of(measurement);
+    var dataRate = dataSize.perSecond();
+
+    Assertions.assertEquals(
+        measurement, dataRate.toBigDecimal(unit, ChronoUnit.SECONDS).longValueExact());
+    Assertions.assertEquals(
+        measurement * 60, dataRate.toBigDecimal(unit, ChronoUnit.MINUTES).longValueExact());
+  }
+
+  @ParameterizedTest
+  @CsvSource(
+      delimiterString = ",",
+      value = {
+        // measurement, unit, expected-value
+        "            1,  KiB,           1024",
+        "         1000,   GB,  1000000000000",
+        "            8,  Bit,              1",
+        "            7,  Bit,              0",
+        "            0,  Bit,              0",
+        "            9,  Bit,              1",
+        "           15,  Bit,              1",
+        "           16,  Bit,              2",
+        "          800,  Bit,            100"
+      })
+  void bytes(long measurement, DataUnit unit, long expected) {
+    var dataSize = unit.of(measurement);
+
+    Assertions.assertEquals(expected, dataSize.bytes());
+
+    // overflow cases
+    Assertions.assertThrows(ArithmeticException.class, () -> DataUnit.PiB.of(8192).bytes());
+    Assertions.assertDoesNotThrow(() -> DataUnit.PiB.of(8191).bytes());
+    Assertions.assertDoesNotThrow(() -> DataUnit.Byte.of(Long.MAX_VALUE).bytes());
+  }
+
+  @Test
+  void addBytes() {
+    Assertions.assertEquals(1100, DataUnit.Byte.of(1000).add(100).bytes());
+    Assertions.assertEquals(1124, DataUnit.KiB.of(1).add(100).bytes());
+  }
+
+  @Test
+  void subtractBytes() {
+    Assertions.assertEquals(900, DataUnit.Byte.of(1000).subtract(100).bytes());
+    Assertions.assertEquals(924, DataUnit.KiB.of(1).subtract(100).bytes());
   }
 }

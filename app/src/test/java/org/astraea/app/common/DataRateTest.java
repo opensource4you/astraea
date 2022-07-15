@@ -23,6 +23,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.time.Duration;
 import java.time.temporal.ChronoUnit;
+import java.util.function.BiConsumer;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
@@ -99,5 +101,45 @@ class DataRateTest {
     assertFloatingValueEquals(
         expectedIdealDataRate, sut.idealDataRate(ChronoUnit.SECONDS).doubleValue());
     assertEquals(expectedDataUnit, sut.idealDataUnit(ChronoUnit.SECONDS));
+  }
+
+  @Test
+  void testToDataSize() {
+    Assertions.assertEquals(DataUnit.Byte.of(1024), DataUnit.Byte.of(1024).perSecond().dataSize());
+    Assertions.assertEquals(DataUnit.KiB.of(1024), DataUnit.KiB.of(1024).perSecond().dataSize());
+    Assertions.assertEquals(DataUnit.EiB.of(24), DataUnit.EiB.of(24).perSecond().dataSize());
+  }
+
+  @Test
+  void testDoubleByteRate() {
+    BiConsumer<Double, Double> assertDoubleEqual =
+        (a, b) -> {
+          Assertions.assertTrue(
+              Math.abs(a - b) < 1e-8,
+              "The value " + a + " and " + b + " should have no difference above 1e-8");
+        };
+
+    assertDoubleEqual.accept(1024.0, DataUnit.Byte.of(1024).perSecond().doubleByteRate());
+    assertDoubleEqual.accept(1024.0 * 1024, DataUnit.KiB.of(1024).perSecond().doubleByteRate());
+  }
+
+  @Test
+  void testLongByteRate() {
+    Assertions.assertEquals(1024L, DataUnit.Byte.of(1024).perSecond().longByteRate());
+    Assertions.assertEquals(1024L * 1024, DataUnit.KiB.of(1024).perSecond().longByteRate());
+  }
+
+  @Test
+  void testFromLong() {
+    Assertions.assertEquals(
+        DataRate.of(1024, DataUnit.Byte, ChronoUnit.SECONDS).longByteRate(),
+        DataRate.fromLong(1024).longByteRate());
+  }
+
+  @Test
+  void testFromDouble() {
+    Assertions.assertEquals(
+        DataRate.of(1024, DataUnit.Byte, ChronoUnit.SECONDS).longByteRate(),
+        DataRate.fromDouble(1024).longByteRate());
   }
 }

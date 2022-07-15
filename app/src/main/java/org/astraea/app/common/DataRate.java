@@ -89,7 +89,29 @@ public class DataRate {
     return this.totalBitTransmitted
         .measurement(dataUnit)
         .multiply(fromDurationToBigDecimalSafely(duration))
-        .divide(durationInNanoSecond, MathContext.DECIMAL32);
+        .divide(durationInNanoSecond, MathContext.UNLIMITED);
+  }
+
+  /**
+   * @return the data rate with bytes/second unit as a double value. If the value is beyond the
+   *     range of double, it will become {@link Double#POSITIVE_INFINITY}.
+   */
+  public double doubleByteRate() {
+    return toBigDecimal(DataUnit.Byte, ChronoUnit.SECONDS).doubleValue();
+  }
+
+  /**
+   * @return the data rate with bytes/second unit as a long value
+   * @throws ArithmeticException if the value overflowed.
+   */
+  public long longByteRate() {
+    return toBigDecimal(DataUnit.Byte, ChronoUnit.SECONDS).toBigInteger().longValueExact();
+  }
+
+  /** @return the data rate per second as a {@link DataSize}. */
+  public DataSize dataSize() {
+    var bitsPerSecond = toBigDecimal(DataUnit.Bit, ChronoUnit.SECONDS).toBigInteger();
+    return new DataSize(bitsPerSecond);
   }
 
   /**
@@ -178,6 +200,32 @@ public class DataRate {
 
   public static double ofDouble(DataSize size, DataUnit unit, Duration time) {
     return ofBigDecimal(size, unit, time).doubleValue();
+  }
+
+  /**
+   * @param bytesPerSecond the double value that represent a data rate in bytes/second unit
+   * @return a {@link DataRate} converted from the given parameter.
+   */
+  public static DataRate fromDouble(double bytesPerSecond) {
+    var bits =
+        BigDecimal.valueOf(bytesPerSecond)
+            .multiply(new BigDecimal(DataUnit.Byte.bits))
+            .toBigInteger();
+    var size = new DataSize(bits);
+    return new DataRate(size, Duration.ofSeconds(1));
+  }
+
+  /**
+   * @param bytesPerSecond the double value that represent a data rate in bytes/second unit
+   * @return a {@link DataRate} converted from the given parameter.
+   */
+  public static DataRate fromLong(long bytesPerSecond) {
+    var bits =
+        BigDecimal.valueOf(bytesPerSecond)
+            .multiply(new BigDecimal(DataUnit.Byte.bits))
+            .toBigInteger();
+    var size = new DataSize(bits);
+    return new DataRate(size, Duration.ofSeconds(1));
   }
 
   private static String chronoName(ChronoUnit chronoUnit) {
