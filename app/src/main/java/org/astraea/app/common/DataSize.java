@@ -30,6 +30,7 @@ import java.util.regex.Pattern;
 /** Data size class */
 public class DataSize implements Comparable<DataSize> {
 
+  public static final DataSize ZERO = DataUnit.Byte.of(0);
   private final BigInteger bits;
 
   DataSize(long volume, DataUnit dataUnit) {

@@ -30,6 +30,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
+import java.util.stream.IntStream;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -85,6 +86,11 @@ class DataSizeTest {
     double double1 = DataRate.ofDouble(1000, DataUnit.Byte, Duration.ofSeconds(1));
     double double2 = DataRate.ofDouble(randomSize, DataUnit.Byte, ChronoUnit.SECONDS);
     double double3 = DataRate.ofDouble(randomSize, DataUnit.Byte, Duration.ofSeconds(1));
+
+    // sum all data size
+    var sumAll =
+        IntStream.range(0, 100).mapToObj(DataUnit.Byte::of).reduce(DataSize.ZERO, DataSize::add);
+    Assertions.assertEquals(4950, sumAll.bytes());
 
     // fast way to get bytes, be aware of exception caused by overflow.
     long bytesInLong = randomSize.bytes();
@@ -389,5 +395,11 @@ class DataSizeTest {
   void subtractBytes() {
     Assertions.assertEquals(900, DataUnit.Byte.of(1000).subtract(100).bytes());
     Assertions.assertEquals(924, DataUnit.KiB.of(1).subtract(100).bytes());
+  }
+
+  @Test
+  void zero() {
+    Assertions.assertEquals(DataUnit.Bit.of(0), DataSize.ZERO);
+    Assertions.assertEquals(0, DataSize.ZERO.bits().longValue());
   }
 }
