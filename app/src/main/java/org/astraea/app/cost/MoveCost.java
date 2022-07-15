@@ -26,6 +26,7 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
@@ -107,7 +108,7 @@ public class MoveCost implements HasMoveCost {
                       .map(hasBeanObject -> (HasCount) hasBeanObject)
                       .sorted(Comparator.comparingLong(HasBeanObject::createdTimestamp).reversed())
                       .collect(Collectors.toUnmodifiableList());
-              var latestSize = sizeTimeSeries.stream().findFirst().orElseThrow();
+              var latestSize = sizeTimeSeries.stream().findFirst().orElseThrow(NoSuchElementException::new);
               var windowSize =
                   sizeTimeSeries.stream()
                       .dropWhile(
@@ -258,7 +259,7 @@ public class MoveCost implements HasMoveCost {
                 e -> {
                   var y =
                       totalBrokerCapacity.get(e.getKey()).values().stream().mapToLong(x -> x).sum();
-                  return Map.entry(e.getKey(), e.getValue() / 1.0 / y);
+                  return Map.entry(e.getKey(), e.getValue() /1024.0/1024.0 / 1.0 / y);
                 })
             .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
 
@@ -322,7 +323,9 @@ public class MoveCost implements HasMoveCost {
   }
 
   public boolean overflow() {
-    return checkBrokerInTraffic() && checkFolderSize() & checkMigrateSpeed();
+    if ((checkBrokerInTraffic() && checkFolderSize() & checkMigrateSpeed()) ==true)
+        return true;
+    return false;
   }
 
   public List<String> migrateSize() {
@@ -405,7 +408,8 @@ public class MoveCost implements HasMoveCost {
                       Map.entry(
                           new TopicPartition(oldTPR.getKey().topic(), oldTPR.getKey().partition()),
                           Map.of(oldTPR.getKey().brokerId(), oldTPR.getValue())))
-              .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+              .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue,
+                      (x1,x2)->x1));
       var sinkChange =
           afterMigrate.entrySet().stream()
               .filter(newTPR -> !beforeMigrate.containsKey(newTPR.getKey()))
@@ -414,7 +418,7 @@ public class MoveCost implements HasMoveCost {
                       Map.entry(
                           new TopicPartition(newTPR.getKey().topic(), newTPR.getKey().partition()),
                           Map.of(newTPR.getKey().brokerId(), newTPR.getValue())))
-              .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+              .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue,(x1,x2)->x1));
       var change = new ArrayList<ReplicaMigrateInfo>();
       if (sourceChange.keySet().containsAll(sinkChange.keySet())
           && sourceChange.values().size() == sinkChange.values().size())

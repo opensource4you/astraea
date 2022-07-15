@@ -206,8 +206,8 @@ public class ReplicaDiskInCost implements HasBrokerCost, HasPartitionCost, HasCl
                                             entry.getValue().stream()
                                                     .mapToDouble(
                                                             x ->
-                                                                    topicPartitionDataRate.get(
-                                                                            new TopicPartition(x.topic(), x.partition())))
+                                                                    topicPartitionDataRate.getOrDefault(
+                                                                            new TopicPartition(x.topic(), x.partition()),0.0))
                                                     .sum()))
                     .map(
                             entry ->
@@ -221,7 +221,7 @@ public class ReplicaDiskInCost implements HasBrokerCost, HasPartitionCost, HasCl
                     score ->
                             Math.pow((score - mean),2)).sum()
                     / brokerSizeScore.size());
-    return () -> sd;
+    return () -> sd / 0.5;
   }
 
   /** @return the metrics getters. Those getters are used to fetch mbeans. */
@@ -285,7 +285,7 @@ public class ReplicaDiskInCost implements HasBrokerCost, HasPartitionCost, HasCl
   }
 
   static Map.Entry<Integer, Integer> transformEntry(Map.Entry<String, String> entry) {
-    final Pattern serviceUrlKeyPattern = Pattern.compile("broker\\.(?<brokerId>[1-9][0-9]{0,9})");
+    final Pattern serviceUrlKeyPattern = Pattern.compile("broker\\.(?<brokerId>[0-9]{1,9})");
     final Matcher matcher = serviceUrlKeyPattern.matcher(entry.getKey());
     if (matcher.matches()) {
       try {

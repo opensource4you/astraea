@@ -279,6 +279,7 @@ public final class KafkaMetrics {
                   .property("topic", "*")
                   .property("partition", "*")
                   .property("name", metricName)
+                      .usePropertyListPattern()
                   .build())
           .stream()
           .map(HasValue::of)

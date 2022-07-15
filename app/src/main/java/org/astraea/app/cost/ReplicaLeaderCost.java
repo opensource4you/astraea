@@ -17,6 +17,7 @@
 package org.astraea.app.cost;
 
 import java.util.Comparator;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -27,13 +28,14 @@ import org.astraea.app.metrics.broker.HasValue;
 import org.astraea.app.metrics.collector.Fetcher;
 
 /** more replica leaders -> higher cost */
-public class ReplicaLeaderCost implements HasBrokerCost {
+public class ReplicaLeaderCost implements HasBrokerCost ,HasClusterCost{
 
   @Override
   public BrokerCost brokerCost(ClusterInfo clusterInfo) {
     var result =
         leaderCount(clusterInfo).entrySet().stream()
-            .collect(Collectors.toMap(Map.Entry::getKey, e -> (double) e.getValue()));
+            .collect(Collectors.toMap(Map.Entry::getKey, e -> (double) e.getValue()
+                    /leaderCount(clusterInfo).values().stream().mapToInt(x->x).sum() ));
     return () -> result;
   }
 
@@ -57,6 +59,18 @@ public class ReplicaLeaderCost implements HasBrokerCost {
     return Optional.of(KafkaMetrics.ReplicaManager.LeaderCount::fetch);
   }
 
+  @Override
+  public ClusterCost clusterCost(ClusterInfo clusterInfo) {
+    var brokerCost =brokerCost(clusterInfo).value();
+    var mean = brokerCost.values().stream().mapToDouble(x -> x).sum() / brokerCost.size();
+    var sd =
+            Math.sqrt(brokerCost.values().stream().mapToDouble(
+                    score ->
+                            Math.pow((score - mean),2)).sum()
+                    / brokerCost.size());
+    return () -> sd/0.5;
+  }
+
   public static class NoMetrics extends ReplicaLeaderCost {
 
     @Override
@@ -71,7 +85,7 @@ public class ReplicaLeaderCost implements HasBrokerCost {
 
     @Override
     public Optional<Fetcher> fetcher() {
-      return Optional.empty();
+      return Optional.of((c) -> List.of());
     }
   }
 }

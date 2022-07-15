@@ -111,7 +111,7 @@ public class BalancerConfigs implements Configuration {
 
   @Config(key = METRICS_SCRAPING_QUEUE_SIZE_CONFIG)
   public int metricScrapingQueueSize() {
-    int val = string(METRICS_SCRAPING_QUEUE_SIZE_CONFIG).map(Integer::parseInt).orElse(300);
+    int val = string(METRICS_SCRAPING_QUEUE_SIZE_CONFIG).map(Integer::parseInt).orElse(100000);
     assertion("value should be positive integer", val > 0);
     return val;
   }

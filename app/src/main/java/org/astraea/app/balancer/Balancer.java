@@ -253,6 +253,9 @@ public class Balancer implements AutoCloseable {
 
   /** the lower, the better. */
   private double aggregateFunction(Map<CostFunction, Double> scores) {
+    scores.forEach((func, value) -> {
+      //System.out.printf("[%s] %.8f%n", func.getClass().getSimpleName(), value);
+    });
     // use the simple summation result, treat every cost equally.
     return scores.values().stream().mapToDouble(x -> x).sum();
   }
@@ -266,11 +269,8 @@ public class Balancer implements AutoCloseable {
       return ((HasMoveCost) costFunction).clusterCost(originalClusterInfo,targetAllocation).value();
     }
     else if (costFunction instanceof HasClusterCost) {
-      var metrics = metricSource.allBeans().get(fetcherOwnership.get(costFunction));
-      var originalClusterInfo = ClusterInfo.of(newClusterInfo(), metrics);
-      var originalAllocation = LayeredClusterLogAllocation.of(originalClusterInfo);
       return ((HasClusterCost) costFunction)
-              .clusterCost(originalClusterInfo)
+              .clusterCost(clusterInfo)
               .value();
     }else if (costFunction instanceof HasBrokerCost) {
       return brokerCostScore(clusterInfo, (HasBrokerCost) costFunction);

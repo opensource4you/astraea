@@ -106,7 +106,6 @@ public class JmxMetricSampler implements MetricSource {
                             // There is an issue related to Fetcher, the fetcher can fetch nothing
                             // back. So some queue might never growth.
                             var a = identifiedFetcher.fetch(client);
-                            System.out.println(a);
                             metricStore.addAll(a);
 
                             // draining old metrics
