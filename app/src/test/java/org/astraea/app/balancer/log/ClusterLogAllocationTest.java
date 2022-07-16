@@ -138,7 +138,7 @@ class ClusterLogAllocationTest {
             .get(0)
             .logDirectory()
             .orElseThrow());
-    Assertions.assertNull(allocation.logPlacements(TopicPartition.of("no", "0")));
+    Assertions.assertEquals(0, allocation.logPlacements(TopicPartition.of("no", "0")).size());
     allocation.logPlacements(TopicPartition.of("no", "0"));
   }
 
@@ -174,58 +174,35 @@ class ClusterLogAllocationTest {
   }
 
   @Test
-  void lockWorks() {
-    final var fakeClusterInfo = ClusterInfoProvider.fakeClusterInfo(10, 10, 10, 3);
-    final var allocation = ClusterLogAllocation.of(fakeClusterInfo);
-    final var toModify = allocation.topicPartitions().iterator().next();
-
-    // can modify before lock
-    Assertions.assertDoesNotThrow(() -> allocation.migrateReplica(toModify, 0, 9));
-    Assertions.assertDoesNotThrow(() -> allocation.migrateReplica(toModify, 1, 8, "somewhere"));
-    Assertions.assertDoesNotThrow(() -> allocation.letReplicaBecomeLeader(toModify, 2));
-
-    // cannot modify after some other layer rely on it
-    Assertions.assertThrows(
-        IllegalStateException.class, () -> allocation.migrateReplica(toModify, 9, 0));
-    Assertions.assertThrows(
-        IllegalStateException.class, () -> allocation.migrateReplica(toModify, 0, 9, "somewhere"));
-    Assertions.assertThrows(
-        IllegalStateException.class, () -> allocation.letReplicaBecomeLeader(toModify, 0));
-
-    // the extended one can modify
-    Assertions.assertDoesNotThrow(() -> allocation.migrateReplica(toModify, 9, 0));
-    Assertions.assertDoesNotThrow(() -> allocation.migrateReplica(toModify, 8, 1, "somewhere"));
-    Assertions.assertDoesNotThrow(() -> allocation.letReplicaBecomeLeader(toModify, 0));
-  }
-
-  @Test
   void findNonFulfilledAllocation() {
     final var clusterInfo = ClusterInfoProvider.fakeClusterInfo(3, 10, 10, 2);
-    final var a = ClusterLogAllocation.of(clusterInfo);
-    final var b = ClusterLogAllocation.of(clusterInfo);
-    Assertions.assertEquals(Set.of(), ClusterLogAllocation.findNonFulfilledAllocation(a, b));
+    Assertions.assertEquals(
+        Set.of(),
+        ClusterLogAllocation.findNonFulfilledAllocation(
+            ClusterLogAllocation.of(clusterInfo), ClusterLogAllocation.of(clusterInfo)));
 
     final var source = ClusterLogAllocation.of(clusterInfo);
     final var oneTopicPartition = source.topicPartitions().iterator().next();
-    final var twoTopicPartition = source.topicPartitions().iterator().next();
+    final var twoTopicPartition = source.topicPartitions().stream().skip(1).findFirst().get();
 
-    final var target0 = a.migrateReplica(oneTopicPartition, 0, 0, "/somewhere");
+    final var target0 = source.migrateReplica(oneTopicPartition, 0, 0, "/somewhere");
     Assertions.assertEquals(
         Set.of(oneTopicPartition),
         ClusterLogAllocation.findNonFulfilledAllocation(source, target0));
 
-    final var target1 = a.migrateReplica(oneTopicPartition, 0, 2);
+    final var target1 = source.migrateReplica(oneTopicPartition, 0, 2);
     Assertions.assertEquals(
         Set.of(oneTopicPartition),
         ClusterLogAllocation.findNonFulfilledAllocation(source, target1));
 
-    final var target2 = a.letReplicaBecomeLeader(oneTopicPartition, 1);
+    final var target2 = source.letReplicaBecomeLeader(oneTopicPartition, 1);
     Assertions.assertEquals(
         Set.of(oneTopicPartition),
         ClusterLogAllocation.findNonFulfilledAllocation(source, target2));
 
     final var target3 =
-        a.migrateReplica(oneTopicPartition, 0, 2)
+        source
+            .migrateReplica(oneTopicPartition, 0, 2)
             .migrateReplica(oneTopicPartition, 2, 2, "/somewhere")
             .letReplicaBecomeLeader(twoTopicPartition, 1);
     Assertions.assertEquals(
@@ -233,7 +210,7 @@ class ClusterLogAllocationTest {
         ClusterLogAllocation.findNonFulfilledAllocation(source, target3));
 
     final var map4 =
-        a.topicPartitions().stream().collect(Collectors.toMap(x -> x, a::logPlacements));
+        source.topicPartitions().stream().collect(Collectors.toMap(x -> x, source::logPlacements));
     map4.put(new TopicPartition("NewTopic", 0), List.of(LogPlacement.of(0, "?")));
     final var target4 = ClusterLogAllocation.of(map4);
     Assertions.assertThrows(
