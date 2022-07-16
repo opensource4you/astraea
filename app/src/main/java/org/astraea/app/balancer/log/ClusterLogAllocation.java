@@ -104,7 +104,12 @@ public interface ClusterLogAllocation {
   /** let specific follower log become the leader log of this topic/partition. */
   ClusterLogAllocation letReplicaBecomeLeader(TopicPartition topicPartition, int followerReplica);
 
-  /** Retrieve the log placements of specific {@link TopicPartition}. */
+  /**
+   * Retrieve the log placements of specific {@link TopicPartition}.
+   *
+   * @param topicPartition to query
+   * @return log placements or empty collection if there is no log placements
+   */
   List<LogPlacement> logPlacements(TopicPartition topicPartition);
 
   /** Retrieve the stream of all topic/partition pairs in allocation. */
@@ -189,7 +194,7 @@ public interface ClusterLogAllocation {
     public ClusterLogAllocation migrateReplica(
         TopicPartition topicPartition, int atBroker, int toBroker, String toDir) {
       var sourceLogPlacements = this.logPlacements(topicPartition);
-      if (sourceLogPlacements == null)
+      if (sourceLogPlacements.isEmpty())
         throw new IllegalMigrationException(
             topicPartition.topic() + "-" + topicPartition.partition() + " no such topic/partition");
 
@@ -215,14 +220,11 @@ public interface ClusterLogAllocation {
     public ClusterLogAllocation letReplicaBecomeLeader(
         TopicPartition topicPartition, int followerReplica) {
       final List<LogPlacement> sourceLogPlacements = this.logPlacements(topicPartition);
-      if (sourceLogPlacements == null)
+      if (sourceLogPlacements.isEmpty())
         throw new IllegalMigrationException(
             topicPartition.topic() + "-" + topicPartition.partition() + " no such topic/partition");
 
       int leaderLogIndex = 0;
-      if (sourceLogPlacements.size() == 0)
-        throw new IllegalStateException("This partition has no log");
-
       int followerLogIndex = indexOfBroker(sourceLogPlacements, followerReplica).orElse(-1);
       if (followerLogIndex == -1)
         throw new IllegalArgumentException(
