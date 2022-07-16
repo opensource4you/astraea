@@ -24,12 +24,10 @@ import java.util.stream.Collectors;
 import org.astraea.app.admin.TopicPartition;
 import org.astraea.app.cost.ClusterInfoProvider;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
-@Disabled
 class ClusterLogAllocationTest {
 
   @Test
@@ -57,10 +55,10 @@ class ClusterLogAllocationTest {
   void migrateReplica() {
     final var fakeClusterInfo =
         ClusterInfoProvider.fakeClusterInfo(3, 1, 1, 1, (i) -> Set.of("topic"));
-    final var clusterLogAllocation = ClusterLogAllocation.of(fakeClusterInfo);
+    var clusterLogAllocation = ClusterLogAllocation.of(fakeClusterInfo);
     final var sourceTopicPartition = TopicPartition.of("topic", "0");
 
-    clusterLogAllocation.migrateReplica(sourceTopicPartition, 0, 1);
+    clusterLogAllocation = clusterLogAllocation.migrateReplica(sourceTopicPartition, 0, 1);
 
     Assertions.assertEquals(
         1, clusterLogAllocation.logPlacements(sourceTopicPartition).get(0).broker());
@@ -79,10 +77,11 @@ class ClusterLogAllocationTest {
     dataDirectory = dataDirectory.equals("null") ? null : dataDirectory;
     final var fakeClusterInfo =
         ClusterInfoProvider.fakeClusterInfo(3, 1, 1, 1, (i) -> Set.of("topic"));
-    final var clusterLogAllocation = ClusterLogAllocation.of(fakeClusterInfo);
+    var clusterLogAllocation = ClusterLogAllocation.of(fakeClusterInfo);
     final var sourceTopicPartition0 = TopicPartition.of("topic", "0");
 
-    clusterLogAllocation.migrateReplica(sourceTopicPartition0, 0, 1, dataDirectory);
+    clusterLogAllocation =
+        clusterLogAllocation.migrateReplica(sourceTopicPartition0, 0, 1, dataDirectory);
 
     Assertions.assertEquals(
         1, clusterLogAllocation.logPlacements(sourceTopicPartition0).get(0).broker());
@@ -95,7 +94,8 @@ class ClusterLogAllocationTest {
             .orElse(null));
 
     final var sourceTopicPartition1 = TopicPartition.of("topic", "0");
-    clusterLogAllocation.migrateReplica(sourceTopicPartition1, 1, 1, dataDirectory);
+    clusterLogAllocation =
+        clusterLogAllocation.migrateReplica(sourceTopicPartition1, 1, 1, dataDirectory);
     Assertions.assertEquals(
         1, clusterLogAllocation.logPlacements(sourceTopicPartition1).get(0).broker());
     Assertions.assertEquals(
@@ -111,10 +111,10 @@ class ClusterLogAllocationTest {
   void letReplicaBecomeLeader() {
     final var fakeClusterInfo =
         ClusterInfoProvider.fakeClusterInfo(3, 1, 1, 2, (i) -> Set.of("topic"));
-    final var clusterLogAllocation = ClusterLogAllocation.of(fakeClusterInfo);
+    var clusterLogAllocation = ClusterLogAllocation.of(fakeClusterInfo);
     final var sourceTopicPartition = TopicPartition.of("topic", "0");
 
-    clusterLogAllocation.letReplicaBecomeLeader(sourceTopicPartition, 1);
+    clusterLogAllocation = clusterLogAllocation.letReplicaBecomeLeader(sourceTopicPartition, 1);
 
     Assertions.assertEquals(
         1, clusterLogAllocation.logPlacements(sourceTopicPartition).get(0).broker());
@@ -145,17 +145,17 @@ class ClusterLogAllocationTest {
   @Test
   void topicPartitionStream() {
     final var fakeClusterInfo = ClusterInfoProvider.fakeClusterInfo(10, 10, 10, 3);
-    final var allocation0 = ClusterLogAllocation.of(fakeClusterInfo);
-    final var allocation1 = allocation0;
-    fakeClusterInfo.topics().stream()
-        .flatMap(x -> fakeClusterInfo.replicas(x).stream())
-        .forEach(
-            replica ->
-                allocation1.letReplicaBecomeLeader(
-                    TopicPartition.of(replica.topic(), Integer.toString(replica.partition())), 1));
+    var allocation = ClusterLogAllocation.of(fakeClusterInfo);
+    for (var replica :
+        fakeClusterInfo.topics().stream()
+            .flatMap(x -> fakeClusterInfo.replicas(x).stream())
+            .collect(Collectors.toUnmodifiableList()))
+      allocation =
+          allocation.letReplicaBecomeLeader(
+              TopicPartition.of(replica.topic(), Integer.toString(replica.partition())), 1);
 
     final var allTopicPartitions =
-        allocation1.topicPartitions().stream()
+        allocation.topicPartitions().stream()
             .sorted(
                 Comparator.comparing(TopicPartition::topic)
                     .thenComparing(TopicPartition::partition))
@@ -184,8 +184,6 @@ class ClusterLogAllocationTest {
     Assertions.assertDoesNotThrow(() -> allocation.migrateReplica(toModify, 1, 8, "somewhere"));
     Assertions.assertDoesNotThrow(() -> allocation.letReplicaBecomeLeader(toModify, 2));
 
-    final var extended = allocation;
-
     // cannot modify after some other layer rely on it
     Assertions.assertThrows(
         IllegalStateException.class, () -> allocation.migrateReplica(toModify, 9, 0));
@@ -195,9 +193,9 @@ class ClusterLogAllocationTest {
         IllegalStateException.class, () -> allocation.letReplicaBecomeLeader(toModify, 0));
 
     // the extended one can modify
-    Assertions.assertDoesNotThrow(() -> extended.migrateReplica(toModify, 9, 0));
-    Assertions.assertDoesNotThrow(() -> extended.migrateReplica(toModify, 8, 1, "somewhere"));
-    Assertions.assertDoesNotThrow(() -> extended.letReplicaBecomeLeader(toModify, 0));
+    Assertions.assertDoesNotThrow(() -> allocation.migrateReplica(toModify, 9, 0));
+    Assertions.assertDoesNotThrow(() -> allocation.migrateReplica(toModify, 8, 1, "somewhere"));
+    Assertions.assertDoesNotThrow(() -> allocation.letReplicaBecomeLeader(toModify, 0));
   }
 
   @Test
@@ -211,28 +209,25 @@ class ClusterLogAllocationTest {
     final var oneTopicPartition = source.topicPartitions().iterator().next();
     final var twoTopicPartition = source.topicPartitions().iterator().next();
 
-    final var target0 = a;
-    target0.migrateReplica(oneTopicPartition, 0, 0, "/somewhere");
+    final var target0 = a.migrateReplica(oneTopicPartition, 0, 0, "/somewhere");
     Assertions.assertEquals(
         Set.of(oneTopicPartition),
         ClusterLogAllocation.findNonFulfilledAllocation(source, target0));
 
-    final var target1 = a;
-    target1.migrateReplica(oneTopicPartition, 0, 2);
+    final var target1 = a.migrateReplica(oneTopicPartition, 0, 2);
     Assertions.assertEquals(
         Set.of(oneTopicPartition),
         ClusterLogAllocation.findNonFulfilledAllocation(source, target1));
 
-    final var target2 = a;
-    target2.letReplicaBecomeLeader(oneTopicPartition, 1);
+    final var target2 = a.letReplicaBecomeLeader(oneTopicPartition, 1);
     Assertions.assertEquals(
         Set.of(oneTopicPartition),
         ClusterLogAllocation.findNonFulfilledAllocation(source, target2));
 
-    final var target3 = a;
-    target3.migrateReplica(oneTopicPartition, 0, 2);
-    target3.migrateReplica(oneTopicPartition, 2, 2, "/somewhere");
-    target3.letReplicaBecomeLeader(twoTopicPartition, 1);
+    final var target3 =
+        a.migrateReplica(oneTopicPartition, 0, 2)
+            .migrateReplica(oneTopicPartition, 2, 2, "/somewhere")
+            .letReplicaBecomeLeader(twoTopicPartition, 1);
     Assertions.assertEquals(
         Set.of(oneTopicPartition, twoTopicPartition),
         ClusterLogAllocation.findNonFulfilledAllocation(source, target3));
