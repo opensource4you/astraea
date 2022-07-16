@@ -110,7 +110,6 @@ abstract class MBeanClientImpl implements MBeanClient {
   @Override
   public BeanObject queryBean(BeanQuery beanQuery, Collection<String> attributeNameCollection) {
     try {
-
       // fetch attribute value from mbean server
       var attributeNameArray = attributeNameCollection.toArray(new String[0]);
       var attributeList =

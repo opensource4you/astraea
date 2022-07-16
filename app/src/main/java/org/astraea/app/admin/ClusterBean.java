@@ -26,14 +26,6 @@ import org.astraea.app.metrics.HasBeanObject;
 
 /** Used to get beanObject using a variety of different keys . */
 public interface ClusterBean {
-  private static Collection<HasBeanObject> compareBeanObject(
-      Collection<HasBeanObject> x1, Collection<HasBeanObject> x2) {
-    var beanObject2 = x2.iterator().next().beanObject();
-    if (x1.stream().noneMatch(hasBeanObject -> hasBeanObject.beanObject().equals(beanObject2)))
-      return Stream.concat(x1.stream(), x2.stream()).collect(Collectors.toList());
-    return x1;
-  }
-
   static ClusterBean of(Map<Integer, Collection<HasBeanObject>> allBeans) {
     Map<TopicPartition, Collection<HasBeanObject>> beanObjectByPartition =
         allBeans.entrySet().stream()
@@ -62,7 +54,9 @@ public interface ClusterBean {
                             }))
             .collect(
                 Collectors.toMap(
-                    Map.Entry::getKey, Map.Entry::getValue, ClusterBean::compareBeanObject));
+                    Map.Entry::getKey, Map.Entry::getValue,
+                        (x1,x2) ->Stream.concat(x1.stream(), x2.stream()).collect(Collectors.toList())
+                        ));
     Map<TopicPartitionReplica, Collection<HasBeanObject>> beanObjectByReplica =
         allBeans.entrySet().stream()
             .flatMap(
@@ -84,7 +78,8 @@ public interface ClusterBean {
                             }))
             .collect(
                 Collectors.toMap(
-                    Map.Entry::getKey, Map.Entry::getValue, ClusterBean::compareBeanObject));
+                    Map.Entry::getKey, Map.Entry::getValue,
+                        (x1,x2) ->Stream.concat(x1.stream(), x2.stream()).collect(Collectors.toList())));
     return new ClusterBean() {
       @Override
       public Map<Integer, Collection<HasBeanObject>> all() {

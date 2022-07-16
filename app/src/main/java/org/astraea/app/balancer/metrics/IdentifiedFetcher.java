@@ -26,7 +26,7 @@ import org.astraea.app.metrics.jmx.MBeanClient;
 public class IdentifiedFetcher implements Fetcher {
 
   private static final AtomicInteger idCounter = new AtomicInteger();
-  private final int id;
+  public final int id;
   private final Fetcher fetcher;
 
   public IdentifiedFetcher(Fetcher fetcher) {

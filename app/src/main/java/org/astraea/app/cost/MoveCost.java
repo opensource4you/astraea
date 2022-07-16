@@ -97,7 +97,7 @@ public class MoveCost implements HasMoveCost {
         && beanObject.properties().get("name").equals(metricName);
   }
 
-  private static Map<Integer, Double> brokerTrafficMetrics(
+  public static Map<Integer, Double> brokerTrafficMetrics(
       ClusterInfo clusterInfo, String metricName, Duration sampleWindow) {
     return clusterInfo.clusterBean().all().entrySet().stream()
         .map(
@@ -116,14 +116,13 @@ public class MoveCost implements HasMoveCost {
                               bean.createdTimestamp()
                                   > latestSize.createdTimestamp() - sampleWindow.toMillis())
                       .findFirst()
-                      .orElse(latestSize);
+                      .orElseThrow();
               var dataRate =
                   ((double) (latestSize.count() - windowSize.count()))
                       / ((double) (latestSize.createdTimestamp() - windowSize.createdTimestamp())
                           / 1000)
                       / 1024.0
                       / 1024.0;
-              if (latestSize == windowSize) dataRate = 0;
               return Map.entry(brokerMetrics.getKey(), dataRate);
             })
         .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
@@ -201,7 +200,7 @@ public class MoveCost implements HasMoveCost {
   }
 
   double countMigrateCost() {
-    return brokerScore.values().stream().mapToDouble(x -> x / brokerScore.size()).sum();
+      return brokerScore.values().stream().mapToDouble(x -> x / brokerScore.size()).sum();
   }
 
   @Override
@@ -257,21 +256,19 @@ public class MoveCost implements HasMoveCost {
         brokerMigrateInSize.entrySet().stream()
             .map(
                 e -> {
-                  var y =
-                      totalBrokerCapacity.get(e.getKey()).values().stream().mapToLong(x -> x).sum();
-                  return Map.entry(e.getKey(), e.getValue() /1024.0/1024.0 / 1.0 / y);
+                  var totalSize =
+                      totalBrokerCapacity.get(e.getKey()).values().stream().mapToLong(x -> x).sum()
+                              / totalBrokerCapacity.get(e.getKey()).entrySet().stream().mapToDouble(x->x.getValue()).sum();
+                  var sizeScore =e.getValue() / 1.0 / totalSize;
+                  var moveNumScore = 1 - brokerMigrateInSize.size()/replicaSize.size();
+                  return Map.entry(e.getKey(), (sizeScore + moveNumScore)/2);
                 })
             .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
 
-    brokerScore.forEach((broker, score) -> {
-        if (overflow() || score >1)
-            brokerScore.put(broker, 1.0);
-        else
-            brokerScore.put(broker, 0.0);
-    });
-     var migrateCost = countMigrateCost();
+     var migrateCost = brokerScore.values().stream().mapToDouble(x -> x / brokerScore.size()).sum();
     return () -> migrateCost;
   }
+
 
   public Map<TopicPartitionReplica, Long> getReplicaSize(ClusterInfo clusterInfo) {
     return clusterInfo.clusterBean().mapByReplica().entrySet().stream()
