@@ -99,23 +99,27 @@ public class JmxMetricSampler implements MetricSource {
                 entry ->
                     this.executorService.scheduleAtFixedRate(
                         () -> {
-                          int broker = entry.getKey();
-                          var client = entry.getValue();
-                          for (IdentifiedFetcher identifiedFetcher : fetchers) {
-                            var metricStore = metrics.get(identifiedFetcher).get(broker);
+                          try {
+                            int broker = entry.getKey();
+                            var client = entry.getValue();
+                            for (IdentifiedFetcher identifiedFetcher : fetchers) {
+                              var metricStore = metrics.get(identifiedFetcher).get(broker);
 
-                            // There is an issue related to Fetcher, the fetcher can fetch nothing
-                            // back. So some queue might never growth.
-                            var a = identifiedFetcher.fetch(client);
-                            //if(a.isEmpty())
+                              // There is an issue related to Fetcher, the fetcher can fetch nothing
+                              // back. So some queue might never growth.
+                              var a = identifiedFetcher.fetch(client);
+                              //if(a.isEmpty())
                               //System.err.printf("[Warning] Fetcher fetch nothing. FetchOwner: %d%n", identifiedFetcher.id);
-                            metricStore.addAll(a);
+                              metricStore.addAll(a);
 
-                            // draining old metrics
-                            while (metricStore.size() > queueSize) metricStore.poll();
+                              // draining old metrics
+                              while (metricStore.size() > queueSize) metricStore.poll();
+                            }
+                            //System.out.printf("[%s] Fetcher done%n", LocalDateTime.now());
+                            sampleCounter.increment();
+                          } catch (Exception e) {
+                            System.out.println("Exception occurred during metric fetch " + e);
                           }
-                          //System.out.printf("[%s] Fetcher done%n", LocalDateTime.now());
-                          sampleCounter.increment();
                         },
                         0,
                         fetchInterval.toMillis(),
