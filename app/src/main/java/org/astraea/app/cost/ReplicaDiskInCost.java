@@ -197,15 +197,9 @@ public class ReplicaDiskInCost implements HasBrokerCost, HasPartitionCost, HasCl
                                     new TopicPartitionReplica(
                                             replica.topic(), replica.partition(), replica.nodeInfo().id()))
                     .collect(Collectors.groupingBy(TopicPartitionReplica::brokerId));
-    final var actual =
-            clusterInfo.nodes().stream()
-                    .collect(
-                            Collectors.toUnmodifiableMap(
-                                    NodeInfo::id,
-                                    node -> topicPartitionOfEachBroker.getOrDefault(node.id(), List.of())));
     final var topicPartitionDataRate = topicPartitionDataRate(clusterInfo, duration);
-    var brokerSizeScore  =
-            actual.entrySet().stream()
+    var brokerDataRate  =
+            topicPartitionOfEachBroker.entrySet().stream()
                     .map(
                             entry ->
                                     Map.entry(
@@ -216,19 +210,23 @@ public class ReplicaDiskInCost implements HasBrokerCost, HasPartitionCost, HasCl
                                                                     topicPartitionDataRate.getOrDefault(
                                                                             new TopicPartition(x.topic(), x.partition()),0.0))
                                                     .sum()))
-                    .map(
-                            entry ->
-                                    Map.entry(
-                                            entry.getKey(), entry.getValue() / brokerBandwidthCap.get(entry.getKey())))
-                    .map(entry -> Map.entry(entry.getKey(), Math.min(entry.getValue(), 1)))
                     .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-    var mean = brokerSizeScore.values().stream().mapToDouble(x -> x).sum() / brokerSizeScore.size();
-    var sd =
-            Math.sqrt(brokerSizeScore.values().stream().mapToDouble(
+    var dataRateMean = brokerDataRate.values().stream().mapToDouble(x -> x).sum() / brokerDataRate.size();
+    var dataRateSD =
+            Math.sqrt(brokerDataRate.values().stream().mapToDouble(
                     score ->
-                            Math.pow((score - mean),2)).sum()
-                    / brokerSizeScore.size());
-    return ()-> sd / 0.5;
+                            Math.pow((score - dataRateMean),2)).sum()
+                    / brokerDataRate.size());
+    var tScore = brokerDataRate.entrySet()
+            .stream()
+            .map(
+                    x-> Map.entry(x.getKey(), (((x.getValue()-dataRateMean)/dataRateSD)* 10 +50) / 100 )
+            )
+            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+    var sortedScore = tScore.values().stream().sorted().collect(Collectors.toList());
+    if (sortedScore.size()>=2)
+      return ()-> sortedScore.get(sortedScore.size()-1)-sortedScore.get(0);
+    return () -> 1.0;
   }
 
   /** @return the metrics getters. Those getters are used to fetch mbeans. */

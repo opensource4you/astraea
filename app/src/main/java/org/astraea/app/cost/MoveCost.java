@@ -42,13 +42,12 @@ import org.astraea.app.metrics.broker.HasValue;
 import org.astraea.app.metrics.collector.Fetcher;
 import org.astraea.app.partitioner.Configuration;
 
-public class MoveCost implements HasMoveCost {
+public class MoveCost implements CostFunction {
   public MoveCost(Configuration configuration) {
     this.totalBrokerCapacity = ReplicaSizeCost.convert(configuration.requireString(BROKERCAPACITY));
     this.brokerBandwidthCap =
         ReplicaDiskInCost.convert(configuration.requireString(BROKERBANDWIDTH));
   }
-
   static class ReplicaMigrateInfo {
     TopicPartition topicPartition;
     int brokerSource;
@@ -220,7 +219,6 @@ public class MoveCost implements HasMoveCost {
                 .collect(Collectors.toUnmodifiableList()));
   }
 
-  @Override
   public ClusterCost clusterCost(
       ClusterInfo clusterInfo, ClusterLogAllocation clusterLogAllocation) {
     var duration = Duration.ofSeconds(10);
@@ -258,7 +256,7 @@ public class MoveCost implements HasMoveCost {
                 e -> {
                   var totalSize =
                       totalBrokerCapacity.get(e.getKey()).values().stream().mapToLong(x -> x).sum()
-                              / totalBrokerCapacity.get(e.getKey()).entrySet().stream().mapToDouble(x->x.getValue()).sum();
+                              / totalBrokerCapacity.get(e.getKey()).values().stream().mapToDouble(integer -> integer).sum();
                   var sizeScore =e.getValue() / 1.0 / totalSize;
                   var moveNumScore = 1 - brokerMigrateInSize.size()/replicaSize.size();
                   return Map.entry(e.getKey(), (sizeScore + moveNumScore)/2);
