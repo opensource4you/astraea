@@ -107,8 +107,8 @@ class DataSizeTest {
     // fast way to get DataSize & DataRate from primitive type
     DataSize primitive0 = DataUnit.Byte.of(1000);
     DataSize primitive1 = DataUnit.Byte.of((long) 1000.0);
-    DataRate primitive2 = DataRate.ofDouble(123.0);
-    DataRate primitive3 = DataRate.ofLong(1024);
+    DataRate primitive2 = DataRate.of(123.0);
+    DataRate primitive3 = DataRate.of(1024);
 
     // fast way to add/subtract data from primitive type
     DataUnit.Byte.of(1000).subtract(500);

@@ -133,13 +133,13 @@ class DataRateTest {
   void testFromLong() {
     Assertions.assertEquals(
         DataRate.of(1024, DataUnit.Byte, ChronoUnit.SECONDS).byteRate(),
-        DataRate.ofLong(1024).byteRate());
+        DataRate.of(1024).byteRate());
   }
 
   @Test
   void testFromDouble() {
     Assertions.assertEquals(
         DataRate.of(1024, DataUnit.Byte, ChronoUnit.SECONDS).byteRate(),
-        DataRate.ofDouble(1024).byteRate());
+        DataRate.of(1024.0).byteRate());
   }
 }
