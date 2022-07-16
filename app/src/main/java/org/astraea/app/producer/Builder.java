@@ -70,8 +70,9 @@ public class Builder<Key, Value> {
   }
 
   public Builder<Key, Value> partitionClassName(String partitionClassName) {
-    // Don't set partitioner to make sure DefaultPartitioner (old default) or BuiltInPartitioner
-    // (new default) both works.
+    // Don't set partitioner to make sure DefaultPartitioner (Kafka version 3.2 and before) or
+    // BuiltInPartitioner
+    // (Kafka version 3.3) both works.
     if (partitionClassName == null || partitionClassName.isEmpty()) return this;
     return config(ProducerConfig.PARTITIONER_CLASS_CONFIG, partitionClassName);
   }

@@ -18,6 +18,8 @@ package org.astraea.app.performance;
 
 import java.util.List;
 
+// TODO: Remove this class by reconstructing consumerExecutor. See issue#476
+// https://github.com/skiptests/astraea/issues/476
 /**
  * Thread safe This class is used for managing the start/end of the producer/consumer threads.
  * Producer can start producing until all consumers get assignment. Consumers can stop after all

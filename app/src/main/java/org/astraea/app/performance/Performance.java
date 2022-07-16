@@ -344,19 +344,19 @@ public class Performance {
         names = {"--value.size"},
         description = "DataSize of the value. Default: 1KiB",
         converter = DataSize.Field.class)
-    DataSize valueSize = DataUnit.Byte.of(4);
+    DataSize valueSize = DataUnit.KiB.of(1);
 
     @Parameter(
         names = {"--key.distribution"},
         description =
-            "Distribution name for key. Available distribution names: \"fixed\" \"uniform\", \"zipfian\", \"latest\". Default: uniform",
+            "Distribution name for key and key size. Available distribution names: \"fixed\" \"uniform\", \"zipfian\", \"latest\". Default: fixed",
         converter = DistributionType.DistributionTypeField.class)
     DistributionType keyDistributionType = DistributionType.FIXED;
 
     @Parameter(
         names = {"--value.distribution"},
         description =
-            "Distribution name for record value. Available distribution names: \"uniform\", \"zipfian\", \"latest\", \"fixed\". Default: \"uniform\"",
+            "Distribution name for value and value size. Available distribution names: \"uniform\", \"zipfian\", \"latest\", \"fixed\". Default: uniform",
         converter = DistributionType.DistributionTypeField.class)
     DistributionType valueDistributionType = DistributionType.UNIFORM;
 
