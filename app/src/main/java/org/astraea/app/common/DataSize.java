@@ -37,7 +37,7 @@ public class DataSize implements Comparable<DataSize> {
     this(BigInteger.valueOf(volume).multiply(dataUnit.bits));
   }
 
-  public DataSize(BigInteger bits) {
+  DataSize(BigInteger bits) {
     this.bits = bits;
   }
 
