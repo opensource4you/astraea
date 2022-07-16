@@ -21,6 +21,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -31,6 +32,7 @@ import java.util.stream.Collectors;
 import org.astraea.app.admin.Admin;
 import org.astraea.app.admin.ClusterInfo;
 import org.astraea.app.admin.NodeInfo;
+import org.astraea.app.admin.TopicPartitionReplica;
 import org.astraea.app.balancer.executor.RebalanceAdmin;
 import org.astraea.app.balancer.executor.RebalancePlanExecutor;
 import org.astraea.app.balancer.generator.RebalancePlanGenerator;
@@ -125,6 +127,22 @@ public class Balancer implements AutoCloseable {
       t.interrupt();
       Utils.packException(() -> t.join());
       System.out.println("Metrics warmed");
+
+      // ensure not working
+      var topics = admin.topicNames().stream().filter(topicFilter).collect(Collectors.toUnmodifiableSet());
+      var migrationInProgress = admin.replicas(topics).entrySet()
+          .stream()
+          .flatMap(x -> x.getValue().stream().map(y -> Map.entry(x.getKey(), y)))
+          .filter(r -> !r.getValue().inSync() || r.getValue().isFuture())
+          .map(r -> new TopicPartitionReplica(
+              r.getKey().topic(),
+              r.getKey().partition(),
+              r.getValue().broker()))
+          .collect(Collectors.toUnmodifiableList());
+      if(!migrationInProgress.isEmpty()) {
+        throw new IllegalStateException("There are some migration in progress... " + migrationInProgress);
+      }
+
 
       try {
         // calculate the score of current cluster
