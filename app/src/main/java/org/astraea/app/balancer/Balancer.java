@@ -18,6 +18,7 @@ package org.astraea.app.balancer;
 
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
@@ -150,7 +151,7 @@ public class Balancer implements AutoCloseable {
         var currentClusterScore = evaluateCost(clusterInfo, clusterMetrics);
         // TODO: find a way to show the progress, without pollute the logic
         System.out.println("Run " + planGenerator.getClass().getName());
-        var bestProposal = seekingRebalancePlan(clusterInfo, clusterMetrics);
+        var bestProposal = seekingRebalancePlan(currentClusterScore, clusterInfo, clusterMetrics);
         // TODO: find a way to show the progress, without pollute the logic
         System.out.println(bestProposal);
         if (bestProposal.rebalancePlan().isEmpty()) {
@@ -192,6 +193,7 @@ public class Balancer implements AutoCloseable {
   }
 
   private RebalancePlanProposal seekingRebalancePlan(
+      double currentScore,
       ClusterInfo clusterInfo,
       Map<IdentifiedFetcher, Map<Integer, Collection<HasBeanObject>>> clusterMetrics) {
     var tries = balancerConfigs.rebalancePlanSearchingIteration();
@@ -201,7 +203,7 @@ public class Balancer implements AutoCloseable {
     try {
       thread.start();
       var moveCostWeight = 0.5;
-      var bestMigrationProposal =
+      var bestMigrationProposals =
           planGenerator
               .generate(clusterInfo)
               .parallel()
@@ -220,7 +222,20 @@ public class Balancer implements AutoCloseable {
                       return Map.entry(1.0, plan);
                     }
                   })
-              .min(Map.Entry.comparingByKey());
+              .filter(x -> x.getKey() < currentScore)
+              .filter(x -> x.getValue().rebalancePlan().isPresent())
+              .sorted(Map.Entry.comparingByKey())
+              .collect(Collectors.toUnmodifiableList());
+
+      // Find the plan with smallest move cost
+      var bestMigrationProposal = bestMigrationProposals.stream()
+          .min(Comparator.comparing(entry -> {
+            var proposal = entry.getValue();
+            var allocation = proposal.rebalancePlan().orElseThrow();
+            var mockedCluster =
+                BalancerUtils.mockClusterInfoAllocation(clusterInfo, allocation);
+            return evaluateMoveCost(mockedCluster, clusterMetrics);
+          }));
 
       var allocation = bestMigrationProposal.get().getValue().rebalancePlan().get();
       var mockedCluster =

@@ -40,7 +40,7 @@ broker.3=1280
                 BalancerConfigs.METRICS_SCRAPING_INTERVAL_MS_CONFIG, "10000",
                 "shuffle.plan.generator.shuffle.min", "20",
                 "shuffle.plan.generator.shuffle.max", "30",
-                BalancerConfigs.BALANCER_COST_FUNCTIONS, Stream.of(ReplicaDiskInCost.class, MoveCost.class).map(Class::getName).collect(Collectors.joining()),
+                BalancerConfigs.BALANCER_COST_FUNCTIONS, Stream.of(ReplicaDiskInCost.class, MoveCost.class).map(Class::getName).collect(Collectors.joining(",")),
                 "brokerBandwidthConfig", "/home/sean/Documents/kafka_2.13-3.0.0/brokerBandwith.properties",
                 "brokerCapacityConfig", "/home/sean/Documents/kafka_2.13-3.0.0/brokerCapacity.properties"));
 
