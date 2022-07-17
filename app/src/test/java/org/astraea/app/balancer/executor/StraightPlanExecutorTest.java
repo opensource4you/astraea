@@ -24,7 +24,6 @@ import java.util.stream.IntStream;
 import org.astraea.app.admin.Admin;
 import org.astraea.app.admin.TopicPartition;
 import org.astraea.app.balancer.log.ClusterLogAllocation;
-import org.astraea.app.balancer.log.LayeredClusterLogAllocation;
 import org.astraea.app.balancer.log.LogPlacement;
 import org.astraea.app.common.Utils;
 import org.astraea.app.service.RequireBrokerCluster;
@@ -40,8 +39,7 @@ class StraightPlanExecutorTest extends RequireBrokerCluster {
       final var topicName = "StraightPlanExecutorTest_" + Utils.randomString(8);
       admin.creator().topic(topicName).numberOfPartitions(10).numberOfReplicas((short) 2).create();
       Utils.sleep(Duration.ofSeconds(2));
-      final var originalAllocation =
-          LayeredClusterLogAllocation.of(admin.clusterInfo(Set.of(topicName)));
+      final var originalAllocation = ClusterLogAllocation.of(admin.clusterInfo(Set.of(topicName)));
       Utils.sleep(Duration.ofSeconds(3));
       final var broker0 = 0;
       final var broker1 = 1;
@@ -53,19 +51,16 @@ class StraightPlanExecutorTest extends RequireBrokerCluster {
           IntStream.range(0, 10)
               .mapToObj(i -> new TopicPartition(topicName, i))
               .collect(Collectors.toUnmodifiableMap(tp -> tp, tp -> onlyPlacement));
-      final var expectedAllocation = LayeredClusterLogAllocation.of(allocationMap);
-      final var expectedTopicPartition =
-          expectedAllocation.topicPartitionStream().collect(Collectors.toUnmodifiableSet());
+      final var expectedAllocation = ClusterLogAllocation.of(allocationMap);
+      final var expectedTopicPartition = expectedAllocation.topicPartitions();
       final var rebalanceAdmin = RebalanceAdmin.of(admin, (s) -> s.equals(topicName));
 
       // act
       new StraightPlanExecutor().run(rebalanceAdmin, expectedAllocation);
 
       // assert
-      final var currentAllocation =
-          LayeredClusterLogAllocation.of(admin.clusterInfo(Set.of(topicName)));
-      final var currentTopicPartition =
-          currentAllocation.topicPartitionStream().collect(Collectors.toUnmodifiableSet());
+      final var currentAllocation = ClusterLogAllocation.of(admin.clusterInfo(Set.of(topicName)));
+      final var currentTopicPartition = currentAllocation.topicPartitions();
       Assertions.assertEquals(expectedTopicPartition, currentTopicPartition);
       expectedTopicPartition.forEach(
           topicPartition ->
@@ -90,8 +85,7 @@ class StraightPlanExecutorTest extends RequireBrokerCluster {
       final var topicName = "StraightPlanExecutorTest_" + Utils.randomString(8);
       admin.creator().topic(topicName).numberOfPartitions(10).numberOfReplicas((short) 3).create();
       Utils.sleep(Duration.ofSeconds(2));
-      final var originalAllocation =
-          LayeredClusterLogAllocation.of(admin.clusterInfo(Set.of(topicName)));
+      final var originalAllocation = ClusterLogAllocation.of(admin.clusterInfo(Set.of(topicName)));
       Utils.sleep(Duration.ofSeconds(3));
       final var broker0 = 0;
       final var broker1 = 1;
@@ -102,19 +96,16 @@ class StraightPlanExecutorTest extends RequireBrokerCluster {
           IntStream.range(0, 10)
               .mapToObj(i -> new TopicPartition(topicName, i))
               .collect(Collectors.toUnmodifiableMap(tp -> tp, tp -> onlyPlacement));
-      final var expectedAllocation = LayeredClusterLogAllocation.of(allocationMap);
-      final var expectedTopicPartition =
-          expectedAllocation.topicPartitionStream().collect(Collectors.toUnmodifiableSet());
+      final var expectedAllocation = ClusterLogAllocation.of(allocationMap);
+      final var expectedTopicPartition = expectedAllocation.topicPartitions();
       final var rebalanceAdmin = RebalanceAdmin.of(admin, (s) -> s.equals(topicName));
 
       // act
       new StraightPlanExecutor().run(rebalanceAdmin, expectedAllocation);
 
       // assert
-      final var currentAllocation =
-          LayeredClusterLogAllocation.of(admin.clusterInfo(Set.of(topicName)));
-      final var currentTopicPartition =
-          currentAllocation.topicPartitionStream().collect(Collectors.toUnmodifiableSet());
+      final var currentAllocation = ClusterLogAllocation.of(admin.clusterInfo(Set.of(topicName)));
+      final var currentTopicPartition = currentAllocation.topicPartitions();
       Assertions.assertEquals(expectedTopicPartition, currentTopicPartition);
       expectedTopicPartition.forEach(
           topicPartition ->

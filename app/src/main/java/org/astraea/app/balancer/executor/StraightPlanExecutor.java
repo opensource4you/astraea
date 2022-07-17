@@ -23,7 +23,6 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.astraea.app.admin.TopicPartition;
 import org.astraea.app.balancer.log.ClusterLogAllocation;
-import org.astraea.app.balancer.log.LayeredClusterLogAllocation;
 
 /** Execute every possible migration immediately. */
 public class StraightPlanExecutor implements RebalancePlanExecutor {
@@ -33,7 +32,7 @@ public class StraightPlanExecutor implements RebalancePlanExecutor {
   @Override
   public void run(RebalanceAdmin rebalanceAdmin, ClusterLogAllocation logAllocation) {
     final var clusterInfo = rebalanceAdmin.clusterInfo();
-    final var currentLogAllocation = LayeredClusterLogAllocation.of(clusterInfo);
+    final var currentLogAllocation = ClusterLogAllocation.of(clusterInfo);
     final var migrationTargets =
         ClusterLogAllocation.findNonFulfilledAllocation(currentLogAllocation, logAllocation);
 

@@ -16,8 +16,7 @@
  */
 package org.astraea.app.balancer;
 
-import java.util.stream.Collectors;
-import org.astraea.app.balancer.log.LayeredClusterLogAllocation;
+import org.astraea.app.balancer.log.ClusterLogAllocation;
 import org.astraea.app.cost.ClusterInfoProvider;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -27,7 +26,7 @@ class RebalancePlanProposalTest {
   @Test
   void testBuild() {
     final var fakeClusterInfo = ClusterInfoProvider.fakeClusterInfo(10, 10, 10, 10);
-    final var thisAllocation = LayeredClusterLogAllocation.of(fakeClusterInfo);
+    final var thisAllocation = ClusterLogAllocation.of(fakeClusterInfo);
     final var build =
         RebalancePlanProposal.builder()
             .withRebalancePlan(thisAllocation)
@@ -41,10 +40,8 @@ class RebalancePlanProposalTest {
 
     Assertions.assertTrue(build.rebalancePlan().isPresent());
     final var thatAllocation = build.rebalancePlan().orElseThrow();
-    final var thisTps =
-        thisAllocation.topicPartitionStream().collect(Collectors.toUnmodifiableSet());
-    final var thatTps =
-        thatAllocation.topicPartitionStream().collect(Collectors.toUnmodifiableSet());
+    final var thisTps = thisAllocation.topicPartitions();
+    final var thatTps = thatAllocation.topicPartitions();
     Assertions.assertEquals(thisTps, thatTps);
     thisTps.forEach(
         tp ->
@@ -63,7 +60,7 @@ class RebalancePlanProposalTest {
     // A builder should only build once. If a builder can build multiple times then it will have to
     // do much copy work once a new build is requested. This will harm performance.
     final var fakeClusterInfo = ClusterInfoProvider.fakeClusterInfo(10, 10, 10, 10);
-    final var logAllocation = LayeredClusterLogAllocation.of(fakeClusterInfo);
+    final var logAllocation = ClusterLogAllocation.of(fakeClusterInfo);
     final var build = RebalancePlanProposal.builder().withRebalancePlan(logAllocation);
 
     Assertions.assertDoesNotThrow(build::build);
@@ -73,7 +70,7 @@ class RebalancePlanProposalTest {
   @Test
   void testNoModifyAfterBuild() {
     final var fakeClusterInfo = ClusterInfoProvider.fakeClusterInfo(10, 10, 10, 10);
-    final var logAllocation = LayeredClusterLogAllocation.of(fakeClusterInfo);
+    final var logAllocation = ClusterLogAllocation.of(fakeClusterInfo);
     final var build = RebalancePlanProposal.builder().withRebalancePlan(logAllocation);
 
     RebalancePlanProposal proposal = build.build();
