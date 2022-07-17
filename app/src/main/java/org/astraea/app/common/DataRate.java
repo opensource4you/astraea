@@ -30,6 +30,42 @@ public class DataRate {
   private final DataSize totalBitTransmitted;
   private final BigDecimal durationInNanoSecond;
 
+  public static final DataRateSource Bit = (x) -> new DataRateBuilder(DataSize.Bit.of(x));
+  public static final DataRateSource Kb = (x) -> new DataRateBuilder(DataSize.Kb.of(x));
+  public static final DataRateSource Mb = (x) -> new DataRateBuilder(DataSize.Mb.of(x));
+  public static final DataRateSource Gb = (x) -> new DataRateBuilder(DataSize.Gb.of(x));
+  public static final DataRateSource Tb = (x) -> new DataRateBuilder(DataSize.Tb.of(x));
+  public static final DataRateSource Pb = (x) -> new DataRateBuilder(DataSize.Pb.of(x));
+  public static final DataRateSource Eb = (x) -> new DataRateBuilder(DataSize.Eb.of(x));
+  public static final DataRateSource Yb = (x) -> new DataRateBuilder(DataSize.Yb.of(x));
+  public static final DataRateSource Zb = (x) -> new DataRateBuilder(DataSize.Zb.of(x));
+  public static final DataRateSource Kib = (x) -> new DataRateBuilder(DataSize.Kib.of(x));
+  public static final DataRateSource Mib = (x) -> new DataRateBuilder(DataSize.Mib.of(x));
+  public static final DataRateSource Gib = (x) -> new DataRateBuilder(DataSize.Gib.of(x));
+  public static final DataRateSource Tib = (x) -> new DataRateBuilder(DataSize.Tib.of(x));
+  public static final DataRateSource Pib = (x) -> new DataRateBuilder(DataSize.Pib.of(x));
+  public static final DataRateSource Eib = (x) -> new DataRateBuilder(DataSize.Eib.of(x));
+  public static final DataRateSource Yib = (x) -> new DataRateBuilder(DataSize.Yib.of(x));
+  public static final DataRateSource Zib = (x) -> new DataRateBuilder(DataSize.Zib.of(x));
+
+  public static final DataRateSource Byte = (x) -> new DataRateBuilder(DataSize.Byte.of(x));
+  public static final DataRateSource KB = (x) -> new DataRateBuilder(DataSize.KB.of(x));
+  public static final DataRateSource MB = (x) -> new DataRateBuilder(DataSize.MB.of(x));
+  public static final DataRateSource GB = (x) -> new DataRateBuilder(DataSize.GB.of(x));
+  public static final DataRateSource TB = (x) -> new DataRateBuilder(DataSize.TB.of(x));
+  public static final DataRateSource PB = (x) -> new DataRateBuilder(DataSize.PB.of(x));
+  public static final DataRateSource EB = (x) -> new DataRateBuilder(DataSize.EB.of(x));
+  public static final DataRateSource YB = (x) -> new DataRateBuilder(DataSize.YB.of(x));
+  public static final DataRateSource ZB = (x) -> new DataRateBuilder(DataSize.ZB.of(x));
+  public static final DataRateSource KiB = (x) -> new DataRateBuilder(DataSize.KiB.of(x));
+  public static final DataRateSource MiB = (x) -> new DataRateBuilder(DataSize.MiB.of(x));
+  public static final DataRateSource GiB = (x) -> new DataRateBuilder(DataSize.GiB.of(x));
+  public static final DataRateSource TiB = (x) -> new DataRateBuilder(DataSize.TiB.of(x));
+  public static final DataRateSource PiB = (x) -> new DataRateBuilder(DataSize.PiB.of(x));
+  public static final DataRateSource EiB = (x) -> new DataRateBuilder(DataSize.EiB.of(x));
+  public static final DataRateSource YiB = (x) -> new DataRateBuilder(DataSize.YiB.of(x));
+  public static final DataRateSource ZiB = (x) -> new DataRateBuilder(DataSize.ZiB.of(x));
+
   static BigDecimal fromDurationToBigDecimalSafely(Duration duration) {
     // It the given duration is extremely long(like 1000 years), it might overflow the long
     // maximum value in nano second unit.
@@ -236,5 +272,43 @@ public class DataRate {
   @Override
   public String toString() {
     return toString(ChronoUnit.SECONDS);
+  }
+
+  @FunctionalInterface
+  public interface DataRateSource {
+    DataRateBuilder of(long measurement);
+  }
+
+  public static final class DataRateBuilder {
+
+    private final DataSize dataSize;
+
+    DataRateBuilder(DataSize dataSize) {
+      this.dataSize = dataSize;
+    }
+
+    public DataRate perSecond() {
+      return dataSize.dataRate(ChronoUnit.SECONDS);
+    }
+
+    public DataRate perMinute() {
+      return dataSize.dataRate(ChronoUnit.MINUTES);
+    }
+
+    public DataRate perHour() {
+      return dataSize.dataRate(ChronoUnit.HOURS);
+    }
+
+    public DataRate perDay() {
+      return dataSize.dataRate(ChronoUnit.DAYS);
+    }
+
+    public DataRate over(Duration duration) {
+      return dataSize.dataRate(duration);
+    }
+
+    public DataRate over(ChronoUnit chronoUnit) {
+      return dataSize.dataRate(chronoUnit);
+    }
   }
 }

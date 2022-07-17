@@ -21,6 +21,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.math.BigInteger;
 import java.time.Duration;
 import java.time.temporal.ChronoUnit;
 import java.util.function.BiConsumer;
@@ -141,5 +142,69 @@ class DataRateTest {
     Assertions.assertEquals(
         DataRate.of(1024, DataUnit.Byte, ChronoUnit.SECONDS).byteRate(),
         DataRate.of(1024.0).byteRate());
+  }
+
+  @Test
+  void testDataRateOf() {
+    BiConsumer<BigInteger, DataRate.DataRateBuilder> test =
+        (bits, rateBuilder) -> {
+          var perSecond = rateBuilder.perSecond();
+          var perMinute = rateBuilder.perMinute();
+          var perHour = rateBuilder.perHour();
+          var perDay = rateBuilder.perDay();
+          var per2Sec = rateBuilder.over(Duration.ofSeconds(2));
+          var perSecond2 = rateBuilder.over(ChronoUnit.SECONDS);
+          Assertions.assertEquals(
+              bits, perSecond.toBigDecimal(DataUnit.Bit, ChronoUnit.SECONDS).toBigInteger());
+          Assertions.assertEquals(
+              bits.divide(BigInteger.valueOf(60)),
+              perMinute.toBigDecimal(DataUnit.Bit, ChronoUnit.SECONDS).toBigInteger());
+          Assertions.assertEquals(
+              bits.divide(BigInteger.valueOf(60 * 60)),
+              perHour.toBigDecimal(DataUnit.Bit, ChronoUnit.SECONDS).toBigInteger());
+          Assertions.assertEquals(
+              bits.divide(BigInteger.valueOf(60 * 60 * 24)),
+              perDay.toBigDecimal(DataUnit.Bit, ChronoUnit.SECONDS).toBigInteger());
+          Assertions.assertEquals(
+              bits.divide(BigInteger.valueOf(2)),
+              per2Sec.toBigDecimal(DataUnit.Bit, ChronoUnit.SECONDS).toBigInteger());
+          Assertions.assertEquals(
+              bits, perSecond2.toBigDecimal(DataUnit.Bit, ChronoUnit.SECONDS).toBigInteger());
+        };
+
+    test.accept(new BigInteger("1"), DataRate.Bit.of(1));
+    test.accept(new BigInteger("1000"), DataRate.Kb.of(1));
+    test.accept(new BigInteger("1000000"), DataRate.Mb.of(1));
+    test.accept(new BigInteger("1000000000"), DataRate.Gb.of(1));
+    test.accept(new BigInteger("1000000000000"), DataRate.Tb.of(1));
+    test.accept(new BigInteger("1000000000000000"), DataRate.Pb.of(1));
+    test.accept(new BigInteger("1000000000000000000"), DataRate.Eb.of(1));
+    test.accept(new BigInteger("1000000000000000000000"), DataRate.Zb.of(1));
+    test.accept(new BigInteger("1000000000000000000000000"), DataRate.Yb.of(1));
+    test.accept(new BigInteger("1024"), DataRate.Kib.of(1));
+    test.accept(new BigInteger("1048576"), DataRate.Mib.of(1));
+    test.accept(new BigInteger("1073741824"), DataRate.Gib.of(1));
+    test.accept(new BigInteger("1099511627776"), DataRate.Tib.of(1));
+    test.accept(new BigInteger("1125899906842624"), DataRate.Pib.of(1));
+    test.accept(new BigInteger("1152921504606846976"), DataRate.Eib.of(1));
+    test.accept(new BigInteger("1180591620717411303424"), DataRate.Zib.of(1));
+    test.accept(new BigInteger("1208925819614629174706176"), DataRate.Yib.of(1));
+    test.accept(new BigInteger("8"), DataRate.Byte.of(1));
+    test.accept(new BigInteger("8000"), DataRate.KB.of(1));
+    test.accept(new BigInteger("8000000"), DataRate.MB.of(1));
+    test.accept(new BigInteger("8000000000"), DataRate.GB.of(1));
+    test.accept(new BigInteger("8000000000000"), DataRate.TB.of(1));
+    test.accept(new BigInteger("8000000000000000"), DataRate.PB.of(1));
+    test.accept(new BigInteger("8000000000000000000"), DataRate.EB.of(1));
+    test.accept(new BigInteger("8000000000000000000000"), DataRate.ZB.of(1));
+    test.accept(new BigInteger("8000000000000000000000000"), DataRate.YB.of(1));
+    test.accept(new BigInteger("8192"), DataRate.KiB.of(1));
+    test.accept(new BigInteger("8388608"), DataRate.MiB.of(1));
+    test.accept(new BigInteger("8589934592"), DataRate.GiB.of(1));
+    test.accept(new BigInteger("8796093022208"), DataRate.TiB.of(1));
+    test.accept(new BigInteger("9007199254740992"), DataRate.PiB.of(1));
+    test.accept(new BigInteger("9223372036854775808"), DataRate.EiB.of(1));
+    test.accept(new BigInteger("9444732965739290427392"), DataRate.ZiB.of(1));
+    test.accept(new BigInteger("9671406556917033397649408"), DataRate.YiB.of(1));
   }
 }
