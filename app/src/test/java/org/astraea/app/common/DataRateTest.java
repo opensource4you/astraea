@@ -200,5 +200,13 @@ class DataRateTest {
     test.accept(new BigInteger("9223372036854775808"), DataRate.EiB.of(1));
     test.accept(new BigInteger("9444732965739290427392"), DataRate.ZiB.of(1));
     test.accept(new BigInteger("9671406556917033397649408"), DataRate.YiB.of(1));
+
+    DataSize size = DataSize.GB.of(1024);
+    test.accept(size.bits(), DataRate.Size.of(size));
+  }
+
+  @Test
+  void testZero() {
+    Assertions.assertEquals(0, DataRate.ZERO.byteRate());
   }
 }
