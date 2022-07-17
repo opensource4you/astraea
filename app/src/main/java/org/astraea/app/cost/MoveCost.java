@@ -42,12 +42,13 @@ import org.astraea.app.metrics.broker.HasValue;
 import org.astraea.app.metrics.collector.Fetcher;
 import org.astraea.app.partitioner.Configuration;
 
-public class MoveCost implements CostFunction {
+public class MoveCost implements HasMoveCost {
   public MoveCost(Configuration configuration) {
     this.totalBrokerCapacity = ReplicaSizeCost.convert(configuration.requireString(BROKERCAPACITY));
     this.brokerBandwidthCap =
         ReplicaDiskInCost.convert(configuration.requireString(BROKERBANDWIDTH));
   }
+
   static class ReplicaMigrateInfo {
     TopicPartition topicPartition;
     int brokerSource;
@@ -107,7 +108,8 @@ public class MoveCost implements CostFunction {
                       .map(hasBeanObject -> (HasCount) hasBeanObject)
                       .sorted(Comparator.comparingLong(HasBeanObject::createdTimestamp).reversed())
                       .collect(Collectors.toUnmodifiableList());
-              var latestSize = sizeTimeSeries.stream().findFirst().orElseThrow(NoSuchElementException::new);
+              var latestSize =
+                  sizeTimeSeries.stream().findFirst().orElseThrow(NoSuchElementException::new);
               var windowSize =
                   sizeTimeSeries.stream()
                       .dropWhile(
@@ -199,7 +201,7 @@ public class MoveCost implements CostFunction {
   }
 
   double countMigrateCost() {
-      return brokerScore.values().stream().mapToDouble(x -> x / brokerScore.size()).sum();
+    return brokerScore.values().stream().mapToDouble(x -> x / brokerScore.size()).sum();
   }
 
   @Override
@@ -219,9 +221,10 @@ public class MoveCost implements CostFunction {
                 .collect(Collectors.toUnmodifiableList()));
   }
 
+  @Override
   public ClusterCost clusterCost(
       ClusterInfo clusterInfo, ClusterLogAllocation clusterLogAllocation) {
-    var duration = Duration.ofSeconds(10);
+    var duration = Duration.ofSeconds(90);
     distributionChange = getMigrateReplicas(clusterInfo, clusterLogAllocation, false);
     migratedReplicas = getMigrateReplicas(clusterInfo, clusterLogAllocation, true);
     replicaSize = getReplicaSize(clusterInfo);
@@ -250,23 +253,83 @@ public class MoveCost implements CostFunction {
                         replicaMigrateInfo.brokerSink,
                         replicaSize.get(replicaMigrateInfo.sourceTPR())))
             .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue, Long::sum));
-    brokerScore =
-        brokerMigrateInSize.entrySet().stream()
-            .map(
-                e -> {
-                  var totalSize =
-                      totalBrokerCapacity.get(e.getKey()).values().stream().mapToLong(x -> x).sum()
-                              / totalBrokerCapacity.get(e.getKey()).values().stream().mapToDouble(integer -> integer).sum();
-                  var sizeScore =e.getValue() / 1.0 / totalSize;
-                  var moveNumScore = 1 - brokerMigrateInSize.size()/replicaSize.size();
-                  return Map.entry(e.getKey(), (sizeScore + moveNumScore)/2);
-                })
-            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+    var trafficSeries =
+            migratedReplicas
+                    .stream()
+                    .map(
+                            x-> replicaDataRate.get(x.sourceTPR())
+                    ).sorted()
+                    .collect(Collectors.toList());
 
+    var totalMigrateTraffic = trafficSeries.stream().mapToDouble(x->x).sum();
+    var totalReplicaTrafficInSink =
+            replicaDataRate
+                    .entrySet()
+                    .stream()
+                    .filter(x->brokerMigrateInSize.containsKey(x.getKey().brokerId()))
+                    .mapToDouble(Map.Entry::getValue).sum();
+    var meanMigrateSize = trafficSeries.stream().mapToDouble(x->x).sum()/trafficSeries.size();
+    var sdMigrateSize =
+            Math.sqrt(
+            trafficSeries.stream()
+                    .mapToDouble(score -> Math.pow((score - meanMigrateSize), 2))
+                    .sum()
+                    / trafficSeries.size());
+      var migrateTrafficRange = 0.0;
+    if (trafficSeries.size()>=2) {
+        var tScoreMigrateTraffic =
+                trafficSeries.stream()
+                        .map(
+                                x ->
+                                        (((x - meanMigrateSize) / sdMigrateSize) * 10 + 50) / 100)
+                        .collect(Collectors.toList());
+        migrateTrafficRange = (tScoreMigrateTraffic.get(tScoreMigrateTraffic.size() - 1)
+                - tScoreMigrateTraffic.stream().findFirst().orElseThrow());
+    }else
+        migrateTrafficRange =0.0;
+    var brokerMigrateScore = tScore(brokerMigrateInSize);
+
+    //var moveNumScore = tScore(brokerMigrateNum);
+    brokerScore =
+        brokerMigrateInSize.keySet().stream()
+            .map(
+                    aLong -> {
+                        var score = brokerMigrateScore.get(aLong);
+                        return Map.entry(aLong, score);
+                    })
+            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
      var migrateCost = brokerScore.values().stream().mapToDouble(x -> x / brokerScore.size()).sum();
-    return () -> migrateCost;
+     var totalMigrateSize = brokerMigrateInSize.values().stream()
+             .mapToDouble(x->x /1024.0 /1024.0).sum();
+     var sinkBrokerSize =
+             migratedReplicas
+                     .stream()
+                     .mapToDouble(
+                             x->
+                                     totalBrokerCapacity.get(x.brokerSink).get(x.pathSink) /1024.0 /1024.0
+                     ).sum();
+      var total =totalBrokerCapacity.values().stream().mapToDouble(x->x.values().stream().mapToDouble(y->y).sum()).sum()/1024.0/1024.0;
+     var score =(totalMigrateSize / total + migrateTrafficRange + totalMigrateTraffic/totalReplicaTrafficInSink)/3 ;
+    if (score >1)
+        return ()-> 1.0;
+     return () -> score;
   }
 
+  public Map<Integer, Double> tScore(Map<Integer, Long> brokerEntry) {
+    var dataRateMean = brokerEntry.values().stream().mapToDouble(x -> x).sum() / brokerEntry.size();
+    var dataRateSD =
+        Math.sqrt(
+            brokerEntry.values().stream()
+                    .mapToDouble(score -> Math.pow((score - dataRateMean), 2))
+                    .sum()
+                / brokerEntry.size());
+    return brokerEntry.entrySet().stream()
+        .map(
+            x ->
+                Map.entry(
+                    x.getKey(), (((x.getValue() - dataRateMean) / dataRateSD) * 10 + 50) / 100))
+        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+  }
 
   public Map<TopicPartitionReplica, Long> getReplicaSize(ClusterInfo clusterInfo) {
     return clusterInfo.clusterBean().mapByReplica().entrySet().stream()
@@ -318,8 +381,7 @@ public class MoveCost implements CostFunction {
   }
 
   public boolean overflow() {
-    if ((checkBrokerInTraffic() && checkFolderSize() & checkMigrateSpeed()) ==true)
-        return true;
+    if ((checkBrokerInTraffic() && checkFolderSize() & checkMigrateSpeed()) == true) return true;
     return false;
   }
 
@@ -403,8 +465,7 @@ public class MoveCost implements CostFunction {
                       Map.entry(
                           new TopicPartition(oldTPR.getKey().topic(), oldTPR.getKey().partition()),
                           Map.of(oldTPR.getKey().brokerId(), oldTPR.getValue())))
-              .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue,
-                      (x1,x2)->x1));
+              .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue, (x1, x2) -> x1));
       var sinkChange =
           afterMigrate.entrySet().stream()
               .filter(newTPR -> !beforeMigrate.containsKey(newTPR.getKey()))
@@ -413,7 +474,7 @@ public class MoveCost implements CostFunction {
                       Map.entry(
                           new TopicPartition(newTPR.getKey().topic(), newTPR.getKey().partition()),
                           Map.of(newTPR.getKey().brokerId(), newTPR.getValue())))
-              .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue,(x1,x2)->x1));
+              .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue, (x1, x2) -> x1));
       var change = new ArrayList<ReplicaMigrateInfo>();
       if (sourceChange.keySet().containsAll(sinkChange.keySet())
           && sourceChange.values().size() == sinkChange.values().size())

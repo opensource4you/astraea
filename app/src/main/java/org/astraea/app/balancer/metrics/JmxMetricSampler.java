@@ -17,7 +17,6 @@
 package org.astraea.app.balancer.metrics;
 
 import java.time.Duration;
-import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.Collection;
 import java.util.Collections;
@@ -105,17 +104,22 @@ public class JmxMetricSampler implements MetricSource {
                             for (IdentifiedFetcher identifiedFetcher : fetchers) {
                               var metricStore = metrics.get(identifiedFetcher).get(broker);
 
-                              // There is an issue related to Fetcher, the fetcher can fetch nothing
+                              // There is an issue related to Fetcher, the f1 =
+                              // {BrokerTopicMetricsResult@4660} "BytesOutPerSec{\n
+                              // RateUnit=SECONDS\n  OneMinuteRate=0.0\n  EventType=bytes\n
+                              // Count=0\n  FifteenMinuteRate=0.0\n  FiveMinuteRate=0.0\n
+                              // MeanRate=0.0}"... Viewetcher can fetch nothing
                               // back. So some queue might never growth.
                               var a = identifiedFetcher.fetch(client);
-                              //if(a.isEmpty())
-                              //System.err.printf("[Warning] Fetcher fetch nothing. FetchOwner: %d%n", identifiedFetcher.id);
+                              // if(a.isEmpty())
+                              // System.err.printf("[Warning] Fetcher fetch nothing. FetchOwner:
+                              // %d%n", identifiedFetcher.id);
                               metricStore.addAll(a);
 
                               // draining old metrics
                               while (metricStore.size() > queueSize) metricStore.poll();
                             }
-                            //System.out.printf("[%s] Fetcher done%n", LocalDateTime.now());
+                            // System.out.printf("[%s] Fetcher done%n", LocalDateTime.now());
                             sampleCounter.increment();
                           } catch (Exception e) {
                             System.out.println("Exception occurred during metric fetch " + e);

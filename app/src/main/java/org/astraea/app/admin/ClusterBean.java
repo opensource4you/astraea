@@ -54,9 +54,10 @@ public interface ClusterBean {
                             }))
             .collect(
                 Collectors.toMap(
-                    Map.Entry::getKey, Map.Entry::getValue,
-                        (x1,x2) ->Stream.concat(x1.stream(), x2.stream()).collect(Collectors.toList())
-                        ));
+                    Map.Entry::getKey,
+                    Map.Entry::getValue,
+                    (x1, x2) ->
+                        Stream.concat(x1.stream(), x2.stream()).collect(Collectors.toList())));
     Map<TopicPartitionReplica, Collection<HasBeanObject>> beanObjectByReplica =
         allBeans.entrySet().stream()
             .flatMap(
@@ -78,8 +79,10 @@ public interface ClusterBean {
                             }))
             .collect(
                 Collectors.toMap(
-                    Map.Entry::getKey, Map.Entry::getValue,
-                        (x1,x2) ->Stream.concat(x1.stream(), x2.stream()).collect(Collectors.toList())));
+                    Map.Entry::getKey,
+                    Map.Entry::getValue,
+                    (x1, x2) ->
+                        Stream.concat(x1.stream(), x2.stream()).collect(Collectors.toList())));
     return new ClusterBean() {
       @Override
       public Map<Integer, Collection<HasBeanObject>> all() {

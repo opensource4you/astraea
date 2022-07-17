@@ -21,7 +21,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import org.astraea.app.admin.ClusterInfo;
-import org.astraea.app.balancer.log.ClusterLogAllocation;
 import org.astraea.app.metrics.HasBeanObject;
 import org.astraea.app.metrics.KafkaMetrics;
 import org.astraea.app.metrics.broker.HasValue;
@@ -68,33 +67,33 @@ public class NumberOfLeaderCost implements HasBrokerCost, HasClusterCost {
   }
 
   @Override
-  public ClusterCost clusterCost(
-      ClusterInfo clusterInfo) {
+  public ClusterCost clusterCost(ClusterInfo clusterInfo) {
     var leaderCount =
-            clusterInfo.clusterBean().all().entrySet().stream()
-                    .flatMap(
-                            e ->
-                                    e.getValue().stream()
-                                            .filter(x -> x instanceof HasValue)
-                                            .filter(x -> x.beanObject().properties().get("name").equals("LeaderCount"))
-                                            .filter(
-                                                    x -> x.beanObject().properties().get("type").equals("ReplicaManager"))
-                                            .sorted(Comparator.comparing(HasBeanObject::createdTimestamp).reversed())
-                                            .map(x -> (HasValue) x)
-                                            .limit(1)
-                                            .map(e2 -> Map.entry(e.getKey(), (int) e2.value())))
-                    .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+        clusterInfo.clusterBean().all().entrySet().stream()
+            .flatMap(
+                e ->
+                    e.getValue().stream()
+                        .filter(x -> x instanceof HasValue)
+                        .filter(x -> x.beanObject().properties().get("name").equals("LeaderCount"))
+                        .filter(
+                            x -> x.beanObject().properties().get("type").equals("ReplicaManager"))
+                        .sorted(Comparator.comparing(HasBeanObject::createdTimestamp).reversed())
+                        .map(x -> (HasValue) x)
+                        .limit(1)
+                        .map(e2 -> Map.entry(e.getKey(), (int) e2.value())))
+            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
     var totalLeader = leaderCount.values().stream().mapToInt(Integer::intValue).sum();
     leaderCost =
-            leaderCount.entrySet().stream()
-                    .collect(Collectors.toMap(Map.Entry::getKey, e -> (double) e.getValue() / totalLeader));
+        leaderCount.entrySet().stream()
+            .collect(Collectors.toMap(Map.Entry::getKey, e -> (double) e.getValue() / totalLeader));
     var brokerSizeScore = leaderCost;
     var mean = brokerSizeScore.values().stream().mapToDouble(x -> x).sum() / brokerSizeScore.size();
     var sd =
-            Math.sqrt(brokerSizeScore.values().stream().mapToDouble(
-                    score ->
-                            Math.pow((score - mean),2)).sum()
-                    / brokerSizeScore.size());
+        Math.sqrt(
+            brokerSizeScore.values().stream()
+                    .mapToDouble(score -> Math.pow((score - mean), 2))
+                    .sum()
+                / brokerSizeScore.size());
     return () -> sd;
   }
 }

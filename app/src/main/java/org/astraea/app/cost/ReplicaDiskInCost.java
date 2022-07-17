@@ -30,13 +30,10 @@ import java.util.TreeMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
-
 import org.astraea.app.admin.ClusterInfo;
 import org.astraea.app.admin.NodeInfo;
 import org.astraea.app.admin.TopicPartition;
 import org.astraea.app.admin.TopicPartitionReplica;
-import org.astraea.app.balancer.log.ClusterLogAllocation;
 import org.astraea.app.metrics.HasBeanObject;
 import org.astraea.app.metrics.KafkaMetrics;
 import org.astraea.app.metrics.broker.HasValue;
@@ -60,44 +57,45 @@ public class ReplicaDiskInCost implements HasBrokerCost, HasPartitionCost, HasCl
   @Override
   public BrokerCost brokerCost(ClusterInfo clusterInfo) {
     final Map<Integer, List<TopicPartitionReplica>> topicPartitionOfEachBroker =
-            clusterInfo.topics().stream()
-                    .flatMap(topic -> clusterInfo.replicas(topic).stream())
-                    .map(
-                            replica ->
-                                    new TopicPartitionReplica(
-                                            replica.topic(), replica.partition(), replica.nodeInfo().id()))
-                    .collect(Collectors.groupingBy(TopicPartitionReplica::brokerId));
+        clusterInfo.topics().stream()
+            .flatMap(topic -> clusterInfo.replicas(topic).stream())
+            .map(
+                replica ->
+                    new TopicPartitionReplica(
+                        replica.topic(), replica.partition(), replica.nodeInfo().id()))
+            .collect(Collectors.groupingBy(TopicPartitionReplica::brokerId));
     final var actual =
-            clusterInfo.nodes().stream()
-                    .collect(
-                            Collectors.toUnmodifiableMap(
-                                    NodeInfo::id,
-                                    node -> topicPartitionOfEachBroker.getOrDefault(node.id(), List.of())));
+        clusterInfo.nodes().stream()
+            .collect(
+                Collectors.toUnmodifiableMap(
+                    NodeInfo::id,
+                    node -> topicPartitionOfEachBroker.getOrDefault(node.id(), List.of())));
     final var topicPartitionDataRate = topicPartitionDataRate(clusterInfo, Duration.ofSeconds(3));
-    var brokerSizeScore  =
-            actual.entrySet().stream()
-                    .map(
-                            entry ->
-                                    Map.entry(
-                                            entry.getKey(),
-                                            entry.getValue().stream()
-                                                    .mapToDouble(
-                                                            x ->
-                                                                    topicPartitionDataRate.getOrDefault(
-                                                                            new TopicPartition(x.topic(), x.partition()),0.0))
-                                                    .sum()))
-                    .map(
-                            entry ->
-                                    Map.entry(
-                                            entry.getKey(), entry.getValue() / brokerBandwidthCap.get(entry.getKey())))
-                    .map(entry -> Map.entry(entry.getKey(), Math.min(entry.getValue(), 1)))
-                    .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+    var brokerSizeScore =
+        actual.entrySet().stream()
+            .map(
+                entry ->
+                    Map.entry(
+                        entry.getKey(),
+                        entry.getValue().stream()
+                            .mapToDouble(
+                                x ->
+                                    topicPartitionDataRate.getOrDefault(
+                                        new TopicPartition(x.topic(), x.partition()), 0.0))
+                            .sum()))
+            .map(
+                entry ->
+                    Map.entry(
+                        entry.getKey(), entry.getValue() / brokerBandwidthCap.get(entry.getKey())))
+            .map(entry -> Map.entry(entry.getKey(), Math.min(entry.getValue(), 1)))
+            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
     var mean = brokerSizeScore.values().stream().mapToDouble(x -> x).sum() / brokerSizeScore.size();
     var sd =
-            Math.sqrt(brokerSizeScore.values().stream().mapToDouble(
-                    score ->
-                            Math.pow((score - mean),2)).sum()
-                    / brokerSizeScore.size());
+        Math.sqrt(
+            brokerSizeScore.values().stream()
+                    .mapToDouble(score -> Math.pow((score - mean), 2))
+                    .sum()
+                / brokerSizeScore.size());
     return () -> brokerSizeScore;
   }
 
@@ -185,55 +183,56 @@ public class ReplicaDiskInCost implements HasBrokerCost, HasPartitionCost, HasCl
   }
 
   @Override
-  public ClusterCost clusterCost(
-      ClusterInfo clusterInfo) {
-    var duration = Duration.ofSeconds(30);
+  public ClusterCost clusterCost(ClusterInfo clusterInfo) {
+    var duration = Duration.ofSeconds(90);
 
     final Map<Integer, List<TopicPartitionReplica>> topicPartitionOfEachBroker =
-            clusterInfo.topics().stream()
-                    .flatMap(topic -> clusterInfo.replicas(topic).stream())
-                    .map(
-                            replica ->
-                                    new TopicPartitionReplica(
-                                            replica.topic(), replica.partition(), replica.nodeInfo().id()))
-                    .collect(Collectors.groupingBy(TopicPartitionReplica::brokerId));
-    final var topicPartitionDataRate = topicPartitionDataRate(clusterInfo, duration);
-    var brokerDataRate  =
-            topicPartitionOfEachBroker.entrySet().stream()
-                    .map(
-                            entry ->
-                                    Map.entry(
-                                            entry.getKey(),
-                                            entry.getValue().stream()
-                                                    .mapToDouble(
-                                                            x ->
-                                                                    topicPartitionDataRate.getOrDefault(
-                                                                            new TopicPartition(x.topic(), x.partition()),0.0))
-                                                    .sum()))
-                    .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-    var dataRateMean = brokerDataRate.values().stream().mapToDouble(x -> x).sum() / brokerDataRate.size();
-    var dataRateSD =
-            Math.sqrt(brokerDataRate.values().stream().mapToDouble(
-                    score ->
-                            Math.pow((score - dataRateMean),2)).sum()
-                    / brokerDataRate.size());
-    var tScore = brokerDataRate.entrySet()
-            .stream()
+        clusterInfo.topics().stream()
+            .flatMap(topic -> clusterInfo.replicas(topic).stream())
             .map(
-                    x-> Map.entry(x.getKey(), (((x.getValue()-dataRateMean)/dataRateSD)* 10 +50) / 100 )
-            )
+                replica ->
+                    new TopicPartitionReplica(
+                        replica.topic(), replica.partition(), replica.nodeInfo().id()))
+            .collect(Collectors.groupingBy(TopicPartitionReplica::brokerId));
+    final var topicPartitionDataRate = topicPartitionDataRate(clusterInfo, duration);
+    var brokerDataRate =
+        topicPartitionOfEachBroker.entrySet().stream()
+            .map(
+                entry ->
+                    Map.entry(
+                        entry.getKey(),
+                        entry.getValue().stream()
+                            .mapToDouble(
+                                x ->
+                                    topicPartitionDataRate.getOrDefault(
+                                        new TopicPartition(x.topic(), x.partition()), 0.0))
+                            .sum()))
+            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+    var dataRateMean =
+        brokerDataRate.values().stream().mapToDouble(x -> x).sum() / brokerDataRate.size();
+    var dataRateSD =
+        Math.sqrt(
+            brokerDataRate.values().stream()
+                    .mapToDouble(score -> Math.pow((score - dataRateMean), 2))
+                    .sum()
+                / brokerDataRate.size());
+    var tScore =
+        brokerDataRate.entrySet().stream()
+            .map(
+                x ->
+                    Map.entry(
+                        x.getKey(), (((x.getValue() - dataRateMean) / dataRateSD) * 10 + 50) / 100))
             .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
     var sortedScore = tScore.values().stream().sorted().collect(Collectors.toList());
-    if (sortedScore.size()>=2)
-      return ()-> sortedScore.get(sortedScore.size()-1)-sortedScore.get(0);
+    if (sortedScore.size() >= 2)
+      return () -> sortedScore.get(sortedScore.size() - 1) - sortedScore.get(0);
     return () -> 1.0;
   }
 
   /** @return the metrics getters. Those getters are used to fetch mbeans. */
   @Override
   public Optional<Fetcher> fetcher() {
-    return Optional.of(KafkaMetrics.TopicPartition.Size::fetch
-    );
+    return Optional.of(KafkaMetrics.TopicPartition.Size::fetch);
   }
 
   /**
@@ -274,8 +273,8 @@ public class ReplicaDiskInCost implements HasBrokerCost, HasPartitionCost, HasCl
                   sizeTimeSeries.stream()
                       .dropWhile(
                           bean ->
-                                  sampleWindow.toMillis()
-                                  > latestSize.createdTimestamp() -bean.createdTimestamp())
+                              sampleWindow.toMillis()
+                                  > latestSize.createdTimestamp() - bean.createdTimestamp())
                       .findFirst()
                       .orElseThrow();
               var dataRate =

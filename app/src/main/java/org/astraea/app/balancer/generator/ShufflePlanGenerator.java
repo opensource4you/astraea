@@ -52,17 +52,11 @@ import org.astraea.app.partitioner.Configuration;
 public class ShufflePlanGenerator implements RebalancePlanGenerator {
 
   public ShufflePlanGenerator(Configuration configuration) {
-      int min =
-              configuration
-                      .string("shuffle.plan.generator.shuffle.min")
-                      .map(Integer::parseInt)
-                      .orElse(3);
-      int max =
-              configuration
-                      .string("shuffle.plan.generator.shuffle.max")
-                      .map(Integer::parseInt)
-                      .orElse(3);
-    this.numberOfShuffle = () -> ThreadLocalRandom.current().nextInt(min, max+1);
+    int min =
+        configuration.string("shuffle.plan.generator.shuffle.min").map(Integer::parseInt).orElse(3);
+    int max =
+        configuration.string("shuffle.plan.generator.shuffle.max").map(Integer::parseInt).orElse(3);
+    this.numberOfShuffle = () -> ThreadLocalRandom.current().nextInt(min, max + 1);
   }
 
   private final Supplier<Integer> numberOfShuffle;

@@ -17,7 +17,6 @@
 package org.astraea.app.cost;
 
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -25,14 +24,11 @@ import org.astraea.app.admin.ClusterBean;
 import org.astraea.app.admin.ClusterInfo;
 import org.astraea.app.admin.NodeInfo;
 import org.astraea.app.admin.ReplicaInfo;
-import org.astraea.app.admin.TopicPartition;
 import org.astraea.app.metrics.HasBeanObject;
 import org.astraea.app.metrics.KafkaMetrics;
 import org.astraea.app.metrics.broker.HasValue;
 import org.astraea.app.metrics.jmx.BeanObject;
 import org.astraea.app.service.RequireBrokerCluster;
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Test;
 
 class ReplicaDiskInCostTest extends RequireBrokerCluster {
   /*

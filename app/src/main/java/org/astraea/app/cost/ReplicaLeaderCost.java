@@ -28,14 +28,18 @@ import org.astraea.app.metrics.broker.HasValue;
 import org.astraea.app.metrics.collector.Fetcher;
 
 /** more replica leaders -> higher cost */
-public class ReplicaLeaderCost implements HasBrokerCost ,HasClusterCost{
+public class ReplicaLeaderCost implements HasBrokerCost, HasClusterCost {
 
   @Override
   public BrokerCost brokerCost(ClusterInfo clusterInfo) {
     var result =
         leaderCount(clusterInfo).entrySet().stream()
-            .collect(Collectors.toMap(Map.Entry::getKey, e -> (double) e.getValue()
-                    /leaderCount(clusterInfo).values().stream().mapToInt(x->x).sum() ));
+            .collect(
+                Collectors.toMap(
+                    Map.Entry::getKey,
+                    e ->
+                        (double) e.getValue()
+                            / leaderCount(clusterInfo).values().stream().mapToInt(x -> x).sum()));
     return () -> result;
   }
 
@@ -61,14 +65,13 @@ public class ReplicaLeaderCost implements HasBrokerCost ,HasClusterCost{
 
   @Override
   public ClusterCost clusterCost(ClusterInfo clusterInfo) {
-    var brokerCost =brokerCost(clusterInfo).value();
+    var brokerCost = brokerCost(clusterInfo).value();
     var mean = brokerCost.values().stream().mapToDouble(x -> x).sum() / brokerCost.size();
     var sd =
-            Math.sqrt(brokerCost.values().stream().mapToDouble(
-                    score ->
-                            Math.pow((score - mean),2)).sum()
-                    / brokerCost.size());
-    return () -> sd/0.5;
+        Math.sqrt(
+            brokerCost.values().stream().mapToDouble(score -> Math.pow((score - mean), 2)).sum()
+                / brokerCost.size());
+    return () -> sd / 0.5;
   }
 
   public static class NoMetrics extends ReplicaLeaderCost {

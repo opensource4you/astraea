@@ -111,16 +111,15 @@ public class Balancer implements AutoCloseable {
       var t = progressWatch("Warm Up Metrics", 1, metricSource::warmUpProgress);
       t.start();
       metricSource.awaitMetricReady();
-      metricSource.allBeans().entrySet()
-              .stream()
-                      .collect(Collectors.toMap(
-                              x -> x.getKey(),
-                              x -> x.getValue().values().stream()
-                                      .mapToInt(a -> a.size())
-                                      .max()))
-                              .forEach((g,d) -> {
-                                System.out.println(d.orElse(0));
-                              });
+      metricSource.allBeans().entrySet().stream()
+          .collect(
+              Collectors.toMap(
+                  x -> x.getKey(),
+                  x -> x.getValue().values().stream().mapToInt(a -> a.size()).max()))
+          .forEach(
+              (g, d) -> {
+                System.out.println(d.orElse(0));
+              });
       // TODO: find a way to show the progress, without pollute the logic
       t.interrupt();
       Utils.packException(() -> t.join());
@@ -183,7 +182,7 @@ public class Balancer implements AutoCloseable {
     var thread = progressWatch("Searching for Good Rebalance Plan", tries, counter::doubleValue);
     try {
       thread.start();
-
+      var moveCostWeight = 0.2;
       var bestMigrationProposal =
           planGenerator
               .generate(clusterInfo)
@@ -197,8 +196,8 @@ public class Balancer implements AutoCloseable {
                       var mockedCluster =
                           BalancerUtils.mockClusterInfoAllocation(clusterInfo, allocation);
                       var score = evaluateCost(mockedCluster, clusterMetrics);
-                      var moveScore = evaluateMoveCost(mockedCluster,clusterMetrics);
-                      return Map.entry(score + moveScore, plan);
+                      var moveScore = evaluateMoveCost(mockedCluster, clusterMetrics);
+                      return Map.entry(score*(1-moveCostWeight) + moveScore *moveCostWeight, plan);
                     } else {
                       return Map.entry(1.0, plan);
                     }
@@ -262,52 +261,54 @@ public class Balancer implements AutoCloseable {
   }
 
   private double evaluateMoveCost(
-          ClusterInfo clusterInfo,
-          Map<IdentifiedFetcher, Map<Integer, Collection<HasBeanObject>>> metrics) {
+      ClusterInfo clusterInfo,
+      Map<IdentifiedFetcher, Map<Integer, Collection<HasBeanObject>>> metrics) {
     var scores =
-            costFunctions.stream()
-                    .map(
-                            cf -> {
-                              var fetcher = fetcherOwnership.get(cf);
-                              var theMetrics = metrics.get(fetcher);
-                              var clusterAndMetrics = ClusterInfo.of(clusterInfo, theMetrics);
-                              return Map.entry(cf, this.moveCostScore(clusterAndMetrics, cf));
-                            })
-                    .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));
+        costFunctions.stream()
+            .map(
+                cf -> {
+                  var fetcher = fetcherOwnership.get(cf);
+                  var theMetrics = metrics.get(fetcher);
+                  var clusterAndMetrics = ClusterInfo.of(clusterInfo, theMetrics);
+                  return Map.entry(cf, this.moveCostScore(clusterAndMetrics, cf));
+                })
+            .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));
     return aggregateFunction(scores);
   }
 
   /** the lower, the better. */
   private double aggregateFunction(Map<CostFunction, Double> scores) {
-    scores.forEach((func, value) -> {
-      //System.out.printf("[%s] %.8f%n", func.getClass().getSimpleName(), value);
-    });
+    scores.forEach(
+        (func, value) -> {
+          // System.out.printf("[%s] %.8f%n", func.getClass().getSimpleName(), value);
+        });
     // use the simple summation result, treat every cost equally.
     return scores.values().stream().mapToDouble(x -> x).sum();
   }
 
   private double costFunctionScore(ClusterInfo clusterInfo, CostFunction costFunction) {
     if (costFunction instanceof HasClusterCost) {
-      return ((HasClusterCost) costFunction)
-              .clusterCost(clusterInfo)
-              .value();
-    }else if (costFunction instanceof HasBrokerCost) {
+      return ((HasClusterCost) costFunction).clusterCost(clusterInfo).value();
+    } else if (costFunction instanceof HasBrokerCost) {
       return brokerCostScore(clusterInfo, (HasBrokerCost) costFunction);
     } else if (costFunction instanceof HasPartitionCost) {
       return partitionCostScore(clusterInfo, (HasPartitionCost) clusterInfo);
     } else {
       return 0.0;
       /* throw new IllegalArgumentException(
-          "Unable to extract score from this cost function: " + costFunction.getClass().getName());
-       */
+         "Unable to extract score from this cost function: " + costFunction.getClass().getName());
+      */
     }
   }
+
   private double moveCostScore(ClusterInfo clusterInfo, CostFunction costFunction) {
     if (costFunction instanceof HasMoveCost) {
       var metrics = metricSource.allBeans().get(fetcherOwnership.get(costFunction));
       var originalClusterInfo = ClusterInfo.of(newClusterInfo(), metrics);
       var targetAllocation = LayeredClusterLogAllocation.of(clusterInfo);
-      return ((HasMoveCost) costFunction).clusterCost(originalClusterInfo, targetAllocation).value();
+      return ((HasMoveCost) costFunction)
+          .clusterCost(originalClusterInfo, targetAllocation)
+          .value();
     }
     return 0.0;
   }
