@@ -17,9 +17,9 @@
 package org.astraea.app.performance;
 
 import java.util.List;
-import java.util.function.Supplier;
-import org.astraea.app.common.DataSize;
 
+// TODO: Remove this class by reconstructing consumerExecutor. See issue#476
+// https://github.com/skiptests/astraea/issues/476
 /**
  * Thread safe This class is used for managing the start/end of the producer/consumer threads.
  * Producer can start producing until all consumers get assignment. Consumers can stop after all
@@ -28,7 +28,6 @@ import org.astraea.app.common.DataSize;
 public class Manager {
   private final ExeTime exeTime;
   private final List<Metrics> producerMetrics, consumerMetrics;
-  private final Supplier<Long> keyDistribution;
 
   /**
    * Used to manage producing/consuming.
@@ -47,13 +46,9 @@ public class Manager {
    */
   public Manager(
       Performance.Argument argument, List<Metrics> producerMetrics, List<Metrics> consumerMetrics) {
-    if (argument.recordSize.greaterThan(DataSize.Byte.of(Integer.MAX_VALUE)))
-      throw new IllegalArgumentException(
-          "Record size should be smaller than or equal to 2147483648 (Integer.MAX_VALUE) bytes");
     this.producerMetrics = producerMetrics;
     this.consumerMetrics = consumerMetrics;
     this.exeTime = argument.exeTime;
-    this.keyDistribution = argument.keyDistributionType.create(100000);
   }
 
   public long producedRecords() {
@@ -71,10 +66,5 @@ public class Manager {
   /** Check if we should keep consuming record. */
   public boolean consumedDone() {
     return consumerMetrics.size() == 0 || consumedRecords() >= producedRecords();
-  }
-
-  /** Randomly choose a key according to the distribution. */
-  public byte[] getKey() {
-    return (String.valueOf(keyDistribution.get())).getBytes();
   }
 }
