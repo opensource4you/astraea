@@ -77,17 +77,6 @@ class DataSizeTest {
     // faster convert between DataRate and others.
     var randomSize = DataSize.Byte.of(ThreadLocalRandom.current().nextLong());
 
-    BigDecimal bigDecimal0 = DataRate.ofBigDecimal(1000, DataUnit.Byte, ChronoUnit.SECONDS);
-    BigDecimal bigDecimal1 = DataRate.ofBigDecimal(1000, DataUnit.Byte, Duration.ofSeconds(1));
-    BigDecimal bigDecimal2 = DataRate.ofBigDecimal(randomSize, DataUnit.Byte, ChronoUnit.SECONDS);
-    BigDecimal bigDecimal3 =
-        DataRate.ofBigDecimal(randomSize, DataUnit.Byte, Duration.ofSeconds(1));
-
-    double double0 = DataRate.ofDouble(1000, DataUnit.Byte, ChronoUnit.SECONDS);
-    double double1 = DataRate.ofDouble(1000, DataUnit.Byte, Duration.ofSeconds(1));
-    double double2 = DataRate.ofDouble(randomSize, DataUnit.Byte, ChronoUnit.SECONDS);
-    double double3 = DataRate.ofDouble(randomSize, DataUnit.Byte, Duration.ofSeconds(1));
-
     // sum all data size
     var sumAll =
         IntStream.range(0, 100).mapToObj(DataSize.Byte::of).reduce(DataSize.ZERO, DataSize::add);

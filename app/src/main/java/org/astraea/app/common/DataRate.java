@@ -198,38 +198,6 @@ public class DataRate {
     return new DataRate(dataSize, duration);
   }
 
-  public static BigDecimal ofBigDecimal(long measurement, DataUnit unit, ChronoUnit time) {
-    return ofBigDecimal(unit.of(measurement), unit, time.getDuration());
-  }
-
-  public static BigDecimal ofBigDecimal(long measurement, DataUnit unit, Duration time) {
-    return ofBigDecimal(unit.of(measurement), unit, time);
-  }
-
-  public static BigDecimal ofBigDecimal(DataSize size, DataUnit unit, ChronoUnit time) {
-    return ofBigDecimal(size, unit, time.getDuration());
-  }
-
-  public static BigDecimal ofBigDecimal(DataSize size, DataUnit unit, Duration time) {
-    return of(size, time).toBigDecimal(unit, time);
-  }
-
-  public static double ofDouble(long measurement, DataUnit unit, ChronoUnit time) {
-    return ofBigDecimal(measurement, unit, time).doubleValue();
-  }
-
-  public static double ofDouble(long measurement, DataUnit unit, Duration time) {
-    return ofBigDecimal(measurement, unit, time).doubleValue();
-  }
-
-  public static double ofDouble(DataSize size, DataUnit unit, ChronoUnit time) {
-    return ofBigDecimal(size, unit, time).doubleValue();
-  }
-
-  public static double ofDouble(DataSize size, DataUnit unit, Duration time) {
-    return ofBigDecimal(size, unit, time).doubleValue();
-  }
-
   /**
    * @param bytesPerSecond the double value that represent a data rate in bytes/second unit
    * @return a {@link DataRate} converted from the given parameter.
