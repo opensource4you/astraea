@@ -102,7 +102,7 @@ public class ReplicaSyncingMonitor {
                     .sorted()
                     .forEachOrdered(
                         partition -> {
-                          TopicPartition tp = new TopicPartition(topic, partition);
+                          TopicPartition tp = TopicPartition.of(topic, partition);
                           Replica leaderReplica = topicPartitionLeaderReplicaTable.get(tp);
                           List<Replica> thisReplicas = partitionReplicas.get(tp);
 
@@ -178,7 +178,7 @@ public class ReplicaSyncingMonitor {
             .filter(
                 tpr ->
                     !nonSyncedTopicPartition.contains(
-                        new TopicPartition(tpr.getKey().topic(), tpr.getKey().partition())))
+                        TopicPartition.of(tpr.getKey().topic(), tpr.getKey().partition())))
             .distinct()
             .forEach(tpr -> previousCheckedSize.remove(tpr.getKey()));
       }

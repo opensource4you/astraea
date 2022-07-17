@@ -39,7 +39,7 @@ public class HasProducerNodeMetricsTest extends RequireBrokerCluster {
         var producer = Producer.of(bootstrapServers())) {
       admin.creator().topic(topic).numberOfPartitions(1).create();
       Utils.sleep(Duration.ofSeconds(3));
-      var owner = admin.replicas(Set.of(topic)).get(new TopicPartition(topic, 0)).get(0).broker();
+      var owner = admin.replicas(Set.of(topic)).get(TopicPartition.of(topic, 0)).get(0).broker();
       producer.sender().topic(topic).run().toCompletableFuture().get();
       var metrics = KafkaMetrics.Producer.node(MBeanClient.local(), owner);
       Assertions.assertEquals(1, metrics.size());
@@ -54,7 +54,6 @@ public class HasProducerNodeMetricsTest extends RequireBrokerCluster {
         var producer = Producer.of(bootstrapServers())) {
       admin.creator().topic(topic).numberOfPartitions(3).create();
       Utils.sleep(Duration.ofSeconds(3));
-      var owner = admin.replicas(Set.of(topic)).get(new TopicPartition(topic, 0)).get(0).broker();
       producer
           .sender()
           .topic(topic)

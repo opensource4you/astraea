@@ -106,7 +106,7 @@ public class ReplicaSizeCost implements HasBrokerCost, HasPartitionCost {
                             .filter(ReplicaInfo::isLeader)
                             .map(
                                 partitionInfo ->
-                                    new TopicPartitionReplica(
+                                    TopicPartitionReplica.of(
                                         partitionInfo.topic(),
                                         partitionInfo.partition(),
                                         partitionInfo.nodeInfo().id()))
@@ -126,7 +126,7 @@ public class ReplicaSizeCost implements HasBrokerCost, HasPartitionCost {
                                                   new IllegalStateException(
                                                       tpr + " topic/partition size not found"));
                                   return Map.entry(
-                                      new TopicPartition(tpr.topic(), tpr.partition()), score);
+                                      TopicPartition.of(tpr.topic(), tpr.partition()), score);
                                 })
                             .collect(
                                 Collectors.toUnmodifiableMap(
@@ -144,7 +144,7 @@ public class ReplicaSizeCost implements HasBrokerCost, HasPartitionCost {
                             .collect(
                                 Collectors.toMap(
                                     x ->
-                                        new TopicPartition(
+                                        TopicPartition.of(
                                             x.getKey().topic(), x.getKey().partition()),
                                     Map.Entry::getValue))))
             .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));

@@ -17,7 +17,6 @@
 package org.astraea.app.admin;
 
 import com.beust.jcommander.Parameter;
-import java.io.IOException;
 import java.io.PrintStream;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -111,7 +110,7 @@ public class TopicExplorer {
                     Function.identity(),
                     (topic) ->
                         IntStream.range(0, topicPartitionCount.get(topic))
-                            .mapToObj(partition -> new TopicPartition(topic, partition))
+                            .mapToObj(partition -> TopicPartition.of(topic, partition))
                             .map(
                                 topicPartition ->
                                     new PartitionInfo(
@@ -124,7 +123,7 @@ public class TopicExplorer {
     return new Result(time, topicPartitionInfos, consumerGroups);
   }
 
-  public static void main(String[] args) throws IOException {
+  public static void main(String[] args) {
     var argument = org.astraea.app.argument.Argument.parse(new Argument(), args);
     try (var admin = Admin.of(argument.bootstrapServers())) {
       var result = execute(admin, argument.topics.isEmpty() ? admin.topicNames() : argument.topics);
@@ -398,7 +397,7 @@ public class TopicExplorer {
       }
 
       private long current() {
-        return group.consumeProgress().getOrDefault(new TopicPartition(topic, index), -1L);
+        return group.consumeProgress().getOrDefault(TopicPartition.of(topic, index), -1L);
       }
 
       private boolean hasCommittedOffset() {

@@ -137,7 +137,7 @@ class RebalanceAdminImpl implements RebalanceAdmin {
     return expectedPlacement.stream()
         .map(
             log ->
-                new TopicPartitionReplica(
+                TopicPartitionReplica.of(
                     topicPartition.topic(), topicPartition.partition(), log.broker()))
         .map(log -> new ReplicaMigrationTask(this, log))
         .collect(Collectors.toUnmodifiableList());

@@ -311,7 +311,7 @@ public class Builder {
                   .flatMap(
                       e ->
                           e.getValue().partitions().stream()
-                              .map(p -> new TopicPartition(e.getKey(), p.partition())))
+                              .map(p -> TopicPartition.of(e.getKey(), p.partition())))
                   .collect(Collectors.toSet()));
     }
 
@@ -355,7 +355,7 @@ public class Builder {
                                 tpInfo -> {
                                   var topicName = entry.getKey();
                                   var partition = tpInfo.partition();
-                                  var topicPartition = new TopicPartition(topicName, partition);
+                                  var topicPartition = TopicPartition.of(topicName, partition);
                                   return Map.entry(topicPartition, tpInfo);
                                 }))
                 .collect(
@@ -611,7 +611,7 @@ public class Builder {
       dirs.forEach(
           (replica, logDir) -> {
             var brokerId = replica.brokerId();
-            var tp = new TopicPartition(replica.topic(), replica.partition());
+            var tp = TopicPartition.of(replica.topic(), replica.partition());
             var ls =
                 result.computeIfAbsent(tp, ignored -> Map.entry(new HashSet<>(), new HashSet<>()));
             // the replica is moved from a folder to another folder (in the same node)
@@ -787,7 +787,6 @@ public class Builder {
     private final org.apache.kafka.clients.admin.Admin admin;
     private final Function<Set<String>, Set<TopicPartition>> partitionGetter;
     private final Set<TopicPartition> partitions = new HashSet<>();
-    private boolean updateLeader = false;
 
     MigratorImpl(
         org.apache.kafka.clients.admin.Admin admin,
@@ -804,7 +803,7 @@ public class Builder {
 
     @Override
     public ReplicaMigrator partition(String topic, int partition) {
-      partitions.add(new TopicPartition(topic, partition));
+      partitions.add(TopicPartition.of(topic, partition));
       return this;
     }
 

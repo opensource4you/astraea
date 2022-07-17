@@ -49,7 +49,7 @@ class StraightPlanExecutorTest extends RequireBrokerCluster {
           List.of(LogPlacement.of(broker0, logFolder0), LogPlacement.of(broker1, logFolder1));
       final var allocationMap =
           IntStream.range(0, 10)
-              .mapToObj(i -> new TopicPartition(topicName, i))
+              .mapToObj(i -> TopicPartition.of(topicName, i))
               .collect(Collectors.toUnmodifiableMap(tp -> tp, tp -> onlyPlacement));
       final var expectedAllocation = ClusterLogAllocation.of(allocationMap);
       final var expectedTopicPartition = expectedAllocation.topicPartitions();
@@ -94,7 +94,7 @@ class StraightPlanExecutorTest extends RequireBrokerCluster {
           List.of(LogPlacement.of(broker0), LogPlacement.of(broker1), LogPlacement.of(broker2));
       final var allocationMap =
           IntStream.range(0, 10)
-              .mapToObj(i -> new TopicPartition(topicName, i))
+              .mapToObj(i -> TopicPartition.of(topicName, i))
               .collect(Collectors.toUnmodifiableMap(tp -> tp, tp -> onlyPlacement));
       final var expectedAllocation = ClusterLogAllocation.of(allocationMap);
       final var expectedTopicPartition = expectedAllocation.topicPartitions();

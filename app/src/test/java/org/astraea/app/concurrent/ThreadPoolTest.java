@@ -49,7 +49,7 @@ public class ThreadPoolTest {
   }
 
   @Test
-  void testSubmitThread() throws Exception {
+  void testSubmitThread() {
     var executor = new CountExecutor();
     try (var pool = ThreadPool.builder().executor(executor).build()) {
       Utils.sleep(Duration.ofSeconds(2));

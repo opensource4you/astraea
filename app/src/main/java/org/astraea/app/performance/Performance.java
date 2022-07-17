@@ -26,7 +26,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutionException;
 import java.util.function.BiConsumer;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -39,6 +38,7 @@ import org.astraea.app.argument.CompressionField;
 import org.astraea.app.argument.NonEmptyStringField;
 import org.astraea.app.argument.NonNegativeShortField;
 import org.astraea.app.argument.PathField;
+import org.astraea.app.argument.PositiveIntegerField;
 import org.astraea.app.argument.PositiveLongField;
 import org.astraea.app.argument.PositiveShortField;
 import org.astraea.app.common.DataSize;
@@ -79,8 +79,7 @@ import org.astraea.app.producer.Producer;
  */
 public class Performance {
   /** Used in Automation, to achieve the end of one Performance and then start another. */
-  public static void main(String[] args)
-      throws InterruptedException, IOException, ExecutionException {
+  public static void main(String[] args) throws InterruptedException, IOException {
     execute(org.astraea.app.argument.Argument.parse(new Argument(), args));
   }
 
@@ -126,8 +125,7 @@ public class Performance {
         .collect(Collectors.toUnmodifiableList());
   }
 
-  public static Result execute(final Argument param)
-      throws InterruptedException, IOException, ExecutionException {
+  public static Result execute(final Argument param) throws InterruptedException, IOException {
     List<Integer> partitions;
     try (var topicAdmin = Admin.of(param.configs())) {
       topicAdmin
@@ -275,7 +273,7 @@ public class Performance {
     @Parameter(
         names = {"--partitions"},
         description = "Integer: number of partitions to create the topic",
-        validateWith = PositiveLongField.class)
+        validateWith = PositiveIntegerField.class)
     int partitions = 1;
 
     @Parameter(
