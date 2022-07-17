@@ -338,13 +338,13 @@ public class Performance {
         names = {"--key.size"},
         description = "DataSize of the key. Default: 4Byte",
         converter = DataSize.Field.class)
-    DataSize keySize = DataUnit.Byte.of(4);
+    DataSize keySize = DataSize.Byte.of(4);
 
     @Parameter(
         names = {"--value.size"},
         description = "DataSize of the value. Default: 1KiB",
         converter = DataSize.Field.class)
-    DataSize valueSize = DataUnit.KiB.of(1);
+    DataSize valueSize = DataSize.KiB.of(1);
 
     @Parameter(
         names = {"--key.distribution"},
@@ -371,7 +371,7 @@ public class Performance {
         names = {"--throughput"},
         description = "dataSize: size output per second. e.g. \"500KiB\"",
         converter = DataSize.Field.class)
-    DataSize throughput = DataUnit.GiB.of(500);
+    DataSize throughput = DataSize.GiB.of(500);
 
     @Parameter(
         names = {"--report.path"},
