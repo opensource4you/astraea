@@ -17,7 +17,7 @@
 package org.astraea.app.performance;
 
 import java.time.Duration;
-import org.astraea.app.common.DataUnit;
+import org.astraea.app.common.DataSize;
 import org.astraea.app.common.Utils;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -30,9 +30,9 @@ public class DataSupplierTest {
         DataSupplier.of(
             ExeTime.of("2s"),
             DistributionType.FIXED.create(10),
-            DataUnit.KiB.of(100),
+            DataSize.KiB.of(100),
             DistributionType.FIXED.create(10),
-            DataUnit.KiB.of(100));
+            DataSize.KiB.of(100));
     Assertions.assertTrue(dataSupplier.get().hasData());
     Utils.sleep(Duration.ofSeconds(3));
     Assertions.assertFalse(dataSupplier.get().hasData());
@@ -44,9 +44,9 @@ public class DataSupplierTest {
         DataSupplier.of(
             ExeTime.of("2records"),
             DistributionType.FIXED.create(10),
-            DataUnit.KiB.of(100),
+            DataSize.KiB.of(100),
             DistributionType.FIXED.create(10),
-            DataUnit.KiB.of(100));
+            DataSize.KiB.of(100));
     Assertions.assertTrue(dataSupplier.get().hasData());
     Assertions.assertTrue(dataSupplier.get().hasData());
     Assertions.assertFalse(dataSupplier.get().hasData());
@@ -58,9 +58,9 @@ public class DataSupplierTest {
         DataSupplier.of(
             ExeTime.of("10s"),
             DistributionType.FIXED.create(9),
-            DataUnit.KiB.of(100),
+            DataSize.KiB.of(100),
             DistributionType.FIXED.create(10),
-            DataUnit.KiB.of(100));
+            DataSize.KiB.of(100));
     var data = dataSupplier.get();
     Assertions.assertTrue(data.hasData());
     // key content is fixed to "9", so the size is 1 byte
@@ -73,9 +73,9 @@ public class DataSupplierTest {
         DataSupplier.of(
             ExeTime.of("10s"),
             DistributionType.FIXED.create(10),
-            DataUnit.KiB.of(100),
+            DataSize.KiB.of(100),
             DistributionType.FIXED.create(0),
-            DataUnit.KiB.of(100));
+            DataSize.KiB.of(100));
     var data = dataSupplier.get();
     Assertions.assertTrue(data.hasData());
     // initial value size is 100KB and the distributed is fixed to zero, so the final size is 102400
@@ -88,9 +88,9 @@ public class DataSupplierTest {
         DataSupplier.of(
             ExeTime.of("10s"),
             DistributionType.FIXED.create(10),
-            DataUnit.KiB.of(100),
+            DataSize.KiB.of(100),
             DistributionType.FIXED.create(10),
-            DataUnit.KiB.of(100));
+            DataSize.KiB.of(100));
     var data = dataSupplier.get();
     Assertions.assertTrue(data.hasData());
     // initial value size is 100KB and the distributed is fixed to 10, so the final size is between
@@ -104,9 +104,9 @@ public class DataSupplierTest {
         DataSupplier.of(
             ExeTime.of("10s"),
             DistributionType.FIXED.create(10),
-            DataUnit.KiB.of(100),
+            DataSize.KiB.of(100),
             DistributionType.FIXED.create(0),
-            DataUnit.KiB.of(150));
+            DataSize.KiB.of(150));
     // total: 100KB, limit: 150KB -> no throttle
     Assertions.assertTrue(dataSupplier.get().hasData());
     // total: 200KB, limit: 150KB -> will throttle next data

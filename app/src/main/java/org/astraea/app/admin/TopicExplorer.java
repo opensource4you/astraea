@@ -36,7 +36,6 @@ import java.util.stream.Stream;
 import org.astraea.app.argument.NonEmptyStringField;
 import org.astraea.app.argument.StringSetField;
 import org.astraea.app.common.DataSize;
-import org.astraea.app.common.DataUnit;
 
 public class TopicExplorer {
 
@@ -214,14 +213,14 @@ public class TopicExplorer {
           () -> {
             treePrintln(
                 "Topic Size: %s",
-                DataUnit.Byte.of(
+                DataSize.Byte.of(
                     partitionInfos.stream()
                         .flatMapToLong(x -> x.replicas.stream().mapToLong(Replica::size))
                         .sum()));
             treePrintln("Partition Count: %d", partitionInfos.size());
             treePrintln(
                 "Partition Size Average: %s",
-                DataUnit.Byte.of(
+                DataSize.Byte.of(
                     (long)
                         partitionInfos.stream()
                             .mapToLong(x -> x.replicas.stream().mapToLong(Replica::size).sum())
@@ -232,7 +231,7 @@ public class TopicExplorer {
                 partitionInfos.stream().mapToInt(x -> x.replicas.size()).sum());
             treePrintln(
                 "Replica Size Average: %s",
-                DataUnit.Byte.of(
+                DataSize.Byte.of(
                     (long)
                         partitionInfos.stream()
                             .flatMapToLong(x -> x.replicas.stream().mapToLong(Replica::size))
@@ -351,7 +350,7 @@ public class TopicExplorer {
                   treePrintln(
                       "Partition \"%d\" (size: %s) (offset range: [%d, %d])",
                       partitionInfo.topicPartition.partition(),
-                      DataUnit.Byte.of(
+                      DataSize.Byte.of(
                           partitionInfo.replicas.stream().mapToLong(Replica::size).sum()),
                       partitionInfo.earliestOffset,
                       partitionInfo.latestOffset);
@@ -446,7 +445,7 @@ public class TopicExplorer {
       }
 
       static String size(long bytes) {
-        var dataSize = DataUnit.Byte.of(bytes);
+        var dataSize = DataSize.Byte.of(bytes);
         return "(size=" + dataSizeString(dataSize) + ")";
       }
 

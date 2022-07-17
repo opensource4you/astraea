@@ -45,6 +45,7 @@ import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.astraea.app.argument.Argument;
+import org.astraea.app.common.DataSize;
 import org.astraea.app.common.DataUnit;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -402,9 +403,9 @@ class ReplicaSyncingMonitorTest {
     // act
     var progress =
         new ReplicaSyncingMonitor.ProgressInfo(
-            DataUnit.Byte.of(leaderSize),
-            DataUnit.Byte.of(previousSize),
-            DataUnit.Byte.of(currentSize),
+            DataSize.Byte.of(leaderSize),
+            DataSize.Byte.of(previousSize),
+            DataSize.Byte.of(currentSize),
             Duration.ofMillis(interval));
 
     // assert

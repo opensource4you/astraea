@@ -120,11 +120,11 @@ public class ReplicaSyncingMonitor {
                                       Map.entry(
                                           entry.getValue(),
                                           new ProgressInfo(
-                                              DataUnit.Byte.of(leaderReplica.size()),
-                                              DataUnit.Byte.of(
+                                              DataSize.Byte.of(leaderReplica.size()),
+                                              DataSize.Byte.of(
                                                   previousCheckedSize.getOrDefault(
                                                       entry.getKey(), entry.getValue().size())),
-                                              DataUnit.Byte.of(entry.getValue().size()),
+                                              DataSize.Byte.of(entry.getValue().size()),
                                               argument.interval)))
                               .map(
                                   entry ->

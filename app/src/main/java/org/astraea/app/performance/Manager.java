@@ -18,7 +18,7 @@ package org.astraea.app.performance;
 
 import java.util.List;
 import java.util.function.Supplier;
-import org.astraea.app.common.DataUnit;
+import org.astraea.app.common.DataSize;
 
 /**
  * Thread safe This class is used for managing the start/end of the producer/consumer threads.
@@ -47,7 +47,7 @@ public class Manager {
    */
   public Manager(
       Performance.Argument argument, List<Metrics> producerMetrics, List<Metrics> consumerMetrics) {
-    if (argument.recordSize.greaterThan(DataUnit.Byte.of(Integer.MAX_VALUE)))
+    if (argument.recordSize.greaterThan(DataSize.Byte.of(Integer.MAX_VALUE)))
       throw new IllegalArgumentException(
           "Record size should be smaller than or equal to 2147483648 (Integer.MAX_VALUE) bytes");
     this.producerMetrics = producerMetrics;

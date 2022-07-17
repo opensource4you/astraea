@@ -93,7 +93,7 @@ class RebalanceAdminTest extends RequireBrokerCluster {
       var rebalanceAdmin = prepareRebalanceAdmin(admin);
       // decrease the debouncing time so the test has higher chance to fail
       RebalanceAdminImpl.changeRetrialTime(Duration.ofMillis(150));
-      prepareData(topic, 0, DataUnit.MiB.of(256));
+      prepareData(topic, 0, DataSize.MiB.of(256));
       Supplier<Replica> replicaNow = () -> admin.replicas(Set.of(topic)).get(topicPartition).get(0);
       var originalReplica = replicaNow.get();
       var nextDir =
@@ -148,7 +148,7 @@ class RebalanceAdminTest extends RequireBrokerCluster {
               .findAny()
               .orElseThrow();
       RebalanceAdminImpl.changeRetrialTime(Duration.ofMillis(150));
-      prepareData(topic, 0, DataUnit.MiB.of(32));
+      prepareData(topic, 0, DataSize.MiB.of(32));
       // let two brokers join the replica list
       admin.migrator().partition(topic, 0).moveTo(List.of(0, 1, 2));
       // let the existing replica change its directory

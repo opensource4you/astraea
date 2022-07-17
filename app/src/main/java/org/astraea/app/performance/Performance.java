@@ -314,7 +314,7 @@ public class Performance {
         names = {"--record.size"},
         description = "DataSize: size of each record. e.g. \"500KiB\"",
         converter = DataSize.Field.class)
-    DataSize recordSize = DataUnit.KiB.of(1);
+    DataSize recordSize = DataSize.KiB.of(1);
 
     @Parameter(
         names = {"--partitioner"},
@@ -365,7 +365,7 @@ public class Performance {
         names = {"--throughput"},
         description = "dataSize: size output per second. e.g. \"500KiB\"",
         converter = DataSize.Field.class)
-    DataSize throughput = DataUnit.GiB.of(500);
+    DataSize throughput = DataSize.GiB.of(500);
 
     @Parameter(
         names = {"--report.path"},
