@@ -254,14 +254,14 @@ public class DataSize implements Comparable<DataSize> {
 
   /** Return a {@link DataRate} based on current data size over a specific time unit. */
   public DataRate dataRate(ChronoUnit chronoUnit) {
-    return DataRate.Size.of(this).over(chronoUnit);
+    return dataRate(chronoUnit.getDuration());
   }
 
   /**
    * Return a {@link DataRate} based on current data size over a specific {@link Duration} of time.
    */
   public DataRate dataRate(Duration timePassed) {
-    return DataRate.Size.of(this).over(timePassed);
+    return new DataRate(this, timePassed);
   }
 
   /** @return a {@link DataRate} based on current data size over one second. */
