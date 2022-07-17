@@ -252,7 +252,7 @@ public class ReplicaSyncingMonitor {
     public DataRate dataRate() {
       if (isProgressFallback()) {
         // log retention/compaction occurred, we don't know the actual data rate at this moment.
-        return DataRate.of(0, DataUnit.Byte, interval);
+        return DataRate.ZERO;
       } else {
         return currentSize.subtract(previousSize).dataRate(interval);
       }

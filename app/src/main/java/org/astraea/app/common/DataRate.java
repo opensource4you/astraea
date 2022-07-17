@@ -30,41 +30,44 @@ public class DataRate {
   private final DataSize totalBitTransmitted;
   private final BigDecimal durationInNanoSecond;
 
-  public static final DataRateSource Bit = (x) -> new DataRateBuilder(DataSize.Bit.of(x));
-  public static final DataRateSource Kb = (x) -> new DataRateBuilder(DataSize.Kb.of(x));
-  public static final DataRateSource Mb = (x) -> new DataRateBuilder(DataSize.Mb.of(x));
-  public static final DataRateSource Gb = (x) -> new DataRateBuilder(DataSize.Gb.of(x));
-  public static final DataRateSource Tb = (x) -> new DataRateBuilder(DataSize.Tb.of(x));
-  public static final DataRateSource Pb = (x) -> new DataRateBuilder(DataSize.Pb.of(x));
-  public static final DataRateSource Eb = (x) -> new DataRateBuilder(DataSize.Eb.of(x));
-  public static final DataRateSource Yb = (x) -> new DataRateBuilder(DataSize.Yb.of(x));
-  public static final DataRateSource Zb = (x) -> new DataRateBuilder(DataSize.Zb.of(x));
-  public static final DataRateSource Kib = (x) -> new DataRateBuilder(DataSize.Kib.of(x));
-  public static final DataRateSource Mib = (x) -> new DataRateBuilder(DataSize.Mib.of(x));
-  public static final DataRateSource Gib = (x) -> new DataRateBuilder(DataSize.Gib.of(x));
-  public static final DataRateSource Tib = (x) -> new DataRateBuilder(DataSize.Tib.of(x));
-  public static final DataRateSource Pib = (x) -> new DataRateBuilder(DataSize.Pib.of(x));
-  public static final DataRateSource Eib = (x) -> new DataRateBuilder(DataSize.Eib.of(x));
-  public static final DataRateSource Yib = (x) -> new DataRateBuilder(DataSize.Yib.of(x));
-  public static final DataRateSource Zib = (x) -> new DataRateBuilder(DataSize.Zib.of(x));
+  public static final DataRate ZERO = DataRate.of(0);
 
-  public static final DataRateSource Byte = (x) -> new DataRateBuilder(DataSize.Byte.of(x));
-  public static final DataRateSource KB = (x) -> new DataRateBuilder(DataSize.KB.of(x));
-  public static final DataRateSource MB = (x) -> new DataRateBuilder(DataSize.MB.of(x));
-  public static final DataRateSource GB = (x) -> new DataRateBuilder(DataSize.GB.of(x));
-  public static final DataRateSource TB = (x) -> new DataRateBuilder(DataSize.TB.of(x));
-  public static final DataRateSource PB = (x) -> new DataRateBuilder(DataSize.PB.of(x));
-  public static final DataRateSource EB = (x) -> new DataRateBuilder(DataSize.EB.of(x));
-  public static final DataRateSource YB = (x) -> new DataRateBuilder(DataSize.YB.of(x));
-  public static final DataRateSource ZB = (x) -> new DataRateBuilder(DataSize.ZB.of(x));
-  public static final DataRateSource KiB = (x) -> new DataRateBuilder(DataSize.KiB.of(x));
-  public static final DataRateSource MiB = (x) -> new DataRateBuilder(DataSize.MiB.of(x));
-  public static final DataRateSource GiB = (x) -> new DataRateBuilder(DataSize.GiB.of(x));
-  public static final DataRateSource TiB = (x) -> new DataRateBuilder(DataSize.TiB.of(x));
-  public static final DataRateSource PiB = (x) -> new DataRateBuilder(DataSize.PiB.of(x));
-  public static final DataRateSource EiB = (x) -> new DataRateBuilder(DataSize.EiB.of(x));
-  public static final DataRateSource YiB = (x) -> new DataRateBuilder(DataSize.YiB.of(x));
-  public static final DataRateSource ZiB = (x) -> new DataRateBuilder(DataSize.ZiB.of(x));
+  public static final DataSizeSource Size = DataRateBuilder::new;
+  public static final LongSource Bit = (x) -> new DataRateBuilder(DataSize.Bit.of(x));
+  public static final LongSource Kb = (x) -> new DataRateBuilder(DataSize.Kb.of(x));
+  public static final LongSource Mb = (x) -> new DataRateBuilder(DataSize.Mb.of(x));
+  public static final LongSource Gb = (x) -> new DataRateBuilder(DataSize.Gb.of(x));
+  public static final LongSource Tb = (x) -> new DataRateBuilder(DataSize.Tb.of(x));
+  public static final LongSource Pb = (x) -> new DataRateBuilder(DataSize.Pb.of(x));
+  public static final LongSource Eb = (x) -> new DataRateBuilder(DataSize.Eb.of(x));
+  public static final LongSource Yb = (x) -> new DataRateBuilder(DataSize.Yb.of(x));
+  public static final LongSource Zb = (x) -> new DataRateBuilder(DataSize.Zb.of(x));
+  public static final LongSource Kib = (x) -> new DataRateBuilder(DataSize.Kib.of(x));
+  public static final LongSource Mib = (x) -> new DataRateBuilder(DataSize.Mib.of(x));
+  public static final LongSource Gib = (x) -> new DataRateBuilder(DataSize.Gib.of(x));
+  public static final LongSource Tib = (x) -> new DataRateBuilder(DataSize.Tib.of(x));
+  public static final LongSource Pib = (x) -> new DataRateBuilder(DataSize.Pib.of(x));
+  public static final LongSource Eib = (x) -> new DataRateBuilder(DataSize.Eib.of(x));
+  public static final LongSource Yib = (x) -> new DataRateBuilder(DataSize.Yib.of(x));
+  public static final LongSource Zib = (x) -> new DataRateBuilder(DataSize.Zib.of(x));
+
+  public static final LongSource Byte = (x) -> new DataRateBuilder(DataSize.Byte.of(x));
+  public static final LongSource KB = (x) -> new DataRateBuilder(DataSize.KB.of(x));
+  public static final LongSource MB = (x) -> new DataRateBuilder(DataSize.MB.of(x));
+  public static final LongSource GB = (x) -> new DataRateBuilder(DataSize.GB.of(x));
+  public static final LongSource TB = (x) -> new DataRateBuilder(DataSize.TB.of(x));
+  public static final LongSource PB = (x) -> new DataRateBuilder(DataSize.PB.of(x));
+  public static final LongSource EB = (x) -> new DataRateBuilder(DataSize.EB.of(x));
+  public static final LongSource YB = (x) -> new DataRateBuilder(DataSize.YB.of(x));
+  public static final LongSource ZB = (x) -> new DataRateBuilder(DataSize.ZB.of(x));
+  public static final LongSource KiB = (x) -> new DataRateBuilder(DataSize.KiB.of(x));
+  public static final LongSource MiB = (x) -> new DataRateBuilder(DataSize.MiB.of(x));
+  public static final LongSource GiB = (x) -> new DataRateBuilder(DataSize.GiB.of(x));
+  public static final LongSource TiB = (x) -> new DataRateBuilder(DataSize.TiB.of(x));
+  public static final LongSource PiB = (x) -> new DataRateBuilder(DataSize.PiB.of(x));
+  public static final LongSource EiB = (x) -> new DataRateBuilder(DataSize.EiB.of(x));
+  public static final LongSource YiB = (x) -> new DataRateBuilder(DataSize.YiB.of(x));
+  public static final LongSource ZiB = (x) -> new DataRateBuilder(DataSize.ZiB.of(x));
 
   static BigDecimal fromDurationToBigDecimalSafely(Duration duration) {
     // It the given duration is extremely long(like 1000 years), it might overflow the long
@@ -143,62 +146,6 @@ public class DataRate {
   }
 
   /**
-   * Create a {@link DataRate} object from data volume and time unit
-   *
-   * <pre>{@code
-   * DataRate.of(100, DataUnit.KB, ChronoUnit.SECONDS);    // 100 KB/s
-   * DataRate.of(100, DataUnit.MB, ChronoUnit.MONTHS);     // 50 MB/month
-   * }</pre>
-   *
-   * @return an object {@link DataRate} correspond to given arguments
-   */
-  public static DataRate of(long measurement, DataUnit dataUnit, ChronoUnit chronoUnit) {
-    return of(measurement, dataUnit, chronoUnit.getDuration());
-  }
-
-  /**
-   * Create a {@link DataRate} object from data volume and time duration
-   *
-   * <pre>{@code
-   * DataRate.of(100, DataUnit.KB, Duration.ofSeconds(1)); // 100 KB/s
-   * DataRate.of(100, DataUnit.MB, Duration.ofSeconds(2)); // 50 MB/s
-   * }</pre>
-   *
-   * @return an object {@link DataRate} correspond to given arguments
-   */
-  public static DataRate of(long measurement, DataUnit dataUnit, Duration duration) {
-    return new DataRate(dataUnit.of(measurement), duration);
-  }
-
-  /**
-   * Create a {@link DataRate} object from data volume and time duration
-   *
-   * <pre>{@code
-   * DataRate.of(DataUnit.KB.of(100), ChronoUnit.SECONDS); // 100 KB/s
-   * DataRate.of(DataUnit.MB.of(100), ChronoUnit.SECONDS); // 50 MB/s
-   * }</pre>
-   *
-   * @return an object {@link DataRate} correspond to given arguments
-   */
-  public static DataRate of(DataSize dataSize, ChronoUnit chronoUnit) {
-    return new DataRate(dataSize, chronoUnit.getDuration());
-  }
-
-  /**
-   * Create a {@link DataRate} object from data volume and time duration
-   *
-   * <pre>{@code
-   * DataRate.of(DataUnit.KB.of(100), Duration.ofSeconds(1)); // 100 KB/s
-   * DataRate.of(DataUnit.MB.of(100), Duration.ofSeconds(2)); // 50 MB/s
-   * }</pre>
-   *
-   * @return an object {@link DataRate} correspond to given arguments
-   */
-  public static DataRate of(DataSize dataSize, Duration duration) {
-    return new DataRate(dataSize, duration);
-  }
-
-  /**
    * @param bytesPerSecond the double value that represent a data rate in bytes/second unit
    * @return a {@link DataRate} converted from the given parameter.
    */
@@ -243,8 +190,13 @@ public class DataRate {
   }
 
   @FunctionalInterface
-  public interface DataRateSource {
+  public interface LongSource {
     DataRateBuilder of(long measurement);
+  }
+
+  @FunctionalInterface
+  public interface DataSizeSource {
+    DataRateBuilder of(DataSize size);
   }
 
   public static final class DataRateBuilder {

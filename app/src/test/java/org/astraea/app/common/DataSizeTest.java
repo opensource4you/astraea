@@ -86,9 +86,9 @@ class DataSizeTest {
     long bytesInLong = randomSize.bytes();
     long bytes10Gib = DataSize.Gib.of(10).bytes();
 
-    // fast way & normal way to get second rate
-    DataRate faster = DataSize.Byte.of(1000).perSecond();
-    DataRate normal = DataRate.of(1000, DataUnit.Byte, ChronoUnit.SECONDS);
+    // two ways to get second rate
+    DataRate one = DataSize.Byte.of(1000).perSecond();
+    DataRate two = DataRate.Byte.of(1000).perSecond();
 
     // data rate to other types
     double dataRateDouble = DataSize.Byte.of(1000).perSecond().byteRate();

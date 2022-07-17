@@ -55,7 +55,7 @@ class DataRateTest {
 
   @Test
   void idealDataRateAndUnit() {
-    var sut = DataRate.of(1000, DataUnit.KB, Duration.ofSeconds(1));
+    var sut = DataRate.KB.of(1000).perSecond();
 
     assertFloatingValueEquals(1.0, sut.idealDataRate(ChronoUnit.SECONDS).doubleValue());
     assertSame(DataUnit.MB, sut.idealDataUnit(ChronoUnit.SECONDS));
@@ -63,12 +63,8 @@ class DataRateTest {
 
   @Test
   void dataRate() {
-    var sut0 =
-        DataRate.of(500, DataUnit.KB, Duration.ofSeconds(1))
-            .toBigDecimal(DataUnit.MB, Duration.ofSeconds(1));
-    var sut1 =
-        DataRate.of(500, DataUnit.KB, ChronoUnit.SECONDS)
-            .toBigDecimal(DataUnit.MB, Duration.ofSeconds(1));
+    var sut0 = DataRate.KB.of(500).perSecond().toBigDecimal(DataUnit.MB, Duration.ofSeconds(1));
+    var sut1 = DataRate.KB.of(500).perSecond().toBigDecimal(DataUnit.MB, Duration.ofSeconds(1));
 
     assertFloatingValueEquals(0.5, sut0.doubleValue());
     assertFloatingValueEquals(0.5, sut1.doubleValue());
@@ -97,7 +93,7 @@ class DataRateTest {
       long passedSecond,
       double expectedIdealDataRate,
       DataUnit expectedDataUnit) {
-    DataRate sut = DataRate.of(measurement, dataUnit, Duration.ofSeconds(passedSecond));
+    DataRate sut = dataUnit.of(measurement).dataRate(Duration.ofSeconds(passedSecond));
 
     assertFloatingValueEquals(
         expectedIdealDataRate, sut.idealDataRate(ChronoUnit.SECONDS).doubleValue());
@@ -133,15 +129,13 @@ class DataRateTest {
   @Test
   void testFromLong() {
     Assertions.assertEquals(
-        DataRate.of(1024, DataUnit.Byte, ChronoUnit.SECONDS).byteRate(),
-        DataRate.of(1024).byteRate());
+        DataRate.Byte.of(1024).perSecond().byteRate(), DataRate.of(1024).byteRate());
   }
 
   @Test
   void testFromDouble() {
     Assertions.assertEquals(
-        DataRate.of(1024, DataUnit.Byte, ChronoUnit.SECONDS).byteRate(),
-        DataRate.of(1024.0).byteRate());
+        DataRate.Byte.of(1024).perSecond().byteRate(), DataRate.of(1024.0).byteRate());
   }
 
   @Test
