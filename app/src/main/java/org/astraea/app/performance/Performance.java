@@ -31,7 +31,6 @@ import java.util.function.BiConsumer;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-import org.apache.kafka.clients.producer.internals.DefaultPartitioner;
 import org.apache.kafka.common.errors.WakeupException;
 import org.astraea.app.admin.Admin;
 import org.astraea.app.admin.Compression;
@@ -89,9 +88,10 @@ public class Performance {
     return DataSupplier.of(
         argument.exeTime,
         argument.keyDistributionType.create(10000),
-        argument.recordSize,
-        argument.sizeDistributionType.create(
-            argument.recordSize.measurement(DataUnit.Byte).intValue()),
+        argument.keyDistributionType.create(argument.keySize.measurement(DataUnit.Byte).intValue()),
+        argument.valueDistributionType.create(10000),
+        argument.valueDistributionType.create(
+            argument.valueSize.measurement(DataUnit.Byte).intValue()),
         argument.throughput);
   }
 
@@ -311,16 +311,10 @@ public class Performance {
     ExeTime exeTime = ExeTime.of("1000records");
 
     @Parameter(
-        names = {"--record.size"},
-        description = "DataSize: size of each record. e.g. \"500KiB\"",
-        converter = DataSize.Field.class)
-    DataSize recordSize = DataUnit.KiB.of(1);
-
-    @Parameter(
         names = {"--partitioner"},
         description = "String: the full class name of the desired partitioner",
         validateWith = NonEmptyStringField.class)
-    String partitioner = DefaultPartitioner.class.getName();
+    String partitioner = null;
 
     @Parameter(
         names = {"--compression"},
@@ -341,18 +335,30 @@ public class Performance {
     }
 
     @Parameter(
-        names = {"--key.distribution"},
-        description =
-            "String: Distribution name. Available distribution names: \"fixed\" \"uniform\", \"zipfian\", \"latest\". Default: uniform",
-        converter = DistributionType.DistributionTypeField.class)
-    DistributionType keyDistributionType = DistributionType.UNIFORM;
+        names = {"--key.size"},
+        description = "DataSize of the key. Default: 4Byte",
+        converter = DataSize.Field.class)
+    DataSize keySize = DataUnit.Byte.of(4);
 
     @Parameter(
-        names = {"--size.distribution"},
+        names = {"--value.size"},
+        description = "DataSize of the value. Default: 1KiB",
+        converter = DataSize.Field.class)
+    DataSize valueSize = DataUnit.KiB.of(1);
+
+    @Parameter(
+        names = {"--key.distribution"},
         description =
-            "String: Distribution name. Available distribution names: \"uniform\", \"zipfian\", \"latest\", \"fixed\". Default: \"uniform\"",
+            "Distribution name for key and key size. Available distribution names: \"fixed\" \"uniform\", \"zipfian\", \"latest\". Default: fixed",
         converter = DistributionType.DistributionTypeField.class)
-    DistributionType sizeDistributionType = DistributionType.UNIFORM;
+    DistributionType keyDistributionType = DistributionType.FIXED;
+
+    @Parameter(
+        names = {"--value.distribution"},
+        description =
+            "Distribution name for value and value size. Available distribution names: \"uniform\", \"zipfian\", \"latest\", \"fixed\". Default: uniform",
+        converter = DistributionType.DistributionTypeField.class)
+    DistributionType valueDistributionType = DistributionType.UNIFORM;
 
     @Parameter(
         names = {"--specify.broker"},
