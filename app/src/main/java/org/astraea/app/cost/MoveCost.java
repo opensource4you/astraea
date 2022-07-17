@@ -29,6 +29,7 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.astraea.app.admin.ClusterInfo;
@@ -224,7 +225,7 @@ public class MoveCost implements HasMoveCost {
   @Override
   public ClusterCost clusterCost(
       ClusterInfo clusterInfo, ClusterLogAllocation clusterLogAllocation) {
-    var duration = Duration.ofSeconds(90);
+    var duration = Duration.ofSeconds(10);
     distributionChange = getMigrateReplicas(clusterInfo, clusterLogAllocation, false);
     migratedReplicas = getMigrateReplicas(clusterInfo, clusterLogAllocation, true);
     replicaSize = getReplicaSize(clusterInfo);
@@ -309,9 +310,14 @@ public class MoveCost implements HasMoveCost {
                                      totalBrokerCapacity.get(x.brokerSink).get(x.pathSink) /1024.0 /1024.0
                      ).sum();
       var total =totalBrokerCapacity.values().stream().mapToDouble(x->x.values().stream().mapToDouble(y->y).sum()).sum()/1024.0/1024.0;
-     var score =(totalMigrateSize / total + migrateTrafficRange + totalMigrateTraffic/totalReplicaTrafficInSink)/3 ;
-    if (score >1)
-        return ()-> 1.0;
+      var totalMigrateSizeScore = totalMigrateSize / total > 1 ? 1 : totalMigrateSize / total ;
+     var score =(totalMigrateSizeScore + migrateTrafficRange + totalMigrateTraffic/totalReplicaTrafficInSink)/3 ;
+     if (replicaDataRate.containsValue(-1.0) ) {
+         System.out.println("retention");
+         return () -> 1.0;
+     }
+     if (score >1)
+         return ()-> 1.0;
      return () -> score;
   }
 
@@ -374,7 +380,9 @@ public class MoveCost implements HasMoveCost {
                           / 1000)
                       / 1024.0
                       / 1024.0;
-              if (latestSize == windowSize) dataRate = 0;
+              if (dataRate < 0)
+                  dataRate = -1.0;
+              if (latestSize == windowSize) dataRate = 0.0;
               return Map.entry(metrics.getKey(), dataRate);
             })
         .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));

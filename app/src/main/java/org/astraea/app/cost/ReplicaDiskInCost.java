@@ -184,7 +184,7 @@ public class ReplicaDiskInCost implements HasBrokerCost, HasPartitionCost, HasCl
 
   @Override
   public ClusterCost clusterCost(ClusterInfo clusterInfo) {
-    var duration = Duration.ofSeconds(90);
+    var duration = Duration.ofSeconds(10);
 
     final Map<Integer, List<TopicPartitionReplica>> topicPartitionOfEachBroker =
         clusterInfo.topics().stream()
@@ -276,7 +276,7 @@ public class ReplicaDiskInCost implements HasBrokerCost, HasPartitionCost, HasCl
                               sampleWindow.toMillis()
                                   > latestSize.createdTimestamp() - bean.createdTimestamp())
                       .findFirst()
-                      .orElseThrow();
+                      .orElseThrow(()->new IllegalArgumentException("metrics:"+clusterInfo.clusterBean().all().values().size()));
               var dataRate =
                   ((double) (latestSize.value() - windowSize.value()))
                       / ((double) (latestSize.createdTimestamp() - windowSize.createdTimestamp())

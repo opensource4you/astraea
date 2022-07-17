@@ -200,7 +200,7 @@ public class Balancer implements AutoCloseable {
     var thread = progressWatch("Searching for Good Rebalance Plan", tries, counter::doubleValue);
     try {
       thread.start();
-      var moveCostWeight = 0.2;
+      var moveCostWeight = 0.5;
       var bestMigrationProposal =
           planGenerator
               .generate(clusterInfo)
@@ -221,6 +221,12 @@ public class Balancer implements AutoCloseable {
                     }
                   })
               .min(Map.Entry.comparingByKey());
+
+      var allocation = bestMigrationProposal.get().getValue().rebalancePlan().get();
+      var mockedCluster =
+              BalancerUtils.mockClusterInfoAllocation(clusterInfo, allocation);
+      var score = evaluateCost(mockedCluster, clusterMetrics);
+      var moveScore = evaluateMoveCost(mockedCluster, clusterMetrics);
 
       // find the target with the highest score, return it
       return bestMigrationProposal
