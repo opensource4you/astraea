@@ -22,6 +22,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import org.astraea.app.admin.Admin;
+import org.astraea.app.common.DataRate;
 
 public class QuotaHandler implements Handler {
 
@@ -64,8 +65,20 @@ public class QuotaHandler implements Handler {
       admin
           .quotaCreator()
           .clientId(request.value(CLIENT_ID_KEY))
-          .produceRate(request.intValue(PRODUCE_RATE_KEY, Integer.MAX_VALUE))
-          .consumeRate(request.intValue(CONSUME_RATE_KEY, Integer.MAX_VALUE))
+          // TODO: use DataRate#Field (traced https://github.com/skiptests/astraea/issues/488)
+          // see https://github.com/skiptests/astraea/issues/490
+          .produceRate(
+              request
+                  .get(PRODUCE_RATE_KEY)
+                  .map(Long::parseLong)
+                  .map(v -> DataRate.Byte.of(v).perSecond())
+                  .orElse(null))
+          .consumeRate(
+              request
+                  .get(CONSUME_RATE_KEY)
+                  .map(Long::parseLong)
+                  .map(v -> DataRate.Byte.of(v).perSecond())
+                  .orElse(null))
           .create();
       return new Quotas(
           admin.quotas(org.astraea.app.admin.Quota.Target.CLIENT_ID, request.value(CLIENT_ID_KEY)));
