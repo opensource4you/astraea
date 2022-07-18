@@ -180,20 +180,20 @@ public class DataSupplierTest {
 
   @Test
   void testThrottle() {
-    var dataSupplier =
-        DataSupplier.of(
-            ExeTime.of("10s"),
-            () -> 10L,
-            () -> DataSize.KiB.of(50).measurement(DataUnit.Byte).longValue(),
-            () -> 10L,
-            () -> DataSize.KiB.of(50).measurement(DataUnit.Byte).longValue(),
-            DataSize.KiB.of(150));
+    var durationInSeconds = new AtomicLong(1);
+    var throttler =
+        new DataSupplier.Throttler(DataSize.KiB.of(150)) {
+          @Override
+          long durationInSeconds() {
+            return durationInSeconds.get();
+          }
+        };
     // total: 100KB, limit: 150KB -> no throttle
-    Assertions.assertTrue(dataSupplier.get().hasData());
-    // total: 200KB, limit: 150KB -> will throttle next data
-    Assertions.assertTrue(dataSupplier.get().hasData());
-    // throttled
-    Assertions.assertFalse(dataSupplier.get().hasData());
+    Assertions.assertFalse(
+        throttler.throttled(DataSize.KiB.of(100).measurement(DataUnit.Byte).longValue()));
+    // total: 200KB, limit: 150KB -> throttled
+    Assertions.assertTrue(
+        throttler.throttled(DataSize.KiB.of(100).measurement(DataUnit.Byte).longValue()));
   }
 
   @Test
