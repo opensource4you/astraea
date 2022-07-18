@@ -216,7 +216,7 @@ public class AdminTest extends RequireBrokerCluster {
           });
 
       var currentBroker =
-          admin.replicas(Set.of(topicName)).get(new TopicPartition(topicName, 0)).get(0).broker();
+          admin.replicas(Set.of(topicName)).get(TopicPartition.of(topicName, 0)).get(0).broker();
       var allPath = admin.brokerFolders(Set.of(currentBroker));
       var otherPath =
           allPath.get(currentBroker).stream()
@@ -225,7 +225,7 @@ public class AdminTest extends RequireBrokerCluster {
                       !i.contains(
                           admin
                               .replicas(Set.of(topicName))
-                              .get(new TopicPartition(topicName, 0))
+                              .get(TopicPartition.of(topicName, 0))
                               .get(0)
                               .path()))
               .collect(Collectors.toSet());
@@ -249,7 +249,7 @@ public class AdminTest extends RequireBrokerCluster {
     // arrange
     try (Admin admin = Admin.of(bootstrapServers())) {
       var topic = "DeclarePreferredLogDirectory_" + Utils.randomString();
-      var topicPartition = new TopicPartition(topic, 0);
+      var topicPartition = TopicPartition.of(topic, 0);
       admin.creator().topic(topic).numberOfPartitions(1).numberOfReplicas((short) 1).create();
       Utils.sleep(Duration.ofSeconds(1));
       var originalBroker = admin.replicas(Set.of(topic)).get(topicPartition).get(0).broker();
@@ -282,7 +282,7 @@ public class AdminTest extends RequireBrokerCluster {
   void testIllegalMigrationArgument() {
     try (Admin admin = Admin.of(bootstrapServers())) {
       var topic = Utils.randomString();
-      var topicPartition = new TopicPartition(topic, 0);
+      var topicPartition = TopicPartition.of(topic, 0);
       admin.creator().topic(topic).numberOfPartitions(1).numberOfReplicas((short) 1).create();
       Utils.sleep(Duration.ofSeconds(1));
       var currentReplica = admin.replicas(Set.of(topic)).get(topicPartition).get(0);
@@ -300,7 +300,7 @@ public class AdminTest extends RequireBrokerCluster {
   void testIllegalPreferredDirArgument() {
     try (Admin admin = Admin.of(bootstrapServers())) {
       var topic = Utils.randomString();
-      var topicPartition = new TopicPartition(topic, 0);
+      var topicPartition = TopicPartition.of(topic, 0);
       admin.creator().topic(topic).numberOfPartitions(1).numberOfReplicas((short) 1).create();
       Utils.sleep(Duration.ofSeconds(1));
       var currentReplica = admin.replicas(Set.of(topic)).get(topicPartition).get(0);
@@ -498,7 +498,7 @@ public class AdminTest extends RequireBrokerCluster {
       Utils.sleep(Duration.ofSeconds(3));
       var expectedPreferredLeader =
           IntStream.range(0, partitionCount)
-              .mapToObj(p -> new TopicPartition(topic, p))
+              .mapToObj(p -> TopicPartition.of(topic, p))
               .collect(Collectors.toUnmodifiableMap(p -> p, p -> List.of(0)));
       var currentPreferredLeader =
           (Supplier<Map<TopicPartition, List<Integer>>>)
@@ -729,7 +729,7 @@ public class AdminTest extends RequireBrokerCluster {
 
       var topicPartitions =
           IntStream.range(0, 30)
-              .mapToObj(i -> new TopicPartition(topic, i))
+              .mapToObj(i -> TopicPartition.of(topic, i))
               .collect(Collectors.toUnmodifiableSet());
 
       var currentLeaderMap =
@@ -824,7 +824,7 @@ public class AdminTest extends RequireBrokerCluster {
   }
 
   @Test
-  void testTransactionIdsWithMultiPuts() throws ExecutionException, InterruptedException {
+  void testTransactionIdsWithMultiPuts() {
     var topicName = Utils.randomString(10);
     try (var admin = Admin.of(bootstrapServers());
         var producer =
@@ -925,7 +925,7 @@ public class AdminTest extends RequireBrokerCluster {
   }
 
   @Test
-  void testRemoveGroupWithStaticMembers() throws InterruptedException, ExecutionException {
+  void testRemoveGroupWithStaticMembers() {
     var groupId = Utils.randomString(10);
     var topicName = Utils.randomString(10);
     try (var consumer =
@@ -956,7 +956,7 @@ public class AdminTest extends RequireBrokerCluster {
       Utils.sleep(Duration.ofSeconds(3));
 
       var currentBroker =
-          admin.replicas(Set.of(topicName)).get(new TopicPartition(topicName, 0)).get(0).broker();
+          admin.replicas(Set.of(topicName)).get(TopicPartition.of(topicName, 0)).get(0).broker();
       var nextBroker = brokerIds().stream().filter(i -> i != currentBroker).findAny().get();
 
       try (var producer = Producer.of(bootstrapServers())) {
@@ -974,7 +974,7 @@ public class AdminTest extends RequireBrokerCluster {
           try {
             admin.migrator().topic(topicName).moveTo(List.of(nextBroker));
             var reassignment =
-                admin.reassignments(Set.of(topicName)).get(new TopicPartition(topicName, 0));
+                admin.reassignments(Set.of(topicName)).get(TopicPartition.of(topicName, 0));
 
             // Don't verify the result if the migration is done
             if (reassignment != null) {
@@ -1001,7 +1001,7 @@ public class AdminTest extends RequireBrokerCluster {
       Utils.sleep(Duration.ofSeconds(3));
 
       var currentReplica =
-          admin.replicas(Set.of(topicName)).get(new TopicPartition(topicName, 0)).get(0);
+          admin.replicas(Set.of(topicName)).get(TopicPartition.of(topicName, 0)).get(0);
       var currentBroker = currentReplica.broker();
       var currentPath = currentReplica.path();
       var nextPath =
@@ -1025,7 +1025,7 @@ public class AdminTest extends RequireBrokerCluster {
           try {
             admin.migrator().topic(topicName).moveTo(Map.of(currentReplica.broker(), nextPath));
             var reassignment =
-                admin.reassignments(Set.of(topicName)).get(new TopicPartition(topicName, 0));
+                admin.reassignments(Set.of(topicName)).get(TopicPartition.of(topicName, 0));
             // Don't verify the result if the migration is done
             if (reassignment != null) {
               Assertions.assertEquals(1, reassignment.from().size());
@@ -1068,7 +1068,7 @@ public class AdminTest extends RequireBrokerCluster {
           try {
             admin.migrator().topic(topicName).moveTo(brokers);
             var reassignment =
-                admin.reassignments(Set.of(topicName)).get(new TopicPartition(topicName, 0));
+                admin.reassignments(Set.of(topicName)).get(TopicPartition.of(topicName, 0));
             // Don't verify the result if the migration is done
             if (reassignment != null) {
               Assertions.assertEquals(3, reassignment.from().size());
@@ -1088,7 +1088,6 @@ public class AdminTest extends RequireBrokerCluster {
     try (var admin = Admin.of(bootstrapServers())) {
       admin.creator().topic(topicName).numberOfPartitions(1).numberOfReplicas((short) 3).create();
       Utils.sleep(Duration.ofSeconds(3));
-      var brokers = new ArrayList<>(brokerIds()).subList(0, 2);
       try (var producer = Producer.of(bootstrapServers())) {
         producer.sender().topic(topicName).value(new byte[100]).run();
         producer.flush();

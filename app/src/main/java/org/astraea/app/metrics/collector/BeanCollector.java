@@ -119,7 +119,7 @@ public class BeanCollector {
       @Override
       public Receiver build() {
         var nodeKey = host + ":" + port;
-        var node = nodes.computeIfAbsent(nodeKey, ignored -> new Node(host, port));
+        var node = nodes.computeIfAbsent(nodeKey, ignored -> new Node());
         var receiver =
             new Receiver() {
               private final Map<Long, HasBeanObject> objects = new ConcurrentSkipListMap<>();
@@ -201,12 +201,5 @@ public class BeanCollector {
     private final Lock lock = new ReentrantLock();
     // visible for testing
     MBeanClient mBeanClient;
-    public final String host;
-    public final int port;
-
-    Node(String host, int port) {
-      this.host = host;
-      this.port = port;
-    }
   }
 }

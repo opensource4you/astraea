@@ -22,11 +22,9 @@ import javax.management.AttributeList;
 import javax.management.AttributeNotFoundException;
 import javax.management.MBeanAttributeInfo;
 import javax.management.MBeanConstructorInfo;
-import javax.management.MBeanException;
 import javax.management.MBeanInfo;
 import javax.management.MBeanNotificationInfo;
 import javax.management.MBeanOperationInfo;
-import javax.management.ReflectionException;
 import javax.management.RuntimeOperationsException;
 
 class Utility {
@@ -90,8 +88,7 @@ class Utility {
     }
 
     @Override
-    public Object invoke(String actionName, Object[] params, String[] signature)
-        throws MBeanException, ReflectionException {
+    public Object invoke(String actionName, Object[] params, String[] signature) {
       throw new UnsupportedOperationException();
     }
 

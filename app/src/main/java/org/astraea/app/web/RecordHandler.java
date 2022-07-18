@@ -92,7 +92,7 @@ public class RecordHandler implements Handler {
             .map(
                 partition ->
                     (Builder<byte[], byte[]>)
-                        Consumer.forPartitions(Set.of(new TopicPartition(topic, partition))))
+                        Consumer.forPartitions(Set.of(TopicPartition.of(topic, partition))))
             .orElseGet(() -> Consumer.forTopics(Set.of(topic)));
 
     var keyDeserializer =

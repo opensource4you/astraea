@@ -211,7 +211,7 @@ class ClusterLogAllocationTest {
 
     final var map4 =
         source.topicPartitions().stream().collect(Collectors.toMap(x -> x, source::logPlacements));
-    map4.put(new TopicPartition("NewTopic", 0), List.of(LogPlacement.of(0, "?")));
+    map4.put(TopicPartition.of("NewTopic", 0), List.of(LogPlacement.of(0, "?")));
     final var target4 = ClusterLogAllocation.of(map4);
     Assertions.assertThrows(
         IllegalArgumentException.class,

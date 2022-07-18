@@ -17,7 +17,6 @@
 package org.astraea.app.admin;
 
 import com.beust.jcommander.Parameter;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
@@ -304,7 +303,7 @@ public class ReplicaCollie {
     return getResult(brokerMigrate, pathMigrate, argument, admin);
   }
 
-  public static void main(String[] args) throws IOException {
+  public static void main(String[] args) {
     var argument = org.astraea.app.argument.Argument.parse(new Argument(), args);
 
     try (var admin = Admin.of(argument.bootstrapServers())) {

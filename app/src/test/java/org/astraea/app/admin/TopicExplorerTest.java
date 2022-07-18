@@ -160,7 +160,7 @@ public class TopicExplorerTest extends RequireBrokerCluster {
     var partitionInfo =
         List.of(
             new TopicExplorer.PartitionInfo(
-                new TopicPartition("my-topic", 0),
+                TopicPartition.of("my-topic", 0),
                 0,
                 100,
                 List.of(new Replica(55, 15, 100, true, false, true, false, true, "/tmp/path0"))));
@@ -173,8 +173,8 @@ public class TopicExplorerTest extends RequireBrokerCluster {
                 new ConsumerGroup(
                     "my-consumer-group-1",
                     groupMembers,
-                    Map.of(new TopicPartition("my-topic", 0), 50L),
-                    Map.of(groupMembers.get(0), Set.of(new TopicPartition("my-topic", 0))))));
+                    Map.of(TopicPartition.of("my-topic", 0), 50L),
+                    Map.of(groupMembers.get(0), Set.of(TopicPartition.of("my-topic", 0))))));
 
     // act
     TopicExplorer.TreeOutput.print(result, printStream);
@@ -225,11 +225,11 @@ public class TopicExplorerTest extends RequireBrokerCluster {
     String topicName1 = "poor_topic1";
     var payload0 =
         Map.of(
-            new TopicPartition(topicName0, 0),
+            TopicPartition.of(topicName0, 0),
             List.of(new Replica(1000, 0, 0, false, false, false, false, true, "?")));
     var payload1 =
         Map.of(
-            new TopicPartition(topicName1, 0),
+            TopicPartition.of(topicName1, 0),
             List.of(
                 new Replica(1000, 0, 0, false, false, false, false, true, "?"),
                 new Replica(1001, 0, 0, false, false, false, false, false, "?"),

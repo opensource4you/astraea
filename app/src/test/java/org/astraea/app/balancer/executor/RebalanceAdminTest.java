@@ -63,7 +63,7 @@ class RebalanceAdminTest extends RequireBrokerCluster {
       // act
       var tasks =
           rebalanceAdmin.alterReplicaPlacements(
-              new TopicPartition(topic, 0),
+              TopicPartition.of(topic, 0),
               List.of(
                   LogPlacement.of(0, logFolder0),
                   LogPlacement.of(1, logFolder1),
@@ -72,7 +72,7 @@ class RebalanceAdminTest extends RequireBrokerCluster {
           task -> Utils.packException(() -> task.completableFuture().get(5, TimeUnit.SECONDS)));
 
       // assert
-      var topicPartition = new TopicPartition(topic, 0);
+      var topicPartition = TopicPartition.of(topic, 0);
       var replicas = admin.replicas(Set.of(topic)).get(topicPartition);
 
       Assertions.assertEquals(
@@ -89,7 +89,7 @@ class RebalanceAdminTest extends RequireBrokerCluster {
     // arrange
     try (Admin admin = Admin.of(bootstrapServers())) {
       var topic = prepareTopic(admin, 1, (short) 1);
-      var topicPartition = new TopicPartition(topic, 0);
+      var topicPartition = TopicPartition.of(topic, 0);
       var rebalanceAdmin = prepareRebalanceAdmin(admin);
       // decrease the debouncing time so the test has higher chance to fail
       RebalanceAdminImpl.changeRetrialTime(Duration.ofMillis(150));
@@ -139,7 +139,7 @@ class RebalanceAdminTest extends RequireBrokerCluster {
     // arrange
     try (var admin = Admin.of(bootstrapServers())) {
       var topic = prepareTopic(admin, 1, (short) 1);
-      var topicPartition = new TopicPartition(topic, 0);
+      var topicPartition = TopicPartition.of(topic, 0);
       var rebalanceAdmin = prepareRebalanceAdmin(admin);
       var beginReplica = admin.replicas().get(topicPartition).get(0);
       var otherDataDir =
@@ -156,9 +156,9 @@ class RebalanceAdminTest extends RequireBrokerCluster {
 
       // act
       long time0 = System.currentTimeMillis();
-      rebalanceAdmin.waitLogSynced(new TopicPartitionReplica(topic, 0, 0)).get();
-      rebalanceAdmin.waitLogSynced(new TopicPartitionReplica(topic, 0, 1)).get();
-      rebalanceAdmin.waitLogSynced(new TopicPartitionReplica(topic, 0, 2)).get();
+      rebalanceAdmin.waitLogSynced(TopicPartitionReplica.of(topic, 0, 0)).get();
+      rebalanceAdmin.waitLogSynced(TopicPartitionReplica.of(topic, 0, 1)).get();
+      rebalanceAdmin.waitLogSynced(TopicPartitionReplica.of(topic, 0, 2)).get();
       long time1 = System.currentTimeMillis();
 
       // assert all replica synced
@@ -181,7 +181,7 @@ class RebalanceAdminTest extends RequireBrokerCluster {
     try (var admin = Admin.of(bootstrapServers())) {
       var topic = prepareTopic(admin, 1, (short) 3);
       var rebalanceAdmin = prepareRebalanceAdmin(admin);
-      var topicPartition = new TopicPartition(topic, 0);
+      var topicPartition = TopicPartition.of(topic, 0);
 
       var leaderNow =
           (Supplier<Integer>)
@@ -223,7 +223,7 @@ class RebalanceAdminTest extends RequireBrokerCluster {
     try (var admin = Admin.of(bootstrapServers())) {
       var topic = prepareTopic(admin, 1, (short) 3);
       var rebalanceAdmin = prepareRebalanceAdmin(admin);
-      var topicPartition = new TopicPartition(topic, 0);
+      var topicPartition = TopicPartition.of(topic, 0);
 
       var leaderNow =
           (Supplier<Integer>)
@@ -266,9 +266,9 @@ class RebalanceAdminTest extends RequireBrokerCluster {
       var topic1 = Utils.randomString();
       var topic2 = Utils.randomString();
       var topic3 = Utils.randomString();
-      var topicPartition1 = new TopicPartition(topic1, 0);
-      var topicPartition2 = new TopicPartition(topic2, 0);
-      var topicPartition3 = new TopicPartition(topic3, 0);
+      var topicPartition1 = TopicPartition.of(topic1, 0);
+      var topicPartition2 = TopicPartition.of(topic2, 0);
+      var topicPartition3 = TopicPartition.of(topic3, 0);
       Stream.of(topic1, topic2, topic3)
           .forEach(i -> admin.creator().topic(i).numberOfPartitions(1).create());
       var allowed = List.of(topic1, topic2);

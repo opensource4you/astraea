@@ -91,7 +91,7 @@ public class PerformanceTest extends RequireBrokerCluster {
       Assertions.assertEquals(State.RUNNING, producerExecutors.get(0).execute());
       latch.await();
       Assertions.assertEquals(
-          1, admin.offsets(Set.of(topic)).get(new TopicPartition(topic, 0)).latest());
+          1, admin.offsets(Set.of(topic)).get(TopicPartition.of(topic, 0)).latest());
     }
   }
 

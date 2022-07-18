@@ -54,7 +54,6 @@ public class ReplicaLeaderCostTest {
 
   @Test
   void testWithMetrics() {
-    var topicName = List.of("testLeaderCost-1", "testLeaderCost-2", "testLeaderCost-3");
     var costFunction = new ReplicaLeaderCost();
     var LeaderCount1 = mockResult(KafkaMetrics.ReplicaManager.LeaderCount.metricName(), 3);
     var LeaderCount2 = mockResult(KafkaMetrics.ReplicaManager.LeaderCount.metricName(), 4);

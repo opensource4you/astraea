@@ -80,19 +80,19 @@ class ReplicaDiskInCostTest extends RequireBrokerCluster {
     var broker3ReplicaLoad = loadCostFunction.partitionCost(clusterInfo(), clusterBean()).value(3);
     // broker1
     Assertions.assertEquals(
-        0.23841381072998047, broker1ReplicaLoad.get(new TopicPartition("test-1", 0)));
+        0.23841381072998047, broker1ReplicaLoad.get(TopicPartition.of("test-1", 0)));
     Assertions.assertEquals(
-        0.1907339096069336, broker1ReplicaLoad.get(new TopicPartition("test-2", 0)));
+        0.1907339096069336, broker1ReplicaLoad.get(TopicPartition.of("test-2", 0)));
     // broker2
     Assertions.assertEquals(
-        0.23841381072998047, broker2ReplicaLoad.get(new TopicPartition("test-1", 0)));
+        0.23841381072998047, broker2ReplicaLoad.get(TopicPartition.of("test-1", 0)));
     Assertions.assertEquals(
-        0.476834774017334, broker2ReplicaLoad.get(new TopicPartition("test-1", 1)));
+        0.476834774017334, broker2ReplicaLoad.get(TopicPartition.of("test-1", 1)));
     // broker3
     Assertions.assertEquals(
-        0.476834774017334, broker3ReplicaLoad.get(new TopicPartition("test-1", 1)));
+        0.476834774017334, broker3ReplicaLoad.get(TopicPartition.of("test-1", 1)));
     Assertions.assertEquals(
-        0.1907339096069336, broker3ReplicaLoad.get(new TopicPartition("test-2", 0)));
+        0.1907339096069336, broker3ReplicaLoad.get(TopicPartition.of("test-2", 0)));
   }
 
   @Test

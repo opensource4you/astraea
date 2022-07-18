@@ -74,7 +74,7 @@ class ReplicaSyncingMonitorTest {
 
   // helper functions
   private static final BiFunction<String, Integer, TopicPartition> topicPartition =
-      TopicPartition::new;
+      TopicPartition::of;
   private static final BiFunction<Integer, long[], List<Replica>> replica =
       (count, size) ->
           IntStream.range(0, count)
@@ -330,18 +330,18 @@ class ReplicaSyncingMonitorTest {
     when(mockTopicAdmin.replicas(any()))
         .thenReturn(
             Map.of(
-                new TopicPartition("topic1", 0), replicaList1,
-                new TopicPartition("topic2", 0), replicaList2,
-                new TopicPartition("topic2", 1), replicaList2));
+                TopicPartition.of("topic1", 0), replicaList1,
+                TopicPartition.of("topic2", 0), replicaList2,
+                TopicPartition.of("topic2", 1), replicaList2));
 
     // act
     Set<TopicPartition> nonSyncedTopicPartition =
         ReplicaSyncingMonitor.findNonSyncedTopicPartition(mockTopicAdmin, topics);
 
     // assert
-    assertTrue(nonSyncedTopicPartition.contains(new TopicPartition("topic2", 1)));
-    assertTrue(nonSyncedTopicPartition.contains(new TopicPartition("topic2", 0)));
-    assertFalse(nonSyncedTopicPartition.contains(new TopicPartition("topic1", 0)));
+    assertTrue(nonSyncedTopicPartition.contains(TopicPartition.of("topic2", 1)));
+    assertTrue(nonSyncedTopicPartition.contains(TopicPartition.of("topic2", 0)));
+    assertFalse(nonSyncedTopicPartition.contains(TopicPartition.of("topic1", 0)));
   }
 
   @Test
