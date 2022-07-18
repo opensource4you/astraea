@@ -52,6 +52,7 @@ import org.apache.kafka.common.quota.ClientQuotaAlteration;
 import org.apache.kafka.common.quota.ClientQuotaEntity;
 import org.apache.kafka.common.quota.ClientQuotaFilter;
 import org.apache.kafka.common.quota.ClientQuotaFilterComponent;
+import org.astraea.app.common.DataRate;
 import org.astraea.app.common.Utils;
 
 public class Builder {
@@ -936,17 +937,17 @@ public class Builder {
     @Override
     public Client clientId(String id) {
       return new Client() {
-        private int produceRate = Integer.MAX_VALUE;
-        private int consumeRate = Integer.MAX_VALUE;
+        private DataRate produceRate = null;
+        private DataRate consumeRate = null;
 
         @Override
-        public Client produceRate(int value) {
+        public Client produceRate(DataRate value) {
           this.produceRate = value;
           return this;
         }
 
         @Override
-        public Client consumeRate(int value) {
+        public Client consumeRate(DataRate value) {
           this.consumeRate = value;
           return this;
         }
@@ -954,14 +955,14 @@ public class Builder {
         @Override
         public void create() {
           var q = new ArrayList<ClientQuotaAlteration.Op>();
-          if (produceRate != Integer.MAX_VALUE)
+          if (produceRate != null)
             q.add(
                 new ClientQuotaAlteration.Op(
-                    Quota.Limit.PRODUCER_BYTE_RATE.nameOfKafka(), (double) produceRate));
-          if (consumeRate != Integer.MAX_VALUE)
+                    Quota.Limit.PRODUCER_BYTE_RATE.nameOfKafka(), produceRate.byteRate()));
+          if (consumeRate != null)
             q.add(
                 new ClientQuotaAlteration.Op(
-                    Quota.Limit.CONSUMER_BYTE_RATE.nameOfKafka(), (double) consumeRate));
+                    Quota.Limit.CONSUMER_BYTE_RATE.nameOfKafka(), consumeRate.byteRate()));
           if (!q.isEmpty())
             Utils.packException(
                 () ->

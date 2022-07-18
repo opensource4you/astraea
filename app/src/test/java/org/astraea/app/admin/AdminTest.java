@@ -35,6 +35,7 @@ import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 import org.apache.kafka.common.config.TopicConfig;
 import org.apache.kafka.common.errors.GroupNotEmptyException;
+import org.astraea.app.common.DataRate;
 import org.astraea.app.common.Utils;
 import org.astraea.app.concurrent.State;
 import org.astraea.app.concurrent.ThreadPool;
@@ -585,7 +586,12 @@ public class AdminTest extends RequireBrokerCluster {
   @Test
   void testClientQuota() {
     try (var admin = Admin.of(bootstrapServers())) {
-      admin.quotaCreator().clientId("my-id").produceRate(10).consumeRate(100).create();
+      admin
+          .quotaCreator()
+          .clientId("my-id")
+          .produceRate(DataRate.Byte.of(100L).perSecond())
+          .consumeRate(DataRate.Byte.of(100L).perSecond())
+          .create();
       Utils.sleep(Duration.ofSeconds(2));
 
       java.util.function.Consumer<List<Quota>> checker =
@@ -641,8 +647,16 @@ public class AdminTest extends RequireBrokerCluster {
   @Test
   void testMultipleClientQuota() {
     try (var admin = Admin.of(bootstrapServers())) {
-      admin.quotaCreator().clientId("my-id").consumeRate(100).create();
-      admin.quotaCreator().clientId("my-id").produceRate(999).create();
+      admin
+          .quotaCreator()
+          .clientId("my-id")
+          .consumeRate(DataRate.Byte.of(100L).perSecond())
+          .create();
+      admin
+          .quotaCreator()
+          .clientId("my-id")
+          .produceRate(DataRate.Byte.of(1000L).perSecond())
+          .create();
       Utils.sleep(Duration.ofSeconds(2));
       Assertions.assertEquals(2, admin.quotas(Quota.Target.CLIENT_ID, "my-id").size());
     }
