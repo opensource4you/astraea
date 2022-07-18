@@ -200,7 +200,7 @@ Run the benchmark from source
 12. --throughput: the produce rate for all producers. e.g. "--throughput 2MiB". Default: 500 GiB (per second)
 13. --key.size: the bound of DataSize of the key. Default: 4Byte
 14. --value.size: the bound of DataSize of the value. Default: 1KiB
-15. --key.distribution: distribution name for key and key size. Available distribution names: "fixed" "uniform", "zipfian", "latest". Default: fixed
+15. --key.distribution: distribution name for key and key size. Available distribution names: "fixed" "uniform", "zipfian", "latest". Default: uniform
 16. --value.distribution: distribution name for value and record size. Available distribution names: "uniform", "zipfian", "latest", "fixed". Default: uniform
 17. --specify.broker: list of broker IDs to produce records to. Default: (Do Not Specify)
 18. --report.path: A path to place the report file. Default: (no report)
