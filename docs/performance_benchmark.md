@@ -4,14 +4,8 @@
 
 1. Publish latency : 完成producer request的時間
 2. End-to-End latency : 一筆record從producer端到consumer端的時間
-3. Input rate : consumer拉取資料的速率(MB/s)
-4. Output rate : producer送資料的速率(MB/s)
-
-執行指令為:
-
-```bash
-./gradlew run --args="performance --bootstrap.servers localhost:9092"
-```
+3. Consume rate : consumer拉取資料的速率(MB/s)
+4. Produce rate : producer送資料的速率(MB/s)
 
 #### Performance Benchmark Configurations
 
@@ -37,19 +31,19 @@
 
 9. --key.size: 每筆record key的大小上限。 預設: 4Byte
 
-10. --value.size: 每筆record value的大小上限。 預設: 1KiB
+10. --key.distribution: key和key大小的分佈名稱，可用的分佈為: "uniform", "zipfian", "latest", "fixed"。 預設: (No Key)
 
-11. --prop.file: 配置property file的路徑
+11. --value.size: 每筆record value的大小上限。 預設: 1KiB
 
-12. --partitioner: 配置producer使用的partitioner
+12. --value.distribution: value和value大小的分佈名稱， 可用的分佈為: "uniform", "zipfian", "latest", "fixed"。預設: "uniform"
 
-13. --configs: 給partitioner的設置檔。 設置格式為 "<key1>=<value1>[,<key2>=<value2>]*"。 例如: "--configs broker.1001.jmx.port=14338,org.astraea.cost.ThroughputCost=1"
+13. --prop.file: 配置property file的路徑
 
-14. --throughput: 所有producers的produce rate。 例如: "--throughput 2MiB"。 預設: 500 GiB (每秒)
+14. --partitioner: 配置producer使用的partitioner
 
-15. --key.distribution: key和key大小的分佈名稱，可用的分佈為: "uniform", "zipfian", "latest", "fixed"。 預設: (No Key)
+15. --configs: 給partitioner的設置檔。 設置格式為 "<key1>=<value1>[,<key2>=<value2>]*"。 例如: "--configs broker.1001.jmx.port=14338,org.astraea.cost.ThroughputCost=1"
 
-16. --size.distribution: value和value大小的分佈名稱， 可用的分佈為: "uniform", "zipfian", "latest", "fixed"。預設: "uniform"
+16. --throughput: 所有producers的produce rate。 例如: "--throughput 2MiB"。 預設: 500 GiB (每秒)
 
 17. --specify.broker: 指定broker的ID，送資料到指定的broker。 預設: (Do Not Specify)
 
@@ -57,9 +51,11 @@
 
 19. --report.format: 選擇輸出檔案格式。 可用的格式: "csv", "json"。 預設: "csv"
 
-20. --transaction.size: 每個transaction的records數量。 預設: 1
+20. --transaction.size: 每個transaction的records數量。 若設置1以上，會使用transaction，否則都是一般write 預設: 1
 
 #### 使用範例
+
+專案內的工具都有整合到container中，使用者利用docker運行，可方便管理
 
 使用前，請先確認自己的Kafka server ip，並且Kafka 有正常運作，關於啟動Kafka 可參考 [run_kafka_broker](run_kafka_broker.md)。
 
@@ -68,9 +64,13 @@
 ```bash 
 docker/start_app.sh performance --bootstrap.servers localhost:9092
 ```
+
 (localhost, 9092 替換成自己Kafka server 的 ip 和 port)
 
+![performance_tool_demo](pictures/performance_tool_demo.jpg)
+
 或者自己重新編譯、執行
+
 ```bash
 ./gradlew run --args="performance --bootstrap.servers localhost:9092"
 ```
