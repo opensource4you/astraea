@@ -365,6 +365,7 @@ public class Performance {
         validateWith = NonEmptyStringField.class)
     List<Integer> specifyBroker = List.of(-1);
 
+    // replace DataSize by DataRate (see https://github.com/skiptests/astraea/issues/488)
     @Parameter(
         names = {"--throughput"},
         description = "dataSize: size output per second. e.g. \"500KiB\"",
