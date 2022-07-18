@@ -589,7 +589,7 @@ public class AdminTest extends RequireBrokerCluster {
       admin
           .quotaCreator()
           .clientId("my-id")
-          .produceRate(DataRate.Byte.of(100L).perSecond())
+          .produceRate(DataRate.Byte.of(10L).perSecond())
           .consumeRate(DataRate.Byte.of(100L).perSecond())
           .create();
       Utils.sleep(Duration.ofSeconds(2));
