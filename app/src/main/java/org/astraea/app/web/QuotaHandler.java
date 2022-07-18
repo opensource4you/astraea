@@ -65,6 +65,8 @@ public class QuotaHandler implements Handler {
       admin
           .quotaCreator()
           .clientId(request.value(CLIENT_ID_KEY))
+          // TODO: use DataRate#Field to parse string
+          //  (it will be introduced by https://github.com/skiptests/astraea/issues/488)
           .produceRate(
               request
                   .get(PRODUCE_RATE_KEY)
