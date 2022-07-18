@@ -264,11 +264,6 @@ public class DataSize implements Comparable<DataSize> {
     return new DataRate(this, timePassed);
   }
 
-  /** @return a {@link DataRate} based on current data size over one second. */
-  public DataRate perSecond() {
-    return dataRate(ChronoUnit.SECONDS);
-  }
-
   /** Return a string represent current size in given data unit. */
   public String toString(DataUnit unit) {
     var divide =

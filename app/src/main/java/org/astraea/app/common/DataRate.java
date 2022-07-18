@@ -30,7 +30,7 @@ public class DataRate {
   private final DataSize totalBitTransmitted;
   private final BigDecimal durationInNanoSecond;
 
-  public static final DataRate ZERO = DataRate.of(0);
+  public static final DataRate ZERO = DataRate.Byte.of(0).perSecond();
 
   public static final DataSizeSource Size = DataRateBuilder::new;
   public static final LongSource Bit = (x) -> new DataRateBuilder(DataSize.Bit.of(x));
@@ -143,32 +143,6 @@ public class DataRate {
   public DataSize dataSize() {
     var bitsPerSecond = toBigDecimal(DataUnit.Bit, ChronoUnit.SECONDS).toBigInteger();
     return new DataSize(bitsPerSecond);
-  }
-
-  /**
-   * @param bytesPerSecond the double value that represent a data rate in bytes/second unit
-   * @return a {@link DataRate} converted from the given parameter.
-   */
-  public static DataRate of(double bytesPerSecond) {
-    var bits =
-        BigDecimal.valueOf(bytesPerSecond)
-            .multiply(new BigDecimal(DataUnit.Byte.bits))
-            .toBigInteger();
-    var size = new DataSize(bits);
-    return new DataRate(size, Duration.ofSeconds(1));
-  }
-
-  /**
-   * @param bytesPerSecond the double value that represent a data rate in bytes/second unit
-   * @return a {@link DataRate} converted from the given parameter.
-   */
-  public static DataRate of(long bytesPerSecond) {
-    var bits =
-        BigDecimal.valueOf(bytesPerSecond)
-            .multiply(new BigDecimal(DataUnit.Byte.bits))
-            .toBigInteger();
-    var size = new DataSize(bits);
-    return new DataRate(size, Duration.ofSeconds(1));
   }
 
   private static String chronoName(ChronoUnit chronoUnit) {

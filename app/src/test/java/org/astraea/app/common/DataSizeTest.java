@@ -87,18 +87,15 @@ class DataSizeTest {
     long bytes10Gib = DataSize.Gib.of(10).bytes();
 
     // two ways to get second rate
-    DataRate one = DataSize.Byte.of(1000).perSecond();
     DataRate two = DataRate.Byte.of(1000).perSecond();
 
     // data rate to other types
-    double dataRateDouble = DataSize.Byte.of(1000).perSecond().byteRate();
-    DataSize dataRateSize = DataSize.Byte.of(1000).perSecond().dataSize();
+    double dataRateDouble = DataRate.Byte.of(1000).perSecond().byteRate();
+    DataSize dataRateSize = DataRate.Byte.of(1000).perSecond().dataSize();
 
     // fast way to get DataSize & DataRate from primitive type
     DataSize primitive0 = DataSize.Byte.of(1000);
     DataSize primitive1 = DataSize.Byte.of((long) 1000.0);
-    DataRate primitive2 = DataRate.of(123.0);
-    DataRate primitive3 = DataRate.of(1024);
 
     // fast way to add/subtract data from primitive type
     DataSize.Byte.of(1000).subtract(500);
@@ -373,20 +370,6 @@ class DataSizeTest {
     assertFalse(DataUnit.MB.of(2).smallerEqualTo(DataUnit.KB.of(1000)));
     assertFalse(DataUnit.MB.of(0).greaterEqualTo(DataUnit.KB.of(1000)));
     assertFalse(DataUnit.MB.of(1).greaterThan(DataUnit.KB.of(1001)));
-  }
-
-  @ParameterizedTest
-  @CsvSource(
-      delimiterString = " ",
-      value = {"1000 KiB", "1234 Kib", "5566 GB", "42 Byte"})
-  void perSecond(long measurement, DataUnit unit) {
-    var dataSize = unit.of(measurement);
-    var dataRate = dataSize.perSecond();
-
-    Assertions.assertEquals(
-        measurement, dataRate.toBigDecimal(unit, ChronoUnit.SECONDS).longValueExact());
-    Assertions.assertEquals(
-        measurement * 60, dataRate.toBigDecimal(unit, ChronoUnit.MINUTES).longValueExact());
   }
 
   @ParameterizedTest

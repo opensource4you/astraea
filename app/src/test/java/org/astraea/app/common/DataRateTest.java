@@ -102,9 +102,9 @@ class DataRateTest {
 
   @Test
   void testToDataSize() {
-    Assertions.assertEquals(DataUnit.Byte.of(1024), DataUnit.Byte.of(1024).perSecond().dataSize());
-    Assertions.assertEquals(DataUnit.KiB.of(1024), DataUnit.KiB.of(1024).perSecond().dataSize());
-    Assertions.assertEquals(DataUnit.EiB.of(24), DataUnit.EiB.of(24).perSecond().dataSize());
+    Assertions.assertEquals(DataUnit.Byte.of(1024), DataRate.Byte.of(1024).perSecond().dataSize());
+    Assertions.assertEquals(DataUnit.KiB.of(1024), DataRate.KiB.of(1024).perSecond().dataSize());
+    Assertions.assertEquals(DataUnit.EiB.of(24), DataRate.EiB.of(24).perSecond().dataSize());
   }
 
   @Test
@@ -116,26 +116,14 @@ class DataRateTest {
               "The value " + a + " and " + b + " should have no difference above 1e-8");
         };
 
-    assertDoubleEqual.accept(1024.0, DataUnit.Byte.of(1024).perSecond().byteRate());
-    assertDoubleEqual.accept(1024.0 * 1024, DataUnit.KiB.of(1024).perSecond().byteRate());
+    assertDoubleEqual.accept(1024.0, DataRate.Byte.of(1024).perSecond().byteRate());
+    assertDoubleEqual.accept(1024.0 * 1024, DataRate.KiB.of(1024).perSecond().byteRate());
   }
 
   @Test
   void testLongByteRate() {
-    Assertions.assertEquals(1024L, DataUnit.Byte.of(1024).perSecond().byteRate());
-    Assertions.assertEquals(1024L * 1024, DataUnit.KiB.of(1024).perSecond().byteRate());
-  }
-
-  @Test
-  void testFromLong() {
-    Assertions.assertEquals(
-        DataRate.Byte.of(1024).perSecond().byteRate(), DataRate.of(1024).byteRate());
-  }
-
-  @Test
-  void testFromDouble() {
-    Assertions.assertEquals(
-        DataRate.Byte.of(1024).perSecond().byteRate(), DataRate.of(1024.0).byteRate());
+    Assertions.assertEquals(1024L, DataRate.Byte.of(1024).perSecond().byteRate());
+    Assertions.assertEquals(1024L * 1024, DataRate.KiB.of(1024).perSecond().byteRate());
   }
 
   @Test
