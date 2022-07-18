@@ -30,8 +30,6 @@ public class DataRate {
   private final DataSize totalBitTransmitted;
   private final BigDecimal durationInNanoSecond;
 
-  public static final DataRate ZERO = DataRate.Byte.of(0).perSecond();
-
   public static final DataSizeSource Size = DataRateBuilder::new;
   public static final LongSource Bit = (x) -> new DataRateBuilder(DataSize.Bit.of(x));
   public static final LongSource Kb = (x) -> new DataRateBuilder(DataSize.Kb.of(x));
@@ -68,6 +66,8 @@ public class DataRate {
   public static final LongSource EiB = (x) -> new DataRateBuilder(DataSize.EiB.of(x));
   public static final LongSource YiB = (x) -> new DataRateBuilder(DataSize.YiB.of(x));
   public static final LongSource ZiB = (x) -> new DataRateBuilder(DataSize.ZiB.of(x));
+
+  public static final DataRate ZERO = DataRate.Byte.of(0).perSecond();
 
   static BigDecimal fromDurationToBigDecimalSafely(Duration duration) {
     // It the given duration is extremely long(like 1000 years), it might overflow the long
