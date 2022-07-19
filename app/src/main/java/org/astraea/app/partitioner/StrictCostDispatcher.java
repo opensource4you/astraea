@@ -207,7 +207,16 @@ public class StrictCostDispatcher implements Dispatcher {
       Map<Integer, Integer> customJmxPort,
       Duration roundRobinLease) {
     this.functions = functions;
-    this.fetcher = Fetcher.of(this.functions.keySet());
+    // the temporary exception won't affect the smooth-weighted too much.
+    // TODO: should we propagate the exception by better way? For example: Slf4j ?
+    this.fetcher =
+        Fetcher.of(
+            this.functions.keySet().stream()
+                .map(CostFunction::fetcher)
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .collect(Collectors.toUnmodifiableList()),
+            Throwable::printStackTrace);
     this.jmxPortGetter = id -> Optional.ofNullable(customJmxPort.get(id)).or(() -> jmxPortDefault);
 
     // put local mbean client first
