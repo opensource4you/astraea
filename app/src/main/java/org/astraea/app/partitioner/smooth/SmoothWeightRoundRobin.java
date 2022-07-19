@@ -84,10 +84,9 @@ public final class SmoothWeightRoundRobin
                           Collectors.toMap(
                               Map.Entry::getKey,
                               entry -> (entry.getValue() - avgScore) / avgScore));
-              var balance = false;
               // If the average offset of all brokers from the cluster is greater than 0.1, it is
               // unbalanced.
-              balance =
+              var balance =
                   CostUtils.standardDeviationImperative(avgScore, brokerScore)
                       > upperLimitOffsetRatio * avgScore;
               var finalFactory = balance;
