@@ -120,11 +120,11 @@ public class ReplicaSyncingMonitor {
                                       Map.entry(
                                           entry.getValue(),
                                           new ProgressInfo(
-                                              DataUnit.Byte.of(leaderReplica.size()),
-                                              DataUnit.Byte.of(
+                                              DataSize.Byte.of(leaderReplica.size()),
+                                              DataSize.Byte.of(
                                                   previousCheckedSize.getOrDefault(
                                                       entry.getKey(), entry.getValue().size())),
-                                              DataUnit.Byte.of(entry.getValue().size()),
+                                              DataSize.Byte.of(entry.getValue().size()),
                                               argument.interval)))
                               .map(
                                   entry ->
@@ -252,7 +252,7 @@ public class ReplicaSyncingMonitor {
     public DataRate dataRate() {
       if (isProgressFallback()) {
         // log retention/compaction occurred, we don't know the actual data rate at this moment.
-        return DataRate.of(0, DataUnit.Byte, interval);
+        return DataRate.ZERO;
       } else {
         return currentSize.subtract(previousSize).dataRate(interval);
       }

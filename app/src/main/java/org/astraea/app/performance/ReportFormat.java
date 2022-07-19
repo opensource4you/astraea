@@ -28,7 +28,7 @@ import java.time.Duration;
 import java.util.Date;
 import java.util.function.Supplier;
 import java.util.stream.IntStream;
-import org.astraea.app.common.DataUnit;
+import org.astraea.app.common.DataSize;
 import org.astraea.app.common.Utils;
 import org.astraea.app.concurrent.Executor;
 import org.astraea.app.concurrent.State;
@@ -159,16 +159,16 @@ public enum ReportFormat {
               + "s");
       writer.write(
           String.format(",%.2f%% / %.2f%%", result.consumerPercentage, result.producerPercentage));
-      writer.write("," + DataUnit.Byte.of(result.producerResult.totalCurrentBytes()));
-      writer.write("," + DataUnit.Byte.of(result.consumerResult.totalCurrentBytes()));
+      writer.write("," + DataSize.Byte.of(result.producerResult.totalCurrentBytes()));
+      writer.write("," + DataSize.Byte.of(result.consumerResult.totalCurrentBytes()));
       writer.write("," + result.producerResult.maxLatency + "," + result.producerResult.minLatency);
       writer.write("," + result.consumerResult.maxLatency + "," + result.consumerResult.minLatency);
       for (int i = 0; i < result.producerResult.bytes.size(); ++i) {
-        writer.write("," + DataUnit.Byte.of(result.producerResult.currentBytes.get(i)));
+        writer.write("," + DataSize.Byte.of(result.producerResult.currentBytes.get(i)));
         writer.write("," + result.producerResult.averageLatencies.get(i));
       }
       for (int i = 0; i < result.consumerResult.bytes.size(); ++i) {
-        writer.write("," + DataUnit.Byte.of(result.consumerResult.currentBytes.get(i)));
+        writer.write("," + DataSize.Byte.of(result.consumerResult.currentBytes.get(i)));
         writer.write("," + result.consumerResult.averageLatencies.get(i));
       }
       writer.newLine();

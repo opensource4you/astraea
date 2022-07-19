@@ -19,6 +19,7 @@ package org.astraea.app.performance;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.concurrent.atomic.AtomicLong;
+import org.astraea.app.common.DataSize;
 import org.astraea.app.common.DataUnit;
 import org.astraea.app.common.Utils;
 import org.junit.jupiter.api.Assertions;
@@ -30,7 +31,7 @@ public class DataSupplierTest {
   void testDuration() {
     var dataSupplier =
         DataSupplier.of(
-            ExeTime.of("2s"), () -> 1L, () -> 4L, () -> 1L, () -> 10L, DataUnit.KiB.of(100));
+            ExeTime.of("2s"), () -> 1L, () -> 4L, () -> 1L, () -> 10L, DataSize.KiB.of(100));
     Assertions.assertTrue(dataSupplier.get().hasData());
     Utils.sleep(Duration.ofSeconds(3));
     Assertions.assertFalse(dataSupplier.get().hasData());
@@ -41,11 +42,11 @@ public class DataSupplierTest {
     var dataSupplier =
         DataSupplier.of(
             ExeTime.of("2records"),
-            () -> DataUnit.KiB.of(2).measurement(DataUnit.Byte).longValue(),
+            () -> DataSize.KiB.of(2).measurement(DataUnit.Byte).longValue(),
             () -> 10L,
-            () -> DataUnit.KiB.of(100).measurement(DataUnit.Byte).longValue(),
+            () -> DataSize.KiB.of(100).measurement(DataUnit.Byte).longValue(),
             () -> 10L,
-            DataUnit.KiB.of(102));
+            DataSize.KiB.of(102));
     Assertions.assertTrue(dataSupplier.get().hasData());
     Assertions.assertTrue(dataSupplier.get().hasData());
     Assertions.assertFalse(dataSupplier.get().hasData());
@@ -57,10 +58,10 @@ public class DataSupplierTest {
         DataSupplier.of(
             ExeTime.of("10s"),
             () -> 1L,
-            () -> DataUnit.Byte.of(20).measurement(DataUnit.Byte).longValue(),
+            () -> DataSize.Byte.of(20).measurement(DataUnit.Byte).longValue(),
             () -> 2L,
-            () -> DataUnit.KiB.of(100).measurement(DataUnit.Byte).longValue(),
-            DataUnit.KiB.of(200));
+            () -> DataSize.KiB.of(100).measurement(DataUnit.Byte).longValue(),
+            DataSize.KiB.of(200));
     var data1 = dataSupplier.get();
     Assertions.assertTrue(data1.hasData());
     var data2 = dataSupplier.get();
@@ -75,10 +76,10 @@ public class DataSupplierTest {
         DataSupplier.of(
             ExeTime.of("10s"),
             () -> 1L,
-            () -> DataUnit.Byte.of(20).measurement(DataUnit.Byte).longValue(),
+            () -> DataSize.Byte.of(20).measurement(DataUnit.Byte).longValue(),
             () -> 2L,
-            () -> DataUnit.KiB.of(100).measurement(DataUnit.Byte).longValue(),
-            DataUnit.KiB.of(100));
+            () -> DataSize.KiB.of(100).measurement(DataUnit.Byte).longValue(),
+            DataSize.KiB.of(100));
     var data = dataSupplier.get();
     Assertions.assertTrue(data.hasData());
     // initial value size is 100KB and the distributed is fixed to zero, so the final size is 102400
@@ -98,7 +99,7 @@ public class DataSupplierTest {
             () -> 100L + counter2.getAndIncrement(),
             () -> 10L,
             () -> 10L,
-            DataUnit.KiB.of(200));
+            DataSize.KiB.of(200));
     var data1 = dataSupplier.get();
     Assertions.assertTrue(data1.hasData());
     var data2 = dataSupplier.get();
@@ -120,7 +121,7 @@ public class DataSupplierTest {
             () -> 100L,
             () -> 10L,
             () -> 10L,
-            DataUnit.KiB.of(200));
+            DataSize.KiB.of(200));
     data1 = dataSupplier.get();
     Assertions.assertTrue(data1.hasData());
     data2 = dataSupplier.get();
@@ -144,7 +145,7 @@ public class DataSupplierTest {
             () -> 10L,
             () -> counter.getAndIncrement() % 2,
             () -> 100L + counter2.getAndIncrement(),
-            DataUnit.KiB.of(100));
+            DataSize.KiB.of(100));
     var data1 = dataSupplier.get();
     Assertions.assertTrue(data1.hasData());
     var data2 = dataSupplier.get();
@@ -166,7 +167,7 @@ public class DataSupplierTest {
             () -> 10L,
             () -> counter.getAndIncrement() % 2,
             () -> 100L,
-            DataUnit.KiB.of(100));
+            DataSize.KiB.of(100));
     data1 = dataSupplier.get();
     Assertions.assertTrue(data1.hasData());
     data2 = dataSupplier.get();
@@ -179,27 +180,27 @@ public class DataSupplierTest {
 
   @Test
   void testThrottle() {
-    var dataSupplier =
-        DataSupplier.of(
-            ExeTime.of("10s"),
-            () -> 10L,
-            () -> DataUnit.KiB.of(50).measurement(DataUnit.Byte).longValue(),
-            () -> 10L,
-            () -> DataUnit.KiB.of(50).measurement(DataUnit.Byte).longValue(),
-            DataUnit.KiB.of(150));
+    var durationInSeconds = new AtomicLong(1);
+    var throttler =
+        new DataSupplier.Throttler(DataSize.KiB.of(150)) {
+          @Override
+          long durationInSeconds() {
+            return durationInSeconds.get();
+          }
+        };
     // total: 100KB, limit: 150KB -> no throttle
-    Assertions.assertTrue(dataSupplier.get().hasData());
-    // total: 200KB, limit: 150KB -> will throttle next data
-    Assertions.assertTrue(dataSupplier.get().hasData());
-    // throttled
-    Assertions.assertFalse(dataSupplier.get().hasData());
+    Assertions.assertFalse(
+        throttler.throttled(DataSize.KiB.of(100).measurement(DataUnit.Byte).longValue()));
+    // total: 200KB, limit: 150KB -> throttled
+    Assertions.assertTrue(
+        throttler.throttled(DataSize.KiB.of(100).measurement(DataUnit.Byte).longValue()));
   }
 
   @Test
   void testNoKey() {
     var dataSupplier =
         DataSupplier.of(
-            ExeTime.of("10s"), () -> 10L, () -> 0L, () -> 10L, () -> 10L, DataUnit.KiB.of(200));
+            ExeTime.of("10s"), () -> 10L, () -> 0L, () -> 10L, () -> 10L, DataSize.KiB.of(200));
 
     var data = dataSupplier.get();
     Assertions.assertTrue(data.hasData());
@@ -210,7 +211,7 @@ public class DataSupplierTest {
   void testNoValue() {
     var dataSupplier =
         DataSupplier.of(
-            ExeTime.of("10s"), () -> 10L, () -> 10L, () -> 10L, () -> 0L, DataUnit.KiB.of(200));
+            ExeTime.of("10s"), () -> 10L, () -> 10L, () -> 10L, () -> 0L, DataSize.KiB.of(200));
     var data = dataSupplier.get();
     Assertions.assertTrue(data.hasData());
     Assertions.assertNull(data.value());
