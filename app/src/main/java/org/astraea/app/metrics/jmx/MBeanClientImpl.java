@@ -96,6 +96,8 @@ abstract class MBeanClientImpl implements MBeanClient {
               .map(MBeanFeatureInfo::getName)
               .collect(Collectors.toList());
 
+      System.out.println("attributeName: " + attributeName);
+
       // query the result
       return queryBean(beanQuery, attributeName);
     } catch (ReflectionException | IntrospectionException e) {
