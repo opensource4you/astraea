@@ -94,6 +94,21 @@ public final class KafkaMetrics {
       return metricName;
     }
 
+    /**
+     * find out the objects related to this metrics.
+     *
+     * @param objects to search
+     * @return collection of BrokerTopicMetricsResult, or empty if all objects are not related to
+     *     this metrics
+     */
+    public Collection<BrokerTopicMetricsResult> of(Collection<HasBeanObject> objects) {
+      return objects.stream()
+          .filter(o -> o instanceof BrokerTopicMetricsResult)
+          .filter(o -> metricName().equals(o.beanObject().properties().get("name")))
+          .map(o -> (BrokerTopicMetricsResult) o)
+          .collect(Collectors.toUnmodifiableList());
+    }
+
     public BrokerTopicMetricsResult fetch(MBeanClient mBeanClient) {
       return new BrokerTopicMetricsResult(
           mBeanClient.queryBean(

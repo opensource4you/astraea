@@ -27,6 +27,8 @@ import java.io.IOException;
 import java.lang.management.ManagementFactory;
 import java.time.Duration;
 import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.management.MBeanServer;
@@ -36,11 +38,13 @@ import javax.management.remote.JMXServiceURL;
 import org.astraea.app.admin.Admin;
 import org.astraea.app.common.Utils;
 import org.astraea.app.metrics.KafkaMetrics;
+import org.astraea.app.metrics.jmx.BeanObject;
 import org.astraea.app.metrics.jmx.MBeanClient;
 import org.astraea.app.metrics.platform.JvmMemory;
 import org.astraea.app.metrics.platform.OperatingSystemInfo;
 import org.astraea.app.service.RequireBrokerCluster;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledOnOs;
@@ -234,5 +238,24 @@ class KafkaMetricsTest extends RequireBrokerCluster {
   @EnabledOnOs(LINUX)
   void linuxDiskWriteBytes() {
     assertDoesNotThrow(() -> KafkaMetrics.BrokerTopic.linuxDiskWriteBytes(mBeanClient));
+  }
+
+  @ParameterizedTest
+  @EnumSource(KafkaMetrics.BrokerTopic.class)
+  void testBrokerTopic(KafkaMetrics.BrokerTopic brokerTopic) {
+    var object =
+        new BrokerTopicMetricsResult(
+            new BeanObject("object", Map.of("name", brokerTopic.metricName()), Map.of()));
+    Assertions.assertEquals(1, brokerTopic.of(List.of(object)).size());
+
+    Assertions.assertEquals(
+        0,
+        brokerTopic
+            .of(
+                List.of(
+                    new BrokerTopicMetricsResult(
+                        new BeanObject(
+                            "object", Map.of("name", Utils.randomString(10)), Map.of()))))
+            .size());
   }
 }
