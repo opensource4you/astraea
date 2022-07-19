@@ -209,6 +209,7 @@ public class StrictCostDispatcher implements Dispatcher {
     this.functions = functions;
     // the temporary exception won't affect the smooth-weighted too much.
     // TODO: should we propagate the exception by better way? For example: Slf4j ?
+    // see https://github.com/skiptests/astraea/issues/486
     this.fetcher =
         Fetcher.of(
             this.functions.keySet().stream()
