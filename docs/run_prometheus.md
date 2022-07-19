@@ -12,13 +12,23 @@
 
 ##### 腳本使用 - 配合node exporter
 
-在啟動Prometheus前，請確保有exporter取得exporter address，下面範例`192.168.103.24:9100`為node exporter address。
+在啟動Prometheus前，請確保有exporter取得exporter address，啟動格式為 start + `exporter address`。
+
+下面範例`192.168.103.24:9100`為node exporter address，`192.168.103.24:16728`為Kafka exporter address。
 
 ```
 ./docker/start_prometheus.sh start 192.168.103.24:9100
 ```
 
-腳本輸出
+##### 腳本使用 - 配合Kafka exporter
+
+下面範例`192.168.103.24:16728`為Kafka exporter address。
+
+```
+./docker/start_prometheus.sh start 192.168.103.24:16728
+```
+
+##### 腳本輸出
 
 ```ba
 [INFO] =================================================
@@ -29,45 +39,27 @@
 [INFO] =================================================
 ```
 
-##### Prometheus Web UI
+#### Prometheus Web UI
 
-存取腳本輸出的`Prometheus address`，可以看到Prometheus WebUI
+存取腳本輸出的`Prometheus address`，可以看到Prometheus WebUI。
 
 ![prometheus_webui](pictures/prometheus_webui.jpg)
 
-因為有開啟node exporter，所以可以查詢host端的metric，例如`node_memory_Buffers_bytes`
+##### Query node exporter metric
+
+若是配合node exporter啟動Prometheus，可以查詢到host端的metric，例如`node_memory_Buffers_bytes`。
 
 ![prometheus_query](pictures/prometheus_query.jpg)
 
-也可以點擊`Graph`以圖形化的方式查看
+##### Query Kafka exporter metric
+
+若是配合Kafka exporter啟動Prometheus，可以查詢到Kafka server的metric，如下圖:
+
+![prometheus_kafka](pictures/prometheus_kafka.jpg)
+
+##### Graph 
+
+可以點擊`Graph`以圖形化的方式查看感興趣的metric。
 
 ![prometheus_query_graph](pictures/prometheus_query_graph.jpg)
 
-##### 腳本使用 - 配合Kafka exporter
-
-下面範例`192.168.103.24:16728`為Kafka exporter address。
-
-```
-./docker/start_prometheus.sh start 192.168.103.24:16728
-```
-
-腳本輸出
-
-```bash
-[INFO] =================================================
-[INFO] config file: /tmp/prometheus-9090.yml
-[INFO] prometheus address: http://192.168.103.24:9090
-[INFO] command to run grafana at this host: /home/harry/Documents/astraea/docker/start_grafana.sh start
-[INFO] command to add prometheus to grafana datasource: /home/harry/Documents/astraea/docker/start_grafana.sh add_prom_source <USERNAME>:<PASSWORD> Prometheus http://192.168.103.24:9090
-[INFO] =================================================
-```
-
-##### Prometheus Web UI
-
-進入Prometheus Web UI
-
-![prometheus_webui](pictures/prometheus_webui.jpg)
-
-因為是存取Kafka exporter address，所以可以看到Kafka metric
-
-![prometheus_kafka](pictures/prometheus_kafka.jpg)
