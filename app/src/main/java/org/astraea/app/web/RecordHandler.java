@@ -41,6 +41,9 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BiFunction;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+import org.astraea.app.admin.Admin;
 import org.astraea.app.admin.TopicPartition;
 import org.astraea.app.argument.DurationField;
 import org.astraea.app.common.Utils;
@@ -63,12 +66,16 @@ public class RecordHandler implements Handler {
   static final String VALUE_DESERIALIZER = "valueDeserializer";
   static final String LIMIT = "limit";
   static final String TIMEOUT = "timeout";
+  static final String OFFSET = "offset";
 
   final String bootstrapServers;
   // visible for testing
   final Producer<byte[], byte[]> producer;
 
-  RecordHandler(String bootstrapServers) {
+  final Admin admin;
+
+  RecordHandler(Admin admin, String bootstrapServers) {
+    this.admin = admin;
     this.bootstrapServers = requireNonNull(bootstrapServers);
     this.producer = Producer.builder().bootstrapServers(bootstrapServers).build();
   }
@@ -194,7 +201,26 @@ public class RecordHandler implements Handler {
 
     if (async) return Response.ACCEPT;
     return Utils.packException(
-        () -> new PostResponse(result.get(timeout.toNanos(), TimeUnit.NANOSECONDS)));
+        () -> new ListResultResponse<>(result.get(timeout.toNanos(), TimeUnit.NANOSECONDS)));
+  }
+
+  @Override
+  public Response delete(String topic, Map<String, String> queries) {
+    var offset =
+        Optional.ofNullable(queries.get(OFFSET))
+            .map(Long::parseLong)
+            .orElseThrow(() -> new IllegalArgumentException("`offset` must be set."));
+
+    var partitions =
+        Optional.ofNullable(queries.get(PARTITION))
+            .map(x -> Set.of(TopicPartition.of(topic, x)))
+            .orElseGet(admin::partitions);
+    var deletedOffsets =
+        partitions.stream().collect(Collectors.toMap(Function.identity(), x -> offset));
+    return new ListResultResponse<>(
+        admin.deleteRecords(deletedOffsets).entrySet().stream()
+            .map(x -> new DeleteRecordResponse(x.getKey().partition(), x.getValue().lowWatermark()))
+            .collect(toList()));
   }
 
   enum SerDe {
@@ -387,11 +413,21 @@ public class RecordHandler implements Handler {
     }
   }
 
-  static class PostResponse implements Response {
-    final List<Response> results;
+  static class ListResultResponse<T extends Response> implements Response {
+    final List<T> results;
 
-    PostResponse(List<Response> results) {
+    ListResultResponse(List<T> results) {
       this.results = results;
+    }
+  }
+
+  static class DeleteRecordResponse implements Response {
+    final int partition;
+    final long lowWatermark;
+
+    public DeleteRecordResponse(int partition, long lowWatermark) {
+      this.partition = partition;
+      this.lowWatermark = lowWatermark;
     }
   }
 }

@@ -22,7 +22,9 @@ import java.net.ServerSocket;
 import java.nio.file.Files;
 import java.time.Duration;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.concurrent.CompletableFuture;
@@ -33,6 +35,7 @@ import java.util.function.Supplier;
 import java.util.stream.Collector;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import org.apache.kafka.common.KafkaFuture;
 
 public final class Utils {
 
@@ -237,6 +240,25 @@ public final class Utils {
   public static <T> CompletableFuture<List<T>> sequence(Collection<CompletableFuture<T>> futures) {
     return CompletableFuture.allOf(futures.toArray(new CompletableFuture<?>[0]))
         .thenApply(f -> futures.stream().map(CompletableFuture::join).collect(Collectors.toList()));
+  }
+
+  /** Not all kafka admin api impl `all` method with response. */
+  public static <K, V, F extends KafkaFuture<V>> KafkaFuture<Map<K, V>> allOf(Map<K, F> futureMap) {
+    return KafkaFuture.allOf(futureMap.values().toArray(new KafkaFuture[0]))
+        .thenApply(
+            v -> {
+              Map<K, V> configs = new HashMap<>(futureMap.size());
+              for (Map.Entry<K, F> entry : futureMap.entrySet()) {
+                try {
+                  configs.put(entry.getKey(), entry.getValue().get());
+                } catch (InterruptedException | ExecutionException e) {
+                  // This should be unreachable, because allOf ensured that all the futures
+                  // completed successfully.
+                  throw new RuntimeException(e);
+                }
+              }
+              return configs;
+            });
   }
 
   private Utils() {}

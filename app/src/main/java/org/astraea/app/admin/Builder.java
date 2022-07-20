@@ -40,6 +40,7 @@ import org.apache.kafka.clients.admin.MemberToRemove;
 import org.apache.kafka.clients.admin.NewPartitionReassignment;
 import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.clients.admin.OffsetSpec;
+import org.apache.kafka.clients.admin.RecordsToDelete;
 import org.apache.kafka.clients.admin.RemoveMembersFromConsumerGroupOptions;
 import org.apache.kafka.clients.admin.TransactionListing;
 import org.apache.kafka.common.ElectionType;
@@ -641,6 +642,27 @@ public class Builder {
                       new Reassignment(
                           Collections.unmodifiableSet(e.getValue().getKey()),
                           Collections.unmodifiableSet(e.getValue().getValue()))));
+    }
+
+    @Override
+    public Map<TopicPartition, DeleteRecord> deleteRecords(
+        Map<TopicPartition, Long> recordsToDelete) {
+      var kafkaRecordsToDelete =
+          recordsToDelete.entrySet().stream()
+              .collect(
+                  Collectors.toMap(
+                      x -> TopicPartition.to(x.getKey()),
+                      x -> RecordsToDelete.beforeOffset(x.getValue())));
+      return Utils.packException(
+          () ->
+              Utils.allOf(admin.deleteRecords(kafkaRecordsToDelete).lowWatermarks())
+                  .get()
+                  .entrySet()
+                  .stream()
+                  .collect(
+                      Collectors.toMap(
+                          x -> TopicPartition.from(x.getKey()),
+                          x -> DeleteRecord.from(x.getValue()))));
     }
   }
 

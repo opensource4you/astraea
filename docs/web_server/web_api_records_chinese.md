@@ -6,6 +6,7 @@
   - [DISTANCE_FROM_LATEST](#DISTANCE_FROM_LATEST)
   - [DISTANCE_FROM_BEGINNING](#DISTANCE_FROM_BEGINNING)
   - [SEEK_TO](#SEEK_TO)
+- [刪除資料](#刪除資料)
 
 ## 傳送資料
 ```shell
@@ -260,6 +261,43 @@ JSON Response
       "key": "test2",
       "value": 2,
       "leaderEpoch": 0
+    }
+  ]
+}
+```
+
+## 刪除資料
+```shell
+DELETE /records/{topic}
+```
+
+Request 參數
+
+| 名稱        | 說明                            | 預設值         |
+|-----------|-------------------------------|-------------|
+| offset    | long (必填) 刪除指定offset之前的record | 無           |
+| partition | int (選填) 指定partition          | 所有partition |
+
+
+Response 
+
+| 名稱              | 說明                   | 預設值    |
+|-----------------|----------------------|--------|
+| partition       | int 被刪除的partition    | 無      |
+| lowWatermark    | long 目前第一個offset     | 無      |
+
+cURL 範例
+
+```shell
+curl -X DELETE "http://localhost:8001/records/mytopic?partition=5&offset=2"
+```
+result
+```json
+{
+  "results": [
+    {
+      "partition": 5,
+      "lowWatermark": 2
     }
   ]
 }
