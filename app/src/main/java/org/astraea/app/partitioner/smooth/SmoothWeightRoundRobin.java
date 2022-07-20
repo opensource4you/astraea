@@ -89,21 +89,21 @@ public final class SmoothWeightRoundRobin
               var balance =
                   CostUtils.standardDeviationImperative(avgScore, brokerScore)
                       > upperLimitOffsetRatio * avgScore;
-              var finalFactory = balance;
 
-              return new EffectiveWeightResult(
+              var effectiveWeights =
                   this.effectiveWeightResult.effectiveWeight.entrySet().stream()
                       .collect(
                           Collectors.toMap(
-                              entry -> entry.getKey(),
+                              Map.Entry::getKey,
                               entry -> {
                                 var offsetRatio = offsetRatioOfBroker.get(entry.getKey());
                                 var weight =
-                                    finalFactory
+                                    balance
                                         ? entry.getValue() * (1 - offsetRatio)
                                         : entry.getValue();
                                 return Math.max(weight, 0.0);
-                              })));
+                              }));
+              return new EffectiveWeightResult(effectiveWeights);
             },
             Duration.ofSeconds(10));
   }
