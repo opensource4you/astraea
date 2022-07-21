@@ -20,14 +20,13 @@ import com.beust.jcommander.ParameterException;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
-<<<<<<< HEAD
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-=======
->>>>>>> 09fce10506b480fd8bee342012f7f2e2f9e59be5
 import java.util.function.BiConsumer;
 import org.astraea.app.admin.Admin;
 import org.astraea.app.admin.TopicPartition;
@@ -35,7 +34,9 @@ import org.astraea.app.argument.Argument;
 import org.astraea.app.common.Utils;
 import org.astraea.app.concurrent.Executor;
 import org.astraea.app.concurrent.State;
+import org.astraea.app.concurrent.ThreadPool;
 import org.astraea.app.consumer.Consumer;
+import org.astraea.app.consumer.ConsumerRebalanceListener;
 import org.astraea.app.consumer.Isolation;
 import org.astraea.app.producer.Producer;
 import org.astraea.app.service.RequireBrokerCluster;
@@ -105,13 +106,9 @@ public class PerformanceTest extends RequireBrokerCluster {
     Metrics metrics = new Metrics();
     var topicName = "testConsumerExecutor-" + System.currentTimeMillis();
     var param = new Performance.Argument();
-<<<<<<< HEAD
     var isKilled = new AtomicBoolean(false);
     var isRestarted = new AtomicBoolean(false);
-    param.sizeDistributionType = DistributionType.FIXED;
-=======
     param.valueDistributionType = DistributionType.FIXED;
->>>>>>> 09fce10506b480fd8bee342012f7f2e2f9e59be5
     try (Executor executor =
         Performance.consumerExecutor(
             Consumer.forTopics(Set.of(topicName)).bootstrapServers(bootstrapServers()).build(),
@@ -135,6 +132,19 @@ public class PerformanceTest extends RequireBrokerCluster {
     }
   }
 
+  @Test
+  void testRebalanceListener() {
+    Map<Integer, ConcurrentLinkedQueue<Duration>> generationIDTime = new ConcurrentSkipListMap<>();
+    CountDownLatch latch = new CountDownLatch(0);
+    ConsumerRebalanceListener listener = Performance.rebalanceListener(generationIDTime, latch);
+    listener.onPartitionsRevoked(Set.of());
+    Utils.sleep(Duration.ofMillis(1000));
+    listener.onPartitionAssigned(Set.of());
+    Assertions.assertFalse(generationIDTime.containsKey(0));
+    Assertions.assertTrue(generationIDTime.containsKey(1));
+    Assertions.assertFalse(generationIDTime.containsKey(2));
+    Assertions.assertEquals(1, generationIDTime.get(1).peek().getSeconds());
+  }
   @Test
   void testTransactionSet() {
     var argument = new Performance.Argument();

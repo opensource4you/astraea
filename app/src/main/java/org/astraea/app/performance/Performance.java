@@ -29,7 +29,6 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiConsumer;
@@ -193,29 +192,7 @@ public class Performance {
                                     .configs(param.configs())
                                     .isolation(param.isolation())
                                     .consumerRebalanceListener(
-                                        new ConsumerRebalanceListener() {
-                                          private long revokedTime = System.currentTimeMillis();
-                                          private int generation = 0;
-
-                                          @Override
-                                          public void onPartitionAssigned(
-                                              Set<TopicPartition> partitions) {
-                                            generation += 1;
-                                            Duration downTime =
-                                                Duration.ofMillis(
-                                                    System.currentTimeMillis() - revokedTime);
-                                            generationIDTime.putIfAbsent(
-                                                generation, new ConcurrentLinkedQueue<>());
-                                            generationIDTime.get(generation).add(downTime);
-                                            consumerBalancerLatch.countDown();
-                                          }
-
-                                          @Override
-                                          public void onPartitionsRevoked(
-                                              Set<TopicPartition> partitions) {
-                                            revokedTime = System.currentTimeMillis();
-                                          }
-                                        })
+                                        rebalanceListener(generationIDTime, consumerBalancerLatch))
                                     .build(),
                                 consumerMetrics.get(i),
                                 manager,
@@ -239,6 +216,29 @@ public class Performance {
         return new Result(param.topic);
       }
     }
+  }
+
+  static ConsumerRebalanceListener rebalanceListener(
+      Map<Integer, ConcurrentLinkedQueue<Duration>> generationIDTime,
+      CountDownLatch consumerBalancerLatch) {
+    return new ConsumerRebalanceListener() {
+      private long revokedTime = System.currentTimeMillis();
+      private int generation = 0;
+
+      @Override
+      public void onPartitionAssigned(Set<TopicPartition> partitions) {
+        generation += 1;
+        Duration downTime = Duration.ofMillis(System.currentTimeMillis() - revokedTime);
+        generationIDTime.putIfAbsent(generation, new ConcurrentLinkedQueue<>());
+        generationIDTime.get(generation).add(downTime);
+        consumerBalancerLatch.countDown();
+      }
+
+      @Override
+      public void onPartitionsRevoked(Set<TopicPartition> partitions) {
+        revokedTime = System.currentTimeMillis();
+      }
+    };
   }
 
   private static void printTime(Map<Integer, ConcurrentLinkedQueue<Duration>> generationIDTime) {
