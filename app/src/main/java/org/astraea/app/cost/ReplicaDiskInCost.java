@@ -52,7 +52,7 @@ public class ReplicaDiskInCost implements HasBrokerCost, HasPartitionCost {
             .flatMap(topic -> clusterInfo.replicas(topic).stream())
             .map(
                 replica ->
-                    new TopicPartitionReplica(
+                    TopicPartitionReplica.of(
                         replica.topic(), replica.partition(), replica.nodeInfo().id()))
             .collect(Collectors.groupingBy(TopicPartitionReplica::brokerId));
     final var actual =
@@ -74,7 +74,7 @@ public class ReplicaDiskInCost implements HasBrokerCost, HasPartitionCost {
                             .mapToDouble(
                                 x ->
                                     topicPartitionDataRate.get(
-                                        new TopicPartition(x.topic(), x.partition())))
+                                        TopicPartition.of(x.topic(), x.partition())))
                             .sum()))
             .map(
                 entry ->
@@ -112,7 +112,7 @@ public class ReplicaDiskInCost implements HasBrokerCost, HasPartitionCost {
                             .collect(
                                 Collectors.groupingBy(
                                     x ->
-                                        new TopicPartition(
+                                        TopicPartition.of(
                                             x.getKey().topic(), x.getKey().partition())))
                             .entrySet()
                             .stream()
@@ -140,7 +140,7 @@ public class ReplicaDiskInCost implements HasBrokerCost, HasPartitionCost {
                             .collect(
                                 Collectors.groupingBy(
                                     x ->
-                                        new TopicPartition(
+                                        TopicPartition.of(
                                             x.getKey().topic(), x.getKey().partition())))
                             .entrySet()
                             .stream()
@@ -190,7 +190,7 @@ public class ReplicaDiskInCost implements HasBrokerCost, HasPartitionCost {
         .map(
             x -> {
               var tpr = x.getKey();
-              return Map.entry(new TopicPartition(tpr.topic(), tpr.partition()), x.getValue());
+              return Map.entry(TopicPartition.of(tpr.topic(), tpr.partition()), x.getValue());
             })
         .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue, (x1, x2) -> x1));
   }

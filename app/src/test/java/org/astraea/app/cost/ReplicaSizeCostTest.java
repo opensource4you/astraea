@@ -104,16 +104,16 @@ class ReplicaSizeCostTest extends RequireSingleBrokerCluster {
     var BROKER_2ReplicaLoad = loadCostFunction.partitionCost(clusterInfo(), clusterBean()).value(2);
     var BROKER_3ReplicaLoad = loadCostFunction.partitionCost(clusterInfo(), clusterBean()).value(3);
     // broker1
-    Assertions.assertEquals(0.85, broker1ReplicaLoad.get(new TopicPartition("test-1", 0)));
-    Assertions.assertEquals(0.45, broker1ReplicaLoad.get(new TopicPartition("test-1", 1)));
-    Assertions.assertEquals(0.35, broker1ReplicaLoad.get(new TopicPartition("test-2", 1)));
+    Assertions.assertEquals(0.85, broker1ReplicaLoad.get(TopicPartition.of("test-1", 0)));
+    Assertions.assertEquals(0.45, broker1ReplicaLoad.get(TopicPartition.of("test-1", 1)));
+    Assertions.assertEquals(0.35, broker1ReplicaLoad.get(TopicPartition.of("test-2", 1)));
     // BROKER_2
-    Assertions.assertEquals(0.45, BROKER_2ReplicaLoad.get(new TopicPartition("test-1", 1)));
-    Assertions.assertEquals(0, BROKER_2ReplicaLoad.get(new TopicPartition("test-2", 0)));
+    Assertions.assertEquals(0.45, BROKER_2ReplicaLoad.get(TopicPartition.of("test-1", 1)));
+    Assertions.assertEquals(0, BROKER_2ReplicaLoad.get(TopicPartition.of("test-2", 0)));
     // BROKER_3
-    Assertions.assertEquals(0.85, BROKER_3ReplicaLoad.get(new TopicPartition("test-1", 0)));
-    Assertions.assertEquals(0, BROKER_3ReplicaLoad.get(new TopicPartition("test-2", 0)));
-    Assertions.assertEquals(0.35, BROKER_3ReplicaLoad.get(new TopicPartition("test-2", 1)));
+    Assertions.assertEquals(0.85, BROKER_3ReplicaLoad.get(TopicPartition.of("test-1", 0)));
+    Assertions.assertEquals(0, BROKER_3ReplicaLoad.get(TopicPartition.of("test-2", 0)));
+    Assertions.assertEquals(0.35, BROKER_3ReplicaLoad.get(TopicPartition.of("test-2", 1)));
   }
 
   @Test

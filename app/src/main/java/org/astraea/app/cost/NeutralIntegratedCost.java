@@ -165,7 +165,13 @@ public class NeutralIntegratedCost implements HasBrokerCost {
 
   @Override
   public Optional<Fetcher> fetcher() {
-    return Fetcher.of(metricsCost);
+    return Fetcher.of(
+        metricsCost.stream()
+            .map(CostFunction::fetcher)
+            .filter(Optional::isPresent)
+            .map(Optional::get)
+            .collect(Collectors.toUnmodifiableList()),
+        e -> {});
   }
 
   static class BrokerMetrics {

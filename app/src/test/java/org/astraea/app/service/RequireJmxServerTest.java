@@ -39,7 +39,7 @@ public class RequireJmxServerTest extends RequireBrokerCluster {
   }
 
   @Test
-  void testMemory() throws Exception {
+  void testMemory() {
     testMemory(MBeanClient.jndi(jmxServiceURL().getHost(), jmxServiceURL().getPort()));
     testMemory(MBeanClient.of(jmxServiceURL()));
   }

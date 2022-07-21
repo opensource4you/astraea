@@ -68,7 +68,6 @@ public class QuotaHandlerTest extends RequireBrokerCluster {
 
   @Test
   void testQueryNonexistentQuota() {
-    var ip = "192.168.10.11";
     try (Admin admin = Admin.of(bootstrapServers())) {
       var handler = new QuotaHandler(admin);
       Assertions.assertEquals(

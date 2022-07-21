@@ -91,7 +91,7 @@ public class PerformanceTest extends RequireBrokerCluster {
       Assertions.assertEquals(State.RUNNING, producerExecutors.get(0).execute());
       latch.await();
       Assertions.assertEquals(
-          1, admin.offsets(Set.of(topic)).get(new TopicPartition(topic, 0)).latest());
+          1, admin.offsets(Set.of(topic)).get(TopicPartition.of(topic, 0)).latest());
     }
   }
 
@@ -100,7 +100,7 @@ public class PerformanceTest extends RequireBrokerCluster {
     Metrics metrics = new Metrics();
     var topicName = "testConsumerExecutor-" + System.currentTimeMillis();
     var param = new Performance.Argument();
-    param.sizeDistributionType = DistributionType.FIXED;
+    param.valueDistributionType = DistributionType.FIXED;
     try (Executor executor =
         Performance.consumerExecutor(
             Consumer.forTopics(Set.of(topicName)).bootstrapServers(bootstrapServers()).build(),
@@ -149,12 +149,16 @@ public class PerformanceTest extends RequireBrokerCluster {
       "1",
       "--run.until",
       "1000records",
-      "--record.size",
+      "--value.size",
       "10KiB",
+      "--value.distribution",
+      "uniform",
       "--partitioner",
       "org.astraea.partitioner.smooth.SmoothWeightPartitioner",
       "--compression",
       "lz4",
+      "--key.size",
+      "4Byte",
       "--key.distribution",
       "zipfian",
       "--specify.broker",
@@ -189,25 +193,34 @@ public class PerformanceTest extends RequireBrokerCluster {
     Assertions.assertThrows(
         ParameterException.class, () -> Argument.parse(new Performance.Argument(), arguments7));
 
-    String[] arguments8 = {"--bootstrap.servers", "localhost:9092", "--record.size", "1"};
+    String[] arguments8 = {"--bootstrap.servers", "localhost:9092", "--key.distribution", "f"};
+    Assertions.assertThrows(
+        ParameterException.class, () -> Argument.parse(new Performance.Argument(), arguments8));
+
+    String[] arguments9 = {"--bootstrap.servers", "localhost:9092", "--key.size", "1"};
     Assertions.assertThrows(
         IllegalArgumentException.class,
-        () -> Argument.parse(new Performance.Argument(), arguments8));
+        () -> Argument.parse(new Performance.Argument(), arguments9));
 
-    String[] arguments10 = {"--bootstrap.servers", "localhost:9092", "--partitioner", ""};
+    String[] arguments10 = {"--bootstrap.servers", "localhost:9092", "--value.distribution", "u"};
     Assertions.assertThrows(
         ParameterException.class, () -> Argument.parse(new Performance.Argument(), arguments10));
 
-    String[] arguments11 = {"--bootstrap.servers", "localhost:9092", "--compression", ""};
+    String[] arguments11 = {"--bootstrap.servers", "localhost:9092", "--value.size", "2"};
     Assertions.assertThrows(
-        ParameterException.class, () -> Argument.parse(new Performance.Argument(), arguments11));
+        IllegalArgumentException.class,
+        () -> Argument.parse(new Performance.Argument(), arguments11));
 
-    String[] arguments12 = {"--bootstrap.servers", "localhost:9092", "--key.distribution", ""};
+    String[] arguments12 = {"--bootstrap.servers", "localhost:9092", "--partitioner", ""};
     Assertions.assertThrows(
         ParameterException.class, () -> Argument.parse(new Performance.Argument(), arguments12));
 
-    String[] arguments13 = {"--bootstrap.servers", "localhost:9092", "--specify.broker", ""};
+    String[] arguments13 = {"--bootstrap.servers", "localhost:9092", "--compression", ""};
     Assertions.assertThrows(
         ParameterException.class, () -> Argument.parse(new Performance.Argument(), arguments13));
+
+    String[] arguments14 = {"--bootstrap.servers", "localhost:9092", "--specify.broker", ""};
+    Assertions.assertThrows(
+        ParameterException.class, () -> Argument.parse(new Performance.Argument(), arguments14));
   }
 }

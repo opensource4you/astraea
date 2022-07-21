@@ -19,7 +19,6 @@ package org.astraea.app.admin;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 
-import java.io.IOException;
 import java.time.Duration;
 import java.util.List;
 import java.util.Set;
@@ -40,7 +39,7 @@ class ReplicaSyncingMonitorIntegrationTest extends RequireBrokerCluster {
   private static final byte[] dummyBytes = new byte[1024];
 
   @Test
-  void execute() throws IOException, InterruptedException {
+  void execute() throws InterruptedException {
     // arrange
     try (Admin topicAdmin = Admin.of(bootstrapServers())) {
       topicAdmin
@@ -61,7 +60,7 @@ class ReplicaSyncingMonitorIntegrationTest extends RequireBrokerCluster {
       int currentBroker =
           topicAdmin
               .replicas(Set.of(TOPIC_NAME))
-              .get(new TopicPartition(TOPIC_NAME, 0))
+              .get(TopicPartition.of(TOPIC_NAME, 0))
               .get(0)
               .broker();
       int moveToBroker = (currentBroker + 1) % logFolders().size();
@@ -92,10 +91,10 @@ class ReplicaSyncingMonitorIntegrationTest extends RequireBrokerCluster {
       // assert
       assertSame(Thread.State.TERMINATED, executionThread.getState());
       assertEquals(
-          1, topicAdmin.replicas(Set.of(TOPIC_NAME)).get(new TopicPartition(TOPIC_NAME, 0)).size());
+          1, topicAdmin.replicas(Set.of(TOPIC_NAME)).get(TopicPartition.of(TOPIC_NAME, 0)).size());
       assertEquals(
           moveToBroker,
-          topicAdmin.replicas(Set.of(TOPIC_NAME)).get(new TopicPartition(TOPIC_NAME, 0)).stream()
+          topicAdmin.replicas(Set.of(TOPIC_NAME)).get(TopicPartition.of(TOPIC_NAME, 0)).stream()
               .filter(Replica::leader)
               .findFirst()
               .orElseThrow()

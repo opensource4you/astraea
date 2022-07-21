@@ -86,51 +86,7 @@ abstract class ProducerExecutor implements Executor {
                         (m, e) ->
                             observer.accept(
                                 System.currentTimeMillis() - m.timestamp(),
-                                m.serializedValueSize())));
-        return State.RUNNING;
-      }
-    };
-  }
-
-  static ProducerExecutor of(
-      String topic,
-      Producer<byte[], byte[]> producer,
-      BiConsumer<Long, Integer> observer,
-      Supplier<Integer> partitionSupplier,
-      DataSupplier dataSupplier) {
-    return new ProducerExecutor(topic, producer, partitionSupplier, observer, dataSupplier) {
-
-      @Override
-      public State execute() {
-        var data = dataSupplier.get();
-        if (data.done()) return State.DONE;
-
-        // no data due to throttle
-        // TODO: we should return a precise sleep time
-        if (data.throttled()) {
-          Utils.sleep(Duration.ofSeconds(1));
-          return State.RUNNING;
-        }
-        return doSend(data.key(), data.value());
-      }
-
-      Sender<byte[], byte[]> sender(byte[] key, byte[] value) {
-        return producer
-            .sender()
-            .topic(topic)
-            .partition(partitionSupplier.get())
-            .key(key)
-            .value(value)
-            .timestamp(System.currentTimeMillis());
-      }
-
-      State doSend(byte[] key, byte[] value) {
-        sender(key, value)
-            .run()
-            .whenComplete(
-                (m, e) ->
-                    observer.accept(
-                        System.currentTimeMillis() - m.timestamp(), m.serializedValueSize()));
+                                m.serializedValueSize() + m.serializedKeySize())));
         return State.RUNNING;
       }
     };

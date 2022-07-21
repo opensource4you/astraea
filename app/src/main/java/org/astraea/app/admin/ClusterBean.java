@@ -81,7 +81,7 @@ public interface ClusterBean {
                               var topic = properties.get("topic");
                               var partition = Integer.parseInt(properties.get("partition"));
                               return Map.entry(
-                                  new TopicPartitionReplica(topic, partition, entry.getKey()),
+                                  TopicPartitionReplica.of(topic, partition, entry.getKey()),
                                   List.of(hasBeanObject));
                             }))
             .collect(

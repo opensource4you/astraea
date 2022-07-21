@@ -62,11 +62,11 @@ public class ProducerExecutorTest extends RequireBrokerCluster {
           executor.transactional() ? 11 : 1,
           admin
               .offsets(Set.of(executor.topic()))
-              .get(new TopicPartition(executor.topic(), specifiedPartition))
+              .get(TopicPartition.of(executor.topic(), specifiedPartition))
               .latest());
       // other partitions have no data
       admin.offsets(Set.of(executor.topic())).entrySet().stream()
-          .filter(e -> !e.getKey().equals(new TopicPartition(executor.topic(), specifiedPartition)))
+          .filter(e -> !e.getKey().equals(TopicPartition.of(executor.topic(), specifiedPartition)))
           .forEach(e -> Assertions.assertEquals(0, e.getValue().latest()));
     }
   }

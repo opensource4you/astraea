@@ -22,7 +22,6 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
-import java.util.concurrent.ExecutionException;
 import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.clients.admin.AdminClientConfig;
 import org.apache.kafka.clients.admin.KafkaAdminClient;
@@ -82,7 +81,7 @@ public class Automation {
         }
         System.out.println("=============== " + i + " time Performance Complete! ===============");
       }
-    } catch (IOException | InterruptedException | ExecutionException e) {
+    } catch (IOException | InterruptedException e) {
       e.printStackTrace();
     }
   }
