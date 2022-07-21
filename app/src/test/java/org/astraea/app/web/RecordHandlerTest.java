@@ -672,9 +672,9 @@ public class RecordHandlerTest extends RequireBrokerCluster {
     Assertions.assertEquals(0, deleteRecordResponse.get(0).partition);
     Assertions.assertEquals(1, deleteRecordResponse.get(0).lowWatermark);
     var offsets = admin.offsets();
-    Assertions.assertEquals(1, offsets.get(new TopicPartition(topicName, 0)).earliest());
-    Assertions.assertEquals(0, offsets.get(new TopicPartition(topicName, 1)).earliest());
-    Assertions.assertEquals(0, offsets.get(new TopicPartition(topicName, 2)).earliest());
+    Assertions.assertEquals(1, offsets.get(TopicPartition.of(topicName, 0)).earliest());
+    Assertions.assertEquals(0, offsets.get(TopicPartition.of(topicName, 1)).earliest());
+    Assertions.assertEquals(0, offsets.get(TopicPartition.of(topicName, 2)).earliest());
   }
 
   @Test
@@ -705,9 +705,9 @@ public class RecordHandlerTest extends RequireBrokerCluster {
     Assertions.assertEquals(2, deleteRecordMap.get(1));
     Assertions.assertEquals(2, deleteRecordMap.get(2));
     var offsets = admin.offsets();
-    Assertions.assertEquals(2, offsets.get(new TopicPartition(topicName, 0)).earliest());
-    Assertions.assertEquals(2, offsets.get(new TopicPartition(topicName, 1)).earliest());
-    Assertions.assertEquals(2, offsets.get(new TopicPartition(topicName, 2)).earliest());
+    Assertions.assertEquals(2, offsets.get(TopicPartition.of(topicName, 0)).earliest());
+    Assertions.assertEquals(2, offsets.get(TopicPartition.of(topicName, 1)).earliest());
+    Assertions.assertEquals(2, offsets.get(TopicPartition.of(topicName, 2)).earliest());
   }
 
   private RecordHandler getRecordHandler() {
