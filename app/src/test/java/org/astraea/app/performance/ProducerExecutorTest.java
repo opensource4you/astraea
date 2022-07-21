@@ -17,10 +17,10 @@
 package org.astraea.app.performance;
 
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.Set;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingDeque;
-import java.util.concurrent.TimeUnit;
 import java.util.function.BiConsumer;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
@@ -46,14 +46,14 @@ public class ProducerExecutorTest extends RequireBrokerCluster {
     try (var admin = Admin.of(bootstrapServers())) {
       admin.creator().topic(executor.topic()).numberOfPartitions(specifiedPartition + 1).create();
       // wait for topic creation
-      TimeUnit.SECONDS.sleep(2);
+      Utils.sleep(Duration.ofSeconds(2));
       admin
           .offsets(Set.of(executor.topic()))
           .values()
           .forEach(o -> Assertions.assertEquals(0, o.latest()));
       Assertions.assertEquals(State.RUNNING, executor.execute());
       // wait for syncing data
-      TimeUnit.SECONDS.sleep(2);
+      Utils.sleep(Duration.ofSeconds(2));
       // only specified partition gets value
       // for normal producer, there is only one record
       // for transactional producer, the size of transaction is 10 and there is one transaction
@@ -62,11 +62,11 @@ public class ProducerExecutorTest extends RequireBrokerCluster {
           executor.transactional() ? 11 : 1,
           admin
               .offsets(Set.of(executor.topic()))
-              .get(new TopicPartition(executor.topic(), specifiedPartition))
+              .get(TopicPartition.of(executor.topic(), specifiedPartition))
               .latest());
       // other partitions have no data
       admin.offsets(Set.of(executor.topic())).entrySet().stream()
-          .filter(e -> !e.getKey().equals(new TopicPartition(executor.topic(), specifiedPartition)))
+          .filter(e -> !e.getKey().equals(TopicPartition.of(executor.topic(), specifiedPartition)))
           .forEach(e -> Assertions.assertEquals(0, e.getValue().latest()));
     }
   }
@@ -90,7 +90,7 @@ public class ProducerExecutorTest extends RequireBrokerCluster {
   void testObserver(ProducerExecutor executor) throws InterruptedException {
     Assertions.assertEquals(State.RUNNING, executor.execute());
     // wait for async call
-    TimeUnit.SECONDS.sleep(2);
+    Utils.sleep(Duration.ofSeconds(2));
     Assertions.assertEquals(
         executor.transactional() ? 10 : 1, ((Observer) executor.observer()).recordsHook.size());
     Assertions.assertEquals(

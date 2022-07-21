@@ -17,6 +17,7 @@
 package org.astraea.app.web;
 
 import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 import com.google.gson.reflect.TypeToken;
 import com.sun.net.httpserver.HttpExchange;
 import java.io.IOException;
@@ -50,6 +51,12 @@ public interface PostRequest {
       var value = (double) obj;
       if (value - Math.floor(value) == 0) return String.valueOf((long) Math.floor(value));
     }
+    // TODO: handle double in nested type
+    // use gson instead of obj.toString in nested type since obj.toString won't add double quote to
+    // string and will create invalid json
+    if (obj instanceof Map || obj instanceof List) {
+      return new GsonBuilder().disableHtmlEscaping().create().toJson(obj);
+    }
     return obj.toString();
   }
 
@@ -70,6 +77,15 @@ public interface PostRequest {
 
   default Optional<String> get(String key) {
     return Optional.ofNullable(raw().get(key));
+  }
+
+  default <T> List<T> values(String key, Class<T> clz) {
+    return new Gson()
+        .fromJson(value(key), TypeToken.getParameterized(ArrayList.class, clz).getType());
+  }
+
+  default <T> T value(String key, Class<T> clz) {
+    return new Gson().fromJson(value(key), TypeToken.get(clz).getType());
   }
 
   default String value(String key) {

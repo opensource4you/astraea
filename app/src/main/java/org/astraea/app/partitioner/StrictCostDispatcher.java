@@ -19,31 +19,34 @@ package org.astraea.app.partitioner;
 import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.TreeMap;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import org.astraea.app.admin.ClusterBean;
+import org.astraea.app.admin.ClusterInfo;
+import org.astraea.app.admin.NodeInfo;
+import org.astraea.app.admin.ReplicaInfo;
+import org.astraea.app.argument.DurationField;
 import org.astraea.app.common.Utils;
-import org.astraea.app.cost.ClusterInfo;
 import org.astraea.app.cost.CostFunction;
 import org.astraea.app.cost.HasBrokerCost;
-import org.astraea.app.cost.NodeInfo;
-import org.astraea.app.cost.ReplicaInfo;
+import org.astraea.app.cost.NodeLatencyCost;
 import org.astraea.app.metrics.collector.BeanCollector;
 import org.astraea.app.metrics.collector.Fetcher;
 import org.astraea.app.metrics.collector.Receiver;
 
 /**
  * this dispatcher scores the nodes by multiples cost functions. Each function evaluate the target
- * node by different metrics. The default cost function ranks nodes by throughput. It means the node
- * having lower throughput get higher score.
+ * node by different metrics. The default cost function ranks nodes by replica leader. It means the
+ * node having lower replica leaders get higher score.
  *
- * <p>The requisite config is JMX port. Most cost functions need the JMX metrics to score nodes.
+ * <p>The important config is JMX port. Most cost functions need the JMX metrics to score nodes.
  * Normally, all brokers use the same JMX port, so you can just define the `jmx.port=12345`. If one
  * of brokers uses different JMX client port, you can define `broker.1000.jmx.port=11111` (`1000` is
- * the broker id) to replace the value of `jmx.port`.
+ * the broker id) to replace the value of `jmx.port`. If the jmx port is undefined, only local mbean
+ * client is created for each cost function
  *
  * <p>You can configure the cost functions you want to use. By giving the name of that cost function
  * and its weight. For example,
@@ -51,21 +54,20 @@ import org.astraea.app.metrics.collector.Receiver;
  */
 public class StrictCostDispatcher implements Dispatcher {
   public static final String JMX_PORT = "jmx.port";
-  private static final Duration ROUND_ROBIN_LEASE = Duration.ofSeconds(30);
+  public static final String ROUND_ROBIN_LEASE_KEY = "round.robin.lease";
 
   private final BeanCollector beanCollector =
       BeanCollector.builder().interval(Duration.ofSeconds(4)).build();
 
+  Duration roundRobinLease;
+
   // The cost-functions we consider and the weight of them. It is visible for test
-  Map<CostFunction, Double> functions = Map.of(CostFunction.throughput(), 1D);
+  Map<CostFunction, Double> functions = Map.of();
 
   // all-in-one fetcher referenced to cost functions
   Optional<Fetcher> fetcher;
 
-  Function<Integer, Integer> jmxPortGetter =
-      (id) -> {
-        throw new NoSuchElementException("broker: " + id + " does not have jmx port");
-      };
+  Function<Integer, Optional<Integer>> jmxPortGetter = (id) -> Optional.empty();
 
   final Map<Integer, Receiver> receivers = new TreeMap<>();
 
@@ -95,25 +97,19 @@ public class StrictCostDispatcher implements Dispatcher {
                         .map(ReplicaInfo::nodeInfo)
                         .filter(nodeInfo -> !receivers.containsKey(nodeInfo.id()))
                         .distinct()
+                        .filter(nodeInfo -> jmxPortGetter.apply(nodeInfo.id()).isPresent())
                         .collect(
                             Collectors.toMap(
                                 NodeInfo::id,
                                 nodeInfo ->
                                     receiver(
                                         nodeInfo.host(),
-                                        jmxPortGetter.apply(nodeInfo.id()),
+                                        jmxPortGetter.apply(nodeInfo.id()).get(),
                                         fetcher))))
             .orElse(Map.of()));
 
-    // get latest beans for each node
-    var beans =
-        receivers.entrySet().stream()
-            .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().current()));
+    tryToUpdateRoundRobin(clusterInfo);
 
-    if (roundRobin == null || System.currentTimeMillis() >= timeToUpdateRoundRobin) {
-      roundRobin = newRoundRobin(functions, ClusterInfo.of(clusterInfo, beans));
-      timeToUpdateRoundRobin = System.currentTimeMillis() + ROUND_ROBIN_LEASE.toMillis();
-    }
     return roundRobin
         .next(partitionLeaders.stream().map(r -> r.nodeInfo().id()).collect(Collectors.toSet()))
         .flatMap(
@@ -126,6 +122,35 @@ public class StrictCostDispatcher implements Dispatcher {
         .orElse(0);
   }
 
+  void tryToUpdateRoundRobin(ClusterInfo clusterInfo) {
+    if (roundRobin == null || System.currentTimeMillis() >= timeToUpdateRoundRobin) {
+      roundRobin =
+          newRoundRobin(
+              functions,
+              clusterInfo,
+              ClusterBean.of(
+                  receivers.entrySet().stream()
+                      .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().current()))));
+      timeToUpdateRoundRobin = System.currentTimeMillis() + roundRobinLease.toMillis();
+    }
+  }
+
+  /**
+   * The value of cost returned from cost function is conflict to score, since the higher cost
+   * represents lower score. This helper reverses the cost by subtracting the cost from "max cost".
+   *
+   * @param cost to convert
+   * @return weights
+   */
+  static Map<Integer, Double> costToScore(Map<Integer, Double> cost) {
+    var max = cost.values().stream().max(Double::compare);
+    return max.map(
+            m ->
+                cost.entrySet().stream()
+                    .collect(Collectors.toMap(Map.Entry::getKey, e -> m - e.getValue())))
+        .orElse(cost);
+  }
+
   /**
    * create new Round-Robin based.
    *
@@ -134,37 +159,39 @@ public class StrictCostDispatcher implements Dispatcher {
    * @return SmoothWeightedRoundRobin
    */
   static RoundRobin<Integer> newRoundRobin(
-      Map<CostFunction, Double> costFunctions, ClusterInfo clusterInfo) {
-    return RoundRobin.smoothWeighted(
+      Map<CostFunction, Double> costFunctions, ClusterInfo clusterInfo, ClusterBean clusterBean) {
+    var weightedCost =
         costFunctions.entrySet().stream()
             .filter(e -> e.getKey() instanceof HasBrokerCost)
-            .map(e -> Map.entry((HasBrokerCost) e.getKey(), e.getValue()))
             .flatMap(
                 functionWeight ->
-                    functionWeight
-                        .getKey()
-                        // Execute all cost functions
-                        .brokerCost(clusterInfo)
-                        .value()
-                        .entrySet()
-                        .stream()
-                        // Weight on cost functions result
-                        .map(
-                            IdScore ->
-                                Map.entry(
-                                    IdScore.getKey(),
-                                    IdScore.getValue() * functionWeight.getValue())))
+                    ((HasBrokerCost) functionWeight.getKey())
+                        .brokerCost(clusterInfo, clusterBean).value().entrySet().stream()
+                            .map(
+                                idAndCost ->
+                                    Map.entry(
+                                        idAndCost.getKey(),
+                                        idAndCost.getValue() * functionWeight.getValue())))
             .collect(
                 Collectors.toMap(
-                    Map.Entry::getKey, Map.Entry::getValue, Double::sum, HashMap::new)));
+                    Map.Entry::getKey, Map.Entry::getValue, Double::sum, HashMap::new));
+    return RoundRobin.smooth(costToScore(weightedCost));
   }
 
   @Override
   public void configure(Configuration config) {
+    var configuredFunctions = parseCostFunctionWeight(config);
+
     configure(
-        parseCostFunctionWeight(config),
+        configuredFunctions.isEmpty() ? Map.of(new NodeLatencyCost(), 1D) : configuredFunctions,
         config.integer(JMX_PORT),
-        PartitionerUtils.parseIdJMXPort(config));
+        PartitionerUtils.parseIdJMXPort(config),
+        config
+            .string(ROUND_ROBIN_LEASE_KEY)
+            .map(DurationField::toDuration)
+            // The duration of updating beans is 4 seconds, so
+            // the default duration of updating RR is 4 seconds.
+            .orElse(Duration.ofSeconds(4)));
   }
 
   /**
@@ -177,18 +204,26 @@ public class StrictCostDispatcher implements Dispatcher {
   void configure(
       Map<CostFunction, Double> functions,
       Optional<Integer> jmxPortDefault,
-      Map<Integer, Integer> customJmxPort) {
+      Map<Integer, Integer> customJmxPort,
+      Duration roundRobinLease) {
     this.functions = functions;
-    this.fetcher = Fetcher.of(functions.keySet());
-    this.jmxPortGetter =
-        id ->
-            Optional.ofNullable(customJmxPort.get(id))
-                .or(() -> jmxPortDefault)
-                .orElseThrow(
-                    () -> new NoSuchElementException("broker: " + id + " does not have jmx port"));
-    if (fetcher.isPresent() && jmxPortDefault.isEmpty() && customJmxPort.isEmpty())
-      throw new IllegalArgumentException(
-          "JMX port is empty but the cost functions need metrics from JMX server");
+    // the temporary exception won't affect the smooth-weighted too much.
+    // TODO: should we propagate the exception by better way? For example: Slf4j ?
+    // see https://github.com/skiptests/astraea/issues/486
+    this.fetcher =
+        Fetcher.of(
+            this.functions.keySet().stream()
+                .map(CostFunction::fetcher)
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .collect(Collectors.toUnmodifiableList()),
+            Throwable::printStackTrace);
+    this.jmxPortGetter = id -> Optional.ofNullable(customJmxPort.get(id)).or(() -> jmxPortDefault);
+
+    // put local mbean client first
+    this.fetcher.ifPresent(
+        f -> receivers.put(-1, beanCollector.register().local().fetcher(f).build()));
+    this.roundRobinLease = roundRobinLease;
   }
 
   /**

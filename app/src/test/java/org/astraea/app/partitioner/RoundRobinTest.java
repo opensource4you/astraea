@@ -25,10 +25,10 @@ import org.junit.jupiter.api.Test;
 public class RoundRobinTest {
 
   @Test
-  void testSmoothWeighted() {
-    var weight = Map.of(0, 10D, 1, 5D);
+  void testSmoothRoundRobin() {
+    var scores = Map.of(0, 10D, 1, 5D);
 
-    var rr = RoundRobin.smoothWeighted(weight);
+    var rr = RoundRobin.smooth(scores);
 
     // nothing to pick
     Assertions.assertEquals(Optional.empty(), rr.next(Set.of()));
@@ -39,7 +39,7 @@ public class RoundRobinTest {
     Assertions.assertEquals(Optional.of(1), rr.next(Set.of(1)));
 
     // reset
-    rr = RoundRobin.smoothWeighted(weight);
+    rr = RoundRobin.smooth(scores);
     Assertions.assertEquals(Optional.of(0), rr.next(Set.of(0, 1)));
     Assertions.assertEquals(Optional.of(1), rr.next(Set.of(0, 1)));
     Assertions.assertEquals(Optional.of(0), rr.next(Set.of(0, 1)));

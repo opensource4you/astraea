@@ -21,11 +21,15 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
+import org.astraea.app.admin.ClusterBean;
+import org.astraea.app.admin.ClusterInfo;
+import org.astraea.app.admin.NodeInfo;
+import org.astraea.app.admin.ReplicaInfo;
 import org.astraea.app.admin.TopicPartition;
 import org.astraea.app.admin.TopicPartitionReplica;
+import org.astraea.app.metrics.KafkaMetrics;
+import org.astraea.app.metrics.broker.HasValue;
 import org.astraea.app.metrics.collector.Fetcher;
-import org.astraea.app.metrics.kafka.HasValue;
-import org.astraea.app.metrics.kafka.KafkaMetrics;
 
 /**
  * The result is computed by "Size.Value". "Size.Value" responds to the replica log size of brokers.
@@ -49,8 +53,8 @@ public class ReplicaSizeCost implements HasBrokerCost, HasPartitionCost {
    * @return a BrokerCost contains the ratio of the used space to the free space of each broker
    */
   @Override
-  public BrokerCost brokerCost(ClusterInfo clusterInfo) {
-    var sizeOfReplica = getReplicaSize(clusterInfo);
+  public BrokerCost brokerCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
+    var sizeOfReplica = getReplicaSize(clusterBean);
     var totalReplicaSizeInBroker =
         clusterInfo.nodes().stream()
             .collect(
@@ -79,9 +83,9 @@ public class ReplicaSizeCost implements HasBrokerCost, HasPartitionCost {
    *     each broker
    */
   @Override
-  public PartitionCost partitionCost(ClusterInfo clusterInfo) {
+  public PartitionCost partitionCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
     final long ONEMEGA = Math.round(Math.pow(2, 20));
-    var sizeOfReplica = getReplicaSize(clusterInfo);
+    var sizeOfReplica = getReplicaSize(clusterBean);
     TreeMap<TopicPartitionReplica, Double> replicaCost =
         new TreeMap<>(
             Comparator.comparing(TopicPartitionReplica::brokerId)
@@ -102,7 +106,7 @@ public class ReplicaSizeCost implements HasBrokerCost, HasPartitionCost {
                             .filter(ReplicaInfo::isLeader)
                             .map(
                                 partitionInfo ->
-                                    new TopicPartitionReplica(
+                                    TopicPartitionReplica.of(
                                         partitionInfo.topic(),
                                         partitionInfo.partition(),
                                         partitionInfo.nodeInfo().id()))
@@ -122,7 +126,7 @@ public class ReplicaSizeCost implements HasBrokerCost, HasPartitionCost {
                                                   new IllegalStateException(
                                                       tpr + " topic/partition size not found"));
                                   return Map.entry(
-                                      new TopicPartition(tpr.topic(), tpr.partition()), score);
+                                      TopicPartition.of(tpr.topic(), tpr.partition()), score);
                                 })
                             .collect(
                                 Collectors.toUnmodifiableMap(
@@ -140,7 +144,7 @@ public class ReplicaSizeCost implements HasBrokerCost, HasPartitionCost {
                             .collect(
                                 Collectors.toMap(
                                     x ->
-                                        new TopicPartition(
+                                        TopicPartition.of(
                                             x.getKey().topic(), x.getKey().partition()),
                                     Map.Entry::getValue))))
             .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));
@@ -160,18 +164,18 @@ public class ReplicaSizeCost implements HasBrokerCost, HasPartitionCost {
   }
 
   /**
-   * @param clusterInfo the clusterInfo that offers the metrics related to topic/partition size
+   * @param clusterBean offers the metrics related to topic/partition size
    * @return a map contain the replica log size of each topic/partition
    */
-  public Map<TopicPartitionReplica, Long> getReplicaSize(ClusterInfo clusterInfo) {
-    return clusterInfo.clusterBean().mapByReplica().entrySet().stream()
+  public Map<TopicPartitionReplica, Long> getReplicaSize(ClusterBean clusterBean) {
+    return clusterBean.mapByReplica().entrySet().stream()
         .flatMap(
             e ->
                 e.getValue().stream()
                     .filter(x -> x instanceof HasValue)
                     .filter(x -> x.beanObject().domainName().equals("kafka.log"))
-                    .filter(x -> x.beanObject().getProperties().get("type").equals("Log"))
-                    .filter(x -> x.beanObject().getProperties().get("name").equals("Size"))
+                    .filter(x -> x.beanObject().properties().get("type").equals("Log"))
+                    .filter(x -> x.beanObject().properties().get("name").equals("Size"))
                     .map(x -> (HasValue) x)
                     .map(x -> Map.entry(e.getKey(), x.value())))
         .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));

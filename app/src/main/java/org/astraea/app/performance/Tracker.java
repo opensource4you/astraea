@@ -21,7 +21,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.function.Supplier;
-import org.astraea.app.common.DataUnit;
+import org.astraea.app.common.DataSize;
 import org.astraea.app.concurrent.Executor;
 import org.astraea.app.concurrent.State;
 
@@ -89,7 +89,7 @@ public class Tracker implements Executor {
     System.out.printf("producers completion rate: %.2f%%%n", percentage);
     System.out.printf("  average throughput: %.3f MB/second%n", result.averageBytes(duration));
     System.out.printf(
-        "  current throughput: %s/second%n", DataUnit.Byte.of(result.totalCurrentBytes()));
+        "  current throughput: %s/second%n", DataSize.Byte.of(result.totalCurrentBytes()));
     System.out.println("  publish max latency: " + result.maxLatency + " ms");
     System.out.println("  publish mim latency: " + result.minLatency + " ms");
     for (int i = 0; i < result.bytes.size(); ++i) {
@@ -113,7 +113,7 @@ public class Tracker implements Executor {
     System.out.printf("consumer completion rate: %.2f%%%n", percentage);
     System.out.printf("  average throughput: %.3f MB/second%n", result.averageBytes(duration));
     System.out.printf(
-        "  current throughput: %s/second%n", DataUnit.Byte.of(result.totalCurrentBytes()));
+        "  current throughput: %s/second%n", DataSize.Byte.of(result.totalCurrentBytes()));
     System.out.println("  end-to-end max latency: " + result.maxLatency + " ms");
     System.out.println("  end-to-end mim latency: " + result.minLatency + " ms");
     for (int i = 0; i < result.bytes.size(); ++i) {

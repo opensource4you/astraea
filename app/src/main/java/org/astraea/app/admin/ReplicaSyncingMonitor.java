@@ -27,7 +27,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -103,7 +102,7 @@ public class ReplicaSyncingMonitor {
                     .sorted()
                     .forEachOrdered(
                         partition -> {
-                          TopicPartition tp = new TopicPartition(topic, partition);
+                          TopicPartition tp = TopicPartition.of(topic, partition);
                           Replica leaderReplica = topicPartitionLeaderReplicaTable.get(tp);
                           List<Replica> thisReplicas = partitionReplicas.get(tp);
 
@@ -121,11 +120,11 @@ public class ReplicaSyncingMonitor {
                                       Map.entry(
                                           entry.getValue(),
                                           new ProgressInfo(
-                                              DataUnit.Byte.of(leaderReplica.size()),
-                                              DataUnit.Byte.of(
+                                              DataSize.Byte.of(leaderReplica.size()),
+                                              DataSize.Byte.of(
                                                   previousCheckedSize.getOrDefault(
                                                       entry.getKey(), entry.getValue().size())),
-                                              DataUnit.Byte.of(entry.getValue().size()),
+                                              DataSize.Byte.of(entry.getValue().size()),
                                               argument.interval)))
                               .map(
                                   entry ->
@@ -179,18 +178,14 @@ public class ReplicaSyncingMonitor {
             .filter(
                 tpr ->
                     !nonSyncedTopicPartition.contains(
-                        new TopicPartition(tpr.getKey().topic(), tpr.getKey().partition())))
+                        TopicPartition.of(tpr.getKey().topic(), tpr.getKey().partition())))
             .distinct()
             .forEach(tpr -> previousCheckedSize.remove(tpr.getKey()));
       }
 
-      Utils.packException(
-          () -> {
-            long expectedWaitNs = argument.interval.toNanos();
-            long elapsedNs = (System.nanoTime() - startTime);
-            TimeUnit.NANOSECONDS.sleep(Math.max(expectedWaitNs - elapsedNs, 0));
-            return 0;
-          });
+      long expectedWaitNs = argument.interval.toNanos();
+      long elapsedNs = (System.nanoTime() - startTime);
+      Utils.sleep(Duration.ofNanos(Math.max(expectedWaitNs - elapsedNs, 0)));
     }
   }
 
@@ -257,7 +252,7 @@ public class ReplicaSyncingMonitor {
     public DataRate dataRate() {
       if (isProgressFallback()) {
         // log retention/compaction occurred, we don't know the actual data rate at this moment.
-        return DataRate.of(0, DataUnit.Byte, interval);
+        return DataRate.ZERO;
       } else {
         return currentSize.subtract(previousSize).dataRate(interval);
       }

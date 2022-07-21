@@ -52,10 +52,8 @@ import org.apache.kafka.common.quota.ClientQuotaAlteration;
 import org.apache.kafka.common.quota.ClientQuotaEntity;
 import org.apache.kafka.common.quota.ClientQuotaFilter;
 import org.apache.kafka.common.quota.ClientQuotaFilterComponent;
+import org.astraea.app.common.DataRate;
 import org.astraea.app.common.Utils;
-import org.astraea.app.cost.ClusterInfo;
-import org.astraea.app.cost.NodeInfo;
-import org.astraea.app.cost.ReplicaInfo;
 
 public class Builder {
 
@@ -314,7 +312,7 @@ public class Builder {
                   .flatMap(
                       e ->
                           e.getValue().partitions().stream()
-                              .map(p -> new TopicPartition(e.getKey(), p.partition())))
+                              .map(p -> TopicPartition.of(e.getKey(), p.partition())))
                   .collect(Collectors.toSet()));
     }
 
@@ -358,7 +356,7 @@ public class Builder {
                                 tpInfo -> {
                                   var topicName = entry.getKey();
                                   var partition = tpInfo.partition();
-                                  var topicPartition = new TopicPartition(topicName, partition);
+                                  var topicPartition = TopicPartition.of(topicName, partition);
                                   return Map.entry(topicPartition, tpInfo);
                                 }))
                 .collect(
@@ -523,11 +521,6 @@ public class Builder {
                 "This ClusterInfo have no information about topic \"" + topic + "\"");
           else return replicaInfos;
         }
-
-        @Override
-        public ClusterBean clusterBean() {
-          return ClusterBean.of(Map.of());
-        }
       };
     }
 
@@ -619,7 +612,7 @@ public class Builder {
       dirs.forEach(
           (replica, logDir) -> {
             var brokerId = replica.brokerId();
-            var tp = new TopicPartition(replica.topic(), replica.partition());
+            var tp = TopicPartition.of(replica.topic(), replica.partition());
             var ls =
                 result.computeIfAbsent(tp, ignored -> Map.entry(new HashSet<>(), new HashSet<>()));
             // the replica is moved from a folder to another folder (in the same node)
@@ -795,7 +788,6 @@ public class Builder {
     private final org.apache.kafka.clients.admin.Admin admin;
     private final Function<Set<String>, Set<TopicPartition>> partitionGetter;
     private final Set<TopicPartition> partitions = new HashSet<>();
-    private boolean updateLeader = false;
 
     MigratorImpl(
         org.apache.kafka.clients.admin.Admin admin,
@@ -812,7 +804,7 @@ public class Builder {
 
     @Override
     public ReplicaMigrator partition(String topic, int partition) {
-      partitions.add(new TopicPartition(topic, partition));
+      partitions.add(TopicPartition.of(topic, partition));
       return this;
     }
 
@@ -945,17 +937,17 @@ public class Builder {
     @Override
     public Client clientId(String id) {
       return new Client() {
-        private int produceRate = Integer.MAX_VALUE;
-        private int consumeRate = Integer.MAX_VALUE;
+        private DataRate produceRate = null;
+        private DataRate consumeRate = null;
 
         @Override
-        public Client produceRate(int value) {
+        public Client produceRate(DataRate value) {
           this.produceRate = value;
           return this;
         }
 
         @Override
-        public Client consumeRate(int value) {
+        public Client consumeRate(DataRate value) {
           this.consumeRate = value;
           return this;
         }
@@ -963,14 +955,14 @@ public class Builder {
         @Override
         public void create() {
           var q = new ArrayList<ClientQuotaAlteration.Op>();
-          if (produceRate != Integer.MAX_VALUE)
+          if (produceRate != null)
             q.add(
                 new ClientQuotaAlteration.Op(
-                    Quota.Limit.PRODUCER_BYTE_RATE.nameOfKafka(), (double) produceRate));
-          if (consumeRate != Integer.MAX_VALUE)
+                    Quota.Limit.PRODUCER_BYTE_RATE.nameOfKafka(), produceRate.byteRate()));
+          if (consumeRate != null)
             q.add(
                 new ClientQuotaAlteration.Op(
-                    Quota.Limit.CONSUMER_BYTE_RATE.nameOfKafka(), (double) consumeRate));
+                    Quota.Limit.CONSUMER_BYTE_RATE.nameOfKafka(), consumeRate.byteRate()));
           if (!q.isEmpty())
             Utils.packException(
                 () ->

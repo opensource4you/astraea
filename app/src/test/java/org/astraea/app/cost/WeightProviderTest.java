@@ -101,7 +101,6 @@ public class WeightProviderTest {
   @ParameterizedTest
   @MethodSource("normalizers")
   void testEntropy(Normalizer normalizer) {
-    var length = 8;
     var numberOfMetrics = 2;
     var numberOfObjects = 2;
     var weightProvider = new WeightProvider.EntropyWeightProvider(normalizer);

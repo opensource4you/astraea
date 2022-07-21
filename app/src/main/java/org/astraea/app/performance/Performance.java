@@ -36,7 +36,6 @@ import java.util.function.BiConsumer;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-import org.apache.kafka.clients.producer.internals.DefaultPartitioner;
 import org.apache.kafka.common.errors.WakeupException;
 import org.astraea.app.admin.Admin;
 import org.astraea.app.admin.Compression;
@@ -45,6 +44,7 @@ import org.astraea.app.argument.CompressionField;
 import org.astraea.app.argument.NonEmptyStringField;
 import org.astraea.app.argument.NonNegativeShortField;
 import org.astraea.app.argument.PathField;
+import org.astraea.app.argument.PositiveIntegerField;
 import org.astraea.app.argument.PositiveLongField;
 import org.astraea.app.argument.PositiveShortField;
 import org.astraea.app.common.DataSize;
@@ -86,8 +86,7 @@ import org.astraea.app.producer.Producer;
  */
 public class Performance {
   /** Used in Automation, to achieve the end of one Performance and then start another. */
-  public static void main(String[] args)
-      throws InterruptedException, IOException, ExecutionException {
+  public static void main(String[] args) throws InterruptedException, IOException {
     execute(org.astraea.app.argument.Argument.parse(new Argument(), args));
   }
 
@@ -95,9 +94,10 @@ public class Performance {
     return DataSupplier.of(
         argument.exeTime,
         argument.keyDistributionType.create(10000),
-        argument.recordSize,
-        argument.sizeDistributionType.create(
-            argument.recordSize.measurement(DataUnit.Byte).intValue()),
+        argument.keyDistributionType.create(argument.keySize.measurement(DataUnit.Byte).intValue()),
+        argument.valueDistributionType.create(10000),
+        argument.valueDistributionType.create(
+            argument.valueSize.measurement(DataUnit.Byte).intValue()),
         argument.throughput);
   }
 
@@ -132,8 +132,7 @@ public class Performance {
         .collect(Collectors.toUnmodifiableList());
   }
 
-  public static Result execute(final Argument param)
-      throws InterruptedException, IOException, ExecutionException {
+  public static Result execute(final Argument param) throws InterruptedException, IOException {
     List<Integer> partitions;
     try (var topicAdmin = Admin.of(param.configs())) {
       topicAdmin
@@ -354,7 +353,7 @@ public class Performance {
     @Parameter(
         names = {"--partitions"},
         description = "Integer: number of partitions to create the topic",
-        validateWith = PositiveLongField.class)
+        validateWith = PositiveIntegerField.class)
     int partitions = 1;
 
     @Parameter(
@@ -390,16 +389,10 @@ public class Performance {
     ExeTime exeTime = ExeTime.of("1000records");
 
     @Parameter(
-        names = {"--record.size"},
-        description = "DataSize: size of each record. e.g. \"500KiB\"",
-        converter = DataSize.Field.class)
-    DataSize recordSize = DataUnit.KiB.of(1);
-
-    @Parameter(
         names = {"--partitioner"},
         description = "String: the full class name of the desired partitioner",
         validateWith = NonEmptyStringField.class)
-    String partitioner = DefaultPartitioner.class.getName();
+    String partitioner = null;
 
     @Parameter(
         names = {"--compression"},
@@ -420,18 +413,30 @@ public class Performance {
     }
 
     @Parameter(
+        names = {"--key.size"},
+        description = "DataSize of the key. Default: 4Byte",
+        converter = DataSize.Field.class)
+    DataSize keySize = DataSize.Byte.of(4);
+
+    @Parameter(
+        names = {"--value.size"},
+        description = "DataSize of the value. Default: 1KiB",
+        converter = DataSize.Field.class)
+    DataSize valueSize = DataSize.KiB.of(1);
+
+    @Parameter(
         names = {"--key.distribution"},
         description =
-            "String: Distribution name. Available distribution names: \"fixed\" \"uniform\", \"zipfian\", \"latest\". Default: uniform",
+            "Distribution name for key and key size. Available distribution names: \"fixed\" \"uniform\", \"zipfian\", \"latest\". Default: uniform",
         converter = DistributionType.DistributionTypeField.class)
     DistributionType keyDistributionType = DistributionType.UNIFORM;
 
     @Parameter(
-        names = {"--size.distribution"},
+        names = {"--value.distribution"},
         description =
-            "String: Distribution name. Available distribution names: \"uniform\", \"zipfian\", \"latest\", \"fixed\". Default: \"uniform\"",
+            "Distribution name for value and value size. Available distribution names: \"uniform\", \"zipfian\", \"latest\", \"fixed\". Default: uniform",
         converter = DistributionType.DistributionTypeField.class)
-    DistributionType sizeDistributionType = DistributionType.UNIFORM;
+    DistributionType valueDistributionType = DistributionType.UNIFORM;
 
     @Parameter(
         names = {"--specify.broker"},
@@ -440,11 +445,12 @@ public class Performance {
         validateWith = NonEmptyStringField.class)
     List<Integer> specifyBroker = List.of(-1);
 
+    // replace DataSize by DataRate (see https://github.com/skiptests/astraea/issues/488)
     @Parameter(
         names = {"--throughput"},
         description = "dataSize: size output per second. e.g. \"500KiB\"",
         converter = DataSize.Field.class)
-    DataSize throughput = DataUnit.GiB.of(500);
+    DataSize throughput = DataSize.GiB.of(500);
 
     @Parameter(
         names = {"--report.path"},

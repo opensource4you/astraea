@@ -18,6 +18,7 @@ package org.astraea.app.web;
 
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
+import static org.astraea.app.web.PostRequest.handleDouble;
 
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonDeserializationContext;
@@ -36,22 +37,23 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
+import java.util.concurrent.TimeUnit;
 import java.util.function.BiFunction;
 import org.astraea.app.admin.TopicPartition;
+import org.astraea.app.argument.DurationField;
 import org.astraea.app.common.Utils;
 import org.astraea.app.consumer.Builder;
 import org.astraea.app.consumer.Consumer;
 import org.astraea.app.consumer.Deserializer;
 import org.astraea.app.producer.Producer;
+import org.astraea.app.producer.Sender;
 import org.astraea.app.producer.Serializer;
 
 public class RecordHandler implements Handler {
-  static final String KEY_SERIALIZER = "keySerializer";
-  static final String VALUE_SERIALIZER = "valueSerializer";
-  static final String TOPIC = "topic";
-  static final String KEY = "key";
-  static final String VALUE = "value";
-  static final String TIMESTAMP = "timestamp";
+  static final String RECORDS = "records";
+  static final String TRANSACTION_ID = "transactionId";
   static final String PARTITION = "partition";
   static final String ASYNC = "async";
   static final String DISTANCE_FROM_LATEST = "distanceFromLatest";
@@ -59,7 +61,7 @@ public class RecordHandler implements Handler {
   static final String SEEK_TO = "seekTo";
   static final String KEY_DESERIALIZER = "keyDeserializer";
   static final String VALUE_DESERIALIZER = "valueDeserializer";
-  static final String RECORDS = "records";
+  static final String LIMIT = "limit";
   static final String TIMEOUT = "timeout";
 
   final String bootstrapServers;
@@ -79,13 +81,18 @@ public class RecordHandler implements Handler {
       throw new IllegalArgumentException("only one seek strategy is allowed");
     }
 
+    var timeout =
+        Optional.ofNullable(queries.get(TIMEOUT))
+            .map(DurationField::toDuration)
+            .orElse(Duration.ofSeconds(5));
+
     var consumerBuilder =
         Optional.ofNullable(queries.get(PARTITION))
             .map(Integer::valueOf)
             .map(
                 partition ->
                     (Builder<byte[], byte[]>)
-                        Consumer.forPartitions(Set.of(new TopicPartition(topic, partition))))
+                        Consumer.forPartitions(Set.of(TopicPartition.of(topic, partition))))
             .orElseGet(() -> Consumer.forTopics(Set.of(topic)));
 
     var keyDeserializer =
@@ -122,43 +129,72 @@ public class RecordHandler implements Handler {
         .ifPresent(seekTo -> consumerBuilder.seekStrategy(Builder.SeekStrategy.SEEK_TO, seekTo));
 
     try (var consumer = consumerBuilder.build()) {
-      var maxRecords = Integer.parseInt(queries.getOrDefault(RECORDS, "1"));
+      var limit = Integer.parseInt(queries.getOrDefault(LIMIT, "1"));
       return new Records(
-          consumer
-              .poll(
-                  maxRecords,
-                  // TODO: Use DurationField format in timeout
-                  // (https://github.com/skiptests/astraea/issues/450)
-                  Duration.ofSeconds(Integer.parseInt(queries.getOrDefault(TIMEOUT, "5"))))
-              .stream()
+          consumer.poll(limit, timeout).stream()
               .map(Record::new)
               // TODO: remove limit here (https://github.com/skiptests/astraea/issues/441)
-              .limit(maxRecords)
+              .limit(limit)
               .collect(toList()));
     }
   }
 
   @Override
   public Response post(PostRequest request) {
-    var topic =
-        request.get(TOPIC).orElseThrow(() -> new IllegalArgumentException("topic must be set"));
-    var keySerializer = request.get(KEY_SERIALIZER).map(SerDe::of).orElse(SerDe.STRING).serializer;
-    var valueSerializer =
-        request.get(VALUE_SERIALIZER).map(SerDe::of).orElse(SerDe.STRING).serializer;
     var async = request.booleanValue(ASYNC, false);
-    var sender = producer.sender().topic(topic);
+    var timeout = request.get(TIMEOUT).map(DurationField::toDuration).orElse(Duration.ofSeconds(5));
+    var records = request.values(RECORDS, PostRecord.class);
+    if (records.isEmpty()) {
+      throw new IllegalArgumentException("records should contain at least one record");
+    }
 
-    // TODO: Support headers (https://github.com/skiptests/astraea/issues/422)
-    request.get(KEY).ifPresent(k -> sender.key(keySerializer.apply(topic, k)));
-    request.get(VALUE).ifPresent(v -> sender.value(valueSerializer.apply(topic, v)));
-    request.get(TIMESTAMP).ifPresent(t -> sender.timestamp(Long.parseLong(t)));
-    request.get(PARTITION).ifPresent(p -> sender.partition(Integer.parseInt(p)));
+    var producer =
+        request
+            .get(TRANSACTION_ID)
+            .map(
+                // TODO: Find a way to cache transactional producer
+                // (https://github.com/skiptests/astraea/issues/473)
+                transactionId ->
+                    Producer.builder()
+                        .transactionId(transactionId)
+                        .bootstrapServers(bootstrapServers)
+                        .buildTransactional())
+            .orElse(this.producer);
 
-    var senderFuture = sender.run().toCompletableFuture();
+    var result =
+        CompletableFuture.supplyAsync(
+                () -> {
+                  try {
+                    return producer.send(
+                        records.stream()
+                            .map(record -> createSender(producer, record))
+                            .collect(toList()));
+                  } finally {
+                    if (producer.transactional()) {
+                      producer.close();
+                    }
+                  }
+                })
+            .thenCompose(
+                senderFutures ->
+                    Utils.sequence(
+                        senderFutures.stream()
+                            .map(
+                                s ->
+                                    s.handle(
+                                        (metadata, exception) -> {
+                                          if (metadata != null) return new Metadata(metadata);
+                                          if (exception != null)
+                                            return Response.for500(exception.getMessage());
+                                          // this shouldn't happen, but still add error 404 here
+                                          return Response.for404("missing result");
+                                        }))
+                            .map(CompletionStage::toCompletableFuture)
+                            .collect(toList())));
 
     if (async) return Response.ACCEPT;
-
-    return Utils.packException(() -> new Metadata(senderFuture.get()));
+    return Utils.packException(
+        () -> new PostResponse(result.get(timeout.toNanos(), TimeUnit.NANOSECONDS)));
   }
 
   enum SerDe {
@@ -212,6 +248,32 @@ public class RecordHandler implements Handler {
     static SerDe of(String name) {
       return valueOf(name.toUpperCase(Locale.ROOT));
     }
+  }
+
+  private static Sender<byte[], byte[]> createSender(
+      Producer<byte[], byte[]> producer, PostRecord postRecord) {
+    var topic =
+        Optional.ofNullable(postRecord.topic)
+            .orElseThrow(() -> new IllegalArgumentException("topic must be set"));
+    var sender = producer.sender().topic(topic);
+    // TODO: Support headers
+    // (https://github.com/skiptests/astraea/issues/422)
+    var keySerializer =
+        Optional.ofNullable(postRecord.keySerializer)
+            .map(name -> SerDe.of(name).serializer)
+            .orElse(SerDe.STRING.serializer);
+    var valueSerializer =
+        Optional.ofNullable(postRecord.valueSerializer)
+            .map(name -> SerDe.of(name).serializer)
+            .orElse(SerDe.STRING.serializer);
+
+    Optional.ofNullable(postRecord.key)
+        .ifPresent(key -> sender.key(keySerializer.apply(topic, handleDouble(key))));
+    Optional.ofNullable(postRecord.value)
+        .ifPresent(value -> sender.value(valueSerializer.apply(topic, handleDouble(value))));
+    Optional.ofNullable(postRecord.timestamp).ifPresent(sender::timestamp);
+    Optional.ofNullable(postRecord.partition).ifPresent(sender::partition);
+    return sender;
   }
 
   static class Metadata implements Response {
@@ -295,6 +357,41 @@ public class RecordHandler implements Handler {
 
     public JsonElement serialize(byte[] src, Type type, JsonSerializationContext context) {
       return new JsonPrimitive(Base64.getEncoder().encodeToString(src));
+    }
+  }
+
+  static class PostRecord {
+    final String topic;
+    final Integer partition;
+    final String keySerializer;
+    final String valueSerializer;
+    final Object key;
+    final Object value;
+    final Long timestamp;
+
+    PostRecord(
+        String topic,
+        Integer partition,
+        String keySerializer,
+        String valueSerializer,
+        Object key,
+        Object value,
+        Long timestamp) {
+      this.topic = topic;
+      this.partition = partition;
+      this.keySerializer = keySerializer;
+      this.valueSerializer = valueSerializer;
+      this.key = key;
+      this.value = value;
+      this.timestamp = timestamp;
+    }
+  }
+
+  static class PostResponse implements Response {
+    final List<Response> results;
+
+    PostResponse(List<Response> results) {
+      this.results = results;
     }
   }
 }

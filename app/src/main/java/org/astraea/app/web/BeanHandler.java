@@ -80,11 +80,11 @@ public class BeanHandler implements Handler {
     Bean(BeanObject obj) {
       this.domainName = obj.domainName();
       this.properties =
-          obj.getProperties().entrySet().stream()
+          obj.properties().entrySet().stream()
               .map(e -> new Property(e.getKey(), e.getValue()))
               .collect(Collectors.toUnmodifiableList());
       this.attributes =
-          obj.getAttributes().entrySet().stream()
+          obj.attributes().entrySet().stream()
               .map(e -> new Attribute(e.getKey(), e.getValue().toString()))
               .collect(Collectors.toUnmodifiableList());
     }

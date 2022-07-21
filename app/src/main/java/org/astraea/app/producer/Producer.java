@@ -17,7 +17,6 @@
 package org.astraea.app.producer;
 
 import java.util.Collection;
-import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletionStage;
 
@@ -53,9 +52,5 @@ public interface Producer<Key, Value> extends AutoCloseable {
 
   static Producer<byte[], byte[]> of(String bootstrapServers) {
     return builder().bootstrapServers(bootstrapServers).build();
-  }
-
-  static Producer<byte[], byte[]> of(Map<String, String> configs) {
-    return builder().configs(configs).build();
   }
 }

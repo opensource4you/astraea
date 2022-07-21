@@ -16,9 +16,10 @@
  */
 package org.astraea.app.admin;
 
+import java.time.Duration;
 import java.util.Map;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
+import org.astraea.app.common.Utils;
 import org.astraea.app.service.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -32,7 +33,7 @@ public class SomePartitionOfflineTest extends RequireBrokerCluster {
       admin.creator().topic(topicName1).numberOfPartitions(4).numberOfReplicas((short) 1).create();
       admin.creator().topic(topicName2).numberOfPartitions(4).numberOfReplicas((short) 1).create();
       // wait for topic creation
-      TimeUnit.SECONDS.sleep(10);
+      Utils.sleep(Duration.ofSeconds(3));
       var replicaOnBroker0 =
           admin.replicas(admin.topicNames()).entrySet().stream()
               .filter(replica -> replica.getValue().get(0).broker() == 0)
@@ -48,9 +49,6 @@ public class SomePartitionOfflineTest extends RequireBrokerCluster {
               .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
       offlineReplicaOnBroker0.forEach(
           (tp, replica) -> Assertions.assertTrue(replica.get(0).isOffline()));
-
-    } catch (InterruptedException e) {
-      throw new RuntimeException(e);
     }
   }
 }

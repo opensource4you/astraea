@@ -31,6 +31,13 @@ public interface Register {
   Register port(int port);
 
   /**
+   * declare a receiver based on local metrics client
+   *
+   * @return this register
+   */
+  Register local();
+
+  /**
    * @param getters to get metrics from MBeanClient
    * @return this register
    */

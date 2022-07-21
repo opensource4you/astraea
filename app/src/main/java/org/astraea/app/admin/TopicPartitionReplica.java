@@ -19,14 +19,6 @@ package org.astraea.app.admin;
 import java.util.Objects;
 
 public class TopicPartitionReplica implements Comparable<TopicPartitionReplica> {
-  public static TopicPartitionReplica from(org.apache.kafka.common.TopicPartitionReplica tpr) {
-    return new TopicPartitionReplica(tpr.topic(), tpr.partition(), tpr.brokerId());
-  }
-
-  public static org.apache.kafka.common.TopicPartitionReplica to(TopicPartitionReplica tpr) {
-    return new org.apache.kafka.common.TopicPartitionReplica(
-        tpr.topic, tpr.partition, tpr.brokerId());
-  }
 
   public static TopicPartitionReplica of(String topic, int partition, int brokerId) {
     return new TopicPartitionReplica(topic, partition, brokerId);
@@ -36,7 +28,7 @@ public class TopicPartitionReplica implements Comparable<TopicPartitionReplica> 
   private final int partition;
   private final String topic;
 
-  public TopicPartitionReplica(String topic, int partition, int brokerId) {
+  private TopicPartitionReplica(String topic, int partition, int brokerId) {
     this.partition = partition;
     this.topic = topic;
     this.brokerId = brokerId;

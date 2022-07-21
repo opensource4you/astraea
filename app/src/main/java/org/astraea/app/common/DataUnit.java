@@ -105,7 +105,7 @@ public enum DataUnit {
    * @param measurement the data size measurement.
    * @return a size object of given measurement under specific data unit.
    */
-  public DataSize of(long measurement) {
+  DataSize of(long measurement) {
     return new DataSize(measurement, this);
   }
 
