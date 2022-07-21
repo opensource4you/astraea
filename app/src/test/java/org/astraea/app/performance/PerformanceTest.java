@@ -34,7 +34,6 @@ import org.astraea.app.argument.Argument;
 import org.astraea.app.common.Utils;
 import org.astraea.app.concurrent.Executor;
 import org.astraea.app.concurrent.State;
-import org.astraea.app.concurrent.ThreadPool;
 import org.astraea.app.consumer.Consumer;
 import org.astraea.app.consumer.ConsumerRebalanceListener;
 import org.astraea.app.consumer.Isolation;
@@ -145,6 +144,7 @@ public class PerformanceTest extends RequireBrokerCluster {
     Assertions.assertFalse(generationIDTime.containsKey(2));
     Assertions.assertEquals(1, generationIDTime.get(1).peek().getSeconds());
   }
+
   @Test
   void testTransactionSet() {
     var argument = new Performance.Argument();
