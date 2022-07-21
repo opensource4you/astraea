@@ -16,7 +16,6 @@ This project offers many kafka tools to simplify the life for kafka users.
 2. [Kafka performance](#Performance-Benchmark): check producing/consuming performance.
 3. [Kafka offset explorer](#topic-explorer): check the start/end offsets of kafka topics
 4. [Kafka metric explorer](#kafka-metric-explorer): utility for accessing kafka Mbean metrics via JMX.
-5. [Replica Collie](#replica-collie): move replicas from brokers to others. You can use this tool to obstruct specific brokers from hosting specific topics.
 6. [Kafka partition score](#Kafka-partition-score): score all broker's partitions. 
 7. [Kafka replica syncing monitor](#Kafka-replica-syncing-monitor): Tracking replica syncing progress.
 8. [Astraea Web Server 中文文件連結](./docs/web_server/README.md)
@@ -200,7 +199,7 @@ Run the benchmark from source
 12. --throughput: the produce rate for all producers. e.g. "--throughput 2MiB". Default: 500 GiB (per second)
 13. --key.size: the bound of DataSize of the key. Default: 4Byte
 14. --value.size: the bound of DataSize of the value. Default: 1KiB
-15. --key.distribution: distribution name for key and key size. Available distribution names: "fixed" "uniform", "zipfian", "latest". Default: fixed
+15. --key.distribution: distribution name for key and key size. Available distribution names: "fixed" "uniform", "zipfian", "latest". Default: uniform
 16. --value.distribution: distribution name for value and record size. Available distribution names: "uniform", "zipfian", "latest", "fixed". Default: uniform
 17. --specify.broker: list of broker IDs to produce records to. Default: (Do Not Specify)
 18. --report.path: A path to place the report file. Default: (no report)
@@ -276,50 +275,6 @@ Run the tool from release
 5. --view-object-name-list: show the list view of MBeans' domain name & properties. Default: false.
 
 ---
-
-## Replica Collie
-
-This tool offers an effective way to migrate specify replicas from specific brokers to others brokers.
-
-### Move all replicas from broker_0 and broker_1 to other brokers
-
-```shell 
-./gradlew run --args="replica --bootstrap.servers 192.168.50.178:19993 --from 0,1"
-```
-
-### Move all replicas of topic "abc" from broker_0 to broker_1
-
-```shell
-./gradlew run --args="replica --bootstrap.servers 192.168.50.178:19993 --from 0 --to 1 --topics abc"
-```
-
-### Move all replicas of topic "abc" in broker_0 to other folders
-
-```shell
-./gradlew run --args="replica --bootstrap.servers 192.168.50.178:19993 --from 0 --to 0 --topics abc"
-```
-
-### Move specify replicas of topic "abc" and "def" from broker_0 to broker_1
-
-```shell
-./gradlew run --args="replica --bootstrap.servers 192.168.50.178:19993 --from 0 --to 1 --topic abc,def --partitions 0,1"
-```
-
-### Move specify replicas of topic "abc"  and "def" from broker_0 to broker_1 specify folder
-
-```shell
-./gradlew run --args="replica --bootstrap.servers 192.168.50.178:19993 --from 0 --to 1 --topic abc,def --partitions 0,1 --path /tmp/log1"
-```
-
-### Replica Collie Configurations
-
-1. --bootstrap.servers: the server to connect to
-2. --from: the broker of the specified replica
-3. --prop.file: the file path containing the properties to be passed to kafka admin
-4. --to: the replica moved target broker
-5. --topics: the topics to be moved
-6. --partitions : all partitions that will be moved
-7. --path: the replica that will move to
 
 ## Kafka Partition Score
 

@@ -54,8 +54,8 @@ public final class SmoothWeightRoundRobin
     extends Periodic<SmoothWeightRoundRobin.EffectiveWeightResult> {
   private EffectiveWeightResult effectiveWeightResult;
   private Map<Integer, Double> currentWeight;
-
   private final Map<String, List<Integer>> brokersIDofTopic = new HashMap<>();
+  private final double upperLimitOffsetRatio = 0.1;
 
   public SmoothWeightRoundRobin(Map<Integer, Double> effectiveWeight) {
     effectiveWeightResult =
@@ -67,26 +67,43 @@ public final class SmoothWeightRoundRobin
             .collect(Collectors.toMap(Map.Entry::getKey, ignored -> 0.0));
   }
 
+  /**
+   * Update effective weight.
+   *
+   * @param brokerScore Broker Score.
+   */
   public synchronized void init(Map<Integer, Double> brokerScore) {
     effectiveWeightResult =
         tryUpdate(
             () -> {
-              var normalizationLoad = CostUtils.normalize(brokerScore);
-              return new EffectiveWeightResult(
+              var avgScore =
+                  brokerScore.values().stream().mapToDouble(i -> i).average().getAsDouble();
+              var offsetRatioOfBroker =
+                  brokerScore.entrySet().stream()
+                      .collect(
+                          Collectors.toMap(
+                              Map.Entry::getKey,
+                              entry -> (entry.getValue() - avgScore) / avgScore));
+              // If the average offset of all brokers from the cluster is greater than 0.1, it is
+              // unbalanced.
+              var balance =
+                  CostUtils.standardDeviationImperative(avgScore, brokerScore)
+                      > upperLimitOffsetRatio * avgScore;
+
+              var effectiveWeights =
                   this.effectiveWeightResult.effectiveWeight.entrySet().stream()
                       .collect(
                           Collectors.toMap(
-                              entry -> entry.getKey(),
+                              Map.Entry::getKey,
                               entry -> {
-                                var nLoad = normalizationLoad.get(entry.getKey());
+                                var offsetRatio = offsetRatioOfBroker.get(entry.getKey());
                                 var weight =
-                                    entry.getValue()
-                                        * (nLoad.isNaN()
-                                            ? 1.0
-                                            : ((nLoad + 1) > 0 ? nLoad + 1 : 0.1));
-                                if (weight > 2.0) return 2.0;
+                                    balance
+                                        ? entry.getValue() * (1 - offsetRatio)
+                                        : entry.getValue();
                                 return Math.max(weight, 0.0);
-                              })));
+                              }));
+              return new EffectiveWeightResult(effectiveWeights);
             },
             Duration.ofSeconds(10));
   }

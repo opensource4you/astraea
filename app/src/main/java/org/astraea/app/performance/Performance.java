@@ -347,9 +347,9 @@ public class Performance {
     @Parameter(
         names = {"--key.distribution"},
         description =
-            "Distribution name for key and key size. Available distribution names: \"fixed\" \"uniform\", \"zipfian\", \"latest\". Default: fixed",
+            "Distribution name for key and key size. Available distribution names: \"fixed\" \"uniform\", \"zipfian\", \"latest\". Default: uniform",
         converter = DistributionType.DistributionTypeField.class)
-    DistributionType keyDistributionType = DistributionType.FIXED;
+    DistributionType keyDistributionType = DistributionType.UNIFORM;
 
     @Parameter(
         names = {"--value.distribution"},

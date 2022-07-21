@@ -16,12 +16,10 @@
  */
 package org.astraea.app.cost;
 
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import org.astraea.app.admin.ClusterBean;
 import org.astraea.app.admin.ClusterInfo;
-import org.astraea.app.metrics.HasBeanObject;
 import org.astraea.app.metrics.KafkaMetrics;
 import org.astraea.app.metrics.broker.BrokerTopicMetricsResult;
 import org.astraea.app.metrics.collector.BeanCollector;
@@ -30,29 +28,28 @@ import org.astraea.app.metrics.jmx.BeanObject;
 import org.astraea.app.service.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mockito;
 
-public class BrokerOutPutCostTest extends RequireBrokerCluster {
+public class BrokerOutputCostTest extends RequireBrokerCluster {
+
   @Test
   void testCost() {
     var brokerOutputCost = new BrokerOutputCost();
     var scores =
         brokerOutputCost
-            .brokerCost(ClusterInfo.EMPTY, clusterBean(10000L, 20000L, 5000L))
-            .normalize(Normalizer.TScore())
+            .brokerCost(
+                ClusterInfo.EMPTY,
+                ClusterBean.of(
+                    Map.of(
+                        1,
+                        List.of(brokerTopicMetricsResult(10000D)),
+                        2,
+                        List.of(brokerTopicMetricsResult(20000D)),
+                        3,
+                        List.of(brokerTopicMetricsResult(5000D)))))
             .value();
-    Assertions.assertEquals(0.47, scores.get(1));
-    Assertions.assertEquals(0.63, scores.get(2));
-    Assertions.assertEquals(0.39, scores.get(3));
-
-    scores =
-        brokerOutputCost
-            .brokerCost(ClusterInfo.EMPTY, clusterBean(55555L, 25352L, 25000L))
-            .normalize(Normalizer.TScore())
-            .value();
-    Assertions.assertEquals(0.64, scores.get(1));
-    Assertions.assertEquals(0.43, scores.get(2));
-    Assertions.assertEquals(0.43, scores.get(3));
+    Assertions.assertEquals(10000D, scores.get(1));
+    Assertions.assertEquals(20000D, scores.get(2));
+    Assertions.assertEquals(5000D, scores.get(3));
   }
 
   @Test
@@ -84,23 +81,11 @@ public class BrokerOutPutCostTest extends RequireBrokerCluster {
     }
   }
 
-  private ClusterBean clusterBean(long out1, long out2, long out3) {
-    var BytesInPerSec1 = mockResult(KafkaMetrics.BrokerTopic.BytesOutPerSec.metricName(), out1);
-    var BytesInPerSec2 = mockResult(KafkaMetrics.BrokerTopic.BytesOutPerSec.metricName(), out2);
-    var BytesInPerSec3 = mockResult(KafkaMetrics.BrokerTopic.BytesOutPerSec.metricName(), out3);
-
-    Collection<HasBeanObject> broker1 = List.of(BytesInPerSec1);
-    Collection<HasBeanObject> broker2 = List.of(BytesInPerSec2);
-    Collection<HasBeanObject> broker3 = List.of(BytesInPerSec3);
-    return ClusterBean.of(Map.of(1, broker1, 2, broker2, 3, broker3));
-  }
-
-  private BrokerTopicMetricsResult mockResult(String name, long count) {
-    var result = Mockito.mock(BrokerTopicMetricsResult.class);
-    var bean = Mockito.mock(BeanObject.class);
-    Mockito.when(result.beanObject()).thenReturn(bean);
-    Mockito.when(bean.properties()).thenReturn(Map.of("name", name));
-    Mockito.when(result.count()).thenReturn(count);
-    return result;
+  private static BrokerTopicMetricsResult brokerTopicMetricsResult(double value) {
+    return new BrokerTopicMetricsResult(
+        new BeanObject(
+            "object",
+            Map.of("name", KafkaMetrics.BrokerTopic.BytesOutPerSec.metricName()),
+            Map.of("OneMinuteRate", value)));
   }
 }
