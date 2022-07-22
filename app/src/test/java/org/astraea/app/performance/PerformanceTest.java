@@ -105,8 +105,6 @@ public class PerformanceTest extends RequireBrokerCluster {
     Metrics metrics = new Metrics();
     var topicName = "testConsumerExecutor-" + System.currentTimeMillis();
     var param = new Performance.Argument();
-    var isKilled = new AtomicBoolean(false);
-    var isRestarted = new AtomicBoolean(false);
     param.valueDistributionType = DistributionType.FIXED;
     try (Executor executor =
         Performance.consumerExecutor(
@@ -114,8 +112,8 @@ public class PerformanceTest extends RequireBrokerCluster {
             metrics,
             new Manager(param, List.of(), List.of()),
             () -> false,
-            isKilled,
-            isRestarted)) {
+            new AtomicBoolean(),
+            new AtomicBoolean())) {
       executor.execute();
 
       Assertions.assertEquals(0, metrics.num());
@@ -125,7 +123,6 @@ public class PerformanceTest extends RequireBrokerCluster {
         producer.sender().topic(topicName).value(new byte[1024]).run().toCompletableFuture().get();
       }
       executor.execute();
-
       Assertions.assertEquals(1, metrics.num());
       Assertions.assertNotEquals(1024, metrics.bytes());
     }
