@@ -1,0 +1,118 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.astraea.app.metrics.jmx;
+
+import java.net.MalformedURLException;
+import java.util.Collection;
+import java.util.List;
+import java.util.Set;
+import javax.management.ObjectName;
+import javax.management.remote.JMXServiceURL;
+
+/**
+ * A MBeanClient used to retrieve mbean value from remote Jmx server.
+ *
+ * <pre>{@code
+ * try(MBeanClient client = new MBeanClient(jmxConnectorServer.getAddress())) {
+ *   BeanObject bean = client.queryBean(BeanQuery.builder("java.lang")
+ *            .property("type", "MemoryManager")
+ *            .property("name", "CodeCacheManager")
+ *            .build());
+ *   System.out.println(bean.getAttributes());
+ * }</pre>
+ */
+public interface MBeanClient extends AutoCloseable {
+
+  /**
+   * @param host the address of jmx server
+   * @param port the port of jmx server
+   * @return a mbean client using JNDI to lookup metrics.
+   */
+  static MBeanClient jndi(String host, int port) {
+    try {
+      return of(
+          new JMXServiceURL(
+              String.format(
+                  "service:jmx:rmi://%s:%s/jndi/rmi://%s:%s/jmxrmi", host, port, host, port)));
+    } catch (MalformedURLException e) {
+      throw new IllegalArgumentException(e);
+    }
+  }
+
+  static MBeanClient of(JMXServiceURL url) {
+    return MBeanClientImpl.remote(url);
+  }
+
+  static MBeanClient local() {
+    return MBeanClientImpl.local();
+  }
+
+  /**
+   * Fetch all attributes of target mbean.
+   *
+   * <p>Note that when exception is raised during the attribute fetching process, the exact
+   * exception will be placed into the attribute field.
+   *
+   * @param beanQuery the non-pattern BeanQuery
+   * @return A {@link BeanObject} contain all attributes if target resolved successfully.
+   */
+  BeanObject queryBean(BeanQuery beanQuery);
+
+  /**
+   * Fetch given attributes of target mbean
+   *
+   * <p>Note that when exception is raised during the attribute fetching process, the exact
+   * exception will be placed into the attribute field.
+   *
+   * @param beanQuery the non-pattern BeanQuery
+   * @param attributeNameCollection a list of attribute you want to retrieve
+   * @return A {@link BeanObject} contain given specific attributes if target resolved successfully.
+   */
+  BeanObject queryBean(BeanQuery beanQuery, Collection<String> attributeNameCollection);
+
+  /**
+   * Query mBeans by pattern.
+   *
+   * <p>Query mbeans by {@link ObjectName} pattern, the returned {@link BeanObject}s will contain
+   * all the available attributes
+   *
+   * <p>Note that when exception is raised during the attribute fetching process, the exact
+   * exception will be placed into the attribute field.
+   *
+   * @param beanQuery the pattern to query
+   * @return A {@link Set} of {@link BeanObject}, all BeanObject has its own attributes resolved.
+   */
+  Collection<BeanObject> queryBeans(BeanQuery beanQuery);
+
+  /**
+   * Returns the list of domains in which any MBean is currently registered.
+   *
+   * <p>The order of strings within the returned array is not defined.
+   *
+   * @return a {@link List} of domain name {@link String}
+   */
+  List<String> listDomains();
+
+  /** @return the host address of jmx server */
+  String host();
+
+  /** @return the port listened by jmx server */
+  int port();
+
+  @Override
+  void close();
+}
