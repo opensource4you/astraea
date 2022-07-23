@@ -20,6 +20,9 @@ import com.sun.net.httpserver.HttpExchange;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
@@ -44,6 +47,14 @@ public class PostRequestTest {
     Assertions.assertEquals("10", PostRequest.handleDouble(10.00));
     Assertions.assertEquals("10.01", PostRequest.handleDouble(10.01));
     Assertions.assertEquals("xxxx", PostRequest.handleDouble("xxxx"));
+    Assertions.assertEquals("{\"foo\":1}", PostRequest.handleDouble(Map.of("foo", 1)));
+    Assertions.assertEquals("[\"a\",1]", PostRequest.handleDouble(List.of("a", 1)));
+    Assertions.assertEquals(
+        "[{\"foo\":{\"bar\":10}}]",
+        PostRequest.handleDouble(List.of(Map.of("foo", Map.of("bar", 10)))));
+    Assertions.assertEquals(
+        "[{\"foo\":{\"bar\":1.1}}]",
+        PostRequest.handleDouble(List.of(Map.of("foo", Map.of("bar", 1.1d)))));
   }
 
   @Test
@@ -53,5 +64,81 @@ public class PostRequestTest {
     Assertions.assertEquals(1234, request.shortValue("a"));
     Assertions.assertEquals(1234.0, request.shortValue("a"));
     Assertions.assertEquals(3.34, request.doubleValue("b"));
+  }
+
+  @Test
+  void testStringArray() throws IOException {
+    var input =
+        new ByteArrayInputStream(
+            "{\"a\":\"b\",\"c\":[\"1\",\"2\"]}".getBytes(StandardCharsets.UTF_8));
+    var exchange = Mockito.mock(HttpExchange.class);
+    Mockito.when(exchange.getRequestBody()).thenReturn(input);
+
+    var request = PostRequest.of(exchange);
+    Assertions.assertEquals(2, request.values("c").size());
+    Assertions.assertEquals("1", request.values("c").get(0));
+    Assertions.assertEquals("2", request.values("c").get(1));
+  }
+
+  @Test
+  void testIntegerArray() throws IOException {
+    var input =
+        new ByteArrayInputStream("{\"a\":\"b\",\"c\":[1,2]}".getBytes(StandardCharsets.UTF_8));
+    var exchange = Mockito.mock(HttpExchange.class);
+    Mockito.when(exchange.getRequestBody()).thenReturn(input);
+
+    var request = PostRequest.of(exchange);
+    Assertions.assertEquals(2, request.ints("c").size());
+    Assertions.assertEquals(1, request.ints("c").get(0));
+    Assertions.assertEquals(2, request.ints("c").get(1));
+  }
+
+  @Test
+  void testValues() throws IOException {
+    var input =
+        new ByteArrayInputStream(
+            "{\"a\":[{\"foo\": \"r1\", \"bar\": 1},{\"foo\": \"r2\", \"bar\": 2}]}"
+                .getBytes(StandardCharsets.UTF_8));
+    var exchange = Mockito.mock(HttpExchange.class);
+    Mockito.when(exchange.getRequestBody()).thenReturn(input);
+
+    var request = PostRequest.of(exchange);
+    Assertions.assertEquals(
+        List.of(new ForTestValue("r1", 1), new ForTestValue("r2", 2)),
+        request.values("a", ForTestValue.class));
+  }
+
+  @Test
+  void testValue() throws IOException {
+    var input =
+        new ByteArrayInputStream(
+            "{\"a\":{\"foo\": \"r1\", \"bar\": 1}}".getBytes(StandardCharsets.UTF_8));
+    var exchange = Mockito.mock(HttpExchange.class);
+    Mockito.when(exchange.getRequestBody()).thenReturn(input);
+
+    var request = PostRequest.of(exchange);
+    Assertions.assertEquals(new ForTestValue("r1", 1), request.value("a", ForTestValue.class));
+  }
+
+  class ForTestValue {
+    final String foo;
+    final Integer bar;
+
+    ForTestValue(String foo, Integer bar) {
+      this.foo = foo;
+      this.bar = bar;
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+      if (this == obj) {
+        return true;
+      }
+      if ((obj == null) || (getClass() != obj.getClass())) {
+        return false;
+      }
+      ForTestValue other = (ForTestValue) obj;
+      return Objects.equals(foo, other.foo) && Objects.equals(bar, other.bar);
+    }
   }
 }

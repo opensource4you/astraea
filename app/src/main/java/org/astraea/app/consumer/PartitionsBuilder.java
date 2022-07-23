@@ -54,19 +54,6 @@ public class PartitionsBuilder<Key, Value> extends Builder<Key, Value> {
     return this;
   }
 
-  /**
-   * set the offset to read from the latest offset. For example, the end offset is 5, and you set
-   * distanceFromLatest to 2, then you will read data from offset: 3
-   *
-   * @param distanceFromLatest the distance from the latest offset
-   * @return this builder
-   */
-  @Override
-  public PartitionsBuilder<Key, Value> distanceFromLatest(int distanceFromLatest) {
-    super.distanceFromLatest(distanceFromLatest);
-    return this;
-  }
-
   @Override
   public <NewKey> PartitionsBuilder<NewKey, Value> keyDeserializer(
       Deserializer<NewKey> keyDeserializer) {
@@ -111,15 +98,7 @@ public class PartitionsBuilder<Key, Value> extends Builder<Key, Value> {
             Deserializer.of((Deserializer<Value>) valueDeserializer));
     kafkaConsumer.assign(partitions.stream().map(TopicPartition::to).collect(toList()));
 
-    // this mode is not supported by kafka, so we have to calculate the offset first
-    if (distanceFromLatest > 0) {
-      var partitions = kafkaConsumer.assignment();
-      // 1) get the end offsets from all subscribed partitions
-      var endOffsets = kafkaConsumer.endOffsets(partitions);
-      // 2) calculate and then seek to the correct offset (end offset - recent offset)
-      endOffsets.forEach(
-          (tp, latest) -> kafkaConsumer.seek(tp, Math.max(0, latest - distanceFromLatest)));
-    }
+    seekStrategy.apply(kafkaConsumer, seekValue);
 
     return new AssignedConsumerImpl<>(kafkaConsumer);
   }

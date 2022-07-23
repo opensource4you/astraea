@@ -20,12 +20,15 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import org.astraea.app.admin.ClusterBean;
+import org.astraea.app.admin.ClusterInfo;
 import org.astraea.app.metrics.HasBeanObject;
+import org.astraea.app.metrics.KafkaMetrics;
+import org.astraea.app.metrics.broker.BrokerTopicMetricsResult;
 import org.astraea.app.metrics.collector.Fetcher;
-import org.astraea.app.metrics.kafka.BrokerTopicMetricsResult;
-import org.astraea.app.metrics.kafka.KafkaMetrics;
 import org.astraea.app.partitioner.PartitionerUtils;
 
 public class LoadCost implements HasBrokerCost {
@@ -39,8 +42,8 @@ public class LoadCost implements HasBrokerCost {
 
   /** Do "Poisson" and "weightPoisson" calculation on "load". And change output to double. */
   @Override
-  public BrokerCost brokerCost(ClusterInfo clusterInfo) {
-    var load = computeLoad(clusterInfo.clusterBean().all());
+  public BrokerCost brokerCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
+    var load = computeLoad(clusterBean.all());
 
     // Poisson calculation (-> Poisson -> throughputAbility -> to double)
     var brokerScore =
@@ -81,8 +84,7 @@ public class LoadCost implements HasBrokerCost {
     // Store mbean data into local stat("brokersMetric").
     allBeans.forEach(
         (brokerID, value) -> {
-          if (!brokersMetric.containsKey(brokerID))
-            brokersMetric.put(brokerID, new BrokerMetric(brokerID));
+          if (!brokersMetric.containsKey(brokerID)) brokersMetric.put(brokerID, new BrokerMetric());
           value.stream()
               .filter(hasBeanObject -> hasBeanObject instanceof BrokerTopicMetricsResult)
               .map(hasBeanObject -> (BrokerTopicMetricsResult) hasBeanObject)
@@ -91,7 +93,7 @@ public class LoadCost implements HasBrokerCost {
                       brokersMetric
                           .get(brokerID)
                           .updateCount(
-                              result.beanObject().getProperties().get("name"), result.count()));
+                              result.beanObject().properties().get("name"), result.count()));
         });
 
     // Sum all count with the same mbean name
@@ -145,16 +147,15 @@ public class LoadCost implements HasBrokerCost {
 
   /** @return the metrics getters. Those getters are used to fetch mbeans. */
   @Override
-  public Fetcher fetcher() {
-    return client ->
-        List.of(
-            KafkaMetrics.BrokerTopic.BytesInPerSec.fetch(client),
-            KafkaMetrics.BrokerTopic.BytesOutPerSec.fetch(client));
+  public Optional<Fetcher> fetcher() {
+    return Optional.of(
+        client ->
+            List.of(
+                KafkaMetrics.BrokerTopic.BytesInPerSec.fetch(client),
+                KafkaMetrics.BrokerTopic.BytesOutPerSec.fetch(client)));
   }
 
   private static class BrokerMetric {
-    private final int brokerID;
-
     // mbean data. They are:
     // ("BytesInPerSec", BytesInPerSec.count), ("BytesOutPerSec", ByteOutPerSec.count)
     private final Map<String, Long> accumulateCount = new HashMap<>();
@@ -164,10 +165,6 @@ public class LoadCost implements HasBrokerCost {
     private final List<Integer> load =
         IntStream.range(0, 10).mapToObj(i -> 0).collect(Collectors.toList());
     private int loadIndex = 0;
-
-    BrokerMetric(int brokerID) {
-      this.brokerID = brokerID;
-    }
 
     /**
      * This method records the difference between last update and current given "count" e.g.

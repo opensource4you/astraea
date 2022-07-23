@@ -43,17 +43,17 @@ import org.apache.kafka.clients.admin.OffsetSpec;
 import org.apache.kafka.clients.admin.RemoveMembersFromConsumerGroupOptions;
 import org.apache.kafka.clients.admin.TransactionListing;
 import org.apache.kafka.common.ElectionType;
+import org.apache.kafka.common.Node;
 import org.apache.kafka.common.TopicPartitionReplica;
 import org.apache.kafka.common.config.ConfigResource;
 import org.apache.kafka.common.errors.ElectionNotNeededException;
+import org.apache.kafka.common.errors.ReplicaNotAvailableException;
 import org.apache.kafka.common.quota.ClientQuotaAlteration;
 import org.apache.kafka.common.quota.ClientQuotaEntity;
 import org.apache.kafka.common.quota.ClientQuotaFilter;
 import org.apache.kafka.common.quota.ClientQuotaFilterComponent;
+import org.astraea.app.common.DataRate;
 import org.astraea.app.common.Utils;
-import org.astraea.app.cost.ClusterInfo;
-import org.astraea.app.cost.NodeInfo;
-import org.astraea.app.cost.ReplicaInfo;
 
 public class Builder {
 
@@ -312,7 +312,7 @@ public class Builder {
                   .flatMap(
                       e ->
                           e.getValue().partitions().stream()
-                              .map(p -> new TopicPartition(e.getKey(), p.partition())))
+                              .map(p -> TopicPartition.of(e.getKey(), p.partition())))
                   .collect(Collectors.toSet()));
     }
 
@@ -356,7 +356,7 @@ public class Builder {
                                 tpInfo -> {
                                   var topicName = entry.getKey();
                                   var partition = tpInfo.partition();
-                                  var topicPartition = new TopicPartition(topicName, partition);
+                                  var topicPartition = TopicPartition.of(topicName, partition);
                                   return Map.entry(topicPartition, tpInfo);
                                 }))
                 .collect(
@@ -521,11 +521,6 @@ public class Builder {
                 "This ClusterInfo have no information about topic \"" + topic + "\"");
           else return replicaInfos;
         }
-
-        @Override
-        public ClusterBean clusterBean() {
-          return ClusterBean.of(Map.of());
-        }
       };
     }
 
@@ -617,7 +612,7 @@ public class Builder {
       dirs.forEach(
           (replica, logDir) -> {
             var brokerId = replica.brokerId();
-            var tp = new TopicPartition(replica.topic(), replica.partition());
+            var tp = TopicPartition.of(replica.topic(), replica.partition());
             var ls =
                 result.computeIfAbsent(tp, ignored -> Map.entry(new HashSet<>(), new HashSet<>()));
             // the replica is moved from a folder to another folder (in the same node)
@@ -793,7 +788,6 @@ public class Builder {
     private final org.apache.kafka.clients.admin.Admin admin;
     private final Function<Set<String>, Set<TopicPartition>> partitionGetter;
     private final Set<TopicPartition> partitions = new HashSet<>();
-    private boolean updateLeader = false;
 
     MigratorImpl(
         org.apache.kafka.clients.admin.Admin admin,
@@ -810,24 +804,80 @@ public class Builder {
 
     @Override
     public ReplicaMigrator partition(String topic, int partition) {
-      partitions.add(new TopicPartition(topic, partition));
+      partitions.add(TopicPartition.of(topic, partition));
       return this;
     }
 
     @Override
     public void moveTo(Map<Integer, String> brokerFolders) {
-      Utils.packException(
-          () ->
-              admin.alterReplicaLogDirs(
-                  brokerFolders.entrySet().stream()
-                      .collect(
-                          Collectors.toMap(
-                              x ->
-                                  new TopicPartitionReplica(
-                                      partitions.iterator().next().topic(),
-                                      partitions.iterator().next().partition(),
-                                      x.getKey()),
-                              Map.Entry::getValue))));
+      // ensure this partition is host on the given map
+      var topicPartition = partitions.iterator().next();
+      var currentReplicas =
+          Utils.packException(
+                  () -> admin.describeTopics(Set.of(topicPartition.topic())).allTopicNames().get())
+              .get(topicPartition.topic())
+              .partitions()
+              .get(topicPartition.partition())
+              .replicas()
+              .stream()
+              .map(Node::id)
+              .collect(Collectors.toUnmodifiableSet());
+      var notHere =
+          brokerFolders.keySet().stream()
+              .filter(id -> !currentReplicas.contains(id))
+              .collect(Collectors.toUnmodifiableSet());
+
+      if (!notHere.isEmpty())
+        throw new IllegalStateException(
+            "The following specified broker is not part of the replica list: " + notHere);
+
+      var payload =
+          brokerFolders.entrySet().stream()
+              .collect(
+                  Collectors.toUnmodifiableMap(
+                      entry ->
+                          new TopicPartitionReplica(
+                              topicPartition.topic(), topicPartition.partition(), entry.getKey()),
+                      Map.Entry::getValue));
+      Utils.packException(() -> admin.alterReplicaLogDirs(payload).all().get());
+    }
+
+    @Override
+    public void declarePreferredDir(Map<Integer, String> preferredDirMap) {
+      // ensure this partition is not host on the given map
+      var topicPartition = partitions.iterator().next();
+      var currentReplicas =
+          Utils.packException(
+                  () -> admin.describeTopics(Set.of(topicPartition.topic())).allTopicNames().get())
+              .get(topicPartition.topic())
+              .partitions()
+              .get(topicPartition.partition())
+              .replicas();
+      var alreadyHere =
+          currentReplicas.stream()
+              .map(Node::id)
+              .filter(preferredDirMap::containsKey)
+              .collect(Collectors.toUnmodifiableSet());
+
+      if (!alreadyHere.isEmpty())
+        throw new IllegalStateException(
+            "The following specified broker is already part of the replica list: " + alreadyHere);
+
+      try {
+        var payload =
+            preferredDirMap.entrySet().stream()
+                .collect(
+                    Collectors.toUnmodifiableMap(
+                        entry ->
+                            new TopicPartitionReplica(
+                                topicPartition.topic(), topicPartition.partition(), entry.getKey()),
+                        Map.Entry::getValue));
+        Utils.packException(() -> admin.alterReplicaLogDirs(payload).all().get());
+      } catch (ReplicaNotAvailableException ignore) {
+        // The call is probably trying to declare the preferred data directory. Swallow the
+        // exception since this is a supported operation. See the Javadoc of
+        // AdminClient#alterReplicaLogDirs for details.
+      }
     }
 
     @Override
@@ -887,17 +937,17 @@ public class Builder {
     @Override
     public Client clientId(String id) {
       return new Client() {
-        private int produceRate = Integer.MAX_VALUE;
-        private int consumeRate = Integer.MAX_VALUE;
+        private DataRate produceRate = null;
+        private DataRate consumeRate = null;
 
         @Override
-        public Client produceRate(int value) {
+        public Client produceRate(DataRate value) {
           this.produceRate = value;
           return this;
         }
 
         @Override
-        public Client consumeRate(int value) {
+        public Client consumeRate(DataRate value) {
           this.consumeRate = value;
           return this;
         }
@@ -905,14 +955,14 @@ public class Builder {
         @Override
         public void create() {
           var q = new ArrayList<ClientQuotaAlteration.Op>();
-          if (produceRate != Integer.MAX_VALUE)
+          if (produceRate != null)
             q.add(
                 new ClientQuotaAlteration.Op(
-                    Quota.Limit.PRODUCER_BYTE_RATE.nameOfKafka(), (double) produceRate));
-          if (consumeRate != Integer.MAX_VALUE)
+                    Quota.Limit.PRODUCER_BYTE_RATE.nameOfKafka(), produceRate.byteRate()));
+          if (consumeRate != null)
             q.add(
                 new ClientQuotaAlteration.Op(
-                    Quota.Limit.CONSUMER_BYTE_RATE.nameOfKafka(), (double) consumeRate));
+                    Quota.Limit.CONSUMER_BYTE_RATE.nameOfKafka(), consumeRate.byteRate()));
           if (!q.isEmpty())
             Utils.packException(
                 () ->

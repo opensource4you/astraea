@@ -64,14 +64,14 @@ public class MetricExplorer {
 
     for (BeanObject beanObject : collect) {
       String properties =
-          beanObject.getProperties().entrySet().stream()
+          beanObject.properties().entrySet().stream()
               .sorted(Comparator.comparing(x -> propertyOrderMap.get(x.getKey())))
               .map(entry -> entry.getKey() + "=" + entry.getValue())
               .collect(Collectors.joining(","));
 
       System.out.printf("[%s:%s]\n", beanObject.domainName(), properties);
 
-      Stream<String> strings = DataUtils.elaborateData(beanObject.getAttributes());
+      Stream<String> strings = DataUtils.elaborateData(beanObject.attributes());
       strings = DataUtils.streamAppendWith(" ", 4, strings);
       strings.forEach(System.out::println);
     }
@@ -86,7 +86,7 @@ public class MetricExplorer {
             System.out.printf(
                 "%s:%s\n",
                 x.domainName(),
-                x.getProperties().entrySet().stream()
+                x.properties().entrySet().stream()
                     .sorted(Comparator.comparingLong(z -> propertyOrderMap.get(z.getKey())))
                     .map(z -> z.getKey() + "=" + z.getValue())
                     .collect(Collectors.joining(","))));
@@ -105,7 +105,7 @@ public class MetricExplorer {
     // property who has higher frequency will close to the tree root when printing result
     Map<String, Long> propertyFrequencyMap =
         beanObjects.stream()
-            .flatMap(x -> x.getProperties().entrySet().stream())
+            .flatMap(x -> x.properties().entrySet().stream())
             .map(Map.Entry::getKey)
             .collect(Collectors.groupingBy(x -> x, Collectors.counting()));
 
@@ -138,11 +138,11 @@ public class MetricExplorer {
                 .thenComparing(
                     (o1, o2) -> {
                       List<Map.Entry<String, String>> order1 =
-                          o1.getProperties().entrySet().stream()
+                          o1.properties().entrySet().stream()
                               .sorted(Comparator.comparing(x -> propertyOrderMap.get(x.getKey())))
                               .collect(Collectors.toList());
                       List<Map.Entry<String, String>> order2 =
-                          o2.getProperties().entrySet().stream()
+                          o2.properties().entrySet().stream()
                               .sorted(Comparator.comparing(x -> propertyOrderMap.get(x.getKey())))
                               .collect(Collectors.toList());
 

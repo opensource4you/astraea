@@ -18,55 +18,80 @@ package org.astraea.app.metrics.jmx;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.lang.management.ManagementFactory;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.NoSuchElementException;
-import java.util.Objects;
-import java.util.Set;
 import java.util.stream.Collectors;
-import javax.management.Attribute;
 import javax.management.InstanceNotFoundException;
 import javax.management.IntrospectionException;
 import javax.management.MBeanFeatureInfo;
-import javax.management.MBeanInfo;
 import javax.management.MBeanServerConnection;
 import javax.management.ObjectInstance;
 import javax.management.ReflectionException;
-import javax.management.remote.JMXConnector;
 import javax.management.remote.JMXConnectorFactory;
 import javax.management.remote.JMXServiceURL;
 import org.astraea.app.common.Utils;
 
-class MBeanClientImpl implements MBeanClient {
+abstract class MBeanClientImpl implements MBeanClient {
 
-  private final JMXServiceURL jmxServiceURL;
-  private final JMXConnector jmxConnector;
-  private final MBeanServerConnection mBeanServerConnection;
-  private boolean isClosed;
-
-  MBeanClientImpl(JMXServiceURL jmxServiceURL) {
+  static MBeanClientImpl remote(JMXServiceURL jmxServiceURL) {
     try {
-      this.jmxServiceURL = Objects.requireNonNull(jmxServiceURL);
-      this.jmxConnector = JMXConnectorFactory.connect(jmxServiceURL);
-      this.isClosed = false;
-      this.mBeanServerConnection = jmxConnector.getMBeanServerConnection();
+      var jmxConnector = JMXConnectorFactory.connect(jmxServiceURL);
+      return new MBeanClientImpl(jmxConnector.getMBeanServerConnection()) {
+        @Override
+        public String host() {
+          return jmxServiceURL.getHost();
+        }
+
+        @Override
+        public int port() {
+          return jmxServiceURL.getPort();
+        }
+
+        @Override
+        public void close() {
+          Utils.packException(jmxConnector::close);
+        }
+      };
     } catch (IOException e) {
       throw new UncheckedIOException(e);
     }
   }
 
+  static MBeanClientImpl local() {
+    return new MBeanClientImpl(ManagementFactory.getPlatformMBeanServer()) {
+      @Override
+      public String host() {
+        return Utils.hostname();
+      }
+
+      @Override
+      public int port() {
+        return -1;
+      }
+
+      @Override
+      public void close() {}
+    };
+  }
+
+  private final MBeanServerConnection connection;
+
+  MBeanClientImpl(MBeanServerConnection connection) {
+    this.connection = connection;
+  }
+
   @Override
   public BeanObject queryBean(BeanQuery beanQuery) {
-    ensureConnected();
     try {
       // ask for MBeanInfo
-      MBeanInfo mBeanInfo = mBeanServerConnection.getMBeanInfo(beanQuery.objectName());
+      var mBeanInfo = connection.getMBeanInfo(beanQuery.objectName());
 
       // create a list builder all available attributes name
-      List<String> attributeName =
+      var attributeName =
           Arrays.stream(mBeanInfo.getAttributes())
               .map(MBeanFeatureInfo::getName)
               .collect(Collectors.toList());
@@ -84,32 +109,30 @@ class MBeanClientImpl implements MBeanClient {
 
   @Override
   public BeanObject queryBean(BeanQuery beanQuery, Collection<String> attributeNameCollection) {
-    ensureConnected();
     try {
 
       // fetch attribute value from mbean server
-      String[] attributeNameArray = attributeNameCollection.toArray(new String[0]);
-      List<Attribute> attributeList =
-          mBeanServerConnection.getAttributes(beanQuery.objectName(), attributeNameArray).asList();
+      var attributeNameArray = attributeNameCollection.toArray(new String[0]);
+      var attributeList =
+          connection.getAttributes(beanQuery.objectName(), attributeNameArray).asList();
 
       // collect attribute name & value into a map
-      Map<String, Object> attributes = new HashMap<>();
-      for (Attribute attribute : attributeList) {
-        attributes.put(attribute.getName(), attribute.getValue());
-      }
+      var attributes = new HashMap<String, Object>();
+      attributeList.forEach(attribute -> attributes.put(attribute.getName(), attribute.getValue()));
 
       // according to the javadoc of MBeanServerConnection#getAttributes, the API will
       // ignore any
       // error occurring during the fetch process (for example, attribute not exists). Below code
       // check for such condition and try to figure out what exactly the error is. put it into
       // attributes return result.
-      Set<String> notResolvedAttributes =
+      var notResolvedAttributes =
           Arrays.stream(attributeNameArray)
               .filter(str -> !attributes.containsKey(str))
               .collect(Collectors.toSet());
-      for (String attributeName : notResolvedAttributes) {
-        attributes.put(attributeName, fetchAttributeObjectOrException(beanQuery, attributeName));
-      }
+      notResolvedAttributes.forEach(
+          attributeName ->
+              attributes.put(
+                  attributeName, fetchAttributeObjectOrException(beanQuery, attributeName)));
 
       // collect result, and build a new BeanObject as return result
       return new BeanObject(beanQuery.domainName(), beanQuery.properties(), attributes);
@@ -135,7 +158,7 @@ class MBeanClientImpl implements MBeanClient {
     // exception
     // into their result.
     try {
-      return mBeanServerConnection.getAttribute(beanQuery.objectName(), attributeName);
+      return connection.getAttribute(beanQuery.objectName(), attributeName);
     } catch (IOException e) {
       throw new UncheckedIOException(e);
     } catch (Exception e) {
@@ -145,9 +168,8 @@ class MBeanClientImpl implements MBeanClient {
 
   @Override
   public Collection<BeanObject> queryBeans(BeanQuery beanQuery) {
-    ensureConnected();
     try {
-      return mBeanServerConnection.queryMBeans(beanQuery.objectName(), null).stream()
+      return connection.queryMBeans(beanQuery.objectName(), null).stream()
           .map(ObjectInstance::getObjectName)
           .map(BeanQuery::fromObjectName)
           .map(this::queryBean)
@@ -161,40 +183,9 @@ class MBeanClientImpl implements MBeanClient {
   @Override
   public List<String> listDomains() {
     try {
-      return Arrays.asList(mBeanServerConnection.getDomains());
+      return Arrays.asList(connection.getDomains());
     } catch (IOException e) {
       throw new UncheckedIOException(e);
-    }
-  }
-
-  /**
-   * The JMX URL of current MBeanClient instance
-   *
-   * @return the origin JMX URL used to initiate MBeanClient
-   */
-  public JMXServiceURL getAddress() {
-    return jmxServiceURL;
-  }
-
-  @Override
-  public String host() {
-    return jmxServiceURL.getHost();
-  }
-
-  @Override
-  public int port() {
-    return jmxServiceURL.getPort();
-  }
-
-  private void ensureConnected() {
-    if (isClosed) throw new IllegalStateException("MBean client is closed");
-  }
-
-  @Override
-  public void close() {
-    if (!isClosed) {
-      isClosed = true;
-      Utils.packException(jmxConnector::close);
     }
   }
 }

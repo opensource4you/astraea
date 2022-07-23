@@ -18,7 +18,6 @@ package org.astraea.app.metrics.jmx;
 
 import static java.util.Map.Entry;
 
-import java.util.Collections;
 import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
@@ -28,7 +27,7 @@ public class BeanObject {
   private final String domainName;
   private final Map<String, String> properties;
   private final Map<String, Object> attributes;
-  private final long createdTimestamp = System.currentTimeMillis();
+  private final long createdTimestamp;
 
   /**
    * construct a {@link BeanObject}
@@ -42,34 +41,38 @@ public class BeanObject {
    */
   public BeanObject(
       String domainName, Map<String, String> properties, Map<String, Object> attributes) {
-    this.domainName = Objects.requireNonNull(domainName);
+    this(domainName, properties, attributes, System.currentTimeMillis());
+  }
 
+  public BeanObject(
+      String domainName,
+      Map<String, String> properties,
+      Map<String, Object> attributes,
+      long createdTimestamp) {
+    this.domainName = Objects.requireNonNull(domainName);
     // copy properties, and remove null key or null value
-    Objects.requireNonNull(properties);
-    Map<String, String> propertyMap =
-        properties.entrySet().stream()
-            .filter(entry -> entry.getKey() != null && entry.getValue() != null)
-            .collect(Collectors.toMap(Entry::getKey, Entry::getValue));
-    this.properties = Collections.unmodifiableMap(propertyMap);
+    this.properties =
+        Objects.requireNonNull(properties).entrySet().stream()
+            .filter(entry1 -> entry1.getKey() != null && entry1.getValue() != null)
+            .collect(Collectors.toUnmodifiableMap(Entry::getKey, Entry::getValue));
 
     // copy attribute, and remove null key or null value
-    Objects.requireNonNull(attributes);
-    Map<String, Object> attributeMap =
-        attributes.entrySet().stream()
+    this.attributes =
+        Objects.requireNonNull(attributes).entrySet().stream()
             .filter(entry -> entry.getKey() != null && entry.getValue() != null)
-            .collect(Collectors.toMap(Entry::getKey, Entry::getValue));
-    this.attributes = Collections.unmodifiableMap(attributeMap);
+            .collect(Collectors.toUnmodifiableMap(Entry::getKey, Entry::getValue));
+    this.createdTimestamp = createdTimestamp;
   }
 
   public String domainName() {
     return domainName;
   }
 
-  public Map<String, String> getProperties() {
+  public Map<String, String> properties() {
     return properties;
   }
 
-  public Map<String, Object> getAttributes() {
+  public Map<String, Object> attributes() {
     return attributes;
   }
 

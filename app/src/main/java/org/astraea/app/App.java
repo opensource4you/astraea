@@ -21,7 +21,6 @@ import java.lang.reflect.InvocationTargetException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
-import org.astraea.app.admin.ReplicaCollie;
 import org.astraea.app.admin.ReplicaSyncingMonitor;
 import org.astraea.app.admin.TopicExplorer;
 import org.astraea.app.automation.Automation;
@@ -35,7 +34,6 @@ public class App {
       Map.of(
           "offset", TopicExplorer.class,
           "metrics", MetricExplorer.class,
-          "replica", ReplicaCollie.class,
           "score", PartitionScore.class,
           "performance", Performance.class,
           "monitor", ReplicaSyncingMonitor.class,

@@ -17,9 +17,9 @@
 package org.astraea.app.service;
 
 import java.util.Set;
+import org.astraea.app.metrics.KafkaMetrics;
 import org.astraea.app.metrics.jmx.BeanQuery;
 import org.astraea.app.metrics.jmx.MBeanClient;
-import org.astraea.app.metrics.kafka.KafkaMetrics;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -39,7 +39,7 @@ public class RequireJmxServerTest extends RequireBrokerCluster {
   }
 
   @Test
-  void testMemory() throws Exception {
+  void testMemory() {
     testMemory(MBeanClient.jndi(jmxServiceURL().getHost(), jmxServiceURL().getPort()));
     testMemory(MBeanClient.of(jmxServiceURL()));
   }

@@ -16,10 +16,10 @@
  */
 package org.astraea.app.web;
 
+import java.time.Duration;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
 import org.astraea.app.admin.Admin;
 import org.astraea.app.common.Utils;
 import org.astraea.app.producer.Producer;
@@ -54,7 +54,7 @@ public class PipelineHandlerTest extends RequireBrokerCluster {
     var topic = Utils.randomString(10);
     try (var admin = Admin.of(bootstrapServers())) {
       admin.creator().topic(topic).numberOfPartitions(1).create();
-      TimeUnit.SECONDS.sleep(2);
+      Utils.sleep(Duration.ofSeconds(2));
       try (var producer = Producer.of(bootstrapServers())) {
         producer.sender().topic(topic).value(new byte[10]).run().toCompletableFuture().get();
         var handler = new PipelineHandler(admin);

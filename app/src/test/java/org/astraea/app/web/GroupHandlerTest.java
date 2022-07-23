@@ -21,7 +21,6 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.TimeUnit;
 import org.astraea.app.admin.Admin;
 import org.astraea.app.common.Utils;
 import org.astraea.app.consumer.Consumer;
@@ -33,12 +32,12 @@ import org.junit.jupiter.api.Test;
 public class GroupHandlerTest extends RequireBrokerCluster {
 
   @Test
-  void testListGroups() throws InterruptedException {
+  void testListGroups() {
     var topicName = Utils.randomString(10);
     var groupId = Utils.randomString(10);
     try (Admin admin = Admin.of(bootstrapServers())) {
       admin.creator().topic(topicName).create();
-      TimeUnit.SECONDS.sleep(3);
+      Utils.sleep(Duration.ofSeconds(3));
 
       try (var consumer =
           Consumer.forTopics(Set.of(topicName))
@@ -111,7 +110,7 @@ public class GroupHandlerTest extends RequireBrokerCluster {
   }
 
   @Test
-  void testSpecifyTopic() throws InterruptedException {
+  void testSpecifyTopic() {
     var topicName0 = Utils.randomString(10);
     var topicName1 = Utils.randomString(10);
     var groupId0 = Utils.randomString(10);
@@ -132,7 +131,7 @@ public class GroupHandlerTest extends RequireBrokerCluster {
         Assertions.assertEquals(1, consumer0.poll(1, Duration.ofSeconds(10)).size());
         Assertions.assertEquals(0, consumer1.poll(Duration.ofSeconds(2)).size());
 
-        TimeUnit.SECONDS.sleep(3);
+        Utils.sleep(Duration.ofSeconds(3));
 
         // query for only topicName0 so only group of consumer0 can be returned.
         consumer0.commitOffsets(Duration.ofSeconds(3));

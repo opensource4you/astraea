@@ -27,8 +27,6 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ThreadLocalRandom;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -37,13 +35,12 @@ import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 import org.apache.kafka.common.config.TopicConfig;
 import org.apache.kafka.common.errors.GroupNotEmptyException;
+import org.astraea.app.common.DataRate;
 import org.astraea.app.common.Utils;
 import org.astraea.app.concurrent.State;
 import org.astraea.app.concurrent.ThreadPool;
 import org.astraea.app.consumer.Consumer;
 import org.astraea.app.consumer.Deserializer;
-import org.astraea.app.cost.NodeInfo;
-import org.astraea.app.cost.ReplicaInfo;
 import org.astraea.app.producer.Producer;
 import org.astraea.app.producer.Serializer;
 import org.astraea.app.service.RequireBrokerCluster;
@@ -123,12 +120,12 @@ public class AdminTest extends RequireBrokerCluster {
   }
 
   @Test
-  void testPartitions() throws InterruptedException {
+  void testPartitions() {
     var topicName = "testPartitions";
     try (var admin = Admin.of(bootstrapServers())) {
       admin.creator().topic(topicName).numberOfPartitions(3).create();
       // wait for syncing topic creation
-      TimeUnit.SECONDS.sleep(5);
+      Utils.sleep(Duration.ofSeconds(5));
       Assertions.assertTrue(admin.topicNames().contains(topicName));
       var partitions = admin.replicas(Set.of(topicName));
       Assertions.assertEquals(3, partitions.size());
@@ -146,12 +143,12 @@ public class AdminTest extends RequireBrokerCluster {
   }
 
   @Test
-  void testOffsets() throws InterruptedException {
+  void testOffsets() {
     var topicName = "testOffsets";
     try (var admin = Admin.of(bootstrapServers())) {
       admin.creator().topic(topicName).numberOfPartitions(3).create();
       // wait for syncing topic creation
-      TimeUnit.SECONDS.sleep(3);
+      Utils.sleep(Duration.ofSeconds(3));
       var offsets = admin.offsets(Set.of(topicName));
       Assertions.assertEquals(3, offsets.size());
       offsets
@@ -165,7 +162,7 @@ public class AdminTest extends RequireBrokerCluster {
   }
 
   @Test
-  void testConsumerGroups() throws InterruptedException {
+  void testConsumerGroups() {
     var topicName = "testConsumerGroups-Topic";
     var consumerGroup = "testConsumerGroups-Group";
     try (var admin = Admin.of(bootstrapServers())) {
@@ -176,7 +173,7 @@ public class AdminTest extends RequireBrokerCluster {
               .groupId(consumerGroup)
               .build()) {
         // wait for syncing topic creation
-        TimeUnit.SECONDS.sleep(5);
+        Utils.sleep(Duration.ofSeconds(5));
         var consumerGroupMap = admin.consumerGroups(Set.of(consumerGroup));
         Assertions.assertEquals(1, consumerGroupMap.size());
         Assertions.assertTrue(consumerGroupMap.containsKey(consumerGroup));
@@ -202,12 +199,12 @@ public class AdminTest extends RequireBrokerCluster {
   // There is a problem when migrating the log folder under Windows because the migrated source
   // cannot be deleted, so disabled this test on Windows for now.
   @DisabledOnOs(WINDOWS)
-  void testMigrateSinglePartition() throws InterruptedException {
+  void testMigrateSinglePartition() {
     var topicName = "testMigrateSinglePartition";
     try (var admin = Admin.of(bootstrapServers())) {
       admin.creator().topic(topicName).numberOfPartitions(1).create();
       // wait for syncing topic creation
-      TimeUnit.SECONDS.sleep(5);
+      Utils.sleep(Duration.ofSeconds(5));
       var broker = admin.brokerIds().iterator().next();
       admin.migrator().partition(topicName, 0).moveTo(List.of(broker));
       Utils.waitFor(
@@ -220,7 +217,7 @@ public class AdminTest extends RequireBrokerCluster {
           });
 
       var currentBroker =
-          admin.replicas(Set.of(topicName)).get(new TopicPartition(topicName, 0)).get(0).broker();
+          admin.replicas(Set.of(topicName)).get(TopicPartition.of(topicName, 0)).get(0).broker();
       var allPath = admin.brokerFolders(Set.of(currentBroker));
       var otherPath =
           allPath.get(currentBroker).stream()
@@ -229,7 +226,7 @@ public class AdminTest extends RequireBrokerCluster {
                       !i.contains(
                           admin
                               .replicas(Set.of(topicName))
-                              .get(new TopicPartition(topicName, 0))
+                              .get(TopicPartition.of(topicName, 0))
                               .get(0)
                               .path()))
               .collect(Collectors.toSet());
@@ -249,13 +246,118 @@ public class AdminTest extends RequireBrokerCluster {
   }
 
   @Test
+  void testDeclarePreferredLogDirectory() {
+    // arrange
+    try (Admin admin = Admin.of(bootstrapServers())) {
+      var topic = "DeclarePreferredLogDirectory_" + Utils.randomString();
+      var topicPartition = TopicPartition.of(topic, 0);
+      admin.creator().topic(topic).numberOfPartitions(1).numberOfReplicas((short) 1).create();
+      Utils.sleep(Duration.ofSeconds(1));
+      var originalBroker = admin.replicas(Set.of(topic)).get(topicPartition).get(0).broker();
+      var nextBroker = (originalBroker + 1) % brokerIds().size();
+      var nextDir = logFolders().get(nextBroker).stream().findAny().orElseThrow();
+      Supplier<Replica> replicaNow = () -> admin.replicas(Set.of(topic)).get(topicPartition).get(0);
+
+      // act, declare the preferred data directory
+      Assertions.assertDoesNotThrow(
+          () ->
+              admin.migrator().partition(topic, 0).declarePreferredDir(Map.of(nextBroker, nextDir)),
+          "The Migrator API should ignore the error");
+      Utils.sleep(Duration.ofSeconds(1));
+
+      // assert, nothing happened until the actual movement
+      Assertions.assertNotEquals(nextBroker, replicaNow.get().broker());
+      Assertions.assertNotEquals(nextDir, replicaNow.get().path());
+
+      // act, perform the actual movement
+      admin.migrator().partition(topic, 0).moveTo(List.of(nextBroker));
+      Utils.sleep(Duration.ofSeconds(1));
+
+      // assert, everything on the exact broker & dir
+      Assertions.assertEquals(nextBroker, replicaNow.get().broker());
+      Assertions.assertEquals(nextDir, replicaNow.get().path());
+    }
+  }
+
+  @Test
+  void testIllegalMigrationArgument() {
+    try (Admin admin = Admin.of(bootstrapServers())) {
+      var topic = Utils.randomString();
+      var topicPartition = TopicPartition.of(topic, 0);
+      admin.creator().topic(topic).numberOfPartitions(1).numberOfReplicas((short) 1).create();
+      Utils.sleep(Duration.ofSeconds(1));
+      var currentReplica = admin.replicas(Set.of(topic)).get(topicPartition).get(0);
+      var currentBroker = currentReplica.broker();
+      var notExistReplica = (currentBroker + 1) % brokerIds().size();
+      var nextDir = logFolders().get(notExistReplica).iterator().next();
+
+      Assertions.assertThrows(
+          IllegalStateException.class,
+          () -> admin.migrator().partition(topic, 0).moveTo(Map.of(notExistReplica, nextDir)));
+    }
+  }
+
+  @Test
+  void testIllegalPreferredDirArgument() {
+    try (Admin admin = Admin.of(bootstrapServers())) {
+      var topic = Utils.randomString();
+      var topicPartition = TopicPartition.of(topic, 0);
+      admin.creator().topic(topic).numberOfPartitions(1).numberOfReplicas((short) 1).create();
+      Utils.sleep(Duration.ofSeconds(1));
+      var currentReplica = admin.replicas(Set.of(topic)).get(topicPartition).get(0);
+      var currentBroker = currentReplica.broker();
+      var nextDir = logFolders().get(currentBroker).iterator().next();
+
+      Assertions.assertThrows(
+          IllegalStateException.class,
+          () ->
+              admin
+                  .migrator()
+                  .partition(topic, 0)
+                  .declarePreferredDir(Map.of(currentBroker, nextDir)));
+    }
+  }
+
+  @Test
+  void testPartialMoveToArgument() {
+    // arrange
+    try (Admin admin = Admin.of(bootstrapServers())) {
+      var topic = Utils.randomString();
+      admin.creator().topic(topic).numberOfPartitions(1).numberOfReplicas((short) 3).create();
+      Utils.sleep(Duration.ofSeconds(1));
+      var replica0 = 0;
+      var replica1 = 1;
+      var replica2 = 2;
+      var folder0 = logFolders().get(replica0).iterator().next();
+      var folder1 = logFolders().get(replica1).iterator().next();
+      var folder2 = logFolders().get(replica2).iterator().next();
+
+      // act, assert
+      Assertions.assertDoesNotThrow(
+          () -> admin.migrator().partition(topic, 0).moveTo(Map.of(replica0, folder0)));
+      Assertions.assertDoesNotThrow(
+          () ->
+              admin
+                  .migrator()
+                  .partition(topic, 0)
+                  .moveTo(Map.of(replica0, folder0, replica1, folder1)));
+      Assertions.assertDoesNotThrow(
+          () ->
+              admin
+                  .migrator()
+                  .partition(topic, 0)
+                  .moveTo(Map.of(replica0, folder0, replica1, folder1, replica2, folder2)));
+    }
+  }
+
+  @Test
   @DisabledOnOs(WINDOWS)
-  void testMigrateAllPartitions() throws InterruptedException {
+  void testMigrateAllPartitions() {
     var topicName = "testMigrateAllPartitions";
     try (var admin = Admin.of(bootstrapServers())) {
       admin.creator().topic(topicName).numberOfPartitions(3).create();
       // wait for syncing topic creation
-      TimeUnit.SECONDS.sleep(5);
+      Utils.sleep(Duration.ofSeconds(5));
       var broker = admin.brokerIds().iterator().next();
       admin.migrator().topic(topicName).moveTo(List.of(broker));
       Utils.waitFor(
@@ -288,7 +390,7 @@ public class AdminTest extends RequireBrokerCluster {
   }
 
   @Test
-  void testCompact() throws InterruptedException {
+  void testCompact() {
     var topicName = "testCompacted";
     try (var admin = Admin.of(bootstrapServers())) {
       admin.creator().topic(topicName).compactionMaxLag(Duration.ofSeconds(1)).create();
@@ -307,7 +409,7 @@ public class AdminTest extends RequireBrokerCluster {
         producer.flush();
 
         // sleep and produce more data to generate the new segment
-        TimeUnit.SECONDS.sleep(2);
+        Utils.sleep(Duration.ofSeconds(2));
         IntStream.range(0, 10)
             .forEach(i -> producer.sender().key(anotherKey).value(value).topic(topicName).run());
         producer.flush();
@@ -315,7 +417,7 @@ public class AdminTest extends RequireBrokerCluster {
 
       // sleep for compact (the backoff of compact thread is reduced to 2 seconds.
       // see org.astraea.service.Services)
-      TimeUnit.SECONDS.sleep(3);
+      Utils.sleep(Duration.ofSeconds(3));
 
       try (var consumer =
           Consumer.forTopics(Set.of(topicName))
@@ -371,10 +473,10 @@ public class AdminTest extends RequireBrokerCluster {
   }
 
   @Test
-  void testReplicas() throws InterruptedException {
+  void testReplicas() {
     try (var admin = Admin.of(bootstrapServers())) {
       admin.creator().topic("abc").numberOfPartitions(2).create();
-      TimeUnit.SECONDS.sleep(2);
+      Utils.sleep(Duration.ofSeconds(2));
       Assertions.assertEquals(2, admin.replicas(Set.of("abc")).size());
 
       var count = admin.topicNames().stream().mapToInt(t -> admin.replicas(Set.of(t)).size()).sum();
@@ -383,7 +485,7 @@ public class AdminTest extends RequireBrokerCluster {
   }
 
   @Test
-  void testReplicasPreferredLeaderFlag() throws InterruptedException {
+  void testReplicasPreferredLeaderFlag() {
     // arrange
     try (Admin admin = Admin.of(bootstrapServers())) {
       var topic = "testReplicasPreferredLeaderFlag_" + Utils.randomString();
@@ -394,10 +496,10 @@ public class AdminTest extends RequireBrokerCluster {
           .numberOfPartitions(partitionCount)
           .numberOfReplicas((short) 3)
           .create();
-      TimeUnit.SECONDS.sleep(3);
+      Utils.sleep(Duration.ofSeconds(3));
       var expectedPreferredLeader =
           IntStream.range(0, partitionCount)
-              .mapToObj(p -> new TopicPartition(topic, p))
+              .mapToObj(p -> TopicPartition.of(topic, p))
               .collect(Collectors.toUnmodifiableMap(p -> p, p -> List.of(0)));
       var currentPreferredLeader =
           (Supplier<Map<TopicPartition, List<Integer>>>)
@@ -415,7 +517,7 @@ public class AdminTest extends RequireBrokerCluster {
       // act, make 0 be the preferred leader of every partition
       IntStream.range(0, partitionCount)
           .forEach(p -> admin.migrator().partition(topic, p).moveTo(List.of(0, 1, 2)));
-      TimeUnit.SECONDS.sleep(3);
+      Utils.sleep(Duration.ofSeconds(3));
 
       // assert
       Assertions.assertEquals(expectedPreferredLeader, currentPreferredLeader.get());
@@ -441,10 +543,10 @@ public class AdminTest extends RequireBrokerCluster {
   }
 
   @Test
-  void testIpQuota() throws InterruptedException {
+  void testIpQuota() {
     try (var admin = Admin.of(bootstrapServers())) {
       admin.quotaCreator().ip("192.168.11.11").connectionRate(10).create();
-      TimeUnit.SECONDS.sleep(2);
+      Utils.sleep(Duration.ofSeconds(2));
 
       java.util.function.Consumer<List<Quota>> checker =
           (quotas) -> {
@@ -471,21 +573,26 @@ public class AdminTest extends RequireBrokerCluster {
   }
 
   @Test
-  void testMultipleIpQuota() throws InterruptedException {
+  void testMultipleIpQuota() {
     try (var admin = Admin.of(bootstrapServers())) {
       admin.quotaCreator().ip("192.168.11.11").connectionRate(10).create();
       admin.quotaCreator().ip("192.168.11.11").connectionRate(12).create();
       admin.quotaCreator().ip("192.168.11.11").connectionRate(9).create();
-      TimeUnit.SECONDS.sleep(2);
+      Utils.sleep(Duration.ofSeconds(2));
       Assertions.assertEquals(1, admin.quotas(Quota.Target.IP, "192.168.11.11").size());
     }
   }
 
   @Test
-  void testClientQuota() throws InterruptedException {
+  void testClientQuota() {
     try (var admin = Admin.of(bootstrapServers())) {
-      admin.quotaCreator().clientId("my-id").produceRate(10).consumeRate(100).create();
-      TimeUnit.SECONDS.sleep(2);
+      admin
+          .quotaCreator()
+          .clientId("my-id")
+          .produceRate(DataRate.Byte.of(10L).perSecond())
+          .consumeRate(DataRate.Byte.of(100L).perSecond())
+          .create();
+      Utils.sleep(Duration.ofSeconds(2));
 
       java.util.function.Consumer<List<Quota>> checker =
           (quotas) -> {
@@ -538,44 +645,21 @@ public class AdminTest extends RequireBrokerCluster {
   }
 
   @Test
-  void testMultipleClientQuota() throws InterruptedException {
+  void testMultipleClientQuota() {
     try (var admin = Admin.of(bootstrapServers())) {
-      admin.quotaCreator().clientId("my-id").consumeRate(100).create();
-      admin.quotaCreator().clientId("my-id").produceRate(999).create();
-      TimeUnit.SECONDS.sleep(2);
+      admin
+          .quotaCreator()
+          .clientId("my-id")
+          .consumeRate(DataRate.Byte.of(100L).perSecond())
+          .create();
+      admin
+          .quotaCreator()
+          .clientId("my-id")
+          .produceRate(DataRate.Byte.of(1000L).perSecond())
+          .create();
+      Utils.sleep(Duration.ofSeconds(2));
       Assertions.assertEquals(2, admin.quotas(Quota.Target.CLIENT_ID, "my-id").size());
     }
-  }
-
-  @Test
-  void somePartitionsOffline() {
-    String topicName1 = "testOfflineTopic-1";
-    String topicName2 = "testOfflineTopic-2";
-    try (var admin = Admin.of(bootstrapServers())) {
-      admin.creator().topic(topicName1).numberOfPartitions(4).numberOfReplicas((short) 1).create();
-      admin.creator().topic(topicName2).numberOfPartitions(4).numberOfReplicas((short) 1).create();
-      // wait for topic creation
-      TimeUnit.SECONDS.sleep(10);
-      var replicaOnBroker0 =
-          admin.replicas(admin.topicNames()).entrySet().stream()
-              .filter(replica -> replica.getValue().get(0).broker() == 0)
-              .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-      replicaOnBroker0.forEach((tp, replica) -> Assertions.assertFalse(replica.get(0).isOffline()));
-      closeBroker(0);
-      Assertions.assertNull(logFolders().get(0));
-      Assertions.assertNotNull(logFolders().get(1));
-      Assertions.assertNotNull(logFolders().get(2));
-      var offlineReplicaOnBroker0 =
-          admin.replicas(admin.topicNames()).entrySet().stream()
-              .filter(replica -> replica.getValue().get(0).broker() == 0)
-              .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-      offlineReplicaOnBroker0.forEach(
-          (tp, replica) -> Assertions.assertTrue(replica.get(0).isOffline()));
-
-    } catch (InterruptedException e) {
-      throw new RuntimeException(e);
-    }
-    restartCluster();
   }
 
   @Test
@@ -588,7 +672,7 @@ public class AdminTest extends RequireBrokerCluster {
   }
 
   @Test
-  void testClusterInfo() throws InterruptedException {
+  void testClusterInfo() {
     try (Admin admin = Admin.of(bootstrapServers())) {
       String topic0 = "testClusterInfoFromAdmin_" + Utils.randomString(8);
       String topic1 = "testClusterInfoFromAdmin_" + Utils.randomString(8);
@@ -605,7 +689,7 @@ public class AdminTest extends RequireBrokerCluster {
                       .numberOfPartitions(partitionCount)
                       .numberOfReplicas(replicaCount)
                       .create());
-      TimeUnit.SECONDS.sleep(2);
+      Utils.sleep(Duration.ofSeconds(2));
 
       final var clusterInfo = admin.clusterInfo(Set.of(topic0, topic1, topic2));
 
@@ -648,75 +732,18 @@ public class AdminTest extends RequireBrokerCluster {
     }
   }
 
-  @Test
-  void testClusterInfoWithOfflineNode() throws InterruptedException {
-    try (Admin admin = Admin.of(bootstrapServers())) {
-      var topicName = "ClusterInfo_Offline_" + Utils.randomString();
-      var partitionCount = 30;
-      var replicaCount = (short) 3;
-      admin
-          .creator()
-          .topic(topicName)
-          .numberOfPartitions(partitionCount)
-          .numberOfReplicas(replicaCount)
-          .create();
-      TimeUnit.SECONDS.sleep(3);
-
-      // before node offline
-      var before = admin.clusterInfo(Set.of(topicName));
-      Assertions.assertEquals(
-          partitionCount * replicaCount,
-          before.replicas(topicName).stream().filter(x -> !x.isOfflineReplica()).count());
-      Assertions.assertEquals(
-          partitionCount * replicaCount, before.availableReplicas(topicName).size());
-      Assertions.assertEquals(partitionCount, before.availableReplicaLeaders(topicName).size());
-
-      // act
-      int brokerToClose = ThreadLocalRandom.current().nextInt(0, 3);
-      closeBroker(brokerToClose);
-      TimeUnit.SECONDS.sleep(1);
-
-      // after node offline
-      var after = admin.clusterInfo(Set.of(topicName));
-      Assertions.assertEquals(
-          partitionCount * (replicaCount - 1),
-          after.replicas(topicName).stream().filter(x -> !x.isOfflineReplica()).count());
-      Assertions.assertEquals(
-          partitionCount * (replicaCount - 1), after.availableReplicas(topicName).size());
-      Assertions.assertEquals(
-          partitionCount,
-          after.availableReplicaLeaders(topicName).size(),
-          "One of the rest replicas should take over the leadership");
-      Assertions.assertTrue(
-          after.availableReplicas(topicName).stream()
-              .allMatch(x -> x.nodeInfo().id() != brokerToClose));
-      Assertions.assertTrue(
-          after.availableReplicaLeaders(topicName).stream()
-              .allMatch(x -> x.nodeInfo().id() != brokerToClose));
-      Assertions.assertTrue(
-          after.replicas(topicName).stream()
-              .filter(ReplicaInfo::isOfflineReplica)
-              .allMatch(x -> x.nodeInfo().id() == brokerToClose));
-      Assertions.assertTrue(
-          after.replicas(topicName).stream()
-              .filter(x -> !x.isOfflineReplica())
-              .allMatch(x -> x.nodeInfo().id() != brokerToClose));
-    }
-    restartCluster();
-  }
-
   @ParameterizedTest
   @ValueSource(shorts = {1, 2, 3})
-  void preferredLeaderElection(short replicaSize) throws InterruptedException {
+  void preferredLeaderElection(short replicaSize) {
     var clusterSize = brokerIds().size();
     var topic = "preferredLeaderElection_" + Utils.randomString(6);
     try (var admin = Admin.of(bootstrapServers())) {
       admin.creator().topic(topic).numberOfPartitions(30).numberOfReplicas(replicaSize).create();
-      TimeUnit.SECONDS.sleep(3);
+      Utils.sleep(Duration.ofSeconds(3));
 
       var topicPartitions =
           IntStream.range(0, 30)
-              .mapToObj(i -> new TopicPartition(topic, i))
+              .mapToObj(i -> TopicPartition.of(topic, i))
               .collect(Collectors.toUnmodifiableSet());
 
       var currentLeaderMap =
@@ -761,7 +788,7 @@ public class AdminTest extends RequireBrokerCluster {
                   .migrator()
                   .partition(topicPartition.topic(), topicPartition.partition())
                   .moveTo(expectedReplicaList.get(topicPartition)));
-      TimeUnit.SECONDS.sleep(8);
+      Utils.sleep(Duration.ofSeconds(8));
 
       // ReplicaMigrator#moveTo will trigger leader election if current leader being kicked out of
       // replica list. This case is always true for replica size equals to 1.
@@ -773,7 +800,7 @@ public class AdminTest extends RequireBrokerCluster {
 
         // act, the Admin#preferredLeaderElection won't throw a ElectionNotNeededException
         topicPartitions.forEach(admin::preferredLeaderElection);
-        TimeUnit.SECONDS.sleep(2);
+        Utils.sleep(Duration.ofSeconds(2));
 
         // after election
         Assertions.assertEquals(expectedLeaderMap.get(), currentLeaderMap.get());
@@ -783,7 +810,7 @@ public class AdminTest extends RequireBrokerCluster {
 
         // act
         topicPartitions.forEach(admin::preferredLeaderElection);
-        TimeUnit.SECONDS.sleep(2);
+        Utils.sleep(Duration.ofSeconds(2));
 
         // after election
         Assertions.assertEquals(expectedLeaderMap.get(), currentLeaderMap.get());
@@ -811,7 +838,7 @@ public class AdminTest extends RequireBrokerCluster {
   }
 
   @Test
-  void testTransactionIdsWithMultiPuts() throws ExecutionException, InterruptedException {
+  void testTransactionIdsWithMultiPuts() {
     var topicName = Utils.randomString(10);
     try (var admin = Admin.of(bootstrapServers());
         var producer =
@@ -912,7 +939,7 @@ public class AdminTest extends RequireBrokerCluster {
   }
 
   @Test
-  void testRemoveGroupWithStaticMembers() throws InterruptedException, ExecutionException {
+  void testRemoveGroupWithStaticMembers() {
     var groupId = Utils.randomString(10);
     var topicName = Utils.randomString(10);
     try (var consumer =
@@ -936,14 +963,14 @@ public class AdminTest extends RequireBrokerCluster {
   }
 
   @RepeatedTest(5) // this test is timer-based, so it needs to be looped for stability
-  void testReassignmentWhenMovingPartitionToAnotherBroker() throws InterruptedException {
+  void testReassignmentWhenMovingPartitionToAnotherBroker() {
     var topicName = Utils.randomString(10);
     try (var admin = Admin.of(bootstrapServers())) {
       admin.creator().topic(topicName).numberOfPartitions(1).create();
-      TimeUnit.SECONDS.sleep(3);
+      Utils.sleep(Duration.ofSeconds(3));
 
       var currentBroker =
-          admin.replicas(Set.of(topicName)).get(new TopicPartition(topicName, 0)).get(0).broker();
+          admin.replicas(Set.of(topicName)).get(TopicPartition.of(topicName, 0)).get(0).broker();
       var nextBroker = brokerIds().stream().filter(i -> i != currentBroker).findAny().get();
 
       try (var producer = Producer.of(bootstrapServers())) {
@@ -961,7 +988,7 @@ public class AdminTest extends RequireBrokerCluster {
           try {
             admin.migrator().topic(topicName).moveTo(List.of(nextBroker));
             var reassignment =
-                admin.reassignments(Set.of(topicName)).get(new TopicPartition(topicName, 0));
+                admin.reassignments(Set.of(topicName)).get(TopicPartition.of(topicName, 0));
 
             // Don't verify the result if the migration is done
             if (reassignment != null) {
@@ -981,14 +1008,14 @@ public class AdminTest extends RequireBrokerCluster {
   }
 
   @RepeatedTest(5) // this test is timer-based, so it needs to be looped for stability
-  void testReassignmentWhenMovingPartitionToAnotherPath() throws InterruptedException {
+  void testReassignmentWhenMovingPartitionToAnotherPath() {
     var topicName = Utils.randomString(10);
     try (var admin = Admin.of(bootstrapServers())) {
       admin.creator().topic(topicName).numberOfPartitions(1).create();
-      TimeUnit.SECONDS.sleep(3);
+      Utils.sleep(Duration.ofSeconds(3));
 
       var currentReplica =
-          admin.replicas(Set.of(topicName)).get(new TopicPartition(topicName, 0)).get(0);
+          admin.replicas(Set.of(topicName)).get(TopicPartition.of(topicName, 0)).get(0);
       var currentBroker = currentReplica.broker();
       var currentPath = currentReplica.path();
       var nextPath =
@@ -1012,7 +1039,7 @@ public class AdminTest extends RequireBrokerCluster {
           try {
             admin.migrator().topic(topicName).moveTo(Map.of(currentReplica.broker(), nextPath));
             var reassignment =
-                admin.reassignments(Set.of(topicName)).get(new TopicPartition(topicName, 0));
+                admin.reassignments(Set.of(topicName)).get(TopicPartition.of(topicName, 0));
             // Don't verify the result if the migration is done
             if (reassignment != null) {
               Assertions.assertEquals(1, reassignment.from().size());
@@ -1033,11 +1060,11 @@ public class AdminTest extends RequireBrokerCluster {
   }
 
   @RepeatedTest(5) // this test is timer-based, so it needs to be looped for stability
-  void testMultiReassignments() throws InterruptedException {
+  void testMultiReassignments() {
     var topicName = Utils.randomString(10);
     try (var admin = Admin.of(bootstrapServers())) {
       admin.creator().topic(topicName).numberOfPartitions(1).numberOfReplicas((short) 3).create();
-      TimeUnit.SECONDS.sleep(3);
+      Utils.sleep(Duration.ofSeconds(3));
 
       var brokers = new ArrayList<>(brokerIds()).subList(0, 2);
       try (var producer = Producer.of(bootstrapServers())) {
@@ -1055,7 +1082,7 @@ public class AdminTest extends RequireBrokerCluster {
           try {
             admin.migrator().topic(topicName).moveTo(brokers);
             var reassignment =
-                admin.reassignments(Set.of(topicName)).get(new TopicPartition(topicName, 0));
+                admin.reassignments(Set.of(topicName)).get(TopicPartition.of(topicName, 0));
             // Don't verify the result if the migration is done
             if (reassignment != null) {
               Assertions.assertEquals(3, reassignment.from().size());
@@ -1070,12 +1097,11 @@ public class AdminTest extends RequireBrokerCluster {
   }
 
   @Test
-  void testReassignmentWithNothing() throws InterruptedException {
+  void testReassignmentWithNothing() {
     var topicName = Utils.randomString(10);
     try (var admin = Admin.of(bootstrapServers())) {
       admin.creator().topic(topicName).numberOfPartitions(1).numberOfReplicas((short) 3).create();
-      TimeUnit.SECONDS.sleep(3);
-      var brokers = new ArrayList<>(brokerIds()).subList(0, 2);
+      Utils.sleep(Duration.ofSeconds(3));
       try (var producer = Producer.of(bootstrapServers())) {
         producer.sender().topic(topicName).value(new byte[100]).run();
         producer.flush();

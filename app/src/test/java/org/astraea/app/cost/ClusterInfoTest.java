@@ -18,7 +18,10 @@ package org.astraea.app.cost;
 
 import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.Set;
 import org.apache.kafka.common.Cluster;
+import org.astraea.app.admin.ClusterInfo;
+import org.astraea.app.admin.NodeInfo;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
@@ -30,6 +33,7 @@ public class ClusterInfoTest {
     var node = NodeInfoTest.node();
     var partition = ReplicaInfoTest.partitionInfo();
     var kafkaCluster = Mockito.mock(Cluster.class);
+    Mockito.when(kafkaCluster.topics()).thenReturn(Set.of(partition.topic()));
     Mockito.when(kafkaCluster.availablePartitionsForTopic(partition.topic()))
         .thenReturn(List.of(partition));
     Mockito.when(kafkaCluster.partitionsForTopic(partition.topic())).thenReturn(List.of(partition));
@@ -54,14 +58,11 @@ public class ClusterInfoTest {
   @Test
   void testIllegalQuery() {
     var clusterInfo = ClusterInfo.of(Cluster.empty());
-
-    Assertions.assertThrows(NoSuchElementException.class, () -> clusterInfo.replicas("unknown"));
+    Assertions.assertEquals(0, clusterInfo.replicas("unknown").size());
     Assertions.assertThrows(NoSuchElementException.class, () -> clusterInfo.node(0));
     Assertions.assertThrows(NoSuchElementException.class, () -> clusterInfo.node("", -1));
-    Assertions.assertThrows(
-        NoSuchElementException.class, () -> clusterInfo.availableReplicas("unknown"));
-    Assertions.assertThrows(
-        NoSuchElementException.class, () -> clusterInfo.availableReplicaLeaders("unknown"));
+    Assertions.assertEquals(0, clusterInfo.availableReplicas("unknown").size());
+    Assertions.assertEquals(0, clusterInfo.availableReplicaLeaders("unknown").size());
     Assertions.assertThrows(
         UnsupportedOperationException.class, () -> clusterInfo.dataDirectories(0));
   }
