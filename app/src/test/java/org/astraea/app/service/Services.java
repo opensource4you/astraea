@@ -100,12 +100,12 @@ public final class Services {
             .collect(Collectors.joining(",")));
     return new BrokerCluster() {
       @Override
-      public void close(int brokerID) {
-        var broker = brokers.remove(brokerID);
+      public void close(int brokerIndex) {
+        var broker = brokers.remove(brokerIndex);
         if (broker != null) {
           broker.shutdown();
           broker.awaitShutdown();
-          var folders = tempFolders.remove(brokerID);
+          var folders = tempFolders.remove(brokerIndex);
           if (folders != null) folders.forEach(f -> Utils.delete(new File(f)));
           connectionProps.set(
               brokers.values().stream()
@@ -120,8 +120,7 @@ public final class Services {
 
       @Override
       public void close() {
-        final int brokerSize = brokers.size();
-        for (int i = 0; i < brokerSize; i++) close(i);
+        IntStream.range(0, brokers.size() - 1).forEach(this::close);
       }
 
       @Override

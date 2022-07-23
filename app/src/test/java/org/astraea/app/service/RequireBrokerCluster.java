@@ -22,7 +22,7 @@ import org.astraea.app.common.Utils;
 import org.junit.jupiter.api.AfterAll;
 
 /**
- * This class offers a way to have embedded kafka cluster. It is useful to test code which is
+ * This class offers a way to have single node embedded kafka cluster. It is useful to test code which is
  * depended on true cluster.
  */
 public abstract class RequireBrokerCluster extends RequireJmxServer {
@@ -39,8 +39,8 @@ public abstract class RequireBrokerCluster extends RequireJmxServer {
     return BROKER_CLUSTER.logFolders();
   }
 
-  protected static void closeBroker(int brokerID) {
-    BROKER_CLUSTER.close(brokerID);
+  protected static void closeBroker(int brokerIndex) {
+    BROKER_CLUSTER.close(brokerIndex);
   }
 
   protected static Set<Integer> brokerIds() {
