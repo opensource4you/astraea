@@ -97,7 +97,7 @@ public class RecordHandlerTest extends RequireBrokerCluster {
         IllegalArgumentException.class,
         () -> getRecordHandler().post(PostRequest.of(Map.of(TIMEOUT, "foo"))));
     Assertions.assertInstanceOf(
-        RecordHandler.ListResultResponse.class,
+        RecordHandler.PostResponse.class,
         getRecordHandler()
             .post(
                 PostRequest.of(
@@ -130,7 +130,7 @@ public class RecordHandlerTest extends RequireBrokerCluster {
     }
     var response =
         Assertions.assertInstanceOf(
-            RecordHandler.ListResultResponse.class,
+            RecordHandler.PostResponse.class,
             getRecordHandler().post(PostRequest.of(new Gson().toJson(requestParams))));
 
     Assertions.assertEquals(2, response.results.size());
@@ -233,7 +233,7 @@ public class RecordHandlerTest extends RequireBrokerCluster {
     var topic = Utils.randomString(10);
     var handler = getRecordHandler();
     Assertions.assertInstanceOf(
-        RecordHandler.ListResultResponse.class,
+        RecordHandler.PostResponse.class,
         handler.post(
             PostRequest.of(
                 new Gson()
@@ -575,7 +575,7 @@ public class RecordHandlerTest extends RequireBrokerCluster {
     var handler = getRecordHandler();
     var currentTimestamp = System.currentTimeMillis();
     Assertions.assertInstanceOf(
-        RecordHandler.ListResultResponse.class,
+        RecordHandler.PostResponse.class,
         handler.post(
             PostRequest.of(
                 new Gson()

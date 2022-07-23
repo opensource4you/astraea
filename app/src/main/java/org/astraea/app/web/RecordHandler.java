@@ -201,7 +201,7 @@ public class RecordHandler implements Handler {
 
     if (async) return Response.ACCEPT;
     return Utils.packException(
-        () -> new ListResultResponse<>(result.get(timeout.toNanos(), TimeUnit.NANOSECONDS)));
+        () -> new PostResponse(result.get(timeout.toNanos(), TimeUnit.NANOSECONDS)));
   }
 
   @Override
@@ -418,21 +418,11 @@ public class RecordHandler implements Handler {
     }
   }
 
-  static class ListResultResponse<T extends Response> implements Response {
-    final List<T> results;
+  static class PostResponse implements Response {
+    final List<Response> results;
 
-    ListResultResponse(List<T> results) {
+    PostResponse(List<Response> results) {
       this.results = results;
-    }
-  }
-
-  static class DeleteRecordResponse implements Response {
-    final int partition;
-    final long lowWatermark;
-
-    public DeleteRecordResponse(int partition, long lowWatermark) {
-      this.partition = partition;
-      this.lowWatermark = lowWatermark;
     }
   }
 }

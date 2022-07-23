@@ -251,7 +251,7 @@ public interface Admin extends Closeable {
    * Delete records with offset less than specified Long
    *
    * @param recordsToDelete offset of partition
-   * @return deleteRecord
+   * @return deletedRecord
    */
   Map<TopicPartition, DeletedRecord> deleteRecords(Map<TopicPartition, Long> recordsToDelete);
 
