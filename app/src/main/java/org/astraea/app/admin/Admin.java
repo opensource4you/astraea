@@ -253,7 +253,7 @@ public interface Admin extends Closeable {
    * @param recordsToDelete offset of partition
    * @return deleteRecord
    */
-  Map<TopicPartition, DeleteRecord> deleteRecords(Map<TopicPartition, Long> recordsToDelete);
+  Map<TopicPartition, DeletedRecord> deleteRecords(Map<TopicPartition, Long> recordsToDelete);
 
   @Override
   void close();

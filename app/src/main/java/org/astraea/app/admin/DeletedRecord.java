@@ -18,14 +18,14 @@ package org.astraea.app.admin;
 
 import org.apache.kafka.clients.admin.DeletedRecords;
 
-public class DeleteRecord {
+public class DeletedRecord {
   private final long lowWatermark;
 
-  public static DeleteRecord from(DeletedRecords deletedRecords) {
-    return new DeleteRecord(deletedRecords.lowWatermark());
+  public static DeletedRecord from(DeletedRecords deletedRecords) {
+    return new DeletedRecord(deletedRecords.lowWatermark());
   }
 
-  public DeleteRecord(long lowWatermark) {
+  private DeletedRecord(long lowWatermark) {
     this.lowWatermark = lowWatermark;
   }
 

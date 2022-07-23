@@ -646,7 +646,7 @@ public class Builder {
     }
 
     @Override
-    public Map<TopicPartition, DeleteRecord> deleteRecords(
+    public Map<TopicPartition, DeletedRecord> deleteRecords(
         Map<TopicPartition, Long> recordsToDelete) {
       var kafkaRecordsToDelete =
           recordsToDelete.entrySet().stream()
@@ -654,16 +654,11 @@ public class Builder {
                   Collectors.toMap(
                       x -> TopicPartition.to(x.getKey()),
                       x -> RecordsToDelete.beforeOffset(x.getValue())));
-      return Utils.packException(
-          () ->
-              Utils.allOf(admin.deleteRecords(kafkaRecordsToDelete).lowWatermarks())
-                  .get()
-                  .entrySet()
-                  .stream()
-                  .collect(
-                      Collectors.toMap(
-                          x -> TopicPartition.from(x.getKey()),
-                          x -> DeleteRecord.from(x.getValue()))));
+      return admin.deleteRecords(kafkaRecordsToDelete).lowWatermarks().entrySet().stream()
+          .collect(
+              Collectors.toMap(
+                  x -> TopicPartition.from(x.getKey()),
+                  x -> DeletedRecord.from(Utils.packException(() -> x.getValue().get()))));
     }
   }
 

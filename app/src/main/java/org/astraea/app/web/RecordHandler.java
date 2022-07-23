@@ -206,21 +206,26 @@ public class RecordHandler implements Handler {
 
   @Override
   public Response delete(String topic, Map<String, String> queries) {
-    var offset =
-        Optional.ofNullable(queries.get(OFFSET))
-            .map(Long::parseLong)
-            .orElseThrow(() -> new IllegalArgumentException("`offset` must be set."));
-
     var partitions =
         Optional.ofNullable(queries.get(PARTITION))
             .map(x -> Set.of(TopicPartition.of(topic, x)))
             .orElseGet(admin::partitions);
-    var deletedOffsets =
-        partitions.stream().collect(Collectors.toMap(Function.identity(), x -> offset));
-    return new ListResultResponse<>(
-        admin.deleteRecords(deletedOffsets).entrySet().stream()
-            .map(x -> new DeleteRecordResponse(x.getKey().partition(), x.getValue().lowWatermark()))
-            .collect(toList()));
+
+    var offsetOpt = Optional.ofNullable(queries.get(OFFSET)).map(Long::parseLong);
+
+    Map<TopicPartition, Long> deletedOffsets;
+    if (offsetOpt.isPresent()) {
+      deletedOffsets =
+          partitions.stream().collect(Collectors.toMap(Function.identity(), x -> offsetOpt.get()));
+    } else {
+      var currentOffsets = admin.offsets();
+      deletedOffsets =
+          partitions.stream()
+              .collect(Collectors.toMap(Function.identity(), x -> currentOffsets.get(x).latest()));
+    }
+
+    admin.deleteRecords(deletedOffsets);
+    return Response.OK;
   }
 
   enum SerDe {

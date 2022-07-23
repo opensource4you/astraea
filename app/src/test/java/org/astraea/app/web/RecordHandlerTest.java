@@ -634,22 +634,14 @@ public class RecordHandlerTest extends RequireBrokerCluster {
     var topicName = Utils.randomString(10);
     var handler = getRecordHandler();
     admin.creator().topic(topicName).numberOfPartitions(3).numberOfReplicas((short) 3).create();
-    var e =
-        Assertions.assertThrows(
-            IllegalArgumentException.class,
-            () -> handler.delete(topicName, Map.of(PARTITION, "0")));
-    Assertions.assertEquals("`offset` must be set.", e.getMessage());
-
-    Assertions.assertInstanceOf(
-        RecordHandler.ListResultResponse.class,
-        handler.delete("test", Map.of(PARTITION, "0", OFFSET, "0")));
-
-    Assertions.assertInstanceOf(
-        RecordHandler.ListResultResponse.class, handler.delete("test", Map.of(OFFSET, "0")));
+    Assertions.assertEquals(
+        Response.OK, handler.delete(topicName, Map.of(PARTITION, "0", OFFSET, "0")));
+    Assertions.assertEquals(Response.OK, handler.delete(topicName, Map.of(OFFSET, "0")));
+    Assertions.assertEquals(Response.OK, handler.delete(topicName, Map.of(PARTITION, "0")));
+    Assertions.assertEquals(Response.OK, handler.delete(topicName, Map.of()));
   }
 
   @Test
-  @SuppressWarnings("unchecked")
   void testDelete() {
     var topicName = Utils.randomString(10);
     var handler = getRecordHandler();
@@ -657,57 +649,69 @@ public class RecordHandlerTest extends RequireBrokerCluster {
 
     try (var producer = Producer.of(bootstrapServers())) {
       var senders =
-          Stream.of(0, 0, 0, 1, 1, 1, 2, 2, 2)
+          Stream.of(0, 0, 1, 1, 1, 2, 2, 2, 2)
               .map(x -> producer.sender().topic(topicName).partition(x).value(new byte[100]))
               .collect(Collectors.toList());
       producer.send(senders);
       producer.flush();
     }
 
-    var resp = handler.delete(topicName, Map.of(PARTITION, "0", OFFSET, "1"));
-    Assertions.assertTrue(resp instanceof RecordHandler.ListResultResponse);
-    var deleteRecordResponse =
-        ((RecordHandler.ListResultResponse<RecordHandler.DeleteRecordResponse>) resp).results;
-    Assertions.assertEquals(1, deleteRecordResponse.size());
-    Assertions.assertEquals(0, deleteRecordResponse.get(0).partition);
-    Assertions.assertEquals(1, deleteRecordResponse.get(0).lowWatermark);
+    Assertions.assertEquals(
+        Response.OK, handler.delete(topicName, Map.of(PARTITION, "0", OFFSET, "1")));
     var offsets = admin.offsets();
     Assertions.assertEquals(1, offsets.get(TopicPartition.of(topicName, 0)).earliest());
     Assertions.assertEquals(0, offsets.get(TopicPartition.of(topicName, 1)).earliest());
     Assertions.assertEquals(0, offsets.get(TopicPartition.of(topicName, 2)).earliest());
+
+    Assertions.assertEquals(Response.OK, handler.delete(topicName, Map.of()));
+    offsets = admin.offsets();
+    Assertions.assertEquals(2, offsets.get(TopicPartition.of(topicName, 0)).earliest());
+    Assertions.assertEquals(3, offsets.get(TopicPartition.of(topicName, 1)).earliest());
+    Assertions.assertEquals(4, offsets.get(TopicPartition.of(topicName, 2)).earliest());
   }
 
   @Test
-  @SuppressWarnings("unchecked")
-  void testDeleteWithoutPartition() {
+  void testDeleteOffset() {
     var topicName = Utils.randomString(10);
     var handler = getRecordHandler();
     admin.creator().topic(topicName).numberOfPartitions(3).numberOfReplicas((short) 3).create();
 
     try (var producer = Producer.of(bootstrapServers())) {
       var senders =
-          Stream.of(0, 0, 0, 1, 1, 1, 2, 2, 2)
+          Stream.of(0, 0, 1, 1, 1, 2, 2, 2, 2)
               .map(x -> producer.sender().topic(topicName).partition(x).value(new byte[100]))
               .collect(Collectors.toList());
       producer.send(senders);
       producer.flush();
     }
-    var resp = handler.delete(topicName, Map.of(OFFSET, "2"));
-    Assertions.assertTrue(resp instanceof RecordHandler.ListResultResponse);
-    var deleteRecordResponse =
-        ((RecordHandler.ListResultResponse<RecordHandler.DeleteRecordResponse>) resp).results;
 
-    Assertions.assertEquals(3, deleteRecordResponse.size());
-    var deleteRecordMap =
-        deleteRecordResponse.stream()
-            .collect(Collectors.toMap(x -> x.partition, x -> x.lowWatermark));
-    Assertions.assertEquals(2, deleteRecordMap.get(0));
-    Assertions.assertEquals(2, deleteRecordMap.get(1));
-    Assertions.assertEquals(2, deleteRecordMap.get(2));
+    Assertions.assertEquals(Response.OK, handler.delete(topicName, Map.of(OFFSET, "1")));
     var offsets = admin.offsets();
-    Assertions.assertEquals(2, offsets.get(TopicPartition.of(topicName, 0)).earliest());
-    Assertions.assertEquals(2, offsets.get(TopicPartition.of(topicName, 1)).earliest());
-    Assertions.assertEquals(2, offsets.get(TopicPartition.of(topicName, 2)).earliest());
+    Assertions.assertEquals(1, offsets.get(TopicPartition.of(topicName, 0)).earliest());
+    Assertions.assertEquals(1, offsets.get(TopicPartition.of(topicName, 1)).earliest());
+    Assertions.assertEquals(1, offsets.get(TopicPartition.of(topicName, 2)).earliest());
+  }
+
+  @Test
+  void testDeletePartition() {
+    var topicName = Utils.randomString(10);
+    var handler = getRecordHandler();
+    admin.creator().topic(topicName).numberOfPartitions(3).numberOfReplicas((short) 3).create();
+
+    try (var producer = Producer.of(bootstrapServers())) {
+      var senders =
+          Stream.of(0, 0, 1, 1, 1, 2, 2, 2, 2)
+              .map(x -> producer.sender().topic(topicName).partition(x).value(new byte[100]))
+              .collect(Collectors.toList());
+      producer.send(senders);
+      producer.flush();
+    }
+
+    Assertions.assertEquals(Response.OK, handler.delete(topicName, Map.of(PARTITION, "1")));
+    var offsets = admin.offsets();
+    Assertions.assertEquals(0, offsets.get(TopicPartition.of(topicName, 0)).earliest());
+    Assertions.assertEquals(3, offsets.get(TopicPartition.of(topicName, 1)).earliest());
+    Assertions.assertEquals(0, offsets.get(TopicPartition.of(topicName, 2)).earliest());
   }
 
   private RecordHandler getRecordHandler() {

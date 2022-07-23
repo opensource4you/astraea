@@ -24,7 +24,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
-import org.apache.kafka.common.internals.KafkaFutureImpl;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -76,27 +75,5 @@ public class UtilsTest {
     var future2 = CompletableFuture.supplyAsync(() -> 2);
 
     Assertions.assertEquals(Utils.sequence(List.of(future1, future2)).join(), List.of(1, 2));
-  }
-
-  @Test
-  void testAllOf() {
-    var successMap = Map.of("key1", new KafkaFutureImpl<>(), "key2", new KafkaFutureImpl<>());
-    successMap.get("key1").complete(new Object());
-    successMap.get("key2").complete(new Object());
-    Assertions.assertTrue(Utils.allOf(successMap).isDone());
-
-    var errorMap = Map.of("key1", new KafkaFutureImpl<>(), "key2", new KafkaFutureImpl<>());
-    errorMap.get("key1").complete(new Object());
-    errorMap.get("key2").completeExceptionally(new RuntimeException());
-    Assertions.assertTrue(Utils.allOf(errorMap).isCompletedExceptionally());
-
-    var lazySuccessMap = Map.of("key1", new KafkaFutureImpl<>(), "key2", new KafkaFutureImpl<>());
-    lazySuccessMap.get("key1").complete(new Object());
-    Assertions.assertFalse(Utils.allOf(lazySuccessMap).isCompletedExceptionally());
-    Assertions.assertFalse(Utils.allOf(lazySuccessMap).isDone());
-    Assertions.assertFalse(Utils.allOf(lazySuccessMap).isCancelled());
-
-    lazySuccessMap.get("key2").complete(new Object());
-    Assertions.assertTrue(Utils.allOf(lazySuccessMap).isDone());
   }
 }
