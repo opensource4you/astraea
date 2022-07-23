@@ -100,12 +100,12 @@ public final class Services {
             .collect(Collectors.joining(",")));
     return new BrokerCluster() {
       @Override
-      public void close(int brokerIndex) {
-        var broker = brokers.remove(brokerIndex);
+      public void close(int brokerID) {
+        var broker = brokers.remove(brokerID);
         if (broker != null) {
           broker.shutdown();
           broker.awaitShutdown();
-          var folders = tempFolders.remove(brokerIndex);
+          var folders = tempFolders.remove(brokerID);
           if (folders != null) folders.forEach(f -> Utils.delete(new File(f)));
           connectionProps.set(
               brokers.values().stream()
