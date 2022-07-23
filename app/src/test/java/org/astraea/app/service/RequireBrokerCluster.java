@@ -22,8 +22,8 @@ import org.astraea.app.common.Utils;
 import org.junit.jupiter.api.AfterAll;
 
 /**
- * This class offers a way to have embedded kafka cluster. It is useful to test code which is
- * depended on true cluster.
+ * This class offers a way to have single node embedded kafka cluster. It is useful to test code
+ * which is depended on true cluster.
  */
 public abstract class RequireBrokerCluster extends RequireJmxServer {
   private static final int NUMBER_OF_BROKERS = 3;
