@@ -211,19 +211,20 @@ public class RecordHandler implements Handler {
             .map(x -> Set.of(TopicPartition.of(topic, x)))
             .orElseGet(admin::partitions);
 
-    var offsetOpt = Optional.ofNullable(queries.get(OFFSET)).map(Long::parseLong);
-
-    Map<TopicPartition, Long> deletedOffsets;
-    if (offsetOpt.isPresent()) {
-      deletedOffsets =
-          partitions.stream().collect(Collectors.toMap(Function.identity(), x -> offsetOpt.get()));
-    } else {
-      var currentOffsets = admin.offsets();
-      deletedOffsets =
-          partitions.stream()
-              .collect(Collectors.toMap(Function.identity(), x -> currentOffsets.get(x).latest()));
-    }
-
+    var deletedOffsets =
+        Optional.ofNullable(queries.get(OFFSET))
+            .map(Long::parseLong)
+            .map(
+                offset ->
+                    partitions.stream().collect(Collectors.toMap(Function.identity(), x -> offset)))
+            .orElseGet(
+                () -> {
+                  var currentOffsets = admin.offsets();
+                  return partitions.stream()
+                      .collect(
+                          Collectors.toMap(
+                              Function.identity(), x -> currentOffsets.get(x).latest()));
+                });
     admin.deleteRecords(deletedOffsets);
     return Response.OK;
   }

@@ -55,9 +55,7 @@ import org.astraea.app.producer.Producer;
 import org.astraea.app.service.RequireBrokerCluster;
 import org.astraea.app.web.RecordHandler.ByteArrayToBase64TypeAdapter;
 import org.astraea.app.web.RecordHandler.Metadata;
-import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -65,18 +63,6 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 public class RecordHandlerTest extends RequireBrokerCluster {
-
-  static Admin admin;
-
-  @BeforeAll
-  static void init() {
-    admin = Admin.of(bootstrapServers());
-  }
-
-  @AfterAll
-  static void destroy() {
-    admin.close();
-  }
 
   @Test
   void testInvalidPost() {
@@ -631,6 +617,7 @@ public class RecordHandlerTest extends RequireBrokerCluster {
 
   @Test
   void testDeleteParameter() {
+    var admin = Admin.of(bootstrapServers());
     var topicName = Utils.randomString(10);
     var handler = getRecordHandler();
     admin.creator().topic(topicName).numberOfPartitions(3).numberOfReplicas((short) 3).create();
@@ -643,6 +630,7 @@ public class RecordHandlerTest extends RequireBrokerCluster {
 
   @Test
   void testDelete() {
+    var admin = Admin.of(bootstrapServers());
     var topicName = Utils.randomString(10);
     var handler = getRecordHandler();
     admin.creator().topic(topicName).numberOfPartitions(3).numberOfReplicas((short) 3).create();
@@ -672,6 +660,7 @@ public class RecordHandlerTest extends RequireBrokerCluster {
 
   @Test
   void testDeleteOffset() {
+    var admin = Admin.of(bootstrapServers());
     var topicName = Utils.randomString(10);
     var handler = getRecordHandler();
     admin.creator().topic(topicName).numberOfPartitions(3).numberOfReplicas((short) 3).create();
@@ -694,6 +683,7 @@ public class RecordHandlerTest extends RequireBrokerCluster {
 
   @Test
   void testDeletePartition() {
+    var admin = Admin.of(bootstrapServers());
     var topicName = Utils.randomString(10);
     var handler = getRecordHandler();
     admin.creator().topic(topicName).numberOfPartitions(3).numberOfReplicas((short) 3).create();
@@ -715,6 +705,6 @@ public class RecordHandlerTest extends RequireBrokerCluster {
   }
 
   private RecordHandler getRecordHandler() {
-    return new RecordHandler(admin, bootstrapServers());
+    return new RecordHandler(Admin.of(bootstrapServers()), bootstrapServers());
   }
 }
