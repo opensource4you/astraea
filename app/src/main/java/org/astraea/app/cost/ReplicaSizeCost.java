@@ -43,7 +43,7 @@ import org.astraea.app.partitioner.Configuration;
  * The calculation method of the score is the replica log usage space divided by the available space
  * on the hard disk
  */
-public class ReplicaSizeCost implements HasBrokerCost, HasPartitionCost, HasClusterCost {
+public class ReplicaSizeCost implements HasClusterCost {
   static final String BROKERCAPACITY = "brokerCapacityConfig";
   Map<Integer, Map<String, Integer>> totalBrokerCapacity;
   Map<Integer, Map<String, Long>> totalReplicaSizeInPath;
@@ -65,7 +65,6 @@ public class ReplicaSizeCost implements HasBrokerCost, HasPartitionCost, HasClus
    * @param clusterInfo the clusterInfo that offers the metrics related to topic/partition size
    * @return a BrokerCost contains the ratio of the used space to the free space of each broker
    */
-  @Override
   public BrokerCost brokerCost(ClusterInfo clusterInfo) {
     var sizeOfPartition = getTopicPartitionSize(clusterInfo);
     totalReplicaSizeInPath =
@@ -132,7 +131,6 @@ public class ReplicaSizeCost implements HasBrokerCost, HasPartitionCost, HasClus
    * @return a BrokerCost contains the ratio of the used space to the available space of replicas in
    *     each broker
    */
-  @Override
   public PartitionCost partitionCost(ClusterInfo clusterInfo) {
     final long ONEMEGA = Math.round(Math.pow(2, 20));
     var sizeOfPartition = getTopicPartitionSize(clusterInfo);
@@ -274,6 +272,7 @@ public class ReplicaSizeCost implements HasBrokerCost, HasPartitionCost, HasClus
   @Override
   public ClusterCost clusterCost(ClusterInfo clusterInfo) {
     var sizeOfPartition = getTopicPartitionSize(clusterInfo);
+
     totalReplicaSizeInPath =
         clusterInfo.topics().stream()
             .flatMap(
@@ -300,15 +299,26 @@ public class ReplicaSizeCost implements HasBrokerCost, HasPartitionCost, HasClus
                       if (x1.containsKey(path)) map.put(path, x1.get(path) + x2.get(path));
                       return map;
                     }));
-    var brokerSizeScore = brokerScore();
-    var mean = brokerSizeScore.values().stream().mapToDouble(x -> x).sum() / brokerSizeScore.size();
+    //var brokerSizeScore = brokerScore();
+    var folderSizeRatioSeries=
+            totalReplicaSizeInPath
+                    .entrySet()
+                    .stream()
+                    .flatMap(
+                            brokerPathSize->brokerPathSize.getValue()
+                                    .entrySet()
+                                    .stream()
+                                    .map(pathSize->
+                                            pathSize.getValue()/1.0/totalBrokerCapacity.get(brokerPathSize.getKey()).get(pathSize.getKey()))
+                    ).collect(Collectors.toList());
+    var mean = folderSizeRatioSeries.stream().mapToDouble(x -> x).sum() / folderSizeRatioSeries.size();
     var sd =
         Math.sqrt(
-            brokerSizeScore.values().stream()
+            folderSizeRatioSeries.stream()
                     .mapToDouble(score -> Math.pow((score - mean), 2))
                     .sum()
-                / brokerSizeScore.size());
-    return () -> sd / 0.5;
+                / folderSizeRatioSeries.size());
+    return () -> sd/mean;
   }
 
   static Map.Entry<Integer, String> transformEntry(String entry) {

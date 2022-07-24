@@ -38,8 +38,7 @@ public class ReplicaLeaderCost implements HasBrokerCost, HasClusterCost {
                 Collectors.toMap(
                     Map.Entry::getKey,
                     e ->
-                        (double) e.getValue()
-                            / leaderCount(clusterInfo).values().stream().mapToInt(x -> x).sum()));
+                        (double) e.getValue()));
     return () -> result;
   }
 
@@ -71,7 +70,7 @@ public class ReplicaLeaderCost implements HasBrokerCost, HasClusterCost {
         Math.sqrt(
             brokerCost.values().stream().mapToDouble(score -> Math.pow((score - mean), 2)).sum()
                 / brokerCost.size());
-    return () -> sd / 0.5;
+    return () -> sd / mean;
   }
 
   public static class NoMetrics extends ReplicaLeaderCost {

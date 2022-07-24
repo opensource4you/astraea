@@ -225,7 +225,7 @@ public class MoveCost implements HasMoveCost {
   @Override
   public ClusterCost clusterCost(
       ClusterInfo clusterInfo, ClusterLogAllocation clusterLogAllocation) {
-    var duration = Duration.ofSeconds(10);
+    var duration = Duration.ofSeconds(20);
     distributionChange = getMigrateReplicas(clusterInfo, clusterLogAllocation, false);
     migratedReplicas = getMigrateReplicas(clusterInfo, clusterLogAllocation, true);
     replicaSize = getReplicaSize(clusterInfo);
@@ -260,7 +260,15 @@ public class MoveCost implements HasMoveCost {
                     .map(
                             x-> replicaDataRate.get(x.sourceTPR())
                     ).sorted()
+                    .filter(x->x!=0.0)
                     .collect(Collectors.toList());
+    var meanTrafficSeries = trafficSeries.stream().mapToDouble(x->x).sum()/trafficSeries.size();
+    var SDTrafficSeries =
+            Math.sqrt(
+            trafficSeries.stream()
+                    .mapToDouble(score -> Math.pow((score - meanTrafficSeries), 2))
+                    .sum()
+                    / trafficSeries.size());
 
     var totalMigrateTraffic = trafficSeries.stream().mapToDouble(x->x).sum();
     var totalReplicaTrafficInSink =
@@ -311,13 +319,11 @@ public class MoveCost implements HasMoveCost {
                      ).sum();
       var total =totalBrokerCapacity.values().stream().mapToDouble(x->x.values().stream().mapToDouble(y->y).sum()).sum()/1024.0/1024.0;
       var totalMigrateSizeScore = totalMigrateSize / total > 1 ? 1 : totalMigrateSize / total ;
-     var score =(totalMigrateSizeScore + migrateTrafficRange + totalMigrateTraffic/totalReplicaTrafficInSink)/3 ;
+     var score = SDTrafficSeries;
      if (replicaDataRate.containsValue(-1.0) ) {
          System.out.println("retention");
          return () -> 1.0;
      }
-     if (score >1)
-         return ()-> 1.0;
      return () -> score;
   }
 
@@ -419,7 +425,7 @@ public class MoveCost implements HasMoveCost {
                                             replicaInfo.topic(),
                                             replicaInfo.partition(),
                                             replicaInfo.nodeInfo().id()),
-                                        replicaInfo.dataFolder()))))
+                                        replicaInfo.dataFolder().orElse(UNKNOWN)))))
             .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
     var beforeMigrate =
         clusterInfo.topics().stream()
@@ -460,7 +466,7 @@ public class MoveCost implements HasMoveCost {
                     tp,
                     leaderReplicas.get(tp).getKey().brokerId(),
                     sinkBroker,
-                    leaderReplicas.get(tp).getValue().orElse(UNKNOWN),
+                    leaderReplicas.get(tp).getValue(),
                     newTPR.getValue());
               })
           .collect(Collectors.toList());

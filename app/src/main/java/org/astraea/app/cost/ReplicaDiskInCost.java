@@ -21,6 +21,8 @@ import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -47,11 +49,9 @@ import org.astraea.app.partitioner.Configuration;
  */
 public class ReplicaDiskInCost implements HasBrokerCost, HasPartitionCost, HasClusterCost {
   static final String BROKERBANDWIDTH = "brokerBandwidthConfig";
-  Map<Integer, Integer> brokerBandwidthCap;
   Map<Integer, Double> brokerLoad;
 
   public ReplicaDiskInCost(Configuration configuration) {
-    this.brokerBandwidthCap = convert(configuration.requireString(BROKERBANDWIDTH));
   }
 
   @Override
@@ -86,7 +86,7 @@ public class ReplicaDiskInCost implements HasBrokerCost, HasPartitionCost, HasCl
             .map(
                 entry ->
                     Map.entry(
-                        entry.getKey(), entry.getValue() / brokerBandwidthCap.get(entry.getKey())))
+                        entry.getKey(), entry.getValue()))
             .map(entry -> Map.entry(entry.getKey(), Math.min(entry.getValue(), 1)))
             .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
     var mean = brokerSizeScore.values().stream().mapToDouble(x -> x).sum() / brokerSizeScore.size();
@@ -109,8 +109,8 @@ public class ReplicaDiskInCost implements HasBrokerCost, HasPartitionCost, HasCl
                 .thenComparing(TopicPartitionReplica::partition));
     replicaIn.forEach(
         (tpr, rate) -> {
-          var score = rate / brokerBandwidthCap.get(tpr.brokerId());
-          if (score >= 1) score = 1;
+          var score = rate;
+          if (score >= 1) score = 1.0;
           replicaScore.put(tpr, score);
         });
     var scoreForTopic =
@@ -184,7 +184,7 @@ public class ReplicaDiskInCost implements HasBrokerCost, HasPartitionCost, HasCl
 
   @Override
   public ClusterCost clusterCost(ClusterInfo clusterInfo) {
-    var duration = Duration.ofSeconds(10);
+    var duration = Duration.ofSeconds(20);
 
     final Map<Integer, List<TopicPartitionReplica>> topicPartitionOfEachBroker =
         clusterInfo.topics().stream()
@@ -195,6 +195,7 @@ public class ReplicaDiskInCost implements HasBrokerCost, HasPartitionCost, HasCl
                         replica.topic(), replica.partition(), replica.nodeInfo().id()))
             .collect(Collectors.groupingBy(TopicPartitionReplica::brokerId));
     final var topicPartitionDataRate = topicPartitionDataRate(clusterInfo, duration);
+
     var brokerDataRate =
         topicPartitionOfEachBroker.entrySet().stream()
             .map(
@@ -216,6 +217,7 @@ public class ReplicaDiskInCost implements HasBrokerCost, HasPartitionCost, HasCl
                     .mapToDouble(score -> Math.pow((score - dataRateMean), 2))
                     .sum()
                 / brokerDataRate.size());
+    /*
     var tScore =
         brokerDataRate.entrySet().stream()
             .map(
@@ -226,7 +228,12 @@ public class ReplicaDiskInCost implements HasBrokerCost, HasPartitionCost, HasCl
     var sortedScore = tScore.values().stream().sorted().collect(Collectors.toList());
     if (sortedScore.size() >= 2)
       return () -> sortedScore.get(sortedScore.size() - 1) - sortedScore.get(0);
-    return () -> 1.0;
+
+     */
+    var cv=dataRateSD/dataRateMean;
+    if (cv>1)
+      return ()->1.0;
+    return () -> cv;
   }
 
   /** @return the metrics getters. Those getters are used to fetch mbeans. */

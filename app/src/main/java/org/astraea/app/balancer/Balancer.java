@@ -164,7 +164,7 @@ public class Balancer implements AutoCloseable {
                 clusterInfo, bestProposal.rebalancePlan().get());
         var bestScore = evaluateCost(bestCluster, clusterMetrics);
         System.out.printf(
-            "Current cluster score: %.2f, Proposed cluster score: %.2f%n",
+            "Current cluster score: %.8f, Proposed cluster score: %.8f%n",
             currentClusterScore, bestScore);
         if (!isPlanExecutionWorth(clusterInfo, bestProposal, currentClusterScore, bestScore)) {
           // TODO: find a way to show the progress, without pollute the logic
@@ -202,7 +202,6 @@ public class Balancer implements AutoCloseable {
     var thread = progressWatch("Searching for Good Rebalance Plan", tries, counter::doubleValue);
     try {
       thread.start();
-      var moveCostWeight = 0.5;
       var bestMigrationProposals =
           planGenerator
               .generate(clusterInfo)
@@ -216,8 +215,7 @@ public class Balancer implements AutoCloseable {
                       var mockedCluster =
                           BalancerUtils.mockClusterInfoAllocation(clusterInfo, allocation);
                       var score = evaluateCost(mockedCluster, clusterMetrics);
-                      var moveScore = evaluateMoveCost(mockedCluster, clusterMetrics);
-                      return Map.entry(score*(1-moveCostWeight) + moveScore *moveCostWeight, plan);
+                      return Map.entry(score , plan);
                     } else {
                       return Map.entry(1.0, plan);
                     }
@@ -225,6 +223,7 @@ public class Balancer implements AutoCloseable {
               .filter(x -> x.getKey() < currentScore)
               .filter(x -> x.getValue().rebalancePlan().isPresent())
               .sorted(Map.Entry.comparingByKey())
+                  .limit(300)
               .collect(Collectors.toUnmodifiableList());
 
       // Find the plan with smallest move cost
@@ -236,12 +235,11 @@ public class Balancer implements AutoCloseable {
                 BalancerUtils.mockClusterInfoAllocation(clusterInfo, allocation);
             return evaluateMoveCost(mockedCluster, clusterMetrics);
           }));
-
       var allocation = bestMigrationProposal.get().getValue().rebalancePlan().get();
       var mockedCluster =
               BalancerUtils.mockClusterInfoAllocation(clusterInfo, allocation);
-      var score = evaluateCost(mockedCluster, clusterMetrics);
       var moveScore = evaluateMoveCost(mockedCluster, clusterMetrics);
+
 
       // find the target with the highest score, return it
       return bestMigrationProposal
