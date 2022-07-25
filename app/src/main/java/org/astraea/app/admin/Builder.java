@@ -551,12 +551,16 @@ public class Builder {
     @Override
     public void removeAllMembers(String groupId) {
       Utils.packException(
-          () ->
+          () -> {
+            // removeMembersFromConsumerGroup don't allow size 0
+            if (consumerGroups(Set.of(groupId)).get(groupId).activeMembers().size() != 0) {
               admin
                   .removeMembersFromConsumerGroup(
                       groupId, new RemoveMembersFromConsumerGroupOptions())
                   .all()
-                  .get());
+                  .get();
+            }
+          });
     }
 
     @Override

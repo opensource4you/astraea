@@ -17,10 +17,12 @@
 package org.astraea.app.web;
 
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.IntStream;
 import org.astraea.app.admin.Admin;
 import org.astraea.app.common.Utils;
 import org.astraea.app.consumer.Consumer;
@@ -213,6 +215,49 @@ public class GroupHandlerTest extends RequireBrokerCluster {
             consumer.groupId(),
             Map.of(GroupHandler.INSTANCE_KEY, consumer.groupInstanceId().get()));
       }
+    }
+  }
+
+  @Test
+  void testDeleteGroup() {
+    var topicName = Utils.randomString(10);
+    try (Admin admin = Admin.of(bootstrapServers())) {
+      var handler = new GroupHandler(admin);
+
+      IntStream.range(0, 3)
+          .forEach(
+              x -> {
+                try (var consumer =
+                    Consumer.forTopics(Set.of(topicName))
+                        .bootstrapServers(bootstrapServers())
+                        .groupInstanceId(Utils.randomString(10))
+                        .build()) {
+                  Assertions.assertEquals(0, consumer.poll(Duration.ofSeconds(3)).size());
+                }
+              });
+
+      var groupIds = new ArrayList<>(admin.consumerGroupIds());
+      Assertions.assertEquals(3, groupIds.size());
+
+      handler.delete(groupIds.get(2), Map.of());
+      Assertions.assertEquals(3, admin.consumerGroupIds().size());
+
+      handler.delete(groupIds.get(2), Map.of(GroupHandler.GROUP_KEY, "false"));
+      Assertions.assertEquals(3, admin.consumerGroupIds().size());
+
+      handler.delete(groupIds.get(2), Map.of(GroupHandler.GROUP_KEY, "true"));
+      Assertions.assertEquals(Set.of(groupIds.get(0), groupIds.get(1)), admin.consumerGroupIds());
+
+      var group1Members =
+          admin.consumerGroups(Set.of(groupIds.get(1))).get(groupIds.get(1)).activeMembers();
+      handler.delete(
+          groupIds.get(1),
+          Map.of(
+              GroupHandler.GROUP_KEY,
+              "true",
+              GroupHandler.INSTANCE_KEY,
+              group1Members.get(0).groupInstanceId().get()));
+      Assertions.assertEquals(Set.of(groupIds.get(0)), admin.consumerGroupIds());
     }
   }
 }

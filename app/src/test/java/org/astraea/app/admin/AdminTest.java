@@ -888,6 +888,7 @@ public class AdminTest extends RequireBrokerCluster {
               .get(consumer.groupId())
               .activeMembers()
               .size());
+      admin.removeAllMembers(consumer.groupId());
     }
   }
 
