@@ -214,7 +214,7 @@ public class RecordHandler implements Handler {
     var partitions =
         Optional.ofNullable(queries.get(PARTITION))
             .map(x -> Set.of(TopicPartition.of(topic, x)))
-            .orElseGet(admin::partitions);
+            .orElseGet(() -> admin.partitions(Set.of(topic)));
 
     var deletedOffsets =
         Optional.ofNullable(queries.get(OFFSET))
@@ -224,7 +224,7 @@ public class RecordHandler implements Handler {
                     partitions.stream().collect(Collectors.toMap(Function.identity(), x -> offset)))
             .orElseGet(
                 () -> {
-                  var currentOffsets = admin.offsets();
+                  var currentOffsets = admin.offsets(Set.of(topic));
                   return partitions.stream()
                       .collect(
                           Collectors.toMap(
