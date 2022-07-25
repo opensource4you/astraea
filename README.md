@@ -14,11 +14,10 @@ This project offers many kafka tools to simplify the life for kafka users.
 
 1. [Kafka quick start](#kafka-cluster-quick-start): set up a true kafka cluster in one minute
 2. [Kafka performance](#Performance-Benchmark): check producing/consuming performance.
-3. [Kafka offset explorer](#topic-explorer): check the start/end offsets of kafka topics
-4. [Kafka metric explorer](#kafka-metric-explorer): utility for accessing kafka Mbean metrics via JMX.
-6. [Kafka partition score](#Kafka-partition-score): score all broker's partitions. 
-7. [Kafka replica syncing monitor](#Kafka-replica-syncing-monitor): Tracking replica syncing progress.
-8. [Astraea Web Server 中文文件連結](./docs/web_server/README.md)
+3. [Kafka metric explorer](#kafka-metric-explorer): utility for accessing kafka Mbean metrics via JMX.
+4. [Kafka partition score](#Kafka-partition-score): score all broker's partitions. 
+5. [Kafka replica syncing monitor](#Kafka-replica-syncing-monitor): Tracking replica syncing progress.
+6. [Astraea Web Server 中文文件連結](./docs/web_server/README.md)
 
 [Github packages](https://github.com/orgs/skiptests/packages?repo_name=astraea) offers the docker image to run mentioned tools
 ```shell
@@ -205,27 +204,6 @@ Run the benchmark from source
 18. --report.path: A path to place the report file. Default: (no report)
 19. --report.format: Select output file format. Available format: "csv", "json". Default: "csv"
 20. --transaction.size: number of records in each transaction. Default: 1
-
----
-
-## Topic Explorer
-
-This tool can expose both earliest offset, consumer group offset and latest offset for all (public and private) topics.
-
-Run the tool from source code
-```shell
-./gradlew run --args="offset --bootstrap.servers 192.168.50.178:19993"
-```
-
-Run the tool from release
-```shell
-./docker/start_app.sh offset --bootstrap.servers 192.168.50.178:19993
-```
-
-### Offset Explorer Configurations
-1. --bootstrap.servers: the server to connect to
-2. --topics: the topics to be seeked
-3. --admin.props.file: the file path containing the properties to be passed to kafka admin
 
 ---
 
