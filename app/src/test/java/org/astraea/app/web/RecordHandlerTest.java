@@ -617,91 +617,95 @@ public class RecordHandlerTest extends RequireBrokerCluster {
 
   @Test
   void testDeleteParameter() {
-    var admin = Admin.of(bootstrapServers());
-    var topicName = Utils.randomString(10);
-    var handler = getRecordHandler();
-    admin.creator().topic(topicName).numberOfPartitions(3).numberOfReplicas((short) 3).create();
-    Assertions.assertEquals(
-        Response.OK, handler.delete(topicName, Map.of(PARTITION, "0", OFFSET, "0")));
-    Assertions.assertEquals(Response.OK, handler.delete(topicName, Map.of(OFFSET, "0")));
-    Assertions.assertEquals(Response.OK, handler.delete(topicName, Map.of(PARTITION, "0")));
-    Assertions.assertEquals(Response.OK, handler.delete(topicName, Map.of()));
+    try (var admin = Admin.of(bootstrapServers())) {
+      var topicName = Utils.randomString(10);
+      var handler = getRecordHandler();
+      admin.creator().topic(topicName).numberOfPartitions(3).numberOfReplicas((short) 3).create();
+      Assertions.assertEquals(
+          Response.OK, handler.delete(topicName, Map.of(PARTITION, "0", OFFSET, "0")));
+      Assertions.assertEquals(Response.OK, handler.delete(topicName, Map.of(OFFSET, "0")));
+      Assertions.assertEquals(Response.OK, handler.delete(topicName, Map.of(PARTITION, "0")));
+      Assertions.assertEquals(Response.OK, handler.delete(topicName, Map.of()));
+    }
   }
 
   @Test
   void testDelete() {
-    var admin = Admin.of(bootstrapServers());
-    var topicName = Utils.randomString(10);
-    var handler = getRecordHandler();
-    admin.creator().topic(topicName).numberOfPartitions(3).numberOfReplicas((short) 3).create();
+    try (var admin = Admin.of(bootstrapServers())) {
+      var topicName = Utils.randomString(10);
+      var handler = getRecordHandler();
+      admin.creator().topic(topicName).numberOfPartitions(3).numberOfReplicas((short) 3).create();
 
-    try (var producer = Producer.of(bootstrapServers())) {
-      var senders =
-          Stream.of(0, 0, 1, 1, 1, 2, 2, 2, 2)
-              .map(x -> producer.sender().topic(topicName).partition(x).value(new byte[100]))
-              .collect(Collectors.toList());
-      producer.send(senders);
-      producer.flush();
+      try (var producer = Producer.of(bootstrapServers())) {
+        var senders =
+            Stream.of(0, 0, 1, 1, 1, 2, 2, 2, 2)
+                .map(x -> producer.sender().topic(topicName).partition(x).value(new byte[100]))
+                .collect(Collectors.toList());
+        producer.send(senders);
+        producer.flush();
+      }
+
+      Assertions.assertEquals(
+          Response.OK, handler.delete(topicName, Map.of(PARTITION, "0", OFFSET, "1")));
+      var offsets = admin.offsets();
+      Assertions.assertEquals(1, offsets.get(TopicPartition.of(topicName, 0)).earliest());
+      Assertions.assertEquals(0, offsets.get(TopicPartition.of(topicName, 1)).earliest());
+      Assertions.assertEquals(0, offsets.get(TopicPartition.of(topicName, 2)).earliest());
+
+      Assertions.assertEquals(Response.OK, handler.delete(topicName, Map.of()));
+      offsets = admin.offsets();
+      Assertions.assertEquals(2, offsets.get(TopicPartition.of(topicName, 0)).earliest());
+      Assertions.assertEquals(3, offsets.get(TopicPartition.of(topicName, 1)).earliest());
+      Assertions.assertEquals(4, offsets.get(TopicPartition.of(topicName, 2)).earliest());
     }
-
-    Assertions.assertEquals(
-        Response.OK, handler.delete(topicName, Map.of(PARTITION, "0", OFFSET, "1")));
-    var offsets = admin.offsets();
-    Assertions.assertEquals(1, offsets.get(TopicPartition.of(topicName, 0)).earliest());
-    Assertions.assertEquals(0, offsets.get(TopicPartition.of(topicName, 1)).earliest());
-    Assertions.assertEquals(0, offsets.get(TopicPartition.of(topicName, 2)).earliest());
-
-    Assertions.assertEquals(Response.OK, handler.delete(topicName, Map.of()));
-    offsets = admin.offsets();
-    Assertions.assertEquals(2, offsets.get(TopicPartition.of(topicName, 0)).earliest());
-    Assertions.assertEquals(3, offsets.get(TopicPartition.of(topicName, 1)).earliest());
-    Assertions.assertEquals(4, offsets.get(TopicPartition.of(topicName, 2)).earliest());
   }
 
   @Test
   void testDeleteOffset() {
-    var admin = Admin.of(bootstrapServers());
-    var topicName = Utils.randomString(10);
-    var handler = getRecordHandler();
-    admin.creator().topic(topicName).numberOfPartitions(3).numberOfReplicas((short) 3).create();
+    try (var admin = Admin.of(bootstrapServers())) {
+      var topicName = Utils.randomString(10);
+      var handler = getRecordHandler();
+      admin.creator().topic(topicName).numberOfPartitions(3).numberOfReplicas((short) 3).create();
 
-    try (var producer = Producer.of(bootstrapServers())) {
-      var senders =
-          Stream.of(0, 0, 1, 1, 1, 2, 2, 2, 2)
-              .map(x -> producer.sender().topic(topicName).partition(x).value(new byte[100]))
-              .collect(Collectors.toList());
-      producer.send(senders);
-      producer.flush();
+      try (var producer = Producer.of(bootstrapServers())) {
+        var senders =
+            Stream.of(0, 0, 1, 1, 1, 2, 2, 2, 2)
+                .map(x -> producer.sender().topic(topicName).partition(x).value(new byte[100]))
+                .collect(Collectors.toList());
+        producer.send(senders);
+        producer.flush();
+      }
+
+      Assertions.assertEquals(Response.OK, handler.delete(topicName, Map.of(OFFSET, "1")));
+      var offsets = admin.offsets();
+      Assertions.assertEquals(1, offsets.get(TopicPartition.of(topicName, 0)).earliest());
+      Assertions.assertEquals(1, offsets.get(TopicPartition.of(topicName, 1)).earliest());
+      Assertions.assertEquals(1, offsets.get(TopicPartition.of(topicName, 2)).earliest());
     }
-
-    Assertions.assertEquals(Response.OK, handler.delete(topicName, Map.of(OFFSET, "1")));
-    var offsets = admin.offsets();
-    Assertions.assertEquals(1, offsets.get(TopicPartition.of(topicName, 0)).earliest());
-    Assertions.assertEquals(1, offsets.get(TopicPartition.of(topicName, 1)).earliest());
-    Assertions.assertEquals(1, offsets.get(TopicPartition.of(topicName, 2)).earliest());
   }
 
   @Test
   void testDeletePartition() {
-    var admin = Admin.of(bootstrapServers());
-    var topicName = Utils.randomString(10);
-    var handler = getRecordHandler();
-    admin.creator().topic(topicName).numberOfPartitions(3).numberOfReplicas((short) 3).create();
+    try (var admin = Admin.of(bootstrapServers())) {
+      var topicName = Utils.randomString(10);
+      var handler = getRecordHandler();
+      admin.creator().topic(topicName).numberOfPartitions(3).numberOfReplicas((short) 3).create();
 
-    try (var producer = Producer.of(bootstrapServers())) {
-      var senders =
-          Stream.of(0, 0, 1, 1, 1, 2, 2, 2, 2)
-              .map(x -> producer.sender().topic(topicName).partition(x).value(new byte[100]))
-              .collect(Collectors.toList());
-      producer.send(senders);
-      producer.flush();
+      try (var producer = Producer.of(bootstrapServers())) {
+        var senders =
+            Stream.of(0, 0, 1, 1, 1, 2, 2, 2, 2)
+                .map(x -> producer.sender().topic(topicName).partition(x).value(new byte[100]))
+                .collect(Collectors.toList());
+        producer.send(senders);
+        producer.flush();
+      }
+
+      Assertions.assertEquals(Response.OK, handler.delete(topicName, Map.of(PARTITION, "1")));
+      var offsets = admin.offsets();
+      Assertions.assertEquals(0, offsets.get(TopicPartition.of(topicName, 0)).earliest());
+      Assertions.assertEquals(3, offsets.get(TopicPartition.of(topicName, 1)).earliest());
+      Assertions.assertEquals(0, offsets.get(TopicPartition.of(topicName, 2)).earliest());
     }
-
-    Assertions.assertEquals(Response.OK, handler.delete(topicName, Map.of(PARTITION, "1")));
-    var offsets = admin.offsets();
-    Assertions.assertEquals(0, offsets.get(TopicPartition.of(topicName, 0)).earliest());
-    Assertions.assertEquals(3, offsets.get(TopicPartition.of(topicName, 1)).earliest());
-    Assertions.assertEquals(0, offsets.get(TopicPartition.of(topicName, 2)).earliest());
   }
 
   private RecordHandler getRecordHandler() {
