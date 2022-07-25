@@ -40,6 +40,7 @@ public class KafkaLogMetricsTest extends RequireSingleBrokerCluster {
               .filter(m -> m.topic().equals(topicName))
               .collect(Collectors.toUnmodifiableList());
       Assertions.assertEquals(2, beans.size());
+      beans.forEach(m -> Assertions.assertEquals(m.type(), log));
     }
   }
 
@@ -47,5 +48,6 @@ public class KafkaLogMetricsTest extends RequireSingleBrokerCluster {
   @EnumSource(KafkaLogMetrics.Log.class)
   void testValue(KafkaLogMetrics.Log log) {
     log.fetch(MBeanClient.local()).forEach(m -> Assertions.assertTrue(m.value() >= 0));
+    log.fetch(MBeanClient.local()).forEach(m -> Assertions.assertEquals(m.type(), log));
   }
 }

@@ -30,7 +30,7 @@ public class KafkaLogMetrics {
   static class TopicPartitionMetrics implements HasValue {
     private final BeanObject beanObject;
 
-    TopicPartitionMetrics(BeanObject beanObject) {
+    private TopicPartitionMetrics(BeanObject beanObject) {
       this.beanObject = beanObject;
     }
 
