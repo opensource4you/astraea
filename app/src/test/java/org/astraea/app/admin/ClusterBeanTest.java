@@ -18,6 +18,7 @@ package org.astraea.app.admin;
 
 import java.util.List;
 import java.util.Map;
+import org.astraea.app.metrics.KafkaLogMetrics;
 import org.astraea.app.metrics.KafkaMetrics;
 import org.astraea.app.metrics.broker.HasValue;
 import org.astraea.app.metrics.jmx.BeanObject;
@@ -36,7 +37,7 @@ class ClusterBeanTest {
             "kafka.log",
             Map.of(
                 "name",
-                KafkaMetrics.TopicPartition.Size.metricName(),
+                KafkaLogMetrics.Log.SIZE.metricName(),
                 "type",
                 "Log",
                 "topic",
@@ -49,7 +50,7 @@ class ClusterBeanTest {
             "kafka.log",
             Map.of(
                 "name",
-                KafkaMetrics.TopicPartition.Size.metricName(),
+                KafkaLogMetrics.Log.SIZE.metricName(),
                 "type",
                 "Log",
                 "topic",
@@ -62,7 +63,7 @@ class ClusterBeanTest {
             "kafka.log",
             Map.of(
                 "name",
-                KafkaMetrics.TopicPartition.LogEndOffset.name(),
+                KafkaLogMetrics.Log.LOG_END_OFFSET.name(),
                 "type",
                 "Log",
                 "topic",

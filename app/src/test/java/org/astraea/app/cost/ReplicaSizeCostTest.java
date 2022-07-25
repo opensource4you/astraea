@@ -32,7 +32,7 @@ import org.astraea.app.admin.ReplicaInfo;
 import org.astraea.app.admin.TopicPartition;
 import org.astraea.app.common.Utils;
 import org.astraea.app.metrics.HasBeanObject;
-import org.astraea.app.metrics.KafkaMetrics;
+import org.astraea.app.metrics.KafkaLogMetrics;
 import org.astraea.app.metrics.broker.HasValue;
 import org.astraea.app.metrics.collector.BeanCollector;
 import org.astraea.app.metrics.jmx.BeanObject;
@@ -44,16 +44,13 @@ import org.mockito.Mockito;
 
 class ReplicaSizeCostTest extends RequireSingleBrokerCluster {
   private static final HasValue SIZE_TP1_0 =
-      fakeBeanObject(
-          "Log", KafkaMetrics.TopicPartition.Size.metricName(), "test-1", "0", 891289600);
+      fakeBeanObject("Log", KafkaLogMetrics.Log.SIZE.metricName(), "test-1", "0", 891289600);
   private static final HasValue SIZE_TP1_1 =
-      fakeBeanObject(
-          "Log", KafkaMetrics.TopicPartition.Size.metricName(), "test-1", "1", 471859200);
+      fakeBeanObject("Log", KafkaLogMetrics.Log.SIZE.metricName(), "test-1", "1", 471859200);
   private static final HasValue SIZE_TP2_0 =
-      fakeBeanObject("Log", KafkaMetrics.TopicPartition.Size.metricName(), "test-2", "0", 0);
+      fakeBeanObject("Log", KafkaLogMetrics.Log.SIZE.metricName(), "test-2", "0", 0);
   private static final HasValue SIZE_TP2_1 =
-      fakeBeanObject(
-          "Log", KafkaMetrics.TopicPartition.Size.metricName(), "test-2", "1", 367001600);
+      fakeBeanObject("Log", KafkaLogMetrics.Log.SIZE.metricName(), "test-2", "1", 367001600);
   private static final Collection<HasBeanObject> BROKER_1 =
       List.of(SIZE_TP1_0, SIZE_TP1_1, SIZE_TP2_1);
   private static final Collection<HasBeanObject> BROKER_2 = List.of(SIZE_TP1_1, SIZE_TP2_0);

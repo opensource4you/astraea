@@ -27,7 +27,7 @@ import org.astraea.app.admin.NodeInfo;
 import org.astraea.app.admin.ReplicaInfo;
 import org.astraea.app.admin.TopicPartition;
 import org.astraea.app.admin.TopicPartitionReplica;
-import org.astraea.app.metrics.KafkaMetrics;
+import org.astraea.app.metrics.KafkaLogMetrics;
 import org.astraea.app.metrics.broker.HasValue;
 import org.astraea.app.metrics.collector.Fetcher;
 
@@ -45,7 +45,7 @@ public class ReplicaSizeCost implements HasBrokerCost, HasPartitionCost {
 
   @Override
   public Optional<Fetcher> fetcher() {
-    return Optional.of(KafkaMetrics.TopicPartition.Size::fetch);
+    return Optional.of(KafkaLogMetrics.Log.SIZE::fetch);
   }
 
   /**
