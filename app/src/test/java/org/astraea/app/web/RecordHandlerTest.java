@@ -631,19 +631,18 @@ public class RecordHandlerTest extends RequireBrokerCluster {
 
   @Test
   void testDelete() {
-    try (var admin = Admin.of(bootstrapServers())) {
+    try (var admin = Admin.of(bootstrapServers());
+        var producer = Producer.of(bootstrapServers())) {
       var topicName = Utils.randomString(10);
       var handler = getRecordHandler();
       admin.creator().topic(topicName).numberOfPartitions(3).numberOfReplicas((short) 3).create();
 
-      try (var producer = Producer.of(bootstrapServers())) {
-        var senders =
-            Stream.of(0, 0, 1, 1, 1, 2, 2, 2, 2)
-                .map(x -> producer.sender().topic(topicName).partition(x).value(new byte[100]))
-                .collect(Collectors.toList());
-        producer.send(senders);
-        producer.flush();
-      }
+      var senders =
+          Stream.of(0, 0, 1, 1, 1, 2, 2, 2, 2)
+              .map(x -> producer.sender().topic(topicName).partition(x).value(new byte[100]))
+              .collect(Collectors.toList());
+      producer.send(senders);
+      producer.flush();
 
       Assertions.assertEquals(
           Response.OK, handler.delete(topicName, Map.of(PARTITION, "0", OFFSET, "1")));
@@ -662,19 +661,18 @@ public class RecordHandlerTest extends RequireBrokerCluster {
 
   @Test
   void testDeleteOffset() {
-    try (var admin = Admin.of(bootstrapServers())) {
+    try (var admin = Admin.of(bootstrapServers());
+        var producer = Producer.of(bootstrapServers())) {
       var topicName = Utils.randomString(10);
       var handler = getRecordHandler();
       admin.creator().topic(topicName).numberOfPartitions(3).numberOfReplicas((short) 3).create();
 
-      try (var producer = Producer.of(bootstrapServers())) {
-        var senders =
-            Stream.of(0, 0, 1, 1, 1, 2, 2, 2, 2)
-                .map(x -> producer.sender().topic(topicName).partition(x).value(new byte[100]))
-                .collect(Collectors.toList());
-        producer.send(senders);
-        producer.flush();
-      }
+      var senders =
+          Stream.of(0, 0, 1, 1, 1, 2, 2, 2, 2)
+              .map(x -> producer.sender().topic(topicName).partition(x).value(new byte[100]))
+              .collect(Collectors.toList());
+      producer.send(senders);
+      producer.flush();
 
       Assertions.assertEquals(Response.OK, handler.delete(topicName, Map.of(OFFSET, "1")));
       var offsets = admin.offsets();
@@ -686,19 +684,18 @@ public class RecordHandlerTest extends RequireBrokerCluster {
 
   @Test
   void testDeletePartition() {
-    try (var admin = Admin.of(bootstrapServers())) {
+    try (var admin = Admin.of(bootstrapServers());
+        var producer = Producer.of(bootstrapServers())) {
       var topicName = Utils.randomString(10);
       var handler = getRecordHandler();
       admin.creator().topic(topicName).numberOfPartitions(3).numberOfReplicas((short) 3).create();
 
-      try (var producer = Producer.of(bootstrapServers())) {
-        var senders =
-            Stream.of(0, 0, 1, 1, 1, 2, 2, 2, 2)
-                .map(x -> producer.sender().topic(topicName).partition(x).value(new byte[100]))
-                .collect(Collectors.toList());
-        producer.send(senders);
-        producer.flush();
-      }
+      var senders =
+          Stream.of(0, 0, 1, 1, 1, 2, 2, 2, 2)
+              .map(x -> producer.sender().topic(topicName).partition(x).value(new byte[100]))
+              .collect(Collectors.toList());
+      producer.send(senders);
+      producer.flush();
 
       Assertions.assertEquals(Response.OK, handler.delete(topicName, Map.of(PARTITION, "1")));
       var offsets = admin.offsets();
