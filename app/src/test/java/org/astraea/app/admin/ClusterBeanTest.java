@@ -18,9 +18,9 @@ package org.astraea.app.admin;
 
 import java.util.List;
 import java.util.Map;
-import org.astraea.app.metrics.KafkaLogMetrics;
 import org.astraea.app.metrics.KafkaMetrics;
 import org.astraea.app.metrics.broker.HasValue;
+import org.astraea.app.metrics.broker.KafkaLogMetrics;
 import org.astraea.app.metrics.jmx.BeanObject;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;

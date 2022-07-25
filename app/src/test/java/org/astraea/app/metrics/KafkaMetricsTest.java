@@ -38,6 +38,7 @@ import javax.management.remote.JMXServiceURL;
 import org.astraea.app.admin.Admin;
 import org.astraea.app.common.Utils;
 import org.astraea.app.metrics.broker.BrokerTopicMetricsResult;
+import org.astraea.app.metrics.broker.KafkaLogMetrics;
 import org.astraea.app.metrics.broker.TotalTimeMs;
 import org.astraea.app.metrics.jmx.BeanObject;
 import org.astraea.app.metrics.jmx.MBeanClient;

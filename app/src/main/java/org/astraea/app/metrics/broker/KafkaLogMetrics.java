@@ -14,12 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.app.metrics;
+package org.astraea.app.metrics.broker;
 
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
-import org.astraea.app.metrics.broker.HasValue;
 import org.astraea.app.metrics.jmx.BeanObject;
 import org.astraea.app.metrics.jmx.BeanQuery;
 import org.astraea.app.metrics.jmx.MBeanClient;
