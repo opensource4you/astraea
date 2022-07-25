@@ -105,6 +105,37 @@ public class TopicHandlerTest extends RequireBrokerCluster {
   }
 
   @Test
+  void testQueryWithPartition() {
+    var topicName = Utils.randomString(10);
+    try (Admin admin = Admin.of(bootstrapServers())) {
+      var handler = new TopicHandler(admin);
+      Assertions.assertInstanceOf(
+          TopicHandler.TopicInfo.class,
+          handler.post(
+              PostRequest.of(
+                  Map.of(
+                      TopicHandler.TOPIC_NAME_KEY,
+                      topicName,
+                      TopicHandler.NUMBER_OF_PARTITIONS_KEY,
+                      "10"))));
+      Assertions.assertEquals(
+          1,
+          Assertions.assertInstanceOf(
+                  TopicHandler.TopicInfo.class,
+                  handler.get(Optional.of(topicName), Map.of(TopicHandler.PARTITION_KEY, "0")))
+              .partitions
+              .size());
+
+      Assertions.assertEquals(
+          10,
+          Assertions.assertInstanceOf(
+                  TopicHandler.TopicInfo.class, handler.get(Optional.of(topicName), Map.of()))
+              .partitions
+              .size());
+    }
+  }
+
+  @Test
   void testCreateTopicWithReplicas() {
     var topicName = Utils.randomString(10);
     try (Admin admin = Admin.of(bootstrapServers())) {
