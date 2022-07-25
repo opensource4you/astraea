@@ -656,7 +656,7 @@ public class Builder {
                       x -> RecordsToDelete.beforeOffset(x.getValue())));
       return admin.deleteRecords(kafkaRecordsToDelete).lowWatermarks().entrySet().stream()
           .collect(
-              Collectors.toMap(
+              Collectors.toUnmodifiableMap(
                   x -> TopicPartition.from(x.getKey()),
                   x -> DeletedRecord.from(Utils.packException(() -> x.getValue().get()))));
     }

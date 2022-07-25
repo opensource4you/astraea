@@ -270,7 +270,7 @@ JSON Response
 ```shell
 DELETE /records/{topic}
 ```
->***危險!!!! 如果你沒有輸入任何參數, 我們將會刪除topic中所有的資料***
+>***注意!!!! 如果你沒有輸入任何參數, 我們將會刪除topic中所有的資料***
 
 Request 參數
 
