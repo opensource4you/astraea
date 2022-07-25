@@ -25,35 +25,6 @@ import org.astraea.app.metrics.jmx.MBeanClient;
 
 public final class LogMetrics {
 
-  static class TopicPartition implements HasValue {
-    private final BeanObject beanObject;
-
-    private TopicPartition(BeanObject beanObject) {
-      this.beanObject = beanObject;
-    }
-
-    public String topic() {
-      return beanObject().properties().get("topic");
-    }
-
-    public int partition() {
-      return Integer.parseInt(beanObject().properties().get("partition"));
-    }
-
-    public String metricsName() {
-      return beanObject().properties().get("name");
-    }
-
-    public Log type() {
-      return Log.of(metricsName());
-    }
-
-    @Override
-    public BeanObject beanObject() {
-      return beanObject;
-    }
-  }
-
   public enum Log {
     LOG_END_OFFSET("LogEndOffset"),
     LOG_START_OFFSET("LogStartOffset"),
@@ -76,7 +47,7 @@ public final class LogMetrics {
           .orElseThrow(() -> new IllegalArgumentException("No such metric: " + metricName));
     }
 
-    public List<TopicPartition> fetch(MBeanClient mBeanClient) {
+    public List<Meter> fetch(MBeanClient mBeanClient) {
       return mBeanClient
           .queryBeans(
               BeanQuery.builder()
@@ -87,8 +58,37 @@ public final class LogMetrics {
                   .property("name", metricName)
                   .build())
           .stream()
-          .map(TopicPartition::new)
+          .map(Meter::new)
           .collect(Collectors.toUnmodifiableList());
+    }
+
+    static class Meter implements HasValue {
+      private final BeanObject beanObject;
+
+      private Meter(BeanObject beanObject) {
+        this.beanObject = beanObject;
+      }
+
+      public String topic() {
+        return beanObject().properties().get("topic");
+      }
+
+      public int partition() {
+        return Integer.parseInt(beanObject().properties().get("partition"));
+      }
+
+      public String metricsName() {
+        return beanObject().properties().get("name");
+      }
+
+      public Log type() {
+        return Log.of(metricsName());
+      }
+
+      @Override
+      public BeanObject beanObject() {
+        return beanObject;
+      }
     }
   }
 

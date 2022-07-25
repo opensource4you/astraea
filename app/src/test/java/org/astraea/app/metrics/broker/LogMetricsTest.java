@@ -42,10 +42,7 @@ public class LogMetricsTest extends RequireSingleBrokerCluster {
       Assertions.assertEquals(2, beans.size());
       Assertions.assertEquals(
           2,
-          beans.stream()
-              .map(LogMetrics.TopicPartition::partition)
-              .collect(Collectors.toSet())
-              .size());
+          beans.stream().map(LogMetrics.Log.Meter::partition).collect(Collectors.toSet()).size());
       beans.forEach(m -> Assertions.assertEquals(m.type(), log));
     }
   }
