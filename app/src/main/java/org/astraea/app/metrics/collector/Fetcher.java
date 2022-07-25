@@ -57,5 +57,5 @@ public interface Fetcher {
    * @param client mbean client (don't close it!)
    * @return java metrics
    */
-  Collection<HasBeanObject> fetch(MBeanClient client);
+  Collection<? extends HasBeanObject> fetch(MBeanClient client);
 }

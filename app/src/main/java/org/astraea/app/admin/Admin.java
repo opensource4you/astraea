@@ -249,6 +249,14 @@ public interface Admin extends Closeable {
    */
   Map<TopicPartition, Reassignment> reassignments(Set<String> topics);
 
+  /**
+   * Delete records with offset less than specified Long
+   *
+   * @param recordsToDelete offset of partition
+   * @return deletedRecord
+   */
+  Map<TopicPartition, DeletedRecord> deleteRecords(Map<TopicPartition, Long> recordsToDelete);
+
   @Override
   void close();
 }
