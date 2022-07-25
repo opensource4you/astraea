@@ -43,6 +43,7 @@ public class GroupHandler implements Handler {
     if (Optional.ofNullable(queries.get(GROUP_KEY)).filter(Boolean::parseBoolean).isPresent()) {
       admin.removeAllMembers(groupId);
       admin.removeGroup(groupId);
+      return Response.OK;
     }
     var groupInstanceId = queries.get(INSTANCE_KEY);
     var activeMembers = admin.consumerGroups(Set.of(groupId)).get(groupId).activeMembers();
