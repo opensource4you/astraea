@@ -118,6 +118,7 @@ public class TopicHandlerTest extends RequireBrokerCluster {
                       topicName,
                       TopicHandler.NUMBER_OF_PARTITIONS_KEY,
                       "10"))));
+      Utils.sleep(Duration.ofSeconds(2));
       Assertions.assertEquals(
           1,
           Assertions.assertInstanceOf(
