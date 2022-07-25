@@ -18,7 +18,6 @@ package org.astraea.app.metrics;
 
 import java.util.Arrays;
 import java.util.List;
-import java.util.NoSuchElementException;
 import java.util.stream.Collectors;
 import org.astraea.app.metrics.broker.HasValue;
 import org.astraea.app.metrics.jmx.BeanObject;
@@ -47,13 +46,7 @@ public class KafkaLogMetrics {
     }
 
     public Log type() {
-      return Arrays.stream(Log.values())
-          .filter(v -> v.metricName.equals(metricsName()))
-          .findFirst()
-          .orElseThrow(
-              () ->
-                  new NoSuchElementException(
-                      metricsName() + " is not a part of KafkaLogMetrics.Log"));
+      return Log.of(metricsName());
     }
 
     @Override
