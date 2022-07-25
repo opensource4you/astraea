@@ -24,7 +24,6 @@ import java.util.stream.Collectors;
 import org.astraea.app.metrics.broker.BrokerTopicMetricsResult;
 import org.astraea.app.metrics.broker.HasValue;
 import org.astraea.app.metrics.broker.TotalTimeMs;
-import org.astraea.app.metrics.jmx.BeanObject;
 import org.astraea.app.metrics.jmx.BeanQuery;
 import org.astraea.app.metrics.jmx.MBeanClient;
 import org.astraea.app.metrics.platform.JvmMemory;
@@ -260,107 +259,6 @@ public final class KafkaMetrics {
           .stream()
           .map(HasValue::of)
           .collect(Collectors.toUnmodifiableList());
-    }
-  }
-
-  public enum TopicPartition {
-    LogEndOffset("LogEndOffset"),
-    LogStartOffset("LogStartOffset"),
-    NumLogSegments("NumLogSegments"),
-    Size("Size");
-    private final String metricName;
-
-    TopicPartition(String name) {
-      this.metricName = name;
-    }
-
-    public String metricName() {
-      return metricName;
-    }
-
-    public static TopicPartition of(String metricName) {
-      return Arrays.stream(TopicPartition.values())
-          .filter(metric -> metric.metricName().equalsIgnoreCase(metricName))
-          .findFirst()
-          .orElseThrow(() -> new IllegalArgumentException("No such metric: " + metricName));
-    }
-
-    public Collection<HasBeanObject> fetch(MBeanClient mBeanClient) {
-      return mBeanClient
-          .queryBeans(
-              BeanQuery.builder()
-                  .domainName("kafka.log")
-                  .property("type", "Log")
-                  .property("topic", "*")
-                  .property("partition", "*")
-                  .property("name", metricName)
-                  .build())
-          .stream()
-          .map(HasValue::of)
-          .collect(Collectors.toUnmodifiableList());
-    }
-
-    /**
-     * Number of partitions across all topics in the cluster.
-     *
-     * @return number of partitions across all topics in the cluster.
-     */
-    public static int globalPartitionCount(MBeanClient mBeanClient) {
-      return (int)
-          mBeanClient
-              .queryBean(
-                  BeanQuery.builder()
-                      .domainName("kafka.controller")
-                      .property("type", "KafkaController")
-                      .property("name", "GlobalPartitionCount")
-                      .build())
-              .attributes()
-              .get("Value");
-    }
-
-    /**
-     * Number of under-replicated partitions (| ISR | < | current replicas |). Replicas that are
-     * added as part of a reassignment will not count toward this value. Alert if value is greater
-     * than 0.
-     *
-     * @return number of under-replicated partitions.
-     */
-    public static int underReplicatedPartitions(MBeanClient mBeanClient) {
-      return (int)
-          mBeanClient
-              .queryBean(
-                  BeanQuery.builder()
-                      .domainName("kafka.server")
-                      .property("type", "ReplicaManager")
-                      .property("name", "UnderReplicatedPartitions")
-                      .build())
-              .attributes()
-              .get("Value");
-    }
-
-    /**
-     * retrieve the log size of partitions under specific topic in specific broker.
-     *
-     * @param client a {@link MBeanClient} instance connect to specific kafka broker
-     * @param topicName the name of the topic to query
-     * @return a {@link Map} of ({@link Integer}, {@link Long}) pairs that each entry represent a
-     *     pair of partition id and its log size
-     */
-    public static Map<Integer, Long> size(MBeanClient client, String topicName) {
-      return client
-          .queryBeans(
-              BeanQuery.builder()
-                  .domainName("kafka.log")
-                  .property("type", "Log")
-                  .property("topic", topicName)
-                  .property("partition", "*")
-                  .property("name", "Size")
-                  .build())
-          .stream()
-          .collect(
-              Collectors.toMap(
-                  (BeanObject a) -> Integer.parseInt(a.properties().get("partition")),
-                  (BeanObject a) -> (Long) a.attributes().get("Value")));
     }
   }
 
