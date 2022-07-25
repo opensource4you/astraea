@@ -25,10 +25,10 @@ import org.astraea.app.metrics.jmx.MBeanClient;
 
 public final class LogMetrics {
 
-  static class TopicPartitionMetrics implements HasValue {
+  static class TopicPartition implements HasValue {
     private final BeanObject beanObject;
 
-    private TopicPartitionMetrics(BeanObject beanObject) {
+    private TopicPartition(BeanObject beanObject) {
       this.beanObject = beanObject;
     }
 
@@ -76,7 +76,7 @@ public final class LogMetrics {
           .orElseThrow(() -> new IllegalArgumentException("No such metric: " + metricName));
     }
 
-    public List<TopicPartitionMetrics> fetch(MBeanClient mBeanClient) {
+    public List<TopicPartition> fetch(MBeanClient mBeanClient) {
       return mBeanClient
           .queryBeans(
               BeanQuery.builder()
@@ -87,7 +87,7 @@ public final class LogMetrics {
                   .property("name", metricName)
                   .build())
           .stream()
-          .map(TopicPartitionMetrics::new)
+          .map(TopicPartition::new)
           .collect(Collectors.toUnmodifiableList());
     }
   }
