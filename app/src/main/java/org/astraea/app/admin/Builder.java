@@ -272,6 +272,11 @@ public class Builder {
     }
 
     @Override
+    public void deleteTopics(Set<String> topicNames) {
+      Utils.packException(() -> admin.deleteTopics(topicNames).all().get());
+    }
+
+    @Override
     public Map<Integer, Config> brokers(Set<Integer> brokerIds) {
       return Utils.packException(
               () ->

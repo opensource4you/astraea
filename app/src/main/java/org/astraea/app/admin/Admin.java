@@ -48,6 +48,8 @@ public interface Admin extends Closeable {
   /** @return the topic name and its configurations. */
   Map<String, Config> topics(Set<String> topicNames);
 
+  void deleteTopics(Set<String> topicNames);
+
   /** @return all partitions */
   default Set<TopicPartition> partitions() {
     return partitions(topicNames());
