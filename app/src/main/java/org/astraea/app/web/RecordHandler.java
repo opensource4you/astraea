@@ -41,6 +41,9 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BiFunction;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+import org.astraea.app.admin.Admin;
 import org.astraea.app.admin.TopicPartition;
 import org.astraea.app.argument.DurationField;
 import org.astraea.app.common.Cache;
@@ -64,6 +67,7 @@ public class RecordHandler implements Handler {
   static final String VALUE_DESERIALIZER = "valueDeserializer";
   static final String LIMIT = "limit";
   static final String TIMEOUT = "timeout";
+  static final String OFFSET = "offset";
   private static final int MAX_CACHE_SIZE = 100;
   private static final Duration CACHE_EXPIRE_DURATION = Duration.ofMinutes(10);
 
@@ -72,7 +76,10 @@ public class RecordHandler implements Handler {
   final Producer<byte[], byte[]> producer;
   private final Cache<String, Producer<byte[], byte[]>> transactionalProducerCache;
 
-  RecordHandler(String bootstrapServers) {
+  final Admin admin;
+
+  RecordHandler(Admin admin, String bootstrapServers) {
+    this.admin = admin;
     this.bootstrapServers = requireNonNull(bootstrapServers);
     this.producer = Producer.builder().bootstrapServers(bootstrapServers).build();
     this.transactionalProducerCache =
@@ -200,6 +207,31 @@ public class RecordHandler implements Handler {
     if (async) return Response.ACCEPT;
     return Utils.packException(
         () -> new PostResponse(result.get(timeout.toNanos(), TimeUnit.NANOSECONDS)));
+  }
+
+  @Override
+  public Response delete(String topic, Map<String, String> queries) {
+    var partitions =
+        Optional.ofNullable(queries.get(PARTITION))
+            .map(x -> Set.of(TopicPartition.of(topic, x)))
+            .orElseGet(() -> admin.partitions(Set.of(topic)));
+
+    var deletedOffsets =
+        Optional.ofNullable(queries.get(OFFSET))
+            .map(Long::parseLong)
+            .map(
+                offset ->
+                    partitions.stream().collect(Collectors.toMap(Function.identity(), x -> offset)))
+            .orElseGet(
+                () -> {
+                  var currentOffsets = admin.offsets(Set.of(topic));
+                  return partitions.stream()
+                      .collect(
+                          Collectors.toMap(
+                              Function.identity(), x -> currentOffsets.get(x).latest()));
+                });
+    admin.deleteRecords(deletedOffsets);
+    return Response.OK;
   }
 
   enum SerDe {
