@@ -347,4 +347,18 @@ public class ConsumerTest extends RequireBrokerCluster {
                 .build(),
         "seek value should >= 0");
   }
+
+  @Test
+  void testPollRecordCount() {
+    var topic = Utils.randomString(10);
+    produceData(topic, 10);
+
+    try (var consumer =
+        Consumer.forTopics(Set.of(topic))
+            .seekStrategy(SEEK_TO, 0)
+            .bootstrapServers(bootstrapServers())
+            .build()) {
+      Assertions.assertEquals(1, consumer.poll(1, Duration.ofSeconds(5)).size());
+    }
+  }
 }

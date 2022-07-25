@@ -122,7 +122,12 @@ public abstract class Builder<Key, Value> {
       while (records.size() < recordCount) {
         var remaining = end - System.currentTimeMillis();
         if (remaining <= 0) break;
-        kafkaConsumer.poll(Duration.ofMillis(remaining)).forEach(r -> records.add(Record.of(r)));
+        kafkaConsumer
+            .poll(Duration.ofMillis(remaining))
+            .forEach(
+                r -> {
+                  if (records.size() < recordCount) records.add(Record.of(r));
+                });
       }
       return Collections.unmodifiableList(records);
     }
