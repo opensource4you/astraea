@@ -29,7 +29,6 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.astraea.app.admin.ClusterInfo;
@@ -255,76 +254,74 @@ public class MoveCost implements HasMoveCost {
                         replicaSize.get(replicaMigrateInfo.sourceTPR())))
             .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue, Long::sum));
     var trafficSeries =
-            migratedReplicas
-                    .stream()
-                    .map(
-                            x-> replicaDataRate.get(x.sourceTPR())
-                    ).sorted()
-                    .filter(x->x!=0.0)
-                    .collect(Collectors.toList());
-    var meanTrafficSeries = trafficSeries.stream().mapToDouble(x->x).sum()/trafficSeries.size();
+        migratedReplicas.stream()
+            .map(x -> replicaDataRate.get(x.sourceTPR()))
+            .sorted()
+            .filter(x -> x != 0.0)
+            .collect(Collectors.toList());
+    var meanTrafficSeries = trafficSeries.stream().mapToDouble(x -> x).sum() / trafficSeries.size();
     var SDTrafficSeries =
-            Math.sqrt(
+        Math.sqrt(
             trafficSeries.stream()
                     .mapToDouble(score -> Math.pow((score - meanTrafficSeries), 2))
                     .sum()
-                    / trafficSeries.size());
+                / trafficSeries.size());
 
-    var totalMigrateTraffic = trafficSeries.stream().mapToDouble(x->x).sum();
+    var totalMigrateTraffic = trafficSeries.stream().mapToDouble(x -> x).sum();
     var totalReplicaTrafficInSink =
-            replicaDataRate
-                    .entrySet()
-                    .stream()
-                    .filter(x->brokerMigrateInSize.containsKey(x.getKey().brokerId()))
-                    .mapToDouble(Map.Entry::getValue).sum();
-    var meanMigrateSize = trafficSeries.stream().mapToDouble(x->x).sum()/trafficSeries.size();
+        replicaDataRate.entrySet().stream()
+            .filter(x -> brokerMigrateInSize.containsKey(x.getKey().brokerId()))
+            .mapToDouble(Map.Entry::getValue)
+            .sum();
+    var meanMigrateSize = trafficSeries.stream().mapToDouble(x -> x).sum() / trafficSeries.size();
     var sdMigrateSize =
-            Math.sqrt(
+        Math.sqrt(
             trafficSeries.stream()
                     .mapToDouble(score -> Math.pow((score - meanMigrateSize), 2))
                     .sum()
-                    / trafficSeries.size());
-      var migrateTrafficRange = 0.0;
-    if (trafficSeries.size()>=2) {
-        var tScoreMigrateTraffic =
-                trafficSeries.stream()
-                        .map(
-                                x ->
-                                        (((x - meanMigrateSize) / sdMigrateSize) * 10 + 50) / 100)
-                        .collect(Collectors.toList());
-        migrateTrafficRange = (tScoreMigrateTraffic.get(tScoreMigrateTraffic.size() - 1)
-                - tScoreMigrateTraffic.stream().findFirst().orElseThrow());
-    }else
-        migrateTrafficRange =0.0;
+                / trafficSeries.size());
+    var migrateTrafficRange = 0.0;
+    if (trafficSeries.size() >= 2) {
+      var tScoreMigrateTraffic =
+          trafficSeries.stream()
+              .map(x -> (((x - meanMigrateSize) / sdMigrateSize) * 10 + 50) / 100)
+              .collect(Collectors.toList());
+      migrateTrafficRange =
+          (tScoreMigrateTraffic.get(tScoreMigrateTraffic.size() - 1)
+              - tScoreMigrateTraffic.stream().findFirst().orElseThrow());
+    } else migrateTrafficRange = 0.0;
     var brokerMigrateScore = tScore(brokerMigrateInSize);
 
-    //var moveNumScore = tScore(brokerMigrateNum);
+    // var moveNumScore = tScore(brokerMigrateNum);
     brokerScore =
         brokerMigrateInSize.keySet().stream()
             .map(
-                    aLong -> {
-                        var score = brokerMigrateScore.get(aLong);
-                        return Map.entry(aLong, score);
-                    })
+                aLong -> {
+                  var score = brokerMigrateScore.get(aLong);
+                  return Map.entry(aLong, score);
+                })
             .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-     var migrateCost = brokerScore.values().stream().mapToDouble(x -> x / brokerScore.size()).sum();
-     var totalMigrateSize = brokerMigrateInSize.values().stream()
-             .mapToDouble(x->x /1024.0 /1024.0).sum();
-     var sinkBrokerSize =
-             migratedReplicas
-                     .stream()
-                     .mapToDouble(
-                             x->
-                                     totalBrokerCapacity.get(x.brokerSink).get(x.pathSink) /1024.0 /1024.0
-                     ).sum();
-      var total =totalBrokerCapacity.values().stream().mapToDouble(x->x.values().stream().mapToDouble(y->y).sum()).sum()/1024.0/1024.0;
-      var totalMigrateSizeScore = totalMigrateSize / total > 1 ? 1 : totalMigrateSize / total ;
-     var score = SDTrafficSeries;
-     if (replicaDataRate.containsValue(-1.0) ) {
-         System.out.println("retention");
-         return () -> 1.0;
-     }
-     return () -> score;
+    var migrateCost = brokerScore.values().stream().mapToDouble(x -> x / brokerScore.size()).sum();
+    var totalMigrateSize =
+        brokerMigrateInSize.values().stream().mapToDouble(x -> x / 1024.0 / 1024.0).sum();
+    var sinkBrokerSize =
+        migratedReplicas.stream()
+            .mapToDouble(
+                x -> totalBrokerCapacity.get(x.brokerSink).get(x.pathSink) / 1024.0 / 1024.0)
+            .sum();
+    var total =
+        totalBrokerCapacity.values().stream()
+                .mapToDouble(x -> x.values().stream().mapToDouble(y -> y).sum())
+                .sum()
+            / 1024.0
+            / 1024.0;
+    var totalMigrateSizeScore = totalMigrateSize / total > 1 ? 1 : totalMigrateSize / total;
+    var score = SDTrafficSeries;
+    if (replicaDataRate.containsValue(-1.0)) {
+      System.out.println("retention");
+      return () -> 1.0;
+    }
+    return () -> score;
   }
 
   public Map<Integer, Double> tScore(Map<Integer, Long> brokerEntry) {
@@ -386,8 +383,7 @@ public class MoveCost implements HasMoveCost {
                           / 1000)
                       / 1024.0
                       / 1024.0;
-              if (dataRate < 0)
-                  dataRate = -1.0;
+              if (dataRate < 0) dataRate = -1.0;
               if (latestSize == windowSize) dataRate = 0.0;
               return Map.entry(metrics.getKey(), dataRate);
             })

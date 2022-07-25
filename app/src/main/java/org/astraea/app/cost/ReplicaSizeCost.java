@@ -299,26 +299,27 @@ public class ReplicaSizeCost implements HasClusterCost {
                       if (x1.containsKey(path)) map.put(path, x1.get(path) + x2.get(path));
                       return map;
                     }));
-    //var brokerSizeScore = brokerScore();
-    var folderSizeRatioSeries=
-            totalReplicaSizeInPath
-                    .entrySet()
-                    .stream()
-                    .flatMap(
-                            brokerPathSize->brokerPathSize.getValue()
-                                    .entrySet()
-                                    .stream()
-                                    .map(pathSize->
-                                            pathSize.getValue()/1.0/totalBrokerCapacity.get(brokerPathSize.getKey()).get(pathSize.getKey()))
-                    ).collect(Collectors.toList());
-    var mean = folderSizeRatioSeries.stream().mapToDouble(x -> x).sum() / folderSizeRatioSeries.size();
+    // var brokerSizeScore = brokerScore();
+    var folderSizeRatioSeries =
+        totalReplicaSizeInPath.entrySet().stream()
+            .flatMap(
+                brokerPathSize ->
+                    brokerPathSize.getValue().entrySet().stream()
+                        .map(
+                            pathSize ->
+                                pathSize.getValue()
+                                    / 1.0
+                                    / totalBrokerCapacity
+                                        .get(brokerPathSize.getKey())
+                                        .get(pathSize.getKey())))
+            .collect(Collectors.toList());
+    var mean =
+        folderSizeRatioSeries.stream().mapToDouble(x -> x).sum() / folderSizeRatioSeries.size();
     var sd =
         Math.sqrt(
-            folderSizeRatioSeries.stream()
-                    .mapToDouble(score -> Math.pow((score - mean), 2))
-                    .sum()
+            folderSizeRatioSeries.stream().mapToDouble(score -> Math.pow((score - mean), 2)).sum()
                 / folderSizeRatioSeries.size());
-    return () -> sd/mean;
+    return () -> sd / mean;
   }
 
   static Map.Entry<Integer, String> transformEntry(String entry) {

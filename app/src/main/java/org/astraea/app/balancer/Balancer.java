@@ -22,7 +22,6 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
-import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -129,20 +128,21 @@ public class Balancer implements AutoCloseable {
       System.out.println("Metrics warmed");
 
       // ensure not working
-      var topics = admin.topicNames().stream().filter(topicFilter).collect(Collectors.toUnmodifiableSet());
-      var migrationInProgress = admin.replicas(topics).entrySet()
-          .stream()
-          .flatMap(x -> x.getValue().stream().map(y -> Map.entry(x.getKey(), y)))
-          .filter(r -> !r.getValue().inSync() || r.getValue().isFuture())
-          .map(r -> new TopicPartitionReplica(
-              r.getKey().topic(),
-              r.getKey().partition(),
-              r.getValue().broker()))
-          .collect(Collectors.toUnmodifiableList());
-      if(!migrationInProgress.isEmpty()) {
-        throw new IllegalStateException("There are some migration in progress... " + migrationInProgress);
+      var topics =
+          admin.topicNames().stream().filter(topicFilter).collect(Collectors.toUnmodifiableSet());
+      var migrationInProgress =
+          admin.replicas(topics).entrySet().stream()
+              .flatMap(x -> x.getValue().stream().map(y -> Map.entry(x.getKey(), y)))
+              .filter(r -> !r.getValue().inSync() || r.getValue().isFuture())
+              .map(
+                  r ->
+                      new TopicPartitionReplica(
+                          r.getKey().topic(), r.getKey().partition(), r.getValue().broker()))
+              .collect(Collectors.toUnmodifiableList());
+      if (!migrationInProgress.isEmpty()) {
+        throw new IllegalStateException(
+            "There are some migration in progress... " + migrationInProgress);
       }
-
 
       try {
         // calculate the score of current cluster
@@ -215,7 +215,7 @@ public class Balancer implements AutoCloseable {
                       var mockedCluster =
                           BalancerUtils.mockClusterInfoAllocation(clusterInfo, allocation);
                       var score = evaluateCost(mockedCluster, clusterMetrics);
-                      return Map.entry(score , plan);
+                      return Map.entry(score, plan);
                     } else {
                       return Map.entry(1.0, plan);
                     }
@@ -223,23 +223,24 @@ public class Balancer implements AutoCloseable {
               .filter(x -> x.getKey() < currentScore)
               .filter(x -> x.getValue().rebalancePlan().isPresent())
               .sorted(Map.Entry.comparingByKey())
-                  .limit(300)
+              .limit(300)
               .collect(Collectors.toUnmodifiableList());
 
       // Find the plan with smallest move cost
-      var bestMigrationProposal = bestMigrationProposals.stream()
-          .min(Comparator.comparing(entry -> {
-            var proposal = entry.getValue();
-            var allocation = proposal.rebalancePlan().orElseThrow();
-            var mockedCluster =
-                BalancerUtils.mockClusterInfoAllocation(clusterInfo, allocation);
-            return evaluateMoveCost(mockedCluster, clusterMetrics);
-          }));
+      var bestMigrationProposal =
+          bestMigrationProposals.stream()
+              .min(
+                  Comparator.comparing(
+                      entry -> {
+                        var proposal = entry.getValue();
+                        var allocation = proposal.rebalancePlan().orElseThrow();
+                        var mockedCluster =
+                            BalancerUtils.mockClusterInfoAllocation(clusterInfo, allocation);
+                        return evaluateMoveCost(mockedCluster, clusterMetrics);
+                      }));
       var allocation = bestMigrationProposal.get().getValue().rebalancePlan().get();
-      var mockedCluster =
-              BalancerUtils.mockClusterInfoAllocation(clusterInfo, allocation);
+      var mockedCluster = BalancerUtils.mockClusterInfoAllocation(clusterInfo, allocation);
       var moveScore = evaluateMoveCost(mockedCluster, clusterMetrics);
-
 
       // find the target with the highest score, return it
       return bestMigrationProposal

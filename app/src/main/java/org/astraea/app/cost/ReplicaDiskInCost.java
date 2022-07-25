@@ -21,8 +21,6 @@ import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
-import java.util.Collection;
-import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -51,8 +49,7 @@ public class ReplicaDiskInCost implements HasBrokerCost, HasPartitionCost, HasCl
   static final String BROKERBANDWIDTH = "brokerBandwidthConfig";
   Map<Integer, Double> brokerLoad;
 
-  public ReplicaDiskInCost(Configuration configuration) {
-  }
+  public ReplicaDiskInCost(Configuration configuration) {}
 
   @Override
   public BrokerCost brokerCost(ClusterInfo clusterInfo) {
@@ -83,10 +80,7 @@ public class ReplicaDiskInCost implements HasBrokerCost, HasPartitionCost, HasCl
                                     topicPartitionDataRate.getOrDefault(
                                         new TopicPartition(x.topic(), x.partition()), 0.0))
                             .sum()))
-            .map(
-                entry ->
-                    Map.entry(
-                        entry.getKey(), entry.getValue()))
+            .map(entry -> Map.entry(entry.getKey(), entry.getValue()))
             .map(entry -> Map.entry(entry.getKey(), Math.min(entry.getValue(), 1)))
             .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
     var mean = brokerSizeScore.values().stream().mapToDouble(x -> x).sum() / brokerSizeScore.size();
@@ -230,9 +224,8 @@ public class ReplicaDiskInCost implements HasBrokerCost, HasPartitionCost, HasCl
       return () -> sortedScore.get(sortedScore.size() - 1) - sortedScore.get(0);
 
      */
-    var cv=dataRateSD/dataRateMean;
-    if (cv>1)
-      return ()->1.0;
+    var cv = dataRateSD / dataRateMean;
+    if (cv > 1 || topicPartitionDataRate.containsValue(-1.0)) return () -> 1.0;
     return () -> cv;
   }
 
@@ -283,13 +276,17 @@ public class ReplicaDiskInCost implements HasBrokerCost, HasPartitionCost, HasCl
                               sampleWindow.toMillis()
                                   > latestSize.createdTimestamp() - bean.createdTimestamp())
                       .findFirst()
-                      .orElseThrow(()->new IllegalArgumentException("metrics:"+clusterInfo.clusterBean().all().values().size()));
+                      .orElseThrow(
+                          () ->
+                              new IllegalArgumentException(
+                                  "metrics:" + clusterInfo.clusterBean().all().values().size()));
               var dataRate =
                   ((double) (latestSize.value() - windowSize.value()))
                       / ((double) (latestSize.createdTimestamp() - windowSize.createdTimestamp())
                           / 1000)
                       / 1024.0
                       / 1024.0;
+              if (dataRate < 0) dataRate = -1.0;
               return Map.entry(metrics.getKey(), dataRate);
             })
         .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));

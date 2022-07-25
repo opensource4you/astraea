@@ -34,11 +34,7 @@ public class ReplicaLeaderCost implements HasBrokerCost, HasClusterCost {
   public BrokerCost brokerCost(ClusterInfo clusterInfo) {
     var result =
         leaderCount(clusterInfo).entrySet().stream()
-            .collect(
-                Collectors.toMap(
-                    Map.Entry::getKey,
-                    e ->
-                        (double) e.getValue()));
+            .collect(Collectors.toMap(Map.Entry::getKey, e -> (double) e.getValue()));
     return () -> result;
   }
 
