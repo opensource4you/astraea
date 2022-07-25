@@ -17,8 +17,10 @@
 package org.astraea.app.metrics.broker;
 
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
 import java.util.stream.Collectors;
+import org.astraea.app.metrics.HasBeanObject;
 import org.astraea.app.metrics.jmx.BeanObject;
 import org.astraea.app.metrics.jmx.BeanQuery;
 import org.astraea.app.metrics.jmx.MBeanClient;
@@ -47,6 +49,14 @@ public final class LogMetrics {
           .orElseThrow(() -> new IllegalArgumentException("No such metric: " + metricName));
     }
 
+    public static Collection<Meter> meters(Collection<HasBeanObject> beans, Log type) {
+      return beans.stream()
+          .filter(m -> m instanceof Meter)
+          .map(m -> (Meter) m)
+          .filter(m -> m.type() == type)
+          .collect(Collectors.toUnmodifiableList());
+    }
+
     public List<Meter> fetch(MBeanClient mBeanClient) {
       return mBeanClient
           .queryBeans(
@@ -62,10 +72,10 @@ public final class LogMetrics {
           .collect(Collectors.toUnmodifiableList());
     }
 
-    static class Meter implements HasValue {
+    public static class Meter implements HasValue {
       private final BeanObject beanObject;
 
-      private Meter(BeanObject beanObject) {
+      public Meter(BeanObject beanObject) {
         this.beanObject = beanObject;
       }
 

@@ -17,14 +17,18 @@
 package org.astraea.app.metrics.broker;
 
 import java.time.Duration;
+import java.util.List;
 import java.util.stream.Collectors;
 import org.astraea.app.admin.Admin;
 import org.astraea.app.common.Utils;
+import org.astraea.app.metrics.HasBeanObject;
 import org.astraea.app.metrics.jmx.MBeanClient;
 import org.astraea.app.service.RequireSingleBrokerCluster;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
+import org.mockito.Mockito;
 
 public class LogMetricsTest extends RequireSingleBrokerCluster {
 
@@ -52,5 +56,17 @@ public class LogMetricsTest extends RequireSingleBrokerCluster {
   void testValue(LogMetrics.Log log) {
     log.fetch(MBeanClient.local()).forEach(m -> Assertions.assertTrue(m.value() >= 0));
     log.fetch(MBeanClient.local()).forEach(m -> Assertions.assertEquals(m.type(), log));
+  }
+
+  @Test
+  void testMeters() {
+    var other = Mockito.mock(HasBeanObject.class);
+    var target = Mockito.mock(LogMetrics.Log.Meter.class);
+    Mockito.when(target.type()).thenReturn(LogMetrics.Log.LOG_END_OFFSET);
+    var result = LogMetrics.Log.meters(List.of(other, target), LogMetrics.Log.LOG_END_OFFSET);
+    Assertions.assertEquals(1, result.size());
+    Assertions.assertEquals(target, result.iterator().next());
+    Assertions.assertEquals(
+        0, LogMetrics.Log.meters(List.of(other, target), LogMetrics.Log.SIZE).size());
   }
 }
