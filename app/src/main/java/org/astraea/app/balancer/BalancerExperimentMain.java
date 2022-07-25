@@ -59,7 +59,7 @@ public class BalancerExperimentMain {
                 BalancerConfigs.METRICS_SCRAPING_INTERVAL_MS_CONFIG,
                 "10000",
                 BalancerConfigs.BALANCER_PLAN_SEARCHING_ITERATION,
-                "2000",
+                "5000",
                 "shuffle.plan.generator.shuffle.min",
                 "5",
                 "shuffle.plan.generator.shuffle.max",
