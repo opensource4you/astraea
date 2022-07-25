@@ -44,6 +44,7 @@ import org.astraea.app.consumer.Deserializer;
 import org.astraea.app.producer.Producer;
 import org.astraea.app.producer.Serializer;
 import org.astraea.app.service.RequireBrokerCluster;
+import org.astraea.app.test.CustomAssertions;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
@@ -1153,13 +1154,11 @@ public class AdminTest extends RequireBrokerCluster {
           x -> admin.creator().topic(x).numberOfPartitions(3).numberOfReplicas((short) 3).create());
 
       admin.deleteTopics(Set.of(topicNames.get(0), topicNames.get(1)));
-      Assertions.assertEquals(Set.of(topicNames.get(2), topicNames.get(3)), admin.topicNames());
+      CustomAssertions.assertContain(
+          Set.of(topicNames.get(2), topicNames.get(3)), admin.topicNames());
 
       admin.deleteTopics(Set.of(topicNames.get(3)));
-      Assertions.assertEquals(Set.of(topicNames.get(2)), admin.topicNames());
-
-      admin.deleteTopics(Set.of(topicNames.get(2)));
-      Assertions.assertEquals(0, admin.topicNames().size());
+      CustomAssertions.assertContain(Set.of(topicNames.get(2)), admin.topicNames());
     }
   }
 }
