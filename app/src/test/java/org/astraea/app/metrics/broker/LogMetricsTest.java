@@ -26,11 +26,11 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
-public class KafkaLogMetricsTest extends RequireSingleBrokerCluster {
+public class LogMetricsTest extends RequireSingleBrokerCluster {
 
   @ParameterizedTest
-  @EnumSource(KafkaLogMetrics.Log.class)
-  void testMetrics(KafkaLogMetrics.Log log) {
+  @EnumSource(LogMetrics.Log.class)
+  void testMetrics(LogMetrics.Log log) {
     var topicName = Utils.randomString(10);
     try (var admin = Admin.of(bootstrapServers())) {
       admin.creator().topic(topicName).numberOfPartitions(2).create();
@@ -45,8 +45,8 @@ public class KafkaLogMetricsTest extends RequireSingleBrokerCluster {
   }
 
   @ParameterizedTest
-  @EnumSource(KafkaLogMetrics.Log.class)
-  void testValue(KafkaLogMetrics.Log log) {
+  @EnumSource(LogMetrics.Log.class)
+  void testValue(LogMetrics.Log log) {
     log.fetch(MBeanClient.local()).forEach(m -> Assertions.assertTrue(m.value() >= 0));
     log.fetch(MBeanClient.local()).forEach(m -> Assertions.assertEquals(m.type(), log));
   }

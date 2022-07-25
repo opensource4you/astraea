@@ -38,7 +38,7 @@ import javax.management.remote.JMXServiceURL;
 import org.astraea.app.admin.Admin;
 import org.astraea.app.common.Utils;
 import org.astraea.app.metrics.broker.BrokerTopicMetricsResult;
-import org.astraea.app.metrics.broker.KafkaLogMetrics;
+import org.astraea.app.metrics.broker.LogMetrics;
 import org.astraea.app.metrics.broker.TotalTimeMs;
 import org.astraea.app.metrics.jmx.BeanObject;
 import org.astraea.app.metrics.jmx.MBeanClient;
@@ -136,8 +136,8 @@ class KafkaMetricsTest extends RequireBrokerCluster {
   }
 
   @ParameterizedTest()
-  @EnumSource(value = KafkaLogMetrics.Log.class)
-  void testTopicPartitionMetrics(KafkaLogMetrics.Log request) {
+  @EnumSource(value = LogMetrics.Log.class)
+  void testTopicPartitionMetrics(LogMetrics.Log request) {
     try (var admin = Admin.of(bootstrapServers())) {
       // there are only 3 brokers, so 10 partitions can make each broker has some partitions
       admin.creator().topic(Utils.randomString(5)).numberOfPartitions(10).create();

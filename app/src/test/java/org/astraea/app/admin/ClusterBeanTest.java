@@ -20,7 +20,7 @@ import java.util.List;
 import java.util.Map;
 import org.astraea.app.metrics.KafkaMetrics;
 import org.astraea.app.metrics.broker.HasValue;
-import org.astraea.app.metrics.broker.KafkaLogMetrics;
+import org.astraea.app.metrics.broker.LogMetrics;
 import org.astraea.app.metrics.jmx.BeanObject;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -37,7 +37,7 @@ class ClusterBeanTest {
             "kafka.log",
             Map.of(
                 "name",
-                KafkaLogMetrics.Log.SIZE.metricName(),
+                LogMetrics.Log.SIZE.metricName(),
                 "type",
                 "Log",
                 "topic",
@@ -50,7 +50,7 @@ class ClusterBeanTest {
             "kafka.log",
             Map.of(
                 "name",
-                KafkaLogMetrics.Log.SIZE.metricName(),
+                LogMetrics.Log.SIZE.metricName(),
                 "type",
                 "Log",
                 "topic",
@@ -63,7 +63,7 @@ class ClusterBeanTest {
             "kafka.log",
             Map.of(
                 "name",
-                KafkaLogMetrics.Log.LOG_END_OFFSET.name(),
+                LogMetrics.Log.LOG_END_OFFSET.name(),
                 "type",
                 "Log",
                 "topic",

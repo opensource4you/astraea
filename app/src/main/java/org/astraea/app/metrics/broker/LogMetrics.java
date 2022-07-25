@@ -23,7 +23,7 @@ import org.astraea.app.metrics.jmx.BeanObject;
 import org.astraea.app.metrics.jmx.BeanQuery;
 import org.astraea.app.metrics.jmx.MBeanClient;
 
-public class KafkaLogMetrics {
+public final class LogMetrics {
 
   static class TopicPartitionMetrics implements HasValue {
     private final BeanObject beanObject;
@@ -69,8 +69,8 @@ public class KafkaLogMetrics {
       return metricName;
     }
 
-    public static KafkaLogMetrics.Log of(String metricName) {
-      return Arrays.stream(KafkaLogMetrics.Log.values())
+    public static LogMetrics.Log of(String metricName) {
+      return Arrays.stream(LogMetrics.Log.values())
           .filter(metric -> metric.metricName().equalsIgnoreCase(metricName))
           .findFirst()
           .orElseThrow(() -> new IllegalArgumentException("No such metric: " + metricName));
@@ -91,4 +91,6 @@ public class KafkaLogMetrics {
           .collect(Collectors.toUnmodifiableList());
     }
   }
+
+  private LogMetrics() {}
 }
