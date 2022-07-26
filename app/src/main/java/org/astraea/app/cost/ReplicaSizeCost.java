@@ -16,10 +16,18 @@
  */
 package org.astraea.app.cost;
 
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Properties;
 import java.util.TreeMap;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import org.astraea.app.admin.ClusterBean;
 import org.astraea.app.admin.ClusterInfo;
@@ -179,5 +187,55 @@ public class ReplicaSizeCost implements HasBrokerCost, HasPartitionCost {
                     .map(x -> (HasValue) x)
                     .map(x -> Map.entry(e.getKey(), x.value())))
         .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+  }
+
+  static Map.Entry<Integer, String> transformEntry(String entry) {
+    Map<String, Integer> brokerPath = new HashMap<>();
+    final Pattern serviceUrlKeyPattern =
+        Pattern.compile("broker\\.(?<brokerId>[0-9]{1,9})\\.(?<path>/.{0,50})");
+    final Matcher matcher = serviceUrlKeyPattern.matcher(entry);
+    if (matcher.matches()) {
+      try {
+        int brokerId = Integer.parseInt(matcher.group("brokerId"));
+        var path = matcher.group("path");
+        return Map.entry(brokerId, path);
+      } catch (NumberFormatException e) {
+        throw new IllegalArgumentException("Bad integer format for " + entry, e);
+      }
+    } else {
+      throw new IllegalArgumentException(
+          "Bad key format for "
+              + entry
+              + " no match for the following format :"
+              + serviceUrlKeyPattern.pattern());
+    }
+  }
+
+  public static Map<Integer, Map<String, Integer>> convert(String value) {
+    final Properties properties = new Properties();
+
+    try (var reader = Files.newBufferedReader(Path.of(value))) {
+      properties.load(reader);
+    } catch (IOException e) {
+      throw new UncheckedIOException(e);
+    }
+    return properties.entrySet().stream()
+        .map(entry -> Map.entry((String) entry.getKey(), (String) entry.getValue()))
+        .map(
+            entry -> {
+              var brokerId = transformEntry(entry.getKey()).getKey();
+              var path = transformEntry(entry.getKey()).getValue();
+              return Map.entry(brokerId, Map.of(path, Integer.parseInt(entry.getValue())));
+            })
+        .collect(
+            Collectors.toMap(
+                Map.Entry::getKey,
+                Map.Entry::getValue,
+                (x1, x2) -> {
+                  var map = new HashMap<String, Integer>();
+                  map.putAll(x1);
+                  map.putAll(x2);
+                  return map;
+                }));
   }
 }

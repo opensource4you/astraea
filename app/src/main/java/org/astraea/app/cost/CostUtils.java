@@ -21,8 +21,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
 public class CostUtils {
-  public static double standardDeviationImperative(
-      double avgMetrics, Map<Integer, Double> metrics) {
+  public static <T> double standardDeviationImperative(double avgMetrics, Map<T, Double> metrics) {
     var variance = new AtomicReference<>(0.0);
     metrics
         .values()
@@ -40,7 +39,7 @@ public class CostUtils {
             Collectors.toMap(Map.Entry::getKey, e -> (e.getValue() - avg) / standardDeviation));
   }
 
-  public static Map<Integer, Double> TScore(Map<Integer, Double> metrics) {
+  public static <T> Map<T, Double> TScore(Map<T, Double> metrics) {
     var avg = metrics.values().stream().mapToDouble(d -> d).sum() / metrics.size();
     var standardDeviation = standardDeviationImperative(avg, metrics);
 

@@ -14,17 +14,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.app.metrics.broker;
+package org.astraea.app.cost;
 
-import org.astraea.app.metrics.HasBeanObject;
-import org.astraea.app.metrics.jmx.BeanObject;
-
-public interface HasCount extends HasBeanObject {
-  default long count() {
-    return (long) beanObject().attributes().getOrDefault("Count", 0);
-  }
-
-  static HasCount of(BeanObject beanObject) {
-    return () -> beanObject;
-  }
+/** Return type of cost function, `HasMoveCost`. It returns the score of brokers. */
+public interface ClusterCost {
+  /** @return cost of cluster */
+  Double value();
 }
