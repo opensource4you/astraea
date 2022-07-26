@@ -41,8 +41,12 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BiFunction;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+import org.astraea.app.admin.Admin;
 import org.astraea.app.admin.TopicPartition;
 import org.astraea.app.argument.DurationField;
+import org.astraea.app.common.Cache;
 import org.astraea.app.common.Utils;
 import org.astraea.app.consumer.Builder;
 import org.astraea.app.consumer.Consumer;
@@ -63,14 +67,32 @@ public class RecordHandler implements Handler {
   static final String VALUE_DESERIALIZER = "valueDeserializer";
   static final String LIMIT = "limit";
   static final String TIMEOUT = "timeout";
+  static final String OFFSET = "offset";
+  private static final int MAX_CACHE_SIZE = 100;
+  private static final Duration CACHE_EXPIRE_DURATION = Duration.ofMinutes(10);
 
   final String bootstrapServers;
   // visible for testing
   final Producer<byte[], byte[]> producer;
+  private final Cache<String, Producer<byte[], byte[]>> transactionalProducerCache;
 
-  RecordHandler(String bootstrapServers) {
+  final Admin admin;
+
+  RecordHandler(Admin admin, String bootstrapServers) {
+    this.admin = admin;
     this.bootstrapServers = requireNonNull(bootstrapServers);
     this.producer = Producer.builder().bootstrapServers(bootstrapServers).build();
+    this.transactionalProducerCache =
+        Cache.<String, Producer<byte[], byte[]>>builder(
+                transactionId ->
+                    Producer.builder()
+                        .transactionId(transactionId)
+                        .bootstrapServers(bootstrapServers)
+                        .buildTransactional())
+            .maxCapacity(MAX_CACHE_SIZE)
+            .expireAfterAccess(CACHE_EXPIRE_DURATION)
+            .removalListener((k, v) -> v.close())
+            .build();
   }
 
   @Override
@@ -149,17 +171,7 @@ public class RecordHandler implements Handler {
     }
 
     var producer =
-        request
-            .get(TRANSACTION_ID)
-            .map(
-                // TODO: Find a way to cache transactional producer
-                // (https://github.com/skiptests/astraea/issues/473)
-                transactionId ->
-                    Producer.builder()
-                        .transactionId(transactionId)
-                        .bootstrapServers(bootstrapServers)
-                        .buildTransactional())
-            .orElse(this.producer);
+        request.get(TRANSACTION_ID).map(transactionalProducerCache::get).orElse(this.producer);
 
     var result =
         CompletableFuture.supplyAsync(
@@ -195,6 +207,31 @@ public class RecordHandler implements Handler {
     if (async) return Response.ACCEPT;
     return Utils.packException(
         () -> new PostResponse(result.get(timeout.toNanos(), TimeUnit.NANOSECONDS)));
+  }
+
+  @Override
+  public Response delete(String topic, Map<String, String> queries) {
+    var partitions =
+        Optional.ofNullable(queries.get(PARTITION))
+            .map(x -> Set.of(TopicPartition.of(topic, x)))
+            .orElseGet(() -> admin.partitions(Set.of(topic)));
+
+    var deletedOffsets =
+        Optional.ofNullable(queries.get(OFFSET))
+            .map(Long::parseLong)
+            .map(
+                offset ->
+                    partitions.stream().collect(Collectors.toMap(Function.identity(), x -> offset)))
+            .orElseGet(
+                () -> {
+                  var currentOffsets = admin.offsets(Set.of(topic));
+                  return partitions.stream()
+                      .collect(
+                          Collectors.toMap(
+                              Function.identity(), x -> currentOffsets.get(x).latest()));
+                });
+    admin.deleteRecords(deletedOffsets);
+    return Response.OK;
   }
 
   enum SerDe {

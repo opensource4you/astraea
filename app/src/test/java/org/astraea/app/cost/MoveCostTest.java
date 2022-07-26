@@ -19,17 +19,11 @@ package org.astraea.app.cost;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.io.UncheckedIOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 import org.astraea.app.admin.ClusterBean;
 import org.astraea.app.admin.ClusterInfo;
 import org.astraea.app.admin.NodeInfo;
@@ -39,6 +33,7 @@ import org.astraea.app.admin.TopicPartitionReplica;
 import org.astraea.app.metrics.KafkaMetrics;
 import org.astraea.app.metrics.broker.HasCount;
 import org.astraea.app.metrics.broker.HasValue;
+import org.astraea.app.metrics.broker.LogMetrics;
 import org.astraea.app.metrics.jmx.BeanObject;
 import org.astraea.app.partitioner.Configuration;
 import org.astraea.app.service.RequireBrokerCluster;
@@ -125,23 +120,20 @@ class MoveCostTest extends RequireBrokerCluster {
             100000000,
             10000);
     var replicaSizeBeanObject1 =
-            fakePartitionBeanObject("Log",KafkaMetrics.TopicPartition.Size.metricName()
-            ,"test-1","0",100,1000);
+        fakePartitionBeanObject("Log", LogMetrics.Log.SIZE.metricName(), "test-1", "0", 100, 1000);
     var replicaSizeBeanObject2 =
-            fakePartitionBeanObject("Log",KafkaMetrics.TopicPartition.Size.metricName()
-                    ,"test-1","0",6000000,10000);
+        fakePartitionBeanObject(
+            "Log", LogMetrics.Log.SIZE.metricName(), "test-1", "0", 6000000, 10000);
     var replicaSizeBeanObject3 =
-            fakePartitionBeanObject("Log",KafkaMetrics.TopicPartition.Size.metricName()
-                    ,"test-1","1",100,1000);
+        fakePartitionBeanObject("Log", LogMetrics.Log.SIZE.metricName(), "test-1", "1", 100, 1000);
     var replicaSizeBeanObject4 =
-            fakePartitionBeanObject("Log",KafkaMetrics.TopicPartition.Size.metricName()
-                    ,"test-1","1",700000,10000);
+        fakePartitionBeanObject(
+            "Log", LogMetrics.Log.SIZE.metricName(), "test-1", "1", 700000, 10000);
     var replicaSizeBeanObject5 =
-            fakePartitionBeanObject("Log",KafkaMetrics.TopicPartition.Size.metricName()
-                    ,"test-2","0",100,1000);
+        fakePartitionBeanObject("Log", LogMetrics.Log.SIZE.metricName(), "test-2", "0", 100, 1000);
     var replicaSizeBeanObject6 =
-            fakePartitionBeanObject("Log",KafkaMetrics.TopicPartition.Size.metricName()
-                    ,"test-2","0",800000,10000);
+        fakePartitionBeanObject(
+            "Log", LogMetrics.Log.SIZE.metricName(), "test-2", "0", 800000, 10000);
 
     moveCost = new MoveCost(configuration);
     clusterBean =
@@ -157,10 +149,10 @@ class MoveCostTest extends RequireBrokerCluster {
                     fakeBeanObjectReplicationByteIn2,
                     fakeBeanObjectReplicationByteOut1,
                     fakeBeanObjectReplicationByteOut2,
-                        replicaSizeBeanObject1,
-                        replicaSizeBeanObject2,
-                        replicaSizeBeanObject5,
-                        replicaSizeBeanObject6),
+                    replicaSizeBeanObject1,
+                    replicaSizeBeanObject2,
+                    replicaSizeBeanObject5,
+                    replicaSizeBeanObject6),
                 1,
                 List.of(
                     fakeBeanObjectByteIn1,
@@ -171,33 +163,35 @@ class MoveCostTest extends RequireBrokerCluster {
                     fakeBeanObjectReplicationByteIn2,
                     fakeBeanObjectReplicationByteOut1,
                     fakeBeanObjectReplicationByteOut2,
-                        replicaSizeBeanObject1,
-                        replicaSizeBeanObject2,
-                        replicaSizeBeanObject3,
-                        replicaSizeBeanObject4),
-                    2,
-                    List.of(
-                            fakeBeanObjectByteIn1,
-                            fakeBeanObjectByteIn2,
-                            fakeBeanObjectByteOut1,
-                            fakeBeanObjectByteOut2,
-                            fakeBeanObjectReplicationByteIn1,
-                            fakeBeanObjectReplicationByteIn2,
-                            fakeBeanObjectReplicationByteOut1,
-                            fakeBeanObjectReplicationByteOut2,
-                            replicaSizeBeanObject3,
-                            replicaSizeBeanObject4,
-                            replicaSizeBeanObject5,
-                            replicaSizeBeanObject6)));
+                    replicaSizeBeanObject1,
+                    replicaSizeBeanObject2,
+                    replicaSizeBeanObject3,
+                    replicaSizeBeanObject4),
+                2,
+                List.of(
+                    fakeBeanObjectByteIn1,
+                    fakeBeanObjectByteIn2,
+                    fakeBeanObjectByteOut1,
+                    fakeBeanObjectByteOut2,
+                    fakeBeanObjectReplicationByteIn1,
+                    fakeBeanObjectReplicationByteIn2,
+                    fakeBeanObjectReplicationByteOut1,
+                    fakeBeanObjectReplicationByteOut2,
+                    replicaSizeBeanObject3,
+                    replicaSizeBeanObject4,
+                    replicaSizeBeanObject5,
+                    replicaSizeBeanObject6)));
     duration =
         Duration.ofSeconds(Integer.parseInt(configuration.string("metrics.duration").orElse("30")));
   }
 
   @Test
   void testBrokerTrafficMetrics() {
-    var brokerTraffic = moveCost.brokerTrafficMetrics(clusterBean,KafkaMetrics.BrokerTopic.BytesInPerSec.metricName(),duration);
+    var brokerTraffic =
+        moveCost.brokerTrafficMetrics(
+            clusterBean, KafkaMetrics.BrokerTopic.BytesInPerSec.metricName(), duration);
     Assertions.assertEquals(
-        brokerTraffic.get(0), (100000000 - 1000) / 1024.0 / 1024.0 / ((10000.0-1000.0) / 1000));
+        brokerTraffic.get(0), (100000000 - 1000) / 1024.0 / 1024.0 / ((10000.0 - 1000.0) / 1000));
   }
 
   @Test
@@ -208,16 +202,36 @@ class MoveCostTest extends RequireBrokerCluster {
             TopicPartitionReplica.of("test-1", 1, 0),
             TopicPartitionReplica.of("test-1", 2, 1),
             TopicPartitionReplica.of("test-1", 3, 1),
-                TopicPartitionReplica.of("test-1", 4, 2),
-                TopicPartitionReplica.of("test-1", 5, 2));
+            TopicPartitionReplica.of("test-1", 4, 2),
+            TopicPartitionReplica.of("test-1", 5, 2));
     var replicaDataRate =
         Map.of(
-            tprList.get(0), 10.0, tprList.get(1), 5.0, tprList.get(2), 8.0, tprList.get(3), 15.0
-        ,tprList.get(4),10.0,tprList.get(5),11.0);
+            tprList.get(0),
+            10.0,
+            tprList.get(1),
+            5.0,
+            tprList.get(2),
+            8.0,
+            tprList.get(3),
+            15.0,
+            tprList.get(4),
+            10.0,
+            tprList.get(5),
+            11.0);
     var overflowReplicaDataRate =
-            Map.of(
-                    tprList.get(0), 1000000000000.0, tprList.get(1), 5.0, tprList.get(2), 8.0, tprList.get(3), 15.0
-                    ,tprList.get(4),10.0,tprList.get(5),12.0);
+        Map.of(
+            tprList.get(0),
+            1000000000000.0,
+            tprList.get(1),
+            5.0,
+            tprList.get(2),
+            8.0,
+            tprList.get(3),
+            15.0,
+            tprList.get(4),
+            10.0,
+            tprList.get(5),
+            12.0);
     var migratedReplicas =
         List.of(
             new MoveCost.ReplicaMigrateInfo(
@@ -225,7 +239,8 @@ class MoveCostTest extends RequireBrokerCluster {
             new MoveCost.ReplicaMigrateInfo(
                 TopicPartition.of("test-1", 1), 0, 1, "/logPath01", "/logPath02"));
     var notOverflow = moveCost.checkBrokerInTraffic(replicaDataRate, migratedReplicas, clusterBean);
-    var overflow = moveCost.checkBrokerInTraffic(overflowReplicaDataRate, migratedReplicas, clusterBean);
+    var overflow =
+        moveCost.checkBrokerInTraffic(overflowReplicaDataRate, migratedReplicas, clusterBean);
     Assertions.assertFalse(notOverflow);
     Assertions.assertTrue(overflow);
   }
@@ -233,26 +248,33 @@ class MoveCostTest extends RequireBrokerCluster {
   @Test
   void checkFolderSize() {
     var tprList =
-            List.of(
-                    TopicPartitionReplica.of("test-1", 0, 0),
-                    TopicPartitionReplica.of("test-1", 1, 0),
-                    TopicPartitionReplica.of("test-1", 2, 1),
-                    TopicPartitionReplica.of("test-1", 3, 1));
+        List.of(
+            TopicPartitionReplica.of("test-1", 0, 0),
+            TopicPartitionReplica.of("test-1", 1, 0),
+            TopicPartitionReplica.of("test-1", 2, 1),
+            TopicPartitionReplica.of("test-1", 3, 1));
     var replicaLogSize =
-            Map.of(
-                    tprList.get(0), 524288000L, tprList.get(1), 524288000L, tprList.get(2), 120000L ,tprList.get(3), 15000L);
+        Map.of(
+            tprList.get(0),
+            524288000L,
+            tprList.get(1),
+            524288000L,
+            tprList.get(2),
+            120000L,
+            tprList.get(3),
+            15000L);
     var migratedReplicas =
-            List.of(
-                    new MoveCost.ReplicaMigrateInfo(
-                            TopicPartition.of("test-1", 0), 0, 1, "/logPath01", "/logPath01"),
-                    new MoveCost.ReplicaMigrateInfo(
-                            TopicPartition.of("test-1", 1), 0, 1, "/logPath02", "/logPath02"));
+        List.of(
+            new MoveCost.ReplicaMigrateInfo(
+                TopicPartition.of("test-1", 0), 0, 1, "/logPath01", "/logPath01"),
+            new MoveCost.ReplicaMigrateInfo(
+                TopicPartition.of("test-1", 1), 0, 1, "/logPath02", "/logPath02"));
     var overflowMigratedReplicas =
-            List.of(
-                    new MoveCost.ReplicaMigrateInfo(
-                            TopicPartition.of("test-1", 0), 0, 1, "/logPath01", "/logPath01"),
-                    new MoveCost.ReplicaMigrateInfo(
-                            TopicPartition.of("test-1", 1), 0, 1, "/logPath02", "/logPath01"));
+        List.of(
+            new MoveCost.ReplicaMigrateInfo(
+                TopicPartition.of("test-1", 0), 0, 1, "/logPath01", "/logPath01"),
+            new MoveCost.ReplicaMigrateInfo(
+                TopicPartition.of("test-1", 1), 0, 1, "/logPath02", "/logPath01"));
 
     var notOverflow = moveCost.checkFolderSize(replicaLogSize, migratedReplicas);
     var overflow = moveCost.checkFolderSize(replicaLogSize, overflowMigratedReplicas);
@@ -262,8 +284,8 @@ class MoveCostTest extends RequireBrokerCluster {
 
   @Test
   void testClusterCost() {
-    var score = moveCost.clusterCost(originClusterInfo(),newClusterInfo(),clusterBean).value();
-    Assertions.assertEquals(score,0.2622827348460017);
+    var score = moveCost.clusterCost(originClusterInfo(), newClusterInfo(), clusterBean).value();
+    Assertions.assertEquals(score, 0.2622827348460017);
   }
 
   private static HasValue fakePartitionBeanObject(
@@ -288,41 +310,42 @@ class MoveCostTest extends RequireBrokerCluster {
 
     ClusterInfo clusterInfo = Mockito.mock(ClusterInfo.class);
     Mockito.when(clusterInfo.nodes())
-            .thenReturn(
-                    List.of(NodeInfo.of(1, "", -1), NodeInfo.of(2, "", -1), NodeInfo.of(3, "", -1)));
+        .thenReturn(
+            List.of(NodeInfo.of(1, "", -1), NodeInfo.of(2, "", -1), NodeInfo.of(3, "", -1)));
     Mockito.when(clusterInfo.topics()).thenReturn(Set.of("test-1", "test-2"));
     Mockito.when(clusterInfo.availableReplicaLeaders(Mockito.anyString()))
-                    .thenAnswer(topic ->
-                            topic.getArgument(0).equals("test-1")
-                                    ? List.of(
-                                    ReplicaInfo.of("test-1", 0, NodeInfo.of(0, "", -1), true, true, false),
-                                    ReplicaInfo.of("test-1", 1, NodeInfo.of(2, "", -1), true, true, false))
-                                    : List.of(
-                                    ReplicaInfo.of("test-2", 0, NodeInfo.of(2, "", -1), true, true, false)));
+        .thenAnswer(
+            topic ->
+                topic.getArgument(0).equals("test-1")
+                    ? List.of(
+                        ReplicaInfo.of("test-1", 0, NodeInfo.of(0, "", -1), true, true, false),
+                        ReplicaInfo.of("test-1", 1, NodeInfo.of(2, "", -1), true, true, false))
+                    : List.of(
+                        ReplicaInfo.of("test-2", 0, NodeInfo.of(2, "", -1), true, true, false)));
     Mockito.when(clusterInfo.replicas(Mockito.anyString()))
-            .thenAnswer(
-                    topic ->
-                            topic.getArgument(0).equals("test-1")
-                                    ? List.of(
-                                    ReplicaInfo.of("test-1", 0, NodeInfo.of(0, "", -1), true, true, false),
-                                    ReplicaInfo.of("test-1", 0, NodeInfo.of(1, "", -1), false, true, false),
-                                    ReplicaInfo.of("test-1", 1, NodeInfo.of(1, "", -1), false, true, false),
-                                    ReplicaInfo.of("test-1", 1, NodeInfo.of(2, "", -1), true, true, false))
-                                    : List.of(
-                                    ReplicaInfo.of("test-2", 0, NodeInfo.of(0, "", -1), false, true, false),
-                                    ReplicaInfo.of("test-2", 0, NodeInfo.of(2, "", -1), true, true, false)));
+        .thenAnswer(
+            topic ->
+                topic.getArgument(0).equals("test-1")
+                    ? List.of(
+                        ReplicaInfo.of("test-1", 0, NodeInfo.of(0, "", -1), true, true, false),
+                        ReplicaInfo.of("test-1", 0, NodeInfo.of(1, "", -1), false, true, false),
+                        ReplicaInfo.of("test-1", 1, NodeInfo.of(1, "", -1), false, true, false),
+                        ReplicaInfo.of("test-1", 1, NodeInfo.of(2, "", -1), true, true, false))
+                    : List.of(
+                        ReplicaInfo.of("test-2", 0, NodeInfo.of(0, "", -1), false, true, false),
+                        ReplicaInfo.of("test-2", 0, NodeInfo.of(2, "", -1), true, true, false)));
     Mockito.when(clusterInfo.availableReplicas(Mockito.anyString()))
-            .thenAnswer(
-                    topic ->
-                            topic.getArgument(0).equals("test-1")
-                                    ? List.of(
-                                    ReplicaInfo.of("test-1", 0, NodeInfo.of(0, "", -1), true, true, false),
-                                    ReplicaInfo.of("test-1", 0, NodeInfo.of(1, "", -1), false, true, false),
-                                    ReplicaInfo.of("test-1", 1, NodeInfo.of(1, "", -1), false, true, false),
-                                    ReplicaInfo.of("test-1", 1, NodeInfo.of(2, "", -1), true, true, false))
-                                    : List.of(
-                                    ReplicaInfo.of("test-2", 0, NodeInfo.of(0, "", -1), false, true, false),
-                                    ReplicaInfo.of("test-2", 0, NodeInfo.of(2, "", -1), true, true, false)));
+        .thenAnswer(
+            topic ->
+                topic.getArgument(0).equals("test-1")
+                    ? List.of(
+                        ReplicaInfo.of("test-1", 0, NodeInfo.of(0, "", -1), true, true, false),
+                        ReplicaInfo.of("test-1", 0, NodeInfo.of(1, "", -1), false, true, false),
+                        ReplicaInfo.of("test-1", 1, NodeInfo.of(1, "", -1), false, true, false),
+                        ReplicaInfo.of("test-1", 1, NodeInfo.of(2, "", -1), true, true, false))
+                    : List.of(
+                        ReplicaInfo.of("test-2", 0, NodeInfo.of(0, "", -1), false, true, false),
+                        ReplicaInfo.of("test-2", 0, NodeInfo.of(2, "", -1), true, true, false)));
     return clusterInfo;
   }
 
@@ -330,43 +353,42 @@ class MoveCostTest extends RequireBrokerCluster {
 
     ClusterInfo clusterInfo = Mockito.mock(ClusterInfo.class);
     Mockito.when(clusterInfo.nodes())
-            .thenReturn(
-                    List.of(NodeInfo.of(1, "", -1), NodeInfo.of(2, "", -1), NodeInfo.of(3, "", -1)));
+        .thenReturn(
+            List.of(NodeInfo.of(1, "", -1), NodeInfo.of(2, "", -1), NodeInfo.of(3, "", -1)));
     Mockito.when(clusterInfo.topics()).thenReturn(Set.of("test-1", "test-2"));
     Mockito.when(clusterInfo.availableReplicaLeaders(Mockito.anyString()))
-            .thenAnswer(
-                    topic ->
-                            topic.getArgument(0).equals("test-1")
-                                    ? List.of(
-                                    ReplicaInfo.of("test-1", 0, NodeInfo.of(2, "", -1), true, true, false),
-                                    ReplicaInfo.of("test-1", 1, NodeInfo.of(2, "", -1), true, true, false))
-                                    : List.of(
-                                    ReplicaInfo.of("test-2", 0, NodeInfo.of(2, "", -1), true, true, false)));
+        .thenAnswer(
+            topic ->
+                topic.getArgument(0).equals("test-1")
+                    ? List.of(
+                        ReplicaInfo.of("test-1", 0, NodeInfo.of(2, "", -1), true, true, false),
+                        ReplicaInfo.of("test-1", 1, NodeInfo.of(2, "", -1), true, true, false))
+                    : List.of(
+                        ReplicaInfo.of("test-2", 0, NodeInfo.of(2, "", -1), true, true, false)));
     Mockito.when(clusterInfo.replicas(Mockito.anyString()))
-            .thenAnswer(
-                    topic ->
-                            topic.getArgument(0).equals("test-1")
-                                    ? List.of(
-                                    ReplicaInfo.of("test-1", 0, NodeInfo.of(0, "", -1), false, true, false),
-                                    ReplicaInfo.of("test-1", 0, NodeInfo.of(2, "", -1), true, true, false),
-                                    ReplicaInfo.of("test-1", 1, NodeInfo.of(0, "", -1), false, true, false),
-                                    ReplicaInfo.of("test-1", 1, NodeInfo.of(2, "", -1), true, true, false))
-                                    : List.of(
-                                    ReplicaInfo.of("test-2", 0, NodeInfo.of(1, "", -1), false, true, false),
-                                    ReplicaInfo.of("test-2", 0, NodeInfo.of(2, "", -1), true, true, false)));
+        .thenAnswer(
+            topic ->
+                topic.getArgument(0).equals("test-1")
+                    ? List.of(
+                        ReplicaInfo.of("test-1", 0, NodeInfo.of(0, "", -1), false, true, false),
+                        ReplicaInfo.of("test-1", 0, NodeInfo.of(2, "", -1), true, true, false),
+                        ReplicaInfo.of("test-1", 1, NodeInfo.of(0, "", -1), false, true, false),
+                        ReplicaInfo.of("test-1", 1, NodeInfo.of(2, "", -1), true, true, false))
+                    : List.of(
+                        ReplicaInfo.of("test-2", 0, NodeInfo.of(1, "", -1), false, true, false),
+                        ReplicaInfo.of("test-2", 0, NodeInfo.of(2, "", -1), true, true, false)));
     Mockito.when(clusterInfo.availableReplicas(Mockito.anyString()))
-            .thenAnswer(
-                    topic ->
-                            topic.getArgument(0).equals("test-1")
-                                    ? List.of(
-                                    ReplicaInfo.of("test-1", 0, NodeInfo.of(0, "", -1), false, true, false),
-                                    ReplicaInfo.of("test-1", 0, NodeInfo.of(2, "", -1), true, true, false),
-                                    ReplicaInfo.of("test-1", 1, NodeInfo.of(0, "", -1), false, true, false),
-                                    ReplicaInfo.of("test-1", 1, NodeInfo.of(2, "", -1), true, true, false))
-                                    : List.of(
-                                    ReplicaInfo.of("test-2", 0, NodeInfo.of(1, "", -1), false, true, false),
-                                    ReplicaInfo.of("test-2", 0, NodeInfo.of(2, "", -1), true, true, false)));
+        .thenAnswer(
+            topic ->
+                topic.getArgument(0).equals("test-1")
+                    ? List.of(
+                        ReplicaInfo.of("test-1", 0, NodeInfo.of(0, "", -1), false, true, false),
+                        ReplicaInfo.of("test-1", 0, NodeInfo.of(2, "", -1), true, true, false),
+                        ReplicaInfo.of("test-1", 1, NodeInfo.of(0, "", -1), false, true, false),
+                        ReplicaInfo.of("test-1", 1, NodeInfo.of(2, "", -1), true, true, false))
+                    : List.of(
+                        ReplicaInfo.of("test-2", 0, NodeInfo.of(1, "", -1), false, true, false),
+                        ReplicaInfo.of("test-2", 0, NodeInfo.of(2, "", -1), true, true, false)));
     return clusterInfo;
   }
-
 }

@@ -35,6 +35,7 @@ import org.astraea.app.metrics.HasBeanObject;
 import org.astraea.app.metrics.KafkaMetrics;
 import org.astraea.app.metrics.broker.HasCount;
 import org.astraea.app.metrics.broker.HasValue;
+import org.astraea.app.metrics.broker.LogMetrics;
 import org.astraea.app.metrics.collector.Fetcher;
 import org.astraea.app.partitioner.Configuration;
 
@@ -219,7 +220,7 @@ public class MoveCost implements HasMoveCost {
                             KafkaMetrics.BrokerTopic.BytesOutPerSec.fetch(client12),
                             KafkaMetrics.BrokerTopic.ReplicationBytesInPerSec.fetch(client12),
                             KafkaMetrics.BrokerTopic.ReplicationBytesOutPerSec.fetch(client12)),
-                    (Fetcher) KafkaMetrics.TopicPartition.Size::fetch)
+                    (Fetcher) LogMetrics.Log.SIZE::fetch)
                 .flatMap(f -> f.fetch(client).stream())
                 .collect(Collectors.toUnmodifiableList()));
   }

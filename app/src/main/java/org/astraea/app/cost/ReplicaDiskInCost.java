@@ -33,8 +33,8 @@ import org.astraea.app.admin.ClusterInfo;
 import org.astraea.app.admin.TopicPartition;
 import org.astraea.app.admin.TopicPartitionReplica;
 import org.astraea.app.metrics.HasBeanObject;
-import org.astraea.app.metrics.KafkaMetrics;
 import org.astraea.app.metrics.broker.HasValue;
+import org.astraea.app.metrics.broker.LogMetrics;
 import org.astraea.app.metrics.collector.Fetcher;
 import org.astraea.app.partitioner.Configuration;
 
@@ -215,7 +215,7 @@ public class ReplicaDiskInCost implements HasBrokerCost, HasPartitionCost, HasCl
   /** @return the metrics getters. Those getters are used to fetch mbeans. */
   @Override
   public Optional<Fetcher> fetcher() {
-    return Optional.of(KafkaMetrics.TopicPartition.Size::fetch);
+    return Optional.of(LogMetrics.Log.SIZE::fetch);
   }
 
   /**
