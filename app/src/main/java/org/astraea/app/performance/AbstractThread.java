@@ -16,30 +16,17 @@
  */
 package org.astraea.app.performance;
 
-import java.util.List;
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Test;
+import java.io.Closeable;
 
-public class ManagerTest {
-  @Test
-  void testConsumerDone() {
-    var argument = new Performance.Argument();
-    var producerMetrics = new Metrics();
-    var consumerMetrics = new Metrics();
+public interface AbstractThread extends Closeable {
 
-    argument.exeTime = ExeTime.of("1records");
-    var manager = new Manager(argument, List.of(producerMetrics), List.of(consumerMetrics));
+  /** wait this thread to be completed. */
+  void waitForDone();
 
-    // Produce one record
-    producerMetrics.accept(0L, 0);
-    Assertions.assertFalse(manager.consumedDone());
+  /** @return true if this thread is done */
+  boolean closed();
 
-    // Consume one record
-    consumerMetrics.accept(0L, 0);
-    Assertions.assertTrue(manager.consumedDone());
-
-    // Test zero consumer. (run for one record)
-    manager = new Manager(argument, List.of(producerMetrics), List.of());
-    Assertions.assertTrue(manager.consumedDone());
-  }
+  /** wakeup and then wait this thread to complete */
+  @Override
+  void close();
 }
