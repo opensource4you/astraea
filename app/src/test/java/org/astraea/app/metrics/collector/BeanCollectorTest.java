@@ -20,14 +20,13 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.astraea.app.common.Utils;
-import org.astraea.app.concurrent.Executor;
-import org.astraea.app.concurrent.State;
-import org.astraea.app.concurrent.ThreadPool;
 import org.astraea.app.metrics.HasBeanObject;
 import org.astraea.app.metrics.KafkaMetrics;
 import org.astraea.app.metrics.jmx.BeanObject;
@@ -40,13 +39,6 @@ public class BeanCollectorTest {
   private final MBeanClient mbeanClient = Mockito.mock(MBeanClient.class);
   private final BiFunction<String, Integer, MBeanClient> clientCreator =
       (host, port) -> mbeanClient;
-
-  private static Executor executor(Runnable runnable) {
-    return () -> {
-      runnable.run();
-      return State.RUNNING;
-    };
-  }
 
   private static HasBeanObject createBeanObject() {
     var obj = new BeanObject("domain", Map.of(), Map.of());
@@ -131,33 +123,34 @@ public class BeanCollectorTest {
 
   private List<Receiver> receivers(BeanCollector collector) {
     var receivers = new ArrayList<Receiver>();
-    Runnable runnable =
-        () -> {
-          try {
-            var receiver =
-                collector
-                    .register()
-                    .host("unknown")
-                    .port(100)
-                    .fetcher(client -> List.of(createBeanObject()))
-                    .build();
-            synchronized (receivers) {
-              receivers.add(receiver);
-            }
-          } finally {
-            Utils.sleep(Duration.ofSeconds(1));
-          }
-        };
-
-    try (var pool =
-        ThreadPool.builder()
-            .executors(
-                IntStream.range(0, 3)
-                    .mapToObj(i -> executor(runnable))
-                    .collect(Collectors.toList()))
-            .build()) {
-      Utils.sleep(Duration.ofSeconds(1));
-    }
+    var closed = new AtomicBoolean(false);
+    var fs =
+        IntStream.range(0, 3)
+            .mapToObj(
+                ignored ->
+                    CompletableFuture.runAsync(
+                        () -> {
+                          try {
+                            while (!closed.get()) {
+                              var receiver =
+                                  collector
+                                      .register()
+                                      .host("unknown")
+                                      .port(100)
+                                      .fetcher(client -> List.of(createBeanObject()))
+                                      .build();
+                              synchronized (receivers) {
+                                receivers.add(receiver);
+                              }
+                            }
+                          } finally {
+                            Utils.sleep(Duration.ofSeconds(1));
+                          }
+                        }))
+            .collect(Collectors.toUnmodifiableList());
+    Utils.sleep(Duration.ofSeconds(1));
+    closed.set(true);
+    Utils.swallowException(() -> Utils.sequence(fs).get());
     return receivers;
   }
 
@@ -188,15 +181,11 @@ public class BeanCollectorTest {
 
     var receivers = receivers(collector);
 
-    try (var pool =
-        ThreadPool.builder()
-            .executors(
-                receivers.stream()
-                    .map(receiver -> executor(receiver::current))
-                    .collect(Collectors.toList()))
-            .build()) {
-      Utils.sleep(Duration.ofSeconds(3));
-    }
+    var fs =
+        receivers.stream()
+            .map(r -> CompletableFuture.runAsync(r::current))
+            .collect(Collectors.toUnmodifiableList());
+    Utils.swallowException(() -> Utils.sequence(fs).get());
     receivers.forEach(r -> Assertions.assertEquals(1, r.current().size()));
   }
 
