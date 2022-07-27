@@ -172,7 +172,7 @@ public class ConsumerTest extends RequireBrokerCluster {
     try (var consumer =
         Consumer.forTopics(Set.of(topic))
             .bootstrapServers(bootstrapServers())
-            .seekStrategy(DISTANCE_FROM_LATEST, 3)
+            .seek(DISTANCE_FROM_LATEST, 3)
             .build()) {
       Assertions.assertEquals(3, consumer.poll(4, Duration.ofSeconds(5)).size());
     }
@@ -180,7 +180,7 @@ public class ConsumerTest extends RequireBrokerCluster {
     try (var consumer =
         Consumer.forTopics(Set.of(topic))
             .bootstrapServers(bootstrapServers())
-            .seekStrategy(DISTANCE_FROM_LATEST, 1000)
+            .seek(DISTANCE_FROM_LATEST, 1000)
             .build()) {
       Assertions.assertEquals(10, consumer.poll(11, Duration.ofSeconds(5)).size());
     }
@@ -228,7 +228,7 @@ public class ConsumerTest extends RequireBrokerCluster {
     try (var consumer =
         Consumer.forPartitions(Set.of(TopicPartition.of(topic, "1")))
             .bootstrapServers(bootstrapServers())
-            .seekStrategy(DISTANCE_FROM_LATEST, 20)
+            .seek(DISTANCE_FROM_LATEST, 20)
             .build()) {
       var records = consumer.poll(20, Duration.ofSeconds(5));
       Assertions.assertEquals(10, records.size());
@@ -239,7 +239,7 @@ public class ConsumerTest extends RequireBrokerCluster {
     try (var consumer =
         Consumer.forPartitions(Set.of(TopicPartition.of(topic, "0"), TopicPartition.of(topic, "1")))
             .bootstrapServers(bootstrapServers())
-            .seekStrategy(DISTANCE_FROM_LATEST, 20)
+            .seek(DISTANCE_FROM_LATEST, 20)
             .build()) {
       var records = consumer.poll(20, Duration.ofSeconds(5));
       Assertions.assertEquals(20, records.size());
@@ -306,7 +306,7 @@ public class ConsumerTest extends RequireBrokerCluster {
           try (var consumer =
               Consumer.forTopics(Set.of(topic))
                   .bootstrapServers(bootstrapServers())
-                  .seekStrategy(DISTANCE_FROM_BEGINNING, distanceFromBeginning)
+                  .seek(DISTANCE_FROM_BEGINNING, distanceFromBeginning)
                   .build()) {
             Assertions.assertEquals(expectedSize, consumer.poll(10, Duration.ofSeconds(5)).size());
           }
@@ -326,7 +326,7 @@ public class ConsumerTest extends RequireBrokerCluster {
           try (var consumer =
               Consumer.forTopics(Set.of(topic))
                   .bootstrapServers(bootstrapServers())
-                  .seekStrategy(SEEK_TO, seekTo)
+                  .seek(SEEK_TO, seekTo)
                   .build()) {
             Assertions.assertEquals(expectedSize, consumer.poll(10, Duration.ofSeconds(5)).size());
           }
@@ -343,7 +343,7 @@ public class ConsumerTest extends RequireBrokerCluster {
         () ->
             Consumer.forTopics(Set.of("test"))
                 .bootstrapServers(bootstrapServers())
-                .seekStrategy(SEEK_TO, -1)
+                .seek(SEEK_TO, -1)
                 .build(),
         "seek value should >= 0");
   }
