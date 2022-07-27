@@ -29,6 +29,7 @@ import java.util.Date;
 import java.util.function.Supplier;
 import java.util.stream.IntStream;
 import org.astraea.app.common.DataSize;
+import org.astraea.app.common.DataUnit;
 import org.astraea.app.common.Utils;
 import org.astraea.app.concurrent.Executor;
 import org.astraea.app.concurrent.State;
@@ -70,6 +71,7 @@ public enum ReportFormat {
                 path.toString(),
                 "Performance"
                     + new SimpleDateFormat("yyyyMMddHHmmss").format(new Date())
+                    + "."
                     + reportFormat);
     var writer = new BufferedWriter(new FileWriter(filePath.toFile()));
     switch (reportFormat) {
@@ -113,7 +115,7 @@ public enum ReportFormat {
   private static void initCSVFormat(BufferedWriter writer, int producerCounts, int consumerCounts)
       throws IOException {
     writer.write(
-        "Time \\ Name, Consumed/Produced, Output throughput (/sec), Input throughput (/sec), "
+        "Time \\ Name, Consumed/Produced, Output throughput (MiB/sec), Input throughput (MiB/sec), "
             + "Publish max latency (ms), Publish min latency (ms), "
             + "End-to-end max latency (ms), End-to-end min latency (ms)");
     IntStream.range(0, producerCounts)
@@ -123,9 +125,9 @@ public enum ReportFormat {
                 writer.write(
                     ",Producer["
                         + i
-                        + "] current throughput (/sec), Producer["
+                        + "] current throughput (MiB/sec), Producer["
                         + i
-                        + "] current publish latency (ms)");
+                        + "] average publish latency (ms)");
               } catch (IOException ignore) {
               }
             });
@@ -136,9 +138,9 @@ public enum ReportFormat {
                 writer.write(
                     ",Consumer["
                         + i
-                        + "] current throughput (/sec), Consumer["
+                        + "] current throughput (MiB/sec), Consumer["
                         + i
-                        + "] current ene-to-end latency (ms)");
+                        + "] average ene-to-end latency (ms)");
               } catch (IOException ignore) {
               }
             });
@@ -152,23 +154,38 @@ public enum ReportFormat {
     try {
       writer.write(
           result.duration.toHoursPart()
-              + "h"
+              + ":"
               + result.duration.toMinutesPart()
-              + "m"
-              + result.duration.toSecondsPart()
-              + "s");
+              + ":"
+              + result.duration.toSecondsPart());
       writer.write(
           String.format(",%.2f%% / %.2f%%", result.consumerPercentage, result.producerPercentage));
-      writer.write("," + DataSize.Byte.of(result.producerResult.totalCurrentBytes()));
-      writer.write("," + DataSize.Byte.of(result.consumerResult.totalCurrentBytes()));
+      writer.write(
+          ","
+              + DataSize.Byte.of(result.producerResult.totalCurrentBytes())
+                  .measurement(DataUnit.MiB)
+                  .doubleValue());
+      writer.write(
+          ","
+              + DataSize.Byte.of(result.consumerResult.totalCurrentBytes())
+                  .measurement(DataUnit.MiB)
+                  .doubleValue());
       writer.write("," + result.producerResult.maxLatency + "," + result.producerResult.minLatency);
       writer.write("," + result.consumerResult.maxLatency + "," + result.consumerResult.minLatency);
       for (int i = 0; i < result.producerResult.bytes.size(); ++i) {
-        writer.write("," + DataSize.Byte.of(result.producerResult.currentBytes.get(i)));
+        writer.write(
+            ","
+                + DataSize.Byte.of(result.producerResult.currentBytes.get(i))
+                    .measurement(DataUnit.MiB)
+                    .doubleValue());
         writer.write("," + result.producerResult.averageLatencies.get(i));
       }
       for (int i = 0; i < result.consumerResult.bytes.size(); ++i) {
-        writer.write("," + DataSize.Byte.of(result.consumerResult.currentBytes.get(i)));
+        writer.write(
+            ","
+                + DataSize.Byte.of(result.consumerResult.currentBytes.get(i))
+                    .measurement(DataUnit.MiB)
+                    .doubleValue());
         writer.write("," + result.consumerResult.averageLatencies.get(i));
       }
       writer.newLine();
