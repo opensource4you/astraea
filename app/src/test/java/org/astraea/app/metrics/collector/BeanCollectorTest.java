@@ -17,11 +17,9 @@
 package org.astraea.app.metrics.collector;
 
 import java.time.Duration;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
@@ -62,7 +60,17 @@ public class BeanCollectorTest {
   @Test
   void theImmutableCurrent() {
     var collector = BeanCollector.builder().clientCreator(clientCreator).build();
-    var receivers = receivers(collector);
+    var receivers =
+        IntStream.range(0, 3)
+            .mapToObj(
+                ignored ->
+                    collector
+                        .register()
+                        .host("unknown")
+                        .port(100)
+                        .fetcher(client -> List.of(createBeanObject()))
+                        .build())
+            .collect(Collectors.toUnmodifiableList());
     receivers.forEach(
         r ->
             Assertions.assertThrows(
@@ -121,44 +129,21 @@ public class BeanCollectorTest {
     Assertions.assertThrows(NullPointerException.class, () -> collector.register().fetcher(null));
   }
 
-  private List<Receiver> receivers(BeanCollector collector) {
-    var receivers = new ArrayList<Receiver>();
-    var closed = new AtomicBoolean(false);
-    var fs =
-        IntStream.range(0, 3)
-            .mapToObj(
-                ignored ->
-                    CompletableFuture.runAsync(
-                        () -> {
-                          try {
-                            while (!closed.get()) {
-                              var receiver =
-                                  collector
-                                      .register()
-                                      .host("unknown")
-                                      .port(100)
-                                      .fetcher(client -> List.of(createBeanObject()))
-                                      .build();
-                              synchronized (receivers) {
-                                receivers.add(receiver);
-                              }
-                            }
-                          } finally {
-                            Utils.sleep(Duration.ofSeconds(1));
-                          }
-                        }))
-            .collect(Collectors.toUnmodifiableList());
-    Utils.sleep(Duration.ofSeconds(1));
-    closed.set(true);
-    Utils.swallowException(() -> Utils.sequence(fs).get());
-    return receivers;
-  }
-
   @Test
   void testCloseReceiver() {
     var collector = BeanCollector.builder().clientCreator(clientCreator).build();
 
-    var receivers = receivers(collector);
+    var receivers =
+        IntStream.range(0, 3)
+            .mapToObj(
+                ignored ->
+                    collector
+                        .register()
+                        .host("unknown")
+                        .port(100)
+                        .fetcher(client -> List.of(createBeanObject()))
+                        .build())
+            .collect(Collectors.toUnmodifiableList());
     receivers.forEach(Receiver::current);
 
     Assertions.assertEquals(1, collector.nodes.size());
@@ -179,7 +164,17 @@ public class BeanCollectorTest {
             .clientCreator(clientCreator)
             .build();
 
-    var receivers = receivers(collector);
+    var receivers =
+        IntStream.range(0, 3)
+            .mapToObj(
+                ignored ->
+                    collector
+                        .register()
+                        .host("unknown")
+                        .port(100)
+                        .fetcher(client -> List.of(createBeanObject()))
+                        .build())
+            .collect(Collectors.toUnmodifiableList());
 
     var fs =
         receivers.stream()
