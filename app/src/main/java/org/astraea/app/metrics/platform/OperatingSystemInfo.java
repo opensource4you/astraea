@@ -17,7 +17,7 @@
 package org.astraea.app.metrics.platform;
 
 import java.util.Map;
-import org.astraea.app.metrics.jmx.BeanObject;
+import org.astraea.app.metrics.BeanObject;
 
 public class OperatingSystemInfo implements HasOperatingSystemInfo {
 

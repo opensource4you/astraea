@@ -24,8 +24,6 @@ import java.util.stream.Collectors;
 import org.astraea.app.metrics.broker.BrokerTopicMetricsResult;
 import org.astraea.app.metrics.broker.HasValue;
 import org.astraea.app.metrics.broker.TotalTimeMs;
-import org.astraea.app.metrics.jmx.BeanQuery;
-import org.astraea.app.metrics.jmx.MBeanClient;
 import org.astraea.app.metrics.platform.JvmMemory;
 import org.astraea.app.metrics.platform.OperatingSystemInfo;
 import org.astraea.app.metrics.producer.HasProducerNodeMetrics;

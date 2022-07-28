@@ -17,7 +17,7 @@
 package org.astraea.app.metrics.broker;
 
 import java.util.Map;
-import org.astraea.app.metrics.jmx.BeanObject;
+import org.astraea.app.metrics.BeanObject;
 
 public class TotalTimeMs implements HasPercentiles, HasCount, HasStatistics {
 
