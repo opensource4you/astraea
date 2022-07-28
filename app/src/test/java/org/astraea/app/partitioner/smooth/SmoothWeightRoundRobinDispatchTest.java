@@ -26,6 +26,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -36,9 +37,6 @@ import org.astraea.app.admin.ClusterInfo;
 import org.astraea.app.admin.NodeInfo;
 import org.astraea.app.admin.ReplicaInfo;
 import org.astraea.app.common.Utils;
-import org.astraea.app.concurrent.Executor;
-import org.astraea.app.concurrent.State;
-import org.astraea.app.concurrent.ThreadPool;
 import org.astraea.app.consumer.Consumer;
 import org.astraea.app.consumer.Deserializer;
 import org.astraea.app.consumer.Header;
@@ -142,19 +140,19 @@ public class SmoothWeightRoundRobinDispatchTest extends RequireBrokerCluster {
   }
 
   @Test
-  void testMultipleProducer() {
+  void testMultipleProducer() throws ExecutionException, InterruptedException {
     var topicName = "addr";
     admin.creator().topic(topicName).numberOfPartitions(10).create();
     var key = "tainan";
     var timestamp = System.currentTimeMillis() + 10;
     var header = Header.of("a", "b".getBytes());
-    try (var threadPool =
-        ThreadPool.builder()
-            .executors(
-                IntStream.range(0, 10)
-                    .mapToObj(
-                        i ->
-                            producerExecutor(
+
+    Utils.sequence(
+            IntStream.range(0, 10)
+                .mapToObj(
+                    ignored ->
+                        CompletableFuture.runAsync(
+                            producerThread(
                                 Producer.builder()
                                     .keySerializer(Serializer.STRING)
                                     .configs(
@@ -167,11 +165,10 @@ public class SmoothWeightRoundRobinDispatchTest extends RequireBrokerCluster {
                                 topicName,
                                 key,
                                 header,
-                                timestamp))
-                    .collect(Collectors.toUnmodifiableList()))
-            .build()) {
-      threadPool.waitAll();
-    }
+                                timestamp)))
+                .collect(Collectors.toUnmodifiableList()))
+        .get();
+
     try (var consumer =
         Consumer.forTopics(Set.of(topicName))
             .bootstrapServers(bootstrapServers())
@@ -249,34 +246,22 @@ public class SmoothWeightRoundRobinDispatchTest extends RequireBrokerCluster {
     }
   }
 
-  private Executor producerExecutor(
+  private Runnable producerThread(
       Producer<String, byte[]> producer, String topic, String key, Header header, long timeStamp) {
-    return new Executor() {
-      int i = 0;
-
-      @Override
-      public State execute() throws InterruptedException {
-        if (i > 99) return State.DONE;
-        try {
+    return () -> {
+      try (producer) {
+        var i = 0;
+        while (i <= 99) {
           producer
               .sender()
               .topic(topic)
               .key(key)
               .timestamp(timeStamp)
               .headers(List.of(header))
-              .run()
-              .toCompletableFuture()
-              .get();
-        } catch (ExecutionException e) {
-          e.printStackTrace();
+              .run();
+          i++;
         }
-        i++;
-        return State.RUNNING;
-      }
-
-      @Override
-      public void close() {
-        producer.close();
+        producer.flush();
       }
     };
   }
