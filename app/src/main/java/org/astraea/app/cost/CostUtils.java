@@ -60,6 +60,20 @@ public class CostUtils {
                 }));
   }
 
+  public static double coefficientVariation(Map<Integer, Double> brokerScore) {
+    var dataRateMean =
+        brokerScore.values().stream().mapToDouble(x -> (double) x).sum() / brokerScore.size();
+    var dataRateSD =
+        Math.sqrt(
+            brokerScore.values().stream()
+                    .mapToDouble(score -> Math.pow((score - dataRateMean), 2))
+                    .sum()
+                / brokerScore.size());
+    var cv = dataRateSD / dataRateMean;
+    if (cv > 1) return 1.0;
+    return cv;
+  }
+
   public static Map<Integer, Double> normalize(Map<Integer, Double> score) {
     var sum = score.values().stream().mapToDouble(d -> d).sum();
     return score.entrySet().stream()
