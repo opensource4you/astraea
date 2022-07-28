@@ -18,31 +18,28 @@ package org.astraea.app.cost;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
-import java.util.stream.Collectors;
 import org.astraea.app.admin.ClusterBean;
 import org.astraea.app.admin.ClusterInfo;
-import org.astraea.app.metrics.KafkaMetrics;
-import org.astraea.app.metrics.broker.BrokerTopicMetricsResult;
-import org.astraea.app.metrics.collector.Fetcher;
+import org.astraea.app.metrics.broker.LogMetrics;
+import org.astraea.app.metrics.jmx.BeanObject;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 
-public class BrokerInputCost implements HasBrokerCost {
-  @Override
-  public BrokerCost brokerCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
-    var brokerCost =
-        clusterBean.all().entrySet().stream()
-            .collect(
-                Collectors.toMap(
-                    Map.Entry::getKey,
-                    entry ->
-                        KafkaMetrics.BrokerTopic.BytesInPerSec.of(entry.getValue()).stream()
-                            .mapToDouble(BrokerTopicMetricsResult::oneMinuteRate)
-                            .sum()));
-    return () -> brokerCost;
-  }
+class NodeTopicSizeCostTest {
 
-  @Override
-  public Optional<Fetcher> fetcher() {
-    return Optional.of(client -> List.of(KafkaMetrics.BrokerTopic.BytesInPerSec.fetch(client)));
+  @Test
+  void testCost() {
+    var bean =
+        new BeanObject(
+            "domain",
+            Map.of("topic", "t", "partition", "10", "name", "SIZE"),
+            Map.of("Value", 777));
+    var meter = new LogMetrics.Log.Meter(bean);
+    var cost = new NodeTopicSizeCost();
+    var result =
+        cost.brokerCost(Mockito.mock(ClusterInfo.class), ClusterBean.of(Map.of(1, List.of(meter))));
+    Assertions.assertEquals(1, result.value().size());
+    Assertions.assertEquals(777, result.value().entrySet().iterator().next().getValue());
   }
 }

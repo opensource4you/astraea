@@ -39,8 +39,8 @@ public abstract class RequireSingleBrokerCluster extends RequireJmxServer {
     return BROKER_CLUSTER.logFolders();
   }
 
-  protected static Set<Integer> brokerIds() {
-    return logFolders().keySet();
+  protected static int brokerId() {
+    return logFolders().keySet().iterator().next();
   }
 
   @AfterAll

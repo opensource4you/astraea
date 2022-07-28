@@ -152,26 +152,12 @@ interface DataSupplier extends Supplier<DataSupplier.Data> {
       Supplier<Long> valueSizeDistribution,
       DataSize throughput) {
     return new DataSupplier() {
+      private final Throttler throttler = new Throttler(throughput);
       private final long start = System.currentTimeMillis();
       private final Random rand = new Random();
       private final AtomicLong dataCount = new AtomicLong(0);
-      private long intervalStart = 0;
-      private long payloadBytes;
       private final Map<Long, byte[]> recordKeyTable = new ConcurrentHashMap<>();
       private final Map<Long, byte[]> recordValueTable = new ConcurrentHashMap<>();
-
-      synchronized boolean checkAndAdd(int payloadLength) {
-        if (System.currentTimeMillis() - intervalStart > 1000) {
-          intervalStart = System.currentTimeMillis();
-          payloadBytes = payloadLength;
-          return true;
-        } else if (payloadBytes < throughput.measurement(DataUnit.Byte).longValue()) {
-          payloadBytes += payloadLength;
-          return true;
-        } else {
-          return false;
-        }
-      }
 
       byte[] value() {
         return getOrNew(
@@ -189,9 +175,10 @@ interface DataSupplier extends Supplier<DataSupplier.Data> {
             >= 100D) return NO_MORE_DATA;
         var key = key();
         var value = value();
-        if (checkAndAdd((value != null ? value.length : 0) + (key != null ? key.length : 0)))
-          return data(key, value);
-        return THROTTLED_DATA;
+        if (throttler.throttled(
+            (value != null ? value.length : 0) + (key != null ? key.length : 0)))
+          return THROTTLED_DATA;
+        return data(key, value);
       }
     };
   }
@@ -209,5 +196,36 @@ interface DataSupplier extends Supplier<DataSupplier.Data> {
           rand.nextBytes(value);
           return value;
         });
+  }
+
+  class Throttler {
+    private final long start = System.currentTimeMillis();
+    private final long throughput;
+    private final AtomicLong totalBytes = new AtomicLong();
+
+    Throttler(DataSize max) {
+      throughput = max.measurement(DataUnit.Byte).longValue();
+    }
+
+    /**
+     * @param payloadLength of new data
+     * @return true if the data need to be throttled. Otherwise, false
+     */
+    boolean throttled(long payloadLength) {
+      var duration = durationInSeconds();
+      if (duration <= 0) return false;
+      var current = totalBytes.addAndGet(payloadLength);
+      // too much -> slow down
+      if ((current / duration) > throughput) {
+        totalBytes.addAndGet(-payloadLength);
+        return true;
+      }
+      return false;
+    }
+
+    // visible for testing
+    long durationInSeconds() {
+      return (System.currentTimeMillis() - start) / 1000;
+    }
   }
 }

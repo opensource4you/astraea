@@ -26,6 +26,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.function.BiConsumer;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
+import org.astraea.app.admin.TopicPartition;
 
 public abstract class Builder<Key, Value> {
   protected final Map<String, Object> configs = new HashMap<>();
@@ -33,7 +34,7 @@ public abstract class Builder<Key, Value> {
   protected Deserializer<?> valueDeserializer = Deserializer.BYTE_ARRAY;
 
   protected SeekStrategy seekStrategy = SeekStrategy.NONE;
-  protected long seekValue = -1;
+  protected Object seekValue = null;
 
   Builder() {}
 
@@ -73,12 +74,18 @@ public abstract class Builder<Key, Value> {
    *     IllegalArgumentException}
    * @return this builder
    */
-  public Builder<Key, Value> seekStrategy(SeekStrategy seekStrategy, long value) {
+  public Builder<Key, Value> seek(SeekStrategy seekStrategy, long value) {
     this.seekStrategy = requireNonNull(seekStrategy);
     if (value < 0) {
       throw new IllegalArgumentException("seek value should >= 0");
     }
     this.seekValue = value;
+    return this;
+  }
+
+  public Builder<Key, Value> seek(Map<TopicPartition, Long> offsets) {
+    this.seekStrategy = SeekStrategy.SEEK_TO;
+    this.seekValue = offsets;
     return this;
   }
 
@@ -152,7 +159,8 @@ public abstract class Builder<Key, Value> {
           var endOffsets = kafkaConsumer.endOffsets(partitions);
           // 3) calculate and then seek to the correct offset (end offset - recent offset)
           endOffsets.forEach(
-              (tp, latest) -> kafkaConsumer.seek(tp, Math.max(0, latest - distanceFromLatest)));
+              (tp, latest) ->
+                  kafkaConsumer.seek(tp, Math.max(0, latest - (long) distanceFromLatest)));
         }),
     DISTANCE_FROM_BEGINNING(
         (kafkaConsumer, distanceFromBeginning) -> {
@@ -162,25 +170,36 @@ public abstract class Builder<Key, Value> {
           var partitions = kafkaConsumer.assignment();
           var beginningOffsets = kafkaConsumer.beginningOffsets(partitions);
           beginningOffsets.forEach(
-              (tp, beginning) -> kafkaConsumer.seek(tp, beginning + distanceFromBeginning));
+              (tp, beginning) -> kafkaConsumer.seek(tp, beginning + (long) distanceFromBeginning));
         }),
+    @SuppressWarnings("unchecked")
     SEEK_TO(
         (kafkaConsumer, seekTo) -> {
           while (kafkaConsumer.assignment().isEmpty()) {
             kafkaConsumer.poll(Duration.ofMillis(500));
           }
-          var partitions = kafkaConsumer.assignment();
-          partitions.forEach(tp -> kafkaConsumer.seek(tp, seekTo));
+          if (seekTo instanceof Long) {
+            var partitions = kafkaConsumer.assignment();
+            partitions.forEach(tp -> kafkaConsumer.seek(tp, (long) seekTo));
+            return;
+          }
+          if (seekTo instanceof Map) {
+            ((Map<TopicPartition, Long>) seekTo)
+                .forEach((tp, offset) -> kafkaConsumer.seek(TopicPartition.to(tp), offset));
+            return;
+          }
+          throw new IllegalArgumentException(
+              seekTo.getClass().getSimpleName() + " is not correct type");
         });
 
-    private final BiConsumer<org.apache.kafka.clients.consumer.Consumer<?, ?>, Long> function;
+    private final BiConsumer<org.apache.kafka.clients.consumer.Consumer<?, ?>, Object> function;
 
-    SeekStrategy(BiConsumer<org.apache.kafka.clients.consumer.Consumer<?, ?>, Long> function) {
+    SeekStrategy(BiConsumer<org.apache.kafka.clients.consumer.Consumer<?, ?>, Object> function) {
       this.function = requireNonNull(function);
     }
 
-    void apply(org.apache.kafka.clients.consumer.Consumer<?, ?> kafkaConsumer, long seekValue) {
-      function.accept(kafkaConsumer, seekValue);
+    void apply(org.apache.kafka.clients.consumer.Consumer<?, ?> kafkaConsumer, Object seekValue) {
+      if (seekValue != null) function.accept(kafkaConsumer, seekValue);
     }
   }
 }

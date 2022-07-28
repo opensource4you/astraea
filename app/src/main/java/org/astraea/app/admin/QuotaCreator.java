@@ -16,6 +16,8 @@
  */
 package org.astraea.app.admin;
 
+import org.astraea.app.common.DataRate;
+
 /**
  * Kafka quota APIs are too incomprehensible to use, so we re-design quota APIs to builder pattern.
  */
@@ -38,16 +40,16 @@ public interface QuotaCreator {
    */
   interface Client {
     /**
-     * @param value A rate representing the upper bound (bytes/sec) for producer traffic
+     * @param value A rate representing the upper bound for producer traffic
      * @return this object
      */
-    Client produceRate(int value);
+    Client produceRate(DataRate value);
 
     /**
-     * @param value A rate representing the upper bound (bytes/sec) for consumer traffic
+     * @param value A rate representing the upper bound for consumer traffic
      * @return this object
      */
-    Client consumeRate(int value);
+    Client consumeRate(DataRate value);
 
     void create();
   }

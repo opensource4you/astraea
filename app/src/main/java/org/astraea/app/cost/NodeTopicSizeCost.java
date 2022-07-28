@@ -16,33 +16,36 @@
  */
 package org.astraea.app.cost;
 
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import org.astraea.app.admin.ClusterBean;
 import org.astraea.app.admin.ClusterInfo;
-import org.astraea.app.metrics.KafkaMetrics;
-import org.astraea.app.metrics.broker.BrokerTopicMetricsResult;
+import org.astraea.app.metrics.broker.LogMetrics;
 import org.astraea.app.metrics.collector.Fetcher;
 
-public class BrokerInputCost implements HasBrokerCost {
+public class NodeTopicSizeCost implements HasBrokerCost {
+
+  @Override
+  public Optional<Fetcher> fetcher() {
+    return Optional.of(LogMetrics.Log.SIZE::fetch);
+  }
+
+  /**
+   * @param clusterInfo the clusterInfo that offers the metrics related to topic/partition size
+   * @return a BrokerCost contains the used space for each broker
+   */
   @Override
   public BrokerCost brokerCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
-    var brokerCost =
+    var result =
         clusterBean.all().entrySet().stream()
             .collect(
                 Collectors.toMap(
                     Map.Entry::getKey,
-                    entry ->
-                        KafkaMetrics.BrokerTopic.BytesInPerSec.of(entry.getValue()).stream()
-                            .mapToDouble(BrokerTopicMetricsResult::oneMinuteRate)
+                    e ->
+                        LogMetrics.Log.meters(e.getValue(), LogMetrics.Log.SIZE).stream()
+                            .mapToDouble(LogMetrics.Log.Meter::value)
                             .sum()));
-    return () -> brokerCost;
-  }
-
-  @Override
-  public Optional<Fetcher> fetcher() {
-    return Optional.of(client -> List.of(KafkaMetrics.BrokerTopic.BytesInPerSec.fetch(client)));
+    return () -> result;
   }
 }

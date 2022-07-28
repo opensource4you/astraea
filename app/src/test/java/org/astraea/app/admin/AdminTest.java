@@ -35,6 +35,7 @@ import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 import org.apache.kafka.common.config.TopicConfig;
 import org.apache.kafka.common.errors.GroupNotEmptyException;
+import org.astraea.app.common.DataRate;
 import org.astraea.app.common.Utils;
 import org.astraea.app.concurrent.State;
 import org.astraea.app.concurrent.ThreadPool;
@@ -585,7 +586,12 @@ public class AdminTest extends RequireBrokerCluster {
   @Test
   void testClientQuota() {
     try (var admin = Admin.of(bootstrapServers())) {
-      admin.quotaCreator().clientId("my-id").produceRate(10).consumeRate(100).create();
+      admin
+          .quotaCreator()
+          .clientId("my-id")
+          .produceRate(DataRate.Byte.of(10L).perSecond())
+          .consumeRate(DataRate.Byte.of(100L).perSecond())
+          .create();
       Utils.sleep(Duration.ofSeconds(2));
 
       java.util.function.Consumer<List<Quota>> checker =
@@ -641,8 +647,16 @@ public class AdminTest extends RequireBrokerCluster {
   @Test
   void testMultipleClientQuota() {
     try (var admin = Admin.of(bootstrapServers())) {
-      admin.quotaCreator().clientId("my-id").consumeRate(100).create();
-      admin.quotaCreator().clientId("my-id").produceRate(999).create();
+      admin
+          .quotaCreator()
+          .clientId("my-id")
+          .consumeRate(DataRate.Byte.of(100L).perSecond())
+          .create();
+      admin
+          .quotaCreator()
+          .clientId("my-id")
+          .produceRate(DataRate.Byte.of(1000L).perSecond())
+          .create();
       Utils.sleep(Duration.ofSeconds(2));
       Assertions.assertEquals(2, admin.quotas(Quota.Target.CLIENT_ID, "my-id").size());
     }
@@ -1093,6 +1107,39 @@ public class AdminTest extends RequireBrokerCluster {
         producer.flush();
       }
       Assertions.assertEquals(0, admin.reassignments(Set.of(topicName)).size());
+    }
+  }
+
+  @Test
+  void testDeleteRecord() {
+    var topicName = Utils.randomString(10);
+    try (var admin = Admin.of(bootstrapServers())) {
+      admin.creator().topic(topicName).numberOfPartitions(3).numberOfReplicas((short) 3).create();
+      var deleteRecords = admin.deleteRecords(Map.of(TopicPartition.of(topicName, 0), 0L));
+
+      Assertions.assertEquals(1, deleteRecords.size());
+      Assertions.assertEquals(0, deleteRecords.values().stream().findFirst().get().lowWatermark());
+
+      try (var producer = Producer.of(bootstrapServers())) {
+        var senders =
+            Stream.of(0, 0, 0, 1, 1)
+                .map(x -> producer.sender().topic(topicName).partition(x).value(new byte[100]))
+                .collect(Collectors.toList());
+        producer.send(senders);
+        producer.flush();
+      }
+
+      deleteRecords =
+          admin.deleteRecords(
+              Map.of(TopicPartition.of(topicName, 0), 2L, TopicPartition.of(topicName, 1), 1L));
+      Assertions.assertEquals(2, deleteRecords.size());
+      Assertions.assertEquals(2, deleteRecords.get(TopicPartition.of(topicName, 0)).lowWatermark());
+      Assertions.assertEquals(1, deleteRecords.get(TopicPartition.of(topicName, 1)).lowWatermark());
+
+      var offsets = admin.offsets();
+      Assertions.assertEquals(2, offsets.get(TopicPartition.of(topicName, 0)).earliest());
+      Assertions.assertEquals(1, offsets.get(TopicPartition.of(topicName, 1)).earliest());
+      Assertions.assertEquals(0, offsets.get(TopicPartition.of(topicName, 2)).earliest());
     }
   }
 }

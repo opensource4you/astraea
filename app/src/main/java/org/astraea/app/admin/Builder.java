@@ -40,6 +40,7 @@ import org.apache.kafka.clients.admin.MemberToRemove;
 import org.apache.kafka.clients.admin.NewPartitionReassignment;
 import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.clients.admin.OffsetSpec;
+import org.apache.kafka.clients.admin.RecordsToDelete;
 import org.apache.kafka.clients.admin.RemoveMembersFromConsumerGroupOptions;
 import org.apache.kafka.clients.admin.TransactionListing;
 import org.apache.kafka.common.ElectionType;
@@ -52,6 +53,7 @@ import org.apache.kafka.common.quota.ClientQuotaAlteration;
 import org.apache.kafka.common.quota.ClientQuotaEntity;
 import org.apache.kafka.common.quota.ClientQuotaFilter;
 import org.apache.kafka.common.quota.ClientQuotaFilterComponent;
+import org.astraea.app.common.DataRate;
 import org.astraea.app.common.Utils;
 
 public class Builder {
@@ -642,6 +644,22 @@ public class Builder {
                           Collections.unmodifiableSet(e.getValue().getKey()),
                           Collections.unmodifiableSet(e.getValue().getValue()))));
     }
+
+    @Override
+    public Map<TopicPartition, DeletedRecord> deleteRecords(
+        Map<TopicPartition, Long> recordsToDelete) {
+      var kafkaRecordsToDelete =
+          recordsToDelete.entrySet().stream()
+              .collect(
+                  Collectors.toMap(
+                      x -> TopicPartition.to(x.getKey()),
+                      x -> RecordsToDelete.beforeOffset(x.getValue())));
+      return admin.deleteRecords(kafkaRecordsToDelete).lowWatermarks().entrySet().stream()
+          .collect(
+              Collectors.toUnmodifiableMap(
+                  x -> TopicPartition.from(x.getKey()),
+                  x -> DeletedRecord.from(Utils.packException(() -> x.getValue().get()))));
+    }
   }
 
   private static class ConfigImpl implements Config {
@@ -936,17 +954,17 @@ public class Builder {
     @Override
     public Client clientId(String id) {
       return new Client() {
-        private int produceRate = Integer.MAX_VALUE;
-        private int consumeRate = Integer.MAX_VALUE;
+        private DataRate produceRate = null;
+        private DataRate consumeRate = null;
 
         @Override
-        public Client produceRate(int value) {
+        public Client produceRate(DataRate value) {
           this.produceRate = value;
           return this;
         }
 
         @Override
-        public Client consumeRate(int value) {
+        public Client consumeRate(DataRate value) {
           this.consumeRate = value;
           return this;
         }
@@ -954,14 +972,14 @@ public class Builder {
         @Override
         public void create() {
           var q = new ArrayList<ClientQuotaAlteration.Op>();
-          if (produceRate != Integer.MAX_VALUE)
+          if (produceRate != null)
             q.add(
                 new ClientQuotaAlteration.Op(
-                    Quota.Limit.PRODUCER_BYTE_RATE.nameOfKafka(), (double) produceRate));
-          if (consumeRate != Integer.MAX_VALUE)
+                    Quota.Limit.PRODUCER_BYTE_RATE.nameOfKafka(), produceRate.byteRate()));
+          if (consumeRate != null)
             q.add(
                 new ClientQuotaAlteration.Op(
-                    Quota.Limit.CONSUMER_BYTE_RATE.nameOfKafka(), (double) consumeRate));
+                    Quota.Limit.CONSUMER_BYTE_RATE.nameOfKafka(), consumeRate.byteRate()));
           if (!q.isEmpty())
             Utils.packException(
                 () ->
