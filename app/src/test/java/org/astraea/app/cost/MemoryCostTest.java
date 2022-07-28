@@ -17,77 +17,36 @@
 package org.astraea.app.cost;
 
 import java.lang.management.MemoryUsage;
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import org.astraea.app.admin.ClusterBean;
 import org.astraea.app.admin.ClusterInfo;
-import org.astraea.app.admin.NodeInfo;
-import org.astraea.app.admin.ReplicaInfo;
-import org.astraea.app.metrics.HasBeanObject;
 import org.astraea.app.metrics.collector.BeanCollector;
 import org.astraea.app.metrics.collector.Receiver;
 import org.astraea.app.metrics.platform.HasJvmMemory;
 import org.astraea.app.metrics.platform.JvmMemory;
-import org.astraea.app.service.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
-public class MemoryCostTest extends RequireBrokerCluster {
+public class MemoryCostTest {
+
   @Test
-  void testCost() throws InterruptedException {
-    var jvmMemory1 = mockResult(40L, 100L);
-    var jvmMemory2 = mockResult(81L, 100L);
-    var jvmMemory3 = mockResult(80L, 150L);
-
-    Collection<HasBeanObject> broker1 = List.of(jvmMemory1);
-    Collection<HasBeanObject> broker2 = List.of(jvmMemory2);
-    Collection<HasBeanObject> broker3 = List.of(jvmMemory3);
-    ClusterInfo clusterInfo = Mockito.mock(ClusterInfo.class);
-    Mockito.when(clusterInfo.topics()).thenReturn(Set.of("t"));
-    Mockito.when(clusterInfo.availableReplicas(Mockito.anyString()))
-        .thenReturn(
-            List.of(
-                ReplicaInfo.of("t", 0, NodeInfo.of(1, "host1", 9092), true, false, false),
-                ReplicaInfo.of("t", 0, NodeInfo.of(2, "host2", 9092), false, true, false),
-                ReplicaInfo.of("t", 0, NodeInfo.of(3, "host3", 9092), false, true, false)));
+  void testCost() {
+    var clusterBean =
+        ClusterBean.of(
+            Map.of(
+                1,
+                List.of(mockResult(40L, 100L)),
+                2,
+                List.of(mockResult(50L, 100L)),
+                3,
+                List.of()));
     var memoryCost = new MemoryCost();
-    var scores =
-        memoryCost
-            .brokerCost(clusterInfo, ClusterBean.of(Map.of(1, broker1, 2, broker2, 3, broker3)))
-            .normalize(Normalizer.TScore())
-            .value();
-    Assertions.assertEquals(0.39, scores.get(1));
-    Assertions.assertEquals(0.63, scores.get(2));
-    Assertions.assertEquals(0.47, scores.get(3));
-
-    Thread.sleep(1000);
-    jvmMemory1 = mockResult(50L, 150L);
-    jvmMemory2 = mockResult(30L, 100L);
-    jvmMemory3 = mockResult(80L, 150L);
-
-    Collection<HasBeanObject> broker12 = List.of(jvmMemory1);
-    Collection<HasBeanObject> broker22 = List.of(jvmMemory2);
-    Collection<HasBeanObject> broker32 = List.of(jvmMemory3);
-
-    ClusterInfo clusterInfo2 = Mockito.mock(ClusterInfo.class);
-    Mockito.when(clusterInfo2.topics()).thenReturn(Set.of("t"));
-    Mockito.when(clusterInfo2.availableReplicas(Mockito.anyString()))
-        .thenReturn(
-            List.of(
-                ReplicaInfo.of("t", 0, NodeInfo.of(1, "host1", 9092), true, true, false),
-                ReplicaInfo.of("t", 0, NodeInfo.of(2, "host2", 9092), false, true, false),
-                ReplicaInfo.of("t", 0, NodeInfo.of(3, "host3", 9092), false, true, false)));
-    scores =
-        memoryCost
-            .brokerCost(clusterInfo2, ClusterBean.of(Map.of(1, broker12, 2, broker22, 3, broker32)))
-            .normalize(Normalizer.TScore())
-            .value();
-    Assertions.assertEquals(0.36, scores.get(1));
-    Assertions.assertEquals(0.58, scores.get(2));
-    Assertions.assertEquals(0.56, scores.get(3));
+    var scores = memoryCost.brokerCost(Mockito.mock(ClusterInfo.class), clusterBean);
+    Assertions.assertEquals(0.4, scores.value().get(1));
+    Assertions.assertEquals(0.5, scores.value().get(2));
+    Assertions.assertEquals(0, scores.value().get(3));
   }
 
   @Test
@@ -96,8 +55,7 @@ public class MemoryCostTest extends RequireBrokerCluster {
         BeanCollector.builder()
             .build()
             .register()
-            .host(jmxServiceURL().getHost())
-            .port(jmxServiceURL().getPort())
+            .local()
             .fetcher(new MemoryCost().fetcher().get())
             .build()) {
       Assertions.assertFalse(receiver.current().isEmpty());
@@ -111,7 +69,7 @@ public class MemoryCostTest extends RequireBrokerCluster {
     }
   }
 
-  private HasJvmMemory mockResult(long used, long max) {
+  private static HasJvmMemory mockResult(long used, long max) {
     var jvmMemory = Mockito.mock(HasJvmMemory.class);
     var memoryUsage = Mockito.mock(MemoryUsage.class);
     Mockito.when(jvmMemory.heapMemoryUsage()).thenReturn(memoryUsage);
