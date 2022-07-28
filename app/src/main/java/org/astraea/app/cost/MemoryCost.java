@@ -23,9 +23,9 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 import org.astraea.app.admin.ClusterBean;
 import org.astraea.app.admin.ClusterInfo;
-import org.astraea.app.metrics.KafkaMetrics;
 import org.astraea.app.metrics.collector.Fetcher;
 import org.astraea.app.metrics.platform.HasJvmMemory;
+import org.astraea.app.metrics.platform.HostMetrics;
 
 public class MemoryCost extends Periodic<Map<Integer, Double>> implements HasBrokerCost {
 
@@ -57,6 +57,6 @@ public class MemoryCost extends Periodic<Map<Integer, Double>> implements HasBro
 
   @Override
   public Optional<Fetcher> fetcher() {
-    return Optional.of(client -> List.of(KafkaMetrics.Host.jvmMemory(client)));
+    return Optional.of(client -> List.of(HostMetrics.jvmMemory(client)));
   }
 }

@@ -76,4 +76,10 @@ public class UtilsTest {
 
     Assertions.assertEquals(Utils.sequence(List.of(future1, future2)).join(), List.of(1, 2));
   }
+
+  @Test
+  void testNonEmpty() {
+    Assertions.assertThrows(IllegalArgumentException.class, () -> Utils.requireNonEmpty(""));
+    Assertions.assertThrows(NullPointerException.class, () -> Utils.requireNonEmpty(null));
+  }
 }

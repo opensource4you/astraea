@@ -20,7 +20,6 @@ import java.time.Duration;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -31,7 +30,6 @@ import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.BiFunction;
 import org.astraea.app.common.Utils;
 import org.astraea.app.metrics.HasBeanObject;
-import org.astraea.app.metrics.KafkaMetrics;
 import org.astraea.app.metrics.MBeanClient;
 
 public class BeanCollector {
@@ -88,7 +86,7 @@ public class BeanCollector {
       private boolean local = false;
       private String host;
       private int port = -1;
-      private Fetcher fetcher = client -> List.of(KafkaMetrics.Host.jvmMemory(client));
+      private Fetcher fetcher;
 
       @Override
       public Register host(String host) {
@@ -118,7 +116,12 @@ public class BeanCollector {
 
       @Override
       public Receiver build() {
-        var nodeKey = host + ":" + port;
+        if (!local) {
+          Utils.requirePositive(port);
+          Utils.requireNonEmpty(host);
+        }
+        Objects.requireNonNull(fetcher);
+        var nodeKey = local ? "local" : host + ":" + port;
         var node = nodes.computeIfAbsent(nodeKey, ignored -> new Node());
         var receiver =
             new Receiver() {

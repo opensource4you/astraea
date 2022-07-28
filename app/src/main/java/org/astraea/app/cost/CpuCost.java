@@ -24,8 +24,8 @@ import java.util.stream.Collectors;
 import org.astraea.app.admin.ClusterBean;
 import org.astraea.app.admin.ClusterInfo;
 import org.astraea.app.metrics.HasBeanObject;
-import org.astraea.app.metrics.KafkaMetrics;
 import org.astraea.app.metrics.collector.Fetcher;
+import org.astraea.app.metrics.platform.HostMetrics;
 import org.astraea.app.metrics.platform.OperatingSystemInfo;
 
 /**
@@ -57,6 +57,6 @@ public class CpuCost implements HasBrokerCost {
 
   @Override
   public Optional<Fetcher> fetcher() {
-    return Optional.of(client -> List.of(KafkaMetrics.Host.operatingSystem(client)));
+    return Optional.of(client -> List.of(HostMetrics.operatingSystem(client)));
   }
 }
