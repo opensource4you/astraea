@@ -21,7 +21,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.condition.OS.LINUX;
-import static org.junit.jupiter.api.condition.OS.WINDOWS;
 
 import java.io.IOException;
 import java.lang.management.ManagementFactory;
@@ -40,14 +39,11 @@ import org.astraea.app.common.Utils;
 import org.astraea.app.metrics.broker.BrokerTopicMetricsResult;
 import org.astraea.app.metrics.broker.LogMetrics;
 import org.astraea.app.metrics.broker.TotalTimeMs;
-import org.astraea.app.metrics.platform.JvmMemory;
-import org.astraea.app.metrics.platform.OperatingSystemInfo;
 import org.astraea.app.service.RequireBrokerCluster;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.condition.DisabledOnOs;
 import org.junit.jupiter.api.condition.EnabledOnOs;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
@@ -150,52 +146,6 @@ class KafkaMetricsTest extends RequireBrokerCluster {
     assertEquals(
         KafkaMetrics.BrokerTopic.MessagesInPerSec, KafkaMetrics.BrokerTopic.of("MessagesInPERSEC"));
     assertThrows(IllegalArgumentException.class, () -> KafkaMetrics.BrokerTopic.of("nothing"));
-  }
-
-  @Test
-  void operatingSystem() {
-    OperatingSystemInfo operatingSystemInfo = KafkaMetrics.Host.operatingSystem(mBeanClient);
-    assertDoesNotThrow(operatingSystemInfo::arch);
-    assertDoesNotThrow(operatingSystemInfo::availableProcessors);
-    assertDoesNotThrow(operatingSystemInfo::committedVirtualMemorySize);
-    assertDoesNotThrow(operatingSystemInfo::freePhysicalMemorySize);
-    assertDoesNotThrow(operatingSystemInfo::freeSwapSpaceSize);
-    assertDoesNotThrow(operatingSystemInfo::name);
-    assertDoesNotThrow(operatingSystemInfo::processCpuLoad);
-    assertDoesNotThrow(operatingSystemInfo::processCpuTime);
-    assertDoesNotThrow(operatingSystemInfo::systemCpuLoad);
-    assertDoesNotThrow(operatingSystemInfo::systemLoadAverage);
-    assertDoesNotThrow(operatingSystemInfo::totalPhysicalMemorySize);
-    assertDoesNotThrow(operatingSystemInfo::totalSwapSpaceSize);
-    assertDoesNotThrow(operatingSystemInfo::version);
-  }
-
-  @Test
-  @DisabledOnOs(WINDOWS)
-  void maxFileDescriptorCount() {
-    OperatingSystemInfo operatingSystemInfo = KafkaMetrics.Host.operatingSystem(mBeanClient);
-    assertDoesNotThrow(operatingSystemInfo::maxFileDescriptorCount);
-  }
-
-  @Test
-  @DisabledOnOs(WINDOWS)
-  void openFileDescriptorCount() {
-    OperatingSystemInfo operatingSystemInfo = KafkaMetrics.Host.operatingSystem(mBeanClient);
-    assertDoesNotThrow(operatingSystemInfo::openFileDescriptorCount);
-  }
-
-  @Test
-  void testJvmMemory() {
-    JvmMemory jvmMemory = KafkaMetrics.Host.jvmMemory(mBeanClient);
-
-    assertDoesNotThrow(() -> jvmMemory.heapMemoryUsage().getCommitted());
-    assertDoesNotThrow(() -> jvmMemory.heapMemoryUsage().getMax());
-    assertDoesNotThrow(() -> jvmMemory.heapMemoryUsage().getUsed());
-    assertDoesNotThrow(() -> jvmMemory.heapMemoryUsage().getInit());
-    assertDoesNotThrow(() -> jvmMemory.nonHeapMemoryUsage().getCommitted());
-    assertDoesNotThrow(() -> jvmMemory.nonHeapMemoryUsage().getMax());
-    assertDoesNotThrow(() -> jvmMemory.nonHeapMemoryUsage().getUsed());
-    assertDoesNotThrow(() -> jvmMemory.nonHeapMemoryUsage().getInit());
   }
 
   @Test

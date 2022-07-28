@@ -27,8 +27,8 @@ import java.util.stream.IntStream;
 import org.astraea.app.common.Utils;
 import org.astraea.app.metrics.BeanObject;
 import org.astraea.app.metrics.HasBeanObject;
-import org.astraea.app.metrics.KafkaMetrics;
 import org.astraea.app.metrics.MBeanClient;
+import org.astraea.app.metrics.platform.HostMetrics;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
@@ -286,12 +286,27 @@ public class BeanCollectorTest {
         collector
             .register()
             .local()
-            .fetcher(client -> List.of(KafkaMetrics.Host.jvmMemory(client)))
+            .fetcher(client -> List.of(HostMetrics.jvmMemory(client)))
             .build()) {
 
       // wait for updating cache
       Utils.sleep(Duration.ofSeconds(1));
       Assertions.assertNotEquals(0, receiver.current().size());
     }
+  }
+
+  @Test
+  void testIllegalArgument() {
+    var collector =
+        BeanCollector.builder()
+            .interval(Duration.ofSeconds(1))
+            .clientCreator(clientCreator)
+            .build();
+    Assertions.assertThrows(
+        IllegalArgumentException.class, () -> collector.register().host("aaa").build());
+    Assertions.assertThrows(
+        NullPointerException.class, () -> collector.register().port(111).build());
+    Assertions.assertThrows(
+        NullPointerException.class, () -> collector.register().host("aaa").port(111).build());
   }
 }
