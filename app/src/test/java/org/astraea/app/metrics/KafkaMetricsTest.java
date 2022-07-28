@@ -109,13 +109,6 @@ class KafkaMetricsTest extends RequireBrokerCluster {
   }
 
   @ParameterizedTest()
-  @EnumSource(value = KafkaMetrics.Purgatory.class)
-  void testPurgatorySize(KafkaMetrics.Purgatory request) {
-    // act assert type casting correct and field exists
-    assertDoesNotThrow(() -> request.size(mBeanClient));
-  }
-
-  @ParameterizedTest()
   @EnumSource(value = KafkaMetrics.Request.class)
   void testRequestTotalTimeMs(KafkaMetrics.Request request) {
     // act
