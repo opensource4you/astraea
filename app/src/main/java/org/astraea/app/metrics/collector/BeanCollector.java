@@ -32,7 +32,7 @@ import java.util.function.BiFunction;
 import org.astraea.app.common.Utils;
 import org.astraea.app.metrics.HasBeanObject;
 import org.astraea.app.metrics.KafkaMetrics;
-import org.astraea.app.metrics.jmx.MBeanClient;
+import org.astraea.app.metrics.MBeanClient;
 
 public class BeanCollector {
 

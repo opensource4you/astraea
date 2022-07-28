@@ -18,7 +18,7 @@ package org.astraea.app.metrics.broker;
 
 import java.util.Map;
 import java.util.Objects;
-import org.astraea.app.metrics.jmx.BeanObject;
+import org.astraea.app.metrics.BeanObject;
 
 public class BrokerTopicMetricsResult implements HasCount, HasEventType, HasRate {
 
