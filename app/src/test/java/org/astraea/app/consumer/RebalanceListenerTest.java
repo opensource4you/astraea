@@ -18,7 +18,6 @@ package org.astraea.app.consumer;
 
 import java.time.Duration;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.astraea.app.common.Utils;
 import org.astraea.app.service.RequireBrokerCluster;
@@ -35,7 +34,6 @@ public class RebalanceListenerTest extends RequireBrokerCluster {
             .bootstrapServers(bootstrapServers())
             .consumerRebalanceListener(ignore -> getAssignment.incrementAndGet())
             .build()) {
-      CompletableFuture.runAsync(() -> consumer.poll(Duration.ofSeconds(10)));
       Utils.waitFor(
           () -> {
             consumer.poll(Duration.ofSeconds(1));
