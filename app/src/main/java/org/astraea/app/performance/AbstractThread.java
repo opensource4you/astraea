@@ -14,24 +14,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.app.concurrent;
+package org.astraea.app.performance;
 
-@FunctionalInterface
-public interface Executor extends AutoCloseable {
+import java.io.Closeable;
 
-  /**
-   * @return the state of this executor
-   * @throws InterruptedException This is an expected exception if your executor needs to call
-   *     blocking method. This exception is not printed to console.
-   */
-  State execute() throws InterruptedException;
+public interface AbstractThread extends Closeable {
 
-  /** close this executor. */
+  /** wait this thread to be completed. */
+  void waitForDone();
+
+  /** @return true if this thread is done */
+  boolean closed();
+
+  /** wakeup and then wait this thread to complete */
   @Override
-  default void close() {}
-
-  /**
-   * If this executor is in blocking mode, this method offers a way to wake up executor to close.
-   */
-  default void wakeup() {}
+  void close();
 }
