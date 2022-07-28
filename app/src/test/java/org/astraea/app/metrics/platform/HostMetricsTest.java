@@ -17,13 +17,11 @@
 package org.astraea.app.metrics.platform;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
-import static org.junit.jupiter.api.condition.OS.LINUX;
 import static org.junit.jupiter.api.condition.OS.WINDOWS;
 
 import org.astraea.app.metrics.MBeanClient;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledOnOs;
-import org.junit.jupiter.api.condition.EnabledOnOs;
 
 public class HostMetricsTest {
 
@@ -70,17 +68,5 @@ public class HostMetricsTest {
     assertDoesNotThrow(() -> jvmMemory.nonHeapMemoryUsage().getMax());
     assertDoesNotThrow(() -> jvmMemory.nonHeapMemoryUsage().getUsed());
     assertDoesNotThrow(() -> jvmMemory.nonHeapMemoryUsage().getInit());
-  }
-
-  @Test
-  @EnabledOnOs(LINUX)
-  void linuxDiskReadBytes() {
-    assertDoesNotThrow(() -> HostMetrics.linuxDiskReadBytes(MBeanClient.local()));
-  }
-
-  @Test
-  @EnabledOnOs(LINUX)
-  void linuxDiskWriteBytes() {
-    assertDoesNotThrow(() -> HostMetrics.linuxDiskWriteBytes(MBeanClient.local()));
   }
 }
