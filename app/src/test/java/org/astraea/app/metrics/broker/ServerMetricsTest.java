@@ -16,8 +16,19 @@
  */
 package org.astraea.app.metrics.broker;
 
+import static org.junit.jupiter.api.Assertions.assertThrows;
+
+import java.util.Arrays;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
+import org.astraea.app.common.Utils;
+import org.astraea.app.metrics.BeanObject;
 import org.astraea.app.metrics.MBeanClient;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
@@ -27,5 +38,51 @@ public class ServerMetricsTest {
   @EnumSource(value = ServerMetrics.DelayedOperationPurgatory.class)
   void testPurgatorySize(ServerMetrics.DelayedOperationPurgatory request) {
     request.fetch(MBeanClient.local()).forEach(s -> Assertions.assertTrue(s.value() >= 0));
+  }
+
+  @Test
+  void testKafkaMetricsOf() {
+    Arrays.stream(ServerMetrics.Topic.values())
+        .forEach(
+            t ->
+                Assertions.assertEquals(
+                    t, ServerMetrics.Topic.of(t.metricName().toLowerCase(Locale.ROOT))));
+    Arrays.stream(ServerMetrics.Topic.values())
+        .forEach(
+            t ->
+                Assertions.assertEquals(
+                    t, ServerMetrics.Topic.of(t.metricName().toUpperCase(Locale.ROOT))));
+    assertThrows(IllegalArgumentException.class, () -> ServerMetrics.Topic.of("nothing"));
+  }
+
+  @ParameterizedTest
+  @EnumSource(ServerMetrics.Topic.class)
+  void testBrokerTopic(ServerMetrics.Topic brokerTopic) {
+    var object =
+        new ServerMetrics.Topic.Meter(
+            new BeanObject("object", Map.of("name", brokerTopic.metricName()), Map.of()));
+    Assertions.assertEquals(1, brokerTopic.of(List.of(object)).size());
+
+    Assertions.assertEquals(
+        0,
+        brokerTopic
+            .of(
+                List.of(
+                    new ServerMetrics.Topic.Meter(
+                        new BeanObject(
+                            "object", Map.of("name", Utils.randomString(10)), Map.of()))))
+            .size());
+  }
+
+  @Test
+  void testAllEnumNameUnique() {
+    // arrange act
+    Set<String> collectedName =
+        Arrays.stream(ServerMetrics.Topic.values())
+            .map(ServerMetrics.Topic::metricName)
+            .collect(Collectors.toSet());
+
+    // assert
+    Assertions.assertEquals(ServerMetrics.Topic.values().length, collectedName.size());
   }
 }

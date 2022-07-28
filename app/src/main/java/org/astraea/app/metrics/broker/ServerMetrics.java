@@ -18,21 +18,24 @@ package org.astraea.app.metrics.broker;
 
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Map;
+import java.util.Objects;
 import java.util.stream.Collectors;
 import org.astraea.app.metrics.BeanObject;
 import org.astraea.app.metrics.BeanQuery;
+import org.astraea.app.metrics.HasBeanObject;
 import org.astraea.app.metrics.MBeanClient;
 
 public final class ServerMetrics {
 
   public enum DelayedOperationPurgatory {
-    AlterAcls("AlterAcls"),
-    DeleteRecords("DeleteRecords"),
-    ElectLeader("ElectLeader"),
-    Fetch("Fetch"),
-    Heartbeat("Heartbeat"),
-    Produce("Produce"),
-    Rebalance("Rebalance");
+    ALTER_ACLS("AlterAcls"),
+    DELETE_RECORDS("DeleteRecords"),
+    ELECT_LEADER("ElectLeader"),
+    FETCH("Fetch"),
+    HEARTBEAT("Heartbeat"),
+    PRODUCE("Produce"),
+    REBALANCE("Rebalance");
 
     private final String metricName;
 
@@ -78,6 +81,138 @@ public final class ServerMetrics {
 
       public DelayedOperationPurgatory type() {
         return DelayedOperationPurgatory.of(metricsName());
+      }
+
+      @Override
+      public BeanObject beanObject() {
+        return beanObject;
+      }
+    }
+  }
+
+  public enum Topic {
+    /** Message validation failure rate due to non-continuous offset or sequence number in batch */
+    INVALID_OFFSET_OR_SEQUENCE_RECORDS_PER_SEC("InvalidOffsetOrSequenceRecordsPerSec"),
+
+    /** Message validation failure rate due to incorrect crc checksum */
+    INVALID_MESSAGE_CRC_RECORDS_PER_SEC("InvalidMessageCrcRecordsPerSec"),
+
+    FETCH_MESSAGE_CONVERSIONS_PER_SEC("FetchMessageConversionsPerSec"),
+
+    BYTES_REJECTED_PER_SEC("BytesRejectedPerSec"),
+
+    /** Message in rate */
+    MESSAGES_IN_PER_SEC("MessagesInPerSec"),
+
+    /** Incoming byte rate of reassignment traffic */
+    REASSIGNMENT_BYTES_IN_PER_SEC("ReassignmentBytesInPerSec"),
+
+    FAILED_FETCH_REQUESTS_PER_SEC("FailedFetchRequestsPerSec"),
+
+    /** Byte in rate from other brokers */
+    REPLICATION_BYTES_IN_PER_SEC("ReplicationBytesInPerSec"),
+
+    /** Message validation failure rate due to no key specified for compacted topic */
+    NO_KEY_COMPACTED_TOPIC_RECORDS_PER_SEC("NoKeyCompactedTopicRecordsPerSec"),
+
+    TOTAL_FETCH_REQUESTS_PER_SEC("TotalFetchRequestsPerSec"),
+
+    FAILED_PRODUCE_REQUESTS_PER_SEC("FailedProduceRequestsPerSec"),
+
+    /** Byte in rate from clients */
+    BYTES_IN_PER_SEC("BytesInPerSec"),
+
+    TOTAL_PRODUCE_REQUESTS_PER_SEC("TotalProduceRequestsPerSec"),
+
+    /** Message validation failure rate due to invalid magic number */
+    INVALID_MAGIC_NUMBER_RECORDS_PER_SEC("InvalidMagicNumberRecordsPerSec"),
+
+    /** Outgoing byte rate of reassignment traffic */
+    REASSIGNMENT_BYTES_OUT_PER_SEC("ReassignmentBytesOutPerSec"),
+
+    /** Bytes in rate from other brokers */
+    REPLICATION_BYTES_OUT_PER_SEC("ReplicationBytesOutPerSec"),
+
+    PRODUCE_MESSAGE_CONVERSIONS_PER_SEC("ProduceMessageConversionsPerSec"),
+
+    /** Byte out rate to clients. */
+    BYTES_OUT_PER_SEC("BytesOutPerSec");
+
+    private final String metricName;
+
+    Topic(String name) {
+      this.metricName = name;
+    }
+
+    public String metricName() {
+      return metricName;
+    }
+
+    /**
+     * find out the objects related to this metrics.
+     *
+     * @param objects to search
+     * @return collection of BrokerTopicMetricsResult, or empty if all objects are not related to
+     *     this metrics
+     */
+    public Collection<Meter> of(Collection<HasBeanObject> objects) {
+      return objects.stream()
+          .filter(o -> o instanceof Meter)
+          .filter(o -> metricName().equals(o.beanObject().properties().get("name")))
+          .map(o -> (Meter) o)
+          .collect(Collectors.toUnmodifiableList());
+    }
+
+    public Meter fetch(MBeanClient mBeanClient) {
+      return new Meter(
+          mBeanClient.queryBean(
+              BeanQuery.builder()
+                  .domainName("kafka.server")
+                  .property("type", "BrokerTopicMetrics")
+                  .property("name", this.metricName())
+                  .build()));
+    }
+
+    /**
+     * resolve specific {@link Topic} by the given metric string, compare by case-insensitive
+     *
+     * @param metricName the metric to resolve
+     * @return a {@link Topic} match to give metric name
+     */
+    public static Topic of(String metricName) {
+      return Arrays.stream(Topic.values())
+          .filter(metric -> metric.metricName().equalsIgnoreCase(metricName))
+          .findFirst()
+          .orElseThrow(() -> new IllegalArgumentException("No such metric: " + metricName));
+    }
+
+    public static class Meter implements HasCount, HasEventType, HasRate {
+
+      private final BeanObject beanObject;
+
+      public Meter(BeanObject beanObject) {
+        this.beanObject = Objects.requireNonNull(beanObject);
+      }
+
+      public String metricsName() {
+        return beanObject().properties().get("name");
+      }
+
+      public Topic type() {
+        return Topic.of(metricsName());
+      }
+
+      @Override
+      public String toString() {
+        StringBuilder sb = new StringBuilder();
+        for (Map.Entry<String, Object> e : beanObject().attributes().entrySet()) {
+          sb.append(System.lineSeparator())
+              .append("  ")
+              .append(e.getKey())
+              .append("=")
+              .append(e.getValue());
+        }
+        return beanObject().properties().get("name") + "{" + sb + "}";
       }
 
       @Override
