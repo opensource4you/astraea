@@ -21,7 +21,6 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.TreeMap;
 import java.util.stream.Collectors;
 import org.astraea.app.admin.ClusterBean;
 import org.astraea.app.admin.ClusterInfo;
@@ -32,6 +31,7 @@ import org.astraea.app.metrics.HasBeanObject;
 import org.astraea.app.metrics.broker.HasValue;
 import org.astraea.app.metrics.broker.LogMetrics;
 import org.astraea.app.metrics.collector.Fetcher;
+import org.astraea.app.partitioner.Configuration;
 
 /**
  * The result is computed by "Size.Value" ,and createdTimestamp in the metrics. "Size.Value"
@@ -39,10 +39,15 @@ import org.astraea.app.metrics.collector.Fetcher;
  * increase of log size per unit time divided by the upper limit of broker bandwidth.
  */
 public class ReplicaDiskInCost implements HasBrokerCost, HasPartitionCost {
-  Map<Integer, Integer> brokerBandwidthCap;
+  private final Duration duration;
 
-  public ReplicaDiskInCost(Map<Integer, Integer> brokerBandwidthCap) {
-    this.brokerBandwidthCap = brokerBandwidthCap;
+  public ReplicaDiskInCost(Configuration configuration) {
+    duration =
+        Duration.ofSeconds(Integer.parseInt(configuration.string("metrics.duration").orElse("30")));
+  }
+
+  public ReplicaDiskInCost() {
+    duration = Duration.ofSeconds(30);
   }
 
   @Override
@@ -62,7 +67,7 @@ public class ReplicaDiskInCost implements HasBrokerCost, HasPartitionCost {
                     NodeInfo::id,
                     node -> topicPartitionOfEachBroker.getOrDefault(node.id(), List.of())));
 
-    final var topicPartitionDataRate = topicPartitionDataRate(clusterBean, Duration.ofSeconds(3));
+    final var topicPartitionDataRate = topicPartitionDataRate(clusterBean, duration);
 
     final var brokerLoad =
         actual.entrySet().stream()
@@ -76,12 +81,7 @@ public class ReplicaDiskInCost implements HasBrokerCost, HasPartitionCost {
                                     topicPartitionDataRate.get(
                                         TopicPartition.of(x.topic(), x.partition())))
                             .sum()))
-            .map(
-                entry ->
-                    Map.entry(
-                        entry.getKey(),
-                        entry.getValue() / brokerBandwidthCap.get(entry.getKey()) / 1024 / 1024))
-            .map(entry -> Map.entry(entry.getKey(), Math.min(entry.getValue(), 1)))
+            .map(entry -> Map.entry(entry.getKey(), entry.getValue()))
             .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
 
     return () -> brokerLoad;
@@ -89,25 +89,14 @@ public class ReplicaDiskInCost implements HasBrokerCost, HasPartitionCost {
 
   @Override
   public PartitionCost partitionCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
-    var replicaIn = replicaDataRate(clusterBean, Duration.ofSeconds(2));
-    var replicaScore =
-        new TreeMap<TopicPartitionReplica, Double>(
-            Comparator.comparing(TopicPartitionReplica::brokerId)
-                .thenComparing(TopicPartitionReplica::topic)
-                .thenComparing(TopicPartitionReplica::partition));
-    replicaIn.forEach(
-        (tpr, rate) -> {
-          var score = rate / brokerBandwidthCap.get(tpr.brokerId()) / 1024.0 / 1024.0;
-          if (score >= 1) score = 1;
-          replicaScore.put(tpr, score);
-        });
+    var replicaIn = replicaDataRate(clusterBean, duration);
     var scoreForTopic =
         clusterInfo.topics().stream()
             .map(
                 topic ->
                     Map.entry(
                         topic,
-                        replicaScore.entrySet().stream()
+                        replicaIn.entrySet().stream()
                             .filter(x -> x.getKey().topic().equals(topic))
                             .collect(
                                 Collectors.groupingBy(
@@ -135,7 +124,7 @@ public class ReplicaDiskInCost implements HasBrokerCost, HasPartitionCost {
                 node ->
                     Map.entry(
                         node.id(),
-                        replicaScore.entrySet().stream()
+                        replicaIn.entrySet().stream()
                             .filter(x -> x.getKey().brokerId() == node.id())
                             .collect(
                                 Collectors.groupingBy(
@@ -223,6 +212,8 @@ public class ReplicaDiskInCost implements HasBrokerCost, HasPartitionCost {
                                   "No sufficient info to determine data rate, try later."));
               var dataRate =
                   ((double) (latestSize.value() - windowSize.value()))
+                      / 1024.0
+                      / 1024.0
                       / ((double) (latestSize.createdTimestamp() - windowSize.createdTimestamp())
                           / 1000);
               return Map.entry(metrics.getKey(), dataRate);
