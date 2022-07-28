@@ -14,20 +14,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.app.cost;
+package org.astraea.app.metrics.broker;
 
-import java.util.Map;
-import java.util.concurrent.atomic.AtomicReference;
+import org.astraea.app.metrics.jmx.MBeanClient;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 
-public class CostUtils {
-  public static double standardDeviationImperative(
-      double avgMetrics, Map<Integer, Double> metrics) {
-    var variance = new AtomicReference<>(0.0);
-    metrics
-        .values()
-        .forEach(
-            metric ->
-                variance.updateAndGet(v -> v + (metric - avgMetrics) * (metric - avgMetrics)));
-    return Math.sqrt(variance.get() / metrics.size());
+public class ServerMetricsTest {
+
+  @ParameterizedTest()
+  @EnumSource(value = ServerMetrics.DelayedOperationPurgatory.class)
+  void testPurgatorySize(ServerMetrics.DelayedOperationPurgatory request) {
+    request.fetch(MBeanClient.local()).forEach(s -> Assertions.assertTrue(s.value() >= 0));
   }
 }

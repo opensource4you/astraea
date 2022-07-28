@@ -158,54 +158,6 @@ public final class KafkaMetrics {
     }
   }
 
-  public enum Purgatory {
-    AlterAcls("AlterAcls"),
-    DeleteRecords("DeleteRecords"),
-    ElectLeader("ElectLeader"),
-    Fetch("Fetch"),
-    Heartbeat("Heartbeat"),
-    Produce("Produce"),
-    Rebalance("Rebalance");
-
-    private final String metricName;
-
-    Purgatory(String name) {
-      this.metricName = name;
-    }
-
-    public String metricName() {
-      return metricName;
-    }
-
-    public Collection<HasBeanObject> fetch(MBeanClient mBeanClient) {
-      return mBeanClient
-          .queryBeans(
-              BeanQuery.builder()
-                  .domainName("kafka.server")
-                  .property("type", "DelayedOperationPurgatory")
-                  .property("delayedOperation", metricName)
-                  .property("name", "PurgatorySize")
-                  .build())
-          .stream()
-          .map(HasValue::of)
-          .collect(Collectors.toUnmodifiableList());
-    }
-
-    public int size(MBeanClient mBeanClient) {
-      return (int)
-          mBeanClient
-              .queryBean(
-                  BeanQuery.builder()
-                      .domainName("kafka.server")
-                      .property("type", "DelayedOperationPurgatory")
-                      .property("delayedOperation", this.name())
-                      .property("name", "PurgatorySize")
-                      .build())
-              .attributes()
-              .get("Value");
-    }
-  }
-
   public enum Request {
     Produce,
     FetchConsumer,
