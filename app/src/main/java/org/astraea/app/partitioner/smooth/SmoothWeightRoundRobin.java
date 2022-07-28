@@ -21,9 +21,9 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import org.astraea.app.admin.ClusterInfo;
-import org.astraea.app.cost.CostUtils;
 import org.astraea.app.cost.Periodic;
 
 /**
@@ -87,7 +87,7 @@ public final class SmoothWeightRoundRobin
               // If the average offset of all brokers from the cluster is greater than 0.1, it is
               // unbalanced.
               var balance =
-                  CostUtils.standardDeviationImperative(avgScore, brokerScore)
+                  standardDeviationImperative(avgScore, brokerScore)
                       > upperLimitOffsetRatio * avgScore;
 
               var effectiveWeights =
@@ -162,5 +162,16 @@ public final class SmoothWeightRoundRobin
           .mapToDouble(Map.Entry::getValue)
           .sum();
     }
+  }
+
+  private static double standardDeviationImperative(
+      double avgMetrics, Map<Integer, Double> metrics) {
+    var variance = new AtomicReference<>(0.0);
+    metrics
+        .values()
+        .forEach(
+            metric ->
+                variance.updateAndGet(v -> v + (metric - avgMetrics) * (metric - avgMetrics)));
+    return Math.sqrt(variance.get() / metrics.size());
   }
 }
