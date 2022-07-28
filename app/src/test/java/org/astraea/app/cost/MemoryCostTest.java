@@ -37,9 +37,9 @@ public class MemoryCostTest {
         ClusterBean.of(
             Map.of(
                 1,
-                List.of(mockResult(40L, 100L)),
+                List.of(mockResult(30L, 100L, 0), mockResult(40L, 100L, 10)),
                 2,
-                List.of(mockResult(50L, 100L)),
+                List.of(mockResult(50L, 100L, 0)),
                 3,
                 List.of()));
     var memoryCost = new MemoryCost();
@@ -69,10 +69,11 @@ public class MemoryCostTest {
     }
   }
 
-  private static HasJvmMemory mockResult(long used, long max) {
+  private static HasJvmMemory mockResult(long used, long max, long createdTimestamp) {
     var jvmMemory = Mockito.mock(HasJvmMemory.class);
     var memoryUsage = Mockito.mock(MemoryUsage.class);
     Mockito.when(jvmMemory.heapMemoryUsage()).thenReturn(memoryUsage);
+    Mockito.when(jvmMemory.createdTimestamp()).thenReturn(createdTimestamp);
     Mockito.when(memoryUsage.getUsed()).thenReturn(used);
     Mockito.when(memoryUsage.getMax()).thenReturn(max);
     return jvmMemory;

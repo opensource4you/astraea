@@ -35,11 +35,11 @@ public class CpuCostTest {
         ClusterBean.of(
             Map.of(
                 1,
-                List.of(mockResult(0.5)),
+                List.of(mockResult(0.5, 1), mockResult(0.3, 0)),
                 2,
-                List.of(mockResult(0.6)),
+                List.of(mockResult(0.6, 0)),
                 3,
-                List.of(mockResult(0.7)),
+                List.of(mockResult(0.7, 0)),
                 4,
                 List.of()));
     var cpuCost = new CpuCost();
@@ -72,9 +72,10 @@ public class CpuCostTest {
     }
   }
 
-  private static OperatingSystemInfo mockResult(double usage) {
+  private static OperatingSystemInfo mockResult(double usage, long createdTimestamp) {
     var cpu = Mockito.mock(OperatingSystemInfo.class);
     Mockito.when(cpu.systemCpuLoad()).thenReturn(usage);
+    Mockito.when(cpu.createdTimestamp()).thenReturn(createdTimestamp);
     return cpu;
   }
 }
