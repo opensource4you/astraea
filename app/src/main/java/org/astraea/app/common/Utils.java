@@ -23,6 +23,7 @@ import java.nio.file.Files;
 import java.time.Duration;
 import java.util.Collection;
 import java.util.List;
+import java.util.Objects;
 import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.concurrent.CompletableFuture;
@@ -166,6 +167,19 @@ public final class Utils {
   public static int requirePositive(int value) {
     if (value <= 0)
       throw new IllegalArgumentException("the value: " + value + " must be bigger than zero");
+    return value;
+  }
+
+  /**
+   * check the content of string
+   *
+   * @param value to check
+   * @return input string if the string is not empty. Otherwise, it throws NPE or
+   *     IllegalArgumentException
+   */
+  public static String requireNonEmpty(String value) {
+    if (Objects.requireNonNull(value).isEmpty())
+      throw new IllegalArgumentException("the value: " + value + " can't be empty");
     return value;
   }
 

@@ -16,16 +16,16 @@
  */
 package org.astraea.app.metrics.broker;
 
-import org.astraea.app.metrics.BeanObject;
-import org.astraea.app.metrics.HasBeanObject;
+import org.astraea.app.metrics.MBeanClient;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 
-public interface HasValue extends HasBeanObject {
-  default long value() {
-    var value = beanObject().attributes().getOrDefault("Value", 0);
-    return ((Number) value).longValue();
-  }
+public class ServerMetricsTest {
 
-  static HasValue of(BeanObject beanObject) {
-    return () -> beanObject;
+  @ParameterizedTest()
+  @EnumSource(value = ServerMetrics.DelayedOperationPurgatory.class)
+  void testPurgatorySize(ServerMetrics.DelayedOperationPurgatory request) {
+    request.fetch(MBeanClient.local()).forEach(s -> Assertions.assertTrue(s.value() >= 0));
   }
 }

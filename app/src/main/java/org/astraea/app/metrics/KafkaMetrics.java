@@ -24,10 +24,6 @@ import java.util.stream.Collectors;
 import org.astraea.app.metrics.broker.BrokerTopicMetricsResult;
 import org.astraea.app.metrics.broker.HasValue;
 import org.astraea.app.metrics.broker.TotalTimeMs;
-import org.astraea.app.metrics.jmx.BeanQuery;
-import org.astraea.app.metrics.jmx.MBeanClient;
-import org.astraea.app.metrics.platform.JvmMemory;
-import org.astraea.app.metrics.platform.OperatingSystemInfo;
 import org.astraea.app.metrics.producer.HasProducerNodeMetrics;
 import org.astraea.app.metrics.producer.HasProducerTopicMetrics;
 
@@ -158,54 +154,6 @@ public final class KafkaMetrics {
     }
   }
 
-  public enum Purgatory {
-    AlterAcls("AlterAcls"),
-    DeleteRecords("DeleteRecords"),
-    ElectLeader("ElectLeader"),
-    Fetch("Fetch"),
-    Heartbeat("Heartbeat"),
-    Produce("Produce"),
-    Rebalance("Rebalance");
-
-    private final String metricName;
-
-    Purgatory(String name) {
-      this.metricName = name;
-    }
-
-    public String metricName() {
-      return metricName;
-    }
-
-    public Collection<HasBeanObject> fetch(MBeanClient mBeanClient) {
-      return mBeanClient
-          .queryBeans(
-              BeanQuery.builder()
-                  .domainName("kafka.server")
-                  .property("type", "DelayedOperationPurgatory")
-                  .property("delayedOperation", metricName)
-                  .property("name", "PurgatorySize")
-                  .build())
-          .stream()
-          .map(HasValue::of)
-          .collect(Collectors.toUnmodifiableList());
-    }
-
-    public int size(MBeanClient mBeanClient) {
-      return (int)
-          mBeanClient
-              .queryBean(
-                  BeanQuery.builder()
-                      .domainName("kafka.server")
-                      .property("type", "DelayedOperationPurgatory")
-                      .property("delayedOperation", this.name())
-                      .property("name", "PurgatorySize")
-                      .build())
-              .attributes()
-              .get("Value");
-    }
-  }
-
   public enum Request {
     Produce,
     FetchConsumer,
@@ -259,33 +207,6 @@ public final class KafkaMetrics {
           .stream()
           .map(HasValue::of)
           .collect(Collectors.toUnmodifiableList());
-    }
-  }
-
-  public static final class Host {
-
-    private Host() {}
-
-    /**
-     * retrieve broker's operating system info
-     *
-     * @param mBeanClient a {@link MBeanClient} instance connect to specific kafka broker
-     * @return a {@link OperatingSystemInfo} describe broker's os info (arch, processors, memory,
-     *     cpu loading ...)
-     */
-    public static OperatingSystemInfo operatingSystem(MBeanClient mBeanClient) {
-      return new OperatingSystemInfo(
-          mBeanClient.queryBean(
-              BeanQuery.builder()
-                  .domainName("java.lang")
-                  .property("type", "OperatingSystem")
-                  .build()));
-    }
-
-    public static JvmMemory jvmMemory(MBeanClient mBeanClient) {
-      return new JvmMemory(
-          mBeanClient.queryBean(
-              BeanQuery.builder().domainName("java.lang").property("type", "Memory").build()));
     }
   }
 

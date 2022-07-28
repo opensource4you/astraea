@@ -17,7 +17,7 @@
 package org.astraea.app.metrics.platform;
 
 import java.lang.management.MemoryUsage;
-import org.astraea.app.metrics.jmx.BeanObject;
+import org.astraea.app.metrics.BeanObject;
 
 public class JvmMemory implements HasJvmMemory {
 

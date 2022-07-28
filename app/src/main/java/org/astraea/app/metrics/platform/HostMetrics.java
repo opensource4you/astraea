@@ -14,18 +14,27 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.app.metrics.broker;
+package org.astraea.app.metrics.platform;
 
-import org.astraea.app.metrics.BeanObject;
-import org.astraea.app.metrics.HasBeanObject;
+import org.astraea.app.metrics.BeanQuery;
+import org.astraea.app.metrics.MBeanClient;
 
-public interface HasValue extends HasBeanObject {
-  default long value() {
-    var value = beanObject().attributes().getOrDefault("Value", 0);
-    return ((Number) value).longValue();
+public final class HostMetrics {
+
+  public static OperatingSystemInfo operatingSystem(MBeanClient mBeanClient) {
+    return new OperatingSystemInfo(
+        mBeanClient.queryBean(
+            BeanQuery.builder()
+                .domainName("java.lang")
+                .property("type", "OperatingSystem")
+                .build()));
   }
 
-  static HasValue of(BeanObject beanObject) {
-    return () -> beanObject;
+  public static JvmMemory jvmMemory(MBeanClient mBeanClient) {
+    return new JvmMemory(
+        mBeanClient.queryBean(
+            BeanQuery.builder().domainName("java.lang").property("type", "Memory").build()));
   }
+
+  private HostMetrics() {}
 }

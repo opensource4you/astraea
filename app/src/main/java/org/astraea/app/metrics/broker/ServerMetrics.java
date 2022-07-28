@@ -18,23 +18,25 @@ package org.astraea.app.metrics.broker;
 
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.List;
 import java.util.stream.Collectors;
 import org.astraea.app.metrics.BeanObject;
 import org.astraea.app.metrics.BeanQuery;
-import org.astraea.app.metrics.HasBeanObject;
 import org.astraea.app.metrics.MBeanClient;
 
-public final class LogMetrics {
+public final class ServerMetrics {
 
-  public enum Log {
-    LOG_END_OFFSET("LogEndOffset"),
-    LOG_START_OFFSET("LogStartOffset"),
-    NUM_LOG_SEGMENTS("NumLogSegments"),
-    SIZE("Size");
+  public enum DelayedOperationPurgatory {
+    AlterAcls("AlterAcls"),
+    DeleteRecords("DeleteRecords"),
+    ElectLeader("ElectLeader"),
+    Fetch("Fetch"),
+    Heartbeat("Heartbeat"),
+    Produce("Produce"),
+    Rebalance("Rebalance");
+
     private final String metricName;
 
-    Log(String name) {
+    DelayedOperationPurgatory(String name) {
       this.metricName = name;
     }
 
@@ -42,57 +44,40 @@ public final class LogMetrics {
       return metricName;
     }
 
-    public static LogMetrics.Log of(String metricName) {
-      return Arrays.stream(LogMetrics.Log.values())
+    public Collection<Size> fetch(MBeanClient mBeanClient) {
+      return mBeanClient
+          .queryBeans(
+              BeanQuery.builder()
+                  .domainName("kafka.server")
+                  .property("type", "DelayedOperationPurgatory")
+                  .property("delayedOperation", metricName)
+                  .property("name", "PurgatorySize")
+                  .build())
+          .stream()
+          .map(Size::new)
+          .collect(Collectors.toUnmodifiableList());
+    }
+
+    public static DelayedOperationPurgatory of(String metricName) {
+      return Arrays.stream(DelayedOperationPurgatory.values())
           .filter(metric -> metric.metricName().equalsIgnoreCase(metricName))
           .findFirst()
           .orElseThrow(() -> new IllegalArgumentException("No such metric: " + metricName));
     }
 
-    public static Collection<Meter> meters(Collection<HasBeanObject> beans, Log type) {
-      return beans.stream()
-          .filter(m -> m instanceof Meter)
-          .map(m -> (Meter) m)
-          .filter(m -> m.type() == type)
-          .collect(Collectors.toUnmodifiableList());
-    }
-
-    public List<Meter> fetch(MBeanClient mBeanClient) {
-      return mBeanClient
-          .queryBeans(
-              BeanQuery.builder()
-                  .domainName("kafka.log")
-                  .property("type", "Log")
-                  .property("topic", "*")
-                  .property("partition", "*")
-                  .property("name", metricName)
-                  .build())
-          .stream()
-          .map(Meter::new)
-          .collect(Collectors.toUnmodifiableList());
-    }
-
-    public static class Meter implements HasValue {
+    public static class Size implements HasValue {
       private final BeanObject beanObject;
 
-      public Meter(BeanObject beanObject) {
+      public Size(BeanObject beanObject) {
         this.beanObject = beanObject;
       }
 
-      public String topic() {
-        return beanObject().properties().get("topic");
-      }
-
-      public int partition() {
-        return Integer.parseInt(beanObject().properties().get("partition"));
-      }
-
       public String metricsName() {
-        return beanObject().properties().get("name");
+        return beanObject().properties().get("delayedOperation");
       }
 
-      public Log type() {
-        return Log.of(metricsName());
+      public DelayedOperationPurgatory type() {
+        return DelayedOperationPurgatory.of(metricsName());
       }
 
       @Override
@@ -101,6 +86,4 @@ public final class LogMetrics {
       }
     }
   }
-
-  private LogMetrics() {}
 }
