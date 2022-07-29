@@ -31,25 +31,26 @@ public class NodeThroughputCost implements HasBrokerCost {
   @Override
   public BrokerCost brokerCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
     var result =
-        clusterBean.all().entrySet().stream()
+        clusterBean.all().values().stream()
+            .flatMap(Collection::stream)
+            .filter(b -> b instanceof HasProducerNodeMetrics)
+            .map(b -> (HasProducerNodeMetrics) b)
+            .filter(b -> !Double.isNaN(b.incomingByteRate()) && !Double.isNaN(b.outgoingByteRate()))
+            .collect(Collectors.groupingBy(HasProducerNodeMetrics::brokerId))
+            .entrySet()
+            .stream()
             .collect(
                 Collectors.toMap(
                     Map.Entry::getKey,
                     e ->
                         e.getValue().stream()
-                            .filter(b -> b instanceof HasProducerNodeMetrics)
-                            .map(b -> (HasProducerNodeMetrics) b)
-                            .mapToDouble(b -> b.incomingByteRate() + b.outgoingByteRate())
+                            .mapToDouble(m -> m.incomingByteRate() + m.outgoingByteRate())
                             .sum()));
     return () -> result;
   }
 
   @Override
   public Optional<Fetcher> fetcher() {
-    return Optional.of(
-        client ->
-            KafkaMetrics.Producer.nodes(client).values().stream()
-                .flatMap(Collection::stream)
-                .collect(Collectors.toUnmodifiableList()));
+    return Optional.of(KafkaMetrics.Producer::nodes);
   }
 }

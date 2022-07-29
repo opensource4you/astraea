@@ -17,9 +17,9 @@
 package org.astraea.app.metrics.producer;
 
 import java.time.Duration;
-import java.util.Collection;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
+import java.util.stream.Collectors;
 import org.astraea.app.admin.Admin;
 import org.astraea.app.admin.TopicPartition;
 import org.astraea.app.common.Utils;
@@ -80,10 +80,12 @@ public class HasProducerNodeMetricsTest extends RequireBrokerCluster {
           .get();
       var metrics = KafkaMetrics.Producer.nodes(MBeanClient.local());
       Assertions.assertNotEquals(1, metrics.size());
-      Assertions.assertTrue(metrics.keySet().containsAll(brokerIds()));
-      metrics.values().stream()
-          .flatMap(Collection::stream)
-          .forEach(HasProducerNodeMetricsTest::check);
+      Assertions.assertTrue(
+          metrics.stream()
+              .map(HasProducerNodeMetrics::brokerId)
+              .collect(Collectors.toUnmodifiableList())
+              .containsAll(brokerIds()));
+      metrics.forEach(HasProducerNodeMetricsTest::check);
     }
   }
 
