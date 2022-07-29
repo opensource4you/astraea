@@ -44,7 +44,7 @@ FROM ghcr.io/skiptests/astraea/deps AS build
 
 # clone repo
 WORKDIR /tmp
-RUN git clone https://github.com/chia7712/astraea
+RUN git clone https://github.com/skiptests/astraea
 
 # pre-build project to collect all dependencies
 WORKDIR /tmp/astraea
