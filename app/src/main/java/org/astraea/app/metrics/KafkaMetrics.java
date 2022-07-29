@@ -19,7 +19,6 @@ package org.astraea.app.metrics;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Map;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.astraea.app.metrics.broker.HasValue;
 import org.astraea.app.metrics.broker.TotalTimeMs;
@@ -88,6 +87,10 @@ public final class KafkaMetrics {
 
   public static final class Producer {
 
+    private static int brokerId(String node) {
+      return Integer.parseInt(node.substring(node.indexOf("-") + 1));
+    }
+
     private Producer() {}
 
     /**
@@ -108,7 +111,9 @@ public final class KafkaMetrics {
                   .build())
           .stream()
           .collect(
-              Collectors.toUnmodifiableMap(b -> b.properties().get("client-id"), b -> () -> b));
+              Collectors.toUnmodifiableMap(
+                  b -> b.properties().get("client-id"),
+                  b -> HasProducerNodeMetrics.of(b, brokerId(b.properties().get("node-id")))));
     }
 
     /**
@@ -117,9 +122,7 @@ public final class KafkaMetrics {
      * @param mBeanClient to query metrics
      * @return key is broker id, and value is associated to broker metrics recorded by all producers
      */
-    public static Map<Integer, Collection<HasProducerNodeMetrics>> nodes(MBeanClient mBeanClient) {
-      Function<String, Integer> brokerId =
-          string -> Integer.parseInt(string.substring(string.indexOf("-") + 1));
+    public static Collection<HasProducerNodeMetrics> nodes(MBeanClient mBeanClient) {
       return mBeanClient
           .queryBeans(
               BeanQuery.builder()
@@ -129,16 +132,8 @@ public final class KafkaMetrics {
                   .property("client-id", "*")
                   .build())
           .stream()
-          .collect(Collectors.groupingBy(b -> brokerId.apply(b.properties().get("node-id"))))
-          .entrySet()
-          .stream()
-          .collect(
-              Collectors.toMap(
-                  Map.Entry::getKey,
-                  e ->
-                      e.getValue().stream()
-                          .map(b -> (HasProducerNodeMetrics) (() -> b))
-                          .collect(Collectors.toUnmodifiableList())));
+          .map(b -> HasProducerNodeMetrics.of(b, brokerId(b.properties().get("node-id"))))
+          .collect(Collectors.toUnmodifiableList());
     }
 
     /**
