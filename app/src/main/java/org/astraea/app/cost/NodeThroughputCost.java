@@ -17,6 +17,7 @@
 package org.astraea.app.cost;
 
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -44,6 +45,10 @@ public class NodeThroughputCost implements HasBrokerCost {
                     Map.Entry::getKey,
                     e ->
                         e.getValue().stream()
+                            .sorted(
+                                Comparator.comparing(HasProducerNodeMetrics::createdTimestamp)
+                                    .reversed())
+                            .limit(1)
                             .mapToDouble(m -> m.incomingByteRate() + m.outgoingByteRate())
                             .sum()));
     return () -> result;
