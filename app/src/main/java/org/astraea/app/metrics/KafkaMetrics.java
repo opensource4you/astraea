@@ -21,7 +21,6 @@ import java.util.Collection;
 import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import org.astraea.app.metrics.broker.BrokerTopicMetricsResult;
 import org.astraea.app.metrics.broker.HasValue;
 import org.astraea.app.metrics.broker.TotalTimeMs;
 import org.astraea.app.metrics.producer.HasProducerNodeMetrics;
@@ -30,129 +29,6 @@ import org.astraea.app.metrics.producer.HasProducerTopicMetrics;
 public final class KafkaMetrics {
 
   private KafkaMetrics() {}
-
-  public enum BrokerTopic {
-    /** Message validation failure rate due to non-continuous offset or sequence number in batch */
-    InvalidOffsetOrSequenceRecordsPerSec("InvalidOffsetOrSequenceRecordsPerSec"),
-
-    /** Message validation failure rate due to incorrect crc checksum */
-    InvalidMessageCrcRecordsPerSec("InvalidMessageCrcRecordsPerSec"),
-
-    FetchMessageConversionsPerSec("FetchMessageConversionsPerSec"),
-
-    BytesRejectedPerSec("BytesRejectedPerSec"),
-
-    /** Message in rate */
-    MessagesInPerSec("MessagesInPerSec"),
-
-    /** Incoming byte rate of reassignment traffic */
-    ReassignmentBytesInPerSec("ReassignmentBytesInPerSec"),
-
-    FailedFetchRequestsPerSec("FailedFetchRequestsPerSec"),
-
-    /** Byte in rate from other brokers */
-    ReplicationBytesInPerSec("ReplicationBytesInPerSec"),
-
-    /** Message validation failure rate due to no key specified for compacted topic */
-    NoKeyCompactedTopicRecordsPerSec("NoKeyCompactedTopicRecordsPerSec"),
-
-    TotalFetchRequestsPerSec("TotalFetchRequestsPerSec"),
-
-    FailedProduceRequestsPerSec("FailedProduceRequestsPerSec"),
-
-    /** Byte in rate from clients */
-    BytesInPerSec("BytesInPerSec"),
-
-    TotalProduceRequestsPerSec("TotalProduceRequestsPerSec"),
-
-    /** Message validation failure rate due to invalid magic number */
-    InvalidMagicNumberRecordsPerSec("InvalidMagicNumberRecordsPerSec"),
-
-    /** Outgoing byte rate of reassignment traffic */
-    ReassignmentBytesOutPerSec("ReassignmentBytesOutPerSec"),
-
-    /** Bytes in rate from other brokers */
-    ReplicationBytesOutPerSec("ReplicationBytesOutPerSec"),
-
-    ProduceMessageConversionsPerSec("ProduceMessageConversionsPerSec"),
-
-    /** Byte out rate to clients. */
-    BytesOutPerSec("BytesOutPerSec");
-
-    private final String metricName;
-
-    BrokerTopic(String name) {
-      this.metricName = name;
-    }
-
-    public String metricName() {
-      return metricName;
-    }
-
-    /**
-     * find out the objects related to this metrics.
-     *
-     * @param objects to search
-     * @return collection of BrokerTopicMetricsResult, or empty if all objects are not related to
-     *     this metrics
-     */
-    public Collection<BrokerTopicMetricsResult> of(Collection<HasBeanObject> objects) {
-      return objects.stream()
-          .filter(o -> o instanceof BrokerTopicMetricsResult)
-          .filter(o -> metricName().equals(o.beanObject().properties().get("name")))
-          .map(o -> (BrokerTopicMetricsResult) o)
-          .collect(Collectors.toUnmodifiableList());
-    }
-
-    public BrokerTopicMetricsResult fetch(MBeanClient mBeanClient) {
-      return new BrokerTopicMetricsResult(
-          mBeanClient.queryBean(
-              BeanQuery.builder()
-                  .domainName("kafka.server")
-                  .property("type", "BrokerTopicMetrics")
-                  .property("name", this.metricName())
-                  .build()));
-    }
-
-    /**
-     * resolve specific {@link BrokerTopic} by the given metric string, compare by case insensitive
-     *
-     * @param metricName the metric to resolve
-     * @return a {@link BrokerTopic} match to give metric name
-     */
-    public static BrokerTopic of(String metricName) {
-      return Arrays.stream(BrokerTopic.values())
-          .filter(metric -> metric.metricName().equalsIgnoreCase(metricName))
-          .findFirst()
-          .orElseThrow(() -> new IllegalArgumentException("No such metric: " + metricName));
-    }
-
-    public static long linuxDiskReadBytes(MBeanClient mBeanClient) {
-      return (long)
-          mBeanClient
-              .queryBean(
-                  BeanQuery.builder()
-                      .domainName("kafka.server")
-                      .property("type", "KafkaServer")
-                      .property("name", "linux-disk-read-bytes")
-                      .build())
-              .attributes()
-              .get("Value");
-    }
-
-    public static long linuxDiskWriteBytes(MBeanClient mBeanClient) {
-      return (long)
-          mBeanClient
-              .queryBean(
-                  BeanQuery.builder()
-                      .domainName("kafka.server")
-                      .property("type", "KafkaServer")
-                      .property("name", "linux-disk-write-bytes")
-                      .build())
-              .attributes()
-              .get("Value");
-    }
-  }
 
   public enum Request {
     Produce,

@@ -22,8 +22,7 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 import org.astraea.app.admin.ClusterBean;
 import org.astraea.app.admin.ClusterInfo;
-import org.astraea.app.metrics.KafkaMetrics;
-import org.astraea.app.metrics.broker.BrokerTopicMetricsResult;
+import org.astraea.app.metrics.broker.ServerMetrics;
 import org.astraea.app.metrics.collector.Fetcher;
 
 public class BrokerOutputCost implements HasBrokerCost {
@@ -36,14 +35,14 @@ public class BrokerOutputCost implements HasBrokerCost {
                 Collectors.toMap(
                     Map.Entry::getKey,
                     entry ->
-                        KafkaMetrics.BrokerTopic.BytesOutPerSec.of(entry.getValue()).stream()
-                            .mapToDouble(BrokerTopicMetricsResult::oneMinuteRate)
+                        ServerMetrics.Topic.BYTES_OUT_PER_SEC.of(entry.getValue()).stream()
+                            .mapToDouble(ServerMetrics.Topic.Meter::oneMinuteRate)
                             .sum()));
     return () -> brokerCost;
   }
 
   @Override
   public Optional<Fetcher> fetcher() {
-    return Optional.of(client -> List.of(KafkaMetrics.BrokerTopic.BytesOutPerSec.fetch(client)));
+    return Optional.of(client -> List.of(ServerMetrics.Topic.BYTES_OUT_PER_SEC.fetch(client)));
   }
 }

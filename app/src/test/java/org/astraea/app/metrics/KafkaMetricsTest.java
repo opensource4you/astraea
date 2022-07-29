@@ -17,34 +17,22 @@
 package org.astraea.app.metrics;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.condition.OS.LINUX;
 
 import java.io.IOException;
 import java.lang.management.ManagementFactory;
 import java.time.Duration;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.stream.Collectors;
 import javax.management.MBeanServer;
 import javax.management.remote.JMXConnectorServer;
 import javax.management.remote.JMXConnectorServerFactory;
 import javax.management.remote.JMXServiceURL;
 import org.astraea.app.admin.Admin;
 import org.astraea.app.common.Utils;
-import org.astraea.app.metrics.broker.BrokerTopicMetricsResult;
 import org.astraea.app.metrics.broker.LogMetrics;
 import org.astraea.app.metrics.broker.TotalTimeMs;
 import org.astraea.app.service.RequireBrokerCluster;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.condition.EnabledOnOs;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
@@ -71,35 +59,6 @@ class KafkaMetricsTest extends RequireBrokerCluster {
     jmxServer.stop();
     mBeanServer = null;
     mBeanClient.close();
-  }
-
-  @Test
-  void testAllEnumNameUnique() {
-    // arrange act
-    Set<String> collectedName =
-        Arrays.stream(KafkaMetrics.BrokerTopic.values())
-            .map(KafkaMetrics.BrokerTopic::metricName)
-            .collect(Collectors.toSet());
-
-    // assert
-    assertEquals(KafkaMetrics.BrokerTopic.values().length, collectedName.size());
-  }
-
-  @ParameterizedTest
-  @EnumSource(value = KafkaMetrics.BrokerTopic.class)
-  void testRequestBrokerTopicMetrics(KafkaMetrics.BrokerTopic metric) {
-    // act
-    BrokerTopicMetricsResult result = metric.fetch(mBeanClient);
-
-    // assert access attribute will not throw casting error
-    // assert attribute actually exists
-    assertDoesNotThrow(result::count);
-    assertDoesNotThrow(result::eventType);
-    assertDoesNotThrow(result::fifteenMinuteRate);
-    assertDoesNotThrow(result::fiveMinuteRate);
-    assertDoesNotThrow(result::meanRate);
-    assertDoesNotThrow(result::oneMinuteRate);
-    assertDoesNotThrow(result::rateUnit);
   }
 
   @ParameterizedTest()
@@ -135,47 +94,5 @@ class KafkaMetricsTest extends RequireBrokerCluster {
 
     var beans = request.fetch(mBeanClient);
     assertNotEquals(0, beans.size());
-  }
-
-  @Test
-  void testKafkaMetricsOf() {
-    assertEquals(
-        KafkaMetrics.BrokerTopic.BytesInPerSec, KafkaMetrics.BrokerTopic.of("ByTeSiNpErSeC"));
-    assertEquals(
-        KafkaMetrics.BrokerTopic.BytesOutPerSec, KafkaMetrics.BrokerTopic.of("bytesoutpersec"));
-    assertEquals(
-        KafkaMetrics.BrokerTopic.MessagesInPerSec, KafkaMetrics.BrokerTopic.of("MessagesInPERSEC"));
-    assertThrows(IllegalArgumentException.class, () -> KafkaMetrics.BrokerTopic.of("nothing"));
-  }
-
-  @Test
-  @EnabledOnOs(LINUX)
-  void linuxDiskReadBytes() {
-    assertDoesNotThrow(() -> KafkaMetrics.BrokerTopic.linuxDiskReadBytes(mBeanClient));
-  }
-
-  @Test
-  @EnabledOnOs(LINUX)
-  void linuxDiskWriteBytes() {
-    assertDoesNotThrow(() -> KafkaMetrics.BrokerTopic.linuxDiskWriteBytes(mBeanClient));
-  }
-
-  @ParameterizedTest
-  @EnumSource(KafkaMetrics.BrokerTopic.class)
-  void testBrokerTopic(KafkaMetrics.BrokerTopic brokerTopic) {
-    var object =
-        new BrokerTopicMetricsResult(
-            new BeanObject("object", Map.of("name", brokerTopic.metricName()), Map.of()));
-    Assertions.assertEquals(1, brokerTopic.of(List.of(object)).size());
-
-    Assertions.assertEquals(
-        0,
-        brokerTopic
-            .of(
-                List.of(
-                    new BrokerTopicMetricsResult(
-                        new BeanObject(
-                            "object", Map.of("name", Utils.randomString(10)), Map.of()))))
-            .size());
   }
 }
