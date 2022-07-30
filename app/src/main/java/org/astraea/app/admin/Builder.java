@@ -28,6 +28,7 @@ import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ExecutionException;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -59,6 +60,7 @@ import org.astraea.app.common.Utils;
 public class Builder {
 
   private final Map<String, Object> configs = new HashMap<>();
+  private static final String ERROR_MSG_MEMBER_IS_EMPTY = "leaving members should not be empty";
 
   Builder() {}
 
@@ -552,13 +554,19 @@ public class Builder {
     public void removeAllMembers(String groupId) {
       Utils.packException(
           () -> {
-            // removeMembersFromConsumerGroup don't allow size 0
-            if (consumerGroups(Set.of(groupId)).get(groupId).activeMembers().size() != 0) {
+            try {
               admin
                   .removeMembersFromConsumerGroup(
                       groupId, new RemoveMembersFromConsumerGroupOptions())
                   .all()
                   .get();
+            } catch (ExecutionException e) {
+              // Deleting all members can't work when there is no members already.
+              var realException = e.getCause();
+              if (realException instanceof IllegalArgumentException
+                  && !ERROR_MSG_MEMBER_IS_EMPTY.equals(realException.getMessage())) {
+                throw e;
+              }
             }
           });
     }

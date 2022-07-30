@@ -45,15 +45,19 @@ public class GroupHandler implements Handler {
       admin.removeGroup(groupId);
       return Response.OK;
     }
-    var groupInstanceId = queries.get(INSTANCE_KEY);
-    var activeMembers = admin.consumerGroups(Set.of(groupId)).get(groupId).activeMembers();
-    // Deleting all members can't work when there is no members already.
-    if (groupInstanceId == null && !activeMembers.isEmpty()) admin.removeAllMembers(groupId);
-    // Deleting nonexistent instance id can cause error
-    if (groupInstanceId != null
-        && activeMembers.stream()
-            .anyMatch(m -> m.groupInstanceId().filter(g -> g.equals(groupInstanceId)).isPresent()))
-      admin.removeStaticMembers(groupId, Set.of(groupInstanceId));
+
+    Optional.ofNullable(queries.get(INSTANCE_KEY))
+        .ifPresentOrElse(
+            groupInstanceId -> {
+              var activeMembers =
+                  admin.consumerGroups(Set.of(groupId)).get(groupId).activeMembers();
+
+              if (activeMembers.stream()
+                  .anyMatch(x -> groupInstanceId.equals(x.groupInstanceId().orElse(null)))) {
+                admin.removeStaticMembers(groupId, Set.of(groupInstanceId));
+              }
+            },
+            () -> admin.removeAllMembers(groupId));
     return Response.OK;
   }
 

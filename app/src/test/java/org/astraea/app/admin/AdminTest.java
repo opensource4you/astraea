@@ -888,7 +888,28 @@ public class AdminTest extends RequireBrokerCluster {
               .get(consumer.groupId())
               .activeMembers()
               .size());
-      admin.removeAllMembers(consumer.groupId());
+    }
+  }
+
+  @Test
+  void testRemoveEmptyMember() {
+    var topicName = Utils.randomString(10);
+    var groupId = Utils.randomString(10);
+    try (var admin = Admin.of(bootstrapServers())) {
+      try (var consumer =
+          Consumer.forTopics(Set.of(topicName))
+              .bootstrapServers(bootstrapServers())
+              .groupId(groupId)
+              .groupInstanceId(Utils.randomString(10))
+              .build()) {
+        Assertions.assertEquals(0, consumer.poll(Duration.ofSeconds(3)).size());
+      }
+      Assertions.assertEquals(
+          1, admin.consumerGroups(Set.of(groupId)).get(groupId).activeMembers().size());
+      admin.removeAllMembers(groupId);
+      Assertions.assertEquals(
+          0, admin.consumerGroups(Set.of(groupId)).get(groupId).activeMembers().size());
+      admin.removeAllMembers(groupId);
     }
   }
 
