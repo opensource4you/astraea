@@ -26,7 +26,6 @@ import java.util.stream.IntStream;
 import org.astraea.app.admin.Admin;
 import org.astraea.app.common.Utils;
 import org.astraea.app.service.RequireBrokerCluster;
-import org.astraea.app.test.CustomAssertions;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -207,11 +206,15 @@ public class TopicHandlerTest extends RequireBrokerCluster {
           x -> admin.creator().topic(x).numberOfPartitions(3).numberOfReplicas((short) 3).create());
 
       handler.delete(topicNames.get(0), Map.of());
-      CustomAssertions.assertContain(
-          Set.of(topicNames.get(1), topicNames.get(2)), admin.topicNames());
+      var latestTopicNames = admin.topicNames();
+      Assertions.assertFalse(latestTopicNames.contains(topicNames.get(0)));
+      Assertions.assertTrue(latestTopicNames.contains(topicNames.get(1)));
+      Assertions.assertTrue(latestTopicNames.contains(topicNames.get(2)));
 
       handler.delete(topicNames.get(2), Map.of());
-      CustomAssertions.assertContain(Set.of(topicNames.get(1)), admin.topicNames());
+      latestTopicNames = admin.topicNames();
+      Assertions.assertFalse(latestTopicNames.contains(topicNames.get(2)));
+      Assertions.assertTrue(latestTopicNames.contains(topicNames.get(1)));
     }
   }
 }

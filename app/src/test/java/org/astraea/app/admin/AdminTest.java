@@ -44,7 +44,6 @@ import org.astraea.app.consumer.Deserializer;
 import org.astraea.app.producer.Producer;
 import org.astraea.app.producer.Serializer;
 import org.astraea.app.service.RequireBrokerCluster;
-import org.astraea.app.test.CustomAssertions;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
@@ -1154,11 +1153,16 @@ public class AdminTest extends RequireBrokerCluster {
           x -> admin.creator().topic(x).numberOfPartitions(3).numberOfReplicas((short) 3).create());
 
       admin.deleteTopics(Set.of(topicNames.get(0), topicNames.get(1)));
-      CustomAssertions.assertContain(
-          Set.of(topicNames.get(2), topicNames.get(3)), admin.topicNames());
+      var latestTopicNames = admin.topicNames();
+      Assertions.assertFalse(latestTopicNames.contains(topicNames.get(0)));
+      Assertions.assertFalse(latestTopicNames.contains(topicNames.get(1)));
+      Assertions.assertTrue(latestTopicNames.contains(topicNames.get(2)));
+      Assertions.assertTrue(latestTopicNames.contains(topicNames.get(3)));
 
       admin.deleteTopics(Set.of(topicNames.get(3)));
-      CustomAssertions.assertContain(Set.of(topicNames.get(2)), admin.topicNames());
+      latestTopicNames = admin.topicNames();
+      Assertions.assertFalse(latestTopicNames.contains(topicNames.get(3)));
+      Assertions.assertTrue(latestTopicNames.contains(topicNames.get(2)));
     }
   }
 }
