@@ -113,6 +113,12 @@ class TopicHandler implements Handler {
     return new TopicInfo(request.value(TOPIC_NAME_KEY), List.of(), Map.of());
   }
 
+  @Override
+  public Response delete(String topic, Map<String, String> queries) {
+    admin.deleteTopics(Set.of(topic));
+    return Response.OK;
+  }
+
   static class Topics implements Response {
     final Collection<TopicInfo> topics;
 
