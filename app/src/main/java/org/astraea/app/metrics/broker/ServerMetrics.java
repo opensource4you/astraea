@@ -18,7 +18,6 @@ package org.astraea.app.metrics.broker;
 
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
 import org.astraea.app.metrics.BeanObject;
@@ -204,15 +203,70 @@ public final class ServerMetrics {
 
       @Override
       public String toString() {
-        StringBuilder sb = new StringBuilder();
-        for (Map.Entry<String, Object> e : beanObject().attributes().entrySet()) {
-          sb.append(System.lineSeparator())
-              .append("  ")
-              .append(e.getKey())
-              .append("=")
-              .append(e.getValue());
-        }
-        return beanObject().properties().get("name") + "{" + sb + "}";
+        return beanObject().toString();
+      }
+
+      @Override
+      public BeanObject beanObject() {
+        return beanObject;
+      }
+    }
+  }
+
+  public enum ReplicaManager {
+    AT_MIN_ISR_PARTITION_COUNT("AtMinIsrPartitionCount"),
+    LEADER_COUNT("LeaderCount"),
+    OFFLINE_REPLICA_COUNT("OfflineReplicaCount"),
+    PARTITION_COUNT("PartitionCount"),
+    REASSIGNING_PARTITIONS("ReassigningPartitions"),
+    UNDER_MIN_ISR_PARTITION_COUNT("UnderMinIsrPartitionCount"),
+    UNDER_REPLICATED_PARTITIONS("UnderReplicatedPartitions");
+    private final String metricName;
+
+    ReplicaManager(String name) {
+      this.metricName = name;
+    }
+
+    public String metricName() {
+      return metricName;
+    }
+
+    public static ReplicaManager of(String metricName) {
+      return Arrays.stream(ReplicaManager.values())
+          .filter(metric -> metric.metricName().equalsIgnoreCase(metricName))
+          .findFirst()
+          .orElseThrow(() -> new IllegalArgumentException("No such metric: " + metricName));
+    }
+
+    public Meter fetch(MBeanClient mBeanClient) {
+      return new Meter(
+          mBeanClient.queryBean(
+              BeanQuery.builder()
+                  .domainName("kafka.server")
+                  .property("type", "ReplicaManager")
+                  .property("name", metricName)
+                  .build()));
+    }
+
+    public static class Meter implements HasValue {
+
+      private final BeanObject beanObject;
+
+      public Meter(BeanObject beanObject) {
+        this.beanObject = Objects.requireNonNull(beanObject);
+      }
+
+      public String metricsName() {
+        return beanObject().properties().get("name");
+      }
+
+      public ReplicaManager type() {
+        return ReplicaManager.of(metricsName());
+      }
+
+      @Override
+      public String toString() {
+        return beanObject().toString();
       }
 
       @Override
