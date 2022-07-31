@@ -26,9 +26,9 @@ import org.astraea.app.admin.ClusterInfo;
 import org.astraea.app.common.Utils;
 import org.astraea.app.metrics.BeanObject;
 import org.astraea.app.metrics.HasBeanObject;
-import org.astraea.app.metrics.KafkaMetrics;
 import org.astraea.app.metrics.MBeanClient;
 import org.astraea.app.metrics.producer.HasProducerNodeMetrics;
+import org.astraea.app.metrics.producer.ProducerMetrics;
 import org.astraea.app.producer.Producer;
 import org.astraea.app.service.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
@@ -71,7 +71,7 @@ public class NodeLatencyCostTest extends RequireBrokerCluster {
       producer.sender().topic(Utils.randomString(10)).value(new byte[100]).run();
       producer.flush();
 
-      var beans = KafkaMetrics.Producer.nodes(MBeanClient.local());
+      var beans = ProducerMetrics.nodes(MBeanClient.local());
       var clusterBean =
           ClusterBean.of(
               Map.of(

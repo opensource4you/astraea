@@ -23,7 +23,6 @@ import java.util.stream.Collectors;
 import org.astraea.app.admin.Admin;
 import org.astraea.app.admin.TopicPartition;
 import org.astraea.app.common.Utils;
-import org.astraea.app.metrics.KafkaMetrics;
 import org.astraea.app.metrics.MBeanClient;
 import org.astraea.app.producer.Producer;
 import org.astraea.app.service.RequireBrokerCluster;
@@ -41,7 +40,7 @@ public class HasProducerNodeMetricsTest extends RequireBrokerCluster {
       Utils.sleep(Duration.ofSeconds(3));
       var owner = admin.replicas(Set.of(topic)).get(TopicPartition.of(topic, 0)).get(0).broker();
       producer.sender().topic(topic).run().toCompletableFuture().get();
-      var metrics = KafkaMetrics.Producer.node(MBeanClient.local(), owner);
+      var metrics = ProducerMetrics.node(MBeanClient.local(), owner);
       Assertions.assertEquals(1, metrics.size());
       check(metrics.get("producer-1"));
     }
@@ -78,7 +77,7 @@ public class HasProducerNodeMetricsTest extends RequireBrokerCluster {
           .run()
           .toCompletableFuture()
           .get();
-      var metrics = KafkaMetrics.Producer.nodes(MBeanClient.local());
+      var metrics = ProducerMetrics.nodes(MBeanClient.local());
       Assertions.assertNotEquals(1, metrics.size());
       Assertions.assertTrue(
           metrics.stream()
