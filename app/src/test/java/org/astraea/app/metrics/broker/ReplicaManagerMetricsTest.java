@@ -14,25 +14,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.app.metrics.platform;
+package org.astraea.app.metrics.broker;
 
-import org.astraea.app.metrics.BeanObject;
+import org.astraea.app.metrics.MBeanClient;
+import org.astraea.app.service.RequireSingleBrokerCluster;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 
-public class OperatingSystemInfo implements HasOperatingSystemInfo {
+public class ReplicaManagerMetricsTest extends RequireSingleBrokerCluster {
 
-  private final BeanObject beanObject;
-
-  public OperatingSystemInfo(BeanObject beanObject) {
-    this.beanObject = beanObject;
-  }
-
-  @Override
-  public BeanObject beanObject() {
-    return beanObject;
-  }
-
-  @Override
-  public String toString() {
-    return beanObject().toString();
+  @ParameterizedTest
+  @EnumSource(ServerMetrics.ReplicaManager.class)
+  void testBrokerTopic(ServerMetrics.ReplicaManager rm) {
+    var meter = rm.fetch(MBeanClient.local());
+    Assertions.assertTrue(meter.value() >= 0);
+    Assertions.assertEquals(rm, meter.type());
   }
 }

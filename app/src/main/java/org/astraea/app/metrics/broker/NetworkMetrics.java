@@ -17,7 +17,6 @@
 package org.astraea.app.metrics.broker;
 
 import java.util.Arrays;
-import java.util.Map;
 import org.astraea.app.metrics.BeanObject;
 import org.astraea.app.metrics.BeanQuery;
 import org.astraea.app.metrics.MBeanClient;
@@ -129,15 +128,7 @@ public class NetworkMetrics {
 
       @Override
       public String toString() {
-        StringBuilder sb = new StringBuilder();
-        for (Map.Entry<String, Object> e : beanObject().attributes().entrySet()) {
-          sb.append(System.lineSeparator())
-              .append("  ")
-              .append(e.getKey())
-              .append("=")
-              .append(e.getValue());
-        }
-        return beanObject.properties().get("request") + " TotalTimeMs {" + sb + "}";
+        return beanObject().toString();
       }
 
       @Override
