@@ -20,28 +20,10 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.stream.Collectors;
 import org.astraea.app.metrics.broker.HasValue;
-import org.astraea.app.metrics.broker.TotalTimeMs;
 
 public final class KafkaMetrics {
 
   private KafkaMetrics() {}
-
-  public enum Request {
-    Produce,
-    FetchConsumer,
-    FetchFollower;
-
-    public TotalTimeMs totalTimeMs(MBeanClient mBeanClient) {
-      return new TotalTimeMs(
-          mBeanClient.queryBean(
-              BeanQuery.builder()
-                  .domainName("kafka.network")
-                  .property("type", "RequestMetrics")
-                  .property("request", this.name())
-                  .property("name", "TotalTimeMs")
-                  .build()));
-    }
-  }
 
   public enum ReplicaManager {
     AtMinIsrPartitionCount("AtMinIsrPartitionCount"),
