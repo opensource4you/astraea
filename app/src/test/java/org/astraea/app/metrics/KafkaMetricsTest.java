@@ -16,7 +16,6 @@
  */
 package org.astraea.app.metrics;
 
-import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 
 import java.io.IOException;
@@ -29,7 +28,6 @@ import javax.management.remote.JMXServiceURL;
 import org.astraea.app.admin.Admin;
 import org.astraea.app.common.Utils;
 import org.astraea.app.metrics.broker.LogMetrics;
-import org.astraea.app.metrics.broker.TotalTimeMs;
 import org.astraea.app.service.RequireBrokerCluster;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -59,26 +57,6 @@ class KafkaMetricsTest extends RequireBrokerCluster {
     jmxServer.stop();
     mBeanServer = null;
     mBeanClient.close();
-  }
-
-  @ParameterizedTest()
-  @EnumSource(value = KafkaMetrics.Request.class)
-  void testRequestTotalTimeMs(KafkaMetrics.Request request) {
-    // act
-    TotalTimeMs totalTimeMs = request.totalTimeMs(mBeanClient);
-
-    // assert type casting correct and field exists
-    assertDoesNotThrow(totalTimeMs::percentile50);
-    assertDoesNotThrow(totalTimeMs::percentile75);
-    assertDoesNotThrow(totalTimeMs::percentile95);
-    assertDoesNotThrow(totalTimeMs::percentile98);
-    assertDoesNotThrow(totalTimeMs::percentile99);
-    assertDoesNotThrow(totalTimeMs::percentile999);
-    assertDoesNotThrow(totalTimeMs::count);
-    assertDoesNotThrow(totalTimeMs::max);
-    assertDoesNotThrow(totalTimeMs::mean);
-    assertDoesNotThrow(totalTimeMs::min);
-    assertDoesNotThrow(totalTimeMs::stdDev);
   }
 
   @ParameterizedTest()
