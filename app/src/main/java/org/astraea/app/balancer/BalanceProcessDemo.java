@@ -21,10 +21,10 @@ import java.util.Set;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import org.astraea.app.admin.Admin;
-import org.astraea.app.argument.Argument;
 import org.astraea.app.balancer.executor.RebalanceAdmin;
 import org.astraea.app.balancer.executor.StraightPlanExecutor;
 import org.astraea.app.balancer.generator.ShufflePlanGenerator;
+import org.astraea.app.balancer.log.ClusterLogAllocation;
 
 /**
  * A simple demo for Balancer, it does the following:
@@ -54,6 +54,9 @@ public class BalanceProcessDemo {
               .rebalancePlan()
               .orElseThrow(() -> new IllegalStateException("No suitable plan found"));
 
+      System.out.println("[Target Allocation]");
+      System.out.println(ClusterLogAllocation.toString(targetAllocation));
+
       var rebalanceAdmin = RebalanceAdmin.of(admin, topicFilter);
       rebalancePlanExecutor.run(rebalanceAdmin, targetAllocation);
     }
@@ -62,6 +65,7 @@ public class BalanceProcessDemo {
   public static class Argument extends org.astraea.app.argument.Argument {
 
     @Parameter(names = {"--ignored.topics"})
-    public Set<String> ignoredTopics = Set.of("__consumer_offsets");
+    public Set<String> ignoredTopics =
+        Set.of("__consumer_offsets", "__transaction_state", "__cluster_metadata");
   }
 }
