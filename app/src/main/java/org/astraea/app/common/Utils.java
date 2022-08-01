@@ -17,6 +17,7 @@
 package org.astraea.app.common;
 
 import java.io.File;
+import java.lang.reflect.Constructor;
 import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.nio.file.Files;
@@ -34,6 +35,8 @@ import java.util.function.Supplier;
 import java.util.stream.Collector;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import org.astraea.app.cost.CostFunction;
+import org.astraea.app.partitioner.Configuration;
 
 public final class Utils {
 
@@ -251,6 +254,24 @@ public final class Utils {
   public static <T> CompletableFuture<List<T>> sequence(Collection<CompletableFuture<T>> futures) {
     return CompletableFuture.allOf(futures.toArray(new CompletableFuture<?>[0]))
         .thenApply(f -> futures.stream().map(CompletableFuture::join).collect(Collectors.toList()));
+  }
+
+  public static CostFunction constructCostFunction(
+      Class<? extends CostFunction> costClass, Configuration configuration) {
+    for (Constructor<?> constructor : costClass.getConstructors()) {
+      Class<?>[] types = constructor.getParameterTypes();
+      if (types.length == 1 && types[0].isAssignableFrom(Configuration.class)) {
+        return (CostFunction) Utils.packException(() -> constructor.newInstance(configuration));
+      }
+    }
+    for (Constructor<?> constructor : costClass.getConstructors()) {
+      Class<?>[] types = constructor.getParameterTypes();
+      if (types.length == 0) {
+        return (CostFunction) Utils.packException(() -> constructor.newInstance());
+      }
+    }
+    throw new IllegalArgumentException(
+        "No suitable constructor found for class " + costClass.getName());
   }
 
   private Utils() {}
