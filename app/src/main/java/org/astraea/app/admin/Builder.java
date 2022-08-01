@@ -28,7 +28,6 @@ import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.ExecutionException;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -552,23 +551,21 @@ public class Builder {
 
     @Override
     public void removeAllMembers(String groupId) {
-      Utils.packException(
-          () -> {
-            try {
+      try {
+        Utils.packException(
+            () -> {
               admin
                   .removeMembersFromConsumerGroup(
                       groupId, new RemoveMembersFromConsumerGroupOptions())
                   .all()
                   .get();
-            } catch (ExecutionException e) {
-              // Deleting all members can't work when there is no members already.
-              var realException = e.getCause();
-              if (realException instanceof IllegalArgumentException
-                  && !ERROR_MSG_MEMBER_IS_EMPTY.equals(realException.getMessage())) {
-                throw e;
-              }
-            }
-          });
+            });
+      } catch (IllegalArgumentException e) {
+        // Deleting all members can't work when there is no members already.
+        if (!ERROR_MSG_MEMBER_IS_EMPTY.equals(e.getMessage())) {
+          throw e;
+        }
+      }
     }
 
     @Override
