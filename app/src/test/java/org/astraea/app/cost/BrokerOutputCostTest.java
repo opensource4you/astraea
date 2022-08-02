@@ -21,8 +21,7 @@ import java.util.Map;
 import org.astraea.app.admin.ClusterBean;
 import org.astraea.app.admin.ClusterInfo;
 import org.astraea.app.metrics.BeanObject;
-import org.astraea.app.metrics.KafkaMetrics;
-import org.astraea.app.metrics.broker.BrokerTopicMetricsResult;
+import org.astraea.app.metrics.broker.ServerMetrics;
 import org.astraea.app.metrics.collector.BeanCollector;
 import org.astraea.app.metrics.collector.Receiver;
 import org.astraea.app.service.RequireBrokerCluster;
@@ -41,11 +40,11 @@ public class BrokerOutputCostTest extends RequireBrokerCluster {
                 ClusterBean.of(
                     Map.of(
                         1,
-                        List.of(brokerTopicMetricsResult(10000D)),
+                        List.of(meter(10000D)),
                         2,
-                        List.of(brokerTopicMetricsResult(20000D)),
+                        List.of(meter(20000D)),
                         3,
-                        List.of(brokerTopicMetricsResult(5000D)))))
+                        List.of(meter(5000D)))))
             .value();
     Assertions.assertEquals(10000D, scores.get(1));
     Assertions.assertEquals(20000D, scores.get(2));
@@ -69,23 +68,24 @@ public class BrokerOutputCostTest extends RequireBrokerCluster {
           receiver.current().stream()
               .allMatch(
                   o ->
-                      (o instanceof BrokerTopicMetricsResult)
-                          && (KafkaMetrics.BrokerTopic.BytesOutPerSec.metricName()
+                      (o instanceof ServerMetrics.Topic.Meter)
+                          && (ServerMetrics.Topic.BYTES_OUT_PER_SEC
+                              .metricName()
                               .equals(o.beanObject().properties().get("name")))));
 
       // Test the fetched object's value.
       Assertions.assertTrue(
           receiver.current().stream()
-              .map(o -> (BrokerTopicMetricsResult) o)
+              .map(o -> (ServerMetrics.Topic.Meter) o)
               .allMatch(result -> result.count() == 0));
     }
   }
 
-  private static BrokerTopicMetricsResult brokerTopicMetricsResult(double value) {
-    return new BrokerTopicMetricsResult(
+  private static ServerMetrics.Topic.Meter meter(double value) {
+    return new ServerMetrics.Topic.Meter(
         new BeanObject(
             "object",
-            Map.of("name", KafkaMetrics.BrokerTopic.BytesOutPerSec.metricName()),
+            Map.of("name", ServerMetrics.Topic.BYTES_OUT_PER_SEC.metricName()),
             Map.of("OneMinuteRate", value)));
   }
 }

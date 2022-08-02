@@ -16,7 +16,6 @@
  */
 package org.astraea.app.metrics.platform;
 
-import java.util.Map;
 import org.astraea.app.metrics.BeanObject;
 
 public class OperatingSystemInfo implements HasOperatingSystemInfo {
@@ -34,14 +33,6 @@ public class OperatingSystemInfo implements HasOperatingSystemInfo {
 
   @Override
   public String toString() {
-    StringBuilder sb = new StringBuilder();
-    for (Map.Entry<String, Object> e : beanObject().attributes().entrySet()) {
-      sb.append(System.lineSeparator())
-          .append("  ")
-          .append(e.getKey())
-          .append("=")
-          .append(e.getValue());
-    }
-    return "Operating System Info {" + sb + "}";
+    return beanObject().toString();
   }
 }

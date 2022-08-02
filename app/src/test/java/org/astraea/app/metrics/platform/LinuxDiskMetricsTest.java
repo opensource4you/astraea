@@ -14,34 +14,27 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.app.metrics.broker;
+package org.astraea.app.metrics.platform;
 
-import java.util.Map;
-import org.astraea.app.metrics.BeanObject;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.condition.OS.LINUX;
 
-public class TotalTimeMs implements HasPercentiles, HasCount, HasStatistics {
+import org.astraea.app.metrics.MBeanClient;
+import org.astraea.app.service.RequireSingleBrokerCluster;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.EnabledOnOs;
 
-  private final BeanObject beanObject;
+public class LinuxDiskMetricsTest extends RequireSingleBrokerCluster {
 
-  public TotalTimeMs(BeanObject beanObject) {
-    this.beanObject = beanObject;
+  @Test
+  @EnabledOnOs(LINUX)
+  void linuxDiskReadBytes() {
+    assertDoesNotThrow(() -> HostMetrics.linuxDiskReadBytes(MBeanClient.local()));
   }
 
-  @Override
-  public String toString() {
-    StringBuilder sb = new StringBuilder();
-    for (Map.Entry<String, Object> e : beanObject().attributes().entrySet()) {
-      sb.append(System.lineSeparator())
-          .append("  ")
-          .append(e.getKey())
-          .append("=")
-          .append(e.getValue());
-    }
-    return beanObject.properties().get("request") + " TotalTimeMs {" + sb + "}";
-  }
-
-  @Override
-  public BeanObject beanObject() {
-    return beanObject;
+  @Test
+  @EnabledOnOs(LINUX)
+  void linuxDiskWriteBytes() {
+    assertDoesNotThrow(() -> HostMetrics.linuxDiskWriteBytes(MBeanClient.local()));
   }
 }

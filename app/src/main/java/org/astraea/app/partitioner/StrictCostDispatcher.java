@@ -119,7 +119,7 @@ public class StrictCostDispatcher implements Dispatcher {
                     .filter(r -> r.nodeInfo().id() == brokerId)
                     .map(ReplicaInfo::partition)
                     .findAny())
-        .orElse(0);
+        .orElse(partitionLeaders.get((int) (Math.random() * partitionLeaders.size())).partition());
   }
 
   void tryToUpdateRoundRobin(ClusterInfo clusterInfo) {

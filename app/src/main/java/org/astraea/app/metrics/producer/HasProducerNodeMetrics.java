@@ -16,9 +16,26 @@
  */
 package org.astraea.app.metrics.producer;
 
+import org.astraea.app.metrics.BeanObject;
 import org.astraea.app.metrics.HasBeanObject;
 
 public interface HasProducerNodeMetrics extends HasBeanObject {
+
+  static HasProducerNodeMetrics of(BeanObject beanObject, int brokerId) {
+    return new HasProducerNodeMetrics() {
+      @Override
+      public int brokerId() {
+        return brokerId;
+      }
+
+      @Override
+      public BeanObject beanObject() {
+        return beanObject;
+      }
+    };
+  }
+
+  int brokerId();
 
   default double incomingByteRate() {
     return (double) beanObject().attributes().get("incoming-byte-rate");
