@@ -16,33 +16,19 @@
  */
 package org.astraea.app.metrics.broker;
 
-import java.util.Map;
-import java.util.Objects;
-import org.astraea.app.metrics.jmx.BeanObject;
+import org.astraea.app.metrics.MBeanClient;
+import org.astraea.app.service.RequireSingleBrokerCluster;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 
-public class BrokerTopicMetricsResult implements HasCount, HasEventType, HasRate {
+public class ReplicaManagerMetricsTest extends RequireSingleBrokerCluster {
 
-  private final BeanObject beanObject;
-
-  public BrokerTopicMetricsResult(BeanObject beanObject) {
-    this.beanObject = Objects.requireNonNull(beanObject);
-  }
-
-  @Override
-  public String toString() {
-    StringBuilder sb = new StringBuilder();
-    for (Map.Entry<String, Object> e : beanObject().attributes().entrySet()) {
-      sb.append(System.lineSeparator())
-          .append("  ")
-          .append(e.getKey())
-          .append("=")
-          .append(e.getValue());
-    }
-    return beanObject().properties().get("name") + "{" + sb + "}";
-  }
-
-  @Override
-  public BeanObject beanObject() {
-    return beanObject;
+  @ParameterizedTest
+  @EnumSource(ServerMetrics.ReplicaManager.class)
+  void testBrokerTopic(ServerMetrics.ReplicaManager rm) {
+    var meter = rm.fetch(MBeanClient.local());
+    Assertions.assertTrue(meter.value() >= 0);
+    Assertions.assertEquals(rm, meter.type());
   }
 }

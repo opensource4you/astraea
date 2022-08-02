@@ -14,24 +14,27 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.app.concurrent;
+package org.astraea.app.metrics.platform;
 
-@FunctionalInterface
-public interface Executor extends AutoCloseable {
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.condition.OS.LINUX;
 
-  /**
-   * @return the state of this executor
-   * @throws InterruptedException This is an expected exception if your executor needs to call
-   *     blocking method. This exception is not printed to console.
-   */
-  State execute() throws InterruptedException;
+import org.astraea.app.metrics.MBeanClient;
+import org.astraea.app.service.RequireSingleBrokerCluster;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.EnabledOnOs;
 
-  /** close this executor. */
-  @Override
-  default void close() {}
+public class LinuxDiskMetricsTest extends RequireSingleBrokerCluster {
 
-  /**
-   * If this executor is in blocking mode, this method offers a way to wake up executor to close.
-   */
-  default void wakeup() {}
+  @Test
+  @EnabledOnOs(LINUX)
+  void linuxDiskReadBytes() {
+    assertDoesNotThrow(() -> HostMetrics.linuxDiskReadBytes(MBeanClient.local()));
+  }
+
+  @Test
+  @EnabledOnOs(LINUX)
+  void linuxDiskWriteBytes() {
+    assertDoesNotThrow(() -> HostMetrics.linuxDiskWriteBytes(MBeanClient.local()));
+  }
 }

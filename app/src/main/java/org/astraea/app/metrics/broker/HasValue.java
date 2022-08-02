@@ -16,8 +16,8 @@
  */
 package org.astraea.app.metrics.broker;
 
+import org.astraea.app.metrics.BeanObject;
 import org.astraea.app.metrics.HasBeanObject;
-import org.astraea.app.metrics.jmx.BeanObject;
 
 public interface HasValue extends HasBeanObject {
   default long value() {

@@ -16,7 +16,6 @@
  */
 package org.astraea.app.cost;
 
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -24,10 +23,9 @@ import org.astraea.app.admin.ClusterBean;
 import org.astraea.app.admin.ClusterInfo;
 import org.astraea.app.admin.NodeInfo;
 import org.astraea.app.admin.ReplicaInfo;
+import org.astraea.app.metrics.BeanObject;
 import org.astraea.app.metrics.HasBeanObject;
-import org.astraea.app.metrics.KafkaMetrics;
-import org.astraea.app.metrics.broker.HasValue;
-import org.astraea.app.metrics.jmx.BeanObject;
+import org.astraea.app.metrics.broker.ServerMetrics;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
@@ -55,13 +53,13 @@ public class ReplicaLeaderCostTest {
   @Test
   void testWithMetrics() {
     var costFunction = new ReplicaLeaderCost();
-    var LeaderCount1 = mockResult(KafkaMetrics.ReplicaManager.LeaderCount.metricName(), 3);
-    var LeaderCount2 = mockResult(KafkaMetrics.ReplicaManager.LeaderCount.metricName(), 4);
-    var LeaderCount3 = mockResult(KafkaMetrics.ReplicaManager.LeaderCount.metricName(), 5);
+    var LeaderCount1 = mockResult(ServerMetrics.ReplicaManager.LEADER_COUNT.metricName(), 3);
+    var LeaderCount2 = mockResult(ServerMetrics.ReplicaManager.LEADER_COUNT.metricName(), 4);
+    var LeaderCount3 = mockResult(ServerMetrics.ReplicaManager.LEADER_COUNT.metricName(), 5);
 
-    Collection<HasBeanObject> broker1 = List.of(LeaderCount1);
-    Collection<HasBeanObject> broker2 = List.of(LeaderCount2);
-    Collection<HasBeanObject> broker3 = List.of(LeaderCount3);
+    var broker1 = List.of((HasBeanObject) LeaderCount1);
+    var broker2 = List.of((HasBeanObject) LeaderCount2);
+    var broker3 = List.of((HasBeanObject) LeaderCount3);
     var clusterBean = ClusterBean.of(Map.of(1, broker1, 2, broker2, 3, broker3));
     var load = costFunction.brokerCost(ClusterInfo.EMPTY, clusterBean);
 
@@ -71,8 +69,8 @@ public class ReplicaLeaderCostTest {
     Assertions.assertEquals(5.0, load.value().get(3));
   }
 
-  private HasValue mockResult(String name, long count) {
-    var result = Mockito.mock(HasValue.class);
+  private ServerMetrics.ReplicaManager.Meter mockResult(String name, long count) {
+    var result = Mockito.mock(ServerMetrics.ReplicaManager.Meter.class);
     var bean = Mockito.mock(BeanObject.class);
     Mockito.when(result.beanObject()).thenReturn(bean);
     Mockito.when(bean.properties()).thenReturn(Map.of("name", name, "type", "ReplicaManager"));

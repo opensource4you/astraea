@@ -26,8 +26,7 @@ import java.util.stream.IntStream;
 import org.astraea.app.admin.ClusterBean;
 import org.astraea.app.admin.ClusterInfo;
 import org.astraea.app.metrics.HasBeanObject;
-import org.astraea.app.metrics.KafkaMetrics;
-import org.astraea.app.metrics.broker.BrokerTopicMetricsResult;
+import org.astraea.app.metrics.broker.ServerMetrics;
 import org.astraea.app.metrics.collector.Fetcher;
 import org.astraea.app.partitioner.PartitionerUtils;
 
@@ -35,9 +34,9 @@ public class LoadCost implements HasBrokerCost {
   private final Map<Integer, BrokerMetric> brokersMetric = new HashMap<>();
   private final Map<String, Double> metricNameAndWeight =
       Map.of(
-          KafkaMetrics.BrokerTopic.BytesInPerSec.metricName(),
+          ServerMetrics.Topic.BYTES_IN_PER_SEC.metricName(),
           0.5,
-          KafkaMetrics.BrokerTopic.BytesOutPerSec.metricName(),
+          ServerMetrics.Topic.BYTES_OUT_PER_SEC.metricName(),
           0.5);
 
   /** Do "Poisson" and "weightPoisson" calculation on "load". And change output to double. */
@@ -86,8 +85,8 @@ public class LoadCost implements HasBrokerCost {
         (brokerID, value) -> {
           if (!brokersMetric.containsKey(brokerID)) brokersMetric.put(brokerID, new BrokerMetric());
           value.stream()
-              .filter(hasBeanObject -> hasBeanObject instanceof BrokerTopicMetricsResult)
-              .map(hasBeanObject -> (BrokerTopicMetricsResult) hasBeanObject)
+              .filter(hasBeanObject -> hasBeanObject instanceof ServerMetrics.Topic.Meter)
+              .map(hasBeanObject -> (ServerMetrics.Topic.Meter) hasBeanObject)
               .forEach(
                   result ->
                       brokersMetric
@@ -151,8 +150,8 @@ public class LoadCost implements HasBrokerCost {
     return Optional.of(
         client ->
             List.of(
-                KafkaMetrics.BrokerTopic.BytesInPerSec.fetch(client),
-                KafkaMetrics.BrokerTopic.BytesOutPerSec.fetch(client)));
+                ServerMetrics.Topic.BYTES_IN_PER_SEC.fetch(client),
+                ServerMetrics.Topic.BYTES_OUT_PER_SEC.fetch(client)));
   }
 
   private static class BrokerMetric {

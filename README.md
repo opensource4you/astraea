@@ -15,9 +15,8 @@ This project offers many kafka tools to simplify the life for kafka users.
 1. [Kafka quick start](#kafka-cluster-quick-start): set up a true kafka cluster in one minute
 2. [Kafka performance](./docs/performance_benchmark.md): check producing/consuming performance.
 3. [Kafka metric explorer](#kafka-metric-explorer): utility for accessing kafka Mbean metrics via JMX.
-4. [Kafka partition score](#Kafka-partition-score): score all broker's partitions. 
-5. [Kafka replica syncing monitor](#Kafka-replica-syncing-monitor): Tracking replica syncing progress.
-6. [Astraea Web Server 中文文件連結](./docs/web_server/README.md)
+4. [Kafka replica syncing monitor](#Kafka-replica-syncing-monitor): Tracking replica syncing progress.
+5. [Astraea Web Server 中文文件連結](./docs/web_server/README.md)
 
 [Github packages](https://github.com/orgs/skiptests/packages?repo_name=astraea) offers the docker image to run mentioned tools
 ```shell
@@ -213,22 +212,6 @@ Run the tool from release
 5. --view-object-name-list: show the list view of MBeans' domain name & properties. Default: false.
 
 ---
-
-## Kafka Partition Score
-
-This tool will score the partition on brokers, the higher score the heavier load.
-
-### Start scoring partitions on broker address "192.168.103.39:9092"
-
-```shell
-./gradlew run --args="score --bootstrap.servers 192.168.103.39:9092"
-```
-
-### Partition Score Configurations
-
-1. --bootstrap.servers: the server to connect to
-2. --exclude.internal.topics: True if you want to ignore internal topics like _consumer_offsets while counting score. 
-3. --hide.balanced: True if you want to hide topics and partitions thar already balanced.:q
 
 ## Kafka Replica Syncing Monitor
 

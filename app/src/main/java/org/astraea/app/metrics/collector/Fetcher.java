@@ -22,7 +22,7 @@ import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.astraea.app.metrics.HasBeanObject;
-import org.astraea.app.metrics.jmx.MBeanClient;
+import org.astraea.app.metrics.MBeanClient;
 
 @FunctionalInterface
 public interface Fetcher {

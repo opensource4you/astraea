@@ -21,6 +21,8 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import org.astraea.app.admin.Admin;
 import org.astraea.app.common.Utils;
 import org.astraea.app.service.RequireBrokerCluster;
@@ -192,5 +194,27 @@ public class TopicHandlerTest extends RequireBrokerCluster {
         TopicHandler.remainingConfigs(
                 PostRequest.of(Map.of(TopicHandler.TOPIC_NAME_KEY, "abc", "key", "value")))
             .size());
+  }
+
+  @Test
+  void testDeleteTopic() {
+    var topicNames =
+        IntStream.range(0, 3).mapToObj(x -> Utils.randomString(10)).collect(Collectors.toList());
+    try (Admin admin = Admin.of(bootstrapServers())) {
+      var handler = new TopicHandler(admin);
+      topicNames.forEach(
+          x -> admin.creator().topic(x).numberOfPartitions(3).numberOfReplicas((short) 3).create());
+
+      handler.delete(topicNames.get(0), Map.of());
+      var latestTopicNames = admin.topicNames();
+      Assertions.assertFalse(latestTopicNames.contains(topicNames.get(0)));
+      Assertions.assertTrue(latestTopicNames.contains(topicNames.get(1)));
+      Assertions.assertTrue(latestTopicNames.contains(topicNames.get(2)));
+
+      handler.delete(topicNames.get(2), Map.of());
+      latestTopicNames = admin.topicNames();
+      Assertions.assertFalse(latestTopicNames.contains(topicNames.get(2)));
+      Assertions.assertTrue(latestTopicNames.contains(topicNames.get(1)));
+    }
   }
 }
