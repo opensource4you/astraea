@@ -32,9 +32,9 @@ public interface RebalancePlanGenerator {
    * <p>If the generator implementation thinks it can't find any rebalance proposal(which the plan
    * might improve the cluster). Then the implementation should return a Stream with exactly one
    * rebalance plan proposal in it, where the proposed allocation will be exactly the same as the
-   * {@code baseAllocation} parameter. This means there is no movement or alteration that will
-   * occur. And The implementation should place some detailed information in the info/warning/error
-   * string, to indicate the reason for no meaningful plan.
+   * {@code baseAllocation} parameter. This means there is no movement or alteration will occur. And
+   * the implementation should place some detailed information in the info/warning/error string, to
+   * indicate the reason for no meaningful plan.
    *
    * @param clusterInfo the cluster state, implementation can take advantage of the data inside to
    *     proposal the plan it feels confident to improve the cluster.
