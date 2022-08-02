@@ -21,6 +21,8 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import org.astraea.app.admin.Admin;
 import org.astraea.app.common.Utils;
 import org.astraea.app.consumer.Consumer;
@@ -213,6 +215,53 @@ public class GroupHandlerTest extends RequireBrokerCluster {
             consumer.groupId(),
             Map.of(GroupHandler.INSTANCE_KEY, consumer.groupInstanceId().get()));
       }
+    }
+  }
+
+  @Test
+  void testDeleteGroup() {
+    var topicName = Utils.randomString(10);
+    try (Admin admin = Admin.of(bootstrapServers())) {
+      var handler = new GroupHandler(admin);
+
+      var groupIds =
+          IntStream.range(0, 3).mapToObj(x -> Utils.randomString(10)).collect(Collectors.toList());
+      groupIds.forEach(
+          x -> {
+            try (var consumer =
+                Consumer.forTopics(Set.of(topicName))
+                    .bootstrapServers(bootstrapServers())
+                    .groupInstanceId(Utils.randomString(10))
+                    .groupId(x)
+                    .build()) {
+              Assertions.assertEquals(0, consumer.poll(Duration.ofSeconds(3)).size());
+            }
+          });
+
+      var currentGroupIds = admin.consumerGroupIds();
+      Assertions.assertTrue(currentGroupIds.contains(groupIds.get(0)));
+      Assertions.assertTrue(currentGroupIds.contains(groupIds.get(1)));
+      Assertions.assertTrue(currentGroupIds.contains(groupIds.get(2)));
+
+      handler.delete(groupIds.get(2), Map.of());
+      Assertions.assertTrue(admin.consumerGroupIds().contains(groupIds.get(2)));
+
+      handler.delete(groupIds.get(2), Map.of(GroupHandler.GROUP_KEY, "false"));
+      Assertions.assertTrue(admin.consumerGroupIds().contains(groupIds.get(2)));
+
+      handler.delete(groupIds.get(2), Map.of(GroupHandler.GROUP_KEY, "true"));
+      Assertions.assertFalse(admin.consumerGroupIds().contains(groupIds.get(2)));
+
+      var group1Members =
+          admin.consumerGroups(Set.of(groupIds.get(1))).get(groupIds.get(1)).activeMembers();
+      handler.delete(
+          groupIds.get(1),
+          Map.of(
+              GroupHandler.GROUP_KEY,
+              "true",
+              GroupHandler.INSTANCE_KEY,
+              group1Members.get(0).groupInstanceId().get()));
+      Assertions.assertFalse(admin.consumerGroupIds().contains(groupIds.get(1)));
     }
   }
 }
