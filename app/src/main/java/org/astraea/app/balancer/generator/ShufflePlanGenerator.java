@@ -71,23 +71,26 @@ public class ShufflePlanGenerator implements RebalancePlanGenerator {
                   .map(NodeInfo::id)
                   .collect(Collectors.toUnmodifiableSet());
 
-          if (brokerIds.size() == 0)
+          if (brokerIds.size() == 0) {
             return rebalancePlanBuilder
-                .addWarning("Why there is no broker?")
-                .noRebalancePlan()
+                .withRebalancePlan(baseAllocation)
+                .addWarning("There is no broker")
                 .build();
+          }
 
-          if (brokerIds.size() == 1)
+          if (brokerIds.size() == 1) {
             return rebalancePlanBuilder
-                .addWarning("Only one broker exists. There is no reason to rebalance.")
-                .noRebalancePlan()
+                .withRebalancePlan(baseAllocation)
+                .addWarning("Only one broker exists, unable to do some migration")
                 .build();
+          }
 
-          if (clusterInfo.topics().size() == 0)
+          if (clusterInfo.topics().size() == 0) {
             return rebalancePlanBuilder
+                .withRebalancePlan(baseAllocation)
                 .addWarning("No non-ignored topic to working on.")
-                .noRebalancePlan()
                 .build();
+          }
 
           final var shuffleCount = numberOfShuffle.get();
 

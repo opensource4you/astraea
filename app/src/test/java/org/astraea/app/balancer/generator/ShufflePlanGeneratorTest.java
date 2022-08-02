@@ -56,7 +56,7 @@ class ShufflePlanGeneratorTest {
         .limit(100)
         .forEach(
             proposal -> {
-              final var that = proposal.rebalancePlan().orElseThrow();
+              final var that = proposal.rebalancePlan();
               final var thisTps = allocation.topicPartitions();
               final var thatTps = that.topicPartitions();
               final var thisMap =
@@ -78,7 +78,10 @@ class ShufflePlanGeneratorTest {
     final var proposal = shufflePlanGenerator.generate(fakeClusterInfo).iterator().next();
 
     System.out.println(proposal);
-    Assertions.assertFalse(proposal.rebalancePlan().isPresent());
+    Assertions.assertTrue(
+        ClusterLogAllocation.findNonFulfilledAllocation(
+                ClusterLogAllocation.of(fakeClusterInfo), proposal.rebalancePlan())
+            .isEmpty());
     Assertions.assertTrue(proposal.warnings().size() >= 1);
   }
 
@@ -90,7 +93,6 @@ class ShufflePlanGeneratorTest {
     final var proposal = shufflePlanGenerator.generate(fakeClusterInfo).iterator().next();
 
     System.out.println(proposal);
-    Assertions.assertFalse(proposal.rebalancePlan().isPresent());
     Assertions.assertTrue(proposal.warnings().size() >= 1);
   }
 
@@ -102,7 +104,10 @@ class ShufflePlanGeneratorTest {
     final var proposal = shufflePlanGenerator.generate(fakeClusterInfo).iterator().next();
 
     System.out.println(proposal);
-    Assertions.assertFalse(proposal.rebalancePlan().isPresent());
+    Assertions.assertTrue(
+        ClusterLogAllocation.findNonFulfilledAllocation(
+                ClusterLogAllocation.of(fakeClusterInfo), proposal.rebalancePlan())
+            .isEmpty());
     Assertions.assertTrue(proposal.warnings().size() >= 1);
   }
 
