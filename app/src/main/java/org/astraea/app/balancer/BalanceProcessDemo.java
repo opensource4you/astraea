@@ -47,6 +47,7 @@ public class BalanceProcessDemo {
           admin.topicNames().stream().filter(topicFilter).collect(Collectors.toUnmodifiableSet());
       var clusterInfo = admin.clusterInfo(topics);
 
+      // TODO: implement one interface to select the best plan from many plan ,see #544
       var rebalancePlan = rebalancePlanGenerator.generate(clusterInfo).findFirst().orElseThrow();
       System.out.println(rebalancePlan);
       var targetAllocation =
