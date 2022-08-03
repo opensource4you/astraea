@@ -1143,8 +1143,11 @@ public class AdminTest extends RequireBrokerCluster {
     try (var admin = Admin.of(bootstrapServers())) {
       topicNames.forEach(
           x -> admin.creator().topic(x).numberOfPartitions(3).numberOfReplicas((short) 3).create());
+      Utils.sleep(Duration.ofSeconds(2));
 
       admin.deleteTopics(Set.of(topicNames.get(0), topicNames.get(1)));
+      Utils.sleep(Duration.ofSeconds(2));
+
       var latestTopicNames = admin.topicNames();
       Assertions.assertFalse(latestTopicNames.contains(topicNames.get(0)));
       Assertions.assertFalse(latestTopicNames.contains(topicNames.get(1)));
@@ -1152,6 +1155,8 @@ public class AdminTest extends RequireBrokerCluster {
       Assertions.assertTrue(latestTopicNames.contains(topicNames.get(3)));
 
       admin.deleteTopics(Set.of(topicNames.get(3)));
+      Utils.sleep(Duration.ofSeconds(2));
+
       latestTopicNames = admin.topicNames();
       Assertions.assertFalse(latestTopicNames.contains(topicNames.get(3)));
       Assertions.assertTrue(latestTopicNames.contains(topicNames.get(2)));
