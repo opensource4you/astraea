@@ -238,15 +238,17 @@ public class StrictCostDispatcher implements Dispatcher {
     return config.entrySet().stream()
         .map(
             nameAndWeight -> {
+              Class<?> clz;
               try {
-                var weight = Double.parseDouble(nameAndWeight.getValue());
-                if (weight < 0.0)
-                  throw new IllegalArgumentException("Cost-function weight should not be negative");
-                return Map.entry(Class.forName(nameAndWeight.getKey()), weight);
+                clz = Class.forName(nameAndWeight.getKey());
               } catch (ClassNotFoundException ignore) {
-                /* To delete all config option that is not for configuring cost-function. */
+                // this config is not cost function, so we just skip it.
                 return null;
               }
+              var weight = Double.parseDouble(nameAndWeight.getValue());
+              if (weight < 0.0)
+                throw new IllegalArgumentException("Cost-function weight should not be negative");
+              return Map.entry(clz, weight);
             })
         .filter(Objects::nonNull)
         .filter(e -> HasBrokerCost.class.isAssignableFrom(e.getKey()))
