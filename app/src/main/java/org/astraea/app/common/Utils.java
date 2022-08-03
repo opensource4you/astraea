@@ -58,9 +58,10 @@ public final class Utils {
   public static <R> R packException(Getter<R> getter) {
     try {
       return getter.get();
+    } catch (RuntimeException e) {
+      throw e;
     } catch (Throwable exception) {
       var current = unpack(exception);
-      if (current instanceof RuntimeException) throw (RuntimeException) current;
       if (current == null) throw new RuntimeException("unknown error");
       throw new RuntimeException(current);
     }
