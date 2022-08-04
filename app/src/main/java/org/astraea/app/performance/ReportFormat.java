@@ -28,10 +28,9 @@ import java.time.Duration;
 import java.util.Date;
 import java.util.function.Supplier;
 import java.util.stream.IntStream;
+import org.astraea.app.common.DataSize;
 import org.astraea.app.common.DataUnit;
 import org.astraea.app.common.Utils;
-import org.astraea.app.concurrent.Executor;
-import org.astraea.app.concurrent.State;
 
 public enum ReportFormat {
   CSV("csv"),
@@ -57,12 +56,14 @@ public enum ReportFormat {
     }
   }
 
-  public static Executor createFileWriter(
+  public static Runnable createFileWriter(
       ReportFormat reportFormat,
       Path path,
-      Manager manager,
+      ExeTime exeTime,
+      Supplier<Boolean> consumerDone,
       Supplier<Boolean> producerDone,
-      Tracker tracker)
+      Supplier<Long> producedRecords,
+      TrackerThread tracker)
       throws IOException {
     var filePath =
         FileSystems.getDefault()
@@ -70,38 +71,34 @@ public enum ReportFormat {
                 path.toString(),
                 "Performance"
                     + new SimpleDateFormat("yyyyMMddHHmmss").format(new Date())
+                    + "."
                     + reportFormat);
     var writer = new BufferedWriter(new FileWriter(filePath.toFile()));
     switch (reportFormat) {
       case CSV:
         initCSVFormat(
             writer, tracker.producerResult().bytes.size(), tracker.consumerResult().bytes.size());
-        return new Executor() {
-          @Override
-          public State execute() throws InterruptedException {
-            if (logToCSV(writer, manager, producerDone, tracker)) return State.DONE;
-            Thread.sleep(1000);
-            return State.RUNNING;
-          }
-
-          @Override
-          public void close() {
+        return () -> {
+          try {
+            while (true) {
+              if (logToCSV(writer, exeTime, consumerDone, producerDone, producedRecords, tracker))
+                return;
+              Utils.sleep(Duration.ofSeconds(1));
+            }
+          } finally {
             Utils.packException(writer::close);
           }
         };
       case JSON:
         writer.write("{");
-        return new Executor() {
-          @Override
-          public State execute() throws InterruptedException {
-            if (logToJSON(writer, manager, producerDone, tracker)) return State.DONE;
-            Thread.sleep(1000);
-            return State.RUNNING;
-          }
-
-          @Override
-          public void close() {
-            Utils.swallowException(() -> writer.write("}"));
+        return () -> {
+          try {
+            while (true) {
+              if (logToJSON(writer, exeTime, consumerDone, producerDone, producedRecords, tracker))
+                return;
+              Utils.sleep(Duration.ofSeconds(1));
+            }
+          } finally {
             Utils.packException(writer::close);
           }
         };
@@ -113,7 +110,7 @@ public enum ReportFormat {
   private static void initCSVFormat(BufferedWriter writer, int producerCounts, int consumerCounts)
       throws IOException {
     writer.write(
-        "Time \\ Name, Consumed/Produced, Output throughput (/sec), Input throughput (/sec), "
+        "Time \\ Name, Consumed/Produced, Output throughput (MiB/sec), Input throughput (MiB/sec), "
             + "Publish max latency (ms), Publish min latency (ms), "
             + "End-to-end max latency (ms), End-to-end min latency (ms)");
     IntStream.range(0, producerCounts)
@@ -123,9 +120,9 @@ public enum ReportFormat {
                 writer.write(
                     ",Producer["
                         + i
-                        + "] current throughput (/sec), Producer["
+                        + "] current throughput (MiB/sec), Producer["
                         + i
-                        + "] current publish latency (ms)");
+                        + "] average publish latency (ms)");
               } catch (IOException ignore) {
               }
             });
@@ -136,9 +133,9 @@ public enum ReportFormat {
                 writer.write(
                     ",Consumer["
                         + i
-                        + "] current throughput (/sec), Consumer["
+                        + "] current throughput (MiB/sec), Consumer["
                         + i
-                        + "] current ene-to-end latency (ms)");
+                        + "] average ene-to-end latency (ms)");
               } catch (IOException ignore) {
               }
             });
@@ -146,41 +143,66 @@ public enum ReportFormat {
   }
 
   private static boolean logToCSV(
-      BufferedWriter writer, Manager manager, Supplier<Boolean> producerDone, Tracker tracker) {
-    var result = processResult(manager, tracker);
+      BufferedWriter writer,
+      ExeTime exeTime,
+      Supplier<Boolean> consumerDone,
+      Supplier<Boolean> producerDone,
+      Supplier<Long> producedRecords,
+      TrackerThread tracker) {
+    var result = processResult(exeTime, tracker, producedRecords);
     if (result.producerResult.completedRecords == 0) return false;
     try {
       writer.write(
           result.duration.toHoursPart()
-              + "h"
+              + ":"
               + result.duration.toMinutesPart()
-              + "m"
-              + result.duration.toSecondsPart()
-              + "s");
+              + ":"
+              + result.duration.toSecondsPart());
       writer.write(
           String.format(",%.2f%% / %.2f%%", result.consumerPercentage, result.producerPercentage));
-      writer.write("," + DataUnit.Byte.of(result.producerResult.totalCurrentBytes()));
-      writer.write("," + DataUnit.Byte.of(result.consumerResult.totalCurrentBytes()));
+      writer.write(
+          ","
+              + DataSize.Byte.of(result.producerResult.totalCurrentBytes())
+                  .measurement(DataUnit.MiB)
+                  .doubleValue());
+      writer.write(
+          ","
+              + DataSize.Byte.of(result.consumerResult.totalCurrentBytes())
+                  .measurement(DataUnit.MiB)
+                  .doubleValue());
       writer.write("," + result.producerResult.maxLatency + "," + result.producerResult.minLatency);
       writer.write("," + result.consumerResult.maxLatency + "," + result.consumerResult.minLatency);
       for (int i = 0; i < result.producerResult.bytes.size(); ++i) {
-        writer.write("," + DataUnit.Byte.of(result.producerResult.currentBytes.get(i)));
+        writer.write(
+            ","
+                + DataSize.Byte.of(result.producerResult.currentBytes.get(i))
+                    .measurement(DataUnit.MiB)
+                    .doubleValue());
         writer.write("," + result.producerResult.averageLatencies.get(i));
       }
       for (int i = 0; i < result.consumerResult.bytes.size(); ++i) {
-        writer.write("," + DataUnit.Byte.of(result.consumerResult.currentBytes.get(i)));
+        writer.write(
+            ","
+                + DataSize.Byte.of(result.consumerResult.currentBytes.get(i))
+                    .measurement(DataUnit.MiB)
+                    .doubleValue());
         writer.write("," + result.consumerResult.averageLatencies.get(i));
       }
       writer.newLine();
     } catch (IOException ignore) {
     }
-    return producerDone.get() && manager.consumedDone();
+    return producerDone.get() && consumerDone.get();
   }
 
   /** Write to writer. Output: "(timestamp)": { (many metrics ...) } */
   private static boolean logToJSON(
-      BufferedWriter writer, Manager manager, Supplier<Boolean> producerDone, Tracker tracker) {
-    var result = processResult(manager, tracker);
+      BufferedWriter writer,
+      ExeTime exeTime,
+      Supplier<Boolean> consumerDone,
+      Supplier<Boolean> producerDone,
+      Supplier<Long> producedRecords,
+      TrackerThread tracker) {
+    var result = processResult(exeTime, tracker, producedRecords);
     if (result.producerResult.completedRecords == 0) return false;
     try {
       writer.write(
@@ -203,7 +225,7 @@ public enum ReportFormat {
 
       writer.write(", \"producerThroughput\": [");
       for (int i = 0; i < result.producerResult.bytes.size(); ++i) {
-        writer.write(Tracker.avg(result.duration, result.producerResult.bytes.get(i)) + ", ");
+        writer.write(TrackerThread.avg(result.duration, result.producerResult.bytes.get(i)) + ", ");
       }
       writer.write("], \"producerLatency\": [");
       for (int i = 0; i < result.producerResult.bytes.size(); ++i) {
@@ -211,7 +233,7 @@ public enum ReportFormat {
       }
       writer.write("], \"consumerThroughput\": [");
       for (int i = 0; i < result.consumerResult.bytes.size(); ++i) {
-        writer.write(Tracker.avg(result.duration, result.consumerResult.bytes.get(i)) + ", ");
+        writer.write(TrackerThread.avg(result.duration, result.consumerResult.bytes.get(i)) + ", ");
       }
       writer.write("], \"consumerLatency\": [");
       for (int i = 0; i < result.consumerResult.bytes.size(); ++i) {
@@ -221,33 +243,32 @@ public enum ReportFormat {
       writer.newLine();
     } catch (IOException ignore) {
     }
-    return producerDone.get() && manager.consumedDone();
+    return producerDone.get() && consumerDone.get();
   }
 
-  private static ProcessedResult processResult(Manager manager, Tracker tracker) {
+  private static ProcessedResult processResult(
+      ExeTime exeTime, TrackerThread tracker, Supplier<Long> producedRecords) {
     var producerResult = tracker.producerResult();
     var consumerResult = tracker.consumerResult();
-    var duration = tracker.duration();
+    var duration = Duration.ofMillis(System.currentTimeMillis() - tracker.startTime());
     return new ProcessedResult(
-        tracker.consumerResult(),
-        tracker.producerResult(),
+        consumerResult,
+        producerResult,
         duration,
-        Math.min(
-            100D,
-            manager.exeTime().percentage(producerResult.completedRecords, duration.toMillis())),
-        consumerResult.completedRecords * 100D / manager.producedRecords());
+        Math.min(100D, exeTime.percentage(producerResult.completedRecords, duration.toMillis())),
+        consumerResult.completedRecords * 100D / producedRecords.get());
   }
 
   static class ProcessedResult {
-    public final Tracker.Result consumerResult;
-    public final Tracker.Result producerResult;
+    public final TrackerThread.Result consumerResult;
+    public final TrackerThread.Result producerResult;
     public final Duration duration;
     public final double consumerPercentage;
     public final double producerPercentage;
 
     ProcessedResult(
-        Tracker.Result consumerResult,
-        Tracker.Result producerResult,
+        TrackerThread.Result consumerResult,
+        TrackerThread.Result producerResult,
         Duration duration,
         double consumerPercentage,
         double producerPercentage) {

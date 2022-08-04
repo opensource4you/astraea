@@ -120,7 +120,7 @@ public final class Services {
 
       @Override
       public void close() {
-        for (int i = 0; i < brokers.size(); i++) close(i);
+        IntStream.range(0, brokers.size() - 1).forEach(this::close);
       }
 
       @Override

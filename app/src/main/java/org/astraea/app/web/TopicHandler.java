@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 import org.apache.kafka.common.errors.UnknownTopicOrPartitionException;
@@ -33,6 +34,7 @@ class TopicHandler implements Handler {
   static final String TOPIC_NAME_KEY = "name";
   static final String NUMBER_OF_PARTITIONS_KEY = "partitions";
   static final String NUMBER_OF_REPLICAS_KEY = "replicas";
+  static final String PARTITION_KEY = "partition";
 
   private final Admin admin;
 
@@ -46,14 +48,19 @@ class TopicHandler implements Handler {
 
   @Override
   public Response get(Optional<String> target, Map<String, String> queries) {
-    return get(topicNames(target));
+    return get(
+        topicNames(target),
+        partition ->
+            !queries.containsKey(PARTITION_KEY)
+                || partition == Integer.parseInt(queries.get(PARTITION_KEY)));
   }
 
-  private Response get(Set<String> topicNames) {
+  private Response get(Set<String> topicNames, Predicate<Integer> partitionPredicate) {
     var topics = admin.topics(topicNames);
     var replicas = admin.replicas(topics.keySet());
     var partitions =
         admin.offsets(topics.keySet()).entrySet().stream()
+            .filter(e -> partitionPredicate.test(e.getKey().partition()))
             .collect(
                 Collectors.groupingBy(
                     e -> e.getKey().topic(),
@@ -97,13 +104,19 @@ class TopicHandler implements Handler {
     if (admin.topicNames().contains(request.value(TOPIC_NAME_KEY))) {
       try {
         // if the topic creation is synced, we return the details.
-        return get(Set.of(request.value(TOPIC_NAME_KEY)));
+        return get(Set.of(request.value(TOPIC_NAME_KEY)), ignored -> true);
       } catch (UnknownTopicOrPartitionException e) {
         // swallow
       }
     }
     // Otherwise, return only name
     return new TopicInfo(request.value(TOPIC_NAME_KEY), List.of(), Map.of());
+  }
+
+  @Override
+  public Response delete(String topic, Map<String, String> queries) {
+    admin.deleteTopics(Set.of(topic));
+    return Response.OK;
   }
 
   static class Topics implements Response {

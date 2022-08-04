@@ -17,12 +17,17 @@
 package org.astraea.app.common;
 
 import java.io.File;
+import java.lang.reflect.Constructor;
 import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.nio.file.Files;
 import java.time.Duration;
+import java.util.Collection;
+import java.util.List;
+import java.util.Objects;
 import java.util.SortedMap;
 import java.util.TreeMap;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
@@ -30,6 +35,8 @@ import java.util.function.Supplier;
 import java.util.stream.Collector;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import org.astraea.app.cost.CostFunction;
+import org.astraea.app.partitioner.Configuration;
 
 public final class Utils {
 
@@ -134,12 +141,25 @@ public final class Utils {
    * @param done a flag indicating the result.
    */
   public static void waitFor(Supplier<Boolean> done, Duration timeout) {
+    waitForNonNull(() -> done.get() ? "good" : null, timeout);
+  }
+
+  /**
+   * loop the supplier until it returns non-null value
+   *
+   * @param supplier to loop
+   * @param timeout to break the loop
+   * @param <T> returned type
+   * @return value from supplier
+   */
+  public static <T> T waitForNonNull(Supplier<T> supplier, Duration timeout) {
     var endTime = System.currentTimeMillis() + timeout.toMillis();
     Exception lastError = null;
     while (System.currentTimeMillis() <= endTime)
       try {
-        if (done.get()) return;
-        TimeUnit.SECONDS.sleep(1);
+        var r = supplier.get();
+        if (r != null) return r;
+        Utils.sleep(Duration.ofSeconds(1));
       } catch (Exception e) {
         lastError = e;
       }
@@ -154,6 +174,19 @@ public final class Utils {
   }
 
   /**
+   * check the content of string
+   *
+   * @param value to check
+   * @return input string if the string is not empty. Otherwise, it throws NPE or
+   *     IllegalArgumentException
+   */
+  public static String requireNonEmpty(String value) {
+    if (Objects.requireNonNull(value).isEmpty())
+      throw new IllegalArgumentException("the value: " + value + " can't be empty");
+    return value;
+  }
+
+  /**
    * Check if the time is expired.
    *
    * @param lastTime Check time.
@@ -164,6 +197,11 @@ public final class Utils {
     return (lastTime + interval.toMillis()) < System.currentTimeMillis();
   }
 
+  /**
+   * Perform a sleep using the duration. InterruptedException is wrapped to RuntimeException.
+   *
+   * @param duration to sleep
+   */
   public static void sleep(Duration duration) {
     Utils.swallowException(() -> TimeUnit.MILLISECONDS.sleep(duration.toMillis()));
   }
@@ -211,6 +249,29 @@ public final class Utils {
           throw new IllegalStateException("Duplicate key");
         },
         TreeMap::new);
+  }
+
+  public static <T> CompletableFuture<List<T>> sequence(Collection<CompletableFuture<T>> futures) {
+    return CompletableFuture.allOf(futures.toArray(new CompletableFuture<?>[0]))
+        .thenApply(f -> futures.stream().map(CompletableFuture::join).collect(Collectors.toList()));
+  }
+
+  public static CostFunction constructCostFunction(
+      Class<? extends CostFunction> costClass, Configuration configuration) {
+    for (Constructor<?> constructor : costClass.getConstructors()) {
+      Class<?>[] types = constructor.getParameterTypes();
+      if (types.length == 1 && types[0].isAssignableFrom(Configuration.class)) {
+        return (CostFunction) Utils.packException(() -> constructor.newInstance(configuration));
+      }
+    }
+    for (Constructor<?> constructor : costClass.getConstructors()) {
+      Class<?>[] types = constructor.getParameterTypes();
+      if (types.length == 0) {
+        return (CostFunction) Utils.packException(() -> constructor.newInstance());
+      }
+    }
+    throw new IllegalArgumentException(
+        "No suitable constructor found for class " + costClass.getName());
   }
 
   private Utils() {}

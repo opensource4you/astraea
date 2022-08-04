@@ -28,8 +28,11 @@ import java.math.BigInteger;
 import java.time.Duration;
 import java.time.temporal.ChronoUnit;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
+import java.util.stream.IntStream;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
@@ -40,53 +43,66 @@ class DataSizeTest {
   @Test
   void typicalUsageOfDataUnit() {
     // 500KB
-    DataUnit.KB.of(500);
+    DataSize.KB.of(500);
     // 500MB + 500MB
-    DataUnit.MB.of(500).add(500, DataUnit.MB);
+    DataSize.MB.of(500).add(500, DataUnit.MB);
     // 500GB - 500GB
-    DataUnit.GB.of(500).subtract(500, DataUnit.GB);
+    DataSize.GB.of(500).subtract(500, DataUnit.GB);
     // 500 TB / 10
-    DataUnit.TB.of(500).divide(10);
+    DataSize.TB.of(500).divide(10);
     // 500 PB * 10
-    DataUnit.PB.of(500).multiply(10);
+    DataSize.PB.of(500).multiply(10);
 
     // the data rate of sending 1 EB over 1 second
-    DataUnit.EB.of(1).dataRate(ChronoUnit.SECONDS);
+    DataSize.EB.of(1).dataRate(ChronoUnit.SECONDS);
     // the data rate of sending 1 EB over 1 millisecond
-    DataUnit.EB.of(1).dataRate(ChronoUnit.MILLIS);
+    DataSize.EB.of(1).dataRate(ChronoUnit.MILLIS);
     // the data rate of sending 1 EB over 1 century (100 years)
-    DataUnit.EB.of(1).dataRate(ChronoUnit.CENTURIES);
+    DataSize.EB.of(1).dataRate(ChronoUnit.CENTURIES);
     // the data rate of sending 1 EB over 59 seconds
-    DataUnit.EB.of(1).dataRate(Duration.ofSeconds(59));
+    DataSize.EB.of(1).dataRate(Duration.ofSeconds(59));
     // data rate string of sending 1 EB over 1 second in the most human friendly data unit & second
     // time unit
-    DataUnit.EB.of(1).dataRate(ChronoUnit.SECONDS).toString();
+    DataSize.EB.of(1).dataRate(ChronoUnit.SECONDS).toString();
     // data rate string of sending 1 EB over 1 second in the most human friendly data unit & 1 hour
     // time unit
-    DataUnit.EB.of(1).dataRate(ChronoUnit.SECONDS).toString(ChronoUnit.HOURS);
+    DataSize.EB.of(1).dataRate(ChronoUnit.SECONDS).toString(ChronoUnit.HOURS);
     // data rate string of sending 1 EB over 1 second in ZB unit and hour time unit
-    DataUnit.EB.of(1).dataRate(ChronoUnit.SECONDS).toString(DataUnit.ZB, ChronoUnit.HOURS);
+    DataSize.EB.of(1).dataRate(ChronoUnit.SECONDS).toString(DataUnit.ZB, ChronoUnit.HOURS);
 
     // someone wondering that if we send 1 YB of data over 1000 years, how much data we sent per
     // second.
-    DataUnit.YB.of(1).dataRate(ChronoUnit.MILLENNIA).toString(ChronoUnit.SECONDS);
+    DataSize.YB.of(1).dataRate(ChronoUnit.MILLENNIA).toString(ChronoUnit.SECONDS);
 
     // faster convert between DataRate and others.
-    var randomSize = DataUnit.Byte.of(ThreadLocalRandom.current().nextLong());
+    var randomSize = DataSize.Byte.of(ThreadLocalRandom.current().nextLong());
 
-    BigDecimal bigDecimal0 = DataRate.ofBigDecimal(1000, DataUnit.Byte, ChronoUnit.SECONDS);
-    BigDecimal bigDecimal1 = DataRate.ofBigDecimal(1000, DataUnit.Byte, Duration.ofSeconds(1));
-    BigDecimal bigDecimal2 = DataRate.ofBigDecimal(randomSize, DataUnit.Byte, ChronoUnit.SECONDS);
-    BigDecimal bigDecimal3 =
-        DataRate.ofBigDecimal(randomSize, DataUnit.Byte, Duration.ofSeconds(1));
+    // sum all data size
+    var sumAll =
+        IntStream.range(0, 100).mapToObj(DataSize.Byte::of).reduce(DataSize.ZERO, DataSize::add);
+    Assertions.assertEquals(4950, sumAll.bytes());
 
-    double double0 = DataRate.ofDouble(1000, DataUnit.Byte, ChronoUnit.SECONDS);
-    double double1 = DataRate.ofDouble(1000, DataUnit.Byte, Duration.ofSeconds(1));
-    double double2 = DataRate.ofDouble(randomSize, DataUnit.Byte, ChronoUnit.SECONDS);
-    double double3 = DataRate.ofDouble(randomSize, DataUnit.Byte, Duration.ofSeconds(1));
+    // fast way to get bytes, be aware of exception caused by overflow.
+    long bytesInLong = randomSize.bytes();
+    long bytes10Gib = DataSize.Gib.of(10).bytes();
+
+    // two ways to get second rate
+    DataRate two = DataRate.Byte.of(1000).perSecond();
+
+    // data rate to other types
+    double dataRateDouble = DataRate.Byte.of(1000).perSecond().byteRate();
+    DataSize dataRateSize = DataRate.Byte.of(1000).perSecond().dataSize();
+
+    // fast way to get DataSize & DataRate from primitive type
+    DataSize primitive0 = DataSize.Byte.of(1000);
+    DataSize primitive1 = DataSize.Byte.of((long) 1000.0);
+
+    // fast way to add/subtract data from primitive type
+    DataSize.Byte.of(1000).subtract(500);
+    DataSize.Byte.of(1024).add(1024);
 
     // solve the above problem
-    var dataVolume = DataUnit.YB.of(1);
+    var dataVolume = DataSize.YB.of(1);
     var dataVolumeOver1000Years = dataVolume.dataRate(ChronoUnit.MILLENNIA);
     Consumer<ChronoUnit> tellMeTheAnswerIn =
         (ChronoUnit chronoUnit) ->
@@ -165,6 +181,46 @@ class DataSizeTest {
       })
   void of(String unitName, String expectedBits) {
     assertEquals(new BigInteger(expectedBits), DataUnit.valueOf(unitName).of(1).bits());
+  }
+
+  @Test
+  void dataSizeOf() {
+    BiConsumer<BigInteger, BigInteger> test = Assertions::assertEquals;
+
+    test.accept(new BigInteger("1"), DataSize.Bit.of(1).bits());
+    test.accept(new BigInteger("1000"), DataSize.Kb.of(1).bits());
+    test.accept(new BigInteger("1000000"), DataSize.Mb.of(1).bits());
+    test.accept(new BigInteger("1000000000"), DataSize.Gb.of(1).bits());
+    test.accept(new BigInteger("1000000000000"), DataSize.Tb.of(1).bits());
+    test.accept(new BigInteger("1000000000000000"), DataSize.Pb.of(1).bits());
+    test.accept(new BigInteger("1000000000000000000"), DataSize.Eb.of(1).bits());
+    test.accept(new BigInteger("1000000000000000000000"), DataSize.Zb.of(1).bits());
+    test.accept(new BigInteger("1000000000000000000000000"), DataSize.Yb.of(1).bits());
+    test.accept(new BigInteger("1024"), DataSize.Kib.of(1).bits());
+    test.accept(new BigInteger("1048576"), DataSize.Mib.of(1).bits());
+    test.accept(new BigInteger("1073741824"), DataSize.Gib.of(1).bits());
+    test.accept(new BigInteger("1099511627776"), DataSize.Tib.of(1).bits());
+    test.accept(new BigInteger("1125899906842624"), DataSize.Pib.of(1).bits());
+    test.accept(new BigInteger("1152921504606846976"), DataSize.Eib.of(1).bits());
+    test.accept(new BigInteger("1180591620717411303424"), DataSize.Zib.of(1).bits());
+    test.accept(new BigInteger("1208925819614629174706176"), DataSize.Yib.of(1).bits());
+    test.accept(new BigInteger("8"), DataSize.Byte.of(1).bits());
+    test.accept(new BigInteger("8000"), DataSize.KB.of(1).bits());
+    test.accept(new BigInteger("8000000"), DataSize.MB.of(1).bits());
+    test.accept(new BigInteger("8000000000"), DataSize.GB.of(1).bits());
+    test.accept(new BigInteger("8000000000000"), DataSize.TB.of(1).bits());
+    test.accept(new BigInteger("8000000000000000"), DataSize.PB.of(1).bits());
+    test.accept(new BigInteger("8000000000000000000"), DataSize.EB.of(1).bits());
+    test.accept(new BigInteger("8000000000000000000000"), DataSize.ZB.of(1).bits());
+    test.accept(new BigInteger("8000000000000000000000000"), DataSize.YB.of(1).bits());
+    test.accept(new BigInteger("8192"), DataSize.KiB.of(1).bits());
+    test.accept(new BigInteger("8388608"), DataSize.MiB.of(1).bits());
+    test.accept(new BigInteger("8589934592"), DataSize.GiB.of(1).bits());
+    test.accept(new BigInteger("8796093022208"), DataSize.TiB.of(1).bits());
+    test.accept(new BigInteger("9007199254740992"), DataSize.PiB.of(1).bits());
+    test.accept(new BigInteger("9223372036854775808"), DataSize.EiB.of(1).bits());
+    test.accept(new BigInteger("9444732965739290427392"), DataSize.ZiB.of(1).bits());
+    test.accept(new BigInteger("9671406556917033397649408"), DataSize.YiB.of(1).bits());
   }
 
   @Test
@@ -314,5 +370,49 @@ class DataSizeTest {
     assertFalse(DataUnit.MB.of(2).smallerEqualTo(DataUnit.KB.of(1000)));
     assertFalse(DataUnit.MB.of(0).greaterEqualTo(DataUnit.KB.of(1000)));
     assertFalse(DataUnit.MB.of(1).greaterThan(DataUnit.KB.of(1001)));
+  }
+
+  @ParameterizedTest
+  @CsvSource(
+      delimiterString = ",",
+      value = {
+        // measurement, unit, expected-value
+        "            1,  KiB,           1024",
+        "         1000,   GB,  1000000000000",
+        "            8,  Bit,              1",
+        "            7,  Bit,              0",
+        "            0,  Bit,              0",
+        "            9,  Bit,              1",
+        "           15,  Bit,              1",
+        "           16,  Bit,              2",
+        "          800,  Bit,            100"
+      })
+  void bytes(long measurement, DataUnit unit, long expected) {
+    var dataSize = unit.of(measurement);
+
+    Assertions.assertEquals(expected, dataSize.bytes());
+
+    // overflow cases
+    Assertions.assertThrows(ArithmeticException.class, () -> DataUnit.PiB.of(8192).bytes());
+    Assertions.assertDoesNotThrow(() -> DataUnit.PiB.of(8191).bytes());
+    Assertions.assertDoesNotThrow(() -> DataUnit.Byte.of(Long.MAX_VALUE).bytes());
+  }
+
+  @Test
+  void addBytes() {
+    Assertions.assertEquals(1100, DataUnit.Byte.of(1000).add(100).bytes());
+    Assertions.assertEquals(1124, DataUnit.KiB.of(1).add(100).bytes());
+  }
+
+  @Test
+  void subtractBytes() {
+    Assertions.assertEquals(900, DataUnit.Byte.of(1000).subtract(100).bytes());
+    Assertions.assertEquals(924, DataUnit.KiB.of(1).subtract(100).bytes());
+  }
+
+  @Test
+  void zero() {
+    Assertions.assertEquals(DataUnit.Bit.of(0), DataSize.ZERO);
+    Assertions.assertEquals(0, DataSize.ZERO.bits().longValue());
   }
 }

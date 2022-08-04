@@ -17,13 +17,19 @@
 package org.astraea.app.common;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.Map;
 import java.util.SortedMap;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
+import org.astraea.app.cost.CostFunction;
+import org.astraea.app.partitioner.Configuration;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 public class UtilsTest {
 
@@ -65,5 +71,56 @@ public class UtilsTest {
         () ->
             Stream.of(Map.entry(1, "hello"), Map.entry(1, "world"))
                 .collect(Utils.toSortedMap(Map.Entry::getKey, Map.Entry::getValue)));
+  }
+
+  @Test
+  void testSequence() {
+    var future1 = CompletableFuture.supplyAsync(() -> 1);
+    var future2 = CompletableFuture.supplyAsync(() -> 2);
+
+    Assertions.assertEquals(Utils.sequence(List.of(future1, future2)).join(), List.of(1, 2));
+  }
+
+  @Test
+  void testNonEmpty() {
+    Assertions.assertThrows(IllegalArgumentException.class, () -> Utils.requireNonEmpty(""));
+    Assertions.assertThrows(NullPointerException.class, () -> Utils.requireNonEmpty(null));
+  }
+
+  public static class TestConfigCostFunction implements CostFunction {
+    public TestConfigCostFunction(Configuration configuration) {}
+  }
+
+  public static class TestCostFunction implements CostFunction {
+    public TestCostFunction() {}
+  }
+
+  public static class TestBadCostFunction implements CostFunction {
+    public TestBadCostFunction(int value) {}
+  }
+
+  @ParameterizedTest
+  @ValueSource(classes = {TestCostFunction.class, TestConfigCostFunction.class})
+  void constructCostFunction(Class<? extends CostFunction> aClass) {
+    // arrange
+    var config = Configuration.of(Map.of());
+
+    // act
+    var costFunction = Utils.constructCostFunction(aClass, config);
+
+    // assert
+    Assertions.assertInstanceOf(CostFunction.class, costFunction);
+    Assertions.assertInstanceOf(aClass, costFunction);
+  }
+
+  @Test
+  void constructCostFunctionException() {
+    // arrange
+    var aClass = TestBadCostFunction.class;
+    var config = Configuration.of(Map.of());
+
+    // act, assert
+    Assertions.assertThrows(
+        IllegalArgumentException.class, () -> Utils.constructCostFunction(aClass, config));
   }
 }

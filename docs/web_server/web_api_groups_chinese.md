@@ -111,13 +111,18 @@ DELETE /groups/{groupId}?{instance=id}
 
 參數
 
-| 名稱                       | 說明                                             | 預設  |
-|--------------------------|------------------------------------------------|-----|
-| groupId                    | (必填) 清除此group底下所有的consumer members             | 無   |
-| instance                    | (選填) 只清除此group instance id 關聯的 consumer member | 無   |
+| 名稱                       | 說明                                             | 預設    |
+|--------------------------|------------------------------------------------|-------|
+| groupId                    | (必填) 清除此group底下所有的consumer members             | 無     |
+| group                    | (選填) group=true 將忽視其他參數並刪除group                | 無 |
+| instance                    | (選填) 只清除此group instance id 關聯的 consumer member | 無     |
 
 cURL 範例
-刪除 group-1 底下所有的 consumer members
+
 ```shell
+# 刪除 group-1 底下所有的 consumer members
 curl -X DELETE http://localhost:8001/groups/group-1
+
+# 刪除 group-1
+curl -X DELETE http://localhost:8001/groups/group-1?group=true
 ```

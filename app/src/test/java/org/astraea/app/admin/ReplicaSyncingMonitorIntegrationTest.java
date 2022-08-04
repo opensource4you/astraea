@@ -19,13 +19,14 @@ package org.astraea.app.admin;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 
-import java.io.IOException;
+import java.time.Duration;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
 import org.astraea.app.argument.Argument;
+import org.astraea.app.common.Utils;
 import org.astraea.app.producer.Producer;
 import org.astraea.app.producer.Sender;
 import org.astraea.app.service.RequireBrokerCluster;
@@ -38,7 +39,7 @@ class ReplicaSyncingMonitorIntegrationTest extends RequireBrokerCluster {
   private static final byte[] dummyBytes = new byte[1024];
 
   @Test
-  void execute() throws IOException, InterruptedException {
+  void execute() throws InterruptedException {
     // arrange
     try (Admin topicAdmin = Admin.of(bootstrapServers())) {
       topicAdmin
@@ -59,7 +60,7 @@ class ReplicaSyncingMonitorIntegrationTest extends RequireBrokerCluster {
       int currentBroker =
           topicAdmin
               .replicas(Set.of(TOPIC_NAME))
-              .get(new TopicPartition(TOPIC_NAME, 0))
+              .get(TopicPartition.of(TOPIC_NAME, 0))
               .get(0)
               .broker();
       int moveToBroker = (currentBroker + 1) % logFolders().size();
@@ -85,15 +86,15 @@ class ReplicaSyncingMonitorIntegrationTest extends RequireBrokerCluster {
       // act
       executionThread.start();
       TimeUnit.SECONDS.timedJoin(executionThread, 8); // wait until the thread exit
-      TimeUnit.SECONDS.sleep(2); // sleep 2 extra seconds to ensure test run in stable
+      Utils.sleep(Duration.ofSeconds(2)); // sleep 2 extra seconds to ensure test run in stable
 
       // assert
       assertSame(Thread.State.TERMINATED, executionThread.getState());
       assertEquals(
-          1, topicAdmin.replicas(Set.of(TOPIC_NAME)).get(new TopicPartition(TOPIC_NAME, 0)).size());
+          1, topicAdmin.replicas(Set.of(TOPIC_NAME)).get(TopicPartition.of(TOPIC_NAME, 0)).size());
       assertEquals(
           moveToBroker,
-          topicAdmin.replicas(Set.of(TOPIC_NAME)).get(new TopicPartition(TOPIC_NAME, 0)).stream()
+          topicAdmin.replicas(Set.of(TOPIC_NAME)).get(TopicPartition.of(TOPIC_NAME, 0)).stream()
               .filter(Replica::leader)
               .findFirst()
               .orElseThrow()

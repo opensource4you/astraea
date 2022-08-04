@@ -20,12 +20,11 @@ import java.time.Duration;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.astraea.app.common.Utils;
-import org.astraea.app.concurrent.State;
-import org.astraea.app.concurrent.ThreadPool;
 import org.astraea.app.service.RequireBrokerCluster;
 import org.junit.jupiter.api.Test;
 
 public class RebalanceListenerTest extends RequireBrokerCluster {
+
   @Test
   void testConsumerRebalanceListener() {
     var getAssignment = new AtomicInteger(0);
@@ -35,16 +34,12 @@ public class RebalanceListenerTest extends RequireBrokerCluster {
             .bootstrapServers(bootstrapServers())
             .consumerRebalanceListener(ignore -> getAssignment.incrementAndGet())
             .build()) {
-      try (var threadPool =
-          ThreadPool.builder()
-              .executor(
-                  () -> {
-                    consumer.poll(Duration.ofSeconds(10));
-                    return State.DONE;
-                  })
-              .build()) {
-        Utils.waitFor(() -> getAssignment.get() == 1, Duration.ofSeconds(10));
-      }
+      Utils.waitFor(
+          () -> {
+            consumer.poll(Duration.ofSeconds(1));
+            return getAssignment.get() == 1;
+          },
+          Duration.ofSeconds(10));
     }
   }
 }
