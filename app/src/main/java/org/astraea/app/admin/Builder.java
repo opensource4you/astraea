@@ -59,6 +59,7 @@ import org.astraea.app.common.Utils;
 public class Builder {
 
   private final Map<String, Object> configs = new HashMap<>();
+  private static final String ERROR_MSG_MEMBER_IS_EMPTY = "leaving members should not be empty";
 
   Builder() {}
 
@@ -555,13 +556,21 @@ public class Builder {
 
     @Override
     public void removeAllMembers(String groupId) {
-      Utils.packException(
-          () ->
+      try {
+        Utils.packException(
+            () -> {
               admin
                   .removeMembersFromConsumerGroup(
                       groupId, new RemoveMembersFromConsumerGroupOptions())
                   .all()
-                  .get());
+                  .get();
+            });
+      } catch (IllegalArgumentException e) {
+        // Deleting all members can't work when there is no members already.
+        if (!ERROR_MSG_MEMBER_IS_EMPTY.equals(e.getMessage())) {
+          throw e;
+        }
+      }
     }
 
     @Override
