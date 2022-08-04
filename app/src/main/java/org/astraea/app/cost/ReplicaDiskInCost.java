@@ -29,7 +29,6 @@ import org.astraea.app.admin.NodeInfo;
 import org.astraea.app.admin.TopicPartition;
 import org.astraea.app.admin.TopicPartitionReplica;
 import org.astraea.app.metrics.HasBeanObject;
-import org.astraea.app.metrics.broker.HasValue;
 import org.astraea.app.metrics.broker.LogMetrics;
 import org.astraea.app.metrics.collector.Fetcher;
 
@@ -202,11 +201,7 @@ public class ReplicaDiskInCost implements HasBrokerCost, HasPartitionCost {
             metrics -> {
               // calculate the increase rate over a specific window of time
               var sizeTimeSeries =
-                  metrics.getValue().stream()
-                      .filter(bean -> bean instanceof HasValue)
-                      .filter(bean -> bean.beanObject().properties().get("type").equals("Log"))
-                      .filter(bean -> bean.beanObject().properties().get("name").equals("Size"))
-                      .map(bean -> (HasValue) bean)
+                  LogMetrics.Log.meters(metrics.getValue(), LogMetrics.Log.SIZE).stream()
                       .sorted(Comparator.comparingLong(HasBeanObject::createdTimestamp).reversed())
                       .collect(Collectors.toUnmodifiableList());
               var latestSize = sizeTimeSeries.stream().findFirst().orElseThrow();
