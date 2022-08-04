@@ -46,10 +46,6 @@ public class ReplicaDiskInCost implements HasBrokerCost, HasPartitionCost {
         Duration.ofSeconds(Integer.parseInt(configuration.string("metrics.duration").orElse("30")));
   }
 
-  public ReplicaDiskInCost() {
-    duration = Duration.ofSeconds(30);
-  }
-
   @Override
   public BrokerCost brokerCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
     final Map<Integer, List<TopicPartitionReplica>> topicPartitionOfEachBroker =
