@@ -121,14 +121,13 @@ class ReplicaDiskInCostTest extends RequireBrokerCluster {
     return ClusterBean.of(Map.of(1, broker1, 2, broker2, 3, broker3));
   }
 
-  private static HasValue fakeBeanObject(
+  private static LogMetrics.Log.Meter fakeBeanObject(
       String type, String name, String topic, String partition, long size, long time) {
-    BeanObject beanObject =
+    return new LogMetrics.Log.Meter(
         new BeanObject(
-            "",
+            "kafka.log",
             Map.of("name", name, "type", type, "topic", topic, "partition", partition),
             Map.of("Value", size),
-            time);
-    return HasValue.of(beanObject);
+            time));
   }
 }
