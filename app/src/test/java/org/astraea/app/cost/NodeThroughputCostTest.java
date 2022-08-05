@@ -40,9 +40,7 @@ public class NodeThroughputCostTest {
     Mockito.when(bean1.outgoingByteRate()).thenReturn(3D);
     var clusterBean = ClusterBean.of(Map.of(0, List.of(bean0), 1, List.of(bean1)));
     var clusterInfo = Mockito.mock(ClusterInfo.class);
-    Mockito.when(clusterInfo.clusterBean()).thenReturn(clusterBean);
-
-    var cost = throughputCost.brokerCost(clusterInfo);
+    var cost = throughputCost.brokerCost(clusterInfo, clusterBean);
     Assertions.assertEquals(30D, cost.value().get(0));
     Assertions.assertEquals(5D, cost.value().get(1));
   }

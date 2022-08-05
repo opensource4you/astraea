@@ -21,7 +21,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
@@ -138,7 +137,7 @@ class RebalanceAdminImpl implements RebalanceAdmin {
     return expectedPlacement.stream()
         .map(
             log ->
-                new TopicPartitionReplica(
+                TopicPartitionReplica.of(
                     topicPartition.topic(), topicPartition.partition(), log.broker()))
         .map(log -> new ReplicaMigrationTask(this, log))
         .collect(Collectors.toUnmodifiableList());
@@ -176,7 +175,7 @@ class RebalanceAdminImpl implements RebalanceAdmin {
                     .map(x -> x.inSync() && !x.isFuture())
                     .orElse(false);
             // debounce & retrial interval
-            Utils.packException(() -> TimeUnit.MILLISECONDS.sleep(retrialTime.get().toMillis()));
+            Utils.sleep(retrialTime.get());
             debounce = synced ? (debounce - 1) : 2;
             // synced
             if (synced && debounce <= 0) return true;

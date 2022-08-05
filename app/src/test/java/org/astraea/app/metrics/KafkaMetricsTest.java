@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.app.metrics.broker;
+package org.astraea.app.metrics;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -25,9 +25,11 @@ import static org.junit.jupiter.api.condition.OS.WINDOWS;
 
 import java.io.IOException;
 import java.lang.management.ManagementFactory;
+import java.time.Duration;
 import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import javax.management.MBeanServer;
 import javax.management.remote.JMXConnectorServer;
@@ -35,12 +37,16 @@ import javax.management.remote.JMXConnectorServerFactory;
 import javax.management.remote.JMXServiceURL;
 import org.astraea.app.admin.Admin;
 import org.astraea.app.common.Utils;
-import org.astraea.app.metrics.KafkaMetrics;
+import org.astraea.app.metrics.broker.BrokerTopicMetricsResult;
+import org.astraea.app.metrics.broker.LogMetrics;
+import org.astraea.app.metrics.broker.TotalTimeMs;
+import org.astraea.app.metrics.jmx.BeanObject;
 import org.astraea.app.metrics.jmx.MBeanClient;
 import org.astraea.app.metrics.platform.JvmMemory;
 import org.astraea.app.metrics.platform.OperatingSystemInfo;
 import org.astraea.app.service.RequireBrokerCluster;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledOnOs;
@@ -130,41 +136,18 @@ class KafkaMetricsTest extends RequireBrokerCluster {
   }
 
   @ParameterizedTest()
-  @EnumSource(value = KafkaMetrics.TopicPartition.class)
-  void testTopicPartitionMetrics(KafkaMetrics.TopicPartition request) throws InterruptedException {
+  @EnumSource(value = LogMetrics.Log.class)
+  void testTopicPartitionMetrics(LogMetrics.Log request) {
     try (var admin = Admin.of(bootstrapServers())) {
       // there are only 3 brokers, so 10 partitions can make each broker has some partitions
       admin.creator().topic(Utils.randomString(5)).numberOfPartitions(10).create();
     }
 
     // wait for topic creation
-    TimeUnit.SECONDS.sleep(2);
+    Utils.sleep(Duration.ofSeconds(2));
 
     var beans = request.fetch(mBeanClient);
     assertNotEquals(0, beans.size());
-  }
-
-  @Test
-  void testGlobalPartitionCount() {
-    // act
-    assertDoesNotThrow(() -> KafkaMetrics.TopicPartition.globalPartitionCount(mBeanClient));
-  }
-
-  @Test
-  void testUnderReplicatedPartitions() {
-    assertDoesNotThrow(() -> KafkaMetrics.TopicPartition.underReplicatedPartitions(mBeanClient));
-  }
-
-  @Test
-  void testSize() {
-    // arrange
-    try (Admin admin = Admin.of(bootstrapServers())) {
-      String topicName = getClass().getName();
-      admin.creator().topic(topicName).numberOfPartitions(10).create();
-
-      // act assert
-      assertDoesNotThrow(() -> KafkaMetrics.TopicPartition.size(mBeanClient, topicName));
-    }
   }
 
   @Test
@@ -234,5 +217,24 @@ class KafkaMetricsTest extends RequireBrokerCluster {
   @EnabledOnOs(LINUX)
   void linuxDiskWriteBytes() {
     assertDoesNotThrow(() -> KafkaMetrics.BrokerTopic.linuxDiskWriteBytes(mBeanClient));
+  }
+
+  @ParameterizedTest
+  @EnumSource(KafkaMetrics.BrokerTopic.class)
+  void testBrokerTopic(KafkaMetrics.BrokerTopic brokerTopic) {
+    var object =
+        new BrokerTopicMetricsResult(
+            new BeanObject("object", Map.of("name", brokerTopic.metricName()), Map.of()));
+    Assertions.assertEquals(1, brokerTopic.of(List.of(object)).size());
+
+    Assertions.assertEquals(
+        0,
+        brokerTopic
+            .of(
+                List.of(
+                    new BrokerTopicMetricsResult(
+                        new BeanObject(
+                            "object", Map.of("name", Utils.randomString(10)), Map.of()))))
+            .size());
   }
 }

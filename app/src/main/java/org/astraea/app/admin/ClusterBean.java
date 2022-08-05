@@ -26,6 +26,8 @@ import org.astraea.app.metrics.HasBeanObject;
 
 /** Used to get beanObject using a variety of different keys . */
 public interface ClusterBean {
+  ClusterBean EMPTY = ClusterBean.of(Map.of());
+
   static ClusterBean of(Map<Integer, Collection<HasBeanObject>> allBeans) {
     Map<TopicPartition, Collection<HasBeanObject>> beanObjectByPartition =
         allBeans.entrySet().stream()
@@ -74,7 +76,7 @@ public interface ClusterBean {
                               var topic = properties.get("topic");
                               var partition = Integer.parseInt(properties.get("partition"));
                               return Map.entry(
-                                  new TopicPartitionReplica(topic, partition, entry.getKey()),
+                                  TopicPartitionReplica.of(topic, partition, entry.getKey()),
                                   List.of(hasBeanObject));
                             }))
             .collect(

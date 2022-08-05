@@ -39,7 +39,6 @@ import org.astraea.app.admin.TopicPartition;
 import org.astraea.app.balancer.executor.RebalancePlanExecutor;
 import org.astraea.app.balancer.generator.RebalancePlanGenerator;
 import org.astraea.app.balancer.log.ClusterLogAllocation;
-import org.astraea.app.balancer.log.LayeredClusterLogAllocation;
 import org.astraea.app.balancer.metrics.IdentifiedFetcher;
 import org.astraea.app.balancer.metrics.MetricSource;
 import org.astraea.app.cost.CostFunction;
@@ -56,14 +55,14 @@ class BalancerUtils {
    *
    * @param clusterInfo the based cluster info
    * @param allocation the log allocation to replace {@link ClusterInfo}'s log placement. If the
-   *     allocation implementation is {@link LayeredClusterLogAllocation} then the given instance
+   *     allocation implementation is {@link ClusterLogAllocation} then the given instance
    *     will be locked.
    * @return a {@link ClusterInfo} with its log placement replaced.
    */
   public static ClusterInfo mockClusterInfoAllocation(
       ClusterInfo clusterInfo, ClusterLogAllocation allocation) {
     // making defensive copy
-    final var allocationCopy = LayeredClusterLogAllocation.of(allocation);
+    final var allocationCopy = allocation;
     return new ClusterInfo() {
       // TODO: maybe add a field to tell if this cluster info is mocked.
 
@@ -80,7 +79,7 @@ class BalancerUtils {
       @Override
       public Set<String> topics() {
         return allocationCopy
-            .topicPartitionStream()
+            .topicPartitions().stream()
             .map(TopicPartition::topic)
             .collect(Collectors.toUnmodifiableSet());
       }
@@ -105,7 +104,7 @@ class BalancerUtils {
                 .collect(Collectors.toUnmodifiableMap(NodeInfo::id, Function.identity()));
         var result =
             allocationCopy
-                .topicPartitionStream()
+                .topicPartitions().stream()
                 .filter(tp -> tp.topic().equals(topic))
                 .map(tp -> Map.entry(tp, allocationCopy.logPlacements(tp)))
                 .flatMap(
@@ -130,11 +129,6 @@ class BalancerUtils {
         if (result.isEmpty()) throw new NoSuchElementException();
 
         return result;
-      }
-
-      @Override
-      public ClusterBean clusterBean() {
-        return clusterInfo.clusterBean();
       }
     };
   }

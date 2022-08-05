@@ -45,7 +45,7 @@ public class ReplicaLeaderCostTest {
     var clusterInfo = Mockito.mock(ClusterInfo.class);
     Mockito.when(clusterInfo.topics()).thenReturn(Set.of("topic"));
     Mockito.when(clusterInfo.availableReplicaLeaders(Mockito.anyString())).thenReturn(replicas);
-    var cost = function.leaderCount(clusterInfo);
+    var cost = function.leaderCount(clusterInfo, ClusterBean.EMPTY);
     Assertions.assertTrue(cost.containsKey(10));
     Assertions.assertTrue(cost.containsKey(11));
     Assertions.assertEquals(2, cost.size());
@@ -54,7 +54,6 @@ public class ReplicaLeaderCostTest {
 
   @Test
   void testWithMetrics() {
-    var topicName = List.of("testLeaderCost-1", "testLeaderCost-2", "testLeaderCost-3");
     var costFunction = new ReplicaLeaderCost();
     var LeaderCount1 = mockResult(KafkaMetrics.ReplicaManager.LeaderCount.metricName(), 3);
     var LeaderCount2 = mockResult(KafkaMetrics.ReplicaManager.LeaderCount.metricName(), 4);
@@ -64,9 +63,7 @@ public class ReplicaLeaderCostTest {
     Collection<HasBeanObject> broker2 = List.of(LeaderCount2);
     Collection<HasBeanObject> broker3 = List.of(LeaderCount3);
     var clusterBean = ClusterBean.of(Map.of(1, broker1, 2, broker2, 3, broker3));
-    var clusterInfo = Mockito.mock(ClusterInfo.class);
-    Mockito.when(clusterInfo.clusterBean()).thenReturn(clusterBean);
-    var load = costFunction.brokerCost(clusterInfo);
+    var load = costFunction.brokerCost(ClusterInfo.EMPTY, clusterBean);
 
     Assertions.assertEquals(3, load.value().size());
     Assertions.assertEquals(3.0, load.value().get(1));

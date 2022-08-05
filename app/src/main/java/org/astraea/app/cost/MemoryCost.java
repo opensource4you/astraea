@@ -22,6 +22,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import org.astraea.app.admin.ClusterBean;
 import org.astraea.app.admin.ClusterInfo;
 import org.astraea.app.metrics.KafkaMetrics;
 import org.astraea.app.metrics.collector.Fetcher;
@@ -42,9 +43,9 @@ public class MemoryCost extends Periodic<Map<Integer, Double>> implements HasBro
    * </ol>
    */
   @Override
-  public BrokerCost brokerCost(ClusterInfo clusterInfo) {
+  public BrokerCost brokerCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
     var costMetrics =
-        clusterInfo.clusterBean().all().entrySet().stream()
+        clusterBean.all().entrySet().stream()
             .collect(
                 Collectors.toMap(
                     Map.Entry::getKey,

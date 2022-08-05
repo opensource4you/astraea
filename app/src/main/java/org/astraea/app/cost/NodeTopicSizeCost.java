@@ -16,19 +16,25 @@
  */
 package org.astraea.app.cost;
 
-import java.util.Collection;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import org.astraea.app.admin.ClusterBean;
 import org.astraea.app.admin.ClusterInfo;
-import org.astraea.app.metrics.HasBeanObject;
-import org.astraea.app.metrics.KafkaMetrics;
+import org.astraea.app.metrics.broker.LogMetrics;
 import org.astraea.app.metrics.collector.Fetcher;
-import org.astraea.app.metrics.producer.HasProducerNodeMetrics;
 
-public class NodeLatencyCost implements HasBrokerCost {
+public class NodeTopicSizeCost implements HasBrokerCost {
 
+  @Override
+  public Optional<Fetcher> fetcher() {
+    return Optional.of(LogMetrics.Log.SIZE::fetch);
+  }
+
+  /**
+   * @param clusterInfo the clusterInfo that offers the metrics related to topic/partition size
+   * @return a BrokerCost contains the used space for each broker
+   */
   @Override
   public BrokerCost brokerCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
     var result =
@@ -37,21 +43,9 @@ public class NodeLatencyCost implements HasBrokerCost {
                 Collectors.toMap(
                     Map.Entry::getKey,
                     e ->
-                        e.getValue().stream()
-                            .filter(b -> b instanceof HasProducerNodeMetrics)
-                            .map(b -> (HasProducerNodeMetrics) b)
-                            .mapToDouble(HasProducerNodeMetrics::requestLatencyAvg)
+                        LogMetrics.Log.meters(e.getValue(), LogMetrics.Log.SIZE).stream()
+                            .mapToDouble(LogMetrics.Log.Meter::value)
                             .sum()));
     return () -> result;
-  }
-
-  @Override
-  public Optional<Fetcher> fetcher() {
-    return Optional.of(
-        client ->
-            KafkaMetrics.Producer.nodes(client).values().stream()
-                .flatMap(Collection::stream)
-                .map(b -> (HasBeanObject) b)
-                .collect(Collectors.toUnmodifiableList()));
   }
 }

@@ -16,11 +16,11 @@
  */
 package org.astraea.app.web;
 
+import java.time.Duration;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.TimeUnit;
 import org.astraea.app.admin.Admin;
 import org.astraea.app.common.Utils;
 import org.astraea.app.service.RequireBrokerCluster;
@@ -30,11 +30,11 @@ import org.junit.jupiter.api.Test;
 public class TopicHandlerTest extends RequireBrokerCluster {
 
   @Test
-  void testListTopics() throws InterruptedException {
+  void testListTopics() {
     var topicName = Utils.randomString(10);
     try (Admin admin = Admin.of(bootstrapServers())) {
       admin.creator().topic(topicName).create();
-      TimeUnit.SECONDS.sleep(3);
+      Utils.sleep(Duration.ofSeconds(3));
       var handler = new TopicHandler(admin);
       var response =
           Assertions.assertInstanceOf(
@@ -62,11 +62,11 @@ public class TopicHandlerTest extends RequireBrokerCluster {
   }
 
   @Test
-  void testQuerySingleTopic() throws InterruptedException {
+  void testQuerySingleTopic() {
     var topicName = Utils.randomString(10);
     try (Admin admin = Admin.of(bootstrapServers())) {
       admin.creator().topic(topicName).create();
-      TimeUnit.SECONDS.sleep(3);
+      Utils.sleep(Duration.ofSeconds(3));
       var handler = new TopicHandler(admin);
       var topicInfo =
           Assertions.assertInstanceOf(
@@ -77,11 +77,11 @@ public class TopicHandlerTest extends RequireBrokerCluster {
   }
 
   @Test
-  void testTopics() throws InterruptedException {
+  void testTopics() {
     var topicName = Utils.randomString(10);
     try (Admin admin = Admin.of(bootstrapServers())) {
       admin.creator().topic(topicName).create();
-      TimeUnit.SECONDS.sleep(3);
+      Utils.sleep(Duration.ofSeconds(3));
       var handler = new TopicHandler(admin);
       Assertions.assertEquals(Set.of(topicName), handler.topicNames(Optional.of(topicName)));
       Assertions.assertThrows(
@@ -105,7 +105,39 @@ public class TopicHandlerTest extends RequireBrokerCluster {
   }
 
   @Test
-  void testCreateTopicWithReplicas() throws InterruptedException {
+  void testQueryWithPartition() {
+    var topicName = Utils.randomString(10);
+    try (Admin admin = Admin.of(bootstrapServers())) {
+      var handler = new TopicHandler(admin);
+      Assertions.assertInstanceOf(
+          TopicHandler.TopicInfo.class,
+          handler.post(
+              PostRequest.of(
+                  Map.of(
+                      TopicHandler.TOPIC_NAME_KEY,
+                      topicName,
+                      TopicHandler.NUMBER_OF_PARTITIONS_KEY,
+                      "10"))));
+      Utils.sleep(Duration.ofSeconds(2));
+      Assertions.assertEquals(
+          1,
+          Assertions.assertInstanceOf(
+                  TopicHandler.TopicInfo.class,
+                  handler.get(Optional.of(topicName), Map.of(TopicHandler.PARTITION_KEY, "0")))
+              .partitions
+              .size());
+
+      Assertions.assertEquals(
+          10,
+          Assertions.assertInstanceOf(
+                  TopicHandler.TopicInfo.class, handler.get(Optional.of(topicName), Map.of()))
+              .partitions
+              .size());
+    }
+  }
+
+  @Test
+  void testCreateTopicWithReplicas() {
     var topicName = Utils.randomString(10);
     try (Admin admin = Admin.of(bootstrapServers())) {
       var handler = new TopicHandler(admin);
@@ -127,7 +159,7 @@ public class TopicHandlerTest extends RequireBrokerCluster {
 
       // the topic creation is not synced, so we have to wait the creation.
       if (topicInfo.partitions.isEmpty()) {
-        TimeUnit.SECONDS.sleep(2);
+        Utils.sleep(Duration.ofSeconds(2));
         var result = admin.replicas(Set.of(topicName));
         Assertions.assertEquals(2, result.size());
         result.values().forEach(replicas -> Assertions.assertEquals(2, replicas.size()));

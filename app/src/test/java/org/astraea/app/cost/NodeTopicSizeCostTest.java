@@ -18,45 +18,28 @@ package org.astraea.app.cost;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import org.astraea.app.admin.ClusterBean;
 import org.astraea.app.admin.ClusterInfo;
-import org.astraea.app.admin.NodeInfo;
-import org.astraea.app.admin.ReplicaInfo;
+import org.astraea.app.metrics.broker.LogMetrics;
+import org.astraea.app.metrics.jmx.BeanObject;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 
-public class FakeClusterInfo implements ClusterInfo {
-  @Override
-  public List<NodeInfo> nodes() {
-    return List.of();
-  }
+class NodeTopicSizeCostTest {
 
-  @Override
-  public Set<String> dataDirectories(int brokerId) {
-    return Set.of();
-  }
-
-  @Override
-  public List<ReplicaInfo> availableReplicaLeaders(String topic) {
-    return List.of();
-  }
-
-  @Override
-  public List<ReplicaInfo> availableReplicas(String topic) {
-    return List.of();
-  }
-
-  @Override
-  public Set<String> topics() {
-    return Set.of();
-  }
-
-  @Override
-  public List<ReplicaInfo> replicas(String topic) {
-    return List.of();
-  }
-
-  @Override
-  public ClusterBean clusterBean() {
-    return ClusterBean.of(Map.of());
+  @Test
+  void testCost() {
+    var bean =
+        new BeanObject(
+            "domain",
+            Map.of("topic", "t", "partition", "10", "name", "SIZE"),
+            Map.of("Value", 777));
+    var meter = new LogMetrics.Log.Meter(bean);
+    var cost = new NodeTopicSizeCost();
+    var result =
+        cost.brokerCost(Mockito.mock(ClusterInfo.class), ClusterBean.of(Map.of(1, List.of(meter))));
+    Assertions.assertEquals(1, result.value().size());
+    Assertions.assertEquals(777, result.value().entrySet().iterator().next().getValue());
   }
 }

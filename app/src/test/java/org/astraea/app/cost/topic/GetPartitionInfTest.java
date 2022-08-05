@@ -18,11 +18,12 @@ package org.astraea.app.cost.topic;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
 import org.astraea.app.admin.Admin;
+import org.astraea.app.common.Utils;
 import org.astraea.app.producer.Producer;
 import org.astraea.app.producer.Serializer;
 import org.astraea.app.service.RequireBrokerCluster;
@@ -60,9 +61,7 @@ public class GetPartitionInfTest extends RequireBrokerCluster {
           .numberOfReplicas((short) 1)
           .create();
       // wait for topic
-      TimeUnit.SECONDS.sleep(5);
-    } catch (InterruptedException e) {
-      e.printStackTrace();
+      Utils.sleep(Duration.ofSeconds(5));
     }
     var producer =
         Producer.builder()

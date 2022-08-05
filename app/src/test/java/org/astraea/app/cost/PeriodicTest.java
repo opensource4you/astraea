@@ -19,7 +19,7 @@ package org.astraea.app.cost;
 import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.TimeUnit;
+import org.astraea.app.common.Utils;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -32,7 +32,7 @@ public class PeriodicTest extends Periodic<Map<Integer, Double>> {
     Assertions.assertEquals(broker1.get(0), 0.0);
     var broker2 = tryUpdateAfterOneSecond(this::testMap);
     Assertions.assertEquals(broker2.get(0), 0.0);
-    sleep(1);
+    Utils.sleep(Duration.ofSeconds(1));
     broker2 = tryUpdateAfterOneSecond(this::testMap);
     Assertions.assertEquals(broker2.get(0), 1.0);
   }
@@ -43,7 +43,7 @@ public class PeriodicTest extends Periodic<Map<Integer, Double>> {
     Assertions.assertEquals(broker1.get(0), 0.0);
     var broker2 = tryUpdate(this::testMap, Duration.ofSeconds(3));
     Assertions.assertEquals(broker2.get(0), 0.0);
-    sleep(4);
+    Utils.sleep(Duration.ofSeconds(4));
     broker2 = tryUpdate(this::testMap, Duration.ofSeconds(3));
     Assertions.assertEquals(broker2.get(0), 1.0);
   }
@@ -53,13 +53,5 @@ public class PeriodicTest extends Periodic<Map<Integer, Double>> {
     broker.put(0, brokerValue);
     brokerValue++;
     return broker;
-  }
-
-  private static void sleep(int seconds) {
-    try {
-      TimeUnit.SECONDS.sleep(seconds);
-    } catch (InterruptedException e) {
-      throw new RuntimeException(e);
-    }
   }
 }

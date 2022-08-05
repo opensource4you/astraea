@@ -14,11 +14,27 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.app.cost;
+package org.astraea.app.admin;
 
-import org.astraea.app.admin.ClusterBean;
-import org.astraea.app.admin.ClusterInfo;
-public interface HasClusterCost extends CostFunction {
-  ClusterCost clusterCost(ClusterInfo clusterInfo, ClusterBean clusterBean);
+import org.apache.kafka.clients.admin.DeletedRecords;
 
+public class DeletedRecord {
+  private final long lowWatermark;
+
+  public static DeletedRecord from(DeletedRecords deletedRecords) {
+    return new DeletedRecord(deletedRecords.lowWatermark());
+  }
+
+  private DeletedRecord(long lowWatermark) {
+    this.lowWatermark = lowWatermark;
+  }
+
+  public long lowWatermark() {
+    return lowWatermark;
+  }
+
+  @Override
+  public String toString() {
+    return "DeleteRecord{" + "lowWatermark=" + lowWatermark + '}';
+  }
 }

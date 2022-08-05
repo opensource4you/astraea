@@ -16,8 +16,9 @@
  */
 package org.astraea.app.concurrent;
 
-import java.util.concurrent.TimeUnit;
+import java.time.Duration;
 import java.util.concurrent.atomic.AtomicInteger;
+import org.astraea.app.common.Utils;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
@@ -48,10 +49,10 @@ public class ThreadPoolTest {
   }
 
   @Test
-  void testSubmitThread() throws Exception {
+  void testSubmitThread() {
     var executor = new CountExecutor();
     try (var pool = ThreadPool.builder().executor(executor).build()) {
-      TimeUnit.SECONDS.sleep(2);
+      Utils.sleep(Duration.ofSeconds(2));
     }
     Assertions.assertTrue(executor.executeCount.get() > 0);
     Assertions.assertEquals(1, executor.closeCount.get());
@@ -72,7 +73,7 @@ public class ThreadPoolTest {
         ThreadPool.builder()
             .executor(
                 () -> {
-                  TimeUnit.SECONDS.sleep(1000);
+                  Utils.sleep(Duration.ofSeconds(100));
                   return State.DONE;
                 })
             .build();

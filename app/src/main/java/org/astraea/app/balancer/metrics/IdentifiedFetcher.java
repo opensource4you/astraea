@@ -35,7 +35,7 @@ public class IdentifiedFetcher implements Fetcher {
   }
 
   @Override
-  public Collection<HasBeanObject> fetch(MBeanClient client) {
+  public Collection<? extends HasBeanObject> fetch(MBeanClient client) {
     return fetcher.fetch(client);
   }
 

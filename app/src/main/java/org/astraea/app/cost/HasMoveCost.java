@@ -16,9 +16,18 @@
  */
 package org.astraea.app.cost;
 
+import java.util.List;
+import org.astraea.app.admin.ClusterBean;
 import org.astraea.app.admin.ClusterInfo;
-import org.astraea.app.balancer.log.ClusterLogAllocation;
 
 public interface HasMoveCost extends CostFunction {
-  ClusterCost clusterCost(ClusterInfo clusterInfo, ClusterLogAllocation clusterLogAllocation);
+  ClusterCost clusterCost(
+          ClusterInfo originClusterInfo, ClusterInfo newClusterInfo, ClusterBean clusterBean);
+
+  boolean overflow(
+          ClusterInfo originClusterInfo, ClusterInfo newClusterInfo, ClusterBean clusterBean);
+
+  List<String> totalMigrateSize();
+
+  List<String> EstimatedMigrateTime();
 }

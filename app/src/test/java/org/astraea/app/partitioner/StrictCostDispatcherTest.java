@@ -171,7 +171,6 @@ public class StrictCostDispatcherTest {
     var clusterInfo = Mockito.mock(ClusterInfo.class);
     Mockito.when(clusterInfo.availableReplicaLeaders(Mockito.anyString()))
         .thenReturn(List.of(replicaInfo0, replicaInfo1));
-    Mockito.when(clusterInfo.clusterBean()).thenReturn(ClusterBean.of(Map.of()));
     try (var dispatcher = new StrictCostDispatcher()) {
       dispatcher.configure(
           Map.of(costFunction, 1D), Optional.empty(), Map.of(), Duration.ofSeconds(10));
@@ -210,7 +209,6 @@ public class StrictCostDispatcherTest {
     var clusterInfo = Mockito.mock(ClusterInfo.class);
     Mockito.when(clusterInfo.availableReplicaLeaders(Mockito.anyString()))
         .thenReturn(List.of(replicaInfo0, replicaInfo1, replicaInfo2));
-    Mockito.when(clusterInfo.clusterBean()).thenReturn(ClusterBean.of(Map.of()));
     // there is one local receiver by default
     Assertions.assertEquals(1, dispatcher.receivers.size());
     Assertions.assertEquals(-1, dispatcher.receivers.keySet().iterator().next());
@@ -254,7 +252,7 @@ public class StrictCostDispatcherTest {
     var costFunction =
         new HasBrokerCost() {
           @Override
-          public BrokerCost brokerCost(ClusterInfo clusterInfo) {
+          public BrokerCost brokerCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
             return () -> Map.of(brokerId, 10D);
           }
         };
@@ -269,7 +267,6 @@ public class StrictCostDispatcherTest {
     var clusterInfo = Mockito.mock(ClusterInfo.class);
     Mockito.when(clusterInfo.availableReplicaLeaders(Mockito.anyString()))
         .thenReturn(List.of(replicaInfo0, replicaInfo1));
-    Mockito.when(clusterInfo.clusterBean()).thenReturn(ClusterBean.of(Map.of()));
 
     Assertions.assertEquals(
         partitionId, dispatcher.partition("topic", new byte[0], new byte[0], clusterInfo));
@@ -298,7 +295,6 @@ public class StrictCostDispatcherTest {
     Assertions.assertEquals(Duration.ofSeconds(2), dispatcher.roundRobinLease);
 
     var clusterInfo = Mockito.mock(ClusterInfo.class);
-    Mockito.when(clusterInfo.clusterBean()).thenReturn(ClusterBean.of(Map.of()));
     dispatcher.tryToUpdateRoundRobin(clusterInfo);
     var rr = dispatcher.roundRobin;
     Assertions.assertNotNull(rr);

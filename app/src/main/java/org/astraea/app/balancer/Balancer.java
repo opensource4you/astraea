@@ -30,13 +30,14 @@ import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.astraea.app.admin.Admin;
+import org.astraea.app.admin.ClusterBean;
 import org.astraea.app.admin.ClusterInfo;
 import org.astraea.app.admin.NodeInfo;
 import org.astraea.app.admin.TopicPartitionReplica;
 import org.astraea.app.balancer.executor.RebalanceAdmin;
 import org.astraea.app.balancer.executor.RebalancePlanExecutor;
 import org.astraea.app.balancer.generator.RebalancePlanGenerator;
-import org.astraea.app.balancer.log.LayeredClusterLogAllocation;
+import org.astraea.app.balancer.log.ClusterLogAllocation;
 import org.astraea.app.balancer.metrics.IdentifiedFetcher;
 import org.astraea.app.balancer.metrics.MetricSource;
 import org.astraea.app.common.Utils;
@@ -136,7 +137,7 @@ public class Balancer implements AutoCloseable {
               .filter(r -> !r.getValue().inSync() || r.getValue().isFuture())
               .map(
                   r ->
-                      new TopicPartitionReplica(
+                      TopicPartitionReplica.of(
                           r.getKey().topic(), r.getKey().partition(), r.getValue().broker()))
               .collect(Collectors.toUnmodifiableList());
       if (!migrationInProgress.isEmpty()) {
@@ -151,6 +152,8 @@ public class Balancer implements AutoCloseable {
         var currentClusterScore = evaluateCost(clusterInfo, clusterMetrics);
         // TODO: find a way to show the progress, without pollute the logic
         System.out.println("Run " + planGenerator.getClass().getName());
+        if (currentClusterScore >= 1.0)
+            continue;
         var bestProposal = seekingRebalancePlan(currentClusterScore, clusterInfo, clusterMetrics);
         // TODO: find a way to show the progress, without pollute the logic
         System.out.println(bestProposal);
@@ -238,9 +241,6 @@ public class Balancer implements AutoCloseable {
                             BalancerUtils.mockClusterInfoAllocation(clusterInfo, allocation);
                         return evaluateMoveCost(mockedCluster, clusterMetrics);
                       }));
-      var allocation = bestMigrationProposal.get().getValue().rebalancePlan().get();
-      var mockedCluster = BalancerUtils.mockClusterInfoAllocation(clusterInfo, allocation);
-      var moveScore = evaluateMoveCost(mockedCluster, clusterMetrics);
 
       // find the target with the highest score, return it
       return bestMigrationProposal
@@ -291,8 +291,8 @@ public class Balancer implements AutoCloseable {
                 cf -> {
                   var fetcher = fetcherOwnership.get(cf);
                   var theMetrics = metrics.get(fetcher);
-                  var clusterAndMetrics = ClusterInfo.of(clusterInfo, theMetrics);
-                  return Map.entry(cf, this.costFunctionScore(clusterAndMetrics, cf));
+                  var clusterBean = ClusterBean.of(theMetrics);
+                  return Map.entry(cf, this.costFunctionScore(clusterInfo,clusterBean, cf));
                 })
             .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));
     return aggregateFunction(scores);
@@ -307,8 +307,8 @@ public class Balancer implements AutoCloseable {
                 cf -> {
                   var fetcher = fetcherOwnership.get(cf);
                   var theMetrics = metrics.get(fetcher);
-                  var clusterAndMetrics = ClusterInfo.of(clusterInfo, theMetrics);
-                  return Map.entry(cf, this.moveCostScore(clusterAndMetrics, cf));
+                    var clusterBean = ClusterBean.of(theMetrics);
+                  return Map.entry(cf, this.moveCostScore(clusterInfo,clusterBean, cf));
                 })
             .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));
     return aggregateFunction(scores);
@@ -324,9 +324,9 @@ public class Balancer implements AutoCloseable {
     return scores.values().stream().mapToDouble(x -> x).sum();
   }
 
-  private double costFunctionScore(ClusterInfo clusterInfo, CostFunction costFunction) {
+  private double costFunctionScore(ClusterInfo clusterInfo,ClusterBean clusterBean, CostFunction costFunction) {
     if (costFunction instanceof HasClusterCost) {
-      return ((HasClusterCost) costFunction).clusterCost(clusterInfo).value();
+      return ((HasClusterCost) costFunction).clusterCost(clusterInfo,clusterBean).value();
     } else if (costFunction instanceof HasBrokerCost) {
       return brokerCostScore(clusterInfo, (HasBrokerCost) costFunction);
     } else if (costFunction instanceof HasPartitionCost) {
@@ -339,13 +339,14 @@ public class Balancer implements AutoCloseable {
     }
   }
 
-  private double moveCostScore(ClusterInfo clusterInfo, CostFunction costFunction) {
+  private double moveCostScore(ClusterInfo clusterInfo,ClusterBean clusterBean, CostFunction costFunction) {
     if (costFunction instanceof HasMoveCost) {
-      var metrics = metricSource.allBeans().get(fetcherOwnership.get(costFunction));
-      var originalClusterInfo = ClusterInfo.of(newClusterInfo(), metrics);
-      var targetAllocation = LayeredClusterLogAllocation.of(clusterInfo);
+      var originalClusterInfo = newClusterInfo();
+      var targetAllocation = ClusterLogAllocation.of(clusterInfo);
+      if (((HasMoveCost) costFunction).overflow(originalClusterInfo,clusterInfo,clusterBean))
+          return 999999.0;
       return ((HasMoveCost) costFunction)
-          .clusterCost(originalClusterInfo, targetAllocation)
+          .clusterCost(originalClusterInfo, clusterInfo, clusterBean)
           .value();
     }
     return 0.0;
@@ -354,7 +355,9 @@ public class Balancer implements AutoCloseable {
   private <T extends HasBrokerCost> double brokerCostScore(
       ClusterInfo clusterInfo, T costFunction) {
     // TODO: revise the default usage
-    return costFunction.brokerCost(clusterInfo).value().values().stream()
+      var metrics = metricSource.allBeans().get(fetcherOwnership.get(costFunction));
+      var clusterBean = ClusterBean.of(metrics);
+    return costFunction.brokerCost(clusterInfo,clusterBean).value().values().stream()
         .mapToDouble(x -> x)
         .max()
         .orElseThrow();
@@ -368,7 +371,7 @@ public class Balancer implements AutoCloseable {
 
   // TODO: this usage will be removed someday
   @Deprecated
-  private static Thread progressWatch(String title, double totalTasks, Supplier<Double> accTasks) {
+  public static Thread progressWatch(String title, double totalTasks, Supplier<Double> accTasks) {
     AtomicInteger counter = new AtomicInteger();
 
     Supplier<String> nextProgressBar =
