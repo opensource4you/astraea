@@ -121,6 +121,6 @@ public class UtilsTest {
 
     // act, assert
     Assertions.assertThrows(
-        IllegalArgumentException.class, () -> Utils.constructCostFunction(aClass, config));
+        RuntimeException.class, () -> Utils.constructCostFunction(aClass, config));
   }
 }

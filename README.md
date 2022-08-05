@@ -7,6 +7,7 @@
 - Zheng-Xian Li <garyparrottt@gmail.com>
 - Xiang-Jun Sun <sean0651101@gmail.com>
 - Zhi-Mao Teng <zhimao.teng@gmail.com>
+- Jia-Sheng Chen <haser1156@gmail.com>
 
 # Kafka Tools
 

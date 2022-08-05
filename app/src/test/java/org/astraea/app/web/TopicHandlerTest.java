@@ -204,14 +204,19 @@ public class TopicHandlerTest extends RequireBrokerCluster {
       var handler = new TopicHandler(admin);
       topicNames.forEach(
           x -> admin.creator().topic(x).numberOfPartitions(3).numberOfReplicas((short) 3).create());
+      Utils.sleep(Duration.ofSeconds(2));
 
       handler.delete(topicNames.get(0), Map.of());
+      Utils.sleep(Duration.ofSeconds(2));
+
       var latestTopicNames = admin.topicNames();
       Assertions.assertFalse(latestTopicNames.contains(topicNames.get(0)));
       Assertions.assertTrue(latestTopicNames.contains(topicNames.get(1)));
       Assertions.assertTrue(latestTopicNames.contains(topicNames.get(2)));
 
       handler.delete(topicNames.get(2), Map.of());
+      Utils.sleep(Duration.ofSeconds(2));
+
       latestTopicNames = admin.topicNames();
       Assertions.assertFalse(latestTopicNames.contains(topicNames.get(2)));
       Assertions.assertTrue(latestTopicNames.contains(topicNames.get(1)));
