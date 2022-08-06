@@ -63,35 +63,36 @@ public class ShufflePlanGenerator implements RebalancePlanGenerator {
   @Override
   public Stream<RebalancePlanProposal> generate(
       ClusterInfo clusterInfo, ClusterLogAllocation baseAllocation) {
+    final var brokerIds =
+        clusterInfo.nodes().stream().map(NodeInfo::id).collect(Collectors.toUnmodifiableSet());
+
+    if (brokerIds.size() == 0) {
+      return Stream.of(
+          RebalancePlanProposal.builder()
+              .withRebalancePlan(baseAllocation)
+              .addWarning("There is no broker")
+              .build());
+    }
+
+    if (brokerIds.size() == 1) {
+      return Stream.of(
+          RebalancePlanProposal.builder()
+              .withRebalancePlan(baseAllocation)
+              .addWarning("Only one broker exists, unable to do some migration")
+              .build());
+    }
+
+    if (clusterInfo.topics().size() == 0) {
+      return Stream.of(
+          RebalancePlanProposal.builder()
+              .withRebalancePlan(baseAllocation)
+              .addWarning("No non-ignored topic to working on.")
+              .build());
+    }
+
     return Stream.generate(
         () -> {
           final var rebalancePlanBuilder = RebalancePlanProposal.builder();
-          final var brokerIds =
-              clusterInfo.nodes().stream()
-                  .map(NodeInfo::id)
-                  .collect(Collectors.toUnmodifiableSet());
-
-          if (brokerIds.size() == 0) {
-            return rebalancePlanBuilder
-                .withRebalancePlan(baseAllocation)
-                .addWarning("There is no broker")
-                .build();
-          }
-
-          if (brokerIds.size() == 1) {
-            return rebalancePlanBuilder
-                .withRebalancePlan(baseAllocation)
-                .addWarning("Only one broker exists, unable to do some migration")
-                .build();
-          }
-
-          if (clusterInfo.topics().size() == 0) {
-            return rebalancePlanBuilder
-                .withRebalancePlan(baseAllocation)
-                .addWarning("No non-ignored topic to working on.")
-                .build();
-          }
-
           final var shuffleCount = numberOfShuffle.get();
 
           rebalancePlanBuilder.addInfo(

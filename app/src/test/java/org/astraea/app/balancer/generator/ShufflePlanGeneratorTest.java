@@ -83,6 +83,7 @@ class ShufflePlanGeneratorTest {
                 ClusterLogAllocation.of(fakeClusterInfo), proposal.rebalancePlan())
             .isEmpty());
     Assertions.assertTrue(proposal.warnings().size() >= 1);
+    Assertions.assertEquals(1, shufflePlanGenerator.generate(fakeClusterInfo).limit(10).count());
   }
 
   @Test
@@ -94,6 +95,7 @@ class ShufflePlanGeneratorTest {
 
     System.out.println(proposal);
     Assertions.assertTrue(proposal.warnings().size() >= 1);
+    Assertions.assertEquals(1, shufflePlanGenerator.generate(fakeClusterInfo).limit(10).count());
   }
 
   @Test
@@ -109,6 +111,7 @@ class ShufflePlanGeneratorTest {
                 ClusterLogAllocation.of(fakeClusterInfo), proposal.rebalancePlan())
             .isEmpty());
     Assertions.assertTrue(proposal.warnings().size() >= 1);
+    Assertions.assertEquals(1, shufflePlanGenerator.generate(fakeClusterInfo).limit(10).count());
   }
 
   @ParameterizedTest(name = "[{0}] {1} nodes, {2} topics, {3} partitions, {4} replicas")
