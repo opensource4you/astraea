@@ -75,8 +75,8 @@ public interface ReplicationThrottler {
   ReplicationThrottler throttleTopic(String topic);
 
   /**
-   * Every logs<strong>(look up at the calling moment)</strong> under the specified topic/partition,
-   * its replication will be throttle.
+   * Every logs under the specified topic/partition<strong>(look up at the applying
+   * moment)</strong>, its replication will be throttle.
    *
    * @param topicPartition throttle all its logs
    * @return this
@@ -84,8 +84,8 @@ public interface ReplicationThrottler {
   ReplicationThrottler throttleLogs(TopicPartition topicPartition);
 
   /**
-   * The leader log and any non-synced logs<strong>(look up at the calling moment)</strong> under
-   * the specified topic/partition, its replication will be throttle.
+   * The leader log and any non-synced logs under the specified topic/partition<strong>(look up at
+   * the applying moment)</strong>, its replication will be throttle.
    *
    * <p>If every log are synced, no throttle will be applied.
    *
