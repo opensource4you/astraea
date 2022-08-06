@@ -16,10 +16,16 @@
  */
 package org.astraea.app.cost;
 
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import org.astraea.app.admin.ClusterBean;
 import org.astraea.app.admin.ClusterInfo;
+import org.astraea.app.admin.NodeInfo;
+import org.astraea.app.admin.ReplicaInfo;
 import org.astraea.app.metrics.BeanObject;
 import org.astraea.app.metrics.broker.LogMetrics;
 import org.junit.jupiter.api.Assertions;
@@ -27,19 +33,30 @@ import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
 class NodeTopicSizeCostTest {
+  private final BeanObject bean =
+      new BeanObject(
+          "domain", Map.of("topic", "t", "partition", "10", "name", "SIZE"), Map.of("Value", 777));
 
   @Test
-  void testCost() {
-    var bean =
-        new BeanObject(
-            "domain",
-            Map.of("topic", "t", "partition", "10", "name", "SIZE"),
-            Map.of("Value", 777));
+  void testBrokerCost() {
     var meter = new LogMetrics.Log.Meter(bean);
     var cost = new NodeTopicSizeCost();
     var result =
-        cost.brokerCost(Mockito.mock(ClusterInfo.class), ClusterBean.of(Map.of(1, List.of(meter))));
+        cost.brokerCost(mock(ClusterInfo.class), ClusterBean.of(Map.of(1, List.of(meter))));
     Assertions.assertEquals(1, result.value().size());
     Assertions.assertEquals(777, result.value().entrySet().iterator().next().getValue());
+  }
+
+  @Test
+  void testPartitionCost() {
+    var meter = new LogMetrics.Log.Meter(bean);
+    var cost = new NodeTopicSizeCost();
+    var clusterInfo = Mockito.mock(ClusterInfo.class);
+    when(clusterInfo.topics()).thenReturn(Set.of("t"));
+    when(clusterInfo.availableReplicas("t"))
+        .thenReturn(List.of(ReplicaInfo.of("t", 10, NodeInfo.of(0, "0", 0), true, false, false)));
+    var result = cost.partitionCost(clusterInfo, ClusterBean.of(Map.of(1, List.of(meter))));
+    Assertions.assertEquals(1, result.value(0).size());
+    Assertions.assertEquals(777, result.value(0).entrySet().iterator().next().getValue());
   }
 }

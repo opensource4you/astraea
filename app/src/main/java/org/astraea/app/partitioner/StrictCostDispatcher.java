@@ -122,6 +122,11 @@ public class StrictCostDispatcher implements Dispatcher {
         .orElse(partitionLeaders.get((int) (Math.random() * partitionLeaders.size())).partition());
   }
 
+  @Override
+  public Function<Integer, Optional<Integer>> jmxAddress() {
+    return jmxPortGetter;
+  }
+
   void tryToUpdateRoundRobin(ClusterInfo clusterInfo) {
     if (roundRobin == null || System.currentTimeMillis() >= timeToUpdateRoundRobin) {
       roundRobin =

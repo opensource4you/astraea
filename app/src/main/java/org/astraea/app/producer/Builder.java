@@ -157,6 +157,14 @@ public class Builder<Key, Value> {
     public void close() {
       kafkaProducer.close();
     }
+
+    public org.apache.kafka.clients.producer.Producer<
+            java.security.Key, org.apache.kafka.common.metrics.stats.Value>
+        producer() {
+      return (org.apache.kafka.clients.producer.Producer<
+              java.security.Key, org.apache.kafka.common.metrics.stats.Value>)
+          kafkaProducer;
+    }
   }
 
   private static class NormalProducer<Key, Value> extends BaseProducer<Key, Value> {

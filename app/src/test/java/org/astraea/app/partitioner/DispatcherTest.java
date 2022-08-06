@@ -16,17 +16,43 @@
  */
 package org.astraea.app.partitioner;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
+import java.util.Properties;
 import java.util.Set;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.Cluster;
+import org.apache.kafka.common.serialization.ByteArraySerializer;
+import org.astraea.app.admin.Admin;
 import org.astraea.app.admin.ClusterInfo;
+import org.astraea.app.common.Utils;
+import org.astraea.app.consumer.Consumer;
+import org.astraea.app.consumer.Deserializer;
+import org.astraea.app.consumer.Header;
+import org.astraea.app.partitioner.smooth.SmoothWeightRoundRobinDispatcher;
+import org.astraea.app.producer.Metadata;
+import org.astraea.app.producer.Producer;
+import org.astraea.app.producer.Serializer;
+import org.astraea.app.service.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-public class DispatcherTest {
+public class DispatcherTest extends RequireBrokerCluster {
+  private final String brokerList = bootstrapServer();
 
   @Test
   void testNullKey() {
@@ -39,6 +65,11 @@ public class DispatcherTest {
             Assertions.assertEquals(0, Objects.requireNonNull(value).length);
             count.incrementAndGet();
             return 0;
+          }
+
+          @Override
+          public Function<Integer, Optional<Integer>> jmxAddress() {
+            return null;
           }
 
           @Override
@@ -62,6 +93,11 @@ public class DispatcherTest {
           public int partition(String topic, byte[] key, byte[] value, ClusterInfo clusterInfo) {
             return 0;
           }
+
+          @Override
+          public Function<Integer, Optional<Integer>> jmxAddress() {
+            return null;
+          }
         };
     var initialCount = Dispatcher.CLUSTER_CACHE.size();
     var cluster = new Cluster("aa", List.of(), List.of(), Set.of(), Set.of());
@@ -69,5 +105,185 @@ public class DispatcherTest {
     Assertions.assertEquals(initialCount + 1, Dispatcher.CLUSTER_CACHE.size());
     dispatcher.partition("topic", "a", new byte[0], "v", new byte[0], cluster);
     Assertions.assertEquals(initialCount + 1, Dispatcher.CLUSTER_CACHE.size());
+  }
+
+  @Test
+  void interdependentTest() {
+    var admin = Admin.of(bootstrapServers());
+    var topicName = "address";
+    admin.creator().topic(topicName).numberOfPartitions(9).create();
+    var key = "tainan";
+    var value = "shanghai";
+    var timestamp = System.currentTimeMillis() + 10;
+    var header = Header.of("a", "b".getBytes());
+    var targetPartition = 8;
+    try (var producer =
+        Producer.builder()
+            .keySerializer(Serializer.STRING)
+            .configs(
+                initProConfig().entrySet().stream()
+                    .collect(
+                        Collectors.toMap(e -> e.getKey().toString(), e -> e.getValue().toString())))
+            .build()) {
+      IntStream.range(0, 240)
+          .forEach(
+              i -> {
+                Metadata metadata;
+                try {
+                  metadata =
+                      producer
+                          .sender()
+                          .topic(topicName)
+                          .key(key)
+                          .value(value.getBytes())
+                          .partition(i % 8)
+                          .timestamp(timestamp)
+                          .headers(List.of(header))
+                          .run()
+                          .toCompletableFuture()
+                          .get();
+                } catch (InterruptedException | ExecutionException e) {
+                  throw new RuntimeException(e);
+                }
+                assertEquals(topicName, metadata.topic());
+                assertEquals(timestamp, metadata.timestamp());
+                assertNotEquals(targetPartition, metadata.partition());
+              });
+      var kafkaProducer = Dispatcher.of(producer.producer());
+      kafkaProducer.beginInterdependent();
+      IntStream.range(0, 100)
+          .forEach(
+              i -> {
+                Metadata metadata;
+                try {
+                  metadata =
+                      producer
+                          .sender()
+                          .topic(topicName)
+                          .key(key)
+                          .value(value.getBytes())
+                          .timestamp(timestamp)
+                          .headers(List.of(header))
+                          .run()
+                          .toCompletableFuture()
+                          .get();
+                } catch (InterruptedException | ExecutionException e) {
+                  throw new RuntimeException(e);
+                }
+                assertEquals(topicName, metadata.topic());
+                assertEquals(timestamp, metadata.timestamp());
+                assertEquals(targetPartition, metadata.partition());
+              });
+      kafkaProducer.endInterdependent();
+      IntStream.range(0, 2400)
+          .forEach(
+              i -> {
+                Metadata metadata;
+                try {
+                  metadata =
+                      producer
+                          .sender()
+                          .topic(topicName)
+                          .key(key)
+                          .value(value.getBytes())
+                          .partition(i % 8 + 1)
+                          .timestamp(timestamp)
+                          .headers(List.of(header))
+                          .run()
+                          .toCompletableFuture()
+                          .get();
+                } catch (InterruptedException | ExecutionException e) {
+                  throw new RuntimeException(e);
+                }
+                assertEquals(topicName, metadata.topic());
+                assertEquals(timestamp, metadata.timestamp());
+                assertNotEquals(0, metadata.partition());
+              });
+      kafkaProducer.beginInterdependent();
+      IntStream.range(0, 100)
+          .forEach(
+              i -> {
+                Metadata metadata;
+                try {
+                  metadata =
+                      producer
+                          .sender()
+                          .topic(topicName)
+                          .key(key)
+                          .value(value.getBytes())
+                          .timestamp(timestamp)
+                          .headers(List.of(header))
+                          .run()
+                          .toCompletableFuture()
+                          .get();
+                } catch (InterruptedException | ExecutionException e) {
+                  throw new RuntimeException(e);
+                }
+                assertEquals(topicName, metadata.topic());
+                assertEquals(timestamp, metadata.timestamp());
+                assertEquals(0, metadata.partition());
+              });
+      kafkaProducer.endInterdependent();
+    }
+
+    Utils.sleep(Duration.ofSeconds(1));
+    try (var consumer =
+        Consumer.forTopics(Set.of(topicName))
+            .bootstrapServers(bootstrapServers())
+            .fromBeginning()
+            .keyDeserializer(Deserializer.STRING)
+            .build()) {
+      var records = consumer.poll(Duration.ofSeconds(20));
+      var recordsCount = records.size();
+      while (recordsCount < 2840) {
+        recordsCount += consumer.poll(Duration.ofSeconds(20)).size();
+      }
+      assertEquals(2840, recordsCount);
+      var record = records.iterator().next();
+      assertEquals(topicName, record.topic());
+      assertEquals("tainan", record.key());
+      assertEquals(1, record.headers().size());
+      var actualHeader = record.headers().iterator().next();
+      assertEquals(header.key(), actualHeader.key());
+      Assertions.assertArrayEquals(header.value(), actualHeader.value());
+    }
+  }
+
+  private Properties initProConfig() {
+    Properties props = new Properties();
+    props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, brokerList);
+    props.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, ByteArraySerializer.class.getName());
+    props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, ByteArraySerializer.class.getName());
+    props.put(ProducerConfig.CLIENT_ID_CONFIG, "id1");
+    props.put(
+        ProducerConfig.PARTITIONER_CLASS_CONFIG, SmoothWeightRoundRobinDispatcher.class.getName());
+    props.put("producerID", 1);
+    var file =
+        new File(
+            Objects.requireNonNull(DispatcherTest.class.getResource("")).getPath()
+                + "PartitionerConfigTest");
+    try {
+      var fileWriter = new FileWriter(file);
+      fileWriter.write("jmx.port=" + jmxServiceURL().getPort() + "\n");
+      fileWriter.write("broker.0.jmx.port=" + jmxServiceURL().getPort() + "\n");
+      fileWriter.write("broker.1.jmx.port=" + jmxServiceURL().getPort() + "\n");
+      fileWriter.write("broker.2.jmx.port=" + jmxServiceURL().getPort());
+      fileWriter.flush();
+      fileWriter.close();
+    } catch (IOException e) {
+      e.printStackTrace();
+    }
+    props.put(
+        "partitioner.config",
+        Objects.requireNonNull(DispatcherTest.class.getResource("")).getPath()
+            + "PartitionerConfigTest");
+    return props;
+  }
+
+  private static String bootstrapServer() {
+    resetBrokerCluster(1);
+
+    System.out.println("boot:" + bootstrapServers());
+    return bootstrapServers();
   }
 }

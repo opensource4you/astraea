@@ -189,6 +189,7 @@ public class Performance {
           consumerThreads.forEach(AbstractThread::close);
         });
 
+    Utils.sleep(Duration.ofSeconds(10));
     consumerThreads.forEach(AbstractThread::waitForDone);
     tracker.waitForDone();
     return param.topic;

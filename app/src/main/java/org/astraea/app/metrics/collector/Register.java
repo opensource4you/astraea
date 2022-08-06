@@ -38,7 +38,7 @@ public interface Register {
   Register local();
 
   /**
-   * @param getters to get metrics from MBeanClient
+   * @param fetcher to get metrics from MBeanClient
    * @return this register
    */
   Register fetcher(Fetcher fetcher);
