@@ -71,18 +71,22 @@ public class NodeLatencyCostTest extends RequireBrokerCluster {
       producer.sender().topic(Utils.randomString(10)).value(new byte[100]).run();
       producer.flush();
 
-      var beans = ProducerMetrics.nodes(MBeanClient.local());
-      var clusterBean =
-          ClusterBean.of(
-              Map.of(
-                  -1,
-                  beans.stream()
-                      .map(b -> (HasBeanObject) b)
-                      .collect(Collectors.toUnmodifiableList())));
-      var clusterInfo = Mockito.mock(ClusterInfo.class);
       var function = new NodeLatencyCost();
-      var cost = function.brokerCost(clusterInfo, clusterBean);
-      Assertions.assertEquals(1, cost.value().size());
+
+      Utils.waitFor(
+          () ->
+              function
+                      .brokerCost(
+                          Mockito.mock(ClusterInfo.class),
+                          ClusterBean.of(
+                              Map.of(
+                                  -1,
+                                  ProducerMetrics.nodes(MBeanClient.local()).stream()
+                                      .map(b -> (HasBeanObject) b)
+                                      .collect(Collectors.toUnmodifiableList()))))
+                      .value()
+                      .size()
+                  >= 1);
     }
   }
 

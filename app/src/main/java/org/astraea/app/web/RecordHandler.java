@@ -152,12 +152,7 @@ public class RecordHandler implements Handler {
 
     try (var consumer = consumerBuilder.build()) {
       var limit = Integer.parseInt(queries.getOrDefault(LIMIT, "1"));
-      return new Records(
-          consumer.poll(limit, timeout).stream()
-              .map(Record::new)
-              // TODO: remove limit here (https://github.com/skiptests/astraea/issues/441)
-              .limit(limit)
-              .collect(toList()));
+      return new Records(consumer.poll(limit, timeout).stream().map(Record::new).collect(toList()));
     }
   }
 

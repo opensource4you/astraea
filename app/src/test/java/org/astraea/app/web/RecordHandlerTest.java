@@ -303,9 +303,9 @@ public class RecordHandlerTest extends RequireBrokerCluster {
                 Optional.of(topic),
                 Map.of(DISTANCE_FROM_LATEST, "2", VALUE_DESERIALIZER, "integer")));
 
-    Assertions.assertEquals(1, response.data.size());
+    Assertions.assertEquals(2, response.data.size());
     Assertions.assertEquals(
-        List.of(8), response.data.stream().map(record -> record.value).collect(toList()));
+        List.of(8, 9), response.data.stream().map(record -> record.value).collect(toList()));
   }
 
   @Test
@@ -321,9 +321,9 @@ public class RecordHandlerTest extends RequireBrokerCluster {
                 Optional.of(topic),
                 Map.of(DISTANCE_FROM_BEGINNING, "8", VALUE_DESERIALIZER, "integer")));
 
-    Assertions.assertEquals(1, response.data.size());
+    Assertions.assertEquals(2, response.data.size());
     Assertions.assertEquals(
-        List.of(8), response.data.stream().map(record -> record.value).collect(toList()));
+        List.of(8, 9), response.data.stream().map(record -> record.value).collect(toList()));
   }
 
   @Test
@@ -337,9 +337,9 @@ public class RecordHandlerTest extends RequireBrokerCluster {
             RecordHandler.Records.class,
             handler.get(Optional.of(topic), Map.of(SEEK_TO, "3", VALUE_DESERIALIZER, "integer")));
 
-    Assertions.assertEquals(1, response.data.size());
+    Assertions.assertEquals(2, response.data.size());
     Assertions.assertEquals(
-        List.of(3), response.data.stream().map(record -> record.value).collect(toList()));
+        List.of(3, 4), response.data.stream().map(record -> record.value).collect(toList()));
   }
 
   @Test
@@ -370,8 +370,8 @@ public class RecordHandlerTest extends RequireBrokerCluster {
             RecordHandler.Records.class,
             handler.get(Optional.of(topic), Map.of(DISTANCE_FROM_BEGINNING, "1", PARTITION, "1")));
 
-    Assertions.assertEquals(
-        List.of(1), response.data.stream().map(r -> r.partition).collect(toList()));
+    Assertions.assertTrue(
+        response.data.stream().map(r -> r.partition).filter(p -> p != 1).findAny().isEmpty());
   }
 
   @Test
@@ -387,9 +387,11 @@ public class RecordHandlerTest extends RequireBrokerCluster {
                 Optional.of(topic),
                 Map.of(DISTANCE_FROM_BEGINNING, "2", LIMIT, "3", VALUE_DESERIALIZER, "integer")));
 
-    Assertions.assertEquals(3, response.data.size());
+    // limit is just a recommended size here, we might get more records than limit
+    Assertions.assertEquals(8, response.data.size());
     Assertions.assertEquals(
-        List.of(2, 3, 4), response.data.stream().map(record -> record.value).collect(toList()));
+        List.of(2, 3, 4, 5, 6, 7, 8, 9),
+        response.data.stream().map(record -> record.value).collect(toList()));
   }
 
   @ParameterizedTest
