@@ -26,20 +26,20 @@ import java.util.Map;
 public interface ReplicationThrottler {
 
   /**
-   * Apply the throttle setting to a specific topic. The existing setting for this topic will be
-   * overwritten. This API only declares which log should be throttled. The user has to call {@link
+   * Apply the throttle setting to specific topic. The existing setting for this topic will be
+   * overwritten. This API only declares which log should be throttled. The user have to call {@link
    * ReplicationThrottler#limitBrokerBandwidth(Map)} to specify the actual replication bandwidth
-   * that can be used for the specific broker.
+   * that can be used for specific broker.
    *
-   * @param type indicates the throttle setting should be applied at the leader or follower side.
+   * @param type indicate the throttle setting should be applied at leader or follower side.
    * @param setting the throttle setting to apply
    */
   void applyLogThrottle(ReplicaType type, TopicThrottleSetting setting);
 
   /**
-   * Specify the maximum bandwidth used for replication for a given broker.
+   * Specify the maximum bandwidth used for replication for given broker.
    *
-   * @param brokerThrottleRateMap indicates which broker(id) should be throttled at what rate.
+   * @param brokerThrottleRateMap indicate which broker(id) should be throttled at what rate.
    */
   void limitBrokerBandwidth(Map<Integer, BrokerThrottleRate> brokerThrottleRateMap);
 

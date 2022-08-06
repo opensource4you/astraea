@@ -69,9 +69,9 @@ public final class TopicThrottleSetting {
   }
 
   /**
-   * @return true if the topic is partially throttled. That is, the throttle only applies to certain
-   *     partition at a certain broker. Call {@link TopicThrottleSetting#throttledLog} to retrieve
-   *     the throttled logs.
+   * @return true if the topic is partially throttled. That is, the throttle only apply to certain
+   *     partition at certain broker. Call {@link TopicThrottleSetting#throttledLog} to retrieve the
+   *     throttled logs.
    */
   public boolean partialThrottled() {
     return !isAllLogThrottled && !throttledLog.isEmpty();
