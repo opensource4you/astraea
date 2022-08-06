@@ -247,9 +247,6 @@ public interface Admin extends Closeable {
    */
   Map<TopicPartition, Reassignment> reassignments(Set<String> topics);
 
-  /** Return a utility instance for altering replication throttle. */
-  ReplicationThrottler replicationThrottler();
-
   @Override
   void close();
 }
