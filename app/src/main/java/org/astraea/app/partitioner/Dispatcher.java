@@ -16,7 +16,6 @@
  */
 package org.astraea.app.partitioner;
 
-import java.lang.reflect.Field;
 import java.security.Key;
 import java.util.Comparator;
 import java.util.Map;
@@ -56,7 +55,7 @@ public interface Dispatcher extends Partitioner {
    */
   static Dispatcher of(Producer<Key, Value> producer) {
     try {
-      Field field = producer.getClass().getDeclaredField("partitioner");
+      var field = producer.getClass().getDeclaredField("partitioner");
       field.setAccessible(true);
       var dispatcher = (Dispatcher) field.get(producer);
       interdependent.jmxAddress = dispatcher.jmxAddress();
