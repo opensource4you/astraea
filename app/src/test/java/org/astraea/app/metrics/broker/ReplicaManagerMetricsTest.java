@@ -17,8 +17,10 @@
 package org.astraea.app.metrics.broker;
 
 import org.astraea.app.metrics.MBeanClient;
+import org.astraea.app.metrics.MetricsTestUtil;
 import org.astraea.app.service.RequireSingleBrokerCluster;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
@@ -30,5 +32,12 @@ public class ReplicaManagerMetricsTest extends RequireSingleBrokerCluster {
     var meter = rm.fetch(MBeanClient.local());
     Assertions.assertTrue(meter.value() >= 0);
     Assertions.assertEquals(rm, meter.type());
+  }
+
+  @Test
+  void testAllEnumNameUnique() {
+    Assertions.assertTrue(
+        MetricsTestUtil.metricDistinct(
+            ServerMetrics.ReplicaManager.values(), ServerMetrics.ReplicaManager::metricName));
   }
 }
