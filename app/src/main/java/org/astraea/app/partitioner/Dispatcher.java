@@ -42,8 +42,14 @@ public interface Dispatcher extends Partitioner {
    * Use the producer to get the scheduler, allowing you to control it for interdependent
    * messages.Interdependent message will be sent to the same partition. The system will
    * automatically select the node with the best current condition as the target node. For example:
-   * var dispatch = Dispatcher.of(producer); dispatch.startInterdependent(); producer.send();
+   *
+   * <pre>{
+   * @Code
+   * var dispatch = Dispatcher.of(producer);
+   * dispatch.startInterdependent();
+   * producer.send();
    * dispatch.endInterdependent();
+   * }</pre>
    *
    * @param producer Kafka producer
    * @return The dispatch of Kafka Producer
