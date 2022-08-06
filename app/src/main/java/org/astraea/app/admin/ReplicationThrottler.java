@@ -27,7 +27,7 @@ import org.astraea.app.common.DataRate;
 public interface ReplicationThrottler {
 
   /**
-   * Bandwidth for follower log broker to replicate data from the leader log broker.
+   * Maximum bandwidth for follower log broker to accept replicated data.
    *
    * @param limitForEachFollowerBroker the maximum bandwidth to throttle for each broker
    * @return this
@@ -35,7 +35,7 @@ public interface ReplicationThrottler {
   ReplicationThrottler ingress(DataRate limitForEachFollowerBroker);
 
   /**
-   * Bandwidth for follower log broker to replicate data from the leader log broker.
+   * Maximum bandwidth for follower log broker to accept replicated data.
    *
    * <p>For any follower broker that the throttle bandwidth is not specified in the argument Map.
    * The value from {@link ReplicationThrottler#ingress(DataRate)} will be used. If that value is
@@ -47,7 +47,7 @@ public interface ReplicationThrottler {
   ReplicationThrottler ingress(Map<Integer, DataRate> limitPerFollowerBroker);
 
   /**
-   * Bandwidth for leader log broker to replicate data to all the follower log brokers.
+   * Maximum bandwidth for leader log broker to transmit replicated data.
    *
    * @param limitForEachLeaderBroker the maximum bandwidth to throttle for each leader log broker.
    * @return this
@@ -55,7 +55,7 @@ public interface ReplicationThrottler {
   ReplicationThrottler egress(DataRate limitForEachLeaderBroker);
 
   /**
-   * Bandwidth for leader log broker to replicate data to all the follower log brokers.
+   * Maximum bandwidth for leader log broker to transmit replicated data.
    *
    * <p>For any leader broker that the throttle bandwidth is not specified in the argument Map. The
    * value from {@link ReplicationThrottler#egress(DataRate)} will be used. If that value is not
@@ -67,41 +67,57 @@ public interface ReplicationThrottler {
   ReplicationThrottler egress(Map<Integer, DataRate> limitPerLeaderBroker);
 
   /**
-   * Every log under the specified topic, its replication will be throttle.
+   * Declare that every log under the specified topic, its replication will be throttle.
    *
    * @param topic throttle every log under this topic.
    * @return this
    */
-  ReplicationThrottler throttleTopic(String topic);
+  ReplicationThrottler throttle(String topic);
 
   /**
-   * Every logs under the specified topic/partition<strong>(look up at the applying
+   * Declare that every log under the specified topic/partition<strong>(look up at the applying
    * moment)</strong>, its replication will be throttle.
    *
    * @param topicPartition throttle all its logs
    * @return this
    */
-  ReplicationThrottler throttleLogs(TopicPartition topicPartition);
+  ReplicationThrottler throttle(TopicPartition topicPartition);
 
   /**
-   * The leader log and any non-synced logs under the specified topic/partition<strong>(look up at
-   * the applying moment)</strong>, its replication will be throttle.
+   * Declare that the replication bandwidth for the given log should be throttled, also attempt to
+   * resolve the actual leader/follower identity of the log.
    *
-   * <p>If every log are synced, no throttle will be applied.
-   *
-   * @param topicPartition throttle its non-synced logs
-   * @return this
-   */
-  ReplicationThrottler throttleNonSyncedLogs(TopicPartition topicPartition);
-
-  /**
-   * Throttle the replication for the given log.
+   * <p>There are two kind of throttle target config, one for leader({@code
+   * leader.replication.throttled.replicas}) and another for follower({@code
+   * follower.replication.throttled.replicas}). For this API, only one of the configs will be
+   * updated for the given log. The config to update is determined by the identity of the given log
+   * at the applying moment. The given log must be part of the replica list at the applying moment.
+   * Otherwise, an exception will be raised due to the given log having no leader/follower identity.
+   * To throttle a log that are not present at the current cluster, consider use {@link
+   * ReplicationThrottler#throttleLeader(TopicPartitionReplica)} or {@link
+   * ReplicationThrottler#throttleFollower(TopicPartitionReplica)}.
    *
    * @param replica throttle this log
    * @return this
    */
-  ReplicationThrottler throttleLog(TopicPartitionReplica replica);
+  ReplicationThrottler throttle(TopicPartitionReplica replica);
 
-  /** Apply throttle setting to the cluster. */
+  /**
+   * Declare that the replication bandwidth for the given leader log should be throttled.
+   *
+   * @param replica throttle this leader log
+   * @return this
+   */
+  ReplicationThrottler throttleLeader(TopicPartitionReplica replica);
+
+  /**
+   * Declare that the replication bandwidth for the given follower log should be throttled.
+   *
+   * @param replica throttle this follower log
+   * @return this
+   */
+  ReplicationThrottler throttleFollower(TopicPartitionReplica replica);
+
+  /** Apply the throttle setting to the cluster. */
   void apply();
 }
