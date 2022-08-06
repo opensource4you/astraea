@@ -16,6 +16,10 @@
  */
 package org.astraea.app.metrics.broker;
 
+import static org.junit.jupiter.api.Assertions.assertThrows;
+
+import java.util.Arrays;
+import java.util.Locale;
 import org.astraea.app.metrics.MBeanClient;
 import org.astraea.app.metrics.MetricsTestUtil;
 import org.astraea.app.service.RequireSingleBrokerCluster;
@@ -24,33 +28,34 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
-public class NetworkMetricsTest extends RequireSingleBrokerCluster {
+class ControllerMetricsTest extends RequireSingleBrokerCluster {
 
-  @ParameterizedTest()
-  @EnumSource(value = NetworkMetrics.Request.class)
-  void testRequestTotalTimeMs(NetworkMetrics.Request request) {
-    // act
-    var totalTimeMs = request.totalTimeMs(MBeanClient.local());
+  @ParameterizedTest
+  @EnumSource(ControllerMetrics.Controller.class)
+  void testController(ControllerMetrics.Controller controller) {
+    var meter = controller.fetch(MBeanClient.local());
+    Assertions.assertTrue(meter.value() >= 0);
+    Assertions.assertEquals(controller, meter.type());
+  }
 
-    // assert type casting correct and field exists
-    Assertions.assertDoesNotThrow(totalTimeMs::percentile50);
-    Assertions.assertDoesNotThrow(totalTimeMs::percentile75);
-    Assertions.assertDoesNotThrow(totalTimeMs::percentile95);
-    Assertions.assertDoesNotThrow(totalTimeMs::percentile98);
-    Assertions.assertDoesNotThrow(totalTimeMs::percentile99);
-    Assertions.assertDoesNotThrow(totalTimeMs::percentile999);
-    Assertions.assertDoesNotThrow(totalTimeMs::count);
-    Assertions.assertDoesNotThrow(totalTimeMs::max);
-    Assertions.assertDoesNotThrow(totalTimeMs::mean);
-    Assertions.assertDoesNotThrow(totalTimeMs::min);
-    Assertions.assertDoesNotThrow(totalTimeMs::stdDev);
-    Assertions.assertEquals(request, totalTimeMs.type());
+  @Test
+  void testKafkaMetricsOf() {
+    Arrays.stream(ControllerMetrics.Controller.values())
+        .forEach(
+            t -> {
+              Assertions.assertEquals(
+                  t, ControllerMetrics.Controller.of(t.metricName().toLowerCase(Locale.ROOT)));
+              Assertions.assertEquals(
+                  t, ControllerMetrics.Controller.of(t.metricName().toUpperCase(Locale.ROOT)));
+            });
+
+    assertThrows(IllegalArgumentException.class, () -> ControllerMetrics.Controller.of("nothing"));
   }
 
   @Test
   void testAllEnumNameUnique() {
     Assertions.assertTrue(
         MetricsTestUtil.metricDistinct(
-            NetworkMetrics.Request.values(), NetworkMetrics.Request::metricName));
+            ControllerMetrics.Controller.values(), ControllerMetrics.Controller::metricName));
   }
 }
