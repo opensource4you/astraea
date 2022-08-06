@@ -22,9 +22,9 @@ import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.astraea.app.admin.Admin;
-import org.astraea.app.metrics.jmx.BeanObject;
-import org.astraea.app.metrics.jmx.BeanQuery;
-import org.astraea.app.metrics.jmx.MBeanClient;
+import org.astraea.app.metrics.BeanObject;
+import org.astraea.app.metrics.BeanQuery;
+import org.astraea.app.metrics.MBeanClient;
 
 public class BeanHandler implements Handler {
   private final List<MBeanClient> clients;

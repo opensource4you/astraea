@@ -18,32 +18,36 @@ package org.astraea.app.metrics.collector;
 
 import java.util.Collection;
 import java.util.Optional;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
-import org.astraea.app.cost.CostFunction;
+import java.util.stream.Stream;
 import org.astraea.app.metrics.HasBeanObject;
-import org.astraea.app.metrics.jmx.MBeanClient;
+import org.astraea.app.metrics.MBeanClient;
 
 @FunctionalInterface
 public interface Fetcher {
-
   /**
-   * merge all fetchers into single one
+   * merge all fetchers into single one.
    *
-   * @param functions cost function
+   * @param fetchers cost function
+   * @param errorHandler used to handle the runtime exception thrown by fetcher
    * @return fetcher if there is available fetcher. Otherwise, empty is returned
    */
-  static Optional<Fetcher> of(Collection<? extends CostFunction> functions) {
-    var fs =
-        functions.stream()
-            .map(CostFunction::fetcher)
-            .filter(Optional::isPresent)
-            .map(Optional::get)
-            .collect(Collectors.toUnmodifiableList());
-    if (fs.isEmpty()) return Optional.empty();
+  static Optional<Fetcher> of(
+      Collection<Fetcher> fetchers, Consumer<RuntimeException> errorHandler) {
+    if (fetchers.isEmpty()) return Optional.empty();
     return Optional.of(
         client ->
-            fs.stream()
-                .flatMap(f -> f.fetch(client).stream())
+            fetchers.stream()
+                .flatMap(
+                    f -> {
+                      try {
+                        return f.fetch(client).stream();
+                      } catch (RuntimeException e) {
+                        errorHandler.accept(e);
+                        return Stream.of();
+                      }
+                    })
                 .collect(Collectors.toUnmodifiableList()));
   }
 
@@ -53,5 +57,5 @@ public interface Fetcher {
    * @param client mbean client (don't close it!)
    * @return java metrics
    */
-  Collection<HasBeanObject> fetch(MBeanClient client);
+  Collection<? extends HasBeanObject> fetch(MBeanClient client);
 }

@@ -33,9 +33,6 @@ import java.util.stream.Stream;
 import javax.management.openmbean.CompositeDataSupport;
 import javax.management.remote.JMXServiceURL;
 import org.astraea.app.argument.Field;
-import org.astraea.app.metrics.jmx.BeanObject;
-import org.astraea.app.metrics.jmx.BeanQuery;
-import org.astraea.app.metrics.jmx.MBeanClient;
 
 public class MetricExplorer {
 

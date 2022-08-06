@@ -16,92 +16,38 @@
  */
 package org.astraea.app.cost;
 
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import org.astraea.app.admin.ClusterBean;
 import org.astraea.app.admin.ClusterInfo;
-import org.astraea.app.admin.NodeInfo;
-import org.astraea.app.admin.ReplicaInfo;
-import org.astraea.app.metrics.HasBeanObject;
 import org.astraea.app.metrics.collector.BeanCollector;
 import org.astraea.app.metrics.collector.Receiver;
 import org.astraea.app.metrics.platform.OperatingSystemInfo;
-import org.astraea.app.service.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
-public class CpuCostTest extends RequireBrokerCluster {
+public class CpuCostTest {
+
   @Test
-  void testCost() throws InterruptedException {
-    var cpuUsage1 = mockResult(0.5);
-    var cpuUsage2 = mockResult(0.81);
-    var cpuUsage3 = mockResult(0.62);
-
-    Collection<HasBeanObject> broker1 = List.of(cpuUsage1);
-    Collection<HasBeanObject> broker2 = List.of(cpuUsage2);
-    Collection<HasBeanObject> broker3 = List.of(cpuUsage3);
-    ClusterInfo clusterInfo =
-        new FakeClusterInfo() {
-          @Override
-          public ClusterBean clusterBean() {
-            return ClusterBean.of(Map.of(1, broker1, 2, broker2, 3, broker3));
-          }
-
-          @Override
-          public Set<String> topics() {
-            return Set.of("t");
-          }
-
-          @Override
-          public List<ReplicaInfo> availableReplicas(String topic) {
-            return List.of(
-                ReplicaInfo.of("t", 0, NodeInfo.of(1, "host1", 9092), true, true, false),
-                ReplicaInfo.of("t", 0, NodeInfo.of(2, "host2", 9092), false, true, false),
-                ReplicaInfo.of("t", 0, NodeInfo.of(3, "host3", 9092), false, true, false));
-          }
-        };
-
+  void testCost() {
+    var clusterBean =
+        ClusterBean.of(
+            Map.of(
+                1,
+                List.of(mockResult(0.5, 1), mockResult(0.3, 0)),
+                2,
+                List.of(mockResult(0.6, 0)),
+                3,
+                List.of(mockResult(0.7, 0)),
+                4,
+                List.of()));
     var cpuCost = new CpuCost();
-    var scores = cpuCost.brokerCost(clusterInfo).normalize(Normalizer.TScore()).value();
-    Assertions.assertEquals(0.39, scores.get(1));
-    Assertions.assertEquals(0.63, scores.get(2));
-    Assertions.assertEquals(0.48, scores.get(3));
-
-    Thread.sleep(1000);
-    cpuUsage1 = mockResult(0.8);
-    cpuUsage2 = mockResult(0.5);
-    cpuUsage3 = mockResult(0.3);
-
-    Collection<HasBeanObject> broker12 = List.of(cpuUsage1);
-    Collection<HasBeanObject> broker22 = List.of(cpuUsage2);
-    Collection<HasBeanObject> broker32 = List.of(cpuUsage3);
-    ClusterInfo clusterInfo2 =
-        new FakeClusterInfo() {
-          @Override
-          public ClusterBean clusterBean() {
-            return ClusterBean.of(Map.of(1, broker12, 2, broker22, 3, broker32));
-          }
-
-          @Override
-          public Set<String> topics() {
-            return Set.of("t");
-          }
-
-          @Override
-          public List<ReplicaInfo> availableReplicas(String topic) {
-            return List.of(
-                ReplicaInfo.of("t", 0, NodeInfo.of(1, "host1", 9092), true, true, false),
-                ReplicaInfo.of("t", 0, NodeInfo.of(2, "host2", 9092), false, true, false),
-                ReplicaInfo.of("t", 0, NodeInfo.of(3, "host3", 9092), false, true, false));
-          }
-        };
-    scores = cpuCost.brokerCost(clusterInfo2).normalize(Normalizer.TScore()).value();
-    Assertions.assertEquals(0.52, scores.get(1));
-    Assertions.assertEquals(0.61, scores.get(2));
-    Assertions.assertEquals(0.37, scores.get(3));
+    var result = cpuCost.brokerCost(Mockito.mock(ClusterInfo.class), clusterBean);
+    Assertions.assertEquals(0.5, result.value().get(1));
+    Assertions.assertEquals(0.6, result.value().get(2));
+    Assertions.assertEquals(0.7, result.value().get(3));
+    Assertions.assertEquals(0D, result.value().get(4));
   }
 
   @Test
@@ -110,8 +56,7 @@ public class CpuCostTest extends RequireBrokerCluster {
         BeanCollector.builder()
             .build()
             .register()
-            .host(jmxServiceURL().getHost())
-            .port(jmxServiceURL().getPort())
+            .local()
             .fetcher(new CpuCost().fetcher().get())
             .build()) {
       Assertions.assertFalse(receiver.current().isEmpty());
@@ -127,9 +72,10 @@ public class CpuCostTest extends RequireBrokerCluster {
     }
   }
 
-  private OperatingSystemInfo mockResult(double usage) {
+  private static OperatingSystemInfo mockResult(double usage, long createdTimestamp) {
     var cpu = Mockito.mock(OperatingSystemInfo.class);
     Mockito.when(cpu.systemCpuLoad()).thenReturn(usage);
+    Mockito.when(cpu.createdTimestamp()).thenReturn(createdTimestamp);
     return cpu;
   }
 }

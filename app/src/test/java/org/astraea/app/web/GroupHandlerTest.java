@@ -21,7 +21,8 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import org.astraea.app.admin.Admin;
 import org.astraea.app.common.Utils;
 import org.astraea.app.consumer.Consumer;
@@ -33,12 +34,12 @@ import org.junit.jupiter.api.Test;
 public class GroupHandlerTest extends RequireBrokerCluster {
 
   @Test
-  void testListGroups() throws InterruptedException {
+  void testListGroups() {
     var topicName = Utils.randomString(10);
     var groupId = Utils.randomString(10);
     try (Admin admin = Admin.of(bootstrapServers())) {
       admin.creator().topic(topicName).create();
-      TimeUnit.SECONDS.sleep(3);
+      Utils.sleep(Duration.ofSeconds(3));
 
       try (var consumer =
           Consumer.forTopics(Set.of(topicName))
@@ -111,7 +112,7 @@ public class GroupHandlerTest extends RequireBrokerCluster {
   }
 
   @Test
-  void testSpecifyTopic() throws InterruptedException {
+  void testSpecifyTopic() {
     var topicName0 = Utils.randomString(10);
     var topicName1 = Utils.randomString(10);
     var groupId0 = Utils.randomString(10);
@@ -132,7 +133,7 @@ public class GroupHandlerTest extends RequireBrokerCluster {
         Assertions.assertEquals(1, consumer0.poll(1, Duration.ofSeconds(10)).size());
         Assertions.assertEquals(0, consumer1.poll(Duration.ofSeconds(2)).size());
 
-        TimeUnit.SECONDS.sleep(3);
+        Utils.sleep(Duration.ofSeconds(3));
 
         // query for only topicName0 so only group of consumer0 can be returned.
         consumer0.commitOffsets(Duration.ofSeconds(3));
@@ -214,6 +215,53 @@ public class GroupHandlerTest extends RequireBrokerCluster {
             consumer.groupId(),
             Map.of(GroupHandler.INSTANCE_KEY, consumer.groupInstanceId().get()));
       }
+    }
+  }
+
+  @Test
+  void testDeleteGroup() {
+    var topicName = Utils.randomString(10);
+    try (Admin admin = Admin.of(bootstrapServers())) {
+      var handler = new GroupHandler(admin);
+
+      var groupIds =
+          IntStream.range(0, 3).mapToObj(x -> Utils.randomString(10)).collect(Collectors.toList());
+      groupIds.forEach(
+          x -> {
+            try (var consumer =
+                Consumer.forTopics(Set.of(topicName))
+                    .bootstrapServers(bootstrapServers())
+                    .groupInstanceId(Utils.randomString(10))
+                    .groupId(x)
+                    .build()) {
+              Assertions.assertEquals(0, consumer.poll(Duration.ofSeconds(3)).size());
+            }
+          });
+
+      var currentGroupIds = admin.consumerGroupIds();
+      Assertions.assertTrue(currentGroupIds.contains(groupIds.get(0)));
+      Assertions.assertTrue(currentGroupIds.contains(groupIds.get(1)));
+      Assertions.assertTrue(currentGroupIds.contains(groupIds.get(2)));
+
+      handler.delete(groupIds.get(2), Map.of());
+      Assertions.assertTrue(admin.consumerGroupIds().contains(groupIds.get(2)));
+
+      handler.delete(groupIds.get(2), Map.of(GroupHandler.GROUP_KEY, "false"));
+      Assertions.assertTrue(admin.consumerGroupIds().contains(groupIds.get(2)));
+
+      handler.delete(groupIds.get(2), Map.of(GroupHandler.GROUP_KEY, "true"));
+      Assertions.assertFalse(admin.consumerGroupIds().contains(groupIds.get(2)));
+
+      var group1Members =
+          admin.consumerGroups(Set.of(groupIds.get(1))).get(groupIds.get(1)).activeMembers();
+      handler.delete(
+          groupIds.get(1),
+          Map.of(
+              GroupHandler.GROUP_KEY,
+              "true",
+              GroupHandler.INSTANCE_KEY,
+              group1Members.get(0).groupInstanceId().get()));
+      Assertions.assertFalse(admin.consumerGroupIds().contains(groupIds.get(1)));
     }
   }
 }

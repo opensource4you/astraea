@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import org.astraea.app.admin.ClusterBean;
 import org.astraea.app.admin.ClusterInfo;
 import org.astraea.app.metrics.collector.Fetcher;
 
@@ -41,9 +42,9 @@ public class NeutralIntegratedCost implements HasBrokerCost {
   private final WeightProvider weightProvider = WeightProvider.entropy(Normalizer.minMax(true));
 
   @Override
-  public BrokerCost brokerCost(ClusterInfo clusterInfo) {
+  public BrokerCost brokerCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
     var costMetrics =
-        clusterInfo.clusterBean().all().entrySet().stream()
+        clusterBean.all().entrySet().stream()
             .collect(Collectors.toMap(Map.Entry::getKey, entry -> 0.0));
     costMetrics.forEach(
         (key, value) -> {
@@ -52,7 +53,7 @@ public class NeutralIntegratedCost implements HasBrokerCost {
           }
         });
 
-    metricsCost.forEach(hasBrokerCost -> setBrokerMetrics(hasBrokerCost, clusterInfo));
+    metricsCost.forEach(hasBrokerCost -> setBrokerMetrics(hasBrokerCost, clusterInfo, clusterBean));
 
     var entropyEmpowerment = weight(weightProvider, brokersMetric);
     var entropyEmpowermentSum =
@@ -92,9 +93,10 @@ public class NeutralIntegratedCost implements HasBrokerCost {
   // Save the original value of each metric and the value of the metric after the TScore
   // calculation.
   // TODO Refactor
-  void setBrokerMetrics(HasBrokerCost hasBrokerCost, ClusterInfo clusterInfo) {
+  void setBrokerMetrics(
+      HasBrokerCost hasBrokerCost, ClusterInfo clusterInfo, ClusterBean clusterBean) {
     if (hasBrokerCost instanceof BrokerInputCost) {
-      var inputBrokerCost = hasBrokerCost.brokerCost(clusterInfo);
+      var inputBrokerCost = hasBrokerCost.brokerCost(clusterInfo, clusterBean);
       inputBrokerCost
           .value()
           .forEach((brokerID, value) -> brokersMetric.get(brokerID).inputScore = value);
@@ -103,7 +105,7 @@ public class NeutralIntegratedCost implements HasBrokerCost {
           .value()
           .forEach((brokerID, value) -> brokersMetric.get(brokerID).inputTScore = value);
     } else if (hasBrokerCost instanceof BrokerOutputCost) {
-      var outPutBrokerCost = hasBrokerCost.brokerCost(clusterInfo);
+      var outPutBrokerCost = hasBrokerCost.brokerCost(clusterInfo, clusterBean);
       outPutBrokerCost
           .value()
           .forEach((brokerID, value) -> brokersMetric.get(brokerID).outputScore = value);
@@ -112,14 +114,14 @@ public class NeutralIntegratedCost implements HasBrokerCost {
           .value()
           .forEach((brokerID, value) -> brokersMetric.get(brokerID).outputTScore = value);
     } else if (hasBrokerCost instanceof CpuCost) {
-      var CPUBrokerCost = hasBrokerCost.brokerCost(clusterInfo);
+      var CPUBrokerCost = hasBrokerCost.brokerCost(clusterInfo, clusterBean);
       CPUBrokerCost.value()
           .forEach((brokerID, value) -> brokersMetric.get(brokerID).cpuScore = value);
       CPUBrokerCost.normalize(Normalizer.TScore())
           .value()
           .forEach((brokerID, value) -> brokersMetric.get(brokerID).cpuTScore = value);
     } else if (hasBrokerCost instanceof MemoryCost) {
-      var MemoryBrokerCost = hasBrokerCost.brokerCost(clusterInfo);
+      var MemoryBrokerCost = hasBrokerCost.brokerCost(clusterInfo, clusterBean);
       MemoryBrokerCost.value()
           .forEach((brokerID, value) -> brokersMetric.get(brokerID).memoryScore = value);
       MemoryBrokerCost.normalize(Normalizer.TScore())
@@ -163,7 +165,13 @@ public class NeutralIntegratedCost implements HasBrokerCost {
 
   @Override
   public Optional<Fetcher> fetcher() {
-    return Fetcher.of(metricsCost);
+    return Fetcher.of(
+        metricsCost.stream()
+            .map(CostFunction::fetcher)
+            .filter(Optional::isPresent)
+            .map(Optional::get)
+            .collect(Collectors.toUnmodifiableList()),
+        e -> {});
   }
 
   static class BrokerMetrics {

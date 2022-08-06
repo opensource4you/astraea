@@ -17,22 +17,18 @@
 package org.astraea.app.metrics.collector;
 
 import java.time.Duration;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.astraea.app.common.Utils;
-import org.astraea.app.concurrent.Executor;
-import org.astraea.app.concurrent.State;
-import org.astraea.app.concurrent.ThreadPool;
+import org.astraea.app.metrics.BeanObject;
 import org.astraea.app.metrics.HasBeanObject;
-import org.astraea.app.metrics.KafkaMetrics;
-import org.astraea.app.metrics.jmx.BeanObject;
-import org.astraea.app.metrics.jmx.MBeanClient;
+import org.astraea.app.metrics.MBeanClient;
+import org.astraea.app.metrics.platform.HostMetrics;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
@@ -41,21 +37,6 @@ public class BeanCollectorTest {
   private final MBeanClient mbeanClient = Mockito.mock(MBeanClient.class);
   private final BiFunction<String, Integer, MBeanClient> clientCreator =
       (host, port) -> mbeanClient;
-
-  private static void sleep(int seconds) {
-    try {
-      TimeUnit.SECONDS.sleep(seconds);
-    } catch (InterruptedException e) {
-      throw new RuntimeException(e);
-    }
-  }
-
-  private static Executor executor(Runnable runnable) {
-    return () -> {
-      runnable.run();
-      return State.RUNNING;
-    };
-  }
 
   private static HasBeanObject createBeanObject() {
     var obj = new BeanObject("domain", Map.of(), Map.of());
@@ -79,7 +60,17 @@ public class BeanCollectorTest {
   @Test
   void theImmutableCurrent() {
     var collector = BeanCollector.builder().clientCreator(clientCreator).build();
-    var receivers = receivers(collector);
+    var receivers =
+        IntStream.range(0, 3)
+            .mapToObj(
+                ignored ->
+                    collector
+                        .register()
+                        .host("unknown")
+                        .port(100)
+                        .fetcher(client -> List.of(createBeanObject()))
+                        .build())
+            .collect(Collectors.toUnmodifiableList());
     receivers.forEach(
         r ->
             Assertions.assertThrows(
@@ -106,12 +97,12 @@ public class BeanCollectorTest {
     var c0 = receiver.current();
     Assertions.assertEquals(1, c0.size());
     var firstObject = c0.iterator().next();
-    sleep(1);
+    Utils.sleep(Duration.ofSeconds(1));
 
     var c1 = receiver.current();
     Assertions.assertEquals(2, c1.size());
     var secondObject = c1.stream().filter(o -> o != firstObject).findFirst().get();
-    sleep(1);
+    Utils.sleep(Duration.ofSeconds(1));
 
     var c2 = receiver.current();
     Assertions.assertEquals(2, c2.size());
@@ -138,43 +129,21 @@ public class BeanCollectorTest {
     Assertions.assertThrows(NullPointerException.class, () -> collector.register().fetcher(null));
   }
 
-  private List<Receiver> receivers(BeanCollector collector) {
-    var receivers = new ArrayList<Receiver>();
-    Runnable runnable =
-        () -> {
-          try {
-            var receiver =
-                collector
-                    .register()
-                    .host("unknown")
-                    .port(100)
-                    .fetcher(client -> List.of(createBeanObject()))
-                    .build();
-            synchronized (receivers) {
-              receivers.add(receiver);
-            }
-          } finally {
-            sleep(1);
-          }
-        };
-
-    try (var pool =
-        ThreadPool.builder()
-            .executors(
-                IntStream.range(0, 3)
-                    .mapToObj(i -> executor(runnable))
-                    .collect(Collectors.toList()))
-            .build()) {
-      sleep(1);
-    }
-    return receivers;
-  }
-
   @Test
   void testCloseReceiver() {
     var collector = BeanCollector.builder().clientCreator(clientCreator).build();
 
-    var receivers = receivers(collector);
+    var receivers =
+        IntStream.range(0, 3)
+            .mapToObj(
+                ignored ->
+                    collector
+                        .register()
+                        .host("unknown")
+                        .port(100)
+                        .fetcher(client -> List.of(createBeanObject()))
+                        .build())
+            .collect(Collectors.toUnmodifiableList());
     receivers.forEach(Receiver::current);
 
     Assertions.assertEquals(1, collector.nodes.size());
@@ -195,17 +164,23 @@ public class BeanCollectorTest {
             .clientCreator(clientCreator)
             .build();
 
-    var receivers = receivers(collector);
+    var receivers =
+        IntStream.range(0, 3)
+            .mapToObj(
+                ignored ->
+                    collector
+                        .register()
+                        .host("unknown")
+                        .port(100)
+                        .fetcher(client -> List.of(createBeanObject()))
+                        .build())
+            .collect(Collectors.toUnmodifiableList());
 
-    try (var pool =
-        ThreadPool.builder()
-            .executors(
-                receivers.stream()
-                    .map(receiver -> executor(receiver::current))
-                    .collect(Collectors.toList()))
-            .build()) {
-      sleep(3);
-    }
+    var fs =
+        receivers.stream()
+            .map(r -> CompletableFuture.runAsync(r::current))
+            .collect(Collectors.toUnmodifiableList());
+    Utils.swallowException(() -> Utils.sequence(fs).get());
     receivers.forEach(r -> Assertions.assertEquals(1, r.current().size()));
   }
 
@@ -237,7 +212,7 @@ public class BeanCollectorTest {
     for (var expect : expectedSizes) {
       Assertions.assertEquals(expect, receiver.current().size());
       Assertions.assertEquals(expect, count.get());
-      sleep(1);
+      Utils.sleep(Duration.ofSeconds(1));
     }
   }
 
@@ -269,16 +244,16 @@ public class BeanCollectorTest {
                 })
             .collect(Collectors.toList());
 
-    sleep(1);
+    Utils.sleep(Duration.ofSeconds(1));
     receivers.forEach(e -> Assertions.assertEquals(0, e.getKey().get()));
 
-    sleep(1);
+    Utils.sleep(Duration.ofSeconds(1));
     receivers.forEach(e -> Assertions.assertEquals(1, e.getValue().current().size()));
     receivers.forEach(e -> Assertions.assertEquals(1, e.getKey().get()));
   }
 
   @Test
-  void testCreatedTimestamp() throws InterruptedException {
+  void testCreatedTimestamp() {
     var collector =
         BeanCollector.builder()
             .interval(Duration.ofSeconds(1))
@@ -293,7 +268,7 @@ public class BeanCollectorTest {
             .fetcher(client -> List.of(() -> obj))
             .build()) {
       // wait for updating cache
-      TimeUnit.SECONDS.sleep(1);
+      Utils.sleep(Duration.ofSeconds(1));
       var objs = receiver.current();
       Assertions.assertEquals(1, objs.size());
       Assertions.assertEquals(obj.createdTimestamp(), objs.iterator().next().createdTimestamp());
@@ -311,12 +286,27 @@ public class BeanCollectorTest {
         collector
             .register()
             .local()
-            .fetcher(client -> List.of(KafkaMetrics.Host.jvmMemory(client)))
+            .fetcher(client -> List.of(HostMetrics.jvmMemory(client)))
             .build()) {
 
       // wait for updating cache
       Utils.sleep(Duration.ofSeconds(1));
       Assertions.assertNotEquals(0, receiver.current().size());
     }
+  }
+
+  @Test
+  void testIllegalArgument() {
+    var collector =
+        BeanCollector.builder()
+            .interval(Duration.ofSeconds(1))
+            .clientCreator(clientCreator)
+            .build();
+    Assertions.assertThrows(
+        IllegalArgumentException.class, () -> collector.register().host("aaa").build());
+    Assertions.assertThrows(
+        NullPointerException.class, () -> collector.register().port(111).build());
+    Assertions.assertThrows(
+        NullPointerException.class, () -> collector.register().host("aaa").port(111).build());
   }
 }

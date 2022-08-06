@@ -16,10 +16,10 @@
  */
 package org.astraea.app.web;
 
+import java.time.Duration;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
-import java.util.concurrent.TimeUnit;
 import org.astraea.app.admin.Admin;
 import org.astraea.app.common.Utils;
 import org.astraea.app.service.RequireBrokerCluster;
@@ -45,11 +45,11 @@ public class BeanHandlerTest extends RequireBrokerCluster {
   }
 
   @Test
-  void testBeans() throws InterruptedException {
+  void testBeans() {
     var topic = Utils.randomString(10);
     try (Admin admin = Admin.of(bootstrapServers())) {
       admin.creator().topic(topic).numberOfPartitions(10).create();
-      TimeUnit.SECONDS.sleep(2);
+      Utils.sleep(Duration.ofSeconds(2));
       var handler = new BeanHandler(admin, name -> jmxServiceURL().getPort());
       var response =
           Assertions.assertInstanceOf(

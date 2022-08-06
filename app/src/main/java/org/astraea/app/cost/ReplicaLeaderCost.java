@@ -17,50 +17,51 @@
 package org.astraea.app.cost;
 
 import java.util.Comparator;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import org.astraea.app.admin.ClusterBean;
 import org.astraea.app.admin.ClusterInfo;
 import org.astraea.app.metrics.HasBeanObject;
-import org.astraea.app.metrics.KafkaMetrics;
-import org.astraea.app.metrics.broker.HasValue;
+import org.astraea.app.metrics.broker.ServerMetrics;
 import org.astraea.app.metrics.collector.Fetcher;
 
 /** more replica leaders -> higher cost */
 public class ReplicaLeaderCost implements HasBrokerCost {
 
   @Override
-  public BrokerCost brokerCost(ClusterInfo clusterInfo) {
+  public BrokerCost brokerCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
     var result =
-        leaderCount(clusterInfo).entrySet().stream()
+        leaderCount(clusterInfo, clusterBean).entrySet().stream()
             .collect(Collectors.toMap(Map.Entry::getKey, e -> (double) e.getValue()));
     return () -> result;
   }
 
-  Map<Integer, Integer> leaderCount(ClusterInfo clusterInfo) {
-    return clusterInfo.clusterBean().all().entrySet().stream()
-        .flatMap(
-            e ->
-                e.getValue().stream()
-                    .filter(x -> x instanceof HasValue)
-                    .filter(x -> "LeaderCount".equals(x.beanObject().properties().get("name")))
-                    .filter(x -> "ReplicaManager".equals(x.beanObject().properties().get("type")))
-                    .sorted(Comparator.comparing(HasBeanObject::createdTimestamp).reversed())
-                    .map(x -> (HasValue) x)
-                    .limit(1)
-                    .map(e2 -> Map.entry(e.getKey(), (int) e2.value())))
-        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+  Map<Integer, Integer> leaderCount(ClusterInfo ignored, ClusterBean clusterBean) {
+    return clusterBean.all().entrySet().stream()
+        .collect(
+            Collectors.toMap(
+                Map.Entry::getKey,
+                e ->
+                    e.getValue().stream()
+                        .filter(x -> x instanceof ServerMetrics.ReplicaManager.Meter)
+                        .map(x -> (ServerMetrics.ReplicaManager.Meter) x)
+                        .sorted(Comparator.comparing(HasBeanObject::createdTimestamp).reversed())
+                        .limit(1)
+                        .mapToInt(v -> (int) v.value())
+                        .sum()));
   }
 
   @Override
   public Optional<Fetcher> fetcher() {
-    return Optional.of(KafkaMetrics.ReplicaManager.LeaderCount::fetch);
+    return Optional.of(c -> List.of(ServerMetrics.ReplicaManager.LEADER_COUNT.fetch(c)));
   }
 
   public static class NoMetrics extends ReplicaLeaderCost {
 
     @Override
-    Map<Integer, Integer> leaderCount(ClusterInfo clusterInfo) {
+    Map<Integer, Integer> leaderCount(ClusterInfo clusterInfo, ClusterBean ignored) {
       return clusterInfo.topics().stream()
           .flatMap(t -> clusterInfo.availableReplicaLeaders(t).stream())
           .collect(Collectors.groupingBy(r -> r.nodeInfo().id()))

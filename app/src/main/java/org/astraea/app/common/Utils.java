@@ -21,8 +21,12 @@ import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.nio.file.Files;
 import java.time.Duration;
+import java.util.Collection;
+import java.util.List;
+import java.util.Objects;
 import java.util.SortedMap;
 import java.util.TreeMap;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
@@ -30,6 +34,8 @@ import java.util.function.Supplier;
 import java.util.stream.Collector;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import org.astraea.app.cost.CostFunction;
+import org.astraea.app.partitioner.Configuration;
 
 public final class Utils {
 
@@ -152,7 +158,7 @@ public final class Utils {
       try {
         var r = supplier.get();
         if (r != null) return r;
-        TimeUnit.SECONDS.sleep(1);
+        Utils.sleep(Duration.ofSeconds(1));
       } catch (Exception e) {
         lastError = e;
       }
@@ -167,6 +173,19 @@ public final class Utils {
   }
 
   /**
+   * check the content of string
+   *
+   * @param value to check
+   * @return input string if the string is not empty. Otherwise, it throws NPE or
+   *     IllegalArgumentException
+   */
+  public static String requireNonEmpty(String value) {
+    if (Objects.requireNonNull(value).isEmpty())
+      throw new IllegalArgumentException("the value: " + value + " can't be empty");
+    return value;
+  }
+
+  /**
    * Check if the time is expired.
    *
    * @param lastTime Check time.
@@ -177,6 +196,11 @@ public final class Utils {
     return (lastTime + interval.toMillis()) < System.currentTimeMillis();
   }
 
+  /**
+   * Perform a sleep using the duration. InterruptedException is wrapped to RuntimeException.
+   *
+   * @param duration to sleep
+   */
   public static void sleep(Duration duration) {
     Utils.swallowException(() -> TimeUnit.MILLISECONDS.sleep(duration.toMillis()));
   }
@@ -224,6 +248,23 @@ public final class Utils {
           throw new IllegalStateException("Duplicate key");
         },
         TreeMap::new);
+  }
+
+  public static <T> CompletableFuture<List<T>> sequence(Collection<CompletableFuture<T>> futures) {
+    return CompletableFuture.allOf(futures.toArray(new CompletableFuture<?>[0]))
+        .thenApply(f -> futures.stream().map(CompletableFuture::join).collect(Collectors.toList()));
+  }
+
+  public static <T extends CostFunction> T constructCostFunction(
+      Class<T> costClass, Configuration configuration) {
+    try {
+      // case 0: create cost function by configuration
+      var constructor = costClass.getConstructor(Configuration.class);
+      return Utils.packException(() -> constructor.newInstance(configuration));
+    } catch (NoSuchMethodException e) {
+      // case 1: create cost function by empty constructor
+      return Utils.packException(() -> costClass.getConstructor().newInstance());
+    }
   }
 
   private Utils() {}

@@ -17,28 +17,38 @@
 package org.astraea.app.cost;
 
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import org.astraea.app.admin.ClusterBean;
 import org.astraea.app.admin.ClusterInfo;
-import org.astraea.app.metrics.HasBeanObject;
-import org.astraea.app.metrics.KafkaMetrics;
 import org.astraea.app.metrics.collector.Fetcher;
 import org.astraea.app.metrics.producer.HasProducerNodeMetrics;
+import org.astraea.app.metrics.producer.ProducerMetrics;
 
 public class NodeLatencyCost implements HasBrokerCost {
 
   @Override
-  public BrokerCost brokerCost(ClusterInfo clusterInfo) {
+  public BrokerCost brokerCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
     var result =
-        clusterInfo.clusterBean().all().entrySet().stream()
+        clusterBean.all().values().stream()
+            .flatMap(Collection::stream)
+            .filter(b -> b instanceof HasProducerNodeMetrics)
+            .map(b -> (HasProducerNodeMetrics) b)
+            .filter(b -> !Double.isNaN(b.requestLatencyAvg()))
+            .collect(Collectors.groupingBy(HasProducerNodeMetrics::brokerId))
+            .entrySet()
+            .stream()
             .collect(
                 Collectors.toMap(
                     Map.Entry::getKey,
                     e ->
                         e.getValue().stream()
-                            .filter(b -> b instanceof HasProducerNodeMetrics)
-                            .map(b -> (HasProducerNodeMetrics) b)
+                            .sorted(
+                                Comparator.comparing(HasProducerNodeMetrics::createdTimestamp)
+                                    .reversed())
+                            .limit(1)
                             .mapToDouble(HasProducerNodeMetrics::requestLatencyAvg)
                             .sum()));
     return () -> result;
@@ -46,11 +56,6 @@ public class NodeLatencyCost implements HasBrokerCost {
 
   @Override
   public Optional<Fetcher> fetcher() {
-    return Optional.of(
-        client ->
-            KafkaMetrics.Producer.nodes(client).values().stream()
-                .flatMap(Collection::stream)
-                .map(b -> (HasBeanObject) b)
-                .collect(Collectors.toUnmodifiableList()));
+    return Optional.of(ProducerMetrics::nodes);
   }
 }

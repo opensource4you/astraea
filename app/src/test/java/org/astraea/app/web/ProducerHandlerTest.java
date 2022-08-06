@@ -16,11 +16,11 @@
  */
 package org.astraea.app.web;
 
+import java.time.Duration;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import org.astraea.app.admin.Admin;
 import org.astraea.app.common.Utils;
@@ -60,7 +60,7 @@ public class ProducerHandlerTest extends RequireBrokerCluster {
     try (var admin = Admin.of(bootstrapServers());
         var producer = Producer.of(bootstrapServers())) {
       admin.creator().topic(topicName).numberOfPartitions(2).create();
-      TimeUnit.SECONDS.sleep(2);
+      Utils.sleep(Duration.ofSeconds(2));
       var handler = new ProducerHandler(admin);
       producer
           .sender()
@@ -78,7 +78,7 @@ public class ProducerHandlerTest extends RequireBrokerCluster {
           .run()
           .toCompletableFuture()
           .get();
-      TimeUnit.SECONDS.sleep(2);
+      Utils.sleep(Duration.ofSeconds(2));
 
       Assertions.assertEquals(
           1,
@@ -114,7 +114,7 @@ public class ProducerHandlerTest extends RequireBrokerCluster {
   }
 
   @Test
-  void testPartitions() throws InterruptedException {
+  void testPartitions() {
     var topicName = Utils.randomString(10);
     try (var admin = Admin.of(bootstrapServers())) {
       var handler = new ProducerHandler(admin);
@@ -140,7 +140,7 @@ public class ProducerHandlerTest extends RequireBrokerCluster {
                       "a")));
 
       admin.creator().topic(topicName).numberOfPartitions(3).create();
-      TimeUnit.SECONDS.sleep(2);
+      Utils.sleep(Duration.ofSeconds(2));
 
       Assertions.assertEquals(
           3, handler.partitions(Map.of(ProducerHandler.TOPIC_KEY, topicName)).size());

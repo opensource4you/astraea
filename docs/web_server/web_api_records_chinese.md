@@ -6,6 +6,7 @@
   - [DISTANCE_FROM_LATEST](#DISTANCE_FROM_LATEST)
   - [DISTANCE_FROM_BEGINNING](#DISTANCE_FROM_BEGINNING)
   - [SEEK_TO](#SEEK_TO)
+- [刪除資料](#刪除資料)
 
 ## 傳送資料
 ```shell
@@ -14,20 +15,29 @@ POST /records
 
 參數
 
+| 名稱            | 說明                                                                                                           | 預設值   |
+|---------------|--------------------------------------------------------------------------------------------------------------|-------|
+| records       | (必填) 本次寫入資料，需填入至少一筆資料                                                                                        | 無     |
+| transactionId | (選填) 填入 transaction id 以執行 transaction 寫入，此值為字串                                                              | 無     |
+| async         | (選填) 是否要等到資料寫入 topic 再回傳                                                                                     | false |
+| timeout       | (選填) 寫入資料最大時限，逾時便中斷本次操作。格式為 `數值` + `單位`，單位可填寫 `days`, `day`, `h`, `m`, `s`, `ms`, `us`, `ns`。範例：1h，5s，1000ms | 5s    |
+
+- 若 async = true，且操作成功，僅回傳 HTTP 202
+
+records 每筆資料欄位
+
 | 名稱              | 說明                        | 預設值    |
 |-----------------|---------------------------|--------|
 | topic           | (必填) topic 名稱             | 無      |
 | partition       | (選填) 指定要寫入此筆資料的 partition | 無      |
 | keySerializer   | (選填) key serializer       | string |
 | valueSerializer | (選填) value serializer     | string |
-| async           | (選填) 是否要等到資料寫入 topic 再回傳  | false  |
 | key             | (選填) key 值                | null   |
 | value           | (選填) value 值              | null   |
 | timestamp       | (選填) 此筆資料時間戳記             | null   |
 
 - keySerializer/valueSerializer 可選擇 `bytearray`/`strinng`/`long`/`integer`/`float`/`double`
 - 若 serializer 選擇 `bytearray`，需將值為 byte array 的 key/value 做 base64 encoding 轉字串
-- 若 async = true，且操作成功，僅回傳 HTTP 202
 
 cURL 範例
 
@@ -35,15 +45,28 @@ cURL 範例
 curl -X POST http://localhost:8001/records \
     -H "Content-Type: application/json" \
     -d '{
-    "topic": "test1",
-    "partition": 0,
-    "keySerializer": "string",
-    "valueSerializer": "bytearray",
     "async": false,
-    "key": "test",
-    "value": "dGVzdA==", #此為 "test" 經 base64 encoding 後之字串
-    "timestamp": 1656337829
-    }'
+    "transactionId": "trx-1",
+    "records": [
+      {
+        "topic": "test1",
+        "partition": 0,
+        "keySerializer": "string",
+        "valueSerializer": "bytearray",
+        "key": "test",
+        "value": "dGVzdA==", #此為 "test" 經 base64 encoding 後之字串
+        "timestamp": 1656337829
+      },
+      {
+        "topic": "test1",
+        "partition": 0,
+        "keySerializer": "string",
+        "valueSerializer": "bytearray",
+        "key": "test",
+        "value": "dGVzdA==", #此為 "test" 經 base64 encoding 後之字串
+        "timestamp": 1656337829
+      }
+    ]}'
 ```
 JSON Response (僅在 async = false 時回傳)
 
@@ -56,12 +79,24 @@ JSON Response (僅在 async = false 時回傳)
 
 ```json
 {
-  "topic": "test1",
-  "partition": 0,
-  "offset": 0,
-  "timestamp": 1656337829,
-  "serializedKeySize": 4,
-  "serializedValueSize": 4
+  "results": [
+    {
+      "topic": "test1",
+      "partition": 0,
+      "offset": 0,
+      "timestamp": 1656337829,
+      "serializedKeySize": 4,
+      "serializedValueSize": 4
+    },
+    {
+      "topic": "test1",
+      "partition": 0,
+      "offset": 1,
+      "timestamp": 1656337829,
+      "serializedKeySize": 4,
+      "serializedValueSize": 4
+    }
+  ]
 }
 ```
 
@@ -78,7 +113,7 @@ GET /records/{topic}
 | partition             | (選填) 指定要讀取之 partition                                                                                        | 無      |
 | keyDeserializer       | (選填) key deserializer                                                                                        | string |
 | valueDeserializer     | (選填) value deserializer                                                                                      | string |
-| records               | (選填) 回傳資料筆數上限                                                                                                | 1      |
+| limit                 | (選填) 回傳資料筆數上限，注意此僅為一建議值，您仍有可能取得大於此值之資料筆數                                                                     | 1      |
 | timeout               | (選填) 請求資料最大時限，逾時便中斷本次操作。格式為 `數值` + `單位`，單位可填寫 `days`, `day`, `h`, `m`, `s`, `ms`, `us`, `ns`。範例：1h，5s，1000ms | 5s     |
 | distanceFromLatest    | (選填) 距離最新 offset 往前多少位移量開始拉取資料                                                                               | 無      |
 | distanceFromBeginning | (選填) 距離起始 offset 往後多少位移量開始拉取資料                                                                               | 無      |
@@ -98,7 +133,7 @@ GET /records/{topic}
 cURL 範例
 
 ```shell
-curl -X GET "http://localhost:8001/records/test?distanceFromLatest=3&records=2&keyDeserializer=string&valueDeserializer=integer"
+curl -X GET "http://localhost:8001/records/test?distanceFromLatest=3&limit=2&keyDeserializer=string&valueDeserializer=integer"
 ```
 
 JSON Response
@@ -152,7 +187,7 @@ JSON Response
 cURL 範例
 
 ```shell
-curl -X GET "http://localhost:8001/records/test?distanceFromBeginning=3&records=2&keyDeserializer=string&valueDeserializer=integer"
+curl -X GET "http://localhost:8001/records/test?distanceFromBeginning=3&limit=2&keyDeserializer=string&valueDeserializer=integer"
 ```
 
 JSON Response
@@ -195,7 +230,7 @@ JSON Response
 cURL 範例 - 從 offset=1 開始拉取共兩筆資料
 
 ```shell
-curl -X GET "http://localhost:8001/records/test?seekTo=1&records=2&keyDeserializer=string&valueDeserializer=integer"
+curl -X GET "http://localhost:8001/records/test?seekTo=1&limit=2&keyDeserializer=string&valueDeserializer=integer"
 ```
 
 JSON Response
@@ -229,4 +264,23 @@ JSON Response
     }
   ]
 }
+```
+
+## 刪除資料
+```shell
+DELETE /records/{topic}
+```
+>***注意!!!! 如果你沒有輸入任何參數, 我們將會刪除topic中所有的資料***
+
+Request 參數
+
+| 名稱        | 說明                            | 預設值           |
+|-----------|-------------------------------|---------------|
+| offset    | long (選填) 刪除指定offset之前的record | latest offset |
+| partition | int (選填) 指定partition          | 所有partition   |
+
+cURL 範例
+
+```shell
+curl -X DELETE "http://localhost:8001/records/mytopic?partition=5&offset=2"
 ```
