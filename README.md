@@ -8,6 +8,7 @@
 - Xiang-Jun Sun <sean0651101@gmail.com>
 - Zhi-Mao Teng <zhimao.teng@gmail.com>
 - Jia-Sheng Chen <haser1156@gmail.com>
+- Chao-Heng Lee <chaohengstudent@gmail.com>
 
 # Kafka Tools
 
