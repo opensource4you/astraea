@@ -23,9 +23,9 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 import org.astraea.app.admin.ClusterBean;
 import org.astraea.app.admin.ClusterInfo;
+import org.astraea.app.metrics.client.HasNodeMetrics;
+import org.astraea.app.metrics.client.producer.ProducerMetrics;
 import org.astraea.app.metrics.collector.Fetcher;
-import org.astraea.app.metrics.producer.HasProducerNodeMetrics;
-import org.astraea.app.metrics.producer.ProducerMetrics;
 
 public class NodeThroughputCost implements HasBrokerCost {
 
@@ -34,10 +34,10 @@ public class NodeThroughputCost implements HasBrokerCost {
     var result =
         clusterBean.all().values().stream()
             .flatMap(Collection::stream)
-            .filter(b -> b instanceof HasProducerNodeMetrics)
-            .map(b -> (HasProducerNodeMetrics) b)
+            .filter(b -> b instanceof HasNodeMetrics)
+            .map(b -> (HasNodeMetrics) b)
             .filter(b -> !Double.isNaN(b.incomingByteRate()) && !Double.isNaN(b.outgoingByteRate()))
-            .collect(Collectors.groupingBy(HasProducerNodeMetrics::brokerId))
+            .collect(Collectors.groupingBy(HasNodeMetrics::brokerId))
             .entrySet()
             .stream()
             .collect(
@@ -46,8 +46,7 @@ public class NodeThroughputCost implements HasBrokerCost {
                     e ->
                         e.getValue().stream()
                             .sorted(
-                                Comparator.comparing(HasProducerNodeMetrics::createdTimestamp)
-                                    .reversed())
+                                Comparator.comparing(HasNodeMetrics::createdTimestamp).reversed())
                             .limit(1)
                             .mapToDouble(m -> m.incomingByteRate() + m.outgoingByteRate())
                             .sum()));

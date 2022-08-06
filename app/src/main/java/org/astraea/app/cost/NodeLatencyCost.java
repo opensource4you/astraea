@@ -23,9 +23,9 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 import org.astraea.app.admin.ClusterBean;
 import org.astraea.app.admin.ClusterInfo;
+import org.astraea.app.metrics.client.HasNodeMetrics;
+import org.astraea.app.metrics.client.producer.ProducerMetrics;
 import org.astraea.app.metrics.collector.Fetcher;
-import org.astraea.app.metrics.producer.HasProducerNodeMetrics;
-import org.astraea.app.metrics.producer.ProducerMetrics;
 
 public class NodeLatencyCost implements HasBrokerCost {
 
@@ -34,10 +34,10 @@ public class NodeLatencyCost implements HasBrokerCost {
     var result =
         clusterBean.all().values().stream()
             .flatMap(Collection::stream)
-            .filter(b -> b instanceof HasProducerNodeMetrics)
-            .map(b -> (HasProducerNodeMetrics) b)
+            .filter(b -> b instanceof HasNodeMetrics)
+            .map(b -> (HasNodeMetrics) b)
             .filter(b -> !Double.isNaN(b.requestLatencyAvg()))
-            .collect(Collectors.groupingBy(HasProducerNodeMetrics::brokerId))
+            .collect(Collectors.groupingBy(HasNodeMetrics::brokerId))
             .entrySet()
             .stream()
             .collect(
@@ -46,10 +46,9 @@ public class NodeLatencyCost implements HasBrokerCost {
                     e ->
                         e.getValue().stream()
                             .sorted(
-                                Comparator.comparing(HasProducerNodeMetrics::createdTimestamp)
-                                    .reversed())
+                                Comparator.comparing(HasNodeMetrics::createdTimestamp).reversed())
                             .limit(1)
-                            .mapToDouble(HasProducerNodeMetrics::requestLatencyAvg)
+                            .mapToDouble(HasNodeMetrics::requestLatencyAvg)
                             .sum()));
     return () -> result;
   }
