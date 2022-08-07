@@ -16,26 +16,19 @@
  */
 package org.astraea.app.cost;
 
-import java.util.Collection;
 import java.util.Comparator;
 import java.util.Map;
-import java.util.Optional;
 import java.util.stream.Collectors;
 import org.astraea.app.admin.ClusterBean;
 import org.astraea.app.admin.ClusterInfo;
 import org.astraea.app.metrics.client.HasNodeMetrics;
-import org.astraea.app.metrics.client.producer.ProducerMetrics;
-import org.astraea.app.metrics.collector.Fetcher;
 
-public class NodeLatencyCost implements HasBrokerCost {
+public class NodeLatencyCost extends NodeMetricsCost {
 
   @Override
   public BrokerCost brokerCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
     var result =
-        clusterBean.all().values().stream()
-            .flatMap(Collection::stream)
-            .filter(b -> b instanceof HasNodeMetrics)
-            .map(b -> (HasNodeMetrics) b)
+        toHasNodeMetrics(clusterBean)
             .filter(b -> !Double.isNaN(b.requestLatencyAvg()))
             .collect(Collectors.groupingBy(HasNodeMetrics::brokerId))
             .entrySet()
@@ -51,10 +44,5 @@ public class NodeLatencyCost implements HasBrokerCost {
                             .mapToDouble(HasNodeMetrics::requestLatencyAvg)
                             .sum()));
     return () -> result;
-  }
-
-  @Override
-  public Optional<Fetcher> fetcher() {
-    return Optional.of(ProducerMetrics::nodes);
   }
 }
