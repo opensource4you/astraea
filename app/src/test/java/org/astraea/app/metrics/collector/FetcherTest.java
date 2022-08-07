@@ -18,9 +18,8 @@ package org.astraea.app.metrics.collector;
 
 import java.util.List;
 import java.util.Optional;
-import org.astraea.app.cost.CostFunction;
 import org.astraea.app.metrics.HasBeanObject;
-import org.astraea.app.metrics.jmx.MBeanClient;
+import org.astraea.app.metrics.MBeanClient;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
@@ -34,22 +33,7 @@ public class FetcherTest {
     var mbean1 = Mockito.mock(HasBeanObject.class);
     Fetcher fetcher1 = client -> List.of(mbean1);
 
-    var fetcher =
-        Fetcher.of(
-                List.of(
-                    new CostFunction() {
-                      @Override
-                      public Optional<Fetcher> fetcher() {
-                        return Optional.of(fetcher0);
-                      }
-                    },
-                    new CostFunction() {
-                      @Override
-                      public Optional<Fetcher> fetcher() {
-                        return Optional.of(fetcher1);
-                      }
-                    }))
-            .get();
+    var fetcher = Fetcher.of(List.of(fetcher0, fetcher1), e -> {}).get();
 
     var result = fetcher.fetch(Mockito.mock(MBeanClient.class));
 
@@ -59,17 +43,19 @@ public class FetcherTest {
   }
 
   @Test
-  void testEmptyCostFunction() {
-    Assertions.assertEquals(Optional.empty(), Fetcher.of(List.of()));
-    Assertions.assertEquals(
-        Optional.empty(),
-        Fetcher.of(
-            List.of(
-                new CostFunction() {
-                  @Override
-                  public Optional<Fetcher> fetcher() {
-                    return Optional.empty();
-                  }
-                })));
+  void testEmpty() {
+    Assertions.assertEquals(Optional.empty(), Fetcher.of(List.of(), e -> {}));
+  }
+
+  @Test
+  void testSwallowException() {
+    var result = List.of(Mockito.mock(HasBeanObject.class));
+    Fetcher goodFetcher = client -> result;
+    Fetcher badFetcher =
+        client -> {
+          throw new RuntimeException("xxx");
+        };
+    var fetcher = Fetcher.of(List.of(badFetcher, goodFetcher), e -> {}).get();
+    Assertions.assertEquals(result, fetcher.fetch(Mockito.mock(MBeanClient.class)));
   }
 }

@@ -31,8 +31,6 @@ import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.astraea.app.argument.Argument;
-import org.astraea.app.metrics.jmx.BeanObject;
-import org.astraea.app.metrics.jmx.MBeanClient;
 import org.junit.jupiter.api.function.Executable;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;

@@ -40,6 +40,7 @@ import org.apache.kafka.clients.admin.MemberToRemove;
 import org.apache.kafka.clients.admin.NewPartitionReassignment;
 import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.clients.admin.OffsetSpec;
+import org.apache.kafka.clients.admin.RecordsToDelete;
 import org.apache.kafka.clients.admin.RemoveMembersFromConsumerGroupOptions;
 import org.apache.kafka.clients.admin.TransactionListing;
 import org.apache.kafka.common.ElectionType;
@@ -58,6 +59,7 @@ import org.astraea.app.common.Utils;
 public class Builder {
 
   private final Map<String, Object> configs = new HashMap<>();
+  private static final String ERROR_MSG_MEMBER_IS_EMPTY = "leaving members should not be empty";
 
   Builder() {}
 
@@ -269,6 +271,11 @@ public class Builder {
     public Set<String> topicNames() {
       return Utils.packException(
           () -> admin.listTopics(new ListTopicsOptions().listInternal(true)).names().get());
+    }
+
+    @Override
+    public void deleteTopics(Set<String> topicNames) {
+      Utils.packException(() -> admin.deleteTopics(topicNames).all().get());
     }
 
     @Override
@@ -549,13 +556,21 @@ public class Builder {
 
     @Override
     public void removeAllMembers(String groupId) {
-      Utils.packException(
-          () ->
+      try {
+        Utils.packException(
+            () -> {
               admin
                   .removeMembersFromConsumerGroup(
                       groupId, new RemoveMembersFromConsumerGroupOptions())
                   .all()
-                  .get());
+                  .get();
+            });
+      } catch (IllegalArgumentException e) {
+        // Deleting all members can't work when there is no members already.
+        if (!ERROR_MSG_MEMBER_IS_EMPTY.equals(e.getMessage())) {
+          throw e;
+        }
+      }
     }
 
     @Override
@@ -642,6 +657,22 @@ public class Builder {
                       new Reassignment(
                           Collections.unmodifiableSet(e.getValue().getKey()),
                           Collections.unmodifiableSet(e.getValue().getValue()))));
+    }
+
+    @Override
+    public Map<TopicPartition, DeletedRecord> deleteRecords(
+        Map<TopicPartition, Long> recordsToDelete) {
+      var kafkaRecordsToDelete =
+          recordsToDelete.entrySet().stream()
+              .collect(
+                  Collectors.toMap(
+                      x -> TopicPartition.to(x.getKey()),
+                      x -> RecordsToDelete.beforeOffset(x.getValue())));
+      return admin.deleteRecords(kafkaRecordsToDelete).lowWatermarks().entrySet().stream()
+          .collect(
+              Collectors.toUnmodifiableMap(
+                  x -> TopicPartition.from(x.getKey()),
+                  x -> DeletedRecord.from(Utils.packException(() -> x.getValue().get()))));
     }
   }
 

@@ -69,14 +69,14 @@ public class Automation {
       else times = Integer.parseInt(properties.getProperty("--time"));
 
       while (i < times) {
-        var result =
+        var topicName =
             Performance.execute(
                 org.astraea.app.argument.Argument.parse(
                     new Performance.Argument(), performanceArgs(properties)));
         i++;
         if (whetherDeleteTopic) {
           try (final AdminClient adminClient = KafkaAdminClient.create(config)) {
-            adminClient.deleteTopics(List.of(result.topicName()));
+            adminClient.deleteTopics(List.of(topicName));
           }
         }
         System.out.println("=============== " + i + " time Performance Complete! ===============");

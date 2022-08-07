@@ -6,6 +6,7 @@
   - [DISTANCE_FROM_LATEST](#DISTANCE_FROM_LATEST)
   - [DISTANCE_FROM_BEGINNING](#DISTANCE_FROM_BEGINNING)
   - [SEEK_TO](#SEEK_TO)
+- [刪除資料](#刪除資料)
 
 ## 傳送資料
 ```shell
@@ -112,7 +113,7 @@ GET /records/{topic}
 | partition             | (選填) 指定要讀取之 partition                                                                                        | 無      |
 | keyDeserializer       | (選填) key deserializer                                                                                        | string |
 | valueDeserializer     | (選填) value deserializer                                                                                      | string |
-| limit                 | (選填) 回傳資料筆數上限                                                                                                | 1      |
+| limit                 | (選填) 回傳資料筆數上限，注意此僅為一建議值，您仍有可能取得大於此值之資料筆數                                                                     | 1      |
 | timeout               | (選填) 請求資料最大時限，逾時便中斷本次操作。格式為 `數值` + `單位`，單位可填寫 `days`, `day`, `h`, `m`, `s`, `ms`, `us`, `ns`。範例：1h，5s，1000ms | 5s     |
 | distanceFromLatest    | (選填) 距離最新 offset 往前多少位移量開始拉取資料                                                                               | 無      |
 | distanceFromBeginning | (選填) 距離起始 offset 往後多少位移量開始拉取資料                                                                               | 無      |
@@ -263,4 +264,23 @@ JSON Response
     }
   ]
 }
+```
+
+## 刪除資料
+```shell
+DELETE /records/{topic}
+```
+>***注意!!!! 如果你沒有輸入任何參數, 我們將會刪除topic中所有的資料***
+
+Request 參數
+
+| 名稱        | 說明                            | 預設值           |
+|-----------|-------------------------------|---------------|
+| offset    | long (選填) 刪除指定offset之前的record | latest offset |
+| partition | int (選填) 指定partition          | 所有partition   |
+
+cURL 範例
+
+```shell
+curl -X DELETE "http://localhost:8001/records/mytopic?partition=5&offset=2"
 ```

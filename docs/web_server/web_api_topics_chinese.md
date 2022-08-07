@@ -115,6 +115,12 @@ JSON Response 範例
 GET /topics
 ```
 
+參數
+
+| 名稱        | 說明                      | 預設值               |
+|-----------|-------------------------|-------------------|
+| partition | (選填) 指定要查看哪一個 partition | 無，代表全部 partitions |
+
 cURL 範例
 ```shell
 curl -X GET http://localhost:8001/topics
@@ -183,6 +189,13 @@ JSON Response 範例
 GET /topics/{topicName}
 ```
 
+參數
+
+| 名稱        | 說明                      | 預設值               |
+|-----------|-------------------------|-------------------|
+| partition | (選填) 指定要查看哪一個 partition | 無，代表全部 partitions |
+
+
 cURL 範例
 
 查詢名為 test1 的 topic 資訊
@@ -242,3 +255,13 @@ JSON Response 範例
   }
 }
  ```
+## 刪除 topic
+```shell
+DELETE /topics/{topicName}
+```
+
+cURL 範例
+
+```shell
+curl -X DELETE "http://localhost:8001/topics/mytopic"
+```

@@ -18,8 +18,7 @@ package org.astraea.app.metrics.producer;
 
 import java.util.concurrent.ExecutionException;
 import org.astraea.app.common.Utils;
-import org.astraea.app.metrics.KafkaMetrics;
-import org.astraea.app.metrics.jmx.MBeanClient;
+import org.astraea.app.metrics.MBeanClient;
 import org.astraea.app.producer.Producer;
 import org.astraea.app.service.RequireSingleBrokerCluster;
 import org.junit.jupiter.api.Assertions;
@@ -32,7 +31,7 @@ public class HasProducerTopicMetricsTest extends RequireSingleBrokerCluster {
     var topic = Utils.randomString(10);
     try (var producer = Producer.of(bootstrapServers())) {
       producer.sender().topic(topic).run().toCompletableFuture().get();
-      var metrics = KafkaMetrics.Producer.topic(MBeanClient.local(), topic);
+      var metrics = ProducerMetrics.topic(MBeanClient.local(), topic);
       Assertions.assertEquals(1, metrics.size());
       var producerTopicMetrics = metrics.get("producer-1");
       Assertions.assertNotEquals(0D, producerTopicMetrics.byteRate());

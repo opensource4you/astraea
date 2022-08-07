@@ -7,19 +7,19 @@
 - Zheng-Xian Li <garyparrottt@gmail.com>
 - Xiang-Jun Sun <sean0651101@gmail.com>
 - Zhi-Mao Teng <zhimao.teng@gmail.com>
+- Jia-Sheng Chen <haser1156@gmail.com>
+- Chao-Heng Lee <chaohengstudent@gmail.com>
+- Yi-Huan Lee <yi.huan.max@gmail.com>
 
 # Kafka Tools
 
 This project offers many kafka tools to simplify the life for kafka users.
 
 1. [Kafka quick start](#kafka-cluster-quick-start): set up a true kafka cluster in one minute
-2. [Kafka performance](#Performance-Benchmark): check producing/consuming performance.
-3. [Kafka offset explorer](#topic-explorer): check the start/end offsets of kafka topics
-4. [Kafka metric explorer](#kafka-metric-explorer): utility for accessing kafka Mbean metrics via JMX.
-5. [Replica Collie](#replica-collie): move replicas from brokers to others. You can use this tool to obstruct specific brokers from hosting specific topics.
-6. [Kafka partition score](#Kafka-partition-score): score all broker's partitions. 
-7. [Kafka replica syncing monitor](#Kafka-replica-syncing-monitor): Tracking replica syncing progress.
-8. [Astraea Web Server 中文文件連結](./docs/web_server/README.md)
+2. [Kafka performance](./docs/performance_benchmark.md): 可產生不同類型資料集測試讀寫速度及E2E延遲的工具
+3. [Kafka metric explorer](#kafka-metric-explorer): utility for accessing kafka Mbean metrics via JMX.
+4. [Kafka replica syncing monitor](#Kafka-replica-syncing-monitor): Tracking replica syncing progress.
+5. [Astraea Web Server 中文文件連結](./docs/web_server/README.md)
 
 [Github packages](https://github.com/orgs/skiptests/packages?repo_name=astraea) offers the docker image to run mentioned tools
 ```shell
@@ -169,67 +169,6 @@ The following command set up a Prometheus data source for the Grafana instance w
 
 ---
 
-## Performance Benchmark
-This tool is used test to following metrics.
-1. publish latency: the time of completing producer data request
-2. E2E latency: the time for a record to travel through Kafka
-3. input rate: average of consumer inputs in MByte per second
-4. output rate: average of producer outputs in MByte per second
-
-Run the benchmark from source
-```shell
-./gradlew run --args="performance --bootstrap.servers localhost:9092"
-```
-### Performance Benchmark Configurations
-1. --bootstrap.servers: the server to connect to
-2. --compression: the compression algorithm used by producer.
-3. --topic: the topic name. Default: testPerformance-{Time in millis}
-4. --partitions: topic config when creating new topic. Default: 1 
-5. --replicas: topic config when creating new topic. Default: 1
-6. --consumers: the number of consumers (threads). Default: 1
-7. --producers: the number of producers (threads). Default: 1
-8. --run.until: the total number of records sent by the producers or the time for producer to send records.
-  The duration formats accepted are (a number) + (a time unit). 
-  The time units can be "days", "day", "h", "m", "s", "ms", "us", "ns".
-  e.g. "--run.until 1m" or "--run.until 89242records" Default: 1000records
-9. --prop.file: the path to property file.
-10. --partitioner: the partitioner to use in producers.
-11. --configs: the configurations pass to partitioner. 
-  The configuration format is "\<key1\>=\<value1\>[,\<key2\>=\<value2\>]*". 
-  eg. "--configs broker.1001.jmx.port=14338,org.astraea.cost.ThroughputCost=1"
-12. --throughput: the produce rate for all producers. e.g. "--throughput 2MiB". Default: 500 GiB (per second)
-13. --key.size: the bound of DataSize of the key. Default: 4Byte
-14. --value.size: the bound of DataSize of the value. Default: 1KiB
-15. --key.distribution: distribution name for key and key size. Available distribution names: "fixed" "uniform", "zipfian", "latest". Default: fixed
-16. --value.distribution: distribution name for value and record size. Available distribution names: "uniform", "zipfian", "latest", "fixed". Default: uniform
-17. --specify.broker: list of broker IDs to produce records to. Default: (Do Not Specify)
-18. --report.path: A path to place the report file. Default: (no report)
-19. --report.format: Select output file format. Available format: "csv", "json". Default: "csv"
-20. --transaction.size: number of records in each transaction. Default: 1
-
----
-
-## Topic Explorer
-
-This tool can expose both earliest offset, consumer group offset and latest offset for all (public and private) topics.
-
-Run the tool from source code
-```shell
-./gradlew run --args="offset --bootstrap.servers 192.168.50.178:19993"
-```
-
-Run the tool from release
-```shell
-./docker/start_app.sh offset --bootstrap.servers 192.168.50.178:19993
-```
-
-### Offset Explorer Configurations
-1. --bootstrap.servers: the server to connect to
-2. --topics: the topics to be seeked
-3. --admin.props.file: the file path containing the properties to be passed to kafka admin
-
----
-
 ## Kafka Metric Explorer
 
 This tool can be used to access Kafka's MBean metrics via JMX.
@@ -276,66 +215,6 @@ Run the tool from release
 5. --view-object-name-list: show the list view of MBeans' domain name & properties. Default: false.
 
 ---
-
-## Replica Collie
-
-This tool offers an effective way to migrate specify replicas from specific brokers to others brokers.
-
-### Move all replicas from broker_0 and broker_1 to other brokers
-
-```shell 
-./gradlew run --args="replica --bootstrap.servers 192.168.50.178:19993 --from 0,1"
-```
-
-### Move all replicas of topic "abc" from broker_0 to broker_1
-
-```shell
-./gradlew run --args="replica --bootstrap.servers 192.168.50.178:19993 --from 0 --to 1 --topics abc"
-```
-
-### Move all replicas of topic "abc" in broker_0 to other folders
-
-```shell
-./gradlew run --args="replica --bootstrap.servers 192.168.50.178:19993 --from 0 --to 0 --topics abc"
-```
-
-### Move specify replicas of topic "abc" and "def" from broker_0 to broker_1
-
-```shell
-./gradlew run --args="replica --bootstrap.servers 192.168.50.178:19993 --from 0 --to 1 --topic abc,def --partitions 0,1"
-```
-
-### Move specify replicas of topic "abc"  and "def" from broker_0 to broker_1 specify folder
-
-```shell
-./gradlew run --args="replica --bootstrap.servers 192.168.50.178:19993 --from 0 --to 1 --topic abc,def --partitions 0,1 --path /tmp/log1"
-```
-
-### Replica Collie Configurations
-
-1. --bootstrap.servers: the server to connect to
-2. --from: the broker of the specified replica
-3. --prop.file: the file path containing the properties to be passed to kafka admin
-4. --to: the replica moved target broker
-5. --topics: the topics to be moved
-6. --partitions : all partitions that will be moved
-7. --path: the replica that will move to
-
-## Kafka Partition Score
-
-This tool will score the partition on brokers, the higher score the heavier load.
-
-### Start scoring partitions on broker address "192.168.103.39:9092"
-
-```shell
-./gradlew run --args="score --bootstrap.servers 192.168.103.39:9092"
-```
-
-### Partition Score Configurations
-
-1. --bootstrap.servers: the server to connect to
-2. --exclude.internal.topics: True if you want to ignore internal topics like _consumer_offsets while counting score. 
-3. --hide.balanced: True if you want to hide topics and partitions thar already balanced.:q
 
 ## Kafka Replica Syncing Monitor
 

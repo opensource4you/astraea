@@ -26,6 +26,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
@@ -37,8 +38,6 @@ import org.apache.kafka.common.config.TopicConfig;
 import org.apache.kafka.common.errors.GroupNotEmptyException;
 import org.astraea.app.common.DataRate;
 import org.astraea.app.common.Utils;
-import org.astraea.app.concurrent.State;
-import org.astraea.app.concurrent.ThreadPool;
 import org.astraea.app.consumer.Consumer;
 import org.astraea.app.consumer.Deserializer;
 import org.astraea.app.producer.Producer;
@@ -892,6 +891,28 @@ public class AdminTest extends RequireBrokerCluster {
   }
 
   @Test
+  void testRemoveEmptyMember() {
+    var topicName = Utils.randomString(10);
+    var groupId = Utils.randomString(10);
+    try (var admin = Admin.of(bootstrapServers())) {
+      try (var consumer =
+          Consumer.forTopics(Set.of(topicName))
+              .bootstrapServers(bootstrapServers())
+              .groupId(groupId)
+              .groupInstanceId(Utils.randomString(10))
+              .build()) {
+        Assertions.assertEquals(0, consumer.poll(Duration.ofSeconds(3)).size());
+      }
+      Assertions.assertEquals(
+          1, admin.consumerGroups(Set.of(groupId)).get(groupId).activeMembers().size());
+      admin.removeAllMembers(groupId);
+      Assertions.assertEquals(
+          0, admin.consumerGroups(Set.of(groupId)).get(groupId).activeMembers().size());
+      admin.removeAllMembers(groupId);
+    }
+  }
+
+  @Test
   void testRemoveStaticMembers() {
     var topicName = Utils.randomString(10);
     var staticId = Utils.randomString(10);
@@ -976,32 +997,29 @@ public class AdminTest extends RequireBrokerCluster {
       try (var producer = Producer.of(bootstrapServers())) {
         var done = new AtomicBoolean(false);
         var data = new byte[1000];
-        try (var pool =
-            ThreadPool.builder()
-                .executor(
-                    () -> {
-                      producer.sender().topic(topicName).key(data).value(data).run();
-                      return done.get() ? State.DONE : State.RUNNING;
-                    })
-                .build()) {
+        var f =
+            CompletableFuture.runAsync(
+                () -> {
+                  while (!done.get())
+                    producer.sender().topic(topicName).key(data).value(data).run();
+                });
+        try {
+          admin.migrator().topic(topicName).moveTo(List.of(nextBroker));
+          var reassignment =
+              admin.reassignments(Set.of(topicName)).get(TopicPartition.of(topicName, 0));
 
-          try {
-            admin.migrator().topic(topicName).moveTo(List.of(nextBroker));
-            var reassignment =
-                admin.reassignments(Set.of(topicName)).get(TopicPartition.of(topicName, 0));
-
-            // Don't verify the result if the migration is done
-            if (reassignment != null) {
-              Assertions.assertEquals(1, reassignment.from().size());
-              var from = reassignment.from().iterator().next();
-              Assertions.assertEquals(currentBroker, from.broker());
-              Assertions.assertEquals(1, reassignment.to().size());
-              var to = reassignment.to().iterator().next();
-              Assertions.assertEquals(nextBroker, to.broker());
-            }
-          } finally {
-            done.set(true);
+          // Don't verify the result if the migration is done
+          if (reassignment != null) {
+            Assertions.assertEquals(1, reassignment.from().size());
+            var from = reassignment.from().iterator().next();
+            Assertions.assertEquals(currentBroker, from.broker());
+            Assertions.assertEquals(1, reassignment.to().size());
+            var to = reassignment.to().iterator().next();
+            Assertions.assertEquals(nextBroker, to.broker());
           }
+        } finally {
+          done.set(true);
+          Utils.swallowException(f::get);
         }
       }
     }
@@ -1027,33 +1045,31 @@ public class AdminTest extends RequireBrokerCluster {
       try (var producer = Producer.of(bootstrapServers())) {
         var done = new AtomicBoolean(false);
         var data = new byte[1000];
-        try (var pool =
-            ThreadPool.builder()
-                .executor(
-                    () -> {
-                      producer.sender().topic(topicName).key(data).value(data).run();
-                      return done.get() ? State.DONE : State.RUNNING;
-                    })
-                .build()) {
+        var f =
+            CompletableFuture.runAsync(
+                () -> {
+                  while (!done.get())
+                    producer.sender().topic(topicName).key(data).value(data).run();
+                });
 
-          try {
-            admin.migrator().topic(topicName).moveTo(Map.of(currentReplica.broker(), nextPath));
-            var reassignment =
-                admin.reassignments(Set.of(topicName)).get(TopicPartition.of(topicName, 0));
-            // Don't verify the result if the migration is done
-            if (reassignment != null) {
-              Assertions.assertEquals(1, reassignment.from().size());
-              var from = reassignment.from().iterator().next();
-              Assertions.assertEquals(currentBroker, from.broker());
-              Assertions.assertEquals(currentPath, from.path());
-              Assertions.assertEquals(1, reassignment.to().size());
-              var to = reassignment.to().iterator().next();
-              Assertions.assertEquals(currentBroker, to.broker());
-              Assertions.assertEquals(nextPath, to.path());
-            }
-          } finally {
-            done.set(true);
+        try {
+          admin.migrator().topic(topicName).moveTo(Map.of(currentReplica.broker(), nextPath));
+          var reassignment =
+              admin.reassignments(Set.of(topicName)).get(TopicPartition.of(topicName, 0));
+          // Don't verify the result if the migration is done
+          if (reassignment != null) {
+            Assertions.assertEquals(1, reassignment.from().size());
+            var from = reassignment.from().iterator().next();
+            Assertions.assertEquals(currentBroker, from.broker());
+            Assertions.assertEquals(currentPath, from.path());
+            Assertions.assertEquals(1, reassignment.to().size());
+            var to = reassignment.to().iterator().next();
+            Assertions.assertEquals(currentBroker, to.broker());
+            Assertions.assertEquals(nextPath, to.path());
           }
+        } finally {
+          done.set(true);
+          Utils.swallowException(f::get);
         }
       }
     }
@@ -1070,27 +1086,24 @@ public class AdminTest extends RequireBrokerCluster {
       try (var producer = Producer.of(bootstrapServers())) {
         var done = new AtomicBoolean(false);
         var data = new byte[1000];
-        try (var pool =
-            ThreadPool.builder()
-                .executor(
-                    () -> {
-                      producer.sender().topic(topicName).key(data).value(data).run();
-                      return done.get() ? State.DONE : State.RUNNING;
-                    })
-                .build()) {
-
-          try {
-            admin.migrator().topic(topicName).moveTo(brokers);
-            var reassignment =
-                admin.reassignments(Set.of(topicName)).get(TopicPartition.of(topicName, 0));
-            // Don't verify the result if the migration is done
-            if (reassignment != null) {
-              Assertions.assertEquals(3, reassignment.from().size());
-              Assertions.assertEquals(2, reassignment.to().size());
-            }
-          } finally {
-            done.set(true);
+        var f =
+            CompletableFuture.runAsync(
+                () -> {
+                  while (!done.get())
+                    producer.sender().topic(topicName).key(data).value(data).run();
+                });
+        try {
+          admin.migrator().topic(topicName).moveTo(brokers);
+          var reassignment =
+              admin.reassignments(Set.of(topicName)).get(TopicPartition.of(topicName, 0));
+          // Don't verify the result if the migration is done
+          if (reassignment != null) {
+            Assertions.assertEquals(3, reassignment.from().size());
+            Assertions.assertEquals(2, reassignment.to().size());
           }
+        } finally {
+          done.set(true);
+          Utils.swallowException(f::get);
         }
       }
     }
@@ -1107,6 +1120,68 @@ public class AdminTest extends RequireBrokerCluster {
         producer.flush();
       }
       Assertions.assertEquals(0, admin.reassignments(Set.of(topicName)).size());
+    }
+  }
+
+  @Test
+  void testDeleteRecord() {
+    var topicName = Utils.randomString(10);
+    try (var admin = Admin.of(bootstrapServers())) {
+      admin.creator().topic(topicName).numberOfPartitions(3).numberOfReplicas((short) 3).create();
+      Utils.sleep(Duration.ofSeconds(2));
+      var deleteRecords = admin.deleteRecords(Map.of(TopicPartition.of(topicName, 0), 0L));
+
+      Assertions.assertEquals(1, deleteRecords.size());
+      Assertions.assertEquals(0, deleteRecords.values().stream().findFirst().get().lowWatermark());
+
+      try (var producer = Producer.of(bootstrapServers())) {
+        var senders =
+            Stream.of(0, 0, 0, 1, 1)
+                .map(x -> producer.sender().topic(topicName).partition(x).value(new byte[100]))
+                .collect(Collectors.toList());
+        producer.send(senders);
+        producer.flush();
+      }
+
+      deleteRecords =
+          admin.deleteRecords(
+              Map.of(TopicPartition.of(topicName, 0), 2L, TopicPartition.of(topicName, 1), 1L));
+      Assertions.assertEquals(2, deleteRecords.size());
+      Assertions.assertEquals(2, deleteRecords.get(TopicPartition.of(topicName, 0)).lowWatermark());
+      Assertions.assertEquals(1, deleteRecords.get(TopicPartition.of(topicName, 1)).lowWatermark());
+
+      var offsets = admin.offsets();
+      Assertions.assertEquals(2, offsets.get(TopicPartition.of(topicName, 0)).earliest());
+      Assertions.assertEquals(1, offsets.get(TopicPartition.of(topicName, 1)).earliest());
+      Assertions.assertEquals(0, offsets.get(TopicPartition.of(topicName, 2)).earliest());
+    }
+  }
+
+  @Test
+  void testDeleteTopic() {
+    var topicNames =
+        IntStream.range(0, 4).mapToObj(x -> Utils.randomString(10)).collect(Collectors.toList());
+
+    try (var admin = Admin.of(bootstrapServers())) {
+      topicNames.forEach(
+          x -> admin.creator().topic(x).numberOfPartitions(3).numberOfReplicas((short) 3).create());
+      Utils.sleep(Duration.ofSeconds(2));
+
+      admin.deleteTopics(Set.of(topicNames.get(0), topicNames.get(1)));
+      Utils.sleep(Duration.ofSeconds(2));
+
+      var latestTopicNames = admin.topicNames();
+      Assertions.assertFalse(latestTopicNames.contains(topicNames.get(0)));
+      Assertions.assertFalse(latestTopicNames.contains(topicNames.get(1)));
+      Assertions.assertTrue(latestTopicNames.contains(topicNames.get(2)));
+      Assertions.assertTrue(latestTopicNames.contains(topicNames.get(3)));
+
+      admin.deleteTopics(Set.of(topicNames.get(3)));
+      Utils.sleep(Duration.ofSeconds(2));
+
+      latestTopicNames = admin.topicNames();
+      Assertions.assertFalse(latestTopicNames.contains(topicNames.get(3)));
+      Assertions.assertTrue(latestTopicNames.contains(topicNames.get(2)));
     }
   }
 }
