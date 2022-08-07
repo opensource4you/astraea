@@ -17,7 +17,7 @@ This project offers many kafka tools to simplify the life for kafka users.
 
 1. [Kafka quick start](#kafka-cluster-quick-start): set up a true kafka cluster in one minute
 2. [Kafka performance](./docs/performance_benchmark.md): 可產生不同類型資料集測試讀寫速度及E2E延遲的工具
-3. [Kafka_Prometheus](./docs/run_prometheus.md): 快速部署 Prometheus 腳本流程 
+3. [Kafka_Prometheus](./docs/run_prometheus.md):  整合 Kafka 與 Prometheus
 4. [Kafka metric explorer](#kafka-metric-explorer): utility for accessing kafka Mbean metrics via JMX.
 5. [Kafka replica syncing monitor](#Kafka-replica-syncing-monitor): Tracking replica syncing progress.
 6. [Astraea Web Server 中文文件連結](./docs/web_server/README.md)
