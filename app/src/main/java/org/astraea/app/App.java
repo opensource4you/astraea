@@ -23,7 +23,7 @@ import java.util.List;
 import java.util.Map;
 import org.astraea.app.admin.ReplicaSyncingMonitor;
 import org.astraea.app.automation.Automation;
-import org.astraea.app.cost.topic.PartitionScore;
+import org.astraea.app.balancer.BalanceProcessDemo;
 import org.astraea.app.metrics.MetricExplorer;
 import org.astraea.app.performance.Performance;
 import org.astraea.app.web.WebService;
@@ -32,11 +32,11 @@ public class App {
   private static final Map<String, Class<?>> MAIN_CLASSES =
       Map.of(
           "metrics", MetricExplorer.class,
-          "score", PartitionScore.class,
           "performance", Performance.class,
           "monitor", ReplicaSyncingMonitor.class,
           "automation", Automation.class,
-          "web", WebService.class);
+          "web", WebService.class,
+          "balance-demo", BalanceProcessDemo.class);
 
   static void execute(Map<String, Class<?>> mains, List<String> args) throws Throwable {
 

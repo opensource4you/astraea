@@ -20,10 +20,10 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.stream.Collectors;
+import org.astraea.app.metrics.BeanObject;
+import org.astraea.app.metrics.BeanQuery;
 import org.astraea.app.metrics.HasBeanObject;
-import org.astraea.app.metrics.jmx.BeanObject;
-import org.astraea.app.metrics.jmx.BeanQuery;
-import org.astraea.app.metrics.jmx.MBeanClient;
+import org.astraea.app.metrics.MBeanClient;
 
 public final class LogMetrics {
 

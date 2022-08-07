@@ -24,10 +24,11 @@ import org.astraea.app.admin.Admin;
 import org.astraea.app.admin.ClusterBean;
 import org.astraea.app.admin.ClusterInfo;
 import org.astraea.app.common.Utils;
+import org.astraea.app.metrics.BeanObject;
 import org.astraea.app.metrics.HasBeanObject;
-import org.astraea.app.metrics.KafkaMetrics;
-import org.astraea.app.metrics.jmx.BeanObject;
-import org.astraea.app.metrics.jmx.MBeanClient;
+import org.astraea.app.metrics.MBeanClient;
+import org.astraea.app.metrics.client.HasNodeMetrics;
+import org.astraea.app.metrics.client.producer.ProducerMetrics;
 import org.astraea.app.producer.Producer;
 import org.astraea.app.service.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
@@ -35,6 +36,29 @@ import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
 public class NodeLatencyCostTest extends RequireBrokerCluster {
+
+  @Test
+  void testNan() {
+    var bean = Mockito.mock(HasNodeMetrics.class);
+    Mockito.when(bean.brokerId()).thenReturn(1);
+    Mockito.when(bean.requestLatencyAvg()).thenReturn(Double.NaN);
+    var clusterBean = ClusterBean.of(Map.of(-1, List.of(bean)));
+    var function = new NodeLatencyCost();
+    var result = function.brokerCost(Mockito.mock(ClusterInfo.class), clusterBean);
+    Assertions.assertEquals(0, result.value().size());
+  }
+
+  @Test
+  void testBrokerId() {
+    var bean = Mockito.mock(HasNodeMetrics.class);
+    Mockito.when(bean.brokerId()).thenReturn(1);
+    Mockito.when(bean.requestLatencyAvg()).thenReturn(10D);
+    var clusterBean = ClusterBean.of(Map.of(-1, List.of(bean)));
+    var function = new NodeLatencyCost();
+    var result = function.brokerCost(Mockito.mock(ClusterInfo.class), clusterBean);
+    Assertions.assertEquals(1, result.value().size());
+    Assertions.assertEquals(10D, result.value().get(1));
+  }
 
   @Test
   void testCost() {
@@ -47,19 +71,22 @@ public class NodeLatencyCostTest extends RequireBrokerCluster {
       producer.sender().topic(Utils.randomString(10)).value(new byte[100]).run();
       producer.flush();
 
-      var beans = KafkaMetrics.Producer.node(MBeanClient.local(), brokerId);
-      var clusterBean =
-          ClusterBean.of(
-              Map.of(
-                  brokerId,
-                  beans.values().stream()
-                      .map(b -> (HasBeanObject) b)
-                      .collect(Collectors.toUnmodifiableList())));
-      var clusterInfo = Mockito.mock(ClusterInfo.class);
       var function = new NodeLatencyCost();
-      var cost = function.brokerCost(clusterInfo, clusterBean);
-      Assertions.assertEquals(1, cost.value().size());
-      Assertions.assertNotNull(cost.value().get(brokerId));
+
+      Utils.waitFor(
+          () ->
+              function
+                      .brokerCost(
+                          Mockito.mock(ClusterInfo.class),
+                          ClusterBean.of(
+                              Map.of(
+                                  -1,
+                                  ProducerMetrics.nodes(MBeanClient.local()).stream()
+                                      .map(b -> (HasBeanObject) b)
+                                      .collect(Collectors.toUnmodifiableList()))))
+                      .value()
+                      .size()
+                  >= 1);
     }
   }
 

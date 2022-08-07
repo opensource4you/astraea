@@ -62,7 +62,7 @@ public class StrictCostDispatcher implements Dispatcher {
   Duration roundRobinLease;
 
   // The cost-functions we consider and the weight of them. It is visible for test
-  Map<CostFunction, Double> functions = Map.of();
+  Map<HasBrokerCost, Double> functions = Map.of();
 
   // all-in-one fetcher referenced to cost functions
   Optional<Fetcher> fetcher;
@@ -119,7 +119,7 @@ public class StrictCostDispatcher implements Dispatcher {
                     .filter(r -> r.nodeInfo().id() == brokerId)
                     .map(ReplicaInfo::partition)
                     .findAny())
-        .orElse(0);
+        .orElse(partitionLeaders.get((int) (Math.random() * partitionLeaders.size())).partition());
   }
 
   void tryToUpdateRoundRobin(ClusterInfo clusterInfo) {
@@ -159,10 +159,9 @@ public class StrictCostDispatcher implements Dispatcher {
    * @return SmoothWeightedRoundRobin
    */
   static RoundRobin<Integer> newRoundRobin(
-      Map<CostFunction, Double> costFunctions, ClusterInfo clusterInfo, ClusterBean clusterBean) {
+      Map<HasBrokerCost, Double> costFunctions, ClusterInfo clusterInfo, ClusterBean clusterBean) {
     var weightedCost =
         costFunctions.entrySet().stream()
-            .filter(e -> e.getKey() instanceof HasBrokerCost)
             .flatMap(
                 functionWeight ->
                     ((HasBrokerCost) functionWeight.getKey())
@@ -202,7 +201,7 @@ public class StrictCostDispatcher implements Dispatcher {
    * @param customJmxPort jmx port for each node
    */
   void configure(
-      Map<CostFunction, Double> functions,
+      Map<HasBrokerCost, Double> functions,
       Optional<Integer> jmxPortDefault,
       Map<Integer, Integer> customJmxPort,
       Duration roundRobinLease) {
@@ -234,36 +233,29 @@ public class StrictCostDispatcher implements Dispatcher {
    * @param config that contains cost-function names and its corresponding weight
    * @return pairs of cost-function object and its corresponding weight
    */
-  public static Map<CostFunction, Double> parseCostFunctionWeight(Configuration config) {
+  @SuppressWarnings("unchecked")
+  public static Map<HasBrokerCost, Double> parseCostFunctionWeight(Configuration config) {
     return config.entrySet().stream()
         .map(
             nameAndWeight -> {
-              Class<?> name;
-              double weight;
+              Class<?> clz;
               try {
-                name = Class.forName(nameAndWeight.getKey());
-                weight = Double.parseDouble(nameAndWeight.getValue());
-                if (weight < 0.0)
-                  throw new IllegalArgumentException("Cost-function weight should not be negative");
+                clz = Class.forName(nameAndWeight.getKey());
               } catch (ClassNotFoundException ignore) {
-                /* To delete all config option that is not for configuring cost-function. */
+                // this config is not cost function, so we just skip it.
                 return null;
               }
-              return Map.entry(name, weight);
+              var weight = Double.parseDouble(nameAndWeight.getValue());
+              if (weight < 0.0)
+                throw new IllegalArgumentException("Cost-function weight should not be negative");
+              return Map.entry(clz, weight);
             })
         .filter(Objects::nonNull)
-        .filter(e -> CostFunction.class.isAssignableFrom(e.getKey()))
-        .map(
-            e -> {
-              try {
-                return Map.entry(
-                    (CostFunction) e.getKey().getConstructor().newInstance(), e.getValue());
-              } catch (Exception ex) {
-                ex.printStackTrace();
-                throw new IllegalArgumentException(ex);
-              }
-            })
-        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+        .filter(e -> HasBrokerCost.class.isAssignableFrom(e.getKey()))
+        .collect(
+            Collectors.toMap(
+                e -> Utils.constructCostFunction((Class<HasBrokerCost>) e.getKey(), config),
+                Map.Entry::getValue));
   }
 
   @Override

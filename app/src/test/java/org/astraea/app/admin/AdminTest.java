@@ -891,6 +891,28 @@ public class AdminTest extends RequireBrokerCluster {
   }
 
   @Test
+  void testRemoveEmptyMember() {
+    var topicName = Utils.randomString(10);
+    var groupId = Utils.randomString(10);
+    try (var admin = Admin.of(bootstrapServers())) {
+      try (var consumer =
+          Consumer.forTopics(Set.of(topicName))
+              .bootstrapServers(bootstrapServers())
+              .groupId(groupId)
+              .groupInstanceId(Utils.randomString(10))
+              .build()) {
+        Assertions.assertEquals(0, consumer.poll(Duration.ofSeconds(3)).size());
+      }
+      Assertions.assertEquals(
+          1, admin.consumerGroups(Set.of(groupId)).get(groupId).activeMembers().size());
+      admin.removeAllMembers(groupId);
+      Assertions.assertEquals(
+          0, admin.consumerGroups(Set.of(groupId)).get(groupId).activeMembers().size());
+      admin.removeAllMembers(groupId);
+    }
+  }
+
+  @Test
   void testRemoveStaticMembers() {
     var topicName = Utils.randomString(10);
     var staticId = Utils.randomString(10);
@@ -1106,6 +1128,7 @@ public class AdminTest extends RequireBrokerCluster {
     var topicName = Utils.randomString(10);
     try (var admin = Admin.of(bootstrapServers())) {
       admin.creator().topic(topicName).numberOfPartitions(3).numberOfReplicas((short) 3).create();
+      Utils.sleep(Duration.ofSeconds(2));
       var deleteRecords = admin.deleteRecords(Map.of(TopicPartition.of(topicName, 0), 0L));
 
       Assertions.assertEquals(1, deleteRecords.size());
@@ -1131,6 +1154,34 @@ public class AdminTest extends RequireBrokerCluster {
       Assertions.assertEquals(2, offsets.get(TopicPartition.of(topicName, 0)).earliest());
       Assertions.assertEquals(1, offsets.get(TopicPartition.of(topicName, 1)).earliest());
       Assertions.assertEquals(0, offsets.get(TopicPartition.of(topicName, 2)).earliest());
+    }
+  }
+
+  @Test
+  void testDeleteTopic() {
+    var topicNames =
+        IntStream.range(0, 4).mapToObj(x -> Utils.randomString(10)).collect(Collectors.toList());
+
+    try (var admin = Admin.of(bootstrapServers())) {
+      topicNames.forEach(
+          x -> admin.creator().topic(x).numberOfPartitions(3).numberOfReplicas((short) 3).create());
+      Utils.sleep(Duration.ofSeconds(2));
+
+      admin.deleteTopics(Set.of(topicNames.get(0), topicNames.get(1)));
+      Utils.sleep(Duration.ofSeconds(2));
+
+      var latestTopicNames = admin.topicNames();
+      Assertions.assertFalse(latestTopicNames.contains(topicNames.get(0)));
+      Assertions.assertFalse(latestTopicNames.contains(topicNames.get(1)));
+      Assertions.assertTrue(latestTopicNames.contains(topicNames.get(2)));
+      Assertions.assertTrue(latestTopicNames.contains(topicNames.get(3)));
+
+      admin.deleteTopics(Set.of(topicNames.get(3)));
+      Utils.sleep(Duration.ofSeconds(2));
+
+      latestTopicNames = admin.topicNames();
+      Assertions.assertFalse(latestTopicNames.contains(topicNames.get(3)));
+      Assertions.assertTrue(latestTopicNames.contains(topicNames.get(2)));
     }
   }
 }

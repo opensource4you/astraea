@@ -16,13 +16,16 @@
  */
 package org.astraea.app.metrics.broker;
 
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+
 import java.time.Duration;
 import java.util.List;
 import java.util.stream.Collectors;
 import org.astraea.app.admin.Admin;
 import org.astraea.app.common.Utils;
 import org.astraea.app.metrics.HasBeanObject;
-import org.astraea.app.metrics.jmx.MBeanClient;
+import org.astraea.app.metrics.MBeanClient;
+import org.astraea.app.metrics.MetricsTestUtil;
 import org.astraea.app.service.RequireSingleBrokerCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -68,5 +71,26 @@ public class LogMetricsTest extends RequireSingleBrokerCluster {
     Assertions.assertEquals(target, result.iterator().next());
     Assertions.assertEquals(
         0, LogMetrics.Log.meters(List.of(other, target), LogMetrics.Log.SIZE).size());
+  }
+
+  @ParameterizedTest()
+  @EnumSource(value = LogMetrics.Log.class)
+  void testTopicPartitionMetrics(LogMetrics.Log request) {
+    try (var admin = Admin.of(bootstrapServers())) {
+      // there are only 3 brokers, so 10 partitions can make each broker has some partitions
+      admin.creator().topic(Utils.randomString(5)).numberOfPartitions(10).create();
+    }
+
+    // wait for topic creation
+    Utils.sleep(Duration.ofSeconds(2));
+
+    var beans = request.fetch(MBeanClient.local());
+    assertNotEquals(0, beans.size());
+  }
+
+  @Test
+  void testAllEnumNameUnique() {
+    Assertions.assertTrue(
+        MetricsTestUtil.metricDistinct(LogMetrics.Log.values(), LogMetrics.Log::metricName));
   }
 }

@@ -255,3 +255,13 @@ JSON Response 範例
   }
 }
  ```
+## 刪除 topic
+```shell
+DELETE /topics/{topicName}
+```
+
+cURL 範例
+
+```shell
+curl -X DELETE "http://localhost:8001/topics/mytopic"
+```

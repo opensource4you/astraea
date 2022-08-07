@@ -16,40 +16,11 @@
  */
 package org.astraea.app.cost;
 
-import java.util.Collection;
-import java.util.Map;
-import java.util.Optional;
-import java.util.stream.Collectors;
-import org.astraea.app.admin.ClusterBean;
-import org.astraea.app.admin.ClusterInfo;
-import org.astraea.app.metrics.KafkaMetrics;
-import org.astraea.app.metrics.collector.Fetcher;
-import org.astraea.app.metrics.producer.HasProducerNodeMetrics;
+import org.astraea.app.metrics.client.HasNodeMetrics;
 
-public class NodeThroughputCost implements HasBrokerCost {
-
+public class NodeThroughputCost extends NodeMetricsCost {
   @Override
-  public BrokerCost brokerCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
-    var result =
-        clusterBean.all().entrySet().stream()
-            .collect(
-                Collectors.toMap(
-                    Map.Entry::getKey,
-                    e ->
-                        e.getValue().stream()
-                            .filter(b -> b instanceof HasProducerNodeMetrics)
-                            .map(b -> (HasProducerNodeMetrics) b)
-                            .mapToDouble(b -> b.incomingByteRate() + b.outgoingByteRate())
-                            .sum()));
-    return () -> result;
-  }
-
-  @Override
-  public Optional<Fetcher> fetcher() {
-    return Optional.of(
-        client ->
-            KafkaMetrics.Producer.nodes(client).values().stream()
-                .flatMap(Collection::stream)
-                .collect(Collectors.toUnmodifiableList()));
+  protected double value(HasNodeMetrics hasNodeMetrics) {
+    return hasNodeMetrics.incomingByteRate() + hasNodeMetrics.outgoingByteRate();
   }
 }
