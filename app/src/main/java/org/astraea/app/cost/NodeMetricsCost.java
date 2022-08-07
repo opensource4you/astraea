@@ -17,22 +17,44 @@
 package org.astraea.app.cost;
 
 import java.util.Collection;
+import java.util.Comparator;
+import java.util.Map;
 import java.util.Optional;
-import java.util.stream.Stream;
+import java.util.stream.Collectors;
 import org.astraea.app.admin.ClusterBean;
+import org.astraea.app.admin.ClusterInfo;
 import org.astraea.app.metrics.client.HasNodeMetrics;
 import org.astraea.app.metrics.client.producer.ProducerMetrics;
 import org.astraea.app.metrics.collector.Fetcher;
 
 /** Calculate the cost by client-node-metrics. */
 public abstract class NodeMetricsCost implements HasBrokerCost {
-  /** Group clusterBean by broker id. */
-  public static Stream<HasNodeMetrics> toHasNodeMetrics(ClusterBean clusterBean) {
-    return clusterBean.all().values().stream()
-        .flatMap(Collection::stream)
-        .filter(b -> b instanceof HasNodeMetrics)
-        .map(b -> (HasNodeMetrics) b);
+  @Override
+  public BrokerCost brokerCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
+    var result =
+        clusterBean.all().values().stream()
+            .flatMap(Collection::stream)
+            .filter(b -> b instanceof HasNodeMetrics)
+            .map(b -> (HasNodeMetrics) b)
+            .filter(b -> !Double.isNaN(value(b)))
+            .collect(Collectors.groupingBy(HasNodeMetrics::brokerId))
+            .entrySet()
+            .stream()
+            .collect(
+                Collectors.toMap(
+                    Map.Entry::getKey,
+                    e ->
+                        e.getValue().stream()
+                            .sorted(
+                                Comparator.comparing(HasNodeMetrics::createdTimestamp).reversed())
+                            .limit(1)
+                            .mapToDouble(this::value)
+                            .sum()));
+    return () -> result;
   }
+
+  /** The metrics to take into consider. */
+  protected abstract double value(HasNodeMetrics hasNodeMetrics);
 
   @Override
   public Optional<Fetcher> fetcher() {
