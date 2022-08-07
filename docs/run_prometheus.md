@@ -39,6 +39,14 @@
 [INFO] =================================================
 ```
 
+##### 監控多個exporter範例
+
+若有多個exporter要監控，則需要以逗號分隔address，假設要監控兩個exporter
+
+```bash
+./docker/start_prometheus.sh start 192.168.103.12:12345,192.168.103.13:10000
+```
+
 #### Prometheus Web UI
 
 存取腳本輸出的`Prometheus address`，可以看到Prometheus WebUI。
