@@ -16,11 +16,11 @@
  */
 package org.astraea.app.web;
 
+import java.time.Duration;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.TimeUnit;
 import org.astraea.app.admin.Admin;
 import org.astraea.app.common.Utils;
 import org.astraea.app.service.RequireBrokerCluster;
@@ -30,11 +30,11 @@ import org.junit.jupiter.api.Test;
 public class BrokerHandlerTest extends RequireBrokerCluster {
 
   @Test
-  void testListBrokers() throws InterruptedException {
+  void testListBrokers() {
     var topic = Utils.randomString(10);
     try (Admin admin = Admin.of(bootstrapServers())) {
       admin.creator().topic(topic).numberOfPartitions(10).create();
-      TimeUnit.SECONDS.sleep(2);
+      Utils.sleep(Duration.ofSeconds(2));
       var handler = new BrokerHandler(admin);
       var response =
           Assertions.assertInstanceOf(
@@ -69,12 +69,12 @@ public class BrokerHandlerTest extends RequireBrokerCluster {
   }
 
   @Test
-  void testQuerySingleBroker() throws InterruptedException {
+  void testQuerySingleBroker() {
     var topic = Utils.randomString(10);
     var brokerId = brokerIds().iterator().next();
     try (Admin admin = Admin.of(bootstrapServers())) {
       admin.creator().topic(topic).numberOfPartitions(10).create();
-      TimeUnit.SECONDS.sleep(2);
+      Utils.sleep(Duration.ofSeconds(2));
       var handler = new BrokerHandler(admin);
       var broker =
           Assertions.assertInstanceOf(

@@ -34,6 +34,10 @@ interface Response {
     return new ResponseImpl(404, message);
   }
 
+  static Response for500(String message) {
+    return new ResponseImpl(500, message);
+  }
+
   private static int code(Exception exception) {
     if (exception instanceof IllegalArgumentException) return 400;
     if (exception instanceof NoSuchElementException) return 404;

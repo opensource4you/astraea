@@ -18,6 +18,9 @@ package org.astraea.app.consumer;
 
 import static java.util.Collections.nCopies;
 import static java.util.stream.Collectors.toList;
+import static org.astraea.app.consumer.Builder.SeekStrategy.DISTANCE_FROM_BEGINNING;
+import static org.astraea.app.consumer.Builder.SeekStrategy.DISTANCE_FROM_LATEST;
+import static org.astraea.app.consumer.Builder.SeekStrategy.SEEK_TO;
 
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
@@ -25,6 +28,7 @@ import java.time.Duration;
 import java.util.Set;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.function.BiConsumer;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.apache.kafka.common.errors.WakeupException;
@@ -95,12 +99,8 @@ public class ConsumerTest extends RequireBrokerCluster {
       var service = Executors.newSingleThreadExecutor();
       service.execute(
           () -> {
-            try {
-              TimeUnit.SECONDS.sleep(3);
-              consumer.wakeup();
-            } catch (InterruptedException ignored) {
-              // swallow
-            }
+            Utils.sleep(Duration.ofSeconds(3));
+            consumer.wakeup();
           });
       // this call will be broken after 3 seconds
       Assertions.assertThrows(WakeupException.class, () -> consumer.poll(Duration.ofSeconds(100)));
@@ -172,7 +172,7 @@ public class ConsumerTest extends RequireBrokerCluster {
     try (var consumer =
         Consumer.forTopics(Set.of(topic))
             .bootstrapServers(bootstrapServers())
-            .distanceFromLatest(3)
+            .seek(DISTANCE_FROM_LATEST, 3)
             .build()) {
       Assertions.assertEquals(3, consumer.poll(4, Duration.ofSeconds(5)).size());
     }
@@ -180,7 +180,7 @@ public class ConsumerTest extends RequireBrokerCluster {
     try (var consumer =
         Consumer.forTopics(Set.of(topic))
             .bootstrapServers(bootstrapServers())
-            .distanceFromLatest(1000)
+            .seek(DISTANCE_FROM_LATEST, 1000)
             .build()) {
       Assertions.assertEquals(10, consumer.poll(11, Duration.ofSeconds(5)).size());
     }
@@ -204,13 +204,13 @@ public class ConsumerTest extends RequireBrokerCluster {
   }
 
   @Test
-  void testAssignment() throws InterruptedException {
+  void testAssignment() {
     var topic = Utils.randomString(10);
     try (var admin = Admin.of(bootstrapServers());
         var producer = Producer.of(bootstrapServers())) {
       var partitionNum = 2;
       admin.creator().topic(topic).numberOfPartitions(partitionNum).create();
-      TimeUnit.SECONDS.sleep(2);
+      Utils.sleep(Duration.ofSeconds(2));
 
       for (int partitionId = 0; partitionId < partitionNum; partitionId++) {
         for (int recordIdx = 0; recordIdx < 10; recordIdx++) {
@@ -228,7 +228,7 @@ public class ConsumerTest extends RequireBrokerCluster {
     try (var consumer =
         Consumer.forPartitions(Set.of(TopicPartition.of(topic, "1")))
             .bootstrapServers(bootstrapServers())
-            .distanceFromLatest(20)
+            .seek(DISTANCE_FROM_LATEST, 20)
             .build()) {
       var records = consumer.poll(20, Duration.ofSeconds(5));
       Assertions.assertEquals(10, records.size());
@@ -239,7 +239,7 @@ public class ConsumerTest extends RequireBrokerCluster {
     try (var consumer =
         Consumer.forPartitions(Set.of(TopicPartition.of(topic, "0"), TopicPartition.of(topic, "1")))
             .bootstrapServers(bootstrapServers())
-            .distanceFromLatest(20)
+            .seek(DISTANCE_FROM_LATEST, 20)
             .build()) {
       var records = consumer.poll(20, Duration.ofSeconds(5));
       Assertions.assertEquals(20, records.size());
@@ -250,12 +250,12 @@ public class ConsumerTest extends RequireBrokerCluster {
   }
 
   @Test
-  void testCommitOffset() throws InterruptedException {
+  void testCommitOffset() {
     var topic = Utils.randomString(10);
     try (var admin = Admin.of(bootstrapServers());
         var producer = Producer.of(bootstrapServers())) {
       admin.creator().topic(topic).numberOfPartitions(1).create();
-      TimeUnit.SECONDS.sleep(2);
+      Utils.sleep(Duration.ofSeconds(2));
       producer.sender().topic(topic).value(new byte[10]).run();
       producer.flush();
 
@@ -294,5 +294,57 @@ public class ConsumerTest extends RequireBrokerCluster {
                 .size());
       }
     }
+  }
+
+  @Test
+  void testDistanceFromBeginning() {
+    var topic = Utils.randomString(10);
+    produceData(topic, 10);
+
+    BiConsumer<Integer, Integer> internalTest =
+        (distanceFromBeginning, expectedSize) -> {
+          try (var consumer =
+              Consumer.forTopics(Set.of(topic))
+                  .bootstrapServers(bootstrapServers())
+                  .seek(DISTANCE_FROM_BEGINNING, distanceFromBeginning)
+                  .build()) {
+            Assertions.assertEquals(expectedSize, consumer.poll(10, Duration.ofSeconds(5)).size());
+          }
+        };
+
+    internalTest.accept(3, 7);
+    internalTest.accept(1000, 0);
+  }
+
+  @Test
+  void testSeekTo() {
+    var topic = Utils.randomString(10);
+    produceData(topic, 10);
+
+    BiConsumer<Integer, Integer> internalTest =
+        (seekTo, expectedSize) -> {
+          try (var consumer =
+              Consumer.forTopics(Set.of(topic))
+                  .bootstrapServers(bootstrapServers())
+                  .seek(SEEK_TO, seekTo)
+                  .build()) {
+            Assertions.assertEquals(expectedSize, consumer.poll(10, Duration.ofSeconds(5)).size());
+          }
+        };
+
+    internalTest.accept(9, 1);
+    internalTest.accept(1000, 0);
+  }
+
+  @Test
+  void testInvalidSeekValue() {
+    Assertions.assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            Consumer.forTopics(Set.of("test"))
+                .bootstrapServers(bootstrapServers())
+                .seek(SEEK_TO, -1)
+                .build(),
+        "seek value should >= 0");
   }
 }

@@ -26,14 +26,12 @@ import org.astraea.app.metrics.HasBeanObject;
 
 /** Used to get beanObject using a variety of different keys . */
 public interface ClusterBean {
+  ClusterBean EMPTY = ClusterBean.of(Map.of());
+
   private static Collection<HasBeanObject> compareBeanObject(
       Collection<HasBeanObject> x1, Collection<HasBeanObject> x2) {
     var beanObject2 = x2.iterator().next().beanObject();
-    if (x1.stream()
-        .noneMatch(
-            hasBeanObject ->
-                hasBeanObject.beanObject().getProperties().equals(beanObject2.getProperties())
-                    && hasBeanObject.beanObject().domainName().equals(beanObject2.domainName())))
+    if (x1.stream().noneMatch(hasBeanObject -> hasBeanObject.beanObject().equals(beanObject2)))
       return Stream.concat(x1.stream(), x2.stream()).collect(Collectors.toList());
     return x1;
   }
@@ -47,18 +45,18 @@ public interface ClusterBean {
                         .filter(
                             x ->
                                 x.beanObject() != null
-                                    && x.beanObject().getProperties().containsKey("topic")
-                                    && x.beanObject().getProperties().containsKey("partition"))
+                                    && x.beanObject().properties().containsKey("topic")
+                                    && x.beanObject().properties().containsKey("partition"))
                         .filter(
                             hasBeanObject ->
-                                hasBeanObject.beanObject().getProperties().containsKey("topic")
+                                hasBeanObject.beanObject().properties().containsKey("topic")
                                     && hasBeanObject
                                         .beanObject()
-                                        .getProperties()
+                                        .properties()
                                         .containsKey("partition"))
                         .map(
                             hasBeanObject -> {
-                              var properties = hasBeanObject.beanObject().getProperties();
+                              var properties = hasBeanObject.beanObject().properties();
                               var topic = properties.get("topic");
                               var partition = properties.get("partition");
                               return Map.entry(
@@ -75,15 +73,15 @@ public interface ClusterBean {
                         .filter(
                             x ->
                                 x.beanObject() != null
-                                    && x.beanObject().getProperties().containsKey("topic")
-                                    && x.beanObject().getProperties().containsKey("partition"))
+                                    && x.beanObject().properties().containsKey("topic")
+                                    && x.beanObject().properties().containsKey("partition"))
                         .map(
                             hasBeanObject -> {
-                              var properties = hasBeanObject.beanObject().getProperties();
+                              var properties = hasBeanObject.beanObject().properties();
                               var topic = properties.get("topic");
                               var partition = Integer.parseInt(properties.get("partition"));
                               return Map.entry(
-                                  new TopicPartitionReplica(topic, partition, entry.getKey()),
+                                  TopicPartitionReplica.of(topic, partition, entry.getKey()),
                                   List.of(hasBeanObject));
                             }))
             .collect(
