@@ -9,6 +9,7 @@
 - Zhi-Mao Teng <zhimao.teng@gmail.com>
 - Jia-Sheng Chen <haser1156@gmail.com>
 - Chao-Heng Lee <chaohengstudent@gmail.com>
+- Yi-Huan Lee <yi.huan.max@gmail.com>
 
 # Kafka Tools
 
