@@ -32,7 +32,7 @@ aa8a47da91a2e0974a38690525f9148c9697f7ffc752611ef06248ffb09ef53a
 
 Grafana是呈現數據的軟體，需要設置資料的來源
 
-如下指令，設置Prometheus的資料來源給Grafana
+如下指令，設置[Prometheus](./run_prometheus.md)的資料來源給Grafana
 
 ```bash
 ./docker/start_grafana.sh add_prom_source <USERNAME>:<PASSWORD> Prometheus http://192.168.0.2:9090
