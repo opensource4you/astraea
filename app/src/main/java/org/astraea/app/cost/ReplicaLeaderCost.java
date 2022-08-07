@@ -40,9 +40,7 @@ public class ReplicaLeaderCost implements HasBrokerCost, HasClusterCost {
 
   @Override
   public ClusterCost clusterCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
-    var brokerScore =
-        leaderCount(clusterInfo, clusterBean).entrySet().stream()
-            .collect(Collectors.toMap(Map.Entry::getKey, e -> (double) e.getValue()));
+    var brokerScore = brokerCost(clusterInfo, clusterBean).value();
     return () -> CostUtils.coefficientVariation(brokerScore);
   }
 

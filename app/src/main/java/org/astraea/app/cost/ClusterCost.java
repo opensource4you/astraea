@@ -18,6 +18,7 @@ package org.astraea.app.cost;
 
 /** Return type of cost function, `HasMoveCost`. It returns the score of brokers. */
 public interface ClusterCost {
+
   /** @return cost of cluster */
-  Double value();
+  double value();
 }
