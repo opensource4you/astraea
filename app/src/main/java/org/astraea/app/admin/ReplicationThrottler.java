@@ -29,7 +29,7 @@ public interface ReplicationThrottler {
   /**
    * Maximum bandwidth for follower log broker to accept replicated data.
    *
-   * @param limitForEachFollowerBroker the maximum bandwidth to throttle for each broker
+   * @param limitForEachFollowerBroker the maximum replication traffic-in of broker.
    * @return this
    */
   ReplicationThrottler ingress(DataRate limitForEachFollowerBroker);
@@ -41,7 +41,7 @@ public interface ReplicationThrottler {
    * The value from {@link ReplicationThrottler#ingress(DataRate)} will be used. If that value is
    * not specified either, an exception will be raised.
    *
-   * @param limitPerFollowerBroker the maximum bandwidth to throttle for every specified broker
+   * @param limitPerFollowerBroker the maximum replication traffic-in for every specified broker.
    * @return this
    */
   ReplicationThrottler ingress(Map<Integer, DataRate> limitPerFollowerBroker);
@@ -49,7 +49,7 @@ public interface ReplicationThrottler {
   /**
    * Maximum bandwidth for leader log broker to transmit replicated data.
    *
-   * @param limitForEachLeaderBroker the maximum bandwidth to throttle for each leader log broker.
+   * @param limitForEachLeaderBroker the maximum replication traffic-out of broker.
    * @return this
    */
   ReplicationThrottler egress(DataRate limitForEachLeaderBroker);
@@ -61,7 +61,7 @@ public interface ReplicationThrottler {
    * value from {@link ReplicationThrottler#egress(DataRate)} will be used. If that value is not
    * specified either, an exception will be raised.
    *
-   * @param limitPerLeaderBroker the maximum bandwidth to throttle for every specified broker.
+   * @param limitPerLeaderBroker the maximum replication traffic-out for every specified broker.
    * @return this
    */
   ReplicationThrottler egress(Map<Integer, DataRate> limitPerLeaderBroker);
@@ -75,10 +75,13 @@ public interface ReplicationThrottler {
   ReplicationThrottler throttle(String topic);
 
   /**
-   * Declare that every log under the specified topic/partition<strong>(look up at the applying
-   * moment)</strong>, its replication will be throttle.
+   * Declare that the current logs under the specified topic/partition<strong>(look up at the
+   * applying moment)</strong>, its replication will be throttle. This lookup occurred at applying
+   * moment, so any replica change that happened in the future might not be included in this
+   * setting.
    *
-   * @param topicPartition throttle all its logs
+   * @param topicPartition throttle the logs belong to this topic/partition(seek at applying
+   *     moment).
    * @return this
    */
   ReplicationThrottler throttle(TopicPartition topicPartition);
@@ -97,7 +100,7 @@ public interface ReplicationThrottler {
    * ReplicationThrottler#throttleLeader(TopicPartitionReplica)} or {@link
    * ReplicationThrottler#throttleFollower(TopicPartitionReplica)}.
    *
-   * @param replica throttle this log
+   * @param replica throttle this log.
    * @return this
    */
   ReplicationThrottler throttle(TopicPartitionReplica replica);
@@ -105,7 +108,7 @@ public interface ReplicationThrottler {
   /**
    * Declare that the replication bandwidth for the given leader log should be throttled.
    *
-   * @param replica throttle this leader log
+   * @param replica throttle this leader log.
    * @return this
    */
   ReplicationThrottler throttleLeader(TopicPartitionReplica replica);
@@ -113,7 +116,7 @@ public interface ReplicationThrottler {
   /**
    * Declare that the replication bandwidth for the given follower log should be throttled.
    *
-   * @param replica throttle this follower log
+   * @param replica throttle this follower log.
    * @return this
    */
   ReplicationThrottler throttleFollower(TopicPartitionReplica replica);
