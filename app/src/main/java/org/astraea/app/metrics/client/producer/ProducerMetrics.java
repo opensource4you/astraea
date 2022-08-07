@@ -14,13 +14,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.app.metrics.producer;
+package org.astraea.app.metrics.client.producer;
 
 import java.util.Collection;
 import java.util.Map;
 import java.util.stream.Collectors;
 import org.astraea.app.metrics.BeanQuery;
 import org.astraea.app.metrics.MBeanClient;
+import org.astraea.app.metrics.client.HasNodeMetrics;
 
 public final class ProducerMetrics {
 
@@ -35,7 +36,7 @@ public final class ProducerMetrics {
    * @param brokerId broker ids
    * @return key is client id used by producer, and value is node metrics traced by each producer
    */
-  public static Map<String, HasProducerNodeMetrics> node(MBeanClient mBeanClient, int brokerId) {
+  public static Map<String, HasNodeMetrics> node(MBeanClient mBeanClient, int brokerId) {
     return mBeanClient
         .queryBeans(
             BeanQuery.builder()
@@ -48,7 +49,7 @@ public final class ProducerMetrics {
         .collect(
             Collectors.toUnmodifiableMap(
                 b -> b.properties().get("client-id"),
-                b -> HasProducerNodeMetrics.of(b, brokerId(b.properties().get("node-id")))));
+                b -> HasNodeMetrics.of(b, brokerId(b.properties().get("node-id")))));
   }
 
   /**
@@ -57,7 +58,7 @@ public final class ProducerMetrics {
    * @param mBeanClient to query metrics
    * @return key is broker id, and value is associated to broker metrics recorded by all producers
    */
-  public static Collection<HasProducerNodeMetrics> nodes(MBeanClient mBeanClient) {
+  public static Collection<HasNodeMetrics> nodes(MBeanClient mBeanClient) {
     return mBeanClient
         .queryBeans(
             BeanQuery.builder()
@@ -67,7 +68,7 @@ public final class ProducerMetrics {
                 .property("client-id", "*")
                 .build())
         .stream()
-        .map(b -> HasProducerNodeMetrics.of(b, brokerId(b.properties().get("node-id"))))
+        .map(b -> HasNodeMetrics.of(b, brokerId(b.properties().get("node-id"))))
         .collect(Collectors.toUnmodifiableList());
   }
 

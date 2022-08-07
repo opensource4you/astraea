@@ -22,7 +22,7 @@ import org.astraea.app.admin.ClusterBean;
 import org.astraea.app.admin.ClusterInfo;
 import org.astraea.app.metrics.BeanObject;
 import org.astraea.app.metrics.MBeanClient;
-import org.astraea.app.metrics.producer.HasProducerNodeMetrics;
+import org.astraea.app.metrics.client.HasNodeMetrics;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
@@ -31,7 +31,7 @@ public class NodeThroughputCostTest {
 
   @Test
   void testNan() {
-    var bean = Mockito.mock(HasProducerNodeMetrics.class);
+    var bean = Mockito.mock(HasNodeMetrics.class);
     Mockito.when(bean.brokerId()).thenReturn(1);
     Mockito.when(bean.incomingByteRate()).thenReturn(Double.NaN);
     Mockito.when(bean.outgoingByteRate()).thenReturn(Double.NaN);
@@ -43,7 +43,7 @@ public class NodeThroughputCostTest {
 
   @Test
   void testBrokerId() {
-    var bean = Mockito.mock(HasProducerNodeMetrics.class);
+    var bean = Mockito.mock(HasNodeMetrics.class);
     Mockito.when(bean.brokerId()).thenReturn(1);
     Mockito.when(bean.incomingByteRate()).thenReturn(10D);
     Mockito.when(bean.outgoingByteRate()).thenReturn(10D);
@@ -57,11 +57,11 @@ public class NodeThroughputCostTest {
   @Test
   void testCost() {
     var throughputCost = new NodeThroughputCost();
-    var bean0 = Mockito.mock(HasProducerNodeMetrics.class);
+    var bean0 = Mockito.mock(HasNodeMetrics.class);
     Mockito.when(bean0.incomingByteRate()).thenReturn(10D);
     Mockito.when(bean0.outgoingByteRate()).thenReturn(20D);
     Mockito.when(bean0.brokerId()).thenReturn(10);
-    var bean1 = Mockito.mock(HasProducerNodeMetrics.class);
+    var bean1 = Mockito.mock(HasNodeMetrics.class);
     Mockito.when(bean1.incomingByteRate()).thenReturn(2D);
     Mockito.when(bean1.outgoingByteRate()).thenReturn(3D);
     Mockito.when(bean1.brokerId()).thenReturn(11);

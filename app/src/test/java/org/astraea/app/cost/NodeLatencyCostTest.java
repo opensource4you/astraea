@@ -27,8 +27,8 @@ import org.astraea.app.common.Utils;
 import org.astraea.app.metrics.BeanObject;
 import org.astraea.app.metrics.HasBeanObject;
 import org.astraea.app.metrics.MBeanClient;
-import org.astraea.app.metrics.producer.HasProducerNodeMetrics;
-import org.astraea.app.metrics.producer.ProducerMetrics;
+import org.astraea.app.metrics.client.HasNodeMetrics;
+import org.astraea.app.metrics.client.producer.ProducerMetrics;
 import org.astraea.app.producer.Producer;
 import org.astraea.app.service.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
@@ -39,7 +39,7 @@ public class NodeLatencyCostTest extends RequireBrokerCluster {
 
   @Test
   void testNan() {
-    var bean = Mockito.mock(HasProducerNodeMetrics.class);
+    var bean = Mockito.mock(HasNodeMetrics.class);
     Mockito.when(bean.brokerId()).thenReturn(1);
     Mockito.when(bean.requestLatencyAvg()).thenReturn(Double.NaN);
     var clusterBean = ClusterBean.of(Map.of(-1, List.of(bean)));
@@ -50,7 +50,7 @@ public class NodeLatencyCostTest extends RequireBrokerCluster {
 
   @Test
   void testBrokerId() {
-    var bean = Mockito.mock(HasProducerNodeMetrics.class);
+    var bean = Mockito.mock(HasNodeMetrics.class);
     Mockito.when(bean.brokerId()).thenReturn(1);
     Mockito.when(bean.requestLatencyAvg()).thenReturn(10D);
     var clusterBean = ClusterBean.of(Map.of(-1, List.of(bean)));

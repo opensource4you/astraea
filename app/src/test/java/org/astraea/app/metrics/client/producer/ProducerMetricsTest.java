@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.app.metrics.producer;
+package org.astraea.app.metrics.client.producer;
 
 import java.time.Duration;
 import java.util.Set;
@@ -24,12 +24,13 @@ import org.astraea.app.admin.Admin;
 import org.astraea.app.admin.TopicPartition;
 import org.astraea.app.common.Utils;
 import org.astraea.app.metrics.MBeanClient;
+import org.astraea.app.metrics.client.HasNodeMetrics;
 import org.astraea.app.producer.Producer;
 import org.astraea.app.service.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-public class HasProducerNodeMetricsTest extends RequireBrokerCluster {
+public class ProducerMetricsTest extends RequireBrokerCluster {
 
   @Test
   void testSingleBroker() throws ExecutionException, InterruptedException {
@@ -81,14 +82,14 @@ public class HasProducerNodeMetricsTest extends RequireBrokerCluster {
       Assertions.assertNotEquals(1, metrics.size());
       Assertions.assertTrue(
           metrics.stream()
-              .map(HasProducerNodeMetrics::brokerId)
+              .map(HasNodeMetrics::brokerId)
               .collect(Collectors.toUnmodifiableList())
               .containsAll(brokerIds()));
-      metrics.forEach(HasProducerNodeMetricsTest::check);
+      metrics.forEach(ProducerMetricsTest::check);
     }
   }
 
-  private static void check(HasProducerNodeMetrics metrics) {
+  private static void check(HasNodeMetrics metrics) {
     Assertions.assertNotEquals(0D, metrics.incomingByteRate());
     Assertions.assertNotEquals(0D, metrics.incomingByteTotal());
     Assertions.assertNotEquals(0D, metrics.outgoingByteRate());
