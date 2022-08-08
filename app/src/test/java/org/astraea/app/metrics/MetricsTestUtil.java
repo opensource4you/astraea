@@ -14,13 +14,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.app.cost;
+package org.astraea.app.metrics;
 
-import org.astraea.app.metrics.client.HasNodeMetrics;
+import java.util.Arrays;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
-public class NodeLatencyCost extends NodeMetricsCost {
-  @Override
-  protected double value(HasNodeMetrics hasNodeMetrics) {
-    return hasNodeMetrics.requestLatencyAvg();
+public class MetricsTestUtil {
+
+  public static <T extends Enum<T>> boolean metricDistinct(
+      T[] tEnums, Function<T, String> getMetricName) {
+    var set = Arrays.stream(tEnums).map(getMetricName).collect(Collectors.toSet());
+    return set.size() == tEnums.length;
   }
 }

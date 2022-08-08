@@ -28,7 +28,6 @@ import org.astraea.app.admin.ReplicaInfo;
 import org.astraea.app.common.Utils;
 import org.astraea.app.cost.BrokerCost;
 import org.astraea.app.cost.BrokerInputCost;
-import org.astraea.app.cost.CostFunction;
 import org.astraea.app.cost.HasBrokerCost;
 import org.astraea.app.cost.NodeThroughputCost;
 import org.astraea.app.cost.ReplicaLeaderCost;
@@ -164,7 +163,7 @@ public class StrictCostDispatcherTest {
 
   @Test
   void testCostFunctionWithoutFetcher() {
-    var costFunction = new CostFunction() {};
+    HasBrokerCost costFunction = (clusterInfo, bean) -> Mockito.mock(BrokerCost.class);
     var replicaInfo0 = ReplicaInfo.of("topic", 0, NodeInfo.of(10, "host", 11111), true, true, true);
     var replicaInfo1 =
         ReplicaInfo.of("topic", 1, NodeInfo.of(12, "host2", 11111), true, true, true);
@@ -183,7 +182,12 @@ public class StrictCostDispatcherTest {
   @Test
   void testReceivers() {
     var costFunction =
-        new CostFunction() {
+        new HasBrokerCost() {
+          @Override
+          public BrokerCost brokerCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
+            return Mockito.mock(BrokerCost.class);
+          }
+
           @Override
           public Optional<Fetcher> fetcher() {
             return Optional.of(Mockito.mock(Fetcher.class));

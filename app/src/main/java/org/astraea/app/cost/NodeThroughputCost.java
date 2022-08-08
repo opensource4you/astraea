@@ -16,46 +16,11 @@
  */
 package org.astraea.app.cost;
 
-import java.util.Collection;
-import java.util.Comparator;
-import java.util.Map;
-import java.util.Optional;
-import java.util.stream.Collectors;
-import org.astraea.app.admin.ClusterBean;
-import org.astraea.app.admin.ClusterInfo;
-import org.astraea.app.metrics.collector.Fetcher;
-import org.astraea.app.metrics.producer.HasProducerNodeMetrics;
-import org.astraea.app.metrics.producer.ProducerMetrics;
+import org.astraea.app.metrics.client.HasNodeMetrics;
 
-public class NodeThroughputCost implements HasBrokerCost {
-
+public class NodeThroughputCost extends NodeMetricsCost {
   @Override
-  public BrokerCost brokerCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
-    var result =
-        clusterBean.all().values().stream()
-            .flatMap(Collection::stream)
-            .filter(b -> b instanceof HasProducerNodeMetrics)
-            .map(b -> (HasProducerNodeMetrics) b)
-            .filter(b -> !Double.isNaN(b.incomingByteRate()) && !Double.isNaN(b.outgoingByteRate()))
-            .collect(Collectors.groupingBy(HasProducerNodeMetrics::brokerId))
-            .entrySet()
-            .stream()
-            .collect(
-                Collectors.toMap(
-                    Map.Entry::getKey,
-                    e ->
-                        e.getValue().stream()
-                            .sorted(
-                                Comparator.comparing(HasProducerNodeMetrics::createdTimestamp)
-                                    .reversed())
-                            .limit(1)
-                            .mapToDouble(m -> m.incomingByteRate() + m.outgoingByteRate())
-                            .sum()));
-    return () -> result;
-  }
-
-  @Override
-  public Optional<Fetcher> fetcher() {
-    return Optional.of(ProducerMetrics::nodes);
+  protected double value(HasNodeMetrics hasNodeMetrics) {
+    return hasNodeMetrics.incomingByteRate() + hasNodeMetrics.outgoingByteRate();
   }
 }

@@ -17,7 +17,6 @@
 package org.astraea.app.cost;
 
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -30,6 +29,7 @@ import org.astraea.app.metrics.BeanObject;
 import org.astraea.app.metrics.HasBeanObject;
 import org.astraea.app.metrics.broker.HasValue;
 import org.astraea.app.metrics.broker.LogMetrics;
+import org.astraea.app.partitioner.Configuration;
 import org.astraea.app.service.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -64,46 +64,39 @@ class ReplicaDiskInCostTest extends RequireBrokerCluster {
 
   @Test
   void testPartitionCost() {
-    Map<Integer, Integer> brokerBandwidth = new HashMap<>();
-    brokerBandwidth.put(1, 50);
-    brokerBandwidth.put(2, 50);
-    brokerBandwidth.put(3, 50);
-    var loadCostFunction = new ReplicaDiskInCost(brokerBandwidth);
+    var configuration = Configuration.of(Map.of("metrics.duration", "3"));
+    var loadCostFunction = new ReplicaDiskInCost(configuration);
     var broker1ReplicaLoad = loadCostFunction.partitionCost(clusterInfo(), clusterBean()).value(1);
     var broker2ReplicaLoad = loadCostFunction.partitionCost(clusterInfo(), clusterBean()).value(2);
     var broker3ReplicaLoad = loadCostFunction.partitionCost(clusterInfo(), clusterBean()).value(3);
     // broker1
     Assertions.assertEquals(
-        0.23841381072998047, broker1ReplicaLoad.get(TopicPartition.of("test-1", 0)));
+        11.920690536499023, broker1ReplicaLoad.get(TopicPartition.of("test-1", 0)));
     Assertions.assertEquals(
-        0.1907339096069336, broker1ReplicaLoad.get(TopicPartition.of("test-2", 0)));
+        9.53669548034668, broker1ReplicaLoad.get(TopicPartition.of("test-2", 0)));
     // broker2
     Assertions.assertEquals(
-        0.23841381072998047, broker2ReplicaLoad.get(TopicPartition.of("test-1", 0)));
+        11.920690536499023, broker2ReplicaLoad.get(TopicPartition.of("test-1", 0)));
     Assertions.assertEquals(
-        0.476834774017334, broker2ReplicaLoad.get(TopicPartition.of("test-1", 1)));
+        23.8417387008667, broker2ReplicaLoad.get(TopicPartition.of("test-1", 1)));
     // broker3
     Assertions.assertEquals(
-        0.476834774017334, broker3ReplicaLoad.get(TopicPartition.of("test-1", 1)));
+        23.8417387008667, broker3ReplicaLoad.get(TopicPartition.of("test-1", 1)));
     Assertions.assertEquals(
-        0.1907339096069336, broker3ReplicaLoad.get(TopicPartition.of("test-2", 0)));
+        9.53669548034668, broker3ReplicaLoad.get(TopicPartition.of("test-2", 0)));
   }
 
   @Test
   void testBrokerCost() {
-    Map<Integer, Integer> properties = new HashMap<>();
-    properties.put(1, 50);
-    properties.put(2, 50);
-    properties.put(3, 50);
-    var loadCostFunction = new ReplicaDiskInCost(properties);
+    var configuration = Configuration.of(Map.of("metrics.duration", "3"));
+    var loadCostFunction = new ReplicaDiskInCost(configuration);
     var brokerLoad = loadCostFunction.brokerCost(clusterInfo(), clusterBean()).value();
-    Assertions.assertEquals(0.23841381072998047 + 0.1907339096069336, brokerLoad.get(1));
-    Assertions.assertEquals(0.23841381072998047 + 0.476834774017334, brokerLoad.get(2));
-    Assertions.assertEquals(0.476834774017334 + 0.1907339096069336, brokerLoad.get(3));
+    Assertions.assertEquals(21.457386016845703, brokerLoad.get(1));
+    Assertions.assertEquals(35.76242923736572, brokerLoad.get(2));
+    Assertions.assertEquals(33.37843418121338, brokerLoad.get(3));
   }
 
   private ClusterInfo clusterInfo() {
-
     ClusterInfo clusterInfo = Mockito.mock(ClusterInfo.class);
     Mockito.when(clusterInfo.nodes())
         .thenReturn(
@@ -128,14 +121,13 @@ class ReplicaDiskInCostTest extends RequireBrokerCluster {
     return ClusterBean.of(Map.of(1, broker1, 2, broker2, 3, broker3));
   }
 
-  private static HasValue fakeBeanObject(
+  private static LogMetrics.Log.Meter fakeBeanObject(
       String type, String name, String topic, String partition, long size, long time) {
-    BeanObject beanObject =
+    return new LogMetrics.Log.Meter(
         new BeanObject(
-            "",
+            "kafka.log",
             Map.of("name", name, "type", type, "topic", topic, "partition", partition),
             Map.of("Value", size),
-            time);
-    return HasValue.of(beanObject);
+            time));
   }
 }
