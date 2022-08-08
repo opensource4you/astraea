@@ -18,20 +18,29 @@ package org.astraea.app.performance;
 
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
+import java.util.function.ToDoubleFunction;
 import org.astraea.app.common.DataSize;
 import org.astraea.app.common.Utils;
+import org.astraea.app.metrics.HasBeanObject;
+import org.astraea.app.metrics.client.HasNodeMetrics;
+import org.astraea.app.metrics.collector.Receiver;
 
 /** Print out the given metrics. */
 public interface TrackerThread extends AbstractThread {
 
   static TrackerThread create(
-      List<Report> producerReports, List<Report> consumerReports, ExeTime exeTime) {
+      List<Report> producerReports,
+      List<Report> consumerReports,
+      Receiver producerReceiver,
+      Receiver consumerReceiver,
+      ExeTime exeTime) {
     var start = System.currentTimeMillis() - Duration.ofSeconds(1).toMillis();
 
     Function<Result, Boolean> logProducers =
@@ -56,6 +65,11 @@ public interface TrackerThread extends AbstractThread {
               "  average throughput: %.3f MB/second%n", result.averageBytes(duration));
           System.out.printf(
               "  current throughput: %s/second%n", DataSize.Byte.of(result.totalCurrentBytes()));
+          System.out.printf(
+              "  total real out-going: %s/second%n",
+              DataSize.Byte.of(
+                  sumOfAttribute(producerReceiver.current(), HasNodeMetrics::outgoingByteTotal)
+                      .longValue()));
           System.out.println("  publish max latency: " + result.maxLatency + " ms");
           System.out.println("  publish mim latency: " + result.minLatency + " ms");
           for (int i = 0; i < result.bytes.size(); ++i) {
@@ -90,6 +104,11 @@ public interface TrackerThread extends AbstractThread {
               "  average throughput: %.3f MB/second%n", result.averageBytes(duration));
           System.out.printf(
               "  current throughput: %s/second%n", DataSize.Byte.of(result.totalCurrentBytes()));
+          System.out.printf(
+              "  total real in-coming: %s/second%n",
+              DataSize.Byte.of(
+                  sumOfAttribute(consumerReceiver.current(), HasNodeMetrics::incomingByteTotal)
+                      .longValue()));
           System.out.println("  end-to-end max latency: " + result.maxLatency + " ms");
           System.out.println("  end-to-end mim latency: " + result.minLatency + " ms");
           for (int i = 0; i < result.bytes.size(); ++i) {
@@ -157,6 +176,20 @@ public interface TrackerThread extends AbstractThread {
         waitForDone();
       }
     };
+  }
+
+  /**
+   * @param mbeans mBeans fetched by the receivers
+   * @return sum of given attribute of all beans which is instance of HasNodeMetrics.
+   */
+  static Double sumOfAttribute(
+      Collection<HasBeanObject> mbeans, ToDoubleFunction<HasNodeMetrics> targetAttribute) {
+    return mbeans.stream()
+        .filter(mbean -> mbean instanceof HasNodeMetrics)
+        .map(mbean -> (HasNodeMetrics) mbean)
+        .mapToDouble(targetAttribute)
+        .filter(d -> !Double.isNaN(d))
+        .sum();
   }
 
   static double avg(Duration duration, long value) {
