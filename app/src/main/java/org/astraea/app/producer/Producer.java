@@ -19,7 +19,6 @@ package org.astraea.app.producer;
 import java.util.Collection;
 import java.util.Optional;
 import java.util.concurrent.CompletionStage;
-import org.astraea.app.performance.MutableMetric;
 
 /** An interface for sending records. */
 public interface Producer<Key, Value> extends AutoCloseable {
@@ -38,11 +37,6 @@ public interface Producer<Key, Value> extends AutoCloseable {
   void flush();
 
   void close();
-
-  /** Get a kafkaMetric by name. */
-  default MutableMetric<Double> getMetric(String metricName) {
-    return MutableMetric.create("null", () -> 0.0);
-  }
 
   /** @return true if the producer supports transactional. */
   default boolean transactional() {

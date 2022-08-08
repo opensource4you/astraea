@@ -45,13 +45,6 @@ public class PerformanceTest extends RequireBrokerCluster {
       "--bootstrap.servers", bootstrapServers(), "--topic", topic, "--compression", "gzip"
     };
     var latch = new CountDownLatch(1);
-    Metrics observer =
-        new Metrics() {
-          @Override
-          public void accept(Long x, Integer y) {
-            latch.countDown();
-          }
-        };
     var argument = Argument.parse(new Performance.Argument(), arguments1);
     try (var producer = argument.createProducer()) {
       Assertions.assertFalse(producer.transactional());
