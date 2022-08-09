@@ -63,10 +63,17 @@ public interface ConsumerThread extends AbstractThread {
               var report = reports.get(index);
               var closeLatch = closeLatches.get(index);
               var closed = closeFlags.get(index);
+              var subscribed = new AtomicBoolean(true);
               executors.execute(
                   () -> {
                     try {
                       while (!closed.get()) {
+                        if (subscribed.get()) consumer.resubscribe();
+                        else {
+                          consumer.unsubscribe();
+                          Utils.sleep(Duration.ofSeconds(1));
+                          continue;
+                        }
                         consumer
                             .poll(Duration.ofSeconds(1))
                             .forEach(
@@ -103,6 +110,16 @@ public interface ConsumerThread extends AbstractThread {
                 }
 
                 @Override
+                public void resubscribe() {
+                  subscribed.set(true);
+                }
+
+                @Override
+                public void unsubscribe() {
+                  subscribed.set(false);
+                }
+
+                @Override
                 public Report report() {
                   return report;
                 }
@@ -117,6 +134,10 @@ public interface ConsumerThread extends AbstractThread {
             })
         .collect(Collectors.toUnmodifiableList());
   }
+
+  void resubscribe();
+
+  void unsubscribe();
 
   /** @return report of this thread */
   Report report();

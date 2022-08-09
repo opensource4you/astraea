@@ -347,4 +347,32 @@ public class ConsumerTest extends RequireBrokerCluster {
                 .build(),
         "seek value should >= 0");
   }
+
+  @Test
+  void testResubscribe() {
+    var topic = Utils.randomString(10);
+    produceData(topic, 100);
+    try (var consumer =
+        Consumer.forTopics(Set.of(topic))
+            .bootstrapServers(bootstrapServers())
+            .fromBeginning()
+            .build()) {
+      Assertions.assertNotEquals(0, consumer.poll(Duration.ofSeconds(5)).size());
+      consumer.unsubscribe();
+      Assertions.assertThrows(
+          IllegalStateException.class, () -> consumer.poll(Duration.ofSeconds(2)));
+      // unsubscribe is idempotent op
+      consumer.unsubscribe();
+      consumer.unsubscribe();
+      consumer.unsubscribe();
+
+      consumer.resubscribe();
+      Assertions.assertNotEquals(0, consumer.poll(Duration.ofSeconds(5)).size());
+
+      // resubscribe is idempotent op
+      consumer.resubscribe();
+      consumer.resubscribe();
+      consumer.resubscribe();
+    }
+  }
 }
