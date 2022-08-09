@@ -26,13 +26,30 @@ import org.junit.jupiter.api.AfterAll;
  * which is depended on true cluster.
  */
 public abstract class RequireBrokerCluster extends RequireJmxServer {
-  private static final int NUMBER_OF_BROKERS = 3;
-  private static final ZookeeperCluster ZOOKEEPER_CLUSTER = Services.zookeeperCluster();
-  private static final BrokerCluster BROKER_CLUSTER =
+  private static int NUMBER_OF_BROKERS = 3;
+  private static ZookeeperCluster ZOOKEEPER_CLUSTER = Services.zookeeperCluster();
+  private static BrokerCluster BROKER_CLUSTER =
       Services.brokerCluster(ZOOKEEPER_CLUSTER, NUMBER_OF_BROKERS);
 
   protected static String bootstrapServers() {
     return BROKER_CLUSTER.bootstrapServers();
+  }
+
+  /**
+   * Reset the number of Brokers
+   *
+   * @param numberOfBrokers the number of brokers
+   */
+  protected static void resetBrokerCluster(int numberOfBrokers) {
+    try {
+      BROKER_CLUSTER.close();
+      ZOOKEEPER_CLUSTER.close();
+      ZOOKEEPER_CLUSTER = Services.zookeeperCluster();
+      NUMBER_OF_BROKERS = numberOfBrokers;
+      BROKER_CLUSTER = Services.brokerCluster(ZOOKEEPER_CLUSTER, numberOfBrokers);
+    } catch (Exception e) {
+      throw new RuntimeException(e);
+    }
   }
 
   protected static Map<Integer, Set<String>> logFolders() {

@@ -61,4 +61,12 @@ public class RequireJmxServerTest extends RequireBrokerCluster {
       Assertions.assertTrue(legalChars.contains(address.charAt(i)));
     }
   }
+
+  @Test
+  void testResetBrokerCluster() {
+    resetBrokerCluster(1);
+    Assertions.assertEquals(bootstrapServers().split(",").length, 1);
+    resetBrokerCluster(3);
+    Assertions.assertEquals(bootstrapServers().split(",").length, 3);
+  }
 }
