@@ -39,7 +39,7 @@ import org.astraea.app.partitioner.Configuration;
 
 public final class Utils {
 
-  private static Throwable unpack(Throwable exception) {
+  static Throwable unpack(Throwable exception) {
     Throwable current = exception;
     while (current instanceof ExecutionException) {
       current = current.getCause();
@@ -68,21 +68,6 @@ public final class Utils {
       } else {
         throw new RuntimeException(exception);
       }
-    }
-  }
-
-  /** AstraeaExecutionRuntimeException convert ExecutionException to a RuntimeException. */
-  public static class AstraeaExecutionRuntimeException extends RuntimeException {
-
-    private ExecutionException executionException;
-
-    public AstraeaExecutionRuntimeException(ExecutionException executionException) {
-      super(executionException.getMessage(), executionException);
-    }
-
-    /** @return the root cause of ExecutionException */
-    public Throwable getRootCause() {
-      return unpack(executionException);
     }
   }
 
