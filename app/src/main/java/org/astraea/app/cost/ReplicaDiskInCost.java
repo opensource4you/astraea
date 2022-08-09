@@ -37,12 +37,26 @@ import org.astraea.app.partitioner.Configuration;
  * responds to the replica log size of brokers. The calculation method of the score is the rate of
  * increase of log size per unit time divided by the upper limit of broker bandwidth.
  */
-public class ReplicaDiskInCost implements HasBrokerCost, HasPartitionCost {
+public class ReplicaDiskInCost implements HasClusterCost, HasBrokerCost, HasPartitionCost {
   private final Duration duration;
 
   public ReplicaDiskInCost(Configuration configuration) {
     duration =
         Duration.ofSeconds(Integer.parseInt(configuration.string("metrics.duration").orElse("30")));
+  }
+
+  @Override
+  public ClusterCost clusterCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
+    var brokerCost = brokerCost(clusterInfo, clusterBean).value();
+    var dataRateMean = brokerCost.values().stream().mapToDouble(x -> x).sum() / brokerCost.size();
+    var dataRateSD =
+        Math.sqrt(
+            brokerCost.values().stream()
+                    .mapToDouble(score -> Math.pow((score - dataRateMean), 2))
+                    .sum()
+                / brokerCost.size());
+    var cv = dataRateSD / dataRateMean;
+    return () -> cv;
   }
 
   @Override
@@ -78,7 +92,7 @@ public class ReplicaDiskInCost implements HasBrokerCost, HasPartitionCost {
                             .sum()))
             .map(entry -> Map.entry(entry.getKey(), entry.getValue()))
             .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-
+    if (topicPartitionDataRate.containsValue(-1.0)) throw new RuntimeException("retention occur");
     return () -> brokerLoad;
   }
 
@@ -207,6 +221,7 @@ public class ReplicaDiskInCost implements HasBrokerCost, HasPartitionCost {
                       / 1024.0
                       / ((double) (latestSize.createdTimestamp() - windowSize.createdTimestamp())
                           / 1000);
+              if (dataRate < 0) dataRate = -1.0;
               return Map.entry(metrics.getKey(), dataRate);
             })
         .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));
