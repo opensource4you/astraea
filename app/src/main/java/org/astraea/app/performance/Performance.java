@@ -35,6 +35,7 @@ import org.astraea.app.admin.Admin;
 import org.astraea.app.admin.Compression;
 import org.astraea.app.admin.TopicPartition;
 import org.astraea.app.argument.CompressionField;
+import org.astraea.app.argument.DurationField;
 import org.astraea.app.argument.NonEmptyStringField;
 import org.astraea.app.argument.NonNegativeShortField;
 import org.astraea.app.argument.PathField;
@@ -166,6 +167,20 @@ public class Performance {
     var fileWriterFuture =
         fileWriter.map(CompletableFuture::runAsync).orElse(CompletableFuture.completedFuture(null));
 
+    var chaos =
+        param.chaosDuration == null
+            ? CompletableFuture.completedFuture(null)
+            : CompletableFuture.runAsync(
+                () -> {
+                  while (!consumerThreads.stream().allMatch(AbstractThread::closed)) {
+                    var thread =
+                        consumerThreads.get((int) (Math.random() * consumerThreads.size()));
+                    thread.unsubscribe();
+                    Utils.sleep(param.chaosDuration);
+                    thread.resubscribe();
+                  }
+                });
+
     CompletableFuture.runAsync(
         () -> {
           producerThreads.forEach(AbstractThread::waitForDone);
@@ -189,6 +204,7 @@ public class Performance {
     consumerThreads.forEach(AbstractThread::waitForDone);
     tracker.waitForDone();
     fileWriterFuture.join();
+    chaos.join();
     return param.topic;
   }
 
@@ -346,5 +362,13 @@ public class Performance {
         description = "Output format for the report",
         converter = ReportFormat.ReportFormatConverter.class)
     ReportFormat reportFormat = ReportFormat.CSV;
+
+    @Parameter(
+        names = {"--chaos.frequency"},
+        description =
+            "time to run the chaos monkey. It will kill consumer arbitrarily. There is no monkey by default",
+        validateWith = DurationField.class,
+        converter = DurationField.class)
+    Duration chaosDuration = null;
   }
 }

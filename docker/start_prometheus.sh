@@ -50,7 +50,7 @@ function write_config() {
 
   cat <<EOT > "$CONFIGURATION_FILE"
 global:
-  scrape_interval: 15s
+  scrape_interval: 1s
   external_labels:
     monitor: 'prometheus'
 
