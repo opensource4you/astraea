@@ -167,7 +167,10 @@ public class Performance {
                             .sum(),
                     tracker));
 
-    fileWriter.ifPresent(CompletableFuture::runAsync);
+    var fileWriterFuture =
+        fileWriter.isPresent()
+            ? CompletableFuture.runAsync(fileWriter.get())
+            : CompletableFuture.completedFuture(true);
 
     CompletableFuture.runAsync(
         () -> {
@@ -191,6 +194,7 @@ public class Performance {
 
     consumerThreads.forEach(AbstractThread::waitForDone);
     tracker.waitForDone();
+    fileWriterFuture.join();
     return param.topic;
   }
 
