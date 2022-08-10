@@ -58,16 +58,18 @@ public class NodeTopicSizeCost implements HasBrokerCost, HasPartitionCost {
       public Map<TopicPartition, Double> value(String topic) {
         return clusterBean.mapByPartition().entrySet().stream()
             .filter(
-                topicPartitionCollectionEntry ->
-                    topicPartitionCollectionEntry.getKey().topic().equals(topic))
+                topicPartitionReplicaCollectionEntry ->
+                    topicPartitionReplicaCollectionEntry.getKey().topic().equals(topic))
             .collect(
                 Collectors.toMap(
                     Map.Entry::getKey,
                     topicPartitionCollectionEntry -> {
                       var meter =
                           (LogMetrics.Log.Meter)
-                              topicPartitionCollectionEntry.getValue().stream().findAny().get();
-                      return (double) meter.value();
+                              topicPartitionCollectionEntry.getValue().stream()
+                                  .findAny()
+                                  .orElse(null);
+                      return meter != null ? (double) meter.value() : 0.0;
                     }));
       }
 
@@ -96,8 +98,10 @@ public class NodeTopicSizeCost implements HasBrokerCost, HasPartitionCost {
                     topicPartitionCollectionEntry -> {
                       var meter =
                           (LogMetrics.Log.Meter)
-                              topicPartitionCollectionEntry.getValue().stream().findAny().get();
-                      return (double) meter.value();
+                              topicPartitionCollectionEntry.getValue().stream()
+                                  .findAny()
+                                  .orElse(null);
+                      return meter != null ? (double) meter.value() : 0.0;
                     }));
       }
     };
