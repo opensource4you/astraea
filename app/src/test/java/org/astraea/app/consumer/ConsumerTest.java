@@ -440,8 +440,9 @@ public class ConsumerTest extends RequireBrokerCluster {
                             }))
                 .collect(Collectors.toUnmodifiableList()));
     Utils.waitFor(() -> log.size() == consumers, Duration.ofSeconds(15));
+    Utils.waitFor(
+        () -> log.values().stream().filter(ps -> ps == 0).count() == 1, Duration.ofSeconds(15));
     closed.set(true);
     fs.get();
-    Assertions.assertEquals(1, log.values().stream().filter(ps -> ps == 0).count());
   }
 }
