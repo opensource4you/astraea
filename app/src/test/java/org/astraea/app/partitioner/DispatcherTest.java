@@ -47,12 +47,11 @@ import org.astraea.app.partitioner.smooth.SmoothWeightRoundRobinDispatcher;
 import org.astraea.app.producer.Metadata;
 import org.astraea.app.producer.Producer;
 import org.astraea.app.producer.Serializer;
-import org.astraea.app.service.RequireBrokerCluster;
+import org.astraea.app.service.RequireSingleBrokerCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-public class DispatcherTest extends RequireBrokerCluster {
-  private final String brokerList = bootstrapServer();
+public class DispatcherTest extends RequireSingleBrokerCluster {
 
   @Test
   void testNullKey() {
@@ -149,8 +148,7 @@ public class DispatcherTest extends RequireBrokerCluster {
                 assertEquals(timestamp, metadata.timestamp());
                 assertNotEquals(targetPartition, metadata.partition());
               });
-      var kafkaProducer = Dispatcher.of(producer.producer());
-      kafkaProducer.beginInterdependent();
+      Dispatcher.beginInterdependent(producer.producer());
       IntStream.range(0, 100)
           .forEach(
               i -> {
@@ -174,7 +172,7 @@ public class DispatcherTest extends RequireBrokerCluster {
                 assertEquals(timestamp, metadata.timestamp());
                 assertEquals(targetPartition, metadata.partition());
               });
-      kafkaProducer.endInterdependent();
+      Dispatcher.endInterdependent(producer.producer());
       IntStream.range(0, 2400)
           .forEach(
               i -> {
@@ -199,7 +197,7 @@ public class DispatcherTest extends RequireBrokerCluster {
                 assertEquals(timestamp, metadata.timestamp());
                 assertNotEquals(0, metadata.partition());
               });
-      kafkaProducer.beginInterdependent();
+      Dispatcher.beginInterdependent(producer.producer());
       IntStream.range(0, 100)
           .forEach(
               i -> {
@@ -223,7 +221,7 @@ public class DispatcherTest extends RequireBrokerCluster {
                 assertEquals(timestamp, metadata.timestamp());
                 assertEquals(0, metadata.partition());
               });
-      kafkaProducer.endInterdependent();
+      Dispatcher.endInterdependent(producer.producer());
     }
 
     Utils.sleep(Duration.ofSeconds(1));
@@ -251,7 +249,7 @@ public class DispatcherTest extends RequireBrokerCluster {
 
   private Properties initProConfig() {
     Properties props = new Properties();
-    props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, brokerList);
+    props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers());
     props.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, ByteArraySerializer.class.getName());
     props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, ByteArraySerializer.class.getName());
     props.put(ProducerConfig.CLIENT_ID_CONFIG, "id1");
@@ -278,12 +276,5 @@ public class DispatcherTest extends RequireBrokerCluster {
         Objects.requireNonNull(DispatcherTest.class.getResource("")).getPath()
             + "PartitionerConfigTest");
     return props;
-  }
-
-  private static String bootstrapServer() {
-    resetBrokerCluster(1);
-
-    System.out.println("boot:" + bootstrapServers());
-    return bootstrapServers();
   }
 }

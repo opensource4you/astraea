@@ -30,6 +30,7 @@ import org.apache.kafka.common.Cluster;
 import org.apache.kafka.common.metrics.stats.Value;
 import org.astraea.app.admin.ClusterBean;
 import org.astraea.app.admin.ClusterInfo;
+import org.astraea.app.admin.ReplicaInfo;
 import org.astraea.app.common.Utils;
 import org.astraea.app.cost.NodeTopicSizeCost;
 import org.astraea.app.metrics.MBeanClient;
@@ -37,34 +38,6 @@ import org.astraea.app.metrics.collector.BeanCollector;
 import org.astraea.app.metrics.collector.Receiver;
 
 public interface Dispatcher extends Partitioner {
-  /**
-   * Use the producer to get the scheduler, allowing you to control it for interdependent
-   * messages.Interdependent message will be sent to the same partition. The system will
-   * automatically select the node with the best current condition as the target node. For example:
-   *
-   * <pre>{
-   * @Code
-   * var dispatch = Dispatcher.of(producer);
-   * dispatch.startInterdependent();
-   * producer.send();
-   * dispatch.endInterdependent();
-   * }</pre>
-   *
-   * @param producer Kafka producer
-   * @return The dispatch of Kafka Producer
-   */
-  static Dispatcher of(Producer<Key, Value> producer) {
-    try {
-      var field = producer.getClass().getDeclaredField("partitioner");
-      field.setAccessible(true);
-      var dispatcher = (Dispatcher) field.get(producer);
-      interdependent.jmxAddress = dispatcher.jmxAddress();
-      return (Dispatcher) field.get(producer);
-    } catch (NoSuchFieldException | IllegalAccessException e) {
-      throw new RuntimeException(e);
-    }
-  }
-
   /**
    * cache the cluster info to reduce the cost of converting cluster. Producer does not update
    * Cluster frequently, so it is ok to cache it.
@@ -91,6 +64,41 @@ public interface Dispatcher extends Partitioner {
    * @param config configuration
    */
   default void configure(Configuration config) {}
+
+  /**
+   * Use the producer to get the scheduler, allowing you to control it for interdependent
+   * messages.Interdependent message will be sent to the same partition. The system will
+   * automatically select the node with the best current condition as the target node. For example:
+   *
+   * <pre>{
+   * @Code
+   * Dispatch.startInterdependent();
+   * producer.send();
+   * Dispatch.endInterdependent();
+   * }</pre>
+   *
+   * @param producer Kafka producer
+   * @return The dispatch of Kafka Producer
+   */
+  static void beginInterdependent(Producer<Key, Value> producer) {
+    dispatcher(producer).begin();
+  }
+
+  static void endInterdependent(Producer<Key, Value> producer) {
+    dispatcher(producer).end();
+  }
+
+  private static Dispatcher dispatcher(Producer<Key, Value> producer) {
+    try {
+      var field = producer.getClass().getDeclaredField("partitioner");
+      field.setAccessible(true);
+      var dispatcher = (Dispatcher) field.get(producer);
+      interdependent.jmxAddress = dispatcher.jmxAddress();
+      return (Dispatcher) field.get(producer);
+    } catch (NoSuchFieldException | IllegalAccessException e) {
+      throw new RuntimeException(e);
+    }
+  }
 
   /** close this dispatcher. This method is executed only once. */
   @Override
@@ -121,13 +129,13 @@ public interface Dispatcher extends Partitioner {
   default void onNewBatch(String topic, Cluster cluster, int prevPartition) {}
 
   /** Begin interdependence function.Let the next messages be interdependent. */
-  default void beginInterdependent() {
+  default void begin() {
     interdependent.isFirst = !interdependent.isInterdependent;
     interdependent.isInterdependent = true;
   }
 
   /** Close interdependence function.Send data using the original Dispatcher logic. */
-  default void endInterdependent() {
+  default void end() {
     interdependent.isInterdependent = false;
     interdependent.isFirst = false;
   }
@@ -167,13 +175,21 @@ public interface Dispatcher extends Partitioner {
               .min(Comparator.comparingDouble(Map.Entry::getValue))
               .orElse(Map.entry(0, 0.0))
               .getKey();
+      var leaderPartitions =
+          clusterInfo.availableReplicaLeaders(topic).stream()
+              .filter(replicaInfo -> replicaInfo.nodeInfo().id() == targetBroker)
+              .map(ReplicaInfo::partition)
+              .collect(Collectors.toSet());
       targetPartition =
           nodeTopicSizeCost
               .partitionCost(clusterInfo, ClusterBean.of(beans))
               .value(targetBroker)
               .entrySet()
               .stream()
-              .filter(entry -> entry.getKey().topic().equals(topic))
+              .filter(
+                  entry ->
+                      entry.getKey().topic().equals(topic)
+                          && leaderPartitions.contains(entry.getKey().partition()))
               .min(Comparator.comparingDouble(Map.Entry::getValue))
               .orElseThrow(
                   () ->
