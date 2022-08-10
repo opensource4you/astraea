@@ -18,8 +18,8 @@ package org.astraea.app.cost;
 
 import java.util.Map;
 
-public interface MathAlgorithm {
-  static MathAlgorithm correlationCoefficient() {
+public interface Dispersion {
+  static Dispersion correlationCoefficient() {
     return brokerCost -> {
       var dataRateMean = brokerCost.values().stream().mapToDouble(x -> x).sum() / brokerCost.size();
       var dataRateSD =

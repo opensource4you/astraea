@@ -48,7 +48,7 @@ public class ReplicaDiskInCost implements HasClusterCost, HasBrokerCost, HasPart
   public ClusterCost clusterCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
     var brokerCost = brokerCost(clusterInfo, clusterBean).value();
     if (brokerCost.containsValue(-1.0)) return () -> OVERFLOWSCORE;
-    return () -> MathAlgorithm.correlationCoefficient().calculator(brokerCost);
+    return () -> Dispersion.correlationCoefficient().calculator(brokerCost);
   }
 
   @Override
