@@ -77,13 +77,19 @@ public interface Dispatcher extends Partitioner {
    * Dispatch.endInterdependent();
    * }</pre>
    *
+   * Begin interdependence function.Let the next messages be interdependent.
+   *
    * @param producer Kafka producer
-   * @return The dispatch of Kafka Producer
    */
   static void beginInterdependent(Producer<Key, Value> producer) {
     dispatcher(producer).begin();
   }
 
+  /**
+   * Close interdependence function.Send data using the original Dispatcher logic.
+   *
+   * @param producer Kafka producer
+   */
   static void endInterdependent(Producer<Key, Value> producer) {
     dispatcher(producer).end();
   }
@@ -128,14 +134,12 @@ public interface Dispatcher extends Partitioner {
   @Override
   default void onNewBatch(String topic, Cluster cluster, int prevPartition) {}
 
-  /** Begin interdependence function.Let the next messages be interdependent. */
-  default void begin() {
+  private void begin() {
     interdependent.isFirst = !interdependent.isInterdependent;
     interdependent.isInterdependent = true;
   }
 
-  /** Close interdependence function.Send data using the original Dispatcher logic. */
-  default void end() {
+  private void end() {
     interdependent.isInterdependent = false;
     interdependent.isFirst = false;
   }
