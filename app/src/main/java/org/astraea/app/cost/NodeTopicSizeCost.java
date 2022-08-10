@@ -23,6 +23,7 @@ import org.astraea.app.admin.ClusterBean;
 import org.astraea.app.admin.ClusterInfo;
 import org.astraea.app.admin.ReplicaInfo;
 import org.astraea.app.admin.TopicPartition;
+import org.astraea.app.metrics.broker.HasValue;
 import org.astraea.app.metrics.broker.LogMetrics;
 import org.astraea.app.metrics.collector.Fetcher;
 
@@ -63,12 +64,13 @@ public class NodeTopicSizeCost implements HasBrokerCost, HasPartitionCost {
             .collect(
                 Collectors.toMap(
                     Map.Entry::getKey,
-                    topicPartitionCollectionEntry -> {
-                      var meter =
-                          (LogMetrics.Log.Meter)
-                              topicPartitionCollectionEntry.getValue().stream().findAny().get();
-                      return (double) meter.value();
-                    }));
+                    topicPartitionCollectionEntry ->
+                        LogMetrics.Log.meters(
+                                topicPartitionCollectionEntry.getValue(), LogMetrics.Log.SIZE)
+                            .stream()
+                            .mapToDouble(HasValue::value)
+                            .findAny()
+                            .orElse(0.0D)));
       }
 
       @Override
@@ -93,12 +95,13 @@ public class NodeTopicSizeCost implements HasBrokerCost, HasPartitionCost {
             .collect(
                 Collectors.toMap(
                     Map.Entry::getKey,
-                    topicPartitionCollectionEntry -> {
-                      var meter =
-                          (LogMetrics.Log.Meter)
-                              topicPartitionCollectionEntry.getValue().stream().findAny().get();
-                      return (double) meter.value();
-                    }));
+                    topicPartitionCollectionEntry ->
+                        LogMetrics.Log.meters(
+                                topicPartitionCollectionEntry.getValue(), LogMetrics.Log.SIZE)
+                            .stream()
+                            .mapToDouble(HasValue::value)
+                            .findAny()
+                            .orElse(0.0D)));
       }
     };
   }
