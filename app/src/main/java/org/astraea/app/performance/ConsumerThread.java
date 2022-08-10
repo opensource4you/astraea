@@ -23,6 +23,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.kafka.common.errors.WakeupException;
@@ -31,21 +32,22 @@ import org.astraea.app.consumer.Consumer;
 
 public interface ConsumerThread extends AbstractThread {
 
-  static List<ConsumerThread> create(List<Consumer<byte[], byte[]>> consumers) {
-    if (consumers.isEmpty()) return List.of();
+  static List<ConsumerThread> create(
+      int consumers, Supplier<Consumer<byte[], byte[]>> consumerSupplier) {
+    if (consumers == 0) return List.of();
     var reports =
-        IntStream.range(0, consumers.size())
+        IntStream.range(0, consumers)
             .mapToObj(ignored -> new Report())
             .collect(Collectors.toUnmodifiableList());
     var closeLatches =
-        IntStream.range(0, consumers.size())
+        IntStream.range(0, consumers)
             .mapToObj(ignored -> new CountDownLatch(1))
             .collect(Collectors.toUnmodifiableList());
     var closeFlags =
-        IntStream.range(0, consumers.size())
+        IntStream.range(0, consumers)
             .mapToObj(ignored -> new AtomicBoolean(false))
             .collect(Collectors.toUnmodifiableList());
-    var executors = Executors.newFixedThreadPool(consumers.size());
+    var executors = Executors.newFixedThreadPool(consumers);
     // monitor
     CompletableFuture.runAsync(
         () -> {
@@ -56,10 +58,10 @@ public interface ConsumerThread extends AbstractThread {
             Utils.swallowException(() -> executors.awaitTermination(30, TimeUnit.SECONDS));
           }
         });
-    return IntStream.range(0, consumers.size())
+    return IntStream.range(0, consumers)
         .mapToObj(
             index -> {
-              var consumer = consumers.get(index);
+              var consumer = consumerSupplier.get();
               var report = reports.get(index);
               var closeLatch = closeLatches.get(index);
               var closed = closeFlags.get(index);

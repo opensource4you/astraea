@@ -88,6 +88,18 @@ public class PartitionsBuilder<Key, Value> extends Builder<Key, Value> {
     return this;
   }
 
+  @Override
+  public PartitionsBuilder<Key, Value> seek(SeekStrategy seekStrategy, long value) {
+    super.seek(seekStrategy, value);
+    return this;
+  }
+
+  @Override
+  public PartitionsBuilder<Key, Value> seek(Map<TopicPartition, Long> offsets) {
+    super.seek(offsets);
+    return this;
+  }
+
   @SuppressWarnings("unchecked")
   @Override
   public AssignedConsumer<Key, Value> build() {
