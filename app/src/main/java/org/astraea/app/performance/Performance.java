@@ -168,9 +168,7 @@ public class Performance {
                     tracker));
 
     var fileWriterFuture =
-        fileWriter.isPresent()
-            ? CompletableFuture.runAsync(fileWriter.get())
-            : CompletableFuture.completedFuture(true);
+        fileWriter.map(CompletableFuture::runAsync).orElse(CompletableFuture.completedFuture(null));
 
     CompletableFuture.runAsync(
         () -> {
