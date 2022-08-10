@@ -122,15 +122,21 @@ public class TopicsBuilder<Key, Value> extends Builder<Key, Value> {
 
     seekStrategy.apply(kafkaConsumer, seekValue);
 
-    return new SubscribedConsumerImpl<>(kafkaConsumer);
+    return new SubscribedConsumerImpl<>(kafkaConsumer, topics, listener);
   }
 
   private static class SubscribedConsumerImpl<Key, Value> extends Builder.BaseConsumer<Key, Value>
       implements SubscribedConsumer<Key, Value> {
+    private final Set<String> topics;
+    private final ConsumerRebalanceListener listener;
 
     public SubscribedConsumerImpl(
-        org.apache.kafka.clients.consumer.Consumer<Key, Value> kafkaConsumer) {
+        org.apache.kafka.clients.consumer.Consumer<Key, Value> kafkaConsumer,
+        Set<String> topics,
+        ConsumerRebalanceListener listener) {
       super(kafkaConsumer);
+      this.topics = topics;
+      this.listener = listener;
     }
 
     @Override
@@ -150,6 +156,11 @@ public class TopicsBuilder<Key, Value> extends Builder<Key, Value> {
 
     public Optional<String> groupInstanceId() {
       return kafkaConsumer.groupMetadata().groupInstanceId();
+    }
+
+    @Override
+    protected void doResubscribe() {
+      kafkaConsumer.subscribe(topics, ConsumerRebalanceListener.of(listener));
     }
   }
 }

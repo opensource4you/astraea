@@ -91,11 +91,11 @@ public final class Utils {
    * @param runner to execute
    */
   public static void swallowException(Runner runner) {
-    Utils.packException(
-        () -> {
-          runner.run();
-          return null;
-        });
+    try {
+      runner.run();
+    } catch (Exception ex) {
+      ex.printStackTrace();
+    }
   }
 
   public interface Getter<R> {

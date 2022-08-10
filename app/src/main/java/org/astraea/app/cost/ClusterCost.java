@@ -16,11 +16,9 @@
  */
 package org.astraea.app.cost;
 
-import org.astraea.app.metrics.client.HasNodeMetrics;
+/** Return type of cost function, `HasMoveCost`. It returns the score of brokers. */
+public interface ClusterCost {
 
-public class NodeLatencyCost extends NodeMetricsCost {
-  @Override
-  protected double value(HasNodeMetrics hasNodeMetrics) {
-    return hasNodeMetrics.requestLatencyAvg();
-  }
+  /** @return cost of cluster */
+  double value();
 }

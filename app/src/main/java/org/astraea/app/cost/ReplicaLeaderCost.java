@@ -28,7 +28,20 @@ import org.astraea.app.metrics.broker.ServerMetrics;
 import org.astraea.app.metrics.collector.Fetcher;
 
 /** more replica leaders -> higher cost */
-public class ReplicaLeaderCost implements HasBrokerCost {
+public class ReplicaLeaderCost implements HasBrokerCost, HasClusterCost {
+  static double coefficientVariation(Map<Integer, Double> brokerScore) {
+    var dataRateMean =
+        brokerScore.values().stream().mapToDouble(x -> (double) x).sum() / brokerScore.size();
+    var dataRateSD =
+        Math.sqrt(
+            brokerScore.values().stream()
+                    .mapToDouble(score -> Math.pow((score - dataRateMean), 2))
+                    .sum()
+                / brokerScore.size());
+    var cv = dataRateSD / dataRateMean;
+    if (cv > 1) return 1.0;
+    return cv;
+  }
 
   @Override
   public BrokerCost brokerCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
@@ -36,6 +49,12 @@ public class ReplicaLeaderCost implements HasBrokerCost {
         leaderCount(clusterInfo, clusterBean).entrySet().stream()
             .collect(Collectors.toMap(Map.Entry::getKey, e -> (double) e.getValue()));
     return () -> result;
+  }
+
+  @Override
+  public ClusterCost clusterCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
+    var brokerScore = brokerCost(clusterInfo, clusterBean).value();
+    return () -> coefficientVariation(brokerScore);
   }
 
   Map<Integer, Integer> leaderCount(ClusterInfo ignored, ClusterBean clusterBean) {

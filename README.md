@@ -9,6 +9,7 @@
 - Zhi-Mao Teng <zhimao.teng@gmail.com>
 - Jia-Sheng Chen <haser1156@gmail.com>
 - Chao-Heng Lee <chaohengstudent@gmail.com>
+- Yi-Huan Lee <yi.huan.max@gmail.com>
 
 # Kafka Tools
 
@@ -16,9 +17,11 @@ This project offers many kafka tools to simplify the life for kafka users.
 
 1. [Kafka quick start](#kafka-cluster-quick-start): set up a true kafka cluster in one minute
 2. [Kafka performance](./docs/performance_benchmark.md): 可產生不同類型資料集測試讀寫速度及E2E延遲的工具
-3. [Kafka metric explorer](#kafka-metric-explorer): utility for accessing kafka Mbean metrics via JMX.
-4. [Kafka replica syncing monitor](#Kafka-replica-syncing-monitor): Tracking replica syncing progress.
-5. [Astraea Web Server 中文文件連結](./docs/web_server/README.md)
+3. [Kafka_Prometheus](./docs/run_prometheus.md):  整合 Kafka 與 Prometheus
+4. [快速啟動Grafana](./docs/run_grafana.md): 建置圖形化介面監控Kafka server、Host端資源使用量
+5. [Kafka metric explorer](#kafka-metric-explorer): utility for accessing kafka Mbean metrics via JMX.
+6. [Kafka replica syncing monitor](#Kafka-replica-syncing-monitor): Tracking replica syncing progress.
+7. [Astraea Web Server 中文文件連結](./docs/web_server/README.md)
 
 [Github packages](https://github.com/orgs/skiptests/packages?repo_name=astraea) offers the docker image to run mentioned tools
 ```shell

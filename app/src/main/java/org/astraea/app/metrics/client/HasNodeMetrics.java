@@ -14,15 +14,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.app.metrics.producer;
+package org.astraea.app.metrics.client;
 
 import org.astraea.app.metrics.BeanObject;
 import org.astraea.app.metrics.HasBeanObject;
 
-public interface HasProducerNodeMetrics extends HasBeanObject {
+public interface HasNodeMetrics extends HasBeanObject {
 
-  static HasProducerNodeMetrics of(BeanObject beanObject, int brokerId) {
-    return new HasProducerNodeMetrics() {
+  static HasNodeMetrics of(BeanObject beanObject, int brokerId) {
+    return new HasNodeMetrics() {
       @Override
       public int brokerId() {
         return brokerId;

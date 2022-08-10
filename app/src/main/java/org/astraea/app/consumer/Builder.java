@@ -24,6 +24,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiConsumer;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.astraea.app.admin.TopicPartition;
@@ -115,8 +116,9 @@ public abstract class Builder<Key, Value> {
   /** @return consumer instance. The different builders may return inherited consumer interface. */
   public abstract Consumer<Key, Value> build();
 
-  protected static class BaseConsumer<Key, Value> implements Consumer<Key, Value> {
+  protected abstract static class BaseConsumer<Key, Value> implements Consumer<Key, Value> {
     protected final org.apache.kafka.clients.consumer.Consumer<Key, Value> kafkaConsumer;
+    private final AtomicBoolean subscribed = new AtomicBoolean(true);
 
     public BaseConsumer(org.apache.kafka.clients.consumer.Consumer<Key, Value> kafkaConsumer) {
       this.kafkaConsumer = kafkaConsumer;
@@ -143,6 +145,18 @@ public abstract class Builder<Key, Value> {
     public void close() {
       kafkaConsumer.close();
     }
+
+    @Override
+    public void resubscribe() {
+      if (subscribed.compareAndSet(false, true)) doResubscribe();
+    }
+
+    @Override
+    public void unsubscribe() {
+      if (subscribed.compareAndSet(true, false)) kafkaConsumer.unsubscribe();
+    }
+
+    protected abstract void doResubscribe();
   }
 
   public enum SeekStrategy {

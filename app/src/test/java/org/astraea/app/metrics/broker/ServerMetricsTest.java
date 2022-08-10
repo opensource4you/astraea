@@ -22,11 +22,10 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Set;
-import java.util.stream.Collectors;
 import org.astraea.app.common.Utils;
 import org.astraea.app.metrics.BeanObject;
 import org.astraea.app.metrics.MBeanClient;
+import org.astraea.app.metrics.MetricsTestUtil;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -76,13 +75,15 @@ public class ServerMetricsTest {
 
   @Test
   void testAllEnumNameUnique() {
-    // arrange act
-    Set<String> collectedName =
-        Arrays.stream(ServerMetrics.Topic.values())
-            .map(ServerMetrics.Topic::metricName)
-            .collect(Collectors.toSet());
-
-    // assert
-    Assertions.assertEquals(ServerMetrics.Topic.values().length, collectedName.size());
+    Assertions.assertTrue(
+        MetricsTestUtil.metricDistinct(
+            ServerMetrics.ReplicaManager.values(), ServerMetrics.ReplicaManager::metricName));
+    Assertions.assertTrue(
+        MetricsTestUtil.metricDistinct(
+            ServerMetrics.DelayedOperationPurgatory.values(),
+            ServerMetrics.DelayedOperationPurgatory::metricName));
+    Assertions.assertTrue(
+        MetricsTestUtil.metricDistinct(
+            ServerMetrics.Topic.values(), ServerMetrics.Topic::metricName));
   }
 }

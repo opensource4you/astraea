@@ -49,6 +49,12 @@ public interface Consumer<Key, Value> extends AutoCloseable {
   @Override
   void close();
 
+  /** resubscribe partitions or rejoin the consumer group. */
+  void resubscribe();
+
+  /** unsubscribe all partitions. */
+  void unsubscribe();
+
   /**
    * Create a consumer builder by setting specific topics
    *

@@ -16,11 +16,16 @@
  */
 package org.astraea.app.cost;
 
-import org.astraea.app.metrics.client.HasNodeMetrics;
+import org.astraea.app.admin.ClusterBean;
+import org.astraea.app.admin.ClusterInfo;
 
-public class NodeLatencyCost extends NodeMetricsCost {
-  @Override
-  protected double value(HasNodeMetrics hasNodeMetrics) {
-    return hasNodeMetrics.requestLatencyAvg();
-  }
+public interface HasClusterCost extends CostFunction {
+  /**
+   * score cluster for a particular metrics according to passed beans and cluster information.
+   *
+   * @param clusterInfo cluster information
+   * @param clusterBean cluster metrics
+   * @return the score of cluster.
+   */
+  ClusterCost clusterCost(ClusterInfo clusterInfo, ClusterBean clusterBean);
 }

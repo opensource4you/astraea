@@ -61,12 +61,14 @@ public class ReplicaLeaderCostTest {
     var broker2 = List.of((HasBeanObject) LeaderCount2);
     var broker3 = List.of((HasBeanObject) LeaderCount3);
     var clusterBean = ClusterBean.of(Map.of(1, broker1, 2, broker2, 3, broker3));
-    var load = costFunction.brokerCost(ClusterInfo.EMPTY, clusterBean);
+    var brokerLoad = costFunction.brokerCost(ClusterInfo.EMPTY, clusterBean);
+    var clusterLoad = costFunction.clusterCost(ClusterInfo.EMPTY, clusterBean);
 
-    Assertions.assertEquals(3, load.value().size());
-    Assertions.assertEquals(3.0, load.value().get(1));
-    Assertions.assertEquals(4.0, load.value().get(2));
-    Assertions.assertEquals(5.0, load.value().get(3));
+    Assertions.assertEquals(3, brokerLoad.value().size());
+    Assertions.assertEquals(3.0, brokerLoad.value().get(1));
+    Assertions.assertEquals(4.0, brokerLoad.value().get(2));
+    Assertions.assertEquals(5.0, brokerLoad.value().get(3));
+    Assertions.assertEquals(0.2041241452319315, clusterLoad.value());
   }
 
   private ServerMetrics.ReplicaManager.Meter mockResult(String name, long count) {

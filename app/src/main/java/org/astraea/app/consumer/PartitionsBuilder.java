@@ -100,14 +100,23 @@ public class PartitionsBuilder<Key, Value> extends Builder<Key, Value> {
 
     seekStrategy.apply(kafkaConsumer, seekValue);
 
-    return new AssignedConsumerImpl<>(kafkaConsumer);
+    return new AssignedConsumerImpl<>(kafkaConsumer, partitions);
   }
 
   private static class AssignedConsumerImpl<Key, Value> extends Builder.BaseConsumer<Key, Value>
       implements AssignedConsumer<Key, Value> {
 
-    public AssignedConsumerImpl(Consumer<Key, Value> kafkaConsumer) {
+    private final Set<TopicPartition> partitions;
+
+    public AssignedConsumerImpl(
+        Consumer<Key, Value> kafkaConsumer, Set<TopicPartition> partitions) {
       super(kafkaConsumer);
+      this.partitions = partitions;
+    }
+
+    @Override
+    protected void doResubscribe() {
+      kafkaConsumer.assign(partitions.stream().map(TopicPartition::to).collect(toList()));
     }
   }
 }
