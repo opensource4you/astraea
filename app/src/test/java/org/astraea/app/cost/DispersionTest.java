@@ -16,30 +16,16 @@
  */
 package org.astraea.app.cost;
 
-import java.util.Collection;
+import java.util.List;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
-/** used to aggregate a sequence into a number */
-public interface Dispersion {
-  /**
-   * use correlation coefficient to a aggregate a sequence * @return correlation coefficient
-   * Dispersion
-   */
-  static Dispersion correlationCoefficient() {
-    return brokerCost -> {
-      var dataRateMean = brokerCost.stream().mapToDouble(x -> x).sum() / brokerCost.size();
-      var dataRateSD =
-          Math.sqrt(
-              brokerCost.stream().mapToDouble(score -> Math.pow((score - dataRateMean), 2)).sum()
-                  / brokerCost.size());
-      return dataRateSD / dataRateMean;
-    };
+class DispersionTest {
+
+  @Test
+  void testCorrelationCoefficient() {
+    var dispersion = Dispersion.correlationCoefficient();
+    var scores = List.of(0.2, 0.4, 0.7);
+    Assertions.assertEquals(0.47418569253607507, dispersion.calculate(scores));
   }
-
-  /**
-   * aggregated the values into a number
-   *
-   * @param scores origin data
-   * @return aggregated data
-   */
-  double calculate(Collection<Double> scores);
 }

@@ -41,7 +41,8 @@ public class ReplicaLeaderCost implements HasBrokerCost, HasClusterCost {
   @Override
   public ClusterCost clusterCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
     var brokerScore = brokerCost(clusterInfo, clusterBean).value();
-    return () -> Dispersion.correlationCoefficient().calculator(brokerScore);
+    var dispersion = Dispersion.correlationCoefficient();
+    return () -> dispersion.calculate(brokerScore.values());
   }
 
   Map<Integer, Integer> leaderCount(ClusterInfo ignored, ClusterBean clusterBean) {

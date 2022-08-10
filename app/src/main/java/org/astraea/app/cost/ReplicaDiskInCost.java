@@ -37,7 +37,7 @@ import org.astraea.app.partitioner.Configuration;
  */
 public class ReplicaDiskInCost implements HasClusterCost, HasBrokerCost, HasPartitionCost {
   private final Duration duration;
-  static final double OVERFLOWSCORE = 9999.0;
+  static final double OVERFLOW_SCORE = 9999.0;
 
   public ReplicaDiskInCost(Configuration configuration) {
     duration =
@@ -47,8 +47,9 @@ public class ReplicaDiskInCost implements HasClusterCost, HasBrokerCost, HasPart
   @Override
   public ClusterCost clusterCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
     var brokerCost = brokerCost(clusterInfo, clusterBean).value();
-    if (brokerCost.containsValue(-1.0)) return () -> OVERFLOWSCORE;
-    return () -> Dispersion.correlationCoefficient().calculator(brokerCost);
+    if (brokerCost.containsValue(-1.0)) return () -> OVERFLOW_SCORE;
+    var dispersion = Dispersion.correlationCoefficient();
+    return () -> dispersion.calculate(brokerCost.values());
   }
 
   @Override
