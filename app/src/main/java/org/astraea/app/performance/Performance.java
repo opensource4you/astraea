@@ -133,7 +133,6 @@ public class Performance {
                     .configs(param.configs())
                     .isolation(param.isolation())
                     .seek(latestOffsets)
-                    .consumerRebalanceListener(System.out::println)
                     .build());
 
     var producerReports =
