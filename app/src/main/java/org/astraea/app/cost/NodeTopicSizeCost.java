@@ -21,31 +21,85 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 import org.astraea.app.admin.ClusterBean;
 import org.astraea.app.admin.ClusterInfo;
+import org.astraea.app.admin.ReplicaInfo;
+import org.astraea.app.admin.TopicPartition;
 import org.astraea.app.metrics.broker.LogMetrics;
 import org.astraea.app.metrics.collector.Fetcher;
 
-public class NodeTopicSizeCost implements HasBrokerCost {
+public class NodeTopicSizeCost implements HasBrokerCost, HasPartitionCost {
 
-  @Override
-  public Optional<Fetcher> fetcher() {
-    return Optional.of(LogMetrics.Log.SIZE::fetch);
-  }
+    @Override
+    public Optional<Fetcher> fetcher() {
+        return Optional.of(LogMetrics.Log.SIZE::fetch);
+    }
 
-  /**
-   * @param clusterInfo the clusterInfo that offers the metrics related to topic/partition size
-   * @return a BrokerCost contains the used space for each broker
-   */
-  @Override
-  public BrokerCost brokerCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
-    var result =
-        clusterBean.all().entrySet().stream()
-            .collect(
-                Collectors.toMap(
-                    Map.Entry::getKey,
-                    e ->
-                        LogMetrics.Log.meters(e.getValue(), LogMetrics.Log.SIZE).stream()
-                            .mapToDouble(LogMetrics.Log.Meter::value)
-                            .sum()));
-    return () -> result;
-  }
+    /**
+     * @param clusterInfo the clusterInfo that offers the metrics related to topic/partition size
+     * @return a BrokerCost contains the used space for each broker
+     */
+    @Override
+    public BrokerCost brokerCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
+        var result =
+                clusterBean.all().entrySet().stream()
+                        .collect(
+                                Collectors.toMap(
+                                        Map.Entry::getKey,
+                                        e ->
+                                                LogMetrics.Log.meters(e.getValue(), LogMetrics.Log.SIZE).stream()
+                                                        .mapToDouble(LogMetrics.Log.Meter::value)
+                                                        .sum()));
+        return () -> result;
+    }
+
+    @Override
+    public PartitionCost partitionCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
+        return new PartitionCost() {
+            @Override
+            public Map<TopicPartition, Double> value(String topic) {
+                return clusterBean.mapByPartition().entrySet().stream()
+                        .filter(
+                                topicPartitionCollectionEntry ->
+                                        topicPartitionCollectionEntry.getKey().topic().equals(topic))
+                        .collect(
+                                Collectors.toMap(
+                                        Map.Entry::getKey,
+                                        topicPartitionCollectionEntry -> {
+                                            var meter =
+                                                    (LogMetrics.Log.Meter)
+                                                            topicPartitionCollectionEntry.getValue().stream().findAny().get();
+                                            return (double) meter.value();
+                                        }));
+            }
+
+            @Override
+            public Map<TopicPartition, Double> value(int brokerId) {
+                var targetPartitions =
+                        clusterInfo.topics().stream()
+                                .collect(
+                                        Collectors.toMap(
+                                                topic -> topic,
+                                                topic ->
+                                                        clusterInfo.availableReplicas(topic).stream()
+                                                                .filter(replicaInfo -> replicaInfo.nodeInfo().id() == brokerId)
+                                                                .map(ReplicaInfo::partition)
+                                                                .collect(Collectors.toSet())));
+
+                return clusterBean.mapByPartition().entrySet().stream()
+                        .filter(
+                                topicPartitionCollectionEntry ->
+                                        targetPartitions
+                                                .get(topicPartitionCollectionEntry.getKey().topic())
+                                                .contains(topicPartitionCollectionEntry.getKey().partition()))
+                        .collect(
+                                Collectors.toMap(
+                                        Map.Entry::getKey,
+                                        topicPartitionCollectionEntry -> {
+                                            var meter =
+                                                    (LogMetrics.Log.Meter)
+                                                            topicPartitionCollectionEntry.getValue().stream().findAny().get();
+                                            return (double) meter.value();
+                                        }));
+            }
+        };
+    }
 }
