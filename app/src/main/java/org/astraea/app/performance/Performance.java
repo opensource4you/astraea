@@ -31,7 +31,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 import org.astraea.app.admin.Admin;
 import org.astraea.app.admin.Compression;
 import org.astraea.app.admin.TopicPartition;
@@ -122,22 +121,19 @@ public class Performance {
             param.transactionSize,
             dataSupplier(param),
             partitionSupplier,
-            IntStream.range(0, param.producers)
-                .mapToObj(ignored -> param.createProducer())
-                .collect(Collectors.toUnmodifiableList()));
+            param.producers,
+            param::createProducer);
     var consumerThreads =
         ConsumerThread.create(
-            IntStream.range(0, param.consumers)
-                .mapToObj(
-                    ignored ->
-                        Consumer.forTopics(Set.of(param.topic))
-                            .bootstrapServers(param.bootstrapServers())
-                            .groupId(groupId)
-                            .configs(param.configs())
-                            .isolation(param.isolation())
-                            .seek(latestOffsets)
-                            .build())
-                .collect(Collectors.toUnmodifiableList()));
+            param.consumers,
+            () ->
+                Consumer.forTopics(Set.of(param.topic))
+                    .bootstrapServers(param.bootstrapServers())
+                    .groupId(groupId)
+                    .configs(param.configs())
+                    .isolation(param.isolation())
+                    .seek(latestOffsets)
+                    .build());
 
     var producerReports =
         producerThreads.stream()
