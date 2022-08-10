@@ -123,4 +123,14 @@ public class UtilsTest {
     Assertions.assertThrows(
         RuntimeException.class, () -> Utils.constructCostFunction(aClass, config));
   }
+
+  @Test
+  void testSwallowException() {
+    Assertions.assertDoesNotThrow(
+        () ->
+            Utils.swallowException(
+                () -> {
+                  throw new IllegalArgumentException();
+                }));
+  }
 }
