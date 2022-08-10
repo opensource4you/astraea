@@ -62,7 +62,7 @@ public final class Utils {
       return getter.get();
     } catch (Throwable exception) {
       if (exception instanceof ExecutionException) {
-        throw new AstraeaExecutionRuntimeException((ExecutionException) exception);
+        throw new ExecutionRuntimeException((ExecutionException) exception);
       } else if (exception instanceof RuntimeException) {
         throw (RuntimeException) exception;
       } else {

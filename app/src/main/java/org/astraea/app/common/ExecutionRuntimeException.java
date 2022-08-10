@@ -18,12 +18,12 @@ package org.astraea.app.common;
 
 import java.util.concurrent.ExecutionException;
 
-/** AstraeaExecutionRuntimeException convert ExecutionException to a RuntimeException. */
-public class AstraeaExecutionRuntimeException extends RuntimeException {
+/** ExecutionRuntimeException convert ExecutionException to a RuntimeException. */
+public class ExecutionRuntimeException extends RuntimeException {
 
   private final ExecutionException executionException;
 
-  public AstraeaExecutionRuntimeException(ExecutionException executionException) {
+  public ExecutionRuntimeException(ExecutionException executionException) {
     super(executionException.getMessage(), executionException);
     this.executionException = executionException;
   }
