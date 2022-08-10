@@ -23,6 +23,7 @@ import org.astraea.app.admin.ClusterBean;
 import org.astraea.app.admin.ClusterInfo;
 import org.astraea.app.admin.ReplicaInfo;
 import org.astraea.app.admin.TopicPartition;
+import org.astraea.app.metrics.broker.HasValue;
 import org.astraea.app.metrics.broker.LogMetrics;
 import org.astraea.app.metrics.collector.Fetcher;
 
@@ -58,19 +59,18 @@ public class NodeTopicSizeCost implements HasBrokerCost, HasPartitionCost {
       public Map<TopicPartition, Double> value(String topic) {
         return clusterBean.mapByPartition().entrySet().stream()
             .filter(
-                topicPartitionReplicaCollectionEntry ->
-                    topicPartitionReplicaCollectionEntry.getKey().topic().equals(topic))
+                topicPartitionCollectionEntry ->
+                    topicPartitionCollectionEntry.getKey().topic().equals(topic))
             .collect(
                 Collectors.toMap(
                     Map.Entry::getKey,
-                    topicPartitionCollectionEntry -> {
-                      var meter =
-                          (LogMetrics.Log.Meter)
-                              topicPartitionCollectionEntry.getValue().stream()
-                                  .findAny()
-                                  .orElse(null);
-                      return meter != null ? (double) meter.value() : 0.0;
-                    }));
+                    topicPartitionCollectionEntry ->
+                        LogMetrics.Log.meters(
+                                topicPartitionCollectionEntry.getValue(), LogMetrics.Log.SIZE)
+                            .stream()
+                            .mapToDouble(HasValue::value)
+                            .findAny()
+                            .orElse(0.0D)));
       }
 
       @Override
@@ -95,14 +95,13 @@ public class NodeTopicSizeCost implements HasBrokerCost, HasPartitionCost {
             .collect(
                 Collectors.toMap(
                     Map.Entry::getKey,
-                    topicPartitionCollectionEntry -> {
-                      var meter =
-                          (LogMetrics.Log.Meter)
-                              topicPartitionCollectionEntry.getValue().stream()
-                                  .findAny()
-                                  .orElse(null);
-                      return meter != null ? (double) meter.value() : 0.0;
-                    }));
+                    topicPartitionCollectionEntry ->
+                        LogMetrics.Log.meters(
+                                topicPartitionCollectionEntry.getValue(), LogMetrics.Log.SIZE)
+                            .stream()
+                            .mapToDouble(HasValue::value)
+                            .findAny()
+                            .orElse(0.0D)));
       }
     };
   }
