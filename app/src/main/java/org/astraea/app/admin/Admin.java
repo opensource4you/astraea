@@ -258,6 +258,30 @@ public interface Admin extends Closeable {
    */
   Map<TopicPartition, DeletedRecord> deleteRecords(Map<TopicPartition, Long> recordsToDelete);
 
+  /** @return a utility to apply replication throttle to the cluster. */
+  ReplicationThrottler replicationThrottler();
+
+  /**
+   * Clear any replication throttle related to the given topic.
+   *
+   * @param topic target to clear throttle.
+   */
+  void clearReplicationThrottle(String topic);
+
+  /**
+   * Clear any replication throttle related to the given topic/partition.
+   *
+   * @param topicPartition target to clear throttle.
+   */
+  void clearReplicationThrottle(TopicPartition topicPartition);
+
+  /**
+   * Clear any replication throttle related to the given topic/partition with specific broker id.
+   *
+   * @param log target to clear throttle.
+   */
+  void clearReplicationThrottle(TopicPartitionReplica log);
+
   @Override
   void close();
 }

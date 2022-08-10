@@ -1184,4 +1184,47 @@ public class AdminTest extends RequireBrokerCluster {
       Assertions.assertTrue(latestTopicNames.contains(topicNames.get(2)));
     }
   }
+
+  @Test
+  void runReplicationThrottler() {
+    try (Admin admin = Admin.of(bootstrapServers())) {
+      // 1. create topic
+      System.out.println("[Create topic]");
+      admin.creator().topic("MyTopic").numberOfPartitions(1).create();
+      Utils.sleep(Duration.ofSeconds(1));
+      admin.migrator().partition("MyTopic", 0).moveTo(List.of(0));
+
+      // 2. send 100 MB data
+      System.out.println("[Send data]");
+      try (var producer = Producer.of(bootstrapServers())) {
+        var bytes = new byte[1000];
+        IntStream.range(0, 100 * 1000)
+            .mapToObj(i -> producer.sender().topic("MyTopic").value(bytes).run())
+            .collect(Collectors.toUnmodifiableList())
+            .forEach(i -> i.toCompletableFuture().join());
+      }
+
+      // 3. apply throttle
+      System.out.println("[Apply replication throttle]");
+      admin
+          .replicationThrottler()
+          .ingress(DataRate.MB.of(10).perSecond())
+          .egress(DataRate.MB.of(10).perSecond())
+          .throttle("MyTopic")
+          .apply();
+      Utils.sleep(Duration.ofSeconds(1));
+
+      // 4. trigger replication via migrator
+      System.out.println("[Migration]");
+      admin.migrator().partition("MyTopic", 0).moveTo(List.of(1));
+      Utils.sleep(Duration.ofSeconds(1));
+
+      // 5. monitor
+      System.out.println("[Monitor]");
+      ReplicaSyncingMonitor.main(new String[] {"--bootstrap.servers", bootstrapServers()});
+
+      // 6. clear throttle
+      admin.clearReplicationThrottle("MyTopic");
+    }
+  }
 }

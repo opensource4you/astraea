@@ -17,6 +17,7 @@
 package org.astraea.app.admin;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -29,9 +30,15 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.BiFunction;
+import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.function.Predicate;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+import java.util.stream.Stream;
 import org.apache.kafka.clients.admin.AdminClientConfig;
+import org.apache.kafka.clients.admin.AlterConfigOp;
 import org.apache.kafka.clients.admin.ConfigEntry;
 import org.apache.kafka.clients.admin.ConsumerGroupListing;
 import org.apache.kafka.clients.admin.ListTopicsOptions;
@@ -674,6 +681,79 @@ public class Builder {
                   x -> TopicPartition.from(x.getKey()),
                   x -> DeletedRecord.from(Utils.packException(() -> x.getValue().get()))));
     }
+
+    @Override
+    public ReplicationThrottler replicationThrottler() {
+      return new ReplicationThrottlerImpl(admin);
+    }
+
+    @Override
+    public void clearReplicationThrottle(String topic) {
+      var configEntry0 = new ConfigEntry(ReplicationThrottlerImpl.THROTTLE_LEADER_CONFIG, "");
+      var alterConfigOp0 = new AlterConfigOp(configEntry0, AlterConfigOp.OpType.DELETE);
+      var configEntry1 = new ConfigEntry(ReplicationThrottlerImpl.THROTTLE_FOLLOWER_CONFIG, "");
+      var alterConfigOp1 = new AlterConfigOp(configEntry1, AlterConfigOp.OpType.DELETE);
+      var configResource = new ConfigResource(ConfigResource.Type.TOPIC, topic);
+
+      Utils.packException(
+          () ->
+              admin.incrementalAlterConfigs(
+                  Map.of(configResource, List.of(alterConfigOp0, alterConfigOp1))));
+    }
+
+    @Override
+    public void clearReplicationThrottle(TopicPartition topicPartition) {
+      clearReplicationThrottle(
+          topicPartition.topic(), (replica) -> replica.partition() != topicPartition.partition());
+    }
+
+    @Override
+    public void clearReplicationThrottle(org.astraea.app.admin.TopicPartitionReplica log) {
+      clearReplicationThrottle(log.topic(), (replica) -> !replica.equals(log));
+    }
+
+    private void clearReplicationThrottle(
+        String topic, Predicate<org.astraea.app.admin.TopicPartitionReplica> removePredicate) {
+      var oldConfig = ReplicationThrottlerImpl.topicConfig(admin, Set.of(topic));
+      var leaderConfigValue =
+          oldConfig.get(topic).get(ReplicationThrottlerImpl.THROTTLE_LEADER_CONFIG).value();
+      var followerConfigValue =
+          oldConfig.get(topic).get(ReplicationThrottlerImpl.THROTTLE_FOLLOWER_CONFIG).value();
+      var throttledLeaderReplicas =
+          ReplicationThrottlerImpl.parseThrottleTarget(topic, leaderConfigValue);
+      var throttledFollowerReplicas =
+          ReplicationThrottlerImpl.parseThrottleTarget(topic, followerConfigValue);
+
+      if (throttledLeaderReplicas == ReplicationThrottlerImpl.ALL_THROTTLED
+          || throttledFollowerReplicas == ReplicationThrottlerImpl.ALL_THROTTLED)
+        throw new UnsupportedOperationException(
+            "No support for remove single throttle from the topic-wide throttle");
+
+      var newLeaderThrottle =
+          throttledLeaderReplicas.stream()
+              .filter(removePredicate)
+              .collect(Collectors.toUnmodifiableSet());
+      var newFollowerThrottle =
+          throttledFollowerReplicas.stream()
+              .filter(removePredicate)
+              .collect(Collectors.toUnmodifiableSet());
+
+      var configEntry0 =
+          new ConfigEntry(
+              ReplicationThrottlerImpl.THROTTLE_LEADER_CONFIG,
+              ReplicationThrottlerImpl.toThrottleTargetString(newLeaderThrottle));
+      var alterConfigOp0 = new AlterConfigOp(configEntry0, AlterConfigOp.OpType.SET);
+      var configEntry1 =
+          new ConfigEntry(
+              ReplicationThrottlerImpl.THROTTLE_FOLLOWER_CONFIG,
+              ReplicationThrottlerImpl.toThrottleTargetString(newFollowerThrottle));
+      var alterConfigOp1 = new AlterConfigOp(configEntry1, AlterConfigOp.OpType.SET);
+      var configResource = new ConfigResource(ConfigResource.Type.TOPIC, topic);
+      Utils.packException(
+          () ->
+              admin.incrementalAlterConfigs(
+                  Map.of(configResource, List.of(alterConfigOp0, alterConfigOp1))));
+    }
   }
 
   private static class ConfigImpl implements Config {
@@ -1007,6 +1087,430 @@ public class Builder {
                         .get());
         }
       };
+    }
+  }
+
+  private static class ReplicationThrottlerImpl implements ReplicationThrottler {
+
+    private static class ThrottleTarget {
+      final Set<String> wholeTopic = new HashSet<>();
+      final Map<String, Set<org.astraea.app.admin.TopicPartitionReplica>> leader = new HashMap<>();
+      final Map<String, Set<org.astraea.app.admin.TopicPartitionReplica>> follower =
+          new HashMap<>();
+    }
+
+    private final org.apache.kafka.clients.admin.Admin admin;
+    private DataRate defaultIngress = null;
+    private DataRate defaultEgress = null;
+    private final Map<Integer, DataRate> ingressMap = new HashMap<>();
+    private final Map<Integer, DataRate> egressMap = new HashMap<>();
+    private final List<Consumer<ThrottleTarget>> throttleCalculation = new ArrayList<>();
+
+    public ReplicationThrottlerImpl(org.apache.kafka.clients.admin.Admin admin) {
+      this.admin = admin;
+    }
+
+    @Override
+    public ReplicationThrottler ingress(DataRate limitForEachFollowerBroker) {
+      this.defaultIngress = limitForEachFollowerBroker;
+      return this;
+    }
+
+    @Override
+    public ReplicationThrottler ingress(Map<Integer, DataRate> limitPerFollowerBroker) {
+      this.ingressMap.putAll(limitPerFollowerBroker);
+      return this;
+    }
+
+    @Override
+    public ReplicationThrottler egress(DataRate limitForEachLeaderBroker) {
+      this.defaultEgress = limitForEachLeaderBroker;
+      return this;
+    }
+
+    @Override
+    public ReplicationThrottler egress(Map<Integer, DataRate> limitPerLeaderBroker) {
+      this.egressMap.putAll(limitPerLeaderBroker);
+      return this;
+    }
+
+    @Override
+    public ReplicationThrottler throttle(String topic) {
+      throttleCalculation.add(throttleTarget -> throttleTarget.wholeTopic.add(topic));
+      return this;
+    }
+
+    @Override
+    public ReplicationThrottler throttle(TopicPartition topicPartition) {
+      throttleCalculation.add(
+          throttleTarget -> {
+            final var topic = topicPartition.topic();
+            final var partition = topicPartition.partition();
+            final var replicas =
+                Utils.packException(
+                    () ->
+                        admin
+                            .describeTopics(Set.of(topic))
+                            .allTopicNames()
+                            .get()
+                            .get(topic)
+                            .partitions()
+                            .get(partition)
+                            .replicas()
+                            .stream()
+                            .map(Node::id)
+                            .map(
+                                id ->
+                                    org.astraea.app.admin.TopicPartitionReplica.of(
+                                        topic, partition, id))
+                            .collect(Collectors.toUnmodifiableList()));
+
+            throttleTarget
+                .leader
+                .computeIfAbsent(topic, (ignore) -> new HashSet<>())
+                .add(replicas.stream().limit(1).findFirst().orElseThrow());
+            throttleTarget
+                .follower
+                .computeIfAbsent(topic, (ignore) -> new HashSet<>())
+                .addAll(replicas.stream().skip(1).collect(Collectors.toUnmodifiableList()));
+          });
+      return this;
+    }
+
+    @Override
+    public ReplicationThrottler throttle(org.astraea.app.admin.TopicPartitionReplica replica) {
+      throttleCalculation.add(
+          throttleTarget -> {
+            final var topic = replica.topic();
+            final var partition = replica.partition();
+            final var brokerId = replica.brokerId();
+            final var replicas =
+                Utils.packException(
+                    () ->
+                        admin
+                            .describeTopics(Set.of(topic))
+                            .allTopicNames()
+                            .get()
+                            .get(topic)
+                            .partitions()
+                            .get(partition)
+                            .replicas()
+                            .stream()
+                            .map(Node::id)
+                            .map(
+                                id ->
+                                    org.astraea.app.admin.TopicPartitionReplica.of(
+                                        topic, partition, id))
+                            .collect(Collectors.toUnmodifiableList()));
+
+            final var indexOf =
+                IntStream.range(0, replicas.size())
+                    .filter(i -> replicas.get(i).brokerId() == brokerId)
+                    .findFirst()
+                    .orElseThrow(
+                        () ->
+                            new IllegalArgumentException(
+                                "This replica "
+                                    + replica
+                                    + " is not part of the topic \""
+                                    + replica.topic()
+                                    + "\""));
+
+            (indexOf == 0 ? throttleTarget.leader : throttleTarget.follower)
+                .computeIfAbsent(topic, (ignore) -> new HashSet<>())
+                .add(replica);
+          });
+      return this;
+    }
+
+    @Override
+    public ReplicationThrottler throttleLeader(
+        org.astraea.app.admin.TopicPartitionReplica replica) {
+      throttleCalculation.add(
+          throttleTarget ->
+              throttleTarget
+                  .leader
+                  .computeIfAbsent(replica.topic(), (ignore) -> new HashSet<>())
+                  .add(replica));
+      return this;
+    }
+
+    @Override
+    public ReplicationThrottler throttleFollower(
+        org.astraea.app.admin.TopicPartitionReplica replica) {
+      throttleCalculation.add(
+          throttleTarget ->
+              throttleTarget
+                  .follower
+                  .computeIfAbsent(replica.topic(), (ignore) -> new HashSet<>())
+                  .add(replica));
+      return this;
+    }
+
+    @Override
+    public void apply() {
+      // attempt to get the throttle targets
+      var throttleTarget = new ThrottleTarget();
+      throttleCalculation.forEach(x -> x.accept(throttleTarget));
+
+      // apply
+      applyBandwidthThrottle(throttleTarget);
+      applyLogThrottle(throttleTarget);
+    }
+
+    private void applyBandwidthThrottle(ThrottleTarget throttleTarget) {
+      Set<Integer> affectedLeaderBrokers =
+          throttleTarget.leader.values().stream()
+              .flatMap(Collection::stream)
+              .map(org.astraea.app.admin.TopicPartitionReplica::brokerId)
+              .collect(Collectors.toUnmodifiableSet());
+      Set<Integer> affectedFollowerBrokers =
+          throttleTarget.follower.values().stream()
+              .flatMap(Collection::stream)
+              .map(org.astraea.app.admin.TopicPartitionReplica::brokerId)
+              .collect(Collectors.toUnmodifiableSet());
+      Set<Integer> affectedBrokersViaTopic =
+          Utils.packException(
+                  () -> admin.describeTopics(throttleTarget.wholeTopic).allTopicNames().get())
+              .entrySet()
+              .stream()
+              .flatMap(x -> x.getValue().partitions().stream())
+              .flatMap(x -> x.replicas().stream())
+              .map(Node::id)
+              .collect(Collectors.toUnmodifiableSet());
+
+      Function<Integer, DataRate> getDefaultEgress =
+          (broker) -> {
+            if (defaultEgress == null)
+              throw new IllegalArgumentException(
+                  "No egress bandwidth specified for broker " + broker);
+            return defaultEgress;
+          };
+      Function<Integer, DataRate> getDefaultIngress =
+          (broker) -> {
+            if (defaultIngress == null)
+              throw new IllegalArgumentException(
+                  "No ingress bandwidth specified for broker " + broker);
+            return defaultIngress;
+          };
+
+      var updatedEgressMap = new HashMap<>(egressMap);
+      for (int broker : affectedLeaderBrokers)
+        updatedEgressMap.putIfAbsent(broker, getDefaultEgress.apply(broker));
+      for (int broker : affectedBrokersViaTopic)
+        updatedEgressMap.putIfAbsent(broker, getDefaultEgress.apply(broker));
+
+      var updatedIngressMap = new HashMap<>(ingressMap);
+      for (int broker : affectedFollowerBrokers)
+        updatedIngressMap.putIfAbsent(broker, getDefaultIngress.apply(broker));
+      for (int broker : affectedBrokersViaTopic)
+        updatedIngressMap.putIfAbsent(broker, getDefaultIngress.apply(broker));
+
+      throttleBandwidth(updatedEgressMap, updatedIngressMap);
+    }
+
+    private void applyLogThrottle(ThrottleTarget throttleTarget) {
+      // Since the throttle work in a declarative manner, we have to fetch existing config to do the
+      // old/new config merge. Whole topic target is ignored because it is going to be complete
+      // throttled later. So no need to do this fancy stuff.
+      var affectedTopics =
+          Stream.of(
+                  throttleTarget.leader.keySet().stream(),
+                  throttleTarget.follower.keySet().stream())
+              .flatMap(x -> x)
+              .collect(Collectors.toUnmodifiableSet());
+      var originalConfigs = topicConfig(admin, affectedTopics);
+      var mergedConfig =
+          (Function<
+                  String,
+                  Function<
+                      Map<String, Set<org.astraea.app.admin.TopicPartitionReplica>>,
+                      Map<String, Set<org.astraea.app.admin.TopicPartitionReplica>>>>)
+              (config) -> {
+                // this function is doing the old/new config merge
+                var oldConfig =
+                    originalConfigs.entrySet().stream()
+                        .collect(
+                            Collectors.toUnmodifiableMap(
+                                Map.Entry::getKey,
+                                entry ->
+                                    parseThrottleTarget(
+                                        entry.getKey(), entry.getValue().get(config).value())));
+
+                return (newConfigs) ->
+                    newConfigs.entrySet().stream()
+                        .collect(
+                            Collectors.toUnmodifiableMap(
+                                Map.Entry::getKey,
+                                x ->
+                                    Stream.concat(
+                                            x.getValue().stream(),
+                                            oldConfig.getOrDefault(x.getKey(), Set.of()).stream())
+                                        .collect(Collectors.toUnmodifiableSet())));
+              };
+      var toConfigValue =
+          (Function<
+                  Map.Entry<String, Set<org.astraea.app.admin.TopicPartitionReplica>>,
+                  Map.Entry<String, String>>)
+              (entry) -> {
+                // this config convert replicas into string config value format
+                var topicName = entry.getKey();
+                var replicas = entry.getValue();
+                var configValue = toThrottleTargetString(replicas);
+                return Map.entry(topicName, configValue);
+              };
+      var allThrottleMap =
+          (Supplier<Map<String, Set<org.astraea.app.admin.TopicPartitionReplica>>>)
+              () ->
+                  throttleTarget.wholeTopic.stream()
+                      .collect(Collectors.toUnmodifiableMap(x -> x, x -> ALL_THROTTLED));
+      var updateLeaderConfig =
+          Stream.concat(
+                  mergedConfig
+                      .apply(THROTTLE_LEADER_CONFIG)
+                      .apply(throttleTarget.leader)
+                      .entrySet()
+                      .stream(),
+                  allThrottleMap.get().entrySet().stream())
+              .map(toConfigValue)
+              .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+      var updateFollowerConfig =
+          Stream.concat(
+                  mergedConfig
+                      .apply(THROTTLE_FOLLOWER_CONFIG)
+                      .apply(throttleTarget.follower)
+                      .entrySet()
+                      .stream(),
+                  allThrottleMap.get().entrySet().stream())
+              .map(toConfigValue)
+              .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+
+      throttleLog(updateLeaderConfig, updateFollowerConfig);
+    }
+
+    private static final String THROTTLE_LEADER_BANDWIDTH_CONFIG =
+        "leader.replication.throttled.rate";
+    private static final String THROTTLE_FOLLOWER_BANDWIDTH_CONFIG =
+        "follower.replication.throttled.rate";
+
+    private void throttleBandwidth(
+        Map<Integer, DataRate> leaderSetting, Map<Integer, DataRate> followerSetting) {
+      var toConfigEntry =
+          (Function<
+                  String,
+                  Function<Map.Entry<Integer, DataRate>, Map.Entry<ConfigResource, AlterConfigOp>>>)
+              (configName) ->
+                  (entry) -> {
+                    var broker = entry.getKey();
+                    var byteRate = (long) entry.getValue().byteRate();
+                    var configEntry = new ConfigEntry(configName, Long.toString(byteRate));
+                    var alterConfigOp = new AlterConfigOp(configEntry, AlterConfigOp.OpType.SET);
+                    var configResource =
+                        new ConfigResource(ConfigResource.Type.BROKER, Integer.toString(broker));
+                    return Map.entry(configResource, alterConfigOp);
+                  };
+      var egressSettings =
+          leaderSetting.entrySet().stream()
+              .map(toConfigEntry.apply(THROTTLE_LEADER_BANDWIDTH_CONFIG));
+      var ingressSettings =
+          followerSetting.entrySet().stream()
+              .map(toConfigEntry.apply(THROTTLE_FOLLOWER_BANDWIDTH_CONFIG));
+      var combinedConfigs =
+          Stream.concat(egressSettings, ingressSettings)
+              .collect(
+                  Collectors.groupingBy(
+                      Map.Entry::getKey,
+                      Collectors.mapping(
+                          Map.Entry::getValue,
+                          Collectors.toCollection(
+                              () -> (Collection<AlterConfigOp>) new ArrayList<AlterConfigOp>()))));
+      Utils.packException(() -> admin.incrementalAlterConfigs(combinedConfigs));
+    }
+
+    private static final String THROTTLE_LEADER_CONFIG = "leader.replication.throttled.replicas";
+    private static final String THROTTLE_FOLLOWER_CONFIG =
+        "follower.replication.throttled.replicas";
+    private static final Set<org.astraea.app.admin.TopicPartitionReplica> ALL_THROTTLED =
+        Stream.<org.astraea.app.admin.TopicPartitionReplica>of()
+            .collect(Collectors.toUnmodifiableSet());
+
+    private void throttleLog(
+        Map<String, String> leaderSetting, Map<String, String> followerSetting) {
+      var toConfigEntry =
+          (Function<
+                  String,
+                  Function<Map.Entry<String, String>, Map.Entry<ConfigResource, AlterConfigOp>>>)
+              (configName) ->
+                  (entry) -> {
+                    var topic = entry.getKey();
+                    var config = entry.getValue();
+                    var configEntry = new ConfigEntry(configName, config);
+                    var alterConfigOp = new AlterConfigOp(configEntry, AlterConfigOp.OpType.SET);
+                    var configResource = new ConfigResource(ConfigResource.Type.TOPIC, topic);
+                    return Map.entry(configResource, alterConfigOp);
+                  };
+      var leaderConfigs =
+          leaderSetting.entrySet().stream().map(toConfigEntry.apply(THROTTLE_LEADER_CONFIG));
+      var followerConfigs =
+          followerSetting.entrySet().stream().map(toConfigEntry.apply(THROTTLE_FOLLOWER_CONFIG));
+      var combinedConfigs =
+          Stream.concat(leaderConfigs, followerConfigs)
+              .collect(
+                  Collectors.groupingBy(
+                      Map.Entry::getKey,
+                      Collectors.mapping(
+                          Map.Entry::getValue,
+                          Collectors.toCollection(
+                              () -> (Collection<AlterConfigOp>) new ArrayList<AlterConfigOp>()))));
+      Utils.packException(() -> admin.incrementalAlterConfigs(combinedConfigs).all().get());
+    }
+
+    /**
+     * @return the set of replica that the {@link ReplicationThrottlerImpl#THROTTLE_LEADER_CONFIG}
+     *     or {@link ReplicationThrottlerImpl#THROTTLE_FOLLOWER_CONFIG} config value declared to
+     *     throttle. If the value is a wildcard, a special set {@link
+     *     ReplicationThrottlerImpl#ALL_THROTTLED} will be returned. Which mean the whole topic is
+     *     throttled.
+     */
+    private static Set<org.astraea.app.admin.TopicPartitionReplica> parseThrottleTarget(
+        String topic, String configValue) {
+      // if the config value is wildcard, just ignore it since everything is throttled & this
+      // interface doesn't support removal.
+      if (configValue.equals("*")) return ALL_THROTTLED;
+      if (configValue.equals("")) return Set.of();
+      // convert the throttle pair into a replica set.
+      return Arrays.stream(configValue.split(","))
+          .map(item -> item.split(":"))
+          .map(str -> List.of(Integer.valueOf(str[0]), Integer.valueOf(str[1])))
+          .map(
+              ints ->
+                  org.astraea.app.admin.TopicPartitionReplica.of(topic, ints.get(0), ints.get(1)))
+          .collect(Collectors.toUnmodifiableSet());
+    }
+
+    /**
+     * @return the suitable string for the given log throttle setting. If the given set is the
+     *     {@link ReplicationThrottlerImpl#ALL_THROTTLED} instance, then a {@code "*"} string will
+     *     be return.
+     */
+    private static String toThrottleTargetString(
+        Set<org.astraea.app.admin.TopicPartitionReplica> replicas) {
+      if (replicas == ALL_THROTTLED) return "*";
+      return replicas.stream()
+          .map(replica -> replica.partition() + ":" + replica.brokerId())
+          .collect(Collectors.joining(","));
+    }
+
+    private static Map<String, org.apache.kafka.clients.admin.Config> topicConfig(
+        org.apache.kafka.clients.admin.Admin admin, Set<String> topics) {
+      var configResources =
+          topics.stream()
+              .map(s -> new ConfigResource(ConfigResource.Type.TOPIC, s))
+              .collect(Collectors.toUnmodifiableList());
+      return Utils.packException(() -> admin.describeConfigs(configResources).all().get())
+          .entrySet()
+          .stream()
+          .collect(Collectors.toUnmodifiableMap(x -> x.getKey().name(), Map.Entry::getValue));
     }
   }
 }
