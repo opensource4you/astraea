@@ -419,6 +419,7 @@ public class ConsumerTest extends RequireBrokerCluster {
     }
 
     // one consume is idle
+    var groupId = Utils.randomString(10);
     var consumers = partitions + 1;
     var log = new ConcurrentHashMap<Integer, Integer>();
     var closed = new AtomicBoolean(false);
@@ -431,6 +432,7 @@ public class ConsumerTest extends RequireBrokerCluster {
                             () -> {
                               try (var consumer =
                                   Consumer.forTopics(Set.of(topic))
+                                      .groupId(groupId)
                                       .bootstrapServers(bootstrapServers())
                                       .seek(SEEK_TO, 0)
                                       .consumerRebalanceListener(ps -> log.put(index, ps.size()))
