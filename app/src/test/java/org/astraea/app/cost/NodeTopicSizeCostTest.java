@@ -55,7 +55,7 @@ class NodeTopicSizeCostTest {
     when(clusterInfo.topics()).thenReturn(Set.of("t"));
     when(clusterInfo.availableReplicas("t"))
         .thenReturn(List.of(ReplicaInfo.of("t", 10, NodeInfo.of(0, "0", 0), true, false, false)));
-    var result = cost.partitionCost(clusterInfo, ClusterBean.of(Map.of(1, List.of(meter))));
+    var result = cost.partitionCost(clusterInfo, ClusterBean.of(Map.of(0, List.of(meter))));
     Assertions.assertEquals(1, result.value(0).size());
     Assertions.assertEquals(777, result.value(0).entrySet().iterator().next().getValue());
   }

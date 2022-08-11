@@ -23,8 +23,8 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.astraea.app.admin.ClusterBean;
 import org.astraea.app.admin.ClusterInfo;
-import org.astraea.app.admin.ReplicaInfo;
 import org.astraea.app.admin.TopicPartition;
+import org.astraea.app.admin.TopicPartitionReplica;
 import org.astraea.app.metrics.HasBeanObject;
 import org.astraea.app.metrics.broker.HasValue;
 import org.astraea.app.metrics.broker.LogMetrics;
@@ -59,46 +59,39 @@ public class NodeTopicSizeCost implements HasBrokerCost, HasPartitionCost {
     return new PartitionCost() {
       @Override
       public Map<TopicPartition, Double> value(String topic) {
-        return clusterBean.mapByPartition().entrySet().stream()
+        return clusterBean.mapByReplica().entrySet().stream()
             .filter(
                 topicPartitionCollectionEntry ->
                     topicPartitionCollectionEntry.getKey().topic().equals(topic))
             .collect(
                 Collectors.toMap(
-                    Map.Entry::getKey,
+                    topicPartitionCollectionEntry ->
+                        TopicPartition.of(
+                            topicPartitionCollectionEntry.getKey().topic(),
+                            topicPartitionCollectionEntry.getKey().partition()),
                     topicPartitionCollectionEntry ->
                         toDouble.apply(topicPartitionCollectionEntry)));
       }
 
       @Override
       public Map<TopicPartition, Double> value(int brokerId) {
-        var targetPartitions =
-            clusterInfo.topics().stream()
-                .collect(
-                    Collectors.toMap(
-                        topic -> topic,
-                        topic ->
-                            clusterInfo.availableReplicas(topic).stream()
-                                .filter(replicaInfo -> replicaInfo.nodeInfo().id() == brokerId)
-                                .map(ReplicaInfo::partition)
-                                .collect(Collectors.toSet())));
-
-        return clusterBean.mapByPartition().entrySet().stream()
+        return clusterBean.mapByReplica().entrySet().stream()
             .filter(
                 topicPartitionCollectionEntry ->
-                    targetPartitions
-                        .get(topicPartitionCollectionEntry.getKey().topic())
-                        .contains(topicPartitionCollectionEntry.getKey().partition()))
+                    topicPartitionCollectionEntry.getKey().brokerId() == brokerId)
             .collect(
                 Collectors.toMap(
-                    Map.Entry::getKey,
+                    topicPartitionCollectionEntry ->
+                        TopicPartition.of(
+                            topicPartitionCollectionEntry.getKey().topic(),
+                            topicPartitionCollectionEntry.getKey().partition()),
                     topicPartitionCollectionEntry ->
                         toDouble.apply(topicPartitionCollectionEntry)));
       }
     };
   }
 
-  Function<Map.Entry<TopicPartition, Collection<HasBeanObject>>, Double> toDouble =
+  Function<Map.Entry<TopicPartitionReplica, Collection<HasBeanObject>>, Double> toDouble =
       e ->
           LogMetrics.Log.meters(e.getValue(), LogMetrics.Log.SIZE).stream()
               .mapToDouble(HasValue::value)
