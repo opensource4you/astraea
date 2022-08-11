@@ -39,17 +39,10 @@ import org.astraea.app.partitioner.Configuration;
 
 public final class Utils {
 
-  private static Throwable unpack(Throwable exception) {
-    Throwable current = exception;
-    while (current instanceof ExecutionException) {
-      current = current.getCause();
-    }
-    return current;
-  }
-
   /**
-   * Convert the exception thrown by getter to RuntimeException. This method can eliminate the
-   * exception from Java signature.
+   * Convert the exception thrown by getter to RuntimeException, except ExecutionException.
+   * ExecutionException will be converted to ExecutionRuntimeException , in order to preserve the
+   * stacktrace of ExecutionException. This method can eliminate the exception from Java signature.
    *
    * @param getter to execute
    * @param <R> type of returned object
@@ -58,11 +51,12 @@ public final class Utils {
   public static <R> R packException(Getter<R> getter) {
     try {
       return getter.get();
+    } catch (RuntimeException exception) {
+      throw exception;
+    } catch (ExecutionException exception) {
+      throw new ExecutionRuntimeException(exception);
     } catch (Throwable exception) {
-      var current = unpack(exception);
-      if (current instanceof RuntimeException) throw (RuntimeException) current;
-      if (current == null) throw new RuntimeException("unknown error");
-      throw new RuntimeException(current);
+      throw new RuntimeException(exception);
     }
   }
 
