@@ -96,6 +96,14 @@ class ReplicaDiskInCostTest extends RequireBrokerCluster {
     Assertions.assertEquals(33.37843418121338, brokerLoad.get(3));
   }
 
+  @Test
+  void testClusterCost() {
+    var configuration = Configuration.of(Map.of("metrics.duration", "3"));
+    var loadCostFunction = new ReplicaDiskInCost(configuration);
+    var brokerLoad = loadCostFunction.clusterCost(clusterInfo(), clusterBean()).value();
+    Assertions.assertEquals(0.20721255412897746, brokerLoad);
+  }
+
   private ClusterInfo clusterInfo() {
     ClusterInfo clusterInfo = Mockito.mock(ClusterInfo.class);
     Mockito.when(clusterInfo.nodes())
