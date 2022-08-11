@@ -48,6 +48,8 @@ public class ReplicaDiskInCost implements HasClusterCost, HasBrokerCost, HasPart
   @Override
   public ClusterCost clusterCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
     var brokerCost = brokerCost(clusterInfo, clusterBean).value();
+    // when retention occur, brokerCost will be set to -1 , and return a big score to reject this
+    // plan.
     if (brokerCost.containsValue(-1.0)) return () -> OVERFLOW_SCORE;
     return () -> dispersion.calculate(brokerCost.values());
   }
@@ -126,6 +128,7 @@ public class ReplicaDiskInCost implements HasClusterCost, HasBrokerCost, HasPart
                                 Collectors.toUnmodifiableMap(
                                     Map.Entry::getKey, Map.Entry::getValue))))
             .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));
+    // when retention occur, set all partitionScore to -1.
     if (replicaIn.containsValue(-1.0)) {
       return new PartitionCost() {
         @Override
@@ -198,6 +201,7 @@ public class ReplicaDiskInCost implements HasClusterCost, HasBrokerCost, HasPart
                       / 1024.0
                       / ((double) (latestSize.createdTimestamp() - windowSize.createdTimestamp())
                           / 1000);
+              // when retention occur, set all data rate to -1.
               if (dataRate < 0) dataRate = -1.0;
               return Map.entry(metrics.getKey(), dataRate);
             })
