@@ -19,11 +19,13 @@ package org.astraea.app.consumer;
 import static java.util.Objects.requireNonNull;
 
 import java.time.Duration;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
@@ -33,6 +35,8 @@ import org.astraea.app.common.Utils;
 public class TopicsBuilder<Key, Value> extends Builder<Key, Value> {
   private final Set<String> topics;
   private ConsumerRebalanceListener listener = ignore -> {};
+
+  private boolean enableTrace = false;
 
   TopicsBuilder(Set<String> topics) {
     this.topics = requireNonNull(topics);
@@ -119,6 +123,17 @@ public class TopicsBuilder<Key, Value> extends Builder<Key, Value> {
     return this;
   }
 
+  /**
+   * enable to trace the historical subscription. see {@link
+   * SubscribedConsumer#historicalSubscription()}
+   *
+   * @return this builder
+   */
+  public TopicsBuilder<Key, Value> enableTrace() {
+    this.enableTrace = true;
+    return this;
+  }
+
   public TopicsBuilder<Key, Value> disableAutoCommitOffsets() {
     return config(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "false");
   }
@@ -135,11 +150,22 @@ public class TopicsBuilder<Key, Value> extends Builder<Key, Value> {
             Deserializer.of((Deserializer<Key>) keyDeserializer),
             Deserializer.of((Deserializer<Value>) valueDeserializer));
 
+    var tracker =
+        new ConsumerRebalanceListener() {
+          private final Map<Long, Set<TopicPartition>> history = new ConcurrentHashMap<>();
+
+          @Override
+          public void onPartitionAssigned(Set<TopicPartition> partitions) {
+            if (enableTrace) history.put(System.currentTimeMillis(), Set.copyOf(partitions));
+          }
+        };
+
     if (seekStrategy != SeekStrategy.NONE) {
       // make sure this consumer is assigned before seeking
       var latch = new CountDownLatch(1);
       kafkaConsumer.subscribe(
-          topics, ConsumerRebalanceListener.of(List.of(listener, ignored -> latch.countDown())));
+          topics,
+          ConsumerRebalanceListener.of(List.of(listener, ignored -> latch.countDown(), tracker)));
       while (latch.getCount() != 0) {
         // the offset will be reset, so it is fine to poll data
         // TODO: should we disable auto-commit here?
@@ -148,12 +174,13 @@ public class TopicsBuilder<Key, Value> extends Builder<Key, Value> {
       }
     } else {
       // nothing to seek so we just subscribe topics
-      kafkaConsumer.subscribe(topics, ConsumerRebalanceListener.of(List.of(listener)));
+      kafkaConsumer.subscribe(topics, ConsumerRebalanceListener.of(List.of(listener, tracker)));
     }
 
     seekStrategy.apply(kafkaConsumer, seekValue);
 
-    return new SubscribedConsumerImpl<>(kafkaConsumer, topics, listener);
+    return new SubscribedConsumerImpl<>(
+        kafkaConsumer, topics, listener, Collections.unmodifiableMap(tracker.history));
   }
 
   private static class SubscribedConsumerImpl<Key, Value> extends Builder.BaseConsumer<Key, Value>
@@ -161,13 +188,17 @@ public class TopicsBuilder<Key, Value> extends Builder<Key, Value> {
     private final Set<String> topics;
     private final ConsumerRebalanceListener listener;
 
+    private final Map<Long, Set<TopicPartition>> history;
+
     public SubscribedConsumerImpl(
         org.apache.kafka.clients.consumer.Consumer<Key, Value> kafkaConsumer,
         Set<String> topics,
-        ConsumerRebalanceListener listener) {
+        ConsumerRebalanceListener listener,
+        Map<Long, Set<TopicPartition>> history) {
       super(kafkaConsumer);
       this.topics = topics;
       this.listener = listener;
+      this.history = history;
     }
 
     @Override
@@ -187,6 +218,11 @@ public class TopicsBuilder<Key, Value> extends Builder<Key, Value> {
 
     public Optional<String> groupInstanceId() {
       return kafkaConsumer.groupMetadata().groupInstanceId();
+    }
+
+    @Override
+    public Map<Long, Set<TopicPartition>> historicalSubscription() {
+      return history;
     }
 
     @Override
