@@ -39,17 +39,9 @@ public interface ProducerThread extends AbstractThread {
       int producers,
       Supplier<Producer<byte[], byte[]>> producerSupplier) {
     if (producers <= 0) return List.of();
-    var reports =
-        IntStream.range(0, producers)
-            .mapToObj(ignored -> new Report())
-            .collect(Collectors.toUnmodifiableList());
     var closeLatches =
         IntStream.range(0, producers)
             .mapToObj(ignored -> new CountDownLatch(1))
-            .collect(Collectors.toUnmodifiableList());
-    var closedFlags =
-        IntStream.range(0, producers)
-            .mapToObj(ignored -> new AtomicBoolean(false))
             .collect(Collectors.toUnmodifiableList());
     var executors = Executors.newFixedThreadPool(producers);
     // monitor
@@ -66,9 +58,9 @@ public interface ProducerThread extends AbstractThread {
         .mapToObj(
             index -> {
               var producer = producerSupplier.get();
-              var report = reports.get(index);
+              var report = new Report();
               var closeLatch = closeLatches.get(index);
-              var closed = closedFlags.get(index);
+              var closed = new AtomicBoolean(false);
               executors.execute(
                   () -> {
                     try {

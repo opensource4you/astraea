@@ -17,14 +17,11 @@
 package org.astraea.app.performance;
 
 import java.time.Duration;
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.Function;
-import org.astraea.app.common.DataSize;
+import java.util.function.Supplier;
 import org.astraea.app.common.Utils;
 
 /** Print out the given metrics. */
@@ -34,14 +31,14 @@ public interface TrackerThread extends AbstractThread {
       List<Report> producerReports, List<Report> consumerReports, ExeTime exeTime) {
     var start = System.currentTimeMillis() - Duration.ofSeconds(1).toMillis();
 
-    Function<Result, Boolean> logProducers =
-        result -> {
-          if (result.completedRecords == 0) return false;
+    Supplier<Boolean> logProducers =
+        () -> {
+          var records = producerReports.stream().mapToLong(Report::records).sum();
+          if (records == 0) return false;
 
           var duration = Duration.ofMillis(System.currentTimeMillis() - start);
           // Print completion rate (by number of records) or (by time)
-          var percentage =
-              Math.min(100D, exeTime.percentage(result.completedRecords, duration.toMillis()));
+          var percentage = Math.min(100D, exeTime.percentage(records, duration.toMillis()));
 
           System.out.println(
               "Time: "
@@ -53,29 +50,35 @@ public interface TrackerThread extends AbstractThread {
                   + "sec");
           System.out.printf("producers completion rate: %.2f%%%n", percentage);
           System.out.printf(
-              "  average throughput: %.3f MB/second%n", result.averageBytes(duration));
-          System.out.printf(
-              "  current throughput: %s/second%n", DataSize.Byte.of(result.totalCurrentBytes()));
-          System.out.println("  publish max latency: " + result.maxLatency + " ms");
-          System.out.println("  publish mim latency: " + result.minLatency + " ms");
-          for (int i = 0; i < result.bytes.size(); ++i) {
+              "  average throughput: %.3f MB/second%n",
+              Utils.averageMB(
+                  duration, producerReports.stream().mapToLong(Report::totalBytes).sum()));
+          producerReports.stream()
+              .mapToLong(Report::max)
+              .max()
+              .ifPresent(i -> System.out.println("  publish max latency: " + i + " ms"));
+          producerReports.stream()
+              .mapToLong(Report::min)
+              .min()
+              .ifPresent(i -> System.out.println("  publish mim latency: " + i + " ms"));
+          for (int i = 0; i < producerReports.size(); ++i) {
             System.out.printf(
                 "  producer[%d] average throughput: %.3f MB%n",
-                i, avg(duration, result.bytes.get(i)));
+                i, Utils.averageMB(duration, producerReports.get(i).totalBytes()));
             System.out.printf(
                 "  producer[%d] average publish latency: %.3f ms%n",
-                i, result.averageLatencies.get(i));
+                i, producerReports.get(i).avgLatency());
           }
           System.out.println("\n");
           return percentage >= 100;
         };
 
-    Function<Result, Boolean> logConsumers =
-        result -> {
+    Supplier<Boolean> logConsumers =
+        () -> {
           // there is no consumer, so we just complete this log.
           if (consumerReports.isEmpty()) return true;
 
-          if (result.completedRecords == 0) return false;
+          if (consumerReports.stream().mapToLong(Report::records).sum() == 0) return false;
 
           var duration = Duration.ofMillis(System.currentTimeMillis() - start);
 
@@ -87,18 +90,24 @@ public interface TrackerThread extends AbstractThread {
           var percentage = 100 * (double) consumerOffset / producerOffset;
           System.out.printf("consumer completion rate: %.2f%%%n", percentage);
           System.out.printf(
-              "  average throughput: %.3f MB/second%n", result.averageBytes(duration));
-          System.out.printf(
-              "  current throughput: %s/second%n", DataSize.Byte.of(result.totalCurrentBytes()));
-          System.out.println("  end-to-end max latency: " + result.maxLatency + " ms");
-          System.out.println("  end-to-end mim latency: " + result.minLatency + " ms");
-          for (int i = 0; i < result.bytes.size(); ++i) {
+              "  average throughput: %.3f MB/second%n",
+              Utils.averageMB(
+                  duration, consumerReports.stream().mapToLong(Report::totalBytes).sum()));
+          consumerReports.stream()
+              .mapToLong(Report::max)
+              .max()
+              .ifPresent(i -> System.out.println("  end-to-end max latency: " + i + " ms"));
+          consumerReports.stream()
+              .mapToLong(Report::min)
+              .min()
+              .ifPresent(i -> System.out.println("  end-to-end mim latency: " + i + " ms"));
+          for (int i = 0; i < consumerReports.size(); ++i) {
             System.out.printf(
                 "  consumer[%d] average throughput: %.3f MB%n",
-                i, avg(duration, result.bytes.get(i)));
+                i, Utils.averageMB(duration, consumerReports.get(i).totalBytes()));
             System.out.printf(
                 "  consumer[%d] average ene-to-end latency: %.3f ms%n",
-                i, result.averageLatencies.get(i));
+                i, consumerReports.get(i).avgLatency());
           }
           System.out.println("\n");
           // Target number of records consumed OR consumed all that produced
@@ -112,9 +121,7 @@ public interface TrackerThread extends AbstractThread {
         () -> {
           try {
             while (!closed.get()) {
-              var producerResult = result(producerReports);
-              var consumerResult = result(consumerReports);
-              if (logProducers.apply(producerResult) & logConsumers.apply(consumerResult)) return;
+              if (logProducers.get() & logConsumers.get()) return;
 
               // Log after waiting for one second
               Utils.sleep(Duration.ofSeconds(1));
@@ -125,16 +132,6 @@ public interface TrackerThread extends AbstractThread {
         });
 
     return new TrackerThread() {
-
-      @Override
-      public Result producerResult() {
-        return result(producerReports);
-      }
-
-      @Override
-      public Result consumerResult() {
-        return result(consumerReports);
-      }
 
       @Override
       public long startTime() {
@@ -158,76 +155,6 @@ public interface TrackerThread extends AbstractThread {
       }
     };
   }
-
-  static double avg(Duration duration, long value) {
-    return duration.toSeconds() <= 0
-        ? 0
-        : ((double) (value / duration.toSeconds())) / 1024D / 1024D;
-  }
-
-  private static Result result(List<Report> metrics) {
-    var completed = 0;
-    var bytes = new ArrayList<Long>();
-    var currentBytes = new ArrayList<Long>();
-    var averageLatencies = new ArrayList<Double>();
-    var max = 0L;
-    var min = Long.MAX_VALUE;
-    for (var data : metrics) {
-      completed += data.records();
-      bytes.add(data.totalBytes());
-      currentBytes.add(data.clearAndGetCurrentBytes());
-      averageLatencies.add(data.avgLatency());
-      max = Math.max(max, data.max());
-      min = Math.min(min, data.min());
-    }
-    return new Result(
-        completed,
-        Collections.unmodifiableList(bytes),
-        Collections.unmodifiableList(currentBytes),
-        Collections.unmodifiableList(averageLatencies),
-        min,
-        max);
-  }
-
-  class Result {
-    public final long completedRecords;
-    public final List<Long> bytes;
-    public final List<Long> currentBytes;
-    public final List<Double> averageLatencies;
-    public final long minLatency;
-    public final long maxLatency;
-
-    Result(
-        long completedRecords,
-        List<Long> bytes,
-        List<Long> currentBytes,
-        List<Double> averageLatencies,
-        long minLatency,
-        long maxLatency) {
-      this.completedRecords = completedRecords;
-      this.bytes = bytes;
-      this.currentBytes = currentBytes;
-      this.averageLatencies = averageLatencies;
-      this.minLatency = minLatency;
-      this.maxLatency = maxLatency;
-    }
-
-    double averageBytes(Duration duration) {
-      return avg(duration, totalBytes());
-    }
-
-    long totalBytes() {
-      return bytes.stream().mapToLong(i -> i).sum();
-    }
-
-    long totalCurrentBytes() {
-      return currentBytes.stream().mapToLong(i -> i).sum();
-    }
-  }
-
-  Result producerResult();
-
-  Result consumerResult();
 
   long startTime();
 }

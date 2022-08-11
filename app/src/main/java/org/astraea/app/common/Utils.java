@@ -267,5 +267,15 @@ public final class Utils {
     }
   }
 
+  public static double averageMB(Duration duration, long value) {
+    return average(duration, value) / 1024D / 1024D;
+  }
+
+  public static double average(Duration duration, long value) {
+    if (duration.toSeconds() > 0) return ((double) (value / duration.toSeconds()));
+    if (duration.toMillis() > 0) return (double) (value / duration.toMillis()) * 1000;
+    return (double) (value / duration.toNanos()) * 1000000000L;
+  }
+
   private Utils() {}
 }

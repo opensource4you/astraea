@@ -48,15 +48,4 @@ public class MetricsTest {
     metrics.record("topic", 0, 100, 0L, 1000);
     Assertions.assertEquals(1000, metrics.totalBytes());
   }
-
-  @Test
-  void testCurrentBytes() {
-    var metrics = new Report();
-
-    Assertions.assertEquals(0, metrics.clearAndGetCurrentBytes());
-    metrics.record("topic", 0, 100, 0L, 100);
-    metrics.record("topic", 0, 100, 0L, 101);
-    Assertions.assertEquals(201, metrics.clearAndGetCurrentBytes());
-    Assertions.assertEquals(0, metrics.clearAndGetCurrentBytes());
-  }
 }
