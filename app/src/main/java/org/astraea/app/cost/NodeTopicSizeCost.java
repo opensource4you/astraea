@@ -16,19 +16,21 @@
  */
 package org.astraea.app.cost;
 
+import java.util.Collection;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.astraea.app.admin.ClusterBean;
 import org.astraea.app.admin.ClusterInfo;
 import org.astraea.app.admin.ReplicaInfo;
 import org.astraea.app.admin.TopicPartition;
+import org.astraea.app.metrics.HasBeanObject;
 import org.astraea.app.metrics.broker.HasValue;
 import org.astraea.app.metrics.broker.LogMetrics;
 import org.astraea.app.metrics.collector.Fetcher;
 
 public class NodeTopicSizeCost implements HasBrokerCost, HasPartitionCost {
-
   @Override
   public Optional<Fetcher> fetcher() {
     return Optional.of(LogMetrics.Log.SIZE::fetch);
@@ -65,12 +67,7 @@ public class NodeTopicSizeCost implements HasBrokerCost, HasPartitionCost {
                 Collectors.toMap(
                     Map.Entry::getKey,
                     topicPartitionCollectionEntry ->
-                        LogMetrics.Log.meters(
-                                topicPartitionCollectionEntry.getValue(), LogMetrics.Log.SIZE)
-                            .stream()
-                            .mapToDouble(HasValue::value)
-                            .findAny()
-                            .orElse(0.0D)));
+                        toDouble.apply(topicPartitionCollectionEntry)));
       }
 
       @Override
@@ -96,13 +93,15 @@ public class NodeTopicSizeCost implements HasBrokerCost, HasPartitionCost {
                 Collectors.toMap(
                     Map.Entry::getKey,
                     topicPartitionCollectionEntry ->
-                        LogMetrics.Log.meters(
-                                topicPartitionCollectionEntry.getValue(), LogMetrics.Log.SIZE)
-                            .stream()
-                            .mapToDouble(HasValue::value)
-                            .findAny()
-                            .orElse(0.0D)));
+                        toDouble.apply(topicPartitionCollectionEntry)));
       }
     };
   }
+
+  Function<Map.Entry<TopicPartition, Collection<HasBeanObject>>, Double> toDouble =
+      e ->
+          LogMetrics.Log.meters(e.getValue(), LogMetrics.Log.SIZE).stream()
+              .mapToDouble(HasValue::value)
+              .findAny()
+              .orElse(0.0D);
 }
