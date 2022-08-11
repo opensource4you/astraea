@@ -572,11 +572,10 @@ public class Builder {
             });
       } catch (ExecutionRuntimeException executionRuntimeException) {
         var rootCause = executionRuntimeException.getRootCause();
-        if (IllegalArgumentException.class == rootCause.getClass()) {
-          if (ERROR_MSG_MEMBER_IS_EMPTY.equals(rootCause.getMessage())) {
-            // Deleting all members can't work when there is no members already.
-            return;
-          }
+        if (IllegalArgumentException.class == rootCause.getClass()
+            && ERROR_MSG_MEMBER_IS_EMPTY.equals(rootCause.getMessage())) {
+          // Deleting all members can't work when there is no members already.
+          return;
         }
         throw executionRuntimeException;
       }
