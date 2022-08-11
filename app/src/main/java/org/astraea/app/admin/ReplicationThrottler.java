@@ -69,6 +69,9 @@ public interface ReplicationThrottler {
   /**
    * Declare that every log under the specified topic, its replication will be throttle.
    *
+   * <p>This API can't be used in conjunction with the wildcard throttle. An attempt to do so will
+   * result in an exception.
+   *
    * @param topic throttle every log under this topic.
    * @return this
    */
@@ -79,6 +82,9 @@ public interface ReplicationThrottler {
    * applying moment)</strong>, its replication will be throttle. This lookup occurred at applying
    * moment, so any replica change that happened in the future might not be included in this
    * setting.
+   *
+   * <p>This API can't be used in conjunction with the wildcard throttle. An attempt to do so will
+   * result in an exception.
    *
    * @param topicPartition throttle the logs belong to this topic/partition(seek at applying
    *     moment).
@@ -99,6 +105,9 @@ public interface ReplicationThrottler {
    * To throttle a log that are not present at the current cluster, consider use {@link
    * ReplicationThrottler#throttleLeader(TopicPartitionReplica)} or {@link
    * ReplicationThrottler#throttleFollower(TopicPartitionReplica)}.
+   *
+   * <p>This API can't be used in conjunction with the wildcard throttle. An attempt to do so will
+   * result in an exception.
    *
    * @param replica throttle this log.
    * @return this

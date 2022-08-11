@@ -1198,7 +1198,7 @@ public class AdminTest extends RequireBrokerCluster {
       System.out.println("[Send data]");
       try (var producer = Producer.of(bootstrapServers())) {
         var bytes = new byte[1000];
-        IntStream.range(0, 100 * 1000)
+        IntStream.range(0, 1000 * 1000)
             .mapToObj(i -> producer.sender().topic("MyTopic").value(bytes).run())
             .collect(Collectors.toUnmodifiableList())
             .forEach(i -> i.toCompletableFuture().join());
@@ -1212,16 +1212,16 @@ public class AdminTest extends RequireBrokerCluster {
           .egress(DataRate.MB.of(10).perSecond())
           .throttle("MyTopic")
           .apply();
-      Utils.sleep(Duration.ofSeconds(1));
+      Utils.sleep(Duration.ofSeconds(5));
 
       // 4. trigger replication via migrator
       System.out.println("[Migration]");
       admin.migrator().partition("MyTopic", 0).moveTo(List.of(1));
-      Utils.sleep(Duration.ofSeconds(1));
 
       // 5. monitor
       System.out.println("[Monitor]");
-      ReplicaSyncingMonitor.main(new String[] {"--bootstrap.servers", bootstrapServers()});
+      ReplicaSyncingMonitor.main(
+          new String[] {"--bootstrap.servers", bootstrapServers(), "--track"});
 
       // 6. clear throttle
       admin.clearReplicationThrottle("MyTopic");
