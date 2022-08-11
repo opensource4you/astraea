@@ -28,6 +28,7 @@ import java.util.stream.StreamSupport;
 import org.apache.kafka.common.errors.UnknownTopicOrPartitionException;
 import org.astraea.app.admin.Admin;
 import org.astraea.app.admin.Config;
+import org.astraea.app.common.ExecutionRuntimeException;
 
 class TopicHandler implements Handler {
 
@@ -105,8 +106,11 @@ class TopicHandler implements Handler {
       try {
         // if the topic creation is synced, we return the details.
         return get(Set.of(request.value(TOPIC_NAME_KEY)), ignored -> true);
-      } catch (UnknownTopicOrPartitionException e) {
-        // swallow
+      } catch (ExecutionRuntimeException executionRuntimeException) {
+        if (UnknownTopicOrPartitionException.class
+            != executionRuntimeException.getRootCause().getClass()) {
+          throw executionRuntimeException;
+        }
       }
     }
     // Otherwise, return only name

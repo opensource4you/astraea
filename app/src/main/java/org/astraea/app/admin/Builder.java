@@ -124,8 +124,8 @@ public class Builder {
                   .get();
             });
       } catch (ExecutionRuntimeException executionRuntimeException) {
-        if (!(ElectionNotNeededException.class
-            == executionRuntimeException.getRootCause().getClass())) {
+        if (ElectionNotNeededException.class
+            != executionRuntimeException.getRootCause().getClass()) {
           throw executionRuntimeException;
         }
         // Swallow the ElectionNotNeededException.
@@ -914,8 +914,8 @@ public class Builder {
                         Map.Entry::getValue));
         Utils.packException(() -> admin.alterReplicaLogDirs(payload).all().get());
       } catch (ExecutionRuntimeException executionRuntimeException) {
-        if (!(ReplicaNotAvailableException.class
-            == executionRuntimeException.getRootCause().getClass())) {
+        if (ReplicaNotAvailableException.class
+            != executionRuntimeException.getRootCause().getClass()) {
           throw executionRuntimeException;
         }
         // The call is probably trying to declare the preferred data directory. Swallow the
