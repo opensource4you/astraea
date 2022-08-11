@@ -23,6 +23,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.astraea.app.admin.ClusterBean;
 import org.astraea.app.admin.ClusterInfo;
+import org.astraea.app.admin.ReplicaInfo;
 import org.astraea.app.admin.TopicPartition;
 import org.astraea.app.admin.TopicPartitionReplica;
 import org.astraea.app.metrics.HasBeanObject;
@@ -59,10 +60,19 @@ public class NodeTopicSizeCost implements HasBrokerCost, HasPartitionCost {
     return new PartitionCost() {
       @Override
       public Map<TopicPartition, Double> value(String topic) {
+        var leaderPartitions =
+            clusterInfo.availableReplicas(topic).stream()
+                .filter(ReplicaInfo::isLeader)
+                .collect(
+                    Collectors.toMap(
+                        ReplicaInfo::partition, replicaInfo -> replicaInfo.nodeInfo().id()));
         return clusterBean.mapByReplica().entrySet().stream()
             .filter(
                 topicPartitionCollectionEntry ->
-                    topicPartitionCollectionEntry.getKey().topic().equals(topic))
+                    topicPartitionCollectionEntry.getKey().topic().equals(topic)
+                        && leaderPartitions
+                            .get(topicPartitionCollectionEntry.getKey().partition())
+                            .equals(topicPartitionCollectionEntry.getKey().brokerId()))
             .collect(
                 Collectors.toMap(
                     topicPartitionCollectionEntry ->
