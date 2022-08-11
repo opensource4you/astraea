@@ -17,7 +17,10 @@
 package org.astraea.app.consumer;
 
 import java.time.Duration;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import org.astraea.app.admin.TopicPartition;
 
 /**
  * This inherited consumer offers function related to consumer group.
@@ -42,4 +45,10 @@ public interface SubscribedConsumer<Key, Value> extends Consumer<Key, Value> {
 
   /** @return group instance id (static member) */
   Optional<String> groupInstanceId();
+
+  /**
+   * @return the historical subscription. key is the time of getting assignments. value is the
+   *     assignments.
+   */
+  Map<Long, Set<TopicPartition>> historicalSubscription();
 }
