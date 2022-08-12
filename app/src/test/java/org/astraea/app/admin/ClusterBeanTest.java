@@ -24,7 +24,6 @@ import org.astraea.app.metrics.broker.LogMetrics;
 import org.astraea.app.metrics.broker.ServerMetrics;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mockito;
 
 class ClusterBeanTest {
 
