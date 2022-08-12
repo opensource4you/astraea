@@ -31,11 +31,11 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 import org.astraea.app.admin.Admin;
 import org.astraea.app.admin.Compression;
 import org.astraea.app.admin.TopicPartition;
 import org.astraea.app.argument.CompressionField;
+import org.astraea.app.argument.DurationField;
 import org.astraea.app.argument.NonEmptyStringField;
 import org.astraea.app.argument.NonNegativeShortField;
 import org.astraea.app.argument.PathField;
@@ -122,22 +122,19 @@ public class Performance {
             param.transactionSize,
             dataSupplier(param),
             partitionSupplier,
-            IntStream.range(0, param.producers)
-                .mapToObj(ignored -> param.createProducer())
-                .collect(Collectors.toUnmodifiableList()));
+            param.producers,
+            param::createProducer);
     var consumerThreads =
         ConsumerThread.create(
-            IntStream.range(0, param.consumers)
-                .mapToObj(
-                    ignored ->
-                        Consumer.forTopics(Set.of(param.topic))
-                            .bootstrapServers(param.bootstrapServers())
-                            .groupId(groupId)
-                            .configs(param.configs())
-                            .isolation(param.isolation())
-                            .seek(latestOffsets)
-                            .build())
-                .collect(Collectors.toUnmodifiableList()));
+            param.consumers,
+            () ->
+                Consumer.forTopics(Set.of(param.topic))
+                    .bootstrapServers(param.bootstrapServers())
+                    .groupId(groupId)
+                    .configs(param.configs())
+                    .isolation(param.isolation())
+                    .seek(latestOffsets)
+                    .build());
 
     var producerReports =
         producerThreads.stream()
@@ -165,9 +162,25 @@ public class Performance {
                             .map(ProducerThread::report)
                             .mapToLong(Report::records)
                             .sum(),
-                    tracker));
+                    producerReports,
+                    consumerReports));
 
-    fileWriter.ifPresent(CompletableFuture::runAsync);
+    var fileWriterFuture =
+        fileWriter.map(CompletableFuture::runAsync).orElse(CompletableFuture.completedFuture(null));
+
+    var chaos =
+        param.chaosDuration == null
+            ? CompletableFuture.completedFuture(null)
+            : CompletableFuture.runAsync(
+                () -> {
+                  while (!consumerThreads.stream().allMatch(AbstractThread::closed)) {
+                    var thread =
+                        consumerThreads.get((int) (Math.random() * consumerThreads.size()));
+                    thread.unsubscribe();
+                    Utils.sleep(param.chaosDuration);
+                    thread.resubscribe();
+                  }
+                });
 
     CompletableFuture.runAsync(
         () -> {
@@ -191,6 +204,8 @@ public class Performance {
 
     consumerThreads.forEach(AbstractThread::waitForDone);
     tracker.waitForDone();
+    fileWriterFuture.join();
+    chaos.join();
     return param.topic;
   }
 
@@ -348,5 +363,13 @@ public class Performance {
         description = "Output format for the report",
         converter = ReportFormat.ReportFormatConverter.class)
     ReportFormat reportFormat = ReportFormat.CSV;
+
+    @Parameter(
+        names = {"--chaos.frequency"},
+        description =
+            "time to run the chaos monkey. It will kill consumer arbitrarily. There is no monkey by default",
+        validateWith = DurationField.class,
+        converter = DurationField.class)
+    Duration chaosDuration = null;
   }
 }

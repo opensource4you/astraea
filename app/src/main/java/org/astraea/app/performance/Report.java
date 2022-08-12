@@ -41,7 +41,6 @@ public class Report {
   private long max = 0;
   private long min = Long.MAX_VALUE;
   private long totalBytes = 0;
-  private long currentBytes = 0;
   private final Map<TopicPartition, Long> currentOffsets = new HashMap<>();
 
   /** Simultaneously add latency and bytes. */
@@ -51,7 +50,6 @@ public class Report {
     min = Math.min(min, latency);
     max = Math.max(max, latency);
     avgLatency += (((double) latency) - avgLatency) / (double) records;
-    currentBytes += bytes;
     totalBytes += bytes;
     var tp = TopicPartition.of(topic, partition);
     currentOffsets.put(tp, Math.max(offset, offset(tp)));
@@ -77,12 +75,6 @@ public class Report {
   /** @return total send/received bytes */
   public synchronized long totalBytes() {
     return totalBytes;
-  }
-
-  public synchronized long clearAndGetCurrentBytes() {
-    var ans = currentBytes;
-    currentBytes = 0;
-    return ans;
   }
 
   public synchronized long offset(TopicPartition tp) {

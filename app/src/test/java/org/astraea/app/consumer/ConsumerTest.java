@@ -26,9 +26,14 @@ import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiConsumer;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.apache.kafka.common.errors.WakeupException;
@@ -346,5 +351,168 @@ public class ConsumerTest extends RequireBrokerCluster {
                 .seek(SEEK_TO, -1)
                 .build(),
         "seek value should >= 0");
+  }
+
+  @Test
+  void testResubscribeTopics() {
+    var topic = Utils.randomString(10);
+    produceData(topic, 100);
+    try (var consumer =
+        Consumer.forTopics(Set.of(topic))
+            .bootstrapServers(bootstrapServers())
+            .fromBeginning()
+            .build()) {
+      Assertions.assertNotEquals(0, consumer.poll(Duration.ofSeconds(5)).size());
+      consumer.unsubscribe();
+      Assertions.assertThrows(
+          IllegalStateException.class, () -> consumer.poll(Duration.ofSeconds(2)));
+      // unsubscribe is idempotent op
+      consumer.unsubscribe();
+      consumer.unsubscribe();
+      consumer.unsubscribe();
+
+      consumer.resubscribe();
+      Assertions.assertNotEquals(0, consumer.poll(Duration.ofSeconds(5)).size());
+
+      // resubscribe is idempotent op
+      consumer.resubscribe();
+      consumer.resubscribe();
+      consumer.resubscribe();
+    }
+  }
+
+  @Test
+  void testResubscribePartitions() {
+    var topic = Utils.randomString(10);
+    produceData(topic, 100);
+    try (var consumer =
+        Consumer.forPartitions(Set.of(TopicPartition.of(topic, 0)))
+            .bootstrapServers(bootstrapServers())
+            .fromBeginning()
+            .build()) {
+      Assertions.assertNotEquals(0, consumer.poll(Duration.ofSeconds(5)).size());
+      consumer.unsubscribe();
+      Assertions.assertThrows(
+          IllegalStateException.class, () -> consumer.poll(Duration.ofSeconds(2)));
+      // unsubscribe is idempotent op
+      consumer.unsubscribe();
+      consumer.unsubscribe();
+      consumer.unsubscribe();
+
+      consumer.resubscribe();
+      Assertions.assertNotEquals(0, consumer.poll(Duration.ofSeconds(5)).size());
+
+      // resubscribe is idempotent op
+      consumer.resubscribe();
+      consumer.resubscribe();
+      consumer.resubscribe();
+    }
+  }
+
+  @Test
+  void testCreateConsumersConcurrent() throws ExecutionException, InterruptedException {
+    var partitions = 3;
+    var topic = Utils.randomString(10);
+    try (var admin = Admin.of(bootstrapServers())) {
+      admin.creator().topic(topic).numberOfPartitions(partitions).create();
+      Utils.sleep(Duration.ofSeconds(3));
+    }
+
+    // one consume is idle
+    var groupId = Utils.randomString(10);
+    var consumers = partitions + 1;
+    var log = new ConcurrentHashMap<Integer, Integer>();
+    var closed = new AtomicBoolean(false);
+    var fs =
+        Utils.sequence(
+            IntStream.range(0, consumers)
+                .mapToObj(
+                    index ->
+                        CompletableFuture.runAsync(
+                            () -> {
+                              try (var consumer =
+                                  Consumer.forTopics(Set.of(topic))
+                                      .groupId(groupId)
+                                      .bootstrapServers(bootstrapServers())
+                                      .seek(SEEK_TO, 0)
+                                      .consumerRebalanceListener(ps -> log.put(index, ps.size()))
+                                      .build()) {
+                                while (!closed.get()) consumer.poll(Duration.ofSeconds(2));
+                              }
+                            }))
+                .collect(Collectors.toUnmodifiableList()));
+    Utils.waitFor(() -> log.size() == consumers, Duration.ofSeconds(15));
+    Utils.waitFor(
+        () -> log.values().stream().filter(ps -> ps == 0).count() == 1, Duration.ofSeconds(15));
+    closed.set(true);
+    fs.get();
+  }
+
+  @Test
+  void testHistoricalSubscription() {
+    var partitions = 3;
+    var topic = Utils.randomString(10);
+    try (var admin = Admin.of(bootstrapServers())) {
+      admin.creator().topic(topic).numberOfPartitions(partitions).create();
+      Utils.sleep(Duration.ofSeconds(3));
+    }
+
+    var groupId = Utils.randomString(10);
+    var closed = new AtomicBoolean(false);
+
+    var consumers =
+        IntStream.range(0, 2)
+            .mapToObj(
+                ignored ->
+                    Consumer.forTopics(Set.of(topic))
+                        .bootstrapServers(bootstrapServers())
+                        .groupId(groupId)
+                        .enableTrace()
+                        .build())
+            .collect(Collectors.toUnmodifiableList());
+
+    var fs =
+        Utils.sequence(
+            consumers.stream()
+                .map(
+                    c ->
+                        CompletableFuture.runAsync(
+                            () -> {
+                              try (c) {
+                                while (!closed.get()) c.poll(Duration.ofSeconds(1));
+                              }
+                            }))
+                .collect(Collectors.toUnmodifiableList()));
+
+    Utils.waitFor(() -> consumers.stream().allMatch(c -> c.historicalSubscription().size() >= 1));
+
+    // create another consumer to trigger balance
+    try (var consumer =
+        Consumer.forTopics(Set.of(topic))
+            .bootstrapServers(bootstrapServers())
+            .groupId(groupId)
+            .enableTrace()
+            .build()) {
+
+      Utils.waitFor(
+          () -> {
+            consumer.poll(Duration.ofSeconds(1));
+            return consumers.stream().allMatch(c -> c.historicalSubscription().size() > 1);
+          });
+    }
+
+    // produce data to make sure the balance get done.
+    produceData(topic, 100);
+
+    try (var consumer =
+        Consumer.forTopics(Set.of(topic))
+            .bootstrapServers(bootstrapServers())
+            .groupId(groupId)
+            .fromBeginning()
+            .build()) {
+      Utils.waitFor(() -> !consumer.poll(Duration.ofSeconds(1)).isEmpty());
+      Assertions.assertTrue(
+          consumers.stream().anyMatch(c -> c.historicalSubscription().size() > 1));
+    }
   }
 }

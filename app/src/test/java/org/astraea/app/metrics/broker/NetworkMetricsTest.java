@@ -17,8 +17,10 @@
 package org.astraea.app.metrics.broker;
 
 import org.astraea.app.metrics.MBeanClient;
+import org.astraea.app.metrics.MetricsTestUtil;
 import org.astraea.app.service.RequireSingleBrokerCluster;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
@@ -43,5 +45,12 @@ public class NetworkMetricsTest extends RequireSingleBrokerCluster {
     Assertions.assertDoesNotThrow(totalTimeMs::min);
     Assertions.assertDoesNotThrow(totalTimeMs::stdDev);
     Assertions.assertEquals(request, totalTimeMs.type());
+  }
+
+  @Test
+  void testAllEnumNameUnique() {
+    Assertions.assertTrue(
+        MetricsTestUtil.metricDistinct(
+            NetworkMetrics.Request.values(), NetworkMetrics.Request::metricName));
   }
 }

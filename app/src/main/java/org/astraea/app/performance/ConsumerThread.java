@@ -23,29 +23,23 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.kafka.common.errors.WakeupException;
 import org.astraea.app.common.Utils;
-import org.astraea.app.consumer.Consumer;
+import org.astraea.app.consumer.SubscribedConsumer;
 
 public interface ConsumerThread extends AbstractThread {
 
-  static List<ConsumerThread> create(List<Consumer<byte[], byte[]>> consumers) {
-    if (consumers.isEmpty()) return List.of();
-    var reports =
-        IntStream.range(0, consumers.size())
-            .mapToObj(ignored -> new Report())
-            .collect(Collectors.toUnmodifiableList());
+  static List<ConsumerThread> create(
+      int consumers, Supplier<SubscribedConsumer<byte[], byte[]>> consumerSupplier) {
+    if (consumers == 0) return List.of();
     var closeLatches =
-        IntStream.range(0, consumers.size())
+        IntStream.range(0, consumers)
             .mapToObj(ignored -> new CountDownLatch(1))
             .collect(Collectors.toUnmodifiableList());
-    var closeFlags =
-        IntStream.range(0, consumers.size())
-            .mapToObj(ignored -> new AtomicBoolean(false))
-            .collect(Collectors.toUnmodifiableList());
-    var executors = Executors.newFixedThreadPool(consumers.size());
+    var executors = Executors.newFixedThreadPool(consumers);
     // monitor
     CompletableFuture.runAsync(
         () -> {
@@ -56,17 +50,24 @@ public interface ConsumerThread extends AbstractThread {
             Utils.swallowException(() -> executors.awaitTermination(30, TimeUnit.SECONDS));
           }
         });
-    return IntStream.range(0, consumers.size())
+    return IntStream.range(0, consumers)
         .mapToObj(
             index -> {
-              var consumer = consumers.get(index);
-              var report = reports.get(index);
+              var consumer = consumerSupplier.get();
+              var report = new Report();
               var closeLatch = closeLatches.get(index);
-              var closed = closeFlags.get(index);
+              var closed = new AtomicBoolean(false);
+              var subscribed = new AtomicBoolean(true);
               executors.execute(
                   () -> {
                     try {
                       while (!closed.get()) {
+                        if (subscribed.get()) consumer.resubscribe();
+                        else {
+                          consumer.unsubscribe();
+                          Utils.sleep(Duration.ofSeconds(1));
+                          continue;
+                        }
                         consumer
                             .poll(Duration.ofSeconds(1))
                             .forEach(
@@ -103,6 +104,16 @@ public interface ConsumerThread extends AbstractThread {
                 }
 
                 @Override
+                public void resubscribe() {
+                  subscribed.set(true);
+                }
+
+                @Override
+                public void unsubscribe() {
+                  subscribed.set(false);
+                }
+
+                @Override
                 public Report report() {
                   return report;
                 }
@@ -117,6 +128,10 @@ public interface ConsumerThread extends AbstractThread {
             })
         .collect(Collectors.toUnmodifiableList());
   }
+
+  void resubscribe();
+
+  void unsubscribe();
 
   /** @return report of this thread */
   Report report();
