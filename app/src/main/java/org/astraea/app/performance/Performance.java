@@ -127,13 +127,14 @@ public class Performance {
     var consumerThreads =
         ConsumerThread.create(
             param.consumers,
-            () ->
+            listener ->
                 Consumer.forTopics(Set.of(param.topic))
                     .bootstrapServers(param.bootstrapServers())
                     .groupId(groupId)
                     .configs(param.configs())
                     .isolation(param.isolation())
                     .seek(latestOffsets)
+                    .consumerRebalanceListener(listener)
                     .build());
 
     var producerReports =

@@ -57,13 +57,12 @@ public interface ProducerThread extends AbstractThread {
     return IntStream.range(0, producers)
         .mapToObj(
             index -> {
-              var producer = producerSupplier.get();
               var report = new Report();
               var closeLatch = closeLatches.get(index);
               var closed = new AtomicBoolean(false);
               executors.execute(
                   () -> {
-                    try {
+                    try (var producer = producerSupplier.get()) {
                       while (!closed.get()) {
                         var data =
                             IntStream.range(0, batchSize)
@@ -105,11 +104,7 @@ public interface ProducerThread extends AbstractThread {
                                                 m.serializedValueSize() + m.serializedKeySize())));
                       }
                     } finally {
-                      try {
-                        producer.close();
-                      } finally {
-                        closeLatch.countDown();
-                      }
+                      closeLatch.countDown();
                     }
                   });
               return new ProducerThread() {
@@ -141,4 +136,6 @@ public interface ProducerThread extends AbstractThread {
 
   /** @return report of this thread */
   Report report();
+
+  class Report extends org.astraea.app.performance.Report.Impl {}
 }

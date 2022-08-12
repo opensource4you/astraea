@@ -64,8 +64,8 @@ public enum ReportFormat {
       Supplier<Boolean> consumerDone,
       Supplier<Boolean> producerDone,
       Supplier<Long> producedRecords,
-      List<Report> producerReports,
-      List<Report> consumerReports)
+      List<ProducerThread.Report> producerReports,
+      List<ConsumerThread.Report> consumerReports)
       throws IOException {
     var filePath =
         FileSystems.getDefault()
@@ -161,8 +161,8 @@ public enum ReportFormat {
       Supplier<Boolean> consumerDone,
       Supplier<Boolean> producerDone,
       Supplier<Long> producedRecords,
-      List<Report> producerReports,
-      List<Report> consumerReports) {
+      List<ProducerThread.Report> producerReports,
+      List<ConsumerThread.Report> consumerReports) {
     var result = processResult(exeTime, producerReports, consumerReports, producedRecords);
     if (producerReports.stream().mapToLong(Report::records).sum() == 0) return false;
     try {
@@ -207,8 +207,8 @@ public enum ReportFormat {
       Supplier<Boolean> consumerDone,
       Supplier<Boolean> producerDone,
       Supplier<Long> producedRecords,
-      List<Report> producerReports,
-      List<Report> consumerReports) {
+      List<ProducerThread.Report> producerReports,
+      List<ConsumerThread.Report> consumerReports) {
     var result = processResult(exeTime, producerReports, consumerReports, producedRecords);
     if (producerReports.stream().mapToLong(Report::records).sum() == 0) return false;
     try {
@@ -264,8 +264,8 @@ public enum ReportFormat {
 
   private static ProcessedResult processResult(
       ExeTime exeTime,
-      List<Report> producerReports,
-      List<Report> consumerReports,
+      List<ProducerThread.Report> producerReports,
+      List<ConsumerThread.Report> consumerReports,
       Supplier<Long> producedRecords) {
     var duration = Duration.ofMillis(System.currentTimeMillis() - System.currentTimeMillis());
     return new ProcessedResult(

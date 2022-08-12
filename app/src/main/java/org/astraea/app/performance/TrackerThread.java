@@ -28,7 +28,9 @@ import org.astraea.app.common.Utils;
 public interface TrackerThread extends AbstractThread {
 
   static TrackerThread create(
-      List<Report> producerReports, List<Report> consumerReports, ExeTime exeTime) {
+      List<ProducerThread.Report> producerReports,
+      List<ConsumerThread.Report> consumerReports,
+      ExeTime exeTime) {
     var start = System.currentTimeMillis() - Duration.ofSeconds(1).toMillis();
 
     Supplier<Boolean> logProducers =
@@ -101,13 +103,22 @@ public interface TrackerThread extends AbstractThread {
               .mapToLong(Report::min)
               .min()
               .ifPresent(i -> System.out.println("  end-to-end mim latency: " + i + " ms"));
+          consumerReports.stream()
+              .mapToLong(ConsumerThread.Report::maxSubscriptionLatency)
+              .max()
+              .ifPresent(i -> System.out.println("  subscription max latency: " + i + " ms"));
+          consumerReports.stream()
+              .mapToDouble(ConsumerThread.Report::avgSubscriptionLatency)
+              .average()
+              .ifPresent(i -> System.out.println("  subscription average latency: " + i + " ms"));
           for (int i = 0; i < consumerReports.size(); ++i) {
+            var report = consumerReports.get(i);
+            System.out.printf("  consumer[%d] has %d partitions%n", i, report.assignments().size());
             System.out.printf(
                 "  consumer[%d] average throughput: %.3f MB%n",
-                i, Utils.averageMB(duration, consumerReports.get(i).totalBytes()));
+                i, Utils.averageMB(duration, report.totalBytes()));
             System.out.printf(
-                "  consumer[%d] average ene-to-end latency: %.3f ms%n",
-                i, consumerReports.get(i).avgLatency());
+                "  consumer[%d] average ene-to-end latency: %.3f ms%n", i, report.avgLatency());
           }
           System.out.println("\n");
           // Target number of records consumed OR consumed all that produced
