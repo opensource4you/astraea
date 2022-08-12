@@ -94,18 +94,7 @@ public interface ReplicationThrottler {
   ReplicationThrottler throttle(TopicPartition topicPartition);
 
   /**
-   * Declare that the replication bandwidth for the given log should be throttled, also attempt to
-   * resolve the actual leader/follower identity of the log.
-   *
-   * <p>There are two kind of throttle target config, one for leader({@code
-   * leader.replication.throttled.replicas}) and another for follower({@code
-   * follower.replication.throttled.replicas}). For this API, only one of the configs will be
-   * updated for the given log. The config to update is determined by the identity of the given log
-   * at the calling moment of this function. The given log must be part of the replica list at the
-   * calling moment. Otherwise, an exception will be raised due to the given log having no
-   * leader/follower identity. To throttle a log that is not present at the current cluster,
-   * consider use {@link ReplicationThrottler#throttleLeader(TopicPartitionReplica)} or {@link
-   * ReplicationThrottler#throttleFollower(TopicPartitionReplica)}.
+   * Declare that the replication bandwidth for the given log should be throttled.
    *
    * <p>This API can't be used in conjunction with the wildcard throttle. An attempt to do so will
    * result in an exception.
