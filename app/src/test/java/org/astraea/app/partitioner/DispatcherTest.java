@@ -128,22 +128,7 @@ public class DispatcherTest extends RequireSingleBrokerCluster {
           .forEach(
               i -> {
                 Metadata metadata;
-                try {
-                  metadata =
-                      producer
-                          .sender()
-                          .topic(topicName)
-                          .key(key)
-                          .value(value.getBytes())
-                          .partition(i % 8)
-                          .timestamp(timestamp)
-                          .headers(List.of(header))
-                          .run()
-                          .toCompletableFuture()
-                          .get();
-                } catch (InterruptedException | ExecutionException e) {
-                  throw new RuntimeException(e);
-                }
+                metadata = producerSend(producer, topicName, key, value, timestamp, header, i % 8);
                 assertEquals(topicName, metadata.topic());
                 assertEquals(timestamp, metadata.timestamp());
                 assertNotEquals(targetPartition, metadata.partition());
@@ -153,21 +138,7 @@ public class DispatcherTest extends RequireSingleBrokerCluster {
           .forEach(
               i -> {
                 Metadata metadata;
-                try {
-                  metadata =
-                      producer
-                          .sender()
-                          .topic(topicName)
-                          .key(key)
-                          .value(value.getBytes())
-                          .timestamp(timestamp)
-                          .headers(List.of(header))
-                          .run()
-                          .toCompletableFuture()
-                          .get();
-                } catch (InterruptedException | ExecutionException e) {
-                  throw new RuntimeException(e);
-                }
+                metadata = producerSend(producer, topicName, key, value, timestamp, header);
                 assertEquals(topicName, metadata.topic());
                 assertEquals(timestamp, metadata.timestamp());
                 assertEquals(targetPartition, metadata.partition());
@@ -177,22 +148,8 @@ public class DispatcherTest extends RequireSingleBrokerCluster {
           .forEach(
               i -> {
                 Metadata metadata;
-                try {
-                  metadata =
-                      producer
-                          .sender()
-                          .topic(topicName)
-                          .key(key)
-                          .value(value.getBytes())
-                          .partition(i % 8 + 1)
-                          .timestamp(timestamp)
-                          .headers(List.of(header))
-                          .run()
-                          .toCompletableFuture()
-                          .get();
-                } catch (InterruptedException | ExecutionException e) {
-                  throw new RuntimeException(e);
-                }
+                metadata =
+                    producerSend(producer, topicName, key, value, timestamp, header, i % 8 + 1);
                 assertEquals(topicName, metadata.topic());
                 assertEquals(timestamp, metadata.timestamp());
                 assertNotEquals(0, metadata.partition());
@@ -202,21 +159,7 @@ public class DispatcherTest extends RequireSingleBrokerCluster {
           .forEach(
               i -> {
                 Metadata metadata;
-                try {
-                  metadata =
-                      producer
-                          .sender()
-                          .topic(topicName)
-                          .key(key)
-                          .value(value.getBytes())
-                          .timestamp(timestamp)
-                          .headers(List.of(header))
-                          .run()
-                          .toCompletableFuture()
-                          .get();
-                } catch (InterruptedException | ExecutionException e) {
-                  throw new RuntimeException(e);
-                }
+                metadata = producerSend(producer, topicName, key, value, timestamp, header);
                 assertEquals(topicName, metadata.topic());
                 assertEquals(timestamp, metadata.timestamp());
                 assertEquals(0, metadata.partition());
@@ -244,6 +187,54 @@ public class DispatcherTest extends RequireSingleBrokerCluster {
       var actualHeader = record.headers().iterator().next();
       assertEquals(header.key(), actualHeader.key());
       Assertions.assertArrayEquals(header.value(), actualHeader.value());
+    }
+  }
+
+  private Metadata producerSend(
+      Producer<String, byte[]> producer,
+      String topicName,
+      String key,
+      String value,
+      long timestamp,
+      Header header) {
+    try {
+      return producer
+          .sender()
+          .topic(topicName)
+          .key(key)
+          .value(value.getBytes())
+          .timestamp(timestamp)
+          .headers(List.of(header))
+          .run()
+          .toCompletableFuture()
+          .get();
+    } catch (InterruptedException | ExecutionException e) {
+      throw new RuntimeException(e);
+    }
+  }
+
+  private Metadata producerSend(
+      Producer<String, byte[]> producer,
+      String topicName,
+      String key,
+      String value,
+      long timestamp,
+      Header header,
+      int targetPartition) {
+    try {
+      return producer
+          .sender()
+          .topic(topicName)
+          .key(key)
+          .value(value.getBytes())
+          .partition(targetPartition)
+          .timestamp(timestamp)
+          .headers(List.of(header))
+          .run()
+          .toCompletableFuture()
+          .get();
+    } catch (InterruptedException | ExecutionException e) {
+      throw new RuntimeException(e);
     }
   }
 
