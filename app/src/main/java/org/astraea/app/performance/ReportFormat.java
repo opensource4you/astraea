@@ -133,7 +133,7 @@ public enum ReportFormat {
                 writer.write(
                     ",Producer["
                         + i
-                        + "] current throughput (MiB/sec), Producer["
+                        + "] bytes produced, Producer["
                         + i
                         + "] average publish latency (ms)");
               } catch (IOException ignore) {
@@ -146,7 +146,7 @@ public enum ReportFormat {
                 writer.write(
                     ",Consumer["
                         + i
-                        + "] current throughput (MiB/sec), Consumer["
+                        + "] bytes consumed, Consumer["
                         + i
                         + "] average ene-to-end latency (ms)");
               } catch (IOException ignore) {
@@ -191,7 +191,7 @@ public enum ReportFormat {
       }
       for (var r : consumerReports) {
         writer.write(
-            "," + DataSize.Byte.of((long) r.totalBytes()).measurement(DataUnit.MiB).doubleValue());
+            "," + DataSize.Byte.of(r.totalBytes()).measurement(DataUnit.MiB).doubleValue());
         writer.write("," + r.avgLatency());
       }
       writer.newLine();
