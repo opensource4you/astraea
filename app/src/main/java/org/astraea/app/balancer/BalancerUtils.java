@@ -55,7 +55,6 @@ class BalancerUtils {
    */
   public static ClusterInfo mockClusterInfoAllocation(
       ClusterInfo clusterInfo, ClusterLogAllocation allocation) {
-    // making defensive copy
     return new ClusterInfo() {
       // TODO: maybe add a field to tell if this cluster info is mocked.
 
