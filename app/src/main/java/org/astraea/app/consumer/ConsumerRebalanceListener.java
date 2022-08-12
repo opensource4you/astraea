@@ -33,11 +33,24 @@ public interface ConsumerRebalanceListener {
    */
   void onPartitionAssigned(Set<TopicPartition> partitions);
 
+  /**
+   * It is called when this consumer has to give up some partitions when running re-balance.
+   *
+   * @param partitions to give up
+   */
+  default void onPartitionsRevoked(Set<TopicPartition> partitions) {}
+
   static org.apache.kafka.clients.consumer.ConsumerRebalanceListener of(
       List<ConsumerRebalanceListener> listeners) {
     return new org.apache.kafka.clients.consumer.ConsumerRebalanceListener() {
       @Override
-      public void onPartitionsRevoked(Collection<org.apache.kafka.common.TopicPartition> ignore) {}
+      public void onPartitionsRevoked(
+          Collection<org.apache.kafka.common.TopicPartition> partitions) {
+        listeners.forEach(
+            l ->
+                l.onPartitionsRevoked(
+                    partitions.stream().map(TopicPartition::from).collect(Collectors.toSet())));
+      }
 
       @Override
       public void onPartitionsAssigned(
