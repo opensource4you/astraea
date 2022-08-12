@@ -162,7 +162,8 @@ public class Performance {
                             .map(ProducerThread::report)
                             .mapToLong(Report::records)
                             .sum(),
-                    tracker));
+                    producerReports,
+                    consumerReports));
 
     var fileWriterFuture =
         fileWriter.map(CompletableFuture::runAsync).orElse(CompletableFuture.completedFuture(null));

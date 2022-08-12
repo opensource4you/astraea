@@ -28,24 +28,16 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.kafka.common.errors.WakeupException;
 import org.astraea.app.common.Utils;
-import org.astraea.app.consumer.Consumer;
+import org.astraea.app.consumer.SubscribedConsumer;
 
 public interface ConsumerThread extends AbstractThread {
 
   static List<ConsumerThread> create(
-      int consumers, Supplier<Consumer<byte[], byte[]>> consumerSupplier) {
+      int consumers, Supplier<SubscribedConsumer<byte[], byte[]>> consumerSupplier) {
     if (consumers == 0) return List.of();
-    var reports =
-        IntStream.range(0, consumers)
-            .mapToObj(ignored -> new Report())
-            .collect(Collectors.toUnmodifiableList());
     var closeLatches =
         IntStream.range(0, consumers)
             .mapToObj(ignored -> new CountDownLatch(1))
-            .collect(Collectors.toUnmodifiableList());
-    var closeFlags =
-        IntStream.range(0, consumers)
-            .mapToObj(ignored -> new AtomicBoolean(false))
             .collect(Collectors.toUnmodifiableList());
     var executors = Executors.newFixedThreadPool(consumers);
     // monitor
@@ -62,9 +54,9 @@ public interface ConsumerThread extends AbstractThread {
         .mapToObj(
             index -> {
               var consumer = consumerSupplier.get();
-              var report = reports.get(index);
+              var report = new Report();
               var closeLatch = closeLatches.get(index);
-              var closed = closeFlags.get(index);
+              var closed = new AtomicBoolean(false);
               var subscribed = new AtomicBoolean(true);
               executors.execute(
                   () -> {
