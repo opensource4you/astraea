@@ -48,6 +48,7 @@ import org.apache.kafka.common.config.TopicConfig;
 import org.apache.kafka.common.errors.GroupNotEmptyException;
 import org.astraea.app.common.DataRate;
 import org.astraea.app.common.DataSize;
+import org.astraea.app.common.ExecutionRuntimeException;
 import org.astraea.app.common.Utils;
 import org.astraea.app.consumer.Consumer;
 import org.astraea.app.consumer.Deserializer;
@@ -986,7 +987,11 @@ public class AdminTest extends RequireBrokerCluster {
     try (var admin = Admin.of(bootstrapServers())) {
       Assertions.assertTrue(admin.consumerGroupIds().contains(groupId));
       // the static member is existent
-      Assertions.assertThrows(GroupNotEmptyException.class, () -> admin.removeGroup(groupId));
+      var astraeaExecutionRuntimeException =
+          Assertions.assertThrows(
+              ExecutionRuntimeException.class, () -> admin.removeGroup(groupId));
+      Assertions.assertEquals(
+          GroupNotEmptyException.class, astraeaExecutionRuntimeException.getRootCause().getClass());
       // cleanup members
       admin.removeAllMembers(groupId);
       admin.removeGroup(groupId);

@@ -17,6 +17,7 @@
 package org.astraea.app.performance;
 
 import com.beust.jcommander.ParameterException;
+import java.time.Duration;
 import java.util.concurrent.CountDownLatch;
 import java.util.function.BiConsumer;
 import org.astraea.app.argument.Argument;
@@ -155,5 +156,14 @@ public class PerformanceTest extends RequireBrokerCluster {
     String[] arguments14 = {"--bootstrap.servers", "localhost:9092", "--specify.broker", ""};
     Assertions.assertThrows(
         ParameterException.class, () -> Argument.parse(new Performance.Argument(), arguments14));
+  }
+
+  @Test
+  void testChaosFrequency() {
+    var args =
+        Argument.parse(
+            new Performance.Argument(),
+            new String[] {"--bootstrap.servers", "localhost:9092", "--chaos.frequency", "10s"});
+    Assertions.assertEquals(Duration.ofSeconds(10), args.chaosDuration);
   }
 }

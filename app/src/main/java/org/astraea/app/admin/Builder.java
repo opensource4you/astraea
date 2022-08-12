@@ -55,6 +55,7 @@ import org.apache.kafka.common.quota.ClientQuotaEntity;
 import org.apache.kafka.common.quota.ClientQuotaFilter;
 import org.apache.kafka.common.quota.ClientQuotaFilterComponent;
 import org.astraea.app.common.DataRate;
+import org.astraea.app.common.ExecutionRuntimeException;
 import org.astraea.app.common.Utils;
 
 public class Builder {
@@ -123,7 +124,11 @@ public class Builder {
                   .all()
                   .get();
             });
-      } catch (ElectionNotNeededException ignored) {
+      } catch (ExecutionRuntimeException executionRuntimeException) {
+        if (ElectionNotNeededException.class
+            != executionRuntimeException.getRootCause().getClass()) {
+          throw executionRuntimeException;
+        }
         // Swallow the ElectionNotNeededException.
         // This error occurred if the preferred leader of the given topic/partition is already the
         // leader. It is ok to swallow the exception since the preferred leader be the actual
@@ -566,11 +571,14 @@ public class Builder {
                   .all()
                   .get();
             });
-      } catch (IllegalArgumentException e) {
-        // Deleting all members can't work when there is no members already.
-        if (!ERROR_MSG_MEMBER_IS_EMPTY.equals(e.getMessage())) {
-          throw e;
+      } catch (ExecutionRuntimeException executionRuntimeException) {
+        var rootCause = executionRuntimeException.getRootCause();
+        if (IllegalArgumentException.class == rootCause.getClass()
+            && ERROR_MSG_MEMBER_IS_EMPTY.equals(rootCause.getMessage())) {
+          // Deleting all members can't work when there is no members already.
+          return;
         }
+        throw executionRuntimeException;
       }
     }
 
@@ -1171,7 +1179,11 @@ public class Builder {
                                 topicPartition.topic(), topicPartition.partition(), entry.getKey()),
                         Map.Entry::getValue));
         Utils.packException(() -> admin.alterReplicaLogDirs(payload).all().get());
-      } catch (ReplicaNotAvailableException ignore) {
+      } catch (ExecutionRuntimeException executionRuntimeException) {
+        if (ReplicaNotAvailableException.class
+            != executionRuntimeException.getRootCause().getClass()) {
+          throw executionRuntimeException;
+        }
         // The call is probably trying to declare the preferred data directory. Swallow the
         // exception since this is a supported operation. See the Javadoc of
         // AdminClient#alterReplicaLogDirs for details.

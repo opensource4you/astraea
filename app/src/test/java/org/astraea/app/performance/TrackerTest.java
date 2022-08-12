@@ -34,7 +34,7 @@ public class TrackerTest {
 
   @Test
   void testZeroConsumer() {
-    var producerReport = new Report();
+    var producerReport = new ProducerThread.Report();
     var tracker = TrackerThread.create(List.of(producerReport), List.of(), ExeTime.of("1records"));
     Assertions.assertFalse(tracker.closed());
     producerReport.record("topic", 1, 100, 1L, 1);
@@ -45,8 +45,8 @@ public class TrackerTest {
 
   @Test
   void testExeTime() {
-    var producerReport = new Report();
-    var consumerReport = new Report();
+    var producerReport = new ProducerThread.Report();
+    var consumerReport = new ConsumerThread.Report();
     var tracker =
         TrackerThread.create(List.of(producerReport), List.of(consumerReport), ExeTime.of("2s"));
     Assertions.assertFalse(tracker.closed());
@@ -58,8 +58,8 @@ public class TrackerTest {
 
   @Test
   void testConsumerAndProducer() {
-    var producerReport = new Report();
-    var consumerReport = new Report();
+    var producerReport = new ProducerThread.Report();
+    var consumerReport = new ConsumerThread.Report();
     var tracker =
         TrackerThread.create(
             List.of(producerReport), List.of(consumerReport), ExeTime.of("1records"));
