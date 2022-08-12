@@ -56,7 +56,6 @@ class BalancerUtils {
   public static ClusterInfo mockClusterInfoAllocation(
       ClusterInfo clusterInfo, ClusterLogAllocation allocation) {
     // making defensive copy
-    final var allocationCopy = allocation;
     return new ClusterInfo() {
       // TODO: maybe add a field to tell if this cluster info is mocked.
 
@@ -72,7 +71,7 @@ class BalancerUtils {
 
       @Override
       public Set<String> topics() {
-        return allocationCopy.topicPartitions().stream()
+        return allocation.topicPartitions().stream()
             .map(TopicPartition::topic)
             .collect(Collectors.toUnmodifiableSet());
       }
@@ -96,9 +95,9 @@ class BalancerUtils {
             nodes().stream()
                 .collect(Collectors.toUnmodifiableMap(NodeInfo::id, Function.identity()));
         var result =
-            allocationCopy.topicPartitions().stream()
+            allocation.topicPartitions().stream()
                 .filter(tp -> tp.topic().equals(topic))
-                .map(tp -> Map.entry(tp, allocationCopy.logPlacements(tp)))
+                .map(tp -> Map.entry(tp, allocation.logPlacements(tp)))
                 .flatMap(
                     entry -> {
                       var tp = entry.getKey();
@@ -125,8 +124,6 @@ class BalancerUtils {
     };
   }
 
-  // TODO: this usage will be removed someday
-  @Deprecated
   public static Thread progressWatch(String title, double totalTasks, Supplier<Double> accTasks) {
     AtomicInteger counter = new AtomicInteger();
 
@@ -188,7 +185,6 @@ class BalancerUtils {
 
   /** the lower, the better. */
   static double aggregateFunction(Map<HasClusterCost, Double> scores) {
-    scores.forEach((func, value) -> {});
     // use the simple summation result, treat every cost equally.
     return scores.values().stream().mapToDouble(x -> x).sum();
   }
