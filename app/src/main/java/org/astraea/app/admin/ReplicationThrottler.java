@@ -37,10 +37,6 @@ public interface ReplicationThrottler {
   /**
    * Maximum bandwidth for follower log broker to accept replicated data.
    *
-   * <p>For any follower broker that the throttle bandwidth is not specified in the argument Map.
-   * The value from {@link ReplicationThrottler#ingress(DataRate)} will be used. If that value is
-   * not specified either, an exception will be raised.
-   *
    * @param limitPerFollowerBroker the maximum replication traffic-in for every specified broker.
    * @return this
    */
@@ -56,10 +52,6 @@ public interface ReplicationThrottler {
 
   /**
    * Maximum bandwidth for leader log broker to transmit replicated data.
-   *
-   * <p>For any leader broker that the throttle bandwidth is not specified in the argument Map. The
-   * value from {@link ReplicationThrottler#egress(DataRate)} will be used. If that value is not
-   * specified either, an exception will be raised.
    *
    * @param limitPerLeaderBroker the maximum replication traffic-out for every specified broker.
    * @return this

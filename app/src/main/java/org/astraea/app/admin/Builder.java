@@ -31,6 +31,7 @@ import java.util.Set;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.apache.kafka.clients.admin.AdminClientConfig;
 import org.apache.kafka.clients.admin.AlterConfigOp;
 import org.apache.kafka.clients.admin.ConfigEntry;
@@ -777,6 +778,22 @@ public class Builder {
         }
 
         private void applyThrottledReplicas() {
+          // Attempt to fetch the current value of log throttle config. If the config value is
+          // empty, we have to perform an `AlterConfigOp.OpType.SET` operation instead of an
+          // `AlterConfigOp.OpType.APPEND` operation for the log throttle config. We have to do this
+          // to work around the https://github.com/apache/kafka/pull/12503 bug.
+          var configValues =
+              Utils.packException(
+                  () ->
+                      admin
+                          .describeConfigs(
+                              Stream.concat(leaders.stream(), followers.stream())
+                                  .map(TopicPartitionReplica::topic)
+                                  .map(
+                                      topic -> new ConfigResource(ConfigResource.Type.TOPIC, topic))
+                                  .collect(Collectors.toSet()))
+                          .all()
+                          .get());
           BiFunction<
                   Set<TopicPartitionReplica>,
                   String,
@@ -792,15 +809,36 @@ public class Builder {
                                   e ->
                                       new ConfigResource(
                                           ConfigResource.Type.TOPIC, String.valueOf(e.getKey())),
-                                  e ->
-                                      e.getValue().stream()
-                                          .map(
-                                              r ->
-                                                  new AlterConfigOp(
-                                                      new ConfigEntry(
-                                                          key, r.partition() + ":" + r.brokerId()),
-                                                      AlterConfigOp.OpType.APPEND))
-                                          .collect(Collectors.toUnmodifiableList())));
+                                  e -> {
+                                    var oldValue =
+                                        configValues
+                                            .get(
+                                                new ConfigResource(
+                                                    ConfigResource.Type.TOPIC,
+                                                    String.valueOf(e.getKey())))
+                                            .get(key)
+                                            .value();
+
+                                    if (oldValue.equals("*"))
+                                      throw new UnsupportedOperationException(
+                                          "This API doesn't support wildcard throttle");
+
+                                    var configValue =
+                                        e.getValue().stream()
+                                            .map(
+                                                replica ->
+                                                    replica.partition() + ":" + replica.brokerId())
+                                            .collect(Collectors.joining(","));
+                                    // work around a bug https://github.com/apache/kafka/pull/12503
+                                    var operation =
+                                        oldValue.isEmpty()
+                                            ? AlterConfigOp.OpType.SET
+                                            : AlterConfigOp.OpType.APPEND;
+                                    var entry = new ConfigEntry(key, configValue);
+                                    var alter = new AlterConfigOp(entry, operation);
+
+                                    return List.of(alter);
+                                  }));
           if (!leaders.isEmpty())
             Utils.packException(
                 () ->

@@ -1212,7 +1212,7 @@ public class AdminTest extends RequireBrokerCluster {
           .egress(DataRate.MB.of(10).perSecond())
           .throttle("MyTopic")
           .apply();
-      Utils.sleep(Duration.ofSeconds(5));
+      Utils.sleep(Duration.ofSeconds(1));
 
       // 4. trigger replication via migrator
       System.out.println("[Migration]");
