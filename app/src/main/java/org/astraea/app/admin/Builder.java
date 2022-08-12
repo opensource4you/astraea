@@ -777,7 +777,7 @@ public class Builder {
           // empty, we have to perform an `AlterConfigOp.OpType.SET` operation instead of an
           // `AlterConfigOp.OpType.APPEND` operation for the log throttle config. We have to do this
           // to work around the https://github.com/apache/kafka/pull/12503 bug.
-          // TODO: remove this work around in appropriate time. see #584
+          // TODO: remove this workaround in appropriate time. see #584
           var configValues =
               Utils.packException(
                   () ->
@@ -816,8 +816,8 @@ public class Builder {
                                             .value();
 
                                     // partition/broker based throttle setting can't be used in
-                                    // conjunction with wildcard throttle. This is the limitation in
-                                    // kafka implementation.
+                                    // conjunction with wildcard throttle. This is a limitation in
+                                    // the kafka implementation.
                                     if (oldValue.equals("*"))
                                       throw new UnsupportedOperationException(
                                           "This API doesn't support wildcard throttle");
