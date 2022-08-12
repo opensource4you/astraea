@@ -61,8 +61,8 @@ public interface ReplicationThrottler {
   /**
    * Declare that every log currently under the specified topic, its replication will be throttle.
    *
-   * <p>This API doesn't throttle any partition or replica whose create/alter in the future. It only
-   * applies to the log currently under that topic.
+   * <p>This API doesn't throttle any partitions or replicas that create/alter in the future. It
+   * only applies to the log currently under that topic.
    *
    * <p>This API can't be used in conjunction with the wildcard throttle. An attempt to do so will
    * result in an exception.
