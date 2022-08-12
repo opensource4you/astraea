@@ -269,11 +269,6 @@ public class Builder {
     }
 
     @Override
-    public org.apache.kafka.clients.admin.Admin admin() {
-      return admin;
-    }
-
-    @Override
     public Set<String> topicNames() {
       return Utils.packException(
           () -> admin.listTopics(new ListTopicsOptions().listInternal(true)).names().get());

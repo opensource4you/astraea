@@ -29,8 +29,6 @@ public interface Admin extends Closeable {
     return new Builder();
   }
 
-  org.apache.kafka.clients.admin.Admin admin();
-
   static Admin of(String bootstrapServers) {
     return builder().bootstrapServers(bootstrapServers).build();
   }
