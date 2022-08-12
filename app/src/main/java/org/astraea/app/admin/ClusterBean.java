@@ -37,34 +37,6 @@ public interface ClusterBean {
   }
 
   static ClusterBean of(Map<Integer, Collection<HasBeanObject>> allBeans) {
-    Map<TopicPartition, Collection<HasBeanObject>> beanObjectByPartition =
-        allBeans.entrySet().stream()
-            .flatMap(
-                entry ->
-                    entry.getValue().stream()
-                        .filter(
-                            x ->
-                                x.beanObject() != null
-                                    && x.beanObject().properties().containsKey("topic")
-                                    && x.beanObject().properties().containsKey("partition"))
-                        .filter(
-                            hasBeanObject ->
-                                hasBeanObject.beanObject().properties().containsKey("topic")
-                                    && hasBeanObject
-                                        .beanObject()
-                                        .properties()
-                                        .containsKey("partition"))
-                        .map(
-                            hasBeanObject -> {
-                              var properties = hasBeanObject.beanObject().properties();
-                              var topic = properties.get("topic");
-                              var partition = properties.get("partition");
-                              return Map.entry(
-                                  TopicPartition.of(topic, partition), List.of(hasBeanObject));
-                            }))
-            .collect(
-                Collectors.toMap(
-                    Map.Entry::getKey, Map.Entry::getValue, ClusterBean::compareBeanObject));
     Map<TopicPartitionReplica, Collection<HasBeanObject>> beanObjectByReplica =
         allBeans.entrySet().stream()
             .flatMap(
@@ -94,11 +66,6 @@ public interface ClusterBean {
       }
 
       @Override
-      public Map<TopicPartition, Collection<HasBeanObject>> mapByPartition() {
-        return beanObjectByPartition;
-      }
-
-      @Override
       public Map<TopicPartitionReplica, Collection<HasBeanObject>> mapByReplica() {
         return beanObjectByReplica;
       }
@@ -111,12 +78,6 @@ public interface ClusterBean {
    */
   Map<Integer, Collection<HasBeanObject>> all();
 
-  /**
-   * @return a {@link Map} collection that contains {@link TopicPartition} as key and a {@link
-   *     HasBeanObject} as value,note that this can only be used to get partition-related
-   *     beanObjects.
-   */
-  Map<TopicPartition, Collection<HasBeanObject>> mapByPartition();
 
   /**
    * @return a {@link Map} collection that contains {@link TopicPartitionReplica} as key and a
