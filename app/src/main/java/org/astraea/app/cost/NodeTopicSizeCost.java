@@ -23,7 +23,6 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.astraea.app.admin.ClusterBean;
 import org.astraea.app.admin.ClusterInfo;
-import org.astraea.app.admin.ReplicaInfo;
 import org.astraea.app.admin.TopicPartition;
 import org.astraea.app.admin.TopicPartitionReplica;
 import org.astraea.app.metrics.HasBeanObject;
@@ -60,27 +59,21 @@ public class NodeTopicSizeCost implements HasBrokerCost, HasPartitionCost {
     return new PartitionCost() {
       @Override
       public Map<TopicPartition, Double> value(String topic) {
-        var leaderPartitions =
-            clusterInfo.availableReplicas(topic).stream()
-                .filter(ReplicaInfo::isLeader)
-                .collect(
-                    Collectors.toMap(
-                        ReplicaInfo::partition, replicaInfo -> replicaInfo.nodeInfo().id()));
+        var replicas =
+            clusterInfo.availableReplicaLeaders(topic).stream()
+                .map(r -> TopicPartitionReplica.of(r.topic(), r.partition(), r.nodeInfo().id()))
+                .collect(Collectors.toUnmodifiableSet());
         return clusterBean.mapByReplica().entrySet().stream()
             .filter(
                 topicPartitionCollectionEntry ->
-                    topicPartitionCollectionEntry.getKey().topic().equals(topic)
-                        && leaderPartitions
-                            .get(topicPartitionCollectionEntry.getKey().partition())
-                            .equals(topicPartitionCollectionEntry.getKey().brokerId()))
+                    replicas.contains(topicPartitionCollectionEntry.getKey()))
             .collect(
                 Collectors.toMap(
                     topicPartitionCollectionEntry ->
                         TopicPartition.of(
                             topicPartitionCollectionEntry.getKey().topic(),
                             topicPartitionCollectionEntry.getKey().partition()),
-                    topicPartitionCollectionEntry ->
-                        toDouble.apply(topicPartitionCollectionEntry)));
+                    toDouble));
       }
 
       @Override
@@ -95,16 +88,16 @@ public class NodeTopicSizeCost implements HasBrokerCost, HasPartitionCost {
                         TopicPartition.of(
                             topicPartitionCollectionEntry.getKey().topic(),
                             topicPartitionCollectionEntry.getKey().partition()),
-                    topicPartitionCollectionEntry ->
-                        toDouble.apply(topicPartitionCollectionEntry)));
+                    toDouble));
       }
     };
   }
 
-  Function<Map.Entry<TopicPartitionReplica, Collection<HasBeanObject>>, Double> toDouble =
-      e ->
-          LogMetrics.Log.meters(e.getValue(), LogMetrics.Log.SIZE).stream()
-              .mapToDouble(HasValue::value)
-              .findAny()
-              .orElse(0.0D);
+  private final Function<Map.Entry<TopicPartitionReplica, Collection<HasBeanObject>>, Double>
+      toDouble =
+          e ->
+              LogMetrics.Log.meters(e.getValue(), LogMetrics.Log.SIZE).stream()
+                  .mapToDouble(HasValue::value)
+                  .findAny()
+                  .orElse(0.0D);
 }
