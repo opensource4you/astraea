@@ -56,13 +56,10 @@ import org.astraea.app.producer.Producer;
 import org.astraea.app.producer.Serializer;
 import org.astraea.app.service.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.condition.DisabledIfSystemProperty;
 import org.junit.jupiter.api.condition.DisabledOnOs;
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
-import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
@@ -1570,7 +1567,7 @@ public class AdminTest extends RequireBrokerCluster {
 
       // 6. assertion
       var migrationTime = ((end - start) / 1000);
-      var finishedOnTime = 18 < migrationTime && migrationTime < 23;
+      var finishedOnTime = 17 < migrationTime && migrationTime < 24;
       System.out.println("Finish Time: " + migrationTime);
       Assertions.assertTrue(
           finishedOnTime,
