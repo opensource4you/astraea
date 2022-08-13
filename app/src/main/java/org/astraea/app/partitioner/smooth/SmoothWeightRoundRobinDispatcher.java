@@ -28,7 +28,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.kafka.common.Cluster;
 import org.astraea.app.admin.ClusterBean;
@@ -109,11 +108,6 @@ public class SmoothWeightRoundRobinDispatcher extends Periodic<Map<Integer, Doub
     }
 
     return targetPartition;
-  }
-
-  @Override
-  public Function<Integer, Optional<Integer>> jmxAddress() {
-    return id -> Optional.ofNullable(jmxPorts.get(id)).or(() -> jmxPortDefault);
   }
 
   @Override

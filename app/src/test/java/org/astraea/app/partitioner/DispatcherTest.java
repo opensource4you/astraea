@@ -17,25 +17,24 @@
 package org.astraea.app.partitioner;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
 
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.security.Key;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.Cluster;
+import org.apache.kafka.common.metrics.stats.Value;
 import org.apache.kafka.common.serialization.ByteArraySerializer;
 import org.astraea.app.admin.Admin;
 import org.astraea.app.admin.ClusterInfo;
@@ -67,11 +66,6 @@ public class DispatcherTest extends RequireSingleBrokerCluster {
           }
 
           @Override
-          public Function<Integer, Optional<Integer>> jmxAddress() {
-            return null;
-          }
-
-          @Override
           public void configure(Configuration config) {
             count.incrementAndGet();
           }
@@ -92,11 +86,6 @@ public class DispatcherTest extends RequireSingleBrokerCluster {
           public int partition(String topic, byte[] key, byte[] value, ClusterInfo clusterInfo) {
             return 0;
           }
-
-          @Override
-          public Function<Integer, Optional<Integer>> jmxAddress() {
-            return null;
-          }
         };
     var initialCount = Dispatcher.CLUSTER_CACHE.size();
     var cluster = new Cluster("aa", List.of(), List.of(), Set.of(), Set.of());
@@ -115,7 +104,6 @@ public class DispatcherTest extends RequireSingleBrokerCluster {
     var value = "shanghai";
     var timestamp = System.currentTimeMillis() + 10;
     var header = Header.of("a", "b".getBytes());
-    var targetPartition = 8;
     try (var producer =
         Producer.builder()
             .keySerializer(Serializer.STRING)
@@ -128,43 +116,44 @@ public class DispatcherTest extends RequireSingleBrokerCluster {
           .forEach(
               i -> {
                 Metadata metadata;
-                metadata = producerSend(producer, topicName, key, value, timestamp, header, i % 8);
+                metadata = producerSend(producer, topicName, key, value, timestamp, header);
                 assertEquals(topicName, metadata.topic());
                 assertEquals(timestamp, metadata.timestamp());
-                assertNotEquals(targetPartition, metadata.partition());
               });
-      Dispatcher.beginInterdependent(producer.producer());
-      IntStream.range(0, 100)
+      Dispatcher.beginInterdependent(instanceOfProducer(producer));
+      var exceptPartition =
+          producerSend(producer, topicName, key, value, timestamp, header).partition();
+      IntStream.range(0, 99)
           .forEach(
               i -> {
                 Metadata metadata;
                 metadata = producerSend(producer, topicName, key, value, timestamp, header);
                 assertEquals(topicName, metadata.topic());
                 assertEquals(timestamp, metadata.timestamp());
-                assertEquals(targetPartition, metadata.partition());
+                assertEquals(exceptPartition, metadata.partition());
               });
-      Dispatcher.endInterdependent(producer.producer());
+      Dispatcher.endInterdependent(instanceOfProducer(producer));
       IntStream.range(0, 2400)
           .forEach(
               i -> {
                 Metadata metadata;
-                metadata =
-                    producerSend(producer, topicName, key, value, timestamp, header, i % 8 + 1);
+                metadata = producerSend(producer, topicName, key, value, timestamp, header);
                 assertEquals(topicName, metadata.topic());
                 assertEquals(timestamp, metadata.timestamp());
-                assertNotEquals(0, metadata.partition());
               });
-      Dispatcher.beginInterdependent(producer.producer());
-      IntStream.range(0, 100)
+      Dispatcher.beginInterdependent(instanceOfProducer(producer));
+      var exceptPartitionSec =
+          producerSend(producer, topicName, key, value, timestamp, header).partition();
+      IntStream.range(0, 99)
           .forEach(
               i -> {
                 Metadata metadata;
                 metadata = producerSend(producer, topicName, key, value, timestamp, header);
                 assertEquals(topicName, metadata.topic());
                 assertEquals(timestamp, metadata.timestamp());
-                assertEquals(0, metadata.partition());
+                assertEquals(exceptPartitionSec, metadata.partition());
               });
-      Dispatcher.endInterdependent(producer.producer());
+      Dispatcher.endInterdependent(instanceOfProducer(producer));
     }
 
     Utils.sleep(Duration.ofSeconds(1));
@@ -213,29 +202,14 @@ public class DispatcherTest extends RequireSingleBrokerCluster {
     }
   }
 
-  private Metadata producerSend(
-      Producer<String, byte[]> producer,
-      String topicName,
-      String key,
-      String value,
-      long timestamp,
-      Header header,
-      int targetPartition) {
-    try {
-      return producer
-          .sender()
-          .topic(topicName)
-          .key(key)
-          .value(value.getBytes())
-          .partition(targetPartition)
-          .timestamp(timestamp)
-          .headers(List.of(header))
-          .run()
-          .toCompletableFuture()
-          .get();
-    } catch (InterruptedException | ExecutionException e) {
-      throw new RuntimeException(e);
-    }
+  @SuppressWarnings("unchecked")
+  private org.apache.kafka.clients.producer.Producer<Key, Value> instanceOfProducer(Object object) {
+    var producer =
+        Utils.reflectionAttribute(
+            object, "org.astraea.app.producer.Builder$BaseProducer", "kafkaProducer");
+    return producer instanceof org.apache.kafka.clients.producer.Producer
+        ? (org.apache.kafka.clients.producer.Producer<Key, Value>) producer
+        : null;
   }
 
   private Properties initProConfig() {

@@ -17,25 +17,15 @@
 package org.astraea.app.partitioner;
 
 import java.security.Key;
-import java.util.Comparator;
 import java.util.Map;
-import java.util.Optional;
-import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.kafka.clients.producer.Partitioner;
 import org.apache.kafka.clients.producer.Producer;
 import org.apache.kafka.common.Cluster;
 import org.apache.kafka.common.metrics.stats.Value;
-import org.astraea.app.admin.ClusterBean;
 import org.astraea.app.admin.ClusterInfo;
-import org.astraea.app.admin.ReplicaInfo;
 import org.astraea.app.common.Utils;
-import org.astraea.app.cost.NodeTopicSizeCost;
-import org.astraea.app.metrics.MBeanClient;
-import org.astraea.app.metrics.collector.BeanCollector;
-import org.astraea.app.metrics.collector.Receiver;
 
 public interface Dispatcher extends Partitioner {
   /**
@@ -46,7 +36,7 @@ public interface Dispatcher extends Partitioner {
 
   Interdependent interdependent = new Interdependent();
 
-  NodeTopicSizeCost nodeTopicSizeCost = new NodeTopicSizeCost();
+  //  NodeTopicSizeCost nodeTopicSizeCost = new NodeTopicSizeCost();
   /**
    * Compute the partition for the given record.
    *
@@ -57,7 +47,6 @@ public interface Dispatcher extends Partitioner {
    */
   int partition(String topic, byte[] key, byte[] value, ClusterInfo clusterInfo);
 
-  Function<Integer, Optional<Integer>> jmxAddress();
   /**
    * configure this dispatcher. This method is called only once.
    *
@@ -72,9 +61,9 @@ public interface Dispatcher extends Partitioner {
    *
    * <pre>{
    * @Code
-   * Dispatch.startInterdependent();
+   * Dispatch.startInterdependent(producer);
    * producer.send();
-   * Dispatch.endInterdependent();
+   * Dispatch.endInterdependent(producer);
    * }</pre>
    *
    * Begin interdependence function.Let the next messages be interdependent.
@@ -95,15 +84,7 @@ public interface Dispatcher extends Partitioner {
   }
 
   private static Dispatcher dispatcher(Producer<Key, Value> producer) {
-    try {
-      var field = producer.getClass().getDeclaredField("partitioner");
-      field.setAccessible(true);
-      var dispatcher = (Dispatcher) field.get(producer);
-      interdependent.jmxAddress = dispatcher.jmxAddress();
-      return (Dispatcher) field.get(producer);
-    } catch (NoSuchFieldException | IllegalAccessException e) {
-      throw new RuntimeException(e);
-    }
+    return (Dispatcher) Utils.reflectionAttribute(producer, "partitioner");
   }
 
   /** close this dispatcher. This method is executed only once. */
@@ -122,8 +103,12 @@ public interface Dispatcher extends Partitioner {
   default int partition(
       String topic, Object key, byte[] keyBytes, Object value, byte[] valueBytes, Cluster cluster) {
     return interdependent.isInterdependent
-        ? interdependent.targetPartition(
-            topic, CLUSTER_CACHE.computeIfAbsent(cluster, ignored -> ClusterInfo.of(cluster)))
+        ? interdependent.interdependentPartition(
+            this,
+            topic,
+            keyBytes,
+            valueBytes,
+            CLUSTER_CACHE.computeIfAbsent(cluster, ignored -> ClusterInfo.of(cluster)))
         : partition(
             topic,
             keyBytes == null ? new byte[0] : keyBytes,
@@ -135,91 +120,52 @@ public interface Dispatcher extends Partitioner {
   default void onNewBatch(String topic, Cluster cluster, int prevPartition) {}
 
   private void begin() {
-    interdependent.isFirst = !interdependent.isInterdependent;
-    interdependent.isInterdependent = true;
+    synchronized (interdependent) {
+      interdependent.isInterdependent = true;
+    }
   }
 
   private void end() {
-    interdependent.isInterdependent = false;
-    interdependent.isFirst = false;
+    synchronized (interdependent) {
+      interdependent.isInterdependent = false;
+      interdependent.targetPartition = -1;
+    }
   }
 
   class Interdependent {
-    private final Map<Integer, Receiver> receivers = new TreeMap<>();
-    private Function<Integer, Optional<Integer>> jmxAddress;
     private boolean isInterdependent = false;
-    private boolean isFirst = false;
     private int targetPartition = -1;
 
-    int targetPartition(String topic, ClusterInfo clusterInfo) {
-      return isFirst ? bestPartition(topic, clusterInfo) : targetPartition;
+    private int interdependentPartition(
+        Dispatcher dispatcher,
+        String topic,
+        byte[] keyBytes,
+        byte[] valueBytes,
+        ClusterInfo cluster) {
+
+      return Utils.isPositive(targetPartition)
+          ? targetPartition
+          : targetPartition(
+              dispatcher,
+              topic,
+              keyBytes == null ? new byte[0] : keyBytes,
+              valueBytes == null ? new byte[0] : valueBytes,
+              cluster);
     }
 
-    int bestPartition(String topic, ClusterInfo clusterInfo) {
-      clusterInfo.availableReplicas(topic).stream()
-          .filter(p -> !receivers.containsKey(p.nodeInfo().id()))
-          .forEach(
-              p ->
-                  receivers.put(
-                      p.nodeInfo().id(),
-                      receiver(
-                          p.nodeInfo().host(),
-                          jmxAddress
-                              .apply(p.nodeInfo().id())
-                              .orElseThrow(() -> new RuntimeException("No match jmx port.")))));
-      var beans =
-          receivers.entrySet().stream()
-              .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().current()));
-      var targetBroker =
-          nodeTopicSizeCost
-              .brokerCost(clusterInfo, ClusterBean.of(beans))
-              .value()
-              .entrySet()
-              .stream()
-              .min(Comparator.comparingDouble(Map.Entry::getValue))
-              .orElse(Map.entry(0, 0.0))
-              .getKey();
-      var leaderPartitions =
-          clusterInfo.availableReplicaLeaders(topic).stream()
-              .filter(replicaInfo -> replicaInfo.nodeInfo().id() == targetBroker)
-              .map(ReplicaInfo::partition)
-              .collect(Collectors.toSet());
+    private int targetPartition(
+        Dispatcher dispatcher,
+        String topic,
+        byte[] keyBytes,
+        byte[] valueBytes,
+        ClusterInfo cluster) {
       targetPartition =
-          nodeTopicSizeCost
-              .partitionCost(clusterInfo, ClusterBean.of(beans))
-              .value(targetBroker)
-              .entrySet()
-              .stream()
-              .filter(
-                  entry ->
-                      entry.getKey().topic().equals(topic)
-                          && leaderPartitions.contains(entry.getKey().partition()))
-              .min(Comparator.comparingDouble(Map.Entry::getValue))
-              .orElseThrow(
-                  () ->
-                      new RuntimeException(
-                          "No partition score,please check that JMX metrics have been fetched."))
-              .getKey()
-              .partition();
-      close();
+          dispatcher.partition(
+              topic,
+              keyBytes == null ? new byte[0] : keyBytes,
+              valueBytes == null ? new byte[0] : valueBytes,
+              cluster);
       return targetPartition;
-    }
-
-    Receiver receiver(String host, int port) {
-      var beanCollector = BeanCollector.builder().clientCreator(MBeanClient::jndi).build();
-      return beanCollector
-          .register()
-          .host(host)
-          .port(port)
-          // TODO: handle the empty fetcher
-          .fetcher(nodeTopicSizeCost.fetcher().get())
-          .build();
-    }
-
-    private void close() {
-      receivers.values().forEach(r -> Utils.swallowException(r::close));
-      receivers.clear();
-      isFirst = false;
     }
   }
 }

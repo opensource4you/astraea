@@ -112,7 +112,7 @@ public class Builder<Key, Value> {
   public Producer<Key, Value> build() {
     // if user configs the transaction id, we should build transactional producer
     if (configs.containsKey(ProducerConfig.TRANSACTIONAL_ID_CONFIG)) return buildTransactional();
-    return new NormalProducer<>(
+    return new BaseProducer.NormalProducer<>(
         new KafkaProducer<>(
             configs,
             Serializer.of((Serializer<Key>) keySerializer),
@@ -138,11 +138,11 @@ public class Builder<Key, Value> {
             Serializer.of((Serializer<Key>) keySerializer),
             Serializer.of((Serializer<Value>) valueSerializer));
     transactionProducer.initTransactions();
-    return new TransactionalProducer<>(transactionProducer, transactionId);
+    return new BaseProducer.TransactionalProducer<>(transactionProducer, transactionId);
   }
 
   private abstract static class BaseProducer<Key, Value> implements Producer<Key, Value> {
-    protected final org.apache.kafka.clients.producer.Producer<Key, Value> kafkaProducer;
+    protected org.apache.kafka.clients.producer.Producer<Key, Value> kafkaProducer;
 
     private BaseProducer(org.apache.kafka.clients.producer.Producer<Key, Value> kafkaProducer) {
       this.kafkaProducer = kafkaProducer;
@@ -158,105 +158,97 @@ public class Builder<Key, Value> {
       kafkaProducer.close();
     }
 
-    public org.apache.kafka.clients.producer.Producer<
-            java.security.Key, org.apache.kafka.common.metrics.stats.Value>
-        producer() {
-      return (org.apache.kafka.clients.producer.Producer<
-              java.security.Key, org.apache.kafka.common.metrics.stats.Value>)
-          kafkaProducer;
-    }
-  }
+    private static class NormalProducer<Key, Value> extends BaseProducer<Key, Value> {
+      private NormalProducer(org.apache.kafka.clients.producer.Producer<Key, Value> kafkaProducer) {
+        super(kafkaProducer);
+      }
 
-  private static class NormalProducer<Key, Value> extends BaseProducer<Key, Value> {
-    private NormalProducer(org.apache.kafka.clients.producer.Producer<Key, Value> kafkaProducer) {
-      super(kafkaProducer);
-    }
+      @Override
+      public Sender<Key, Value> sender() {
+        return new AbstractSender<>() {
+          @Override
+          public CompletionStage<Metadata> run() {
+            return doSend(kafkaProducer, record());
+          }
+        };
+      }
 
-    @Override
-    public Sender<Key, Value> sender() {
-      return new AbstractSender<>() {
-        @Override
-        public CompletionStage<Metadata> run() {
-          return doSend(kafkaProducer, record());
-        }
-      };
-    }
+      @Override
+      public Collection<CompletionStage<Metadata>> send(Collection<Sender<Key, Value>> senders) {
+        return senders.stream().map(Sender::run).collect(Collectors.toUnmodifiableList());
+      }
 
-    @Override
-    public Collection<CompletionStage<Metadata>> send(Collection<Sender<Key, Value>> senders) {
-      return senders.stream().map(Sender::run).collect(Collectors.toUnmodifiableList());
-    }
-
-    @Override
-    public Optional<String> transactionId() {
-      return Optional.empty();
-    }
-  }
-
-  private static class TransactionalProducer<Key, Value> extends BaseProducer<Key, Value> {
-    private final Object lock = new Object();
-    private final String transactionId;
-
-    private TransactionalProducer(
-        org.apache.kafka.clients.producer.Producer<Key, Value> kafkaProducer,
-        String transactionId) {
-      super(kafkaProducer);
-      this.transactionId = transactionId;
-    }
-
-    @Override
-    public Sender<Key, Value> sender() {
-      return new AbstractSender<>() {
-        @Override
-        public CompletionStage<Metadata> run() {
-          return send(List.of(this)).iterator().next();
-        }
-      };
-    }
-
-    @Override
-    public Collection<CompletionStage<Metadata>> send(Collection<Sender<Key, Value>> senders) {
-      var invalidSenders =
-          senders.stream()
-              .filter(s -> !(s instanceof AbstractSender))
-              .collect(Collectors.toUnmodifiableList());
-      if (!invalidSenders.isEmpty())
-        throw new IllegalArgumentException(
-            "those senders: "
-                + invalidSenders.stream()
-                    .map(Sender::getClass)
-                    .map(Class::getName)
-                    .collect(Collectors.joining(","))
-                + " are not supported");
-      try {
-        synchronized (lock) {
-          kafkaProducer.beginTransaction();
-          var futures =
-              senders.stream()
-                  .map(s -> (AbstractSender<Key, Value>) s)
-                  .map(s -> doSend(kafkaProducer, s.record()))
-                  .collect(Collectors.toUnmodifiableList());
-          kafkaProducer.commitTransaction();
-          return futures;
-        }
-      } catch (ProducerFencedException | OutOfOrderSequenceException | AuthorizationException e) {
-        kafkaProducer.close();
-        // Error occur
-        throw e;
-      } catch (KafkaException ke) {
-        kafkaProducer.abortTransaction();
-        return send(senders);
+      @Override
+      public Optional<String> transactionId() {
+        return Optional.empty();
       }
     }
 
-    @Override
-    public boolean transactional() {
-      return true;
-    }
+    private static class TransactionalProducer<Key, Value> extends BaseProducer<Key, Value> {
+      private final Object lock = new Object();
+      private final String transactionId;
 
-    @Override
-    public Optional<String> transactionId() {
-      return Optional.of(transactionId);
+      private TransactionalProducer(
+          org.apache.kafka.clients.producer.Producer<Key, Value> kafkaProducer,
+          String transactionId) {
+        super(kafkaProducer);
+        this.transactionId = transactionId;
+      }
+
+      @Override
+      public Sender<Key, Value> sender() {
+        return new AbstractSender<>() {
+          @Override
+          public CompletionStage<Metadata> run() {
+            return send(List.of(this)).iterator().next();
+          }
+        };
+      }
+
+      @Override
+      public Collection<CompletionStage<Metadata>> send(Collection<Sender<Key, Value>> senders) {
+        var invalidSenders =
+            senders.stream()
+                .filter(s -> !(s instanceof AbstractSender))
+                .collect(Collectors.toUnmodifiableList());
+        if (!invalidSenders.isEmpty())
+          throw new IllegalArgumentException(
+              "those senders: "
+                  + invalidSenders.stream()
+                      .map(Sender::getClass)
+                      .map(Class::getName)
+                      .collect(Collectors.joining(","))
+                  + " are not supported");
+        try {
+          synchronized (lock) {
+            kafkaProducer.beginTransaction();
+            var futures =
+                senders.stream()
+                    .map(s -> (AbstractSender<Key, Value>) s)
+                    .map(s -> doSend(kafkaProducer, s.record()))
+                    .collect(Collectors.toUnmodifiableList());
+            kafkaProducer.commitTransaction();
+            return futures;
+          }
+        } catch (ProducerFencedException | OutOfOrderSequenceException | AuthorizationException e) {
+          kafkaProducer.close();
+          // Error occur
+          throw e;
+        } catch (KafkaException ke) {
+          kafkaProducer.abortTransaction();
+          return send(senders);
+        }
+      }
+
+      @Override
+      public boolean transactional() {
+        return true;
+      }
+
+      @Override
+      public Optional<String> transactionId() {
+        return Optional.of(transactionId);
+      }
     }
   }
 }

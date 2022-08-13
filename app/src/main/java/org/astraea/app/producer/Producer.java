@@ -38,10 +38,6 @@ public interface Producer<Key, Value> extends AutoCloseable {
 
   void close();
 
-  org.apache.kafka.clients.producer.Producer<
-          java.security.Key, org.apache.kafka.common.metrics.stats.Value>
-      producer();
-
   /** @return true if the producer supports transactional. */
   default boolean transactional() {
     return transactionId().isPresent();

@@ -166,6 +166,40 @@ public final class Utils {
     return value;
   }
 
+  public static boolean isPositive(int value) {
+    return value > 0;
+  }
+
+  public static Object reflectionAttribute(Object object, String attribute) {
+    try {
+      var field = object.getClass().getDeclaredField(attribute);
+      field.setAccessible(true);
+      return field.get(object);
+    } catch (NoSuchFieldException | IllegalAccessException e) {
+      throw new RuntimeException(e);
+    }
+  }
+
+  /**
+   * reflection inner class attribute
+   *
+   * @param object out class
+   * @param innerObjectName inner objectName
+   * @param attribute attribute name
+   * @return attribute
+   */
+  public static Object reflectionAttribute(
+      Object object, String innerObjectName, String attribute) {
+    try {
+      Class<?> c = Class.forName(innerObjectName);
+      var field = c.getDeclaredField(attribute);
+      field.setAccessible(true);
+      return field.get(object);
+    } catch (NoSuchFieldException | IllegalAccessException | ClassNotFoundException e) {
+      throw new RuntimeException(e);
+    }
+  }
+
   /**
    * check the content of string
    *
