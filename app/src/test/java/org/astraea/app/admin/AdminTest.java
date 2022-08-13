@@ -56,9 +56,13 @@ import org.astraea.app.producer.Producer;
 import org.astraea.app.producer.Serializer;
 import org.astraea.app.service.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.DisabledIfSystemProperty;
 import org.junit.jupiter.api.condition.DisabledOnOs;
+import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
+import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
@@ -1514,6 +1518,7 @@ public class AdminTest extends RequireBrokerCluster {
     }
   }
 
+  @EnabledIfEnvironmentVariable(named = "RunReplicationThrottler", matches = "^yes$")
   @Test
   void runReplicationThrottler() {
     try (Admin admin = Admin.of(bootstrapServers())) {
@@ -1524,11 +1529,11 @@ public class AdminTest extends RequireBrokerCluster {
       Utils.sleep(Duration.ofSeconds(1));
       admin.migrator().partition(topicName, 0).moveTo(List.of(0));
 
-      // 2. send 100 MB data
+      // 2. send 1000 MB data
       System.out.println("[Send data]");
       try (var producer = Producer.of(bootstrapServers())) {
         var bytes = new byte[1000];
-        IntStream.range(0, 100 * 1000)
+        IntStream.range(0, 200 * 1000)
             .mapToObj(i -> producer.sender().topic(topicName).value(bytes).run())
             .collect(Collectors.toUnmodifiableList())
             .forEach(i -> i.toCompletableFuture().join());
@@ -1548,7 +1553,9 @@ public class AdminTest extends RequireBrokerCluster {
       System.out.println("[Migration]");
       var start = System.currentTimeMillis();
       admin.migrator().partition(topicName, 0).moveTo(List.of(1));
-      Utils.sleep(Duration.ofMillis(300));
+      Utils.sleep(Duration.ofMillis(100));
+
+      ReplicaSyncingMonitor.main(new String[] {"--bootstrap.servers", bootstrapServers()});
 
       // 5. wait until it finished
       Utils.waitFor(
@@ -1563,7 +1570,7 @@ public class AdminTest extends RequireBrokerCluster {
 
       // 6. assertion
       var migrationTime = ((end - start) / 1000);
-      var finishedOnTime = 8 < migrationTime && migrationTime < 13;
+      var finishedOnTime = 18 < migrationTime && migrationTime < 23;
       System.out.println("Finish Time: " + migrationTime);
       Assertions.assertTrue(
           finishedOnTime,
