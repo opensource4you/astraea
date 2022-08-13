@@ -30,14 +30,6 @@ import org.astraea.app.metrics.HasBeanObject;
 public interface ClusterBean {
   ClusterBean EMPTY = ClusterBean.of(Map.of());
 
-  private static Collection<HasBeanObject> compareBeanObject(
-      Collection<HasBeanObject> x1, Collection<HasBeanObject> x2) {
-    var beanObject2 = x2.iterator().next().beanObject();
-    if (x1.stream().noneMatch(hasBeanObject -> hasBeanObject.beanObject().equals(beanObject2)))
-      return Stream.concat(x1.stream(), x2.stream()).collect(Collectors.toList());
-    return x1;
-  }
-
   static ClusterBean of(Map<Integer, Collection<HasBeanObject>> allBeans) {
     var beanObjectByReplica = new HashMap<TopicPartitionReplica, Collection<HasBeanObject>>();
     allBeans.forEach(
