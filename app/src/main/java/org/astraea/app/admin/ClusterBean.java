@@ -47,7 +47,6 @@ public interface ClusterBean {
                         .add(bean);
                   }
                 }));
-    // 61
     return new ClusterBean() {
       @Override
       public Map<Integer, Collection<HasBeanObject>> all() {
