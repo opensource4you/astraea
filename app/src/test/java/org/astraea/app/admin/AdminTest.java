@@ -32,8 +32,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.BiFunction;
-import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -56,6 +54,7 @@ import org.astraea.app.producer.Producer;
 import org.astraea.app.producer.Serializer;
 import org.astraea.app.service.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledOnOs;
@@ -1202,315 +1201,279 @@ public class AdminTest extends RequireBrokerCluster {
     }
   }
 
+  private String fetchBrokerConfig(int brokerId, String configKey) {
+    try (AdminClient adminClient =
+        AdminClient.create(
+            Map.of(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers()))) {
+      var resource = new ConfigResource(ConfigResource.Type.BROKER, String.valueOf(brokerId));
+      return Utils.packException(() -> adminClient.describeConfigs(List.of(resource)).all().get())
+          .get(resource)
+          .get(configKey)
+          .value();
+    }
+  }
+
   @Test
-  void testReplicationThrottler() {
-    // arrange
+  void testReplicationThrottler$egress$ingress$dataRate() {
+    try (Admin admin = Admin.of(bootstrapServers())) {
+      admin
+          .replicationThrottler()
+          .egress(DataRate.MiB.of(72).perSecond())
+          .ingress(DataRate.MiB.of(32).perSecond())
+          .apply();
+      Utils.sleep(Duration.ofMillis(100));
+      brokerIds()
+          .forEach(
+              id -> {
+                var leaderValue = fetchBrokerConfig(id, "leader.replication.throttled.rate");
+                var followerValue = fetchBrokerConfig(id, "follower.replication.throttled.rate");
+
+                Assertions.assertEquals(
+                    DataSize.MiB.of(72), DataSize.Byte.of(Long.parseLong(leaderValue)));
+                Assertions.assertEquals(
+                    DataSize.MiB.of(32), DataSize.Byte.of(Long.parseLong(followerValue)));
+              });
+    }
+  }
+
+  @Test
+  void testReplicationThrottler$egress$ingress$map() {
+    try (Admin admin = Admin.of(bootstrapServers())) {
+      var rate0 = DataRate.MiB.of(29).perSecond();
+      var rate1 = DataRate.MiB.of(61).perSecond();
+      var rate2 = DataRate.MiB.of(97).perSecond();
+      admin
+          .replicationThrottler()
+          .egress(rate0)
+          .ingress(rate0)
+          .egress(Map.of(1, rate1, 2, rate2))
+          .ingress(Map.of(1, rate1, 2, rate2))
+          .apply();
+      Utils.sleep(Duration.ofMillis(100));
+      Map.of(0, rate0, 1, rate1, 2, rate2)
+          .forEach(
+              (id, rate) -> {
+                var leaderValue = fetchBrokerConfig(id, "leader.replication.throttled.rate");
+                var followerValue = fetchBrokerConfig(id, "follower.replication.throttled.rate");
+
+                Assertions.assertEquals(
+                    rate.dataSize(), DataSize.Byte.of(Long.parseLong(leaderValue)));
+                Assertions.assertEquals(
+                    rate.dataSize(), DataSize.Byte.of(Long.parseLong(followerValue)));
+              });
+    }
+  }
+
+  private Set<TopicPartitionReplica> currentLeaderLogs(Admin admin, String topic) {
+    return admin.replicas(Set.of(topic)).entrySet().stream()
+        .flatMap(
+            entry ->
+                entry.getValue().stream()
+                    .filter(Replica::leader)
+                    .map(
+                        replica ->
+                            TopicPartitionReplica.of(
+                                entry.getKey().topic(),
+                                entry.getKey().partition(),
+                                replica.broker())))
+        .collect(Collectors.toUnmodifiableSet());
+  }
+
+  private Set<TopicPartitionReplica> currentFollowerLogs(Admin admin, String topic) {
+    return admin.replicas(Set.of(topic)).entrySet().stream()
+        .flatMap(
+            entry ->
+                entry.getValue().stream()
+                    .filter(replica -> !replica.leader())
+                    .map(
+                        replica ->
+                            TopicPartitionReplica.of(
+                                entry.getKey().topic(),
+                                entry.getKey().partition(),
+                                replica.broker())))
+        .collect(Collectors.toUnmodifiableSet());
+  }
+
+  @Test
+  void testReplicationThrottler$throttle$topic() {
+    try (Admin admin = Admin.of(bootstrapServers())) {
+      var topic = Utils.randomString();
+      var partitions = ThreadLocalRandom.current().nextInt(5, 20);
+      admin
+          .creator()
+          .topic(topic)
+          .numberOfPartitions(partitions)
+          .numberOfReplicas((short) 3)
+          .create();
+      Utils.sleep(Duration.ofMillis(100));
+      admin.replicationThrottler().throttle(topic).apply();
+      Utils.sleep(Duration.ofMillis(100));
+
+      Assertions.assertEquals(currentLeaderLogs(admin, topic), fetchLeaderThrottle(topic));
+      Assertions.assertEquals(currentFollowerLogs(admin, topic), fetchFollowerThrottle(topic));
+    }
+  }
+
+  @Test
+  void testReplicationThrottler$throttle$partition() {
+    try (Admin admin = Admin.of(bootstrapServers())) {
+      var topic = Utils.randomString();
+      var partitions = ThreadLocalRandom.current().nextInt(5, 20);
+      var selectedPartition = ThreadLocalRandom.current().nextInt(0, partitions);
+      admin
+          .creator()
+          .topic(topic)
+          .numberOfPartitions(partitions)
+          .numberOfReplicas((short) 3)
+          .create();
+      Utils.sleep(Duration.ofSeconds(1));
+      admin.replicationThrottler().throttle(TopicPartition.of(topic, selectedPartition)).apply();
+      Utils.sleep(Duration.ofSeconds(1));
+
+      var expectedLeaderLogs =
+          currentLeaderLogs(admin, topic).stream()
+              .filter(x -> x.partition() == selectedPartition)
+              .collect(Collectors.toUnmodifiableSet());
+      var expectedFollowerLogs =
+          currentFollowerLogs(admin, topic).stream()
+              .filter(x -> x.partition() == selectedPartition)
+              .collect(Collectors.toUnmodifiableSet());
+
+      Assertions.assertEquals(expectedLeaderLogs, fetchLeaderThrottle(topic));
+      Assertions.assertEquals(expectedFollowerLogs, fetchFollowerThrottle(topic));
+    }
+  }
+
+  @Test
+  void testReplicationThrottler$throttle$replica() {
+    try (Admin admin = Admin.of(bootstrapServers())) {
+      var topic = Utils.randomString();
+      var partitions = 20;
+      admin
+          .creator()
+          .topic(topic)
+          .numberOfPartitions(partitions)
+          .numberOfReplicas((short) 3)
+          .create();
+      Utils.sleep(Duration.ofSeconds(1));
+
+      var selectedLeader =
+          currentLeaderLogs(admin, topic).stream()
+              .sorted(Comparator.comparing(TopicPartitionReplica::hashCode))
+              .limit(10)
+              .collect(Collectors.toUnmodifiableSet());
+      var selectedFollower =
+          currentFollowerLogs(admin, topic).stream()
+              .sorted(Comparator.comparing(TopicPartitionReplica::hashCode))
+              .limit(25)
+              .collect(Collectors.toUnmodifiableSet());
+      var allTargetLog =
+          Stream.concat(selectedLeader.stream(), selectedFollower.stream())
+              .collect(Collectors.toUnmodifiableSet());
+
+      var replicationThrottler = admin.replicationThrottler();
+      allTargetLog.forEach(replicationThrottler::throttle);
+      replicationThrottler.apply();
+      Utils.sleep(Duration.ofSeconds(1));
+
+      Assertions.assertEquals(allTargetLog, fetchLeaderThrottle(topic));
+      Assertions.assertEquals(allTargetLog, fetchFollowerThrottle(topic));
+    }
+  }
+
+  @Test
+  void testReplicationThrottler$throttle$Leader$Follower() {
+    try (Admin admin = Admin.of(bootstrapServers())) {
+      var topic = Utils.randomString();
+      var partitions = 20;
+      admin
+          .creator()
+          .topic(topic)
+          .numberOfPartitions(partitions)
+          .numberOfReplicas((short) 3)
+          .create();
+      Utils.sleep(Duration.ofSeconds(1));
+
+      var selectedLeader =
+          IntStream.range(0, 10)
+              .mapToObj(
+                  i ->
+                      TopicPartitionReplica.of(
+                          topic,
+                          ThreadLocalRandom.current().nextInt(0, 20),
+                          ThreadLocalRandom.current().nextInt(0, 3)))
+              .collect(Collectors.toUnmodifiableSet());
+      var selectedFollower =
+          IntStream.range(0, 25)
+              .mapToObj(
+                  i ->
+                      TopicPartitionReplica.of(
+                          topic,
+                          ThreadLocalRandom.current().nextInt(0, 20),
+                          ThreadLocalRandom.current().nextInt(0, 3)))
+              .collect(Collectors.toUnmodifiableSet());
+
+      var replicationThrottler = admin.replicationThrottler();
+      selectedLeader.forEach(replicationThrottler::throttleLeader);
+      selectedFollower.forEach(replicationThrottler::throttleFollower);
+      replicationThrottler.apply();
+      Utils.sleep(Duration.ofSeconds(1));
+
+      Assertions.assertEquals(selectedLeader, fetchLeaderThrottle(topic));
+      Assertions.assertEquals(selectedFollower, fetchFollowerThrottle(topic));
+    }
+  }
+
+  @Test
+  @DisplayName("Append works")
+  void testReplicationThrottler$throttle$append$config() {
+    try (Admin admin = Admin.of(bootstrapServers())) {
+      var topic = Utils.randomString();
+      admin.creator().topic(topic).numberOfPartitions(3).numberOfReplicas((short) 3).create();
+      Utils.sleep(Duration.ofSeconds(1));
+
+      var log0 = TopicPartitionReplica.of(topic, 0, 0);
+      var log1 = TopicPartitionReplica.of(topic, 1, 1);
+      var log2 = TopicPartitionReplica.of(topic, 2, 2);
+
+      admin.replicationThrottler().throttle(log0).apply();
+      admin.replicationThrottler().throttle(log1).apply();
+      admin.replicationThrottler().throttle(log2).apply();
+      Assertions.assertEquals(Set.of(log0, log1, log2), fetchLeaderThrottle(topic));
+      Assertions.assertEquals(Set.of(log0, log1, log2), fetchFollowerThrottle(topic));
+    }
+  }
+
+  @Test
+  @DisplayName("The API can't be use in conjunction with wildcard throttle")
+  void testReplicationThrottler$throttle$wildcard() {
     try (AdminClient adminClient =
         AdminClient.create(
             Map.of(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers()))) {
       try (Admin admin = Admin.of(bootstrapServers())) {
-        BiFunction<Integer, String, String> fetchBrokerConfig =
-            (brokerId, configKey) -> {
-              var resource =
-                  new ConfigResource(ConfigResource.Type.BROKER, String.valueOf(brokerId));
-              return Utils.packException(
-                      () -> adminClient.describeConfigs(List.of(resource)).all().get())
-                  .get(resource)
-                  .get(configKey)
-                  .value();
-            };
+        var topic = Utils.randomString();
+        admin.creator().topic(topic).numberOfPartitions(10).numberOfReplicas((short) 3).create();
+        Utils.sleep(Duration.ofSeconds(1));
 
-        // test egress/ingress
-        Assertions.assertDoesNotThrow(
-            () -> {
-              admin
-                  .replicationThrottler()
-                  .egress(DataRate.MiB.of(72).perSecond())
-                  .ingress(DataRate.MiB.of(32).perSecond())
-                  .apply();
-              Utils.sleep(Duration.ofMillis(100));
-              brokerIds()
-                  .forEach(
-                      id -> {
-                        var leaderValue =
-                            fetchBrokerConfig.apply(id, "leader.replication.throttled.rate");
-                        var followerValue =
-                            fetchBrokerConfig.apply(id, "follower.replication.throttled.rate");
+        var configEntry0 = new ConfigEntry("leader.replication.throttled.replicas", "*");
+        var configEntry1 = new ConfigEntry("follower.replication.throttled.replicas", "*");
+        var alter0 = new AlterConfigOp(configEntry0, AlterConfigOp.OpType.SET);
+        var alter1 = new AlterConfigOp(configEntry1, AlterConfigOp.OpType.SET);
+        var configResource = new ConfigResource(ConfigResource.Type.TOPIC, topic);
+        adminClient.incrementalAlterConfigs(Map.of(configResource, List.of(alter0, alter1)));
+        Utils.sleep(Duration.ofSeconds(1));
 
-                        Assertions.assertEquals(
-                            DataSize.MiB.of(72), DataSize.Byte.of(Long.parseLong(leaderValue)));
-                        Assertions.assertEquals(
-                            DataSize.MiB.of(32), DataSize.Byte.of(Long.parseLong(followerValue)));
-                      });
-            });
-
-        // test custom egress/ingress
-        Assertions.assertDoesNotThrow(
-            () -> {
-              var rate0 = DataRate.MiB.of(29).perSecond();
-              var rate1 = DataRate.MiB.of(61).perSecond();
-              var rate2 = DataRate.MiB.of(97).perSecond();
-              admin
-                  .replicationThrottler()
-                  .egress(rate0)
-                  .ingress(rate0)
-                  .egress(Map.of(1, rate1, 2, rate2))
-                  .ingress(Map.of(1, rate1, 2, rate2))
-                  .apply();
-              Utils.sleep(Duration.ofMillis(100));
-              Map.of(0, rate0, 1, rate1, 2, rate2)
-                  .forEach(
-                      (id, rate) -> {
-                        var leaderValue =
-                            fetchBrokerConfig.apply(id, "leader.replication.throttled.rate");
-                        var followerValue =
-                            fetchBrokerConfig.apply(id, "follower.replication.throttled.rate");
-
-                        Assertions.assertEquals(
-                            rate.dataSize(), DataSize.Byte.of(Long.parseLong(leaderValue)));
-                        Assertions.assertEquals(
-                            rate.dataSize(), DataSize.Byte.of(Long.parseLong(followerValue)));
-                      });
-            });
-
-        // utilities
-        Function<String, Set<TopicPartitionReplica>> currentLeaderLogs =
-            (topic) ->
-                admin.replicas(Set.of(topic)).entrySet().stream()
-                    .flatMap(
-                        entry ->
-                            entry.getValue().stream()
-                                .filter(Replica::leader)
-                                .map(
-                                    replica ->
-                                        TopicPartitionReplica.of(
-                                            entry.getKey().topic(),
-                                            entry.getKey().partition(),
-                                            replica.broker())))
-                    .collect(Collectors.toUnmodifiableSet());
-        Function<String, Set<TopicPartitionReplica>> currentFollowerLogs =
-            (topic) ->
-                admin.replicas(Set.of(topic)).entrySet().stream()
-                    .flatMap(
-                        entry ->
-                            entry.getValue().stream()
-                                .filter(replica -> !replica.leader())
-                                .map(
-                                    replica ->
-                                        TopicPartitionReplica.of(
-                                            entry.getKey().topic(),
-                                            entry.getKey().partition(),
-                                            replica.broker())))
-                    .collect(Collectors.toUnmodifiableSet());
-        Function<String, Function<String, Set<TopicPartitionReplica>>> fetchLogThrottleConfig =
-            (configKey) ->
-                (topicName) -> {
-                  var resource = new ConfigResource(ConfigResource.Type.TOPIC, topicName);
-                  var stringValue =
-                      Utils.packException(
-                              () -> adminClient.describeConfigs(List.of(resource)).all().get())
-                          .get(resource)
-                          .get(configKey)
-                          .value();
-                  return Arrays.stream(stringValue.split(","))
-                      .map(x -> x.split(":"))
-                      .map(
-                          x ->
-                              TopicPartitionReplica.of(
-                                  topicName, Integer.parseInt(x[0]), Integer.parseInt(x[1])))
-                      .collect(Collectors.toUnmodifiableSet());
-                };
-        var fetchLeaderThrottle =
-            fetchLogThrottleConfig.apply("leader.replication.throttled.replicas");
-        var fetchFollowerThrottle =
-            fetchLogThrottleConfig.apply("follower.replication.throttled.replicas");
-
-        // test topic throttle
-        Assertions.assertDoesNotThrow(
-            () -> {
-              var topic = Utils.randomString();
-              var partitions = ThreadLocalRandom.current().nextInt(5, 20);
-              admin
-                  .creator()
-                  .topic(topic)
-                  .numberOfPartitions(partitions)
-                  .numberOfReplicas((short) 3)
-                  .create();
-              Utils.sleep(Duration.ofMillis(100));
-              admin.replicationThrottler().throttle(topic).apply();
-              Utils.sleep(Duration.ofMillis(100));
-
-              Assertions.assertEquals(
-                  currentLeaderLogs.apply(topic), fetchLeaderThrottle.apply(topic));
-              Assertions.assertEquals(
-                  currentFollowerLogs.apply(topic), fetchFollowerThrottle.apply(topic));
-            });
-
-        // test topic/partition throttle
-        Assertions.assertDoesNotThrow(
-            () -> {
-              var topic = Utils.randomString();
-              var partitions = ThreadLocalRandom.current().nextInt(5, 20);
-              var selectedPartition = ThreadLocalRandom.current().nextInt(0, partitions);
-              admin
-                  .creator()
-                  .topic(topic)
-                  .numberOfPartitions(partitions)
-                  .numberOfReplicas((short) 3)
-                  .create();
-              Utils.sleep(Duration.ofMillis(100));
-              admin
-                  .replicationThrottler()
-                  .throttle(TopicPartition.of(topic, selectedPartition))
-                  .apply();
-              Utils.sleep(Duration.ofMillis(100));
-
-              var expectedLeaderLogs =
-                  currentLeaderLogs.apply(topic).stream()
-                      .filter(x -> x.partition() == selectedPartition)
-                      .collect(Collectors.toUnmodifiableSet());
-              var expectedFollowerLogs =
-                  currentFollowerLogs.apply(topic).stream()
-                      .filter(x -> x.partition() == selectedPartition)
-                      .collect(Collectors.toUnmodifiableSet());
-
-              Assertions.assertEquals(expectedLeaderLogs, fetchLeaderThrottle.apply(topic));
-              Assertions.assertEquals(expectedFollowerLogs, fetchFollowerThrottle.apply(topic));
-            });
-
-        // test topic/partition/replica throttle
-        Assertions.assertDoesNotThrow(
-            () -> {
-              var topic = Utils.randomString();
-              var partitions = 20;
-              admin
-                  .creator()
-                  .topic(topic)
-                  .numberOfPartitions(partitions)
-                  .numberOfReplicas((short) 3)
-                  .create();
-              Utils.sleep(Duration.ofMillis(100));
-
-              var selectedLeader =
-                  currentLeaderLogs.apply(topic).stream()
-                      .sorted(Comparator.comparing(TopicPartitionReplica::hashCode))
-                      .limit(10)
-                      .collect(Collectors.toUnmodifiableSet());
-              var selectedFollower =
-                  currentFollowerLogs.apply(topic).stream()
-                      .sorted(Comparator.comparing(TopicPartitionReplica::hashCode))
-                      .limit(25)
-                      .collect(Collectors.toUnmodifiableSet());
-              var allTargetLog =
-                  Stream.concat(selectedLeader.stream(), selectedFollower.stream())
-                      .collect(Collectors.toUnmodifiableSet());
-
-              var replicationThrottler = admin.replicationThrottler();
-              allTargetLog.forEach(replicationThrottler::throttle);
-              replicationThrottler.apply();
-              Utils.sleep(Duration.ofMillis(100));
-
-              Assertions.assertEquals(allTargetLog, fetchLeaderThrottle.apply(topic));
-              Assertions.assertEquals(allTargetLog, fetchFollowerThrottle.apply(topic));
-            });
-
-        // test topic/partition/replica throttle with specified leader/follower identity
-        Assertions.assertDoesNotThrow(
-            () -> {
-              var topic = Utils.randomString();
-              var partitions = 20;
-              admin
-                  .creator()
-                  .topic(topic)
-                  .numberOfPartitions(partitions)
-                  .numberOfReplicas((short) 3)
-                  .create();
-              Utils.sleep(Duration.ofMillis(100));
-
-              var selectedLeader =
-                  IntStream.range(0, 10)
-                      .mapToObj(
-                          i ->
-                              TopicPartitionReplica.of(
-                                  topic,
-                                  ThreadLocalRandom.current().nextInt(0, 20),
-                                  ThreadLocalRandom.current().nextInt(0, 3)))
-                      .collect(Collectors.toUnmodifiableSet());
-              var selectedFollower =
-                  IntStream.range(0, 25)
-                      .mapToObj(
-                          i ->
-                              TopicPartitionReplica.of(
-                                  topic,
-                                  ThreadLocalRandom.current().nextInt(0, 20),
-                                  ThreadLocalRandom.current().nextInt(0, 3)))
-                      .collect(Collectors.toUnmodifiableSet());
-
-              var replicationThrottler = admin.replicationThrottler();
-              selectedLeader.forEach(replicationThrottler::throttleLeader);
-              selectedFollower.forEach(replicationThrottler::throttleFollower);
-              replicationThrottler.apply();
-              Utils.sleep(Duration.ofMillis(100));
-
-              Assertions.assertEquals(selectedLeader, fetchLeaderThrottle.apply(topic));
-              Assertions.assertEquals(selectedFollower, fetchFollowerThrottle.apply(topic));
-            });
-
-        // Append config works
-        Assertions.assertDoesNotThrow(
-            () -> {
-              var topic = Utils.randomString();
-              admin
-                  .creator()
-                  .topic(topic)
-                  .numberOfPartitions(3)
-                  .numberOfReplicas((short) 3)
-                  .create();
-              Utils.sleep(Duration.ofMillis(100));
-
-              var log0 = TopicPartitionReplica.of(topic, 0, 0);
-              var log1 = TopicPartitionReplica.of(topic, 1, 1);
-              var log2 = TopicPartitionReplica.of(topic, 2, 2);
-
-              admin.replicationThrottler().throttle(log0).apply();
-              admin.replicationThrottler().throttle(log1).apply();
-              admin.replicationThrottler().throttle(log2).apply();
-              Assertions.assertEquals(Set.of(log0, log1, log2), fetchLeaderThrottle.apply(topic));
-              Assertions.assertEquals(Set.of(log0, log1, log2), fetchFollowerThrottle.apply(topic));
-            });
-
-        // The API can't be use in conjunction with wildcard throttle
-        Assertions.assertDoesNotThrow(
-            () -> {
-              var topic = Utils.randomString();
-              admin
-                  .creator()
-                  .topic(topic)
-                  .numberOfPartitions(10)
-                  .numberOfReplicas((short) 3)
-                  .create();
-              Utils.sleep(Duration.ofMillis(100));
-
-              var configEntry0 = new ConfigEntry("leader.replication.throttled.replicas", "*");
-              var configEntry1 = new ConfigEntry("follower.replication.throttled.replicas", "*");
-              var alter0 = new AlterConfigOp(configEntry0, AlterConfigOp.OpType.SET);
-              var alter1 = new AlterConfigOp(configEntry1, AlterConfigOp.OpType.SET);
-              var configResource = new ConfigResource(ConfigResource.Type.TOPIC, topic);
-              adminClient.incrementalAlterConfigs(Map.of(configResource, List.of(alter0, alter1)));
-              Utils.sleep(Duration.ofMillis(100));
-
-              var topicPartition = TopicPartition.of(topic, 0);
-              var topicPartitionReplica = TopicPartitionReplica.of(topic, 0, 0);
-              Assertions.assertThrows(
-                  UnsupportedOperationException.class,
-                  () -> admin.replicationThrottler().throttle(topic).apply());
-              Assertions.assertThrows(
-                  UnsupportedOperationException.class,
-                  () -> admin.replicationThrottler().throttle(topicPartition).apply());
-              Assertions.assertThrows(
-                  UnsupportedOperationException.class,
-                  () -> admin.replicationThrottler().throttle(topicPartitionReplica).apply());
-            });
+        var topicPartition = TopicPartition.of(topic, 0);
+        var topicPartitionReplica = TopicPartitionReplica.of(topic, 0, 0);
+        Assertions.assertThrows(
+            UnsupportedOperationException.class,
+            () -> admin.replicationThrottler().throttle(topic).apply());
+        Assertions.assertThrows(
+            UnsupportedOperationException.class,
+            () -> admin.replicationThrottler().throttle(topicPartition).apply());
+        Assertions.assertThrows(
+            UnsupportedOperationException.class,
+            () -> admin.replicationThrottler().throttle(topicPartitionReplica).apply());
       }
     }
   }
@@ -1578,106 +1541,89 @@ public class AdminTest extends RequireBrokerCluster {
     }
   }
 
-  @Test
-  void testClearReplicationThrottle() {
+  private Set<TopicPartitionReplica> fetchLogThrottleConfig(String configKey, String topicName) {
     try (AdminClient adminClient =
         AdminClient.create(
             Map.of(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers()))) {
-      Function<String, Function<String, Set<TopicPartitionReplica>>> fetchLogThrottleConfig =
-          (configKey) ->
-              (topicName) -> {
-                var resource = new ConfigResource(ConfigResource.Type.TOPIC, topicName);
-                var stringValue =
-                    Utils.packException(
-                            () -> adminClient.describeConfigs(List.of(resource)).all().get())
-                        .get(resource)
-                        .get(configKey)
-                        .value();
-                if (stringValue.isEmpty()) return Set.of();
-                return Arrays.stream(stringValue.split(","))
-                    .map(x -> x.split(":"))
-                    .map(
-                        x ->
-                            TopicPartitionReplica.of(
-                                topicName, Integer.parseInt(x[0]), Integer.parseInt(x[1])))
-                    .collect(Collectors.toUnmodifiableSet());
-              };
-      var fetchLeaderThrottle =
-          fetchLogThrottleConfig.apply("leader.replication.throttled.replicas");
-      var fetchFollowerThrottle =
-          fetchLogThrottleConfig.apply("follower.replication.throttled.replicas");
-      try (Admin admin = Admin.of(bootstrapServers())) {
+      var resource = new ConfigResource(ConfigResource.Type.TOPIC, topicName);
+      var stringValue =
+          Utils.packException(() -> adminClient.describeConfigs(List.of(resource)).all().get())
+              .get(resource)
+              .get(configKey)
+              .value();
+      if (stringValue.isEmpty()) return Set.of();
+      return Arrays.stream(stringValue.split(","))
+          .map(x -> x.split(":"))
+          .map(
+              x ->
+                  TopicPartitionReplica.of(
+                      topicName, Integer.parseInt(x[0]), Integer.parseInt(x[1])))
+          .collect(Collectors.toUnmodifiableSet());
+    }
+  }
 
-        // test clear topic
-        Assertions.assertDoesNotThrow(
-            () -> {
-              var topic = Utils.randomString();
-              admin
-                  .creator()
-                  .topic(topic)
-                  .numberOfPartitions(10)
-                  .numberOfReplicas((short) 3)
-                  .create();
-              Utils.sleep(Duration.ofMillis(100));
-              admin.replicationThrottler().throttle(topic).apply();
-              Utils.sleep(Duration.ofMillis(100));
+  private Set<TopicPartitionReplica> fetchLeaderThrottle(String topicName) {
+    return fetchLogThrottleConfig("leader.replication.throttled.replicas", topicName);
+  }
 
-              admin.clearReplicationThrottle(topic);
-              Utils.sleep(Duration.ofMillis(100));
+  private Set<TopicPartitionReplica> fetchFollowerThrottle(String topicName) {
+    return fetchLogThrottleConfig("follower.replication.throttled.replicas", topicName);
+  }
 
-              Assertions.assertEquals(Set.of(), fetchLeaderThrottle.apply(topic));
-              Assertions.assertEquals(Set.of(), fetchFollowerThrottle.apply(topic));
-            });
+  @Test
+  void testClearTopicReplicationThrottle() {
+    try (Admin admin = Admin.of(bootstrapServers())) {
+      var topic = Utils.randomString();
+      admin.creator().topic(topic).numberOfPartitions(10).numberOfReplicas((short) 3).create();
+      Utils.sleep(Duration.ofSeconds(1));
+      admin.replicationThrottler().throttle(topic).apply();
+      Utils.sleep(Duration.ofSeconds(1));
 
-        // test clear partition
-        Assertions.assertDoesNotThrow(
-            () -> {
-              var topic = Utils.randomString();
-              admin
-                  .creator()
-                  .topic(topic)
-                  .numberOfPartitions(10)
-                  .numberOfReplicas((short) 3)
-                  .create();
-              Utils.sleep(Duration.ofMillis(100));
-              admin.replicationThrottler().throttle(topic).apply();
-              Utils.sleep(Duration.ofMillis(100));
+      admin.clearReplicationThrottle(topic);
+      Utils.sleep(Duration.ofSeconds(1));
 
-              admin.clearReplicationThrottle(TopicPartition.of(topic, 0));
-              Utils.sleep(Duration.ofMillis(100));
+      Assertions.assertEquals(Set.of(), fetchLeaderThrottle(topic));
+      Assertions.assertEquals(Set.of(), fetchFollowerThrottle(topic));
+    }
+  }
 
-              Assertions.assertTrue(
-                  fetchLeaderThrottle.apply(topic).stream().allMatch(log -> log.partition() != 0));
-              Assertions.assertTrue(
-                  fetchFollowerThrottle.apply(topic).stream()
-                      .allMatch(log -> log.partition() != 0));
-            });
+  @Test
+  void testClearPartitionReplicationThrottle() {
+    try (Admin admin = Admin.of(bootstrapServers())) {
+      var topic = Utils.randomString();
+      admin.creator().topic(topic).numberOfPartitions(10).numberOfReplicas((short) 3).create();
+      Utils.sleep(Duration.ofSeconds(1));
+      admin.replicationThrottler().throttle(topic).apply();
+      Utils.sleep(Duration.ofSeconds(1));
 
-        // test clear log
-        Assertions.assertDoesNotThrow(
-            () -> {
-              var topic = Utils.randomString();
-              admin
-                  .creator()
-                  .topic(topic)
-                  .numberOfPartitions(10)
-                  .numberOfReplicas((short) 3)
-                  .create();
-              Utils.sleep(Duration.ofMillis(100));
-              admin.replicationThrottler().throttle(topic).apply();
-              Utils.sleep(Duration.ofMillis(100));
+      admin.clearReplicationThrottle(TopicPartition.of(topic, 0));
+      Utils.sleep(Duration.ofSeconds(1));
 
-              admin.clearReplicationThrottle(TopicPartitionReplica.of(topic, 0, 0));
-              Utils.sleep(Duration.ofMillis(500));
+      Assertions.assertTrue(
+          fetchLeaderThrottle(topic).stream().allMatch(log -> log.partition() != 0));
+      Assertions.assertTrue(
+          fetchFollowerThrottle(topic).stream().allMatch(log -> log.partition() != 0));
+    }
+  }
 
-              Assertions.assertTrue(
-                  fetchLeaderThrottle.apply(topic).stream()
-                      .noneMatch(log -> log.partition() == 0 && log.brokerId() == 0));
-              Assertions.assertTrue(
-                  fetchFollowerThrottle.apply(topic).stream()
-                      .noneMatch(log -> log.partition() == 0 && log.brokerId() == 0));
-            });
-      }
+  @Test
+  void testClearReplicaReplicationThrottle() {
+    try (Admin admin = Admin.of(bootstrapServers())) {
+      var topic = Utils.randomString();
+      admin.creator().topic(topic).numberOfPartitions(10).numberOfReplicas((short) 3).create();
+      Utils.sleep(Duration.ofMillis(100));
+      admin.replicationThrottler().throttle(topic).apply();
+      Utils.sleep(Duration.ofMillis(100));
+
+      admin.clearReplicationThrottle(TopicPartitionReplica.of(topic, 0, 0));
+      Utils.sleep(Duration.ofMillis(500));
+
+      Assertions.assertTrue(
+          fetchLeaderThrottle(topic).stream()
+              .noneMatch(log -> log.partition() == 0 && log.brokerId() == 0));
+      Assertions.assertTrue(
+          fetchFollowerThrottle(topic).stream()
+              .noneMatch(log -> log.partition() == 0 && log.brokerId() == 0));
     }
   }
 }
