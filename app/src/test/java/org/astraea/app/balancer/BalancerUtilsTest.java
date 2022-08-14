@@ -112,14 +112,7 @@ class BalancerUtilsTest {
 
     var cf1 = new ReplicaLeaderCost();
     var cf2 = new ReplicaDiskInCost(Configuration.of(Map.of("metrics.duration", "5")));
-    var fetcher1 = cf1.fetcher().get();
-    var fetcher2 = cf2.fetcher().get();
-    var cost =
-        BalancerUtils.evaluateCost(
-            clusterInfo,
-            Map.of(fetcher1, beanObjects, fetcher2, beanObjects),
-            List.of(cf1, cf2),
-            Map.of(cf1, fetcher1, cf2, fetcher2));
+    var cost = BalancerUtils.evaluateCost(clusterInfo, Map.of(cf1, beanObjects, cf2, beanObjects));
     Assertions.assertEquals(1.3234028368582615, cost);
   }
 

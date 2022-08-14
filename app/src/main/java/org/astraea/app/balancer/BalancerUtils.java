@@ -36,7 +36,6 @@ import org.astraea.app.admin.TopicPartition;
 import org.astraea.app.balancer.log.ClusterLogAllocation;
 import org.astraea.app.cost.HasClusterCost;
 import org.astraea.app.metrics.HasBeanObject;
-import org.astraea.app.metrics.collector.Fetcher;
 
 class BalancerUtils {
 
@@ -166,15 +165,12 @@ class BalancerUtils {
 
   static double evaluateCost(
       ClusterInfo clusterInfo,
-      Map<Fetcher, Map<Integer, Collection<HasBeanObject>>> metrics,
-      List<HasClusterCost> costFunctions,
-      Map<Object, Fetcher> fetcherOwnership) {
+      Map<HasClusterCost, Map<Integer, Collection<HasBeanObject>>> metrics) {
     var scores =
-        costFunctions.stream()
+        metrics.keySet().stream()
             .map(
                 cf -> {
-                  var fetcher = fetcherOwnership.get(cf);
-                  var theMetrics = metrics.get(fetcher);
+                  var theMetrics = metrics.get(cf);
                   var clusterBean = ClusterBean.of(theMetrics);
                   return Map.entry(cf, cf.clusterCost(clusterInfo, clusterBean).value());
                 })
