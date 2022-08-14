@@ -53,7 +53,7 @@ class BalancerUtils {
    *     locked.
    * @return a {@link ClusterInfo} with its log placement replaced.
    */
-  public static ClusterInfo mockClusterInfoAllocation(
+  public static ClusterInfo mergeClusterInfoAllocation(
       ClusterInfo clusterInfo, ClusterLogAllocation allocation) {
     return new ClusterInfo() {
       // TODO: maybe add a field to tell if this cluster info is mocked.
@@ -168,7 +168,7 @@ class BalancerUtils {
       ClusterInfo clusterInfo,
       Map<Fetcher, Map<Integer, Collection<HasBeanObject>>> metrics,
       List<HasClusterCost> costFunctions,
-      Map<HasClusterCost, Fetcher> fetcherOwnership) {
+      Map<Object, Fetcher> fetcherOwnership) {
     var scores =
         costFunctions.stream()
             .map(

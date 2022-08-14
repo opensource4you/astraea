@@ -85,7 +85,7 @@ class BalancerUtilsTest {
                 Set.of(),
                 Node.noNode()));
     var cla = ClusterLogAllocation.of(Map.of(tp1, logPlacement1, tp2, logPlacement2));
-    var mockClusterInfo = BalancerUtils.mockClusterInfoAllocation(clusterInfo, cla);
+    var mockClusterInfo = BalancerUtils.mergeClusterInfoAllocation(clusterInfo, cla);
     Assertions.assertEquals(mockClusterInfo.replicas("testMockCluster").size(), 4);
     Assertions.assertEquals(mockClusterInfo.nodes().size(), 3);
     Assertions.assertEquals(mockClusterInfo.topics().size(), 1);
