@@ -17,6 +17,7 @@
 package org.astraea.app.partitioner;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 
 import java.io.File;
 import java.io.FileWriter;
@@ -121,6 +122,17 @@ public class DispatcherTest extends RequireSingleBrokerCluster {
                 assertEquals(timestamp, metadata.timestamp());
               });
       Dispatcher.beginInterdependent(instanceOfProducer(producer));
+      var producer2 =
+          Producer.builder()
+              .keySerializer(Serializer.STRING)
+              .configs(
+                  initProConfig().entrySet().stream()
+                      .collect(
+                          Collectors.toMap(
+                              e -> e.getKey().toString(), e -> e.getValue().toString())))
+              .build();
+      Dispatcher.beginInterdependent(instanceOfProducer(producer2));
+
       var exceptPartition =
           producerSend(producer, topicName, key, value, timestamp, header).partition();
       IntStream.range(0, 99)
@@ -128,9 +140,11 @@ public class DispatcherTest extends RequireSingleBrokerCluster {
               i -> {
                 Metadata metadata;
                 metadata = producerSend(producer, topicName, key, value, timestamp, header);
+                var metadata2 = producerSend(producer2, topicName, key, value, timestamp, header);
                 assertEquals(topicName, metadata.topic());
                 assertEquals(timestamp, metadata.timestamp());
                 assertEquals(exceptPartition, metadata.partition());
+                assertEquals(metadata2.partition(), metadata.partition());
               });
       Dispatcher.endInterdependent(instanceOfProducer(producer));
       IntStream.range(0, 2400)
@@ -179,6 +193,61 @@ public class DispatcherTest extends RequireSingleBrokerCluster {
     }
   }
 
+  @Test
+  void multipleProducers() {
+    var admin = Admin.of(bootstrapServers());
+    var topicName = "address";
+    admin.creator().topic(topicName).numberOfPartitions(9).create();
+    var key = "tainan";
+    var value = "shanghai";
+    var timestamp = System.currentTimeMillis() + 10;
+    var header = Header.of("a", "b".getBytes());
+    try (var producer =
+        Producer.builder()
+            .keySerializer(Serializer.STRING)
+            .configs(
+                initProConfig().entrySet().stream()
+                    .collect(
+                        Collectors.toMap(e -> e.getKey().toString(), e -> e.getValue().toString())))
+            .build()) {
+      IntStream.range(0, 240)
+          .forEach(
+              i -> {
+                Metadata metadata;
+                metadata = producerSend(producer, topicName, key, value, timestamp, header);
+                assertEquals(topicName, metadata.topic());
+                assertEquals(timestamp, metadata.timestamp());
+              });
+      Dispatcher.beginInterdependent(instanceOfProducer(producer));
+      var producer2 =
+          Producer.builder()
+              .keySerializer(Serializer.STRING)
+              .configs(
+                  initProConfig().entrySet().stream()
+                      .collect(
+                          Collectors.toMap(
+                              e -> e.getKey().toString(), e -> e.getValue().toString())))
+              .build();
+      Dispatcher.beginInterdependent(instanceOfProducer(producer2));
+
+      var exceptPartition =
+          producerSend(producer, topicName, key, value, timestamp, header).partition();
+      IntStream.range(0, 99)
+          .forEach(
+              i -> {
+                Metadata metadata;
+                metadata = producerSend(producer, topicName, key, value, timestamp, header);
+                var metadata2 = producerSend(producer2, topicName, key, value, timestamp, header);
+                assertEquals(topicName, metadata.topic());
+                assertEquals(timestamp, metadata.timestamp());
+                assertEquals(exceptPartition, metadata.partition());
+                assertNotEquals(metadata2.partition(), metadata.partition());
+              });
+      Dispatcher.endInterdependent(instanceOfProducer(producer));
+      producer2.close();
+    }
+  }
+
   private Metadata producerSend(
       Producer<String, byte[]> producer,
       String topicName,
@@ -204,9 +273,7 @@ public class DispatcherTest extends RequireSingleBrokerCluster {
 
   @SuppressWarnings("unchecked")
   private org.apache.kafka.clients.producer.Producer<Key, Value> instanceOfProducer(Object object) {
-    var producer =
-        Utils.reflectionAttribute(
-            object, "org.astraea.app.producer.Builder$BaseProducer", "kafkaProducer");
+    var producer = Utils.reflectionAttribute(object, "kafkaProducer");
     return producer instanceof org.apache.kafka.clients.producer.Producer
         ? (org.apache.kafka.clients.producer.Producer<Key, Value>) producer
         : null;

@@ -170,34 +170,27 @@ public final class Utils {
     return value > 0;
   }
 
-  public static Object reflectionAttribute(Object object, String attribute) {
-    try {
-      var field = object.getClass().getDeclaredField(attribute);
-      field.setAccessible(true);
-      return field.get(object);
-    } catch (NoSuchFieldException | IllegalAccessException e) {
-      throw new RuntimeException(e);
-    }
-  }
-
   /**
-   * reflection inner class attribute
+   * reflection class attribute
    *
-   * @param object out class
-   * @param innerObjectName inner objectName
+   * @param object object
    * @param attribute attribute name
    * @return attribute
    */
-  public static Object reflectionAttribute(
-      Object object, String innerObjectName, String attribute) {
-    try {
-      Class<?> c = Class.forName(innerObjectName);
-      var field = c.getDeclaredField(attribute);
-      field.setAccessible(true);
-      return field.get(object);
-    } catch (NoSuchFieldException | IllegalAccessException | ClassNotFoundException e) {
-      throw new RuntimeException(e);
-    }
+  public static Object reflectionAttribute(Object object, String attribute) {
+    var clz = object.getClass();
+    do {
+      try {
+        var field = clz.getDeclaredField(attribute);
+        field.setAccessible(true);
+        return field.get(object);
+      } catch (NoSuchFieldException e) {
+        clz = clz.getSuperclass();
+      } catch (IllegalAccessException e) {
+        throw new RuntimeException(e);
+      }
+    } while (clz != null);
+    throw new RuntimeException(attribute + " is not existent in " + object.getClass().getName());
   }
 
   /**

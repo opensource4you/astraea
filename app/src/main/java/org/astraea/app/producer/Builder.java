@@ -142,7 +142,7 @@ public class Builder<Key, Value> {
   }
 
   private abstract static class BaseProducer<Key, Value> implements Producer<Key, Value> {
-    protected org.apache.kafka.clients.producer.Producer<Key, Value> kafkaProducer;
+    protected final org.apache.kafka.clients.producer.Producer<Key, Value> kafkaProducer;
 
     private BaseProducer(org.apache.kafka.clients.producer.Producer<Key, Value> kafkaProducer) {
       this.kafkaProducer = kafkaProducer;

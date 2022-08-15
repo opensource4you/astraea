@@ -34,7 +34,7 @@ public interface Dispatcher extends Partitioner {
    */
   ConcurrentHashMap<Cluster, ClusterInfo> CLUSTER_CACHE = new ConcurrentHashMap<>();
 
-  Interdependent interdependent = new Interdependent();
+  Interdependent INTERDEPENDENT = new Interdependent();
 
   //  NodeTopicSizeCost nodeTopicSizeCost = new NodeTopicSizeCost();
   /**
@@ -71,7 +71,8 @@ public interface Dispatcher extends Partitioner {
    * @param producer Kafka producer
    */
   static void beginInterdependent(Producer<Key, Value> producer) {
-    dispatcher(producer).begin();
+    var dispatcher = dispatcher(producer);
+    dispatcher.begin(dispatcher);
   }
 
   /**
@@ -80,11 +81,15 @@ public interface Dispatcher extends Partitioner {
    * @param producer Kafka producer
    */
   static void endInterdependent(Producer<Key, Value> producer) {
-    dispatcher(producer).end();
+    var dispatcher = dispatcher(producer);
+    dispatcher.end(dispatcher);
   }
 
   private static Dispatcher dispatcher(Producer<Key, Value> producer) {
-    return (Dispatcher) Utils.reflectionAttribute(producer, "partitioner");
+    var dispatcher = Utils.reflectionAttribute(producer, "partitioner");
+    if (!(dispatcher instanceof Dispatcher))
+      throw new RuntimeException(dispatcher.getClass().getName() + "is not Astraea dispatcher.");
+    return (Dispatcher) dispatcher;
   }
 
   /** close this dispatcher. This method is executed only once. */
@@ -102,8 +107,9 @@ public interface Dispatcher extends Partitioner {
   @Override
   default int partition(
       String topic, Object key, byte[] keyBytes, Object value, byte[] valueBytes, Cluster cluster) {
-    return interdependent.isInterdependent
-        ? interdependent.interdependentPartition(
+    this.hashCode();
+    return INTERDEPENDENT.isInterdependent
+        ? INTERDEPENDENT.interdependentPartition(
             this,
             topic,
             keyBytes,
@@ -119,22 +125,23 @@ public interface Dispatcher extends Partitioner {
   @Override
   default void onNewBatch(String topic, Cluster cluster, int prevPartition) {}
 
-  private void begin() {
-    synchronized (interdependent) {
-      interdependent.isInterdependent = true;
+  private void begin(Dispatcher dispatcher) {
+    synchronized (INTERDEPENDENT) {
+      INTERDEPENDENT.targetPartitions.putIfAbsent(dispatcher.hashCode(), -1);
+      INTERDEPENDENT.isInterdependent = true;
     }
   }
 
-  private void end() {
-    synchronized (interdependent) {
-      interdependent.isInterdependent = false;
-      interdependent.targetPartition = -1;
+  private void end(Dispatcher dispatcher) {
+    synchronized (INTERDEPENDENT) {
+      INTERDEPENDENT.isInterdependent = false;
+      INTERDEPENDENT.targetPartitions.replace(dispatcher.hashCode(), -1);
     }
   }
 
   class Interdependent {
     private boolean isInterdependent = false;
-    private int targetPartition = -1;
+    private final Map<Integer, Integer> targetPartitions = new ConcurrentHashMap<>();
 
     private int interdependentPartition(
         Dispatcher dispatcher,
@@ -142,7 +149,7 @@ public interface Dispatcher extends Partitioner {
         byte[] keyBytes,
         byte[] valueBytes,
         ClusterInfo cluster) {
-
+      var targetPartition = targetPartitions.get(dispatcher.hashCode());
       return Utils.isPositive(targetPartition)
           ? targetPartition
           : targetPartition(
@@ -159,13 +166,17 @@ public interface Dispatcher extends Partitioner {
         byte[] keyBytes,
         byte[] valueBytes,
         ClusterInfo cluster) {
-      targetPartition =
+      var targetPartition =
           dispatcher.partition(
               topic,
               keyBytes == null ? new byte[0] : keyBytes,
               valueBytes == null ? new byte[0] : valueBytes,
               cluster);
-      return targetPartition;
+      synchronized (targetPartitions) {
+        if (targetPartitions.get(dispatcher.hashCode()) == -1)
+          targetPartitions.replace(dispatcher.hashCode(), targetPartition);
+      }
+      return targetPartitions.get(dispatcher.hashCode());
     }
   }
 }

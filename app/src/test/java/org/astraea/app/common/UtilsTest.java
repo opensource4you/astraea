@@ -137,4 +137,21 @@ public class UtilsTest {
                   throw new IllegalArgumentException();
                 }));
   }
+
+  @Test
+  void testReflectionAttribute() {
+    InheritanceClass inheritance = new InheritanceClass();
+    Assertions.assertEquals(Utils.reflectionAttribute(inheritance, "superAttribute"), 1);
+    Assertions.assertEquals(Utils.reflectionAttribute(inheritance, "attribute"), 0);
+    Assertions.assertThrows(
+        RuntimeException.class, () -> Utils.reflectionAttribute(inheritance, "boom"));
+  }
+
+  private abstract class SuperClass {
+    private final int superAttribute = 1;
+  }
+
+  private class InheritanceClass extends SuperClass {
+    private final int attribute = 0;
+  }
 }
