@@ -84,4 +84,84 @@ public class ControllerMetrics {
       }
     }
   }
+
+  public enum ControllerState {
+    UNCLEAN_LEADER_ELECTION_ENABLE_RATE_AND_TIME_MS("UncleanLeaderElectionEnableRateAndTimeMs"),
+    TOPIC_DELETION_RATE_AND_TIME_MS("TopicDeletionRateAndTimeMs"),
+    LIST_PARTITION_REASSIGNMENT_RATE_AND_TIME_MS("ListPartitionReassignmentRateAndTimeMs"),
+    TOPIC_CHANGE_RATE_AND_TIME_MS("TopicChangeRateAndTimeMs"),
+    UPDATE_FEATURES_RATE_AND_TIME_MS("UpdateFeaturesRateAndTimeMs"),
+    ISR_CHANGE_RATE_AND_TIME_MS("IsrChangeRateAndTimeMs"),
+    CONTROLLED_SHUTDOWN_RATE_AND_TIME_MS("ControlledShutdownRateAndTimeMs"),
+    PARTITION_REASSIGNMENT_RATE_AND_TIME_MS("PartitionReassignmentRateAndTimeMs"),
+    LEADER_AND_ISR_RESPONSE_RECEIVED_RATE_AND_TIME_MS("LeaderAndIsrResponseReceivedRateAndTimeMs"),
+    MANUAL_LEADER_BALANCE_RATE_AND_TIME_MS("ManualLeaderBalanceRateAndTimeMs"),
+    LEADER_ELECTION_RATE_AND_TIME_MS("LeaderElectionRateAndTimeMs"),
+    CONTROLLER_CHANGE_RATE_AND_TIME_MS("ControllerChangeRateAndTimeMs"),
+    LOG_DIR_CHANGE_RATE_AND_TIME_MS("LogDirChangeRateAndTimeMs"),
+    TOPIC_UNCLEAN_LEADER_ELECTION_ENABLE_RATE_AND_TIME_MS(
+        "TopicUncleanLeaderElectionEnableRateAndTimeMs"),
+    AUTO_LEADER_BALANCE_RATE_AND_TIME_MS("AutoLeaderBalanceRateAndTimeMs"),
+    CONTROLLER_SHUTDOWN_RATE_AND_TIME_MS("ControllerShutdownRateAndTimeMs");
+
+    private static final String UNCLEAN_LEADER_ELECTIONS_PER_SEC = "UncleanLeaderElectionsPerSec";
+
+    static ControllerState of(String metricName) {
+      return Arrays.stream(ControllerState.values())
+          .filter(metric -> metric.metricName().equalsIgnoreCase(metricName))
+          .findFirst()
+          .orElseThrow(() -> new IllegalArgumentException("No such metric: " + metricName));
+    }
+
+    private final String metricName;
+
+    ControllerState(String metricName) {
+      this.metricName = metricName;
+    }
+
+    public String metricName() {
+      return metricName;
+    }
+
+    public static IsMeter getUncleanLeaderElectionsPerSec(MBeanClient mBeanClient) {
+      return IsMeter.of(
+          mBeanClient.queryBean(
+              BeanQuery.builder()
+                  .domainName("kafka.controller")
+                  .property("type", "ControllerStats")
+                  .property("name", UNCLEAN_LEADER_ELECTIONS_PER_SEC)
+                  .build()));
+    }
+
+    public Timer fetch(MBeanClient mBeanClient) {
+      return new Timer(
+          mBeanClient.queryBean(
+              BeanQuery.builder()
+                  .domainName("kafka.controller")
+                  .property("type", "ControllerStats")
+                  .property("name", this.metricName())
+                  .build()));
+    }
+
+    public static class Timer implements IsTimer {
+      private final BeanObject beanObject;
+
+      public Timer(BeanObject beanObject) {
+        this.beanObject = beanObject;
+      }
+
+      public String metricsName() {
+        return beanObject().properties().get("name");
+      }
+
+      public ControllerState type() {
+        return ControllerState.of(metricsName());
+      }
+
+      @Override
+      public BeanObject beanObject() {
+        return beanObject;
+      }
+    }
+  }
 }

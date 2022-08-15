@@ -185,7 +185,7 @@ public final class ServerMetrics {
           .orElseThrow(() -> new IllegalArgumentException("No such metric: " + metricName));
     }
 
-    public static class Meter implements HasCount, HasEventType, HasRate {
+    public static class Meter implements IsMeter {
 
       private final BeanObject beanObject;
 

@@ -38,6 +38,20 @@ class ControllerMetricsTest extends RequireSingleBrokerCluster {
     Assertions.assertEquals(controller, meter.type());
   }
 
+  @ParameterizedTest
+  @EnumSource(ControllerMetrics.ControllerState.class)
+  void testControllerState(ControllerMetrics.ControllerState controllerState) {
+    var timer = controllerState.fetch(MBeanClient.local());
+    MetricsTestUtil.testTimer(timer);
+  }
+
+  @Test
+  void testControllerStateNonEnum() {
+    var isMeter =
+        ControllerMetrics.ControllerState.getUncleanLeaderElectionsPerSec(MBeanClient.local());
+    MetricsTestUtil.testMeter(isMeter);
+  }
+
   @Test
   void testKafkaMetricsOf() {
     Arrays.stream(ControllerMetrics.Controller.values())
@@ -57,5 +71,10 @@ class ControllerMetricsTest extends RequireSingleBrokerCluster {
     Assertions.assertTrue(
         MetricsTestUtil.metricDistinct(
             ControllerMetrics.Controller.values(), ControllerMetrics.Controller::metricName));
+
+    Assertions.assertTrue(
+        MetricsTestUtil.metricDistinct(
+            ControllerMetrics.ControllerState.values(),
+            ControllerMetrics.ControllerState::metricName));
   }
 }
