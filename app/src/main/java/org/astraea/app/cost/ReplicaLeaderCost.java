@@ -28,7 +28,8 @@ import org.astraea.app.metrics.broker.ServerMetrics;
 import org.astraea.app.metrics.collector.Fetcher;
 
 /** more replica leaders -> higher cost */
-public class ReplicaLeaderCost implements HasBrokerCost {
+public class ReplicaLeaderCost implements HasBrokerCost, HasClusterCost {
+  private final Dispersion dispersion = Dispersion.correlationCoefficient();
 
   @Override
   public BrokerCost brokerCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
@@ -36,6 +37,12 @@ public class ReplicaLeaderCost implements HasBrokerCost {
         leaderCount(clusterInfo, clusterBean).entrySet().stream()
             .collect(Collectors.toMap(Map.Entry::getKey, e -> (double) e.getValue()));
     return () -> result;
+  }
+
+  @Override
+  public ClusterCost clusterCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
+    var brokerScore = brokerCost(clusterInfo, clusterBean).value();
+    return () -> dispersion.calculate(brokerScore.values());
   }
 
   Map<Integer, Integer> leaderCount(ClusterInfo ignored, ClusterBean clusterBean) {

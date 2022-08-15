@@ -41,7 +41,7 @@ public class TrackerTest {
 
   @Test
   void testZeroConsumer() {
-    var producerReport = new Report();
+    var producerReport = new ProducerThread.Report();
     var mockReceiver = Mockito.mock(Receiver.class);
     var tracker =
         TrackerThread.create(
@@ -55,8 +55,8 @@ public class TrackerTest {
 
   @Test
   void testExeTime() {
-    var producerReport = new Report();
-    var consumerReport = new Report();
+    var producerReport = new ProducerThread.Report();
+    var consumerReport = new ConsumerThread.Report();
     var mockReceiver = Mockito.mock(Receiver.class);
     var tracker =
         TrackerThread.create(
@@ -74,8 +74,8 @@ public class TrackerTest {
 
   @Test
   void testConsumerAndProducer() {
-    var producerReport = new Report();
-    var consumerReport = new Report();
+    var producerReport = new ProducerThread.Report();
+    var consumerReport = new ConsumerThread.Report();
     var mockReceiver = Mockito.mock(Receiver.class);
     var tracker =
         TrackerThread.create(

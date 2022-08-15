@@ -18,13 +18,11 @@ package org.astraea.app.cost;
 
 import java.time.Duration;
 import java.util.Comparator;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import org.astraea.app.admin.ClusterBean;
 import org.astraea.app.admin.ClusterInfo;
-import org.astraea.app.admin.NodeInfo;
 import org.astraea.app.admin.TopicPartition;
 import org.astraea.app.admin.TopicPartitionReplica;
 import org.astraea.app.metrics.HasBeanObject;
@@ -37,8 +35,10 @@ import org.astraea.app.partitioner.Configuration;
  * responds to the replica log size of brokers. The calculation method of the score is the rate of
  * increase of log size per unit time divided by the upper limit of broker bandwidth.
  */
-public class ReplicaDiskInCost implements HasBrokerCost, HasPartitionCost {
+public class ReplicaDiskInCost implements HasClusterCost, HasBrokerCost, HasPartitionCost {
   private final Duration duration;
+  private final Dispersion dispersion = Dispersion.correlationCoefficient();
+  static final double OVERFLOW_SCORE = 9999.0;
 
   public ReplicaDiskInCost(Configuration configuration) {
     duration =
@@ -46,39 +46,27 @@ public class ReplicaDiskInCost implements HasBrokerCost, HasPartitionCost {
   }
 
   @Override
+  public ClusterCost clusterCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
+    var brokerCost = brokerCost(clusterInfo, clusterBean).value();
+    // when retention occur, brokerCost will be set to -1 , and return a big score to reject this
+    // plan.
+    if (brokerCost.containsValue(-1.0)) return () -> OVERFLOW_SCORE;
+    return () -> dispersion.calculate(brokerCost.values());
+  }
+
+  @Override
   public BrokerCost brokerCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
-    final Map<Integer, List<TopicPartitionReplica>> topicPartitionOfEachBroker =
-        clusterInfo.topics().stream()
-            .flatMap(topic -> clusterInfo.replicas(topic).stream())
-            .map(
-                replica ->
-                    TopicPartitionReplica.of(
-                        replica.topic(), replica.partition(), replica.nodeInfo().id()))
-            .collect(Collectors.groupingBy(TopicPartitionReplica::brokerId));
-    final var actual =
+    var partitionCost = partitionCost(clusterInfo, clusterBean);
+    var brokerLoad =
         clusterInfo.nodes().stream()
-            .collect(
-                Collectors.toUnmodifiableMap(
-                    NodeInfo::id,
-                    node -> topicPartitionOfEachBroker.getOrDefault(node.id(), List.of())));
-
-    final var topicPartitionDataRate = topicPartitionDataRate(clusterBean, duration);
-
-    final var brokerLoad =
-        actual.entrySet().stream()
             .map(
-                entry ->
+                node ->
                     Map.entry(
-                        entry.getKey(),
-                        entry.getValue().stream()
-                            .mapToDouble(
-                                x ->
-                                    topicPartitionDataRate.get(
-                                        TopicPartition.of(x.topic(), x.partition())))
+                        node.id(),
+                        partitionCost.value(node.id()).values().stream()
+                            .mapToDouble(rate -> rate)
                             .sum()))
-            .map(entry -> Map.entry(entry.getKey(), entry.getValue()))
             .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-
     return () -> brokerLoad;
   }
 
@@ -140,7 +128,24 @@ public class ReplicaDiskInCost implements HasBrokerCost, HasPartitionCost {
                                 Collectors.toUnmodifiableMap(
                                     Map.Entry::getKey, Map.Entry::getValue))))
             .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));
+    // when retention occur, set all partitionScore to -1.
+    if (replicaIn.containsValue(-1.0)) {
+      return new PartitionCost() {
+        @Override
+        public Map<TopicPartition, Double> value(String topic) {
+          return scoreForTopic.get(topic).keySet().stream()
+              .map(x -> Map.entry(x, -1.0))
+              .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+        }
 
+        @Override
+        public Map<TopicPartition, Double> value(int brokerId) {
+          return scoreForBroker.get(brokerId).keySet().stream()
+              .map(x -> Map.entry(x, -1.0))
+              .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+        }
+      };
+    }
     return new PartitionCost() {
       @Override
       public Map<TopicPartition, Double> value(String topic) {
@@ -168,17 +173,6 @@ public class ReplicaDiskInCost implements HasBrokerCost, HasPartitionCost {
    *     doesn't have the sufficient old metric then an exception will likely be thrown.
    * @return a map contain the maximum increase rate of each topic/partition log
    */
-  public static Map<TopicPartition, Double> topicPartitionDataRate(
-      ClusterBean clusterBean, Duration sampleWindow) {
-    return replicaDataRate(clusterBean, sampleWindow).entrySet().stream()
-        .map(
-            x -> {
-              var tpr = x.getKey();
-              return Map.entry(TopicPartition.of(tpr.topic(), tpr.partition()), x.getValue());
-            })
-        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue, (x1, x2) -> x1));
-  }
-
   public static Map<TopicPartitionReplica, Double> replicaDataRate(
       ClusterBean clusterBean, Duration sampleWindow) {
     return clusterBean.mapByReplica().entrySet().parallelStream()
@@ -207,6 +201,8 @@ public class ReplicaDiskInCost implements HasBrokerCost, HasPartitionCost {
                       / 1024.0
                       / ((double) (latestSize.createdTimestamp() - windowSize.createdTimestamp())
                           / 1000);
+              // when retention occur, set all data rate to -1.
+              if (dataRate < 0) dataRate = -1.0;
               return Map.entry(metrics.getKey(), dataRate);
             })
         .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));

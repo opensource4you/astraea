@@ -14,38 +14,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.app.performance;
+package org.astraea.app.cost;
 
-import java.util.Random;
+import java.util.List;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-public class MetricsTest {
+class DispersionTest {
 
   @Test
-  void testAverage() {
-    Random rand = new Random();
-    final int num = 1000;
-    double avg = 0.0;
-    var metrics = new Report.Impl();
-
-    Assertions.assertEquals(0, metrics.avgLatency());
-
-    for (int i = 0; i < num; ++i) {
-      long next = rand.nextInt();
-      avg += ((double) next - avg) / (i + 1);
-      metrics.record("topic", 0, 100, next, 0);
-    }
-
-    Assertions.assertEquals(avg, metrics.avgLatency());
-  }
-
-  @Test
-  void testBytes() {
-    var metrics = new Report.Impl();
-
-    Assertions.assertEquals(0, metrics.totalBytes());
-    metrics.record("topic", 0, 100, 0L, 1000);
-    Assertions.assertEquals(1000, metrics.totalBytes());
+  void testCorrelationCoefficient() {
+    var dispersion = Dispersion.correlationCoefficient();
+    var scores = List.of(0.2, 0.4, 0.7);
+    Assertions.assertEquals(0.47418569253607507, dispersion.calculate(scores));
   }
 }

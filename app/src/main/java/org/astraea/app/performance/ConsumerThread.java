@@ -18,34 +18,32 @@ package org.astraea.app.performance;
 
 import java.time.Duration;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.kafka.common.errors.WakeupException;
+import org.astraea.app.admin.TopicPartition;
 import org.astraea.app.common.Utils;
-import org.astraea.app.consumer.Consumer;
+import org.astraea.app.consumer.ConsumerRebalanceListener;
+import org.astraea.app.consumer.SubscribedConsumer;
 
 public interface ConsumerThread extends AbstractThread {
 
-  static List<ConsumerThread> create(List<Consumer<byte[], byte[]>> consumers) {
-    if (consumers.isEmpty()) return List.of();
-    var reports =
-        IntStream.range(0, consumers.size())
-            .mapToObj(ignored -> new Report())
-            .collect(Collectors.toUnmodifiableList());
+  static List<ConsumerThread> create(
+      int consumers,
+      Function<ConsumerRebalanceListener, SubscribedConsumer<byte[], byte[]>> consumerSupplier) {
+    if (consumers == 0) return List.of();
     var closeLatches =
-        IntStream.range(0, consumers.size())
+        IntStream.range(0, consumers)
             .mapToObj(ignored -> new CountDownLatch(1))
             .collect(Collectors.toUnmodifiableList());
-    var closeFlags =
-        IntStream.range(0, consumers.size())
-            .mapToObj(ignored -> new AtomicBoolean(false))
-            .collect(Collectors.toUnmodifiableList());
-    var executors = Executors.newFixedThreadPool(consumers.size());
+    var executors = Executors.newFixedThreadPool(consumers);
     // monitor
     CompletableFuture.runAsync(
         () -> {
@@ -56,17 +54,25 @@ public interface ConsumerThread extends AbstractThread {
             Utils.swallowException(() -> executors.awaitTermination(30, TimeUnit.SECONDS));
           }
         });
-    return IntStream.range(0, consumers.size())
+    return IntStream.range(0, consumers)
         .mapToObj(
             index -> {
-              var consumer = consumers.get(index);
-              var report = reports.get(index);
+              var report = new Report();
+              var listener = new Listener(report);
               var closeLatch = closeLatches.get(index);
-              var closed = closeFlags.get(index);
+              var closed = new AtomicBoolean(false);
+              var subscribed = new AtomicBoolean(true);
               executors.execute(
                   () -> {
-                    try {
+                    try (var consumer = consumerSupplier.apply(listener)) {
                       while (!closed.get()) {
+                        if (subscribed.get()) consumer.resubscribe();
+                        else {
+                          consumer.unsubscribe();
+                          report.assignments(Set.of());
+                          Utils.sleep(Duration.ofSeconds(1));
+                          continue;
+                        }
                         consumer
                             .poll(Duration.ofSeconds(1))
                             .forEach(
@@ -79,15 +85,12 @@ public interface ConsumerThread extends AbstractThread {
                                         record.offset(),
                                         System.currentTimeMillis() - record.timestamp(),
                                         record.serializedKeySize() + record.serializedValueSize()));
+                        report.assignments(consumer.assignments());
                       }
                     } catch (WakeupException ignore) {
                       // Stop polling and being ready to clean up
                     } finally {
-                      try {
-                        consumer.close();
-                      } finally {
-                        closeLatch.countDown();
-                      }
+                      closeLatch.countDown();
                     }
                   });
               return new ConsumerThread() {
@@ -103,6 +106,16 @@ public interface ConsumerThread extends AbstractThread {
                 }
 
                 @Override
+                public void resubscribe() {
+                  subscribed.set(true);
+                }
+
+                @Override
+                public void unsubscribe() {
+                  subscribed.set(false);
+                }
+
+                @Override
                 public Report report() {
                   return report;
                 }
@@ -110,7 +123,6 @@ public interface ConsumerThread extends AbstractThread {
                 @Override
                 public void close() {
                   closed.set(true);
-                  consumer.wakeup();
                   Utils.swallowException(closeLatch::await);
                 }
               };
@@ -118,6 +130,74 @@ public interface ConsumerThread extends AbstractThread {
         .collect(Collectors.toUnmodifiableList());
   }
 
+  void resubscribe();
+
+  void unsubscribe();
+
   /** @return report of this thread */
   Report report();
+
+  class Listener implements ConsumerRebalanceListener {
+    private final Report report;
+    private long previousCall = System.currentTimeMillis();
+    private long maxLatency = 0;
+    private long sumLatency = 0;
+    private long count = 0;
+
+    public Listener(Report report) {
+      this.report = report;
+    }
+
+    @Override
+    public void onPartitionAssigned(Set<TopicPartition> partitions) {
+      record();
+    }
+
+    @Override
+    public void onPartitionsRevoked(Set<TopicPartition> partitions) {
+      record();
+    }
+
+    private void record() {
+      count += 1;
+      var current = System.currentTimeMillis();
+      var diff = current - previousCall;
+      maxLatency = Math.max(maxLatency, diff);
+      sumLatency += diff;
+      previousCall = current;
+      report.maxSubscriptionLatency(maxLatency);
+      report.avgSubscriptionLatency((double) sumLatency / count);
+    }
+  }
+
+  class Report extends org.astraea.app.performance.Report.Impl {
+    private volatile long maxSubscriptionLatency = 0;
+    private volatile double avgSubscriptionLatency = 0;
+
+    private volatile Set<TopicPartition> assignments;
+
+    public long maxSubscriptionLatency() {
+      return maxSubscriptionLatency;
+    }
+
+    public void maxSubscriptionLatency(long maxSubscriptionLatency) {
+      this.maxSubscriptionLatency = maxSubscriptionLatency;
+    }
+
+    public double avgSubscriptionLatency() {
+      return avgSubscriptionLatency;
+    }
+
+    public void avgSubscriptionLatency(double avgSubscriptionLatency) {
+      this.avgSubscriptionLatency = avgSubscriptionLatency;
+    }
+
+    public void assignments(Set<TopicPartition> assignments) {
+      this.assignments = assignments;
+    }
+
+    public Set<TopicPartition> assignments() {
+      return assignments;
+    }
+  }
 }

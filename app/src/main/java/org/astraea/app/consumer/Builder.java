@@ -24,6 +24,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiConsumer;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.astraea.app.admin.TopicPartition;
@@ -115,8 +116,9 @@ public abstract class Builder<Key, Value> {
   /** @return consumer instance. The different builders may return inherited consumer interface. */
   public abstract Consumer<Key, Value> build();
 
-  protected static class BaseConsumer<Key, Value> implements Consumer<Key, Value> {
+  protected abstract static class BaseConsumer<Key, Value> implements Consumer<Key, Value> {
     protected final org.apache.kafka.clients.consumer.Consumer<Key, Value> kafkaConsumer;
+    private final AtomicBoolean subscribed = new AtomicBoolean(true);
 
     public BaseConsumer(org.apache.kafka.clients.consumer.Consumer<Key, Value> kafkaConsumer) {
       this.kafkaConsumer = kafkaConsumer;
@@ -143,6 +145,18 @@ public abstract class Builder<Key, Value> {
     public void close() {
       kafkaConsumer.close();
     }
+
+    @Override
+    public void resubscribe() {
+      if (subscribed.compareAndSet(false, true)) doResubscribe();
+    }
+
+    @Override
+    public void unsubscribe() {
+      if (subscribed.compareAndSet(true, false)) kafkaConsumer.unsubscribe();
+    }
+
+    protected abstract void doResubscribe();
   }
 
   public enum SeekStrategy {
@@ -150,23 +164,16 @@ public abstract class Builder<Key, Value> {
     DISTANCE_FROM_LATEST(
         (kafkaConsumer, distanceFromLatest) -> {
           // this mode is not supported by kafka, so we have to calculate the offset first
-          // 1) poll data until the assignment is completed
-          while (kafkaConsumer.assignment().isEmpty()) {
-            kafkaConsumer.poll(Duration.ofMillis(500));
-          }
           var partitions = kafkaConsumer.assignment();
-          // 2) get the end offsets from all subscribed partitions
+          // 1) get the end offsets from all subscribed partitions
           var endOffsets = kafkaConsumer.endOffsets(partitions);
-          // 3) calculate and then seek to the correct offset (end offset - recent offset)
+          // 2) calculate and then seek to the correct offset (end offset - recent offset)
           endOffsets.forEach(
               (tp, latest) ->
                   kafkaConsumer.seek(tp, Math.max(0, latest - (long) distanceFromLatest)));
         }),
     DISTANCE_FROM_BEGINNING(
         (kafkaConsumer, distanceFromBeginning) -> {
-          while (kafkaConsumer.assignment().isEmpty()) {
-            kafkaConsumer.poll(Duration.ofMillis(500));
-          }
           var partitions = kafkaConsumer.assignment();
           var beginningOffsets = kafkaConsumer.beginningOffsets(partitions);
           beginningOffsets.forEach(
@@ -175,17 +182,18 @@ public abstract class Builder<Key, Value> {
     @SuppressWarnings("unchecked")
     SEEK_TO(
         (kafkaConsumer, seekTo) -> {
-          while (kafkaConsumer.assignment().isEmpty()) {
-            kafkaConsumer.poll(Duration.ofMillis(500));
-          }
           if (seekTo instanceof Long) {
             var partitions = kafkaConsumer.assignment();
             partitions.forEach(tp -> kafkaConsumer.seek(tp, (long) seekTo));
             return;
           }
           if (seekTo instanceof Map) {
+            var partitions = kafkaConsumer.assignment();
             ((Map<TopicPartition, Long>) seekTo)
-                .forEach((tp, offset) -> kafkaConsumer.seek(TopicPartition.to(tp), offset));
+                .entrySet().stream()
+                    // don't seek the partition which is not belonged to this consumer
+                    .filter(e -> partitions.contains(TopicPartition.to(e.getKey())))
+                    .forEach(e -> kafkaConsumer.seek(TopicPartition.to(e.getKey()), e.getValue()));
             return;
           }
           throw new IllegalArgumentException(

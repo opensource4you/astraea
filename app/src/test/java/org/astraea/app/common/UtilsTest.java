@@ -35,13 +35,17 @@ public class UtilsTest {
 
   @Test
   void testHandleException() {
-    Assertions.assertThrows(
-        IllegalArgumentException.class,
-        () ->
-            Utils.packException(
-                () -> {
-                  throw new ExecutionException(new IllegalArgumentException());
-                }));
+    var executionRuntimeException =
+        Assertions.assertThrows(
+            ExecutionRuntimeException.class,
+            () ->
+                Utils.packException(
+                    () -> {
+                      throw new ExecutionException(new IllegalArgumentException());
+                    }));
+
+    Assertions.assertEquals(
+        IllegalArgumentException.class, executionRuntimeException.getRootCause().getClass());
 
     Assertions.assertThrows(
         IllegalArgumentException.class,
@@ -122,5 +126,15 @@ public class UtilsTest {
     // act, assert
     Assertions.assertThrows(
         RuntimeException.class, () -> Utils.constructCostFunction(aClass, config));
+  }
+
+  @Test
+  void testSwallowException() {
+    Assertions.assertDoesNotThrow(
+        () ->
+            Utils.swallowException(
+                () -> {
+                  throw new IllegalArgumentException();
+                }));
   }
 }
