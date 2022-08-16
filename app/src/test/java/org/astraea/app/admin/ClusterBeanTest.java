@@ -24,13 +24,11 @@ import org.astraea.app.metrics.broker.LogMetrics;
 import org.astraea.app.metrics.broker.ServerMetrics;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mockito;
 
 class ClusterBeanTest {
 
   @Test
   void testBeans() {
-    var clusterInfo = Mockito.mock(ClusterInfo.class);
     // BeanObject1 and BeanObject2 is same partition in different broker
     BeanObject testBeanObjectWithPartition1 =
         new BeanObject(
@@ -91,16 +89,10 @@ class ClusterBeanTest {
                     HasValue.of(testBeanObjectWithPartition2),
                     HasValue.of(testBeanObjectWithPartition3))));
     // test all
-    clusterBean.mapByPartition();
     Assertions.assertEquals(2, clusterBean.all().size());
     Assertions.assertEquals(1, clusterBean.all().get(1).size());
     Assertions.assertEquals(3, clusterBean.all().get(2).size());
 
-    // test get beanObject by partition
-    // when call beanObjectByPartition() will return a map and the key is TopicPartition it's will
-    // ignore replicas and get the metrics of first replicas
-    Assertions.assertEquals(
-        2, clusterBean.mapByPartition().get(TopicPartition.of("testBeans", "0")).size());
     // test get beanObject by replica
     Assertions.assertEquals(2, clusterBean.mapByReplica().size());
     Assertions.assertEquals(

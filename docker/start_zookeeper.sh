@@ -18,7 +18,7 @@ declare -r DOCKER_FOLDER=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null
 source $DOCKER_FOLDER/docker_build_common.sh
 
 # ===============================[global variables]===============================
-declare -r VERSION=${VERSION:-3.7.0}
+declare -r VERSION=${VERSION:-3.7.1}
 declare -r REPO=${REPO:-ghcr.io/skiptests/astraea/zookeeper}
 declare -r IMAGE_NAME="$REPO:$VERSION"
 declare -r ZOOKEEPER_PORT=${ZOOKEEPER_PORT:-"$(getRandomPort)"}
@@ -33,7 +33,7 @@ function showHelp() {
   echo "Usage: [ENV] start_zookeeper.sh"
   echo "ENV: "
   echo "    REPO=astraea/zk            set the docker repo"
-  echo "    VERSION=3.7.0              set version of zookeeper distribution"
+  echo "    VERSION=3.7.1              set version of zookeeper distribution"
   echo "    BUILD=false                set true if you want to build image locally"
   echo "    RUN=false                  set false if you want to build/pull image only"
   echo "    DATA_FOLDER=/tmp/folder1   set host folders used by zookeeper"
