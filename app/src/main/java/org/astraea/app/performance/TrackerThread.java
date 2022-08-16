@@ -28,7 +28,9 @@ import org.astraea.app.common.DataSize;
 import org.astraea.app.common.Utils;
 import org.astraea.app.metrics.HasBeanObject;
 import org.astraea.app.metrics.client.HasNodeMetrics;
-import org.astraea.app.metrics.collector.Receiver;
+import org.astraea.app.metrics.client.consumer.ConsumerMetrics;
+import org.astraea.app.metrics.client.producer.ProducerMetrics;
+import org.astraea.app.metrics.collector.BeanCollector;
 
 /** Print out the given metrics. */
 public interface TrackerThread extends AbstractThread {
@@ -36,10 +38,13 @@ public interface TrackerThread extends AbstractThread {
   static TrackerThread create(
       List<ProducerThread.Report> producerReports,
       List<ConsumerThread.Report> consumerReports,
-      Receiver producerReceiver,
-      Receiver consumerReceiver,
       ExeTime exeTime) {
     var start = System.currentTimeMillis() - Duration.ofSeconds(1).toMillis();
+    // The receivers (that is, producerReceiver and consumerReceiver) will fetch mbean once per
+    // second. The interval should be less than 1 second. Let the receiver fetch new data.
+    var beanCollector = BeanCollector.builder().interval(Duration.ofMillis(500)).build();
+    var producerReceiver = beanCollector.register().local().fetcher(ProducerMetrics::nodes).build();
+    var consumerReceiver = beanCollector.register().local().fetcher(ConsumerMetrics::nodes).build();
 
     Supplier<Boolean> logProducers =
         () -> {
@@ -181,6 +186,8 @@ public interface TrackerThread extends AbstractThread {
       public void close() {
         closed.set(true);
         waitForDone();
+        producerReceiver.close();
+        consumerReceiver.close();
       }
     };
   }

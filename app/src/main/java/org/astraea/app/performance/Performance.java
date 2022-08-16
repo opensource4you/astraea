@@ -47,9 +47,6 @@ import org.astraea.app.common.DataUnit;
 import org.astraea.app.common.Utils;
 import org.astraea.app.consumer.Consumer;
 import org.astraea.app.consumer.Isolation;
-import org.astraea.app.metrics.client.consumer.ConsumerMetrics;
-import org.astraea.app.metrics.client.producer.ProducerMetrics;
-import org.astraea.app.metrics.collector.BeanCollector;
 import org.astraea.app.producer.Producer;
 
 /**
@@ -149,14 +146,7 @@ public class Performance {
             .map(ConsumerThread::report)
             .collect(Collectors.toUnmodifiableList());
 
-    // The receivers (that is, producerReceiver and consumerReceiver) will fetch mbean once per
-    // second. The interval should be less than 1 second. Let the receiver fetch new data.
-    var beanCollector = BeanCollector.builder().interval(Duration.ofMillis(500)).build();
-    var producerReceiver = beanCollector.register().local().fetcher(ProducerMetrics::nodes).build();
-    var consumerReceiver = beanCollector.register().local().fetcher(ConsumerMetrics::nodes).build();
-    var tracker =
-        TrackerThread.create(
-            producerReports, consumerReports, producerReceiver, consumerReceiver, param.exeTime);
+    var tracker = TrackerThread.create(producerReports, consumerReports, param.exeTime);
 
     Optional<Runnable> fileWriter =
         param.CSVPath == null
@@ -215,8 +205,6 @@ public class Performance {
 
     consumerThreads.forEach(AbstractThread::waitForDone);
     tracker.waitForDone();
-    producerReceiver.close();
-    consumerReceiver.close();
     fileWriterFuture.join();
     chaos.join();
     return param.topic;

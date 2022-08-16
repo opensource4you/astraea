@@ -21,7 +21,6 @@ import java.util.List;
 import org.astraea.app.common.Utils;
 import org.astraea.app.metrics.HasBeanObject;
 import org.astraea.app.metrics.client.HasNodeMetrics;
-import org.astraea.app.metrics.collector.Receiver;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
@@ -30,10 +29,7 @@ public class TrackerTest {
 
   @Test
   void testClose() {
-    var mockReceiver = Mockito.mock(Receiver.class);
-    var tracker =
-        TrackerThread.create(
-            List.of(), List.of(), mockReceiver, mockReceiver, ExeTime.of("1records"));
+    var tracker = TrackerThread.create(List.of(), List.of(), ExeTime.of("1records"));
     Assertions.assertFalse(tracker.closed());
     tracker.close();
     Assertions.assertTrue(tracker.closed());
@@ -42,10 +38,7 @@ public class TrackerTest {
   @Test
   void testZeroConsumer() {
     var producerReport = new ProducerThread.Report();
-    var mockReceiver = Mockito.mock(Receiver.class);
-    var tracker =
-        TrackerThread.create(
-            List.of(producerReport), List.of(), mockReceiver, mockReceiver, ExeTime.of("1records"));
+    var tracker = TrackerThread.create(List.of(producerReport), List.of(), ExeTime.of("1records"));
     Assertions.assertFalse(tracker.closed());
     producerReport.record("topic", 1, 100, 1L, 1);
     // wait to done
@@ -57,14 +50,8 @@ public class TrackerTest {
   void testExeTime() {
     var producerReport = new ProducerThread.Report();
     var consumerReport = new ConsumerThread.Report();
-    var mockReceiver = Mockito.mock(Receiver.class);
     var tracker =
-        TrackerThread.create(
-            List.of(producerReport),
-            List.of(consumerReport),
-            mockReceiver,
-            mockReceiver,
-            ExeTime.of("2s"));
+        TrackerThread.create(List.of(producerReport), List.of(consumerReport), ExeTime.of("2s"));
     Assertions.assertFalse(tracker.closed());
     producerReport.record("topic", 1, 100, 1L, 1);
     consumerReport.record("topic", 1, 100, 1L, 1);
@@ -76,14 +63,9 @@ public class TrackerTest {
   void testConsumerAndProducer() {
     var producerReport = new ProducerThread.Report();
     var consumerReport = new ConsumerThread.Report();
-    var mockReceiver = Mockito.mock(Receiver.class);
     var tracker =
         TrackerThread.create(
-            List.of(producerReport),
-            List.of(consumerReport),
-            mockReceiver,
-            mockReceiver,
-            ExeTime.of("1records"));
+            List.of(producerReport), List.of(consumerReport), ExeTime.of("1records"));
     Assertions.assertFalse(tracker.closed());
     producerReport.record("topic", 1, 100, 1L, 1);
     consumerReport.record("topic", 1, 100, 1L, 1);
