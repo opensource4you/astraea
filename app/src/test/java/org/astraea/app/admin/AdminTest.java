@@ -1489,7 +1489,7 @@ public class AdminTest extends RequireBrokerCluster {
       Utils.sleep(Duration.ofSeconds(1));
       admin.migrator().partition(topicName, 0).moveTo(List.of(0));
 
-      // 2. send 1000 MB data
+      // 2. send 200 MB data
       System.out.println("[Send data]");
       try (var producer = Producer.of(bootstrapServers())) {
         var bytes = new byte[1000];
