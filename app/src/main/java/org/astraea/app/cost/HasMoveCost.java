@@ -33,7 +33,7 @@ public interface HasMoveCost extends CostFunction {
       ClusterInfo originClusterInfo, ClusterInfo newClusterInfo, ClusterBean clusterBean);
 
   /**
-   * @param originClusterInfo he clusterInfo before migrate
+   * @param originClusterInfo the clusterInfo before migrate
    * @param newClusterInfo the mocked clusterInfo generate from balancer
    * @param clusterBean cluster metrics
    * @return Check if the migrate plan exceeds the available hardware resources
@@ -42,13 +42,20 @@ public interface HasMoveCost extends CostFunction {
       ClusterInfo originClusterInfo, ClusterInfo newClusterInfo, ClusterBean clusterBean);
 
   /**
-   * @param originClusterInfo
-   * @param newClusterInfo
+   * @param originClusterInfo the clusterInfo before migrate
+   * @param newClusterInfo the mocked clusterInfo generate from balancer
+   * @param clusterBean cluster metrics
    * @return total migrate size of the plan
    */
   Map<MoveCost.ReplicaMigrateInfo, Long> totalMigrateSize(
       ClusterInfo originClusterInfo, ClusterInfo newClusterInfo, ClusterBean clusterBean);
 
+  /**
+   * @param originClusterInfo the clusterInfo before migrate
+   * @param newClusterInfo the mocked clusterInfo generate from balancer
+   * @param clusterBean cluster metrics
+   * @return estimated migration time of the plan
+   */
   double estimatedMigrateTime(
       ClusterInfo originClusterInfo, ClusterInfo newClusterInfo, ClusterBean clusterBean);
 }
