@@ -1481,17 +1481,19 @@ public class AdminTest extends RequireBrokerCluster {
   @EnabledIfEnvironmentVariable(named = "RunReplicationThrottler", matches = "^yes$")
   @Test
   void runReplicationThrottler() {
-    try (Admin admin = Admin.of(bootstrapServers())) {
+    var bootstrapServer = bootstrapServers();
+    try (Admin admin = Admin.of(bootstrapServer)) {
       // 1. create topic
       System.out.println("[Create topic]");
       var topicName = Utils.randomString();
+      admin.creator().topic(Utils.randomString()).numberOfPartitions(3).numberOfReplicas((short) 2).create();
       admin.creator().topic(topicName).numberOfPartitions(1).create();
       Utils.sleep(Duration.ofSeconds(1));
       admin.migrator().partition(topicName, 0).moveTo(List.of(0));
 
       // 2. send 200 MB data
       System.out.println("[Send data]");
-      try (var producer = Producer.of(bootstrapServers())) {
+      try (var producer = Producer.of(bootstrapServer)) {
         var bytes = new byte[1000];
         IntStream.range(0, 200 * 1000)
             .mapToObj(i -> producer.sender().topic(topicName).value(bytes).run())
@@ -1515,7 +1517,7 @@ public class AdminTest extends RequireBrokerCluster {
       admin.migrator().partition(topicName, 0).moveTo(List.of(1));
       Utils.sleep(Duration.ofMillis(100));
 
-      ReplicaSyncingMonitor.main(new String[] {"--bootstrap.servers", bootstrapServers()});
+      ReplicaSyncingMonitor.main(new String[] {"--bootstrap.servers", bootstrapServer});
 
       // 5. wait until it finished
       Utils.waitFor(
