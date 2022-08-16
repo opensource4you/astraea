@@ -213,8 +213,8 @@ public class DispatcherTest extends RequireSingleBrokerCluster {
                           Collectors.toMap(
                               e -> e.getKey().toString(), e -> e.getValue().toString())))
               .build();
-        Dispatcher.beginInterdependent(instanceOfProducer(producer));
-        Dispatcher.beginInterdependent(instanceOfProducer(producer2));
+      Dispatcher.beginInterdependent(instanceOfProducer(producer));
+      Dispatcher.beginInterdependent(instanceOfProducer(producer2));
       var exceptPartition =
           producerSend(producer, topicName, key, value, timestamp, header).partition();
       IntStream.range(0, 99)
