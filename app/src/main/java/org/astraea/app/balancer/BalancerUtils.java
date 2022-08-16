@@ -52,8 +52,7 @@ class BalancerUtils {
    *     locked.
    * @return a {@link ClusterInfo} with its log placement replaced.
    */
-  public static ClusterInfo mergeClusterInfoAllocation(
-      ClusterInfo clusterInfo, ClusterLogAllocation allocation) {
+  public static ClusterInfo merge(ClusterInfo clusterInfo, ClusterLogAllocation allocation) {
     return new ClusterInfo() {
       // TODO: maybe add a field to tell if this cluster info is mocked.
 
