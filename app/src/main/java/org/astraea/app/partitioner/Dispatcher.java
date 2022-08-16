@@ -107,7 +107,6 @@ public interface Dispatcher extends Partitioner {
   @Override
   default int partition(
       String topic, Object key, byte[] keyBytes, Object value, byte[] valueBytes, Cluster cluster) {
-    this.hashCode();
     return INTERDEPENDENT.isInterdependent
         ? INTERDEPENDENT.interdependentPartition(
             this,
@@ -172,10 +171,8 @@ public interface Dispatcher extends Partitioner {
               keyBytes == null ? new byte[0] : keyBytes,
               valueBytes == null ? new byte[0] : valueBytes,
               cluster);
-      synchronized (targetPartitions) {
-        if (targetPartitions.get(dispatcher.hashCode()) == -1)
-          targetPartitions.replace(dispatcher.hashCode(), targetPartition);
-      }
+      if (targetPartitions.get(dispatcher.hashCode()) == -1)
+        targetPartitions.replace(dispatcher.hashCode(), targetPartition);
       return targetPartitions.get(dispatcher.hashCode());
     }
   }
