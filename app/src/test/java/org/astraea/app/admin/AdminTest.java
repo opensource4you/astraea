@@ -58,7 +58,6 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledOnOs;
-import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
@@ -1475,76 +1474,6 @@ public class AdminTest extends RequireBrokerCluster {
             UnsupportedOperationException.class,
             () -> admin.replicationThrottler().throttle(topicPartitionReplica).apply());
       }
-    }
-  }
-
-  @EnabledIfEnvironmentVariable(named = "RunReplicationThrottler", matches = "^yes$")
-  @Test
-  void runReplicationThrottler() {
-    var bootstrapServer = bootstrapServers();
-    try (Admin admin = Admin.of(bootstrapServer)) {
-      // 1. create topic
-      System.out.println("[Create topic]");
-      var topicName = Utils.randomString();
-      admin
-          .creator()
-          .topic(Utils.randomString())
-          .numberOfPartitions(3)
-          .numberOfReplicas((short) 2)
-          .create();
-      admin.creator().topic(topicName).numberOfPartitions(1).create();
-      Utils.sleep(Duration.ofSeconds(1));
-      admin.migrator().partition(topicName, 0).moveTo(List.of(0));
-
-      // 2. send 200 MB data
-      System.out.println("[Send data]");
-      try (var producer = Producer.of(bootstrapServer)) {
-        var bytes = new byte[1000];
-        IntStream.range(0, 200 * 1000)
-            .mapToObj(i -> producer.sender().topic(topicName).value(bytes).run())
-            .collect(Collectors.toUnmodifiableList())
-            .forEach(i -> i.toCompletableFuture().join());
-      }
-
-      // 3. apply throttle
-      System.out.println("[Apply replication throttle]");
-      admin
-          .replicationThrottler()
-          .ingress(DataRate.MB.of(10).perSecond())
-          .egress(DataRate.MB.of(10).perSecond())
-          .throttle(topicName)
-          .apply();
-      Utils.sleep(Duration.ofSeconds(1));
-
-      // 4. trigger replication via migrator
-      System.out.println("[Migration]");
-      var start = System.currentTimeMillis();
-      admin.migrator().partition(topicName, 0).moveTo(List.of(1));
-      Utils.sleep(Duration.ofMillis(100));
-
-      ReplicaSyncingMonitor.main(new String[] {"--bootstrap.servers", bootstrapServer});
-
-      // 5. wait until it finished
-      Utils.waitFor(
-          () ->
-              admin.replicas(Set.of(topicName)).get(TopicPartition.of(topicName, 0)).stream()
-                  .filter(x -> x.broker() == 1)
-                  .findFirst()
-                  .map(Replica::inSync)
-                  .orElse(false),
-          Duration.ofSeconds(20));
-      var end = System.currentTimeMillis();
-
-      // 6. assertion
-      var migrationTime = ((end - start) / 1000);
-      var finishedOnTime = 17 < migrationTime && migrationTime < 24;
-      System.out.println("Finish Time: " + migrationTime);
-      Assertions.assertTrue(
-          finishedOnTime,
-          "Migration too fast or too slow? Finish Time:" + migrationTime + " second");
-
-      // 7. clear throttle
-      admin.clearReplicationThrottle(topicName);
     }
   }
 
