@@ -1486,7 +1486,12 @@ public class AdminTest extends RequireBrokerCluster {
       // 1. create topic
       System.out.println("[Create topic]");
       var topicName = Utils.randomString();
-      admin.creator().topic(Utils.randomString()).numberOfPartitions(3).numberOfReplicas((short) 2).create();
+      admin
+          .creator()
+          .topic(Utils.randomString())
+          .numberOfPartitions(3)
+          .numberOfReplicas((short) 2)
+          .create();
       admin.creator().topic(topicName).numberOfPartitions(1).create();
       Utils.sleep(Duration.ofSeconds(1));
       admin.migrator().partition(topicName, 0).moveTo(List.of(0));
