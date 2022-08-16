@@ -47,6 +47,7 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.astraea.app.admin.Admin;
 import org.astraea.app.admin.TopicPartition;
+import org.astraea.app.common.ExecutionRuntimeException;
 import org.astraea.app.common.Utils;
 import org.astraea.app.consumer.Consumer;
 import org.astraea.app.consumer.Deserializer;
@@ -71,10 +72,13 @@ public class RecordHandlerTest extends RequireBrokerCluster {
         IllegalArgumentException.class,
         () -> handler.post(PostRequest.of(Map.of(RECORDS, "[]"))),
         "records should contain at least one record");
-    Assertions.assertThrows(
-        IllegalArgumentException.class,
-        () -> handler.post(PostRequest.of(Map.of(RECORDS, "[{}]"))),
-        "topic must be set");
+    var executionRuntimeException =
+        Assertions.assertThrows(
+            ExecutionRuntimeException.class,
+            () -> handler.post(PostRequest.of(Map.of(RECORDS, "[{}]"))),
+            "topic must be set");
+    Assertions.assertEquals(
+        IllegalArgumentException.class, executionRuntimeException.getRootCause().getClass());
   }
 
   @Test

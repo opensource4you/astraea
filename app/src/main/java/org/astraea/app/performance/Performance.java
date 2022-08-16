@@ -127,13 +127,14 @@ public class Performance {
     var consumerThreads =
         ConsumerThread.create(
             param.consumers,
-            () ->
+            listener ->
                 Consumer.forTopics(Set.of(param.topic))
                     .bootstrapServers(param.bootstrapServers())
                     .groupId(groupId)
                     .configs(param.configs())
                     .isolation(param.isolation())
                     .seek(latestOffsets)
+                    .consumerRebalanceListener(listener)
                     .build());
 
     var producerReports =
@@ -162,7 +163,8 @@ public class Performance {
                             .map(ProducerThread::report)
                             .mapToLong(Report::records)
                             .sum(),
-                    tracker));
+                    producerReports,
+                    consumerReports));
 
     var fileWriterFuture =
         fileWriter.map(CompletableFuture::runAsync).orElse(CompletableFuture.completedFuture(null));

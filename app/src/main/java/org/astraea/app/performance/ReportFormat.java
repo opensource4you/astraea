@@ -26,6 +26,7 @@ import java.nio.file.Path;
 import java.text.SimpleDateFormat;
 import java.time.Duration;
 import java.util.Date;
+import java.util.List;
 import java.util.function.Supplier;
 import java.util.stream.IntStream;
 import org.astraea.app.common.DataSize;
@@ -63,7 +64,8 @@ public enum ReportFormat {
       Supplier<Boolean> consumerDone,
       Supplier<Boolean> producerDone,
       Supplier<Long> producedRecords,
-      TrackerThread tracker)
+      List<ProducerThread.Report> producerReports,
+      List<ConsumerThread.Report> consumerReports)
       throws IOException {
     var filePath =
         FileSystems.getDefault()
@@ -76,13 +78,18 @@ public enum ReportFormat {
     var writer = new BufferedWriter(new FileWriter(filePath.toFile()));
     switch (reportFormat) {
       case CSV:
-        initCSVFormat(
-            writer, tracker.producerResult().bytes.size(), tracker.consumerResult().bytes.size());
+        initCSVFormat(writer, producerReports.size(), consumerReports.size());
         return () -> {
           try {
             while (true) {
-              if (logToCSV(writer, exeTime, consumerDone, producerDone, producedRecords, tracker))
-                return;
+              if (logToCSV(
+                  writer,
+                  exeTime,
+                  consumerDone,
+                  producerDone,
+                  producedRecords,
+                  producerReports,
+                  consumerReports)) return;
               Utils.sleep(Duration.ofSeconds(1));
             }
           } finally {
@@ -94,8 +101,14 @@ public enum ReportFormat {
         return () -> {
           try {
             while (true) {
-              if (logToJSON(writer, exeTime, consumerDone, producerDone, producedRecords, tracker))
-                return;
+              if (logToJSON(
+                  writer,
+                  exeTime,
+                  consumerDone,
+                  producerDone,
+                  producedRecords,
+                  producerReports,
+                  consumerReports)) return;
               Utils.sleep(Duration.ofSeconds(1));
             }
           } finally {
@@ -120,7 +133,7 @@ public enum ReportFormat {
                 writer.write(
                     ",Producer["
                         + i
-                        + "] current throughput (MiB/sec), Producer["
+                        + "] bytes produced, Producer["
                         + i
                         + "] average publish latency (ms)");
               } catch (IOException ignore) {
@@ -133,7 +146,7 @@ public enum ReportFormat {
                 writer.write(
                     ",Consumer["
                         + i
-                        + "] current throughput (MiB/sec), Consumer["
+                        + "] bytes consumed, Consumer["
                         + i
                         + "] average ene-to-end latency (ms)");
               } catch (IOException ignore) {
@@ -148,9 +161,10 @@ public enum ReportFormat {
       Supplier<Boolean> consumerDone,
       Supplier<Boolean> producerDone,
       Supplier<Long> producedRecords,
-      TrackerThread tracker) {
-    var result = processResult(exeTime, tracker, producedRecords);
-    if (result.producerResult.completedRecords == 0) return false;
+      List<ProducerThread.Report> producerReports,
+      List<ConsumerThread.Report> consumerReports) {
+    var result = processResult(exeTime, producerReports, consumerReports, producedRecords);
+    if (producerReports.stream().mapToLong(Report::records).sum() == 0) return false;
     try {
       writer.write(
           result.duration.toHoursPart()
@@ -162,31 +176,23 @@ public enum ReportFormat {
           String.format(",%.2f%% / %.2f%%", result.consumerPercentage, result.producerPercentage));
       writer.write(
           ","
-              + DataSize.Byte.of(result.producerResult.totalCurrentBytes())
-                  .measurement(DataUnit.MiB)
-                  .doubleValue());
+              + producerReports.stream().mapToLong(Report::max).max().orElse(0)
+              + ","
+              + producerReports.stream().mapToLong(Report::min).min().orElse(0));
       writer.write(
           ","
-              + DataSize.Byte.of(result.consumerResult.totalCurrentBytes())
-                  .measurement(DataUnit.MiB)
-                  .doubleValue());
-      writer.write("," + result.producerResult.maxLatency + "," + result.producerResult.minLatency);
-      writer.write("," + result.consumerResult.maxLatency + "," + result.consumerResult.minLatency);
-      for (int i = 0; i < result.producerResult.bytes.size(); ++i) {
+              + consumerReports.stream().mapToLong(Report::max).max().orElse(0)
+              + ","
+              + consumerReports.stream().mapToLong(Report::min).min().orElse(0));
+      for (var r : producerReports) {
         writer.write(
-            ","
-                + DataSize.Byte.of(result.producerResult.currentBytes.get(i))
-                    .measurement(DataUnit.MiB)
-                    .doubleValue());
-        writer.write("," + result.producerResult.averageLatencies.get(i));
+            "," + DataSize.Byte.of(r.totalBytes()).measurement(DataUnit.MiB).doubleValue());
+        writer.write("," + r.avgLatency());
       }
-      for (int i = 0; i < result.consumerResult.bytes.size(); ++i) {
+      for (var r : consumerReports) {
         writer.write(
-            ","
-                + DataSize.Byte.of(result.consumerResult.currentBytes.get(i))
-                    .measurement(DataUnit.MiB)
-                    .doubleValue());
-        writer.write("," + result.consumerResult.averageLatencies.get(i));
+            "," + DataSize.Byte.of(r.totalBytes()).measurement(DataUnit.MiB).doubleValue());
+        writer.write("," + r.avgLatency());
       }
       writer.newLine();
     } catch (IOException ignore) {
@@ -201,9 +207,10 @@ public enum ReportFormat {
       Supplier<Boolean> consumerDone,
       Supplier<Boolean> producerDone,
       Supplier<Long> producedRecords,
-      TrackerThread tracker) {
-    var result = processResult(exeTime, tracker, producedRecords);
-    if (result.producerResult.completedRecords == 0) return false;
+      List<ProducerThread.Report> producerReports,
+      List<ConsumerThread.Report> consumerReports) {
+    var result = processResult(exeTime, producerReports, consumerReports, producedRecords);
+    if (producerReports.stream().mapToLong(Report::records).sum() == 0) return false;
     try {
       writer.write(
           String.format(
@@ -216,29 +223,38 @@ public enum ReportFormat {
               "\"consumerPercentage\": %.2f%%, \"Producer Percentage\": %.2f%%",
               result.consumerPercentage, result.producerPercentage));
       writer.write(
-          ", \"outputThroughput\": " + result.producerResult.averageBytes(result.duration));
-      writer.write(", \"inputThroughput\": " + result.consumerResult.averageBytes(result.duration));
-      writer.write(", \"publishMaxLatency\": " + result.producerResult.maxLatency);
-      writer.write(", \"publishMinLatency\": " + result.producerResult.minLatency);
-      writer.write(", \"E2EMaxLatency\": " + result.consumerResult.maxLatency);
-      writer.write(", \"E2EMinLatency\": " + result.consumerResult.minLatency);
+          ", \"outputThroughput\": "
+              + Utils.averageMB(
+                  result.duration, producerReports.stream().mapToLong(Report::totalBytes).sum()));
+      writer.write(
+          ", \"inputThroughput\": "
+              + Utils.averageMB(
+                  result.duration, consumerReports.stream().mapToLong(Report::totalBytes).sum()));
+      writer.write(
+          ", \"publishMaxLatency\": "
+              + producerReports.stream().mapToLong(Report::max).max().orElse(0));
+      writer.write(
+          ", \"publishMinLatency\": "
+              + producerReports.stream().mapToLong(Report::min).min().orElse(0));
+      writer.write(
+          ", \"E2EMaxLatency\": "
+              + consumerReports.stream().mapToLong(Report::max).max().orElse(0));
+      writer.write(
+          ", \"E2EMinLatency\": "
+              + consumerReports.stream().mapToLong(Report::min).min().orElse(0));
 
       writer.write(", \"producerThroughput\": [");
-      for (int i = 0; i < result.producerResult.bytes.size(); ++i) {
-        writer.write(TrackerThread.avg(result.duration, result.producerResult.bytes.get(i)) + ", ");
-      }
+      for (var r : producerReports)
+        writer.write(Utils.averageMB(result.duration, r.totalBytes()) + ", ");
       writer.write("], \"producerLatency\": [");
-      for (int i = 0; i < result.producerResult.bytes.size(); ++i) {
-        writer.write(result.producerResult.averageLatencies.get(i) + ", ");
-      }
+      for (var r : producerReports)
+        writer.write(Utils.averageMB(result.duration, (long) r.avgLatency()) + ", ");
       writer.write("], \"consumerThroughput\": [");
-      for (int i = 0; i < result.consumerResult.bytes.size(); ++i) {
-        writer.write(TrackerThread.avg(result.duration, result.consumerResult.bytes.get(i)) + ", ");
-      }
+      for (var r : consumerReports)
+        writer.write(Utils.averageMB(result.duration, r.totalBytes()) + ", ");
       writer.write("], \"consumerLatency\": [");
-      for (int i = 0; i < result.consumerResult.bytes.size(); ++i) {
-        writer.write(result.consumerResult.averageLatencies.get(i) + ", ");
-      }
+      for (var r : consumerReports)
+        writer.write(Utils.averageMB(result.duration, (long) r.avgLatency()) + ", ");
       writer.write("]}");
       writer.newLine();
     } catch (IOException ignore) {
@@ -247,33 +263,26 @@ public enum ReportFormat {
   }
 
   private static ProcessedResult processResult(
-      ExeTime exeTime, TrackerThread tracker, Supplier<Long> producedRecords) {
-    var producerResult = tracker.producerResult();
-    var consumerResult = tracker.consumerResult();
-    var duration = Duration.ofMillis(System.currentTimeMillis() - tracker.startTime());
+      ExeTime exeTime,
+      List<ProducerThread.Report> producerReports,
+      List<ConsumerThread.Report> consumerReports,
+      Supplier<Long> producedRecords) {
+    var duration = Duration.ofMillis(System.currentTimeMillis() - System.currentTimeMillis());
     return new ProcessedResult(
-        consumerResult,
-        producerResult,
         duration,
-        Math.min(100D, exeTime.percentage(producerResult.completedRecords, duration.toMillis())),
-        consumerResult.completedRecords * 100D / producedRecords.get());
+        Math.min(
+            100D,
+            exeTime.percentage(
+                producerReports.stream().mapToLong(Report::records).sum(), duration.toMillis())),
+        consumerReports.stream().mapToLong(Report::records).sum() * 100D / producedRecords.get());
   }
 
   static class ProcessedResult {
-    public final TrackerThread.Result consumerResult;
-    public final TrackerThread.Result producerResult;
     public final Duration duration;
     public final double consumerPercentage;
     public final double producerPercentage;
 
-    ProcessedResult(
-        TrackerThread.Result consumerResult,
-        TrackerThread.Result producerResult,
-        Duration duration,
-        double consumerPercentage,
-        double producerPercentage) {
-      this.consumerResult = consumerResult;
-      this.producerResult = producerResult;
+    ProcessedResult(Duration duration, double consumerPercentage, double producerPercentage) {
       this.duration = duration;
       this.consumerPercentage = consumerPercentage;
       this.producerPercentage = producerPercentage;

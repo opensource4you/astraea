@@ -25,6 +25,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
+import java.util.stream.Collectors;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.astraea.app.admin.TopicPartition;
@@ -192,6 +193,13 @@ public class TopicsBuilder<Key, Value> extends Builder<Key, Value> {
     @Override
     protected void doResubscribe() {
       kafkaConsumer.subscribe(topics, ConsumerRebalanceListener.of(List.of(listener)));
+    }
+
+    @Override
+    public Set<TopicPartition> assignments() {
+      return kafkaConsumer.assignment().stream()
+          .map(TopicPartition::from)
+          .collect(Collectors.toUnmodifiableSet());
     }
   }
 }

@@ -55,6 +55,9 @@ public interface Consumer<Key, Value> extends AutoCloseable {
   /** unsubscribe all partitions. */
   void unsubscribe();
 
+  /** @return current partitions assigned to this consumer */
+  Set<TopicPartition> assignments();
+
   /**
    * Create a consumer builder by setting specific topics
    *

@@ -22,74 +22,94 @@ import java.util.Map;
 import java.util.stream.Collectors;
 import org.astraea.app.admin.TopicPartition;
 
-/** Used to record statistics. This is thread safe. */
-public class Report {
+public interface Report {
+
   /**
    * find the max offset from reports
    *
    * @param reports to search offsets
    * @return topic partition and its max offset
    */
-  public static Map<TopicPartition, Long> maxOffsets(List<Report> reports) {
+  static Map<TopicPartition, Long> maxOffsets(List<? extends Report> reports) {
     return reports.stream()
         .flatMap(r -> r.maxOffsets().entrySet().stream())
         .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue, Math::max, HashMap::new));
   }
 
-  private double avgLatency = 0;
-  private long records = 0;
-  private long max = 0;
-  private long min = Long.MAX_VALUE;
-  private long totalBytes = 0;
-  private long currentBytes = 0;
-  private final Map<TopicPartition, Long> currentOffsets = new HashMap<>();
-
-  /** Simultaneously add latency and bytes. */
-  public synchronized void record(
-      String topic, int partition, long offset, long latency, int bytes) {
-    ++records;
-    min = Math.min(min, latency);
-    max = Math.max(max, latency);
-    avgLatency += (((double) latency) - avgLatency) / (double) records;
-    currentBytes += bytes;
-    totalBytes += bytes;
-    var tp = TopicPartition.of(topic, partition);
-    currentOffsets.put(tp, Math.max(offset, offset(tp)));
-  }
-
   /** @return Get the number of records. */
-  public synchronized long records() {
-    return records;
-  }
+  long records();
   /** @return Get the maximum of latency put. */
-  public synchronized long max() {
-    return max;
-  }
+  long max();
   /** @return Get the minimum of latency put. */
-  public synchronized long min() {
-    return min;
-  }
+  long min();
   /** @return Get the average latency. */
-  public synchronized double avgLatency() {
-    return avgLatency;
-  }
+  double avgLatency();
 
   /** @return total send/received bytes */
-  public synchronized long totalBytes() {
-    return totalBytes;
-  }
+  long totalBytes();
 
-  public synchronized long clearAndGetCurrentBytes() {
-    var ans = currentBytes;
-    currentBytes = 0;
-    return ans;
-  }
+  long offset(TopicPartition tp);
 
-  public synchronized long offset(TopicPartition tp) {
-    return currentOffsets.getOrDefault(tp, 0L);
-  }
+  Map<TopicPartition, Long> maxOffsets();
 
-  public synchronized Map<TopicPartition, Long> maxOffsets() {
-    return Map.copyOf(currentOffsets);
+  class Impl implements Report {
+
+    private double avgLatency = 0;
+    private long records = 0;
+    private long max = 0;
+    private long min = Long.MAX_VALUE;
+    private long totalBytes = 0;
+
+    private final Map<TopicPartition, Long> currentOffsets = new HashMap<>();
+
+    /** Simultaneously add latency and bytes. */
+    public synchronized void record(
+        String topic, int partition, long offset, long latency, int bytes) {
+      ++records;
+      min = Math.min(min, latency);
+      max = Math.max(max, latency);
+      avgLatency += (((double) latency) - avgLatency) / (double) records;
+      totalBytes += bytes;
+      var tp = TopicPartition.of(topic, partition);
+      currentOffsets.put(tp, Math.max(offset, offset(tp)));
+    }
+
+    /** @return Get the number of records. */
+    @Override
+    public synchronized long records() {
+      return records;
+    }
+    /** @return Get the maximum of latency put. */
+    @Override
+    public synchronized long max() {
+      return max;
+    }
+    /** @return Get the minimum of latency put. */
+    @Override
+    public synchronized long min() {
+      return min;
+    }
+
+    /** @return Get the average latency. */
+    @Override
+    public synchronized double avgLatency() {
+      return avgLatency;
+    }
+
+    /** @return total send/received bytes */
+    @Override
+    public synchronized long totalBytes() {
+      return totalBytes;
+    }
+
+    @Override
+    public synchronized long offset(TopicPartition tp) {
+      return currentOffsets.getOrDefault(tp, 0L);
+    }
+
+    @Override
+    public synchronized Map<TopicPartition, Long> maxOffsets() {
+      return Map.copyOf(currentOffsets);
+    }
   }
 }

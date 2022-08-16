@@ -29,6 +29,9 @@ public interface ReplicationThrottler {
   /**
    * Maximum bandwidth for follower log broker to accept replicated data.
    *
+   * <p>This setting will apply to every live broker in the cluster, since it is targeting the live
+   * one, any offline broker will not be covered.
+   *
    * @param limitForEachFollowerBroker the maximum replication traffic-in of broker.
    * @return this
    */
@@ -36,10 +39,6 @@ public interface ReplicationThrottler {
 
   /**
    * Maximum bandwidth for follower log broker to accept replicated data.
-   *
-   * <p>For any follower broker that the throttle bandwidth is not specified in the argument Map.
-   * The value from {@link ReplicationThrottler#ingress(DataRate)} will be used. If that value is
-   * not specified either, an exception will be raised.
    *
    * @param limitPerFollowerBroker the maximum replication traffic-in for every specified broker.
    * @return this
@@ -49,6 +48,9 @@ public interface ReplicationThrottler {
   /**
    * Maximum bandwidth for leader log broker to transmit replicated data.
    *
+   * <p>This setting will apply to every live broker in the cluster, since it is targeting the live
+   * one, any offline broker will not be covered.
+   *
    * @param limitForEachLeaderBroker the maximum replication traffic-out of broker.
    * @return this
    */
@@ -57,17 +59,19 @@ public interface ReplicationThrottler {
   /**
    * Maximum bandwidth for leader log broker to transmit replicated data.
    *
-   * <p>For any leader broker that the throttle bandwidth is not specified in the argument Map. The
-   * value from {@link ReplicationThrottler#egress(DataRate)} will be used. If that value is not
-   * specified either, an exception will be raised.
-   *
    * @param limitPerLeaderBroker the maximum replication traffic-out for every specified broker.
    * @return this
    */
   ReplicationThrottler egress(Map<Integer, DataRate> limitPerLeaderBroker);
 
   /**
-   * Declare that every log under the specified topic, its replication will be throttle.
+   * Declare that every log currently under the specified topic, its replication will be throttle.
+   *
+   * <p>This API doesn't throttle any partitions or replicas that create/alter in the future. It
+   * only applies to the log currently under that topic.
+   *
+   * <p>This API can't be used in conjunction with the wildcard throttle. An attempt to do so will
+   * result in an exception.
    *
    * @param topic throttle every log under this topic.
    * @return this
@@ -76,29 +80,24 @@ public interface ReplicationThrottler {
 
   /**
    * Declare that the current logs under the specified topic/partition<strong>(look up at the
-   * applying moment)</strong>, its replication will be throttle. This lookup occurred at applying
-   * moment, so any replica change that happened in the future might not be included in this
-   * setting.
+   * calling moment)</strong>, its replication will be throttle. This lookup occurred at the calling
+   * moment of this function , so any replica change that happened in the future might not be
+   * included in this setting.
    *
-   * @param topicPartition throttle the logs belong to this topic/partition(seek at applying
+   * <p>This API can't be used in conjunction with the wildcard throttle. An attempt to do so will
+   * result in an exception.
+   *
+   * @param topicPartition throttle the logs belong to this topic/partition(seek at the calling
    *     moment).
    * @return this
    */
   ReplicationThrottler throttle(TopicPartition topicPartition);
 
   /**
-   * Declare that the replication bandwidth for the given log should be throttled, also attempt to
-   * resolve the actual leader/follower identity of the log.
+   * Declare that the replication bandwidth for the given log should be throttled.
    *
-   * <p>There are two kind of throttle target config, one for leader({@code
-   * leader.replication.throttled.replicas}) and another for follower({@code
-   * follower.replication.throttled.replicas}). For this API, only one of the configs will be
-   * updated for the given log. The config to update is determined by the identity of the given log
-   * at the applying moment. The given log must be part of the replica list at the applying moment.
-   * Otherwise, an exception will be raised due to the given log having no leader/follower identity.
-   * To throttle a log that are not present at the current cluster, consider use {@link
-   * ReplicationThrottler#throttleLeader(TopicPartitionReplica)} or {@link
-   * ReplicationThrottler#throttleFollower(TopicPartitionReplica)}.
+   * <p>This API can't be used in conjunction with the wildcard throttle. An attempt to do so will
+   * result in an exception.
    *
    * @param replica throttle this log.
    * @return this
