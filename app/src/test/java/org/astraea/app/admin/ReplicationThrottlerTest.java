@@ -31,6 +31,12 @@ import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 
 public class ReplicationThrottlerTest extends RequireBrokerCluster {
 
+  /**
+   * There is a bug in the Kafka broker implementation. This will cause the replication throttle to
+   * act unstable at the beginning of replication. For more details, see <a
+   * href="https://github.com/apache/kafka/pull/12528">this</a>. This test attempt to ensure the
+   * throttle works smoothly. It is disabled since it won't pass until the bug is resolved.
+   */
   @EnabledIfEnvironmentVariable(named = "RunReplicationThrottler", matches = "^yes$")
   @Test
   void runReplicationThrottler() {
