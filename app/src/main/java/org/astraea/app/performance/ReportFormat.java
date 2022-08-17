@@ -108,7 +108,7 @@ public enum ReportFormat {
 
   private static void initCSVFormat(BufferedWriter writer, List<CSVContentElement> elements)
       throws IOException {
-    elements.forEach(element -> Utils.packException(() -> writer.write(element.title())));
+    elements.forEach(element -> Utils.packException(() -> writer.write(element.title() + ", ")));
     writer.newLine();
   }
 
