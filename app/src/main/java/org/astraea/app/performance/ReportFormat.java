@@ -106,13 +106,13 @@ public enum ReportFormat {
     }
   }
 
-  private static void initCSVFormat(BufferedWriter writer, List<CSVContentElement> elements)
+  static void initCSVFormat(BufferedWriter writer, List<CSVContentElement> elements)
       throws IOException {
     elements.forEach(element -> Utils.packException(() -> writer.write(element.title() + ", ")));
     writer.newLine();
   }
 
-  private static void logToCSV(BufferedWriter writer, List<CSVContentElement> elements) {
+  static void logToCSV(BufferedWriter writer, List<CSVContentElement> elements) {
     try {
       elements.forEach(element -> Utils.packException(() -> writer.write(element.value() + ", ")));
       writer.newLine();
@@ -121,7 +121,7 @@ public enum ReportFormat {
   }
 
   /** Write to writer. Output: "(timestamp)": { (many metrics ...) } */
-  private static void logToJSON(BufferedWriter writer, List<CSVContentElement> elements) {
+  static void logToJSON(BufferedWriter writer, List<CSVContentElement> elements) {
     try {
       writer.write(LocalTime.now().format(DateTimeFormatter.ISO_LOCAL_TIME) + "\":{");
       elements.forEach(
