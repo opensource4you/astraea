@@ -24,6 +24,7 @@ import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 import org.astraea.app.admin.ClusterBean;
 import org.astraea.app.admin.ClusterInfo;
 import org.astraea.app.admin.NodeInfo;
@@ -235,58 +236,65 @@ public class StrictCostDispatcherTest {
 
   @Test
   void testEmptyJmxPort() {
-    var dispatcher = new StrictCostDispatcher();
+    try (var dispatcher = new StrictCostDispatcher()) {
 
-    // pass due to local mbean
-    dispatcher.configure(
-        Map.of(new NodeThroughputCost(), 1D), Optional.empty(), Map.of(), Duration.ofSeconds(10));
+      // pass due to local mbean
+      dispatcher.configure(
+          Map.of(new NodeThroughputCost(), 1D), Optional.empty(), Map.of(), Duration.ofSeconds(10));
 
-    // pass due to default port
-    dispatcher.configure(
-        Map.of(new NodeThroughputCost(), 1D), Optional.of(111), Map.of(), Duration.ofSeconds(10));
+      // pass due to default port
+      dispatcher.configure(
+          Map.of(new NodeThroughputCost(), 1D), Optional.of(111), Map.of(), Duration.ofSeconds(10));
 
-    // pass due to specify port
-    dispatcher.configure(
-        Map.of(new NodeThroughputCost(), 1D),
-        Optional.empty(),
-        Map.of(222, 111),
-        Duration.ofSeconds(10));
+      // pass due to specify port
+      dispatcher.configure(
+          Map.of(new NodeThroughputCost(), 1D),
+          Optional.empty(),
+          Map.of(222, 111),
+          Duration.ofSeconds(10));
+    }
   }
 
   @Test
   void testReturnedPartition() {
     var brokerId = 22;
     var partitionId = 123;
-    var dispatcher = new StrictCostDispatcher();
-    var costFunction =
-        new HasBrokerCost() {
-          @Override
-          public BrokerCost brokerCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
-            return () -> Map.of(brokerId, 10D);
-          }
-        };
-    dispatcher.configure(
-        Map.of(costFunction, 1D), Optional.empty(), Map.of(), Duration.ofSeconds(10));
+    try (var dispatcher = new StrictCostDispatcher()) {
+      var costFunction =
+          new HasBrokerCost() {
+            @Override
+            public BrokerCost brokerCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
+              return () -> Map.of(brokerId, 10D);
+            }
+          };
+      dispatcher.configure(
+          Map.of(costFunction, 1D), Optional.empty(), Map.of(), Duration.ofSeconds(10));
 
-    var replicaInfo0 =
-        ReplicaInfo.of(
-            "topic", partitionId, NodeInfo.of(brokerId, "host", 11111), true, true, true);
-    var replicaInfo1 =
-        ReplicaInfo.of("topic", 1, NodeInfo.of(1111, "host2", 11111), true, true, true);
-    var clusterInfo = Mockito.mock(ClusterInfo.class);
-    Mockito.when(clusterInfo.availableReplicaLeaders(Mockito.anyString()))
-        .thenReturn(List.of(replicaInfo0, replicaInfo1));
-
-    Assertions.assertEquals(
-        partitionId, dispatcher.partition("topic", new byte[0], new byte[0], clusterInfo));
+      var replicaInfo0 =
+          ReplicaInfo.of(
+              "topic", partitionId, NodeInfo.of(brokerId, "host", 11111), true, true, true);
+      var replicaInfo1 =
+          ReplicaInfo.of("topic", 1, NodeInfo.of(1111, "host2", 11111), true, true, true);
+      var clusterInfo = Mockito.mock(ClusterInfo.class);
+      Mockito.when(clusterInfo.availableReplicaLeaders(Mockito.anyString()))
+          .thenReturn(List.of(replicaInfo0, replicaInfo1));
+      Mockito.when(clusterInfo.nodes())
+          .thenReturn(
+              Stream.of(replicaInfo0, replicaInfo1)
+                  .map(ReplicaInfo::nodeInfo)
+                  .collect(Collectors.toUnmodifiableList()));
+      Assertions.assertEquals(
+          partitionId, dispatcher.partition("topic", new byte[0], new byte[0], clusterInfo));
+    }
   }
 
   @Test
   void testDefaultFunction() {
-    var dispatcher = new StrictCostDispatcher();
-    dispatcher.configure(Configuration.of(Map.of()));
-    Assertions.assertEquals(1, dispatcher.functions.size());
-    Assertions.assertEquals(1, dispatcher.receivers.size());
+    try (var dispatcher = new StrictCostDispatcher()) {
+      dispatcher.configure(Configuration.of(Map.of()));
+      Assertions.assertEquals(1, dispatcher.functions.size());
+      Assertions.assertEquals(1, dispatcher.receivers.size());
+    }
   }
 
   @Test
