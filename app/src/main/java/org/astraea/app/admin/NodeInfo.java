@@ -38,6 +38,8 @@ public interface NodeInfo extends Comparable<NodeInfo> {
 
   static NodeInfo of(int id, String host, int port, boolean isOffline) {
     return new NodeInfo() {
+      private final int hashCode = Objects.hash(id, host, port);
+
       @Override
       public String host() {
         return host;
@@ -60,7 +62,7 @@ public interface NodeInfo extends Comparable<NodeInfo> {
 
       @Override
       public int hashCode() {
-        return Objects.hash(id, host, port);
+        return hashCode;
       }
 
       @Override
