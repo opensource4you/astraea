@@ -37,7 +37,7 @@ public class ReportFormatTest {
   }
 
   @Test
-  void testLogToCSV() throws IOException, InterruptedException {
+  void testLogToCSV() throws IOException {
     StringWriter stringWriter = new StringWriter();
     var writer = new BufferedWriter(stringWriter);
     var elements = List.of(titleValue("t1", "1"), titleValue("t2", "2"));

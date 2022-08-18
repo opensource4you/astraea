@@ -134,7 +134,8 @@ public enum ReportFormat {
     }
   }
 
-  public interface CSVContentElement {
+  // Visible for test
+  interface CSVContentElement {
     String title();
 
     String value();
