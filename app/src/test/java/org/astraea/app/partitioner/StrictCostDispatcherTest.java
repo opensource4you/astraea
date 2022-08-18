@@ -17,10 +17,13 @@
 package org.astraea.app.partitioner;
 
 import java.time.Duration;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import org.astraea.app.admin.ClusterBean;
 import org.astraea.app.admin.ClusterInfo;
 import org.astraea.app.admin.NodeInfo;
@@ -174,7 +177,6 @@ public class StrictCostDispatcherTest {
       dispatcher.configure(
           Map.of(costFunction, 1D), Optional.empty(), Map.of(), Duration.ofSeconds(10));
       dispatcher.partition("topic", new byte[0], new byte[0], clusterInfo);
-      Assertions.assertNotNull(dispatcher.roundRobin);
       Assertions.assertEquals(0, dispatcher.receivers.size());
     }
   }
@@ -210,9 +212,12 @@ public class StrictCostDispatcherTest {
     var replicaInfo1 = ReplicaInfo.of("topic", 1, NodeInfo.of(10, "host", 11111), true, true, true);
     var replicaInfo2 =
         ReplicaInfo.of("topic", 1, NodeInfo.of(11, "host2", 11111), true, true, true);
+    var rs = List.of(replicaInfo0, replicaInfo1, replicaInfo2);
     var clusterInfo = Mockito.mock(ClusterInfo.class);
-    Mockito.when(clusterInfo.availableReplicaLeaders(Mockito.anyString()))
-        .thenReturn(List.of(replicaInfo0, replicaInfo1, replicaInfo2));
+    Mockito.when(clusterInfo.availableReplicaLeaders(Mockito.anyString())).thenReturn(rs);
+    Mockito.when(clusterInfo.nodes())
+        .thenReturn(
+            rs.stream().map(ReplicaInfo::nodeInfo).collect(Collectors.toUnmodifiableList()));
     // there is one local receiver by default
     Assertions.assertEquals(1, dispatcher.receivers.size());
     Assertions.assertEquals(-1, dispatcher.receivers.keySet().iterator().next());
@@ -293,22 +298,26 @@ public class StrictCostDispatcherTest {
 
   @Test
   void testRoundRobinLease() {
-    var dispatcher = new StrictCostDispatcher();
-    dispatcher.configure(
-        Configuration.of(Map.of(StrictCostDispatcher.ROUND_ROBIN_LEASE_KEY, "2s")));
-    Assertions.assertEquals(Duration.ofSeconds(2), dispatcher.roundRobinLease);
+    try (var dispatcher = new StrictCostDispatcher()) {
 
-    var clusterInfo = Mockito.mock(ClusterInfo.class);
-    dispatcher.tryToUpdateRoundRobin(clusterInfo);
-    var rr = dispatcher.roundRobin;
-    Assertions.assertNotNull(rr);
-    // the rr is not updated yet
-    dispatcher.tryToUpdateRoundRobin(clusterInfo);
-    Assertions.assertEquals(rr, dispatcher.roundRobin);
+      dispatcher.configure(
+          Configuration.of(Map.of(StrictCostDispatcher.ROUND_ROBIN_LEASE_KEY, "2s")));
+      Assertions.assertEquals(Duration.ofSeconds(2), dispatcher.roundRobinLease);
 
-    Utils.sleep(Duration.ofSeconds(3));
-    dispatcher.tryToUpdateRoundRobin(clusterInfo);
-    // rr is updated already
-    Assertions.assertNotEquals(rr, dispatcher.roundRobin);
+      var clusterInfo = Mockito.mock(ClusterInfo.class);
+      dispatcher.tryToUpdateRoundRobin(clusterInfo);
+      var t = dispatcher.timeToUpdateRoundRobin;
+      var rr =
+          Arrays.stream(dispatcher.roundRobin).boxed().collect(Collectors.toUnmodifiableList());
+      Assertions.assertEquals(StrictCostDispatcher.ROUND_ROBIN_LENGTH, rr.size());
+      // the rr is not updated yet
+      dispatcher.tryToUpdateRoundRobin(clusterInfo);
+      IntStream.range(0, rr.size())
+          .forEach(i -> Assertions.assertEquals(rr.get(i), dispatcher.roundRobin[i]));
+      Utils.sleep(Duration.ofSeconds(3));
+      dispatcher.tryToUpdateRoundRobin(clusterInfo);
+      // rr is updated already
+      Assertions.assertNotEquals(t, dispatcher.timeToUpdateRoundRobin);
+    }
   }
 }

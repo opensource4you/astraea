@@ -16,6 +16,7 @@
  */
 package org.astraea.app.admin;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
@@ -81,7 +82,7 @@ public interface ClusterInfo {
                     e ->
                         e.getValue().stream()
                             .filter(ReplicaInfo::isLeader)
-                            .collect(Collectors.toUnmodifiableList())));
+                            .collect(Collectors.toCollection(ArrayList::new))));
     return new ClusterInfo() {
       @Override
       public List<NodeInfo> nodes() {
@@ -100,7 +101,7 @@ public interface ClusterInfo {
 
       @Override
       public List<ReplicaInfo> availableReplicaLeaders(String topic) {
-        return availableReplicaLeaders.getOrDefault(topic, List.of());
+        return availableReplicaLeaders.getOrDefault(topic, new ArrayList<>(0));
       }
 
       @Override
