@@ -38,6 +38,7 @@ public interface NodeInfo extends Comparable<NodeInfo> {
 
   static NodeInfo of(int id, String host, int port, boolean isOffline) {
     return new NodeInfo() {
+      // NodeInfo is used to be key of Map commonly, so creating hash can reduce the memory pressure
       private final int hashCode = Objects.hash(id, host, port);
 
       @Override
