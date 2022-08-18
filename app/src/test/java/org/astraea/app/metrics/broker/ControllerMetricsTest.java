@@ -42,14 +42,14 @@ class ControllerMetricsTest extends RequireSingleBrokerCluster {
   @EnumSource(ControllerMetrics.ControllerState.class)
   void testControllerState(ControllerMetrics.ControllerState controllerState) {
     var timer = controllerState.fetch(MBeanClient.local());
-    MetricsTestUtil.testTimer(timer);
+    MetricsTestUtil.validate(timer);
   }
 
   @Test
   void testControllerStateNonEnum() {
     var isMeter =
         ControllerMetrics.ControllerState.getUncleanLeaderElectionsPerSec(MBeanClient.local());
-    MetricsTestUtil.testMeter(isMeter);
+    MetricsTestUtil.validate(isMeter);
   }
 
   @Test

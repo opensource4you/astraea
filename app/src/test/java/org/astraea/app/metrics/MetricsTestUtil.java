@@ -21,11 +21,11 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.astraea.app.metrics.broker.HasCount;
 import org.astraea.app.metrics.broker.HasEventType;
+import org.astraea.app.metrics.broker.HasMeter;
 import org.astraea.app.metrics.broker.HasPercentiles;
 import org.astraea.app.metrics.broker.HasRate;
 import org.astraea.app.metrics.broker.HasStatistics;
-import org.astraea.app.metrics.broker.IsMeter;
-import org.astraea.app.metrics.broker.IsTimer;
+import org.astraea.app.metrics.broker.HasTimer;
 import org.junit.jupiter.api.Assertions;
 
 public class MetricsTestUtil {
@@ -36,19 +36,30 @@ public class MetricsTestUtil {
     return set.size() == tEnums.length;
   }
 
-  public static void testMeter(IsMeter isMeter) {
-    testEventType(isMeter);
-    testRate(isMeter);
-    testCount(isMeter);
+  public static void validate(HasBeanObject hasBeanObject) {
+    if (hasBeanObject instanceof HasMeter) {
+      testMeter((HasMeter) hasBeanObject);
+    } else if (hasBeanObject instanceof HasTimer) {
+      testTimer((HasTimer) hasBeanObject);
+    } else {
+      throw new UnsupportedOperationException(
+          String.format("Not implement. %s", hasBeanObject.getClass()));
+    }
   }
 
-  public static void testTimer(IsTimer isTimer) {
-    testPercentile(isTimer);
-    testStatistics(isTimer);
-    testEventType(isTimer);
-    testRate(isTimer);
-    testCount(isTimer);
-    Assertions.assertDoesNotThrow(isTimer::latencyUnit);
+  private static void testMeter(HasMeter hasMeter) {
+    testEventType(hasMeter);
+    testRate(hasMeter);
+    testCount(hasMeter);
+  }
+
+  private static void testTimer(HasTimer hasTimer) {
+    testPercentile(hasTimer);
+    testStatistics(hasTimer);
+    testEventType(hasTimer);
+    testRate(hasTimer);
+    testCount(hasTimer);
+    Assertions.assertDoesNotThrow(hasTimer::latencyUnit);
   }
 
   private static void testStatistics(HasStatistics hasStatistics) {

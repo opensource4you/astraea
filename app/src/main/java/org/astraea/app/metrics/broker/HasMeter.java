@@ -16,11 +16,4 @@
  */
 package org.astraea.app.metrics.broker;
 
-import java.util.concurrent.TimeUnit;
-
-public interface IsTimer extends HasEventType, HasPercentiles, HasRate, HasStatistics, HasCount {
-
-  default TimeUnit latencyUnit() {
-    return (TimeUnit) beanObject().attributes().getOrDefault("LatencyUnit", TimeUnit.MILLISECONDS);
-  }
-}
+public interface HasMeter extends HasEventType, HasRate, HasCount {}

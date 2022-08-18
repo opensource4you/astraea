@@ -104,6 +104,7 @@ public class ControllerMetrics {
     AUTO_LEADER_BALANCE_RATE_AND_TIME_MS("AutoLeaderBalanceRateAndTimeMs"),
     CONTROLLER_SHUTDOWN_RATE_AND_TIME_MS("ControllerShutdownRateAndTimeMs");
 
+    /** Most of ControllerState metrics is Timer , this is Meter. */
     private static final String UNCLEAN_LEADER_ELECTIONS_PER_SEC = "UncleanLeaderElectionsPerSec";
 
     static ControllerState of(String metricName) {
@@ -123,8 +124,8 @@ public class ControllerMetrics {
       return metricName;
     }
 
-    public static IsMeter getUncleanLeaderElectionsPerSec(MBeanClient mBeanClient) {
-      return IsMeter.of(
+    public static Meter getUncleanLeaderElectionsPerSec(MBeanClient mBeanClient) {
+      return new Meter(
           mBeanClient.queryBean(
               BeanQuery.builder()
                   .domainName("kafka.controller")
@@ -143,7 +144,7 @@ public class ControllerMetrics {
                   .build()));
     }
 
-    public static class Timer implements IsTimer {
+    public static class Timer implements HasTimer {
       private final BeanObject beanObject;
 
       public Timer(BeanObject beanObject) {
@@ -156,6 +157,19 @@ public class ControllerMetrics {
 
       public ControllerState type() {
         return ControllerState.of(metricsName());
+      }
+
+      @Override
+      public BeanObject beanObject() {
+        return beanObject;
+      }
+    }
+
+    public static class Meter implements HasMeter {
+      private final BeanObject beanObject;
+
+      public Meter(BeanObject beanObject) {
+        this.beanObject = beanObject;
       }
 
       @Override
