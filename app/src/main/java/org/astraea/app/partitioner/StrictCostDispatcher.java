@@ -118,6 +118,8 @@ public class StrictCostDispatcher implements Dispatcher {
     var target =
         roundRobin[
             next.getAndUpdate(previous -> previous >= roundRobin.length - 1 ? 0 : previous + 1)];
+
+    // TODO: if the topic partitions are existent in fewer brokers, the target gets -1 in most cases
     var candidate =
         target < 0
             ? partitionLeaders
@@ -139,6 +141,7 @@ public class StrictCostDispatcher implements Dispatcher {
                       .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().current()))));
       var ids =
           clusterInfo.nodes().stream().map(NodeInfo::id).collect(Collectors.toUnmodifiableSet());
+      // TODO: make ROUND_ROBIN_LENGTH configurable ???
       IntStream.range(0, ROUND_ROBIN_LENGTH)
           .forEach(index -> this.roundRobin[index] = roundRobin.next(ids).orElse(-1));
       timeToUpdateRoundRobin = System.currentTimeMillis() + roundRobinLease.toMillis();
