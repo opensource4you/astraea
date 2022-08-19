@@ -53,8 +53,8 @@ public class ControllerMetrics {
       return metricName;
     }
 
-    public Meter fetch(MBeanClient mBeanClient) {
-      return new Meter(
+    public Gauge fetch(MBeanClient mBeanClient) {
+      return new Gauge(
           mBeanClient.queryBean(
               BeanQuery.builder()
                   .domainName("kafka.controller")
@@ -63,10 +63,10 @@ public class ControllerMetrics {
                   .build()));
     }
 
-    public static class Meter implements HasValue {
+    public static class Gauge implements HasGauge {
       private final BeanObject beanObject;
 
-      public Meter(BeanObject beanObject) {
+      public Gauge(BeanObject beanObject) {
         this.beanObject = beanObject;
       }
 

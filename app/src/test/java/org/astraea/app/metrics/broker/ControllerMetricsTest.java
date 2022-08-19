@@ -33,9 +33,9 @@ class ControllerMetricsTest extends RequireSingleBrokerCluster {
   @ParameterizedTest
   @EnumSource(ControllerMetrics.Controller.class)
   void testController(ControllerMetrics.Controller controller) {
-    var meter = controller.fetch(MBeanClient.local());
-    Assertions.assertTrue(meter.value() >= 0);
-    Assertions.assertEquals(controller, meter.type());
+    var gauge = controller.fetch(MBeanClient.local());
+    MetricsTestUtil.validate(gauge);
+    Assertions.assertEquals(controller, gauge.type());
   }
 
   @ParameterizedTest
@@ -47,9 +47,9 @@ class ControllerMetricsTest extends RequireSingleBrokerCluster {
 
   @Test
   void testControllerStateNonEnum() {
-    var isMeter =
+    var meter =
         ControllerMetrics.ControllerState.getUncleanLeaderElectionsPerSec(MBeanClient.local());
-    MetricsTestUtil.validate(isMeter);
+    MetricsTestUtil.validate(meter);
   }
 
   @Test

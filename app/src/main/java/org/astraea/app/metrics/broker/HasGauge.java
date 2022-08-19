@@ -19,13 +19,13 @@ package org.astraea.app.metrics.broker;
 import org.astraea.app.metrics.BeanObject;
 import org.astraea.app.metrics.HasBeanObject;
 
-public interface HasValue extends HasBeanObject {
+public interface HasGauge extends HasBeanObject {
   default long value() {
     var value = beanObject().attributes().getOrDefault("Value", 0);
     return ((Number) value).longValue();
   }
 
-  static HasValue of(BeanObject beanObject) {
+  static HasGauge of(BeanObject beanObject) {
     return () -> beanObject;
   }
 }

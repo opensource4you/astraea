@@ -46,7 +46,7 @@ public final class ServerMetrics {
       return metricName;
     }
 
-    public Collection<Size> fetch(MBeanClient mBeanClient) {
+    public Collection<Gauge> fetch(MBeanClient mBeanClient) {
       return mBeanClient
           .queryBeans(
               BeanQuery.builder()
@@ -56,7 +56,7 @@ public final class ServerMetrics {
                   .property("name", "PurgatorySize")
                   .build())
           .stream()
-          .map(Size::new)
+          .map(Gauge::new)
           .collect(Collectors.toUnmodifiableList());
     }
 
@@ -67,10 +67,10 @@ public final class ServerMetrics {
           .orElseThrow(() -> new IllegalArgumentException("No such metric: " + metricName));
     }
 
-    public static class Size implements HasValue {
+    public static class Gauge implements HasGauge {
       private final BeanObject beanObject;
 
-      public Size(BeanObject beanObject) {
+      public Gauge(BeanObject beanObject) {
         this.beanObject = beanObject;
       }
 
@@ -238,8 +238,8 @@ public final class ServerMetrics {
           .orElseThrow(() -> new IllegalArgumentException("No such metric: " + metricName));
     }
 
-    public Meter fetch(MBeanClient mBeanClient) {
-      return new Meter(
+    public Gauge fetch(MBeanClient mBeanClient) {
+      return new Gauge(
           mBeanClient.queryBean(
               BeanQuery.builder()
                   .domainName("kafka.server")
@@ -248,11 +248,11 @@ public final class ServerMetrics {
                   .build()));
     }
 
-    public static class Meter implements HasValue {
+    public static class Gauge implements HasGauge {
 
       private final BeanObject beanObject;
 
-      public Meter(BeanObject beanObject) {
+      public Gauge(BeanObject beanObject) {
         this.beanObject = Objects.requireNonNull(beanObject);
       }
 

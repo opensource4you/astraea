@@ -21,6 +21,8 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.astraea.app.metrics.broker.HasCount;
 import org.astraea.app.metrics.broker.HasEventType;
+import org.astraea.app.metrics.broker.HasGauge;
+import org.astraea.app.metrics.broker.HasHistogram;
 import org.astraea.app.metrics.broker.HasMeter;
 import org.astraea.app.metrics.broker.HasPercentiles;
 import org.astraea.app.metrics.broker.HasRate;
@@ -41,16 +43,30 @@ public class MetricsTestUtil {
       testMeter((HasMeter) hasBeanObject);
     } else if (hasBeanObject instanceof HasTimer) {
       testTimer((HasTimer) hasBeanObject);
+    } else if (hasBeanObject instanceof HasHistogram) {
+      testHistogram((HasHistogram) hasBeanObject);
+    } else if (hasBeanObject instanceof HasGauge) {
+      testGauge((HasGauge) hasBeanObject);
     } else {
       throw new UnsupportedOperationException(
           String.format("Not implement. %s", hasBeanObject.getClass()));
     }
   }
 
+  private static void testGauge(HasGauge hasGauge) {
+    Assertions.assertDoesNotThrow(hasGauge::value);
+  }
+
   private static void testMeter(HasMeter hasMeter) {
     testEventType(hasMeter);
     testRate(hasMeter);
     testCount(hasMeter);
+  }
+
+  private static void testHistogram(HasHistogram hasHistogram) {
+    testStatistics(hasHistogram);
+    testPercentile(hasHistogram);
+    testCount(hasHistogram);
   }
 
   private static void testTimer(HasTimer hasTimer) {
