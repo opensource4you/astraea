@@ -155,14 +155,8 @@ public class Performance {
                 ReportFormat.createFileWriter(
                     param.reportFormat,
                     param.CSVPath,
-                    param.exeTime,
                     () -> consumerThreads.stream().allMatch(AbstractThread::closed),
                     () -> producerThreads.stream().allMatch(AbstractThread::closed),
-                    () ->
-                        producerThreads.stream()
-                            .map(ProducerThread::report)
-                            .mapToLong(Report::records)
-                            .sum(),
                     producerReports,
                     consumerReports));
 
