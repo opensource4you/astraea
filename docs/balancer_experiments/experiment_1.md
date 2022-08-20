@@ -31,7 +31,13 @@
 
 這個實驗中包含
 
-* 4 個 Apache Kafka Broker 節點（version 3.2.1）。
+* 4 個 Apache Kafka Broker 節點（version 3.1.0）。
+  * 各個節點包含 3 個 log dir，每個有 `900GB` 空間的 SSD
+  * `num.replica.fetchers=5`
+  * `num.io.threads=80`
+  * `num.network.threads=80`
+  * `background.threads=20`
+  * `log.cleaner.threads=20`
 * 1 個 Zookeeper 節點（version 3.7.0）。
 * 98 個 Producer Instance 負責讀寫資料。
 
