@@ -17,8 +17,8 @@
 2. [測試情境生成](#測試情境生成)：敘述我們如何產生測試環境的負載分佈，我們採用。
    * [這個檔案敘述我們的情境中的所有 Topic 的 Log 分佈](./resources/experiment_1_allocation.json)。
    * [這個檔案敘述每個 Topic/Partition 接受的 Produce 資料量](./resources/experiment_1_produce_loading.json)。
-   * 所有 topic 有套用 `retention.size=5000000000`
-3. [Producer 實作](#Producer 實作)：敘述我們使用的 Producer 實作，這個實作的目標是確保資料能穩定地以固定速度輸入。
+   * 所有 topic 有套用 ``retention.size=5000000000``。
+3. [實驗 Producer 實作](#實驗-producer-實作)：敘述我們使用的 Producer 實作，這個實作的目標是確保資料能穩定地以固定速度輸入。
 4. [硬體和網路環境](#硬體和網路環境)：我們測試環境的硬體規格和網路拓樸。
 5. [叢集效能資料索取](叢集效能資料索取)：我們如何索取和觀察效能資訊。
 
@@ -72,7 +72,7 @@
 
 上圖是這 4 個節點在我們產生的分佈下，每個節點預計會承受的負載量。由於 Apache Kafka 建立 Topic 時的負載分配方法為以 Log 數量進行分配，在這個沒有考慮到 Partition 間可能存在 Skewed Loading 的情境，可能會出現這種負載不平衡的現象。Log 的大小會明顯左右負載平衡所需的時間，在這裡我們對每個 Topic 套用了 5 GB 的 `retention.size`，每個 Topic 儲存超過這個大小的資料將會被清除，這個設定會間接影響負載平衡的搬移成本上限。
 
-### Producer 實作
+### 實驗 Producer 實作
 
 為了確保實驗過程的穩定性，我們寫了一個特製的 Producer，他能夠在我們的環境和我們的情境中精確地做到每秒特定流量的資料輸入。
 
