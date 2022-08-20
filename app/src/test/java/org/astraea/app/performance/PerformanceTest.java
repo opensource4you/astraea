@@ -32,7 +32,7 @@ public class PerformanceTest extends RequireBrokerCluster {
   void testTransactionalProducer() {
     var topic = "testTransactionalProducer";
     String[] arguments1 = {
-      "--bootstrap.servers", bootstrapServers(), "--topic", topic, "--transaction.size", "2"
+      "--bootstrap.servers", bootstrapServers(), "--topics", topic, "--transaction.size", "2"
     };
     var latch = new CountDownLatch(1);
     BiConsumer<Long, Integer> observer = (x, y) -> latch.countDown();
@@ -46,7 +46,7 @@ public class PerformanceTest extends RequireBrokerCluster {
   void testProducerExecutor() throws InterruptedException {
     var topic = "testProducerExecutor";
     String[] arguments1 = {
-      "--bootstrap.servers", bootstrapServers(), "--topic", topic, "--compression", "gzip"
+      "--bootstrap.servers", bootstrapServers(), "--topics", topic, "--compression", "gzip"
     };
     var latch = new CountDownLatch(1);
     BiConsumer<Long, Integer> observer = (x, y) -> latch.countDown();
@@ -71,7 +71,7 @@ public class PerformanceTest extends RequireBrokerCluster {
     String[] arguments1 = {
       "--bootstrap.servers",
       "localhost:9092",
-      "--topic",
+      "--topics",
       "not-empty",
       "--partitions",
       "10",
