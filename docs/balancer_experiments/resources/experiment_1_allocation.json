@@ -1,0 +1,5078 @@
+{
+  "allocation": {
+    "AdHoc-394d5531491148c58446fefe7bfcf4ea-0": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka16848516583936571821"
+      }
+    ],
+    "AdHoc-dd5999cf545247e09ba19a160ef07628-1": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka16848516583936571821"
+      }
+    ],
+    "AdHoc-dd5999cf545247e09ba19a160ef07628-0": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka9905056319001596169"
+      }
+    ],
+    "AdHoc-4e5d901a2ae84d558576d6571fff26e2-4": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka10303750596279739724"
+      }
+    ],
+    "AdHoc-4e5d901a2ae84d558576d6571fff26e2-5": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka15040355736678842050"
+      }
+    ],
+    "AdHoc-4e5d901a2ae84d558576d6571fff26e2-2": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka2971736191946565969"
+      }
+    ],
+    "AdHoc-4e5d901a2ae84d558576d6571fff26e2-3": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka4166403983833193032"
+      }
+    ],
+    "AdHoc-4e5d901a2ae84d558576d6571fff26e2-0": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka9905056319001596169"
+      }
+    ],
+    "AdHoc-4e5d901a2ae84d558576d6571fff26e2-1": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka16848516583936571821"
+      }
+    ],
+    "AdHoc-7641b15145a34b5d9594c7b81b672a4c-1": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka2402486578832139216"
+      },
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka10303750596279739724"
+      }
+    ],
+    "AdHoc-7641b15145a34b5d9594c7b81b672a4c-2": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka7487368460693882212"
+      },
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka15040355736678842050"
+      }
+    ],
+    "AdHoc-7641b15145a34b5d9594c7b81b672a4c-0": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka9905056319001596169"
+      },
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka17580439844103113666"
+      }
+    ],
+    "AdHoc-7641b15145a34b5d9594c7b81b672a4c-5": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka15040355736678842050"
+      },
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka1029825335892099347"
+      }
+    ],
+    "AdHoc-7641b15145a34b5d9594c7b81b672a4c-3": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka10704785459397673385"
+      },
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka2971736191946565969"
+      }
+    ],
+    "AdHoc-7641b15145a34b5d9594c7b81b672a4c-4": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka9905056319001596169"
+      },
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka16848516583936571821"
+      }
+    ],
+    "AdHoc-c691510047c54dc4bdee43e9b004bbcc-1": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka1029825335892099347"
+      },
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka14154611982665945787"
+      },
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka2402486578832139216"
+      }
+    ],
+    "AdHoc-c691510047c54dc4bdee43e9b004bbcc-2": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka17580439844103113666"
+      },
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka16848516583936571821"
+      },
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka2971736191946565969"
+      }
+    ],
+    "AdHoc-c691510047c54dc4bdee43e9b004bbcc-0": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka16848516583936571821"
+      },
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka17580439844103113666"
+      },
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka10303750596279739724"
+      }
+    ],
+    "AdHoc-c691510047c54dc4bdee43e9b004bbcc-5": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka7487368460693882212"
+      },
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka15040355736678842050"
+      },
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka17580439844103113666"
+      }
+    ],
+    "AdHoc-c691510047c54dc4bdee43e9b004bbcc-6": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka10704785459397673385"
+      },
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka7487368460693882212"
+      },
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka9905056319001596169"
+      }
+    ],
+    "AdHoc-c691510047c54dc4bdee43e9b004bbcc-3": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka9905056319001596169"
+      },
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka1029825335892099347"
+      },
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka10704785459397673385"
+      }
+    ],
+    "AdHoc-c691510047c54dc4bdee43e9b004bbcc-4": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka15040355736678842050"
+      },
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka10303750596279739724"
+      },
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka1029825335892099347"
+      }
+    ],
+    "LongRun-0f3500e244bb40ce8344199e02bcb3a1-15": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka1029825335892099347"
+      },
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka9905056319001596169"
+      }
+    ],
+    "LongRun-0f3500e244bb40ce8344199e02bcb3a1-14": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka2402486578832139216"
+      },
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka10704785459397673385"
+      }
+    ],
+    "LongRun-0f3500e244bb40ce8344199e02bcb3a1-13": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka9905056319001596169"
+      },
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka1029825335892099347"
+      }
+    ],
+    "LongRun-0f3500e244bb40ce8344199e02bcb3a1-12": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka10704785459397673385"
+      },
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka15040355736678842050"
+      }
+    ],
+    "LongRun-0f3500e244bb40ce8344199e02bcb3a1-11": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka7487368460693882212"
+      },
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka4166403983833193032"
+      }
+    ],
+    "LongRun-0f3500e244bb40ce8344199e02bcb3a1-10": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka2402486578832139216"
+      },
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka2971736191946565969"
+      }
+    ],
+    "LongRun-0f3500e244bb40ce8344199e02bcb3a1-9": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka14154611982665945787"
+      },
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka2402486578832139216"
+      }
+    ],
+    "LongRun-0f3500e244bb40ce8344199e02bcb3a1-8": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka17580439844103113666"
+      },
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka14154611982665945787"
+      }
+    ],
+    "LongRun-0f3500e244bb40ce8344199e02bcb3a1-7": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka7487368460693882212"
+      },
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka15040355736678842050"
+      }
+    ],
+    "LongRun-0f3500e244bb40ce8344199e02bcb3a1-6": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka16848516583936571821"
+      },
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka14154611982665945787"
+      }
+    ],
+    "LongRun-0f3500e244bb40ce8344199e02bcb3a1-5": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka10303750596279739724"
+      },
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka17580439844103113666"
+      }
+    ],
+    "LongRun-0f3500e244bb40ce8344199e02bcb3a1-4": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka17580439844103113666"
+      },
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka7487368460693882212"
+      }
+    ],
+    "LongRun-0f3500e244bb40ce8344199e02bcb3a1-3": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka2971736191946565969"
+      },
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka10303750596279739724"
+      }
+    ],
+    "LongRun-0f3500e244bb40ce8344199e02bcb3a1-2": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka15040355736678842050"
+      },
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka10704785459397673385"
+      }
+    ],
+    "LongRun-0f3500e244bb40ce8344199e02bcb3a1-1": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka10303750596279739724"
+      },
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka1029825335892099347"
+      }
+    ],
+    "LongRun-0f3500e244bb40ce8344199e02bcb3a1-0": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka4166403983833193032"
+      },
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka16848516583936571821"
+      }
+    ],
+    "AdHoc-9f44aeafb30b428bb0f9c1bf90bc2e92-0": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka4166403983833193032"
+      }
+    ],
+    "AdHoc-9f44aeafb30b428bb0f9c1bf90bc2e92-2": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka16848516583936571821"
+      }
+    ],
+    "AdHoc-9f44aeafb30b428bb0f9c1bf90bc2e92-1": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka9905056319001596169"
+      }
+    ],
+    "AdHoc-0c519ab8240c49ec915b6c4bb5704bc7-3": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka16848516583936571821"
+      }
+    ],
+    "AdHoc-0c519ab8240c49ec915b6c4bb5704bc7-2": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka10303750596279739724"
+      }
+    ],
+    "AdHoc-0c519ab8240c49ec915b6c4bb5704bc7-1": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka17580439844103113666"
+      }
+    ],
+    "AdHoc-0c519ab8240c49ec915b6c4bb5704bc7-0": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka1029825335892099347"
+      }
+    ],
+    "AdHoc-c0574c6fbe6d4d2e81817b1da95211cd-3": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka1029825335892099347"
+      }
+    ],
+    "AdHoc-c0574c6fbe6d4d2e81817b1da95211cd-6": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka16848516583936571821"
+      }
+    ],
+    "AdHoc-c0574c6fbe6d4d2e81817b1da95211cd-5": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka14154611982665945787"
+      }
+    ],
+    "AdHoc-c0574c6fbe6d4d2e81817b1da95211cd-4": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka10704785459397673385"
+      }
+    ],
+    "AdHoc-c0574c6fbe6d4d2e81817b1da95211cd-0": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka17580439844103113666"
+      }
+    ],
+    "AdHoc-c0574c6fbe6d4d2e81817b1da95211cd-2": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka15040355736678842050"
+      }
+    ],
+    "AdHoc-c0574c6fbe6d4d2e81817b1da95211cd-1": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka14154611982665945787"
+      }
+    ],
+    "AdHoc-2b141f7044704989af8c30e378a1e4c9-3": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka17580439844103113666"
+      }
+    ],
+    "AdHoc-2b141f7044704989af8c30e378a1e4c9-2": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka1029825335892099347"
+      }
+    ],
+    "AdHoc-2b141f7044704989af8c30e378a1e4c9-1": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka15040355736678842050"
+      }
+    ],
+    "AdHoc-2b141f7044704989af8c30e378a1e4c9-0": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka9905056319001596169"
+      }
+    ],
+    "AdHoc-86739bce727e4faeb1ca29c2aaf3d5c9-2": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka2971736191946565969"
+      }
+    ],
+    "AdHoc-86739bce727e4faeb1ca29c2aaf3d5c9-8": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka10303750596279739724"
+      }
+    ],
+    "AdHoc-86739bce727e4faeb1ca29c2aaf3d5c9-7": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka4166403983833193032"
+      }
+    ],
+    "AdHoc-86739bce727e4faeb1ca29c2aaf3d5c9-6": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka1029825335892099347"
+      }
+    ],
+    "AdHoc-86739bce727e4faeb1ca29c2aaf3d5c9-5": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka2402486578832139216"
+      }
+    ],
+    "AdHoc-86739bce727e4faeb1ca29c2aaf3d5c9-4": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka9905056319001596169"
+      }
+    ],
+    "AdHoc-86739bce727e4faeb1ca29c2aaf3d5c9-3": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka4166403983833193032"
+      }
+    ],
+    "AdHoc-86739bce727e4faeb1ca29c2aaf3d5c9-0": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka9905056319001596169"
+      }
+    ],
+    "AdHoc-86739bce727e4faeb1ca29c2aaf3d5c9-1": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka2402486578832139216"
+      }
+    ],
+    "AdHoc-6dfc52cd4510450cbf26bd2726dc672e-8": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka14154611982665945787"
+      },
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka17580439844103113666"
+      }
+    ],
+    "AdHoc-6dfc52cd4510450cbf26bd2726dc672e-7": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka4166403983833193032"
+      },
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka2402486578832139216"
+      }
+    ],
+    "AdHoc-6dfc52cd4510450cbf26bd2726dc672e-6": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka7487368460693882212"
+      },
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka14154611982665945787"
+      }
+    ],
+    "AdHoc-6dfc52cd4510450cbf26bd2726dc672e-5": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka2402486578832139216"
+      },
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka10704785459397673385"
+      }
+    ],
+    "AdHoc-6dfc52cd4510450cbf26bd2726dc672e-4": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka10303750596279739724"
+      },
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka7487368460693882212"
+      }
+    ],
+    "AdHoc-6dfc52cd4510450cbf26bd2726dc672e-3": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka17580439844103113666"
+      },
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka9905056319001596169"
+      }
+    ],
+    "AdHoc-6dfc52cd4510450cbf26bd2726dc672e-2": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka7487368460693882212"
+      },
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka4166403983833193032"
+      }
+    ],
+    "AdHoc-6dfc52cd4510450cbf26bd2726dc672e-1": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka15040355736678842050"
+      },
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka1029825335892099347"
+      }
+    ],
+    "AdHoc-6dfc52cd4510450cbf26bd2726dc672e-0": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka14154611982665945787"
+      },
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka16848516583936571821"
+      }
+    ],
+    "AdHoc-bc807ef9279e43808ead24b79aa20955-6": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka16848516583936571821"
+      }
+    ],
+    "AdHoc-bc807ef9279e43808ead24b79aa20955-7": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka7487368460693882212"
+      }
+    ],
+    "AdHoc-dde1d44abccd431294e1492e2c2d415f-3": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka14154611982665945787"
+      }
+    ],
+    "AdHoc-dde1d44abccd431294e1492e2c2d415f-2": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka10704785459397673385"
+      }
+    ],
+    "AdHoc-dde1d44abccd431294e1492e2c2d415f-1": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka7487368460693882212"
+      }
+    ],
+    "AdHoc-dde1d44abccd431294e1492e2c2d415f-0": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka2402486578832139216"
+      }
+    ],
+    "AdHoc-bc807ef9279e43808ead24b79aa20955-5": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka9905056319001596169"
+      }
+    ],
+    "AdHoc-bc807ef9279e43808ead24b79aa20955-4": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka10704785459397673385"
+      }
+    ],
+    "AdHoc-bc807ef9279e43808ead24b79aa20955-3": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka7487368460693882212"
+      }
+    ],
+    "AdHoc-bc807ef9279e43808ead24b79aa20955-2": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka2402486578832139216"
+      }
+    ],
+    "AdHoc-bc807ef9279e43808ead24b79aa20955-1": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka14154611982665945787"
+      }
+    ],
+    "AdHoc-bc807ef9279e43808ead24b79aa20955-0": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka17580439844103113666"
+      }
+    ],
+    "AdHoc-10d16162e1964fadb47722ec183353ad-2": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka10303750596279739724"
+      }
+    ],
+    "AdHoc-5c507224a7134d599861874ac1d02efd-3": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka16848516583936571821"
+      }
+    ],
+    "AdHoc-5c507224a7134d599861874ac1d02efd-2": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka10303750596279739724"
+      }
+    ],
+    "AdHoc-5c507224a7134d599861874ac1d02efd-1": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka4166403983833193032"
+      }
+    ],
+    "AdHoc-5c507224a7134d599861874ac1d02efd-0": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka2971736191946565969"
+      }
+    ],
+    "AdHoc-10d16162e1964fadb47722ec183353ad-1": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka17580439844103113666"
+      }
+    ],
+    "AdHoc-10d16162e1964fadb47722ec183353ad-0": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka1029825335892099347"
+      }
+    ],
+    "AdHoc-b305636d01c441829ea52d4ce2d9483c-4": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka2402486578832139216"
+      }
+    ],
+    "AdHoc-5b47039ce45d4ae5a7e2053992f07d18-8": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka7487368460693882212"
+      }
+    ],
+    "AdHoc-5b47039ce45d4ae5a7e2053992f07d18-7": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka2402486578832139216"
+      }
+    ],
+    "AdHoc-5b47039ce45d4ae5a7e2053992f07d18-6": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka10303750596279739724"
+      }
+    ],
+    "AdHoc-5b47039ce45d4ae5a7e2053992f07d18-5": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka10704785459397673385"
+      }
+    ],
+    "AdHoc-5b47039ce45d4ae5a7e2053992f07d18-4": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka2971736191946565969"
+      }
+    ],
+    "AdHoc-5b47039ce45d4ae5a7e2053992f07d18-3": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka16848516583936571821"
+      }
+    ],
+    "AdHoc-5b47039ce45d4ae5a7e2053992f07d18-2": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka10303750596279739724"
+      }
+    ],
+    "AdHoc-5b47039ce45d4ae5a7e2053992f07d18-1": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka4166403983833193032"
+      }
+    ],
+    "AdHoc-5b47039ce45d4ae5a7e2053992f07d18-0": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka2971736191946565969"
+      }
+    ],
+    "AdHoc-b305636d01c441829ea52d4ce2d9483c-3": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka10303750596279739724"
+      }
+    ],
+    "AdHoc-b305636d01c441829ea52d4ce2d9483c-2": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka4166403983833193032"
+      }
+    ],
+    "AdHoc-b305636d01c441829ea52d4ce2d9483c-1": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka2971736191946565969"
+      }
+    ],
+    "AdHoc-b305636d01c441829ea52d4ce2d9483c-0": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka15040355736678842050"
+      }
+    ],
+    "AdHoc-e855d0ac2f8d41bd8b757cf31c424e57-2": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka1029825335892099347"
+      }
+    ],
+    "AdHoc-e855d0ac2f8d41bd8b757cf31c424e57-1": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka15040355736678842050"
+      }
+    ],
+    "AdHoc-e855d0ac2f8d41bd8b757cf31c424e57-0": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka10303750596279739724"
+      }
+    ],
+    "AdHoc-36d25fefc2754787828e2ad915d81744-4": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka15040355736678842050"
+      },
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka1029825335892099347"
+      }
+    ],
+    "AdHoc-36d25fefc2754787828e2ad915d81744-3": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka10303750596279739724"
+      },
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka4166403983833193032"
+      }
+    ],
+    "AdHoc-36d25fefc2754787828e2ad915d81744-2": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka17580439844103113666"
+      },
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka2971736191946565969"
+      }
+    ],
+    "AdHoc-36d25fefc2754787828e2ad915d81744-1": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka7487368460693882212"
+      },
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka15040355736678842050"
+      }
+    ],
+    "AdHoc-36d25fefc2754787828e2ad915d81744-0": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka2402486578832139216"
+      },
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka14154611982665945787"
+      }
+    ],
+    "AdHoc-95d5b08cef6e4d9ba4eacb865110edd5-7": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka15040355736678842050"
+      },
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka10303750596279739724"
+      }
+    ],
+    "AdHoc-95d5b08cef6e4d9ba4eacb865110edd5-5": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka17580439844103113666"
+      },
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka7487368460693882212"
+      }
+    ],
+    "AdHoc-95d5b08cef6e4d9ba4eacb865110edd5-6": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka14154611982665945787"
+      },
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka4166403983833193032"
+      }
+    ],
+    "AdHoc-0424154035424e9e83a24efec052bb94-0": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka2402486578832139216"
+      }
+    ],
+    "AdHoc-0424154035424e9e83a24efec052bb94-1": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka7487368460693882212"
+      }
+    ],
+    "AdHoc-0424154035424e9e83a24efec052bb94-3": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka14154611982665945787"
+      }
+    ],
+    "AdHoc-0424154035424e9e83a24efec052bb94-2": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka10704785459397673385"
+      }
+    ],
+    "AdHoc-e99c419950b445258d9359f6e95bc15a-6": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka1029825335892099347"
+      }
+    ],
+    "AdHoc-e99c419950b445258d9359f6e95bc15a-5": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka16848516583936571821"
+      }
+    ],
+    "AdHoc-e99c419950b445258d9359f6e95bc15a-4": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka14154611982665945787"
+      }
+    ],
+    "AdHoc-e99c419950b445258d9359f6e95bc15a-3": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka10704785459397673385"
+      }
+    ],
+    "AdHoc-e99c419950b445258d9359f6e95bc15a-2": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka7487368460693882212"
+      }
+    ],
+    "AdHoc-e99c419950b445258d9359f6e95bc15a-1": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka2402486578832139216"
+      }
+    ],
+    "AdHoc-e99c419950b445258d9359f6e95bc15a-0": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka10303750596279739724"
+      }
+    ],
+    "AdHoc-95d5b08cef6e4d9ba4eacb865110edd5-4": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka2971736191946565969"
+      },
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka16848516583936571821"
+      }
+    ],
+    "AdHoc-95d5b08cef6e4d9ba4eacb865110edd5-3": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka2402486578832139216"
+      },
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka17580439844103113666"
+      }
+    ],
+    "AdHoc-95d5b08cef6e4d9ba4eacb865110edd5-2": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka10303750596279739724"
+      },
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka1029825335892099347"
+      }
+    ],
+    "AdHoc-95d5b08cef6e4d9ba4eacb865110edd5-1": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka10704785459397673385"
+      },
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka2402486578832139216"
+      }
+    ],
+    "AdHoc-95d5b08cef6e4d9ba4eacb865110edd5-0": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka1029825335892099347"
+      },
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka9905056319001596169"
+      }
+    ],
+    "AdHoc-986a0aa4b75c4cf79d22fb686eab8c1b-2": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka10704785459397673385"
+      }
+    ],
+    "AdHoc-986a0aa4b75c4cf79d22fb686eab8c1b-1": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka7487368460693882212"
+      }
+    ],
+    "AdHoc-986a0aa4b75c4cf79d22fb686eab8c1b-0": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka2402486578832139216"
+      }
+    ],
+    "AdHoc-b5c28a0b11aa4d4aa877760423e132c1-2": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka17580439844103113666"
+      },
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka14154611982665945787"
+      }
+    ],
+    "AdHoc-b5c28a0b11aa4d4aa877760423e132c1-1": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka2971736191946565969"
+      },
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka10704785459397673385"
+      }
+    ],
+    "AdHoc-b5c28a0b11aa4d4aa877760423e132c1-0": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka15040355736678842050"
+      },
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka7487368460693882212"
+      }
+    ],
+    "LongRun-5858d04609b64565b565691f9a8047ca-15": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka7487368460693882212"
+      }
+    ],
+    "LongRun-5858d04609b64565b565691f9a8047ca-14": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka15040355736678842050"
+      }
+    ],
+    "LongRun-5858d04609b64565b565691f9a8047ca-13": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka9905056319001596169"
+      }
+    ],
+    "LongRun-5858d04609b64565b565691f9a8047ca-12": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka4166403983833193032"
+      }
+    ],
+    "LongRun-5858d04609b64565b565691f9a8047ca-11": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka2971736191946565969"
+      }
+    ],
+    "LongRun-5858d04609b64565b565691f9a8047ca-10": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka2402486578832139216"
+      }
+    ],
+    "LongRun-5858d04609b64565b565691f9a8047ca-9": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka10303750596279739724"
+      }
+    ],
+    "LongRun-5858d04609b64565b565691f9a8047ca-8": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka10704785459397673385"
+      }
+    ],
+    "LongRun-5858d04609b64565b565691f9a8047ca-7": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka7487368460693882212"
+      }
+    ],
+    "LongRun-5858d04609b64565b565691f9a8047ca-6": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka2402486578832139216"
+      }
+    ],
+    "LongRun-5858d04609b64565b565691f9a8047ca-5": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka14154611982665945787"
+      }
+    ],
+    "LongRun-5858d04609b64565b565691f9a8047ca-4": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka4166403983833193032"
+      }
+    ],
+    "LongRun-5858d04609b64565b565691f9a8047ca-3": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka7487368460693882212"
+      }
+    ],
+    "LongRun-5858d04609b64565b565691f9a8047ca-2": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka2402486578832139216"
+      }
+    ],
+    "LongRun-5858d04609b64565b565691f9a8047ca-1": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka10303750596279739724"
+      }
+    ],
+    "LongRun-5858d04609b64565b565691f9a8047ca-0": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka10704785459397673385"
+      }
+    ],
+    "AdHoc-12aaeb97cf584ffabf706beacab23886-4": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka10704785459397673385"
+      },
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka2971736191946565969"
+      },
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka14154611982665945787"
+      }
+    ],
+    "AdHoc-12aaeb97cf584ffabf706beacab23886-1": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka9905056319001596169"
+      },
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka1029825335892099347"
+      },
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka17580439844103113666"
+      }
+    ],
+    "AdHoc-12aaeb97cf584ffabf706beacab23886-0": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka4166403983833193032"
+      },
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka15040355736678842050"
+      },
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka7487368460693882212"
+      }
+    ],
+    "AdHoc-12aaeb97cf584ffabf706beacab23886-3": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka2971736191946565969"
+      },
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka10303750596279739724"
+      },
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka2402486578832139216"
+      }
+    ],
+    "AdHoc-12aaeb97cf584ffabf706beacab23886-2": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka16848516583936571821"
+      },
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka10704785459397673385"
+      },
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka9905056319001596169"
+      }
+    ],
+    "AdHoc-7afe1512d852412783e258c2e8d88f1a-6": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka1029825335892099347"
+      }
+    ],
+    "AdHoc-7afe1512d852412783e258c2e8d88f1a-5": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka15040355736678842050"
+      }
+    ],
+    "AdHoc-7afe1512d852412783e258c2e8d88f1a-4": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka10303750596279739724"
+      }
+    ],
+    "AdHoc-7afe1512d852412783e258c2e8d88f1a-3": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka4166403983833193032"
+      }
+    ],
+    "AdHoc-7afe1512d852412783e258c2e8d88f1a-2": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka7487368460693882212"
+      }
+    ],
+    "AdHoc-7afe1512d852412783e258c2e8d88f1a-1": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka16848516583936571821"
+      }
+    ],
+    "AdHoc-7afe1512d852412783e258c2e8d88f1a-0": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka9905056319001596169"
+      }
+    ],
+    "AdHoc-5ca819ec11454f6d823de5187da78c42-8": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka15040355736678842050"
+      }
+    ],
+    "AdHoc-5ca819ec11454f6d823de5187da78c42-7": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka9905056319001596169"
+      }
+    ],
+    "AdHoc-5ca819ec11454f6d823de5187da78c42-6": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka4166403983833193032"
+      }
+    ],
+    "AdHoc-5ca819ec11454f6d823de5187da78c42-5": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka2971736191946565969"
+      }
+    ],
+    "AdHoc-5ca819ec11454f6d823de5187da78c42-4": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka2402486578832139216"
+      }
+    ],
+    "AdHoc-5ca819ec11454f6d823de5187da78c42-3": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka14154611982665945787"
+      }
+    ],
+    "AdHoc-5ca819ec11454f6d823de5187da78c42-2": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka4166403983833193032"
+      }
+    ],
+    "AdHoc-5ca819ec11454f6d823de5187da78c42-1": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka1029825335892099347"
+      }
+    ],
+    "AdHoc-5ca819ec11454f6d823de5187da78c42-0": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka16848516583936571821"
+      }
+    ],
+    "AdHoc-30e536a22cc2472d91d2cc58c3a14a24-4": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka9905056319001596169"
+      }
+    ],
+    "AdHoc-30e536a22cc2472d91d2cc58c3a14a24-3": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka17580439844103113666"
+      }
+    ],
+    "AdHoc-30e536a22cc2472d91d2cc58c3a14a24-7": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka4166403983833193032"
+      }
+    ],
+    "AdHoc-30e536a22cc2472d91d2cc58c3a14a24-6": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka7487368460693882212"
+      }
+    ],
+    "AdHoc-30e536a22cc2472d91d2cc58c3a14a24-5": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka16848516583936571821"
+      }
+    ],
+    "AdHoc-30e536a22cc2472d91d2cc58c3a14a24-2": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka2971736191946565969"
+      }
+    ],
+    "AdHoc-30e536a22cc2472d91d2cc58c3a14a24-1": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka15040355736678842050"
+      }
+    ],
+    "AdHoc-30e536a22cc2472d91d2cc58c3a14a24-0": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka10303750596279739724"
+      }
+    ],
+    "AdHoc-de7045585d664bac8b2f56397971afa4-7": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka1029825335892099347"
+      }
+    ],
+    "AdHoc-de7045585d664bac8b2f56397971afa4-6": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka16848516583936571821"
+      }
+    ],
+    "AdHoc-de7045585d664bac8b2f56397971afa4-5": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka14154611982665945787"
+      }
+    ],
+    "AdHoc-de7045585d664bac8b2f56397971afa4-4": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka4166403983833193032"
+      }
+    ],
+    "AdHoc-de7045585d664bac8b2f56397971afa4-3": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka1029825335892099347"
+      }
+    ],
+    "AdHoc-de7045585d664bac8b2f56397971afa4-2": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka15040355736678842050"
+      }
+    ],
+    "AdHoc-de7045585d664bac8b2f56397971afa4-1": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka10303750596279739724"
+      }
+    ],
+    "AdHoc-de7045585d664bac8b2f56397971afa4-0": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka17580439844103113666"
+      }
+    ],
+    "AdHoc-7bf2ff5f6920443f979590cb2b977a63-2": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka15040355736678842050"
+      }
+    ],
+    "AdHoc-7bf2ff5f6920443f979590cb2b977a63-1": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka14154611982665945787"
+      }
+    ],
+    "AdHoc-7bf2ff5f6920443f979590cb2b977a63-0": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka10704785459397673385"
+      }
+    ],
+    "AdHoc-5a6c62454a7340c3944d94bf3b5edc05-5": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka17580439844103113666"
+      }
+    ],
+    "AdHoc-5a6c62454a7340c3944d94bf3b5edc05-4": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka2971736191946565969"
+      }
+    ],
+    "AdHoc-5a6c62454a7340c3944d94bf3b5edc05-3": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka15040355736678842050"
+      }
+    ],
+    "AdHoc-5a6c62454a7340c3944d94bf3b5edc05-2": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka9905056319001596169"
+      }
+    ],
+    "AdHoc-5a6c62454a7340c3944d94bf3b5edc05-1": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka4166403983833193032"
+      }
+    ],
+    "AdHoc-5a6c62454a7340c3944d94bf3b5edc05-0": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka1029825335892099347"
+      }
+    ],
+    "AdHoc-89d7347439774f53a28b0781ddc6c01c-6": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka4166403983833193032"
+      }
+    ],
+    "AdHoc-89d7347439774f53a28b0781ddc6c01c-5": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka1029825335892099347"
+      }
+    ],
+    "AdHoc-89d7347439774f53a28b0781ddc6c01c-4": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka16848516583936571821"
+      }
+    ],
+    "AdHoc-89d7347439774f53a28b0781ddc6c01c-3": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka9905056319001596169"
+      }
+    ],
+    "AdHoc-945e9fa9d53b401fa93f7bd58c77db0c-2": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka17580439844103113666"
+      }
+    ],
+    "AdHoc-945e9fa9d53b401fa93f7bd58c77db0c-1": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka1029825335892099347"
+      }
+    ],
+    "AdHoc-945e9fa9d53b401fa93f7bd58c77db0c-0": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka16848516583936571821"
+      }
+    ],
+    "AdHoc-89d7347439774f53a28b0781ddc6c01c-2": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka10704785459397673385"
+      }
+    ],
+    "AdHoc-89d7347439774f53a28b0781ddc6c01c-1": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka2971736191946565969"
+      }
+    ],
+    "AdHoc-89d7347439774f53a28b0781ddc6c01c-0": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka15040355736678842050"
+      }
+    ],
+    "AdHoc-a76857b563af4d64b288bb330f44f5c7-5": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka2402486578832139216"
+      }
+    ],
+    "AdHoc-a76857b563af4d64b288bb330f44f5c7-6": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka7487368460693882212"
+      }
+    ],
+    "AdHoc-a76857b563af4d64b288bb330f44f5c7-1": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka16848516583936571821"
+      }
+    ],
+    "AdHoc-a76857b563af4d64b288bb330f44f5c7-2": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka1029825335892099347"
+      }
+    ],
+    "AdHoc-a76857b563af4d64b288bb330f44f5c7-3": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka17580439844103113666"
+      }
+    ],
+    "AdHoc-a76857b563af4d64b288bb330f44f5c7-4": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka14154611982665945787"
+      }
+    ],
+    "AdHoc-de181f3979e0409ca7fda753533d6df7-6": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka14154611982665945787"
+      },
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka2402486578832139216"
+      },
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka7487368460693882212"
+      }
+    ],
+    "AdHoc-de181f3979e0409ca7fda753533d6df7-5": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka17580439844103113666"
+      },
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka14154611982665945787"
+      },
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka2402486578832139216"
+      }
+    ],
+    "AdHoc-de181f3979e0409ca7fda753533d6df7-4": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka1029825335892099347"
+      },
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka4166403983833193032"
+      },
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka9905056319001596169"
+      }
+    ],
+    "AdHoc-de181f3979e0409ca7fda753533d6df7-3": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka2402486578832139216"
+      },
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka9905056319001596169"
+      },
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka1029825335892099347"
+      }
+    ],
+    "AdHoc-de181f3979e0409ca7fda753533d6df7-2": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka10303750596279739724"
+      },
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka17580439844103113666"
+      },
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka16848516583936571821"
+      }
+    ],
+    "AdHoc-de181f3979e0409ca7fda753533d6df7-1": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka17580439844103113666"
+      },
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka2971736191946565969"
+      },
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka10303750596279739724"
+      }
+    ],
+    "AdHoc-de181f3979e0409ca7fda753533d6df7-0": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka2971736191946565969"
+      },
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka16848516583936571821"
+      },
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka10704785459397673385"
+      }
+    ],
+    "AdHoc-a76857b563af4d64b288bb330f44f5c7-0": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka10303750596279739724"
+      }
+    ],
+    "AdHoc-fddb47ce89c34772bd90371f1751ecaa-5": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka7487368460693882212"
+      }
+    ],
+    "AdHoc-b061937e17b14249ac933e00b8beecf5-2": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka2402486578832139216"
+      }
+    ],
+    "AdHoc-b061937e17b14249ac933e00b8beecf5-1": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka10303750596279739724"
+      }
+    ],
+    "AdHoc-b061937e17b14249ac933e00b8beecf5-0": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka17580439844103113666"
+      }
+    ],
+    "LongRun-031ec93f6d6c491590f9ef462c7921b4-11": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka4166403983833193032"
+      }
+    ],
+    "LongRun-031ec93f6d6c491590f9ef462c7921b4-10": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka2971736191946565969"
+      }
+    ],
+    "LongRun-031ec93f6d6c491590f9ef462c7921b4-9": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka16848516583936571821"
+      }
+    ],
+    "LongRun-031ec93f6d6c491590f9ef462c7921b4-8": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka14154611982665945787"
+      }
+    ],
+    "LongRun-031ec93f6d6c491590f9ef462c7921b4-7": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka17580439844103113666"
+      }
+    ],
+    "LongRun-031ec93f6d6c491590f9ef462c7921b4-6": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka1029825335892099347"
+      }
+    ],
+    "LongRun-031ec93f6d6c491590f9ef462c7921b4-5": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka15040355736678842050"
+      }
+    ],
+    "LongRun-031ec93f6d6c491590f9ef462c7921b4-4": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka10303750596279739724"
+      }
+    ],
+    "LongRun-031ec93f6d6c491590f9ef462c7921b4-3": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka4166403983833193032"
+      }
+    ],
+    "LongRun-031ec93f6d6c491590f9ef462c7921b4-2": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka7487368460693882212"
+      }
+    ],
+    "LongRun-031ec93f6d6c491590f9ef462c7921b4-1": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka2402486578832139216"
+      }
+    ],
+    "LongRun-031ec93f6d6c491590f9ef462c7921b4-0": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka9905056319001596169"
+      }
+    ],
+    "AdHoc-fddb47ce89c34772bd90371f1751ecaa-0": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka15040355736678842050"
+      }
+    ],
+    "AdHoc-fddb47ce89c34772bd90371f1751ecaa-4": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka16848516583936571821"
+      }
+    ],
+    "AdHoc-fddb47ce89c34772bd90371f1751ecaa-3": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka14154611982665945787"
+      }
+    ],
+    "AdHoc-6831e8213cb94d70846081764c5914f0-6": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka4166403983833193032"
+      }
+    ],
+    "AdHoc-6831e8213cb94d70846081764c5914f0-5": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka2971736191946565969"
+      }
+    ],
+    "AdHoc-6831e8213cb94d70846081764c5914f0-4": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka16848516583936571821"
+      }
+    ],
+    "AdHoc-6831e8213cb94d70846081764c5914f0-3": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka9905056319001596169"
+      }
+    ],
+    "AdHoc-6831e8213cb94d70846081764c5914f0-2": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka10704785459397673385"
+      }
+    ],
+    "AdHoc-6831e8213cb94d70846081764c5914f0-1": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka7487368460693882212"
+      }
+    ],
+    "AdHoc-6831e8213cb94d70846081764c5914f0-0": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka15040355736678842050"
+      }
+    ],
+    "AdHoc-4e2b6d4876d7443a8b6a6594521cf2c6-3": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka17580439844103113666"
+      }
+    ],
+    "AdHoc-4e2b6d4876d7443a8b6a6594521cf2c6-4": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka9905056319001596169"
+      }
+    ],
+    "AdHoc-4e2b6d4876d7443a8b6a6594521cf2c6-5": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka2402486578832139216"
+      }
+    ],
+    "AdHoc-4e2b6d4876d7443a8b6a6594521cf2c6-6": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka2971736191946565969"
+      }
+    ],
+    "LongRun-31e150ab5b3d4a37a93621ce7a0444fa-9": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka16848516583936571821"
+      }
+    ],
+    "LongRun-31e150ab5b3d4a37a93621ce7a0444fa-10": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka2971736191946565969"
+      }
+    ],
+    "LongRun-31e150ab5b3d4a37a93621ce7a0444fa-7": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka4166403983833193032"
+      }
+    ],
+    "LongRun-31e150ab5b3d4a37a93621ce7a0444fa-19": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka10704785459397673385"
+      }
+    ],
+    "LongRun-31e150ab5b3d4a37a93621ce7a0444fa-18": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka7487368460693882212"
+      }
+    ],
+    "LongRun-31e150ab5b3d4a37a93621ce7a0444fa-17": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka16848516583936571821"
+      }
+    ],
+    "LongRun-31e150ab5b3d4a37a93621ce7a0444fa-16": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka14154611982665945787"
+      }
+    ],
+    "LongRun-31e150ab5b3d4a37a93621ce7a0444fa-15": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka4166403983833193032"
+      }
+    ],
+    "LongRun-31e150ab5b3d4a37a93621ce7a0444fa-14": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka7487368460693882212"
+      }
+    ],
+    "LongRun-31e150ab5b3d4a37a93621ce7a0444fa-13": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka2402486578832139216"
+      }
+    ],
+    "LongRun-31e150ab5b3d4a37a93621ce7a0444fa-12": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka9905056319001596169"
+      }
+    ],
+    "LongRun-31e150ab5b3d4a37a93621ce7a0444fa-11": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka17580439844103113666"
+      }
+    ],
+    "LongRun-31e150ab5b3d4a37a93621ce7a0444fa-8": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka10303750596279739724"
+      }
+    ],
+    "LongRun-31e150ab5b3d4a37a93621ce7a0444fa-5": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka16848516583936571821"
+      }
+    ],
+    "LongRun-31e150ab5b3d4a37a93621ce7a0444fa-6": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka1029825335892099347"
+      }
+    ],
+    "LongRun-31e150ab5b3d4a37a93621ce7a0444fa-4": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka9905056319001596169"
+      }
+    ],
+    "AdHoc-4e2b6d4876d7443a8b6a6594521cf2c6-2": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka1029825335892099347"
+      }
+    ],
+    "AdHoc-4e2b6d4876d7443a8b6a6594521cf2c6-1": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka2402486578832139216"
+      }
+    ],
+    "AdHoc-4e2b6d4876d7443a8b6a6594521cf2c6-0": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka9905056319001596169"
+      }
+    ],
+    "LongRun-31e150ab5b3d4a37a93621ce7a0444fa-3": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka17580439844103113666"
+      }
+    ],
+    "LongRun-31e150ab5b3d4a37a93621ce7a0444fa-2": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka1029825335892099347"
+      }
+    ],
+    "LongRun-31e150ab5b3d4a37a93621ce7a0444fa-1": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka15040355736678842050"
+      }
+    ],
+    "LongRun-31e150ab5b3d4a37a93621ce7a0444fa-0": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka10303750596279739724"
+      }
+    ],
+    "AdHoc-fddb47ce89c34772bd90371f1751ecaa-2": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka17580439844103113666"
+      }
+    ],
+    "AdHoc-fddb47ce89c34772bd90371f1751ecaa-1": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka1029825335892099347"
+      }
+    ],
+    "AdHoc-7f2ca2c0c0f945f790cb852cf65f6ac9-3": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka1029825335892099347"
+      }
+    ],
+    "AdHoc-7f2ca2c0c0f945f790cb852cf65f6ac9-2": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka2402486578832139216"
+      }
+    ],
+    "AdHoc-7f2ca2c0c0f945f790cb852cf65f6ac9-1": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka9905056319001596169"
+      }
+    ],
+    "AdHoc-7f2ca2c0c0f945f790cb852cf65f6ac9-0": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka17580439844103113666"
+      }
+    ],
+    "AdHoc-bcc71ec27d484c4582af19175a7dc2fe-4": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka1029825335892099347"
+      }
+    ],
+    "AdHoc-bcc71ec27d484c4582af19175a7dc2fe-3": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka16848516583936571821"
+      }
+    ],
+    "AdHoc-bcc71ec27d484c4582af19175a7dc2fe-2": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka9905056319001596169"
+      }
+    ],
+    "AdHoc-bcc71ec27d484c4582af19175a7dc2fe-1": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka10704785459397673385"
+      }
+    ],
+    "AdHoc-bcc71ec27d484c4582af19175a7dc2fe-0": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka2971736191946565969"
+      }
+    ],
+    "AdHoc-b86c90e648d743159a49dddecc4c0b66-2": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka4166403983833193032"
+      },
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka1029825335892099347"
+      }
+    ],
+    "AdHoc-b86c90e648d743159a49dddecc4c0b66-1": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka7487368460693882212"
+      },
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka16848516583936571821"
+      }
+    ],
+    "AdHoc-b86c90e648d743159a49dddecc4c0b66-0": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka15040355736678842050"
+      },
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka10303750596279739724"
+      }
+    ],
+    "AdHoc-987bf670505648119991b9a7ea2fd41f-4": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka1029825335892099347"
+      }
+    ],
+    "AdHoc-987bf670505648119991b9a7ea2fd41f-3": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka2402486578832139216"
+      }
+    ],
+    "AdHoc-987bf670505648119991b9a7ea2fd41f-2": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka10303750596279739724"
+      }
+    ],
+    "AdHoc-987bf670505648119991b9a7ea2fd41f-1": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka4166403983833193032"
+      }
+    ],
+    "AdHoc-987bf670505648119991b9a7ea2fd41f-0": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka7487368460693882212"
+      }
+    ],
+    "AdHoc-8684f56e762c4d9e81893918cced524c-8": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka2971736191946565969"
+      },
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka2402486578832139216"
+      },
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka17580439844103113666"
+      }
+    ],
+    "AdHoc-8684f56e762c4d9e81893918cced524c-7": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka16848516583936571821"
+      },
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka10704785459397673385"
+      },
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka14154611982665945787"
+      }
+    ],
+    "AdHoc-8684f56e762c4d9e81893918cced524c-6": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka9905056319001596169"
+      },
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka1029825335892099347"
+      },
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka4166403983833193032"
+      }
+    ],
+    "AdHoc-8684f56e762c4d9e81893918cced524c-5": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka10704785459397673385"
+      },
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka15040355736678842050"
+      },
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka2971736191946565969"
+      }
+    ],
+    "AdHoc-8684f56e762c4d9e81893918cced524c-4": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka1029825335892099347"
+      },
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka9905056319001596169"
+      },
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka2402486578832139216"
+      }
+    ],
+    "AdHoc-8684f56e762c4d9e81893918cced524c-3": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka15040355736678842050"
+      },
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka2971736191946565969"
+      },
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka17580439844103113666"
+      }
+    ],
+    "AdHoc-8684f56e762c4d9e81893918cced524c-2": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka14154611982665945787"
+      },
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka16848516583936571821"
+      },
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka7487368460693882212"
+      }
+    ],
+    "AdHoc-8684f56e762c4d9e81893918cced524c-1": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka4166403983833193032"
+      },
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka10303750596279739724"
+      },
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka15040355736678842050"
+      }
+    ],
+    "AdHoc-8684f56e762c4d9e81893918cced524c-0": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka7487368460693882212"
+      },
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka10704785459397673385"
+      },
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka10303750596279739724"
+      }
+    ],
+    "AdHoc-9d7265ef8823469e8ea2a205ea252b46-2": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka4166403983833193032"
+      }
+    ],
+    "AdHoc-9d7265ef8823469e8ea2a205ea252b46-1": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka2971736191946565969"
+      }
+    ],
+    "AdHoc-9d7265ef8823469e8ea2a205ea252b46-0": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka15040355736678842050"
+      }
+    ],
+    "AdHoc-dbb3d3279029435b9a92abff8b94baee-2": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka17580439844103113666"
+      }
+    ],
+    "AdHoc-dbb3d3279029435b9a92abff8b94baee-3": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka10303750596279739724"
+      }
+    ],
+    "AdHoc-dbb3d3279029435b9a92abff8b94baee-4": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka2402486578832139216"
+      }
+    ],
+    "AdHoc-dbb3d3279029435b9a92abff8b94baee-5": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka1029825335892099347"
+      }
+    ],
+    "AdHoc-dbb3d3279029435b9a92abff8b94baee-0": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka15040355736678842050"
+      }
+    ],
+    "AdHoc-dbb3d3279029435b9a92abff8b94baee-1": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka2971736191946565969"
+      }
+    ],
+    "AdHoc-dbb3d3279029435b9a92abff8b94baee-6": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka10704785459397673385"
+      }
+    ],
+    "AdHoc-dbb3d3279029435b9a92abff8b94baee-7": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka10303750596279739724"
+      }
+    ],
+    "LongRun-f85dc2e2fc2b47528342eb5011836538-39": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka2971736191946565969"
+      }
+    ],
+    "LongRun-88df9a5e791b40ed8751d8fce4ba46f9-31": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka2402486578832139216"
+      }
+    ],
+    "LongRun-88df9a5e791b40ed8751d8fce4ba46f9-30": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka14154611982665945787"
+      }
+    ],
+    "LongRun-88df9a5e791b40ed8751d8fce4ba46f9-29": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka10704785459397673385"
+      }
+    ],
+    "LongRun-88df9a5e791b40ed8751d8fce4ba46f9-28": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka2971736191946565969"
+      }
+    ],
+    "LongRun-88df9a5e791b40ed8751d8fce4ba46f9-27": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka2402486578832139216"
+      }
+    ],
+    "LongRun-88df9a5e791b40ed8751d8fce4ba46f9-26": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka14154611982665945787"
+      }
+    ],
+    "LongRun-88df9a5e791b40ed8751d8fce4ba46f9-25": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka4166403983833193032"
+      }
+    ],
+    "LongRun-88df9a5e791b40ed8751d8fce4ba46f9-24": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka2971736191946565969"
+      }
+    ],
+    "LongRun-88df9a5e791b40ed8751d8fce4ba46f9-23": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka15040355736678842050"
+      }
+    ],
+    "LongRun-88df9a5e791b40ed8751d8fce4ba46f9-22": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka14154611982665945787"
+      }
+    ],
+    "LongRun-88df9a5e791b40ed8751d8fce4ba46f9-21": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka4166403983833193032"
+      }
+    ],
+    "LongRun-88df9a5e791b40ed8751d8fce4ba46f9-20": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka7487368460693882212"
+      }
+    ],
+    "LongRun-88df9a5e791b40ed8751d8fce4ba46f9-19": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka16848516583936571821"
+      }
+    ],
+    "LongRun-88df9a5e791b40ed8751d8fce4ba46f9-18": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka10303750596279739724"
+      }
+    ],
+    "LongRun-88df9a5e791b40ed8751d8fce4ba46f9-17": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka4166403983833193032"
+      }
+    ],
+    "LongRun-88df9a5e791b40ed8751d8fce4ba46f9-16": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka1029825335892099347"
+      }
+    ],
+    "LongRun-88df9a5e791b40ed8751d8fce4ba46f9-15": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka15040355736678842050"
+      }
+    ],
+    "LongRun-88df9a5e791b40ed8751d8fce4ba46f9-14": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka10303750596279739724"
+      }
+    ],
+    "LongRun-88df9a5e791b40ed8751d8fce4ba46f9-13": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka17580439844103113666"
+      }
+    ],
+    "LongRun-88df9a5e791b40ed8751d8fce4ba46f9-12": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka2971736191946565969"
+      }
+    ],
+    "LongRun-88df9a5e791b40ed8751d8fce4ba46f9-11": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka16848516583936571821"
+      }
+    ],
+    "LongRun-88df9a5e791b40ed8751d8fce4ba46f9-10": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka10303750596279739724"
+      }
+    ],
+    "LongRun-88df9a5e791b40ed8751d8fce4ba46f9-9": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka4166403983833193032"
+      }
+    ],
+    "LongRun-88df9a5e791b40ed8751d8fce4ba46f9-8": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka1029825335892099347"
+      }
+    ],
+    "LongRun-88df9a5e791b40ed8751d8fce4ba46f9-7": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka2402486578832139216"
+      }
+    ],
+    "LongRun-88df9a5e791b40ed8751d8fce4ba46f9-6": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka10303750596279739724"
+      }
+    ],
+    "LongRun-88df9a5e791b40ed8751d8fce4ba46f9-5": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka10704785459397673385"
+      }
+    ],
+    "LongRun-88df9a5e791b40ed8751d8fce4ba46f9-4": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka2971736191946565969"
+      }
+    ],
+    "LongRun-88df9a5e791b40ed8751d8fce4ba46f9-3": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka15040355736678842050"
+      }
+    ],
+    "LongRun-88df9a5e791b40ed8751d8fce4ba46f9-2": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka9905056319001596169"
+      }
+    ],
+    "LongRun-88df9a5e791b40ed8751d8fce4ba46f9-1": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka17580439844103113666"
+      }
+    ],
+    "LongRun-88df9a5e791b40ed8751d8fce4ba46f9-0": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka7487368460693882212"
+      }
+    ],
+    "LongRun-f85dc2e2fc2b47528342eb5011836538-32": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka17580439844103113666"
+      }
+    ],
+    "LongRun-f85dc2e2fc2b47528342eb5011836538-31": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka7487368460693882212"
+      }
+    ],
+    "LongRun-f85dc2e2fc2b47528342eb5011836538-34": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka16848516583936571821"
+      }
+    ],
+    "LongRun-f85dc2e2fc2b47528342eb5011836538-33": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka14154611982665945787"
+      }
+    ],
+    "LongRun-f85dc2e2fc2b47528342eb5011836538-36": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka17580439844103113666"
+      }
+    ],
+    "LongRun-f85dc2e2fc2b47528342eb5011836538-35": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka2971736191946565969"
+      }
+    ],
+    "LongRun-f85dc2e2fc2b47528342eb5011836538-38": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka15040355736678842050"
+      }
+    ],
+    "LongRun-f85dc2e2fc2b47528342eb5011836538-37": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka10303750596279739724"
+      }
+    ],
+    "LongRun-f85dc2e2fc2b47528342eb5011836538-30": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka2402486578832139216"
+      }
+    ],
+    "LongRun-f85dc2e2fc2b47528342eb5011836538-29": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka10303750596279739724"
+      }
+    ],
+    "AdHoc-804f1f19c11a48eb9b197ce3663b1c07-7": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka14154611982665945787"
+      }
+    ],
+    "AdHoc-804f1f19c11a48eb9b197ce3663b1c07-6": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka4166403983833193032"
+      }
+    ],
+    "AdHoc-804f1f19c11a48eb9b197ce3663b1c07-5": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka7487368460693882212"
+      }
+    ],
+    "AdHoc-804f1f19c11a48eb9b197ce3663b1c07-4": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka2402486578832139216"
+      }
+    ],
+    "AdHoc-804f1f19c11a48eb9b197ce3663b1c07-3": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka14154611982665945787"
+      }
+    ],
+    "AdHoc-804f1f19c11a48eb9b197ce3663b1c07-2": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka4166403983833193032"
+      }
+    ],
+    "AdHoc-804f1f19c11a48eb9b197ce3663b1c07-1": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka7487368460693882212"
+      }
+    ],
+    "AdHoc-804f1f19c11a48eb9b197ce3663b1c07-0": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka2402486578832139216"
+      }
+    ],
+    "LongRun-f85dc2e2fc2b47528342eb5011836538-28": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka10704785459397673385"
+      }
+    ],
+    "LongRun-f85dc2e2fc2b47528342eb5011836538-27": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka1029825335892099347"
+      }
+    ],
+    "LongRun-f85dc2e2fc2b47528342eb5011836538-26": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka2402486578832139216"
+      }
+    ],
+    "LongRun-f85dc2e2fc2b47528342eb5011836538-25": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka14154611982665945787"
+      }
+    ],
+    "LongRun-f85dc2e2fc2b47528342eb5011836538-24": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka10704785459397673385"
+      }
+    ],
+    "LongRun-f85dc2e2fc2b47528342eb5011836538-23": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka1029825335892099347"
+      }
+    ],
+    "LongRun-f85dc2e2fc2b47528342eb5011836538-22": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka2402486578832139216"
+      }
+    ],
+    "LongRun-f85dc2e2fc2b47528342eb5011836538-21": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka9905056319001596169"
+      }
+    ],
+    "LongRun-f85dc2e2fc2b47528342eb5011836538-20": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka4166403983833193032"
+      }
+    ],
+    "LongRun-f85dc2e2fc2b47528342eb5011836538-19": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka1029825335892099347"
+      }
+    ],
+    "LongRun-f85dc2e2fc2b47528342eb5011836538-18": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka15040355736678842050"
+      }
+    ],
+    "LongRun-f85dc2e2fc2b47528342eb5011836538-17": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka9905056319001596169"
+      }
+    ],
+    "LongRun-f85dc2e2fc2b47528342eb5011836538-16": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka4166403983833193032"
+      }
+    ],
+    "LongRun-f85dc2e2fc2b47528342eb5011836538-15": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka2971736191946565969"
+      }
+    ],
+    "LongRun-f85dc2e2fc2b47528342eb5011836538-14": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka15040355736678842050"
+      }
+    ],
+    "LongRun-f85dc2e2fc2b47528342eb5011836538-13": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka9905056319001596169"
+      }
+    ],
+    "LongRun-f85dc2e2fc2b47528342eb5011836538-12": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka17580439844103113666"
+      }
+    ],
+    "LongRun-f85dc2e2fc2b47528342eb5011836538-11": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka7487368460693882212"
+      }
+    ],
+    "LongRun-f85dc2e2fc2b47528342eb5011836538-10": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka16848516583936571821"
+      }
+    ],
+    "LongRun-f85dc2e2fc2b47528342eb5011836538-9": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka14154611982665945787"
+      }
+    ],
+    "LongRun-f85dc2e2fc2b47528342eb5011836538-8": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka4166403983833193032"
+      }
+    ],
+    "LongRun-f85dc2e2fc2b47528342eb5011836538-7": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka7487368460693882212"
+      }
+    ],
+    "LongRun-f85dc2e2fc2b47528342eb5011836538-6": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka16848516583936571821"
+      }
+    ],
+    "LongRun-f85dc2e2fc2b47528342eb5011836538-5": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka10303750596279739724"
+      }
+    ],
+    "LongRun-f85dc2e2fc2b47528342eb5011836538-4": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka10704785459397673385"
+      }
+    ],
+    "LongRun-f85dc2e2fc2b47528342eb5011836538-3": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka7487368460693882212"
+      }
+    ],
+    "LongRun-f85dc2e2fc2b47528342eb5011836538-2": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka16848516583936571821"
+      }
+    ],
+    "LongRun-f85dc2e2fc2b47528342eb5011836538-1": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka14154611982665945787"
+      }
+    ],
+    "LongRun-f85dc2e2fc2b47528342eb5011836538-0": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka10704785459397673385"
+      }
+    ],
+    "AdHoc-ee813a840c2742b3ad35a6b172a33027-2": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka2971736191946565969"
+      }
+    ],
+    "AdHoc-ee813a840c2742b3ad35a6b172a33027-3": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka4166403983833193032"
+      }
+    ],
+    "AdHoc-fd4747e00db54a0dbd27284aae0e6a5d-4": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka2971736191946565969"
+      }
+    ],
+    "AdHoc-fd4747e00db54a0dbd27284aae0e6a5d-3": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka15040355736678842050"
+      }
+    ],
+    "AdHoc-fd4747e00db54a0dbd27284aae0e6a5d-2": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka10303750596279739724"
+      }
+    ],
+    "AdHoc-fd4747e00db54a0dbd27284aae0e6a5d-1": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka17580439844103113666"
+      }
+    ],
+    "AdHoc-fd4747e00db54a0dbd27284aae0e6a5d-0": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka1029825335892099347"
+      }
+    ],
+    "AdHoc-ee813a840c2742b3ad35a6b172a33027-1": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka15040355736678842050"
+      }
+    ],
+    "AdHoc-ee813a840c2742b3ad35a6b172a33027-0": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka9905056319001596169"
+      }
+    ],
+    "AdHoc-dfc7af6a06fe4b56a34ab3f615ead3d8-1": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka9905056319001596169"
+      },
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka4166403983833193032"
+      }
+    ],
+    "AdHoc-dfc7af6a06fe4b56a34ab3f615ead3d8-0": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka4166403983833193032"
+      },
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka7487368460693882212"
+      }
+    ],
+    "AdHoc-dfc7af6a06fe4b56a34ab3f615ead3d8-3": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka7487368460693882212"
+      },
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka16848516583936571821"
+      }
+    ],
+    "AdHoc-dfc7af6a06fe4b56a34ab3f615ead3d8-2": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka15040355736678842050"
+      },
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka10303750596279739724"
+      }
+    ],
+    "AdHoc-dfc7af6a06fe4b56a34ab3f615ead3d8-5": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka14154611982665945787"
+      },
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka15040355736678842050"
+      }
+    ],
+    "AdHoc-dfc7af6a06fe4b56a34ab3f615ead3d8-4": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka17580439844103113666"
+      },
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka14154611982665945787"
+      }
+    ],
+    "AdHoc-dfc7af6a06fe4b56a34ab3f615ead3d8-7": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka1029825335892099347"
+      },
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka10704785459397673385"
+      }
+    ],
+    "AdHoc-dfc7af6a06fe4b56a34ab3f615ead3d8-6": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka16848516583936571821"
+      },
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka2971736191946565969"
+      }
+    ],
+    "AdHoc-dfc7af6a06fe4b56a34ab3f615ead3d8-8": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka10704785459397673385"
+      },
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka2402486578832139216"
+      }
+    ],
+    "AdHoc-68a2161bb1fa4f6a94c3cfe52eaea4f3-7": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka4166403983833193032"
+      },
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka16848516583936571821"
+      }
+    ],
+    "AdHoc-68a2161bb1fa4f6a94c3cfe52eaea4f3-6": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka1029825335892099347"
+      },
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka14154611982665945787"
+      }
+    ],
+    "AdHoc-68a2161bb1fa4f6a94c3cfe52eaea4f3-5": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka2402486578832139216"
+      },
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka17580439844103113666"
+      }
+    ],
+    "AdHoc-68a2161bb1fa4f6a94c3cfe52eaea4f3-4": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka9905056319001596169"
+      },
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka2971736191946565969"
+      }
+    ],
+    "AdHoc-68a2161bb1fa4f6a94c3cfe52eaea4f3-3": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka10704785459397673385"
+      },
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka10303750596279739724"
+      }
+    ],
+    "AdHoc-68a2161bb1fa4f6a94c3cfe52eaea4f3-2": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka7487368460693882212"
+      },
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka10704785459397673385"
+      }
+    ],
+    "AdHoc-68a2161bb1fa4f6a94c3cfe52eaea4f3-1": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka16848516583936571821"
+      },
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka7487368460693882212"
+      }
+    ],
+    "AdHoc-68a2161bb1fa4f6a94c3cfe52eaea4f3-0": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka14154611982665945787"
+      },
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka15040355736678842050"
+      }
+    ],
+    "LongRun-39330ffb0e7a496dad54dd9df9840c2f-16": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka17580439844103113666"
+      }
+    ],
+    "LongRun-39330ffb0e7a496dad54dd9df9840c2f-17": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka9905056319001596169"
+      }
+    ],
+    "LongRun-39330ffb0e7a496dad54dd9df9840c2f-18": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka16848516583936571821"
+      }
+    ],
+    "LongRun-39330ffb0e7a496dad54dd9df9840c2f-19": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka1029825335892099347"
+      }
+    ],
+    "LongRun-4bcbc5fd74764243bf5155f15a920384-11": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka1029825335892099347"
+      }
+    ],
+    "LongRun-4bcbc5fd74764243bf5155f15a920384-10": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka16848516583936571821"
+      }
+    ],
+    "LongRun-4bcbc5fd74764243bf5155f15a920384-9": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka9905056319001596169"
+      }
+    ],
+    "LongRun-4bcbc5fd74764243bf5155f15a920384-8": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka17580439844103113666"
+      }
+    ],
+    "LongRun-4bcbc5fd74764243bf5155f15a920384-7": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka7487368460693882212"
+      }
+    ],
+    "LongRun-4bcbc5fd74764243bf5155f15a920384-6": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka15040355736678842050"
+      }
+    ],
+    "LongRun-4bcbc5fd74764243bf5155f15a920384-5": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka14154611982665945787"
+      }
+    ],
+    "LongRun-4bcbc5fd74764243bf5155f15a920384-4": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka4166403983833193032"
+      }
+    ],
+    "LongRun-4bcbc5fd74764243bf5155f15a920384-3": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka2971736191946565969"
+      }
+    ],
+    "LongRun-4bcbc5fd74764243bf5155f15a920384-2": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka2402486578832139216"
+      }
+    ],
+    "LongRun-4bcbc5fd74764243bf5155f15a920384-1": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka10303750596279739724"
+      }
+    ],
+    "LongRun-4bcbc5fd74764243bf5155f15a920384-0": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka10704785459397673385"
+      }
+    ],
+    "LongRun-39330ffb0e7a496dad54dd9df9840c2f-15": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka2971736191946565969"
+      }
+    ],
+    "LongRun-39330ffb0e7a496dad54dd9df9840c2f-14": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka16848516583936571821"
+      }
+    ],
+    "LongRun-39330ffb0e7a496dad54dd9df9840c2f-13": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka10303750596279739724"
+      }
+    ],
+    "LongRun-39330ffb0e7a496dad54dd9df9840c2f-12": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka10704785459397673385"
+      }
+    ],
+    "LongRun-39330ffb0e7a496dad54dd9df9840c2f-11": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka7487368460693882212"
+      }
+    ],
+    "LongRun-39330ffb0e7a496dad54dd9df9840c2f-10": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka15040355736678842050"
+      }
+    ],
+    "LongRun-39330ffb0e7a496dad54dd9df9840c2f-9": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka9905056319001596169"
+      }
+    ],
+    "LongRun-39330ffb0e7a496dad54dd9df9840c2f-8": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka4166403983833193032"
+      }
+    ],
+    "LongRun-39330ffb0e7a496dad54dd9df9840c2f-7": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka2971736191946565969"
+      }
+    ],
+    "LongRun-39330ffb0e7a496dad54dd9df9840c2f-6": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka2402486578832139216"
+      }
+    ],
+    "LongRun-39330ffb0e7a496dad54dd9df9840c2f-5": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka14154611982665945787"
+      }
+    ],
+    "LongRun-39330ffb0e7a496dad54dd9df9840c2f-4": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka10704785459397673385"
+      }
+    ],
+    "LongRun-39330ffb0e7a496dad54dd9df9840c2f-3": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka7487368460693882212"
+      }
+    ],
+    "LongRun-39330ffb0e7a496dad54dd9df9840c2f-2": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka15040355736678842050"
+      }
+    ],
+    "LongRun-39330ffb0e7a496dad54dd9df9840c2f-1": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka14154611982665945787"
+      }
+    ],
+    "LongRun-39330ffb0e7a496dad54dd9df9840c2f-0": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka4166403983833193032"
+      }
+    ],
+    "AdHoc-fc76c14e46944774b0891af9ce6d2428-1": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka10704785459397673385"
+      }
+    ],
+    "AdHoc-fc76c14e46944774b0891af9ce6d2428-2": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka9905056319001596169"
+      }
+    ],
+    "AdHoc-fc76c14e46944774b0891af9ce6d2428-0": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka1029825335892099347"
+      }
+    ],
+    "AdHoc-d7657fd1f8b34448bf3a96f2bedb75cc-5": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka17580439844103113666"
+      }
+    ],
+    "AdHoc-d7657fd1f8b34448bf3a96f2bedb75cc-4": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka7487368460693882212"
+      }
+    ],
+    "AdHoc-d7657fd1f8b34448bf3a96f2bedb75cc-3": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka16848516583936571821"
+      }
+    ],
+    "AdHoc-d7657fd1f8b34448bf3a96f2bedb75cc-2": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka14154611982665945787"
+      }
+    ],
+    "AdHoc-d7657fd1f8b34448bf3a96f2bedb75cc-1": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka10704785459397673385"
+      }
+    ],
+    "AdHoc-d7657fd1f8b34448bf3a96f2bedb75cc-0": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka2971736191946565969"
+      }
+    ],
+    "AdHoc-f40b1efcfd884288b240da06f1b85546-6": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka10704785459397673385"
+      }
+    ],
+    "AdHoc-f40b1efcfd884288b240da06f1b85546-5": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka1029825335892099347"
+      }
+    ],
+    "AdHoc-f40b1efcfd884288b240da06f1b85546-4": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka16848516583936571821"
+      }
+    ],
+    "AdHoc-f40b1efcfd884288b240da06f1b85546-3": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka9905056319001596169"
+      }
+    ],
+    "AdHoc-f40b1efcfd884288b240da06f1b85546-2": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka4166403983833193032"
+      }
+    ],
+    "AdHoc-f40b1efcfd884288b240da06f1b85546-1": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka2971736191946565969"
+      }
+    ],
+    "AdHoc-f40b1efcfd884288b240da06f1b85546-0": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka16848516583936571821"
+      }
+    ],
+    "AdHoc-0900ab66264f4484baaf6bc4da712787-3": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka16848516583936571821"
+      }
+    ],
+    "AdHoc-0900ab66264f4484baaf6bc4da712787-2": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka14154611982665945787"
+      }
+    ],
+    "AdHoc-0900ab66264f4484baaf6bc4da712787-1": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka4166403983833193032"
+      }
+    ],
+    "AdHoc-0900ab66264f4484baaf6bc4da712787-0": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka7487368460693882212"
+      }
+    ],
+    "AdHoc-f6f95dfe2b9c4557a2fecff16af42f94-8": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka10303750596279739724"
+      }
+    ],
+    "AdHoc-f6f95dfe2b9c4557a2fecff16af42f94-7": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka4166403983833193032"
+      }
+    ],
+    "AdHoc-f6f95dfe2b9c4557a2fecff16af42f94-6": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka2971736191946565969"
+      }
+    ],
+    "AdHoc-f6f95dfe2b9c4557a2fecff16af42f94-5": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka15040355736678842050"
+      }
+    ],
+    "AdHoc-f6f95dfe2b9c4557a2fecff16af42f94-4": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka9905056319001596169"
+      }
+    ],
+    "AdHoc-f6f95dfe2b9c4557a2fecff16af42f94-3": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka17580439844103113666"
+      }
+    ],
+    "AdHoc-f6f95dfe2b9c4557a2fecff16af42f94-2": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka1029825335892099347"
+      }
+    ],
+    "AdHoc-f6f95dfe2b9c4557a2fecff16af42f94-1": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka2402486578832139216"
+      }
+    ],
+    "AdHoc-f6f95dfe2b9c4557a2fecff16af42f94-0": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka14154611982665945787"
+      }
+    ],
+    "AdHoc-63e3e8c9b1d84e43bae4ed19368ecca3-7": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka7487368460693882212"
+      }
+    ],
+    "AdHoc-63e3e8c9b1d84e43bae4ed19368ecca3-6": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka15040355736678842050"
+      }
+    ],
+    "AdHoc-63e3e8c9b1d84e43bae4ed19368ecca3-5": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka14154611982665945787"
+      }
+    ],
+    "AdHoc-63e3e8c9b1d84e43bae4ed19368ecca3-4": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka10704785459397673385"
+      }
+    ],
+    "AdHoc-63e3e8c9b1d84e43bae4ed19368ecca3-3": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka2971736191946565969"
+      }
+    ],
+    "AdHoc-63e3e8c9b1d84e43bae4ed19368ecca3-2": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka2402486578832139216"
+      }
+    ],
+    "AdHoc-63e3e8c9b1d84e43bae4ed19368ecca3-1": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka9905056319001596169"
+      }
+    ],
+    "AdHoc-63e3e8c9b1d84e43bae4ed19368ecca3-0": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka4166403983833193032"
+      }
+    ],
+    "AdHoc-861f65294663496da747cd6382bebb06-8": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka9905056319001596169"
+      }
+    ],
+    "AdHoc-861f65294663496da747cd6382bebb06-7": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka17580439844103113666"
+      }
+    ],
+    "AdHoc-861f65294663496da747cd6382bebb06-6": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka2971736191946565969"
+      }
+    ],
+    "AdHoc-861f65294663496da747cd6382bebb06-5": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka16848516583936571821"
+      }
+    ],
+    "AdHoc-861f65294663496da747cd6382bebb06-4": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka9905056319001596169"
+      }
+    ],
+    "AdHoc-861f65294663496da747cd6382bebb06-3": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka17580439844103113666"
+      }
+    ],
+    "AdHoc-861f65294663496da747cd6382bebb06-2": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka2971736191946565969"
+      }
+    ],
+    "AdHoc-861f65294663496da747cd6382bebb06-1": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka2402486578832139216"
+      }
+    ],
+    "AdHoc-861f65294663496da747cd6382bebb06-0": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka10303750596279739724"
+      }
+    ],
+    "AdHoc-c048f1a4d9e7411aac595d9abbe28e9b-8": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka4166403983833193032"
+      }
+    ],
+    "AdHoc-c048f1a4d9e7411aac595d9abbe28e9b-6": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka2402486578832139216"
+      }
+    ],
+    "AdHoc-c048f1a4d9e7411aac595d9abbe28e9b-7": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka7487368460693882212"
+      }
+    ],
+    "AdHoc-c048f1a4d9e7411aac595d9abbe28e9b-4": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka10704785459397673385"
+      }
+    ],
+    "AdHoc-c048f1a4d9e7411aac595d9abbe28e9b-5": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka14154611982665945787"
+      }
+    ],
+    "AdHoc-c048f1a4d9e7411aac595d9abbe28e9b-2": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka16848516583936571821"
+      }
+    ],
+    "AdHoc-c048f1a4d9e7411aac595d9abbe28e9b-3": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka2971736191946565969"
+      }
+    ],
+    "AdHoc-c048f1a4d9e7411aac595d9abbe28e9b-0": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka4166403983833193032"
+      }
+    ],
+    "AdHoc-c048f1a4d9e7411aac595d9abbe28e9b-1": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka14154611982665945787"
+      }
+    ],
+    "AdHoc-9e149a1f58a8427e8cef4d6f753076bf-3": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka15040355736678842050"
+      }
+    ],
+    "AdHoc-9e149a1f58a8427e8cef4d6f753076bf-4": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka7487368460693882212"
+      }
+    ],
+    "AdHoc-9e149a1f58a8427e8cef4d6f753076bf-5": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka10704785459397673385"
+      }
+    ],
+    "AdHoc-95b804f68209420b876be2c2330ae953-3": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka14154611982665945787"
+      }
+    ],
+    "AdHoc-95b804f68209420b876be2c2330ae953-2": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka17580439844103113666"
+      }
+    ],
+    "AdHoc-95b804f68209420b876be2c2330ae953-1": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka7487368460693882212"
+      }
+    ],
+    "AdHoc-95b804f68209420b876be2c2330ae953-0": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka2402486578832139216"
+      }
+    ],
+    "AdHoc-9e149a1f58a8427e8cef4d6f753076bf-2": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka9905056319001596169"
+      }
+    ],
+    "AdHoc-9e149a1f58a8427e8cef4d6f753076bf-1": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka4166403983833193032"
+      }
+    ],
+    "AdHoc-9e149a1f58a8427e8cef4d6f753076bf-0": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka2971736191946565969"
+      }
+    ],
+    "AdHoc-6b9db589fdb84ff2b7ee419442f84207-7": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka1029825335892099347"
+      },
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka10704785459397673385"
+      }
+    ],
+    "AdHoc-6b9db589fdb84ff2b7ee419442f84207-6": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka15040355736678842050"
+      },
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka2971736191946565969"
+      }
+    ],
+    "AdHoc-6b9db589fdb84ff2b7ee419442f84207-5": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka9905056319001596169"
+      },
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka16848516583936571821"
+      }
+    ],
+    "AdHoc-6b9db589fdb84ff2b7ee419442f84207-4": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka17580439844103113666"
+      },
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka9905056319001596169"
+      }
+    ],
+    "AdHoc-6b9db589fdb84ff2b7ee419442f84207-3": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka7487368460693882212"
+      },
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka2402486578832139216"
+      }
+    ],
+    "AdHoc-6b9db589fdb84ff2b7ee419442f84207-2": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka2402486578832139216"
+      },
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka14154611982665945787"
+      }
+    ],
+    "AdHoc-6b9db589fdb84ff2b7ee419442f84207-1": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka10303750596279739724"
+      },
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka4166403983833193032"
+      }
+    ],
+    "AdHoc-6b9db589fdb84ff2b7ee419442f84207-0": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka4166403983833193032"
+      },
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka7487368460693882212"
+      }
+    ],
+    "AdHoc-3ef7344986744f17a837b7c2910bfdd9-4": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka7487368460693882212"
+      },
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka15040355736678842050"
+      }
+    ],
+    "AdHoc-3ef7344986744f17a837b7c2910bfdd9-5": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka10704785459397673385"
+      },
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka1029825335892099347"
+      }
+    ],
+    "AdHoc-3ef7344986744f17a837b7c2910bfdd9-6": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka14154611982665945787"
+      },
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka4166403983833193032"
+      }
+    ],
+    "AdHoc-1c7f2de63ff5444faed3ed5cda5696e8-8": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka4166403983833193032"
+      }
+    ],
+    "AdHoc-1c7f2de63ff5444faed3ed5cda5696e8-7": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka7487368460693882212"
+      }
+    ],
+    "AdHoc-1c7f2de63ff5444faed3ed5cda5696e8-6": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka2402486578832139216"
+      }
+    ],
+    "AdHoc-1c7f2de63ff5444faed3ed5cda5696e8-5": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka10303750596279739724"
+      }
+    ],
+    "AdHoc-1c7f2de63ff5444faed3ed5cda5696e8-4": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka17580439844103113666"
+      }
+    ],
+    "AdHoc-1c7f2de63ff5444faed3ed5cda5696e8-3": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka2971736191946565969"
+      }
+    ],
+    "AdHoc-1c7f2de63ff5444faed3ed5cda5696e8-2": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka2402486578832139216"
+      }
+    ],
+    "AdHoc-1c7f2de63ff5444faed3ed5cda5696e8-1": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka9905056319001596169"
+      }
+    ],
+    "AdHoc-1c7f2de63ff5444faed3ed5cda5696e8-0": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka4166403983833193032"
+      }
+    ],
+    "AdHoc-3ef7344986744f17a837b7c2910bfdd9-3": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka2402486578832139216"
+      },
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka17580439844103113666"
+      }
+    ],
+    "AdHoc-3ef7344986744f17a837b7c2910bfdd9-2": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka9905056319001596169"
+      },
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka2971736191946565969"
+      }
+    ],
+    "AdHoc-3ef7344986744f17a837b7c2910bfdd9-1": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka17580439844103113666"
+      },
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka16848516583936571821"
+      }
+    ],
+    "AdHoc-3ef7344986744f17a837b7c2910bfdd9-0": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka2971736191946565969"
+      },
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka10303750596279739724"
+      }
+    ],
+    "AdHoc-3cc3c179c95449d195fad70b55c2992e-6": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka10704785459397673385"
+      },
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka2402486578832139216"
+      },
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka1029825335892099347"
+      }
+    ],
+    "AdHoc-3cc3c179c95449d195fad70b55c2992e-5": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka2971736191946565969"
+      },
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka9905056319001596169"
+      },
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka15040355736678842050"
+      }
+    ],
+    "AdHoc-3cc3c179c95449d195fad70b55c2992e-4": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka15040355736678842050"
+      },
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka10704785459397673385"
+      },
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka9905056319001596169"
+      }
+    ],
+    "AdHoc-3cc3c179c95449d195fad70b55c2992e-3": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka14154611982665945787"
+      },
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka15040355736678842050"
+      },
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka2971736191946565969"
+      }
+    ],
+    "AdHoc-3cc3c179c95449d195fad70b55c2992e-2": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka17580439844103113666"
+      },
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka14154611982665945787"
+      },
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka15040355736678842050"
+      }
+    ],
+    "AdHoc-3cc3c179c95449d195fad70b55c2992e-1": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka2971736191946565969"
+      },
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka4166403983833193032"
+      },
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka14154611982665945787"
+      }
+    ],
+    "AdHoc-3cc3c179c95449d195fad70b55c2992e-0": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka15040355736678842050"
+      },
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka7487368460693882212"
+      },
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka17580439844103113666"
+      }
+    ],
+    "AdHoc-e959341990294bcc9ccf37215f9542eb-4": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka10704785459397673385"
+      },
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka15040355736678842050"
+      }
+    ],
+    "AdHoc-e959341990294bcc9ccf37215f9542eb-3": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka1029825335892099347"
+      },
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka4166403983833193032"
+      }
+    ],
+    "AdHoc-e959341990294bcc9ccf37215f9542eb-2": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka2402486578832139216"
+      },
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka2971736191946565969"
+      }
+    ],
+    "AdHoc-e959341990294bcc9ccf37215f9542eb-1": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka10303750596279739724"
+      },
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka16848516583936571821"
+      }
+    ],
+    "AdHoc-e959341990294bcc9ccf37215f9542eb-0": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka10704785459397673385"
+      },
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka10303750596279739724"
+      }
+    ],
+    "AdHoc-972d2ee0c3d04d86a3bdc37bb965b86b-5": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka2402486578832139216"
+      }
+    ],
+    "AdHoc-972d2ee0c3d04d86a3bdc37bb965b86b-4": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka10303750596279739724"
+      }
+    ],
+    "AdHoc-972d2ee0c3d04d86a3bdc37bb965b86b-3": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka17580439844103113666"
+      }
+    ],
+    "AdHoc-972d2ee0c3d04d86a3bdc37bb965b86b-2": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka1029825335892099347"
+      }
+    ],
+    "AdHoc-972d2ee0c3d04d86a3bdc37bb965b86b-1": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka16848516583936571821"
+      }
+    ],
+    "AdHoc-972d2ee0c3d04d86a3bdc37bb965b86b-0": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka9905056319001596169"
+      }
+    ],
+    "AdHoc-8fac403e8bd24b46bf811bc2b90e897c-6": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka4166403983833193032"
+      }
+    ],
+    "AdHoc-8fac403e8bd24b46bf811bc2b90e897c-5": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka1029825335892099347"
+      }
+    ],
+    "AdHoc-8fac403e8bd24b46bf811bc2b90e897c-4": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka16848516583936571821"
+      }
+    ],
+    "AdHoc-8fac403e8bd24b46bf811bc2b90e897c-3": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka9905056319001596169"
+      }
+    ],
+    "AdHoc-8fac403e8bd24b46bf811bc2b90e897c-2": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka10704785459397673385"
+      }
+    ],
+    "AdHoc-8fac403e8bd24b46bf811bc2b90e897c-1": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka7487368460693882212"
+      }
+    ],
+    "AdHoc-8fac403e8bd24b46bf811bc2b90e897c-0": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka15040355736678842050"
+      }
+    ],
+    "LongRun-06b6122721924ec499366d33f1dce1ab-11": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka15040355736678842050"
+      }
+    ],
+    "LongRun-06b6122721924ec499366d33f1dce1ab-10": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka9905056319001596169"
+      }
+    ],
+    "LongRun-06b6122721924ec499366d33f1dce1ab-9": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka10704785459397673385"
+      }
+    ],
+    "LongRun-06b6122721924ec499366d33f1dce1ab-8": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka1029825335892099347"
+      }
+    ],
+    "LongRun-06b6122721924ec499366d33f1dce1ab-7": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka2402486578832139216"
+      }
+    ],
+    "LongRun-06b6122721924ec499366d33f1dce1ab-6": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka9905056319001596169"
+      }
+    ],
+    "LongRun-06b6122721924ec499366d33f1dce1ab-5": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka10704785459397673385"
+      }
+    ],
+    "LongRun-06b6122721924ec499366d33f1dce1ab-4": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka7487368460693882212"
+      }
+    ],
+    "LongRun-06b6122721924ec499366d33f1dce1ab-3": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka16848516583936571821"
+      }
+    ],
+    "LongRun-06b6122721924ec499366d33f1dce1ab-2": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka9905056319001596169"
+      }
+    ],
+    "LongRun-06b6122721924ec499366d33f1dce1ab-1": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka10704785459397673385"
+      }
+    ],
+    "LongRun-06b6122721924ec499366d33f1dce1ab-0": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka1029825335892099347"
+      }
+    ],
+    "AdHoc-a4a52a93a2e744aaa71afc2bc1d9a4f3-5": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka10704785459397673385"
+      }
+    ],
+    "AdHoc-a4a52a93a2e744aaa71afc2bc1d9a4f3-4": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka1029825335892099347"
+      }
+    ],
+    "AdHoc-a4a52a93a2e744aaa71afc2bc1d9a4f3-3": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka16848516583936571821"
+      }
+    ],
+    "AdHoc-a4a52a93a2e744aaa71afc2bc1d9a4f3-2": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka9905056319001596169"
+      }
+    ],
+    "AdHoc-a4a52a93a2e744aaa71afc2bc1d9a4f3-1": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka17580439844103113666"
+      }
+    ],
+    "AdHoc-a4a52a93a2e744aaa71afc2bc1d9a4f3-0": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka1029825335892099347"
+      }
+    ],
+    "AdHoc-d99075a94cd24733996cdaa0676b98b0-2": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka16848516583936571821"
+      },
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka14154611982665945787"
+      }
+    ],
+    "AdHoc-d99075a94cd24733996cdaa0676b98b0-1": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka10303750596279739724"
+      },
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka10704785459397673385"
+      }
+    ],
+    "AdHoc-d99075a94cd24733996cdaa0676b98b0-0": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka17580439844103113666"
+      },
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka1029825335892099347"
+      }
+    ],
+    "AdHoc-c8e1883e8656432490c2854d3faf7cc8-1": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka10704785459397673385"
+      }
+    ],
+    "AdHoc-c8e1883e8656432490c2854d3faf7cc8-0": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka7487368460693882212"
+      }
+    ],
+    "AdHoc-c8e1883e8656432490c2854d3faf7cc8-3": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka15040355736678842050"
+      }
+    ],
+    "AdHoc-c8e1883e8656432490c2854d3faf7cc8-2": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka9905056319001596169"
+      }
+    ],
+    "AdHoc-fe361dee04e24efea2ed2f5937949c8c-8": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka2971736191946565969"
+      }
+    ],
+    "AdHoc-fe361dee04e24efea2ed2f5937949c8c-7": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka16848516583936571821"
+      }
+    ],
+    "AdHoc-fe361dee04e24efea2ed2f5937949c8c-6": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka14154611982665945787"
+      }
+    ],
+    "AdHoc-fe361dee04e24efea2ed2f5937949c8c-5": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka10704785459397673385"
+      }
+    ],
+    "AdHoc-fe361dee04e24efea2ed2f5937949c8c-4": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka2971736191946565969"
+      }
+    ],
+    "AdHoc-fe361dee04e24efea2ed2f5937949c8c-3": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka16848516583936571821"
+      }
+    ],
+    "AdHoc-fe361dee04e24efea2ed2f5937949c8c-2": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka14154611982665945787"
+      }
+    ],
+    "AdHoc-fe361dee04e24efea2ed2f5937949c8c-1": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka10704785459397673385"
+      }
+    ],
+    "AdHoc-fe361dee04e24efea2ed2f5937949c8c-0": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka2971736191946565969"
+      }
+    ],
+    "AdHoc-f6ad7909e0b04b6b804bf336e7c26852-4": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka2402486578832139216"
+      }
+    ],
+    "AdHoc-f6ad7909e0b04b6b804bf336e7c26852-3": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka14154611982665945787"
+      }
+    ],
+    "AdHoc-eff59355b54e483c9ed804ec0f4ad0b9-7": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka4166403983833193032"
+      },
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka10303750596279739724"
+      }
+    ],
+    "AdHoc-eff59355b54e483c9ed804ec0f4ad0b9-6": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka1029825335892099347"
+      },
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka17580439844103113666"
+      }
+    ],
+    "AdHoc-eff59355b54e483c9ed804ec0f4ad0b9-5": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka2402486578832139216"
+      },
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka2971736191946565969"
+      }
+    ],
+    "AdHoc-eff59355b54e483c9ed804ec0f4ad0b9-4": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka14154611982665945787"
+      },
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka15040355736678842050"
+      }
+    ],
+    "AdHoc-eff59355b54e483c9ed804ec0f4ad0b9-3": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka17580439844103113666"
+      },
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka7487368460693882212"
+      }
+    ],
+    "AdHoc-eff59355b54e483c9ed804ec0f4ad0b9-2": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka7487368460693882212"
+      },
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka2402486578832139216"
+      }
+    ],
+    "AdHoc-eff59355b54e483c9ed804ec0f4ad0b9-1": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka16848516583936571821"
+      },
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka14154611982665945787"
+      }
+    ],
+    "AdHoc-eff59355b54e483c9ed804ec0f4ad0b9-0": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka10303750596279739724"
+      },
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka10704785459397673385"
+      }
+    ],
+    "AdHoc-f6ad7909e0b04b6b804bf336e7c26852-2": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka4166403983833193032"
+      }
+    ],
+    "AdHoc-f6ad7909e0b04b6b804bf336e7c26852-1": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka1029825335892099347"
+      }
+    ],
+    "AdHoc-ae9ec4f3c57647268c6ba5f397a78acb-3": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka10704785459397673385"
+      }
+    ],
+    "AdHoc-ae9ec4f3c57647268c6ba5f397a78acb-2": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka2971736191946565969"
+      }
+    ],
+    "AdHoc-ae9ec4f3c57647268c6ba5f397a78acb-1": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka2402486578832139216"
+      }
+    ],
+    "AdHoc-ae9ec4f3c57647268c6ba5f397a78acb-0": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka9905056319001596169"
+      }
+    ],
+    "AdHoc-f6ad7909e0b04b6b804bf336e7c26852-0": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka16848516583936571821"
+      }
+    ],
+    "AdHoc-ab791c609648400cb361c6c8dbd7dea2-4": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka17580439844103113666"
+      },
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka10303750596279739724"
+      },
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka16848516583936571821"
+      }
+    ],
+    "AdHoc-ab791c609648400cb361c6c8dbd7dea2-3": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka2971736191946565969"
+      },
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka15040355736678842050"
+      },
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka10704785459397673385"
+      }
+    ],
+    "AdHoc-ab791c609648400cb361c6c8dbd7dea2-2": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka2402486578832139216"
+      },
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka14154611982665945787"
+      },
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka7487368460693882212"
+      }
+    ],
+    "AdHoc-ab791c609648400cb361c6c8dbd7dea2-1": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka10303750596279739724"
+      },
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka4166403983833193032"
+      },
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka2402486578832139216"
+      }
+    ],
+    "AdHoc-ab791c609648400cb361c6c8dbd7dea2-0": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka4166403983833193032"
+      },
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka1029825335892099347"
+      },
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka9905056319001596169"
+      }
+    ],
+    "AdHoc-8db7d4c69560420f92348270f4517e13-2": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka15040355736678842050"
+      },
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka17580439844103113666"
+      },
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka9905056319001596169"
+      }
+    ],
+    "AdHoc-8db7d4c69560420f92348270f4517e13-1": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka10303750596279739724"
+      },
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka7487368460693882212"
+      },
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka4166403983833193032"
+      }
+    ],
+    "AdHoc-8db7d4c69560420f92348270f4517e13-0": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka17580439844103113666"
+      },
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka2402486578832139216"
+      },
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka2971736191946565969"
+      }
+    ],
+    "AdHoc-e439b97327fb4f88a87888f21c235910-3": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka14154611982665945787"
+      },
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka2402486578832139216"
+      }
+    ],
+    "AdHoc-e439b97327fb4f88a87888f21c235910-2": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka17580439844103113666"
+      },
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka14154611982665945787"
+      }
+    ],
+    "AdHoc-e439b97327fb4f88a87888f21c235910-1": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka7487368460693882212"
+      },
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka17580439844103113666"
+      }
+    ],
+    "AdHoc-e439b97327fb4f88a87888f21c235910-0": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka16848516583936571821"
+      },
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka2971736191946565969"
+      }
+    ],
+    "AdHoc-e439b97327fb4f88a87888f21c235910-7": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka9905056319001596169"
+      },
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka7487368460693882212"
+      }
+    ],
+    "AdHoc-e439b97327fb4f88a87888f21c235910-6": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka10704785459397673385"
+      },
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka15040355736678842050"
+      }
+    ],
+    "AdHoc-e439b97327fb4f88a87888f21c235910-5": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka1029825335892099347"
+      },
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka10303750596279739724"
+      }
+    ],
+    "AdHoc-e439b97327fb4f88a87888f21c235910-4": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka15040355736678842050"
+      },
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka4166403983833193032"
+      }
+    ],
+    "AdHoc-a12710a085c34952a93a117e35fac539-4": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka2402486578832139216"
+      }
+    ],
+    "AdHoc-a12710a085c34952a93a117e35fac539-3": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka9905056319001596169"
+      }
+    ],
+    "AdHoc-a12710a085c34952a93a117e35fac539-2": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka10704785459397673385"
+      }
+    ],
+    "AdHoc-a12710a085c34952a93a117e35fac539-1": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka2971736191946565969"
+      }
+    ],
+    "AdHoc-a12710a085c34952a93a117e35fac539-0": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka16848516583936571821"
+      }
+    ],
+    "AdHoc-f6a0a89f5a8d4a00bc003fbc1f850515-5": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka2402486578832139216"
+      },
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka17580439844103113666"
+      },
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka14154611982665945787"
+      }
+    ],
+    "AdHoc-f6a0a89f5a8d4a00bc003fbc1f850515-4": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka9905056319001596169"
+      },
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka1029825335892099347"
+      },
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka17580439844103113666"
+      }
+    ],
+    "AdHoc-f6a0a89f5a8d4a00bc003fbc1f850515-3": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka10704785459397673385"
+      },
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka14154611982665945787"
+      },
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka15040355736678842050"
+      }
+    ],
+    "AdHoc-f6a0a89f5a8d4a00bc003fbc1f850515-2": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka7487368460693882212"
+      },
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka10704785459397673385"
+      },
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka9905056319001596169"
+      }
+    ],
+    "AdHoc-f6a0a89f5a8d4a00bc003fbc1f850515-1": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka15040355736678842050"
+      },
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka1029825335892099347"
+      },
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka10704785459397673385"
+      }
+    ],
+    "AdHoc-f6a0a89f5a8d4a00bc003fbc1f850515-0": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka14154611982665945787"
+      },
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka2402486578832139216"
+      },
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka7487368460693882212"
+      }
+    ],
+    "AdHoc-ecce930b14be43c1acf4975a444dd33d-4": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka14154611982665945787"
+      },
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka10704785459397673385"
+      },
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka16848516583936571821"
+      }
+    ],
+    "AdHoc-ecce930b14be43c1acf4975a444dd33d-3": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka10704785459397673385"
+      },
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka15040355736678842050"
+      },
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka2971736191946565969"
+      }
+    ],
+    "AdHoc-ecce930b14be43c1acf4975a444dd33d-2": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka1029825335892099347"
+      },
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka10303750596279739724"
+      },
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka2402486578832139216"
+      }
+    ],
+    "AdHoc-ecce930b14be43c1acf4975a444dd33d-1": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka16848516583936571821"
+      },
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka4166403983833193032"
+      },
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka9905056319001596169"
+      }
+    ],
+    "AdHoc-ecce930b14be43c1acf4975a444dd33d-0": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka10303750596279739724"
+      },
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka7487368460693882212"
+      },
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka17580439844103113666"
+      }
+    ],
+    "AdHoc-b41abbb16f8348e9b13bf1cfde7eb977-3": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka10303750596279739724"
+      }
+    ],
+    "AdHoc-b41abbb16f8348e9b13bf1cfde7eb977-4": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka16848516583936571821"
+      }
+    ],
+    "AdHoc-b41abbb16f8348e9b13bf1cfde7eb977-5": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka7487368460693882212"
+      }
+    ],
+    "AdHoc-b41abbb16f8348e9b13bf1cfde7eb977-6": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka17580439844103113666"
+      }
+    ],
+    "AdHoc-b41abbb16f8348e9b13bf1cfde7eb977-7": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka10303750596279739724"
+      }
+    ],
+    "AdHoc-b41abbb16f8348e9b13bf1cfde7eb977-8": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka15040355736678842050"
+      }
+    ],
+    "LongRun-d23b3694cf0a491ca9123e0dfe8f342d-11": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka7487368460693882212"
+      }
+    ],
+    "LongRun-d23b3694cf0a491ca9123e0dfe8f342d-10": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka16848516583936571821"
+      }
+    ],
+    "LongRun-d23b3694cf0a491ca9123e0dfe8f342d-9": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka9905056319001596169"
+      }
+    ],
+    "LongRun-d23b3694cf0a491ca9123e0dfe8f342d-8": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka10704785459397673385"
+      }
+    ],
+    "LongRun-d23b3694cf0a491ca9123e0dfe8f342d-7": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka2971736191946565969"
+      }
+    ],
+    "LongRun-d23b3694cf0a491ca9123e0dfe8f342d-6": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka15040355736678842050"
+      }
+    ],
+    "LongRun-d23b3694cf0a491ca9123e0dfe8f342d-5": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka14154611982665945787"
+      }
+    ],
+    "LongRun-d23b3694cf0a491ca9123e0dfe8f342d-4": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka17580439844103113666"
+      }
+    ],
+    "LongRun-d23b3694cf0a491ca9123e0dfe8f342d-3": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka1029825335892099347"
+      }
+    ],
+    "LongRun-d23b3694cf0a491ca9123e0dfe8f342d-2": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka2402486578832139216"
+      }
+    ],
+    "LongRun-d23b3694cf0a491ca9123e0dfe8f342d-1": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka10303750596279739724"
+      }
+    ],
+    "LongRun-d23b3694cf0a491ca9123e0dfe8f342d-0": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka4166403983833193032"
+      }
+    ],
+    "AdHoc-b41abbb16f8348e9b13bf1cfde7eb977-2": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka4166403983833193032"
+      }
+    ],
+    "AdHoc-b41abbb16f8348e9b13bf1cfde7eb977-1": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka2971736191946565969"
+      }
+    ],
+    "AdHoc-b41abbb16f8348e9b13bf1cfde7eb977-0": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka15040355736678842050"
+      }
+    ],
+    "AdHoc-1b5263fd40cc47a9be12e03d375e3528-4": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka15040355736678842050"
+      }
+    ],
+    "AdHoc-1b5263fd40cc47a9be12e03d375e3528-3": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka10303750596279739724"
+      }
+    ],
+    "AdHoc-1b5263fd40cc47a9be12e03d375e3528-5": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka2971736191946565969"
+      }
+    ],
+    "AdHoc-1b5263fd40cc47a9be12e03d375e3528-2": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka17580439844103113666"
+      }
+    ],
+    "AdHoc-1b5263fd40cc47a9be12e03d375e3528-1": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka1029825335892099347"
+      }
+    ],
+    "AdHoc-1d6990e940ca46ba8462f82aa7fa2a33-6": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka16848516583936571821"
+      }
+    ],
+    "AdHoc-1d6990e940ca46ba8462f82aa7fa2a33-5": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka10303750596279739724"
+      }
+    ],
+    "AdHoc-1d6990e940ca46ba8462f82aa7fa2a33-4": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka17580439844103113666"
+      }
+    ],
+    "AdHoc-1d6990e940ca46ba8462f82aa7fa2a33-3": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka7487368460693882212"
+      }
+    ],
+    "AdHoc-1d6990e940ca46ba8462f82aa7fa2a33-2": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka15040355736678842050"
+      }
+    ],
+    "AdHoc-1d6990e940ca46ba8462f82aa7fa2a33-1": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka14154611982665945787"
+      }
+    ],
+    "AdHoc-1d6990e940ca46ba8462f82aa7fa2a33-0": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka4166403983833193032"
+      }
+    ],
+    "AdHoc-1b5263fd40cc47a9be12e03d375e3528-0": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka16848516583936571821"
+      }
+    ],
+    "AdHoc-674168e82fd848dfb0fba7ad9bcaab29-6": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka10303750596279739724"
+      }
+    ],
+    "AdHoc-674168e82fd848dfb0fba7ad9bcaab29-5": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka4166403983833193032"
+      }
+    ],
+    "AdHoc-674168e82fd848dfb0fba7ad9bcaab29-4": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka1029825335892099347"
+      }
+    ],
+    "AdHoc-674168e82fd848dfb0fba7ad9bcaab29-3": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka2402486578832139216"
+      }
+    ],
+    "AdHoc-674168e82fd848dfb0fba7ad9bcaab29-2": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka9905056319001596169"
+      }
+    ],
+    "AdHoc-674168e82fd848dfb0fba7ad9bcaab29-1": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka10704785459397673385"
+      }
+    ],
+    "AdHoc-674168e82fd848dfb0fba7ad9bcaab29-0": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka2971736191946565969"
+      }
+    ],
+    "AdHoc-dd5999cf545247e09ba19a160ef07628-3": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka17580439844103113666"
+      }
+    ],
+    "AdHoc-dd5999cf545247e09ba19a160ef07628-2": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka1029825335892099347"
+      }
+    ],
+    "AdHoc-dd5999cf545247e09ba19a160ef07628-4": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka14154611982665945787"
+      }
+    ],
+    "AdHoc-394d5531491148c58446fefe7bfcf4ea-6": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka4166403983833193032"
+      }
+    ],
+    "AdHoc-394d5531491148c58446fefe7bfcf4ea-5": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka2971736191946565969"
+      }
+    ],
+    "AdHoc-394d5531491148c58446fefe7bfcf4ea-4": [
+      {
+        "broker": 0,
+        "logDirectory": "/tmp/local_kafka16848516583936571821"
+      }
+    ],
+    "AdHoc-394d5531491148c58446fefe7bfcf4ea-3": [
+      {
+        "broker": 1,
+        "logDirectory": "/tmp/local_kafka14154611982665945787"
+      }
+    ],
+    "AdHoc-394d5531491148c58446fefe7bfcf4ea-2": [
+      {
+        "broker": 3,
+        "logDirectory": "/tmp/local_kafka10704785459397673385"
+      }
+    ],
+    "AdHoc-394d5531491148c58446fefe7bfcf4ea-1": [
+      {
+        "broker": 2,
+        "logDirectory": "/tmp/local_kafka1029825335892099347"
+      }
+    ]
+  }
+}
