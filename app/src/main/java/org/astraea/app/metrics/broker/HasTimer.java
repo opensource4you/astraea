@@ -16,11 +16,18 @@
  */
 package org.astraea.app.metrics.broker;
 
+import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
+/**
+ * You can find some default metric in {@link kafka.metrics.KafkaMetricsGroup}. This object is
+ * mapping to {@link com.yammer.metrics.core.Timer}
+ */
 public interface HasTimer extends HasEventType, HasPercentiles, HasRate, HasStatistics, HasCount {
 
   default TimeUnit latencyUnit() {
-    return (TimeUnit) beanObject().attributes().get("LatencyUnit");
+    return (TimeUnit)
+        Optional.ofNullable(beanObject().attributes().get("LatencyUnit"))
+            .orElseThrow(() -> new NullPointerException("LatencyUnit can't be null."));
   }
 }

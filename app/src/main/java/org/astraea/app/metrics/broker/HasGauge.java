@@ -19,6 +19,10 @@ package org.astraea.app.metrics.broker;
 import org.astraea.app.metrics.BeanObject;
 import org.astraea.app.metrics.HasBeanObject;
 
+/**
+ * You can find some default metric in {@link kafka.metrics.KafkaMetricsGroup}. This object is
+ * mapping to {@link com.yammer.metrics.core.Gauge}
+ */
 public interface HasGauge extends HasBeanObject {
   default long value() {
     var value = beanObject().attributes().getOrDefault("Value", 0);
