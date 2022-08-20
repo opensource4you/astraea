@@ -66,7 +66,7 @@ public class SmoothWeightRoundRobinDispatcher extends Periodic<Map<Integer, Doub
   private final NeutralIntegratedCost neutralIntegratedCost = new NeutralIntegratedCost();
 
   private Map<Integer, Collection<HasBeanObject>> beans;
-  private List<ReplicaInfo> partitions;
+  private Collection<ReplicaInfo> partitions;
 
   public static final String JMX_PORT = "jmx.port";
 

@@ -283,6 +283,8 @@ public class StrictCostDispatcherTest {
               Stream.of(replicaInfo0, replicaInfo1)
                   .map(ReplicaInfo::nodeInfo)
                   .collect(Collectors.toUnmodifiableList()));
+      Mockito.when(clusterInfo.availableReplicaLeaders(Mockito.anyInt(), Mockito.anyString()))
+          .thenReturn(List.of(replicaInfo0));
       Assertions.assertEquals(
           partitionId, dispatcher.partition("topic", new byte[0], new byte[0], clusterInfo));
     }
@@ -326,6 +328,34 @@ public class StrictCostDispatcherTest {
       dispatcher.tryToUpdateRoundRobin(clusterInfo);
       // rr is updated already
       Assertions.assertNotEquals(t, dispatcher.timeToUpdateRoundRobin);
+    }
+  }
+
+  @Test
+  void testTryToUpdateFetcher() {
+    var receiverCount = new AtomicInteger(0);
+    try (var dispatcher =
+        new StrictCostDispatcher() {
+          @Override
+          Receiver receiver(String host, int port, Fetcher fetcher) {
+            receiverCount.incrementAndGet();
+            return Mockito.mock(Receiver.class);
+          }
+        }) {
+      var nodeInfo = NodeInfo.of(10, "host", 2222);
+      var clusterInfo = Mockito.mock(ClusterInfo.class);
+      Mockito.when(clusterInfo.nodes()).thenReturn(List.of(nodeInfo));
+
+      Assertions.assertEquals(0, dispatcher.receivers.size());
+      dispatcher.fetcher = Optional.of(Mockito.mock(Fetcher.class));
+      dispatcher.jmxPortGetter = id -> Optional.of(1111);
+      dispatcher.tryToUpdateFetcher(clusterInfo);
+      Assertions.assertEquals(1, dispatcher.receivers.size());
+      Assertions.assertEquals(1, receiverCount.get());
+
+      dispatcher.tryToUpdateFetcher(clusterInfo);
+      Assertions.assertEquals(1, dispatcher.receivers.size());
+      Assertions.assertEquals(1, receiverCount.get());
     }
   }
 }
