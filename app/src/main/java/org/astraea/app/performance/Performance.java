@@ -97,28 +97,28 @@ public class Performance {
     List<Integer> partitions;
     Map<TopicPartition, Long> latestOffsets;
     try (var topicAdmin = Admin.of(param.configs())) {
+      // TODO
       topicAdmin
           .creator()
           .numberOfReplicas(param.replicas)
           .numberOfPartitions(param.partitions)
-          .topic(param.topic)
+          .topic(param.topics)
           .create();
 
-      Utils.waitFor(() -> topicAdmin.topicNames().contains(param.topic));
+      Utils.waitFor(() -> topicAdmin.topicNames().contains(param.topics));
+      //
       partitions = new ArrayList<>(partition(param, topicAdmin));
       latestOffsets =
-          topicAdmin.offsets(Set.of(param.topic)).entrySet().stream()
+          topicAdmin.offsets(Set.of(param.topics.split(","))).entrySet().stream()
               .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().latest()));
     }
-
-    var groupId = "groupId-" + System.currentTimeMillis();
 
     Supplier<Integer> partitionSupplier =
         () -> partitions.isEmpty() ? -1 : partitions.get((int) (Math.random() * partitions.size()));
 
     var producerThreads =
         ProducerThread.create(
-            param.topic,
+            param.topics.split(","),
             param.transactionSize,
             dataSupplier(param),
             partitionSupplier,
@@ -128,9 +128,9 @@ public class Performance {
         ConsumerThread.create(
             param.consumers,
             listener ->
-                Consumer.forTopics(Set.of(param.topic))
+                Consumer.forTopics(Set.of(param.topics.split(",")))
                     .bootstrapServers(param.bootstrapServers())
-                    .groupId(groupId)
+                    .groupId(param.groupId)
                     .configs(param.configs())
                     .isolation(param.isolation())
                     .seek(latestOffsets)
@@ -196,19 +196,18 @@ public class Performance {
           }
           consumerThreads.forEach(AbstractThread::close);
         });
-
     consumerThreads.forEach(AbstractThread::waitForDone);
     tracker.waitForDone();
     fileWriterFuture.join();
     chaos.join();
-    return param.topic;
+    return param.topics;
   }
 
   // visible for test
   static Set<Integer> partition(Argument param, Admin topicAdmin) {
     if (positiveSpecifyBroker(param)) {
       return topicAdmin
-          .partitions(Set.of(param.topic), new HashSet<>(param.specifyBroker))
+          .partitions(Set.of(param.topics.split(",")), new HashSet<>(param.specifyBroker))
           .values()
           .stream()
           .flatMap(Collection::stream)
@@ -224,10 +223,10 @@ public class Performance {
   public static class Argument extends org.astraea.app.argument.Argument {
 
     @Parameter(
-        names = {"--topic"},
-        description = "String: topic name",
+        names = {"--topics"},
+        description = "String : topic names which you subscribed",
         validateWith = NonEmptyStringField.class)
-    String topic = "testPerformance-" + System.currentTimeMillis();
+    String topics = "testPerformance-" + System.currentTimeMillis();
 
     @Parameter(
         names = {"--partitions"},
@@ -366,5 +365,10 @@ public class Performance {
         validateWith = DurationField.class,
         converter = DurationField.class)
     Duration chaosDuration = null;
+
+    @Parameter(
+        names = {"--group.id"},
+        description = "Consumer group id")
+    String groupId = "groupId-" + System.currentTimeMillis();
   }
 }

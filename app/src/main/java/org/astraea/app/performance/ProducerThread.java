@@ -32,7 +32,7 @@ import org.astraea.app.producer.Producer;
 public interface ProducerThread extends AbstractThread {
 
   static List<ProducerThread> create(
-      String topic,
+      String[] topics,
       int batchSize,
       DataSupplier dataSupplier,
       Supplier<Integer> partitionSupplier,
@@ -63,7 +63,10 @@ public interface ProducerThread extends AbstractThread {
               executors.execute(
                   () -> {
                     try (var producer = producerSupplier.get()) {
+                      int topicIndex = 0;
                       while (!closed.get()) {
+                        topicIndex = Math.abs(topicIndex) % topics.length;
+                        var topic = topics[topicIndex];
                         var data =
                             IntStream.range(0, batchSize)
                                 .mapToObj(i -> dataSupplier.get())
@@ -102,6 +105,7 @@ public interface ProducerThread extends AbstractThread {
                                                 m.offset(),
                                                 System.currentTimeMillis() - m.timestamp(),
                                                 m.serializedValueSize() + m.serializedKeySize())));
+                        topicIndex += 1;
                       }
                     } finally {
                       closeLatch.countDown();
