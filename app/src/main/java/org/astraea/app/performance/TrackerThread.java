@@ -21,6 +21,7 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Function;
 import java.util.function.Supplier;
 import org.astraea.app.common.Utils;
 
@@ -28,28 +29,19 @@ import org.astraea.app.common.Utils;
 public interface TrackerThread extends AbstractThread {
 
   static TrackerThread create(
-      List<ProducerThread.Report> producerReports,
-      List<ConsumerThread.Report> consumerReports,
+      Supplier<List<ProducerThread.Report>> producerReporter,
+      Supplier<List<ConsumerThread.Report>> consumerReporter,
       ExeTime exeTime) {
     var start = System.currentTimeMillis() - Duration.ofSeconds(1).toMillis();
 
-    Supplier<Boolean> logProducers =
-        () -> {
+    Function<Duration, Boolean> logProducers =
+        duration -> {
+          var producerReports = producerReporter.get();
           var records = producerReports.stream().mapToLong(Report::records).sum();
           if (records == 0) return false;
-
-          var duration = Duration.ofMillis(System.currentTimeMillis() - start);
           // Print completion rate (by number of records) or (by time)
           var percentage = Math.min(100D, exeTime.percentage(records, duration.toMillis()));
 
-          System.out.println(
-              "Time: "
-                  + duration.toHoursPart()
-                  + "hr "
-                  + duration.toMinutesPart()
-                  + "min "
-                  + duration.toSecondsPart()
-                  + "sec");
           System.out.printf("producers completion rate: %.2f%%%n", percentage);
           System.out.printf(
               "  average throughput: %.3f MB/second%n",
@@ -75,14 +67,14 @@ public interface TrackerThread extends AbstractThread {
           return percentage >= 100;
         };
 
-    Supplier<Boolean> logConsumers =
-        () -> {
+    Function<Duration, Boolean> logConsumers =
+        duration -> {
+          var producerReports = producerReporter.get();
+          var consumerReports = consumerReporter.get();
           // there is no consumer, so we just complete this log.
           if (consumerReports.isEmpty()) return true;
 
           if (consumerReports.stream().mapToLong(Report::records).sum() == 0) return false;
-
-          var duration = Duration.ofMillis(System.currentTimeMillis() - start);
 
           // Print out percentage of (consumed records) and (produced records)
           var producerOffset =
@@ -131,8 +123,21 @@ public interface TrackerThread extends AbstractThread {
     CompletableFuture.runAsync(
         () -> {
           try {
+            var producerDone = false;
+            var consumerDone = false;
             while (!closed.get()) {
-              if (logProducers.get() & logConsumers.get()) return;
+              var duration = Duration.ofMillis(System.currentTimeMillis() - start);
+              System.out.println(
+                  "Time: "
+                      + duration.toHoursPart()
+                      + "hr "
+                      + duration.toMinutesPart()
+                      + "min "
+                      + duration.toSecondsPart()
+                      + "sec");
+              if (!producerDone) producerDone = logProducers.apply(duration);
+              if (!consumerDone) consumerDone = logConsumers.apply(duration);
+              if (producerDone && consumerDone) return;
 
               // Log after waiting for one second
               Utils.sleep(Duration.ofSeconds(1));
