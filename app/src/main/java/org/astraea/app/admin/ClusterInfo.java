@@ -82,7 +82,7 @@ public interface ClusterInfo {
             .filter(ReplicaInfo::isOnlineReplica)
             .filter(ReplicaInfo::isLeader)
             .collect(Collectors.groupingBy(ReplicaInfo::topic));
-    // This group is used commonly, so we cached it.
+    // This group is used commonly, so we cache it.
     var availableLeaderReplicasForBrokersTopics =
         allReplicas.stream()
             .filter(ReplicaInfo::isOnlineReplica)
