@@ -63,8 +63,8 @@ public enum ReportFormat {
       Path path,
       Supplier<Boolean> consumerDone,
       Supplier<Boolean> producerDone,
-      List<ProducerThread.Report> producerReports,
-      List<ConsumerThread.Report> consumerReports)
+      Supplier<List<ProducerThread.Report>> producerReporter,
+      Supplier<List<ConsumerThread.Report>> consumerReporter)
       throws IOException {
     var filePath =
         FileSystems.getDefault()
@@ -75,7 +75,7 @@ public enum ReportFormat {
                     + "."
                     + reportFormat);
     var writer = new BufferedWriter(new FileWriter(filePath.toFile()));
-    var elements = latencyAndIO(producerReports, consumerReports);
+    var elements = latencyAndIO(producerReporter, consumerReporter);
     switch (reportFormat) {
       case CSV:
         initCSVFormat(writer, elements);
@@ -156,7 +156,10 @@ public enum ReportFormat {
   }
 
   private static List<CSVContentElement> latencyAndIO(
-      List<ProducerThread.Report> producerReports, List<ConsumerThread.Report> consumerReports) {
+      Supplier<List<ProducerThread.Report>> producerReporter,
+      Supplier<List<ConsumerThread.Report>> consumerReporter) {
+    var producerReports = producerReporter.get();
+    var consumerReports = consumerReporter.get();
     var elements = new ArrayList<CSVContentElement>();
     elements.add(
         CSVContentElement.create(
