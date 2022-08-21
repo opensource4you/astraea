@@ -18,7 +18,6 @@ package org.astraea.app.web;
 
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
-import static org.astraea.app.web.PostRequest.handleDouble;
 
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonDeserializationContext;
@@ -158,7 +157,7 @@ public class RecordHandler implements Handler {
 
   @Override
   public Response post(PostRequest request) {
-    var async = request.booleanValue(ASYNC, false);
+    var async = request.getBoolean(ASYNC).orElse(false);
     var timeout = request.get(TIMEOUT).map(DurationField::toDuration).orElse(Duration.ofSeconds(5));
     var records = request.values(RECORDS, PostRecord.class);
     if (records.isEmpty()) {
@@ -300,9 +299,9 @@ public class RecordHandler implements Handler {
             .orElse(SerDe.STRING.serializer);
 
     Optional.ofNullable(postRecord.key)
-        .ifPresent(key -> sender.key(keySerializer.apply(topic, handleDouble(key))));
+        .ifPresent(key -> sender.key(keySerializer.apply(topic, key.toString())));
     Optional.ofNullable(postRecord.value)
-        .ifPresent(value -> sender.value(valueSerializer.apply(topic, handleDouble(value))));
+        .ifPresent(value -> sender.value(valueSerializer.apply(topic, value.toString())));
     Optional.ofNullable(postRecord.timestamp).ifPresent(sender::timestamp);
     Optional.ofNullable(postRecord.partition).ifPresent(sender::partition);
     return sender;
