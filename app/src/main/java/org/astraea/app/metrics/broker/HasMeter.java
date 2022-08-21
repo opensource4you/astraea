@@ -18,6 +18,6 @@ package org.astraea.app.metrics.broker;
 
 /**
  * You can find some default metric in {@link kafka.metrics.KafkaMetricsGroup}. This object is
- * mapping to {@link com.yammer.metrics.core.Meter}
+ * mapped to {@link com.yammer.metrics.core.Meter}
  */
 public interface HasMeter extends HasEventType, HasRate, HasCount {}

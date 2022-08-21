@@ -18,6 +18,6 @@ package org.astraea.app.metrics.broker;
 
 /**
  * You can find some default metric in {@link kafka.metrics.KafkaMetricsGroup}. This object is
- * mapping to {@link com.yammer.metrics.core.Histogram}
+ * mapped to {@link com.yammer.metrics.core.Histogram}
  */
 public interface HasHistogram extends HasPercentiles, HasCount, HasStatistics {}
