@@ -45,7 +45,7 @@ public class PostRequestTest {
   }
 
   @Test
-  void testHandleDouble() {
+  void testHandle() {
     Assertions.assertEquals("10", PostRequest.handle(10.00));
     Assertions.assertEquals("10.01", PostRequest.handle(10.01));
     Assertions.assertEquals("xxxx", PostRequest.handle("xxxx"));
