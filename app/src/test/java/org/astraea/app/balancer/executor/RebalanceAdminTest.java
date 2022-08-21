@@ -47,7 +47,7 @@ import org.junit.jupiter.api.Test;
 
 class RebalanceAdminTest extends RequireBrokerCluster {
 
-  @Test
+  @RepeatedTest(value = 3)
   void alterReplicaPlacementByList() {
     // arrange
     try (var admin = Admin.of(bootstrapServers())) {
@@ -271,6 +271,7 @@ class RebalanceAdminTest extends RequireBrokerCluster {
       var topicPartition3 = TopicPartition.of(topic3, 0);
       Stream.of(topic1, topic2, topic3)
           .forEach(i -> admin.creator().topic(i).numberOfPartitions(1).create());
+      Utils.sleep(Duration.ofSeconds(1));
       var allowed = List.of(topic1, topic2);
       Predicate<String> filter = allowed::contains;
       var rebalanceAdmin = RebalanceAdmin.of(admin, filter);

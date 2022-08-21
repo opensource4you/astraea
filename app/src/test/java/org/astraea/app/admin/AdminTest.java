@@ -1304,9 +1304,9 @@ public class AdminTest extends RequireBrokerCluster {
           .numberOfPartitions(partitions)
           .numberOfReplicas((short) 3)
           .create();
-      Utils.sleep(Duration.ofMillis(100));
+      Utils.sleep(Duration.ofSeconds(1));
       admin.replicationThrottler().throttle(topic).apply();
-      Utils.sleep(Duration.ofMillis(100));
+      Utils.sleep(Duration.ofSeconds(1));
 
       Assertions.assertEquals(currentLeaderLogs(admin, topic), fetchLeaderThrottle(topic));
       Assertions.assertEquals(currentFollowerLogs(admin, topic), fetchFollowerThrottle(topic));
