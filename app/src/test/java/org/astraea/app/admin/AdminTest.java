@@ -737,8 +737,6 @@ public class AdminTest extends RequireBrokerCluster {
           NoSuchElementException.class, () -> clusterInfo.availableReplicaLeaders("Unknown Topic"));
       Assertions.assertThrows(NoSuchElementException.class, () -> clusterInfo.dataDirectories(-1));
       Assertions.assertThrows(NoSuchElementException.class, () -> clusterInfo.node(-1));
-      Assertions.assertThrows(
-          NoSuchElementException.class, () -> clusterInfo.node("unknown", 1024));
     }
   }
 
