@@ -14,27 +14,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.app.metrics.platform;
+package org.astraea.app.metrics.broker;
 
-import static org.junit.jupiter.api.condition.OS.LINUX;
+import org.astraea.app.metrics.BeanObject;
+import org.astraea.app.metrics.HasBeanObject;
 
-import org.astraea.app.metrics.MBeanClient;
-import org.astraea.app.metrics.MetricsTestUtil;
-import org.astraea.app.service.RequireSingleBrokerCluster;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.condition.EnabledOnOs;
-
-public class LinuxDiskMetricsTest extends RequireSingleBrokerCluster {
-
-  @Test
-  @EnabledOnOs(LINUX)
-  void linuxDiskReadBytes() {
-    MetricsTestUtil.validate(HostMetrics.linuxDiskReadBytes(MBeanClient.local()));
+/**
+ * You can find some default metric in {@link kafka.metrics.KafkaMetricsGroup}. This object is
+ * mapped to {@link com.yammer.metrics.core.Gauge}
+ */
+public interface HasGauge extends HasBeanObject {
+  default long value() {
+    var value = beanObject().attributes().getOrDefault("Value", 0);
+    return ((Number) value).longValue();
   }
 
-  @Test
-  @EnabledOnOs(LINUX)
-  void linuxDiskWriteBytes() {
-    MetricsTestUtil.validate(HostMetrics.linuxDiskWriteBytes(MBeanClient.local()));
+  static HasGauge of(BeanObject beanObject) {
+    return () -> beanObject;
   }
 }

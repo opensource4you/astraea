@@ -180,7 +180,7 @@ public class ReplicaDiskInCost implements HasClusterCost, HasBrokerCost, HasPart
             metrics -> {
               // calculate the increase rate over a specific window of time
               var sizeTimeSeries =
-                  LogMetrics.Log.meters(metrics.getValue(), LogMetrics.Log.SIZE).stream()
+                  LogMetrics.Log.gauges(metrics.getValue(), LogMetrics.Log.SIZE).stream()
                       .sorted(Comparator.comparingLong(HasBeanObject::createdTimestamp).reversed())
                       .collect(Collectors.toUnmodifiableList());
               var latestSize = sizeTimeSeries.stream().findFirst().orElseThrow();

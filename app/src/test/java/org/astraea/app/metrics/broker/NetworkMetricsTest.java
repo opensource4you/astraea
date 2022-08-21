@@ -29,22 +29,8 @@ public class NetworkMetricsTest extends RequireSingleBrokerCluster {
   @ParameterizedTest()
   @EnumSource(value = NetworkMetrics.Request.class)
   void testRequestTotalTimeMs(NetworkMetrics.Request request) {
-    // act
-    var totalTimeMs = request.totalTimeMs(MBeanClient.local());
-
-    // assert type casting correct and field exists
-    Assertions.assertDoesNotThrow(totalTimeMs::percentile50);
-    Assertions.assertDoesNotThrow(totalTimeMs::percentile75);
-    Assertions.assertDoesNotThrow(totalTimeMs::percentile95);
-    Assertions.assertDoesNotThrow(totalTimeMs::percentile98);
-    Assertions.assertDoesNotThrow(totalTimeMs::percentile99);
-    Assertions.assertDoesNotThrow(totalTimeMs::percentile999);
-    Assertions.assertDoesNotThrow(totalTimeMs::count);
-    Assertions.assertDoesNotThrow(totalTimeMs::max);
-    Assertions.assertDoesNotThrow(totalTimeMs::mean);
-    Assertions.assertDoesNotThrow(totalTimeMs::min);
-    Assertions.assertDoesNotThrow(totalTimeMs::stdDev);
-    Assertions.assertEquals(request, totalTimeMs.type());
+    var histogram = request.fetch(MBeanClient.local());
+    MetricsTestUtil.validate(histogram);
   }
 
   @Test
