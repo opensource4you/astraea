@@ -108,14 +108,6 @@ public class PerformanceTest extends RequireBrokerCluster {
     Assertions.assertThrows(
         ParameterException.class, () -> Argument.parse(new Performance.Argument(), arguments2));
 
-    String[] arguments3 = {"--bootstrap.servers", "localhost:9092", "--replicas", "0"};
-    Assertions.assertThrows(
-        ParameterException.class, () -> Argument.parse(new Performance.Argument(), arguments3));
-
-    String[] arguments4 = {"--bootstrap.servers", "localhost:9092", "--partitions", "0"};
-    Assertions.assertThrows(
-        ParameterException.class, () -> Argument.parse(new Performance.Argument(), arguments4));
-
     String[] arguments5 = {"--bootstrap.servers", "localhost:9092", "--producers", "0"};
     Assertions.assertThrows(
         ParameterException.class, () -> Argument.parse(new Performance.Argument(), arguments5));
@@ -165,5 +157,71 @@ public class PerformanceTest extends RequireBrokerCluster {
             new Performance.Argument(),
             new String[] {"--bootstrap.servers", "localhost:9092", "--chaos.frequency", "10s"});
     Assertions.assertEquals(Duration.ofSeconds(10), args.chaosDuration);
+  }
+
+  @Test
+  void testReplicas() {
+    var args =
+        Argument.parse(
+            new Performance.Argument(),
+            new String[] {
+              "--bootstrap.servers",
+              "localhost:9092",
+              "--topics",
+              "test",
+              "--partitions",
+              "10",
+              "--replicas",
+              "0"
+            });
+    Assertions.assertThrows(IllegalArgumentException.class, () -> Performance.topicsParse(args));
+
+    var args1 =
+        Argument.parse(
+            new Performance.Argument(),
+            new String[] {
+              "--bootstrap.servers",
+              "localhost:9092",
+              "--topics",
+              "test1,test2,test3",
+              "--partitions",
+              "10,20,30",
+              "--replicas",
+              "1,2,0"
+            });
+    Assertions.assertThrows(IllegalArgumentException.class, () -> Performance.topicsParse(args1));
+  }
+
+  @Test
+  void testPartitions() {
+    var args =
+        Argument.parse(
+            new Performance.Argument(),
+            new String[] {
+              "--bootstrap.servers",
+              "localhost:9092",
+              "--topics",
+              "test",
+              "--partitions",
+              "0",
+              "--replicas",
+              "2"
+            });
+    Assertions.assertThrows(IllegalArgumentException.class, () -> Performance.topicsParse(args));
+
+    var args1 =
+        Argument.parse(
+            new Performance.Argument(),
+            new String[] {
+              "--bootstrap.servers",
+              "localhost:9092",
+              "--topics",
+              "test1,test2,test3",
+              "--partitions",
+              "10,0,30",
+              "--replicas",
+              "1,2,3"
+            });
+    Assertions.assertThrows(IllegalArgumentException.class, () -> Performance.topicsParse(args1));
   }
 }

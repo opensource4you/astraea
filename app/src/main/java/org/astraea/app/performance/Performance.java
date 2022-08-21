@@ -22,6 +22,7 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -31,6 +32,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import org.astraea.app.admin.Admin;
 import org.astraea.app.admin.Compression;
 import org.astraea.app.admin.TopicPartition;
@@ -39,7 +41,6 @@ import org.astraea.app.argument.DurationField;
 import org.astraea.app.argument.NonEmptyStringField;
 import org.astraea.app.argument.NonNegativeShortField;
 import org.astraea.app.argument.PathField;
-import org.astraea.app.argument.PositiveIntegerField;
 import org.astraea.app.argument.PositiveLongField;
 import org.astraea.app.argument.PositiveShortField;
 import org.astraea.app.common.DataSize;
@@ -96,17 +97,28 @@ public class Performance {
   public static String execute(final Argument param) throws InterruptedException, IOException {
     List<Integer> partitions;
     Map<TopicPartition, Long> latestOffsets;
-    try (var topicAdmin = Admin.of(param.configs())) {
-      // TODO
-      topicAdmin
-          .creator()
-          .numberOfReplicas(param.replicas)
-          .numberOfPartitions(param.partitions)
-          .topic(param.topics)
-          .create();
+    Map<String, Map<Integer, Short>> topicsDescribe;
+    topicsDescribe = topicsParse(param);
 
-      Utils.waitFor(() -> topicAdmin.topicNames().contains(param.topics));
-      //
+    try (var topicAdmin = Admin.of(param.configs())) {
+
+      topicsDescribe.forEach(
+          (topic, partitionReplica) -> {
+            for (var entry : partitionReplica.entrySet()) {
+              topicAdmin
+                  .creator()
+                  .topic(topic)
+                  .numberOfPartitions(entry.getKey())
+                  .numberOfReplicas(entry.getValue())
+                  .create();
+            }
+          });
+
+      topicsDescribe.forEach(
+          (topic, partitionReplica) -> {
+            Utils.waitFor(() -> topicAdmin.topicNames().contains(topic));
+          });
+
       partitions = new ArrayList<>(partition(param, topicAdmin));
       latestOffsets =
           topicAdmin.offsets(Set.of(param.topics.split(","))).entrySet().stream()
@@ -222,6 +234,33 @@ public class Performance {
     return param.specifyBroker.stream().allMatch(broker -> broker >= 0);
   }
 
+  static Map<String, Map<Integer, Short>> topicsParse(Argument param) {
+    var topics = param.topics.split(",");
+    var partitions = param.partitions.split(",");
+    var replicas = param.replicas.split(",");
+
+    if (topics.length != partitions.length || topics.length != replicas.length) {
+      throw new IllegalArgumentException(
+          "The argument number of --topics, --partitions and --replicas doesn't match, please check again.");
+    }
+
+    Map<String, Map<Integer, Short>> topicsPartitions = new HashMap<>();
+
+    IntStream.range(0, topics.length)
+        .forEach(
+            i -> {
+              if (Integer.parseInt(partitions[i]) > 0 && Short.parseShort(replicas[i]) > 0) {
+                topicsPartitions.putIfAbsent(
+                    topics[i],
+                    Map.of(Integer.parseInt(partitions[i]), Short.parseShort(replicas[i])));
+              } else
+                throw new IllegalArgumentException(
+                    "partitions and replicas cannot set zero or negative");
+            });
+
+    return topicsPartitions;
+  }
+
   public static class Argument extends org.astraea.app.argument.Argument {
 
     @Parameter(
@@ -233,15 +272,14 @@ public class Performance {
     @Parameter(
         names = {"--partitions"},
         description = "Integer: number of partitions to create the topic",
-        validateWith = PositiveIntegerField.class)
-    int partitions = 1;
+        validateWith = NonEmptyStringField.class)
+    String partitions = "1";
 
     @Parameter(
         names = {"--replicas"},
         description = "Integer: number of replica to create the topic",
-        validateWith = PositiveShortField.class,
-        converter = PositiveShortField.class)
-    short replicas = 1;
+        validateWith = NonEmptyStringField.class)
+    String replicas = "1";
 
     @Parameter(
         names = {"--producers"},
