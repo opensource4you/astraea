@@ -299,9 +299,9 @@ public class RecordHandler implements Handler {
             .orElse(SerDe.STRING.serializer);
 
     Optional.ofNullable(postRecord.key)
-        .ifPresent(key -> sender.key(keySerializer.apply(topic, key.toString())));
+        .ifPresent(key -> sender.key(keySerializer.apply(topic, PostRequest.handle(key))));
     Optional.ofNullable(postRecord.value)
-        .ifPresent(value -> sender.value(valueSerializer.apply(topic, value.toString())));
+        .ifPresent(value -> sender.value(valueSerializer.apply(topic, PostRequest.handle(value))));
     Optional.ofNullable(postRecord.timestamp).ifPresent(sender::timestamp);
     Optional.ofNullable(postRecord.partition).ifPresent(sender::partition);
     return sender;
