@@ -50,7 +50,7 @@ public class ReassignmentHandler implements Handler {
       admin
           .migrator()
           .partition(request.value(TOPIC_KEY), request.intValue(PARTITION_KEY))
-          .moveTo(request.ints(TO_KEY));
+          .moveTo(request.intValues(TO_KEY));
       return Response.ACCEPT;
     }
     return Response.BAD_REQUEST;

@@ -57,7 +57,7 @@ public class QuotaHandler implements Handler {
       admin
           .quotaCreator()
           .ip(request.value(IP_KEY))
-          .connectionRate(request.intValue(CONNECTION_RATE_KEY, Integer.MAX_VALUE))
+          .connectionRate(request.getInt(CONNECTION_RATE_KEY).orElse(Integer.MAX_VALUE))
           .create();
       return new Quotas(admin.quotas(org.astraea.app.admin.Quota.Target.IP, request.value(IP_KEY)));
     }
