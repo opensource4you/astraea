@@ -26,6 +26,8 @@ import java.util.concurrent.TimeUnit;
 public interface HasTimer extends HasEventType, HasPercentiles, HasRate, HasStatistics, HasCount {
 
   default TimeUnit latencyUnit() {
-    return (TimeUnit) Objects.requireNonNull(beanObject().attributes().get("LatencyUnit"));
+    return (TimeUnit)
+        Objects.requireNonNull(
+            beanObject().attributes().get("LatencyUnit"), "LatencyUnit can't be null.");
   }
 }
