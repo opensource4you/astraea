@@ -191,8 +191,8 @@ public interface TrackerThread extends AbstractThread {
       public void close() {
         closed.set(true);
         waitForDone();
-        Utils.packException(producerReceiver::close);
-        Utils.packException(consumerReceiver::close);
+        Utils.swallowException(producerReceiver::close);
+        Utils.swallowException(consumerReceiver::close);
       }
     };
   }
