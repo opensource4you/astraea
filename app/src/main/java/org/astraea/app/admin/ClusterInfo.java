@@ -32,21 +32,6 @@ public interface ClusterInfo {
         }
 
         @Override
-        public Set<String> dataDirectories(int brokerId) {
-          return Set.of();
-        }
-
-        @Override
-        public List<ReplicaInfo> availableReplicaLeaders(String topic) {
-          return List.of();
-        }
-
-        @Override
-        public List<ReplicaInfo> availableReplicas(String topic) {
-          return List.of();
-        }
-
-        @Override
         public Set<String> topics() {
           return Set.of();
         }
@@ -95,12 +80,6 @@ public interface ClusterInfo {
         return nodes;
       }
 
-      @Override
-      public Set<String> dataDirectories(int brokerId) {
-        // org.apache.kafka.common.Cluster doesn't have such information.
-        throw new UnsupportedOperationException("This information is not available");
-      }
-
       public Set<String> topics() {
         return topics;
       }
@@ -142,22 +121,17 @@ public interface ClusterInfo {
         .orElseThrow(() -> new NoSuchElementException(id + " is nonexistent"));
   }
 
-  /** @return The known set of nodes */
-  List<NodeInfo> nodes();
-
-  /**
-   * @return return the data directories on specific broker. It throws NoSuchElementException if
-   *     specify node id is not associated to any node.
-   */
-  Set<String> dataDirectories(int brokerId);
-
   /**
    * Get the list of replica leader information of each available partition for the given topic
    *
    * @param topic The Topic name
    * @return A list of {@link ReplicaInfo}.
    */
-  List<ReplicaInfo> availableReplicaLeaders(String topic);
+  default List<ReplicaInfo> availableReplicaLeaders(String topic) {
+    return replicas(topic).stream()
+        .filter(ReplicaInfo::isLeader)
+        .collect(Collectors.toUnmodifiableList());
+  }
 
   /**
    * Get the list of replica leader information of each available partition for the given
@@ -180,7 +154,14 @@ public interface ClusterInfo {
    * @param topic The topic name
    * @return A list of {@link ReplicaInfo}.
    */
-  List<ReplicaInfo> availableReplicas(String topic);
+  default List<ReplicaInfo> availableReplicas(String topic) {
+    return replicas(topic).stream()
+        .filter(ReplicaInfo::isOnlineReplica)
+        .collect(Collectors.toUnmodifiableList());
+  }
+
+  /** @return The known set of nodes */
+  List<NodeInfo> nodes();
 
   /**
    * All topic names

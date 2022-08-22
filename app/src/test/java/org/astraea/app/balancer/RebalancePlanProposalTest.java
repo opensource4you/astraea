@@ -17,7 +17,6 @@
 package org.astraea.app.balancer;
 
 import org.astraea.app.balancer.log.ClusterLogAllocation;
-import org.astraea.app.cost.ClusterInfoProvider;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -25,8 +24,8 @@ class RebalancePlanProposalTest {
 
   @Test
   void testBuild() {
-    final var fakeClusterInfo = ClusterInfoProvider.fakeClusterInfo(10, 10, 10, 10);
-    final var thisAllocation = ClusterLogAllocation.of(fakeClusterInfo);
+    final var fakeCluster = FakeClusterInfo.of(10, 10, 10, 10);
+    final var thisAllocation = ClusterLogAllocation.of(fakeCluster);
     final var build =
         RebalancePlanProposal.builder()
             .withRebalancePlan(thisAllocation)

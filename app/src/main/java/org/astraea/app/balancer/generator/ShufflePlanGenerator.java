@@ -19,14 +19,14 @@ package org.astraea.app.balancer.generator;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
-import org.astraea.app.admin.ClusterInfo;
-import org.astraea.app.admin.NodeInfo;
 import org.astraea.app.admin.TopicPartition;
 import org.astraea.app.balancer.RebalancePlanProposal;
 import org.astraea.app.balancer.log.ClusterLogAllocation;
@@ -62,11 +62,8 @@ public class ShufflePlanGenerator implements RebalancePlanGenerator {
 
   @Override
   public Stream<RebalancePlanProposal> generate(
-      ClusterInfo clusterInfo, ClusterLogAllocation baseAllocation) {
-    final var brokerIds =
-        clusterInfo.nodes().stream().map(NodeInfo::id).collect(Collectors.toUnmodifiableSet());
-
-    if (brokerIds.size() == 0) {
+      Map<Integer, Set<String>> brokerFolders, ClusterLogAllocation baseAllocation) {
+    if (brokerFolders.isEmpty()) {
       return Stream.of(
           RebalancePlanProposal.builder()
               .withRebalancePlan(baseAllocation)
@@ -74,7 +71,7 @@ public class ShufflePlanGenerator implements RebalancePlanGenerator {
               .build());
     }
 
-    if (brokerIds.size() == 1) {
+    if (brokerFolders.size() == 1) {
       return Stream.of(
           RebalancePlanProposal.builder()
               .withRebalancePlan(baseAllocation)
@@ -82,7 +79,7 @@ public class ShufflePlanGenerator implements RebalancePlanGenerator {
               .build());
     }
 
-    if (clusterInfo.topics().size() == 0) {
+    if (baseAllocation.topicPartitions().isEmpty()) {
       return Stream.of(
           RebalancePlanProposal.builder()
               .withRebalancePlan(baseAllocation)
@@ -100,7 +97,7 @@ public class ShufflePlanGenerator implements RebalancePlanGenerator {
 
           var candidates =
               IntStream.range(0, shuffleCount)
-                  .mapToObj(i -> allocationGenerator(clusterInfo, rebalancePlanBuilder))
+                  .mapToObj(i -> allocationGenerator(brokerFolders, rebalancePlanBuilder))
                   .collect(Collectors.toUnmodifiableList());
 
           var currentAllocation = baseAllocation;
@@ -111,10 +108,8 @@ public class ShufflePlanGenerator implements RebalancePlanGenerator {
   }
 
   private static Function<ClusterLogAllocation, ClusterLogAllocation> allocationGenerator(
-      ClusterInfo clusterInfo, RebalancePlanProposal.Build rebalancePlanBuilder) {
+      Map<Integer, Set<String>> brokerFolders, RebalancePlanProposal.Build rebalancePlanBuilder) {
     return currentAllocation -> {
-      var brokerIds =
-          clusterInfo.nodes().stream().map(NodeInfo::id).collect(Collectors.toUnmodifiableSet());
       var pickingList = new ArrayList<>(currentAllocation.topicPartitions());
       final var sourceTopicPartitionIndex = sourceTopicPartitionSelector(pickingList);
       final var sourceTopicPartition = pickingList.get(sourceTopicPartitionIndex);
@@ -135,7 +130,7 @@ public class ShufflePlanGenerator implements RebalancePlanGenerator {
 
                   // [Valid movement 1] add all brokers and remove all
                   // broker in current replica set
-                  brokerIds.stream()
+                  brokerFolders.keySet().stream()
                       .filter(
                           broker ->
                               sourceLogPlacements.stream().noneMatch(log -> log.broker() == broker))
@@ -143,8 +138,7 @@ public class ShufflePlanGenerator implements RebalancePlanGenerator {
                           targetBroker ->
                               (Supplier<ClusterLogAllocation>)
                                   () -> {
-                                    var destDir =
-                                        randomElement(clusterInfo.dataDirectories(targetBroker));
+                                    var destDir = randomElement(brokerFolders.get(targetBroker));
                                     rebalancePlanBuilder.addInfo(
                                         String.format(
                                             "Change replica set of topic %s partition %d, from %d to %d at %s.",
