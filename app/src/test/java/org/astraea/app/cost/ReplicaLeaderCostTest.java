@@ -71,8 +71,8 @@ public class ReplicaLeaderCostTest {
     Assertions.assertEquals(0.2041241452319315, clusterLoad.value());
   }
 
-  private ServerMetrics.ReplicaManager.Meter mockResult(String name, long count) {
-    var result = Mockito.mock(ServerMetrics.ReplicaManager.Meter.class);
+  private ServerMetrics.ReplicaManager.Gauge mockResult(String name, long count) {
+    var result = Mockito.mock(ServerMetrics.ReplicaManager.Gauge.class);
     var bean = Mockito.mock(BeanObject.class);
     Mockito.when(result.beanObject()).thenReturn(bean);
     Mockito.when(bean.properties()).thenReturn(Map.of("name", name, "type", "ReplicaManager"));

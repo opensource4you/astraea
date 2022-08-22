@@ -20,12 +20,11 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 import org.astraea.app.balancer.log.ClusterLogAllocation;
 
 public interface RebalancePlanProposal {
 
-  Optional<ClusterLogAllocation> rebalancePlan();
+  ClusterLogAllocation rebalancePlan();
 
   List<String> info();
 
@@ -40,45 +39,27 @@ public interface RebalancePlanProposal {
     List<String> info = Collections.synchronizedList(new ArrayList<>());
     List<String> warnings = Collections.synchronizedList(new ArrayList<>());
 
-    // guard by this
-    private boolean built = false;
-
-    public synchronized Build noRebalancePlan() {
-      ensureNotBuiltYet();
-      this.allocation = null;
-      return this;
-    }
-
     public synchronized Build withRebalancePlan(ClusterLogAllocation clusterLogAllocation) {
-      ensureNotBuiltYet();
       this.allocation = Objects.requireNonNull(clusterLogAllocation);
       return this;
     }
 
     public synchronized Build addWarning(String warning) {
-      ensureNotBuiltYet();
       this.warnings.add(warning);
       return this;
     }
 
     public synchronized Build addInfo(String info) {
-      ensureNotBuiltYet();
       this.info.add(info);
       return this;
     }
 
-    private synchronized void ensureNotBuiltYet() {
-      if (built) throw new IllegalStateException("This builder already built.");
-    }
-
     public synchronized RebalancePlanProposal build() {
-      final var allocationRef = allocation;
+      final var allocationRef =
+          Objects.requireNonNull(allocation, () -> "No log allocation specified for this proposal");
       final var infoRef = info;
       final var warningRef = warnings;
 
-      ensureNotBuiltYet();
-
-      built = true;
       allocation = null;
       info = null;
       warnings = null;
@@ -86,8 +67,8 @@ public interface RebalancePlanProposal {
       return new RebalancePlanProposal() {
 
         @Override
-        public Optional<ClusterLogAllocation> rebalancePlan() {
-          return Optional.ofNullable(allocationRef);
+        public ClusterLogAllocation rebalancePlan() {
+          return allocationRef;
         }
 
         @Override

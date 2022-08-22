@@ -18,7 +18,7 @@ package org.astraea.app.metrics.platform;
 
 import org.astraea.app.metrics.BeanQuery;
 import org.astraea.app.metrics.MBeanClient;
-import org.astraea.app.metrics.broker.HasValue;
+import org.astraea.app.metrics.broker.HasGauge;
 
 public final class HostMetrics {
 
@@ -37,7 +37,7 @@ public final class HostMetrics {
             BeanQuery.builder().domainName("java.lang").property("type", "Memory").build()));
   }
 
-  public static HasValue linuxDiskReadBytes(MBeanClient mBeanClient) {
+  public static HasGauge linuxDiskReadBytes(MBeanClient mBeanClient) {
     var bean =
         mBeanClient.queryBean(
             BeanQuery.builder()
@@ -48,7 +48,7 @@ public final class HostMetrics {
     return () -> bean;
   }
 
-  public static HasValue linuxDiskWriteBytes(MBeanClient mBeanClient) {
+  public static HasGauge linuxDiskWriteBytes(MBeanClient mBeanClient) {
     var bean =
         mBeanClient.queryBean(
             BeanQuery.builder()

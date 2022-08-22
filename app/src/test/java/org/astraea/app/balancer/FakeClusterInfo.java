@@ -14,9 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.app.cost;
+package org.astraea.app.balancer;
 
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
 import java.util.Set;
 import java.util.function.Function;
@@ -27,14 +29,14 @@ import org.astraea.app.admin.NodeInfo;
 import org.astraea.app.admin.ReplicaInfo;
 import org.astraea.app.admin.TopicPartition;
 
-public class ClusterInfoProvider {
+public class FakeClusterInfo implements ClusterInfo {
 
-  public static ClusterInfo fakeClusterInfo(
+  public static FakeClusterInfo of(
       int nodeCount, int topicCount, int partitionCount, int replicaCount) {
     final var random = new Random();
     random.setSeed(0);
 
-    return fakeClusterInfo(
+    return of(
         nodeCount,
         topicCount,
         partitionCount,
@@ -54,7 +56,7 @@ public class ClusterInfoProvider {
                 .collect(Collectors.toUnmodifiableSet()));
   }
 
-  public static ClusterInfo fakeClusterInfo(
+  public static FakeClusterInfo of(
       int nodeCount,
       int topicCount,
       int partitionCount,
@@ -93,38 +95,46 @@ public class ClusterInfoProvider {
                                         tp.partition() % dataDirectories.size()))))
             .collect(Collectors.groupingBy(ReplicaInfo::topic));
 
-    return new ClusterInfo() {
-      @Override
-      public List<NodeInfo> nodes() {
-        return nodes;
-      }
+    return new FakeClusterInfo(
+        nodes,
+        nodes.stream()
+            .collect(Collectors.toMap(NodeInfo::id, n -> new HashSet<String>(dataDirectories))),
+        topics,
+        replicas);
+  }
 
-      @Override
-      public Set<String> dataDirectories(int brokerId) {
-        return dataDirectories;
-      }
+  private final List<NodeInfo> nodes;
+  private final Map<Integer, Set<String>> dataDirectories;
+  private final Set<String> topics;
+  private final Map<String, List<ReplicaInfo>> replicas;
 
-      @Override
-      public List<ReplicaInfo> availableReplicaLeaders(String topic) {
-        return replicas(topic).stream()
-            .filter(ReplicaInfo::isLeader)
-            .collect(Collectors.toUnmodifiableList());
-      }
+  FakeClusterInfo(
+      List<NodeInfo> nodes,
+      Map<Integer, Set<String>> dataDirectories,
+      Set<String> topics,
+      Map<String, List<ReplicaInfo>> replicas) {
+    this.nodes = nodes;
+    this.dataDirectories = dataDirectories;
+    this.topics = topics;
+    this.replicas = replicas;
+  }
 
-      @Override
-      public List<ReplicaInfo> availableReplicas(String topic) {
-        return replicas(topic);
-      }
+  @Override
+  public List<NodeInfo> nodes() {
+    return nodes;
+  }
 
-      @Override
-      public Set<String> topics() {
-        return topics;
-      }
+  public Map<Integer, Set<String>> dataDirectories() {
+    return dataDirectories;
+  }
 
-      @Override
-      public List<ReplicaInfo> replicas(String topic) {
-        return replicas.get(topic);
-      }
-    };
+  @Override
+  public Set<String> topics() {
+    return topics;
+  }
+
+  @Override
+  public List<ReplicaInfo> replicas(String topic) {
+    return replicas.getOrDefault(topic, List.of());
   }
 }

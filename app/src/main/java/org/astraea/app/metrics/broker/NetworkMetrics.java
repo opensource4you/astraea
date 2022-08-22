@@ -103,8 +103,8 @@ public class NetworkMetrics {
       return metricName;
     }
 
-    public TotalTimeMs totalTimeMs(MBeanClient mBeanClient) {
-      return new TotalTimeMs(
+    public Histogram fetch(MBeanClient mBeanClient) {
+      return new Histogram(
           mBeanClient.queryBean(
               BeanQuery.builder()
                   .domainName("kafka.network")
@@ -114,11 +114,11 @@ public class NetworkMetrics {
                   .build()));
     }
 
-    public static class TotalTimeMs implements HasPercentiles, HasCount, HasStatistics {
+    public static class Histogram implements HasHistogram {
 
       private final BeanObject beanObject;
 
-      public TotalTimeMs(BeanObject beanObject) {
+      public Histogram(BeanObject beanObject) {
         this.beanObject = beanObject;
       }
 

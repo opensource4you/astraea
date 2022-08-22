@@ -49,7 +49,7 @@ public class LogMetricsTest extends RequireSingleBrokerCluster {
       Assertions.assertEquals(2, beans.size());
       Assertions.assertEquals(
           2,
-          beans.stream().map(LogMetrics.Log.Meter::partition).collect(Collectors.toSet()).size());
+          beans.stream().map(LogMetrics.Log.Gauge::partition).collect(Collectors.toSet()).size());
       beans.forEach(m -> Assertions.assertEquals(m.type(), log));
     }
   }
@@ -57,20 +57,24 @@ public class LogMetricsTest extends RequireSingleBrokerCluster {
   @ParameterizedTest
   @EnumSource(LogMetrics.Log.class)
   void testValue(LogMetrics.Log log) {
-    log.fetch(MBeanClient.local()).forEach(m -> Assertions.assertTrue(m.value() >= 0));
-    log.fetch(MBeanClient.local()).forEach(m -> Assertions.assertEquals(m.type(), log));
+    log.fetch(MBeanClient.local())
+        .forEach(
+            m -> {
+              MetricsTestUtil.validate(m);
+              Assertions.assertEquals(m.type(), log);
+            });
   }
 
   @Test
-  void testMeters() {
+  void testGauges() {
     var other = Mockito.mock(HasBeanObject.class);
-    var target = Mockito.mock(LogMetrics.Log.Meter.class);
+    var target = Mockito.mock(LogMetrics.Log.Gauge.class);
     Mockito.when(target.type()).thenReturn(LogMetrics.Log.LOG_END_OFFSET);
-    var result = LogMetrics.Log.meters(List.of(other, target), LogMetrics.Log.LOG_END_OFFSET);
+    var result = LogMetrics.Log.gauges(List.of(other, target), LogMetrics.Log.LOG_END_OFFSET);
     Assertions.assertEquals(1, result.size());
     Assertions.assertEquals(target, result.iterator().next());
     Assertions.assertEquals(
-        0, LogMetrics.Log.meters(List.of(other, target), LogMetrics.Log.SIZE).size());
+        0, LogMetrics.Log.gauges(List.of(other, target), LogMetrics.Log.SIZE).size());
   }
 
   @ParameterizedTest()

@@ -14,27 +14,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.app.metrics.platform;
+package org.astraea.app.metrics.broker;
 
-import static org.junit.jupiter.api.condition.OS.LINUX;
+import java.util.Objects;
+import java.util.concurrent.TimeUnit;
 
-import org.astraea.app.metrics.MBeanClient;
-import org.astraea.app.metrics.MetricsTestUtil;
-import org.astraea.app.service.RequireSingleBrokerCluster;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.condition.EnabledOnOs;
+/**
+ * You can find some default metric in {@link kafka.metrics.KafkaMetricsGroup}. This object is
+ * mapped to {@link com.yammer.metrics.core.Timer}
+ */
+public interface HasTimer extends HasEventType, HasPercentiles, HasRate, HasStatistics, HasCount {
 
-public class LinuxDiskMetricsTest extends RequireSingleBrokerCluster {
-
-  @Test
-  @EnabledOnOs(LINUX)
-  void linuxDiskReadBytes() {
-    MetricsTestUtil.validate(HostMetrics.linuxDiskReadBytes(MBeanClient.local()));
-  }
-
-  @Test
-  @EnabledOnOs(LINUX)
-  void linuxDiskWriteBytes() {
-    MetricsTestUtil.validate(HostMetrics.linuxDiskWriteBytes(MBeanClient.local()));
+  default TimeUnit latencyUnit() {
+    return (TimeUnit)
+        Objects.requireNonNull(
+            beanObject().attributes().get("LatencyUnit"), "LatencyUnit can't be null.");
   }
 }

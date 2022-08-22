@@ -17,8 +17,8 @@
 package org.astraea.app.metrics.broker;
 
 import org.astraea.app.metrics.MBeanClient;
+import org.astraea.app.metrics.MetricsTestUtil;
 import org.astraea.app.service.RequireSingleBrokerCluster;
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
@@ -27,17 +27,7 @@ public class ServerTopicMetricsTest extends RequireSingleBrokerCluster {
   @ParameterizedTest
   @EnumSource(value = ServerMetrics.Topic.class)
   void testRequestBrokerTopicMetrics(ServerMetrics.Topic metric) {
-    // act
-    var result = metric.fetch(MBeanClient.local());
-
-    // assert access attribute will not throw casting error
-    // assert attribute actually exists
-    Assertions.assertDoesNotThrow(result::count);
-    Assertions.assertDoesNotThrow(result::eventType);
-    Assertions.assertDoesNotThrow(result::fifteenMinuteRate);
-    Assertions.assertDoesNotThrow(result::fiveMinuteRate);
-    Assertions.assertDoesNotThrow(result::meanRate);
-    Assertions.assertDoesNotThrow(result::oneMinuteRate);
-    Assertions.assertDoesNotThrow(result::rateUnit);
+    var meter = metric.fetch(MBeanClient.local());
+    MetricsTestUtil.validate(meter);
   }
 }

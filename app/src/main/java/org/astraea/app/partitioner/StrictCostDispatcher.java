@@ -22,12 +22,13 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.TreeMap;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import org.astraea.app.admin.ClusterBean;
 import org.astraea.app.admin.ClusterInfo;
 import org.astraea.app.admin.NodeInfo;
-import org.astraea.app.admin.ReplicaInfo;
 import org.astraea.app.argument.DurationField;
 import org.astraea.app.common.Utils;
 import org.astraea.app.cost.CostFunction;
@@ -53,6 +54,8 @@ import org.astraea.app.metrics.collector.Receiver;
  * `org.astraea.cost.ThroughputCost=1,org.astraea.cost.broker.BrokerOutputCost=1`.
  */
 public class StrictCostDispatcher implements Dispatcher {
+  static final int ROUND_ROBIN_LENGTH = 400;
+
   public static final String JMX_PORT = "jmx.port";
   public static final String ROUND_ROBIN_LEASE_KEY = "round.robin.lease";
 
@@ -71,12 +74,31 @@ public class StrictCostDispatcher implements Dispatcher {
 
   final Map<Integer, Receiver> receivers = new TreeMap<>();
 
-  volatile RoundRobin<Integer> roundRobin;
+  final int[] roundRobin = new int[ROUND_ROBIN_LENGTH];
+
+  final AtomicInteger next = new AtomicInteger(0);
+
   volatile long timeToUpdateRoundRobin = -1;
 
   // visible for testing
   Receiver receiver(String host, int port, Fetcher fetcher) {
     return beanCollector.register().host(host).port(port).fetcher(fetcher).build();
+  }
+
+  void tryToUpdateFetcher(ClusterInfo clusterInfo) {
+    // add new receivers for new brokers
+    fetcher.ifPresent(
+        fetcher ->
+            clusterInfo.nodes().stream()
+                .filter(node -> !receivers.containsKey(node.id()))
+                .forEach(
+                    node ->
+                        jmxPortGetter
+                            .apply(node.id())
+                            .ifPresent(
+                                port ->
+                                    receivers.put(
+                                        node.id(), receiver(node.host(), port, fetcher)))));
   }
 
   @Override
@@ -86,51 +108,37 @@ public class StrictCostDispatcher implements Dispatcher {
     if (partitionLeaders.isEmpty()) return 0;
 
     // just return the only one available partition
-    if (partitionLeaders.size() == 1) return partitionLeaders.iterator().next().partition();
+    if (partitionLeaders.size() == 1) return partitionLeaders.get(0).partition();
 
-    // add new receivers for new brokers
-    receivers.putAll(
-        fetcher
-            .map(
-                fetcher ->
-                    partitionLeaders.stream()
-                        .map(ReplicaInfo::nodeInfo)
-                        .filter(nodeInfo -> !receivers.containsKey(nodeInfo.id()))
-                        .distinct()
-                        .filter(nodeInfo -> jmxPortGetter.apply(nodeInfo.id()).isPresent())
-                        .collect(
-                            Collectors.toMap(
-                                NodeInfo::id,
-                                nodeInfo ->
-                                    receiver(
-                                        nodeInfo.host(),
-                                        jmxPortGetter.apply(nodeInfo.id()).get(),
-                                        fetcher))))
-            .orElse(Map.of()));
+    tryToUpdateFetcher(clusterInfo);
 
     tryToUpdateRoundRobin(clusterInfo);
 
-    return roundRobin
-        .next(partitionLeaders.stream().map(r -> r.nodeInfo().id()).collect(Collectors.toSet()))
-        .flatMap(
-            brokerId ->
-                // TODO: which partition is better when all of them are in same node?
-                partitionLeaders.stream()
-                    .filter(r -> r.nodeInfo().id() == brokerId)
-                    .map(ReplicaInfo::partition)
-                    .findAny())
-        .orElse(partitionLeaders.get((int) (Math.random() * partitionLeaders.size())).partition());
+    var target =
+        roundRobin[
+            next.getAndUpdate(previous -> previous >= roundRobin.length - 1 ? 0 : previous + 1)];
+
+    // TODO: if the topic partitions are existent in fewer brokers, the target gets -1 in most cases
+    var candidate =
+        target < 0 ? partitionLeaders : clusterInfo.availableReplicaLeaders(target, topic);
+    candidate = candidate.isEmpty() ? partitionLeaders : candidate;
+    return candidate.get((int) (Math.random() * candidate.size())).partition();
   }
 
-  void tryToUpdateRoundRobin(ClusterInfo clusterInfo) {
-    if (roundRobin == null || System.currentTimeMillis() >= timeToUpdateRoundRobin) {
-      roundRobin =
+  synchronized void tryToUpdateRoundRobin(ClusterInfo clusterInfo) {
+    if (System.currentTimeMillis() >= timeToUpdateRoundRobin) {
+      var roundRobin =
           newRoundRobin(
               functions,
               clusterInfo,
               ClusterBean.of(
                   receivers.entrySet().stream()
                       .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().current()))));
+      var ids =
+          clusterInfo.nodes().stream().map(NodeInfo::id).collect(Collectors.toUnmodifiableSet());
+      // TODO: make ROUND_ROBIN_LENGTH configurable ???
+      IntStream.range(0, ROUND_ROBIN_LENGTH)
+          .forEach(index -> this.roundRobin[index] = roundRobin.next(ids).orElse(-1));
       timeToUpdateRoundRobin = System.currentTimeMillis() + roundRobinLease.toMillis();
     }
   }
@@ -164,13 +172,17 @@ public class StrictCostDispatcher implements Dispatcher {
         costFunctions.entrySet().stream()
             .flatMap(
                 functionWeight ->
-                    ((HasBrokerCost) functionWeight.getKey())
-                        .brokerCost(clusterInfo, clusterBean).value().entrySet().stream()
-                            .map(
-                                idAndCost ->
-                                    Map.entry(
-                                        idAndCost.getKey(),
-                                        idAndCost.getValue() * functionWeight.getValue())))
+                    functionWeight
+                        .getKey()
+                        .brokerCost(clusterInfo, clusterBean)
+                        .value()
+                        .entrySet()
+                        .stream()
+                        .map(
+                            idAndCost ->
+                                Map.entry(
+                                    idAndCost.getKey(),
+                                    idAndCost.getValue() * functionWeight.getValue())))
             .collect(
                 Collectors.toMap(
                     Map.Entry::getKey, Map.Entry::getValue, Double::sum, HashMap::new));

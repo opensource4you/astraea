@@ -137,16 +137,18 @@ public class Performance {
                     .consumerRebalanceListener(listener)
                     .build());
 
-    var producerReports =
-        producerThreads.stream()
-            .map(ProducerThread::report)
-            .collect(Collectors.toUnmodifiableList());
-    var consumerReports =
-        consumerThreads.stream()
-            .map(ConsumerThread::report)
-            .collect(Collectors.toUnmodifiableList());
+    Supplier<List<ProducerThread.Report>> producerReporter =
+        () ->
+            producerThreads.stream()
+                .map(ProducerThread::report)
+                .collect(Collectors.toUnmodifiableList());
+    Supplier<List<ConsumerThread.Report>> consumerReporter =
+        () ->
+            consumerThreads.stream()
+                .map(ConsumerThread::report)
+                .collect(Collectors.toUnmodifiableList());
 
-    var tracker = TrackerThread.create(producerReports, consumerReports, param.exeTime);
+    var tracker = TrackerThread.create(producerReporter, consumerReporter, param.exeTime);
 
     Optional<Runnable> fileWriter =
         param.CSVPath == null
@@ -155,16 +157,10 @@ public class Performance {
                 ReportFormat.createFileWriter(
                     param.reportFormat,
                     param.CSVPath,
-                    param.exeTime,
                     () -> consumerThreads.stream().allMatch(AbstractThread::closed),
                     () -> producerThreads.stream().allMatch(AbstractThread::closed),
-                    () ->
-                        producerThreads.stream()
-                            .map(ProducerThread::report)
-                            .mapToLong(Report::records)
-                            .sum(),
-                    producerReports,
-                    consumerReports));
+                    producerReporter,
+                    consumerReporter));
 
     var fileWriterFuture =
         fileWriter.map(CompletableFuture::runAsync).orElse(CompletableFuture.completedFuture(null));
@@ -196,7 +192,7 @@ public class Performance {
             if (offsets.entrySet().stream()
                 .allMatch(
                     e ->
-                        consumerReports.stream()
+                        consumerReporter.get().stream()
                             .anyMatch(r -> r.offset(e.getKey()) >= e.getValue()))) break;
             Utils.sleep(Duration.ofSeconds(2));
           }
