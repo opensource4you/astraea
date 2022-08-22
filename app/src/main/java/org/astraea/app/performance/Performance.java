@@ -22,7 +22,6 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -94,34 +93,31 @@ public class Performance {
         argument.throughput);
   }
 
-  public static String execute(final Argument param) throws InterruptedException, IOException {
+  public static List<String> execute(final Argument param)
+      throws InterruptedException, IOException {
     List<Integer> partitions;
     Map<TopicPartition, Long> latestOffsets;
-    Map<String, Map<Integer, Short>> topicsDescribe;
-    topicsDescribe = topicsParse(param);
+    Set<String> topicSet = new HashSet<>(param.topics);
+    vaildateReplicas(param.partitions, param.replicas);
 
     try (var topicAdmin = Admin.of(param.configs())) {
 
-      topicsDescribe.forEach(
-          (topic, partitionReplica) -> {
-            for (var entry : partitionReplica.entrySet()) {
-              topicAdmin
-                  .creator()
-                  .topic(topic)
-                  .numberOfPartitions(entry.getKey())
-                  .numberOfReplicas(entry.getValue())
-                  .create();
-            }
-          });
+      IntStream.range(0, param.topics.size())
+          .forEach(
+              i ->
+                  topicAdmin
+                      .creator()
+                      .topic(param.topics.get(i))
+                      .numberOfPartitions(param.partitions.get(i))
+                      .numberOfReplicas(param.replicas.get(i).shortValue())
+                      .create());
 
-      topicsDescribe.forEach(
-          (topic, partitionReplica) -> {
-            Utils.waitFor(() -> topicAdmin.topicNames().contains(topic));
-          });
+      IntStream.range(0, param.topics.size())
+          .forEach(i -> Utils.waitFor(() -> topicAdmin.topicNames().contains(param.topics.get(i))));
 
       partitions = new ArrayList<>(partition(param, topicAdmin));
       latestOffsets =
-          topicAdmin.offsets(Set.of(param.topics.split(","))).entrySet().stream()
+          topicAdmin.offsets(topicSet).entrySet().stream()
               .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().latest()));
     }
 
@@ -130,7 +126,7 @@ public class Performance {
 
     var producerThreads =
         ProducerThread.create(
-            param.topics.split(","),
+            param.topics,
             param.transactionSize,
             dataSupplier(param),
             partitionSupplier,
@@ -140,7 +136,7 @@ public class Performance {
         ConsumerThread.create(
             param.consumers,
             listener ->
-                Consumer.forTopics(Set.of(param.topics.split(",")))
+                Consumer.forTopics(topicSet)
                     .bootstrapServers(param.bootstrapServers())
                     .groupId(param.groupId)
                     .configs(param.configs())
@@ -221,7 +217,7 @@ public class Performance {
   static Set<Integer> partition(Argument param, Admin topicAdmin) {
     if (positiveSpecifyBroker(param)) {
       return topicAdmin
-          .partitions(Set.of(param.topics.split(",")), new HashSet<>(param.specifyBroker))
+          .partitions(new HashSet<>(param.topics), new HashSet<>(param.specifyBroker))
           .values()
           .stream()
           .flatMap(Collection::stream)
@@ -234,31 +230,18 @@ public class Performance {
     return param.specifyBroker.stream().allMatch(broker -> broker >= 0);
   }
 
-  static Map<String, Map<Integer, Short>> topicsParse(Argument param) {
-    var topics = param.topics.split(",");
-    var partitions = param.partitions.split(",");
-    var replicas = param.replicas.split(",");
+  static void vaildateReplicas(List<Integer> partitions, List<Integer> replicas) {
+    partitions.forEach(
+        partition -> {
+          if (partition <= 0)
+            throw new IllegalArgumentException("Partition cannot set zero or negative.");
+        });
 
-    if (topics.length != partitions.length || topics.length != replicas.length) {
-      throw new IllegalArgumentException(
-          "The argument number of --topics, --partitions and --replicas doesn't match, please check again.");
-    }
-
-    Map<String, Map<Integer, Short>> topicsPartitions = new HashMap<>();
-
-    IntStream.range(0, topics.length)
-        .forEach(
-            i -> {
-              if (Integer.parseInt(partitions[i]) > 0 && Short.parseShort(replicas[i]) > 0) {
-                topicsPartitions.putIfAbsent(
-                    topics[i],
-                    Map.of(Integer.parseInt(partitions[i]), Short.parseShort(replicas[i])));
-              } else
-                throw new IllegalArgumentException(
-                    "partitions and replicas cannot set zero or negative");
-            });
-
-    return topicsPartitions;
+    replicas.forEach(
+        replica -> {
+          if (replica <= 0)
+            throw new IllegalArgumentException("Replica cannot set zero or negative.");
+        });
   }
 
   public static class Argument extends org.astraea.app.argument.Argument {
@@ -267,19 +250,19 @@ public class Performance {
         names = {"--topics"},
         description = "String : topic names which you subscribed",
         validateWith = NonEmptyStringField.class)
-    String topics = "testPerformance-" + System.currentTimeMillis();
+    List<String> topics = List.of("testPerformance-" + System.currentTimeMillis());
 
     @Parameter(
         names = {"--partitions"},
         description = "Integer: number of partitions to create the topic",
         validateWith = NonEmptyStringField.class)
-    String partitions = "1";
+    List<Integer> partitions = List.of(1);
 
     @Parameter(
         names = {"--replicas"},
         description = "Integer: number of replica to create the topic",
         validateWith = NonEmptyStringField.class)
-    String replicas = "1";
+    List<Integer> replicas = List.of(1);
 
     @Parameter(
         names = {"--producers"},

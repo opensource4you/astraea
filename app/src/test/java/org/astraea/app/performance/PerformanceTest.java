@@ -18,6 +18,7 @@ package org.astraea.app.performance;
 
 import com.beust.jcommander.ParameterException;
 import java.time.Duration;
+import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.function.BiConsumer;
 import org.astraea.app.argument.Argument;
@@ -160,68 +161,15 @@ public class PerformanceTest extends RequireBrokerCluster {
   }
 
   @Test
-  void testReplicas() {
-    var args =
-        Argument.parse(
-            new Performance.Argument(),
-            new String[] {
-              "--bootstrap.servers",
-              "localhost:9092",
-              "--topics",
-              "test",
-              "--partitions",
-              "10",
-              "--replicas",
-              "0"
-            });
-    Assertions.assertThrows(IllegalArgumentException.class, () -> Performance.topicsParse(args));
-
-    var args1 =
-        Argument.parse(
-            new Performance.Argument(),
-            new String[] {
-              "--bootstrap.servers",
-              "localhost:9092",
-              "--topics",
-              "test1,test2,test3",
-              "--partitions",
-              "10,20,30",
-              "--replicas",
-              "1,2,0"
-            });
-    Assertions.assertThrows(IllegalArgumentException.class, () -> Performance.topicsParse(args1));
-  }
-
-  @Test
-  void testPartitions() {
-    var args =
-        Argument.parse(
-            new Performance.Argument(),
-            new String[] {
-              "--bootstrap.servers",
-              "localhost:9092",
-              "--topics",
-              "test",
-              "--partitions",
-              "0",
-              "--replicas",
-              "2"
-            });
-    Assertions.assertThrows(IllegalArgumentException.class, () -> Performance.topicsParse(args));
-
-    var args1 =
-        Argument.parse(
-            new Performance.Argument(),
-            new String[] {
-              "--bootstrap.servers",
-              "localhost:9092",
-              "--topics",
-              "test1,test2,test3",
-              "--partitions",
-              "10,0,30",
-              "--replicas",
-              "1,2,3"
-            });
-    Assertions.assertThrows(IllegalArgumentException.class, () -> Performance.topicsParse(args1));
+  void testReplicaCount() {
+    Assertions.assertThrows(
+        IllegalArgumentException.class,
+        () -> Performance.vaildateReplicas(List.of(10, 0), List.of(1, 1)));
+    Assertions.assertThrows(
+        IllegalArgumentException.class,
+        () -> Performance.vaildateReplicas(List.of(10, 0), List.of(0, 1)));
+    Assertions.assertThrows(
+        IllegalArgumentException.class,
+        () -> Performance.vaildateReplicas(List.of(10, 10), List.of(0, 1)));
   }
 }
