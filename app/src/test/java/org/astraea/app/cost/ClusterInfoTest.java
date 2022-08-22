@@ -61,7 +61,5 @@ public class ClusterInfoTest {
     Assertions.assertThrows(NoSuchElementException.class, () -> clusterInfo.node(0));
     Assertions.assertEquals(0, clusterInfo.availableReplicas("unknown").size());
     Assertions.assertEquals(0, clusterInfo.availableReplicaLeaders("unknown").size());
-    Assertions.assertThrows(
-        UnsupportedOperationException.class, () -> clusterInfo.dataDirectories(0));
   }
 }

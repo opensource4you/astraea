@@ -20,7 +20,6 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -62,11 +61,6 @@ class BalancerUtils {
       }
 
       @Override
-      public Set<String> dataDirectories(int brokerId) {
-        return clusterInfo.dataDirectories(brokerId);
-      }
-
-      @Override
       public Set<String> topics() {
         return allocation.topicPartitions().stream()
             .map(TopicPartition::topic)
@@ -74,49 +68,31 @@ class BalancerUtils {
       }
 
       @Override
-      public List<ReplicaInfo> availableReplicaLeaders(String topic) {
-        return replicas(topic).stream()
-            .filter(ReplicaInfo::isLeader)
-            .collect(Collectors.toUnmodifiableList());
-      }
-
-      @Override
-      public List<ReplicaInfo> availableReplicas(String topic) {
-        // there is no offline sense for a fake cluster info, so everything is online.
-        return replicas(topic);
-      }
-
-      @Override
       public List<ReplicaInfo> replicas(String topic) {
-        Map<Integer, NodeInfo> nodeIdMap =
+        var nodeIdMap =
             nodes().stream()
                 .collect(Collectors.toUnmodifiableMap(NodeInfo::id, Function.identity()));
-        var result =
-            allocation.topicPartitions().stream()
-                .filter(tp -> tp.topic().equals(topic))
-                .map(tp -> Map.entry(tp, allocation.logPlacements(tp)))
-                .flatMap(
-                    entry -> {
-                      var tp = entry.getKey();
-                      var logs = entry.getValue();
+        return allocation.topicPartitions().stream()
+            .filter(tp -> tp.topic().equals(topic))
+            .map(tp -> Map.entry(tp, allocation.logPlacements(tp)))
+            .flatMap(
+                entry -> {
+                  var tp = entry.getKey();
+                  var logs = entry.getValue();
 
-                      return IntStream.range(0, logs.size())
-                          .mapToObj(
-                              i ->
-                                  ReplicaInfo.of(
-                                      tp.topic(),
-                                      tp.partition(),
-                                      nodeIdMap.get(logs.get(i).broker()),
-                                      i == 0,
-                                      true,
-                                      false,
-                                      logs.get(i).logDirectory().orElse(null)));
-                    })
-                .collect(Collectors.toUnmodifiableList());
-
-        if (result.isEmpty()) throw new NoSuchElementException();
-
-        return result;
+                  return IntStream.range(0, logs.size())
+                      .mapToObj(
+                          i ->
+                              ReplicaInfo.of(
+                                  tp.topic(),
+                                  tp.partition(),
+                                  nodeIdMap.get(logs.get(i).broker()),
+                                  i == 0,
+                                  true,
+                                  false,
+                                  logs.get(i).logDirectory().orElse(null)));
+                })
+            .collect(Collectors.toUnmodifiableList());
       }
     };
   }
