@@ -85,6 +85,22 @@ public class StrictCostDispatcher implements Dispatcher {
     return beanCollector.register().host(host).port(port).fetcher(fetcher).build();
   }
 
+  void tryToUpdateFetcher(ClusterInfo clusterInfo) {
+    // add new receivers for new brokers
+    fetcher.ifPresent(
+        fetcher ->
+            clusterInfo.nodes().stream()
+                .filter(node -> !receivers.containsKey(node.id()))
+                .forEach(
+                    node ->
+                        jmxPortGetter
+                            .apply(node.id())
+                            .ifPresent(
+                                port ->
+                                    receivers.put(
+                                        node.id(), receiver(node.host(), port, fetcher)))));
+  }
+
   @Override
   public int partition(String topic, byte[] key, byte[] value, ClusterInfo clusterInfo) {
     var partitionLeaders = clusterInfo.availableReplicaLeaders(topic);
@@ -94,24 +110,7 @@ public class StrictCostDispatcher implements Dispatcher {
     // just return the only one available partition
     if (partitionLeaders.size() == 1) return partitionLeaders.get(0).partition();
 
-    // add new receivers for new brokers
-    receivers.putAll(
-        fetcher
-            .map(
-                fetcher ->
-                    clusterInfo.nodes().stream()
-                        .filter(nodeInfo -> !receivers.containsKey(nodeInfo.id()))
-                        .distinct()
-                        .filter(nodeInfo -> jmxPortGetter.apply(nodeInfo.id()).isPresent())
-                        .collect(
-                            Collectors.toMap(
-                                NodeInfo::id,
-                                nodeInfo ->
-                                    receiver(
-                                        nodeInfo.host(),
-                                        jmxPortGetter.apply(nodeInfo.id()).get(),
-                                        fetcher))))
-            .orElse(Map.of()));
+    tryToUpdateFetcher(clusterInfo);
 
     tryToUpdateRoundRobin(clusterInfo);
 
@@ -121,11 +120,7 @@ public class StrictCostDispatcher implements Dispatcher {
 
     // TODO: if the topic partitions are existent in fewer brokers, the target gets -1 in most cases
     var candidate =
-        target < 0
-            ? partitionLeaders
-            : partitionLeaders.stream()
-                .filter(r -> r.nodeInfo().id() == target)
-                .collect(Collectors.toUnmodifiableList());
+        target < 0 ? partitionLeaders : clusterInfo.availableReplicaLeaders(target, topic);
     candidate = candidate.isEmpty() ? partitionLeaders : candidate;
     return candidate.get((int) (Math.random() * candidate.size())).partition();
   }

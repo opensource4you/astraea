@@ -39,7 +39,7 @@ class NodeTopicSizeCostTest {
 
   @Test
   void testBrokerCost() {
-    var meter = new LogMetrics.Log.Meter(bean);
+    var meter = new LogMetrics.Log.Gauge(bean);
     var cost = new NodeTopicSizeCost();
     var result =
         cost.brokerCost(mock(ClusterInfo.class), ClusterBean.of(Map.of(1, List.of(meter))));
@@ -49,7 +49,7 @@ class NodeTopicSizeCostTest {
 
   @Test
   void testPartitionCost() {
-    var meter = new LogMetrics.Log.Meter(bean);
+    var meter = new LogMetrics.Log.Gauge(bean);
     var cost = new NodeTopicSizeCost();
     var clusterInfo = Mockito.mock(ClusterInfo.class);
     when(clusterInfo.topics()).thenReturn(Set.of("t"));

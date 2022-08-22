@@ -713,10 +713,6 @@ public class AdminTest extends RequireBrokerCluster {
       Assertions.assertEquals(partitionCount * replicaCount, clusterInfo.replicas(topic0).size());
       Assertions.assertEquals(partitionCount * replicaCount, clusterInfo.replicas(topic1).size());
       Assertions.assertEquals(partitionCount * replicaCount, clusterInfo.replicas(topic2).size());
-      // ClusterInfo#dataDirectories
-      brokerIds()
-          .forEach(
-              id -> Assertions.assertEquals(logFolders().get(id), clusterInfo.dataDirectories(id)));
       // ClusterInfo#availableReplicas
       Assertions.assertEquals(
           partitionCount * replicaCount, clusterInfo.availableReplicas(topic0).size());
@@ -729,16 +725,10 @@ public class AdminTest extends RequireBrokerCluster {
       Assertions.assertEquals(partitionCount, clusterInfo.availableReplicaLeaders(topic1).size());
       Assertions.assertEquals(partitionCount, clusterInfo.availableReplicaLeaders(topic2).size());
       // No resource match found will raise exception
-      Assertions.assertThrows(
-          NoSuchElementException.class, () -> clusterInfo.replicas("Unknown Topic"));
-      Assertions.assertThrows(
-          NoSuchElementException.class, () -> clusterInfo.availableReplicas("Unknown Topic"));
-      Assertions.assertThrows(
-          NoSuchElementException.class, () -> clusterInfo.availableReplicaLeaders("Unknown Topic"));
-      Assertions.assertThrows(NoSuchElementException.class, () -> clusterInfo.dataDirectories(-1));
+      Assertions.assertEquals(List.of(), clusterInfo.replicas("Unknown Topic"));
+      Assertions.assertEquals(List.of(), clusterInfo.availableReplicas("Unknown Topic"));
+      Assertions.assertEquals(List.of(), clusterInfo.availableReplicaLeaders("Unknown Topic"));
       Assertions.assertThrows(NoSuchElementException.class, () -> clusterInfo.node(-1));
-      Assertions.assertThrows(
-          NoSuchElementException.class, () -> clusterInfo.node("unknown", 1024));
     }
   }
 
@@ -1304,9 +1294,9 @@ public class AdminTest extends RequireBrokerCluster {
           .numberOfPartitions(partitions)
           .numberOfReplicas((short) 3)
           .create();
-      Utils.sleep(Duration.ofMillis(100));
+      Utils.sleep(Duration.ofSeconds(1));
       admin.replicationThrottler().throttle(topic).apply();
-      Utils.sleep(Duration.ofMillis(100));
+      Utils.sleep(Duration.ofSeconds(1));
 
       Assertions.assertEquals(currentLeaderLogs(admin, topic), fetchLeaderThrottle(topic));
       Assertions.assertEquals(currentFollowerLogs(admin, topic), fetchFollowerThrottle(topic));

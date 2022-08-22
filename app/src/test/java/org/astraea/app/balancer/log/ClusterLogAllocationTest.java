@@ -22,7 +22,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.astraea.app.admin.TopicPartition;
-import org.astraea.app.cost.ClusterInfoProvider;
+import org.astraea.app.balancer.FakeClusterInfo;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -53,9 +53,8 @@ class ClusterLogAllocationTest {
 
   @Test
   void migrateReplica() {
-    final var fakeClusterInfo =
-        ClusterInfoProvider.fakeClusterInfo(3, 1, 1, 1, (i) -> Set.of("topic"));
-    var clusterLogAllocation = ClusterLogAllocation.of(fakeClusterInfo);
+    final var fakeCluster = FakeClusterInfo.of(3, 1, 1, 1, (i) -> Set.of("topic"));
+    var clusterLogAllocation = ClusterLogAllocation.of(fakeCluster);
     final var sourceTopicPartition = TopicPartition.of("topic", "0");
 
     clusterLogAllocation = clusterLogAllocation.migrateReplica(sourceTopicPartition, 0, 1);
@@ -75,9 +74,8 @@ class ClusterLogAllocationTest {
       strings = {"null", "/tmp/data-directory-0", "/tmp/data-directory-1", "/tmp/data-directory-2"})
   void migrateReplica(String dataDirectory) {
     dataDirectory = dataDirectory.equals("null") ? null : dataDirectory;
-    final var fakeClusterInfo =
-        ClusterInfoProvider.fakeClusterInfo(3, 1, 1, 1, (i) -> Set.of("topic"));
-    var clusterLogAllocation = ClusterLogAllocation.of(fakeClusterInfo);
+    final var fakeCluster = FakeClusterInfo.of(3, 1, 1, 1, (i) -> Set.of("topic"));
+    var clusterLogAllocation = ClusterLogAllocation.of(fakeCluster);
     final var sourceTopicPartition0 = TopicPartition.of("topic", "0");
 
     clusterLogAllocation =
@@ -109,9 +107,8 @@ class ClusterLogAllocationTest {
 
   @Test
   void letReplicaBecomeLeader() {
-    final var fakeClusterInfo =
-        ClusterInfoProvider.fakeClusterInfo(3, 1, 1, 2, (i) -> Set.of("topic"));
-    var clusterLogAllocation = ClusterLogAllocation.of(fakeClusterInfo);
+    final var fakeCluster = FakeClusterInfo.of(3, 1, 1, 2, (i) -> Set.of("topic"));
+    var clusterLogAllocation = ClusterLogAllocation.of(fakeCluster);
     final var sourceTopicPartition = TopicPartition.of("topic", "0");
 
     clusterLogAllocation = clusterLogAllocation.letReplicaBecomeLeader(sourceTopicPartition, 1);
@@ -144,11 +141,11 @@ class ClusterLogAllocationTest {
 
   @Test
   void topicPartitionStream() {
-    final var fakeClusterInfo = ClusterInfoProvider.fakeClusterInfo(10, 10, 10, 3);
-    var allocation = ClusterLogAllocation.of(fakeClusterInfo);
+    final var fakeCluster = FakeClusterInfo.of(10, 10, 10, 3);
+    var allocation = ClusterLogAllocation.of(fakeCluster);
     for (var replica :
-        fakeClusterInfo.topics().stream()
-            .flatMap(x -> fakeClusterInfo.replicas(x).stream())
+        fakeCluster.topics().stream()
+            .flatMap(x -> fakeCluster.replicas(x).stream())
             .collect(Collectors.toUnmodifiableList()))
       allocation =
           allocation.letReplicaBecomeLeader(
@@ -162,8 +159,8 @@ class ClusterLogAllocationTest {
             .collect(Collectors.toUnmodifiableList());
     Assertions.assertEquals(10 * 10, allTopicPartitions.size());
     final var expectedTopicPartitions =
-        fakeClusterInfo.topics().stream()
-            .flatMap(x -> fakeClusterInfo.replicas(x).stream())
+        fakeCluster.topics().stream()
+            .flatMap(x -> fakeCluster.replicas(x).stream())
             .map(x -> TopicPartition.of(x.topic(), Integer.toString(x.partition())))
             .distinct()
             .sorted(
@@ -175,7 +172,7 @@ class ClusterLogAllocationTest {
 
   @Test
   void findNonFulfilledAllocation() {
-    final var clusterInfo = ClusterInfoProvider.fakeClusterInfo(3, 10, 10, 2);
+    final var clusterInfo = FakeClusterInfo.of(3, 10, 10, 2);
     Assertions.assertEquals(
         Set.of(),
         ClusterLogAllocation.findNonFulfilledAllocation(

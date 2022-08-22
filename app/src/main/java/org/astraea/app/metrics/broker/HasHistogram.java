@@ -16,16 +16,8 @@
  */
 package org.astraea.app.metrics.broker;
 
-import org.astraea.app.metrics.BeanObject;
-import org.astraea.app.metrics.HasBeanObject;
-
-public interface HasValue extends HasBeanObject {
-  default long value() {
-    var value = beanObject().attributes().getOrDefault("Value", 0);
-    return ((Number) value).longValue();
-  }
-
-  static HasValue of(BeanObject beanObject) {
-    return () -> beanObject;
-  }
-}
+/**
+ * You can find some default metric in {@link kafka.metrics.KafkaMetricsGroup}. This object is
+ * mapped to {@link com.yammer.metrics.core.Histogram}
+ */
+public interface HasHistogram extends HasPercentiles, HasCount, HasStatistics {}

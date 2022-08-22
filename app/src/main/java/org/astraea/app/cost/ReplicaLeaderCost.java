@@ -52,8 +52,8 @@ public class ReplicaLeaderCost implements HasBrokerCost, HasClusterCost {
                 Map.Entry::getKey,
                 e ->
                     e.getValue().stream()
-                        .filter(x -> x instanceof ServerMetrics.ReplicaManager.Meter)
-                        .map(x -> (ServerMetrics.ReplicaManager.Meter) x)
+                        .filter(x -> x instanceof ServerMetrics.ReplicaManager.Gauge)
+                        .map(x -> (ServerMetrics.ReplicaManager.Gauge) x)
                         .sorted(Comparator.comparing(HasBeanObject::createdTimestamp).reversed())
                         .limit(1)
                         .mapToInt(v -> (int) v.value())

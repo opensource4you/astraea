@@ -43,7 +43,6 @@ public class ClusterInfoTest {
 
     Assertions.assertEquals(1, clusterInfo.nodes().size());
     Assertions.assertEquals(NodeInfo.of(node), clusterInfo.nodes().get(0));
-    Assertions.assertEquals(clusterInfo.nodes().get(0), clusterInfo.node(node.host(), node.port()));
     Assertions.assertEquals(1, clusterInfo.availableReplicas(partition.topic()).size());
     Assertions.assertEquals(1, clusterInfo.replicas(partition.topic()).size());
     Assertions.assertEquals(
@@ -60,10 +59,7 @@ public class ClusterInfoTest {
     var clusterInfo = ClusterInfo.of(Cluster.empty());
     Assertions.assertEquals(0, clusterInfo.replicas("unknown").size());
     Assertions.assertThrows(NoSuchElementException.class, () -> clusterInfo.node(0));
-    Assertions.assertThrows(NoSuchElementException.class, () -> clusterInfo.node("", -1));
     Assertions.assertEquals(0, clusterInfo.availableReplicas("unknown").size());
     Assertions.assertEquals(0, clusterInfo.availableReplicaLeaders("unknown").size());
-    Assertions.assertThrows(
-        UnsupportedOperationException.class, () -> clusterInfo.dataDirectories(0));
   }
 }

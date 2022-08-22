@@ -31,7 +31,7 @@ import org.astraea.app.cost.ReplicaDiskInCost;
 import org.astraea.app.cost.ReplicaLeaderCost;
 import org.astraea.app.metrics.BeanObject;
 import org.astraea.app.metrics.HasBeanObject;
-import org.astraea.app.metrics.broker.HasValue;
+import org.astraea.app.metrics.broker.HasGauge;
 import org.astraea.app.metrics.broker.LogMetrics;
 import org.astraea.app.metrics.broker.ServerMetrics;
 import org.astraea.app.partitioner.Configuration;
@@ -39,20 +39,20 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 class BalancerUtilsTest {
-  private static final HasValue OLD_TP1_0 =
+  private static final HasGauge OLD_TP1_0 =
       fakePartitionBeanObject("Log", LogMetrics.Log.SIZE.metricName(), "test-1", "0", 1000, 1000L);
-  private static final HasValue NEW_TP1_0 =
+  private static final HasGauge NEW_TP1_0 =
       fakePartitionBeanObject(
           "Log", LogMetrics.Log.SIZE.metricName(), "test-1", "0", 500000, 10000L);
-  private static final HasValue OLD_TP1_1 =
+  private static final HasGauge OLD_TP1_1 =
       fakePartitionBeanObject("Log", LogMetrics.Log.SIZE.metricName(), "test-1", "1", 500, 1000L);
-  private static final HasValue NEW_TP1_1 =
+  private static final HasGauge NEW_TP1_1 =
       fakePartitionBeanObject(
           "Log", LogMetrics.Log.SIZE.metricName(), "test-1", "1", 100000000, 10000L);
-  private static final HasValue LEADER_BROKER1 =
+  private static final HasGauge LEADER_BROKER1 =
       fakeBrokerBeanObject(
           "ReplicaManager", ServerMetrics.ReplicaManager.LEADER_COUNT.metricName(), 2, 10000L);
-  private static final HasValue LEADER_BROKER2 =
+  private static final HasGauge LEADER_BROKER2 =
       fakeBrokerBeanObject(
           "ReplicaManager", ServerMetrics.ReplicaManager.LEADER_COUNT.metricName(), 4, 10000L);
   private static final Collection<HasBeanObject> broker1 =
@@ -116,9 +116,9 @@ class BalancerUtilsTest {
     Assertions.assertEquals(1.3234028368582615, cost);
   }
 
-  private static LogMetrics.Log.Meter fakePartitionBeanObject(
+  private static LogMetrics.Log.Gauge fakePartitionBeanObject(
       String type, String name, String topic, String partition, long size, long time) {
-    return new LogMetrics.Log.Meter(
+    return new LogMetrics.Log.Gauge(
         new BeanObject(
             "kafka.log",
             Map.of("name", name, "type", type, "topic", topic, "partition", partition),
@@ -126,9 +126,9 @@ class BalancerUtilsTest {
             time));
   }
 
-  private static ServerMetrics.ReplicaManager.Meter fakeBrokerBeanObject(
+  private static ServerMetrics.ReplicaManager.Gauge fakeBrokerBeanObject(
       String type, String name, long value, long time) {
-    return new ServerMetrics.ReplicaManager.Meter(
+    return new ServerMetrics.ReplicaManager.Gauge(
         new BeanObject(
             "kafka.server", Map.of("type", type, "name", name), Map.of("Value", value), time));
   }

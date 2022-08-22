@@ -16,7 +16,6 @@
  */
 package org.astraea.app.admin;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
@@ -29,21 +28,6 @@ public interface ClusterInfo {
 
         @Override
         public List<NodeInfo> nodes() {
-          return List.of();
-        }
-
-        @Override
-        public Set<String> dataDirectories(int brokerId) {
-          return Set.of();
-        }
-
-        @Override
-        public List<ReplicaInfo> availableReplicaLeaders(String topic) {
-          return List.of();
-        }
-
-        @Override
-        public List<ReplicaInfo> availableReplicas(String topic) {
           return List.of();
         }
 
@@ -68,31 +52,32 @@ public interface ClusterInfo {
   static ClusterInfo of(org.apache.kafka.common.Cluster cluster) {
     var nodes = cluster.nodes().stream().map(NodeInfo::of).collect(Collectors.toUnmodifiableList());
     var topics = cluster.topics();
-    var replicas =
+    var allReplicas =
         topics.stream()
-            .flatMap(t -> cluster.availablePartitionsForTopic(t).stream())
+            .flatMap(t -> cluster.partitionsForTopic(t).stream())
             .flatMap(p -> ReplicaInfo.of(p).stream())
             .collect(Collectors.toUnmodifiableList());
-    var availableReplicas = replicas.stream().collect(Collectors.groupingBy(ReplicaInfo::topic));
-    var availableReplicaLeaders =
-        availableReplicas.entrySet().stream()
-            .collect(
-                Collectors.toMap(
-                    Map.Entry::getKey,
-                    e ->
-                        e.getValue().stream()
-                            .filter(ReplicaInfo::isLeader)
-                            .collect(Collectors.toCollection(ArrayList::new))));
+    var replicasForTopic = allReplicas.stream().collect(Collectors.groupingBy(ReplicaInfo::topic));
+    var availableReplicasForTopic =
+        allReplicas.stream()
+            .filter(ReplicaInfo::isOnlineReplica)
+            .collect(Collectors.groupingBy(ReplicaInfo::topic));
+    var availableReplicaLeadersForTopics =
+        allReplicas.stream()
+            .filter(ReplicaInfo::isOnlineReplica)
+            .filter(ReplicaInfo::isLeader)
+            .collect(Collectors.groupingBy(ReplicaInfo::topic));
+    // This group is used commonly, so we cache it.
+    var availableLeaderReplicasForBrokersTopics =
+        allReplicas.stream()
+            .filter(ReplicaInfo::isOnlineReplica)
+            .filter(ReplicaInfo::isLeader)
+            .collect(Collectors.groupingBy(r -> Map.entry(r.nodeInfo().id(), r.topic())));
+
     return new ClusterInfo() {
       @Override
       public List<NodeInfo> nodes() {
         return nodes;
-      }
-
-      @Override
-      public Set<String> dataDirectories(int brokerId) {
-        // org.apache.kafka.common.Cluster doesn't have such information.
-        throw new UnsupportedOperationException("This information is not available");
       }
 
       public Set<String> topics() {
@@ -101,35 +86,25 @@ public interface ClusterInfo {
 
       @Override
       public List<ReplicaInfo> availableReplicaLeaders(String topic) {
-        return availableReplicaLeaders.getOrDefault(topic, new ArrayList<>(0));
+        return availableReplicaLeadersForTopics.getOrDefault(topic, List.of());
+      }
+
+      @Override
+      public List<ReplicaInfo> availableReplicaLeaders(int broker, String topic) {
+        return availableLeaderReplicasForBrokersTopics.getOrDefault(
+            Map.entry(broker, topic), List.of());
       }
 
       @Override
       public List<ReplicaInfo> availableReplicas(String topic) {
-        return availableReplicas.getOrDefault(topic, List.of());
+        return availableReplicasForTopic.getOrDefault(topic, List.of());
       }
 
       @Override
       public List<ReplicaInfo> replicas(String topic) {
-        return replicas;
+        return replicasForTopic.getOrDefault(topic, List.of());
       }
     };
-  }
-
-  /**
-   * find the node associated to specify node and port. Normally, the node + port should be unique
-   * in cluster.
-   *
-   * @param host hostname
-   * @param port client port
-   * @return the node information. It throws NoSuchElementException if specify node and port is not
-   *     associated to any node
-   */
-  default NodeInfo node(String host, int port) {
-    return nodes().stream()
-        .filter(n -> n.host().equals(host) && n.port() == port)
-        .findAny()
-        .orElseThrow(() -> new NoSuchElementException(host + ":" + port + " is nonexistent"));
   }
 
   /**
@@ -146,33 +121,47 @@ public interface ClusterInfo {
         .orElseThrow(() -> new NoSuchElementException(id + " is nonexistent"));
   }
 
-  /** @return The known set of nodes */
-  List<NodeInfo> nodes();
-
-  /**
-   * @return return the data directories on specific broker. It throws NoSuchElementException if
-   *     specify node id is not associated to any node.
-   */
-  Set<String> dataDirectories(int brokerId);
-
   /**
    * Get the list of replica leader information of each available partition for the given topic
    *
    * @param topic The Topic name
-   * @return A list of {@link ReplicaInfo}. It throws NoSuchElementException if the replica info of
-   *     the given topic is unknown to this ClusterInfo
+   * @return A list of {@link ReplicaInfo}.
    */
-  List<ReplicaInfo> availableReplicaLeaders(String topic);
+  default List<ReplicaInfo> availableReplicaLeaders(String topic) {
+    return replicas(topic).stream()
+        .filter(ReplicaInfo::isLeader)
+        .collect(Collectors.toUnmodifiableList());
+  }
+
+  /**
+   * Get the list of replica leader information of each available partition for the given
+   * broker/topic
+   *
+   * @param broker the broker id
+   * @param topic The Topic name
+   * @return A list of {@link ReplicaInfo}.
+   */
+  default List<ReplicaInfo> availableReplicaLeaders(int broker, String topic) {
+    return availableReplicaLeaders(topic).stream()
+        .filter(r -> r.nodeInfo().id() == broker)
+        .collect(Collectors.toUnmodifiableList());
+  }
 
   /**
    * Get the list of replica information of each available partition/replica pair for the given
    * topic
    *
    * @param topic The topic name
-   * @return A list of {@link ReplicaInfo}. It throws NoSuchElementException if the replica info of
-   *     the given topic is unknown to this ClusterInfo
+   * @return A list of {@link ReplicaInfo}.
    */
-  List<ReplicaInfo> availableReplicas(String topic);
+  default List<ReplicaInfo> availableReplicas(String topic) {
+    return replicas(topic).stream()
+        .filter(ReplicaInfo::isOnlineReplica)
+        .collect(Collectors.toUnmodifiableList());
+  }
+
+  /** @return The known set of nodes */
+  List<NodeInfo> nodes();
 
   /**
    * All topic names
@@ -185,8 +174,7 @@ public interface ClusterInfo {
    * Get the list of replica information of each partition/replica pair for the given topic
    *
    * @param topic The topic name
-   * @return A list of {@link ReplicaInfo}. It throws NoSuchElementException if the replica info of
-   *     the given topic is unknown to this ClusterInfo
+   * @return A list of {@link ReplicaInfo}.
    */
   List<ReplicaInfo> replicas(String topic);
 }
