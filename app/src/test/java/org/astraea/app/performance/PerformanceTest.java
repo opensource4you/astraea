@@ -228,13 +228,13 @@ public class PerformanceTest extends RequireBrokerCluster {
               new Performance.Argument(),
               new String[] {"--bootstrap.servers", bootstrapServers(), "--topic", topicName});
       try (var producer = args.createProducer()) {
-        IntStream.range(0, 100)
+        IntStream.range(0, 250)
             .forEach(
                 i -> producer.sender().topic(topicName).key(String.valueOf(i).getBytes()).run());
       }
-      var offsets = args.lastOffsets();
-      Assertions.assertEquals(partitionCount, offsets.size());
-      offsets.values().forEach(v -> Assertions.assertNotEquals(0, v));
+      Assertions.assertEquals(partitionCount, args.lastOffsets().size());
+      System.out.println(args.lastOffsets());
+      args.lastOffsets().values().forEach(v -> Assertions.assertNotEquals(0, v));
     }
   }
 
