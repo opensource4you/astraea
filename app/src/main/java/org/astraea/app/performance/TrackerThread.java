@@ -65,7 +65,9 @@ public interface TrackerThread extends AbstractThread {
               DataSize.Byte.of(
                   ((Double)
                           sumOfAttribute(
-                              producerReceiver.current(), HasNodeMetrics::outgoingByteRate))
+                              producerReceiver.current(),
+                              HasNodeMetrics::outgoingByteRate,
+                              Duration.ofSeconds(1)))
                       .longValue()));
           producerReports.stream()
               .mapToLong(Report::max)
@@ -112,7 +114,9 @@ public interface TrackerThread extends AbstractThread {
               DataSize.Byte.of(
                   ((Double)
                           sumOfAttribute(
-                              consumerReceiver.current(), HasNodeMetrics::incomingByteRate))
+                              consumerReceiver.current(),
+                              HasNodeMetrics::incomingByteRate,
+                              Duration.ofSeconds(1)))
                       .longValue()));
           consumerReports.stream()
               .mapToLong(Report::max)
@@ -201,14 +205,21 @@ public interface TrackerThread extends AbstractThread {
     };
   }
   /**
+   * Sum up the latest given attribute of all beans which is instance of HasNodeMetrics.
+   *
    * @param mbeans mBeans fetched by the receivers
-   * @return sum of given attribute of all beans which is instance of HasNodeMetrics.
+   * @param duration the time used to define latest mbean
+   * @return sum of the latest given attribute of all beans which is instance of HasNodeMetrics.
    */
   static double sumOfAttribute(
-      Collection<HasBeanObject> mbeans, ToDoubleFunction<HasNodeMetrics> targetAttribute) {
+      Collection<HasBeanObject> mbeans,
+      ToDoubleFunction<HasNodeMetrics> targetAttribute,
+      Duration duration) {
     return mbeans.stream()
         .filter(mbean -> mbean instanceof HasNodeMetrics)
         .map(mbean -> (HasNodeMetrics) mbean)
+        .filter(
+            mbean -> System.currentTimeMillis() - mbean.createdTimestamp() <= duration.toMillis())
         .mapToDouble(targetAttribute)
         .filter(d -> !Double.isNaN(d))
         .sum();

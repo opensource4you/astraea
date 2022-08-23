@@ -84,10 +84,14 @@ public class TrackerTest {
     var hasBeanObject = Mockito.mock(HasBeanObject.class);
     Mockito.when(hasNodeMetrics.incomingByteTotal()).thenReturn(2D);
     Mockito.when(hasNodeMetrics2.incomingByteTotal()).thenReturn(3D);
+    Mockito.when(hasNodeMetrics.createdTimestamp()).thenReturn(System.currentTimeMillis());
+    Mockito.when(hasNodeMetrics2.createdTimestamp()).thenReturn(System.currentTimeMillis());
+    Mockito.when(hasBeanObject.createdTimestamp()).thenReturn(System.currentTimeMillis());
     Assertions.assertEquals(
         5D,
         TrackerThread.sumOfAttribute(
             List.of(hasNodeMetrics, hasNodeMetrics2, hasBeanObject),
-            HasNodeMetrics::incomingByteTotal));
+            HasNodeMetrics::incomingByteTotal,
+            Duration.ofSeconds(1)));
   }
 }
