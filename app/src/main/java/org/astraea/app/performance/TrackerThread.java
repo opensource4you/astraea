@@ -61,9 +61,11 @@ public interface TrackerThread extends AbstractThread {
               Utils.averageMB(
                   duration, producerReports.stream().mapToLong(Report::totalBytes).sum()));
           System.out.printf(
-              "  real out-going: %s bytes/second%n",
+              "  real out-going: %s/second%n",
               DataSize.Byte.of(
-                  sumOfAttribute(producerReceiver.current(), HasNodeMetrics::outgoingByteRate)
+                  ((Double)
+                          sumOfAttribute(
+                              producerReceiver.current(), HasNodeMetrics::outgoingByteRate))
                       .longValue()));
           producerReports.stream()
               .mapToLong(Report::max)
@@ -106,9 +108,11 @@ public interface TrackerThread extends AbstractThread {
               Utils.averageMB(
                   duration, consumerReports.stream().mapToLong(Report::totalBytes).sum()));
           System.out.printf(
-              "  real in-coming: %s bytes/second%n",
+              "  real in-coming: %s/second%n",
               DataSize.Byte.of(
-                  sumOfAttribute(consumerReceiver.current(), HasNodeMetrics::incomingByteRate)
+                  ((Double)
+                          sumOfAttribute(
+                              consumerReceiver.current(), HasNodeMetrics::incomingByteRate))
                       .longValue()));
           consumerReports.stream()
               .mapToLong(Report::max)
@@ -200,7 +204,7 @@ public interface TrackerThread extends AbstractThread {
    * @param mbeans mBeans fetched by the receivers
    * @return sum of given attribute of all beans which is instance of HasNodeMetrics.
    */
-  static Double sumOfAttribute(
+  static double sumOfAttribute(
       Collection<HasBeanObject> mbeans, ToDoubleFunction<HasNodeMetrics> targetAttribute) {
     return mbeans.stream()
         .filter(mbean -> mbean instanceof HasNodeMetrics)
