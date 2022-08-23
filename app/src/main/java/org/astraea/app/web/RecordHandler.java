@@ -164,12 +164,10 @@ public class RecordHandler implements Handler {
   }
 
   // visible for testing
-  Records get(Consumer<byte[], byte[]> consumer, int limit, Duration timeout) {
+  GetResponse get(Consumer<byte[], byte[]> consumer, int limit, Duration timeout) {
     try {
-      return new Records(
-          consumer,
-          new RecordsData(
-              consumer.poll(limit, timeout).stream().map(Record::new).collect(toList())));
+      return new GetResponse(
+          consumer, consumer.poll(limit, timeout).stream().map(Record::new).collect(toList()));
     } catch (Exception e) {
       consumer.close();
       throw e;
@@ -353,11 +351,11 @@ public class RecordHandler implements Handler {
     }
   }
 
-  static class Records implements Response {
-    final Consumer<byte[], byte[]> consumer;
-    final RecordsData records;
+  static class GetResponse implements Response {
+    final transient Consumer<byte[], byte[]> consumer;
+    final Collection<Record> records;
 
-    private Records(Consumer<byte[], byte[]> consumer, RecordsData records) {
+    private GetResponse(Consumer<byte[], byte[]> consumer, Collection<Record> records) {
       this.consumer = consumer;
       this.records = records;
     }
@@ -369,7 +367,7 @@ public class RecordHandler implements Handler {
           .disableHtmlEscaping()
           .registerTypeHierarchyAdapter(byte[].class, new ByteArrayToBase64TypeAdapter())
           .create()
-          .toJson(records);
+          .toJson(this);
     }
 
     @Override
@@ -381,15 +379,6 @@ public class RecordHandler implements Handler {
       } finally {
         consumer.close();
       }
-    }
-  }
-
-  // this is a DTO that holds json response data and renders a format like {"data": ...}
-  static class RecordsData {
-    final Collection<Record> data;
-
-    RecordsData(Collection<Record> data) {
-      this.data = data;
     }
   }
 
