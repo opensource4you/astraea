@@ -44,13 +44,13 @@ class BrokerHandler implements Handler {
   }
 
   @Override
-  public Response get(Optional<String> target, Map<String, String> queries) {
+  public Response get(Channel channel) {
 
     var brokers =
-        admin.brokers(brokers(target)).entrySet().stream()
+        admin.brokers(brokers(channel.target())).entrySet().stream()
             .map(e -> new Broker(e.getKey(), admin.partitions(e.getKey()), e.getValue()))
             .collect(Collectors.toUnmodifiableList());
-    if (target.isPresent() && brokers.size() == 1) return brokers.get(0);
+    if (channel.target().isPresent() && brokers.size() == 1) return brokers.get(0);
     return new Brokers(brokers);
   }
 
