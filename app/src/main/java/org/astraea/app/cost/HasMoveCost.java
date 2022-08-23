@@ -16,7 +16,6 @@
  */
 package org.astraea.app.cost;
 
-import java.util.Map;
 import org.astraea.app.admin.ClusterBean;
 import org.astraea.app.admin.ClusterInfo;
 
@@ -29,33 +28,6 @@ public interface HasMoveCost extends CostFunction {
    * @param clusterBean cluster metrics
    * @return the score of migrate cost
    */
-  ClusterCost clusterCost(
-      ClusterInfo originClusterInfo, ClusterInfo newClusterInfo, ClusterBean clusterBean);
-
-  /**
-   * @param originClusterInfo the clusterInfo before migrate
-   * @param newClusterInfo the mocked clusterInfo generate from balancer
-   * @param clusterBean cluster metrics
-   * @return Check if the migrate plan exceeds the available hardware resources
-   */
-  boolean overflow(
-      ClusterInfo originClusterInfo, ClusterInfo newClusterInfo, ClusterBean clusterBean);
-
-  /**
-   * @param originClusterInfo the clusterInfo before migrate
-   * @param newClusterInfo the mocked clusterInfo generate from balancer
-   * @param clusterBean cluster metrics
-   * @return total migrate size of the plan
-   */
-  Map<MoveCost.ReplicaMigrateInfo, Long> totalMigrateSize(
-      ClusterInfo originClusterInfo, ClusterInfo newClusterInfo, ClusterBean clusterBean);
-
-  /**
-   * @param originClusterInfo the clusterInfo before migrate
-   * @param newClusterInfo the mocked clusterInfo generate from balancer
-   * @param clusterBean cluster metrics
-   * @return estimated migration time of the plan
-   */
-  double estimatedMigrateTime(
+  MoveCost moveCost(
       ClusterInfo originClusterInfo, ClusterInfo newClusterInfo, ClusterBean clusterBean);
 }
