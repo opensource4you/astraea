@@ -41,17 +41,18 @@ public class ReassignmentHandlerTest extends RequireBrokerCluster {
           admin.replicas(Set.of(topicName)).get(TopicPartition.of(topicName, 0)).get(0).broker();
       var nextBroker = brokerIds().stream().filter(i -> i != currentBroker).findAny().get();
 
-      Assertions.assertEquals(
-          Response.ACCEPT,
-          handler.post(
-              PostRequest.of(
-                  Map.of(
-                      ReassignmentHandler.TOPIC_KEY,
-                      topicName,
-                      ReassignmentHandler.PARTITION_KEY,
-                      "0",
-                      ReassignmentHandler.TO_KEY,
-                      "[\"" + nextBroker + "\"]"))));
+      var body =
+          String.format(
+              "{\"%s\": [{\"%s\": \"%s\",\"%s\": \"%s\",\"%s\": [%s]}]}",
+              ReassignmentHandler.PLANS_KEY,
+              ReassignmentHandler.TOPIC_KEY,
+              topicName,
+              ReassignmentHandler.PARTITION_KEY,
+              "0",
+              ReassignmentHandler.TO_KEY,
+              nextBroker);
+
+      Assertions.assertEquals(Response.ACCEPT, handler.post(PostRequest.of(body)));
 
       Utils.sleep(Duration.ofSeconds(2));
       var reassignments = handler.get(Optional.of(topicName), Map.of());
@@ -82,19 +83,20 @@ public class ReassignmentHandlerTest extends RequireBrokerCluster {
               .findFirst()
               .get();
 
-      Assertions.assertEquals(
-          Response.ACCEPT,
-          handler.post(
-              PostRequest.of(
-                  Map.of(
-                      ReassignmentHandler.TOPIC_KEY,
-                      topicName,
-                      ReassignmentHandler.PARTITION_KEY,
-                      "0",
-                      ReassignmentHandler.BROKER_KEY,
-                      String.valueOf(currentBroker),
-                      ReassignmentHandler.TO_KEY,
-                      nextPath))));
+      var body =
+          String.format(
+              "{\"%s\": [{\"%s\": \"%s\", \"%s\": \"%s\" ,\"%s\": \"%s\",\"%s\": \"%s\"}]}",
+              ReassignmentHandler.PLANS_KEY,
+              ReassignmentHandler.TOPIC_KEY,
+              topicName,
+              ReassignmentHandler.PARTITION_KEY,
+              "0",
+              ReassignmentHandler.BROKER_KEY,
+              currentBroker,
+              ReassignmentHandler.TO_KEY,
+              nextPath);
+
+      Assertions.assertEquals(Response.ACCEPT, handler.post(PostRequest.of(body)));
 
       Utils.sleep(Duration.ofSeconds(2));
       var reassignments = handler.get(Optional.of(topicName), Map.of());
@@ -104,6 +106,19 @@ public class ReassignmentHandlerTest extends RequireBrokerCluster {
       Assertions.assertEquals(
           nextPath,
           admin.replicas(Set.of(topicName)).get(TopicPartition.of(topicName, 0)).get(0).path());
+    }
+  }
+
+  @Test
+  void testBadRequest() {
+    var topicName = Utils.randomString(10);
+    try (Admin admin = Admin.of(bootstrapServers())) {
+      var handler = new ReassignmentHandler(admin);
+      admin.creator().topic(topicName).numberOfPartitions(1).create();
+      Utils.sleep(Duration.ofSeconds(3));
+      var body = "{\"plans\": []}";
+
+      Assertions.assertEquals(Response.BAD_REQUEST, handler.post(PostRequest.of(body)));
     }
   }
 }

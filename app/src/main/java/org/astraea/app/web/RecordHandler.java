@@ -18,7 +18,6 @@ package org.astraea.app.web;
 
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
-import static org.astraea.app.web.PostRequest.handleDouble;
 
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonDeserializationContext;
@@ -51,6 +50,7 @@ import org.astraea.app.common.Utils;
 import org.astraea.app.consumer.Builder;
 import org.astraea.app.consumer.Consumer;
 import org.astraea.app.consumer.Deserializer;
+import org.astraea.app.consumer.SubscribedConsumer;
 import org.astraea.app.producer.Producer;
 import org.astraea.app.producer.Sender;
 import org.astraea.app.producer.Serializer;
@@ -68,6 +68,7 @@ public class RecordHandler implements Handler {
   static final String LIMIT = "limit";
   static final String TIMEOUT = "timeout";
   static final String OFFSET = "offset";
+  static final String GROUP_ID = "groupId";
   private static final int MAX_CACHE_SIZE = 100;
   private static final Duration CACHE_EXPIRE_DURATION = Duration.ofMinutes(10);
 
@@ -103,6 +104,7 @@ public class RecordHandler implements Handler {
       throw new IllegalArgumentException("only one seek strategy is allowed");
     }
 
+    var limit = Integer.parseInt(queries.getOrDefault(LIMIT, "1"));
     var timeout =
         Optional.ofNullable(queries.get(TIMEOUT))
             .map(DurationField::toDuration)
@@ -115,7 +117,13 @@ public class RecordHandler implements Handler {
                 partition ->
                     (Builder<byte[], byte[]>)
                         Consumer.forPartitions(Set.of(TopicPartition.of(topic, partition))))
-            .orElseGet(() -> Consumer.forTopics(Set.of(topic)));
+            .orElseGet(
+                () -> {
+                  // disable auto commit here since we commit manually in Records#onComplete
+                  var builder = Consumer.forTopics(Set.of(topic)).disableAutoCommitOffsets();
+                  Optional.ofNullable(queries.get(GROUP_ID)).ifPresent(builder::groupId);
+                  return builder;
+                });
 
     var keyDeserializer =
         Optional.ofNullable(queries.get(KEY_DESERIALIZER))
@@ -150,15 +158,12 @@ public class RecordHandler implements Handler {
         .map(Long::parseLong)
         .ifPresent(seekTo -> consumerBuilder.seek(Builder.SeekStrategy.SEEK_TO, seekTo));
 
-    try (var consumer = consumerBuilder.build()) {
-      var limit = Integer.parseInt(queries.getOrDefault(LIMIT, "1"));
-      return new Records(consumer.poll(limit, timeout).stream().map(Record::new).collect(toList()));
-    }
+    return new Records(consumerBuilder.build(), limit, timeout);
   }
 
   @Override
   public Response post(PostRequest request) {
-    var async = request.booleanValue(ASYNC, false);
+    var async = request.getBoolean(ASYNC).orElse(false);
     var timeout = request.get(TIMEOUT).map(DurationField::toDuration).orElse(Duration.ofSeconds(5));
     var records = request.values(RECORDS, PostRecord.class);
     if (records.isEmpty()) {
@@ -300,9 +305,9 @@ public class RecordHandler implements Handler {
             .orElse(SerDe.STRING.serializer);
 
     Optional.ofNullable(postRecord.key)
-        .ifPresent(key -> sender.key(keySerializer.apply(topic, handleDouble(key))));
+        .ifPresent(key -> sender.key(keySerializer.apply(topic, PostRequest.handle(key))));
     Optional.ofNullable(postRecord.value)
-        .ifPresent(value -> sender.value(valueSerializer.apply(topic, handleDouble(value))));
+        .ifPresent(value -> sender.value(valueSerializer.apply(topic, PostRequest.handle(value))));
     Optional.ofNullable(postRecord.timestamp).ifPresent(sender::timestamp);
     Optional.ofNullable(postRecord.partition).ifPresent(sender::partition);
     return sender;
@@ -327,10 +332,15 @@ public class RecordHandler implements Handler {
   }
 
   static class Records implements Response {
-    final Collection<Record> data;
+    private final Consumer<byte[], byte[]> consumer;
+    private final int limit;
+    private final Duration timeout;
+    private RecordsData records;
 
-    Records(Collection<Record> data) {
-      this.data = data;
+    private Records(Consumer<byte[], byte[]> consumer, int limit, Duration timeout) {
+      this.consumer = requireNonNull(consumer);
+      this.limit = limit;
+      this.timeout = requireNonNull(timeout);
     }
 
     @Override
@@ -340,7 +350,43 @@ public class RecordHandler implements Handler {
           .disableHtmlEscaping()
           .registerTypeHierarchyAdapter(byte[].class, new ByteArrayToBase64TypeAdapter())
           .create()
-          .toJson(this);
+          .toJson(records());
+    }
+
+    @Override
+    public void onComplete(Throwable error) {
+      try {
+        if (error == null && consumer instanceof SubscribedConsumer) {
+          ((SubscribedConsumer<byte[], byte[]>) consumer).commitOffsets(Duration.ofSeconds(5));
+        }
+      } finally {
+        consumer.close();
+      }
+    }
+
+    // visible for testing
+    RecordsData records() {
+      // make sure consumer poll data only once.
+      if (records == null) {
+        records =
+            new RecordsData(
+                consumer.poll(limit, timeout).stream().map(Record::new).collect(toList()));
+      }
+      return records;
+    }
+
+    // visible for testing
+    Consumer<byte[], byte[]> consumer() {
+      return consumer;
+    }
+  }
+
+  // this is a DTO that holds json response data and renders a format like {"data": ...}
+  static class RecordsData {
+    final Collection<Record> data;
+
+    RecordsData(Collection<Record> data) {
+      this.data = data;
     }
   }
 

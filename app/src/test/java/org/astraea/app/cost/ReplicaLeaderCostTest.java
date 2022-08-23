@@ -39,11 +39,10 @@ public class ReplicaLeaderCostTest {
             ReplicaInfo.of("topic", 0, NodeInfo.of(10, "broker0", 1111), true, true, true),
             ReplicaInfo.of("topic", 0, NodeInfo.of(10, "broker0", 1111), true, true, true),
             ReplicaInfo.of("topic", 0, NodeInfo.of(11, "broker1", 1111), true, true, true));
-    var function = new ReplicaLeaderCost.NoMetrics();
     var clusterInfo = Mockito.mock(ClusterInfo.class);
     Mockito.when(clusterInfo.topics()).thenReturn(Set.of("topic"));
     Mockito.when(clusterInfo.availableReplicaLeaders(Mockito.anyString())).thenReturn(replicas);
-    var cost = function.leaderCount(clusterInfo, ClusterBean.EMPTY);
+    var cost = ReplicaLeaderCost.leaderCount(clusterInfo);
     Assertions.assertTrue(cost.containsKey(10));
     Assertions.assertTrue(cost.containsKey(11));
     Assertions.assertEquals(2, cost.size());
@@ -71,8 +70,8 @@ public class ReplicaLeaderCostTest {
     Assertions.assertEquals(0.2041241452319315, clusterLoad.value());
   }
 
-  private ServerMetrics.ReplicaManager.Meter mockResult(String name, long count) {
-    var result = Mockito.mock(ServerMetrics.ReplicaManager.Meter.class);
+  private ServerMetrics.ReplicaManager.Gauge mockResult(String name, long count) {
+    var result = Mockito.mock(ServerMetrics.ReplicaManager.Gauge.class);
     var bean = Mockito.mock(BeanObject.class);
     Mockito.when(result.beanObject()).thenReturn(bean);
     Mockito.when(bean.properties()).thenReturn(Map.of("name", name, "type", "ReplicaManager"));

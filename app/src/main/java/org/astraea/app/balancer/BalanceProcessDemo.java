@@ -48,12 +48,13 @@ public class BalanceProcessDemo {
       var clusterInfo = admin.clusterInfo(topics);
 
       // TODO: implement one interface to select the best plan from many plan ,see #544
-      var rebalancePlan = rebalancePlanGenerator.generate(clusterInfo).findFirst().orElseThrow();
+      var rebalancePlan =
+          rebalancePlanGenerator
+              .generate(admin.brokerFolders(), ClusterLogAllocation.of(clusterInfo))
+              .findFirst()
+              .orElseThrow();
       System.out.println(rebalancePlan);
-      var targetAllocation =
-          rebalancePlan
-              .rebalancePlan()
-              .orElseThrow(() -> new IllegalStateException("No suitable plan found"));
+      var targetAllocation = rebalancePlan.rebalancePlan();
 
       System.out.println("[Target Allocation]");
       System.out.println(ClusterLogAllocation.toString(targetAllocation));

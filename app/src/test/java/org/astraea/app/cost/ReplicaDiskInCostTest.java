@@ -27,7 +27,7 @@ import org.astraea.app.admin.ReplicaInfo;
 import org.astraea.app.admin.TopicPartition;
 import org.astraea.app.metrics.BeanObject;
 import org.astraea.app.metrics.HasBeanObject;
-import org.astraea.app.metrics.broker.HasValue;
+import org.astraea.app.metrics.broker.HasGauge;
 import org.astraea.app.metrics.broker.LogMetrics;
 import org.astraea.app.partitioner.Configuration;
 import org.astraea.app.service.RequireBrokerCluster;
@@ -36,17 +36,17 @@ import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
 class ReplicaDiskInCostTest extends RequireBrokerCluster {
-  private static final HasValue OLD_TP1_0 =
+  private static final HasGauge OLD_TP1_0 =
       fakeBeanObject("Log", LogMetrics.Log.SIZE.metricName(), "test-1", "0", 1000, 1000L);
-  private static final HasValue NEW_TP1_0 =
+  private static final HasGauge NEW_TP1_0 =
       fakeBeanObject("Log", LogMetrics.Log.SIZE.metricName(), "test-1", "0", 50000000, 5000L);
-  private static final HasValue OLD_TP1_1 =
+  private static final HasGauge OLD_TP1_1 =
       fakeBeanObject("Log", LogMetrics.Log.SIZE.metricName(), "test-1", "1", 500, 1000L);
-  private static final HasValue NEW_TP1_1 =
+  private static final HasGauge NEW_TP1_1 =
       fakeBeanObject("Log", LogMetrics.Log.SIZE.metricName(), "test-1", "1", 100000000, 5000L);
-  private static final HasValue OLD_TP2_0 =
+  private static final HasGauge OLD_TP2_0 =
       fakeBeanObject("Log", LogMetrics.Log.SIZE.metricName(), "test-2", "0", 200, 1000L);
-  private static final HasValue NEW_TP2_0 =
+  private static final HasGauge NEW_TP2_0 =
       fakeBeanObject("Log", LogMetrics.Log.SIZE.metricName(), "test-2", "0", 40000000, 5000L);
 
   /*
@@ -129,9 +129,9 @@ class ReplicaDiskInCostTest extends RequireBrokerCluster {
     return ClusterBean.of(Map.of(1, broker1, 2, broker2, 3, broker3));
   }
 
-  private static LogMetrics.Log.Meter fakeBeanObject(
+  private static LogMetrics.Log.Gauge fakeBeanObject(
       String type, String name, String topic, String partition, long size, long time) {
-    return new LogMetrics.Log.Meter(
+    return new LogMetrics.Log.Gauge(
         new BeanObject(
             "kafka.log",
             Map.of("name", name, "type", type, "topic", topic, "partition", partition),

@@ -45,6 +45,8 @@ public interface RoundRobin<E> {
   class SmoothRoundRobin<E> implements RoundRobin<E> {
 
     private final Map<E, Double> effectiveScores;
+
+    private final double sum;
     private volatile Map<E, Double> currentScores;
 
     private SmoothRoundRobin(Map<E, Double> scores) {
@@ -52,6 +54,7 @@ public interface RoundRobin<E> {
       this.currentScores =
           scores.keySet().stream()
               .collect(Collectors.toUnmodifiableMap(Function.identity(), ignored -> 0D));
+      this.sum = effectiveScores.values().stream().mapToDouble(d -> d).sum();
     }
 
     @Override
@@ -59,16 +62,14 @@ public interface RoundRobin<E> {
       // no data no answer
       if (effectiveScores.isEmpty() || availableTargets.isEmpty()) return Optional.empty();
 
-      // 1) calculate the sum of all effective scores
-      var sum = effectiveScores.values().stream().mapToDouble(d -> d).sum();
-      // 2) add effective score to each current score
+      // 1) add effective score to each current score
       var nextScores =
           currentScores.entrySet().stream()
               .collect(
                   Collectors.toMap(
                       Map.Entry::getKey,
                       e -> effectiveScores.getOrDefault(e.getKey(), 0D) + e.getValue()));
-      // 3) get the E which has max value
+      // 2) get the E which has max value
       var maxObj =
           nextScores.entrySet().stream()
               .filter(e -> availableTargets.contains(e.getKey()))

@@ -26,7 +26,7 @@ import org.astraea.app.admin.ClusterInfo;
 import org.astraea.app.admin.TopicPartition;
 import org.astraea.app.admin.TopicPartitionReplica;
 import org.astraea.app.metrics.HasBeanObject;
-import org.astraea.app.metrics.broker.HasValue;
+import org.astraea.app.metrics.broker.HasGauge;
 import org.astraea.app.metrics.broker.LogMetrics;
 import org.astraea.app.metrics.collector.Fetcher;
 
@@ -48,8 +48,8 @@ public class NodeTopicSizeCost implements HasBrokerCost, HasPartitionCost {
                 Collectors.toMap(
                     Map.Entry::getKey,
                     e ->
-                        LogMetrics.Log.meters(e.getValue(), LogMetrics.Log.SIZE).stream()
-                            .mapToDouble(LogMetrics.Log.Meter::value)
+                        LogMetrics.Log.gauges(e.getValue(), LogMetrics.Log.SIZE).stream()
+                            .mapToDouble(LogMetrics.Log.Gauge::value)
                             .sum()));
     return () -> result;
   }
@@ -96,8 +96,8 @@ public class NodeTopicSizeCost implements HasBrokerCost, HasPartitionCost {
   private final Function<Map.Entry<TopicPartitionReplica, Collection<HasBeanObject>>, Double>
       toDouble =
           e ->
-              LogMetrics.Log.meters(e.getValue(), LogMetrics.Log.SIZE).stream()
-                  .mapToDouble(HasValue::value)
+              LogMetrics.Log.gauges(e.getValue(), LogMetrics.Log.SIZE).stream()
+                  .mapToDouble(HasGauge::value)
                   .findAny()
                   .orElse(0.0D);
 }

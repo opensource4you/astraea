@@ -121,6 +121,10 @@ class RebalanceAdminImpl implements RebalanceAdmin {
             expectedPlacement.stream()
                 .map(LogPlacement::broker)
                 .collect(Collectors.toUnmodifiableList()));
+
+    // wait until the whole cluster knows the replica list just changed
+    Utils.sleep(Duration.ofMillis(500));
+
     // do inter-data-directories migration
     var forCrossDirMigration =
         expectedPlacement.stream()

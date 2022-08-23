@@ -36,7 +36,7 @@ public class ServerMetricsTest {
   @ParameterizedTest()
   @EnumSource(value = ServerMetrics.DelayedOperationPurgatory.class)
   void testPurgatorySize(ServerMetrics.DelayedOperationPurgatory request) {
-    request.fetch(MBeanClient.local()).forEach(s -> Assertions.assertTrue(s.value() >= 0));
+    request.fetch(MBeanClient.local()).forEach(MetricsTestUtil::validate);
   }
 
   @Test
