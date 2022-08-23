@@ -27,11 +27,9 @@ import java.util.function.Supplier;
 import java.util.function.ToDoubleFunction;
 import org.astraea.app.common.DataSize;
 import org.astraea.app.common.Utils;
-import org.astraea.app.metrics.HasBeanObject;
+import org.astraea.app.metrics.MBeanClient;
 import org.astraea.app.metrics.client.HasNodeMetrics;
-import org.astraea.app.metrics.client.consumer.ConsumerMetrics;
 import org.astraea.app.metrics.client.producer.ProducerMetrics;
-import org.astraea.app.metrics.collector.BeanCollector;
 
 /** Print out the given metrics. */
 public interface TrackerThread extends AbstractThread {
@@ -41,11 +39,7 @@ public interface TrackerThread extends AbstractThread {
       Supplier<List<ConsumerThread.Report>> consumerReporter,
       ExeTime exeTime) {
     var start = System.currentTimeMillis() - Duration.ofSeconds(1).toMillis();
-    // The receivers (that is, producerReceiver and consumerReceiver) will fetch mbean once per
-    // second. The interval should be less than 1 second. Let the receiver fetch new data.
-    var beanCollector = BeanCollector.builder().interval(Duration.ofMillis(500)).build();
-    var producerReceiver = beanCollector.register().local().fetcher(ProducerMetrics::nodes).build();
-    var consumerReceiver = beanCollector.register().local().fetcher(ConsumerMetrics::nodes).build();
+    var mBeanClient = MBeanClient.local();
 
     Function<Duration, Boolean> logProducers =
         duration -> {
@@ -65,9 +59,7 @@ public interface TrackerThread extends AbstractThread {
               DataSize.Byte.of(
                   ((Double)
                           sumOfAttribute(
-                              producerReceiver.current(),
-                              HasNodeMetrics::outgoingByteRate,
-                              Duration.ofSeconds(1)))
+                              ProducerMetrics.nodes(mBeanClient), HasNodeMetrics::outgoingByteRate))
                       .longValue()));
           producerReports.stream()
               .mapToLong(Report::max)
@@ -114,9 +106,7 @@ public interface TrackerThread extends AbstractThread {
               DataSize.Byte.of(
                   ((Double)
                           sumOfAttribute(
-                              consumerReceiver.current(),
-                              HasNodeMetrics::incomingByteRate,
-                              Duration.ofSeconds(1)))
+                              ProducerMetrics.nodes(mBeanClient), HasNodeMetrics::incomingByteRate))
                       .longValue()));
           consumerReports.stream()
               .mapToLong(Report::max)
@@ -199,8 +189,7 @@ public interface TrackerThread extends AbstractThread {
       public void close() {
         closed.set(true);
         waitForDone();
-        Utils.swallowException(producerReceiver::close);
-        Utils.swallowException(consumerReceiver::close);
+        Utils.swallowException(mBeanClient::close);
       }
     };
   }
@@ -208,21 +197,11 @@ public interface TrackerThread extends AbstractThread {
    * Sum up the latest given attribute of all beans which is instance of HasNodeMetrics.
    *
    * @param mbeans mBeans fetched by the receivers
-   * @param duration the time used to define latest mbean
    * @return sum of the latest given attribute of all beans which is instance of HasNodeMetrics.
    */
   static double sumOfAttribute(
-      Collection<HasBeanObject> mbeans,
-      ToDoubleFunction<HasNodeMetrics> targetAttribute,
-      Duration duration) {
-    return mbeans.stream()
-        .filter(mbean -> mbean instanceof HasNodeMetrics)
-        .map(mbean -> (HasNodeMetrics) mbean)
-        .filter(
-            mbean -> System.currentTimeMillis() - mbean.createdTimestamp() <= duration.toMillis())
-        .mapToDouble(targetAttribute)
-        .filter(d -> !Double.isNaN(d))
-        .sum();
+      Collection<HasNodeMetrics> mbeans, ToDoubleFunction<HasNodeMetrics> targetAttribute) {
+    return mbeans.stream().mapToDouble(targetAttribute).filter(d -> !Double.isNaN(d)).sum();
   }
 
   long startTime();

@@ -19,7 +19,6 @@ package org.astraea.app.performance;
 import java.time.Duration;
 import java.util.List;
 import org.astraea.app.common.Utils;
-import org.astraea.app.metrics.HasBeanObject;
 import org.astraea.app.metrics.client.HasNodeMetrics;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -81,17 +80,13 @@ public class TrackerTest {
   void testSumOfAttribute() {
     var hasNodeMetrics = Mockito.mock(HasNodeMetrics.class);
     var hasNodeMetrics2 = Mockito.mock(HasNodeMetrics.class);
-    var hasBeanObject = Mockito.mock(HasBeanObject.class);
     Mockito.when(hasNodeMetrics.incomingByteTotal()).thenReturn(2D);
     Mockito.when(hasNodeMetrics2.incomingByteTotal()).thenReturn(3D);
     Mockito.when(hasNodeMetrics.createdTimestamp()).thenReturn(System.currentTimeMillis());
     Mockito.when(hasNodeMetrics2.createdTimestamp()).thenReturn(System.currentTimeMillis());
-    Mockito.when(hasBeanObject.createdTimestamp()).thenReturn(System.currentTimeMillis());
     Assertions.assertEquals(
         5D,
         TrackerThread.sumOfAttribute(
-            List.of(hasNodeMetrics, hasNodeMetrics2, hasBeanObject),
-            HasNodeMetrics::incomingByteTotal,
-            Duration.ofSeconds(1)));
+            List.of(hasNodeMetrics, hasNodeMetrics2), HasNodeMetrics::incomingByteTotal));
   }
 }
