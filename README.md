@@ -1,4 +1,4 @@
-![alt text](./logo/logo_with_background.png)
+![alt text](./logo/opening.gif)
 
 # Authors
 - Chia-Ping Tsai <chia7712@gmail.com>
