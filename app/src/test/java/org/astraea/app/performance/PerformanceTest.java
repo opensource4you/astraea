@@ -18,10 +18,15 @@ package org.astraea.app.performance;
 
 import com.beust.jcommander.ParameterException;
 import java.time.Duration;
-import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.function.BiConsumer;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+import org.astraea.app.admin.Admin;
+import org.astraea.app.admin.TopicPartition;
 import org.astraea.app.argument.Argument;
+import org.astraea.app.common.Utils;
 import org.astraea.app.consumer.Isolation;
 import org.astraea.app.service.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
@@ -161,15 +166,93 @@ public class PerformanceTest extends RequireBrokerCluster {
   }
 
   @Test
-  void testReplicaCount() {
-    Assertions.assertThrows(
-        IllegalArgumentException.class,
-        () -> Performance.vaildateReplicas(List.of(10, 0), List.of(1, 1)));
-    Assertions.assertThrows(
-        IllegalArgumentException.class,
-        () -> Performance.vaildateReplicas(List.of(10, 0), List.of(0, 1)));
-    Assertions.assertThrows(
-        IllegalArgumentException.class,
-        () -> Performance.vaildateReplicas(List.of(10, 10), List.of(0, 1)));
+  void testPartitionSupplier() {
+    var topicName = Utils.randomString(10);
+    try (var admin = Admin.of(bootstrapServers())) {
+      admin.creator().topic(topicName).numberOfPartitions(6).numberOfReplicas((short) 3).create();
+      Utils.sleep(Duration.ofSeconds(2));
+      var args =
+          Argument.parse(
+              new Performance.Argument(),
+              new String[] {
+                "--bootstrap.servers",
+                bootstrapServers(),
+                "--topic",
+                topicName,
+                "--specify.broker",
+                "1"
+              });
+      var expectedPartitions =
+          admin.partitions(Set.of(topicName), Set.of(1)).get(1).stream()
+              .map(TopicPartition::partition)
+              .collect(Collectors.toUnmodifiableSet());
+      Assertions.assertNotEquals(2, expectedPartitions.size());
+
+      var partitionSupplier = args.partitionSupplier();
+
+      var actual =
+          IntStream.range(0, 100)
+              .mapToObj(ignored -> partitionSupplier.get())
+              .collect(Collectors.toUnmodifiableSet());
+      Assertions.assertEquals(expectedPartitions, actual);
+
+      // no specify broker
+      Assertions.assertEquals(
+          -1,
+          Argument.parse(
+                  new Performance.Argument(),
+                  new String[] {"--bootstrap.servers", bootstrapServers(), "--topic", topicName})
+              .partitionSupplier()
+              .get());
+    }
+  }
+
+  @Test
+  void testLastOffsets() {
+    var partitionCount = 40;
+    var topicName = Utils.randomString(10);
+    try (var admin = Admin.of(bootstrapServers())) {
+      // large partitions
+      admin.creator().topic(topicName).numberOfPartitions(partitionCount).create();
+      Utils.sleep(Duration.ofSeconds(2));
+      var args =
+          Argument.parse(
+              new Performance.Argument(),
+              new String[] {"--bootstrap.servers", bootstrapServers(), "--topic", topicName});
+      try (var producer = args.createProducer()) {
+        IntStream.range(0, 250)
+            .forEach(
+                i -> producer.sender().topic(topicName).key(String.valueOf(i).getBytes()).run());
+      }
+      Assertions.assertEquals(partitionCount, args.lastOffsets().size());
+      System.out.println(args.lastOffsets());
+      args.lastOffsets().values().forEach(v -> Assertions.assertNotEquals(0, v));
+    }
+  }
+
+  @Test
+  void testInitTopic() {
+    var topicName = Utils.randomString(10);
+    try (var admin = Admin.of(bootstrapServers())) {
+      admin.creator().topic(topicName).numberOfPartitions(3).create();
+      Utils.sleep(Duration.ofSeconds(2));
+      var args =
+          Argument.parse(
+              new Performance.Argument(),
+              new String[] {
+                "--bootstrap.servers",
+                bootstrapServers(),
+                "--topic",
+                topicName,
+                "--partitions",
+                "3",
+                "--replicas",
+                "1"
+              });
+      // they should all pass since the passed arguments are equal to existent topic
+      args.initTopics();
+      args.initTopics();
+      args.initTopics();
+    }
   }
 }

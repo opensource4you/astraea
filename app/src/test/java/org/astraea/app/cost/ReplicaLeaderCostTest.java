@@ -39,11 +39,10 @@ public class ReplicaLeaderCostTest {
             ReplicaInfo.of("topic", 0, NodeInfo.of(10, "broker0", 1111), true, true, true),
             ReplicaInfo.of("topic", 0, NodeInfo.of(10, "broker0", 1111), true, true, true),
             ReplicaInfo.of("topic", 0, NodeInfo.of(11, "broker1", 1111), true, true, true));
-    var function = new ReplicaLeaderCost.NoMetrics();
     var clusterInfo = Mockito.mock(ClusterInfo.class);
     Mockito.when(clusterInfo.topics()).thenReturn(Set.of("topic"));
     Mockito.when(clusterInfo.availableReplicaLeaders(Mockito.anyString())).thenReturn(replicas);
-    var cost = function.leaderCount(clusterInfo, ClusterBean.EMPTY);
+    var cost = ReplicaLeaderCost.leaderCount(clusterInfo);
     Assertions.assertTrue(cost.containsKey(10));
     Assertions.assertTrue(cost.containsKey(11));
     Assertions.assertEquals(2, cost.size());

@@ -25,6 +25,11 @@ import org.astraea.app.balancer.log.ClusterLogAllocation;
 
 @FunctionalInterface
 public interface RebalancePlanGenerator {
+
+  static RebalancePlanGenerator random(int numberOfShuffle) {
+    return new ShufflePlanGenerator(() -> numberOfShuffle);
+  }
+
   /**
    * Generate a rebalance proposal, noted that this function doesn't require proposing exactly the
    * same plan for the same input argument. There can be some randomization that takes part in this

@@ -36,7 +36,7 @@ import org.astraea.app.balancer.log.ClusterLogAllocation;
 import org.astraea.app.cost.HasClusterCost;
 import org.astraea.app.metrics.HasBeanObject;
 
-class BalancerUtils {
+public class BalancerUtils {
 
   /**
    * Create a {@link ClusterInfo} with its log placement replaced by {@link ClusterLogAllocation}.

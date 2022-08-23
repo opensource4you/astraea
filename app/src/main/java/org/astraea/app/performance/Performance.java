@@ -20,13 +20,11 @@ import com.beust.jcommander.Parameter;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.time.Duration;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Supplier;
@@ -95,41 +93,18 @@ public class Performance {
 
   public static List<String> execute(final Argument param)
       throws InterruptedException, IOException {
-    List<Integer> partitions;
-    Map<TopicPartition, Long> latestOffsets;
-    Set<String> topicSet = new HashSet<>(param.topics);
-    vaildateReplicas(param.partitions, param.replicas);
+    var topicSet = new HashSet<>(param.topics);
+    // always try to init topic even though it may be existent already.
+    param.initTopics();
 
-    try (var topicAdmin = Admin.of(param.configs())) {
-
-      IntStream.range(0, param.topics.size())
-          .forEach(
-              i ->
-                  topicAdmin
-                      .creator()
-                      .topic(param.topics.get(i))
-                      .numberOfPartitions(param.partitions.get(i))
-                      .numberOfReplicas(param.replicas.get(i).shortValue())
-                      .create());
-
-      IntStream.range(0, param.topics.size())
-          .forEach(i -> Utils.waitFor(() -> topicAdmin.topicNames().contains(param.topics.get(i))));
-
-      partitions = new ArrayList<>(partition(param, topicAdmin));
-      latestOffsets =
-          topicAdmin.offsets(topicSet).entrySet().stream()
-              .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().latest()));
-    }
-
-    Supplier<Integer> partitionSupplier =
-        () -> partitions.isEmpty() ? -1 : partitions.get((int) (Math.random() * partitions.size()));
+    var latestOffsets = param.lastOffsets();
 
     var producerThreads =
         ProducerThread.create(
             param.topics,
             param.transactionSize,
             dataSupplier(param),
-            partitionSupplier,
+            param.partitionSupplier(),
             param.producers,
             param::createProducer);
     var consumerThreads =
@@ -213,37 +188,6 @@ public class Performance {
     return param.topics;
   }
 
-  // visible for test
-  static Set<Integer> partition(Argument param, Admin topicAdmin) {
-    if (positiveSpecifyBroker(param)) {
-      return topicAdmin
-          .partitions(new HashSet<>(param.topics), new HashSet<>(param.specifyBroker))
-          .values()
-          .stream()
-          .flatMap(Collection::stream)
-          .map(TopicPartition::partition)
-          .collect(Collectors.toSet());
-    } else return Set.of(-1);
-  }
-
-  private static boolean positiveSpecifyBroker(Argument param) {
-    return param.specifyBroker.stream().allMatch(broker -> broker >= 0);
-  }
-
-  static void vaildateReplicas(List<Integer> partitions, List<Integer> replicas) {
-    partitions.forEach(
-        partition -> {
-          if (partition <= 0)
-            throw new IllegalArgumentException("Partition cannot set zero or negative.");
-        });
-
-    replicas.forEach(
-        replica -> {
-          if (replica <= 0)
-            throw new IllegalArgumentException("Replica cannot set zero or negative.");
-        });
-  }
-
   public static class Argument extends org.astraea.app.argument.Argument {
 
     @Parameter(
@@ -251,6 +195,39 @@ public class Performance {
         description = "String : topic names which you subscribed",
         validateWith = NonEmptyStringField.class)
     List<String> topics = List.of("testPerformance-" + System.currentTimeMillis());
+
+    void initTopics() {
+      try (var admin = Admin.of(configs())) {
+        IntStream.range(0, consumers)
+            .forEach(
+                i -> {
+                  admin
+                      .creator()
+                      .numberOfReplicas(replicas.get(i).shortValue())
+                      .numberOfPartitions(partitions.get(i))
+                      .topic(topics.get(i))
+                      .create();
+                  Utils.waitFor(() -> admin.topicNames().contains(topics.get(i)));
+                });
+      }
+    }
+
+    Map<TopicPartition, Long> lastOffsets() {
+      try (var admin = Admin.of(configs())) {
+        // the slow zk causes unknown error, so we have to wait it.
+        return Utils.waitForNonNull(
+            () -> {
+              try {
+                return admin.offsets(new HashSet<>(topics)).entrySet().stream()
+                    .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().latest()));
+              } catch (Exception e) {
+                e.printStackTrace();
+                return null;
+              }
+            },
+            Duration.ofSeconds(5));
+      }
+    }
 
     @Parameter(
         names = {"--partitions"},
@@ -360,7 +337,19 @@ public class Performance {
         description =
             "String: Used with SpecifyBrokerPartitioner to specify the brokers that partitioner can send.",
         validateWith = NonEmptyStringField.class)
-    List<Integer> specifyBroker = List.of(-1);
+    List<Integer> specifyBroker = List.of();
+
+    Supplier<Integer> partitionSupplier() {
+      if (specifyBroker.isEmpty()) return () -> -1;
+      try (var admin = Admin.of(configs())) {
+        var partitions =
+            admin.partitions(new HashSet<>(topics), new HashSet<>(specifyBroker)).values().stream()
+                .flatMap(Collection::stream)
+                .map(TopicPartition::partition)
+                .collect(Collectors.toUnmodifiableList());
+        return () -> partitions.get((int) (Math.random() * partitions.size()));
+      }
+    }
 
     // replace DataSize by DataRate (see https://github.com/skiptests/astraea/issues/488)
     @Parameter(

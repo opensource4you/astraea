@@ -70,13 +70,13 @@ public class StrictCostDispatcherTest {
           IllegalArgumentException.class,
           () ->
               dispatcher.configure(
-                  Configuration.of(Map.of(ReplicaLeaderCost.NoMetrics.class.getName(), "-1"))));
+                  Configuration.of(Map.of(ReplicaLeaderCost.class.getName(), "-1"))));
 
       // Test for cost functions configuring
       dispatcher.configure(
           Configuration.of(
               Map.of(
-                  ReplicaLeaderCost.NoMetrics.class.getName(),
+                  ReplicaLeaderCost.class.getName(),
                   "0.1",
                   BrokerInputCost.class.getName(),
                   "2",
@@ -92,7 +92,7 @@ public class StrictCostDispatcherTest {
       dispatcher.configure(
           Configuration.of(
               Map.of(
-                  ReplicaLeaderCost.NoMetrics.class.getName(),
+                  ReplicaLeaderCost.class.getName(),
                   "0.1",
                   BrokerInputCost.class.getName(),
                   "2",
