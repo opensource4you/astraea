@@ -37,7 +37,8 @@ JSON Response 範例
     "brokers": {
         "1001": { "ingress": 1000, "egress": 1000 },
         "1002": { "ingress": 1000, "egress": 1000 },
-        "1003": { "ingress": 1000 }
+        "1003": { "ingress": 1000 },
+        "1004": {}
     },
     "topics": [
       { "name": "MyTopicB", "partition": 0, "broker": 0 },

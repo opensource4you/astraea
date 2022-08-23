@@ -90,7 +90,9 @@ public class ThrottleHandler implements Handler {
     return new ThrottleSetting(bandwidths, simplify(leaderTargets, followerTargets));
   }
 
-  /** break apart the {@code throttled.replica} string setting into a set of throttle targets */
+  /**
+   * break apart the {@code throttled.replica} string setting into a set of topic/partition/replicas
+   */
   private Set<TopicPartitionReplica> toReplicaSet(String topic, String throttledReplicas) {
     if (throttledReplicas.isEmpty()) return Set.of();
 
@@ -181,14 +183,14 @@ public class ThrottleHandler implements Handler {
       return Objects.hash(name, partition, broker, type);
     }
 
-    private ThrottleTarget(String name, int partition, int broker) {
+    ThrottleTarget(String name, int partition, int broker) {
       this.name = name;
       this.partition = OptionalInt.of(partition);
       this.broker = OptionalInt.of(broker);
       this.type = Optional.empty();
     }
 
-    private ThrottleTarget(String name, int partition, int broker, LogIdentity type) {
+    ThrottleTarget(String name, int partition, int broker, LogIdentity type) {
       this.name = name;
       this.partition = OptionalInt.of(partition);
       this.broker = OptionalInt.of(broker);
