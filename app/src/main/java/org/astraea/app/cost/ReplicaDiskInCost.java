@@ -17,7 +17,6 @@
 package org.astraea.app.cost;
 
 import java.time.Duration;
-import java.util.Comparator;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -25,7 +24,6 @@ import org.astraea.app.admin.ClusterBean;
 import org.astraea.app.admin.ClusterInfo;
 import org.astraea.app.admin.TopicPartition;
 import org.astraea.app.admin.TopicPartitionReplica;
-import org.astraea.app.metrics.HasBeanObject;
 import org.astraea.app.metrics.broker.LogMetrics;
 import org.astraea.app.metrics.collector.Fetcher;
 import org.astraea.app.partitioner.Configuration;
@@ -178,32 +176,7 @@ public class ReplicaDiskInCost implements HasClusterCost, HasBrokerCost, HasPart
     return clusterBean.mapByReplica().entrySet().parallelStream()
         .map(
             metrics -> {
-              // calculate the increase rate over a specific window of time
-              var sizeTimeSeries =
-                  LogMetrics.Log.gauges(metrics.getValue(), LogMetrics.Log.SIZE).stream()
-                      .sorted(Comparator.comparingLong(HasBeanObject::createdTimestamp).reversed())
-                      .collect(Collectors.toUnmodifiableList());
-              var latestSize = sizeTimeSeries.stream().findFirst().orElseThrow();
-              var windowSize =
-                  sizeTimeSeries.stream()
-                      .dropWhile(
-                          bean ->
-                              bean.createdTimestamp()
-                                  > latestSize.createdTimestamp() - sampleWindow.toMillis())
-                      .findFirst()
-                      .orElseThrow(
-                          () ->
-                              new IllegalStateException(
-                                  "No sufficient info to determine data rate, try later."));
-              var dataRate =
-                  ((double) (latestSize.value() - windowSize.value()))
-                      / 1024.0
-                      / 1024.0
-                      / ((double) (latestSize.createdTimestamp() - windowSize.createdTimestamp())
-                          / 1000);
-              // when retention occur, set all data rate to -1.
-              if (dataRate < 0) dataRate = -1.0;
-              return Map.entry(metrics.getKey(), dataRate);
+              return CostUtils.dataRate(metrics, "Size", sampleWindow);
             })
         .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));
   }
