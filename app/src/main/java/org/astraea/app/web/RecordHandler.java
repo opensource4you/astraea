@@ -160,7 +160,20 @@ public class RecordHandler implements Handler {
         .map(Long::parseLong)
         .ifPresent(seekTo -> consumerBuilder.seek(Builder.SeekStrategy.SEEK_TO, seekTo));
 
-    return new Records(consumerBuilder.build(), limit, timeout);
+    return get(consumerBuilder.build(), limit, timeout);
+  }
+
+  // visible for testing
+  Records get(Consumer<byte[], byte[]> consumer, int limit, Duration timeout) {
+    try {
+      return new Records(
+          consumer,
+          new RecordsData(
+              consumer.poll(limit, timeout).stream().map(Record::new).collect(toList())));
+    } catch (Exception e) {
+      consumer.close();
+      throw e;
+    }
   }
 
   @Override
@@ -341,14 +354,12 @@ public class RecordHandler implements Handler {
   }
 
   static class Records implements Response {
-    private final Consumer<byte[], byte[]> consumer;
-    private final RecordsData records;
+    final Consumer<byte[], byte[]> consumer;
+    final RecordsData records;
 
-    private Records(Consumer<byte[], byte[]> consumer, int limit, Duration timeout) {
-      this.consumer = requireNonNull(consumer);
-      this.records =
-          new RecordsData(
-              consumer.poll(limit, timeout).stream().map(Record::new).collect(toList()));
+    private Records(Consumer<byte[], byte[]> consumer, RecordsData records) {
+      this.consumer = consumer;
+      this.records = records;
     }
 
     @Override
@@ -358,7 +369,7 @@ public class RecordHandler implements Handler {
           .disableHtmlEscaping()
           .registerTypeHierarchyAdapter(byte[].class, new ByteArrayToBase64TypeAdapter())
           .create()
-          .toJson(records());
+          .toJson(records);
     }
 
     @Override
@@ -370,16 +381,6 @@ public class RecordHandler implements Handler {
       } finally {
         consumer.close();
       }
-    }
-
-    // visible for testing
-    RecordsData records() {
-      return records;
-    }
-
-    // visible for testing
-    Consumer<byte[], byte[]> consumer() {
-      return consumer;
     }
   }
 
