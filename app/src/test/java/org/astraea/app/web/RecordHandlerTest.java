@@ -554,7 +554,7 @@ public class RecordHandlerTest extends RequireBrokerCluster {
                         "integer"))));
 
     Assertions.assertEquals(
-        "{\"data\":[{"
+        "{\"records\":[{"
             + "\"topic\":\""
             + topic
             + "\","
