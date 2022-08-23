@@ -22,8 +22,10 @@ This project offers many kafka tools to simplify the life for kafka users.
 5. [Kafka metric explorer](#kafka-metric-explorer): utility for accessing kafka Mbean metrics via JMX.
 6. [Kafka replica syncing monitor](#Kafka-replica-syncing-monitor): Tracking replica syncing progress.
 7. [Astraea Web Server 中文文件連結](./docs/web_server/README.md)
+8. [Astraea Partitioner 測試](docs/dispatcher_experiments/README.md)
 
 [Github packages](https://github.com/orgs/skiptests/packages?repo_name=astraea) offers the docker image to run mentioned tools
+
 ```shell
 ./docker/start_app.sh web --bootstrap.servers 192.168.50.178:19993 --port 12345"
 ```
