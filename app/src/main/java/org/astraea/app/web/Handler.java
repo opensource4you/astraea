@@ -18,7 +18,6 @@ package org.astraea.app.web;
 
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
-import java.io.IOException;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
@@ -27,7 +26,9 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
+import org.astraea.app.common.Utils;
 
 interface Handler extends HttpHandler {
 
@@ -66,15 +67,36 @@ interface Handler extends HttpHandler {
   }
 
   @Override
-  default void handle(HttpExchange exchange) throws IOException {
-    Response response = process(exchange);
-    var responseData = response.json().getBytes(StandardCharsets.UTF_8);
-    exchange
-        .getResponseHeaders()
-        .set("Content-Type", String.format("application/json; charset=%s", StandardCharsets.UTF_8));
-    exchange.sendResponseHeaders(response.code(), responseData.length);
-    try (var os = exchange.getResponseBody()) {
-      os.write(responseData);
+  default void handle(HttpExchange exchange) {
+    handleResponse(
+        (response) -> {
+          var responseData = response.json().getBytes(StandardCharsets.UTF_8);
+          exchange
+              .getResponseHeaders()
+              .set(
+                  "Content-Type",
+                  String.format("application/json; charset=%s", StandardCharsets.UTF_8));
+          Utils.packException(
+              () -> {
+                exchange.sendResponseHeaders(response.code(), responseData.length);
+                try (var os = exchange.getResponseBody()) {
+                  os.write(responseData);
+                }
+              });
+        },
+        process(exchange));
+  }
+
+  // visible for testing
+  static void handleResponse(Consumer<Response> responseConsumer, Response response) {
+    Throwable error = null;
+    try {
+      responseConsumer.accept(response);
+    } catch (Throwable e) {
+      e.printStackTrace();
+      error = e;
+    } finally {
+      response.onComplete(error);
     }
   }
 
