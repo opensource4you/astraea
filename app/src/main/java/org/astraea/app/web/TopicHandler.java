@@ -89,7 +89,7 @@ class TopicHandler implements Handler {
     var configs =
         new HashMap<>(
             request.raw().entrySet().stream()
-                .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().toString())));
+                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue)));
     configs.remove(TOPIC_NAME_KEY);
     configs.remove(NUMBER_OF_PARTITIONS_KEY);
     configs.remove(NUMBER_OF_REPLICAS_KEY);
