@@ -114,6 +114,14 @@ public class PerformanceTest extends RequireBrokerCluster {
     Assertions.assertThrows(
         ParameterException.class, () -> Argument.parse(new Performance.Argument(), arguments2));
 
+    String[] arguments3 = {"--bootstrap.servers", "localhost:9092", "--replicas", "0"};
+    Assertions.assertThrows(
+        ParameterException.class, () -> Argument.parse(new Performance.Argument(), arguments3));
+
+    String[] arguments4 = {"--bootstrap.servers", "localhost:9092", "--partitions", "0"};
+    Assertions.assertThrows(
+        ParameterException.class, () -> Argument.parse(new Performance.Argument(), arguments4));
+
     String[] arguments5 = {"--bootstrap.servers", "localhost:9092", "--producers", "0"};
     Assertions.assertThrows(
         ParameterException.class, () -> Argument.parse(new Performance.Argument(), arguments5));
@@ -177,7 +185,7 @@ public class PerformanceTest extends RequireBrokerCluster {
               new String[] {
                 "--bootstrap.servers",
                 bootstrapServers(),
-                "--topic",
+                "--topics",
                 topicName,
                 "--specify.broker",
                 "1"
@@ -201,7 +209,7 @@ public class PerformanceTest extends RequireBrokerCluster {
           -1,
           Argument.parse(
                   new Performance.Argument(),
-                  new String[] {"--bootstrap.servers", bootstrapServers(), "--topic", topicName})
+                  new String[] {"--bootstrap.servers", bootstrapServers(), "--topics", topicName})
               .partitionSupplier()
               .get());
     }
@@ -218,7 +226,7 @@ public class PerformanceTest extends RequireBrokerCluster {
       var args =
           Argument.parse(
               new Performance.Argument(),
-              new String[] {"--bootstrap.servers", bootstrapServers(), "--topic", topicName});
+              new String[] {"--bootstrap.servers", bootstrapServers(), "--topics", topicName});
       try (var producer = args.createProducer()) {
         IntStream.range(0, 250)
             .forEach(
@@ -242,7 +250,7 @@ public class PerformanceTest extends RequireBrokerCluster {
               new String[] {
                 "--bootstrap.servers",
                 bootstrapServers(),
-                "--topic",
+                "--topics",
                 topicName,
                 "--partitions",
                 "3",

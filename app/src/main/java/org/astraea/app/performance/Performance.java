@@ -38,6 +38,7 @@ import org.astraea.app.argument.DurationField;
 import org.astraea.app.argument.NonEmptyStringField;
 import org.astraea.app.argument.NonNegativeShortField;
 import org.astraea.app.argument.PathField;
+import org.astraea.app.argument.PositiveIntegerFields;
 import org.astraea.app.argument.PositiveLongField;
 import org.astraea.app.argument.PositiveShortField;
 import org.astraea.app.common.DataSize;
@@ -198,7 +199,7 @@ public class Performance {
 
     void initTopics() {
       try (var admin = Admin.of(configs())) {
-        IntStream.range(0, consumers)
+        IntStream.range(0, topics.size())
             .forEach(
                 i -> {
                   admin
@@ -232,13 +233,13 @@ public class Performance {
     @Parameter(
         names = {"--partitions"},
         description = "Integer: number of partitions to create the topic",
-        validateWith = NonEmptyStringField.class)
+        validateWith = PositiveIntegerFields.class)
     List<Integer> partitions = List.of(1);
 
     @Parameter(
         names = {"--replicas"},
         description = "Integer: number of replica to create the topic",
-        validateWith = NonEmptyStringField.class)
+        validateWith = PositiveIntegerFields.class)
     List<Integer> replicas = List.of(1);
 
     @Parameter(
@@ -380,7 +381,8 @@ public class Performance {
 
     @Parameter(
         names = {"--group.id"},
-        description = "Consumer group id")
+        description = "Consumer group id",
+        validateWith = NonEmptyStringField.class)
     String groupId = "groupId-" + System.currentTimeMillis();
   }
 }
