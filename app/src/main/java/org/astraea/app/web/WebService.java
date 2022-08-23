@@ -17,7 +17,6 @@
 package org.astraea.app.web;
 
 import com.beust.jcommander.Parameter;
-import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpServer;
 import java.io.IOException;
@@ -55,13 +54,7 @@ public class WebService {
   }
 
   private static HttpHandler to(Handler handler) {
-    return new HttpHandler() {
-
-      @Override
-      public void handle(HttpExchange exchange) throws IOException {
-        handler.handle(Channel.of(exchange));
-      }
-    };
+    return exchange -> handler.handle(Channel.of(exchange));
   }
 
   static class Argument extends org.astraea.app.argument.Argument {
