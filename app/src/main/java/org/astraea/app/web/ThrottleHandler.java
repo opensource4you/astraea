@@ -16,11 +16,6 @@
  */
 package org.astraea.app.web;
 
-import com.google.gson.GsonBuilder;
-import com.google.gson.JsonElement;
-import com.google.gson.JsonSerializationContext;
-import com.google.gson.JsonSerializer;
-import java.lang.reflect.Type;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Map;
@@ -99,6 +94,7 @@ public class ThrottleHandler implements Handler {
   private Set<TopicPartitionReplica> toReplicaSet(String topic, String throttledReplicas) {
     if (throttledReplicas.isEmpty()) return Set.of();
 
+    // TODO: support for wildcard throttle might be implemented in the future.
     if (throttledReplicas.equals("*"))
       throw new UnsupportedOperationException("This API doesn't support wildcard throttle");
 
@@ -160,31 +156,6 @@ public class ThrottleHandler implements Handler {
         Map<Integer, Map<ThrottleBandwidths, Long>> brokers, Collection<ThrottleTarget> topics) {
       this.brokers = brokers;
       this.topics = topics;
-    }
-
-    @Override
-    public String json() {
-      return new GsonBuilder()
-          .registerTypeAdapter(Optional.class, new SerializeOptional())
-          .registerTypeAdapter(OptionalInt.class, new SerializeOptionalInt())
-          .create()
-          .toJson(this);
-    }
-
-    private static class SerializeOptional implements JsonSerializer<Optional<?>> {
-      @Override
-      public JsonElement serialize(
-          Optional<?> src, Type typeOfSrc, JsonSerializationContext context) {
-        return src.map(context::serialize).orElse(null);
-      }
-    }
-
-    private static class SerializeOptionalInt implements JsonSerializer<OptionalInt> {
-      @Override
-      public JsonElement serialize(
-          OptionalInt src, Type typeOfSrc, JsonSerializationContext context) {
-        return src.isPresent() ? context.serialize(src.getAsInt()) : null;
-      }
     }
   }
 

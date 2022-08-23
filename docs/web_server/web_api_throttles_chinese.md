@@ -21,8 +21,10 @@ JSON Response 範例
 
 - `brokers`: 所有上線的 Kafka 節點的限流量設定
   - `1001`: 敘述這個 broker ID 的 kafka 節點設定
-    - `ingress`: 特定 Kafka 節點的 replication 流入流量的限制，附註只有 `topics` 中有記錄到的 topic 的 replication 流量會被限流。
-    - `egress`: 特定 Kafka 節點的 replication 流出流量的限制，附註只有 `topics` 中有記錄到的 topic 的 replication 流量會被限流。
+    - `ingress`: 特定 Kafka 節點的 replication 流入流量的限制(單位 bytes/sec)，附註只有 `topics` 中有記錄到的對象，
+      其 replication 流量會受限制，如果此欄位不存在則代表此節點的 replication 流入流量沒有被限制。
+    - `egress`: 特定 Kafka 節點的 replication 流出流量的限制(單位 bytes/sec)，附註只有 `topics` 中有記錄到的對象，
+      其 replication 流量會受限制，如果此欄位不存在則代表此節點的 replication 流出流量沒有被限制。
 - `topics`: 當前叢集中，被 replication 限流影響的 logs
   - `name`: 套用 replication 限流的 topic
   - `partition`: 套用 replication 限流的 partition
