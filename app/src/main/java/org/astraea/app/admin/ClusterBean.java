@@ -16,11 +16,12 @@
  */
 package org.astraea.app.admin;
 
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.astraea.app.metrics.HasBeanObject;
 
 /** Used to get beanObject using a variety of different keys . */
@@ -28,25 +29,62 @@ public interface ClusterBean {
   ClusterBean EMPTY = ClusterBean.of(Map.of());
 
   static ClusterBean of(Map<Integer, Collection<HasBeanObject>> allBeans) {
-    var beanObjectByReplica = new HashMap<TopicPartitionReplica, Collection<HasBeanObject>>();
-    allBeans.forEach(
-        (brokerId, beans) ->
-            beans.forEach(
-                bean -> {
-                  if (bean.beanObject() != null
-                      && bean.beanObject().properties().containsKey("topic")
-                      && bean.beanObject().properties().containsKey("partition")) {
-                    var properties = bean.beanObject().properties();
-                    var tpr =
-                        TopicPartitionReplica.of(
-                            properties.get("topic"),
-                            Integer.parseInt(properties.get("partition")),
-                            brokerId);
-                    beanObjectByReplica
-                        .computeIfAbsent(tpr, (ignore) -> new ArrayList<>())
-                        .add(bean);
-                  }
-                }));
+    Map<TopicPartition, Collection<HasBeanObject>> beanObjectByPartition =
+        allBeans.entrySet().stream()
+            .flatMap(
+                entry ->
+                    entry.getValue().stream()
+                        .filter(
+                            x ->
+                                x.beanObject() != null
+                                    && x.beanObject().properties().containsKey("topic")
+                                    && x.beanObject().properties().containsKey("partition"))
+                        .filter(
+                            hasBeanObject ->
+                                hasBeanObject.beanObject().properties().containsKey("topic")
+                                    && hasBeanObject
+                                        .beanObject()
+                                        .properties()
+                                        .containsKey("partition"))
+                        .map(
+                            hasBeanObject -> {
+                              var properties = hasBeanObject.beanObject().properties();
+                              var topic = properties.get("topic");
+                              var partition = properties.get("partition");
+                              return Map.entry(
+                                  TopicPartition.of(topic, partition), List.of(hasBeanObject));
+                            }))
+            .collect(
+                Collectors.toMap(
+                    Map.Entry::getKey,
+                    Map.Entry::getValue,
+                    (x1, x2) ->
+                        Stream.concat(x1.stream(), x2.stream()).collect(Collectors.toList())));
+    Map<TopicPartitionReplica, Collection<HasBeanObject>> beanObjectByReplica =
+        allBeans.entrySet().stream()
+            .flatMap(
+                entry ->
+                    entry.getValue().stream()
+                        .filter(
+                            x ->
+                                x.beanObject() != null
+                                    && x.beanObject().properties().containsKey("topic")
+                                    && x.beanObject().properties().containsKey("partition"))
+                        .map(
+                            hasBeanObject -> {
+                              var properties = hasBeanObject.beanObject().properties();
+                              var topic = properties.get("topic");
+                              var partition = Integer.parseInt(properties.get("partition"));
+                              return Map.entry(
+                                  TopicPartitionReplica.of(topic, partition, entry.getKey()),
+                                  List.of(hasBeanObject));
+                            }))
+            .collect(
+                Collectors.toMap(
+                    Map.Entry::getKey,
+                    Map.Entry::getValue,
+                    (x1, x2) ->
+                        Stream.concat(x1.stream(), x2.stream()).collect(Collectors.toList())));
     return new ClusterBean() {
       @Override
       public Map<Integer, Collection<HasBeanObject>> all() {

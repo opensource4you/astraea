@@ -14,17 +14,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.app.metrics.broker;
+package org.astraea.app.cost;
 
-import org.astraea.app.metrics.BeanObject;
-import org.astraea.app.metrics.HasBeanObject;
+import java.util.List;
+import org.astraea.app.admin.ClusterBean;
+import org.astraea.app.admin.ClusterInfo;
 
-public interface HasCount extends HasBeanObject {
-  default long count() {
-    return (long) beanObject().attributes().getOrDefault("Count", 0);
-  }
+public interface HasMoveCost extends CostFunction {
+  ClusterCost clusterCost(
+      ClusterInfo originClusterInfo, ClusterInfo newClusterInfo, ClusterBean clusterBean);
 
-  static HasCount of(BeanObject beanObject) {
-    return () -> beanObject;
-  }
+  boolean overflow(
+      ClusterInfo originClusterInfo, ClusterInfo newClusterInfo, ClusterBean clusterBean);
+
+  List<String> totalMigrateSize();
+
+  List<String> EstimatedMigrateTime();
 }

@@ -31,6 +31,7 @@ import org.astraea.app.admin.TopicPartition;
 import org.astraea.app.balancer.RebalancePlanProposal;
 import org.astraea.app.balancer.log.ClusterLogAllocation;
 import org.astraea.app.balancer.log.LogPlacement;
+import org.astraea.app.partitioner.Configuration;
 
 /**
  * The {@link ShufflePlanGenerator} proposes a new log placement based on the current log placement,
@@ -49,6 +50,14 @@ import org.astraea.app.balancer.log.LogPlacement;
  * </ol>
  */
 public class ShufflePlanGenerator implements RebalancePlanGenerator {
+
+  public ShufflePlanGenerator(Configuration configuration) {
+    int min =
+        configuration.string("shuffle.plan.generator.shuffle.min").map(Integer::parseInt).orElse(3);
+    int max =
+        configuration.string("shuffle.plan.generator.shuffle.max").map(Integer::parseInt).orElse(3);
+    this.numberOfShuffle = () -> ThreadLocalRandom.current().nextInt(min, max + 1);
+  }
 
   private final Supplier<Integer> numberOfShuffle;
 

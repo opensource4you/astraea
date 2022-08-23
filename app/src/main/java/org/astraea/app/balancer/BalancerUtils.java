@@ -32,9 +32,15 @@ import org.astraea.app.admin.ClusterInfo;
 import org.astraea.app.admin.NodeInfo;
 import org.astraea.app.admin.ReplicaInfo;
 import org.astraea.app.admin.TopicPartition;
+import org.astraea.app.balancer.executor.RebalancePlanExecutor;
+import org.astraea.app.balancer.generator.RebalancePlanGenerator;
 import org.astraea.app.balancer.log.ClusterLogAllocation;
+import org.astraea.app.balancer.metrics.IdentifiedFetcher;
+import org.astraea.app.balancer.metrics.MetricSource;
+import org.astraea.app.common.Utils;
 import org.astraea.app.cost.HasClusterCost;
 import org.astraea.app.metrics.HasBeanObject;
+import org.astraea.app.partitioner.Configuration;
 
 public class BalancerUtils {
 
@@ -157,5 +163,41 @@ public class BalancerUtils {
   static double aggregateFunction(Map<HasClusterCost, Double> scores) {
     // use the simple summation result, treat every cost equally.
     return scores.values().stream().mapToDouble(x -> x).sum();
+  }
+
+  public static <T extends RebalancePlanGenerator> T constructGenerator(
+      Class<T> costClass, Configuration configuration) {
+    try {
+      // case 0: create cost function by configuration
+      var constructor = costClass.getConstructor(Configuration.class);
+      return Utils.packException(() -> constructor.newInstance(configuration));
+    } catch (NoSuchMethodException e) {
+      // case 1: create cost function by empty constructor
+      return Utils.packException(() -> costClass.getConstructor().newInstance());
+    }
+  }
+
+  public static <T extends RebalancePlanExecutor> T constructExecutor(
+      Class<T> costClass, Configuration configuration) {
+    try {
+      // case 0: create cost function by configuration
+      var constructor = costClass.getConstructor(Configuration.class);
+      return Utils.packException(() -> constructor.newInstance(configuration));
+    } catch (NoSuchMethodException e) {
+      // case 1: create cost function by empty constructor
+      return Utils.packException(() -> costClass.getConstructor().newInstance());
+    }
+  }
+
+  public static <T extends MetricSource> T constructMetricSource(
+      Class<T> costClass, Configuration configuration, Collection<IdentifiedFetcher> fetchers) {
+    try {
+      // case 0: create cost function by configuration
+      var constructor = costClass.getConstructor(Configuration.class, Collection.class);
+      return Utils.packException(() -> constructor.newInstance(configuration, fetchers));
+    } catch (NoSuchMethodException e) {
+      // case 1: create cost function by empty constructor
+      return Utils.packException(() -> costClass.getConstructor().newInstance());
+    }
   }
 }

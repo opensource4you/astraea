@@ -14,17 +14,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.app.metrics.broker;
+package org.astraea.app.balancer.utils;
 
-import org.astraea.app.metrics.BeanObject;
-import org.astraea.app.metrics.HasBeanObject;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Stream;
+import org.astraea.app.balancer.RebalancePlanProposal;
+import org.astraea.app.balancer.generator.RebalancePlanGenerator;
+import org.astraea.app.balancer.log.ClusterLogAllocation;
 
-public interface HasCount extends HasBeanObject {
-  default long count() {
-    return (long) beanObject().attributes().getOrDefault("Count", 0);
-  }
+public class DummyGenerator implements RebalancePlanGenerator {
 
-  static HasCount of(BeanObject beanObject) {
-    return () -> beanObject;
+  @Override
+  public Stream<RebalancePlanProposal> generate(
+      Map<Integer, Set<String>> brokerFolders, ClusterLogAllocation baseAllocation) {
+    return Stream.generate(() -> RebalancePlanProposal.builder().build());
   }
 }

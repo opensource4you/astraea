@@ -24,7 +24,6 @@ import org.astraea.app.admin.ClusterBean;
 import org.astraea.app.admin.ClusterInfo;
 import org.astraea.app.admin.NodeInfo;
 import org.astraea.app.admin.ReplicaInfo;
-import org.astraea.app.admin.TopicPartition;
 import org.astraea.app.metrics.BeanObject;
 import org.astraea.app.metrics.HasBeanObject;
 import org.astraea.app.metrics.broker.HasGauge;
@@ -63,40 +62,6 @@ class ReplicaDiskInCostTest extends RequireBrokerCluster {
       List.of(OLD_TP1_1, NEW_TP1_1, OLD_TP2_0, NEW_TP2_0);
 
   @Test
-  void testPartitionCost() {
-    var configuration = Configuration.of(Map.of("metrics.duration", "3"));
-    var loadCostFunction = new ReplicaDiskInCost(configuration);
-    var broker1ReplicaLoad = loadCostFunction.partitionCost(clusterInfo(), clusterBean()).value(1);
-    var broker2ReplicaLoad = loadCostFunction.partitionCost(clusterInfo(), clusterBean()).value(2);
-    var broker3ReplicaLoad = loadCostFunction.partitionCost(clusterInfo(), clusterBean()).value(3);
-    // broker1
-    Assertions.assertEquals(
-        11.920690536499023, broker1ReplicaLoad.get(TopicPartition.of("test-1", 0)));
-    Assertions.assertEquals(
-        9.53669548034668, broker1ReplicaLoad.get(TopicPartition.of("test-2", 0)));
-    // broker2
-    Assertions.assertEquals(
-        11.920690536499023, broker2ReplicaLoad.get(TopicPartition.of("test-1", 0)));
-    Assertions.assertEquals(
-        23.8417387008667, broker2ReplicaLoad.get(TopicPartition.of("test-1", 1)));
-    // broker3
-    Assertions.assertEquals(
-        23.8417387008667, broker3ReplicaLoad.get(TopicPartition.of("test-1", 1)));
-    Assertions.assertEquals(
-        9.53669548034668, broker3ReplicaLoad.get(TopicPartition.of("test-2", 0)));
-  }
-
-  @Test
-  void testBrokerCost() {
-    var configuration = Configuration.of(Map.of("metrics.duration", "3"));
-    var loadCostFunction = new ReplicaDiskInCost(configuration);
-    var brokerLoad = loadCostFunction.brokerCost(clusterInfo(), clusterBean()).value();
-    Assertions.assertEquals(21.457386016845703, brokerLoad.get(1));
-    Assertions.assertEquals(35.76242923736572, brokerLoad.get(2));
-    Assertions.assertEquals(33.37843418121338, brokerLoad.get(3));
-  }
-
-  @Test
   void testClusterCost() {
     var configuration = Configuration.of(Map.of("metrics.duration", "3"));
     var loadCostFunction = new ReplicaDiskInCost(configuration);
@@ -105,6 +70,7 @@ class ReplicaDiskInCostTest extends RequireBrokerCluster {
   }
 
   private ClusterInfo clusterInfo() {
+
     ClusterInfo clusterInfo = Mockito.mock(ClusterInfo.class);
     Mockito.when(clusterInfo.nodes())
         .thenReturn(
