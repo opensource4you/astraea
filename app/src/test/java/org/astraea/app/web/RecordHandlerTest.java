@@ -798,7 +798,7 @@ public class RecordHandlerTest extends RequireBrokerCluster {
     // ok, offsets are committed
     Assertions.assertEquals(getRecords.apply(false).records().data.size(), 2);
 
-    // all offsets are committed, so no data get backed.
+    // all offsets are committed, so this group id can't get more data
     Assertions.assertEquals(getRecords.apply(false).records().data.size(), 0);
   }
 
