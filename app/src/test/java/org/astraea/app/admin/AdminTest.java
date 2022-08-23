@@ -16,9 +16,9 @@
  */
 package org.astraea.app.admin;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.jupiter.api.condition.OS.WINDOWS;
 
-import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -849,7 +849,7 @@ public class AdminTest extends RequireBrokerCluster {
               index ->
                   producer
                       .sender()
-                      .key(String.valueOf(index).getBytes(StandardCharsets.UTF_8))
+                      .key(String.valueOf(index).getBytes(UTF_8))
                       .topic(topicName)
                       .run());
       producer.flush();
@@ -1602,6 +1602,37 @@ public class AdminTest extends RequireBrokerCluster {
       // ensure the throttle was removed
       final var value1 = admin.brokers().get(0).value("leader.replication.throttled.rate");
       Assertions.assertTrue(value1.isEmpty());
+    }
+  }
+
+  @Test
+  void testTopicNames() {
+    var bootstrapServers = bootstrapServers();
+    var topicName = Utils.randomString(10);
+    try (var admin = Admin.of(bootstrapServers);
+        var producer = Producer.of(bootstrapServers);
+        var consumer =
+            Consumer.forTopics(Set.of(topicName)).bootstrapServers(bootstrapServers).build()) {
+      // producer and consumer here are used to trigger kafka to create internal topic
+      // __consumer_offsets
+      producer
+          .sender()
+          .topic(topicName)
+          .key("foo".getBytes(UTF_8))
+          .run()
+          .toCompletableFuture()
+          .join();
+      consumer.poll(Duration.ofSeconds(1));
+
+      Assertions.assertTrue(
+          admin.topicNames(true).stream().anyMatch(t -> t.equals("__consumer_offsets")));
+      Assertions.assertEquals(
+          1, admin.topicNames(true).stream().filter(t -> t.equals(topicName)).count());
+
+      Assertions.assertFalse(
+          admin.topicNames(false).stream().anyMatch(t -> t.equals("__consumer_offsets")));
+      Assertions.assertEquals(
+          1, admin.topicNames(false).stream().filter(t -> t.equals(topicName)).count());
     }
   }
 }
