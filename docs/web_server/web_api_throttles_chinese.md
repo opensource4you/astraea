@@ -30,7 +30,6 @@ JSON Response 範例
   - `partition`: 套用 replication 限流的 partition
   - `broker`: 套用 replication 限流的 broker ID
   - `type`: 被套用限流的 log 身份，可以是 `leader` 或 `follower`，如果沒有標記這個欄位，意味著二者皆是
-- 
 
 ```json
 {
