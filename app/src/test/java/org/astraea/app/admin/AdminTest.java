@@ -1190,18 +1190,6 @@ public class AdminTest extends RequireBrokerCluster {
     }
   }
 
-  private String fetchBrokerConfig(int brokerId, String configKey) {
-    try (AdminClient adminClient =
-        AdminClient.create(
-            Map.of(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers()))) {
-      var resource = new ConfigResource(ConfigResource.Type.BROKER, String.valueOf(brokerId));
-      return Utils.packException(() -> adminClient.describeConfigs(List.of(resource)).all().get())
-          .get(resource)
-          .get(configKey)
-          .value();
-    }
-  }
-
   @Test
   void testReplicationThrottler$egress$ingress$dataRate() {
     try (Admin admin = Admin.of(bootstrapServers())) {
@@ -1214,8 +1202,18 @@ public class AdminTest extends RequireBrokerCluster {
       brokerIds()
           .forEach(
               id -> {
-                var leaderValue = fetchBrokerConfig(id, "leader.replication.throttled.rate");
-                var followerValue = fetchBrokerConfig(id, "follower.replication.throttled.rate");
+                var leaderValue =
+                    admin
+                        .brokers()
+                        .get(id)
+                        .value("leader.replication.throttled.rate")
+                        .orElseThrow();
+                var followerValue =
+                    admin
+                        .brokers()
+                        .get(id)
+                        .value("follower.replication.throttled.rate")
+                        .orElseThrow();
 
                 Assertions.assertEquals(
                     DataSize.MiB.of(72), DataSize.Byte.of(Long.parseLong(leaderValue)));
@@ -1242,8 +1240,18 @@ public class AdminTest extends RequireBrokerCluster {
       Map.of(0, rate0, 1, rate1, 2, rate2)
           .forEach(
               (id, rate) -> {
-                var leaderValue = fetchBrokerConfig(id, "leader.replication.throttled.rate");
-                var followerValue = fetchBrokerConfig(id, "follower.replication.throttled.rate");
+                var leaderValue =
+                    admin
+                        .brokers()
+                        .get(id)
+                        .value("leader.replication.throttled.rate")
+                        .orElseThrow();
+                var followerValue =
+                    admin
+                        .brokers()
+                        .get(id)
+                        .value("follower.replication.throttled.rate")
+                        .orElseThrow();
 
                 Assertions.assertEquals(
                     rate.dataSize(), DataSize.Byte.of(Long.parseLong(leaderValue)));
@@ -1550,6 +1558,50 @@ public class AdminTest extends RequireBrokerCluster {
       Assertions.assertTrue(
           fetchFollowerThrottle(topic).stream()
               .noneMatch(log -> log.partition() == 0 && log.brokerId() == 0));
+    }
+  }
+
+  @Test
+  void testClearIngressReplicationThrottle() {
+    try (Admin admin = Admin.of(bootstrapServers())) {
+      // apply throttle
+      var dataRate = DataRate.MiB.of(500).perSecond();
+      admin.replicationThrottler().ingress(dataRate).apply();
+      Utils.sleep(Duration.ofSeconds(1));
+
+      // ensure the throttle was applied
+      final var value0 = admin.brokers().get(0).value("follower.replication.throttled.rate");
+      Assertions.assertEquals((long) dataRate.byteRate(), Long.valueOf(value0.orElseThrow()));
+
+      // clear throttle
+      admin.clearIngressReplicationThrottle(Set.of(0, 1, 2));
+      Utils.sleep(Duration.ofSeconds(1));
+
+      // ensure the throttle was removed
+      final var value1 = admin.brokers().get(0).value("follower.replication.throttled.rate");
+      Assertions.assertTrue(value1.isEmpty());
+    }
+  }
+
+  @Test
+  void testClearEgressReplicationThrottle() {
+    try (Admin admin = Admin.of(bootstrapServers())) {
+      // apply throttle
+      var dataRate = DataRate.MiB.of(500).perSecond();
+      admin.replicationThrottler().egress(dataRate).apply();
+      Utils.sleep(Duration.ofSeconds(1));
+
+      // ensure the throttle was applied
+      final var value0 = admin.brokers().get(0).value("leader.replication.throttled.rate");
+      Assertions.assertEquals((long) dataRate.byteRate(), Long.valueOf(value0.orElseThrow()));
+
+      // clear throttle
+      admin.clearEgressReplicationThrottle(Set.of(0, 1, 2));
+      Utils.sleep(Duration.ofSeconds(1));
+
+      // ensure the throttle was removed
+      final var value1 = admin.brokers().get(0).value("leader.replication.throttled.rate");
+      Assertions.assertTrue(value1.isEmpty());
     }
   }
 }
