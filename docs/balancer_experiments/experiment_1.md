@@ -22,17 +22,16 @@
 2. [測試情境生成](#測試情境生成)：如何產生測試環境的負載分佈
    * [此處敘述 Topic 的 Log 分佈](./resources/experiment_1_allocation.json)。
    * [此處敘述 Topic/Partition 接受的資料量](./resources/experiment_1_produce_loading.json)。
-   * 所有 topic 有套用 ``retention.size=5000000000``。
 3. [Producer 實作](#producer-實作)：敘述測試所使用的 Producer 實作，這個實作的目標是確保資料能穩定地以固定速度輸入。
 4. [硬體和網路環境](#硬體和網路環境)：測試環境的硬體規格和網路拓樸。
-5. [叢集效能資料索取](叢集效能資料索取)：我們如何索取和觀察效能資訊。
+5. [叢集效能資料索取](#叢集效能資料索取)：我們如何索取和觀察效能資訊。
 
 ### 叢集軟體環境
 
 這個實驗中包含
 
 * 4 個 Apache Kafka Broker 節點（version 3.1.0）。
-  * 各個節點包含 3 個 log dir，每個有 `900GB` 空間的 SSD
+  * 各個節點包含 3 個 log dir，每個有 `844GB` 空間的 SSD
   * `num.replica.fetchers=5`
   * `num.io.threads=80`
   * `num.network.threads=80`
@@ -40,6 +39,47 @@
   * `log.cleaner.threads=20`
 * 1 個 Zookeeper 節點（version 3.7.0）。
 * 98 個 Producer Instance 負責讀寫資料。
+
+建立 `/path/to/balancer.properties` 檔案，內容為 Astraea balancer 的參數
+
+```
+bootstrap.servers=192.168.103.177:25655,192.168.103.178:25655,192.168.103.179:25655,192.168.103.180:25655
+jmx.servers=0@service:jmx:rmi://192.168.103.177:16926/jndi/rmi://192.168.103.177:16926/jmxrmi,1@service:jmx:rmi://192.168.103.178:16926/jndi/rmi://192.168.103.178:16926/jmxrmi,2@service:jmx:rmi://192.168.103.179:16926/jndi/rmi://192.168.103.179:16926/jmxrmi,3@service:jmx:rmi://192.168.103.180:16926/jndi/rmi://192.168.103.180:16926/jmxrmi
+metrics.warm.up.count=5
+metrics.scraping.interval.ms=10000
+balancer.plan.searching.iteration=10000
+shuffle.plan.generator.shuffle.min=3
+shuffle.plan.generator.shuffle.max=30
+balancer.cost.functions=
+brokerBandwidthConfig=/path/to//broker.bandwidth.properties
+brokerCapacityConfig=/path/to/broker.capacity.properties
+```
+
+另外 `/path/to/broker.bandwidth.properties` 內容如下，其記錄每個節點的流量（未來會把這個手動輸入資訊的行為移除）
+
+```
+broker.0=1280
+broker.1=1280
+broker.2=1280
+broker.3=1280
+```
+
+而 `/path/to/broker.capacity.properties` 內容如下，其記錄每個 log dir 的容量（未來會把這個手動輸入資訊的行為移除）
+
+```
+broker.0./tmp/log-folder-0=889000000
+broker.0./tmp/log-folder-1=889000000
+broker.0./tmp/log-folder-2=889000000
+broker.1./tmp/log-folder-0=889000000
+broker.1./tmp/log-folder-1=889000000
+broker.1./tmp/log-folder-2=889000000
+broker.2./tmp/log-folder-0=889000000
+broker.2./tmp/log-folder-1=889000000
+broker.2./tmp/log-folder-2=889000000
+broker.3./tmp/log-folder-0=889000000
+broker.3./tmp/log-folder-1=889000000
+broker.3./tmp/log-folder-2=889000000
+```
 
 ### 測試情境生成
 
@@ -82,8 +122,6 @@
 ![](./pictures/experiment_1_statistics_2.svg)
 
 上圖是在測試環境中，各個 Kafka 節點預計會承受的負載量。由於 Apache Kafka 建立 Topic 時的負載分配方法為以確保 Log 數量平均分配的方式在分派負載，在這個沒有考慮到 Partition 間可能存在 Skewed Loading 的情境，可能會出現這種負載不平衡的現象。
-
-Log 的大小會明顯左右負載平衡所需的時間，在這裡我們對每個 Topic 套用了 5 GB 的 `retention.size`，每個 Topic 儲存超過這個大小的資料將會被清除，這個設定會間接影響負載平衡的搬移成本上限。
 
 ### Producer 實作
 
