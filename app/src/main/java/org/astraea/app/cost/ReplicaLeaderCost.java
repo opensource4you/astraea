@@ -45,7 +45,15 @@ public class ReplicaLeaderCost implements HasBrokerCost, HasClusterCost {
     return () -> dispersion.calculate(brokerScore.values());
   }
 
-  Map<Integer, Integer> leaderCount(ClusterInfo ignored, ClusterBean clusterBean) {
+  private static Map<Integer, Integer> leaderCount(
+      ClusterInfo clusterInfo, ClusterBean clusterBean) {
+    var leaderCount = leaderCount(clusterBean);
+    // if there is no available metrics, we re-count the leaders based on cluster information
+    if (leaderCount.values().stream().mapToInt(i -> i).sum() == 0) return leaderCount(clusterInfo);
+    return leaderCount;
+  }
+
+  static Map<Integer, Integer> leaderCount(ClusterBean clusterBean) {
     return clusterBean.all().entrySet().stream()
         .collect(
             Collectors.toMap(
@@ -60,26 +68,17 @@ public class ReplicaLeaderCost implements HasBrokerCost, HasClusterCost {
                         .sum()));
   }
 
+  static Map<Integer, Integer> leaderCount(ClusterInfo clusterInfo) {
+    return clusterInfo.topics().stream()
+        .flatMap(t -> clusterInfo.availableReplicaLeaders(t).stream())
+        .collect(Collectors.groupingBy(r -> r.nodeInfo().id()))
+        .entrySet()
+        .stream()
+        .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, e -> e.getValue().size()));
+  }
+
   @Override
   public Optional<Fetcher> fetcher() {
     return Optional.of(c -> List.of(ServerMetrics.ReplicaManager.LEADER_COUNT.fetch(c)));
-  }
-
-  public static class NoMetrics extends ReplicaLeaderCost {
-
-    @Override
-    Map<Integer, Integer> leaderCount(ClusterInfo clusterInfo, ClusterBean ignored) {
-      return clusterInfo.topics().stream()
-          .flatMap(t -> clusterInfo.availableReplicaLeaders(t).stream())
-          .collect(Collectors.groupingBy(r -> r.nodeInfo().id()))
-          .entrySet()
-          .stream()
-          .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, e -> e.getValue().size()));
-    }
-
-    @Override
-    public Optional<Fetcher> fetcher() {
-      return Optional.empty();
-    }
   }
 }

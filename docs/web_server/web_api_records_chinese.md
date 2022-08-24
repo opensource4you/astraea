@@ -111,6 +111,7 @@ GET /records/{topic}
 | 名稱                    | 說明                                                                                                           | 預設值    |
 |-----------------------|--------------------------------------------------------------------------------------------------------------|--------|
 | partition             | (選填) 指定要讀取之 partition                                                                                        | 無      |
+| groupId               | (選填) 指定 consumer group id，注意若同時有指定 partition，則此參數不會生效                                                        | 無      |
 | keyDeserializer       | (選填) key deserializer                                                                                        | string |
 | valueDeserializer     | (選填) value deserializer                                                                                      | string |
 | limit                 | (選填) 回傳資料筆數上限，注意此僅為一建議值，您仍有可能取得大於此值之資料筆數                                                                     | 1      |
@@ -121,7 +122,10 @@ GET /records/{topic}
 
 - keyDeserializer/valueDeserializer 可選擇 `bytearray`/`string`/`long`/`integer`/`float`/`double`
 - 若 deserializer 選擇 `bytearray`，回傳的 key/value 值為經 base64 encoding 後之字串
-- distanceFromLatest / distanceFromBeginning / seekTo 僅能從三者中挑選一種使用。若三者都不填寫，預設行為與 consumer `auto.offset.reset=latest` 一致
+- distanceFromLatest / distanceFromBeginning / seekTo 僅能從三者中挑選一種使用。若三者都不填寫，預設行為與
+  consumer `auto.offset.reset=latest` 一致
+- consumer 會在傳送資料至客戶端後再提交 offset，注意過程若發生任何錯誤(例:傳送失敗)，或者使用者在請求時指定`partition`
+  ，則不會提交 offset。
 
 以下範例均假設已經在僅有一個 partition 之 topic `test` 並插入 10 筆資料，key 型別為 string, value 型別為 integer，key/value 值
 從第一筆開始為 `key: "test0", value: 0` 至第十筆為 `key: test9, value: 9`
