@@ -144,7 +144,7 @@ interface Channel {
           var allPaths =
               Arrays.stream(uri.getPath().split("/"))
                   .map(String::trim)
-                  .filter(s -> !s.isEmpty() && !s.isBlank())
+                  .filter(s -> !s.isEmpty())
                   .collect(Collectors.toUnmodifiableList());
           // form: /resource/target
           if (allPaths.size() == 1) return Optional.empty();
