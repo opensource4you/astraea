@@ -35,7 +35,7 @@ import org.astraea.app.admin.TopicPartition;
 import org.astraea.app.admin.TopicPartitionReplica;
 import org.astraea.app.metrics.HasBeanObject;
 import org.astraea.app.metrics.broker.HasCount;
-import org.astraea.app.metrics.broker.HasValue;
+import org.astraea.app.metrics.broker.HasGauge;
 import org.astraea.app.metrics.broker.LogMetrics;
 import org.astraea.app.metrics.broker.ServerMetrics;
 import org.astraea.app.metrics.collector.Fetcher;
@@ -304,7 +304,7 @@ public class ResourceCheckCost implements HasMoveCost {
             .filter(
                 hasBeanObject -> {
                   if (brokerLevel.get()) return filterBean(hasBeanObject, metricName);
-                  return hasBeanObject instanceof HasValue
+                  return hasBeanObject instanceof HasGauge
                       && hasBeanObject.beanObject().properties().get("type").equals("Log")
                       && hasBeanObject.beanObject().properties().get("name").equals(metricName);
                 })
@@ -328,7 +328,7 @@ public class ResourceCheckCost implements HasMoveCost {
               / 1024.0;
     else {
       dataRate =
-          (((HasValue) latestSize).value() - ((HasValue) windowSize).value())
+          (((HasGauge) latestSize).value() - ((HasGauge) windowSize).value())
               / ((double) (latestSize.createdTimestamp() - windowSize.createdTimestamp()) / 1000)
               / 1024.0
               / 1024.0;

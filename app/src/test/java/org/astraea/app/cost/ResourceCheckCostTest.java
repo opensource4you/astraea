@@ -307,9 +307,9 @@ class ResourceCheckCostTest extends RequireBrokerCluster {
     return clusterInfo;
   }
 
-  static LogMetrics.Log.Meter fakePartitionBeanObject(
+  static LogMetrics.Log.Gauge fakePartitionBeanObject(
       String type, String name, String topic, String partition, long size, long time) {
-    return new LogMetrics.Log.Meter(
+    return new LogMetrics.Log.Gauge(
         new BeanObject(
             "kafka.log",
             Map.of("name", name, "type", type, "topic", topic, "partition", partition),
