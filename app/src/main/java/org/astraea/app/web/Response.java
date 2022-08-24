@@ -55,6 +55,8 @@ interface Response {
   }
 
   default String json() {
+    // TODO: manage the customized serialize/deserialize logic, see
+    // https://github.com/skiptests/astraea/issues/626
     return new GsonBuilder()
         .registerTypeAdapter(Optional.class, new OptionalSerializer())
         .registerTypeAdapter(OptionalInt.class, new OptionalIntSerializer())

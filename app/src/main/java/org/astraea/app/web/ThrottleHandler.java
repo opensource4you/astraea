@@ -96,7 +96,8 @@ public class ThrottleHandler implements Handler {
   private Set<TopicPartitionReplica> toReplicaSet(String topic, String throttledReplicas) {
     if (throttledReplicas.isEmpty()) return Set.of();
 
-    // TODO: support for wildcard throttle might be implemented in the future.
+    // TODO: support for wildcard throttle might be implemented in the future, see
+    // https://github.com/skiptests/astraea/issues/625
     if (throttledReplicas.equals("*"))
       throw new UnsupportedOperationException("This API doesn't support wildcard throttle");
 
