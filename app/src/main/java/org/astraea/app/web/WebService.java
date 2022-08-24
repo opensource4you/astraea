@@ -50,6 +50,7 @@ public class WebService {
         "/records", to(new RecordHandler(Admin.of(arg.configs()), arg.bootstrapServers())));
     server.createContext("/reassignments", to(new ReassignmentHandler(Admin.of(arg.configs()))));
     server.createContext("/balancer", to(new BalancerHandler(Admin.of(arg.configs()))));
+    server.createContext("/throttles", to(new ThrottleHandler(Admin.of(arg.configs()))));
     server.start();
   }
 
