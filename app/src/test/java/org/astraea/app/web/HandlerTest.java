@@ -86,4 +86,19 @@ public class HandlerTest {
     handler.handle(he);
     Mockito.verify(he).sendResponseHeaders(200, 0);
   }
+
+  @Test
+  void testOnComplete() {
+    var response = Mockito.mock(Response.class);
+    var exception = new IllegalStateException("hello");
+    Mockito.when(response.json()).thenThrow(exception);
+    Handler handler = (paths, queries) -> response;
+
+    var exchange = Mockito.mock(HttpExchange.class);
+    Mockito.when(exchange.getRequestURI()).thenReturn(URI.create("http://localhost:8888/abc"));
+    Mockito.when(exchange.getRequestMethod()).thenReturn("get");
+
+    handler.handle(exchange);
+    Mockito.verify(response).onComplete(exception);
+  }
 }

@@ -21,6 +21,7 @@ import static java.util.stream.Collectors.toList;
 import static org.astraea.app.web.RecordHandler.ASYNC;
 import static org.astraea.app.web.RecordHandler.DISTANCE_FROM_BEGINNING;
 import static org.astraea.app.web.RecordHandler.DISTANCE_FROM_LATEST;
+import static org.astraea.app.web.RecordHandler.GROUP_ID;
 import static org.astraea.app.web.RecordHandler.KEY_DESERIALIZER;
 import static org.astraea.app.web.RecordHandler.LIMIT;
 import static org.astraea.app.web.RecordHandler.OFFSET;
@@ -42,6 +43,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -307,9 +309,13 @@ public class RecordHandlerTest extends RequireBrokerCluster {
                 Optional.of(topic),
                 Map.of(DISTANCE_FROM_LATEST, "2", VALUE_DESERIALIZER, "integer")));
 
-    Assertions.assertEquals(2, response.data.size());
+    Assertions.assertEquals(2, response.records().data.size());
     Assertions.assertEquals(
-        List.of(8, 9), response.data.stream().map(record -> record.value).collect(toList()));
+        List.of(8, 9),
+        response.records().data.stream().map(record -> record.value).collect(toList()));
+
+    // close consumer
+    response.onComplete(null);
   }
 
   @Test
@@ -325,9 +331,13 @@ public class RecordHandlerTest extends RequireBrokerCluster {
                 Optional.of(topic),
                 Map.of(DISTANCE_FROM_BEGINNING, "8", VALUE_DESERIALIZER, "integer")));
 
-    Assertions.assertEquals(2, response.data.size());
+    Assertions.assertEquals(2, response.records().data.size());
     Assertions.assertEquals(
-        List.of(8, 9), response.data.stream().map(record -> record.value).collect(toList()));
+        List.of(8, 9),
+        response.records().data.stream().map(record -> record.value).collect(toList()));
+
+    // close consumer
+    response.onComplete(null);
   }
 
   @Test
@@ -341,9 +351,13 @@ public class RecordHandlerTest extends RequireBrokerCluster {
             RecordHandler.Records.class,
             handler.get(Optional.of(topic), Map.of(SEEK_TO, "3", VALUE_DESERIALIZER, "integer")));
 
-    Assertions.assertEquals(2, response.data.size());
+    Assertions.assertEquals(2, response.records().data.size());
     Assertions.assertEquals(
-        List.of(3, 4), response.data.stream().map(record -> record.value).collect(toList()));
+        List.of(3, 4),
+        response.records().data.stream().map(record -> record.value).collect(toList()));
+
+    // close consumer
+    response.onComplete(null);
   }
 
   @Test
@@ -375,7 +389,14 @@ public class RecordHandlerTest extends RequireBrokerCluster {
             handler.get(Optional.of(topic), Map.of(DISTANCE_FROM_BEGINNING, "1", PARTITION, "1")));
 
     Assertions.assertTrue(
-        response.data.stream().map(r -> r.partition).filter(p -> p != 1).findAny().isEmpty());
+        response.records().data.stream()
+            .map(r -> r.partition)
+            .filter(p -> p != 1)
+            .findAny()
+            .isEmpty());
+
+    // close consumer
+    response.onComplete(null);
   }
 
   @Test
@@ -392,10 +413,13 @@ public class RecordHandlerTest extends RequireBrokerCluster {
                 Map.of(DISTANCE_FROM_BEGINNING, "2", LIMIT, "3", VALUE_DESERIALIZER, "integer")));
 
     // limit is just a recommended size here, we might get more records than limit
-    Assertions.assertEquals(8, response.data.size());
+    Assertions.assertEquals(8, response.records().data.size());
     Assertions.assertEquals(
         List.of(2, 3, 4, 5, 6, 7, 8, 9),
-        response.data.stream().map(record -> record.value).collect(toList()));
+        response.records().data.stream().map(record -> record.value).collect(toList()));
+
+    // close consumer
+    response.onComplete(null);
   }
 
   @ParameterizedTest
@@ -414,7 +438,7 @@ public class RecordHandlerTest extends RequireBrokerCluster {
             handler.get(
                 Optional.of(topic),
                 Map.of(DISTANCE_FROM_LATEST, "1", VALUE_DESERIALIZER, valueDeserializer)));
-    var records = List.copyOf(response.data);
+    var records = List.copyOf(response.records().data);
     Assertions.assertEquals(1, records.size());
 
     if (valueDeserializer.equals("bytearray")) {
@@ -422,6 +446,9 @@ public class RecordHandlerTest extends RequireBrokerCluster {
     } else {
       Assertions.assertEquals(expectedValue, records.get(0).value);
     }
+
+    // close consumer
+    response.onComplete(null);
   }
 
   private static Stream<Arguments> forTestDeserializer() {
@@ -474,8 +501,8 @@ public class RecordHandlerTest extends RequireBrokerCluster {
                     "string",
                     VALUE_DESERIALIZER,
                     "integer")));
-    Assertions.assertEquals(1, response.data.size());
-    var recordDto = response.data.iterator().next();
+    Assertions.assertEquals(1, response.records().data.size());
+    var recordDto = response.records().data.iterator().next();
     Assertions.assertEquals(topic, recordDto.topic);
     Assertions.assertEquals(0, recordDto.partition);
     Assertions.assertEquals(0, recordDto.offset);
@@ -490,6 +517,9 @@ public class RecordHandlerTest extends RequireBrokerCluster {
     var headerDto = recordDto.headers.iterator().next();
     Assertions.assertEquals("a", headerDto.key);
     Assertions.assertArrayEquals("b".getBytes(UTF_8), headerDto.value);
+
+    // close consumer
+    response.onComplete(null);
   }
 
   @Test
@@ -541,6 +571,9 @@ public class RecordHandlerTest extends RequireBrokerCluster {
             + "\"leaderEpoch\":0"
             + "}]}",
         response.json());
+
+    // close consumer
+    response.onComplete(null);
   }
 
   @Test
@@ -598,7 +631,7 @@ public class RecordHandlerTest extends RequireBrokerCluster {
                     "integer",
                     PARTITION,
                     "0")));
-    var record = records.data.iterator().next();
+    var record = records.records().data.iterator().next();
     Assertions.assertEquals(topic, record.topic);
     Assertions.assertEquals(0, record.partition);
     Assertions.assertEquals(0, record.offset);
@@ -609,6 +642,9 @@ public class RecordHandlerTest extends RequireBrokerCluster {
     Assertions.assertEquals(100, record.value);
     Assertions.assertEquals(currentTimestamp, record.timestamp);
     Assertions.assertEquals(List.of(), record.headers);
+
+    // close consumer
+    records.onComplete(null);
   }
 
   @Test
@@ -616,9 +652,10 @@ public class RecordHandlerTest extends RequireBrokerCluster {
     Assertions.assertThrows(
         IllegalArgumentException.class,
         () -> getRecordHandler().get(Optional.of("test"), Map.of(TIMEOUT, "foo")));
-    Assertions.assertInstanceOf(
-        RecordHandler.Records.class,
-        getRecordHandler().get(Optional.of("test"), Map.of(TIMEOUT, "10s")));
+    var response = getRecordHandler().get(Optional.of("test"), Map.of(TIMEOUT, "10s"));
+    Assertions.assertInstanceOf(RecordHandler.Records.class, response);
+    // close consumer
+    response.onComplete(null);
   }
 
   @Test
@@ -709,6 +746,82 @@ public class RecordHandlerTest extends RequireBrokerCluster {
       Assertions.assertEquals(3, offsets.get(TopicPartition.of(topicName, 1)).earliest());
       Assertions.assertEquals(0, offsets.get(TopicPartition.of(topicName, 2)).earliest());
     }
+  }
+
+  @Test
+  void testGetRecordsCommitOffsetWithGroupId() {
+    var topic = Utils.randomString(10);
+    var groupId = Utils.randomString(10);
+    var recordHandler = getRecordHandler();
+
+    Supplier<RecordHandler.Records> getRecords =
+        () ->
+            Assertions.assertInstanceOf(
+                RecordHandler.Records.class,
+                recordHandler.get(
+                    Optional.of(topic), Map.of(GROUP_ID, groupId, VALUE_DESERIALIZER, "integer")));
+
+    // send this request to register consumer group
+    var response = getRecords.get();
+    Assertions.assertEquals(response.records().data.size(), 0);
+    Handler.handleResponse((ignored) -> {}, response);
+
+    produceData(topic, 5);
+    response = getRecords.get();
+    Assertions.assertEquals(response.records().data.size(), 5);
+    Handler.handleResponse((ignored) -> {}, response);
+
+    produceData(topic, 2);
+    response = getRecords.get();
+    Assertions.assertEquals(response.records().data.size(), 2);
+    // throw error here to fire onComplete with error
+    Handler.handleResponse(
+        (ignored) -> {
+          throw new RuntimeException();
+        },
+        response);
+
+    // retry get records again, and get data that was supposed to send back last time
+    response = getRecords.get();
+    Assertions.assertEquals(response.records().data.size(), 2);
+    Handler.handleResponse((ignored) -> {}, response);
+  }
+
+  // test consumer in different modes, subscribe and assignment
+  private static Stream<Arguments> forTestGetRecordsCloseConsumer() {
+    return Stream.of(
+        arguments(Map.of(GROUP_ID, Utils.randomString(10))), arguments(Map.of(PARTITION, "0")));
+  }
+
+  @ParameterizedTest
+  @MethodSource("forTestGetRecordsCloseConsumer")
+  void testGetRecordsCloseConsumer(Map<String, String> args) {
+    var topic = Utils.randomString(10);
+    var recordHandler = getRecordHandler();
+
+    var response =
+        Assertions.assertInstanceOf(
+            RecordHandler.Records.class, recordHandler.get(Optional.of(topic), args));
+    Handler.handleResponse((ignored) -> {}, response);
+    @SuppressWarnings("resource") // consumer already closed in Response#onComplete
+    var error =
+        Assertions.assertThrows(
+            IllegalStateException.class, () -> response.consumer().poll(Duration.ofSeconds(1)));
+    Assertions.assertEquals(error.getMessage(), "This consumer has already been closed.");
+
+    var response2 =
+        Assertions.assertInstanceOf(
+            RecordHandler.Records.class, recordHandler.get(Optional.of(topic), args));
+    Handler.handleResponse(
+        (ignored) -> {
+          throw new RuntimeException();
+        },
+        response2);
+    @SuppressWarnings("resource") // consumer already closed in Response#onComplete
+    var error2 =
+        Assertions.assertThrows(
+            IllegalStateException.class, () -> response2.consumer().poll(Duration.ofSeconds(1)));
+    Assertions.assertEquals(error2.getMessage(), "This consumer has already been closed.");
   }
 
   private RecordHandler getRecordHandler() {

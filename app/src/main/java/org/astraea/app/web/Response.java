@@ -53,6 +53,14 @@ interface Response {
     return new Gson().toJson(this);
   }
 
+  /**
+   * Callback fired when the response is sent, regardless of success or failure.
+   *
+   * @param error that cause sending response failed, will be null when sending response is
+   *     successful.
+   */
+  default void onComplete(Throwable error) {}
+
   class ResponseImpl implements Response {
     final int code;
     final String message;
