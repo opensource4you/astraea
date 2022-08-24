@@ -155,7 +155,7 @@ JSON Response
 
 ```json
 {
-  "data": [
+  "records": [
     {
       "topic": "test",
       "partition": 0,
@@ -198,7 +198,7 @@ JSON Response
 
 ```json
 {
-  "data": [
+  "records": [
     {
       "topic": "test",
       "partition": 0,
@@ -241,7 +241,7 @@ JSON Response
 
 ```json
 {
-  "data": [
+  "records": [
     {
       "topic": "test",
       "partition": 0,

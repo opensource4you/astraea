@@ -17,7 +17,6 @@
 package org.astraea.app.web;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -40,19 +39,22 @@ public class GroupHandler implements Handler {
   }
 
   @Override
-  public Response delete(String groupId, Map<String, String> queries) {
-
+  public Response delete(Channel channel) {
+    if (channel.target().isEmpty()) return Response.NOT_FOUND;
+    var groupId = channel.target().get();
     var shouldDeleteGroup =
-        Optional.ofNullable(queries.get(GROUP_KEY)).filter(Boolean::parseBoolean).isPresent();
+        Optional.ofNullable(channel.queries().get(GROUP_KEY))
+            .filter(Boolean::parseBoolean)
+            .isPresent();
     if (shouldDeleteGroup) {
       admin.removeAllMembers(groupId);
       admin.removeGroup(groupId);
       return Response.OK;
     }
 
-    var shouldDeleteInstance = Objects.nonNull(queries.get(INSTANCE_KEY));
+    var shouldDeleteInstance = Objects.nonNull(channel.queries().get(INSTANCE_KEY));
     if (shouldDeleteInstance) {
-      var groupInstanceId = queries.get(INSTANCE_KEY);
+      var groupInstanceId = channel.queries().get(INSTANCE_KEY);
       var instanceExisted =
           admin.consumerGroups(Set.of(groupId)).get(groupId).activeMembers().stream()
               .anyMatch(x -> x.groupInstanceId().filter(groupInstanceId::equals).isPresent());
@@ -64,10 +66,12 @@ public class GroupHandler implements Handler {
   }
 
   @Override
-  public Response get(Optional<String> target, Map<String, String> queries) {
+  public Response get(Channel channel) {
     var topics =
-        queries.containsKey(TOPIC_KEY) ? Set.of(queries.get(TOPIC_KEY)) : admin.topicNames();
-    var consumerGroups = admin.consumerGroups(groupIds(target));
+        channel.queries().containsKey(TOPIC_KEY)
+            ? Set.of(channel.queries().get(TOPIC_KEY))
+            : admin.topicNames();
+    var consumerGroups = admin.consumerGroups(groupIds(channel.target()));
     var offsets = admin.offsets(topics);
 
     var groups =
@@ -76,7 +80,7 @@ public class GroupHandler implements Handler {
             // offsets related to specify topic
             .filter(
                 idAndGroup ->
-                    !queries.containsKey(TOPIC_KEY)
+                    !channel.queries().containsKey(TOPIC_KEY)
                         || idAndGroup.getValue().consumeProgress().keySet().stream()
                             .map(TopicPartition::topic)
                             .anyMatch(topics::contains))
@@ -119,7 +123,7 @@ public class GroupHandler implements Handler {
                             .collect(Collectors.toUnmodifiableList())))
             .collect(Collectors.toUnmodifiableList());
 
-    if (target.isPresent() && groups.size() == 1) return groups.get(0);
+    if (channel.target().isPresent() && groups.size() == 1) return groups.get(0);
     return new Groups(groups);
   }
 
