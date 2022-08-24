@@ -16,9 +16,11 @@
  */
 package org.astraea.app.web;
 
+import com.sun.net.httpserver.Headers;
 import com.sun.net.httpserver.HttpExchange;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.net.URI;
 import java.util.Map;
 import java.util.Optional;
@@ -30,13 +32,8 @@ public class ChannelTest {
 
   @Test
   void testParse() throws IOException {
-    var inputStream = Mockito.mock(InputStream.class);
-    Mockito.when(inputStream.readAllBytes()).thenReturn(new byte[0]);
-    var exchange = Mockito.mock(HttpExchange.class);
-    Mockito.when(exchange.getRequestURI())
-        .thenReturn(URI.create("http://localhost:11111/abc/obj?a=b&c=d"));
-    Mockito.when(exchange.getRequestMethod()).thenReturn("get");
-    Mockito.when(exchange.getRequestBody()).thenReturn(inputStream);
+    var exchange =
+        mock(Channel.Type.GET, URI.create("http://localhost:11111/abc/obj?a=b&c=d"), new byte[0]);
     var channel = Channel.of(exchange);
     Assertions.assertEquals(Channel.Type.GET, channel.type());
     Assertions.assertEquals(Optional.of("obj"), channel.target());
@@ -46,13 +43,8 @@ public class ChannelTest {
 
   @Test
   void testIncorrectTarget() throws IOException {
-    var inputStream = Mockito.mock(InputStream.class);
-    Mockito.when(inputStream.readAllBytes()).thenReturn(new byte[0]);
-    var exchange = Mockito.mock(HttpExchange.class);
-    Mockito.when(exchange.getRequestURI())
-        .thenReturn(URI.create("http://localhost:11111/abc/obj/incorrect"));
-    Mockito.when(exchange.getRequestMethod()).thenReturn("get");
-    Mockito.when(exchange.getRequestBody()).thenReturn(inputStream);
+    var exchange =
+        mock(Channel.Type.GET, URI.create("http://localhost:11111/abc/obj/incorrect"), new byte[0]);
     Assertions.assertThrows(IllegalArgumentException.class, () -> Channel.of(exchange));
   }
 
@@ -69,5 +61,25 @@ public class ChannelTest {
     var response = Mockito.mock(Response.class);
     channel.send(response);
     Mockito.verify(response).onComplete(exception);
+  }
+
+  @Test
+  void testNoResponseBody() throws IOException {
+    var he = mock(Channel.Type.GET, URI.create("http://localhost:11111/abc/obj"), new byte[0]);
+    var channel = Channel.of(he);
+    channel.send(Response.OK);
+    Mockito.verify(he).sendResponseHeaders(200, 0);
+  }
+
+  private static HttpExchange mock(Channel.Type type, URI uri, byte[] input) throws IOException {
+    var he = Mockito.mock(HttpExchange.class);
+    Mockito.when(he.getRequestMethod()).thenReturn(type.name());
+    Mockito.when(he.getRequestURI()).thenReturn(uri);
+    Mockito.when(he.getResponseHeaders()).thenReturn(Mockito.mock(Headers.class));
+    var inputStream = Mockito.mock(InputStream.class);
+    Mockito.when(inputStream.readAllBytes()).thenReturn(input);
+    Mockito.when(he.getRequestBody()).thenReturn(inputStream);
+    Mockito.when(he.getResponseBody()).thenReturn(Mockito.mock(OutputStream.class));
+    return he;
   }
 }
