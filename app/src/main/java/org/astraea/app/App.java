@@ -24,7 +24,7 @@ import java.util.Map;
 import org.astraea.app.admin.ReplicaSyncingMonitor;
 import org.astraea.app.automation.Automation;
 import org.astraea.app.balancer.BalanceProcessDemo;
-import org.astraea.app.balancer.Balancer;
+import org.astraea.app.balancer.BalancerMain;
 import org.astraea.app.metrics.MetricExplorer;
 import org.astraea.app.performance.Performance;
 import org.astraea.app.web.WebService;
@@ -38,7 +38,7 @@ public class App {
           "automation", Automation.class,
           "web", WebService.class,
           "balance-demo", BalanceProcessDemo.class,
-          "balancer", Balancer.class);
+          "balancer", BalancerMain.class);
 
   static void execute(Map<String, Class<?>> mains, List<String> args) throws Throwable {
 
