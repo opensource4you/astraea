@@ -22,7 +22,7 @@ import org.astraea.app.partitioner.Configuration;
 
 /**
  * It is meaningless to implement this interface. Instead, we should implement interfaces like
- * {@link HasBrokerCost} ,{@link HasPartitionCost} or {@link HasPartitionCost}.
+ * {@link HasBrokerCost} ,{@link HasClusterCost}.
  *
  * <p>Constructors in CostFunction can only take no or only one parameter {@link Configuration}, ex.
  * Constructor({@link Configuration} configuration) or Constructor()
