@@ -69,9 +69,9 @@ public class BalancerExperimentMain {
                     .map(Class::getName)
                     .collect(Collectors.joining(",")),
                 "brokerBandwidthConfig",
-                "/home/sean/Documents/kafka_2.13-3.0.0/brokerBandwith.properties",
+                "/home/garyparrot/balancer/broker.bandwidth.properties",
                 "brokerCapacityConfig",
-                "/home/sean/Documents/kafka_2.13-3.0.0/brokerCapacity.properties"));
+                "/home/garyparrot/balancer/broker.capacity.properties"));
 
     BalancerMain.execute(config);
   }
