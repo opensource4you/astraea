@@ -20,7 +20,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.Map;
-import java.util.Optional;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
@@ -39,10 +38,10 @@ class PipelineHandler implements Handler {
   }
 
   @Override
-  public Response get(Optional<String> target, Map<String, String> queries) {
+  public Response get(Channel channel) {
     var tps =
         topicPartitions(admin).stream()
-            .filter(filter(queries))
+            .filter(filter(channel.queries()))
             .collect(Collectors.toUnmodifiableList());
     return new TopicPartitions(tps);
   }

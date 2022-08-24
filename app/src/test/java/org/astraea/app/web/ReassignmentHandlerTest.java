@@ -17,8 +17,6 @@
 package org.astraea.app.web;
 
 import java.time.Duration;
-import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import org.astraea.app.admin.Admin;
 import org.astraea.app.admin.TopicPartition;
@@ -52,10 +50,11 @@ public class ReassignmentHandlerTest extends RequireBrokerCluster {
               ReassignmentHandler.TO_KEY,
               nextBroker);
 
-      Assertions.assertEquals(Response.ACCEPT, handler.post(PostRequest.of(body)));
+      Assertions.assertEquals(
+          Response.ACCEPT, handler.post(Channel.ofRequest(PostRequest.of(body))));
 
       Utils.sleep(Duration.ofSeconds(2));
-      var reassignments = handler.get(Optional.of(topicName), Map.of());
+      var reassignments = handler.get(Channel.EMPTY);
       // the reassignment should be completed
       Assertions.assertEquals(0, reassignments.reassignments.size());
 
@@ -96,10 +95,11 @@ public class ReassignmentHandlerTest extends RequireBrokerCluster {
               ReassignmentHandler.TO_KEY,
               nextPath);
 
-      Assertions.assertEquals(Response.ACCEPT, handler.post(PostRequest.of(body)));
+      Assertions.assertEquals(
+          Response.ACCEPT, handler.post(Channel.ofRequest(PostRequest.of(body))));
 
       Utils.sleep(Duration.ofSeconds(2));
-      var reassignments = handler.get(Optional.of(topicName), Map.of());
+      var reassignments = handler.get(Channel.ofTarget(topicName));
       // the reassignment should be completed
       Assertions.assertEquals(0, reassignments.reassignments.size());
 
@@ -118,7 +118,8 @@ public class ReassignmentHandlerTest extends RequireBrokerCluster {
       Utils.sleep(Duration.ofSeconds(3));
       var body = "{\"plans\": []}";
 
-      Assertions.assertEquals(Response.BAD_REQUEST, handler.post(PostRequest.of(body)));
+      Assertions.assertEquals(
+          Response.BAD_REQUEST, handler.post(Channel.ofRequest(PostRequest.of(body))));
     }
   }
 }

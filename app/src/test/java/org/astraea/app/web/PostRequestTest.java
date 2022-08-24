@@ -16,10 +16,6 @@
  */
 package org.astraea.app.web;
 
-import com.sun.net.httpserver.HttpExchange;
-import java.io.ByteArrayInputStream;
-import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
@@ -27,18 +23,12 @@ import java.util.Objects;
 import java.util.Optional;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mockito;
 
 public class PostRequestTest {
 
   @Test
-  void testParseHttpExchange() throws IOException {
-    var input =
-        new ByteArrayInputStream("{\"a\":\"b\",\"c\":123}".getBytes(StandardCharsets.UTF_8));
-    var exchange = Mockito.mock(HttpExchange.class);
-    Mockito.when(exchange.getRequestBody()).thenReturn(input);
-
-    var request = PostRequest.of(exchange);
+  void testParseHttpExchange() {
+    var request = PostRequest.of("{\"a\":\"b\",\"c\":123}");
     Assertions.assertEquals(2, request.raw().size());
     Assertions.assertEquals("b", request.raw().get("a"));
     Assertions.assertEquals(123, request.intValue("c"));
@@ -68,56 +58,33 @@ public class PostRequestTest {
   }
 
   @Test
-  void testStringArray() throws IOException {
-    var input =
-        new ByteArrayInputStream(
-            "{\"a\":\"b\",\"c\":[\"1\",\"2\"]}".getBytes(StandardCharsets.UTF_8));
-    var exchange = Mockito.mock(HttpExchange.class);
-    Mockito.when(exchange.getRequestBody()).thenReturn(input);
-
-    var request = PostRequest.of(exchange);
+  void testStringArray() {
+    var request = PostRequest.of("{\"a\":\"b\",\"c\":[\"1\",\"2\"]}");
     Assertions.assertEquals(2, request.values("c").size());
     Assertions.assertEquals("1", request.values("c").get(0));
     Assertions.assertEquals("2", request.values("c").get(1));
   }
 
   @Test
-  void testIntegerArray() throws IOException {
-    var input =
-        new ByteArrayInputStream("{\"a\":\"b\",\"c\":[1,2]}".getBytes(StandardCharsets.UTF_8));
-    var exchange = Mockito.mock(HttpExchange.class);
-    Mockito.when(exchange.getRequestBody()).thenReturn(input);
-
-    var request = PostRequest.of(exchange);
+  void testIntegerArray() {
+    var request = PostRequest.of("{\"a\":\"b\",\"c\":[1,2]}");
     Assertions.assertEquals(2, request.intValues("c").size());
     Assertions.assertEquals(1, request.intValues("c").get(0));
     Assertions.assertEquals(2, request.intValues("c").get(1));
   }
 
   @Test
-  void testValues() throws IOException {
-    var input =
-        new ByteArrayInputStream(
-            "{\"a\":[{\"foo\": \"r1\", \"bar\": 1},{\"foo\": \"r2\", \"bar\": 2}]}"
-                .getBytes(StandardCharsets.UTF_8));
-    var exchange = Mockito.mock(HttpExchange.class);
-    Mockito.when(exchange.getRequestBody()).thenReturn(input);
-
-    var request = PostRequest.of(exchange);
+  void testValues() {
+    var request =
+        PostRequest.of("{\"a\":[{\"foo\": \"r1\", \"bar\": 1},{\"foo\": \"r2\", \"bar\": 2}]}");
     Assertions.assertEquals(
         List.of(new ForTestValue("r1", 1), new ForTestValue("r2", 2)),
         request.values("a", ForTestValue.class));
   }
 
   @Test
-  void testValue() throws IOException {
-    var input =
-        new ByteArrayInputStream(
-            "{\"a\":{\"foo\": \"r1\", \"bar\": 1}}".getBytes(StandardCharsets.UTF_8));
-    var exchange = Mockito.mock(HttpExchange.class);
-    Mockito.when(exchange.getRequestBody()).thenReturn(input);
-
-    var request = PostRequest.of(exchange);
+  void testValue() {
+    var request = PostRequest.of("{\"a\":{\"foo\": \"r1\", \"bar\": 1}}");
     Assertions.assertEquals(new ForTestValue("r1", 1), request.value("a", ForTestValue.class));
   }
 

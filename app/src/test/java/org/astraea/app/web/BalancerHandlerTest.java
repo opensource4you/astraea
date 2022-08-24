@@ -18,7 +18,6 @@ package org.astraea.app.web;
 
 import java.time.Duration;
 import java.util.Map;
-import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.astraea.app.admin.Admin;
 import org.astraea.app.admin.ClusterBean;
@@ -42,7 +41,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
       var report =
           Assertions.assertInstanceOf(
               BalancerHandler.Report.class,
-              handler.get(Optional.empty(), Map.of(BalancerHandler.LIMIT_KEY, "30")));
+              handler.get(Channel.ofQueries(Map.of(BalancerHandler.LIMIT_KEY, "30"))));
       Assertions.assertEquals(30, report.limit);
       Assertions.assertNotEquals(0, report.changes.size());
       Assertions.assertTrue(report.cost >= report.newCost);

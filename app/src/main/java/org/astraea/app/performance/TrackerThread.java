@@ -17,13 +17,19 @@
 package org.astraea.app.performance;
 
 import java.time.Duration;
+import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import java.util.function.ToDoubleFunction;
+import org.astraea.app.common.DataSize;
 import org.astraea.app.common.Utils;
+import org.astraea.app.metrics.MBeanClient;
+import org.astraea.app.metrics.client.HasNodeMetrics;
+import org.astraea.app.metrics.client.producer.ProducerMetrics;
 
 /** Print out the given metrics. */
 public interface TrackerThread extends AbstractThread {
@@ -33,6 +39,7 @@ public interface TrackerThread extends AbstractThread {
       Supplier<List<ConsumerThread.Report>> consumerReporter,
       ExeTime exeTime) {
     var start = System.currentTimeMillis() - Duration.ofSeconds(1).toMillis();
+    var mBeanClient = MBeanClient.local();
 
     Function<Duration, Boolean> logProducers =
         duration -> {
@@ -47,6 +54,13 @@ public interface TrackerThread extends AbstractThread {
               "  average throughput: %.3f MB/second%n",
               Utils.averageMB(
                   duration, producerReports.stream().mapToLong(Report::totalBytes).sum()));
+          System.out.printf(
+              "  current traffic: %s/second%n",
+              DataSize.Byte.of(
+                  ((Double)
+                          sumOfAttribute(
+                              ProducerMetrics.nodes(mBeanClient), HasNodeMetrics::outgoingByteRate))
+                      .longValue()));
           producerReports.stream()
               .mapToLong(Report::max)
               .max()
@@ -87,6 +101,13 @@ public interface TrackerThread extends AbstractThread {
               "  average throughput: %.3f MB/second%n",
               Utils.averageMB(
                   duration, consumerReports.stream().mapToLong(Report::totalBytes).sum()));
+          System.out.printf(
+              "  current traffic: %s/second%n",
+              DataSize.Byte.of(
+                  ((Double)
+                          sumOfAttribute(
+                              ProducerMetrics.nodes(mBeanClient), HasNodeMetrics::incomingByteRate))
+                      .longValue()));
           consumerReports.stream()
               .mapToLong(Report::max)
               .max()
@@ -168,8 +189,19 @@ public interface TrackerThread extends AbstractThread {
       public void close() {
         closed.set(true);
         waitForDone();
+        Utils.swallowException(mBeanClient::close);
       }
     };
+  }
+  /**
+   * Sum up the latest given attribute of all beans which is instance of HasNodeMetrics.
+   *
+   * @param mbeans mBeans fetched by the receivers
+   * @return sum of the latest given attribute of all beans which is instance of HasNodeMetrics.
+   */
+  static double sumOfAttribute(
+      Collection<HasNodeMetrics> mbeans, ToDoubleFunction<HasNodeMetrics> targetAttribute) {
+    return mbeans.stream().mapToDouble(targetAttribute).filter(d -> !Double.isNaN(d)).sum();
   }
 
   long startTime();
