@@ -47,7 +47,7 @@ public class MoveCost implements HasMoveCost {
         Double.valueOf(configuration.string("min.free.space.percentage").orElse("0.2"));
     this.totalBrokerCapacity = ReplicaSizeCost.convert(configuration.requireString(BROKERCAPACITY));
     this.brokerBandwidthCap =
-        ReplicaDiskInCost.convert(configuration.requireString(BROKERBANDWIDTH));
+        OldReplicaDiskInCost.convert(configuration.requireString(BROKERBANDWIDTH));
   }
 
   static class ReplicaMigrateInfo {
