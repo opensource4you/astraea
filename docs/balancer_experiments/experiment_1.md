@@ -50,7 +50,7 @@ metrics.scraping.interval.ms=10000
 balancer.plan.searching.iteration=10000
 shuffle.plan.generator.shuffle.min=3
 shuffle.plan.generator.shuffle.max=30
-balancer.cost.functions=
+balancer.cost.functions=org.astraea.app.cost.OldReplicaDiskInCost,org.astraea.app.cost.MoveCost
 brokerBandwidthConfig=/path/to//broker.bandwidth.properties
 brokerCapacityConfig=/path/to/broker.capacity.properties
 ```
