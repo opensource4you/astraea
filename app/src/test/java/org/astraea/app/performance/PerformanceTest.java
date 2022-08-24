@@ -20,7 +20,6 @@ import com.beust.jcommander.ParameterException;
 import java.time.Duration;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
-import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.astraea.app.admin.Admin;
@@ -40,8 +39,6 @@ public class PerformanceTest extends RequireBrokerCluster {
     String[] arguments1 = {
       "--bootstrap.servers", bootstrapServers(), "--topics", topic, "--transaction.size", "2"
     };
-    var latch = new CountDownLatch(1);
-    BiConsumer<Long, Integer> observer = (x, y) -> latch.countDown();
     var argument = Argument.parse(new Performance.Argument(), arguments1);
     try (var producer = argument.createProducer()) {
       Assertions.assertTrue(producer.transactional());
@@ -55,7 +52,6 @@ public class PerformanceTest extends RequireBrokerCluster {
       "--bootstrap.servers", bootstrapServers(), "--topics", topic, "--compression", "gzip"
     };
     var latch = new CountDownLatch(1);
-    BiConsumer<Long, Integer> observer = (x, y) -> latch.countDown();
     var argument = Argument.parse(new Performance.Argument(), arguments1);
     try (var producer = argument.createProducer()) {
       Assertions.assertFalse(producer.transactional());
