@@ -36,7 +36,7 @@ public class ThrottleHandler implements Handler {
   }
 
   @Override
-  public Response get(Optional<String> target, Map<String, String> queries) {
+  public Response get(Channel channel) {
     return get();
   }
 

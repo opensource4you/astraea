@@ -21,7 +21,6 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
 import java.time.Duration;
 import java.util.Map;
-import java.util.Optional;
 import org.astraea.app.admin.Admin;
 import org.astraea.app.admin.TopicPartition;
 import org.astraea.app.admin.TopicPartitionReplica;
@@ -45,7 +44,7 @@ public class ThrottleHandlerTest extends RequireBrokerCluster {
           .apply();
       Utils.sleep(Duration.ofSeconds(1));
 
-      var jsonString = handler.get(Optional.empty(), Map.of()).json();
+      var jsonString = handler.get(Channel.EMPTY).json();
       var json = new Gson().fromJson(jsonString, JsonObject.class);
 
       // broker 0
@@ -83,7 +82,7 @@ public class ThrottleHandlerTest extends RequireBrokerCluster {
       Utils.sleep(Duration.ofSeconds(1));
       var currentReplicas = admin.replicas();
 
-      var jsonString = handler.get(Optional.empty(), Map.of()).json();
+      var jsonString = handler.get(Channel.EMPTY).json();
       var json = new Gson().fromJson(jsonString, JsonObject.class);
 
       for (int partition = 0; partition < 3; partition++) {
@@ -127,7 +126,7 @@ public class ThrottleHandlerTest extends RequireBrokerCluster {
           .apply();
       Utils.sleep(Duration.ofSeconds(1));
 
-      var jsonString = handler.get(Optional.empty(), Map.of()).json();
+      var jsonString = handler.get(Channel.EMPTY).json();
       var json = new Gson().fromJson(jsonString, JsonObject.class);
 
       for (int partition = 0; partition < 3; partition++) {
