@@ -19,6 +19,7 @@ package org.astraea.app.partitioner;
 import java.security.Key;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 import org.apache.kafka.clients.producer.Partitioner;
 import org.apache.kafka.clients.producer.Producer;
@@ -107,7 +108,7 @@ public interface Dispatcher extends Partitioner {
   @Override
   default int partition(
       String topic, Object key, byte[] keyBytes, Object value, byte[] valueBytes, Cluster cluster) {
-    return INTERDEPENDENT.isInterdependent
+    return INTERDEPENDENT.isInterdependent.get()
         ? INTERDEPENDENT.interdependentPartition(
             this,
             topic,
@@ -127,19 +128,19 @@ public interface Dispatcher extends Partitioner {
   private void begin(Dispatcher dispatcher) {
     synchronized (INTERDEPENDENT) {
       INTERDEPENDENT.targetPartitions.putIfAbsent(dispatcher.hashCode(), -1);
-      INTERDEPENDENT.isInterdependent = true;
+      INTERDEPENDENT.isInterdependent.set(true);
     }
   }
 
   private void end(Dispatcher dispatcher) {
     synchronized (INTERDEPENDENT) {
-      INTERDEPENDENT.isInterdependent = false;
+      INTERDEPENDENT.isInterdependent.set(false);
       INTERDEPENDENT.targetPartitions.replace(dispatcher.hashCode(), -1);
     }
   }
 
   class Interdependent {
-    private boolean isInterdependent = false;
+    private AtomicBoolean isInterdependent = new AtomicBoolean(false);
     private final Map<Integer, Integer> targetPartitions = new ConcurrentHashMap<>();
 
     private int interdependentPartition(
