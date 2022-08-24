@@ -29,13 +29,13 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 import org.astraea.app.admin.Admin;
 import org.astraea.app.admin.Compression;
 import org.astraea.app.admin.TopicPartition;
 import org.astraea.app.argument.CompressionField;
 import org.astraea.app.argument.DurationField;
 import org.astraea.app.argument.NonEmptyStringField;
+import org.astraea.app.argument.NonEmptyStringFields;
 import org.astraea.app.argument.NonNegativeShortField;
 import org.astraea.app.argument.PathField;
 import org.astraea.app.argument.PositiveIntegerFields;
@@ -193,23 +193,23 @@ public class Performance {
 
     @Parameter(
         names = {"--topics"},
-        description = "String : topic names which you subscribed",
-        validateWith = NonEmptyStringField.class)
+        description = "List<String>: topic names which you subscribed",
+        validateWith = NonEmptyStringFields.class)
     List<String> topics = List.of("testPerformance-" + System.currentTimeMillis());
 
     void initTopics() {
       try (var admin = Admin.of(configs())) {
-        IntStream.range(0, topics.size())
-            .forEach(
-                i -> {
-                  admin
-                      .creator()
-                      .numberOfReplicas(replicas.get(i).shortValue())
-                      .numberOfPartitions(partitions.get(i))
-                      .topic(topics.get(i))
-                      .create();
-                  Utils.waitFor(() -> admin.topicNames().contains(topics.get(i)));
-                });
+        topics.forEach(
+            topic -> {
+              var index = topics.indexOf(topic);
+              admin
+                  .creator()
+                  .numberOfReplicas(replicas.get(index).shortValue())
+                  .numberOfPartitions(partitions.get(index))
+                  .topic(topic)
+                  .create();
+              Utils.waitFor(() -> admin.topicNames().contains(topic));
+            });
       }
     }
 
@@ -232,13 +232,13 @@ public class Performance {
 
     @Parameter(
         names = {"--partitions"},
-        description = "Integer: number of partitions to create the topic",
+        description = "List<Integer>: number of partitions to create the topics",
         validateWith = PositiveIntegerFields.class)
     List<Integer> partitions = List.of(1);
 
     @Parameter(
         names = {"--replicas"},
-        description = "Integer: number of replica to create the topic",
+        description = "List<Integer>: number of replica to create the topics",
         validateWith = PositiveIntegerFields.class)
     List<Integer> replicas = List.of(1);
 

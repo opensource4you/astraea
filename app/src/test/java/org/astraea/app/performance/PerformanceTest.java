@@ -106,7 +106,7 @@ public class PerformanceTest extends RequireBrokerCluster {
     var arg = Argument.parse(new Performance.Argument(), arguments1);
     Assertions.assertEquals("value", arg.configs().get("key"));
 
-    String[] arguments2 = {"--bootstrap.servers", "localhost:9092", "--topic", ""};
+    String[] arguments2 = {"--bootstrap.servers", "localhost:9092", "--topics", ""};
     Assertions.assertThrows(
         ParameterException.class, () -> Argument.parse(new Performance.Argument(), arguments2));
 
@@ -158,6 +158,10 @@ public class PerformanceTest extends RequireBrokerCluster {
     String[] arguments14 = {"--bootstrap.servers", "localhost:9092", "--specify.broker", ""};
     Assertions.assertThrows(
         ParameterException.class, () -> Argument.parse(new Performance.Argument(), arguments14));
+
+    String[] arguments15 = {"--bootstrap.servers", "localhost:9092", "--topics", "test1,,test2"};
+    Assertions.assertThrows(
+        ParameterException.class, () -> Argument.parse(new Performance.Argument(), arguments15));
   }
 
   @Test
