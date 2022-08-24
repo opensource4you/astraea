@@ -55,7 +55,7 @@ public interface TrackerThread extends AbstractThread {
               Utils.averageMB(
                   duration, producerReports.stream().mapToLong(Report::totalBytes).sum()));
           System.out.printf(
-              "  real out-going: %s/second%n",
+              "  current traffic: %s/second%n",
               DataSize.Byte.of(
                   ((Double)
                           sumOfAttribute(
@@ -102,7 +102,7 @@ public interface TrackerThread extends AbstractThread {
               Utils.averageMB(
                   duration, consumerReports.stream().mapToLong(Report::totalBytes).sum()));
           System.out.printf(
-              "  real in-coming: %s/second%n",
+              "  current traffic: %s/second%n",
               DataSize.Byte.of(
                   ((Double)
                           sumOfAttribute(
