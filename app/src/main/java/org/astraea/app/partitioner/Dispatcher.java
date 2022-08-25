@@ -93,9 +93,8 @@ public interface Dispatcher extends Partitioner {
 
   private static Dispatcher dispatcher(Producer<Key, Value> producer) {
     var dispatcher = Utils.reflectionAttribute(producer, "partitioner");
-    if (!(dispatcher instanceof Dispatcher))
-      throw new RuntimeException(dispatcher.getClass().getName() + "is not Astraea dispatcher.");
-    return (Dispatcher) dispatcher;
+    if (dispatcher instanceof Dispatcher) return (Dispatcher) dispatcher;
+    throw new RuntimeException(dispatcher.getClass().getName() + "is not Astraea dispatcher.");
   }
 
   /** close this dispatcher. This method is executed only once. */
