@@ -915,6 +915,43 @@ public class Builder {
               admin.incrementalAlterConfigs(
                   Map.of(configResource, List.of(alterConfigOp0, alterConfigOp1))));
     }
+
+    @Override
+    public void clearIngressReplicationThrottle(Set<Integer> brokerIds) {
+      deleteBrokerConfigs(
+          brokerIds.stream()
+              .collect(
+                  Collectors.toUnmodifiableMap(
+                      id -> id, id -> Set.of("follower.replication.throttled.rate"))));
+    }
+
+    @Override
+    public void clearEgressReplicationThrottle(Set<Integer> brokerIds) {
+      deleteBrokerConfigs(
+          brokerIds.stream()
+              .collect(
+                  Collectors.toUnmodifiableMap(
+                      id -> id, id -> Set.of("leader.replication.throttled.rate"))));
+    }
+
+    private void deleteBrokerConfigs(Map<Integer, Set<String>> brokerAndConfigKeys) {
+      Function<String, AlterConfigOp> deleteConfig =
+          (key) -> new AlterConfigOp(new ConfigEntry(key, ""), AlterConfigOp.OpType.DELETE);
+      var map =
+          brokerAndConfigKeys.entrySet().stream()
+              .map(
+                  entry ->
+                      Map.entry(
+                          String.valueOf(entry.getKey()),
+                          entry.getValue().stream()
+                              .map(deleteConfig)
+                              .collect(Collectors.toUnmodifiableList())))
+              .collect(
+                  Collectors.toUnmodifiableMap(
+                      entry -> new ConfigResource(ConfigResource.Type.BROKER, entry.getKey()),
+                      entry -> (Collection<AlterConfigOp>) entry.getValue()));
+      Utils.packException(() -> admin.incrementalAlterConfigs(map).all().get());
+    }
   }
 
   private static class ConfigImpl implements Config {
