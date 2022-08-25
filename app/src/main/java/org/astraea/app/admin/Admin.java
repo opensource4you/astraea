@@ -282,6 +282,12 @@ public interface Admin extends Closeable {
    */
   void clearReplicationThrottle(TopicPartitionReplica log);
 
+  /** Clear the ingress bandwidth of replication throttle for the specified brokers. */
+  void clearIngressReplicationThrottle(Set<Integer> brokerIds);
+
+  /** Clear the egress bandwidth of replication throttle for the specified brokers. */
+  void clearEgressReplicationThrottle(Set<Integer> brokerIds);
+
   @Override
   void close();
 }

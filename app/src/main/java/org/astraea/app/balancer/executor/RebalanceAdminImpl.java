@@ -21,8 +21,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Predicate;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.astraea.app.admin.Admin;
 import org.astraea.app.admin.ClusterInfo;
@@ -160,16 +160,9 @@ class RebalanceAdminImpl implements RebalanceAdmin {
     ensureTopicPermitted(log.topic());
 
     return CompletableFuture.supplyAsync(
-        () -> {
-          // due to the state consistency issue in Kafka broker design. the cluster state returned
-          // from the API might bounce between the `old state` and the `new state` during the very
-          // beginning and accomplishment of the cluster state alteration API. to fix this we use
-          // debounce technique, to ensure the target condition is held over a few successive tries,
-          // which mean the cluster state alteration is considered stable.
-          var debounce = 2;
-          var endTime = getEndTime(timeout);
-          while (!Thread.currentThread().isInterrupted()) {
-            boolean synced =
+        debounceCheck(
+            timeout,
+            () ->
                 admin.replicas(Set.of(log.topic())).entrySet().stream()
                     .filter(x -> x.getKey().partition() == log.partition())
                     .filter(x -> x.getKey().topic().equals(log.topic()))
@@ -177,17 +170,7 @@ class RebalanceAdminImpl implements RebalanceAdmin {
                     .filter(x -> x.broker() == log.brokerId())
                     .findFirst()
                     .map(x -> x.inSync() && !x.isFuture())
-                    .orElse(false);
-            // debounce & retrial interval
-            Utils.sleep(retrialTime.get());
-            debounce = synced ? (debounce - 1) : 2;
-            // synced
-            if (synced && debounce <= 0) return true;
-            // timeout
-            if (System.currentTimeMillis() > endTime) return false;
-          }
-          return false;
-        });
+                    .orElse(false)));
   }
 
   @Override
@@ -196,16 +179,9 @@ class RebalanceAdminImpl implements RebalanceAdmin {
     ensureTopicPermitted(topicPartition.topic());
 
     return CompletableFuture.supplyAsync(
-        () -> {
-          // due to the state consistency issue in Kafka broker design. the cluster state returned
-          // from the API might bounce between the `old state` and the `new state` during the very
-          // beginning and accomplishment of the cluster state alteration API. to fix this we use
-          // debounce technique, to ensure the target condition is held over a few successive tries,
-          // which mean the cluster state alteration is considered stable.
-          var debounce = 2;
-          var endTime = getEndTime(timeout);
-          while (!Thread.currentThread().isInterrupted()) {
-            var synced =
+        debounceCheck(
+            timeout,
+            () ->
                 admin.replicas(Set.of(topicPartition.topic())).entrySet().stream()
                     .filter(x -> x.getKey().equals(topicPartition))
                     .findFirst()
@@ -219,17 +195,31 @@ class RebalanceAdminImpl implements RebalanceAdmin {
                                   .orElseThrow();
                           return preferred.leader();
                         })
-                    .orElseThrow();
-            // debounce & retrial interval
-            Utils.sleep(retrialTime.get());
-            debounce = synced ? (debounce - 1) : 2;
-            // synced
-            if (synced && debounce <= 0) return true;
-            // timeout
-            if (System.currentTimeMillis() > endTime) return false;
-          }
-          return false;
-        });
+                    .orElseThrow()));
+  }
+
+  private Supplier<Boolean> debounceCheck(Duration timeout, Supplier<Boolean> testDone) {
+    var debounceInitialCount = 10;
+    return () -> {
+      // due to the state consistency issue in Kafka broker design. the cluster state returned
+      // from the API might bounce between the `old state` and the `new state` during the very
+      // beginning and accomplishment of the cluster state alteration API. to fix this we use
+      // debounce technique, to ensure the target condition is held over a few successive tries,
+      // which mean the cluster state alteration is considered stable.
+      var debounce = debounceInitialCount;
+      var endTime = getEndTime(timeout);
+      while (!Thread.currentThread().isInterrupted()) {
+        // debounce & retrial interval
+        Utils.sleep(Duration.ofMillis(100));
+        var isDone = testDone.get();
+        debounce = isDone ? (debounce - 1) : debounceInitialCount;
+        // synced
+        if (isDone && debounce <= 0) return true;
+        // timeout
+        if (System.currentTimeMillis() > endTime) return false;
+      }
+      return false;
+    };
   }
 
   @Override
@@ -250,13 +240,5 @@ class RebalanceAdminImpl implements RebalanceAdmin {
   @Override
   public Predicate<String> topicFilter() {
     return topicFilter;
-  }
-
-  private static final AtomicReference<Duration> retrialTime =
-      new AtomicReference<>(Duration.ofSeconds(1));
-
-  // visible for test
-  static void changeRetrialTime(Duration newDebounceTime) {
-    retrialTime.set(newDebounceTime);
   }
 }
