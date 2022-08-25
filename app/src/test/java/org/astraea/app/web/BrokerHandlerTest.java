@@ -17,7 +17,6 @@
 package org.astraea.app.web;
 
 import java.time.Duration;
-import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.Set;
@@ -37,8 +36,7 @@ public class BrokerHandlerTest extends RequireBrokerCluster {
       Utils.sleep(Duration.ofSeconds(2));
       var handler = new BrokerHandler(admin);
       var response =
-          Assertions.assertInstanceOf(
-              BrokerHandler.Brokers.class, handler.get(Optional.empty(), Map.of()));
+          Assertions.assertInstanceOf(BrokerHandler.Brokers.class, handler.get(Channel.EMPTY));
       Assertions.assertEquals(brokerIds().size(), response.brokers.size());
       brokerIds()
           .forEach(
@@ -55,7 +53,7 @@ public class BrokerHandlerTest extends RequireBrokerCluster {
     try (Admin admin = Admin.of(bootstrapServers())) {
       var handler = new BrokerHandler(admin);
       Assertions.assertThrows(
-          NoSuchElementException.class, () -> handler.get(Optional.of("99999"), Map.of()));
+          NoSuchElementException.class, () -> handler.get(Channel.ofTarget("99999")));
     }
   }
 
@@ -64,7 +62,7 @@ public class BrokerHandlerTest extends RequireBrokerCluster {
     try (Admin admin = Admin.of(bootstrapServers())) {
       var handler = new BrokerHandler(admin);
       Assertions.assertThrows(
-          NoSuchElementException.class, () -> handler.get(Optional.of("abc"), Map.of()));
+          NoSuchElementException.class, () -> handler.get(Channel.ofTarget("abc")));
     }
   }
 
@@ -78,8 +76,7 @@ public class BrokerHandlerTest extends RequireBrokerCluster {
       var handler = new BrokerHandler(admin);
       var broker =
           Assertions.assertInstanceOf(
-              BrokerHandler.Broker.class,
-              handler.get(Optional.of(String.valueOf(brokerId)), Map.of()));
+              BrokerHandler.Broker.class, handler.get(Channel.ofTarget(String.valueOf(brokerId))));
       Assertions.assertEquals(brokerId, broker.id);
       Assertions.assertNotEquals(0, broker.configs.size());
       Assertions.assertTrue(broker.topics.stream().anyMatch(t -> t.topic.equals(topic)));

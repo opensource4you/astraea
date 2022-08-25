@@ -18,7 +18,6 @@ package org.astraea.app.web;
 
 import java.time.Duration;
 import java.util.Map;
-import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 import org.astraea.app.admin.Admin;
 import org.astraea.app.common.Utils;
@@ -60,7 +59,7 @@ public class PipelineHandlerTest extends RequireBrokerCluster {
         var handler = new PipelineHandler(admin);
         var response =
             Assertions.assertInstanceOf(
-                PipelineHandler.TopicPartitions.class, handler.get(Optional.empty(), Map.of()));
+                PipelineHandler.TopicPartitions.class, handler.get(Channel.EMPTY));
         Assertions.assertNotEquals(0, response.topicPartitions.size());
         Assertions.assertEquals(
             1, response.topicPartitions.stream().filter(t -> t.topic.equals(topic)).count());

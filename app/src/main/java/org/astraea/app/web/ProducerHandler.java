@@ -19,7 +19,6 @@ package org.astraea.app.web;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.astraea.app.admin.Admin;
@@ -48,9 +47,9 @@ class ProducerHandler implements Handler {
   }
 
   @Override
-  public Partitions get(Optional<String> target, Map<String, String> queries) {
+  public Partitions get(Channel channel) {
     var topics =
-        admin.producerStates(partitions(queries)).entrySet().stream()
+        admin.producerStates(partitions(channel.queries())).entrySet().stream()
             .map(e -> new Partition(e.getKey(), e.getValue()))
             .collect(Collectors.toUnmodifiableList());
     return new Partitions(topics);

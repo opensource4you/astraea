@@ -25,3 +25,4 @@ Astraea 建立了一套 Web Server 服務，使用者可以透過簡易好上手
 - [/reassignments](./web_api_reassignments_chinese.md)
 - [/records](./web_api_records_chinese.md)
 - [/balancer](./web_api_balancer_chinese.md)
+- [/throttles](./web_api_throttles_chinese.md)

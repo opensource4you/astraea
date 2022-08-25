@@ -18,7 +18,6 @@ package org.astraea.app.web;
 
 import java.util.Collection;
 import java.util.Map;
-import java.util.Optional;
 import java.util.stream.Collectors;
 import org.astraea.app.admin.Admin;
 import org.astraea.app.admin.TopicPartition;
@@ -37,9 +36,9 @@ public class ReassignmentHandler implements Handler {
   }
 
   @Override
-  public Response post(PostRequest requests) {
+  public Response post(Channel channel) {
     var rs =
-        requests.requests(PLANS_KEY).stream()
+        channel.request().requests(PLANS_KEY).stream()
             .map(
                 request -> {
                   // case 0: move replica to another folder
@@ -66,9 +65,12 @@ public class ReassignmentHandler implements Handler {
   }
 
   @Override
-  public Reassignments get(Optional<String> target, Map<String, String> queries) {
+  public Reassignments get(Channel channel) {
     return new Reassignments(
-        admin.reassignments(Handler.compare(admin.topicNames(), target)).entrySet().stream()
+        admin
+            .reassignments(Handler.compare(admin.topicNames(), channel.target()))
+            .entrySet()
+            .stream()
             .map(e -> new Reassignment(e.getKey(), e.getValue().from(), e.getValue().to()))
             .collect(Collectors.toUnmodifiableList()));
   }
