@@ -83,7 +83,7 @@ class ClusterLogAllocationTest {
         1, clusterLogAllocation.logPlacements(sourceTopicPartition0).get(0).broker());
     Assertions.assertEquals(
         dataDirectory,
-        clusterLogAllocation.logPlacements(sourceTopicPartition0).get(0).logDirectory());
+        clusterLogAllocation.logPlacements(sourceTopicPartition0).get(0).dataFolder());
 
     final var sourceTopicPartition1 = TopicPartition.of("topic", "0");
     clusterLogAllocation =
@@ -92,7 +92,7 @@ class ClusterLogAllocationTest {
         1, clusterLogAllocation.logPlacements(sourceTopicPartition1).get(0).broker());
     Assertions.assertEquals(
         dataDirectory,
-        clusterLogAllocation.logPlacements(sourceTopicPartition1).get(0).logDirectory());
+        clusterLogAllocation.logPlacements(sourceTopicPartition1).get(0).dataFolder());
   }
 
   @Test
@@ -119,8 +119,7 @@ class ClusterLogAllocationTest {
     Assertions.assertEquals(
         0, allocation.logPlacements(TopicPartition.of("topic", "0")).get(0).broker());
     Assertions.assertEquals(
-        "/nowhere",
-        allocation.logPlacements(TopicPartition.of("topic", "0")).get(0).logDirectory());
+        "/nowhere", allocation.logPlacements(TopicPartition.of("topic", "0")).get(0).dataFolder());
     Assertions.assertEquals(0, allocation.logPlacements(TopicPartition.of("no", "0")).size());
     allocation.logPlacements(TopicPartition.of("no", "0"));
   }

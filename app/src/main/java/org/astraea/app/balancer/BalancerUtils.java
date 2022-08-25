@@ -79,7 +79,7 @@ public class BalancerUtils {
                                     false,
                                     false,
                                     false,
-                                    logs.get(i).logDirectory()));
+                                    logs.get(i).dataFolder()));
                   })
               .collect(Collectors.toUnmodifiableList());
 

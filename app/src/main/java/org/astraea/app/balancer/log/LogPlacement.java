@@ -24,7 +24,7 @@ public interface LogPlacement {
 
   int broker();
 
-  String logDirectory();
+  String dataFolder();
 
   static boolean isMatch(List<LogPlacement> sourcePlacements, List<LogPlacement> targetPlacements) {
     if (sourcePlacements.size() != targetPlacements.size()) return false;
@@ -43,15 +43,15 @@ public interface LogPlacement {
                 index ->
                     sourcePlacements
                         .get(index)
-                        .logDirectory()
-                        .equals(targetPlacements.get(index).logDirectory()));
+                        .dataFolder()
+                        .equals(targetPlacements.get(index).dataFolder()));
     //noinspection RedundantIfStatement
     if (!logDirectoryMatch) return false;
 
     return true;
   }
 
-  static LogPlacement of(int broker, String logDirectory) {
+  static LogPlacement of(int broker, String dataFolder) {
     return new LogPlacement() {
       @Override
       public int broker() {
@@ -59,22 +59,22 @@ public interface LogPlacement {
       }
 
       @Override
-      public String logDirectory() {
-        return logDirectory;
+      public String dataFolder() {
+        return dataFolder;
       }
 
       @Override
       public boolean equals(Object obj) {
         if (obj instanceof LogPlacement) {
           final var that = (LogPlacement) obj;
-          return this.broker() == that.broker() && this.logDirectory().equals(that.logDirectory());
+          return this.broker() == that.broker() && this.dataFolder().equals(that.dataFolder());
         }
         return false;
       }
 
       @Override
       public String toString() {
-        return "LogPlacement{broker=" + broker() + " logDir=" + logDirectory() + "}";
+        return "LogPlacement{broker=" + broker() + " dataFolder=" + dataFolder() + "}";
       }
     };
   }

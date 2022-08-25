@@ -1081,11 +1081,11 @@ public class AdminTest extends RequireBrokerCluster {
             Assertions.assertEquals(1, reassignment.from().size());
             var from = reassignment.from().iterator().next();
             Assertions.assertEquals(currentBroker, from.broker());
-            Assertions.assertEquals(currentPath, from.path());
+            Assertions.assertEquals(currentPath, from.dataFolder());
             Assertions.assertEquals(1, reassignment.to().size());
             var to = reassignment.to().iterator().next();
             Assertions.assertEquals(currentBroker, to.broker());
-            Assertions.assertEquals(nextPath, to.path());
+            Assertions.assertEquals(nextPath, to.dataFolder());
           }
         } finally {
           done.set(true);

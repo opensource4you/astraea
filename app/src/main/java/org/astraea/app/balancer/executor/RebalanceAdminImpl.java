@@ -89,8 +89,7 @@ class RebalanceAdminImpl implements RebalanceAdmin {
     final var declareMap =
         preferredPlacements.stream()
             .filter(futurePlacement -> !currentBrokerAllocation.contains(futurePlacement.broker()))
-            .collect(
-                Collectors.toUnmodifiableMap(LogPlacement::broker, LogPlacement::logDirectory));
+            .collect(Collectors.toUnmodifiableMap(LogPlacement::broker, LogPlacement::dataFolder));
 
     admin
         .migrator()
@@ -127,8 +126,7 @@ class RebalanceAdminImpl implements RebalanceAdmin {
     var forCrossDirMigration =
         expectedPlacement.stream()
             .filter(placement -> currentReplicaBrokers.contains(placement.broker()))
-            .collect(
-                Collectors.toUnmodifiableMap(LogPlacement::broker, LogPlacement::logDirectory));
+            .collect(Collectors.toUnmodifiableMap(LogPlacement::broker, LogPlacement::dataFolder));
     admin
         .migrator()
         .partition(topicPartition.topic(), topicPartition.partition())

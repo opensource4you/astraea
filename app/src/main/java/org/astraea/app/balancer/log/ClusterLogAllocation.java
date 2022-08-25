@@ -149,7 +149,7 @@ public interface ClusterLogAllocation {
                   .forEach(
                       log ->
                           stringBuilder.append(
-                              String.format("(%s, %s) ", log.broker(), log.logDirectory())));
+                              String.format("(%s, %s) ", log.broker(), log.dataFolder())));
 
               stringBuilder.append(System.lineSeparator());
             });
