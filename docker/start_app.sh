@@ -23,6 +23,7 @@ declare -r REPO=${REPO:-ghcr.io/skiptests/astraea/app}
 declare -r IMAGE_NAME="$REPO:$VERSION"
 declare -r DOCKERFILE=$DOCKER_FOLDER/app.dockerfile
 declare -r JMX_PORT=${JMX_PORT:-"$(getRandomPort)"}
+declare -r CLONE_FROM=${CLONE_FROM:-"https://github.com/skiptests/astraea"}
 # for web service
 declare -r WEB_PORT=${WEB_PORT:-"$(getRandomPort)"}
 declare -r JMX_OPTS="-Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false \
@@ -44,7 +45,7 @@ FROM ghcr.io/skiptests/astraea/deps AS build
 
 # clone repo
 WORKDIR /tmp
-RUN git clone https://github.com/skiptests/astraea
+RUN git clone $CLONE_FROM
 
 # pre-build project to collect all dependencies
 WORKDIR /tmp/astraea
@@ -108,17 +109,13 @@ function runContainer() {
   fi
 
   local need_to_bind_file=""
-  local defined_file="false"
   for word in "${sentence[@]}"; do
-    # user has pre-defined port, so we will replace the random port by this one in next loop
-    if [[ "$word" == "--prop.file" ]]; then
-      defined_file="true"
-      continue
+    # user has pre-defined directories/files, so we will mount directories/files
+    if [[ -d $word && "$word" == *"/"* ]]; then
+        need_to_bind_file="${need_to_bind_file} -v $word:$word"
     fi
-    # this element must be port
-    if [[ "$defined_file" == "true" ]]; then
-      need_to_bind_file="-v $word:$word"
-      break
+    if [[ -f $word && "$word" == *"/"* ]]; then
+        need_to_bind_file="${need_to_bind_file} -v $word:$word"
     fi
   done
 
