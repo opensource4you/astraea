@@ -111,7 +111,7 @@ public class SmoothWeightRoundRobinDispatcher extends Periodic<Map<Integer, Doub
   }
 
   @Override
-  public void close() {
+  public void closeDispatcher() {
     receivers.values().forEach(r -> Utils.swallowException(r::close));
     receivers.clear();
   }
