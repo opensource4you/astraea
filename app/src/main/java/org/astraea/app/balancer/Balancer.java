@@ -45,7 +45,6 @@ import org.astraea.app.cost.CostFunction;
 import org.astraea.app.cost.HasBrokerCost;
 import org.astraea.app.cost.HasClusterCost;
 import org.astraea.app.cost.HasMoveCost;
-import org.astraea.app.cost.HasPartitionCost;
 import org.astraea.app.metrics.HasBeanObject;
 import org.astraea.app.partitioner.Configuration;
 
@@ -314,8 +313,6 @@ public class Balancer implements AutoCloseable {
       return ((HasClusterCost) costFunction).clusterCost(clusterInfo, clusterBean).value();
     } else if (costFunction instanceof HasBrokerCost) {
       return brokerCostScore(clusterInfo, (HasBrokerCost) costFunction);
-    } else if (costFunction instanceof HasPartitionCost) {
-      return partitionCostScore(clusterInfo, (HasPartitionCost) clusterInfo);
     } else {
       return 0.0;
       /* throw new IllegalArgumentException(
@@ -347,12 +344,6 @@ public class Balancer implements AutoCloseable {
         .mapToDouble(x -> x)
         .max()
         .orElseThrow();
-  }
-
-  private <T extends HasPartitionCost> double partitionCostScore(
-      ClusterInfo clusterInfo, T costFunction) {
-    // TODO: support this
-    throw new UnsupportedOperationException();
   }
 
   // TODO: this usage will be removed someday

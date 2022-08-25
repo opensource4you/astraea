@@ -81,9 +81,9 @@ function runContainer() {
   # web service needs to bind a port to expose Restful APIs, so we have to open a port of container
   local need_to_bind_web=""
   local background=""
+  local sentence=($args)
   if [[ "$args" == web* ]]; then
     background="-d"
-    sentence=($args)
     defined_port="false"
     # use random port by default
     web_port="$WEB_PORT"
@@ -107,11 +107,27 @@ function runContainer() {
     echo "web address: $ADDRESS:$web_port"
   fi
 
+  local need_to_bind_file=""
+  local defined_file="false"
+  for word in "${sentence[@]}"; do
+    # user has pre-defined port, so we will replace the random port by this one in next loop
+    if [[ "$word" == "--prop.file" ]]; then
+      defined_file="true"
+      continue
+    fi
+    # this element must be port
+    if [[ "$defined_file" == "true" ]]; then
+      need_to_bind_file="-v $word:$word"
+      break
+    fi
+  done
+
   docker run --rm --init \
     $background \
     -e JAVA_OPTS="$JMX_OPTS $HEAP_OPTS" \
     -p $JMX_PORT:$JMX_PORT \
     $need_to_bind_web \
+    $need_to_bind_file \
     "$IMAGE_NAME" \
     /opt/astraea/bin/app $args
 }

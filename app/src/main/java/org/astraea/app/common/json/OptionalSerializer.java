@@ -14,18 +14,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.app.cost;
+package org.astraea.app.common.json;
 
-import org.astraea.app.admin.ClusterBean;
-import org.astraea.app.admin.ClusterInfo;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonSerializationContext;
+import com.google.gson.JsonSerializer;
+import java.lang.reflect.Type;
+import java.util.Optional;
 
-public interface HasPartitionCost extends CostFunction {
-  /**
-   * score all nodes according to passed beans and cluster information.
-   *
-   * @param clusterInfo cluster information
-   * @param clusterBean cluster metrics
-   * @return the score of each partition
-   */
-  PartitionCost partitionCost(ClusterInfo clusterInfo, ClusterBean clusterBean);
+public class OptionalSerializer implements JsonSerializer<Optional<?>> {
+  @Override
+  public JsonElement serialize(Optional<?> src, Type typeOfSrc, JsonSerializationContext context) {
+    return src.map(context::serialize).orElse(null);
+  }
 }

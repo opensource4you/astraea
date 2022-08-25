@@ -16,16 +16,8 @@
  */
 package org.astraea.app.web;
 
-import com.sun.net.httpserver.Headers;
-import com.sun.net.httpserver.HttpExchange;
-import java.io.IOException;
-import java.io.OutputStream;
-import java.net.URI;
-import java.util.Map;
-import java.util.Optional;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mockito;
 
 public class HandlerTest {
 
@@ -33,72 +25,14 @@ public class HandlerTest {
   void testException() {
     var exception = new IllegalStateException("hello");
     Handler handler =
-        (paths, queries) -> {
+        (channel) -> {
           throw exception;
         };
-
-    var exchange = Mockito.mock(HttpExchange.class);
-    Mockito.when(exchange.getRequestURI()).thenReturn(URI.create("http://localhost:8888/abc"));
-    Mockito.when(exchange.getRequestMethod()).thenReturn("get");
-    var r = Assertions.assertInstanceOf(Response.ResponseImpl.class, handler.process(exchange));
+    var r =
+        Assertions.assertInstanceOf(
+            Response.ResponseImpl.class,
+            handler.process(Channel.builder().type(Channel.Type.GET).build()));
     Assertions.assertNotEquals(200, r.code);
     Assertions.assertEquals(exception.getMessage(), r.message);
-  }
-
-  @Test
-  void testParseTarget() {
-    Assertions.assertFalse(
-        Handler.parseTarget(URI.create("http://localhost:11111/abc")).isPresent());
-    var target = Handler.parseTarget(URI.create("http://localhost:11111/abc/bbb"));
-    Assertions.assertTrue(target.isPresent());
-    Assertions.assertEquals("bbb", target.get());
-    Assertions.assertThrows(
-        IllegalArgumentException.class,
-        () -> Handler.parseTarget(URI.create("http://localhost:11111/abc/bbb/dddd")));
-  }
-
-  @Test
-  void testParseQuery() {
-    var uri = URI.create("http://localhost:11111/abc?k=v&a=b");
-    var queries = Handler.parseQueries(uri);
-    Assertions.assertEquals(2, queries.size());
-    Assertions.assertEquals("v", queries.get("k"));
-    Assertions.assertEquals("b", queries.get("a"));
-  }
-
-  @Test
-  void testNoResponseBody() throws IOException {
-    Handler handler =
-        new Handler() {
-          @Override
-          public Response get(Optional<String> target, Map<String, String> queries) {
-            return null;
-          }
-
-          @Override
-          public Response process(HttpExchange exchange) {
-            return Response.OK;
-          }
-        };
-    var he = Mockito.mock(HttpExchange.class);
-    Mockito.when(he.getResponseHeaders()).thenReturn(Mockito.mock(Headers.class));
-    Mockito.when(he.getResponseBody()).thenReturn(Mockito.mock(OutputStream.class));
-    handler.handle(he);
-    Mockito.verify(he).sendResponseHeaders(200, 0);
-  }
-
-  @Test
-  void testOnComplete() {
-    var response = Mockito.mock(Response.class);
-    var exception = new IllegalStateException("hello");
-    Mockito.when(response.json()).thenThrow(exception);
-    Handler handler = (paths, queries) -> response;
-
-    var exchange = Mockito.mock(HttpExchange.class);
-    Mockito.when(exchange.getRequestURI()).thenReturn(URI.create("http://localhost:8888/abc"));
-    Mockito.when(exchange.getRequestMethod()).thenReturn("get");
-
-    handler.handle(exchange);
-    Mockito.verify(response).onComplete(exception);
   }
 }

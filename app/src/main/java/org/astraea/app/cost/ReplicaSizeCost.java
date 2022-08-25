@@ -20,20 +20,16 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
-import java.util.TreeMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import org.astraea.app.admin.ClusterBean;
 import org.astraea.app.admin.ClusterInfo;
 import org.astraea.app.admin.NodeInfo;
-import org.astraea.app.admin.ReplicaInfo;
-import org.astraea.app.admin.TopicPartition;
 import org.astraea.app.admin.TopicPartitionReplica;
 import org.astraea.app.metrics.broker.HasGauge;
 import org.astraea.app.metrics.broker.LogMetrics;
@@ -44,7 +40,7 @@ import org.astraea.app.metrics.collector.Fetcher;
  * The calculation method of the score is the replica log usage space divided by the available space
  * on the hard disk
  */
-public class ReplicaSizeCost implements HasBrokerCost, HasPartitionCost {
+public class ReplicaSizeCost implements HasBrokerCost {
   Map<Integer, Integer> totalBrokerCapacity;
 
   public ReplicaSizeCost(Map<Integer, Integer> totalBrokerCapacity) {
@@ -83,92 +79,6 @@ public class ReplicaSizeCost implements HasBrokerCost, HasPartitionCost {
                             / totalBrokerCapacity.get(y.getKey())
                             / 1048576));
     return () -> brokerSizeScore;
-  }
-
-  /**
-   * @param clusterInfo the clusterInfo that offers the metrics related to topic/partition size
-   * @return a BrokerCost contains the ratio of the used space to the available space of replicas in
-   *     each broker
-   */
-  @Override
-  public PartitionCost partitionCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
-    final long ONEMEGA = Math.round(Math.pow(2, 20));
-    var sizeOfReplica = getReplicaSize(clusterBean);
-    TreeMap<TopicPartitionReplica, Double> replicaCost =
-        new TreeMap<>(
-            Comparator.comparing(TopicPartitionReplica::brokerId)
-                .thenComparing(TopicPartitionReplica::topic)
-                .thenComparing(TopicPartitionReplica::partition));
-    sizeOfReplica.forEach(
-        (tpr, size) ->
-            replicaCost.put(
-                tpr, (double) size / totalBrokerCapacity.get(tpr.brokerId()) / ONEMEGA));
-
-    var scoreForTopic =
-        clusterInfo.topics().stream()
-            .map(
-                topic ->
-                    Map.entry(
-                        topic,
-                        clusterInfo.replicas(topic).stream()
-                            .filter(ReplicaInfo::isLeader)
-                            .map(
-                                partitionInfo ->
-                                    TopicPartitionReplica.of(
-                                        partitionInfo.topic(),
-                                        partitionInfo.partition(),
-                                        partitionInfo.nodeInfo().id()))
-                            .map(
-                                tpr -> {
-                                  final var score =
-                                      replicaCost.entrySet().stream()
-                                          .filter(
-                                              x ->
-                                                  x.getKey().topic().equals(tpr.topic())
-                                                      && (x.getKey().partition()
-                                                          == tpr.partition()))
-                                          .mapToDouble(Map.Entry::getValue)
-                                          .max()
-                                          .orElseThrow(
-                                              () ->
-                                                  new IllegalStateException(
-                                                      tpr + " topic/partition size not found"));
-                                  return Map.entry(
-                                      TopicPartition.of(tpr.topic(), tpr.partition()), score);
-                                })
-                            .collect(
-                                Collectors.toUnmodifiableMap(
-                                    Map.Entry::getKey, Map.Entry::getValue))))
-            .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));
-
-    var scoreForBroker =
-        clusterInfo.nodes().stream()
-            .map(
-                node ->
-                    Map.entry(
-                        node.id(),
-                        replicaCost.entrySet().stream()
-                            .filter((tprScore) -> tprScore.getKey().brokerId() == node.id())
-                            .collect(
-                                Collectors.toMap(
-                                    x ->
-                                        TopicPartition.of(
-                                            x.getKey().topic(), x.getKey().partition()),
-                                    Map.Entry::getValue))))
-            .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));
-
-    return new PartitionCost() {
-
-      @Override
-      public Map<TopicPartition, Double> value(String topic) {
-        return scoreForTopic.get(topic);
-      }
-
-      @Override
-      public Map<TopicPartition, Double> value(int brokerId) {
-        return scoreForBroker.get(brokerId);
-      }
-    };
   }
 
   /**
