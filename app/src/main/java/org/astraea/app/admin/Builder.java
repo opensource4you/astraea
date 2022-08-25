@@ -461,29 +461,27 @@ public class Builder {
     public ClusterInfo clusterInfo(Set<String> topics) {
       final var nodeInfo = this.nodes().stream().collect(Collectors.toUnmodifiableList());
 
-      final var topicToReplicasMap =
-          Utils.packException(() -> this.replicas(topics)).entrySet().stream()
-              .flatMap(
-                  entry -> {
-                    final var topicPartition = entry.getKey();
-                    final var replicas = entry.getValue();
-
-                    return replicas.stream()
-                        .map(
-                            replica ->
-                                ReplicaInfo.of(
-                                    topicPartition.topic(),
-                                    topicPartition.partition(),
-                                    nodeInfo.stream()
-                                        .filter(x -> x.id() == replica.broker())
-                                        .findFirst()
-                                        .orElse(NodeInfo.ofOfflineNode(replica.broker())),
-                                    replica.leader(),
-                                    replica.inSync(),
-                                    replica.isOffline(),
-                                    replica.path()));
-                  })
-              .collect(Collectors.groupingBy(ReplicaInfo::topic));
+      var replicas =
+          Utils.packException(
+              () ->
+                  this.replicas(topics).entrySet().stream()
+                      .flatMap(
+                          e ->
+                              e.getValue().stream()
+                                  .map(
+                                      replica ->
+                                          ReplicaInfo.of(
+                                              e.getKey().topic(),
+                                              e.getKey().partition(),
+                                              nodeInfo.stream()
+                                                  .filter(x -> x.id() == replica.broker())
+                                                  .findFirst()
+                                                  .orElse(NodeInfo.ofOfflineNode(replica.broker())),
+                                              replica.leader(),
+                                              replica.inSync(),
+                                              replica.isOffline(),
+                                              replica.path())))
+                      .collect(Collectors.toUnmodifiableList()));
 
       return new ClusterInfo() {
         @Override
@@ -492,13 +490,8 @@ public class Builder {
         }
 
         @Override
-        public Set<String> topics() {
-          return topics;
-        }
-
-        @Override
-        public List<ReplicaInfo> replicas(String topic) {
-          return topicToReplicasMap.getOrDefault(topic, List.of());
+        public List<ReplicaInfo> replicas() {
+          return replicas;
         }
       };
     }

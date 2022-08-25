@@ -93,29 +93,23 @@ public class FakeClusterInfo implements ClusterInfo {
                                     false,
                                     dataDirectoryList.get(
                                         tp.partition() % dataDirectories.size()))))
-            .collect(Collectors.groupingBy(ReplicaInfo::topic));
+            .collect(Collectors.toUnmodifiableList());
 
     return new FakeClusterInfo(
         nodes,
         nodes.stream()
             .collect(Collectors.toMap(NodeInfo::id, n -> new HashSet<String>(dataDirectories))),
-        topics,
         replicas);
   }
 
   private final List<NodeInfo> nodes;
   private final Map<Integer, Set<String>> dataDirectories;
-  private final Set<String> topics;
-  private final Map<String, List<ReplicaInfo>> replicas;
+  private final List<ReplicaInfo> replicas;
 
   FakeClusterInfo(
-      List<NodeInfo> nodes,
-      Map<Integer, Set<String>> dataDirectories,
-      Set<String> topics,
-      Map<String, List<ReplicaInfo>> replicas) {
+      List<NodeInfo> nodes, Map<Integer, Set<String>> dataDirectories, List<ReplicaInfo> replicas) {
     this.nodes = nodes;
     this.dataDirectories = dataDirectories;
-    this.topics = topics;
     this.replicas = replicas;
   }
 
@@ -129,12 +123,7 @@ public class FakeClusterInfo implements ClusterInfo {
   }
 
   @Override
-  public Set<String> topics() {
-    return topics;
-  }
-
-  @Override
-  public List<ReplicaInfo> replicas(String topic) {
-    return replicas.getOrDefault(topic, List.of());
+  public List<ReplicaInfo> replicas() {
+    return replicas;
   }
 }
