@@ -200,6 +200,20 @@ public class ThrottleHandler implements Handler {
       this.type = Optional.empty();
     }
 
+    ThrottleTarget(String name) {
+      this.name = name;
+      this.partition = OptionalInt.empty();
+      this.broker = OptionalInt.empty();
+      this.type = Optional.empty();
+    }
+
+    ThrottleTarget(String name, int partition) {
+      this.name = name;
+      this.partition = OptionalInt.of(partition);
+      this.broker = OptionalInt.empty();
+      this.type = Optional.empty();
+    }
+
     ThrottleTarget(String name, int partition, int broker) {
       this.name = name;
       this.partition = OptionalInt.of(partition);

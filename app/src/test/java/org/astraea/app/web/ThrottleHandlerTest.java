@@ -16,6 +16,10 @@
  */
 package org.astraea.app.web;
 
+import static org.astraea.app.web.ThrottleHandler.LogIdentity.leader;
+import static org.astraea.app.web.ThrottleHandler.ThrottleBandwidths.egress;
+import static org.astraea.app.web.ThrottleHandler.ThrottleBandwidths.ingress;
+
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
@@ -34,6 +38,7 @@ import org.astraea.app.common.json.OptionalIntTypeAdapter;
 import org.astraea.app.common.json.OptionalTypeAdapter;
 import org.astraea.app.service.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 public class ThrottleHandlerTest extends RequireBrokerCluster {
@@ -151,8 +156,7 @@ public class ThrottleHandlerTest extends RequireBrokerCluster {
   void testThrottleTargetEqual() {
     var target0 = new ThrottleHandler.ThrottleTarget("Topic", 0, 0);
     var target1 = new ThrottleHandler.ThrottleTarget("Topic", 0, 0);
-    var target2 =
-        new ThrottleHandler.ThrottleTarget("Topic", 0, 0, ThrottleHandler.LogIdentity.leader);
+    var target2 = new ThrottleHandler.ThrottleTarget("Topic", 0, 0, leader);
     var target3 =
         new ThrottleHandler.ThrottleTarget("Topic", 0, 0, ThrottleHandler.LogIdentity.follower);
     var target4 = new ThrottleHandler.ThrottleTarget("Topic", 1, 0);
@@ -173,7 +177,7 @@ public class ThrottleHandlerTest extends RequireBrokerCluster {
     var throttle0 = new ThrottleHandler.ThrottleTarget("MyTopic", 0, 1001);
     var throttle1 = new ThrottleHandler.ThrottleTarget("MyTopic", 0, 1002);
     var throttle2 = new ThrottleHandler.ThrottleTarget("MyTopic", 0, 1003);
-    var map = Map.of(1001, Map.of(ThrottleHandler.ThrottleBandwidths.ingress, 1L));
+    var map = Map.of(1001, Map.of(ingress, 1L));
     var set = Set.of(throttle0, throttle1, throttle2);
     var setting = new ThrottleHandler.ThrottleSetting(map, set);
 
@@ -187,5 +191,39 @@ public class ThrottleHandlerTest extends RequireBrokerCluster {
 
     Assertions.assertEquals(map, deserialized.brokers);
     Assertions.assertEquals(set, Set.copyOf(deserialized.topics));
+  }
+
+  @Disabled
+  @Test
+  void testDeserialize() {
+    final String rawJson =
+        "{\"brokers\":{"
+            + "\"1001\":{\"ingress\":1000,\"egress\":1000},"
+            + "\"1002\":{\"ingress\":1000}},"
+            + "\"topics\":["
+            + "{\"name\":\"MyTopicA\"},"
+            + "{\"name\":\"MyTopicB\",\"partition\":2},"
+            + "{\"name\":\"MyTopicC\",\"partition\":3,\"broker\":1001},"
+            + "{\"name\":\"MyTopicD\",\"partition\":4,\"broker\":1001,\"type\":\"leader\"}]}";
+    var expectedMap =
+        Map.of(
+            1001, Map.of(ingress, 1000L, egress, 1000L),
+            1002, Map.of(ingress, 1000L));
+    var expectedSet =
+        Set.of(
+            new ThrottleHandler.ThrottleTarget("MyTopicA"),
+            new ThrottleHandler.ThrottleTarget("MyTopicB", 2),
+            new ThrottleHandler.ThrottleTarget("MyTopicC", 3, 1001),
+            new ThrottleHandler.ThrottleTarget("MyTopicD", 4, 1001, leader));
+
+    var gson =
+        new GsonBuilder()
+            .registerTypeAdapter(OptionalInt.class, new OptionalIntTypeAdapter())
+            .registerTypeAdapter(Optional.class, new OptionalTypeAdapter())
+            .create();
+    var deserialized = gson.fromJson(rawJson, ThrottleHandler.ThrottleSetting.class);
+
+    Assertions.assertEquals(expectedMap, deserialized.brokers);
+    Assertions.assertEquals(expectedSet, Set.copyOf(deserialized.topics));
   }
 }
