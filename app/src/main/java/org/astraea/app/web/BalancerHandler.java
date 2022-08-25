@@ -19,7 +19,6 @@ package org.astraea.app.web;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.stream.Collectors;
 import org.astraea.app.admin.Admin;
 import org.astraea.app.admin.ClusterBean;
@@ -50,11 +49,12 @@ class BalancerHandler implements Handler {
   }
 
   @Override
-  public Response get(Optional<String> target, Map<String, String> queries) {
+  public Response get(Channel channel) {
     var clusterInfo = admin.clusterInfo();
     var clusterAllocation = ClusterLogAllocation.of(clusterInfo);
     var cost = costFunction.clusterCost(clusterInfo, ClusterBean.EMPTY).value();
-    var limit = Integer.parseInt(queries.getOrDefault(LIMIT_KEY, String.valueOf(LIMIT_DEFAULT)));
+    var limit =
+        Integer.parseInt(channel.queries().getOrDefault(LIMIT_KEY, String.valueOf(LIMIT_DEFAULT)));
     var planAndCost =
         generator
             .generate(admin.brokerFolders(), clusterAllocation)

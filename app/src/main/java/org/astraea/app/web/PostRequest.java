@@ -19,9 +19,6 @@ package org.astraea.app.web;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.reflect.TypeToken;
-import com.sun.net.httpserver.HttpExchange;
-import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -32,9 +29,7 @@ import java.util.stream.Collectors;
 
 public interface PostRequest {
 
-  static PostRequest of(HttpExchange exchange) throws IOException {
-    return of(new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8));
-  }
+  PostRequest EMPTY = PostRequest.of(Map.of());
 
   @SuppressWarnings("unchecked")
   static PostRequest of(String json) {

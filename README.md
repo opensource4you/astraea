@@ -21,55 +21,8 @@
 4. [快速啟動 Prometheus ](./docs/run_prometheus.md):  建構`Kafka`叢集資訊收集系統
 5. [快速啟動 Grafana ](./docs/run_grafana.md): 建置圖形化介面監控`kafka`叢集使用狀況
 6. [Web Server](./docs/web_server/README.md): 可透過`Restful APIs`操作`Kafka`叢集
-7. [Kafka metric explorer](#kafka-metric-explorer): utility for accessing kafka Mbean metrics via JMX. (deprecated)
-8. [Kafka replica syncing monitor](#Kafka-replica-syncing-monitor): Tracking replica syncing progress. (deprecated)
-9. [Astraea Partitioner 測試](docs/dispatcher_experiments/README.md): Astraea Partitioner 測試報告
----
-
-## Kafka Metric Explorer
-
-This tool can be used to access Kafka's MBean metrics via JMX.
-
-Run the tool from source code
-
-```shell
-# fetch every Mbeans from specific JMX server.
-./gradlew run --args="metrics --jmx.server 192.168.50.178:1099"
-
-# fetch any Mbean that its object name contains property "type=Memory".
-./gradlew run --args="metrics --jmx.server 192.168.50.178:1099 --property type=Memory"
-
-# fetch any Mbean that belongs to "kafka.network" domain name, 
-# and it's object name contains two properties "request=Metadata" and "name=LocalTimeMs".
-./gradlew run --args="metrics --jmx.server 192.168.50.178:1099 --domain kafka.network --property request=Metadata --property name=LocalTimeMs"
-
-# list all Mbeans' object name on specific JMX server.
-./gradlew run --args="metrics --jmx.server 192.168.50.178:1099 --view-object-name-list"
-```
-
-Run the tool from release
-```shell
-# fetch every Mbeans from specific JMX server.
-./docker/start_app.sh metrics --jmx.server 192.168.50.178:1099
-
-# fetch any Mbean that its object name contains property "type=Memory".
-./docker/start_app.sh metrics --jmx.server 192.168.50.178:1099 --property type=Memory
-
-# fetch any Mbean that belongs to "kafka.network" domain name,
-# and it's object name contains two properties "request=Metadata" and "name=LocalTimeMs".
-./docker/start_app.sh metrics --jmx.server 192.168.50.178:1099 --domain kafka.network --property request=Metadata --property name=LocalTimeMs
-
-# list all Mbeans' object name on specific JMX server.
-./docker/start_app.sh metrics --jmx.server 192.168.50.178:1099 --view-object-name-list
-```
-
-### Metric Explorer Configurations
-
-1. --jmx.server: the address to connect to Kafka JMX remote server.
-2. --domain: query Mbeans from the specific domain name (support wildcard "\*" and "?"). Default: "\*".
-3. --property: query mbeans with the specific property (support wildcard "\*" and "?"). You can specify this argument multiple times. Default: [].
-4. --strict-match: only Mbeans with its object name completely match the given criteria shows. Default: false.
-5. --view-object-name-list: show the list view of MBeans' domain name & properties. Default: false.
+7. [Kafka replica syncing monitor](#Kafka-replica-syncing-monitor): Tracking replica syncing progress. (deprecated)
+8. [Partitioner 測試](docs/dispatcher_experiments/README.md): Partitioner 測試報告
 
 ---
 

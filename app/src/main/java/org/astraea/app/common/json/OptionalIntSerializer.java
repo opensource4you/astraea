@@ -14,26 +14,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.app.cost;
+package org.astraea.app.common.json;
 
-import java.util.Map;
-import org.astraea.app.admin.TopicPartition;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonSerializationContext;
+import com.google.gson.JsonSerializer;
+import java.lang.reflect.Type;
+import java.util.OptionalInt;
 
-/** Return type of cost function, `HasPartitionCost`. It returns the score of partitions. */
-public interface PartitionCost {
-  /**
-   * Get the cost of all leader partitions with the given topic name.
-   *
-   * @param topic the topic name we want to query for.
-   * @return the cost of all leader partitions, with respect to the given topic.
-   */
-  Map<TopicPartition, Double> value(String topic);
-
-  /**
-   * Get the cost of all partitions (leader/followers) with the given broker ID.
-   *
-   * @param brokerId the broker we want to query for.
-   * @return the cost of all partitions (leader/followers), with respect to the given broker.
-   */
-  Map<TopicPartition, Double> value(int brokerId);
+public class OptionalIntSerializer implements JsonSerializer<OptionalInt> {
+  @Override
+  public JsonElement serialize(OptionalInt src, Type typeOfSrc, JsonSerializationContext context) {
+    return src.isPresent() ? context.serialize(src.getAsInt()) : null;
+  }
 }
