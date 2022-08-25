@@ -93,60 +93,67 @@ public class Balancer implements AutoCloseable {
     // run
     while (!Thread.currentThread().isInterrupted()) {
       boolean shouldDrainMetrics = false;
-      // let metric warm up
-      System.out.println("Warmup metrics");
-      var t = BalancerUtils.progressWatch("Warm Up Metrics", 1, metricSource::warmUpProgress);
-      t.start();
-      metricSource.awaitMetricReady();
-      t.interrupt();
-      Utils.packException(() -> t.join());
-      System.out.println("Metrics warmed");
+      System.out.println("[Fetch metrics]");
+      awaitMetrics();
 
-      // ensure not working
-      var topics =
-          admin.topicNames().stream().filter(topicFilter).collect(Collectors.toUnmodifiableSet());
-      var migrationInProgress =
-          admin.replicas(topics).entrySet().stream()
-              .flatMap(x -> x.getValue().stream().map(y -> Map.entry(x.getKey(), y)))
-              .filter(r -> !r.getValue().inSync() || r.getValue().isFuture())
-              .map(
-                  r ->
-                      TopicPartitionReplica.of(
-                          r.getKey().topic(), r.getKey().partition(), r.getValue().broker()))
-              .collect(Collectors.toUnmodifiableList());
-      if (!migrationInProgress.isEmpty()) {
-        throw new IllegalStateException(
-            "There are some migration in progress... " + migrationInProgress);
-      }
+      System.out.println("[Ensure no on going migration]");
+      ensureNoOnGoingMigration();
 
       try {
         // calculate the score of current cluster
         var clusterInfo = newClusterInfo();
         var clusterMetrics = metricSource.allBeans();
         var currentClusterScore = evaluateCost(clusterInfo, clusterMetrics);
-        System.out.println("Run " + planGenerator.getClass().getName());
+
+        System.out.println("[Run " + planGenerator.getClass().getName() + "]");
         var bestProposal = seekingRebalancePlan(currentClusterScore, clusterInfo, clusterMetrics);
-        System.out.println(bestProposal);
         var bestCluster = BalancerUtils.merge(clusterInfo, bestProposal.rebalancePlan());
         var bestScore = evaluateCost(bestCluster, clusterMetrics);
+
+        System.out.println(bestProposal);
         System.out.printf(
             "Current cluster score: %.8f, Proposed cluster score: %.8f%n",
             currentClusterScore, bestScore);
-        if (!isPlanExecutionWorth(currentClusterScore, bestScore)) {
+        if(currentClusterScore > bestScore) {
+          System.out.println("[Run " + planExecutor.getClass().getName() + "]");
+          shouldDrainMetrics = true;
+          executePlan(bestProposal);
+        } else {
           System.out.println("The proposed plan is rejected due to no worth improvement");
-          continue;
         }
-        System.out.println("Run " + planExecutor.getClass().getName());
-        shouldDrainMetrics = true;
-        executePlan(bestProposal);
       } catch (Exception e) {
         e.printStackTrace();
       } finally {
-        // drain old metrics, these metrics is probably invalid after the rebalance operation
-        // performed.
+        // drain old metrics, these metrics are probably invalid after the rebalance operation.
         if (shouldDrainMetrics) metricSource.drainMetrics();
       }
     }
+  }
+
+  private void ensureNoOnGoingMigration() {
+    var topics =
+        admin.topicNames().stream().filter(topicFilter).collect(Collectors.toUnmodifiableSet());
+    var migrationInProgress =
+        admin.replicas(topics).entrySet().stream()
+            .flatMap(x -> x.getValue().stream().map(y -> Map.entry(x.getKey(), y)))
+            .filter(r -> !r.getValue().inSync() || r.getValue().isFuture())
+            .map(
+                r ->
+                    TopicPartitionReplica.of(
+                        r.getKey().topic(), r.getKey().partition(), r.getValue().broker()))
+            .collect(Collectors.toUnmodifiableList());
+    if (!migrationInProgress.isEmpty()) {
+      throw new IllegalStateException(
+          "There are some migration in progress... " + migrationInProgress);
+    }
+  }
+
+  private void awaitMetrics() {
+    var t = BalancerUtils.progressWatch("Warm Up Metrics", 1, metricSource::warmUpProgress);
+    t.start();
+    metricSource.awaitMetricReady();
+    t.interrupt();
+    Utils.packException(() -> t.join());
   }
 
   /** Retrieve a new {@link ClusterInfo}, with info only related to the permitted topics. */
@@ -194,7 +201,7 @@ public class Balancer implements AutoCloseable {
                         var proposal = entry.getValue();
                         var allocation = proposal.rebalancePlan();
                         var mockedCluster = BalancerUtils.merge(clusterInfo, allocation);
-                        return evaluateMoveCost(mockedCluster, clusterMetrics);
+                        return evaluateMoveCost(clusterInfo, mockedCluster, clusterMetrics);
                       }));
 
       // find the target with the highest score, return it
@@ -208,19 +215,11 @@ public class Balancer implements AutoCloseable {
   }
 
   private void executePlan(RebalancePlanProposal proposal) {
-    // prepare context
-    var allocation = proposal.rebalancePlan();
-    try (Admin newAdmin = Admin.of(balancerConfigs.bootstrapServers())) {
-      var rebalanceAdmin = RebalanceAdmin.of(newAdmin, topicFilter);
-
-      // execute
-      planExecutor.run(rebalanceAdmin, allocation);
+    try (Admin newAdmin = Admin.of(balancerConfigs.configs())) {
+      planExecutor.run(
+          RebalanceAdmin.of(newAdmin, topicFilter),
+          proposal.rebalancePlan());
     }
-  }
-
-  // visible for testing
-  boolean isPlanExecutionWorth(double currentScore, double proposedScore) {
-    return currentScore > proposedScore;
   }
 
   private double evaluateCost(
@@ -228,6 +227,8 @@ public class Balancer implements AutoCloseable {
       Map<IdentifiedFetcher, Map<Integer, Collection<HasBeanObject>>> metrics) {
     var scores =
         costFunctions.stream()
+            .filter(x -> x instanceof HasClusterCost)
+            .map(x -> (HasClusterCost)x)
             .map(
                 cf -> {
                   var fetcher = fetcherOwnership.get(cf);
@@ -240,16 +241,19 @@ public class Balancer implements AutoCloseable {
   }
 
   private double evaluateMoveCost(
+      ClusterInfo currentCluster,
       ClusterInfo clusterInfo,
       Map<IdentifiedFetcher, Map<Integer, Collection<HasBeanObject>>> metrics) {
     var scores =
         costFunctions.stream()
+            .filter(cf -> cf instanceof HasMoveCost)
+            .map(cf -> (HasMoveCost)cf)
             .map(
                 cf -> {
                   var fetcher = fetcherOwnership.get(cf);
                   var theMetrics = metrics.get(fetcher);
                   var clusterBean = ClusterBean.of(theMetrics);
-                  return Map.entry(cf, this.moveCostScore(clusterInfo, clusterBean, cf));
+                  return Map.entry(cf, this.moveCostScore(currentCluster, clusterInfo, clusterBean, cf));
                 })
             .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));
     return aggregateFunction(scores);
@@ -260,26 +264,18 @@ public class Balancer implements AutoCloseable {
     return scores.values().stream().mapToDouble(x -> x).sum();
   }
 
-  private double costFunctionScore(
-      ClusterInfo clusterInfo, ClusterBean clusterBean, CostFunction costFunction) {
-    if (costFunction instanceof HasClusterCost) {
-      return ((HasClusterCost) costFunction).clusterCost(clusterInfo, clusterBean).value();
-    } else {
-      return 0.0;
-    }
+  private <T extends HasClusterCost> double costFunctionScore(
+      ClusterInfo clusterInfo, ClusterBean clusterBean, T costFunction) {
+    return costFunction.clusterCost(clusterInfo, clusterBean).value();
   }
 
-  private double moveCostScore(
-      ClusterInfo clusterInfo, ClusterBean clusterBean, CostFunction costFunction) {
-    if (costFunction instanceof HasMoveCost) {
-      var originalClusterInfo = newClusterInfo();
-      if (((HasMoveCost) costFunction).overflow(originalClusterInfo, clusterInfo, clusterBean))
-        return 999999.0;
-      return ((HasMoveCost) costFunction)
-          .clusterCost(originalClusterInfo, clusterInfo, clusterBean)
-          .value();
-    }
-    return 0.0;
+  private <T extends HasMoveCost> double moveCostScore(
+      ClusterInfo currentCluster, ClusterInfo clusterInfo, ClusterBean clusterBean, T costFunction) {
+    if (costFunction.overflow(currentCluster, clusterInfo, clusterBean))
+      return 999999.0;
+    return costFunction
+        .clusterCost(currentCluster, clusterInfo, clusterBean)
+        .value();
   }
 
   @Override
