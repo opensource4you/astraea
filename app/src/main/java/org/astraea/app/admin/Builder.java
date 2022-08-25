@@ -346,82 +346,71 @@ public class Builder {
 
     @Override
     public Map<TopicPartition, List<Replica>> replicas(Set<String> topics) {
+      var logInfo =
+          Utils.packException(() -> admin.describeLogDirs(brokerIds()).allDescriptions().get());
+
       return Utils.packException(
-          () -> {
-            var logInfo = admin.describeLogDirs(brokerIds()).allDescriptions().get();
-            var tpPathMap = new HashMap<TopicPartition, Map<Integer, String>>();
-            for (var entry0 : logInfo.entrySet()) {
-              for (var entry1 : entry0.getValue().entrySet()) {
-                for (var entry2 : entry1.getValue().replicaInfos().entrySet()) {
-                  var tp = TopicPartition.from(entry2.getKey());
-                  var broker = entry0.getKey();
-                  var dataPath = entry1.getKey();
-                  tpPathMap.computeIfAbsent(tp, (ignore) -> new HashMap<>()).put(broker, dataPath);
-                }
-              }
-            }
-            return admin.describeTopics(topics).allTopicNames().get().entrySet().stream()
-                .flatMap(
-                    entry ->
-                        entry.getValue().partitions().stream()
-                            .map(
-                                tpInfo -> {
-                                  var topicName = entry.getKey();
-                                  var partition = tpInfo.partition();
-                                  var topicPartition = TopicPartition.of(topicName, partition);
-                                  return Map.entry(topicPartition, tpInfo);
-                                }))
-                .collect(
-                    Collectors.toUnmodifiableMap(
-                        e -> e.getKey(),
-                        entry -> {
-                          var topicPartition = entry.getKey();
-                          var tpInfo = entry.getValue();
-                          var replicaLeaderId = tpInfo.leader() != null ? tpInfo.leader().id() : -1;
-                          var isrSet = tpInfo.isr();
-                          // The first replica in the return result is the preferred leader. This
-                          // only works with Kafka broker version after 0.11. Version before 0.11
-                          // returns the replicas in unspecified order due to a bug.
-                          var preferredLeader = entry.getValue().replicas().get(0);
-                          return entry.getValue().replicas().stream()
-                              .map(
-                                  node -> {
-                                    int broker = node.id();
-                                    var dataPath =
-                                        tpPathMap
-                                            .getOrDefault(topicPartition, Map.of())
-                                            .getOrDefault(broker, null);
-                                    var replicaInfo =
-                                        node.isEmpty() || dataPath == null
-                                            ? null
-                                            : logInfo
-                                                .get(broker)
-                                                .get(dataPath)
-                                                .replicaInfos()
-                                                .get(TopicPartition.to(topicPartition));
-                                    boolean isLeader = node.id() == replicaLeaderId;
-                                    boolean inSync = isrSet.contains(node);
-                                    long lag = replicaInfo != null ? replicaInfo.offsetLag() : -1L;
-                                    long size = replicaInfo != null ? replicaInfo.size() : -1L;
-                                    boolean future = replicaInfo != null && replicaInfo.isFuture();
-                                    boolean offline = node.isEmpty();
-                                    boolean isPreferredLeader = preferredLeader.id() == broker;
-                                    return Replica.of(
-                                        topicPartition.topic(),
-                                        topicPartition.partition(),
-                                        NodeInfo.of(node),
-                                        lag,
-                                        size,
-                                        isLeader,
-                                        inSync,
-                                        future,
-                                        offline,
-                                        isPreferredLeader,
-                                        dataPath);
-                                  })
-                              .collect(Collectors.toList());
-                        }));
-          });
+              () ->
+                  admin.describeTopics(topics).allTopicNames().get().entrySet().stream()
+                      .flatMap(
+                          entry ->
+                              entry.getValue().partitions().stream()
+                                  .map(
+                                      tpInfo ->
+                                          Map.entry(
+                                              new org.apache.kafka.common.TopicPartition(
+                                                  entry.getKey(), tpInfo.partition()),
+                                              tpInfo))))
+          .collect(
+              Collectors.toUnmodifiableMap(
+                  e -> TopicPartition.from(e.getKey()),
+                  entry ->
+                      entry.getValue().replicas().stream()
+                          .map(
+                              node -> {
+                                var dataPath =
+                                    logInfo.get(node.id()).entrySet().stream()
+                                        .filter(
+                                            e ->
+                                                e.getValue()
+                                                    .replicaInfos()
+                                                    .containsKey(entry.getKey()))
+                                        .map(Map.Entry::getKey)
+                                        .findFirst()
+                                        .orElseThrow(
+                                            () ->
+                                                new IllegalStateException(
+                                                    "inconsistent stats of partition: "
+                                                        + entry.getKey()));
+                                var replicaInfo =
+                                    node.isEmpty()
+                                        ? null
+                                        : logInfo
+                                            .get(node.id())
+                                            .get(dataPath)
+                                            .replicaInfos()
+                                            .get(entry.getKey());
+                                return Replica.of(
+                                    entry.getKey().topic(),
+                                    entry.getKey().partition(),
+                                    NodeInfo.of(node),
+                                    replicaInfo != null ? replicaInfo.offsetLag() : -1L,
+                                    replicaInfo != null ? replicaInfo.size() : -1L,
+                                    !entry.getValue().leader().isEmpty()
+                                        && entry.getValue().leader().id() == node.id(),
+                                    entry.getValue().isr().contains(node),
+                                    replicaInfo != null && replicaInfo.isFuture(),
+                                    node.isEmpty(),
+                                    // The first replica in the return result is the
+                                    // preferred leader. This
+                                    // only works with Kafka broker version after 0.11.
+                                    // Version before 0.11
+                                    // returns the replicas in unspecified order due to a
+                                    // bug.
+                                    entry.getValue().replicas().get(0).id() == node.id(),
+                                    dataPath);
+                              })
+                          .collect(Collectors.toList())));
     }
 
     @Override
