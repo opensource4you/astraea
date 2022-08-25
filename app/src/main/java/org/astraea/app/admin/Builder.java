@@ -333,9 +333,9 @@ public class Builder {
         Set<String> topics, Set<Integer> brokerIds) {
       return replicas(topics).entrySet().stream()
           .flatMap(
-              e -> e.getValue().stream().map(replica -> Map.entry(replica.broker(), e.getKey())))
-          .filter(e -> brokerIds.contains(e.getKey()))
-          .collect(Collectors.groupingBy(Map.Entry::getKey))
+              e -> e.getValue().stream().map(replica -> Map.entry(replica.nodeInfo(), e.getKey())))
+          .filter(e -> brokerIds.contains(e.getKey().id()))
+          .collect(Collectors.groupingBy(e -> e.getKey().id()))
           .entrySet()
           .stream()
           .collect(
@@ -373,8 +373,8 @@ public class Builder {
                                 }))
                 .collect(
                     Collectors.toUnmodifiableMap(
-                        Map.Entry::getKey,
-                        (entry) -> {
+                        e -> e.getKey(),
+                        entry -> {
                           var topicPartition = entry.getKey();
                           var tpInfo = entry.getValue();
                           var replicaLeaderId = tpInfo.leader() != null ? tpInfo.leader().id() : -1;
@@ -406,8 +406,10 @@ public class Builder {
                                     boolean future = replicaInfo != null && replicaInfo.isFuture();
                                     boolean offline = node.isEmpty();
                                     boolean isPreferredLeader = preferredLeader.id() == broker;
-                                    return new Replica(
-                                        broker,
+                                    return Replica.of(
+                                        topicPartition.topic(),
+                                        topicPartition.partition(),
+                                        NodeInfo.of(node),
                                         lag,
                                         size,
                                         isLeader,
@@ -464,23 +466,9 @@ public class Builder {
       var replicas =
           Utils.packException(
               () ->
-                  this.replicas(topics).entrySet().stream()
-                      .flatMap(
-                          e ->
-                              e.getValue().stream()
-                                  .map(
-                                      replica ->
-                                          ReplicaInfo.of(
-                                              e.getKey().topic(),
-                                              e.getKey().partition(),
-                                              nodeInfo.stream()
-                                                  .filter(x -> x.id() == replica.broker())
-                                                  .findFirst()
-                                                  .orElse(NodeInfo.ofOfflineNode(replica.broker())),
-                                              replica.leader(),
-                                              replica.inSync(),
-                                              replica.isOffline(),
-                                              replica.path())))
+                  replicas(topics).values().stream()
+                      .flatMap(Collection::stream)
+                      .map(r -> (ReplicaInfo) r)
                       .collect(Collectors.toUnmodifiableList()));
 
       return new ClusterInfo() {
@@ -583,7 +571,7 @@ public class Builder {
                                                   new org.apache.kafka.common.TopicPartitionReplica(
                                                       e.getKey().topic(),
                                                       e.getKey().partition(),
-                                                      r.broker())))
+                                                      r.nodeInfo().id())))
                               .collect(Collectors.toUnmodifiableList()))
                       .all()
                       .get());
@@ -683,14 +671,14 @@ public class Builder {
                   (tp, replicas) -> {
                     replicas.forEach(
                         replica -> {
-                          if (replica.leader())
+                          if (replica.isLeader())
                             leaders.add(
                                 TopicPartitionReplica.of(
-                                    tp.topic(), tp.partition(), replica.broker()));
+                                    tp.topic(), tp.partition(), replica.nodeInfo().id()));
                           else
                             followers.add(
                                 TopicPartitionReplica.of(
-                                    tp.topic(), tp.partition(), replica.broker()));
+                                    tp.topic(), tp.partition(), replica.nodeInfo().id()));
                         });
                   });
           return this;
@@ -702,14 +690,18 @@ public class Builder {
               replicas(Set.of(topicPartition.topic())).getOrDefault(topicPartition, List.of());
           replicas.forEach(
               replica -> {
-                if (replica.leader())
+                if (replica.isLeader())
                   leaders.add(
                       TopicPartitionReplica.of(
-                          topicPartition.topic(), topicPartition.partition(), replica.broker()));
+                          topicPartition.topic(),
+                          topicPartition.partition(),
+                          replica.nodeInfo().id()));
                 else
                   followers.add(
                       TopicPartitionReplica.of(
-                          topicPartition.topic(), topicPartition.partition(), replica.broker()));
+                          topicPartition.topic(),
+                          topicPartition.partition(),
+                          replica.nodeInfo().id()));
               });
           return this;
         }
@@ -882,7 +874,7 @@ public class Builder {
     public void clearReplicationThrottle(TopicPartition topicPartition) {
       var configValue =
           replicas(Set.of(topicPartition.topic())).get(topicPartition).stream()
-              .map(replica -> topicPartition.partition() + ":" + replica.broker())
+              .map(replica -> topicPartition.partition() + ":" + replica.nodeInfo().id())
               .collect(Collectors.joining(","));
       var configEntry0 = new ConfigEntry("leader.replication.throttled.replicas", configValue);
       var configEntry1 = new ConfigEntry("follower.replication.throttled.replicas", configValue);

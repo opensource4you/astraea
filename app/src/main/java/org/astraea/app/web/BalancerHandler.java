@@ -103,7 +103,7 @@ class BalancerHandler implements Handler {
 
     Placement(LogPlacement lp) {
       this.brokerId = lp.broker();
-      this.directory = lp.logDirectory().orElse(null);
+      this.directory = lp.dataFolder();
     }
   }
 

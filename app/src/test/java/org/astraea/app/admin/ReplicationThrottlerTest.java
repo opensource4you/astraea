@@ -85,7 +85,7 @@ public class ReplicationThrottlerTest extends RequireBrokerCluster {
       Utils.waitFor(
           () ->
               admin.replicas(Set.of(topicName)).get(TopicPartition.of(topicName, 0)).stream()
-                  .filter(x -> x.broker() == 1)
+                  .filter(x -> x.nodeInfo().id() == 1)
                   .findFirst()
                   .map(Replica::inSync)
                   .orElse(false),

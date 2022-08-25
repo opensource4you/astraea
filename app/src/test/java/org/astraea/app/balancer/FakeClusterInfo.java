@@ -26,6 +26,7 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.astraea.app.admin.ClusterInfo;
 import org.astraea.app.admin.NodeInfo;
+import org.astraea.app.admin.Replica;
 import org.astraea.app.admin.ReplicaInfo;
 import org.astraea.app.admin.TopicPartition;
 
@@ -84,15 +85,20 @@ public class FakeClusterInfo implements ClusterInfo {
                     IntStream.range(0, replicaCount)
                         .mapToObj(
                             r ->
-                                ReplicaInfo.of(
-                                    tp.topic(),
-                                    tp.partition(),
-                                    nodes.get(r),
-                                    r == 0,
-                                    true,
-                                    false,
-                                    dataDirectoryList.get(
-                                        tp.partition() % dataDirectories.size()))))
+                                (ReplicaInfo)
+                                    Replica.of(
+                                        tp.topic(),
+                                        tp.partition(),
+                                        nodes.get(r),
+                                        0,
+                                        -1,
+                                        r == 0,
+                                        true,
+                                        false,
+                                        false,
+                                        false,
+                                        dataDirectoryList.get(
+                                            tp.partition() % dataDirectories.size()))))
             .collect(Collectors.toUnmodifiableList());
 
     return new FakeClusterInfo(
