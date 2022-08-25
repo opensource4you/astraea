@@ -18,17 +18,26 @@ package org.astraea.app.argument;
 
 import com.beust.jcommander.IParameterValidator;
 import com.beust.jcommander.ParameterException;
-import java.util.stream.IntStream;
+import java.util.List;
 
 public class NonEmptyStringFields implements IParameterValidator {
+  protected static final String SEPARATOR = ",";
+
   @Override
   public void validate(String name, String value) throws ParameterException {
-    var topics = value.split(",");
-    IntStream.range(0, topics.length)
-        .forEach(
-            i -> {
-              if (topics[i].length() == 0)
-                throw new ParameterException("topic name is illegal, it can't be empty");
-            });
+    if (value.isBlank()
+        || value.isEmpty()
+        || List.of(value.split(SEPARATOR)).contains("")
+        || checkLastEmpty(value))
+      throw new ParameterException("topic name is illegal, it can't be empty");
+  }
+
+  private boolean checkLastEmpty(String value) {
+    var actualTopicCounts = 1 + value.chars().filter(ch -> ch == ',').count();
+    var topicCounts = value.split(",").length;
+    if (actualTopicCounts != topicCounts) {
+      return true;
+    }
+    return false;
   }
 }
