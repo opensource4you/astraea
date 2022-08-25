@@ -14,19 +14,27 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.app.balancer;
+package org.astraea.app.argument;
 
-import org.astraea.app.argument.Argument;
+import java.util.Arrays;
+import java.util.List;
+import java.util.stream.Collectors;
+import org.astraea.app.common.Utils;
 
-public class BalancerMain {
-
-  public static void execute(BalancerConfigs balancerConfigs) {
-    try (Balancer balancer = new Balancer(balancerConfigs)) {
-      balancer.run();
+public class ClassFields {
+  public static class SingleClassField extends Field<Class<?>> {
+    @Override
+    public Class<?> convert(String value) {
+      return Utils.packException(() -> Class.forName(value));
     }
   }
 
-  public static void main(String[] args) {
-    execute(Argument.parse(new BalancerConfigs(), args));
+  public static class ClassesField extends Field<List<Class<?>>> {
+    @Override
+    public List<Class<?>> convert(String value) {
+      return Arrays.stream(value.split(","))
+          .map(name -> Utils.packException(() -> Class.forName(name)))
+          .collect(Collectors.toUnmodifiableList());
+    }
   }
 }

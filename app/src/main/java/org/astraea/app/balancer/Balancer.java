@@ -22,6 +22,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -50,67 +51,55 @@ import org.astraea.app.partitioner.Configuration;
 
 public class Balancer implements AutoCloseable {
 
-  private final BalancerConfigs balancerConfigs;
-  private final List<CostFunction> costFunctions;
+  private final Admin admin;
   private final RebalancePlanGenerator planGenerator;
   private final RebalancePlanExecutor planExecutor;
-  private final Predicate<String> topicFilter;
-  private final Admin admin;
   private final MetricSource metricSource;
-  private final Map<Object, IdentifiedFetcher> fetcherOwnership;
+  private final List<? extends CostFunction> costFunctions;
+  private final BalancerConfigs balancerConfigs;
+  private final Configuration configuration;
+  private final Predicate<String> topicFilter;
+  private final Map<CostFunction, IdentifiedFetcher> fetcherOwnership;
   private final AtomicBoolean isClosed;
-  private final AtomicInteger runCount;
 
-  public Balancer(Configuration configuration) {
-    this.balancerConfigs = new BalancerConfigs(configuration);
-    this.balancerConfigs.sanityCheck();
-    this.costFunctions =
-        balancerConfigs.costFunctionClasses().stream()
-            .map(x -> Utils.constructCostFunction(x, configuration))
-            .collect(Collectors.toUnmodifiableList());
+  public Balancer(BalancerConfigs balancerConfigs) {
+    this.balancerConfigs = balancerConfigs;
+    this.configuration = Configuration.of(balancerConfigs.configs());
+    this.admin = Admin.of(balancerConfigs.configs());
     this.planGenerator =
         BalancerUtils.constructGenerator(
-            balancerConfigs.rebalancePlanGeneratorClass(), configuration);
+            balancerConfigs.rebalancePlanGeneratorClass, configuration);
     this.planExecutor =
-        BalancerUtils.constructExecutor(
-            balancerConfigs.rebalancePlanExecutorClass(), configuration);
-    this.topicFilter =
-        (topic) -> {
-          if (!balancerConfigs.allowedTopics().isEmpty())
-            return balancerConfigs.allowedTopics().contains(topic)
-                && !balancerConfigs.ignoredTopics().contains(topic);
-          else return !balancerConfigs.ignoredTopics().contains(topic);
-        };
-    // TODO: add support for security-enabled cluster
-    this.admin = Admin.of(balancerConfigs.bootstrapServers());
-
+        BalancerUtils.constructExecutor(balancerConfigs.rebalancePlanExecutorClass, configuration);
+    this.costFunctions =
+        balancerConfigs.costFunctionClasses.stream()
+            .map(cf -> Utils.constructCostFunction(cf, configuration))
+            .collect(Collectors.toUnmodifiableList());
     this.fetcherOwnership =
         costFunctions.stream()
-            .filter(cf -> cf.fetcher().isPresent())
-            .collect(
-                Collectors.toMap(
-                    cf -> cf, cf -> new IdentifiedFetcher(cf.fetcher().orElseThrow())));
-
+            .map(
+                costFunction ->
+                    costFunction
+                        .fetcher()
+                        .map(fetcher -> Map.entry(costFunction, new IdentifiedFetcher(fetcher))))
+            .flatMap(Optional::stream)
+            .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));
     this.metricSource =
         BalancerUtils.constructMetricSource(
-            balancerConfigs.metricSourceClass(),
-            balancerConfigs.asConfiguration(),
-            fetcherOwnership.values());
-
+            balancerConfigs.metricSourceClass, configuration, fetcherOwnership.values());
+    this.topicFilter = (topicName) -> !balancerConfigs.ignoredTopics.contains(topicName);
     this.isClosed = new AtomicBoolean(false);
-    this.runCount = new AtomicInteger(0);
   }
 
   /** Run balancer */
   public void run() {
     // run
-    var maxRun = balancerConfigs.balancerRunCount();
-    while (!Thread.currentThread().isInterrupted() && runCount.getAndIncrement() < maxRun) {
+    while (!Thread.currentThread().isInterrupted()) {
       boolean shouldDrainMetrics = false;
       // let metric warm up
       // TODO: find a way to show the progress, without pollute the logic
       System.out.println("Warmup metrics");
-      var t = progressWatch("Warm Up Metrics", 1, metricSource::warmUpProgress);
+      var t = BalancerUtils.progressWatch("Warm Up Metrics", 1, metricSource::warmUpProgress);
       t.start();
       metricSource.awaitMetricReady();
       metricSource.allBeans().entrySet().stream()
@@ -168,7 +157,7 @@ public class Balancer implements AutoCloseable {
         // TODO: find a way to show the progress, without pollute the logic
         System.out.println("Run " + planExecutor.getClass().getName());
         shouldDrainMetrics = true;
-        executePlan(clusterInfo, bestProposal);
+        executePlan(bestProposal);
       } catch (Exception e) {
         e.printStackTrace();
       } finally {
@@ -190,10 +179,10 @@ public class Balancer implements AutoCloseable {
       double currentScore,
       ClusterInfo clusterInfo,
       Map<IdentifiedFetcher, Map<Integer, Collection<HasBeanObject>>> clusterMetrics) {
-    var tries = balancerConfigs.rebalancePlanSearchingIteration();
+    var tries = balancerConfigs.planSearchingIteration;
     var counter = new LongAdder();
     // TODO: find a way to show the progress, without pollute the logic
-    var thread = progressWatch("Searching for Good Rebalance Plan", tries, counter::doubleValue);
+    var thread = BalancerUtils.progressWatch("Searching for Good Rebalance Plan", tries, counter::doubleValue);
     try {
       thread.start();
       var bestMigrationProposals =
@@ -236,19 +225,10 @@ public class Balancer implements AutoCloseable {
     }
   }
 
-  private void executePlan(ClusterInfo clusterInfo, RebalancePlanProposal proposal) {
+  private void executePlan(RebalancePlanProposal proposal) {
     // prepare context
     var allocation = proposal.rebalancePlan();
     try (Admin newAdmin = Admin.of(balancerConfigs.bootstrapServers())) {
-      var executorFetcher = this.fetcherOwnership.get(planExecutor);
-      var metricSource =
-          (Supplier<Map<Integer, Collection<HasBeanObject>>>)
-              () ->
-                  this.metricSource.metrics(
-                      clusterInfo.nodes().stream()
-                          .map(NodeInfo::id)
-                          .collect(Collectors.toUnmodifiableSet()),
-                      executorFetcher);
       var rebalanceAdmin = RebalanceAdmin.of(newAdmin, topicFilter);
 
       // execute
@@ -298,7 +278,7 @@ public class Balancer implements AutoCloseable {
   }
 
   /** the lower, the better. */
-  private double aggregateFunction(Map<CostFunction, Double> scores) {
+  private double aggregateFunction(Map<? extends CostFunction, Double> scores) {
     scores.forEach(
         (func, value) -> {
           // System.out.printf("[%s] %.8f%n", func.getClass().getSimpleName(), value);
