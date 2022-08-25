@@ -22,8 +22,12 @@ import static org.astraea.app.web.ThrottleHandler.ThrottleBandwidths.ingress;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.google.gson.JsonDeserializationContext;
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import com.google.gson.JsonParseException;
 import com.google.gson.JsonPrimitive;
+import java.lang.reflect.Type;
 import java.time.Duration;
 import java.util.Map;
 import java.util.Optional;
@@ -38,7 +42,6 @@ import org.astraea.app.common.json.OptionalIntTypeAdapter;
 import org.astraea.app.common.json.OptionalTypeAdapter;
 import org.astraea.app.service.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 public class ThrottleHandlerTest extends RequireBrokerCluster {
@@ -193,7 +196,6 @@ public class ThrottleHandlerTest extends RequireBrokerCluster {
     Assertions.assertEquals(set, Set.copyOf(deserialized.topics));
   }
 
-  @Disabled
   @Test
   void testDeserialize() {
     final String rawJson =
@@ -219,7 +221,18 @@ public class ThrottleHandlerTest extends RequireBrokerCluster {
     var gson =
         new GsonBuilder()
             .registerTypeAdapter(OptionalInt.class, new OptionalIntTypeAdapter())
-            .registerTypeAdapter(Optional.class, new OptionalTypeAdapter())
+            .registerTypeAdapter(
+                Optional.class,
+                new OptionalTypeAdapter() {
+                  @Override
+                  public Optional<?> deserialize(
+                      JsonElement json, Type typeOfT, JsonDeserializationContext context)
+                      throws JsonParseException {
+                    if (json.isJsonNull()) return Optional.empty();
+                    return Optional.of(
+                        context.deserialize(json, ThrottleHandler.LogIdentity.class));
+                  }
+                })
             .create();
     var deserialized = gson.fromJson(rawJson, ThrottleHandler.ThrottleSetting.class);
 
