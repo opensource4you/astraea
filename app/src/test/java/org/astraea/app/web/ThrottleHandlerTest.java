@@ -17,15 +17,21 @@
 package org.astraea.app.web;
 
 import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
 import java.time.Duration;
 import java.util.Map;
+import java.util.Optional;
+import java.util.OptionalInt;
+import java.util.Set;
 import org.astraea.app.admin.Admin;
 import org.astraea.app.admin.TopicPartition;
 import org.astraea.app.admin.TopicPartitionReplica;
 import org.astraea.app.common.DataRate;
 import org.astraea.app.common.Utils;
+import org.astraea.app.common.json.OptionalIntTypeAdapter;
+import org.astraea.app.common.json.OptionalTypeAdapter;
 import org.astraea.app.service.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -160,5 +166,26 @@ public class ThrottleHandlerTest extends RequireBrokerCluster {
     Assertions.assertNotEquals(target0, target4);
     Assertions.assertNotEquals(target0, target5);
     Assertions.assertEquals(target0.hashCode(), target1.hashCode());
+  }
+
+  @Test
+  void testSerializeDeserialize() {
+    var throttle0 = new ThrottleHandler.ThrottleTarget("MyTopic", 0, 1001);
+    var throttle1 = new ThrottleHandler.ThrottleTarget("MyTopic", 0, 1002);
+    var throttle2 = new ThrottleHandler.ThrottleTarget("MyTopic", 0, 1003);
+    var map = Map.of(1001, Map.of(ThrottleHandler.ThrottleBandwidths.ingress, 1L));
+    var set = Set.of(throttle0, throttle1, throttle2);
+    var setting = new ThrottleHandler.ThrottleSetting(map, set);
+
+    var serialized = setting.json();
+    var gson =
+        new GsonBuilder()
+            .registerTypeAdapter(OptionalInt.class, new OptionalIntTypeAdapter())
+            .registerTypeAdapter(Optional.class, new OptionalTypeAdapter())
+            .create();
+    var deserialized = gson.fromJson(serialized, ThrottleHandler.ThrottleSetting.class);
+
+    Assertions.assertEquals(map, deserialized.brokers);
+    Assertions.assertEquals(set, Set.copyOf(deserialized.topics));
   }
 }

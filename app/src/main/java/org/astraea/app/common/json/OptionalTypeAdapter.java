@@ -16,15 +16,32 @@
  */
 package org.astraea.app.common.json;
 
+import com.google.gson.JsonDeserializationContext;
+import com.google.gson.JsonDeserializer;
 import com.google.gson.JsonElement;
+import com.google.gson.JsonParseException;
 import com.google.gson.JsonSerializationContext;
 import com.google.gson.JsonSerializer;
 import java.lang.reflect.Type;
 import java.util.Optional;
 
-public class OptionalSerializer implements JsonSerializer<Optional<?>> {
+/**
+ * This is a type adapter for {@code Optional<?>}. Be aware that JSON treat integer and floating
+ * value as the same type. So when {@link OptionalTypeAdapter} attempt to deserialize a {@link
+ * Optional<Integer>} it always results in {@link Optional<Double>}. To distinguish the difference,
+ * consider use {@link java.util.OptionalInt} explicitly in your class object schema.
+ */
+public class OptionalTypeAdapter
+    implements JsonSerializer<Optional<?>>, JsonDeserializer<Optional<?>> {
   @Override
   public JsonElement serialize(Optional<?> src, Type typeOfSrc, JsonSerializationContext context) {
     return src.map(context::serialize).orElse(null);
+  }
+
+  @Override
+  public Optional<?> deserialize(JsonElement json, Type typeOfT, JsonDeserializationContext context)
+      throws JsonParseException {
+    if (json.isJsonNull()) return Optional.empty();
+    return Optional.of(context.deserialize(json, Object.class));
   }
 }

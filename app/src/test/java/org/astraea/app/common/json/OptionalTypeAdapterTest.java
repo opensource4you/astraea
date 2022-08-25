@@ -17,11 +17,12 @@
 package org.astraea.app.common.json;
 
 import com.google.gson.GsonBuilder;
+import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-class OptionalSerializerTest {
+class OptionalTypeAdapterTest {
 
   @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
   private static class Dummy {
@@ -38,9 +39,9 @@ class OptionalSerializerTest {
   }
 
   @Test
-  void test() {
+  void testSerialize() {
     var gson =
-        new GsonBuilder().registerTypeAdapter(Optional.class, new OptionalSerializer()).create();
+        new GsonBuilder().registerTypeAdapter(Optional.class, new OptionalTypeAdapter()).create();
     Assertions.assertEquals("1", gson.toJson(Optional.of(1)));
     Assertions.assertEquals("1024", gson.toJson(Optional.of(1024)));
     Assertions.assertEquals("\"Hello\"", gson.toJson(Optional.of("Hello")));
@@ -48,5 +49,35 @@ class OptionalSerializerTest {
     Assertions.assertEquals("{}", gson.toJson(new Dummy()));
     Assertions.assertEquals("{\"value\":5}", gson.toJson(new Dummy(5)));
     Assertions.assertEquals("{\"value\":\"Hello\"}", gson.toJson(new Dummy("Hello")));
+  }
+
+  @Test
+  void testDeserialize() {
+    var gson =
+        new GsonBuilder().registerTypeAdapter(Optional.class, new OptionalTypeAdapter()).create();
+
+    var json0 = "{\"value\":\"Hello\"}";
+    var object0 = gson.fromJson(json0, Dummy.class);
+    Assertions.assertEquals("Hello", object0.value.orElseThrow());
+
+    var json1 = "{\"value\":true}";
+    var object1 = gson.fromJson(json1, Dummy.class);
+    Assertions.assertEquals(true, object1.value.orElseThrow());
+
+    var json2 = "{\"value\":false}";
+    var object2 = gson.fromJson(json2, Dummy.class);
+    Assertions.assertEquals(false, object2.value.orElseThrow());
+
+    var json3 = "{\"value\":[\"rain\", \"drop\"]}";
+    var object3 = gson.fromJson(json3, Dummy.class);
+    Assertions.assertEquals(List.of("rain", "drop"), object3.value.orElseThrow());
+
+    var json4 = "{}";
+    var object4 = gson.fromJson(json4, Dummy.class);
+    Assertions.assertEquals(Optional.empty(), object4.value);
+
+    var json5 = "{\"value\":5}";
+    var object5 = gson.fromJson(json5, Dummy.class);
+    Assertions.assertEquals(Optional.of(5.0), object5.value);
   }
 }

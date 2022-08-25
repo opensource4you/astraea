@@ -155,7 +155,7 @@ public class ThrottleHandler implements Handler {
     final Map<Integer, Map<ThrottleBandwidths, Long>> brokers;
     final Collection<ThrottleTarget> topics;
 
-    private ThrottleSetting(
+    ThrottleSetting(
         Map<Integer, Map<ThrottleBandwidths, Long>> brokers, Collection<ThrottleTarget> topics) {
       this.brokers = brokers;
       this.topics = topics;
@@ -184,6 +184,22 @@ public class ThrottleHandler implements Handler {
       return Objects.hash(name, partition, broker, type);
     }
 
+    /**
+     * This private no-arg constructor exists for Gson deserializing reason, it offers the default
+     * value for this class. Without this constructor, some non-specified field will be deserialized
+     * as {@code null} instead of {@code Optional.empty()}.
+     *
+     * <p>See <a
+     * href="https://github.com/google/gson/blob/master/UserGuide.md#custom-serialization-and-deserialization">Gson
+     * documentation<a> for further details.
+     */
+    private ThrottleTarget() {
+      this.name = "";
+      this.partition = OptionalInt.empty();
+      this.broker = OptionalInt.empty();
+      this.type = Optional.empty();
+    }
+
     ThrottleTarget(String name, int partition, int broker) {
       this.name = name;
       this.partition = OptionalInt.of(partition);
@@ -196,6 +212,21 @@ public class ThrottleHandler implements Handler {
       this.partition = OptionalInt.of(partition);
       this.broker = OptionalInt.of(broker);
       this.type = Optional.of(type);
+    }
+
+    @Override
+    public String toString() {
+      return "ThrottleTarget{"
+          + "name='"
+          + name
+          + '\''
+          + ", partition="
+          + partition
+          + ", broker="
+          + broker
+          + ", type="
+          + type
+          + '}';
     }
   }
 

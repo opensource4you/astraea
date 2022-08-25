@@ -16,15 +16,28 @@
  */
 package org.astraea.app.common.json;
 
+import com.google.gson.JsonDeserializationContext;
+import com.google.gson.JsonDeserializer;
 import com.google.gson.JsonElement;
+import com.google.gson.JsonNull;
+import com.google.gson.JsonParseException;
+import com.google.gson.JsonPrimitive;
 import com.google.gson.JsonSerializationContext;
 import com.google.gson.JsonSerializer;
 import java.lang.reflect.Type;
 import java.util.OptionalInt;
 
-public class OptionalIntSerializer implements JsonSerializer<OptionalInt> {
+public class OptionalIntTypeAdapter
+    implements JsonSerializer<OptionalInt>, JsonDeserializer<OptionalInt> {
   @Override
   public JsonElement serialize(OptionalInt src, Type typeOfSrc, JsonSerializationContext context) {
-    return src.isPresent() ? context.serialize(src.getAsInt()) : null;
+    return src.isPresent() ? new JsonPrimitive(src.getAsInt()) : JsonNull.INSTANCE;
+  }
+
+  @Override
+  public OptionalInt deserialize(JsonElement json, Type typeOfT, JsonDeserializationContext context)
+      throws JsonParseException {
+    if (json.isJsonNull()) return OptionalInt.empty();
+    return OptionalInt.of(json.getAsInt());
   }
 }

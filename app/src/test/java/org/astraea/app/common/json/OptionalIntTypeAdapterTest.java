@@ -21,7 +21,7 @@ import java.util.OptionalInt;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-class OptionalIntSerializerTest {
+class OptionalIntTypeAdapterTest {
 
   @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
   private static class Dummy {
@@ -38,15 +38,31 @@ class OptionalIntSerializerTest {
   }
 
   @Test
-  void test() {
+  void testSerialize() {
     var gson =
         new GsonBuilder()
-            .registerTypeAdapter(OptionalInt.class, new OptionalIntSerializer())
+            .registerTypeAdapter(OptionalInt.class, new OptionalIntTypeAdapter())
             .create();
     Assertions.assertEquals("1", gson.toJson(OptionalInt.of(1)));
     Assertions.assertEquals("1024", gson.toJson(OptionalInt.of(1024)));
     Assertions.assertEquals("null", gson.toJson(OptionalInt.empty()));
     Assertions.assertEquals("{}", gson.toJson(new Dummy()));
     Assertions.assertEquals("{\"value\":5}", gson.toJson(new Dummy(5)));
+  }
+
+  @Test
+  void testDeserialize() {
+    var gson =
+        new GsonBuilder()
+            .registerTypeAdapter(OptionalInt.class, new OptionalIntTypeAdapter())
+            .create();
+
+    var json0 = "{\"value\":5}";
+    var object0 = gson.fromJson(json0, Dummy.class);
+    Assertions.assertEquals(5, object0.value.orElseThrow());
+
+    var json1 = "{}";
+    var object1 = gson.fromJson(json1, Dummy.class);
+    Assertions.assertEquals(OptionalInt.empty(), object1.value);
   }
 }
