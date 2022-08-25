@@ -36,7 +36,7 @@ public class SomePartitionOfflineTest extends RequireBrokerCluster {
       Utils.sleep(Duration.ofSeconds(3));
       var replicaOnBroker0 =
           admin.replicas(admin.topicNames()).entrySet().stream()
-              .filter(replica -> replica.getValue().get(0).broker() == 0)
+              .filter(replica -> replica.getValue().get(0).nodeInfo().id() == 0)
               .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
       replicaOnBroker0.forEach((tp, replica) -> Assertions.assertFalse(replica.get(0).isOffline()));
       closeBroker(0);
@@ -45,7 +45,7 @@ public class SomePartitionOfflineTest extends RequireBrokerCluster {
       Assertions.assertNotNull(logFolders().get(2));
       var offlineReplicaOnBroker0 =
           admin.replicas(admin.topicNames()).entrySet().stream()
-              .filter(replica -> replica.getValue().get(0).broker() == 0)
+              .filter(replica -> replica.getValue().get(0).nodeInfo().id() == 0)
               .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
       offlineReplicaOnBroker0.forEach(
           (tp, replica) -> Assertions.assertTrue(replica.get(0).isOffline()));

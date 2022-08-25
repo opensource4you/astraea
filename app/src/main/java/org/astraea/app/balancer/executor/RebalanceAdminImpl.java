@@ -56,7 +56,7 @@ class RebalanceAdminImpl implements RebalanceAdmin {
   private List<LogPlacement> fetchCurrentPlacement(TopicPartition topicPartition) {
     ensureTopicPermitted(topicPartition.topic());
     return admin.replicas(Set.of(topicPartition.topic())).get(topicPartition).stream()
-        .map(replica -> LogPlacement.of(replica.broker(), replica.path()))
+        .map(replica -> LogPlacement.of(replica.nodeInfo().id(), replica.dataFolder()))
         .collect(Collectors.toUnmodifiableList());
   }
 
@@ -89,10 +89,8 @@ class RebalanceAdminImpl implements RebalanceAdmin {
     final var declareMap =
         preferredPlacements.stream()
             .filter(futurePlacement -> !currentBrokerAllocation.contains(futurePlacement.broker()))
-            .filter(futurePlacement -> futurePlacement.logDirectory().isPresent())
             .collect(
-                Collectors.toUnmodifiableMap(
-                    LogPlacement::broker, x -> x.logDirectory().orElseThrow()));
+                Collectors.toUnmodifiableMap(LogPlacement::broker, LogPlacement::logDirectory));
 
     admin
         .migrator()
@@ -129,10 +127,8 @@ class RebalanceAdminImpl implements RebalanceAdmin {
     var forCrossDirMigration =
         expectedPlacement.stream()
             .filter(placement -> currentReplicaBrokers.contains(placement.broker()))
-            .filter(placement -> placement.logDirectory().isPresent())
             .collect(
-                Collectors.toUnmodifiableMap(
-                    LogPlacement::broker, placement -> placement.logDirectory().orElseThrow()));
+                Collectors.toUnmodifiableMap(LogPlacement::broker, LogPlacement::logDirectory));
     admin
         .migrator()
         .partition(topicPartition.topic(), topicPartition.partition())
@@ -167,7 +163,7 @@ class RebalanceAdminImpl implements RebalanceAdmin {
                     .filter(x -> x.getKey().partition() == log.partition())
                     .filter(x -> x.getKey().topic().equals(log.topic()))
                     .flatMap(x -> x.getValue().stream())
-                    .filter(x -> x.broker() == log.brokerId())
+                    .filter(x -> x.nodeInfo().id() == log.brokerId())
                     .findFirst()
                     .map(x -> x.inSync() && !x.isFuture())
                     .orElse(false)));
@@ -193,7 +189,7 @@ class RebalanceAdminImpl implements RebalanceAdmin {
                                   .filter(Replica::isPreferredLeader)
                                   .findFirst()
                                   .orElseThrow();
-                          return preferred.leader();
+                          return preferred.isLeader();
                         })
                     .orElseThrow()));
   }

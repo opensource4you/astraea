@@ -17,7 +17,6 @@
 package org.astraea.app.admin;
 
 import java.util.List;
-import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -48,18 +47,7 @@ public interface ReplicaInfo {
       NodeInfo nodeInfo,
       boolean isLeader,
       boolean isSynced,
-      boolean isOfflineReplica) {
-    return of(topic, partition, nodeInfo, isLeader, isSynced, isOfflineReplica, null);
-  }
-
-  static ReplicaInfo of(
-      String topic,
-      int partition,
-      NodeInfo nodeInfo,
-      boolean isLeader,
-      boolean isSynced,
-      boolean isOfflineReplica,
-      String dataFolder) {
+      boolean isOffline) {
     return new ReplicaInfo() {
       @Override
       public String topic() {
@@ -87,13 +75,8 @@ public interface ReplicaInfo {
       }
 
       @Override
-      public boolean isOfflineReplica() {
-        return isOfflineReplica;
-      }
-
-      @Override
-      public Optional<String> dataFolder() {
-        return Optional.ofNullable(dataFolder);
+      public boolean isOffline() {
+        return isOffline;
       }
 
       @Override
@@ -105,12 +88,10 @@ public interface ReplicaInfo {
             + partition
             + " replicaAtBroker="
             + nodeInfo.id()
-            + " dataFolder="
-            + (dataFolder().map(x -> "\"" + x + "\"").orElse("unknown"))
             + (isLeader() ? " leader" : "")
             + (isFollower() ? " follower" : "")
             + (inSync() ? ":synced" : "")
-            + (isOfflineReplica() ? ":offline" : "")
+            + (isOffline() ? ":offline" : "")
             + "}";
       }
 
@@ -125,8 +106,7 @@ public interface ReplicaInfo {
               && this.isLeader() == that.isLeader()
               && this.isFollower() == that.isFollower()
               && this.inSync() == that.inSync()
-              && this.isOfflineReplica() == that.isOfflineReplica()
-              && this.dataFolder().equals(that.dataFolder());
+              && this.isOffline() == that.isOffline();
         }
         return false;
       }
@@ -154,21 +134,10 @@ public interface ReplicaInfo {
   boolean inSync();
 
   /** @return true if this replica is offline */
-  boolean isOfflineReplica();
+  boolean isOffline();
 
   /** @return true if this replica is online */
-  default boolean isOnlineReplica() {
-    return !isOfflineReplica();
+  default boolean isOnline() {
+    return !isOffline();
   }
-
-  /**
-   * The path to the data folder which hosts this replica. Since this information is not very openly
-   * available. An application might find it hard to retrieve this information(for example, the
-   * producer client might need to initialize an AdminClient to access this information). To provide
-   * this information or not is totally up to the caller.
-   *
-   * @return a {@link Optional<String>} that indicates the data folder path which stored this
-   *     replica on a specific Kafka node.
-   */
-  Optional<String> dataFolder();
 }

@@ -55,17 +55,17 @@ public interface ClusterInfo {
     var replicasForTopic = replicas.stream().collect(Collectors.groupingBy(ReplicaInfo::topic));
     var availableReplicasForTopic =
         replicas.stream()
-            .filter(ReplicaInfo::isOnlineReplica)
+            .filter(ReplicaInfo::isOnline)
             .collect(Collectors.groupingBy(ReplicaInfo::topic));
     var availableReplicaLeadersForTopics =
         replicas.stream()
-            .filter(ReplicaInfo::isOnlineReplica)
+            .filter(ReplicaInfo::isOnline)
             .filter(ReplicaInfo::isLeader)
             .collect(Collectors.groupingBy(ReplicaInfo::topic));
     // This group is used commonly, so we cache it.
     var availableLeaderReplicasForBrokersTopics =
         replicas.stream()
-            .filter(ReplicaInfo::isOnlineReplica)
+            .filter(ReplicaInfo::isOnline)
             .filter(ReplicaInfo::isLeader)
             .collect(Collectors.groupingBy(r -> Map.entry(r.nodeInfo().id(), r.topic())));
 
@@ -156,7 +156,7 @@ public interface ClusterInfo {
    */
   default List<ReplicaInfo> availableReplicas(String topic) {
     return replicas(topic).stream()
-        .filter(ReplicaInfo::isOnlineReplica)
+        .filter(ReplicaInfo::isOnline)
         .collect(Collectors.toUnmodifiableList());
   }
 

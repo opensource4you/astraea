@@ -29,6 +29,7 @@ import java.util.stream.IntStream;
 import org.astraea.app.admin.ClusterBean;
 import org.astraea.app.admin.ClusterInfo;
 import org.astraea.app.admin.NodeInfo;
+import org.astraea.app.admin.Replica;
 import org.astraea.app.admin.ReplicaInfo;
 import org.astraea.app.balancer.log.ClusterLogAllocation;
 import org.astraea.app.cost.HasClusterCost;
@@ -65,14 +66,20 @@ public class BalancerUtils {
                     return IntStream.range(0, logs.size())
                         .mapToObj(
                             i ->
-                                ReplicaInfo.of(
+                                // TODO: too many fake data!!! we should use another data structure
+                                // https://github.com/skiptests/astraea/issues/526
+                                Replica.of(
                                     tp.topic(),
                                     tp.partition(),
                                     nodeIdMap.get(logs.get(i).broker()),
+                                    0,
+                                    -1,
                                     i == 0,
                                     true,
                                     false,
-                                    logs.get(i).logDirectory().orElse(null)));
+                                    false,
+                                    false,
+                                    logs.get(i).logDirectory()));
                   })
               .collect(Collectors.toUnmodifiableList());
 

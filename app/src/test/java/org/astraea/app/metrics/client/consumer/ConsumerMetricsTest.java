@@ -38,7 +38,8 @@ public class ConsumerMetricsTest extends RequireBrokerCluster {
             Consumer.forTopics(Set.of(topic)).bootstrapServers(bootstrapServers()).build()) {
       admin.creator().topic(topic).numberOfPartitions(1).create();
       Utils.sleep(Duration.ofSeconds(3));
-      var owner = admin.replicas(Set.of(topic)).get(TopicPartition.of(topic, 0)).get(0).broker();
+      var owner =
+          admin.replicas(Set.of(topic)).get(TopicPartition.of(topic, 0)).get(0).nodeInfo().id();
       consumer.poll(Duration.ofSeconds(5));
       var metrics = ConsumerMetrics.node(MBeanClient.local(), owner);
       Assertions.assertEquals(1, metrics.size());

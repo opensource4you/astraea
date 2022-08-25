@@ -16,7 +16,6 @@
  */
 package org.astraea.app.balancer.log;
 
-import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -27,6 +26,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.astraea.app.admin.ClusterInfo;
+import org.astraea.app.admin.Replica;
 import org.astraea.app.admin.ReplicaInfo;
 import org.astraea.app.admin.TopicPartition;
 
@@ -39,9 +39,9 @@ public interface ClusterLogAllocation {
 
   static ClusterLogAllocation of(ClusterInfo clusterInfo) {
     return of(
-        clusterInfo.topics().stream()
-            .map(clusterInfo::replicas)
-            .flatMap(Collection::stream)
+        clusterInfo.replicas().stream()
+            .filter(r -> r instanceof Replica)
+            .map(r -> (Replica) r)
             .collect(
                 Collectors.groupingBy(
                     replica ->
@@ -49,7 +49,7 @@ public interface ClusterLogAllocation {
             .entrySet()
             .stream()
             .map(
-                (entry) -> {
+                entry -> {
                   // validate if the given log placements are valid
                   if (entry.getValue().stream().filter(ReplicaInfo::isLeader).count() != 1)
                     throw new IllegalArgumentException(
@@ -61,8 +61,7 @@ public interface ClusterLogAllocation {
                           .sorted(Comparator.comparingInt(replica -> replica.isLeader() ? 0 : 1))
                           .map(
                               replica ->
-                                  LogPlacement.of(
-                                      replica.nodeInfo().id(), replica.dataFolder().orElse(null)))
+                                  LogPlacement.of(replica.nodeInfo().id(), replica.dataFolder()))
                           .collect(Collectors.toList());
 
                   return Map.entry(topicPartition, logPlacements);
@@ -150,10 +149,7 @@ public interface ClusterLogAllocation {
                   .forEach(
                       log ->
                           stringBuilder.append(
-                              String.format(
-                                  "(%s, %s) ",
-                                  log.broker(),
-                                  log.logDirectory().orElse("log dir not specified"))));
+                              String.format("(%s, %s) ", log.broker(), log.logDirectory())));
 
               stringBuilder.append(System.lineSeparator());
             });
