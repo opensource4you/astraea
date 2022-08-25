@@ -273,9 +273,9 @@ public class Builder {
     }
 
     @Override
-    public Set<String> topicNames() {
+    public Set<String> topicNames(boolean listInternal) {
       return Utils.packException(
-          () -> admin.listTopics(new ListTopicsOptions().listInternal(true)).names().get());
+          () -> admin.listTopics(new ListTopicsOptions().listInternal(listInternal)).names().get());
     }
 
     @Override
