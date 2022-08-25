@@ -46,21 +46,6 @@ public class BalancerConfigs extends Argument {
   public Map<Integer, JMXServiceURL> jmxServers;
 
   @Parameter(
-      names = {"--queue.size"},
-      description = "Queue size for each metric fetcher")
-  public int queueSize = 6000;
-
-  @Parameter(
-      names = {"--scrap.interval"},
-      description = "Period of metric scraping")
-  public int scrapingInterval = 1000;
-
-  @Parameter(
-      names = {"--metric.warm.up.count"},
-      description = "How many metric scarping before execute the balancer")
-  public int warmUpCount = 1000;
-
-  @Parameter(
       names = {"--ignored.topics"},
       description = "Topics to ignore")
   public List<String> ignoredTopics = List.of("__consumer_offsets");

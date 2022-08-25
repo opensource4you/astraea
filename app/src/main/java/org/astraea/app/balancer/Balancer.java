@@ -17,23 +17,18 @@
 package org.astraea.app.balancer;
 
 import java.util.Collection;
-import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.LongAdder;
 import java.util.function.Predicate;
-import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.astraea.app.admin.Admin;
 import org.astraea.app.admin.ClusterBean;
 import org.astraea.app.admin.ClusterInfo;
-import org.astraea.app.admin.NodeInfo;
 import org.astraea.app.admin.TopicPartitionReplica;
 import org.astraea.app.balancer.executor.RebalanceAdmin;
 import org.astraea.app.balancer.executor.RebalancePlanExecutor;
@@ -43,7 +38,6 @@ import org.astraea.app.balancer.metrics.IdentifiedFetcher;
 import org.astraea.app.balancer.metrics.MetricSource;
 import org.astraea.app.common.Utils;
 import org.astraea.app.cost.CostFunction;
-import org.astraea.app.cost.HasBrokerCost;
 import org.astraea.app.cost.HasClusterCost;
 import org.astraea.app.cost.HasMoveCost;
 import org.astraea.app.metrics.HasBeanObject;
@@ -86,7 +80,10 @@ public class Balancer implements AutoCloseable {
             .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));
     this.metricSource =
         BalancerUtils.constructMetricSource(
-            balancerConfigs.metricSourceClass, configuration, fetcherOwnership.values());
+            balancerConfigs.metricSourceClass,
+            balancerConfigs.jmxServers,
+            fetcherOwnership.values(),
+            configuration);
     this.topicFilter = (topicName) -> !balancerConfigs.ignoredTopics.contains(topicName);
     this.isClosed = new AtomicBoolean(false);
   }
@@ -97,21 +94,10 @@ public class Balancer implements AutoCloseable {
     while (!Thread.currentThread().isInterrupted()) {
       boolean shouldDrainMetrics = false;
       // let metric warm up
-      // TODO: find a way to show the progress, without pollute the logic
       System.out.println("Warmup metrics");
       var t = BalancerUtils.progressWatch("Warm Up Metrics", 1, metricSource::warmUpProgress);
       t.start();
       metricSource.awaitMetricReady();
-      metricSource.allBeans().entrySet().stream()
-          .collect(
-              Collectors.toMap(
-                  x -> x.getKey(),
-                  x -> x.getValue().values().stream().mapToInt(a -> a.size()).max()))
-          .forEach(
-              (g, d) -> {
-                System.out.println(d.orElse(0));
-              });
-      // TODO: find a way to show the progress, without pollute the logic
       t.interrupt();
       Utils.packException(() -> t.join());
       System.out.println("Metrics warmed");
@@ -138,23 +124,18 @@ public class Balancer implements AutoCloseable {
         var clusterInfo = newClusterInfo();
         var clusterMetrics = metricSource.allBeans();
         var currentClusterScore = evaluateCost(clusterInfo, clusterMetrics);
-        // TODO: find a way to show the progress, without pollute the logic
         System.out.println("Run " + planGenerator.getClass().getName());
-        if (currentClusterScore >= 1.0) continue;
         var bestProposal = seekingRebalancePlan(currentClusterScore, clusterInfo, clusterMetrics);
-        // TODO: find a way to show the progress, without pollute the logic
         System.out.println(bestProposal);
         var bestCluster = BalancerUtils.merge(clusterInfo, bestProposal.rebalancePlan());
         var bestScore = evaluateCost(bestCluster, clusterMetrics);
         System.out.printf(
             "Current cluster score: %.8f, Proposed cluster score: %.8f%n",
             currentClusterScore, bestScore);
-        if (!isPlanExecutionWorth(clusterInfo, bestProposal, currentClusterScore, bestScore)) {
-          // TODO: find a way to show the progress, without pollute the logic
+        if (!isPlanExecutionWorth(currentClusterScore, bestScore)) {
           System.out.println("The proposed plan is rejected due to no worth improvement");
           continue;
         }
-        // TODO: find a way to show the progress, without pollute the logic
         System.out.println("Run " + planExecutor.getClass().getName());
         shouldDrainMetrics = true;
         executePlan(bestProposal);
@@ -181,8 +162,9 @@ public class Balancer implements AutoCloseable {
       Map<IdentifiedFetcher, Map<Integer, Collection<HasBeanObject>>> clusterMetrics) {
     var tries = balancerConfigs.planSearchingIteration;
     var counter = new LongAdder();
-    // TODO: find a way to show the progress, without pollute the logic
-    var thread = BalancerUtils.progressWatch("Searching for Good Rebalance Plan", tries, counter::doubleValue);
+    var thread =
+        BalancerUtils.progressWatch(
+            "Searching for Good Rebalance Plan", tries, counter::doubleValue);
     try {
       thread.start();
       var bestMigrationProposals =
@@ -203,7 +185,7 @@ public class Balancer implements AutoCloseable {
               .limit(300)
               .collect(Collectors.toUnmodifiableList());
 
-      // Find the plan with smallest move cost
+      // Find the plan with the smallest move cost
       var bestMigrationProposal =
           bestMigrationProposals.stream()
               .min(
@@ -237,11 +219,7 @@ public class Balancer implements AutoCloseable {
   }
 
   // visible for testing
-  boolean isPlanExecutionWorth(
-      ClusterInfo currentCluster,
-      RebalancePlanProposal proposal,
-      double currentScore,
-      double proposedScore) {
+  boolean isPlanExecutionWorth(double currentScore, double proposedScore) {
     return currentScore > proposedScore;
   }
 
@@ -277,12 +255,7 @@ public class Balancer implements AutoCloseable {
     return aggregateFunction(scores);
   }
 
-  /** the lower, the better. */
   private double aggregateFunction(Map<? extends CostFunction, Double> scores) {
-    scores.forEach(
-        (func, value) -> {
-          // System.out.printf("[%s] %.8f%n", func.getClass().getSimpleName(), value);
-        });
     // use the simple summation result, treat every cost equally.
     return scores.values().stream().mapToDouble(x -> x).sum();
   }
@@ -291,13 +264,8 @@ public class Balancer implements AutoCloseable {
       ClusterInfo clusterInfo, ClusterBean clusterBean, CostFunction costFunction) {
     if (costFunction instanceof HasClusterCost) {
       return ((HasClusterCost) costFunction).clusterCost(clusterInfo, clusterBean).value();
-    } else if (costFunction instanceof HasBrokerCost) {
-      return brokerCostScore(clusterInfo, (HasBrokerCost) costFunction);
     } else {
       return 0.0;
-      /* throw new IllegalArgumentException(
-         "Unable to extract score from this cost function: " + costFunction.getClass().getName());
-      */
     }
   }
 
@@ -305,7 +273,6 @@ public class Balancer implements AutoCloseable {
       ClusterInfo clusterInfo, ClusterBean clusterBean, CostFunction costFunction) {
     if (costFunction instanceof HasMoveCost) {
       var originalClusterInfo = newClusterInfo();
-      var targetAllocation = ClusterLogAllocation.of(clusterInfo);
       if (((HasMoveCost) costFunction).overflow(originalClusterInfo, clusterInfo, clusterBean))
         return 999999.0;
       return ((HasMoveCost) costFunction)
@@ -313,60 +280,6 @@ public class Balancer implements AutoCloseable {
           .value();
     }
     return 0.0;
-  }
-
-  private <T extends HasBrokerCost> double brokerCostScore(
-      ClusterInfo clusterInfo, T costFunction) {
-    // TODO: revise the default usage
-    var metrics = metricSource.allBeans().get(fetcherOwnership.get(costFunction));
-    var clusterBean = ClusterBean.of(metrics);
-    return costFunction.brokerCost(clusterInfo, clusterBean).value().values().stream()
-        .mapToDouble(x -> x)
-        .max()
-        .orElseThrow();
-  }
-
-  // TODO: this usage will be removed someday
-  @Deprecated
-  public static Thread progressWatch(String title, double totalTasks, Supplier<Double> accTasks) {
-    AtomicInteger counter = new AtomicInteger();
-
-    Supplier<String> nextProgressBar =
-        () -> {
-          int blockCount = 20;
-          double percentagePerBlock = 1.0 / blockCount;
-          double now = accTasks.get();
-          double currentProgress = now / totalTasks;
-          int fulfilled = Math.min((int) (currentProgress / percentagePerBlock), blockCount);
-          int rollingBlock = blockCount - fulfilled >= 1 ? 1 : 0;
-          int emptyBlocks = blockCount - rollingBlock - fulfilled;
-
-          String rollingText = "-\\|/";
-          String filled = String.join("", Collections.nCopies(fulfilled, "-"));
-          String rolling =
-              String.join(
-                  "",
-                  Collections.nCopies(
-                      rollingBlock, "" + rollingText.charAt(counter.getAndIncrement() % 4)));
-          String empty = String.join("", Collections.nCopies(emptyBlocks, " "));
-          return String.format("[%s%s%s] (%.2f/%.2f)", filled, rolling, empty, now, totalTasks);
-        };
-
-    Runnable progressWatch =
-        () -> {
-          while (!Thread.currentThread().isInterrupted()) {
-            System.out.print("[" + title + "] " + nextProgressBar.get() + '\r');
-            try {
-              TimeUnit.MILLISECONDS.sleep(500);
-            } catch (InterruptedException e) {
-              break;
-            }
-          }
-          System.out.println("[" + title + "] " + nextProgressBar.get() + '\r');
-          System.out.println();
-        };
-
-    return new Thread(progressWatch);
   }
 
   @Override

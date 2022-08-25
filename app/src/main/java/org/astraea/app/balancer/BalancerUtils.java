@@ -27,6 +27,7 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import javax.management.remote.JMXServiceURL;
 import org.astraea.app.admin.ClusterBean;
 import org.astraea.app.admin.ClusterInfo;
 import org.astraea.app.admin.NodeInfo;
@@ -166,38 +167,43 @@ public class BalancerUtils {
   }
 
   public static <T extends RebalancePlanGenerator> T constructGenerator(
-      Class<T> costClass, Configuration configuration) {
+      Class<T> generatorClass, Configuration configuration) {
     try {
       // case 0: create cost function by configuration
-      var constructor = costClass.getConstructor(Configuration.class);
+      var constructor = generatorClass.getConstructor(Configuration.class);
       return Utils.packException(() -> constructor.newInstance(configuration));
     } catch (NoSuchMethodException e) {
       // case 1: create cost function by empty constructor
-      return Utils.packException(() -> costClass.getConstructor().newInstance());
+      return Utils.packException(() -> generatorClass.getConstructor().newInstance());
     }
   }
 
   public static <T extends RebalancePlanExecutor> T constructExecutor(
-      Class<T> costClass, Configuration configuration) {
+      Class<T> executorClass, Configuration configuration) {
     try {
       // case 0: create cost function by configuration
-      var constructor = costClass.getConstructor(Configuration.class);
+      var constructor = executorClass.getConstructor(Configuration.class);
       return Utils.packException(() -> constructor.newInstance(configuration));
     } catch (NoSuchMethodException e) {
       // case 1: create cost function by empty constructor
-      return Utils.packException(() -> costClass.getConstructor().newInstance());
+      return Utils.packException(() -> executorClass.getConstructor().newInstance());
     }
   }
 
   public static <T extends MetricSource> T constructMetricSource(
-      Class<T> costClass, Configuration configuration, Collection<IdentifiedFetcher> fetchers) {
+      Class<T> metricClass,
+      Map<Integer, JMXServiceURL> serviceURLMap,
+      Collection<IdentifiedFetcher> fetchers,
+      Configuration configuration) {
     try {
       // case 0: create cost function by configuration
-      var constructor = costClass.getConstructor(Configuration.class, Collection.class);
-      return Utils.packException(() -> constructor.newInstance(configuration, fetchers));
+      var constructor =
+          metricClass.getConstructor(Map.class, Collection.class, Configuration.class);
+      return Utils.packException(
+          () -> constructor.newInstance(serviceURLMap, fetchers, configuration));
     } catch (NoSuchMethodException e) {
       // case 1: create cost function by empty constructor
-      return Utils.packException(() -> costClass.getConstructor().newInstance());
+      return Utils.packException(() -> metricClass.getConstructor().newInstance());
     }
   }
 }

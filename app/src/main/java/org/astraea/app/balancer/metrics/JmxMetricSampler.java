@@ -34,7 +34,6 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import javax.management.remote.JMXServiceURL;
-import org.astraea.app.balancer.BalancerConfigs;
 import org.astraea.app.common.Utils;
 import org.astraea.app.metrics.HasBeanObject;
 import org.astraea.app.metrics.MBeanClient;
@@ -42,16 +41,11 @@ import org.astraea.app.partitioner.Configuration;
 
 public class JmxMetricSampler implements MetricSource {
 
-  /**
-   * The number of old time series to keep in data structure. note that this is not a strict upper
-   * limit. The actual size might exceed. This issue is minor and fixing that might cause
-   * performance issue. So no. This number must be larger than zero.
-   */
   private final int queueSize;
-
   private final int brokerCount;
   private final int warmUpCount;
   private final LongAdder sampleCounter;
+  private final Configuration configuration;
 
   private final Map<Integer, JMXServiceURL> jmxServiceURLMap;
   private final Map<Integer, MBeanClient> mBeanClientMap;
@@ -68,13 +62,35 @@ public class JmxMetricSampler implements MetricSource {
         .collect(Collectors.toUnmodifiableMap(x -> x, x -> new ConcurrentLinkedQueue<>()));
   }
 
-  public JmxMetricSampler(Configuration configuration, Collection<IdentifiedFetcher> fetchers) {
-    var balancerConfigs = new BalancerConfigs(configuration);
-    this.brokerCount = balancerConfigs.jmxServers().size();
-    this.queueSize = balancerConfigs.metricScrapingQueueSize();
-    this.warmUpCount = balancerConfigs.metricWarmUpCount();
+  private int queueSize() {
+    return configuration
+        .string("jmx.metrics.sampler.queue.size")
+        .map(Integer::parseInt)
+        .orElse(6000);
+  }
+
+  private int warmUpCount() {
+    return configuration.string("jmx.metrics.sampler.warm.up").map(Integer::parseInt).orElse(10);
+  }
+
+  private Duration scrapingInterval() {
+    return configuration
+        .string("jmx.metrics.sampler.scraping.interval")
+        .map(Integer::parseInt)
+        .map(Duration::ofMillis)
+        .orElse(Duration.ofSeconds(10));
+  }
+
+  public JmxMetricSampler(
+      Map<Integer, JMXServiceURL> map,
+      Collection<IdentifiedFetcher> fetchers,
+      Configuration configuration) {
+    this.configuration = configuration;
+    this.brokerCount = map.keySet().size();
+    this.queueSize = queueSize();
+    this.warmUpCount = warmUpCount();
     this.sampleCounter = new LongAdder();
-    this.jmxServiceURLMap = Map.copyOf(balancerConfigs.jmxServers());
+    this.jmxServiceURLMap = Map.copyOf(map);
     this.mBeanClientMap =
         jmxServiceURLMap.entrySet().stream()
             .collect(
@@ -89,7 +105,7 @@ public class JmxMetricSampler implements MetricSource {
                     (identifiedFetcher) -> newMetricStore(jmxServiceURLMap.keySet())));
     this.executorService = Executors.newScheduledThreadPool(brokerCount);
     this.closed = new AtomicBoolean(false);
-    this.fetchInterval = balancerConfigs.metricScrapingInterval();
+    this.fetchInterval = scrapingInterval();
 
     // schedule metric sampling tasks
     this.scheduledFutures =
@@ -104,16 +120,7 @@ public class JmxMetricSampler implements MetricSource {
                             for (IdentifiedFetcher identifiedFetcher : fetchers) {
                               var metricStore = metrics.get(identifiedFetcher).get(broker);
 
-                              // There is an issue related to Fetcher, the f1 =
-                              // {BrokerTopicMetricsResult@4660} "BytesOutPerSec{\n
-                              // RateUnit=SECONDS\n  OneMinuteRate=0.0\n  EventType=bytes\n
-                              // Count=0\n  FifteenMinuteRate=0.0\n  FiveMinuteRate=0.0\n
-                              // MeanRate=0.0}"... Viewetcher can fetch nothing
-                              // back. So some queue might never growth.
                               var a = identifiedFetcher.fetch(client);
-                              // if(a.isEmpty())
-                              // System.err.printf("[Warning] Fetcher fetch nothing. FetchOwner:
-                              // %d%n", identifiedFetcher.id);
                               metricStore.addAll(a);
 
                               // draining old metrics
@@ -189,6 +196,7 @@ public class JmxMetricSampler implements MetricSource {
         .map(Map::values)
         .flatMap(Collection::stream)
         .forEach(ConcurrentLinkedQueue::clear);
+    sampleCounter.sumThenReset();
   }
 
   @Override
