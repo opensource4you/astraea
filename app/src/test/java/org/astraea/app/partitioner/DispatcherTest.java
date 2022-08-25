@@ -67,14 +67,16 @@ public class DispatcherTest extends RequireSingleBrokerCluster {
 
           @Override
           public void configure(Configuration config) {
+            Dispatcher.INTERDEPENDENT.putIfAbsent(this.hashCode(), new Interdependent());
             count.incrementAndGet();
           }
         };
     Assertions.assertEquals(0, count.get());
+    dispatcher.configure(Map.of("a", "b"));
+
+    Assertions.assertEquals(1, count.get());
     dispatcher.partition(
         "t", null, null, null, null, new Cluster("aa", List.of(), List.of(), Set.of(), Set.of()));
-    Assertions.assertEquals(1, count.get());
-    dispatcher.configure(Map.of("a", "b"));
     Assertions.assertEquals(2, count.get());
   }
 
@@ -86,13 +88,44 @@ public class DispatcherTest extends RequireSingleBrokerCluster {
           public int partition(String topic, byte[] key, byte[] value, ClusterInfo clusterInfo) {
             return 0;
           }
+
+          @Override
+          public void configure(Configuration config) {
+            Dispatcher.INTERDEPENDENT.putIfAbsent(this.hashCode(), new Interdependent());
+          }
         };
+    dispatcher.configure(Map.of());
     var initialCount = Dispatcher.CLUSTER_CACHE.size();
     var cluster = new Cluster("aa", List.of(), List.of(), Set.of(), Set.of());
     dispatcher.partition("topic", "a", new byte[0], "v", new byte[0], cluster);
     Assertions.assertEquals(initialCount + 1, Dispatcher.CLUSTER_CACHE.size());
     dispatcher.partition("topic", "a", new byte[0], "v", new byte[0], cluster);
     Assertions.assertEquals(initialCount + 1, Dispatcher.CLUSTER_CACHE.size());
+  }
+
+  @Test
+  void testCloseDispatcher() {
+    var dispatcher1 =
+        new Dispatcher() {
+          @Override
+          public int partition(String topic, byte[] key, byte[] value, ClusterInfo clusterInfo) {
+            return 0;
+          }
+        };
+    var dispatcher2 =
+        new Dispatcher() {
+          @Override
+          public int partition(String topic, byte[] key, byte[] value, ClusterInfo clusterInfo) {
+            return 0;
+          }
+        };
+    dispatcher1.configure(Map.of());
+    dispatcher2.configure(Map.of());
+    dispatcher1.close();
+    Assertions.assertNotNull(Dispatcher.INTERDEPENDENT.get(dispatcher2.hashCode()));
+    Assertions.assertNull(Dispatcher.INTERDEPENDENT.get(dispatcher1.hashCode()));
+    dispatcher2.close();
+    Assertions.assertNull(Dispatcher.INTERDEPENDENT.get(dispatcher1.hashCode()));
   }
 
   @Test

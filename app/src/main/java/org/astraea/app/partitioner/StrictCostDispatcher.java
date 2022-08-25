@@ -180,7 +180,6 @@ public class StrictCostDispatcher implements Dispatcher {
   @Override
   public void configure(Configuration config) {
     var configuredFunctions = parseCostFunctionWeight(config);
-
     configure(
         configuredFunctions.isEmpty() ? Map.of(new NodeLatencyCost(), 1D) : configuredFunctions,
         config.integer(JMX_PORT),
@@ -259,7 +258,7 @@ public class StrictCostDispatcher implements Dispatcher {
   }
 
   @Override
-  public void close() {
+  public void closeDispatcher() {
     receivers.values().forEach(r -> Utils.swallowException(r::close));
     receivers.clear();
   }

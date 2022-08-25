@@ -20,6 +20,7 @@ import java.security.Key;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import org.apache.kafka.clients.producer.Partitioner;
 import org.apache.kafka.clients.producer.Producer;
@@ -35,9 +36,11 @@ public interface Dispatcher extends Partitioner {
    */
   ConcurrentHashMap<Cluster, ClusterInfo> CLUSTER_CACHE = new ConcurrentHashMap<>();
 
-  Interdependent INTERDEPENDENT = new Interdependent();
+  /**
+   * Keeps the Interdependent status of each Dispatcher. Use the Dispatcher's hashcode as the key.
+   */
+  ConcurrentHashMap<Integer, Interdependent> INTERDEPENDENT = new ConcurrentHashMap<>();
 
-  //  NodeTopicSizeCost nodeTopicSizeCost = new NodeTopicSizeCost();
   /**
    * Compute the partition for the given record.
    *
@@ -54,6 +57,8 @@ public interface Dispatcher extends Partitioner {
    * @param config configuration
    */
   default void configure(Configuration config) {}
+
+  default void closeDispatcher() {}
 
   /**
    * Use the producer to get the scheduler, allowing you to control it for interdependent
@@ -95,10 +100,14 @@ public interface Dispatcher extends Partitioner {
 
   /** close this dispatcher. This method is executed only once. */
   @Override
-  default void close() {}
+  default void close() {
+    INTERDEPENDENT.remove(this.hashCode());
+    closeDispatcher();
+  }
 
   @Override
   default void configure(Map<String, ?> configs) {
+    INTERDEPENDENT.putIfAbsent(this.hashCode(), new Interdependent());
     configure(
         Configuration.of(
             configs.entrySet().stream()
@@ -108,13 +117,15 @@ public interface Dispatcher extends Partitioner {
   @Override
   default int partition(
       String topic, Object key, byte[] keyBytes, Object value, byte[] valueBytes, Cluster cluster) {
-    return INTERDEPENDENT.isInterdependent.get()
-        ? INTERDEPENDENT.interdependentPartition(
-            this,
-            topic,
-            keyBytes,
-            valueBytes,
-            CLUSTER_CACHE.computeIfAbsent(cluster, ignored -> ClusterInfo.of(cluster)))
+    return INTERDEPENDENT.get(this.hashCode()).isInterdependent.get()
+        ? INTERDEPENDENT
+            .get(this.hashCode())
+            .interdependentPartition(
+                this,
+                topic,
+                keyBytes,
+                valueBytes,
+                CLUSTER_CACHE.computeIfAbsent(cluster, ignored -> ClusterInfo.of(cluster)))
         : partition(
             topic,
             keyBytes == null ? new byte[0] : keyBytes,
@@ -126,22 +137,18 @@ public interface Dispatcher extends Partitioner {
   default void onNewBatch(String topic, Cluster cluster, int prevPartition) {}
 
   private void begin(Dispatcher dispatcher) {
-    synchronized (INTERDEPENDENT) {
-      INTERDEPENDENT.targetPartitions.putIfAbsent(dispatcher.hashCode(), -1);
-      INTERDEPENDENT.isInterdependent.set(true);
-    }
+    INTERDEPENDENT.putIfAbsent(this.hashCode(), new Interdependent());
+    INTERDEPENDENT.get(dispatcher.hashCode()).isInterdependent.set(true);
   }
 
   private void end(Dispatcher dispatcher) {
-    synchronized (INTERDEPENDENT) {
-      INTERDEPENDENT.isInterdependent.set(false);
-      INTERDEPENDENT.targetPartitions.replace(dispatcher.hashCode(), -1);
-    }
+    INTERDEPENDENT.get(dispatcher.hashCode()).isInterdependent.set(false);
+    INTERDEPENDENT.get(dispatcher.hashCode()).targetPartitions.set(-1);
   }
 
   class Interdependent {
-    private AtomicBoolean isInterdependent = new AtomicBoolean(false);
-    private final Map<Integer, Integer> targetPartitions = new ConcurrentHashMap<>();
+    private final AtomicBoolean isInterdependent = new AtomicBoolean(false);
+    private final AtomicInteger targetPartitions = new AtomicInteger(-1);
 
     private int interdependentPartition(
         Dispatcher dispatcher,
@@ -149,7 +156,7 @@ public interface Dispatcher extends Partitioner {
         byte[] keyBytes,
         byte[] valueBytes,
         ClusterInfo cluster) {
-      var targetPartition = targetPartitions.get(dispatcher.hashCode());
+      var targetPartition = targetPartitions.get();
       return Utils.isPositive(targetPartition)
           ? targetPartition
           : targetPartition(
@@ -172,9 +179,8 @@ public interface Dispatcher extends Partitioner {
               keyBytes == null ? new byte[0] : keyBytes,
               valueBytes == null ? new byte[0] : valueBytes,
               cluster);
-      if (targetPartitions.get(dispatcher.hashCode()) == -1)
-        targetPartitions.replace(dispatcher.hashCode(), targetPartition);
-      return targetPartitions.get(dispatcher.hashCode());
+      if (targetPartitions.get() == -1) targetPartitions.set(targetPartition);
+      return targetPartitions.get();
     }
   }
 }
