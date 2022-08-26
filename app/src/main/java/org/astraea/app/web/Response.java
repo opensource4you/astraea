@@ -22,7 +22,7 @@ import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.OptionalInt;
 import org.astraea.app.common.json.OptionalIntTypeAdapter;
-import org.astraea.app.common.json.OptionalTypeAdapter;
+import org.astraea.app.common.json.OptionalStringTypeAdapter;
 
 interface Response {
 
@@ -58,7 +58,7 @@ interface Response {
     // TODO: manage the customized serialize/deserialize logic, see
     // https://github.com/skiptests/astraea/issues/626
     return new GsonBuilder()
-        .registerTypeAdapter(Optional.class, new OptionalTypeAdapter())
+        .registerTypeAdapter(Optional.class, new OptionalStringTypeAdapter())
         .registerTypeAdapter(OptionalInt.class, new OptionalIntTypeAdapter())
         .create()
         .toJson(this);

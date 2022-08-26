@@ -37,7 +37,6 @@ public class OptionalIntTypeAdapter
   @Override
   public OptionalInt deserialize(JsonElement json, Type typeOfT, JsonDeserializationContext context)
       throws JsonParseException {
-    if (json.isJsonNull()) return OptionalInt.empty();
-    return OptionalInt.of(json.getAsInt());
+    return json.isJsonNull() ? OptionalInt.empty() : OptionalInt.of(json.getAsInt());
   }
 }

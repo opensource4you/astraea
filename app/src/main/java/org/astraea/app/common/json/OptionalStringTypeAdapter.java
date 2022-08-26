@@ -25,23 +25,28 @@ import com.google.gson.JsonSerializer;
 import java.lang.reflect.Type;
 import java.util.Optional;
 
-/**
- * This is a type adapter for {@code Optional<?>}. Be aware that JSON treat integer and floating
- * value as the same type. So when {@link OptionalTypeAdapter} attempt to deserialize a {@link
- * Optional<Integer>} it always results in {@link Optional<Double>}. To distinguish the difference,
- * consider use {@link java.util.OptionalInt} explicitly in your class object schema.
- */
-public class OptionalTypeAdapter
-    implements JsonSerializer<Optional<?>>, JsonDeserializer<Optional<?>> {
+public class OptionalStringTypeAdapter
+    implements JsonSerializer<Optional<String>>, JsonDeserializer<Optional<String>> {
   @Override
-  public JsonElement serialize(Optional<?> src, Type typeOfSrc, JsonSerializationContext context) {
-    return src.map(context::serialize).orElse(null);
+  public JsonElement serialize(
+      Optional<String> src, Type typeOfSrc, JsonSerializationContext context) {
+    Object value = src.orElse(null);
+    if (value == null) return null;
+    //noinspection ConstantConditions
+    if (!(value instanceof String))
+      throw new UnsupportedOperationException("This serializer only support string type");
+    return context.serialize(value, String.class);
   }
 
   @Override
-  public Optional<?> deserialize(JsonElement json, Type typeOfT, JsonDeserializationContext context)
+  public Optional<String> deserialize(
+      JsonElement json, Type typeOfT, JsonDeserializationContext context)
       throws JsonParseException {
     if (json.isJsonNull()) return Optional.empty();
-    return Optional.of(context.deserialize(json, Object.class));
+    if (json.isJsonPrimitive() && json.getAsJsonPrimitive().isString()) {
+      return Optional.of(context.deserialize(json, String.class));
+    } else {
+      throw new UnsupportedOperationException("This serializer only support string type");
+    }
   }
 }

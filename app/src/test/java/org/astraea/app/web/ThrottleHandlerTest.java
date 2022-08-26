@@ -39,9 +39,10 @@ import org.astraea.app.admin.TopicPartitionReplica;
 import org.astraea.app.common.DataRate;
 import org.astraea.app.common.Utils;
 import org.astraea.app.common.json.OptionalIntTypeAdapter;
-import org.astraea.app.common.json.OptionalTypeAdapter;
+import org.astraea.app.common.json.OptionalStringTypeAdapter;
 import org.astraea.app.service.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 public class ThrottleHandlerTest extends RequireBrokerCluster {
@@ -188,7 +189,7 @@ public class ThrottleHandlerTest extends RequireBrokerCluster {
     var gson =
         new GsonBuilder()
             .registerTypeAdapter(OptionalInt.class, new OptionalIntTypeAdapter())
-            .registerTypeAdapter(Optional.class, new OptionalTypeAdapter())
+            .registerTypeAdapter(Optional.class, new OptionalStringTypeAdapter())
             .create();
     var deserialized = gson.fromJson(serialized, ThrottleHandler.ThrottleSetting.class);
 
@@ -196,6 +197,7 @@ public class ThrottleHandlerTest extends RequireBrokerCluster {
     Assertions.assertEquals(set, Set.copyOf(deserialized.topics));
   }
 
+  @Disabled
   @Test
   void testDeserialize() {
     final String rawJson =
@@ -223,9 +225,9 @@ public class ThrottleHandlerTest extends RequireBrokerCluster {
             .registerTypeAdapter(OptionalInt.class, new OptionalIntTypeAdapter())
             .registerTypeAdapter(
                 Optional.class,
-                new OptionalTypeAdapter() {
+                new OptionalStringTypeAdapter() {
                   @Override
-                  public Optional<?> deserialize(
+                  public Optional<String> deserialize(
                       JsonElement json, Type typeOfT, JsonDeserializationContext context)
                       throws JsonParseException {
                     if (json.isJsonNull()) return Optional.empty();
