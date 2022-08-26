@@ -114,7 +114,7 @@ public class Balancer implements AutoCloseable {
         System.out.printf(
             "Current cluster score: %.8f, Proposed cluster score: %.8f%n",
             currentClusterScore, bestScore);
-        if(currentClusterScore > bestScore) {
+        if (currentClusterScore > bestScore) {
           System.out.println("[Run " + planExecutor.getClass().getName() + "]");
           shouldDrainMetrics = true;
           executePlan(bestProposal);
@@ -216,9 +216,7 @@ public class Balancer implements AutoCloseable {
 
   private void executePlan(RebalancePlanProposal proposal) {
     try (Admin newAdmin = Admin.of(balancerConfigs.configs())) {
-      planExecutor.run(
-          RebalanceAdmin.of(newAdmin, topicFilter),
-          proposal.rebalancePlan());
+      planExecutor.run(RebalanceAdmin.of(newAdmin, topicFilter), proposal.rebalancePlan());
     }
   }
 
@@ -228,7 +226,7 @@ public class Balancer implements AutoCloseable {
     var scores =
         costFunctions.stream()
             .filter(x -> x instanceof HasClusterCost)
-            .map(x -> (HasClusterCost)x)
+            .map(x -> (HasClusterCost) x)
             .map(
                 cf -> {
                   var fetcher = fetcherOwnership.get(cf);
@@ -247,13 +245,14 @@ public class Balancer implements AutoCloseable {
     var scores =
         costFunctions.stream()
             .filter(cf -> cf instanceof HasMoveCost)
-            .map(cf -> (HasMoveCost)cf)
+            .map(cf -> (HasMoveCost) cf)
             .map(
                 cf -> {
                   var fetcher = fetcherOwnership.get(cf);
                   var theMetrics = metrics.get(fetcher);
                   var clusterBean = ClusterBean.of(theMetrics);
-                  return Map.entry(cf, this.moveCostScore(currentCluster, clusterInfo, clusterBean, cf));
+                  return Map.entry(
+                      cf, this.moveCostScore(currentCluster, clusterInfo, clusterBean, cf));
                 })
             .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));
     return aggregateFunction(scores);
@@ -270,12 +269,12 @@ public class Balancer implements AutoCloseable {
   }
 
   private <T extends HasMoveCost> double moveCostScore(
-      ClusterInfo currentCluster, ClusterInfo clusterInfo, ClusterBean clusterBean, T costFunction) {
-    if (costFunction.overflow(currentCluster, clusterInfo, clusterBean))
-      return 999999.0;
-    return costFunction
-        .clusterCost(currentCluster, clusterInfo, clusterBean)
-        .value();
+      ClusterInfo currentCluster,
+      ClusterInfo clusterInfo,
+      ClusterBean clusterBean,
+      T costFunction) {
+    if (costFunction.overflow(currentCluster, clusterInfo, clusterBean)) return 999999.0;
+    return costFunction.clusterCost(currentCluster, clusterInfo, clusterBean).value();
   }
 
   @Override
