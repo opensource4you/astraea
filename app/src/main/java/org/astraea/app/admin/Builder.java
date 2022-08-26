@@ -365,12 +365,9 @@ public class Builder {
                                         .filter(e -> e.getValue().replicaInfos().containsKey(tp))
                                         .map(Map.Entry::getKey)
                                         .findFirst()
-                                        .orElseThrow(
-                                            () ->
-                                                new IllegalStateException(
-                                                    "inconsistent stats of partition: " + tp));
+                                        .orElse(null);
                             var replicaInfo =
-                                node.isEmpty()
+                                node.isEmpty() || dataPath == null
                                     ? null
                                     : logInfo.get(node.id()).get(dataPath).replicaInfos().get(tp);
                             return Replica.of(
