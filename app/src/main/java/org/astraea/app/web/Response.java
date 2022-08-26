@@ -17,12 +17,7 @@
 package org.astraea.app.web;
 
 import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
 import java.util.NoSuchElementException;
-import java.util.Optional;
-import java.util.OptionalInt;
-import org.astraea.app.common.json.OptionalIntTypeAdapter;
-import org.astraea.app.common.json.OptionalStringTypeAdapter;
 
 interface Response {
 
@@ -57,13 +52,7 @@ interface Response {
   default String json() {
     // TODO: manage the customized serialize/deserialize logic, see
     // https://github.com/skiptests/astraea/issues/626
-    // TODO: add type adapter for `OptionalLong` and `OptionalDouble`, see
-    // https://github.com/skiptests/astraea/issues/639
-    return new GsonBuilder()
-        .registerTypeAdapter(Optional.class, new OptionalStringTypeAdapter())
-        .registerTypeAdapter(OptionalInt.class, new OptionalIntTypeAdapter())
-        .create()
-        .toJson(this);
+    return new Gson().toJson(this);
   }
 
   /**
