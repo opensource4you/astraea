@@ -184,7 +184,7 @@ public class ThrottleHandler implements Handler {
      * as {@code null} instead of {@code Optional.empty()}.
      *
      * <p>See <a
-     * href="https://github.com/google/gson/blob/master/UserGuide.md#custom-serialization-and-deserialization">Gson
+     * href="https://github.com/google/gson/blob/master/UserGuide.md#writing-an-instance-creator">Gson
      * documentation<a> for further details.
      */
     private ThrottleTarget() {
