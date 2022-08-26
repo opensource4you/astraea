@@ -376,7 +376,9 @@ public class Builder {
                                 NodeInfo.of(node),
                                 replicaInfo != null ? replicaInfo.offsetLag() : -1L,
                                 replicaInfo != null ? replicaInfo.size() : -1L,
-                                !tpi.leader().isEmpty() && tpi.leader().id() == node.id(),
+                                tpi.leader() != null
+                                    && !tpi.leader().isEmpty()
+                                    && tpi.leader().id() == node.id(),
                                 tpi.isr().contains(node),
                                 replicaInfo != null && replicaInfo.isFuture(),
                                 node.isEmpty(),
