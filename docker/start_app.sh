@@ -33,7 +33,7 @@ declare -r HEAP_OPTS="${HEAP_OPTS:-"-Xmx2G -Xms2G"}"
 function showHelp() {
   echo "Usage: [ENV] start_app.sh"
   echo "ENV: "
-  echo "    ACCOUNT=skiptests          set the docker repo"
+  echo "    ACCOUNT=skiptests          set the account to clone from"
   echo "    BUILD=false                set true if you want to build image locally"
   echo "    RUN=false                  set false if you want to build/pull image only"
 }
@@ -117,7 +117,7 @@ function runContainer() {
     fi
     # this element must be something to mount
     if [[ "$defined_file" == "true" ]]; then
-      need_to_bind_file="${need_to_bind_file} -v  $word:$word"
+      need_to_bind_file="${need_to_bind_file} -v $word:$word"
       defined_file="false"
     fi
   done
