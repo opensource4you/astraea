@@ -16,6 +16,8 @@
  */
 package org.astraea.app.web;
 
+import static org.astraea.app.web.ThrottleHandler.LogIdentity.follower;
+import static org.astraea.app.web.ThrottleHandler.LogIdentity.leader;
 import static org.astraea.app.web.ThrottleHandler.ThrottleBandwidths.egress;
 import static org.astraea.app.web.ThrottleHandler.ThrottleBandwidths.ingress;
 
@@ -154,8 +156,8 @@ public class ThrottleHandlerTest extends RequireBrokerCluster {
   void testThrottleTargetEqual() {
     var target0 = new ThrottleHandler.ThrottleTarget("Topic", 0, 0);
     var target1 = new ThrottleHandler.ThrottleTarget("Topic", 0, 0);
-    var target2 = new ThrottleHandler.ThrottleTarget("Topic", 0, 0, "leader");
-    var target3 = new ThrottleHandler.ThrottleTarget("Topic", 0, 0, "follower");
+    var target2 = new ThrottleHandler.ThrottleTarget("Topic", 0, 0, leader);
+    var target3 = new ThrottleHandler.ThrottleTarget("Topic", 0, 0, follower);
     var target4 = new ThrottleHandler.ThrottleTarget("Topic", 1, 0);
     var target5 = new ThrottleHandler.ThrottleTarget("Topic2", 0, 0);
 
@@ -210,7 +212,7 @@ public class ThrottleHandlerTest extends RequireBrokerCluster {
             new ThrottleHandler.ThrottleTarget("MyTopicA"),
             new ThrottleHandler.ThrottleTarget("MyTopicB", 2),
             new ThrottleHandler.ThrottleTarget("MyTopicC", 3, 1001),
-            new ThrottleHandler.ThrottleTarget("MyTopicD", 4, 1001, "leader"));
+            new ThrottleHandler.ThrottleTarget("MyTopicD", 4, 1001, leader));
 
     var gson =
         new GsonBuilder()

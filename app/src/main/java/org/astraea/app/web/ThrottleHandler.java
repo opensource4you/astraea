@@ -130,14 +130,14 @@ public class ThrottleHandler implements Handler {
             .map(
                 replica ->
                     new ThrottleTarget(
-                        replica.topic(), replica.partition(), replica.brokerId(), "leader"));
+                        replica.topic(), replica.partition(), replica.brokerId(), LogIdentity.leader));
     var followerReplicas =
         followers.stream()
             .filter(replica -> !commonReplicas.contains(replica))
             .map(
                 replica ->
                     new ThrottleTarget(
-                        replica.topic(), replica.partition(), replica.brokerId(), "follower"));
+                        replica.topic(), replica.partition(), replica.brokerId(), LogIdentity.follower));
 
     return Stream.concat(Stream.concat(simplifiedReplicas, leaderReplicas), followerReplicas)
         .collect(Collectors.toUnmodifiableSet());
@@ -198,13 +198,11 @@ public class ThrottleHandler implements Handler {
       this.type = null;
     }
 
-    ThrottleTarget(String name, int partition, int broker, String type) {
+    ThrottleTarget(String name, int partition, int broker, LogIdentity identity) {
       this.name = name;
       this.partition = partition;
       this.broker = broker;
-      if (!(type.equals("leader") || type.equals("follower")))
-        throw new IllegalArgumentException("type should be leader or follower");
-      this.type = type;
+      this.type = identity.name();
     }
 
     @Override
@@ -226,5 +224,10 @@ public class ThrottleHandler implements Handler {
   enum ThrottleBandwidths {
     ingress,
     egress;
+  }
+
+  enum LogIdentity {
+    leader,
+    follower;
   }
 }
