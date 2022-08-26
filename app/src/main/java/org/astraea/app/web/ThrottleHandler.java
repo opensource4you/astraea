@@ -21,7 +21,6 @@ import java.util.Collection;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.OptionalInt;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -158,9 +157,9 @@ public class ThrottleHandler implements Handler {
 
   static class ThrottleTarget {
     final String name;
-    final OptionalInt partition;
-    final OptionalInt broker;
-    final Optional<String> type;
+    final Integer partition;
+    final Integer broker;
+    final String type;
 
     @Override
     public boolean equals(Object o) {
@@ -178,50 +177,34 @@ public class ThrottleHandler implements Handler {
       return Objects.hash(name, partition, broker, type);
     }
 
-    /**
-     * This private no-arg constructor exists for Gson deserializing reason, it offers the default
-     * value for this class. Without this constructor, some non-specified field will be deserialized
-     * as {@code null} instead of {@code Optional.empty()}.
-     *
-     * <p>See <a
-     * href="https://github.com/google/gson/blob/master/UserGuide.md#writing-an-instance-creator">Gson
-     * documentation<a> for further details.
-     */
-    private ThrottleTarget() {
-      this.name = "";
-      this.partition = OptionalInt.empty();
-      this.broker = OptionalInt.empty();
-      this.type = Optional.empty();
-    }
-
     ThrottleTarget(String name) {
       this.name = name;
-      this.partition = OptionalInt.empty();
-      this.broker = OptionalInt.empty();
-      this.type = Optional.empty();
+      this.partition = null;
+      this.broker = null;
+      this.type = null;
     }
 
     ThrottleTarget(String name, int partition) {
       this.name = name;
-      this.partition = OptionalInt.of(partition);
-      this.broker = OptionalInt.empty();
-      this.type = Optional.empty();
+      this.partition = partition;
+      this.broker = null;
+      this.type = null;
     }
 
     ThrottleTarget(String name, int partition, int broker) {
       this.name = name;
-      this.partition = OptionalInt.of(partition);
-      this.broker = OptionalInt.of(broker);
-      this.type = Optional.empty();
+      this.partition = partition;
+      this.broker = broker;
+      this.type = null;
     }
 
     ThrottleTarget(String name, int partition, int broker, String type) {
       this.name = name;
-      this.partition = OptionalInt.of(partition);
-      this.broker = OptionalInt.of(broker);
+      this.partition = partition;
+      this.broker = broker;
       if (!(type.equals("leader") || type.equals("follower")))
         throw new IllegalArgumentException("type should be leader or follower");
-      this.type = Optional.of(type);
+      this.type = type;
     }
 
     @Override
