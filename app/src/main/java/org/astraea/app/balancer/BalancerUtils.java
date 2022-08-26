@@ -20,7 +20,6 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
@@ -30,8 +29,8 @@ import java.util.stream.IntStream;
 import org.astraea.app.admin.ClusterBean;
 import org.astraea.app.admin.ClusterInfo;
 import org.astraea.app.admin.NodeInfo;
+import org.astraea.app.admin.Replica;
 import org.astraea.app.admin.ReplicaInfo;
-import org.astraea.app.admin.TopicPartition;
 import org.astraea.app.balancer.log.ClusterLogAllocation;
 import org.astraea.app.cost.HasClusterCost;
 import org.astraea.app.metrics.HasBeanObject;
@@ -54,6 +53,35 @@ public class BalancerUtils {
   public static ClusterInfo merge(ClusterInfo clusterInfo, ClusterLogAllocation allocation) {
     return new ClusterInfo() {
       // TODO: maybe add a field to tell if this cluster info is mocked.
+      private final Map<Integer, NodeInfo> nodeIdMap =
+          nodes().stream().collect(Collectors.toUnmodifiableMap(NodeInfo::id, Function.identity()));
+      private final List<ReplicaInfo> replicas =
+          allocation.topicPartitions().stream()
+              .map(tp -> Map.entry(tp, allocation.logPlacements(tp)))
+              .flatMap(
+                  entry -> {
+                    var tp = entry.getKey();
+                    var logs = entry.getValue();
+
+                    return IntStream.range(0, logs.size())
+                        .mapToObj(
+                            i ->
+                                // TODO: too many fake data!!! we should use another data structure
+                                // https://github.com/skiptests/astraea/issues/526
+                                Replica.of(
+                                    tp.topic(),
+                                    tp.partition(),
+                                    nodeIdMap.get(logs.get(i).broker()),
+                                    0,
+                                    -1,
+                                    i == 0,
+                                    true,
+                                    false,
+                                    false,
+                                    false,
+                                    logs.get(i).dataFolder()));
+                  })
+              .collect(Collectors.toUnmodifiableList());
 
       @Override
       public List<NodeInfo> nodes() {
@@ -61,38 +89,8 @@ public class BalancerUtils {
       }
 
       @Override
-      public Set<String> topics() {
-        return allocation.topicPartitions().stream()
-            .map(TopicPartition::topic)
-            .collect(Collectors.toUnmodifiableSet());
-      }
-
-      @Override
-      public List<ReplicaInfo> replicas(String topic) {
-        var nodeIdMap =
-            nodes().stream()
-                .collect(Collectors.toUnmodifiableMap(NodeInfo::id, Function.identity()));
-        return allocation.topicPartitions().stream()
-            .filter(tp -> tp.topic().equals(topic))
-            .map(tp -> Map.entry(tp, allocation.logPlacements(tp)))
-            .flatMap(
-                entry -> {
-                  var tp = entry.getKey();
-                  var logs = entry.getValue();
-
-                  return IntStream.range(0, logs.size())
-                      .mapToObj(
-                          i ->
-                              ReplicaInfo.of(
-                                  tp.topic(),
-                                  tp.partition(),
-                                  nodeIdMap.get(logs.get(i).broker()),
-                                  i == 0,
-                                  true,
-                                  false,
-                                  logs.get(i).logDirectory().orElse(null)));
-                })
-            .collect(Collectors.toUnmodifiableList());
+      public List<ReplicaInfo> replicas() {
+        return replicas;
       }
     };
   }

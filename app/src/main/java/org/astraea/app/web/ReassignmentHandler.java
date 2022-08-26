@@ -81,7 +81,7 @@ public class ReassignmentHandler implements Handler {
 
     Location(org.astraea.app.admin.Reassignment.Location location) {
       this.broker = location.broker();
-      this.path = location.path();
+      this.path = location.dataFolder();
     }
   }
 

@@ -58,19 +58,19 @@ public class Reassignment {
 
   public static class Location {
     private final int broker;
-    private final String path;
+    private final String dataFolder;
 
-    public Location(int broker, String path) {
+    public Location(int broker, String dataFolder) {
       this.broker = broker;
-      this.path = Objects.requireNonNull(path);
+      this.dataFolder = Objects.requireNonNull(dataFolder);
     }
 
     public int broker() {
       return broker;
     }
 
-    public String path() {
-      return path;
+    public String dataFolder() {
+      return dataFolder;
     }
 
     @Override
@@ -78,17 +78,17 @@ public class Reassignment {
       if (this == o) return true;
       if (o == null || getClass() != o.getClass()) return false;
       Location location = (Location) o;
-      return broker == location.broker && path.equals(location.path);
+      return broker == location.broker && dataFolder.equals(location.dataFolder);
     }
 
     @Override
     public int hashCode() {
-      return Objects.hash(broker, path);
+      return Objects.hash(broker, dataFolder);
     }
 
     @Override
     public String toString() {
-      return "Location{" + "broker=" + broker + ", path='" + path + '\'' + '}';
+      return "Location{" + "broker=" + broker + ", dataFolder='" + dataFolder + '\'' + '}';
     }
   }
 }

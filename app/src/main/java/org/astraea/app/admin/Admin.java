@@ -37,8 +37,16 @@ public interface Admin extends Closeable {
     return builder().configs(configs).build();
   }
 
-  /** @return names of all topics */
-  Set<String> topicNames();
+  /**
+   * @param listInternal should list internal topics or not
+   * @return names of topics
+   */
+  Set<String> topicNames(boolean listInternal);
+
+  /** @return names of all topics (include internal topics). */
+  default Set<String> topicNames() {
+    return topicNames(true);
+  }
 
   /** @return the topic name and its configurations. */
   default Map<String, Config> topics() {

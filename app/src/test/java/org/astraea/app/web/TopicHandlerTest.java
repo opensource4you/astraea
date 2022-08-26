@@ -16,6 +16,8 @@
  */
 package org.astraea.app.web;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
+
 import java.time.Duration;
 import java.util.Map;
 import java.util.NoSuchElementException;
@@ -25,6 +27,8 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.astraea.app.admin.Admin;
 import org.astraea.app.common.Utils;
+import org.astraea.app.consumer.Consumer;
+import org.astraea.app.producer.Producer;
 import org.astraea.app.service.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -84,11 +88,20 @@ public class TopicHandlerTest extends RequireBrokerCluster {
       admin.creator().topic(topicName).create();
       Utils.sleep(Duration.ofSeconds(3));
       var handler = new TopicHandler(admin);
-      Assertions.assertEquals(Set.of(topicName), handler.topicNames(Optional.of(topicName)));
-      Assertions.assertThrows(
-          NoSuchElementException.class,
-          () -> handler.topicNames(Optional.of(Utils.randomString(10))));
-      Assertions.assertTrue(handler.topicNames(Optional.empty()).contains(topicName));
+
+      java.util.function.Consumer<Boolean> test =
+          (listInternal) -> {
+            Assertions.assertEquals(
+                Set.of(topicName), handler.topicNames(Optional.of(topicName), listInternal));
+            Assertions.assertThrows(
+                NoSuchElementException.class,
+                () -> handler.topicNames(Optional.of(Utils.randomString(10)), listInternal));
+            Assertions.assertTrue(
+                handler.topicNames(Optional.empty(), listInternal).contains(topicName));
+          };
+
+      test.accept(true);
+      test.accept(false);
     }
   }
 
@@ -138,6 +151,47 @@ public class TopicHandlerTest extends RequireBrokerCluster {
                   TopicHandler.TopicInfo.class, handler.get(Channel.ofTarget(topicName)))
               .partitions
               .size());
+    }
+  }
+
+  @Test
+  void testQueryWithListInternal() {
+    var bootstrapServers = bootstrapServers();
+    var topicName = Utils.randomString(10);
+    try (var admin = Admin.of(bootstrapServers);
+        var producer = Producer.of(bootstrapServers);
+        var consumer =
+            Consumer.forTopics(Set.of(topicName)).bootstrapServers(bootstrapServers).build()) {
+      // producer and consumer here are used to trigger kafka to create internal topic
+      // __consumer_offsets
+      producer
+          .sender()
+          .topic(topicName)
+          .key("foo".getBytes(UTF_8))
+          .run()
+          .toCompletableFuture()
+          .join();
+      consumer.poll(Duration.ofSeconds(1));
+
+      var handler = new TopicHandler(admin);
+
+      var withInternalTopics =
+          Assertions.assertInstanceOf(
+              TopicHandler.Topics.class,
+              handler.get(Channel.ofQueries(Map.of(TopicHandler.LIST_INTERNAL, "true"))));
+      Assertions.assertTrue(
+          withInternalTopics.topics.stream().anyMatch(t -> t.name.equals("__consumer_offsets")));
+      Assertions.assertEquals(
+          1, withInternalTopics.topics.stream().filter(t -> t.name.equals(topicName)).count());
+
+      var withoutInternalTopics =
+          Assertions.assertInstanceOf(
+              TopicHandler.Topics.class,
+              handler.get(Channel.ofQueries(Map.of(TopicHandler.LIST_INTERNAL, "false"))));
+      Assertions.assertFalse(
+          withoutInternalTopics.topics.stream().anyMatch(t -> t.name.equals("__consumer_offsets")));
+      Assertions.assertEquals(
+          1, withoutInternalTopics.topics.stream().filter(t -> t.name.equals(topicName)).count());
     }
   }
 

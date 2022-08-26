@@ -90,10 +90,10 @@ public class ThrottleHandlerTest extends RequireBrokerCluster {
           var theReplica = replica;
           var isLeader =
               currentReplicas.get(TopicPartition.of(topicName, partition)).stream()
-                  .filter(r -> r.broker() == theReplica)
+                  .filter(r -> r.nodeInfo().id() == theReplica)
                   .findFirst()
                   .orElseThrow()
-                  .leader();
+                  .isLeader();
           var expected = new JsonObject();
           expected.add("name", new JsonPrimitive(topicName));
           expected.add("partition", new JsonPrimitive(partition));

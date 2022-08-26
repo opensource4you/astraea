@@ -32,45 +32,40 @@ public interface ClusterInfo {
         }
 
         @Override
-        public Set<String> topics() {
-          return Set.of();
-        }
-
-        @Override
-        public List<ReplicaInfo> replicas(String topic) {
+        public List<ReplicaInfo> replicas() {
           return List.of();
         }
       };
 
   /**
-   * convert the kafka Cluster to our ClusterInfo. All data structure are converted immediately, so
-   * you should cache the result if the performance is critical
+   * convert the kafka Cluster to our ClusterInfo. Noted: this method is used by {@link
+   * org.astraea.app.cost.HasBrokerCost} normally, so all data structure are converted immediately
    *
    * @param cluster kafka ClusterInfo
-   * @return astraea ClusterInfo
+   * @return ClusterInfo
    */
   static ClusterInfo of(org.apache.kafka.common.Cluster cluster) {
     var nodes = cluster.nodes().stream().map(NodeInfo::of).collect(Collectors.toUnmodifiableList());
     var topics = cluster.topics();
-    var allReplicas =
+    var replicas =
         topics.stream()
             .flatMap(t -> cluster.partitionsForTopic(t).stream())
             .flatMap(p -> ReplicaInfo.of(p).stream())
             .collect(Collectors.toUnmodifiableList());
-    var replicasForTopic = allReplicas.stream().collect(Collectors.groupingBy(ReplicaInfo::topic));
+    var replicasForTopic = replicas.stream().collect(Collectors.groupingBy(ReplicaInfo::topic));
     var availableReplicasForTopic =
-        allReplicas.stream()
-            .filter(ReplicaInfo::isOnlineReplica)
+        replicas.stream()
+            .filter(ReplicaInfo::isOnline)
             .collect(Collectors.groupingBy(ReplicaInfo::topic));
     var availableReplicaLeadersForTopics =
-        allReplicas.stream()
-            .filter(ReplicaInfo::isOnlineReplica)
+        replicas.stream()
+            .filter(ReplicaInfo::isOnline)
             .filter(ReplicaInfo::isLeader)
             .collect(Collectors.groupingBy(ReplicaInfo::topic));
     // This group is used commonly, so we cache it.
     var availableLeaderReplicasForBrokersTopics =
-        allReplicas.stream()
-            .filter(ReplicaInfo::isOnlineReplica)
+        replicas.stream()
+            .filter(ReplicaInfo::isOnline)
             .filter(ReplicaInfo::isLeader)
             .collect(Collectors.groupingBy(r -> Map.entry(r.nodeInfo().id(), r.topic())));
 
@@ -103,6 +98,11 @@ public interface ClusterInfo {
       @Override
       public List<ReplicaInfo> replicas(String topic) {
         return replicasForTopic.getOrDefault(topic, List.of());
+      }
+
+      @Override
+      public List<ReplicaInfo> replicas() {
+        return replicas;
       }
     };
   }
@@ -156,7 +156,7 @@ public interface ClusterInfo {
    */
   default List<ReplicaInfo> availableReplicas(String topic) {
     return replicas(topic).stream()
-        .filter(ReplicaInfo::isOnlineReplica)
+        .filter(ReplicaInfo::isOnline)
         .collect(Collectors.toUnmodifiableList());
   }
 
@@ -168,7 +168,9 @@ public interface ClusterInfo {
    *
    * @return return a set of topic names
    */
-  Set<String> topics();
+  default Set<String> topics() {
+    return replicas().stream().map(ReplicaInfo::topic).collect(Collectors.toUnmodifiableSet());
+  }
 
   /**
    * Get the list of replica information of each partition/replica pair for the given topic
@@ -176,5 +178,12 @@ public interface ClusterInfo {
    * @param topic The topic name
    * @return A list of {@link ReplicaInfo}.
    */
-  List<ReplicaInfo> replicas(String topic);
+  default List<ReplicaInfo> replicas(String topic) {
+    return replicas().stream()
+        .filter(r -> r.topic().equals(topic))
+        .collect(Collectors.toUnmodifiableList());
+  }
+
+  /** @return all replicas cached by this cluster info. */
+  List<ReplicaInfo> replicas();
 }
