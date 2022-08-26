@@ -22,21 +22,16 @@ import static org.astraea.app.web.ThrottleHandler.ThrottleBandwidths.egress;
 import static org.astraea.app.web.ThrottleHandler.ThrottleBandwidths.ingress;
 
 import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
 import java.time.Duration;
 import java.util.Map;
-import java.util.Optional;
-import java.util.OptionalInt;
 import java.util.Set;
 import org.astraea.app.admin.Admin;
 import org.astraea.app.admin.TopicPartition;
 import org.astraea.app.admin.TopicPartitionReplica;
 import org.astraea.app.common.DataRate;
 import org.astraea.app.common.Utils;
-import org.astraea.app.common.json.OptionalIntTypeAdapter;
-import org.astraea.app.common.json.OptionalStringTypeAdapter;
 import org.astraea.app.service.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -181,11 +176,7 @@ public class ThrottleHandlerTest extends RequireBrokerCluster {
     var setting = new ThrottleHandler.ThrottleSetting(map, set);
 
     var serialized = setting.json();
-    var gson =
-        new GsonBuilder()
-            .registerTypeAdapter(OptionalInt.class, new OptionalIntTypeAdapter())
-            .registerTypeAdapter(Optional.class, new OptionalStringTypeAdapter())
-            .create();
+    var gson = new Gson();
     var deserialized = gson.fromJson(serialized, ThrottleHandler.ThrottleSetting.class);
 
     Assertions.assertEquals(map, deserialized.brokers);
@@ -214,11 +205,7 @@ public class ThrottleHandlerTest extends RequireBrokerCluster {
             new ThrottleHandler.ThrottleTarget("MyTopicC", 3, 1001, null),
             new ThrottleHandler.ThrottleTarget("MyTopicD", 4, 1001, leader));
 
-    var gson =
-        new GsonBuilder()
-            .registerTypeAdapter(OptionalInt.class, new OptionalIntTypeAdapter())
-            .registerTypeAdapter(Optional.class, new OptionalStringTypeAdapter())
-            .create();
+    var gson = new Gson();
     var deserialized = gson.fromJson(rawJson, ThrottleHandler.ThrottleSetting.class);
 
     Assertions.assertEquals(expectedMap, deserialized.brokers);
