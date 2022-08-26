@@ -66,8 +66,8 @@ class BalancerUtilsTest {
   void testMockClusterInfoAllocation() {
     var tp1 = TopicPartition.of("testMockCluster", 1);
     var tp2 = TopicPartition.of("testMockCluster", 0);
-    var logPlacement1 = List.of(LogPlacement.of(0), LogPlacement.of(1));
-    var logPlacement2 = List.of(LogPlacement.of(1), LogPlacement.of(2));
+    var logPlacement1 = List.of(LogPlacement.of(0, "/data"), LogPlacement.of(1, "/data"));
+    var logPlacement2 = List.of(LogPlacement.of(1, "/data1"), LogPlacement.of(2, "/data1"));
     var nodes =
         new Node[] {
           new Node(0, "localhost", 9092),

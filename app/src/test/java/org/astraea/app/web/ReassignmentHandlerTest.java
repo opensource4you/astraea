@@ -36,7 +36,12 @@ public class ReassignmentHandlerTest extends RequireBrokerCluster {
       Utils.sleep(Duration.ofSeconds(3));
 
       var currentBroker =
-          admin.replicas(Set.of(topicName)).get(TopicPartition.of(topicName, 0)).get(0).broker();
+          admin
+              .replicas(Set.of(topicName))
+              .get(TopicPartition.of(topicName, 0))
+              .get(0)
+              .nodeInfo()
+              .id();
       var nextBroker = brokerIds().stream().filter(i -> i != currentBroker).findAny().get();
 
       var body =
@@ -60,7 +65,12 @@ public class ReassignmentHandlerTest extends RequireBrokerCluster {
 
       Assertions.assertEquals(
           nextBroker,
-          admin.replicas(Set.of(topicName)).get(TopicPartition.of(topicName, 0)).get(0).broker());
+          admin
+              .replicas(Set.of(topicName))
+              .get(TopicPartition.of(topicName, 0))
+              .get(0)
+              .nodeInfo()
+              .id());
     }
   }
 
@@ -74,8 +84,8 @@ public class ReassignmentHandlerTest extends RequireBrokerCluster {
 
       var currentReplica =
           admin.replicas(Set.of(topicName)).get(TopicPartition.of(topicName, 0)).get(0);
-      var currentBroker = currentReplica.broker();
-      var currentPath = currentReplica.path();
+      var currentBroker = currentReplica.nodeInfo().id();
+      var currentPath = currentReplica.dataFolder();
       var nextPath =
           logFolders().get(currentBroker).stream()
               .filter(p -> !p.equals(currentPath))
@@ -105,7 +115,11 @@ public class ReassignmentHandlerTest extends RequireBrokerCluster {
 
       Assertions.assertEquals(
           nextPath,
-          admin.replicas(Set.of(topicName)).get(TopicPartition.of(topicName, 0)).get(0).path());
+          admin
+              .replicas(Set.of(topicName))
+              .get(TopicPartition.of(topicName, 0))
+              .get(0)
+              .dataFolder());
     }
   }
 

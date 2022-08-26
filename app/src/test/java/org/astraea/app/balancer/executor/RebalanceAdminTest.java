@@ -32,6 +32,7 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.astraea.app.admin.Admin;
+import org.astraea.app.admin.NodeInfo;
 import org.astraea.app.admin.Replica;
 import org.astraea.app.admin.TopicPartition;
 import org.astraea.app.admin.TopicPartitionReplica;
@@ -53,7 +54,6 @@ class RebalanceAdminTest extends RequireBrokerCluster {
     try (var admin = Admin.of(bootstrapServers())) {
       var topic = prepareTopic(admin, 1, (short) 1);
       var rebalanceAdmin = prepareRebalanceAdmin(admin);
-      RebalanceAdminImpl.changeRetrialTime(Duration.ofMillis(50));
 
       // scale the replica size from 1 to 3, to the following data dir
       var logFolder0 = randomElement(logFolders().get(0));
@@ -76,10 +76,11 @@ class RebalanceAdminTest extends RequireBrokerCluster {
       var replicas = admin.replicas(Set.of(topic)).get(topicPartition);
 
       Assertions.assertEquals(
-          List.of(0, 1, 2), replicas.stream().map(Replica::broker).collect(Collectors.toList()));
-      Assertions.assertEquals(logFolder0, replicas.get(0).path());
-      Assertions.assertEquals(logFolder1, replicas.get(1).path());
-      Assertions.assertEquals(logFolder2, replicas.get(2).path());
+          List.of(0, 1, 2),
+          replicas.stream().map(Replica::nodeInfo).map(NodeInfo::id).collect(Collectors.toList()));
+      Assertions.assertEquals(logFolder0, replicas.get(0).dataFolder());
+      Assertions.assertEquals(logFolder1, replicas.get(1).dataFolder());
+      Assertions.assertEquals(logFolder2, replicas.get(2).dataFolder());
     }
   }
 
@@ -92,16 +93,15 @@ class RebalanceAdminTest extends RequireBrokerCluster {
       var topicPartition = TopicPartition.of(topic, 0);
       var rebalanceAdmin = prepareRebalanceAdmin(admin);
       // decrease the debouncing time so the test has higher chance to fail
-      RebalanceAdminImpl.changeRetrialTime(Duration.ofMillis(150));
       prepareData(topic, 0, DataSize.MiB.of(256));
       Supplier<Replica> replicaNow = () -> admin.replicas(Set.of(topic)).get(topicPartition).get(0);
       var originalReplica = replicaNow.get();
       var nextDir =
-          logFolders().get(originalReplica.broker()).stream()
-              .filter(name -> !name.equals(originalReplica.path()))
+          logFolders().get(originalReplica.nodeInfo().id()).stream()
+              .filter(name -> !name.equals(originalReplica.dataFolder()))
               .findAny()
               .orElseThrow();
-      var expectedPlacement = LogPlacement.of(originalReplica.broker(), nextDir);
+      var expectedPlacement = LogPlacement.of(originalReplica.nodeInfo().id(), nextDir);
 
       // act, change the dir of the only replica
       var task =
@@ -112,7 +112,7 @@ class RebalanceAdminTest extends RequireBrokerCluster {
       var finalReplica = replicaNow.get();
       Assertions.assertTrue(finalReplica.inSync());
       Assertions.assertFalse(finalReplica.isFuture());
-      Assertions.assertEquals(originalReplica.broker(), finalReplica.broker());
+      Assertions.assertEquals(originalReplica.nodeInfo(), finalReplica.nodeInfo());
     }
   }
 
@@ -143,16 +143,18 @@ class RebalanceAdminTest extends RequireBrokerCluster {
       var rebalanceAdmin = prepareRebalanceAdmin(admin);
       var beginReplica = admin.replicas().get(topicPartition).get(0);
       var otherDataDir =
-          admin.brokerFolders().get(beginReplica.broker()).stream()
-              .filter(dir -> !dir.equals(beginReplica.path()))
+          admin.brokerFolders().get(beginReplica.nodeInfo().id()).stream()
+              .filter(dir -> !dir.equals(beginReplica.dataFolder()))
               .findAny()
               .orElseThrow();
-      RebalanceAdminImpl.changeRetrialTime(Duration.ofMillis(150));
       prepareData(topic, 0, DataSize.MiB.of(32));
       // let two brokers join the replica list
       admin.migrator().partition(topic, 0).moveTo(List.of(0, 1, 2));
       // let the existing replica change its directory
-      admin.migrator().partition(topic, 0).moveTo(Map.of(beginReplica.broker(), otherDataDir));
+      admin
+          .migrator()
+          .partition(topic, 0)
+          .moveTo(Map.of(beginReplica.nodeInfo().id(), otherDataDir));
 
       // act
       long time0 = System.currentTimeMillis();
@@ -190,10 +192,11 @@ class RebalanceAdminTest extends RequireBrokerCluster {
                       .filter(x -> x.getKey().topic().equals(topic))
                       .filter(x -> x.getKey().partition() == 0)
                       .flatMap(x -> x.getValue().stream())
-                      .filter(Replica::leader)
+                      .filter(Replica::isLeader)
                       .findFirst()
                       .orElseThrow()
-                      .broker();
+                      .nodeInfo()
+                      .id();
 
       int oldLeader = leaderNow.get();
 
@@ -232,10 +235,11 @@ class RebalanceAdminTest extends RequireBrokerCluster {
                       .filter(x -> x.getKey().topic().equals(topic))
                       .filter(x -> x.getKey().partition() == 0)
                       .flatMap(x -> x.getValue().stream())
-                      .filter(Replica::leader)
+                      .filter(Replica::isLeader)
                       .findFirst()
                       .orElseThrow()
-                      .broker();
+                      .nodeInfo()
+                      .id();
 
       int oldLeader = leaderNow.get();
 

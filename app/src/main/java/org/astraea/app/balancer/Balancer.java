@@ -140,7 +140,7 @@ public class Balancer implements AutoCloseable {
             .map(
                 r ->
                     TopicPartitionReplica.of(
-                        r.getKey().topic(), r.getKey().partition(), r.getValue().broker()))
+                        r.getKey().topic(), r.getKey().partition(), r.getValue().nodeInfo().id()))
             .collect(Collectors.toUnmodifiableList());
     if (!migrationInProgress.isEmpty()) {
       throw new IllegalStateException(

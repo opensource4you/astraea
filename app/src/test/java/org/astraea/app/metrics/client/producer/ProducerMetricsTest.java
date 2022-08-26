@@ -39,7 +39,8 @@ public class ProducerMetricsTest extends RequireBrokerCluster {
         var producer = Producer.of(bootstrapServers())) {
       admin.creator().topic(topic).numberOfPartitions(1).create();
       Utils.sleep(Duration.ofSeconds(3));
-      var owner = admin.replicas(Set.of(topic)).get(TopicPartition.of(topic, 0)).get(0).broker();
+      var owner =
+          admin.replicas(Set.of(topic)).get(TopicPartition.of(topic, 0)).get(0).nodeInfo().id();
       producer.sender().topic(topic).run().toCompletableFuture().get();
       var metrics = ProducerMetrics.node(MBeanClient.local(), owner);
       Assertions.assertEquals(1, metrics.size());

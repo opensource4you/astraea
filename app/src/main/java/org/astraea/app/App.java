@@ -21,7 +21,6 @@ import java.lang.reflect.InvocationTargetException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
-import org.astraea.app.admin.ReplicaSyncingMonitor;
 import org.astraea.app.automation.Automation;
 import org.astraea.app.balancer.BalancerMain;
 import org.astraea.app.performance.Performance;
@@ -31,7 +30,6 @@ public class App {
   private static final Map<String, Class<?>> MAIN_CLASSES =
       Map.of(
           "performance", Performance.class,
-          "monitor", ReplicaSyncingMonitor.class,
           "automation", Automation.class,
           "web", WebService.class,
           "balancer", BalancerMain.class);

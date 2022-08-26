@@ -43,7 +43,7 @@ public class ClusterInfoWithOfflineNodeTest extends RequireBrokerCluster {
       var before = admin.clusterInfo(Set.of(topicName));
       Assertions.assertEquals(
           partitionCount * replicaCount,
-          before.replicas(topicName).stream().filter(x -> !x.isOfflineReplica()).count());
+          before.replicas(topicName).stream().filter(x -> !x.isOffline()).count());
       Assertions.assertEquals(
           partitionCount * replicaCount, before.availableReplicas(topicName).size());
       Assertions.assertEquals(partitionCount, before.availableReplicaLeaders(topicName).size());
@@ -57,7 +57,7 @@ public class ClusterInfoWithOfflineNodeTest extends RequireBrokerCluster {
       var after = admin.clusterInfo(Set.of(topicName));
       Assertions.assertEquals(
           partitionCount * (replicaCount - 1),
-          after.replicas(topicName).stream().filter(x -> !x.isOfflineReplica()).count());
+          after.replicas(topicName).stream().filter(x -> !x.isOffline()).count());
       Assertions.assertEquals(
           partitionCount * (replicaCount - 1), after.availableReplicas(topicName).size());
       Assertions.assertEquals(
@@ -72,11 +72,11 @@ public class ClusterInfoWithOfflineNodeTest extends RequireBrokerCluster {
               .allMatch(x -> x.nodeInfo().id() != brokerToClose));
       Assertions.assertTrue(
           after.replicas(topicName).stream()
-              .filter(ReplicaInfo::isOfflineReplica)
+              .filter(ReplicaInfo::isOffline)
               .allMatch(x -> x.nodeInfo().id() == brokerToClose));
       Assertions.assertTrue(
           after.replicas(topicName).stream()
-              .filter(x -> !x.isOfflineReplica())
+              .filter(x -> !x.isOffline())
               .allMatch(x -> x.nodeInfo().id() != brokerToClose));
     }
   }

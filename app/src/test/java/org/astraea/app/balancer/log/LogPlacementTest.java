@@ -52,26 +52,4 @@ class LogPlacementTest {
         List.of(LogPlacement.of(0, "/Aaa"), LogPlacement.of(1, "/B"), LogPlacement.of(2, "/C"));
     Assertions.assertFalse(LogPlacement.isMatch(placement0, placement1));
   }
-
-  @Test
-  @DisplayName("Optional log dir")
-  void noMatch2() {
-    final var sourcePlacement =
-        List.of(LogPlacement.of(0, "/A"), LogPlacement.of(1, "/B"), LogPlacement.of(2, "/C"));
-    final var targetPlacement =
-        List.of(LogPlacement.of(0), LogPlacement.of(1, "/B"), LogPlacement.of(2, "/C"));
-    // don't care which log dir placement[0] will eventually be.
-    Assertions.assertTrue(LogPlacement.isMatch(sourcePlacement, targetPlacement));
-  }
-
-  @Test
-  @DisplayName("Optional log dir")
-  void noMatch3() {
-    final var sourcePlacement =
-        List.of(LogPlacement.of(0), LogPlacement.of(1, "/B"), LogPlacement.of(2, "/C"));
-    final var targetPlacement =
-        List.of(LogPlacement.of(0, "/A"), LogPlacement.of(1, "/B"), LogPlacement.of(2, "/C"));
-    // do care which log dir placement[0] will eventually be.
-    Assertions.assertFalse(LogPlacement.isMatch(sourcePlacement, targetPlacement));
-  }
 }
