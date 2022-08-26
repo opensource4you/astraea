@@ -16,20 +16,13 @@
  */
 package org.astraea.app.argument;
 
-import com.beust.jcommander.IParameterValidator;
-import com.beust.jcommander.ParameterException;
-import java.util.stream.IntStream;
+import java.util.List;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
-public class PositiveIntegerFields implements IParameterValidator {
-
+public class StringListField extends ListField<String> {
   @Override
-  public void validate(String name, String value) throws ParameterException {
-    var values = value.split(",");
-    IntStream.range(0, values.length)
-        .forEach(
-            i -> {
-              var v = Integer.parseInt(values[i]);
-              if (v <= 0) throw new ParameterException(name + " should be positive.");
-            });
+  public List<String> convert(String value) {
+    return Stream.of(value.split(SEPARATOR)).collect(Collectors.toList());
   }
 }

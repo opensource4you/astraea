@@ -16,28 +16,26 @@
  */
 package org.astraea.app.argument;
 
-import com.beust.jcommander.IParameterValidator;
 import com.beust.jcommander.ParameterException;
 import java.util.List;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
-public class NonEmptyStringFields implements IParameterValidator {
-  protected static final String SEPARATOR = ",";
-
+public class PositiveIntegerListField extends ListField<Integer> {
   @Override
-  public void validate(String name, String value) throws ParameterException {
-    if (value.isBlank()
-        || value.isEmpty()
-        || List.of(value.split(SEPARATOR)).contains("")
-        || checkLastEmpty(value))
-      throw new ParameterException("topic name is illegal, it can't be empty");
+  public List<Integer> convert(String value) {
+    return Stream.of(value.split(SEPARATOR)).map(Integer::valueOf).collect(Collectors.toList());
   }
 
-  private boolean checkLastEmpty(String value) {
-    var actualTopicCounts = 1 + value.chars().filter(ch -> ch == ',').count();
-    var topicCounts = value.split(",").length;
-    if (actualTopicCounts != topicCounts) {
-      return true;
-    }
-    return false;
+  @Override
+  protected void check(String name, String value) {
+    super.check(name, value);
+    var containNonPositive =
+        Stream.of(value.split(SEPARATOR))
+                .map(Integer::valueOf)
+                .filter(integer -> integer <= 0)
+                .count()
+            > 0;
+    if (containNonPositive) throw new ParameterException(name + " should be positive");
   }
 }

@@ -175,6 +175,62 @@ public class PerformanceTest extends RequireBrokerCluster {
     };
     Assertions.assertThrows(
         ParameterException.class, () -> Argument.parse(new Performance.Argument(), arguments16));
+    String[] arguments17 = {
+      "--bootstrap.servers",
+      "localhost:9092",
+      "--topics",
+      "test1,test,test2",
+      "--partitions",
+      ",10,10"
+    };
+    Assertions.assertThrows(
+        ParameterException.class, () -> Argument.parse(new Performance.Argument(), arguments17));
+    String[] arguments18 = {
+      "--bootstrap.servers",
+      "localhost:9092",
+      "--topics",
+      "test1,test,test2",
+      "--partitions",
+      "10,10,"
+    };
+    Assertions.assertThrows(
+        ParameterException.class, () -> Argument.parse(new Performance.Argument(), arguments18));
+    String[] arguments19 = {
+      "--bootstrap.servers",
+      "localhost:9092",
+      "--topics",
+      "test1,test,test2",
+      "--partitions",
+      "10,10,10",
+      "--replicas",
+      "2,1,"
+    };
+    Assertions.assertThrows(
+        ParameterException.class, () -> Argument.parse(new Performance.Argument(), arguments19));
+    String[] arguments20 = {
+      "--bootstrap.servers",
+      "localhost:9092",
+      "--topics",
+      "test1,test,test2",
+      "--partitions",
+      "10,10,10",
+      "--replicas",
+      ",1,1"
+    };
+    Assertions.assertThrows(
+        ParameterException.class, () -> Argument.parse(new Performance.Argument(), arguments20));
+
+    String[] arguments21 = {
+      "--bootstrap.servers", "localhost:9092", "--partitions", "0,10,10",
+    };
+    Assertions.assertThrows(
+        ParameterException.class, () -> Argument.parse(new Performance.Argument(), arguments21));
+
+    String[] arguments22 = {
+      "--bootstrap.servers", "localhost:9092", "--replicas", "0,2,1",
+    };
+    Assertions.assertThrows(
+        ParameterException.class, () -> Argument.parse(new Performance.Argument(), arguments22));
   }
 
   @Test

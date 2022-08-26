@@ -35,12 +35,13 @@ import org.astraea.app.admin.TopicPartition;
 import org.astraea.app.argument.CompressionField;
 import org.astraea.app.argument.DurationField;
 import org.astraea.app.argument.NonEmptyStringField;
-import org.astraea.app.argument.NonEmptyStringFields;
 import org.astraea.app.argument.NonNegativeShortField;
 import org.astraea.app.argument.PathField;
-import org.astraea.app.argument.PositiveIntegerFields;
+import org.astraea.app.argument.PositiveIntegerListField;
 import org.astraea.app.argument.PositiveLongField;
 import org.astraea.app.argument.PositiveShortField;
+import org.astraea.app.argument.PositiveShortListField;
+import org.astraea.app.argument.StringListField;
 import org.astraea.app.common.DataSize;
 import org.astraea.app.common.DataUnit;
 import org.astraea.app.common.Utils;
@@ -194,7 +195,8 @@ public class Performance {
     @Parameter(
         names = {"--topics"},
         description = "List<String>: topic names which you subscribed",
-        validateWith = NonEmptyStringFields.class)
+        validateWith = StringListField.class,
+        listConverter = StringListField.class)
     List<String> topics = List.of("testPerformance-" + System.currentTimeMillis());
 
     void initTopics() {
@@ -204,7 +206,7 @@ public class Performance {
               var index = topics.indexOf(topic);
               admin
                   .creator()
-                  .numberOfReplicas(replicas.get(index).shortValue())
+                  .numberOfReplicas(replicas.get(index))
                   .numberOfPartitions(partitions.get(index))
                   .topic(topic)
                   .create();
@@ -233,14 +235,16 @@ public class Performance {
     @Parameter(
         names = {"--partitions"},
         description = "List<Integer>: number of partitions to create the topics",
-        validateWith = PositiveIntegerFields.class)
+        validateWith = PositiveIntegerListField.class,
+        listConverter = PositiveIntegerListField.class)
     List<Integer> partitions = List.of(1);
 
     @Parameter(
         names = {"--replicas"},
-        description = "List<Integer>: number of replica to create the topics",
-        validateWith = PositiveIntegerFields.class)
-    List<Integer> replicas = List.of(1);
+        description = "List<Short>: number of replica to create the topics",
+        validateWith = PositiveShortListField.class,
+        listConverter = PositiveShortListField.class)
+    List<Short> replicas = List.of((short) 1);
 
     @Parameter(
         names = {"--producers"},
