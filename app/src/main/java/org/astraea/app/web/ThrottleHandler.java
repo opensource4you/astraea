@@ -123,21 +123,28 @@ public class ThrottleHandler implements Handler {
         commonReplicas.stream()
             .map(
                 replica ->
-                    new ThrottleTarget(replica.topic(), replica.partition(), replica.brokerId()));
+                    new ThrottleTarget(
+                        replica.topic(), replica.partition(), replica.brokerId(), null));
     var leaderReplicas =
         leaders.stream()
             .filter(replica -> !commonReplicas.contains(replica))
             .map(
                 replica ->
                     new ThrottleTarget(
-                        replica.topic(), replica.partition(), replica.brokerId(), LogIdentity.leader));
+                        replica.topic(),
+                        replica.partition(),
+                        replica.brokerId(),
+                        LogIdentity.leader));
     var followerReplicas =
         followers.stream()
             .filter(replica -> !commonReplicas.contains(replica))
             .map(
                 replica ->
                     new ThrottleTarget(
-                        replica.topic(), replica.partition(), replica.brokerId(), LogIdentity.follower));
+                        replica.topic(),
+                        replica.partition(),
+                        replica.brokerId(),
+                        LogIdentity.follower));
 
     return Stream.concat(Stream.concat(simplifiedReplicas, leaderReplicas), followerReplicas)
         .collect(Collectors.toUnmodifiableSet());
@@ -177,32 +184,11 @@ public class ThrottleHandler implements Handler {
       return Objects.hash(name, partition, broker, type);
     }
 
-    ThrottleTarget(String name) {
-      this.name = name;
-      this.partition = null;
-      this.broker = null;
-      this.type = null;
-    }
-
-    ThrottleTarget(String name, int partition) {
-      this.name = name;
-      this.partition = partition;
-      this.broker = null;
-      this.type = null;
-    }
-
-    ThrottleTarget(String name, int partition, int broker) {
+    ThrottleTarget(String name, Integer partition, Integer broker, LogIdentity identity) {
       this.name = name;
       this.partition = partition;
       this.broker = broker;
-      this.type = null;
-    }
-
-    ThrottleTarget(String name, int partition, int broker, LogIdentity identity) {
-      this.name = name;
-      this.partition = partition;
-      this.broker = broker;
-      this.type = identity.name();
+      this.type = (identity == null) ? null : identity.name();
     }
 
     @Override

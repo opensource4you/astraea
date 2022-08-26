@@ -154,12 +154,12 @@ public class ThrottleHandlerTest extends RequireBrokerCluster {
 
   @Test
   void testThrottleTargetEqual() {
-    var target0 = new ThrottleHandler.ThrottleTarget("Topic", 0, 0);
-    var target1 = new ThrottleHandler.ThrottleTarget("Topic", 0, 0);
+    var target0 = new ThrottleHandler.ThrottleTarget("Topic", 0, 0, null);
+    var target1 = new ThrottleHandler.ThrottleTarget("Topic", 0, 0, null);
     var target2 = new ThrottleHandler.ThrottleTarget("Topic", 0, 0, leader);
     var target3 = new ThrottleHandler.ThrottleTarget("Topic", 0, 0, follower);
-    var target4 = new ThrottleHandler.ThrottleTarget("Topic", 1, 0);
-    var target5 = new ThrottleHandler.ThrottleTarget("Topic2", 0, 0);
+    var target4 = new ThrottleHandler.ThrottleTarget("Topic", 1, 0, null);
+    var target5 = new ThrottleHandler.ThrottleTarget("Topic2", 0, 0, null);
 
     Assertions.assertEquals(target0, target0);
     Assertions.assertEquals(target0, target1);
@@ -173,9 +173,9 @@ public class ThrottleHandlerTest extends RequireBrokerCluster {
 
   @Test
   void testSerializeDeserialize() {
-    var throttle0 = new ThrottleHandler.ThrottleTarget("MyTopic", 0, 1001);
-    var throttle1 = new ThrottleHandler.ThrottleTarget("MyTopic", 0, 1002);
-    var throttle2 = new ThrottleHandler.ThrottleTarget("MyTopic", 0, 1003);
+    var throttle0 = new ThrottleHandler.ThrottleTarget("MyTopic", 0, 1001, null);
+    var throttle1 = new ThrottleHandler.ThrottleTarget("MyTopic", 0, 1002, null);
+    var throttle2 = new ThrottleHandler.ThrottleTarget("MyTopic", 0, 1003, null);
     var map = Map.of(1001, Map.of(ingress, 1L));
     var set = Set.of(throttle0, throttle1, throttle2);
     var setting = new ThrottleHandler.ThrottleSetting(map, set);
@@ -209,9 +209,9 @@ public class ThrottleHandlerTest extends RequireBrokerCluster {
             1002, Map.of(ingress, 1000L));
     var expectedSet =
         Set.of(
-            new ThrottleHandler.ThrottleTarget("MyTopicA"),
-            new ThrottleHandler.ThrottleTarget("MyTopicB", 2),
-            new ThrottleHandler.ThrottleTarget("MyTopicC", 3, 1001),
+            new ThrottleHandler.ThrottleTarget("MyTopicA", null, null, null),
+            new ThrottleHandler.ThrottleTarget("MyTopicB", 2, null, null),
+            new ThrottleHandler.ThrottleTarget("MyTopicC", 3, 1001, null),
             new ThrottleHandler.ThrottleTarget("MyTopicD", 4, 1001, leader));
 
     var gson =
