@@ -349,68 +349,66 @@ public class Builder {
       var logInfo =
           Utils.packException(() -> admin.describeLogDirs(brokerIds()).allDescriptions().get());
 
-      return Utils.packException(
-              () ->
-                  admin.describeTopics(topics).allTopicNames().get().entrySet().stream()
-                      .flatMap(
-                          entry ->
-                              entry.getValue().partitions().stream()
-                                  .map(
-                                      tpInfo ->
-                                          Map.entry(
-                                              new org.apache.kafka.common.TopicPartition(
-                                                  entry.getKey(), tpInfo.partition()),
-                                              tpInfo))))
-          .collect(
-              Collectors.toUnmodifiableMap(
-                  e -> TopicPartition.from(e.getKey()),
-                  entry ->
-                      entry.getValue().replicas().stream()
-                          .map(
-                              node -> {
-                                var dataPath =
-                                    logInfo.get(node.id()).entrySet().stream()
-                                        .filter(
-                                            e ->
-                                                e.getValue()
-                                                    .replicaInfos()
-                                                    .containsKey(entry.getKey()))
+      BiFunction<
+              org.apache.kafka.common.TopicPartition,
+              org.apache.kafka.common.TopicPartitionInfo,
+              List<Replica>>
+          toReplicas =
+              (tp, tpi) ->
+                  tpi.replicas().stream()
+                      .map(
+                          node -> {
+                            var dataPath =
+                                node.isEmpty()
+                                    ? null
+                                    : logInfo.get(node.id()).entrySet().stream()
+                                        .filter(e -> e.getValue().replicaInfos().containsKey(tp))
                                         .map(Map.Entry::getKey)
                                         .findFirst()
                                         .orElseThrow(
                                             () ->
                                                 new IllegalStateException(
-                                                    "inconsistent stats of partition: "
-                                                        + entry.getKey()));
-                                var replicaInfo =
-                                    node.isEmpty()
-                                        ? null
-                                        : logInfo
-                                            .get(node.id())
-                                            .get(dataPath)
-                                            .replicaInfos()
-                                            .get(entry.getKey());
-                                return Replica.of(
-                                    entry.getKey().topic(),
-                                    entry.getKey().partition(),
-                                    NodeInfo.of(node),
-                                    replicaInfo != null ? replicaInfo.offsetLag() : -1L,
-                                    replicaInfo != null ? replicaInfo.size() : -1L,
-                                    !entry.getValue().leader().isEmpty()
-                                        && entry.getValue().leader().id() == node.id(),
-                                    entry.getValue().isr().contains(node),
-                                    replicaInfo != null && replicaInfo.isFuture(),
-                                    node.isEmpty(),
-                                    // The first replica in the return result is the
-                                    // preferred leader. This
-                                    // only works with Kafka broker version after 0.11.
-                                    // Version before 0.11
-                                    // returns the replicas in unspecified order due to a
-                                    // bug.
-                                    entry.getValue().replicas().get(0).id() == node.id(),
-                                    dataPath);
-                              })
-                          .collect(Collectors.toList())));
+                                                    "inconsistent stats of partition: " + tp));
+                            var replicaInfo =
+                                node.isEmpty()
+                                    ? null
+                                    : logInfo.get(node.id()).get(dataPath).replicaInfos().get(tp);
+                            return Replica.of(
+                                tp.topic(),
+                                tp.partition(),
+                                NodeInfo.of(node),
+                                replicaInfo != null ? replicaInfo.offsetLag() : -1L,
+                                replicaInfo != null ? replicaInfo.size() : -1L,
+                                !tpi.leader().isEmpty() && tpi.leader().id() == node.id(),
+                                tpi.isr().contains(node),
+                                replicaInfo != null && replicaInfo.isFuture(),
+                                node.isEmpty(),
+                                // The first replica in the return result is the
+                                // preferred leader. This only works with Kafka broker version
+                                // after 0.11.
+                                // Version before 0.11 returns the replicas in unspecified order
+                                // due to a bug.
+                                tpi.replicas().get(0).id() == node.id(),
+                                dataPath);
+                          })
+                      .collect(Collectors.toList());
+
+      return Utils.packException(
+              () ->
+                  admin.describeTopics(topics).allTopicNames().get().entrySet().stream()
+                      .flatMap(
+                          e ->
+                              e.getValue().partitions().stream()
+                                  .map(
+                                      tpInfo ->
+                                          Map.entry(
+                                              new org.apache.kafka.common.TopicPartition(
+                                                  e.getKey(), tpInfo.partition()),
+                                              tpInfo))))
+          .collect(
+              Collectors.toUnmodifiableMap(
+                  e -> TopicPartition.from(e.getKey()),
+                  entry -> toReplicas.apply(entry.getKey(), entry.getValue())));
     }
 
     @Override
