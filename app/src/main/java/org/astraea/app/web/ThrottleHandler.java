@@ -16,6 +16,17 @@
  */
 package org.astraea.app.web;
 
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import com.google.gson.JsonDeserializationContext;
+import com.google.gson.JsonDeserializer;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonNull;
+import com.google.gson.JsonParseException;
+import com.google.gson.JsonPrimitive;
+import com.google.gson.JsonSerializationContext;
+import com.google.gson.JsonSerializer;
+import java.lang.reflect.Type;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Map;
@@ -27,6 +38,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.astraea.app.admin.Admin;
 import org.astraea.app.admin.TopicPartitionReplica;
+import org.astraea.app.common.json.OptionalIntTypeAdapter;
 
 public class ThrottleHandler implements Handler {
   private final Admin admin;
@@ -155,6 +167,18 @@ public class ThrottleHandler implements Handler {
     final Map<Integer, Map<ThrottleBandwidths, Long>> brokers;
     final Collection<ThrottleTarget> topics;
 
+    static Gson gson() {
+      return new GsonBuilder()
+          .registerTypeAdapter(OptionalInt.class, new OptionalIntTypeAdapter())
+          .registerTypeAdapter(LogIdentity.class, new LogIdentityTypeAdapter())
+          .create();
+    }
+
+    @Override
+    public String json() {
+      return gson().toJson(this);
+    }
+
     ThrottleSetting(
         Map<Integer, Map<ThrottleBandwidths, Long>> brokers, Collection<ThrottleTarget> topics) {
       this.brokers = brokers;
@@ -166,7 +190,7 @@ public class ThrottleHandler implements Handler {
     final String name;
     final OptionalInt partition;
     final OptionalInt broker;
-    final Optional<LogIdentity> type;
+    final LogIdentity type;
 
     @Override
     public boolean equals(Object o) {
@@ -197,35 +221,35 @@ public class ThrottleHandler implements Handler {
       this.name = "";
       this.partition = OptionalInt.empty();
       this.broker = OptionalInt.empty();
-      this.type = Optional.empty();
+      this.type = LogIdentity.empty;
     }
 
     ThrottleTarget(String name) {
       this.name = name;
       this.partition = OptionalInt.empty();
       this.broker = OptionalInt.empty();
-      this.type = Optional.empty();
+      this.type = LogIdentity.empty;
     }
 
     ThrottleTarget(String name, int partition) {
       this.name = name;
       this.partition = OptionalInt.of(partition);
       this.broker = OptionalInt.empty();
-      this.type = Optional.empty();
+      this.type = LogIdentity.empty;
     }
 
     ThrottleTarget(String name, int partition, int broker) {
       this.name = name;
       this.partition = OptionalInt.of(partition);
       this.broker = OptionalInt.of(broker);
-      this.type = Optional.empty();
+      this.type = LogIdentity.empty;
     }
 
     ThrottleTarget(String name, int partition, int broker, LogIdentity type) {
       this.name = name;
       this.partition = OptionalInt.of(partition);
       this.broker = OptionalInt.of(broker);
-      this.type = Optional.of(type);
+      this.type = type;
     }
 
     @Override
@@ -250,7 +274,34 @@ public class ThrottleHandler implements Handler {
   }
 
   enum LogIdentity {
-    leader,
-    follower;
+    empty(JsonNull.INSTANCE),
+    leader(new JsonPrimitive("leader")),
+    follower(new JsonPrimitive("follower"));
+
+    public final JsonElement primitive;
+
+    LogIdentity(JsonElement primitive) {
+      this.primitive = primitive;
+    }
+  }
+
+  private static class LogIdentityTypeAdapter
+      implements JsonSerializer<LogIdentity>, JsonDeserializer<LogIdentity> {
+
+    @Override
+    public JsonElement serialize(
+        LogIdentity src, Type typeOfSrc, JsonSerializationContext context) {
+      return src.primitive;
+    }
+
+    @Override
+    public LogIdentity deserialize(
+        JsonElement json, Type typeOfT, JsonDeserializationContext context)
+        throws JsonParseException {
+      return Arrays.stream(LogIdentity.values())
+          .filter(x -> x.primitive.equals(json))
+          .findFirst()
+          .orElseThrow();
+    }
   }
 }
