@@ -26,12 +26,11 @@ import org.astraea.app.admin.Replica;
 import org.astraea.app.metrics.BeanObject;
 import org.astraea.app.metrics.broker.LogMetrics;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
 class ReplicaSizeMoveCostTest {
-  private static ClusterBean clusterBean;
+  private static final ClusterBean clusterBean = ClusterBean.EMPTY;
 
   @Test
   void testMoveCost() {
@@ -44,28 +43,6 @@ class ReplicaSizeMoveCostTest {
     Assertions.assertEquals(-100000, changes.get(0));
     Assertions.assertEquals(-5900000, changes.get(1));
     Assertions.assertEquals(6000000, changes.get(2));
-  }
-
-  @BeforeAll
-  static void initCost() {
-    var replicaSizeBeanObject1 =
-        fakePartitionBeanObject(
-            "Log", LogMetrics.Log.SIZE.metricName(), "test-1", "0", 6000000, 10000);
-    var replicaSizeBeanObject2 =
-        fakePartitionBeanObject(
-            "Log", LogMetrics.Log.SIZE.metricName(), "test-1", "1", 700000, 10000);
-    var replicaSizeBeanObject3 =
-        fakePartitionBeanObject(
-            "Log", LogMetrics.Log.SIZE.metricName(), "test-2", "0", 800000, 10000);
-    clusterBean =
-        ClusterBean.of(
-            Map.of(
-                0,
-                List.of(replicaSizeBeanObject1, replicaSizeBeanObject3),
-                1,
-                List.of(replicaSizeBeanObject1, replicaSizeBeanObject2),
-                2,
-                List.of(replicaSizeBeanObject2, replicaSizeBeanObject3)));
   }
 
   /*
