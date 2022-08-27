@@ -19,6 +19,7 @@ package org.astraea.app.admin;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -185,6 +186,14 @@ public interface ClusterInfo {
     return replicas().stream()
         .filter(r -> r.topic().equals(topic))
         .collect(Collectors.toUnmodifiableList());
+  }
+
+  /**
+   * @param replica to search
+   * @return the replica matched to input replica
+   */
+  default Optional<ReplicaInfo> replica(TopicPartitionReplica replica) {
+    return replicas().stream().filter(r -> r.topicPartitionReplica().equals(replica)).findFirst();
   }
 
   /** @return all replicas cached by this cluster info. */

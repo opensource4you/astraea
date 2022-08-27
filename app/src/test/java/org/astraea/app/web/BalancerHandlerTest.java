@@ -16,15 +16,18 @@
  */
 package org.astraea.app.web;
 
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.IntStream;
 import org.astraea.app.admin.Admin;
 import org.astraea.app.admin.ClusterBean;
 import org.astraea.app.admin.ClusterInfo;
 import org.astraea.app.common.Utils;
 import org.astraea.app.cost.ClusterCost;
 import org.astraea.app.cost.HasClusterCost;
+import org.astraea.app.producer.Producer;
 import org.astraea.app.service.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -35,8 +38,18 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
   void testReport() {
     var topicName = Utils.randomString(10);
     try (var admin = Admin.of(bootstrapServers())) {
-      admin.creator().topic(topicName).numberOfPartitions(10).numberOfReplicas((short) 3).create();
+      admin.creator().topic(topicName).numberOfPartitions(3).numberOfReplicas((short) 1).create();
       Utils.sleep(Duration.ofSeconds(3));
+      try (var producer = Producer.of(bootstrapServers())) {
+        IntStream.range(0, 30)
+            .forEach(
+                index ->
+                    producer
+                        .sender()
+                        .topic(topicName)
+                        .key(String.valueOf(index).getBytes(StandardCharsets.UTF_8))
+                        .run());
+      }
       var handler = new BalancerHandler(admin, new MyCost());
       var report =
           Assertions.assertInstanceOf(
@@ -46,6 +59,14 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
       Assertions.assertNotEquals(0, report.changes.size());
       Assertions.assertTrue(report.cost >= report.newCost);
       Assertions.assertEquals(MyCost.class.getSimpleName(), report.function);
+      // "before" should record size
+      report.changes.stream()
+          .flatMap(c -> c.before.stream())
+          .forEach(p -> Assertions.assertNotEquals(0, p.size));
+      // "after" should NOT record size
+      report.changes.stream()
+          .flatMap(c -> c.after.stream())
+          .forEach(p -> Assertions.assertNull(p.size));
     }
   }
 

@@ -28,6 +28,9 @@ JSON Response 範例
   - `topic`: topic 名稱
   - `partition`: partition id
   - `before`: 原本的配置
+    - `brokerId`: 有掌管 replica 的節點 id
+    - `directory`: replica 存在資料的路徑
+    - `size`: replica 在硬碟上的資料大小
   - `after`: 比較好的配置
 ```json
 {
@@ -42,7 +45,8 @@ JSON Response 範例
       "before": [
         {
           "brokerId": 1006,
-          "directory": "/tmp/log-folder-0"
+          "directory": "/tmp/log-folder-0",
+          "size": 1234
         }
       ],
       "after": [
@@ -58,7 +62,8 @@ JSON Response 範例
       "before": [
         {
           "brokerId": 1003,
-          "directory": "/tmp/log-folder-0"
+          "directory": "/tmp/log-folder-0",
+          "size": 12355
         }
       ],
       "after": [
