@@ -24,16 +24,9 @@ public abstract class ListField<T> extends Field<List<T>> {
 
   @Override
   protected void check(String name, String value) throws ParameterException {
-    if (value == null
-        || value.isBlank()
-        || List.of(value.split(SEPARATOR)).contains("")
-        || checkLastEmpty(value))
+    if (value == null || value.isBlank() || List.of(value.split(SEPARATOR)).isEmpty())
+      throw new ParameterException("list type cannot be empty");
+    if (List.of(value.split(SEPARATOR)).contains(""))
       throw new ParameterException("Parameter in " + name + " cannot be empty");
-  }
-
-  private boolean checkLastEmpty(String value) {
-    var actualTopicCounts = 1 + value.chars().filter(ch -> ch == ',').count();
-    var topicCounts = value.split(SEPARATOR).length;
-    return actualTopicCounts != topicCounts;
   }
 }

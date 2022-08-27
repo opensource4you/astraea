@@ -196,7 +196,8 @@ public class Performance {
         names = {"--topics"},
         description = "List<String>: topic names which you subscribed",
         validateWith = StringListField.class,
-        listConverter = StringListField.class)
+        listConverter = StringListField.class,
+        variableArity = true)
     List<String> topics = List.of("testPerformance-" + System.currentTimeMillis());
 
     void initTopics() {
@@ -236,14 +237,16 @@ public class Performance {
         names = {"--partitions"},
         description = "List<Integer>: number of partitions to create the topics",
         validateWith = PositiveIntegerListField.class,
-        listConverter = PositiveIntegerListField.class)
+        listConverter = PositiveIntegerListField.class,
+        variableArity = true)
     List<Integer> partitions = List.of(1);
 
     @Parameter(
         names = {"--replicas"},
         description = "List<Short>: number of replica to create the topics",
         validateWith = PositiveShortListField.class,
-        listConverter = PositiveShortListField.class)
+        listConverter = PositiveShortListField.class,
+        variableArity = true)
     List<Short> replicas = List.of((short) 1);
 
     @Parameter(
