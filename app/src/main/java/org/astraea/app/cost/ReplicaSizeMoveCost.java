@@ -40,7 +40,7 @@ public class ReplicaSizeMoveCost implements HasMoveCost {
   public MoveCost moveCost(ClusterInfo before, ClusterInfo after, ClusterBean clusterBean) {
     var replicaSize =
         before.topics().stream()
-            .flatMap(topic -> before.availableReplicas(topic).stream())
+            .flatMap(topic -> before.replicas(topic).stream())
             .map(replicaInfo -> (Replica) replicaInfo)
             .map(
                 replica ->
@@ -49,13 +49,13 @@ public class ReplicaSizeMoveCost implements HasMoveCost {
                             replica.topic(), replica.partition(), replica.nodeInfo().id()),
                         replica.size()))
             .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));
-
-    var migrateInfo = migrateInfo(before, after, replicaSize);
+    var diff = ClusterInfo.diff(before, after);
+    var migrateInfo = migrateInfo(diff, replicaSize);
     var sizeChanges = migrateInfo.sizeChange;
     var totalMigrateSize = migrateInfo.totalMigrateSize;
     return new MoveCost() {
       @Override
-      public String function() {
+      public String name() {
         return "size";
       }
 
@@ -86,46 +86,17 @@ public class ReplicaSizeMoveCost implements HasMoveCost {
     }
   }
 
-  static TopicPartition toTP(TopicPartitionReplica tpr) {
-    return TopicPartition.of(tpr.topic(), tpr.partition());
-  }
-
   static MigrateInfo migrateInfo(
-      ClusterInfo before, ClusterInfo after, Map<TopicPartitionReplica, Long> replicaSize) {
-    var beforeMigrateReplicas =
-        before.topics().stream()
-            .flatMap(topic -> before.availableReplicas(topic).stream())
-            .map(
-                replicaInfo ->
-                    TopicPartitionReplica.of(
-                        replicaInfo.topic(), replicaInfo.partition(), replicaInfo.nodeInfo().id()))
-            .collect(Collectors.toList());
-    var afterMigrateReplicas =
-        after.topics().stream()
-            .flatMap(topic -> after.availableReplicas(topic).stream())
-            .map(
-                replicaInfo ->
-                    TopicPartitionReplica.of(
-                        replicaInfo.topic(), replicaInfo.partition(), replicaInfo.nodeInfo().id()))
-            .collect(Collectors.toList());
-    var sourceChange =
-        beforeMigrateReplicas.stream()
-            .filter(oldTPR -> !afterMigrateReplicas.contains(oldTPR))
-            .map(oldTPR -> Map.entry(toTP(oldTPR), oldTPR.brokerId()))
-            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-    var sinkChange =
-        afterMigrateReplicas.stream()
-            .filter(newTPR -> !beforeMigrateReplicas.contains(newTPR))
-            .map(newTPR -> Map.entry(toTP(newTPR), newTPR.brokerId()))
-            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+      ClusterInfo.Diff diff, Map<TopicPartitionReplica, Long> replicaSize) {
+
     var changes = new HashMap<Integer, Long>();
-    sourceChange.forEach(
+    diff.sourceChange.forEach(
         (tp, brokerId) ->
             changes.put(
                 brokerId,
                 -replicaSize.get(TopicPartitionReplica.of(tp.topic(), tp.partition(), brokerId))
                     + changes.getOrDefault(brokerId, 0L)));
-    sinkChange.forEach(
+    diff.sinkChange.forEach(
         (tp, brokerId) ->
             changes.put(
                 brokerId,
@@ -133,10 +104,10 @@ public class ReplicaSizeMoveCost implements HasMoveCost {
                         TopicPartitionReplica.of(
                             tp.topic(),
                             tp.partition(),
-                            sourceChange.get(TopicPartition.of(tp.topic(), tp.partition()))))
+                            diff.sourceChange.get(TopicPartition.of(tp.topic(), tp.partition()))))
                     + changes.getOrDefault(brokerId, 0L)));
     var totalSizeChange =
-        sourceChange.entrySet().stream()
+        diff.sourceChange.entrySet().stream()
             .mapToLong(
                 e ->
                     replicaSize.get(

@@ -63,7 +63,7 @@ class ReplicaSizeMoveCostTest {
         .thenReturn(
             List.of(NodeInfo.of(1, "", -1), NodeInfo.of(2, "", -1), NodeInfo.of(3, "", -1)));
     Mockito.when(clusterInfo.topics()).thenReturn(Set.of("test-1", "test-2"));
-    Mockito.when(clusterInfo.availableReplicas(Mockito.anyString()))
+    Mockito.when(clusterInfo.replicas(Mockito.anyString()))
         .thenAnswer(
             topic ->
                 topic.getArgument(0).equals("test-1")
@@ -151,7 +151,7 @@ class ReplicaSizeMoveCostTest {
         .thenReturn(
             List.of(NodeInfo.of(1, "", -1), NodeInfo.of(2, "", -1), NodeInfo.of(3, "", -1)));
     Mockito.when(clusterInfo.topics()).thenReturn(Set.of("test-1", "test-2"));
-    Mockito.when(clusterInfo.availableReplicas(Mockito.anyString()))
+    Mockito.when(clusterInfo.replicas(Mockito.anyString()))
         .thenAnswer(
             topic ->
                 topic.getArgument(0).equals("test-1")

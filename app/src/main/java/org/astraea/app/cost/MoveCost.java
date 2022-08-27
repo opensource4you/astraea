@@ -21,7 +21,7 @@ import java.util.Map;
 /** Return type of cost function, `HasMoveCost`. It returns the score of migrate plan. */
 public interface MoveCost {
   /** @return the function name of MoveCost */
-  String function();
+  String name();
 
   /** @return cost of migrate plan */
   long totalCost();

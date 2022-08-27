@@ -37,6 +37,52 @@ public interface ClusterInfo {
         }
       };
 
+  class Diff {
+    public Map<TopicPartition, Integer> sourceChange;
+    public Map<TopicPartition, Integer> sinkChange;
+
+    Diff(Map<TopicPartition, Integer> sourceChange, Map<TopicPartition, Integer> sinkChange) {
+      this.sourceChange = sourceChange;
+      this.sinkChange = sinkChange;
+    }
+  }
+
+  static Diff diff(ClusterInfo before, ClusterInfo after) {
+    var beforeMigrateReplicas =
+        before.topics().stream()
+            .flatMap(topic -> before.replicas(topic).stream())
+            .map(
+                replicaInfo ->
+                    TopicPartitionReplica.of(
+                        replicaInfo.topic(), replicaInfo.partition(), replicaInfo.nodeInfo().id()))
+            .collect(Collectors.toList());
+    var afterMigrateReplicas =
+        after.topics().stream()
+            .flatMap(topic -> after.replicas(topic).stream())
+            .map(
+                replicaInfo ->
+                    TopicPartitionReplica.of(
+                        replicaInfo.topic(), replicaInfo.partition(), replicaInfo.nodeInfo().id()))
+            .collect(Collectors.toList());
+    var sourceChange =
+        beforeMigrateReplicas.stream()
+            .filter(oldTPR -> !afterMigrateReplicas.contains(oldTPR))
+            .map(
+                oldTPR ->
+                    Map.entry(
+                        TopicPartition.of(oldTPR.topic(), oldTPR.partition()), oldTPR.brokerId()))
+            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+    var sinkChange =
+        afterMigrateReplicas.stream()
+            .filter(newTPR -> !beforeMigrateReplicas.contains(newTPR))
+            .map(
+                newTPR ->
+                    Map.entry(
+                        TopicPartition.of(newTPR.topic(), newTPR.partition()), newTPR.brokerId()))
+            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+    return new Diff(sourceChange, sinkChange);
+  }
+
   /**
    * convert the kafka Cluster to our ClusterInfo. Noted: this method is used by {@link
    * org.astraea.app.cost.HasBrokerCost} normally, so all data structure are converted immediately
