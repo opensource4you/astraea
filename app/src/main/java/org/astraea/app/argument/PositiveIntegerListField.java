@@ -32,10 +32,7 @@ public class PositiveIntegerListField extends ListField<Integer> {
     super.check(name, value);
     var containNonPositive =
         Stream.of(value.split(SEPARATOR))
-                .map(Integer::valueOf)
-                .filter(integer -> integer <= 0)
-                .count()
-            > 0;
+                .map(Integer::valueOf).anyMatch(integer -> integer <= 0);
     if (containNonPositive) throw new ParameterException(name + " should be positive");
   }
 }

@@ -63,7 +63,7 @@ public interface ProducerThread extends AbstractThread {
               executors.execute(
                   () -> {
                     try (var producer = producerSupplier.get()) {
-                      int topicIndex = 0;
+                      var topicIndex = 0;
                       while (!closed.get()) {
                         topicIndex = Math.abs(topicIndex) % topics.size();
                         var topic = topics.get(topicIndex);
