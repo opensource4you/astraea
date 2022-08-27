@@ -16,9 +16,13 @@
  */
 package org.astraea.app.web;
 
+import java.util.Arrays;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.astraea.app.admin.Admin;
@@ -37,10 +41,12 @@ class BalancerHandler implements Handler {
 
   static String LIMIT_KEY = "limit";
 
+  static String TOPICS_KEY = "topics";
+
   static int LIMIT_DEFAULT = 10000;
   private final Admin admin;
   private final RebalancePlanGenerator generator = RebalancePlanGenerator.random(30);
-  private final HasClusterCost costFunction;
+  final HasClusterCost costFunction;
 
   BalancerHandler(Admin admin) {
     this(admin, new NodeTopicSizeCost());
@@ -53,14 +59,19 @@ class BalancerHandler implements Handler {
 
   @Override
   public Response get(Channel channel) {
-    var clusterInfo = admin.clusterInfo(admin.topicNames(false));
-    var clusterAllocation = ClusterLogAllocation.of(clusterInfo);
+    var topics =
+        Optional.ofNullable(channel.queries().get(TOPICS_KEY))
+            .map(s -> (Set<String>) new HashSet<>(Arrays.asList(s.split(","))))
+            .orElseGet(() -> admin.topicNames(false));
+    var clusterInfo = admin.clusterInfo();
     var cost = costFunction.clusterCost(clusterInfo, ClusterBean.EMPTY).value();
     var limit =
         Integer.parseInt(channel.queries().getOrDefault(LIMIT_KEY, String.valueOf(LIMIT_DEFAULT)));
+    // generate migration plans only for specify topics
+    var targetAllocations = ClusterLogAllocation.of(admin.clusterInfo(topics));
     var planAndCost =
         generator
-            .generate(admin.brokerFolders(), clusterAllocation)
+            .generate(admin.brokerFolders(), targetAllocations)
             .limit(limit)
             .map(RebalancePlanProposal::rebalancePlan)
             .map(
@@ -82,7 +93,7 @@ class BalancerHandler implements Handler {
             .map(
                 entry ->
                     ClusterLogAllocation.findNonFulfilledAllocation(
-                            clusterAllocation, entry.getKey())
+                            targetAllocations, entry.getKey())
                         .stream()
                         .map(
                             tp ->
@@ -91,7 +102,7 @@ class BalancerHandler implements Handler {
                                     tp.partition(),
                                     // only log the size from source replicas
                                     placements(
-                                        clusterAllocation.logPlacements(tp),
+                                        targetAllocations.logPlacements(tp),
                                         l ->
                                             clusterInfo
                                                 .replica(
