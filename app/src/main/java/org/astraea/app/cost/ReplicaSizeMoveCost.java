@@ -16,36 +16,19 @@
  */
 package org.astraea.app.cost;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import org.astraea.app.admin.ClusterBean;
 import org.astraea.app.admin.ClusterInfo;
+import org.astraea.app.admin.Replica;
 import org.astraea.app.admin.TopicPartition;
 import org.astraea.app.admin.TopicPartitionReplica;
 import org.astraea.app.metrics.broker.LogMetrics;
 import org.astraea.app.metrics.collector.Fetcher;
 
 public class ReplicaSizeMoveCost implements HasMoveCost {
-
-  static class MigrateInfo {
-    TopicPartition topicPartition;
-    int brokerSource;
-    int brokerSink;
-
-    public MigrateInfo(TopicPartition topicPartition, int brokerSource, int brokerSink) {
-      this.topicPartition = topicPartition;
-      this.brokerSource = brokerSource;
-      this.brokerSink = brokerSink;
-    }
-
-    TopicPartitionReplica sourceTPR() {
-      return TopicPartitionReplica.of(
-          topicPartition.topic(), topicPartition.partition(), brokerSource);
-    }
-  }
 
   /** @return the metrics getters. Those getters are used to fetch mbeans. */
   @Override
@@ -54,90 +37,112 @@ public class ReplicaSizeMoveCost implements HasMoveCost {
   }
 
   @Override
-  public MoveCost moveCost(
-      ClusterInfo originClusterInfo, ClusterInfo newClusterInfo, ClusterBean clusterBean) {
+  public MoveCost moveCost(ClusterInfo before, ClusterInfo after, ClusterBean clusterBean) {
     var replicaSize =
-        clusterBean.mapByReplica().entrySet().stream()
+        before.topics().stream()
+            .flatMap(topic -> before.availableReplicas(topic).stream())
+            .map(replicaInfo -> (Replica) replicaInfo)
             .map(
-                metrics ->
+                replica ->
                     Map.entry(
-                        metrics.getKey(),
-                        LogMetrics.Log.gauges(metrics.getValue(), LogMetrics.Log.SIZE)))
-            .flatMap(
-                gauges ->
-                    gauges.getValue().stream()
-                        .map(gauge -> Map.entry(gauges.getKey(), gauge.value())))
-            .collect(
-                Collectors.toUnmodifiableMap(
-                    Map.Entry::getKey, Map.Entry::getValue, (x1, x2) -> x2));
-    var replicaChanges = getMigrateReplicas(originClusterInfo, newClusterInfo, false);
-    var totalMigrateSize =
-        replicaChanges.stream().mapToDouble(x -> replicaSize.getOrDefault(x.sourceTPR(), 0L)).sum();
-    return () -> totalMigrateSize;
+                        TopicPartitionReplica.of(
+                            replica.topic(), replica.partition(), replica.nodeInfo().id()),
+                        replica.size()))
+            .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));
+
+    var migrateInfo = migrateInfo(before, after, replicaSize);
+    var sizeChanges = migrateInfo.sizeChange;
+    var totalMigrateSize = migrateInfo.totalMigrateSize;
+    return new MoveCost() {
+      @Override
+      public String function() {
+        return "size";
+      }
+
+      @Override
+      public long totalCost() {
+        return totalMigrateSize;
+      }
+
+      @Override
+      public String unit() {
+        return "byte";
+      }
+
+      @Override
+      public Map<Integer, Long> changes() {
+        return sizeChanges;
+      }
+    };
+  }
+
+  static class MigrateInfo {
+    long totalMigrateSize;
+    Map<Integer, Long> sizeChange;
+
+    MigrateInfo(long totalMigrateSize, Map<Integer, Long> sizeChange) {
+      this.totalMigrateSize = totalMigrateSize;
+      this.sizeChange = sizeChange;
+    }
   }
 
   static TopicPartition toTP(TopicPartitionReplica tpr) {
     return TopicPartition.of(tpr.topic(), tpr.partition());
   }
 
-  static List<MigrateInfo> getMigrateReplicas(
-      ClusterInfo originClusterInfo, ClusterInfo newClusterInfo, boolean fromLeader) {
-    var leaderReplicas =
-        originClusterInfo.topics().stream()
-            .flatMap(topic -> originClusterInfo.availableReplicaLeaders(topic).stream())
-            .map(
-                replicaInfo ->
-                    Map.entry(
-                        TopicPartition.of(replicaInfo.topic(), replicaInfo.partition()),
-                        replicaInfo.nodeInfo().id()))
-            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+  static MigrateInfo migrateInfo(
+      ClusterInfo before, ClusterInfo after, Map<TopicPartitionReplica, Long> replicaSize) {
     var beforeMigrateReplicas =
-        originClusterInfo.topics().stream()
-            .flatMap(topic -> originClusterInfo.availableReplicas(topic).stream())
+        before.topics().stream()
+            .flatMap(topic -> before.availableReplicas(topic).stream())
             .map(
                 replicaInfo ->
                     TopicPartitionReplica.of(
                         replicaInfo.topic(), replicaInfo.partition(), replicaInfo.nodeInfo().id()))
             .collect(Collectors.toList());
     var afterMigrateReplicas =
-        newClusterInfo.topics().stream()
-            .flatMap(topic -> newClusterInfo.availableReplicas(topic).stream())
+        after.topics().stream()
+            .flatMap(topic -> after.availableReplicas(topic).stream())
             .map(
                 replicaInfo ->
                     TopicPartitionReplica.of(
                         replicaInfo.topic(), replicaInfo.partition(), replicaInfo.nodeInfo().id()))
             .collect(Collectors.toList());
-    if (fromLeader)
-      return afterMigrateReplicas.stream()
-          .filter(newTPR -> !beforeMigrateReplicas.contains(newTPR))
-          .map(
-              newTPR -> {
-                var tp = toTP(newTPR);
-                var sourceBroker = leaderReplicas.get(tp);
-                var sinkBroker = newTPR.brokerId();
-                return new MigrateInfo(tp, sourceBroker, sinkBroker);
-              })
-          .collect(Collectors.toList());
-    else {
-      var sourceChange =
-          beforeMigrateReplicas.stream()
-              .filter(oldTPR -> !afterMigrateReplicas.contains(oldTPR))
-              .map(oldTPR -> Map.entry(toTP(oldTPR), oldTPR.brokerId()))
-              .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-      var sinkChange =
-          afterMigrateReplicas.stream()
-              .filter(newTPR -> !beforeMigrateReplicas.contains(newTPR))
-              .map(newTPR -> Map.entry(toTP(newTPR), newTPR.brokerId()))
-              .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-      var change = new ArrayList<MigrateInfo>();
-      if (sourceChange.keySet().containsAll(sinkChange.keySet())
-          && sourceChange.values().size() == sinkChange.values().size())
-        sourceChange.forEach(
-            (sourceTP, sourceBroker) -> {
-              var sinkBroker = sinkChange.get(sourceTP);
-              change.add(new MigrateInfo(sourceTP, sourceBroker, sinkBroker));
-            });
-      return change;
-    }
+    var sourceChange =
+        beforeMigrateReplicas.stream()
+            .filter(oldTPR -> !afterMigrateReplicas.contains(oldTPR))
+            .map(oldTPR -> Map.entry(toTP(oldTPR), oldTPR.brokerId()))
+            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+    var sinkChange =
+        afterMigrateReplicas.stream()
+            .filter(newTPR -> !beforeMigrateReplicas.contains(newTPR))
+            .map(newTPR -> Map.entry(toTP(newTPR), newTPR.brokerId()))
+            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+    var changes = new HashMap<Integer, Long>();
+    sourceChange.forEach(
+        (tp, brokerId) ->
+            changes.put(
+                brokerId,
+                -replicaSize.get(TopicPartitionReplica.of(tp.topic(), tp.partition(), brokerId))
+                    + changes.getOrDefault(brokerId, 0L)));
+    sinkChange.forEach(
+        (tp, brokerId) ->
+            changes.put(
+                brokerId,
+                replicaSize.get(
+                        TopicPartitionReplica.of(
+                            tp.topic(),
+                            tp.partition(),
+                            sourceChange.get(TopicPartition.of(tp.topic(), tp.partition()))))
+                    + changes.getOrDefault(brokerId, 0L)));
+    var totalSizeChange =
+        sourceChange.entrySet().stream()
+            .mapToLong(
+                e ->
+                    replicaSize.get(
+                        TopicPartitionReplica.of(
+                            e.getKey().topic(), e.getKey().partition(), e.getValue())))
+            .sum();
+    return new MigrateInfo(totalSizeChange, changes);
   }
 }

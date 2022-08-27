@@ -22,7 +22,7 @@ import java.util.Set;
 import org.astraea.app.admin.ClusterBean;
 import org.astraea.app.admin.ClusterInfo;
 import org.astraea.app.admin.NodeInfo;
-import org.astraea.app.admin.ReplicaInfo;
+import org.astraea.app.admin.Replica;
 import org.astraea.app.metrics.BeanObject;
 import org.astraea.app.metrics.broker.LogMetrics;
 import org.junit.jupiter.api.Assertions;
@@ -36,8 +36,14 @@ class ReplicaSizeMoveCostTest {
   @Test
   void testMoveCost() {
     var cost = new ReplicaSizeMoveCost();
-    var totalSize = cost.moveCost(originClusterInfo(), newClusterInfo(), clusterBean).value();
+    var moveCost = cost.moveCost(originClusterInfo(), newClusterInfo(), clusterBean);
+    var totalSize = moveCost.totalCost();
+    var changes = moveCost.changes();
+
     Assertions.assertEquals(6000000 + 700000 + 800000, totalSize);
+    Assertions.assertEquals(-100000, changes.get(0));
+    Assertions.assertEquals(-5900000, changes.get(1));
+    Assertions.assertEquals(6000000, changes.get(2));
   }
 
   @BeforeAll
@@ -59,7 +65,7 @@ class ReplicaSizeMoveCostTest {
                 1,
                 List.of(replicaSizeBeanObject1, replicaSizeBeanObject2),
                 2,
-                List.of(replicaSizeBeanObject1, replicaSizeBeanObject3)));
+                List.of(replicaSizeBeanObject2, replicaSizeBeanObject3)));
   }
 
   /*
@@ -80,27 +86,84 @@ class ReplicaSizeMoveCostTest {
         .thenReturn(
             List.of(NodeInfo.of(1, "", -1), NodeInfo.of(2, "", -1), NodeInfo.of(3, "", -1)));
     Mockito.when(clusterInfo.topics()).thenReturn(Set.of("test-1", "test-2"));
-    Mockito.when(clusterInfo.availableReplicaLeaders(Mockito.anyString()))
-        .thenAnswer(
-            topic ->
-                topic.getArgument(0).equals("test-1")
-                    ? List.of(
-                        ReplicaInfo.of("test-1", 0, NodeInfo.of(0, "", -1), true, true, false),
-                        ReplicaInfo.of("test-1", 1, NodeInfo.of(2, "", -1), true, true, false))
-                    : List.of(
-                        ReplicaInfo.of("test-2", 0, NodeInfo.of(2, "", -1), true, true, false)));
     Mockito.when(clusterInfo.availableReplicas(Mockito.anyString()))
         .thenAnswer(
             topic ->
                 topic.getArgument(0).equals("test-1")
                     ? List.of(
-                        ReplicaInfo.of("test-1", 0, NodeInfo.of(0, "", -1), true, true, false),
-                        ReplicaInfo.of("test-1", 0, NodeInfo.of(1, "", -1), false, true, false),
-                        ReplicaInfo.of("test-1", 1, NodeInfo.of(1, "", -1), false, true, false),
-                        ReplicaInfo.of("test-1", 1, NodeInfo.of(2, "", -1), true, true, false))
+                        Replica.of(
+                            "test-1",
+                            0,
+                            NodeInfo.of(0, "", -1),
+                            -1,
+                            6000000,
+                            true,
+                            true,
+                            false,
+                            false,
+                            false,
+                            ""),
+                        Replica.of(
+                            "test-1",
+                            0,
+                            NodeInfo.of(1, "", -1),
+                            -1,
+                            6000000,
+                            true,
+                            true,
+                            false,
+                            false,
+                            false,
+                            ""),
+                        Replica.of(
+                            "test-1",
+                            1,
+                            NodeInfo.of(1, "", -1),
+                            -1,
+                            700000,
+                            true,
+                            true,
+                            false,
+                            false,
+                            false,
+                            ""),
+                        Replica.of(
+                            "test-1",
+                            1,
+                            NodeInfo.of(2, "", -1),
+                            -1,
+                            700000,
+                            true,
+                            true,
+                            false,
+                            false,
+                            false,
+                            ""))
                     : List.of(
-                        ReplicaInfo.of("test-2", 0, NodeInfo.of(0, "", -1), false, true, false),
-                        ReplicaInfo.of("test-2", 0, NodeInfo.of(2, "", -1), true, true, false)));
+                        Replica.of(
+                            "test-2",
+                            0,
+                            NodeInfo.of(0, "", -1),
+                            -1,
+                            800000,
+                            true,
+                            true,
+                            false,
+                            false,
+                            false,
+                            ""),
+                        Replica.of(
+                            "test-2",
+                            0,
+                            NodeInfo.of(2, "", -1),
+                            -1,
+                            800000,
+                            true,
+                            true,
+                            false,
+                            false,
+                            false,
+                            "")));
     return clusterInfo;
   }
 
@@ -111,39 +174,84 @@ class ReplicaSizeMoveCostTest {
         .thenReturn(
             List.of(NodeInfo.of(1, "", -1), NodeInfo.of(2, "", -1), NodeInfo.of(3, "", -1)));
     Mockito.when(clusterInfo.topics()).thenReturn(Set.of("test-1", "test-2"));
-    Mockito.when(clusterInfo.availableReplicaLeaders(Mockito.anyString()))
-        .thenAnswer(
-            topic ->
-                topic.getArgument(0).equals("test-1")
-                    ? List.of(
-                        ReplicaInfo.of("test-1", 0, NodeInfo.of(2, "", -1), true, true, false),
-                        ReplicaInfo.of("test-1", 1, NodeInfo.of(2, "", -1), true, true, false))
-                    : List.of(
-                        ReplicaInfo.of("test-2", 0, NodeInfo.of(2, "", -1), true, true, false)));
-    Mockito.when(clusterInfo.replicas(Mockito.anyString()))
-        .thenAnswer(
-            topic ->
-                topic.getArgument(0).equals("test-1")
-                    ? List.of(
-                        ReplicaInfo.of("test-1", 0, NodeInfo.of(0, "", -1), false, true, false),
-                        ReplicaInfo.of("test-1", 0, NodeInfo.of(2, "", -1), true, true, false),
-                        ReplicaInfo.of("test-1", 1, NodeInfo.of(0, "", -1), false, true, false),
-                        ReplicaInfo.of("test-1", 1, NodeInfo.of(2, "", -1), true, true, false))
-                    : List.of(
-                        ReplicaInfo.of("test-2", 0, NodeInfo.of(1, "", -1), false, true, false),
-                        ReplicaInfo.of("test-2", 0, NodeInfo.of(2, "", -1), true, true, false)));
     Mockito.when(clusterInfo.availableReplicas(Mockito.anyString()))
         .thenAnswer(
             topic ->
                 topic.getArgument(0).equals("test-1")
                     ? List.of(
-                        ReplicaInfo.of("test-1", 0, NodeInfo.of(0, "", -1), false, true, false),
-                        ReplicaInfo.of("test-1", 0, NodeInfo.of(2, "", -1), true, true, false),
-                        ReplicaInfo.of("test-1", 1, NodeInfo.of(0, "", -1), false, true, false),
-                        ReplicaInfo.of("test-1", 1, NodeInfo.of(2, "", -1), true, true, false))
+                        Replica.of(
+                            "test-1",
+                            0,
+                            NodeInfo.of(0, "", -1),
+                            -1,
+                            6000000,
+                            true,
+                            true,
+                            false,
+                            false,
+                            false,
+                            ""),
+                        Replica.of(
+                            "test-1",
+                            0,
+                            NodeInfo.of(2, "", -1),
+                            -1,
+                            6000000,
+                            true,
+                            true,
+                            false,
+                            false,
+                            false,
+                            ""),
+                        Replica.of(
+                            "test-1",
+                            1,
+                            NodeInfo.of(0, "", -1),
+                            -1,
+                            700000,
+                            true,
+                            true,
+                            false,
+                            false,
+                            false,
+                            ""),
+                        Replica.of(
+                            "test-1",
+                            1,
+                            NodeInfo.of(2, "", -1),
+                            -1,
+                            700000,
+                            true,
+                            true,
+                            false,
+                            false,
+                            false,
+                            ""))
                     : List.of(
-                        ReplicaInfo.of("test-2", 0, NodeInfo.of(1, "", -1), false, true, false),
-                        ReplicaInfo.of("test-2", 0, NodeInfo.of(2, "", -1), true, true, false)));
+                        Replica.of(
+                            "test-2",
+                            0,
+                            NodeInfo.of(1, "", -1),
+                            -1,
+                            800000,
+                            true,
+                            true,
+                            false,
+                            false,
+                            false,
+                            ""),
+                        Replica.of(
+                            "test-2",
+                            0,
+                            NodeInfo.of(2, "", -1),
+                            -1,
+                            800000,
+                            true,
+                            true,
+                            false,
+                            false,
+                            false,
+                            "")));
     return clusterInfo;
   }
 
