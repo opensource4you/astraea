@@ -28,7 +28,7 @@ import org.astraea.app.balancer.generator.RebalancePlanGenerator;
 import org.astraea.app.balancer.log.ClusterLogAllocation;
 import org.astraea.app.balancer.log.LogPlacement;
 import org.astraea.app.cost.HasClusterCost;
-import org.astraea.app.cost.ReplicaLeaderCost;
+import org.astraea.app.cost.NodeTopicSizeCost;
 
 class BalancerHandler implements Handler {
 
@@ -40,7 +40,7 @@ class BalancerHandler implements Handler {
   private final HasClusterCost costFunction;
 
   BalancerHandler(Admin admin) {
-    this(admin, new ReplicaLeaderCost());
+    this(admin, new NodeTopicSizeCost());
   }
 
   BalancerHandler(Admin admin, HasClusterCost costFunction) {
@@ -50,7 +50,7 @@ class BalancerHandler implements Handler {
 
   @Override
   public Response get(Channel channel) {
-    var clusterInfo = admin.clusterInfo();
+    var clusterInfo = admin.clusterInfo(admin.topicNames(false));
     var clusterAllocation = ClusterLogAllocation.of(clusterInfo);
     var cost = costFunction.clusterCost(clusterInfo, ClusterBean.EMPTY).value();
     var limit =
@@ -65,7 +65,7 @@ class BalancerHandler implements Handler {
                     Map.entry(
                         cla,
                         costFunction
-                            .clusterCost(BalancerUtils.merge(clusterInfo, cla), ClusterBean.EMPTY)
+                            .clusterCost(BalancerUtils.update(clusterInfo, cla), ClusterBean.EMPTY)
                             .value()))
             .filter(e -> e.getValue() <= cost)
             .min(Comparator.comparingDouble(Map.Entry::getValue));

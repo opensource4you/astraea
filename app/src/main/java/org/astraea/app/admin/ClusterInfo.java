@@ -45,13 +45,16 @@ public interface ClusterInfo {
    * @return ClusterInfo
    */
   static ClusterInfo of(org.apache.kafka.common.Cluster cluster) {
-    var nodes = cluster.nodes().stream().map(NodeInfo::of).collect(Collectors.toUnmodifiableList());
-    var topics = cluster.topics();
-    var replicas =
-        topics.stream()
+    return of(
+        cluster.nodes().stream().map(NodeInfo::of).collect(Collectors.toUnmodifiableList()),
+        cluster.topics().stream()
             .flatMap(t -> cluster.partitionsForTopic(t).stream())
             .flatMap(p -> ReplicaInfo.of(p).stream())
-            .collect(Collectors.toUnmodifiableList());
+            .collect(Collectors.toUnmodifiableList()));
+  }
+
+  static ClusterInfo of(List<NodeInfo> nodes, List<ReplicaInfo> replicas) {
+    var topics = replicas.stream().map(ReplicaInfo::topic).collect(Collectors.toUnmodifiableSet());
     var replicasForTopic = replicas.stream().collect(Collectors.groupingBy(ReplicaInfo::topic));
     var availableReplicasForTopic =
         replicas.stream()
