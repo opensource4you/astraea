@@ -19,9 +19,12 @@ package org.astraea.app.web;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.astraea.app.admin.Admin;
 import org.astraea.app.admin.ClusterBean;
+import org.astraea.app.admin.Replica;
+import org.astraea.app.admin.TopicPartitionReplica;
 import org.astraea.app.balancer.BalancerUtils;
 import org.astraea.app.balancer.RebalancePlanProposal;
 import org.astraea.app.balancer.generator.RebalancePlanGenerator;
@@ -86,14 +89,25 @@ class BalancerHandler implements Handler {
                                 new Change(
                                     tp.topic(),
                                     tp.partition(),
-                                    placements(clusterAllocation.logPlacements(tp)),
-                                    placements(entry.getKey().logPlacements(tp))))
+                                    // only log the size from source replicas
+                                    placements(
+                                        clusterAllocation.logPlacements(tp),
+                                        l ->
+                                            clusterInfo
+                                                .replica(
+                                                    TopicPartitionReplica.of(
+                                                        tp.topic(), tp.partition(), l.broker()))
+                                                .map(r -> ((Replica) r).size())
+                                                .orElse(null)),
+                                    placements(entry.getKey().logPlacements(tp), ignored -> null)))
                         .collect(Collectors.toUnmodifiableList()))
             .orElse(List.of()));
   }
 
-  static List<Placement> placements(List<LogPlacement> lps) {
-    return lps.stream().map(Placement::new).collect(Collectors.toUnmodifiableList());
+  static List<Placement> placements(List<LogPlacement> lps, Function<LogPlacement, Long> size) {
+    return lps.stream()
+        .map(p -> new Placement(p, size.apply(p)))
+        .collect(Collectors.toUnmodifiableList());
   }
 
   static class Placement {
@@ -101,9 +115,12 @@ class BalancerHandler implements Handler {
     final int brokerId;
     final String directory;
 
-    Placement(LogPlacement lp) {
+    final Long size;
+
+    Placement(LogPlacement lp, Long size) {
       this.brokerId = lp.broker();
       this.directory = lp.dataFolder();
+      this.size = size;
     }
   }
 
