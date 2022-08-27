@@ -18,9 +18,7 @@ package org.astraea.app.web;
 
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -40,29 +38,25 @@ public class ThrottleHandler implements Handler {
   }
 
   private Response get() {
-    final var bandwidths =
+    final var brokers =
         admin.brokers().entrySet().stream()
-            .collect(
-                Collectors.toUnmodifiableMap(
-                    Map.Entry::getKey,
-                    entry -> {
-                      final var egress =
-                          entry
-                              .getValue()
-                              .value("leader.replication.throttled.rate")
-                              .map(Long::valueOf)
-                              .map(rate -> Map.entry(ThrottleBandwidths.egress, rate));
-                      final var ingress =
-                          entry
-                              .getValue()
-                              .value("follower.replication.throttled.rate")
-                              .map(Long::valueOf)
-                              .map(rate -> Map.entry(ThrottleBandwidths.ingress, rate));
-                      return Stream.of(egress, ingress)
-                          .flatMap(Optional::stream)
-                          .collect(
-                              Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));
-                    }));
+            .map(
+                entry -> {
+                  final var egress =
+                      entry
+                          .getValue()
+                          .value("leader.replication.throttled.rate")
+                          .map(Long::valueOf)
+                          .orElse(null);
+                  final var ingress =
+                      entry
+                          .getValue()
+                          .value("follower.replication.throttled.rate")
+                          .map(Long::valueOf)
+                          .orElse(null);
+                  return new BrokerThrottle(entry.getKey(), ingress, egress);
+                })
+            .collect(Collectors.toUnmodifiableSet());
     final var topicConfigs = admin.topics();
     final var leaderTargets =
         topicConfigs.entrySet().stream()
@@ -86,7 +80,7 @@ public class ThrottleHandler implements Handler {
             .flatMap(Collection::stream)
             .collect(Collectors.toUnmodifiableSet());
 
-    return new ThrottleSetting(bandwidths, simplify(leaderTargets, followerTargets));
+    return new ThrottleSetting(brokers, simplify(leaderTargets, followerTargets));
   }
 
   /**
@@ -152,13 +146,51 @@ public class ThrottleHandler implements Handler {
 
   static class ThrottleSetting implements Response {
 
-    final Map<Integer, Map<ThrottleBandwidths, Long>> brokers;
+    final Collection<BrokerThrottle> brokers;
     final Collection<ThrottleTarget> topics;
 
-    ThrottleSetting(
-        Map<Integer, Map<ThrottleBandwidths, Long>> brokers, Collection<ThrottleTarget> topics) {
+    ThrottleSetting(Collection<BrokerThrottle> brokers, Collection<ThrottleTarget> topics) {
       this.brokers = brokers;
       this.topics = topics;
+    }
+  }
+
+  static class BrokerThrottle {
+    final int id;
+    final Long ingress;
+    final Long egress;
+
+    BrokerThrottle(int id, Long ingress, Long egress) {
+      this.id = id;
+      this.ingress = ingress;
+      this.egress = egress;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) return true;
+      if (o == null || getClass() != o.getClass()) return false;
+      BrokerThrottle that = (BrokerThrottle) o;
+      return id == that.id
+          && Objects.equals(ingress, that.ingress)
+          && Objects.equals(egress, that.egress);
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(id, ingress, egress);
+    }
+
+    @Override
+    public String toString() {
+      return "BrokerThrottle{"
+          + "broker="
+          + id
+          + ", ingress="
+          + ingress
+          + ", egress="
+          + egress
+          + '}';
     }
   }
 
@@ -207,13 +239,8 @@ public class ThrottleHandler implements Handler {
     }
   }
 
-  enum ThrottleBandwidths {
-    ingress,
-    egress;
-  }
-
   enum LogIdentity {
     leader,
-    follower;
+    follower
   }
 }

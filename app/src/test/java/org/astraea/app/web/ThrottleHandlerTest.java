@@ -18,15 +18,16 @@ package org.astraea.app.web;
 
 import static org.astraea.app.web.ThrottleHandler.LogIdentity.follower;
 import static org.astraea.app.web.ThrottleHandler.LogIdentity.leader;
-import static org.astraea.app.web.ThrottleHandler.ThrottleBandwidths.egress;
-import static org.astraea.app.web.ThrottleHandler.ThrottleBandwidths.ingress;
 
 import com.google.gson.Gson;
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
 import java.time.Duration;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.StreamSupport;
 import org.astraea.app.admin.Admin;
 import org.astraea.app.admin.TopicPartition;
 import org.astraea.app.admin.TopicPartitionReplica;
@@ -43,6 +44,7 @@ public class ThrottleHandlerTest extends RequireBrokerCluster {
     try (Admin admin = Admin.of(bootstrapServers())) {
       var handler = new ThrottleHandler(admin);
       var dataRate = DataRate.MiB.of(500).perSecond();
+      var longDataRate = (long) dataRate.byteRate();
       admin
           .replicationThrottler()
           .ingress(Map.of(0, dataRate, 2, dataRate))
@@ -53,27 +55,25 @@ public class ThrottleHandlerTest extends RequireBrokerCluster {
       var jsonString = handler.get(Channel.EMPTY).json();
       var json = new Gson().fromJson(jsonString, JsonObject.class);
 
+      Function<Integer, JsonObject> findByBrokerId =
+          (brokerId) ->
+              StreamSupport.stream(json.getAsJsonArray("brokers").spliterator(), false)
+                  .map(JsonElement::getAsJsonObject)
+                  .filter(item -> item.get("id").getAsInt() == brokerId)
+                  .findFirst()
+                  .orElseThrow();
+
       // broker 0
-      Assertions.assertEquals(
-          (long) dataRate.byteRate(),
-          json.getAsJsonObject("brokers").getAsJsonObject("0").get("ingress").getAsLong());
-      Assertions.assertFalse(
-          json.getAsJsonObject("brokers").getAsJsonObject("0").keySet().contains("egress"));
+      Assertions.assertEquals(longDataRate, findByBrokerId.apply(0).get("ingress").getAsLong());
+      Assertions.assertFalse(findByBrokerId.apply(0).keySet().contains("egress"));
 
       // broker 1
-      Assertions.assertFalse(
-          json.getAsJsonObject("brokers").getAsJsonObject("1").keySet().contains("ingress"));
-      Assertions.assertEquals(
-          (long) dataRate.byteRate(),
-          json.getAsJsonObject("brokers").getAsJsonObject("1").get("egress").getAsLong());
+      Assertions.assertFalse(findByBrokerId.apply(1).keySet().contains("ingress"));
+      Assertions.assertEquals(longDataRate, findByBrokerId.apply(1).get("egress").getAsLong());
 
       // broker 2
-      Assertions.assertEquals(
-          (long) dataRate.byteRate(),
-          json.getAsJsonObject("brokers").getAsJsonObject("2").get("ingress").getAsLong());
-      Assertions.assertEquals(
-          (long) dataRate.byteRate(),
-          json.getAsJsonObject("brokers").getAsJsonObject("2").get("egress").getAsLong());
+      Assertions.assertEquals(longDataRate, findByBrokerId.apply(2).get("ingress").getAsLong());
+      Assertions.assertEquals(longDataRate, findByBrokerId.apply(2).get("egress").getAsLong());
     }
   }
 
@@ -168,37 +168,38 @@ public class ThrottleHandlerTest extends RequireBrokerCluster {
 
   @Test
   void testSerializeDeserialize() {
-    var throttle0 = new ThrottleHandler.ThrottleTarget("MyTopic", 0, 1001, null);
-    var throttle1 = new ThrottleHandler.ThrottleTarget("MyTopic", 0, 1002, null);
-    var throttle2 = new ThrottleHandler.ThrottleTarget("MyTopic", 0, 1003, null);
-    var map = Map.of(1001, Map.of(ingress, 1L));
-    var set = Set.of(throttle0, throttle1, throttle2);
-    var setting = new ThrottleHandler.ThrottleSetting(map, set);
+    var throttle0 = new ThrottleHandler.BrokerThrottle(1001, 1L, null);
+    var throttle1 = new ThrottleHandler.ThrottleTarget("MyTopic", 0, 1001, null);
+    var throttle2 = new ThrottleHandler.ThrottleTarget("MyTopic", 0, 1002, null);
+    var throttle3 = new ThrottleHandler.ThrottleTarget("MyTopic", 0, 1003, null);
+    var set0 = Set.of(throttle0);
+    var set1 = Set.of(throttle1, throttle2, throttle3);
+    var setting = new ThrottleHandler.ThrottleSetting(set0, set1);
 
     var serialized = setting.json();
     var gson = new Gson();
     var deserialized = gson.fromJson(serialized, ThrottleHandler.ThrottleSetting.class);
 
-    Assertions.assertEquals(map, deserialized.brokers);
-    Assertions.assertEquals(set, Set.copyOf(deserialized.topics));
+    Assertions.assertEquals(set0, Set.copyOf(deserialized.brokers));
+    Assertions.assertEquals(set1, Set.copyOf(deserialized.topics));
   }
 
   @Test
   void testDeserialize() {
     final String rawJson =
-        "{\"brokers\":{"
-            + "\"1001\":{\"ingress\":1000,\"egress\":1000},"
-            + "\"1002\":{\"ingress\":1000}},"
+        "{\"brokers\":["
+            + "{\"id\": 1001, \"ingress\":1000,\"egress\":1000},"
+            + "{\"id\": 1002, \"ingress\":1000}],"
             + "\"topics\":["
             + "{\"name\":\"MyTopicA\"},"
             + "{\"name\":\"MyTopicB\",\"partition\":2},"
             + "{\"name\":\"MyTopicC\",\"partition\":3,\"broker\":1001},"
             + "{\"name\":\"MyTopicD\",\"partition\":4,\"broker\":1001,\"type\":\"leader\"}]}";
-    var expectedMap =
-        Map.of(
-            1001, Map.of(ingress, 1000L, egress, 1000L),
-            1002, Map.of(ingress, 1000L));
-    var expectedSet =
+    var expectedBroker =
+        Set.of(
+            new ThrottleHandler.BrokerThrottle(1001, 1000L, 1000L),
+            new ThrottleHandler.BrokerThrottle(1002, 1000L, null));
+    var expectedTopic =
         Set.of(
             new ThrottleHandler.ThrottleTarget("MyTopicA", null, null, null),
             new ThrottleHandler.ThrottleTarget("MyTopicB", 2, null, null),
@@ -208,7 +209,7 @@ public class ThrottleHandlerTest extends RequireBrokerCluster {
     var gson = new Gson();
     var deserialized = gson.fromJson(rawJson, ThrottleHandler.ThrottleSetting.class);
 
-    Assertions.assertEquals(expectedMap, deserialized.brokers);
-    Assertions.assertEquals(expectedSet, Set.copyOf(deserialized.topics));
+    Assertions.assertEquals(expectedBroker, Set.copyOf(deserialized.brokers));
+    Assertions.assertEquals(expectedTopic, Set.copyOf(deserialized.topics));
   }
 }
