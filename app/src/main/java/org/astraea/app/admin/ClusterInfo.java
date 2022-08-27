@@ -19,6 +19,7 @@ package org.astraea.app.admin;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -45,13 +46,16 @@ public interface ClusterInfo {
    * @return ClusterInfo
    */
   static ClusterInfo of(org.apache.kafka.common.Cluster cluster) {
-    var nodes = cluster.nodes().stream().map(NodeInfo::of).collect(Collectors.toUnmodifiableList());
-    var topics = cluster.topics();
-    var replicas =
-        topics.stream()
+    return of(
+        cluster.nodes().stream().map(NodeInfo::of).collect(Collectors.toUnmodifiableList()),
+        cluster.topics().stream()
             .flatMap(t -> cluster.partitionsForTopic(t).stream())
             .flatMap(p -> ReplicaInfo.of(p).stream())
-            .collect(Collectors.toUnmodifiableList());
+            .collect(Collectors.toUnmodifiableList()));
+  }
+
+  static ClusterInfo of(List<NodeInfo> nodes, List<ReplicaInfo> replicas) {
+    var topics = replicas.stream().map(ReplicaInfo::topic).collect(Collectors.toUnmodifiableSet());
     var replicasForTopic = replicas.stream().collect(Collectors.groupingBy(ReplicaInfo::topic));
     var availableReplicasForTopic =
         replicas.stream()
@@ -182,6 +186,14 @@ public interface ClusterInfo {
     return replicas().stream()
         .filter(r -> r.topic().equals(topic))
         .collect(Collectors.toUnmodifiableList());
+  }
+
+  /**
+   * @param replica to search
+   * @return the replica matched to input replica
+   */
+  default Optional<ReplicaInfo> replica(TopicPartitionReplica replica) {
+    return replicas().stream().filter(r -> r.topicPartitionReplica().equals(replica)).findFirst();
   }
 
   /** @return all replicas cached by this cluster info. */

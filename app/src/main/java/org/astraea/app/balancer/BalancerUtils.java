@@ -31,11 +31,61 @@ import org.astraea.app.admin.ClusterInfo;
 import org.astraea.app.admin.NodeInfo;
 import org.astraea.app.admin.Replica;
 import org.astraea.app.admin.ReplicaInfo;
+import org.astraea.app.admin.TopicPartition;
 import org.astraea.app.balancer.log.ClusterLogAllocation;
 import org.astraea.app.cost.HasClusterCost;
 import org.astraea.app.metrics.HasBeanObject;
 
 public class BalancerUtils {
+
+  /**
+   * Update the replicas of ClusterInfo according to ClusterLogAllocation. Noted that only "broker"
+   * and "data folder" get updated. The replicas matched to nothing from ClusterLogAllocation won't
+   * get any update.
+   *
+   * @param clusterInfo to get updated
+   * @param allocation offers new host and data folder
+   * @return new cluster info
+   */
+  public static ClusterInfo update(ClusterInfo clusterInfo, ClusterLogAllocation allocation) {
+    var newReplicas =
+        clusterInfo.replicas().stream()
+            .collect(Collectors.groupingBy(r -> TopicPartition.of(r.topic(), r.partition())))
+            .entrySet()
+            .stream()
+            .flatMap(
+                entry -> {
+                  var lps = allocation.logPlacements(entry.getKey());
+                  var replicas =
+                      entry.getValue().stream()
+                          .map(r -> (Replica) r)
+                          .collect(Collectors.toUnmodifiableList());
+                  return IntStream.range(0, replicas.size())
+                      .mapToObj(
+                          index -> {
+                            var previous = replicas.get(index);
+                            // return previous replica due to no new information
+                            if (index >= lps.size()) return previous;
+                            var lp = lps.get(index);
+                            return (ReplicaInfo)
+                                Replica.of(
+                                    previous.topic(),
+                                    previous.partition(),
+                                    clusterInfo.node(lp.broker()),
+                                    previous.lag(),
+                                    previous.size(),
+                                    index == 0,
+                                    previous.inSync(),
+                                    previous.isFuture(),
+                                    previous.isOffline(),
+                                    previous.isPreferredLeader(),
+                                    lp.dataFolder());
+                          });
+                })
+            .collect(Collectors.toUnmodifiableList());
+
+    return ClusterInfo.of(clusterInfo.nodes(), newReplicas);
+  }
 
   /**
    * Create a {@link ClusterInfo} with its log placement replaced by {@link ClusterLogAllocation}.
