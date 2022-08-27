@@ -40,16 +40,4 @@ public class PositiveIntegerListFieldTest {
     Assertions.assertEquals(List.of(3, 2, 1), param.value);
   }
 
-  @Test
-  public void testCheckPositiveList() {
-    Assertions.assertThrows(
-        ParameterException.class,
-        () -> Performance.Argument.parse(new FakeParameter(), new String[] {"--field", "-1,1,2"}));
-    Assertions.assertThrows(
-        ParameterException.class,
-        () -> Performance.Argument.parse(new FakeParameter(), new String[] {"--field", "1,0,2"}));
-    Assertions.assertThrows(
-        ParameterException.class,
-        () -> Performance.Argument.parse(new FakeParameter(), new String[] {"--field", "-1,1,-2"}));
-  }
 }

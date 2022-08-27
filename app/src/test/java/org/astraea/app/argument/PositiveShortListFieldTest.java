@@ -42,16 +42,4 @@ public class PositiveShortListFieldTest {
     Assertions.assertEquals(List.of((short) 5, (short) 10, (short) 2), param1.value);
   }
 
-  @Test
-  public void testCheckPositiveList() {
-    Assertions.assertThrows(
-        ParameterException.class,
-        () -> Performance.Argument.parse(new FakeParameter(), new String[] {"--field", "-1,1,2"}));
-    Assertions.assertThrows(
-        ParameterException.class,
-        () -> Performance.Argument.parse(new FakeParameter(), new String[] {"--field", "1,0,2"}));
-    Assertions.assertThrows(
-        ParameterException.class,
-        () -> Performance.Argument.parse(new FakeParameter(), new String[] {"--field", "-1,1,-2"}));
-  }
 }

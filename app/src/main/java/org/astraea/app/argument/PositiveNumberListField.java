@@ -16,13 +16,15 @@
  */
 package org.astraea.app.argument;
 
-import java.util.List;
-import java.util.stream.Collectors;
+import com.beust.jcommander.ParameterException;
 import java.util.stream.Stream;
 
-public class PositiveIntegerListField extends PositiveNumberListField<Integer> {
+public abstract class PositiveNumberListField<T extends Number> extends ListField<T> {
   @Override
-  public List<Integer> convert(String value) {
-    return Stream.of(value.split(SEPARATOR)).map(Integer::valueOf).collect(Collectors.toList());
+  protected void check(String name, String value) throws ParameterException {
+    super.check(name, value);
+    var containNonPositive =
+        Stream.of(value.split(SEPARATOR)).map(Long::valueOf).anyMatch(aLong -> aLong <= 0);
+    if (containNonPositive) throw new ParameterException(name + " should be positive");
   }
 }
