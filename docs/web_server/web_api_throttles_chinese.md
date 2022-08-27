@@ -9,7 +9,7 @@
   - [移除整個 Topic 的 replication throttle](#移除整個-Topic-的-replication-throttle)
   - [移除整個 Topic/Partition 的 replication throttle](#移除整個-Topic/Partition-的-replication-throttle)
   - [移除整個 Topic/Partition/Replica 的 replication throttle](#移除整個-Topic/Partition/Replica-的-replication-throttle)
-  - [移除特定 Topic/Partition/Replica 針對 leader 或是 follower 的 replication throttle](#移除特定-Topic/Partition/Replica-針對-leader-或是-follower-的-replication throttle)
+  - [移除特定 Topic/Partition/Replica 針對 leader 或是 follower 的 replication throttle](#移除特定-Topic/Partition/Replica-針對-leader-或是-follower-的-replication-throttle)
   - [移除特定節點的 replication 輸入限流量](#移除特定節點的-replication-輸入限流)
   - [移除特定節點的 replication 輸出限流量](#移除特定節點的-replication-輸出限流)
   - [移除特定節點的 replication 輸出和輸入限流量](#移除特定節點的-replication-輸出和輸入限流)
