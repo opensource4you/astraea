@@ -69,10 +69,10 @@ cURL 範例
 curl -X POST http://localhost:8001/throttles \
     -H "Content-Type: application/json" \
     -d '{
-      "brokers": {
-        "1001": { "ingress": 1000, "egress": 1000 },
-        "1002": { "ingress": 1000 }
-      },
+      "brokers": [
+        { "id":  1001, "ingress":  1000, "egress":  1000 },
+        { "id":  1002, "ingress":  1000 }
+      ],
       "topics": [
         { "name": "MyTopicA" },
         { "name": "MyTopicB", "partition": 2 },
@@ -91,10 +91,11 @@ JSON Request 格式
 
 brokers 每個資料欄位
 
-| 名稱    | 說明                                                         | 預設值 |
-| ------- | ------------------------------------------------------------ | ------ |
-| ingress | (選填)  特定 Kafka 節點的 replication 流入流量的限制(單位 bytes/sec)，附註只有 `topics` 中有記錄到的對象，其 replication 流量會受限制，如果此欄位不存在則代表此節點的 replication 流入流量沒有被修改。 | 無     |
-| egress  | (選填)  特定 Kafka 節點的 replication 流出流量的限制(單位 bytes/sec)，附註只有 `topics` 中有記錄到的對象，其 replication 流量會受限制。 | 無     |
+| 名稱      | 說明                                                                                                                                    | 預設值 |
+|---------|---------------------------------------------------------------------------------------------------------------------------------------| ------ |
+| id      | (必填) 欲更新節點的 id                                                                                                                        | 無     |
+| ingress | (選填) 特定 Kafka 節點的 replication 流入流量的限制(單位 bytes/sec)，附註只有 `topics` 中有記錄到的對象，其 replication 流量會受限制，如果此欄位不存在則代表此節點的 replication 流入流量沒有被修改。 | 無     |
+| egress  | (選填) 特定 Kafka 節點的 replication 流出流量的限制(單位 bytes/sec)，附註只有 `topics` 中有記錄到的對象，其 replication 流量會受限制。                                      | 無     |
 
 topics 每個資料欄位
 
@@ -108,9 +109,9 @@ topics 每個資料欄位
 JSON Response 範例
 
 - `brokers`: 回傳被此 POST 影響的結果。
-  - `1001`: 被影響的節點的編號。
-    - `ingress`: 如果此欄位不存在則代表此節點的 replication 流入流量沒有被修改。
-    - `egress`: 如果此欄位不存在則代表此節點的 replication 流出流量沒有被修改。
+  - `id`: 被影響的節點的編號。
+  - `ingress`: 如果此欄位不存在則代表此節點的 replication 流入流量沒有被修改。
+  - `egress`: 如果此欄位不存在則代表此節點的 replication 流出流量沒有被修改。
 - `topics`: 被此 POST 影響的 logs。
   - `name`: 套用 replication 限流的 topic。
   - `partition`: 套用 replication 限流的 partition。
@@ -119,10 +120,10 @@ JSON Response 範例
 
 ```json
 {
-  "brokers": {
-    "1001": { "ingress": 1000, "egress":  1000 },
-    "1002": { "ingress": 1000 }
-  },
+  "brokers": [
+    { "id":  1001, "ingress":  1000, "egress":  1000 },
+    { "id":  1002, "ingress":  1000 }
+  ],
   "topics": [
     { "name":  "MyTopicA", "partition": 0, "broker": 1001, "type": "leader" },
     { "name":  "MyTopicA", "partition": 0, "broker": 1002, "type": "follower" },
@@ -163,14 +164,14 @@ cURL 範例
 * ##### 移除整個 Topic/Partition/Replica 的 replication throttle
 
   ```shell
-  # 移除與 TopicA/artition 3/broker 4 相關的所有 replication throttle
+  # 移除與 TopicA/partition 3/broker 4 相關的所有 replication throttle
   curl -X DELETE "http://localhost:8001/throttles?topic=MyTopicA&partition=3&broker=4"
   ```
 
 * ##### 移除特定 Topic/Partition/Replica 針對 leader 或是 follower 的 replication throttle
 
   ```shell
-  # 移除 TopicA/artition 3/broker 4 的 leader replication throttle
+  # 移除 TopicA/partition 3/broker 4 的 leader replication throttle
   curl -X DELETE "http://localhost:8001/throttles?topic=MyTopicA&partition=3&broker=4&type=leader"
   ```
 
@@ -178,21 +179,21 @@ cURL 範例
 
   ```shell
   # 移除編號 1001 節點的輸入流量限流
-  curl -X DELETE "http://localhost:8001/throttles?broker=1001&ingress="
+  curl -X DELETE "http://localhost:8001/throttles?broker=1001&type=ingress"
   ```
 
 * ##### 移除特定節點的 replication 輸出限流
 
   ```shell
   # 移除編號 1001 節點的輸出流量限流
-  curl -X DELETE "http://localhost:8001/throttles?broker=1001&egress="
+  curl -X DELETE "http://localhost:8001/throttles?broker=1001&type=egress"
   ```
 
 * ##### 移除特定節點的 replication 輸出和輸入限流
 
   ```shell
   # 移除編號 1001 節點的輸出和輸入流量限流
-  curl -X DELETE "http://localhost:8001/throttles?broker=1001&egress=&ingress="
+  curl -X DELETE "http://localhost:8001/throttles?broker=1001&type=ingress+egress"
   ```
 
   
