@@ -149,12 +149,12 @@ public class ThrottleHandlerTest extends RequireBrokerCluster {
 
   @Test
   void testThrottleTargetEqual() {
-    var target0 = new ThrottleHandler.ThrottleTarget("Topic", 0, 0, null);
-    var target1 = new ThrottleHandler.ThrottleTarget("Topic", 0, 0, null);
-    var target2 = new ThrottleHandler.ThrottleTarget("Topic", 0, 0, leader);
-    var target3 = new ThrottleHandler.ThrottleTarget("Topic", 0, 0, follower);
-    var target4 = new ThrottleHandler.ThrottleTarget("Topic", 1, 0, null);
-    var target5 = new ThrottleHandler.ThrottleTarget("Topic2", 0, 0, null);
+    var target0 = new ThrottleHandler.TopicThrottle("Topic", 0, 0, null);
+    var target1 = new ThrottleHandler.TopicThrottle("Topic", 0, 0, null);
+    var target2 = new ThrottleHandler.TopicThrottle("Topic", 0, 0, leader);
+    var target3 = new ThrottleHandler.TopicThrottle("Topic", 0, 0, follower);
+    var target4 = new ThrottleHandler.TopicThrottle("Topic", 1, 0, null);
+    var target5 = new ThrottleHandler.TopicThrottle("Topic2", 0, 0, null);
 
     Assertions.assertEquals(target0, target0);
     Assertions.assertEquals(target0, target1);
@@ -169,9 +169,9 @@ public class ThrottleHandlerTest extends RequireBrokerCluster {
   @Test
   void testSerializeDeserialize() {
     var throttle0 = new ThrottleHandler.BrokerThrottle(1001, 1L, null);
-    var throttle1 = new ThrottleHandler.ThrottleTarget("MyTopic", 0, 1001, null);
-    var throttle2 = new ThrottleHandler.ThrottleTarget("MyTopic", 0, 1002, null);
-    var throttle3 = new ThrottleHandler.ThrottleTarget("MyTopic", 0, 1003, null);
+    var throttle1 = new ThrottleHandler.TopicThrottle("MyTopic", 0, 1001, null);
+    var throttle2 = new ThrottleHandler.TopicThrottle("MyTopic", 0, 1002, null);
+    var throttle3 = new ThrottleHandler.TopicThrottle("MyTopic", 0, 1003, null);
     var set0 = Set.of(throttle0);
     var set1 = Set.of(throttle1, throttle2, throttle3);
     var setting = new ThrottleHandler.ThrottleSetting(set0, set1);
@@ -201,10 +201,10 @@ public class ThrottleHandlerTest extends RequireBrokerCluster {
             new ThrottleHandler.BrokerThrottle(1002, 1000L, null));
     var expectedTopic =
         Set.of(
-            new ThrottleHandler.ThrottleTarget("MyTopicA", null, null, null),
-            new ThrottleHandler.ThrottleTarget("MyTopicB", 2, null, null),
-            new ThrottleHandler.ThrottleTarget("MyTopicC", 3, 1001, null),
-            new ThrottleHandler.ThrottleTarget("MyTopicD", 4, 1001, leader));
+            new ThrottleHandler.TopicThrottle("MyTopicA", null, null, null),
+            new ThrottleHandler.TopicThrottle("MyTopicB", 2, null, null),
+            new ThrottleHandler.TopicThrottle("MyTopicC", 3, 1001, null),
+            new ThrottleHandler.TopicThrottle("MyTopicD", 4, 1001, leader));
 
     var gson = new Gson();
     var deserialized = gson.fromJson(rawJson, ThrottleHandler.ThrottleSetting.class);

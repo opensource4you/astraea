@@ -108,7 +108,7 @@ public class ThrottleHandler implements Handler {
    * the simplest form by merging any targets with a common topic/partition/replica scope throttle
    * target.
    */
-  private Set<ThrottleTarget> simplify(
+  private Set<TopicThrottle> simplify(
       Set<TopicPartitionReplica> leaders, Set<TopicPartitionReplica> followers) {
     var commonReplicas =
         leaders.stream().filter(followers::contains).collect(Collectors.toUnmodifiableSet());
@@ -117,14 +117,14 @@ public class ThrottleHandler implements Handler {
         commonReplicas.stream()
             .map(
                 replica ->
-                    new ThrottleTarget(
+                    new TopicThrottle(
                         replica.topic(), replica.partition(), replica.brokerId(), null));
     var leaderReplicas =
         leaders.stream()
             .filter(replica -> !commonReplicas.contains(replica))
             .map(
                 replica ->
-                    new ThrottleTarget(
+                    new TopicThrottle(
                         replica.topic(),
                         replica.partition(),
                         replica.brokerId(),
@@ -134,7 +134,7 @@ public class ThrottleHandler implements Handler {
             .filter(replica -> !commonReplicas.contains(replica))
             .map(
                 replica ->
-                    new ThrottleTarget(
+                    new TopicThrottle(
                         replica.topic(),
                         replica.partition(),
                         replica.brokerId(),
@@ -147,9 +147,9 @@ public class ThrottleHandler implements Handler {
   static class ThrottleSetting implements Response {
 
     final Collection<BrokerThrottle> brokers;
-    final Collection<ThrottleTarget> topics;
+    final Collection<TopicThrottle> topics;
 
-    ThrottleSetting(Collection<BrokerThrottle> brokers, Collection<ThrottleTarget> topics) {
+    ThrottleSetting(Collection<BrokerThrottle> brokers, Collection<TopicThrottle> topics) {
       this.brokers = brokers;
       this.topics = topics;
     }
@@ -194,7 +194,7 @@ public class ThrottleHandler implements Handler {
     }
   }
 
-  static class ThrottleTarget {
+  static class TopicThrottle {
     final String name;
     final Integer partition;
     final Integer broker;
@@ -204,7 +204,7 @@ public class ThrottleHandler implements Handler {
     public boolean equals(Object o) {
       if (this == o) return true;
       if (o == null || getClass() != o.getClass()) return false;
-      ThrottleTarget that = (ThrottleTarget) o;
+      TopicThrottle that = (TopicThrottle) o;
       return Objects.equals(name, that.name)
           && Objects.equals(partition, that.partition)
           && Objects.equals(broker, that.broker)
@@ -216,7 +216,7 @@ public class ThrottleHandler implements Handler {
       return Objects.hash(name, partition, broker, type);
     }
 
-    ThrottleTarget(String name, Integer partition, Integer broker, LogIdentity identity) {
+    TopicThrottle(String name, Integer partition, Integer broker, LogIdentity identity) {
       this.name = name;
       this.partition = partition;
       this.broker = broker;
