@@ -68,7 +68,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
                   Channel.ofQueries(
                       Map.of(
                           BalancerHandler.LIMIT_KEY,
-                          "30",
+                          "100",
                           BalancerHandler.TOPICS_KEY,
                           topicNames.get(0)))));
       var actual =
