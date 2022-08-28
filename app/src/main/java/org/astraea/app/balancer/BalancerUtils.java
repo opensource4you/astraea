@@ -56,10 +56,7 @@ public class BalancerUtils {
             .flatMap(
                 entry -> {
                   var lps = allocation.logPlacements(entry.getKey());
-                  var replicas =
-                      entry.getValue().stream()
-                          .map(r -> (Replica) r)
-                          .collect(Collectors.toUnmodifiableList());
+                  var replicas = entry.getValue();
                   return IntStream.range(0, replicas.size())
                       .mapToObj(
                           index -> {

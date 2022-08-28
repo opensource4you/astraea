@@ -108,7 +108,7 @@ class BalancerHandler implements Handler {
                                                 .replica(
                                                     TopicPartitionReplica.of(
                                                         tp.topic(), tp.partition(), l.broker()))
-                                                .map(r -> ((Replica) r).size())
+                                                .map(Replica::size)
                                                 .orElse(null)),
                                     placements(entry.getKey().logPlacements(tp), ignored -> null)))
                         .collect(Collectors.toUnmodifiableList()))
