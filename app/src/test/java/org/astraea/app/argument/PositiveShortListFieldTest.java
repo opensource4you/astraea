@@ -17,9 +17,7 @@
 package org.astraea.app.argument;
 
 import com.beust.jcommander.Parameter;
-import com.beust.jcommander.ParameterException;
 import java.util.List;
-import org.astraea.app.performance.Performance;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -41,5 +39,4 @@ public class PositiveShortListFieldTest {
     Assertions.assertEquals(List.of((short) 1, (short) 2, (short) 3), param.value);
     Assertions.assertEquals(List.of((short) 5, (short) 10, (short) 2), param1.value);
   }
-
 }

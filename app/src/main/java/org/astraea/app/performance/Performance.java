@@ -205,10 +205,13 @@ public class Performance {
         topics.forEach(
             topic -> {
               var index = topics.indexOf(topic);
+              var partition =
+                  createMode.equals("custom") ? partitions.get(index) : partitions.get(0);
+              var replica = createMode.equals("custom") ? replicas.get(index) : replicas.get(0);
               admin
                   .creator()
-                  .numberOfReplicas(replicas.get(index))
-                  .numberOfPartitions(partitions.get(index))
+                  .numberOfReplicas(replica)
+                  .numberOfPartitions(partition)
                   .topic(topic)
                   .create();
               Utils.waitFor(() -> admin.topicNames().contains(topic));
@@ -391,5 +394,14 @@ public class Performance {
         description = "Consumer group id",
         validateWith = NonEmptyStringField.class)
     String groupId = "groupId-" + System.currentTimeMillis();
+
+    @Parameter(
+        names = {"--create.mode"},
+        description =
+            "Create topics with custom or default mode. \n"
+                + "In the default mode, can only create the topics with the same number of partition and replica.\n"
+                + "In the custom mode, can specify the number of partition and replica on the topics you want created.",
+        validateWith = NonEmptyStringField.class)
+    String createMode = "default";
   }
 }

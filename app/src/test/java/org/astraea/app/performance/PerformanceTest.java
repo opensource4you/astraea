@@ -275,4 +275,65 @@ public class PerformanceTest extends RequireBrokerCluster {
       args.initTopics();
     }
   }
+
+  @Test
+  public void testCustomCreateMode() {
+    try (var admin = Admin.of(bootstrapServers())) {
+      var args =
+          Argument.parse(
+              new Performance.Argument(),
+              new String[] {
+                "--bootstrap.servers",
+                bootstrapServers(),
+                "--topics",
+                "test,test1",
+                "--partitions",
+                "3,5",
+                "--replicas",
+                "2,1",
+                "--create.mode",
+                "custom"
+              });
+      args.initTopics();
+
+      Assertions.assertEquals(3, admin.partitions(Set.of("test")).size());
+      Assertions.assertEquals(5, admin.partitions(Set.of("test1")).size());
+
+      admin
+          .replicas(Set.of("test"))
+          .forEach((topicPartition, replicas) -> Assertions.assertEquals(2, replicas.size()));
+      admin
+          .replicas(Set.of("test1"))
+          .forEach((topicPartition, replicas) -> Assertions.assertEquals(1, replicas.size()));
+    }
+  }
+
+  @Test
+  public void testDefaultCreateMode() {
+    try (var admin = Admin.of(bootstrapServers())) {
+      var args =
+          Argument.parse(
+              new Performance.Argument(),
+              new String[] {
+                "--bootstrap.servers",
+                bootstrapServers(),
+                "--topics",
+                "test2,test3",
+                "--partitions",
+                "3",
+                "--replicas",
+                "2"
+              });
+      args.initTopics();
+      Assertions.assertEquals(3, admin.partitions(Set.of("test2")).size());
+      Assertions.assertEquals(3, admin.partitions(Set.of("test3")).size());
+
+      admin
+          .replicas(Set.of("test2"))
+          .forEach((topicPartition, replicas) -> Assertions.assertEquals(2, replicas.size()));
+      admin
+          .replicas(Set.of("test3"))
+          .forEach((topicPartition, replicas) -> Assertions.assertEquals(2, replicas.size()));
+    }
+  }
 }
