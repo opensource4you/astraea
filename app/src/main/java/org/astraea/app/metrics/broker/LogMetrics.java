@@ -16,10 +16,10 @@
  */
 package org.astraea.app.metrics.broker;
 
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.stream.Collectors;
+import org.astraea.app.common.Utils;
 import org.astraea.app.metrics.BeanObject;
 import org.astraea.app.metrics.BeanQuery;
 import org.astraea.app.metrics.HasBeanObject;
@@ -43,10 +43,8 @@ public final class LogMetrics {
     }
 
     public static LogMetrics.Log of(String metricName) {
-      return Arrays.stream(LogMetrics.Log.values())
-          .filter(metric -> metric.metricName().equalsIgnoreCase(metricName))
-          .findFirst()
-          .orElseThrow(() -> new IllegalArgumentException("No such metric: " + metricName));
+      return Utils.ofIgnoreCaseEnum(
+          LogMetrics.Log.values(), LogMetrics.Log::metricName, metricName);
     }
 
     public static Collection<Gauge> gauges(Collection<HasBeanObject> beans, Log type) {

@@ -21,6 +21,7 @@ import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.nio.file.Files;
 import java.time.Duration;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
@@ -269,6 +270,14 @@ public final class Utils {
     if (duration.toSeconds() > 0) return ((double) (value / duration.toSeconds()));
     if (duration.toMillis() > 0) return (double) (value / duration.toMillis()) * 1000;
     return (double) (value / duration.toNanos()) * 1000000000L;
+  }
+
+  public static <T extends Enum<T>> T ofIgnoreCaseEnum(
+      T[] values, Function<T, String> metricNameMapper, String metricName) {
+    return Arrays.stream(values)
+        .filter(metric -> metricNameMapper.apply(metric).equalsIgnoreCase(metricName))
+        .findFirst()
+        .orElseThrow(() -> new IllegalArgumentException("No such metric: " + metricName));
   }
 
   private Utils() {}

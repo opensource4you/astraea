@@ -16,7 +16,7 @@
  */
 package org.astraea.app.metrics.broker;
 
-import java.util.Arrays;
+import org.astraea.app.common.Utils;
 import org.astraea.app.metrics.BeanObject;
 import org.astraea.app.metrics.BeanQuery;
 import org.astraea.app.metrics.MBeanClient;
@@ -138,10 +138,7 @@ public class NetworkMetrics {
     }
 
     public static Request of(String metricName) {
-      return Arrays.stream(Request.values())
-          .filter(metric -> metric.metricName().equalsIgnoreCase(metricName))
-          .findFirst()
-          .orElseThrow(() -> new IllegalArgumentException("No such metric: " + metricName));
+      return Utils.ofIgnoreCaseEnum(Request.values(), Request::metricName, metricName);
     }
   }
 

@@ -16,23 +16,13 @@
  */
 package org.astraea.app.metrics.broker;
 
-import org.astraea.app.metrics.BeanObject;
+import java.util.Objects;
+import org.astraea.app.metrics.HasBeanObject;
 
-/**
- * You can find some default metric in {@link kafka.metrics.KafkaMetricsGroup}. This object is
- * mapped to {@link com.yammer.metrics.core.Gauge}.
- *
- * <p>We implement a Long gauge because most metrics are Long type.
- */
-public interface HasGauge extends HasObjectGauge<Long> {
+public interface HasObjectGauge<T> extends HasBeanObject {
 
-  @Override
-  default Long value() {
-    var value = beanObject().attributes().getOrDefault("Value", 0);
-    return ((Number) value).longValue();
-  }
-
-  static HasGauge of(BeanObject beanObject) {
-    return () -> beanObject;
+  @SuppressWarnings("unchecked")
+  default T value() {
+    return (T) Objects.requireNonNull(beanObject().attributes().get("Value"));
   }
 }

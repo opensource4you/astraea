@@ -22,6 +22,7 @@ import java.util.Map;
 import java.util.SortedMap;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.function.Function;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.astraea.app.cost.CostFunction;
@@ -136,5 +137,36 @@ public class UtilsTest {
                 () -> {
                   throw new IllegalArgumentException();
                 }));
+  }
+
+  @Test
+  void testIgnoreCaseEnum() {
+    Function<String, MyTestEnum> getMyTestEnum =
+        x -> Utils.ofIgnoreCaseEnum(MyTestEnum.values(), MyTestEnum::metricsName, x);
+
+    Assertions.assertEquals(MyTestEnum.APPLE, getMyTestEnum.apply("apple"));
+    Assertions.assertEquals(MyTestEnum.APPLE, getMyTestEnum.apply("Apple"));
+    Assertions.assertEquals(MyTestEnum.APPLE, getMyTestEnum.apply("appLe"));
+
+    Assertions.assertEquals(MyTestEnum.BANANA, getMyTestEnum.apply("banana"));
+    Assertions.assertEquals(MyTestEnum.BANANA, getMyTestEnum.apply("Banana"));
+
+    Assertions.assertEquals(MyTestEnum.CAT_CAT, getMyTestEnum.apply("cat_cat"));
+    Assertions.assertEquals(MyTestEnum.CAT_CAT, getMyTestEnum.apply("Cat_Cat"));
+  }
+
+  private enum MyTestEnum {
+    APPLE("Apple"),
+    BANANA("banana"),
+    CAT_CAT("CAT_CAT");
+    private final String metricsName;
+
+    MyTestEnum(String metricsName) {
+      this.metricsName = metricsName;
+    }
+
+    public String metricsName() {
+      return metricsName;
+    }
   }
 }

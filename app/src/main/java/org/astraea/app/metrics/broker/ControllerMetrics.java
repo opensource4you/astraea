@@ -16,7 +16,7 @@
  */
 package org.astraea.app.metrics.broker;
 
-import java.util.Arrays;
+import org.astraea.app.common.Utils;
 import org.astraea.app.metrics.BeanObject;
 import org.astraea.app.metrics.BeanQuery;
 import org.astraea.app.metrics.MBeanClient;
@@ -37,10 +37,7 @@ public class ControllerMetrics {
     FENCED_BROKER_COUNT("FencedBrokerCount");
 
     static Controller of(String metricName) {
-      return Arrays.stream(Controller.values())
-          .filter(metric -> metric.metricName().equalsIgnoreCase(metricName))
-          .findFirst()
-          .orElseThrow(() -> new IllegalArgumentException("No such metric: " + metricName));
+      return Utils.ofIgnoreCaseEnum(Controller.values(), Controller::metricName, metricName);
     }
 
     private final String metricName;
@@ -108,10 +105,8 @@ public class ControllerMetrics {
     private static final String UNCLEAN_LEADER_ELECTIONS_PER_SEC = "UncleanLeaderElectionsPerSec";
 
     static ControllerState of(String metricName) {
-      return Arrays.stream(ControllerState.values())
-          .filter(metric -> metric.metricName().equalsIgnoreCase(metricName))
-          .findFirst()
-          .orElseThrow(() -> new IllegalArgumentException("No such metric: " + metricName));
+      return Utils.ofIgnoreCaseEnum(
+          ControllerState.values(), ControllerState::metricName, metricName);
     }
 
     private final String metricName;

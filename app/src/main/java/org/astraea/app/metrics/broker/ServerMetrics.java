@@ -16,16 +16,82 @@
  */
 package org.astraea.app.metrics.broker;
 
-import java.util.Arrays;
 import java.util.Collection;
+import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
+import org.astraea.app.common.Utils;
 import org.astraea.app.metrics.BeanObject;
 import org.astraea.app.metrics.BeanQuery;
 import org.astraea.app.metrics.HasBeanObject;
 import org.astraea.app.metrics.MBeanClient;
 
 public final class ServerMetrics {
+
+  public enum KafkaServer {
+    YAMMER_METRICS_COUNT("yammer-metrics-count"),
+    BROKER_STATE("BrokerState"),
+    LINUX_DISK_READ_BYTES("linux-disk-read-bytes"),
+    LINUX_DISK_WRITE_BYTES("linux-disk-write-bytes");
+
+    /** Others are Gauge-Number , this is Gauge-String */
+    public static final String CLUSTER_ID = "ClusterId";
+
+    private final String metricName;
+
+    public static HasObjectGauge<String> getClientId(MBeanClient mBeanClient) {
+      return () ->
+          mBeanClient.queryBean(
+              BeanQuery.builder()
+                  .domainName("kafka.server")
+                  .property("type", "KafkaServer")
+                  .property("name", CLUSTER_ID)
+                  .build());
+    }
+
+    KafkaServer(String name) {
+      this.metricName = name;
+    }
+
+    public String metricName() {
+      return metricName;
+    }
+
+    public Gauge fetch(MBeanClient mBeanClient) {
+      return new Gauge(
+          mBeanClient.queryBean(
+              BeanQuery.builder()
+                  .domainName("kafka.server")
+                  .property("type", "KafkaServer")
+                  .property("name", metricName)
+                  .build()));
+    }
+
+    public static KafkaServer of(String metricName) {
+      return Utils.ofIgnoreCaseEnum(KafkaServer.values(), KafkaServer::metricName, metricName);
+    }
+
+    public static class Gauge implements HasGauge {
+      private final BeanObject beanObject;
+
+      public Gauge(BeanObject beanObject) {
+        this.beanObject = beanObject;
+      }
+
+      public String metricsName() {
+        return beanObject().properties().get("name");
+      }
+
+      public DelayedOperationPurgatory type() {
+        return DelayedOperationPurgatory.of(metricsName());
+      }
+
+      @Override
+      public BeanObject beanObject() {
+        return beanObject;
+      }
+    }
+  }
 
   public enum DelayedOperationPurgatory {
     ALTER_ACLS("AlterAcls"),
@@ -61,10 +127,8 @@ public final class ServerMetrics {
     }
 
     public static DelayedOperationPurgatory of(String metricName) {
-      return Arrays.stream(DelayedOperationPurgatory.values())
-          .filter(metric -> metric.metricName().equalsIgnoreCase(metricName))
-          .findFirst()
-          .orElseThrow(() -> new IllegalArgumentException("No such metric: " + metricName));
+      return Utils.ofIgnoreCaseEnum(
+          DelayedOperationPurgatory.values(), DelayedOperationPurgatory::metricName, metricName);
     }
 
     public static class Gauge implements HasGauge {
@@ -179,10 +243,7 @@ public final class ServerMetrics {
      * @return a {@link Topic} match to give metric name
      */
     public static Topic of(String metricName) {
-      return Arrays.stream(Topic.values())
-          .filter(metric -> metric.metricName().equalsIgnoreCase(metricName))
-          .findFirst()
-          .orElseThrow(() -> new IllegalArgumentException("No such metric: " + metricName));
+      return Utils.ofIgnoreCaseEnum(Topic.values(), Topic::metricName, metricName);
     }
 
     public static class Meter implements HasMeter {
@@ -232,10 +293,8 @@ public final class ServerMetrics {
     }
 
     public static ReplicaManager of(String metricName) {
-      return Arrays.stream(ReplicaManager.values())
-          .filter(metric -> metric.metricName().equalsIgnoreCase(metricName))
-          .findFirst()
-          .orElseThrow(() -> new IllegalArgumentException("No such metric: " + metricName));
+      return Utils.ofIgnoreCaseEnum(
+          ReplicaManager.values(), ReplicaManager::metricName, metricName);
     }
 
     public Gauge fetch(MBeanClient mBeanClient) {
@@ -272,6 +331,390 @@ public final class ServerMetrics {
       @Override
       public BeanObject beanObject() {
         return beanObject;
+      }
+    }
+  }
+
+  public static class Socket {
+    private static final String METRIC_TYPE = "socket-server-metrics";
+    private static final String PROP_LISTENER = "listener";
+    private static final String PROP_NETWORK_PROCESSOR = "networkProcessor";
+    private static final String PROP_CLIENT_SOFTWARE_NAME = "clientSoftwareName";
+    private static final String PROP_CLIENT_SOFTWARE_VERSION = "clientSoftwareVersion";
+
+    public static SocketMetric socket(MBeanClient mBeanClient) {
+      return new SocketMetric(
+          mBeanClient.queryBean(
+              BeanQuery.builder()
+                  .domainName("kafka.server")
+                  .property("type", METRIC_TYPE)
+                  .build()));
+    }
+
+    public static List<SocketListenerMetric> socketListener(MBeanClient mBeanClient) {
+      return mBeanClient
+          .queryBeans(
+              BeanQuery.builder()
+                  .domainName("kafka.server")
+                  .property("type", METRIC_TYPE)
+                  .property(PROP_LISTENER, "*")
+                  .build())
+          .stream()
+          .map(SocketListenerMetric::new)
+          .collect(Collectors.toList());
+    }
+
+    public static List<SocketNetworkProcessorMetric> socketNetworkProcessor(
+        MBeanClient mBeanClient) {
+      return mBeanClient
+          .queryBeans(
+              BeanQuery.builder()
+                  .domainName("kafka.server")
+                  .property("type", METRIC_TYPE)
+                  .property(PROP_LISTENER, "*")
+                  .property(PROP_NETWORK_PROCESSOR, "*")
+                  .build())
+          .stream()
+          .map(SocketNetworkProcessorMetric::new)
+          .collect(Collectors.toList());
+    }
+
+    public static List<Client> client(MBeanClient mBeanClient) {
+      return mBeanClient
+          .queryBeans(
+              BeanQuery.builder()
+                  .domainName("kafka.server")
+                  .property("type", METRIC_TYPE)
+                  .property(PROP_LISTENER, "*")
+                  .property(PROP_NETWORK_PROCESSOR, "*")
+                  .property(PROP_CLIENT_SOFTWARE_NAME, "*")
+                  .property(PROP_CLIENT_SOFTWARE_VERSION, "*")
+                  .build())
+          .stream()
+          .map(Client::new)
+          .collect(Collectors.toList());
+    }
+
+    public static class SocketMetric implements HasBeanObject {
+      private static final String MEMORY_POOL_DEPLETED_TIME_TOTAL = "MemoryPoolDepletedTimeTotal";
+      private static final String MEMORY_POOL_AVG_DEPLETED_PERCENT = "MemoryPoolAvgDepletedPercent";
+      private static final String BROKER_CONNECTION_ACCEPT_RATE = "broker-connection-accept-rate";
+
+      private final BeanObject beanObject;
+
+      public SocketMetric(BeanObject beanObject) {
+        this.beanObject = Objects.requireNonNull(beanObject);
+      }
+
+      @Override
+      public BeanObject beanObject() {
+        return beanObject;
+      }
+
+      public double memoryPoolDepletedTimeTotal() {
+        return (double) beanObject().attributes().get(MEMORY_POOL_DEPLETED_TIME_TOTAL);
+      }
+
+      public double memoryPoolAvgDepletedPercent() {
+        return (double) beanObject().attributes().get(MEMORY_POOL_AVG_DEPLETED_PERCENT);
+      }
+
+      public double brokerConnectionAcceptRate() {
+        return (double) beanObject().attributes().get(BROKER_CONNECTION_ACCEPT_RATE);
+      }
+    }
+
+    /** property : listener */
+    public static class SocketListenerMetric implements HasBeanObject {
+      private static final String CONNECTION_ACCEPT_THROTTLE_TIME =
+          "connection-accept-throttle-time";
+      private static final String CONNECTION_ACCEPT_RATE = "connection-accept-rate";
+      private static final String IP_CONNECTION_ACCEPT_THROTTLE_TIME =
+          "ip-connection-accept-throttle-time";
+
+      private final BeanObject beanObject;
+
+      public SocketListenerMetric(BeanObject beanObject) {
+        this.beanObject = Objects.requireNonNull(beanObject);
+      }
+
+      @Override
+      public BeanObject beanObject() {
+        return beanObject;
+      }
+
+      public String listener() {
+        return beanObject().properties().get(PROP_LISTENER);
+      }
+
+      public double connectionAcceptThrottleTime() {
+        return (double) beanObject().attributes().get(CONNECTION_ACCEPT_THROTTLE_TIME);
+      }
+
+      public double connectionAcceptRate() {
+        return (double) beanObject().attributes().get(CONNECTION_ACCEPT_RATE);
+      }
+
+      public double ipConnectionAcceptThrottleTime() {
+        return (double) beanObject().attributes().get(IP_CONNECTION_ACCEPT_THROTTLE_TIME);
+      }
+    }
+
+    /** property : listener and networkProcessor */
+    public static class SocketNetworkProcessorMetric implements HasBeanObject {
+      private static final String incomingByteTotal = "incoming-byte-total";
+      private static final String selectTotal = "select-total";
+      private static final String successfulAuthenticationRate = "successful-authentication-rate";
+      private static final String reauthenticationLatencyAvg = "reauthentication-latency-avg";
+      private static final String networkIoRate = "network-io-rate";
+      private static final String connectionCreationTotal = "connection-creation-total";
+      private static final String successfulReauthenticationRate =
+          "successful-reauthentication-rate";
+      private static final String requestSizeMax = "request-size-max";
+      private static final String connectionCloseRate = "connection-close-rate";
+      private static final String successfulAuthenticationTotal = "successful-authentication-total";
+      private static final String ioTimeNsTotal = "io-time-ns-total";
+      private static final String connectionCount = "connection-count";
+      private static final String failedReauthenticationTotal = "failed-reauthentication-total";
+      private static final String requestRate = "request-rate";
+      private static final String successfulReauthenticationTotal =
+          "successful-reauthentication-total";
+      private static final String responseRate = "response-rate";
+      private static final String connectionCreationRate = "connection-creation-rate";
+      private static final String ioWaitTimeNsAvg = "io-wait-time-ns-avg";
+      private static final String ioWaitTimeNsTotal = "io-wait-time-ns-total";
+      private static final String outgoingByteRate = "outgoing-byte-rate";
+      private static final String iotimeTotal = "iotime-total";
+      private static final String ioRatio = "io-ratio";
+      private static final String requestSizeAvg = "request-size-avg";
+      private static final String outgoingByteTotal = "outgoing-byte-total";
+      private static final String expiredConnectionsKilledCount =
+          "expired-connections-killed-count";
+      private static final String connectionCloseTotal = "connection-close-total";
+      private static final String failedReauthenticationRate = "failed-reauthentication-rate";
+      private static final String networkIoTotal = "network-io-total";
+      private static final String failedAuthenticationTotal = "failed-authentication-total";
+      private static final String incomingByteRate = "incoming-byte-rate";
+      private static final String selectRate = "select-rate";
+      private static final String ioTimeNsAvg = "io-time-ns-avg";
+      private static final String reauthenticationLatencyMax = "reauthentication-latency-max";
+      private static final String responseTotal = "response-total";
+      private static final String failedAuthenticationRate = "failed-authentication-rate";
+      private static final String ioWaitRatio = "io-wait-ratio";
+      private static final String successfulAuthenticationNoReauthTotal =
+          "successful-authentication-no-reauth-total";
+      private static final String requestTotal = "request-total";
+      private static final String ioWaittimeTotal = "io-waittime-total";
+
+      private final BeanObject beanObject;
+
+      public SocketNetworkProcessorMetric(BeanObject beanObject) {
+        this.beanObject = Objects.requireNonNull(beanObject);
+      }
+
+      @Override
+      public BeanObject beanObject() {
+        return beanObject;
+      }
+
+      public String listener() {
+        return beanObject().properties().get(PROP_LISTENER);
+      }
+
+      public String networkProcessor() {
+        return beanObject().properties().get(PROP_NETWORK_PROCESSOR);
+      }
+
+      public double incomingByteTotal() {
+        return (double) beanObject().attributes().get(incomingByteTotal);
+      }
+
+      public double selectTotal() {
+        return (double) beanObject().attributes().get(selectTotal);
+      }
+
+      public double successfulAuthenticationRate() {
+        return (double) beanObject().attributes().get(successfulAuthenticationRate);
+      }
+
+      public double reauthenticationLatencyAvg() {
+        return (double) beanObject().attributes().get(reauthenticationLatencyAvg);
+      }
+
+      public double networkIoRate() {
+        return (double) beanObject().attributes().get(networkIoRate);
+      }
+
+      public double connectionCreationTotal() {
+        return (double) beanObject().attributes().get(connectionCreationTotal);
+      }
+
+      public double successfulReauthenticationRate() {
+        return (double) beanObject().attributes().get(successfulReauthenticationRate);
+      }
+
+      public double requestSizeMax() {
+        return (double) beanObject().attributes().get(requestSizeMax);
+      }
+
+      public double connectionCloseRate() {
+        return (double) beanObject().attributes().get(connectionCloseRate);
+      }
+
+      public double successfulAuthenticationTotal() {
+        return (double) beanObject().attributes().get(successfulAuthenticationTotal);
+      }
+
+      public double ioTimeNsTotal() {
+        return (double) beanObject().attributes().get(iotimeTotal);
+      }
+
+      public double connectionCount() {
+        return (double) beanObject().attributes().get(connectionCount);
+      }
+
+      public double failedReauthenticationTotal() {
+        return (double) beanObject().attributes().get(failedAuthenticationTotal);
+      }
+
+      public double requestRate() {
+        return (double) beanObject().attributes().get(requestRate);
+      }
+
+      public double successfulReauthenticationTotal() {
+        return (double) beanObject().attributes().get(successfulReauthenticationTotal);
+      }
+
+      public double responseRate() {
+        return (double) beanObject().attributes().get(responseRate);
+      }
+
+      public double connectionCreationRate() {
+        return (double) beanObject().attributes().get(connectionCreationRate);
+      }
+
+      public double ioWaitTimeNsAvg() {
+        return (double) beanObject().attributes().get(ioWaitTimeNsAvg);
+      }
+
+      public double ioWaitTimeNsTotal() {
+        return (double) beanObject().attributes().get(ioWaitTimeNsTotal);
+      }
+
+      public double outgoingByteRate() {
+        return (double) beanObject().attributes().get(outgoingByteRate);
+      }
+
+      public double iotimeTotal() {
+        return (double) beanObject().attributes().get(iotimeTotal);
+      }
+
+      public double ioRatio() {
+        return (double) beanObject().attributes().get(ioRatio);
+      }
+
+      public double requestSizeAvg() {
+        return (double) beanObject().attributes().get(requestSizeAvg);
+      }
+
+      public double outgoingByteTotal() {
+        return (double) beanObject().attributes().get(outgoingByteTotal);
+      }
+
+      public double expiredConnectionsKilledCount() {
+        return (double) beanObject().attributes().get(expiredConnectionsKilledCount);
+      }
+
+      public double connectionCloseTotal() {
+        return (double) beanObject().attributes().get(connectionCloseTotal);
+      }
+
+      public double failedReauthenticationRate() {
+        return (double) beanObject().attributes().get(failedReauthenticationRate);
+      }
+
+      public double networkIoTotal() {
+        return (double) beanObject().attributes().get(networkIoTotal);
+      }
+
+      public double failedAuthenticationTotal() {
+        return (double) beanObject().attributes().get(failedAuthenticationTotal);
+      }
+
+      public double incomingByteRate() {
+        return (double) beanObject().attributes().get(incomingByteRate);
+      }
+
+      public double selectRate() {
+        return (double) beanObject().attributes().get(selectRate);
+      }
+
+      public double ioTimeNsAvg() {
+        return (double) beanObject().attributes().get(ioTimeNsAvg);
+      }
+
+      public double reauthenticationLatencyMax() {
+        return (double) beanObject().attributes().get(reauthenticationLatencyMax);
+      }
+
+      public double responseTotal() {
+        return (double) beanObject().attributes().get(responseTotal);
+      }
+
+      public double failedAuthenticationRate() {
+        return (double) beanObject().attributes().get(failedAuthenticationRate);
+      }
+
+      public double ioWaitRatio() {
+        return (double) beanObject().attributes().get(ioWaitRatio);
+      }
+
+      public double successfulAuthenticationNoReauthTotal() {
+        return (double) beanObject().attributes().get(successfulAuthenticationNoReauthTotal);
+      }
+
+      public double requestTotal() {
+        return (double) beanObject().attributes().get(requestTotal);
+      }
+
+      public double ioWaittimeTotal() {
+        return (double) beanObject().attributes().get(ioWaittimeTotal);
+      }
+    }
+
+    /** property : listener and networkProcessor and clientSoftwareName */
+    public static class Client implements HasBeanObject {
+
+      private static final String CONNECTIONS = "connections";
+      private final BeanObject beanObject;
+
+      public Client(BeanObject beanObject) {
+        this.beanObject = Objects.requireNonNull(beanObject);
+      }
+
+      @Override
+      public BeanObject beanObject() {
+        return beanObject;
+      }
+
+      public String listener() {
+        return beanObject().properties().get(PROP_LISTENER);
+      }
+
+      public String networkProcessor() {
+        return beanObject().properties().get(PROP_NETWORK_PROCESSOR);
+      }
+
+      public String clientSoftwareName() {
+        return beanObject().properties().get(PROP_CLIENT_SOFTWARE_NAME);
+      }
+
+      public String clientSoftwareVersion() {
+        return beanObject().properties().get(PROP_CLIENT_SOFTWARE_VERSION);
+      }
+
+      public int connections() {
+        return (int) beanObject().attributes().get(CONNECTIONS);
       }
     }
   }
