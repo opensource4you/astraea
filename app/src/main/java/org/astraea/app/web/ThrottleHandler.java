@@ -23,6 +23,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.astraea.app.admin.Admin;
@@ -106,6 +107,7 @@ public class ThrottleHandler implements Handler {
             .orElse(List.of());
 
     final var throttler = admin.replicationThrottler();
+    final var acceptedTopicThrottle = new AtomicInteger();
     // ingress
     throttler.ingress(
         brokerToUpdate.stream()
@@ -126,6 +128,7 @@ public class ThrottleHandler implements Handler {
         .filter(topic -> topic.broker == null)
         .filter(topic -> topic.type == null)
         .map(topic -> topic.name)
+        .peek(x -> acceptedTopicThrottle.incrementAndGet())
         .forEach(throttler::throttle);
     // partition
     topics.stream()
@@ -133,6 +136,7 @@ public class ThrottleHandler implements Handler {
         .filter(topic -> topic.broker == null)
         .filter(topic -> topic.type == null)
         .map(topic -> TopicPartition.of(topic.name, topic.partition))
+        .peek(x -> acceptedTopicThrottle.incrementAndGet())
         .forEach(throttler::throttle);
     // replica
     topics.stream()
@@ -140,12 +144,14 @@ public class ThrottleHandler implements Handler {
         .filter(topic -> topic.broker != null)
         .filter(topic -> topic.type == null)
         .map(topic -> TopicPartitionReplica.of(topic.name, topic.partition, topic.broker))
+        .peek(x -> acceptedTopicThrottle.incrementAndGet())
         .forEach(throttler::throttle);
     // leader/follower
     topics.stream()
         .filter(topic -> topic.partition != null)
         .filter(topic -> topic.broker != null)
         .filter(topic -> topic.type != null)
+        .peek(x -> acceptedTopicThrottle.incrementAndGet())
         .forEach(
             topic -> {
               var replica = TopicPartitionReplica.of(topic.name, topic.partition, topic.broker);
@@ -153,6 +159,10 @@ public class ThrottleHandler implements Handler {
               else if (topic.type.equals("follower")) throttler.throttleFollower(replica);
               else throw new IllegalArgumentException("Unknown throttle type: " + topic.type);
             });
+
+    if (acceptedTopicThrottle.get() != topics.size()) {
+      throw new IllegalArgumentException("Some topic throttle combination is not supported");
+    }
 
     var affectedResources = throttler.apply();
     var affectedBrokers =
