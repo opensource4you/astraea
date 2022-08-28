@@ -136,4 +136,88 @@ public class ReassignmentHandlerTest extends RequireBrokerCluster {
           Response.BAD_REQUEST, handler.post(Channel.ofRequest(PostRequest.of(body))));
     }
   }
+
+  @Test
+  void testRequest() {
+    var moveBroker = "{\"topic\":\"a\",\"partition\":1, \"to\":[1, 2]}";
+    Assertions.assertFalse(ReassignmentHandler.moveFolder(PostRequest.of(moveBroker)));
+    Assertions.assertTrue(ReassignmentHandler.moveBroker(PostRequest.of(moveBroker)));
+
+    var moveFolder = "{\"topic\":\"a\",\"partition\":1, \"broker\":1, \"to\":\"/tmp/aa\"}";
+    Assertions.assertTrue(ReassignmentHandler.moveFolder(PostRequest.of(moveFolder)));
+    Assertions.assertFalse(ReassignmentHandler.moveBroker(PostRequest.of(moveFolder)));
+
+    // empty
+    Assertions.assertTrue(
+        ReassignmentHandler.badPost(Channel.ofRequest(PostRequest.of("{\"plans\": []}"))));
+  }
+
+  @Test
+  void testMoveBrokerAndFolderConcurrently() {
+    var topicName = Utils.randomString(10);
+    try (Admin admin = Admin.of(bootstrapServers())) {
+      var handler = new ReassignmentHandler(admin);
+      admin.creator().topic(topicName).numberOfPartitions(1).create();
+      Utils.sleep(Duration.ofSeconds(3));
+
+      var currentReplica =
+          admin.replicas(Set.of(topicName)).get(TopicPartition.of(topicName, 0)).get(0);
+      var currentBroker = currentReplica.nodeInfo().id();
+      var currentPath = currentReplica.dataFolder();
+      var nextBroker = brokerIds().stream().filter(id -> id != currentBroker).findAny().get();
+      var nextPath =
+          logFolders().get(nextBroker).stream()
+              .filter(p -> !p.equals(currentPath))
+              .findFirst()
+              .get();
+
+      var body =
+          String.format(
+              "{\"%s\": [{\"%s\": \"%s\", \"%s\": \"%s\" ,\"%s\": \"%s\",\"%s\": \"%s\"}, {\"%s\": \"%s\", \"%s\": \"%s\" ,\"%s\": \"%s\"}]}",
+              ReassignmentHandler.PLANS_KEY,
+              // add request to move folder first, but it should be fine
+              ReassignmentHandler.TOPIC_KEY,
+              topicName,
+              ReassignmentHandler.PARTITION_KEY,
+              "0",
+              ReassignmentHandler.BROKER_KEY,
+              nextBroker,
+              ReassignmentHandler.TO_KEY,
+              nextPath,
+              // add request to move broker
+              ReassignmentHandler.TOPIC_KEY,
+              topicName,
+              ReassignmentHandler.PARTITION_KEY,
+              "0",
+              ReassignmentHandler.TO_KEY,
+              "[" + nextBroker + "]");
+
+      System.out.println(body);
+
+      Assertions.assertEquals(
+          Response.ACCEPT, handler.post(Channel.ofRequest(PostRequest.of(body))));
+
+      Utils.sleep(Duration.ofSeconds(2));
+      var reassignments = handler.get(Channel.ofTarget(topicName));
+      // the reassignment should be completed
+      Assertions.assertEquals(0, reassignments.reassignments.size());
+
+      Assertions.assertEquals(
+          nextPath,
+          admin
+              .replicas(Set.of(topicName))
+              .get(TopicPartition.of(topicName, 0))
+              .get(0)
+              .dataFolder());
+
+      Assertions.assertEquals(
+          nextBroker,
+          admin
+              .replicas(Set.of(topicName))
+              .get(TopicPartition.of(topicName, 0))
+              .get(0)
+              .nodeInfo()
+              .id());
+    }
+  }
 }

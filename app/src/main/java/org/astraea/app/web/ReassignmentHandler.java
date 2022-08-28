@@ -21,12 +21,12 @@ import java.util.Map;
 import java.util.stream.Collectors;
 import org.astraea.app.admin.Admin;
 import org.astraea.app.admin.TopicPartition;
+import org.astraea.app.common.Utils;
 
 public class ReassignmentHandler implements Handler {
   static final String PLANS_KEY = "plans";
   static final String TOPIC_KEY = "topic";
   static final String PARTITION_KEY = "partition";
-  static final String FROM_KEY = "from";
   static final String TO_KEY = "to";
   static final String BROKER_KEY = "broker";
   private final Admin admin;
@@ -35,33 +35,68 @@ public class ReassignmentHandler implements Handler {
     this.admin = admin;
   }
 
+  static boolean moveBroker(PostRequest request) {
+    // the keys used by moveBroker are subset of moveFolder, so we have to exclude moveFolder first.
+    return !moveFolder(request) && request.has(TOPIC_KEY, PARTITION_KEY, TO_KEY);
+  }
+
+  static boolean moveFolder(PostRequest request) {
+    return request.has(BROKER_KEY, TOPIC_KEY, PARTITION_KEY, TO_KEY);
+  }
+
+  static boolean badPost(Channel channel) {
+    var rs = channel.request().requests(PLANS_KEY);
+    return rs.isEmpty() || !rs.stream().allMatch(r -> moveBroker(r) || moveFolder(r));
+  }
+
   @Override
   public Response post(Channel channel) {
-    var rs =
+    if (badPost(channel)) return Response.BAD_REQUEST;
+
+    // move node first to avoid UnknownTopicOrPartitionException caused by moving folder later
+    var movingPartitions =
         channel.request().requests(PLANS_KEY).stream()
-            .map(
-                request -> {
-                  // case 0: move replica to another folder
-                  if (request.has(BROKER_KEY, TOPIC_KEY, PARTITION_KEY, TO_KEY)) {
-                    admin
-                        .migrator()
-                        .partition(request.value(TOPIC_KEY), request.intValue(PARTITION_KEY))
-                        .moveTo(Map.of(request.intValue(BROKER_KEY), request.value(TO_KEY)));
-                    return Response.ACCEPT;
-                  }
-                  // case 1: move replica to another broker
-                  if (request.has(TOPIC_KEY, PARTITION_KEY, TO_KEY)) {
-                    admin
-                        .migrator()
-                        .partition(request.value(TOPIC_KEY), request.intValue(PARTITION_KEY))
-                        .moveTo(request.intValues(TO_KEY));
-                    return Response.ACCEPT;
-                  }
-                  return Response.BAD_REQUEST;
-                })
-            .collect(Collectors.toUnmodifiableList());
-    if (!rs.isEmpty() && rs.stream().allMatch(r -> r == Response.ACCEPT)) return Response.ACCEPT;
-    return Response.BAD_REQUEST;
+            .filter(ReassignmentHandler::moveBroker)
+            .collect(
+                Collectors.toMap(
+                    request ->
+                        TopicPartition.of(
+                            request.value(TOPIC_KEY), request.intValue(PARTITION_KEY)),
+                    request -> request.intValues(TO_KEY)));
+
+    movingPartitions.forEach(
+        (tp, brokers) -> admin.migrator().partition(tp.topic(), tp.partition()).moveTo(brokers));
+
+    // wait for all node moving get start
+    // TODO: how to make graceful waiting???
+    if (channel.request().requests(PLANS_KEY).stream().anyMatch(ReassignmentHandler::moveFolder)) {
+      Utils.waitFor(
+          () -> {
+            var replicas =
+                admin.replicas(
+                    movingPartitions.keySet().stream()
+                        .map(TopicPartition::topic)
+                        .collect(Collectors.toUnmodifiableSet()));
+            return movingPartitions.entrySet().stream()
+                .allMatch(
+                    entry ->
+                        replicas.get(entry.getKey()).stream()
+                            .map(r -> r.nodeInfo().id())
+                            .collect(Collectors.toUnmodifiableSet())
+                            .containsAll(entry.getValue()));
+          });
+    }
+
+    // ok, all replicas are moving to specify nodes. it is ok to change folder now
+    channel.request().requests(PLANS_KEY).stream()
+        .filter(ReassignmentHandler::moveFolder)
+        .forEach(
+            request ->
+                admin
+                    .migrator()
+                    .partition(request.value(TOPIC_KEY), request.intValue(PARTITION_KEY))
+                    .moveTo(Map.of(request.intValue(BROKER_KEY), request.value(TO_KEY))));
+    return Response.ACCEPT;
   }
 
   @Override

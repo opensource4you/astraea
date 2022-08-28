@@ -1091,7 +1091,7 @@ public class Builder {
     public void moveTo(Map<Integer, String> brokerFolders) {
       // ensure this partition is host on the given map
       var topicPartition = partitions.iterator().next();
-      var currentReplicas =
+      var currentBrokers =
           Utils.packException(
                   () -> admin.describeTopics(Set.of(topicPartition.topic())).allTopicNames().get())
               .get(topicPartition.topic())
@@ -1103,12 +1103,14 @@ public class Builder {
               .collect(Collectors.toUnmodifiableSet());
       var notHere =
           brokerFolders.keySet().stream()
-              .filter(id -> !currentReplicas.contains(id))
+              .filter(id -> !currentBrokers.contains(id))
               .collect(Collectors.toUnmodifiableSet());
 
       if (!notHere.isEmpty())
         throw new IllegalStateException(
-            "The following specified broker is not part of the replica list: " + notHere);
+            String.format(
+                "brokers: %s does not host %s, current brokers are %s",
+                notHere, topicPartition, currentBrokers));
 
       var payload =
           brokerFolders.entrySet().stream()
