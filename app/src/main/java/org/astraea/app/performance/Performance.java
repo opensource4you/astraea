@@ -17,10 +17,12 @@
 package org.astraea.app.performance;
 
 import com.beust.jcommander.Parameter;
+import com.beust.jcommander.ParameterException;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -201,22 +203,38 @@ public class Performance {
     List<String> topics = List.of("testPerformance-" + System.currentTimeMillis());
 
     void initTopics() {
+      var topicPattern = topicPattern();
       try (var admin = Admin.of(configs())) {
-        topics.forEach(
-            topic -> {
-              var index = topics.indexOf(topic);
-              var partition =
-                  createMode.equals("custom") ? partitions.get(index) : partitions.get(0);
-              var replica = createMode.equals("custom") ? replicas.get(index) : replicas.get(0);
-              admin
-                  .creator()
-                  .numberOfReplicas(replica)
-                  .numberOfPartitions(partition)
-                  .topic(topic)
-                  .create();
+        topicPattern.forEach(
+            (topic, pr) -> {
+              for (var partitionReplica : pr.entrySet()) {
+                admin
+                    .creator()
+                    .topic(topic)
+                    .numberOfPartitions(partitionReplica.getKey())
+                    .numberOfReplicas(partitionReplica.getValue())
+                    .create();
+              }
               Utils.waitFor(() -> admin.topicNames().contains(topic));
             });
       }
+    }
+
+    Map<String, Map<Integer, Short>> topicPattern() {
+      Map<String, Map<Integer, Short>> pattern = new HashMap<>();
+      if (partitions.size() == 1 && replicas.size() == 1) {
+        topics.forEach(
+            topic -> pattern.putIfAbsent(topic, Map.of(partitions.get(0), replicas.get(0))));
+      } else if (topics.size() == partitions.size() && topics.size() == replicas.size()) {
+        topics.forEach(
+            topic -> {
+              var index = topics.indexOf(topic);
+              pattern.putIfAbsent(topic, Map.of(partitions.get(index), replicas.get(index)));
+            });
+      } else {
+        throw new ParameterException("the number of partition and replica doesn't match");
+      }
+      return pattern;
     }
 
     Map<TopicPartition, Long> lastOffsets() {
@@ -394,14 +412,5 @@ public class Performance {
         description = "Consumer group id",
         validateWith = NonEmptyStringField.class)
     String groupId = "groupId-" + System.currentTimeMillis();
-
-    @Parameter(
-        names = {"--create.mode"},
-        description =
-            "Create topics with custom or default mode. \n"
-                + "In the default mode, can only create the topics with the same number of partition and replica.\n"
-                + "In the custom mode, can specify the number of partition and replica on the topics you want created.",
-        validateWith = NonEmptyStringField.class)
-    String createMode = "default";
   }
 }

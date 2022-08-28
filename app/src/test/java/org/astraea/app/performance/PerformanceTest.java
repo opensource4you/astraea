@@ -290,9 +290,7 @@ public class PerformanceTest extends RequireBrokerCluster {
                 "--partitions",
                 "3,5",
                 "--replicas",
-                "2,1",
-                "--create.mode",
-                "custom"
+                "2,1"
               });
       args.initTopics();
 
@@ -318,7 +316,7 @@ public class PerformanceTest extends RequireBrokerCluster {
                 "--bootstrap.servers",
                 bootstrapServers(),
                 "--topics",
-                "test2,test3",
+                "test2,test3,test4,test5,test6",
                 "--partitions",
                 "3",
                 "--replicas",
@@ -327,12 +325,24 @@ public class PerformanceTest extends RequireBrokerCluster {
       args.initTopics();
       Assertions.assertEquals(3, admin.partitions(Set.of("test2")).size());
       Assertions.assertEquals(3, admin.partitions(Set.of("test3")).size());
+      Assertions.assertEquals(3, admin.partitions(Set.of("test4")).size());
+      Assertions.assertEquals(3, admin.partitions(Set.of("test5")).size());
+      Assertions.assertEquals(3, admin.partitions(Set.of("test6")).size());
 
       admin
           .replicas(Set.of("test2"))
           .forEach((topicPartition, replicas) -> Assertions.assertEquals(2, replicas.size()));
       admin
           .replicas(Set.of("test3"))
+          .forEach((topicPartition, replicas) -> Assertions.assertEquals(2, replicas.size()));
+      admin
+          .replicas(Set.of("test4"))
+          .forEach((topicPartition, replicas) -> Assertions.assertEquals(2, replicas.size()));
+      admin
+          .replicas(Set.of("test5"))
+          .forEach((topicPartition, replicas) -> Assertions.assertEquals(2, replicas.size()));
+      admin
+          .replicas(Set.of("test6"))
           .forEach((topicPartition, replicas) -> Assertions.assertEquals(2, replicas.size()));
     }
   }
