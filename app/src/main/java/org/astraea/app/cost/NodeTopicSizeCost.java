@@ -23,6 +23,7 @@ import org.astraea.app.admin.ClusterBean;
 import org.astraea.app.admin.ClusterInfo;
 import org.astraea.app.admin.NodeInfo;
 import org.astraea.app.admin.Replica;
+import org.astraea.app.admin.ReplicaInfo;
 import org.astraea.app.metrics.broker.LogMetrics;
 import org.astraea.app.metrics.collector.Fetcher;
 
@@ -39,7 +40,8 @@ public class NodeTopicSizeCost implements HasBrokerCost, HasClusterCost {
    * @return a BrokerCost contains the used space for each broker
    */
   @Override
-  public BrokerCost brokerCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
+  public BrokerCost brokerCost(
+      ClusterInfo<? extends ReplicaInfo> clusterInfo, ClusterBean clusterBean) {
     var result =
         clusterBean.all().entrySet().stream()
             .collect(
@@ -53,7 +55,7 @@ public class NodeTopicSizeCost implements HasBrokerCost, HasClusterCost {
   }
 
   @Override
-  public ClusterCost clusterCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
+  public ClusterCost clusterCost(ClusterInfo<Replica> clusterInfo, ClusterBean clusterBean) {
     var brokerCost =
         clusterInfo.nodes().stream()
             .collect(
@@ -62,7 +64,7 @@ public class NodeTopicSizeCost implements HasBrokerCost, HasClusterCost {
                     nodeInfo ->
                         clusterInfo.replicas().stream()
                             .filter(r -> r.nodeInfo().id() == nodeInfo.id())
-                            .mapToLong(r -> r instanceof Replica ? ((Replica) r).size() : 0)
+                            .mapToLong(Replica::size)
                             .sum()));
     return () ->
         dispersion.calculate(
