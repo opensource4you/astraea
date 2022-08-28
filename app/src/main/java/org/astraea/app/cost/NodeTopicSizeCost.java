@@ -21,10 +21,14 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 import org.astraea.app.admin.ClusterBean;
 import org.astraea.app.admin.ClusterInfo;
+import org.astraea.app.admin.NodeInfo;
+import org.astraea.app.admin.Replica;
 import org.astraea.app.metrics.broker.LogMetrics;
 import org.astraea.app.metrics.collector.Fetcher;
 
-public class NodeTopicSizeCost implements HasBrokerCost {
+public class NodeTopicSizeCost implements HasBrokerCost, HasClusterCost {
+  private final Dispersion dispersion = Dispersion.correlationCoefficient();
+
   @Override
   public Optional<Fetcher> fetcher() {
     return Optional.of(LogMetrics.Log.SIZE::fetch);
@@ -46,5 +50,22 @@ public class NodeTopicSizeCost implements HasBrokerCost {
                             .mapToDouble(LogMetrics.Log.Gauge::value)
                             .sum()));
     return () -> result;
+  }
+
+  @Override
+  public ClusterCost clusterCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
+    var brokerCost =
+        clusterInfo.nodes().stream()
+            .collect(
+                Collectors.toMap(
+                    NodeInfo::id,
+                    nodeInfo ->
+                        clusterInfo.replicas().stream()
+                            .filter(r -> r.nodeInfo().id() == nodeInfo.id())
+                            .mapToLong(r -> r instanceof Replica ? ((Replica) r).size() : 0)
+                            .sum()));
+    return () ->
+        dispersion.calculate(
+            brokerCost.values().stream().map(v -> (double) v).collect(Collectors.toList()));
   }
 }

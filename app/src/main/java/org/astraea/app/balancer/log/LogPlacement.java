@@ -17,7 +17,6 @@
 package org.astraea.app.balancer.log;
 
 import java.util.List;
-import java.util.Optional;
 import java.util.stream.IntStream;
 
 /** This class describe the placement state of one kafka log. */
@@ -25,7 +24,7 @@ public interface LogPlacement {
 
   int broker();
 
-  Optional<String> logDirectory();
+  String dataFolder();
 
   static boolean isMatch(List<LogPlacement> sourcePlacements, List<LogPlacement> targetPlacements) {
     if (sourcePlacements.size() != targetPlacements.size()) return false;
@@ -42,34 +41,17 @@ public interface LogPlacement {
         IntStream.range(0, sourcePlacements.size())
             .allMatch(
                 index ->
-                    meetLogDirectoryMigrationRequirement(
-                        sourcePlacements.get(index).logDirectory(),
-                        targetPlacements.get(index).logDirectory()));
+                    sourcePlacements
+                        .get(index)
+                        .dataFolder()
+                        .equals(targetPlacements.get(index).dataFolder()));
     //noinspection RedundantIfStatement
     if (!logDirectoryMatch) return false;
 
     return true;
   }
 
-  @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
-  private static boolean meetLogDirectoryMigrationRequirement(
-      Optional<String> sourceDir, Optional<String> targetDir) {
-    // don't care which log directory will eventually be in the destination.
-    if (targetDir.isEmpty()) return true;
-
-    // we care which data directory the target will eventually be, but we don't know.
-    if (sourceDir.isEmpty()) return false;
-
-    // both candidate is specified, if and only if two paths match, will consider as a requirement
-    // meet.
-    return sourceDir.get().equals(targetDir.get());
-  }
-
-  static LogPlacement of(int broker) {
-    return of(broker, null);
-  }
-
-  static LogPlacement of(int broker, String logDirectory) {
+  static LogPlacement of(int broker, String dataFolder) {
     return new LogPlacement() {
       @Override
       public int broker() {
@@ -77,22 +59,22 @@ public interface LogPlacement {
       }
 
       @Override
-      public Optional<String> logDirectory() {
-        return Optional.ofNullable(logDirectory);
+      public String dataFolder() {
+        return dataFolder;
       }
 
       @Override
       public boolean equals(Object obj) {
         if (obj instanceof LogPlacement) {
           final var that = (LogPlacement) obj;
-          return this.broker() == that.broker() && this.logDirectory().equals(that.logDirectory());
+          return this.broker() == that.broker() && this.dataFolder().equals(that.dataFolder());
         }
         return false;
       }
 
       @Override
       public String toString() {
-        return "LogPlacement{broker=" + broker() + " logDir=" + logDirectory() + "}";
+        return "LogPlacement{broker=" + broker() + " dataFolder=" + dataFolder() + "}";
       }
     };
   }

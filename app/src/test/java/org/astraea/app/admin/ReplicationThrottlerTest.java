@@ -81,13 +81,11 @@ public class ReplicationThrottlerTest extends RequireBrokerCluster {
       admin.migrator().partition(topicName, 0).moveTo(List.of(1));
       Utils.sleep(Duration.ofMillis(100));
 
-      ReplicaSyncingMonitor.main(new String[] {"--bootstrap.servers", bootstrapServer});
-
-      // 5. wait until it finished
+      // 4. wait until it finished
       Utils.waitFor(
           () ->
               admin.replicas(Set.of(topicName)).get(TopicPartition.of(topicName, 0)).stream()
-                  .filter(x -> x.broker() == 1)
+                  .filter(x -> x.nodeInfo().id() == 1)
                   .findFirst()
                   .map(Replica::inSync)
                   .orElse(false),

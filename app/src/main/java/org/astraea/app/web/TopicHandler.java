@@ -36,6 +36,7 @@ class TopicHandler implements Handler {
   static final String NUMBER_OF_PARTITIONS_KEY = "partitions";
   static final String NUMBER_OF_REPLICAS_KEY = "replicas";
   static final String PARTITION_KEY = "partition";
+  static final String LIST_INTERNAL = "listInternal";
 
   private final Admin admin;
 
@@ -43,14 +44,18 @@ class TopicHandler implements Handler {
     this.admin = admin;
   }
 
-  Set<String> topicNames(Optional<String> target) {
-    return Handler.compare(admin.topicNames(), target);
+  Set<String> topicNames(Optional<String> target, boolean listInternal) {
+    return Handler.compare(admin.topicNames(listInternal), target);
   }
 
   @Override
   public Response get(Channel channel) {
     return get(
-        topicNames(channel.target()),
+        topicNames(
+            channel.target(),
+            Optional.ofNullable(channel.queries().get(LIST_INTERNAL))
+                .map(Boolean::parseBoolean)
+                .orElse(true)),
         partition ->
             !channel.queries().containsKey(PARTITION_KEY)
                 || partition == Integer.parseInt(channel.queries().get(PARTITION_KEY)));
@@ -89,7 +94,7 @@ class TopicHandler implements Handler {
     var configs =
         new HashMap<>(
             request.raw().entrySet().stream()
-                .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().toString())));
+                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue)));
     configs.remove(TOPIC_NAME_KEY);
     configs.remove(NUMBER_OF_PARTITIONS_KEY);
     configs.remove(NUMBER_OF_REPLICAS_KEY);
@@ -185,13 +190,13 @@ class TopicHandler implements Handler {
 
     Replica(org.astraea.app.admin.Replica replica) {
       this(
-          replica.broker(),
+          replica.nodeInfo().id(),
           replica.lag(),
           replica.size(),
-          replica.leader(),
+          replica.isLeader(),
           replica.inSync(),
           replica.isFuture(),
-          replica.path());
+          replica.dataFolder());
     }
 
     Replica(
