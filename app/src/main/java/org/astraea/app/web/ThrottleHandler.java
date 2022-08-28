@@ -101,7 +101,7 @@ public class ThrottleHandler implements Handler {
         channel
             .request()
             .<Collection<TopicThrottle>>get(
-                "brokers",
+                "topics",
                 TypeToken.getParameterized(Collection.class, TopicThrottle.class).getType())
             .orElse(List.of());
 
@@ -122,7 +122,6 @@ public class ThrottleHandler implements Handler {
                     broker -> broker.id, broker -> DataRate.Byte.of(broker.egress).perSecond())));
     // topic
     topics.stream()
-        .filter(topic -> topic.name != null)
         .filter(topic -> topic.partition == null)
         .filter(topic -> topic.broker == null)
         .filter(topic -> topic.type == null)
@@ -130,7 +129,6 @@ public class ThrottleHandler implements Handler {
         .forEach(throttler::throttle);
     // partition
     topics.stream()
-        .filter(topic -> topic.name != null)
         .filter(topic -> topic.partition != null)
         .filter(topic -> topic.broker == null)
         .filter(topic -> topic.type == null)
@@ -138,7 +136,6 @@ public class ThrottleHandler implements Handler {
         .forEach(throttler::throttle);
     // replica
     topics.stream()
-        .filter(topic -> topic.name != null)
         .filter(topic -> topic.partition != null)
         .filter(topic -> topic.broker != null)
         .filter(topic -> topic.type == null)
@@ -146,7 +143,6 @@ public class ThrottleHandler implements Handler {
         .forEach(throttler::throttle);
     // leader/follower
     topics.stream()
-        .filter(topic -> topic.name != null)
         .filter(topic -> topic.partition != null)
         .filter(topic -> topic.broker != null)
         .filter(topic -> topic.type != null)
@@ -181,8 +177,12 @@ public class ThrottleHandler implements Handler {
       var topic =
           new TopicThrottle(
               channel.queries().get("topic"),
-              Integer.parseInt(channel.queries().get("partition")),
-              Integer.parseInt(channel.queries().get("replica")),
+              Optional.ofNullable(channel.queries().get("partition"))
+                  .map(Integer::parseInt)
+                  .orElse(null),
+              Optional.ofNullable(channel.queries().get("replica"))
+                  .map(Integer::parseInt)
+                  .orElse(null),
               Arrays.stream(LogIdentity.values())
                   .filter(x -> x.name().equals(channel.queries().getOrDefault("type", "")))
                   .findFirst()

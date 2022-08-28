@@ -212,4 +212,38 @@ public class ThrottleHandlerTest extends RequireBrokerCluster {
     Assertions.assertEquals(expectedBroker, Set.copyOf(deserialized.brokers));
     Assertions.assertEquals(expectedTopic, Set.copyOf(deserialized.topics));
   }
+
+  @Test
+  void runPost() {
+    try (Admin admin = Admin.of(bootstrapServers())) {
+      var handler = new ThrottleHandler(admin);
+      admin.creator().topic("MyTopicA").numberOfPartitions(2).numberOfReplicas((short) 3).create();
+      admin.creator().topic("MyTopicB").numberOfPartitions(3).numberOfReplicas((short) 3).create();
+      admin.creator().topic("MyTopicC").numberOfPartitions(4).numberOfReplicas((short) 3).create();
+      admin.creator().topic("MyTopicD").numberOfPartitions(5).numberOfReplicas((short) 3).create();
+
+      var string =
+          "{\"brokers\":["
+              + "{\"id\":0,\"ingress\":1000,\"egress\":1000},"
+              + "{\"id\":1,\"ingress\":1000}],"
+              + "\"topics\":["
+              + "{\"name\":\"MyTopicA\"},"
+              + "{\"name\":\"MyTopicB\",\"partition\":2},"
+              + "{\"name\":\"MyTopicC\",\"partition\":3,\"broker\":0},"
+              + "{\"name\":\"MyTopicD\",\"partition\":4,\"broker\":0,\"type\":\"leader\"}]}";
+      handler.post(Channel.ofRequest(PostRequest.of(string)));
+      Utils.sleep(Duration.ofSeconds(1));
+
+      System.out.println("Result 0:");
+      System.out.println(handler.get(Channel.EMPTY).json());
+      System.out.println();
+
+      handler.delete(Channel.ofQueries(Map.of("topic", "MyTopicA")));
+      Utils.sleep(Duration.ofSeconds(1));
+
+      System.out.println("Result 1:");
+      System.out.println(handler.get(Channel.EMPTY).json());
+      System.out.println();
+    }
+  }
 }
