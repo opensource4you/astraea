@@ -106,6 +106,8 @@ topics 每個資料欄位
 | broker    | (選填) 要套用 replication throttle 的 replica (所在之 broker)，如果沒有指定，所有既有的 replicas 都會被套用 | 無     |
 | type      | (選填) 要套用 replication throttle 的 replica 身份，此值可以是 `leader` 或是 `follower`，如果沒有指定，則二者都會被套用 | 無     |
 
+topic 描述格式只支援 `name`, `name, partition`, `name, partition, broker`, `name, partition, broker, type` 這四種 key 的組合，目前此 API 不支援其他種類的組合，比如 `name, type`。當給與這類型的組合，API 會回傳錯誤。
+
 JSON Response 範例
 
 - `brokers`: 回傳被此 POST 影響的結果。
