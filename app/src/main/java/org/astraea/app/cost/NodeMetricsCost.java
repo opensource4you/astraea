@@ -23,6 +23,7 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 import org.astraea.app.admin.ClusterBean;
 import org.astraea.app.admin.ClusterInfo;
+import org.astraea.app.admin.ReplicaInfo;
 import org.astraea.app.metrics.client.HasNodeMetrics;
 import org.astraea.app.metrics.client.producer.ProducerMetrics;
 import org.astraea.app.metrics.collector.Fetcher;
@@ -30,7 +31,8 @@ import org.astraea.app.metrics.collector.Fetcher;
 /** Calculate the cost by client-node-metrics. */
 public abstract class NodeMetricsCost implements HasBrokerCost {
   @Override
-  public BrokerCost brokerCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
+  public BrokerCost brokerCost(
+      ClusterInfo<? extends ReplicaInfo> clusterInfo, ClusterBean clusterBean) {
     var result =
         clusterBean.all().values().stream()
             .flatMap(Collection::stream)

@@ -21,10 +21,15 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 import org.astraea.app.admin.ClusterBean;
 import org.astraea.app.admin.ClusterInfo;
+import org.astraea.app.admin.NodeInfo;
+import org.astraea.app.admin.Replica;
+import org.astraea.app.admin.ReplicaInfo;
 import org.astraea.app.metrics.broker.LogMetrics;
 import org.astraea.app.metrics.collector.Fetcher;
 
-public class NodeTopicSizeCost implements HasBrokerCost {
+public class NodeTopicSizeCost implements HasBrokerCost, HasClusterCost {
+  private final Dispersion dispersion = Dispersion.correlationCoefficient();
+
   @Override
   public Optional<Fetcher> fetcher() {
     return Optional.of(LogMetrics.Log.SIZE::fetch);
@@ -35,7 +40,8 @@ public class NodeTopicSizeCost implements HasBrokerCost {
    * @return a BrokerCost contains the used space for each broker
    */
   @Override
-  public BrokerCost brokerCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
+  public BrokerCost brokerCost(
+      ClusterInfo<? extends ReplicaInfo> clusterInfo, ClusterBean clusterBean) {
     var result =
         clusterBean.all().entrySet().stream()
             .collect(
@@ -46,5 +52,22 @@ public class NodeTopicSizeCost implements HasBrokerCost {
                             .mapToDouble(LogMetrics.Log.Gauge::value)
                             .sum()));
     return () -> result;
+  }
+
+  @Override
+  public ClusterCost clusterCost(ClusterInfo<Replica> clusterInfo, ClusterBean clusterBean) {
+    var brokerCost =
+        clusterInfo.nodes().stream()
+            .collect(
+                Collectors.toMap(
+                    NodeInfo::id,
+                    nodeInfo ->
+                        clusterInfo.replicas().stream()
+                            .filter(r -> r.nodeInfo().id() == nodeInfo.id())
+                            .mapToLong(Replica::size)
+                            .sum()));
+    return () ->
+        dispersion.calculate(
+            brokerCost.values().stream().map(v -> (double) v).collect(Collectors.toList()));
   }
 }

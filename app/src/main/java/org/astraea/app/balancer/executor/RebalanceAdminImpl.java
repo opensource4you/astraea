@@ -226,7 +226,7 @@ class RebalanceAdminImpl implements RebalanceAdmin {
   }
 
   @Override
-  public ClusterInfo clusterInfo() {
+  public ClusterInfo<Replica> clusterInfo() {
     return admin.clusterInfo(
         admin.topicNames().stream().filter(topicFilter).collect(Collectors.toUnmodifiableSet()));
   }

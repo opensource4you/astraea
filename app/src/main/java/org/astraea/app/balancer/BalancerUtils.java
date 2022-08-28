@@ -30,12 +30,58 @@ import org.astraea.app.admin.ClusterBean;
 import org.astraea.app.admin.ClusterInfo;
 import org.astraea.app.admin.NodeInfo;
 import org.astraea.app.admin.Replica;
-import org.astraea.app.admin.ReplicaInfo;
+import org.astraea.app.admin.TopicPartition;
 import org.astraea.app.balancer.log.ClusterLogAllocation;
 import org.astraea.app.cost.HasClusterCost;
 import org.astraea.app.metrics.HasBeanObject;
 
 public class BalancerUtils {
+
+  /**
+   * Update the replicas of ClusterInfo according to ClusterLogAllocation. Noted that only "broker"
+   * and "data folder" get updated. The replicas matched to nothing from ClusterLogAllocation won't
+   * get any update.
+   *
+   * @param clusterInfo to get updated
+   * @param allocation offers new host and data folder
+   * @return new cluster info
+   */
+  public static ClusterInfo<Replica> update(
+      ClusterInfo<Replica> clusterInfo, ClusterLogAllocation allocation) {
+    var newReplicas =
+        clusterInfo.replicas().stream()
+            .collect(Collectors.groupingBy(r -> TopicPartition.of(r.topic(), r.partition())))
+            .entrySet()
+            .stream()
+            .flatMap(
+                entry -> {
+                  var lps = allocation.logPlacements(entry.getKey());
+                  var replicas = entry.getValue();
+                  return IntStream.range(0, replicas.size())
+                      .mapToObj(
+                          index -> {
+                            var previous = replicas.get(index);
+                            // return previous replica due to no new information
+                            if (index >= lps.size()) return previous;
+                            var lp = lps.get(index);
+                            return Replica.of(
+                                previous.topic(),
+                                previous.partition(),
+                                clusterInfo.node(lp.broker()),
+                                previous.lag(),
+                                previous.size(),
+                                index == 0,
+                                previous.inSync(),
+                                previous.isFuture(),
+                                previous.isOffline(),
+                                previous.isPreferredLeader(),
+                                lp.dataFolder());
+                          });
+                })
+            .collect(Collectors.toUnmodifiableList());
+
+    return ClusterInfo.of(clusterInfo.nodes(), newReplicas);
+  }
 
   /**
    * Create a {@link ClusterInfo} with its log placement replaced by {@link ClusterLogAllocation}.
@@ -50,12 +96,13 @@ public class BalancerUtils {
    *     locked.
    * @return a {@link ClusterInfo} with its log placement replaced.
    */
-  public static ClusterInfo merge(ClusterInfo clusterInfo, ClusterLogAllocation allocation) {
-    return new ClusterInfo() {
+  public static ClusterInfo<Replica> merge(
+      ClusterInfo<Replica> clusterInfo, ClusterLogAllocation allocation) {
+    return new ClusterInfo<>() {
       // TODO: maybe add a field to tell if this cluster info is mocked.
       private final Map<Integer, NodeInfo> nodeIdMap =
           nodes().stream().collect(Collectors.toUnmodifiableMap(NodeInfo::id, Function.identity()));
-      private final List<ReplicaInfo> replicas =
+      private final List<Replica> replicas =
           allocation.topicPartitions().stream()
               .map(tp -> Map.entry(tp, allocation.logPlacements(tp)))
               .flatMap(
@@ -89,7 +136,7 @@ public class BalancerUtils {
       }
 
       @Override
-      public List<ReplicaInfo> replicas() {
+      public List<Replica> replicas() {
         return replicas;
       }
     };
@@ -137,7 +184,7 @@ public class BalancerUtils {
   }
 
   static double evaluateCost(
-      ClusterInfo clusterInfo,
+      ClusterInfo<Replica> clusterInfo,
       Map<HasClusterCost, Map<Integer, Collection<HasBeanObject>>> metrics) {
     var scores =
         metrics.keySet().stream()

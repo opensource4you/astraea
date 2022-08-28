@@ -39,7 +39,8 @@ public class ReplicaLeaderCostTest {
             ReplicaInfo.of("topic", 0, NodeInfo.of(10, "broker0", 1111), true, true, true),
             ReplicaInfo.of("topic", 0, NodeInfo.of(10, "broker0", 1111), true, true, true),
             ReplicaInfo.of("topic", 0, NodeInfo.of(11, "broker1", 1111), true, true, true));
-    var clusterInfo = Mockito.mock(ClusterInfo.class);
+    @SuppressWarnings("unchecked")
+    ClusterInfo<ReplicaInfo> clusterInfo = Mockito.mock(ClusterInfo.class);
     Mockito.when(clusterInfo.topics()).thenReturn(Set.of("topic"));
     Mockito.when(clusterInfo.availableReplicaLeaders(Mockito.anyString())).thenReturn(replicas);
     var cost = ReplicaLeaderCost.leaderCount(clusterInfo);
@@ -60,8 +61,8 @@ public class ReplicaLeaderCostTest {
     var broker2 = List.of((HasBeanObject) LeaderCount2);
     var broker3 = List.of((HasBeanObject) LeaderCount3);
     var clusterBean = ClusterBean.of(Map.of(1, broker1, 2, broker2, 3, broker3));
-    var brokerLoad = costFunction.brokerCost(ClusterInfo.EMPTY, clusterBean);
-    var clusterLoad = costFunction.clusterCost(ClusterInfo.EMPTY, clusterBean);
+    var brokerLoad = costFunction.brokerCost(ClusterInfo.empty(), clusterBean);
+    var clusterLoad = costFunction.clusterCost(ClusterInfo.empty(), clusterBean);
 
     Assertions.assertEquals(3, brokerLoad.value().size());
     Assertions.assertEquals(3.0, brokerLoad.value().get(1));

@@ -187,7 +187,8 @@ public class StrictCostDispatcherTest {
     var costFunction =
         new HasBrokerCost() {
           @Override
-          public BrokerCost brokerCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
+          public BrokerCost brokerCost(
+              ClusterInfo<? extends ReplicaInfo> clusterInfo, ClusterBean clusterBean) {
             return Mockito.mock(BrokerCost.class);
           }
 
@@ -263,7 +264,8 @@ public class StrictCostDispatcherTest {
       var costFunction =
           new HasBrokerCost() {
             @Override
-            public BrokerCost brokerCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
+            public BrokerCost brokerCost(
+                ClusterInfo<? extends ReplicaInfo> clusterInfo, ClusterBean clusterBean) {
               return () -> Map.of(brokerId, 10D);
             }
           };

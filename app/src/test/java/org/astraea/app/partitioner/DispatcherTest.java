@@ -23,6 +23,7 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.kafka.common.Cluster;
 import org.astraea.app.admin.ClusterInfo;
+import org.astraea.app.admin.ReplicaInfo;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -34,7 +35,8 @@ public class DispatcherTest {
     var dispatcher =
         new Dispatcher() {
           @Override
-          public int partition(String topic, byte[] key, byte[] value, ClusterInfo clusterInfo) {
+          public int partition(
+              String topic, byte[] key, byte[] value, ClusterInfo<ReplicaInfo> clusterInfo) {
             Assertions.assertEquals(0, Objects.requireNonNull(key).length);
             Assertions.assertEquals(0, Objects.requireNonNull(value).length);
             count.incrementAndGet();
@@ -59,7 +61,8 @@ public class DispatcherTest {
     var dispatcher =
         new Dispatcher() {
           @Override
-          public int partition(String topic, byte[] key, byte[] value, ClusterInfo clusterInfo) {
+          public int partition(
+              String topic, byte[] key, byte[] value, ClusterInfo<ReplicaInfo> clusterInfo) {
             return 0;
           }
         };

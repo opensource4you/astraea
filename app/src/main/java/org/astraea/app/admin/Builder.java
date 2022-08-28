@@ -446,7 +446,7 @@ public class Builder {
     }
 
     @Override
-    public ClusterInfo clusterInfo(Set<String> topics) {
+    public ClusterInfo<Replica> clusterInfo(Set<String> topics) {
       final var nodeInfo = this.nodes().stream().collect(Collectors.toUnmodifiableList());
 
       var replicas =
@@ -454,17 +454,16 @@ public class Builder {
               () ->
                   replicas(topics).values().stream()
                       .flatMap(Collection::stream)
-                      .map(r -> (ReplicaInfo) r)
                       .collect(Collectors.toUnmodifiableList()));
 
-      return new ClusterInfo() {
+      return new ClusterInfo<>() {
         @Override
         public List<NodeInfo> nodes() {
           return nodeInfo;
         }
 
         @Override
-        public List<ReplicaInfo> replicas() {
+        public List<Replica> replicas() {
           return replicas;
         }
       };

@@ -23,6 +23,7 @@ import org.astraea.app.admin.ClusterBean;
 import org.astraea.app.admin.ClusterInfo;
 import org.astraea.app.admin.NodeInfo;
 import org.astraea.app.admin.Replica;
+import org.astraea.app.admin.TopicPartitionReplica;
 import org.astraea.app.metrics.BeanObject;
 import org.astraea.app.metrics.broker.LogMetrics;
 import org.junit.jupiter.api.Assertions;
@@ -56,179 +57,197 @@ class ReplicaSizeMoveCostTest {
     test-1-1 : 0,2
     test-2-0 : 1,2
    */
-  static ClusterInfo originClusterInfo() {
-
-    ClusterInfo clusterInfo = Mockito.mock(ClusterInfo.class);
+  static ClusterInfo<Replica> originClusterInfo() {
+    var replicas =
+        List.of(
+            Replica.of(
+                "test-1",
+                0,
+                NodeInfo.of(0, "", -1),
+                -1,
+                6000000,
+                true,
+                true,
+                false,
+                false,
+                false,
+                ""),
+            Replica.of(
+                "test-1",
+                0,
+                NodeInfo.of(1, "", -1),
+                -1,
+                6000000,
+                true,
+                true,
+                false,
+                false,
+                false,
+                ""),
+            Replica.of(
+                "test-1",
+                1,
+                NodeInfo.of(1, "", -1),
+                -1,
+                700000,
+                true,
+                true,
+                false,
+                false,
+                false,
+                ""),
+            Replica.of(
+                "test-1",
+                1,
+                NodeInfo.of(2, "", -1),
+                -1,
+                700000,
+                true,
+                true,
+                false,
+                false,
+                false,
+                ""),
+            Replica.of(
+                "test-2",
+                0,
+                NodeInfo.of(0, "", -1),
+                -1,
+                800000,
+                true,
+                true,
+                false,
+                false,
+                false,
+                ""),
+            Replica.of(
+                "test-2",
+                0,
+                NodeInfo.of(2, "", -1),
+                -1,
+                800000,
+                true,
+                true,
+                false,
+                false,
+                false,
+                ""));
+    ClusterInfo<Replica> clusterInfo = Mockito.mock(ClusterInfo.class);
     Mockito.when(clusterInfo.nodes())
         .thenReturn(
             List.of(NodeInfo.of(1, "", -1), NodeInfo.of(2, "", -1), NodeInfo.of(3, "", -1)));
     Mockito.when(clusterInfo.topics()).thenReturn(Set.of("test-1", "test-2"));
+    Mockito.when(clusterInfo.replicas()).thenReturn(replicas);
     Mockito.when(clusterInfo.replicas(Mockito.anyString()))
         .thenAnswer(
             topic ->
                 topic.getArgument(0).equals("test-1")
-                    ? List.of(
-                        Replica.of(
-                            "test-1",
-                            0,
-                            NodeInfo.of(0, "", -1),
-                            -1,
-                            6000000,
-                            true,
-                            true,
-                            false,
-                            false,
-                            false,
-                            ""),
-                        Replica.of(
-                            "test-1",
-                            0,
-                            NodeInfo.of(1, "", -1),
-                            -1,
-                            6000000,
-                            true,
-                            true,
-                            false,
-                            false,
-                            false,
-                            ""),
-                        Replica.of(
-                            "test-1",
-                            1,
-                            NodeInfo.of(1, "", -1),
-                            -1,
-                            700000,
-                            true,
-                            true,
-                            false,
-                            false,
-                            false,
-                            ""),
-                        Replica.of(
-                            "test-1",
-                            1,
-                            NodeInfo.of(2, "", -1),
-                            -1,
-                            700000,
-                            true,
-                            true,
-                            false,
-                            false,
-                            false,
-                            ""))
-                    : List.of(
-                        Replica.of(
-                            "test-2",
-                            0,
-                            NodeInfo.of(0, "", -1),
-                            -1,
-                            800000,
-                            true,
-                            true,
-                            false,
-                            false,
-                            false,
-                            ""),
-                        Replica.of(
-                            "test-2",
-                            0,
-                            NodeInfo.of(2, "", -1),
-                            -1,
-                            800000,
-                            true,
-                            true,
-                            false,
-                            false,
-                            false,
-                            "")));
+                    ? List.of(replicas.get(0), replicas.get(1), replicas.get(2), replicas.get(3))
+                    : List.of(replicas.get(4), replicas.get(5)));
+    Mockito.when(clusterInfo.replica(Mockito.isA(TopicPartitionReplica.class)))
+        .thenAnswer(
+            tpr ->
+                clusterInfo.replicas().stream()
+                    .filter(r -> r.topicPartitionReplica().equals(tpr.getArgument(0)))
+                    .findFirst());
     return clusterInfo;
   }
 
-  static ClusterInfo newClusterInfo() {
-
-    ClusterInfo clusterInfo = Mockito.mock(ClusterInfo.class);
+  static ClusterInfo<Replica> newClusterInfo() {
+    var replicas =
+        List.of(
+            Replica.of(
+                "test-1",
+                0,
+                NodeInfo.of(0, "", -1),
+                -1,
+                6000000,
+                true,
+                true,
+                false,
+                false,
+                false,
+                ""),
+            Replica.of(
+                "test-1",
+                0,
+                NodeInfo.of(2, "", -1),
+                -1,
+                6000000,
+                true,
+                true,
+                false,
+                false,
+                false,
+                ""),
+            Replica.of(
+                "test-1",
+                1,
+                NodeInfo.of(0, "", -1),
+                -1,
+                700000,
+                true,
+                true,
+                false,
+                false,
+                false,
+                ""),
+            Replica.of(
+                "test-1",
+                1,
+                NodeInfo.of(2, "", -1),
+                -1,
+                700000,
+                true,
+                true,
+                false,
+                false,
+                false,
+                ""),
+            Replica.of(
+                "test-2",
+                0,
+                NodeInfo.of(1, "", -1),
+                -1,
+                800000,
+                true,
+                true,
+                false,
+                false,
+                false,
+                ""),
+            Replica.of(
+                "test-2",
+                0,
+                NodeInfo.of(2, "", -1),
+                -1,
+                800000,
+                true,
+                true,
+                false,
+                false,
+                false,
+                ""));
+    ClusterInfo<Replica> clusterInfo = Mockito.mock(ClusterInfo.class);
     Mockito.when(clusterInfo.nodes())
         .thenReturn(
             List.of(NodeInfo.of(1, "", -1), NodeInfo.of(2, "", -1), NodeInfo.of(3, "", -1)));
     Mockito.when(clusterInfo.topics()).thenReturn(Set.of("test-1", "test-2"));
+    Mockito.when(clusterInfo.replicas()).thenReturn(replicas);
+
+    Mockito.when(clusterInfo.replicas()).thenReturn(replicas);
     Mockito.when(clusterInfo.replicas(Mockito.anyString()))
         .thenAnswer(
             topic ->
                 topic.getArgument(0).equals("test-1")
-                    ? List.of(
-                        Replica.of(
-                            "test-1",
-                            0,
-                            NodeInfo.of(0, "", -1),
-                            -1,
-                            6000000,
-                            true,
-                            true,
-                            false,
-                            false,
-                            false,
-                            ""),
-                        Replica.of(
-                            "test-1",
-                            0,
-                            NodeInfo.of(2, "", -1),
-                            -1,
-                            6000000,
-                            true,
-                            true,
-                            false,
-                            false,
-                            false,
-                            ""),
-                        Replica.of(
-                            "test-1",
-                            1,
-                            NodeInfo.of(0, "", -1),
-                            -1,
-                            700000,
-                            true,
-                            true,
-                            false,
-                            false,
-                            false,
-                            ""),
-                        Replica.of(
-                            "test-1",
-                            1,
-                            NodeInfo.of(2, "", -1),
-                            -1,
-                            700000,
-                            true,
-                            true,
-                            false,
-                            false,
-                            false,
-                            ""))
-                    : List.of(
-                        Replica.of(
-                            "test-2",
-                            0,
-                            NodeInfo.of(1, "", -1),
-                            -1,
-                            800000,
-                            true,
-                            true,
-                            false,
-                            false,
-                            false,
-                            ""),
-                        Replica.of(
-                            "test-2",
-                            0,
-                            NodeInfo.of(2, "", -1),
-                            -1,
-                            800000,
-                            true,
-                            true,
-                            false,
-                            false,
-                            false,
-                            "")));
+                    ? List.of(replicas.get(0), replicas.get(1), replicas.get(2), replicas.get(3))
+                    : List.of(replicas.get(4), replicas.get(5)));
+    Mockito.when(clusterInfo.replica(Mockito.isA(TopicPartitionReplica.class)))
+        .thenAnswer(
+            tpr ->
+                clusterInfo.replicas().stream()
+                    .filter(r -> r.topicPartitionReplica().equals(tpr.getArgument(0)))
+                    .findFirst());
     return clusterInfo;
   }
 

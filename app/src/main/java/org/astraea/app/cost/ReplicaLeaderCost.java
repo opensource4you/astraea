@@ -23,6 +23,8 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 import org.astraea.app.admin.ClusterBean;
 import org.astraea.app.admin.ClusterInfo;
+import org.astraea.app.admin.Replica;
+import org.astraea.app.admin.ReplicaInfo;
 import org.astraea.app.metrics.HasBeanObject;
 import org.astraea.app.metrics.broker.ServerMetrics;
 import org.astraea.app.metrics.collector.Fetcher;
@@ -32,7 +34,8 @@ public class ReplicaLeaderCost implements HasBrokerCost, HasClusterCost {
   private final Dispersion dispersion = Dispersion.correlationCoefficient();
 
   @Override
-  public BrokerCost brokerCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
+  public BrokerCost brokerCost(
+      ClusterInfo<? extends ReplicaInfo> clusterInfo, ClusterBean clusterBean) {
     var result =
         leaderCount(clusterInfo, clusterBean).entrySet().stream()
             .collect(Collectors.toMap(Map.Entry::getKey, e -> (double) e.getValue()));
@@ -40,13 +43,13 @@ public class ReplicaLeaderCost implements HasBrokerCost, HasClusterCost {
   }
 
   @Override
-  public ClusterCost clusterCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
+  public ClusterCost clusterCost(ClusterInfo<Replica> clusterInfo, ClusterBean clusterBean) {
     var brokerScore = brokerCost(clusterInfo, clusterBean).value();
     return () -> dispersion.calculate(brokerScore.values());
   }
 
   private static Map<Integer, Integer> leaderCount(
-      ClusterInfo clusterInfo, ClusterBean clusterBean) {
+      ClusterInfo<? extends ReplicaInfo> clusterInfo, ClusterBean clusterBean) {
     var leaderCount = leaderCount(clusterBean);
     // if there is no available metrics, we re-count the leaders based on cluster information
     if (leaderCount.values().stream().mapToInt(i -> i).sum() == 0) return leaderCount(clusterInfo);
@@ -68,7 +71,7 @@ public class ReplicaLeaderCost implements HasBrokerCost, HasClusterCost {
                         .sum()));
   }
 
-  static Map<Integer, Integer> leaderCount(ClusterInfo clusterInfo) {
+  static Map<Integer, Integer> leaderCount(ClusterInfo<? extends ReplicaInfo> clusterInfo) {
     return clusterInfo.topics().stream()
         .flatMap(t -> clusterInfo.availableReplicaLeaders(t).stream())
         .collect(Collectors.groupingBy(r -> r.nodeInfo().id()))

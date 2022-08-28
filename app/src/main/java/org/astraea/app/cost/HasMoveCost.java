@@ -18,6 +18,7 @@ package org.astraea.app.cost;
 
 import org.astraea.app.admin.ClusterBean;
 import org.astraea.app.admin.ClusterInfo;
+import org.astraea.app.admin.Replica;
 
 public interface HasMoveCost extends CostFunction {
   /**
@@ -29,5 +30,7 @@ public interface HasMoveCost extends CostFunction {
    * @return the score of migrate cost
    */
   MoveCost moveCost(
-      ClusterInfo originClusterInfo, ClusterInfo newClusterInfo, ClusterBean clusterBean);
+      ClusterInfo<Replica> originClusterInfo,
+      ClusterInfo<Replica> newClusterInfo,
+      ClusterBean clusterBean);
 }

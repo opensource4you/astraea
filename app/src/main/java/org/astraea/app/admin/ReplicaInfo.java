@@ -113,6 +113,15 @@ public interface ReplicaInfo {
     };
   }
 
+  /**
+   * a helper to build TopicPartitionReplica quickly
+   *
+   * @return TopicPartitionReplica
+   */
+  default TopicPartitionReplica topicPartitionReplica() {
+    return TopicPartitionReplica.of(topic(), partition(), nodeInfo().id());
+  }
+
   /** @return topic name */
   String topic();
 

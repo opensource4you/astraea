@@ -18,10 +18,7 @@ package org.astraea.app.web;
 
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
-import java.util.OptionalInt;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -41,29 +38,25 @@ public class ThrottleHandler implements Handler {
   }
 
   private Response get() {
-    final var bandwidths =
+    final var brokers =
         admin.brokers().entrySet().stream()
-            .collect(
-                Collectors.toUnmodifiableMap(
-                    Map.Entry::getKey,
-                    entry -> {
-                      final var egress =
-                          entry
-                              .getValue()
-                              .value("leader.replication.throttled.rate")
-                              .map(Long::valueOf)
-                              .map(rate -> Map.entry(ThrottleBandwidths.egress, rate));
-                      final var ingress =
-                          entry
-                              .getValue()
-                              .value("follower.replication.throttled.rate")
-                              .map(Long::valueOf)
-                              .map(rate -> Map.entry(ThrottleBandwidths.ingress, rate));
-                      return Stream.of(egress, ingress)
-                          .flatMap(Optional::stream)
-                          .collect(
-                              Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));
-                    }));
+            .map(
+                entry -> {
+                  final var egress =
+                      entry
+                          .getValue()
+                          .value("leader.replication.throttled.rate")
+                          .map(Long::valueOf)
+                          .orElse(null);
+                  final var ingress =
+                      entry
+                          .getValue()
+                          .value("follower.replication.throttled.rate")
+                          .map(Long::valueOf)
+                          .orElse(null);
+                  return new BrokerThrottle(entry.getKey(), ingress, egress);
+                })
+            .collect(Collectors.toUnmodifiableSet());
     final var topicConfigs = admin.topics();
     final var leaderTargets =
         topicConfigs.entrySet().stream()
@@ -87,7 +80,7 @@ public class ThrottleHandler implements Handler {
             .flatMap(Collection::stream)
             .collect(Collectors.toUnmodifiableSet());
 
-    return new ThrottleSetting(bandwidths, simplify(leaderTargets, followerTargets));
+    return new ThrottleSetting(brokers, simplify(leaderTargets, followerTargets));
   }
 
   /**
@@ -115,7 +108,7 @@ public class ThrottleHandler implements Handler {
    * the simplest form by merging any targets with a common topic/partition/replica scope throttle
    * target.
    */
-  private Set<ThrottleTarget> simplify(
+  private Set<TopicThrottle> simplify(
       Set<TopicPartitionReplica> leaders, Set<TopicPartitionReplica> followers) {
     var commonReplicas =
         leaders.stream().filter(followers::contains).collect(Collectors.toUnmodifiableSet());
@@ -124,13 +117,14 @@ public class ThrottleHandler implements Handler {
         commonReplicas.stream()
             .map(
                 replica ->
-                    new ThrottleTarget(replica.topic(), replica.partition(), replica.brokerId()));
+                    new TopicThrottle(
+                        replica.topic(), replica.partition(), replica.brokerId(), null));
     var leaderReplicas =
         leaders.stream()
             .filter(replica -> !commonReplicas.contains(replica))
             .map(
                 replica ->
-                    new ThrottleTarget(
+                    new TopicThrottle(
                         replica.topic(),
                         replica.partition(),
                         replica.brokerId(),
@@ -140,7 +134,7 @@ public class ThrottleHandler implements Handler {
             .filter(replica -> !commonReplicas.contains(replica))
             .map(
                 replica ->
-                    new ThrottleTarget(
+                    new TopicThrottle(
                         replica.topic(),
                         replica.partition(),
                         replica.brokerId(),
@@ -152,27 +146,65 @@ public class ThrottleHandler implements Handler {
 
   static class ThrottleSetting implements Response {
 
-    final Map<Integer, Map<ThrottleBandwidths, Long>> brokers;
-    final Collection<ThrottleTarget> topics;
+    final Collection<BrokerThrottle> brokers;
+    final Collection<TopicThrottle> topics;
 
-    private ThrottleSetting(
-        Map<Integer, Map<ThrottleBandwidths, Long>> brokers, Collection<ThrottleTarget> topics) {
+    ThrottleSetting(Collection<BrokerThrottle> brokers, Collection<TopicThrottle> topics) {
       this.brokers = brokers;
       this.topics = topics;
     }
   }
 
-  static class ThrottleTarget {
-    final String name;
-    final OptionalInt partition;
-    final OptionalInt broker;
-    final Optional<LogIdentity> type;
+  static class BrokerThrottle {
+    final int id;
+    final Long ingress;
+    final Long egress;
+
+    BrokerThrottle(int id, Long ingress, Long egress) {
+      this.id = id;
+      this.ingress = ingress;
+      this.egress = egress;
+    }
 
     @Override
     public boolean equals(Object o) {
       if (this == o) return true;
       if (o == null || getClass() != o.getClass()) return false;
-      ThrottleTarget that = (ThrottleTarget) o;
+      BrokerThrottle that = (BrokerThrottle) o;
+      return id == that.id
+          && Objects.equals(ingress, that.ingress)
+          && Objects.equals(egress, that.egress);
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(id, ingress, egress);
+    }
+
+    @Override
+    public String toString() {
+      return "BrokerThrottle{"
+          + "broker="
+          + id
+          + ", ingress="
+          + ingress
+          + ", egress="
+          + egress
+          + '}';
+    }
+  }
+
+  static class TopicThrottle {
+    final String name;
+    final Integer partition;
+    final Integer broker;
+    final String type;
+
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) return true;
+      if (o == null || getClass() != o.getClass()) return false;
+      TopicThrottle that = (TopicThrottle) o;
       return Objects.equals(name, that.name)
           && Objects.equals(partition, that.partition)
           && Objects.equals(broker, that.broker)
@@ -184,28 +216,31 @@ public class ThrottleHandler implements Handler {
       return Objects.hash(name, partition, broker, type);
     }
 
-    ThrottleTarget(String name, int partition, int broker) {
+    TopicThrottle(String name, Integer partition, Integer broker, LogIdentity identity) {
       this.name = name;
-      this.partition = OptionalInt.of(partition);
-      this.broker = OptionalInt.of(broker);
-      this.type = Optional.empty();
+      this.partition = partition;
+      this.broker = broker;
+      this.type = (identity == null) ? null : identity.name();
     }
 
-    ThrottleTarget(String name, int partition, int broker, LogIdentity type) {
-      this.name = name;
-      this.partition = OptionalInt.of(partition);
-      this.broker = OptionalInt.of(broker);
-      this.type = Optional.of(type);
+    @Override
+    public String toString() {
+      return "ThrottleTarget{"
+          + "name='"
+          + name
+          + '\''
+          + ", partition="
+          + partition
+          + ", broker="
+          + broker
+          + ", type="
+          + type
+          + '}';
     }
-  }
-
-  enum ThrottleBandwidths {
-    ingress,
-    egress;
   }
 
   enum LogIdentity {
     leader,
-    follower;
+    follower
   }
 }

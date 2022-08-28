@@ -23,7 +23,6 @@ import java.util.stream.Collectors;
 import org.astraea.app.admin.ClusterBean;
 import org.astraea.app.admin.ClusterInfo;
 import org.astraea.app.admin.Replica;
-import org.astraea.app.admin.TopicPartition;
 import org.astraea.app.admin.TopicPartitionReplica;
 import org.astraea.app.metrics.broker.LogMetrics;
 import org.astraea.app.metrics.collector.Fetcher;
@@ -37,11 +36,11 @@ public class ReplicaSizeMoveCost implements HasMoveCost {
   }
 
   @Override
-  public MoveCost moveCost(ClusterInfo before, ClusterInfo after, ClusterBean clusterBean) {
+  public MoveCost moveCost(
+      ClusterInfo<Replica> before, ClusterInfo<Replica> after, ClusterBean clusterBean) {
     var replicaSize =
         before.topics().stream()
             .flatMap(topic -> before.replicas(topic).stream())
-            .map(replicaInfo -> (Replica) replicaInfo)
             .map(
                 replica ->
                     Map.entry(
@@ -49,8 +48,8 @@ public class ReplicaSizeMoveCost implements HasMoveCost {
                             replica.topic(), replica.partition(), replica.nodeInfo().id()),
                         replica.size()))
             .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));
-    var diff = ClusterInfo.diff(before, after);
-    var migrateInfo = migrateInfo(diff, replicaSize);
+    var changes = ClusterInfo.diff4TopicPartitionReplica(before, after);
+    var migrateInfo = migrateInfo(changes, replicaSize);
     var sizeChanges = migrateInfo.sizeChange;
     var totalMigrateSize = migrateInfo.totalMigrateSize;
     return new MoveCost() {
@@ -87,32 +86,30 @@ public class ReplicaSizeMoveCost implements HasMoveCost {
   }
 
   static MigrateInfo migrateInfo(
-      ClusterInfo.Diff diff, Map<TopicPartitionReplica, Long> replicaSize) {
-
+      Map<Replica, Integer> diff, Map<TopicPartitionReplica, Long> replicaSize) {
     var changes = new HashMap<Integer, Long>();
-    diff.sourceChange.forEach(
-        (tp, brokerId) ->
-            changes.put(
-                brokerId,
-                -replicaSize.get(TopicPartitionReplica.of(tp.topic(), tp.partition(), brokerId))
-                    + changes.getOrDefault(brokerId, 0L)));
-    diff.sinkChange.forEach(
-        (tp, brokerId) ->
-            changes.put(
-                brokerId,
-                replicaSize.get(
-                        TopicPartitionReplica.of(
-                            tp.topic(),
-                            tp.partition(),
-                            diff.sourceChange.get(TopicPartition.of(tp.topic(), tp.partition()))))
-                    + changes.getOrDefault(brokerId, 0L)));
+    diff.forEach(
+        (replica, brokerId) -> {
+          changes.put(
+              replica.nodeInfo().id(),
+              -replicaSize.get(
+                      TopicPartitionReplica.of(
+                          replica.topic(), replica.partition(), replica.nodeInfo().id()))
+                  + changes.getOrDefault(replica.nodeInfo().id(), 0L));
+          changes.put(
+              brokerId,
+              replicaSize.get(
+                      TopicPartitionReplica.of(
+                          replica.topic(), replica.partition(), replica.nodeInfo().id()))
+                  + changes.getOrDefault(brokerId, 0L));
+        });
     var totalSizeChange =
-        diff.sourceChange.entrySet().stream()
+        diff.keySet().stream()
             .mapToLong(
-                e ->
+                replica ->
                     replicaSize.get(
                         TopicPartitionReplica.of(
-                            e.getKey().topic(), e.getKey().partition(), e.getValue())))
+                            replica.topic(), replica.partition(), replica.nodeInfo().id())))
             .sum();
     return new MigrateInfo(totalSizeChange, changes);
   }

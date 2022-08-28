@@ -19,12 +19,14 @@ package org.astraea.app.admin;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.Optional;
 import java.util.Set;
+import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 
-public interface ClusterInfo {
-  ClusterInfo EMPTY =
-      new ClusterInfo() {
+public interface ClusterInfo<T extends ReplicaInfo> {
+  ClusterInfo<ReplicaInfo> EMPTY =
+      new ClusterInfo<>() {
 
         @Override
         public List<NodeInfo> nodes() {
@@ -37,50 +39,76 @@ public interface ClusterInfo {
         }
       };
 
-  class Diff {
-    public Map<TopicPartition, Integer> sourceChange;
-    public Map<TopicPartition, Integer> sinkChange;
-
-    Diff(Map<TopicPartition, Integer> sourceChange, Map<TopicPartition, Integer> sinkChange) {
-      this.sourceChange = sourceChange;
-      this.sinkChange = sinkChange;
-    }
+  /**
+   * compare the replicas according to either "host" or "data folder"
+   *
+   * @param before to be compared
+   * @param after to compare
+   * @return the diff replicas
+   */
+  static Map<Replica, Integer> diff4TopicPartitionReplica(
+      ClusterInfo<Replica> before, ClusterInfo<Replica> after) {
+    return ClusterInfo.diff(
+        before, after, (b, a) -> b.topicPartitionReplica().equals(a.topicPartitionReplica()));
   }
 
-  static Diff diff(ClusterInfo before, ClusterInfo after) {
-    var beforeMigrateReplicas =
-        before.topics().stream()
-            .flatMap(topic -> before.replicas(topic).stream())
+  /**
+   * find the changed replicas between `before` and `after`. The diff is based on following
+   * conditions. 1) the replicas are existent only in the `before` cluster 2) the replicas existent
+   * on both `before` and `after` are evaluated to be "not equal" Noted that the replicas existent
+   * only in the `after` cluster are NOT returned.
+   *
+   * @param before to be compared
+   * @param after to compare
+   * @param equal to compare replica
+   * @return the diff replicas
+   */
+  static Map<Replica, Integer> diff(
+      ClusterInfo<Replica> before,
+      ClusterInfo<Replica> after,
+      BiFunction<Replica, Replica, Boolean> equal) {
+    var beforeChange =
+        before.replicas().stream()
+            .filter(
+                beforeReplica ->
+                    after
+                        .replica(beforeReplica.topicPartitionReplica())
+                        // not equal so it is changed
+                        .map(newReplica -> !equal.apply(beforeReplica, newReplica))
+                        // no replica in the after cluster so it is changed
+                        .orElse(true))
+            .collect(Collectors.toSet());
+    var afterChange =
+        after.replicas().stream()
+            .filter(
+                afterReplica ->
+                    before
+                        .replica(afterReplica.topicPartitionReplica())
+                        // not equal so it is changed
+                        .map(newReplica -> !equal.apply(afterReplica, newReplica))
+                        // no replica in the after cluster so it is changed
+                        .orElse(true))
             .map(
-                replicaInfo ->
-                    TopicPartitionReplica.of(
-                        replicaInfo.topic(), replicaInfo.partition(), replicaInfo.nodeInfo().id()))
-            .collect(Collectors.toList());
-    var afterMigrateReplicas =
-        after.topics().stream()
-            .flatMap(topic -> after.replicas(topic).stream())
-            .map(
-                replicaInfo ->
-                    TopicPartitionReplica.of(
-                        replicaInfo.topic(), replicaInfo.partition(), replicaInfo.nodeInfo().id()))
-            .collect(Collectors.toList());
-    var sourceChange =
-        beforeMigrateReplicas.stream()
-            .filter(oldTPR -> !afterMigrateReplicas.contains(oldTPR))
-            .map(
-                oldTPR ->
+                replica ->
                     Map.entry(
-                        TopicPartition.of(oldTPR.topic(), oldTPR.partition()), oldTPR.brokerId()))
+                        TopicPartition.of(replica.topic(), replica.partition()),
+                        replica.nodeInfo().id()))
             .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-    var sinkChange =
-        afterMigrateReplicas.stream()
-            .filter(newTPR -> !beforeMigrateReplicas.contains(newTPR))
-            .map(
-                newTPR ->
-                    Map.entry(
-                        TopicPartition.of(newTPR.topic(), newTPR.partition()), newTPR.brokerId()))
-            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-    return new Diff(sourceChange, sinkChange);
+    return beforeChange.stream()
+        .filter(
+            replica ->
+                afterChange.containsKey(TopicPartition.of(replica.topic(), replica.partition())))
+        .map(
+            replica ->
+                Map.entry(
+                    replica,
+                    afterChange.get(TopicPartition.of(replica.topic(), replica.partition()))))
+        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+  }
+
+  @SuppressWarnings("unchecked")
+  static <T extends ReplicaInfo> ClusterInfo<T> empty() {
+    return (ClusterInfo<T>) EMPTY;
   }
 
   /**
@@ -90,14 +118,17 @@ public interface ClusterInfo {
    * @param cluster kafka ClusterInfo
    * @return ClusterInfo
    */
-  static ClusterInfo of(org.apache.kafka.common.Cluster cluster) {
-    var nodes = cluster.nodes().stream().map(NodeInfo::of).collect(Collectors.toUnmodifiableList());
-    var topics = cluster.topics();
-    var replicas =
-        topics.stream()
+  static ClusterInfo<ReplicaInfo> of(org.apache.kafka.common.Cluster cluster) {
+    return of(
+        cluster.nodes().stream().map(NodeInfo::of).collect(Collectors.toUnmodifiableList()),
+        cluster.topics().stream()
             .flatMap(t -> cluster.partitionsForTopic(t).stream())
             .flatMap(p -> ReplicaInfo.of(p).stream())
-            .collect(Collectors.toUnmodifiableList());
+            .collect(Collectors.toUnmodifiableList()));
+  }
+
+  static <T extends ReplicaInfo> ClusterInfo<T> of(List<NodeInfo> nodes, List<T> replicas) {
+    var topics = replicas.stream().map(ReplicaInfo::topic).collect(Collectors.toUnmodifiableSet());
     var replicasForTopic = replicas.stream().collect(Collectors.groupingBy(ReplicaInfo::topic));
     var availableReplicasForTopic =
         replicas.stream()
@@ -115,7 +146,7 @@ public interface ClusterInfo {
             .filter(ReplicaInfo::isLeader)
             .collect(Collectors.groupingBy(r -> Map.entry(r.nodeInfo().id(), r.topic())));
 
-    return new ClusterInfo() {
+    return new ClusterInfo<>() {
       @Override
       public List<NodeInfo> nodes() {
         return nodes;
@@ -126,28 +157,28 @@ public interface ClusterInfo {
       }
 
       @Override
-      public List<ReplicaInfo> availableReplicaLeaders(String topic) {
+      public List<T> availableReplicaLeaders(String topic) {
         return availableReplicaLeadersForTopics.getOrDefault(topic, List.of());
       }
 
       @Override
-      public List<ReplicaInfo> availableReplicaLeaders(int broker, String topic) {
+      public List<T> availableReplicaLeaders(int broker, String topic) {
         return availableLeaderReplicasForBrokersTopics.getOrDefault(
             Map.entry(broker, topic), List.of());
       }
 
       @Override
-      public List<ReplicaInfo> availableReplicas(String topic) {
+      public List<T> availableReplicas(String topic) {
         return availableReplicasForTopic.getOrDefault(topic, List.of());
       }
 
       @Override
-      public List<ReplicaInfo> replicas(String topic) {
+      public List<T> replicas(String topic) {
         return replicasForTopic.getOrDefault(topic, List.of());
       }
 
       @Override
-      public List<ReplicaInfo> replicas() {
+      public List<T> replicas() {
         return replicas;
       }
     };
@@ -173,7 +204,7 @@ public interface ClusterInfo {
    * @param topic The Topic name
    * @return A list of {@link ReplicaInfo}.
    */
-  default List<ReplicaInfo> availableReplicaLeaders(String topic) {
+  default List<T> availableReplicaLeaders(String topic) {
     return replicas(topic).stream()
         .filter(ReplicaInfo::isLeader)
         .collect(Collectors.toUnmodifiableList());
@@ -187,7 +218,7 @@ public interface ClusterInfo {
    * @param topic The Topic name
    * @return A list of {@link ReplicaInfo}.
    */
-  default List<ReplicaInfo> availableReplicaLeaders(int broker, String topic) {
+  default List<T> availableReplicaLeaders(int broker, String topic) {
     return availableReplicaLeaders(topic).stream()
         .filter(r -> r.nodeInfo().id() == broker)
         .collect(Collectors.toUnmodifiableList());
@@ -200,7 +231,7 @@ public interface ClusterInfo {
    * @param topic The topic name
    * @return A list of {@link ReplicaInfo}.
    */
-  default List<ReplicaInfo> availableReplicas(String topic) {
+  default List<T> availableReplicas(String topic) {
     return replicas(topic).stream()
         .filter(ReplicaInfo::isOnline)
         .collect(Collectors.toUnmodifiableList());
@@ -224,12 +255,20 @@ public interface ClusterInfo {
    * @param topic The topic name
    * @return A list of {@link ReplicaInfo}.
    */
-  default List<ReplicaInfo> replicas(String topic) {
+  default List<T> replicas(String topic) {
     return replicas().stream()
         .filter(r -> r.topic().equals(topic))
         .collect(Collectors.toUnmodifiableList());
   }
 
+  /**
+   * @param replica to search
+   * @return the replica matched to input replica
+   */
+  default Optional<T> replica(TopicPartitionReplica replica) {
+    return replicas().stream().filter(r -> r.topicPartitionReplica().equals(replica)).findFirst();
+  }
+
   /** @return all replicas cached by this cluster info. */
-  List<ReplicaInfo> replicas();
+  List<T> replicas();
 }
