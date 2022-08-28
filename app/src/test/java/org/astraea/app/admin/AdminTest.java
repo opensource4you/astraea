@@ -1559,12 +1559,12 @@ public class AdminTest extends RequireBrokerCluster {
     try (Admin admin = Admin.of(bootstrapServers())) {
       var topic = Utils.randomString();
       admin.creator().topic(topic).numberOfPartitions(10).numberOfReplicas((short) 3).create();
-      Utils.sleep(Duration.ofMillis(100));
+      Utils.sleep(Duration.ofSeconds(1));
       admin.replicationThrottler().throttle(topic).apply();
-      Utils.sleep(Duration.ofMillis(100));
+      Utils.sleep(Duration.ofSeconds(1));
 
       admin.clearReplicationThrottle(TopicPartitionReplica.of(topic, 0, 0));
-      Utils.sleep(Duration.ofMillis(500));
+      Utils.sleep(Duration.ofSeconds(1));
 
       Assertions.assertTrue(
           fetchLeaderThrottle(topic).stream()

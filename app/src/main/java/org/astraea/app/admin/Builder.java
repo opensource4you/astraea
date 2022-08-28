@@ -900,8 +900,21 @@ public class Builder {
 
     @Override
     public void clearReplicationThrottle(TopicPartitionReplica log) {
-      clearLeaderReplicationThrottle(log);
-      clearFollowerReplicationThrottle(log);
+      // Attempt to submit two config alterations might encounter some bug.
+      // We have to submit all the changes in one API request.
+      // see https://github.com/skiptests/astraea/issues/649
+      var configValue = log.partition() + ":" + log.brokerId();
+      var configEntry0 = new ConfigEntry("leader.replication.throttled.replicas", configValue);
+      var configEntry1 = new ConfigEntry("follower.replication.throttled.replicas", configValue);
+      var configResource = new ConfigResource(ConfigResource.Type.TOPIC, log.topic());
+      Utils.packException(
+          () ->
+              admin.incrementalAlterConfigs(
+                  Map.of(
+                      configResource,
+                      List.of(
+                          new AlterConfigOp(configEntry0, AlterConfigOp.OpType.SUBTRACT),
+                          new AlterConfigOp(configEntry1, AlterConfigOp.OpType.SUBTRACT)))));
     }
 
     @Override
