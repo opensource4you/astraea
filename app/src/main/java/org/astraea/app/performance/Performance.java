@@ -216,7 +216,7 @@ public class Performance {
                     .create();
               }
             });
-        topics.forEach(topic -> Utils.waitFor(()-> admin.topicNames().contains(topic)));
+        topics.forEach(topic -> Utils.waitFor(() -> admin.topicNames().contains(topic)));
       }
     }
 
