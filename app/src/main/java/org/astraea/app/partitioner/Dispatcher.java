@@ -140,7 +140,7 @@ public interface Dispatcher extends Partitioner {
   }
 
   private void end(Dispatcher dispatcher) {
-    if(INTERDEPENDENT.get(dispatcher.hashCode()).isInterdependent.compareAndSet(true,false)){
+    if (INTERDEPENDENT.get(dispatcher.hashCode()).isInterdependent.compareAndSet(true, false)) {
       INTERDEPENDENT.get(dispatcher.hashCode()).targetPartitions.set(-1);
     }
   }
