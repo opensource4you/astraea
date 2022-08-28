@@ -24,6 +24,8 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.astraea.app.admin.ClusterBean;
 import org.astraea.app.admin.ClusterInfo;
+import org.astraea.app.admin.Replica;
+import org.astraea.app.admin.ReplicaInfo;
 import org.astraea.app.admin.TopicPartition;
 import org.astraea.app.admin.TopicPartitionReplica;
 import org.astraea.app.metrics.HasBeanObject;
@@ -47,7 +49,7 @@ public class ReplicaDiskInCost implements HasClusterCost, HasBrokerCost {
   }
 
   @Override
-  public ClusterCost clusterCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
+  public ClusterCost clusterCost(ClusterInfo<Replica> clusterInfo, ClusterBean clusterBean) {
     var brokerCost = brokerCost(clusterInfo, clusterBean).value();
     // when retention occur, brokerCost will be set to -1 , and return a big score to reject this
     // plan.
@@ -56,7 +58,8 @@ public class ReplicaDiskInCost implements HasClusterCost, HasBrokerCost {
   }
 
   @Override
-  public BrokerCost brokerCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
+  public BrokerCost brokerCost(
+      ClusterInfo<? extends ReplicaInfo> clusterInfo, ClusterBean clusterBean) {
     var partitionCost = partitionCost(clusterInfo, clusterBean);
     var brokerLoad =
         clusterInfo.nodes().stream()
@@ -72,7 +75,7 @@ public class ReplicaDiskInCost implements HasClusterCost, HasBrokerCost {
   }
 
   private Function<Integer, Map<TopicPartition, Double>> partitionCost(
-      ClusterInfo clusterInfo, ClusterBean clusterBean) {
+      ClusterInfo<? extends ReplicaInfo> clusterInfo, ClusterBean clusterBean) {
     var replicaIn = replicaDataRate(clusterBean, duration);
     var scoreForBroker =
         clusterInfo.nodes().stream()

@@ -29,6 +29,7 @@ import java.util.stream.IntStream;
 import org.astraea.app.admin.ClusterBean;
 import org.astraea.app.admin.ClusterInfo;
 import org.astraea.app.admin.NodeInfo;
+import org.astraea.app.admin.ReplicaInfo;
 import org.astraea.app.argument.DurationField;
 import org.astraea.app.common.Utils;
 import org.astraea.app.cost.CostFunction;
@@ -85,7 +86,7 @@ public class StrictCostDispatcher implements Dispatcher {
     return beanCollector.register().host(host).port(port).fetcher(fetcher).build();
   }
 
-  void tryToUpdateFetcher(ClusterInfo clusterInfo) {
+  void tryToUpdateFetcher(ClusterInfo<ReplicaInfo> clusterInfo) {
     // add new receivers for new brokers
     fetcher.ifPresent(
         fetcher ->
@@ -102,7 +103,8 @@ public class StrictCostDispatcher implements Dispatcher {
   }
 
   @Override
-  public int partition(String topic, byte[] key, byte[] value, ClusterInfo clusterInfo) {
+  public int partition(
+      String topic, byte[] key, byte[] value, ClusterInfo<ReplicaInfo> clusterInfo) {
     var partitionLeaders = clusterInfo.availableReplicaLeaders(topic);
     // just return first partition if there is no available partitions
     if (partitionLeaders.isEmpty()) return 0;
@@ -125,7 +127,7 @@ public class StrictCostDispatcher implements Dispatcher {
     return candidate.get((int) (Math.random() * candidate.size())).partition();
   }
 
-  synchronized void tryToUpdateRoundRobin(ClusterInfo clusterInfo) {
+  synchronized void tryToUpdateRoundRobin(ClusterInfo<ReplicaInfo> clusterInfo) {
     if (System.currentTimeMillis() >= timeToUpdateRoundRobin) {
       var roundRobin =
           newRoundRobin(
@@ -167,7 +169,9 @@ public class StrictCostDispatcher implements Dispatcher {
    * @return SmoothWeightedRoundRobin
    */
   static RoundRobin<Integer> newRoundRobin(
-      Map<HasBrokerCost, Double> costFunctions, ClusterInfo clusterInfo, ClusterBean clusterBean) {
+      Map<HasBrokerCost, Double> costFunctions,
+      ClusterInfo<ReplicaInfo> clusterInfo,
+      ClusterBean clusterBean) {
     var weightedCost =
         costFunctions.entrySet().stream()
             .flatMap(

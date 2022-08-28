@@ -23,9 +23,9 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-public interface ClusterInfo {
-  ClusterInfo EMPTY =
-      new ClusterInfo() {
+public interface ClusterInfo<T extends ReplicaInfo> {
+  ClusterInfo<ReplicaInfo> EMPTY =
+      new ClusterInfo<>() {
 
         @Override
         public List<NodeInfo> nodes() {
@@ -38,6 +38,11 @@ public interface ClusterInfo {
         }
       };
 
+  @SuppressWarnings("unchecked")
+  static <T extends ReplicaInfo> ClusterInfo<T> empty() {
+    return (ClusterInfo<T>) EMPTY;
+  }
+
   /**
    * convert the kafka Cluster to our ClusterInfo. Noted: this method is used by {@link
    * org.astraea.app.cost.HasBrokerCost} normally, so all data structure are converted immediately
@@ -45,7 +50,7 @@ public interface ClusterInfo {
    * @param cluster kafka ClusterInfo
    * @return ClusterInfo
    */
-  static ClusterInfo of(org.apache.kafka.common.Cluster cluster) {
+  static ClusterInfo<ReplicaInfo> of(org.apache.kafka.common.Cluster cluster) {
     return of(
         cluster.nodes().stream().map(NodeInfo::of).collect(Collectors.toUnmodifiableList()),
         cluster.topics().stream()
@@ -54,7 +59,7 @@ public interface ClusterInfo {
             .collect(Collectors.toUnmodifiableList()));
   }
 
-  static ClusterInfo of(List<NodeInfo> nodes, List<ReplicaInfo> replicas) {
+  static <T extends ReplicaInfo> ClusterInfo<T> of(List<NodeInfo> nodes, List<T> replicas) {
     var topics = replicas.stream().map(ReplicaInfo::topic).collect(Collectors.toUnmodifiableSet());
     var replicasForTopic = replicas.stream().collect(Collectors.groupingBy(ReplicaInfo::topic));
     var availableReplicasForTopic =
@@ -73,7 +78,7 @@ public interface ClusterInfo {
             .filter(ReplicaInfo::isLeader)
             .collect(Collectors.groupingBy(r -> Map.entry(r.nodeInfo().id(), r.topic())));
 
-    return new ClusterInfo() {
+    return new ClusterInfo<>() {
       @Override
       public List<NodeInfo> nodes() {
         return nodes;
@@ -84,28 +89,28 @@ public interface ClusterInfo {
       }
 
       @Override
-      public List<ReplicaInfo> availableReplicaLeaders(String topic) {
+      public List<T> availableReplicaLeaders(String topic) {
         return availableReplicaLeadersForTopics.getOrDefault(topic, List.of());
       }
 
       @Override
-      public List<ReplicaInfo> availableReplicaLeaders(int broker, String topic) {
+      public List<T> availableReplicaLeaders(int broker, String topic) {
         return availableLeaderReplicasForBrokersTopics.getOrDefault(
             Map.entry(broker, topic), List.of());
       }
 
       @Override
-      public List<ReplicaInfo> availableReplicas(String topic) {
+      public List<T> availableReplicas(String topic) {
         return availableReplicasForTopic.getOrDefault(topic, List.of());
       }
 
       @Override
-      public List<ReplicaInfo> replicas(String topic) {
+      public List<T> replicas(String topic) {
         return replicasForTopic.getOrDefault(topic, List.of());
       }
 
       @Override
-      public List<ReplicaInfo> replicas() {
+      public List<T> replicas() {
         return replicas;
       }
     };
@@ -131,7 +136,7 @@ public interface ClusterInfo {
    * @param topic The Topic name
    * @return A list of {@link ReplicaInfo}.
    */
-  default List<ReplicaInfo> availableReplicaLeaders(String topic) {
+  default List<T> availableReplicaLeaders(String topic) {
     return replicas(topic).stream()
         .filter(ReplicaInfo::isLeader)
         .collect(Collectors.toUnmodifiableList());
@@ -145,7 +150,7 @@ public interface ClusterInfo {
    * @param topic The Topic name
    * @return A list of {@link ReplicaInfo}.
    */
-  default List<ReplicaInfo> availableReplicaLeaders(int broker, String topic) {
+  default List<T> availableReplicaLeaders(int broker, String topic) {
     return availableReplicaLeaders(topic).stream()
         .filter(r -> r.nodeInfo().id() == broker)
         .collect(Collectors.toUnmodifiableList());
@@ -158,7 +163,7 @@ public interface ClusterInfo {
    * @param topic The topic name
    * @return A list of {@link ReplicaInfo}.
    */
-  default List<ReplicaInfo> availableReplicas(String topic) {
+  default List<T> availableReplicas(String topic) {
     return replicas(topic).stream()
         .filter(ReplicaInfo::isOnline)
         .collect(Collectors.toUnmodifiableList());
@@ -182,7 +187,7 @@ public interface ClusterInfo {
    * @param topic The topic name
    * @return A list of {@link ReplicaInfo}.
    */
-  default List<ReplicaInfo> replicas(String topic) {
+  default List<T> replicas(String topic) {
     return replicas().stream()
         .filter(r -> r.topic().equals(topic))
         .collect(Collectors.toUnmodifiableList());
@@ -192,10 +197,10 @@ public interface ClusterInfo {
    * @param replica to search
    * @return the replica matched to input replica
    */
-  default Optional<ReplicaInfo> replica(TopicPartitionReplica replica) {
+  default Optional<T> replica(TopicPartitionReplica replica) {
     return replicas().stream().filter(r -> r.topicPartitionReplica().equals(replica)).findFirst();
   }
 
   /** @return all replicas cached by this cluster info. */
-  List<ReplicaInfo> replicas();
+  List<T> replicas();
 }
