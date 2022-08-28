@@ -16,14 +16,19 @@
  */
 package org.astraea.app.web;
 
+import com.google.gson.reflect.TypeToken;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.astraea.app.admin.Admin;
+import org.astraea.app.admin.TopicPartition;
 import org.astraea.app.admin.TopicPartitionReplica;
+import org.astraea.app.common.DataRate;
 
 public class ThrottleHandler implements Handler {
   private final Admin admin;
@@ -81,6 +86,93 @@ public class ThrottleHandler implements Handler {
             .collect(Collectors.toUnmodifiableSet());
 
     return new ThrottleSetting(brokers, simplify(leaderTargets, followerTargets));
+  }
+
+  @Override
+  public Response post(Channel channel) {
+    var brokerToUpdate =
+        channel
+            .request()
+            .<Collection<BrokerThrottle>>get(
+                "brokers",
+                TypeToken.getParameterized(Collection.class, BrokerThrottle.class).getType())
+            .orElse(List.of());
+    var topics =
+        channel
+            .request()
+            .<Collection<TopicThrottle>>get(
+                "brokers",
+                TypeToken.getParameterized(Collection.class, TopicThrottle.class).getType())
+            .orElse(List.of());
+
+    final var throttler = admin.replicationThrottler();
+    // ingress
+    throttler.ingress(
+        brokerToUpdate.stream()
+            .filter(broker -> broker.ingress != null)
+            .collect(
+                Collectors.toUnmodifiableMap(
+                    broker -> broker.id, broker -> DataRate.Byte.of(broker.ingress).perSecond())));
+    // egress
+    throttler.egress(
+        brokerToUpdate.stream()
+            .filter(broker -> broker.egress != null)
+            .collect(
+                Collectors.toUnmodifiableMap(
+                    broker -> broker.id, broker -> DataRate.Byte.of(broker.egress).perSecond())));
+    // topic
+    topics.stream()
+        .filter(topic -> topic.name != null)
+        .filter(topic -> topic.partition == null)
+        .filter(topic -> topic.broker == null)
+        .filter(topic -> topic.type == null)
+        .map(topic -> topic.name)
+        .forEach(throttler::throttle);
+    // partition
+    topics.stream()
+        .filter(topic -> topic.name != null)
+        .filter(topic -> topic.partition != null)
+        .filter(topic -> topic.broker == null)
+        .filter(topic -> topic.type == null)
+        .map(topic -> TopicPartition.of(topic.name, topic.partition))
+        .forEach(throttler::throttle);
+    // replica
+    topics.stream()
+        .filter(topic -> topic.name != null)
+        .filter(topic -> topic.partition != null)
+        .filter(topic -> topic.broker != null)
+        .filter(topic -> topic.type == null)
+        .map(topic -> TopicPartitionReplica.of(topic.name, topic.partition, topic.broker))
+        .forEach(throttler::throttle);
+    // leader/follower
+    topics.stream()
+        .filter(topic -> topic.name != null)
+        .filter(topic -> topic.partition != null)
+        .filter(topic -> topic.broker != null)
+        .filter(topic -> topic.type != null)
+        .forEach(
+            topic -> {
+              var replica = TopicPartitionReplica.of(topic.name, topic.partition, topic.broker);
+              if (topic.type.equals("leader")) throttler.throttleLeader(replica);
+              else if (topic.type.equals("follower")) throttler.throttleFollower(replica);
+              else throw new IllegalArgumentException("Unknown throttle type: " + topic.type);
+            });
+
+    var affectedResources = throttler.apply();
+    var affectedBrokers =
+        Stream.concat(
+                affectedResources.ingress().keySet().stream(),
+                affectedResources.egress().keySet().stream())
+            .distinct()
+            .map(
+                broker ->
+                    BrokerThrottle.of(
+                        broker,
+                        affectedResources.ingress().get(broker),
+                        affectedResources.egress().get(broker)))
+            .collect(Collectors.toUnmodifiableList());
+    var affectedTopics = simplify(affectedResources.leaders(), affectedResources.followers());
+    return new ThrottleSetting(affectedBrokers, affectedTopics);
   }
 
   /**
@@ -159,6 +251,13 @@ public class ThrottleHandler implements Handler {
     final int id;
     final Long ingress;
     final Long egress;
+
+    static BrokerThrottle of(int id, DataRate ingress, DataRate egress) {
+      return new BrokerThrottle(
+          id,
+          Optional.ofNullable(ingress).map(i -> (long) i.byteRate()).orElse(null),
+          Optional.ofNullable(egress).map(i -> (long) i.byteRate()).orElse(null));
+    }
 
     BrokerThrottle(int id, Long ingress, Long egress) {
       this.id = id;

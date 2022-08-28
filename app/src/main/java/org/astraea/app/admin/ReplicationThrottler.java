@@ -17,6 +17,7 @@
 package org.astraea.app.admin;
 
 import java.util.Map;
+import java.util.Set;
 import org.astraea.app.common.DataRate;
 
 /**
@@ -120,6 +121,21 @@ public interface ReplicationThrottler {
    */
   ReplicationThrottler throttleFollower(TopicPartitionReplica replica);
 
-  /** Apply the throttle setting to the cluster. */
-  void apply();
+  /**
+   * Apply the throttle setting to the cluster.
+   *
+   * @return an {@link AffectedResources} object that describe the resource that will be affected
+   *     after applied this throttle.
+   */
+  AffectedResources apply();
+
+  interface AffectedResources {
+    Map<Integer, DataRate> ingress();
+
+    Map<Integer, DataRate> egress();
+
+    Set<TopicPartitionReplica> leaders();
+
+    Set<TopicPartitionReplica> followers();
+  }
 }

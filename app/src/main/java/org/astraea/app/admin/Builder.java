@@ -711,9 +711,35 @@ public class Builder {
         }
 
         @Override
-        public void apply() {
+        public AffectedResources apply() {
           applyBandwidth();
           applyThrottledReplicas();
+          return new AffectedResources() {
+            final Map<Integer, DataRate> ingressCopy = Map.copyOf(ingress);
+            final Map<Integer, DataRate> egressCopy = Map.copyOf(egress);
+            final Set<TopicPartitionReplica> leaderCopy = Set.copyOf(leaders);
+            final Set<TopicPartitionReplica> followerCopy = Set.copyOf(followers);
+
+            @Override
+            public Map<Integer, DataRate> ingress() {
+              return ingressCopy;
+            }
+
+            @Override
+            public Map<Integer, DataRate> egress() {
+              return egressCopy;
+            }
+
+            @Override
+            public Set<TopicPartitionReplica> leaders() {
+              return leaderCopy;
+            }
+
+            @Override
+            public Set<TopicPartitionReplica> followers() {
+              return followerCopy;
+            }
+          };
         }
 
         private void applyThrottledReplicas() {
