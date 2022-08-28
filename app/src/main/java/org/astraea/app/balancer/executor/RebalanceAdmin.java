@@ -23,6 +23,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Predicate;
 import org.astraea.app.admin.Admin;
 import org.astraea.app.admin.ClusterInfo;
+import org.astraea.app.admin.Replica;
 import org.astraea.app.admin.TopicPartition;
 import org.astraea.app.admin.TopicPartitionReplica;
 import org.astraea.app.balancer.log.LogPlacement;
@@ -87,7 +88,7 @@ public interface RebalanceAdmin {
    */
   LeaderElectionTask leaderElection(TopicPartition topicPartition);
 
-  ClusterInfo clusterInfo();
+  ClusterInfo<Replica> clusterInfo();
 
   /**
    * @return a {@link Predicate<String>} indicate which topic name is allowed to operate by this

@@ -200,7 +200,7 @@ public interface Admin extends Closeable {
   Collection<Quota> quotas();
 
   /** @return a snapshot object of cluster state at the moment */
-  default ClusterInfo clusterInfo() {
+  default ClusterInfo<Replica> clusterInfo() {
     return clusterInfo(topicNames());
   }
 
@@ -208,7 +208,7 @@ public interface Admin extends Closeable {
    * @param topics query only this subset of topics
    * @return a snapshot object of cluster state at the moment
    */
-  ClusterInfo clusterInfo(Set<String> topics);
+  ClusterInfo<Replica> clusterInfo(Set<String> topics);
 
   /** @return all transaction ids */
   Set<String> transactionIds();

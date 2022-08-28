@@ -22,6 +22,7 @@ import java.util.stream.Collectors;
 import org.apache.kafka.clients.producer.Partitioner;
 import org.apache.kafka.common.Cluster;
 import org.astraea.app.admin.ClusterInfo;
+import org.astraea.app.admin.ReplicaInfo;
 
 public interface Dispatcher extends Partitioner {
   /**
@@ -38,7 +39,7 @@ public interface Dispatcher extends Partitioner {
    * @param value The value to partition
    * @param clusterInfo The current cluster metadata
    */
-  int partition(String topic, byte[] key, byte[] value, ClusterInfo clusterInfo);
+  int partition(String topic, byte[] key, byte[] value, ClusterInfo<ReplicaInfo> clusterInfo);
 
   /**
    * configure this dispatcher. This method is called only once.

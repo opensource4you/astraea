@@ -37,11 +37,9 @@ import org.astraea.app.admin.TopicPartition;
  */
 public interface ClusterLogAllocation {
 
-  static ClusterLogAllocation of(ClusterInfo clusterInfo) {
+  static ClusterLogAllocation of(ClusterInfo<Replica> clusterInfo) {
     return of(
         clusterInfo.replicas().stream()
-            .filter(r -> r instanceof Replica)
-            .map(r -> (Replica) r)
             .collect(Collectors.groupingBy(r -> TopicPartition.of(r.topic(), r.partition())))
             .entrySet()
             .stream()
