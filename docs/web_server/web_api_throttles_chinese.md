@@ -164,15 +164,15 @@ cURL 範例
 * ##### 移除整個 Topic/Partition/Replica 的 replication throttle
 
   ```shell
-  # 移除與 TopicA/partition 3/broker 4 相關的所有 replication throttle
-  curl -X DELETE "http://localhost:8001/throttles?topic=MyTopicA&partition=3&broker=4"
+  # 移除與 TopicA/partition 3/replica at broker 4 相關的所有 replication throttle
+  curl -X DELETE "http://localhost:8001/throttles?topic=MyTopicA&partition=3&replica=4"
   ```
 
 * ##### 移除特定 Topic/Partition/Replica 針對 leader 或是 follower 的 replication throttle
 
   ```shell
-  # 移除 TopicA/partition 3/broker 4 的 leader replication throttle
-  curl -X DELETE "http://localhost:8001/throttles?topic=MyTopicA&partition=3&broker=4&type=leader"
+  # 移除 TopicA/partition 3/replica at broker 4 的 leader replication throttle
+  curl -X DELETE "http://localhost:8001/throttles?topic=MyTopicA&partition=3&replica=4&type=leader"
   ```
 
 * ##### 移除特定節點的 replication 輸入限流
