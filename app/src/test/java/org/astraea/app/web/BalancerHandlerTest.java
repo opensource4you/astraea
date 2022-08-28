@@ -39,7 +39,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
       var report =
           Assertions.assertInstanceOf(
               BalancerHandler.Report.class,
-              handler.get(Channel.ofQueries(Map.of(BalancerHandler.LIMIT_KEY, "30"))));
+              handler.get(Channel.ofQueries(Map.of(BalancerHandler.LIMIT_KEY, "60"))));
       Assertions.assertEquals(30, report.limit);
       Assertions.assertNotEquals(0, report.changes.size());
       Assertions.assertTrue(report.cost >= report.newCost);
