@@ -20,7 +20,7 @@
 | :----------------: | :----------------------------------------------------------- | :------------------------------: |
 | bootstrap.servers  | (必填) 欲連接的Kafka server address                          |                無                |
 |    compression     | (選填) Kafka Producer使用的壓縮演算法，可用的壓縮演算法為：`gzip`, `snappy`, `lz4`, `zstd` |               none               |
-|       topic        | (選填) 選擇topic name                                        | testPerformance-{Time in millis} |
+|       topics       | (選填) 選擇topic names，可一次建立多個 topics<br />例如 : --topics test,test1,test2 | testPerformance-{Time in millis} |
 |     partitions     | (選填) 建立topic時，設定的partition數                        |                1                 |
 |      replicas      | (選填) 建立topic時，設定的replica數                          |                1                 |
 |     consumers      | (選填) 欲開啟的consumer thread(s)數量                        |                1                 |
@@ -38,6 +38,7 @@
 |    report.path     | (選填) report file的檔案路徑                                 |               none               |
 |   report.format    | (選填) 選擇輸出檔案格式, 可用的格式：`csv`, `json`           |               csv                |
 |  transaction.size  | (選填) 每個transaction的records數量。若設置1以上，會使用transaction，否則都是一般write |                1                 |
+|      group.id      | (選填) 設置 consumer group id                                |     groupId-{Time in millis}     |
 
 #### 使用範例
 
@@ -91,3 +92,14 @@ docker/start_app.sh performance --bootstrap.servers localhost:9092 --partitioner
 # 使用 partitioner 框架，指定參考 Broker Input 做效能指標，把紀錄輸出到指定路徑。
 docker/start_app.sh performance --bootstrap.servers localhost:9092 --partitioner org.astraea.app.partitioner.StrictCostDispatcher --configs org.astraea.app.cost.BrokerInputCost=1 --prop.file ./config --report.path ~/report
 ```
+
+``` bash
+# 建立多個 topics ，每個 topic 擁有使用者所定義的 partition、replica 數
+docker/start_app.sh performance --bootstrap.servers localhost:9092 --topics test1,test2,test3 --partitions 2,3,4 --replicas 3,2,1
+```
+
+```bash
+# 建立多個 topics ， 每個 topic 擁有相同的 partition、replica 數
+docker/start_app.sh performance --bootstrap.servers localhost:9092 --topics test1,test2,test3 --partitions 5 --replicas 2
+```
+
