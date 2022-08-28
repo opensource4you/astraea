@@ -232,7 +232,8 @@ public class Performance {
               pattern.putIfAbsent(topic, Map.of(partitions.get(index), replicas.get(index)));
             });
       } else {
-        throw new ParameterException("the number of partition and replica doesn't match");
+        throw new ParameterException(
+            "the number of parameters in --partitions and --replicas doesn't match");
       }
       return pattern;
     }
