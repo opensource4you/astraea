@@ -215,8 +215,8 @@ public class Performance {
                     .numberOfReplicas(partitionReplica.getValue())
                     .create();
               }
-              Utils.waitFor(() -> admin.topicNames().contains(topic));
             });
+        topics.forEach(topic -> Utils.waitFor(()-> admin.topicNames().contains(topic)));
       }
     }
 
