@@ -900,16 +900,28 @@ public class Builder {
 
     @Override
     public void clearReplicationThrottle(TopicPartitionReplica log) {
+      clearLeaderReplicationThrottle(log);
+      clearFollowerReplicationThrottle(log);
+    }
+
+    @Override
+    public void clearLeaderReplicationThrottle(TopicPartitionReplica log) {
       var configValue = log.partition() + ":" + log.brokerId();
       var configEntry0 = new ConfigEntry("leader.replication.throttled.replicas", configValue);
-      var configEntry1 = new ConfigEntry("follower.replication.throttled.replicas", configValue);
       var alterConfigOp0 = new AlterConfigOp(configEntry0, AlterConfigOp.OpType.SUBTRACT);
+      var configResource = new ConfigResource(ConfigResource.Type.TOPIC, log.topic());
+      Utils.packException(
+          () -> admin.incrementalAlterConfigs(Map.of(configResource, List.of(alterConfigOp0))));
+    }
+
+    @Override
+    public void clearFollowerReplicationThrottle(TopicPartitionReplica log) {
+      var configValue = log.partition() + ":" + log.brokerId();
+      var configEntry1 = new ConfigEntry("follower.replication.throttled.replicas", configValue);
       var alterConfigOp1 = new AlterConfigOp(configEntry1, AlterConfigOp.OpType.SUBTRACT);
       var configResource = new ConfigResource(ConfigResource.Type.TOPIC, log.topic());
       Utils.packException(
-          () ->
-              admin.incrementalAlterConfigs(
-                  Map.of(configResource, List.of(alterConfigOp0, alterConfigOp1))));
+          () -> admin.incrementalAlterConfigs(Map.of(configResource, List.of(alterConfigOp1))));
     }
 
     @Override

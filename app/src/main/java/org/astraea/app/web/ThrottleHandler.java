@@ -175,6 +175,48 @@ public class ThrottleHandler implements Handler {
     return new ThrottleSetting(affectedBrokers, affectedTopics);
   }
 
+  @Override
+  public Response delete(Channel channel) {
+    if (channel.queries().containsKey("topic")) {
+      var topic =
+          new TopicThrottle(
+              channel.queries().get("topic"),
+              Integer.parseInt(channel.queries().get("partition")),
+              Integer.parseInt(channel.queries().get("replica")),
+              Arrays.stream(LogIdentity.values())
+                  .filter(x -> x.name().equals(channel.queries().getOrDefault("type", "")))
+                  .findFirst()
+                  .orElse(null));
+
+      if (topic.partition == null && topic.broker == null && topic.type == null)
+        admin.clearReplicationThrottle(topic.name);
+      else if (topic.partition != null && topic.broker == null && topic.type == null)
+        admin.clearReplicationThrottle(TopicPartition.of(topic.name, topic.partition));
+      else if (topic.partition != null && topic.broker != null && topic.type == null)
+        admin.clearReplicationThrottle(
+            TopicPartitionReplica.of(topic.name, topic.partition, topic.broker));
+      else if (topic.partition != null && topic.broker != null && topic.type.equals("leader"))
+        admin.clearLeaderReplicationThrottle(
+            TopicPartitionReplica.of(topic.name, topic.partition, topic.broker));
+      else if (topic.partition != null && topic.broker != null && topic.type.equals("follower"))
+        admin.clearFollowerReplicationThrottle(
+            TopicPartitionReplica.of(topic.name, topic.partition, topic.broker));
+
+      return Response.ACCEPT;
+    } else if (channel.queries().containsKey("broker")) {
+      var broker = Integer.parseInt(channel.queries().get("broker"));
+      var bandwidth = channel.queries().get("type").split(" ");
+      for (String target : bandwidth) {
+        if (target.equals("ingress")) admin.clearIngressReplicationThrottle(Set.of(broker));
+        else if (target.equals("egress")) admin.clearEgressReplicationThrottle(Set.of(broker));
+        else throw new IllegalArgumentException("Unknown clear target: " + target);
+      }
+      return Response.ACCEPT;
+    } else {
+      return Response.BAD_REQUEST;
+    }
+  }
+
   /**
    * break apart the {@code throttled.replica} string setting into a set of topic/partition/replicas
    */
@@ -316,7 +358,7 @@ public class ThrottleHandler implements Handler {
     }
 
     TopicThrottle(String name, Integer partition, Integer broker, LogIdentity identity) {
-      this.name = name;
+      this.name = Objects.requireNonNull(name);
       this.partition = partition;
       this.broker = broker;
       this.type = (identity == null) ? null : identity.name();
