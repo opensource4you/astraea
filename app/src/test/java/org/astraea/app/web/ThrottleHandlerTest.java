@@ -45,6 +45,12 @@ public class ThrottleHandlerTest extends RequireBrokerCluster {
       var handler = new ThrottleHandler(admin);
       var dataRate = DataRate.MiB.of(500).perSecond();
       var longDataRate = (long) dataRate.byteRate();
+
+      // other tests might write this value too, ensure it is clean before we start
+      admin.clearIngressReplicationThrottle(brokerIds());
+      admin.clearEgressReplicationThrottle(brokerIds());
+      Utils.sleep(Duration.ofSeconds(1));
+
       admin
           .replicationThrottler()
           .ingress(Map.of(0, dataRate, 2, dataRate))
