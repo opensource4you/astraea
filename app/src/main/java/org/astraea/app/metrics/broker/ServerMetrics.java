@@ -462,49 +462,50 @@ public final class ServerMetrics {
 
     /** property : listener and networkProcessor */
     public static class SocketNetworkProcessorMetric implements HasBeanObject {
-      private static final String incomingByteTotal = "incoming-byte-total";
-      private static final String selectTotal = "select-total";
-      private static final String successfulAuthenticationRate = "successful-authentication-rate";
-      private static final String reauthenticationLatencyAvg = "reauthentication-latency-avg";
-      private static final String networkIoRate = "network-io-rate";
-      private static final String connectionCreationTotal = "connection-creation-total";
-      private static final String successfulReauthenticationRate =
+      private static final String INCOMING_BYTE_TOTAL = "incoming-byte-total";
+      private static final String SELECT_TOTAL = "select-total";
+      private static final String SUCCESSFUL_AUTHENTICATION_RATE = "successful-authentication-rate";
+      private static final String REAUTHENTICATION_LATENCY_AVG = "reauthentication-latency-avg";
+      private static final String NETWORK_IO_RATE = "network-io-rate";
+      private static final String CONNECTION_CREATION_TOTAL = "connection-creation-total";
+      private static final String SUCCESSFUL_REAUTHENTICATION_RATE =
           "successful-reauthentication-rate";
-      private static final String requestSizeMax = "request-size-max";
-      private static final String connectionCloseRate = "connection-close-rate";
-      private static final String successfulAuthenticationTotal = "successful-authentication-total";
-      private static final String ioTimeNsTotal = "io-time-ns-total";
-      private static final String connectionCount = "connection-count";
-      private static final String failedReauthenticationTotal = "failed-reauthentication-total";
-      private static final String requestRate = "request-rate";
-      private static final String successfulReauthenticationTotal =
+      private static final String REQUEST_SIZE_MAX = "request-size-max";
+      private static final String CONNECTION_CLOSE_RATE = "connection-close-rate";
+      private static final String SUCCESSFUL_AUTHENTICATION_TOTAL =
+          "successful-authentication-total";
+      private static final String IO_TIME_NS_TOTAL = "io-time-ns-total";
+      private static final String CONNECTION_COUNT = "connection-count";
+      private static final String FAILED_REAUTHENTICATION_TOTAL = "failed-reauthentication-total";
+      private static final String REQUEST_RATE = "request-rate";
+      private static final String SUCCESSFUL_REAUTHENTICATION_TOTAL =
           "successful-reauthentication-total";
-      private static final String responseRate = "response-rate";
-      private static final String connectionCreationRate = "connection-creation-rate";
-      private static final String ioWaitTimeNsAvg = "io-wait-time-ns-avg";
-      private static final String ioWaitTimeNsTotal = "io-wait-time-ns-total";
-      private static final String outgoingByteRate = "outgoing-byte-rate";
-      private static final String iotimeTotal = "iotime-total";
-      private static final String ioRatio = "io-ratio";
-      private static final String requestSizeAvg = "request-size-avg";
-      private static final String outgoingByteTotal = "outgoing-byte-total";
-      private static final String expiredConnectionsKilledCount =
+      private static final String RESPONSE_RATE = "response-rate";
+      private static final String CONNECTION_CREATION_RATE = "connection-creation-rate";
+      private static final String IO_WAIT_TIME_NS_AVG = "io-wait-time-ns-avg";
+      private static final String IO_WAIT_TIME_NS_TOTAL = "io-wait-time-ns-total";
+      private static final String OUTGOING_BYTE_RATE = "outgoing-byte-rate";
+      private static final String IOTIME_TOTAL = "iotime-total";
+      private static final String IO_RATIO = "io-ratio";
+      private static final String REQUEST_SIZE_AVG = "request-size-avg";
+      private static final String OUTGOING_BYTE_TOTAL = "outgoing-byte-total";
+      private static final String EXPIRED_CONNECTIONS_KILLED_COUNT =
           "expired-connections-killed-count";
-      private static final String connectionCloseTotal = "connection-close-total";
-      private static final String failedReauthenticationRate = "failed-reauthentication-rate";
-      private static final String networkIoTotal = "network-io-total";
-      private static final String failedAuthenticationTotal = "failed-authentication-total";
-      private static final String incomingByteRate = "incoming-byte-rate";
-      private static final String selectRate = "select-rate";
-      private static final String ioTimeNsAvg = "io-time-ns-avg";
-      private static final String reauthenticationLatencyMax = "reauthentication-latency-max";
-      private static final String responseTotal = "response-total";
-      private static final String failedAuthenticationRate = "failed-authentication-rate";
-      private static final String ioWaitRatio = "io-wait-ratio";
-      private static final String successfulAuthenticationNoReauthTotal =
+      private static final String CONNECTION_CLOSE_TOTAL = "connection-close-total";
+      private static final String FAILED_REAUTHENTICATION_RATE = "failed-reauthentication-rate";
+      private static final String NETWORK_IO_TOTAL = "network-io-total";
+      private static final String FAILED_AUTHENTICATION_TOTAL = "failed-authentication-total";
+      private static final String INCOMING_BYTE_RATE = "incoming-byte-rate";
+      private static final String SELECT_RATE = "select-rate";
+      private static final String IO_TIME_NS_AVG = "io-time-ns-avg";
+      private static final String REAUTHENTICATION_LATENCY_MAX = "reauthentication-latency-max";
+      private static final String RESPONSE_TOTAL = "response-total";
+      private static final String FAILED_AUTHENTICATION_RATE = "failed-authentication-rate";
+      private static final String IO_WAIT_RATIO = "io-wait-ratio";
+      private static final String SUCCESSFUL_AUTHENTICATION_NO_REAUTH_TOTAL =
           "successful-authentication-no-reauth-total";
-      private static final String requestTotal = "request-total";
-      private static final String ioWaittimeTotal = "io-waittime-total";
+      private static final String REQUEST_TOTAL = "request-total";
+      private static final String IO_WAITTIME_TOTAL = "io-waittime-total";
 
       private final BeanObject beanObject;
 
@@ -526,159 +527,159 @@ public final class ServerMetrics {
       }
 
       public double incomingByteTotal() {
-        return (double) beanObject().attributes().get(incomingByteTotal);
+        return (double) beanObject().attributes().get(INCOMING_BYTE_TOTAL);
       }
 
       public double selectTotal() {
-        return (double) beanObject().attributes().get(selectTotal);
+        return (double) beanObject().attributes().get(SELECT_TOTAL);
       }
 
       public double successfulAuthenticationRate() {
-        return (double) beanObject().attributes().get(successfulAuthenticationRate);
+        return (double) beanObject().attributes().get(SUCCESSFUL_AUTHENTICATION_RATE);
       }
 
       public double reauthenticationLatencyAvg() {
-        return (double) beanObject().attributes().get(reauthenticationLatencyAvg);
+        return (double) beanObject().attributes().get(REAUTHENTICATION_LATENCY_AVG);
       }
 
       public double networkIoRate() {
-        return (double) beanObject().attributes().get(networkIoRate);
+        return (double) beanObject().attributes().get(NETWORK_IO_RATE);
       }
 
       public double connectionCreationTotal() {
-        return (double) beanObject().attributes().get(connectionCreationTotal);
+        return (double) beanObject().attributes().get(CONNECTION_CREATION_TOTAL);
       }
 
       public double successfulReauthenticationRate() {
-        return (double) beanObject().attributes().get(successfulReauthenticationRate);
+        return (double) beanObject().attributes().get(SUCCESSFUL_REAUTHENTICATION_RATE);
       }
 
       public double requestSizeMax() {
-        return (double) beanObject().attributes().get(requestSizeMax);
+        return (double) beanObject().attributes().get(REQUEST_SIZE_MAX);
       }
 
       public double connectionCloseRate() {
-        return (double) beanObject().attributes().get(connectionCloseRate);
+        return (double) beanObject().attributes().get(CONNECTION_CLOSE_RATE);
       }
 
       public double successfulAuthenticationTotal() {
-        return (double) beanObject().attributes().get(successfulAuthenticationTotal);
+        return (double) beanObject().attributes().get(SUCCESSFUL_AUTHENTICATION_TOTAL);
       }
 
       public double ioTimeNsTotal() {
-        return (double) beanObject().attributes().get(iotimeTotal);
+        return (double) beanObject().attributes().get(IO_TIME_NS_TOTAL);
       }
 
       public double connectionCount() {
-        return (double) beanObject().attributes().get(connectionCount);
+        return (double) beanObject().attributes().get(CONNECTION_COUNT);
       }
 
       public double failedReauthenticationTotal() {
-        return (double) beanObject().attributes().get(failedAuthenticationTotal);
+        return (double) beanObject().attributes().get(FAILED_REAUTHENTICATION_TOTAL);
       }
 
       public double requestRate() {
-        return (double) beanObject().attributes().get(requestRate);
+        return (double) beanObject().attributes().get(REQUEST_RATE);
       }
 
       public double successfulReauthenticationTotal() {
-        return (double) beanObject().attributes().get(successfulReauthenticationTotal);
+        return (double) beanObject().attributes().get(SUCCESSFUL_REAUTHENTICATION_TOTAL);
       }
 
       public double responseRate() {
-        return (double) beanObject().attributes().get(responseRate);
+        return (double) beanObject().attributes().get(RESPONSE_RATE);
       }
 
       public double connectionCreationRate() {
-        return (double) beanObject().attributes().get(connectionCreationRate);
+        return (double) beanObject().attributes().get(CONNECTION_CREATION_RATE);
       }
 
       public double ioWaitTimeNsAvg() {
-        return (double) beanObject().attributes().get(ioWaitTimeNsAvg);
+        return (double) beanObject().attributes().get(IO_WAIT_TIME_NS_AVG);
       }
 
       public double ioWaitTimeNsTotal() {
-        return (double) beanObject().attributes().get(ioWaitTimeNsTotal);
+        return (double) beanObject().attributes().get(IO_WAIT_TIME_NS_TOTAL);
       }
 
       public double outgoingByteRate() {
-        return (double) beanObject().attributes().get(outgoingByteRate);
+        return (double) beanObject().attributes().get(OUTGOING_BYTE_RATE);
       }
 
       public double iotimeTotal() {
-        return (double) beanObject().attributes().get(iotimeTotal);
+        return (double) beanObject().attributes().get(IOTIME_TOTAL);
       }
 
       public double ioRatio() {
-        return (double) beanObject().attributes().get(ioRatio);
+        return (double) beanObject().attributes().get(IO_RATIO);
       }
 
       public double requestSizeAvg() {
-        return (double) beanObject().attributes().get(requestSizeAvg);
+        return (double) beanObject().attributes().get(REQUEST_SIZE_AVG);
       }
 
       public double outgoingByteTotal() {
-        return (double) beanObject().attributes().get(outgoingByteTotal);
+        return (double) beanObject().attributes().get(OUTGOING_BYTE_TOTAL);
       }
 
       public double expiredConnectionsKilledCount() {
-        return (double) beanObject().attributes().get(expiredConnectionsKilledCount);
+        return (double) beanObject().attributes().get(EXPIRED_CONNECTIONS_KILLED_COUNT);
       }
 
       public double connectionCloseTotal() {
-        return (double) beanObject().attributes().get(connectionCloseTotal);
+        return (double) beanObject().attributes().get(CONNECTION_CLOSE_TOTAL);
       }
 
       public double failedReauthenticationRate() {
-        return (double) beanObject().attributes().get(failedReauthenticationRate);
+        return (double) beanObject().attributes().get(FAILED_REAUTHENTICATION_RATE);
       }
 
       public double networkIoTotal() {
-        return (double) beanObject().attributes().get(networkIoTotal);
+        return (double) beanObject().attributes().get(NETWORK_IO_TOTAL);
       }
 
       public double failedAuthenticationTotal() {
-        return (double) beanObject().attributes().get(failedAuthenticationTotal);
+        return (double) beanObject().attributes().get(FAILED_AUTHENTICATION_TOTAL);
       }
 
       public double incomingByteRate() {
-        return (double) beanObject().attributes().get(incomingByteRate);
+        return (double) beanObject().attributes().get(INCOMING_BYTE_RATE);
       }
 
       public double selectRate() {
-        return (double) beanObject().attributes().get(selectRate);
+        return (double) beanObject().attributes().get(SELECT_RATE);
       }
 
       public double ioTimeNsAvg() {
-        return (double) beanObject().attributes().get(ioTimeNsAvg);
+        return (double) beanObject().attributes().get(IO_TIME_NS_AVG);
       }
 
       public double reauthenticationLatencyMax() {
-        return (double) beanObject().attributes().get(reauthenticationLatencyMax);
+        return (double) beanObject().attributes().get(REAUTHENTICATION_LATENCY_MAX);
       }
 
       public double responseTotal() {
-        return (double) beanObject().attributes().get(responseTotal);
+        return (double) beanObject().attributes().get(RESPONSE_TOTAL);
       }
 
       public double failedAuthenticationRate() {
-        return (double) beanObject().attributes().get(failedAuthenticationRate);
+        return (double) beanObject().attributes().get(FAILED_AUTHENTICATION_RATE);
       }
 
       public double ioWaitRatio() {
-        return (double) beanObject().attributes().get(ioWaitRatio);
+        return (double) beanObject().attributes().get(IO_WAIT_RATIO);
       }
 
       public double successfulAuthenticationNoReauthTotal() {
-        return (double) beanObject().attributes().get(successfulAuthenticationNoReauthTotal);
+        return (double) beanObject().attributes().get(SUCCESSFUL_AUTHENTICATION_NO_REAUTH_TOTAL);
       }
 
       public double requestTotal() {
-        return (double) beanObject().attributes().get(requestTotal);
+        return (double) beanObject().attributes().get(REQUEST_TOTAL);
       }
 
       public double ioWaittimeTotal() {
-        return (double) beanObject().attributes().get(ioWaittimeTotal);
+        return (double) beanObject().attributes().get(IO_WAITTIME_TOTAL);
       }
     }
 
