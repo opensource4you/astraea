@@ -136,13 +136,13 @@ public interface Dispatcher extends Partitioner {
   default void onNewBatch(String topic, Cluster cluster, int prevPartition) {}
 
   private void begin(Dispatcher dispatcher) {
-    INTERDEPENDENT.putIfAbsent(this.hashCode(), new Interdependent());
     INTERDEPENDENT.get(dispatcher.hashCode()).isInterdependent.set(true);
   }
 
   private void end(Dispatcher dispatcher) {
-    INTERDEPENDENT.get(dispatcher.hashCode()).isInterdependent.set(false);
-    INTERDEPENDENT.get(dispatcher.hashCode()).targetPartitions.set(-1);
+    if(INTERDEPENDENT.get(dispatcher.hashCode()).isInterdependent.compareAndSet(true,false)){
+      INTERDEPENDENT.get(dispatcher.hashCode()).targetPartitions.set(-1);
+    }
   }
 
   class Interdependent {
