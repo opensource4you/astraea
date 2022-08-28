@@ -192,8 +192,6 @@ public class ReassignmentHandlerTest extends RequireBrokerCluster {
               ReassignmentHandler.TO_KEY,
               "[" + nextBroker + "]");
 
-      System.out.println(body);
-
       Assertions.assertEquals(
           Response.ACCEPT, handler.post(Channel.ofRequest(PostRequest.of(body))));
 
