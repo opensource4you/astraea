@@ -346,4 +346,70 @@ public class PerformanceTest extends RequireBrokerCluster {
           .forEach((topicPartition, replicas) -> Assertions.assertEquals(2, replicas.size()));
     }
   }
+
+  @Test
+  public void testTopicPattern() {
+    try (var admin = Admin.of(bootstrapServers())) {
+      var args =
+          Argument.parse(
+              new Performance.Argument(),
+              new String[] {
+                "--bootstrap.servers",
+                bootstrapServers(),
+                "--topics",
+                "test2,test3,test4,test5,test6",
+                "--partitions",
+                "3,2,1,2,3",
+                "--replicas",
+                "2,1"
+              });
+      Assertions.assertThrows(ParameterException.class, () -> args.topicPattern());
+
+      var customArgs =
+          Argument.parse(
+              new Performance.Argument(),
+              new String[] {
+                "--bootstrap.servers",
+                bootstrapServers(),
+                "--topics",
+                "test2,test3",
+                "--partitions",
+                "3,2",
+                "--replicas",
+                "2,1"
+              });
+      var customPattern = customArgs.topicPattern();
+      var customTopics = customPattern.keySet();
+      Assertions.assertEquals(2, customTopics.size());
+      Assertions.assertTrue(customTopics.contains("test2"));
+      Assertions.assertTrue(customTopics.contains("test3"));
+      Assertions.assertTrue(customPattern.get("test2").containsKey(3));
+      Assertions.assertTrue(customPattern.get("test2").containsValue((short) 2));
+      Assertions.assertTrue(customPattern.get("test3").containsKey(2));
+      Assertions.assertTrue(customPattern.get("test3").containsValue((short) 1));
+
+      var defaultArgs =
+          Argument.parse(
+              new Performance.Argument(),
+              new String[] {
+                "--bootstrap.servers",
+                bootstrapServers(),
+                "--topics",
+                "test2,test3",
+                "--partitions",
+                "3",
+                "--replicas",
+                "2"
+              });
+      var defaultPattern = defaultArgs.topicPattern();
+      var defaultTopics = defaultPattern.keySet();
+      Assertions.assertEquals(2, defaultTopics.size());
+      Assertions.assertTrue(defaultTopics.contains("test2"));
+      Assertions.assertTrue(defaultTopics.contains("test3"));
+      Assertions.assertTrue(defaultPattern.get("test2").containsKey(3));
+      Assertions.assertTrue(defaultPattern.get("test2").containsValue((short) 2));
+      Assertions.assertTrue(defaultPattern.get("test3").containsKey(3));
+      Assertions.assertTrue(defaultPattern.get("test3").containsValue((short) 2));
+    }
+  }
 }
