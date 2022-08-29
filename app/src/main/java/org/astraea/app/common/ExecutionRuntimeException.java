@@ -30,14 +30,6 @@ public class ExecutionRuntimeException extends RuntimeException {
 
   /** @return the root cause of ExecutionException */
   public Throwable getRootCause() {
-    return unpack(executionException);
-  }
-
-  private static Throwable unpack(Throwable exception) {
-    Throwable current = exception;
-    while (current instanceof ExecutionException) {
-      current = current.getCause();
-    }
-    return current;
+    return executionException.getCause();
   }
 }
