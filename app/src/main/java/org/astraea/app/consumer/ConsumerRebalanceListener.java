@@ -17,6 +17,7 @@
 package org.astraea.app.consumer;
 
 import java.util.Collection;
+import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.astraea.app.admin.TopicPartition;
@@ -32,17 +33,32 @@ public interface ConsumerRebalanceListener {
    */
   void onPartitionAssigned(Set<TopicPartition> partitions);
 
+  /**
+   * It is called when this consumer has to give up some partitions when running re-balance.
+   *
+   * @param partitions to give up
+   */
+  default void onPartitionsRevoked(Set<TopicPartition> partitions) {}
+
   static org.apache.kafka.clients.consumer.ConsumerRebalanceListener of(
-      ConsumerRebalanceListener listener) {
+      List<ConsumerRebalanceListener> listeners) {
     return new org.apache.kafka.clients.consumer.ConsumerRebalanceListener() {
       @Override
-      public void onPartitionsRevoked(Collection<org.apache.kafka.common.TopicPartition> ignore) {}
+      public void onPartitionsRevoked(
+          Collection<org.apache.kafka.common.TopicPartition> partitions) {
+        listeners.forEach(
+            l ->
+                l.onPartitionsRevoked(
+                    partitions.stream().map(TopicPartition::from).collect(Collectors.toSet())));
+      }
 
       @Override
       public void onPartitionsAssigned(
           Collection<org.apache.kafka.common.TopicPartition> partitions) {
-        listener.onPartitionAssigned(
-            partitions.stream().map(TopicPartition::from).collect(Collectors.toSet()));
+        listeners.forEach(
+            l ->
+                l.onPartitionAssigned(
+                    partitions.stream().map(TopicPartition::from).collect(Collectors.toSet())));
       }
     };
   }

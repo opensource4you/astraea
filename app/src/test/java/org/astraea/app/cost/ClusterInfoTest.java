@@ -16,12 +16,12 @@
  */
 package org.astraea.app.cost;
 
-import java.util.Collection;
 import java.util.List;
-import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.Set;
 import org.apache.kafka.common.Cluster;
-import org.astraea.app.metrics.HasBeanObject;
+import org.astraea.app.admin.ClusterInfo;
+import org.astraea.app.admin.NodeInfo;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
@@ -33,6 +33,7 @@ public class ClusterInfoTest {
     var node = NodeInfoTest.node();
     var partition = ReplicaInfoTest.partitionInfo();
     var kafkaCluster = Mockito.mock(Cluster.class);
+    Mockito.when(kafkaCluster.topics()).thenReturn(Set.of(partition.topic()));
     Mockito.when(kafkaCluster.availablePartitionsForTopic(partition.topic()))
         .thenReturn(List.of(partition));
     Mockito.when(kafkaCluster.partitionsForTopic(partition.topic())).thenReturn(List.of(partition));
@@ -42,7 +43,6 @@ public class ClusterInfoTest {
 
     Assertions.assertEquals(1, clusterInfo.nodes().size());
     Assertions.assertEquals(NodeInfo.of(node), clusterInfo.nodes().get(0));
-    Assertions.assertEquals(clusterInfo.nodes().get(0), clusterInfo.node(node.host(), node.port()));
     Assertions.assertEquals(1, clusterInfo.availableReplicas(partition.topic()).size());
     Assertions.assertEquals(1, clusterInfo.replicas(partition.topic()).size());
     Assertions.assertEquals(
@@ -55,35 +55,11 @@ public class ClusterInfoTest {
   }
 
   @Test
-  void testEmptyBeans() {
-    var clusterInfo = ClusterInfo.of(Mockito.mock(org.apache.kafka.common.Cluster.class));
-    Assertions.assertEquals(0, clusterInfo.allBeans().size());
-    Assertions.assertEquals(0, clusterInfo.beans(19).size());
-  }
-
-  @Test
-  void testBeans() {
-    var beans = Map.of(1, (Collection<HasBeanObject>) List.of(Mockito.mock(HasBeanObject.class)));
-    var origin = Mockito.mock(ClusterInfo.class);
-    Mockito.when(origin.allBeans()).thenReturn(Map.of());
-    var clusterInfo = ClusterInfo.of(origin, beans);
-    Assertions.assertEquals(1, clusterInfo.allBeans().size());
-    Assertions.assertEquals(0, clusterInfo.beans(19).size());
-    Assertions.assertEquals(1, clusterInfo.beans(1).size());
-  }
-
-  @Test
   void testIllegalQuery() {
     var clusterInfo = ClusterInfo.of(Cluster.empty());
-
-    Assertions.assertThrows(NoSuchElementException.class, () -> clusterInfo.replicas("unknown"));
+    Assertions.assertEquals(0, clusterInfo.replicas("unknown").size());
     Assertions.assertThrows(NoSuchElementException.class, () -> clusterInfo.node(0));
-    Assertions.assertThrows(NoSuchElementException.class, () -> clusterInfo.node("", -1));
-    Assertions.assertThrows(
-        NoSuchElementException.class, () -> clusterInfo.availableReplicas("unknown"));
-    Assertions.assertThrows(
-        NoSuchElementException.class, () -> clusterInfo.availableReplicaLeaders("unknown"));
-    Assertions.assertThrows(
-        UnsupportedOperationException.class, () -> clusterInfo.dataDirectories(0));
+    Assertions.assertEquals(0, clusterInfo.availableReplicas("unknown").size());
+    Assertions.assertEquals(0, clusterInfo.availableReplicaLeaders("unknown").size());
   }
 }

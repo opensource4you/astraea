@@ -20,7 +20,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.Map;
-import java.util.Optional;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
@@ -39,10 +38,10 @@ class PipelineHandler implements Handler {
   }
 
   @Override
-  public JsonObject get(Optional<String> target, Map<String, String> queries) {
+  public Response get(Channel channel) {
     var tps =
         topicPartitions(admin).stream()
-            .filter(filter(queries))
+            .filter(filter(channel.queries()))
             .collect(Collectors.toUnmodifiableList());
     return new TopicPartitions(tps);
   }
@@ -85,7 +84,7 @@ class PipelineHandler implements Handler {
         .collect(Collectors.toUnmodifiableList());
   }
 
-  static class Producer implements JsonObject {
+  static class Producer implements Response {
     final long producerId;
     final int producerEpoch;
     final int lastSequence;
@@ -99,7 +98,7 @@ class PipelineHandler implements Handler {
     }
   }
 
-  static class Consumer implements JsonObject {
+  static class Consumer implements Response {
     final String groupId;
     final String memberId;
     final String groupInstanceId;
@@ -115,7 +114,7 @@ class PipelineHandler implements Handler {
     }
   }
 
-  static class TopicPartition implements JsonObject {
+  static class TopicPartition implements Response {
     final String topic;
     final int partition;
     final Collection<Producer> from = new ArrayList<>();
@@ -127,7 +126,7 @@ class PipelineHandler implements Handler {
     }
   }
 
-  static class TopicPartitions implements JsonObject {
+  static class TopicPartitions implements Response {
     final Collection<TopicPartition> topicPartitions;
 
     TopicPartitions(Collection<TopicPartition> topicPartitions) {

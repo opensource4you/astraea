@@ -115,6 +115,13 @@ JSON Response 範例
 GET /topics
 ```
 
+參數
+
+| 名稱           | 說明                                                                                             | 預設值                |
+|--------------|------------------------------------------------------------------------------------------------|--------------------|
+| partition    | (選填) 指定要查看哪一個 partition                                                                        | 無，代表全部 partitions  |
+| listInternal | (選填) 為 boolean 值。若填寫 true，則會列出 kafka 內部所使用的 topics，如 __commit_offsets。若設為 false，則不會列出此種 topics | true，代表列出所有 topics |
+
 cURL 範例
 ```shell
 curl -X GET http://localhost:8001/topics
@@ -183,6 +190,13 @@ JSON Response 範例
 GET /topics/{topicName}
 ```
 
+參數
+
+| 名稱        | 說明                      | 預設值               |
+|-----------|-------------------------|-------------------|
+| partition | (選填) 指定要查看哪一個 partition | 無，代表全部 partitions |
+
+
 cURL 範例
 
 查詢名為 test1 的 topic 資訊
@@ -242,3 +256,13 @@ JSON Response 範例
   }
 }
  ```
+## 刪除 topic
+```shell
+DELETE /topics/{topicName}
+```
+
+cURL 範例
+
+```shell
+curl -X DELETE "http://localhost:8001/topics/mytopic"
+```

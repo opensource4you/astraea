@@ -17,8 +17,6 @@
 package org.astraea.app.web;
 
 import java.util.List;
-import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.astraea.app.admin.Admin;
@@ -32,16 +30,19 @@ class TransactionHandler implements Handler {
   }
 
   @Override
-  public JsonObject get(Optional<String> target, Map<String, String> queries) {
+  public Response get(Channel channel) {
     var transactions =
-        admin.transactions(Handler.compare(admin.transactionIds(), target)).entrySet().stream()
+        admin
+            .transactions(Handler.compare(admin.transactionIds(), channel.target()))
+            .entrySet()
+            .stream()
             .map(e -> new Transaction(e.getKey(), e.getValue()))
             .collect(Collectors.toUnmodifiableList());
-    if (target.isPresent() && transactions.size() == 1) return transactions.get(0);
+    if (channel.target().isPresent() && transactions.size() == 1) return transactions.get(0);
     return new Transactions(transactions);
   }
 
-  static class TopicPartition implements JsonObject {
+  static class TopicPartition implements Response {
     final String topic;
     final int partition;
 
@@ -51,7 +52,7 @@ class TransactionHandler implements Handler {
     }
   }
 
-  static class Transaction implements JsonObject {
+  static class Transaction implements Response {
     final String id;
     final int coordinatorId;
     final String state;
@@ -74,7 +75,7 @@ class TransactionHandler implements Handler {
     }
   }
 
-  static class Transactions implements JsonObject {
+  static class Transactions implements Response {
     final List<Transaction> transactions;
 
     Transactions(List<Transaction> transactions) {

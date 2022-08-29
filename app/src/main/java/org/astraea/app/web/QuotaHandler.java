@@ -18,10 +18,9 @@ package org.astraea.app.web;
 
 import java.util.Collection;
 import java.util.List;
-import java.util.Map;
-import java.util.Optional;
 import java.util.stream.Collectors;
 import org.astraea.app.admin.Admin;
+import org.astraea.app.common.DataRate;
 
 public class QuotaHandler implements Handler {
 
@@ -41,39 +40,58 @@ public class QuotaHandler implements Handler {
   }
 
   @Override
-  public Quotas get(Optional<String> target, Map<String, String> queries) {
-    if (queries.containsKey(IP_KEY))
-      return new Quotas(admin.quotas(org.astraea.app.admin.Quota.Target.IP, queries.get(IP_KEY)));
-    if (queries.containsKey(CLIENT_ID_KEY))
+  public Quotas get(Channel channel) {
+    if (channel.queries().containsKey(IP_KEY))
       return new Quotas(
-          admin.quotas(org.astraea.app.admin.Quota.Target.CLIENT_ID, queries.get(CLIENT_ID_KEY)));
+          admin.quotas(org.astraea.app.admin.Quota.Target.IP, channel.queries().get(IP_KEY)));
+    if (channel.queries().containsKey(CLIENT_ID_KEY))
+      return new Quotas(
+          admin.quotas(
+              org.astraea.app.admin.Quota.Target.CLIENT_ID, channel.queries().get(CLIENT_ID_KEY)));
     return new Quotas(admin.quotas());
   }
 
   @Override
-  public JsonObject post(PostRequest request) {
-    if (request.get(IP_KEY).isPresent()) {
+  public Response post(Channel channel) {
+    if (channel.request().get(IP_KEY).isPresent()) {
       admin
           .quotaCreator()
-          .ip(request.value(IP_KEY))
-          .connectionRate(request.intValue(CONNECTION_RATE_KEY, Integer.MAX_VALUE))
-          .create();
-      return new Quotas(admin.quotas(org.astraea.app.admin.Quota.Target.IP, request.value(IP_KEY)));
-    }
-    if (request.get(CLIENT_ID_KEY).isPresent()) {
-      admin
-          .quotaCreator()
-          .clientId(request.value(CLIENT_ID_KEY))
-          .produceRate(request.intValue(PRODUCE_RATE_KEY, Integer.MAX_VALUE))
-          .consumeRate(request.intValue(CONSUME_RATE_KEY, Integer.MAX_VALUE))
+          .ip(channel.request().value(IP_KEY))
+          .connectionRate(channel.request().getInt(CONNECTION_RATE_KEY).orElse(Integer.MAX_VALUE))
           .create();
       return new Quotas(
-          admin.quotas(org.astraea.app.admin.Quota.Target.CLIENT_ID, request.value(CLIENT_ID_KEY)));
+          admin.quotas(org.astraea.app.admin.Quota.Target.IP, channel.request().value(IP_KEY)));
     }
-    return ErrorObject.for404("You must define either " + CLIENT_ID_KEY + " or " + IP_KEY);
+    if (channel.request().get(CLIENT_ID_KEY).isPresent()) {
+      admin
+          .quotaCreator()
+          .clientId(channel.request().value(CLIENT_ID_KEY))
+          // TODO: use DataRate#Field (traced https://github.com/skiptests/astraea/issues/488)
+          // see https://github.com/skiptests/astraea/issues/490
+          .produceRate(
+              channel
+                  .request()
+                  .get(PRODUCE_RATE_KEY)
+                  .map(Long::parseLong)
+                  .map(v -> DataRate.Byte.of(v).perSecond())
+                  .orElse(null))
+          .consumeRate(
+              channel
+                  .request()
+                  .get(CONSUME_RATE_KEY)
+                  .map(Long::parseLong)
+                  .map(v -> DataRate.Byte.of(v).perSecond())
+                  .orElse(null))
+          .create();
+      return new Quotas(
+          admin.quotas(
+              org.astraea.app.admin.Quota.Target.CLIENT_ID,
+              channel.request().value(CLIENT_ID_KEY)));
+    }
+    return Response.NOT_FOUND;
   }
 
-  static class Target implements JsonObject {
+  static class Target implements Response {
     final String name;
     final String value;
 
@@ -83,7 +101,7 @@ public class QuotaHandler implements Handler {
     }
   }
 
-  static class Limit implements JsonObject {
+  static class Limit implements Response {
     final String name;
     final double value;
 
@@ -93,7 +111,7 @@ public class QuotaHandler implements Handler {
     }
   }
 
-  static class Quota implements JsonObject {
+  static class Quota implements Response {
     final Target target;
     final Limit limit;
 
@@ -111,7 +129,7 @@ public class QuotaHandler implements Handler {
     }
   }
 
-  static class Quotas implements JsonObject {
+  static class Quotas implements Response {
     final List<Quota> quotas;
 
     Quotas(Collection<org.astraea.app.admin.Quota> quotas) {

@@ -16,26 +16,18 @@
  */
 package org.astraea.app.balancer.generator;
 
+import java.util.Map;
+import java.util.Set;
 import java.util.stream.Stream;
+import org.astraea.app.admin.ClusterInfo;
 import org.astraea.app.balancer.RebalancePlanProposal;
 import org.astraea.app.balancer.log.ClusterLogAllocation;
-import org.astraea.app.balancer.log.LayeredClusterLogAllocation;
-import org.astraea.app.cost.ClusterInfo;
 
-/** */
+@FunctionalInterface
 public interface RebalancePlanGenerator {
 
-  /**
-   * Generate a rebalance proposal, noted that this function doesn't require proposing exactly the
-   * same plan for the same input argument. There can be some randomization that takes part in this
-   * process.
-   *
-   * @param clusterInfo the cluster state, implementation can take advantage of the data inside to
-   *     proposal the plan it feels confident to improve the cluster.
-   * @return a {@link Stream} generating rebalance plan regarding the given {@link ClusterInfo}
-   */
-  default Stream<RebalancePlanProposal> generate(ClusterInfo clusterInfo) {
-    return generate(clusterInfo, LayeredClusterLogAllocation.of(clusterInfo));
+  static RebalancePlanGenerator random(int numberOfShuffle) {
+    return new ShufflePlanGenerator(() -> numberOfShuffle);
   }
 
   /**
@@ -43,11 +35,17 @@ public interface RebalancePlanGenerator {
    * same plan for the same input argument. There can be some randomization that takes part in this
    * process.
    *
-   * @param clusterInfo the cluster state, implementation can take advantage of the data inside to
-   *     proposal the plan it feels confident to improve the cluster.
+   * <p>If the generator implementation thinks it can't find any rebalance proposal(which the plan
+   * might improve the cluster). Then the implementation should return a Stream with exactly one
+   * rebalance plan proposal in it, where the proposed allocation will be exactly the same as the
+   * {@code baseAllocation} parameter. This means there is no movement or alteration that will
+   * occur. And The implementation should place some detailed information in the info/warning/error
+   * string, to indicate the reason for no meaningful plan.
+   *
+   * @param brokerFolders key is the broker id, and the value is the folder used to keep data
    * @param baseAllocation the cluster log allocation as the based of proposal generation.
    * @return a {@link Stream} generating rebalance plan regarding the given {@link ClusterInfo}
    */
   Stream<RebalancePlanProposal> generate(
-      ClusterInfo clusterInfo, ClusterLogAllocation baseAllocation);
+      Map<Integer, Set<String>> brokerFolders, ClusterLogAllocation baseAllocation);
 }

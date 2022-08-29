@@ -22,7 +22,6 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
-import java.util.concurrent.ExecutionException;
 import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.clients.admin.AdminClientConfig;
 import org.apache.kafka.clients.admin.KafkaAdminClient;
@@ -70,19 +69,19 @@ public class Automation {
       else times = Integer.parseInt(properties.getProperty("--time"));
 
       while (i < times) {
-        var result =
+        var topicName =
             Performance.execute(
                 org.astraea.app.argument.Argument.parse(
                     new Performance.Argument(), performanceArgs(properties)));
         i++;
         if (whetherDeleteTopic) {
           try (final AdminClient adminClient = KafkaAdminClient.create(config)) {
-            adminClient.deleteTopics(List.of(result.topicName()));
+            adminClient.deleteTopics(topicName);
           }
         }
         System.out.println("=============== " + i + " time Performance Complete! ===============");
       }
-    } catch (IOException | InterruptedException | ExecutionException e) {
+    } catch (IOException | InterruptedException e) {
       e.printStackTrace();
     }
   }

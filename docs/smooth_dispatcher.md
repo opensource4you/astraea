@@ -9,27 +9,59 @@
 3. 更平滑的資料發佈模式，高權重的節點也不會被連續選中變爲hotspot。
 
 #### SmoothDispatcher需要配置文檔信息
-在部署SmoothDispatach，需要設置一些參數，這是因爲監測Kafka叢集狀況的數據來源於Kafka metrics。我們需要通過曝露的jmx.port來獲取這些信息。
+在部署SmoothDispatcher，需要設置一些參數，這是因爲監測Kafka叢集狀況的數據來源於Kafka metrics。我們需要通過曝露的jmx.port來獲取這些信息。
 這些需要配置的信息被記錄在了config/partitionerConfig.properties中。
 
 #### SmoothDispatcher Configurations
-```bash
-Properties properties = new Properties();
-properties.put(ProducerConfig.PARTITIONER_CLASS_CONFIG, org.astraea.partitioner.smooth.SmoothWeightRoundRobinDispatcher);
+通過配置partitioner參數,指定Kafka運行SmoothDispatch。
+```java
+class demo{
+    void initConfig(){
+        Properties properties = new Properties();
+        properties.put(ProducerConfig.PARTITIONER_CLASS_CONFIG, org.astraea.partitioner.smooth.SmoothWeightRoundRobinDispatcher);
+    }
+}
 ```
-通過配置partitioner參數指定Kafka運行SmoothDispatch。
 
+#### 配置jmx port
+使用Dispatcher需要你配置kafka叢集各節點的jmx port。有兩種方法進行配置。
+
+1. 通過configs參數傳入dispatch配置文檔的地址。
 ```bash
 --configs partitioner.config=~/astraea/config/smoothDispatchConfig.properties
 ```
-通過configs參數傳入dispatch配置文檔的地址。
+
+如下是配置文檔內容，修改對應的參數即可。
 
 ```bash
-~/astraea/config/partitionerConfig.properties
-```
-這是文檔的默認位置，根據文檔中的註釋正確配置jmx port，SmoothDispatch即可正常運行。
+#The properties are used to configure SmoothWeightPartitioner
+#
+# If broker.id.jmx.port is configured, then the jmx port of these brokers
+# will be configured first. If there are brokers that are not configured
+# to jmx port, then jmx.port will be used for configuration. And if any
+# broker is not configured, and jmx.port is not configured at the same
+# time, then an error will be reported.
+#
+###########################Smooth Partitioner Basics############################
 
-#### Smooth dispatch將要加入的新特性
-更多的Kafka metrics
-用戶自定義要使用哪些metrics及爲使用的metrics分配不同的重要程度。
-開放metrics api讓用戶能夠自己添加新的metrics作爲節點負載的評分標準。
+#If no jmx port is specified for the broker,jmx.port will be used.
+jmx.port=Default;
+
+# list of brokers used for jmx port about the rest of the cluster
+# format: broker.{brokerID}.jmx.port=jmx.port
+#broker.0.jmx.port=9999
+#broker.1.jmx.port=8888
+#......
+bootstrap.servers=localhost:9092
+broker.id.jmx.port=Default;
+```
+2. 通過configs傳入下列參數
+```bash
+--configs bootstrap.servers=localhost:9092, jmx.port=localhost:8000
+```
+
+|            參數名稱             | 說明                                                                      |
+|:---------------------------:|:------------------------------------------------------------------------|
+|      bootstrap.servers      | (必填) 欲連接的Kafka server address                                           |
+|          jmx.port           | (選填) 當你的jmx port擁有統一的port，那麼可以使用該參數進行一次性配置。你無需額外配置broker.id.jmx.port。   |
+|     broker.id.jmx.port      | (選填) 當每一臺節點的jmx port不一致，那麼可以根據broker id進行逐一配置。沒有被配置的broker會使用jmx.port值。 |

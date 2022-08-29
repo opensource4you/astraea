@@ -16,18 +16,21 @@
  */
 package org.astraea.app.cost;
 
+import java.util.Optional;
 import org.astraea.app.metrics.collector.Fetcher;
+import org.astraea.app.partitioner.Configuration;
 
 /**
  * It is meaningless to implement this interface. Instead, we should implement interfaces like
- * {@link HasBrokerCost} or {@link HasPartitionCost}.
+ * {@link HasBrokerCost} ,{@link HasClusterCost}.
+ *
+ * <p>Constructors in CostFunction can only take no or only one parameter {@link Configuration}, ex.
+ * Constructor({@link Configuration} configuration) or Constructor()
  */
 public interface CostFunction {
 
-  static CostFunction throughput() {
-    return new ThroughputCost();
-  }
-
   /** @return the metrics getters. Those getters are used to fetch mbeans. */
-  Fetcher fetcher();
+  default Optional<Fetcher> fetcher() {
+    return Optional.empty();
+  }
 }

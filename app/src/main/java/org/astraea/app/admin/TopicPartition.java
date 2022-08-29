@@ -21,7 +21,7 @@ import java.util.Objects;
 public final class TopicPartition implements Comparable<TopicPartition> {
 
   public static TopicPartition from(org.apache.kafka.common.TopicPartition tp) {
-    return new TopicPartition(tp.topic(), tp.partition());
+    return TopicPartition.of(tp.topic(), tp.partition());
   }
 
   public static org.apache.kafka.common.TopicPartition to(TopicPartition tp) {
@@ -38,17 +38,20 @@ public final class TopicPartition implements Comparable<TopicPartition> {
       throw new IllegalArgumentException(
           value + " has illegal format. It should be {topic}-{partition}");
     try {
-      return new TopicPartition(
-          value.substring(0, lhs), Integer.parseInt(value.substring(lhs + 1)));
+      return TopicPartition.of(value.substring(0, lhs), Integer.parseInt(value.substring(lhs + 1)));
     } catch (NumberFormatException e) {
       throw new IllegalArgumentException("partition id must be number");
     }
   }
 
+  public static TopicPartition of(String topic, int partition) {
+    return new TopicPartition(topic, partition);
+  }
+
   private final int partition;
   private final String topic;
 
-  public TopicPartition(String topic, int partition) {
+  private TopicPartition(String topic, int partition) {
     this.partition = partition;
     this.topic = topic;
   }

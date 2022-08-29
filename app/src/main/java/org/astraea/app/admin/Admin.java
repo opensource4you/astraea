@@ -22,8 +22,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
-import org.astraea.app.cost.ClusterInfo;
-import org.astraea.app.cost.NodeInfo;
 
 public interface Admin extends Closeable {
 
@@ -39,8 +37,16 @@ public interface Admin extends Closeable {
     return builder().configs(configs).build();
   }
 
-  /** @return names of all topics */
-  Set<String> topicNames();
+  /**
+   * @param listInternal should list internal topics or not
+   * @return names of topics
+   */
+  Set<String> topicNames(boolean listInternal);
+
+  /** @return names of all topics (include internal topics). */
+  default Set<String> topicNames() {
+    return topicNames(true);
+  }
 
   /** @return the topic name and its configurations. */
   default Map<String, Config> topics() {
@@ -49,6 +55,9 @@ public interface Admin extends Closeable {
 
   /** @return the topic name and its configurations. */
   Map<String, Config> topics(Set<String> topicNames);
+
+  /** delete topics by topic names */
+  void deleteTopics(Set<String> topicNames);
 
   /** @return all partitions */
   default Set<TopicPartition> partitions() {
@@ -191,7 +200,7 @@ public interface Admin extends Closeable {
   Collection<Quota> quotas();
 
   /** @return a snapshot object of cluster state at the moment */
-  default ClusterInfo clusterInfo() {
+  default ClusterInfo<Replica> clusterInfo() {
     return clusterInfo(topicNames());
   }
 
@@ -199,7 +208,7 @@ public interface Admin extends Closeable {
    * @param topics query only this subset of topics
    * @return a snapshot object of cluster state at the moment
    */
-  ClusterInfo clusterInfo(Set<String> topics);
+  ClusterInfo<Replica> clusterInfo(Set<String> topics);
 
   /** @return all transaction ids */
   Set<String> transactionIds();
@@ -215,6 +224,77 @@ public interface Admin extends Closeable {
    * @return transaction states
    */
   Map<String, Transaction> transactions(Set<String> transactionIds);
+
+  /**
+   * remove an empty group. It causes error if the group has memebrs.
+   *
+   * @param groupId to remove
+   */
+  void removeGroup(String groupId);
+
+  /** @param groupId to remove all (dynamic and static) members */
+  void removeAllMembers(String groupId);
+
+  /**
+   * @param groupId to remove static members
+   * @param members group instance id (static member)
+   */
+  void removeStaticMembers(String groupId, Set<String> members);
+
+  /**
+   * Get the reassignments of all topics.
+   *
+   * @return reassignment
+   */
+  default Map<TopicPartition, Reassignment> reassignments() {
+    return reassignments(topicNames());
+  }
+
+  /**
+   * Get the reassignments of topics. It returns nothing if the partitions are not migrating.
+   *
+   * @param topics to search
+   * @return reassignment
+   */
+  Map<TopicPartition, Reassignment> reassignments(Set<String> topics);
+
+  /**
+   * Delete records with offset less than specified Long
+   *
+   * @param recordsToDelete offset of partition
+   * @return deletedRecord
+   */
+  Map<TopicPartition, DeletedRecord> deleteRecords(Map<TopicPartition, Long> recordsToDelete);
+
+  /** @return a utility to apply replication throttle to the cluster. */
+  ReplicationThrottler replicationThrottler();
+
+  /**
+   * Clear any replication throttle related to the given topic.
+   *
+   * @param topic target to clear throttle.
+   */
+  void clearReplicationThrottle(String topic);
+
+  /**
+   * Clear any replication throttle related to the given topic/partition.
+   *
+   * @param topicPartition target to clear throttle.
+   */
+  void clearReplicationThrottle(TopicPartition topicPartition);
+
+  /**
+   * Clear any replication throttle related to the given topic/partition with specific broker id.
+   *
+   * @param log target to clear throttle.
+   */
+  void clearReplicationThrottle(TopicPartitionReplica log);
+
+  /** Clear the ingress bandwidth of replication throttle for the specified brokers. */
+  void clearIngressReplicationThrottle(Set<Integer> brokerIds);
+
+  /** Clear the egress bandwidth of replication throttle for the specified brokers. */
+  void clearEgressReplicationThrottle(Set<Integer> brokerIds);
 
   @Override
   void close();

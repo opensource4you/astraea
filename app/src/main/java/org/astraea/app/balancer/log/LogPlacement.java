@@ -16,20 +16,42 @@
  */
 package org.astraea.app.balancer.log;
 
-import java.util.Optional;
+import java.util.List;
+import java.util.stream.IntStream;
 
 /** This class describe the placement state of one kafka log. */
 public interface LogPlacement {
 
   int broker();
 
-  Optional<String> logDirectory();
+  String dataFolder();
 
-  static LogPlacement of(int broker) {
-    return of(broker, null);
+  static boolean isMatch(List<LogPlacement> sourcePlacements, List<LogPlacement> targetPlacements) {
+    if (sourcePlacements.size() != targetPlacements.size()) return false;
+    if (sourcePlacements.equals(targetPlacements)) return true;
+
+    final boolean brokerListMatch =
+        IntStream.range(0, sourcePlacements.size())
+            .allMatch(
+                index ->
+                    sourcePlacements.get(index).broker() == targetPlacements.get(index).broker());
+    if (!brokerListMatch) return false;
+
+    final boolean logDirectoryMatch =
+        IntStream.range(0, sourcePlacements.size())
+            .allMatch(
+                index ->
+                    sourcePlacements
+                        .get(index)
+                        .dataFolder()
+                        .equals(targetPlacements.get(index).dataFolder()));
+    //noinspection RedundantIfStatement
+    if (!logDirectoryMatch) return false;
+
+    return true;
   }
 
-  static LogPlacement of(int broker, String logDirectory) {
+  static LogPlacement of(int broker, String dataFolder) {
     return new LogPlacement() {
       @Override
       public int broker() {
@@ -37,22 +59,22 @@ public interface LogPlacement {
       }
 
       @Override
-      public Optional<String> logDirectory() {
-        return Optional.ofNullable(logDirectory);
+      public String dataFolder() {
+        return dataFolder;
       }
 
       @Override
       public boolean equals(Object obj) {
         if (obj instanceof LogPlacement) {
           final var that = (LogPlacement) obj;
-          return this.broker() == that.broker() && this.logDirectory().equals(that.logDirectory());
+          return this.broker() == that.broker() && this.dataFolder().equals(that.dataFolder());
         }
         return false;
       }
 
       @Override
       public String toString() {
-        return "LogPlacement{broker=" + broker() + " logDir=" + logDirectory() + "}";
+        return "LogPlacement{broker=" + broker() + " dataFolder=" + dataFolder() + "}";
       }
     };
   }

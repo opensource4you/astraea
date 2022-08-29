@@ -30,16 +30,17 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import org.apache.kafka.common.Cluster;
+import org.astraea.app.admin.ClusterBean;
+import org.astraea.app.admin.ClusterInfo;
+import org.astraea.app.admin.NodeInfo;
+import org.astraea.app.admin.ReplicaInfo;
 import org.astraea.app.common.Utils;
-import org.astraea.app.cost.ClusterInfo;
-import org.astraea.app.cost.NodeInfo;
+import org.astraea.app.cost.NeutralIntegratedCost;
 import org.astraea.app.cost.Periodic;
-import org.astraea.app.cost.ReplicaInfo;
-import org.astraea.app.cost.broker.NeutralIntegratedCost;
 import org.astraea.app.metrics.HasBeanObject;
+import org.astraea.app.metrics.MBeanClient;
 import org.astraea.app.metrics.collector.BeanCollector;
 import org.astraea.app.metrics.collector.Receiver;
-import org.astraea.app.metrics.jmx.MBeanClient;
 import org.astraea.app.partitioner.Configuration;
 import org.astraea.app.partitioner.Dispatcher;
 import org.astraea.app.partitioner.PartitionerUtils;
@@ -70,7 +71,8 @@ public class SmoothWeightRoundRobinDispatcher extends Periodic<Map<Integer, Doub
   public static final String JMX_PORT = "jmx.port";
 
   @Override
-  public int partition(String topic, byte[] key, byte[] value, ClusterInfo clusterInfo) {
+  public int partition(
+      String topic, byte[] key, byte[] value, ClusterInfo<ReplicaInfo> clusterInfo) {
     var targetPartition = unusedPartitions.poll();
     tryUpdateAfterOneSecond(
         () -> {
@@ -81,7 +83,7 @@ public class SmoothWeightRoundRobinDispatcher extends Periodic<Map<Integer, Doub
                   .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().current()));
 
           var compoundScore =
-              neutralIntegratedCost.brokerCost(ClusterInfo.of(clusterInfo, beans)).value();
+              neutralIntegratedCost.brokerCost(clusterInfo, ClusterBean.of(beans)).value();
 
           if (smoothWeightRoundRobinCal == null) {
             smoothWeightRoundRobinCal = new SmoothWeightRoundRobin(compoundScore);
@@ -150,11 +152,12 @@ public class SmoothWeightRoundRobinDispatcher extends Periodic<Map<Integer, Doub
         .register()
         .host(host)
         .port(port)
-        .fetcher(neutralIntegratedCost.fetcher())
+        // TODO: handle the empty fetcher
+        .fetcher(neutralIntegratedCost.fetcher().get())
         .build();
   }
 
-  private int nextValue(String topic, ClusterInfo clusterInfo, int targetBroker) {
+  private int nextValue(String topic, ClusterInfo<ReplicaInfo> clusterInfo, int targetBroker) {
     return topicCounter
         .computeIfAbsent(topic, k -> new BrokerNextCounter(clusterInfo))
         .brokerCounter
@@ -162,7 +165,7 @@ public class SmoothWeightRoundRobinDispatcher extends Periodic<Map<Integer, Doub
         .getAndIncrement();
   }
 
-  private void refreshPartitionMetaData(ClusterInfo clusterInfo, String topic) {
+  private void refreshPartitionMetaData(ClusterInfo<ReplicaInfo> clusterInfo, String topic) {
     partitions = clusterInfo.availableReplicas(topic);
     partitions.forEach(
         p ->
@@ -181,7 +184,7 @@ public class SmoothWeightRoundRobinDispatcher extends Periodic<Map<Integer, Doub
   private static class BrokerNextCounter {
     private final Map<Integer, AtomicInteger> brokerCounter;
 
-    BrokerNextCounter(ClusterInfo clusterInfo) {
+    BrokerNextCounter(ClusterInfo<ReplicaInfo> clusterInfo) {
       brokerCounter =
           clusterInfo.nodes().stream()
               .collect(Collectors.toMap(NodeInfo::id, node -> new AtomicInteger(0)));

@@ -44,17 +44,17 @@ class BrokerHandler implements Handler {
   }
 
   @Override
-  public JsonObject get(Optional<String> target, Map<String, String> queries) {
+  public Response get(Channel channel) {
 
     var brokers =
-        admin.brokers(brokers(target)).entrySet().stream()
+        admin.brokers(brokers(channel.target())).entrySet().stream()
             .map(e -> new Broker(e.getKey(), admin.partitions(e.getKey()), e.getValue()))
             .collect(Collectors.toUnmodifiableList());
-    if (target.isPresent() && brokers.size() == 1) return brokers.get(0);
+    if (channel.target().isPresent() && brokers.size() == 1) return brokers.get(0);
     return new Brokers(brokers);
   }
 
-  static class Topic implements JsonObject {
+  static class Topic implements Response {
     final String topic;
     final int partitionCount;
 
@@ -64,7 +64,7 @@ class BrokerHandler implements Handler {
     }
   }
 
-  static class Broker implements JsonObject {
+  static class Broker implements Response {
     final int id;
     final List<Topic> topics;
     final Map<String, String> configs;
@@ -84,7 +84,7 @@ class BrokerHandler implements Handler {
     }
   }
 
-  static class Brokers implements JsonObject {
+  static class Brokers implements Response {
     final List<Broker> brokers;
 
     Brokers(List<Broker> brokers) {

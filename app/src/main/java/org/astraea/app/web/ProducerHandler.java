@@ -19,11 +19,9 @@ package org.astraea.app.web;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.astraea.app.admin.Admin;
-import org.astraea.app.admin.ProducerState;
 import org.astraea.app.admin.TopicPartition;
 
 class ProducerHandler implements Handler {
@@ -49,15 +47,15 @@ class ProducerHandler implements Handler {
   }
 
   @Override
-  public Partitions get(Optional<String> target, Map<String, String> queries) {
+  public Partitions get(Channel channel) {
     var topics =
-        admin.producerStates(partitions(queries)).entrySet().stream()
+        admin.producerStates(partitions(channel.queries())).entrySet().stream()
             .map(e -> new Partition(e.getKey(), e.getValue()))
             .collect(Collectors.toUnmodifiableList());
     return new Partitions(topics);
   }
 
-  static class ProducerState implements JsonObject {
+  static class ProducerState implements Response {
 
     final long producerId;
     final int producerEpoch;
@@ -72,7 +70,7 @@ class ProducerHandler implements Handler {
     }
   }
 
-  static class Partition implements JsonObject {
+  static class Partition implements Response {
     final String topic;
     final int partition;
     final List<ProducerState> states;
@@ -87,7 +85,7 @@ class ProducerHandler implements Handler {
     }
   }
 
-  static class Partitions implements JsonObject {
+  static class Partitions implements Response {
     final List<Partition> partitions;
 
     Partitions(List<Partition> partitions) {

@@ -19,8 +19,8 @@ source $DOCKER_FOLDER/docker_build_common.sh
 
 # ===============================[global variables]===============================
 declare -r VERSION=${REVISION:-${VERSION:-main}}
-declare -r REPO=${REPO:-ghcr.io/skiptests/astraea/app}
-declare -r IMAGE_NAME="$REPO:$VERSION"
+declare -r ACCOUNT=${ACCOUNT:-skiptests}
+declare -r IMAGE_NAME="ghcr.io/${ACCOUNT}/astraea/app:$VERSION"
 declare -r DOCKERFILE=$DOCKER_FOLDER/app.dockerfile
 declare -r JMX_PORT=${JMX_PORT:-"$(getRandomPort)"}
 # for web service
@@ -33,7 +33,7 @@ declare -r HEAP_OPTS="${HEAP_OPTS:-"-Xmx2G -Xms2G"}"
 function showHelp() {
   echo "Usage: [ENV] start_app.sh"
   echo "ENV: "
-  echo "    REPO=astraea/app    set the docker repo"
+  echo "    ACCOUNT=skiptests          set the account to clone from"
   echo "    BUILD=false                set true if you want to build image locally"
   echo "    RUN=false                  set false if you want to build/pull image only"
 }
@@ -44,7 +44,7 @@ FROM ghcr.io/skiptests/astraea/deps AS build
 
 # clone repo
 WORKDIR /tmp
-RUN git clone https://github.com/skiptests/astraea
+RUN git clone https://github.com/$ACCOUNT/astraea
 
 # pre-build project to collect all dependencies
 WORKDIR /tmp/astraea
@@ -81,9 +81,9 @@ function runContainer() {
   # web service needs to bind a port to expose Restful APIs, so we have to open a port of container
   local need_to_bind_web=""
   local background=""
+  local sentence=($args)
   if [[ "$args" == web* ]]; then
     background="-d"
-    sentence=($args)
     defined_port="false"
     # use random port by default
     web_port="$WEB_PORT"
@@ -91,10 +91,12 @@ function runContainer() {
       # user has pre-defined port, so we will replace the random port by this one in next loop
       if [[ "$word" == "--port" ]]; then
         defined_port="true"
+        continue
       fi
       # this element must be port
       if [[ "$defined_port" == "true" ]]; then
         web_port="$word"
+        break
       fi
     done
     # manually add "--port" to make sure web service bind on random port we pass
@@ -105,11 +107,27 @@ function runContainer() {
     echo "web address: $ADDRESS:$web_port"
   fi
 
+  local need_to_bind_file=""
+  local defined_file="false"
+  for word in "${sentence[@]}"; do
+    # user has pre-defined directories/files, so we will mount directories/files
+    if [[ "$word" == "--prop.file" || "$word" == "--report.path" ]]; then
+      defined_file="true"
+      continue
+    fi
+    # this element must be something to mount
+    if [[ "$defined_file" == "true" ]]; then
+      need_to_bind_file="${need_to_bind_file} -v $word:$word"
+      defined_file="false"
+    fi
+  done
+
   docker run --rm --init \
     $background \
     -e JAVA_OPTS="$JMX_OPTS $HEAP_OPTS" \
     -p $JMX_PORT:$JMX_PORT \
     $need_to_bind_web \
+    $need_to_bind_file \
     "$IMAGE_NAME" \
     /opt/astraea/bin/app $args
 }

@@ -30,14 +30,72 @@ import java.util.regex.Pattern;
 /** Data size class */
 public class DataSize implements Comparable<DataSize> {
 
+  public static final DataSize ZERO = DataUnit.Byte.of(0);
+
+  public static final DataSizeSource Bit = DataUnit.Bit::of;
+  public static final DataSizeSource Kb = DataUnit.Kb::of;
+  public static final DataSizeSource Mb = DataUnit.Mb::of;
+  public static final DataSizeSource Gb = DataUnit.Gb::of;
+  public static final DataSizeSource Tb = DataUnit.Tb::of;
+  public static final DataSizeSource Pb = DataUnit.Pb::of;
+  public static final DataSizeSource Eb = DataUnit.Eb::of;
+  public static final DataSizeSource Yb = DataUnit.Yb::of;
+  public static final DataSizeSource Zb = DataUnit.Zb::of;
+  public static final DataSizeSource Kib = DataUnit.Kib::of;
+  public static final DataSizeSource Mib = DataUnit.Mib::of;
+  public static final DataSizeSource Gib = DataUnit.Gib::of;
+  public static final DataSizeSource Tib = DataUnit.Tib::of;
+  public static final DataSizeSource Pib = DataUnit.Pib::of;
+  public static final DataSizeSource Eib = DataUnit.Eib::of;
+  public static final DataSizeSource Yib = DataUnit.Yib::of;
+  public static final DataSizeSource Zib = DataUnit.Zib::of;
+
+  public static final DataSizeSource Byte = DataUnit.Byte::of;
+  public static final DataSizeSource KB = DataUnit.KB::of;
+  public static final DataSizeSource MB = DataUnit.MB::of;
+  public static final DataSizeSource GB = DataUnit.GB::of;
+  public static final DataSizeSource TB = DataUnit.TB::of;
+  public static final DataSizeSource PB = DataUnit.PB::of;
+  public static final DataSizeSource EB = DataUnit.EB::of;
+  public static final DataSizeSource YB = DataUnit.YB::of;
+  public static final DataSizeSource ZB = DataUnit.ZB::of;
+  public static final DataSizeSource KiB = DataUnit.KiB::of;
+  public static final DataSizeSource MiB = DataUnit.MiB::of;
+  public static final DataSizeSource GiB = DataUnit.GiB::of;
+  public static final DataSizeSource TiB = DataUnit.TiB::of;
+  public static final DataSizeSource PiB = DataUnit.PiB::of;
+  public static final DataSizeSource EiB = DataUnit.EiB::of;
+  public static final DataSizeSource YiB = DataUnit.YiB::of;
+  public static final DataSizeSource ZiB = DataUnit.ZiB::of;
+
   private final BigInteger bits;
 
   DataSize(long volume, DataUnit dataUnit) {
     this(BigInteger.valueOf(volume).multiply(dataUnit.bits));
   }
 
-  DataSize(BigInteger bigInteger) {
-    this.bits = bigInteger;
+  DataSize(BigInteger bits) {
+    this.bits = bits;
+  }
+
+  /**
+   * Add data volume.
+   *
+   * @param bytes value to add
+   * @return a new {@link DataSize} that have applied the math operation.
+   */
+  public DataSize add(long bytes) {
+    return add(bytes, DataUnit.Byte);
+  }
+
+  /**
+   * Subtract data volume.
+   *
+   * @param bytes value to subtract
+   * @return a new {@link DataSize} that have applied the math operation.
+   */
+  public DataSize subtract(long bytes) {
+    return subtract(bytes, DataUnit.Byte);
   }
 
   /**
@@ -140,13 +198,22 @@ public class DataSize implements Comparable<DataSize> {
   }
 
   /**
+   * @return the current bytes in long primitive type. All the remaining bits that can't become a
+   *     byte are discarded from the return value.
+   * @throws ArithmeticException if the value will not exactly fit into a long.
+   */
+  public long bytes() {
+    return bits().divide(BigInteger.valueOf(8)).longValueExact();
+  }
+
+  /**
    * The measurement value in term of specific data unit.
    *
    * @param dataUnit data unit to describe current size.
    * @return a {@link BigDecimal} describe current data size in term of specific data unit.
    */
   public BigDecimal measurement(DataUnit dataUnit) {
-    return new BigDecimal(this.bits).divide(new BigDecimal(dataUnit.bits), MathContext.DECIMAL32);
+    return new BigDecimal(this.bits).divide(new BigDecimal(dataUnit.bits), MathContext.DECIMAL128);
   }
 
   /**
@@ -187,14 +254,14 @@ public class DataSize implements Comparable<DataSize> {
 
   /** Return a {@link DataRate} based on current data size over a specific time unit. */
   public DataRate dataRate(ChronoUnit chronoUnit) {
-    return DataRate.of(this, chronoUnit.getDuration());
+    return dataRate(chronoUnit.getDuration());
   }
 
   /**
    * Return a {@link DataRate} based on current data size over a specific {@link Duration} of time.
    */
   public DataRate dataRate(Duration timePassed) {
-    return DataRate.of(this, timePassed);
+    return new DataRate(this, timePassed);
   }
 
   /** Return a string represent current size in given data unit. */
@@ -228,6 +295,11 @@ public class DataSize implements Comparable<DataSize> {
   @Override
   public int hashCode() {
     return Objects.hash(bits);
+  }
+
+  @FunctionalInterface
+  public interface DataSizeSource {
+    DataSize of(long measurement);
   }
 
   public static class Field extends org.astraea.app.argument.Field<DataSize> {

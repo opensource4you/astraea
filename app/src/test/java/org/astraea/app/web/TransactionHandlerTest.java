@@ -16,9 +16,7 @@
  */
 package org.astraea.app.web;
 
-import java.util.Map;
 import java.util.NoSuchElementException;
-import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 import org.astraea.app.admin.Admin;
 import org.astraea.app.common.Utils;
@@ -38,15 +36,19 @@ public class TransactionHandlerTest extends RequireBrokerCluster {
       var handler = new TransactionHandler(admin);
       producer.sender().topic(topicName).value(new byte[1]).run().toCompletableFuture().get();
 
-      var result =
-          Assertions.assertInstanceOf(
-              TransactionHandler.Transactions.class, handler.get(Optional.empty(), Map.of()));
-      var transaction =
-          result.transactions.stream()
-              .filter(t -> t.id.equals(producer.transactionId().get()))
-              .findFirst()
-              .get();
-      Assertions.assertEquals(0, transaction.topicPartitions.size());
+      // wait for all transactions are completed
+      Utils.waitFor(
+          () -> {
+            var result =
+                Assertions.assertInstanceOf(
+                    TransactionHandler.Transactions.class, handler.get(Channel.EMPTY));
+            var transaction =
+                result.transactions.stream()
+                    .filter(t -> t.id.equals(producer.transactionId().get()))
+                    .findFirst()
+                    .get();
+            return transaction.topicPartitions.isEmpty();
+          });
     }
   }
 
@@ -59,12 +61,15 @@ public class TransactionHandlerTest extends RequireBrokerCluster {
       var handler = new TransactionHandler(admin);
       producer.sender().topic(topicName).value(new byte[1]).run().toCompletableFuture().get();
 
-      var transaction =
-          Assertions.assertInstanceOf(
-              TransactionHandler.Transaction.class,
-              handler.get(Optional.of(producer.transactionId().get()), Map.of()));
-
-      Assertions.assertEquals(0, transaction.topicPartitions.size());
+      // wait for all transactions are completed
+      Utils.waitFor(
+          () -> {
+            var transaction =
+                Assertions.assertInstanceOf(
+                    TransactionHandler.Transaction.class,
+                    handler.get(Channel.ofTarget(producer.transactionId().get())));
+            return transaction.topicPartitions.isEmpty();
+          });
     }
   }
 
@@ -79,7 +84,7 @@ public class TransactionHandlerTest extends RequireBrokerCluster {
 
       Assertions.assertThrows(
           NoSuchElementException.class,
-          () -> handler.get(Optional.of(Utils.randomString(10)), Map.of()));
+          () -> handler.get(Channel.ofTarget(Utils.randomString(10))));
     }
   }
 }

@@ -16,59 +16,77 @@
  */
 package org.astraea.app.performance;
 
+import java.time.Duration;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicBoolean;
-import org.astraea.app.concurrent.State;
+import org.astraea.app.common.Utils;
+import org.astraea.app.metrics.client.HasNodeMetrics;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 
 public class TrackerTest {
+
   @Test
-  public void testTerminate() throws InterruptedException {
-    var producerData = List.of(new Metrics());
-    var consumerData = List.of(new Metrics());
-    List<Metrics> empty = List.of();
-    var argument = new Performance.Argument();
-    argument.exeTime = ExeTime.of("1records");
+  void testClose() {
+    var tracker = TrackerThread.create(() -> List.of(), () -> List.of(), ExeTime.of("1records"));
+    Assertions.assertFalse(tracker.closed());
+    tracker.close();
+    Assertions.assertTrue(tracker.closed());
+  }
 
-    var manager = new Manager(argument, producerData, consumerData);
-    var producerDone = new AtomicBoolean(false);
-    try (Tracker tracker = new Tracker(producerData, consumerData, manager, producerDone::get)) {
-      producerDone.set(false);
-      Assertions.assertEquals(State.RUNNING, tracker.execute());
-      producerData.get(0).accept(1L, 1L);
-      consumerData.get(0).accept(1L, 1L);
-      producerDone.set(true);
-      Assertions.assertEquals(State.DONE, tracker.execute());
-    }
+  @Test
+  void testZeroConsumer() {
+    var producerReport = new ProducerThread.Report();
+    var tracker =
+        TrackerThread.create(
+            () -> List.of(producerReport), () -> List.of(), ExeTime.of("1records"));
+    Assertions.assertFalse(tracker.closed());
+    producerReport.record("topic", 1, 100, 1L, 1);
+    // wait to done
+    Utils.sleep(Duration.ofSeconds(2));
+    Assertions.assertTrue(tracker.closed());
+  }
 
-    // Zero consumer
-    producerData = List.of(new Metrics());
-    manager = new Manager(argument, producerData, empty);
-    try (Tracker tracker = new Tracker(producerData, empty, manager, producerDone::get)) {
-      producerDone.set(false);
-      Assertions.assertEquals(State.RUNNING, tracker.execute());
-      producerData.get(0).accept(1L, 1L);
-      producerDone.set(true);
-      Assertions.assertEquals(State.DONE, tracker.execute());
-    }
+  @Test
+  void testExeTime() {
+    var producerReport = new ProducerThread.Report();
+    var consumerReport = new ConsumerThread.Report();
+    var tracker =
+        TrackerThread.create(
+            () -> List.of(producerReport), () -> List.of(consumerReport), ExeTime.of("2s"));
+    Assertions.assertFalse(tracker.closed());
+    producerReport.record("topic", 1, 100, 1L, 1);
+    consumerReport.record("topic", 1, 100, 1L, 1);
+    Utils.sleep(Duration.ofSeconds(3));
+    Assertions.assertTrue(tracker.closed());
+  }
 
-    // Stop by duration time out
-    argument.exeTime = ExeTime.of("2s");
-    producerData = List.of(new Metrics());
-    consumerData = List.of(new Metrics());
-    manager = new Manager(argument, producerData, consumerData);
-    try (Tracker tracker = new Tracker(producerData, consumerData, manager, producerDone::get)) {
-      producerDone.set(false);
-      tracker.start = System.currentTimeMillis();
-      Assertions.assertEquals(State.RUNNING, tracker.execute());
+  @Test
+  void testConsumerAndProducer() {
+    var producerReport = new ProducerThread.Report();
+    var consumerReport = new ConsumerThread.Report();
+    var tracker =
+        TrackerThread.create(
+            () -> List.of(producerReport), () -> List.of(consumerReport), ExeTime.of("1records"));
+    Assertions.assertFalse(tracker.closed());
+    producerReport.record("topic", 1, 100, 1L, 1);
+    consumerReport.record("topic", 1, 100, 1L, 1);
+    // wait to done
+    Utils.sleep(Duration.ofSeconds(2));
+    Assertions.assertTrue(tracker.closed());
+  }
 
-      // Mock record producing
-      producerData.get(0).accept(1L, 1L);
-      consumerData.get(0).accept(1L, 1L);
-      Thread.sleep(2000);
-      producerDone.set(true);
-      Assertions.assertEquals(State.DONE, tracker.execute());
-    }
+  @Test
+  void testSumOfAttribute() {
+    var hasNodeMetrics = Mockito.mock(HasNodeMetrics.class);
+    var hasNodeMetrics2 = Mockito.mock(HasNodeMetrics.class);
+    Mockito.when(hasNodeMetrics.incomingByteTotal()).thenReturn(2D);
+    Mockito.when(hasNodeMetrics2.incomingByteTotal()).thenReturn(3D);
+    Mockito.when(hasNodeMetrics.createdTimestamp()).thenReturn(System.currentTimeMillis());
+    Mockito.when(hasNodeMetrics2.createdTimestamp()).thenReturn(System.currentTimeMillis());
+    Assertions.assertEquals(
+        5D,
+        TrackerThread.sumOfAttribute(
+            List.of(hasNodeMetrics, hasNodeMetrics2), HasNodeMetrics::incomingByteTotal));
   }
 }

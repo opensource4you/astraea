@@ -18,7 +18,7 @@ declare -r DOCKER_FOLDER=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null
 source $DOCKER_FOLDER/docker_build_common.sh
 
 # ===============================[global variables]===============================
-declare -r VERSION=${REVISION:-${VERSION:-3.2.0}}
+declare -r VERSION=${REVISION:-${VERSION:-3.2.1}}
 declare -r DOCKERFILE=$DOCKER_FOLDER/broker.dockerfile
 declare -r CONFLUENT_BROKER=${CONFLUENT_BROKER:-false}
 declare -r CONFLUENT_VERSION=${CONFLUENT_VERSION:-7.0.1}
@@ -68,7 +68,7 @@ function showHelp() {
   echo "    REPO=astraea/broker                      set the docker repo"
   echo "    HEAP_OPTS=\"-Xmx2G -Xms2G\"                set broker JVM memory"
   echo "    REVISION=trunk                           set revision of kafka source code to build container"
-  echo "    VERSION=3.2.0                            set version of kafka distribution"
+  echo "    VERSION=3.2.1                            set version of kafka distribution"
   echo "    BUILD=false                              set true if you want to build image locally"
   echo "    RUN=false                                set false if you want to build/pull image only"
   echo "    DATA_FOLDERS=/tmp/folder1                set host folders used by broker"
@@ -337,6 +337,8 @@ setPropertyIfEmpty "num.partitions" "8"
 setPropertyIfEmpty "transaction.state.log.replication.factor" "1"
 setPropertyIfEmpty "offsets.topic.replication.factor" "1"
 setPropertyIfEmpty "transaction.state.log.min.isr" "1"
+setPropertyIfEmpty "min.insync.replicas" "1"
+
 if [[ "$CONFLUENT_BROKER" = "true" ]]; then
     rejectProperty "metric.reporters"
     setPropertyIfEmpty "confluent.metrics.reporter.zookeeper.connect" "$ZOOKEEPER_CONNECT"

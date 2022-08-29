@@ -22,17 +22,21 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 import org.apache.kafka.common.errors.UnknownTopicOrPartitionException;
 import org.astraea.app.admin.Admin;
 import org.astraea.app.admin.Config;
+import org.astraea.app.common.ExecutionRuntimeException;
 
 class TopicHandler implements Handler {
 
   static final String TOPIC_NAME_KEY = "name";
   static final String NUMBER_OF_PARTITIONS_KEY = "partitions";
   static final String NUMBER_OF_REPLICAS_KEY = "replicas";
+  static final String PARTITION_KEY = "partition";
+  static final String LIST_INTERNAL = "listInternal";
 
   private final Admin admin;
 
@@ -40,20 +44,29 @@ class TopicHandler implements Handler {
     this.admin = admin;
   }
 
-  Set<String> topicNames(Optional<String> target) {
-    return Handler.compare(admin.topicNames(), target);
+  Set<String> topicNames(Optional<String> target, boolean listInternal) {
+    return Handler.compare(admin.topicNames(listInternal), target);
   }
 
   @Override
-  public JsonObject get(Optional<String> target, Map<String, String> queries) {
-    return get(topicNames(target));
+  public Response get(Channel channel) {
+    return get(
+        topicNames(
+            channel.target(),
+            Optional.ofNullable(channel.queries().get(LIST_INTERNAL))
+                .map(Boolean::parseBoolean)
+                .orElse(true)),
+        partition ->
+            !channel.queries().containsKey(PARTITION_KEY)
+                || partition == Integer.parseInt(channel.queries().get(PARTITION_KEY)));
   }
 
-  private JsonObject get(Set<String> topicNames) {
+  private Response get(Set<String> topicNames, Predicate<Integer> partitionPredicate) {
     var topics = admin.topics(topicNames);
     var replicas = admin.replicas(topics.keySet());
     var partitions =
         admin.offsets(topics.keySet()).entrySet().stream()
+            .filter(e -> partitionPredicate.test(e.getKey().partition()))
             .collect(
                 Collectors.groupingBy(
                     e -> e.getKey().topic(),
@@ -78,7 +91,10 @@ class TopicHandler implements Handler {
   }
 
   static Map<String, String> remainingConfigs(PostRequest request) {
-    var configs = new HashMap<>(request.raw());
+    var configs =
+        new HashMap<>(
+            request.raw().entrySet().stream()
+                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue)));
     configs.remove(TOPIC_NAME_KEY);
     configs.remove(NUMBER_OF_PARTITIONS_KEY);
     configs.remove(NUMBER_OF_REPLICAS_KEY);
@@ -86,27 +102,42 @@ class TopicHandler implements Handler {
   }
 
   @Override
-  public JsonObject post(PostRequest request) {
+  public Response post(Channel channel) {
     admin
         .creator()
-        .topic(request.value(TOPIC_NAME_KEY))
-        .numberOfPartitions(request.intValue(NUMBER_OF_PARTITIONS_KEY, 1))
-        .numberOfReplicas(request.shortValue(NUMBER_OF_REPLICAS_KEY, (short) 1))
-        .configs(remainingConfigs(request))
+        .topic(channel.request().value(TOPIC_NAME_KEY))
+        .numberOfPartitions(channel.request().getInt(NUMBER_OF_PARTITIONS_KEY).orElse(1))
+        .numberOfReplicas(channel.request().getShort(NUMBER_OF_REPLICAS_KEY).orElse((short) 1))
+        .configs(remainingConfigs(channel.request()))
         .create();
-    if (admin.topicNames().contains(request.value(TOPIC_NAME_KEY))) {
+    if (admin.topicNames().contains(channel.request().value(TOPIC_NAME_KEY))) {
       try {
         // if the topic creation is synced, we return the details.
-        return get(Set.of(request.value(TOPIC_NAME_KEY)));
-      } catch (UnknownTopicOrPartitionException e) {
-        // swallow
+        return get(Set.of(channel.request().value(TOPIC_NAME_KEY)), ignored -> true);
+      } catch (ExecutionRuntimeException executionRuntimeException) {
+        if (UnknownTopicOrPartitionException.class
+            != executionRuntimeException.getRootCause().getClass()) {
+          throw executionRuntimeException;
+        }
       }
     }
     // Otherwise, return only name
-    return new TopicInfo(request.value(TOPIC_NAME_KEY), List.of(), Map.of());
+    return new TopicInfo(channel.request().value(TOPIC_NAME_KEY), List.of(), Map.of());
   }
 
-  static class Topics implements JsonObject {
+  @Override
+  public Response delete(Channel channel) {
+    return channel
+        .target()
+        .map(
+            topic -> {
+              admin.deleteTopics(Set.of(topic));
+              return Response.OK;
+            })
+        .orElse(Response.NOT_FOUND);
+  }
+
+  static class Topics implements Response {
     final Collection<TopicInfo> topics;
 
     private Topics(Collection<TopicInfo> topics) {
@@ -114,7 +145,7 @@ class TopicHandler implements Handler {
     }
   }
 
-  static class TopicInfo implements JsonObject {
+  static class TopicInfo implements Response {
     final String name;
     final List<Partition> partitions;
     final Map<String, String> configs;
@@ -134,7 +165,7 @@ class TopicHandler implements Handler {
     }
   }
 
-  static class Partition implements JsonObject {
+  static class Partition implements Response {
     final int id;
     final long earliest;
     final long latest;
@@ -148,7 +179,7 @@ class TopicHandler implements Handler {
     }
   }
 
-  static class Replica implements JsonObject {
+  static class Replica implements Response {
     final int broker;
     final long lag;
     final long size;
@@ -159,13 +190,13 @@ class TopicHandler implements Handler {
 
     Replica(org.astraea.app.admin.Replica replica) {
       this(
-          replica.broker(),
+          replica.nodeInfo().id(),
           replica.lag(),
           replica.size(),
-          replica.leader(),
+          replica.isLeader(),
           replica.inSync(),
           replica.isFuture(),
-          replica.path());
+          replica.dataFolder());
     }
 
     Replica(

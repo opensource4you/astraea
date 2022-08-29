@@ -27,14 +27,14 @@ public class MetricsTest {
     Random rand = new Random();
     final int num = 1000;
     double avg = 0.0;
-    Metrics metrics = new Metrics();
+    var metrics = new Report.Impl();
 
     Assertions.assertEquals(0, metrics.avgLatency());
 
     for (int i = 0; i < num; ++i) {
       long next = rand.nextInt();
       avg += ((double) next - avg) / (i + 1);
-      metrics.accept(next, 0L);
+      metrics.record("topic", 0, 100, next, 0);
     }
 
     Assertions.assertEquals(avg, metrics.avgLatency());
@@ -42,21 +42,10 @@ public class MetricsTest {
 
   @Test
   void testBytes() {
-    var metrics = new Metrics();
+    var metrics = new Report.Impl();
 
-    Assertions.assertEquals(0, metrics.bytes());
-    metrics.accept(0L, 1000L);
-    Assertions.assertEquals(1000, metrics.bytes());
-  }
-
-  @Test
-  void testCurrentBytes() {
-    var metrics = new Metrics();
-
-    Assertions.assertEquals(0, metrics.clearAndGetCurrentBytes());
-    metrics.accept(0L, 100L);
-    metrics.accept(0L, 101L);
-    Assertions.assertEquals(201, metrics.clearAndGetCurrentBytes());
-    Assertions.assertEquals(0, metrics.clearAndGetCurrentBytes());
+    Assertions.assertEquals(0, metrics.totalBytes());
+    metrics.record("topic", 0, 100, 0L, 1000);
+    Assertions.assertEquals(1000, metrics.totalBytes());
   }
 }
