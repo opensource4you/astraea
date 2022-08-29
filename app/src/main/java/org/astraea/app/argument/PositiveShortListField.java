@@ -16,17 +16,13 @@
  */
 package org.astraea.app.argument;
 
-import com.beust.jcommander.ParameterException;
-import java.util.Set;
+import java.util.List;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
-public abstract class SetField<T> extends Field<Set<T>> {
-  protected static final String SEPARATOR = ",";
-
+public class PositiveShortListField extends PositiveNumberListField<Short> {
   @Override
-  protected void check(String name, String value) throws ParameterException {
-    if (value == null || value.isBlank() || Set.of(value.split(SEPARATOR)).isEmpty())
-      throw new ParameterException("set type can't be empty");
-    if (Set.of(value.split(SEPARATOR)).contains(""))
-      throw new ParameterException("Parameter in " + name + " cannot be empty");
+  public List<Short> convert(String value) {
+    return Stream.of(value.split(SEPARATOR)).map(Short::valueOf).collect(Collectors.toList());
   }
 }
