@@ -17,32 +17,24 @@
 package org.astraea.app.argument;
 
 import com.beust.jcommander.Parameter;
-import com.beust.jcommander.ParameterException;
-import java.util.Set;
+import java.util.List;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-public class SetFieldTest {
+public class PositiveIntegerListFieldTest {
   private static class FakeParameter {
     @Parameter(
         names = {"--field"},
-        converter = StringSetField.class,
-        variableArity = true,
-        validateWith = StringSetField.class)
-    public Set<String> value;
+        listConverter = PositiveIntegerListField.class,
+        validateWith = PositiveIntegerListField.class,
+        variableArity = true)
+    List<Integer> value;
   }
 
   @Test
-  public void testSetConverter() {
-    var param = Argument.parse(new FakeParameter(), new String[] {"--field", "1,2,3"});
+  public void testIntegerListConvert() {
+    var param = Argument.parse(new FakeParameter(), new String[] {"--field", "3,2,1"});
 
-    Assertions.assertEquals(Set.of("1", "2", "3"), param.value);
-  }
-
-  @Test
-  public void testSetCheckEmpty() {
-    Assertions.assertThrows(
-        ParameterException.class,
-        () -> Argument.parse(new FakeParameter(), new String[] {"--field", "1,,2"}));
+    Assertions.assertEquals(List.of(3, 2, 1), param.value);
   }
 }

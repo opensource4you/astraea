@@ -16,33 +16,17 @@
  */
 package org.astraea.app.argument;
 
-import com.beust.jcommander.Parameter;
 import com.beust.jcommander.ParameterException;
-import java.util.Set;
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Test;
+import java.util.List;
 
-public class SetFieldTest {
-  private static class FakeParameter {
-    @Parameter(
-        names = {"--field"},
-        converter = StringSetField.class,
-        variableArity = true,
-        validateWith = StringSetField.class)
-    public Set<String> value;
-  }
+public abstract class ListField<T> extends Field<List<T>> {
+  protected static final String SEPARATOR = ",";
 
-  @Test
-  public void testSetConverter() {
-    var param = Argument.parse(new FakeParameter(), new String[] {"--field", "1,2,3"});
-
-    Assertions.assertEquals(Set.of("1", "2", "3"), param.value);
-  }
-
-  @Test
-  public void testSetCheckEmpty() {
-    Assertions.assertThrows(
-        ParameterException.class,
-        () -> Argument.parse(new FakeParameter(), new String[] {"--field", "1,,2"}));
+  @Override
+  protected void check(String name, String value) throws ParameterException {
+    if (value == null || value.isBlank() || List.of(value.split(SEPARATOR)).isEmpty())
+      throw new ParameterException("list type cannot be empty");
+    if (List.of(value.split(SEPARATOR)).contains(""))
+      throw new ParameterException("Parameter in " + name + " cannot be empty");
   }
 }
