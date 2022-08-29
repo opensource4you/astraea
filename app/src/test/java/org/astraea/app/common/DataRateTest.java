@@ -253,8 +253,8 @@ class DataRateTest {
   @MethodSource("dateRateSource")
   void parseDataRate(DataRate dataRate, String argument) {
     var converter = new DataRate.Field();
-    System.out.println(argument);
-    assertEquals(dataRate, converter.convert(argument));
+    assertEquals(
+        dataRate, converter.convert(argument), String.format("argument parse error %s", argument));
   }
 
   @Test
