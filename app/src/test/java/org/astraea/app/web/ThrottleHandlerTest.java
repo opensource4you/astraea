@@ -262,6 +262,9 @@ public class ThrottleHandlerTest extends RequireBrokerCluster {
               + "\",\"partition\":3,\"broker\":0},"
               + "{\"name\":\""
               + topicD
+              + "\",\"partition\":4,\"broker\":1,\"type\":\"follower\"},"
+              + "{\"name\":\""
+              + topicD
               + "\",\"partition\":4,\"broker\":0,\"type\":\"leader\"}]}";
       var affectedBrokers =
           Set.of(
@@ -279,6 +282,7 @@ public class ThrottleHandlerTest extends RequireBrokerCluster {
               new ThrottleHandler.TopicThrottle(topicB, 2, 1, follower),
               new ThrottleHandler.TopicThrottle(topicB, 2, 2, follower),
               new ThrottleHandler.TopicThrottle(topicC, 3, 0, null),
+              new ThrottleHandler.TopicThrottle(topicD, 4, 1, follower),
               new ThrottleHandler.TopicThrottle(topicD, 4, 0, leader));
       var affectedLeaders =
           Set.of(
@@ -295,7 +299,8 @@ public class ThrottleHandlerTest extends RequireBrokerCluster {
               TopicPartitionReplica.of(topicA, 1, 2),
               TopicPartitionReplica.of(topicB, 2, 1),
               TopicPartitionReplica.of(topicB, 2, 2),
-              TopicPartitionReplica.of(topicC, 3, 0));
+              TopicPartitionReplica.of(topicC, 3, 0),
+              TopicPartitionReplica.of(topicD, 4, 1));
 
       var post = handler.post(Channel.ofRequest(PostRequest.of(rawJson)));
       var deserialized = new Gson().fromJson(post.json(), ThrottleHandler.ThrottleSetting.class);
@@ -348,6 +353,41 @@ public class ThrottleHandlerTest extends RequireBrokerCluster {
               .value("follower.replication.throttled.rate")
               .map(Long::parseLong)
               .orElse(0L));
+    }
+  }
+
+  @Test
+  void testBadPost() {
+    try (Admin admin = Admin.of(bootstrapServers())) {
+      var handler = new ThrottleHandler(admin);
+
+      // empty
+      Assertions.assertThrows(
+          IllegalArgumentException.class,
+          () -> handler.post(Channel.ofRequest(PostRequest.of("{\"topics\":[{}]}"))));
+
+      // no key "name" specified
+      Assertions.assertThrows(
+          IllegalArgumentException.class,
+          () ->
+              handler.post(Channel.ofRequest(PostRequest.of("{\"topics\":[{\"partition\": 3}]}"))));
+
+      // this key combination is not supported
+      Assertions.assertThrows(
+          IllegalArgumentException.class,
+          () ->
+              handler.post(
+                  Channel.ofRequest(
+                      PostRequest.of("{\"topics\":[{\"name\": \"A\", \"broker\": 3}]}"))));
+
+      // illegal type value
+      Assertions.assertThrows(
+          IllegalArgumentException.class,
+          () ->
+              handler.post(
+                  Channel.ofRequest(
+                      PostRequest.of(
+                          "{\"topics\":[{\"name\": \"A\", \"partition\": 0, \"broker\": 3, \"type\": \"owo?\"}]}"))));
     }
   }
 
@@ -513,6 +553,54 @@ public class ThrottleHandlerTest extends RequireBrokerCluster {
       Assertions.assertEquals(202, code7);
       Assertions.assertEquals(-1L, egressRate.apply(0));
       Assertions.assertEquals(-1L, ingressRate.apply(0));
+    }
+  }
+
+  @Test
+  void testBadDelete() {
+    try (Admin admin = Admin.of(bootstrapServers())) {
+      var handler = new ThrottleHandler(admin);
+
+      // empty
+      Assertions.assertEquals(
+          Response.BAD_REQUEST.code(), handler.delete(Channel.ofQueries(Map.of())).code());
+
+      // no key "topic" specified
+      Assertions.assertEquals(
+          Response.BAD_REQUEST.code(),
+          handler.delete(Channel.ofQueries(Map.of("partition", "0"))).code());
+
+      // this key combination is not supported
+      Assertions.assertThrows(
+          IllegalArgumentException.class,
+          () ->
+              handler.delete(
+                  Channel.ofQueries(
+                      Map.of(
+                          "topic", "MyTopic",
+                          "replica", "0"))));
+
+      // illegal type value
+      Assertions.assertThrows(
+          IllegalArgumentException.class,
+          () ->
+              handler.delete(
+                  Channel.ofQueries(
+                      Map.of(
+                          "topic", "MyTopic",
+                          "partition", "0",
+                          "replica", "0",
+                          "type", "owo?"))));
+
+      // illegal clear target
+      Assertions.assertThrows(
+          IllegalArgumentException.class,
+          () ->
+              handler.delete(
+                  Channel.ofQueries(
+                      Map.of(
+                          "broker", "0",
+                          "type", "ingress+egress+everyTopic"))));
     }
   }
 }

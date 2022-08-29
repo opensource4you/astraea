@@ -23,7 +23,6 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.astraea.app.admin.Admin;
@@ -107,7 +106,6 @@ public class ThrottleHandler implements Handler {
             .orElse(List.of());
 
     final var throttler = admin.replicationThrottler();
-    final var acceptedTopicThrottle = new AtomicInteger();
     // ingress
     throttler.ingress(
         brokerToUpdate.stream()
@@ -122,47 +120,28 @@ public class ThrottleHandler implements Handler {
             .collect(
                 Collectors.toUnmodifiableMap(
                     broker -> broker.id, broker -> DataRate.Byte.of(broker.egress).perSecond())));
-    // topic
-    topics.stream()
-        .filter(topic -> topic.partition == null)
-        .filter(topic -> topic.broker == null)
-        .filter(topic -> topic.type == null)
-        .map(topic -> topic.name)
-        .peek(x -> acceptedTopicThrottle.incrementAndGet())
-        .forEach(throttler::throttle);
-    // partition
-    topics.stream()
-        .filter(topic -> topic.partition != null)
-        .filter(topic -> topic.broker == null)
-        .filter(topic -> topic.type == null)
-        .map(topic -> TopicPartition.of(topic.name, topic.partition))
-        .peek(x -> acceptedTopicThrottle.incrementAndGet())
-        .forEach(throttler::throttle);
-    // replica
-    topics.stream()
-        .filter(topic -> topic.partition != null)
-        .filter(topic -> topic.broker != null)
-        .filter(topic -> topic.type == null)
-        .map(topic -> TopicPartitionReplica.of(topic.name, topic.partition, topic.broker))
-        .peek(x -> acceptedTopicThrottle.incrementAndGet())
-        .forEach(throttler::throttle);
-    // leader/follower
-    topics.stream()
-        .filter(topic -> topic.partition != null)
-        .filter(topic -> topic.broker != null)
-        .filter(topic -> topic.type != null)
-        .peek(x -> acceptedTopicThrottle.incrementAndGet())
-        .forEach(
-            topic -> {
-              var replica = TopicPartitionReplica.of(topic.name, topic.partition, topic.broker);
-              if (topic.type.equals("leader")) throttler.throttleLeader(replica);
-              else if (topic.type.equals("follower")) throttler.throttleFollower(replica);
-              else throw new IllegalArgumentException("Unknown throttle type: " + topic.type);
-            });
 
-    if (acceptedTopicThrottle.get() != topics.size()) {
-      throw new IllegalArgumentException("Some topic throttle combination is not supported");
-    }
+    topics.forEach(
+        topic -> {
+          //noinspection ConstantConditions, the deserialization result must leave this value null
+          if (topic.name == null)
+            throw new IllegalArgumentException("The 'name' key of topic throttle must be given");
+          else if (topic.partition == null && topic.broker == null && topic.type == null) {
+            throttler.throttle(topic.name);
+          } else if (topic.partition != null && topic.broker == null && topic.type == null) {
+            throttler.throttle(TopicPartition.of(topic.name, topic.partition));
+          } else if (topic.partition != null && topic.broker != null && topic.type == null) {
+            throttler.throttle(TopicPartitionReplica.of(topic.name, topic.partition, topic.broker));
+          } else if (topic.partition != null && topic.broker != null && topic.type != null) {
+            var replica = TopicPartitionReplica.of(topic.name, topic.partition, topic.broker);
+            if (topic.type.equals("leader")) throttler.throttleLeader(replica);
+            else if (topic.type.equals("follower")) throttler.throttleFollower(replica);
+            else throw new IllegalArgumentException("Unknown throttle type: " + topic.type);
+          } else {
+            throw new IllegalArgumentException(
+                "The TopicThrottle argument is not supported: " + topic);
+          }
+        });
 
     var affectedResources = throttler.apply();
     var affectedBrokers =
@@ -193,10 +172,12 @@ public class ThrottleHandler implements Handler {
               Optional.ofNullable(channel.queries().get("replica"))
                   .map(Integer::parseInt)
                   .orElse(null),
-              Arrays.stream(LogIdentity.values())
-                  .filter(x -> x.name().equals(channel.queries().getOrDefault("type", "")))
-                  .findFirst()
-                  .orElse(null));
+              channel.queries().get("type") == null
+                  ? null
+                  : Arrays.stream(LogIdentity.values())
+                      .filter(x -> x.name().equals(channel.queries().get("type")))
+                      .findFirst()
+                      .orElseThrow(IllegalArgumentException::new));
 
       if (topic.partition == null && topic.broker == null && topic.type == null)
         admin.clearReplicationThrottle(topic.name);
@@ -211,7 +192,8 @@ public class ThrottleHandler implements Handler {
       else if (topic.partition != null && topic.broker != null && topic.type.equals("follower"))
         admin.clearFollowerReplicationThrottle(
             TopicPartitionReplica.of(topic.name, topic.partition, topic.broker));
-      else return Response.BAD_REQUEST;
+      else
+        throw new IllegalArgumentException("The argument is not supported: " + channel.queries());
 
       return Response.ACCEPT;
     } else if (channel.queries().containsKey("broker")) {
