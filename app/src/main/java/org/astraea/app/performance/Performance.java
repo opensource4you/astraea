@@ -41,6 +41,7 @@ import org.astraea.app.argument.PathField;
 import org.astraea.app.argument.PositiveIntegerField;
 import org.astraea.app.argument.PositiveLongField;
 import org.astraea.app.argument.PositiveShortField;
+import org.astraea.app.common.DataRate;
 import org.astraea.app.common.DataSize;
 import org.astraea.app.common.DataUnit;
 import org.astraea.app.common.Utils;
@@ -354,9 +355,10 @@ public class Performance {
     // replace DataSize by DataRate (see https://github.com/skiptests/astraea/issues/488)
     @Parameter(
         names = {"--throughput"},
-        description = "dataSize: size output per second. e.g. \"500KiB\"",
-        converter = DataSize.Field.class)
-    DataSize throughput = DataSize.GiB.of(500);
+        description =
+            "dataRate: size output/timeUnit. Default: second. e.g. \"500KiB/second\", \"100 MB/PT-10S\"",
+        converter = DataRate.Field.class)
+    DataRate throughput = DataRate.GiB.of(500).perSecond();
 
     @Parameter(
         names = {"--report.path"},

@@ -21,6 +21,7 @@ import java.util.Random;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
+import org.astraea.app.common.DataRate;
 import org.astraea.app.common.DataSize;
 import org.astraea.app.common.DataUnit;
 
@@ -140,7 +141,7 @@ interface DataSupplier extends Supplier<DataSupplier.Data> {
    * @param keySizeDistribution supply the size of newly created key
    * @param valueDistribution supply abstract value which is represented by a 64-bit integer
    * @param valueSizeDistribution supply the size of newly created value
-   * @param throughput the limit on data produced per second
+   * @param throughput the limit on data produced
    * @return supply data with given distribution. It will map the 64-bit number supplied by
    *     key(/value) distribution to a byte array.
    */
@@ -150,7 +151,7 @@ interface DataSupplier extends Supplier<DataSupplier.Data> {
       Supplier<Long> keySizeDistribution,
       Supplier<Long> valueDistribution,
       Supplier<Long> valueSizeDistribution,
-      DataSize throughput) {
+      DataRate throughput) {
     return new DataSupplier() {
       private final Throttler throttler = new Throttler(throughput);
       private final long start = System.currentTimeMillis();
@@ -203,8 +204,13 @@ interface DataSupplier extends Supplier<DataSupplier.Data> {
     private final long throughput;
     private final AtomicLong totalBytes = new AtomicLong();
 
+    /** @param max dataSize per second */
     Throttler(DataSize max) {
       throughput = max.measurement(DataUnit.Byte).longValue();
+    }
+
+    Throttler(DataRate max) {
+      throughput = Double.valueOf(max.byteRate()).longValue();
     }
 
     /**

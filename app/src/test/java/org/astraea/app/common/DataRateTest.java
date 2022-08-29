@@ -16,19 +16,29 @@
  */
 package org.astraea.app.common;
 
+import static org.astraea.app.common.DataRate.Field.DEFAULT_DURATION;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.math.BigInteger;
 import java.time.Duration;
+import java.time.format.DateTimeParseException;
 import java.time.temporal.ChronoUnit;
+import java.util.Arrays;
+import java.util.List;
 import java.util.function.BiConsumer;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+import org.apache.commons.lang3.tuple.Pair;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.MethodSource;
 
 class DataRateTest {
 
@@ -196,5 +206,67 @@ class DataRateTest {
   @Test
   void testZero() {
     Assertions.assertEquals(0, DataRate.ZERO.byteRate());
+  }
+
+  private static Stream<Arguments> dateRateSource() {
+    var customDurationPair =
+        Arrays.stream(DataRate.Field.CustomDurationMapping.values())
+            .flatMap(x -> x.expression().stream().map(e -> Pair.of(e, x.duration())))
+            .collect(Collectors.toList());
+    var javaDurationPair =
+        List.of(
+            Pair.of("PT20.345S", Duration.of(20345, ChronoUnit.MILLIS)),
+            Pair.of("PT15M", Duration.of(15, ChronoUnit.MINUTES)));
+    var allDurationPair =
+        Stream.concat(customDurationPair.stream(), javaDurationPair.stream())
+            .collect(Collectors.toList());
+
+    return Arrays.stream(DataUnit.values())
+        .flatMap(
+            dataUnit -> {
+              var dataSize = dataUnit.of(100);
+              var expressionWithoutDuration = "100" + dataUnit.name();
+
+              var expectedWithDuration =
+                  allDurationPair.stream()
+                      .flatMap(
+                          durationPair -> {
+                            var durationExpression = durationPair.getLeft();
+                            var expectedDataRate = dataSize.dataRate(durationPair.getRight());
+                            var expressionWithoutSpace =
+                                "100" + dataUnit.name() + "/" + durationExpression;
+                            var expressionWithSpace =
+                                "100 " + dataUnit.name() + "/" + durationExpression;
+                            return Stream.of(expressionWithoutSpace, expressionWithSpace)
+                                .map(x -> Pair.of(expectedDataRate, x));
+                          });
+              var expectedDefaultDuration =
+                  Stream.of(
+                      Pair.of(dataSize.dataRate(DEFAULT_DURATION), expressionWithoutDuration));
+
+              return Stream.concat(expectedWithDuration, expectedDefaultDuration);
+            })
+        .map(x -> Arguments.of(x.getLeft(), x.getRight()));
+  }
+
+  @ParameterizedTest
+  @MethodSource("dateRateSource")
+  void parseDataRate(DataRate dataRate, String argument) {
+    var converter = new DataRate.Field();
+    System.out.println(argument);
+    assertEquals(dataRate, converter.convert(argument));
+  }
+
+  @Test
+  void parseDataRateWithException() {
+    var converter = new DataRate.Field();
+
+    assertThrows(IllegalArgumentException.class, () -> converter.convert("5000 MB/ second"));
+    assertThrows(IllegalArgumentException.class, () -> converter.convert("5000 MB per second"));
+    assertThrows(IllegalArgumentException.class, () -> converter.convert("xxx 5000 MB"));
+    assertThrows(IllegalArgumentException.class, () -> converter.convert("6.00 MB"));
+
+    // unsupprot week
+    assertThrows(DateTimeParseException.class, () -> converter.convert("5000 MB/Week"));
   }
 }

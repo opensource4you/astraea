@@ -22,8 +22,13 @@ import java.math.MathContext;
 import java.math.RoundingMode;
 import java.time.Duration;
 import java.time.temporal.ChronoUnit;
+import java.util.Arrays;
 import java.util.Comparator;
+import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /** Data rate class */
 public class DataRate {
@@ -204,5 +209,88 @@ public class DataRate {
     public DataRate over(ChronoUnit chronoUnit) {
       return dataSize.dataRate(chronoUnit);
     }
+  }
+
+  public static class Field extends org.astraea.app.argument.Field<DataRate> {
+
+    static final Duration DEFAULT_DURATION = Duration.ofSeconds(1);
+    private static final Pattern DATA_SIZE_PATTERN =
+        Pattern.compile(
+            "(?<measurement>[0-9]+)\\s?(?<dataUnit>[a-zA-Z]+)(?<duration>/[\\da-z-+.,A-Z]+)?");
+
+    /**
+     * Convert string to DataRate.
+     *
+     * <pre>{@code
+     * new DataRate.Field().convert("500KB/s");  // 500 KB  (500 * 1000 bytes)/ per second
+     * new DataRate.Field().convert("500KiB/H"); // 500 KiB (500 * 1024 bytes)/ per hour
+     * new DataRate.Field().convert("500Kb/minute");  // 500 Kb  (500 * 1000 bits)/ per minute
+     * new DataRate.Field().convert("500Kib/PT-20S"); // 500 Kib (500 * 1024 bits)/ per 20 second
+     * }</pre>
+     *
+     * @param argument number and the unit and duration e.g. "500MiB/s", "9876 KB/PT-20S"
+     * @return data size with data unit under duration.
+     */
+    @Override
+    public DataRate convert(String argument) {
+
+      Matcher matcher = DATA_SIZE_PATTERN.matcher(argument);
+      if (matcher.matches()) {
+        var measurement = Long.parseLong(matcher.group("measurement"));
+        var dataUnit = DataUnit.valueOf(matcher.group("dataUnit"));
+        var duration = getDuration(matcher.group("duration"));
+        return new DataRate(dataUnit.of(measurement), duration);
+      } else {
+        throw new IllegalArgumentException("Unknown DataRate \"" + argument + "\"");
+      }
+    }
+
+    enum CustomDurationMapping {
+      SECOND(List.of("s", "second"), Duration.ofSeconds(1)),
+      MINUTE(List.of("m", "minute"), Duration.ofMinutes(1)),
+      HOUR(List.of("h", "hour"), Duration.ofHours(1)),
+      DAY(List.of("d", "day"), Duration.ofDays(1));
+      private final List<String> expression;
+      private final Duration duration;
+
+      CustomDurationMapping(List<String> expression, Duration duration) {
+        this.expression = expression;
+        this.duration = duration;
+      }
+
+      public List<String> expression() {
+        return expression;
+      }
+
+      public Duration duration() {
+        return duration;
+      }
+    }
+
+    private Duration getDuration(String duration) {
+      if (Objects.isNull(duration)) {
+        return DEFAULT_DURATION;
+      }
+      var lowerCaseDuration = duration.substring(1).toLowerCase();
+      return Arrays.stream(CustomDurationMapping.values())
+          .filter(x -> x.expression().contains(lowerCaseDuration))
+          .map(CustomDurationMapping::duration)
+          .findFirst()
+          .orElseGet(() -> Duration.parse(lowerCaseDuration));
+    }
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) return true;
+    if (o == null || getClass() != o.getClass()) return false;
+    DataRate dataRate = (DataRate) o;
+    return Objects.equals(totalBitTransmitted, dataRate.totalBitTransmitted)
+        && Objects.equals(durationInNanoSecond, dataRate.durationInNanoSecond);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(totalBitTransmitted, durationInNanoSecond);
   }
 }

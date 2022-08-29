@@ -25,6 +25,7 @@ import java.util.stream.IntStream;
 import org.astraea.app.admin.Admin;
 import org.astraea.app.admin.TopicPartition;
 import org.astraea.app.argument.Argument;
+import org.astraea.app.common.DataRate;
 import org.astraea.app.common.Utils;
 import org.astraea.app.consumer.Isolation;
 import org.astraea.app.service.RequireBrokerCluster;
@@ -99,12 +100,15 @@ public class PerformanceTest extends RequireBrokerCluster {
       "zipfian",
       "--specify.broker",
       "1",
+      "--throughput",
+      "100MB/m",
       "--configs",
       "key=value"
     };
 
     var arg = Argument.parse(new Performance.Argument(), arguments1);
     Assertions.assertEquals("value", arg.configs().get("key"));
+    Assertions.assertEquals(DataRate.MB.of(100).perMinute(), arg.throughput);
 
     String[] arguments2 = {"--bootstrap.servers", "localhost:9092", "--topic", ""};
     Assertions.assertThrows(
