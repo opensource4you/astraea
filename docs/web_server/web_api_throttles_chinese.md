@@ -95,7 +95,9 @@ brokers 每個資料欄位
 |---------|---------------------------------------------------------------------------------------------------------------------------------------| ------ |
 | id      | (必填) 欲更新節點的 id                                                                                                                        | 無     |
 | ingress | (選填) 特定 Kafka 節點的 replication 流入流量的限制(單位 bytes/sec)，附註只有 `topics` 中有記錄到的對象，其 replication 流量會受限制，如果此欄位不存在則代表此節點的 replication 流入流量沒有被修改。 | 無     |
-| egress  | (選填) 特定 Kafka 節點的 replication 流出流量的限制(單位 bytes/sec)，附註只有 `topics` 中有記錄到的對象，其 replication 流量會受限制。                                      | 無     |
+| egress  | (選填) 特定 Kafka 節點的 replication 流出流量的限制(單位 bytes/sec)，附註只有 `topics` 中有記錄到的對象，其 replication 流量會受限制，如果此欄位不存在則代表此節點的 replication 流入流量沒有被修改。 | 無     |
+
+給定一個沒有指定 ingress/egress 的輸入不會使任何資訊被修改，如：`{ "id": 1002 }`。
 
 topics 每個資料欄位
 

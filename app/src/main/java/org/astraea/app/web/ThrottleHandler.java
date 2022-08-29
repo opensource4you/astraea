@@ -211,6 +211,7 @@ public class ThrottleHandler implements Handler {
       else if (topic.partition != null && topic.broker != null && topic.type.equals("follower"))
         admin.clearFollowerReplicationThrottle(
             TopicPartitionReplica.of(topic.name, topic.partition, topic.broker));
+      else return Response.BAD_REQUEST;
 
       return Response.ACCEPT;
     } else if (channel.queries().containsKey("broker")) {
@@ -307,8 +308,8 @@ public class ThrottleHandler implements Handler {
     static BrokerThrottle of(int id, DataRate ingress, DataRate egress) {
       return new BrokerThrottle(
           id,
-          Optional.ofNullable(ingress).map(i -> (long) i.byteRate()).orElse(null),
-          Optional.ofNullable(egress).map(i -> (long) i.byteRate()).orElse(null));
+          (ingress != null) ? ((long) ingress.byteRate()) : (null),
+          (egress != null) ? ((long) egress.byteRate()) : (null));
     }
 
     BrokerThrottle(int id, Long ingress, Long egress) {
