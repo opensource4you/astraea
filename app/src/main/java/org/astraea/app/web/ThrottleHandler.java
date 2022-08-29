@@ -216,7 +216,7 @@ public class ThrottleHandler implements Handler {
       return Response.ACCEPT;
     } else if (channel.queries().containsKey("broker")) {
       var broker = Integer.parseInt(channel.queries().get("broker"));
-      var bandwidth = channel.queries().get("type").split(" ");
+      var bandwidth = channel.queries().get("type").split("\\+");
       for (String target : bandwidth) {
         if (target.equals("ingress")) admin.clearIngressReplicationThrottle(Set.of(broker));
         else if (target.equals("egress")) admin.clearEgressReplicationThrottle(Set.of(broker));

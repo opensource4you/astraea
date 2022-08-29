@@ -24,9 +24,11 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
 import java.time.Duration;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.stream.StreamSupport;
 import org.astraea.app.admin.Admin;
 import org.astraea.app.admin.TopicPartition;
@@ -220,36 +222,297 @@ public class ThrottleHandlerTest extends RequireBrokerCluster {
   }
 
   @Test
-  void runPost() {
+  void testPost() {
     try (Admin admin = Admin.of(bootstrapServers())) {
       var handler = new ThrottleHandler(admin);
-      admin.creator().topic("MyTopicA").numberOfPartitions(2).numberOfReplicas((short) 3).create();
-      admin.creator().topic("MyTopicB").numberOfPartitions(3).numberOfReplicas((short) 3).create();
-      admin.creator().topic("MyTopicC").numberOfPartitions(4).numberOfReplicas((short) 3).create();
-      admin.creator().topic("MyTopicD").numberOfPartitions(5).numberOfReplicas((short) 3).create();
-
-      var string =
+      var topicA = Utils.randomString();
+      var topicB = Utils.randomString();
+      var topicC = Utils.randomString();
+      var topicD = Utils.randomString();
+      admin.creator().topic(topicA).numberOfPartitions(2).numberOfReplicas((short) 3).create();
+      admin.creator().topic(topicB).numberOfPartitions(3).numberOfReplicas((short) 3).create();
+      admin.creator().topic(topicC).numberOfPartitions(4).numberOfReplicas((short) 3).create();
+      admin.creator().topic(topicD).numberOfPartitions(5).numberOfReplicas((short) 3).create();
+      Utils.sleep(Duration.ofSeconds(1));
+      admin.migrator().partition(topicA, 0).moveTo(List.of(0, 1, 2));
+      admin.migrator().partition(topicA, 1).moveTo(List.of(0, 1, 2));
+      admin.migrator().partition(topicB, 2).moveTo(List.of(0, 1, 2));
+      admin.migrator().partition(topicC, 3).moveTo(List.of(0, 1, 2));
+      admin.migrator().partition(topicD, 4).moveTo(List.of(0, 1, 2));
+      Utils.sleep(Duration.ofSeconds(1));
+      admin.preferredLeaderElection(TopicPartition.of(topicA, 0));
+      admin.preferredLeaderElection(TopicPartition.of(topicA, 1));
+      admin.preferredLeaderElection(TopicPartition.of(topicB, 2));
+      admin.preferredLeaderElection(TopicPartition.of(topicC, 3));
+      admin.preferredLeaderElection(TopicPartition.of(topicD, 4));
+      Utils.sleep(Duration.ofSeconds(1));
+      var rawJson =
           "{\"brokers\":["
               + "{\"id\":0,\"ingress\":1000,\"egress\":1000},"
               + "{\"id\":1,\"ingress\":1000}],"
               + "\"topics\":["
-              + "{\"name\":\"MyTopicA\"},"
-              + "{\"name\":\"MyTopicB\",\"partition\":2},"
-              + "{\"name\":\"MyTopicC\",\"partition\":3,\"broker\":0},"
-              + "{\"name\":\"MyTopicD\",\"partition\":4,\"broker\":0,\"type\":\"leader\"}]}";
-      handler.post(Channel.ofRequest(PostRequest.of(string)));
+              + "{\"name\":\""
+              + topicA
+              + "\"},"
+              + "{\"name\":\""
+              + topicB
+              + "\",\"partition\":2},"
+              + "{\"name\":\""
+              + topicC
+              + "\",\"partition\":3,\"broker\":0},"
+              + "{\"name\":\""
+              + topicD
+              + "\",\"partition\":4,\"broker\":0,\"type\":\"leader\"}]}";
+      var affectedBrokers =
+          Set.of(
+              new ThrottleHandler.BrokerThrottle(0, 1000L, 1000L),
+              new ThrottleHandler.BrokerThrottle(1, 1000L, null));
+      var affectedTopics =
+          Set.of(
+              new ThrottleHandler.TopicThrottle(topicA, 0, 0, leader),
+              new ThrottleHandler.TopicThrottle(topicA, 0, 1, follower),
+              new ThrottleHandler.TopicThrottle(topicA, 0, 2, follower),
+              new ThrottleHandler.TopicThrottle(topicA, 1, 0, leader),
+              new ThrottleHandler.TopicThrottle(topicA, 1, 1, follower),
+              new ThrottleHandler.TopicThrottle(topicA, 1, 2, follower),
+              new ThrottleHandler.TopicThrottle(topicB, 2, 0, leader),
+              new ThrottleHandler.TopicThrottle(topicB, 2, 1, follower),
+              new ThrottleHandler.TopicThrottle(topicB, 2, 2, follower),
+              new ThrottleHandler.TopicThrottle(topicC, 3, 0, null),
+              new ThrottleHandler.TopicThrottle(topicD, 4, 0, leader));
+      var affectedLeaders =
+          Set.of(
+              TopicPartitionReplica.of(topicA, 0, 0),
+              TopicPartitionReplica.of(topicA, 1, 0),
+              TopicPartitionReplica.of(topicB, 2, 0),
+              TopicPartitionReplica.of(topicC, 3, 0),
+              TopicPartitionReplica.of(topicD, 4, 0));
+      var affectedFollowers =
+          Set.of(
+              TopicPartitionReplica.of(topicA, 0, 1),
+              TopicPartitionReplica.of(topicA, 0, 2),
+              TopicPartitionReplica.of(topicA, 1, 1),
+              TopicPartitionReplica.of(topicA, 1, 2),
+              TopicPartitionReplica.of(topicB, 2, 1),
+              TopicPartitionReplica.of(topicB, 2, 2),
+              TopicPartitionReplica.of(topicC, 3, 0));
+
+      var post = handler.post(Channel.ofRequest(PostRequest.of(rawJson)));
+      var deserialized = new Gson().fromJson(post.json(), ThrottleHandler.ThrottleSetting.class);
       Utils.sleep(Duration.ofSeconds(1));
 
-      System.out.println("Result 0:");
-      System.out.println(handler.get(Channel.EMPTY).json());
-      System.out.println();
+      // verify response content is correct
+      Assertions.assertEquals(200, post.code());
+      Assertions.assertEquals(affectedBrokers, Set.copyOf(deserialized.brokers));
+      Assertions.assertEquals(affectedTopics, Set.copyOf(deserialized.topics));
 
-      handler.delete(Channel.ofQueries(Map.of("topic", "MyTopicA")));
-      Utils.sleep(Duration.ofSeconds(1));
+      // verify topic/broker configs are correct
+      final var topicConfigs = admin.topics(Set.of(topicA, topicB, topicC, topicD));
+      Assertions.assertTrue(
+          affectedLeaders.stream()
+              .allMatch(
+                  log ->
+                      topicConfigs
+                          .get(log.topic())
+                          .value("leader.replication.throttled.replicas")
+                          .orElse("")
+                          .contains(log.partition() + ":" + log.brokerId())));
+      Assertions.assertTrue(
+          affectedFollowers.stream()
+              .allMatch(
+                  log ->
+                      topicConfigs
+                          .get(log.topic())
+                          .value("follower.replication.throttled.replicas")
+                          .orElse("")
+                          .contains(log.partition() + ":" + log.brokerId())));
+      final var brokerConfigs = admin.brokers();
+      Assertions.assertEquals(
+          1000L,
+          brokerConfigs
+              .get(0)
+              .value("leader.replication.throttled.rate")
+              .map(Long::parseLong)
+              .orElse(0L));
+      Assertions.assertEquals(
+          1000L,
+          brokerConfigs
+              .get(0)
+              .value("follower.replication.throttled.rate")
+              .map(Long::parseLong)
+              .orElse(0L));
+      Assertions.assertEquals(
+          1000L,
+          brokerConfigs
+              .get(1)
+              .value("follower.replication.throttled.rate")
+              .map(Long::parseLong)
+              .orElse(0L));
+    }
+  }
 
-      System.out.println("Result 1:");
-      System.out.println(handler.get(Channel.EMPTY).json());
-      System.out.println();
+  @Test
+  void testDelete() {
+    try (Admin admin = Admin.of(bootstrapServers())) {
+      var handler = new ThrottleHandler(admin);
+      var topic = Utils.randomString();
+      admin.creator().topic(topic).numberOfPartitions(3).numberOfReplicas((short) 3).create();
+      Utils.sleep(Duration.ofMillis(500));
+      admin.migrator().partition(topic, 0).moveTo(List.of(0, 1, 2));
+      admin.migrator().partition(topic, 1).moveTo(List.of(0, 1, 2));
+      admin.migrator().partition(topic, 2).moveTo(List.of(0, 1, 2));
+      Utils.sleep(Duration.ofMillis(500));
+      admin.preferredLeaderElection(TopicPartition.of(topic, 0));
+      admin.preferredLeaderElection(TopicPartition.of(topic, 1));
+      admin.preferredLeaderElection(TopicPartition.of(topic, 2));
+      Utils.sleep(Duration.ofMillis(500));
+
+      Supplier<String> leaderConfig =
+          () ->
+              admin
+                  .topics(Set.of(topic))
+                  .get(topic)
+                  .value("leader.replication.throttled.replicas")
+                  .orElse("");
+      Supplier<String> followerConfig =
+          () ->
+              admin
+                  .topics(Set.of(topic))
+                  .get(topic)
+                  .value("follower.replication.throttled.replicas")
+                  .orElse("");
+      Function<Integer, Long> egressRate =
+          (id) ->
+              admin
+                  .brokers()
+                  .get(id)
+                  .value("leader.replication.throttled.rate")
+                  .map(Long::parseLong)
+                  .orElse(-1L);
+      Function<Integer, Long> ingressRate =
+          (id) ->
+              admin
+                  .brokers()
+                  .get(id)
+                  .value("follower.replication.throttled.rate")
+                  .map(Long::parseLong)
+                  .orElse(-1L);
+      Runnable setThrottle =
+          () -> {
+            admin
+                .replicationThrottler()
+                .throttle(topic)
+                .ingress(DataRate.Byte.of(100).perSecond())
+                .egress(DataRate.Byte.of(100).perSecond())
+                .apply();
+            Utils.sleep(Duration.ofMillis(500));
+          };
+
+      // delete topic
+      setThrottle.run();
+      int code0 = handler.delete(Channel.ofQueries(Map.of("topic", topic))).code();
+      Utils.sleep(Duration.ofMillis(500));
+      Assertions.assertEquals(202, code0);
+      Assertions.assertEquals("", leaderConfig.get());
+      Assertions.assertEquals("", followerConfig.get());
+
+      // delete topic/partition
+      setThrottle.run();
+      int code1 =
+          handler.delete(Channel.ofQueries(Map.of("topic", topic, "partition", "0"))).code();
+      Utils.sleep(Duration.ofMillis(500));
+      Assertions.assertEquals(202, code1);
+      Assertions.assertFalse(leaderConfig.get().matches("0:[0-9]+"));
+      Assertions.assertFalse(followerConfig.get().matches("0:[0-9]+"));
+
+      // delete topic/partition/replica
+      setThrottle.run();
+      int code2 =
+          handler
+              .delete(
+                  Channel.ofQueries(
+                      Map.of(
+                          "topic", topic,
+                          "partition", "0",
+                          "replica", "0")))
+              .code();
+      Utils.sleep(Duration.ofMillis(500));
+      Assertions.assertEquals(202, code2);
+      Assertions.assertFalse(leaderConfig.get().matches("0:0"));
+      Assertions.assertFalse(followerConfig.get().matches("0:0"));
+
+      // delete topic/partition/replica/type
+      setThrottle.run();
+      int code3 =
+          handler
+              .delete(
+                  Channel.ofQueries(
+                      Map.of(
+                          "topic", topic,
+                          "partition", "0",
+                          "replica", "0",
+                          "type", "leader")))
+              .code();
+      int code4 =
+          handler
+              .delete(
+                  Channel.ofQueries(
+                      Map.of(
+                          "topic", topic,
+                          "partition", "0",
+                          "replica", "1",
+                          "type", "follower")))
+              .code();
+      Utils.sleep(Duration.ofMillis(500));
+      Assertions.assertEquals(202, code3);
+      Assertions.assertEquals(202, code4);
+      Assertions.assertFalse(leaderConfig.get().matches("0:0"));
+      Assertions.assertFalse(followerConfig.get().matches("0:1"));
+
+      // delete broker/type=ingress
+      setThrottle.run();
+      int code5 =
+          handler
+              .delete(
+                  Channel.ofQueries(
+                      Map.of(
+                          "broker", "0",
+                          "type", "ingress")))
+              .code();
+      Utils.sleep(Duration.ofMillis(500));
+      Assertions.assertEquals(202, code5);
+      Assertions.assertEquals(100L, egressRate.apply(0));
+      Assertions.assertEquals(-1L, ingressRate.apply(0));
+
+      // delete broker/type=egress
+      setThrottle.run();
+      int code6 =
+          handler
+              .delete(
+                  Channel.ofQueries(
+                      Map.of(
+                          "broker", "0",
+                          "type", "egress")))
+              .code();
+      Utils.sleep(Duration.ofMillis(500));
+      Assertions.assertEquals(202, code6);
+      Assertions.assertEquals(-1L, egressRate.apply(0));
+      Assertions.assertEquals(100L, ingressRate.apply(0));
+
+      // delete broker/type=ingress+egress
+      setThrottle.run();
+      int code7 =
+          handler
+              .delete(
+                  Channel.ofQueries(
+                      Map.of(
+                          "broker", "0",
+                          "type", "ingress+egress")))
+              .code();
+      Utils.sleep(Duration.ofMillis(500));
+      Assertions.assertEquals(202, code7);
+      Assertions.assertEquals(-1L, egressRate.apply(0));
+      Assertions.assertEquals(-1L, ingressRate.apply(0));
     }
   }
 }
