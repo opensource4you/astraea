@@ -207,14 +207,19 @@ public class Performance {
       try (var admin = Admin.of(configs())) {
         topicPattern.forEach(
             (topic, pr) -> {
-              for (var partitionReplica : pr.entrySet()) {
-                admin
-                    .creator()
-                    .topic(topic)
-                    .numberOfPartitions(partitionReplica.getKey())
-                    .numberOfReplicas(partitionReplica.getValue())
-                    .create();
-              }
+              pr.forEach(
+                  (p, r) ->
+                      Utils.waitFor(
+                          () -> {
+                            admin
+                                .creator()
+                                .topic(topic)
+                                .numberOfPartitions(p)
+                                .numberOfReplicas(r)
+                                .create();
+                            return true;
+                          },
+                          Duration.ofSeconds(30)));
             });
         Utils.waitFor(() -> admin.topicNames().containsAll(topics));
       }
@@ -242,16 +247,10 @@ public class Performance {
       try (var admin = Admin.of(configs())) {
         // the slow zk causes unknown error, so we have to wait it.
         return Utils.waitForNonNull(
-            () -> {
-              try {
-                return admin.offsets(new HashSet<>(topics)).entrySet().stream()
-                    .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().latest()));
-              } catch (Exception e) {
-                e.printStackTrace();
-                return null;
-              }
-            },
-            Duration.ofSeconds(5));
+            () ->
+                admin.offsets(new HashSet<>(topics)).entrySet().stream()
+                    .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().latest())),
+            Duration.ofSeconds(30));
       }
     }
 
