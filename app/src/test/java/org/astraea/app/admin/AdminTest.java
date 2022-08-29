@@ -1559,12 +1559,12 @@ public class AdminTest extends RequireBrokerCluster {
     try (Admin admin = Admin.of(bootstrapServers())) {
       var topic = Utils.randomString();
       admin.creator().topic(topic).numberOfPartitions(10).numberOfReplicas((short) 3).create();
-      Utils.sleep(Duration.ofMillis(100));
+      Utils.sleep(Duration.ofSeconds(1));
       admin.replicationThrottler().throttle(topic).apply();
-      Utils.sleep(Duration.ofMillis(100));
+      Utils.sleep(Duration.ofSeconds(1));
 
       admin.clearReplicationThrottle(TopicPartitionReplica.of(topic, 0, 0));
-      Utils.sleep(Duration.ofMillis(500));
+      Utils.sleep(Duration.ofSeconds(1));
 
       Assertions.assertTrue(
           fetchLeaderThrottle(topic).stream()
@@ -1647,6 +1647,95 @@ public class AdminTest extends RequireBrokerCluster {
           admin.topicNames(false).stream().anyMatch(t -> t.equals("__consumer_offsets")));
       Assertions.assertEquals(
           1, admin.topicNames(false).stream().filter(t -> t.equals(topicName)).count());
+    }
+  }
+
+  @Test
+  void testClearLeaderReplicationThrottle() {
+    try (Admin admin = Admin.of(bootstrapServers())) {
+      var topic = Utils.randomString();
+      var log = TopicPartitionReplica.of(topic, 0, 0);
+      admin.creator().topic(topic).numberOfPartitions(1).numberOfReplicas((short) 3).create();
+      Utils.sleep(Duration.ofSeconds(1));
+      admin.replicationThrottler().throttleLeader(log).apply();
+      Utils.sleep(Duration.ofSeconds(1));
+      Assertions.assertEquals(
+          "0:0",
+          admin
+              .topics(Set.of(topic))
+              .get(topic)
+              .value("leader.replication.throttled.replicas")
+              .orElse(""));
+
+      admin.clearLeaderReplicationThrottle(log);
+      Utils.sleep(Duration.ofSeconds(1));
+      Assertions.assertEquals(
+          "",
+          admin
+              .topics(Set.of(topic))
+              .get(topic)
+              .value("leader.replication.throttled.replicas")
+              .orElse(""));
+    }
+  }
+
+  @Test
+  void testClearFollowerReplicationThrottle() {
+    try (Admin admin = Admin.of(bootstrapServers())) {
+      var topic = Utils.randomString();
+      var log = TopicPartitionReplica.of(topic, 0, 0);
+      admin.creator().topic(topic).numberOfPartitions(1).numberOfReplicas((short) 3).create();
+      Utils.sleep(Duration.ofSeconds(1));
+      admin.replicationThrottler().throttleFollower(log).apply();
+      Utils.sleep(Duration.ofSeconds(1));
+      Assertions.assertEquals(
+          "0:0",
+          admin
+              .topics(Set.of(topic))
+              .get(topic)
+              .value("follower.replication.throttled.replicas")
+              .orElse(""));
+
+      admin.clearFollowerReplicationThrottle(log);
+      Utils.sleep(Duration.ofSeconds(1));
+      Assertions.assertEquals(
+          "",
+          admin
+              .topics(Set.of(topic))
+              .get(topic)
+              .value("follower.replication.throttled.replicas")
+              .orElse(""));
+    }
+  }
+
+  @Test
+  void testReplicationThrottleAffectedTargets() {
+    try (Admin admin = Admin.of(bootstrapServers())) {
+      var topic = Utils.randomString();
+      var replica0 = TopicPartitionReplica.of(topic, 0, 0);
+      var replica1 = TopicPartitionReplica.of(topic, 1, 1);
+      var replica2 = TopicPartitionReplica.of(topic, 2, 2);
+      admin.creator().topic(topic).numberOfPartitions(3).numberOfReplicas((short) 3).create();
+      Utils.sleep(Duration.ofSeconds(1));
+
+      var affectedResources =
+          admin
+              .replicationThrottler()
+              .ingress(Map.of(0, DataRate.GiB.of(1).perSecond()))
+              .egress(Map.of(1, DataRate.GiB.of(1).perSecond()))
+              .throttle(replica0)
+              .throttleLeader(replica1)
+              .throttleFollower(replica2)
+              .apply();
+
+      Assertions.assertEquals(Set.of(replica0, replica1), affectedResources.leaders());
+      Assertions.assertEquals(Set.of(replica0, replica2), affectedResources.followers());
+      Assertions.assertEquals(
+          Map.of(0, DataRate.GiB.of(1).perSecond()).toString(),
+          affectedResources.ingress().toString());
+      Assertions.assertEquals(
+          Map.of(1, DataRate.GiB.of(1).perSecond()).toString(),
+          affectedResources.egress().toString());
     }
   }
 }
