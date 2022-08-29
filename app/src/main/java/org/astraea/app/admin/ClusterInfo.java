@@ -16,8 +16,6 @@
  */
 package org.astraea.app.admin;
 
-import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
@@ -48,7 +46,7 @@ public interface ClusterInfo<T extends ReplicaInfo> {
    * @param after to compare
    * @return the diff replicas
    */
-  static Map<Replica, Integer> diff4TopicPartitionReplica(
+  static Set<Replica> diff4TopicPartitionReplica(
       ClusterInfo<Replica> before, ClusterInfo<Replica> after) {
     return ClusterInfo.diff(
         before, after, (b, a) -> b.topicPartitionReplica().equals(a.topicPartitionReplica()));
@@ -65,53 +63,20 @@ public interface ClusterInfo<T extends ReplicaInfo> {
    * @param equal to compare replica
    * @return the diff replicas
    */
-  static Map<Replica, Integer> diff(
+  static Set<Replica> diff(
       ClusterInfo<Replica> before,
       ClusterInfo<Replica> after,
       BiFunction<Replica, Replica, Boolean> equal) {
-    var beforeChange =
-        before.replicas().stream()
-            .filter(
-                beforeReplica ->
-                    after
-                        .replica(beforeReplica.topicPartitionReplica())
-                        // not equal so it is changed
-                        .map(newReplica -> !equal.apply(beforeReplica, newReplica))
-                        // no replica in the after cluster so it is changed
-                        .orElse(true))
-            .collect(Collectors.toSet());
-
-    var afterChange = new HashMap<TopicPartition, List<Integer>>();
-    after
-        .replicas()
-        .forEach(
-            afterReplica -> {
-              if (before
-                  .replica(afterReplica.topicPartitionReplica())
-                  // not equal so it is changed
-                  .map(newReplica -> !equal.apply(afterReplica, newReplica))
-                  // no replica in the after cluster so it is changed
-                  .orElse(true))
-                afterChange
-                    .computeIfAbsent(
-                        TopicPartition.of(afterReplica.topic(), afterReplica.partition()),
-                        ignore -> new ArrayList<>())
-                    .add(afterReplica.nodeInfo().id());
-            });
-    return beforeChange.stream()
+    return before.replicas().stream()
         .filter(
-            replica ->
-                afterChange.containsKey(TopicPartition.of(replica.topic(), replica.partition())))
-        .map(
-            replica -> {
-              var sinkBrokerList =
-                  afterChange.get(TopicPartition.of(replica.topic(), replica.partition()));
-              var sinkBroker = sinkBrokerList.remove(0);
-              afterChange.put(
-                  TopicPartition.of(replica.topic(), replica.partition()), sinkBrokerList);
-              return Map.entry(replica, sinkBroker);
-            })
-        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+            beforeReplica ->
+                after
+                    .replica(beforeReplica.topicPartitionReplica())
+                    // not equal so it is changed
+                    .map(newReplica -> !equal.apply(beforeReplica, newReplica))
+                    // no replica in the after cluster so it is changed
+                    .orElse(true))
+        .collect(Collectors.toSet());
   }
 
   @SuppressWarnings("unchecked")
