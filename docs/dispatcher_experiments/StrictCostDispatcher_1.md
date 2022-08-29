@@ -118,4 +118,7 @@ Kafka Partitioner 平均吞吐：438.39 MiB/second
 
 ## 結論
 
-StrictCostPartitioner 根據節點平均延遲來分送訊息，也因此減少發送到 B4 （狀況較差節點）的訊息，使得在此情境下，平均延遲勝過 Kafka Default Partitioner。
+StrictCostPartitioner 根據節點平均延遲來分送訊息，也因此減少發送到 B4 （狀況較差節點）的訊息，使得在此情境下，
+
+1. **平均延遲**較 Kafka Default Partitioner 低約 46.86%
+2. **平均吞吐**較 Kafka Default Partitioner 高約 1.98 倍
