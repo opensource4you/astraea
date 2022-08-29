@@ -37,9 +37,9 @@ public interface Dispatcher extends Partitioner {
   ConcurrentHashMap<Cluster, ClusterInfo> CLUSTER_CACHE = new ConcurrentHashMap<>();
 
   /**
-   * Keeps the Interdependent status of each Dispatcher. Use the Dispatcher's hashcode as the key.
+   * Keeps the Interdependent status of each Dispatcher. Use the Dispatcher's hashcode as the key.Each thread has a corresponding interdependent state.
    */
-  ConcurrentHashMap<Integer, Interdependent> INTERDEPENDENT = new ConcurrentHashMap<>();
+  ConcurrentHashMap<Integer, ThreadLocal<Interdependent>> INTERDEPENDENT = new ConcurrentHashMap<>();
 
   /**
    * Compute the partition for the given record.
@@ -63,7 +63,9 @@ public interface Dispatcher extends Partitioner {
   /**
    * Use the producer to get the scheduler, allowing you to control it for interdependent
    * messages.Interdependent message will be sent to the same partition. The system will
-   * automatically select the node with the best current condition as the target node. For example:
+   * automatically select the node with the best current condition as the target node.
+   * Action:Each thread of a producer has a corresponding interdependent state.
+   * For example:
    *
    * <pre>{
    * @Code
@@ -77,8 +79,7 @@ public interface Dispatcher extends Partitioner {
    * @param producer Kafka producer
    */
   static void beginInterdependent(Producer<Key, Value> producer) {
-    var dispatcher = dispatcher(producer);
-    dispatcher.begin(dispatcher);
+    dispatcher(producer).begin();
   }
 
   /**
@@ -87,8 +88,7 @@ public interface Dispatcher extends Partitioner {
    * @param producer Kafka producer
    */
   static void endInterdependent(Producer<Key, Value> producer) {
-    var dispatcher = dispatcher(producer);
-    dispatcher.end(dispatcher);
+    dispatcher(producer).end();
   }
 
   private static Dispatcher dispatcher(Producer<Key, Value> producer) {
@@ -106,7 +106,7 @@ public interface Dispatcher extends Partitioner {
 
   @Override
   default void configure(Map<String, ?> configs) {
-    INTERDEPENDENT.putIfAbsent(this.hashCode(), new Interdependent());
+    INTERDEPENDENT.putIfAbsent(this.hashCode(), new ThreadLocal<>());
     configure(
         Configuration.of(
             configs.entrySet().stream()
@@ -116,9 +116,11 @@ public interface Dispatcher extends Partitioner {
   @Override
   default int partition(
       String topic, Object key, byte[] keyBytes, Object value, byte[] valueBytes, Cluster cluster) {
-    return INTERDEPENDENT.get(this.hashCode()).isInterdependent.get()
+    threadInterdependent();
+    return INTERDEPENDENT.get(this.hashCode()).get().isInterdependent.get()
         ? INTERDEPENDENT
             .get(this.hashCode())
+            .get()
             .interdependentPartition(
                 this,
                 topic,
@@ -135,15 +137,20 @@ public interface Dispatcher extends Partitioner {
   @Override
   default void onNewBatch(String topic, Cluster cluster, int prevPartition) {}
 
-  private void begin(Dispatcher dispatcher) {
-    INTERDEPENDENT.get(dispatcher.hashCode()).isInterdependent.set(true);
+  private void begin() {
+    threadInterdependent();
+    INTERDEPENDENT.get(this.hashCode()).get().isInterdependent.set(true);
   }
 
-  private void end(Dispatcher dispatcher) {
-    if (INTERDEPENDENT.get(dispatcher.hashCode()).isInterdependent.compareAndSet(true, false)) {
-      INTERDEPENDENT.get(dispatcher.hashCode()).targetPartitions.set(-1);
-    }
+  private void end() {
+    if (INTERDEPENDENT.get(this.hashCode()).get() == null || !INTERDEPENDENT.get(this.hashCode()).get().isInterdependent.get()) throw new RuntimeException("You haven't begun interdependent.");
+    INTERDEPENDENT.get(this.hashCode()).get().isInterdependent.set(false);
   }
+
+  private void threadInterdependent(){
+    if (INTERDEPENDENT.get(this.hashCode()).get() == null) INTERDEPENDENT.get(this.hashCode()).set(new Interdependent());
+  }
+
 
   class Interdependent {
     private final AtomicBoolean isInterdependent = new AtomicBoolean(false);

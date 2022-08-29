@@ -67,7 +67,7 @@ public class DispatcherTest extends RequireSingleBrokerCluster {
 
           @Override
           public void configure(Configuration config) {
-            Dispatcher.INTERDEPENDENT.putIfAbsent(this.hashCode(), new Interdependent());
+            Dispatcher.INTERDEPENDENT.putIfAbsent(this.hashCode(), new ThreadLocal<>());
             count.incrementAndGet();
           }
         };
@@ -91,7 +91,7 @@ public class DispatcherTest extends RequireSingleBrokerCluster {
 
           @Override
           public void configure(Configuration config) {
-            Dispatcher.INTERDEPENDENT.putIfAbsent(this.hashCode(), new Interdependent());
+            Dispatcher.INTERDEPENDENT.putIfAbsent(this.hashCode(), new ThreadLocal<>());
           }
         };
     dispatcher.configure(Map.of());
@@ -126,6 +126,61 @@ public class DispatcherTest extends RequireSingleBrokerCluster {
     Assertions.assertNull(Dispatcher.INTERDEPENDENT.get(dispatcher1.hashCode()));
     dispatcher2.close();
     Assertions.assertNull(Dispatcher.INTERDEPENDENT.get(dispatcher1.hashCode()));
+  }
+
+  @Test
+  void endErrorTest(){
+      var admin = Admin.of(bootstrapServers());
+      var topicName = "address";
+      admin.creator().topic(topicName).numberOfPartitions(9).create();
+      try (var producer =
+                   Producer.builder()
+                           .keySerializer(Serializer.STRING)
+                           .configs(
+                                   initProConfig().entrySet().stream()
+                                           .collect(
+                                                   Collectors.toMap(e -> e.getKey().toString(), e -> e.getValue().toString())))
+                           .build()) {
+          Assertions.assertThrows(RuntimeException.class,()->Dispatcher.endInterdependent(instanceOfProducer(producer)));
+      }
+  }
+
+  @Test
+  void multipleThreadTest(){
+      var admin = Admin.of(bootstrapServers());
+      var topicName = "address";
+      admin.creator().topic(topicName).numberOfPartitions(9).create();
+      var key = "tainan";
+      var value = "shanghai";
+      var timestamp = System.currentTimeMillis() + 10;
+      var header = Header.of("a", "b".getBytes());
+      try (var producer =
+                   Producer.builder()
+                           .keySerializer(Serializer.STRING)
+                           .configs(
+                                   initProConfig().entrySet().stream()
+                                           .collect(
+                                                   Collectors.toMap(e -> e.getKey().toString(), e -> e.getValue().toString())))
+                           .build()) {
+          Runnable runnable = ()->{
+              Dispatcher.beginInterdependent(instanceOfProducer(producer));
+              Dispatcher.endInterdependent(instanceOfProducer(producer));
+          };
+          Dispatcher.beginInterdependent(instanceOfProducer(producer));
+          new Thread(runnable).start();
+          var exceptPartition =
+                  producerSend(producer, topicName, key, value, timestamp, header).partition();
+          IntStream.range(0, 99)
+                  .forEach(
+                          i -> {
+                              Metadata metadata;
+                              metadata = producerSend(producer, topicName, key, value, timestamp, header);
+                              assertEquals(topicName, metadata.topic());
+                              assertEquals(timestamp, metadata.timestamp());
+                              assertEquals(exceptPartition, metadata.partition());
+                          });
+          Dispatcher.endInterdependent(instanceOfProducer(producer));
+      }
   }
 
   @Test
