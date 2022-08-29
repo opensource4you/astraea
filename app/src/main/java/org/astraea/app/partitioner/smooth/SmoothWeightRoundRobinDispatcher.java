@@ -71,7 +71,8 @@ public class SmoothWeightRoundRobinDispatcher extends Periodic<Map<Integer, Doub
   public static final String JMX_PORT = "jmx.port";
 
   @Override
-  public int partition(String topic, byte[] key, byte[] value, ClusterInfo clusterInfo) {
+  public int partition(
+      String topic, byte[] key, byte[] value, ClusterInfo<ReplicaInfo> clusterInfo) {
     var targetPartition = unusedPartitions.poll();
     tryUpdateAfterOneSecond(
         () -> {
@@ -159,7 +160,7 @@ public class SmoothWeightRoundRobinDispatcher extends Periodic<Map<Integer, Doub
         .build();
   }
 
-  private int nextValue(String topic, ClusterInfo clusterInfo, int targetBroker) {
+  private int nextValue(String topic, ClusterInfo<ReplicaInfo> clusterInfo, int targetBroker) {
     return topicCounter
         .computeIfAbsent(topic, k -> new BrokerNextCounter(clusterInfo))
         .brokerCounter
@@ -167,7 +168,7 @@ public class SmoothWeightRoundRobinDispatcher extends Periodic<Map<Integer, Doub
         .getAndIncrement();
   }
 
-  private void refreshPartitionMetaData(ClusterInfo clusterInfo, String topic) {
+  private void refreshPartitionMetaData(ClusterInfo<ReplicaInfo> clusterInfo, String topic) {
     partitions = clusterInfo.availableReplicas(topic);
     partitions.forEach(
         p ->
@@ -186,7 +187,7 @@ public class SmoothWeightRoundRobinDispatcher extends Periodic<Map<Integer, Doub
   private static class BrokerNextCounter {
     private final Map<Integer, AtomicInteger> brokerCounter;
 
-    BrokerNextCounter(ClusterInfo clusterInfo) {
+    BrokerNextCounter(ClusterInfo<ReplicaInfo> clusterInfo) {
       brokerCounter =
           clusterInfo.nodes().stream()
               .collect(Collectors.toMap(NodeInfo::id, node -> new AtomicInteger(0)));

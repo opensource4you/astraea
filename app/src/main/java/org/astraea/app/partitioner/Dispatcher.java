@@ -27,6 +27,7 @@ import org.apache.kafka.clients.producer.Producer;
 import org.apache.kafka.common.Cluster;
 import org.apache.kafka.common.metrics.stats.Value;
 import org.astraea.app.admin.ClusterInfo;
+import org.astraea.app.admin.ReplicaInfo;
 import org.astraea.app.common.Utils;
 
 public interface Dispatcher extends Partitioner {
@@ -37,9 +38,11 @@ public interface Dispatcher extends Partitioner {
   ConcurrentHashMap<Cluster, ClusterInfo> CLUSTER_CACHE = new ConcurrentHashMap<>();
 
   /**
-   * Keeps the Interdependent status of each Dispatcher. Use the Dispatcher's hashcode as the key.Each thread has a corresponding interdependent state.
+   * Keeps the Interdependent status of each Dispatcher. Use the Dispatcher's hashcode as the
+   * key.Each thread has a corresponding interdependent state.
    */
-  ConcurrentHashMap<Integer, ThreadLocal<Interdependent>> INTERDEPENDENT = new ConcurrentHashMap<>();
+  ConcurrentHashMap<Integer, ThreadLocal<Interdependent>> INTERDEPENDENT =
+      new ConcurrentHashMap<>();
 
   /**
    * Compute the partition for the given record.
@@ -49,7 +52,7 @@ public interface Dispatcher extends Partitioner {
    * @param value The value to partition
    * @param clusterInfo The current cluster metadata
    */
-  int partition(String topic, byte[] key, byte[] value, ClusterInfo clusterInfo);
+  int partition(String topic, byte[] key, byte[] value, ClusterInfo<ReplicaInfo> clusterInfo);
 
   /**
    * configure this dispatcher. This method is called only once.
@@ -63,9 +66,8 @@ public interface Dispatcher extends Partitioner {
   /**
    * Use the producer to get the scheduler, allowing you to control it for interdependent
    * messages.Interdependent message will be sent to the same partition. The system will
-   * automatically select the node with the best current condition as the target node.
-   * Action:Each thread of a producer has a corresponding interdependent state.
-   * For example:
+   * automatically select the node with the best current condition as the target node. Action:Each
+   * thread of a producer has a corresponding interdependent state. For example:
    *
    * <pre>{
    * @Code
@@ -143,14 +145,16 @@ public interface Dispatcher extends Partitioner {
   }
 
   private void end() {
-    if (INTERDEPENDENT.get(this.hashCode()).get() == null || !INTERDEPENDENT.get(this.hashCode()).get().isInterdependent.get()) throw new RuntimeException("You haven't begun interdependent.");
+    if (INTERDEPENDENT.get(this.hashCode()).get() == null
+        || !INTERDEPENDENT.get(this.hashCode()).get().isInterdependent.get())
+      throw new RuntimeException("You haven't begun interdependent.");
     INTERDEPENDENT.get(this.hashCode()).get().isInterdependent.set(false);
   }
 
-  private void threadInterdependent(){
-    if (INTERDEPENDENT.get(this.hashCode()).get() == null) INTERDEPENDENT.get(this.hashCode()).set(new Interdependent());
+  private void threadInterdependent() {
+    if (INTERDEPENDENT.get(this.hashCode()).get() == null)
+      INTERDEPENDENT.get(this.hashCode()).set(new Interdependent());
   }
-
 
   class Interdependent {
     private final AtomicBoolean isInterdependent = new AtomicBoolean(false);

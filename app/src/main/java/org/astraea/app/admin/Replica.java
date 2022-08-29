@@ -18,19 +18,12 @@ package org.astraea.app.admin;
 
 import java.util.Objects;
 
-public final class Replica {
-  private final int broker;
-  private final long lag;
-  private final long size;
-  private final boolean leader;
-  private final boolean inSync;
-  private final boolean isFuture;
-  private final boolean isPreferredLeader;
-  private final boolean offline;
-  private final String path;
+public interface Replica extends ReplicaInfo {
 
-  Replica(
-      int broker,
+  static Replica of(
+      String topic,
+      int partition,
+      NodeInfo nodeInfo,
       long lag,
       long size,
       boolean leader,
@@ -38,83 +31,127 @@ public final class Replica {
       boolean isFuture,
       boolean offline,
       boolean isPreferredLeader,
-      String path) {
-    this.broker = broker;
-    this.lag = lag;
-    this.size = size;
-    this.leader = leader;
-    this.inSync = inSync;
-    this.isFuture = isFuture;
-    this.isPreferredLeader = isPreferredLeader;
-    this.offline = offline;
-    this.path = path;
-  }
+      String dataFolder) {
+    return new Replica() {
+      @Override
+      public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        var replica = (Replica) o;
+        return partition == replica.partition()
+            && Objects.equals(nodeInfo, replica.nodeInfo())
+            && lag == replica.lag()
+            && size == replica.size()
+            && leader == replica.isLeader()
+            && inSync == replica.inSync()
+            && isFuture == replica.isFuture()
+            && isPreferredLeader == replica.isPreferredLeader()
+            && offline == replica.isOffline()
+            && Objects.equals(topic, replica.topic())
+            && Objects.equals(dataFolder, replica.dataFolder());
+      }
 
-  @Override
-  public boolean equals(Object o) {
-    if (this == o) return true;
-    if (o == null || getClass() != o.getClass()) return false;
-    Replica replica = (Replica) o;
-    return broker == replica.broker
-        && lag == replica.lag
-        && size == replica.size
-        && leader == replica.leader
-        && inSync == replica.inSync
-        && isFuture == replica.isFuture
-        && isPreferredLeader == replica.isPreferredLeader
-        && offline == replica.offline
-        && path.equals(replica.path);
-  }
+      @Override
+      public int hashCode() {
+        return Objects.hash(
+            topic,
+            partition,
+            nodeInfo,
+            lag,
+            size,
+            leader,
+            inSync,
+            isFuture,
+            isPreferredLeader,
+            offline,
+            dataFolder);
+      }
 
-  @Override
-  public int hashCode() {
-    return Objects.hash(
-        broker, lag, size, leader, inSync, isFuture, isPreferredLeader, offline, path);
-  }
+      @Override
+      public String toString() {
+        return "Replica{"
+            + "topic='"
+            + topic
+            + '\''
+            + ", partition="
+            + partition
+            + ", broker="
+            + nodeInfo
+            + ", lag="
+            + lag
+            + ", size="
+            + size
+            + ", leader="
+            + leader
+            + ", inSync="
+            + inSync
+            + ", isFuture="
+            + isFuture
+            + ", isPreferredLeader="
+            + isPreferredLeader
+            + ", offline="
+            + offline
+            + ", path='"
+            + dataFolder
+            + '\''
+            + '}';
+      }
 
-  @Override
-  public String toString() {
-    return "Replica{"
-        + "broker="
-        + broker
-        + ", lag="
-        + lag
-        + ", size="
-        + size
-        + ", leader="
-        + leader
-        + ", inSync="
-        + inSync
-        + ", isFuture="
-        + isFuture
-        + ", isPreferredLeader="
-        + isPreferredLeader
-        + ", offline="
-        + offline
-        + ", path='"
-        + path
-        + '\''
-        + '}';
-  }
+      @Override
+      public String topic() {
+        return topic;
+      }
 
-  public int broker() {
-    return broker;
-  }
+      @Override
+      public int partition() {
+        return partition;
+      }
 
-  public long lag() {
-    return lag;
-  }
+      @Override
+      public NodeInfo nodeInfo() {
+        return nodeInfo;
+      }
 
-  public long size() {
-    return size;
-  }
+      @Override
+      public long lag() {
+        return lag;
+      }
 
-  public boolean leader() {
-    return leader;
-  }
+      public long size() {
+        return size;
+      }
 
-  public boolean inSync() {
-    return inSync;
+      @Override
+      public boolean isLeader() {
+        return leader;
+      }
+
+      @Override
+      public boolean inSync() {
+        return inSync;
+      }
+
+      @Override
+      public boolean isFuture() {
+        return isFuture;
+      }
+
+      @Override
+      public boolean isPreferredLeader() {
+        return isPreferredLeader;
+      }
+
+      /** @return true if the replica on the broker is offline. */
+      @Override
+      public boolean isOffline() {
+        return offline;
+      }
+
+      @Override
+      public String dataFolder() {
+        return dataFolder;
+      }
+    };
   }
 
   /**
@@ -124,26 +161,22 @@ public final class Replica {
    * @return true if this log is created by AlterReplicaLogDirsRequest and will replace the current
    *     log of the replica at some time in the future.
    */
-  public boolean isFuture() {
-    return isFuture;
-  }
+  boolean isFuture();
 
   /** @return true if this is current log of replica. */
-  public boolean isCurrent() {
-    return !isFuture;
+  default boolean isCurrent() {
+    return !isFuture();
   }
 
   /** @return true if the replica is the preferred leader */
-  public boolean isPreferredLeader() {
-    return isPreferredLeader;
-  }
+  boolean isPreferredLeader();
 
-  /** @return true if the replica on the broker is offline. */
-  public boolean isOffline() {
-    return offline;
-  }
+  long lag();
 
-  public String path() {
-    return path;
-  }
+  long size();
+
+  /**
+   * @return that indicates the data folder path which stored this replica on a specific Kafka node.
+   */
+  String dataFolder();
 }

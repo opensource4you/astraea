@@ -36,6 +36,7 @@ class TopicHandler implements Handler {
   static final String NUMBER_OF_PARTITIONS_KEY = "partitions";
   static final String NUMBER_OF_REPLICAS_KEY = "replicas";
   static final String PARTITION_KEY = "partition";
+  static final String LIST_INTERNAL = "listInternal";
 
   private final Admin admin;
 
@@ -43,17 +44,21 @@ class TopicHandler implements Handler {
     this.admin = admin;
   }
 
-  Set<String> topicNames(Optional<String> target) {
-    return Handler.compare(admin.topicNames(), target);
+  Set<String> topicNames(Optional<String> target, boolean listInternal) {
+    return Handler.compare(admin.topicNames(listInternal), target);
   }
 
   @Override
-  public Response get(Optional<String> target, Map<String, String> queries) {
+  public Response get(Channel channel) {
     return get(
-        topicNames(target),
+        topicNames(
+            channel.target(),
+            Optional.ofNullable(channel.queries().get(LIST_INTERNAL))
+                .map(Boolean::parseBoolean)
+                .orElse(true)),
         partition ->
-            !queries.containsKey(PARTITION_KEY)
-                || partition == Integer.parseInt(queries.get(PARTITION_KEY)));
+            !channel.queries().containsKey(PARTITION_KEY)
+                || partition == Integer.parseInt(channel.queries().get(PARTITION_KEY)));
   }
 
   private Response get(Set<String> topicNames, Predicate<Integer> partitionPredicate) {
@@ -86,7 +91,10 @@ class TopicHandler implements Handler {
   }
 
   static Map<String, String> remainingConfigs(PostRequest request) {
-    var configs = new HashMap<>(request.raw());
+    var configs =
+        new HashMap<>(
+            request.raw().entrySet().stream()
+                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue)));
     configs.remove(TOPIC_NAME_KEY);
     configs.remove(NUMBER_OF_PARTITIONS_KEY);
     configs.remove(NUMBER_OF_REPLICAS_KEY);
@@ -94,18 +102,18 @@ class TopicHandler implements Handler {
   }
 
   @Override
-  public Response post(PostRequest request) {
+  public Response post(Channel channel) {
     admin
         .creator()
-        .topic(request.value(TOPIC_NAME_KEY))
-        .numberOfPartitions(request.intValue(NUMBER_OF_PARTITIONS_KEY, 1))
-        .numberOfReplicas(request.shortValue(NUMBER_OF_REPLICAS_KEY, (short) 1))
-        .configs(remainingConfigs(request))
+        .topic(channel.request().value(TOPIC_NAME_KEY))
+        .numberOfPartitions(channel.request().getInt(NUMBER_OF_PARTITIONS_KEY).orElse(1))
+        .numberOfReplicas(channel.request().getShort(NUMBER_OF_REPLICAS_KEY).orElse((short) 1))
+        .configs(remainingConfigs(channel.request()))
         .create();
-    if (admin.topicNames().contains(request.value(TOPIC_NAME_KEY))) {
+    if (admin.topicNames().contains(channel.request().value(TOPIC_NAME_KEY))) {
       try {
         // if the topic creation is synced, we return the details.
-        return get(Set.of(request.value(TOPIC_NAME_KEY)), ignored -> true);
+        return get(Set.of(channel.request().value(TOPIC_NAME_KEY)), ignored -> true);
       } catch (ExecutionRuntimeException executionRuntimeException) {
         if (UnknownTopicOrPartitionException.class
             != executionRuntimeException.getRootCause().getClass()) {
@@ -114,13 +122,19 @@ class TopicHandler implements Handler {
       }
     }
     // Otherwise, return only name
-    return new TopicInfo(request.value(TOPIC_NAME_KEY), List.of(), Map.of());
+    return new TopicInfo(channel.request().value(TOPIC_NAME_KEY), List.of(), Map.of());
   }
 
   @Override
-  public Response delete(String topic, Map<String, String> queries) {
-    admin.deleteTopics(Set.of(topic));
-    return Response.OK;
+  public Response delete(Channel channel) {
+    return channel
+        .target()
+        .map(
+            topic -> {
+              admin.deleteTopics(Set.of(topic));
+              return Response.OK;
+            })
+        .orElse(Response.NOT_FOUND);
   }
 
   static class Topics implements Response {
@@ -176,13 +190,13 @@ class TopicHandler implements Handler {
 
     Replica(org.astraea.app.admin.Replica replica) {
       this(
-          replica.broker(),
+          replica.nodeInfo().id(),
           replica.lag(),
           replica.size(),
-          replica.leader(),
+          replica.isLeader(),
           replica.inSync(),
           replica.isFuture(),
-          replica.path());
+          replica.dataFolder());
     }
 
     Replica(

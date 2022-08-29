@@ -16,21 +16,20 @@
  */
 package org.astraea.app.cost;
 
-import java.util.Collection;
 import java.util.Map;
 import java.util.Optional;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.astraea.app.admin.ClusterBean;
 import org.astraea.app.admin.ClusterInfo;
-import org.astraea.app.admin.TopicPartition;
-import org.astraea.app.admin.TopicPartitionReplica;
-import org.astraea.app.metrics.HasBeanObject;
-import org.astraea.app.metrics.broker.HasValue;
+import org.astraea.app.admin.NodeInfo;
+import org.astraea.app.admin.Replica;
+import org.astraea.app.admin.ReplicaInfo;
 import org.astraea.app.metrics.broker.LogMetrics;
 import org.astraea.app.metrics.collector.Fetcher;
 
-public class NodeTopicSizeCost implements HasBrokerCost, HasPartitionCost {
+public class NodeTopicSizeCost implements HasBrokerCost, HasClusterCost {
+  private final Dispersion dispersion = Dispersion.correlationCoefficient();
+
   @Override
   public Optional<Fetcher> fetcher() {
     return Optional.of(LogMetrics.Log.SIZE::fetch);
@@ -41,63 +40,34 @@ public class NodeTopicSizeCost implements HasBrokerCost, HasPartitionCost {
    * @return a BrokerCost contains the used space for each broker
    */
   @Override
-  public BrokerCost brokerCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
+  public BrokerCost brokerCost(
+      ClusterInfo<? extends ReplicaInfo> clusterInfo, ClusterBean clusterBean) {
     var result =
         clusterBean.all().entrySet().stream()
             .collect(
                 Collectors.toMap(
                     Map.Entry::getKey,
                     e ->
-                        LogMetrics.Log.meters(e.getValue(), LogMetrics.Log.SIZE).stream()
-                            .mapToDouble(LogMetrics.Log.Meter::value)
+                        LogMetrics.Log.gauges(e.getValue(), LogMetrics.Log.SIZE).stream()
+                            .mapToDouble(LogMetrics.Log.Gauge::value)
                             .sum()));
     return () -> result;
   }
 
   @Override
-  public PartitionCost partitionCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
-    return new PartitionCost() {
-      @Override
-      public Map<TopicPartition, Double> value(String topic) {
-        var replicas =
-            clusterInfo.availableReplicaLeaders(topic).stream()
-                .map(r -> TopicPartitionReplica.of(r.topic(), r.partition(), r.nodeInfo().id()))
-                .collect(Collectors.toUnmodifiableSet());
-        return clusterBean.mapByReplica().entrySet().stream()
-            .filter(
-                topicPartitionCollectionEntry ->
-                    replicas.contains(topicPartitionCollectionEntry.getKey()))
+  public ClusterCost clusterCost(ClusterInfo<Replica> clusterInfo, ClusterBean clusterBean) {
+    var brokerCost =
+        clusterInfo.nodes().stream()
             .collect(
                 Collectors.toMap(
-                    topicPartitionCollectionEntry ->
-                        TopicPartition.of(
-                            topicPartitionCollectionEntry.getKey().topic(),
-                            topicPartitionCollectionEntry.getKey().partition()),
-                    toDouble));
-      }
-
-      @Override
-      public Map<TopicPartition, Double> value(int brokerId) {
-        return clusterBean.mapByReplica().entrySet().stream()
-            .filter(
-                topicPartitionCollectionEntry ->
-                    topicPartitionCollectionEntry.getKey().brokerId() == brokerId)
-            .collect(
-                Collectors.toMap(
-                    topicPartitionCollectionEntry ->
-                        TopicPartition.of(
-                            topicPartitionCollectionEntry.getKey().topic(),
-                            topicPartitionCollectionEntry.getKey().partition()),
-                    toDouble));
-      }
-    };
+                    NodeInfo::id,
+                    nodeInfo ->
+                        clusterInfo.replicas().stream()
+                            .filter(r -> r.nodeInfo().id() == nodeInfo.id())
+                            .mapToLong(Replica::size)
+                            .sum()));
+    return () ->
+        dispersion.calculate(
+            brokerCost.values().stream().map(v -> (double) v).collect(Collectors.toList()));
   }
-
-  private final Function<Map.Entry<TopicPartitionReplica, Collection<HasBeanObject>>, Double>
-      toDouble =
-          e ->
-              LogMetrics.Log.meters(e.getValue(), LogMetrics.Log.SIZE).stream()
-                  .mapToDouble(HasValue::value)
-                  .findAny()
-                  .orElse(0.0D);
 }

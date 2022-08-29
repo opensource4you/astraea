@@ -21,6 +21,7 @@ import static java.util.stream.Collectors.toList;
 
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.astraea.app.admin.TopicPartition;
@@ -129,6 +130,13 @@ public class PartitionsBuilder<Key, Value> extends Builder<Key, Value> {
     @Override
     protected void doResubscribe() {
       kafkaConsumer.assign(partitions.stream().map(TopicPartition::to).collect(toList()));
+    }
+
+    @Override
+    public Set<TopicPartition> assignments() {
+      return kafkaConsumer.assignment().stream()
+          .map(TopicPartition::from)
+          .collect(Collectors.toUnmodifiableSet());
     }
   }
 }

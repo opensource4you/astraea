@@ -23,6 +23,8 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 import org.astraea.app.admin.ClusterBean;
 import org.astraea.app.admin.ClusterInfo;
+import org.astraea.app.admin.Replica;
+import org.astraea.app.admin.ReplicaInfo;
 import org.astraea.app.metrics.HasBeanObject;
 import org.astraea.app.metrics.broker.ServerMetrics;
 import org.astraea.app.metrics.collector.Fetcher;
@@ -32,7 +34,8 @@ public class ReplicaLeaderCost implements HasBrokerCost, HasClusterCost {
   private final Dispersion dispersion = Dispersion.correlationCoefficient();
 
   @Override
-  public BrokerCost brokerCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
+  public BrokerCost brokerCost(
+      ClusterInfo<? extends ReplicaInfo> clusterInfo, ClusterBean clusterBean) {
     var result =
         leaderCount(clusterInfo, clusterBean).entrySet().stream()
             .collect(Collectors.toMap(Map.Entry::getKey, e -> (double) e.getValue()));
@@ -40,46 +43,45 @@ public class ReplicaLeaderCost implements HasBrokerCost, HasClusterCost {
   }
 
   @Override
-  public ClusterCost clusterCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
+  public ClusterCost clusterCost(ClusterInfo<Replica> clusterInfo, ClusterBean clusterBean) {
     var brokerScore = brokerCost(clusterInfo, clusterBean).value();
     return () -> dispersion.calculate(brokerScore.values());
   }
 
-  Map<Integer, Integer> leaderCount(ClusterInfo ignored, ClusterBean clusterBean) {
+  private static Map<Integer, Integer> leaderCount(
+      ClusterInfo<? extends ReplicaInfo> clusterInfo, ClusterBean clusterBean) {
+    var leaderCount = leaderCount(clusterBean);
+    // if there is no available metrics, we re-count the leaders based on cluster information
+    if (leaderCount.values().stream().mapToInt(i -> i).sum() == 0) return leaderCount(clusterInfo);
+    return leaderCount;
+  }
+
+  static Map<Integer, Integer> leaderCount(ClusterBean clusterBean) {
     return clusterBean.all().entrySet().stream()
         .collect(
             Collectors.toMap(
                 Map.Entry::getKey,
                 e ->
                     e.getValue().stream()
-                        .filter(x -> x instanceof ServerMetrics.ReplicaManager.Meter)
-                        .map(x -> (ServerMetrics.ReplicaManager.Meter) x)
+                        .filter(x -> x instanceof ServerMetrics.ReplicaManager.Gauge)
+                        .map(x -> (ServerMetrics.ReplicaManager.Gauge) x)
                         .sorted(Comparator.comparing(HasBeanObject::createdTimestamp).reversed())
                         .limit(1)
                         .mapToInt(v -> (int) v.value())
                         .sum()));
   }
 
+  static Map<Integer, Integer> leaderCount(ClusterInfo<? extends ReplicaInfo> clusterInfo) {
+    return clusterInfo.topics().stream()
+        .flatMap(t -> clusterInfo.availableReplicaLeaders(t).stream())
+        .collect(Collectors.groupingBy(r -> r.nodeInfo().id()))
+        .entrySet()
+        .stream()
+        .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, e -> e.getValue().size()));
+  }
+
   @Override
   public Optional<Fetcher> fetcher() {
     return Optional.of(c -> List.of(ServerMetrics.ReplicaManager.LEADER_COUNT.fetch(c)));
-  }
-
-  public static class NoMetrics extends ReplicaLeaderCost {
-
-    @Override
-    Map<Integer, Integer> leaderCount(ClusterInfo clusterInfo, ClusterBean ignored) {
-      return clusterInfo.topics().stream()
-          .flatMap(t -> clusterInfo.availableReplicaLeaders(t).stream())
-          .collect(Collectors.groupingBy(r -> r.nodeInfo().id()))
-          .entrySet()
-          .stream()
-          .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, e -> e.getValue().size()));
-    }
-
-    @Override
-    public Optional<Fetcher> fetcher() {
-      return Optional.empty();
-    }
   }
 }

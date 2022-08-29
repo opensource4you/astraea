@@ -16,10 +16,10 @@
  */
 package org.astraea.app.metrics.platform;
 
-import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.condition.OS.LINUX;
 
 import org.astraea.app.metrics.MBeanClient;
+import org.astraea.app.metrics.MetricsTestUtil;
 import org.astraea.app.service.RequireSingleBrokerCluster;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledOnOs;
@@ -29,12 +29,12 @@ public class LinuxDiskMetricsTest extends RequireSingleBrokerCluster {
   @Test
   @EnabledOnOs(LINUX)
   void linuxDiskReadBytes() {
-    assertDoesNotThrow(() -> HostMetrics.linuxDiskReadBytes(MBeanClient.local()));
+    MetricsTestUtil.validate(HostMetrics.linuxDiskReadBytes(MBeanClient.local()));
   }
 
   @Test
   @EnabledOnOs(LINUX)
   void linuxDiskWriteBytes() {
-    assertDoesNotThrow(() -> HostMetrics.linuxDiskWriteBytes(MBeanClient.local()));
+    MetricsTestUtil.validate(HostMetrics.linuxDiskWriteBytes(MBeanClient.local()));
   }
 }

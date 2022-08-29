@@ -17,8 +17,6 @@
 package org.astraea.app.web;
 
 import java.util.List;
-import java.util.Map;
-import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.astraea.app.admin.Admin;
@@ -37,9 +35,9 @@ public class BeanHandler implements Handler {
   }
 
   @Override
-  public Response get(Optional<String> domain, Map<String, String> properties) {
-    var builder = BeanQuery.builder().usePropertyListPattern().properties(properties);
-    domain.ifPresent(builder::domainName);
+  public Response get(Channel channel) {
+    var builder = BeanQuery.builder().usePropertyListPattern().properties(channel.queries());
+    channel.target().ifPresent(builder::domainName);
     return new NodeBeans(
         clients.stream()
             .map(

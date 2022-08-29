@@ -17,7 +17,6 @@
 package org.astraea.app.web;
 
 import java.util.Map;
-import java.util.Optional;
 import org.astraea.app.admin.Admin;
 import org.astraea.app.admin.Quota;
 import org.astraea.app.service.RequireBrokerCluster;
@@ -36,8 +35,10 @@ public class QuotaHandlerTest extends RequireBrokerCluster {
           Assertions.assertInstanceOf(
               QuotaHandler.Quotas.class,
               handler.post(
-                  PostRequest.of(
-                      Map.of(QuotaHandler.IP_KEY, ip, QuotaHandler.CONNECTION_RATE_KEY, "10"))));
+                  Channel.ofRequest(
+                      PostRequest.of(
+                          Map.of(
+                              QuotaHandler.IP_KEY, ip, QuotaHandler.CONNECTION_RATE_KEY, "10")))));
       Assertions.assertEquals(1, result.quotas.size());
       Assertions.assertEquals(
           Quota.Target.IP.nameOfKafka(), result.quotas.iterator().next().target.name);
@@ -56,13 +57,17 @@ public class QuotaHandlerTest extends RequireBrokerCluster {
       var handler = new QuotaHandler(admin);
 
       handler.post(
-          PostRequest.of(Map.of(QuotaHandler.IP_KEY, ip0, QuotaHandler.CONNECTION_RATE_KEY, "10")));
+          Channel.ofRequest(
+              PostRequest.of(
+                  Map.of(QuotaHandler.IP_KEY, ip0, QuotaHandler.CONNECTION_RATE_KEY, "10"))));
       handler.post(
-          PostRequest.of(Map.of(QuotaHandler.IP_KEY, ip1, QuotaHandler.CONNECTION_RATE_KEY, "20")));
+          Channel.ofRequest(
+              PostRequest.of(
+                  Map.of(QuotaHandler.IP_KEY, ip1, QuotaHandler.CONNECTION_RATE_KEY, "20"))));
       Assertions.assertEquals(
-          1, handler.get(Optional.empty(), Map.of(QuotaHandler.IP_KEY, ip0)).quotas.size());
+          1, handler.get(Channel.ofQueries(Map.of(QuotaHandler.IP_KEY, ip0))).quotas.size());
       Assertions.assertEquals(
-          1, handler.get(Optional.empty(), Map.of(QuotaHandler.IP_KEY, ip1)).quotas.size());
+          1, handler.get(Channel.ofQueries(Map.of(QuotaHandler.IP_KEY, ip1))).quotas.size());
     }
   }
 
@@ -74,7 +79,7 @@ public class QuotaHandlerTest extends RequireBrokerCluster {
           0,
           Assertions.assertInstanceOf(
                   QuotaHandler.Quotas.class,
-                  handler.get(Optional.empty(), Map.of(Quota.Target.IP.nameOfKafka(), "unknown")))
+                  handler.get(Channel.ofQueries(Map.of(Quota.Target.IP.nameOfKafka(), "unknown"))))
               .quotas
               .size());
 
@@ -83,7 +88,7 @@ public class QuotaHandlerTest extends RequireBrokerCluster {
           Assertions.assertInstanceOf(
                   QuotaHandler.Quotas.class,
                   handler.get(
-                      Optional.empty(), Map.of(Quota.Target.CLIENT_ID.nameOfKafka(), "unknown")))
+                      Channel.ofQueries(Map.of(Quota.Target.CLIENT_ID.nameOfKafka(), "unknown"))))
               .quotas
               .size());
     }

@@ -17,16 +17,16 @@
 package org.astraea.app.performance;
 
 import com.beust.jcommander.Parameter;
+import com.beust.jcommander.ParameterException;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.time.Duration;
-import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Supplier;
@@ -39,9 +39,11 @@ import org.astraea.app.argument.DurationField;
 import org.astraea.app.argument.NonEmptyStringField;
 import org.astraea.app.argument.NonNegativeShortField;
 import org.astraea.app.argument.PathField;
-import org.astraea.app.argument.PositiveIntegerField;
+import org.astraea.app.argument.PositiveIntegerListField;
 import org.astraea.app.argument.PositiveLongField;
 import org.astraea.app.argument.PositiveShortField;
+import org.astraea.app.argument.PositiveShortListField;
+import org.astraea.app.argument.StringListField;
 import org.astraea.app.common.DataSize;
 import org.astraea.app.common.DataUnit;
 import org.astraea.app.common.Utils;
@@ -93,59 +95,47 @@ public class Performance {
         argument.throughput);
   }
 
-  public static String execute(final Argument param) throws InterruptedException, IOException {
-    List<Integer> partitions;
-    Map<TopicPartition, Long> latestOffsets;
-    try (var topicAdmin = Admin.of(param.configs())) {
-      topicAdmin
-          .creator()
-          .numberOfReplicas(param.replicas)
-          .numberOfPartitions(param.partitions)
-          .topic(param.topic)
-          .create();
+  public static List<String> execute(final Argument param)
+      throws InterruptedException, IOException {
+    var topicSet = new HashSet<>(param.topics);
+    // always try to init topic even though it may be existent already.
+    param.initTopics();
 
-      Utils.waitFor(() -> topicAdmin.topicNames().contains(param.topic));
-      partitions = new ArrayList<>(partition(param, topicAdmin));
-      latestOffsets =
-          topicAdmin.offsets(Set.of(param.topic)).entrySet().stream()
-              .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().latest()));
-    }
-
-    var groupId = "groupId-" + System.currentTimeMillis();
-
-    Supplier<Integer> partitionSupplier =
-        () -> partitions.isEmpty() ? -1 : partitions.get((int) (Math.random() * partitions.size()));
+    var latestOffsets = param.lastOffsets();
 
     var producerThreads =
         ProducerThread.create(
-            param.topic,
+            param.topics,
             param.transactionSize,
             dataSupplier(param),
-            partitionSupplier,
+            param.partitionSupplier(),
             param.producers,
             param::createProducer);
     var consumerThreads =
         ConsumerThread.create(
             param.consumers,
-            () ->
-                Consumer.forTopics(Set.of(param.topic))
+            listener ->
+                Consumer.forTopics(topicSet)
                     .bootstrapServers(param.bootstrapServers())
-                    .groupId(groupId)
+                    .groupId(param.groupId)
                     .configs(param.configs())
                     .isolation(param.isolation())
                     .seek(latestOffsets)
+                    .consumerRebalanceListener(listener)
                     .build());
 
-    var producerReports =
-        producerThreads.stream()
-            .map(ProducerThread::report)
-            .collect(Collectors.toUnmodifiableList());
-    var consumerReports =
-        consumerThreads.stream()
-            .map(ConsumerThread::report)
-            .collect(Collectors.toUnmodifiableList());
+    Supplier<List<ProducerThread.Report>> producerReporter =
+        () ->
+            producerThreads.stream()
+                .map(ProducerThread::report)
+                .collect(Collectors.toUnmodifiableList());
+    Supplier<List<ConsumerThread.Report>> consumerReporter =
+        () ->
+            consumerThreads.stream()
+                .map(ConsumerThread::report)
+                .collect(Collectors.toUnmodifiableList());
 
-    var tracker = TrackerThread.create(producerReports, consumerReports, param.exeTime);
+    var tracker = TrackerThread.create(producerReporter, consumerReporter, param.exeTime);
 
     Optional<Runnable> fileWriter =
         param.CSVPath == null
@@ -154,16 +144,10 @@ public class Performance {
                 ReportFormat.createFileWriter(
                     param.reportFormat,
                     param.CSVPath,
-                    param.exeTime,
                     () -> consumerThreads.stream().allMatch(AbstractThread::closed),
                     () -> producerThreads.stream().allMatch(AbstractThread::closed),
-                    () ->
-                        producerThreads.stream()
-                            .map(ProducerThread::report)
-                            .mapToLong(Report::records)
-                            .sum(),
-                    producerReports,
-                    consumerReports));
+                    producerReporter,
+                    consumerReporter));
 
     var fileWriterFuture =
         fileWriter.map(CompletableFuture::runAsync).orElse(CompletableFuture.completedFuture(null));
@@ -195,57 +179,97 @@ public class Performance {
             if (offsets.entrySet().stream()
                 .allMatch(
                     e ->
-                        consumerReports.stream()
+                        consumerReporter.get().stream()
                             .anyMatch(r -> r.offset(e.getKey()) >= e.getValue()))) break;
             Utils.sleep(Duration.ofSeconds(2));
           }
           consumerThreads.forEach(AbstractThread::close);
         });
-
     consumerThreads.forEach(AbstractThread::waitForDone);
     tracker.waitForDone();
     fileWriterFuture.join();
     chaos.join();
-    return param.topic;
-  }
-
-  // visible for test
-  static Set<Integer> partition(Argument param, Admin topicAdmin) {
-    if (positiveSpecifyBroker(param)) {
-      return topicAdmin
-          .partitions(Set.of(param.topic), new HashSet<>(param.specifyBroker))
-          .values()
-          .stream()
-          .flatMap(Collection::stream)
-          .map(TopicPartition::partition)
-          .collect(Collectors.toSet());
-    } else return Set.of(-1);
-  }
-
-  private static boolean positiveSpecifyBroker(Argument param) {
-    return param.specifyBroker.stream().allMatch(broker -> broker >= 0);
+    return param.topics;
   }
 
   public static class Argument extends org.astraea.app.argument.Argument {
 
     @Parameter(
-        names = {"--topic"},
-        description = "String: topic name",
-        validateWith = NonEmptyStringField.class)
-    String topic = "testPerformance-" + System.currentTimeMillis();
+        names = {"--topics"},
+        description = "List<String>: topic names which you subscribed",
+        validateWith = StringListField.class,
+        listConverter = StringListField.class,
+        variableArity = true)
+    List<String> topics = List.of("testPerformance-" + System.currentTimeMillis());
+
+    void initTopics() {
+      var topicPattern = topicPattern();
+      try (var admin = Admin.of(configs())) {
+        topicPattern.forEach(
+            (topic, pr) -> {
+              for (var partitionReplica : pr.entrySet()) {
+                admin
+                    .creator()
+                    .topic(topic)
+                    .numberOfPartitions(partitionReplica.getKey())
+                    .numberOfReplicas(partitionReplica.getValue())
+                    .create();
+              }
+            });
+        Utils.waitFor(() -> admin.topicNames().containsAll(topics));
+      }
+    }
+
+    Map<String, Map<Integer, Short>> topicPattern() {
+      Map<String, Map<Integer, Short>> pattern = new HashMap<>();
+      if (partitions.size() == 1 && replicas.size() == 1) {
+        topics.forEach(
+            topic -> pattern.putIfAbsent(topic, Map.of(partitions.get(0), replicas.get(0))));
+      } else if (topics.size() == partitions.size() && topics.size() == replicas.size()) {
+        topics.forEach(
+            topic -> {
+              var index = topics.indexOf(topic);
+              pattern.putIfAbsent(topic, Map.of(partitions.get(index), replicas.get(index)));
+            });
+      } else {
+        throw new ParameterException(
+            "the number of parameters in --partitions and --replicas doesn't match");
+      }
+      return pattern;
+    }
+
+    Map<TopicPartition, Long> lastOffsets() {
+      try (var admin = Admin.of(configs())) {
+        // the slow zk causes unknown error, so we have to wait it.
+        return Utils.waitForNonNull(
+            () -> {
+              try {
+                return admin.offsets(new HashSet<>(topics)).entrySet().stream()
+                    .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().latest()));
+              } catch (Exception e) {
+                e.printStackTrace();
+                return null;
+              }
+            },
+            Duration.ofSeconds(5));
+      }
+    }
 
     @Parameter(
         names = {"--partitions"},
-        description = "Integer: number of partitions to create the topic",
-        validateWith = PositiveIntegerField.class)
-    int partitions = 1;
+        description = "List<Integer>: number of partitions to create the topics",
+        validateWith = PositiveIntegerListField.class,
+        listConverter = PositiveIntegerListField.class,
+        variableArity = true)
+    List<Integer> partitions = List.of(1);
 
     @Parameter(
         names = {"--replicas"},
-        description = "Integer: number of replica to create the topic",
-        validateWith = PositiveShortField.class,
-        converter = PositiveShortField.class)
-    short replicas = 1;
+        description = "List<Short>: number of replica to create the topics",
+        validateWith = PositiveShortListField.class,
+        listConverter = PositiveShortListField.class,
+        variableArity = true)
+    List<Short> replicas = List.of((short) 1);
 
     @Parameter(
         names = {"--producers"},
@@ -343,7 +367,19 @@ public class Performance {
         description =
             "String: Used with SpecifyBrokerPartitioner to specify the brokers that partitioner can send.",
         validateWith = NonEmptyStringField.class)
-    List<Integer> specifyBroker = List.of(-1);
+    List<Integer> specifyBroker = List.of();
+
+    Supplier<Integer> partitionSupplier() {
+      if (specifyBroker.isEmpty()) return () -> -1;
+      try (var admin = Admin.of(configs())) {
+        var partitions =
+            admin.partitions(new HashSet<>(topics), new HashSet<>(specifyBroker)).values().stream()
+                .flatMap(Collection::stream)
+                .map(TopicPartition::partition)
+                .collect(Collectors.toUnmodifiableList());
+        return () -> partitions.get((int) (Math.random() * partitions.size()));
+      }
+    }
 
     // replace DataSize by DataRate (see https://github.com/skiptests/astraea/issues/488)
     @Parameter(
@@ -371,5 +407,11 @@ public class Performance {
         validateWith = DurationField.class,
         converter = DurationField.class)
     Duration chaosDuration = null;
+
+    @Parameter(
+        names = {"--group.id"},
+        description = "Consumer group id",
+        validateWith = NonEmptyStringField.class)
+    String groupId = "groupId-" + System.currentTimeMillis();
   }
 }

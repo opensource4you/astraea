@@ -31,4 +31,9 @@ spotless {
             }
         }
     }
+    scala {
+        licenseHeaderFile(file("$rootDir/checkstyle/apache.header"), "package ")
+        target '**/scala/**/*.scala'
+        scalafmt()
+    }
 }

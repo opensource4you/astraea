@@ -23,11 +23,10 @@ import java.util.Set;
 import org.astraea.app.admin.ClusterBean;
 import org.astraea.app.admin.ClusterInfo;
 import org.astraea.app.admin.NodeInfo;
-import org.astraea.app.admin.ReplicaInfo;
-import org.astraea.app.admin.TopicPartition;
+import org.astraea.app.admin.Replica;
 import org.astraea.app.metrics.BeanObject;
 import org.astraea.app.metrics.HasBeanObject;
-import org.astraea.app.metrics.broker.HasValue;
+import org.astraea.app.metrics.broker.HasGauge;
 import org.astraea.app.metrics.broker.LogMetrics;
 import org.astraea.app.partitioner.Configuration;
 import org.astraea.app.service.RequireBrokerCluster;
@@ -36,17 +35,17 @@ import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
 class ReplicaDiskInCostTest extends RequireBrokerCluster {
-  private static final HasValue OLD_TP1_0 =
+  private static final HasGauge OLD_TP1_0 =
       fakeBeanObject("Log", LogMetrics.Log.SIZE.metricName(), "test-1", "0", 1000, 1000L);
-  private static final HasValue NEW_TP1_0 =
+  private static final HasGauge NEW_TP1_0 =
       fakeBeanObject("Log", LogMetrics.Log.SIZE.metricName(), "test-1", "0", 50000000, 5000L);
-  private static final HasValue OLD_TP1_1 =
+  private static final HasGauge OLD_TP1_1 =
       fakeBeanObject("Log", LogMetrics.Log.SIZE.metricName(), "test-1", "1", 500, 1000L);
-  private static final HasValue NEW_TP1_1 =
+  private static final HasGauge NEW_TP1_1 =
       fakeBeanObject("Log", LogMetrics.Log.SIZE.metricName(), "test-1", "1", 100000000, 5000L);
-  private static final HasValue OLD_TP2_0 =
+  private static final HasGauge OLD_TP2_0 =
       fakeBeanObject("Log", LogMetrics.Log.SIZE.metricName(), "test-2", "0", 200, 1000L);
-  private static final HasValue NEW_TP2_0 =
+  private static final HasGauge NEW_TP2_0 =
       fakeBeanObject("Log", LogMetrics.Log.SIZE.metricName(), "test-2", "0", 40000000, 5000L);
 
   /*
@@ -61,30 +60,6 @@ class ReplicaDiskInCostTest extends RequireBrokerCluster {
       List.of(OLD_TP1_0, NEW_TP1_0, OLD_TP1_1, NEW_TP1_1);
   private static final Collection<HasBeanObject> broker3 =
       List.of(OLD_TP1_1, NEW_TP1_1, OLD_TP2_0, NEW_TP2_0);
-
-  @Test
-  void testPartitionCost() {
-    var configuration = Configuration.of(Map.of("metrics.duration", "3"));
-    var loadCostFunction = new ReplicaDiskInCost(configuration);
-    var broker1ReplicaLoad = loadCostFunction.partitionCost(clusterInfo(), clusterBean()).value(1);
-    var broker2ReplicaLoad = loadCostFunction.partitionCost(clusterInfo(), clusterBean()).value(2);
-    var broker3ReplicaLoad = loadCostFunction.partitionCost(clusterInfo(), clusterBean()).value(3);
-    // broker1
-    Assertions.assertEquals(
-        11.920690536499023, broker1ReplicaLoad.get(TopicPartition.of("test-1", 0)));
-    Assertions.assertEquals(
-        9.53669548034668, broker1ReplicaLoad.get(TopicPartition.of("test-2", 0)));
-    // broker2
-    Assertions.assertEquals(
-        11.920690536499023, broker2ReplicaLoad.get(TopicPartition.of("test-1", 0)));
-    Assertions.assertEquals(
-        23.8417387008667, broker2ReplicaLoad.get(TopicPartition.of("test-1", 1)));
-    // broker3
-    Assertions.assertEquals(
-        23.8417387008667, broker3ReplicaLoad.get(TopicPartition.of("test-1", 1)));
-    Assertions.assertEquals(
-        9.53669548034668, broker3ReplicaLoad.get(TopicPartition.of("test-2", 0)));
-  }
 
   @Test
   void testBrokerCost() {
@@ -104,8 +79,8 @@ class ReplicaDiskInCostTest extends RequireBrokerCluster {
     Assertions.assertEquals(0.20721255412897746, brokerLoad);
   }
 
-  private ClusterInfo clusterInfo() {
-    ClusterInfo clusterInfo = Mockito.mock(ClusterInfo.class);
+  private ClusterInfo<Replica> clusterInfo() {
+    var clusterInfo = (ClusterInfo<Replica>) Mockito.mock(ClusterInfo.class);
     Mockito.when(clusterInfo.nodes())
         .thenReturn(
             List.of(NodeInfo.of(1, "", -1), NodeInfo.of(2, "", -1), NodeInfo.of(3, "", -1)));
@@ -115,13 +90,79 @@ class ReplicaDiskInCostTest extends RequireBrokerCluster {
             topic ->
                 topic.getArgument(0).equals("test-1")
                     ? List.of(
-                        ReplicaInfo.of("test-1", 0, NodeInfo.of(1, "", -1), true, true, false),
-                        ReplicaInfo.of("test-1", 0, NodeInfo.of(2, "", -1), false, true, false),
-                        ReplicaInfo.of("test-1", 1, NodeInfo.of(2, "", -1), false, true, false),
-                        ReplicaInfo.of("test-1", 1, NodeInfo.of(3, "", -1), true, true, false))
+                        Replica.of(
+                            "test-1",
+                            0,
+                            NodeInfo.of(1, "", -1),
+                            0,
+                            100,
+                            true,
+                            true,
+                            false,
+                            false,
+                            true,
+                            "/tmp/aa"),
+                        Replica.of(
+                            "test-1",
+                            0,
+                            NodeInfo.of(2, "", -1),
+                            0,
+                            100,
+                            false,
+                            true,
+                            false,
+                            false,
+                            false,
+                            "/tmp/aa"),
+                        Replica.of(
+                            "test-1",
+                            1,
+                            NodeInfo.of(2, "", -1),
+                            0,
+                            100,
+                            false,
+                            true,
+                            false,
+                            false,
+                            false,
+                            "/tmp/aa"),
+                        Replica.of(
+                            "test-1",
+                            1,
+                            NodeInfo.of(3, "", -1),
+                            0,
+                            100,
+                            true,
+                            true,
+                            false,
+                            false,
+                            true,
+                            "/tmp/aa"))
                     : List.of(
-                        ReplicaInfo.of("test-2", 0, NodeInfo.of(1, "", -1), false, true, false),
-                        ReplicaInfo.of("test-2", 0, NodeInfo.of(3, "", -1), true, true, false)));
+                        Replica.of(
+                            "test-2",
+                            0,
+                            NodeInfo.of(1, "", -1),
+                            0,
+                            100,
+                            false,
+                            true,
+                            false,
+                            false,
+                            false,
+                            "/tmp/aa"),
+                        Replica.of(
+                            "test-2",
+                            0,
+                            NodeInfo.of(3, "", -1),
+                            0,
+                            100,
+                            true,
+                            true,
+                            false,
+                            false,
+                            true,
+                            "/tmp/aa")));
     return clusterInfo;
   }
 
@@ -129,9 +170,9 @@ class ReplicaDiskInCostTest extends RequireBrokerCluster {
     return ClusterBean.of(Map.of(1, broker1, 2, broker2, 3, broker3));
   }
 
-  private static LogMetrics.Log.Meter fakeBeanObject(
+  private static LogMetrics.Log.Gauge fakeBeanObject(
       String type, String name, String topic, String partition, long size, long time) {
-    return new LogMetrics.Log.Meter(
+    return new LogMetrics.Log.Gauge(
         new BeanObject(
             "kafka.log",
             Map.of("name", name, "type", type, "topic", topic, "partition", partition),

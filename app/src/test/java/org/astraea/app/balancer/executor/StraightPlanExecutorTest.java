@@ -77,49 +77,4 @@ class StraightPlanExecutorTest extends RequireBrokerCluster {
       System.out.println(ClusterLogAllocation.toString(originalAllocation));
     }
   }
-
-  @Test
-  void testRunNoDirSpecified() {
-    // arrange
-    try (Admin admin = Admin.of(bootstrapServers())) {
-      final var topicName = "StraightPlanExecutorTest_" + Utils.randomString(8);
-      admin.creator().topic(topicName).numberOfPartitions(10).numberOfReplicas((short) 3).create();
-      Utils.sleep(Duration.ofSeconds(2));
-      final var originalAllocation = ClusterLogAllocation.of(admin.clusterInfo(Set.of(topicName)));
-      Utils.sleep(Duration.ofSeconds(3));
-      final var broker0 = 0;
-      final var broker1 = 1;
-      final var broker2 = 2;
-      final var onlyPlacement =
-          List.of(LogPlacement.of(broker0), LogPlacement.of(broker1), LogPlacement.of(broker2));
-      final var allocationMap =
-          IntStream.range(0, 10)
-              .mapToObj(i -> TopicPartition.of(topicName, i))
-              .collect(Collectors.toUnmodifiableMap(tp -> tp, tp -> onlyPlacement));
-      final var expectedAllocation = ClusterLogAllocation.of(allocationMap);
-      final var expectedTopicPartition = expectedAllocation.topicPartitions();
-      final var rebalanceAdmin = RebalanceAdmin.of(admin, (s) -> s.equals(topicName));
-
-      // act
-      new StraightPlanExecutor().run(rebalanceAdmin, expectedAllocation);
-
-      // assert
-      final var currentAllocation = ClusterLogAllocation.of(admin.clusterInfo(Set.of(topicName)));
-      final var currentTopicPartition = currentAllocation.topicPartitions();
-      Assertions.assertEquals(expectedTopicPartition, currentTopicPartition);
-      expectedTopicPartition.forEach(
-          topicPartition ->
-              Assertions.assertTrue(
-                  LogPlacement.isMatch(
-                      currentAllocation.logPlacements(topicPartition),
-                      expectedAllocation.logPlacements(topicPartition))));
-
-      System.out.println("Expected:");
-      System.out.println(ClusterLogAllocation.toString(expectedAllocation));
-      System.out.println("Current:");
-      System.out.println(ClusterLogAllocation.toString(currentAllocation));
-      System.out.println("Original:");
-      System.out.println(ClusterLogAllocation.toString(originalAllocation));
-    }
-  }
 }

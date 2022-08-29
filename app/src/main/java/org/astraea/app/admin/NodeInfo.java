@@ -24,20 +24,11 @@ public interface NodeInfo extends Comparable<NodeInfo> {
     return of(node.id(), node.host(), node.port());
   }
 
-  /**
-   * Represent a location unknown Kafka node. The node used to be in the cluster but probably become
-   * offline and unreachable for some reason.
-   */
-  static NodeInfo ofOfflineNode(int id) {
-    return of(id, "", -1, true);
-  }
-
   static NodeInfo of(int id, String host, int port) {
-    return of(id, host, port, false);
-  }
-
-  static NodeInfo of(int id, String host, int port, boolean isOffline) {
     return new NodeInfo() {
+      // NodeInfo is used to be key of Map commonly, so creating hash can reduce the memory pressure
+      private final int hashCode = Objects.hash(id, host, port);
+
       @Override
       public String host() {
         return host;
@@ -49,18 +40,13 @@ public interface NodeInfo extends Comparable<NodeInfo> {
       }
 
       @Override
-      public boolean isOffline() {
-        return isOffline;
-      }
-
-      @Override
       public int port() {
         return port;
       }
 
       @Override
       public int hashCode() {
-        return Objects.hash(id, host, port);
+        return hashCode;
       }
 
       @Override
@@ -88,12 +74,4 @@ public interface NodeInfo extends Comparable<NodeInfo> {
 
   /** @return id of broker node. it must be unique. */
   int id();
-
-  /** @return true if the node is considered offline */
-  boolean isOffline();
-
-  /** @return true if the node is considered online */
-  default boolean isOnline() {
-    return !isOffline();
-  }
 }

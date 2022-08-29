@@ -18,7 +18,6 @@ package org.astraea.app.web;
 
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
-import static org.astraea.app.web.PostRequest.handleDouble;
 
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonDeserializationContext;
@@ -34,7 +33,6 @@ import java.util.Base64;
 import java.util.Collection;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -51,6 +49,7 @@ import org.astraea.app.common.Utils;
 import org.astraea.app.consumer.Builder;
 import org.astraea.app.consumer.Consumer;
 import org.astraea.app.consumer.Deserializer;
+import org.astraea.app.consumer.SubscribedConsumer;
 import org.astraea.app.producer.Producer;
 import org.astraea.app.producer.Sender;
 import org.astraea.app.producer.Serializer;
@@ -68,6 +67,7 @@ public class RecordHandler implements Handler {
   static final String LIMIT = "limit";
   static final String TIMEOUT = "timeout";
   static final String OFFSET = "offset";
+  static final String GROUP_ID = "groupId";
   private static final int MAX_CACHE_SIZE = 100;
   private static final Duration CACHE_EXPIRE_DURATION = Duration.ofMinutes(10);
 
@@ -96,34 +96,44 @@ public class RecordHandler implements Handler {
   }
 
   @Override
-  public Response get(Optional<String> target, Map<String, String> queries) {
-    var topic = target.orElseThrow(() -> new IllegalArgumentException("topic must be set"));
+  public Response get(Channel channel) {
+    if (channel.target().isEmpty())
+      return Response.of(new IllegalArgumentException("topic must be set"));
+
+    var topic = channel.target().get();
     var seekStrategies = Set.of(DISTANCE_FROM_LATEST, DISTANCE_FROM_BEGINNING, SEEK_TO);
-    if (queries.keySet().stream().filter(seekStrategies::contains).count() > 1) {
+    if (channel.queries().keySet().stream().filter(seekStrategies::contains).count() > 1) {
       throw new IllegalArgumentException("only one seek strategy is allowed");
     }
 
+    var limit = Integer.parseInt(channel.queries().getOrDefault(LIMIT, "1"));
     var timeout =
-        Optional.ofNullable(queries.get(TIMEOUT))
+        Optional.ofNullable(channel.queries().get(TIMEOUT))
             .map(DurationField::toDuration)
             .orElse(Duration.ofSeconds(5));
 
     var consumerBuilder =
-        Optional.ofNullable(queries.get(PARTITION))
+        Optional.ofNullable(channel.queries().get(PARTITION))
             .map(Integer::valueOf)
             .map(
                 partition ->
                     (Builder<byte[], byte[]>)
                         Consumer.forPartitions(Set.of(TopicPartition.of(topic, partition))))
-            .orElseGet(() -> Consumer.forTopics(Set.of(topic)));
+            .orElseGet(
+                () -> {
+                  // disable auto commit here since we commit manually in Records#onComplete
+                  var builder = Consumer.forTopics(Set.of(topic)).disableAutoCommitOffsets();
+                  Optional.ofNullable(channel.queries().get(GROUP_ID)).ifPresent(builder::groupId);
+                  return builder;
+                });
 
     var keyDeserializer =
-        Optional.ofNullable(queries.get(KEY_DESERIALIZER))
+        Optional.ofNullable(channel.queries().get(KEY_DESERIALIZER))
             .map(SerDe::of)
             .orElse(SerDe.STRING)
             .deserializer;
     var valueDeserializer =
-        Optional.ofNullable(queries.get(VALUE_DESERIALIZER))
+        Optional.ofNullable(channel.queries().get(VALUE_DESERIALIZER))
             .map(SerDe::of)
             .orElse(SerDe.STRING)
             .deserializer;
@@ -132,41 +142,54 @@ public class RecordHandler implements Handler {
         .keyDeserializer(keyDeserializer)
         .valueDeserializer(valueDeserializer);
 
-    Optional.ofNullable(queries.get(DISTANCE_FROM_LATEST))
+    Optional.ofNullable(channel.queries().get(DISTANCE_FROM_LATEST))
         .map(Long::parseLong)
         .ifPresent(
             distanceFromLatest ->
                 consumerBuilder.seek(
                     Builder.SeekStrategy.DISTANCE_FROM_LATEST, distanceFromLatest));
 
-    Optional.ofNullable(queries.get(DISTANCE_FROM_BEGINNING))
+    Optional.ofNullable(channel.queries().get(DISTANCE_FROM_BEGINNING))
         .map(Long::parseLong)
         .ifPresent(
             distanceFromBeginning ->
                 consumerBuilder.seek(
                     Builder.SeekStrategy.DISTANCE_FROM_BEGINNING, distanceFromBeginning));
 
-    Optional.ofNullable(queries.get(SEEK_TO))
+    Optional.ofNullable(channel.queries().get(SEEK_TO))
         .map(Long::parseLong)
         .ifPresent(seekTo -> consumerBuilder.seek(Builder.SeekStrategy.SEEK_TO, seekTo));
 
-    try (var consumer = consumerBuilder.build()) {
-      var limit = Integer.parseInt(queries.getOrDefault(LIMIT, "1"));
-      return new Records(consumer.poll(limit, timeout).stream().map(Record::new).collect(toList()));
+    return get(consumerBuilder.build(), limit, timeout);
+  }
+
+  // visible for testing
+  GetResponse get(Consumer<byte[], byte[]> consumer, int limit, Duration timeout) {
+    try {
+      return new GetResponse(
+          consumer, consumer.poll(limit, timeout).stream().map(Record::new).collect(toList()));
+    } catch (Exception e) {
+      consumer.close();
+      throw e;
     }
   }
 
   @Override
-  public Response post(PostRequest request) {
-    var async = request.booleanValue(ASYNC, false);
-    var timeout = request.get(TIMEOUT).map(DurationField::toDuration).orElse(Duration.ofSeconds(5));
-    var records = request.values(RECORDS, PostRecord.class);
+  public Response post(Channel channel) {
+    var async = channel.request().getBoolean(ASYNC).orElse(false);
+    var timeout =
+        channel.request().get(TIMEOUT).map(DurationField::toDuration).orElse(Duration.ofSeconds(5));
+    var records = channel.request().values(RECORDS, PostRecord.class);
     if (records.isEmpty()) {
       throw new IllegalArgumentException("records should contain at least one record");
     }
 
     var producer =
-        request.get(TRANSACTION_ID).map(transactionalProducerCache::get).orElse(this.producer);
+        channel
+            .request()
+            .get(TRANSACTION_ID)
+            .map(transactionalProducerCache::get)
+            .orElse(this.producer);
 
     var result =
         CompletableFuture.supplyAsync(
@@ -205,14 +228,16 @@ public class RecordHandler implements Handler {
   }
 
   @Override
-  public Response delete(String topic, Map<String, String> queries) {
+  public Response delete(Channel channel) {
+    if (channel.target().isEmpty()) return Response.NOT_FOUND;
+    var topic = channel.target().get();
     var partitions =
-        Optional.ofNullable(queries.get(PARTITION))
+        Optional.ofNullable(channel.queries().get(PARTITION))
             .map(x -> Set.of(TopicPartition.of(topic, x)))
             .orElseGet(() -> admin.partitions(Set.of(topic)));
 
     var deletedOffsets =
-        Optional.ofNullable(queries.get(OFFSET))
+        Optional.ofNullable(channel.queries().get(OFFSET))
             .map(Long::parseLong)
             .map(
                 offset ->
@@ -300,9 +325,9 @@ public class RecordHandler implements Handler {
             .orElse(SerDe.STRING.serializer);
 
     Optional.ofNullable(postRecord.key)
-        .ifPresent(key -> sender.key(keySerializer.apply(topic, handleDouble(key))));
+        .ifPresent(key -> sender.key(keySerializer.apply(topic, PostRequest.handle(key))));
     Optional.ofNullable(postRecord.value)
-        .ifPresent(value -> sender.value(valueSerializer.apply(topic, handleDouble(value))));
+        .ifPresent(value -> sender.value(valueSerializer.apply(topic, PostRequest.handle(value))));
     Optional.ofNullable(postRecord.timestamp).ifPresent(sender::timestamp);
     Optional.ofNullable(postRecord.partition).ifPresent(sender::partition);
     return sender;
@@ -326,11 +351,13 @@ public class RecordHandler implements Handler {
     }
   }
 
-  static class Records implements Response {
-    final Collection<Record> data;
+  static class GetResponse implements Response {
+    final transient Consumer<byte[], byte[]> consumer;
+    final Collection<Record> records;
 
-    Records(Collection<Record> data) {
-      this.data = data;
+    private GetResponse(Consumer<byte[], byte[]> consumer, Collection<Record> records) {
+      this.consumer = consumer;
+      this.records = records;
     }
 
     @Override
@@ -341,6 +368,17 @@ public class RecordHandler implements Handler {
           .registerTypeHierarchyAdapter(byte[].class, new ByteArrayToBase64TypeAdapter())
           .create()
           .toJson(this);
+    }
+
+    @Override
+    public void onComplete(Throwable error) {
+      try {
+        if (error == null && consumer instanceof SubscribedConsumer) {
+          ((SubscribedConsumer<byte[], byte[]>) consumer).commitOffsets(Duration.ofSeconds(5));
+        }
+      } finally {
+        consumer.close();
+      }
     }
   }
 

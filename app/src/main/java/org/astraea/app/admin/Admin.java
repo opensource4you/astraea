@@ -37,8 +37,16 @@ public interface Admin extends Closeable {
     return builder().configs(configs).build();
   }
 
-  /** @return names of all topics */
-  Set<String> topicNames();
+  /**
+   * @param listInternal should list internal topics or not
+   * @return names of topics
+   */
+  Set<String> topicNames(boolean listInternal);
+
+  /** @return names of all topics (include internal topics). */
+  default Set<String> topicNames() {
+    return topicNames(true);
+  }
 
   /** @return the topic name and its configurations. */
   default Map<String, Config> topics() {
@@ -192,7 +200,7 @@ public interface Admin extends Closeable {
   Collection<Quota> quotas();
 
   /** @return a snapshot object of cluster state at the moment */
-  default ClusterInfo clusterInfo() {
+  default ClusterInfo<Replica> clusterInfo() {
     return clusterInfo(topicNames());
   }
 
@@ -200,7 +208,7 @@ public interface Admin extends Closeable {
    * @param topics query only this subset of topics
    * @return a snapshot object of cluster state at the moment
    */
-  ClusterInfo clusterInfo(Set<String> topics);
+  ClusterInfo<Replica> clusterInfo(Set<String> topics);
 
   /** @return all transaction ids */
   Set<String> transactionIds();
@@ -257,6 +265,36 @@ public interface Admin extends Closeable {
    * @return deletedRecord
    */
   Map<TopicPartition, DeletedRecord> deleteRecords(Map<TopicPartition, Long> recordsToDelete);
+
+  /** @return a utility to apply replication throttle to the cluster. */
+  ReplicationThrottler replicationThrottler();
+
+  /**
+   * Clear any replication throttle related to the given topic.
+   *
+   * @param topic target to clear throttle.
+   */
+  void clearReplicationThrottle(String topic);
+
+  /**
+   * Clear any replication throttle related to the given topic/partition.
+   *
+   * @param topicPartition target to clear throttle.
+   */
+  void clearReplicationThrottle(TopicPartition topicPartition);
+
+  /**
+   * Clear any replication throttle related to the given topic/partition with specific broker id.
+   *
+   * @param log target to clear throttle.
+   */
+  void clearReplicationThrottle(TopicPartitionReplica log);
+
+  /** Clear the ingress bandwidth of replication throttle for the specified brokers. */
+  void clearIngressReplicationThrottle(Set<Integer> brokerIds);
+
+  /** Clear the egress bandwidth of replication throttle for the specified brokers. */
+  void clearEgressReplicationThrottle(Set<Integer> brokerIds);
 
   @Override
   void close();
