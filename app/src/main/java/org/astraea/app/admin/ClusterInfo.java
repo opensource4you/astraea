@@ -16,6 +16,9 @@
  */
 package org.astraea.app.admin;
 
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
@@ -78,31 +81,34 @@ public interface ClusterInfo<T extends ReplicaInfo> {
                         // no replica in the after cluster so it is changed
                         .orElse(true))
             .collect(Collectors.toSet());
-    var afterChange =
-        after.replicas().stream()
-            .filter(
-                afterReplica ->
-                    before
-                        .replica(afterReplica.topicPartitionReplica())
-                        // not equal so it is changed
-                        .map(newReplica -> !equal.apply(afterReplica, newReplica))
-                        // no replica in the after cluster so it is changed
-                        .orElse(true))
-            .map(
-                replica ->
-                    Map.entry(
-                        TopicPartition.of(replica.topic(), replica.partition()),
-                        replica.nodeInfo().id()))
-            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+
+    var afterChange =new HashMap<TopicPartition, List<Integer>>();
+    after.replicas().forEach(
+            afterReplica -> {
+              if(before
+                              .replica(afterReplica.topicPartitionReplica())
+                              // not equal so it is changed
+                              .map(newReplica -> !equal.apply(afterReplica, newReplica))
+                              // no replica in the after cluster so it is changed
+                              .orElse(true))
+                afterChange.computeIfAbsent(
+                        TopicPartition.of(afterReplica.topic(), afterReplica.partition()),
+                        ignore -> new ArrayList<>()).add(afterReplica.nodeInfo().id());
+            }
+    );
     return beforeChange.stream()
         .filter(
             replica ->
                 afterChange.containsKey(TopicPartition.of(replica.topic(), replica.partition())))
         .map(
-            replica ->
-                Map.entry(
-                    replica,
-                    afterChange.get(TopicPartition.of(replica.topic(), replica.partition()))))
+            replica -> {
+              var sinkBrokerList =afterChange.get(TopicPartition.of(replica.topic(), replica.partition()));
+              var sinkBroker = sinkBrokerList.remove(0);
+              afterChange.put(TopicPartition.of(replica.topic(), replica.partition()),sinkBrokerList);
+             return Map.entry(
+                      replica,
+                      sinkBroker);
+            })
         .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
   }
 
