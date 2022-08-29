@@ -255,37 +255,18 @@ public class ThrottleHandler implements Handler {
    */
   private Set<TopicThrottle> simplify(
       Set<TopicPartitionReplica> leaders, Set<TopicPartitionReplica> followers) {
-    var commonReplicas =
-        leaders.stream().filter(followers::contains).collect(Collectors.toUnmodifiableSet());
-
-    var simplifiedReplicas =
-        commonReplicas.stream()
-            .map(
-                replica ->
-                    new TopicThrottle(
-                        replica.topic(), replica.partition(), replica.brokerId(), null));
-    var leaderReplicas =
-        leaders.stream()
-            .filter(replica -> !commonReplicas.contains(replica))
-            .map(
-                replica ->
-                    new TopicThrottle(
-                        replica.topic(),
-                        replica.partition(),
-                        replica.brokerId(),
-                        LogIdentity.leader));
-    var followerReplicas =
-        followers.stream()
-            .filter(replica -> !commonReplicas.contains(replica))
-            .map(
-                replica ->
-                    new TopicThrottle(
-                        replica.topic(),
-                        replica.partition(),
-                        replica.brokerId(),
-                        LogIdentity.follower));
-
-    return Stream.concat(Stream.concat(simplifiedReplicas, leaderReplicas), followerReplicas)
+    return Stream.concat(leaders.stream(), followers.stream())
+        .distinct()
+        .map(
+            r -> {
+              if (leaders.contains(r) && followers.contains(r))
+                return new TopicThrottle(r.topic(), r.partition(), r.brokerId(), null);
+              if (leaders.contains(r))
+                return new TopicThrottle(
+                    r.topic(), r.partition(), r.brokerId(), LogIdentity.leader);
+              return new TopicThrottle(
+                  r.topic(), r.partition(), r.brokerId(), LogIdentity.follower);
+            })
         .collect(Collectors.toUnmodifiableSet());
   }
 
