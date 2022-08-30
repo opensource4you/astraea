@@ -16,17 +16,14 @@
  */
 package org.astraea.app.cost;
 
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.stream.Collectors;
 import org.astraea.app.admin.ClusterBean;
 import org.astraea.app.admin.ClusterInfo;
 import org.astraea.app.admin.Replica;
-import org.astraea.app.admin.ReplicaInfo;
-import org.astraea.app.admin.TopicPartition;
 import org.astraea.app.metrics.broker.LogMetrics;
 import org.astraea.app.metrics.collector.Fetcher;
 
@@ -41,19 +38,9 @@ public class ReplicaSizeMoveCost implements HasMoveCost {
   @Override
   public MoveCost moveCost(
       ClusterInfo<Replica> before, ClusterInfo<Replica> after, ClusterBean clusterBean) {
-    var replicaSize =
-        before.topics().stream()
-            .flatMap(topic -> before.replicas(topic).stream())
-            .filter(ReplicaInfo::isLeader)
-            .map(
-                replica ->
-                    Map.entry(
-                        TopicPartition.of(replica.topic(), replica.partition()), replica.size()))
-            .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));
     var beforeChanges = ClusterInfo.diff4DataFolder(before, after);
     var afterChanges = ClusterInfo.diff4DataFolder(after, before);
-    var migrateInfo = migrateInfo(beforeChanges, afterChanges, replicaSize);
-
+    var migrateInfo = migrateInfo(beforeChanges, afterChanges);
     var sizeChanges = migrateInfo.sizeChange;
     var totalMigrateSize = migrateInfo.totalMigrateSize;
     return new MoveCost() {
@@ -89,24 +76,21 @@ public class ReplicaSizeMoveCost implements HasMoveCost {
     }
   }
 
-  static MigrateInfo migrateInfo(
-      Set<Replica> sourceChange, Set<Replica> sinkChange, Map<TopicPartition, Long> replicaSize) {
+  static MigrateInfo migrateInfo(Collection<Replica> sourceChange, Collection<Replica> sinkChange) {
     var changes = new HashMap<Integer, Long>();
     AtomicLong totalSizeChange = new AtomicLong(0L);
     sourceChange.forEach(
         replica -> {
-          var size = replicaSize.get(TopicPartition.of(replica.topic(), replica.partition()));
+          var size = replica.size();
           changes.put(
               replica.nodeInfo().id(), -size + changes.getOrDefault(replica.nodeInfo().id(), 0L));
           totalSizeChange.set(totalSizeChange.get() + size);
         });
     sinkChange.forEach(
-        replica -> {
-          changes.put(
-              replica.nodeInfo().id(),
-              replicaSize.get(TopicPartition.of(replica.topic(), replica.partition()))
-                  + changes.getOrDefault(replica.nodeInfo().id(), 0L));
-        });
+        replica ->
+            changes.put(
+                replica.nodeInfo().id(),
+                replica.size() + changes.getOrDefault(replica.nodeInfo().id(), 0L)));
     return new MigrateInfo(totalSizeChange.get(), changes);
   }
 }

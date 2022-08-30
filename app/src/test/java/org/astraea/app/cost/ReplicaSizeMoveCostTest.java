@@ -40,9 +40,10 @@ class ReplicaSizeMoveCostTest {
     var totalSize = moveCost.totalCost();
     var changes = moveCost.changes();
 
+    // totalSize will also be calculated for the folder migrate in the same broker.
     Assertions.assertEquals(6000000 + 700000 + 800000, totalSize);
-    Assertions.assertEquals(-100000, changes.get(0));
-    Assertions.assertEquals(-5900000, changes.get(1));
+    Assertions.assertEquals(700000, changes.get(0));
+    Assertions.assertEquals(-6700000, changes.get(1));
     Assertions.assertEquals(6000000, changes.get(2));
   }
 
@@ -50,12 +51,13 @@ class ReplicaSizeMoveCostTest {
   origin replica distributed :
     test-1-0 : 0,1
     test-1-1 : 1,2
-    test-2-0 : 0,2
+    test-2-0 : 1,2
 
   generated plan replica distributed :
     test-1-0 : 0,2
     test-1-1 : 0,2
     test-2-0 : 1,2
+
    */
   static ClusterInfo<Replica> originClusterInfo() {
     var replicas =
@@ -111,7 +113,7 @@ class ReplicaSizeMoveCostTest {
             Replica.of(
                 "test-2",
                 0,
-                NodeInfo.of(0, "", -1),
+                NodeInfo.of(1, "", -1),
                 -1,
                 800000,
                 true,
@@ -119,7 +121,7 @@ class ReplicaSizeMoveCostTest {
                 false,
                 false,
                 false,
-                ""),
+                "/log-path-01"),
             Replica.of(
                 "test-2",
                 0,
@@ -131,7 +133,7 @@ class ReplicaSizeMoveCostTest {
                 false,
                 false,
                 false,
-                ""));
+                "/log-path-02"));
     ClusterInfo<Replica> clusterInfo = Mockito.mock(ClusterInfo.class);
     Mockito.when(clusterInfo.nodes())
         .thenReturn(
@@ -215,7 +217,7 @@ class ReplicaSizeMoveCostTest {
                 false,
                 false,
                 false,
-                ""),
+                "/log-path-01"),
             Replica.of(
                 "test-2",
                 0,
@@ -227,7 +229,7 @@ class ReplicaSizeMoveCostTest {
                 false,
                 false,
                 false,
-                ""));
+                "/log-path-03"));
     ClusterInfo<Replica> clusterInfo = Mockito.mock(ClusterInfo.class);
     Mockito.when(clusterInfo.nodes())
         .thenReturn(
