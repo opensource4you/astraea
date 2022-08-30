@@ -21,6 +21,7 @@ import com.beust.jcommander.ParameterException;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -29,10 +30,12 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.astraea.app.admin.Admin;
 import org.astraea.app.admin.Compression;
+import org.astraea.app.admin.ReplicaInfo;
 import org.astraea.app.admin.TopicPartition;
 import org.astraea.app.argument.CompressionField;
 import org.astraea.app.argument.DurationField;
@@ -108,7 +111,7 @@ public class Performance {
             param.topics,
             param.transactionSize,
             dataSupplier(param),
-            param.partitionSupplier(),
+            param.partitionSelector(),
             param.producers,
             param::createProducer);
     var consumerThreads =
@@ -368,15 +371,34 @@ public class Performance {
         validateWith = NonEmptyStringField.class)
     List<Integer> specifyBroker = List.of();
 
-    Supplier<Integer> partitionSupplier() {
-      if (specifyBroker.isEmpty()) return () -> -1;
+    Function<String, Integer> partitionSelector() {
+      if (specifyBroker.isEmpty()) return ignore -> -1;
       try (var admin = Admin.of(configs())) {
-        var partitions =
-            admin.partitions(new HashSet<>(topics), new HashSet<>(specifyBroker)).values().stream()
+        Map<String, List<Integer>> topicPartitions =
+            admin.replicas(new HashSet<>(topics)).values().stream()
                 .flatMap(Collection::stream)
-                .map(TopicPartition::partition)
-                .collect(Collectors.toUnmodifiableList());
-        return () -> partitions.get((int) (Math.random() * partitions.size()));
+                .filter(ReplicaInfo::isLeader)
+                .filter(replica -> specifyBroker.contains(replica.nodeInfo().id()))
+                .reduce(
+                    new HashMap<>(),
+                    (map, replica) -> {
+                      map.compute(
+                          replica.topic(),
+                          (topic, list) -> {
+                            list = (list == null) ? new ArrayList<>() : list;
+                            list.add(replica.partition());
+                            return list;
+                          });
+                      return map;
+                    },
+                    (map1, map2) -> {
+                      map2.forEach((k, v) -> map1.get(k).addAll(v));
+                      return map1;
+                    });
+        return topic ->
+            topicPartitions
+                .get(topic)
+                .get((int) (Math.random() * topicPartitions.get(topic).size()));
       }
     }
 
