@@ -38,9 +38,9 @@ public class ReplicaSizeMoveCost implements HasMoveCost {
   @Override
   public MoveCost moveCost(
       ClusterInfo<Replica> before, ClusterInfo<Replica> after, ClusterBean clusterBean) {
-    var beforeChanges = ClusterInfo.diff4DataFolder(before, after);
-    var afterChanges = ClusterInfo.diff4DataFolder(after, before);
-    var migrateInfo = migrateInfo(beforeChanges, afterChanges);
+    var removedReplicas = ClusterInfo.diff4DataFolder(before, after);
+    var addedReplicas = ClusterInfo.diff4DataFolder(after, before);
+    var migrateInfo = migrateInfo(removedReplicas, addedReplicas);
     var sizeChanges = migrateInfo.sizeChange;
     var totalMigrateSize = migrateInfo.totalMigrateSize;
     return new MoveCost() {
@@ -76,17 +76,18 @@ public class ReplicaSizeMoveCost implements HasMoveCost {
     }
   }
 
-  static MigrateInfo migrateInfo(Collection<Replica> sourceChange, Collection<Replica> sinkChange) {
+  static MigrateInfo migrateInfo(
+      Collection<Replica> removedReplicas, Collection<Replica> addedReplicas) {
     var changes = new HashMap<Integer, Long>();
     AtomicLong totalSizeChange = new AtomicLong(0L);
-    sourceChange.forEach(
+    removedReplicas.forEach(
         replica -> {
           var size = replica.size();
           changes.put(
               replica.nodeInfo().id(), -size + changes.getOrDefault(replica.nodeInfo().id(), 0L));
           totalSizeChange.set(totalSizeChange.get() + size);
         });
-    sinkChange.forEach(
+    addedReplicas.forEach(
         replica ->
             changes.put(
                 replica.nodeInfo().id(),

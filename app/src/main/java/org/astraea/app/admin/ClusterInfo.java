@@ -21,7 +21,6 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.Set;
-import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 
 public interface ClusterInfo<T extends ReplicaInfo> {
@@ -40,38 +39,23 @@ public interface ClusterInfo<T extends ReplicaInfo> {
       };
 
   /**
-   * compare the replicas according "data folder"
+   * find the changed replicas between `before` and `after`. The diff is based on following
+   * conditions. 1) the replicas are existent only in the `before` cluster 2) the replicas existent
+   * on both `before` and `after` data folder not equal,Noted that the replicas existent only in the
+   * `after` cluster are NOT returned.
    *
    * @param before to be compared
    * @param after to compare
    * @return the diff replicas
    */
   static Set<Replica> diff4DataFolder(ClusterInfo<Replica> before, ClusterInfo<Replica> after) {
-    return ClusterInfo.diff(before, after, (b, a) -> b.dataFolder().equals(a.dataFolder()));
-  }
-
-  /**
-   * find the changed replicas between `before` and `after`. The diff is based on following
-   * conditions. 1) the replicas are existent only in the `before` cluster 2) the replicas existent
-   * on both `before` and `after` are evaluated to be "not equal" Noted that the replicas existent
-   * only in the `after` cluster are NOT returned.
-   *
-   * @param before to be compared
-   * @param after to compare
-   * @param equal to compare replica
-   * @return the diff replicas
-   */
-  static Set<Replica> diff(
-      ClusterInfo<Replica> before,
-      ClusterInfo<Replica> after,
-      BiFunction<Replica, Replica, Boolean> equal) {
     return before.replicas().stream()
         .filter(
             beforeReplica ->
                 after
                     .replica(beforeReplica.topicPartitionReplica())
                     // not equal so it is changed
-                    .map(newReplica -> !equal.apply(beforeReplica, newReplica))
+                    .map(newReplica -> !beforeReplica.dataFolder().equals(newReplica.dataFolder()))
                     // no replica in the after cluster so it is changed
                     .orElse(true))
         .collect(Collectors.toSet());
