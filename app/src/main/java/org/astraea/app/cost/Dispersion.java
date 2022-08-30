@@ -31,6 +31,7 @@ public interface Dispersion {
           Math.sqrt(
               brokerCost.stream().mapToDouble(score -> Math.pow((score - dataRateMean), 2)).sum()
                   / brokerCost.size());
+      if (dataRateMean == 0) return 0;
       return dataRateSD / dataRateMean;
     };
   }
