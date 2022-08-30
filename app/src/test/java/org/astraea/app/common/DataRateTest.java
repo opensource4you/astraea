@@ -205,16 +205,20 @@ class DataRateTest {
     var converter = new DataRate.Field();
 
     // test Duration
-    assertEquals(DataRate.Bit.of(100).perSecond(), converter.convert("100Bit/s"));
     assertEquals(DataRate.Bit.of(100).perSecond(), converter.convert("100Bit/S"));
-    assertEquals(DataRate.Bit.of(100).perSecond(), converter.convert("100Bit/second"));
     assertEquals(DataRate.Bit.of(100).perSecond(), converter.convert("100Bit/Second"));
+    assertEquals(DataRate.Bit.of(100).perSecond(), converter.convert("100Bit/s"));
+    assertEquals(DataRate.Bit.of(100).perSecond(), converter.convert("100Bit/second"));
+    assertEquals(DataRate.Bit.of(100).perSecond(), converter.convert("100Bit/seconds"));
     assertEquals(DataRate.Bit.of(100).perMinute(), converter.convert("100Bit/m"));
     assertEquals(DataRate.Bit.of(100).perMinute(), converter.convert("100Bit/minute"));
+    assertEquals(DataRate.Bit.of(100).perMinute(), converter.convert("100Bit/minutes"));
     assertEquals(DataRate.Bit.of(100).perHour(), converter.convert("100Bit/h"));
     assertEquals(DataRate.Bit.of(100).perHour(), converter.convert("100Bit/hour"));
+    assertEquals(DataRate.Bit.of(100).perHour(), converter.convert("100Bit/hours"));
     assertEquals(DataRate.Bit.of(100).perDay(), converter.convert("100Bit/d"));
     assertEquals(DataRate.Bit.of(100).perDay(), converter.convert("100Bit/day"));
+    assertEquals(DataRate.Bit.of(100).perDay(), converter.convert("100Bit/days"));
     assertEquals(
         DataRate.Bit.of(100).over(Duration.of(20345, ChronoUnit.MILLIS)),
         converter.convert("100Bit/PT20.345S"));

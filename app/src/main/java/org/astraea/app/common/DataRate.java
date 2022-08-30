@@ -244,24 +244,20 @@ public class DataRate {
       }
     }
 
-    static final Map<String, Duration> DURATION_MAP =
-        Map.of(
-            "s",
-            Duration.ofSeconds(1),
-            "second",
-            Duration.ofSeconds(1),
-            "m",
-            Duration.ofMinutes(1),
-            "minute",
-            Duration.ofMinutes(1),
-            "h",
-            Duration.ofHours(1),
-            "hour",
-            Duration.ofHours(1),
-            "d",
-            Duration.ofDays(1),
-            "day",
-            Duration.ofDays(1));
+    static Map<String, Duration> DURATION_MAP =
+        Map.ofEntries(
+            Map.entry("s", Duration.ofSeconds(1)),
+            Map.entry("second", Duration.ofSeconds(1)),
+            Map.entry("seconds", Duration.ofSeconds(1)),
+            Map.entry("m", Duration.ofMinutes(1)),
+            Map.entry("minute", Duration.ofMinutes(1)),
+            Map.entry("minutes", Duration.ofMinutes(1)),
+            Map.entry("h", Duration.ofHours(1)),
+            Map.entry("hour", Duration.ofHours(1)),
+            Map.entry("hours", Duration.ofHours(1)),
+            Map.entry("d", Duration.ofDays(1)),
+            Map.entry("day", Duration.ofDays(1)),
+            Map.entry("days", Duration.ofDays(1)));
 
     private Duration getDuration(String duration) {
       if (Objects.isNull(duration)) {
