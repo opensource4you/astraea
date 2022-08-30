@@ -115,7 +115,7 @@ public class ClusterInfoTest {
     var nodeInfos = List.of(NodeInfo.of(0, "", -1), NodeInfo.of(1, "", -1), NodeInfo.of(2, "", -1));
     var before = ClusterInfo.of(nodeInfos, beforeReplicas);
     var after = ClusterInfo.of(nodeInfos, afterReplicas);
-    var changes = ClusterInfo.diff4DataFolder(before, after);
+    var changes = ClusterInfo.diff(before, after);
     Assertions.assertEquals(2, changes.size());
     Assertions.assertEquals(
         1,

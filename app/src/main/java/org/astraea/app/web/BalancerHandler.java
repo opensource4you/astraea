@@ -35,7 +35,7 @@ import org.astraea.app.balancer.generator.RebalancePlanGenerator;
 import org.astraea.app.balancer.log.ClusterLogAllocation;
 import org.astraea.app.balancer.log.LogPlacement;
 import org.astraea.app.cost.HasClusterCost;
-import org.astraea.app.cost.NodeTopicSizeCost;
+import org.astraea.app.cost.ReplicaSizeCost;
 
 class BalancerHandler implements Handler {
 
@@ -49,7 +49,7 @@ class BalancerHandler implements Handler {
   final HasClusterCost costFunction;
 
   BalancerHandler(Admin admin) {
-    this(admin, new NodeTopicSizeCost());
+    this(admin, new ReplicaSizeCost());
   }
 
   BalancerHandler(Admin admin, HasClusterCost costFunction) {

@@ -48,7 +48,7 @@ public interface ClusterInfo<T extends ReplicaInfo> {
    * @param after to compare
    * @return the diff replicas
    */
-  static Set<Replica> diff4DataFolder(ClusterInfo<Replica> before, ClusterInfo<Replica> after) {
+  static Set<Replica> diff(ClusterInfo<Replica> before, ClusterInfo<Replica> after) {
     return before.replicas().stream()
         .filter(
             beforeReplica ->

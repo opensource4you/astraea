@@ -16,6 +16,8 @@
  */
 package org.astraea.app.cost;
 
+import static org.mockito.Mockito.mock;
+
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -30,12 +32,25 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
-class ReplicaSizeMoveCostTest {
+class ReplicaSizeCostTest {
   private static final ClusterBean clusterBean = ClusterBean.EMPTY;
+  private final BeanObject bean =
+      new BeanObject(
+          "domain", Map.of("topic", "t", "partition", "10", "name", "SIZE"), Map.of("Value", 777));
+
+  @Test
+  void testBrokerCost() {
+    var meter = new LogMetrics.Log.Gauge(bean);
+    var cost = new ReplicaSizeCost();
+    var result =
+        cost.brokerCost(mock(ClusterInfo.class), ClusterBean.of(Map.of(1, List.of(meter))));
+    Assertions.assertEquals(1, result.value().size());
+    Assertions.assertEquals(777, result.value().entrySet().iterator().next().getValue());
+  }
 
   @Test
   void testMoveCost() {
-    var cost = new ReplicaSizeMoveCost();
+    var cost = new ReplicaSizeCost();
     var moveCost = cost.moveCost(originClusterInfo(), newClusterInfo(), clusterBean);
     var totalSize = moveCost.totalCost();
     var changes = moveCost.changes();
