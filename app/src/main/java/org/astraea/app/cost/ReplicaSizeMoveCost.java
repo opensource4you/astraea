@@ -50,8 +50,8 @@ public class ReplicaSizeMoveCost implements HasMoveCost {
                     Map.entry(
                         TopicPartition.of(replica.topic(), replica.partition()), replica.size()))
             .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));
-    var beforeChanges = ClusterInfo.diff4TopicPartitionReplica(before, after);
-    var afterChanges = ClusterInfo.diff4TopicPartitionReplica(after, before);
+    var beforeChanges = ClusterInfo.diff4DataFolder(before, after);
+    var afterChanges = ClusterInfo.diff4DataFolder(after, before);
     var migrateInfo = migrateInfo(beforeChanges, afterChanges, replicaSize);
 
     var sizeChanges = migrateInfo.sizeChange;

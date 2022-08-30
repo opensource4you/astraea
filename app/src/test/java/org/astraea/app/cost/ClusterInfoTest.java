@@ -22,11 +22,117 @@ import java.util.Set;
 import org.apache.kafka.common.Cluster;
 import org.astraea.app.admin.ClusterInfo;
 import org.astraea.app.admin.NodeInfo;
+import org.astraea.app.admin.Replica;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
 public class ClusterInfoTest {
+
+  @Test
+  void testDiff4DataFolder() {
+    /*
+    test-1-0 : change only the data folder
+    test-1-1 : change the data folder and host
+    test-1-2 : no change
+     */
+    var beforeReplicas =
+        List.of(
+            Replica.of(
+                "test-1",
+                0,
+                NodeInfo.of(0, "", -1),
+                -1,
+                -1,
+                true,
+                true,
+                false,
+                false,
+                false,
+                "/data-folder-01"),
+            Replica.of(
+                "test-1",
+                1,
+                NodeInfo.of(1, "", -1),
+                -1,
+                -1,
+                false,
+                true,
+                false,
+                false,
+                false,
+                "/data-folder-02"),
+            Replica.of(
+                "test-1",
+                2,
+                NodeInfo.of(0, "", -1),
+                -1,
+                -1,
+                false,
+                true,
+                false,
+                false,
+                false,
+                "/data-folder-01"));
+    var afterReplicas =
+        List.of(
+            Replica.of(
+                "test-1",
+                0,
+                NodeInfo.of(0, "", -1),
+                -1,
+                -1,
+                true,
+                true,
+                false,
+                false,
+                false,
+                "/data-folder-02"),
+            Replica.of(
+                "test-1",
+                1,
+                NodeInfo.of(2, "", -1),
+                -1,
+                -1,
+                false,
+                true,
+                false,
+                false,
+                false,
+                "/data-folder-03"),
+            Replica.of(
+                "test-1",
+                2,
+                NodeInfo.of(0, "", -1),
+                -1,
+                -1,
+                false,
+                true,
+                false,
+                false,
+                false,
+                "/data-folder-01"));
+    var nodeInfos = List.of(NodeInfo.of(0, "", -1), NodeInfo.of(1, "", -1), NodeInfo.of(2, "", -1));
+    var before = ClusterInfo.of(nodeInfos, beforeReplicas);
+    var after = ClusterInfo.of(nodeInfos, afterReplicas);
+    var changes = ClusterInfo.diff4DataFolder(before, after);
+    Assertions.assertEquals(2, changes.size());
+    Assertions.assertEquals(
+        1,
+        changes.stream()
+            .filter(replica -> replica.topic().equals("test-1") && replica.partition() == 0)
+            .count());
+    Assertions.assertEquals(
+        1,
+        changes.stream()
+            .filter(replica -> replica.topic().equals("test-1") && replica.partition() == 1)
+            .count());
+    Assertions.assertEquals(
+        0,
+        changes.stream()
+            .filter(replica -> replica.topic().equals("test-1") && replica.partition() == 2)
+            .count());
+  }
 
   @Test
   void testNode() {

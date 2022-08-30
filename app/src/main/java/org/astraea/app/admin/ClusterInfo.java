@@ -40,16 +40,14 @@ public interface ClusterInfo<T extends ReplicaInfo> {
       };
 
   /**
-   * compare the replicas according to either "host" or "data folder"
+   * compare the replicas according "data folder"
    *
    * @param before to be compared
    * @param after to compare
    * @return the diff replicas
    */
-  static Set<Replica> diff4TopicPartitionReplica(
-      ClusterInfo<Replica> before, ClusterInfo<Replica> after) {
-    return ClusterInfo.diff(
-        before, after, (b, a) -> b.topicPartitionReplica().equals(a.topicPartitionReplica()));
+  static Set<Replica> diff4DataFolder(ClusterInfo<Replica> before, ClusterInfo<Replica> after) {
+    return ClusterInfo.diff(before, after, (b, a) -> b.dataFolder().equals(a.dataFolder()));
   }
 
   /**
