@@ -22,10 +22,9 @@ import java.math.MathContext;
 import java.math.RoundingMode;
 import java.time.Duration;
 import java.time.temporal.ChronoUnit;
-import java.util.Arrays;
 import java.util.Comparator;
-import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -214,9 +213,9 @@ public class DataRate {
   public static class Field extends org.astraea.app.argument.Field<DataRate> {
 
     static final Duration DEFAULT_DURATION = Duration.ofSeconds(1);
-    private static final Pattern DATA_SIZE_PATTERN =
+    private static final Pattern DATA_RATE_PATTERN =
         Pattern.compile(
-            "(?<measurement>[0-9]+)\\s?(?<dataUnit>[a-zA-Z]+)(?<duration>/[\\da-z-+.,A-Z]+)?");
+            "(?<measurement>\\d+)\\s?(?<dataUnit>[a-zA-Z]+)(/(?<duration>[\\da-z-+.,A-Z]+))?");
 
     /**
      * Convert string to DataRate.
@@ -234,7 +233,7 @@ public class DataRate {
     @Override
     public DataRate convert(String argument) {
 
-      Matcher matcher = DATA_SIZE_PATTERN.matcher(argument);
+      Matcher matcher = DATA_RATE_PATTERN.matcher(argument);
       if (matcher.matches()) {
         var measurement = Long.parseLong(matcher.group("measurement"));
         var dataUnit = DataUnit.valueOf(matcher.group("dataUnit"));
@@ -245,38 +244,33 @@ public class DataRate {
       }
     }
 
-    enum CustomDurationMapping {
-      SECOND(List.of("s", "second"), Duration.ofSeconds(1)),
-      MINUTE(List.of("m", "minute"), Duration.ofMinutes(1)),
-      HOUR(List.of("h", "hour"), Duration.ofHours(1)),
-      DAY(List.of("d", "day"), Duration.ofDays(1));
-      private final List<String> expression;
-      private final Duration duration;
-
-      CustomDurationMapping(List<String> expression, Duration duration) {
-        this.expression = expression;
-        this.duration = duration;
-      }
-
-      public List<String> expression() {
-        return expression;
-      }
-
-      public Duration duration() {
-        return duration;
-      }
-    }
+    static final Map<String, Duration> DURATION_MAP =
+        Map.of(
+            "s",
+            Duration.ofSeconds(1),
+            "second",
+            Duration.ofSeconds(1),
+            "m",
+            Duration.ofMinutes(1),
+            "minute",
+            Duration.ofMinutes(1),
+            "h",
+            Duration.ofHours(1),
+            "hour",
+            Duration.ofHours(1),
+            "d",
+            Duration.ofDays(1),
+            "day",
+            Duration.ofDays(1));
 
     private Duration getDuration(String duration) {
       if (Objects.isNull(duration)) {
         return DEFAULT_DURATION;
       }
-      var lowerCaseDuration = duration.substring(1).toLowerCase();
-      return Arrays.stream(CustomDurationMapping.values())
-          .filter(x -> x.expression().contains(lowerCaseDuration))
-          .map(CustomDurationMapping::duration)
-          .findFirst()
-          .orElseGet(() -> Duration.parse(lowerCaseDuration));
+      var lowerCaseDuration = duration.toLowerCase();
+      return DURATION_MAP.containsKey(lowerCaseDuration)
+          ? DURATION_MAP.get(lowerCaseDuration)
+          : Duration.parse(lowerCaseDuration);
     }
   }
 

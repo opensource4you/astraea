@@ -16,7 +16,6 @@
  */
 package org.astraea.app.common;
 
-import static org.astraea.app.common.DataRate.Field.DEFAULT_DURATION;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -27,18 +26,11 @@ import java.math.BigInteger;
 import java.time.Duration;
 import java.time.format.DateTimeParseException;
 import java.time.temporal.ChronoUnit;
-import java.util.Arrays;
-import java.util.List;
 import java.util.function.BiConsumer;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
-import org.apache.commons.lang3.tuple.Pair;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.CsvSource;
-import org.junit.jupiter.params.provider.MethodSource;
 
 class DataRateTest {
 
@@ -208,53 +200,55 @@ class DataRateTest {
     Assertions.assertEquals(0, DataRate.ZERO.byteRate());
   }
 
-  private static Stream<Arguments> dateRateSource() {
-    var customDurationPair =
-        Arrays.stream(DataRate.Field.CustomDurationMapping.values())
-            .flatMap(x -> x.expression().stream().map(e -> Pair.of(e, x.duration())))
-            .collect(Collectors.toList());
-    var javaDurationPair =
-        List.of(
-            Pair.of("PT20.345S", Duration.of(20345, ChronoUnit.MILLIS)),
-            Pair.of("PT15M", Duration.of(15, ChronoUnit.MINUTES)));
-    var allDurationPair =
-        Stream.concat(customDurationPair.stream(), javaDurationPair.stream())
-            .collect(Collectors.toList());
-
-    return Arrays.stream(DataUnit.values())
-        .flatMap(
-            dataUnit -> {
-              var dataSize = dataUnit.of(100);
-              var expressionWithoutDuration = "100" + dataUnit.name();
-
-              var expectedWithDuration =
-                  allDurationPair.stream()
-                      .flatMap(
-                          durationPair -> {
-                            var durationExpression = durationPair.getLeft();
-                            var expectedDataRate = dataSize.dataRate(durationPair.getRight());
-                            var expressionWithoutSpace =
-                                "100" + dataUnit.name() + "/" + durationExpression;
-                            var expressionWithSpace =
-                                "100 " + dataUnit.name() + "/" + durationExpression;
-                            return Stream.of(expressionWithoutSpace, expressionWithSpace)
-                                .map(x -> Pair.of(expectedDataRate, x));
-                          });
-              var expectedDefaultDuration =
-                  Stream.of(
-                      Pair.of(dataSize.dataRate(DEFAULT_DURATION), expressionWithoutDuration));
-
-              return Stream.concat(expectedWithDuration, expectedDefaultDuration);
-            })
-        .map(x -> Arguments.of(x.getLeft(), x.getRight()));
-  }
-
-  @ParameterizedTest
-  @MethodSource("dateRateSource")
-  void parseDataRate(DataRate dataRate, String argument) {
+  @Test
+  void parseDataRate() {
     var converter = new DataRate.Field();
+
+    // test Duration
+    assertEquals(DataRate.Bit.of(100).perSecond(), converter.convert("100Bit/s"));
+    assertEquals(DataRate.Bit.of(100).perSecond(), converter.convert("100Bit/S"));
+    assertEquals(DataRate.Bit.of(100).perSecond(), converter.convert("100Bit/second"));
+    assertEquals(DataRate.Bit.of(100).perSecond(), converter.convert("100Bit/Second"));
+    assertEquals(DataRate.Bit.of(100).perMinute(), converter.convert("100Bit/m"));
+    assertEquals(DataRate.Bit.of(100).perMinute(), converter.convert("100Bit/minute"));
+    assertEquals(DataRate.Bit.of(100).perHour(), converter.convert("100Bit/h"));
+    assertEquals(DataRate.Bit.of(100).perHour(), converter.convert("100Bit/hour"));
+    assertEquals(DataRate.Bit.of(100).perDay(), converter.convert("100Bit/d"));
+    assertEquals(DataRate.Bit.of(100).perDay(), converter.convert("100Bit/day"));
     assertEquals(
-        dataRate, converter.convert(argument), String.format("argument parse error %s", argument));
+        DataRate.Bit.of(100).over(Duration.of(20345, ChronoUnit.MILLIS)),
+        converter.convert("100Bit/PT20.345S"));
+    assertEquals(
+        DataRate.Bit.of(100).over(Duration.of(15, ChronoUnit.MINUTES)),
+        converter.convert("100Bit/PT15M"));
+
+    // test Space
+    assertEquals(DataRate.Bit.of(100).perHour(), converter.convert("100 Bit/hour"));
+    assertEquals(DataRate.MB.of(250).perDay(), converter.convert("250 MB/d"));
+    assertEquals(DataRate.GB.of(1).perSecond(), converter.convert("1 GB"));
+
+    // test Size and Unit
+    assertEquals(DataRate.Byte.of(100).perSecond(), converter.convert("100Byte"));
+    assertEquals(DataRate.KB.of(150).perSecond(), converter.convert("150 KB"));
+    assertEquals(DataRate.MB.of(200).perSecond(), converter.convert("200 MB"));
+    assertEquals(DataRate.GB.of(250).perSecond(), converter.convert("250 GB"));
+    assertEquals(DataRate.TB.of(300).perSecond(), converter.convert("300 TB"));
+    assertEquals(DataRate.PB.of(350).perSecond(), converter.convert("350 PB"));
+    assertEquals(DataRate.EB.of(400).perSecond(), converter.convert("400 EB"));
+    assertEquals(DataRate.ZB.of(450).perSecond(), converter.convert("450 ZB"));
+    assertEquals(DataRate.YB.of(500).perSecond(), converter.convert("500 YB"));
+
+    // some example
+    assertEquals(DataRate.GB.of(1).perSecond(), converter.convert("1GB"));
+    assertEquals(DataRate.KiB.of(175).perMinute(), converter.convert("175KiB/M"));
+    assertEquals(DataRate.MB.of(200).perDay(), converter.convert("200 MB/d"));
+    assertEquals(DataRate.GB.of(17).perHour(), converter.convert("17GB/Hour"));
+    assertEquals(
+        DataRate.KB.of(111).over(Duration.of(25, ChronoUnit.SECONDS)),
+        converter.convert("111 KB/PT25S"));
+    assertEquals(
+        DataRate.KB.of(1024).over(Duration.ofDays(2).plusHours(3)),
+        converter.convert("1024KB/P2DT3H"));
   }
 
   @Test
@@ -266,7 +260,7 @@ class DataRateTest {
     assertThrows(IllegalArgumentException.class, () -> converter.convert("xxx 5000 MB"));
     assertThrows(IllegalArgumentException.class, () -> converter.convert("6.00 MB"));
 
-    // unsupprot week
+    // unsupported week
     assertThrows(DateTimeParseException.class, () -> converter.convert("5000 MB/Week"));
   }
 }

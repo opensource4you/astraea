@@ -188,7 +188,7 @@ public class DataSupplierTest {
   void testThrottle() {
     var durationInSeconds = new AtomicLong(1);
     var throttler =
-        new DataSupplier.Throttler(DataSize.KiB.of(150)) {
+        new DataSupplier.Throttler(DataRate.KiB.of(150).perSecond()) {
           @Override
           long durationInSeconds() {
             return durationInSeconds.get();

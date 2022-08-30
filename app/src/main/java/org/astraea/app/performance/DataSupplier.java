@@ -22,8 +22,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
 import org.astraea.app.common.DataRate;
-import org.astraea.app.common.DataSize;
-import org.astraea.app.common.DataUnit;
 
 @FunctionalInterface
 interface DataSupplier extends Supplier<DataSupplier.Data> {
@@ -203,11 +201,6 @@ interface DataSupplier extends Supplier<DataSupplier.Data> {
     private final long start = System.currentTimeMillis();
     private final long throughput;
     private final AtomicLong totalBytes = new AtomicLong();
-
-    /** @param max dataSize per second */
-    Throttler(DataSize max) {
-      throughput = max.measurement(DataUnit.Byte).longValue();
-    }
 
     Throttler(DataRate max) {
       throughput = Double.valueOf(max.byteRate()).longValue();
