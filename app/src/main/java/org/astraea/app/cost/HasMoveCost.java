@@ -16,26 +16,21 @@
  */
 package org.astraea.app.cost;
 
-import java.util.List;
-import java.util.Map;
 import org.astraea.app.admin.ClusterBean;
 import org.astraea.app.admin.ClusterInfo;
-import org.astraea.app.metrics.BeanObject;
-import org.astraea.app.metrics.broker.LogMetrics;
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Test;
+import org.astraea.app.admin.Replica;
 
-class NodeTopicSizeCostTest {
-  private final BeanObject bean =
-      new BeanObject(
-          "domain", Map.of("topic", "t", "partition", "10", "name", "SIZE"), Map.of("Value", 777));
-
-  @Test
-  void testBrokerCost() {
-    var meter = new LogMetrics.Log.Gauge(bean);
-    var cost = new NodeTopicSizeCost();
-    var result = cost.brokerCost(ClusterInfo.empty(), ClusterBean.of(Map.of(1, List.of(meter))));
-    Assertions.assertEquals(1, result.value().size());
-    Assertions.assertEquals(777, result.value().entrySet().iterator().next().getValue());
-  }
+public interface HasMoveCost extends CostFunction {
+  /**
+   * score migrate cost from originClusterInfo to newClusterInfo .
+   *
+   * @param originClusterInfo the clusterInfo before migrate
+   * @param newClusterInfo the mocked clusterInfo generate from balancer
+   * @param clusterBean cluster metrics
+   * @return the score of migrate cost
+   */
+  MoveCost moveCost(
+      ClusterInfo<Replica> originClusterInfo,
+      ClusterInfo<Replica> newClusterInfo,
+      ClusterBean clusterBean);
 }

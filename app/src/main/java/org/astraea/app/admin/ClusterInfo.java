@@ -39,6 +39,29 @@ public interface ClusterInfo<T extends ReplicaInfo> {
         }
       };
 
+  /**
+   * find the changed replicas between `before` and `after`. The diff is based on following
+   * conditions. 1) the replicas are existent only in the `before` cluster 2) find the changes based
+   * on either broker or data folder between `before` and `after`. Noted that the replicas existent
+   * only in the `after` cluster are NOT returned.
+   *
+   * @param before to be compared
+   * @param after to compare
+   * @return the diff replicas
+   */
+  static Set<Replica> diff(ClusterInfo<Replica> before, ClusterInfo<Replica> after) {
+    return before.replicas().stream()
+        .filter(
+            beforeReplica ->
+                after
+                    .replica(beforeReplica.topicPartitionReplica())
+                    // not equal so it is changed
+                    .map(newReplica -> !beforeReplica.dataFolder().equals(newReplica.dataFolder()))
+                    // no replica in the after cluster so it is changed
+                    .orElse(true))
+        .collect(Collectors.toSet());
+  }
+
   @SuppressWarnings("unchecked")
   static <T extends ReplicaInfo> ClusterInfo<T> empty() {
     return (ClusterInfo<T>) EMPTY;
