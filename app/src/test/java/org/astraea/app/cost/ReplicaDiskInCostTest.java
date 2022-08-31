@@ -19,7 +19,6 @@ package org.astraea.app.cost;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import org.astraea.app.admin.ClusterBean;
 import org.astraea.app.admin.ClusterInfo;
 import org.astraea.app.admin.NodeInfo;
@@ -32,7 +31,6 @@ import org.astraea.app.partitioner.Configuration;
 import org.astraea.app.service.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mockito;
 
 class ReplicaDiskInCostTest extends RequireBrokerCluster {
   private static final HasGauge OLD_TP1_0 =
@@ -80,90 +78,81 @@ class ReplicaDiskInCostTest extends RequireBrokerCluster {
   }
 
   private ClusterInfo<Replica> clusterInfo() {
-    var clusterInfo = (ClusterInfo<Replica>) Mockito.mock(ClusterInfo.class);
-    Mockito.when(clusterInfo.nodes())
-        .thenReturn(
-            List.of(NodeInfo.of(1, "", -1), NodeInfo.of(2, "", -1), NodeInfo.of(3, "", -1)));
-    Mockito.when(clusterInfo.topics()).thenReturn(Set.of("test-1", "test-2"));
-    Mockito.when(clusterInfo.replicas(Mockito.anyString()))
-        .thenAnswer(
-            topic ->
-                topic.getArgument(0).equals("test-1")
-                    ? List.of(
-                        Replica.of(
-                            "test-1",
-                            0,
-                            NodeInfo.of(1, "", -1),
-                            0,
-                            100,
-                            true,
-                            true,
-                            false,
-                            false,
-                            true,
-                            "/tmp/aa"),
-                        Replica.of(
-                            "test-1",
-                            0,
-                            NodeInfo.of(2, "", -1),
-                            0,
-                            100,
-                            false,
-                            true,
-                            false,
-                            false,
-                            false,
-                            "/tmp/aa"),
-                        Replica.of(
-                            "test-1",
-                            1,
-                            NodeInfo.of(2, "", -1),
-                            0,
-                            100,
-                            false,
-                            true,
-                            false,
-                            false,
-                            false,
-                            "/tmp/aa"),
-                        Replica.of(
-                            "test-1",
-                            1,
-                            NodeInfo.of(3, "", -1),
-                            0,
-                            100,
-                            true,
-                            true,
-                            false,
-                            false,
-                            true,
-                            "/tmp/aa"))
-                    : List.of(
-                        Replica.of(
-                            "test-2",
-                            0,
-                            NodeInfo.of(1, "", -1),
-                            0,
-                            100,
-                            false,
-                            true,
-                            false,
-                            false,
-                            false,
-                            "/tmp/aa"),
-                        Replica.of(
-                            "test-2",
-                            0,
-                            NodeInfo.of(3, "", -1),
-                            0,
-                            100,
-                            true,
-                            true,
-                            false,
-                            false,
-                            true,
-                            "/tmp/aa")));
-    return clusterInfo;
+    return ClusterInfo.of(
+        List.of(NodeInfo.of(1, "", -1), NodeInfo.of(2, "", -1), NodeInfo.of(3, "", -1)),
+        List.of(
+            Replica.of(
+                "test-1",
+                0,
+                NodeInfo.of(1, "", -1),
+                0,
+                100,
+                true,
+                true,
+                false,
+                false,
+                true,
+                "/tmp/aa"),
+            Replica.of(
+                "test-1",
+                0,
+                NodeInfo.of(2, "", -1),
+                0,
+                100,
+                false,
+                true,
+                false,
+                false,
+                false,
+                "/tmp/aa"),
+            Replica.of(
+                "test-1",
+                1,
+                NodeInfo.of(2, "", -1),
+                0,
+                100,
+                false,
+                true,
+                false,
+                false,
+                false,
+                "/tmp/aa"),
+            Replica.of(
+                "test-1",
+                1,
+                NodeInfo.of(3, "", -1),
+                0,
+                100,
+                true,
+                true,
+                false,
+                false,
+                true,
+                "/tmp/aa"),
+            Replica.of(
+                "test-2",
+                0,
+                NodeInfo.of(1, "", -1),
+                0,
+                100,
+                false,
+                true,
+                false,
+                false,
+                false,
+                "/tmp/aa"),
+            Replica.of(
+                "test-2",
+                0,
+                NodeInfo.of(3, "", -1),
+                0,
+                100,
+                true,
+                true,
+                false,
+                false,
+                true,
+                "/tmp/aa")));
   }
 
   private static ClusterBean clusterBean() {

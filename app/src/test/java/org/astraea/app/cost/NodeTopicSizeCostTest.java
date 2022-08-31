@@ -16,8 +16,6 @@
  */
 package org.astraea.app.cost;
 
-import static org.mockito.Mockito.mock;
-
 import java.util.List;
 import java.util.Map;
 import org.astraea.app.admin.ClusterBean;
@@ -36,8 +34,7 @@ class NodeTopicSizeCostTest {
   void testBrokerCost() {
     var meter = new LogMetrics.Log.Gauge(bean);
     var cost = new NodeTopicSizeCost();
-    var result =
-        cost.brokerCost(mock(ClusterInfo.class), ClusterBean.of(Map.of(1, List.of(meter))));
+    var result = cost.brokerCost(ClusterInfo.empty(), ClusterBean.of(Map.of(1, List.of(meter))));
     Assertions.assertEquals(1, result.value().size());
     Assertions.assertEquals(777, result.value().entrySet().iterator().next().getValue());
   }
