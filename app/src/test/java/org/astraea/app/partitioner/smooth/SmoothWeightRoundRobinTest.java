@@ -72,7 +72,7 @@ public class SmoothWeightRoundRobinTest {
     Mockito.when(re3.nodeInfo()).thenReturn(node3);
     Mockito.when(node3.id()).thenReturn(3);
     var clusterInfo = Mockito.mock(ClusterInfo.class);
-    Mockito.when(clusterInfo.availableReplicaLeaders(Mockito.anyString()))
+    Mockito.when(clusterInfo.replicaLeaders(Mockito.anyString()))
         .thenReturn(List.of(re1, re2, re3));
     return clusterInfo;
   }

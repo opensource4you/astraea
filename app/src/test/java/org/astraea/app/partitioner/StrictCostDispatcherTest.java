@@ -105,7 +105,7 @@ public class StrictCostDispatcherTest {
   @Test
   void testNoAvailableBrokers() {
     var clusterInfo = Mockito.mock(ClusterInfo.class);
-    Mockito.when(clusterInfo.availableReplicaLeaders(Mockito.anyString())).thenReturn(List.of());
+    Mockito.when(clusterInfo.replicaLeaders(Mockito.anyString())).thenReturn(List.of());
     try (var dispatcher = new StrictCostDispatcher()) {
       dispatcher.configure(Map.of(), Optional.empty(), Map.of(), Duration.ofSeconds(10));
       Assertions.assertEquals(
@@ -118,8 +118,7 @@ public class StrictCostDispatcherTest {
     var nodeInfo = NodeInfo.of(10, "host", 11111);
     var replicaInfo = ReplicaInfo.of("topic", 10, nodeInfo, true, true, true);
     var clusterInfo = Mockito.mock(ClusterInfo.class);
-    Mockito.when(clusterInfo.availableReplicaLeaders(Mockito.anyString()))
-        .thenReturn(List.of(replicaInfo));
+    Mockito.when(clusterInfo.replicaLeaders(Mockito.anyString())).thenReturn(List.of(replicaInfo));
     try (var dispatcher = new StrictCostDispatcher()) {
       dispatcher.configure(Map.of(), Optional.empty(), Map.of(), Duration.ofSeconds(10));
       Assertions.assertEquals(
@@ -172,7 +171,7 @@ public class StrictCostDispatcherTest {
     var replicaInfo1 =
         ReplicaInfo.of("topic", 1, NodeInfo.of(12, "host2", 11111), true, true, true);
     var clusterInfo = Mockito.mock(ClusterInfo.class);
-    Mockito.when(clusterInfo.availableReplicaLeaders(Mockito.anyString()))
+    Mockito.when(clusterInfo.replicaLeaders(Mockito.anyString()))
         .thenReturn(List.of(replicaInfo0, replicaInfo1));
     try (var dispatcher = new StrictCostDispatcher()) {
       dispatcher.configure(
@@ -216,7 +215,7 @@ public class StrictCostDispatcherTest {
         ReplicaInfo.of("topic", 1, NodeInfo.of(11, "host2", 11111), true, true, true);
     var rs = List.of(replicaInfo0, replicaInfo1, replicaInfo2);
     var clusterInfo = Mockito.mock(ClusterInfo.class);
-    Mockito.when(clusterInfo.availableReplicaLeaders(Mockito.anyString())).thenReturn(rs);
+    Mockito.when(clusterInfo.replicaLeaders(Mockito.anyString())).thenReturn(rs);
     Mockito.when(clusterInfo.nodes())
         .thenReturn(
             rs.stream().map(ReplicaInfo::nodeInfo).collect(Collectors.toUnmodifiableList()));
@@ -278,14 +277,14 @@ public class StrictCostDispatcherTest {
       var replicaInfo1 =
           ReplicaInfo.of("topic", 1, NodeInfo.of(1111, "host2", 11111), true, true, true);
       var clusterInfo = Mockito.mock(ClusterInfo.class);
-      Mockito.when(clusterInfo.availableReplicaLeaders(Mockito.anyString()))
+      Mockito.when(clusterInfo.replicaLeaders(Mockito.anyString()))
           .thenReturn(List.of(replicaInfo0, replicaInfo1));
       Mockito.when(clusterInfo.nodes())
           .thenReturn(
               Stream.of(replicaInfo0, replicaInfo1)
                   .map(ReplicaInfo::nodeInfo)
                   .collect(Collectors.toUnmodifiableList()));
-      Mockito.when(clusterInfo.availableReplicaLeaders(Mockito.anyInt(), Mockito.anyString()))
+      Mockito.when(clusterInfo.replicaLeaders(Mockito.anyInt(), Mockito.anyString()))
           .thenReturn(List.of(replicaInfo0));
       Assertions.assertEquals(
           partitionId, dispatcher.partition("topic", new byte[0], new byte[0], clusterInfo));

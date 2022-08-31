@@ -114,6 +114,15 @@ public interface ReplicaInfo {
   }
 
   /**
+   * a helper to build TopicPartition quickly
+   *
+   * @return TopicPartition
+   */
+  default TopicPartition topicPartition() {
+    return TopicPartition.of(topic(), partition());
+  }
+
+  /**
    * a helper to build TopicPartitionReplica quickly
    *
    * @return TopicPartitionReplica

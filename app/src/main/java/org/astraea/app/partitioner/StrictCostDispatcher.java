@@ -105,7 +105,7 @@ public class StrictCostDispatcher implements Dispatcher {
   @Override
   public int partition(
       String topic, byte[] key, byte[] value, ClusterInfo<ReplicaInfo> clusterInfo) {
-    var partitionLeaders = clusterInfo.availableReplicaLeaders(topic);
+    var partitionLeaders = clusterInfo.replicaLeaders(topic);
     // just return first partition if there is no available partitions
     if (partitionLeaders.isEmpty()) return 0;
 
@@ -121,8 +121,7 @@ public class StrictCostDispatcher implements Dispatcher {
             next.getAndUpdate(previous -> previous >= roundRobin.length - 1 ? 0 : previous + 1)];
 
     // TODO: if the topic partitions are existent in fewer brokers, the target gets -1 in most cases
-    var candidate =
-        target < 0 ? partitionLeaders : clusterInfo.availableReplicaLeaders(target, topic);
+    var candidate = target < 0 ? partitionLeaders : clusterInfo.replicaLeaders(target, topic);
     candidate = candidate.isEmpty() ? partitionLeaders : candidate;
     return candidate.get((int) (Math.random() * candidate.size())).partition();
   }

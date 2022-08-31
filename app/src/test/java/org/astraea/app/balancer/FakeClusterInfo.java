@@ -24,6 +24,7 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 import org.astraea.app.admin.ClusterInfo;
 import org.astraea.app.admin.NodeInfo;
 import org.astraea.app.admin.Replica;
@@ -127,7 +128,7 @@ public class FakeClusterInfo implements ClusterInfo<Replica> {
   }
 
   @Override
-  public List<Replica> replicas() {
-    return replicas;
+  public Stream<Replica> replicaStream() {
+    return replicas.stream();
   }
 }
