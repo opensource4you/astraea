@@ -72,8 +72,7 @@ public class ReplicaLeaderCost implements HasBrokerCost, HasClusterCost {
   }
 
   static Map<Integer, Integer> leaderCount(ClusterInfo<? extends ReplicaInfo> clusterInfo) {
-    return clusterInfo.topics().stream()
-        .flatMap(t -> clusterInfo.availableReplicaLeaders(t).stream())
+    return clusterInfo.replicaLeaders().stream()
         .collect(Collectors.groupingBy(r -> r.nodeInfo().id()))
         .entrySet()
         .stream()

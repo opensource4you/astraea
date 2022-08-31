@@ -463,8 +463,8 @@ public class Builder {
         }
 
         @Override
-        public List<Replica> replicas() {
-          return replicas;
+        public Stream<Replica> replicaStream() {
+          return replicas.stream();
         }
       };
     }
