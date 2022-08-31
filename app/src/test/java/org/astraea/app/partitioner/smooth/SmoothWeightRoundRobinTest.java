@@ -23,14 +23,13 @@ import org.astraea.app.admin.NodeInfo;
 import org.astraea.app.admin.ReplicaInfo;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mockito;
 
 public class SmoothWeightRoundRobinTest {
   @Test
   void testGetAndChoose() {
     var topic = "test";
     var smoothWeight = new SmoothWeightRoundRobin(Map.of(1, 5.0, 2, 3.0, 3, 1.0));
-    var testCluster = mockResult();
+    var testCluster = clusterInfo();
 
     Assertions.assertEquals(1, smoothWeight.getAndChoose(topic, testCluster));
     Assertions.assertEquals(2, smoothWeight.getAndChoose(topic, testCluster));
@@ -45,7 +44,7 @@ public class SmoothWeightRoundRobinTest {
   void testPartOfBrokerGetAndChoose() {
     var topic = "test";
     var smoothWeight = new SmoothWeightRoundRobin(Map.of(1, 5.0, 2, 3.0, 3, 1.0, 4, 1.0));
-    var testCluster = mockResult();
+    var testCluster = clusterInfo();
 
     Assertions.assertEquals(1, smoothWeight.getAndChoose(topic, testCluster));
     Assertions.assertEquals(2, smoothWeight.getAndChoose(topic, testCluster));
@@ -56,24 +55,11 @@ public class SmoothWeightRoundRobinTest {
     Assertions.assertEquals(1, smoothWeight.getAndChoose(topic, testCluster));
   }
 
-  ClusterInfo mockResult() {
-    var re1 = Mockito.mock(ReplicaInfo.class);
-    var node1 = Mockito.mock(NodeInfo.class);
-    Mockito.when(re1.nodeInfo()).thenReturn(node1);
-    Mockito.when(node1.id()).thenReturn(1);
-
-    var re2 = Mockito.mock(ReplicaInfo.class);
-    var node2 = Mockito.mock(NodeInfo.class);
-    Mockito.when(re2.nodeInfo()).thenReturn(node2);
-    Mockito.when(node2.id()).thenReturn(2);
-
-    var re3 = Mockito.mock(ReplicaInfo.class);
-    var node3 = Mockito.mock(NodeInfo.class);
-    Mockito.when(re3.nodeInfo()).thenReturn(node3);
-    Mockito.when(node3.id()).thenReturn(3);
-    var clusterInfo = Mockito.mock(ClusterInfo.class);
-    Mockito.when(clusterInfo.replicaLeaders(Mockito.anyString()))
-        .thenReturn(List.of(re1, re2, re3));
-    return clusterInfo;
+  ClusterInfo<ReplicaInfo> clusterInfo() {
+    return ClusterInfo.of(
+        List.of(
+            ReplicaInfo.of("test", 1, NodeInfo.of(1, "host", 1111), true, true, false),
+            ReplicaInfo.of("test", 2, NodeInfo.of(2, "host", 1111), true, true, false),
+            ReplicaInfo.of("test", 3, NodeInfo.of(3, "host", 1111), true, true, false)));
   }
 }

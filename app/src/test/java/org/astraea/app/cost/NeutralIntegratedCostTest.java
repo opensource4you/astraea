@@ -29,7 +29,6 @@ public class NeutralIntegratedCostTest {
   @Test
   void testSetBrokerMetrics() {
     var neutralIntegratedCost = new NeutralIntegratedCost();
-    var clusterInfo = Mockito.mock(ClusterInfo.class);
     neutralIntegratedCost.brokersMetric =
         new HashMap<>(
             Map.of(
@@ -50,14 +49,18 @@ public class NeutralIntegratedCostTest {
     var outputBrokerCost = getBrokerCost(new HashMap<>(Map.of(0, 500.0, 1, 1000.0, 2, 1500.0)));
     var cpuBrokerCost = getBrokerCost(new HashMap<>(Map.of(0, 0.05, 1, 0.1, 2, 0.15)));
     var memoryBrokerCost = getBrokerCost(new HashMap<>(Map.of(0, 0.1, 1, 0.3, 2, 0.5)));
-    Mockito.when(input.brokerCost(clusterInfo, ClusterBean.EMPTY)).thenReturn(inputBrokerCost);
-    Mockito.when(output.brokerCost(clusterInfo, ClusterBean.EMPTY)).thenReturn(outputBrokerCost);
-    Mockito.when(memory.brokerCost(clusterInfo, ClusterBean.EMPTY)).thenReturn(memoryBrokerCost);
-    Mockito.when(cpu.brokerCost(clusterInfo, ClusterBean.EMPTY)).thenReturn(cpuBrokerCost);
+    Mockito.when(input.brokerCost(ClusterInfo.empty(), ClusterBean.EMPTY))
+        .thenReturn(inputBrokerCost);
+    Mockito.when(output.brokerCost(ClusterInfo.empty(), ClusterBean.EMPTY))
+        .thenReturn(outputBrokerCost);
+    Mockito.when(memory.brokerCost(ClusterInfo.empty(), ClusterBean.EMPTY))
+        .thenReturn(memoryBrokerCost);
+    Mockito.when(cpu.brokerCost(ClusterInfo.empty(), ClusterBean.EMPTY)).thenReturn(cpuBrokerCost);
     List<HasBrokerCost> metricsCost = List.of(input, output, cpu, memory);
     metricsCost.forEach(
         hasBrokerCost ->
-            neutralIntegratedCost.setBrokerMetrics(hasBrokerCost, clusterInfo, ClusterBean.EMPTY));
+            neutralIntegratedCost.setBrokerMetrics(
+                hasBrokerCost, ClusterInfo.empty(), ClusterBean.EMPTY));
 
     Assertions.assertEquals(neutralIntegratedCost.brokersMetric.get(0).inputScore, 50.0);
     Assertions.assertEquals(neutralIntegratedCost.brokersMetric.get(1).inputScore, 100.0);

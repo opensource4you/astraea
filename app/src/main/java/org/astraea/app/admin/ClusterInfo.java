@@ -60,6 +60,19 @@ public interface ClusterInfo<T extends ReplicaInfo> {
             .collect(Collectors.toUnmodifiableList()));
   }
 
+  /**
+   * build a cluster info based on replicas. Noted that the node info are collected by the replicas.
+   *
+   * @param replicas used to build cluster info
+   * @return cluster info
+   * @param <T> ReplicaInfo or Replica
+   */
+  static <T extends ReplicaInfo> ClusterInfo<T> of(List<T> replicas) {
+    return of(
+        replicas.stream().map(ReplicaInfo::nodeInfo).collect(Collectors.toUnmodifiableList()),
+        replicas);
+  }
+
   static <T extends ReplicaInfo> ClusterInfo<T> of(List<NodeInfo> nodes, List<T> replicas) {
     var topics = replicas.stream().map(ReplicaInfo::topic).collect(Collectors.toUnmodifiableSet());
     var replicasForTopic = replicas.stream().collect(Collectors.groupingBy(ReplicaInfo::topic));
@@ -125,7 +138,10 @@ public interface ClusterInfo<T extends ReplicaInfo> {
    * @return A list of {@link ReplicaInfo}.
    */
   default List<T> replicaLeaders() {
-    return replicaStream().filter(ReplicaInfo::isLeader).collect(Collectors.toUnmodifiableList());
+    return replicaStream()
+        .filter(ReplicaInfo::isLeader)
+        .filter(ReplicaInfo::isOnline)
+        .collect(Collectors.toUnmodifiableList());
   }
 
   /**
@@ -138,6 +154,7 @@ public interface ClusterInfo<T extends ReplicaInfo> {
     return replicaStream()
         .filter(r -> r.topic().equals(topic))
         .filter(ReplicaInfo::isLeader)
+        .filter(ReplicaInfo::isOnline)
         .collect(Collectors.toUnmodifiableList());
   }
 
@@ -153,6 +170,7 @@ public interface ClusterInfo<T extends ReplicaInfo> {
         .filter(r -> r.nodeInfo().id() == broker)
         .filter(r -> r.topic().equals(topic))
         .filter(ReplicaInfo::isLeader)
+        .filter(ReplicaInfo::isOnline)
         .collect(Collectors.toUnmodifiableList());
   }
 
@@ -166,6 +184,7 @@ public interface ClusterInfo<T extends ReplicaInfo> {
     return replicaStream()
         .filter(r -> r.topicPartition().equals(topicPartition))
         .filter(ReplicaInfo::isLeader)
+        .filter(ReplicaInfo::isOnline)
         .findFirst();
   }
 
