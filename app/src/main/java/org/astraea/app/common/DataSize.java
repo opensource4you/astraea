@@ -311,10 +311,10 @@ public class DataSize implements Comparable<DataSize> {
      * Convert string to DataSize.
      *
      * <pre>{@code
-     * new DataSize.Converter().convert("500KB");  // 500 KB  (500 * 1000 bytes)
-     * new DataSize.Converter().convert("500KiB"); // 500 KiB (500 * 1024 bytes)
-     * new DataSize.Converter().convert("500Kb");  // 500 Kb  (500 * 1000 bits)
-     * new DataSize.Converter().convert("500Kib"); // 500 Kib (500 * 1024 bits)
+     * new DataSize.Field().convert("500KB");  // 500 KB  (500 * 1000 bytes)
+     * new DataSize.Field().convert("500KiB"); // 500 KiB (500 * 1024 bytes)
+     * new DataSize.Field().convert("500Kb");  // 500 Kb  (500 * 1000 bits)
+     * new DataSize.Field().convert("500Kib"); // 500 Kib (500 * 1024 bits)
      * }</pre>
      *
      * @param argument number and the unit. e.g. "500MiB", "9876 KB"

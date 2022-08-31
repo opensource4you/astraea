@@ -112,6 +112,11 @@ WORKDIR /
 }
 
 function generateDockerfileBySource() {
+  local repo="https://github.com/apache/kafka"
+  if [[ "$ACCOUNT" != "skiptests" ]]; then
+    repo="https://github.com/${ACCOUNT}/kafka"
+  fi
+
   echo "# this dockerfile is generated dynamically
 FROM ghcr.io/skiptests/astraea/deps AS build
 
@@ -122,7 +127,7 @@ RUN wget https://raw.githubusercontent.com/prometheus/jmx_exporter/master/exampl
 RUN wget https://REPO1.maven.org/maven2/io/prometheus/jmx/jmx_prometheus_javaagent/${EXPORTER_VERSION}/jmx_prometheus_javaagent-${EXPORTER_VERSION}.jar
 
 # build kafka from source code
-RUN git clone https://github.com/apache/kafka /tmp/kafka
+RUN git clone $repo /tmp/kafka
 WORKDIR /tmp/kafka
 RUN git checkout $VERSION
 # generate gradlew for previous
