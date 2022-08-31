@@ -35,9 +35,9 @@ public class ReplicaLeaderCostTest {
   void testNoMetrics() {
     var replicas =
         List.of(
-            ReplicaInfo.of("topic", 0, NodeInfo.of(10, "broker0", 1111), true, true, true),
-            ReplicaInfo.of("topic", 0, NodeInfo.of(10, "broker0", 1111), true, true, true),
-            ReplicaInfo.of("topic", 0, NodeInfo.of(11, "broker1", 1111), true, true, true));
+            ReplicaInfo.of("topic", 0, NodeInfo.of(10, "broker0", 1111), true, true, false),
+            ReplicaInfo.of("topic", 0, NodeInfo.of(10, "broker0", 1111), true, true, false),
+            ReplicaInfo.of("topic", 0, NodeInfo.of(11, "broker1", 1111), true, true, false));
     var clusterInfo = ClusterInfo.of(replicas);
     var cost = ReplicaLeaderCost.leaderCount(clusterInfo);
     Assertions.assertTrue(cost.containsKey(10));
