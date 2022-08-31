@@ -119,20 +119,22 @@ public class ReplicaSizeCost implements HasMoveCost, HasBrokerCost, HasClusterCo
   static MigrateInfo migrateInfo(
       Collection<Replica> removedReplicas, Collection<Replica> addedReplicas) {
     var changes = new HashMap<Integer, Long>();
-    AtomicLong totalSizeChange = new AtomicLong(0L);
+    AtomicLong totalMigrateSize = new AtomicLong(0L);
     removedReplicas.forEach(
         replica ->
-            changes.put(
+            changes.compute(
                 replica.nodeInfo().id(),
-                -replica.size() + changes.getOrDefault(replica.nodeInfo().id(), 0L)));
+                (ignore, size) -> size == null ? -replica.size() : -replica.size() + size));
+
     addedReplicas.forEach(
         replica -> {
-          var size = replica.size();
-          changes.put(
+          changes.compute(
               replica.nodeInfo().id(),
-              replica.size() + changes.getOrDefault(replica.nodeInfo().id(), 0L));
-          totalSizeChange.set(totalSizeChange.get() + size);
+              (ignore, size) -> {
+                totalMigrateSize.set(totalMigrateSize.get() + replica.size());
+                return size == null ? replica.size() : replica.size() + size;
+              });
         });
-    return new MigrateInfo(totalSizeChange.get(), changes);
+    return new MigrateInfo(totalMigrateSize.get(), changes);
   }
 }

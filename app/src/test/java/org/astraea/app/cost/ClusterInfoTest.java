@@ -30,7 +30,7 @@ import org.mockito.Mockito;
 public class ClusterInfoTest {
 
   @Test
-  void testDiff4DataFolder() {
+  void testDiff() {
     /*
     test-1-0 : change only the data folder
     test-1-1 : change the data folder and host

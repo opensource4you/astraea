@@ -29,6 +29,6 @@ public interface MoveCost {
   /** @return unit of cost */
   String unit();
 
-  /** @return changes of each broker */
+  /** @return Changes per broker, positive if brokers moved out, negative if brokers moved in */
   Map<Integer, Long> changes();
 }

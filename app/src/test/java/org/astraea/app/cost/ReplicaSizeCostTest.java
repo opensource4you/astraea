@@ -20,20 +20,16 @@ import static org.mockito.Mockito.mock;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import org.astraea.app.admin.ClusterBean;
 import org.astraea.app.admin.ClusterInfo;
 import org.astraea.app.admin.NodeInfo;
 import org.astraea.app.admin.Replica;
-import org.astraea.app.admin.TopicPartitionReplica;
 import org.astraea.app.metrics.BeanObject;
 import org.astraea.app.metrics.broker.LogMetrics;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mockito;
 
 class ReplicaSizeCostTest {
-  private static final ClusterBean clusterBean = ClusterBean.EMPTY;
   private final BeanObject bean =
       new BeanObject(
           "domain", Map.of("topic", "t", "partition", "10", "name", "SIZE"), Map.of("Value", 777));
@@ -51,7 +47,7 @@ class ReplicaSizeCostTest {
   @Test
   void testMoveCost() {
     var cost = new ReplicaSizeCost();
-    var moveCost = cost.moveCost(originClusterInfo(), newClusterInfo(), clusterBean);
+    var moveCost = cost.moveCost(originClusterInfo(), newClusterInfo(), ClusterBean.EMPTY);
     var totalSize = moveCost.totalCost();
     var changes = moveCost.changes();
 
@@ -74,6 +70,19 @@ class ReplicaSizeCostTest {
     test-2-0 : 1,2
 
    */
+
+  static ClusterInfo<Replica> getClusterInfo(List<Replica> replicas) {
+    return ClusterInfo.of(
+        List.of(NodeInfo.of(1, "", -1), NodeInfo.of(2, "", -1), NodeInfo.of(3, "", -1)),
+        List.of(
+            replicas.get(0),
+            replicas.get(1),
+            replicas.get(2),
+            replicas.get(3),
+            replicas.get(4),
+            replicas.get(5)));
+  }
+
   static ClusterInfo<Replica> originClusterInfo() {
     var replicas =
         List.of(
@@ -149,25 +158,7 @@ class ReplicaSizeCostTest {
                 false,
                 false,
                 "/log-path-02"));
-    ClusterInfo<Replica> clusterInfo = Mockito.mock(ClusterInfo.class);
-    Mockito.when(clusterInfo.nodes())
-        .thenReturn(
-            List.of(NodeInfo.of(1, "", -1), NodeInfo.of(2, "", -1), NodeInfo.of(3, "", -1)));
-    Mockito.when(clusterInfo.topics()).thenReturn(Set.of("test-1", "test-2"));
-    Mockito.when(clusterInfo.replicas()).thenReturn(replicas);
-    Mockito.when(clusterInfo.replicas(Mockito.anyString()))
-        .thenAnswer(
-            topic ->
-                topic.getArgument(0).equals("test-1")
-                    ? List.of(replicas.get(0), replicas.get(1), replicas.get(2), replicas.get(3))
-                    : List.of(replicas.get(4), replicas.get(5)));
-    Mockito.when(clusterInfo.replica(Mockito.isA(TopicPartitionReplica.class)))
-        .thenAnswer(
-            tpr ->
-                clusterInfo.replicas().stream()
-                    .filter(r -> r.topicPartitionReplica().equals(tpr.getArgument(0)))
-                    .findFirst());
-    return clusterInfo;
+    return getClusterInfo(replicas);
   }
 
   static ClusterInfo<Replica> newClusterInfo() {
@@ -245,36 +236,6 @@ class ReplicaSizeCostTest {
                 false,
                 false,
                 "/log-path-03"));
-    ClusterInfo<Replica> clusterInfo = Mockito.mock(ClusterInfo.class);
-    Mockito.when(clusterInfo.nodes())
-        .thenReturn(
-            List.of(NodeInfo.of(1, "", -1), NodeInfo.of(2, "", -1), NodeInfo.of(3, "", -1)));
-    Mockito.when(clusterInfo.topics()).thenReturn(Set.of("test-1", "test-2"));
-    Mockito.when(clusterInfo.replicas()).thenReturn(replicas);
-
-    Mockito.when(clusterInfo.replicas()).thenReturn(replicas);
-    Mockito.when(clusterInfo.replicas(Mockito.anyString()))
-        .thenAnswer(
-            topic ->
-                topic.getArgument(0).equals("test-1")
-                    ? List.of(replicas.get(0), replicas.get(1), replicas.get(2), replicas.get(3))
-                    : List.of(replicas.get(4), replicas.get(5)));
-    Mockito.when(clusterInfo.replica(Mockito.isA(TopicPartitionReplica.class)))
-        .thenAnswer(
-            tpr ->
-                clusterInfo.replicas().stream()
-                    .filter(r -> r.topicPartitionReplica().equals(tpr.getArgument(0)))
-                    .findFirst());
-    return clusterInfo;
-  }
-
-  static LogMetrics.Log.Gauge fakePartitionBeanObject(
-      String type, String name, String topic, String partition, long size, long time) {
-    return new LogMetrics.Log.Gauge(
-        new BeanObject(
-            "kafka.log",
-            Map.of("name", name, "type", type, "topic", topic, "partition", partition),
-            Map.of("Value", size),
-            time));
+    return getClusterInfo(replicas);
   }
 }
