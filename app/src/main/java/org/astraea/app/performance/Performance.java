@@ -21,7 +21,6 @@ import com.beust.jcommander.ParameterException;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.time.Duration;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -35,6 +34,7 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.astraea.app.admin.Admin;
 import org.astraea.app.admin.Compression;
+import org.astraea.app.admin.Replica;
 import org.astraea.app.admin.ReplicaInfo;
 import org.astraea.app.admin.TopicPartition;
 import org.astraea.app.argument.CompressionField;
@@ -380,22 +380,10 @@ public class Performance {
                 .flatMap(Collection::stream)
                 .filter(ReplicaInfo::isLeader)
                 .filter(replica -> specifyBroker.contains(replica.nodeInfo().id()))
-                .reduce(
-                    new HashMap<>(),
-                    (map, replica) -> {
-                      map.compute(
-                          replica.topic(),
-                          (topic, list) -> {
-                            list = (list == null) ? new ArrayList<>() : list;
-                            list.add(replica.partition());
-                            return list;
-                          });
-                      return map;
-                    },
-                    (map1, map2) -> {
-                      map2.forEach((k, v) -> map1.get(k).addAll(v));
-                      return map1;
-                    });
+                .collect(
+                    Collectors.groupingByConcurrent(
+                        Replica::topic,
+                        Collectors.mapping(Replica::partition, Collectors.toUnmodifiableList())));
         return topic ->
             topicPartitions
                 .get(topic)
