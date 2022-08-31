@@ -51,8 +51,7 @@ public class ClusterInfoIntegratedTest extends RequireBrokerCluster {
           .forEach(t -> Assertions.assertNotEquals(0, clusterInfo.availableReplicas(t).size()));
       clusterInfo
           .topics()
-          .forEach(
-              t -> Assertions.assertNotEquals(0, clusterInfo.availableReplicaLeaders(t).size()));
+          .forEach(t -> Assertions.assertNotEquals(0, clusterInfo.replicaLeaders(t).size()));
     }
   }
 }

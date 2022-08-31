@@ -18,7 +18,6 @@ package org.astraea.app.cost;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import org.astraea.app.admin.ClusterBean;
 import org.astraea.app.admin.ClusterInfo;
 import org.astraea.app.admin.NodeInfo;
@@ -36,13 +35,10 @@ public class ReplicaLeaderCostTest {
   void testNoMetrics() {
     var replicas =
         List.of(
-            ReplicaInfo.of("topic", 0, NodeInfo.of(10, "broker0", 1111), true, true, true),
-            ReplicaInfo.of("topic", 0, NodeInfo.of(10, "broker0", 1111), true, true, true),
-            ReplicaInfo.of("topic", 0, NodeInfo.of(11, "broker1", 1111), true, true, true));
-    @SuppressWarnings("unchecked")
-    ClusterInfo<ReplicaInfo> clusterInfo = Mockito.mock(ClusterInfo.class);
-    Mockito.when(clusterInfo.topics()).thenReturn(Set.of("topic"));
-    Mockito.when(clusterInfo.availableReplicaLeaders(Mockito.anyString())).thenReturn(replicas);
+            ReplicaInfo.of("topic", 0, NodeInfo.of(10, "broker0", 1111), true, true, false),
+            ReplicaInfo.of("topic", 0, NodeInfo.of(10, "broker0", 1111), true, true, false),
+            ReplicaInfo.of("topic", 0, NodeInfo.of(11, "broker1", 1111), true, true, false));
+    var clusterInfo = ClusterInfo.of(replicas);
     var cost = ReplicaLeaderCost.leaderCount(clusterInfo);
     Assertions.assertTrue(cost.containsKey(10));
     Assertions.assertTrue(cost.containsKey(11));

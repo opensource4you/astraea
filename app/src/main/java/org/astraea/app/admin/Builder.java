@@ -463,8 +463,8 @@ public class Builder {
         }
 
         @Override
-        public List<Replica> replicas() {
-          return replicas;
+        public Stream<Replica> replicaStream() {
+          return replicas.stream();
         }
       };
     }
@@ -711,9 +711,35 @@ public class Builder {
         }
 
         @Override
-        public void apply() {
+        public AffectedResources apply() {
           applyBandwidth();
           applyThrottledReplicas();
+          return new AffectedResources() {
+            final Map<Integer, DataRate> ingressCopy = Map.copyOf(ingress);
+            final Map<Integer, DataRate> egressCopy = Map.copyOf(egress);
+            final Set<TopicPartitionReplica> leaderCopy = Set.copyOf(leaders);
+            final Set<TopicPartitionReplica> followerCopy = Set.copyOf(followers);
+
+            @Override
+            public Map<Integer, DataRate> ingress() {
+              return ingressCopy;
+            }
+
+            @Override
+            public Map<Integer, DataRate> egress() {
+              return egressCopy;
+            }
+
+            @Override
+            public Set<TopicPartitionReplica> leaders() {
+              return leaderCopy;
+            }
+
+            @Override
+            public Set<TopicPartitionReplica> followers() {
+              return followerCopy;
+            }
+          };
         }
 
         private void applyThrottledReplicas() {
@@ -874,16 +900,41 @@ public class Builder {
 
     @Override
     public void clearReplicationThrottle(TopicPartitionReplica log) {
+      // Attempt to submit two config alterations might encounter some bug.
+      // We have to submit all the changes in one API request.
+      // see https://github.com/skiptests/astraea/issues/649
       var configValue = log.partition() + ":" + log.brokerId();
       var configEntry0 = new ConfigEntry("leader.replication.throttled.replicas", configValue);
       var configEntry1 = new ConfigEntry("follower.replication.throttled.replicas", configValue);
-      var alterConfigOp0 = new AlterConfigOp(configEntry0, AlterConfigOp.OpType.SUBTRACT);
-      var alterConfigOp1 = new AlterConfigOp(configEntry1, AlterConfigOp.OpType.SUBTRACT);
       var configResource = new ConfigResource(ConfigResource.Type.TOPIC, log.topic());
       Utils.packException(
           () ->
               admin.incrementalAlterConfigs(
-                  Map.of(configResource, List.of(alterConfigOp0, alterConfigOp1))));
+                  Map.of(
+                      configResource,
+                      List.of(
+                          new AlterConfigOp(configEntry0, AlterConfigOp.OpType.SUBTRACT),
+                          new AlterConfigOp(configEntry1, AlterConfigOp.OpType.SUBTRACT)))));
+    }
+
+    @Override
+    public void clearLeaderReplicationThrottle(TopicPartitionReplica log) {
+      var configValue = log.partition() + ":" + log.brokerId();
+      var configEntry0 = new ConfigEntry("leader.replication.throttled.replicas", configValue);
+      var alterConfigOp0 = new AlterConfigOp(configEntry0, AlterConfigOp.OpType.SUBTRACT);
+      var configResource = new ConfigResource(ConfigResource.Type.TOPIC, log.topic());
+      Utils.packException(
+          () -> admin.incrementalAlterConfigs(Map.of(configResource, List.of(alterConfigOp0))));
+    }
+
+    @Override
+    public void clearFollowerReplicationThrottle(TopicPartitionReplica log) {
+      var configValue = log.partition() + ":" + log.brokerId();
+      var configEntry1 = new ConfigEntry("follower.replication.throttled.replicas", configValue);
+      var alterConfigOp1 = new AlterConfigOp(configEntry1, AlterConfigOp.OpType.SUBTRACT);
+      var configResource = new ConfigResource(ConfigResource.Type.TOPIC, log.topic());
+      Utils.packException(
+          () -> admin.incrementalAlterConfigs(Map.of(configResource, List.of(alterConfigOp1))));
     }
 
     @Override

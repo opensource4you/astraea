@@ -76,7 +76,7 @@ public class Automation {
         i++;
         if (whetherDeleteTopic) {
           try (final AdminClient adminClient = KafkaAdminClient.create(config)) {
-            adminClient.deleteTopics(List.of(topicName));
+            adminClient.deleteTopics(topicName);
           }
         }
         System.out.println("=============== " + i + " time Performance Complete! ===============");

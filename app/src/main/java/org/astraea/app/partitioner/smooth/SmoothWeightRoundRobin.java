@@ -120,7 +120,7 @@ public final class SmoothWeightRoundRobin
         brokersIDofTopic.computeIfAbsent(
             topic,
             e ->
-                clusterInfo.availableReplicaLeaders(topic).stream()
+                clusterInfo.replicaLeaders(topic).stream()
                     .map(replicaInfo -> replicaInfo.nodeInfo().id())
                     .collect(Collectors.toList()));
     this.currentWeight =

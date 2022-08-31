@@ -26,5 +26,7 @@ public abstract class SetField<T> extends Field<Set<T>> {
   protected void check(String name, String value) throws ParameterException {
     if (value == null || value.isBlank() || Set.of(value.split(SEPARATOR)).isEmpty())
       throw new ParameterException("set type can't be empty");
+    if (Set.of(value.split(SEPARATOR)).contains(""))
+      throw new ParameterException("Parameter in " + name + " cannot be empty");
   }
 }

@@ -14,23 +14,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.app.cost;
+package org.astraea.app.argument;
 
 import java.util.List;
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Test;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
-class DispersionTest {
-
-  @Test
-  void testCorrelationCoefficient() {
-    var dispersion = Dispersion.correlationCoefficient();
-    var scores = List.of(0.2, 0.4, 0.7);
-    Assertions.assertEquals(0.47418569253607507, dispersion.calculate(scores));
-
-    var zeroScores = List.of(0.0, 0.0, 0.0);
-    var score = dispersion.calculate(zeroScores);
-    Assertions.assertFalse(Double.isNaN(score));
-    Assertions.assertEquals(0.0, score);
+public class PositiveIntegerListField extends PositiveNumberListField<Integer> {
+  @Override
+  public List<Integer> convert(String value) {
+    return Stream.of(value.split(SEPARATOR)).map(Integer::valueOf).collect(Collectors.toList());
   }
 }

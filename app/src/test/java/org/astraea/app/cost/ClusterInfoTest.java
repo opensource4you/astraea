@@ -154,8 +154,7 @@ public class ClusterInfoTest {
     Assertions.assertEquals(
         NodeInfo.of(node), clusterInfo.availableReplicas(partition.topic()).get(0).nodeInfo());
     Assertions.assertEquals(
-        NodeInfo.of(node),
-        clusterInfo.availableReplicaLeaders(partition.topic()).get(0).nodeInfo());
+        NodeInfo.of(node), clusterInfo.replicaLeaders(partition.topic()).get(0).nodeInfo());
     Assertions.assertEquals(
         NodeInfo.of(node), clusterInfo.replicas(partition.topic()).get(0).nodeInfo());
   }
@@ -166,6 +165,6 @@ public class ClusterInfoTest {
     Assertions.assertEquals(0, clusterInfo.replicas("unknown").size());
     Assertions.assertThrows(NoSuchElementException.class, () -> clusterInfo.node(0));
     Assertions.assertEquals(0, clusterInfo.availableReplicas("unknown").size());
-    Assertions.assertEquals(0, clusterInfo.availableReplicaLeaders("unknown").size());
+    Assertions.assertEquals(0, clusterInfo.replicaLeaders("unknown").size());
   }
 }
