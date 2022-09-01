@@ -25,6 +25,8 @@ import java.util.stream.Collectors;
 import org.astraea.app.admin.ClusterBean;
 import org.astraea.app.admin.ClusterInfo;
 import org.astraea.app.admin.ReplicaInfo;
+import org.astraea.app.common.EnumInfo;
+import org.astraea.app.common.Utils;
 import org.astraea.app.metrics.collector.Fetcher;
 
 /**
@@ -224,11 +226,15 @@ public class NeutralIntegratedCost implements HasBrokerCost {
     }
   }
 
-  private enum Metrics {
+  private enum Metrics implements EnumInfo {
     inputThroughput("inputThroughput"),
     outputThroughput("outputThroughput"),
     memory("memory"),
     cpu("cpu");
+
+    public static Metrics ofAlias(String alias) {
+      return Utils.ignoreCaseEnum(Metrics.class, alias);
+    }
 
     private final String metricName;
 
@@ -238,6 +244,11 @@ public class NeutralIntegratedCost implements HasBrokerCost {
 
     public String metricName() {
       return metricName;
+    }
+
+    @Override
+    public String alias() {
+      return metricName();
     }
   }
 }

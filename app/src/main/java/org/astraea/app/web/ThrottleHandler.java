@@ -29,6 +29,8 @@ import org.astraea.app.admin.Admin;
 import org.astraea.app.admin.TopicPartition;
 import org.astraea.app.admin.TopicPartitionReplica;
 import org.astraea.app.common.DataRate;
+import org.astraea.app.common.EnumInfo;
+import org.astraea.app.common.Utils;
 
 public class ThrottleHandler implements Handler {
   private final Admin admin;
@@ -354,8 +356,12 @@ public class ThrottleHandler implements Handler {
     }
   }
 
-  enum LogIdentity {
+  enum LogIdentity implements EnumInfo {
     leader,
-    follower
+    follower;
+
+    public static LogIdentity ofAlias(String alias) {
+      return Utils.ignoreCaseEnum(LogIdentity.class, alias);
+    }
   }
 }

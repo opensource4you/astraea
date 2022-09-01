@@ -31,7 +31,7 @@ public class CompressionField extends Field<Compression> {
   public Compression convert(String value) {
     try {
       // `CompressionType#forName` accept lower-case name only.
-      return Compression.of(value);
+      return Compression.ofAlias(value);
     } catch (IllegalArgumentException e) {
       throw new ParameterException(
           "the "

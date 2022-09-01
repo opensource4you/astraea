@@ -58,12 +58,13 @@ class ControllerMetricsTest extends RequireSingleBrokerCluster {
         .forEach(
             t -> {
               Assertions.assertEquals(
-                  t, ControllerMetrics.Controller.of(t.metricName().toLowerCase(Locale.ROOT)));
+                  t, ControllerMetrics.Controller.ofAlias(t.metricName().toLowerCase(Locale.ROOT)));
               Assertions.assertEquals(
-                  t, ControllerMetrics.Controller.of(t.metricName().toUpperCase(Locale.ROOT)));
+                  t, ControllerMetrics.Controller.ofAlias(t.metricName().toUpperCase(Locale.ROOT)));
             });
 
-    assertThrows(IllegalArgumentException.class, () -> ControllerMetrics.Controller.of("nothing"));
+    assertThrows(
+        IllegalArgumentException.class, () -> ControllerMetrics.Controller.ofAlias("nothing"));
   }
 
   @Test

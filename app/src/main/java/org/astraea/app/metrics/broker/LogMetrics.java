@@ -20,6 +20,8 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.stream.Collectors;
+import org.astraea.app.common.EnumInfo;
+import org.astraea.app.common.Utils;
 import org.astraea.app.metrics.BeanObject;
 import org.astraea.app.metrics.BeanQuery;
 import org.astraea.app.metrics.HasBeanObject;
@@ -27,11 +29,16 @@ import org.astraea.app.metrics.MBeanClient;
 
 public final class LogMetrics {
 
-  public enum Log {
+  public enum Log implements EnumInfo {
     LOG_END_OFFSET("LogEndOffset"),
     LOG_START_OFFSET("LogStartOffset"),
     NUM_LOG_SEGMENTS("NumLogSegments"),
     SIZE("Size");
+
+    public static Log ofAlias(String alias) {
+      return Utils.ignoreCaseEnum(Log.class, alias);
+    }
+
     private final String metricName;
 
     Log(String name) {
@@ -40,6 +47,11 @@ public final class LogMetrics {
 
     public String metricName() {
       return metricName;
+    }
+
+    @Override
+    public String alias() {
+      return metricName();
     }
 
     public static LogMetrics.Log of(String metricName) {

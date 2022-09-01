@@ -20,6 +20,8 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Objects;
 import java.util.stream.Collectors;
+import org.astraea.app.common.EnumInfo;
+import org.astraea.app.common.Utils;
 import org.astraea.app.metrics.BeanObject;
 import org.astraea.app.metrics.BeanQuery;
 import org.astraea.app.metrics.HasBeanObject;
@@ -27,7 +29,7 @@ import org.astraea.app.metrics.MBeanClient;
 
 public final class ServerMetrics {
 
-  public enum DelayedOperationPurgatory {
+  public enum DelayedOperationPurgatory implements EnumInfo {
     ALTER_ACLS("AlterAcls"),
     DELETE_RECORDS("DeleteRecords"),
     ELECT_LEADER("ElectLeader"),
@@ -35,6 +37,10 @@ public final class ServerMetrics {
     HEARTBEAT("Heartbeat"),
     PRODUCE("Produce"),
     REBALANCE("Rebalance");
+
+    public static DelayedOperationPurgatory ofAlias(String alias) {
+      return Utils.ignoreCaseEnum(DelayedOperationPurgatory.class, alias);
+    }
 
     private final String metricName;
 
@@ -44,6 +50,11 @@ public final class ServerMetrics {
 
     public String metricName() {
       return metricName;
+    }
+
+    @Override
+    public String alias() {
+      return metricName();
     }
 
     public Collection<Gauge> fetch(MBeanClient mBeanClient) {
@@ -60,13 +71,6 @@ public final class ServerMetrics {
           .collect(Collectors.toUnmodifiableList());
     }
 
-    public static DelayedOperationPurgatory of(String metricName) {
-      return Arrays.stream(DelayedOperationPurgatory.values())
-          .filter(metric -> metric.metricName().equalsIgnoreCase(metricName))
-          .findFirst()
-          .orElseThrow(() -> new IllegalArgumentException("No such metric: " + metricName));
-    }
-
     public static class Gauge implements HasGauge {
       private final BeanObject beanObject;
 
@@ -79,7 +83,7 @@ public final class ServerMetrics {
       }
 
       public DelayedOperationPurgatory type() {
-        return DelayedOperationPurgatory.of(metricsName());
+        return DelayedOperationPurgatory.ofAlias(metricsName());
       }
 
       @Override
@@ -89,7 +93,7 @@ public final class ServerMetrics {
     }
   }
 
-  public enum Topic {
+  public enum Topic implements EnumInfo {
     /** Message validation failure rate due to non-continuous offset or sequence number in batch */
     INVALID_OFFSET_OR_SEQUENCE_RECORDS_PER_SEC("InvalidOffsetOrSequenceRecordsPerSec"),
 
@@ -137,6 +141,10 @@ public final class ServerMetrics {
     /** Byte out rate to clients. */
     BYTES_OUT_PER_SEC("BytesOutPerSec");
 
+    public static Topic ofAlias(String alias) {
+      return Utils.ignoreCaseEnum(Topic.class, alias);
+    }
+
     private final String metricName;
 
     Topic(String name) {
@@ -145,6 +153,11 @@ public final class ServerMetrics {
 
     public String metricName() {
       return metricName;
+    }
+
+    @Override
+    public String alias() {
+      return metricName();
     }
 
     /**
@@ -213,7 +226,7 @@ public final class ServerMetrics {
     }
   }
 
-  public enum ReplicaManager {
+  public enum ReplicaManager implements EnumInfo {
     AT_MIN_ISR_PARTITION_COUNT("AtMinIsrPartitionCount"),
     LEADER_COUNT("LeaderCount"),
     OFFLINE_REPLICA_COUNT("OfflineReplicaCount"),
@@ -221,6 +234,11 @@ public final class ServerMetrics {
     REASSIGNING_PARTITIONS("ReassigningPartitions"),
     UNDER_MIN_ISR_PARTITION_COUNT("UnderMinIsrPartitionCount"),
     UNDER_REPLICATED_PARTITIONS("UnderReplicatedPartitions");
+
+    public static ReplicaManager ofAlias(String alias) {
+      return Utils.ignoreCaseEnum(ReplicaManager.class, alias);
+    }
+
     private final String metricName;
 
     ReplicaManager(String name) {
@@ -231,13 +249,6 @@ public final class ServerMetrics {
       return metricName;
     }
 
-    public static ReplicaManager of(String metricName) {
-      return Arrays.stream(ReplicaManager.values())
-          .filter(metric -> metric.metricName().equalsIgnoreCase(metricName))
-          .findFirst()
-          .orElseThrow(() -> new IllegalArgumentException("No such metric: " + metricName));
-    }
-
     public Gauge fetch(MBeanClient mBeanClient) {
       return new Gauge(
           mBeanClient.queryBean(
@@ -246,6 +257,11 @@ public final class ServerMetrics {
                   .property("type", "ReplicaManager")
                   .property("name", metricName)
                   .build()));
+    }
+
+    @Override
+    public String alias() {
+      return metricName();
     }
 
     public static class Gauge implements HasGauge {
@@ -261,7 +277,7 @@ public final class ServerMetrics {
       }
 
       public ReplicaManager type() {
-        return ReplicaManager.of(metricsName());
+        return ReplicaManager.ofAlias(metricsName());
       }
 
       @Override

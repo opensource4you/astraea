@@ -17,17 +17,19 @@
 package org.astraea.app.consumer;
 
 import java.util.Locale;
+import org.astraea.app.common.EnumInfo;
+import org.astraea.app.common.Utils;
 
-public enum Isolation {
+public enum Isolation implements EnumInfo {
   READ_UNCOMMITTED,
   READ_COMMITTED;
 
-  public static Isolation of(String name) {
-    return Isolation.valueOf(name.toUpperCase(Locale.ROOT));
+  public static Isolation ofAlias(String alias) {
+    return Utils.ignoreCaseEnum(Isolation.class, alias);
   }
 
   /** @return the name parsed by kafka */
   public String nameOfKafka() {
-    return name().toLowerCase(Locale.ROOT);
+    return alias().toLowerCase(Locale.ROOT);
   }
 }

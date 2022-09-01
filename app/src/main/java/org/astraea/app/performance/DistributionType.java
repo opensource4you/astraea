@@ -18,26 +18,27 @@ package org.astraea.app.performance;
 
 import com.beust.jcommander.ParameterException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Random;
 import java.util.function.Supplier;
 import java.util.stream.IntStream;
 import org.astraea.app.argument.Field;
+import org.astraea.app.common.EnumInfo;
+import org.astraea.app.common.Utils;
 
 /**
  * Random distribution generator. Example: {@code Supplier<long> uniformDistribution =
  * Distribution.UNIFORM.create(100); while (true){ // the value will in range [0, 100)
  * uniformDistribution.get(); } }
  */
-public enum DistributionType {
-  FIXED("fixed") {
+public enum DistributionType implements EnumInfo {
+  FIXED {
     @Override
     public Supplier<Long> create(int n) {
       return () -> (long) n;
     }
   },
 
-  UNIFORM("uniform") {
+  UNIFORM {
     @Override
     public Supplier<Long> create(int n) {
       var rand = new Random();
@@ -46,7 +47,7 @@ public enum DistributionType {
   },
 
   /** A distribution for providing different random value every 2 seconds */
-  LATEST("latest") {
+  LATEST {
     @Override
     public Supplier<Long> create(int n) {
       var rand = new Random();
@@ -62,7 +63,7 @@ public enum DistributionType {
    * Building a zipfian distribution with PDF: 1/k/H_N, where H_N is the Nth harmonic number (= 1/1
    * + 1/2 + ... + 1/N); k is the key id
    */
-  ZIPFIAN("zipfian") {
+  ZIPFIAN {
     @Override
     public Supplier<Long> create(int n) {
       var cumulativeDensityTable = new ArrayList<Double>();
@@ -84,13 +85,11 @@ public enum DistributionType {
     }
   };
 
-  public final String name;
+  public static DistributionType ofAlias(String alias) {
+    return Utils.ignoreCaseEnum(DistributionType.class, alias);
+  }
 
   abstract Supplier<Long> create(int n);
-
-  DistributionType(String name) {
-    this.name = name;
-  }
 
   /**
    * convert(String): Accept lower-case name only e.g. "fixed", "uniform", "latest" and "zipfian"
@@ -99,15 +98,15 @@ public enum DistributionType {
   static class DistributionTypeField extends Field<DistributionType> {
     @Override
     public DistributionType convert(String name) {
-      return Arrays.stream(DistributionType.values())
-          .filter(distribute -> distribute.name.equals(name))
-          .findFirst()
-          .orElseThrow(
-              () ->
-                  new ParameterException(
-                      "Unknown distribution \""
-                          + name
-                          + "\". use \"fixed\" \"uniform\", \"latest\", \"zipfian\"."));
+      try {
+        return DistributionType.ofAlias(name);
+      } catch (IllegalArgumentException e) {
+        throw new ParameterException(
+            "Unknown distribution \""
+                + name
+                + "\". use \"fixed\" \"uniform\", \"latest\", \"zipfian\".",
+            e);
+      }
     }
   }
 }

@@ -22,6 +22,8 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
 import org.apache.kafka.common.quota.ClientQuotaEntity;
+import org.astraea.app.common.EnumInfo;
+import org.astraea.app.common.Utils;
 
 public class Quota {
 
@@ -57,10 +59,15 @@ public class Quota {
         .orElseThrow(() -> new RuntimeException("unknown: " + value));
   }
 
-  public enum Target {
+  public enum Target implements EnumInfo {
     USER(ClientQuotaEntity.USER),
     CLIENT_ID(ClientQuotaEntity.CLIENT_ID),
     IP(ClientQuotaEntity.IP);
+
+    public static Target ofAlias(String alias) {
+      return Utils.ignoreCaseEnum(Target.class, alias);
+    }
+
     private final String nameOfKafka;
 
     Target(String nameOfKafka) {
@@ -72,12 +79,17 @@ public class Quota {
     }
   }
 
-  public enum Limit {
+  public enum Limit implements EnumInfo {
     PRODUCER_BYTE_RATE("producer_byte_rate"),
     CONSUMER_BYTE_RATE("consumer_byte_rate"),
     REQUEST_PERCENTAGE("request_percentage"),
     CONTROLLER_MUTATION_RATE("controller_mutation_rate"),
     IP_CONNECTION_RATE("connection_creation_rate");
+
+    public static Limit ofAlias(String alias) {
+      return Utils.ignoreCaseEnum(Limit.class, alias);
+    }
+
     private final String nameOfKafka;
 
     Limit(String nameOfKafka) {
@@ -86,6 +98,11 @@ public class Quota {
 
     public String nameOfKafka() {
       return nameOfKafka;
+    }
+
+    @Override
+    public String alias() {
+      return nameOfKafka();
     }
   }
 

@@ -17,7 +17,6 @@
 package org.astraea.app.performance;
 
 import com.beust.jcommander.IStringConverter;
-import com.beust.jcommander.ParameterException;
 import java.io.BufferedWriter;
 import java.io.FileWriter;
 import java.io.IOException;
@@ -32,11 +31,16 @@ import java.util.Date;
 import java.util.List;
 import java.util.function.Supplier;
 import java.util.stream.IntStream;
+import org.astraea.app.common.EnumInfo;
 import org.astraea.app.common.Utils;
 
-public enum ReportFormat {
+public enum ReportFormat implements EnumInfo {
   CSV("csv"),
   JSON("json");
+
+  public static ReportFormat ofAlias(String alias) {
+    return Utils.ignoreCaseEnum(ReportFormat.class, alias);
+  }
 
   private final String name;
 
@@ -44,17 +48,15 @@ public enum ReportFormat {
     this.name = name;
   }
 
+  @Override
+  public String alias() {
+    return name;
+  }
+
   public static class ReportFormatConverter implements IStringConverter<ReportFormat> {
     @Override
     public ReportFormat convert(String value) {
-      switch (value.toLowerCase()) {
-        case "csv":
-          return ReportFormat.CSV;
-        case "json":
-          return ReportFormat.JSON;
-        default:
-          throw new ParameterException("Invalid file format. Use \"csv\" or \"json\"");
-      }
+      return ofAlias(value);
     }
   }
 

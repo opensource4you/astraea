@@ -14,25 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.app.admin;
+package org.astraea.app.common;
 
-import java.util.Locale;
-import org.astraea.app.common.EnumInfo;
-import org.astraea.app.common.Utils;
+public interface EnumInfo {
 
-public enum Compression implements EnumInfo {
-  NONE,
-  GZIP,
-  SNAPPY,
-  LZ4,
-  ZSTD;
-
-  public static Compression ofAlias(String alias) {
-    return Utils.ignoreCaseEnum(Compression.class, alias);
-  }
-
-  /** @return the name parsed by kafka */
-  public String nameOfKafka() {
-    return name().toLowerCase(Locale.ROOT);
+  default String alias() {
+    return Utils.packException(() -> (String) this.getClass().getMethod("name").invoke(this));
   }
 }

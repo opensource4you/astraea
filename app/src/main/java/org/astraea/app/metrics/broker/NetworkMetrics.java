@@ -17,13 +17,15 @@
 package org.astraea.app.metrics.broker;
 
 import java.util.Arrays;
+import org.astraea.app.common.EnumInfo;
+import org.astraea.app.common.Utils;
 import org.astraea.app.metrics.BeanObject;
 import org.astraea.app.metrics.BeanQuery;
 import org.astraea.app.metrics.MBeanClient;
 
 public class NetworkMetrics {
 
-  public enum Request {
+  public enum Request implements EnumInfo {
     PRODUCE("Produce"),
     FETCH("Fetch"),
     LIST_OFFSETS("ListOffsets"),
@@ -93,6 +95,10 @@ public class NetworkMetrics {
     LIST_TRANSACTIONS("ListTransactions"),
     ALLOCATE_PRODUCER_IDS("AllocateProducerIds");
 
+    public static Request ofAlias(String alias) {
+      return Utils.ignoreCaseEnum(Request.class, alias);
+    }
+
     private final String metricName;
 
     Request(String metricName) {
@@ -101,6 +107,11 @@ public class NetworkMetrics {
 
     public String metricName() {
       return metricName;
+    }
+
+    @Override
+    public String alias() {
+      return metricName();
     }
 
     public Histogram fetch(MBeanClient mBeanClient) {
