@@ -98,7 +98,7 @@ public class PerformanceTest extends RequireBrokerCluster {
       "4Byte",
       "--key.distribution",
       "zipfian",
-      "--specify.broker",
+      "--specify.brokers",
       "1",
       "--throughput",
       "100MB/m",
@@ -159,7 +159,7 @@ public class PerformanceTest extends RequireBrokerCluster {
     Assertions.assertThrows(
         ParameterException.class, () -> Argument.parse(new Performance.Argument(), arguments13));
 
-    String[] arguments14 = {"--bootstrap.servers", "localhost:9092", "--specify.broker", ""};
+    String[] arguments14 = {"--bootstrap.servers", "localhost:9092", "--specify.brokers", ""};
     Assertions.assertThrows(
         ParameterException.class, () -> Argument.parse(new Performance.Argument(), arguments14));
 
@@ -203,7 +203,7 @@ public class PerformanceTest extends RequireBrokerCluster {
                 bootstrapServers(),
                 "--topics",
                 topicName,
-                "--specify.broker",
+                "--specify.brokers",
                 "1"
               });
       var expectedPartitions =
