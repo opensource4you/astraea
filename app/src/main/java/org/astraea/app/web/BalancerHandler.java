@@ -27,7 +27,6 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.astraea.app.admin.Admin;
 import org.astraea.app.admin.ClusterBean;
-import org.astraea.app.admin.ClusterInfo;
 import org.astraea.app.admin.Replica;
 import org.astraea.app.admin.TopicPartitionReplica;
 import org.astraea.app.balancer.BalancerUtils;
@@ -83,9 +82,7 @@ class BalancerHandler implements Handler {
                     Map.entry(
                         cla,
                         costFunction
-                            .clusterCost(
-                                BalancerUtils.update(clusterInfo, cla),
-                                ClusterBean.EMPTY)
+                            .clusterCost(BalancerUtils.update(clusterInfo, cla), ClusterBean.EMPTY)
                             .value()))
             .filter(e -> e.getValue() <= cost)
             .min(Comparator.comparingDouble(Map.Entry::getValue));

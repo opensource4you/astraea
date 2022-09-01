@@ -53,6 +53,11 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
           .flatMap(c -> c.after.stream())
           .forEach(p -> Assertions.assertNull(p.size));
       Assertions.assertTrue(report.cost >= report.newCost);
+      var sizeMigration =
+          report.migrations.stream().filter(x -> x.function.equals("size")).findFirst().get();
+      Assertions.assertTrue(sizeMigration.totalCost >= 0);
+      Assertions.assertTrue(sizeMigration.cost.size() > 0);
+      Assertions.assertEquals(0, sizeMigration.cost.stream().mapToLong(x -> x.cost).sum());
     }
   }
 
@@ -76,6 +81,11 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
       Assertions.assertEquals(1, actual.size());
       Assertions.assertEquals(topicNames.get(0), actual.iterator().next());
       Assertions.assertTrue(report.cost >= report.newCost);
+      var sizeMigration =
+          report.migrations.stream().filter(x -> x.function.equals("size")).findFirst().get();
+      Assertions.assertTrue(sizeMigration.totalCost >= 0);
+      Assertions.assertTrue(sizeMigration.cost.size() > 0);
+      Assertions.assertEquals(0, sizeMigration.cost.stream().mapToLong(x -> x.cost).sum());
     }
   }
 
@@ -100,6 +110,11 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
       Assertions.assertTrue(actual.contains(topicNames.get(0)));
       Assertions.assertTrue(actual.contains(topicNames.get(1)));
       Assertions.assertTrue(report.cost >= report.newCost);
+      var sizeMigration =
+          report.migrations.stream().filter(x -> x.function.equals("size")).findFirst().get();
+      Assertions.assertTrue(sizeMigration.totalCost >= 0);
+      Assertions.assertTrue(sizeMigration.cost.size() > 0);
+      Assertions.assertEquals(0, sizeMigration.cost.stream().mapToLong(x -> x.cost).sum());
     }
   }
 
