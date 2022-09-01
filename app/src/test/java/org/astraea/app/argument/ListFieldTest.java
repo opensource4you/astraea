@@ -16,33 +16,34 @@
  */
 package org.astraea.app.argument;
 
-import com.beust.jcommander.Parameter;
 import com.beust.jcommander.ParameterException;
-import java.util.Set;
+import org.astraea.app.performance.Performance;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-public class SetFieldTest {
-  private static class FakeParameter {
-    @Parameter(
-        names = {"--field"},
-        converter = StringSetField.class,
-        variableArity = true,
-        validateWith = StringSetField.class)
-    public Set<String> value;
-  }
-
+public class ListFieldTest {
   @Test
-  public void testSetConverter() {
-    var param = Argument.parse(new FakeParameter(), new String[] {"--field", "1,2,3"});
+  public void testCheckEmptyList() {
+    String[] param = new String[] {"--bootstrap.server", "localhost:9092", "--topics"};
 
-    Assertions.assertEquals(Set.of("1", "2", "3"), param.value);
-  }
-
-  @Test
-  public void testSetCheckEmpty() {
     Assertions.assertThrows(
         ParameterException.class,
-        () -> Argument.parse(new FakeParameter(), new String[] {"--field", "1,,2"}));
+        () -> Performance.Argument.parse(new Performance.Argument(), param));
+  }
+
+  @Test
+  public void testCheckSeparator() {
+    var param = new String[] {"--bootstrap.server", "localhost:9092", "--topics", ",,"};
+    Assertions.assertThrows(
+        ParameterException.class,
+        () -> Performance.Argument.parse(new Performance.Argument(), param));
+    var param1 = new String[] {"--bootstrap.server", "localhost:9092", "--topics", ",test"};
+    Assertions.assertThrows(
+        ParameterException.class,
+        () -> Performance.Argument.parse(new Performance.Argument(), param1));
+    var param2 = new String[] {"--bootstrap.server", "localhost:9092", "--topics", "test,,test1"};
+    Assertions.assertThrows(
+        ParameterException.class,
+        () -> Performance.Argument.parse(new Performance.Argument(), param2));
   }
 }

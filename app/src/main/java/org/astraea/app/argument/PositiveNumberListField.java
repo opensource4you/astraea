@@ -14,23 +14,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.app.cost;
+package org.astraea.app.argument;
 
-import org.astraea.app.admin.ClusterBean;
-import org.astraea.app.admin.ClusterInfo;
-import org.astraea.app.admin.Replica;
+import com.beust.jcommander.ParameterException;
+import java.util.stream.Stream;
 
-public interface HasMoveCost extends CostFunction {
-  /**
-   * score migrate cost from originClusterInfo to newClusterInfo .
-   *
-   * @param originClusterInfo the clusterInfo before migrate
-   * @param newClusterInfo the mocked clusterInfo generate from balancer
-   * @param clusterBean cluster metrics
-   * @return the score of migrate cost
-   */
-  MoveCost moveCost(
-      ClusterInfo<Replica> originClusterInfo,
-      ClusterInfo<Replica> newClusterInfo,
-      ClusterBean clusterBean);
+public abstract class PositiveNumberListField<T extends Number> extends ListField<T> {
+  @Override
+  protected void check(String name, String value) throws ParameterException {
+    super.check(name, value);
+    var containNonPositive =
+        Stream.of(value.split(SEPARATOR)).map(Long::valueOf).anyMatch(aLong -> aLong <= 0);
+    if (containNonPositive) throw new ParameterException(name + " should be positive");
+  }
 }

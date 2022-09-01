@@ -200,7 +200,7 @@ public interface Admin extends Closeable {
   Collection<Quota> quotas();
 
   /** @return a snapshot object of cluster state at the moment */
-  default ClusterInfo clusterInfo() {
+  default ClusterInfo<Replica> clusterInfo() {
     return clusterInfo(topicNames());
   }
 
@@ -208,7 +208,7 @@ public interface Admin extends Closeable {
    * @param topics query only this subset of topics
    * @return a snapshot object of cluster state at the moment
    */
-  ClusterInfo clusterInfo(Set<String> topics);
+  ClusterInfo<Replica> clusterInfo(Set<String> topics);
 
   /** @return all transaction ids */
   Set<String> transactionIds();
@@ -289,6 +289,22 @@ public interface Admin extends Closeable {
    * @param log target to clear throttle.
    */
   void clearReplicationThrottle(TopicPartitionReplica log);
+
+  /**
+   * Clear the leader replication throttle related to the given topic/partition with specific broker
+   * id.
+   *
+   * @param log target to clear throttle.
+   */
+  void clearLeaderReplicationThrottle(TopicPartitionReplica log);
+
+  /**
+   * Clear the follower replication throttle related to the given topic/partition with specific
+   * broker id.
+   *
+   * @param log target to clear throttle.
+   */
+  void clearFollowerReplicationThrottle(TopicPartitionReplica log);
 
   /** Clear the ingress bandwidth of replication throttle for the specified brokers. */
   void clearIngressReplicationThrottle(Set<Integer> brokerIds);

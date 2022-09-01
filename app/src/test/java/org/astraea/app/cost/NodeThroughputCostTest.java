@@ -37,7 +37,7 @@ public class NodeThroughputCostTest {
     Mockito.when(bean.outgoingByteRate()).thenReturn(Double.NaN);
     var clusterBean = ClusterBean.of(Map.of(-1, List.of(bean)));
     var function = new NodeThroughputCost();
-    var result = function.brokerCost(Mockito.mock(ClusterInfo.class), clusterBean);
+    var result = function.brokerCost(ClusterInfo.empty(), clusterBean);
     Assertions.assertEquals(0, result.value().size());
   }
 
@@ -49,7 +49,7 @@ public class NodeThroughputCostTest {
     Mockito.when(bean.outgoingByteRate()).thenReturn(10D);
     var clusterBean = ClusterBean.of(Map.of(-1, List.of(bean)));
     var function = new NodeThroughputCost();
-    var result = function.brokerCost(Mockito.mock(ClusterInfo.class), clusterBean);
+    var result = function.brokerCost(ClusterInfo.empty(), clusterBean);
     Assertions.assertEquals(1, result.value().size());
     Assertions.assertEquals(20D, result.value().get(1));
   }
@@ -66,8 +66,7 @@ public class NodeThroughputCostTest {
     Mockito.when(bean1.outgoingByteRate()).thenReturn(3D);
     Mockito.when(bean1.brokerId()).thenReturn(11);
     var clusterBean = ClusterBean.of(Map.of(0, List.of(bean0), 1, List.of(bean1)));
-    var clusterInfo = Mockito.mock(ClusterInfo.class);
-    var cost = throughputCost.brokerCost(clusterInfo, clusterBean);
+    var cost = throughputCost.brokerCost(ClusterInfo.empty(), clusterBean);
     Assertions.assertEquals(30D, cost.value().get(10));
     Assertions.assertEquals(5D, cost.value().get(11));
   }

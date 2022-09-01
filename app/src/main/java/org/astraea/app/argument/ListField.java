@@ -14,23 +14,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.app.cost;
+package org.astraea.app.argument;
 
-import org.astraea.app.admin.ClusterBean;
-import org.astraea.app.admin.ClusterInfo;
-import org.astraea.app.admin.Replica;
+import com.beust.jcommander.ParameterException;
+import java.util.List;
 
-public interface HasMoveCost extends CostFunction {
-  /**
-   * score migrate cost from originClusterInfo to newClusterInfo .
-   *
-   * @param originClusterInfo the clusterInfo before migrate
-   * @param newClusterInfo the mocked clusterInfo generate from balancer
-   * @param clusterBean cluster metrics
-   * @return the score of migrate cost
-   */
-  MoveCost moveCost(
-      ClusterInfo<Replica> originClusterInfo,
-      ClusterInfo<Replica> newClusterInfo,
-      ClusterBean clusterBean);
+public abstract class ListField<T> extends Field<List<T>> {
+  protected static final String SEPARATOR = ",";
+
+  @Override
+  protected void check(String name, String value) throws ParameterException {
+    if (value == null || value.isBlank() || List.of(value.split(SEPARATOR)).isEmpty())
+      throw new ParameterException("list type cannot be empty");
+    if (List.of(value.split(SEPARATOR)).contains(""))
+      throw new ParameterException("Parameter in " + name + " cannot be empty");
+  }
 }

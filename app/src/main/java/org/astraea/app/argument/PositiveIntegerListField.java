@@ -14,17 +14,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.app.common.json;
+package org.astraea.app.argument;
 
-import com.google.gson.JsonElement;
-import com.google.gson.JsonSerializationContext;
-import com.google.gson.JsonSerializer;
-import java.lang.reflect.Type;
-import java.util.OptionalInt;
+import java.util.List;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
-public class OptionalIntSerializer implements JsonSerializer<OptionalInt> {
+public class PositiveIntegerListField extends PositiveNumberListField<Integer> {
   @Override
-  public JsonElement serialize(OptionalInt src, Type typeOfSrc, JsonSerializationContext context) {
-    return src.isPresent() ? context.serialize(src.getAsInt()) : null;
+  public List<Integer> convert(String value) {
+    return Stream.of(value.split(SEPARATOR)).map(Integer::valueOf).collect(Collectors.toList());
   }
 }

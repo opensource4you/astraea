@@ -346,82 +346,68 @@ public class Builder {
 
     @Override
     public Map<TopicPartition, List<Replica>> replicas(Set<String> topics) {
+      var logInfo =
+          Utils.packException(() -> admin.describeLogDirs(brokerIds()).allDescriptions().get());
+
+      BiFunction<
+              org.apache.kafka.common.TopicPartition,
+              org.apache.kafka.common.TopicPartitionInfo,
+              List<Replica>>
+          toReplicas =
+              (tp, tpi) ->
+                  tpi.replicas().stream()
+                      .map(
+                          node -> {
+                            var dataPath =
+                                node.isEmpty()
+                                    ? null
+                                    : logInfo.get(node.id()).entrySet().stream()
+                                        .filter(e -> e.getValue().replicaInfos().containsKey(tp))
+                                        .map(Map.Entry::getKey)
+                                        .findFirst()
+                                        .orElse(null);
+                            var replicaInfo =
+                                node.isEmpty() || dataPath == null
+                                    ? null
+                                    : logInfo.get(node.id()).get(dataPath).replicaInfos().get(tp);
+                            return Replica.of(
+                                tp.topic(),
+                                tp.partition(),
+                                NodeInfo.of(node),
+                                replicaInfo != null ? replicaInfo.offsetLag() : -1L,
+                                replicaInfo != null ? replicaInfo.size() : -1L,
+                                tpi.leader() != null
+                                    && !tpi.leader().isEmpty()
+                                    && tpi.leader().id() == node.id(),
+                                tpi.isr().contains(node),
+                                replicaInfo != null && replicaInfo.isFuture(),
+                                node.isEmpty(),
+                                // The first replica in the return result is the
+                                // preferred leader. This only works with Kafka broker version
+                                // after 0.11.
+                                // Version before 0.11 returns the replicas in unspecified order
+                                // due to a bug.
+                                tpi.replicas().get(0).id() == node.id(),
+                                dataPath);
+                          })
+                      .collect(Collectors.toList());
+
       return Utils.packException(
-          () -> {
-            var logInfo = admin.describeLogDirs(brokerIds()).allDescriptions().get();
-            var tpPathMap = new HashMap<TopicPartition, Map<Integer, String>>();
-            for (var entry0 : logInfo.entrySet()) {
-              for (var entry1 : entry0.getValue().entrySet()) {
-                for (var entry2 : entry1.getValue().replicaInfos().entrySet()) {
-                  var tp = TopicPartition.from(entry2.getKey());
-                  var broker = entry0.getKey();
-                  var dataPath = entry1.getKey();
-                  tpPathMap.computeIfAbsent(tp, (ignore) -> new HashMap<>()).put(broker, dataPath);
-                }
-              }
-            }
-            return admin.describeTopics(topics).allTopicNames().get().entrySet().stream()
-                .flatMap(
-                    entry ->
-                        entry.getValue().partitions().stream()
-                            .map(
-                                tpInfo -> {
-                                  var topicName = entry.getKey();
-                                  var partition = tpInfo.partition();
-                                  var topicPartition = TopicPartition.of(topicName, partition);
-                                  return Map.entry(topicPartition, tpInfo);
-                                }))
-                .collect(
-                    Collectors.toUnmodifiableMap(
-                        e -> e.getKey(),
-                        entry -> {
-                          var topicPartition = entry.getKey();
-                          var tpInfo = entry.getValue();
-                          var replicaLeaderId = tpInfo.leader() != null ? tpInfo.leader().id() : -1;
-                          var isrSet = tpInfo.isr();
-                          // The first replica in the return result is the preferred leader. This
-                          // only works with Kafka broker version after 0.11. Version before 0.11
-                          // returns the replicas in unspecified order due to a bug.
-                          var preferredLeader = entry.getValue().replicas().get(0);
-                          return entry.getValue().replicas().stream()
-                              .map(
-                                  node -> {
-                                    int broker = node.id();
-                                    var dataPath =
-                                        tpPathMap
-                                            .getOrDefault(topicPartition, Map.of())
-                                            .getOrDefault(broker, null);
-                                    var replicaInfo =
-                                        node.isEmpty() || dataPath == null
-                                            ? null
-                                            : logInfo
-                                                .get(broker)
-                                                .get(dataPath)
-                                                .replicaInfos()
-                                                .get(TopicPartition.to(topicPartition));
-                                    boolean isLeader = node.id() == replicaLeaderId;
-                                    boolean inSync = isrSet.contains(node);
-                                    long lag = replicaInfo != null ? replicaInfo.offsetLag() : -1L;
-                                    long size = replicaInfo != null ? replicaInfo.size() : -1L;
-                                    boolean future = replicaInfo != null && replicaInfo.isFuture();
-                                    boolean offline = node.isEmpty();
-                                    boolean isPreferredLeader = preferredLeader.id() == broker;
-                                    return Replica.of(
-                                        topicPartition.topic(),
-                                        topicPartition.partition(),
-                                        NodeInfo.of(node),
-                                        lag,
-                                        size,
-                                        isLeader,
-                                        inSync,
-                                        future,
-                                        offline,
-                                        isPreferredLeader,
-                                        dataPath);
-                                  })
-                              .collect(Collectors.toList());
-                        }));
-          });
+              () ->
+                  admin.describeTopics(topics).allTopicNames().get().entrySet().stream()
+                      .flatMap(
+                          e ->
+                              e.getValue().partitions().stream()
+                                  .map(
+                                      tpInfo ->
+                                          Map.entry(
+                                              new org.apache.kafka.common.TopicPartition(
+                                                  e.getKey(), tpInfo.partition()),
+                                              tpInfo))))
+          .collect(
+              Collectors.toUnmodifiableMap(
+                  e -> TopicPartition.from(e.getKey()),
+                  entry -> toReplicas.apply(entry.getKey(), entry.getValue())));
     }
 
     @Override
@@ -460,7 +446,7 @@ public class Builder {
     }
 
     @Override
-    public ClusterInfo clusterInfo(Set<String> topics) {
+    public ClusterInfo<Replica> clusterInfo(Set<String> topics) {
       final var nodeInfo = this.nodes().stream().collect(Collectors.toUnmodifiableList());
 
       var replicas =
@@ -468,18 +454,17 @@ public class Builder {
               () ->
                   replicas(topics).values().stream()
                       .flatMap(Collection::stream)
-                      .map(r -> (ReplicaInfo) r)
                       .collect(Collectors.toUnmodifiableList()));
 
-      return new ClusterInfo() {
+      return new ClusterInfo<>() {
         @Override
         public List<NodeInfo> nodes() {
           return nodeInfo;
         }
 
         @Override
-        public List<ReplicaInfo> replicas() {
-          return replicas;
+        public Stream<Replica> replicaStream() {
+          return replicas.stream();
         }
       };
     }
@@ -726,9 +711,35 @@ public class Builder {
         }
 
         @Override
-        public void apply() {
+        public AffectedResources apply() {
           applyBandwidth();
           applyThrottledReplicas();
+          return new AffectedResources() {
+            final Map<Integer, DataRate> ingressCopy = Map.copyOf(ingress);
+            final Map<Integer, DataRate> egressCopy = Map.copyOf(egress);
+            final Set<TopicPartitionReplica> leaderCopy = Set.copyOf(leaders);
+            final Set<TopicPartitionReplica> followerCopy = Set.copyOf(followers);
+
+            @Override
+            public Map<Integer, DataRate> ingress() {
+              return ingressCopy;
+            }
+
+            @Override
+            public Map<Integer, DataRate> egress() {
+              return egressCopy;
+            }
+
+            @Override
+            public Set<TopicPartitionReplica> leaders() {
+              return leaderCopy;
+            }
+
+            @Override
+            public Set<TopicPartitionReplica> followers() {
+              return followerCopy;
+            }
+          };
         }
 
         private void applyThrottledReplicas() {
@@ -889,16 +900,41 @@ public class Builder {
 
     @Override
     public void clearReplicationThrottle(TopicPartitionReplica log) {
+      // Attempt to submit two config alterations might encounter some bug.
+      // We have to submit all the changes in one API request.
+      // see https://github.com/skiptests/astraea/issues/649
       var configValue = log.partition() + ":" + log.brokerId();
       var configEntry0 = new ConfigEntry("leader.replication.throttled.replicas", configValue);
       var configEntry1 = new ConfigEntry("follower.replication.throttled.replicas", configValue);
-      var alterConfigOp0 = new AlterConfigOp(configEntry0, AlterConfigOp.OpType.SUBTRACT);
-      var alterConfigOp1 = new AlterConfigOp(configEntry1, AlterConfigOp.OpType.SUBTRACT);
       var configResource = new ConfigResource(ConfigResource.Type.TOPIC, log.topic());
       Utils.packException(
           () ->
               admin.incrementalAlterConfigs(
-                  Map.of(configResource, List.of(alterConfigOp0, alterConfigOp1))));
+                  Map.of(
+                      configResource,
+                      List.of(
+                          new AlterConfigOp(configEntry0, AlterConfigOp.OpType.SUBTRACT),
+                          new AlterConfigOp(configEntry1, AlterConfigOp.OpType.SUBTRACT)))));
+    }
+
+    @Override
+    public void clearLeaderReplicationThrottle(TopicPartitionReplica log) {
+      var configValue = log.partition() + ":" + log.brokerId();
+      var configEntry0 = new ConfigEntry("leader.replication.throttled.replicas", configValue);
+      var alterConfigOp0 = new AlterConfigOp(configEntry0, AlterConfigOp.OpType.SUBTRACT);
+      var configResource = new ConfigResource(ConfigResource.Type.TOPIC, log.topic());
+      Utils.packException(
+          () -> admin.incrementalAlterConfigs(Map.of(configResource, List.of(alterConfigOp0))));
+    }
+
+    @Override
+    public void clearFollowerReplicationThrottle(TopicPartitionReplica log) {
+      var configValue = log.partition() + ":" + log.brokerId();
+      var configEntry1 = new ConfigEntry("follower.replication.throttled.replicas", configValue);
+      var alterConfigOp1 = new AlterConfigOp(configEntry1, AlterConfigOp.OpType.SUBTRACT);
+      var configResource = new ConfigResource(ConfigResource.Type.TOPIC, log.topic());
+      Utils.packException(
+          () -> admin.incrementalAlterConfigs(Map.of(configResource, List.of(alterConfigOp1))));
     }
 
     @Override

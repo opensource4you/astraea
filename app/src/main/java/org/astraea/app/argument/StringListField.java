@@ -14,23 +14,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.app.cost;
+package org.astraea.app.argument;
 
-import org.astraea.app.admin.ClusterBean;
-import org.astraea.app.admin.ClusterInfo;
-import org.astraea.app.admin.Replica;
+import java.util.List;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
-public interface HasMoveCost extends CostFunction {
-  /**
-   * score migrate cost from originClusterInfo to newClusterInfo .
-   *
-   * @param originClusterInfo the clusterInfo before migrate
-   * @param newClusterInfo the mocked clusterInfo generate from balancer
-   * @param clusterBean cluster metrics
-   * @return the score of migrate cost
-   */
-  MoveCost moveCost(
-      ClusterInfo<Replica> originClusterInfo,
-      ClusterInfo<Replica> newClusterInfo,
-      ClusterBean clusterBean);
+public class StringListField extends ListField<String> {
+  @Override
+  public List<String> convert(String value) {
+    return Stream.of(value.split(SEPARATOR)).collect(Collectors.toList());
+  }
 }

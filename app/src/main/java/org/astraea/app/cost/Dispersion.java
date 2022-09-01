@@ -27,6 +27,7 @@ public interface Dispersion {
   static Dispersion correlationCoefficient() {
     return brokerCost -> {
       var dataRateMean = brokerCost.stream().mapToDouble(x -> x).sum() / brokerCost.size();
+      if (dataRateMean == 0 || brokerCost.size() == 0) return 0;
       var dataRateSD =
           Math.sqrt(
               brokerCost.stream().mapToDouble(score -> Math.pow((score - dataRateMean), 2)).sum()

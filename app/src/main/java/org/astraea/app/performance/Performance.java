@@ -17,15 +17,16 @@
 package org.astraea.app.performance;
 
 import com.beust.jcommander.Parameter;
+import com.beust.jcommander.ParameterException;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Supplier;
@@ -38,9 +39,12 @@ import org.astraea.app.argument.DurationField;
 import org.astraea.app.argument.NonEmptyStringField;
 import org.astraea.app.argument.NonNegativeShortField;
 import org.astraea.app.argument.PathField;
-import org.astraea.app.argument.PositiveIntegerField;
+import org.astraea.app.argument.PositiveIntegerListField;
 import org.astraea.app.argument.PositiveLongField;
 import org.astraea.app.argument.PositiveShortField;
+import org.astraea.app.argument.PositiveShortListField;
+import org.astraea.app.argument.StringListField;
+import org.astraea.app.common.DataRate;
 import org.astraea.app.common.DataSize;
 import org.astraea.app.common.DataUnit;
 import org.astraea.app.common.Utils;
@@ -92,18 +96,17 @@ public class Performance {
         argument.throughput);
   }
 
-  public static String execute(final Argument param) throws InterruptedException, IOException {
-
+  public static List<String> execute(final Argument param)
+      throws InterruptedException, IOException {
+    var topicSet = new HashSet<>(param.topics);
     // always try to init topic even though it may be existent already.
-    param.initTopic();
+    param.initTopics();
 
     var latestOffsets = param.lastOffsets();
 
-    var groupId = "groupId-" + System.currentTimeMillis();
-
     var producerThreads =
         ProducerThread.create(
-            param.topic,
+            param.topics,
             param.transactionSize,
             dataSupplier(param),
             param.partitionSupplier(),
@@ -113,9 +116,9 @@ public class Performance {
         ConsumerThread.create(
             param.consumers,
             listener ->
-                Consumer.forTopics(Set.of(param.topic))
+                Consumer.forTopics(topicSet)
                     .bootstrapServers(param.bootstrapServers())
-                    .groupId(groupId)
+                    .groupId(param.groupId)
                     .configs(param.configs())
                     .isolation(param.isolation())
                     .seek(latestOffsets)
@@ -183,63 +186,90 @@ public class Performance {
           }
           consumerThreads.forEach(AbstractThread::close);
         });
-
     consumerThreads.forEach(AbstractThread::waitForDone);
     tracker.waitForDone();
     fileWriterFuture.join();
     chaos.join();
-    return param.topic;
+    return param.topics;
   }
 
   public static class Argument extends org.astraea.app.argument.Argument {
 
     @Parameter(
-        names = {"--topic"},
-        description = "String: topic name",
-        validateWith = NonEmptyStringField.class)
-    String topic = "testPerformance-" + System.currentTimeMillis();
+        names = {"--topics"},
+        description = "List<String>: topic names which you subscribed",
+        validateWith = StringListField.class,
+        listConverter = StringListField.class,
+        variableArity = true)
+    List<String> topics = List.of("testPerformance-" + System.currentTimeMillis());
 
-    void initTopic() {
+    void initTopics() {
+      var topicPattern = topicPattern();
       try (var admin = Admin.of(configs())) {
-        admin
-            .creator()
-            .numberOfReplicas(replicas)
-            .numberOfPartitions(partitions)
-            .topic(topic)
-            .create();
-        Utils.waitFor(() -> admin.topicNames().contains(topic));
+        topicPattern.forEach(
+            (topic, pr) -> {
+              pr.forEach(
+                  (p, r) ->
+                      Utils.waitFor(
+                          () -> {
+                            admin
+                                .creator()
+                                .topic(topic)
+                                .numberOfPartitions(p)
+                                .numberOfReplicas(r)
+                                .create();
+                            return true;
+                          },
+                          Duration.ofSeconds(30)));
+            });
+        Utils.waitFor(() -> admin.topicNames().containsAll(topics));
       }
+    }
+
+    Map<String, Map<Integer, Short>> topicPattern() {
+      Map<String, Map<Integer, Short>> pattern = new HashMap<>();
+      if (partitions.size() == 1 && replicas.size() == 1) {
+        topics.forEach(
+            topic -> pattern.putIfAbsent(topic, Map.of(partitions.get(0), replicas.get(0))));
+      } else if (topics.size() == partitions.size() && topics.size() == replicas.size()) {
+        topics.forEach(
+            topic -> {
+              var index = topics.indexOf(topic);
+              pattern.putIfAbsent(topic, Map.of(partitions.get(index), replicas.get(index)));
+            });
+      } else {
+        throw new ParameterException(
+            "the number of parameters in --partitions and --replicas doesn't match");
+      }
+      return pattern;
     }
 
     Map<TopicPartition, Long> lastOffsets() {
       try (var admin = Admin.of(configs())) {
         // the slow zk causes unknown error, so we have to wait it.
         return Utils.waitForNonNull(
-            () -> {
-              try {
-                return admin.offsets(Set.of(topic)).entrySet().stream()
-                    .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().latest()));
-              } catch (Exception e) {
-                e.printStackTrace();
-                return null;
-              }
-            },
-            Duration.ofSeconds(5));
+            () ->
+                admin.offsets(new HashSet<>(topics)).entrySet().stream()
+                    .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().latest())),
+            Duration.ofSeconds(30));
       }
     }
 
     @Parameter(
         names = {"--partitions"},
-        description = "Integer: number of partitions to create the topic",
-        validateWith = PositiveIntegerField.class)
-    int partitions = 1;
+        description = "List<Integer>: number of partitions to create the topics",
+        validateWith = PositiveIntegerListField.class,
+        listConverter = PositiveIntegerListField.class,
+        variableArity = true)
+    List<Integer> partitions = List.of(1);
 
     @Parameter(
         names = {"--replicas"},
-        description = "Integer: number of replica to create the topic",
-        validateWith = PositiveShortField.class,
-        converter = PositiveShortField.class)
-    short replicas = 1;
+        description = "List<Short>: number of replica to create the topics",
+        validateWith = PositiveShortListField.class,
+        listConverter = PositiveShortListField.class,
+        variableArity = true)
+    List<Short> replicas = List.of((short) 1);
 
     @Parameter(
         names = {"--producers"},
@@ -343,7 +373,7 @@ public class Performance {
       if (specifyBroker.isEmpty()) return () -> -1;
       try (var admin = Admin.of(configs())) {
         var partitions =
-            admin.partitions(Set.of(topic), new HashSet<>(specifyBroker)).values().stream()
+            admin.partitions(new HashSet<>(topics), new HashSet<>(specifyBroker)).values().stream()
                 .flatMap(Collection::stream)
                 .map(TopicPartition::partition)
                 .collect(Collectors.toUnmodifiableList());
@@ -354,9 +384,10 @@ public class Performance {
     // replace DataSize by DataRate (see https://github.com/skiptests/astraea/issues/488)
     @Parameter(
         names = {"--throughput"},
-        description = "dataSize: size output per second. e.g. \"500KiB\"",
-        converter = DataSize.Field.class)
-    DataSize throughput = DataSize.GiB.of(500);
+        description =
+            "dataRate: size output/timeUnit. Default: second. e.g. \"500KiB/second\", \"100 MB/PT-10S\"",
+        converter = DataRate.Field.class)
+    DataRate throughput = DataRate.GiB.of(500).perSecond();
 
     @Parameter(
         names = {"--report.path"},
@@ -377,5 +408,11 @@ public class Performance {
         validateWith = DurationField.class,
         converter = DurationField.class)
     Duration chaosDuration = null;
+
+    @Parameter(
+        names = {"--group.id"},
+        description = "Consumer group id",
+        validateWith = NonEmptyStringField.class)
+    String groupId = "groupId-" + System.currentTimeMillis();
   }
 }

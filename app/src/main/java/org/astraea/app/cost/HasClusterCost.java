@@ -18,6 +18,7 @@ package org.astraea.app.cost;
 
 import org.astraea.app.admin.ClusterBean;
 import org.astraea.app.admin.ClusterInfo;
+import org.astraea.app.admin.Replica;
 
 public interface HasClusterCost extends CostFunction {
   /**
@@ -27,5 +28,5 @@ public interface HasClusterCost extends CostFunction {
    * @param clusterBean cluster metrics
    * @return the score of cluster.
    */
-  ClusterCost clusterCost(ClusterInfo clusterInfo, ClusterBean clusterBean);
+  ClusterCost clusterCost(ClusterInfo<Replica> clusterInfo, ClusterBean clusterBean);
 }

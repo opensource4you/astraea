@@ -138,7 +138,8 @@ public final class Utils {
   }
 
   /**
-   * loop the supplier until it returns non-null value
+   * loop the supplier until it returns non-null value. The exception arisen in the waiting get
+   * ignored if the supplier offers the non-null value in the end.
    *
    * @param supplier to loop
    * @param timeout to break the loop

@@ -14,23 +14,27 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.app.cost;
+package org.astraea.app.argument;
 
-import org.astraea.app.admin.ClusterBean;
-import org.astraea.app.admin.ClusterInfo;
-import org.astraea.app.admin.Replica;
+import com.beust.jcommander.Parameter;
+import java.util.List;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
-public interface HasMoveCost extends CostFunction {
-  /**
-   * score migrate cost from originClusterInfo to newClusterInfo .
-   *
-   * @param originClusterInfo the clusterInfo before migrate
-   * @param newClusterInfo the mocked clusterInfo generate from balancer
-   * @param clusterBean cluster metrics
-   * @return the score of migrate cost
-   */
-  MoveCost moveCost(
-      ClusterInfo<Replica> originClusterInfo,
-      ClusterInfo<Replica> newClusterInfo,
-      ClusterBean clusterBean);
+public class PositiveIntegerListFieldTest {
+  private static class FakeParameter {
+    @Parameter(
+        names = {"--field"},
+        listConverter = PositiveIntegerListField.class,
+        validateWith = PositiveIntegerListField.class,
+        variableArity = true)
+    List<Integer> value;
+  }
+
+  @Test
+  public void testIntegerListConvert() {
+    var param = Argument.parse(new FakeParameter(), new String[] {"--field", "3,2,1"});
+
+    Assertions.assertEquals(List.of(3, 2, 1), param.value);
+  }
 }

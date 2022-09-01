@@ -20,9 +20,9 @@
 | :----------------: | :----------------------------------------------------------- | :------------------------------: |
 | bootstrap.servers  | (必填) 欲連接的Kafka server address                          |                無                |
 |    compression     | (選填) Kafka Producer使用的壓縮演算法，可用的壓縮演算法為：`gzip`, `snappy`, `lz4`, `zstd` |               none               |
-|       topic        | (選填) 選擇topic name                                        | testPerformance-{Time in millis} |
-|     partitions     | (選填) 建立topic時，設定的partition數                        |                1                 |
-|      replicas      | (選填) 建立topic時，設定的replica數                          |                1                 |
+|       topics       | (選填) 選擇topic names，可一次建立多個 topics<br />例如 : --topics test,test1,test2 | testPerformance-{Time in millis} |
+|     partitions     | (選填) 建立topic時，設定的partition數<br />目前有兩種建立模式，<br />1. 每個 topic 有各自的設置 例如 : --partitions 10,20,30<br />2. 每個 topic 有相同的設置 例如 : --partitions 5 |                1                 |
+|      replicas      | (選填) 建立topic時，設定的replica數<br />目前有兩種建立模式，<br />1. 每個 topic 有各自的設置 例如 : --replicas 3,2,1<br />2. 每個 topic 有相同的設置 例如 : --replicas 2 |                1                 |
 |     consumers      | (選填) 欲開啟的consumer thread(s)數量                        |                1                 |
 |     producers      | (選填) 欲開啟的producer thread(s)數量                        |                1                 |
 |     run.until      | (選填) 可選擇兩種結束執行的模式，一種是發送records數量達到設定值，另一種則是執行時間達到設定值，格式為`數值`+`單位`<br />1. 選擇producers要送多少records，範例：發送89000 records 後結束，"--run.until 89000records"<br />2. 選擇producer在給定時間內發送資料，時間單位可以選擇`days`, `day`, `h`, `m`, `s`, `ms`, `us`, `ns`，範例：執行一分鐘後結束， "--run.until 1m"。 |           1000records            |
@@ -33,11 +33,12 @@
 |     prop.file      | (選填) 配置property file的路徑                               |               none               |
 |    partitioner     | (選填) 配置producer使用的partitioner                         |               none               |
 |      configs       | (選填) 給partitioner的設置檔。 設置格式為 "\<key1\>=\<value1\>[,\<key2\>=\<value2\>]*"。 <br />例如: "--configs broker.1001.jmx.port=14338,org.astraea.cost.ThroughputCost=1" |               none               |
-|     throughput     | (選填) 用來限制輸出資料的速度, 範例： "--throughput 2MiB"    |           500 GiB/sec            |
+|     throughput     | (選填) 用來限制輸出資料的速度, 範例： "--throughput 2MiB/m", "--throughput 2GB" 預設值是秒 <br/>大小單位: MB, MiB, Kb etc. <br />時間單位: second(s), minute(m), hour(h), day(d) or PT expression(PT30S)         |          500 GiB/second          |
 |   specify.broker   | (選填) 指定broker的ID，送資料到指定的broker                  |               none               |
 |    report.path     | (選填) report file的檔案路徑                                 |               none               |
 |   report.format    | (選填) 選擇輸出檔案格式, 可用的格式：`csv`, `json`           |               csv                |
 |  transaction.size  | (選填) 每個transaction的records數量。若設置1以上，會使用transaction，否則都是一般write |                1                 |
+|      group.id      | (選填) 設置 consumer group id                                |     groupId-{Time in millis}     |
 
 #### 使用範例
 
@@ -91,3 +92,14 @@ docker/start_app.sh performance --bootstrap.servers localhost:9092 --partitioner
 # 使用 partitioner 框架，指定參考 Broker Input 做效能指標，把紀錄輸出到指定路徑。
 docker/start_app.sh performance --bootstrap.servers localhost:9092 --partitioner org.astraea.app.partitioner.StrictCostDispatcher --configs org.astraea.app.cost.BrokerInputCost=1 --prop.file ./config --report.path ~/report
 ```
+
+``` bash
+# 建立多個 topics ，每個 topic 擁有使用者所定義的 partition、replica 數
+docker/start_app.sh performance --bootstrap.servers localhost:9092 --topics test1,test2,test3 --partitions 2,3,4 --replicas 3,2,1
+```
+
+```bash
+# 建立多個 topics ， 每個 topic 擁有相同的 partition、replica 數
+docker/start_app.sh performance --bootstrap.servers localhost:9092 --topics test1,test2,test3 --partitions 5 --replicas 2
+```
+
