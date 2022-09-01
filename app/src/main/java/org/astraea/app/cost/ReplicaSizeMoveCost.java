@@ -75,7 +75,7 @@ public class ReplicaSizeMoveCost implements HasMoveCost {
         replicaChanges.stream().mapToDouble(x -> replicaSize.getOrDefault(x.sourceTPR(), 0L)).sum();
     return new MoveCost() {
       @Override
-      public String function() {
+      public String name() {
         return "size";
       }
 

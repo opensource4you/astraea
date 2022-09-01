@@ -22,6 +22,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.astraea.app.admin.Admin;
 import org.astraea.app.admin.ClusterBean;
 import org.astraea.app.admin.ClusterInfo;
+import org.astraea.app.admin.Replica;
 import org.astraea.app.common.Utils;
 import org.astraea.app.cost.ClusterCost;
 import org.astraea.app.cost.HasClusterCost;
@@ -63,9 +64,29 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
     }
 
     @Override
-    public MoveCost moveCost(ClusterInfo originClusterInfo, ClusterInfo newClusterInfo, ClusterBean clusterBean) {
-      var cost = count.getAndIncrement() == 0 ? Double.MAX_VALUE : Math.random() * 100;
-      return () -> cost;
+    public MoveCost moveCost(ClusterInfo<Replica> originClusterInfo, ClusterInfo<Replica> newClusterInfo, ClusterBean clusterBean) {
+      var cost = (long) (count.getAndIncrement() == 0 ? Double.MAX_VALUE : Math.random() * 100);
+      return new MoveCost() {
+        @Override
+        public String name() {
+          return "size";
+        }
+
+        @Override
+        public long totalCost() {
+          return cost;
+        }
+
+        @Override
+        public String unit() {
+          return "byte";
+        }
+
+        @Override
+        public Map<Integer, Long> changes() {
+          return null;
+        }
+      };
     }
   }
 }
