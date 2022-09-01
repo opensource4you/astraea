@@ -38,19 +38,6 @@ public interface ClusterInfo<T extends ReplicaInfo> {
           return Stream.of();
         }
       };
-  ClusterInfo<Replica> EMPTY_REPLICA =
-      new ClusterInfo<>() {
-
-        @Override
-        public List<NodeInfo> nodes() {
-          return List.of();
-        }
-
-        @Override
-        public Stream<Replica> replicaStream() {
-          return Stream.of();
-        }
-      };
 
   /**
    * find the changed replicas between `before` and `after`. The diff is based on following

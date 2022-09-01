@@ -84,7 +84,7 @@ class BalancerHandler implements Handler {
                         cla,
                         costFunction
                             .clusterCost(
-                                BalancerUtils.update(ClusterInfo.EMPTY_REPLICA, cla),
+                                BalancerUtils.update(clusterInfo, cla),
                                 ClusterBean.EMPTY)
                             .value()))
             .filter(e -> e.getValue() <= cost)
