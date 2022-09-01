@@ -52,68 +52,7 @@ import org.astraea.app.consumer.Consumer;
 import org.astraea.app.consumer.Isolation;
 import org.astraea.app.producer.Producer;
 
-/**
- * Performance benchmark which includes
- *
- * <ol>
- *   <li>publish latency: the time of completing producer data request
- *   <li>E2E latency: the time for a record to travel through Kafka
- *   <li>Consume rate: sum of consumer inputs in MByte per second
- *   <li>Produce rate: sum of producer outputs in MByte per second
- * </ol>
- *
- * With configurations:
- *
- * <ul>
- *   <li>--bootstrap.servers: (required) the server to connect to
- *   <li>--compression: (optional) the compression algorithm for producer to send record.
- *   <li>--topics: (optional) the topic names. Create new topics when the given topics do not exist.
- *       e.g. "--topics test,test1,test2" Default: "testPerformance-" + System.currentTimeMillis()
- *   <li>--partitions: (optional) numbers of partition for the topics. Two types of input are
- *       allowed
- *       <ol>
- *         <li>giving numbers of partition for each topic e.g. "--partitions 10,20,30"
- *         <li>all topics apply the same number of partitions e.g. "--partitions 5"
- *       </ol>
- *   <li>--replicas: (optional) numbers of replica for the topics. Two types of input are allowed
- *       <ol>
- *         <li>giving numbers of replica for each topic e.g. "--replicas 3,2,1"
- *         <li>all topics apply the same number of replica e.g. "--replicas 2"
- *       </ol>
- *   <li>--producers: (optional) the number of producers (threads). Default: 1
- *   <li>--consumers: (optional) the number of consumers (threads). Default: 1
- *   <li>--run.until: (optional) termination of this tool. Two types of input are allowed
- *       <ol>
- *         <li>specified the number of records to send. e.g. "--run.until 89000records"
- *         <li>specified the duration for sending. The unit for duration includes "days", "day",
- *             "h", "m", "s", "ms", "us", "ns". e.g. "--run.until 1m"
- *       </ol>
- *       e.g. "--run.until 1m" Default: 1000records
- *   <li>--key.size: (optional) the upperbound for each record key. Default: (4Byte)
- *   <li>--key.distribution: (optional) the type of distribution for key generation. "uniform",
- *       "zipfian", "latest", "fixed" are allowed input. Default: (uniform)
- *   <li>--value.size: (optional) the upperbound for each record value. Default: "1KiB"
- *   <li>--value.distribution: (optional) the type of distribution for value generation. "uniform",
- *       "zipfian", "latest", "fixed" are allowed input. Default: (uniform)
- *   <li>--prop.file: (optional) the path for property file
- *   <li>--partitioner: (optional) partitioner name for producer to use. Default: (none)
- *   <li>--configs: (optional) configs to partitioner. The input format is
- *       "&lt;key1&gt;=&lt;value1&gt;[,&lt;key2&gt;=&lt;value2&gt;]*"
- *   <li>--throughput: (optional) throttling produce rate.<br>
- *       data unit: MB, MiB, Kb etc. time unit: second(s), minute(m), hour(h), day(d) or PT
- *       expression(PT30S) e.g. "--throughput 2MiB/m" Default: "500GiB/second"
- *   <li>--specify.brokers: (optional) the broker IDs to send to if the topic has partition on that
- *       broker.
- *   <li>--report.path: (optional) path to store the report file. Default: (none)
- *   <li>--report.format: (optional) the format for the report file. e.g. "csv", "json" Default:
- *       "csv"
- *   <li>--transaction.size: (optional) number of records for each transaction. Do transaction if it
- *       is set greater than 1, otherwise do normal send. Default: 1
- *   <li>--group.id: (optional) group id for consumers. Default: groupId-{Time in millis}
- * </ul>
- *
- * To avoid records being produced too fast, producer wait for one millisecond after each send.
- */
+/** see docs/performance_benchmark.md for man page */
 public class Performance {
   /** Used in Automation, to achieve the end of one Performance and then start another. */
   public static void main(String[] args)
