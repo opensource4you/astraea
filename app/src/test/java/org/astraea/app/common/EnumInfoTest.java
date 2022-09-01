@@ -30,13 +30,13 @@ class EnumInfoTest {
 
   @Test
   void testAlias() {
-    Assertions.assertEquals("Test", MyTestEnum.TEST.alias());
+    Assertions.assertEquals("TEST", MyTestEnum.TEST.alias());
     Assertions.assertEquals(MyTestEnum.TEST, MyTestEnum.ofAlias("test"));
   }
 
   @ParameterizedTest
   @ArgumentsSource(EnumClassProvider.class)
-  <T extends Enum<T>> void testExtendEnumInfo(Class<T> cls) {
+  void testExtendEnumInfo(Class<?> cls) {
     Assertions.assertTrue(
         EnumInfo.class.isAssignableFrom(cls), String.format("Fail class %s", cls));
   }
