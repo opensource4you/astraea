@@ -28,7 +28,9 @@ import org.astraea.app.balancer.generator.RebalancePlanGenerator;
 import org.astraea.app.balancer.log.ClusterLogAllocation;
 import org.astraea.app.balancer.log.LogPlacement;
 import org.astraea.app.cost.HasClusterCost;
+import org.astraea.app.cost.HasMoveCost;
 import org.astraea.app.cost.ReplicaLeaderCost;
+import org.astraea.app.cost.ReplicaSizeMoveCost;
 
 class BalancerHandler implements Handler {
 
@@ -38,21 +40,23 @@ class BalancerHandler implements Handler {
   private final Admin admin;
   private final RebalancePlanGenerator generator = RebalancePlanGenerator.random(30);
   private final HasClusterCost costFunction;
+  private final HasMoveCost moveCostFunction;
 
   BalancerHandler(Admin admin) {
-    this(admin, new ReplicaLeaderCost());
+    this(admin, new ReplicaLeaderCost(),new ReplicaSizeMoveCost());
   }
 
-  BalancerHandler(Admin admin, HasClusterCost costFunction) {
+  BalancerHandler(Admin admin, HasClusterCost costFunction , HasMoveCost moveCostFunction) {
     this.admin = admin;
     this.costFunction = costFunction;
+    this.moveCostFunction = moveCostFunction;
   }
 
   @Override
   public Response get(Channel channel) {
-    var clusterInfo = admin.clusterInfo();
-    var clusterAllocation = ClusterLogAllocation.of(clusterInfo);
-    var cost = costFunction.clusterCost(clusterInfo, ClusterBean.EMPTY).value();
+    var originClusterInfo = admin.clusterInfo();
+    var clusterAllocation = ClusterLogAllocation.of(originClusterInfo);
+    var cost = costFunction.clusterCost(originClusterInfo, ClusterBean.EMPTY).value();
     var limit =
         Integer.parseInt(channel.queries().getOrDefault(LIMIT_KEY, String.valueOf(LIMIT_DEFAULT)));
     var planAndCost =
@@ -65,11 +69,18 @@ class BalancerHandler implements Handler {
                     Map.entry(
                         cla,
                         costFunction
-                            .clusterCost(BalancerUtils.merge(clusterInfo, cla), ClusterBean.EMPTY)
+                            .clusterCost(BalancerUtils.merge(originClusterInfo, cla), ClusterBean.EMPTY)
                             .value()))
             .filter(e -> e.getValue() <= cost)
             .min(Comparator.comparingDouble(Map.Entry::getValue));
-
+      var newClusterInfo = BalancerUtils.merge(originClusterInfo, planAndCost.orElseThrow().getKey());
+      var moveCost = moveCostFunction.moveCost(originClusterInfo, newClusterInfo, ClusterBean.EMPTY);
+      var migrateInfos= moveCost.changes().entrySet().stream()
+              .map(e-> new MigrateInfo(e.getKey(),e.getValue()))
+              .collect(Collectors.toList());
+      var moveCosts =List.of(new Migration(moveCost.function(),moveCost.totalCost()
+      ,migrateInfos,
+              moveCost.unit()));
     return new Report(
         cost,
         planAndCost.map(Map.Entry::getValue).orElse(cost),
@@ -89,7 +100,8 @@ class BalancerHandler implements Handler {
                                     placements(clusterAllocation.logPlacements(tp)),
                                     placements(entry.getKey().logPlacements(tp))))
                         .collect(Collectors.toUnmodifiableList()))
-            .orElse(List.of()));
+            .orElse(List.of())
+            ,moveCosts);
   }
 
   static List<Placement> placements(List<LogPlacement> lps) {
@@ -121,21 +133,43 @@ class BalancerHandler implements Handler {
     }
   }
 
+  static class MigrateInfo {
+    int broker;
+    int cost;
+    MigrateInfo( int broker,int cost){
+      this.broker= broker;
+      this.cost = cost;
+    }
+  }
+
+  static class Migration{
+    final String function;
+    final long totalCost;
+    final List<MigrateInfo> cost;
+    final String unit;
+    Migration(String function, long totalCost,List<MigrateInfo> cost ,String unit){
+      this.function = function;
+      this.totalCost = totalCost;
+      this.cost = cost;
+      this.unit = unit;
+    }
+  }
+
   static class Report implements Response {
     final double cost;
     final double newCost;
-
     final int limit;
-
     final String function;
     final List<Change> changes;
+    final List<Migration> migrations;
 
-    Report(double cost, double newCost, int limit, String function, List<Change> changes) {
+    Report(double cost, double newCost, int limit, String function, List<Change> changes, List<Migration> migrations) {
       this.cost = cost;
       this.newCost = newCost;
       this.limit = limit;
       this.function = function;
       this.changes = changes;
+      this.migrations = migrations;
     }
   }
 }

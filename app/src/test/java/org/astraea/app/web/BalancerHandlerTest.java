@@ -25,6 +25,8 @@ import org.astraea.app.admin.ClusterInfo;
 import org.astraea.app.common.Utils;
 import org.astraea.app.cost.ClusterCost;
 import org.astraea.app.cost.HasClusterCost;
+import org.astraea.app.cost.HasMoveCost;
+import org.astraea.app.cost.MoveCost;
 import org.astraea.app.service.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -37,7 +39,9 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
     try (var admin = Admin.of(bootstrapServers())) {
       admin.creator().topic(topicName).numberOfPartitions(10).numberOfReplicas((short) 3).create();
       Utils.sleep(Duration.ofSeconds(3));
-      var handler = new BalancerHandler(admin, new MyCost());
+      var handler1 = new BalancerHandler(admin)
+              .get(Channel.ofQueries(Map.of(BalancerHandler.LIMIT_KEY, "30")));
+      var handler = new BalancerHandler(admin, new MyCost(),new MyCost());
       var report =
           Assertions.assertInstanceOf(
               BalancerHandler.Report.class,
@@ -49,11 +53,17 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
     }
   }
 
-  private static class MyCost implements HasClusterCost {
+  private static class MyCost implements HasClusterCost, HasMoveCost {
     private final AtomicInteger count = new AtomicInteger(0);
 
     @Override
     public ClusterCost clusterCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
+      var cost = count.getAndIncrement() == 0 ? Double.MAX_VALUE : Math.random() * 100;
+      return () -> cost;
+    }
+
+    @Override
+    public MoveCost moveCost(ClusterInfo originClusterInfo, ClusterInfo newClusterInfo, ClusterBean clusterBean) {
       var cost = count.getAndIncrement() == 0 ? Double.MAX_VALUE : Math.random() * 100;
       return () -> cost;
     }
