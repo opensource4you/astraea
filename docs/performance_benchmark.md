@@ -33,8 +33,8 @@
 |     prop.file      | (選填) 配置property file的路徑                               |               none               |
 |    partitioner     | (選填) 配置producer使用的partitioner                         |               none               |
 |      configs       | (選填) 給partitioner的設置檔。 設置格式為 "\<key1\>=\<value1\>[,\<key2\>=\<value2\>]*"。 <br />例如: "--configs broker.1001.jmx.port=14338,org.astraea.cost.ThroughputCost=1" |               none               |
-|     throughput     | (選填) 用來限制輸出資料的速度, 範例： "--throughput 2MiB/m", "--throughput 2GB" 預設值是秒 <br/>大小單位: MB, MiB, Kb etc. <br />時間單位: second(s), minute(m), hour(h), day(d) or PT expression(PT30S)         |          500 GiB/second          |
-|   specify.broker   | (選填) 指定broker的ID，送資料到指定的broker                  |               none               |
+|     throughput     | (選填) 用來限制輸出資料的速度, 範例： "--throughput 2MiB/m", "--throughput 2GB" 預設值是秒 <br/>大小單位: MB, MiB, Kb etc. <br />時間單位: second(s), minute(m), hour(h), day(d) or PT expression(PT30S) |          500 GiB/second          |
+|  specify.brokers   | (選填) 指定broker的ID，送資料到指定的broker，若 broker 上有 "目標 topic 的 partition" |               none               |
 |    report.path     | (選填) report file的檔案路徑                                 |               none               |
 |   report.format    | (選填) 選擇輸出檔案格式, 可用的格式：`csv`, `json`           |               csv                |
 |  transaction.size  | (選填) 每個transaction的records數量。若設置1以上，會使用transaction，否則都是一般write |                1                 |
