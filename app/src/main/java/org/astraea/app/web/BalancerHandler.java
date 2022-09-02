@@ -27,15 +27,17 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.astraea.app.admin.Admin;
 import org.astraea.app.admin.ClusterBean;
+import org.astraea.app.admin.ClusterInfo;
 import org.astraea.app.admin.Replica;
 import org.astraea.app.admin.TopicPartitionReplica;
 import org.astraea.app.balancer.BalancerUtils;
-import org.astraea.app.balancer.RebalancePlanProposal;
 import org.astraea.app.balancer.generator.RebalancePlanGenerator;
 import org.astraea.app.balancer.log.ClusterLogAllocation;
 import org.astraea.app.balancer.log.LogPlacement;
+import org.astraea.app.cost.ClusterCost;
 import org.astraea.app.cost.HasClusterCost;
 import org.astraea.app.cost.HasMoveCost;
+import org.astraea.app.cost.MoveCost;
 import org.astraea.app.cost.ReplicaSizeCost;
 
 class BalancerHandler implements Handler {
@@ -60,45 +62,57 @@ class BalancerHandler implements Handler {
     this.moveCostFunction = moveCostFunction;
   }
 
+  Map<ClusterLogAllocation, Map.Entry<ClusterCost, MoveCost>> getPlanAndCosts(
+      ClusterInfo<Replica> clusterInfo, int limit, ClusterLogAllocation targetAllocations) {
+    return generator
+        .generate(admin.brokerFolders(), targetAllocations)
+        .limit(limit)
+        .map(
+            rebalancePlanProposal -> {
+              var newClusterInfo =
+                  BalancerUtils.update(clusterInfo, rebalancePlanProposal.rebalancePlan());
+              return Map.entry(
+                  rebalancePlanProposal.rebalancePlan(),
+                  Map.entry(
+                      costFunction.clusterCost(clusterInfo, ClusterBean.EMPTY),
+                      moveCostFunction.moveCost(clusterInfo, newClusterInfo, ClusterBean.EMPTY)));
+            })
+        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+  }
+
   @Override
   public Response get(Channel channel) {
-    var clusterInfo = admin.clusterInfo();
-    var cost = costFunction.clusterCost(clusterInfo, ClusterBean.EMPTY).value();
     var topics =
         Optional.ofNullable(channel.queries().get(TOPICS_KEY))
             .map(s -> (Set<String>) new HashSet<>(Arrays.asList(s.split(","))))
             .orElseGet(() -> admin.topicNames(false));
+    var clusterInfo = admin.clusterInfo();
+    var cost = costFunction.clusterCost(clusterInfo, ClusterBean.EMPTY).value();
     var limit =
         Integer.parseInt(channel.queries().getOrDefault(LIMIT_KEY, String.valueOf(LIMIT_DEFAULT)));
-    // generate migration plans only for specify topics
     var targetAllocations = ClusterLogAllocation.of(admin.clusterInfo(topics));
+    var planAndCosts = getPlanAndCosts(clusterInfo, limit, targetAllocations);
     var planAndCost =
-        generator
-            .generate(admin.brokerFolders(), targetAllocations)
-            .limit(limit)
-            .map(RebalancePlanProposal::rebalancePlan)
-            .map(
-                cla ->
-                    Map.entry(
-                        cla,
-                        costFunction
-                            .clusterCost(BalancerUtils.update(clusterInfo, cla), ClusterBean.EMPTY)
-                            .value()))
-            .filter(e -> e.getValue() <= cost)
-            .min(Comparator.comparingDouble(Map.Entry::getValue));
-    var cla = planAndCost.orElse(Map.entry(targetAllocations, 0.0)).getKey();
-    var newClusterInfo = BalancerUtils.update(clusterInfo, cla);
-    var moveCost = moveCostFunction.moveCost(clusterInfo, newClusterInfo, ClusterBean.EMPTY);
+        planAndCosts.entrySet().stream()
+            .filter(e -> e.getValue().getKey().value() <= cost)
+            .min(Comparator.comparingDouble(x -> x.getValue().getKey().value()));
+    var moveCost = planAndCost.map(x -> x.getValue().getValue());
     var migrateInfos =
-        moveCost.changes().entrySet().stream()
-            .map(e -> new MigrateInfo(e.getKey(), e.getValue()))
-            .collect(Collectors.toList());
+        moveCost.map(
+            e ->
+                e.changes().entrySet().stream()
+                    .map(x -> new MigrateInfo(x.getKey(), x.getValue()))
+                    .collect(Collectors.toList()));
     var moveCosts =
         List.of(
-            new Migration(moveCost.name(), moveCost.totalCost(), migrateInfos, moveCost.unit()));
+            new Migration(
+                moveCost.map(MoveCost::name).orElse(""),
+                moveCost.map(MoveCost::totalCost).orElse(0L),
+                migrateInfos.orElse(List.of()),
+                moveCost.map(MoveCost::unit).orElse("byte")));
     return new Report(
         cost,
-        planAndCost.map(Map.Entry::getValue).orElse(cost),
+        planAndCost.map(x -> x.getValue().getKey().value()).orElse(cost),
         limit,
         costFunction.getClass().getSimpleName(),
         planAndCost
