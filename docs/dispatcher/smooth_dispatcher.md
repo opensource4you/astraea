@@ -1,9 +1,3 @@
-## Dispatcher
-
-使用Astraea Dispatcher替换掉Kafka Partitioner module，使其能將發送的每筆資料按照節點負載狀況進行合理分配，達到發送端的負載平衡。
-
----
-
 ### SmoothDispatcher
 
 #### SmoothDispatcher爲了解決什麼問題
