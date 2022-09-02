@@ -92,13 +92,15 @@ class BalancerHandler implements Handler {
     var limit =
         Integer.parseInt(channel.queries().getOrDefault(LIMIT_KEY, String.valueOf(LIMIT_DEFAULT)));
     var targetAllocations = ClusterLogAllocation.of(admin.clusterInfo(topics));
-    var planAndCosts = planCosts(clusterInfo, limit, targetAllocations);
     var planAndCost =
-        planAndCosts.entrySet().stream()
+        planCosts(clusterInfo, limit, targetAllocations).entrySet().stream()
             .filter(e -> e.getValue().getKey().value() <= cost)
             .min(Comparator.comparingDouble(x -> x.getValue().getKey().value()));
-    var moveCost = planAndCost.map(x -> x.getValue().getValue());
-    var moveCosts = moveCost.map(value -> List.of(new MigrationCost(value))).orElseGet(List::of);
+    var migrationCosts =
+        planAndCost
+            .map(x -> x.getValue().getValue())
+            .map(value -> List.of(new MigrationCost(value)))
+            .orElseGet(List::of);
     return new Report(
         cost,
         planAndCost.map(x -> x.getValue().getKey().value()).orElse(cost),
@@ -128,7 +130,7 @@ class BalancerHandler implements Handler {
                                     placements(entry.getKey().logPlacements(tp), ignored -> null)))
                         .collect(Collectors.toUnmodifiableList()))
             .orElse(List.of()),
-        moveCosts);
+        migrationCosts);
   }
 
   static List<Placement> placements(List<LogPlacement> lps, Function<LogPlacement, Long> size) {
