@@ -101,6 +101,12 @@ public class PartitionsBuilder<Key, Value> extends Builder<Key, Value> {
     return this;
   }
 
+  @Override
+  public PartitionsBuilder<Key, Value> clientId(String clientId) {
+    super.clientId(clientId);
+    return this;
+  }
+
   @SuppressWarnings("unchecked")
   @Override
   public AssignedConsumer<Key, Value> build() {

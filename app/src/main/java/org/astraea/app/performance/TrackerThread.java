@@ -30,6 +30,8 @@ import org.astraea.app.common.Utils;
 import org.astraea.app.metrics.HasBeanObject;
 import org.astraea.app.metrics.MBeanClient;
 import org.astraea.app.metrics.client.HasNodeMetrics;
+import org.astraea.app.metrics.client.consumer.ConsumerMetrics;
+import org.astraea.app.metrics.client.consumer.HasConsumerCoordinatorMetrics;
 import org.astraea.app.metrics.client.producer.HasProducerTopicMetrics;
 import org.astraea.app.metrics.client.producer.ProducerMetrics;
 
@@ -69,11 +71,11 @@ public interface TrackerThread extends AbstractThread {
           producerReports.stream()
               .mapToLong(Report::max)
               .max()
-              .ifPresent(i -> System.out.println("  publish max latency: " + i + " ms"));
+              .ifPresent(i -> System.out.printf("  publish max latency: %d ms%n", i));
           producerReports.stream()
-              .mapToLong(Report::min)
-              .min()
-              .ifPresent(i -> System.out.println("  publish mim latency: " + i + " ms"));
+              .mapToDouble(Report::avgLatency)
+              .average()
+              .ifPresent(i -> System.out.printf("  publish average latency: %.3f ms%n", i));
           for (int i = 0; i < producerReports.size(); ++i) {
             System.out.printf(
                 "  producer[%d] average throughput: %.3f MB%n",
@@ -115,22 +117,28 @@ public interface TrackerThread extends AbstractThread {
           consumerReports.stream()
               .mapToLong(Report::max)
               .max()
-              .ifPresent(i -> System.out.println("  end-to-end max latency: " + i + " ms"));
+              .ifPresent(i -> System.out.printf("  end-to-end max latency: %d ms%n", i));
           consumerReports.stream()
-              .mapToLong(Report::min)
-              .min()
-              .ifPresent(i -> System.out.println("  end-to-end mim latency: " + i + " ms"));
-          consumerReports.stream()
-              .mapToLong(ConsumerThread.Report::maxSubscriptionLatency)
-              .max()
-              .ifPresent(i -> System.out.println("  subscription max latency: " + i + " ms"));
-          consumerReports.stream()
-              .mapToDouble(ConsumerThread.Report::avgSubscriptionLatency)
+              .mapToDouble(Report::avgLatency)
               .average()
-              .ifPresent(i -> System.out.println("  subscription average latency: " + i + " ms"));
-          for (int i = 0; i < consumerReports.size(); ++i) {
+              .ifPresent(i -> System.out.printf("  end-to-end average latency: %.3f ms%n", i));
+          var metrics = ConsumerMetrics.coordinators(mBeanClient);
+          metrics.stream()
+              .mapToDouble(HasConsumerCoordinatorMetrics::rebalanceLatencyMax)
+              .max()
+              .ifPresent(i -> System.out.printf("  rebalance max latency: %.3f ms%n", i));
+          metrics.stream()
+              .mapToDouble(HasConsumerCoordinatorMetrics::rebalanceLatencyAvg)
+              .average()
+              .ifPresent(i -> System.out.printf("  rebalance average latency: %.3f ms%n", i));
+          for (var i = 0; i < consumerReports.size(); ++i) {
             var report = consumerReports.get(i);
-            System.out.printf("  consumer[%d] has %d partitions%n", i, report.assignments().size());
+            var ms =
+                metrics.stream().filter(m -> m.clientId().equals(report.clientId())).findFirst();
+            if (ms.isPresent()) {
+              System.out.printf(
+                  "  consumer[%d] has %d partitions%n", i, (int) ms.get().assignedPartitions());
+            }
             System.out.printf(
                 "  consumer[%d] average throughput: %.3f MB%n",
                 i, Utils.averageMB(duration, report.totalBytes()));
@@ -160,8 +168,13 @@ public interface TrackerThread extends AbstractThread {
                       + "min "
                       + duration.toSecondsPart()
                       + "sec");
-              if (!producerDone) producerDone = logProducers.apply(duration);
-              if (!consumerDone) consumerDone = logConsumers.apply(duration);
+              if (!producerDone) {
+                producerDone = logProducers.apply(duration);
+                consumerDone = logConsumers.apply(duration);
+              }
+              // if producers are not DONE, consumers should keep running as there are more data in
+              // the future.
+              if (!producerDone) consumerDone = false;
               if (producerDone && consumerDone) return;
 
               // Log after waiting for one second

@@ -447,4 +447,28 @@ public class ConsumerTest extends RequireBrokerCluster {
     closed.set(true);
     fs.get();
   }
+
+  @Test
+  void testClientId() {
+    var topic = Utils.randomString(10);
+    var clientId0 = Utils.randomString();
+    try (var consumer =
+        Consumer.forTopics(Set.of(topic))
+            .bootstrapServers(bootstrapServers())
+            .fromBeginning()
+            .clientId(clientId0)
+            .build()) {
+      Assertions.assertEquals(clientId0, consumer.clientId());
+    }
+
+    var clientId1 = Utils.randomString();
+    try (var consumer =
+        Consumer.forPartitions(Set.of(TopicPartition.of(topic, 0)))
+            .bootstrapServers(bootstrapServers())
+            .fromBeginning()
+            .clientId(clientId1)
+            .build()) {
+      Assertions.assertEquals(clientId1, consumer.clientId());
+    }
+  }
 }
