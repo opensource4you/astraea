@@ -76,20 +76,20 @@ public final class ProducerMetrics {
    * topic metrics traced by producer
    *
    * @param mBeanClient to query beans
-   * @param topic topic name
    * @return key is client id used by producer, and value is topic metrics traced by each producer
    */
-  public static Map<String, HasProducerTopicMetrics> topic(MBeanClient mBeanClient, String topic) {
+  public static Collection<HasProducerTopicMetrics> topics(MBeanClient mBeanClient) {
     return mBeanClient
         .queryBeans(
             BeanQuery.builder()
                 .domainName("kafka.producer")
                 .property("type", "producer-topic-metrics")
                 .property("client-id", "*")
-                .property("topic", topic)
+                .property("topic", "*")
                 .build())
         .stream()
-        .collect(Collectors.toUnmodifiableMap(b -> b.properties().get("client-id"), b -> () -> b));
+        .map(b -> (HasProducerTopicMetrics) () -> b)
+        .collect(Collectors.toUnmodifiableList());
   }
 
   private ProducerMetrics() {}
