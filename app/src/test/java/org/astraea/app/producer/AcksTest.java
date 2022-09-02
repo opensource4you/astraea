@@ -14,36 +14,37 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.app.argument;
+package org.astraea.app.producer;
 
-import com.beust.jcommander.Parameter;
-import com.beust.jcommander.ParameterException;
-import java.util.stream.Stream;
-import org.astraea.app.admin.Compression;
+import java.util.Arrays;
+import org.apache.kafka.clients.producer.ProducerConfig;
+import org.apache.kafka.common.config.ConfigDef;
+import org.astraea.app.common.Utils;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-public class CompressionFieldTest {
+public class AcksTest {
 
-  private static class FakeParameter {
-    @Parameter(
-        names = {"--field"},
-        converter = CompressionField.class,
-        validateWith = CompressionField.class)
-    public Compression value;
+  @Test
+  void testKafkaConfig() {
+    var config =
+        ((ConfigDef) Utils.staticMember(ProducerConfig.class, "CONFIG"))
+            .configKeys()
+            .get(ProducerConfig.ACKS_CONFIG);
+    Arrays.stream(Acks.values())
+        .forEach(ack -> config.validator.ensureValid("acks", ack.valueOfKafka()));
   }
 
   @Test
-  void testConversion() {
-    var arg = new CompressionField();
-    Stream.of(Compression.values())
-        .forEach(type -> Assertions.assertEquals(type, arg.convert(type.name())));
-    Assertions.assertThrows(ParameterException.class, () -> arg.convert("aaa"));
+  void testAlias() {
+    Arrays.stream(Acks.values())
+        .forEach(acks -> Assertions.assertEquals(acks, Acks.ofAlias(acks.alias())));
   }
 
   @Test
-  void testParse() {
-    var arg = Argument.parse(new FakeParameter(), new String[] {"--field", "gzip"});
-    Assertions.assertEquals(Compression.GZIP, arg.value);
+  void testField() {
+    var field = new Acks.Field();
+    Arrays.stream(Acks.values())
+        .forEach(acks -> Assertions.assertEquals(acks, field.convert(acks.alias())));
   }
 }

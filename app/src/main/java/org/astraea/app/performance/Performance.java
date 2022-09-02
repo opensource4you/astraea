@@ -34,7 +34,6 @@ import java.util.stream.Collectors;
 import org.astraea.app.admin.Admin;
 import org.astraea.app.admin.Compression;
 import org.astraea.app.admin.TopicPartition;
-import org.astraea.app.argument.CompressionField;
 import org.astraea.app.argument.DurationField;
 import org.astraea.app.argument.NonEmptyStringField;
 import org.astraea.app.argument.NonNegativeShortField;
@@ -50,6 +49,7 @@ import org.astraea.app.common.DataUnit;
 import org.astraea.app.common.Utils;
 import org.astraea.app.consumer.Consumer;
 import org.astraea.app.consumer.Isolation;
+import org.astraea.app.producer.Acks;
 import org.astraea.app.producer.Producer;
 
 /** see docs/performance_benchmark.md for man page */
@@ -281,7 +281,7 @@ public class Performance {
         names = {"--compression"},
         description =
             "String: the compression algorithm used by producer. Available algorithm are none, gzip, snappy, lz4, and zstd",
-        converter = CompressionField.class)
+        converter = Compression.Field.class)
     Compression compression = Compression.NONE;
 
     @Parameter(
@@ -302,12 +302,14 @@ public class Performance {
               .bootstrapServers(bootstrapServers())
               .compression(compression)
               .partitionClassName(partitioner)
+              .acks(acks)
               .buildTransactional()
           : Producer.builder()
               .configs(configs())
               .bootstrapServers(bootstrapServers())
               .compression(compression)
               .partitionClassName(partitioner)
+              .acks(acks)
               .build();
     }
 
@@ -389,5 +391,11 @@ public class Performance {
         description = "Consumer group id",
         validateWith = NonEmptyStringField.class)
     String groupId = "groupId-" + System.currentTimeMillis();
+
+    @Parameter(
+        names = {"--acks"},
+        description = "How many replicas should be synced when producing records.",
+        converter = Acks.Field.class)
+    Acks acks = Acks.ISRS;
   }
 }

@@ -137,4 +137,30 @@ public class UtilsTest {
                   throw new IllegalArgumentException();
                 }));
   }
+
+  @Test
+  void testMember() {
+    var dumb = new Dumb(100);
+    var value = (int) Utils.member(dumb, "value");
+    Assertions.assertEquals(dumb.value, value);
+  }
+
+  @Test
+  void testStaticMember() {
+    Assertions.assertEquals(Dumb.CONSTANT, Utils.staticMember(Dumb.class, "CONSTANT"));
+  }
+
+  private static class Dumb {
+    private static final int CONSTANT = 1000;
+
+    private final int value;
+
+    Dumb(int v) {
+      this.value = v;
+    }
+
+    public int value() {
+      return value;
+    }
+  }
 }
