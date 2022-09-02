@@ -396,6 +396,6 @@ public class Performance {
         names = {"--acks"},
         description = "How many replicas should be synced when producing records.",
         converter = Acks.Field.class)
-    Acks acks = Acks.ALL_REPLICAS;
+    Acks acks = Acks.ISRS;
   }
 }

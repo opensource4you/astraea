@@ -39,7 +39,7 @@
 |   report.format    | (選填) 選擇輸出檔案格式, 可用的格式：`csv`, `json`                                                                                                                                                                                                                                    |               csv                |
 |  transaction.size  | (選填) 每個transaction的records數量。若設置1以上，會使用transaction，否則都是一般write                                                                                                                                                                                                        |                1                 |
 |      group.id      | (選填) 設置 consumer group id                                                                                                                                                                                                                                             |     groupId-{Time in millis}     |
-|        acks        | (選填) 設置 producer acks，                                                                                                                                                                                                                                                |       all，代表要等所有replicas同步       |
+|        acks        | (選填) 設置 producer acks，                                                                                                                                                                                                                                                |         all，代表要等所有isr同步          |
 
 #### 使用範例
 

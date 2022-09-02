@@ -22,8 +22,11 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public enum Acks {
-  ALL_REPLICAS("all"),
+  /** wait for all isrs */
+  ISRS("isrs"),
+  /** wait for leader only */
   ONLY_LEADER("leader"),
+  /** wait for nothing */
   NONE("none");
 
   private final String alias;
@@ -58,7 +61,7 @@ public enum Acks {
 
   public String valueOfKafka() {
     switch (this) {
-      case ALL_REPLICAS:
+      case ISRS:
         return "all";
       case ONLY_LEADER:
         return "1";
