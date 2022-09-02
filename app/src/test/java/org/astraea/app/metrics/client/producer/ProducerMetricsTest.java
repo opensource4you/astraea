@@ -17,11 +17,9 @@
 package org.astraea.app.metrics.client.producer;
 
 import java.time.Duration;
-import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 import org.astraea.app.admin.Admin;
-import org.astraea.app.admin.TopicPartition;
 import org.astraea.app.common.Utils;
 import org.astraea.app.metrics.MBeanClient;
 import org.astraea.app.metrics.client.HasNodeMetrics;
@@ -31,22 +29,6 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 public class ProducerMetricsTest extends RequireBrokerCluster {
-
-  @Test
-  void testSingleBroker() throws ExecutionException, InterruptedException {
-    var topic = Utils.randomString(10);
-    try (var admin = Admin.of(bootstrapServers());
-        var producer = Producer.of(bootstrapServers())) {
-      admin.creator().topic(topic).numberOfPartitions(1).create();
-      Utils.sleep(Duration.ofSeconds(3));
-      var owner =
-          admin.replicas(Set.of(topic)).get(TopicPartition.of(topic, 0)).get(0).nodeInfo().id();
-      producer.sender().topic(topic).run().toCompletableFuture().get();
-      var metrics = ProducerMetrics.node(MBeanClient.local(), owner);
-      Assertions.assertEquals(1, metrics.size());
-      check(metrics.get("producer-1"));
-    }
-  }
 
   @Test
   void testMultiBrokers() throws ExecutionException, InterruptedException {
