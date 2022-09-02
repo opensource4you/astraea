@@ -34,7 +34,7 @@ JSON Response 範例
     - `size`: replica 在硬碟上的資料大小
   - `after`: 比較好的配置
 - `migrations`: 計算搬移計畫的成本
-  * `function`: 要評估的成本
+  * `function`: 用來評估成本的演算法
   * `totalCost`: 各個broker的成本總和
   * `cost`: 針對各個broker計算成本的改變
     * `brokerId`: 有掌管 replica 的節點 id
