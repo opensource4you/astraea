@@ -18,14 +18,13 @@ package org.astraea.app.consumer;
 
 import java.util.Locale;
 import org.astraea.app.common.EnumInfo;
-import org.astraea.app.common.Utils;
 
 public enum Isolation implements EnumInfo {
   READ_UNCOMMITTED,
   READ_COMMITTED;
 
   public static Isolation ofAlias(String alias) {
-    return Utils.ignoreCaseEnum(Isolation.class, alias);
+    return EnumInfo.ignoreCaseEnum(Isolation.class, alias);
   }
 
   /** @return the name parsed by kafka */

@@ -137,21 +137,4 @@ public class UtilsTest {
                   throw new IllegalArgumentException();
                 }));
   }
-
-  @Test
-  void testIgnoreCaseEnum() {
-    Assertions.assertEquals(MyTestEnum.TEST, Utils.ignoreCaseEnum(MyTestEnum.class, "test"));
-    Assertions.assertEquals(MyTestEnum.TEST, Utils.ignoreCaseEnum(MyTestEnum.class, "TEST"));
-    Assertions.assertEquals(MyTestEnum.TEST, Utils.ignoreCaseEnum(MyTestEnum.class, "Test"));
-    Assertions.assertEquals(MyTestEnum.BANANA, Utils.ignoreCaseEnum(MyTestEnum.class, "Banana"));
-  }
-
-  enum MyTestEnum implements EnumInfo {
-    TEST,
-    BANANA;
-
-    public static MyTestEnum ofAlias(String alias) {
-      return Utils.ignoreCaseEnum(MyTestEnum.class, alias);
-    }
-  }
 }

@@ -23,7 +23,6 @@ import java.util.Objects;
 import java.util.stream.Collectors;
 import org.apache.kafka.common.quota.ClientQuotaEntity;
 import org.astraea.app.common.EnumInfo;
-import org.astraea.app.common.Utils;
 
 public class Quota {
 
@@ -65,7 +64,7 @@ public class Quota {
     IP(ClientQuotaEntity.IP);
 
     public static Target ofAlias(String alias) {
-      return Utils.ignoreCaseEnum(Target.class, alias);
+      return EnumInfo.ignoreCaseEnum(Target.class, alias);
     }
 
     private final String nameOfKafka;
@@ -87,7 +86,7 @@ public class Quota {
     IP_CONNECTION_RATE("connection_creation_rate");
 
     public static Limit ofAlias(String alias) {
-      return Utils.ignoreCaseEnum(Limit.class, alias);
+      return EnumInfo.ignoreCaseEnum(Limit.class, alias);
     }
 
     private final String nameOfKafka;

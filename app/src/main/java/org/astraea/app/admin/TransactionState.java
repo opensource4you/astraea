@@ -20,7 +20,6 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.stream.Collectors;
 import org.astraea.app.common.EnumInfo;
-import org.astraea.app.common.Utils;
 
 public enum TransactionState implements EnumInfo {
   ONGOING("Ongoing"),
@@ -33,7 +32,7 @@ public enum TransactionState implements EnumInfo {
   UNKNOWN("Unknown");
 
   public static TransactionState ofAlias(String alias) {
-    return Utils.ignoreCaseEnum(TransactionState.class, alias);
+    return EnumInfo.ignoreCaseEnum(TransactionState.class, alias);
   }
 
   private final String name;

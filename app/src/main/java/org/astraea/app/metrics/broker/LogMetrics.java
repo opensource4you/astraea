@@ -21,7 +21,6 @@ import java.util.Collection;
 import java.util.List;
 import java.util.stream.Collectors;
 import org.astraea.app.common.EnumInfo;
-import org.astraea.app.common.Utils;
 import org.astraea.app.metrics.BeanObject;
 import org.astraea.app.metrics.BeanQuery;
 import org.astraea.app.metrics.HasBeanObject;
@@ -36,7 +35,7 @@ public final class LogMetrics {
     SIZE("Size");
 
     public static Log ofAlias(String alias) {
-      return Utils.ignoreCaseEnum(Log.class, alias);
+      return EnumInfo.ignoreCaseEnum(Log.class, alias);
     }
 
     private final String metricName;

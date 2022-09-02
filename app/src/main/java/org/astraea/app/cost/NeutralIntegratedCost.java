@@ -26,7 +26,6 @@ import org.astraea.app.admin.ClusterBean;
 import org.astraea.app.admin.ClusterInfo;
 import org.astraea.app.admin.ReplicaInfo;
 import org.astraea.app.common.EnumInfo;
-import org.astraea.app.common.Utils;
 import org.astraea.app.metrics.collector.Fetcher;
 
 /**
@@ -233,7 +232,7 @@ public class NeutralIntegratedCost implements HasBrokerCost {
     cpu("cpu");
 
     public static Metrics ofAlias(String alias) {
-      return Utils.ignoreCaseEnum(Metrics.class, alias);
+      return EnumInfo.ignoreCaseEnum(Metrics.class, alias);
     }
 
     private final String metricName;

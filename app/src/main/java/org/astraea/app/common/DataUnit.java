@@ -69,7 +69,7 @@ public enum DataUnit implements EnumInfo {
   YiB(1024, ZiB);
 
   public static DataUnit ofAlias(String alias) {
-    return Utils.ignoreCaseEnum(DataUnit.class, alias);
+    return EnumInfo.ignoreCaseEnum(DataUnit.class, alias);
   }
 
   final BigInteger bits;

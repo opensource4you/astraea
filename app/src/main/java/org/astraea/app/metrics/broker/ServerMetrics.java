@@ -21,7 +21,6 @@ import java.util.Collection;
 import java.util.Objects;
 import java.util.stream.Collectors;
 import org.astraea.app.common.EnumInfo;
-import org.astraea.app.common.Utils;
 import org.astraea.app.metrics.BeanObject;
 import org.astraea.app.metrics.BeanQuery;
 import org.astraea.app.metrics.HasBeanObject;
@@ -39,7 +38,7 @@ public final class ServerMetrics {
     REBALANCE("Rebalance");
 
     public static DelayedOperationPurgatory ofAlias(String alias) {
-      return Utils.ignoreCaseEnum(DelayedOperationPurgatory.class, alias);
+      return EnumInfo.ignoreCaseEnum(DelayedOperationPurgatory.class, alias);
     }
 
     private final String metricName;
@@ -142,7 +141,7 @@ public final class ServerMetrics {
     BYTES_OUT_PER_SEC("BytesOutPerSec");
 
     public static Topic ofAlias(String alias) {
-      return Utils.ignoreCaseEnum(Topic.class, alias);
+      return EnumInfo.ignoreCaseEnum(Topic.class, alias);
     }
 
     private final String metricName;
@@ -236,7 +235,7 @@ public final class ServerMetrics {
     UNDER_REPLICATED_PARTITIONS("UnderReplicatedPartitions");
 
     public static ReplicaManager ofAlias(String alias) {
-      return Utils.ignoreCaseEnum(ReplicaManager.class, alias);
+      return EnumInfo.ignoreCaseEnum(ReplicaManager.class, alias);
     }
 
     private final String metricName;

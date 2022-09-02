@@ -16,9 +16,28 @@
  */
 package org.astraea.app.common;
 
+import java.util.Arrays;
+
 public interface EnumInfo {
 
+  /** This method enforces access to the values method, although it cannot access the class. */
+  @SuppressWarnings("unchecked")
+  static <T extends Enum<T> & EnumInfo> T ignoreCaseEnum(Class<T> tClass, String alias) {
+    return Utils.packException(
+        () -> {
+          var method = tClass.getDeclaredMethod("values");
+          method.setAccessible(true);
+          T[] values = (T[]) method.invoke(null);
+          return Arrays.stream(values)
+              .filter(v -> v.alias().equalsIgnoreCase(alias))
+              .findFirst()
+              .orElseThrow(() -> new IllegalArgumentException("No such alias: " + alias));
+        });
+  }
+
+  String name();
+
   default String alias() {
-    return Utils.packException(() -> (String) this.getClass().getMethod("name").invoke(this));
+    return name();
   }
 }

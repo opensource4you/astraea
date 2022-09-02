@@ -295,7 +295,7 @@ public class RecordHandler implements Handler {
         Deserializer.DOUBLE);
 
     static SerDe ofAlias(String alias) {
-      return Utils.ignoreCaseEnum(SerDe.class, alias);
+      return EnumInfo.ignoreCaseEnum(SerDe.class, alias);
     }
 
     final BiFunction<String, String, byte[]> serializer;

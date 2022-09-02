@@ -17,7 +17,6 @@
 package org.astraea.app.metrics.broker;
 
 import org.astraea.app.common.EnumInfo;
-import org.astraea.app.common.Utils;
 import org.astraea.app.metrics.BeanObject;
 import org.astraea.app.metrics.BeanQuery;
 import org.astraea.app.metrics.MBeanClient;
@@ -38,7 +37,7 @@ public class ControllerMetrics {
     FENCED_BROKER_COUNT("FencedBrokerCount");
 
     static Controller ofAlias(String alias) {
-      return Utils.ignoreCaseEnum(Controller.class, alias);
+      return EnumInfo.ignoreCaseEnum(Controller.class, alias);
     }
 
     private final String metricName;
@@ -111,7 +110,7 @@ public class ControllerMetrics {
     private static final String UNCLEAN_LEADER_ELECTIONS_PER_SEC = "UncleanLeaderElectionsPerSec";
 
     static ControllerState ofAlias(String alias) {
-      return Utils.ignoreCaseEnum(ControllerState.class, alias);
+      return EnumInfo.ignoreCaseEnum(ControllerState.class, alias);
     }
 
     private final String metricName;

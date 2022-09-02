@@ -23,7 +23,6 @@ import java.util.function.Supplier;
 import java.util.stream.IntStream;
 import org.astraea.app.argument.Field;
 import org.astraea.app.common.EnumInfo;
-import org.astraea.app.common.Utils;
 
 /**
  * Random distribution generator. Example: {@code Supplier<long> uniformDistribution =
@@ -86,7 +85,7 @@ public enum DistributionType implements EnumInfo {
   };
 
   public static DistributionType ofAlias(String alias) {
-    return Utils.ignoreCaseEnum(DistributionType.class, alias);
+    return EnumInfo.ignoreCaseEnum(DistributionType.class, alias);
   }
 
   abstract Supplier<Long> create(int n);

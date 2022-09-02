@@ -139,7 +139,7 @@ interface Channel {
     UNKNOWN;
 
     public static Type ofAlias(String alias) {
-      return Utils.ignoreCaseEnum(Type.class, alias);
+      return EnumInfo.ignoreCaseEnum(Type.class, alias);
     }
   }
 

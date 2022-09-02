@@ -29,7 +29,6 @@ import java.util.function.BiConsumer;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.astraea.app.admin.TopicPartition;
 import org.astraea.app.common.EnumInfo;
-import org.astraea.app.common.Utils;
 
 public abstract class Builder<Key, Value> {
   protected final Map<String, Object> configs = new HashMap<>();
@@ -203,7 +202,7 @@ public abstract class Builder<Key, Value> {
         });
 
     public static SeekStrategy ofAlias(String alias) {
-      return Utils.ignoreCaseEnum(SeekStrategy.class, alias);
+      return EnumInfo.ignoreCaseEnum(SeekStrategy.class, alias);
     }
 
     private final BiConsumer<org.apache.kafka.clients.consumer.Consumer<?, ?>, Object> function;

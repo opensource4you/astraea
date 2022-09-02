@@ -39,7 +39,7 @@ public enum ReportFormat implements EnumInfo {
   JSON("json");
 
   public static ReportFormat ofAlias(String alias) {
-    return Utils.ignoreCaseEnum(ReportFormat.class, alias);
+    return EnumInfo.ignoreCaseEnum(ReportFormat.class, alias);
   }
 
   private final String name;

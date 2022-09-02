@@ -18,7 +18,6 @@ package org.astraea.app.admin;
 
 import java.util.Locale;
 import org.astraea.app.common.EnumInfo;
-import org.astraea.app.common.Utils;
 
 public enum Compression implements EnumInfo {
   NONE,
@@ -28,7 +27,7 @@ public enum Compression implements EnumInfo {
   ZSTD;
 
   public static Compression ofAlias(String alias) {
-    return Utils.ignoreCaseEnum(Compression.class, alias);
+    return EnumInfo.ignoreCaseEnum(Compression.class, alias);
   }
 
   /** @return the name parsed by kafka */

@@ -21,7 +21,6 @@ import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.nio.file.Files;
 import java.time.Duration;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
@@ -271,18 +270,6 @@ public final class Utils {
     if (duration.toSeconds() > 0) return ((double) (value / duration.toSeconds()));
     if (duration.toMillis() > 0) return (double) (value / duration.toMillis()) * 1000;
     return (double) (value / duration.toNanos()) * 1000000000L;
-  }
-
-  @SuppressWarnings("unchecked")
-  public static <T extends Enum<T> & EnumInfo> T ignoreCaseEnum(Class<T> tClass, String alias) {
-    return packException(
-        () -> {
-          T[] values = (T[]) tClass.getDeclaredMethod("values").invoke(null);
-          return Arrays.stream(values)
-              .filter(v -> v.alias().equalsIgnoreCase(alias))
-              .findFirst()
-              .orElseThrow(() -> new IllegalArgumentException("No such alias: " + alias));
-        });
   }
 
   private Utils() {}
