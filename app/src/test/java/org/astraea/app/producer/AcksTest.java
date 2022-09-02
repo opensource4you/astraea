@@ -27,12 +27,12 @@ public class AcksTest {
 
   @Test
   void testKafkaConfig() {
-    var acksConfig =
+    var config =
         ((ConfigDef) Utils.staticMember(ProducerConfig.class, "CONFIG"))
             .configKeys()
             .get(ProducerConfig.ACKS_CONFIG);
     Arrays.stream(Acks.values())
-        .forEach(ack -> acksConfig.validator.ensureValid("acks", ack.valueOfKafka()));
+        .forEach(ack -> config.validator.ensureValid("acks", ack.valueOfKafka()));
   }
 
   @Test
