@@ -375,13 +375,13 @@ public class Performance {
     Function<String, Integer> partitionSelector() {
       if (specifyBroker.isEmpty()) return ignore -> -1;
       try (var admin = Admin.of(configs())) {
-        Map<String, List<Integer>> topicPartitions =
+        var topicPartitions =
             admin.replicas(new HashSet<>(topics)).values().stream()
                 .flatMap(Collection::stream)
                 .filter(ReplicaInfo::isLeader)
                 .filter(replica -> specifyBroker.contains(replica.nodeInfo().id()))
                 .collect(
-                    Collectors.groupingByConcurrent(
+                    Collectors.groupingBy(
                         Replica::topic,
                         Collectors.mapping(Replica::partition, Collectors.toUnmodifiableList())));
         return topic ->
