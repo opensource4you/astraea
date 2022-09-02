@@ -22,12 +22,14 @@ import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 import org.astraea.app.admin.Admin;
 import org.astraea.app.admin.TopicPartition;
 import org.astraea.app.argument.Argument;
 import org.astraea.app.common.DataRate;
 import org.astraea.app.common.Utils;
 import org.astraea.app.consumer.Isolation;
+import org.astraea.app.producer.Acks;
 import org.astraea.app.service.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -415,5 +417,20 @@ public class PerformanceTest extends RequireBrokerCluster {
       Assertions.assertTrue(defaultPattern.get("test3").containsKey(3));
       Assertions.assertTrue(defaultPattern.get("test3").containsValue((short) 2));
     }
+  }
+
+  @Test
+  void testAcks() {
+    Stream.of(Acks.values())
+        .forEach(
+            ack -> {
+              var arg =
+                  Argument.parse(
+                      new Performance.Argument(),
+                      new String[] {
+                        "--bootstrap.servers", bootstrapServers(), "--acks", ack.alias()
+                      });
+              Assertions.assertEquals(ack, arg.acks);
+            });
   }
 }

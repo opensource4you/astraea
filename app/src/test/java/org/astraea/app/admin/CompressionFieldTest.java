@@ -14,12 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.app.argument;
+package org.astraea.app.admin;
 
 import com.beust.jcommander.Parameter;
 import com.beust.jcommander.ParameterException;
 import java.util.stream.Stream;
-import org.astraea.app.admin.Compression;
+import org.astraea.app.argument.Argument;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -28,14 +28,14 @@ public class CompressionFieldTest {
   private static class FakeParameter {
     @Parameter(
         names = {"--field"},
-        converter = CompressionField.class,
-        validateWith = CompressionField.class)
+        converter = Compression.Field.class,
+        validateWith = Compression.Field.class)
     public Compression value;
   }
 
   @Test
   void testConversion() {
-    var arg = new CompressionField();
+    var arg = new Compression.Field();
     Stream.of(Compression.values())
         .forEach(type -> Assertions.assertEquals(type, arg.convert(type.name())));
     Assertions.assertThrows(ParameterException.class, () -> arg.convert("aaa"));
