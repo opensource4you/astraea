@@ -31,6 +31,7 @@ import org.astraea.app.admin.ClusterInfo;
 import org.astraea.app.admin.Replica;
 import org.astraea.app.admin.TopicPartitionReplica;
 import org.astraea.app.balancer.BalancerUtils;
+import org.astraea.app.balancer.RebalancePlanProposal;
 import org.astraea.app.balancer.generator.RebalancePlanGenerator;
 import org.astraea.app.balancer.log.ClusterLogAllocation;
 import org.astraea.app.balancer.log.LogPlacement;
@@ -62,22 +63,22 @@ class BalancerHandler implements Handler {
     this.moveCostFunction = moveCostFunction;
   }
 
-  Map<ClusterLogAllocation, Map.Entry<ClusterCost, MoveCost>> getPlanAndCosts(
+  Map<ClusterLogAllocation, Map.Entry<ClusterCost, MoveCost>> planCosts(
       ClusterInfo<Replica> clusterInfo, int limit, ClusterLogAllocation targetAllocations) {
     return generator
         .generate(admin.brokerFolders(), targetAllocations)
         .limit(limit)
-        .map(
-            rebalancePlanProposal -> {
-              var newClusterInfo =
-                  BalancerUtils.update(clusterInfo, rebalancePlanProposal.rebalancePlan());
-              return Map.entry(
-                  rebalancePlanProposal.rebalancePlan(),
-                  Map.entry(
-                      costFunction.clusterCost(clusterInfo, ClusterBean.EMPTY),
-                      moveCostFunction.moveCost(clusterInfo, newClusterInfo, ClusterBean.EMPTY)));
-            })
-        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+        .collect(
+            Collectors.toMap(
+                RebalancePlanProposal::rebalancePlan,
+                rebalancePlanProposal ->
+                    Map.entry(
+                        costFunction.clusterCost(clusterInfo, ClusterBean.EMPTY),
+                        moveCostFunction.moveCost(
+                            clusterInfo,
+                            BalancerUtils.update(
+                                clusterInfo, rebalancePlanProposal.rebalancePlan()),
+                            ClusterBean.EMPTY))));
   }
 
   @Override
@@ -91,25 +92,13 @@ class BalancerHandler implements Handler {
     var limit =
         Integer.parseInt(channel.queries().getOrDefault(LIMIT_KEY, String.valueOf(LIMIT_DEFAULT)));
     var targetAllocations = ClusterLogAllocation.of(admin.clusterInfo(topics));
-    var planAndCosts = getPlanAndCosts(clusterInfo, limit, targetAllocations);
+    var planAndCosts = planCosts(clusterInfo, limit, targetAllocations);
     var planAndCost =
         planAndCosts.entrySet().stream()
             .filter(e -> e.getValue().getKey().value() <= cost)
             .min(Comparator.comparingDouble(x -> x.getValue().getKey().value()));
     var moveCost = planAndCost.map(x -> x.getValue().getValue());
-    var migrateInfos =
-        moveCost.map(
-            e ->
-                e.changes().entrySet().stream()
-                    .map(x -> new MigrateInfo(x.getKey(), x.getValue()))
-                    .collect(Collectors.toList()));
-    var moveCosts =
-        List.of(
-            new Migration(
-                moveCost.map(MoveCost::name).orElse(""),
-                moveCost.map(MoveCost::totalCost).orElse(0L),
-                migrateInfos.orElse(List.of()),
-                moveCost.map(MoveCost::unit).orElse("byte")));
+    var moveCosts = moveCost.map(value -> List.of(new MigrationCost(value))).orElseGet(List::of);
     return new Report(
         cost,
         planAndCost.map(x -> x.getValue().getKey().value()).orElse(cost),
@@ -176,27 +165,30 @@ class BalancerHandler implements Handler {
     }
   }
 
-  static class MigrateInfo {
+  static class BrokerCost {
     int brokerId;
     long cost;
 
-    MigrateInfo(int brokerId, long cost) {
+    BrokerCost(int brokerId, long cost) {
       this.brokerId = brokerId;
       this.cost = cost;
     }
   }
 
-  static class Migration {
+  static class MigrationCost {
     final String function;
     final long totalCost;
-    final List<MigrateInfo> cost;
+    final List<BrokerCost> cost;
     final String unit;
 
-    Migration(String function, long totalCost, List<MigrateInfo> cost, String unit) {
-      this.function = function;
-      this.totalCost = totalCost;
-      this.cost = cost;
-      this.unit = unit;
+    MigrationCost(MoveCost moveCost) {
+      this.function = moveCost.name();
+      this.totalCost = moveCost.totalCost();
+      this.cost =
+          moveCost.changes().entrySet().stream()
+              .map(x -> new BrokerCost(x.getKey(), x.getValue()))
+              .collect(Collectors.toList());
+      this.unit = moveCost.unit();
     }
   }
 
@@ -206,7 +198,7 @@ class BalancerHandler implements Handler {
     final int limit;
     final String function;
     final List<Change> changes;
-    final List<Migration> migrations;
+    final List<MigrationCost> migrationCosts;
 
     Report(
         double cost,
@@ -214,13 +206,13 @@ class BalancerHandler implements Handler {
         int limit,
         String function,
         List<Change> changes,
-        List<Migration> migrations) {
+        List<MigrationCost> migrationCosts) {
       this.cost = cost;
       this.newCost = newCost;
       this.limit = limit;
       this.function = function;
       this.changes = changes;
-      this.migrations = migrations;
+      this.migrationCosts = migrationCosts;
     }
   }
 }
