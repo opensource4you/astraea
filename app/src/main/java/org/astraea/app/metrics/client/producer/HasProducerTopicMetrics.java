@@ -21,11 +21,11 @@ import org.astraea.app.metrics.HasBeanObject;
 public interface HasProducerTopicMetrics extends HasBeanObject {
 
   default String topic() {
-    return (String) beanObject().attributes().get("topic");
+    return (String) beanObject().properties().get("topic");
   }
 
   default String clientId() {
-    return (String) beanObject().attributes().get("client-id");
+    return (String) beanObject().properties().get("client-id");
   }
 
   default double byteRate() {
