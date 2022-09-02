@@ -87,43 +87,43 @@ class EnumInfoTest {
     public Stream<? extends Arguments> provideArguments(ExtensionContext context) {
       return getProductionClass().stream().filter(Enum.class::isAssignableFrom).map(Arguments::of);
     }
+  }
 
-    @Test
-    void testProductionClass() {
-      var productionClasses = getProductionClass();
-      Assertions.assertTrue(productionClasses.size() > 100);
-      productionClasses.forEach(
-          x -> Assertions.assertTrue(x.getPackageName().startsWith("org.astraea.app")));
-    }
+  @Test
+  void testProductionClass() {
+    var productionClasses = getProductionClass();
+    Assertions.assertTrue(productionClasses.size() > 100);
+    productionClasses.forEach(
+        x -> Assertions.assertTrue(x.getPackageName().startsWith("org.astraea.app")));
+  }
 
-    private List<Class<?>> getProductionClass() {
-      var pkg = "org/astraea/app";
-      var mainDir =
-          Collections.list(
-                  Utils.packException(() -> EnumInfoTest.class.getClassLoader().getResources(pkg)))
-              .stream()
-              .filter(x -> x.toExternalForm().contains("main/" + pkg))
-              .findFirst()
-              .map(x -> Utils.packException(() -> Path.of(x.toURI())))
-              .map(x -> x.resolve("../../../").normalize())
-              .orElseThrow();
+  private static List<Class<?>> getProductionClass() {
+    var pkg = "org/astraea/app";
+    var mainDir =
+        Collections.list(
+                Utils.packException(() -> EnumInfoTest.class.getClassLoader().getResources(pkg)))
+            .stream()
+            .filter(x -> x.toExternalForm().contains("main/" + pkg))
+            .findFirst()
+            .map(x -> Utils.packException(() -> Path.of(x.toURI())))
+            .map(x -> x.resolve("../../../").normalize())
+            .orElseThrow();
 
-      var dirFiles =
-          FileUtils.listFiles(mainDir.toFile(), new String[] {"class"}, true).stream()
-              .map(File::toPath)
-              .map(mainDir::relativize)
-              .collect(Collectors.toList());
+    var dirFiles =
+        FileUtils.listFiles(mainDir.toFile(), new String[] {"class"}, true).stream()
+            .map(File::toPath)
+            .map(mainDir::relativize)
+            .collect(Collectors.toList());
 
-      var classNames =
-          dirFiles.stream()
-              .map(Path::toString)
-              .map(FilenameUtils::removeExtension)
-              .map(x -> x.replace(File.separatorChar, '.'))
-              .collect(Collectors.toList());
+    var classNames =
+        dirFiles.stream()
+            .map(Path::toString)
+            .map(FilenameUtils::removeExtension)
+            .map(x -> x.replace(File.separatorChar, '.'))
+            .collect(Collectors.toList());
 
-      return classNames.stream()
-          .map(x -> Utils.packException(() -> Class.forName(x)))
-          .collect(Collectors.toList());
-    }
+    return classNames.stream()
+        .map(x -> Utils.packException(() -> Class.forName(x)))
+        .collect(Collectors.toList());
   }
 }
