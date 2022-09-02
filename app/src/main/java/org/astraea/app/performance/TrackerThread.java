@@ -27,8 +27,10 @@ import java.util.function.Supplier;
 import java.util.function.ToDoubleFunction;
 import org.astraea.app.common.DataSize;
 import org.astraea.app.common.Utils;
+import org.astraea.app.metrics.HasBeanObject;
 import org.astraea.app.metrics.MBeanClient;
 import org.astraea.app.metrics.client.HasNodeMetrics;
+import org.astraea.app.metrics.client.producer.HasProducerTopicMetrics;
 import org.astraea.app.metrics.client.producer.ProducerMetrics;
 
 /** Print out the given metrics. */
@@ -57,10 +59,13 @@ public interface TrackerThread extends AbstractThread {
           System.out.printf(
               "  current traffic: %s/second%n",
               DataSize.Byte.of(
-                  ((Double)
-                          sumOfAttribute(
-                              ProducerMetrics.nodes(mBeanClient), HasNodeMetrics::outgoingByteRate))
-                      .longValue()));
+                  (long)
+                      sumOfAttribute(
+                          ProducerMetrics.nodes(mBeanClient), HasNodeMetrics::outgoingByteRate)));
+          System.out.printf(
+              "  error: %.1f records/second%n",
+              sumOfAttribute(
+                  ProducerMetrics.topics(mBeanClient), HasProducerTopicMetrics::recordErrorRate));
           producerReports.stream()
               .mapToLong(Report::max)
               .max()
@@ -104,10 +109,9 @@ public interface TrackerThread extends AbstractThread {
           System.out.printf(
               "  current traffic: %s/second%n",
               DataSize.Byte.of(
-                  ((Double)
-                          sumOfAttribute(
-                              ProducerMetrics.nodes(mBeanClient), HasNodeMetrics::incomingByteRate))
-                      .longValue()));
+                  (long)
+                      sumOfAttribute(
+                          ProducerMetrics.nodes(mBeanClient), HasNodeMetrics::incomingByteRate)));
           consumerReports.stream()
               .mapToLong(Report::max)
               .max()
@@ -199,8 +203,8 @@ public interface TrackerThread extends AbstractThread {
    * @param mbeans mBeans fetched by the receivers
    * @return sum of the latest given attribute of all beans which is instance of HasNodeMetrics.
    */
-  static double sumOfAttribute(
-      Collection<HasNodeMetrics> mbeans, ToDoubleFunction<HasNodeMetrics> targetAttribute) {
+  static <T extends HasBeanObject> double sumOfAttribute(
+      Collection<T> mbeans, ToDoubleFunction<T> targetAttribute) {
     return mbeans.stream().mapToDouble(targetAttribute).filter(d -> !Double.isNaN(d)).sum();
   }
 

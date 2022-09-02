@@ -92,5 +92,25 @@ public final class ProducerMetrics {
         .collect(Collectors.toUnmodifiableMap(b -> b.properties().get("client-id"), b -> () -> b));
   }
 
+  /**
+   * topic metrics traced by producer
+   *
+   * @param mBeanClient to query beans
+   * @return key is client id used by producer, and value is topic metrics traced by each producer
+   */
+  public static Collection<HasProducerTopicMetrics> topics(MBeanClient mBeanClient) {
+    return mBeanClient
+        .queryBeans(
+            BeanQuery.builder()
+                .domainName("kafka.producer")
+                .property("type", "producer-topic-metrics")
+                .property("client-id", "*")
+                .property("topic", "*")
+                .build())
+        .stream()
+        .map(b -> (HasProducerTopicMetrics) () -> b)
+        .collect(Collectors.toUnmodifiableList());
+  }
+
   private ProducerMetrics() {}
 }
