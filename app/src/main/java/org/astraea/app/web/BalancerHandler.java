@@ -163,11 +163,11 @@ class BalancerHandler implements Handler {
   }
 
   static class MigrateInfo {
-    int broker;
+    int brokerId;
     long cost;
 
-    MigrateInfo(int broker, long cost) {
-      this.broker = broker;
+    MigrateInfo(int brokerId, long cost) {
+      this.brokerId = brokerId;
       this.cost = cost;
     }
   }
