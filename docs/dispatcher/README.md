@@ -1,6 +1,6 @@
 Astraea Dispatcher 中文文件
 ===
-使用Astraea Dispatcher替换掉Kafka Partitioner module，將發送的每筆資料按照節點負載狀況進行合理分配，達到發送端的負載平衡。
+Astraea Dispatcher 是強大且高效率的 Kafka Partitioner 實作，提供豐富且彈性的叢集負載選項，從寫入端動態維持使用者定義後的負載平衡.
 
 ### 通過gradle引入Astraea
 在build.gradle中添加以下內容
@@ -20,5 +20,5 @@ repositories {
 }
 ```
 
-### Astraea Dispatcher實做
-1. [Smooth Dispatcher](smooth_dispatcher.md):  通過多metrics評估節點狀況，進行Producer端發送資料的調配。
+### Astraea Dispatcher實作
+1. [Smooth Dispatcher](smooth_dispatcher.md):  通過收集多metrics數據，結合熵權法與AHP進行節點狀況評估。再根據評估結果，使用smooth weight round-robin進行資料的調配。

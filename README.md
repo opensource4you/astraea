@@ -21,4 +21,4 @@
 4. [快速啟動 Prometheus ](./docs/run_prometheus.md):  建構`Kafka`叢集資訊收集系統
 5. [快速啟動 Grafana ](./docs/run_grafana.md): 建置圖形化介面監控`kafka`叢集使用狀況
 6. [Web Server](./docs/web_server/README.md): 可透過`Restful APIs`操作`Kafka`叢集 
-7. [Dispatcher](docs/dispatcher/README.md): 可透過替換`Kafka Partitioner`實現輸出端負載平衡
+7. [Dispatcher](docs/dispatcher/README.md): 強大且高效率的 Kafka partitioner 實作
