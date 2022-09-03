@@ -16,10 +16,13 @@
  */
 package org.astraea.app.cost;
 
+import java.util.Collection;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 import org.astraea.app.admin.ClusterBean;
 import org.astraea.app.admin.ClusterInfo;
@@ -30,7 +33,7 @@ import org.astraea.app.metrics.broker.ServerMetrics;
 import org.astraea.app.metrics.collector.Fetcher;
 
 /** more replica leaders -> higher cost */
-public class ReplicaLeaderCost implements HasBrokerCost, HasClusterCost {
+public class ReplicaLeaderCost implements HasBrokerCost, HasClusterCost, HasMoveCost {
   private final Dispersion dispersion = Dispersion.correlationCoefficient();
 
   @Override
@@ -82,5 +85,69 @@ public class ReplicaLeaderCost implements HasBrokerCost, HasClusterCost {
   @Override
   public Optional<Fetcher> fetcher() {
     return Optional.of(c -> List.of(ServerMetrics.ReplicaManager.LEADER_COUNT.fetch(c)));
+  }
+
+  @Override
+  public MoveCost moveCost(
+      ClusterInfo<Replica> before, ClusterInfo<Replica> after, ClusterBean clusterBean) {
+    var removedReplicas = ClusterInfo.diff(before, after);
+    var addedReplicas = ClusterInfo.diff(after, before);
+    var migrateInfo = migrateInfo(removedReplicas, addedReplicas);
+    var leaderNumChanges = migrateInfo.replicaNumChange;
+    var totalLeaderNum = migrateInfo.totalMigrateNum;
+    return new MoveCost() {
+      @Override
+      public String name() {
+        return "replica number";
+      }
+
+      @Override
+      public long totalCost() {
+        return totalLeaderNum;
+      }
+
+      @Override
+      public String unit() {
+        return "byte";
+      }
+
+      @Override
+      public Map<Integer, Long> changes() {
+        return leaderNumChanges;
+      }
+    };
+  }
+
+  static class MigrateInfo {
+    long totalMigrateNum;
+    Map<Integer, Long> replicaNumChange;
+
+    MigrateInfo(long totalMigrateNum, Map<Integer, Long> replicaNumChange) {
+      this.totalMigrateNum = totalMigrateNum;
+      this.replicaNumChange = replicaNumChange;
+    }
+  }
+
+  static MigrateInfo migrateInfo(
+      Collection<Replica> removedReplicas, Collection<Replica> addedReplicas) {
+    var changes = new HashMap<Integer, Long>();
+    AtomicLong totalMigrateNum = new AtomicLong(0L);
+    removedReplicas.forEach(
+        replica -> {
+          if (replica.isLeader())
+            changes.compute(
+                replica.nodeInfo().id(), (ignore, size) -> (size == null) ? -1 : size - 1);
+        });
+    addedReplicas.forEach(
+        replica -> {
+          if (replica.isLeader())
+            changes.compute(
+                replica.nodeInfo().id(),
+                (ignore, size) -> {
+                  totalMigrateNum.set(totalMigrateNum.get() + 1);
+                  return (size == null) ? 1 : size + 1;
+                });
+        });
+    return new MigrateInfo(totalMigrateNum.get(), changes);
   }
 }

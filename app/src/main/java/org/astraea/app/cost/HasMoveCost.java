@@ -24,13 +24,11 @@ public interface HasMoveCost extends CostFunction {
   /**
    * score migrate cost from originClusterInfo to newClusterInfo .
    *
-   * @param originClusterInfo the clusterInfo before migrate
-   * @param newClusterInfo the mocked clusterInfo generate from balancer
+   * @param before the clusterInfo before migrate
+   * @param after the mocked clusterInfo generate from balancer
    * @param clusterBean cluster metrics
    * @return the score of migrate cost
    */
   MoveCost moveCost(
-      ClusterInfo<Replica> originClusterInfo,
-      ClusterInfo<Replica> newClusterInfo,
-      ClusterBean clusterBean);
+      ClusterInfo<Replica> before, ClusterInfo<Replica> after, ClusterBean clusterBean);
 }
