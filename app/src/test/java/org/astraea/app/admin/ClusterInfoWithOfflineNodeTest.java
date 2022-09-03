@@ -46,7 +46,7 @@ public class ClusterInfoWithOfflineNodeTest extends RequireBrokerCluster {
           before.replicas(topicName).stream().filter(x -> !x.isOffline()).count());
       Assertions.assertEquals(
           partitionCount * replicaCount, before.availableReplicas(topicName).size());
-      Assertions.assertEquals(partitionCount, before.availableReplicaLeaders(topicName).size());
+      Assertions.assertEquals(partitionCount, before.replicaLeaders(topicName).size());
 
       // act
       int brokerToClose = ThreadLocalRandom.current().nextInt(0, 3);
@@ -62,13 +62,13 @@ public class ClusterInfoWithOfflineNodeTest extends RequireBrokerCluster {
           partitionCount * (replicaCount - 1), after.availableReplicas(topicName).size());
       Assertions.assertEquals(
           partitionCount,
-          after.availableReplicaLeaders(topicName).size(),
+          after.replicaLeaders(topicName).size(),
           "One of the rest replicas should take over the leadership");
       Assertions.assertTrue(
           after.availableReplicas(topicName).stream()
               .allMatch(x -> x.nodeInfo().id() != brokerToClose));
       Assertions.assertTrue(
-          after.availableReplicaLeaders(topicName).stream()
+          after.replicaLeaders(topicName).stream()
               .allMatch(x -> x.nodeInfo().id() != brokerToClose));
       Assertions.assertTrue(
           after.replicas(topicName).stream()

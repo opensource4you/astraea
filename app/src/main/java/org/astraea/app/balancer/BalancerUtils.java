@@ -26,6 +26,7 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 import org.astraea.app.admin.ClusterBean;
 import org.astraea.app.admin.ClusterInfo;
 import org.astraea.app.admin.NodeInfo;
@@ -136,8 +137,8 @@ public class BalancerUtils {
       }
 
       @Override
-      public List<Replica> replicas() {
-        return replicas;
+      public Stream<Replica> replicaStream() {
+        return replicas.stream();
       }
     };
   }

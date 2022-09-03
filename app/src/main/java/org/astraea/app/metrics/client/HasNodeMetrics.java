@@ -16,26 +16,16 @@
  */
 package org.astraea.app.metrics.client;
 
-import org.astraea.app.metrics.BeanObject;
+import java.util.function.Function;
 import org.astraea.app.metrics.HasBeanObject;
 
 public interface HasNodeMetrics extends HasBeanObject {
+  Function<String, Integer> BROKER_ID_FETCHER =
+      node -> Integer.parseInt(node.substring(node.indexOf("-") + 1));
 
-  static HasNodeMetrics of(BeanObject beanObject, int brokerId) {
-    return new HasNodeMetrics() {
-      @Override
-      public int brokerId() {
-        return brokerId;
-      }
-
-      @Override
-      public BeanObject beanObject() {
-        return beanObject;
-      }
-    };
+  default int brokerId() {
+    return BROKER_ID_FETCHER.apply(beanObject().properties().get("node-id"));
   }
-
-  int brokerId();
 
   default double incomingByteRate() {
     return (double) beanObject().attributes().get("incoming-byte-rate");

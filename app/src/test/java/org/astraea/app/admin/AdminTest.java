@@ -27,6 +27,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -727,14 +728,30 @@ public class AdminTest extends RequireBrokerCluster {
       Assertions.assertEquals(
           partitionCount * replicaCount, clusterInfo.availableReplicas(topic2).size());
       // ClusterInfo#availableReplicaLeaders
-      Assertions.assertEquals(partitionCount, clusterInfo.availableReplicaLeaders(topic0).size());
-      Assertions.assertEquals(partitionCount, clusterInfo.availableReplicaLeaders(topic1).size());
-      Assertions.assertEquals(partitionCount, clusterInfo.availableReplicaLeaders(topic2).size());
+      Assertions.assertEquals(partitionCount, clusterInfo.replicaLeaders(topic0).size());
+      Assertions.assertEquals(partitionCount, clusterInfo.replicaLeaders(topic1).size());
+      Assertions.assertEquals(partitionCount, clusterInfo.replicaLeaders(topic2).size());
       // No resource match found will raise exception
       Assertions.assertEquals(List.of(), clusterInfo.replicas("Unknown Topic"));
       Assertions.assertEquals(List.of(), clusterInfo.availableReplicas("Unknown Topic"));
-      Assertions.assertEquals(List.of(), clusterInfo.availableReplicaLeaders("Unknown Topic"));
+      Assertions.assertEquals(List.of(), clusterInfo.replicaLeaders("Unknown Topic"));
       Assertions.assertThrows(NoSuchElementException.class, () -> clusterInfo.node(-1));
+
+      admin
+          .partitions(Set.of(topic0, topic1, topic2))
+          .forEach(
+              p ->
+                  Assertions.assertNotEquals(
+                      Optional.empty(), clusterInfo.replicaLeader(p), "partition: " + p));
+      Set.of(topic0, topic1, topic2)
+          .forEach(
+              t ->
+                  brokerIds()
+                      .forEach(
+                          id -> Assertions.assertNotEquals(0, clusterInfo.replicas(id, t).size())));
+      admin
+          .partitions(Set.of(topic0, topic1, topic2))
+          .forEach(p -> Assertions.assertNotEquals(0, clusterInfo.replicas(p).size()));
     }
   }
 

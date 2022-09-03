@@ -20,7 +20,6 @@ import java.time.Duration;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.astraea.app.admin.Admin;
-import org.astraea.app.admin.TopicPartition;
 import org.astraea.app.common.Utils;
 import org.astraea.app.consumer.Consumer;
 import org.astraea.app.metrics.MBeanClient;
@@ -30,23 +29,6 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 public class ConsumerMetricsTest extends RequireBrokerCluster {
-  @Test
-  void testSingleBroker() {
-    var topic = Utils.randomString(10);
-    try (var admin = Admin.of(bootstrapServers());
-        var consumer =
-            Consumer.forTopics(Set.of(topic)).bootstrapServers(bootstrapServers()).build()) {
-      admin.creator().topic(topic).numberOfPartitions(1).create();
-      Utils.sleep(Duration.ofSeconds(3));
-      var owner =
-          admin.replicas(Set.of(topic)).get(TopicPartition.of(topic, 0)).get(0).nodeInfo().id();
-      consumer.poll(Duration.ofSeconds(5));
-      var metrics = ConsumerMetrics.node(MBeanClient.local(), owner);
-      Assertions.assertEquals(1, metrics.size());
-      check(metrics.values().stream().findAny().get());
-    }
-  }
-
   @Test
   void testMultiBrokers() {
     var topic = Utils.randomString(10);
