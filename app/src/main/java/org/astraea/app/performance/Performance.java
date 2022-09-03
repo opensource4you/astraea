@@ -347,20 +347,26 @@ public class Performance {
         description =
             "String: The broker IDs to send to if the topic has partition on that broker.",
         validateWith = PositiveIntegerListField.class)
-    List<Integer> specifyBroker = List.of();
+    List<Integer> specifyBrokers = List.of();
 
     Function<String, Integer> partitionSelector() {
-      if (specifyBroker.isEmpty()) return ignore -> -1;
+      if (specifyBrokers.isEmpty()) return ignore -> -1;
       try (var admin = Admin.of(configs())) {
         var topicPartitions =
             admin.replicas(new HashSet<>(topics)).values().stream()
                 .flatMap(Collection::stream)
                 .filter(ReplicaInfo::isLeader)
-                .filter(replica -> specifyBroker.contains(replica.nodeInfo().id()))
+                .filter(replica -> specifyBrokers.contains(replica.nodeInfo().id()))
                 .collect(
                     Collectors.groupingBy(
                         Replica::topic,
                         Collectors.mapping(Replica::partition, Collectors.toUnmodifiableList())));
+        topicPartitions.forEach(
+            (topic, partitions) -> {
+              if (partitions.isEmpty())
+                throw new RuntimeException(
+                    "No partition in specified brokers for topic \"" + topic + "\"");
+            });
         return topic ->
             topicPartitions
                 .get(topic)

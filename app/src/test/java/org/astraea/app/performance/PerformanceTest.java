@@ -242,7 +242,7 @@ public class PerformanceTest extends RequireBrokerCluster {
                 bootstrapServers(),
                 "--topics",
                 topicName + "," + topicName2,
-                "--specify.broker",
+                "--specify.brokers",
                 "1"
               });
 
@@ -267,6 +267,26 @@ public class PerformanceTest extends RequireBrokerCluster {
                   new String[] {"--bootstrap.servers", bootstrapServers(), "--topics", topicName})
               .partitionSelector()
               .apply(topicName));
+
+      // Test no partition in specified broker
+      var topicName3 = Utils.randomString(10);
+      admin.creator().topic(topicName3).numberOfPartitions(1).create();
+      Utils.sleep(Duration.ofSeconds(2));
+      var validBroker = admin.replicas().values().stream().findAny().get().get(0).nodeInfo().id();
+      var noPartitionBroker = (validBroker == 3) ? 1 : validBroker + 1;
+      args =
+          Argument.parse(
+              new Performance.Argument(),
+              new String[] {
+                "--bootstrap.servers",
+                bootstrapServers(),
+                "--topics",
+                topicName3,
+                "--specify.brokers",
+                Integer.toString(noPartitionBroker)
+              });
+      var partitionSelector3 = args.partitionSelector();
+      Assertions.assertThrows(RuntimeException.class, () -> partitionSelector3.apply(topicName3));
     }
   }
 
