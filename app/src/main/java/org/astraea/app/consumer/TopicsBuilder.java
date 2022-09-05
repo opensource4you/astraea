@@ -124,6 +124,12 @@ public class TopicsBuilder<Key, Value> extends Builder<Key, Value> {
     return config(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "false");
   }
 
+  @Override
+  public TopicsBuilder<Key, Value> clientId(String clientId) {
+    super.clientId(clientId);
+    return this;
+  }
+
   @SuppressWarnings("unchecked")
   @Override
   public SubscribedConsumer<Key, Value> build() {

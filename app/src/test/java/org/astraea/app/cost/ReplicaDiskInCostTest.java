@@ -19,11 +19,10 @@ package org.astraea.app.cost;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import org.astraea.app.admin.ClusterBean;
 import org.astraea.app.admin.ClusterInfo;
 import org.astraea.app.admin.NodeInfo;
-import org.astraea.app.admin.ReplicaInfo;
+import org.astraea.app.admin.Replica;
 import org.astraea.app.metrics.BeanObject;
 import org.astraea.app.metrics.HasBeanObject;
 import org.astraea.app.metrics.broker.HasGauge;
@@ -32,7 +31,6 @@ import org.astraea.app.partitioner.Configuration;
 import org.astraea.app.service.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mockito;
 
 class ReplicaDiskInCostTest extends RequireBrokerCluster {
   private static final HasGauge OLD_TP1_0 =
@@ -79,25 +77,82 @@ class ReplicaDiskInCostTest extends RequireBrokerCluster {
     Assertions.assertEquals(0.20721255412897746, brokerLoad);
   }
 
-  private ClusterInfo clusterInfo() {
-    ClusterInfo clusterInfo = Mockito.mock(ClusterInfo.class);
-    Mockito.when(clusterInfo.nodes())
-        .thenReturn(
-            List.of(NodeInfo.of(1, "", -1), NodeInfo.of(2, "", -1), NodeInfo.of(3, "", -1)));
-    Mockito.when(clusterInfo.topics()).thenReturn(Set.of("test-1", "test-2"));
-    Mockito.when(clusterInfo.replicas(Mockito.anyString()))
-        .thenAnswer(
-            topic ->
-                topic.getArgument(0).equals("test-1")
-                    ? List.of(
-                        ReplicaInfo.of("test-1", 0, NodeInfo.of(1, "", -1), true, true, false),
-                        ReplicaInfo.of("test-1", 0, NodeInfo.of(2, "", -1), false, true, false),
-                        ReplicaInfo.of("test-1", 1, NodeInfo.of(2, "", -1), false, true, false),
-                        ReplicaInfo.of("test-1", 1, NodeInfo.of(3, "", -1), true, true, false))
-                    : List.of(
-                        ReplicaInfo.of("test-2", 0, NodeInfo.of(1, "", -1), false, true, false),
-                        ReplicaInfo.of("test-2", 0, NodeInfo.of(3, "", -1), true, true, false)));
-    return clusterInfo;
+  private ClusterInfo<Replica> clusterInfo() {
+    return ClusterInfo.of(
+        List.of(NodeInfo.of(1, "", -1), NodeInfo.of(2, "", -1), NodeInfo.of(3, "", -1)),
+        List.of(
+            Replica.of(
+                "test-1",
+                0,
+                NodeInfo.of(1, "", -1),
+                0,
+                100,
+                true,
+                true,
+                false,
+                false,
+                true,
+                "/tmp/aa"),
+            Replica.of(
+                "test-1",
+                0,
+                NodeInfo.of(2, "", -1),
+                0,
+                100,
+                false,
+                true,
+                false,
+                false,
+                false,
+                "/tmp/aa"),
+            Replica.of(
+                "test-1",
+                1,
+                NodeInfo.of(2, "", -1),
+                0,
+                100,
+                false,
+                true,
+                false,
+                false,
+                false,
+                "/tmp/aa"),
+            Replica.of(
+                "test-1",
+                1,
+                NodeInfo.of(3, "", -1),
+                0,
+                100,
+                true,
+                true,
+                false,
+                false,
+                true,
+                "/tmp/aa"),
+            Replica.of(
+                "test-2",
+                0,
+                NodeInfo.of(1, "", -1),
+                0,
+                100,
+                false,
+                true,
+                false,
+                false,
+                false,
+                "/tmp/aa"),
+            Replica.of(
+                "test-2",
+                0,
+                NodeInfo.of(3, "", -1),
+                0,
+                100,
+                true,
+                true,
+                false,
+                false,
+                true,
+                "/tmp/aa")));
   }
 
   private static ClusterBean clusterBean() {

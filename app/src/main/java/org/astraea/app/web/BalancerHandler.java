@@ -27,6 +27,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.astraea.app.admin.Admin;
 import org.astraea.app.admin.ClusterBean;
+import org.astraea.app.admin.ClusterInfo;
 import org.astraea.app.admin.Replica;
 import org.astraea.app.admin.TopicPartitionReplica;
 import org.astraea.app.balancer.BalancerUtils;
@@ -34,8 +35,11 @@ import org.astraea.app.balancer.RebalancePlanProposal;
 import org.astraea.app.balancer.generator.RebalancePlanGenerator;
 import org.astraea.app.balancer.log.ClusterLogAllocation;
 import org.astraea.app.balancer.log.LogPlacement;
+import org.astraea.app.cost.ClusterCost;
 import org.astraea.app.cost.HasClusterCost;
-import org.astraea.app.cost.NodeTopicSizeCost;
+import org.astraea.app.cost.HasMoveCost;
+import org.astraea.app.cost.MoveCost;
+import org.astraea.app.cost.ReplicaSizeCost;
 
 class BalancerHandler implements Handler {
 
@@ -47,14 +51,34 @@ class BalancerHandler implements Handler {
   private final Admin admin;
   private final RebalancePlanGenerator generator = RebalancePlanGenerator.random(30);
   final HasClusterCost costFunction;
+  final HasMoveCost moveCostFunction;
 
   BalancerHandler(Admin admin) {
-    this(admin, new NodeTopicSizeCost());
+    this(admin, new ReplicaSizeCost(), new ReplicaSizeCost());
   }
 
-  BalancerHandler(Admin admin, HasClusterCost costFunction) {
+  BalancerHandler(Admin admin, HasClusterCost costFunction, HasMoveCost moveCostFunction) {
     this.admin = admin;
     this.costFunction = costFunction;
+    this.moveCostFunction = moveCostFunction;
+  }
+
+  Map<ClusterLogAllocation, Map.Entry<ClusterCost, MoveCost>> planCosts(
+      ClusterInfo<Replica> clusterInfo, int limit, ClusterLogAllocation targetAllocations) {
+    return generator
+        .generate(admin.brokerFolders(), targetAllocations)
+        .limit(limit)
+        .collect(
+            Collectors.toMap(
+                RebalancePlanProposal::rebalancePlan,
+                rebalancePlanProposal ->
+                    Map.entry(
+                        costFunction.clusterCost(clusterInfo, ClusterBean.EMPTY),
+                        moveCostFunction.moveCost(
+                            clusterInfo,
+                            BalancerUtils.update(
+                                clusterInfo, rebalancePlanProposal.rebalancePlan()),
+                            ClusterBean.EMPTY))));
   }
 
   @Override
@@ -67,26 +91,19 @@ class BalancerHandler implements Handler {
     var cost = costFunction.clusterCost(clusterInfo, ClusterBean.EMPTY).value();
     var limit =
         Integer.parseInt(channel.queries().getOrDefault(LIMIT_KEY, String.valueOf(LIMIT_DEFAULT)));
-    // generate migration plans only for specify topics
     var targetAllocations = ClusterLogAllocation.of(admin.clusterInfo(topics));
     var planAndCost =
-        generator
-            .generate(admin.brokerFolders(), targetAllocations)
-            .limit(limit)
-            .map(RebalancePlanProposal::rebalancePlan)
-            .map(
-                cla ->
-                    Map.entry(
-                        cla,
-                        costFunction
-                            .clusterCost(BalancerUtils.update(clusterInfo, cla), ClusterBean.EMPTY)
-                            .value()))
-            .filter(e -> e.getValue() <= cost)
-            .min(Comparator.comparingDouble(Map.Entry::getValue));
-
+        planCosts(clusterInfo, limit, targetAllocations).entrySet().stream()
+            .filter(e -> e.getValue().getKey().value() <= cost)
+            .min(Comparator.comparingDouble(x -> x.getValue().getKey().value()));
+    var migrationCosts =
+        planAndCost
+            .map(x -> x.getValue().getValue())
+            .map(value -> List.of(new MigrationCost(value)))
+            .orElseGet(List::of);
     return new Report(
         cost,
-        planAndCost.map(Map.Entry::getValue).orElse(cost),
+        planAndCost.map(x -> x.getValue().getKey().value()).orElse(cost),
         limit,
         costFunction.getClass().getSimpleName(),
         planAndCost
@@ -108,11 +125,12 @@ class BalancerHandler implements Handler {
                                                 .replica(
                                                     TopicPartitionReplica.of(
                                                         tp.topic(), tp.partition(), l.broker()))
-                                                .map(r -> ((Replica) r).size())
+                                                .map(Replica::size)
                                                 .orElse(null)),
                                     placements(entry.getKey().logPlacements(tp), ignored -> null)))
                         .collect(Collectors.toUnmodifiableList()))
-            .orElse(List.of()));
+            .orElse(List.of()),
+        migrationCosts);
   }
 
   static List<Placement> placements(List<LogPlacement> lps, Function<LogPlacement, Long> size) {
@@ -149,21 +167,54 @@ class BalancerHandler implements Handler {
     }
   }
 
+  static class BrokerCost {
+    int brokerId;
+    long cost;
+
+    BrokerCost(int brokerId, long cost) {
+      this.brokerId = brokerId;
+      this.cost = cost;
+    }
+  }
+
+  static class MigrationCost {
+    final String function;
+    final long totalCost;
+    final List<BrokerCost> cost;
+    final String unit;
+
+    MigrationCost(MoveCost moveCost) {
+      this.function = moveCost.name();
+      this.totalCost = moveCost.totalCost();
+      this.cost =
+          moveCost.changes().entrySet().stream()
+              .map(x -> new BrokerCost(x.getKey(), x.getValue()))
+              .collect(Collectors.toList());
+      this.unit = moveCost.unit();
+    }
+  }
+
   static class Report implements Response {
     final double cost;
     final double newCost;
-
     final int limit;
-
     final String function;
     final List<Change> changes;
+    final List<MigrationCost> migrationCosts;
 
-    Report(double cost, double newCost, int limit, String function, List<Change> changes) {
+    Report(
+        double cost,
+        double newCost,
+        int limit,
+        String function,
+        List<Change> changes,
+        List<MigrationCost> migrationCosts) {
       this.cost = cost;
       this.newCost = newCost;
       this.limit = limit;
       this.function = function;
       this.changes = changes;
+      this.migrationCosts = migrationCosts;
     }
   }
 }

@@ -36,7 +36,7 @@ public class BrokerOutputCostTest extends RequireBrokerCluster {
     var scores =
         brokerOutputCost
             .brokerCost(
-                ClusterInfo.EMPTY,
+                ClusterInfo.empty(),
                 ClusterBean.of(
                     Map.of(
                         1,

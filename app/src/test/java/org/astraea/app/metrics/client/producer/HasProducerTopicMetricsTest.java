@@ -27,13 +27,14 @@ import org.junit.jupiter.api.Test;
 public class HasProducerTopicMetricsTest extends RequireSingleBrokerCluster {
 
   @Test
-  void testAttributes() throws ExecutionException, InterruptedException {
+  void testClientId() throws ExecutionException, InterruptedException {
     var topic = Utils.randomString(10);
     try (var producer = Producer.of(bootstrapServers())) {
       producer.sender().topic(topic).run().toCompletableFuture().get();
-      var metrics = ProducerMetrics.topic(MBeanClient.local(), topic);
-      Assertions.assertEquals(1, metrics.size());
-      var producerTopicMetrics = metrics.get("producer-1");
+      var metrics = ProducerMetrics.topics(MBeanClient.local());
+      Assertions.assertNotEquals(0, metrics.stream().filter(m -> m.topic().equals(topic)).count());
+      var producerTopicMetrics =
+          metrics.stream().filter(m -> m.clientId().equals("producer-1")).findFirst().get();
       Assertions.assertNotEquals(0D, producerTopicMetrics.byteRate());
       Assertions.assertNotEquals(0D, producerTopicMetrics.byteTotal());
       Assertions.assertEquals(1D, producerTopicMetrics.compressionRate());

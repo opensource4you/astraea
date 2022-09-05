@@ -80,6 +80,10 @@ public class Builder<Key, Value> {
     return config(ProducerConfig.COMPRESSION_TYPE_CONFIG, compression.nameOfKafka());
   }
 
+  public Builder<Key, Value> acks(Acks acks) {
+    return config(ProducerConfig.ACKS_CONFIG, acks.valueOfKafka());
+  }
+
   /**
    * set the transaction id. If you set the transaction id, the builder will always build
    * transactional producer.

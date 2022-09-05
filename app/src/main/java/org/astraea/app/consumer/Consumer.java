@@ -58,6 +58,9 @@ public interface Consumer<Key, Value> extends AutoCloseable {
   /** @return current partitions assigned to this consumer */
   Set<TopicPartition> assignments();
 
+  /** @return client id of this consumer */
+  String clientId();
+
   /**
    * Create a consumer builder by setting specific topics
    *

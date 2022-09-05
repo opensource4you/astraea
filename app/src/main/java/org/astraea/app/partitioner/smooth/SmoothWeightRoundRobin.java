@@ -24,6 +24,7 @@ import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import org.astraea.app.admin.ClusterInfo;
+import org.astraea.app.admin.ReplicaInfo;
 import org.astraea.app.cost.Periodic;
 
 /**
@@ -113,13 +114,13 @@ public final class SmoothWeightRoundRobin
    *
    * @return the preferred ID
    */
-  public synchronized int getAndChoose(String topic, ClusterInfo clusterInfo) {
+  public synchronized int getAndChoose(String topic, ClusterInfo<ReplicaInfo> clusterInfo) {
     // TODO Update brokerID with ClusterInfo frequency.
     var brokerID =
         brokersIDofTopic.computeIfAbsent(
             topic,
             e ->
-                clusterInfo.availableReplicaLeaders(topic).stream()
+                clusterInfo.replicaLeaders(topic).stream()
                     .map(replicaInfo -> replicaInfo.nodeInfo().id())
                     .collect(Collectors.toList()));
     this.currentWeight =

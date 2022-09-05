@@ -22,7 +22,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.IntStream;
 import org.astraea.app.admin.Admin;
-import org.astraea.app.admin.Replica;
 import org.astraea.app.admin.TopicPartition;
 import org.astraea.app.balancer.log.ClusterLogAllocation;
 import org.astraea.app.balancer.log.LogPlacement;
@@ -47,7 +46,7 @@ public class BalancerUtilsIntegratedTest extends RequireBrokerCluster {
       }
 
       var clusterInfo = admin.clusterInfo(Set.of(topicName));
-      clusterInfo.replicas().forEach(r -> Assertions.assertTrue(((Replica) r).size() > 0));
+      clusterInfo.replicas().forEach(r -> Assertions.assertTrue(r.size() > 0));
 
       var replica = clusterInfo.replicas().iterator().next();
       var newBrokerId =
@@ -60,11 +59,11 @@ public class BalancerUtilsIntegratedTest extends RequireBrokerCluster {
                   Map.of(
                       TopicPartition.of(topicName, 0),
                       // change the broker
-                      List.of(LogPlacement.of(newBrokerId, ((Replica) replica).dataFolder())))));
+                      List.of(LogPlacement.of(newBrokerId, replica.dataFolder())))));
 
       Assertions.assertEquals(clusterInfo.replicas().size(), merged.replicas().size());
       Assertions.assertEquals(clusterInfo.topics().size(), merged.topics().size());
-      merged.replicas().forEach(r -> Assertions.assertTrue(((Replica) r).size() > 0));
+      merged.replicas().forEach(r -> Assertions.assertTrue(r.size() > 0));
       Assertions.assertEquals(1, merged.replicas(topicName).size());
       Assertions.assertEquals(newBrokerId, merged.replicas(topicName).get(0).nodeInfo().id());
     }

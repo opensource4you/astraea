@@ -23,6 +23,7 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 import org.astraea.app.admin.ClusterBean;
 import org.astraea.app.admin.ClusterInfo;
+import org.astraea.app.admin.ReplicaInfo;
 import org.astraea.app.metrics.HasBeanObject;
 import org.astraea.app.metrics.collector.Fetcher;
 import org.astraea.app.metrics.platform.HostMetrics;
@@ -35,7 +36,8 @@ import org.astraea.app.metrics.platform.OperatingSystemInfo;
 public class CpuCost implements HasBrokerCost {
 
   @Override
-  public BrokerCost brokerCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
+  public BrokerCost brokerCost(
+      ClusterInfo<? extends ReplicaInfo> clusterInfo, ClusterBean clusterBean) {
     var cpuCosts =
         clusterBean.all().entrySet().stream()
             .collect(

@@ -43,7 +43,7 @@ public class CpuCostTest {
                 4,
                 List.of()));
     var cpuCost = new CpuCost();
-    var result = cpuCost.brokerCost(Mockito.mock(ClusterInfo.class), clusterBean);
+    var result = cpuCost.brokerCost(ClusterInfo.empty(), clusterBean);
     Assertions.assertEquals(0.5, result.value().get(1));
     Assertions.assertEquals(0.6, result.value().get(2));
     Assertions.assertEquals(0.7, result.value().get(3));

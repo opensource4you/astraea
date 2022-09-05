@@ -16,21 +16,63 @@
  */
 package org.astraea.app.admin;
 
+import com.beust.jcommander.ParameterException;
+import java.util.Arrays;
 import java.util.Locale;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 public enum Compression {
-  NONE,
-  GZIP,
-  SNAPPY,
-  LZ4,
-  ZSTD;
+  NONE("none"),
+  GZIP("gzip"),
+  SNAPPY("snappy"),
+  LZ4("lz4"),
+  ZSTD("zstd");
 
-  public static Compression of(String name) {
-    return Compression.valueOf(name.toUpperCase(Locale.ROOT));
+  private final String alias;
+
+  Compression(String alias) {
+    this.alias = alias;
+  }
+
+  public String alias() {
+    return alias;
+  }
+
+  @Override
+  public String toString() {
+    return alias();
+  }
+
+  public static Compression ofAlias(String alias) {
+    return Arrays.stream(Compression.values())
+        .filter(a -> a.alias().equalsIgnoreCase(alias))
+        .findFirst()
+        .orElseThrow(
+            () ->
+                new IllegalArgumentException(
+                    "the "
+                        + alias
+                        + " is unsupported. The supported algorithms are "
+                        + Stream.of(Compression.values())
+                            .map(Compression::alias)
+                            .collect(Collectors.joining(","))));
   }
 
   /** @return the name parsed by kafka */
   public String nameOfKafka() {
     return name().toLowerCase(Locale.ROOT);
+  }
+
+  public static class Field extends org.astraea.app.argument.Field<Compression> {
+    @Override
+    public Compression convert(String value) {
+      try {
+        // `CompressionType#forName` accept lower-case name only.
+        return Compression.ofAlias(value);
+      } catch (IllegalArgumentException e) {
+        throw new ParameterException(e);
+      }
+    }
   }
 }
