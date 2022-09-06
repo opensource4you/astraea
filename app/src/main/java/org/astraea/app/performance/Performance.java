@@ -349,6 +349,16 @@ public class Performance {
         validateWith = PositiveIntegerListField.class)
     List<Integer> specifyBrokers = List.of();
 
+    /**
+     * This method gives a function that maps a topic name to a partition. The mapped leader
+     * partition is in a broker that is in `specifyBrokers`. This map is created initially, that is,
+     * leader partition changes may make the map incorrect. To update your partitionSelector, call
+     * it again.
+     *
+     * @throws RuntimeException if one of the topic does not have any leader partition on
+     *     `specifyBrokers`, the exception is thrown
+     * @return select a partition from `topics` whose leader partition is in `specifyBrokers`
+     */
     Function<String, Integer> partitionSelector() {
       if (specifyBrokers.isEmpty()) return ignore -> -1;
       try (var admin = Admin.of(configs())) {
@@ -361,16 +371,17 @@ public class Performance {
                     Collectors.groupingBy(
                         Replica::topic,
                         Collectors.mapping(Replica::partition, Collectors.toUnmodifiableList())));
-        topicPartitions.forEach(
-            (topic, partitions) -> {
-              if (partitions.isEmpty())
-                throw new RuntimeException(
-                    "No partition in specified brokers for topic \"" + topic + "\"");
-            });
-        return topic ->
-            topicPartitions
-                .get(topic)
-                .get((int) (Math.random() * topicPartitions.get(topic).size()));
+        return topic -> {
+          var partitions = topicPartitions.getOrDefault(topic, List.of());
+          if (partitions.isEmpty())
+            throw new RuntimeException(
+                "No partition in specified brokers for \""
+                    + topic
+                    + "\" or \""
+                    + topic
+                    + "\" is not in the topic list in this argument.");
+          return partitions.get((int) (Math.random() * partitions.size()));
+        };
       }
     }
 
