@@ -101,9 +101,10 @@ public class ReplicaSizeCost implements HasMoveCost, HasBrokerCost, HasClusterCo
                             .filter(r -> r.nodeInfo().id() == nodeInfo.id())
                             .mapToLong(Replica::size)
                             .sum()));
-    return () ->
+    var value =
         dispersion.calculate(
             brokerCost.values().stream().map(v -> (double) v).collect(Collectors.toList()));
+    return () -> value;
   }
 
   static class MigrateInfo {

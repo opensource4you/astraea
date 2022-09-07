@@ -20,6 +20,7 @@ import org.astraea.app.admin.ClusterBean;
 import org.astraea.app.admin.ClusterInfo;
 import org.astraea.app.admin.Replica;
 
+@FunctionalInterface
 public interface HasMoveCost extends CostFunction {
   /**
    * score migrate cost from originClusterInfo to newClusterInfo .

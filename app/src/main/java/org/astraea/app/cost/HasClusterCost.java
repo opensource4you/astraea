@@ -20,6 +20,7 @@ import org.astraea.app.admin.ClusterBean;
 import org.astraea.app.admin.ClusterInfo;
 import org.astraea.app.admin.Replica;
 
+@FunctionalInterface
 public interface HasClusterCost extends CostFunction {
   /**
    * score cluster for a particular metrics according to passed beans and cluster information.
