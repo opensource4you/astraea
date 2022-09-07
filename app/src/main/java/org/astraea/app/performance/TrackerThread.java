@@ -175,6 +175,9 @@ public interface TrackerThread extends AbstractThread {
               // if producers are not DONE, consumers should keep running as there are more data in
               // the future.
               if (!producerDone) consumerDone = false;
+              // if consumers are not DONE, they should keep consuming records when producers were
+              // Done.
+              if (producerDone && !consumerDone) consumerDone = logConsumers.apply(duration);
               if (producerDone && consumerDone) return;
 
               // Log after waiting for one second
