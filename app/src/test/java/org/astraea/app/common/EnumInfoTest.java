@@ -39,6 +39,11 @@ class EnumInfoTest {
   void testAlias() {
     Assertions.assertEquals("TEST", MyTestEnum.TEST.alias());
     Assertions.assertEquals(MyTestEnum.TEST, MyTestEnum.ofAlias("test"));
+
+    var exception =
+        Assertions.assertThrows(
+            IllegalArgumentException.class, () -> MyTestEnum.ofAlias("NotInEnum"));
+    Assertions.assertTrue(exception.getMessage().contains("NotInEnum"));
   }
 
   @Test

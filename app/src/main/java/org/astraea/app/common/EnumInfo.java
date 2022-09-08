@@ -18,6 +18,8 @@ package org.astraea.app.common;
 
 import java.util.Arrays;
 import java.util.Map;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 public interface EnumInfo {
 
@@ -32,7 +34,15 @@ public interface EnumInfo {
           return Arrays.stream(values)
               .filter(v -> v.alias().equalsIgnoreCase(alias))
               .findFirst()
-              .orElseThrow(() -> new IllegalArgumentException("No such alias: " + alias));
+              .orElseThrow(
+                  () ->
+                      new IllegalArgumentException(
+                          String.format(
+                              "the %s is unsupported. The supported alias are %s. ",
+                              alias,
+                              Stream.of(values)
+                                  .map(EnumInfo::alias)
+                                  .collect(Collectors.joining(",")))));
         });
   }
 

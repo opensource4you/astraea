@@ -43,7 +43,7 @@ public enum TransactionState implements EnumInfo {
 
   @Override
   public String toString() {
-    return name;
+    return EnumInfo.alias2String(this);
   }
 
   @Override

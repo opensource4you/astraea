@@ -17,12 +17,7 @@
 package org.astraea.app.admin;
 
 import com.beust.jcommander.ParameterException;
-import org.astraea.app.common.EnumInfo;
-
-import java.util.Arrays;
 import java.util.Locale;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import org.astraea.app.common.EnumInfo;
 
 public enum Compression implements EnumInfo {
@@ -48,7 +43,7 @@ public enum Compression implements EnumInfo {
 
   @Override
   public String toString() {
-    return alias();
+    return EnumInfo.alias2String(this);
   }
 
   /** @return the name parsed by kafka */

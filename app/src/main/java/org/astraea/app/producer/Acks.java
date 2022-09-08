@@ -17,11 +17,9 @@
 package org.astraea.app.producer;
 
 import com.beust.jcommander.ParameterException;
-import java.util.Arrays;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
+import org.astraea.app.common.EnumInfo;
 
-public enum Acks {
+public enum Acks implements EnumInfo {
   /** wait for all isrs */
   ISRS("isrs"),
   /** wait for leader only */
@@ -35,28 +33,18 @@ public enum Acks {
     this.alias = alias;
   }
 
+  public static Acks ofAlias(String alias) {
+    return EnumInfo.ignoreCaseEnum(Acks.class, alias);
+  }
+
+  @Override
   public String alias() {
     return alias;
   }
 
   @Override
   public String toString() {
-    return alias();
-  }
-
-  public static Acks ofAlias(String alias) {
-    return Arrays.stream(Acks.values())
-        .filter(a -> a.alias().equalsIgnoreCase(alias))
-        .findFirst()
-        .orElseThrow(
-            () ->
-                new IllegalArgumentException(
-                    "the "
-                        + alias
-                        + " is unsupported. The supported algorithms are "
-                        + Stream.of(Acks.values())
-                            .map(Acks::alias)
-                            .collect(Collectors.joining(","))));
+    return EnumInfo.alias2String(this);
   }
 
   public String valueOfKafka() {
