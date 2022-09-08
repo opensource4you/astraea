@@ -53,6 +53,11 @@ public final class LogMetrics {
       return metricName();
     }
 
+    @Override
+    public String toString() {
+      return EnumInfo.alias2String(this);
+    }
+
     public static LogMetrics.Log of(String metricName) {
       return Arrays.stream(LogMetrics.Log.values())
           .filter(metric -> metric.metricName().equalsIgnoreCase(metricName))

@@ -72,6 +72,11 @@ public enum DataUnit implements EnumInfo {
     return EnumInfo.ignoreCaseEnum(DataUnit.class, alias);
   }
 
+  @Override
+  public String alias() {
+    return name();
+  }
+
   final BigInteger bits;
   final boolean byteBasedUnit;
   final boolean candidateUnitForToString;

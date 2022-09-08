@@ -55,6 +55,11 @@ public class ControllerMetrics {
       return metricName();
     }
 
+    @Override
+    public String toString() {
+      return EnumInfo.alias2String(this);
+    }
+
     public Gauge fetch(MBeanClient mBeanClient) {
       return new Gauge(
           mBeanClient.queryBean(
@@ -126,6 +131,11 @@ public class ControllerMetrics {
     @Override
     public String alias() {
       return metricName();
+    }
+
+    @Override
+    public String toString() {
+      return EnumInfo.alias2String(this);
     }
 
     public static Meter getUncleanLeaderElectionsPerSec(MBeanClient mBeanClient) {

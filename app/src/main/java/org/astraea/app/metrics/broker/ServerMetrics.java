@@ -56,6 +56,11 @@ public final class ServerMetrics {
       return metricName();
     }
 
+    @Override
+    public String toString() {
+      return EnumInfo.alias2String(this);
+    }
+
     public Collection<Gauge> fetch(MBeanClient mBeanClient) {
       return mBeanClient
           .queryBeans(
@@ -157,6 +162,11 @@ public final class ServerMetrics {
     @Override
     public String alias() {
       return metricName();
+    }
+
+    @Override
+    public String toString() {
+      return EnumInfo.alias2String(this);
     }
 
     /**
@@ -261,6 +271,11 @@ public final class ServerMetrics {
     @Override
     public String alias() {
       return metricName();
+    }
+
+    @Override
+    public String toString() {
+      return EnumInfo.alias2String(this);
     }
 
     public static class Gauge implements HasGauge {

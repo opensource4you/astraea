@@ -27,6 +27,11 @@ public enum Isolation implements EnumInfo {
     return EnumInfo.ignoreCaseEnum(Isolation.class, alias);
   }
 
+  @Override
+  public String alias() {
+    return name();
+  }
+
   /** @return the name parsed by kafka */
   public String nameOfKafka() {
     return alias().toLowerCase(Locale.ROOT);

@@ -141,6 +141,11 @@ interface Channel {
     public static Type ofAlias(String alias) {
       return EnumInfo.ignoreCaseEnum(Type.class, alias);
     }
+
+    @Override
+    public String alias() {
+      return name();
+    }
   }
 
   static Channel of(HttpExchange exchange) {

@@ -17,6 +17,7 @@
 package org.astraea.app.common;
 
 import java.util.Arrays;
+import java.util.Map;
 
 public interface EnumInfo {
 
@@ -35,9 +36,14 @@ public interface EnumInfo {
         });
   }
 
-  String name();
-
-  default String alias() {
-    return name();
+  /** Enum toString method should contain alias. This is the default template. */
+  static <T extends Enum<T> & EnumInfo> String alias2String(T t) {
+    return Map.of("alias", t.alias()).toString();
   }
+
+  /**
+   * You can use {@link #ignoreCaseEnum(Class, String)} to get the Enum by ignore case alias or use
+   * {@link #alias2String(Enum)} to override toString method with default template.
+   */
+  String alias();
 }

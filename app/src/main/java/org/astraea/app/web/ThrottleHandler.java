@@ -362,5 +362,10 @@ public class ThrottleHandler implements Handler {
     public static LogIdentity ofAlias(String alias) {
       return EnumInfo.ignoreCaseEnum(LogIdentity.class, alias);
     }
+
+    @Override
+    public String alias() {
+      return name();
+    }
   }
 }

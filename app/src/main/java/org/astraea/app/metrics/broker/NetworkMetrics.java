@@ -113,6 +113,11 @@ public class NetworkMetrics {
       return metricName();
     }
 
+    @Override
+    public String toString() {
+      return EnumInfo.alias2String(this);
+    }
+
     public Histogram fetch(MBeanClient mBeanClient) {
       return new Histogram(
           mBeanClient.queryBean(

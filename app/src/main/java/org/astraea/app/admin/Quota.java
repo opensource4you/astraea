@@ -76,6 +76,16 @@ public class Quota {
     public String nameOfKafka() {
       return nameOfKafka;
     }
+
+    @Override
+    public String alias() {
+      return nameOfKafka;
+    }
+
+    @Override
+    public String toString() {
+      return EnumInfo.alias2String(this);
+    }
   }
 
   public enum Limit implements EnumInfo {
@@ -102,6 +112,11 @@ public class Quota {
     @Override
     public String alias() {
       return nameOfKafka();
+    }
+
+    @Override
+    public String toString() {
+      return EnumInfo.alias2String(this);
     }
   }
 

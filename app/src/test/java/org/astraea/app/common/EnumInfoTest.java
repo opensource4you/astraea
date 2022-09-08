@@ -18,6 +18,7 @@ package org.astraea.app.common;
 
 import java.io.File;
 import java.nio.file.Path;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -58,18 +59,19 @@ class EnumInfoTest {
   @ParameterizedTest
   @ArgumentsSource(EnumClassProvider.class)
   void testOfAlias(Class<?> cls) {
-    // some enum implement anonymous class , see DistributionType
-    var enumCls = getClassParentIsEnum(cls);
-
     var method =
         Assertions.assertDoesNotThrow(
-            () -> enumCls.getDeclaredMethod("ofAlias", String.class),
+            () -> cls.getDeclaredMethod("ofAlias", String.class),
             String.format("Fail class %s", cls));
-    Assertions.assertEquals(enumCls, method.getReturnType());
+    Assertions.assertEquals(cls, method.getReturnType());
   }
 
-  private Class<?> getClassParentIsEnum(Class<?> cls) {
-    return cls.getSuperclass() == Enum.class ? cls : getClassParentIsEnum(cls.getSuperclass());
+  @ParameterizedTest
+  @ArgumentsSource(EnumClassProvider.class)
+  void testToString(Class<?> cls) {
+    var enumConstants = (EnumInfo[]) cls.getEnumConstants();
+    Assertions.assertTrue(
+        Arrays.stream(enumConstants).allMatch(x -> x.toString().contains(x.alias())));
   }
 
   enum MyTestEnum implements EnumInfo {
@@ -79,13 +81,18 @@ class EnumInfoTest {
     public static MyTestEnum ofAlias(String alias) {
       return EnumInfo.ignoreCaseEnum(MyTestEnum.class, alias);
     }
+
+    @Override
+    public String alias() {
+      return name();
+    }
   }
 
   public static class EnumClassProvider implements ArgumentsProvider {
 
     @Override
     public Stream<? extends Arguments> provideArguments(ExtensionContext context) {
-      return getProductionClass().stream().filter(Enum.class::isAssignableFrom).map(Arguments::of);
+      return getProductionClass().stream().filter(Class::isEnum).map(Arguments::of);
     }
   }
 
@@ -93,8 +100,16 @@ class EnumInfoTest {
   void testProductionClass() {
     var productionClasses = getProductionClass();
     Assertions.assertTrue(productionClasses.size() > 100);
-    productionClasses.forEach(
-        x -> Assertions.assertTrue(x.getPackageName().startsWith("org.astraea.app")));
+    Assertions.assertTrue(
+        productionClasses.stream().allMatch(x -> x.getPackageName().startsWith("org.astraea.app")));
+  }
+
+  @Test
+  void testEnumClassProvider() {
+    var enumClassProvider = new EnumClassProvider();
+    var enumCls = enumClassProvider.provideArguments(null).collect(Collectors.toList());
+    Assertions.assertTrue(enumCls.size() > 10);
+    Assertions.assertTrue(enumCls.stream().map(x -> (Class<?>) x.get()[0]).allMatch(Class::isEnum));
   }
 
   private static List<Class<?>> getProductionClass() {

@@ -205,6 +205,11 @@ public abstract class Builder<Key, Value> {
       return EnumInfo.ignoreCaseEnum(SeekStrategy.class, alias);
     }
 
+    @Override
+    public String alias() {
+      return name();
+    }
+
     private final BiConsumer<org.apache.kafka.clients.consumer.Consumer<?, ?>, Object> function;
 
     SeekStrategy(BiConsumer<org.apache.kafka.clients.consumer.Consumer<?, ?>, Object> function) {

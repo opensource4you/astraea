@@ -88,6 +88,11 @@ public enum DistributionType implements EnumInfo {
     return EnumInfo.ignoreCaseEnum(DistributionType.class, alias);
   }
 
+  @Override
+  public String alias() {
+    return name();
+  }
+
   abstract Supplier<Long> create(int n);
 
   /**

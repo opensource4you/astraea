@@ -46,6 +46,11 @@ public enum TransactionState implements EnumInfo {
     return name;
   }
 
+  @Override
+  public String alias() {
+    return name;
+  }
+
   public static TransactionState from(org.apache.kafka.clients.admin.TransactionState state) {
     return from(state.toString());
   }

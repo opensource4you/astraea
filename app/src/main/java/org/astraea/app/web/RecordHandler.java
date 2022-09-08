@@ -298,6 +298,11 @@ public class RecordHandler implements Handler {
       return EnumInfo.ignoreCaseEnum(SerDe.class, alias);
     }
 
+    @Override
+    public String alias() {
+      return name();
+    }
+
     final BiFunction<String, String, byte[]> serializer;
     final Deserializer<?> deserializer;
 
