@@ -34,7 +34,6 @@ import java.util.stream.Collectors;
 import org.astraea.app.admin.Admin;
 import org.astraea.app.admin.Compression;
 import org.astraea.app.admin.TopicPartition;
-import org.astraea.app.argument.CompressionField;
 import org.astraea.app.argument.DurationField;
 import org.astraea.app.argument.NonEmptyStringField;
 import org.astraea.app.argument.NonNegativeShortField;
@@ -50,34 +49,10 @@ import org.astraea.app.common.DataUnit;
 import org.astraea.app.common.Utils;
 import org.astraea.app.consumer.Consumer;
 import org.astraea.app.consumer.Isolation;
+import org.astraea.app.producer.Acks;
 import org.astraea.app.producer.Producer;
 
-/**
- * Performance benchmark which includes
- *
- * <ol>
- *   <li>publish latency: the time of completing producer data request
- *   <li>E2E latency: the time for a record to travel through Kafka
- *   <li>input rate: sum of consumer inputs in MByte per second
- *   <li>output rate: sum of producer outputs in MByte per second
- * </ol>
- *
- * With configurations:
- *
- * <ol>
- *   <li>--brokers: the server to connect to
- *   <li>--topic: the topic name. Create new topic when the given topic does not exist. Default:
- *       "testPerformance-" + System.currentTimeMillis()
- *   <li>--partitions: topic config when creating new topic. Default: 1
- *   <li>--replicationFactor: topic config when creating new topic. Default: 1
- *   <li>--producers: the number of producers (threads). Default: 1
- *   <li>--consumers: the number of consumers (threads). Default: 1
- *   <li>--records: the total number of records sent by the producers. Default: 1000
- *   <li>--recordSize: the record size in byte. Default: 1024
- * </ol>
- *
- * To avoid records being produced too fast, producer wait for one millisecond after each send.
- */
+/** see docs/performance_benchmark.md for man page */
 public class Performance {
   /** Used in Automation, to achieve the end of one Performance and then start another. */
   public static void main(String[] args)
@@ -306,7 +281,7 @@ public class Performance {
         names = {"--compression"},
         description =
             "String: the compression algorithm used by producer. Available algorithm are none, gzip, snappy, lz4, and zstd",
-        converter = CompressionField.class)
+        converter = Compression.Field.class)
     Compression compression = Compression.NONE;
 
     @Parameter(
@@ -327,12 +302,14 @@ public class Performance {
               .bootstrapServers(bootstrapServers())
               .compression(compression)
               .partitionClassName(partitioner)
+              .acks(acks)
               .buildTransactional()
           : Producer.builder()
               .configs(configs())
               .bootstrapServers(bootstrapServers())
               .compression(compression)
               .partitionClassName(partitioner)
+              .acks(acks)
               .build();
     }
 
@@ -363,10 +340,10 @@ public class Performance {
     DistributionType valueDistributionType = DistributionType.UNIFORM;
 
     @Parameter(
-        names = {"--specify.broker"},
+        names = {"--specify.brokers"},
         description =
-            "String: Used with SpecifyBrokerPartitioner to specify the brokers that partitioner can send.",
-        validateWith = NonEmptyStringField.class)
+            "String: The broker IDs to send to if the topic has partition on that broker.",
+        validateWith = PositiveIntegerListField.class)
     List<Integer> specifyBroker = List.of();
 
     Supplier<Integer> partitionSupplier() {
@@ -414,5 +391,11 @@ public class Performance {
         description = "Consumer group id",
         validateWith = NonEmptyStringField.class)
     String groupId = "groupId-" + System.currentTimeMillis();
+
+    @Parameter(
+        names = {"--acks"},
+        description = "How many replicas should be synced when producing records.",
+        converter = Acks.Field.class)
+    Acks acks = Acks.ISRS;
   }
 }

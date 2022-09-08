@@ -272,5 +272,36 @@ public final class Utils {
     return (double) (value / duration.toNanos()) * 1000000000L;
   }
 
+  public static Object staticMember(Class<?> clz, String attribute) {
+    return reflectionAttribute(clz, null, attribute);
+  }
+
+  public static Object member(Object object, String attribute) {
+    return reflectionAttribute(object.getClass(), object, attribute);
+  }
+
+  /**
+   * reflection class attribute
+   *
+   * @param clz class type
+   * @param object object. Null means static member
+   * @param attribute attribute name
+   * @return attribute
+   */
+  private static Object reflectionAttribute(Class<?> clz, Object object, String attribute) {
+    do {
+      try {
+        var field = clz.getDeclaredField(attribute);
+        field.setAccessible(true);
+        return field.get(object);
+      } catch (NoSuchFieldException e) {
+        clz = clz.getSuperclass();
+      } catch (IllegalAccessException e) {
+        throw new RuntimeException(e);
+      }
+    } while (clz != null);
+    throw new RuntimeException(attribute + " is not existent in " + object.getClass().getName());
+  }
+
   private Utils() {}
 }

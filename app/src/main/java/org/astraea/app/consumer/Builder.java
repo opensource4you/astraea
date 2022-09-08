@@ -28,6 +28,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiConsumer;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.astraea.app.admin.TopicPartition;
+import org.astraea.app.common.Utils;
 import org.astraea.app.common.EnumInfo;
 
 public abstract class Builder<Key, Value> {
@@ -114,6 +115,11 @@ public abstract class Builder<Key, Value> {
     return this;
   }
 
+  public Builder<Key, Value> clientId(String clientId) {
+    this.configs.put(ConsumerConfig.CLIENT_ID_CONFIG, clientId);
+    return this;
+  }
+
   /** @return consumer instance. The different builders may return inherited consumer interface. */
   public abstract Consumer<Key, Value> build();
 
@@ -121,8 +127,12 @@ public abstract class Builder<Key, Value> {
     protected final org.apache.kafka.clients.consumer.Consumer<Key, Value> kafkaConsumer;
     private final AtomicBoolean subscribed = new AtomicBoolean(true);
 
+    private final String clientId;
+
     public BaseConsumer(org.apache.kafka.clients.consumer.Consumer<Key, Value> kafkaConsumer) {
       this.kafkaConsumer = kafkaConsumer;
+      // KafkaConsumer does not expose client-id
+      this.clientId = (String) Utils.member(kafkaConsumer, "clientId");
     }
 
     @Override
@@ -155,6 +165,11 @@ public abstract class Builder<Key, Value> {
     @Override
     public void unsubscribe() {
       if (subscribed.compareAndSet(true, false)) kafkaConsumer.unsubscribe();
+    }
+
+    @Override
+    public String clientId() {
+      return clientId;
     }
 
     protected abstract void doResubscribe();

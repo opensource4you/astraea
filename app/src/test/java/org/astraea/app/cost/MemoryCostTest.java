@@ -43,7 +43,7 @@ public class MemoryCostTest {
                 3,
                 List.of()));
     var memoryCost = new MemoryCost();
-    var scores = memoryCost.brokerCost(Mockito.mock(ClusterInfo.class), clusterBean);
+    var scores = memoryCost.brokerCost(ClusterInfo.empty(), clusterBean);
     Assertions.assertEquals(0.4, scores.value().get(1));
     Assertions.assertEquals(0.5, scores.value().get(2));
     Assertions.assertEquals(0, scores.value().get(3));

@@ -50,7 +50,7 @@ public class TrackerTest {
   @Test
   void testExeTime() {
     var producerReport = new ProducerThread.Report();
-    var consumerReport = new ConsumerThread.Report();
+    var consumerReport = new ConsumerThread.Report("xxx");
     var tracker =
         TrackerThread.create(
             () -> List.of(producerReport), () -> List.of(consumerReport), ExeTime.of("2s"));
@@ -64,7 +64,7 @@ public class TrackerTest {
   @Test
   void testConsumerAndProducer() {
     var producerReport = new ProducerThread.Report();
-    var consumerReport = new ConsumerThread.Report();
+    var consumerReport = new ConsumerThread.Report("xxx");
     var tracker =
         TrackerThread.create(
             () -> List.of(producerReport), () -> List.of(consumerReport), ExeTime.of("1records"));

@@ -14,32 +14,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.app.admin;
+package org.astraea.app.producer;
 
 import com.beust.jcommander.ParameterException;
-import org.astraea.app.common.EnumInfo;
-
 import java.util.Arrays;
-import java.util.Locale;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import org.astraea.app.common.EnumInfo;
 
-public enum Compression implements EnumInfo {
-  NONE("none"),
-  GZIP("gzip"),
-  SNAPPY("snappy"),
-  LZ4("lz4"),
-  ZSTD("zstd");
+public enum Acks {
+  /** wait for all isrs */
+  ISRS("isrs"),
+  /** wait for leader only */
+  ONLY_LEADER("leader"),
+  /** wait for nothing */
+  NONE("none");
 
   private final String alias;
 
-  Compression(String alias) {
+  Acks(String alias) {
     this.alias = alias;
-  }
-
-  public static Compression ofAlias(String alias) {
-    return EnumInfo.ignoreCaseEnum(Compression.class, alias);
   }
 
   public String alias() {
@@ -51,17 +44,38 @@ public enum Compression implements EnumInfo {
     return alias();
   }
 
-  /** @return the name parsed by kafka */
-  public String nameOfKafka() {
-    return name().toLowerCase(Locale.ROOT);
+  public static Acks ofAlias(String alias) {
+    return Arrays.stream(Acks.values())
+        .filter(a -> a.alias().equalsIgnoreCase(alias))
+        .findFirst()
+        .orElseThrow(
+            () ->
+                new IllegalArgumentException(
+                    "the "
+                        + alias
+                        + " is unsupported. The supported algorithms are "
+                        + Stream.of(Acks.values())
+                            .map(Acks::alias)
+                            .collect(Collectors.joining(","))));
   }
 
-  public static class Field extends org.astraea.app.argument.Field<Compression> {
+  public String valueOfKafka() {
+    switch (this) {
+      case ISRS:
+        return "all";
+      case ONLY_LEADER:
+        return "1";
+      default:
+        return "0";
+    }
+  }
+
+  public static class Field extends org.astraea.app.argument.Field<Acks> {
+
     @Override
-    public Compression convert(String value) {
+    public Acks convert(String value) {
       try {
-        // `CompressionType#forName` accept lower-case name only.
-        return Compression.ofAlias(value);
+        return Acks.ofAlias(value);
       } catch (IllegalArgumentException e) {
         throw new ParameterException(e);
       }

@@ -39,6 +39,34 @@ public interface ClusterInfo<T extends ReplicaInfo> {
         }
       };
 
+  /**
+   * find the changed replicas between `before` and `after`. The diff is based on following
+   * conditions. 1) the replicas are existent only in the `before` cluster 2) find the changes based
+   * on either broker or data folder between `before` and `after`. Noted that the replicas existent
+   * only in the `after` cluster are NOT returned.
+   *
+   * @param before to be compared
+   * @param after to compare
+   * @return the diff replicas
+   */
+  static Set<Replica> diff(ClusterInfo<Replica> before, ClusterInfo<Replica> after) {
+    return before
+        .replicaStream()
+        .parallel()
+        .filter(
+            beforeReplica ->
+                after
+                    .replicaStream()
+                    .parallel()
+                    .noneMatch(
+                        r ->
+                            r.nodeInfo().id() == beforeReplica.nodeInfo().id()
+                                && r.partition() == beforeReplica.partition()
+                                && r.topic().equals(beforeReplica.topic())
+                                && r.dataFolder().equals(beforeReplica.dataFolder())))
+        .collect(Collectors.toSet());
+  }
+
   @SuppressWarnings("unchecked")
   static <T extends ReplicaInfo> ClusterInfo<T> empty() {
     return (ClusterInfo<T>) EMPTY;
@@ -58,6 +86,19 @@ public interface ClusterInfo<T extends ReplicaInfo> {
             .flatMap(t -> cluster.partitionsForTopic(t).stream())
             .flatMap(p -> ReplicaInfo.of(p).stream())
             .collect(Collectors.toUnmodifiableList()));
+  }
+
+  /**
+   * build a cluster info based on replicas. Noted that the node info are collected by the replicas.
+   *
+   * @param replicas used to build cluster info
+   * @return cluster info
+   * @param <T> ReplicaInfo or Replica
+   */
+  static <T extends ReplicaInfo> ClusterInfo<T> of(List<T> replicas) {
+    return of(
+        replicas.stream().map(ReplicaInfo::nodeInfo).collect(Collectors.toUnmodifiableList()),
+        replicas);
   }
 
   static <T extends ReplicaInfo> ClusterInfo<T> of(List<NodeInfo> nodes, List<T> replicas) {
@@ -125,7 +166,10 @@ public interface ClusterInfo<T extends ReplicaInfo> {
    * @return A list of {@link ReplicaInfo}.
    */
   default List<T> replicaLeaders() {
-    return replicaStream().filter(ReplicaInfo::isLeader).collect(Collectors.toUnmodifiableList());
+    return replicaStream()
+        .filter(ReplicaInfo::isLeader)
+        .filter(ReplicaInfo::isOnline)
+        .collect(Collectors.toUnmodifiableList());
   }
 
   /**
@@ -138,6 +182,7 @@ public interface ClusterInfo<T extends ReplicaInfo> {
     return replicaStream()
         .filter(r -> r.topic().equals(topic))
         .filter(ReplicaInfo::isLeader)
+        .filter(ReplicaInfo::isOnline)
         .collect(Collectors.toUnmodifiableList());
   }
 
@@ -153,6 +198,7 @@ public interface ClusterInfo<T extends ReplicaInfo> {
         .filter(r -> r.nodeInfo().id() == broker)
         .filter(r -> r.topic().equals(topic))
         .filter(ReplicaInfo::isLeader)
+        .filter(ReplicaInfo::isOnline)
         .collect(Collectors.toUnmodifiableList());
   }
 
@@ -166,6 +212,7 @@ public interface ClusterInfo<T extends ReplicaInfo> {
     return replicaStream()
         .filter(r -> r.topicPartition().equals(topicPartition))
         .filter(ReplicaInfo::isLeader)
+        .filter(ReplicaInfo::isOnline)
         .findFirst();
   }
 

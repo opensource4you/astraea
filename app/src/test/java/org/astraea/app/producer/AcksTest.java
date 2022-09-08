@@ -14,31 +14,37 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.app.cost;
+package org.astraea.app.producer;
 
-import static org.mockito.Mockito.mock;
-
-import java.util.List;
-import java.util.Map;
-import org.astraea.app.admin.ClusterBean;
-import org.astraea.app.admin.ClusterInfo;
-import org.astraea.app.metrics.BeanObject;
-import org.astraea.app.metrics.broker.LogMetrics;
+import java.util.Arrays;
+import org.apache.kafka.clients.producer.ProducerConfig;
+import org.apache.kafka.common.config.ConfigDef;
+import org.astraea.app.common.Utils;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-class NodeTopicSizeCostTest {
-  private final BeanObject bean =
-      new BeanObject(
-          "domain", Map.of("topic", "t", "partition", "10", "name", "SIZE"), Map.of("Value", 777));
+public class AcksTest {
 
   @Test
-  void testBrokerCost() {
-    var meter = new LogMetrics.Log.Gauge(bean);
-    var cost = new NodeTopicSizeCost();
-    var result =
-        cost.brokerCost(mock(ClusterInfo.class), ClusterBean.of(Map.of(1, List.of(meter))));
-    Assertions.assertEquals(1, result.value().size());
-    Assertions.assertEquals(777, result.value().entrySet().iterator().next().getValue());
+  void testKafkaConfig() {
+    var config =
+        ((ConfigDef) Utils.staticMember(ProducerConfig.class, "CONFIG"))
+            .configKeys()
+            .get(ProducerConfig.ACKS_CONFIG);
+    Arrays.stream(Acks.values())
+        .forEach(ack -> config.validator.ensureValid("acks", ack.valueOfKafka()));
+  }
+
+  @Test
+  void testAlias() {
+    Arrays.stream(Acks.values())
+        .forEach(acks -> Assertions.assertEquals(acks, Acks.ofAlias(acks.alias())));
+  }
+
+  @Test
+  void testField() {
+    var field = new Acks.Field();
+    Arrays.stream(Acks.values())
+        .forEach(acks -> Assertions.assertEquals(acks, field.convert(acks.alias())));
   }
 }

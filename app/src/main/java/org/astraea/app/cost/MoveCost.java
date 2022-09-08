@@ -16,18 +16,26 @@
  */
 package org.astraea.app.cost;
 
-import org.astraea.app.admin.ClusterBean;
-import org.astraea.app.admin.ClusterInfo;
-import org.astraea.app.admin.Replica;
+import java.util.Map;
 
+/** Return type of cost function, `HasMoveCost`. It returns the score of migrate plan. */
 @FunctionalInterface
-public interface HasClusterCost extends CostFunction {
-  /**
-   * score cluster for a particular metrics according to passed beans and cluster information.
-   *
-   * @param clusterInfo cluster information
-   * @param clusterBean cluster metrics
-   * @return the score of cluster.
-   */
-  ClusterCost clusterCost(ClusterInfo<Replica> clusterInfo, ClusterBean clusterBean);
+public interface MoveCost {
+  /** @return the function name of MoveCost */
+  default String name() {
+    return this.getClass().getSimpleName();
+  }
+
+  /** @return cost of migrate plan */
+  long totalCost();
+
+  /** @return unit of cost */
+  default String unit() {
+    return "unknown";
+  }
+
+  /** @return Changes per broker, negative if brokers moved out, positive if brokers moved in */
+  default Map<Integer, Long> changes() {
+    return Map.of();
+  }
 }

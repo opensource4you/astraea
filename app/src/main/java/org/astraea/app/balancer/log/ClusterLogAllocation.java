@@ -39,7 +39,8 @@ public interface ClusterLogAllocation {
 
   static ClusterLogAllocation of(ClusterInfo<Replica> clusterInfo) {
     return of(
-        clusterInfo.replicas().stream()
+        clusterInfo
+            .replicaStream()
             .collect(Collectors.groupingBy(r -> TopicPartition.of(r.topic(), r.partition())))
             .entrySet()
             .stream()

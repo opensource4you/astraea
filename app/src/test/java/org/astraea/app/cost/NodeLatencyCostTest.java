@@ -44,7 +44,7 @@ public class NodeLatencyCostTest extends RequireBrokerCluster {
     Mockito.when(bean.requestLatencyAvg()).thenReturn(Double.NaN);
     var clusterBean = ClusterBean.of(Map.of(-1, List.of(bean)));
     var function = new NodeLatencyCost();
-    var result = function.brokerCost(Mockito.mock(ClusterInfo.class), clusterBean);
+    var result = function.brokerCost(ClusterInfo.empty(), clusterBean);
     Assertions.assertEquals(0, result.value().size());
   }
 
@@ -55,7 +55,7 @@ public class NodeLatencyCostTest extends RequireBrokerCluster {
     Mockito.when(bean.requestLatencyAvg()).thenReturn(10D);
     var clusterBean = ClusterBean.of(Map.of(-1, List.of(bean)));
     var function = new NodeLatencyCost();
-    var result = function.brokerCost(Mockito.mock(ClusterInfo.class), clusterBean);
+    var result = function.brokerCost(ClusterInfo.empty(), clusterBean);
     Assertions.assertEquals(1, result.value().size());
     Assertions.assertEquals(10D, result.value().get(1));
   }
@@ -77,7 +77,7 @@ public class NodeLatencyCostTest extends RequireBrokerCluster {
           () ->
               function
                       .brokerCost(
-                          Mockito.mock(ClusterInfo.class),
+                          ClusterInfo.empty(),
                           ClusterBean.of(
                               Map.of(
                                   -1,

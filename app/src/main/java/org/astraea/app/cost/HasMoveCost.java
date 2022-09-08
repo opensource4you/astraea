@@ -21,13 +21,17 @@ import org.astraea.app.admin.ClusterInfo;
 import org.astraea.app.admin.Replica;
 
 @FunctionalInterface
-public interface HasClusterCost extends CostFunction {
+public interface HasMoveCost extends CostFunction {
   /**
-   * score cluster for a particular metrics according to passed beans and cluster information.
+   * score migrate cost from originClusterInfo to newClusterInfo .
    *
-   * @param clusterInfo cluster information
+   * @param originClusterInfo the clusterInfo before migrate
+   * @param newClusterInfo the mocked clusterInfo generate from balancer
    * @param clusterBean cluster metrics
-   * @return the score of cluster.
+   * @return the score of migrate cost
    */
-  ClusterCost clusterCost(ClusterInfo<Replica> clusterInfo, ClusterBean clusterBean);
+  MoveCost moveCost(
+      ClusterInfo<Replica> originClusterInfo,
+      ClusterInfo<Replica> newClusterInfo,
+      ClusterBean clusterBean);
 }

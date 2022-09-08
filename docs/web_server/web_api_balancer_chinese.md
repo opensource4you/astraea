@@ -33,6 +33,13 @@ JSON Response 範例
     - `directory`: replica 存在資料的路徑
     - `size`: replica 在硬碟上的資料大小
   - `after`: 比較好的配置
+- `migrations`: 計算搬移計畫的成本
+  * `function`: 用來評估成本的演算法
+  * `totalCost`: 各個broker的成本總和
+  * `cost`: 針對各個broker計算成本的改變
+    * `brokerId`: 有掌管 replica 的節點 id
+    * `cost`: 改變的量，負值表示移出，正值表示移入
+  * `unit`: 成本的單位
 ```json
 {
   "cost": 0.04948716593053935,
