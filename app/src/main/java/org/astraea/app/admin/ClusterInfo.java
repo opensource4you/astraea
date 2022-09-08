@@ -50,15 +50,20 @@ public interface ClusterInfo<T extends ReplicaInfo> {
    * @return the diff replicas
    */
   static Set<Replica> diff(ClusterInfo<Replica> before, ClusterInfo<Replica> after) {
-    return before.replicas().stream()
+    return before
+        .replicaStream()
+        .parallel()
         .filter(
             beforeReplica ->
                 after
-                    .replica(beforeReplica.topicPartitionReplica())
-                    // not equal so it is changed
-                    .map(newReplica -> !beforeReplica.dataFolder().equals(newReplica.dataFolder()))
-                    // no replica in the after cluster so it is changed
-                    .orElse(true))
+                    .replicaStream()
+                    .parallel()
+                    .noneMatch(
+                        r ->
+                            r.nodeInfo().id() == beforeReplica.nodeInfo().id()
+                                && r.partition() == beforeReplica.partition()
+                                && r.topic().equals(beforeReplica.topic())
+                                && r.dataFolder().equals(beforeReplica.dataFolder())))
         .collect(Collectors.toSet());
   }
 

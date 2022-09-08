@@ -19,16 +19,23 @@ package org.astraea.app.cost;
 import java.util.Map;
 
 /** Return type of cost function, `HasMoveCost`. It returns the score of migrate plan. */
+@FunctionalInterface
 public interface MoveCost {
   /** @return the function name of MoveCost */
-  String name();
+  default String name() {
+    return this.getClass().getSimpleName();
+  }
 
   /** @return cost of migrate plan */
   long totalCost();
 
   /** @return unit of cost */
-  String unit();
+  default String unit() {
+    return "unknown";
+  }
 
   /** @return Changes per broker, negative if brokers moved out, positive if brokers moved in */
-  Map<Integer, Long> changes();
+  default Map<Integer, Long> changes() {
+    return Map.of();
+  }
 }

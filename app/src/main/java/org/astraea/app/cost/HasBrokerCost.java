@@ -20,6 +20,7 @@ import org.astraea.app.admin.ClusterBean;
 import org.astraea.app.admin.ClusterInfo;
 import org.astraea.app.admin.ReplicaInfo;
 
+@FunctionalInterface
 public interface HasBrokerCost extends CostFunction {
   /**
    * score all nodes for a particular metrics according to passed beans and cluster information.
