@@ -41,18 +41,18 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import org.astraea.app.admin.Admin;
-import org.astraea.app.admin.TopicPartition;
-import org.astraea.app.argument.DurationField;
-import org.astraea.app.common.Cache;
-import org.astraea.app.common.Utils;
-import org.astraea.app.consumer.Builder;
-import org.astraea.app.consumer.Consumer;
-import org.astraea.app.consumer.Deserializer;
-import org.astraea.app.consumer.SubscribedConsumer;
-import org.astraea.app.producer.Producer;
-import org.astraea.app.producer.Sender;
-import org.astraea.app.producer.Serializer;
+import org.astraea.common.Cache;
+import org.astraea.common.Utils;
+import org.astraea.common.admin.Admin;
+import org.astraea.common.admin.TopicPartition;
+import org.astraea.common.argument.DurationField;
+import org.astraea.common.consumer.Builder;
+import org.astraea.common.consumer.Consumer;
+import org.astraea.common.consumer.Deserializer;
+import org.astraea.common.consumer.SubscribedConsumer;
+import org.astraea.common.producer.Producer;
+import org.astraea.common.producer.Sender;
+import org.astraea.common.producer.Serializer;
 
 public class RecordHandler implements Handler {
   static final String RECORDS = "records";
@@ -341,7 +341,7 @@ public class RecordHandler implements Handler {
     final int serializedKeySize;
     final int serializedValueSize;
 
-    Metadata(org.astraea.app.producer.Metadata metadata) {
+    Metadata(org.astraea.common.producer.Metadata metadata) {
       topic = metadata.topic();
       partition = metadata.partition();
       offset = metadata.offset();
@@ -394,7 +394,7 @@ public class RecordHandler implements Handler {
     final Object value;
     final Integer leaderEpoch;
 
-    Record(org.astraea.app.consumer.Record<?, ?> record) {
+    Record(org.astraea.common.consumer.Record<?, ?> record) {
       topic = record.topic();
       partition = record.partition();
       offset = record.offset();
@@ -412,7 +412,7 @@ public class RecordHandler implements Handler {
     final String key;
     final byte[] value;
 
-    Header(org.astraea.app.consumer.Header header) {
+    Header(org.astraea.common.consumer.Header header) {
       this.key = header.key();
       this.value = header.value();
     }

@@ -19,7 +19,7 @@ package org.astraea.app.web;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
-import org.astraea.app.admin.Admin;
+import org.astraea.common.admin.Admin;
 
 class TransactionHandler implements Handler {
 
@@ -46,7 +46,7 @@ class TransactionHandler implements Handler {
     final String topic;
     final int partition;
 
-    TopicPartition(org.astraea.app.admin.TopicPartition tp) {
+    TopicPartition(org.astraea.common.admin.TopicPartition tp) {
       this.topic = tp.topic();
       this.partition = tp.partition();
     }
@@ -61,7 +61,7 @@ class TransactionHandler implements Handler {
     final long transactionTimeoutMs;
     final Set<TopicPartition> topicPartitions;
 
-    Transaction(String id, org.astraea.app.admin.Transaction transaction) {
+    Transaction(String id, org.astraea.common.admin.Transaction transaction) {
       this.id = id;
       this.coordinatorId = transaction.coordinatorId();
       this.state = transaction.state().toString();

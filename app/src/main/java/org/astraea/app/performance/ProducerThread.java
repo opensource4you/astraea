@@ -27,8 +27,8 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-import org.astraea.app.common.Utils;
-import org.astraea.app.producer.Producer;
+import org.astraea.common.Utils;
+import org.astraea.common.producer.Producer;
 
 public interface ProducerThread extends AbstractThread {
 

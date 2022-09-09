@@ -17,9 +17,9 @@
 package org.astraea.app.web;
 
 import java.util.Map;
-import org.astraea.app.admin.Admin;
-import org.astraea.app.admin.Quota;
-import org.astraea.app.service.RequireBrokerCluster;
+import org.astraea.common.admin.Admin;
+import org.astraea.common.admin.Quota;
+import org.astraea.it.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 

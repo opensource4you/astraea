@@ -34,9 +34,11 @@ dependencies {
     testImplementation "org.junit.jupiter:junit-jupiter:${versions["junit"]}"
 }
 
-tasks.named('test') {
-    int numberOfForks = project.hasProperty('maxParallelForks') ? maxParallelForks.toInteger() : Math.max((int) (Runtime.runtime.availableProcessors() / 2), 1)
+ext {
+    numberOfForks = project.hasProperty('maxParallelForks') ? maxParallelForks.toInteger() : Math.max((int) (Runtime.runtime.availableProcessors() / 2), 1)
+}
 
+tasks.named('test') {
     // Use JUnit Platform for unit tests.
     useJUnitPlatform()
 

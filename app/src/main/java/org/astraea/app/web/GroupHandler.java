@@ -21,8 +21,8 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
-import org.astraea.app.admin.Admin;
-import org.astraea.app.admin.TopicPartition;
+import org.astraea.common.admin.Admin;
+import org.astraea.common.admin.TopicPartition;
 
 public class GroupHandler implements Handler {
   static final String TOPIC_KEY = "topic";
