@@ -29,10 +29,13 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.astraea.app.admin.Admin;
 import org.astraea.app.admin.Compression;
+import org.astraea.app.admin.Replica;
+import org.astraea.app.admin.ReplicaInfo;
 import org.astraea.app.admin.TopicPartition;
 import org.astraea.app.argument.DurationField;
 import org.astraea.app.argument.NonEmptyStringField;
@@ -84,7 +87,7 @@ public class Performance {
             param.topics,
             param.transactionSize,
             dataSupplier(param),
-            param.partitionSupplier(),
+            param.partitionSelector(),
             param.producers,
             param::createProducer);
     var consumerThreads =
@@ -344,17 +347,41 @@ public class Performance {
         description =
             "String: The broker IDs to send to if the topic has partition on that broker.",
         validateWith = PositiveIntegerListField.class)
-    List<Integer> specifyBroker = List.of();
+    List<Integer> specifyBrokers = List.of();
 
-    Supplier<Integer> partitionSupplier() {
-      if (specifyBroker.isEmpty()) return () -> -1;
+    /**
+     * This method gives a function that maps a topic name to a partition. The mapped leader
+     * partition is in a broker that is in `specifyBrokers`. This map is created initially, that is,
+     * leader partition changes may make the map incorrect. To update your partitionSelector, call
+     * it again.
+     *
+     * @throws RuntimeException if one of the topic does not have any leader partition on
+     *     `specifyBrokers`, the exception is thrown
+     * @return select a partition from `topics` whose leader partition is in `specifyBrokers`
+     */
+    Function<String, Integer> partitionSelector() {
+      if (specifyBrokers.isEmpty()) return ignore -> -1;
       try (var admin = Admin.of(configs())) {
-        var partitions =
-            admin.partitions(new HashSet<>(topics), new HashSet<>(specifyBroker)).values().stream()
+        var topicPartitions =
+            admin.replicas(new HashSet<>(topics)).values().stream()
                 .flatMap(Collection::stream)
-                .map(TopicPartition::partition)
-                .collect(Collectors.toUnmodifiableList());
-        return () -> partitions.get((int) (Math.random() * partitions.size()));
+                .filter(ReplicaInfo::isLeader)
+                .filter(replica -> specifyBrokers.contains(replica.nodeInfo().id()))
+                .collect(
+                    Collectors.groupingBy(
+                        Replica::topic,
+                        Collectors.mapping(Replica::partition, Collectors.toUnmodifiableList())));
+        return topic -> {
+          var partitions = topicPartitions.getOrDefault(topic, List.of());
+          if (partitions.isEmpty())
+            throw new RuntimeException(
+                "No partition in specified brokers for \""
+                    + topic
+                    + "\" or \""
+                    + topic
+                    + "\" is not in the topic list in this argument.");
+          return partitions.get((int) (Math.random() * partitions.size()));
+        };
       }
     }
 
