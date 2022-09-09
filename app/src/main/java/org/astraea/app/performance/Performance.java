@@ -359,7 +359,12 @@ public class Performance {
 
     /** @return a supplier that randomly return a sending target */
     Supplier<TopicPartition> topicPartitionSelector() {
-      if (!specifyBrokers.isEmpty()) {
+      var specifiedByBroker = !specifyBrokers.isEmpty();
+      var specifiedByPartition = !specifyPartitions.isEmpty();
+      if (specifiedByBroker && specifiedByPartition)
+        throw new IllegalArgumentException(
+            "`--specify.partitions` can't be use in conjunction with `--specify.brokers`");
+      else if (specifiedByBroker) {
         try (Admin admin = Admin.of(configs())) {
           final var selections =
               admin.replicas(Set.copyOf(topics)).values().stream()
@@ -376,7 +381,27 @@ public class Performance {
 
           return () -> selections.get(ThreadLocalRandom.current().nextInt(selections.size()));
         }
-      } else if (!specifyPartitions.isEmpty()) {
+      } else if (specifiedByPartition) {
+        // sanity check, ensure all specified partitions are existed
+        try (Admin admin = Admin.of(configs())) {
+          var allTopics = admin.topicNames();
+          var allTopicPartitions =
+              admin
+                  .replicas(
+                      specifyPartitions.stream()
+                          .map(TopicPartition::topic)
+                          .filter(allTopics::contains)
+                          .collect(Collectors.toUnmodifiableSet()))
+                  .keySet();
+          var notExist =
+              specifyPartitions.stream()
+                  .filter(tp -> !allTopicPartitions.contains(tp))
+                  .collect(Collectors.toUnmodifiableSet());
+          if (!notExist.isEmpty())
+            throw new IllegalArgumentException(
+                "The following topic/partitions are not exists in the cluster: " + notExist);
+        }
+
         return () ->
             specifyPartitions.get(ThreadLocalRandom.current().nextInt(specifyPartitions.size()));
       } else {

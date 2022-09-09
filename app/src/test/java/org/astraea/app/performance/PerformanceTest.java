@@ -316,6 +316,38 @@ public class PerformanceTest extends RequireBrokerCluster {
           IntStream.range(0, 10000)
               .mapToObj(ignore -> selector3.get())
               .collect(Collectors.toUnmodifiableSet()));
+
+      // use specify.brokers in conjunction with specify.partitions will raise error
+      Assertions.assertThrows(
+          IllegalArgumentException.class,
+          () ->
+              Argument.parse(
+                      new Performance.Argument(),
+                      new String[] {
+                        "--bootstrap.servers",
+                        bootstrapServers(),
+                        "--specify.partitions",
+                        targets.stream()
+                            .map(TopicPartition::toString)
+                            .collect(Collectors.joining(",")),
+                        "--specify.brokers",
+                        "1,2"
+                      })
+                  .topicPartitionSelector());
+
+      // use specify.partitions with nonexistent topic will raise error
+      Assertions.assertThrows(
+          IllegalArgumentException.class,
+          () ->
+              Argument.parse(
+                      new Performance.Argument(),
+                      new String[] {
+                        "--bootstrap.servers",
+                        bootstrapServers(),
+                        "--specify.partitions",
+                        "NoSuchTopic-5566,Nonexistent-1024," + topicName4 + "-99999"
+                      })
+                  .topicPartitionSelector());
     }
   }
 
