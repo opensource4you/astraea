@@ -22,7 +22,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
 import org.apache.kafka.common.quota.ClientQuotaEntity;
-import org.astraea.app.common.EnumInfo;
+import org.astraea.common.EnumInfo;
 
 public class Quota {
 

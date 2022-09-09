@@ -18,7 +18,7 @@ package org.astraea.common.admin;
 
 import com.beust.jcommander.ParameterException;
 import java.util.Locale;
-import org.astraea.app.common.EnumInfo;
+import org.astraea.common.EnumInfo;
 
 public enum Compression implements EnumInfo {
   NONE("none"),

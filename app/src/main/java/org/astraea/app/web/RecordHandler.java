@@ -41,6 +41,7 @@ import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.astraea.common.Cache;
+import org.astraea.common.EnumInfo;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.TopicPartition;
@@ -52,7 +53,6 @@ import org.astraea.common.consumer.SubscribedConsumer;
 import org.astraea.common.producer.Producer;
 import org.astraea.common.producer.Sender;
 import org.astraea.common.producer.Serializer;
-import org.astraea.app.common.EnumInfo;
 
 public class RecordHandler implements Handler {
   static final String RECORDS = "records";

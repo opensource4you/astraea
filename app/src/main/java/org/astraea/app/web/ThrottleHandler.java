@@ -26,10 +26,10 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.astraea.common.DataRate;
+import org.astraea.common.EnumInfo;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.admin.TopicPartitionReplica;
-import org.astraea.app.common.EnumInfo;
 
 public class ThrottleHandler implements Handler {
   private final Admin admin;

@@ -17,7 +17,7 @@
 package org.astraea.common.producer;
 
 import com.beust.jcommander.ParameterException;
-import org.astraea.app.common.EnumInfo;
+import org.astraea.common.EnumInfo;
 
 public enum Acks implements EnumInfo {
   /** wait for all isrs */

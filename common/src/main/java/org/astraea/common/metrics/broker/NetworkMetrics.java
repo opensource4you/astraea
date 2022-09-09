@@ -17,10 +17,10 @@
 package org.astraea.common.metrics.broker;
 
 import java.util.Arrays;
+import org.astraea.common.EnumInfo;
 import org.astraea.common.metrics.BeanObject;
 import org.astraea.common.metrics.BeanQuery;
 import org.astraea.common.metrics.MBeanClient;
-import org.astraea.app.common.EnumInfo;
 
 public class NetworkMetrics {
 

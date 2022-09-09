@@ -14,12 +14,14 @@ def versions = [
         mockito: project.properties['mockito.version'] ?: "4.6.1",
         jcommander: project.properties['jcommander.version'] ?: "1.82",
         slf4j: project.properties['slf4j.version'] ?: "1.7.36",
+        "commons-io": project.properties['commons-io.version'] ?: "2.11.0",
 ]
 
 dependencies {
     testImplementation "org.junit.jupiter:junit-jupiter:${versions["junit"]}"
     testImplementation "org.mockito:mockito-core:${versions["mockito"]}"
     testImplementation "org.mockito:mockito-inline:${versions["mockito"]}"
+    testImplementation "commons-io:commons-io:${versions["commons-io"]}"
     testImplementation project(':it')
 
 

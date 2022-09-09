@@ -17,7 +17,7 @@
 package org.astraea.common.consumer;
 
 import java.util.Locale;
-import org.astraea.app.common.EnumInfo;
+import org.astraea.common.EnumInfo;
 
 public enum Isolation implements EnumInfo {
   READ_UNCOMMITTED,

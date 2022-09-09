@@ -33,7 +33,7 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.ArgumentsProvider;
 import org.junit.jupiter.params.provider.ArgumentsSource;
 
-/** TODO: 2022-09-10 The test is duplicated in app module. Can we avoid it? */
+/** TODO: 2022-09-10 The test is duplicated in common module. Can we avoid it? */
 class EnumInfoTest {
 
   @Test

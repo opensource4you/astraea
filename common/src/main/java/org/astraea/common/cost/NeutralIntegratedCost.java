@@ -22,11 +22,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import org.astraea.common.EnumInfo;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.ReplicaInfo;
 import org.astraea.common.metrics.collector.Fetcher;
-import org.astraea.app.common.EnumInfo;
 
 /**
  * The result is computed by four cost function.There are "BrokerInputCost", "BrokerOutputCost",
