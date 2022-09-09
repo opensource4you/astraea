@@ -348,6 +348,29 @@ public class PerformanceTest extends RequireBrokerCluster {
                         "NoSuchTopic-5566,Nonexistent-1024," + topicName4 + "-99999"
                       })
                   .topicPartitionSelector());
+
+      // duplicate partitions in input doesn't affect the weight of each partition.
+      final var duplicatedTp = TopicPartition.of(topicName4, 0);
+      final var singleTp = TopicPartition.of(topicName4, 1);
+      final var selector4 =
+          Argument.parse(
+                  new Performance.Argument(),
+                  new String[] {
+                    "--bootstrap.servers",
+                    bootstrapServers(),
+                    "--specify.partitions",
+                    Stream.of(duplicatedTp, duplicatedTp, duplicatedTp, singleTp)
+                        .map(TopicPartition::toString)
+                        .collect(Collectors.joining(","))
+                  })
+              .topicPartitionSelector();
+      var counting =
+          IntStream.range(0, 10000)
+              .mapToObj(ignore -> selector4.get())
+              .collect(Collectors.groupingBy(x -> x, Collectors.counting()));
+
+      var ratio = (double) (counting.get(duplicatedTp)) / counting.get(singleTp);
+      Assertions.assertTrue(1.5 > ratio && ratio > 0.5);
     }
   }
 

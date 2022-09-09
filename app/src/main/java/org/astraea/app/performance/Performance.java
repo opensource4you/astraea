@@ -402,12 +402,14 @@ public class Performance {
                 "The following topic/partitions are nonexistent in the cluster: " + notExist);
         }
 
-        return () ->
-            specifyPartitions.get(ThreadLocalRandom.current().nextInt(specifyPartitions.size()));
+        final var selection =
+            specifyPartitions.stream().distinct().collect(Collectors.toUnmodifiableList());
+        return () -> selection.get(ThreadLocalRandom.current().nextInt(selection.size()));
       } else {
         final var selection =
             topics.stream()
                 .map(topic -> TopicPartition.of(topic, -1))
+                .distinct()
                 .collect(Collectors.toUnmodifiableList());
         return () -> selection.get(ThreadLocalRandom.current().nextInt(selection.size()));
       }
