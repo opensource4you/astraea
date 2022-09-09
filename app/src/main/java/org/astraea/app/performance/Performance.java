@@ -399,7 +399,7 @@ public class Performance {
                   .collect(Collectors.toUnmodifiableSet());
           if (!notExist.isEmpty())
             throw new IllegalArgumentException(
-                "The following topic/partitions are not exists in the cluster: " + notExist);
+                "The following topic/partitions are nonexistent in the cluster: " + notExist);
         }
 
         return () ->
