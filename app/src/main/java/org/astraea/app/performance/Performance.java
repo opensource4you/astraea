@@ -27,14 +27,14 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
-import java.util.function.Function;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.astraea.app.admin.Admin;
 import org.astraea.app.admin.Compression;
-import org.astraea.app.admin.Replica;
 import org.astraea.app.admin.ReplicaInfo;
 import org.astraea.app.admin.TopicPartition;
 import org.astraea.app.argument.DurationField;
@@ -46,6 +46,7 @@ import org.astraea.app.argument.PositiveLongField;
 import org.astraea.app.argument.PositiveShortField;
 import org.astraea.app.argument.PositiveShortListField;
 import org.astraea.app.argument.StringListField;
+import org.astraea.app.argument.TopicPartitionField;
 import org.astraea.app.common.DataRate;
 import org.astraea.app.common.DataSize;
 import org.astraea.app.common.DataUnit;
@@ -84,10 +85,9 @@ public class Performance {
 
     var producerThreads =
         ProducerThread.create(
-            param.topics,
             param.transactionSize,
             dataSupplier(param),
-            param.partitionSelector(),
+            param.topicPartitionSelector(),
             param.producers,
             param::createProducer);
     var consumerThreads =
@@ -345,43 +345,46 @@ public class Performance {
     @Parameter(
         names = {"--specify.brokers"},
         description =
-            "String: The broker IDs to send to if the topic has partition on that broker.",
+            "String: The broker IDs to send to if the topic has partition on that broker. This argument can't be use in conjunction with `specify.partitions`",
         validateWith = PositiveIntegerListField.class)
     List<Integer> specifyBrokers = List.of();
 
-    /**
-     * This method gives a function that maps a topic name to a partition. The mapped leader
-     * partition is in a broker that is in `specifyBrokers`. This map is created initially, that is,
-     * leader partition changes may make the map incorrect. To update your partitionSelector, call
-     * it again.
-     *
-     * @throws RuntimeException if one of the topic does not have any leader partition on
-     *     `specifyBrokers`, the exception is thrown
-     * @return select a partition from `topics` whose leader partition is in `specifyBrokers`
-     */
-    Function<String, Integer> partitionSelector() {
-      if (specifyBrokers.isEmpty()) return ignore -> -1;
-      try (var admin = Admin.of(configs())) {
-        var topicPartitions =
-            admin.replicas(new HashSet<>(topics)).values().stream()
-                .flatMap(Collection::stream)
-                .filter(ReplicaInfo::isLeader)
-                .filter(replica -> specifyBrokers.contains(replica.nodeInfo().id()))
-                .collect(
-                    Collectors.groupingBy(
-                        Replica::topic,
-                        Collectors.mapping(Replica::partition, Collectors.toUnmodifiableList())));
-        return topic -> {
-          var partitions = topicPartitions.getOrDefault(topic, List.of());
-          if (partitions.isEmpty())
-            throw new RuntimeException(
-                "No partition in specified brokers for \""
-                    + topic
-                    + "\" or \""
-                    + topic
-                    + "\" is not in the topic list in this argument.");
-          return partitions.get((int) (Math.random() * partitions.size()));
-        };
+    @Parameter(
+        names = {"--specify.partitions"},
+        description =
+            "String: A list ot topic-partition pairs, this list specify the send targets in "
+                + "partition level. This argument can't be use in conjunction with `specify.brokers`, `topics` or `partitioner`.",
+        converter = TopicPartitionField.class)
+    List<TopicPartition> specifyPartitions = List.of();
+
+    /** @return a supplier that randomly return a sending target */
+    Supplier<TopicPartition> topicPartitionSelector() {
+      if (!specifyBrokers.isEmpty()) {
+        try (Admin admin = Admin.of(configs())) {
+          final var selections =
+              admin.replicas(Set.copyOf(topics)).values().stream()
+                  .flatMap(Collection::stream)
+                  .filter(ReplicaInfo::isLeader)
+                  .filter(replica -> specifyBrokers.contains(replica.nodeInfo().id()))
+                  .map(replica -> TopicPartition.of(replica.topic(), replica.partition()))
+                  .distinct()
+                  .collect(Collectors.toUnmodifiableList());
+
+          if (selections.isEmpty())
+            throw new IllegalArgumentException(
+                "No partition match the specify.brokers requirement");
+
+          return () -> selections.get(ThreadLocalRandom.current().nextInt(selections.size()));
+        }
+      } else if (!specifyPartitions.isEmpty()) {
+        return () ->
+            specifyPartitions.get(ThreadLocalRandom.current().nextInt(specifyPartitions.size()));
+      } else {
+        final var selection =
+            topics.stream()
+                .map(topic -> TopicPartition.of(topic, -1))
+                .collect(Collectors.toUnmodifiableList());
+        return () -> selection.get(ThreadLocalRandom.current().nextInt(selection.size()));
       }
     }
 

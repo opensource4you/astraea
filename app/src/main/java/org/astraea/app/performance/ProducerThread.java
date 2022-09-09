@@ -23,20 +23,19 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import org.astraea.app.admin.TopicPartition;
 import org.astraea.app.common.Utils;
 import org.astraea.app.producer.Producer;
 
 public interface ProducerThread extends AbstractThread {
 
   static List<ProducerThread> create(
-      List<String> topics,
       int batchSize,
       DataSupplier dataSupplier,
-      Function<String, Integer> partitionSelector,
+      Supplier<TopicPartition> topicPartitionSupplier,
       int producers,
       Supplier<Producer<byte[], byte[]>> producerSupplier) {
     if (producers <= 0) return List.of();
@@ -64,10 +63,7 @@ public interface ProducerThread extends AbstractThread {
               executors.execute(
                   () -> {
                     try (var producer = producerSupplier.get()) {
-                      var topicIndex = 0;
                       while (!closed.get()) {
-                        topicIndex = Math.abs(topicIndex) % topics.size();
-                        var topic = topics.get(topicIndex);
                         var data =
                             IntStream.range(0, batchSize)
                                 .mapToObj(i -> dataSupplier.get())
@@ -90,8 +86,7 @@ public interface ProducerThread extends AbstractThread {
                                         d ->
                                             producer
                                                 .sender()
-                                                .topic(topic)
-                                                .partition(partitionSelector.apply(topic))
+                                                .topicPartition(topicPartitionSupplier.get())
                                                 .key(d.key())
                                                 .value(d.value())
                                                 .timestamp(System.currentTimeMillis()))
@@ -106,7 +101,6 @@ public interface ProducerThread extends AbstractThread {
                                                 m.offset(),
                                                 System.currentTimeMillis() - m.timestamp(),
                                                 m.serializedValueSize() + m.serializedKeySize())));
-                        topicIndex += 1;
                       }
                     } finally {
                       closeLatch.countDown();
