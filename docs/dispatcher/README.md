@@ -15,7 +15,7 @@ repositories {
     }
     
     dependencies {
-        implementation 'org.astraea:app:0.0.1-SNAPSHOT'
+        implementation 'org.astraea:astraea-common:0.0.1-SNAPSHOT'
     }
 }
 ```

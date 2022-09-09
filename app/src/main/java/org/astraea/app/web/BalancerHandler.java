@@ -25,21 +25,21 @@ import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import org.astraea.app.admin.Admin;
-import org.astraea.app.admin.ClusterBean;
-import org.astraea.app.admin.ClusterInfo;
-import org.astraea.app.admin.Replica;
-import org.astraea.app.admin.TopicPartitionReplica;
 import org.astraea.app.balancer.BalancerUtils;
 import org.astraea.app.balancer.RebalancePlanProposal;
 import org.astraea.app.balancer.generator.RebalancePlanGenerator;
 import org.astraea.app.balancer.log.ClusterLogAllocation;
 import org.astraea.app.balancer.log.LogPlacement;
-import org.astraea.app.cost.ClusterCost;
-import org.astraea.app.cost.HasClusterCost;
-import org.astraea.app.cost.HasMoveCost;
-import org.astraea.app.cost.MoveCost;
-import org.astraea.app.cost.ReplicaSizeCost;
+import org.astraea.common.admin.Admin;
+import org.astraea.common.admin.ClusterBean;
+import org.astraea.common.admin.ClusterInfo;
+import org.astraea.common.admin.Replica;
+import org.astraea.common.admin.TopicPartitionReplica;
+import org.astraea.common.cost.ClusterCost;
+import org.astraea.common.cost.HasClusterCost;
+import org.astraea.common.cost.HasMoveCost;
+import org.astraea.common.cost.MoveCost;
+import org.astraea.common.cost.ReplicaSizeCost;
 
 class BalancerHandler implements Handler {
 

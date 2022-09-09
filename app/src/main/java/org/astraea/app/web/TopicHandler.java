@@ -25,9 +25,9 @@ import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 import org.apache.kafka.common.errors.UnknownTopicOrPartitionException;
-import org.astraea.app.admin.Admin;
-import org.astraea.app.admin.Config;
-import org.astraea.app.common.ExecutionRuntimeException;
+import org.astraea.common.ExecutionRuntimeException;
+import org.astraea.common.admin.Admin;
+import org.astraea.common.admin.Config;
 
 class TopicHandler implements Handler {
 
@@ -201,7 +201,7 @@ class TopicHandler implements Handler {
     final boolean isFuture;
     final String path;
 
-    Replica(org.astraea.app.admin.Replica replica) {
+    Replica(org.astraea.common.admin.Replica replica) {
       this(
           replica.nodeInfo().id(),
           replica.lag(),

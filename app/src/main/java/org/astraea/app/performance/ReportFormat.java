@@ -31,8 +31,8 @@ import java.util.Date;
 import java.util.List;
 import java.util.function.Supplier;
 import java.util.stream.IntStream;
+import org.astraea.common.Utils;
 import org.astraea.app.common.EnumInfo;
-import org.astraea.app.common.Utils;
 
 public enum ReportFormat implements EnumInfo {
   CSV("csv"),

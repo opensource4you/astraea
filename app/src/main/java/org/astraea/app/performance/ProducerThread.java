@@ -23,11 +23,12 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-import org.astraea.app.common.Utils;
-import org.astraea.app.producer.Producer;
+import org.astraea.common.Utils;
+import org.astraea.common.producer.Producer;
 
 public interface ProducerThread extends AbstractThread {
 
@@ -35,7 +36,7 @@ public interface ProducerThread extends AbstractThread {
       List<String> topics,
       int batchSize,
       DataSupplier dataSupplier,
-      Supplier<Integer> partitionSupplier,
+      Function<String, Integer> partitionSelector,
       int producers,
       Supplier<Producer<byte[], byte[]>> producerSupplier) {
     if (producers <= 0) return List.of();
@@ -90,7 +91,7 @@ public interface ProducerThread extends AbstractThread {
                                             producer
                                                 .sender()
                                                 .topic(topic)
-                                                .partition(partitionSupplier.get())
+                                                .partition(partitionSelector.apply(topic))
                                                 .key(d.key())
                                                 .value(d.value())
                                                 .timestamp(System.currentTimeMillis()))

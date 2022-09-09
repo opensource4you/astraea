@@ -1,0 +1,76 @@
+plugins {
+    id 'java'
+    id 'maven-publish'
+}
+
+repositories {
+    // Use Maven Central for resolving dependencies.
+    mavenCentral()
+}
+
+def versions = [
+        kafka: project.properties['kafka.version'] ?: "3.2.1",
+        junit: project.properties['junit.version'] ?: "5.8.2",
+        mockito: project.properties['mockito.version'] ?: "4.6.1",
+        jcommander: project.properties['jcommander.version'] ?: "1.82",
+        slf4j: project.properties['slf4j.version'] ?: "1.7.36",
+]
+
+dependencies {
+    testImplementation "org.junit.jupiter:junit-jupiter:${versions["junit"]}"
+    testImplementation "org.mockito:mockito-core:${versions["mockito"]}"
+    testImplementation "org.mockito:mockito-inline:${versions["mockito"]}"
+    testImplementation project(':it')
+
+
+    implementation "org.apache.kafka:kafka-clients:${versions["kafka"]}"
+    implementation "com.beust:jcommander:${versions["jcommander"]}"
+    // we don't use slf4j actually, and it is used by kafka so we swallow the log.
+    implementation "org.slf4j:slf4j-nop:${versions["slf4j"]}"
+}
+
+java {
+    sourceCompatibility = 11
+    targetCompatibility = 11
+}
+
+ext {
+    numberOfForks = project.hasProperty('maxParallelForks') ? maxParallelForks.toInteger() : Math.max((int) (Runtime.runtime.availableProcessors() / 2), 1)
+}
+
+archivesBaseName = "astraea-common"
+
+tasks.named('test') {
+    // Use JUnit Platform for unit tests.
+    useJUnitPlatform()
+
+    maxParallelForks = numberOfForks
+    // make isolation for tests. It may be expensive but stability is first choice.
+    forkEvery = 1
+    testLogging {
+        events "PASSED", "STARTED", "FAILED", "SKIPPED"
+        exceptionFormat = 'full'
+    }
+
+    minHeapSize = "512m"
+    maxHeapSize = "2048m"
+}
+
+publishing {
+    publications {
+        mavenJava(MavenPublication) {
+            groupId = 'org.astraea'
+            artifactId = 'astraea-common'
+            from components.java
+        }
+    }
+    repositories {
+        maven {
+            url = "https://maven.pkg.github.com/skiptests/astraea"
+            credentials {
+                username = System.getenv("GITHUB_ACTOR")
+                password = System.getenv("GITHUB_TOKEN")
+            }
+        }
+    }
+}

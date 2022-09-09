@@ -18,8 +18,8 @@ package org.astraea.app.performance;
 
 import java.time.Duration;
 import java.util.List;
-import org.astraea.app.common.Utils;
-import org.astraea.app.metrics.client.HasNodeMetrics;
+import org.astraea.common.Utils;
+import org.astraea.common.metrics.client.HasNodeMetrics;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;

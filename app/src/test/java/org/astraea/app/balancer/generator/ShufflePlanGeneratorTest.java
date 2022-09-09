@@ -22,7 +22,7 @@ import java.util.concurrent.atomic.LongAdder;
 import java.util.stream.Collectors;
 import org.astraea.app.balancer.FakeClusterInfo;
 import org.astraea.app.balancer.log.ClusterLogAllocation;
-import org.astraea.app.common.Utils;
+import org.astraea.common.Utils;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;

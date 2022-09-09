@@ -20,11 +20,11 @@ import com.beust.jcommander.Parameter;
 import java.util.Set;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
-import org.astraea.app.admin.Admin;
 import org.astraea.app.balancer.executor.RebalanceAdmin;
 import org.astraea.app.balancer.executor.StraightPlanExecutor;
 import org.astraea.app.balancer.generator.ShufflePlanGenerator;
 import org.astraea.app.balancer.log.ClusterLogAllocation;
+import org.astraea.common.admin.Admin;
 
 /**
  * A simple demo for Balancer, it does the following:
@@ -38,7 +38,7 @@ import org.astraea.app.balancer.log.ClusterLogAllocation;
 public class BalanceProcessDemo {
 
   public static void main(String[] args) {
-    var argument = org.astraea.app.argument.Argument.parse(new Argument(), args);
+    var argument = org.astraea.common.argument.Argument.parse(new Argument(), args);
     var rebalancePlanGenerator = new ShufflePlanGenerator(1, 5);
     var rebalancePlanExecutor = new StraightPlanExecutor();
     try (var admin = Admin.of(argument.configs())) {
@@ -64,7 +64,7 @@ public class BalanceProcessDemo {
     }
   }
 
-  public static class Argument extends org.astraea.app.argument.Argument {
+  public static class Argument extends org.astraea.common.argument.Argument {
 
     @Parameter(names = {"--ignored.topics"})
     public Set<String> ignoredTopics =

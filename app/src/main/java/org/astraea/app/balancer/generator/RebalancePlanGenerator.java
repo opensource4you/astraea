@@ -19,9 +19,9 @@ package org.astraea.app.balancer.generator;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Stream;
-import org.astraea.app.admin.ClusterInfo;
 import org.astraea.app.balancer.RebalancePlanProposal;
 import org.astraea.app.balancer.log.ClusterLogAllocation;
+import org.astraea.common.admin.ClusterInfo;
 
 @FunctionalInterface
 public interface RebalancePlanGenerator {
