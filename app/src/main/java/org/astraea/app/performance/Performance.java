@@ -33,35 +33,35 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
-import org.astraea.app.admin.Admin;
-import org.astraea.app.admin.Compression;
-import org.astraea.app.admin.ReplicaInfo;
-import org.astraea.app.admin.TopicPartition;
-import org.astraea.app.argument.DurationField;
-import org.astraea.app.argument.NonEmptyStringField;
-import org.astraea.app.argument.NonNegativeShortField;
-import org.astraea.app.argument.PathField;
-import org.astraea.app.argument.PositiveIntegerListField;
-import org.astraea.app.argument.PositiveLongField;
-import org.astraea.app.argument.PositiveShortField;
-import org.astraea.app.argument.PositiveShortListField;
-import org.astraea.app.argument.StringListField;
-import org.astraea.app.argument.TopicPartitionField;
-import org.astraea.app.common.DataRate;
-import org.astraea.app.common.DataSize;
-import org.astraea.app.common.DataUnit;
-import org.astraea.app.common.Utils;
-import org.astraea.app.consumer.Consumer;
-import org.astraea.app.consumer.Isolation;
-import org.astraea.app.producer.Acks;
-import org.astraea.app.producer.Producer;
+import org.astraea.common.DataRate;
+import org.astraea.common.DataSize;
+import org.astraea.common.DataUnit;
+import org.astraea.common.Utils;
+import org.astraea.common.admin.Admin;
+import org.astraea.common.admin.Compression;
+import org.astraea.common.admin.Replica;
+import org.astraea.common.admin.ReplicaInfo;
+import org.astraea.common.admin.TopicPartition;
+import org.astraea.common.argument.DurationField;
+import org.astraea.common.argument.NonEmptyStringField;
+import org.astraea.common.argument.NonNegativeShortField;
+import org.astraea.common.argument.PathField;
+import org.astraea.common.argument.PositiveIntegerListField;
+import org.astraea.common.argument.PositiveLongField;
+import org.astraea.common.argument.PositiveShortField;
+import org.astraea.common.argument.PositiveShortListField;
+import org.astraea.common.argument.StringListField;
+import org.astraea.common.consumer.Consumer;
+import org.astraea.common.consumer.Isolation;
+import org.astraea.common.producer.Acks;
+import org.astraea.common.producer.Producer;
 
 /** see docs/performance_benchmark.md for man page */
 public class Performance {
   /** Used in Automation, to achieve the end of one Performance and then start another. */
   public static void main(String[] args)
       throws InterruptedException, IOException, ExecutionException {
-    execute(org.astraea.app.argument.Argument.parse(new Argument(), args));
+    execute(org.astraea.common.argument.Argument.parse(new Argument(), args));
   }
 
   private static DataSupplier dataSupplier(Performance.Argument argument) {
@@ -171,7 +171,7 @@ public class Performance {
     return param.topics;
   }
 
-  public static class Argument extends org.astraea.app.argument.Argument {
+  public static class Argument extends org.astraea.common.argument.Argument {
 
     @Parameter(
         names = {"--topics"},
@@ -345,7 +345,7 @@ public class Performance {
     @Parameter(
         names = {"--specify.brokers"},
         description =
-            "String: The broker IDs to send to if the topic has partition on that broker. This argument can't be use in conjunction with `specify.partitions`",
+            "String: The broker IDs to send to if the topic has partition on that broker.",
         validateWith = PositiveIntegerListField.class)
     List<Integer> specifyBrokers = List.of();
 

@@ -32,7 +32,7 @@ import java.util.Date;
 import java.util.List;
 import java.util.function.Supplier;
 import java.util.stream.IntStream;
-import org.astraea.app.common.Utils;
+import org.astraea.common.Utils;
 
 public enum ReportFormat {
   CSV("csv"),

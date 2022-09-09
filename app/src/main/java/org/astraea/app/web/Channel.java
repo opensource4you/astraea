@@ -27,7 +27,7 @@ import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import org.astraea.app.common.Utils;
+import org.astraea.common.Utils;
 
 interface Channel {
 

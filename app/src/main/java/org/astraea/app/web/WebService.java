@@ -25,14 +25,14 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.function.Function;
-import org.astraea.app.admin.Admin;
-import org.astraea.app.argument.NonNegativeIntegerField;
-import org.astraea.app.argument.StringMapField;
+import org.astraea.common.admin.Admin;
+import org.astraea.common.argument.NonNegativeIntegerField;
+import org.astraea.common.argument.StringMapField;
 
 public class WebService {
 
   public static void main(String[] args) throws Exception {
-    execute(org.astraea.app.argument.Argument.parse(new Argument(), args));
+    execute(org.astraea.common.argument.Argument.parse(new Argument(), args));
   }
 
   private static void execute(Argument arg) throws IOException {
@@ -58,7 +58,7 @@ public class WebService {
     return exchange -> handler.handle(Channel.of(exchange));
   }
 
-  static class Argument extends org.astraea.app.argument.Argument {
+  static class Argument extends org.astraea.common.argument.Argument {
     @Parameter(
         names = {"--port"},
         description = "Integer: the port to bind",

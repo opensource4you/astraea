@@ -25,10 +25,10 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
-import org.astraea.app.admin.ClusterInfo;
-import org.astraea.app.admin.NodeInfo;
-import org.astraea.app.admin.Replica;
-import org.astraea.app.admin.TopicPartition;
+import org.astraea.common.admin.ClusterInfo;
+import org.astraea.common.admin.NodeInfo;
+import org.astraea.common.admin.Replica;
+import org.astraea.common.admin.TopicPartition;
 
 public class FakeClusterInfo implements ClusterInfo<Replica> {
 

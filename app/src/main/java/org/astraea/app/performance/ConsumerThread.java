@@ -27,9 +27,9 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.kafka.common.errors.WakeupException;
-import org.astraea.app.common.Utils;
-import org.astraea.app.consumer.ConsumerRebalanceListener;
-import org.astraea.app.consumer.SubscribedConsumer;
+import org.astraea.common.Utils;
+import org.astraea.common.consumer.ConsumerRebalanceListener;
+import org.astraea.common.consumer.SubscribedConsumer;
 
 public interface ConsumerThread extends AbstractThread {
 
