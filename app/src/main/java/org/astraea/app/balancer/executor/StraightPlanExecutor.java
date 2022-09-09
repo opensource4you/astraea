@@ -21,8 +21,8 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import org.astraea.app.admin.TopicPartition;
 import org.astraea.app.balancer.log.ClusterLogAllocation;
+import org.astraea.common.admin.TopicPartition;
 
 /** Execute every possible migration immediately. */
 public class StraightPlanExecutor implements RebalancePlanExecutor {

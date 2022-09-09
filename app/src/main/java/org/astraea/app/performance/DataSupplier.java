@@ -21,7 +21,7 @@ import java.util.Random;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
-import org.astraea.app.common.DataRate;
+import org.astraea.common.DataRate;
 
 @FunctionalInterface
 interface DataSupplier extends Supplier<DataSupplier.Data> {

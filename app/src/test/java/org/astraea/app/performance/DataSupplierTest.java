@@ -19,10 +19,10 @@ package org.astraea.app.performance;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.concurrent.atomic.AtomicLong;
-import org.astraea.app.common.DataRate;
-import org.astraea.app.common.DataSize;
-import org.astraea.app.common.DataUnit;
-import org.astraea.app.common.Utils;
+import org.astraea.common.DataRate;
+import org.astraea.common.DataSize;
+import org.astraea.common.DataUnit;
+import org.astraea.common.Utils;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 

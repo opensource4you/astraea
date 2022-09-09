@@ -17,7 +17,7 @@
 package org.astraea.app.balancer.executor;
 
 import java.util.concurrent.CompletableFuture;
-import org.astraea.app.admin.TopicPartitionReplica;
+import org.astraea.common.admin.TopicPartitionReplica;
 
 public class ReplicaMigrationTask {
 

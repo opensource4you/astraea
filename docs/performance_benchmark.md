@@ -91,7 +91,7 @@ docker/start_app.sh performance --bootstrap.servers localhost:9092 --partitioner
 
 ```bash
 # 使用 partitioner 框架，指定參考 Broker Input 做效能指標，把紀錄輸出到指定路徑。
-docker/start_app.sh performance --bootstrap.servers localhost:9092 --partitioner org.astraea.app.partitioner.StrictCostDispatcher --configs org.astraea.app.cost.BrokerInputCost=1 --prop.file ./config --report.path ~/report
+docker/start_app.sh performance --bootstrap.servers localhost:9092 --partitioner org.astraea.common.partitioner.StrictCostDispatcher --configs org.astraea.common.cost.BrokerInputCost=1 --prop.file ./config --report.path ~/report
 ```
 
 ``` bash
