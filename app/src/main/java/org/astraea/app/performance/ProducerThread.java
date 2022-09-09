@@ -27,6 +27,7 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.astraea.common.Utils;
+import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.producer.Producer;
 
 public interface ProducerThread extends AbstractThread {

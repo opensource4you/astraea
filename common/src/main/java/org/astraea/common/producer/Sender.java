@@ -18,6 +18,7 @@ package org.astraea.common.producer;
 
 import java.util.Collection;
 import java.util.concurrent.CompletionStage;
+import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.consumer.Header;
 
 public interface Sender<Key, Value> {

@@ -50,6 +50,7 @@ import org.astraea.common.argument.PositiveLongField;
 import org.astraea.common.argument.PositiveShortField;
 import org.astraea.common.argument.PositiveShortListField;
 import org.astraea.common.argument.StringListField;
+import org.astraea.common.argument.TopicPartitionField;
 import org.astraea.common.consumer.Consumer;
 import org.astraea.common.consumer.Isolation;
 import org.astraea.common.producer.Acks;
