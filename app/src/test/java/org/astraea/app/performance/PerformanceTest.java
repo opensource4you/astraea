@@ -29,6 +29,7 @@ import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.ReplicaInfo;
+import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.argument.Argument;
 import org.astraea.common.consumer.Isolation;
 import org.astraea.common.producer.Acks;
@@ -215,17 +216,17 @@ public class PerformanceTest extends RequireBrokerCluster {
               .flatMap(Collection::stream)
               .filter(Replica::isLeader)
               .filter(r -> r.nodeInfo().id() == 1)
-              .map(ReplicaInfo::partition)
+              .map(ReplicaInfo::topicPartition)
               .collect(Collectors.toUnmodifiableSet());
 
       // assert there are 3 brokers, the 6 partitions are divided
       Assertions.assertEquals(3, brokerIds().size());
       Assertions.assertEquals(2, expectedLeaders.size());
 
-      var partitionSelector = args.partitionSelector();
+      var selector = args.topicPartitionSelector();
       var actual =
-          IntStream.range(0, 100)
-              .mapToObj(ignored -> partitionSelector.apply(topicName))
+          IntStream.range(0, 1000)
+              .mapToObj(ignored -> selector.get())
               .collect(Collectors.toUnmodifiableSet());
 
       Assertions.assertEquals(expectedLeaders, actual);
@@ -246,18 +247,19 @@ public class PerformanceTest extends RequireBrokerCluster {
                 "1"
               });
 
-      var partitionSelector2 = args.partitionSelector();
-      actual =
-          IntStream.range(0, 100)
-              .mapToObj(ignored -> partitionSelector2.apply(topicName))
-              .collect(Collectors.toUnmodifiableSet());
+      var expected2 =
+          admin.replicas(Set.of(topicName, topicName2)).values().stream()
+              .flatMap(Collection::stream)
+              .filter(ReplicaInfo::isLeader)
+              .filter(replica -> replica.nodeInfo().id() == 1)
+              .map(ReplicaInfo::topicPartition)
+              .collect(Collectors.toSet());
+      var selector2 = args.topicPartitionSelector();
       var actual2 =
-          IntStream.range(0, 100)
-              .mapToObj(ignored -> partitionSelector2.apply(topicName2))
+          IntStream.range(0, 10000)
+              .mapToObj(ignored -> selector2.get())
               .collect(Collectors.toUnmodifiableSet());
-
-      Assertions.assertEquals(2, actual.size());
-      Assertions.assertEquals(1, actual2.size());
+      Assertions.assertEquals(expected2, actual2);
 
       // no specify broker
       Assertions.assertEquals(
@@ -265,15 +267,14 @@ public class PerformanceTest extends RequireBrokerCluster {
           Argument.parse(
                   new Performance.Argument(),
                   new String[] {"--bootstrap.servers", bootstrapServers(), "--topics", topicName})
-              .partitionSelector()
-              .apply(topicName));
+              .topicPartitionSelector()
+              .get()
+              .partition());
 
       // Test no partition in specified broker
       var topicName3 = Utils.randomString(10);
       admin.creator().topic(topicName3).numberOfPartitions(1).create();
       Utils.sleep(Duration.ofSeconds(2));
-      var validBroker = admin.replicas().values().stream().findAny().get().get(0).nodeInfo().id();
-      var noPartitionBroker = (validBroker == 3) ? 1 : validBroker + 1;
       args =
           Argument.parse(
               new Performance.Argument(),
@@ -283,10 +284,93 @@ public class PerformanceTest extends RequireBrokerCluster {
                 "--topics",
                 topicName3,
                 "--specify.brokers",
-                Integer.toString(noPartitionBroker)
+                "4"
               });
-      var partitionSelector3 = args.partitionSelector();
-      Assertions.assertThrows(RuntimeException.class, () -> partitionSelector3.apply(topicName3));
+      Assertions.assertThrows(IllegalArgumentException.class, args::topicPartitionSelector);
+
+      // test specify partitions
+      var topicName4 = Utils.randomString();
+      var topicName5 = Utils.randomString();
+      admin.creator().topic(topicName4).numberOfPartitions(3).create();
+      admin.creator().topic(topicName5).numberOfPartitions(3).create();
+      Utils.sleep(Duration.ofSeconds(2));
+      var targets =
+          Set.of(
+              TopicPartition.of(topicName4, 0),
+              TopicPartition.of(topicName4, 1),
+              TopicPartition.of(topicName5, 2));
+      var arguments =
+          Argument.parse(
+              new Performance.Argument(),
+              new String[] {
+                "--bootstrap.servers",
+                bootstrapServers(),
+                "--specify.partitions",
+                targets.stream().map(TopicPartition::toString).collect(Collectors.joining(","))
+              });
+      var selector3 = arguments.topicPartitionSelector();
+
+      Assertions.assertEquals(targets, Set.copyOf(arguments.specifyPartitions));
+      Assertions.assertEquals(
+          targets,
+          IntStream.range(0, 10000)
+              .mapToObj(ignore -> selector3.get())
+              .collect(Collectors.toUnmodifiableSet()));
+
+      // use specify.brokers in conjunction with specify.partitions will raise error
+      Assertions.assertThrows(
+          IllegalArgumentException.class,
+          () ->
+              Argument.parse(
+                      new Performance.Argument(),
+                      new String[] {
+                        "--bootstrap.servers",
+                        bootstrapServers(),
+                        "--specify.partitions",
+                        targets.stream()
+                            .map(TopicPartition::toString)
+                            .collect(Collectors.joining(",")),
+                        "--specify.brokers",
+                        "1,2"
+                      })
+                  .topicPartitionSelector());
+
+      // use specify.partitions with nonexistent topic will raise error
+      Assertions.assertThrows(
+          IllegalArgumentException.class,
+          () ->
+              Argument.parse(
+                      new Performance.Argument(),
+                      new String[] {
+                        "--bootstrap.servers",
+                        bootstrapServers(),
+                        "--specify.partitions",
+                        "NoSuchTopic-5566,Nonexistent-1024," + topicName4 + "-99999"
+                      })
+                  .topicPartitionSelector());
+
+      // duplicate partitions in input doesn't affect the weight of each partition.
+      final var duplicatedTp = TopicPartition.of(topicName4, 0);
+      final var singleTp = TopicPartition.of(topicName4, 1);
+      final var selector4 =
+          Argument.parse(
+                  new Performance.Argument(),
+                  new String[] {
+                    "--bootstrap.servers",
+                    bootstrapServers(),
+                    "--specify.partitions",
+                    Stream.of(duplicatedTp, duplicatedTp, duplicatedTp, singleTp)
+                        .map(TopicPartition::toString)
+                        .collect(Collectors.joining(","))
+                  })
+              .topicPartitionSelector();
+      var counting =
+          IntStream.range(0, 10000)
+              .mapToObj(ignore -> selector4.get())
+              .collect(Collectors.groupingBy(x -> x, Collectors.counting()));
+
+      var ratio = (double) (counting.get(duplicatedTp)) / counting.get(singleTp);
+      Assertions.assertTrue(1.5 > ratio && ratio > 0.5);
     }
   }
 

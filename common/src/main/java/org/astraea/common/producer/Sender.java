@@ -18,6 +18,7 @@ package org.astraea.common.producer;
 
 import java.util.Collection;
 import java.util.concurrent.CompletionStage;
+import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.consumer.Header;
 
 public interface Sender<Key, Value> {
@@ -34,6 +35,12 @@ public interface Sender<Key, Value> {
    * @return this sender
    */
   Sender<Key, Value> partition(int partition);
+
+  default Sender<Key, Value> topicPartition(TopicPartition topicPartition) {
+    topic(topicPartition.topic());
+    partition(topicPartition.partition());
+    return this;
+  }
 
   Sender<Key, Value> timestamp(long timestamp);
 

@@ -27,9 +27,10 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
-import java.util.function.Function;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.astraea.common.DataRate;
@@ -38,7 +39,6 @@ import org.astraea.common.DataUnit;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.Compression;
-import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.ReplicaInfo;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.argument.DurationField;
@@ -50,6 +50,7 @@ import org.astraea.common.argument.PositiveLongField;
 import org.astraea.common.argument.PositiveShortField;
 import org.astraea.common.argument.PositiveShortListField;
 import org.astraea.common.argument.StringListField;
+import org.astraea.common.argument.TopicPartitionField;
 import org.astraea.common.consumer.Consumer;
 import org.astraea.common.consumer.Isolation;
 import org.astraea.common.producer.Acks;
@@ -84,10 +85,9 @@ public class Performance {
 
     var producerThreads =
         ProducerThread.create(
-            param.topics,
             param.transactionSize,
             dataSupplier(param),
-            param.partitionSelector(),
+            param.topicPartitionSelector(),
             param.producers,
             param::createProducer);
     var consumerThreads =
@@ -349,39 +349,69 @@ public class Performance {
         validateWith = PositiveIntegerListField.class)
     List<Integer> specifyBrokers = List.of();
 
-    /**
-     * This method gives a function that maps a topic name to a partition. The mapped leader
-     * partition is in a broker that is in `specifyBrokers`. This map is created initially, that is,
-     * leader partition changes may make the map incorrect. To update your partitionSelector, call
-     * it again.
-     *
-     * @throws RuntimeException if one of the topic does not have any leader partition on
-     *     `specifyBrokers`, the exception is thrown
-     * @return select a partition from `topics` whose leader partition is in `specifyBrokers`
-     */
-    Function<String, Integer> partitionSelector() {
-      if (specifyBrokers.isEmpty()) return ignore -> -1;
-      try (var admin = Admin.of(configs())) {
-        var topicPartitions =
-            admin.replicas(new HashSet<>(topics)).values().stream()
-                .flatMap(Collection::stream)
-                .filter(ReplicaInfo::isLeader)
-                .filter(replica -> specifyBrokers.contains(replica.nodeInfo().id()))
-                .collect(
-                    Collectors.groupingBy(
-                        Replica::topic,
-                        Collectors.mapping(Replica::partition, Collectors.toUnmodifiableList())));
-        return topic -> {
-          var partitions = topicPartitions.getOrDefault(topic, List.of());
-          if (partitions.isEmpty())
-            throw new RuntimeException(
-                "No partition in specified brokers for \""
-                    + topic
-                    + "\" or \""
-                    + topic
-                    + "\" is not in the topic list in this argument.");
-          return partitions.get((int) (Math.random() * partitions.size()));
-        };
+    @Parameter(
+        names = {"--specify.partitions"},
+        description =
+            "String: A list ot topic-partition pairs, this list specify the send targets in "
+                + "partition level. This argument can't be use in conjunction with `specify.brokers`, `topics` or `partitioner`.",
+        converter = TopicPartitionField.class)
+    List<TopicPartition> specifyPartitions = List.of();
+
+    /** @return a supplier that randomly return a sending target */
+    Supplier<TopicPartition> topicPartitionSelector() {
+      var specifiedByBroker = !specifyBrokers.isEmpty();
+      var specifiedByPartition = !specifyPartitions.isEmpty();
+      if (specifiedByBroker && specifiedByPartition)
+        throw new IllegalArgumentException(
+            "`--specify.partitions` can't be use in conjunction with `--specify.brokers`");
+      else if (specifiedByBroker) {
+        try (Admin admin = Admin.of(configs())) {
+          final var selections =
+              admin.replicas(Set.copyOf(topics)).values().stream()
+                  .flatMap(Collection::stream)
+                  .filter(ReplicaInfo::isLeader)
+                  .filter(replica -> specifyBrokers.contains(replica.nodeInfo().id()))
+                  .map(replica -> TopicPartition.of(replica.topic(), replica.partition()))
+                  .distinct()
+                  .collect(Collectors.toUnmodifiableList());
+
+          if (selections.isEmpty())
+            throw new IllegalArgumentException(
+                "No partition match the specify.brokers requirement");
+
+          return () -> selections.get(ThreadLocalRandom.current().nextInt(selections.size()));
+        }
+      } else if (specifiedByPartition) {
+        // sanity check, ensure all specified partitions are existed
+        try (Admin admin = Admin.of(configs())) {
+          var allTopics = admin.topicNames();
+          var allTopicPartitions =
+              admin
+                  .replicas(
+                      specifyPartitions.stream()
+                          .map(TopicPartition::topic)
+                          .filter(allTopics::contains)
+                          .collect(Collectors.toUnmodifiableSet()))
+                  .keySet();
+          var notExist =
+              specifyPartitions.stream()
+                  .filter(tp -> !allTopicPartitions.contains(tp))
+                  .collect(Collectors.toUnmodifiableSet());
+          if (!notExist.isEmpty())
+            throw new IllegalArgumentException(
+                "The following topic/partitions are nonexistent in the cluster: " + notExist);
+        }
+
+        final var selection =
+            specifyPartitions.stream().distinct().collect(Collectors.toUnmodifiableList());
+        return () -> selection.get(ThreadLocalRandom.current().nextInt(selection.size()));
+      } else {
+        final var selection =
+            topics.stream()
+                .map(topic -> TopicPartition.of(topic, -1))
+                .distinct()
+                .collect(Collectors.toUnmodifiableList());
+        return () -> selection.get(ThreadLocalRandom.current().nextInt(selection.size()));
       }
     }
 
