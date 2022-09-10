@@ -84,7 +84,7 @@ public class Quota {
 
     @Override
     public String toString() {
-      return EnumInfo.alias2String(this);
+      return alias();
     }
   }
 
@@ -116,7 +116,7 @@ public class Quota {
 
     @Override
     public String toString() {
-      return EnumInfo.alias2String(this);
+      return alias();
     }
   }
 

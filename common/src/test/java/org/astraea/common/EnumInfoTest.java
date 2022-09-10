@@ -33,7 +33,7 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.ArgumentsProvider;
 import org.junit.jupiter.params.provider.ArgumentsSource;
 
-/** TODO: 2022-09-10 The test is duplicated in app module. Can we avoid it? */
+/** TODO: 2022-09-10 astraea#694 The test is duplicated in app module. Can we avoid it? */
 class EnumInfoTest {
 
   @Test
@@ -77,7 +77,7 @@ class EnumInfoTest {
   void testToString(Class<?> cls) {
     var enumConstants = (EnumInfo[]) cls.getEnumConstants();
     Assertions.assertTrue(
-        Arrays.stream(enumConstants).allMatch(x -> x.toString().contains(x.alias())));
+        Arrays.stream(enumConstants).allMatch(x -> x.toString().equals(x.alias())));
   }
 
   enum MyTestEnum implements EnumInfo {

@@ -57,7 +57,7 @@ public class ControllerMetrics {
 
     @Override
     public String toString() {
-      return EnumInfo.alias2String(this);
+      return alias();
     }
 
     public Gauge fetch(MBeanClient mBeanClient) {
@@ -135,7 +135,7 @@ public class ControllerMetrics {
 
     @Override
     public String toString() {
-      return EnumInfo.alias2String(this);
+      return alias();
     }
 
     public static Meter getUncleanLeaderElectionsPerSec(MBeanClient mBeanClient) {

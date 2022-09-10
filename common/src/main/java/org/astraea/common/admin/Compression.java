@@ -43,7 +43,7 @@ public enum Compression implements EnumInfo {
 
   @Override
   public String toString() {
-    return EnumInfo.alias2String(this);
+    return alias();
   }
 
   /** @return the name parsed by kafka */

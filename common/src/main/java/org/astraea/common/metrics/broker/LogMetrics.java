@@ -55,7 +55,7 @@ public final class LogMetrics {
 
     @Override
     public String toString() {
-      return EnumInfo.alias2String(this);
+      return alias();
     }
 
     public static LogMetrics.Log of(String metricName) {

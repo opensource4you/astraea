@@ -115,7 +115,7 @@ public class NetworkMetrics {
 
     @Override
     public String toString() {
-      return EnumInfo.alias2String(this);
+      return alias();
     }
 
     public Histogram fetch(MBeanClient mBeanClient) {
