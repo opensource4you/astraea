@@ -168,18 +168,15 @@ public interface TrackerThread extends AbstractThread {
                       + "min "
                       + duration.toSecondsPart()
                       + "sec");
+              // if producers are not DONE, should keep running as there are more data in
+              // the future.
               if (!producerDone) {
                 producerDone = logProducers.apply(duration);
-                consumerDone = logConsumers.apply(duration);
+                consumerDone = false;
               }
-              // if producers are not DONE, consumers should keep running as there are more data in
-              // the future.
-              if (!producerDone) consumerDone = false;
-              // if consumers are not DONE, they should keep consuming records when producers were
-              // Done.
-              if (producerDone && !consumerDone) consumerDone = logConsumers.apply(duration);
+              // if consumers are not DONE, they should keep consuming records.
+              if (!producerDone || !consumerDone) consumerDone = logConsumers.apply(duration);
               if (producerDone && consumerDone) return;
-
               // Log after waiting for one second
               Utils.sleep(Duration.ofSeconds(1));
             }
