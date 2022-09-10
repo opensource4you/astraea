@@ -249,5 +249,10 @@ public class NeutralIntegratedCost implements HasBrokerCost {
     public String alias() {
       return metricName();
     }
+
+    @Override
+    public String toString() {
+      return alias();
+    }
   }
 }

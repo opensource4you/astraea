@@ -303,6 +303,11 @@ public class RecordHandler implements Handler {
       return name();
     }
 
+    @Override
+    public String toString() {
+      return alias();
+    }
+
     final BiFunction<String, String, byte[]> serializer;
     final Deserializer<?> deserializer;
 

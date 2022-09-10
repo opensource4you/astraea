@@ -32,6 +32,11 @@ public enum Isolation implements EnumInfo {
     return name();
   }
 
+  @Override
+  public String toString() {
+    return alias();
+  }
+
   /** @return the name parsed by kafka */
   public String nameOfKafka() {
     return alias().toLowerCase(Locale.ROOT);

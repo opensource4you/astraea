@@ -367,5 +367,10 @@ public class ThrottleHandler implements Handler {
     public String alias() {
       return name();
     }
+
+    @Override
+    public String toString() {
+      return alias();
+    }
   }
 }

@@ -225,6 +225,11 @@ public abstract class Builder<Key, Value> {
       return name();
     }
 
+    @Override
+    public String toString() {
+      return alias();
+    }
+
     private final BiConsumer<org.apache.kafka.clients.consumer.Consumer<?, ?>, Object> function;
 
     SeekStrategy(BiConsumer<org.apache.kafka.clients.consumer.Consumer<?, ?>, Object> function) {

@@ -76,6 +76,7 @@ class EnumInfoTest {
   @ArgumentsSource(EnumClassProvider.class)
   void testToString(Class<?> cls) {
     var enumConstants = (EnumInfo[]) cls.getEnumConstants();
+    Assertions.assertDoesNotThrow(() -> cls.getDeclaredMethod("toString"));
     Assertions.assertTrue(
         Arrays.stream(enumConstants).allMatch(x -> x.toString().equals(x.alias())));
   }

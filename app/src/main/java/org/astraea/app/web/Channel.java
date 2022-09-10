@@ -146,6 +146,11 @@ interface Channel {
     public String alias() {
       return name();
     }
+
+    @Override
+    public String toString() {
+      return alias();
+    }
   }
 
   static Channel of(HttpExchange exchange) {

@@ -93,6 +93,11 @@ public enum DistributionType implements EnumInfo {
     return name();
   }
 
+  @Override
+  public String toString() {
+    return alias();
+  }
+
   abstract Supplier<Long> create(int n);
 
   /**

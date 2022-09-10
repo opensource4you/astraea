@@ -77,6 +77,11 @@ public enum DataUnit implements EnumInfo {
     return name();
   }
 
+  @Override
+  public String toString() {
+    return alias();
+  }
+
   final BigInteger bits;
   final boolean byteBasedUnit;
   final boolean candidateUnitForToString;

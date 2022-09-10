@@ -217,6 +217,6 @@ public enum ReportFormat implements EnumInfo {
 
   @Override
   public String toString() {
-    return name;
+    return alias();
   }
 }
