@@ -17,10 +17,10 @@
 package org.astraea.common;
 
 import java.util.Arrays;
-import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+/** Enum toString method should return alias() */
 public interface EnumInfo {
 
   /** This method enforces access to the values method, although it cannot access the class. */
@@ -46,14 +46,6 @@ public interface EnumInfo {
         });
   }
 
-  /** Enum toString method should contain alias. This is the default template. */
-  static <T extends Enum<T> & EnumInfo> String alias2String(T t) {
-    return Map.of("alias", t.alias()).toString();
-  }
-
-  /**
-   * You can use {@link #ignoreCaseEnum(Class, String)} to get the Enum by ignore case alias or use
-   * {@link #alias2String(Enum)} to override toString method with default template.
-   */
+  /** You can use {@link #ignoreCaseEnum(Class, String)} to get the Enum by ignore case alias */
   String alias();
 }
