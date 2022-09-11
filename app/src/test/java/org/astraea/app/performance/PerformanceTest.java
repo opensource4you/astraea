@@ -24,6 +24,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
+import org.apache.kafka.clients.producer.RoundRobinPartitioner;
 import org.astraea.common.DataRate;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
@@ -371,6 +372,38 @@ public class PerformanceTest extends RequireBrokerCluster {
 
       var ratio = (double) (counting.get(duplicatedTp)) / counting.get(singleTp);
       Assertions.assertTrue(1.5 > ratio && ratio > 0.5);
+
+      // --specify.partitions can't be use in conjunction with topics
+      Assertions.assertThrows(
+          IllegalArgumentException.class,
+          () ->
+              Argument.parse(
+                      new Performance.Argument(),
+                      new String[] {
+                        "--bootstrap.servers",
+                        bootstrapServers(),
+                        "--topics",
+                        topicName3,
+                        "--specify.partitions",
+                        topicName4 + "-1"
+                      })
+                  .topicPartitionSelector());
+
+      // --specify.partitions can't be use in conjunction with partitioner
+      Assertions.assertThrows(
+          IllegalArgumentException.class,
+          () ->
+              Argument.parse(
+                      new Performance.Argument(),
+                      new String[] {
+                        "--bootstrap.servers",
+                        bootstrapServers(),
+                        "--specify.partitions",
+                        topicName4 + "-1",
+                        "--partitioner",
+                        RoundRobinPartitioner.class.getName()
+                      })
+                  .topicPartitionSelector());
     }
   }
 
