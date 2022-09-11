@@ -18,7 +18,7 @@
 class demo{
     void initConfig(){
         Properties properties = new Properties();
-        properties.put(ProducerConfig.PARTITIONER_CLASS_CONFIG, org.astraea.partitioner.smooth.SmoothWeightRoundRobinDispatcher);
+        properties.put(ProducerConfig.PARTITIONER_CLASS_CONFIG, org.astraea.common.partitioner.smooth.SmoothWeightRoundRobinDispatcher);
     }
 }
 ```

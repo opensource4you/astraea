@@ -32,7 +32,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
-import org.astraea.app.common.Utils;
+import org.astraea.common.Utils;
 
 public class Builder {
   private String url;

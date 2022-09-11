@@ -1,0 +1,51 @@
+plugins {
+    id 'java'
+}
+
+repositories {
+    // Use Maven Central for resolving dependencies.
+    mavenCentral()
+}
+
+def versions = [
+        kafka: project.properties['kafka.version'] ?: "3.2.1",
+        junit: project.properties['junit.version'] ?: "5.8.2",
+        zookeeper: project.properties['zookeeper.version'] ?: "3.6.3",
+        wix: project.properties['wix.version'] ?: "4.6.2",
+        mysql: project.properties['mysql.version'] ?: "8.0.29",
+]
+
+dependencies {
+    implementation "org.junit.jupiter:junit-jupiter:${versions["junit"]}"
+    implementation "com.wix:wix-embedded-mysql:${versions["wix"]}"
+    implementation "mysql:mysql-connector-java:${versions["mysql"]}"
+    implementation "org.apache.zookeeper:zookeeper:${versions["zookeeper"]}"
+    implementation "org.apache.kafka:kafka_2.12:${versions["kafka"]}"
+}
+
+java {
+    sourceCompatibility = 11
+    targetCompatibility = 11
+}
+
+ext {
+    numberOfForks = project.hasProperty('maxParallelForks') ? maxParallelForks.toInteger() : Math.max((int) (Runtime.runtime.availableProcessors() / 2), 1)
+}
+
+archivesBaseName = "astraea-it"
+
+tasks.named('test') {
+    // Use JUnit Platform for unit tests.
+    useJUnitPlatform()
+
+    maxParallelForks = numberOfForks
+    // make isolation for tests. It may be expensive but stability is first choice.
+    forkEvery = 1
+    testLogging {
+        events "PASSED", "STARTED", "FAILED", "SKIPPED"
+        exceptionFormat = 'full'
+    }
+
+    minHeapSize = "512m"
+    maxHeapSize = "2048m"
+}

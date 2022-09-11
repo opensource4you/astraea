@@ -25,15 +25,15 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.function.ToDoubleFunction;
-import org.astraea.app.common.DataSize;
-import org.astraea.app.common.Utils;
-import org.astraea.app.metrics.HasBeanObject;
-import org.astraea.app.metrics.MBeanClient;
-import org.astraea.app.metrics.client.HasNodeMetrics;
-import org.astraea.app.metrics.client.consumer.ConsumerMetrics;
-import org.astraea.app.metrics.client.consumer.HasConsumerCoordinatorMetrics;
-import org.astraea.app.metrics.client.producer.HasProducerTopicMetrics;
-import org.astraea.app.metrics.client.producer.ProducerMetrics;
+import org.astraea.common.DataSize;
+import org.astraea.common.Utils;
+import org.astraea.common.metrics.HasBeanObject;
+import org.astraea.common.metrics.MBeanClient;
+import org.astraea.common.metrics.client.HasNodeMetrics;
+import org.astraea.common.metrics.client.consumer.ConsumerMetrics;
+import org.astraea.common.metrics.client.consumer.HasConsumerCoordinatorMetrics;
+import org.astraea.common.metrics.client.producer.HasProducerTopicMetrics;
+import org.astraea.common.metrics.client.producer.ProducerMetrics;
 
 /** Print out the given metrics. */
 public interface TrackerThread extends AbstractThread {
@@ -42,7 +42,6 @@ public interface TrackerThread extends AbstractThread {
       Supplier<List<ProducerThread.Report>> producerReporter,
       Supplier<List<ConsumerThread.Report>> consumerReporter,
       ExeTime exeTime) {
-    var start = System.currentTimeMillis() - Duration.ofSeconds(1).toMillis();
     var mBeanClient = MBeanClient.local();
 
     Function<Duration, Boolean> logProducers =
@@ -150,40 +149,12 @@ public interface TrackerThread extends AbstractThread {
           return percentage >= 100D;
         };
 
+    var start = System.currentTimeMillis() - Duration.ofSeconds(1).toMillis();
     var closed = new AtomicBoolean(false);
     var latch = new CountDownLatch(1);
 
-    CompletableFuture.runAsync(
-        () -> {
-          try {
-            var producerDone = false;
-            var consumerDone = false;
-            while (!closed.get()) {
-              var duration = Duration.ofMillis(System.currentTimeMillis() - start);
-              System.out.println(
-                  "Time: "
-                      + duration.toHoursPart()
-                      + "hr "
-                      + duration.toMinutesPart()
-                      + "min "
-                      + duration.toSecondsPart()
-                      + "sec");
-              if (!producerDone) {
-                producerDone = logProducers.apply(duration);
-                consumerDone = logConsumers.apply(duration);
-              }
-              // if producers are not DONE, consumers should keep running as there are more data in
-              // the future.
-              if (!producerDone) consumerDone = false;
-              if (producerDone && consumerDone) return;
-
-              // Log after waiting for one second
-              Utils.sleep(Duration.ofSeconds(1));
-            }
-          } finally {
-            latch.countDown();
-          }
-        });
+    CompletableFuture.runAsync(trackerLoop(start, closed::get, logProducers, logConsumers))
+        .whenComplete((m, e) -> latch.countDown());
 
     return new TrackerThread() {
 
@@ -210,6 +181,36 @@ public interface TrackerThread extends AbstractThread {
       }
     };
   }
+
+  static Runnable trackerLoop(
+      long start,
+      Supplier<Boolean> closed,
+      Function<Duration, Boolean> logProducers,
+      Function<Duration, Boolean> logConsumers) {
+    return () -> {
+      var producerDone = false;
+      var consumerDone = false;
+      while (!closed.get()) {
+        var duration = Duration.ofMillis(System.currentTimeMillis() - start);
+        System.out.println(
+            "Time: "
+                + duration.toHoursPart()
+                + "hr "
+                + duration.toMinutesPart()
+                + "min "
+                + duration.toSecondsPart()
+                + "sec");
+        if (!producerDone) producerDone = logProducers.apply(duration);
+        // if producers are not DONE, consumers should keep running as there are more data in
+        // the future.
+        if (!producerDone || !consumerDone) consumerDone = logConsumers.apply(duration);
+        if (producerDone && consumerDone) return;
+        // Log after waiting for one second
+        Utils.sleep(Duration.ofSeconds(1));
+      }
+    };
+  }
+
   /**
    * Sum up the latest given attribute of all beans which is instance of HasNodeMetrics.
    *

@@ -25,21 +25,21 @@ cURL 範例
 ```shell
 curl -X POST http://localhost:8001/topics \
     -H "Content-Type: application/json" \
-    -d '{
+    -d '{"topics":[{
     "name": "test1",
     "partitions": 1,
     "replicas": 1
-    }'
+    }]}'
 ```
 
 所有在 JSON Response `configs` 裡頭的參數也可以透過此 api 來設定。範例如下
 ```shell
 curl -X POST http://localhost:8001/topics \
     -H "Content-Type: application/json" \
-    -d '{
+    -d '{"topics":[{
     "name": "test1",
     "max.message.bytes": 1000
-    }'
+    }]}'
 ```
 
 JSON Response 範例
