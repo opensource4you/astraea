@@ -27,6 +27,7 @@ import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiConsumer;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
+import org.astraea.common.EnumInfo;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.TopicPartition;
 
@@ -174,7 +175,7 @@ public abstract class Builder<Key, Value> {
     protected abstract void doResubscribe();
   }
 
-  public enum SeekStrategy {
+  public enum SeekStrategy implements EnumInfo {
     NONE((consumer, seekValue) -> {}),
     DISTANCE_FROM_LATEST(
         (kafkaConsumer, distanceFromLatest) -> {
@@ -214,6 +215,20 @@ public abstract class Builder<Key, Value> {
           throw new IllegalArgumentException(
               seekTo.getClass().getSimpleName() + " is not correct type");
         });
+
+    public static SeekStrategy ofAlias(String alias) {
+      return EnumInfo.ignoreCaseEnum(SeekStrategy.class, alias);
+    }
+
+    @Override
+    public String alias() {
+      return name();
+    }
+
+    @Override
+    public String toString() {
+      return alias();
+    }
 
     private final BiConsumer<org.apache.kafka.clients.consumer.Consumer<?, ?>, Object> function;
 

@@ -17,17 +17,28 @@
 package org.astraea.common.consumer;
 
 import java.util.Locale;
+import org.astraea.common.EnumInfo;
 
-public enum Isolation {
+public enum Isolation implements EnumInfo {
   READ_UNCOMMITTED,
   READ_COMMITTED;
 
-  public static Isolation of(String name) {
-    return Isolation.valueOf(name.toUpperCase(Locale.ROOT));
+  public static Isolation ofAlias(String alias) {
+    return EnumInfo.ignoreCaseEnum(Isolation.class, alias);
+  }
+
+  @Override
+  public String alias() {
+    return name();
+  }
+
+  @Override
+  public String toString() {
+    return alias();
   }
 
   /** @return the name parsed by kafka */
   public String nameOfKafka() {
-    return name().toLowerCase(Locale.ROOT);
+    return alias().toLowerCase(Locale.ROOT);
   }
 }

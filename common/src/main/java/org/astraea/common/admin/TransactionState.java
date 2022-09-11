@@ -19,8 +19,9 @@ package org.astraea.common.admin;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.stream.Collectors;
+import org.astraea.common.EnumInfo;
 
-public enum TransactionState {
+public enum TransactionState implements EnumInfo {
   ONGOING("Ongoing"),
   PREPARE_ABORT("PrepareAbort"),
   PREPARE_COMMIT("PrepareCommit"),
@@ -30,6 +31,10 @@ public enum TransactionState {
   PREPARE_EPOCH_FENCE("PrepareEpochFence"),
   UNKNOWN("Unknown");
 
+  public static TransactionState ofAlias(String alias) {
+    return EnumInfo.ignoreCaseEnum(TransactionState.class, alias);
+  }
+
   private final String name;
 
   TransactionState(String name) {
@@ -38,6 +43,11 @@ public enum TransactionState {
 
   @Override
   public String toString() {
+    return alias();
+  }
+
+  @Override
+  public String alias() {
     return name;
   }
 

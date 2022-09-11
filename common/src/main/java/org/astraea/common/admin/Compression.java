@@ -17,12 +17,10 @@
 package org.astraea.common.admin;
 
 import com.beust.jcommander.ParameterException;
-import java.util.Arrays;
 import java.util.Locale;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
+import org.astraea.common.EnumInfo;
 
-public enum Compression {
+public enum Compression implements EnumInfo {
   NONE("none"),
   GZIP("gzip"),
   SNAPPY("snappy"),
@@ -35,6 +33,10 @@ public enum Compression {
     this.alias = alias;
   }
 
+  public static Compression ofAlias(String alias) {
+    return EnumInfo.ignoreCaseEnum(Compression.class, alias);
+  }
+
   public String alias() {
     return alias;
   }
@@ -42,21 +44,6 @@ public enum Compression {
   @Override
   public String toString() {
     return alias();
-  }
-
-  public static Compression ofAlias(String alias) {
-    return Arrays.stream(Compression.values())
-        .filter(a -> a.alias().equalsIgnoreCase(alias))
-        .findFirst()
-        .orElseThrow(
-            () ->
-                new IllegalArgumentException(
-                    "the "
-                        + alias
-                        + " is unsupported. The supported algorithms are "
-                        + Stream.of(Compression.values())
-                            .map(Compression::alias)
-                            .collect(Collectors.joining(","))));
   }
 
   /** @return the name parsed by kafka */

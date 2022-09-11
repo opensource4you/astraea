@@ -26,6 +26,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.astraea.common.DataRate;
+import org.astraea.common.EnumInfo;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.admin.TopicPartitionReplica;
@@ -354,8 +355,22 @@ public class ThrottleHandler implements Handler {
     }
   }
 
-  enum LogIdentity {
+  enum LogIdentity implements EnumInfo {
     leader,
-    follower
+    follower;
+
+    public static LogIdentity ofAlias(String alias) {
+      return EnumInfo.ignoreCaseEnum(LogIdentity.class, alias);
+    }
+
+    @Override
+    public String alias() {
+      return name();
+    }
+
+    @Override
+    public String toString() {
+      return alias();
+    }
   }
 }

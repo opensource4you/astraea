@@ -32,7 +32,6 @@ import java.time.Duration;
 import java.util.Base64;
 import java.util.Collection;
 import java.util.List;
-import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -42,6 +41,7 @@ import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.astraea.common.Cache;
+import org.astraea.common.EnumInfo;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.TopicPartition;
@@ -129,12 +129,12 @@ public class RecordHandler implements Handler {
 
     var keyDeserializer =
         Optional.ofNullable(channel.queries().get(KEY_DESERIALIZER))
-            .map(SerDe::of)
+            .map(SerDe::ofAlias)
             .orElse(SerDe.STRING)
             .deserializer;
     var valueDeserializer =
         Optional.ofNullable(channel.queries().get(VALUE_DESERIALIZER))
-            .map(SerDe::of)
+            .map(SerDe::ofAlias)
             .orElse(SerDe.STRING)
             .deserializer;
     consumerBuilder
@@ -254,7 +254,7 @@ public class RecordHandler implements Handler {
     return Response.OK;
   }
 
-  enum SerDe {
+  enum SerDe implements EnumInfo {
     BYTEARRAY(
         (topic, value) ->
             Optional.ofNullable(value).map(v -> Base64.getDecoder().decode(v)).orElse(null),
@@ -294,16 +294,26 @@ public class RecordHandler implements Handler {
                 .orElse(null),
         Deserializer.DOUBLE);
 
+    static SerDe ofAlias(String alias) {
+      return EnumInfo.ignoreCaseEnum(SerDe.class, alias);
+    }
+
+    @Override
+    public String alias() {
+      return name();
+    }
+
+    @Override
+    public String toString() {
+      return alias();
+    }
+
     final BiFunction<String, String, byte[]> serializer;
     final Deserializer<?> deserializer;
 
     SerDe(BiFunction<String, String, byte[]> serializer, Deserializer<?> deserializer) {
       this.serializer = requireNonNull(serializer);
       this.deserializer = requireNonNull(deserializer);
-    }
-
-    static SerDe of(String name) {
-      return valueOf(name.toUpperCase(Locale.ROOT));
     }
   }
 
@@ -317,11 +327,11 @@ public class RecordHandler implements Handler {
     // (https://github.com/skiptests/astraea/issues/422)
     var keySerializer =
         Optional.ofNullable(postRecord.keySerializer)
-            .map(name -> SerDe.of(name).serializer)
+            .map(name -> SerDe.ofAlias(name).serializer)
             .orElse(SerDe.STRING.serializer);
     var valueSerializer =
         Optional.ofNullable(postRecord.valueSerializer)
-            .map(name -> SerDe.of(name).serializer)
+            .map(name -> SerDe.ofAlias(name).serializer)
             .orElse(SerDe.STRING.serializer);
 
     Optional.ofNullable(postRecord.key)

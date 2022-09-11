@@ -29,7 +29,7 @@ import java.util.stream.Collectors;
  * @see <a href="https://physics.nist.gov/cuu/Units/binary.html">NIST Reference on Binary Unit</a>
  *     to understand the detail behind those units.
  */
-public enum DataUnit {
+public enum DataUnit implements EnumInfo {
   Bit(1, false),
   Kb(1000, Bit),
   Mb(1000, Kb),
@@ -67,6 +67,20 @@ public enum DataUnit {
   EiB(1024, PiB),
   ZiB(1024, EiB),
   YiB(1024, ZiB);
+
+  public static DataUnit ofAlias(String alias) {
+    return EnumInfo.ignoreCaseEnum(DataUnit.class, alias);
+  }
+
+  @Override
+  public String alias() {
+    return name();
+  }
+
+  @Override
+  public String toString() {
+    return alias();
+  }
 
   final BigInteger bits;
   final boolean byteBasedUnit;

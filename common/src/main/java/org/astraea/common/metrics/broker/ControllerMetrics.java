@@ -16,13 +16,13 @@
  */
 package org.astraea.common.metrics.broker;
 
-import java.util.Arrays;
+import org.astraea.common.EnumInfo;
 import org.astraea.common.metrics.BeanObject;
 import org.astraea.common.metrics.BeanQuery;
 import org.astraea.common.metrics.MBeanClient;
 
 public class ControllerMetrics {
-  public enum Controller {
+  public enum Controller implements EnumInfo {
     ACTIVE_CONTROLLER_COUNT("ActiveControllerCount"),
     OFFLINE_PARTITIONS_COUNT("OfflinePartitionsCount"),
     PREFERRED_REPLICA_IMBALANCE_COUNT("PreferredReplicaImbalanceCount"),
@@ -36,11 +36,8 @@ public class ControllerMetrics {
     ACTIVE_BROKER_COUNT("ActiveBrokerCount"),
     FENCED_BROKER_COUNT("FencedBrokerCount");
 
-    static Controller of(String metricName) {
-      return Arrays.stream(Controller.values())
-          .filter(metric -> metric.metricName().equalsIgnoreCase(metricName))
-          .findFirst()
-          .orElseThrow(() -> new IllegalArgumentException("No such metric: " + metricName));
+    static Controller ofAlias(String alias) {
+      return EnumInfo.ignoreCaseEnum(Controller.class, alias);
     }
 
     private final String metricName;
@@ -51,6 +48,16 @@ public class ControllerMetrics {
 
     public String metricName() {
       return metricName;
+    }
+
+    @Override
+    public String alias() {
+      return metricName();
+    }
+
+    @Override
+    public String toString() {
+      return alias();
     }
 
     public Gauge fetch(MBeanClient mBeanClient) {
@@ -75,7 +82,7 @@ public class ControllerMetrics {
       }
 
       public Controller type() {
-        return Controller.of(metricsName());
+        return Controller.ofAlias(metricsName());
       }
 
       @Override
@@ -85,7 +92,7 @@ public class ControllerMetrics {
     }
   }
 
-  public enum ControllerState {
+  public enum ControllerState implements EnumInfo {
     UNCLEAN_LEADER_ELECTION_ENABLE_RATE_AND_TIME_MS("UncleanLeaderElectionEnableRateAndTimeMs"),
     TOPIC_DELETION_RATE_AND_TIME_MS("TopicDeletionRateAndTimeMs"),
     LIST_PARTITION_REASSIGNMENT_RATE_AND_TIME_MS("ListPartitionReassignmentRateAndTimeMs"),
@@ -107,11 +114,8 @@ public class ControllerMetrics {
     /** Most of ControllerState metrics is Timer , this is Meter. */
     private static final String UNCLEAN_LEADER_ELECTIONS_PER_SEC = "UncleanLeaderElectionsPerSec";
 
-    static ControllerState of(String metricName) {
-      return Arrays.stream(ControllerState.values())
-          .filter(metric -> metric.metricName().equalsIgnoreCase(metricName))
-          .findFirst()
-          .orElseThrow(() -> new IllegalArgumentException("No such metric: " + metricName));
+    static ControllerState ofAlias(String alias) {
+      return EnumInfo.ignoreCaseEnum(ControllerState.class, alias);
     }
 
     private final String metricName;
@@ -122,6 +126,16 @@ public class ControllerMetrics {
 
     public String metricName() {
       return metricName;
+    }
+
+    @Override
+    public String alias() {
+      return metricName();
+    }
+
+    @Override
+    public String toString() {
+      return alias();
     }
 
     public static Meter getUncleanLeaderElectionsPerSec(MBeanClient mBeanClient) {
@@ -156,7 +170,7 @@ public class ControllerMetrics {
       }
 
       public ControllerState type() {
-        return ControllerState.of(metricsName());
+        return ControllerState.ofAlias(metricsName());
       }
 
       @Override
