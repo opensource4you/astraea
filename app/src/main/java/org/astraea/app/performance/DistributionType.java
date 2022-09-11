@@ -110,11 +110,7 @@ public enum DistributionType implements EnumInfo {
       try {
         return DistributionType.ofAlias(name);
       } catch (IllegalArgumentException e) {
-        throw new ParameterException(
-            "Unknown distribution \""
-                + name
-                + "\". use \"fixed\" \"uniform\", \"latest\", \"zipfian\".",
-            e);
+        throw new ParameterException(e);
       }
     }
   }

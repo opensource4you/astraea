@@ -17,6 +17,7 @@
 package org.astraea.app.performance;
 
 import com.beust.jcommander.IStringConverter;
+import com.beust.jcommander.ParameterException;
 import java.io.BufferedWriter;
 import java.io.FileWriter;
 import java.io.IOException;
@@ -56,7 +57,11 @@ public enum ReportFormat implements EnumInfo {
   public static class ReportFormatConverter implements IStringConverter<ReportFormat> {
     @Override
     public ReportFormat convert(String value) {
-      return ofAlias(value);
+      try {
+        return ofAlias(value);
+      } catch (IllegalArgumentException e) {
+        throw new ParameterException(e);
+      }
     }
   }
 
