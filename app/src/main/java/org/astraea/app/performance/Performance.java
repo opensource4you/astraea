@@ -388,7 +388,7 @@ public class Performance {
         if (partitioner != null)
           throw new IllegalArgumentException(
               "--specify.partitions can't be use in conjunction with partitioner");
-        if (!topics.equals(defaultTopics))
+        if (!(topics == defaultTopics))
           throw new IllegalArgumentException(
               "--specify.partitions can't be use in conjunction with topics");
         // sanity check, ensure all specified partitions are existed
