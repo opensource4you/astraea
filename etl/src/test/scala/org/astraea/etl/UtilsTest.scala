@@ -16,10 +16,13 @@
  */
 package org.astraea.etl
 
+import org.junit.jupiter.api.Test
+import org.scalatest.flatspec.AnyFlatSpec
+
 import java.awt.geom.IllegalPathStateException
 
 class UtilsTest extends AnyFlatSpec {
-  it should "throw an IllegalPathStateException When trying to pass in an element that is not a folder" in {
+  @Test def ToDirectoryTest(): Unit = {
     assertThrows[IllegalPathStateException] {
       Utils.ToDirectory("??")
     }

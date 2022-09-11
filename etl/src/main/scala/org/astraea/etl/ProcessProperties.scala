@@ -1,3 +1,19 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package org.astraea.etl
 
 import java.util.{Calendar, Properties}
@@ -46,32 +62,32 @@ object ProcessProperties {
   }
 
   /** Execute the corresponding function according to whether the properties are
-   * empty or not.
-   *
-   * @param str
-   * Properties value.
-   * @param nonEmpty
-   * Function executed when str non-empty.
-   * @param empty
-   * Function executed when str empty.
-   * @tparam C
-   * Return type.
-   * @return
-   * C.
-   */
+    * empty or not.
+    *
+    * @param str
+    *   Properties value.
+    * @param nonEmpty
+    *   Function executed when str non-empty.
+    * @param empty
+    *   Function executed when str empty.
+    * @tparam C
+    *   Return type.
+    * @return
+    *   C.
+    */
   def isEmptyString[C](
-                        str: String,
-                        nonEmpty: (String) => C,
-                        empty: () => C
-                      ): C = {
+      str: String,
+      nonEmpty: (String) => C,
+      empty: () => C
+  ): C = {
     if (str.nonEmpty) nonEmpty(str)
     else empty()
   }
 
   //Handling the topic.parameters parameter.
   def topicParameters(
-                       topicParameters: String
-                     ): Option[Map[String, String]] = {
+      topicParameters: String
+  ): Option[Map[String, String]] = {
     val parameters = topicParameters.split(",")
     var paramArray: ArrayBuffer[Array[String]] = ArrayBuffer()
     for (elem <- parameters) {

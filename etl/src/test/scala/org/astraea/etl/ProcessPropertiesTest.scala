@@ -16,25 +16,27 @@
  */
 package org.astraea.etl
 
+import org.junit.jupiter.api.{AfterEach, BeforeEach, Test}
+
 import java.io.{File, FileOutputStream}
 import java.util.Properties
 import scala.util.{Try, Using}
 
-class ProcessPropertiesTest extends AnyFlatSpec with BeforeAndAfter {
+class ProcessPropertiesTest {
   val directory = new File("")
 
-  before {
+  @BeforeEach def setup(): Unit = {
     testConfig()
   }
 
-  after {
+  @AfterEach def tearDown(): Unit = {
     val fileProp = new File("test.properties")
     if (fileProp.exists()) {
       fileProp.delete()
     }
   }
 
-  it should "pass back the default value when the optional value is not set" in {
+  @Test def defaultTest(): Unit = {
     val arg = ArgumentETL.parseArgument(Array("--prop.file", "test.properties"))
     val config = ProcessProperties.setConfig(arg.get.propFile)
     assert(config.sourcePath.equals(new File(directory.getAbsolutePath)))
@@ -48,7 +50,7 @@ class ProcessPropertiesTest extends AnyFlatSpec with BeforeAndAfter {
     assert(config.topicParameters.isEmpty)
   }
 
-  it should "pass back the configured value when the value is set" in {
+  @Test def configuredTest(): Unit = {
     val prop = new Properties
     val file = new File("test.properties")
     Using(scala.io.Source.fromFile("test.properties")) { bufferedSource =>
