@@ -28,7 +28,8 @@ def versions = [
         scala: project.properties['scala.version'] ?: "2.13.7",
         scopt: project.properties['scopt.version'] ?: "4.1.0",
         junit: project.properties['junit.version'] ?: "5.8.2",
-        scalatest: project.properties['scalatest.version'] ?: "3.1.1"]
+        scalatest: project.properties['scalatest.version'] ?: "3.1.1"
+]
 
 dependencies {
     implementation "org.scala-lang:scala-library:${versions["scala"]}"
