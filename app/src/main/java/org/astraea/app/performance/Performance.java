@@ -173,7 +173,8 @@ public class Performance {
 
   public static class Argument extends org.astraea.common.argument.Argument {
 
-    private List<String> defaultTopics = List.of("testPerformance-" + System.currentTimeMillis());
+    private final List<String> defaultTopics =
+        List.of("testPerformance-" + System.currentTimeMillis());
 
     @Parameter(
         names = {"--topics"},
