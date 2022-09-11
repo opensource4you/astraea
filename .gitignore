@@ -10,6 +10,11 @@ build
 # Ignore macos file
 .DS_Store
 
+# Ignore scala file
+target
+.bsp
+project
+
 # generated dockerfiles
 zookeeper.dockerfile
 broker.dockerfile
