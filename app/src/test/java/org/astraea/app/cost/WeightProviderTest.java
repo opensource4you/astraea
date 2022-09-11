@@ -34,20 +34,14 @@ public class WeightProviderTest {
     Normalizer normalizer = Normalizer.minMax(true);
     var weightProvider = new WeightProvider.EntropyWeightProvider(normalizer);
     var confusion =
-        IntStream.range(0, 1)
-            .boxed()
-            .collect(
-                Collectors.toMap(
-                    String::valueOf,
-                    ignored ->
-                        IntStream.range(0, 100)
-                            .mapToObj(i -> Math.random() * i)
-                            .collect(Collectors.toUnmodifiableList())));
-    confusion.put(
-        "1",
-        IntStream.range(0, 100)
-            .mapToObj(i -> 0.0 + i % 10 * 0.1)
-            .collect(Collectors.toUnmodifiableList()));
+        Map.of(
+            "0",
+            IntStream.range(0, 100)
+                .mapToObj(i -> Math.random() * i)
+                .collect(Collectors.toUnmodifiableList()),
+            "1",
+            IntStream.range(0, 100).mapToObj(i -> 1.0).collect(Collectors.toUnmodifiableList()));
+
     var entropy = weightProvider.weight(confusion);
     // "0" range of 0 to 100 numbers * Math.random().
     // "1" range of 0 to 1 numbers.The number is accurate to one decimal places.
