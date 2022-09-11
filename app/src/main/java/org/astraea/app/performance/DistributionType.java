@@ -108,7 +108,7 @@ public enum DistributionType implements EnumInfo {
     @Override
     public DistributionType convert(String name) {
       try {
-        return DistributionType.ofAlias(name);
+        return ofAlias(name);
       } catch (IllegalArgumentException e) {
         throw new ParameterException(e);
       }
