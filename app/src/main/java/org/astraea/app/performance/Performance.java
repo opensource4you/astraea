@@ -173,13 +173,15 @@ public class Performance {
 
   public static class Argument extends org.astraea.common.argument.Argument {
 
+    private List<String> defaultTopics = List.of("testPerformance-" + System.currentTimeMillis());
+
     @Parameter(
         names = {"--topics"},
         description = "List<String>: topic names which you subscribed",
         validateWith = StringListField.class,
         listConverter = StringListField.class,
         variableArity = true)
-    List<String> topics = List.of("testPerformance-" + System.currentTimeMillis());
+    List<String> topics = defaultTopics;
 
     void initTopics() {
       var topicPattern = topicPattern();
@@ -382,6 +384,13 @@ public class Performance {
           return () -> selections.get(ThreadLocalRandom.current().nextInt(selections.size()));
         }
       } else if (specifiedByPartition) {
+        // specify.partitions can't be use in conjunction with partitioner or topics
+        if (partitioner != null)
+          throw new IllegalArgumentException(
+              "--specify.partitions can't be use in conjunction with partitioner");
+        if (!topics.equals(defaultTopics))
+          throw new IllegalArgumentException(
+              "--specify.partitions can't be use in conjunction with topics");
         // sanity check, ensure all specified partitions are existed
         try (Admin admin = Admin.of(configs())) {
           var allTopics = admin.topicNames();
