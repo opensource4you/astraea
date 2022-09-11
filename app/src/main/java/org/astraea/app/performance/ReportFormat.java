@@ -32,11 +32,16 @@ import java.util.Date;
 import java.util.List;
 import java.util.function.Supplier;
 import java.util.stream.IntStream;
-import org.astraea.app.common.Utils;
+import org.astraea.common.EnumInfo;
+import org.astraea.common.Utils;
 
-public enum ReportFormat {
+public enum ReportFormat implements EnumInfo {
   CSV("csv"),
   JSON("json");
+
+  public static ReportFormat ofAlias(String alias) {
+    return EnumInfo.ignoreCaseEnum(ReportFormat.class, alias);
+  }
 
   private final String name;
 
@@ -44,16 +49,18 @@ public enum ReportFormat {
     this.name = name;
   }
 
+  @Override
+  public String alias() {
+    return name;
+  }
+
   public static class ReportFormatConverter implements IStringConverter<ReportFormat> {
     @Override
     public ReportFormat convert(String value) {
-      switch (value.toLowerCase()) {
-        case "csv":
-          return ReportFormat.CSV;
-        case "json":
-          return ReportFormat.JSON;
-        default:
-          throw new ParameterException("Invalid file format. Use \"csv\" or \"json\"");
+      try {
+        return ofAlias(value);
+      } catch (IllegalArgumentException e) {
+        throw new ParameterException(e);
       }
     }
   }
@@ -215,6 +222,6 @@ public enum ReportFormat {
 
   @Override
   public String toString() {
-    return name;
+    return alias();
   }
 }

@@ -18,8 +18,8 @@ package org.astraea.app.performance;
 
 import java.time.Duration;
 import java.util.List;
-import org.astraea.app.common.Utils;
-import org.astraea.app.metrics.client.HasNodeMetrics;
+import org.astraea.common.Utils;
+import org.astraea.common.metrics.client.HasNodeMetrics;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
@@ -50,7 +50,7 @@ public class TrackerTest {
   @Test
   void testExeTime() {
     var producerReport = new ProducerThread.Report();
-    var consumerReport = new ConsumerThread.Report();
+    var consumerReport = new ConsumerThread.Report("xxx");
     var tracker =
         TrackerThread.create(
             () -> List.of(producerReport), () -> List.of(consumerReport), ExeTime.of("2s"));
@@ -64,7 +64,7 @@ public class TrackerTest {
   @Test
   void testConsumerAndProducer() {
     var producerReport = new ProducerThread.Report();
-    var consumerReport = new ConsumerThread.Report();
+    var consumerReport = new ConsumerThread.Report("xxx");
     var tracker =
         TrackerThread.create(
             () -> List.of(producerReport), () -> List.of(consumerReport), ExeTime.of("1records"));

@@ -19,8 +19,8 @@ package org.astraea.app.web;
 import java.util.Collection;
 import java.util.Map;
 import java.util.stream.Collectors;
-import org.astraea.app.admin.Admin;
-import org.astraea.app.admin.TopicPartition;
+import org.astraea.common.admin.Admin;
+import org.astraea.common.admin.TopicPartition;
 
 public class ReassignmentHandler implements Handler {
   static final String PLANS_KEY = "plans";
@@ -79,7 +79,7 @@ public class ReassignmentHandler implements Handler {
     final int broker;
     final String path;
 
-    Location(org.astraea.app.admin.Reassignment.Location location) {
+    Location(org.astraea.common.admin.Reassignment.Location location) {
       this.broker = location.broker();
       this.path = location.dataFolder();
     }
@@ -93,8 +93,8 @@ public class ReassignmentHandler implements Handler {
 
     Reassignment(
         TopicPartition topicPartition,
-        Collection<org.astraea.app.admin.Reassignment.Location> from,
-        Collection<org.astraea.app.admin.Reassignment.Location> to) {
+        Collection<org.astraea.common.admin.Reassignment.Location> from,
+        Collection<org.astraea.common.admin.Reassignment.Location> to) {
       this.topicName = topicPartition.topic();
       this.partition = topicPartition.partition();
       this.from = from.stream().map(Location::new).collect(Collectors.toUnmodifiableList());

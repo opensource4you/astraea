@@ -27,61 +27,41 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
-import org.astraea.app.admin.Admin;
-import org.astraea.app.admin.Compression;
-import org.astraea.app.admin.TopicPartition;
-import org.astraea.app.argument.CompressionField;
-import org.astraea.app.argument.DurationField;
-import org.astraea.app.argument.NonEmptyStringField;
-import org.astraea.app.argument.NonNegativeShortField;
-import org.astraea.app.argument.PathField;
-import org.astraea.app.argument.PositiveIntegerListField;
-import org.astraea.app.argument.PositiveLongField;
-import org.astraea.app.argument.PositiveShortField;
-import org.astraea.app.argument.PositiveShortListField;
-import org.astraea.app.argument.StringListField;
-import org.astraea.app.common.DataSize;
-import org.astraea.app.common.DataUnit;
-import org.astraea.app.common.Utils;
-import org.astraea.app.consumer.Consumer;
-import org.astraea.app.consumer.Isolation;
-import org.astraea.app.producer.Producer;
+import org.astraea.common.DataRate;
+import org.astraea.common.DataSize;
+import org.astraea.common.DataUnit;
+import org.astraea.common.Utils;
+import org.astraea.common.admin.Admin;
+import org.astraea.common.admin.Compression;
+import org.astraea.common.admin.ReplicaInfo;
+import org.astraea.common.admin.TopicPartition;
+import org.astraea.common.argument.DurationField;
+import org.astraea.common.argument.NonEmptyStringField;
+import org.astraea.common.argument.NonNegativeShortField;
+import org.astraea.common.argument.PathField;
+import org.astraea.common.argument.PositiveIntegerListField;
+import org.astraea.common.argument.PositiveLongField;
+import org.astraea.common.argument.PositiveShortField;
+import org.astraea.common.argument.PositiveShortListField;
+import org.astraea.common.argument.StringListField;
+import org.astraea.common.argument.TopicPartitionField;
+import org.astraea.common.consumer.Consumer;
+import org.astraea.common.consumer.Isolation;
+import org.astraea.common.producer.Acks;
+import org.astraea.common.producer.Producer;
 
-/**
- * Performance benchmark which includes
- *
- * <ol>
- *   <li>publish latency: the time of completing producer data request
- *   <li>E2E latency: the time for a record to travel through Kafka
- *   <li>input rate: sum of consumer inputs in MByte per second
- *   <li>output rate: sum of producer outputs in MByte per second
- * </ol>
- *
- * With configurations:
- *
- * <ol>
- *   <li>--brokers: the server to connect to
- *   <li>--topic: the topic name. Create new topic when the given topic does not exist. Default:
- *       "testPerformance-" + System.currentTimeMillis()
- *   <li>--partitions: topic config when creating new topic. Default: 1
- *   <li>--replicationFactor: topic config when creating new topic. Default: 1
- *   <li>--producers: the number of producers (threads). Default: 1
- *   <li>--consumers: the number of consumers (threads). Default: 1
- *   <li>--records: the total number of records sent by the producers. Default: 1000
- *   <li>--recordSize: the record size in byte. Default: 1024
- * </ol>
- *
- * To avoid records being produced too fast, producer wait for one millisecond after each send.
- */
+/** see docs/performance_benchmark.md for man page */
 public class Performance {
   /** Used in Automation, to achieve the end of one Performance and then start another. */
   public static void main(String[] args)
       throws InterruptedException, IOException, ExecutionException {
-    execute(org.astraea.app.argument.Argument.parse(new Argument(), args));
+    execute(org.astraea.common.argument.Argument.parse(new Argument(), args));
   }
 
   private static DataSupplier dataSupplier(Performance.Argument argument) {
@@ -105,10 +85,9 @@ public class Performance {
 
     var producerThreads =
         ProducerThread.create(
-            param.topics,
             param.transactionSize,
             dataSupplier(param),
-            param.partitionSupplier(),
+            param.topicPartitionSelector(),
             param.producers,
             param::createProducer);
     var consumerThreads =
@@ -192,7 +171,7 @@ public class Performance {
     return param.topics;
   }
 
-  public static class Argument extends org.astraea.app.argument.Argument {
+  public static class Argument extends org.astraea.common.argument.Argument {
 
     @Parameter(
         names = {"--topics"},
@@ -207,14 +186,19 @@ public class Performance {
       try (var admin = Admin.of(configs())) {
         topicPattern.forEach(
             (topic, pr) -> {
-              for (var partitionReplica : pr.entrySet()) {
-                admin
-                    .creator()
-                    .topic(topic)
-                    .numberOfPartitions(partitionReplica.getKey())
-                    .numberOfReplicas(partitionReplica.getValue())
-                    .create();
-              }
+              pr.forEach(
+                  (p, r) ->
+                      Utils.waitFor(
+                          () -> {
+                            admin
+                                .creator()
+                                .topic(topic)
+                                .numberOfPartitions(p)
+                                .numberOfReplicas(r)
+                                .create();
+                            return true;
+                          },
+                          Duration.ofSeconds(30)));
             });
         Utils.waitFor(() -> admin.topicNames().containsAll(topics));
       }
@@ -242,16 +226,10 @@ public class Performance {
       try (var admin = Admin.of(configs())) {
         // the slow zk causes unknown error, so we have to wait it.
         return Utils.waitForNonNull(
-            () -> {
-              try {
-                return admin.offsets(new HashSet<>(topics)).entrySet().stream()
-                    .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().latest()));
-              } catch (Exception e) {
-                e.printStackTrace();
-                return null;
-              }
-            },
-            Duration.ofSeconds(5));
+            () ->
+                admin.offsets(new HashSet<>(topics)).entrySet().stream()
+                    .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().latest())),
+            Duration.ofSeconds(30));
       }
     }
 
@@ -306,7 +284,7 @@ public class Performance {
         names = {"--compression"},
         description =
             "String: the compression algorithm used by producer. Available algorithm are none, gzip, snappy, lz4, and zstd",
-        converter = CompressionField.class)
+        converter = Compression.Field.class)
     Compression compression = Compression.NONE;
 
     @Parameter(
@@ -327,12 +305,14 @@ public class Performance {
               .bootstrapServers(bootstrapServers())
               .compression(compression)
               .partitionClassName(partitioner)
+              .acks(acks)
               .buildTransactional()
           : Producer.builder()
               .configs(configs())
               .bootstrapServers(bootstrapServers())
               .compression(compression)
               .partitionClassName(partitioner)
+              .acks(acks)
               .build();
     }
 
@@ -363,30 +343,85 @@ public class Performance {
     DistributionType valueDistributionType = DistributionType.UNIFORM;
 
     @Parameter(
-        names = {"--specify.broker"},
+        names = {"--specify.brokers"},
         description =
-            "String: Used with SpecifyBrokerPartitioner to specify the brokers that partitioner can send.",
-        validateWith = NonEmptyStringField.class)
-    List<Integer> specifyBroker = List.of();
+            "String: The broker IDs to send to if the topic has partition on that broker.",
+        validateWith = PositiveIntegerListField.class)
+    List<Integer> specifyBrokers = List.of();
 
-    Supplier<Integer> partitionSupplier() {
-      if (specifyBroker.isEmpty()) return () -> -1;
-      try (var admin = Admin.of(configs())) {
-        var partitions =
-            admin.partitions(new HashSet<>(topics), new HashSet<>(specifyBroker)).values().stream()
-                .flatMap(Collection::stream)
-                .map(TopicPartition::partition)
+    @Parameter(
+        names = {"--specify.partitions"},
+        description =
+            "String: A list ot topic-partition pairs, this list specify the send targets in "
+                + "partition level. This argument can't be use in conjunction with `specify.brokers`, `topics` or `partitioner`.",
+        converter = TopicPartitionField.class)
+    List<TopicPartition> specifyPartitions = List.of();
+
+    /** @return a supplier that randomly return a sending target */
+    Supplier<TopicPartition> topicPartitionSelector() {
+      var specifiedByBroker = !specifyBrokers.isEmpty();
+      var specifiedByPartition = !specifyPartitions.isEmpty();
+      if (specifiedByBroker && specifiedByPartition)
+        throw new IllegalArgumentException(
+            "`--specify.partitions` can't be use in conjunction with `--specify.brokers`");
+      else if (specifiedByBroker) {
+        try (Admin admin = Admin.of(configs())) {
+          final var selections =
+              admin.replicas(Set.copyOf(topics)).values().stream()
+                  .flatMap(Collection::stream)
+                  .filter(ReplicaInfo::isLeader)
+                  .filter(replica -> specifyBrokers.contains(replica.nodeInfo().id()))
+                  .map(replica -> TopicPartition.of(replica.topic(), replica.partition()))
+                  .distinct()
+                  .collect(Collectors.toUnmodifiableList());
+
+          if (selections.isEmpty())
+            throw new IllegalArgumentException(
+                "No partition match the specify.brokers requirement");
+
+          return () -> selections.get(ThreadLocalRandom.current().nextInt(selections.size()));
+        }
+      } else if (specifiedByPartition) {
+        // sanity check, ensure all specified partitions are existed
+        try (Admin admin = Admin.of(configs())) {
+          var allTopics = admin.topicNames();
+          var allTopicPartitions =
+              admin
+                  .replicas(
+                      specifyPartitions.stream()
+                          .map(TopicPartition::topic)
+                          .filter(allTopics::contains)
+                          .collect(Collectors.toUnmodifiableSet()))
+                  .keySet();
+          var notExist =
+              specifyPartitions.stream()
+                  .filter(tp -> !allTopicPartitions.contains(tp))
+                  .collect(Collectors.toUnmodifiableSet());
+          if (!notExist.isEmpty())
+            throw new IllegalArgumentException(
+                "The following topic/partitions are nonexistent in the cluster: " + notExist);
+        }
+
+        final var selection =
+            specifyPartitions.stream().distinct().collect(Collectors.toUnmodifiableList());
+        return () -> selection.get(ThreadLocalRandom.current().nextInt(selection.size()));
+      } else {
+        final var selection =
+            topics.stream()
+                .map(topic -> TopicPartition.of(topic, -1))
+                .distinct()
                 .collect(Collectors.toUnmodifiableList());
-        return () -> partitions.get((int) (Math.random() * partitions.size()));
+        return () -> selection.get(ThreadLocalRandom.current().nextInt(selection.size()));
       }
     }
 
     // replace DataSize by DataRate (see https://github.com/skiptests/astraea/issues/488)
     @Parameter(
         names = {"--throughput"},
-        description = "dataSize: size output per second. e.g. \"500KiB\"",
-        converter = DataSize.Field.class)
-    DataSize throughput = DataSize.GiB.of(500);
+        description =
+            "dataRate: size output/timeUnit. Default: second. e.g. \"500KiB/second\", \"100 MB/PT-10S\"",
+        converter = DataRate.Field.class)
+    DataRate throughput = DataRate.GiB.of(500).perSecond();
 
     @Parameter(
         names = {"--report.path"},
@@ -413,5 +448,11 @@ public class Performance {
         description = "Consumer group id",
         validateWith = NonEmptyStringField.class)
     String groupId = "groupId-" + System.currentTimeMillis();
+
+    @Parameter(
+        names = {"--acks"},
+        description = "How many replicas should be synced when producing records.",
+        converter = Acks.Field.class)
+    Acks acks = Acks.ISRS;
   }
 }

@@ -32,7 +32,6 @@ import java.time.Duration;
 import java.util.Base64;
 import java.util.Collection;
 import java.util.List;
-import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -41,18 +40,19 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import org.astraea.app.admin.Admin;
-import org.astraea.app.admin.TopicPartition;
-import org.astraea.app.argument.DurationField;
-import org.astraea.app.common.Cache;
-import org.astraea.app.common.Utils;
-import org.astraea.app.consumer.Builder;
-import org.astraea.app.consumer.Consumer;
-import org.astraea.app.consumer.Deserializer;
-import org.astraea.app.consumer.SubscribedConsumer;
-import org.astraea.app.producer.Producer;
-import org.astraea.app.producer.Sender;
-import org.astraea.app.producer.Serializer;
+import org.astraea.common.Cache;
+import org.astraea.common.EnumInfo;
+import org.astraea.common.Utils;
+import org.astraea.common.admin.Admin;
+import org.astraea.common.admin.TopicPartition;
+import org.astraea.common.argument.DurationField;
+import org.astraea.common.consumer.Builder;
+import org.astraea.common.consumer.Consumer;
+import org.astraea.common.consumer.Deserializer;
+import org.astraea.common.consumer.SubscribedConsumer;
+import org.astraea.common.producer.Producer;
+import org.astraea.common.producer.Sender;
+import org.astraea.common.producer.Serializer;
 
 public class RecordHandler implements Handler {
   static final String RECORDS = "records";
@@ -129,12 +129,12 @@ public class RecordHandler implements Handler {
 
     var keyDeserializer =
         Optional.ofNullable(channel.queries().get(KEY_DESERIALIZER))
-            .map(SerDe::of)
+            .map(SerDe::ofAlias)
             .orElse(SerDe.STRING)
             .deserializer;
     var valueDeserializer =
         Optional.ofNullable(channel.queries().get(VALUE_DESERIALIZER))
-            .map(SerDe::of)
+            .map(SerDe::ofAlias)
             .orElse(SerDe.STRING)
             .deserializer;
     consumerBuilder
@@ -254,7 +254,7 @@ public class RecordHandler implements Handler {
     return Response.OK;
   }
 
-  enum SerDe {
+  enum SerDe implements EnumInfo {
     BYTEARRAY(
         (topic, value) ->
             Optional.ofNullable(value).map(v -> Base64.getDecoder().decode(v)).orElse(null),
@@ -294,16 +294,26 @@ public class RecordHandler implements Handler {
                 .orElse(null),
         Deserializer.DOUBLE);
 
+    static SerDe ofAlias(String alias) {
+      return EnumInfo.ignoreCaseEnum(SerDe.class, alias);
+    }
+
+    @Override
+    public String alias() {
+      return name();
+    }
+
+    @Override
+    public String toString() {
+      return alias();
+    }
+
     final BiFunction<String, String, byte[]> serializer;
     final Deserializer<?> deserializer;
 
     SerDe(BiFunction<String, String, byte[]> serializer, Deserializer<?> deserializer) {
       this.serializer = requireNonNull(serializer);
       this.deserializer = requireNonNull(deserializer);
-    }
-
-    static SerDe of(String name) {
-      return valueOf(name.toUpperCase(Locale.ROOT));
     }
   }
 
@@ -317,11 +327,11 @@ public class RecordHandler implements Handler {
     // (https://github.com/skiptests/astraea/issues/422)
     var keySerializer =
         Optional.ofNullable(postRecord.keySerializer)
-            .map(name -> SerDe.of(name).serializer)
+            .map(name -> SerDe.ofAlias(name).serializer)
             .orElse(SerDe.STRING.serializer);
     var valueSerializer =
         Optional.ofNullable(postRecord.valueSerializer)
-            .map(name -> SerDe.of(name).serializer)
+            .map(name -> SerDe.ofAlias(name).serializer)
             .orElse(SerDe.STRING.serializer);
 
     Optional.ofNullable(postRecord.key)
@@ -341,7 +351,7 @@ public class RecordHandler implements Handler {
     final int serializedKeySize;
     final int serializedValueSize;
 
-    Metadata(org.astraea.app.producer.Metadata metadata) {
+    Metadata(org.astraea.common.producer.Metadata metadata) {
       topic = metadata.topic();
       partition = metadata.partition();
       offset = metadata.offset();
@@ -394,7 +404,7 @@ public class RecordHandler implements Handler {
     final Object value;
     final Integer leaderEpoch;
 
-    Record(org.astraea.app.consumer.Record<?, ?> record) {
+    Record(org.astraea.common.consumer.Record<?, ?> record) {
       topic = record.topic();
       partition = record.partition();
       offset = record.offset();
@@ -412,7 +422,7 @@ public class RecordHandler implements Handler {
     final String key;
     final byte[] value;
 
-    Header(org.astraea.app.consumer.Header header) {
+    Header(org.astraea.common.consumer.Header header) {
       this.key = header.key();
       this.value = header.value();
     }
