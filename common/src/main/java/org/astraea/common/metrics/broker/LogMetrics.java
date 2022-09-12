@@ -57,13 +57,6 @@ public final class LogMetrics {
       return alias();
     }
 
-    public static LogMetrics.Log of(String metricName) {
-      return Arrays.stream(LogMetrics.Log.values())
-          .filter(metric -> metric.metricName().equalsIgnoreCase(metricName))
-          .findFirst()
-          .orElseThrow(() -> new IllegalArgumentException("No such metric: " + metricName));
-    }
-
     public static Collection<Gauge> gauges(Collection<HasBeanObject> beans, Log type) {
       return beans.stream()
           .filter(m -> m instanceof Gauge)
@@ -107,7 +100,7 @@ public final class LogMetrics {
       }
 
       public Log type() {
-        return Log.of(metricsName());
+        return ofAlias(metricsName());
       }
 
       @Override

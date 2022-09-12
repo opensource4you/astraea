@@ -14,10 +14,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.app.metrics.broker;
+package org.astraea.common.metrics.broker;
 
 import java.util.Objects;
-import org.astraea.app.metrics.HasBeanObject;
+import org.astraea.common.metrics.HasBeanObject;
 
 public interface HasObjectGauge<T> extends HasBeanObject {
 

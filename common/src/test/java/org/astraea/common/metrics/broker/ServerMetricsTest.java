@@ -29,6 +29,7 @@ import org.astraea.common.Utils;
 import org.astraea.common.metrics.BeanObject;
 import org.astraea.common.metrics.MBeanClient;
 import org.astraea.common.metrics.MetricsTestUtil;
+import org.astraea.it.RequireSingleBrokerCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -151,13 +152,13 @@ public class ServerMetricsTest extends RequireSingleBrokerCluster {
         .forEach(
             t ->
                 Assertions.assertEquals(
-                    t, ServerMetrics.Topic.of(t.metricName().toLowerCase(Locale.ROOT))));
+                    t, ServerMetrics.Topic.ofAlias(t.metricName().toLowerCase(Locale.ROOT))));
     Arrays.stream(ServerMetrics.Topic.values())
         .forEach(
             t ->
                 Assertions.assertEquals(
-                    t, ServerMetrics.Topic.of(t.metricName().toUpperCase(Locale.ROOT))));
-    assertThrows(IllegalArgumentException.class, () -> ServerMetrics.Topic.of("nothing"));
+                    t, ServerMetrics.Topic.ofAlias(t.metricName().toUpperCase(Locale.ROOT))));
+    assertThrows(IllegalArgumentException.class, () -> ServerMetrics.Topic.ofAlias("nothing"));
   }
 
   @ParameterizedTest

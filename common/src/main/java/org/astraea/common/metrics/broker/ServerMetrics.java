@@ -28,7 +28,7 @@ import org.astraea.common.metrics.MBeanClient;
 
 public final class ServerMetrics {
 
-  public enum KafkaServer {
+  public enum KafkaServer implements EnumInfo {
     YAMMER_METRICS_COUNT("yammer-metrics-count"),
     BROKER_STATE("BrokerState"),
     LINUX_DISK_READ_BYTES("linux-disk-read-bytes"),
@@ -67,8 +67,18 @@ public final class ServerMetrics {
                   .build()));
     }
 
-    public static KafkaServer of(String metricName) {
-      return Utils.ofIgnoreCaseEnum(KafkaServer.values(), KafkaServer::metricName, metricName);
+    public static KafkaServer ofAlias(String alias) {
+      return EnumInfo.ignoreCaseEnum(KafkaServer.class, alias);
+    }
+
+    @Override
+    public String alias() {
+      return metricName();
+    }
+
+    @Override
+    public String toString() {
+      return alias();
     }
 
     public static class Gauge implements HasGauge {
@@ -82,8 +92,8 @@ public final class ServerMetrics {
         return beanObject().properties().get("name");
       }
 
-      public DelayedOperationPurgatory type() {
-        return DelayedOperationPurgatory.of(metricsName());
+      public KafkaServer type() {
+        return ofAlias(metricsName());
       }
 
       @Override
@@ -152,7 +162,7 @@ public final class ServerMetrics {
       }
 
       public DelayedOperationPurgatory type() {
-        return DelayedOperationPurgatory.ofAlias(metricsName());
+        return ofAlias(metricsName());
       }
 
       @Override
@@ -259,19 +269,6 @@ public final class ServerMetrics {
                   .build()));
     }
 
-    /**
-     * resolve specific {@link Topic} by the given metric string, compare by case-insensitive
-     *
-     * @param metricName the metric to resolve
-     * @return a {@link Topic} match to give metric name
-     */
-    public static Topic of(String metricName) {
-      return Arrays.stream(Topic.values())
-          .filter(metric -> metric.metricName().equalsIgnoreCase(metricName))
-          .findFirst()
-          .orElseThrow(() -> new IllegalArgumentException("No such metric: " + metricName));
-    }
-
     public static class Meter implements HasMeter {
 
       private final BeanObject beanObject;
@@ -285,7 +282,7 @@ public final class ServerMetrics {
       }
 
       public Topic type() {
-        return Topic.of(metricsName());
+        return ofAlias(metricsName());
       }
 
       @Override

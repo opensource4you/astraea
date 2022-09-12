@@ -23,7 +23,7 @@ import org.astraea.common.metrics.broker.HasCount;
 import org.astraea.common.metrics.broker.HasEventType;
 import org.astraea.common.metrics.broker.HasHistogram;
 import org.astraea.common.metrics.broker.HasMeter;
-import org.astraea.app.metrics.broker.HasObjectGauge;
+import org.astraea.common.metrics.broker.HasObjectGauge;
 import org.astraea.common.metrics.broker.HasPercentiles;
 import org.astraea.common.metrics.broker.HasRate;
 import org.astraea.common.metrics.broker.HasStatistics;

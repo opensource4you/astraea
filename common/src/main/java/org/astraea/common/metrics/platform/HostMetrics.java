@@ -19,7 +19,7 @@ package org.astraea.common.metrics.platform;
 import org.astraea.common.metrics.BeanQuery;
 import org.astraea.common.metrics.MBeanClient;
 import org.astraea.common.metrics.broker.HasGauge;
-import org.astraea.app.metrics.broker.ServerMetrics;
+import org.astraea.common.metrics.broker.ServerMetrics;
 
 public final class HostMetrics {
 

@@ -17,7 +17,6 @@
 package org.astraea.common.metrics.broker;
 
 import org.astraea.common.metrics.BeanObject;
-import org.astraea.common.metrics.HasBeanObject;
 
 /**
  * You can find some default metric in {@link kafka.metrics.KafkaMetricsGroup}. This object is
