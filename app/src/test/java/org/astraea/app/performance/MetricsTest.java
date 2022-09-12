@@ -27,14 +27,14 @@ public class MetricsTest {
     Random rand = new Random();
     final int num = 1000;
     double avg = 0.0;
-    var metrics = new Report.Impl();
+    var metrics = Report.of("c", () -> false);
 
     Assertions.assertEquals(0, metrics.avgLatency());
 
     for (int i = 0; i < num; ++i) {
       long next = rand.nextInt();
       avg += ((double) next - avg) / (i + 1);
-      metrics.record("topic", 0, 100, next, 0);
+      metrics.record(next, 0);
     }
 
     Assertions.assertEquals(avg, metrics.avgLatency());
@@ -42,10 +42,10 @@ public class MetricsTest {
 
   @Test
   void testBytes() {
-    var metrics = new Report.Impl();
+    var metrics = Report.of("c", () -> false);
 
     Assertions.assertEquals(0, metrics.totalBytes());
-    metrics.record("topic", 0, 100, 0L, 1000);
+    metrics.record(0L, 1000);
     Assertions.assertEquals(1000, metrics.totalBytes());
   }
 }

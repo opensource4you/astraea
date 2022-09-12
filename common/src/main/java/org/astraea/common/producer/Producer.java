@@ -22,6 +22,9 @@ import java.util.concurrent.CompletionStage;
 
 /** An interface for sending records. */
 public interface Producer<Key, Value> extends AutoCloseable {
+
+  String clientId();
+
   Sender<Key, Value> sender();
 
   /**

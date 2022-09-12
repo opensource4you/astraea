@@ -41,6 +41,7 @@
 |  transaction.size  | (選填) 每個transaction的records數量。若設置1以上，會使用transaction，否則都是一般write                                                                                                                                                                                                        |                1                 |
 |      group.id      | (選填) 設置 consumer group id                                                                                                                                                                                                                                             |     groupId-{Time in millis}     |
 |        acks        | (選填) 設置 producer acks，                                                                                                                                                                                                                                                |         all，代表要等所有isr同步          |
+|     read.idle      | (選填) 讀取端將被終止如果超過這個時間沒有讀取到新的資料                                                                                                                                                                                                                                         |                2秒                |
 
 #### 使用範例
 
