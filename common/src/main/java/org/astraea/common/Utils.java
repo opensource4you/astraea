@@ -30,6 +30,7 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collector;
 import java.util.stream.Collectors;
+import org.astraea.common.cost.Configuration;
 
 public final class Utils {
 
@@ -78,6 +79,17 @@ public final class Utils {
       runner.run();
     } catch (Exception ex) {
       ex.printStackTrace();
+    }
+  }
+
+  public static <T> T construct(Class<T> target, Configuration configuration) {
+    try {
+      // case 0: create cost function by configuration
+      var constructor = target.getConstructor(Configuration.class);
+      return packException(() -> constructor.newInstance(configuration));
+    } catch (NoSuchMethodException e) {
+      // case 1: create cost function by empty constructor
+      return packException(() -> target.getConstructor().newInstance());
     }
   }
 
