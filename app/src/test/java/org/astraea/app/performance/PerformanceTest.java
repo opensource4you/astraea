@@ -482,8 +482,8 @@ public class PerformanceTest extends RequireBrokerCluster {
               });
       args.initTopics();
 
-      Assertions.assertEquals(3, admin.partitions(Set.of("test")).size());
-      Assertions.assertEquals(5, admin.partitions(Set.of("test1")).size());
+      Utils.waitFor(() -> admin.partitions(Set.of("test")).size() == 3);
+      Utils.waitFor(() -> admin.partitions(Set.of("test1")).size() == 5);
 
       admin
           .replicas(Set.of("test"))
