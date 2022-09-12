@@ -276,6 +276,14 @@ public class PerformanceTest extends RequireBrokerCluster {
       var topicName3 = Utils.randomString(10);
       admin.creator().topic(topicName3).numberOfPartitions(1).create();
       Utils.sleep(Duration.ofSeconds(2));
+      var validBroker =
+          admin.replicas(Set.of(topicName3)).values().stream()
+              .findAny()
+              .get()
+              .get(0)
+              .nodeInfo()
+              .id();
+      var noPartitionBroker = (validBroker == 3) ? 1 : validBroker + 1;
       args =
           Argument.parse(
               new Performance.Argument(),
@@ -285,7 +293,7 @@ public class PerformanceTest extends RequireBrokerCluster {
                 "--topics",
                 topicName3,
                 "--specify.brokers",
-                "4"
+                Integer.toString(noPartitionBroker)
               });
       Assertions.assertThrows(IllegalArgumentException.class, args::topicPartitionSelector);
 
