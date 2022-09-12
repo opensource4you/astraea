@@ -35,6 +35,7 @@ import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.ReplicaInfo;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.admin.TopicPartitionReplica;
+import org.astraea.common.cost.Configuration;
 
 public class SkewedPartitionScenario extends Scenario<SkewedPartitionScenario.Result> {
 
@@ -43,7 +44,19 @@ public class SkewedPartitionScenario extends Scenario<SkewedPartitionScenario.Re
   final short replicas;
   final double binomialProbability;
 
-  public SkewedPartitionScenario(
+  public SkewedPartitionScenario() {
+    this(Utils.randomString(), 10, (short) 1, 0.5);
+  }
+
+  public SkewedPartitionScenario(Configuration configuration) {
+    this(
+        configuration.requireString("topicName"),
+        configuration.string("partitions").map(Integer::parseInt).orElse(10),
+        configuration.string("replicas").map(Short::parseShort).orElse((short) 1),
+        configuration.string("binomialProbability").map(Double::parseDouble).orElse(0.5));
+  }
+
+  private SkewedPartitionScenario(
       String topicName, int partitions, short replicas, double binomialProbability) {
     super(SkewedPartitionScenario.class.getName());
     this.topicName = topicName;

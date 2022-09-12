@@ -21,8 +21,11 @@ import com.google.gson.JsonDeserializer;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonParseException;
 import java.lang.reflect.Type;
+import java.util.Map;
+import java.util.stream.Collectors;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
+import org.astraea.common.cost.Configuration;
 
 /**
  * The subclass of this class should contain the logic to fulfill a scenario.
@@ -54,9 +57,26 @@ public abstract class Scenario<T> {
     public Scenario<?> deserialize(
         JsonElement json, Type typeOfT, JsonDeserializationContext context)
         throws JsonParseException {
-      final var name = json.getAsJsonObject().get("scenarioName").getAsString();
+      final var object = json.getAsJsonObject();
+      final var name = object.get("scenarioName").getAsString();
       final var theClass = Utils.packException(() -> Class.forName(name));
-      return context.deserialize(json, theClass);
+      if (Scenario.class.isAssignableFrom(theClass)) {
+        //noinspection unchecked
+        return Utils.construct(
+            (Class<Scenario<?>>) theClass,
+            Configuration.of(
+                object.entrySet().stream()
+                    .collect(
+                        Collectors.toUnmodifiableMap(
+                            Map.Entry::getKey,
+                            x -> {
+                              if (x.getValue().getAsJsonPrimitive().isString())
+                                return x.getValue().getAsJsonPrimitive().getAsString();
+                              else return x.getValue().getAsJsonPrimitive().toString();
+                            }))));
+      } else {
+        throw new IllegalArgumentException("Target class is not a Scenario: " + theClass.getName());
+      }
     }
   }
 }
