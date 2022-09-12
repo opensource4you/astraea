@@ -26,6 +26,7 @@ import java.util.Random;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.stream.Collectors;
+import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.clients.producer.ProducerRecord;
@@ -94,6 +95,11 @@ public class Builder<Key, Value> {
    */
   public Builder<Key, Value> transactionId(String transactionId) {
     return config(ProducerConfig.TRANSACTIONAL_ID_CONFIG, transactionId);
+  }
+
+  public Builder<Key, Value> clientId(String clientId) {
+    this.configs.put(ConsumerConfig.CLIENT_ID_CONFIG, clientId);
+    return this;
   }
 
   private static <Key, Value> CompletionStage<Metadata> doSend(
