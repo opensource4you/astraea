@@ -25,11 +25,15 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.function.ToDoubleFunction;
-import org.astraea.app.common.DataSize;
-import org.astraea.app.common.Utils;
-import org.astraea.app.metrics.MBeanClient;
-import org.astraea.app.metrics.client.HasNodeMetrics;
-import org.astraea.app.metrics.client.producer.ProducerMetrics;
+import org.astraea.common.DataSize;
+import org.astraea.common.Utils;
+import org.astraea.common.metrics.HasBeanObject;
+import org.astraea.common.metrics.MBeanClient;
+import org.astraea.common.metrics.client.HasNodeMetrics;
+import org.astraea.common.metrics.client.consumer.ConsumerMetrics;
+import org.astraea.common.metrics.client.consumer.HasConsumerCoordinatorMetrics;
+import org.astraea.common.metrics.client.producer.HasProducerTopicMetrics;
+import org.astraea.common.metrics.client.producer.ProducerMetrics;
 
 /** Print out the given metrics. */
 public interface TrackerThread extends AbstractThread {
@@ -38,7 +42,6 @@ public interface TrackerThread extends AbstractThread {
       Supplier<List<ProducerThread.Report>> producerReporter,
       Supplier<List<ConsumerThread.Report>> consumerReporter,
       ExeTime exeTime) {
-    var start = System.currentTimeMillis() - Duration.ofSeconds(1).toMillis();
     var mBeanClient = MBeanClient.local();
 
     Function<Duration, Boolean> logProducers =
@@ -57,18 +60,21 @@ public interface TrackerThread extends AbstractThread {
           System.out.printf(
               "  current traffic: %s/second%n",
               DataSize.Byte.of(
-                  ((Double)
-                          sumOfAttribute(
-                              ProducerMetrics.nodes(mBeanClient), HasNodeMetrics::outgoingByteRate))
-                      .longValue()));
+                  (long)
+                      sumOfAttribute(
+                          ProducerMetrics.nodes(mBeanClient), HasNodeMetrics::outgoingByteRate)));
+          System.out.printf(
+              "  error: %.1f records/second%n",
+              sumOfAttribute(
+                  ProducerMetrics.topics(mBeanClient), HasProducerTopicMetrics::recordErrorRate));
           producerReports.stream()
               .mapToLong(Report::max)
               .max()
-              .ifPresent(i -> System.out.println("  publish max latency: " + i + " ms"));
+              .ifPresent(i -> System.out.printf("  publish max latency: %d ms%n", i));
           producerReports.stream()
-              .mapToLong(Report::min)
-              .min()
-              .ifPresent(i -> System.out.println("  publish mim latency: " + i + " ms"));
+              .mapToDouble(Report::avgLatency)
+              .average()
+              .ifPresent(i -> System.out.printf("  publish average latency: %.3f ms%n", i));
           for (int i = 0; i < producerReports.size(); ++i) {
             System.out.printf(
                 "  producer[%d] average throughput: %.3f MB%n",
@@ -104,29 +110,34 @@ public interface TrackerThread extends AbstractThread {
           System.out.printf(
               "  current traffic: %s/second%n",
               DataSize.Byte.of(
-                  ((Double)
-                          sumOfAttribute(
-                              ProducerMetrics.nodes(mBeanClient), HasNodeMetrics::incomingByteRate))
-                      .longValue()));
+                  (long)
+                      sumOfAttribute(
+                          ProducerMetrics.nodes(mBeanClient), HasNodeMetrics::incomingByteRate)));
           consumerReports.stream()
               .mapToLong(Report::max)
               .max()
-              .ifPresent(i -> System.out.println("  end-to-end max latency: " + i + " ms"));
+              .ifPresent(i -> System.out.printf("  end-to-end max latency: %d ms%n", i));
           consumerReports.stream()
-              .mapToLong(Report::min)
-              .min()
-              .ifPresent(i -> System.out.println("  end-to-end mim latency: " + i + " ms"));
-          consumerReports.stream()
-              .mapToLong(ConsumerThread.Report::maxSubscriptionLatency)
-              .max()
-              .ifPresent(i -> System.out.println("  subscription max latency: " + i + " ms"));
-          consumerReports.stream()
-              .mapToDouble(ConsumerThread.Report::avgSubscriptionLatency)
+              .mapToDouble(Report::avgLatency)
               .average()
-              .ifPresent(i -> System.out.println("  subscription average latency: " + i + " ms"));
-          for (int i = 0; i < consumerReports.size(); ++i) {
+              .ifPresent(i -> System.out.printf("  end-to-end average latency: %.3f ms%n", i));
+          var metrics = ConsumerMetrics.coordinators(mBeanClient);
+          metrics.stream()
+              .mapToDouble(HasConsumerCoordinatorMetrics::rebalanceLatencyMax)
+              .max()
+              .ifPresent(i -> System.out.printf("  rebalance max latency: %.3f ms%n", i));
+          metrics.stream()
+              .mapToDouble(HasConsumerCoordinatorMetrics::rebalanceLatencyAvg)
+              .average()
+              .ifPresent(i -> System.out.printf("  rebalance average latency: %.3f ms%n", i));
+          for (var i = 0; i < consumerReports.size(); ++i) {
             var report = consumerReports.get(i);
-            System.out.printf("  consumer[%d] has %d partitions%n", i, report.assignments().size());
+            var ms =
+                metrics.stream().filter(m -> m.clientId().equals(report.clientId())).findFirst();
+            if (ms.isPresent()) {
+              System.out.printf(
+                  "  consumer[%d] has %d partitions%n", i, (int) ms.get().assignedPartitions());
+            }
             System.out.printf(
                 "  consumer[%d] average throughput: %.3f MB%n",
                 i, Utils.averageMB(duration, report.totalBytes()));
@@ -138,35 +149,12 @@ public interface TrackerThread extends AbstractThread {
           return percentage >= 100D;
         };
 
+    var start = System.currentTimeMillis() - Duration.ofSeconds(1).toMillis();
     var closed = new AtomicBoolean(false);
     var latch = new CountDownLatch(1);
 
-    CompletableFuture.runAsync(
-        () -> {
-          try {
-            var producerDone = false;
-            var consumerDone = false;
-            while (!closed.get()) {
-              var duration = Duration.ofMillis(System.currentTimeMillis() - start);
-              System.out.println(
-                  "Time: "
-                      + duration.toHoursPart()
-                      + "hr "
-                      + duration.toMinutesPart()
-                      + "min "
-                      + duration.toSecondsPart()
-                      + "sec");
-              if (!producerDone) producerDone = logProducers.apply(duration);
-              if (!consumerDone) consumerDone = logConsumers.apply(duration);
-              if (producerDone && consumerDone) return;
-
-              // Log after waiting for one second
-              Utils.sleep(Duration.ofSeconds(1));
-            }
-          } finally {
-            latch.countDown();
-          }
-        });
+    CompletableFuture.runAsync(trackerLoop(start, closed::get, logProducers, logConsumers))
+        .whenComplete((m, e) -> latch.countDown());
 
     return new TrackerThread() {
 
@@ -193,14 +181,44 @@ public interface TrackerThread extends AbstractThread {
       }
     };
   }
+
+  static Runnable trackerLoop(
+      long start,
+      Supplier<Boolean> closed,
+      Function<Duration, Boolean> logProducers,
+      Function<Duration, Boolean> logConsumers) {
+    return () -> {
+      var producerDone = false;
+      var consumerDone = false;
+      while (!closed.get()) {
+        var duration = Duration.ofMillis(System.currentTimeMillis() - start);
+        System.out.println(
+            "Time: "
+                + duration.toHoursPart()
+                + "hr "
+                + duration.toMinutesPart()
+                + "min "
+                + duration.toSecondsPart()
+                + "sec");
+        if (!producerDone) producerDone = logProducers.apply(duration);
+        // if producers are not DONE, consumers should keep running as there are more data in
+        // the future.
+        if (!producerDone || !consumerDone) consumerDone = logConsumers.apply(duration);
+        if (producerDone && consumerDone) return;
+        // Log after waiting for one second
+        Utils.sleep(Duration.ofSeconds(1));
+      }
+    };
+  }
+
   /**
    * Sum up the latest given attribute of all beans which is instance of HasNodeMetrics.
    *
    * @param mbeans mBeans fetched by the receivers
    * @return sum of the latest given attribute of all beans which is instance of HasNodeMetrics.
    */
-  static double sumOfAttribute(
-      Collection<HasNodeMetrics> mbeans, ToDoubleFunction<HasNodeMetrics> targetAttribute) {
+  static <T extends HasBeanObject> double sumOfAttribute(
+      Collection<T> mbeans, ToDoubleFunction<T> targetAttribute) {
     return mbeans.stream().mapToDouble(targetAttribute).filter(d -> !Double.isNaN(d)).sum();
   }
 

@@ -26,16 +26,16 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-import org.astraea.app.common.Utils;
-import org.astraea.app.producer.Producer;
+import org.astraea.common.Utils;
+import org.astraea.common.admin.TopicPartition;
+import org.astraea.common.producer.Producer;
 
 public interface ProducerThread extends AbstractThread {
 
   static List<ProducerThread> create(
-      String topic,
       int batchSize,
       DataSupplier dataSupplier,
-      Supplier<Integer> partitionSupplier,
+      Supplier<TopicPartition> topicPartitionSupplier,
       int producers,
       Supplier<Producer<byte[], byte[]>> producerSupplier) {
     if (producers <= 0) return List.of();
@@ -86,8 +86,7 @@ public interface ProducerThread extends AbstractThread {
                                         d ->
                                             producer
                                                 .sender()
-                                                .topic(topic)
-                                                .partition(partitionSupplier.get())
+                                                .topicPartition(topicPartitionSupplier.get())
                                                 .key(d.key())
                                                 .value(d.value())
                                                 .timestamp(System.currentTimeMillis()))

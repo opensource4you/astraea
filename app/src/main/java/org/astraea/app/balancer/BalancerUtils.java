@@ -26,14 +26,15 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-import org.astraea.app.admin.ClusterBean;
-import org.astraea.app.admin.ClusterInfo;
-import org.astraea.app.admin.NodeInfo;
-import org.astraea.app.admin.Replica;
-import org.astraea.app.admin.TopicPartition;
+import java.util.stream.Stream;
 import org.astraea.app.balancer.log.ClusterLogAllocation;
-import org.astraea.app.cost.HasClusterCost;
-import org.astraea.app.metrics.HasBeanObject;
+import org.astraea.common.admin.ClusterBean;
+import org.astraea.common.admin.ClusterInfo;
+import org.astraea.common.admin.NodeInfo;
+import org.astraea.common.admin.Replica;
+import org.astraea.common.admin.TopicPartition;
+import org.astraea.common.cost.HasClusterCost;
+import org.astraea.common.metrics.HasBeanObject;
 
 public class BalancerUtils {
 
@@ -136,8 +137,8 @@ public class BalancerUtils {
       }
 
       @Override
-      public List<Replica> replicas() {
-        return replicas;
+      public Stream<Replica> replicaStream() {
+        return replicas.stream();
       }
     };
   }

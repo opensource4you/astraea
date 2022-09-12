@@ -16,7 +16,7 @@
  */
 package org.astraea.app.web;
 
-import org.astraea.app.argument.Argument;
+import org.astraea.common.argument.Argument;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 

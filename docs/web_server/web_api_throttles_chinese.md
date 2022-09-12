@@ -95,7 +95,9 @@ brokers 每個資料欄位
 |---------|---------------------------------------------------------------------------------------------------------------------------------------| ------ |
 | id      | (必填) 欲更新節點的 id                                                                                                                        | 無     |
 | ingress | (選填) 特定 Kafka 節點的 replication 流入流量的限制(單位 bytes/sec)，附註只有 `topics` 中有記錄到的對象，其 replication 流量會受限制，如果此欄位不存在則代表此節點的 replication 流入流量沒有被修改。 | 無     |
-| egress  | (選填) 特定 Kafka 節點的 replication 流出流量的限制(單位 bytes/sec)，附註只有 `topics` 中有記錄到的對象，其 replication 流量會受限制。                                      | 無     |
+| egress  | (選填) 特定 Kafka 節點的 replication 流出流量的限制(單位 bytes/sec)，附註只有 `topics` 中有記錄到的對象，其 replication 流量會受限制，如果此欄位不存在則代表此節點的 replication 流入流量沒有被修改。 | 無     |
+
+給定一個沒有指定 ingress/egress 的輸入不會使任何資訊被修改，如：`{ "id": 1002 }`。
 
 topics 每個資料欄位
 
@@ -105,6 +107,8 @@ topics 每個資料欄位
 | partition | (選填) 要套用 replication throttle 的 partition 編號，如果沒有指定，所有既有 partition 都會被套用 | 無     |
 | broker    | (選填) 要套用 replication throttle 的 replica (所在之 broker)，如果沒有指定，所有既有的 replicas 都會被套用 | 無     |
 | type      | (選填) 要套用 replication throttle 的 replica 身份，此值可以是 `leader` 或是 `follower`，如果沒有指定，則二者都會被套用 | 無     |
+
+topic 描述格式只支援 `name`, `name, partition`, `name, partition, broker`, `name, partition, broker, type` 這四種 key 的組合，目前此 API 不支援其他種類的組合，比如 `name, type`。當給與這類型的組合，API 會回傳錯誤。
 
 JSON Response 範例
 
@@ -164,15 +168,15 @@ cURL 範例
 * ##### 移除整個 Topic/Partition/Replica 的 replication throttle
 
   ```shell
-  # 移除與 TopicA/partition 3/broker 4 相關的所有 replication throttle
-  curl -X DELETE "http://localhost:8001/throttles?topic=MyTopicA&partition=3&broker=4"
+  # 移除與 TopicA/partition 3/replica at broker 4 相關的所有 replication throttle
+  curl -X DELETE "http://localhost:8001/throttles?topic=MyTopicA&partition=3&replica=4"
   ```
 
 * ##### 移除特定 Topic/Partition/Replica 針對 leader 或是 follower 的 replication throttle
 
   ```shell
-  # 移除 TopicA/partition 3/broker 4 的 leader replication throttle
-  curl -X DELETE "http://localhost:8001/throttles?topic=MyTopicA&partition=3&broker=4&type=leader"
+  # 移除 TopicA/partition 3/replica at broker 4 的 leader replication throttle
+  curl -X DELETE "http://localhost:8001/throttles?topic=MyTopicA&partition=3&replica=4&type=leader"
   ```
 
 * ##### 移除特定節點的 replication 輸入限流
