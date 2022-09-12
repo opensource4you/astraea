@@ -58,4 +58,17 @@ public class ConsumerMetrics {
         .map(b -> (HasConsumerCoordinatorMetrics) () -> b)
         .collect(Collectors.toUnmodifiableList());
   }
+
+  public static Collection<HasConsumerFetchMetrics> fetches(MBeanClient mBeanClient) {
+    return mBeanClient
+        .queryBeans(
+            BeanQuery.builder()
+                .domainName("kafka.consumer")
+                .property("type", "consumer-fetch-manager-metrics")
+                .property("client-id", "*")
+                .build())
+        .stream()
+        .map(b -> (HasConsumerFetchMetrics) () -> b)
+        .collect(Collectors.toUnmodifiableList());
+  }
 }

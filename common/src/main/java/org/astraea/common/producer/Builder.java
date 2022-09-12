@@ -33,6 +33,7 @@ import org.apache.kafka.common.KafkaException;
 import org.apache.kafka.common.errors.AuthorizationException;
 import org.apache.kafka.common.errors.OutOfOrderSequenceException;
 import org.apache.kafka.common.errors.ProducerFencedException;
+import org.astraea.common.Utils;
 import org.astraea.common.admin.Compression;
 
 public class Builder<Key, Value> {
@@ -147,9 +148,12 @@ public class Builder<Key, Value> {
 
   private abstract static class BaseProducer<Key, Value> implements Producer<Key, Value> {
     protected final org.apache.kafka.clients.producer.Producer<Key, Value> kafkaProducer;
+    private final String clientId;
 
     private BaseProducer(org.apache.kafka.clients.producer.Producer<Key, Value> kafkaProducer) {
       this.kafkaProducer = kafkaProducer;
+      // KafkaConsumer does not expose client-id
+      this.clientId = (String) Utils.member(kafkaProducer, "clientId");
     }
 
     @Override
@@ -160,6 +164,11 @@ public class Builder<Key, Value> {
     @Override
     public void close() {
       kafkaProducer.close();
+    }
+
+    @Override
+    public String clientId() {
+      return clientId;
     }
   }
 
