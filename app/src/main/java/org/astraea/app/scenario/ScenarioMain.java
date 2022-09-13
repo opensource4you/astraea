@@ -19,25 +19,30 @@ package org.astraea.app.scenario;
 import com.beust.jcommander.Parameter;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
-import java.io.IOException;
-import java.io.UncheckedIOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
+import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.argument.Argument;
+import org.astraea.common.cost.Configuration;
 
 public class ScenarioMain extends Argument {
 
   @Parameter(
-      names = {"--scenario.file"},
-      description = "A JSON file that contains the scenario definition")
-  private Path scenarioFile;
+      names = {"--scenario.class"},
+      required = true)
+  String scenarioClass;
 
-  private static final Gson gson =
-      new GsonBuilder()
-          .registerTypeAdapter(Scenario.class, new Scenario.GeneralDeserializer())
-          .setPrettyPrinting()
-          .create();
+  private static final Gson gson = new GsonBuilder().setPrettyPrinting().create();
+
+  public void execute() {
+    var theClass = Utils.packException(() -> Class.forName(scenarioClass));
+    if (Scenario.class.isAssignableFrom(theClass)) {
+      //noinspection unchecked
+      var scenarioClass = (Class<Scenario<?>>) theClass;
+      execute(Scenario.of(scenarioClass, Configuration.of(configs())));
+    } else {
+      throw new RuntimeException("Target class is not a scenario: " + theClass.getName());
+    }
+  }
 
   public void execute(Scenario<?> scenario) {
     System.out.println("Accept scenario: " + scenario.getClass().getName());
@@ -46,16 +51,7 @@ public class ScenarioMain extends Argument {
     }
   }
 
-  Scenario<?> readScenario() {
-    try (var reader = Files.newBufferedReader(scenarioFile)) {
-      return gson.fromJson(reader, Scenario.class);
-    } catch (IOException e) {
-      throw new UncheckedIOException(e);
-    }
-  }
-
   public static void main(String[] args) {
-    var main = Argument.parse(new ScenarioMain(), args);
-    main.execute(main.readScenario());
+    Argument.parse(new ScenarioMain(), args).execute();
   }
 }

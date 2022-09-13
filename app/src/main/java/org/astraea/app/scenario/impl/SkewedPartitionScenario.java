@@ -51,9 +51,9 @@ public class SkewedPartitionScenario extends Scenario<SkewedPartitionScenario.Re
   public SkewedPartitionScenario(Configuration configuration) {
     this(
         configuration.requireString("topicName"),
-        configuration.string("partitions").map(Integer::parseInt).orElse(10),
+        configuration.string("partitions").map(Integer::parseInt).orElseThrow(),
         configuration.string("replicas").map(Short::parseShort).orElse((short) 1),
-        configuration.string("binomialProbability").map(Double::parseDouble).orElse(0.5));
+        configuration.string("binomialProbability").map(Double::parseDouble).orElseThrow());
   }
 
   private SkewedPartitionScenario(

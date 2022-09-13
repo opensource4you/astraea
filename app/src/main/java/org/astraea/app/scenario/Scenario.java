@@ -16,13 +16,6 @@
  */
 package org.astraea.app.scenario;
 
-import com.google.gson.JsonDeserializationContext;
-import com.google.gson.JsonDeserializer;
-import com.google.gson.JsonElement;
-import com.google.gson.JsonParseException;
-import java.lang.reflect.Type;
-import java.util.Map;
-import java.util.stream.Collectors;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.cost.Configuration;
@@ -38,8 +31,8 @@ public abstract class Scenario<T> {
 
   /**
    * This field is here for serialization purpose. It should be the class name of the concrete
-   * scenario implementation. The {@link Scenario.GeneralDeserializer} take advantage of this field
-   * to classify which scenario class it should deserialize to.
+   * scenario implementation. Gson can take advantage of this field to classify which scenario class
+   * it should deserialize to.
    */
   private final String scenarioName;
 
@@ -48,35 +41,10 @@ public abstract class Scenario<T> {
     this.scenarioName = classPath;
   }
 
+  public static Scenario<?> of(Class<Scenario<?>> theClass, Configuration configuration) {
+    return Utils.construct(theClass, configuration);
+  }
+
   /** Apply this scenario to the Kafka cluster */
   public abstract T apply(Admin admin);
-
-  public static class GeneralDeserializer implements JsonDeserializer<Scenario<?>> {
-
-    @Override
-    public Scenario<?> deserialize(
-        JsonElement json, Type typeOfT, JsonDeserializationContext context)
-        throws JsonParseException {
-      final var object = json.getAsJsonObject();
-      final var name = object.get("scenarioName").getAsString();
-      final var theClass = Utils.packException(() -> Class.forName(name));
-      if (Scenario.class.isAssignableFrom(theClass)) {
-        //noinspection unchecked
-        return Utils.construct(
-            (Class<Scenario<?>>) theClass,
-            Configuration.of(
-                object.entrySet().stream()
-                    .collect(
-                        Collectors.toUnmodifiableMap(
-                            Map.Entry::getKey,
-                            x -> {
-                              if (x.getValue().getAsJsonPrimitive().isString())
-                                return x.getValue().getAsJsonPrimitive().getAsString();
-                              else return x.getValue().getAsJsonPrimitive().toString();
-                            }))));
-      } else {
-        throw new IllegalArgumentException("Target class is not a Scenario: " + theClass.getName());
-      }
-    }
-  }
 }
