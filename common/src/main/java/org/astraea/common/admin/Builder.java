@@ -356,40 +356,57 @@ public class Builder {
           toReplicas =
               (tp, tpi) ->
                   tpi.replicas().stream()
-                      .map(
-                          node -> {
-                            var dataPath =
-                                node.isEmpty()
-                                    ? null
-                                    : logInfo.get(node.id()).entrySet().stream()
-                                        .filter(e -> e.getValue().replicaInfos().containsKey(tp))
-                                        .map(Map.Entry::getKey)
-                                        .findFirst()
-                                        .orElse(null);
-                            var replicaInfo =
-                                node.isEmpty() || dataPath == null
-                                    ? null
-                                    : logInfo.get(node.id()).get(dataPath).replicaInfos().get(tp);
-                            return Replica.of(
-                                tp.topic(),
-                                tp.partition(),
-                                NodeInfo.of(node),
-                                replicaInfo != null ? replicaInfo.offsetLag() : -1L,
-                                replicaInfo != null ? replicaInfo.size() : -1L,
-                                tpi.leader() != null
-                                    && !tpi.leader().isEmpty()
-                                    && tpi.leader().id() == node.id(),
-                                tpi.isr().contains(node),
-                                replicaInfo != null && replicaInfo.isFuture(),
-                                node.isEmpty(),
-                                // The first replica in the return result is the
-                                // preferred leader. This only works with Kafka broker version
-                                // after 0.11.
-                                // Version before 0.11 returns the replicas in unspecified order
-                                // due to a bug.
-                                tpi.replicas().get(0).id() == node.id(),
-                                dataPath);
-                          })
+                      .flatMap(
+                          node ->
+                              node.isEmpty()
+                                  ? Stream.of(
+                                      Replica.of(
+                                          tp.topic(),
+                                          tp.partition(),
+                                          NodeInfo.of(node),
+                                          -1L,
+                                          -1L,
+                                          tpi.leader() != null
+                                              && !tpi.leader().isEmpty()
+                                              && tpi.leader().id() == node.id(),
+                                          tpi.isr().contains(node),
+                                          false,
+                                          node.isEmpty(),
+                                          tpi.replicas().get(0).id() == node.id(),
+                                          null))
+                                  : logInfo.get(node.id()).entrySet().stream()
+                                      .filter(e -> e.getValue().replicaInfos().containsKey(tp))
+                                      .map(Map.Entry::getKey)
+                                      .map(
+                                          dataPath -> {
+                                            var replicaInfo =
+                                                logInfo
+                                                    .get(node.id())
+                                                    .get(dataPath)
+                                                    .replicaInfos()
+                                                    .get(tp);
+                                            return Replica.of(
+                                                tp.topic(),
+                                                tp.partition(),
+                                                NodeInfo.of(node),
+                                                replicaInfo.offsetLag(),
+                                                replicaInfo.size(),
+                                                tpi.leader() != null
+                                                    && !tpi.leader().isEmpty()
+                                                    && tpi.leader().id() == node.id(),
+                                                tpi.isr().contains(node),
+                                                replicaInfo.isFuture(),
+                                                node.isEmpty(),
+                                                // The first replica in the return result is the
+                                                // preferred leader. This only works with Kafka
+                                                // broker version
+                                                // after 0.11.
+                                                // Version before 0.11 returns the replicas in
+                                                // unspecified order
+                                                // due to a bug.
+                                                tpi.replicas().get(0).id() == node.id(),
+                                                dataPath);
+                                          }))
                       .collect(Collectors.toList());
 
       return Utils.packException(
