@@ -22,7 +22,6 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.commons.math3.distribution.BinomialDistribution;
@@ -32,9 +31,7 @@ import org.apache.commons.math3.util.Pair;
 import org.astraea.app.scenario.Scenario;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
-import org.astraea.common.admin.ReplicaInfo;
 import org.astraea.common.admin.TopicPartition;
-import org.astraea.common.admin.TopicPartitionReplica;
 import org.astraea.common.cost.Configuration;
 
 public class SkewedPartitionScenario implements Scenario<SkewedPartitionScenario.Result> {
@@ -74,42 +71,35 @@ public class SkewedPartitionScenario implements Scenario<SkewedPartitionScenario
         .create();
     Utils.sleep(Duration.ofSeconds(1));
 
-    var topicPartitions =
-        IntStream.range(0, partitions)
-            .mapToObj(p -> TopicPartition.of(topicName, p))
-            .collect(Collectors.toUnmodifiableSet());
-
-    // randomize the replica list by a specific distribution
     var distribution = new BinomialDistribution(brokers.size() - 1, binomialProbability);
-    topicPartitions.forEach(
-        tp ->
-            admin
-                .migrator()
-                .partition(tp.topic(), tp.partition())
-                .moveTo(sampledReplicaList(brokers, replicas, distribution)));
+    var replicaLists =
+        IntStream.range(0, partitions)
+            .boxed()
+            .collect(
+                Collectors.toUnmodifiableMap(
+                    p -> TopicPartition.of(topicName, p),
+                    ignore -> sampledReplicaList(brokers, replicas, distribution)));
+
+    replicaLists.forEach(
+        (tp, newReplicas) ->
+            admin.migrator().partition(tp.topic(), tp.partition()).moveTo(newReplicas));
     Utils.sleep(Duration.ofSeconds(1));
 
     // elect leader
-    topicPartitions.forEach(admin::preferredLeaderElection);
+    replicaLists.keySet().forEach(admin::preferredLeaderElection);
     Utils.sleep(Duration.ofSeconds(1));
 
-    return packResult(admin);
-  }
-
-  private Result packResult(Admin admin) {
-    var currentReplica = admin.replicas(Set.of(topicName));
-    var leaderSum =
-        currentReplica.values().stream()
+    return new Result(
+        topicName,
+        partitions,
+        replicas,
+        binomialProbability,
+        replicaLists.values().stream()
+            .map(list -> list.get(0))
+            .collect(Collectors.groupingBy(x -> x, Collectors.counting())),
+        replicaLists.values().stream()
             .flatMap(Collection::stream)
-            .filter(ReplicaInfo::isLeader)
-            .map(ReplicaInfo::topicPartitionReplica)
-            .collect(Collectors.groupingBy(TopicPartitionReplica::brokerId, Collectors.counting()));
-    var logSum =
-        currentReplica.values().stream()
-            .flatMap(Collection::stream)
-            .map(ReplicaInfo::topicPartitionReplica)
-            .collect(Collectors.groupingBy(TopicPartitionReplica::brokerId, Collectors.counting()));
-    return new Result(topicName, partitions, replicas, binomialProbability, leaderSum, logSum);
+            .collect(Collectors.groupingBy(x -> x, Collectors.counting())));
   }
 
   /** Sample a random replica list from the given probability distribution. */
