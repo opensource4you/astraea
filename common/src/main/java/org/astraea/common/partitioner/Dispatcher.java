@@ -16,13 +16,16 @@
  */
 package org.astraea.common.partitioner;
 
+import java.security.Key;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import org.apache.kafka.clients.producer.Partitioner;
+import org.apache.kafka.clients.producer.Producer;
 import org.apache.kafka.common.Cluster;
+import org.apache.kafka.common.metrics.stats.Value;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.ReplicaInfo;
@@ -61,7 +64,7 @@ public interface Dispatcher extends Partitioner {
    * messages.Interdependent message will be sent to the same partition. The system will
    * automatically select the node with the best current condition as the target node.
    * Action:Dispatcher states can interfere with each other when multiple producers are in the same
-   * thread. Each Thread can only support one producer.For example:
+   * thread. Each Thread can only support one producer. For example:
    *
    * <pre>{
    * @Code
@@ -71,15 +74,22 @@ public interface Dispatcher extends Partitioner {
    * }</pre>
    *
    * Begin interdependence function.Let the next messages be interdependent.
+   *
+   * @param producer Kafka producer
    */
-  static void beginInterdependent() {
+  // TODO One thread supports multiple producers.
+  static void beginInterdependent(Producer<Key, Value> producer) {
     THREAD_LOCAL.get().isInterdependent.set(true);
   }
 
-  /** Close interdependence function.Send data using the original Dispatcher logic. */
-  static void endInterdependent() {
-    THREAD_LOCAL.get().isInterdependent.set(false);
+  /**
+   * Close interdependence function.Send data using the original Dispatcher logic.
+   *
+   * @param producer Kafka producer
+   */
+  static void endInterdependent(Producer<Key, Value> producer) {
     THREAD_LOCAL.get().targetPartitions.set(-1);
+    THREAD_LOCAL.get().isInterdependent.set(false);
   }
 
   /** close this dispatcher. This method is executed only once. */

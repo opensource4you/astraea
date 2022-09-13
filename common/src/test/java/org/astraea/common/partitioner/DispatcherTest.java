@@ -116,10 +116,10 @@ public class DispatcherTest extends RequireSingleBrokerCluster {
             .build()) {
       Runnable runnable =
           () -> {
-            Dispatcher.beginInterdependent();
-            Dispatcher.endInterdependent();
+            Dispatcher.beginInterdependent(instanceOfProducer(producer));
+            Dispatcher.endInterdependent(instanceOfProducer(producer));
           };
-      Dispatcher.beginInterdependent();
+      Dispatcher.beginInterdependent(instanceOfProducer(producer));
       new Thread(runnable).start();
       var exceptPartition =
           producerSend(producer, topicName, key, value, timestamp, header).partition();
@@ -132,7 +132,7 @@ public class DispatcherTest extends RequireSingleBrokerCluster {
                 assertEquals(timestamp, metadata.timestamp());
                 assertEquals(exceptPartition, metadata.partition());
               });
-      Dispatcher.endInterdependent();
+      Dispatcher.endInterdependent(instanceOfProducer(producer));
     }
   }
 
@@ -161,7 +161,7 @@ public class DispatcherTest extends RequireSingleBrokerCluster {
                 assertEquals(topicName, metadata.topic());
                 assertEquals(timestamp, metadata.timestamp());
               });
-      Dispatcher.beginInterdependent();
+      Dispatcher.beginInterdependent(instanceOfProducer(producer));
       var exceptPartition =
           producerSend(producer, topicName, key, value, timestamp, header).partition();
       IntStream.range(0, 99)
@@ -173,7 +173,7 @@ public class DispatcherTest extends RequireSingleBrokerCluster {
                 assertEquals(timestamp, metadata.timestamp());
                 assertEquals(exceptPartition, metadata.partition());
               });
-      Dispatcher.endInterdependent();
+      Dispatcher.endInterdependent(instanceOfProducer(producer));
       IntStream.range(0, 2400)
           .forEach(
               i -> {
@@ -182,7 +182,7 @@ public class DispatcherTest extends RequireSingleBrokerCluster {
                 assertEquals(topicName, metadata.topic());
                 assertEquals(timestamp, metadata.timestamp());
               });
-      Dispatcher.beginInterdependent();
+      Dispatcher.beginInterdependent(instanceOfProducer(producer));
       var exceptPartitionSec =
           producerSend(producer, topicName, key, value, timestamp, header).partition();
       IntStream.range(0, 99)
@@ -194,7 +194,7 @@ public class DispatcherTest extends RequireSingleBrokerCluster {
                 assertEquals(timestamp, metadata.timestamp());
                 assertEquals(exceptPartitionSec, metadata.partition());
               });
-      Dispatcher.endInterdependent();
+      Dispatcher.endInterdependent(instanceOfProducer(producer));
     }
   }
 
