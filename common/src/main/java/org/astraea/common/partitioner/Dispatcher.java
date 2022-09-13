@@ -16,16 +16,13 @@
  */
 package org.astraea.common.partitioner;
 
-import java.security.Key;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import org.apache.kafka.clients.producer.Partitioner;
-import org.apache.kafka.clients.producer.Producer;
 import org.apache.kafka.common.Cluster;
-import org.apache.kafka.common.metrics.stats.Value;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.ReplicaInfo;
@@ -38,12 +35,7 @@ public interface Dispatcher extends Partitioner {
    */
   ConcurrentHashMap<Cluster, ClusterInfo<ReplicaInfo>> CLUSTER_CACHE = new ConcurrentHashMap<>();
 
-  /**
-   * Keeps the Interdependent status of each Dispatcher. Use the Dispatcher's hashcode as the
-   * key.Each thread has a corresponding interdependent state.
-   */
-  ConcurrentHashMap<Integer, ThreadLocal<Interdependent>> INTERDEPENDENT =
-      new ConcurrentHashMap<>();
+  ThreadLocal<Interdependent> THREAD_LOCAL = ThreadLocal.withInitial(Interdependent::new);
 
   /**
    * Compute the partition for the given record.
@@ -67,49 +59,38 @@ public interface Dispatcher extends Partitioner {
   /**
    * Use the producer to get the scheduler, allowing you to control it for interdependent
    * messages.Interdependent message will be sent to the same partition. The system will
-   * automatically select the node with the best current condition as the target node. Action:Each
-   * thread of a producer has a corresponding interdependent state. For example:
+   * automatically select the node with the best current condition as the target node.
+   * Action:Dispatcher states can interfere with each other when multiple producers are in the same
+   * thread. Each Thread can only support one producer.For example:
    *
    * <pre>{
    * @Code
-   * Dispatch.startInterdependent(producer);
+   * Dispatch.startInterdependent();
    * producer.send();
-   * Dispatch.endInterdependent(producer);
+   * Dispatch.endInterdependent();
    * }</pre>
    *
    * Begin interdependence function.Let the next messages be interdependent.
-   *
-   * @param producer Kafka producer
    */
-  static void beginInterdependent(Producer<Key, Value> producer) {
-    dispatcher(producer).begin();
+  static void beginInterdependent() {
+    THREAD_LOCAL.get().isInterdependent.set(true);
   }
 
-  /**
-   * Close interdependence function.Send data using the original Dispatcher logic.
-   *
-   * @param producer Kafka producer
-   */
-  static void endInterdependent(Producer<Key, Value> producer) {
-    dispatcher(producer).end();
-  }
-
-  private static Dispatcher dispatcher(Producer<Key, Value> producer) {
-    var dispatcher = Utils.reflectionAttribute(producer, "partitioner");
-    if (dispatcher instanceof Dispatcher) return (Dispatcher) dispatcher;
-    throw new RuntimeException(dispatcher.getClass().getName() + "is not Astraea dispatcher.");
+  /** Close interdependence function.Send data using the original Dispatcher logic. */
+  static void endInterdependent() {
+    THREAD_LOCAL.get().isInterdependent.set(false);
+    THREAD_LOCAL.get().targetPartitions.set(-1);
   }
 
   /** close this dispatcher. This method is executed only once. */
   @Override
   default void close() {
-    INTERDEPENDENT.remove(this.hashCode());
+    THREAD_LOCAL.remove();
     closeDispatcher();
   }
 
   @Override
   default void configure(Map<String, ?> configs) {
-    INTERDEPENDENT.putIfAbsent(this.hashCode(), new ThreadLocal<>());
     configure(
         Configuration.of(
             configs.entrySet().stream()
@@ -119,10 +100,8 @@ public interface Dispatcher extends Partitioner {
   @Override
   default int partition(
       String topic, Object key, byte[] keyBytes, Object value, byte[] valueBytes, Cluster cluster) {
-    threadInterdependent();
-    return INTERDEPENDENT.get(this.hashCode()).get().isInterdependent.get()
-        ? INTERDEPENDENT
-            .get(this.hashCode())
+    return THREAD_LOCAL.get().isInterdependent.get()
+        ? THREAD_LOCAL
             .get()
             .interdependentPartition(
                 this,
@@ -139,23 +118,6 @@ public interface Dispatcher extends Partitioner {
 
   @Override
   default void onNewBatch(String topic, Cluster cluster, int prevPartition) {}
-
-  private void begin() {
-    threadInterdependent();
-    INTERDEPENDENT.get(this.hashCode()).get().isInterdependent.set(true);
-  }
-
-  private void end() {
-    if (INTERDEPENDENT.get(this.hashCode()).get() == null
-        || !INTERDEPENDENT.get(this.hashCode()).get().isInterdependent.get())
-      throw new RuntimeException("You haven't begun interdependent.");
-    INTERDEPENDENT.get(this.hashCode()).get().isInterdependent.set(false);
-  }
-
-  private void threadInterdependent() {
-    if (INTERDEPENDENT.get(this.hashCode()).get() == null)
-      INTERDEPENDENT.get(this.hashCode()).set(new Interdependent());
-  }
 
   class Interdependent {
     private final AtomicBoolean isInterdependent = new AtomicBoolean(false);

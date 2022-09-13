@@ -17,7 +17,6 @@
 package org.astraea.common.partitioner;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
 
 import java.io.File;
 import java.io.FileWriter;
@@ -67,7 +66,6 @@ public class DispatcherTest extends RequireSingleBrokerCluster {
 
           @Override
           public void configure(Configuration config) {
-            Dispatcher.INTERDEPENDENT.putIfAbsent(this.hashCode(), new ThreadLocal<>());
             count.incrementAndGet();
           }
         };
@@ -89,11 +87,6 @@ public class DispatcherTest extends RequireSingleBrokerCluster {
               String topic, byte[] key, byte[] value, ClusterInfo<ReplicaInfo> clusterInfo) {
             return 0;
           }
-
-          @Override
-          public void configure(Configuration config) {
-            Dispatcher.INTERDEPENDENT.putIfAbsent(this.hashCode(), new ThreadLocal<>());
-          }
         };
     dispatcher.configure(Map.of());
     var initialCount = Dispatcher.CLUSTER_CACHE.size();
@@ -102,49 +95,6 @@ public class DispatcherTest extends RequireSingleBrokerCluster {
     Assertions.assertEquals(initialCount + 1, Dispatcher.CLUSTER_CACHE.size());
     dispatcher.partition("topic", "a", new byte[0], "v", new byte[0], cluster);
     Assertions.assertEquals(initialCount + 1, Dispatcher.CLUSTER_CACHE.size());
-  }
-
-  @Test
-  void testCloseDispatcher() {
-    var dispatcher1 =
-        new Dispatcher() {
-          @Override
-          public int partition(String topic, byte[] key, byte[] value, ClusterInfo clusterInfo) {
-            return 0;
-          }
-        };
-    var dispatcher2 =
-        new Dispatcher() {
-          @Override
-          public int partition(String topic, byte[] key, byte[] value, ClusterInfo clusterInfo) {
-            return 0;
-          }
-        };
-    dispatcher1.configure(Map.of());
-    dispatcher2.configure(Map.of());
-    dispatcher1.close();
-    Assertions.assertNotNull(Dispatcher.INTERDEPENDENT.get(dispatcher2.hashCode()));
-    Assertions.assertNull(Dispatcher.INTERDEPENDENT.get(dispatcher1.hashCode()));
-    dispatcher2.close();
-    Assertions.assertNull(Dispatcher.INTERDEPENDENT.get(dispatcher1.hashCode()));
-  }
-
-  @Test
-  void endErrorTest() {
-    var admin = Admin.of(bootstrapServers());
-    var topicName = "address";
-    admin.creator().topic(topicName).numberOfPartitions(9).create();
-    try (var producer =
-        Producer.builder()
-            .keySerializer(Serializer.STRING)
-            .configs(
-                initProConfig().entrySet().stream()
-                    .collect(
-                        Collectors.toMap(e -> e.getKey().toString(), e -> e.getValue().toString())))
-            .build()) {
-      Assertions.assertThrows(
-          RuntimeException.class, () -> Dispatcher.endInterdependent(instanceOfProducer(producer)));
-    }
   }
 
   @Test
@@ -166,10 +116,10 @@ public class DispatcherTest extends RequireSingleBrokerCluster {
             .build()) {
       Runnable runnable =
           () -> {
-            Dispatcher.beginInterdependent(instanceOfProducer(producer));
-            Dispatcher.endInterdependent(instanceOfProducer(producer));
+            Dispatcher.beginInterdependent();
+            Dispatcher.endInterdependent();
           };
-      Dispatcher.beginInterdependent(instanceOfProducer(producer));
+      Dispatcher.beginInterdependent();
       new Thread(runnable).start();
       var exceptPartition =
           producerSend(producer, topicName, key, value, timestamp, header).partition();
@@ -182,7 +132,7 @@ public class DispatcherTest extends RequireSingleBrokerCluster {
                 assertEquals(timestamp, metadata.timestamp());
                 assertEquals(exceptPartition, metadata.partition());
               });
-      Dispatcher.endInterdependent(instanceOfProducer(producer));
+      Dispatcher.endInterdependent();
     }
   }
 
@@ -211,7 +161,7 @@ public class DispatcherTest extends RequireSingleBrokerCluster {
                 assertEquals(topicName, metadata.topic());
                 assertEquals(timestamp, metadata.timestamp());
               });
-      Dispatcher.beginInterdependent(instanceOfProducer(producer));
+      Dispatcher.beginInterdependent();
       var exceptPartition =
           producerSend(producer, topicName, key, value, timestamp, header).partition();
       IntStream.range(0, 99)
@@ -223,7 +173,7 @@ public class DispatcherTest extends RequireSingleBrokerCluster {
                 assertEquals(timestamp, metadata.timestamp());
                 assertEquals(exceptPartition, metadata.partition());
               });
-      Dispatcher.endInterdependent(instanceOfProducer(producer));
+      Dispatcher.endInterdependent();
       IntStream.range(0, 2400)
           .forEach(
               i -> {
@@ -232,7 +182,7 @@ public class DispatcherTest extends RequireSingleBrokerCluster {
                 assertEquals(topicName, metadata.topic());
                 assertEquals(timestamp, metadata.timestamp());
               });
-      Dispatcher.beginInterdependent(instanceOfProducer(producer));
+      Dispatcher.beginInterdependent();
       var exceptPartitionSec =
           producerSend(producer, topicName, key, value, timestamp, header).partition();
       IntStream.range(0, 99)
@@ -244,62 +194,7 @@ public class DispatcherTest extends RequireSingleBrokerCluster {
                 assertEquals(timestamp, metadata.timestamp());
                 assertEquals(exceptPartitionSec, metadata.partition());
               });
-      Dispatcher.endInterdependent(instanceOfProducer(producer));
-    }
-  }
-
-  @Test
-  void multipleProducers() {
-    var admin = Admin.of(bootstrapServers());
-    var topicName = "city";
-    admin.creator().topic(topicName).numberOfPartitions(9).create();
-    var key = "tainan";
-    var value = "shanghai";
-    var timestamp = System.currentTimeMillis() + 10;
-    var header = Header.of("a", "b".getBytes());
-    try (var producer =
-        Producer.builder()
-            .keySerializer(Serializer.STRING)
-            .configs(
-                initProConfig().entrySet().stream()
-                    .collect(
-                        Collectors.toMap(e -> e.getKey().toString(), e -> e.getValue().toString())))
-            .build()) {
-      IntStream.range(0, 240)
-          .forEach(
-              i -> {
-                Metadata metadata;
-                metadata = producerSend(producer, topicName, key, value, timestamp, header);
-                assertEquals(topicName, metadata.topic());
-                assertEquals(timestamp, metadata.timestamp());
-              });
-      var producer2 =
-          Producer.builder()
-              .keySerializer(Serializer.STRING)
-              .configs(
-                  initProConfig().entrySet().stream()
-                      .collect(
-                          Collectors.toMap(
-                              e -> e.getKey().toString(), e -> e.getValue().toString())))
-              .build();
-      Dispatcher.beginInterdependent(instanceOfProducer(producer));
-      Dispatcher.beginInterdependent(instanceOfProducer(producer2));
-      var exceptPartition =
-          producerSend(producer, topicName, key, value, timestamp, header).partition();
-      IntStream.range(0, 99)
-          .forEach(
-              i -> {
-                Metadata metadata;
-                metadata = producerSend(producer, topicName, key, value, timestamp, header);
-                var metadata2 = producerSend(producer2, topicName, key, value, timestamp, header);
-                assertEquals(topicName, metadata.topic());
-                assertEquals(timestamp, metadata.timestamp());
-                assertEquals(exceptPartition, metadata.partition());
-                assertNotEquals(metadata2.partition(), metadata.partition());
-              });
-      Dispatcher.endInterdependent(instanceOfProducer(producer2));
-      Dispatcher.endInterdependent(instanceOfProducer(producer));
-      producer2.close();
+      Dispatcher.endInterdependent();
     }
   }
 
