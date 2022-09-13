@@ -32,6 +32,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Supplier;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import org.astraea.common.DataRate;
 import org.astraea.common.DataSize;
@@ -45,6 +46,7 @@ import org.astraea.common.argument.DurationField;
 import org.astraea.common.argument.NonEmptyStringField;
 import org.astraea.common.argument.NonNegativeShortField;
 import org.astraea.common.argument.PathField;
+import org.astraea.common.argument.PatternField;
 import org.astraea.common.argument.PositiveIntegerListField;
 import org.astraea.common.argument.PositiveLongField;
 import org.astraea.common.argument.PositiveShortField;
@@ -94,17 +96,29 @@ public class Performance {
             param.producers,
             param::createProducer);
     var consumerThreads =
-        ConsumerThread.create(
-            param.consumers,
-            listener ->
-                Consumer.forTopics(topicSet)
-                    .bootstrapServers(param.bootstrapServers())
-                    .groupId(param.groupId)
-                    .configs(param.configs())
-                    .isolation(param.isolation())
-                    .seek(latestOffsets)
-                    .consumerRebalanceListener(listener)
-                    .build());
+        param.pattern == null
+            ? ConsumerThread.create(
+                param.consumers,
+                listener ->
+                    Consumer.forTopics(topicSet)
+                        .bootstrapServers(param.bootstrapServers())
+                        .groupId(param.groupId)
+                        .configs(param.configs())
+                        .isolation(param.isolation())
+                        .seek(latestOffsets)
+                        .consumerRebalanceListener(listener)
+                        .build())
+            : ConsumerThread.create(
+                param.consumers,
+                listener ->
+                    Consumer.forTopics(param.pattern)
+                        .bootstrapServers(param.bootstrapServers())
+                        .groupId(param.groupId)
+                        .configs(param.configs())
+                        .isolation(param.isolation())
+                        .seek(latestOffsets)
+                        .consumerRebalanceListener(listener)
+                        .build());
 
     Supplier<List<Report>> producerReporter =
         () ->
@@ -178,6 +192,12 @@ public class Performance {
 
     private final List<String> defaultTopics =
         List.of("testPerformance-" + System.currentTimeMillis());
+
+    @Parameter(
+        names = {"--pattern"},
+        description = "Pattern: topic pattern which you subscribed",
+        converter = PatternField.class)
+    Pattern pattern = null;
 
     @Parameter(
         names = {"--topics"},

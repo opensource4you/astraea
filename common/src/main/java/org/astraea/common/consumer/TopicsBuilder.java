@@ -25,6 +25,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
@@ -32,11 +33,18 @@ import org.astraea.common.Utils;
 import org.astraea.common.admin.TopicPartition;
 
 public class TopicsBuilder<Key, Value> extends Builder<Key, Value> {
-  private final Set<String> topics;
+  private final Set<String> setTopics;
+  private final Pattern topicPattern;
   private ConsumerRebalanceListener listener = ignore -> {};
 
-  TopicsBuilder(Set<String> topics) {
-    this.topics = requireNonNull(topics);
+  TopicsBuilder(Set<String> setTopics) {
+    this.topicPattern = null;
+    this.setTopics = requireNonNull(setTopics);
+  }
+
+  TopicsBuilder(Pattern patternTopics) {
+    this.setTopics = null;
+    this.topicPattern = requireNonNull(patternTopics);
   }
 
   public TopicsBuilder<Key, Value> groupId(String groupId) {
@@ -145,8 +153,8 @@ public class TopicsBuilder<Key, Value> extends Builder<Key, Value> {
     if (seekStrategy != SeekStrategy.NONE) {
       // make sure this consumer is assigned before seeking
       var latch = new CountDownLatch(1);
-      kafkaConsumer.subscribe(
-          topics, ConsumerRebalanceListener.of(List.of(listener, ignored -> latch.countDown())));
+      subscribe(kafkaConsumer, latch);
+
       while (latch.getCount() != 0) {
         // the offset will be reset, so it is fine to poll data
         // TODO: should we disable auto-commit here?
@@ -155,25 +163,45 @@ public class TopicsBuilder<Key, Value> extends Builder<Key, Value> {
       }
     } else {
       // nothing to seek so we just subscribe topics
-      kafkaConsumer.subscribe(topics, ConsumerRebalanceListener.of(List.of(listener)));
+      subscribe(kafkaConsumer, null);
     }
 
     seekStrategy.apply(kafkaConsumer, seekValue);
 
-    return new SubscribedConsumerImpl<>(kafkaConsumer, topics, listener);
+    return new SubscribedConsumerImpl<>(kafkaConsumer, setTopics, topicPattern, listener);
+  }
+
+  private void subscribe(KafkaConsumer<Key, Value> consumer, CountDownLatch latch) {
+    if (latch == null) {
+      if (setTopics == null)
+        consumer.subscribe(topicPattern, ConsumerRebalanceListener.of(List.of(listener)));
+      else consumer.subscribe(setTopics, ConsumerRebalanceListener.of(List.of(listener)));
+    } else {
+      if (setTopics == null)
+        consumer.subscribe(
+            topicPattern,
+            ConsumerRebalanceListener.of(List.of(listener, ignored -> latch.countDown())));
+      else
+        consumer.subscribe(
+            setTopics,
+            ConsumerRebalanceListener.of(List.of(listener, ignored -> latch.countDown())));
+    }
   }
 
   private static class SubscribedConsumerImpl<Key, Value> extends Builder.BaseConsumer<Key, Value>
       implements SubscribedConsumer<Key, Value> {
-    private final Set<String> topics;
+    private final Set<String> setTopics;
     private final ConsumerRebalanceListener listener;
+    private final Pattern patternTopics;
 
     public SubscribedConsumerImpl(
         org.apache.kafka.clients.consumer.Consumer<Key, Value> kafkaConsumer,
-        Set<String> topics,
+        Set<String> setTopics,
+        Pattern patternTopics,
         ConsumerRebalanceListener listener) {
       super(kafkaConsumer);
-      this.topics = topics;
+      this.setTopics = setTopics;
+      this.patternTopics = patternTopics;
       this.listener = listener;
     }
 
@@ -198,7 +226,9 @@ public class TopicsBuilder<Key, Value> extends Builder<Key, Value> {
 
     @Override
     protected void doResubscribe() {
-      kafkaConsumer.subscribe(topics, ConsumerRebalanceListener.of(List.of(listener)));
+      if (patternTopics == null)
+        kafkaConsumer.subscribe(setTopics, ConsumerRebalanceListener.of(List.of(listener)));
+      else kafkaConsumer.subscribe(patternTopics, ConsumerRebalanceListener.of(List.of(listener)));
     }
 
     @Override
