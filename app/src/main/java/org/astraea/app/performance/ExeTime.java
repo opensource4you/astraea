@@ -20,7 +20,7 @@ import com.beust.jcommander.ParameterException;
 import java.time.Duration;
 import java.util.function.BiFunction;
 import java.util.regex.Pattern;
-import org.astraea.app.argument.DurationField;
+import org.astraea.common.argument.DurationField;
 
 /**
  * Two kind of running modes. One runs for a duration of time. The other runs for a number of
@@ -53,7 +53,7 @@ interface ExeTime {
     };
   }
 
-  class Field extends org.astraea.app.argument.Field<ExeTime> {
+  class Field extends org.astraea.common.argument.Field<ExeTime> {
     static final Pattern PATTERN = Pattern.compile("^([0-9]+)(days|day|h|m|s|ms|us|ns|records)$");
 
     @Override
