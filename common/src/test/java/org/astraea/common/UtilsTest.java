@@ -24,8 +24,12 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
+import org.astraea.common.cost.Configuration;
+import org.astraea.common.cost.CostFunction;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 public class UtilsTest {
 
@@ -121,5 +125,41 @@ public class UtilsTest {
     public int value() {
       return value;
     }
+  }
+
+  @ParameterizedTest
+  @ValueSource(classes = {TestCostFunction.class, TestConfigCostFunction.class})
+  void testConstruct(Class<? extends CostFunction> aClass) {
+    // arrange
+    var config = Configuration.of(Map.of());
+
+    // act
+    var costFunction = Utils.construct(aClass, config);
+
+    // assert
+    Assertions.assertInstanceOf(CostFunction.class, costFunction);
+    Assertions.assertInstanceOf(aClass, costFunction);
+  }
+
+  @Test
+  void testConstructException() {
+    // arrange
+    var aClass = TestBadCostFunction.class;
+    var config = Configuration.of(Map.of());
+
+    // act, assert
+    Assertions.assertThrows(RuntimeException.class, () -> Utils.construct(aClass, config));
+  }
+
+  private static class TestConfigCostFunction implements CostFunction {
+    public TestConfigCostFunction(Configuration configuration) {}
+  }
+
+  private static class TestCostFunction implements CostFunction {
+    public TestCostFunction() {}
+  }
+
+  private static class TestBadCostFunction implements CostFunction {
+    public TestBadCostFunction(int value) {}
   }
 }
