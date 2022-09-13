@@ -62,7 +62,7 @@
 
 ## 測試情境
 
-叢集中一台broker，網路延遲較高、且網路頻寬較低的情境下，使用 [performance tool](../performance_benchmark.md) 來測試 producer 發送的延遲。
+叢集中一台broker，網路延遲較高、且網路頻寬較低的情境下，使用 [performance tool](../../performance_benchmark.md) 來測試 producer 發送的延遲。
 
 參考上面的網路拓樸，B4 在本實驗中是延遲較高、且網路頻寬較低的 broker ，而
 
@@ -71,7 +71,7 @@
 
 預期 Astraea Partitioner 可以避開 B4 進行資料發送。
 
-測試方式是：開一個 60 partitions 的 topic ，在 C1 上，使用 [Astraea performance tool](../performance_benchmark.md) 發送資料，觀察 [Astraea performance tool](../performance_benchmark.md) 輸出的平均發送延遲。
+測試方式是：開一個 60 partitions 的 topic ，在 C1 上，使用 [Astraea performance tool](../../performance_benchmark.md) 發送資料，觀察 [Astraea performance tool](../../performance_benchmark.md) 輸出的平均發送延遲。
 
 ```bash
 # Run StrictCostDispatcher
@@ -106,7 +106,7 @@ Kafka Default Partitioner 平均延遲：223.9688098 ms
 
 平均延遲降低約 46.8613356% 
 
-![Average Publish Latency](../pictures/partitioner_experiment_1_1.png)
+![Average Publish Latency](../../pictures/partitioner_experiment_1_1.png)
 
 Astraea Partitioner 平均吞吐：868.125 MiB/second
 
@@ -114,7 +114,7 @@ Kafka Partitioner 平均吞吐：438.39 MiB/second
 
 平均吞吐提升：約 1.98 倍
 
-![Throughput](../pictures/partitioner_experiment_1_2.png)
+![Throughput](../../pictures/partitioner_experiment_1_2.png)
 
 ## 結論
 
