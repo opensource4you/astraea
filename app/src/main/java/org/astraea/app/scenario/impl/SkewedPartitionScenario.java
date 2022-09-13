@@ -44,16 +44,12 @@ public class SkewedPartitionScenario extends Scenario<SkewedPartitionScenario.Re
   final short replicas;
   final double binomialProbability;
 
-  public SkewedPartitionScenario() {
-    this(Utils.randomString(), 10, (short) 1, 0.5);
-  }
-
   public SkewedPartitionScenario(Configuration configuration) {
     this(
-        configuration.requireString("topicName"),
-        configuration.string("partitions").map(Integer::parseInt).orElseThrow(),
+        configuration.string("topicName").orElse(Utils.randomString()),
+        configuration.string("partitions").map(Integer::parseInt).orElse(10),
         configuration.string("replicas").map(Short::parseShort).orElse((short) 1),
-        configuration.string("binomialProbability").map(Double::parseDouble).orElseThrow());
+        configuration.string("binomialProbability").map(Double::parseDouble).orElse(0.5));
   }
 
   private SkewedPartitionScenario(
