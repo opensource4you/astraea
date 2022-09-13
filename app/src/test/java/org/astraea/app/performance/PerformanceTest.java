@@ -24,6 +24,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
+import org.apache.kafka.clients.producer.RoundRobinPartitioner;
 import org.astraea.common.DataRate;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
@@ -275,6 +276,14 @@ public class PerformanceTest extends RequireBrokerCluster {
       var topicName3 = Utils.randomString(10);
       admin.creator().topic(topicName3).numberOfPartitions(1).create();
       Utils.sleep(Duration.ofSeconds(2));
+      var validBroker =
+          admin.replicas(Set.of(topicName3)).values().stream()
+              .findAny()
+              .get()
+              .get(0)
+              .nodeInfo()
+              .id();
+      var noPartitionBroker = (validBroker == 3) ? 1 : validBroker + 1;
       args =
           Argument.parse(
               new Performance.Argument(),
@@ -284,7 +293,7 @@ public class PerformanceTest extends RequireBrokerCluster {
                 "--topics",
                 topicName3,
                 "--specify.brokers",
-                "4"
+                Integer.toString(noPartitionBroker)
               });
       Assertions.assertThrows(IllegalArgumentException.class, args::topicPartitionSelector);
 
@@ -371,6 +380,38 @@ public class PerformanceTest extends RequireBrokerCluster {
 
       var ratio = (double) (counting.get(duplicatedTp)) / counting.get(singleTp);
       Assertions.assertTrue(1.5 > ratio && ratio > 0.5);
+
+      // --specify.partitions can't be use in conjunction with topics
+      Assertions.assertThrows(
+          IllegalArgumentException.class,
+          () ->
+              Argument.parse(
+                      new Performance.Argument(),
+                      new String[] {
+                        "--bootstrap.servers",
+                        bootstrapServers(),
+                        "--topics",
+                        topicName3,
+                        "--specify.partitions",
+                        topicName4 + "-1"
+                      })
+                  .topicPartitionSelector());
+
+      // --specify.partitions can't be use in conjunction with partitioner
+      Assertions.assertThrows(
+          IllegalArgumentException.class,
+          () ->
+              Argument.parse(
+                      new Performance.Argument(),
+                      new String[] {
+                        "--bootstrap.servers",
+                        bootstrapServers(),
+                        "--specify.partitions",
+                        topicName4 + "-1",
+                        "--partitioner",
+                        RoundRobinPartitioner.class.getName()
+                      })
+                  .topicPartitionSelector());
     }
   }
 
@@ -441,8 +482,8 @@ public class PerformanceTest extends RequireBrokerCluster {
               });
       args.initTopics();
 
-      Assertions.assertEquals(3, admin.partitions(Set.of("test")).size());
-      Assertions.assertEquals(5, admin.partitions(Set.of("test1")).size());
+      Utils.waitFor(() -> admin.partitions(Set.of("test")).size() == 3);
+      Utils.waitFor(() -> admin.partitions(Set.of("test1")).size() == 5);
 
       admin
           .replicas(Set.of("test"))

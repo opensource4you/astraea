@@ -36,7 +36,7 @@ public interface Dispatcher extends Partitioner {
    * cache the cluster info to reduce the cost of converting cluster. Producer does not update
    * Cluster frequently, so it is ok to cache it.
    */
-  ConcurrentHashMap<Cluster, ClusterInfo> CLUSTER_CACHE = new ConcurrentHashMap<>();
+  ConcurrentHashMap<Cluster, ClusterInfo<ReplicaInfo>> CLUSTER_CACHE = new ConcurrentHashMap<>();
 
   /**
    * Keeps the Interdependent status of each Dispatcher. Use the Dispatcher's hashcode as the

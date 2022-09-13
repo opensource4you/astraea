@@ -879,12 +879,13 @@ public class AdminTest extends RequireBrokerCluster {
       producer.flush();
 
       Assertions.assertTrue(admin.transactionIds().contains(producer.transactionId().get()));
-
-      var transaction = admin.transactions().get(producer.transactionId().get());
-      Assertions.assertNotNull(transaction);
-      Assertions.assertEquals(
-          transaction.state() == TransactionState.COMPLETE_COMMIT ? 0 : 1,
-          transaction.topicPartitions().size());
+      Utils.waitFor(
+          () ->
+              admin.transactions().get(producer.transactionId().get()).state()
+                  == TransactionState.COMPLETE_COMMIT);
+      Utils.waitFor(
+          () ->
+              admin.transactions().get(producer.transactionId().get()).topicPartitions().isEmpty());
     }
   }
 

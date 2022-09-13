@@ -79,10 +79,13 @@ public class Performance {
       throws InterruptedException, IOException {
     var topicSet = new HashSet<>(param.topics);
     // always try to init topic even though it may be existent already.
+    System.out.println("Initializing topics: " + String.join(",", topicSet));
     param.initTopics();
 
+    System.out.println("seeking offsets");
     var latestOffsets = param.lastOffsets();
 
+    System.out.println("creating threads");
     var producerThreads =
         ProducerThread.create(
             param.transactionSize,
@@ -103,18 +106,19 @@ public class Performance {
                     .consumerRebalanceListener(listener)
                     .build());
 
-    Supplier<List<ProducerThread.Report>> producerReporter =
+    Supplier<List<Report>> producerReporter =
         () ->
             producerThreads.stream()
                 .map(ProducerThread::report)
                 .collect(Collectors.toUnmodifiableList());
-    Supplier<List<ConsumerThread.Report>> consumerReporter =
+    Supplier<List<Report>> consumerReporter =
         () ->
             consumerThreads.stream()
                 .map(ConsumerThread::report)
                 .collect(Collectors.toUnmodifiableList());
 
-    var tracker = TrackerThread.create(producerReporter, consumerReporter, param.exeTime);
+    System.out.println("creating tracker");
+    var tracker = TrackerThread.create(producerReporter, consumerReporter);
 
     Optional<Runnable> fileWriter =
         param.CSVPath == null
@@ -148,21 +152,20 @@ public class Performance {
     CompletableFuture.runAsync(
         () -> {
           producerThreads.forEach(AbstractThread::waitForDone);
-          // wait until all records are read already
+          var last = 0L;
+          var lastChange = System.currentTimeMillis();
           while (true) {
-            var offsets =
-                Report.maxOffsets(
-                    producerThreads.stream()
-                        .map(ProducerThread::report)
-                        .collect(Collectors.toUnmodifiableList()));
-            if (offsets.entrySet().stream()
-                .allMatch(
-                    e ->
-                        consumerReporter.get().stream()
-                            .anyMatch(r -> r.offset(e.getKey()) >= e.getValue()))) break;
-            Utils.sleep(Duration.ofSeconds(2));
+            var current = Report.recordsConsumedTotal();
+            if (current != last) {
+              last = current;
+              lastChange = System.currentTimeMillis();
+            }
+            if (System.currentTimeMillis() - lastChange >= param.readIdle.toMillis()) {
+              consumerThreads.forEach(AbstractThread::close);
+              return;
+            }
+            Utils.sleep(Duration.ofSeconds(1));
           }
-          consumerThreads.forEach(AbstractThread::close);
         });
     consumerThreads.forEach(AbstractThread::waitForDone);
     tracker.waitForDone();
@@ -173,13 +176,16 @@ public class Performance {
 
   public static class Argument extends org.astraea.common.argument.Argument {
 
+    private final List<String> defaultTopics =
+        List.of("testPerformance-" + System.currentTimeMillis());
+
     @Parameter(
         names = {"--topics"},
         description = "List<String>: topic names which you subscribed",
         validateWith = StringListField.class,
         listConverter = StringListField.class,
         variableArity = true)
-    List<String> topics = List.of("testPerformance-" + System.currentTimeMillis());
+    List<String> topics = defaultTopics;
 
     void initTopics() {
       var topicPattern = topicPattern();
@@ -382,6 +388,13 @@ public class Performance {
           return () -> selections.get(ThreadLocalRandom.current().nextInt(selections.size()));
         }
       } else if (specifiedByPartition) {
+        // specify.partitions can't be use in conjunction with partitioner or topics
+        if (partitioner != null)
+          throw new IllegalArgumentException(
+              "--specify.partitions can't be use in conjunction with partitioner");
+        if (!(topics == defaultTopics))
+          throw new IllegalArgumentException(
+              "--specify.partitions can't be use in conjunction with topics");
         // sanity check, ensure all specified partitions are existed
         try (Admin admin = Admin.of(configs())) {
           var allTopics = admin.topicNames();
@@ -454,5 +467,12 @@ public class Performance {
         description = "How many replicas should be synced when producing records.",
         converter = Acks.Field.class)
     Acks acks = Acks.ISRS;
+
+    @Parameter(
+        names = {"--read.idle"},
+        description =
+            "Perf will close all read processes if it can't get more data in this duration",
+        converter = DurationField.class)
+    Duration readIdle = Duration.ofSeconds(2);
   }
 }

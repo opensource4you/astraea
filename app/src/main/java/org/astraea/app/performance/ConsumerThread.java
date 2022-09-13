@@ -57,9 +57,9 @@ public interface ConsumerThread extends AbstractThread {
             index -> {
               @SuppressWarnings("resource")
               var consumer = consumerSupplier.apply(ps -> {});
-              var report = new Report(consumer.clientId());
-              var closeLatch = closeLatches.get(index);
               var closed = new AtomicBoolean(false);
+              var report = Report.of(consumer.clientId(), closed::get);
+              var closeLatch = closeLatches.get(index);
               var subscribed = new AtomicBoolean(true);
               executors.execute(
                   () -> {
@@ -78,9 +78,6 @@ public interface ConsumerThread extends AbstractThread {
                                     // record ene-to-end latency, and record input byte (header and
                                     // timestamp size excluded)
                                     report.record(
-                                        record.topic(),
-                                        record.partition(),
-                                        record.offset(),
                                         System.currentTimeMillis() - record.timestamp(),
                                         record.serializedKeySize() + record.serializedValueSize()));
                       }
@@ -89,6 +86,7 @@ public interface ConsumerThread extends AbstractThread {
                     } finally {
                       Utils.swallowException(consumer::close);
                       closeLatch.countDown();
+                      closed.set(true);
                     }
                   });
               return new ConsumerThread() {
@@ -134,17 +132,4 @@ public interface ConsumerThread extends AbstractThread {
 
   /** @return report of this thread */
   Report report();
-
-  class Report extends org.astraea.app.performance.Report.Impl {
-
-    private final String clientId;
-
-    Report(String clientId) {
-      this.clientId = clientId;
-    }
-
-    public String clientId() {
-      return clientId;
-    }
-  }
 }

@@ -70,8 +70,8 @@ public enum ReportFormat implements EnumInfo {
       Path path,
       Supplier<Boolean> consumerDone,
       Supplier<Boolean> producerDone,
-      Supplier<List<ProducerThread.Report>> producerReporter,
-      Supplier<List<ConsumerThread.Report>> consumerReporter)
+      Supplier<List<Report>> producerReporter,
+      Supplier<List<Report>> consumerReporter)
       throws IOException {
     var filePath =
         FileSystems.getDefault()
@@ -163,8 +163,7 @@ public enum ReportFormat implements EnumInfo {
   }
 
   private static List<CSVContentElement> latencyAndIO(
-      Supplier<List<ProducerThread.Report>> producerReporter,
-      Supplier<List<ConsumerThread.Report>> consumerReporter) {
+      Supplier<List<Report>> producerReporter, Supplier<List<Report>> consumerReporter) {
     var producerReports = producerReporter.get();
     var consumerReports = consumerReporter.get();
     var elements = new ArrayList<CSVContentElement>();

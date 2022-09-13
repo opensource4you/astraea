@@ -198,4 +198,13 @@ public class ProducerTest extends RequireBrokerCluster {
       Assertions.assertTrue(producer.transactionId().isPresent());
     }
   }
+
+  @Test
+  void testClientId() {
+    var clientId = Utils.randomString();
+    try (var producer =
+        Producer.builder().bootstrapServers(bootstrapServers()).clientId(clientId).build()) {
+      Assertions.assertEquals(clientId, producer.clientId());
+    }
+  }
 }
