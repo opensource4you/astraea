@@ -113,7 +113,7 @@ public class SkewedPartitionScenario implements Scenario<SkewedPartitionScenario
   }
 
   /** Sample a random replica list from the given probability distribution. */
-  private List<Integer> sampledReplicaList(
+  static List<Integer> sampledReplicaList(
       List<Integer> brokerIds, int listSize, IntegerDistribution distribution) {
     if (brokerIds.size() < listSize)
       throw new IllegalStateException(
