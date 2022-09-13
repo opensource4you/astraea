@@ -16,16 +16,12 @@
  */
 package org.astraea.etl
 
-case class Argument(propFile: String = "")
-
 object AstraeaETL {
   def execute(argument: Option[Argument]): Unit = {
-    val config = ProcessProperties.setConfig(argument.get.propFile)
+    val config = Configuration(argument.get.propFile)
   }
-}
 
-object Main {
   def main(args: Array[String]): Unit = {
-    AstraeaETL.execute(ArgumentETL.parseArgument(args))
+    AstraeaETL.execute(Argument.parseArgument(args))
   }
 }

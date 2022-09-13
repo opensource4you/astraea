@@ -17,9 +17,10 @@
 package org.astraea.etl
 
 import scopt.OParser
+case class Argument(propFile: String = "")
 
 /** This argument defines the common property used by ETL. */
-object ArgumentETL {
+object Argument {
 
   /** @param args
     *   Command line arguments that are put into main function.

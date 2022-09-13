@@ -20,7 +20,7 @@ import java.awt.geom.IllegalPathStateException
 import java.io.File
 
 object Utils {
-  def ToDirectory(path: String): File = {
+  def requireFolder(path: String): File = {
     val file = new File(path)
     if (!file.isDirectory) {
       throw new IllegalPathStateException(
@@ -28,9 +28,5 @@ object Utils {
       )
     }
     file
-  }
-
-  def isPositive(number: Int): Boolean = {
-    number > 0
   }
 }

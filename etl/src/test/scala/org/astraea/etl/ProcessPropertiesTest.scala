@@ -16,6 +16,7 @@
  */
 package org.astraea.etl
 
+import org.astraea.etl.Argument.parseArgument
 import org.junit.jupiter.api.{AfterEach, BeforeEach, Test}
 
 import java.io.{File, FileOutputStream}
@@ -37,8 +38,8 @@ class ProcessPropertiesTest {
   }
 
   @Test def defaultTest(): Unit = {
-    val arg = ArgumentETL.parseArgument(Array("--prop.file", "test.properties"))
-    val config = ProcessProperties.setConfig(arg.get.propFile)
+    val arg = parseArgument(Array("--prop.file", "test.properties"))
+    val config = Configuration(arg.get.propFile)
     assert(config.sourcePath.equals(new File(directory.getAbsolutePath)))
     assert(config.sinkPath.equals(new File(directory.getAbsolutePath)))
     assert(config.columnName sameElements Array[String]("KA", "KB", "KC"))
@@ -62,8 +63,8 @@ class ProcessPropertiesTest {
     prop.setProperty("topic.parameters", "KA:VA,KB:VB")
     prop.store(new FileOutputStream(file), null)
 
-    val arg = ArgumentETL.parseArgument(Array("--prop.file", "test.properties"))
-    val config = ProcessProperties.setConfig(arg.get.propFile)
+    val arg = parseArgument(Array("--prop.file", "test.properties"))
+    val config = Configuration(arg.get.propFile)
     assert(config.sourcePath.equals(new File(directory.getAbsolutePath)))
     assert(config.sinkPath.equals(new File(directory.getAbsolutePath)))
     assert(config.columnName sameElements Array[String]("KA", "KB", "KC"))

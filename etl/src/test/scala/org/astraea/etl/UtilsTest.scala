@@ -24,7 +24,7 @@ import java.awt.geom.IllegalPathStateException
 class UtilsTest extends AnyFlatSpec {
   @Test def ToDirectoryTest(): Unit = {
     assertThrows[IllegalPathStateException] {
-      Utils.ToDirectory("??")
+      Utils.requireFolder("??")
     }
   }
 }
