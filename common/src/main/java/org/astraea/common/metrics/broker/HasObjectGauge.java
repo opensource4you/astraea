@@ -19,6 +19,7 @@ package org.astraea.common.metrics.broker;
 import java.util.Objects;
 import org.astraea.common.metrics.HasBeanObject;
 
+/** Kafka gauges are String, Integer, and Double. */
 public interface HasObjectGauge<T> extends HasBeanObject {
 
   @SuppressWarnings("unchecked")

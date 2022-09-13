@@ -39,7 +39,7 @@ public final class ServerMetrics {
 
     private final String metricName;
 
-    public static HasObjectGauge<String> getClientId(MBeanClient mBeanClient) {
+    public static HasObjectGauge<String> getClusterId(MBeanClient mBeanClient) {
       return () ->
           mBeanClient.queryBean(
               BeanQuery.builder()

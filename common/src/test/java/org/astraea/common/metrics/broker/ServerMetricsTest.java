@@ -40,8 +40,9 @@ public class ServerMetricsTest extends RequireSingleBrokerCluster {
   @ParameterizedTest()
   @EnumSource(value = ServerMetrics.DelayedOperationPurgatory.class)
   void testPurgatorySize(ServerMetrics.DelayedOperationPurgatory request) {
-    // TODO: 2022-08-24 the test didn't fail even without kafka JMX metrics
-    request.fetch(MBeanClient.local()).forEach(MetricsTestUtil::validate);
+    var gauges = request.fetch(MBeanClient.local());
+    Assertions.assertFalse(gauges.isEmpty());
+    gauges.forEach(MetricsTestUtil::validate);
   }
 
   @ParameterizedTest()
@@ -52,7 +53,7 @@ public class ServerMetricsTest extends RequireSingleBrokerCluster {
 
   @Test
   void testKafkaServerOtherMetrics() {
-    MetricsTestUtil.validate(ServerMetrics.KafkaServer.getClientId(MBeanClient.local()));
+    MetricsTestUtil.validate(ServerMetrics.KafkaServer.getClusterId(MBeanClient.local()));
   }
 
   @Test
