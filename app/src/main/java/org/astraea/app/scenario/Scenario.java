@@ -27,24 +27,12 @@ import org.astraea.common.cost.Configuration;
  *     result might be print on the program output. Or being serialized to json and transmit by web
  *     API.
  */
-public abstract class Scenario<T> {
+public interface Scenario<T> {
 
-  /**
-   * This field is here for serialization purpose. It should be the class name of the concrete
-   * scenario implementation. Gson can take advantage of this field to classify which scenario class
-   * it should deserialize to.
-   */
-  private final String scenarioName;
-
-  /** @param classPath the classpath to the concrete implementation of the scenario */
-  public Scenario(String classPath) {
-    this.scenarioName = classPath;
-  }
-
-  public static Scenario<?> of(Class<Scenario<?>> theClass, Configuration configuration) {
+  static Scenario<?> of(Class<Scenario<?>> theClass, Configuration configuration) {
     return Utils.construct(theClass, configuration);
   }
 
   /** Apply this scenario to the Kafka cluster */
-  public abstract T apply(Admin admin);
+  T apply(Admin admin);
 }
