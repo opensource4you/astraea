@@ -60,7 +60,6 @@ public interface ProducerThread extends AbstractThread {
               var closeLatch = closeLatches.get(index);
               var closed = new AtomicBoolean(false);
               var producer = producerSupplier.get();
-              var report = Report.of(producer.clientId(), closed::get);
               executors.execute(
                   () -> {
                     try {
@@ -79,26 +78,18 @@ public interface ProducerThread extends AbstractThread {
                           Utils.sleep(Duration.ofSeconds(1));
                           continue;
                         }
-                        producer
-                            .send(
-                                data.stream()
-                                    .filter(DataSupplier.Data::hasData)
-                                    .map(
-                                        d ->
-                                            producer
-                                                .sender()
-                                                .topicPartition(topicPartitionSupplier.get())
-                                                .key(d.key())
-                                                .value(d.value())
-                                                .timestamp(System.currentTimeMillis()))
-                                    .collect(Collectors.toList()))
-                            .forEach(
-                                future ->
-                                    future.whenComplete(
-                                        (m, e) ->
-                                            report.record(
-                                                System.currentTimeMillis() - m.timestamp(),
-                                                m.serializedValueSize() + m.serializedKeySize())));
+                        producer.send(
+                            data.stream()
+                                .filter(DataSupplier.Data::hasData)
+                                .map(
+                                    d ->
+                                        producer
+                                            .sender()
+                                            .topicPartition(topicPartitionSupplier.get())
+                                            .key(d.key())
+                                            .value(d.value())
+                                            .timestamp(System.currentTimeMillis()))
+                                .collect(Collectors.toList()));
                       }
                     } finally {
                       Utils.swallowException(producer::close);
@@ -119,11 +110,6 @@ public interface ProducerThread extends AbstractThread {
                 }
 
                 @Override
-                public Report report() {
-                  return report;
-                }
-
-                @Override
                 public void close() {
                   closed.set(true);
                   waitForDone();
@@ -132,7 +118,4 @@ public interface ProducerThread extends AbstractThread {
             })
         .collect(Collectors.toUnmodifiableList());
   }
-
-  /** @return report of this thread */
-  Report report();
 }

@@ -42,6 +42,10 @@ public interface TrackerThread extends AbstractThread {
     private final Supplier<List<Report>> reportSupplier;
     private long lastRecords = 0;
 
+    ProducerPrinter() {
+      this(Report::producers);
+    }
+
     ProducerPrinter(Supplier<List<Report>> reportSupplier) {
       this.reportSupplier = reportSupplier;
     }
@@ -70,7 +74,7 @@ public interface TrackerThread extends AbstractThread {
           sumOfAttribute(
               ProducerMetrics.topics(mBeanClient), HasProducerTopicMetrics::recordErrorRate));
       reports.stream()
-          .mapToLong(Report::max)
+          .mapToLong(Report::maxLatency)
           .max()
           .ifPresent(i -> System.out.printf("  publish max latency: %d ms%n", i));
       reports.stream()
@@ -117,7 +121,7 @@ public interface TrackerThread extends AbstractThread {
                   sumOfAttribute(
                       ConsumerMetrics.nodes(mBeanClient), HasNodeMetrics::incomingByteRate)));
       reports.stream()
-          .mapToLong(Report::max)
+          .mapToLong(Report::maxLatency)
           .max()
           .ifPresent(i -> System.out.printf("  end-to-end max latency: %d ms%n", i));
       reports.stream()
@@ -151,10 +155,10 @@ public interface TrackerThread extends AbstractThread {
   }
 
   static TrackerThread create(
-      Supplier<List<Report>> producerReporter, Supplier<List<Report>> consumerReporter) {
+      Supplier<Boolean> producersDone, Supplier<List<Report>> consumerReporter) {
     var closed = new AtomicBoolean(false);
     var latch = new CountDownLatch(1);
-    CompletableFuture.runAsync(trackerLoop(closed::get, producerReporter, consumerReporter))
+    CompletableFuture.runAsync(trackerLoop(closed::get, producersDone, consumerReporter))
         .whenComplete((m, e) -> latch.countDown());
 
     return new TrackerThread() {
@@ -179,11 +183,11 @@ public interface TrackerThread extends AbstractThread {
 
   static Runnable trackerLoop(
       Supplier<Boolean> closed,
-      Supplier<List<Report>> producerReports,
+      Supplier<Boolean> producersDone,
       Supplier<List<Report>> consumerReports) {
     var start = System.currentTimeMillis();
     return () -> {
-      var producerPrinter = new ProducerPrinter(producerReports);
+      var producerPrinter = new ProducerPrinter();
       var consumerPrinter = new ConsumerPrinter(consumerReports);
       while (!closed.get()) {
         var duration = Duration.ofMillis(System.currentTimeMillis() - start);
@@ -198,8 +202,8 @@ public interface TrackerThread extends AbstractThread {
                 + "sec");
         producerPrinter.tryToPrint(duration);
         consumerPrinter.tryToPrint(duration);
-        if (producerReports.get().stream().allMatch(Report::isClosed)
-            && consumerReports.get().stream().allMatch(Report::isClosed)) return;
+        if (producersDone.get() && consumerReports.get().stream().allMatch(Report::isClosed))
+          return;
         // Log after waiting for one second
         Utils.sleep(Duration.ofSeconds(1));
       }

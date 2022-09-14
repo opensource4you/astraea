@@ -30,7 +30,7 @@ public class TrackerTest {
 
   @Test
   void testEmptyReports() {
-    var tracker = TrackerThread.create(List::of, List::of);
+    var tracker = TrackerThread.create(() -> false, List::of);
     Utils.sleep(Duration.ofSeconds(2));
     Assertions.assertTrue(tracker.closed());
   }
@@ -38,7 +38,7 @@ public class TrackerTest {
   @Test
   void testClose() {
     var closed = new AtomicBoolean(false);
-    var tracker = TrackerThread.create(List::of, () -> List.of(Report.of("c", closed::get)));
+    var tracker = TrackerThread.create(() -> false, () -> List.of(Report.of("c", closed::get)));
     Assertions.assertFalse(tracker.closed());
     closed.set(true);
     Utils.sleep(Duration.ofSeconds(2));
@@ -49,10 +49,7 @@ public class TrackerTest {
   void testPartialClose() {
     var closed0 = new AtomicBoolean(false);
     var closed1 = new AtomicBoolean(false);
-    var tracker =
-        TrackerThread.create(
-            () -> List.of(Report.of("c", closed0::get)),
-            () -> List.of(Report.of("c", closed1::get)));
+    var tracker = TrackerThread.create(closed0::get, () -> List.of(Report.of("c", closed1::get)));
     Assertions.assertFalse(tracker.closed());
     closed0.set(true);
     Utils.sleep(Duration.ofSeconds(2));
@@ -85,7 +82,7 @@ public class TrackerTest {
         CompletableFuture.runAsync(
             TrackerThread.trackerLoop(
                 closed::get,
-                () -> List.of(Report.of("c", producerClosed::get)),
+                producerClosed::get,
                 () -> List.of(Report.of("c", consumerClosed::get))));
     Assertions.assertFalse(f.isDone());
     producerClosed.set(true);

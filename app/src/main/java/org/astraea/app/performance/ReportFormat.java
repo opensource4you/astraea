@@ -70,7 +70,6 @@ public enum ReportFormat implements EnumInfo {
       Path path,
       Supplier<Boolean> consumerDone,
       Supplier<Boolean> producerDone,
-      Supplier<List<Report>> producerReporter,
       Supplier<List<Report>> consumerReporter)
       throws IOException {
     var filePath =
@@ -82,7 +81,7 @@ public enum ReportFormat implements EnumInfo {
                     + "."
                     + reportFormat);
     var writer = new BufferedWriter(new FileWriter(filePath.toFile()));
-    var elements = latencyAndIO(producerReporter, consumerReporter);
+    var elements = latencyAndIO(consumerReporter);
     switch (reportFormat) {
       case CSV:
         initCSVFormat(writer, elements);
@@ -162,9 +161,8 @@ public enum ReportFormat implements EnumInfo {
     }
   }
 
-  private static List<CSVContentElement> latencyAndIO(
-      Supplier<List<Report>> producerReporter, Supplier<List<Report>> consumerReporter) {
-    var producerReports = producerReporter.get();
+  private static List<CSVContentElement> latencyAndIO(Supplier<List<Report>> consumerReporter) {
+    var producerReports = Report.producers();
     var consumerReports = consumerReporter.get();
     var elements = new ArrayList<CSVContentElement>();
     elements.add(
@@ -179,19 +177,15 @@ public enum ReportFormat implements EnumInfo {
     elements.add(
         CSVContentElement.create(
             "Publish Max latency (ms)",
-            () -> Long.toString(producerReports.stream().mapToLong(Report::max).max().orElse(0))));
-    elements.add(
-        CSVContentElement.create(
-            "Publish min latency (ms)",
-            () -> Long.toString(producerReports.stream().mapToLong(Report::min).min().orElse(0))));
+            () ->
+                Long.toString(
+                    producerReports.stream().mapToLong(Report::maxLatency).max().orElse(0))));
     elements.add(
         CSVContentElement.create(
             "End-to-end max latency (ms)",
-            () -> Long.toString(consumerReports.stream().mapToLong(Report::max).max().orElse(0))));
-    elements.add(
-        CSVContentElement.create(
-            "End-to-end min latency (ms)",
-            () -> Long.toString(consumerReports.stream().mapToLong(Report::min).min().orElse(0))));
+            () ->
+                Long.toString(
+                    consumerReports.stream().mapToLong(Report::maxLatency).max().orElse(0))));
     IntStream.range(0, producerReports.size())
         .forEach(
             i -> {
