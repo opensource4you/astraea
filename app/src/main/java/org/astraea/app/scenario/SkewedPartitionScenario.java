@@ -14,13 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.app.scenario.impl;
+package org.astraea.app.scenario;
 
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -28,28 +27,18 @@ import org.apache.commons.math3.distribution.BinomialDistribution;
 import org.apache.commons.math3.distribution.EnumeratedDistribution;
 import org.apache.commons.math3.distribution.IntegerDistribution;
 import org.apache.commons.math3.util.Pair;
-import org.astraea.app.scenario.Scenario;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.TopicPartition;
-import org.astraea.common.cost.Configuration;
 
-public class SkewedPartitionScenario implements Scenario<SkewedPartitionScenario.Result> {
+public class SkewedPartitionScenario implements Scenario {
 
   final String topicName;
   final int partitions;
   final short replicas;
   final double binomialProbability;
 
-  public SkewedPartitionScenario(Configuration configuration) {
-    this(
-        configuration.string("topicName").orElse(Utils.randomString()),
-        configuration.string("partitions").map(Integer::parseInt).orElse(10),
-        configuration.string("replicas").map(Short::parseShort).orElse((short) 1),
-        configuration.string("binomialProbability").map(Double::parseDouble).orElse(0.5));
-  }
-
-  private SkewedPartitionScenario(
+  SkewedPartitionScenario(
       String topicName, int partitions, short replicas, double binomialProbability) {
     this.topicName = topicName;
     this.partitions = partitions;
@@ -93,7 +82,6 @@ public class SkewedPartitionScenario implements Scenario<SkewedPartitionScenario
         topicName,
         partitions,
         replicas,
-        binomialProbability,
         replicaLists.values().stream()
             .map(list -> list.get(0))
             .collect(Collectors.groupingBy(x -> x, Collectors.counting())),
@@ -127,30 +115,5 @@ public class SkewedPartitionScenario implements Scenario<SkewedPartitionScenario
       }
     }
     return result;
-  }
-
-  public static class Result {
-
-    public final String topicName;
-    public final int partitions;
-    public final short replicas;
-    public final double binomialProbability;
-    public final Map<Integer, Long> leaderSum;
-    public final Map<Integer, Long> logSum;
-
-    public Result(
-        String topicName,
-        int partitions,
-        short replicas,
-        double binomialProbability,
-        Map<Integer, Long> leaderSum,
-        Map<Integer, Long> logSum) {
-      this.topicName = topicName;
-      this.partitions = partitions;
-      this.replicas = replicas;
-      this.binomialProbability = binomialProbability;
-      this.leaderSum = leaderSum;
-      this.logSum = logSum;
-    }
   }
 }
