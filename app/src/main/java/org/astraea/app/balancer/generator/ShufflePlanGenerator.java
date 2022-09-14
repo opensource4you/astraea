@@ -32,7 +32,7 @@ import org.astraea.app.balancer.RebalancePlanProposal;
 import org.astraea.app.balancer.log.ClusterLogAllocation;
 import org.astraea.app.balancer.log.LogPlacement;
 import org.astraea.common.admin.TopicPartition;
-import org.astraea.app.partitioner.Configuration;
+import org.astraea.common.cost.Configuration;
 
 /**
  * The {@link ShufflePlanGenerator} proposes a new log placement based on the current log placement,

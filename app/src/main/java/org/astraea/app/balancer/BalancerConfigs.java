@@ -22,19 +22,18 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import javax.management.remote.JMXServiceURL;
-import org.astraea.app.argument.Argument;
 import org.astraea.app.argument.ClassFields;
-import org.astraea.app.argument.Field;
 import org.astraea.app.balancer.executor.RebalancePlanExecutor;
 import org.astraea.app.balancer.executor.StraightPlanExecutor;
 import org.astraea.app.balancer.generator.RebalancePlanGenerator;
 import org.astraea.app.balancer.generator.ShufflePlanGenerator;
 import org.astraea.app.balancer.metrics.JmxMetricSampler;
 import org.astraea.app.balancer.metrics.MetricSource;
-import org.astraea.app.common.Utils;
-import org.astraea.app.cost.CostFunction;
-import org.astraea.app.cost.MoveCost;
-import org.astraea.app.cost.OldReplicaDiskInCost;
+import org.astraea.common.Utils;
+import org.astraea.common.argument.Argument;
+import org.astraea.common.argument.Field;
+import org.astraea.common.cost.CostFunction;
+import org.astraea.common.cost.ReplicaLeaderCost;
 
 public class BalancerConfigs extends Argument {
 
@@ -58,8 +57,7 @@ public class BalancerConfigs extends Argument {
   @Parameter(
       names = {"--cost.functions"},
       converter = ClassFields.ClassesField.class)
-  public List<Class<? extends CostFunction>> costFunctionClasses =
-      List.of(OldReplicaDiskInCost.class, MoveCost.class);
+  public List<Class<? extends CostFunction>> costFunctionClasses = List.of(ReplicaLeaderCost.class);
 
   @Parameter(
       names = {"--rebalance.plan.generator"},

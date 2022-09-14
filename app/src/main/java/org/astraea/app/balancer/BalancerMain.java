@@ -16,7 +16,7 @@
  */
 package org.astraea.app.balancer;
 
-import org.astraea.app.argument.Argument;
+import org.astraea.common.argument.Argument;
 
 public class BalancerMain {
 

@@ -19,7 +19,8 @@ package org.astraea.app.argument;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
-import org.astraea.app.common.Utils;
+import org.astraea.common.Utils;
+import org.astraea.common.argument.Field;
 
 public class ClassFields {
   public static class SingleClassField extends Field<Class<?>> {

@@ -22,8 +22,8 @@ import java.util.Map;
 import java.util.stream.Collectors;
 import org.astraea.app.balancer.metrics.IdentifiedFetcher;
 import org.astraea.app.balancer.metrics.MetricSource;
-import org.astraea.app.metrics.HasBeanObject;
-import org.astraea.app.partitioner.Configuration;
+import org.astraea.common.cost.Configuration;
+import org.astraea.common.metrics.HasBeanObject;
 import org.mockito.Mockito;
 
 public class DummyMetricSource implements MetricSource {

@@ -19,9 +19,9 @@ package org.astraea.app.balancer.metrics;
 import java.util.Collection;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicInteger;
-import org.astraea.app.metrics.HasBeanObject;
-import org.astraea.app.metrics.MBeanClient;
-import org.astraea.app.metrics.collector.Fetcher;
+import org.astraea.common.metrics.HasBeanObject;
+import org.astraea.common.metrics.MBeanClient;
+import org.astraea.common.metrics.collector.Fetcher;
 
 public class IdentifiedFetcher implements Fetcher {
 

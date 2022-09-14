@@ -27,12 +27,19 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
+import javax.management.remote.JMXServiceURL;
+import org.astraea.app.balancer.executor.RebalancePlanExecutor;
+import org.astraea.app.balancer.generator.RebalancePlanGenerator;
 import org.astraea.app.balancer.log.ClusterLogAllocation;
+import org.astraea.app.balancer.metrics.IdentifiedFetcher;
+import org.astraea.app.balancer.metrics.MetricSource;
+import org.astraea.common.Utils;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.TopicPartition;
+import org.astraea.common.cost.Configuration;
 import org.astraea.common.cost.HasClusterCost;
 import org.astraea.common.metrics.HasBeanObject;
 
@@ -98,7 +105,7 @@ public class BalancerUtils {
    * @return a {@link ClusterInfo} with its log placement replaced.
    */
   public static ClusterInfo<Replica> merge(
-      ClusterInfo<Replica> clusterInfo, ClusterLogAllocation allocation) {
+      ClusterInfo<? extends Replica> clusterInfo, ClusterLogAllocation allocation) {
     return new ClusterInfo<>() {
       // TODO: maybe add a field to tell if this cluster info is mocked.
       private final Map<Integer, NodeInfo> nodeIdMap =

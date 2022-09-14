@@ -26,22 +26,24 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.LongAdder;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
-import org.astraea.app.admin.Admin;
-import org.astraea.app.admin.ClusterBean;
-import org.astraea.app.admin.ClusterInfo;
-import org.astraea.app.admin.TopicPartitionReplica;
 import org.astraea.app.balancer.executor.RebalanceAdmin;
 import org.astraea.app.balancer.executor.RebalancePlanExecutor;
 import org.astraea.app.balancer.generator.RebalancePlanGenerator;
 import org.astraea.app.balancer.log.ClusterLogAllocation;
 import org.astraea.app.balancer.metrics.IdentifiedFetcher;
 import org.astraea.app.balancer.metrics.MetricSource;
-import org.astraea.app.common.Utils;
-import org.astraea.app.cost.CostFunction;
-import org.astraea.app.cost.HasClusterCost;
-import org.astraea.app.cost.HasMoveCost;
-import org.astraea.app.metrics.HasBeanObject;
-import org.astraea.app.partitioner.Configuration;
+import org.astraea.common.Utils;
+import org.astraea.common.admin.Admin;
+import org.astraea.common.admin.ClusterBean;
+import org.astraea.common.admin.ClusterInfo;
+import org.astraea.common.admin.Replica;
+import org.astraea.common.admin.ReplicaInfo;
+import org.astraea.common.admin.TopicPartitionReplica;
+import org.astraea.common.cost.Configuration;
+import org.astraea.common.cost.CostFunction;
+import org.astraea.common.cost.HasClusterCost;
+import org.astraea.common.cost.HasMoveCost;
+import org.astraea.common.metrics.HasBeanObject;
 
 public class Balancer implements AutoCloseable {
 
@@ -67,7 +69,7 @@ public class Balancer implements AutoCloseable {
         BalancerUtils.constructExecutor(balancerConfigs.rebalancePlanExecutorClass, configuration);
     this.costFunctions =
         balancerConfigs.costFunctionClasses.stream()
-            .map(cf -> Utils.constructCostFunction(cf, configuration))
+            .map(cf -> Utils.construct(cf, configuration))
             .collect(Collectors.toUnmodifiableList());
     this.fetcherOwnership =
         costFunctions.stream()
@@ -157,7 +159,7 @@ public class Balancer implements AutoCloseable {
   }
 
   /** Retrieve a new {@link ClusterInfo}, with info only related to the permitted topics. */
-  private ClusterInfo newClusterInfo() {
+  private ClusterInfo<Replica> newClusterInfo() {
     var topics =
         admin.topicNames().stream().filter(topicFilter).collect(Collectors.toUnmodifiableSet());
     return admin.clusterInfo(topics);
@@ -165,7 +167,7 @@ public class Balancer implements AutoCloseable {
 
   private RebalancePlanProposal seekingRebalancePlan(
       double currentScore,
-      ClusterInfo clusterInfo,
+      ClusterInfo<Replica> clusterInfo,
       Map<IdentifiedFetcher, Map<Integer, Collection<HasBeanObject>>> clusterMetrics) {
     var tries = balancerConfigs.planSearchingIteration;
     var counter = new LongAdder();
@@ -221,7 +223,7 @@ public class Balancer implements AutoCloseable {
   }
 
   private double evaluateCost(
-      ClusterInfo clusterInfo,
+      ClusterInfo<Replica> clusterInfo,
       Map<IdentifiedFetcher, Map<Integer, Collection<HasBeanObject>>> metrics) {
     var scores =
         costFunctions.stream()
@@ -239,8 +241,8 @@ public class Balancer implements AutoCloseable {
   }
 
   private double evaluateMoveCost(
-      ClusterInfo currentCluster,
-      ClusterInfo clusterInfo,
+      ClusterInfo<? extends Replica> currentCluster,
+      ClusterInfo<? extends Replica> clusterInfo,
       Map<IdentifiedFetcher, Map<Integer, Collection<HasBeanObject>>> metrics) {
     var scores =
         costFunctions.stream()
@@ -264,17 +266,17 @@ public class Balancer implements AutoCloseable {
   }
 
   private <T extends HasClusterCost> double costFunctionScore(
-      ClusterInfo clusterInfo, ClusterBean clusterBean, T costFunction) {
+      ClusterInfo<Replica> clusterInfo, ClusterBean clusterBean, T costFunction) {
     return costFunction.clusterCost(clusterInfo, clusterBean).value();
   }
 
   private <T extends HasMoveCost> double moveCostScore(
-      ClusterInfo currentCluster,
-      ClusterInfo clusterInfo,
+      ClusterInfo<? extends ReplicaInfo> currentCluster,
+      ClusterInfo<? extends ReplicaInfo> clusterInfo,
       ClusterBean clusterBean,
       T costFunction) {
-    if (costFunction.overflow(currentCluster, clusterInfo, clusterBean)) return 999999.0;
-    return costFunction.clusterCost(currentCluster, clusterInfo, clusterBean).value();
+    // TODO: add score here
+    return 0;
   }
 
   @Override

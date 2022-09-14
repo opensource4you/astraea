@@ -16,6 +16,7 @@
  */
 package org.astraea.common.metrics.broker;
 
+import org.astraea.common.metrics.BeanObject;
 import org.astraea.common.metrics.HasBeanObject;
 
 public interface HasCount extends HasBeanObject {

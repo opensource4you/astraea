@@ -34,10 +34,10 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import javax.management.remote.JMXServiceURL;
-import org.astraea.app.common.Utils;
-import org.astraea.app.metrics.HasBeanObject;
-import org.astraea.app.metrics.MBeanClient;
-import org.astraea.app.partitioner.Configuration;
+import org.astraea.common.Utils;
+import org.astraea.common.cost.Configuration;
+import org.astraea.common.metrics.HasBeanObject;
+import org.astraea.common.metrics.MBeanClient;
 
 public class JmxMetricSampler implements MetricSource {
 

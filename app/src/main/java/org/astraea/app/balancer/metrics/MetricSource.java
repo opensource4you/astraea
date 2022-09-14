@@ -20,7 +20,7 @@ import java.util.Collection;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
-import org.astraea.app.metrics.HasBeanObject;
+import org.astraea.common.metrics.HasBeanObject;
 
 /**
  * Declare the implementation class has the ability to return a collection of {@link HasBeanObject}
