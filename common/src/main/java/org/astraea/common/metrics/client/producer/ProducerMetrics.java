@@ -66,5 +66,18 @@ public final class ProducerMetrics {
         .collect(Collectors.toUnmodifiableList());
   }
 
+  public static Collection<HasProducerMetrics> of(MBeanClient mBeanClient) {
+    return mBeanClient
+        .queryBeans(
+            BeanQuery.builder()
+                .domainName("kafka.producer")
+                .property("type", "producer-metrics")
+                .property("client-id", "*")
+                .build())
+        .stream()
+        .map(b -> (HasProducerMetrics) () -> b)
+        .collect(Collectors.toUnmodifiableList());
+  }
+
   private ProducerMetrics() {}
 }
