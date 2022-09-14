@@ -1,8 +1,8 @@
 # Strict Cost Dispatcher
 
-Strict Cost Dispatcher 是 Astraea 的 partitioner 之一，功能在於 "依據 broker cost" 來選擇發送的 partition 順序。"broker cost" 是使用者自定義的效能指標，目前使用 "request 平均延遲" 作為效能指標。（TODO: 允許使用者選擇效能指標）
+Strict Cost Dispatcher 是 [Astraea partitioner](./README.md) 之一，功能在於 "依據 broker cost" 來選擇發送的 partition 順序。"broker cost" 是使用者自定義的效能指標，目前使用 "request 平均延遲" 作為效能指標。（TODO: 允許使用者選擇效能指標）
 
-### 於本專案的 performance tool 使用
+### 於本專案的 [performance tool](../performance_benchmark.md) 使用
 
 ```bash
 $ ./docker/start_app.sh performance --bootstrap.servers 192.168.103.26:9092 --partitioner org.astraea.app.partitioner.StrictCostDispatcher
