@@ -19,22 +19,20 @@ package org.astraea.app.balancer;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
-import org.apache.kafka.common.Cluster;
-import org.apache.kafka.common.Node;
-import org.apache.kafka.common.PartitionInfo;
-import org.astraea.app.admin.ClusterInfo;
-import org.astraea.app.admin.TopicPartition;
 import org.astraea.app.balancer.log.ClusterLogAllocation;
 import org.astraea.app.balancer.log.LogPlacement;
-import org.astraea.app.cost.ReplicaDiskInCost;
-import org.astraea.app.cost.ReplicaLeaderCost;
-import org.astraea.app.metrics.BeanObject;
-import org.astraea.app.metrics.HasBeanObject;
-import org.astraea.app.metrics.broker.HasGauge;
-import org.astraea.app.metrics.broker.LogMetrics;
-import org.astraea.app.metrics.broker.ServerMetrics;
-import org.astraea.app.partitioner.Configuration;
+import org.astraea.common.admin.ClusterInfo;
+import org.astraea.common.admin.NodeInfo;
+import org.astraea.common.admin.Replica;
+import org.astraea.common.admin.TopicPartition;
+import org.astraea.common.cost.Configuration;
+import org.astraea.common.cost.ReplicaDiskInCost;
+import org.astraea.common.cost.ReplicaLeaderCost;
+import org.astraea.common.metrics.BeanObject;
+import org.astraea.common.metrics.HasBeanObject;
+import org.astraea.common.metrics.broker.HasGauge;
+import org.astraea.common.metrics.broker.LogMetrics;
+import org.astraea.common.metrics.broker.ServerMetrics;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -68,22 +66,25 @@ class BalancerUtilsTest {
     var tp2 = TopicPartition.of("testMockCluster", 0);
     var logPlacement1 = List.of(LogPlacement.of(0, "/data"), LogPlacement.of(1, "/data"));
     var logPlacement2 = List.of(LogPlacement.of(1, "/data1"), LogPlacement.of(2, "/data1"));
-    var nodes =
-        new Node[] {
-          new Node(0, "localhost", 9092),
-          new Node(1, "localhost", 9092),
-          new Node(2, "localhost", 9092)
-        };
-    var partitionInfo = new PartitionInfo("test-1", 1, nodes[0], nodes, nodes);
     var clusterInfo =
         ClusterInfo.of(
-            new Cluster(
-                "",
-                List.of(nodes[0], nodes[1], nodes[2]),
-                List.of(partitionInfo),
-                Set.of(),
-                Set.of(),
-                Node.noNode()));
+            List.of(
+                NodeInfo.of(0, "localhost", 9092),
+                NodeInfo.of(1, "localhost", 9092),
+                NodeInfo.of(2, "localhost", 9092)),
+            List.of(
+                Replica.of(
+                    "test-1",
+                    1,
+                    NodeInfo.of(0, "localhost", 9092),
+                    0,
+                    100,
+                    true,
+                    true,
+                    false,
+                    false,
+                    true,
+                    "/tmp/aa")));
     var cla = ClusterLogAllocation.of(Map.of(tp1, logPlacement1, tp2, logPlacement2));
     var mockClusterInfo = BalancerUtils.merge(clusterInfo, cla);
     Assertions.assertEquals(mockClusterInfo.replicas("testMockCluster").size(), 4);
@@ -94,22 +95,14 @@ class BalancerUtilsTest {
 
   @Test
   void testEvaluateCost() {
-    var node1 = new Node(0, "localhost", 9092);
-    var node2 = new Node(1, "localhost", 9092);
-    var partitionInfo1 =
-        new PartitionInfo("test-1", 0, node1, new Node[] {node1}, new Node[] {node1});
-    var partitionInfo2 =
-        new PartitionInfo("test-1", 1, node2, new Node[] {node2}, new Node[] {node2});
+    var node1 = NodeInfo.of(0, "localhost", 9092);
+    var node2 = NodeInfo.of(1, "localhost", 9092);
     var clusterInfo =
         ClusterInfo.of(
-            new Cluster(
-                "",
-                List.of(node1, node2),
-                List.of(partitionInfo1, partitionInfo2),
-                Set.of(),
-                Set.of(),
-                Node.noNode()));
-
+            List.of(node1, node2),
+            List.of(
+                Replica.of("test-1", 0, node1, 0, 100, true, true, false, false, true, "/tmp/aa"),
+                Replica.of("test-1", 1, node2, 0, 100, true, true, false, false, true, "/tmp/aa")));
     var cf1 = new ReplicaLeaderCost();
     var cf2 = new ReplicaDiskInCost(Configuration.of(Map.of("metrics.duration", "5")));
     var cost = BalancerUtils.evaluateCost(clusterInfo, Map.of(cf1, beanObjects, cf2, beanObjects));

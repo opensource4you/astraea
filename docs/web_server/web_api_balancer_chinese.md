@@ -10,9 +10,10 @@ GET /balancer
 
 參數
 
-| 名稱    | 說明           | 預設值   |
-|-------|--------------|-------|
-| limit | (選填) 要嘗試幾種組合 | 10000 |
+| 名稱     | 說明                   | 預設值                      |
+|--------|----------------------|--------------------------|
+| limit  | (選填) 要嘗試幾種組合         | 10000                    |
+| topics | (選填) 只嘗試搬移指定的 topics | 無，除了內部 topics 以外的都作為候選對象 |
 
 cURL 範例
 ```shell
@@ -28,7 +29,17 @@ JSON Response 範例
   - `topic`: topic 名稱
   - `partition`: partition id
   - `before`: 原本的配置
+    - `brokerId`: 有掌管 replica 的節點 id
+    - `directory`: replica 存在資料的路徑
+    - `size`: replica 在硬碟上的資料大小
   - `after`: 比較好的配置
+- `migrations`: 計算搬移計畫的成本
+  * `function`: 用來評估成本的演算法
+  * `totalCost`: 各個broker的成本總和
+  * `cost`: 針對各個broker計算成本的改變
+    * `brokerId`: 有掌管 replica 的節點 id
+    * `cost`: 改變的量，負值表示移出，正值表示移入
+  * `unit`: 成本的單位
 ```json
 {
   "cost": 0.04948716593053935,
@@ -42,7 +53,8 @@ JSON Response 範例
       "before": [
         {
           "brokerId": 1006,
-          "directory": "/tmp/log-folder-0"
+          "directory": "/tmp/log-folder-0",
+          "size": 1234
         }
       ],
       "after": [
@@ -58,7 +70,8 @@ JSON Response 範例
       "before": [
         {
           "brokerId": 1003,
-          "directory": "/tmp/log-folder-0"
+          "directory": "/tmp/log-folder-0",
+          "size": 12355
         }
       ],
       "after": [

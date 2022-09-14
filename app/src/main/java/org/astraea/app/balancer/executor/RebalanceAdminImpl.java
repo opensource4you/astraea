@@ -24,13 +24,13 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
-import org.astraea.app.admin.Admin;
-import org.astraea.app.admin.ClusterInfo;
-import org.astraea.app.admin.Replica;
-import org.astraea.app.admin.TopicPartition;
-import org.astraea.app.admin.TopicPartitionReplica;
 import org.astraea.app.balancer.log.LogPlacement;
-import org.astraea.app.common.Utils;
+import org.astraea.common.Utils;
+import org.astraea.common.admin.Admin;
+import org.astraea.common.admin.ClusterInfo;
+import org.astraea.common.admin.Replica;
+import org.astraea.common.admin.TopicPartition;
+import org.astraea.common.admin.TopicPartitionReplica;
 
 class RebalanceAdminImpl implements RebalanceAdmin {
 
@@ -226,7 +226,7 @@ class RebalanceAdminImpl implements RebalanceAdmin {
   }
 
   @Override
-  public ClusterInfo clusterInfo() {
+  public ClusterInfo<Replica> clusterInfo() {
     return admin.clusterInfo(
         admin.topicNames().stream().filter(topicFilter).collect(Collectors.toUnmodifiableSet()));
   }

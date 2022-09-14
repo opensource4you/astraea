@@ -25,10 +25,10 @@ import java.util.OptionalInt;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-import org.astraea.app.admin.ClusterInfo;
-import org.astraea.app.admin.Replica;
-import org.astraea.app.admin.ReplicaInfo;
-import org.astraea.app.admin.TopicPartition;
+import org.astraea.common.admin.ClusterInfo;
+import org.astraea.common.admin.Replica;
+import org.astraea.common.admin.ReplicaInfo;
+import org.astraea.common.admin.TopicPartition;
 
 /**
  * Describe the log allocation state of a Kafka cluster. The implementation have to keep the cluster
@@ -37,36 +37,28 @@ import org.astraea.app.admin.TopicPartition;
  */
 public interface ClusterLogAllocation {
 
-  static ClusterLogAllocation of(ClusterInfo clusterInfo) {
+  static ClusterLogAllocation of(ClusterInfo<Replica> clusterInfo) {
     return of(
-        clusterInfo.replicas().stream()
-            .filter(r -> r instanceof Replica)
-            .map(r -> (Replica) r)
-            .collect(
-                Collectors.groupingBy(
-                    replica ->
-                        TopicPartition.of(replica.topic(), Integer.toString(replica.partition()))))
+        clusterInfo
+            .replicaStream()
+            .collect(Collectors.groupingBy(r -> TopicPartition.of(r.topic(), r.partition())))
             .entrySet()
             .stream()
-            .map(
-                entry -> {
-                  // validate if the given log placements are valid
-                  if (entry.getValue().stream().filter(ReplicaInfo::isLeader).count() != 1)
-                    throw new IllegalArgumentException(
-                        "The " + entry.getKey() + " leader count mismatch 1.");
-
-                  final var topicPartition = entry.getKey();
-                  final var logPlacements =
-                      entry.getValue().stream()
+            .collect(
+                Collectors.toMap(
+                    Map.Entry::getKey,
+                    entry -> {
+                      // validate if the given log placements are valid
+                      if (entry.getValue().stream().filter(ReplicaInfo::isLeader).count() != 1)
+                        throw new IllegalArgumentException(
+                            "The " + entry.getKey() + " leader count mismatch 1.");
+                      return entry.getValue().stream()
                           .sorted(Comparator.comparingInt(replica -> replica.isLeader() ? 0 : 1))
                           .map(
                               replica ->
                                   LogPlacement.of(replica.nodeInfo().id(), replica.dataFolder()))
                           .collect(Collectors.toList());
-
-                  return Map.entry(topicPartition, logPlacements);
-                })
-            .collect(Collectors.toConcurrentMap(Map.Entry::getKey, Map.Entry::getValue)));
+                    })));
   }
 
   static ClusterLogAllocation of(Map<TopicPartition, List<LogPlacement>> allocation) {

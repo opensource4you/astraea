@@ -26,16 +26,16 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-import org.astraea.app.common.Utils;
-import org.astraea.app.producer.Producer;
+import org.astraea.common.Utils;
+import org.astraea.common.admin.TopicPartition;
+import org.astraea.common.producer.Producer;
 
 public interface ProducerThread extends AbstractThread {
 
   static List<ProducerThread> create(
-      String topic,
       int batchSize,
       DataSupplier dataSupplier,
-      Supplier<Integer> partitionSupplier,
+      Supplier<TopicPartition> topicPartitionSupplier,
       int producers,
       Supplier<Producer<byte[], byte[]>> producerSupplier) {
     if (producers <= 0) return List.of();
@@ -57,12 +57,13 @@ public interface ProducerThread extends AbstractThread {
     return IntStream.range(0, producers)
         .mapToObj(
             index -> {
-              var report = new Report();
               var closeLatch = closeLatches.get(index);
               var closed = new AtomicBoolean(false);
+              var producer = producerSupplier.get();
+              var report = Report.of(producer.clientId(), closed::get);
               executors.execute(
                   () -> {
-                    try (var producer = producerSupplier.get()) {
+                    try {
                       while (!closed.get()) {
                         var data =
                             IntStream.range(0, batchSize)
@@ -86,8 +87,7 @@ public interface ProducerThread extends AbstractThread {
                                         d ->
                                             producer
                                                 .sender()
-                                                .topic(topic)
-                                                .partition(partitionSupplier.get())
+                                                .topicPartition(topicPartitionSupplier.get())
                                                 .key(d.key())
                                                 .value(d.value())
                                                 .timestamp(System.currentTimeMillis()))
@@ -97,14 +97,13 @@ public interface ProducerThread extends AbstractThread {
                                     future.whenComplete(
                                         (m, e) ->
                                             report.record(
-                                                m.topic(),
-                                                m.partition(),
-                                                m.offset(),
                                                 System.currentTimeMillis() - m.timestamp(),
                                                 m.serializedValueSize() + m.serializedKeySize())));
                       }
                     } finally {
+                      Utils.swallowException(producer::close);
                       closeLatch.countDown();
+                      closed.set(true);
                     }
                   });
               return new ProducerThread() {
@@ -136,6 +135,4 @@ public interface ProducerThread extends AbstractThread {
 
   /** @return report of this thread */
   Report report();
-
-  class Report extends org.astraea.app.performance.Report.Impl {}
 }

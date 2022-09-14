@@ -24,6 +24,7 @@ import java.util.Map;
 import org.astraea.app.automation.Automation;
 import org.astraea.app.balancer.BalancerMain;
 import org.astraea.app.performance.Performance;
+import org.astraea.app.scenario.ScenarioMain;
 import org.astraea.app.web.WebService;
 
 public class App {
@@ -32,6 +33,7 @@ public class App {
           "performance", Performance.class,
           "automation", Automation.class,
           "web", WebService.class,
+          "scenario", ScenarioMain.class,
           "balancer", BalancerMain.class);
 
   static void execute(Map<String, Class<?>> mains, List<String> args) throws Throwable {

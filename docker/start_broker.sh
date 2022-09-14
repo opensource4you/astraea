@@ -18,6 +18,7 @@ declare -r DOCKER_FOLDER=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null
 source $DOCKER_FOLDER/docker_build_common.sh
 
 # ===============================[global variables]===============================
+declare -r ACCOUNT=${ACCOUNT:-skiptests}
 declare -r VERSION=${REVISION:-${VERSION:-3.2.1}}
 declare -r DOCKERFILE=$DOCKER_FOLDER/broker.dockerfile
 declare -r CONFLUENT_BROKER=${CONFLUENT_BROKER:-false}
@@ -44,12 +45,10 @@ declare -r ZOOKEEPER_CONNECT=$(echo $1 | sed -n 's/^zookeeper.connect=\(.\+\)$/\
 declare -r HEAP_OPTS="${HEAP_OPTS:-"-Xmx2G -Xms2G"}"
 declare -r BROKER_PROPERTIES="/tmp/server-${BROKER_PORT}.properties"
 if [[ "$CONFLUENT_BROKER" = "true" ]]; then
-    declare -r REPO=${REPO:-ghcr.io/skiptests/astraea/confluent.broker}
-    declare -r IMAGE_NAME="$REPO:$CONFLUENT_VERSION"
+    declare -r IMAGE_NAME="ghcr.io/${ACCOUNT}/astraea/confluent.broker:$CONFLUENT_VERSION"
     declare -r SCRIPT_LOCATION_IN_CONTAINER="./bin/kafka-server-start"
 else
-    declare -r REPO=${REPO:-ghcr.io/skiptests/astraea/broker}
-    declare -r IMAGE_NAME="$REPO:$VERSION"
+    declare -r IMAGE_NAME="ghcr.io/${ACCOUNT}/astraea/broker:$VERSION"
     declare -r SCRIPT_LOCATION_IN_CONTAINER="./bin/kafka-server-start.sh"
 fi
 # cleanup the file if it is existent
@@ -65,7 +64,7 @@ function showHelp() {
   echo "    num.io.threads=10                        set broker I/O threads"
   echo "    num.network.threads=10                   set broker network threads"
   echo "ENV: "
-  echo "    REPO=astraea/broker                      set the docker repo"
+  echo "    ACCOUNT=skiptests                      set the github account"
   echo "    HEAP_OPTS=\"-Xmx2G -Xms2G\"                set broker JVM memory"
   echo "    REVISION=trunk                           set revision of kafka source code to build container"
   echo "    VERSION=3.2.1                            set version of kafka distribution"
@@ -113,14 +112,13 @@ WORKDIR /
 }
 
 function generateDockerfileBySource() {
+  local repo="https://github.com/apache/kafka"
+  if [[ "$ACCOUNT" != "skiptests" ]]; then
+    repo="https://github.com/${ACCOUNT}/kafka"
+  fi
+
   echo "# this dockerfile is generated dynamically
-FROM ubuntu:22.04 AS build
-
-# install tools
-RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y openjdk-11-jdk wget git curl
-
-# add user
-RUN groupadd $USER && useradd -ms /bin/bash -g $USER $USER
+FROM ghcr.io/skiptests/astraea/deps AS build
 
 # download jmx exporter
 RUN mkdir /opt/jmx_exporter
@@ -129,12 +127,14 @@ RUN wget https://raw.githubusercontent.com/prometheus/jmx_exporter/master/exampl
 RUN wget https://REPO1.maven.org/maven2/io/prometheus/jmx/jmx_prometheus_javaagent/${EXPORTER_VERSION}/jmx_prometheus_javaagent-${EXPORTER_VERSION}.jar
 
 # build kafka from source code
-RUN git clone https://github.com/apache/kafka /tmp/kafka
+RUN git clone $repo /tmp/kafka
 WORKDIR /tmp/kafka
 RUN git checkout $VERSION
+# generate gradlew for previous
+RUN cp /tmp/kafka/gradlew /tmp/gradlew || /tmp/gradle-5.6.4/bin/gradle
 RUN ./gradlew clean releaseTarGz
 RUN mkdir /opt/kafka
-RUN tar -zxvf \$(find ./core/build/distributions/ -maxdepth 1 -type f -name kafka_*SNAPSHOT.tgz) -C /opt/kafka --strip-components=1
+RUN tar -zxvf \$(find ./core/build/distributions/ -maxdepth 1 -type f \( -iname \"kafka*tgz\" ! -iname \"*sit*\" \)) -C /opt/kafka --strip-components=1
 
 FROM ubuntu:22.04
 

@@ -22,15 +22,16 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
-import org.astraea.app.admin.TopicPartition;
 import org.astraea.app.balancer.RebalancePlanProposal;
 import org.astraea.app.balancer.log.ClusterLogAllocation;
 import org.astraea.app.balancer.log.LogPlacement;
+import org.astraea.common.admin.TopicPartition;
 import org.astraea.app.partitioner.Configuration;
 
 /**
@@ -75,7 +76,7 @@ public class ShufflePlanGenerator implements RebalancePlanGenerator {
     if (brokerFolders.isEmpty()) {
       return Stream.of(
           RebalancePlanProposal.builder()
-              .withRebalancePlan(baseAllocation)
+              .clusterLogAllocation(baseAllocation)
               .addWarning("There is no broker")
               .build());
     }
@@ -83,7 +84,7 @@ public class ShufflePlanGenerator implements RebalancePlanGenerator {
     if (brokerFolders.size() == 1) {
       return Stream.of(
           RebalancePlanProposal.builder()
-              .withRebalancePlan(baseAllocation)
+              .clusterLogAllocation(baseAllocation)
               .addWarning("Only one broker exists, unable to do some migration")
               .build());
     }
@@ -91,11 +92,12 @@ public class ShufflePlanGenerator implements RebalancePlanGenerator {
     if (baseAllocation.topicPartitions().isEmpty()) {
       return Stream.of(
           RebalancePlanProposal.builder()
-              .withRebalancePlan(baseAllocation)
+              .clusterLogAllocation(baseAllocation)
               .addWarning("No non-ignored topic to working on.")
               .build());
     }
 
+    var index = new AtomicInteger(0);
     return Stream.generate(
         () -> {
           final var rebalancePlanBuilder = RebalancePlanProposal.builder();
@@ -112,7 +114,10 @@ public class ShufflePlanGenerator implements RebalancePlanGenerator {
           var currentAllocation = baseAllocation;
           for (var candidate : candidates) currentAllocation = candidate.apply(currentAllocation);
 
-          return rebalancePlanBuilder.withRebalancePlan(currentAllocation).build();
+          return rebalancePlanBuilder
+              .index(index.getAndIncrement())
+              .clusterLogAllocation(currentAllocation)
+              .build();
         });
   }
 
