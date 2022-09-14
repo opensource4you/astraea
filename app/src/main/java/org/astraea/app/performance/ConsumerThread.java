@@ -17,6 +17,7 @@
 package org.astraea.app.performance;
 
 import java.time.Duration;
+import java.util.HashSet;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
@@ -64,12 +65,23 @@ public interface ConsumerThread extends AbstractThread {
               executors.execute(
                   () -> {
                     try {
+                      var generationId = consumer.generationId();
+                      var assignments = consumer.assignments();
                       while (!closed.get()) {
                         if (subscribed.get()) consumer.resubscribe();
                         else {
                           consumer.unsubscribe();
+                          report.recordSticky(assignments, new HashSet<>());
+                          assignments = new HashSet<>();
                           Utils.sleep(Duration.ofSeconds(1));
                           continue;
+                        }
+                        if (consumer.generationId() != generationId) {
+                          generationId = consumer.generationId();
+                          var preAssignments = new HashSet<>(assignments);
+                          assignments = consumer.assignments();
+                          var nowAssignments = new HashSet<>(assignments);
+                          report.recordSticky(preAssignments, nowAssignments);
                         }
                         consumer
                             .poll(Duration.ofSeconds(1))

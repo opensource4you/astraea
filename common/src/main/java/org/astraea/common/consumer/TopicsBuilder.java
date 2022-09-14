@@ -237,5 +237,10 @@ public class TopicsBuilder<Key, Value> extends Builder<Key, Value> {
           .map(TopicPartition::from)
           .collect(Collectors.toUnmodifiableSet());
     }
+
+    @Override
+    public int generationId() {
+      return kafkaConsumer.groupMetadata().generationId();
+    }
   }
 }

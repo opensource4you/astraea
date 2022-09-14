@@ -154,6 +154,7 @@ public class Performance {
             ? CompletableFuture.completedFuture(null)
             : CompletableFuture.runAsync(
                 () -> {
+                  Utils.sleep(param.chaosDuration);
                   while (!consumerThreads.stream().allMatch(AbstractThread::closed)) {
                     var thread =
                         consumerThreads.get((int) (Math.random() * consumerThreads.size()));

@@ -16,7 +16,9 @@
  */
 package org.astraea.app.performance;
 
+import java.util.Set;
 import java.util.function.Supplier;
+import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.metrics.MBeanClient;
 import org.astraea.common.metrics.client.consumer.ConsumerMetrics;
 import org.astraea.common.metrics.client.consumer.HasConsumerFetchMetrics;
@@ -49,9 +51,13 @@ public interface Report {
 
   void record(long latency, int bytes);
 
+  void recordSticky(Set<TopicPartition> preAssignments, Set<TopicPartition> nowAssignments);
+
+  int stickyPartitions();
+
   static Report of(String clientId, Supplier<Boolean> isClosed) {
     return new Report() {
-
+      private Set<TopicPartition> diffAssignments;
       private double avgLatency = 0;
       private long records = 0;
       private long max = 0;
@@ -103,6 +109,19 @@ public interface Report {
       @Override
       public String clientId() {
         return clientId;
+      }
+
+      @Override
+      public int stickyPartitions() {
+        if (diffAssignments == null) return 0;
+        return diffAssignments.size();
+      }
+
+      @Override
+      public void recordSticky(
+          Set<TopicPartition> preAssignments, Set<TopicPartition> nowAssignments) {
+        if (nowAssignments != null) nowAssignments.retainAll(preAssignments);
+        this.diffAssignments = nowAssignments;
       }
     };
   }
