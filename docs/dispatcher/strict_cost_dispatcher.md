@@ -33,7 +33,7 @@ Strict Cost Dispatcher 實做了 Apache Kafka 的 `org.apache.kafka.clients.prod
 1. 獲取使用者定義的效能指標（預設是使用 producer 端的 request 平均延遲）
 2. 使用該些效能指標計算各個 broker 的分數
 3. 加權各個效能指標計算出的分數
-4. 利用分數建立 [Smooth Round Robin](../common/src/main/java/org/astraea/common/partitioner/RoundRobin.java) 的排序
+4. 利用分數建立 [Smooth Round Robin](../../common/src/main/java/org/astraea/common/partitioner/RoundRobin.java) 的排序
 5. 紀錄前 `ROUND_ROBIN_LENGTH` 筆排序並重複使用
 
 以上5個步驟每 `round.robin.lease` 時間會重新計算一次，預設的時間是4秒。可以在傳入的 `Properties` 中設定，
@@ -48,4 +48,4 @@ $ ./docker/start_app.sh performance --bootstrap.servers 192.168.103.26:9092 --pa
 props.put(StrictCostDispatcher.ROUND_ROBIN_LEASE_KEY, "10s");
 ```
 
-[Smooth Round Robin](../common/src/main/java/org/astraea/common/partitioner/RoundRobin.java) 會讓分數較高的節點有較高的出現頻率，但不會過於密集，讓我們在平衡負載的同時也顧及資料分散儲存處理。
+[Smooth Round Robin](../../common/src/main/java/org/astraea/common/partitioner/RoundRobin.java) 會讓分數較高的節點有較高的出現頻率，但不會過於密集，讓我們在平衡負載的同時也顧及資料分散儲存處理。
