@@ -53,7 +53,7 @@ public class ServerMetricsTest extends RequireSingleBrokerCluster {
 
   @Test
   void testKafkaServerOtherMetrics() {
-    MetricsTestUtil.validate(ServerMetrics.KafkaServer.getClusterId(MBeanClient.local()));
+    MetricsTestUtil.validate(ServerMetrics.KafkaServer.clusterId(MBeanClient.local()));
   }
 
   @Test

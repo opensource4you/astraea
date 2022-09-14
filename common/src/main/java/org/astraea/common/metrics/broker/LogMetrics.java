@@ -80,7 +80,7 @@ public final class LogMetrics {
           .collect(Collectors.toUnmodifiableList());
     }
 
-    public static class Gauge implements HasGauge {
+    public static class Gauge implements HasObjectGauge<Long> {
       private final BeanObject beanObject;
 
       public Gauge(BeanObject beanObject) {

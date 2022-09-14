@@ -25,24 +25,24 @@ import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.metrics.BeanObject;
 import org.astraea.common.metrics.HasBeanObject;
-import org.astraea.common.metrics.broker.HasGauge;
+import org.astraea.common.metrics.broker.HasObjectGauge;
 import org.astraea.common.metrics.broker.LogMetrics;
 import org.astraea.it.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 class ReplicaDiskInCostTest extends RequireBrokerCluster {
-  private static final HasGauge OLD_TP1_0 =
+  private static final HasObjectGauge<Long> OLD_TP1_0 =
       fakeBeanObject("Log", LogMetrics.Log.SIZE.metricName(), "test-1", "0", 1000, 1000L);
-  private static final HasGauge NEW_TP1_0 =
+  private static final HasObjectGauge<Long> NEW_TP1_0 =
       fakeBeanObject("Log", LogMetrics.Log.SIZE.metricName(), "test-1", "0", 50000000, 5000L);
-  private static final HasGauge OLD_TP1_1 =
+  private static final HasObjectGauge<Long> OLD_TP1_1 =
       fakeBeanObject("Log", LogMetrics.Log.SIZE.metricName(), "test-1", "1", 500, 1000L);
-  private static final HasGauge NEW_TP1_1 =
+  private static final HasObjectGauge<Long> NEW_TP1_1 =
       fakeBeanObject("Log", LogMetrics.Log.SIZE.metricName(), "test-1", "1", 100000000, 5000L);
-  private static final HasGauge OLD_TP2_0 =
+  private static final HasObjectGauge<Long> OLD_TP2_0 =
       fakeBeanObject("Log", LogMetrics.Log.SIZE.metricName(), "test-2", "0", 200, 1000L);
-  private static final HasGauge NEW_TP2_0 =
+  private static final HasObjectGauge<Long> NEW_TP2_0 =
       fakeBeanObject("Log", LogMetrics.Log.SIZE.metricName(), "test-2", "0", 40000000, 5000L);
 
   /*

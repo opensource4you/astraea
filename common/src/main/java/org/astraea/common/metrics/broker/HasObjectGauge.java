@@ -17,10 +17,19 @@
 package org.astraea.common.metrics.broker;
 
 import java.util.Objects;
+import org.astraea.common.metrics.BeanObject;
 import org.astraea.common.metrics.HasBeanObject;
 
-/** Kafka gauges are String, Integer, and Double. */
+/**
+ * You can find some default metric in {@link kafka.metrics.KafkaMetricsGroup}. This object is
+ * mapped to {@link com.yammer.metrics.core.Gauge}.Kafka gauges are String, Integer, Long and
+ * Double.
+ */
 public interface HasObjectGauge<T> extends HasBeanObject {
+
+  static HasObjectGauge<Long> ofLong(BeanObject beanObject) {
+    return () -> beanObject;
+  }
 
   @SuppressWarnings("unchecked")
   default T value() {

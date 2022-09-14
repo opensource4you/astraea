@@ -39,7 +39,7 @@ public final class ServerMetrics {
 
     private final String metricName;
 
-    public static HasObjectGauge<String> getClusterId(MBeanClient mBeanClient) {
+    public static HasObjectGauge<String> clusterId(MBeanClient mBeanClient) {
       return () ->
           mBeanClient.queryBean(
               BeanQuery.builder()
@@ -81,7 +81,7 @@ public final class ServerMetrics {
       return alias();
     }
 
-    public static class Gauge implements HasGauge {
+    public static class Gauge implements HasObjectGauge<Long> {
       private final BeanObject beanObject;
 
       public Gauge(BeanObject beanObject) {
@@ -150,7 +150,7 @@ public final class ServerMetrics {
           .collect(Collectors.toUnmodifiableList());
     }
 
-    public static class Gauge implements HasGauge {
+    public static class Gauge implements HasObjectGauge<Long> {
       private final BeanObject beanObject;
 
       public Gauge(BeanObject beanObject) {
@@ -340,7 +340,7 @@ public final class ServerMetrics {
       return alias();
     }
 
-    public static class Gauge implements HasGauge {
+    public static class Gauge implements HasObjectGauge<Long> {
 
       private final BeanObject beanObject;
 

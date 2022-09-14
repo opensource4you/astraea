@@ -19,7 +19,7 @@ package org.astraea.common.admin;
 import java.util.List;
 import java.util.Map;
 import org.astraea.common.metrics.BeanObject;
-import org.astraea.common.metrics.broker.HasGauge;
+import org.astraea.common.metrics.broker.HasObjectGauge;
 import org.astraea.common.metrics.broker.LogMetrics;
 import org.astraea.common.metrics.broker.ServerMetrics;
 import org.junit.jupiter.api.Assertions;
@@ -82,12 +82,12 @@ class ClusterBeanTest {
         ClusterBean.of(
             Map.of(
                 1,
-                List.of(HasGauge.of(testBeanObjectWithPartition1)),
+                List.of(HasObjectGauge.ofLong(testBeanObjectWithPartition1)),
                 2,
                 List.of(
-                    HasGauge.of(testBeanObjectWithoutPartition),
-                    HasGauge.of(testBeanObjectWithPartition2),
-                    HasGauge.of(testBeanObjectWithPartition3))));
+                    HasObjectGauge.ofLong(testBeanObjectWithoutPartition),
+                    HasObjectGauge.ofLong(testBeanObjectWithPartition2),
+                    HasObjectGauge.ofLong(testBeanObjectWithPartition3))));
     // test all
     Assertions.assertEquals(2, clusterBean.all().size());
     Assertions.assertEquals(1, clusterBean.all().get(1).size());
