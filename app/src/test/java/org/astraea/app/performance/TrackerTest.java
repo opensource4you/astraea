@@ -30,15 +30,15 @@ public class TrackerTest {
 
   @Test
   void testEmptyReports() {
-    var tracker = TrackerThread.create(() -> false, List::of);
+    var tracker = TrackerThread.create(() -> true, List::of);
     Utils.sleep(Duration.ofSeconds(2));
     Assertions.assertTrue(tracker.closed());
   }
 
   @Test
-  void testClose() {
+  void testCloseConsumer() {
     var closed = new AtomicBoolean(false);
-    var tracker = TrackerThread.create(() -> false, () -> List.of(Report.of("c", closed::get)));
+    var tracker = TrackerThread.create(() -> true, () -> List.of(Report.of("c", closed::get)));
     Assertions.assertFalse(tracker.closed());
     closed.set(true);
     Utils.sleep(Duration.ofSeconds(2));
