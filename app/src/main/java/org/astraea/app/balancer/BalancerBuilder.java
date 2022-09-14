@@ -51,13 +51,13 @@ class BalancerBuilder {
     return usePlanGenerator(generator, admin::brokerFolders, admin::clusterInfo);
   }
 
-  private BalancerBuilder usePlanGenerator(
+  public BalancerBuilder usePlanGenerator(
       RebalancePlanGenerator generator,
-      Supplier<Map<Integer, Set<String>>> supplier0,
-      Supplier<ClusterInfo<Replica>> supplier1) {
+      Supplier<Map<Integer, Set<String>>> logFolderSupplier,
+      Supplier<ClusterInfo<Replica>> clusterInfoSupplier) {
     this.planGenerator = generator;
-    this.freshBrokerFolders = supplier0;
-    this.freshLogAllocation = supplier1;
+    this.freshBrokerFolders = logFolderSupplier;
+    this.freshLogAllocation = clusterInfoSupplier;
     return this;
   }
 
