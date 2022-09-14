@@ -22,7 +22,7 @@ import org.scalatest.flatspec.AnyFlatSpec
 import java.awt.geom.IllegalPathStateException
 
 class UtilsTest extends AnyFlatSpec {
-  @Test def ToDirectoryTest(): Unit = {
+  @Test def requireFolderTest(): Unit = {
     assertThrows[IllegalPathStateException] {
       Utils.requireFolder("??")
     }

@@ -17,10 +17,10 @@
 package org.astraea.etl
 
 import java.io.File
-import java.util.{Calendar, Properties}
+import java.util.Properties
 import scala.collection.mutable.ArrayBuffer
 import scala.jdk.CollectionConverters._
-import scala.util.{Random, Using}
+import scala.util.Using
 
 /** Parameters required for Astraea ETL.
   *
@@ -49,7 +49,7 @@ case class Configuration(
     sourcePath: File,
     sinkPath: File,
     columnName: Array[String],
-    primaryKeys: String,
+    primaryKeys: Array[String],
     kafkaBootstrapServers: String,
     topicName: String,
     numPartitions: Int,
@@ -58,34 +58,42 @@ case class Configuration(
 )
 
 object Configuration {
-  val default_num_partitions = 15;
-  val default_num_replicas = 3;
+  val DEFAULT_PARTITIONS = 15
+  val DEFAULT_REPLICAS = 1
 
   //Parameters needed to configure ETL.
   def apply(path: String): Configuration = {
     val properties = readProp(path).asScala.filter(_._2.nonEmpty).toMap
+    val column = requireNonidentical("column.name", properties)
     Configuration(
-      Utils.requireFolder(properties.getOrElse("source.path", "")),
-      Utils.requireFolder(properties.getOrElse("sink.path", "")),
-      //TODO check the format after reading CSV
-      properties("column.name").split(","),
-      properties("primary.keys"),
+      Utils.requireFolder(
+        properties.getOrElse(
+          "source.path",
+          throw new NullPointerException("You must configure source path.")
+        )
+      ),
+      Utils.requireFolder(
+        properties.getOrElse(
+          "sink.path",
+          throw new NullPointerException("You must configure sink path.")
+        )
+      ),
+      column,
+      primaryKeys(properties, column),
       //TODO check the format after linking Kafka
       properties("kafka.bootstrap.servers"),
       properties.getOrElse(
         "topic.name",
-        "spark-" + Calendar
-          .getInstance()
-          .get(Calendar.MILLISECOND) + "-" + Random.nextInt(1000)
+        throw new NullPointerException("You must configure topic name.")
       ),
       properties
-        .get("topic.num.partitions")
+        .get("topic.partitions")
         .map(_.toInt)
-        .getOrElse(default_num_partitions),
+        .getOrElse(DEFAULT_PARTITIONS),
       properties
-        .get("topic.num.replicas")
+        .get("topic.replicas")
         .map(_.toInt)
-        .getOrElse(default_num_replicas),
+        .getOrElse(DEFAULT_REPLICAS),
       topicParameters(properties.getOrElse("topic.parameters", ""))
     )
   }
@@ -117,5 +125,30 @@ object Configuration {
       properties.load(bufferedSource.reader())
     }
     properties
+  }
+
+  def primaryKeys(
+      prop: Map[String, String],
+      columnName: Array[String]
+  ): Array[String] = {
+    val pk = "primary.keys";
+    val primaryKeys = requireNonidentical(pk, prop)
+    if ((primaryKeys ++ columnName).distinct.length != columnName.length)
+      throw new IllegalArgumentException(
+        "All" + pk + "should be included in the column."
+      )
+    primaryKeys
+  }
+
+  def requireNonidentical(
+      string: String,
+      prop: Map[String, String]
+  ): Array[String] = {
+    val array = prop(string).split(",")
+    if (array.length != array.distinct.length)
+      throw new IllegalArgumentException(
+        "The" + string + "should not be duplicated."
+      )
+    array
   }
 }
