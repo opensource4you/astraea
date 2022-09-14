@@ -72,7 +72,7 @@ public class ConsumerMetrics {
         .collect(Collectors.toUnmodifiableList());
   }
 
-  public static Collection<HasConsumerMetrics> consumer(MBeanClient mBeanClient) {
+  public static Collection<HasConsumerMetrics> of(MBeanClient mBeanClient) {
     return mBeanClient
         .queryBeans(
             BeanQuery.builder()
