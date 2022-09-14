@@ -112,7 +112,7 @@ class BalancerTest extends RequireBrokerCluster {
               .usePlanExecutor(new StraightPlanExecutor())
               .useClusterCost(randomScore)
               .useTopicFilter(topic -> topic.equals(theTopic))
-              .searchLimit(10)
+              .searchLimit(500)
               .build()
               .offer()
               .proposal
