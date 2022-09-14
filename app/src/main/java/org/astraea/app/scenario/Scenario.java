@@ -16,23 +16,95 @@
  */
 package org.astraea.app.scenario;
 
+import java.util.Map;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
-import org.astraea.common.cost.Configuration;
 
-/**
- * The subclass of this class should contain the logic to fulfill a scenario.
- *
- * @param <T> the return result after applying this scenario to the specific Kafka cluster. This
- *     result might be print on the program output. Or being serialized to json and transmit by web
- *     API.
- */
-public interface Scenario<T> {
+/** The subclass of this class should contain the logic to fulfill a scenario. */
+public interface Scenario {
 
-  static Scenario<?> of(Class<Scenario<?>> theClass, Configuration configuration) {
-    return Utils.construct(theClass, configuration);
+  static Builder build(double binomialProbability) {
+    return new Builder(binomialProbability);
+  }
+
+  class Builder {
+    private String topicName = Utils.randomString();
+    private int numberOfPartitions = 10;
+    private short numberOfReplicas = 1;
+    private double binomialProbability = 0.5;
+
+    private Builder(double binomialProbability) {
+      this.binomialProbability = binomialProbability;
+    }
+
+    public Builder topicName(String topicName) {
+      this.topicName = topicName;
+      return this;
+    }
+
+    public Builder numberOfPartitions(int numberOfPartitions) {
+      this.numberOfPartitions = numberOfPartitions;
+      return this;
+    }
+
+    public Builder numberOfReplicas(short numberOfReplicas) {
+      this.numberOfReplicas = numberOfReplicas;
+      return this;
+    }
+
+    public Builder binomialProbability(double binomialProbability) {
+      this.binomialProbability = binomialProbability;
+      return this;
+    }
+
+    public Scenario build() {
+      return new SkewedPartitionScenario(
+          topicName, numberOfPartitions, numberOfReplicas, binomialProbability);
+    }
   }
 
   /** Apply this scenario to the Kafka cluster */
-  T apply(Admin admin);
+  Result apply(Admin admin);
+
+  class Result {
+
+    private final String topicName;
+    private final int numberOfPartitions;
+    private final short numberOfReplicas;
+    private final Map<Integer, Long> leaderSum;
+    private final Map<Integer, Long> logSum;
+
+    public Result(
+        String topicName,
+        int numberOfPartitions,
+        short numberOfReplicas,
+        Map<Integer, Long> leaderSum,
+        Map<Integer, Long> logSum) {
+      this.topicName = topicName;
+      this.numberOfPartitions = numberOfPartitions;
+      this.numberOfReplicas = numberOfReplicas;
+      this.leaderSum = leaderSum;
+      this.logSum = logSum;
+    }
+
+    public String topicName() {
+      return topicName;
+    }
+
+    public int numberOfPartitions() {
+      return numberOfPartitions;
+    }
+
+    public short numberOfReplicas() {
+      return numberOfReplicas;
+    }
+
+    public Map<Integer, Long> leaderSum() {
+      return leaderSum;
+    }
+
+    public Map<Integer, Long> logSum() {
+      return logSum;
+    }
+  }
 }

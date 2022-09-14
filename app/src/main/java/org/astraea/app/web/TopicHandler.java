@@ -25,6 +25,7 @@ import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 import org.apache.kafka.common.errors.UnknownTopicOrPartitionException;
+import org.astraea.app.scenario.Scenario;
 import org.astraea.common.ExecutionRuntimeException;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.Config;
@@ -38,6 +39,7 @@ class TopicHandler implements Handler {
   static final String NUMBER_OF_REPLICAS_KEY = "replicas";
   static final String PARTITION_KEY = "partition";
   static final String LIST_INTERNAL = "listInternal";
+  static final String PROBABILITY_INTERNAL = "probability";
 
   private final Admin admin;
 
@@ -113,14 +115,27 @@ class TopicHandler implements Handler {
     if (topicNames.size() != requests.size())
       throw new IllegalArgumentException("duplicate topic name: " + topicNames);
     requests.forEach(
-        request ->
+        request -> {
+          var topicName = request.value(TOPIC_NAME_KEY);
+          var numberOfPartitions = request.getInt(NUMBER_OF_PARTITIONS_KEY).orElse(1);
+          var numberOfReplicas = request.getShort(NUMBER_OF_REPLICAS_KEY).orElse((short) 1);
+          if (request.has(PROBABILITY_INTERNAL)) {
+            Scenario.build(request.doubleValue(PROBABILITY_INTERNAL))
+                .topicName(topicName)
+                .numberOfPartitions(numberOfPartitions)
+                .numberOfReplicas(numberOfReplicas)
+                .build()
+                .apply(admin);
+          } else {
             admin
                 .creator()
                 .topic(request.value(TOPIC_NAME_KEY))
                 .numberOfPartitions(request.getInt(NUMBER_OF_PARTITIONS_KEY).orElse(1))
                 .numberOfReplicas(request.getShort(NUMBER_OF_REPLICAS_KEY).orElse((short) 1))
                 .configs(remainingConfigs(request))
-                .create());
+                .create();
+          }
+        });
 
     try {
       // if the topic creation is synced, we return the details.
