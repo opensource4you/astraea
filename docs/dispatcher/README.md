@@ -22,3 +22,9 @@ repositories {
 
 ### Astraea Dispatcher實作
 1. [Smooth Dispatcher](smooth_dispatcher.md):  通過收集多metrics數據，結合熵權法與AHP進行節點狀況評估。再根據評估結果，使用smooth weight round-robin進行資料的調配。
+
+### Astraea Dispatcher 實驗
+
+experiments 資料夾中收錄不同版本的實驗紀錄，主要使用 [performance tool](../performance_benchmark.md) 測試並紀錄數據。
+
+* [2022 Aug28](experiments/StrictCostDispatcher_1.md), 測試 StrictCostPartitioner (Astraea revision: [75bcc3faa39864d5ec5f5ed530346184e79fc0c9](https://github.com/skiptests/astraea/tree/75bcc3faa39864d5ec5f5ed530346184e79fc0c9))

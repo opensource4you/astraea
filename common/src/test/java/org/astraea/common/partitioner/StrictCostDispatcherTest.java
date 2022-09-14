@@ -32,7 +32,6 @@ import org.astraea.common.admin.ReplicaInfo;
 import org.astraea.common.cost.BrokerCost;
 import org.astraea.common.cost.BrokerInputCost;
 import org.astraea.common.cost.Configuration;
-import org.astraea.common.cost.CostFunction;
 import org.astraea.common.cost.HasBrokerCost;
 import org.astraea.common.cost.NodeThroughputCost;
 import org.astraea.common.cost.ReplicaLeaderCost;
@@ -40,8 +39,6 @@ import org.astraea.common.metrics.collector.Fetcher;
 import org.astraea.common.metrics.collector.Receiver;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mockito;
 
 public class StrictCostDispatcherTest {
@@ -348,42 +345,5 @@ public class StrictCostDispatcherTest {
       Assertions.assertEquals(1, dispatcher.receivers.size());
       Assertions.assertEquals(1, receiverCount.get());
     }
-  }
-
-  @ParameterizedTest
-  @ValueSource(classes = {TestCostFunction.class, TestConfigCostFunction.class})
-  void testConstruct(Class<? extends CostFunction> aClass) {
-    // arrange
-    var config = Configuration.of(Map.of());
-
-    // act
-    var costFunction = StrictCostDispatcher.construct(aClass, config);
-
-    // assert
-    Assertions.assertInstanceOf(CostFunction.class, costFunction);
-    Assertions.assertInstanceOf(aClass, costFunction);
-  }
-
-  @Test
-  void testConstructException() {
-    // arrange
-    var aClass = TestBadCostFunction.class;
-    var config = Configuration.of(Map.of());
-
-    // act, assert
-    Assertions.assertThrows(
-        RuntimeException.class, () -> StrictCostDispatcher.construct(aClass, config));
-  }
-
-  private static class TestConfigCostFunction implements CostFunction {
-    public TestConfigCostFunction(Configuration configuration) {}
-  }
-
-  private static class TestCostFunction implements CostFunction {
-    public TestCostFunction() {}
-  }
-
-  private static class TestBadCostFunction implements CostFunction {
-    public TestBadCostFunction(int value) {}
   }
 }

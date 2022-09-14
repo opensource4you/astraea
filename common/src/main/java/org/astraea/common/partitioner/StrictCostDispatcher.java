@@ -270,23 +270,13 @@ public class StrictCostDispatcher implements Dispatcher {
         .filter(e -> HasBrokerCost.class.isAssignableFrom(e.getKey()))
         .collect(
             Collectors.toMap(
-                e -> construct((Class<HasBrokerCost>) e.getKey(), config), Map.Entry::getValue));
+                e -> Utils.construct((Class<HasBrokerCost>) e.getKey(), config),
+                Map.Entry::getValue));
   }
 
   @Override
   public void close() {
     receivers.values().forEach(r -> Utils.swallowException(r::close));
     receivers.clear();
-  }
-
-  static <T> T construct(Class<T> target, Configuration configuration) {
-    try {
-      // case 0: create cost function by configuration
-      var constructor = target.getConstructor(Configuration.class);
-      return Utils.packException(() -> constructor.newInstance(configuration));
-    } catch (NoSuchMethodException e) {
-      // case 1: create cost function by empty constructor
-      return Utils.packException(() -> target.getConstructor().newInstance());
-    }
   }
 }
