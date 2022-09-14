@@ -70,7 +70,7 @@ public class ControllerMetrics {
                   .build()));
     }
 
-    public static class Gauge implements HasObjectGauge<Long> {
+    public static class Gauge implements HasGauge<Long> {
       private final BeanObject beanObject;
 
       public Gauge(BeanObject beanObject) {

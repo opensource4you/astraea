@@ -25,9 +25,9 @@ import org.astraea.common.metrics.HasBeanObject;
  * mapped to {@link com.yammer.metrics.core.Gauge}.Kafka gauges are String, Integer, Long and
  * Double.
  */
-public interface HasObjectGauge<T> extends HasBeanObject {
+public interface HasGauge<T> extends HasBeanObject {
 
-  static HasObjectGauge<Long> ofLong(BeanObject beanObject) {
+  static HasGauge<Long> ofLong(BeanObject beanObject) {
     return () -> beanObject;
   }
 
