@@ -34,7 +34,6 @@ import java.util.function.Supplier;
 import java.util.stream.IntStream;
 import org.astraea.common.EnumInfo;
 import org.astraea.common.Utils;
-import org.astraea.common.metrics.client.consumer.HasConsumerCoordinatorMetrics;
 
 public enum ReportFormat implements EnumInfo {
   CSV("csv"),
