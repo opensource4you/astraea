@@ -93,7 +93,7 @@ class BalancerBuilder {
     return this;
   }
 
-  public Balancer create() {
+  public Balancer build() {
     // sanity check
     Objects.requireNonNull(this.planGenerator);
     Objects.requireNonNull(this.planExecutor);

@@ -54,7 +54,7 @@ class BalancerTest extends RequireBrokerCluster {
               .usePlanExecutor(new StraightPlanExecutor())
               .useClusterCost(new ReplicaLeaderCost())
               .searchLimit(1000)
-              .create()
+              .build()
               .offer()
               .execute(admin);
           System.out.println(currentLeaders.get());
