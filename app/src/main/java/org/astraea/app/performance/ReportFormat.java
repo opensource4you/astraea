@@ -34,6 +34,7 @@ import java.util.function.Supplier;
 import java.util.stream.IntStream;
 import org.astraea.common.EnumInfo;
 import org.astraea.common.Utils;
+import org.astraea.common.metrics.client.consumer.HasConsumerCoordinatorMetrics;
 
 public enum ReportFormat implements EnumInfo {
   CSV("csv"),
@@ -215,6 +216,10 @@ public enum ReportFormat implements EnumInfo {
                   CSVContentElement.create(
                       "Consumer[" + i + "] average publish latency (ms)",
                       () -> Double.toString(consumerReports.get(i).avgLatency())));
+              elements.add(
+                  CSVContentElement.create(
+                      "Consumer[" + i + "] sticky partitions",
+                      () -> Integer.toString(consumerReports.get(i).stickyPartitions())));
             });
     return elements;
   }
