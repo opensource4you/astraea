@@ -34,4 +34,6 @@ public interface HasMoveCost extends CostFunction {
       ClusterInfo<Replica> originClusterInfo,
       ClusterInfo<Replica> newClusterInfo,
       ClusterBean clusterBean);
+
+  HasMoveCost EMPTY = (originClusterInfo, newClusterInfo, clusterBean) -> (MoveCost) () -> 0;
 }

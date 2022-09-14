@@ -49,7 +49,7 @@ public class SkewedPartitionScenario implements Scenario<SkewedPartitionScenario
         configuration.string("binomialProbability").map(Double::parseDouble).orElse(0.5));
   }
 
-  private SkewedPartitionScenario(
+  public SkewedPartitionScenario(
       String topicName, int partitions, short replicas, double binomialProbability) {
     this.topicName = topicName;
     this.partitions = partitions;
