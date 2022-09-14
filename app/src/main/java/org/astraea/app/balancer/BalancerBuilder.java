@@ -45,6 +45,7 @@ class BalancerBuilder {
   private HasMoveCost moveCostFunction = HasMoveCost.EMPTY;
   private Predicate<ClusterCost> clusterConstraint = ignore -> true;
   private Predicate<MoveCost> movementConstraint = ignore -> true;
+  private Predicate<String> topicFilter = ignore -> true;
   private int searchLimit = 3000;
 
   public BalancerBuilder usePlanGenerator(RebalancePlanGenerator generator, Admin admin) {
@@ -81,8 +82,14 @@ class BalancerBuilder {
     return this;
   }
 
-  public BalancerBuilder userMovementConstraint(Predicate<MoveCost> moveConstraint) {
+  public BalancerBuilder useMovementConstraint(Predicate<MoveCost> moveConstraint) {
     this.movementConstraint = moveConstraint;
+    return this;
+  }
+
+  public BalancerBuilder useTopicFilter(Predicate<String> topicFilter) {
+    // TODO: should this filter apply at generator or at cluster info?
+    this.topicFilter = topicFilter;
     return this;
   }
 
@@ -104,6 +111,7 @@ class BalancerBuilder {
     Objects.requireNonNull(this.moveCostFunction);
     Objects.requireNonNull(this.clusterConstraint);
     Objects.requireNonNull(this.movementConstraint);
+    Objects.requireNonNull(this.topicFilter);
 
     return () -> {
       final var currentClusterInfo = freshLogAllocation.get();
