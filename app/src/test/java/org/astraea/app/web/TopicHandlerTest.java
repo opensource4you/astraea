@@ -32,6 +32,7 @@ import org.astraea.common.consumer.Consumer;
 import org.astraea.common.producer.Producer;
 import org.astraea.it.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 
 public class TopicHandlerTest extends RequireBrokerCluster {
@@ -305,7 +306,7 @@ public class TopicHandlerTest extends RequireBrokerCluster {
     }
   }
 
-  @Test
+  @RepeatedTest(5)
   void testCreateTopicByProbability() {
     var topicName = Utils.randomString(10);
     try (Admin admin = Admin.of(bootstrapServers())) {
@@ -314,15 +315,19 @@ public class TopicHandlerTest extends RequireBrokerCluster {
           Channel.ofRequest(
               PostRequest.of(
                   String.format(
-                      "{\"topics\":[{\"name\":\"%s\", \"partitions\":18, \"probability\": 0.5}]}",
+                      "{\"topics\":[{\"name\":\"%s\", \"partitions\":30, \"probability\": 0.5}]}",
                       topicName)));
       var topics = handler.post(request);
       Assertions.assertEquals(1, topics.topics.size());
-      var info = topics.topics.stream().filter(t -> t.name.equals(topicName)).findFirst().get();
+      Utils.waitFor(
+          () ->
+              ((TopicHandler.TopicInfo) handler.get(Channel.ofTarget(topicName))).partitions.size()
+                  == 30);
       var groupByBroker =
-          info.partitions.stream()
-              .flatMap(p -> p.replicas.stream())
-              .collect(Collectors.groupingBy(r -> r.broker));
+          ((TopicHandler.TopicInfo) handler.get(Channel.ofTarget(topicName)))
+              .partitions.stream()
+                  .flatMap(p -> p.replicas.stream())
+                  .collect(Collectors.groupingBy(r -> r.broker));
       // those brokers should host different number of partitions
       Assertions.assertEquals(
           3, groupByBroker.values().stream().map(List::size).collect(Collectors.toSet()).size());
