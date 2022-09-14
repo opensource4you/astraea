@@ -19,8 +19,6 @@ package org.astraea.common.partitioner;
 import java.security.Key;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import org.apache.kafka.clients.producer.Partitioner;
 import org.apache.kafka.clients.producer.Producer;
@@ -57,7 +55,7 @@ public interface Dispatcher extends Partitioner {
    */
   default void configure(Configuration config) {}
 
-  default void closeDispatcher() {}
+  default void doClose() {}
 
   /**
    * Use the producer to get the scheduler, allowing you to control it for interdependent
@@ -79,7 +77,7 @@ public interface Dispatcher extends Partitioner {
    */
   // TODO One thread supports multiple producers.
   static void beginInterdependent(Producer<Key, Value> producer) {
-    THREAD_LOCAL.get().isInterdependent.set(true);
+    THREAD_LOCAL.get().isInterdependent = true;
   }
 
   /**
@@ -88,15 +86,15 @@ public interface Dispatcher extends Partitioner {
    * @param producer Kafka producer
    */
   static void endInterdependent(Producer<Key, Value> producer) {
-    THREAD_LOCAL.get().targetPartitions.set(-1);
-    THREAD_LOCAL.get().isInterdependent.set(false);
+    THREAD_LOCAL.get().targetPartitions = -1;
+    THREAD_LOCAL.get().isInterdependent = false;
   }
 
   /** close this dispatcher. This method is executed only once. */
   @Override
   default void close() {
     THREAD_LOCAL.remove();
-    closeDispatcher();
+    doClose();
   }
 
   @Override
@@ -110,60 +108,24 @@ public interface Dispatcher extends Partitioner {
   @Override
   default int partition(
       String topic, Object key, byte[] keyBytes, Object value, byte[] valueBytes, Cluster cluster) {
-    return THREAD_LOCAL.get().isInterdependent.get()
-        ? THREAD_LOCAL
-            .get()
-            .interdependentPartition(
-                this,
-                topic,
-                keyBytes,
-                valueBytes,
-                CLUSTER_CACHE.computeIfAbsent(cluster, ignored -> ClusterInfo.of(cluster)))
-        : partition(
+    var interdependent = THREAD_LOCAL.get();
+    if (interdependent.isInterdependent && Utils.notNegative(interdependent.targetPartitions))
+      return interdependent.targetPartitions;
+    var target =
+        partition(
             topic,
             keyBytes == null ? new byte[0] : keyBytes,
             valueBytes == null ? new byte[0] : valueBytes,
             CLUSTER_CACHE.computeIfAbsent(cluster, ignored -> ClusterInfo.of(cluster)));
+    interdependent.targetPartitions = target;
+    return interdependent.isInterdependent ? interdependent.targetPartitions : target;
   }
 
   @Override
   default void onNewBatch(String topic, Cluster cluster, int prevPartition) {}
 
   class Interdependent {
-    private final AtomicBoolean isInterdependent = new AtomicBoolean(false);
-    private final AtomicInteger targetPartitions = new AtomicInteger(-1);
-
-    private int interdependentPartition(
-        Dispatcher dispatcher,
-        String topic,
-        byte[] keyBytes,
-        byte[] valueBytes,
-        ClusterInfo cluster) {
-      var targetPartition = targetPartitions.get();
-      return Utils.isPositive(targetPartition)
-          ? targetPartition
-          : targetPartition(
-              dispatcher,
-              topic,
-              keyBytes == null ? new byte[0] : keyBytes,
-              valueBytes == null ? new byte[0] : valueBytes,
-              cluster);
-    }
-
-    private int targetPartition(
-        Dispatcher dispatcher,
-        String topic,
-        byte[] keyBytes,
-        byte[] valueBytes,
-        ClusterInfo cluster) {
-      var targetPartition =
-          dispatcher.partition(
-              topic,
-              keyBytes == null ? new byte[0] : keyBytes,
-              valueBytes == null ? new byte[0] : valueBytes,
-              cluster);
-      if (targetPartitions.get() == -1) targetPartitions.set(targetPartition);
-      return targetPartitions.get();
-    }
+    boolean isInterdependent = false;
+    private int targetPartitions = -1;
   }
 }

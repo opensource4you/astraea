@@ -117,6 +117,17 @@ public class DispatcherTest extends RequireSingleBrokerCluster {
       Runnable runnable =
           () -> {
             Dispatcher.beginInterdependent(instanceOfProducer(producer));
+            var exceptPartition =
+                producerSend(producer, topicName, key, value, timestamp, header).partition();
+            IntStream.range(0, 99)
+                .forEach(
+                    i -> {
+                      Metadata metadata;
+                      metadata = producerSend(producer, topicName, key, value, timestamp, header);
+                      assertEquals(topicName, metadata.topic());
+                      assertEquals(timestamp, metadata.timestamp());
+                      assertEquals(exceptPartition, metadata.partition());
+                    });
             Dispatcher.endInterdependent(instanceOfProducer(producer));
           };
       Dispatcher.beginInterdependent(instanceOfProducer(producer));

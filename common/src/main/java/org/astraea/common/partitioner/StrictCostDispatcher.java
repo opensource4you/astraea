@@ -273,7 +273,7 @@ public class StrictCostDispatcher implements Dispatcher {
   }
 
   @Override
-  public void closeDispatcher() {
+  public void doClose() {
     receivers.values().forEach(r -> Utils.swallowException(r::close));
     receivers.clear();
   }

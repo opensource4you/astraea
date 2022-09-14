@@ -141,8 +141,8 @@ public final class Utils {
     return value;
   }
 
-  public static boolean isPositive(int value) {
-    return value > 0;
+  public static boolean notNegative(int value) {
+    return value >= 0;
   }
 
   /**
