@@ -21,11 +21,12 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.astraea.app.balancer.executor.StraightPlanExecutor;
 import org.astraea.app.balancer.generator.ShufflePlanGenerator;
-import org.astraea.app.scenario.impl.SkewedPartitionScenario;
+import org.astraea.app.scenario.Scenario;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.cost.ReplicaLeaderCost;
 import org.astraea.it.RequireBrokerCluster;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 class BalancerTest extends RequireBrokerCluster {
@@ -42,12 +43,18 @@ class BalancerTest extends RequireBrokerCluster {
                       .map(x -> x.nodeInfo().id())
                       .collect(Collectors.groupingBy(x -> x, Collectors.counting()));
 
-      var skewedScenario = new SkewedPartitionScenario(topicName, 100, (short) 1, 0.5);
-      skewedScenario.apply(admin);
-      System.out.println(currentLeaders.get());
+      Scenario.build(0.5)
+          .topicName(topicName)
+          .numberOfPartitions(100)
+          .numberOfReplicas((short) 1)
+          .build()
+          .apply(admin);
+      var imbalanceFactor0 =
+          Math.abs(
+              currentLeaders.get().values().stream().mapToLong(x -> x).min().orElseThrow()
+                  - currentLeaders.get().values().stream().mapToLong(x -> x).max().orElseThrow());
 
-      for (int i = 0; i < 4; i++) {
-        System.out.println("Iteration: " + i);
+      for (int i = 0; i < 3; i++) {
         try {
           Balancer.builder()
               .usePlanGenerator(new ShufflePlanGenerator(1, 10), admin)
@@ -57,11 +64,16 @@ class BalancerTest extends RequireBrokerCluster {
               .build()
               .offer()
               .execute(admin);
-          System.out.println(currentLeaders.get());
         } catch (Exception e) {
           System.err.println(e.getMessage());
         }
       }
+
+      var imbalanceFactor1 =
+          Math.abs(
+              currentLeaders.get().values().stream().mapToLong(x -> x).min().orElseThrow()
+                  - currentLeaders.get().values().stream().mapToLong(x -> x).max().orElseThrow());
+      Assertions.assertTrue(imbalanceFactor1 < imbalanceFactor0);
     }
   }
 }
