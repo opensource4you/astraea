@@ -14,15 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.app.scenario.impl;
+package org.astraea.app.scenario;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import org.apache.commons.math3.distribution.BinomialDistribution;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
-import org.astraea.common.cost.Configuration;
 import org.astraea.it.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -50,24 +48,16 @@ class SkewedPartitionScenarioTest extends RequireBrokerCluster {
   @ParameterizedTest
   void test(int partitions, short replicas) {
     var topicName = Utils.randomString();
-    var scenario =
-        new SkewedPartitionScenario(
-            Configuration.of(
-                Map.of(
-                    "topicName", topicName,
-                    "partitions", String.valueOf(partitions),
-                    "replicas", String.valueOf(replicas),
-                    "binomialProbability", String.valueOf(0.5))));
+    var scenario = new SkewedPartitionScenario(topicName, partitions, replicas, 0.5);
     try (Admin admin = Admin.of(bootstrapServers())) {
       var result = scenario.apply(admin);
-      Assertions.assertEquals(topicName, result.topicName);
-      Assertions.assertEquals(partitions, result.partitions);
-      Assertions.assertEquals(replicas, result.replicas);
-      Assertions.assertEquals(0.5, result.binomialProbability);
+      Assertions.assertEquals(topicName, result.topicName());
+      Assertions.assertEquals(partitions, result.numberOfPartitions());
+      Assertions.assertEquals(replicas, result.numberOfReplicas());
       Assertions.assertEquals(
-          partitions, result.leaderSum.values().stream().mapToLong(x -> x).sum());
+          partitions, result.leaderSum().values().stream().mapToLong(x -> x).sum());
       Assertions.assertEquals(
-          (long) partitions * replicas, result.logSum.values().stream().mapToLong(x -> x).sum());
+          (long) partitions * replicas, result.logSum().values().stream().mapToLong(x -> x).sum());
     }
   }
 
