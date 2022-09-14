@@ -16,10 +16,13 @@
  */
 package org.astraea.app.performance;
 
+import java.util.List;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 import org.astraea.common.metrics.MBeanClient;
 import org.astraea.common.metrics.client.consumer.ConsumerMetrics;
 import org.astraea.common.metrics.client.consumer.HasConsumerFetchMetrics;
+import org.astraea.common.metrics.client.producer.ProducerMetrics;
 
 public interface Report {
 
@@ -31,12 +34,52 @@ public interface Report {
             .sum();
   }
 
+  static List<Report> producers() {
+    return ProducerMetrics.of(MBeanClient.local()).stream()
+        .map(
+            m ->
+                new Report() {
+                  @Override
+                  public long records() {
+                    return (long) m.recordSendTotal();
+                  }
+
+                  @Override
+                  public long maxLatency() {
+                    return (long) m.requestLatencyMax();
+                  }
+
+                  @Override
+                  public double avgLatency() {
+                    return (long) m.requestLatencyAvg();
+                  }
+
+                  @Override
+                  public long totalBytes() {
+                    return (long) m.outgoingByteTotal();
+                  }
+
+                  @Override
+                  public boolean isClosed() {
+                    return false;
+                  }
+
+                  @Override
+                  public String clientId() {
+                    return m.clientId();
+                  }
+
+                  @Override
+                  public void record(long latency, int bytes) {}
+                })
+        .collect(Collectors.toList());
+  }
+
   /** @return Get the number of records. */
   long records();
   /** @return Get the maximum of latency put. */
-  long max();
-  /** @return Get the minimum of latency put. */
-  long min();
+  long maxLatency();
+
   /** @return Get the average latency. */
   double avgLatency();
 
@@ -55,13 +98,11 @@ public interface Report {
       private double avgLatency = 0;
       private long records = 0;
       private long max = 0;
-      private long min = Long.MAX_VALUE;
       private long totalBytes = 0;
 
       @Override
       public synchronized void record(long latency, int bytes) {
         ++records;
-        min = Math.min(min, latency);
         max = Math.max(max, latency);
         avgLatency += (((double) latency) - avgLatency) / (double) records;
         totalBytes += bytes;
@@ -74,13 +115,8 @@ public interface Report {
       }
       /** @return Get the maximum of latency put. */
       @Override
-      public synchronized long max() {
+      public synchronized long maxLatency() {
         return max;
-      }
-      /** @return Get the minimum of latency put. */
-      @Override
-      public synchronized long min() {
-        return min;
       }
 
       /** @return Get the average latency. */
