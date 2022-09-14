@@ -32,7 +32,6 @@ import org.astraea.common.consumer.Consumer;
 import org.astraea.common.producer.Producer;
 import org.astraea.it.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 
 public class TopicHandlerTest extends RequireBrokerCluster {
@@ -306,7 +305,7 @@ public class TopicHandlerTest extends RequireBrokerCluster {
     }
   }
 
-  @RepeatedTest(5)
+  @Test
   void testCreateTopicByProbability() {
     var topicName = Utils.randomString(10);
     try (Admin admin = Admin.of(bootstrapServers())) {
