@@ -78,7 +78,7 @@ object Configuration {
       properties.getOrElse(
         SOURCE_PATH,
         throw new NullPointerException(
-          SOURCE_PATH + "is null." + "You must configure " + SOURCE_PATH
+          SOURCE_PATH + " is null." + "You must configure " + SOURCE_PATH + "."
         )
       )
     )

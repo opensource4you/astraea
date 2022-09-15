@@ -34,7 +34,7 @@ object Utils {
     val file = new File(path)
     if (!file.exists()) {
       throw new IllegalPathStateException(
-        path + "is not a file." + "The file does not exist."
+        path + " is not a file." + "The file does not exist."
       )
     }
     file

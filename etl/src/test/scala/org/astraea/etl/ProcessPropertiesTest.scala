@@ -21,31 +21,29 @@ import org.astraea.etl.Configuration.{
   requireNonidentical,
   topicParameters
 }
-import org.junit.jupiter.api.{AfterEach, BeforeEach, Test}
+import org.junit.jupiter.api.{BeforeEach, Test}
 import org.scalatest.Assertions.assertThrows
 
 import java.io.{File, FileOutputStream}
+import java.nio.file.Files.createTempFile
 import java.util.Properties
 import scala.util.{Try, Using}
 
 class ProcessPropertiesTest {
   val directory = new File("")
+  var file = new File("")
+  var path = ""
 
   @BeforeEach def setup(): Unit = {
+    file = createTempFile("local_kafka", ".properties").toFile
+    path = file.getAbsolutePath
     testConfig()
   }
 
-  @AfterEach def tearDown(): Unit = {
-    val fileProp = new File("test.properties")
-    if (fileProp.exists()) {
-      fileProp.delete()
-    }
-  }
-
   @Test def defaultTest(): Unit = {
-    val config = Configuration(Utils.requireFile("test.properties"))
-    assert(config.sourcePath.equals(new File(directory.getAbsolutePath)))
-    assert(config.sinkPath.equals(new File(directory.getAbsolutePath)))
+    val config = Configuration(Utils.requireFile(file.getAbsolutePath))
+    assert(config.sourcePath.equals(new File(file.getParent)))
+    assert(config.sinkPath.equals(new File(file.getParent)))
     assert(config.columnName sameElements Array[String]("ID", "KA", "KB", "KC"))
     assert(config.primaryKeys sameElements Array[String]("ID"))
     assert(config.kafkaBootstrapServers.equals("0.0.0.0"))
@@ -57,8 +55,7 @@ class ProcessPropertiesTest {
 
   @Test def configuredTest(): Unit = {
     val prop = new Properties
-    val file = new File("test.properties")
-    Using(scala.io.Source.fromFile("test.properties")) { bufferedSource =>
+    Using(scala.io.Source.fromFile(file)) { bufferedSource =>
       prop.load(bufferedSource.reader())
     }
     prop.setProperty("topic.partitions", "30")
@@ -66,9 +63,9 @@ class ProcessPropertiesTest {
     prop.setProperty("topic.config", "KA:VA,KB:VB")
     prop.store(new FileOutputStream(file), null)
 
-    val config = Configuration(Utils.requireFile("test.properties"))
-    assert(config.sourcePath.equals(new File(directory.getAbsolutePath)))
-    assert(config.sinkPath.equals(new File(directory.getAbsolutePath)))
+    val config = Configuration(Utils.requireFile(file.getAbsolutePath))
+    assert(config.sourcePath.equals(new File(file.getParent)))
+    assert(config.sinkPath.equals(new File(file.getParent)))
     assert(config.columnName sameElements Array[String]("ID", "KA", "KB", "KC"))
     assert(config.primaryKeys sameElements Array[String]("ID"))
     assert(config.kafkaBootstrapServers.equals("0.0.0.0"))
@@ -103,9 +100,8 @@ class ProcessPropertiesTest {
   def testConfig(): Unit = {
     Try {
       val prop = new Properties
-      val file = new File("test.properties")
-      prop.setProperty("source.path", directory.getAbsolutePath)
-      prop.setProperty("sink.path", directory.getAbsolutePath)
+      prop.setProperty("source.path", file.getParent)
+      prop.setProperty("sink.path", file.getParent)
       prop.setProperty("column.name", "ID,KA,KB,KC")
       prop.setProperty("primary.keys", "ID")
       prop.setProperty("kafka.bootstrap.servers", "0.0.0.0")
