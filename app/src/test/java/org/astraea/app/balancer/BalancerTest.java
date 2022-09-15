@@ -39,7 +39,7 @@ import org.junit.jupiter.api.Test;
 class BalancerTest extends RequireBrokerCluster {
 
   @Test
-  void run() {
+  void testLeaderCountRebalance() {
     try (Admin admin = Admin.of(bootstrapServers())) {
       var topicName = Utils.randomString();
       var currentLeaders =
