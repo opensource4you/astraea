@@ -125,22 +125,20 @@ object Configuration {
   }
 
   //Handling the topic.parameters parameter.
-  def topicParameters(
-      topicParameters: String
-  ): Map[String, String] = {
-    if (topicParameters.nonEmpty) {
-      val parameters = topicParameters.split(",")
-      var paramArray: ArrayBuffer[Array[String]] = ArrayBuffer()
-      for (elem <- parameters) {
-        val pm = elem.split(":")
-        if (pm.length != 2) {
-          throw new IllegalArgumentException(
-            "The" + elem + "format of topic parameters is wrong.For example: keyA:valueA,keyB:valueB,keyC:valueC..."
-          )
+  def topicParameters(tConfig: String): Map[String, String] = {
+    if (tConfig.nonEmpty) {
+      tConfig
+        .split(",")
+        .map { elem =>
+          val pm = elem.split(":")
+          if (pm.length != 2) {
+            throw new IllegalArgumentException(
+              "The" + elem + "format of topic parameters is wrong.For example: keyA:valueA,keyB:valueB,keyC:valueC..."
+            )
+          }
+          (pm(0), pm(1))
         }
-        paramArray = paramArray :+ pm
-      }
-      paramArray.map { case Array(x, y) => (x, y) }.toMap
+        .toMap
     } else
       Map.empty[String, String]
   }
