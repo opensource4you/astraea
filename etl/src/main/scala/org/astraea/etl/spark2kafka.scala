@@ -16,30 +16,14 @@
  */
 package org.astraea.etl
 
-import scopt.OParser
-case class Argument(propFile: String = "")
+import java.io.File
 
-/** This argument defines the common property used by ETL. */
-object Argument {
+object spark2kafka {
+  def execute(path: File): Unit = {
+    val config = Configuration(path)
+  }
 
-  /** @param args
-    *   Command line arguments that are put into main function.
-    * @return
-    *   Command line arguments.
-    */
-  def parseArgument(args: Array[String]): Option[Argument] = {
-    val builder = OParser.builder[Argument]
-    import builder._
-    val parser = OParser.sequence(
-      programName("spark"),
-      head("Welcome to Astraea ETL."),
-      opt[String]("prop.file")
-        .required()
-        .action((x, c) => c.copy(propFile = x))
-        .text("You must set prop file."),
-      help("help").text("prints this usage text")
-    )
-
-    OParser.parse(parser, args, Argument())
+  def main(args: Array[String]): Unit = {
+    spark2kafka.execute(Utils.requireFile(args(0)))
   }
 }

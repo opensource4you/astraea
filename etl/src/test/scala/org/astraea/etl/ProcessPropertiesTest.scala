@@ -16,12 +16,14 @@
  */
 package org.astraea.etl
 
-import org.astraea.etl.Argument.parseArgument
-import org.astraea.etl.Configuration.{primaryKeys, requireNonidentical}
+import org.astraea.etl.Configuration.{
+  primaryKeys,
+  requireNonidentical,
+  topicParameters
+}
 import org.junit.jupiter.api.{AfterEach, BeforeEach, Test}
 import org.scalatest.Assertions.assertThrows
 
-import java.awt.geom.IllegalPathStateException
 import java.io.{File, FileOutputStream}
 import java.util.Properties
 import scala.util.{Try, Using}
@@ -41,8 +43,7 @@ class ProcessPropertiesTest {
   }
 
   @Test def defaultTest(): Unit = {
-    val arg = parseArgument(Array("--prop.file", "test.properties"))
-    val config = Configuration(arg.get.propFile)
+    val config = Configuration(Utils.requireFile("test.properties"))
     assert(config.sourcePath.equals(new File(directory.getAbsolutePath)))
     assert(config.sinkPath.equals(new File(directory.getAbsolutePath)))
     assert(config.columnName sameElements Array[String]("ID", "KA", "KB", "KC"))
@@ -51,7 +52,7 @@ class ProcessPropertiesTest {
     assert(config.numPartitions.equals(15))
     assert(config.numReplicas.equals(1))
     assert(config.topicName.nonEmpty)
-    assert(config.topicParameters.isEmpty)
+    assert(config.topicConfig.isEmpty)
   }
 
   @Test def configuredTest(): Unit = {
@@ -62,11 +63,10 @@ class ProcessPropertiesTest {
     }
     prop.setProperty("topic.partitions", "30")
     prop.setProperty("topic.replicas", "3")
-    prop.setProperty("topic.parameters", "KA:VA,KB:VB")
+    prop.setProperty("topic.config", "KA:VA,KB:VB")
     prop.store(new FileOutputStream(file), null)
 
-    val arg = parseArgument(Array("--prop.file", "test.properties"))
-    val config = Configuration(arg.get.propFile)
+    val config = Configuration(Utils.requireFile("test.properties"))
     assert(config.sourcePath.equals(new File(directory.getAbsolutePath)))
     assert(config.sinkPath.equals(new File(directory.getAbsolutePath)))
     assert(config.columnName sameElements Array[String]("ID", "KA", "KB", "KC"))
@@ -75,7 +75,7 @@ class ProcessPropertiesTest {
     assert(config.numPartitions.equals(30))
     assert(config.numReplicas.equals(3))
     assert(config.topicName.equals("spark-1"))
-    assert(config.topicParameters.equals(Map("KA" -> "VA", "KB" -> "VB")))
+    assert(config.topicConfig.equals(Map("KA" -> "VA", "KB" -> "VB")))
   }
 
   @Test def requireNonidenticalTest(): Unit = {
@@ -93,6 +93,13 @@ class ProcessPropertiesTest {
     }
   }
 
+  @Test def topicParametersTest(): Unit = {
+    val map = "ID:KA,PP:KB,KC"
+    assertThrows[IllegalArgumentException] {
+      topicParameters(map)
+    }
+  }
+
   def testConfig(): Unit = {
     Try {
       val prop = new Properties
@@ -103,9 +110,9 @@ class ProcessPropertiesTest {
       prop.setProperty("primary.keys", "ID")
       prop.setProperty("kafka.bootstrap.servers", "0.0.0.0")
       prop.setProperty("topic.name", "spark-1")
-      prop.setProperty("topic.num.partitions", "")
-      prop.setProperty("topic.num.replicas", "")
-      prop.setProperty("topic.parameters", "")
+      prop.setProperty("topic.partitions", "")
+      prop.setProperty("topic.replicas", "")
+      prop.setProperty("topic.config", "")
       prop.store(new FileOutputStream(file), null)
     }
   }

@@ -26,14 +26,12 @@ repositories {
 
 def versions = [
         scala: project.properties['scala.version'] ?: "2.13.7",
-        scopt: project.properties['scopt.version'] ?: "4.1.0",
         junit: project.properties['junit.version'] ?: "5.8.2",
         scalatest: project.properties['scalatest.version'] ?: "3.1.1"
 ]
 
 dependencies {
     implementation "org.scala-lang:scala-library:${versions["scala"]}"
-    implementation "com.github.scopt:scopt_2.13:${versions["scopt"]}"
 
     testImplementation "org.scalatest:scalatest_2.13:${versions["scalatest"]}"
     testImplementation "org.junit.jupiter:junit-jupiter:${versions["junit"]}"

@@ -41,7 +41,7 @@ import scala.util.Using
   *   Set the number of topic partitions, if it is empty that will set it to 15.
   * @param numReplicas
   *   Set the number of topic replicas, if it is empty that will set it to 3.
-  * @param topicParameters
+  * @param topicConfig
   *   The rest of the topic can be configured parameters.For example:
   *   keyA:valueA,keyB:valueB,keyC:valueC...
   */
@@ -54,47 +54,73 @@ case class Configuration(
     topicName: String,
     numPartitions: Int,
     numReplicas: Int,
-    topicParameters: Map[String, String]
+    topicConfig: Map[String, String]
 )
 
 object Configuration {
-  val DEFAULT_PARTITIONS = 15
-  val DEFAULT_REPLICAS = 1
+  private[this] val SOURCE_PATH = "source.path"
+  private[this] val SINK_PATH = "sink.path"
+  private[this] val COLUMN_NAME = "column.name"
+  private[this] val PRIMARY_KEYS = "primary.keys"
+  private[this] val KAFKA_BOOTSTRAP_SERVERS = "kafka.bootstrap.servers"
+  private[this] val TOPIC_NAME = "topic.name"
+  private[this] val TOPIC_PARTITIONS = "topic.partitions"
+  private[this] val TOPIC_REPLICAS = "topic.replicas"
+  private[this] val TOPIC_CONFIG = "topic.config"
+
+  private[this] val DEFAULT_PARTITIONS = 15
+  private[this] val DEFAULT_REPLICAS = 1
 
   //Parameters needed to configure ETL.
-  def apply(path: String): Configuration = {
+  def apply(path: File): Configuration = {
     val properties = readProp(path).asScala.filter(_._2.nonEmpty).toMap
-    val column = requireNonidentical("column.name", properties)
-    Configuration(
-      Utils.requireFolder(
-        properties.getOrElse(
-          "source.path",
-          throw new NullPointerException("You must configure source path.")
-        )
-      ),
-      Utils.requireFolder(
-        properties.getOrElse(
-          "sink.path",
-          throw new NullPointerException("You must configure sink path.")
-        )
-      ),
-      column,
-      primaryKeys(properties, column),
-      //TODO check the format after linking Kafka
-      properties("kafka.bootstrap.servers"),
+
+    val sourcePath = Utils.requireFolder(
       properties.getOrElse(
-        "topic.name",
-        throw new NullPointerException("You must configure topic name.")
-      ),
-      properties
-        .get("topic.partitions")
-        .map(_.toInt)
-        .getOrElse(DEFAULT_PARTITIONS),
-      properties
-        .get("topic.replicas")
-        .map(_.toInt)
-        .getOrElse(DEFAULT_REPLICAS),
-      topicParameters(properties.getOrElse("topic.parameters", ""))
+        SOURCE_PATH,
+        throw new NullPointerException(
+          SOURCE_PATH + "is null." + "You must configure " + SOURCE_PATH
+        )
+      )
+    )
+    val sinkPath = Utils.requireFolder(
+      properties.getOrElse(
+        SINK_PATH,
+        throw new NullPointerException(
+          SINK_PATH + "is null." + "You must configure " + SINK_PATH
+        )
+      )
+    )
+    val column = requireNonidentical(COLUMN_NAME, properties)
+    val pKeys = primaryKeys(properties, column)
+    //TODO check the format after linking Kafka
+    val bootstrapServer = properties(KAFKA_BOOTSTRAP_SERVERS)
+    val topicName = properties.getOrElse(
+      TOPIC_NAME,
+      throw new NullPointerException(
+        TOPIC_NAME + "is null." + "You must configure " + TOPIC_NAME
+      )
+    )
+    val topicPartitions = properties
+      .get(TOPIC_PARTITIONS)
+      .map(_.toInt)
+      .getOrElse(DEFAULT_PARTITIONS)
+    val topicReplicas = properties
+      .get(TOPIC_REPLICAS)
+      .map(_.toInt)
+      .getOrElse(DEFAULT_REPLICAS)
+    val topicConfig = topicParameters(properties.getOrElse(TOPIC_CONFIG, ""))
+
+    Configuration(
+      sourcePath,
+      sinkPath,
+      column,
+      pKeys,
+      bootstrapServer,
+      topicName,
+      topicPartitions,
+      topicReplicas,
+      topicConfig
     )
   }
 
@@ -109,7 +135,7 @@ object Configuration {
         val pm = elem.split(":")
         if (pm.length != 2) {
           throw new IllegalArgumentException(
-            "The format of topic parameters is wrong.For example: keyA:valueA,keyB:valueB,keyC:valueC..."
+            "The" + elem + "format of topic parameters is wrong.For example: keyA:valueA,keyB:valueB,keyC:valueC..."
           )
         }
         paramArray = paramArray :+ pm
@@ -119,7 +145,7 @@ object Configuration {
       Map.empty[String, String]
   }
 
-  def readProp(path: String): Properties = {
+  private[this] def readProp(path: File): Properties = {
     val properties = new Properties()
     Using(scala.io.Source.fromFile(path)) { bufferedSource =>
       properties.load(bufferedSource.reader())
@@ -131,11 +157,17 @@ object Configuration {
       prop: Map[String, String],
       columnName: Array[String]
   ): Array[String] = {
-    val pk = "primary.keys";
-    val primaryKeys = requireNonidentical(pk, prop)
-    if ((primaryKeys ++ columnName).distinct.length != columnName.length)
+    val primaryKeys = requireNonidentical(PRIMARY_KEYS, prop)
+    val combine = primaryKeys ++ columnName
+    if (combine.distinct.length != columnName.length)
       throw new IllegalArgumentException(
-        "All" + pk + "should be included in the column."
+        "The " + combine
+          .diff(columnName)
+          .mkString(
+            PRIMARY_KEYS + "(",
+            ", ",
+            ")"
+          ) + " not in column. All " + PRIMARY_KEYS + " should be included in the column."
       )
     primaryKeys
   }
@@ -145,9 +177,16 @@ object Configuration {
       prop: Map[String, String]
   ): Array[String] = {
     val array = prop(string).split(",")
-    if (array.length != array.distinct.length)
+    val distinctArray = array.distinct
+    if (array.length != distinctArray.length)
       throw new IllegalArgumentException(
-        "The" + string + "should not be duplicated."
+        array
+          .diff(distinctArray)
+          .mkString(
+            string + " (",
+            ", ",
+            ")"
+          ) + " is duplication. The " + string + " should not be duplicated."
       )
     array
   }
