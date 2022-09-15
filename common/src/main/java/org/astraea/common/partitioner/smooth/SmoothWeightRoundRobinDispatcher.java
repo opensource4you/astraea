@@ -112,14 +112,17 @@ public class SmoothWeightRoundRobinDispatcher extends Periodic<Map<Integer, Doub
   }
 
   @Override
-  public void close() {
+  public void doClose() {
     receivers.values().forEach(r -> Utils.swallowException(r::close));
     receivers.clear();
   }
 
   @Override
-  public void configure(Map<String, ?> configs) {
-    var properties = PartitionerUtils.partitionerConfig(configs);
+  public void configure(Configuration configuration) {
+    var properties =
+        PartitionerUtils.partitionerConfig(
+            configuration.entrySet().stream()
+                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue)));
     var config =
         Configuration.of(
             properties.entrySet().stream()

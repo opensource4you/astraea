@@ -153,6 +153,10 @@ public final class Utils {
     return value;
   }
 
+  public static boolean notNegative(int value) {
+    return value >= 0;
+  }
+
   /**
    * check the content of string
    *
