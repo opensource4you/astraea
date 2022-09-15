@@ -42,7 +42,7 @@ public class BalanceProcessDemo {
           .usePlanExecutor(new StraightPlanExecutor())
           .useClusterCost(new ReplicaLeaderCost())
           .useTopicFilter(topic -> !argument.ignoredTopics.contains(topic))
-          .searchLimit(1000)
+          .searches(1000)
           .build()
           .offer()
           .execute(admin);

@@ -50,6 +50,13 @@ class BalancerBuilder {
   private Predicate<String> topicFilter = ignore -> true;
   private int searchLimit = 3000;
 
+  /**
+   * Specify the {@link RebalancePlanGenerator} for potential rebalance plan generation.
+   *
+   * @param generator the generator instance.
+   * @param admin the admin instance for retrieving cluster state information.
+   * @return this
+   */
   public BalancerBuilder usePlanGenerator(RebalancePlanGenerator generator, Admin admin) {
     return usePlanGenerator(
         generator,
@@ -61,6 +68,14 @@ class BalancerBuilder {
                     .collect(Collectors.toUnmodifiableSet())));
   }
 
+  /**
+   * Specify the {@link RebalancePlanGenerator} for potential rebalance plan generation.
+   *
+   * @param generator the generator instance
+   * @param logFolderSupplier the source for offering current log folder information.
+   * @param clusterInfoSupplier the source for offering current cluster info.
+   * @return this
+   */
   public BalancerBuilder usePlanGenerator(
       RebalancePlanGenerator generator,
       Supplier<Map<Integer, Set<String>>> logFolderSupplier,
@@ -71,43 +86,94 @@ class BalancerBuilder {
     return this;
   }
 
+  /**
+   * Specify the {@link RebalancePlanExecutor} for fulfilling a rebalance plan.
+   *
+   * @param executor the executor.
+   * @return this
+   */
   public BalancerBuilder usePlanExecutor(RebalancePlanExecutor executor) {
     this.planExecutor = executor;
     return this;
   }
 
+  /**
+   * Specify the cluster cost function to use. It implemented specific logic to evaluate if a
+   * rebalance plan is worth using at certain performance/resource usage aspect
+   *
+   * @param costFunction the cost function for evaluating potential rebalance plan.
+   * @return this
+   */
   public BalancerBuilder useClusterCost(HasClusterCost costFunction) {
     this.clusterCostFunction = costFunction;
     return this;
   }
 
+  /**
+   * Specify the movement cost function to use. It implemented specific logic to evaluate the
+   * performance/resource impact against the cluster if we adopt a given rebalance plan.
+   *
+   * @param costFunction the cost function for evaluating the impact of a rebalance plan to a
+   *     cluster.
+   * @return this
+   */
   public BalancerBuilder useMoveCost(HasMoveCost costFunction) {
     this.moveCostFunction = costFunction;
     return this;
   }
 
+  /**
+   * Specify the cluster cost constraint for any rebalance plan.
+   *
+   * @param clusterConstraint a {@link Predicate} to determine if the rebalance result is
+   *     acceptable.
+   * @return this
+   */
   public BalancerBuilder useClusterConstraint(Predicate<ClusterCost> clusterConstraint) {
     this.clusterConstraint = clusterConstraint;
     return this;
   }
 
+  /**
+   * Specify the movement cost constraint for any rebalance plan.
+   *
+   * @param moveConstraint a {@link Predicate} to determine if the rebalance result is acceptable.
+   * @return this
+   */
   public BalancerBuilder useMovementConstraint(Predicate<MoveCost> moveConstraint) {
     this.movementConstraint = moveConstraint;
     return this;
   }
 
+  /**
+   * Specify which topics can be rebalanced.
+   *
+   * @param topicFilter the filter for which topic can be used in rebalance process.
+   * @return this
+   */
   public BalancerBuilder useTopicFilter(Predicate<String> topicFilter) {
     this.topicFilter = topicFilter;
     return this;
   }
 
-  public BalancerBuilder searchLimit(int limit) {
+  /**
+   * Specify the number of rebalance plans for evaluation. A higher number means searching &
+   * evaluating more potential rebalance plans, which might lead to longer execution time.
+   *
+   * @param limit the number of rebalance for evaluation.
+   * @return this
+   */
+  public BalancerBuilder searches(int limit) {
     if (searchLimit <= 0)
       throw new IllegalArgumentException("invalid search limit: " + searchLimit);
     this.searchLimit = limit;
     return this;
   }
 
+  /**
+   * @return a {@link Balancer} that will offer rebalance plan based on the implementation detail
+   *     you specified.
+   */
   public Balancer build() {
     // sanity check
     Objects.requireNonNull(this.planGenerator);
