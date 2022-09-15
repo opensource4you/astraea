@@ -46,14 +46,14 @@ public class MetricsTestUtil {
     } else if (hasBeanObject instanceof HasHistogram) {
       testHistogram((HasHistogram) hasBeanObject);
     } else if (hasBeanObject instanceof HasGauge) {
-      testGauge((HasGauge) hasBeanObject);
+      testGauge((HasGauge<?>) hasBeanObject);
     } else {
       throw new UnsupportedOperationException(
           String.format("Not implement. %s", hasBeanObject.getClass()));
     }
   }
 
-  private static void testGauge(HasGauge hasGauge) {
+  private static void testGauge(HasGauge<?> hasGauge) {
     Assertions.assertDoesNotThrow(hasGauge::value);
   }
 
