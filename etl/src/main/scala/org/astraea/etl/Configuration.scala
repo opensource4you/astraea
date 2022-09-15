@@ -18,7 +18,6 @@ package org.astraea.etl
 
 import java.io.File
 import java.util.Properties
-import scala.collection.mutable.ArrayBuffer
 import scala.jdk.CollectionConverters._
 import scala.util.Using
 
