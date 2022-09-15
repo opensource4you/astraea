@@ -157,10 +157,10 @@ class BalancerBuilder {
   }
 
   /**
-   * Specify the number of rebalance plans for evaluation. A higher number means searching &
+   * Specify the maximum number of rebalance plans for evaluation. A higher number means searching &
    * evaluating more potential rebalance plans, which might lead to longer execution time.
    *
-   * @param limit the number of rebalance for evaluation.
+   * @param limit the maximum number of rebalance plan for evaluation.
    * @return this
    */
   public BalancerBuilder searches(int limit) {
