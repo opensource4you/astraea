@@ -97,6 +97,10 @@ public interface TrackerThread extends AbstractThread {
     private final Supplier<List<Report>> reportSupplier;
     private long lastRecords = 0;
 
+    ConsumerPrinter() {
+      this(Report::consumers);
+    }
+
     ConsumerPrinter(Supplier<List<Report>> reportSupplier) {
       this.reportSupplier = reportSupplier;
     }
@@ -154,11 +158,10 @@ public interface TrackerThread extends AbstractThread {
     }
   }
 
-  static TrackerThread create(
-      Supplier<Boolean> producersDone, Supplier<List<Report>> consumerReporter) {
+  static TrackerThread create(Supplier<Boolean> producersDone, Supplier<Boolean> consumersDone) {
     var closed = new AtomicBoolean(false);
     var latch = new CountDownLatch(1);
-    CompletableFuture.runAsync(trackerLoop(closed::get, producersDone, consumerReporter))
+    CompletableFuture.runAsync(trackerLoop(closed::get, producersDone, consumersDone))
         .whenComplete((m, e) -> latch.countDown());
 
     return new TrackerThread() {
@@ -182,13 +185,11 @@ public interface TrackerThread extends AbstractThread {
   }
 
   static Runnable trackerLoop(
-      Supplier<Boolean> closed,
-      Supplier<Boolean> producersDone,
-      Supplier<List<Report>> consumerReports) {
+      Supplier<Boolean> closed, Supplier<Boolean> producersDone, Supplier<Boolean> consumersDone) {
     var start = System.currentTimeMillis();
     return () -> {
       var producerPrinter = new ProducerPrinter();
-      var consumerPrinter = new ConsumerPrinter(consumerReports);
+      var consumerPrinter = new ConsumerPrinter();
       while (!closed.get()) {
         var duration = Duration.ofMillis(System.currentTimeMillis() - start);
         System.out.println();
@@ -202,8 +203,7 @@ public interface TrackerThread extends AbstractThread {
                 + "sec");
         producerPrinter.tryToPrint(duration);
         consumerPrinter.tryToPrint(duration);
-        if (producersDone.get() && consumerReports.get().stream().allMatch(Report::isClosed))
-          return;
+        if (producersDone.get() && consumersDone.get()) return;
         // Log after waiting for one second
         Utils.sleep(Duration.ofSeconds(1));
       }

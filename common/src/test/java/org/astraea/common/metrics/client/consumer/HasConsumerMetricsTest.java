@@ -51,7 +51,7 @@ public class HasConsumerMetricsTest extends RequireSingleBrokerCluster {
             .build()) {
       Assertions.assertEquals(10, consumer.poll(10, Duration.ofSeconds(5)).size());
       consumer.commitOffsets(Duration.ofSeconds(2));
-      var metrics = ConsumerMetrics.consumer(MBeanClient.local());
+      var metrics = ConsumerMetrics.of(MBeanClient.local());
       Assertions.assertEquals(1, metrics.size());
       var m = metrics.iterator().next();
       Assertions.assertNotNull(m.clientId());

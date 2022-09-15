@@ -17,7 +17,6 @@
 package org.astraea.app.performance;
 
 import java.util.List;
-import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.astraea.common.metrics.MBeanClient;
 import org.astraea.common.metrics.client.consumer.ConsumerMetrics;
@@ -32,6 +31,40 @@ public interface Report {
         ConsumerMetrics.fetches(client).stream()
             .mapToDouble(HasConsumerFetchMetrics::recordsConsumedTotal)
             .sum();
+  }
+
+  static List<Report> consumers() {
+
+    return ConsumerMetrics.fetches(MBeanClient.local()).stream()
+        .map(
+            m ->
+                new Report() {
+                  @Override
+                  public long records() {
+                    return (long) m.recordsConsumedTotal();
+                  }
+
+                  @Override
+                  public long maxLatency() {
+                    return (long) m.fetchLatencyMax();
+                  }
+
+                  @Override
+                  public double avgLatency() {
+                    return (long) m.fetchLatencyAvg();
+                  }
+
+                  @Override
+                  public long totalBytes() {
+                    return (long) m.bytesConsumedTotal();
+                  }
+
+                  @Override
+                  public String clientId() {
+                    return m.clientId();
+                  }
+                })
+        .collect(Collectors.toList());
   }
 
   static List<Report> producers() {
@@ -60,17 +93,9 @@ public interface Report {
                   }
 
                   @Override
-                  public boolean isClosed() {
-                    return false;
-                  }
-
-                  @Override
                   public String clientId() {
                     return m.clientId();
                   }
-
-                  @Override
-                  public void record(long latency, int bytes) {}
                 })
         .collect(Collectors.toList());
   }
@@ -86,60 +111,5 @@ public interface Report {
   /** @return total send/received bytes */
   long totalBytes();
 
-  boolean isClosed();
-
   String clientId();
-
-  void record(long latency, int bytes);
-
-  static Report of(String clientId, Supplier<Boolean> isClosed) {
-    return new Report() {
-
-      private double avgLatency = 0;
-      private long records = 0;
-      private long max = 0;
-      private long totalBytes = 0;
-
-      @Override
-      public synchronized void record(long latency, int bytes) {
-        ++records;
-        max = Math.max(max, latency);
-        avgLatency += (((double) latency) - avgLatency) / (double) records;
-        totalBytes += bytes;
-      }
-
-      /** @return Get the number of records. */
-      @Override
-      public synchronized long records() {
-        return records;
-      }
-      /** @return Get the maximum of latency put. */
-      @Override
-      public synchronized long maxLatency() {
-        return max;
-      }
-
-      /** @return Get the average latency. */
-      @Override
-      public synchronized double avgLatency() {
-        return avgLatency;
-      }
-
-      /** @return total send/received bytes */
-      @Override
-      public synchronized long totalBytes() {
-        return totalBytes;
-      }
-
-      @Override
-      public boolean isClosed() {
-        return isClosed.get();
-      }
-
-      @Override
-      public String clientId() {
-        return clientId;
-      }
-    };
-  }
 }
