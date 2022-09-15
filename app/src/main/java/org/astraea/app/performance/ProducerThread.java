@@ -26,16 +26,16 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-import org.astraea.app.common.Utils;
-import org.astraea.app.producer.Producer;
+import org.astraea.common.Utils;
+import org.astraea.common.admin.TopicPartition;
+import org.astraea.common.producer.Producer;
 
 public interface ProducerThread extends AbstractThread {
 
   static List<ProducerThread> create(
-      List<String> topics,
       int batchSize,
       DataSupplier dataSupplier,
-      Supplier<Integer> partitionSupplier,
+      Supplier<TopicPartition> topicPartitionSupplier,
       int producers,
       Supplier<Producer<byte[], byte[]>> producerSupplier) {
     if (producers <= 0) return List.of();
@@ -57,16 +57,13 @@ public interface ProducerThread extends AbstractThread {
     return IntStream.range(0, producers)
         .mapToObj(
             index -> {
-              var report = new Report();
               var closeLatch = closeLatches.get(index);
               var closed = new AtomicBoolean(false);
+              var producer = producerSupplier.get();
               executors.execute(
                   () -> {
-                    try (var producer = producerSupplier.get()) {
-                      var topicIndex = 0;
+                    try {
                       while (!closed.get()) {
-                        topicIndex = Math.abs(topicIndex) % topics.size();
-                        var topic = topics.get(topicIndex);
                         var data =
                             IntStream.range(0, batchSize)
                                 .mapToObj(i -> dataSupplier.get())
@@ -81,34 +78,23 @@ public interface ProducerThread extends AbstractThread {
                           Utils.sleep(Duration.ofSeconds(1));
                           continue;
                         }
-                        producer
-                            .send(
-                                data.stream()
-                                    .filter(DataSupplier.Data::hasData)
-                                    .map(
-                                        d ->
-                                            producer
-                                                .sender()
-                                                .topic(topic)
-                                                .partition(partitionSupplier.get())
-                                                .key(d.key())
-                                                .value(d.value())
-                                                .timestamp(System.currentTimeMillis()))
-                                    .collect(Collectors.toList()))
-                            .forEach(
-                                future ->
-                                    future.whenComplete(
-                                        (m, e) ->
-                                            report.record(
-                                                m.topic(),
-                                                m.partition(),
-                                                m.offset(),
-                                                System.currentTimeMillis() - m.timestamp(),
-                                                m.serializedValueSize() + m.serializedKeySize())));
-                        topicIndex += 1;
+                        producer.send(
+                            data.stream()
+                                .filter(DataSupplier.Data::hasData)
+                                .map(
+                                    d ->
+                                        producer
+                                            .sender()
+                                            .topicPartition(topicPartitionSupplier.get())
+                                            .key(d.key())
+                                            .value(d.value())
+                                            .timestamp(System.currentTimeMillis()))
+                                .collect(Collectors.toList()));
                       }
                     } finally {
+                      Utils.swallowException(producer::close);
                       closeLatch.countDown();
+                      closed.set(true);
                     }
                   });
               return new ProducerThread() {
@@ -124,11 +110,6 @@ public interface ProducerThread extends AbstractThread {
                 }
 
                 @Override
-                public Report report() {
-                  return report;
-                }
-
-                @Override
                 public void close() {
                   closed.set(true);
                   waitForDone();
@@ -137,9 +118,4 @@ public interface ProducerThread extends AbstractThread {
             })
         .collect(Collectors.toUnmodifiableList());
   }
-
-  /** @return report of this thread */
-  Report report();
-
-  class Report extends org.astraea.app.performance.Report.Impl {}
 }

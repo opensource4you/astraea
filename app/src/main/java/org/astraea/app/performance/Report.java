@@ -16,100 +16,130 @@
  */
 package org.astraea.app.performance;
 
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
-import org.astraea.app.admin.TopicPartition;
+import org.astraea.common.metrics.MBeanClient;
+import org.astraea.common.metrics.client.consumer.ConsumerMetrics;
+import org.astraea.common.metrics.client.consumer.HasConsumerFetchMetrics;
+import org.astraea.common.metrics.client.producer.ProducerMetrics;
 
 public interface Report {
 
-  /**
-   * find the max offset from reports
-   *
-   * @param reports to search offsets
-   * @return topic partition and its max offset
-   */
-  static Map<TopicPartition, Long> maxOffsets(List<? extends Report> reports) {
-    return reports.stream()
-        .flatMap(r -> r.maxOffsets().entrySet().stream())
-        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue, Math::max, HashMap::new));
+  static long recordsConsumedTotal() {
+    var client = MBeanClient.local();
+    return (long)
+        ConsumerMetrics.fetches(client).stream()
+            .mapToDouble(HasConsumerFetchMetrics::recordsConsumedTotal)
+            .sum();
+  }
+
+  static List<Report> producers() {
+    return ProducerMetrics.of(MBeanClient.local()).stream()
+        .map(
+            m ->
+                new Report() {
+                  @Override
+                  public long records() {
+                    return (long) m.recordSendTotal();
+                  }
+
+                  @Override
+                  public long maxLatency() {
+                    return (long) m.requestLatencyMax();
+                  }
+
+                  @Override
+                  public double avgLatency() {
+                    return (long) m.requestLatencyAvg();
+                  }
+
+                  @Override
+                  public long totalBytes() {
+                    return (long) m.outgoingByteTotal();
+                  }
+
+                  @Override
+                  public boolean isClosed() {
+                    return false;
+                  }
+
+                  @Override
+                  public String clientId() {
+                    return m.clientId();
+                  }
+
+                  @Override
+                  public void record(long latency, int bytes) {}
+                })
+        .collect(Collectors.toList());
   }
 
   /** @return Get the number of records. */
   long records();
   /** @return Get the maximum of latency put. */
-  long max();
-  /** @return Get the minimum of latency put. */
-  long min();
+  long maxLatency();
+
   /** @return Get the average latency. */
   double avgLatency();
 
   /** @return total send/received bytes */
   long totalBytes();
 
-  long offset(TopicPartition tp);
+  boolean isClosed();
 
-  Map<TopicPartition, Long> maxOffsets();
+  String clientId();
 
-  class Impl implements Report {
+  void record(long latency, int bytes);
 
-    private double avgLatency = 0;
-    private long records = 0;
-    private long max = 0;
-    private long min = Long.MAX_VALUE;
-    private long totalBytes = 0;
+  static Report of(String clientId, Supplier<Boolean> isClosed) {
+    return new Report() {
 
-    private final Map<TopicPartition, Long> currentOffsets = new HashMap<>();
+      private double avgLatency = 0;
+      private long records = 0;
+      private long max = 0;
+      private long totalBytes = 0;
 
-    /** Simultaneously add latency and bytes. */
-    public synchronized void record(
-        String topic, int partition, long offset, long latency, int bytes) {
-      ++records;
-      min = Math.min(min, latency);
-      max = Math.max(max, latency);
-      avgLatency += (((double) latency) - avgLatency) / (double) records;
-      totalBytes += bytes;
-      var tp = TopicPartition.of(topic, partition);
-      currentOffsets.put(tp, Math.max(offset, offset(tp)));
-    }
+      @Override
+      public synchronized void record(long latency, int bytes) {
+        ++records;
+        max = Math.max(max, latency);
+        avgLatency += (((double) latency) - avgLatency) / (double) records;
+        totalBytes += bytes;
+      }
 
-    /** @return Get the number of records. */
-    @Override
-    public synchronized long records() {
-      return records;
-    }
-    /** @return Get the maximum of latency put. */
-    @Override
-    public synchronized long max() {
-      return max;
-    }
-    /** @return Get the minimum of latency put. */
-    @Override
-    public synchronized long min() {
-      return min;
-    }
+      /** @return Get the number of records. */
+      @Override
+      public synchronized long records() {
+        return records;
+      }
+      /** @return Get the maximum of latency put. */
+      @Override
+      public synchronized long maxLatency() {
+        return max;
+      }
 
-    /** @return Get the average latency. */
-    @Override
-    public synchronized double avgLatency() {
-      return avgLatency;
-    }
+      /** @return Get the average latency. */
+      @Override
+      public synchronized double avgLatency() {
+        return avgLatency;
+      }
 
-    /** @return total send/received bytes */
-    @Override
-    public synchronized long totalBytes() {
-      return totalBytes;
-    }
+      /** @return total send/received bytes */
+      @Override
+      public synchronized long totalBytes() {
+        return totalBytes;
+      }
 
-    @Override
-    public synchronized long offset(TopicPartition tp) {
-      return currentOffsets.getOrDefault(tp, 0L);
-    }
+      @Override
+      public boolean isClosed() {
+        return isClosed.get();
+      }
 
-    @Override
-    public synchronized Map<TopicPartition, Long> maxOffsets() {
-      return Map.copyOf(currentOffsets);
-    }
+      @Override
+      public String clientId() {
+        return clientId;
+      }
+    };
   }
 }

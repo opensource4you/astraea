@@ -18,8 +18,10 @@ package org.astraea.app.performance;
 
 import java.time.Duration;
 import java.util.List;
-import org.astraea.app.common.Utils;
-import org.astraea.app.metrics.client.HasNodeMetrics;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicBoolean;
+import org.astraea.common.Utils;
+import org.astraea.common.metrics.client.HasNodeMetrics;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
@@ -27,51 +29,32 @@ import org.mockito.Mockito;
 public class TrackerTest {
 
   @Test
-  void testClose() {
-    var tracker = TrackerThread.create(() -> List.of(), () -> List.of(), ExeTime.of("1records"));
-    Assertions.assertFalse(tracker.closed());
-    tracker.close();
-    Assertions.assertTrue(tracker.closed());
-  }
-
-  @Test
-  void testZeroConsumer() {
-    var producerReport = new ProducerThread.Report();
-    var tracker =
-        TrackerThread.create(
-            () -> List.of(producerReport), () -> List.of(), ExeTime.of("1records"));
-    Assertions.assertFalse(tracker.closed());
-    producerReport.record("topic", 1, 100, 1L, 1);
-    // wait to done
+  void testEmptyReports() {
+    var tracker = TrackerThread.create(() -> true, List::of);
     Utils.sleep(Duration.ofSeconds(2));
     Assertions.assertTrue(tracker.closed());
   }
 
   @Test
-  void testExeTime() {
-    var producerReport = new ProducerThread.Report();
-    var consumerReport = new ConsumerThread.Report("xxx");
-    var tracker =
-        TrackerThread.create(
-            () -> List.of(producerReport), () -> List.of(consumerReport), ExeTime.of("2s"));
+  void testCloseConsumer() {
+    var closed = new AtomicBoolean(false);
+    var tracker = TrackerThread.create(() -> true, () -> List.of(Report.of("c", closed::get)));
     Assertions.assertFalse(tracker.closed());
-    producerReport.record("topic", 1, 100, 1L, 1);
-    consumerReport.record("topic", 1, 100, 1L, 1);
-    Utils.sleep(Duration.ofSeconds(3));
+    closed.set(true);
+    Utils.sleep(Duration.ofSeconds(2));
     Assertions.assertTrue(tracker.closed());
   }
 
   @Test
-  void testConsumerAndProducer() {
-    var producerReport = new ProducerThread.Report();
-    var consumerReport = new ConsumerThread.Report("xxx");
-    var tracker =
-        TrackerThread.create(
-            () -> List.of(producerReport), () -> List.of(consumerReport), ExeTime.of("1records"));
+  void testPartialClose() {
+    var closed0 = new AtomicBoolean(false);
+    var closed1 = new AtomicBoolean(false);
+    var tracker = TrackerThread.create(closed0::get, () -> List.of(Report.of("c", closed1::get)));
     Assertions.assertFalse(tracker.closed());
-    producerReport.record("topic", 1, 100, 1L, 1);
-    consumerReport.record("topic", 1, 100, 1L, 1);
-    // wait to done
+    closed0.set(true);
+    Utils.sleep(Duration.ofSeconds(2));
+    Assertions.assertFalse(tracker.closed());
+    closed1.set(true);
     Utils.sleep(Duration.ofSeconds(2));
     Assertions.assertTrue(tracker.closed());
   }
@@ -88,5 +71,43 @@ public class TrackerTest {
         5D,
         TrackerThread.sumOfAttribute(
             List.of(hasNodeMetrics, hasNodeMetrics2), HasNodeMetrics::incomingByteTotal));
+  }
+
+  @Test
+  void testTrackerThread() {
+    var producerClosed = new AtomicBoolean(false);
+    var consumerClosed = new AtomicBoolean(false);
+    var closed = new AtomicBoolean(false);
+    var f =
+        CompletableFuture.runAsync(
+            TrackerThread.trackerLoop(
+                closed::get,
+                producerClosed::get,
+                () -> List.of(Report.of("c", consumerClosed::get))));
+    Assertions.assertFalse(f.isDone());
+    producerClosed.set(true);
+    Utils.sleep(Duration.ofSeconds(2));
+    Assertions.assertFalse(f.isDone());
+    consumerClosed.set(true);
+    Utils.sleep(Duration.ofSeconds(2));
+    Assertions.assertTrue(f.isDone());
+  }
+
+  @Test
+  void testProducerPrinter() {
+    var report = Report.of("c", () -> false);
+    var printer = new TrackerThread.ProducerPrinter(() -> List.of(report));
+    Assertions.assertFalse(printer.tryToPrint(Duration.ofSeconds(1)));
+    report.record(10, 100);
+    Assertions.assertTrue(printer.tryToPrint(Duration.ofSeconds(1)));
+  }
+
+  @Test
+  void testConsumerPrinter() {
+    var report = Report.of("c", () -> false);
+    var printer = new TrackerThread.ConsumerPrinter(() -> List.of(report));
+    Assertions.assertFalse(printer.tryToPrint(Duration.ofSeconds(1)));
+    report.record(10, 100);
+    Assertions.assertTrue(printer.tryToPrint(Duration.ofSeconds(1)));
   }
 }

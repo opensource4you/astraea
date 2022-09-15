@@ -46,7 +46,7 @@ WORKDIR /astraea
 RUN git clone https://github.com/skiptests/astraea.git /astraea
 RUN ./gradlew clean build -x test
 # trigger download of database
-RUN ./gradlew cleanTest app:test --tests DatabaseTest
+RUN ./gradlew cleanTest it:test --tests DatabaseTest
 
 WORKDIR /root
 " >"$DOCKERFILE"
