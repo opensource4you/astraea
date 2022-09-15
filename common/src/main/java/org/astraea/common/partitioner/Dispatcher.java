@@ -86,14 +86,12 @@ public interface Dispatcher extends Partitioner {
    * @param producer Kafka producer
    */
   static void endInterdependent(Producer<Key, Value> producer) {
-    THREAD_LOCAL.get().targetPartitions = -1;
-    THREAD_LOCAL.get().isInterdependent = false;
+    THREAD_LOCAL.remove();
   }
 
   /** close this dispatcher. This method is executed only once. */
   @Override
   default void close() {
-    THREAD_LOCAL.remove();
     doClose();
   }
 
@@ -118,7 +116,7 @@ public interface Dispatcher extends Partitioner {
             valueBytes == null ? new byte[0] : valueBytes,
             CLUSTER_CACHE.computeIfAbsent(cluster, ignored -> ClusterInfo.of(cluster)));
     interdependent.targetPartitions = target;
-    return interdependent.isInterdependent ? interdependent.targetPartitions : target;
+    return target;
   }
 
   @Override

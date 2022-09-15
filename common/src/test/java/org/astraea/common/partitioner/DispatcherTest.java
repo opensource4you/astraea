@@ -99,9 +99,8 @@ public class DispatcherTest extends RequireSingleBrokerCluster {
 
   @Test
   void multipleThreadTest() {
-    var admin = Admin.of(bootstrapServers());
     var topicName = "address";
-    admin.creator().topic(topicName).numberOfPartitions(9).create();
+    createTopic(topicName);
     var key = "tainan";
     var value = "shanghai";
     var timestamp = System.currentTimeMillis() + 10;
@@ -149,9 +148,8 @@ public class DispatcherTest extends RequireSingleBrokerCluster {
 
   @Test
   void interdependentTest() {
-    var admin = Admin.of(bootstrapServers());
     var topicName = "address";
-    admin.creator().topic(topicName).numberOfPartitions(9).create();
+    createTopic(topicName);
     var key = "tainan";
     var value = "shanghai";
     var timestamp = System.currentTimeMillis() + 10;
@@ -209,6 +207,12 @@ public class DispatcherTest extends RequireSingleBrokerCluster {
     }
   }
 
+  private void createTopic(String topic) {
+    try (var admin = Admin.of(bootstrapServers())) {
+      admin.creator().topic(topic).numberOfPartitions(9).create();
+    }
+  }
+
   private Metadata producerSend(
       Producer<String, byte[]> producer,
       String topicName,
@@ -234,7 +238,7 @@ public class DispatcherTest extends RequireSingleBrokerCluster {
 
   @SuppressWarnings("unchecked")
   private org.apache.kafka.clients.producer.Producer<Key, Value> instanceOfProducer(Object object) {
-    var producer = Utils.reflectionAttribute(object, "kafkaProducer");
+    var producer = Utils.member(object, "kafkaProducer");
     return producer instanceof org.apache.kafka.clients.producer.Producer
         ? (org.apache.kafka.clients.producer.Producer<Key, Value>) producer
         : null;

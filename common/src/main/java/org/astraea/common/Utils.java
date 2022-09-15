@@ -146,29 +146,6 @@ public final class Utils {
   }
 
   /**
-   * reflection class attribute
-   *
-   * @param object object
-   * @param attribute attribute name
-   * @return attribute
-   */
-  public static Object reflectionAttribute(Object object, String attribute) {
-    var clz = object.getClass();
-    do {
-      try {
-        var field = clz.getDeclaredField(attribute);
-        field.setAccessible(true);
-        return field.get(object);
-      } catch (NoSuchFieldException e) {
-        clz = clz.getSuperclass();
-      } catch (IllegalAccessException e) {
-        throw new RuntimeException(e);
-      }
-    } while (clz != null);
-    throw new RuntimeException(attribute + " is not existent in " + object.getClass().getName());
-  }
-
-  /**
    * check the content of string
    *
    * @param value to check
