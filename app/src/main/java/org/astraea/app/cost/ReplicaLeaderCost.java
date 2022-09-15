@@ -90,45 +90,11 @@ public class ReplicaLeaderCost implements HasBrokerCost, HasClusterCost, HasMove
   @Override
   public MoveCost moveCost(
       ClusterInfo<Replica> before, ClusterInfo<Replica> after, ClusterBean clusterBean) {
-    var removedReplicas = ClusterInfo.diff(before, after);
-    var addedReplicas = ClusterInfo.diff(after, before);
-    var migrateInfo = migrateInfo(removedReplicas, addedReplicas);
-    var leaderNumChanges = migrateInfo.replicaNumChange;
-    var totalLeaderNum = migrateInfo.totalMigrateNum;
-    return new MoveCost() {
-      @Override
-      public String name() {
-        return "replica number";
-      }
-
-      @Override
-      public long totalCost() {
-        return totalLeaderNum;
-      }
-
-      @Override
-      public String unit() {
-        return "byte";
-      }
-
-      @Override
-      public Map<Integer, Long> changes() {
-        return leaderNumChanges;
-      }
-    };
+    return MoveCostUtils.moveCost(
+        "replica Leader", "number", before, after, ReplicaLeaderCost::migrateInfo);
   }
 
-  static class MigrateInfo {
-    long totalMigrateNum;
-    Map<Integer, Long> replicaNumChange;
-
-    MigrateInfo(long totalMigrateNum, Map<Integer, Long> replicaNumChange) {
-      this.totalMigrateNum = totalMigrateNum;
-      this.replicaNumChange = replicaNumChange;
-    }
-  }
-
-  static MigrateInfo migrateInfo(
+  static MoveCostUtils.MigrateInfo migrateInfo(
       Collection<Replica> removedReplicas, Collection<Replica> addedReplicas) {
     var changes = new HashMap<Integer, Long>();
     AtomicLong totalMigrateNum = new AtomicLong(0L);
@@ -148,6 +114,6 @@ public class ReplicaLeaderCost implements HasBrokerCost, HasClusterCost, HasMove
                   return (size == null) ? 1 : size + 1;
                 });
         });
-    return new MigrateInfo(totalMigrateNum.get(), changes);
+    return new MoveCostUtils.MigrateInfo(totalMigrateNum.get(), changes);
   }
 }
