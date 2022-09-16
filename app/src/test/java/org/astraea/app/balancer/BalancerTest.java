@@ -64,12 +64,12 @@ class BalancerTest extends RequireBrokerCluster {
       for (int i = 0; i < 3; i++) {
         try {
           Balancer.builder()
-              .usePlanGenerator(new ShufflePlanGenerator(1, 10), admin)
+              .usePlanGenerator(new ShufflePlanGenerator(1, 10))
               .usePlanExecutor(new StraightPlanExecutor())
               .useClusterCost(new ReplicaLeaderCost())
               .searches(1000)
               .build()
-              .offer()
+              .offer(admin.clusterInfo(), admin.brokerFolders())
               .execute(admin);
         } catch (Exception e) {
           System.err.println(e.getMessage());
@@ -106,15 +106,16 @@ class BalancerTest extends RequireBrokerCluster {
             }
           };
 
+      var clusterInfo = admin.clusterInfo();
+      var brokerFolders = admin.brokerFolders();
       var newAllocation =
           Balancer.builder()
-              .usePlanGenerator(new ShufflePlanGenerator(50, 100), admin)
+              .usePlanGenerator(new ShufflePlanGenerator(50, 100))
               .usePlanExecutor(new StraightPlanExecutor())
               .useClusterCost(randomScore)
-              .useTopicFilter(topic -> topic.equals(theTopic))
               .searches(500)
               .build()
-              .offer()
+              .offer(clusterInfo, t -> t.equals(theTopic), brokerFolders)
               .proposal
               .rebalancePlan();
 

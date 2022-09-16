@@ -21,6 +21,7 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -65,6 +66,28 @@ public interface ClusterInfo<T extends ReplicaInfo> {
                                 && r.topic().equals(beforeReplica.topic())
                                 && r.dataFolder().equals(beforeReplica.dataFolder())))
         .collect(Collectors.toSet());
+  }
+
+  /** Mask specific topics from a {@link ClusterInfo}. */
+  static <T extends ReplicaInfo> ClusterInfo<T> masked(
+      ClusterInfo<T> clusterInfo, Predicate<String> topicFilter) {
+    final var nodes = List.copyOf(clusterInfo.nodes());
+    final var replicas =
+        clusterInfo
+            .replicaStream()
+            .filter(replica -> topicFilter.test(replica.topic()))
+            .collect(Collectors.toList());
+    return new ClusterInfo<T>() {
+      @Override
+      public List<NodeInfo> nodes() {
+        return nodes;
+      }
+
+      @Override
+      public Stream<T> replicaStream() {
+        return replicas.stream();
+      }
+    };
   }
 
   @SuppressWarnings("unchecked")

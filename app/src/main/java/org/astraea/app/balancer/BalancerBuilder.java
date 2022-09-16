@@ -17,20 +17,14 @@
 package org.astraea.app.balancer;
 
 import java.util.Comparator;
-import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
-import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
-import java.util.stream.Collectors;
 import org.astraea.app.balancer.executor.RebalancePlanExecutor;
 import org.astraea.app.balancer.generator.RebalancePlanGenerator;
 import org.astraea.app.balancer.log.ClusterLogAllocation;
-import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
-import org.astraea.common.admin.Replica;
 import org.astraea.common.cost.ClusterCost;
 import org.astraea.common.cost.HasClusterCost;
 import org.astraea.common.cost.HasMoveCost;
@@ -39,8 +33,6 @@ import org.astraea.common.cost.MoveCost;
 class BalancerBuilder {
 
   private RebalancePlanGenerator planGenerator;
-  private Supplier<Map<Integer, Set<String>>> freshBrokerFolders;
-  private Function<Predicate<String>, ClusterInfo<Replica>> freshLogAllocation;
   private final Supplier<ClusterBean> freshClusterBean = () -> ClusterBean.EMPTY;
   private RebalancePlanExecutor planExecutor;
   private HasClusterCost clusterCostFunction;
@@ -54,35 +46,10 @@ class BalancerBuilder {
    * Specify the {@link RebalancePlanGenerator} for potential rebalance plan generation.
    *
    * @param generator the generator instance.
-   * @param admin the admin instance for retrieving cluster state information.
    * @return this
    */
-  public BalancerBuilder usePlanGenerator(RebalancePlanGenerator generator, Admin admin) {
-    return usePlanGenerator(
-        generator,
-        admin::brokerFolders,
-        (topicFilter) ->
-            admin.clusterInfo(
-                admin.topicNames(false).stream()
-                    .filter(topicFilter)
-                    .collect(Collectors.toUnmodifiableSet())));
-  }
-
-  /**
-   * Specify the {@link RebalancePlanGenerator} for potential rebalance plan generation.
-   *
-   * @param generator the generator instance
-   * @param logFolderSupplier the source for offering current log folder information.
-   * @param clusterInfoSupplier the source for offering current cluster info.
-   * @return this
-   */
-  public BalancerBuilder usePlanGenerator(
-      RebalancePlanGenerator generator,
-      Supplier<Map<Integer, Set<String>>> logFolderSupplier,
-      Function<Predicate<String>, ClusterInfo<Replica>> clusterInfoSupplier) {
+  public BalancerBuilder usePlanGenerator(RebalancePlanGenerator generator) {
     this.planGenerator = generator;
-    this.freshBrokerFolders = logFolderSupplier;
-    this.freshLogAllocation = clusterInfoSupplier;
     return this;
   }
 
@@ -146,17 +113,6 @@ class BalancerBuilder {
   }
 
   /**
-   * Specify which topics can be rebalanced.
-   *
-   * @param topicFilter the filter for which topic can be used in rebalance process.
-   * @return this
-   */
-  public BalancerBuilder useTopicFilter(Predicate<String> topicFilter) {
-    this.topicFilter = topicFilter;
-    return this;
-  }
-
-  /**
    * Specify the maximum number of rebalance plans for evaluation. A higher number means searching &
    * evaluating more potential rebalance plans, which might lead to longer execution time.
    *
@@ -178,8 +134,6 @@ class BalancerBuilder {
     // sanity check
     Objects.requireNonNull(this.planGenerator);
     Objects.requireNonNull(this.planExecutor);
-    Objects.requireNonNull(this.freshBrokerFolders);
-    Objects.requireNonNull(this.freshLogAllocation);
     Objects.requireNonNull(this.freshClusterBean);
     Objects.requireNonNull(this.clusterCostFunction);
     Objects.requireNonNull(this.moveCostFunction);
@@ -187,15 +141,14 @@ class BalancerBuilder {
     Objects.requireNonNull(this.movementConstraint);
     Objects.requireNonNull(this.topicFilter);
 
-    return () -> {
-      final var generatorClusterInfo = freshLogAllocation.apply(topicFilter);
-      final var currentClusterInfo = freshLogAllocation.apply(ignore -> true);
+    return (currentClusterInfo, topicFilter, brokerFolders) -> {
       final var currentClusterBean = freshClusterBean.get();
       final var currentCostScore =
           clusterCostFunction.clusterCost(currentClusterInfo, currentClusterBean);
+      final var generatorClusterInfo = ClusterInfo.masked(currentClusterInfo, topicFilter);
 
       return planGenerator
-          .generate(freshBrokerFolders.get(), ClusterLogAllocation.of(generatorClusterInfo))
+          .generate(brokerFolders, ClusterLogAllocation.of(generatorClusterInfo))
           .parallel()
           .limit(searchLimit)
           .map(

@@ -16,16 +16,29 @@
  */
 package org.astraea.app.balancer;
 
+import java.util.Map;
+import java.util.Set;
+import java.util.function.Predicate;
 import org.astraea.app.balancer.executor.RebalanceAdmin;
 import org.astraea.app.balancer.executor.RebalancePlanExecutor;
 import org.astraea.common.admin.Admin;
+import org.astraea.common.admin.ClusterInfo;
+import org.astraea.common.admin.Replica;
 import org.astraea.common.cost.ClusterCost;
 import org.astraea.common.cost.MoveCost;
 
 public interface Balancer {
 
   /** @return a rebalance plan */
-  Plan offer();
+  default Plan offer(ClusterInfo<Replica> clusterInfo, Map<Integer, Set<String>> brokerFolders) {
+    return offer(clusterInfo, ignore -> true, brokerFolders);
+  }
+
+  /** @return a rebalance plan */
+  Plan offer(
+      ClusterInfo<Replica> clusterInfo,
+      Predicate<String> topicFilter,
+      Map<Integer, Set<String>> brokerFolders);
 
   static BalancerBuilder builder() {
     return new BalancerBuilder();
