@@ -16,7 +16,10 @@
  */
 package org.astraea.common.metrics.broker;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Arrays;
 import java.util.List;
@@ -26,17 +29,122 @@ import org.astraea.common.Utils;
 import org.astraea.common.metrics.BeanObject;
 import org.astraea.common.metrics.MBeanClient;
 import org.astraea.common.metrics.MetricsTestUtil;
+import org.astraea.it.RequireSingleBrokerCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
-public class ServerMetricsTest {
+public class ServerMetricsTest extends RequireSingleBrokerCluster {
 
   @ParameterizedTest()
   @EnumSource(value = ServerMetrics.DelayedOperationPurgatory.class)
   void testPurgatorySize(ServerMetrics.DelayedOperationPurgatory request) {
-    request.fetch(MBeanClient.local()).forEach(MetricsTestUtil::validate);
+    var gauges = request.fetch(MBeanClient.local());
+    Assertions.assertFalse(gauges.isEmpty());
+    gauges.forEach(MetricsTestUtil::validate);
+  }
+
+  @ParameterizedTest()
+  @EnumSource(value = ServerMetrics.KafkaServer.class)
+  void testKafkaServer(ServerMetrics.KafkaServer request) {
+    MetricsTestUtil.validate(request.fetch(MBeanClient.local()));
+  }
+
+  @Test
+  void testKafkaServerOtherMetrics() {
+    MetricsTestUtil.validate(ServerMetrics.KafkaServer.clusterId(MBeanClient.local()));
+  }
+
+  @Test
+  void testSocketMetrics() {
+    var socketMetric = ServerMetrics.Socket.socket(MBeanClient.local());
+
+    assertDoesNotThrow(socketMetric::brokerConnectionAcceptRate);
+    assertDoesNotThrow(socketMetric::memoryPoolAvgDepletedPercent);
+    assertDoesNotThrow(socketMetric::memoryPoolDepletedTimeTotal);
+  }
+
+  @Test
+  void testSocketListenerMetrics() {
+    var socketListenerMetrics = ServerMetrics.Socket.socketListener(MBeanClient.local());
+    assertTrue(socketListenerMetrics.size() > 0);
+    socketListenerMetrics.forEach(
+        x -> {
+          assertNotNull(x.listener());
+
+          assertDoesNotThrow(x::connectionAcceptRate);
+          assertDoesNotThrow(x::connectionAcceptThrottleTime);
+          assertDoesNotThrow(x::ipConnectionAcceptThrottleTime);
+        });
+  }
+
+  @Test
+  void testSocketNetworkProcessorMetrics() {
+    var socketNetworkProcessorMetrics =
+        ServerMetrics.Socket.socketNetworkProcessor(MBeanClient.local());
+    assertTrue(socketNetworkProcessorMetrics.size() > 0);
+    socketNetworkProcessorMetrics.forEach(
+        x -> {
+          assertNotNull(x.listener());
+          assertNotNull(x.networkProcessor());
+
+          assertDoesNotThrow(x::connectionCloseRate);
+          assertDoesNotThrow(x::incomingByteTotal);
+          assertDoesNotThrow(x::selectTotal);
+          assertDoesNotThrow(x::successfulAuthenticationRate);
+          assertDoesNotThrow(x::reauthenticationLatencyAvg);
+          assertDoesNotThrow(x::networkIoRate);
+          assertDoesNotThrow(x::connectionCreationTotal);
+          assertDoesNotThrow(x::successfulReauthenticationRate);
+          assertDoesNotThrow(x::requestSizeMax);
+          assertDoesNotThrow(x::connectionCloseRate);
+          assertDoesNotThrow(x::successfulAuthenticationTotal);
+          assertDoesNotThrow(x::ioTimeNsTotal);
+          assertDoesNotThrow(x::connectionCount);
+          assertDoesNotThrow(x::failedReauthenticationTotal);
+          assertDoesNotThrow(x::requestRate);
+          assertDoesNotThrow(x::successfulReauthenticationTotal);
+          assertDoesNotThrow(x::responseRate);
+          assertDoesNotThrow(x::connectionCreationRate);
+          assertDoesNotThrow(x::ioWaitTimeNsAvg);
+          assertDoesNotThrow(x::ioWaitTimeNsTotal);
+          assertDoesNotThrow(x::outgoingByteRate);
+          assertDoesNotThrow(x::iotimeTotal);
+          assertDoesNotThrow(x::ioRatio);
+          assertDoesNotThrow(x::requestSizeAvg);
+          assertDoesNotThrow(x::outgoingByteTotal);
+          assertDoesNotThrow(x::expiredConnectionsKilledCount);
+          assertDoesNotThrow(x::connectionCloseTotal);
+          assertDoesNotThrow(x::failedReauthenticationRate);
+          assertDoesNotThrow(x::networkIoTotal);
+          assertDoesNotThrow(x::failedAuthenticationTotal);
+          assertDoesNotThrow(x::incomingByteRate);
+          assertDoesNotThrow(x::selectRate);
+          assertDoesNotThrow(x::ioTimeNsAvg);
+          assertDoesNotThrow(x::reauthenticationLatencyMax);
+          assertDoesNotThrow(x::responseTotal);
+          assertDoesNotThrow(x::failedAuthenticationRate);
+          assertDoesNotThrow(x::ioWaitRatio);
+          assertDoesNotThrow(x::successfulAuthenticationNoReauthTotal);
+          assertDoesNotThrow(x::requestTotal);
+          assertDoesNotThrow(x::ioWaittimeTotal);
+        });
+  }
+
+  @Test
+  void testSocketClientMetrics() {
+    var clientMetrics = ServerMetrics.Socket.client(MBeanClient.local());
+    assertTrue(clientMetrics.size() > 0);
+    clientMetrics.forEach(
+        x -> {
+          assertNotNull(x.listener());
+          assertNotNull(x.networkProcessor());
+          assertNotNull(x.clientSoftwareName());
+          assertNotNull(x.clientSoftwareVersion());
+
+          assertDoesNotThrow(x::connections);
+        });
   }
 
   @Test
@@ -45,13 +153,13 @@ public class ServerMetricsTest {
         .forEach(
             t ->
                 Assertions.assertEquals(
-                    t, ServerMetrics.Topic.of(t.metricName().toLowerCase(Locale.ROOT))));
+                    t, ServerMetrics.Topic.ofAlias(t.metricName().toLowerCase(Locale.ROOT))));
     Arrays.stream(ServerMetrics.Topic.values())
         .forEach(
             t ->
                 Assertions.assertEquals(
-                    t, ServerMetrics.Topic.of(t.metricName().toUpperCase(Locale.ROOT))));
-    assertThrows(IllegalArgumentException.class, () -> ServerMetrics.Topic.of("nothing"));
+                    t, ServerMetrics.Topic.ofAlias(t.metricName().toUpperCase(Locale.ROOT))));
+    assertThrows(IllegalArgumentException.class, () -> ServerMetrics.Topic.ofAlias("nothing"));
   }
 
   @ParameterizedTest

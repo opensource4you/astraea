@@ -16,7 +16,6 @@
  */
 package org.astraea.common.metrics.broker;
 
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -58,13 +57,6 @@ public final class LogMetrics {
       return alias();
     }
 
-    public static LogMetrics.Log of(String metricName) {
-      return Arrays.stream(LogMetrics.Log.values())
-          .filter(metric -> metric.metricName().equalsIgnoreCase(metricName))
-          .findFirst()
-          .orElseThrow(() -> new IllegalArgumentException("No such metric: " + metricName));
-    }
-
     public static Collection<Gauge> gauges(Collection<HasBeanObject> beans, Log type) {
       return beans.stream()
           .filter(m -> m instanceof Gauge)
@@ -88,7 +80,7 @@ public final class LogMetrics {
           .collect(Collectors.toUnmodifiableList());
     }
 
-    public static class Gauge implements HasGauge {
+    public static class Gauge implements HasGauge<Long> {
       private final BeanObject beanObject;
 
       public Gauge(BeanObject beanObject) {
@@ -108,7 +100,7 @@ public final class LogMetrics {
       }
 
       public Log type() {
-        return Log.of(metricsName());
+        return ofAlias(metricsName());
       }
 
       @Override

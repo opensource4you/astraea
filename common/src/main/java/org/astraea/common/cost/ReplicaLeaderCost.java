@@ -71,7 +71,7 @@ public class ReplicaLeaderCost implements HasBrokerCost, HasClusterCost, HasMove
                         .map(x -> (ServerMetrics.ReplicaManager.Gauge) x)
                         .sorted(Comparator.comparing(HasBeanObject::createdTimestamp).reversed())
                         .limit(1)
-                        .mapToInt(v -> (int) v.value())
+                        .mapToInt(v -> v.value().intValue())
                         .sum()));
   }
 

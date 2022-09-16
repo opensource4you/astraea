@@ -69,8 +69,7 @@ public enum ReportFormat implements EnumInfo {
       ReportFormat reportFormat,
       Path path,
       Supplier<Boolean> consumerDone,
-      Supplier<Boolean> producerDone,
-      Supplier<List<Report>> consumerReporter)
+      Supplier<Boolean> producerDone)
       throws IOException {
     var filePath =
         FileSystems.getDefault()
@@ -81,7 +80,7 @@ public enum ReportFormat implements EnumInfo {
                     + "."
                     + reportFormat);
     var writer = new BufferedWriter(new FileWriter(filePath.toFile()));
-    var elements = latencyAndIO(consumerReporter);
+    var elements = latencyAndIO();
     switch (reportFormat) {
       case CSV:
         initCSVFormat(writer, elements);
@@ -161,9 +160,9 @@ public enum ReportFormat implements EnumInfo {
     }
   }
 
-  private static List<CSVContentElement> latencyAndIO(Supplier<List<Report>> consumerReporter) {
+  private static List<CSVContentElement> latencyAndIO() {
     var producerReports = Report.producers();
-    var consumerReports = consumerReporter.get();
+    var consumerReports = Report.consumers();
     var elements = new ArrayList<CSVContentElement>();
     elements.add(
         CSVContentElement.create(

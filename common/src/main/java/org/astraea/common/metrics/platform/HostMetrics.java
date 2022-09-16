@@ -18,7 +18,6 @@ package org.astraea.common.metrics.platform;
 
 import org.astraea.common.metrics.BeanQuery;
 import org.astraea.common.metrics.MBeanClient;
-import org.astraea.common.metrics.broker.HasGauge;
 
 public final class HostMetrics {
 
@@ -35,28 +34,6 @@ public final class HostMetrics {
     return new JvmMemory(
         mBeanClient.queryBean(
             BeanQuery.builder().domainName("java.lang").property("type", "Memory").build()));
-  }
-
-  public static HasGauge linuxDiskReadBytes(MBeanClient mBeanClient) {
-    var bean =
-        mBeanClient.queryBean(
-            BeanQuery.builder()
-                .domainName("kafka.server")
-                .property("type", "KafkaServer")
-                .property("name", "linux-disk-read-bytes")
-                .build());
-    return () -> bean;
-  }
-
-  public static HasGauge linuxDiskWriteBytes(MBeanClient mBeanClient) {
-    var bean =
-        mBeanClient.queryBean(
-            BeanQuery.builder()
-                .domainName("kafka.server")
-                .property("type", "KafkaServer")
-                .property("name", "linux-disk-write-bytes")
-                .build());
-    return () -> bean;
   }
 
   private HostMetrics() {}

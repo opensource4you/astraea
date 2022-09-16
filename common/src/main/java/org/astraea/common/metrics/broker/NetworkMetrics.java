@@ -16,7 +16,6 @@
  */
 package org.astraea.common.metrics.broker;
 
-import java.util.Arrays;
 import org.astraea.common.EnumInfo;
 import org.astraea.common.metrics.BeanObject;
 import org.astraea.common.metrics.BeanQuery;
@@ -138,7 +137,7 @@ public class NetworkMetrics {
       }
 
       public Request type() {
-        return Request.of(beanObject.properties().get("request"));
+        return ofAlias(beanObject.properties().get("request"));
       }
 
       @Override
@@ -150,13 +149,6 @@ public class NetworkMetrics {
       public BeanObject beanObject() {
         return beanObject;
       }
-    }
-
-    public static Request of(String metricName) {
-      return Arrays.stream(Request.values())
-          .filter(metric -> metric.metricName().equalsIgnoreCase(metricName))
-          .findFirst()
-          .orElseThrow(() -> new IllegalArgumentException("No such metric: " + metricName));
     }
   }
 
