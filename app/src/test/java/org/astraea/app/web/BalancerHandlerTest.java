@@ -28,11 +28,14 @@ import org.astraea.app.balancer.RebalancePlanProposal;
 import org.astraea.app.balancer.log.ClusterLogAllocation;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
+import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
+import org.astraea.common.cost.ClusterCost;
 import org.astraea.common.cost.HasClusterCost;
 import org.astraea.common.cost.HasMoveCost;
+import org.astraea.common.cost.ReplicaSizeCost;
 import org.astraea.common.producer.Producer;
 import org.astraea.it.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
@@ -43,7 +46,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
   @Test
   void testReport() {
     try (var admin = Admin.of(bootstrapServers())) {
-      var handler = new BalancerHandler(admin);
+      var handler = new BalancerHandler(admin, new DegradeCost(), new ReplicaSizeCost());
       var report =
           Assertions.assertInstanceOf(
               BalancerHandler.Report.class,
@@ -74,7 +77,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
   void testTopic() {
     var topicNames = createAndProduceTopic(3);
     try (var admin = Admin.of(bootstrapServers())) {
-      var handler = new BalancerHandler(admin);
+      var handler = new BalancerHandler(admin, new DegradeCost(), new ReplicaSizeCost());
       var report =
           Assertions.assertInstanceOf(
               BalancerHandler.Report.class,
@@ -98,11 +101,24 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
     }
   }
 
+  /** The score will getter better after each call, pretend we find a better plan */
+  private static class DegradeCost implements HasClusterCost {
+
+    private double value0 = 1.0;
+
+    @Override
+    public synchronized ClusterCost clusterCost(
+        ClusterInfo<Replica> clusterInfo, ClusterBean clusterBean) {
+      value0 = value0 * 0.998;
+      return () -> value0;
+    }
+  }
+
   @Test
   void testTopics() {
     var topicNames = createAndProduceTopic(3);
     try (var admin = Admin.of(bootstrapServers())) {
-      var handler = new BalancerHandler(admin);
+      var handler = new BalancerHandler(admin, new DegradeCost(), new ReplicaSizeCost());
       var report =
           Assertions.assertInstanceOf(
               BalancerHandler.Report.class,

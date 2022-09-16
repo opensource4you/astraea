@@ -104,16 +104,11 @@ public class Performance {
                     .consumerRebalanceListener(listener)
                     .build());
 
-    Supplier<List<Report>> consumerReporter =
-        () ->
-            consumerThreads.stream()
-                .map(ConsumerThread::report)
-                .collect(Collectors.toUnmodifiableList());
-
     System.out.println("creating tracker");
     var tracker =
         TrackerThread.create(
-            () -> consumerThreads.stream().allMatch(AbstractThread::closed), consumerReporter);
+            () -> producerThreads.stream().allMatch(AbstractThread::closed),
+            () -> consumerThreads.stream().allMatch(AbstractThread::closed));
 
     Optional<Runnable> fileWriter =
         param.CSVPath == null
@@ -123,8 +118,7 @@ public class Performance {
                     param.reportFormat,
                     param.CSVPath,
                     () -> consumerThreads.stream().allMatch(AbstractThread::closed),
-                    () -> producerThreads.stream().allMatch(AbstractThread::closed),
-                    consumerReporter));
+                    () -> producerThreads.stream().allMatch(AbstractThread::closed)));
 
     var fileWriterFuture =
         fileWriter.map(CompletableFuture::runAsync).orElse(CompletableFuture.completedFuture(null));

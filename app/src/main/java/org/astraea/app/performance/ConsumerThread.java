@@ -58,7 +58,6 @@ public interface ConsumerThread extends AbstractThread {
               @SuppressWarnings("resource")
               var consumer = consumerSupplier.apply(ps -> {});
               var closed = new AtomicBoolean(false);
-              var report = Report.of(consumer.clientId(), closed::get);
               var closeLatch = closeLatches.get(index);
               var subscribed = new AtomicBoolean(true);
               executors.execute(
@@ -71,15 +70,7 @@ public interface ConsumerThread extends AbstractThread {
                           Utils.sleep(Duration.ofSeconds(1));
                           continue;
                         }
-                        consumer
-                            .poll(Duration.ofSeconds(1))
-                            .forEach(
-                                record ->
-                                    // record ene-to-end latency, and record input byte (header and
-                                    // timestamp size excluded)
-                                    report.record(
-                                        System.currentTimeMillis() - record.timestamp(),
-                                        record.serializedKeySize() + record.serializedValueSize()));
+                        consumer.poll(Duration.ofSeconds(1));
                       }
                     } catch (WakeupException ignore) {
                       // Stop polling and being ready to clean up
@@ -112,11 +103,6 @@ public interface ConsumerThread extends AbstractThread {
                 }
 
                 @Override
-                public Report report() {
-                  return report;
-                }
-
-                @Override
                 public void close() {
                   closed.set(true);
                   Utils.swallowException(closeLatch::await);
@@ -129,7 +115,4 @@ public interface ConsumerThread extends AbstractThread {
   void resubscribe();
 
   void unsubscribe();
-
-  /** @return report of this thread */
-  Report report();
 }
