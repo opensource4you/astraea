@@ -33,7 +33,7 @@ import org.astraea.common.metrics.broker.ServerMetrics;
 import org.astraea.common.metrics.collector.Fetcher;
 
 /** more replica leaders -> higher cost */
-public class ReplicaLeaderCost implements HasBrokerCost, HasClusterCost, HasMoveCost {
+public class ReplicaLeaderCost implements HasBrokerCost, HasClusterCost, HasMoveCost.Helper {
   private final Dispersion dispersion = Dispersion.correlationCoefficient();
 
   @Override
@@ -90,12 +90,13 @@ public class ReplicaLeaderCost implements HasBrokerCost, HasClusterCost, HasMove
 
   @Override
   public MoveCost moveCost(
-      ClusterInfo<Replica> before, ClusterInfo<Replica> after, ClusterBean clusterBean) {
-    return MoveCostUtils.moveCost(
-        "replica Leader", "number", before, after, ReplicaLeaderCost::migrateInfo);
+      Collection<Replica> removedReplicas,
+      Collection<Replica> addedReplicas,
+      ClusterBean clusterBean) {
+    return migrateInfo(removedReplicas, addedReplicas).unit("number").build();
   }
 
-  static MoveCostUtils.MigrateInfo migrateInfo(
+  static MoveCostBuilder migrateInfo(
       Collection<Replica> removedReplicas, Collection<Replica> addedReplicas) {
     var changes = new HashMap<Integer, Long>();
     AtomicLong totalMigrateNum = new AtomicLong(0L);
@@ -115,6 +116,6 @@ public class ReplicaLeaderCost implements HasBrokerCost, HasClusterCost, HasMove
                   return (size == null) ? 1 : size + 1;
                 });
         });
-    return new MoveCostUtils.MigrateInfo(totalMigrateNum.get(), changes);
+    return new MoveCostBuilder().totalCost(totalMigrateNum.get()).change(changes);
   }
 }

@@ -16,42 +16,33 @@
  */
 package org.astraea.common.cost;
 
-import java.util.Collection;
 import java.util.Map;
-import java.util.function.BiFunction;
-import org.astraea.common.admin.ClusterInfo;
-import org.astraea.common.admin.Replica;
 
-public class MoveCostUtils {
-  static class MigrateInfo {
-    long totalNum;
-    Map<Integer, Long> changes;
+class MoveCostBuilder {
+  private long totalCost;
+  private String unit;
+  private Map<Integer, Long> changes;
 
-    MigrateInfo(long totalNum, Map<Integer, Long> changes) {
-      this.totalNum = totalNum;
-      this.changes = changes;
-    }
+  public MoveCostBuilder totalCost(long totalCost) {
+    this.totalCost = totalCost;
+    return this;
   }
 
-  static MoveCost moveCost(
-      String name,
-      String unit,
-      ClusterInfo<Replica> before,
-      ClusterInfo<Replica> after,
-      BiFunction<Collection<Replica>, Collection<Replica>, MoveCostUtils.MigrateInfo>
-          getMigrateInfo) {
-    var removedReplicas = ClusterInfo.diff(before, after);
-    var addedReplicas = ClusterInfo.diff(after, before);
-    var migrateInfo = getMigrateInfo.apply(removedReplicas, addedReplicas);
+  public MoveCostBuilder unit(String unit) {
+    this.unit = unit;
+    return this;
+  }
+
+  public MoveCostBuilder change(Map<Integer, Long> changes) {
+    this.changes = changes;
+    return this;
+  }
+
+  public MoveCost build() {
     return new MoveCost() {
       @Override
-      public String name() {
-        return name;
-      }
-
-      @Override
       public long totalCost() {
-        return migrateInfo.totalNum;
+        return totalCost;
       }
 
       @Override
@@ -61,7 +52,7 @@ public class MoveCostUtils {
 
       @Override
       public Map<Integer, Long> changes() {
-        return migrateInfo.changes;
+        return changes;
       }
     };
   }

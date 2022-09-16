@@ -16,6 +16,7 @@
  */
 package org.astraea.common.cost;
 
+import java.util.Collection;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.Replica;
@@ -32,4 +33,18 @@ public interface HasMoveCost extends CostFunction {
    */
   MoveCost moveCost(
       ClusterInfo<Replica> before, ClusterInfo<Replica> after, ClusterBean clusterBean);
+
+  interface Helper extends HasMoveCost {
+
+    default MoveCost moveCost(
+        ClusterInfo<Replica> before, ClusterInfo<Replica> after, ClusterBean clusterBean) {
+      return moveCost(
+          ClusterInfo.diff(before, after), ClusterInfo.diff(after, before), clusterBean);
+    }
+
+    MoveCost moveCost(
+        Collection<Replica> removedReplicas,
+        Collection<Replica> addedReplicas,
+        ClusterBean clusterBean);
+  }
 }
