@@ -37,7 +37,6 @@ class BalancerBuilder {
   private HasMoveCost moveCostFunction = HasMoveCost.EMPTY;
   private Predicate<ClusterCost> clusterConstraint = ignore -> true;
   private Predicate<MoveCost> movementConstraint = ignore -> true;
-  private Predicate<String> topicFilter = ignore -> true;
   private int searchLimit = 3000;
 
   /**
@@ -136,7 +135,6 @@ class BalancerBuilder {
     Objects.requireNonNull(this.moveCostFunction);
     Objects.requireNonNull(this.clusterConstraint);
     Objects.requireNonNull(this.movementConstraint);
-    Objects.requireNonNull(this.topicFilter);
 
     return (currentClusterInfo, topicFilter, brokerFolders) -> {
       final var currentClusterBean = ClusterBean.EMPTY;
