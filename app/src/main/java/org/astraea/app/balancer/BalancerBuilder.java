@@ -19,7 +19,6 @@ package org.astraea.app.balancer;
 import java.util.Comparator;
 import java.util.Objects;
 import java.util.function.Predicate;
-import java.util.function.Supplier;
 import org.astraea.app.balancer.executor.RebalancePlanExecutor;
 import org.astraea.app.balancer.generator.RebalancePlanGenerator;
 import org.astraea.app.balancer.log.ClusterLogAllocation;
@@ -33,7 +32,6 @@ import org.astraea.common.cost.MoveCost;
 class BalancerBuilder {
 
   private RebalancePlanGenerator planGenerator;
-  private final Supplier<ClusterBean> freshClusterBean = () -> ClusterBean.EMPTY;
   private RebalancePlanExecutor planExecutor;
   private HasClusterCost clusterCostFunction;
   private HasMoveCost moveCostFunction = HasMoveCost.EMPTY;
@@ -134,7 +132,6 @@ class BalancerBuilder {
     // sanity check
     Objects.requireNonNull(this.planGenerator);
     Objects.requireNonNull(this.planExecutor);
-    Objects.requireNonNull(this.freshClusterBean);
     Objects.requireNonNull(this.clusterCostFunction);
     Objects.requireNonNull(this.moveCostFunction);
     Objects.requireNonNull(this.clusterConstraint);
@@ -142,7 +139,7 @@ class BalancerBuilder {
     Objects.requireNonNull(this.topicFilter);
 
     return (currentClusterInfo, topicFilter, brokerFolders) -> {
-      final var currentClusterBean = freshClusterBean.get();
+      final var currentClusterBean = ClusterBean.EMPTY;
       final var currentCostScore =
           clusterCostFunction.clusterCost(currentClusterInfo, currentClusterBean);
       final var generatorClusterInfo = ClusterInfo.masked(currentClusterInfo, topicFilter);
