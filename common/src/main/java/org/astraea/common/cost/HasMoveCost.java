@@ -42,6 +42,12 @@ public interface HasMoveCost extends CostFunction {
           ClusterInfo.diff(before, after), ClusterInfo.diff(after, before), clusterBean);
     }
 
+    /**
+     * @param removedReplicas replicas removed from the source broker
+     * @param addedReplicas replicas removed add to the sink broker
+     * @param clusterBean cluster metrics
+     * @return the score of migrate cost
+     */
     MoveCost moveCost(
         Collection<Replica> removedReplicas,
         Collection<Replica> addedReplicas,
