@@ -117,8 +117,8 @@ class BalancerBuilder {
   public Balancer build() {
     // sanity check
     Objects.requireNonNull(this.planGenerator);
+    Objects.requireNonNull(this.clusterCostFunction);
     Objects.requireNonNull(this.moveCostFunction);
-    Objects.requireNonNull(this.clusterConstraint);
     Objects.requireNonNull(this.movementConstraint);
 
     return (currentClusterInfo, topicFilter, brokerFolders) -> {
