@@ -71,8 +71,7 @@ class BalancerTest extends RequireBrokerCluster {
                   .searches(1000)
                   .build()
                   .offer(admin.clusterInfo(), admin.brokerFolders());
-          new StraightPlanExecutor()
-              .run(RebalanceAdmin.of(admin, ignore -> true), plan.proposal.rebalancePlan());
+          new StraightPlanExecutor().run(RebalanceAdmin.of(admin), plan.proposal.rebalancePlan());
         } catch (Exception e) {
           System.err.println(e.getMessage());
         }
