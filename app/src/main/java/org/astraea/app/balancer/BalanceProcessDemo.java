@@ -46,7 +46,7 @@ public class BalanceProcessDemo {
           Balancer.builder()
               .usePlanGenerator(new ShufflePlanGenerator(1, 10))
               .useClusterCost(new ReplicaLeaderCost())
-              .searches(100)
+              .searches(1000)
               .build()
               .offer(clusterInfo, filter, brokerFolders);
       new StraightPlanExecutor().run(RebalanceAdmin.of(admin), plan.proposal.rebalancePlan());

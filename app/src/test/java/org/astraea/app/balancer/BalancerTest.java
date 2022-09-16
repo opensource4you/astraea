@@ -68,7 +68,7 @@ class BalancerTest extends RequireBrokerCluster {
               Balancer.builder()
                   .usePlanGenerator(new ShufflePlanGenerator(1, 10))
                   .useClusterCost(new ReplicaLeaderCost())
-                  .searches(100)
+                  .searches(1000)
                   .build()
                   .offer(admin.clusterInfo(), admin.brokerFolders());
           new StraightPlanExecutor().run(RebalanceAdmin.of(admin), plan.proposal.rebalancePlan());
