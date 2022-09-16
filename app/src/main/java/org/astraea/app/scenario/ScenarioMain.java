@@ -37,14 +37,14 @@ public class ScenarioMain extends Argument {
     var theClass = Utils.packException(() -> Class.forName(scenarioClass));
     if (Scenario.class.isAssignableFrom(theClass)) {
       //noinspection unchecked
-      var scenarioClass = (Class<Scenario<?>>) theClass;
-      execute(Scenario.of(scenarioClass, Configuration.of(configs())));
+      var scenarioClass = (Class<Scenario>) theClass;
+      execute(Utils.construct(scenarioClass, Configuration.of(configs())));
     } else {
       throw new RuntimeException("Target class is not a scenario: " + theClass.getName());
     }
   }
 
-  public void execute(Scenario<?> scenario) {
+  public void execute(Scenario scenario) {
     System.out.println("Accept scenario: " + scenario.getClass().getName());
     try (Admin admin = Admin.of(bootstrapServers())) {
       System.out.println(gson.toJson(scenario.apply(admin)));

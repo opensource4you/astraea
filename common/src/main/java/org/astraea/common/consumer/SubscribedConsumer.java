@@ -16,6 +16,8 @@
  */
 package org.astraea.common.consumer;
 
+import org.astraea.common.admin.TopicPartition;
+
 import java.time.Duration;
 import java.util.Optional;
 
@@ -45,4 +47,5 @@ public interface SubscribedConsumer<Key, Value> extends Consumer<Key, Value> {
 
   /** @return consumer group's generation */
   int generationId();
+
 }

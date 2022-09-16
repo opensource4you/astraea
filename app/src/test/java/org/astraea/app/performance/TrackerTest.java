@@ -20,6 +20,7 @@ import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 import org.astraea.common.Utils;
 import org.astraea.common.metrics.client.HasNodeMetrics;
 import org.junit.jupiter.api.Assertions;
@@ -29,16 +30,9 @@ import org.mockito.Mockito;
 public class TrackerTest {
 
   @Test
-  void testEmptyReports() {
-    var tracker = TrackerThread.create(List::of, List::of);
-    Utils.sleep(Duration.ofSeconds(2));
-    Assertions.assertTrue(tracker.closed());
-  }
-
-  @Test
-  void testClose() {
+  void testCloseConsumer() {
     var closed = new AtomicBoolean(false);
-    var tracker = TrackerThread.create(List::of, () -> List.of(Report.of("c", closed::get)));
+    var tracker = TrackerThread.create(() -> true, closed::get);
     Assertions.assertFalse(tracker.closed());
     closed.set(true);
     Utils.sleep(Duration.ofSeconds(2));
@@ -49,10 +43,7 @@ public class TrackerTest {
   void testPartialClose() {
     var closed0 = new AtomicBoolean(false);
     var closed1 = new AtomicBoolean(false);
-    var tracker =
-        TrackerThread.create(
-            () -> List.of(Report.of("c", closed0::get)),
-            () -> List.of(Report.of("c", closed1::get)));
+    var tracker = TrackerThread.create(closed0::get, closed1::get);
     Assertions.assertFalse(tracker.closed());
     closed0.set(true);
     Utils.sleep(Duration.ofSeconds(2));
@@ -83,10 +74,7 @@ public class TrackerTest {
     var closed = new AtomicBoolean(false);
     var f =
         CompletableFuture.runAsync(
-            TrackerThread.trackerLoop(
-                closed::get,
-                () -> List.of(Report.of("c", producerClosed::get)),
-                () -> List.of(Report.of("c", consumerClosed::get))));
+            TrackerThread.trackerLoop(closed::get, producerClosed::get, consumerClosed::get));
     Assertions.assertFalse(f.isDone());
     producerClosed.set(true);
     Utils.sleep(Duration.ofSeconds(2));
@@ -98,19 +86,25 @@ public class TrackerTest {
 
   @Test
   void testProducerPrinter() {
-    var report = Report.of("c", () -> false);
+    var report = Mockito.mock(Report.class);
+    var records = new AtomicLong(0);
+    Mockito.when(report.records()).thenAnswer(a -> records.get());
     var printer = new TrackerThread.ProducerPrinter(() -> List.of(report));
     Assertions.assertFalse(printer.tryToPrint(Duration.ofSeconds(1)));
-    report.record(10, 100);
+    records.set(100);
     Assertions.assertTrue(printer.tryToPrint(Duration.ofSeconds(1)));
+    Assertions.assertFalse(printer.tryToPrint(Duration.ofSeconds(1)));
   }
 
   @Test
   void testConsumerPrinter() {
-    var report = Report.of("c", () -> false);
+    var report = Mockito.mock(Report.class);
+    var records = new AtomicLong(0);
+    Mockito.when(report.records()).thenAnswer(a -> records.get());
     var printer = new TrackerThread.ConsumerPrinter(() -> List.of(report));
     Assertions.assertFalse(printer.tryToPrint(Duration.ofSeconds(1)));
-    report.record(10, 100);
+    records.set(100);
     Assertions.assertTrue(printer.tryToPrint(Duration.ofSeconds(1)));
+    Assertions.assertFalse(printer.tryToPrint(Duration.ofSeconds(1)));
   }
 }

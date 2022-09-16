@@ -42,6 +42,10 @@ public interface TrackerThread extends AbstractThread {
     private final Supplier<List<Report>> reportSupplier;
     private long lastRecords = 0;
 
+    ProducerPrinter() {
+      this(Report::producers);
+    }
+
     ProducerPrinter(Supplier<List<Report>> reportSupplier) {
       this.reportSupplier = reportSupplier;
     }
@@ -70,7 +74,7 @@ public interface TrackerThread extends AbstractThread {
           sumOfAttribute(
               ProducerMetrics.topics(mBeanClient), HasProducerTopicMetrics::recordErrorRate));
       reports.stream()
-          .mapToLong(Report::max)
+          .mapToLong(Report::maxLatency)
           .max()
           .ifPresent(i -> System.out.printf("  publish max latency: %d ms%n", i));
       reports.stream()
@@ -92,6 +96,10 @@ public interface TrackerThread extends AbstractThread {
     private final MBeanClient mBeanClient = MBeanClient.local();
     private final Supplier<List<Report>> reportSupplier;
     private long lastRecords = 0;
+
+    ConsumerPrinter() {
+      this(Report::consumers);
+    }
 
     ConsumerPrinter(Supplier<List<Report>> reportSupplier) {
       this.reportSupplier = reportSupplier;
@@ -117,7 +125,7 @@ public interface TrackerThread extends AbstractThread {
                   sumOfAttribute(
                       ConsumerMetrics.nodes(mBeanClient), HasNodeMetrics::incomingByteRate)));
       reports.stream()
-          .mapToLong(Report::max)
+          .mapToLong(Report::maxLatency)
           .max()
           .ifPresent(i -> System.out.printf("  end-to-end max latency: %d ms%n", i));
       reports.stream()
@@ -139,7 +147,7 @@ public interface TrackerThread extends AbstractThread {
         if (ms.isPresent()) {
           System.out.printf(
               "  consumer[%d] has %d partitions and %d partitions sticky%n",
-              i, (int) ms.get().assignedPartitions(), report.stickyPartitions());
+              i, (int) ms.get().assignedPartitions(),1); //TODO
         }
         System.out.printf(
             "  consumer[%d] average throughput: %.3f MB%n",
@@ -151,11 +159,10 @@ public interface TrackerThread extends AbstractThread {
     }
   }
 
-  static TrackerThread create(
-      Supplier<List<Report>> producerReporter, Supplier<List<Report>> consumerReporter) {
+  static TrackerThread create(Supplier<Boolean> producersDone, Supplier<Boolean> consumersDone) {
     var closed = new AtomicBoolean(false);
     var latch = new CountDownLatch(1);
-    CompletableFuture.runAsync(trackerLoop(closed::get, producerReporter, consumerReporter))
+    CompletableFuture.runAsync(trackerLoop(closed::get, producersDone, consumersDone))
         .whenComplete((m, e) -> latch.countDown());
 
     return new TrackerThread() {
@@ -179,13 +186,11 @@ public interface TrackerThread extends AbstractThread {
   }
 
   static Runnable trackerLoop(
-      Supplier<Boolean> closed,
-      Supplier<List<Report>> producerReports,
-      Supplier<List<Report>> consumerReports) {
+      Supplier<Boolean> closed, Supplier<Boolean> producersDone, Supplier<Boolean> consumersDone) {
     var start = System.currentTimeMillis();
     return () -> {
-      var producerPrinter = new ProducerPrinter(producerReports);
-      var consumerPrinter = new ConsumerPrinter(consumerReports);
+      var producerPrinter = new ProducerPrinter();
+      var consumerPrinter = new ConsumerPrinter();
       while (!closed.get()) {
         var duration = Duration.ofMillis(System.currentTimeMillis() - start);
         System.out.println();
@@ -199,8 +204,7 @@ public interface TrackerThread extends AbstractThread {
                 + "sec");
         producerPrinter.tryToPrint(duration);
         consumerPrinter.tryToPrint(duration);
-        if (producerReports.get().stream().allMatch(Report::isClosed)
-            && consumerReports.get().stream().allMatch(Report::isClosed)) return;
+        if (producersDone.get() && consumersDone.get()) return;
         // Log after waiting for one second
         Utils.sleep(Duration.ofSeconds(1));
       }

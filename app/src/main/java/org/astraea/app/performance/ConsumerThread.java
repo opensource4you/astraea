@@ -17,7 +17,6 @@
 package org.astraea.app.performance;
 
 import java.time.Duration;
-import java.util.HashSet;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
@@ -59,39 +58,19 @@ public interface ConsumerThread extends AbstractThread {
               @SuppressWarnings("resource")
               var consumer = consumerSupplier.apply(ps -> {});
               var closed = new AtomicBoolean(false);
-              var report = Report.of(consumer.clientId(), closed::get);
               var closeLatch = closeLatches.get(index);
               var subscribed = new AtomicBoolean(true);
               executors.execute(
                   () -> {
                     try {
-                      var generationId = consumer.generationId();
-                      var assignments = consumer.assignments();
                       while (!closed.get()) {
                         if (subscribed.get()) consumer.resubscribe();
                         else {
                           consumer.unsubscribe();
-                          report.recordSticky(assignments, new HashSet<>());
-                          assignments = new HashSet<>();
                           Utils.sleep(Duration.ofSeconds(1));
                           continue;
                         }
-                        if (consumer.generationId() != generationId) {
-                          generationId = consumer.generationId();
-                          var preAssignments = new HashSet<>(assignments);
-                          assignments = consumer.assignments();
-                          var nowAssignments = new HashSet<>(assignments);
-                          report.recordSticky(preAssignments, nowAssignments);
-                        }
-                        consumer
-                            .poll(Duration.ofSeconds(1))
-                            .forEach(
-                                record ->
-                                    // record ene-to-end latency, and record input byte (header and
-                                    // timestamp size excluded)
-                                    report.record(
-                                        System.currentTimeMillis() - record.timestamp(),
-                                        record.serializedKeySize() + record.serializedValueSize()));
+                        consumer.poll(Duration.ofSeconds(1));
                       }
                     } catch (WakeupException ignore) {
                       // Stop polling and being ready to clean up
@@ -124,11 +103,6 @@ public interface ConsumerThread extends AbstractThread {
                 }
 
                 @Override
-                public Report report() {
-                  return report;
-                }
-
-                @Override
                 public void close() {
                   closed.set(true);
                   Utils.swallowException(closeLatch::await);
@@ -141,7 +115,4 @@ public interface ConsumerThread extends AbstractThread {
   void resubscribe();
 
   void unsubscribe();
-
-  /** @return report of this thread */
-  Report report();
 }

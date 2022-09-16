@@ -12,11 +12,12 @@ POST /topics
 
 參數
 
-| 名稱         | 說明                  | 預設值 |
-|------------|---------------------|-----|
-| name       | (必填) topic 名稱       | 無   |
-| partitions | (選填) partition 數量   | 1   |
-| replicas   | (選填) replication 數量 | 1   |
+| 名稱          | 說明                  | 預設值                |
+|-------------|---------------------|--------------------|
+| name        | (必填) topic 名稱       | 無                  |
+| partitions  | (選填) partition 數量   | 1                  |
+| replicas    | (選填) replication 數量 | 1                  |
+| probability | (選填) 分佈機率           | 無，預設依照 kafka 的分佈方式 |
 - replicas 數量須 <= brokers 數量
 
 cURL 範例

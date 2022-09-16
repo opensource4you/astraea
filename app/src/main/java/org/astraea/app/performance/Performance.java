@@ -29,7 +29,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Supplier;
 import java.util.regex.Pattern;
@@ -61,8 +60,7 @@ import org.astraea.common.producer.Producer;
 /** see docs/performance_benchmark.md for man page */
 public class Performance {
   /** Used in Automation, to achieve the end of one Performance and then start another. */
-  public static void main(String[] args)
-      throws InterruptedException, IOException, ExecutionException {
+  public static void main(String[] args) throws InterruptedException, IOException {
     execute(org.astraea.common.argument.Argument.parse(new Argument(), args));
   }
 
@@ -120,19 +118,11 @@ public class Performance {
                         .consumerRebalanceListener(listener)
                         .build());
 
-    Supplier<List<Report>> producerReporter =
-        () ->
-            producerThreads.stream()
-                .map(ProducerThread::report)
-                .collect(Collectors.toUnmodifiableList());
-    Supplier<List<Report>> consumerReporter =
-        () ->
-            consumerThreads.stream()
-                .map(ConsumerThread::report)
-                .collect(Collectors.toUnmodifiableList());
-
     System.out.println("creating tracker");
-    var tracker = TrackerThread.create(producerReporter, consumerReporter);
+    var tracker =
+        TrackerThread.create(
+            () -> producerThreads.stream().allMatch(AbstractThread::closed),
+            () -> consumerThreads.stream().allMatch(AbstractThread::closed));
 
     Optional<Runnable> fileWriter =
         param.CSVPath == null
@@ -142,9 +132,7 @@ public class Performance {
                     param.reportFormat,
                     param.CSVPath,
                     () -> consumerThreads.stream().allMatch(AbstractThread::closed),
-                    () -> producerThreads.stream().allMatch(AbstractThread::closed),
-                    producerReporter,
-                    consumerReporter));
+                    () -> producerThreads.stream().allMatch(AbstractThread::closed)));
 
     var fileWriterFuture =
         fileWriter.map(CompletableFuture::runAsync).orElse(CompletableFuture.completedFuture(null));

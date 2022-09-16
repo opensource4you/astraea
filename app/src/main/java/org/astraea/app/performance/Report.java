@@ -17,11 +17,13 @@
 package org.astraea.app.performance;
 
 import java.util.Set;
-import java.util.function.Supplier;
 import org.astraea.common.admin.TopicPartition;
+import java.util.List;
+import java.util.stream.Collectors;
 import org.astraea.common.metrics.MBeanClient;
 import org.astraea.common.metrics.client.consumer.ConsumerMetrics;
 import org.astraea.common.metrics.client.consumer.HasConsumerFetchMetrics;
+import org.astraea.common.metrics.client.producer.ProducerMetrics;
 
 public interface Report {
 
@@ -33,96 +35,88 @@ public interface Report {
             .sum();
   }
 
+  static List<Report> consumers() {
+
+    return ConsumerMetrics.fetches(MBeanClient.local()).stream()
+        .map(
+            m ->
+                new Report() {
+                  private Set<TopicPartition> diffAssignments;
+                  @Override
+                  public long records() {
+                    return (long) m.recordsConsumedTotal();
+                  }
+
+                  @Override
+                  public long maxLatency() {
+                    return (long) m.fetchLatencyMax();
+                  }
+
+                  @Override
+                  public double avgLatency() {
+                    return (long) m.fetchLatencyAvg();
+                  }
+
+                  @Override
+                  public long totalBytes() {
+                    return (long) m.bytesConsumedTotal();
+                  }
+
+                  @Override
+                  public String clientId() {
+                    return m.clientId();
+                  }
+                })
+        .collect(Collectors.toList());
+  }
+
+  static List<Report> producers() {
+    return ProducerMetrics.of(MBeanClient.local()).stream()
+        .map(
+            m ->
+                new Report() {
+                  @Override
+                  public long records() {
+                    return (long) m.recordSendTotal();
+                  }
+
+                  @Override
+                  public long maxLatency() {
+                    return (long) m.requestLatencyMax();
+                  }
+
+                  @Override
+                  public double avgLatency() {
+                    return (long) m.requestLatencyAvg();
+                  }
+
+                  @Override
+                  public long totalBytes() {
+                    return (long) m.outgoingByteTotal();
+                  }
+
+                  @Override
+                  public String clientId() {
+                    return m.clientId();
+                  }
+
+
+                })
+        .collect(Collectors.toList());
+  }
+
   /** @return Get the number of records. */
   long records();
   /** @return Get the maximum of latency put. */
-  long max();
-  /** @return Get the minimum of latency put. */
-  long min();
+  long maxLatency();
+
   /** @return Get the average latency. */
   double avgLatency();
 
   /** @return total send/received bytes */
   long totalBytes();
 
-  boolean isClosed();
-
   String clientId();
 
-  void record(long latency, int bytes);
 
-  void recordSticky(Set<TopicPartition> preAssignments, Set<TopicPartition> nowAssignments);
-
-  int stickyPartitions();
-
-  static Report of(String clientId, Supplier<Boolean> isClosed) {
-    return new Report() {
-      private Set<TopicPartition> diffAssignments;
-      private double avgLatency = 0;
-      private long records = 0;
-      private long max = 0;
-      private long min = Long.MAX_VALUE;
-      private long totalBytes = 0;
-
-      @Override
-      public synchronized void record(long latency, int bytes) {
-        ++records;
-        min = Math.min(min, latency);
-        max = Math.max(max, latency);
-        avgLatency += (((double) latency) - avgLatency) / (double) records;
-        totalBytes += bytes;
-      }
-
-      /** @return Get the number of records. */
-      @Override
-      public synchronized long records() {
-        return records;
-      }
-      /** @return Get the maximum of latency put. */
-      @Override
-      public synchronized long max() {
-        return max;
-      }
-      /** @return Get the minimum of latency put. */
-      @Override
-      public synchronized long min() {
-        return min;
-      }
-
-      /** @return Get the average latency. */
-      @Override
-      public synchronized double avgLatency() {
-        return avgLatency;
-      }
-
-      /** @return total send/received bytes */
-      @Override
-      public synchronized long totalBytes() {
-        return totalBytes;
-      }
-
-      @Override
-      public boolean isClosed() {
-        return isClosed.get();
-      }
-
-      @Override
-      public String clientId() {
-        return clientId;
-      }
-
-      @Override
-      public int stickyPartitions() {
-        if (diffAssignments == null) return 0;
-        return diffAssignments.size();
-      }
-
-      @Override
-      public void recordSticky(
-          Set<TopicPartition> preAssignments, Set<TopicPartition> nowAssignments) {
-        if (nowAssignments != null) nowAssignments.retainAll(preAssignments);
-        this.diffAssignments = nowAssignments;
-      }
-    };
-  }
 }

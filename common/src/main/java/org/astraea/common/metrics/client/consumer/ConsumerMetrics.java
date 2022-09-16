@@ -71,4 +71,18 @@ public class ConsumerMetrics {
         .map(b -> (HasConsumerFetchMetrics) () -> b)
         .collect(Collectors.toUnmodifiableList());
   }
+
+  public static Collection<HasConsumerMetrics> of(MBeanClient mBeanClient) {
+    return mBeanClient
+        .queryBeans(
+            BeanQuery.builder()
+                .domainName("kafka.consumer")
+                .property("type", "consumer-metrics")
+                .property("client-id", "*")
+                .build())
+        .stream()
+        .map(b -> (HasConsumerMetrics) () -> b)
+        .collect(Collectors.toUnmodifiableList());
+  }
+
 }
