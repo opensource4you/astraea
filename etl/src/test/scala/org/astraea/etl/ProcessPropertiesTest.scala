@@ -30,7 +30,6 @@ import java.util.Properties
 import scala.util.{Try, Using}
 
 class ProcessPropertiesTest {
-  val directory = new File("")
   var file = new File("")
   var path = ""
 
