@@ -21,6 +21,7 @@ import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
+import org.astraea.app.balancer.executor.RebalanceAdmin;
 import org.astraea.app.balancer.executor.StraightPlanExecutor;
 import org.astraea.app.balancer.generator.ShufflePlanGenerator;
 import org.astraea.app.scenario.Scenario;
@@ -63,14 +64,15 @@ class BalancerTest extends RequireBrokerCluster {
 
       for (int i = 0; i < 3; i++) {
         try {
-          Balancer.builder()
-              .usePlanGenerator(new ShufflePlanGenerator(1, 10))
-              .usePlanExecutor(new StraightPlanExecutor())
-              .useClusterCost(new ReplicaLeaderCost())
-              .searches(1000)
-              .build()
-              .offer(admin.clusterInfo(), admin.brokerFolders())
-              .execute(admin);
+          var plan =
+              Balancer.builder()
+                  .usePlanGenerator(new ShufflePlanGenerator(1, 10))
+                  .useClusterCost(new ReplicaLeaderCost())
+                  .searches(1000)
+                  .build()
+                  .offer(admin.clusterInfo(), admin.brokerFolders());
+          new StraightPlanExecutor()
+              .run(RebalanceAdmin.of(admin, ignore -> true), plan.proposal.rebalancePlan());
         } catch (Exception e) {
           System.err.println(e.getMessage());
         }
@@ -111,7 +113,6 @@ class BalancerTest extends RequireBrokerCluster {
       var newAllocation =
           Balancer.builder()
               .usePlanGenerator(new ShufflePlanGenerator(50, 100))
-              .usePlanExecutor(new StraightPlanExecutor())
               .useClusterCost(randomScore)
               .searches(500)
               .build()

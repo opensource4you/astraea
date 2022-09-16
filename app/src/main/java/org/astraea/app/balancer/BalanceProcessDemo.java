@@ -19,6 +19,7 @@ package org.astraea.app.balancer;
 import com.beust.jcommander.Parameter;
 import java.util.Set;
 import java.util.function.Predicate;
+import org.astraea.app.balancer.executor.RebalanceAdmin;
 import org.astraea.app.balancer.executor.StraightPlanExecutor;
 import org.astraea.app.balancer.generator.ShufflePlanGenerator;
 import org.astraea.common.admin.Admin;
@@ -41,14 +42,15 @@ public class BalanceProcessDemo {
       var clusterInfo = admin.clusterInfo();
       var brokerFolders = admin.brokerFolders();
       Predicate<String> filter = topic -> !argument.ignoredTopics.contains(topic);
-      Balancer.builder()
-          .usePlanGenerator(new ShufflePlanGenerator(1, 10))
-          .usePlanExecutor(new StraightPlanExecutor())
-          .useClusterCost(new ReplicaLeaderCost())
-          .searches(1000)
-          .build()
-          .offer(clusterInfo, filter, brokerFolders)
-          .execute(admin);
+      var plan =
+          Balancer.builder()
+              .usePlanGenerator(new ShufflePlanGenerator(1, 10))
+              .useClusterCost(new ReplicaLeaderCost())
+              .searches(1000)
+              .build()
+              .offer(clusterInfo, filter, brokerFolders);
+      new StraightPlanExecutor()
+          .run(RebalanceAdmin.of(admin, ignore -> true), plan.proposal.rebalancePlan());
     }
   }
 

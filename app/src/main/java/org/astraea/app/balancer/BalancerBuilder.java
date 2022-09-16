@@ -19,7 +19,6 @@ package org.astraea.app.balancer;
 import java.util.Comparator;
 import java.util.Objects;
 import java.util.function.Predicate;
-import org.astraea.app.balancer.executor.RebalancePlanExecutor;
 import org.astraea.app.balancer.generator.RebalancePlanGenerator;
 import org.astraea.app.balancer.log.ClusterLogAllocation;
 import org.astraea.common.admin.ClusterBean;
@@ -32,7 +31,6 @@ import org.astraea.common.cost.MoveCost;
 class BalancerBuilder {
 
   private RebalancePlanGenerator planGenerator;
-  private RebalancePlanExecutor planExecutor;
   private HasClusterCost clusterCostFunction;
   private HasMoveCost moveCostFunction = HasMoveCost.EMPTY;
   private Predicate<ClusterCost> clusterConstraint = null;
@@ -47,17 +45,6 @@ class BalancerBuilder {
    */
   public BalancerBuilder usePlanGenerator(RebalancePlanGenerator generator) {
     this.planGenerator = generator;
-    return this;
-  }
-
-  /**
-   * Specify the {@link RebalancePlanExecutor} for fulfilling a rebalance plan.
-   *
-   * @param executor the executor.
-   * @return this
-   */
-  public BalancerBuilder usePlanExecutor(RebalancePlanExecutor executor) {
-    this.planExecutor = executor;
     return this;
   }
 
@@ -130,7 +117,6 @@ class BalancerBuilder {
   public Balancer build() {
     // sanity check
     Objects.requireNonNull(this.planGenerator);
-    Objects.requireNonNull(this.planExecutor);
     Objects.requireNonNull(this.moveCostFunction);
     Objects.requireNonNull(this.clusterConstraint);
     Objects.requireNonNull(this.movementConstraint);
@@ -153,8 +139,7 @@ class BalancerBuilder {
                     proposal,
                     clusterCostFunction.clusterCost(newClusterInfo, currentClusterBean),
                     moveCostFunction.moveCost(
-                        currentClusterInfo, newClusterInfo, currentClusterBean),
-                    planExecutor);
+                        currentClusterInfo, newClusterInfo, currentClusterBean));
               })
           .filter(
               plan -> {
