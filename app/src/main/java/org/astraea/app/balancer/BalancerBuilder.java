@@ -35,7 +35,7 @@ class BalancerBuilder {
   private RebalancePlanExecutor planExecutor;
   private HasClusterCost clusterCostFunction;
   private HasMoveCost moveCostFunction = HasMoveCost.EMPTY;
-  private Predicate<ClusterCost> clusterConstraint = ignore -> true;
+  private Predicate<ClusterCost> clusterConstraint = null;
   private Predicate<MoveCost> movementConstraint = ignore -> true;
   private int searchLimit = 3000;
 
@@ -131,7 +131,6 @@ class BalancerBuilder {
     // sanity check
     Objects.requireNonNull(this.planGenerator);
     Objects.requireNonNull(this.planExecutor);
-    Objects.requireNonNull(this.clusterCostFunction);
     Objects.requireNonNull(this.moveCostFunction);
     Objects.requireNonNull(this.clusterConstraint);
     Objects.requireNonNull(this.movementConstraint);
@@ -157,8 +156,12 @@ class BalancerBuilder {
                         currentClusterInfo, newClusterInfo, currentClusterBean),
                     planExecutor);
               })
-          .filter(plan -> plan.clusterCost.value() < currentCostScore.value())
-          .filter(plan -> clusterConstraint.test(plan.clusterCost))
+          .filter(
+              plan -> {
+                if (clusterConstraint == null)
+                  return plan.clusterCost.value() < currentCostScore.value();
+                else return clusterConstraint.test(plan.clusterCost);
+              })
           .filter(plan -> movementConstraint.test(plan.moveCost))
           .min(Comparator.comparing(plan -> plan.clusterCost.value()))
           .orElseThrow();
