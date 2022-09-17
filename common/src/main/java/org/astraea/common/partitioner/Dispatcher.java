@@ -16,14 +16,12 @@
  */
 package org.astraea.common.partitioner;
 
-import java.security.Key;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 import org.apache.kafka.clients.producer.Partitioner;
 import org.apache.kafka.clients.producer.Producer;
 import org.apache.kafka.common.Cluster;
-import org.apache.kafka.common.metrics.stats.Value;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.ReplicaInfo;
@@ -76,7 +74,7 @@ public interface Dispatcher extends Partitioner {
    * @param producer Kafka producer
    */
   // TODO One thread supports multiple producers.
-  static void beginInterdependent(Producer<Key, Value> producer) {
+  static void beginInterdependent(Producer<?, ?> producer) {
     THREAD_LOCAL.get().isInterdependent = true;
   }
 
@@ -85,7 +83,7 @@ public interface Dispatcher extends Partitioner {
    *
    * @param producer Kafka producer
    */
-  static void endInterdependent(Producer<Key, Value> producer) {
+  static void endInterdependent(Producer<?, ?> producer) {
     THREAD_LOCAL.remove();
   }
 
