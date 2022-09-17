@@ -18,6 +18,7 @@ package org.astraea.app.balancer;
 
 import java.util.Comparator;
 import java.util.Objects;
+import java.util.function.BiPredicate;
 import java.util.function.Predicate;
 import org.astraea.app.balancer.generator.RebalancePlanGenerator;
 import org.astraea.app.balancer.log.ClusterLogAllocation;
@@ -33,7 +34,8 @@ class BalancerBuilder {
   private RebalancePlanGenerator planGenerator;
   private HasClusterCost clusterCostFunction;
   private HasMoveCost moveCostFunction = HasMoveCost.EMPTY;
-  private Predicate<ClusterCost> clusterConstraint = null;
+  private BiPredicate<ClusterCost, ClusterCost> clusterConstraint =
+      (before, after) -> after.value() < before.value();
   private Predicate<MoveCost> movementConstraint = ignore -> true;
   private int searchLimit = 3000;
 
@@ -80,7 +82,8 @@ class BalancerBuilder {
    *     acceptable.
    * @return this
    */
-  public BalancerBuilder useClusterConstraint(Predicate<ClusterCost> clusterConstraint) {
+  public BalancerBuilder useClusterConstraint(
+      BiPredicate<ClusterCost, ClusterCost> clusterConstraint) {
     this.clusterConstraint = clusterConstraint;
     return this;
   }
@@ -123,7 +126,7 @@ class BalancerBuilder {
 
     return (currentClusterInfo, topicFilter, brokerFolders) -> {
       final var currentClusterBean = ClusterBean.EMPTY;
-      final var currentCostScore =
+      final var currentCost =
           clusterCostFunction.clusterCost(currentClusterInfo, currentClusterBean);
       final var generatorClusterInfo = ClusterInfo.masked(currentClusterInfo, topicFilter);
 
@@ -141,12 +144,7 @@ class BalancerBuilder {
                     moveCostFunction.moveCost(
                         currentClusterInfo, newClusterInfo, currentClusterBean));
               })
-          .filter(
-              plan -> {
-                if (clusterConstraint == null)
-                  return plan.clusterCost.value() < currentCostScore.value();
-                else return clusterConstraint.test(plan.clusterCost);
-              })
+          .filter(plan -> clusterConstraint.test(currentCost, plan.clusterCost))
           .filter(plan -> movementConstraint.test(plan.moveCost))
           .min(Comparator.comparing(plan -> plan.clusterCost.value()))
           .orElseThrow();
