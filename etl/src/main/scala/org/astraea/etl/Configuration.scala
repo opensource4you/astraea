@@ -47,8 +47,8 @@ import scala.util.Using
 case class Configuration(
     sourcePath: File,
     sinkPath: File,
-    columnName: Array[String],
-    primaryKeys: Array[String],
+    columnName: Map[String, String],
+    primaryKeys: Map[String, String],
     kafkaBootstrapServers: String,
     topicName: String,
     numPartitions: Int,
@@ -90,6 +90,7 @@ object Configuration {
         )
       )
     )
+
     val column = requireNonidentical(COLUMN_NAME, properties)
     val pKeys = primaryKeys(properties, column)
     //TODO check the format after linking Kafka
@@ -108,7 +109,7 @@ object Configuration {
       .get(TOPIC_REPLICAS)
       .map(_.toInt)
       .getOrElse(DEFAULT_REPLICAS)
-    val topicConfig = topicParameters(properties.getOrElse(TOPIC_CONFIG, ""))
+    val topicConfig = requirePair(properties.getOrElse(TOPIC_CONFIG, ""))
 
     Configuration(
       sourcePath,
@@ -124,7 +125,7 @@ object Configuration {
   }
 
   //Handling the topic.parameters parameter.
-  def topicParameters(tConfig: String): Map[String, String] = {
+  def requirePair(tConfig: String): Map[String, String] = {
     if (tConfig.nonEmpty) {
       tConfig
         .split(",")
@@ -132,7 +133,7 @@ object Configuration {
           val pm = elem.split(":")
           if (pm.length != 2) {
             throw new IllegalArgumentException(
-              "The" + elem + "format of topic parameters is wrong.For example: keyA:valueA,keyB:valueB,keyC:valueC..."
+              "The " + elem + " format of topic parameters is wrong.For example: keyA:valueA,keyB:valueB,keyC:valueC..."
             )
           }
           (pm(0), pm(1))
@@ -152,39 +153,44 @@ object Configuration {
 
   def primaryKeys(
       prop: Map[String, String],
-      columnName: Array[String]
-  ): Array[String] = {
+      columnName: Map[String, String]
+  ): Map[String, String] = {
     val primaryKeys = requireNonidentical(PRIMARY_KEYS, prop)
-    val combine = primaryKeys ++ columnName
-    if (combine.distinct.length != columnName.length)
+    val combine = primaryKeys.keys.toArray ++ columnName.keys.toArray
+
+    if (combine.distinct.length != columnName.size) {
+      val column = columnName.keys.toArray
       throw new IllegalArgumentException(
         "The " + combine
-          .diff(columnName)
+          .diff(column)
           .mkString(
             PRIMARY_KEYS + "(",
             ", ",
             ")"
           ) + " not in column. All " + PRIMARY_KEYS + " should be included in the column."
       )
+    }
     primaryKeys
   }
 
   def requireNonidentical(
       string: String,
       prop: Map[String, String]
-  ): Array[String] = {
+  ): Map[String, String] = {
     val array = prop(string).split(",")
-    val distinctArray = array.distinct
-    if (array.length != distinctArray.length)
+    val map = requirePair(prop(string))
+    if (map.size != array.length) {
+      val column = map.keys.toArray
       throw new IllegalArgumentException(
         array
-          .diff(distinctArray)
+          .diff(column)
           .mkString(
             string + " (",
             ", ",
             ")"
           ) + " is duplication. The " + string + " should not be duplicated."
       )
-    array
+    }
+    map
   }
 }

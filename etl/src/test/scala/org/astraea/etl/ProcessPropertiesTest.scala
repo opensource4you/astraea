@@ -19,7 +19,7 @@ package org.astraea.etl
 import org.astraea.etl.Configuration.{
   primaryKeys,
   requireNonidentical,
-  topicParameters
+  requirePair
 }
 import org.junit.jupiter.api.{BeforeEach, Test}
 import org.scalatest.Assertions.assertThrows
@@ -43,8 +43,15 @@ class ProcessPropertiesTest {
     val config = Configuration(Utils.requireFile(file.getAbsolutePath))
     assert(config.sourcePath.equals(new File(file.getParent)))
     assert(config.sinkPath.equals(new File(file.getParent)))
-    assert(config.columnName sameElements Array[String]("ID", "KA", "KB", "KC"))
-    assert(config.primaryKeys sameElements Array[String]("ID"))
+    assert(
+      config.columnName equals Map(
+        "ID" -> "string",
+        "KA" -> "string",
+        "KB" -> "string",
+        "KC" -> "string"
+      )
+    )
+    assert(config.primaryKeys equals Map("ID" -> "string"))
     assert(config.kafkaBootstrapServers.equals("0.0.0.0"))
     assert(config.numPartitions.equals(15))
     assert(config.numReplicas.equals(1))
@@ -65,8 +72,15 @@ class ProcessPropertiesTest {
     val config = Configuration(Utils.requireFile(file.getAbsolutePath))
     assert(config.sourcePath.equals(new File(file.getParent)))
     assert(config.sinkPath.equals(new File(file.getParent)))
-    assert(config.columnName sameElements Array[String]("ID", "KA", "KB", "KC"))
-    assert(config.primaryKeys sameElements Array[String]("ID"))
+    assert(
+      config.columnName equals Map(
+        "ID" -> "string",
+        "KA" -> "string",
+        "KB" -> "string",
+        "KC" -> "string"
+      )
+    )
+    assert(config.primaryKeys equals Map("ID" -> "string"))
     assert(config.kafkaBootstrapServers.equals("0.0.0.0"))
     assert(config.numPartitions.equals(30))
     assert(config.numReplicas.equals(3))
@@ -92,7 +106,7 @@ class ProcessPropertiesTest {
   @Test def topicParametersTest(): Unit = {
     val map = "ID:KA,PP:KB,KC"
     assertThrows[IllegalArgumentException] {
-      topicParameters(map)
+      requirePair(map)
     }
   }
 
@@ -101,8 +115,8 @@ class ProcessPropertiesTest {
       val prop = new Properties
       prop.setProperty("source.path", file.getParent)
       prop.setProperty("sink.path", file.getParent)
-      prop.setProperty("column.name", "ID,KA,KB,KC")
-      prop.setProperty("primary.keys", "ID")
+      prop.setProperty("column.name", "ID:string,KA:string,KB:string,KC:string")
+      prop.setProperty("primary.keys", "ID:string")
       prop.setProperty("kafka.bootstrap.servers", "0.0.0.0")
       prop.setProperty("topic.name", "spark-1")
       prop.setProperty("topic.partitions", "")
