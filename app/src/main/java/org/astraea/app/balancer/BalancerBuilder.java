@@ -79,8 +79,9 @@ class BalancerBuilder {
    * Specify the cluster cost constraint for any rebalance plan.
    *
    * @param clusterConstraint a {@link BiPredicate} to determine if the rebalance result is
-   *     acceptable. The first argument is the {@link ClusterCost} of current cluster, and the
-   *     second argument is the {@link ClusterCost} of the proposed new cluster.
+   *     acceptable(in terms of performance/resource consideration). The first argument is the
+   *     {@link ClusterCost} of current cluster, and the second argument is the {@link ClusterCost}
+   *     of the proposed new cluster.
    * @return this
    */
   public BalancerBuilder useClusterConstraint(
@@ -92,7 +93,8 @@ class BalancerBuilder {
   /**
    * Specify the movement cost constraint for any rebalance plan.
    *
-   * @param moveConstraint a {@link Predicate} to determine if the rebalance result is acceptable.
+   * @param moveConstraint a {@link Predicate} to determine if the rebalance result is acceptable(in
+   *     terms of the ongoing cost caused by execute this rebalance plan).
    * @return this
    */
   public BalancerBuilder useMovementConstraint(Predicate<MoveCost> moveConstraint) {
