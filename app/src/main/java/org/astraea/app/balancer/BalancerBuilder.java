@@ -78,8 +78,9 @@ class BalancerBuilder {
   /**
    * Specify the cluster cost constraint for any rebalance plan.
    *
-   * @param clusterConstraint a {@link Predicate} to determine if the rebalance result is
-   *     acceptable.
+   * @param clusterConstraint a {@link BiPredicate} to determine if the rebalance result is
+   *     acceptable. The first argument is the {@link ClusterCost} of current cluster, and the
+   *     second argument is the {@link ClusterCost} of the proposed new cluster.
    * @return this
    */
   public BalancerBuilder useClusterConstraint(
