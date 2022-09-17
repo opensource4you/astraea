@@ -157,7 +157,6 @@ object Configuration {
   ): Map[String, String] = {
     val primaryKeys = requireNonidentical(PRIMARY_KEYS, prop)
     val combine = primaryKeys.keys.toArray ++ columnName.keys.toArray
-
     if (combine.distinct.length != columnName.size) {
       val column = columnName.keys.toArray
       throw new IllegalArgumentException(
