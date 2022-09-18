@@ -96,7 +96,7 @@ public class ReplicaLeaderCost implements HasBrokerCost, HasClusterCost, HasMove
     return migrateInfo(removedReplicas, addedReplicas).unit("number").build();
   }
 
-  static MoveCostBuilder migrateInfo(
+  static MoveCost.Build migrateInfo(
       Collection<Replica> removedReplicas, Collection<Replica> addedReplicas) {
     var changes = new HashMap<Integer, Long>();
     AtomicLong totalMigrateNum = new AtomicLong(0L);
@@ -116,6 +116,6 @@ public class ReplicaLeaderCost implements HasBrokerCost, HasClusterCost, HasMove
                   return (size == null) ? 1 : size + 1;
                 });
         });
-    return new MoveCostBuilder().totalCost(totalMigrateNum.get()).change(changes);
+    return MoveCost.builder().totalCost(totalMigrateNum.get()).change(changes);
   }
 }

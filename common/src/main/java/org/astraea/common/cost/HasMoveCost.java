@@ -24,7 +24,7 @@ import org.astraea.common.admin.Replica;
 @FunctionalInterface
 public interface HasMoveCost extends CostFunction {
   /**
-   * score migrate cost from originClusterInfo to newClusterInfo .
+   * score migrate cost from originClusterInfo to newClusterInfo
    *
    * @param before the clusterInfo before migrate
    * @param after the mocked clusterInfo generate from balancer
@@ -34,6 +34,10 @@ public interface HasMoveCost extends CostFunction {
   MoveCost moveCost(
       ClusterInfo<Replica> before, ClusterInfo<Replica> after, ClusterBean clusterBean);
 
+  /**
+   * Use this helper when you need to implement the calculation method of total cost or broker
+   * changes by yourself
+   */
   interface Helper extends HasMoveCost {
 
     default MoveCost moveCost(
