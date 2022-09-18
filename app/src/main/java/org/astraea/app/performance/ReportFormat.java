@@ -80,14 +80,13 @@ public enum ReportFormat implements EnumInfo {
                     + "."
                     + reportFormat);
     var writer = new BufferedWriter(new FileWriter(filePath.toFile()));
-    var elements = latencyAndIO();
     switch (reportFormat) {
       case CSV:
-        initCSVFormat(writer, elements);
+        initCSVFormat(writer, latencyAndIO());
         return () -> {
           try {
             while (!(producerDone.get() && consumerDone.get())) {
-              logToCSV(writer, elements);
+              logToCSV(writer, latencyAndIO());
               Utils.sleep(Duration.ofSeconds(1));
             }
           } finally {
@@ -99,7 +98,7 @@ public enum ReportFormat implements EnumInfo {
         return () -> {
           try {
             while (!(producerDone.get() && consumerDone.get())) {
-              logToJSON(writer, elements);
+              logToJSON(writer, latencyAndIO());
               Utils.sleep(Duration.ofSeconds(1));
             }
           } finally {
@@ -175,13 +174,13 @@ public enum ReportFormat implements EnumInfo {
                     + LocalTime.now().getSecond()));
     elements.add(
         CSVContentElement.create(
-            "Publish Max latency (ms)",
+            "Max latency (ms) of producer",
             () ->
                 Long.toString(
                     producerReports.stream().mapToLong(Report::maxLatency).max().orElse(0))));
     elements.add(
         CSVContentElement.create(
-            "End-to-end max latency (ms)",
+            "Max latency (ms) of consumer",
             () ->
                 Long.toString(
                     consumerReports.stream().mapToLong(Report::maxLatency).max().orElse(0))));
