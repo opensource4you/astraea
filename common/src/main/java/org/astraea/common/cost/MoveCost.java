@@ -38,7 +38,7 @@ public interface MoveCost {
   }
 
   class Build {
-    private String name;
+    private String name = "unknown";
     private long totalCost;
     private String unit = "unknown";
     private Map<Integer, Long> changes = Map.of();
