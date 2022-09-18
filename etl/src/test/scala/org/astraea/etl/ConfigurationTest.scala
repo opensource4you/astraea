@@ -29,7 +29,7 @@ import java.nio.file.Files.createTempFile
 import java.util.Properties
 import scala.util.{Try, Using}
 
-class ProcessPropertiesTest {
+class ConfigurationTest {
   var file = new File("")
   var path = ""
 
@@ -66,7 +66,7 @@ class ProcessPropertiesTest {
     }
     prop.setProperty("topic.partitions", "30")
     prop.setProperty("topic.replicas", "3")
-    prop.setProperty("topic.config", "KA:VA,KB:VB")
+    prop.setProperty("topic.config", "KA=VA,KB=VB")
     prop.store(new FileOutputStream(file), null)
 
     val config = Configuration(Utils.requireFile(file.getAbsolutePath))
@@ -97,14 +97,14 @@ class ProcessPropertiesTest {
 
   @Test def primaryKeysTest(): Unit = {
     val map =
-      Map[String, String]("data" -> "ID,KA,KB,KC", "primary.keys" -> "DD")
+      Map[String, String]("data" -> "ID,KA,KB,KC", "primary=keys" -> "DD")
     assertThrows[IllegalArgumentException] {
       primaryKeys(map, requireNonidentical("data", map))
     }
   }
 
   @Test def topicParametersTest(): Unit = {
-    val map = "ID:KA,PP:KB,KC"
+    val map = "ID=KA,PP=KB,KC"
     assertThrows[IllegalArgumentException] {
       requirePair(map)
     }
@@ -115,8 +115,8 @@ class ProcessPropertiesTest {
       val prop = new Properties
       prop.setProperty("source.path", file.getParent)
       prop.setProperty("sink.path", file.getParent)
-      prop.setProperty("column.name", "ID:string,KA:string,KB:string,KC:string")
-      prop.setProperty("primary.keys", "ID:string")
+      prop.setProperty("column.name", "ID=string,KA=string,KB=string,KC=string")
+      prop.setProperty("primary.keys", "ID=string")
       prop.setProperty("kafka.bootstrap.servers", "0.0.0.0")
       prop.setProperty("topic.name", "spark-1")
       prop.setProperty("topic.partitions", "")

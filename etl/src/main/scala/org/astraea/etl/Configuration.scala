@@ -78,7 +78,7 @@ object Configuration {
       properties.getOrElse(
         SOURCE_PATH,
         throw new NullPointerException(
-          SOURCE_PATH + " is null." + "You must configure " + SOURCE_PATH + "."
+          s"$SOURCE_PATH is null. You must configure $SOURCE_PATH."
         )
       )
     )
@@ -86,11 +86,11 @@ object Configuration {
       properties.getOrElse(
         SINK_PATH,
         throw new NullPointerException(
-          SINK_PATH + "is null." + "You must configure " + SINK_PATH
+          s"${SINK_PATH} + is null.You must configure ${SINK_PATH}."
         )
       )
     )
-
+    //TODO check the type
     val column = requireNonidentical(COLUMN_NAME, properties)
     val pKeys = primaryKeys(properties, column)
     //TODO check the format after linking Kafka
@@ -98,7 +98,7 @@ object Configuration {
     val topicName = properties.getOrElse(
       TOPIC_NAME,
       throw new NullPointerException(
-        TOPIC_NAME + "is null." + "You must configure " + TOPIC_NAME
+        s"${TOPIC_NAME} is null.You must configure ${TOPIC_NAME}."
       )
     )
     val topicPartitions = properties
@@ -109,7 +109,7 @@ object Configuration {
       .get(TOPIC_REPLICAS)
       .map(_.toInt)
       .getOrElse(DEFAULT_REPLICAS)
-    val topicConfig = requirePair(properties.getOrElse(TOPIC_CONFIG, ""))
+    val topicConfig = requirePair(properties.getOrElse(TOPIC_CONFIG, null))
 
     Configuration(
       sourcePath,
@@ -126,21 +126,21 @@ object Configuration {
 
   //Handling the topic.parameters parameter.
   def requirePair(tConfig: String): Map[String, String] = {
-    if (tConfig.nonEmpty) {
-      tConfig
-        .split(",")
-        .map { elem =>
-          val pm = elem.split(":")
-          if (pm.length != 2) {
-            throw new IllegalArgumentException(
-              "The " + elem + " format of topic parameters is wrong.For example: keyA:valueA,keyB:valueB,keyC:valueC..."
-            )
+    Option(tConfig)
+      .map(
+        _.split(",")
+          .map(_.split("="))
+          .map { elem =>
+            if (elem.length != 2) {
+              throw new IllegalArgumentException(
+                s"The ${elem.mkString(",")} format of topic parameters is wrong.For example: keyA=valueA,keyB=valueB,keyC=valueC..."
+              )
+            }
+            (elem(0), elem(1))
           }
-          (pm(0), pm(1))
-        }
-        .toMap
-    } else
-      Map.empty[String, String]
+          .toMap
+      )
+      .getOrElse(Map.empty[String, String])
   }
 
   private[this] def readProp(path: File): Properties = {
@@ -160,13 +160,13 @@ object Configuration {
     if (combine.distinct.length != columnName.size) {
       val column = columnName.keys.toArray
       throw new IllegalArgumentException(
-        "The " + combine
+        s"The ${combine
           .diff(column)
           .mkString(
             PRIMARY_KEYS + "(",
             ", ",
             ")"
-          ) + " not in column. All " + PRIMARY_KEYS + " should be included in the column."
+          )} not in column. All ${PRIMARY_KEYS} should be included in the column."
       )
     }
     primaryKeys
@@ -181,13 +181,13 @@ object Configuration {
     if (map.size != array.length) {
       val column = map.keys.toArray
       throw new IllegalArgumentException(
-        array
+        s"${array
           .diff(column)
           .mkString(
             string + " (",
             ", ",
             ")"
-          ) + " is duplication. The " + string + " should not be duplicated."
+          )} is duplication. The ${string} should not be duplicated."
       )
     }
     map
