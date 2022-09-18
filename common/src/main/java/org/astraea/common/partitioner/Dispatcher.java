@@ -16,14 +16,12 @@
  */
 package org.astraea.common.partitioner;
 
-import java.security.Key;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 import org.apache.kafka.clients.producer.Partitioner;
 import org.apache.kafka.clients.producer.Producer;
 import org.apache.kafka.common.Cluster;
-import org.apache.kafka.common.metrics.stats.Value;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.ReplicaInfo;
@@ -66,9 +64,9 @@ public interface Dispatcher extends Partitioner {
    *
    * <pre>{
    * @Code
-   * Dispatch.startInterdependent();
+   * Dispatch.startInterdependent(producer);
    * producer.send();
-   * Dispatch.endInterdependent();
+   * Dispatch.endInterdependent(producer);
    * }</pre>
    *
    * Begin interdependence function.Let the next messages be interdependent.
@@ -76,8 +74,32 @@ public interface Dispatcher extends Partitioner {
    * @param producer Kafka producer
    */
   // TODO One thread supports multiple producers.
-  static void beginInterdependent(Producer<Key, Value> producer) {
+  static void beginInterdependent(org.apache.kafka.clients.producer.Producer<?, ?> producer) {
     THREAD_LOCAL.get().isInterdependent = true;
+  }
+
+  /**
+   * Use the producer to get the scheduler, allowing you to control it for interdependent
+   * messages.Interdependent message will be sent to the same partition. The system will
+   * automatically select the node with the best current condition as the target node.
+   * Action:Dispatcher states can interfere with each other when multiple producers are in the same
+   * thread. Each Thread can only support one producer. For example:
+   *
+   * <pre>{
+   * @Code
+   * Dispatch.startInterdependent(producer);
+   * producer.send();
+   * Dispatch.endInterdependent(producer);
+   * }</pre>
+   *
+   * Begin interdependence function.Let the next messages be interdependent.
+   *
+   * @param producer Astraea producer
+   */
+  // TODO One thread supports multiple producers.
+  // TODO: https://github.com/skiptests/astraea/pull/721#discussion_r973677891
+  static void beginInterdependent(org.astraea.common.producer.Producer<?, ?> producer) {
+    beginInterdependent((Producer<?, ?>) Utils.member(producer, "kafkaProducer"));
   }
 
   /**
@@ -85,8 +107,17 @@ public interface Dispatcher extends Partitioner {
    *
    * @param producer Kafka producer
    */
-  static void endInterdependent(Producer<Key, Value> producer) {
+  static void endInterdependent(org.apache.kafka.clients.producer.Producer<?, ?> producer) {
     THREAD_LOCAL.remove();
+  }
+  /**
+   * Close interdependence function.Send data using the original Dispatcher logic.
+   *
+   * @param producer Kafka producer
+   */
+  // TODO: https://github.com/skiptests/astraea/pull/721#discussion_r973677891
+  static void endInterdependent(org.astraea.common.producer.Producer<?, ?> producer) {
+    endInterdependent((Producer<?, ?>) Utils.member(producer, "kafkaProducer"));
   }
 
   /** close this dispatcher. This method is executed only once. */

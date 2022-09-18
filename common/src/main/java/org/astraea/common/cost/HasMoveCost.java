@@ -57,4 +57,7 @@ public interface HasMoveCost extends CostFunction {
         Collection<Replica> addedReplicas,
         ClusterBean clusterBean);
   }
+
+  HasMoveCost EMPTY =
+      (originClusterInfo, newClusterInfo, clusterBean) -> MoveCost.builder().totalCost(0).build();
 }
