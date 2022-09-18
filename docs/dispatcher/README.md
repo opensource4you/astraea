@@ -86,8 +86,7 @@ var producer =
         .build();
 
 /* 開始使用 Interdependent Message 功能，以下的 record 都會被發送到同一個 partition 上 */
-Dispatcher.beginInterdependent(
-    (org.apache.kafka.clients.producer.Producer<?, ?>) Utils.member(producer, "kafkaProducer"));
+Dispatcher.beginInterdependent(producer);
 producer.sender().topic("topicName").value("These".getBytes()).run();
 producer.sender().topic("topicName").value("should".getBytes()).run();
 producer.sender().topic("topicName").value("be".getBytes()).run();
@@ -96,8 +95,7 @@ producer.sender().topic("topicName").value("the".getBytes()).run();
 producer.sender().topic("topicName").value("same".getBytes()).run();
 producer.sender().topic("topicName").value("partition".getBytes()).run();
 /* 結束 Interdependent Message 功能 */
-Dispatcher.endInterdependent(
-    (org.apache.kafka.clients.producer.Producer<?, ?>) Utils.member(producer, "kafkaProducer"));
+Dispatcher.endInterdependent(producer);
 ```
 
 **注意： Interdependent 內，不可發送不同 topic 的 record，因為 topic 間的 partition 數量不一定相同。**

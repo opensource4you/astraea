@@ -64,9 +64,9 @@ public interface Dispatcher extends Partitioner {
    *
    * <pre>{
    * @Code
-   * Dispatch.startInterdependent();
+   * Dispatch.startInterdependent(producer);
    * producer.send();
-   * Dispatch.endInterdependent();
+   * Dispatch.endInterdependent(producer);
    * }</pre>
    *
    * Begin interdependence function.Let the next messages be interdependent.
@@ -74,7 +74,30 @@ public interface Dispatcher extends Partitioner {
    * @param producer Kafka producer
    */
   // TODO One thread supports multiple producers.
-  static void beginInterdependent(Producer<?, ?> producer) {
+  static void beginInterdependent(org.apache.kafka.clients.producer.Producer<?, ?> producer) {
+    THREAD_LOCAL.get().isInterdependent = true;
+  }
+
+  /**
+   * Use the producer to get the scheduler, allowing you to control it for interdependent
+   * messages.Interdependent message will be sent to the same partition. The system will
+   * automatically select the node with the best current condition as the target node.
+   * Action:Dispatcher states can interfere with each other when multiple producers are in the same
+   * thread. Each Thread can only support one producer. For example:
+   *
+   * <pre>{
+   * @Code
+   * Dispatch.startInterdependent(producer);
+   * producer.send();
+   * Dispatch.endInterdependent(producer);
+   * }</pre>
+   *
+   * Begin interdependence function.Let the next messages be interdependent.
+   *
+   * @param producer Kafka producer
+   */
+  // TODO One thread supports multiple producers.
+  static void beginInterdependent(org.astraea.common.producer.Producer<?, ?> producer) {
     THREAD_LOCAL.get().isInterdependent = true;
   }
 
@@ -84,6 +107,14 @@ public interface Dispatcher extends Partitioner {
    * @param producer Kafka producer
    */
   static void endInterdependent(Producer<?, ?> producer) {
+    THREAD_LOCAL.remove();
+  }
+  /**
+   * Close interdependence function.Send data using the original Dispatcher logic.
+   *
+   * @param producer Kafka producer
+   */
+  static void endInterdependent(org.astraea.common.producer.Producer<?, ?> producer) {
     THREAD_LOCAL.remove();
   }
 
