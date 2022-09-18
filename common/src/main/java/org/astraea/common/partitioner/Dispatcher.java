@@ -94,11 +94,12 @@ public interface Dispatcher extends Partitioner {
    *
    * Begin interdependence function.Let the next messages be interdependent.
    *
-   * @param producer Kafka producer
+   * @param producer Astraea producer
    */
   // TODO One thread supports multiple producers.
+  // TODO: https://github.com/skiptests/astraea/pull/721#discussion_r973677891
   static void beginInterdependent(org.astraea.common.producer.Producer<?, ?> producer) {
-    THREAD_LOCAL.get().isInterdependent = true;
+    beginInterdependent((Producer<?, ?>) Utils.member(producer, "kafkaProducer"));
   }
 
   /**
@@ -106,7 +107,7 @@ public interface Dispatcher extends Partitioner {
    *
    * @param producer Kafka producer
    */
-  static void endInterdependent(Producer<?, ?> producer) {
+  static void endInterdependent(org.apache.kafka.clients.producer.Producer<?, ?> producer) {
     THREAD_LOCAL.remove();
   }
   /**
@@ -114,8 +115,9 @@ public interface Dispatcher extends Partitioner {
    *
    * @param producer Kafka producer
    */
+  // TODO: https://github.com/skiptests/astraea/pull/721#discussion_r973677891
   static void endInterdependent(org.astraea.common.producer.Producer<?, ?> producer) {
-    THREAD_LOCAL.remove();
+    endInterdependent((Producer<?, ?>) Utils.member(producer, "kafkaProducer"));
   }
 
   /** close this dispatcher. This method is executed only once. */
