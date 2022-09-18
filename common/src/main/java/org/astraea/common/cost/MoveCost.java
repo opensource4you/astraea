@@ -28,14 +28,10 @@ public interface MoveCost {
   long totalCost();
 
   /** @return unit of cost */
-  default String unit() {
-    return "unknown";
-  }
+  String unit();
 
   /** @return Changes per broker, negative if brokers moved out, positive if brokers moved in */
-  default Map<Integer, Long> changes() {
-    return Map.of();
-  }
+  Map<Integer, Long> changes();
 
   static Build builder() {
     return new Build();
@@ -44,8 +40,8 @@ public interface MoveCost {
   class Build {
     private String name;
     private long totalCost;
-    private String unit;
-    private Map<Integer, Long> changes;
+    private String unit = "unknown";
+    private Map<Integer, Long> changes = Map.of();
 
     private Build() {}
 
