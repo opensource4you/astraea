@@ -5,7 +5,7 @@ Strict Cost Dispatcher 是 [Astraea partitioner](./README.md) 之一，功能在
 ### 於本專案的 [performance tool](../performance_benchmark.md) 使用
 
 ```bash
-$ ./docker/start_app.sh performance --bootstrap.servers 192.168.103.26:9092 --partitioner org.astraea.app.partitioner.StrictCostDispatcher
+$ ./docker/start_app.sh performance --bootstrap.servers 192.168.103.26:9092 --partitioner org.astraea.common.partitioner.StrictCostDispatcher
 ```
 
 （加入參數 "--partitioner org.astraea.app.partitioner.StrictCostDispatcher" 即可選定使用 Strict Cost Dispatcher 作為 partitioner ）
@@ -19,7 +19,7 @@ var props = new Properties();
 
 /* ... Some Kafka properties to put into ...*/
 
-props.put(ProducerConfig.PARTITIONER_CLASS_CONFIG, "org.astraea.app.partitioner.StrictCostDispatcher");
+props.put(ProducerConfig.PARTITIONER_CLASS_CONFIG, "org.astraea.common.partitioner.StrictCostDispatcher");
 
 var producer = new KafkaProducer<String, String>(props);
 ```
@@ -40,7 +40,7 @@ Strict Cost Dispatcher 實做了 Apache Kafka 的 `org.apache.kafka.clients.prod
 
 ```bash
 # 使用 performance tool 時，設定更新效能指標的時間
-$ ./docker/start_app.sh performance --bootstrap.servers 192.168.103.26:9092 --partitioner org.astraea.app.partitioner.StrictCostDispatcher --configs
+$ ./docker/start_app.sh performance --bootstrap.servers 192.168.103.26:9092 --partitioner org.astraea.common.partitioner.StrictCostDispatcher --configs
 ```
 
 ```java
