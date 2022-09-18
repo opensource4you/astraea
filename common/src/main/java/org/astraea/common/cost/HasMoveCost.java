@@ -35,8 +35,8 @@ public interface HasMoveCost extends CostFunction {
       ClusterInfo<Replica> before, ClusterInfo<Replica> after, ClusterBean clusterBean);
 
   /**
-   * Use this helper method if you don't need to calculate the before and after changes of the
-   * cluster distribution by yourself
+   * Use this helper if you don't need to calculate the before and after changes of the cluster
+   * distribution by yourself
    */
   interface Helper extends HasMoveCost {
 
