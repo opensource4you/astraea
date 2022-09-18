@@ -18,12 +18,11 @@ package org.astraea.common.cost;
 
 import java.util.Collection;
 import java.util.Comparator;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.Replica;
@@ -93,29 +92,19 @@ public class ReplicaLeaderCost implements HasBrokerCost, HasClusterCost, HasMove
       Collection<Replica> removedReplicas,
       Collection<Replica> addedReplicas,
       ClusterBean clusterBean) {
-    return migrateInfo(removedReplicas, addedReplicas).unit("number").build();
-  }
-
-  static MoveCost.Build migrateInfo(
-      Collection<Replica> removedReplicas, Collection<Replica> addedReplicas) {
-    var changes = new HashMap<Integer, Long>();
-    AtomicLong totalMigrateNum = new AtomicLong(0L);
-    removedReplicas.forEach(
-        replica -> {
-          if (replica.isLeader())
-            changes.compute(
-                replica.nodeInfo().id(), (ignore, size) -> (size == null) ? -1 : size - 1);
-        });
-    addedReplicas.forEach(
-        replica -> {
-          if (replica.isLeader())
-            changes.compute(
-                replica.nodeInfo().id(),
-                (ignore, size) -> {
-                  totalMigrateNum.set(totalMigrateNum.get() + 1);
-                  return (size == null) ? 1 : size + 1;
-                });
-        });
-    return MoveCost.builder().totalCost(totalMigrateNum.get()).change(changes);
+    return MoveCost.builder()
+        .name("leader")
+        .unit("partition leaders")
+        .totalCost(addedReplicas.stream().filter(Replica::isLeader).count())
+        .change(
+            Stream.concat(
+                    removedReplicas.stream()
+                        .filter(Replica::isLeader)
+                        .map(replica -> Map.entry(replica.nodeInfo().id(), -1L)),
+                    addedReplicas.stream()
+                        .filter(Replica::isLeader)
+                        .map(replica -> Map.entry(replica.nodeInfo().id(), +1L)))
+                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue, Long::sum)))
+        .build();
   }
 }

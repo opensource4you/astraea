@@ -35,8 +35,8 @@ public interface HasMoveCost extends CostFunction {
       ClusterInfo<Replica> before, ClusterInfo<Replica> after, ClusterBean clusterBean);
 
   /**
-   * Use this helper when you need to implement the calculation method of total cost or broker
-   * changes by yourself
+   * Use this helper method if you don't need to calculate the before and after changes of the
+   * cluster distribution by yourself
    */
   interface Helper extends HasMoveCost {
 

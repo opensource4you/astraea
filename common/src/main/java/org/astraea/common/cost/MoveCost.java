@@ -48,7 +48,6 @@ public interface MoveCost {
     private Map<Integer, Long> changes;
 
     private Build() {}
-    ;
 
     public Build name(String name) {
       this.name = name;

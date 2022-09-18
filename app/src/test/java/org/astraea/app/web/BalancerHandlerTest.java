@@ -219,17 +219,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
         (clusterInfo, clusterBean) -> () -> clusterInfo == currentClusterInfo ? 100D : 10D;
     HasMoveCost moveCostFunction =
         (originClusterInfo, newClusterInfo, clusterBean) ->
-            new MoveCost() {
-              @Override
-              public String name() {
-                return "";
-              }
-
-              @Override
-              public long totalCost() {
-                return 100;
-              }
-            };
+            MoveCost.builder().totalCost(100).build();
     var best =
         BalancerHandler.bestPlan(
             Stream.of(proposal),
