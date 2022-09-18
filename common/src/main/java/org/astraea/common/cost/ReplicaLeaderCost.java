@@ -16,11 +16,13 @@
  */
 package org.astraea.common.cost;
 
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.Replica;
@@ -30,7 +32,7 @@ import org.astraea.common.metrics.broker.ServerMetrics;
 import org.astraea.common.metrics.collector.Fetcher;
 
 /** more replica leaders -> higher cost */
-public class ReplicaLeaderCost implements HasBrokerCost, HasClusterCost {
+public class ReplicaLeaderCost implements HasBrokerCost, HasClusterCost, HasMoveCost.Helper {
   private final Dispersion dispersion = Dispersion.correlationCoefficient();
 
   @Override
@@ -83,5 +85,26 @@ public class ReplicaLeaderCost implements HasBrokerCost, HasClusterCost {
   @Override
   public Optional<Fetcher> fetcher() {
     return Optional.of(c -> List.of(ServerMetrics.ReplicaManager.LEADER_COUNT.fetch(c)));
+  }
+
+  @Override
+  public MoveCost moveCost(
+      Collection<Replica> removedReplicas,
+      Collection<Replica> addedReplicas,
+      ClusterBean clusterBean) {
+    return MoveCost.builder()
+        .name("leader")
+        .unit("partition leaders")
+        .totalCost(addedReplicas.stream().filter(Replica::isLeader).count())
+        .change(
+            Stream.concat(
+                    removedReplicas.stream()
+                        .filter(Replica::isLeader)
+                        .map(replica -> Map.entry(replica.nodeInfo().id(), -1L)),
+                    addedReplicas.stream()
+                        .filter(Replica::isLeader)
+                        .map(replica -> Map.entry(replica.nodeInfo().id(), +1L)))
+                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue, Long::sum)))
+        .build();
   }
 }

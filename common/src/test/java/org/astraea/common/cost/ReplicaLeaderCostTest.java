@@ -21,6 +21,7 @@ import java.util.Map;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.NodeInfo;
+import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.ReplicaInfo;
 import org.astraea.common.metrics.BeanObject;
 import org.astraea.common.metrics.HasBeanObject;
@@ -39,11 +40,12 @@ public class ReplicaLeaderCostTest {
             ReplicaInfo.of("topic", 0, NodeInfo.of(10, "broker0", 1111), true, true, false),
             ReplicaInfo.of("topic", 0, NodeInfo.of(11, "broker1", 1111), true, true, false));
     var clusterInfo = ClusterInfo.of(replicas);
-    var cost = ReplicaLeaderCost.leaderCount(clusterInfo);
-    Assertions.assertTrue(cost.containsKey(10));
-    Assertions.assertTrue(cost.containsKey(11));
-    Assertions.assertEquals(2, cost.size());
-    Assertions.assertTrue(cost.get(10) > cost.get(11));
+    var brokerCost = ReplicaLeaderCost.leaderCount(clusterInfo);
+
+    Assertions.assertTrue(brokerCost.containsKey(10));
+    Assertions.assertTrue(brokerCost.containsKey(11));
+    Assertions.assertEquals(2, brokerCost.size());
+    Assertions.assertTrue(brokerCost.get(10) > brokerCost.get(11));
   }
 
   @Test
@@ -65,6 +67,120 @@ public class ReplicaLeaderCostTest {
     Assertions.assertEquals(4.0, brokerLoad.value().get(2));
     Assertions.assertEquals(5.0, brokerLoad.value().get(3));
     Assertions.assertEquals(0.2041241452319315, clusterLoad.value());
+  }
+
+  @Test
+  void testMoveCost() {
+    var costFunction = new ReplicaLeaderCost();
+    var before =
+        List.of(
+            Replica.of(
+                "topic1",
+                0,
+                NodeInfo.of(0, "broker0", 1111),
+                -1,
+                -1,
+                true,
+                true,
+                false,
+                false,
+                false,
+                ""),
+            Replica.of(
+                "topic1",
+                0,
+                NodeInfo.of(1, "broker0", 1111),
+                -1,
+                -1,
+                false,
+                true,
+                false,
+                false,
+                false,
+                ""),
+            Replica.of(
+                "topic1",
+                1,
+                NodeInfo.of(0, "broker0", 1111),
+                -1,
+                -1,
+                true,
+                true,
+                false,
+                false,
+                false,
+                ""),
+            Replica.of(
+                "topic1",
+                1,
+                NodeInfo.of(1, "broker0", 1111),
+                -1,
+                -1,
+                false,
+                true,
+                false,
+                false,
+                false,
+                ""));
+    var after =
+        List.of(
+            Replica.of(
+                "topic1",
+                0,
+                NodeInfo.of(2, "broker0", 1111),
+                -1,
+                -1,
+                true,
+                true,
+                false,
+                false,
+                false,
+                ""),
+            Replica.of(
+                "topic1",
+                0,
+                NodeInfo.of(1, "broker0", 1111),
+                -1,
+                -1,
+                false,
+                true,
+                false,
+                false,
+                false,
+                ""),
+            Replica.of(
+                "topic1",
+                1,
+                NodeInfo.of(0, "broker0", 1111),
+                -1,
+                -1,
+                true,
+                true,
+                false,
+                false,
+                false,
+                ""),
+            Replica.of(
+                "topic1",
+                1,
+                NodeInfo.of(2, "broker0", 1111),
+                -1,
+                -1,
+                false,
+                true,
+                false,
+                false,
+                false,
+                ""));
+    var beforeClusterInfo = ClusterInfo.of(before);
+    var afterClusterInfo = ClusterInfo.of(after);
+    var moveCost = costFunction.moveCost(beforeClusterInfo, afterClusterInfo, ClusterBean.EMPTY);
+    Assertions.assertEquals(1, moveCost.totalCost());
+    Assertions.assertEquals(2, moveCost.changes().size());
+    Assertions.assertTrue(moveCost.changes().containsKey(0));
+    Assertions.assertTrue(moveCost.changes().containsKey(2));
+    Assertions.assertEquals(-1, moveCost.changes().get(0));
+    Assertions.assertEquals(1, moveCost.changes().get(2));
   }
 
   private ServerMetrics.ReplicaManager.Gauge mockResult(String name, long count) {
