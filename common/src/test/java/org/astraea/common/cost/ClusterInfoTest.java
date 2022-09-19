@@ -116,6 +116,8 @@ public class ClusterInfoTest {
     var before = ClusterInfo.of(nodeInfos, beforeReplicas);
     var after = ClusterInfo.of(nodeInfos, afterReplicas);
     var changes = ClusterInfo.diff(before, after);
+
+    Assertions.assertNotEquals(0, after.topics().size());
     Assertions.assertEquals(2, changes.size());
     Assertions.assertEquals(
         1,
@@ -135,7 +137,7 @@ public class ClusterInfoTest {
   }
 
   @Test
-  void testReplicaLeaders() {
+  void testReplicaLeadersAndMaskedCluster() {
     var replicas =
         List.of(
             Replica.of(
@@ -176,7 +178,22 @@ public class ClusterInfoTest {
                 "/data-folder-01"));
 
     var clusterInfo = ClusterInfo.of(replicas);
+    var maskedClusterInfoHasReplicas = ClusterInfo.masked(clusterInfo, t -> t.equals("test-1"));
+    var maskedClusterInfoNoReplicas =
+        ClusterInfo.masked(clusterInfo, t -> t.equals("No topic name the same."));
+
+    Assertions.assertNotEquals(0, maskedClusterInfoHasReplicas.nodes().size());
+    Assertions.assertNotEquals(0, maskedClusterInfoHasReplicas.replicas().size());
+    Assertions.assertEquals(0, maskedClusterInfoNoReplicas.replicas().size());
+
     Assertions.assertNotEquals(0, clusterInfo.replicaLeaders(0, "test-1").size());
+  }
+
+  @Test
+  void testEmptyCluster() {
+    var emptyCluster = ClusterInfo.empty();
+    Assertions.assertEquals(0, emptyCluster.nodes().size());
+    Assertions.assertEquals(0, emptyCluster.replicaStream().count());
   }
 
   @Test
