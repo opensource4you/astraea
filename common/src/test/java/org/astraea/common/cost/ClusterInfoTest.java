@@ -135,6 +135,51 @@ public class ClusterInfoTest {
   }
 
   @Test
+  void testReplicaLeaders() {
+    var replicas =
+        List.of(
+            Replica.of(
+                "test-1",
+                0,
+                NodeInfo.of(0, "", -1),
+                -1,
+                -1,
+                true,
+                true,
+                false,
+                false,
+                false,
+                "/data-folder-01"),
+            Replica.of(
+                "test-1",
+                1,
+                NodeInfo.of(1, "", -1),
+                -1,
+                -1,
+                false,
+                true,
+                false,
+                false,
+                false,
+                "/data-folder-02"),
+            Replica.of(
+                "test-1",
+                2,
+                NodeInfo.of(0, "", -1),
+                -1,
+                -1,
+                false,
+                true,
+                false,
+                false,
+                false,
+                "/data-folder-01"));
+
+    var clusterInfo = ClusterInfo.of(replicas);
+    Assertions.assertNotEquals(0, clusterInfo.replicaLeaders(0, "test-1").size());
+  }
+
+  @Test
   void testNode() {
     var node = NodeInfoTest.node();
     var partition = ReplicaInfoTest.partitionInfo();
