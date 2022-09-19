@@ -17,17 +17,26 @@
 package org.astraea.app.scenario;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import org.apache.commons.math3.distribution.BinomialDistribution;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
+import org.astraea.common.cost.Configuration;
 import org.astraea.it.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 class SkewedPartitionScenarioTest extends RequireBrokerCluster {
+
+  @Test
+  void testConstruct() {
+    var c = Utils.construct(SkewedPartitionScenario.class, Configuration.of(Map.of()));
+    Assertions.assertInstanceOf(SkewedPartitionScenario.class, c);
+  }
 
   @CsvSource(
       value = {

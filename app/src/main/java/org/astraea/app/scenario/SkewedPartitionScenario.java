@@ -30,6 +30,7 @@ import org.apache.commons.math3.util.Pair;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.TopicPartition;
+import org.astraea.common.cost.Configuration;
 
 public class SkewedPartitionScenario implements Scenario {
 
@@ -37,6 +38,14 @@ public class SkewedPartitionScenario implements Scenario {
   final int partitions;
   final short replicas;
   final double binomialProbability;
+
+  public SkewedPartitionScenario(Configuration configuration) {
+    this(
+        configuration.string("topicName").orElse(Utils.randomString()),
+        configuration.string("partitions").map(Integer::parseInt).orElse(10),
+        configuration.string("replicas").map(Short::parseShort).orElse((short) 1),
+        configuration.string("binomialProbability").map(Double::parseDouble).orElse(0.5));
+  }
 
   SkewedPartitionScenario(
       String topicName, int partitions, short replicas, double binomialProbability) {
