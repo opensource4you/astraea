@@ -46,12 +46,14 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
 
   @Test
   void testReport() {
+    var topicNames = createAndProduceTopic(1);
     try (var admin = Admin.of(bootstrapServers())) {
       var handler = new BalancerHandler(admin, new DegradeCost(), new ReplicaSizeCost());
       var report =
           Assertions.assertInstanceOf(
               BalancerHandler.Report.class,
-              handler.get(Channel.ofQueries(Map.of(BalancerHandler.LIMIT_KEY, "3000"))));
+              handler.get(Channel.ofQueries(Map.of(BalancerHandler.LIMIT_KEY, "3000",
+                      BalancerHandler.TOPICS_KEY, topicNames.get(0)))));
       Assertions.assertEquals(3000, report.limit);
       Assertions.assertNotEquals(0, report.changes.size());
       Assertions.assertTrue(report.cost >= report.newCost);
