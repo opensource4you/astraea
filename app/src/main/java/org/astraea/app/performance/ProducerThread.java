@@ -28,6 +28,7 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.TopicPartition;
+import org.astraea.common.partitioner.Dispatcher;
 import org.astraea.common.producer.Producer;
 
 public interface ProducerThread extends AbstractThread {
@@ -37,7 +38,8 @@ public interface ProducerThread extends AbstractThread {
       DataSupplier dataSupplier,
       Supplier<TopicPartition> topicPartitionSupplier,
       int producers,
-      Supplier<Producer<byte[], byte[]>> producerSupplier) {
+      Supplier<Producer<byte[], byte[]>> producerSupplier,
+      int interdependent) {
     if (producers <= 0) return List.of();
     var closeLatches =
         IntStream.range(0, producers)
@@ -63,6 +65,7 @@ public interface ProducerThread extends AbstractThread {
               executors.execute(
                   () -> {
                     try {
+                      int interdependentCounter = 0;
                       while (!closed.get()) {
                         var data =
                             IntStream.range(0, batchSize)
@@ -78,6 +81,12 @@ public interface ProducerThread extends AbstractThread {
                           Utils.sleep(Duration.ofSeconds(1));
                           continue;
                         }
+
+                        if (interdependent > 0 && interdependentCounter < interdependent) {
+                          Dispatcher.beginInterdependent(producer);
+                          interdependentCounter +=
+                              data.stream().filter(DataSupplier.Data::hasData).count();
+                        }
                         producer.send(
                             data.stream()
                                 .filter(DataSupplier.Data::hasData)
@@ -90,6 +99,10 @@ public interface ProducerThread extends AbstractThread {
                                             .value(d.value())
                                             .timestamp(System.currentTimeMillis()))
                                 .collect(Collectors.toList()));
+                        if (interdependent > 0 && interdependentCounter > interdependent) {
+                          Dispatcher.endInterdependent(producer);
+                          interdependentCounter = 0;
+                        }
                       }
                     } finally {
                       Utils.swallowException(producer::close);
