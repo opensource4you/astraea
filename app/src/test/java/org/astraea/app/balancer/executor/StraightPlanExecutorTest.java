@@ -21,12 +21,12 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-import org.astraea.app.admin.Admin;
-import org.astraea.app.admin.TopicPartition;
 import org.astraea.app.balancer.log.ClusterLogAllocation;
 import org.astraea.app.balancer.log.LogPlacement;
-import org.astraea.app.common.Utils;
-import org.astraea.app.service.RequireBrokerCluster;
+import org.astraea.common.Utils;
+import org.astraea.common.admin.Admin;
+import org.astraea.common.admin.TopicPartition;
+import org.astraea.it.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -53,7 +53,7 @@ class StraightPlanExecutorTest extends RequireBrokerCluster {
               .collect(Collectors.toUnmodifiableMap(tp -> tp, tp -> onlyPlacement));
       final var expectedAllocation = ClusterLogAllocation.of(allocationMap);
       final var expectedTopicPartition = expectedAllocation.topicPartitions();
-      final var rebalanceAdmin = RebalanceAdmin.of(admin, (s) -> s.equals(topicName));
+      final var rebalanceAdmin = RebalanceAdmin.of(admin);
 
       // act
       new StraightPlanExecutor().run(rebalanceAdmin, expectedAllocation);

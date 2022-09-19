@@ -28,7 +28,7 @@ class RebalancePlanProposalTest {
     final var thisAllocation = ClusterLogAllocation.of(fakeCluster);
     final var build =
         RebalancePlanProposal.builder()
-            .withRebalancePlan(thisAllocation)
+            .clusterLogAllocation(thisAllocation)
             .addInfo("Info0")
             .addInfo("Info1")
             .addInfo("Info2")

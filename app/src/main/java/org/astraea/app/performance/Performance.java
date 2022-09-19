@@ -27,37 +27,39 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
-import org.astraea.app.admin.Admin;
-import org.astraea.app.admin.Compression;
-import org.astraea.app.admin.TopicPartition;
-import org.astraea.app.argument.DurationField;
-import org.astraea.app.argument.NonEmptyStringField;
-import org.astraea.app.argument.NonNegativeShortField;
-import org.astraea.app.argument.PathField;
-import org.astraea.app.argument.PositiveIntegerListField;
-import org.astraea.app.argument.PositiveLongField;
-import org.astraea.app.argument.PositiveShortField;
-import org.astraea.app.argument.PositiveShortListField;
-import org.astraea.app.argument.StringListField;
-import org.astraea.app.common.DataRate;
-import org.astraea.app.common.DataSize;
-import org.astraea.app.common.DataUnit;
-import org.astraea.app.common.Utils;
-import org.astraea.app.consumer.Consumer;
-import org.astraea.app.consumer.Isolation;
-import org.astraea.app.producer.Acks;
-import org.astraea.app.producer.Producer;
+import org.astraea.common.DataRate;
+import org.astraea.common.DataSize;
+import org.astraea.common.DataUnit;
+import org.astraea.common.Utils;
+import org.astraea.common.admin.Admin;
+import org.astraea.common.admin.Compression;
+import org.astraea.common.admin.ReplicaInfo;
+import org.astraea.common.admin.TopicPartition;
+import org.astraea.common.argument.DurationField;
+import org.astraea.common.argument.NonEmptyStringField;
+import org.astraea.common.argument.NonNegativeShortField;
+import org.astraea.common.argument.PathField;
+import org.astraea.common.argument.PositiveIntegerListField;
+import org.astraea.common.argument.PositiveLongField;
+import org.astraea.common.argument.PositiveShortField;
+import org.astraea.common.argument.PositiveShortListField;
+import org.astraea.common.argument.StringListField;
+import org.astraea.common.argument.TopicPartitionField;
+import org.astraea.common.consumer.Consumer;
+import org.astraea.common.consumer.Isolation;
+import org.astraea.common.producer.Acks;
+import org.astraea.common.producer.Producer;
 
 /** see docs/performance_benchmark.md for man page */
 public class Performance {
   /** Used in Automation, to achieve the end of one Performance and then start another. */
-  public static void main(String[] args)
-      throws InterruptedException, IOException, ExecutionException {
-    execute(org.astraea.app.argument.Argument.parse(new Argument(), args));
+  public static void main(String[] args) throws InterruptedException, IOException {
+    execute(org.astraea.common.argument.Argument.parse(new Argument(), args));
   }
 
   private static DataSupplier dataSupplier(Performance.Argument argument) {
@@ -75,16 +77,18 @@ public class Performance {
       throws InterruptedException, IOException {
     var topicSet = new HashSet<>(param.topics);
     // always try to init topic even though it may be existent already.
+    System.out.println("Initializing topics: " + String.join(",", topicSet));
     param.initTopics();
 
+    System.out.println("seeking offsets");
     var latestOffsets = param.lastOffsets();
 
+    System.out.println("creating threads");
     var producerThreads =
         ProducerThread.create(
-            param.topics,
             param.transactionSize,
             dataSupplier(param),
-            param.partitionSupplier(),
+            param.topicPartitionSelector(),
             param.producers,
             param::createProducer);
     var consumerThreads =
@@ -100,18 +104,11 @@ public class Performance {
                     .consumerRebalanceListener(listener)
                     .build());
 
-    Supplier<List<ProducerThread.Report>> producerReporter =
-        () ->
-            producerThreads.stream()
-                .map(ProducerThread::report)
-                .collect(Collectors.toUnmodifiableList());
-    Supplier<List<ConsumerThread.Report>> consumerReporter =
-        () ->
-            consumerThreads.stream()
-                .map(ConsumerThread::report)
-                .collect(Collectors.toUnmodifiableList());
-
-    var tracker = TrackerThread.create(producerReporter, consumerReporter, param.exeTime);
+    System.out.println("creating tracker");
+    var tracker =
+        TrackerThread.create(
+            () -> producerThreads.stream().allMatch(AbstractThread::closed),
+            () -> consumerThreads.stream().allMatch(AbstractThread::closed));
 
     Optional<Runnable> fileWriter =
         param.CSVPath == null
@@ -121,9 +118,7 @@ public class Performance {
                     param.reportFormat,
                     param.CSVPath,
                     () -> consumerThreads.stream().allMatch(AbstractThread::closed),
-                    () -> producerThreads.stream().allMatch(AbstractThread::closed),
-                    producerReporter,
-                    consumerReporter));
+                    () -> producerThreads.stream().allMatch(AbstractThread::closed)));
 
     var fileWriterFuture =
         fileWriter.map(CompletableFuture::runAsync).orElse(CompletableFuture.completedFuture(null));
@@ -145,21 +140,20 @@ public class Performance {
     CompletableFuture.runAsync(
         () -> {
           producerThreads.forEach(AbstractThread::waitForDone);
-          // wait until all records are read already
+          var last = 0L;
+          var lastChange = System.currentTimeMillis();
           while (true) {
-            var offsets =
-                Report.maxOffsets(
-                    producerThreads.stream()
-                        .map(ProducerThread::report)
-                        .collect(Collectors.toUnmodifiableList()));
-            if (offsets.entrySet().stream()
-                .allMatch(
-                    e ->
-                        consumerReporter.get().stream()
-                            .anyMatch(r -> r.offset(e.getKey()) >= e.getValue()))) break;
-            Utils.sleep(Duration.ofSeconds(2));
+            var current = Report.recordsConsumedTotal();
+            if (current != last) {
+              last = current;
+              lastChange = System.currentTimeMillis();
+            }
+            if (System.currentTimeMillis() - lastChange >= param.readIdle.toMillis()) {
+              consumerThreads.forEach(AbstractThread::close);
+              return;
+            }
+            Utils.sleep(Duration.ofSeconds(1));
           }
-          consumerThreads.forEach(AbstractThread::close);
         });
     consumerThreads.forEach(AbstractThread::waitForDone);
     tracker.waitForDone();
@@ -168,7 +162,10 @@ public class Performance {
     return param.topics;
   }
 
-  public static class Argument extends org.astraea.app.argument.Argument {
+  public static class Argument extends org.astraea.common.argument.Argument {
+
+    private final List<String> defaultTopics =
+        List.of("testPerformance-" + System.currentTimeMillis());
 
     @Parameter(
         names = {"--topics"},
@@ -176,7 +173,7 @@ public class Performance {
         validateWith = StringListField.class,
         listConverter = StringListField.class,
         variableArity = true)
-    List<String> topics = List.of("testPerformance-" + System.currentTimeMillis());
+    List<String> topics = defaultTopics;
 
     void initTopics() {
       var topicPattern = topicPattern();
@@ -344,17 +341,78 @@ public class Performance {
         description =
             "String: The broker IDs to send to if the topic has partition on that broker.",
         validateWith = PositiveIntegerListField.class)
-    List<Integer> specifyBroker = List.of();
+    List<Integer> specifyBrokers = List.of();
 
-    Supplier<Integer> partitionSupplier() {
-      if (specifyBroker.isEmpty()) return () -> -1;
-      try (var admin = Admin.of(configs())) {
-        var partitions =
-            admin.partitions(new HashSet<>(topics), new HashSet<>(specifyBroker)).values().stream()
-                .flatMap(Collection::stream)
-                .map(TopicPartition::partition)
+    @Parameter(
+        names = {"--specify.partitions"},
+        description =
+            "String: A list ot topic-partition pairs, this list specify the send targets in "
+                + "partition level. This argument can't be use in conjunction with `specify.brokers`, `topics` or `partitioner`.",
+        converter = TopicPartitionField.class)
+    List<TopicPartition> specifyPartitions = List.of();
+
+    /** @return a supplier that randomly return a sending target */
+    Supplier<TopicPartition> topicPartitionSelector() {
+      var specifiedByBroker = !specifyBrokers.isEmpty();
+      var specifiedByPartition = !specifyPartitions.isEmpty();
+      if (specifiedByBroker && specifiedByPartition)
+        throw new IllegalArgumentException(
+            "`--specify.partitions` can't be use in conjunction with `--specify.brokers`");
+      else if (specifiedByBroker) {
+        try (Admin admin = Admin.of(configs())) {
+          final var selections =
+              admin.replicas(Set.copyOf(topics)).values().stream()
+                  .flatMap(Collection::stream)
+                  .filter(ReplicaInfo::isLeader)
+                  .filter(replica -> specifyBrokers.contains(replica.nodeInfo().id()))
+                  .map(replica -> TopicPartition.of(replica.topic(), replica.partition()))
+                  .distinct()
+                  .collect(Collectors.toUnmodifiableList());
+
+          if (selections.isEmpty())
+            throw new IllegalArgumentException(
+                "No partition match the specify.brokers requirement");
+
+          return () -> selections.get(ThreadLocalRandom.current().nextInt(selections.size()));
+        }
+      } else if (specifiedByPartition) {
+        // specify.partitions can't be use in conjunction with partitioner or topics
+        if (partitioner != null)
+          throw new IllegalArgumentException(
+              "--specify.partitions can't be use in conjunction with partitioner");
+        if (!(topics == defaultTopics))
+          throw new IllegalArgumentException(
+              "--specify.partitions can't be use in conjunction with topics");
+        // sanity check, ensure all specified partitions are existed
+        try (Admin admin = Admin.of(configs())) {
+          var allTopics = admin.topicNames();
+          var allTopicPartitions =
+              admin
+                  .replicas(
+                      specifyPartitions.stream()
+                          .map(TopicPartition::topic)
+                          .filter(allTopics::contains)
+                          .collect(Collectors.toUnmodifiableSet()))
+                  .keySet();
+          var notExist =
+              specifyPartitions.stream()
+                  .filter(tp -> !allTopicPartitions.contains(tp))
+                  .collect(Collectors.toUnmodifiableSet());
+          if (!notExist.isEmpty())
+            throw new IllegalArgumentException(
+                "The following topic/partitions are nonexistent in the cluster: " + notExist);
+        }
+
+        final var selection =
+            specifyPartitions.stream().distinct().collect(Collectors.toUnmodifiableList());
+        return () -> selection.get(ThreadLocalRandom.current().nextInt(selection.size()));
+      } else {
+        final var selection =
+            topics.stream()
+                .map(topic -> TopicPartition.of(topic, -1))
+                .distinct()
                 .collect(Collectors.toUnmodifiableList());
-        return () -> partitions.get((int) (Math.random() * partitions.size()));
+        return () -> selection.get(ThreadLocalRandom.current().nextInt(selection.size()));
       }
     }
 
@@ -397,5 +455,12 @@ public class Performance {
         description = "How many replicas should be synced when producing records.",
         converter = Acks.Field.class)
     Acks acks = Acks.ISRS;
+
+    @Parameter(
+        names = {"--read.idle"},
+        description =
+            "Perf will close all read processes if it can't get more data in this duration",
+        converter = DurationField.class)
+    Duration readIdle = Duration.ofSeconds(2);
   }
 }

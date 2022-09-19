@@ -19,12 +19,11 @@ package org.astraea.app.balancer;
 import com.beust.jcommander.Parameter;
 import java.util.Set;
 import java.util.function.Predicate;
-import java.util.stream.Collectors;
-import org.astraea.app.admin.Admin;
 import org.astraea.app.balancer.executor.RebalanceAdmin;
 import org.astraea.app.balancer.executor.StraightPlanExecutor;
 import org.astraea.app.balancer.generator.ShufflePlanGenerator;
-import org.astraea.app.balancer.log.ClusterLogAllocation;
+import org.astraea.common.admin.Admin;
+import org.astraea.common.cost.ReplicaLeaderCost;
 
 /**
  * A simple demo for Balancer, it does the following:
@@ -38,34 +37,23 @@ import org.astraea.app.balancer.log.ClusterLogAllocation;
 public class BalanceProcessDemo {
 
   public static void main(String[] args) {
-    var argument = org.astraea.app.argument.Argument.parse(new Argument(), args);
-    var rebalancePlanGenerator = new ShufflePlanGenerator(1, 5);
-    var rebalancePlanExecutor = new StraightPlanExecutor();
+    var argument = org.astraea.common.argument.Argument.parse(new Argument(), args);
     try (var admin = Admin.of(argument.configs())) {
-      Predicate<String> topicFilter = (topic) -> !argument.ignoredTopics.contains(topic);
-      var topics =
-          admin.topicNames().stream().filter(topicFilter).collect(Collectors.toUnmodifiableSet());
-      var clusterInfo = admin.clusterInfo(topics);
-
-      // TODO: implement one interface to select the best plan from many plan ,see #544
-      var rebalancePlan =
-          rebalancePlanGenerator
-              .generate(admin.brokerFolders(), ClusterLogAllocation.of(clusterInfo))
-              .findFirst()
-              .orElseThrow();
-      System.out.println(rebalancePlan);
-      var targetAllocation = rebalancePlan.rebalancePlan();
-
-      System.out.println("[Target Allocation]");
-      System.out.println(ClusterLogAllocation.toString(targetAllocation));
-
-      var rebalanceAdmin = RebalanceAdmin.of(admin, topicFilter);
-      rebalancePlanExecutor.run(rebalanceAdmin, targetAllocation);
+      var clusterInfo = admin.clusterInfo();
+      var brokerFolders = admin.brokerFolders();
+      Predicate<String> filter = topic -> !argument.ignoredTopics.contains(topic);
+      var plan =
+          Balancer.builder()
+              .usePlanGenerator(new ShufflePlanGenerator(1, 10))
+              .useClusterCost(new ReplicaLeaderCost())
+              .searches(1000)
+              .build()
+              .offer(clusterInfo, filter, brokerFolders);
+      new StraightPlanExecutor().run(RebalanceAdmin.of(admin), plan.proposal.rebalancePlan());
     }
   }
 
-  public static class Argument extends org.astraea.app.argument.Argument {
-
+  public static class Argument extends org.astraea.common.argument.Argument {
     @Parameter(names = {"--ignored.topics"})
     public Set<String> ignoredTopics =
         Set.of("__consumer_offsets", "__transaction_state", "__cluster_metadata");

@@ -20,12 +20,25 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-import org.astraea.app.admin.Admin;
-import org.astraea.app.common.Utils;
-import org.astraea.app.producer.Producer;
-import org.astraea.app.service.RequireBrokerCluster;
+import java.util.stream.Stream;
+import org.astraea.app.balancer.RebalancePlanProposal;
+import org.astraea.app.balancer.log.ClusterLogAllocation;
+import org.astraea.common.Utils;
+import org.astraea.common.admin.Admin;
+import org.astraea.common.admin.ClusterBean;
+import org.astraea.common.admin.ClusterInfo;
+import org.astraea.common.admin.NodeInfo;
+import org.astraea.common.admin.Replica;
+import org.astraea.common.cost.ClusterCost;
+import org.astraea.common.cost.HasClusterCost;
+import org.astraea.common.cost.HasMoveCost;
+import org.astraea.common.cost.MoveCost;
+import org.astraea.common.cost.ReplicaSizeCost;
+import org.astraea.common.producer.Producer;
+import org.astraea.it.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -33,17 +46,17 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
 
   @Test
   void testReport() {
-    var topicName = createAndProduceTopic(1).get(0);
     try (var admin = Admin.of(bootstrapServers())) {
-      var handler = new BalancerHandler(admin);
+      var handler = new BalancerHandler(admin, new DegradeCost(), new ReplicaSizeCost());
       var report =
           Assertions.assertInstanceOf(
               BalancerHandler.Report.class,
-              handler.get(Channel.ofQueries(Map.of(BalancerHandler.LIMIT_KEY, "30"))));
-      Assertions.assertEquals(30, report.limit);
+              handler.get(Channel.ofQueries(Map.of(BalancerHandler.LIMIT_KEY, "3000"))));
+      Assertions.assertEquals(3000, report.limit);
       Assertions.assertNotEquals(0, report.changes.size());
       Assertions.assertTrue(report.cost >= report.newCost);
-      Assertions.assertEquals(handler.costFunction.getClass().getSimpleName(), report.function);
+      Assertions.assertEquals(
+          handler.clusterCostFunction.getClass().getSimpleName(), report.function);
       // "before" should record size
       report.changes.stream()
           .flatMap(c -> c.before.stream())
@@ -65,7 +78,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
   void testTopic() {
     var topicNames = createAndProduceTopic(3);
     try (var admin = Admin.of(bootstrapServers())) {
-      var handler = new BalancerHandler(admin);
+      var handler = new BalancerHandler(admin, new DegradeCost(), new ReplicaSizeCost());
       var report =
           Assertions.assertInstanceOf(
               BalancerHandler.Report.class,
@@ -89,11 +102,24 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
     }
   }
 
+  /** The score will getter better after each call, pretend we find a better plan */
+  private static class DegradeCost implements HasClusterCost {
+
+    private double value0 = 1.0;
+
+    @Override
+    public synchronized ClusterCost clusterCost(
+        ClusterInfo<Replica> clusterInfo, ClusterBean clusterBean) {
+      value0 = value0 * 0.998;
+      return () -> value0;
+    }
+  }
+
   @Test
   void testTopics() {
     var topicNames = createAndProduceTopic(3);
     try (var admin = Admin.of(bootstrapServers())) {
-      var handler = new BalancerHandler(admin);
+      var handler = new BalancerHandler(admin, new DegradeCost(), new ReplicaSizeCost());
       var report =
           Assertions.assertInstanceOf(
               BalancerHandler.Report.class,
@@ -147,5 +173,85 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
       }
       return topics;
     }
+  }
+
+  @Test
+  void testBestPlan() {
+    var currentClusterInfo =
+        ClusterInfo.of(
+            List.of(NodeInfo.of(10, "host", 22), NodeInfo.of(11, "host", 22)),
+            List.of(
+                Replica.of(
+                    "topic",
+                    0,
+                    NodeInfo.of(10, "host", 22),
+                    0,
+                    100,
+                    true,
+                    true,
+                    false,
+                    false,
+                    true,
+                    "/tmp/aa")));
+
+    var clusterLogAllocation =
+        ClusterLogAllocation.of(
+            ClusterInfo.of(
+                List.of(
+                    Replica.of(
+                        "topic",
+                        0,
+                        NodeInfo.of(11, "host", 22),
+                        0,
+                        100,
+                        true,
+                        true,
+                        false,
+                        false,
+                        true,
+                        "/tmp/aa"))));
+    var proposal =
+        RebalancePlanProposal.builder()
+            .clusterLogAllocation(clusterLogAllocation)
+            .index(100)
+            .build();
+    HasClusterCost clusterCostFunction =
+        (clusterInfo, clusterBean) -> () -> clusterInfo == currentClusterInfo ? 100D : 10D;
+    HasMoveCost moveCostFunction =
+        (originClusterInfo, newClusterInfo, clusterBean) ->
+            MoveCost.builder().totalCost(100).build();
+    var best =
+        BalancerHandler.bestPlan(
+            Stream.of(proposal),
+            currentClusterInfo,
+            clusterCostFunction,
+            clusterCost -> true,
+            moveCostFunction,
+            moveCost -> true);
+
+    Assertions.assertNotEquals(Optional.empty(), best);
+    Assertions.assertEquals(clusterLogAllocation, best.get().allocation);
+
+    // test cluster cost predicate
+    Assertions.assertEquals(
+        Optional.empty(),
+        BalancerHandler.bestPlan(
+            Stream.of(proposal),
+            currentClusterInfo,
+            clusterCostFunction,
+            clusterCost -> false,
+            moveCostFunction,
+            moveCost -> true));
+
+    // test move cost predicate
+    Assertions.assertEquals(
+        Optional.empty(),
+        BalancerHandler.bestPlan(
+            Stream.of(proposal),
+            currentClusterInfo,
+            clusterCostFunction,
+            clusterCost -> true,
+            moveCostFunction,
+            moveCost -> false));
   }
 }

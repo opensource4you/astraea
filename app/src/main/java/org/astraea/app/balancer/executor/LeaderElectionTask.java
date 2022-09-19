@@ -17,7 +17,7 @@
 package org.astraea.app.balancer.executor;
 
 import java.util.concurrent.CompletableFuture;
-import org.astraea.app.admin.TopicPartition;
+import org.astraea.common.admin.TopicPartition;
 
 public class LeaderElectionTask {
 

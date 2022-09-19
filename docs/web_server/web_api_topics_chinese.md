@@ -12,11 +12,12 @@ POST /topics
 
 參數
 
-| 名稱         | 說明                  | 預設值 |
-|------------|---------------------|-----|
-| name       | (必填) topic 名稱       | 無   |
-| partitions | (選填) partition 數量   | 1   |
-| replicas   | (選填) replication 數量 | 1   |
+| 名稱          | 說明                  | 預設值                |
+|-------------|---------------------|--------------------|
+| name        | (必填) topic 名稱       | 無                  |
+| partitions  | (選填) partition 數量   | 1                  |
+| replicas    | (選填) replication 數量 | 1                  |
+| probability | (選填) 分佈機率           | 無，預設依照 kafka 的分佈方式 |
 - replicas 數量須 <= brokers 數量
 
 cURL 範例
@@ -25,21 +26,21 @@ cURL 範例
 ```shell
 curl -X POST http://localhost:8001/topics \
     -H "Content-Type: application/json" \
-    -d '{
+    -d '{"topics":[{
     "name": "test1",
     "partitions": 1,
     "replicas": 1
-    }'
+    }]}'
 ```
 
 所有在 JSON Response `configs` 裡頭的參數也可以透過此 api 來設定。範例如下
 ```shell
 curl -X POST http://localhost:8001/topics \
     -H "Content-Type: application/json" \
-    -d '{
+    -d '{"topics":[{
     "name": "test1",
     "max.message.bytes": 1000
-    }'
+    }]}'
 ```
 
 JSON Response 範例

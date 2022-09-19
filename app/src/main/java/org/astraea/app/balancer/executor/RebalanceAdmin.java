@@ -20,13 +20,12 @@ import java.time.Duration;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Predicate;
-import org.astraea.app.admin.Admin;
-import org.astraea.app.admin.ClusterInfo;
-import org.astraea.app.admin.Replica;
-import org.astraea.app.admin.TopicPartition;
-import org.astraea.app.admin.TopicPartitionReplica;
 import org.astraea.app.balancer.log.LogPlacement;
+import org.astraea.common.admin.Admin;
+import org.astraea.common.admin.ClusterInfo;
+import org.astraea.common.admin.Replica;
+import org.astraea.common.admin.TopicPartition;
+import org.astraea.common.admin.TopicPartitionReplica;
 
 /**
  * The wrapper of {@link Admin}. Offer only the essential functionalities & some utilities to
@@ -37,11 +36,10 @@ public interface RebalanceAdmin {
   /**
    * Construct an implementation of {@link RebalanceAdmin}
    *
-   * @param topicFilter to determine which topics are permitted for balance operation
    * @param admin the actual {@link Admin} implementation
    */
-  static RebalanceAdmin of(Admin admin, Predicate<String> topicFilter) {
-    return new RebalanceAdminImpl(topicFilter, admin);
+  static RebalanceAdmin of(Admin admin) {
+    return new RebalanceAdminImpl(admin);
   }
 
   /**
@@ -89,12 +87,6 @@ public interface RebalanceAdmin {
   LeaderElectionTask leaderElection(TopicPartition topicPartition);
 
   ClusterInfo<Replica> clusterInfo();
-
-  /**
-   * @return a {@link Predicate<String>} indicate which topic name is allowed to operate by this
-   *     {@link RebalanceAdmin}.
-   */
-  Predicate<String> topicFilter();
 
   // TODO: add method to apply reassignment bandwidth throttle.
   // TODO: add method to fetch topic configuration

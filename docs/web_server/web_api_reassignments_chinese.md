@@ -20,7 +20,10 @@ JSON Response 範例
 - `from`: replica 原本的位址
   - `broker`: broker id
   - `path`: 存放的資料夾路徑
+  - `size`: replica 大小，單位為 byte
 - `to`: replica 將來的位址
+- `progress`: 當前 replicas 搬移進度，以百分比顯示
+
 ```json
 {
   "reassignments": [
@@ -30,15 +33,18 @@ JSON Response 範例
       "from": [
         {
           "broker": 1002,
-          "path": "/tmp/log-folder-0"
+          "path": "/tmp/log-folder-0",
+          "size": 200
         }
       ],
       "to": [
         {
           "broker": 1001,
-          "path": "/tmp/log-folder-1"
+          "path": "/tmp/log-folder-1",
+          "size": 100
         }
-      ]
+      ],
+      "progress": "50.00%"
     }
   ]
 }

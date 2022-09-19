@@ -19,10 +19,10 @@ package org.astraea.app.web;
 import java.util.List;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import org.astraea.app.admin.Admin;
-import org.astraea.app.metrics.BeanObject;
-import org.astraea.app.metrics.BeanQuery;
-import org.astraea.app.metrics.MBeanClient;
+import org.astraea.common.admin.Admin;
+import org.astraea.common.metrics.BeanObject;
+import org.astraea.common.metrics.BeanQuery;
+import org.astraea.common.metrics.MBeanClient;
 
 public class BeanHandler implements Handler {
   private final List<MBeanClient> clients;

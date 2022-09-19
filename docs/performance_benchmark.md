@@ -35,11 +35,13 @@
 |      configs       | (選填) 給partitioner的設置檔。 設置格式為 "\<key1\>=\<value1\>[,\<key2\>=\<value2\>]*"。 <br />例如: "--configs broker.1001.jmx.port=14338,org.astraea.cost.ThroughputCost=1"                                                                                                         |               none               |
 |     throughput     | (選填) 用來限制輸出資料的速度, 範例： "--throughput 2MiB/m", "--throughput 2GB" 預設值是秒 <br/>大小單位: MB, MiB, Kb etc. <br />時間單位: second(s), minute(m), hour(h), day(d) or PT expression(PT30S)                                                                                           |          500 GiB/second          |
 |  specify.brokers   | (選填) 指定broker的ID，送資料到指定的broker，若 broker 上有 "目標 topic 的 partition"                                                                                                                                                                                                     |               none               |
+| specify.partitions | (選填) 指定要傳送資料的 topic/partitions，多個項目之間可以用逗號隔開，注意這個選項不能和 `specify.brokers`, `topics` 或 `partitioner` 一起使用                                                                                                                                                               |               none               |
 |    report.path     | (選填) report file的檔案路徑                                                                                                                                                                                                                                                 |               none               |
 |   report.format    | (選填) 選擇輸出檔案格式, 可用的格式：`csv`, `json`                                                                                                                                                                                                                                    |               csv                |
 |  transaction.size  | (選填) 每個transaction的records數量。若設置1以上，會使用transaction，否則都是一般write                                                                                                                                                                                                        |                1                 |
 |      group.id      | (選填) 設置 consumer group id                                                                                                                                                                                                                                             |     groupId-{Time in millis}     |
 |        acks        | (選填) 設置 producer acks，                                                                                                                                                                                                                                                |         all，代表要等所有isr同步          |
+|     read.idle      | (選填) 讀取端將被終止如果超過這個時間沒有讀取到新的資料                                                                                                                                                                                                                                         |                2秒                |
 
 #### 使用範例
 
@@ -91,7 +93,7 @@ docker/start_app.sh performance --bootstrap.servers localhost:9092 --partitioner
 
 ```bash
 # 使用 partitioner 框架，指定參考 Broker Input 做效能指標，把紀錄輸出到指定路徑。
-docker/start_app.sh performance --bootstrap.servers localhost:9092 --partitioner org.astraea.app.partitioner.StrictCostDispatcher --configs org.astraea.app.cost.BrokerInputCost=1 --prop.file ./config --report.path ~/report
+docker/start_app.sh performance --bootstrap.servers localhost:9092 --partitioner org.astraea.common.partitioner.StrictCostDispatcher --configs org.astraea.common.cost.BrokerInputCost=1 --prop.file ./config --report.path ~/report
 ```
 
 ``` bash

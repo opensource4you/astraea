@@ -23,9 +23,9 @@ import java.util.Map;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
-import org.astraea.app.admin.Admin;
-import org.astraea.app.admin.Member;
-import org.astraea.app.admin.ProducerState;
+import org.astraea.common.admin.Admin;
+import org.astraea.common.admin.Member;
+import org.astraea.common.admin.ProducerState;
 
 class PipelineHandler implements Handler {
 

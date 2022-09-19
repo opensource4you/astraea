@@ -19,38 +19,38 @@ package org.astraea.app.balancer;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-import org.astraea.app.admin.ClusterInfo;
-import org.astraea.app.admin.NodeInfo;
-import org.astraea.app.admin.Replica;
-import org.astraea.app.admin.TopicPartition;
 import org.astraea.app.balancer.log.ClusterLogAllocation;
 import org.astraea.app.balancer.log.LogPlacement;
-import org.astraea.app.cost.ReplicaDiskInCost;
-import org.astraea.app.cost.ReplicaLeaderCost;
-import org.astraea.app.metrics.BeanObject;
-import org.astraea.app.metrics.HasBeanObject;
-import org.astraea.app.metrics.broker.HasGauge;
-import org.astraea.app.metrics.broker.LogMetrics;
-import org.astraea.app.metrics.broker.ServerMetrics;
-import org.astraea.app.partitioner.Configuration;
+import org.astraea.common.admin.ClusterInfo;
+import org.astraea.common.admin.NodeInfo;
+import org.astraea.common.admin.Replica;
+import org.astraea.common.admin.TopicPartition;
+import org.astraea.common.cost.Configuration;
+import org.astraea.common.cost.ReplicaDiskInCost;
+import org.astraea.common.cost.ReplicaLeaderCost;
+import org.astraea.common.metrics.BeanObject;
+import org.astraea.common.metrics.HasBeanObject;
+import org.astraea.common.metrics.broker.HasGauge;
+import org.astraea.common.metrics.broker.LogMetrics;
+import org.astraea.common.metrics.broker.ServerMetrics;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 class BalancerUtilsTest {
-  private static final HasGauge OLD_TP1_0 =
+  private static final HasGauge<Long> OLD_TP1_0 =
       fakePartitionBeanObject("Log", LogMetrics.Log.SIZE.metricName(), "test-1", "0", 1000, 1000L);
-  private static final HasGauge NEW_TP1_0 =
+  private static final HasGauge<Long> NEW_TP1_0 =
       fakePartitionBeanObject(
           "Log", LogMetrics.Log.SIZE.metricName(), "test-1", "0", 500000, 10000L);
-  private static final HasGauge OLD_TP1_1 =
+  private static final HasGauge<Long> OLD_TP1_1 =
       fakePartitionBeanObject("Log", LogMetrics.Log.SIZE.metricName(), "test-1", "1", 500, 1000L);
-  private static final HasGauge NEW_TP1_1 =
+  private static final HasGauge<Long> NEW_TP1_1 =
       fakePartitionBeanObject(
           "Log", LogMetrics.Log.SIZE.metricName(), "test-1", "1", 100000000, 10000L);
-  private static final HasGauge LEADER_BROKER1 =
+  private static final HasGauge<Long> LEADER_BROKER1 =
       fakeBrokerBeanObject(
           "ReplicaManager", ServerMetrics.ReplicaManager.LEADER_COUNT.metricName(), 2, 10000L);
-  private static final HasGauge LEADER_BROKER2 =
+  private static final HasGauge<Long> LEADER_BROKER2 =
       fakeBrokerBeanObject(
           "ReplicaManager", ServerMetrics.ReplicaManager.LEADER_COUNT.metricName(), 4, 10000L);
   private static final Collection<HasBeanObject> broker1 =

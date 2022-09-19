@@ -27,16 +27,23 @@ repositories {
 def versions = [
         scala: project.properties['scala.version'] ?: "2.13.7",
         junit: project.properties['junit.version'] ?: "5.8.2",
+        scalatest: project.properties['scalatest.version'] ?: "3.1.1"
 ]
 
 dependencies {
     implementation "org.scala-lang:scala-library:${versions["scala"]}"
+
+    testImplementation "org.scalatest:scalatest_2.13:${versions["scalatest"]}"
     testImplementation "org.junit.jupiter:junit-jupiter:${versions["junit"]}"
 }
 
-tasks.named('test') {
-    int numberOfForks = project.hasProperty('maxParallelForks') ? maxParallelForks.toInteger() : Math.max((int) (Runtime.runtime.availableProcessors() / 2), 1)
+ext {
+    numberOfForks = project.hasProperty('maxParallelForks') ? maxParallelForks.toInteger() : Math.max((int) (Runtime.runtime.availableProcessors() / 2), 1)
+}
 
+archivesBaseName = "astraea-etl"
+
+tasks.named('test') {
     // Use JUnit Platform for unit tests.
     useJUnitPlatform()
 
