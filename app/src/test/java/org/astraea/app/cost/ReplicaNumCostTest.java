@@ -17,10 +17,11 @@
 package org.astraea.app.cost;
 
 import java.util.List;
-import org.astraea.app.admin.ClusterBean;
-import org.astraea.app.admin.ClusterInfo;
-import org.astraea.app.admin.NodeInfo;
-import org.astraea.app.admin.Replica;
+import org.astraea.common.admin.ClusterBean;
+import org.astraea.common.admin.ClusterInfo;
+import org.astraea.common.admin.NodeInfo;
+import org.astraea.common.admin.Replica;
+import org.astraea.common.cost.ReplicaNumCost;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
