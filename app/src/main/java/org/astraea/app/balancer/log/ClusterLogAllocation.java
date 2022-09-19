@@ -117,12 +117,17 @@ public interface ClusterLogAllocation {
 
     final var sourceTopicPartition = source.topicPartitions();
     final var targetTopicPartition = target.topicPartitions();
+    final var unknownTopicPartitions =
+        targetTopicPartition.stream()
+            .filter(tp -> !sourceTopicPartition.contains(tp))
+            .collect(Collectors.toUnmodifiableSet());
 
-    if (!sourceTopicPartition.equals(targetTopicPartition))
+    if (!unknownTopicPartitions.isEmpty())
       throw new IllegalArgumentException(
-          "source allocation and target allocation has different topic/partition set");
+          "target topic/partition should be a subset of source topic/partition: "
+              + unknownTopicPartitions);
 
-    return sourceTopicPartition.stream()
+    return targetTopicPartition.stream()
         .filter(tp -> !LogPlacement.isMatch(source.logPlacements(tp), target.logPlacements(tp)))
         .collect(Collectors.toUnmodifiableSet());
   }
