@@ -82,7 +82,8 @@ public interface ProducerThread extends AbstractThread {
                           continue;
                         }
 
-                        if (interdependent > 0 && interdependentCounter < interdependent) {
+                        // Using interdependent
+                        if (interdependent > 0) {
                           Dispatcher.beginInterdependent(producer);
                           interdependentCounter +=
                               data.stream().filter(DataSupplier.Data::hasData).count();
@@ -99,7 +100,8 @@ public interface ProducerThread extends AbstractThread {
                                             .value(d.value())
                                             .timestamp(System.currentTimeMillis()))
                                 .collect(Collectors.toList()));
-                        if (interdependent > 0 && interdependentCounter > interdependent) {
+                        // End interdependent
+                        if (interdependent > 0 && interdependentCounter >= interdependent) {
                           Dispatcher.endInterdependent(producer);
                           interdependentCounter = 0;
                         }
