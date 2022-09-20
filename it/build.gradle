@@ -21,6 +21,10 @@ dependencies {
     implementation "mysql:mysql-connector-java:${versions["mysql"]}"
     implementation "org.apache.zookeeper:zookeeper:${versions["zookeeper"]}"
     implementation "org.apache.kafka:kafka_2.12:${versions["kafka"]}"
+    implementation "org.apache.kafka:connect-runtime:${versions["kafka"]}"
+    implementation "org.apache.kafka:connect-json:${versions["kafka"]}"
+
+
 }
 
 java {

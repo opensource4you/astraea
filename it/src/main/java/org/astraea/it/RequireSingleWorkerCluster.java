@@ -16,38 +16,32 @@
  */
 package org.astraea.it;
 
-import java.util.Map;
-import java.util.Set;
 import org.junit.jupiter.api.AfterAll;
 
 /**
- * This class offers a way to have 3 node embedded kafka cluster. It is useful to test code which is
- * depended on true cluster.
+ * This class offers a way to have single node embedded kafka worker. It is useful to test code
+ * which is depended on true cluster.
  */
-public abstract class RequireBrokerCluster extends RequireJmxServer {
+public abstract class RequireSingleWorkerCluster extends RequireJmxServer {
   private static final int NUMBER_OF_BROKERS = 3;
   private static final ZookeeperCluster ZOOKEEPER_CLUSTER = Services.zookeeperCluster();
   private static final BrokerCluster BROKER_CLUSTER =
       Services.brokerCluster(ZOOKEEPER_CLUSTER, NUMBER_OF_BROKERS);
 
+  private static final WorkerCluster WORKER_CLUSTER =
+      Services.workerCluster(BROKER_CLUSTER, new int[] {0});
+
   protected static String bootstrapServers() {
     return BROKER_CLUSTER.bootstrapServers();
   }
 
-  protected static Map<Integer, Set<String>> logFolders() {
-    return BROKER_CLUSTER.logFolders();
-  }
-
-  protected static void closeBroker(int brokerID) {
-    BROKER_CLUSTER.close(brokerID);
-  }
-
-  protected static Set<Integer> brokerIds() {
-    return logFolders().keySet();
+  protected static String workerUrl() {
+    return WORKER_CLUSTER.workerUrls().get(0);
   }
 
   @AfterAll
   static void shutdownClusters() throws Exception {
+    WORKER_CLUSTER.close();
     BROKER_CLUSTER.close();
     ZOOKEEPER_CLUSTER.close();
   }
