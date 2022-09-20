@@ -86,7 +86,7 @@ public final class Services {
                       // and it does make sense in production. With a view to testing the
                       // related codes in other modules, we have to define the "really" hostname
                       // in starting worker cluster.
-                      "http://localhost:" + realPort);
+                      "http://" + Utils.hostname() + ":" + realPort);
                   config.put(WorkerConfig.OFFSET_COMMIT_INTERVAL_MS_CONFIG, String.valueOf(500));
                   // enable us to override the connector configs
                   config.put(WorkerConfig.CONNECTOR_CLIENT_POLICY_CLASS_CONFIG, "All");
