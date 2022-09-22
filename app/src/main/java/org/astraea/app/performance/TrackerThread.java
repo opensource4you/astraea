@@ -28,7 +28,6 @@ import org.astraea.common.DataSize;
 import org.astraea.common.Utils;
 import org.astraea.common.metrics.HasBeanObject;
 import org.astraea.common.metrics.MBeanClient;
-import org.astraea.common.metrics.client.HasNodeMetrics;
 import org.astraea.common.metrics.client.consumer.ConsumerMetrics;
 import org.astraea.common.metrics.client.consumer.HasConsumerCoordinatorMetrics;
 import org.astraea.common.metrics.client.producer.HasProducerTopicMetrics;
@@ -61,14 +60,13 @@ public interface TrackerThread extends AbstractThread {
       lastRecords = records;
       System.out.println("  produced records: " + records);
       System.out.printf(
-          "  average throughput: %.3f MB/second%n",
-          Utils.averageMB(duration, reports.stream().mapToLong(Report::totalBytes).sum()));
-      System.out.printf(
-          "  current traffic: %s/second%n",
+          "  average throughput: %s/second%n",
           DataSize.Byte.of(
               (long)
-                  sumOfAttribute(
-                      ProducerMetrics.nodes(mBeanClient), HasNodeMetrics::outgoingByteRate)));
+                  reports.stream()
+                      .mapToDouble(Report::avgThroughput)
+                      .filter(d -> !Double.isNaN(d))
+                      .sum()));
       System.out.printf(
           "  error: %.1f records/second%n",
           sumOfAttribute(
@@ -83,8 +81,8 @@ public interface TrackerThread extends AbstractThread {
           .ifPresent(i -> System.out.printf("  publish average latency: %.3f ms%n", i));
       for (int i = 0; i < reports.size(); ++i) {
         System.out.printf(
-            "  producer[%d] average throughput: %.3f MB%n",
-            i, Utils.averageMB(duration, reports.get(i).totalBytes()));
+            "  producer[%d] average throughput: %s%n",
+            i, DataSize.Byte.of((long) reports.get(i).avgThroughput()));
         System.out.printf(
             "  producer[%d] average publish latency: %.3f ms%n", i, reports.get(i).avgLatency());
       }
@@ -116,14 +114,13 @@ public interface TrackerThread extends AbstractThread {
       lastRecords = records;
       System.out.println("  consumed records: " + records);
       System.out.printf(
-          "  average throughput: %.3f MB/second%n",
-          Utils.averageMB(duration, reports.stream().mapToLong(Report::totalBytes).sum()));
-      System.out.printf(
-          "  current traffic: %s/second%n",
+          "  average throughput: %s/second%n",
           DataSize.Byte.of(
               (long)
-                  sumOfAttribute(
-                      ConsumerMetrics.nodes(mBeanClient), HasNodeMetrics::incomingByteRate)));
+                  reports.stream()
+                      .mapToDouble(Report::avgThroughput)
+                      .filter(d -> !Double.isNaN(d))
+                      .sum()));
       reports.stream()
           .mapToLong(Report::maxLatency)
           .max()
@@ -150,8 +147,8 @@ public interface TrackerThread extends AbstractThread {
               i, (int) ms.get().assignedPartitions(),1); //TODO
         }
         System.out.printf(
-            "  consumer[%d] average throughput: %.3f MB%n",
-            i, Utils.averageMB(duration, report.totalBytes()));
+            "  consumed[%d] average throughput: %s%n",
+            i, DataSize.Byte.of((long) reports.get(i).avgThroughput()));
         System.out.printf(
             "  consumer[%d] average ene-to-end latency: %.3f ms%n", i, report.avgLatency());
       }

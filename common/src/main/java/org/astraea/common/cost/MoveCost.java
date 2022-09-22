@@ -19,23 +19,74 @@ package org.astraea.common.cost;
 import java.util.Map;
 
 /** Return type of cost function, `HasMoveCost`. It returns the score of migrate plan. */
-@FunctionalInterface
 public interface MoveCost {
+
   /** @return the function name of MoveCost */
-  default String name() {
-    return this.getClass().getSimpleName();
-  }
+  String name();
 
   /** @return cost of migrate plan */
   long totalCost();
 
   /** @return unit of cost */
-  default String unit() {
-    return "unknown";
-  }
+  String unit();
 
   /** @return Changes per broker, negative if brokers moved out, positive if brokers moved in */
-  default Map<Integer, Long> changes() {
-    return Map.of();
+  Map<Integer, Long> changes();
+
+  static Build builder() {
+    return new Build();
+  }
+
+  class Build {
+    private String name = "unknown";
+    private long totalCost;
+    private String unit = "unknown";
+    private Map<Integer, Long> changes = Map.of();
+
+    private Build() {}
+
+    public Build name(String name) {
+      this.name = name;
+      return this;
+    }
+
+    public Build totalCost(long totalCost) {
+      this.totalCost = totalCost;
+      return this;
+    }
+
+    public Build unit(String unit) {
+      this.unit = unit;
+      return this;
+    }
+
+    public Build change(Map<Integer, Long> changes) {
+      this.changes = changes;
+      return this;
+    }
+
+    public MoveCost build() {
+      return new MoveCost() {
+        @Override
+        public String name() {
+          return name;
+        }
+
+        @Override
+        public long totalCost() {
+          return totalCost;
+        }
+
+        @Override
+        public String unit() {
+          return unit;
+        }
+
+        @Override
+        public Map<Integer, Long> changes() {
+          return changes;
+        }
+      };
+    }
   }
 }

@@ -54,12 +54,17 @@ public interface Report {
 
                   @Override
                   public double avgLatency() {
-                    return (long) m.fetchLatencyAvg();
+                    return m.fetchLatencyAvg();
                   }
 
                   @Override
                   public long totalBytes() {
                     return (long) m.bytesConsumedTotal();
+                  }
+
+                  @Override
+                  public double avgThroughput() {
+                    return m.bytesConsumedRate();
                   }
 
                   @Override
@@ -87,12 +92,17 @@ public interface Report {
 
                   @Override
                   public double avgLatency() {
-                    return (long) m.requestLatencyAvg();
+                    return m.requestLatencyAvg();
                   }
 
                   @Override
                   public long totalBytes() {
                     return (long) m.outgoingByteTotal();
+                  }
+
+                  @Override
+                  public double avgThroughput() {
+                    return m.outgoingByteRate();
                   }
 
                   @Override
@@ -115,6 +125,8 @@ public interface Report {
 
   /** @return total send/received bytes */
   long totalBytes();
+
+  double avgThroughput();
 
   String clientId();
 

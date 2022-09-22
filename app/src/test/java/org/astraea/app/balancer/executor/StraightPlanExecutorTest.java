@@ -53,7 +53,7 @@ class StraightPlanExecutorTest extends RequireBrokerCluster {
               .collect(Collectors.toUnmodifiableMap(tp -> tp, tp -> onlyPlacement));
       final var expectedAllocation = ClusterLogAllocation.of(allocationMap);
       final var expectedTopicPartition = expectedAllocation.topicPartitions();
-      final var rebalanceAdmin = RebalanceAdmin.of(admin, (s) -> s.equals(topicName));
+      final var rebalanceAdmin = RebalanceAdmin.of(admin);
 
       // act
       new StraightPlanExecutor().run(rebalanceAdmin, expectedAllocation);

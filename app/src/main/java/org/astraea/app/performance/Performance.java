@@ -17,12 +17,10 @@
 package org.astraea.app.performance;
 
 import com.beust.jcommander.Parameter;
-import com.beust.jcommander.ParameterException;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -49,7 +47,6 @@ import org.astraea.common.argument.PatternField;
 import org.astraea.common.argument.PositiveIntegerListField;
 import org.astraea.common.argument.PositiveLongField;
 import org.astraea.common.argument.PositiveShortField;
-import org.astraea.common.argument.PositiveShortListField;
 import org.astraea.common.argument.StringListField;
 import org.astraea.common.argument.TopicPartitionField;
 import org.astraea.common.consumer.Consumer;
@@ -77,10 +74,9 @@ public class Performance {
 
   public static List<String> execute(final Argument param)
       throws InterruptedException, IOException {
-    var topicSet = new HashSet<>(param.topics);
     // always try to init topic even though it may be existent already.
-    System.out.println("Initializing topics: " + String.join(",", topicSet));
-    param.initTopics();
+    System.out.println("checking topics: " + String.join(",", param.topics));
+    param.checkTopics();
 
     System.out.println("seeking offsets");
     var latestOffsets = param.lastOffsets();
@@ -98,7 +94,7 @@ public class Performance {
             ? ConsumerThread.create(
                 param.consumers,
                 listener ->
-                    Consumer.forTopics(topicSet)
+                    Consumer.forTopics(new HashSet<>(param.topics))
                         .bootstrapServers(param.bootstrapServers())
                         .groupId(param.groupId)
                         .configs(param.configs())
@@ -178,10 +174,6 @@ public class Performance {
   }
 
   public static class Argument extends org.astraea.common.argument.Argument {
-
-    private final List<String> defaultTopics =
-        List.of("testPerformance-" + System.currentTimeMillis());
-
     @Parameter(
         names = {"--pattern"},
         description = "Pattern: topic pattern which you subscribed",
@@ -193,48 +185,17 @@ public class Performance {
         description = "List<String>: topic names which you subscribed",
         validateWith = StringListField.class,
         listConverter = StringListField.class,
-        variableArity = true)
-    List<String> topics = defaultTopics;
+        required = true)
+    List<String> topics;
 
-    void initTopics() {
-      var topicPattern = topicPattern();
+    void checkTopics() {
       try (var admin = Admin.of(configs())) {
-        topicPattern.forEach(
-            (topic, pr) -> {
-              pr.forEach(
-                  (p, r) ->
-                      Utils.waitFor(
-                          () -> {
-                            admin
-                                .creator()
-                                .topic(topic)
-                                .numberOfPartitions(p)
-                                .numberOfReplicas(r)
-                                .create();
-                            return true;
-                          },
-                          Duration.ofSeconds(30)));
-            });
-        Utils.waitFor(() -> admin.topicNames().containsAll(topics));
+        var existentTopics = admin.topicNames();
+        var nonexistent =
+            topics.stream().filter(t -> !existentTopics.contains(t)).collect(Collectors.toSet());
+        if (!nonexistent.isEmpty())
+          throw new IllegalArgumentException(nonexistent + " are not existent");
       }
-    }
-
-    Map<String, Map<Integer, Short>> topicPattern() {
-      Map<String, Map<Integer, Short>> pattern = new HashMap<>();
-      if (partitions.size() == 1 && replicas.size() == 1) {
-        topics.forEach(
-            topic -> pattern.putIfAbsent(topic, Map.of(partitions.get(0), replicas.get(0))));
-      } else if (topics.size() == partitions.size() && topics.size() == replicas.size()) {
-        topics.forEach(
-            topic -> {
-              var index = topics.indexOf(topic);
-              pattern.putIfAbsent(topic, Map.of(partitions.get(index), replicas.get(index)));
-            });
-      } else {
-        throw new ParameterException(
-            "the number of parameters in --partitions and --replicas doesn't match");
-      }
-      return pattern;
     }
 
     Map<TopicPartition, Long> lastOffsets() {
@@ -247,22 +208,6 @@ public class Performance {
             Duration.ofSeconds(30));
       }
     }
-
-    @Parameter(
-        names = {"--partitions"},
-        description = "List<Integer>: number of partitions to create the topics",
-        validateWith = PositiveIntegerListField.class,
-        listConverter = PositiveIntegerListField.class,
-        variableArity = true)
-    List<Integer> partitions = List.of(1);
-
-    @Parameter(
-        names = {"--replicas"},
-        description = "List<Short>: number of replica to create the topics",
-        validateWith = PositiveShortListField.class,
-        listConverter = PositiveShortListField.class,
-        variableArity = true)
-    List<Short> replicas = List.of((short) 1);
 
     @Parameter(
         names = {"--producers"},
@@ -401,9 +346,6 @@ public class Performance {
         if (partitioner != null)
           throw new IllegalArgumentException(
               "--specify.partitions can't be use in conjunction with partitioner");
-        if (!(topics == defaultTopics))
-          throw new IllegalArgumentException(
-              "--specify.partitions can't be use in conjunction with topics");
         // sanity check, ensure all specified partitions are existed
         try (Admin admin = Admin.of(configs())) {
           var allTopics = admin.topicNames();

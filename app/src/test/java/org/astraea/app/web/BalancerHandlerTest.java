@@ -35,6 +35,7 @@ import org.astraea.common.admin.Replica;
 import org.astraea.common.cost.ClusterCost;
 import org.astraea.common.cost.HasClusterCost;
 import org.astraea.common.cost.HasMoveCost;
+import org.astraea.common.cost.MoveCost;
 import org.astraea.common.cost.ReplicaSizeCost;
 import org.astraea.common.producer.Producer;
 import org.astraea.it.RequireBrokerCluster;
@@ -45,6 +46,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
 
   @Test
   void testReport() {
+    createAndProduceTopic(3);
     try (var admin = Admin.of(bootstrapServers())) {
       var handler = new BalancerHandler(admin, new DegradeCost(), new ReplicaSizeCost());
       var report =
@@ -216,7 +218,9 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
             .build();
     HasClusterCost clusterCostFunction =
         (clusterInfo, clusterBean) -> () -> clusterInfo == currentClusterInfo ? 100D : 10D;
-    HasMoveCost moveCostFunction = (originClusterInfo, newClusterInfo, clusterBean) -> () -> 100;
+    HasMoveCost moveCostFunction =
+        (originClusterInfo, newClusterInfo, clusterBean) ->
+            MoveCost.builder().totalCost(100).build();
     var best =
         BalancerHandler.bestPlan(
             Stream.of(proposal),

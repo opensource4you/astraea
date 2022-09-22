@@ -198,5 +198,17 @@ class ClusterLogAllocationTest {
     Assertions.assertThrows(
         IllegalArgumentException.class,
         () -> ClusterLogAllocation.findNonFulfilledAllocation(source, target4));
+
+    final var allocation0 =
+        ClusterLogAllocation.of(
+            Map.of(
+                TopicPartition.of("topicA", 0), List.of(LogPlacement.of(0, "no-change")),
+                TopicPartition.of("topicB", 0), List.of(LogPlacement.of(0, "no-change"))));
+    final var allocation1 =
+        ClusterLogAllocation.of(
+            Map.of(TopicPartition.of("topicB", 0), List.of(LogPlacement.of(0, "do-change"))));
+    Assertions.assertEquals(
+        Set.of(TopicPartition.of("topicB", 0)),
+        ClusterLogAllocation.findNonFulfilledAllocation(allocation0, allocation1));
   }
 }

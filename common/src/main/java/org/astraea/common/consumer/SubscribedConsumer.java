@@ -20,6 +20,7 @@ import org.astraea.common.admin.TopicPartition;
 
 import java.time.Duration;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * This inherited consumer offers function related to consumer group.
@@ -45,7 +46,7 @@ public interface SubscribedConsumer<Key, Value> extends Consumer<Key, Value> {
   /** @return group instance id (static member) */
   Optional<String> groupInstanceId();
 
-  /** @return consumer group's generation */
-  int generationId();
+  Set<TopicPartition> stickyPartitions();
 
+  boolean checkRebalance();
 }

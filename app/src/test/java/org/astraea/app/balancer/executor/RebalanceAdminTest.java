@@ -26,11 +26,9 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-import java.util.stream.Stream;
 import org.astraea.app.balancer.log.LogPlacement;
 import org.astraea.common.DataSize;
 import org.astraea.common.DataUnit;
@@ -120,17 +118,12 @@ class RebalanceAdminTest extends RequireBrokerCluster {
   void clusterInfo() {
     try (Admin admin = Admin.of(bootstrapServers())) {
       // test if all topics are covered
-      final var rebalanceAdmin = RebalanceAdmin.of(admin, (ignore) -> true);
+      final var rebalanceAdmin = RebalanceAdmin.of(admin);
       final var clusterInfo = rebalanceAdmin.clusterInfo();
       Assertions.assertEquals(admin.topicNames(), clusterInfo.topics());
 
       // create topic
       final var topic = prepareTopic(admin, 3, (short) 1);
-
-      // test if topic filter works
-      final var rebalanceAdmin1 = RebalanceAdmin.of(admin, topic::equals);
-      final var clusterInfo1 = rebalanceAdmin1.clusterInfo();
-      Assertions.assertEquals(Set.of(topic), clusterInfo1.topics());
     }
   }
 
@@ -264,33 +257,6 @@ class RebalanceAdminTest extends RequireBrokerCluster {
     }
   }
 
-  @Test
-  void testTopicFilter() {
-    try (Admin admin = Admin.of(bootstrapServers())) {
-      var topic1 = Utils.randomString();
-      var topic2 = Utils.randomString();
-      var topic3 = Utils.randomString();
-      var topicPartition1 = TopicPartition.of(topic1, 0);
-      var topicPartition2 = TopicPartition.of(topic2, 0);
-      var topicPartition3 = TopicPartition.of(topic3, 0);
-      Stream.of(topic1, topic2, topic3)
-          .forEach(i -> admin.creator().topic(i).numberOfPartitions(1).create());
-      Utils.sleep(Duration.ofSeconds(1));
-      var allowed = List.of(topic1, topic2);
-      Predicate<String> filter = allowed::contains;
-      var rebalanceAdmin = RebalanceAdmin.of(admin, filter);
-
-      Assertions.assertTrue(rebalanceAdmin.topicFilter().test(topic1));
-      Assertions.assertTrue(rebalanceAdmin.topicFilter().test(topic2));
-      Assertions.assertFalse(rebalanceAdmin.topicFilter().test(topic3));
-      Assertions.assertFalse(rebalanceAdmin.topicFilter().test("Something"));
-      Assertions.assertDoesNotThrow(() -> rebalanceAdmin.leaderElection(topicPartition1));
-      Assertions.assertDoesNotThrow(() -> rebalanceAdmin.leaderElection(topicPartition2));
-      Assertions.assertThrows(
-          IllegalArgumentException.class, () -> rebalanceAdmin.leaderElection(topicPartition3));
-    }
-  }
-
   String prepareTopic(Admin admin, int partition, short replica) {
     var topicName = Utils.randomString();
 
@@ -306,7 +272,7 @@ class RebalanceAdminTest extends RequireBrokerCluster {
   }
 
   RebalanceAdmin prepareRebalanceAdmin(Admin admin) {
-    return RebalanceAdmin.of(admin, (ignore) -> true);
+    return RebalanceAdmin.of(admin);
   }
 
   void prepareData(String topic, int partition, DataSize dataSize) {

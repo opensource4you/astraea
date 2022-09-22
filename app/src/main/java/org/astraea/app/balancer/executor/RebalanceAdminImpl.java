@@ -21,7 +21,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.astraea.app.balancer.log.LogPlacement;
@@ -34,27 +33,18 @@ import org.astraea.common.admin.TopicPartitionReplica;
 
 class RebalanceAdminImpl implements RebalanceAdmin {
 
-  private final Predicate<String> topicFilter;
   private final Admin admin;
 
   /**
    * Construct an implementation of {@link RebalanceAdmin}
    *
-   * @param topicFilter to determine which topics are permitted for balance operation
    * @param admin the actual {@link Admin} implementation
    */
-  public RebalanceAdminImpl(Predicate<String> topicFilter, Admin admin) {
-    this.topicFilter = topicFilter;
+  public RebalanceAdminImpl(Admin admin) {
     this.admin = admin;
   }
 
-  private void ensureTopicPermitted(String topic) {
-    if (!topicFilter.test(topic))
-      throw new IllegalArgumentException("Operation to topic \"" + topic + "\" is not permitted");
-  }
-
   private List<LogPlacement> fetchCurrentPlacement(TopicPartition topicPartition) {
-    ensureTopicPermitted(topicPartition.topic());
     return admin.replicas(Set.of(topicPartition.topic())).get(topicPartition).stream()
         .map(replica -> LogPlacement.of(replica.nodeInfo().id(), replica.dataFolder()))
         .collect(Collectors.toUnmodifiableList());
@@ -77,7 +67,6 @@ class RebalanceAdminImpl implements RebalanceAdmin {
    */
   private void declarePreferredDataDirectories(
       TopicPartition topicPartition, List<LogPlacement> preferredPlacements) {
-    ensureTopicPermitted(topicPartition.topic());
 
     final var currentPlacement = fetchCurrentPlacement(topicPartition);
 
@@ -100,7 +89,6 @@ class RebalanceAdminImpl implements RebalanceAdmin {
   @Override
   public List<ReplicaMigrationTask> alterReplicaPlacements(
       TopicPartition topicPartition, List<LogPlacement> expectedPlacement) {
-    ensureTopicPermitted(topicPartition.topic());
 
     // ensure replica will be placed in the correct data directory at destination broker.
     declarePreferredDataDirectories(topicPartition, expectedPlacement);
@@ -151,8 +139,6 @@ class RebalanceAdminImpl implements RebalanceAdmin {
 
   @Override
   public CompletableFuture<Boolean> waitLogSynced(TopicPartitionReplica log, Duration timeout) {
-    ensureTopicPermitted(log.topic());
-
     return CompletableFuture.supplyAsync(
         debounceCheck(
             timeout,
@@ -170,8 +156,6 @@ class RebalanceAdminImpl implements RebalanceAdmin {
   @Override
   public CompletableFuture<Boolean> waitPreferredLeaderSynced(
       TopicPartition topicPartition, Duration timeout) {
-    ensureTopicPermitted(topicPartition.topic());
-
     return CompletableFuture.supplyAsync(
         debounceCheck(
             timeout,
@@ -218,8 +202,6 @@ class RebalanceAdminImpl implements RebalanceAdmin {
 
   @Override
   public LeaderElectionTask leaderElection(TopicPartition topicPartition) {
-    ensureTopicPermitted(topicPartition.topic());
-
     admin.preferredLeaderElection(topicPartition);
 
     return new LeaderElectionTask(this, topicPartition);
@@ -227,12 +209,6 @@ class RebalanceAdminImpl implements RebalanceAdmin {
 
   @Override
   public ClusterInfo<Replica> clusterInfo() {
-    return admin.clusterInfo(
-        admin.topicNames().stream().filter(topicFilter).collect(Collectors.toUnmodifiableSet()));
-  }
-
-  @Override
-  public Predicate<String> topicFilter() {
-    return topicFilter;
+    return admin.clusterInfo();
   }
 }
