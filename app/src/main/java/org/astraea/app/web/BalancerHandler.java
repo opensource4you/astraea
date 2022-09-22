@@ -43,6 +43,9 @@ import org.astraea.common.cost.ReplicaSizeCost;
 
 class BalancerHandler implements Handler {
 
+  // TODO: implement an endpoint to execute rebalance plan, see
+  // https://github.com/skiptests/astraea/issues/743
+
   static String LIMIT_KEY = "limit";
 
   static String TOPICS_KEY = "topics";
