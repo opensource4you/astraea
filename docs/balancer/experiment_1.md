@@ -141,7 +141,7 @@ curl -X POST http://localhost:8001/topics \
 ./gradlew run --args="balance-demo --bootstrap.servers <broker-addresses>"
 ```
 
-> TODO: 使用 Web API 的功能執行 Balancer 來完成實驗
+> 未來 Balancer 的運作和執行都會透過 Web API 來操作
 
 每次執行都會做一輪的負載平衡，每次都會給叢集帶來一定程度的進步，通常情況下您會需要重複執行多次上述的指令，直到您覺得叢集負載不平衡情況減緩爲止。
 這次實驗中我們總共執行了 9 次 Balancer。以下爲各項結果圖表：
