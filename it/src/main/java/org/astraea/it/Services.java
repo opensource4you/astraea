@@ -18,7 +18,8 @@ package org.astraea.it;
 
 import java.io.File;
 import java.net.InetSocketAddress;
-import java.net.URI;
+import java.net.MalformedURLException;
+import java.net.URL;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -94,10 +95,17 @@ public final class Services {
 
     return new WorkerCluster() {
       @Override
-      public List<String> workerUrls() {
+      public List<URL> workerUrls() {
         return connects.stream()
             .map(Connect::restUrl)
-            .map(URI::toString)
+            .map(
+                uri -> {
+                  try {
+                    return uri.toURL();
+                  } catch (MalformedURLException e) {
+                    throw new RuntimeException(e);
+                  }
+                })
             .collect(Collectors.toList());
       }
 

@@ -16,25 +16,42 @@
  */
 package org.astraea.it;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.net.URL;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import org.junit.jupiter.api.Test;
 
 class RequireWorkerClusterTest extends RequireWorkerCluster {
 
   @Test
   void testProperties() {
-    assertTrue(workerUrls().size() > 0);
+    assertEquals(3, workerUrls().size());
+    workerUrls()
+        .forEach(
+            x -> {
+              assertNotNull(x);
+              assertTrue(x.getPort() > 0);
+              assertNotEquals("0.0.0.0", x.getHost());
+              assertNotEquals("127.0.0.1", x.getHost());
+            });
+
+    var randomUrls =
+        IntStream.range(0, 30).mapToObj(x -> workerUrl()).distinct().collect(Collectors.toList());
+    // check random urls eq worker urls
+    assertTrue(workerUrls().containsAll(randomUrls) && randomUrls.containsAll(workerUrls()));
     assertNotNull(bootstrapServers());
   }
 
   @Test
   void testConnection() throws Exception {
-    for (String x : workerUrls()) {
-      var jsonTree = new ObjectMapper().readTree(new URL(x));
+    for (URL x : workerUrls()) {
+      var jsonTree = new ObjectMapper().readTree(x);
       assertNotNull(jsonTree.get("version"));
       assertNotNull(jsonTree.get("kafka_cluster_id"));
     }

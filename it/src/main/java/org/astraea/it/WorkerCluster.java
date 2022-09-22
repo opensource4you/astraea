@@ -16,10 +16,11 @@
  */
 package org.astraea.it;
 
+import java.net.URL;
 import java.util.List;
 
 public interface WorkerCluster extends AutoCloseable {
 
   /** @return worker information. the form is "http://host_a:port_a" */
-  List<String> workerUrls();
+  List<URL> workerUrls();
 }

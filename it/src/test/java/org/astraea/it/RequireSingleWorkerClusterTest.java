@@ -16,10 +16,11 @@
  */
 package org.astraea.it;
 
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import java.net.URL;
 import org.junit.jupiter.api.Test;
 
 class RequireSingleWorkerClusterTest extends RequireSingleWorkerCluster {
@@ -27,12 +28,15 @@ class RequireSingleWorkerClusterTest extends RequireSingleWorkerCluster {
   @Test
   void testProperties() {
     assertNotNull(workerUrl());
+    assertTrue(workerUrl().getPort() > 0);
+    assertNotEquals("0.0.0.0", workerUrl().getHost());
+    assertNotEquals("127.0.0.1", workerUrl().getHost());
     assertNotNull(bootstrapServers());
   }
 
   @Test
   void testConnection() throws Exception {
-    var jsonTree = new ObjectMapper().readTree(new URL(workerUrl()));
+    var jsonTree = new ObjectMapper().readTree(workerUrl());
     assertNotNull(jsonTree.get("version"));
     assertNotNull(jsonTree.get("kafka_cluster_id"));
   }

@@ -16,7 +16,9 @@
  */
 package org.astraea.it;
 
+import java.net.URL;
 import java.util.List;
+import java.util.concurrent.ThreadLocalRandom;
 import org.junit.jupiter.api.AfterAll;
 
 /**
@@ -36,8 +38,15 @@ public abstract class RequireWorkerCluster extends RequireJmxServer {
     return BROKER_CLUSTER.bootstrapServers();
   }
 
-  protected static List<String> workerUrls() {
+  protected static List<URL> workerUrls() {
     return WORKER_CLUSTER.workerUrls();
+  }
+
+  /** @return url of any worker */
+  protected static URL workerUrl() {
+    var urls = WORKER_CLUSTER.workerUrls();
+    int randomNum = ThreadLocalRandom.current().nextInt(0, urls.size());
+    return urls.get(randomNum);
   }
 
   @AfterAll

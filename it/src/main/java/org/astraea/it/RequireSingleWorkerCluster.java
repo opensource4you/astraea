@@ -16,6 +16,7 @@
  */
 package org.astraea.it;
 
+import java.net.URL;
 import org.junit.jupiter.api.AfterAll;
 
 /**
@@ -35,7 +36,7 @@ public abstract class RequireSingleWorkerCluster extends RequireJmxServer {
     return BROKER_CLUSTER.bootstrapServers();
   }
 
-  protected static String workerUrl() {
+  protected static URL workerUrl() {
     return WORKER_CLUSTER.workerUrls().get(0);
   }
 
