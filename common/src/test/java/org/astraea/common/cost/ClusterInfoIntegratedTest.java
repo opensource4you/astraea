@@ -41,6 +41,14 @@ public class ClusterInfoIntegratedTest extends RequireBrokerCluster {
               r ->
                   Assertions.assertNotEquals(
                       Optional.empty(), clusterInfo.replica(r.topicPartitionReplica())));
+      clusterInfo
+          .replicas()
+          .forEach(
+              r -> Assertions.assertNotEquals(0, clusterInfo.replicas(r.topicPartition()).size()));
+      clusterInfo
+          .replicas()
+          .forEach(
+              r -> Assertions.assertFalse(clusterInfo.replicaLeader(r.topicPartition()).isEmpty()));
 
       // search by topic
       clusterInfo
@@ -52,6 +60,21 @@ public class ClusterInfoIntegratedTest extends RequireBrokerCluster {
       clusterInfo
           .topics()
           .forEach(t -> Assertions.assertNotEquals(0, clusterInfo.replicaLeaders(t).size()));
+      clusterInfo
+          .topics()
+          .forEach(
+              t ->
+                  clusterInfo
+                      .nodes()
+                      .forEach(
+                          n ->
+                              Assertions.assertNotEquals(
+                                  0, clusterInfo.replicas(n.id(), t).size())));
+      clusterInfo
+          .topics()
+          .forEach(t -> Assertions.assertNotEquals(0, clusterInfo.replicaLeaders(0, t).size()));
+
+      Assertions.assertNotEquals(0, clusterInfo.replicaLeaders().size());
     }
   }
 }
