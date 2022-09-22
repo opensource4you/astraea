@@ -46,6 +46,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
 
   @Test
   void testReport() {
+    createAndProduceTopic(3);
     try (var admin = Admin.of(bootstrapServers())) {
       var handler = new BalancerHandler(admin, new DegradeCost(), new ReplicaSizeCost());
       var report =
