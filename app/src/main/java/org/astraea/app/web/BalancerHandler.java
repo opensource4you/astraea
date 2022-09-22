@@ -17,8 +17,10 @@
 package org.astraea.app.web;
 
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
@@ -39,6 +41,8 @@ import org.astraea.common.cost.ClusterCost;
 import org.astraea.common.cost.HasClusterCost;
 import org.astraea.common.cost.HasMoveCost;
 import org.astraea.common.cost.MoveCost;
+import org.astraea.common.cost.ReplicaLeaderCost;
+import org.astraea.common.cost.ReplicaNumCost;
 import org.astraea.common.cost.ReplicaSizeCost;
 
 class BalancerHandler implements Handler {
@@ -51,16 +55,20 @@ class BalancerHandler implements Handler {
   private final Admin admin;
   private final RebalancePlanGenerator generator = RebalancePlanGenerator.random(30);
   final HasClusterCost clusterCostFunction;
-  final HasMoveCost moveCostFunction;
+  final List<HasMoveCost> moveCostFunctions;
 
   BalancerHandler(Admin admin) {
-    this(admin, new ReplicaSizeCost(), new ReplicaSizeCost());
+    this(
+        admin,
+        new ReplicaSizeCost(),
+        List.of(new ReplicaLeaderCost(), new ReplicaNumCost(), new ReplicaSizeCost()));
   }
 
-  BalancerHandler(Admin admin, HasClusterCost clusterCostFunction, HasMoveCost moveCostFunction) {
+  BalancerHandler(
+      Admin admin, HasClusterCost clusterCostFunction, List<HasMoveCost> moveCostFunctions) {
     this.admin = admin;
     this.clusterCostFunction = clusterCostFunction;
-    this.moveCostFunction = moveCostFunction;
+    this.moveCostFunctions = moveCostFunctions;
   }
 
   static Optional<Plan> bestPlan(
@@ -68,8 +76,8 @@ class BalancerHandler implements Handler {
       ClusterInfo<Replica> currentClusterInfo,
       HasClusterCost clusterCostFunction,
       Predicate<ClusterCost> clusterCostPredicate,
-      HasMoveCost moveCostFunction,
-      Predicate<MoveCost> moveCostPredicate) {
+      List<HasMoveCost> moveCostFunctions,
+      Map<String, Predicate<MoveCost>> moveCostPredicates) {
     return alternatives
         .parallel()
         .map(
@@ -80,10 +88,31 @@ class BalancerHandler implements Handler {
                   proposal.index(),
                   alternativeAllocation,
                   clusterCostFunction.clusterCost(newClusterInfo, ClusterBean.EMPTY),
-                  moveCostFunction.moveCost(currentClusterInfo, newClusterInfo, ClusterBean.EMPTY));
+                  moveCostFunctions.stream()
+                      .map(x -> x.moveCost(currentClusterInfo, newClusterInfo, ClusterBean.EMPTY))
+                      .collect(Collectors.toList()));
             })
         .filter(plan -> clusterCostPredicate.test(plan.costCost))
-        .filter(plan -> moveCostPredicate.test(plan.moveCost))
+        .filter(
+            plan ->
+                moveCostPredicates.entrySet().stream()
+                    .allMatch(
+                        moveCostPredicate ->
+                            moveCostPredicate
+                                .getValue()
+                                .test(
+                                    plan.moveCosts.stream()
+                                        .filter(
+                                            moveCost ->
+                                                moveCost.name().equals(moveCostPredicate.getKey()))
+                                        .findFirst()
+                                        .orElseThrow(
+                                            () ->
+                                                new IllegalArgumentException(
+                                                    "there are some MoveCost name is not in "
+                                                        + plan.moveCosts.stream()
+                                                            .map(MoveCost::name)
+                                                            .collect(Collectors.toList()))))))
         .findFirst();
   }
 
@@ -98,14 +127,18 @@ class BalancerHandler implements Handler {
     var limit =
         Integer.parseInt(channel.queries().getOrDefault(LIMIT_KEY, String.valueOf(LIMIT_DEFAULT)));
     var targetAllocations = ClusterLogAllocation.of(admin.clusterInfo(topics));
+
+    // set max total cost in MoveCost
+    Map<String, Predicate<MoveCost>> moveCostLimit = new HashMap<>();
+    moveCostLimit.put("Replica Number", moveCost -> moveCost.totalCost() < 10);
     var bestPlan =
         bestPlan(
             generator.generate(admin.brokerFolders(), targetAllocations).limit(limit),
             currentClusterInfo,
             clusterCostFunction,
             clusterCost -> clusterCost.value() <= cost,
-            moveCostFunction,
-            moveCost -> true);
+            moveCostFunctions,
+            moveCostLimit);
     return new Report(
         cost,
         bestPlan.map(p -> p.costCost.value()).orElse(null),
@@ -135,7 +168,9 @@ class BalancerHandler implements Handler {
                                     placements(p.allocation.logPlacements(tp), ignored -> null)))
                         .collect(Collectors.toUnmodifiableList()))
             .orElse(List.of()),
-        bestPlan.map(p -> List.of(new MigrationCost(p.moveCost))).orElseGet(List::of));
+        bestPlan
+            .map(p -> p.moveCosts.stream().map(MigrationCost::new).collect(Collectors.toList()))
+            .orElseGet(List::of));
   }
 
   static List<Placement> placements(List<LogPlacement> lps, Function<LogPlacement, Long> size) {
@@ -236,13 +271,14 @@ class BalancerHandler implements Handler {
     final int index;
     final ClusterLogAllocation allocation;
     final ClusterCost costCost;
-    final MoveCost moveCost;
+    final List<MoveCost> moveCosts;
 
-    private Plan(int index, ClusterLogAllocation cla, ClusterCost costCost, MoveCost moveCost) {
+    private Plan(
+        int index, ClusterLogAllocation cla, ClusterCost costCost, List<MoveCost> moveCosts) {
       this.index = index;
       this.allocation = cla;
       this.costCost = costCost;
-      this.moveCost = moveCost;
+      this.moveCosts = moveCosts;
     }
   }
 }
