@@ -29,6 +29,7 @@ import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.ReplicaInfo;
 import org.astraea.common.admin.TopicPartition;
+import org.astraea.common.admin.TopicPartitionReplica;
 
 /**
  * Describe the log allocation state of a Kafka cluster. The implementation have to keep the cluster
@@ -68,32 +69,28 @@ public interface ClusterLogAllocation {
    * let specific broker leave the replica set and let another broker join the replica set. Which
    * data directory the migrated replica will be is up to the Kafka broker implementation to decide.
    *
-   * @param topicPartition the topic/partition to perform replica migration
-   * @param atBroker the id of the broker about to remove
+   * @param topicPartitionReplica the topic/partition/replica to perform replica migration
    * @param toBroker the id of the broker about to replace the removed broker
    */
   default ClusterLogAllocation migrateReplica(
-      TopicPartition topicPartition, int atBroker, int toBroker) {
-    return migrateReplica(topicPartition, atBroker, toBroker, null);
+      TopicPartitionReplica topicPartitionReplica, int toBroker) {
+    return migrateReplica(topicPartitionReplica, toBroker, null);
   }
-  // TODO: Revise the log argument by TopicPartitionReplica, once #411 is merged
 
   /**
    * let specific broker leave the replica set and let another broker join the replica set.
    *
-   * @param topicPartition the topic/partition to perform replica migration
-   * @param atBroker the id of the broker about to remove
+   * @param topicPartitionReplica the topic/partition/replica to perform replica migration
    * @param toBroker the id of the broker about to replace the removed broker
    * @param toDir the absolute path of the data directory this migrated replica is supposed to be on
    *     the destination broker, if {@code null} is specified then the data directory choice is left
    *     up to the Kafka broker implementation.
    */
   ClusterLogAllocation migrateReplica(
-      TopicPartition topicPartition, int atBroker, int toBroker, String toDir);
-  // TODO: Revise the log argument by TopicPartitionReplica, once #411 is merged
+      TopicPartitionReplica topicPartitionReplica, int toBroker, String toDir);
 
   /** let specific follower log become the leader log of this topic/partition. */
-  ClusterLogAllocation letReplicaBecomeLeader(TopicPartition topicPartition, int followerReplica);
+  ClusterLogAllocation letReplicaBecomeLeader(TopicPartitionReplica topicPartitionReplica);
 
   /**
    * Retrieve the log placements of specific {@link TopicPartition}.
@@ -188,7 +185,10 @@ public interface ClusterLogAllocation {
 
     @Override
     public ClusterLogAllocation migrateReplica(
-        TopicPartition topicPartition, int atBroker, int toBroker, String toDir) {
+        TopicPartitionReplica topicPartitionReplica, int toBroker, String toDir) {
+      var topicPartition =
+          TopicPartition.of(topicPartitionReplica.topic(), topicPartitionReplica.partition());
+      var atBroker = topicPartitionReplica.brokerId();
       var sourceLogPlacements = this.logPlacements(topicPartition);
       if (sourceLogPlacements.isEmpty())
         throw new IllegalMigrationException(
@@ -214,7 +214,10 @@ public interface ClusterLogAllocation {
 
     @Override
     public ClusterLogAllocation letReplicaBecomeLeader(
-        TopicPartition topicPartition, int followerReplica) {
+        TopicPartitionReplica topicPartitionReplica) {
+      var topicPartition =
+          TopicPartition.of(topicPartitionReplica.topic(), topicPartitionReplica.partition());
+      var followerReplica = topicPartitionReplica.brokerId();
       final List<LogPlacement> sourceLogPlacements = this.logPlacements(topicPartition);
       if (sourceLogPlacements.isEmpty())
         throw new IllegalMigrationException(

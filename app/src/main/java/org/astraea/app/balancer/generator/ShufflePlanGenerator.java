@@ -32,6 +32,7 @@ import org.astraea.app.balancer.RebalancePlanProposal;
 import org.astraea.app.balancer.log.ClusterLogAllocation;
 import org.astraea.app.balancer.log.LogPlacement;
 import org.astraea.common.admin.TopicPartition;
+import org.astraea.common.admin.TopicPartitionReplica;
 
 /**
  * The {@link ShufflePlanGenerator} proposes a new log placement based on the current log placement,
@@ -152,8 +153,13 @@ public class ShufflePlanGenerator implements RebalancePlanGenerator {
                                             sourceLogPlacement.broker(),
                                             targetBroker,
                                             destDir));
+                                    var tpr =
+                                        TopicPartitionReplica.of(
+                                            sourceTopicPartition.topic(),
+                                            sourceTopicPartition.partition(),
+                                            sourceBroker);
                                     return currentAllocation.migrateReplica(
-                                        sourceTopicPartition, sourceBroker, targetBroker, destDir);
+                                        tpr, targetBroker, destDir);
                                   }),
                   // [Valid movement 2] add all leader/follower change
                   // candidate
@@ -169,8 +175,12 @@ public class ShufflePlanGenerator implements RebalancePlanGenerator {
                                         sourceLogPlacement.broker(),
                                         sourceIsLeader ? "leader" : "follower",
                                         sourceIsLeader ? "follower" : "leader"));
-                                return currentAllocation.letReplicaBecomeLeader(
-                                    sourceTopicPartition, followerReplica.broker());
+                                var tpr =
+                                    TopicPartitionReplica.of(
+                                        sourceTopicPartition.topic(),
+                                        sourceTopicPartition.partition(),
+                                        followerReplica.broker());
+                                return currentAllocation.letReplicaBecomeLeader(tpr);
                               }))
               .collect(Collectors.toUnmodifiableList());
       // pick a migration and execute
