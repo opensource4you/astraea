@@ -20,6 +20,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
@@ -132,7 +133,7 @@ public class BalancerUtils {
               .collect(Collectors.toUnmodifiableList());
 
       @Override
-      public List<NodeInfo> nodes() {
+      public Set<NodeInfo> nodes() {
         return clusterInfo.nodes();
       }
 
