@@ -30,6 +30,7 @@ import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.ReplicaInfo;
 import org.astraea.common.admin.TopicPartition;
+import org.astraea.common.admin.TopicPartitionReplica;
 
 /**
  * Describe the log allocation state of a Kafka cluster. The implementation have to keep the cluster
@@ -69,7 +70,7 @@ public interface ClusterLogAllocation {
    * @param replica the replica to perform replica migration
    * @param toBroker the id of the broker about to replace the removed broker
    */
-  default ClusterLogAllocation migrateReplica(Replica replica, int toBroker) {
+  default ClusterLogAllocation migrateReplica(TopicPartitionReplica replica, int toBroker) {
     return migrateReplica(replica, toBroker, null);
   }
 
@@ -82,10 +83,10 @@ public interface ClusterLogAllocation {
    *     the destination broker, if {@code null} is specified then the data directory choice is left
    *     up to the Kafka broker implementation.
    */
-  ClusterLogAllocation migrateReplica(Replica replica, int toBroker, String toDir);
+  ClusterLogAllocation migrateReplica(TopicPartitionReplica replica, int toBroker, String toDir);
 
   /** let specific follower log become the leader log of this topic/partition. */
-  ClusterLogAllocation letReplicaBecomeLeader(Replica replica);
+  ClusterLogAllocation letReplicaBecomeLeader(TopicPartitionReplica replica);
 
   /**
    * Retrieve the log placements of specific {@link TopicPartition}.
@@ -193,55 +194,54 @@ public interface ClusterLogAllocation {
     }
 
     @Override
-    public ClusterLogAllocation migrateReplica(Replica replica, int toBroker, String toDir) {
-      var sourceLogPlacements = this.logPlacements(replica.topicPartition());
+    public ClusterLogAllocation migrateReplica(
+        TopicPartitionReplica replica, int toBroker, String toDir) {
+      var topicPartition = TopicPartition.of(replica.topic(), replica.partition());
+      var sourceLogPlacements = this.logPlacements(topicPartition);
       if (sourceLogPlacements.isEmpty())
         throw new IllegalMigrationException(
             replica.topic() + "-" + replica.partition() + " no such topic/partition");
 
-      int sourceLogIndex = indexOfBroker(sourceLogPlacements, replica.nodeInfo().id()).orElse(-1);
+      int sourceLogIndex = indexOfBroker(sourceLogPlacements, replica.brokerId()).orElse(-1);
       if (sourceLogIndex == -1)
         throw new IllegalMigrationException(
-            replica.nodeInfo().id()
-                + " is not part of the replica set for "
-                + replica.topicPartition());
+            replica.brokerId() + " is not part of the replica set for " + topicPartition);
 
       var newAllocations = new HashMap<>(allocation);
       newAllocations.put(
-          replica.topicPartition(),
+          topicPartition,
           IntStream.range(0, sourceLogPlacements.size())
               .mapToObj(
                   index ->
                       index == sourceLogIndex
-                          ? update(replica, toBroker, toDir)
+                          ? update(sourceLogPlacements.get(index), toBroker, toDir)
                           : sourceLogPlacements.get(index))
               .collect(Collectors.toUnmodifiableList()));
       return new ClusterLogAllocationImpl(newAllocations);
     }
 
     @Override
-    public ClusterLogAllocation letReplicaBecomeLeader(Replica replica) {
-      final var sourceLogPlacements = this.logPlacements(replica.topicPartition());
+    public ClusterLogAllocation letReplicaBecomeLeader(TopicPartitionReplica replica) {
+      final var topicPartition = TopicPartition.of(replica.topic(), replica.partition());
+      final var sourceLogPlacements = this.logPlacements(topicPartition);
       if (sourceLogPlacements.isEmpty())
         throw new IllegalMigrationException(
             replica.topic() + "-" + replica.partition() + " no such topic/partition");
 
       int leaderLogIndex = 0;
-      int followerLogIndex = indexOfBroker(sourceLogPlacements, replica.nodeInfo().id()).orElse(-1);
+      int followerLogIndex = indexOfBroker(sourceLogPlacements, replica.brokerId()).orElse(-1);
       if (followerLogIndex == -1)
         throw new IllegalArgumentException(
-            replica.nodeInfo().id()
-                + " is not part of the replica set for "
-                + replica.topicPartition());
+            replica.brokerId() + " is not part of the replica set for " + topicPartition);
 
       if (leaderLogIndex == followerLogIndex) return this; // nothing to do
 
-      final var leaderLog = this.logPlacements(replica.topicPartition()).get(leaderLogIndex);
-      final var followerLog = this.logPlacements(replica.topicPartition()).get(followerLogIndex);
+      final var leaderLog = this.logPlacements(topicPartition).get(leaderLogIndex);
+      final var followerLog = this.logPlacements(topicPartition).get(followerLogIndex);
 
       var newAllocations = new HashMap<>(allocation);
       newAllocations.put(
-          replica.topicPartition(),
+          topicPartition,
           IntStream.range(0, sourceLogPlacements.size())
               .mapToObj(
                   index ->
