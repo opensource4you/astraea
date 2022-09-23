@@ -318,30 +318,25 @@ public class Builder {
 
     @Override
     public Set<TopicPartition> partitions(Set<String> topics) {
-      return Utils.packException(
-          () ->
-              admin.describeTopics(topics).all().get().entrySet().stream()
-                  .flatMap(
-                      e ->
-                          e.getValue().partitions().stream()
-                              .map(p -> TopicPartition.of(e.getKey(), p.partition())))
-                  .collect(Collectors.toSet()));
+      return Utils.packException(() -> admin.describeTopics(topics).all().get()).entrySet().stream()
+          .flatMap(
+              e ->
+                  e.getValue().partitions().stream()
+                      .map(p -> TopicPartition.of(e.getKey(), p.partition())))
+          .collect(Collectors.toSet());
     }
 
     @Override
-    public Map<Integer, Set<TopicPartition>> partitions(
-        Set<String> topics, Set<Integer> brokerIds) {
-      return replicas(topics).entrySet().stream()
-          .flatMap(
-              e -> e.getValue().stream().map(replica -> Map.entry(replica.nodeInfo(), e.getKey())))
-          .filter(e -> brokerIds.contains(e.getKey().id()))
-          .collect(Collectors.groupingBy(e -> e.getKey().id()))
+    public Set<TopicPartition> partitions(int broker) {
+      return Utils.packException(() -> admin.describeTopics(topicNames()).all().get())
           .entrySet()
           .stream()
-          .collect(
-              Collectors.toMap(
-                  Map.Entry::getKey,
-                  e -> e.getValue().stream().map(Map.Entry::getValue).collect(Collectors.toSet())));
+          .flatMap(
+              e ->
+                  e.getValue().partitions().stream()
+                      .filter(p -> p.replicas().stream().anyMatch(n -> n.id() == broker))
+                      .map(p -> TopicPartition.of(e.getKey(), p.partition())))
+          .collect(Collectors.toSet());
     }
 
     @Override
