@@ -1756,4 +1756,39 @@ public class AdminTest extends RequireBrokerCluster {
           affectedResources.egress().toString());
     }
   }
+
+  @Test
+  void testMoveReplicaToAnotherFolder() {
+    var topic = Utils.randomString(10);
+    try (Admin admin = Admin.of(bootstrapServers())) {
+      admin.creator().topic(topic).create();
+      Utils.sleep(Duration.ofSeconds(2));
+
+      var closed = new AtomicBoolean(false);
+      var producerFuture =
+          CompletableFuture.runAsync(
+              () -> {
+                var key = new byte[1024];
+                try (var producer = Producer.of(bootstrapServers())) {
+                  while (!closed.get()) {
+                    producer.sender().key(key).topic(topic).run();
+                  }
+                }
+              });
+      Utils.sleep(Duration.ofSeconds(2));
+      var replica = admin.replicas(Set.of(topic)).get(TopicPartition.of(topic, 0)).get(0);
+      admin
+          .migrator()
+          .partition(topic, 0)
+          .moveTo(
+              Map.of(
+                  replica.nodeInfo().id(),
+                  logFolders().get(replica.nodeInfo().id()).stream()
+                      .filter(d -> !d.equals(replica.dataFolder()))
+                      .findFirst()
+                      .get()));
+      Utils.waitFor(
+          () -> admin.replicas(Set.of(topic)).get(TopicPartition.of(topic, 0)).size() == 2);
+    }
+  }
 }

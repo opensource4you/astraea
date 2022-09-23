@@ -21,6 +21,7 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -180,7 +181,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
   void testBestPlan() {
     var currentClusterInfo =
         ClusterInfo.of(
-            List.of(NodeInfo.of(10, "host", 22), NodeInfo.of(11, "host", 22)),
+            Set.of(NodeInfo.of(10, "host", 22), NodeInfo.of(11, "host", 22)),
             List.of(
                 Replica.of(
                     "topic",

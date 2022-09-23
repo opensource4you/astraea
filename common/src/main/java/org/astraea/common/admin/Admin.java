@@ -22,6 +22,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
+import org.astraea.common.Utils;
 
 public interface Admin extends Closeable {
 
@@ -208,7 +210,27 @@ public interface Admin extends Closeable {
    * @param topics query only this subset of topics
    * @return a snapshot object of cluster state at the moment
    */
-  ClusterInfo<Replica> clusterInfo(Set<String> topics);
+  default ClusterInfo<Replica> clusterInfo(Set<String> topics) {
+    var nodeInfo = nodes();
+    var replicas =
+        Utils.packException(
+            () ->
+                replicas(topics).values().stream()
+                    .flatMap(Collection::stream)
+                    .collect(Collectors.toUnmodifiableList()));
+
+    return new ClusterInfo<>() {
+      @Override
+      public Set<NodeInfo> nodes() {
+        return nodeInfo;
+      }
+
+      @Override
+      public Stream<Replica> replicaStream() {
+        return replicas.stream();
+      }
+    };
+  }
 
   /** @return all transaction ids */
   Set<String> transactionIds();
