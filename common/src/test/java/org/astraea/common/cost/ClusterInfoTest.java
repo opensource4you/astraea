@@ -112,7 +112,7 @@ public class ClusterInfoTest {
                 false,
                 false,
                 "/data-folder-01"));
-    var nodeInfos = List.of(NodeInfo.of(0, "", -1), NodeInfo.of(1, "", -1), NodeInfo.of(2, "", -1));
+    var nodeInfos = Set.of(NodeInfo.of(0, "", -1), NodeInfo.of(1, "", -1), NodeInfo.of(2, "", -1));
     var before = ClusterInfo.of(nodeInfos, beforeReplicas);
     var after = ClusterInfo.of(nodeInfos, afterReplicas);
     var changes = ClusterInfo.diff(before, after);
@@ -210,7 +210,7 @@ public class ClusterInfoTest {
     var clusterInfo = ClusterInfo.of(kafkaCluster);
 
     Assertions.assertEquals(1, clusterInfo.nodes().size());
-    Assertions.assertEquals(NodeInfo.of(node), clusterInfo.nodes().get(0));
+    Assertions.assertEquals(NodeInfo.of(node), clusterInfo.nodes().iterator().next());
     Assertions.assertEquals(1, clusterInfo.availableReplicas(partition.topic()).size());
     Assertions.assertEquals(1, clusterInfo.replicas(partition.topic()).size());
     Assertions.assertEquals(

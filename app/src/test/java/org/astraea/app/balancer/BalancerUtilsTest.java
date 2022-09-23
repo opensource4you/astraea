@@ -19,6 +19,7 @@ package org.astraea.app.balancer;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import org.astraea.app.balancer.log.ClusterLogAllocation;
 import org.astraea.app.balancer.log.LogPlacement;
 import org.astraea.common.admin.ClusterInfo;
@@ -68,7 +69,7 @@ class BalancerUtilsTest {
     var logPlacement2 = List.of(LogPlacement.of(1, "/data1"), LogPlacement.of(2, "/data1"));
     var clusterInfo =
         ClusterInfo.of(
-            List.of(
+            Set.of(
                 NodeInfo.of(0, "localhost", 9092),
                 NodeInfo.of(1, "localhost", 9092),
                 NodeInfo.of(2, "localhost", 9092)),
@@ -99,7 +100,7 @@ class BalancerUtilsTest {
     var node2 = NodeInfo.of(1, "localhost", 9092);
     var clusterInfo =
         ClusterInfo.of(
-            List.of(node1, node2),
+            Set.of(node1, node2),
             List.of(
                 Replica.of("test-1", 0, node1, 0, 100, true, true, false, false, true, "/tmp/aa"),
                 Replica.of("test-1", 1, node2, 0, 100, true, true, false, false, true, "/tmp/aa")));
