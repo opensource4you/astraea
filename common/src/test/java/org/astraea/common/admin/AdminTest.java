@@ -134,6 +134,7 @@ public class AdminTest extends RequireBrokerCluster {
   void testPartitions() {
     var topicName = "testPartitions";
     try (var admin = Admin.of(bootstrapServers())) {
+      var before = admin.partitions().size();
       admin.creator().topic(topicName).numberOfPartitions(10).create();
       // wait for syncing topic creation
       Utils.sleep(Duration.ofSeconds(5));
@@ -151,6 +152,8 @@ public class AdminTest extends RequireBrokerCluster {
                           Assertions.assertTrue(
                               logFolders.stream().anyMatch(replica.dataFolder()::contains))));
       brokerIds().forEach(id -> Assertions.assertNotEquals(0, admin.partitions(id).size()));
+      var after = brokerIds().stream().mapToInt(id -> admin.partitions(id).size()).sum();
+      Assertions.assertEquals(before + 10, after);
     }
   }
 
