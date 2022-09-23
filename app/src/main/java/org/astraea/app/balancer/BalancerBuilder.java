@@ -29,7 +29,7 @@ import org.astraea.common.cost.HasClusterCost;
 import org.astraea.common.cost.HasMoveCost;
 import org.astraea.common.cost.MoveCost;
 
-public class BalancerBuilder {
+class BalancerBuilder {
 
   private RebalancePlanGenerator planGenerator;
   private HasClusterCost clusterCostFunction;
