@@ -154,7 +154,9 @@ class BalancerTest extends RequireBrokerCluster {
                       .offer(admin.clusterInfo(), admin.brokerFolders())
                       .proposal
                       .rebalancePlan());
-      Utils.sleep(Duration.ofMillis(3500));
+      Utils.sleep(Duration.ofMillis(1000));
+      Assertions.assertFalse(future.isDone());
+      Utils.sleep(Duration.ofMillis(2500));
       Assertions.assertTrue(future.isDone());
       Assertions.assertFalse(future.isCompletedExceptionally());
       Assertions.assertNotNull(future.get());
