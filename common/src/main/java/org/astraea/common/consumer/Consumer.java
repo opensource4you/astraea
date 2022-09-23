@@ -18,6 +18,7 @@ package org.astraea.common.consumer;
 
 import java.time.Duration;
 import java.util.Collection;
+import java.util.Objects;
 import java.util.Set;
 import java.util.regex.Pattern;
 import org.astraea.common.admin.TopicPartition;
@@ -79,7 +80,7 @@ public interface Consumer<Key, Value> extends AutoCloseable {
    * @return consumer builder for topics
    */
   static TopicsBuilder<byte[], byte[]> forTopics(Pattern patternTopics) {
-    return new TopicsBuilder<>(patternTopics);
+    return new TopicsBuilder<>(Objects.requireNonNull(patternTopics));
   }
 
   /**

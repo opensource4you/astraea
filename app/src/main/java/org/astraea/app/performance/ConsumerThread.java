@@ -70,9 +70,6 @@ public interface ConsumerThread extends AbstractThread {
                           Utils.sleep(Duration.ofSeconds(1));
                           continue;
                         }
-                        if(consumer.checkRebalance()) {
-
-                        }
                         consumer.poll(Duration.ofSeconds(1));
                       }
                     } catch (WakeupException ignore) {

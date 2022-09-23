@@ -19,7 +19,6 @@ package org.astraea.common.consumer;
 import static java.util.Objects.requireNonNull;
 
 import java.time.Duration;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -194,9 +193,8 @@ public class TopicsBuilder<Key, Value> extends Builder<Key, Value> {
     private final Set<String> setTopics;
     private final ConsumerRebalanceListener listener;
     private final Pattern patternTopics;
-    private int generationId;
-    private Set<TopicPartition> prevAssignments;
-    private Set<TopicPartition> nowAssignments;
+
+
     public SubscribedConsumerImpl(
         org.apache.kafka.clients.consumer.Consumer<Key, Value> kafkaConsumer,
         Set<String> setTopics,
@@ -206,8 +204,6 @@ public class TopicsBuilder<Key, Value> extends Builder<Key, Value> {
       this.setTopics = setTopics;
       this.patternTopics = patternTopics;
       this.listener = listener;
-      prevAssignments=Set.of();
-      nowAssignments = Set.of();
     }
 
     @Override
@@ -243,22 +239,5 @@ public class TopicsBuilder<Key, Value> extends Builder<Key, Value> {
           .collect(Collectors.toUnmodifiableSet());
     }
 
-    @Override
-    public Set<TopicPartition> stickyPartitions() {
-      var diffAssignments = new HashSet<>(nowAssignments);
-      diffAssignments.retainAll(prevAssignments);
-      return diffAssignments;
-    }
-    @Override
-    public boolean checkRebalance() {
-      int nowGeneration = kafkaConsumer.groupMetadata().generationId();
-      if(generationId != nowGeneration) {
-        generationId = nowGeneration;
-        prevAssignments = nowAssignments;
-        nowAssignments = assignments();
-        return true;
-      }
-      return false;
-    }
   }
 }

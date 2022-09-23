@@ -46,7 +46,4 @@ public interface SubscribedConsumer<Key, Value> extends Consumer<Key, Value> {
   /** @return group instance id (static member) */
   Optional<String> groupInstanceId();
 
-  Set<TopicPartition> stickyPartitions();
-
-  boolean checkRebalance();
 }

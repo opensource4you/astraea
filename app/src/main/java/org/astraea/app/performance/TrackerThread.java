@@ -143,8 +143,8 @@ public interface TrackerThread extends AbstractThread {
         var ms = metrics.stream().filter(m -> m.clientId().equals(report.clientId())).findFirst();
         if (ms.isPresent()) {
           System.out.printf(
-              "  consumer[%d] has %d partitions and %d partitions sticky%n",
-              i, (int) ms.get().assignedPartitions(),1); //TODO
+              "  consumer[%d] has %d partitions%n",
+              i, (int) ms.get().assignedPartitions());
         }
         System.out.printf(
             "  consumed[%d] average throughput: %s%n",
