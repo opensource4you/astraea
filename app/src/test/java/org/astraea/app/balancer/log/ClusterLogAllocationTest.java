@@ -111,7 +111,12 @@ class ClusterLogAllocationTest {
     clusterLogAllocation = clusterLogAllocation.migrateReplica(sourceTopicPartition, 1);
 
     Assertions.assertEquals(
-        1, clusterLogAllocation.logPlacements(sourceTopicPartition).get(0).nodeInfo().id());
+        1,
+        clusterLogAllocation
+            .logPlacements(sourceTopicPartition.topicPartition())
+            .get(0)
+            .nodeInfo()
+            .id());
   }
 
   @ParameterizedTest
@@ -127,15 +132,19 @@ class ClusterLogAllocationTest {
     clusterLogAllocation = clusterLogAllocation.migrateReplica(sourceReplica, 1, dataDirectory);
 
     Assertions.assertEquals(
-        1, clusterLogAllocation.logPlacements(sourceReplica).get(0).nodeInfo().id());
+        1,
+        clusterLogAllocation.logPlacements(sourceReplica.topicPartition()).get(0).nodeInfo().id());
     Assertions.assertEquals(
-        dataDirectory, clusterLogAllocation.logPlacements(sourceReplica).get(0).dataFolder());
+        dataDirectory,
+        clusterLogAllocation.logPlacements(sourceReplica.topicPartition()).get(0).dataFolder());
 
     clusterLogAllocation = clusterLogAllocation.migrateReplica(sourceReplica1, 1, dataDirectory);
     Assertions.assertEquals(
-        1, clusterLogAllocation.logPlacements(sourceReplica).get(0).nodeInfo().id());
+        1,
+        clusterLogAllocation.logPlacements(sourceReplica.topicPartition()).get(0).nodeInfo().id());
     Assertions.assertEquals(
-        dataDirectory, clusterLogAllocation.logPlacements(sourceReplica).get(0).dataFolder());
+        dataDirectory,
+        clusterLogAllocation.logPlacements(sourceReplica.topicPartition()).get(0).dataFolder());
   }
 
   @Test
@@ -147,9 +156,19 @@ class ClusterLogAllocationTest {
     clusterLogAllocation = clusterLogAllocation.letReplicaBecomeLeader(sourceTopicPartition);
 
     Assertions.assertEquals(
-        1, clusterLogAllocation.logPlacements(sourceTopicPartition).get(0).nodeInfo().id());
+        1,
+        clusterLogAllocation
+            .logPlacements(sourceTopicPartition.topicPartition())
+            .get(0)
+            .nodeInfo()
+            .id());
     Assertions.assertEquals(
-        0, clusterLogAllocation.logPlacements(sourceTopicPartition).get(1).nodeInfo().id());
+        0,
+        clusterLogAllocation
+            .logPlacements(sourceTopicPartition.topicPartition())
+            .get(1)
+            .nodeInfo()
+            .id());
   }
 
   @Test

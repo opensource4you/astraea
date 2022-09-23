@@ -95,10 +95,6 @@ public interface ClusterLogAllocation {
    */
   List<Replica> logPlacements(TopicPartition topicPartition);
 
-  default List<Replica> logPlacements(Replica replica) {
-    return logPlacements(replica.topicPartition());
-  }
-
   /** Retrieve the stream of all topic/partition pairs in allocation. */
   Set<TopicPartition> topicPartitions();
 
@@ -198,7 +194,7 @@ public interface ClusterLogAllocation {
 
     @Override
     public ClusterLogAllocation migrateReplica(Replica replica, int toBroker, String toDir) {
-      var sourceLogPlacements = this.logPlacements(replica);
+      var sourceLogPlacements = this.logPlacements(replica.topicPartition());
       if (sourceLogPlacements.isEmpty())
         throw new IllegalMigrationException(
             replica.topic() + "-" + replica.partition() + " no such topic/partition");
@@ -225,7 +221,7 @@ public interface ClusterLogAllocation {
 
     @Override
     public ClusterLogAllocation letReplicaBecomeLeader(Replica replica) {
-      final var sourceLogPlacements = this.logPlacements(replica);
+      final var sourceLogPlacements = this.logPlacements(replica.topicPartition());
       if (sourceLogPlacements.isEmpty())
         throw new IllegalMigrationException(
             replica.topic() + "-" + replica.partition() + " no such topic/partition");
@@ -240,8 +236,8 @@ public interface ClusterLogAllocation {
 
       if (leaderLogIndex == followerLogIndex) return this; // nothing to do
 
-      final var leaderLog = this.logPlacements(replica).get(leaderLogIndex);
-      final var followerLog = this.logPlacements(replica).get(followerLogIndex);
+      final var leaderLog = this.logPlacements(replica.topicPartition()).get(leaderLogIndex);
+      final var followerLog = this.logPlacements(replica.topicPartition()).get(followerLogIndex);
 
       var newAllocations = new HashMap<>(allocation);
       newAllocations.put(
