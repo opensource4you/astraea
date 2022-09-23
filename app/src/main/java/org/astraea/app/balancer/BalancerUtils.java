@@ -69,7 +69,7 @@ public class BalancerUtils {
                             return Replica.of(
                                 previous.topic(),
                                 previous.partition(),
-                                clusterInfo.node(lp.broker()),
+                                clusterInfo.node(lp.nodeInfo().id()),
                                 previous.lag(),
                                 previous.size(),
                                 index == 0,
@@ -120,7 +120,7 @@ public class BalancerUtils {
                                 Replica.of(
                                     tp.topic(),
                                     tp.partition(),
-                                    nodeIdMap.get(logs.get(i).broker()),
+                                    nodeIdMap.get(logs.get(i).nodeInfo().id()),
                                     0,
                                     -1,
                                     i == 0,

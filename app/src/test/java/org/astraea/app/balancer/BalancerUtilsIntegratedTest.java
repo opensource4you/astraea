@@ -22,9 +22,10 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.IntStream;
 import org.astraea.app.balancer.log.ClusterLogAllocation;
-import org.astraea.app.balancer.log.LogPlacement;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
+import org.astraea.common.admin.NodeInfo;
+import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.producer.Producer;
 import org.astraea.it.RequireBrokerCluster;
@@ -59,7 +60,19 @@ public class BalancerUtilsIntegratedTest extends RequireBrokerCluster {
                   Map.of(
                       TopicPartition.of(topicName, 0),
                       // change the broker
-                      List.of(LogPlacement.of(newBrokerId, replica.dataFolder())))));
+                      List.of(
+                          Replica.of(
+                              topicName,
+                              0,
+                              NodeInfo.of(newBrokerId, null, -1),
+                              0,
+                              0,
+                              true,
+                              true,
+                              false,
+                              false,
+                              true,
+                              replica.dataFolder())))));
 
       Assertions.assertEquals(clusterInfo.replicas().size(), merged.replicas().size());
       Assertions.assertEquals(clusterInfo.topics().size(), merged.topics().size());
