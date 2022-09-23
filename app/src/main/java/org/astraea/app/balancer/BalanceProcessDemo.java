@@ -44,9 +44,9 @@ public class BalanceProcessDemo {
       Predicate<String> filter = topic -> !argument.ignoredTopics.contains(topic);
       var plan =
           Balancer.builder()
-              .usePlanGenerator(new ShufflePlanGenerator(1, 10))
-              .useClusterCost(new ReplicaLeaderCost())
-              .searches(1000)
+              .planGenerator(new ShufflePlanGenerator(1, 10))
+              .clusterCost(new ReplicaLeaderCost())
+              .limit(1000)
               .build()
               .offer(clusterInfo, filter, brokerFolders);
       new StraightPlanExecutor().run(RebalanceAdmin.of(admin), plan.proposal.rebalancePlan());

@@ -16,6 +16,7 @@
  */
 package org.astraea.app.balancer;
 
+import java.time.Duration;
 import java.util.Comparator;
 import java.util.Objects;
 import java.util.function.BiPredicate;
@@ -37,7 +38,8 @@ class BalancerBuilder {
   private BiPredicate<ClusterCost, ClusterCost> clusterConstraint =
       (before, after) -> after.value() < before.value();
   private Predicate<MoveCost> movementConstraint = ignore -> true;
-  private int searchLimit = 3000;
+  private int searchLimit = Integer.MAX_VALUE;
+  private Duration executionTime = Duration.ofSeconds(3);
 
   /**
    * Specify the {@link RebalancePlanGenerator} for potential rebalance plan generation.
@@ -45,7 +47,7 @@ class BalancerBuilder {
    * @param generator the generator instance.
    * @return this
    */
-  public BalancerBuilder usePlanGenerator(RebalancePlanGenerator generator) {
+  public BalancerBuilder planGenerator(RebalancePlanGenerator generator) {
     this.planGenerator = generator;
     return this;
   }
@@ -57,7 +59,7 @@ class BalancerBuilder {
    * @param costFunction the cost function for evaluating potential rebalance plan.
    * @return this
    */
-  public BalancerBuilder useClusterCost(HasClusterCost costFunction) {
+  public BalancerBuilder clusterCost(HasClusterCost costFunction) {
     this.clusterCostFunction = costFunction;
     return this;
   }
@@ -70,7 +72,7 @@ class BalancerBuilder {
    *     cluster.
    * @return this
    */
-  public BalancerBuilder useMoveCost(HasMoveCost costFunction) {
+  public BalancerBuilder moveCost(HasMoveCost costFunction) {
     this.moveCostFunction = costFunction;
     return this;
   }
@@ -84,7 +86,7 @@ class BalancerBuilder {
    *     of the proposed new cluster.
    * @return this
    */
-  public BalancerBuilder useClusterConstraint(
+  public BalancerBuilder clusterConstraint(
       BiPredicate<ClusterCost, ClusterCost> clusterConstraint) {
     this.clusterConstraint = clusterConstraint;
     return this;
@@ -97,7 +99,7 @@ class BalancerBuilder {
    *     terms of the ongoing cost caused by execute this rebalance plan).
    * @return this
    */
-  public BalancerBuilder useMovementConstraint(Predicate<MoveCost> moveConstraint) {
+  public BalancerBuilder movementConstraint(Predicate<MoveCost> moveConstraint) {
     this.movementConstraint = moveConstraint;
     return this;
   }
@@ -109,10 +111,19 @@ class BalancerBuilder {
    * @param limit the maximum number of rebalance plan for evaluation.
    * @return this
    */
-  public BalancerBuilder searches(int limit) {
+  public BalancerBuilder limit(int limit) {
     if (searchLimit <= 0)
       throw new IllegalArgumentException("invalid search limit: " + searchLimit);
     this.searchLimit = limit;
+    return this;
+  }
+
+  /**
+   * @param limit the execution time of searching best plan.
+   * @return this
+   */
+  public BalancerBuilder limit(Duration limit) {
+    this.executionTime = limit;
     return this;
   }
 
@@ -133,10 +144,12 @@ class BalancerBuilder {
           clusterCostFunction.clusterCost(currentClusterInfo, currentClusterBean);
       final var generatorClusterInfo = ClusterInfo.masked(currentClusterInfo, topicFilter);
 
+      var start = System.currentTimeMillis();
       return planGenerator
           .generate(brokerFolders, ClusterLogAllocation.of(generatorClusterInfo))
           .parallel()
           .limit(searchLimit)
+          .takeWhile(ignored -> System.currentTimeMillis() - start <= executionTime.toMillis())
           .map(
               proposal -> {
                 var newClusterInfo =
