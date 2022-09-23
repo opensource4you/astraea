@@ -18,6 +18,8 @@ package org.astraea.app.balancer;
 
 import java.time.Duration;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -66,9 +68,9 @@ class BalancerTest extends RequireBrokerCluster {
         try {
           var plan =
               Balancer.builder()
-                  .usePlanGenerator(new ShufflePlanGenerator(1, 10))
-                  .useClusterCost(new ReplicaLeaderCost())
-                  .searches(1000)
+                  .planGenerator(new ShufflePlanGenerator(1, 10))
+                  .clusterCost(new ReplicaLeaderCost())
+                  .limit(1000)
                   .build()
                   .offer(admin.clusterInfo(), admin.brokerFolders());
           new StraightPlanExecutor().run(RebalanceAdmin.of(admin), plan.proposal.rebalancePlan());
@@ -111,9 +113,9 @@ class BalancerTest extends RequireBrokerCluster {
       var brokerFolders = admin.brokerFolders();
       var newAllocation =
           Balancer.builder()
-              .usePlanGenerator(new ShufflePlanGenerator(50, 100))
-              .useClusterCost(randomScore)
-              .searches(500)
+              .planGenerator(new ShufflePlanGenerator(50, 100))
+              .clusterCost(randomScore)
+              .limit(500)
               .build()
               .offer(clusterInfo, t -> t.equals(theTopic), brokerFolders)
               .proposal
@@ -126,6 +128,38 @@ class BalancerTest extends RequireBrokerCluster {
           ClusterInfo.diff(currentCluster, newCluster).stream()
               .allMatch(replica -> replica.topic().equals(theTopic)),
           "With filter, only specific topic has been balanced");
+    }
+  }
+
+  @Test
+  void testExecutionTime() throws ExecutionException, InterruptedException {
+    try (Admin admin = Admin.of(bootstrapServers())) {
+      var theTopic = Utils.randomString();
+      var topic1 = Utils.randomString();
+      var topic2 = Utils.randomString();
+      var topic3 = Utils.randomString();
+      admin.creator().topic(theTopic).numberOfPartitions(10).create();
+      admin.creator().topic(topic1).numberOfPartitions(10).create();
+      admin.creator().topic(topic2).numberOfPartitions(10).create();
+      admin.creator().topic(topic3).numberOfPartitions(10).create();
+      Utils.sleep(Duration.ofSeconds(3));
+      var future =
+          CompletableFuture.supplyAsync(
+              () ->
+                  Balancer.builder()
+                      .planGenerator(new ShufflePlanGenerator(50, 100))
+                      .clusterCost((clusterInfo, bean) -> Math::random)
+                      .limit(Duration.ofSeconds(3))
+                      .build()
+                      .offer(admin.clusterInfo(), admin.brokerFolders())
+                      .proposal
+                      .rebalancePlan());
+      Utils.sleep(Duration.ofMillis(1000));
+      Assertions.assertFalse(future.isDone());
+      Utils.sleep(Duration.ofMillis(2500));
+      Assertions.assertTrue(future.isDone());
+      Assertions.assertFalse(future.isCompletedExceptionally());
+      Assertions.assertNotNull(future.get());
     }
   }
 }
