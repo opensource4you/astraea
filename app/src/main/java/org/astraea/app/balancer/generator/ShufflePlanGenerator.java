@@ -16,9 +16,7 @@
  */
 package org.astraea.app.balancer.generator;
 
-import java.util.ArrayList;
 import java.util.Collection;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
@@ -30,8 +28,8 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.astraea.app.balancer.RebalancePlanProposal;
 import org.astraea.app.balancer.log.ClusterLogAllocation;
-import org.astraea.app.balancer.log.LogPlacement;
-import org.astraea.common.admin.TopicPartition;
+import org.astraea.common.admin.NodeInfo;
+import org.astraea.common.admin.ReplicaInfo;
 
 /**
  * The {@link ShufflePlanGenerator} proposes a new log placement based on the current log placement,
@@ -40,13 +38,10 @@ import org.astraea.common.admin.TopicPartition;
  * The following operations are considered as a valid shuffle action:
  *
  * <ol>
- *   <li>Remove a replica from the replica set, then add another broker(must not be part of the
- *       replica set before this action) into the replica set. Noted that this operation doesn't
- *       specify which data directory the moving replica will eventually be on the destination
- *       broker. It's likely that the replica will follow the default placement scheme, see the
- *       LogManager#nextLogDirs method implementation in Apache Kafka server for more details.
- *   <li>Change the leader/follower of a partition by a member of this replica set, the original
+ *   <li>Change the leader/follower of a partition to a member of this replica set, the original
  *       leader/follower becomes a follower/leader.
+ *   <li>Remove a replica from the replica set, then add another broker(must not be part of the
+ *       replica set before this action) into the replica set.
  * </ol>
  */
 public class ShufflePlanGenerator implements RebalancePlanGenerator {
@@ -115,76 +110,65 @@ public class ShufflePlanGenerator implements RebalancePlanGenerator {
   private static Function<ClusterLogAllocation, ClusterLogAllocation> allocationGenerator(
       Map<Integer, Set<String>> brokerFolders, RebalancePlanProposal.Build rebalancePlanBuilder) {
     return currentAllocation -> {
-      var pickingList = new ArrayList<>(currentAllocation.topicPartitions());
-      final var sourceTopicPartitionIndex = sourceTopicPartitionSelector(pickingList);
-      final var sourceTopicPartition = pickingList.get(sourceTopicPartitionIndex);
-      final var sourceLogPlacements = currentAllocation.logPlacements(sourceTopicPartition);
-      final var sourceLogPlacementIndex = sourceLogPlacementSelector(sourceLogPlacements);
-      final var sourceLogPlacement = sourceLogPlacements.get(sourceLogPlacementIndex);
-      final var sourceIsLeader = sourceLogPlacementIndex == 0;
-      final var sourceBroker = sourceLogPlacement.broker();
-      var targetPlacements =
-          sourceLogPlacements.size() > 1
-              ? sourceIsLeader
-                  ? sourceLogPlacements.stream().skip(1).collect(Collectors.toUnmodifiableList())
-                  : List.of(sourceLogPlacement)
-              : List.<LogPlacement>of();
-      // generate a set of valid migration broker for given placement.
-      final var validMigrationCandidates =
-          Stream.concat(
+      final var topicPartitions = currentAllocation.topicPartitions();
+      final var selectedPartition =
+          topicPartitions.stream()
+              .skip(ThreadLocalRandom.current().nextInt(topicPartitions.size()))
+              .findFirst()
+              .orElseThrow();
 
-                  // [Valid movement 1] add all brokers and remove all
-                  // broker in current replica set
-                  brokerFolders.keySet().stream()
-                      .filter(
-                          broker ->
-                              sourceLogPlacements.stream().noneMatch(log -> log.broker() == broker))
-                      .map(
-                          targetBroker ->
-                              (Supplier<ClusterLogAllocation>)
-                                  () -> {
-                                    var destDir = randomElement(brokerFolders.get(targetBroker));
-                                    rebalancePlanBuilder.addInfo(
-                                        String.format(
-                                            "Change replica set of topic %s partition %d, from %d to %d at %s.",
-                                            sourceTopicPartition.topic(),
-                                            sourceTopicPartition.partition(),
-                                            sourceLogPlacement.broker(),
-                                            targetBroker,
-                                            destDir));
-                                    return currentAllocation.migrateReplica(
-                                        sourceTopicPartition, sourceBroker, targetBroker, destDir);
-                                  }),
-                  // [Valid movement 2] add all leader/follower change
-                  // candidate
-                  targetPlacements.stream()
-                      .map(
-                          followerReplica ->
-                              () -> {
-                                rebalancePlanBuilder.addInfo(
-                                    String.format(
-                                        "Change the log identity of topic %s partition %d replica at broker %d, from %s to %s",
-                                        sourceTopicPartition.topic(),
-                                        sourceTopicPartition.partition(),
-                                        sourceLogPlacement.broker(),
-                                        sourceIsLeader ? "leader" : "follower",
-                                        sourceIsLeader ? "follower" : "leader"));
-                                return currentAllocation.letReplicaBecomeLeader(
-                                    sourceTopicPartition, followerReplica.broker());
-                              }))
-              .collect(Collectors.toUnmodifiableList());
-      // pick a migration and execute
-      final var selectedMigrationIndex = randomElement(validMigrationCandidates);
-      return selectedMigrationIndex.get();
+      // [valid operation 1] change leader/follower identity
+      final var currentReplicas = currentAllocation.logPlacements(selectedPartition);
+      final var candidates0 =
+          currentReplicas.stream()
+              .skip(1)
+              .map(
+                  follower ->
+                      (Supplier<ClusterLogAllocation>)
+                          () -> {
+                            rebalancePlanBuilder.addInfo(
+                                String.format(
+                                    "Change the log identity of topic %s partition %d replica at broker %d, from follower to leader",
+                                    follower.topic(),
+                                    follower.partition(),
+                                    follower.nodeInfo().id()));
+                            return currentAllocation.letReplicaBecomeLeader(follower);
+                          });
+
+      // [valid operation 2] change replica list
+      final var currentIds =
+          currentReplicas.stream()
+              .map(ReplicaInfo::nodeInfo)
+              .map(NodeInfo::id)
+              .collect(Collectors.toUnmodifiableSet());
+      final var candidates1 =
+          brokerFolders.keySet().stream()
+              .filter(brokerId -> !currentIds.contains(brokerId))
+              .flatMap(
+                  toThisBroker ->
+                      currentReplicas.stream()
+                          .map(
+                              replica ->
+                                  (Supplier<ClusterLogAllocation>)
+                                      () -> {
+                                        var toThisDir =
+                                            randomElement(brokerFolders.get(toThisBroker));
+                                        rebalancePlanBuilder.addInfo(
+                                            String.format(
+                                                "Change replica set of topic %s partition %d, from %d to %d at %s.",
+                                                replica.topic(),
+                                                replica.partition(),
+                                                replica.nodeInfo().id(),
+                                                toThisBroker,
+                                                toThisDir));
+                                        return currentAllocation.migrateReplica(
+                                            replica, toThisBroker, toThisDir);
+                                      }));
+
+      return randomElement(
+              Stream.concat(candidates0, candidates1).collect(Collectors.toUnmodifiableSet()))
+          .get();
     };
-  }
-
-  private static int sourceTopicPartitionSelector(List<TopicPartition> migrationCandidates) {
-    return ThreadLocalRandom.current().nextInt(0, migrationCandidates.size());
-  }
-
-  private static int sourceLogPlacementSelector(List<LogPlacement> migrationCandidates) {
-    return ThreadLocalRandom.current().nextInt(0, migrationCandidates.size());
   }
 
   private static <T> T randomElement(Collection<T> collection) {

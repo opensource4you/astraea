@@ -20,7 +20,6 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import org.astraea.app.balancer.log.ClusterLogAllocation;
-import org.astraea.app.balancer.log.LogPlacement;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
@@ -64,8 +63,58 @@ class BalancerUtilsTest {
   void testMockClusterInfoAllocation() {
     var tp1 = TopicPartition.of("testMockCluster", 1);
     var tp2 = TopicPartition.of("testMockCluster", 0);
-    var logPlacement1 = List.of(LogPlacement.of(0, "/data"), LogPlacement.of(1, "/data"));
-    var logPlacement2 = List.of(LogPlacement.of(1, "/data1"), LogPlacement.of(2, "/data1"));
+    var logPlacement1 =
+        List.of(
+            Replica.of(
+                tp1.topic(),
+                tp1.partition(),
+                NodeInfo.of(0, null, -1),
+                0,
+                0,
+                true,
+                true,
+                false,
+                false,
+                false,
+                "/data"),
+            Replica.of(
+                tp1.topic(),
+                tp1.partition(),
+                NodeInfo.of(1, null, -1),
+                0,
+                0,
+                true,
+                true,
+                false,
+                false,
+                false,
+                "/data"));
+    var logPlacement2 =
+        List.of(
+            Replica.of(
+                tp1.topic(),
+                tp1.partition(),
+                NodeInfo.of(1, null, -1),
+                0,
+                0,
+                true,
+                true,
+                false,
+                false,
+                false,
+                "/data1"),
+            Replica.of(
+                tp1.topic(),
+                tp1.partition(),
+                NodeInfo.of(2, null, -1),
+                0,
+                0,
+                true,
+                true,
+                false,
+                false,
+                false,
+                "/data1"));
     var clusterInfo =
         ClusterInfo.of(
             List.of(

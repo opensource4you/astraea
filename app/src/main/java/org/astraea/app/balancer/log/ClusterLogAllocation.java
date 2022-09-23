@@ -55,9 +55,6 @@ public interface ClusterLogAllocation {
                             "The " + entry.getKey() + " leader count mismatch 1.");
                       return entry.getValue().stream()
                           .sorted(Comparator.comparingInt(replica -> replica.isLeader() ? 0 : 1))
-                          .map(
-                              replica ->
-                                  LogPlacement.of(replica.nodeInfo().id(), replica.dataFolder()))
                           .collect(Collectors.toList());
                     })));
   }
@@ -275,20 +272,20 @@ public interface ClusterLogAllocation {
           .filter(index -> logPlacements.get(index).nodeInfo().id() == targetBroker)
           .findFirst();
     }
+  }
 
-    private static Replica update(Replica source, int newBroker, String newDir) {
-      return Replica.of(
-          source.topic(),
-          source.partition(),
-          NodeInfo.of(newBroker, null, -1),
-          source.lag(),
-          source.size(),
-          source.isLeader(),
-          source.inSync(),
-          source.isFuture(),
-          source.isOffline(),
-          source.isPreferredLeader(),
-          newDir);
-    }
+  static Replica update(Replica source, int newBroker, String newDir) {
+    return Replica.of(
+        source.topic(),
+        source.partition(),
+        NodeInfo.of(newBroker, "", -1),
+        source.lag(),
+        source.size(),
+        source.isLeader(),
+        source.inSync(),
+        source.isFuture(),
+        source.isOffline(),
+        source.isPreferredLeader(),
+        newDir);
   }
 }
