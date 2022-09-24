@@ -31,9 +31,8 @@ import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.admin.TopicPartitionReplica;
 
 /**
- * Describe the log allocation state of a Kafka cluster. The implementation have to keep the cluster
- * log allocation information, provide method for query the placement, and offer a set of log
- * placement change operation.
+ * Describe the log allocation state that is associate with a subset of topic/partition of a Kafka
+ * cluster.
  */
 public interface ClusterLogAllocation {
 
@@ -41,6 +40,15 @@ public interface ClusterLogAllocation {
     return of(clusterInfo.replicas());
   }
 
+  /**
+   * Construct a {@link ClusterLogAllocation} from the given list of {@link Replica}.
+   *
+   * <p>Be aware that this class describes <strong>the replica list of a subset of
+   * topic/partition</strong>. It doesn't require the topic/partition part to have cluster-wide
+   * complete information. But the replica list has to be complete. Provide a partial replica list
+   * might result in data loss or unintended replica drop during rebalance plan proposing &
+   * execution.
+   */
   static ClusterLogAllocation of(List<Replica> allocation) {
     return new ClusterLogAllocationImpl(allocation);
   }
