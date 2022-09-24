@@ -20,6 +20,7 @@ import static java.lang.Math.max;
 import static java.lang.Math.min;
 
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import org.astraea.common.admin.Admin;
@@ -59,6 +60,22 @@ public class ReassignmentHandler implements Handler {
                         .migrator()
                         .partition(request.value(TOPIC_KEY), request.intValue(PARTITION_KEY))
                         .moveTo(request.intValues(TO_KEY));
+                    return Response.ACCEPT;
+                  }
+                  // case 2: move specific broker's partitions to others
+                  if (request.has(BROKER_KEY)) {
+                    var brokersList =
+                        admin.brokerIds().stream()
+                            .filter(i -> i != request.intValue(BROKER_KEY))
+                            .collect(Collectors.toList());
+                    var currentCount = 0;
+                    for (TopicPartition tp : admin.partitions(request.intValue(BROKER_KEY))) {
+                      admin
+                          .migrator()
+                          .partition(tp.topic(), tp.partition())
+                          .moveTo(List.of(brokersList.get(currentCount % brokersList.size())));
+                      currentCount++;
+                    }
                     return Response.ACCEPT;
                   }
                   return Response.BAD_REQUEST;

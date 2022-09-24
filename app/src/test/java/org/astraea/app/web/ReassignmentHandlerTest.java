@@ -131,6 +131,47 @@ public class ReassignmentHandlerTest extends RequireBrokerCluster {
   }
 
   @Test
+  void testExcludeSpecificBroker() {
+    var topicName = Utils.randomString(10);
+    try (Admin admin = Admin.of(bootstrapServers())) {
+      var handler = new ReassignmentHandler(admin);
+      admin.creator().topic(topicName).numberOfPartitions(10).create();
+      Utils.sleep(Duration.ofSeconds(3));
+
+      var currentBroker =
+          admin
+              .replicas(Set.of(topicName))
+              .get(TopicPartition.of(topicName, 0))
+              .get(0)
+              .nodeInfo()
+              .id();
+
+      var body =
+          String.format(
+              "{\"%s\": [{\"%s\": \"%s\"}]}",
+              ReassignmentHandler.PLANS_KEY, ReassignmentHandler.BROKER_KEY, currentBroker);
+
+      Assertions.assertEquals(
+          Response.ACCEPT, handler.post(Channel.ofRequest(PostRequest.of(body))));
+
+      Utils.sleep(Duration.ofSeconds(2));
+      var reassignments = handler.get(Channel.EMPTY);
+      // the reassignment should be completed
+      Assertions.assertEquals(0, reassignments.reassignments.size());
+
+      Assertions.assertNotEquals(
+          currentBroker,
+          admin
+              .replicas(Set.of(topicName))
+              .get(TopicPartition.of(topicName, 0))
+              .get(0)
+              .nodeInfo()
+              .id());
+      Assertions.assertEquals(0, admin.partitions(currentBroker).size());
+    }
+  }
+
+  @Test
   void testBadRequest() {
     var topicName = Utils.randomString(10);
     try (Admin admin = Admin.of(bootstrapServers())) {
