@@ -20,13 +20,9 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
-import org.astraea.app.balancer.log.ClusterLogAllocation;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
-import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.cost.Configuration;
 import org.astraea.common.cost.ReplicaDiskInCost;
 import org.astraea.common.cost.ReplicaLeaderCost;
@@ -61,92 +57,6 @@ class BalancerUtilsTest {
       List.of(OLD_TP1_1, NEW_TP1_1, LEADER_BROKER2);
   private static final Map<Integer, Collection<HasBeanObject>> beanObjects =
       Map.of(0, broker1, 1, broker2);
-
-  @Test
-  void testMockClusterInfoAllocation() {
-    var tp1 = TopicPartition.of("testMockCluster", 1);
-    var tp2 = TopicPartition.of("testMockCluster", 0);
-    var logPlacement1 =
-        List.of(
-            Replica.of(
-                tp1.topic(),
-                tp1.partition(),
-                NodeInfo.of(0, null, -1),
-                0,
-                0,
-                true,
-                true,
-                false,
-                false,
-                true,
-                "/data"),
-            Replica.of(
-                tp1.topic(),
-                tp1.partition(),
-                NodeInfo.of(1, null, -1),
-                0,
-                0,
-                false,
-                true,
-                false,
-                false,
-                false,
-                "/data"));
-    var logPlacement2 =
-        List.of(
-            Replica.of(
-                tp2.topic(),
-                tp2.partition(),
-                NodeInfo.of(1, null, -1),
-                0,
-                0,
-                true,
-                true,
-                false,
-                false,
-                true,
-                "/data1"),
-            Replica.of(
-                tp2.topic(),
-                tp2.partition(),
-                NodeInfo.of(2, null, -1),
-                0,
-                0,
-                false,
-                true,
-                false,
-                false,
-                false,
-                "/data1"));
-    var clusterInfo =
-        ClusterInfo.of(
-            Set.of(
-                NodeInfo.of(0, "localhost", 9092),
-                NodeInfo.of(1, "localhost", 9092),
-                NodeInfo.of(2, "localhost", 9092)),
-            List.of(
-                Replica.of(
-                    "test-1",
-                    1,
-                    NodeInfo.of(0, "localhost", 9092),
-                    0,
-                    100,
-                    true,
-                    true,
-                    false,
-                    false,
-                    true,
-                    "/tmp/aa")));
-    var cla =
-        ClusterLogAllocation.of(
-            Stream.concat(logPlacement1.stream(), logPlacement2.stream())
-                .collect(Collectors.toUnmodifiableList()));
-    var mockClusterInfo = BalancerUtils.merge(clusterInfo, cla);
-    Assertions.assertEquals(mockClusterInfo.replicas("testMockCluster").size(), 4);
-    Assertions.assertEquals(mockClusterInfo.nodes().size(), 3);
-    Assertions.assertEquals(mockClusterInfo.topics().size(), 1);
-    Assertions.assertTrue(mockClusterInfo.topics().contains("testMockCluster"));
-  }
 
   @Test
   void testEvaluateCost() {

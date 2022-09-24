@@ -18,19 +18,14 @@ package org.astraea.app.balancer;
 
 import java.util.Collection;
 import java.util.Collections;
-import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import org.astraea.app.balancer.log.ClusterLogAllocation;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
-import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.cost.HasClusterCost;
@@ -68,65 +63,6 @@ public class BalancerUtils {
             .collect(Collectors.toUnmodifiableList());
 
     return ClusterInfo.of(clusterInfo.nodes(), newReplicas);
-  }
-
-  /**
-   * Create a {@link ClusterInfo} with its log placement replaced by {@link ClusterLogAllocation}.
-   * Every log will be marked as online & synced. Based on the given content in {@link
-   * ClusterLogAllocation}, some logs might not have its data directory specified. Noted that this
-   * method doesn't check if the given logs is suitable & exists in the cluster info base. the beans
-   * alongside the based cluster info might be out-of-date or even completely meaningless.
-   *
-   * @param clusterInfo the based cluster info
-   * @param allocation the log allocation to replace {@link ClusterInfo}'s log placement. If the
-   *     allocation implementation is {@link ClusterLogAllocation} then the given instance will be
-   *     locked.
-   * @return a {@link ClusterInfo} with its log placement replaced.
-   */
-  public static ClusterInfo<Replica> merge(
-      ClusterInfo<Replica> clusterInfo, ClusterLogAllocation allocation) {
-    return new ClusterInfo<>() {
-      // TODO: maybe add a field to tell if this cluster info is mocked.
-      private final Map<Integer, NodeInfo> nodeIdMap =
-          nodes().stream().collect(Collectors.toUnmodifiableMap(NodeInfo::id, Function.identity()));
-      private final List<Replica> replicas =
-          allocation.topicPartitions().stream()
-              .map(tp -> Map.entry(tp, allocation.logPlacements(tp)))
-              .flatMap(
-                  entry -> {
-                    var tp = entry.getKey();
-                    var logs = entry.getValue();
-
-                    return logs.stream()
-                        .map(
-                            i ->
-                                // TODO: too many fake data!!! we should use another data structure
-                                // https://github.com/skiptests/astraea/issues/526
-                                Replica.of(
-                                    tp.topic(),
-                                    tp.partition(),
-                                    nodeIdMap.get(i.nodeInfo().id()),
-                                    0,
-                                    -1,
-                                    i.isLeader(),
-                                    true,
-                                    false,
-                                    false,
-                                    false,
-                                    i.dataFolder()));
-                  })
-              .collect(Collectors.toUnmodifiableList());
-
-      @Override
-      public Set<NodeInfo> nodes() {
-        return clusterInfo.nodes();
-      }
-
-      @Override
-      public Stream<Replica> replicaStream() {
-        return replicas.stream();
-      }
-    };
   }
 
   public static Thread progressWatch(String title, double totalTasks, Supplier<Double> accTasks) {
