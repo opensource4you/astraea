@@ -39,12 +39,14 @@ import org.astraea.common.metrics.HasBeanObject;
 public class BalancerUtils {
 
   /**
-   * Update the replicas of ClusterInfo according to ClusterLogAllocation. Noted that only "broker"
-   * and "data folder" get updated. The replicas matched to nothing from ClusterLogAllocation won't
-   * get any update.
+   * Update the replicas of ClusterInfo according to the given ClusterLogAllocation. The returned
+   * {@link ClusterInfo} will have some of its replicas replaced by the replicas inside the given
+   * {@link ClusterLogAllocation}. Since {@link ClusterLogAllocation} might only cover a subset of
+   * topic/partition in the associated cluster. Only the replicas related to the covered
+   * topic/partition get updated.
    *
-   * <p>TODO: maybe update the statement of this javadoc? all content are replaced by the replicas
-   * specified in allocation
+   * <p>This method intended to offer a way to describe a cluster with some of its state modified
+   * manually.
    *
    * @param clusterInfo to get updated
    * @param allocation offers new host and data folder
