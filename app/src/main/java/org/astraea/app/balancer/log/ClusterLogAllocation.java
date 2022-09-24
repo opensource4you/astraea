@@ -268,20 +268,20 @@ public interface ClusterLogAllocation {
           .filter(index -> logPlacements.get(index).nodeInfo().id() == targetBroker)
           .findFirst();
     }
-  }
 
-  static Replica update(Replica source, int newBroker, String newDir) {
-    return Replica.of(
-        source.topic(),
-        source.partition(),
-        NodeInfo.of(newBroker, "", -1),
-        source.lag(),
-        source.size(),
-        source.isLeader(),
-        source.inSync(),
-        source.isFuture(),
-        source.isOffline(),
-        source.isPreferredLeader(),
-        newDir);
+    private static Replica update(Replica source, int newBroker, String newDir) {
+      return Replica.of(
+          source.topic(),
+          source.partition(),
+          NodeInfo.of(newBroker, "", -1),
+          source.lag(),
+          source.size(),
+          source.isLeader(),
+          source.inSync(),
+          source.isFuture(),
+          source.isOffline(),
+          source.isPreferredLeader(),
+          newDir);
+    }
   }
 }

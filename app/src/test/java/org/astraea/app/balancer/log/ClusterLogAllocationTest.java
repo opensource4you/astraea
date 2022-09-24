@@ -24,6 +24,7 @@ import org.astraea.app.balancer.FakeClusterInfo;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.TopicPartition;
+import org.astraea.common.admin.TopicPartitionReplica;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -128,7 +129,6 @@ class ClusterLogAllocationTest {
     final var fakeCluster = FakeClusterInfo.of(3, 1, 1, 1, (i) -> Set.of("topic"));
     var clusterLogAllocation = ClusterLogAllocation.of(fakeCluster);
     final var sourceReplica = fakeCluster.replicas("topic").get(0);
-    final var sourceReplica1 = ClusterLogAllocation.update(sourceReplica, 1, "?");
 
     clusterLogAllocation =
         clusterLogAllocation.migrateReplica(
@@ -143,7 +143,9 @@ class ClusterLogAllocationTest {
 
     clusterLogAllocation =
         clusterLogAllocation.migrateReplica(
-            sourceReplica1.topicPartitionReplica(), 1, dataDirectory);
+            TopicPartitionReplica.of(sourceReplica.topic(), sourceReplica.partition(), 1),
+            1,
+            dataDirectory);
     Assertions.assertEquals(
         1,
         clusterLogAllocation.logPlacements(sourceReplica.topicPartition()).get(0).nodeInfo().id());
@@ -228,7 +230,6 @@ class ClusterLogAllocationTest {
             .filter(x -> !x.isLeader())
             .findFirst()
             .orElseThrow();
-    final var topicPartition02 = ClusterLogAllocation.update(topicPartition0, 2, null);
 
     final var target0 =
         source.migrateReplica(topicPartition0.topicPartitionReplica(), 0, "/somewhere");
@@ -249,7 +250,10 @@ class ClusterLogAllocationTest {
     final var target3 =
         source
             .migrateReplica(topicPartition0.topicPartitionReplica(), 2)
-            .migrateReplica(topicPartition02.topicPartitionReplica(), 2, "/somewhere")
+            .migrateReplica(
+                TopicPartitionReplica.of(topicPartition0.topic(), topicPartition0.partition(), 2),
+                2,
+                "/somewhere")
             .letReplicaBecomeLeader(topicPartition1.topicPartitionReplica());
     Assertions.assertEquals(
         Set.of(topicPartition0.topicPartition(), topicPartition1.topicPartition()),
