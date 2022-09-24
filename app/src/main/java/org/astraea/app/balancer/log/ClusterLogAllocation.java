@@ -43,8 +43,8 @@ public interface ClusterLogAllocation {
   /**
    * Construct a {@link ClusterLogAllocation} from the given list of {@link Replica}.
    *
-   * <p>Be aware that this class describes <strong>the replica list of a subset of
-   * topic/partition</strong>. It doesn't require the topic/partition part to have cluster-wide
+   * <p>Be aware that this class describes <strong>the replica lists of a subset of
+   * topic/partitions</strong>. It doesn't require the topic/partition part to have cluster-wide
    * complete information. But the replica list has to be complete. Provide a partial replica list
    * might result in data loss or unintended replica drop during rebalance plan proposing &
    * execution.
