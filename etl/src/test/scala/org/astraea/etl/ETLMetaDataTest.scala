@@ -122,6 +122,7 @@ class ETLMetaDataTest {
       prop.setProperty("topic.partitions", "")
       prop.setProperty("topic.replicas", "")
       prop.setProperty("topic.config", "")
+      prop.setProperty("deployment.model", "local[2]")
       prop.store(new FileOutputStream(file), null)
     }
   }
