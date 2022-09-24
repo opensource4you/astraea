@@ -19,14 +19,14 @@ package org.astraea.app.web;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.BiPredicate;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
-import org.astraea.app.balancer.BalancerUtils;
-import org.astraea.app.balancer.RebalancePlanProposal;
+import org.astraea.app.balancer.Balancer;
 import org.astraea.app.balancer.generator.RebalancePlanGenerator;
 import org.astraea.app.balancer.log.ClusterLogAllocation;
 import org.astraea.app.balancer.log.LogPlacement;
@@ -66,28 +66,26 @@ class BalancerHandler implements Handler {
     this.moveCostFunction = moveCostFunction;
   }
 
-  static Optional<Plan> bestPlan(
-      Stream<RebalancePlanProposal> alternatives,
+  static Optional<Balancer.Plan> bestPlan(
+      RebalancePlanGenerator planGenerator,
+      int searchLimit,
       ClusterInfo<Replica> currentClusterInfo,
       HasClusterCost clusterCostFunction,
-      Predicate<ClusterCost> clusterCostPredicate,
+      BiPredicate<ClusterCost, ClusterCost> clusterCostPredicate,
       HasMoveCost moveCostFunction,
-      Predicate<MoveCost> moveCostPredicate) {
-    return alternatives
-        .parallel()
-        .map(
-            proposal -> {
-              var alternativeAllocation = proposal.rebalancePlan();
-              var newClusterInfo = BalancerUtils.update(currentClusterInfo, alternativeAllocation);
-              return new Plan(
-                  proposal.index(),
-                  alternativeAllocation,
-                  clusterCostFunction.clusterCost(newClusterInfo, ClusterBean.EMPTY),
-                  moveCostFunction.moveCost(currentClusterInfo, newClusterInfo, ClusterBean.EMPTY));
-            })
-        .filter(plan -> clusterCostPredicate.test(plan.costCost))
-        .filter(plan -> moveCostPredicate.test(plan.moveCost))
-        .findFirst();
+      Predicate<MoveCost> moveCostPredicate,
+      Predicate<String> topicFilter,
+      Map<Integer, Set<String>> brokerFolders) {
+    return Optional.of(
+        Balancer.builder()
+            .planGenerator(planGenerator)
+            .clusterCost(clusterCostFunction)
+            .clusterConstraint(clusterCostPredicate)
+            .moveCost(moveCostFunction)
+            .movementConstraint(moveCostPredicate)
+            .limit(searchLimit)
+            .build()
+            .offer(currentClusterInfo, topicFilter, brokerFolders));
   }
 
   @Override
@@ -103,22 +101,26 @@ class BalancerHandler implements Handler {
     var targetAllocations = ClusterLogAllocation.of(admin.clusterInfo(topics));
     var bestPlan =
         bestPlan(
-            generator.generate(admin.brokerFolders(), targetAllocations).limit(limit),
+            generator,
+            limit,
             currentClusterInfo,
             clusterCostFunction,
-            clusterCost -> clusterCost.value() <= cost,
+            (before, after) -> after.value() <= before.value(),
             moveCostFunction,
-            moveCost -> true);
+            moveCost -> true,
+            topics::contains,
+            admin.brokerFolders());
     return new Report(
         cost,
-        bestPlan.map(p -> p.costCost.value()).orElse(null),
+        bestPlan.map(p -> p.clusterCost.value()).orElse(null),
         limit,
-        bestPlan.map(p -> p.index).orElse(null),
+        bestPlan.map(p -> p.proposal.index()).orElse(null),
         clusterCostFunction.getClass().getSimpleName(),
         bestPlan
             .map(
                 p ->
-                    ClusterLogAllocation.findNonFulfilledAllocation(targetAllocations, p.allocation)
+                    ClusterLogAllocation.findNonFulfilledAllocation(
+                            targetAllocations, p.proposal.rebalancePlan())
                         .stream()
                         .map(
                             tp ->
@@ -135,7 +137,9 @@ class BalancerHandler implements Handler {
                                                         tp.topic(), tp.partition(), l.broker()))
                                                 .map(Replica::size)
                                                 .orElse(null)),
-                                    placements(p.allocation.logPlacements(tp), ignored -> null)))
+                                    placements(
+                                        p.proposal.rebalancePlan().logPlacements(tp),
+                                        ignored -> null)))
                         .collect(Collectors.toUnmodifiableList()))
             .orElse(List.of()),
         bestPlan.map(p -> List.of(new MigrationCost(p.moveCost))).orElseGet(List::of));
@@ -234,18 +238,4 @@ class BalancerHandler implements Handler {
   }
 
   // ----------------[inner class]----------------//
-
-  static class Plan {
-    final int index;
-    final ClusterLogAllocation allocation;
-    final ClusterCost costCost;
-    final MoveCost moveCost;
-
-    private Plan(int index, ClusterLogAllocation cla, ClusterCost costCost, MoveCost moveCost) {
-      this.index = index;
-      this.allocation = cla;
-      this.costCost = costCost;
-      this.moveCost = moveCost;
-    }
-  }
 }

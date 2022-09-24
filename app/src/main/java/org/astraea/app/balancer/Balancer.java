@@ -42,11 +42,11 @@ public interface Balancer {
   }
 
   class Plan {
-    final RebalancePlanProposal proposal;
-    final ClusterCost clusterCost;
-    final MoveCost moveCost;
+    public final RebalancePlanProposal proposal;
+    public final ClusterCost clusterCost;
+    public final MoveCost moveCost;
 
-    Plan(RebalancePlanProposal proposal, ClusterCost clusterCost, MoveCost moveCost) {
+    public Plan(RebalancePlanProposal proposal, ClusterCost clusterCost, MoveCost moveCost) {
       this.proposal = proposal;
       this.clusterCost = clusterCost;
       this.moveCost = moveCost;
