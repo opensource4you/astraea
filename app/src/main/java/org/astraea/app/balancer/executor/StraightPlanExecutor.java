@@ -17,12 +17,14 @@
 package org.astraea.app.balancer.executor;
 
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.astraea.app.balancer.log.ClusterLogAllocation;
 import org.astraea.app.balancer.log.LogPlacement;
+import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.TopicPartition;
 
 /** Execute every possible migration immediately. */
@@ -43,6 +45,7 @@ public class StraightPlanExecutor implements RebalancePlanExecutor {
                 rebalanceAdmin.alterReplicaPlacements(
                     topicPartition,
                     logAllocation.logPlacements(topicPartition).stream()
+                        .sorted(Comparator.comparing(Replica::isPreferredLeader).reversed())
                         .map(
                             replica ->
                                 LogPlacement.of(replica.nodeInfo().id(), replica.dataFolder()))

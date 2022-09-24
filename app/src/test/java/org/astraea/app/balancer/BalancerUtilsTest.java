@@ -20,6 +20,8 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.astraea.app.balancer.log.ClusterLogAllocation;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.NodeInfo;
@@ -76,7 +78,7 @@ class BalancerUtilsTest {
                 true,
                 false,
                 false,
-                false,
+                true,
                 "/data"),
             Replica.of(
                 tp1.topic(),
@@ -84,7 +86,7 @@ class BalancerUtilsTest {
                 NodeInfo.of(1, null, -1),
                 0,
                 0,
-                true,
+                false,
                 true,
                 false,
                 false,
@@ -93,8 +95,8 @@ class BalancerUtilsTest {
     var logPlacement2 =
         List.of(
             Replica.of(
-                tp1.topic(),
-                tp1.partition(),
+                tp2.topic(),
+                tp2.partition(),
                 NodeInfo.of(1, null, -1),
                 0,
                 0,
@@ -102,15 +104,15 @@ class BalancerUtilsTest {
                 true,
                 false,
                 false,
-                false,
+                true,
                 "/data1"),
             Replica.of(
-                tp1.topic(),
-                tp1.partition(),
+                tp2.topic(),
+                tp2.partition(),
                 NodeInfo.of(2, null, -1),
                 0,
                 0,
-                true,
+                false,
                 true,
                 false,
                 false,
@@ -135,7 +137,10 @@ class BalancerUtilsTest {
                     false,
                     true,
                     "/tmp/aa")));
-    var cla = ClusterLogAllocation.of(Map.of(tp1, logPlacement1, tp2, logPlacement2));
+    var cla =
+        ClusterLogAllocation.of(
+            Stream.concat(logPlacement1.stream(), logPlacement2.stream())
+                .collect(Collectors.toUnmodifiableList()));
     var mockClusterInfo = BalancerUtils.merge(clusterInfo, cla);
     Assertions.assertEquals(mockClusterInfo.replicas("testMockCluster").size(), 4);
     Assertions.assertEquals(mockClusterInfo.nodes().size(), 3);

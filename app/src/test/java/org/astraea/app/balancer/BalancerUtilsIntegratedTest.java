@@ -18,15 +18,14 @@ package org.astraea.app.balancer;
 
 import java.time.Duration;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.IntStream;
 import org.astraea.app.balancer.log.ClusterLogAllocation;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
-import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.producer.Producer;
 import org.astraea.it.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
@@ -53,30 +52,28 @@ public class BalancerUtilsIntegratedTest extends RequireBrokerCluster {
       var newBrokerId =
           brokerIds().stream().filter(id -> id != replica.nodeInfo().id()).findFirst().get();
 
+      var randomSizeValue = ThreadLocalRandom.current().nextInt();
       var merged =
           BalancerUtils.update(
               clusterInfo,
               ClusterLogAllocation.of(
-                  Map.of(
-                      TopicPartition.of(topicName, 0),
-                      // change the broker
-                      List.of(
-                          Replica.of(
-                              topicName,
-                              0,
-                              NodeInfo.of(newBrokerId, null, -1),
-                              0,
-                              0,
-                              true,
-                              true,
-                              false,
-                              false,
-                              true,
-                              replica.dataFolder())))));
+                  List.of(
+                      Replica.of(
+                          topicName,
+                          0,
+                          NodeInfo.of(newBrokerId, "", -1),
+                          0,
+                          randomSizeValue,
+                          true,
+                          true,
+                          false,
+                          false,
+                          true,
+                          replica.dataFolder()))));
 
       Assertions.assertEquals(clusterInfo.replicas().size(), merged.replicas().size());
       Assertions.assertEquals(clusterInfo.topics().size(), merged.topics().size());
-      merged.replicas().forEach(r -> Assertions.assertTrue(r.size() > 0));
+      merged.replicas().forEach(r -> Assertions.assertEquals(randomSizeValue, r.size()));
       Assertions.assertEquals(1, merged.replicas(topicName).size());
       Assertions.assertEquals(newBrokerId, merged.replicas(topicName).get(0).nodeInfo().id());
     }

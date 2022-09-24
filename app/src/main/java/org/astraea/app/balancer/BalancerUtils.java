@@ -26,7 +26,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.astraea.app.balancer.log.ClusterLogAllocation;
 import org.astraea.common.admin.ClusterBean;
@@ -44,6 +43,9 @@ public class BalancerUtils {
    * and "data folder" get updated. The replicas matched to nothing from ClusterLogAllocation won't
    * get any update.
    *
+   * <p>TODO: maybe update the statement of this javadoc? all content are replaced by the replicas
+   * specified in allocation
+   *
    * @param clusterInfo to get updated
    * @param allocation offers new host and data folder
    * @return new cluster info
@@ -55,31 +57,12 @@ public class BalancerUtils {
             .collect(Collectors.groupingBy(r -> TopicPartition.of(r.topic(), r.partition())))
             .entrySet()
             .stream()
-            .flatMap(
-                entry -> {
-                  var lps = allocation.logPlacements(entry.getKey());
-                  var replicas = entry.getValue();
-                  return IntStream.range(0, replicas.size())
-                      .mapToObj(
-                          index -> {
-                            var previous = replicas.get(index);
-                            // return previous replica due to no new information
-                            if (index >= lps.size()) return previous;
-                            var lp = lps.get(index);
-                            return Replica.of(
-                                previous.topic(),
-                                previous.partition(),
-                                clusterInfo.node(lp.nodeInfo().id()),
-                                previous.lag(),
-                                previous.size(),
-                                index == 0,
-                                previous.inSync(),
-                                previous.isFuture(),
-                                previous.isOffline(),
-                                previous.isPreferredLeader(),
-                                lp.dataFolder());
-                          });
-                })
+            .map(
+                entry ->
+                    allocation.topicPartitions().contains(entry.getKey())
+                        ? allocation.logPlacements(entry.getKey())
+                        : entry.getValue())
+            .flatMap(Collection::stream)
             .collect(Collectors.toUnmodifiableList());
 
     return ClusterInfo.of(clusterInfo.nodes(), newReplicas);
@@ -112,23 +95,23 @@ public class BalancerUtils {
                     var tp = entry.getKey();
                     var logs = entry.getValue();
 
-                    return IntStream.range(0, logs.size())
-                        .mapToObj(
+                    return logs.stream()
+                        .map(
                             i ->
                                 // TODO: too many fake data!!! we should use another data structure
                                 // https://github.com/skiptests/astraea/issues/526
                                 Replica.of(
                                     tp.topic(),
                                     tp.partition(),
-                                    nodeIdMap.get(logs.get(i).nodeInfo().id()),
+                                    nodeIdMap.get(i.nodeInfo().id()),
                                     0,
                                     -1,
-                                    i == 0,
+                                    i.isLeader(),
                                     true,
                                     false,
                                     false,
                                     false,
-                                    logs.get(i).dataFolder()));
+                                    i.dataFolder()));
                   })
               .collect(Collectors.toUnmodifiableList());
 

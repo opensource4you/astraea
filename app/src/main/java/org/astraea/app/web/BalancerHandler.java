@@ -142,7 +142,7 @@ class BalancerHandler implements Handler {
         bestPlan.map(p -> List.of(new MigrationCost(p.moveCost))).orElseGet(List::of));
   }
 
-  static List<Placement> placements(List<Replica> lps, Function<Replica, Long> size) {
+  static List<Placement> placements(Set<Replica> lps, Function<Replica, Long> size) {
     return lps.stream()
         .map(p -> new Placement(p, size.apply(p)))
         .collect(Collectors.toUnmodifiableList());

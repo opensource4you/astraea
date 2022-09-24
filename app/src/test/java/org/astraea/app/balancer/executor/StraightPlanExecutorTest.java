@@ -17,6 +17,7 @@
 package org.astraea.app.balancer.executor;
 
 import java.time.Duration;
+import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 import java.util.function.Function;
@@ -61,7 +62,7 @@ class StraightPlanExecutorTest extends RequireBrokerCluster {
                           true,
                           false,
                           false,
-                          false,
+                          true,
                           logFolder0),
                       Replica.of(
                           tp.topic(),
@@ -75,11 +76,15 @@ class StraightPlanExecutorTest extends RequireBrokerCluster {
                           false,
                           false,
                           logFolder1));
-      final var allocationMap =
+      final var allocation =
           IntStream.range(0, 10)
               .mapToObj(i -> TopicPartition.of(topicName, i))
-              .collect(Collectors.toUnmodifiableMap(tp -> tp, onlyPlacement));
-      final var expectedAllocation = ClusterLogAllocation.of(allocationMap);
+              .collect(Collectors.toUnmodifiableMap(tp -> tp, onlyPlacement))
+              .values()
+              .stream()
+              .flatMap(Collection::stream)
+              .collect(Collectors.toUnmodifiableList());
+      final var expectedAllocation = ClusterLogAllocation.of(allocation);
       final var expectedTopicPartition = expectedAllocation.topicPartitions();
       final var rebalanceAdmin = RebalanceAdmin.of(admin);
 

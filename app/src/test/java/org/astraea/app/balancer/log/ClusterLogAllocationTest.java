@@ -16,8 +16,8 @@
  */
 package org.astraea.app.balancer.log;
 
+import java.util.Collection;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.astraea.app.balancer.FakeClusterInfo;
@@ -34,72 +34,63 @@ class ClusterLogAllocationTest {
 
   @Test
   void creation() {
-    // empty replica set
-    var badAllocation0 = Map.of(TopicPartition.of("topic", "0"), List.<Replica>of());
-    Assertions.assertThrows(
-        IllegalArgumentException.class, () -> ClusterLogAllocation.of(badAllocation0));
-
     // partial topic/partition
     var badAllocation1 =
-        Map.of(
-            TopicPartition.of("topic", "999"),
-            List.of(
-                Replica.of(
-                    "topic",
-                    999,
-                    NodeInfo.of(1001, null, -1),
-                    0,
-                    0,
-                    true,
-                    false,
-                    false,
-                    false,
-                    false,
-                    "xx")));
+        List.of(
+            Replica.of(
+                "topic",
+                999,
+                NodeInfo.of(1001, null, -1),
+                0,
+                0,
+                true,
+                false,
+                false,
+                false,
+                false,
+                "xx"));
     Assertions.assertThrows(
         IllegalArgumentException.class, () -> ClusterLogAllocation.of(badAllocation1));
 
     // duplicate replica
     var badAllocation2 =
-        Map.of(
-            TopicPartition.of("topic", "0"),
-            List.of(
-                Replica.of(
-                    "topic",
-                    999,
-                    NodeInfo.of(1001, null, -1),
-                    0,
-                    0,
-                    true,
-                    false,
-                    false,
-                    false,
-                    false,
-                    "xx"),
-                Replica.of(
-                    "topic",
-                    999,
-                    NodeInfo.of(1001, null, -1),
-                    0,
-                    0,
-                    true,
-                    false,
-                    false,
-                    false,
-                    false,
-                    "xx"),
-                Replica.of(
-                    "topic",
-                    999,
-                    NodeInfo.of(1001, null, -1),
-                    0,
-                    0,
-                    true,
-                    false,
-                    false,
-                    false,
-                    false,
-                    "xx")));
+        List.of(
+            Replica.of(
+                "topic",
+                999,
+                NodeInfo.of(1001, "", -1),
+                0,
+                0,
+                true,
+                false,
+                false,
+                false,
+                false,
+                "xx"),
+            Replica.of(
+                "topic",
+                999,
+                NodeInfo.of(1001, "", -1),
+                0,
+                0,
+                true,
+                false,
+                false,
+                false,
+                false,
+                "xx"),
+            Replica.of(
+                "topic",
+                999,
+                NodeInfo.of(1001, "", -1),
+                0,
+                0,
+                true,
+                false,
+                false,
+                false,
+                false,
+                "xx"));
     Assertions.assertThrows(
         IllegalArgumentException.class, () -> ClusterLogAllocation.of(badAllocation2));
   }
@@ -114,9 +105,10 @@ class ClusterLogAllocationTest {
 
     Assertions.assertEquals(
         1,
-        clusterLogAllocation
-            .logPlacements(sourceTopicPartition.topicPartition())
-            .get(0)
+        clusterLogAllocation.logPlacements(sourceTopicPartition.topicPartition()).stream()
+            .filter(Replica::isPreferredLeader)
+            .findFirst()
+            .orElseThrow()
             .nodeInfo()
             .id());
   }
@@ -136,10 +128,19 @@ class ClusterLogAllocationTest {
 
     Assertions.assertEquals(
         1,
-        clusterLogAllocation.logPlacements(sourceReplica.topicPartition()).get(0).nodeInfo().id());
+        clusterLogAllocation.logPlacements(sourceReplica.topicPartition()).stream()
+            .filter(Replica::isPreferredLeader)
+            .findFirst()
+            .orElseThrow()
+            .nodeInfo()
+            .id());
     Assertions.assertEquals(
         dataDirectory,
-        clusterLogAllocation.logPlacements(sourceReplica.topicPartition()).get(0).dataFolder());
+        clusterLogAllocation.logPlacements(sourceReplica.topicPartition()).stream()
+            .filter(Replica::isPreferredLeader)
+            .findFirst()
+            .orElseThrow()
+            .dataFolder());
 
     clusterLogAllocation =
         clusterLogAllocation.migrateReplica(
@@ -148,10 +149,19 @@ class ClusterLogAllocationTest {
             dataDirectory);
     Assertions.assertEquals(
         1,
-        clusterLogAllocation.logPlacements(sourceReplica.topicPartition()).get(0).nodeInfo().id());
+        clusterLogAllocation.logPlacements(sourceReplica.topicPartition()).stream()
+            .filter(Replica::isPreferredLeader)
+            .findFirst()
+            .orElseThrow()
+            .nodeInfo()
+            .id());
     Assertions.assertEquals(
         dataDirectory,
-        clusterLogAllocation.logPlacements(sourceReplica.topicPartition()).get(0).dataFolder());
+        clusterLogAllocation.logPlacements(sourceReplica.topicPartition()).stream()
+            .filter(Replica::isPreferredLeader)
+            .findFirst()
+            .orElseThrow()
+            .dataFolder());
   }
 
   @Test
@@ -165,45 +175,52 @@ class ClusterLogAllocationTest {
 
     Assertions.assertEquals(
         1,
-        clusterLogAllocation
-            .logPlacements(sourceTopicPartition.topicPartition())
-            .get(0)
+        clusterLogAllocation.logPlacements(sourceTopicPartition.topicPartition()).stream()
+            .filter(Replica::isPreferredLeader)
+            .findFirst()
+            .orElseThrow()
             .nodeInfo()
             .id());
-    Assertions.assertEquals(
-        0,
-        clusterLogAllocation
-            .logPlacements(sourceTopicPartition.topicPartition())
-            .get(1)
-            .nodeInfo()
-            .id());
+    Assertions.assertTrue(
+        clusterLogAllocation.logPlacements(sourceTopicPartition.topicPartition()).stream()
+            .filter(x -> !x.isPreferredLeader())
+            .anyMatch(x -> x.nodeInfo().id() == 0));
   }
 
   @Test
   void logPlacements() {
     final var allocation =
         ClusterLogAllocation.of(
-            Map.of(
-                TopicPartition.of("topic", "0"),
-                List.of(
-                    Replica.of(
-                        "topic",
-                        0,
-                        NodeInfo.of(0, null, -1),
-                        0,
-                        0,
-                        true,
-                        true,
-                        false,
-                        false,
-                        false,
-                        "/nowhere"))));
+            List.of(
+                Replica.of(
+                    "topic",
+                    0,
+                    NodeInfo.of(0, null, -1),
+                    0,
+                    0,
+                    true,
+                    true,
+                    false,
+                    false,
+                    true,
+                    "/nowhere")));
 
     Assertions.assertEquals(1, allocation.logPlacements(TopicPartition.of("topic", "0")).size());
     Assertions.assertEquals(
-        0, allocation.logPlacements(TopicPartition.of("topic", "0")).get(0).nodeInfo().id());
+        0,
+        allocation.logPlacements(TopicPartition.of("topic", "0")).stream()
+            .filter(Replica::isPreferredLeader)
+            .findFirst()
+            .orElseThrow()
+            .nodeInfo()
+            .id());
     Assertions.assertEquals(
-        "/nowhere", allocation.logPlacements(TopicPartition.of("topic", "0")).get(0).dataFolder());
+        "/nowhere",
+        allocation.logPlacements(TopicPartition.of("topic", "0")).stream()
+            .filter(Replica::isPreferredLeader)
+            .findFirst()
+            .orElseThrow()
+            .dataFolder());
     Assertions.assertEquals(0, allocation.logPlacements(TopicPartition.of("no", "0")).size());
     allocation.logPlacements(TopicPartition.of("no", "0"));
   }
@@ -260,22 +277,13 @@ class ClusterLogAllocationTest {
         ClusterLogAllocation.findNonFulfilledAllocation(source, target3));
 
     final var map4 =
-        source.topicPartitions().stream().collect(Collectors.toMap(x -> x, source::logPlacements));
-    map4.put(
-        TopicPartition.of("NewTopic", 0),
-        List.of(
-            Replica.of(
-                "NewTopic",
-                0,
-                NodeInfo.of(0, null, -1),
-                0,
-                0,
-                true,
-                true,
-                false,
-                false,
-                false,
-                "?")));
+        source.topicPartitions().stream()
+            .map(source::logPlacements)
+            .flatMap(Collection::stream)
+            .collect(Collectors.toList());
+    map4.add(
+        Replica.of(
+            "NewTopic", 0, NodeInfo.of(0, null, -1), 0, 0, true, true, false, false, true, "?"));
     final var target4 = ClusterLogAllocation.of(map4);
     Assertions.assertThrows(
         IllegalArgumentException.class,
@@ -283,52 +291,46 @@ class ClusterLogAllocationTest {
 
     final var allocation0 =
         ClusterLogAllocation.of(
-            Map.of(
-                TopicPartition.of("topicA", 0),
-                    List.of(
-                        Replica.of(
-                            "topicA",
-                            0,
-                            NodeInfo.of(0, null, -1),
-                            0,
-                            0,
-                            true,
-                            true,
-                            false,
-                            false,
-                            false,
-                            "no-change")),
-                TopicPartition.of("topicB", 0),
-                    List.of(
-                        Replica.of(
-                            "topicB",
-                            0,
-                            NodeInfo.of(0, null, -1),
-                            0,
-                            0,
-                            true,
-                            true,
-                            false,
-                            false,
-                            false,
-                            "no-change"))));
+            List.of(
+                Replica.of(
+                    "topicA",
+                    0,
+                    NodeInfo.of(0, null, -1),
+                    0,
+                    0,
+                    true,
+                    true,
+                    false,
+                    false,
+                    true,
+                    "no-change"),
+                Replica.of(
+                    "topicB",
+                    0,
+                    NodeInfo.of(0, null, -1),
+                    0,
+                    0,
+                    true,
+                    true,
+                    false,
+                    false,
+                    true,
+                    "no-change")));
     final var allocation1 =
         ClusterLogAllocation.of(
-            Map.of(
-                TopicPartition.of("topicB", 0),
-                List.of(
-                    Replica.of(
-                        "topicB",
-                        0,
-                        NodeInfo.of(0, null, -1),
-                        0,
-                        0,
-                        true,
-                        true,
-                        false,
-                        false,
-                        false,
-                        "do-change"))));
+            List.of(
+                Replica.of(
+                    "topicB",
+                    0,
+                    NodeInfo.of(0, null, -1),
+                    0,
+                    0,
+                    true,
+                    true,
+                    false,
+                    false,
+                    true,
+                    "do-change")));
     Assertions.assertEquals(
         Set.of(TopicPartition.of("topicB", 0)),
         ClusterLogAllocation.findNonFulfilledAllocation(allocation0, allocation1));

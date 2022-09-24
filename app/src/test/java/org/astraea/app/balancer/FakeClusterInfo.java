@@ -95,7 +95,7 @@ public class FakeClusterInfo implements ClusterInfo<Replica> {
                                     true,
                                     false,
                                     false,
-                                    false,
+                                    r == 0,
                                     dataDirectoryList.get(
                                         tp.partition() % dataDirectories.size()))))
             .collect(Collectors.toUnmodifiableList());
