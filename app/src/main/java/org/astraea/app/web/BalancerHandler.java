@@ -29,7 +29,6 @@ import org.astraea.app.balancer.BalancerUtils;
 import org.astraea.app.balancer.RebalancePlanProposal;
 import org.astraea.app.balancer.generator.RebalancePlanGenerator;
 import org.astraea.app.balancer.log.ClusterLogAllocation;
-import org.astraea.app.balancer.log.LogPlacement;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
@@ -132,7 +131,9 @@ class BalancerHandler implements Handler {
                                             currentClusterInfo
                                                 .replica(
                                                     TopicPartitionReplica.of(
-                                                        tp.topic(), tp.partition(), l.broker()))
+                                                        tp.topic(),
+                                                        tp.partition(),
+                                                        l.nodeInfo().id()))
                                                 .map(Replica::size)
                                                 .orElse(null)),
                                     placements(p.allocation.logPlacements(tp), ignored -> null)))
@@ -141,7 +142,7 @@ class BalancerHandler implements Handler {
         bestPlan.map(p -> List.of(new MigrationCost(p.moveCost))).orElseGet(List::of));
   }
 
-  static List<Placement> placements(List<LogPlacement> lps, Function<LogPlacement, Long> size) {
+  static List<Placement> placements(Set<Replica> lps, Function<Replica, Long> size) {
     return lps.stream()
         .map(p -> new Placement(p, size.apply(p)))
         .collect(Collectors.toUnmodifiableList());
@@ -154,9 +155,9 @@ class BalancerHandler implements Handler {
 
     final Long size;
 
-    Placement(LogPlacement lp, Long size) {
-      this.brokerId = lp.broker();
-      this.directory = lp.dataFolder();
+    Placement(Replica replica, Long size) {
+      this.brokerId = replica.nodeInfo().id();
+      this.directory = replica.dataFolder();
       this.size = size;
     }
   }
