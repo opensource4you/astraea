@@ -16,7 +16,7 @@
  */
 package org.astraea.etl
 
-import org.astraea.etl.Configuration.{
+import org.astraea.etl.ETLMetaData.{
   primaryKeys,
   requireNonidentical,
   requirePair
@@ -29,7 +29,7 @@ import java.nio.file.Files.createTempFile
 import java.util.Properties
 import scala.util.{Try, Using}
 
-class ConfigurationTest {
+class ETLMetaDataTest {
   var file = new File("")
   var path = ""
 
@@ -40,11 +40,11 @@ class ConfigurationTest {
   }
 
   @Test def defaultTest(): Unit = {
-    val config = Configuration(Utils.requireFile(file.getAbsolutePath))
+    val config = ETLMetaData(Utils.requireFile(file.getAbsolutePath))
     assert(config.sourcePath.equals(new File(file.getParent)))
     assert(config.sinkPath.equals(new File(file.getParent)))
     assert(
-      config.columnName equals Map(
+      config.column equals Map(
         "ID" -> "string",
         "KA" -> "string",
         "KB" -> "string",
@@ -69,11 +69,11 @@ class ConfigurationTest {
     prop.setProperty("topic.config", "KA=VA,KB=VB")
     prop.store(new FileOutputStream(file), null)
 
-    val config = Configuration(Utils.requireFile(file.getAbsolutePath))
+    val config = ETLMetaData(Utils.requireFile(file.getAbsolutePath))
     assert(config.sourcePath.equals(new File(file.getParent)))
     assert(config.sinkPath.equals(new File(file.getParent)))
     assert(
-      config.columnName equals Map(
+      config.column equals Map(
         "ID" -> "string",
         "KA" -> "string",
         "KB" -> "string",

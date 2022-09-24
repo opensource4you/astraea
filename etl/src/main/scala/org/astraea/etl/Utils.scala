@@ -24,7 +24,7 @@ object Utils {
     val file = new File(path)
     if (!file.isDirectory) {
       throw new IllegalPathStateException(
-        s"${path} is not a folder. The path should be a folder."
+        s"$path is not a folder. The path should be a folder."
       )
     }
     file
@@ -34,9 +34,33 @@ object Utils {
     val file = new File(path)
     if (!file.exists()) {
       throw new IllegalPathStateException(
-        s"${path} is not a file. The file does not exist."
+        s"$path is not a file. The file does not exist."
       )
     }
     file
+  }
+
+  /** Whether it is a local mode string.
+    *
+    * @param str
+    *   The string to be detected.
+    * @return
+    *   is match
+    */
+  def localPattern(str: String): Boolean = {
+    val patternLocal = "local(\\[)[\\d{1}](])".r
+    patternLocal matches str
+  }
+
+  /** Whether it is a standalone mode string.
+    *
+    * @param str
+    *   The string to be detected.
+    * @return
+    *   is match
+    */
+  def standAlonePattern(str: String): Boolean = {
+    val patternHostPort = "spark://(.+):(\\d+)".r
+    patternHostPort matches str
   }
 }

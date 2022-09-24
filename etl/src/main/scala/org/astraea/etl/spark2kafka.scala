@@ -16,14 +16,15 @@
  */
 package org.astraea.etl
 
-import java.io.File
-
 object spark2kafka {
-  def execute(path: File): Unit = {
-    val config = Configuration(path)
-  }
 
   def main(args: Array[String]): Unit = {
-    spark2kafka.execute(Utils.requireFile(args(0)))
+    val metaData = ETLMetaData(Utils.requireFile(args(0)))
+    val spark = SparkUtils.createSpark(metaData.deploymentModel)
+    val userSchema = SparkUtils.createSchema(metaData.column)
+    val csvDF =
+      SparkUtils.readCSV(spark, userSchema, metaData.sourcePath.getPath)
+    //TODO How to start
+    SparkUtils.writeKafka(csvDF, metaData).start().awaitTermination()
   }
 }

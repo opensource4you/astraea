@@ -27,7 +27,7 @@ import scala.util.Using
   *   The data source path should be a directory.
   * @param sinkPath
   *   The data sink path should be a directory.
-  * @param columnName
+  * @param column
   *   The CSV Column Name.For example:stringA,stringB,stringC...
   * @param primaryKeys
   *   Primary keys.
@@ -43,20 +43,25 @@ import scala.util.Using
   * @param topicConfig
   *   The rest of the topic can be configured parameters.For example:
   *   keyA:valueA,keyB:valueB,keyC:valueC...
+  * @param deploymentModel
+  *   Set deployment model, which will be used in
+  *   SparkSession.builder().master(deployment.model).Two settings are currently
+  *   supported spark://HOST:PORT and local[*].
   */
-case class Configuration(
+case class ETLMetaData(
     sourcePath: File,
     sinkPath: File,
-    columnName: Map[String, String],
+    column: Map[String, String],
     primaryKeys: Map[String, String],
     kafkaBootstrapServers: String,
     topicName: String,
     numPartitions: Int,
     numReplicas: Int,
-    topicConfig: Map[String, String]
+    topicConfig: Map[String, String],
+    deploymentModel: String
 )
 
-object Configuration {
+object ETLMetaData {
   private[this] val SOURCE_PATH = "source.path"
   private[this] val SINK_PATH = "sink.path"
   private[this] val COLUMN_NAME = "column.name"
@@ -66,12 +71,13 @@ object Configuration {
   private[this] val TOPIC_PARTITIONS = "topic.partitions"
   private[this] val TOPIC_REPLICAS = "topic.replicas"
   private[this] val TOPIC_CONFIG = "topic.config"
+  private[this] val DEPLOYMENT_MODEL = "deployment.model"
 
   private[this] val DEFAULT_PARTITIONS = 15
   private[this] val DEFAULT_REPLICAS = 1
 
   //Parameters needed to configure ETL.
-  def apply(path: File): Configuration = {
+  def apply(path: File): ETLMetaData = {
     val properties = readProp(path).asScala.filter(_._2.nonEmpty).toMap
 
     val sourcePath = Utils.requireFolder(
@@ -86,11 +92,10 @@ object Configuration {
       properties.getOrElse(
         SINK_PATH,
         throw new NullPointerException(
-          s"${SINK_PATH} + is null.You must configure ${SINK_PATH}."
+          s"$SINK_PATH + is null.You must configure $SINK_PATH."
         )
       )
     )
-    //TODO check the type
     val column = requireNonidentical(COLUMN_NAME, properties)
     val pKeys = primaryKeys(properties, column)
     //TODO check the format after linking Kafka
@@ -98,7 +103,7 @@ object Configuration {
     val topicName = properties.getOrElse(
       TOPIC_NAME,
       throw new NullPointerException(
-        s"${TOPIC_NAME} is null.You must configure ${TOPIC_NAME}."
+        s"$TOPIC_NAME is null.You must configure $TOPIC_NAME."
       )
     )
     val topicPartitions = properties
@@ -111,7 +116,9 @@ object Configuration {
       .getOrElse(DEFAULT_REPLICAS)
     val topicConfig = requirePair(properties.getOrElse(TOPIC_CONFIG, null))
 
-    Configuration(
+    val deploymentModel = requireSparkMaster(DEPLOYMENT_MODEL, properties)
+
+    ETLMetaData(
       sourcePath,
       sinkPath,
       column,
@@ -120,7 +127,8 @@ object Configuration {
       topicName,
       topicPartitions,
       topicReplicas,
-      topicConfig
+      topicConfig,
+      deploymentModel
     )
   }
 
@@ -166,7 +174,7 @@ object Configuration {
             PRIMARY_KEYS + "(",
             ", ",
             ")"
-          )} not in column. All ${PRIMARY_KEYS} should be included in the column."
+          )} not in column. All $PRIMARY_KEYS should be included in the column."
       )
     }
     primaryKeys
@@ -187,9 +195,21 @@ object Configuration {
             string + " (",
             ", ",
             ")"
-          )} is duplication. The ${string} should not be duplicated."
+          )} is duplication. The $string should not be duplicated."
       )
     }
     map
+  }
+
+  def requireSparkMaster(string: String, prop: Map[String, String]): String = {
+    if (
+      !(Utils
+        .localPattern(prop(string)) || Utils.standAlonePattern(prop(string)))
+    ) {
+      throw new IllegalArgumentException(
+        s"${prop { string }} not a supported deployment model. Please check $string."
+      )
+    }
+    string
   }
 }
