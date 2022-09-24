@@ -333,4 +333,44 @@ class ClusterLogAllocationTest {
         Set.of(TopicPartition.of("topicB", 0)),
         ClusterLogAllocation.findNonFulfilledAllocation(allocation0, allocation1));
   }
+
+  @Test
+  void updateFromId() {
+    var topic = "theTopic";
+    var partition = 10;
+    var node = NodeInfo.of(1024, "example.com", 3000);
+    var theDir = "/example";
+    var theReplica = Replica.of(topic, partition, node, 0, 0, true, true, true, true, true, theDir);
+
+    var actual0 = ClusterLogAllocation.update(theReplica, 1024, "/new/dir");
+    Assertions.assertEquals(topic, actual0.topic());
+    Assertions.assertEquals(partition, actual0.partition());
+    Assertions.assertEquals(
+        node, actual0.nodeInfo(), "update to the same broker will not fake a node");
+    Assertions.assertEquals("/new/dir", actual0.dataFolder());
+
+    var actual1 = ClusterLogAllocation.update(theReplica, 2048, "/new/dir");
+    Assertions.assertEquals(topic, actual1.topic());
+    Assertions.assertEquals(partition, actual1.partition());
+    Assertions.assertNotEquals(
+        node, actual1.nodeInfo(), "update to another broker will fake a node");
+    Assertions.assertEquals(2048, actual1.nodeInfo().id());
+    Assertions.assertEquals("/new/dir", actual1.dataFolder());
+  }
+
+  @Test
+  void updateFromNodeInfo() {
+    var topic = "theTopic";
+    var partition = 10;
+    var node = NodeInfo.of(1024, "example.com", 3000);
+    var theDir = "/example";
+    var theReplica = Replica.of(topic, partition, node, 0, 0, true, true, true, true, true, theDir);
+
+    var newNode = NodeInfo.of(4096, "another.example.com", 9092);
+    var actual0 = ClusterLogAllocation.update(theReplica, newNode, "/new/dir");
+    Assertions.assertEquals(topic, actual0.topic());
+    Assertions.assertEquals(partition, actual0.partition());
+    Assertions.assertEquals(newNode, actual0.nodeInfo());
+    Assertions.assertEquals("/new/dir", actual0.dataFolder());
+  }
 }

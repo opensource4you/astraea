@@ -16,6 +16,7 @@
  */
 package org.astraea.app.balancer.log;
 
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -214,7 +215,7 @@ public interface ClusterLogAllocation {
               .mapToObj(
                   index ->
                       index == sourceLogIndex
-                          ? update(sourceLogPlacements.get(index), toBroker, toDir)
+                          ? this.update(sourceLogPlacements.get(index), toBroker, toDir)
                           : sourceLogPlacements.get(index))
               .collect(Collectors.toUnmodifiableList()));
       return new ClusterLogAllocationImpl(newAllocations);
@@ -269,19 +270,38 @@ public interface ClusterLogAllocation {
           .findFirst();
     }
 
-    private static Replica update(Replica source, int newBroker, String newDir) {
-      return Replica.of(
-          source.topic(),
-          source.partition(),
-          NodeInfo.of(newBroker, "", -1),
-          source.lag(),
-          source.size(),
-          source.isLeader(),
-          source.inSync(),
-          source.isFuture(),
-          source.isOffline(),
-          source.isPreferredLeader(),
-          newDir);
+    Replica update(Replica source, int newBroker, String newDir) {
+      // lookup nodeInfo
+      final var theNodeInfo =
+          allocation.values().stream()
+              .flatMap(Collection::stream)
+              .map(ReplicaInfo::nodeInfo)
+              .filter(x -> x.id() == newBroker)
+              .findFirst();
+
+      return theNodeInfo
+          .map(info -> ClusterLogAllocation.update(source, info, newDir))
+          .orElseGet(() -> ClusterLogAllocation.update(source, newBroker, newDir));
     }
+  }
+
+  static Replica update(Replica source, int newBroker, String newDir) {
+    if (source.nodeInfo().id() == newBroker) return update(source, source.nodeInfo(), newDir);
+    else return update(source, NodeInfo.of(newBroker, "?", -1), newDir);
+  }
+
+  static Replica update(Replica source, NodeInfo newBroker, String newDir) {
+    return Replica.of(
+        source.topic(),
+        source.partition(),
+        newBroker,
+        source.lag(),
+        source.size(),
+        source.isLeader(),
+        source.inSync(),
+        source.isFuture(),
+        source.isOffline(),
+        source.isPreferredLeader(),
+        newDir);
   }
 }
