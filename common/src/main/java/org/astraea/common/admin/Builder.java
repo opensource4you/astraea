@@ -36,7 +36,6 @@ import org.apache.kafka.clients.admin.AlterConfigOp;
 import org.apache.kafka.clients.admin.ConfigEntry;
 import org.apache.kafka.clients.admin.ConsumerGroupListing;
 import org.apache.kafka.clients.admin.ListTopicsOptions;
-import org.apache.kafka.clients.admin.MemberDescription;
 import org.apache.kafka.clients.admin.MemberToRemove;
 import org.apache.kafka.clients.admin.NewPartitionReassignment;
 import org.apache.kafka.clients.admin.NewTopic;
@@ -175,47 +174,43 @@ public class Builder {
 
             var consumerGroupMetadata =
                 consumerGroupNames.stream()
-                    .map(x -> Map.entry(x, admin.listConsumerGroupOffsets(x)))
-                    .map(
-                        x ->
-                            Map.entry(
-                                x.getKey(),
+                    .collect(
+                        Collectors.toMap(
+                            Function.identity(),
+                            groupId ->
                                 Utils.packException(
-                                    () -> x.getValue().partitionsToOffsetAndMetadata().get())))
-                    .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));
-
-            var createMember =
-                (BiFunction<String, MemberDescription, Member>)
-                    (s, x) ->
-                        new Member(s, x.consumerId(), x.groupInstanceId(), x.clientId(), x.host());
+                                    () ->
+                                        admin
+                                            .listConsumerGroupOffsets(groupId)
+                                            .partitionsToOffsetAndMetadata()
+                                            .get())));
 
             return consumerGroupNames.stream()
-                .map(
-                    groupId -> {
-                      var members =
-                          consumerGroupDescriptions.get(groupId).members().stream()
-                              .map(x -> createMember.apply(groupId, x))
-                              .collect(Collectors.toUnmodifiableList());
-                      var consumeOffset =
-                          consumerGroupMetadata.get(groupId).entrySet().stream()
-                              .collect(
-                                  Collectors.toUnmodifiableMap(
-                                      tp -> TopicPartition.from(tp.getKey()),
-                                      x -> x.getValue().offset()));
-                      var assignment =
-                          consumerGroupDescriptions.get(groupId).members().stream()
-                              .collect(
-                                  Collectors.toUnmodifiableMap(
-                                      x -> createMember.apply(groupId, x),
-                                      x ->
-                                          x.assignment().topicPartitions().stream()
-                                              .map(TopicPartition::from)
-                                              .collect(Collectors.toSet())));
-
-                      return Map.entry(
-                          groupId, new ConsumerGroup(groupId, members, consumeOffset, assignment));
-                    })
-                .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));
+                .collect(
+                    Collectors.toMap(
+                        Function.identity(),
+                        groupId ->
+                            new ConsumerGroup(
+                                groupId,
+                                consumerGroupMetadata.get(groupId).entrySet().stream()
+                                    .collect(
+                                        Collectors.toUnmodifiableMap(
+                                            tp -> TopicPartition.from(tp.getKey()),
+                                            offset -> offset.getValue().offset())),
+                                consumerGroupDescriptions.get(groupId).members().stream()
+                                    .collect(
+                                        Collectors.toUnmodifiableMap(
+                                            member ->
+                                                new Member(
+                                                    groupId,
+                                                    member.consumerId(),
+                                                    member.groupInstanceId(),
+                                                    member.clientId(),
+                                                    member.host()),
+                                            member ->
+                                                member.assignment().topicPartitions().stream()
+                                                    .map(TopicPartition::from)
+                                                    .collect(Collectors.toSet()))))));
           });
     }
 
