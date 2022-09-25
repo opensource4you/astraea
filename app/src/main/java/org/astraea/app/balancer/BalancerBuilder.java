@@ -162,9 +162,7 @@ public class BalancerBuilder {
               })
           .filter(plan -> clusterConstraint.test(currentCost, plan.clusterCost))
           .filter(plan -> movementConstraint.test(plan.moveCost))
-          .min(Comparator.comparing(plan -> plan.clusterCost.value()))
-          .stream()
-          .findFirst();
+          .min(Comparator.comparing(plan -> plan.clusterCost.value()));
     };
   }
 }
