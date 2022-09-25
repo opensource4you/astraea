@@ -37,7 +37,6 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
-import java.util.stream.StreamSupport;
 import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.clients.admin.AdminClientConfig;
 import org.apache.kafka.clients.admin.AlterConfigOp;
@@ -83,10 +82,8 @@ public class AdminTest extends RequireBrokerCluster {
                   .isPresent());
 
       var config = admin.topics().get(topicName);
-      Assertions.assertEquals(
-          config.keys().size(), (int) StreamSupport.stream(config.spliterator(), false).count());
-      config.keys().forEach(key -> Assertions.assertTrue(config.value(key).isPresent()));
-      Assertions.assertTrue(config.values().contains("lz4"));
+      config.raw().keySet().forEach(key -> Assertions.assertTrue(config.value(key).isPresent()));
+      Assertions.assertTrue(config.raw().containsValue("lz4"));
     }
   }
 
@@ -468,7 +465,7 @@ public class AdminTest extends RequireBrokerCluster {
     try (var admin = Admin.of(bootstrapServers())) {
       var brokerConfigs = admin.brokers();
       Assertions.assertEquals(3, brokerConfigs.size());
-      brokerConfigs.values().forEach(c -> Assertions.assertNotEquals(0, c.keys().size()));
+      brokerConfigs.values().forEach(c -> Assertions.assertNotEquals(0, c.raw().size()));
       Assertions.assertEquals(1, admin.brokers(Set.of(brokerIds().iterator().next())).size());
     }
   }

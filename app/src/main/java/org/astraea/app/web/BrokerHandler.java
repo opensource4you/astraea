@@ -22,7 +22,6 @@ import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
-import java.util.stream.StreamSupport;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.Config;
 import org.astraea.common.admin.TopicPartition;
@@ -78,9 +77,7 @@ class BrokerHandler implements Handler {
               .stream()
               .map(e -> new Topic(e.getKey(), e.getValue().size()))
               .collect(Collectors.toUnmodifiableList());
-      this.configs =
-          StreamSupport.stream(configs.spliterator(), false)
-              .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+      this.configs = configs.raw();
     }
   }
 

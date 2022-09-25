@@ -23,7 +23,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
-import java.util.stream.StreamSupport;
 import org.apache.kafka.common.errors.UnknownTopicOrPartitionException;
 import org.astraea.app.scenario.Scenario;
 import org.astraea.common.ExecutionRuntimeException;
@@ -179,11 +178,7 @@ class TopicHandler implements Handler {
     final Map<String, String> configs;
 
     private TopicInfo(String name, List<Partition> partitions, Config configs) {
-      this(
-          name,
-          partitions,
-          StreamSupport.stream(configs.spliterator(), false)
-              .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue)));
+      this(name, partitions, configs.raw());
     }
 
     private TopicInfo(String name, List<Partition> partitions, Map<String, String> configs) {
