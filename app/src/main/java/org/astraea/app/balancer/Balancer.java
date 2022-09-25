@@ -17,6 +17,7 @@
 package org.astraea.app.balancer;
 
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Predicate;
 import org.astraea.common.admin.ClusterInfo;
@@ -27,12 +28,13 @@ import org.astraea.common.cost.MoveCost;
 public interface Balancer {
 
   /** @return a rebalance plan */
-  default Plan offer(ClusterInfo<Replica> clusterInfo, Map<Integer, Set<String>> brokerFolders) {
+  default Optional<Plan> offer(
+      ClusterInfo<Replica> clusterInfo, Map<Integer, Set<String>> brokerFolders) {
     return offer(clusterInfo, ignore -> true, brokerFolders);
   }
 
   /** @return a rebalance plan */
-  Plan offer(
+  Optional<Plan> offer(
       ClusterInfo<Replica> clusterInfo,
       Predicate<String> topicFilter,
       Map<Integer, Set<String>> brokerFolders);
@@ -42,9 +44,21 @@ public interface Balancer {
   }
 
   class Plan {
-    public final RebalancePlanProposal proposal;
-    public final ClusterCost clusterCost;
-    public final MoveCost moveCost;
+    final RebalancePlanProposal proposal;
+    final ClusterCost clusterCost;
+    final MoveCost moveCost;
+
+    public RebalancePlanProposal proposal() {
+      return proposal;
+    }
+
+    public ClusterCost clusterCost() {
+      return clusterCost;
+    }
+
+    public MoveCost moveCost() {
+      return moveCost;
+    }
 
     public Plan(RebalancePlanProposal proposal, ClusterCost clusterCost, MoveCost moveCost) {
       this.proposal = proposal;

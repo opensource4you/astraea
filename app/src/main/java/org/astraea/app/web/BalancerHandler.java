@@ -73,27 +73,26 @@ class BalancerHandler implements Handler {
         Integer.parseInt(channel.queries().getOrDefault(LIMIT_KEY, String.valueOf(LIMIT_DEFAULT)));
     var targetAllocations = ClusterLogAllocation.of(admin.clusterInfo(topics));
     var bestPlan =
-        Optional.of(
-            Balancer.builder()
-                .planGenerator(generator)
-                .clusterCost(clusterCostFunction)
-                .clusterConstraint((before, after) -> after.value() <= before.value())
-                .moveCost(moveCostFunction)
-                .movementConstraint(moveCost -> true)
-                .limit(LIMIT_DEFAULT)
-                .build()
-                .offer(admin.clusterInfo(), topics::contains, admin.brokerFolders()));
+        Balancer.builder()
+            .planGenerator(generator)
+            .clusterCost(clusterCostFunction)
+            .clusterConstraint((before, after) -> after.value() <= before.value())
+            .moveCost(moveCostFunction)
+            .movementConstraint(moveCost -> true)
+            .limit(LIMIT_DEFAULT)
+            .build()
+            .offer(admin.clusterInfo(), topics::contains, admin.brokerFolders());
     return new Report(
         cost,
-        bestPlan.map(p -> p.clusterCost.value()).orElse(null),
+        bestPlan.map(p -> p.clusterCost().value()).orElse(null),
         limit,
-        bestPlan.map(p -> p.proposal.index()).orElse(null),
+        bestPlan.map(p -> p.proposal().index()).orElse(null),
         clusterCostFunction.getClass().getSimpleName(),
         bestPlan
             .map(
                 p ->
                     ClusterLogAllocation.findNonFulfilledAllocation(
-                            targetAllocations, p.proposal.rebalancePlan())
+                            targetAllocations, p.proposal().rebalancePlan())
                         .stream()
                         .map(
                             tp ->
@@ -111,11 +110,11 @@ class BalancerHandler implements Handler {
                                                 .map(Replica::size)
                                                 .orElse(null)),
                                     placements(
-                                        p.proposal.rebalancePlan().logPlacements(tp),
+                                        p.proposal().rebalancePlan().logPlacements(tp),
                                         ignored -> null)))
                         .collect(Collectors.toUnmodifiableList()))
             .orElse(List.of()),
-        bestPlan.map(p -> List.of(new MigrationCost(p.moveCost))).orElseGet(List::of));
+        bestPlan.map(p -> List.of(new MigrationCost(p.moveCost()))).orElseGet(List::of));
   }
 
   static List<Placement> placements(List<LogPlacement> lps, Function<LogPlacement, Long> size) {
