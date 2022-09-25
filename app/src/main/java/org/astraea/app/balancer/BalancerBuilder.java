@@ -30,13 +30,13 @@ import org.astraea.common.cost.HasClusterCost;
 import org.astraea.common.cost.HasMoveCost;
 import org.astraea.common.cost.MoveCost;
 
-class BalancerBuilder {
+public class BalancerBuilder {
 
   private RebalancePlanGenerator planGenerator;
   private HasClusterCost clusterCostFunction;
   private HasMoveCost moveCostFunction = HasMoveCost.EMPTY;
   private BiPredicate<ClusterCost, ClusterCost> clusterConstraint =
-      (before, after) -> after.value() < before.value();
+      (before, after) -> after.value() <= before.value();
   private Predicate<MoveCost> movementConstraint = ignore -> true;
   private int searchLimit = Integer.MAX_VALUE;
   private Duration executionTime = Duration.ofSeconds(3);
@@ -162,8 +162,7 @@ class BalancerBuilder {
               })
           .filter(plan -> clusterConstraint.test(currentCost, plan.clusterCost))
           .filter(plan -> movementConstraint.test(plan.moveCost))
-          .min(Comparator.comparing(plan -> plan.clusterCost.value()))
-          .orElseThrow();
+          .min(Comparator.comparing(plan -> plan.clusterCost.value()));
     };
   }
 }

@@ -24,8 +24,8 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-import java.util.stream.Stream;
-import org.astraea.app.balancer.RebalancePlanProposal;
+import org.astraea.app.balancer.Balancer;
+import org.astraea.app.balancer.generator.RebalancePlanGenerator;
 import org.astraea.app.balancer.log.ClusterLogAllocation;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
@@ -179,81 +179,92 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
 
   @Test
   void testBestPlan() {
-    var currentClusterInfo =
-        ClusterInfo.of(
-            Set.of(NodeInfo.of(10, "host", 22), NodeInfo.of(11, "host", 22)),
-            List.of(
-                Replica.of(
-                    "topic",
-                    0,
-                    NodeInfo.of(10, "host", 22),
-                    0,
-                    100,
-                    true,
-                    true,
-                    false,
-                    false,
-                    true,
-                    "/tmp/aa")));
+    try (var admin = Admin.of(bootstrapServers())) {
+      var currentClusterInfo =
+          ClusterInfo.of(
+              Set.of(NodeInfo.of(10, "host", 22), NodeInfo.of(11, "host", 22)),
+              List.of(
+                  Replica.of(
+                      "topic",
+                      0,
+                      NodeInfo.of(10, "host", 22),
+                      0,
+                      100,
+                      true,
+                      true,
+                      false,
+                      false,
+                      true,
+                      "/tmp/aa")));
 
-    var clusterLogAllocation =
-        ClusterLogAllocation.of(
-            ClusterInfo.of(
-                List.of(
-                    Replica.of(
-                        "topic",
-                        0,
-                        NodeInfo.of(11, "host", 22),
-                        0,
-                        100,
-                        true,
-                        true,
-                        false,
-                        false,
-                        true,
-                        "/tmp/aa"))));
-    var proposal =
-        RebalancePlanProposal.builder()
-            .clusterLogAllocation(clusterLogAllocation)
-            .index(100)
-            .build();
-    HasClusterCost clusterCostFunction =
-        (clusterInfo, clusterBean) -> () -> clusterInfo == currentClusterInfo ? 100D : 10D;
-    HasMoveCost moveCostFunction =
-        (originClusterInfo, newClusterInfo, clusterBean) ->
-            MoveCost.builder().totalCost(100).build();
-    var best =
-        BalancerHandler.bestPlan(
-            Stream.of(proposal),
-            currentClusterInfo,
-            clusterCostFunction,
-            clusterCost -> true,
-            moveCostFunction,
-            moveCost -> true);
+      var clusterLogAllocation =
+          ClusterLogAllocation.of(
+              ClusterInfo.of(
+                  List.of(
+                      Replica.of(
+                          "topic",
+                          0,
+                          NodeInfo.of(11, "host", 22),
+                          0,
+                          100,
+                          true,
+                          true,
+                          false,
+                          false,
+                          true,
+                          "/tmp/aa"))));
+      HasClusterCost clusterCostFunction =
+          (clusterInfo, clusterBean) -> () -> clusterInfo == currentClusterInfo ? 100D : 10D;
+      HasMoveCost moveCostFunction =
+          (originClusterInfo, newClusterInfo, clusterBean) ->
+              MoveCost.builder().totalCost(100).build();
 
-    Assertions.assertNotEquals(Optional.empty(), best);
-    Assertions.assertEquals(clusterLogAllocation, best.get().allocation);
+      var balancerHandler = new BalancerHandler(admin, new DegradeCost(), new ReplicaSizeCost());
+      var Best =
+          Balancer.builder()
+              .planGenerator(RebalancePlanGenerator.random(30))
+              .clusterCost(clusterCostFunction)
+              .clusterConstraint((before, after) -> after.value() <= before.value())
+              .moveCost(moveCostFunction)
+              .movementConstraint(moveCost -> true)
+              .build()
+              .offer(admin.clusterInfo(), ignore -> true, admin.brokerFolders());
 
-    // test cluster cost predicate
-    Assertions.assertEquals(
-        Optional.empty(),
-        BalancerHandler.bestPlan(
-            Stream.of(proposal),
-            currentClusterInfo,
-            clusterCostFunction,
-            clusterCost -> false,
-            moveCostFunction,
-            moveCost -> true));
+      Assertions.assertNotEquals(Optional.empty(), Best);
 
-    // test move cost predicate
-    Assertions.assertEquals(
-        Optional.empty(),
-        BalancerHandler.bestPlan(
-            Stream.of(proposal),
-            currentClusterInfo,
-            clusterCostFunction,
-            clusterCost -> true,
-            moveCostFunction,
-            moveCost -> false));
+      var i =
+          Balancer.builder()
+              .planGenerator(RebalancePlanGenerator.random(30))
+              .clusterCost(clusterCostFunction)
+              .clusterConstraint((before, after) -> false)
+              .moveCost(moveCostFunction)
+              .movementConstraint(moveCost -> true)
+              .build()
+              .offer(admin.clusterInfo(), ignore -> true, admin.brokerFolders());
+
+      // test cluster cost predicate
+      Assertions.assertEquals(
+          Optional.empty(),
+          Balancer.builder()
+              .planGenerator(RebalancePlanGenerator.random(30))
+              .clusterCost(clusterCostFunction)
+              .clusterConstraint((before, after) -> false)
+              .moveCost(moveCostFunction)
+              .movementConstraint(moveCost -> true)
+              .build()
+              .offer(admin.clusterInfo(), ignore -> true, admin.brokerFolders()));
+
+      // test move cost predicate
+      Assertions.assertEquals(
+          Optional.empty(),
+          Balancer.builder()
+              .planGenerator(RebalancePlanGenerator.random(30))
+              .clusterCost(clusterCostFunction)
+              .clusterConstraint((before, after) -> true)
+              .moveCost(moveCostFunction)
+              .movementConstraint(moveCost -> false)
+              .build()
+              .offer(admin.clusterInfo(), ignore -> true, admin.brokerFolders()));
+    }
   }
 }

@@ -73,7 +73,8 @@ class BalancerTest extends RequireBrokerCluster {
                   .limit(1000)
                   .build()
                   .offer(admin.clusterInfo(), admin.brokerFolders());
-          new StraightPlanExecutor().run(RebalanceAdmin.of(admin), plan.proposal.rebalancePlan());
+          new StraightPlanExecutor()
+              .run(RebalanceAdmin.of(admin), plan.get().proposal().rebalancePlan());
         } catch (Exception e) {
           System.err.println(e.getMessage());
         }
@@ -118,7 +119,8 @@ class BalancerTest extends RequireBrokerCluster {
               .limit(500)
               .build()
               .offer(clusterInfo, t -> t.equals(theTopic), brokerFolders)
-              .proposal
+              .get()
+              .proposal()
               .rebalancePlan();
 
       var currentCluster = admin.clusterInfo();
@@ -152,7 +154,8 @@ class BalancerTest extends RequireBrokerCluster {
                       .limit(Duration.ofSeconds(3))
                       .build()
                       .offer(admin.clusterInfo(), admin.brokerFolders())
-                      .proposal
+                      .get()
+                      .proposal()
                       .rebalancePlan());
       Utils.sleep(Duration.ofMillis(1000));
       Assertions.assertFalse(future.isDone());
