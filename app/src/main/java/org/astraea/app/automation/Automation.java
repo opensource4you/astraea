@@ -70,7 +70,9 @@ public class Automation {
 
       while (i < times) {
         var topicName =
-            Performance.execute(Performance.Argument.parse(performanceArgs(properties)));
+            Performance.execute(
+                Performance.Argument.parse(
+                    new Performance.Argument(), performanceArgs(properties)));
         i++;
         if (whetherDeleteTopic) {
           try (final AdminClient adminClient = KafkaAdminClient.create(config)) {

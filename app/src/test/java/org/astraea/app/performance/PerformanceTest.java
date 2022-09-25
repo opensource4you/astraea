@@ -30,6 +30,7 @@ import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.ReplicaInfo;
 import org.astraea.common.admin.TopicPartition;
+import org.astraea.common.argument.Argument;
 import org.astraea.common.consumer.Isolation;
 import org.astraea.common.producer.Acks;
 import org.astraea.it.RequireBrokerCluster;
@@ -44,7 +45,7 @@ public class PerformanceTest extends RequireBrokerCluster {
     String[] arguments1 = {
       "--bootstrap.servers", bootstrapServers(), "--topics", topic, "--transaction.size", "2"
     };
-    var argument = Performance.Argument.parse(arguments1);
+    var argument = Argument.parse(new Performance.Argument(), arguments1);
     try (var producer = argument.createProducer()) {
       Assertions.assertTrue(producer.transactional());
     }
@@ -57,7 +58,7 @@ public class PerformanceTest extends RequireBrokerCluster {
       "--bootstrap.servers", bootstrapServers(), "--topics", topic, "--compression", "gzip"
     };
     var latch = new CountDownLatch(1);
-    var argument = Performance.Argument.parse(arguments1);
+    var argument = Argument.parse(new Performance.Argument(), arguments1);
     try (var producer = argument.createProducer()) {
       Assertions.assertFalse(producer.transactional());
     }
@@ -77,14 +78,18 @@ public class PerformanceTest extends RequireBrokerCluster {
   void testNoTopic() {
     Assertions.assertThrows(
         ParameterException.class,
-        () -> Performance.Argument.parse(new String[] {"--bootstrap.servers", bootstrapServers()}));
+        () ->
+            Argument.parse(
+                new Performance.Argument(),
+                new String[] {"--bootstrap.servers", bootstrapServers()}));
   }
 
   @Test
   void testCheckTopic() {
     var topic = Utils.randomString(10);
     var args =
-        Performance.Argument.parse(
+        Argument.parse(
+            new Performance.Argument(),
             new String[] {"--bootstrap.servers", bootstrapServers(), "--topics", topic});
     Assertions.assertThrows(IllegalArgumentException.class, args::checkTopics);
 
@@ -100,7 +105,8 @@ public class PerformanceTest extends RequireBrokerCluster {
   void testPartialNonexistentTopic() {
     var existentTopic = initTopic();
     var arg =
-        Performance.Argument.parse(
+        Argument.parse(
+            new Performance.Argument(),
             new String[] {
               "--bootstrap.servers",
               bootstrapServers(),
@@ -113,7 +119,8 @@ public class PerformanceTest extends RequireBrokerCluster {
   @Test
   void testChaosFrequency() {
     var args =
-        Performance.Argument.parse(
+        Argument.parse(
+            new Performance.Argument(),
             new String[] {
               "--bootstrap.servers",
               "localhost:9092",
@@ -132,7 +139,8 @@ public class PerformanceTest extends RequireBrokerCluster {
       admin.creator().topic(topicName).numberOfPartitions(6).numberOfReplicas((short) 3).create();
       Utils.sleep(Duration.ofSeconds(2));
       var args =
-          Performance.Argument.parse(
+          Argument.parse(
+              new Performance.Argument(),
               new String[] {
                 "--bootstrap.servers",
                 bootstrapServers(),
@@ -166,7 +174,8 @@ public class PerformanceTest extends RequireBrokerCluster {
       admin.creator().topic(topicName2).numberOfPartitions(3).numberOfReplicas((short) 3).create();
       Utils.sleep(Duration.ofSeconds(2));
       args =
-          Performance.Argument.parse(
+          Argument.parse(
+              new Performance.Argument(),
               new String[] {
                 "--bootstrap.servers",
                 bootstrapServers(),
@@ -193,7 +202,8 @@ public class PerformanceTest extends RequireBrokerCluster {
       // no specify broker
       Assertions.assertEquals(
           -1,
-          Performance.Argument.parse(
+          Argument.parse(
+                  new Performance.Argument(),
                   new String[] {"--bootstrap.servers", bootstrapServers(), "--topics", topicName})
               .topicPartitionSelector()
               .get()
@@ -212,7 +222,8 @@ public class PerformanceTest extends RequireBrokerCluster {
               .id();
       var noPartitionBroker = (validBroker == 3) ? 1 : validBroker + 1;
       args =
-          Performance.Argument.parse(
+          Argument.parse(
+              new Performance.Argument(),
               new String[] {
                 "--bootstrap.servers",
                 bootstrapServers(),
@@ -235,7 +246,8 @@ public class PerformanceTest extends RequireBrokerCluster {
               TopicPartition.of(topicName4, 1),
               TopicPartition.of(topicName5, 2));
       var arguments =
-          Performance.Argument.parse(
+          Argument.parse(
+              new Performance.Argument(),
               new String[] {
                 "--bootstrap.servers",
                 bootstrapServers(),
@@ -257,7 +269,8 @@ public class PerformanceTest extends RequireBrokerCluster {
       Assertions.assertThrows(
           IllegalArgumentException.class,
           () ->
-              Performance.Argument.parse(
+              Argument.parse(
+                      new Performance.Argument(),
                       new String[] {
                         "--bootstrap.servers",
                         bootstrapServers(),
@@ -276,7 +289,8 @@ public class PerformanceTest extends RequireBrokerCluster {
       Assertions.assertThrows(
           IllegalArgumentException.class,
           () ->
-              Performance.Argument.parse(
+              Argument.parse(
+                      new Performance.Argument(),
                       new String[] {
                         "--bootstrap.servers",
                         bootstrapServers(),
@@ -291,7 +305,8 @@ public class PerformanceTest extends RequireBrokerCluster {
       final var duplicatedTp = TopicPartition.of(topicName4, 0);
       final var singleTp = TopicPartition.of(topicName4, 1);
       final var selector4 =
-          Performance.Argument.parse(
+          Argument.parse(
+                  new Performance.Argument(),
                   new String[] {
                     "--bootstrap.servers",
                     bootstrapServers(),
@@ -315,7 +330,8 @@ public class PerformanceTest extends RequireBrokerCluster {
       Assertions.assertThrows(
           IllegalArgumentException.class,
           () ->
-              Performance.Argument.parse(
+              Argument.parse(
+                      new Performance.Argument(),
                       new String[] {
                         "--bootstrap.servers",
                         bootstrapServers(),
@@ -339,7 +355,8 @@ public class PerformanceTest extends RequireBrokerCluster {
       admin.creator().topic(topicName).numberOfPartitions(partitionCount).create();
       Utils.sleep(Duration.ofSeconds(2));
       var args =
-          Performance.Argument.parse(
+          Argument.parse(
+              new Performance.Argument(),
               new String[] {"--bootstrap.servers", bootstrapServers(), "--topics", topicName});
       try (var producer = args.createProducer()) {
         IntStream.range(0, 250)
@@ -358,7 +375,8 @@ public class PerformanceTest extends RequireBrokerCluster {
         .forEach(
             ack -> {
               var arg =
-                  Performance.Argument.parse(
+                  Argument.parse(
+                      new Performance.Argument(),
                       new String[] {
                         "--bootstrap.servers",
                         bootstrapServers(),
@@ -392,7 +410,8 @@ public class PerformanceTest extends RequireBrokerCluster {
           "--partitioner",
           "org.astraea.common.partitioner.StrictCostDispatcher"
         };
-    Assertions.assertDoesNotThrow(() -> Performance.Argument.parse(argument));
+    Assertions.assertDoesNotThrow(
+        () -> Performance.Argument.parse(new Performance.Argument(), argument).partitioner());
 
     var argument1 =
         new String[] {
@@ -403,7 +422,9 @@ public class PerformanceTest extends RequireBrokerCluster {
           "--interdependent.size",
           "3"
         };
-    Assertions.assertThrows(ParameterException.class, () -> Performance.Argument.parse(argument1));
+    Assertions.assertThrows(
+        ParameterException.class,
+        () -> Performance.Argument.parse(new Performance.Argument(), argument1).partitioner());
     var argument2 =
         new String[] {
           "--bootstrap.servers",
@@ -415,6 +436,8 @@ public class PerformanceTest extends RequireBrokerCluster {
           "--partitioner",
           "org.apache.kafka.clients.producer.internals.DefaultPartitioner"
         };
-    Assertions.assertThrows(ParameterException.class, () -> Performance.Argument.parse(argument2));
+    Assertions.assertThrows(
+        ParameterException.class,
+        () -> Performance.Argument.parse(new Performance.Argument(), argument2).partitioner());
   }
 }

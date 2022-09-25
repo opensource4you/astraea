@@ -59,7 +59,7 @@ import org.astraea.common.producer.Producer;
 public class Performance {
   /** Used in Automation, to achieve the end of one Performance and then start another. */
   public static void main(String[] args) throws InterruptedException, IOException {
-    execute(Performance.Argument.parse(args));
+    execute(Performance.Argument.parse(new Argument(), args));
   }
 
   private static DataSupplier dataSupplier(Performance.Argument argument) {
@@ -164,34 +164,6 @@ public class Performance {
 
   public static class Argument extends org.astraea.common.argument.Argument {
 
-    public static Argument parse(String[] args) {
-      var argument = new Argument();
-      org.astraea.common.argument.Argument.parse(argument, args);
-
-      // Check for arguments conflict
-
-      // The given partitioner should be Astraea Dispatcher when interdependent is set
-      if (argument.interdependent > 0) {
-        try {
-          if (argument.partitioner == null
-              || !Dispatcher.class.isAssignableFrom(Class.forName(argument.partitioner))) {
-            throw new ParameterException(
-                "The given partitioner \""
-                    + argument.partitioner
-                    + "\" is not a subclass of Astraea Dispatcher");
-          }
-        } catch (ClassNotFoundException e) {
-          throw new ParameterException(
-              "The given partitioner \"" + argument.partitioner + "\" was not found.");
-        }
-      }
-
-      return argument;
-    }
-
-    // Visible for test
-    Argument() {}
-
     @Parameter(
         names = {"--topics"},
         description = "List<String>: topic names which you subscribed",
@@ -252,6 +224,25 @@ public class Performance {
         validateWith = NonEmptyStringField.class)
     String partitioner = null;
 
+    String partitioner() {
+      // The given partitioner should be Astraea Dispatcher when interdependent is set
+      if (this.interdependent > 0) {
+        try {
+          if (this.partitioner == null
+              || !Dispatcher.class.isAssignableFrom(Class.forName(this.partitioner))) {
+            throw new ParameterException(
+                "The given partitioner \""
+                    + this.partitioner
+                    + "\" is not a subclass of Astraea Dispatcher");
+          }
+        } catch (ClassNotFoundException e) {
+          throw new ParameterException(
+              "The given partitioner \"" + this.partitioner + "\" was not found.");
+        }
+      }
+      return this.partitioner;
+    }
+
     @Parameter(
         names = {"--compression"},
         description =
@@ -276,14 +267,14 @@ public class Performance {
               .configs(configs())
               .bootstrapServers(bootstrapServers())
               .compression(compression)
-              .partitionClassName(partitioner)
+              .partitionClassName(partitioner())
               .acks(acks)
               .buildTransactional()
           : Producer.builder()
               .configs(configs())
               .bootstrapServers(bootstrapServers())
               .compression(compression)
-              .partitionClassName(partitioner)
+              .partitionClassName(partitioner())
               .acks(acks)
               .build();
     }
