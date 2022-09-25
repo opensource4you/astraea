@@ -21,7 +21,6 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -964,7 +963,7 @@ public class Builder {
       this(
           config.entries().stream()
               .filter(e -> e.value() != null)
-              .collect(Collectors.toMap(ConfigEntry::name, ConfigEntry::value)));
+              .collect(Collectors.toUnmodifiableMap(ConfigEntry::name, ConfigEntry::value)));
     }
 
     ConfigImpl(Map<String, String> configs) {
@@ -972,23 +971,13 @@ public class Builder {
     }
 
     @Override
+    public Map<String, String> raw() {
+      return configs;
+    }
+
+    @Override
     public Optional<String> value(String key) {
       return Optional.ofNullable(configs.get(key));
-    }
-
-    @Override
-    public Set<String> keys() {
-      return configs.keySet();
-    }
-
-    @Override
-    public Collection<String> values() {
-      return configs.values();
-    }
-
-    @Override
-    public Iterator<Map.Entry<String, String>> iterator() {
-      return configs.entrySet().iterator();
     }
   }
 
