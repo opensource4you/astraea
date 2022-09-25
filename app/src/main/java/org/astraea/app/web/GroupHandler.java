@@ -56,7 +56,7 @@ public class GroupHandler implements Handler {
     if (shouldDeleteInstance) {
       var groupInstanceId = channel.queries().get(INSTANCE_KEY);
       var instanceExisted =
-          admin.consumerGroups(Set.of(groupId)).get(groupId).activeMembers().stream()
+          admin.consumerGroups(Set.of(groupId)).get(groupId).assignment().keySet().stream()
               .anyMatch(x -> x.groupInstanceId().filter(groupInstanceId::equals).isPresent());
       if (instanceExisted) admin.removeStaticMembers(groupId, Set.of(groupInstanceId));
     } else {

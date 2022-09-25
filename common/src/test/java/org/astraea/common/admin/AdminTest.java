@@ -915,7 +915,7 @@ public class AdminTest extends RequireBrokerCluster {
           admin
               .consumerGroups(Set.of(consumer.groupId()))
               .get(consumer.groupId())
-              .activeMembers()
+              .assignment()
               .size());
     }
   }
@@ -934,10 +934,10 @@ public class AdminTest extends RequireBrokerCluster {
         Assertions.assertEquals(0, consumer.poll(Duration.ofSeconds(3)).size());
       }
       Assertions.assertEquals(
-          1, admin.consumerGroups(Set.of(groupId)).get(groupId).activeMembers().size());
+          1, admin.consumerGroups(Set.of(groupId)).get(groupId).assignment().size());
       admin.removeAllMembers(groupId);
       Assertions.assertEquals(
-          0, admin.consumerGroups(Set.of(groupId)).get(groupId).activeMembers().size());
+          0, admin.consumerGroups(Set.of(groupId)).get(groupId).assignment().size());
       admin.removeAllMembers(groupId);
     }
   }
@@ -966,7 +966,7 @@ public class AdminTest extends RequireBrokerCluster {
           admin
               .consumerGroups(Set.of(consumer.groupId()))
               .get(consumer.groupId())
-              .activeMembers()
+              .assignment()
               .size());
     }
   }
