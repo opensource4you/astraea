@@ -262,5 +262,10 @@ public final class Utils {
     return result;
   }
 
+  public static boolean isEmpty(String value) {
+    // TODO: 2022-10-02 test
+    return value == null || value.isBlank();
+  }
+
   private Utils() {}
 }
