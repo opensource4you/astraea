@@ -20,7 +20,6 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
-import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -233,31 +232,39 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
 
       Assertions.assertNotEquals(Optional.empty(), Best);
 
+      var i =
+          Balancer.builder()
+              .planGenerator(RebalancePlanGenerator.random(30))
+              .clusterCost(clusterCostFunction)
+              .clusterConstraint((before, after) -> false)
+              .moveCost(moveCostFunction)
+              .movementConstraint(moveCost -> true)
+              .build()
+              .offer(admin.clusterInfo(), ignore -> true, admin.brokerFolders());
+
       // test cluster cost predicate
-      Assertions.assertThrows(
-          NoSuchElementException.class,
-          () ->
-              Balancer.builder()
-                  .planGenerator(RebalancePlanGenerator.random(30))
-                  .clusterCost(clusterCostFunction)
-                  .clusterConstraint((before, after) -> false)
-                  .moveCost(moveCostFunction)
-                  .movementConstraint(moveCost -> true)
-                  .build()
-                  .offer(admin.clusterInfo(), ignore -> true, admin.brokerFolders()));
+      Assertions.assertEquals(
+          Optional.empty(),
+          Balancer.builder()
+              .planGenerator(RebalancePlanGenerator.random(30))
+              .clusterCost(clusterCostFunction)
+              .clusterConstraint((before, after) -> false)
+              .moveCost(moveCostFunction)
+              .movementConstraint(moveCost -> true)
+              .build()
+              .offer(admin.clusterInfo(), ignore -> true, admin.brokerFolders()));
 
       // test move cost predicate
-      Assertions.assertThrows(
-          NoSuchElementException.class,
-          () ->
-              Balancer.builder()
-                  .planGenerator(RebalancePlanGenerator.random(30))
-                  .clusterCost(clusterCostFunction)
-                  .clusterConstraint((before, after) -> true)
-                  .moveCost(moveCostFunction)
-                  .movementConstraint(moveCost -> false)
-                  .build()
-                  .offer(admin.clusterInfo(), ignore -> true, admin.brokerFolders()));
+      Assertions.assertEquals(
+          Optional.empty(),
+          Balancer.builder()
+              .planGenerator(RebalancePlanGenerator.random(30))
+              .clusterCost(clusterCostFunction)
+              .clusterConstraint((before, after) -> true)
+              .moveCost(moveCostFunction)
+              .movementConstraint(moveCost -> false)
+              .build()
+              .offer(admin.clusterInfo(), ignore -> true, admin.brokerFolders()));
     }
   }
 }
