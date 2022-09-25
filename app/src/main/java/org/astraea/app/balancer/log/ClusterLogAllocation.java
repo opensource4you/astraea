@@ -52,6 +52,7 @@ public interface ClusterLogAllocation {
   static ClusterLogAllocation of(List<Replica> allocation) {
     return new ClusterLogAllocationImpl(allocation);
   }
+
   /**
    * let specific broker leave the replica set and let another broker join the replica set. Which
    * data directory the migrated replica will be is up to the Kafka broker implementation to decide.
@@ -74,21 +75,21 @@ public interface ClusterLogAllocation {
    */
   ClusterLogAllocation migrateReplica(TopicPartitionReplica replica, int toBroker, String toDir);
 
-  /** let specific follower log become the leader log of this topic/partition. */
+  /** let specific replica become the preferred leader of its associated topic/partition. */
   ClusterLogAllocation letReplicaBecomeLeader(TopicPartitionReplica replica);
 
   /**
-   * Retrieve the log placements of specific {@link TopicPartition}.
+   * Retrieve the log placements of a specific {@link TopicPartition}.
    *
    * @param topicPartition to query
    * @return log placements or empty collection if there is no log placements
    */
   Set<Replica> logPlacements(TopicPartition topicPartition);
 
-  /** @return all log */
+  /** @return all log placements recorded by this {@link ClusterLogAllocation} */
   Set<Replica> logPlacements();
 
-  /** Retrieve the stream of all topic/partition pairs in allocation. */
+  /** @return all topic/partitions recorded by this {@link ClusterLogAllocation} */
   Set<TopicPartition> topicPartitions();
 
   /**
@@ -113,12 +114,23 @@ public interface ClusterLogAllocation {
               + unknownTopicPartitions);
 
     return targetTopicPartition.stream()
-        .filter(tp -> !replicaListEqual(source.logPlacements(tp), target.logPlacements(tp)))
+        .filter(tp -> !placementMatch(source.logPlacements(tp), target.logPlacements(tp)))
         .collect(Collectors.toUnmodifiableSet());
   }
 
-  static boolean replicaListEqual(Set<Replica> sourceReplicas, Set<Replica> targetReplicas) {
+  /**
+   * Determine if both of the replicas can be considered as equal in terms of its placement.
+   *
+   * @param sourceReplicas the source replicas. null value of {@link Replica#dataFolder()} will be
+   *     interpreted as the actual location doesn't matter.
+   * @param targetReplicas the target replicas. null value of {@link Replica#dataFolder()} will be
+   *     interpreted as the actual location is unknown.
+   * @return true if both replicas of specific topic/partitions can be considered as equal in terms
+   *     of its placement.
+   */
+  static boolean placementMatch(Set<Replica> sourceReplicas, Set<Replica> targetReplicas) {
     if (sourceReplicas.size() != targetReplicas.size()) return false;
+    // TODO: fix this implementation, it doesn't consider the null case of sourceReplica
     // equal rule:
     // both preferred leader is equal.
     // both follower is equal.
