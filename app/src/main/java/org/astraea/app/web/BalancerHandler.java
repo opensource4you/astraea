@@ -21,9 +21,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
-import java.util.function.BiPredicate;
 import java.util.function.Function;
-import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import org.astraea.app.balancer.Balancer;
 import org.astraea.app.balancer.generator.RebalancePlanGenerator;
@@ -33,7 +31,6 @@ import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.TopicPartitionReplica;
-import org.astraea.common.cost.ClusterCost;
 import org.astraea.common.cost.HasClusterCost;
 import org.astraea.common.cost.HasMoveCost;
 import org.astraea.common.cost.MoveCost;
@@ -64,22 +61,6 @@ class BalancerHandler implements Handler {
     this.moveCostFunction = moveCostFunction;
   }
 
-  public Optional<Balancer.Plan> bestPlan(
-      BiPredicate<ClusterCost, ClusterCost> clusterCostPredicate,
-      Predicate<MoveCost> moveCostPredicate,
-      Predicate<String> topicFilter) {
-    return Optional.of(
-        Balancer.builder()
-            .planGenerator(this.generator)
-            .clusterCost(clusterCostFunction)
-            .clusterConstraint(clusterCostPredicate)
-            .moveCost(moveCostFunction)
-            .movementConstraint(moveCostPredicate)
-            .limit(LIMIT_DEFAULT)
-            .build()
-            .offer(admin.clusterInfo(), topicFilter, admin.brokerFolders()));
-  }
-
   @Override
   public Response get(Channel channel) {
     var topics =
@@ -92,8 +73,16 @@ class BalancerHandler implements Handler {
         Integer.parseInt(channel.queries().getOrDefault(LIMIT_KEY, String.valueOf(LIMIT_DEFAULT)));
     var targetAllocations = ClusterLogAllocation.of(admin.clusterInfo(topics));
     var bestPlan =
-        bestPlan(
-            (before, after) -> after.value() <= before.value(), moveCost -> true, topics::contains);
+        Optional.of(
+            Balancer.builder()
+                .planGenerator(generator)
+                .clusterCost(clusterCostFunction)
+                .clusterConstraint((before, after) -> after.value() <= before.value())
+                .moveCost(moveCostFunction)
+                .movementConstraint(moveCost -> true)
+                .limit(LIMIT_DEFAULT)
+                .build()
+                .offer(admin.clusterInfo(), topics::contains, admin.brokerFolders()));
     return new Report(
         cost,
         bestPlan.map(p -> p.clusterCost.value()).orElse(null),
