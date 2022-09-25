@@ -18,8 +18,6 @@ package org.astraea.app.web;
 
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
-import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
@@ -27,7 +25,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-import org.astraea.app.balancer.generator.ShufflePlanGenerator;
 import org.astraea.app.balancer.log.ClusterLogAllocation;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
@@ -35,7 +32,6 @@ import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
-import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.cost.ClusterCost;
 import org.astraea.common.cost.HasClusterCost;
 import org.astraea.common.cost.HasMoveCost;
@@ -182,102 +178,65 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
 
   @Test
   void testBestPlan() {
-    var currentClusterInfo =
-        ClusterInfo.of(
-            Set.of(NodeInfo.of(10, "host", 22), NodeInfo.of(11, "host", 22)),
-            List.of(
-                Replica.of(
-                    "topic",
-                    0,
-                    NodeInfo.of(10, "host", 22),
-                    0,
-                    100,
-                    true,
-                    true,
-                    false,
-                    false,
-                    true,
-                    "/tmp/aa")));
+    try (var admin = Admin.of(bootstrapServers())) {
+      var currentClusterInfo =
+          ClusterInfo.of(
+              Set.of(NodeInfo.of(10, "host", 22), NodeInfo.of(11, "host", 22)),
+              List.of(
+                  Replica.of(
+                      "topic",
+                      0,
+                      NodeInfo.of(10, "host", 22),
+                      0,
+                      100,
+                      true,
+                      true,
+                      false,
+                      false,
+                      true,
+                      "/tmp/aa")));
 
-    var clusterLogAllocation =
-        ClusterLogAllocation.of(
-            ClusterInfo.of(
-                List.of(
-                    Replica.of(
-                        "topic",
-                        0,
-                        NodeInfo.of(11, "host", 22),
-                        0,
-                        100,
-                        true,
-                        true,
-                        false,
-                        false,
-                        true,
-                        "/tmp/aa"))));
-    HasClusterCost clusterCostFunction =
-        (clusterInfo, clusterBean) -> () -> clusterInfo == currentClusterInfo ? 100D : 10D;
-    HasMoveCost moveCostFunction =
-        (originClusterInfo, newClusterInfo, clusterBean) ->
-            MoveCost.builder().totalCost(100).build();
+      var clusterLogAllocation =
+          ClusterLogAllocation.of(
+              ClusterInfo.of(
+                  List.of(
+                      Replica.of(
+                          "topic",
+                          0,
+                          NodeInfo.of(11, "host", 22),
+                          0,
+                          100,
+                          true,
+                          true,
+                          false,
+                          false,
+                          true,
+                          "/tmp/aa"))));
+      HasClusterCost clusterCostFunction =
+          (clusterInfo, clusterBean) -> () -> clusterInfo == currentClusterInfo ? 100D : 10D;
+      HasMoveCost moveCostFunction =
+          (originClusterInfo, newClusterInfo, clusterBean) ->
+              MoveCost.builder().totalCost(100).build();
 
-    Map<Integer, Set<String>> brokerFolders = new HashMap<>();
+      var balancerHandler = new BalancerHandler(admin, new DegradeCost(), new ReplicaSizeCost());
+      var Best =
+          balancerHandler.bestPlan(
+              (before, after) -> after.value() <= before.value(), moveCost -> true, ignore -> true);
 
-    brokerFolders.put(10, new HashSet<>(List.of("/tmp/aa")));
-    brokerFolders.put(11, new HashSet<>(List.of("/tmp/aa")));
+      Assertions.assertNotEquals(Optional.empty(), Best);
 
-    var generator = new ShufflePlanGenerator(1, 10);
+      // test cluster cost predicate
+      Assertions.assertThrows(
+          NoSuchElementException.class,
+          () ->
+              balancerHandler.bestPlan((before, after) -> false, moveCost -> true, ignore -> true));
 
-    var Best =
-        BalancerHandler.bestPlan(
-            generator,
-            100,
-            currentClusterInfo,
-            clusterCostFunction,
-            (before, after) -> after.value() <= before.value(),
-            moveCostFunction,
-            moveCost -> true,
-            ignore -> true,
-            brokerFolders);
-
-    Assertions.assertNotEquals(Optional.empty(), Best);
-    Assertions.assertEquals(
-        clusterLogAllocation.logPlacements(TopicPartition.of("topic-0")).get(0).broker(),
-        Best.get()
-            .proposal
-            .rebalancePlan()
-            .logPlacements(TopicPartition.of("topic-0"))
-            .get(0)
-            .broker());
-
-    // test cluster cost predicate
-    Assertions.assertThrows(
-        NoSuchElementException.class,
-        () ->
-            BalancerHandler.bestPlan(
-                new ShufflePlanGenerator(50, 100),
-                100,
-                currentClusterInfo,
-                clusterCostFunction,
-                (before, after) -> false,
-                moveCostFunction,
-                moveCost -> true,
-                ignore -> true,
-                brokerFolders));
-
-    // test move cost predicate
-    Assertions.assertThrows(
-        NoSuchElementException.class,
-        () ->
-            BalancerHandler.bestPlan(
-                new ShufflePlanGenerator(50, 100),
-                100,
-                currentClusterInfo,
-                clusterCostFunction,
-                (before, after) -> before.value() <= after.value(),
-                moveCostFunction,
-                moveCost -> false,
-                ignore -> true,
-                brokerFolders));
+      // test move cost predicate
+      Assertions.assertThrows(
+          NoSuchElementException.class,
+          () ->
+              balancerHandler.bestPlan(
+                  (before, after) -> false, moveCost -> false, ignore -> true));
+    }
   }
 }
