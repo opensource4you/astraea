@@ -62,15 +62,15 @@ public interface Admin extends Closeable {
   void deleteTopics(Set<String> topicNames);
 
   /** @return all partitions */
-  default Set<TopicPartition> partitions() {
-    return partitions(topicNames());
+  default Set<TopicPartition> topicPartitions() {
+    return topicPartitions(topicNames());
   }
 
   /**
    * @param topics target
    * @return the partitions belong to input topics
    */
-  Set<TopicPartition> partitions(Set<String> topics);
+  Set<TopicPartition> topicPartitions(Set<String> topics);
 
   /**
    * list all partitions belongs to input brokers
@@ -78,21 +78,12 @@ public interface Admin extends Closeable {
    * @param brokerId to search
    * @return all partition belongs to brokers
    */
-  Set<TopicPartition> partitions(int brokerId);
+  Set<TopicPartition> topicPartitions(int brokerId);
 
   /** @return a topic creator to set all topic configs and then run the procedure. */
   TopicCreator creator();
 
-  /** @return offsets of all partitions */
-  default Map<TopicPartition, Offset> offsets() {
-    return offsets(topicNames());
-  }
-
-  /**
-   * @param topics topic names
-   * @return the earliest offset and latest offset for specific topics
-   */
-  Map<TopicPartition, Offset> offsets(Set<String> topics);
+  List<Partition> partitions(Set<String> topics);
 
   /** @return all consumer groups */
   default Map<String, ConsumerGroup> consumerGroups() {
@@ -164,7 +155,7 @@ public interface Admin extends Closeable {
 
   /** @return producer states of all topic partitions */
   default List<ProducerState> producerStates() {
-    return producerStates(partitions());
+    return producerStates(topicPartitions());
   }
 
   /**

@@ -22,7 +22,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.astraea.common.admin.Admin;
-import org.astraea.common.admin.ProducerState;
 import org.astraea.common.admin.TopicPartition;
 
 class ProducerHandler implements Handler {
@@ -39,7 +38,7 @@ class ProducerHandler implements Handler {
   Set<TopicPartition> partitions(Map<String, String> queries) {
     if (queries.containsKey(TOPIC_KEY) && queries.containsKey(PARTITION_KEY))
       return Set.of(TopicPartition.of(queries.get(TOPIC_KEY), queries.get(PARTITION_KEY)));
-    var partitions = admin.partitions();
+    var partitions = admin.topicPartitions();
     if (queries.containsKey(TOPIC_KEY))
       return partitions.stream()
           .filter(p -> p.topic().equals(queries.get(TOPIC_KEY)))

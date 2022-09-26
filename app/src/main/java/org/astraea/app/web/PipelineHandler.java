@@ -26,7 +26,6 @@ import java.util.stream.Collectors;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.Member;
 import org.astraea.common.admin.ProducerState;
-import org.astraea.common.admin.TopicPartition;
 
 class PipelineHandler implements Handler {
 
@@ -60,7 +59,7 @@ class PipelineHandler implements Handler {
 
   static Collection<TopicPartition> topicPartitions(Admin admin) {
     var result =
-        admin.partitions().stream()
+        admin.topicPartitions().stream()
             .collect(
                 Collectors.toMap(
                     Function.identity(), tp -> new TopicPartition(tp.topic(), tp.partition())));
