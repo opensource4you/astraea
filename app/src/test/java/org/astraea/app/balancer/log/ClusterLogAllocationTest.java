@@ -142,7 +142,28 @@ class ClusterLogAllocationTest extends RequireBrokerCluster {
   }
 
   @Test
-  void testOfBadReplicaList() {}
+  void testOfBadReplicaList() {
+    // arrange
+    var topic = Utils.randomString();
+    var partition = 30;
+    var nodeInfo = NodeInfo.of(0, "", -1);
+    Replica base =
+        Replica.of(
+            topic, partition, nodeInfo, 0, 0, true, false, false, false, true, "/tmp/default/dir");
+    Replica leader0 = update(base, Map.of("broker", 3, "preferred", true));
+    Replica leader1 = update(base, Map.of("broker", 4, "preferred", true));
+    Replica follower2 = update(base, Map.of("broker", 4, "preferred", false));
+
+    // act, assert
+    Assertions.assertThrows(
+        IllegalArgumentException.class,
+        () -> ClusterLogAllocation.of(List.of(leader0, leader1)),
+        "duplicate preferred leader in list");
+    Assertions.assertThrows(
+        IllegalArgumentException.class,
+        () -> ClusterLogAllocation.of(List.of(follower2)),
+        "no preferred leader");
+  }
 
   @ParameterizedTest
   @DisplayName("Migrate some replicas without directory specified")
@@ -426,6 +447,31 @@ class ClusterLogAllocationTest extends RequireBrokerCluster {
           ClusterLogAllocation.findNonFulfilledAllocation(
               ClusterLogAllocation.of(List.of(leader0, leader1, leader2)),
               ClusterLogAllocation.of(List.of(leader0, alteredLeader1, alteredLeader2))));
+    }
+  }
+
+  @Test
+  @DisplayName("the source CLA should be a subset of target CLA")
+  void testFindNonFulfilledAllocationException() {
+    var topic = Utils.randomString();
+    var partition = 30;
+    var nodeInfo = NodeInfo.of(0, "", -1);
+
+    Replica baseLeader =
+        Replica.of(
+            topic, partition, nodeInfo, 0, 0, true, false, false, false, true, "/tmp/default/dir");
+
+    {
+      var leader0 = update(baseLeader, Map.of());
+      var follower1 = update(baseLeader, Map.of("broker", 1, "leader", false, "preferred", false));
+      var follower2 = update(baseLeader, Map.of("broker", 2, "leader", false, "preferred", false));
+      var other = update(baseLeader, Map.of("topic", "AnotherTopic"));
+      Assertions.assertThrows(
+          IllegalArgumentException.class,
+          () ->
+              ClusterLogAllocation.findNonFulfilledAllocation(
+                  ClusterLogAllocation.of(List.of(leader0, follower1, follower2)),
+                  ClusterLogAllocation.of(List.of(leader0, follower1, follower2, other))));
     }
   }
 
