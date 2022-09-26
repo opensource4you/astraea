@@ -213,7 +213,7 @@ class ClusterLogAllocationTest extends RequireBrokerCluster {
   @ParameterizedTest
   @DisplayName("Become leader")
   @ValueSource(shorts = {1, 2, 3, 4, 5, 30})
-  void testLetReplicaBecomeLeader(short replicas) {
+  void testBecomeLeader(short replicas) {
     // arrange
     final var randomTopicPartitions = generateRandomTopicPartition();
     final var randomReplicas = generateRandomReplicaList(randomTopicPartitions, replicas);
@@ -225,7 +225,7 @@ class ClusterLogAllocationTest extends RequireBrokerCluster {
         originalReplicaList.stream().filter(Replica::isPreferredLeader).findFirst().orElseThrow();
 
     // act
-    final var cla = allocation.letReplicaBecomeLeader(target.topicPartitionReplica());
+    final var cla = allocation.becomeLeader(target.topicPartitionReplica());
 
     // assert
     Assertions.assertEquals(

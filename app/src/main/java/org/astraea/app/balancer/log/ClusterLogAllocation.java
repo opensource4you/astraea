@@ -76,7 +76,7 @@ public interface ClusterLogAllocation {
   ClusterLogAllocation migrateReplica(TopicPartitionReplica replica, int toBroker, String toDir);
 
   /** let specific replica become the preferred leader of its associated topic/partition. */
-  ClusterLogAllocation letReplicaBecomeLeader(TopicPartitionReplica replica);
+  ClusterLogAllocation becomeLeader(TopicPartitionReplica replica);
 
   /**
    * Retrieve the log placements of a specific {@link TopicPartition}.
@@ -172,7 +172,7 @@ public interface ClusterLogAllocation {
               allocation
                   .logPlacements(tp)
                   .forEach(
-log ->
+                      log ->
                           stringBuilder.append(
                               String.format("(%s, %s) ", log.nodeInfo().id(), log.dataFolder())));
 
@@ -233,7 +233,7 @@ log ->
     }
 
     @Override
-    public ClusterLogAllocation letReplicaBecomeLeader(TopicPartitionReplica replica) {
+    public ClusterLogAllocation becomeLeader(TopicPartitionReplica replica) {
       final var topicPartition = TopicPartition.of(replica.topic(), replica.partition());
       final var source =
           logPlacements(topicPartition).stream()
