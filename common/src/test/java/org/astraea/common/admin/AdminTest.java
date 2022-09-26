@@ -552,9 +552,8 @@ public class AdminTest extends RequireBrokerCluster {
       var states = admin.producerStates();
       Assertions.assertNotEquals(0, states.size());
       var producerState =
-          states.entrySet().stream()
-              .filter(tp -> tp.getKey().topic().equals(topic))
-              .flatMap(e -> e.getValue().stream())
+          states.stream()
+              .filter(s -> s.topic().equals(topic))
               .collect(Collectors.toUnmodifiableList());
       Assertions.assertEquals(1, producerState.size());
     }

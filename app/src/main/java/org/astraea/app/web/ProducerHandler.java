@@ -22,6 +22,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.astraea.common.admin.Admin;
+import org.astraea.common.admin.ProducerState;
 import org.astraea.common.admin.TopicPartition;
 
 class ProducerHandler implements Handler {
@@ -49,7 +50,10 @@ class ProducerHandler implements Handler {
   @Override
   public Partitions get(Channel channel) {
     var topics =
-        admin.producerStates(partitions(channel.queries())).entrySet().stream()
+        admin.producerStates(partitions(channel.queries())).stream()
+            .collect(Collectors.groupingBy(org.astraea.common.admin.ProducerState::topicPartition))
+            .entrySet()
+            .stream()
             .map(e -> new Partition(e.getKey(), e.getValue()))
             .collect(Collectors.toUnmodifiableList());
     return new Partitions(topics);

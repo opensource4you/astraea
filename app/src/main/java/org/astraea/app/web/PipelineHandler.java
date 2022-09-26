@@ -26,6 +26,7 @@ import java.util.stream.Collectors;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.Member;
 import org.astraea.common.admin.ProducerState;
+import org.astraea.common.admin.TopicPartition;
 
 class PipelineHandler implements Handler {
 
@@ -77,7 +78,7 @@ class PipelineHandler implements Handler {
                                 .forEach(tp -> result.get(tp).to.add(new Consumer(m)))));
     admin
         .producerStates(result.keySet())
-        .forEach((tp, p) -> p.forEach(s -> result.get(tp).from.add(new Producer(s))));
+        .forEach(p -> result.get(p.topicPartition()).from.add(new Producer(p)));
     return result.values().stream()
         .sorted(
             Comparator.comparing((TopicPartition tp) -> tp.topic).thenComparing(tp -> tp.partition))
