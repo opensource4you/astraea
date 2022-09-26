@@ -245,22 +245,7 @@ public interface Admin extends Closeable {
    */
   void removeStaticMembers(String groupId, Set<String> members);
 
-  /**
-   * Get the reassignments of all topics.
-   *
-   * @return reassignment
-   */
-  default Map<TopicPartition, Reassignment> reassignments() {
-    return reassignments(topicNames());
-  }
-
-  /**
-   * Get the reassignments of topics. It returns nothing if the partitions are not migrating.
-   *
-   * @param topics to search
-   * @return reassignment
-   */
-  Map<TopicPartition, Reassignment> reassignments(Set<String> topics);
+  List<AddingReplica> addingReplicas(Set<String> topics);
 
   /**
    * Delete records with offset less than specified Long

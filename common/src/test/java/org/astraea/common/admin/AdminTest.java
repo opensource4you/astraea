@@ -1038,17 +1038,12 @@ public class AdminTest extends RequireBrokerCluster {
                 });
         try {
           admin.migrator().topic(topicName).moveTo(List.of(nextBroker));
-          var reassignment =
-              admin.reassignments(Set.of(topicName)).get(TopicPartition.of(topicName, 0));
+          var addingReplicas = admin.addingReplicas(Set.of(topicName));
 
           // Don't verify the result if the migration is done
-          if (reassignment != null) {
-            Assertions.assertEquals(1, reassignment.from().size());
-            var from = reassignment.from().iterator().next();
-            Assertions.assertEquals(currentBroker, from.broker());
-            Assertions.assertEquals(1, reassignment.to().size());
-            var to = reassignment.to().iterator().next();
-            Assertions.assertEquals(nextBroker, to.broker());
+          if (!addingReplicas.isEmpty()) {
+            Assertions.assertEquals(1, addingReplicas.size());
+            Assertions.assertEquals(nextBroker, addingReplicas.get(0).broker());
           }
         } finally {
           done.set(true);
@@ -1090,18 +1085,12 @@ public class AdminTest extends RequireBrokerCluster {
               .migrator()
               .topic(topicName)
               .moveTo(Map.of(currentReplica.nodeInfo().id(), nextPath));
-          var reassignment =
-              admin.reassignments(Set.of(topicName)).get(TopicPartition.of(topicName, 0));
+          var addingReplicas = admin.addingReplicas(Set.of(topicName));
           // Don't verify the result if the migration is done
-          if (reassignment != null) {
-            Assertions.assertEquals(1, reassignment.from().size());
-            var from = reassignment.from().iterator().next();
-            Assertions.assertEquals(currentBroker, from.broker());
-            Assertions.assertEquals(currentPath, from.dataFolder());
-            Assertions.assertEquals(1, reassignment.to().size());
-            var to = reassignment.to().iterator().next();
-            Assertions.assertEquals(currentBroker, to.broker());
-            Assertions.assertEquals(nextPath, to.dataFolder());
+          if (!addingReplicas.isEmpty()) {
+            Assertions.assertEquals(1, addingReplicas.size());
+            Assertions.assertEquals(currentBroker, addingReplicas.get(0).broker());
+            Assertions.assertEquals(nextPath, addingReplicas.get(0).path());
           }
         } finally {
           done.set(true);
@@ -1130,13 +1119,10 @@ public class AdminTest extends RequireBrokerCluster {
                 });
         try {
           admin.migrator().topic(topicName).moveTo(brokers);
-          var reassignment =
-              admin.reassignments(Set.of(topicName)).get(TopicPartition.of(topicName, 0));
+          var addingReplicas = admin.addingReplicas(Set.of(topicName));
           // Don't verify the result if the migration is done
-          if (reassignment != null) {
-            Assertions.assertEquals(3, reassignment.from().size());
-            Assertions.assertEquals(2, reassignment.to().size());
-          }
+          if (!addingReplicas.isEmpty()) Assertions.assertEquals(2, addingReplicas.size());
+
         } finally {
           done.set(true);
           Utils.swallowException(f::get);
@@ -1155,7 +1141,7 @@ public class AdminTest extends RequireBrokerCluster {
         producer.sender().topic(topicName).value(new byte[100]).run();
         producer.flush();
       }
-      Assertions.assertEquals(0, admin.reassignments(Set.of(topicName)).size());
+      Assertions.assertEquals(0, admin.addingReplicas(Set.of(topicName)).size());
     }
   }
 
