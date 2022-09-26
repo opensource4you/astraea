@@ -115,9 +115,11 @@ public interface Admin extends Closeable {
 
   /**
    * @param topics topic names
-   * @return the replicas of partition
+   * @return all replica in topics
    */
   Map<TopicPartition, List<Replica>> replicas(Set<String> topics);
+
+  List<Replica> newReplicas(Set<String> topics);
 
   /** @return all broker id and their configuration */
   default Map<Integer, Config> brokers() {

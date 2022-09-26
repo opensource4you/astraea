@@ -416,6 +416,92 @@ public class Builder {
     }
 
     @Override
+    public List<Replica> newReplicas(Set<String> topics) {
+      var logInfo =
+          Utils.packException(() -> admin.describeLogDirs(brokerIds()).allDescriptions().get())
+              .entrySet()
+              .stream()
+              .collect(
+                  Collectors.toMap(
+                      Map.Entry::getKey,
+                      pathAndDesc ->
+                          pathAndDesc.getValue().entrySet().stream()
+                              .flatMap(
+                                  e ->
+                                      e.getValue().replicaInfos().entrySet().stream()
+                                          .map(
+                                              tr ->
+                                                  Map.entry(
+                                                      TopicPartition.from(tr.getKey()),
+                                                      Map.entry(e.getKey(), tr.getValue()))))
+                              .collect(
+                                  Collectors.groupingBy(
+                                      Map.Entry::getKey,
+                                      Collectors.mapping(
+                                          Map.Entry::getValue, Collectors.toList())))));
+
+      return Utils.packException(
+          () ->
+              admin.describeTopics(topics).allTopicNames().get().entrySet().stream()
+                  .flatMap(
+                      topicDes ->
+                          topicDes.getValue().partitions().stream()
+                              .flatMap(
+                                  tpInfo ->
+                                      tpInfo.replicas().stream()
+                                          .flatMap(
+                                              node -> {
+                                                var pathAndReplicas =
+                                                    logInfo
+                                                        .get(node.id())
+                                                        .get(
+                                                            TopicPartition.of(
+                                                                topicDes.getKey(),
+                                                                tpInfo.partition()));
+                                                return pathAndReplicas.stream()
+                                                    .map(
+                                                        pathAndReplica ->
+                                                            Replica.of(
+                                                                topicDes.getKey(),
+                                                                tpInfo.partition(),
+                                                                NodeInfo.of(node),
+                                                                pathAndReplica
+                                                                    .getValue()
+                                                                    .offsetLag(),
+                                                                pathAndReplica.getValue().size(),
+                                                                tpInfo.leader() != null
+                                                                    && !tpInfo.leader().isEmpty()
+                                                                    && tpInfo.leader().id()
+                                                                        == node.id(),
+                                                                tpInfo.isr().contains(node),
+                                                                pathAndReplica
+                                                                    .getValue()
+                                                                    .isFuture(),
+                                                                node.isEmpty(),
+                                                                // The first replica in the return
+                                                                // result is
+                                                                // the
+                                                                // preferred leader. This only works
+                                                                // with
+                                                                // Kafka broker
+                                                                // version after
+                                                                // 0.11. Version before 0.11 returns
+                                                                // the
+                                                                // replicas in
+                                                                // unspecified order.
+                                                                tpInfo.replicas().get(0).id()
+                                                                    == node.id(),
+                                                                // empty data folder means this
+                                                                // replica is
+                                                                // offline
+                                                                pathAndReplica.getKey().isEmpty()
+                                                                    ? null
+                                                                    : pathAndReplica.getKey()));
+                                              })))
+                  .collect(Collectors.toList()));
+    }
+
+    @Override
     public TopicCreator creator() {
       return new CreatorImpl(
           admin, topic -> this.replicas(Set.of(topic)), topic -> topics().get(topic));
