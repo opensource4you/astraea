@@ -260,7 +260,7 @@ class ClusterLogAllocationTest extends RequireBrokerCluster {
               .size(),
           "Only the preferred leader field get updated, no change to other fields");
       Assertions.assertEquals(
-          target.size(),
+          originalLeader.size(),
           cla.logPlacements(theTopicPartition).stream()
               .filter(r -> r.nodeInfo().equals(originalLeader.nodeInfo()))
               .findFirst()

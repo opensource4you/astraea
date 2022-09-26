@@ -172,7 +172,7 @@ public interface ClusterLogAllocation {
               allocation
                   .logPlacements(tp)
                   .forEach(
-                      log ->
+log ->
                           stringBuilder.append(
                               String.format("(%s, %s) ", log.nodeInfo().id(), log.dataFolder())));
 
@@ -251,10 +251,8 @@ public interface ClusterLogAllocation {
                               + topicPartition
                               + ", this replica list is probably corrupted."));
 
-      final var newSource =
-          ClusterLogAllocation.update(target, source.nodeInfo(), source.dataFolder());
-      final var newTarget =
-          ClusterLogAllocation.update(source, target.nodeInfo(), target.dataFolder());
+      final var newSource = this.update(source, true);
+      final var newTarget = this.update(target, false);
 
       return new ClusterLogAllocationImpl(
           allocation.values().stream()
@@ -280,7 +278,7 @@ public interface ClusterLogAllocation {
       return allocation.keySet();
     }
 
-    Replica update(Replica source, int newBroker, String newDir) {
+    private Replica update(Replica source, int newBroker, String newDir) {
       // lookup nodeInfo
       final var theNodeInfo =
           allocation.values().stream()
@@ -292,6 +290,21 @@ public interface ClusterLogAllocation {
       return theNodeInfo
           .map(info -> ClusterLogAllocation.update(source, info, newDir))
           .orElseGet(() -> ClusterLogAllocation.update(source, newBroker, newDir));
+    }
+
+    private Replica update(Replica source, boolean isPreferredLeader) {
+      return Replica.of(
+          source.topic(),
+          source.partition(),
+          source.nodeInfo(),
+          source.lag(),
+          source.size(),
+          source.isLeader(),
+          source.inSync(),
+          source.isFuture(),
+          source.isOffline(),
+          isPreferredLeader,
+          source.dataFolder());
     }
   }
 
