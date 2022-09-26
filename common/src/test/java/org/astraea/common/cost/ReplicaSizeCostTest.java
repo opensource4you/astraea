@@ -18,6 +18,7 @@ package org.astraea.common.cost;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.NodeInfo;
@@ -70,7 +71,7 @@ class ReplicaSizeCostTest {
 
   static ClusterInfo<Replica> getClusterInfo(List<Replica> replicas) {
     return ClusterInfo.of(
-        List.of(NodeInfo.of(1, "", -1), NodeInfo.of(2, "", -1), NodeInfo.of(3, "", -1)),
+        Set.of(NodeInfo.of(1, "", -1), NodeInfo.of(2, "", -1), NodeInfo.of(3, "", -1)),
         List.of(
             replicas.get(0),
             replicas.get(1),

@@ -21,7 +21,6 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -36,7 +35,6 @@ import org.apache.kafka.clients.admin.AlterConfigOp;
 import org.apache.kafka.clients.admin.ConfigEntry;
 import org.apache.kafka.clients.admin.ConsumerGroupListing;
 import org.apache.kafka.clients.admin.ListTopicsOptions;
-import org.apache.kafka.clients.admin.MemberDescription;
 import org.apache.kafka.clients.admin.MemberToRemove;
 import org.apache.kafka.clients.admin.NewPartitionReassignment;
 import org.apache.kafka.clients.admin.NewTopic;
@@ -175,47 +173,43 @@ public class Builder {
 
             var consumerGroupMetadata =
                 consumerGroupNames.stream()
-                    .map(x -> Map.entry(x, admin.listConsumerGroupOffsets(x)))
-                    .map(
-                        x ->
-                            Map.entry(
-                                x.getKey(),
+                    .collect(
+                        Collectors.toMap(
+                            Function.identity(),
+                            groupId ->
                                 Utils.packException(
-                                    () -> x.getValue().partitionsToOffsetAndMetadata().get())))
-                    .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));
-
-            var createMember =
-                (BiFunction<String, MemberDescription, Member>)
-                    (s, x) ->
-                        new Member(s, x.consumerId(), x.groupInstanceId(), x.clientId(), x.host());
+                                    () ->
+                                        admin
+                                            .listConsumerGroupOffsets(groupId)
+                                            .partitionsToOffsetAndMetadata()
+                                            .get())));
 
             return consumerGroupNames.stream()
-                .map(
-                    groupId -> {
-                      var members =
-                          consumerGroupDescriptions.get(groupId).members().stream()
-                              .map(x -> createMember.apply(groupId, x))
-                              .collect(Collectors.toUnmodifiableList());
-                      var consumeOffset =
-                          consumerGroupMetadata.get(groupId).entrySet().stream()
-                              .collect(
-                                  Collectors.toUnmodifiableMap(
-                                      tp -> TopicPartition.from(tp.getKey()),
-                                      x -> x.getValue().offset()));
-                      var assignment =
-                          consumerGroupDescriptions.get(groupId).members().stream()
-                              .collect(
-                                  Collectors.toUnmodifiableMap(
-                                      x -> createMember.apply(groupId, x),
-                                      x ->
-                                          x.assignment().topicPartitions().stream()
-                                              .map(TopicPartition::from)
-                                              .collect(Collectors.toSet())));
-
-                      return Map.entry(
-                          groupId, new ConsumerGroup(groupId, members, consumeOffset, assignment));
-                    })
-                .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));
+                .collect(
+                    Collectors.toMap(
+                        Function.identity(),
+                        groupId ->
+                            new ConsumerGroup(
+                                groupId,
+                                consumerGroupMetadata.get(groupId).entrySet().stream()
+                                    .collect(
+                                        Collectors.toUnmodifiableMap(
+                                            tp -> TopicPartition.from(tp.getKey()),
+                                            offset -> offset.getValue().offset())),
+                                consumerGroupDescriptions.get(groupId).members().stream()
+                                    .collect(
+                                        Collectors.toUnmodifiableMap(
+                                            member ->
+                                                new Member(
+                                                    groupId,
+                                                    member.consumerId(),
+                                                    member.groupInstanceId(),
+                                                    member.clientId(),
+                                                    member.host()),
+                                            member ->
+                                                member.assignment().topicPartitions().stream()
+                                                    .map(TopicPartition::from)
+                                                    .collect(Collectors.toSet()))))));
           });
     }
 
@@ -318,113 +312,107 @@ public class Builder {
 
     @Override
     public Set<TopicPartition> partitions(Set<String> topics) {
-      return Utils.packException(
-          () ->
-              admin.describeTopics(topics).all().get().entrySet().stream()
-                  .flatMap(
-                      e ->
-                          e.getValue().partitions().stream()
-                              .map(p -> TopicPartition.of(e.getKey(), p.partition())))
-                  .collect(Collectors.toSet()));
+      return Utils.packException(() -> admin.describeTopics(topics).all().get()).entrySet().stream()
+          .flatMap(
+              e ->
+                  e.getValue().partitions().stream()
+                      .map(p -> TopicPartition.of(e.getKey(), p.partition())))
+          .collect(Collectors.toSet());
     }
 
     @Override
-    public Map<Integer, Set<TopicPartition>> partitions(
-        Set<String> topics, Set<Integer> brokerIds) {
-      return replicas(topics).entrySet().stream()
-          .flatMap(
-              e -> e.getValue().stream().map(replica -> Map.entry(replica.nodeInfo(), e.getKey())))
-          .filter(e -> brokerIds.contains(e.getKey().id()))
-          .collect(Collectors.groupingBy(e -> e.getKey().id()))
+    public Set<TopicPartition> partitions(int broker) {
+      return Utils.packException(() -> admin.describeTopics(topicNames()).all().get())
           .entrySet()
           .stream()
-          .collect(
-              Collectors.toMap(
-                  Map.Entry::getKey,
-                  e -> e.getValue().stream().map(Map.Entry::getValue).collect(Collectors.toSet())));
+          .flatMap(
+              e ->
+                  e.getValue().partitions().stream()
+                      .filter(p -> p.replicas().stream().anyMatch(n -> n.id() == broker))
+                      .map(p -> TopicPartition.of(e.getKey(), p.partition())))
+          .collect(Collectors.toSet());
     }
 
     @Override
     public Map<TopicPartition, List<Replica>> replicas(Set<String> topics) {
+      // pre-group folders by (broker -> topic partition) to speedup seek
       var logInfo =
-          Utils.packException(() -> admin.describeLogDirs(brokerIds()).allDescriptions().get());
+          Utils.packException(() -> admin.describeLogDirs(brokerIds()).allDescriptions().get())
+              .entrySet()
+              .stream()
+              .collect(
+                  Collectors.toMap(
+                      Map.Entry::getKey,
+                      pathAndDesc ->
+                          pathAndDesc.getValue().entrySet().stream()
+                              .flatMap(
+                                  e ->
+                                      e.getValue().replicaInfos().entrySet().stream()
+                                          .map(
+                                              tr ->
+                                                  Map.entry(
+                                                      TopicPartition.from(tr.getKey()),
+                                                      Map.entry(e.getKey(), tr.getValue()))))
+                              .collect(Collectors.groupingBy(Map.Entry::getKey))));
 
-      BiFunction<
-              org.apache.kafka.common.TopicPartition,
-              org.apache.kafka.common.TopicPartitionInfo,
-              List<Replica>>
+      BiFunction<TopicPartition, org.apache.kafka.common.TopicPartitionInfo, List<Replica>>
           toReplicas =
               (tp, tpi) ->
                   tpi.replicas().stream()
                       .flatMap(
                           node ->
-                              node.isEmpty()
-                                  ? Stream.of(
-                                      Replica.of(
-                                          tp.topic(),
-                                          tp.partition(),
-                                          NodeInfo.of(node),
-                                          -1L,
-                                          -1L,
-                                          tpi.leader() != null
-                                              && !tpi.leader().isEmpty()
-                                              && tpi.leader().id() == node.id(),
-                                          tpi.isr().contains(node),
-                                          false,
-                                          node.isEmpty(),
-                                          tpi.replicas().get(0).id() == node.id(),
-                                          null))
-                                  : logInfo.get(node.id()).entrySet().stream()
-                                      .filter(e -> e.getValue().replicaInfos().containsKey(tp))
-                                      .map(Map.Entry::getKey)
-                                      .map(
-                                          dataPath -> {
-                                            var replicaInfo =
-                                                logInfo
-                                                    .get(node.id())
-                                                    .get(dataPath)
-                                                    .replicaInfos()
-                                                    .get(tp);
-                                            return Replica.of(
-                                                tp.topic(),
-                                                tp.partition(),
-                                                NodeInfo.of(node),
-                                                replicaInfo.offsetLag(),
-                                                replicaInfo.size(),
-                                                tpi.leader() != null
-                                                    && !tpi.leader().isEmpty()
-                                                    && tpi.leader().id() == node.id(),
-                                                tpi.isr().contains(node),
-                                                replicaInfo.isFuture(),
-                                                node.isEmpty(),
-                                                // The first replica in the return result is the
-                                                // preferred leader. This only works with Kafka
-                                                // broker version
-                                                // after 0.11.
-                                                // Version before 0.11 returns the replicas in
-                                                // unspecified order
-                                                // due to a bug.
-                                                tpi.replicas().get(0).id() == node.id(),
-                                                dataPath);
-                                          }))
+                              // kafka admin#describeLogDirs does not return offline node
+                              logInfo
+                                  .getOrDefault(node.id(), Map.of())
+                                  .getOrDefault(
+                                      tp,
+                                      List.of(
+                                          Map.entry(
+                                              tp,
+                                              Map.entry(
+                                                  "",
+                                                  new org.apache.kafka.clients.admin.ReplicaInfo(
+                                                      -1L, -1L, false)))))
+                                  .stream()
+                                  .map(Map.Entry::getValue)
+                                  .map(
+                                      pathAndReplica ->
+                                          Replica.of(
+                                              tp.topic(),
+                                              tp.partition(),
+                                              NodeInfo.of(node),
+                                              pathAndReplica.getValue().offsetLag(),
+                                              pathAndReplica.getValue().size(),
+                                              tpi.leader() != null
+                                                  && !tpi.leader().isEmpty()
+                                                  && tpi.leader().id() == node.id(),
+                                              tpi.isr().contains(node),
+                                              pathAndReplica.getValue().isFuture(),
+                                              node.isEmpty(),
+                                              // The first replica in the return result is the
+                                              // preferred leader. This only works with Kafka broker
+                                              // version after
+                                              // 0.11. Version before 0.11 returns the replicas in
+                                              // unspecified order.
+                                              tpi.replicas().get(0).id() == node.id(),
+                                              // empty data folder means this replica is offline
+                                              pathAndReplica.getKey().isEmpty()
+                                                  ? null
+                                                  : pathAndReplica.getKey())))
                       .collect(Collectors.toList());
 
-      return Utils.packException(
-              () ->
-                  admin.describeTopics(topics).allTopicNames().get().entrySet().stream()
-                      .flatMap(
-                          e ->
-                              e.getValue().partitions().stream()
-                                  .map(
-                                      tpInfo ->
-                                          Map.entry(
-                                              new org.apache.kafka.common.TopicPartition(
-                                                  e.getKey(), tpInfo.partition()),
-                                              tpInfo))))
+      return Utils.packException(() -> admin.describeTopics(topics).allTopicNames().get())
+          .entrySet()
+          .stream()
+          .flatMap(
+              e ->
+                  e.getValue().partitions().stream()
+                      .map(
+                          tpInfo ->
+                              Map.entry(TopicPartition.of(e.getKey(), tpInfo.partition()), tpInfo)))
           .collect(
               Collectors.toUnmodifiableMap(
-                  e -> TopicPartition.from(e.getKey()),
-                  entry -> toReplicas.apply(entry.getKey(), entry.getValue())));
+                  Map.Entry::getKey, entry -> toReplicas.apply(entry.getKey(), entry.getValue())));
     }
 
     @Override
@@ -460,30 +448,6 @@ public class Builder {
     private Collection<Quota> quotas(ClientQuotaFilter filter) {
       return Quota.of(
           Utils.packException(() -> admin.describeClientQuotas(filter).entities().get()));
-    }
-
-    @Override
-    public ClusterInfo<Replica> clusterInfo(Set<String> topics) {
-      final var nodeInfo = this.nodes().stream().collect(Collectors.toUnmodifiableList());
-
-      var replicas =
-          Utils.packException(
-              () ->
-                  replicas(topics).values().stream()
-                      .flatMap(Collection::stream)
-                      .collect(Collectors.toUnmodifiableList()));
-
-      return new ClusterInfo<>() {
-        @Override
-        public List<NodeInfo> nodes() {
-          return nodeInfo;
-        }
-
-        @Override
-        public Stream<Replica> replicaStream() {
-          return replicas.stream();
-        }
-      };
     }
 
     @Override
@@ -999,7 +963,7 @@ public class Builder {
       this(
           config.entries().stream()
               .filter(e -> e.value() != null)
-              .collect(Collectors.toMap(ConfigEntry::name, ConfigEntry::value)));
+              .collect(Collectors.toUnmodifiableMap(ConfigEntry::name, ConfigEntry::value)));
     }
 
     ConfigImpl(Map<String, String> configs) {
@@ -1007,23 +971,13 @@ public class Builder {
     }
 
     @Override
+    public Map<String, String> raw() {
+      return configs;
+    }
+
+    @Override
     public Optional<String> value(String key) {
       return Optional.ofNullable(configs.get(key));
-    }
-
-    @Override
-    public Set<String> keys() {
-      return configs.keySet();
-    }
-
-    @Override
-    public Collection<String> values() {
-      return configs.values();
-    }
-
-    @Override
-    public Iterator<Map.Entry<String, String>> iterator() {
-      return configs.entrySet().iterator();
     }
   }
 

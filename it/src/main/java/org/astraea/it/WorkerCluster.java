@@ -14,17 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.common.admin;
+package org.astraea.it;
 
-import java.util.Map;
-import java.util.Optional;
+import java.net.URL;
+import java.util.List;
 
-/** this interface used to represent the resource (topic or broker) configuration. */
-public interface Config {
-  Map<String, String> raw();
-  /**
-   * @param key config key
-   * @return the value associated to input key. otherwise, empty
-   */
-  Optional<String> value(String key);
+public interface WorkerCluster extends AutoCloseable {
+
+  /** @return worker information. the form is "http://host_a:port_a" */
+  List<URL> workerUrls();
 }

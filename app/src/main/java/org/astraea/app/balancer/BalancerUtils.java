@@ -18,19 +18,14 @@ package org.astraea.app.balancer;
 
 import java.util.Collection;
 import java.util.Collections;
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
-import java.util.stream.IntStream;
-import java.util.stream.Stream;
 import org.astraea.app.balancer.log.ClusterLogAllocation;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
-import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.cost.HasClusterCost;
@@ -39,9 +34,14 @@ import org.astraea.common.metrics.HasBeanObject;
 public class BalancerUtils {
 
   /**
-   * Update the replicas of ClusterInfo according to ClusterLogAllocation. Noted that only "broker"
-   * and "data folder" get updated. The replicas matched to nothing from ClusterLogAllocation won't
-   * get any update.
+   * Update the replicas of ClusterInfo according to the given ClusterLogAllocation. The returned
+   * {@link ClusterInfo} will have some of its replicas replaced by the replicas inside the given
+   * {@link ClusterLogAllocation}. Since {@link ClusterLogAllocation} might only cover a subset of
+   * topic/partition in the associated cluster. Only the replicas related to the covered
+   * topic/partition get updated.
+   *
+   * <p>This method intended to offer a way to describe a cluster with some of its state modified
+   * manually.
    *
    * @param clusterInfo to get updated
    * @param allocation offers new host and data folder
@@ -54,93 +54,15 @@ public class BalancerUtils {
             .collect(Collectors.groupingBy(r -> TopicPartition.of(r.topic(), r.partition())))
             .entrySet()
             .stream()
-            .flatMap(
-                entry -> {
-                  var lps = allocation.logPlacements(entry.getKey());
-                  var replicas = entry.getValue();
-                  return IntStream.range(0, replicas.size())
-                      .mapToObj(
-                          index -> {
-                            var previous = replicas.get(index);
-                            // return previous replica due to no new information
-                            if (index >= lps.size()) return previous;
-                            var lp = lps.get(index);
-                            return Replica.of(
-                                previous.topic(),
-                                previous.partition(),
-                                clusterInfo.node(lp.broker()),
-                                previous.lag(),
-                                previous.size(),
-                                index == 0,
-                                previous.inSync(),
-                                previous.isFuture(),
-                                previous.isOffline(),
-                                previous.isPreferredLeader(),
-                                lp.dataFolder());
-                          });
-                })
+            .map(
+                entry ->
+                    allocation.topicPartitions().contains(entry.getKey())
+                        ? allocation.logPlacements(entry.getKey())
+                        : entry.getValue())
+            .flatMap(Collection::stream)
             .collect(Collectors.toUnmodifiableList());
 
     return ClusterInfo.of(clusterInfo.nodes(), newReplicas);
-  }
-
-  /**
-   * Create a {@link ClusterInfo} with its log placement replaced by {@link ClusterLogAllocation}.
-   * Every log will be marked as online & synced. Based on the given content in {@link
-   * ClusterLogAllocation}, some logs might not have its data directory specified. Noted that this
-   * method doesn't check if the given logs is suitable & exists in the cluster info base. the beans
-   * alongside the based cluster info might be out-of-date or even completely meaningless.
-   *
-   * @param clusterInfo the based cluster info
-   * @param allocation the log allocation to replace {@link ClusterInfo}'s log placement. If the
-   *     allocation implementation is {@link ClusterLogAllocation} then the given instance will be
-   *     locked.
-   * @return a {@link ClusterInfo} with its log placement replaced.
-   */
-  public static ClusterInfo<Replica> merge(
-      ClusterInfo<Replica> clusterInfo, ClusterLogAllocation allocation) {
-    return new ClusterInfo<>() {
-      // TODO: maybe add a field to tell if this cluster info is mocked.
-      private final Map<Integer, NodeInfo> nodeIdMap =
-          nodes().stream().collect(Collectors.toUnmodifiableMap(NodeInfo::id, Function.identity()));
-      private final List<Replica> replicas =
-          allocation.topicPartitions().stream()
-              .map(tp -> Map.entry(tp, allocation.logPlacements(tp)))
-              .flatMap(
-                  entry -> {
-                    var tp = entry.getKey();
-                    var logs = entry.getValue();
-
-                    return IntStream.range(0, logs.size())
-                        .mapToObj(
-                            i ->
-                                // TODO: too many fake data!!! we should use another data structure
-                                // https://github.com/skiptests/astraea/issues/526
-                                Replica.of(
-                                    tp.topic(),
-                                    tp.partition(),
-                                    nodeIdMap.get(logs.get(i).broker()),
-                                    0,
-                                    -1,
-                                    i == 0,
-                                    true,
-                                    false,
-                                    false,
-                                    false,
-                                    logs.get(i).dataFolder()));
-                  })
-              .collect(Collectors.toUnmodifiableList());
-
-      @Override
-      public List<NodeInfo> nodes() {
-        return clusterInfo.nodes();
-      }
-
-      @Override
-      public Stream<Replica> replicaStream() {
-        return replicas.stream();
-      }
-    };
   }
 
   public static Thread progressWatch(String title, double totalTasks, Supplier<Double> accTasks) {

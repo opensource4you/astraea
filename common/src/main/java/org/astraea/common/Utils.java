@@ -19,7 +19,9 @@ package org.astraea.common;
 import java.net.InetAddress;
 import java.time.Duration;
 import java.util.Collection;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.SortedMap;
 import java.util.TreeMap;
@@ -252,6 +254,12 @@ public final class Utils {
           throw new IllegalStateException("Duplicate key");
         },
         TreeMap::new);
+  }
+
+  public static <K, V> LinkedHashMap<K, V> toLinkedHashMap(List<Map.Entry<K, V>> entries) {
+    var result = new LinkedHashMap<K, V>();
+    entries.forEach(e -> result.put(e.getKey(), e.getValue()));
+    return result;
   }
 
   private Utils() {}

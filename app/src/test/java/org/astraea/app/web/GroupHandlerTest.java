@@ -166,7 +166,7 @@ public class GroupHandlerTest extends RequireBrokerCluster {
             admin
                 .consumerGroups(Set.of(consumer.groupId()))
                 .get(consumer.groupId())
-                .activeMembers()
+                .assignment()
                 .size());
 
         handler.delete(Channel.ofTarget(consumer.groupId()));
@@ -175,7 +175,7 @@ public class GroupHandlerTest extends RequireBrokerCluster {
             admin
                 .consumerGroups(Set.of(consumer.groupId()))
                 .get(consumer.groupId())
-                .activeMembers()
+                .assignment()
                 .size());
 
         // idempotent test
@@ -194,7 +194,7 @@ public class GroupHandlerTest extends RequireBrokerCluster {
             admin
                 .consumerGroups(Set.of(consumer.groupId()))
                 .get(consumer.groupId())
-                .activeMembers()
+                .assignment()
                 .size());
 
         handler.delete(
@@ -206,7 +206,7 @@ public class GroupHandlerTest extends RequireBrokerCluster {
             admin
                 .consumerGroups(Set.of(consumer.groupId()))
                 .get(consumer.groupId())
-                .activeMembers()
+                .assignment()
                 .size());
 
         // idempotent test
@@ -253,7 +253,7 @@ public class GroupHandlerTest extends RequireBrokerCluster {
       Assertions.assertFalse(admin.consumerGroupIds().contains(groupIds.get(2)));
 
       var group1Members =
-          admin.consumerGroups(Set.of(groupIds.get(1))).get(groupIds.get(1)).activeMembers();
+          admin.consumerGroups(Set.of(groupIds.get(1))).get(groupIds.get(1)).assignment().keySet();
       handler.delete(
           Channel.ofQueries(
               groupIds.get(1),
@@ -261,7 +261,7 @@ public class GroupHandlerTest extends RequireBrokerCluster {
                   GroupHandler.GROUP_KEY,
                   "true",
                   GroupHandler.INSTANCE_KEY,
-                  group1Members.get(0).groupInstanceId().get())));
+                  group1Members.iterator().next().groupInstanceId().get())));
       Assertions.assertFalse(admin.consumerGroupIds().contains(groupIds.get(1)));
     }
   }

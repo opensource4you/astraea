@@ -17,6 +17,7 @@
 package org.astraea.common.admin;
 
 import java.time.Duration;
+import java.util.Collection;
 import java.util.Map;
 import java.util.stream.Collectors;
 import org.astraea.common.Utils;
@@ -47,8 +48,15 @@ public class SomePartitionOfflineTest extends RequireBrokerCluster {
           admin.replicas(admin.topicNames()).entrySet().stream()
               .filter(replica -> replica.getValue().get(0).nodeInfo().id() == 0)
               .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-      offlineReplicaOnBroker0.forEach(
-          (tp, replica) -> Assertions.assertTrue(replica.get(0).isOffline()));
+      offlineReplicaOnBroker0.values().stream()
+          .flatMap(Collection::stream)
+          .forEach(
+              replica -> {
+                Assertions.assertTrue(replica.isOffline());
+                Assertions.assertEquals(-1, replica.size());
+                Assertions.assertEquals(-1, replica.lag());
+                Assertions.assertNull(replica.dataFolder());
+              });
     }
   }
 }

@@ -171,12 +171,21 @@ public interface Replica extends ReplicaInfo {
   /** @return true if the replica is the preferred leader */
   boolean isPreferredLeader();
 
+  /**
+   * @return (LEO - high watermark) if it is the current log, * (LEO) if it is the future log, *
+   *     (-1) if the host of replica is offline
+   */
   long lag();
 
+  /**
+   * @return The size of all log segments in this replica in bytes. It returns -1 if the host of
+   *     replica is offline
+   */
   long size();
 
   /**
    * @return that indicates the data folder path which stored this replica on a specific Kafka node.
+   *     It returns null if the host of replica is offline
    */
   String dataFolder();
 }

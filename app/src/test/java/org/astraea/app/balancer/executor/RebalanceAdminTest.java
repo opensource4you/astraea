@@ -29,7 +29,6 @@ import java.util.concurrent.TimeoutException;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-import org.astraea.app.balancer.log.LogPlacement;
 import org.astraea.common.DataSize;
 import org.astraea.common.DataUnit;
 import org.astraea.common.Utils;
@@ -62,10 +61,11 @@ class RebalanceAdminTest extends RequireBrokerCluster {
       var tasks =
           rebalanceAdmin.alterReplicaPlacements(
               TopicPartition.of(topic, 0),
-              List.of(
-                  LogPlacement.of(0, logFolder0),
-                  LogPlacement.of(1, logFolder1),
-                  LogPlacement.of(2, logFolder2)));
+              Utils.toLinkedHashMap(
+                  List.of(
+                      Map.entry(0, logFolder0),
+                      Map.entry(1, logFolder1),
+                      Map.entry(2, logFolder2))));
       tasks.forEach(
           task -> Utils.packException(() -> task.completableFuture().get(5, TimeUnit.SECONDS)));
 
@@ -99,11 +99,15 @@ class RebalanceAdminTest extends RequireBrokerCluster {
               .filter(name -> !name.equals(originalReplica.dataFolder()))
               .findAny()
               .orElseThrow();
-      var expectedPlacement = LogPlacement.of(originalReplica.nodeInfo().id(), nextDir);
 
       // act, change the dir of the only replica
       var task =
-          rebalanceAdmin.alterReplicaPlacements(topicPartition, List.of(expectedPlacement)).get(0);
+          rebalanceAdmin
+              .alterReplicaPlacements(
+                  topicPartition,
+                  Utils.toLinkedHashMap(
+                      List.of(Map.entry(originalReplica.nodeInfo().id(), nextDir))))
+              .get(0);
 
       // assert
       task.completableFuture().join();
