@@ -14,19 +14,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.app.web;
+package org.astraea.common.admin;
 
 import java.time.Duration;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
-import org.astraea.common.admin.Admin;
 import org.astraea.common.consumer.Consumer;
 import org.astraea.common.producer.Producer;
 import org.astraea.it.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-public class IdleTopicHandlerTest extends RequireBrokerCluster {
+public class IdlerTopicFinderTest extends RequireBrokerCluster {
   @Test
   void testProduceIdleTopic() throws InterruptedException {
     try (var producer = Producer.builder().bootstrapServers(bootstrapServers()).build()) {
@@ -35,12 +34,10 @@ public class IdleTopicHandlerTest extends RequireBrokerCluster {
       e.printStackTrace();
     }
 
-    try (var admin = Admin.of(bootstrapServers())) {
-      var handler = new IdleTopicHandler(admin, bootstrapServers());
-
-      Assertions.assertEquals(Set.of(), handler.produceIdleTopic(Duration.ofSeconds(3)));
+    try (var finder = new IdleTopicFinder(bootstrapServers())) {
+      Assertions.assertEquals(Set.of(), finder.produceIdleTopic(Duration.ofSeconds(3)));
       Thread.sleep(3000);
-      Assertions.assertEquals(Set.of("produce"), handler.produceIdleTopic(Duration.ofSeconds(2)));
+      Assertions.assertEquals(Set.of("produce"), finder.produceIdleTopic(Duration.ofSeconds(2)));
     }
   }
 
@@ -53,15 +50,12 @@ public class IdleTopicHandlerTest extends RequireBrokerCluster {
             .build();
     var consumerThread = new Thread(() -> consumer.poll(Duration.ofSeconds(5)));
     consumerThread.start();
-    try (var admin = Admin.of(bootstrapServers())) {
-      var handler = new IdleTopicHandler(admin, bootstrapServers());
-      // admin.creator().topic("produce").create();
-
+    try (var finder = new IdleTopicFinder(bootstrapServers())) {
       Thread.sleep(5000);
-      Assertions.assertEquals(Set.of(), handler.consumeIdleTopic());
+      Assertions.assertEquals(Set.of(), finder.consumeIdleTopic());
       consumerThread.join();
       consumer.close();
-      Assertions.assertEquals(Set.of("produce"), handler.consumeIdleTopic());
+      Assertions.assertEquals(Set.of("produce"), finder.consumeIdleTopic());
     }
   }
 }

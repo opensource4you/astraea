@@ -14,43 +14,32 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.app.web;
+package org.astraea.common.admin;
 
 import java.time.Duration;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Properties;
 import java.util.Set;
 import java.util.stream.Collectors;
-import org.apache.kafka.clients.consumer.ConsumerConfig;
-import org.apache.kafka.clients.consumer.KafkaConsumer;
-import org.astraea.common.admin.Admin;
-import org.astraea.common.admin.TopicPartition;
+import org.astraea.common.consumer.Builder;
+import org.astraea.common.consumer.Consumer;
 
-public class IdleTopicHandler implements Handler {
-  static final String DURATION_KEY = "duration";
-
+public class IdleTopicFinder implements AutoCloseable {
+  private final String bootstrapServers;
   private final Admin admin;
-  private final String bootstrapServer;
 
-  public IdleTopicHandler(Admin admin, String bootstrapServer) {
-    this.admin = admin;
-    this.bootstrapServer = bootstrapServer;
+  public IdleTopicFinder(String bootstrapServers) {
+    this.bootstrapServers = bootstrapServers;
+    this.admin = Admin.of(bootstrapServers);
   }
 
-  @Override
-  public Response get(Channel channel) {
-    Duration duration = Duration.parse(channel.queries().get(DURATION_KEY));
-
+  public Set<String> idleTopics(Duration duration) {
     Set<String> consumerIdle = consumeIdleTopic();
     Set<String> produceIdle = produceIdleTopic(duration);
-
-    return IdleTopics.of(
-        produceIdle.stream()
-            .filter(consumerIdle::contains)
-            .collect(Collectors.toUnmodifiableSet()));
+    return produceIdle.stream()
+        .filter(consumerIdle::contains)
+        .collect(Collectors.toUnmodifiableSet());
   }
 
   // TODO: Timestamp may custom by producer, may be check the time by idempotent state. See:
@@ -82,53 +71,34 @@ public class IdleTopicHandler implements Handler {
         .collect(Collectors.toUnmodifiableSet());
   }
 
+  // This method will build many consumers (as many as the given topic-partitions).
   private Map<String, Long> latestTimeStamp(Set<String> topicNames) {
-    var partitionOffset = admin.offsets(topicNames);
-    var props = new Properties();
-    props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServer);
-    props.put(
-        ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG,
-        "org.apache.kafka.common.serialization.ByteArrayDeserializer");
-    props.put(
-        ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG,
-        "org.apache.kafka.common.serialization.ByteArrayDeserializer");
-    try (var consumer = new KafkaConsumer<byte[], byte[]>(props)) {
-      var kafkaPartitionOffset =
-          partitionOffset.entrySet().stream()
-              .collect(
-                  Collectors.toUnmodifiableMap(
-                      e ->
-                          new org.apache.kafka.common.TopicPartition(
-                              e.getKey().topic(), e.getKey().partition()),
-                      e -> (e.getValue().latest() - 1 < 0) ? 0 : e.getValue().latest() - 1));
+    var topicPartitions = admin.partitions(topicNames);
+    var latestPerTopic = new HashMap<String, Long>();
 
-      var latestPerTopic = new HashMap<String, Long>();
-      kafkaPartitionOffset.forEach(
-          (tp, offset) -> {
-            consumer.assign(Set.of(tp));
-            consumer.seek(tp, offset);
+    topicPartitions.forEach(
+        tp -> {
+          try (var consumer =
+              Consumer.forPartitions(Set.of(tp))
+                  .bootstrapServers(bootstrapServers)
+                  .seek(Builder.SeekStrategy.DISTANCE_FROM_LATEST, 1)
+                  .build()) {
             consumer
-                .poll(Duration.ofMillis(100))
+                .poll(1, Duration.ofMillis(100))
                 .forEach(
                     record -> {
                       latestPerTopic.computeIfPresent(
-                          tp.topic(), (k, v) -> v < record.timestamp() ? record.timestamp() : v);
+                          tp.topic(), (ignore, time) -> Math.max(time, record.timestamp()));
                       latestPerTopic.computeIfAbsent(tp.topic(), ignore -> record.timestamp());
                     });
-          });
-      return latestPerTopic;
-    }
+          }
+        });
+
+    return latestPerTopic;
   }
 
-  static class IdleTopics implements Response {
-    final Set<String> topicNames;
-
-    static IdleTopics of(Set<String> topicNames) {
-      return new IdleTopics(topicNames);
-    }
-
-    IdleTopics(Set<String> topicNames) {
-      this.topicNames = Collections.unmodifiableSet(topicNames);
-    }
+  @Override
+  public void close() {
+    admin.close();
   }
 }
