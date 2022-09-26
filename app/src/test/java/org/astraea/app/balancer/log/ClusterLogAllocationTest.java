@@ -17,6 +17,7 @@
 package org.astraea.app.balancer.log;
 
 import java.time.Duration;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -334,15 +335,25 @@ class ClusterLogAllocationTest extends RequireBrokerCluster {
     var partition = 30;
     var nodeInfo = NodeInfo.of(0, "", -1);
 
-    Replica baseLeader =
+    Replica base =
         Replica.of(
-            topic, partition, nodeInfo, 0, 0, true, false, false, false, true, "/tmp/default/dir");
+            topic,
+            partition,
+            nodeInfo,
+            0,
+            0,
+            false,
+            false,
+            false,
+            false,
+            false,
+            "/tmp/default/dir");
 
     {
       // self equal
-      var leader0 = update(baseLeader, Map.of());
-      var follower1 = update(baseLeader, Map.of("broker", 1, "leader", false));
-      var follower2 = update(baseLeader, Map.of("broker", 2, "leader", false));
+      var leader0 = update(base, Map.of("leader", true, "preferred", true));
+      var follower1 = update(base, Map.of("broker", 1));
+      var follower2 = update(base, Map.of("broker", 2));
       Assertions.assertTrue(
           ClusterLogAllocation.placementMatch(
               Set.of(leader0, follower1, follower2), Set.of(leader0, follower1, follower2)),
@@ -351,9 +362,9 @@ class ClusterLogAllocationTest extends RequireBrokerCluster {
 
     {
       // unrelated field does nothing
-      var leader0 = update(baseLeader, Map.of());
-      var follower1 = update(baseLeader, Map.of("broker", 1, "leader", false));
-      var follower2 = update(baseLeader, Map.of("broker", 2, "leader", false));
+      var leader0 = update(base, Map.of("leader", true, "preferred", true));
+      var follower1 = update(base, Map.of("broker", 1));
+      var follower2 = update(base, Map.of("broker", 2));
       var awkwardFollower2 = update(follower2, Map.of("size", 123456789L));
       Assertions.assertTrue(
           ClusterLogAllocation.placementMatch(
@@ -363,9 +374,9 @@ class ClusterLogAllocationTest extends RequireBrokerCluster {
 
     {
       // preferred leader changed
-      var leaderA0 = update(baseLeader, Map.of());
-      var followerA1 = update(baseLeader, Map.of("broker", 1, "leader", false));
-      var followerA2 = update(baseLeader, Map.of("broker", 2, "leader", false));
+      var leaderA0 = update(base, Map.of("leader", true, "preferred", true));
+      var followerA1 = update(base, Map.of("broker", 1));
+      var followerA2 = update(base, Map.of("broker", 2));
       var followerB0 = update(leaderA0, Map.of("preferred", false));
       var leaderB1 = update(followerA1, Map.of("preferred", true));
       var followerB2 = update(followerA2, Map.of());
@@ -377,9 +388,9 @@ class ClusterLogAllocationTest extends RequireBrokerCluster {
 
     {
       // data dir changed
-      var leader0 = update(baseLeader, Map.of());
-      var follower1 = update(baseLeader, Map.of("broker", 1, "leader", false));
-      var follower2 = update(baseLeader, Map.of("broker", 2, "leader", false));
+      var leader0 = update(base, Map.of("leader", true, "preferred", true));
+      var follower1 = update(base, Map.of("broker", 1));
+      var follower2 = update(base, Map.of("broker", 2));
       var alteredFollower2 = update(follower2, Map.of("dir", "/tmp/somewhere"));
       Assertions.assertFalse(
           ClusterLogAllocation.placementMatch(
@@ -389,14 +400,40 @@ class ClusterLogAllocationTest extends RequireBrokerCluster {
 
     {
       // replica migrated
-      var leader0 = update(baseLeader, Map.of());
-      var follower1 = update(baseLeader, Map.of("broker", 1, "leader", false));
-      var follower2 = update(baseLeader, Map.of("broker", 2, "leader", false));
+      var leader0 = update(base, Map.of("leader", true, "preferred", true));
+      var follower1 = update(base, Map.of("broker", 1));
+      var follower2 = update(base, Map.of("broker", 2));
       var alteredFollower2 = update(follower2, Map.of("broker", 3));
       Assertions.assertFalse(
           ClusterLogAllocation.placementMatch(
               Set.of(leader0, follower1, follower2), Set.of(leader0, follower1, alteredFollower2)),
           "migrate data dir");
+    }
+
+    {
+      // null dir in source set mean don't care
+      var leader0 = update(base, Map.of("leader", true, "preferred", true));
+      var follower1 = update(base, Map.of("broker", 1));
+      var nullMap = new HashMap<String, Object>();
+      nullMap.put("dir", null);
+      var sourceFollower1 = update(follower1, nullMap);
+      var targetFollower1 = update(follower1, Map.of("dir", "/target"));
+      Assertions.assertTrue(
+          ClusterLogAllocation.placementMatch(
+              Set.of(leader0, sourceFollower1), Set.of(leader0, targetFollower1)));
+    }
+
+    {
+      // null dir in target set mean always bad
+      var leader0 = update(base, Map.of("leader", true, "preferred", true));
+      var follower1 = update(base, Map.of("broker", 1));
+      var nullMap = new HashMap<String, Object>();
+      nullMap.put("dir", null);
+      var sourceFollower1 = update(follower1, Map.of("dir", "/target"));
+      var targetFollower1 = update(follower1, nullMap);
+      Assertions.assertFalse(
+          ClusterLogAllocation.placementMatch(
+              Set.of(leader0, sourceFollower1), Set.of(leader0, targetFollower1)));
     }
   }
 

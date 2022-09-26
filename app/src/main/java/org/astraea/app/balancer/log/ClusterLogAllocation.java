@@ -20,6 +20,7 @@ import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -130,11 +131,6 @@ public interface ClusterLogAllocation {
    */
   static boolean placementMatch(Set<Replica> sourceReplicas, Set<Replica> targetReplicas) {
     if (sourceReplicas.size() != targetReplicas.size()) return false;
-    // TODO: fix this implementation, it doesn't consider the null case of sourceReplica
-    // equal rule:
-    // both preferred leader is equal.
-    // both follower is equal.
-    // two follower are equal if broker id and folder match
     final var sourceIds =
         sourceReplicas.stream()
             .sorted(
@@ -156,7 +152,8 @@ public interface ClusterLogAllocation {
               final var target = targetIds.get(index);
               return source.isPreferredLeader() == target.isPreferredLeader()
                   && source.nodeInfo().id() == target.nodeInfo().id()
-                  && source.dataFolder().equals(target.dataFolder());
+                  && (source.dataFolder() == null
+                      || Objects.equals(source.dataFolder(), target.dataFolder()));
             });
   }
 
