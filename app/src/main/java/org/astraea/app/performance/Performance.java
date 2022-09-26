@@ -226,7 +226,7 @@ public class Performance {
 
     String partitioner() {
       // The given partitioner should be Astraea Dispatcher when interdependent is set
-      if (this.interdependent > 0) {
+      if (this.interdependent > 1) {
         try {
           if (this.partitioner == null
               || !Dispatcher.class.isAssignableFrom(Class.forName(this.partitioner))) {
@@ -239,6 +239,14 @@ public class Performance {
           throw new ParameterException(
               "The given partitioner \"" + this.partitioner + "\" was not found.");
         }
+      }
+      if (this.partitioner != null) {
+        if (!this.specifyBrokers.isEmpty())
+          throw new IllegalArgumentException(
+              "--specify.brokers can't be used in conjunction with partitioner");
+        if (!this.specifyPartitions.isEmpty())
+          throw new IllegalArgumentException(
+              "--specify.partitions can't be used in conjunction with partitioner");
       }
       return this.partitioner;
     }
@@ -326,7 +334,7 @@ public class Performance {
       var specifiedByPartition = !specifyPartitions.isEmpty();
       if (specifiedByBroker && specifiedByPartition)
         throw new IllegalArgumentException(
-            "`--specify.partitions` can't be use in conjunction with `--specify.brokers`");
+            "`--specify.partitions` can't be used in conjunction with `--specify.brokers`");
       else if (specifiedByBroker) {
         try (Admin admin = Admin.of(configs())) {
           final var selections =
@@ -348,7 +356,7 @@ public class Performance {
         // specify.partitions can't be use in conjunction with partitioner or topics
         if (partitioner != null)
           throw new IllegalArgumentException(
-              "--specify.partitions can't be use in conjunction with partitioner");
+              "--specify.partitions can't be used in conjunction with partitioner");
         // sanity check, ensure all specified partitions are existed
         try (Admin admin = Admin.of(configs())) {
           var allTopics = admin.topicNames();
@@ -434,6 +442,6 @@ public class Performance {
         description =
             "Integer: the number of records sending to the same partition (Note: this parameter effects on Astraea partitioner)",
         validateWith = PositiveIntegerField.class)
-    int interdependent = 0;
+    int interdependent = 1;
   }
 }

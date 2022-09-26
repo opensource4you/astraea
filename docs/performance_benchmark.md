@@ -40,7 +40,7 @@
 |      group.id      | (選填) 設置 consumer group id                                                                                                                                                                                                                                             | groupId-{Time in millis} |
 |        acks        | (選填) 設置 producer acks，                                                                                                                                                                                                                                                |     all，代表要等所有isr同步      |
 |     read.idle      | (選填) 讀取端將被終止如果超過這個時間沒有讀取到新的資料                                                                                                                                                                                                                                         |            2秒            |
-| interdependent.size | (選填) 每幾筆 record 要發到同一個 partition。(注意：只有 Astraea Dispatcher 可以使用) |               none               |
+| interdependent.size | (選填) 每幾筆 record 要發到同一個 partition。(注意：只有 Astraea Dispatcher 可以使用) |            1             |
 
 #### 使用範例
 
