@@ -21,6 +21,7 @@ import static org.astraea.app.web.ReassignmentHandler.toReassignment;
 
 import java.time.Duration;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
@@ -216,7 +217,11 @@ public class ReassignmentHandlerTest extends RequireBrokerCluster {
               .id());
       Assertions.assertNotEquals(0, admin.partitions(currentBroker).size());
       Assertions.assertEquals(
-          0, admin.partitions(Set.of(targetTopic), Set.of(currentBroker)).size());
+          0,
+          (int)
+              admin.partitions(currentBroker).stream()
+                  .filter(tp -> Objects.equals(tp.topic(), targetTopic))
+                  .count());
     }
   }
 
