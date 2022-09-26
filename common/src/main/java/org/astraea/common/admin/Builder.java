@@ -134,27 +134,22 @@ public class Builder {
     }
 
     @Override
-    public Map<TopicPartition, Collection<ProducerState>> producerStates(
-        Set<TopicPartition> partitions) {
+    public List<ProducerState> producerStates(Set<TopicPartition> partitions) {
       return Utils.packException(
-          () ->
-              admin
-                  .describeProducers(
-                      partitions.stream()
-                          .map(TopicPartition::to)
-                          .collect(Collectors.toUnmodifiableList()))
-                  .all()
-                  .get()
-                  .entrySet()
-                  .stream()
-                  .filter(e -> !e.getValue().activeProducers().isEmpty())
-                  .collect(
-                      Collectors.toMap(
-                          e -> TopicPartition.from(e.getKey()),
-                          e ->
-                              e.getValue().activeProducers().stream()
-                                  .map(ProducerState::from)
-                                  .collect(Collectors.toUnmodifiableList()))));
+              () ->
+                  admin
+                      .describeProducers(
+                          partitions.stream()
+                              .map(TopicPartition::to)
+                              .collect(Collectors.toUnmodifiableList()))
+                      .all()
+                      .get())
+          .entrySet()
+          .stream()
+          .flatMap(
+              e ->
+                  e.getValue().activeProducers().stream().map(s -> ProducerState.of(e.getKey(), s)))
+          .collect(Collectors.toList());
     }
 
     @Override

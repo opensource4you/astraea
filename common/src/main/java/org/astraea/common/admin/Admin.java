@@ -163,7 +163,7 @@ public interface Admin extends Closeable {
   void preferredLeaderElection(TopicPartition topicPartition);
 
   /** @return producer states of all topic partitions */
-  default Map<TopicPartition, Collection<ProducerState>> producerStates() {
+  default List<ProducerState> producerStates() {
     return producerStates(partitions());
   }
 
@@ -171,7 +171,7 @@ public interface Admin extends Closeable {
    * @param partitions to search
    * @return producer states of input topic partitions
    */
-  Map<TopicPartition, Collection<ProducerState>> producerStates(Set<TopicPartition> partitions);
+  List<ProducerState> producerStates(Set<TopicPartition> partitions);
 
   /** @return a progress to set quota */
   QuotaCreator quotaCreator();
