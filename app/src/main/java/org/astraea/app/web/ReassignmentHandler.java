@@ -20,8 +20,11 @@ import static java.lang.Math.max;
 import static java.lang.Math.min;
 
 import java.util.Collection;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.Replica;
@@ -62,19 +65,27 @@ public class ReassignmentHandler implements Handler {
                         .moveTo(request.intValues(TO_KEY));
                     return Response.ACCEPT;
                   }
-                  // case 2: move specific broker's partitions to others
-                  if (request.has(BROKER_KEY)) {
-                    var brokersList =
+                  // case 2: move specific broker's (topic's) partitions to others
+                  if (request.has(FROM_KEY)) {
+                    Predicate<TopicPartition> hasTopicKey =
+                        request.has(TOPIC_KEY)
+                            ? tp -> Objects.equals(tp.topic(), request.value(TOPIC_KEY))
+                            : tp -> true;
+                    var brokerList =
                         admin.brokerIds().stream()
-                            .filter(i -> i != request.intValue(BROKER_KEY))
+                            .filter(i -> i != request.intValue(FROM_KEY))
                             .collect(Collectors.toList());
-                    var currentCount = 0;
-                    for (TopicPartition tp : admin.partitions(request.intValue(BROKER_KEY))) {
+                    Iterator<Integer> it = brokerList.iterator();
+                    for (TopicPartition tp :
+                        admin.partitions(request.intValue(FROM_KEY)).stream()
+                            .filter(hasTopicKey)
+                            .collect(Collectors.toList())) {
                       admin
                           .migrator()
                           .partition(tp.topic(), tp.partition())
-                          .moveTo(List.of(brokersList.get(currentCount % brokersList.size())));
-                      currentCount++;
+                          .moveTo(
+                              List.of(
+                                  it.hasNext() ? it.next() : (it = brokerList.iterator()).next()));
                     }
                     return Response.ACCEPT;
                   }

@@ -149,7 +149,7 @@ public class ReassignmentHandlerTest extends RequireBrokerCluster {
       var body =
           String.format(
               "{\"%s\": [{\"%s\": \"%s\"}]}",
-              ReassignmentHandler.PLANS_KEY, ReassignmentHandler.BROKER_KEY, currentBroker);
+              ReassignmentHandler.PLANS_KEY, ReassignmentHandler.FROM_KEY, currentBroker);
 
       Assertions.assertEquals(
           Response.ACCEPT, handler.post(Channel.ofRequest(PostRequest.of(body))));
@@ -168,6 +168,55 @@ public class ReassignmentHandlerTest extends RequireBrokerCluster {
               .nodeInfo()
               .id());
       Assertions.assertEquals(0, admin.partitions(currentBroker).size());
+    }
+  }
+
+  @Test
+  void testExcludeSpecificBrokerTopic() {
+    var topicName = Utils.randomString(10);
+    var targetTopic = Utils.randomString(10);
+    try (Admin admin = Admin.of(bootstrapServers())) {
+      var handler = new ReassignmentHandler(admin);
+      admin.creator().topic(topicName).numberOfPartitions(10).create();
+      admin.creator().topic(targetTopic).numberOfPartitions(10).create();
+      Utils.sleep(Duration.ofSeconds(3));
+
+      var currentBroker =
+          admin
+              .replicas(Set.of(topicName))
+              .get(TopicPartition.of(topicName, 0))
+              .get(0)
+              .nodeInfo()
+              .id();
+
+      var body =
+          String.format(
+              "{\"%s\": [{\"%s\": \"%s\", \"%s\": \"%s\"}]}",
+              ReassignmentHandler.PLANS_KEY,
+              ReassignmentHandler.FROM_KEY,
+              currentBroker,
+              ReassignmentHandler.TOPIC_KEY,
+              targetTopic);
+
+      Assertions.assertEquals(
+          Response.ACCEPT, handler.post(Channel.ofRequest(PostRequest.of(body))));
+
+      Utils.sleep(Duration.ofSeconds(2));
+      var reassignments = handler.get(Channel.EMPTY);
+      // the reassignment should be completed
+      Assertions.assertEquals(0, reassignments.reassignments.size());
+
+      Assertions.assertNotEquals(
+          currentBroker,
+          admin
+              .replicas(Set.of(targetTopic))
+              .get(TopicPartition.of(targetTopic, 0))
+              .get(0)
+              .nodeInfo()
+              .id());
+      Assertions.assertNotEquals(0, admin.partitions(currentBroker).size());
+      Assertions.assertEquals(
+          0, admin.partitions(Set.of(targetTopic), Set.of(currentBroker)).size());
     }
   }
 
