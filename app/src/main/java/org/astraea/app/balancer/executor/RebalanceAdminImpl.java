@@ -67,7 +67,7 @@ class RebalanceAdminImpl implements RebalanceAdmin {
     final var currentBrokerAllocation =
         admin.nodes().stream()
             .map(NodeInfo::id)
-            .filter(id -> admin.partitions(id).contains(topicPartition))
+            .filter(id -> admin.topicPartitions(id).contains(topicPartition))
             .collect(Collectors.toSet());
 
     // this operation is not supposed to trigger a log movement. But there might be a small window
@@ -93,7 +93,7 @@ class RebalanceAdminImpl implements RebalanceAdmin {
     var currentReplicaBrokers =
         admin.nodes().stream()
             .map(NodeInfo::id)
-            .filter(id -> admin.partitions(id).contains(topicPartition))
+            .filter(id -> admin.topicPartitions(id).contains(topicPartition))
             .collect(Collectors.toSet());
 
     // do cross broker migration

@@ -131,7 +131,7 @@ public class AdminTest extends RequireBrokerCluster {
   void testPartitions() {
     var topicName = "testPartitions";
     try (var admin = Admin.of(bootstrapServers())) {
-      var before = brokerIds().stream().mapToInt(id -> admin.partitions(id).size()).sum();
+      var before = brokerIds().stream().mapToInt(id -> admin.topicPartitions(id).size()).sum();
       admin.creator().topic(topicName).numberOfPartitions(10).create();
       // wait for syncing topic creation
       Utils.sleep(Duration.ofSeconds(5));
@@ -148,8 +148,8 @@ public class AdminTest extends RequireBrokerCluster {
                       replica ->
                           Assertions.assertTrue(
                               logFolders.stream().anyMatch(replica.dataFolder()::contains))));
-      brokerIds().forEach(id -> Assertions.assertNotEquals(0, admin.partitions(id).size()));
-      var after = brokerIds().stream().mapToInt(id -> admin.partitions(id).size()).sum();
+      brokerIds().forEach(id -> Assertions.assertNotEquals(0, admin.topicPartitions(id).size()));
+      var after = brokerIds().stream().mapToInt(id -> admin.topicPartitions(id).size()).sum();
       Assertions.assertEquals(before + 10, after);
     }
   }
@@ -161,15 +161,13 @@ public class AdminTest extends RequireBrokerCluster {
       admin.creator().topic(topicName).numberOfPartitions(3).create();
       // wait for syncing topic creation
       Utils.sleep(Duration.ofSeconds(3));
-      var offsets = admin.offsets(Set.of(topicName));
-      Assertions.assertEquals(3, offsets.size());
-      offsets
-          .values()
-          .forEach(
-              offset -> {
-                Assertions.assertEquals(0, offset.earliest());
-                Assertions.assertEquals(0, offset.latest());
-              });
+      var partitions = admin.partitions(Set.of(topicName));
+      Assertions.assertEquals(3, partitions.size());
+      partitions.forEach(
+          p -> {
+            Assertions.assertEquals(0, p.earliestOffset());
+            Assertions.assertEquals(0, p.latestOffset());
+          });
     }
   }
 
@@ -738,7 +736,7 @@ public class AdminTest extends RequireBrokerCluster {
       Assertions.assertThrows(NoSuchElementException.class, () -> clusterInfo.node(-1));
 
       admin
-          .partitions(Set.of(topic0, topic1, topic2))
+          .topicPartitions(Set.of(topic0, topic1, topic2))
           .forEach(
               p ->
                   Assertions.assertNotEquals(
@@ -750,7 +748,7 @@ public class AdminTest extends RequireBrokerCluster {
                       .forEach(
                           id -> Assertions.assertNotEquals(0, clusterInfo.replicas(id, t).size())));
       admin
-          .partitions(Set.of(topic0, topic1, topic2))
+          .topicPartitions(Set.of(topic0, topic1, topic2))
           .forEach(p -> Assertions.assertNotEquals(0, clusterInfo.replicas(p).size()));
     }
   }
@@ -1188,10 +1186,29 @@ public class AdminTest extends RequireBrokerCluster {
       Assertions.assertEquals(2, deleteRecords.get(TopicPartition.of(topicName, 0)).lowWatermark());
       Assertions.assertEquals(1, deleteRecords.get(TopicPartition.of(topicName, 1)).lowWatermark());
 
-      var offsets = admin.offsets();
-      Assertions.assertEquals(2, offsets.get(TopicPartition.of(topicName, 0)).earliest());
-      Assertions.assertEquals(1, offsets.get(TopicPartition.of(topicName, 1)).earliest());
-      Assertions.assertEquals(0, offsets.get(TopicPartition.of(topicName, 2)).earliest());
+      var partitions = admin.partitions(Set.of(topicName));
+      Assertions.assertEquals(3, partitions.size());
+      Assertions.assertEquals(
+          2,
+          partitions.stream()
+              .filter(p -> p.topic().equals(topicName) && p.partition() == 0)
+              .findFirst()
+              .get()
+              .earliestOffset());
+      Assertions.assertEquals(
+          1,
+          partitions.stream()
+              .filter(p -> p.topic().equals(topicName) && p.partition() == 1)
+              .findFirst()
+              .get()
+              .earliestOffset());
+      Assertions.assertEquals(
+          0,
+          partitions.stream()
+              .filter(p -> p.topic().equals(topicName) && p.partition() == 2)
+              .findFirst()
+              .get()
+              .earliestOffset());
     }
   }
 
@@ -1789,6 +1806,22 @@ public class AdminTest extends RequireBrokerCluster {
                       .get()));
       Utils.waitFor(
           () -> admin.replicas(Set.of(topic)).get(TopicPartition.of(topic, 0)).size() == 2);
+    }
+  }
+
+  @Test
+  void testListPartitions() {
+    var topic = Utils.randomString(10);
+    try (Admin admin = Admin.of(bootstrapServers())) {
+      admin.creator().topic(topic).numberOfPartitions(2).numberOfReplicas((short) 3).create();
+
+      var partitions = admin.partitions(Set.of(topic));
+      Assertions.assertEquals(2, partitions.size());
+      partitions.forEach(
+          p -> {
+            Assertions.assertEquals(3, p.replicas().size());
+            Assertions.assertEquals(3, p.isr().size());
+          });
     }
   }
 }

@@ -108,7 +108,7 @@ public class Builder {
 
     @Override
     public ReplicaMigrator migrator() {
-      return new MigratorImpl(admin, this::partitions);
+      return new MigratorImpl(admin, this::topicPartitions);
     }
 
     @Override
@@ -211,20 +211,19 @@ public class Builder {
     private Map<TopicPartition, Long> earliestOffset(Set<TopicPartition> partitions) {
 
       return Utils.packException(
-          () ->
-              admin
-                  .listOffsets(
-                      partitions.stream()
-                          .collect(
-                              Collectors.toMap(
-                                  TopicPartition::to, e -> new OffsetSpec.EarliestSpec())))
-                  .all()
-                  .get()
-                  .entrySet()
-                  .stream()
-                  .collect(
-                      Collectors.toMap(
-                          e -> TopicPartition.from(e.getKey()), e -> e.getValue().offset())));
+              () ->
+                  admin
+                      .listOffsets(
+                          partitions.stream()
+                              .collect(
+                                  Collectors.toMap(
+                                      TopicPartition::to, e -> new OffsetSpec.EarliestSpec())))
+                      .all()
+                      .get())
+          .entrySet()
+          .stream()
+          .collect(
+              Collectors.toMap(e -> TopicPartition.from(e.getKey()), e -> e.getValue().offset()));
     }
 
     private Map<TopicPartition, Long> latestOffset(Set<TopicPartition> partitions) {
@@ -294,19 +293,56 @@ public class Builder {
     }
 
     @Override
-    public Map<TopicPartition, Offset> offsets(Set<String> topics) {
-      var partitions = partitions(topics);
-      var earliest = earliestOffset(partitions);
-      var latest = latestOffset(partitions);
-      return earliest.entrySet().stream()
-          .filter(e -> latest.containsKey(e.getKey()))
-          .collect(
-              Collectors.toMap(
-                  Map.Entry::getKey, e -> new Offset(e.getValue(), latest.get(e.getKey()))));
+    public List<Partition> partitions(Set<String> topics) {
+      var partitions =
+          Utils.packException(() -> admin.describeTopics(topics).all().get()).entrySet().stream()
+              .flatMap(
+                  e ->
+                      e.getValue().partitions().stream()
+                          .map(
+                              p ->
+                                  Map.entry(
+                                      new org.apache.kafka.common.TopicPartition(
+                                          e.getKey(), p.partition()),
+                                      p)))
+              .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+      var earliest =
+          Utils.packException(
+              () ->
+                  admin
+                      .listOffsets(
+                          partitions.keySet().stream()
+                              .collect(
+                                  Collectors.toMap(
+                                      Function.identity(), e -> new OffsetSpec.EarliestSpec())))
+                      .all()
+                      .get());
+
+      var latest =
+          Utils.packException(
+              () ->
+                  admin
+                      .listOffsets(
+                          partitions.keySet().stream()
+                              .collect(
+                                  Collectors.toMap(
+                                      Function.identity(), e -> new OffsetSpec.LatestSpec())))
+                      .all()
+                      .get());
+
+      return partitions.entrySet().stream()
+          .map(
+              entry ->
+                  Partition.of(
+                      entry.getKey().topic(),
+                      entry.getValue(),
+                      Optional.ofNullable(earliest.get(entry.getKey())),
+                      Optional.ofNullable(latest.get(entry.getKey()))))
+          .collect(Collectors.toList());
     }
 
     @Override
-    public Set<TopicPartition> partitions(Set<String> topics) {
+    public Set<TopicPartition> topicPartitions(Set<String> topics) {
       return Utils.packException(() -> admin.describeTopics(topics).all().get()).entrySet().stream()
           .flatMap(
               e ->
@@ -316,7 +352,7 @@ public class Builder {
     }
 
     @Override
-    public Set<TopicPartition> partitions(int broker) {
+    public Set<TopicPartition> topicPartitions(int broker) {
       return Utils.packException(() -> admin.describeTopics(topicNames()).all().get())
           .entrySet()
           .stream()
@@ -512,7 +548,7 @@ public class Builder {
               () ->
                   admin
                       .listPartitionReassignments(
-                          partitions(topics).stream()
+                          topicPartitions(topics).stream()
                               .map(TopicPartition::to)
                               .collect(Collectors.toSet()))
                       .reassignments()

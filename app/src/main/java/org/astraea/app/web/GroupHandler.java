@@ -20,8 +20,10 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.astraea.common.admin.Admin;
+import org.astraea.common.admin.Partition;
 import org.astraea.common.admin.TopicPartition;
 
 public class GroupHandler implements Handler {
@@ -72,7 +74,9 @@ public class GroupHandler implements Handler {
             ? Set.of(channel.queries().get(TOPIC_KEY))
             : admin.topicNames();
     var consumerGroups = admin.consumerGroups(groupIds(channel.target()));
-    var offsets = admin.offsets(topics);
+    var partitions =
+        admin.partitions(topics).stream()
+            .collect(Collectors.toMap(Partition::topicPartition, Function.identity()));
 
     var groups =
         consumerGroups.entrySet().stream()
@@ -101,7 +105,7 @@ public class GroupHandler implements Handler {
                                         entry.getValue().stream()
                                             .map(
                                                 tp ->
-                                                    offsets.containsKey(tp)
+                                                    partitions.containsKey(tp)
                                                             && idAndGroup
                                                                 .getValue()
                                                                 .consumeProgress()
@@ -110,12 +114,12 @@ public class GroupHandler implements Handler {
                                                             new OffsetProgress(
                                                                 tp.topic(),
                                                                 tp.partition(),
-                                                                offsets.get(tp).earliest(),
+                                                                partitions.get(tp).earliestOffset(),
                                                                 idAndGroup
                                                                     .getValue()
                                                                     .consumeProgress()
                                                                     .get(tp),
-                                                                offsets.get(tp).latest()))
+                                                                partitions.get(tp).latestOffset()))
                                                         : Optional.<OffsetProgress>empty())
                                             .filter(Optional::isPresent)
                                             .map(Optional::get)
