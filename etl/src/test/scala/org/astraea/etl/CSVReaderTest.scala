@@ -17,14 +17,43 @@
 package org.astraea.etl
 
 import com.opencsv.CSVWriter
+import org.apache.spark.SparkException
+import org.apache.spark.sql.Row
+import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Test
 
-import java.io.{BufferedReader, BufferedWriter, File, FileReader, FileWriter}
+import java.io._
 import java.nio.file.Files
 import scala.jdk.CollectionConverters.IterableHasAsJava
 import scala.util.{Failure, Random, Try}
 
-class SparkUtilsTest {
+class CSVReaderTest {
+  @Test def createSchemaNullTest(): Unit = {
+    val spark = CSVReader.createSpark("local[2]")
+
+    val seq = Seq(
+      Row(1, "A1", 52, "fghgh"),
+      Row(2, "B2", 42, "affrgg"),
+      Row(3, "C3", 55, "safdfg"),
+      Row(null, "D4", 59, "rehrth")
+    )
+
+    val structType = CSVReader.createSchema(
+      Map(
+        "SerialNumber" -> "integer",
+        "RecordNumber" -> "string",
+        "Size" -> "integer",
+        "Type" -> "string"
+      ),
+      Map(
+        "SerialNumber" -> "integer"
+      )
+    )
+    val df =
+      spark.createDataFrame(spark.sparkContext.parallelize(seq), structType)
+
+    assertThrows(classOf[SparkException], () => df.show())
+  }
 
   @Test def sparkReadCSVTest(): Unit = {
     val tempPath = System.getProperty("java.io.tmpdir")
@@ -35,20 +64,23 @@ class SparkUtilsTest {
 
     writeCsvFile(file.toAbsolutePath.toString, addPrefix(rows))
 
-    val spark = SparkUtils.createSpark("local[2]")
+    val spark = CSVReader.createSpark("local[2]")
 
-    val structType = SparkUtils.createSchema(
+    val structType = CSVReader.createSchema(
       Map(
         "SerialNumber" -> "integer",
         "RecordNumber" -> "string",
         "Size" -> "integer",
         "Type" -> "string"
+      ),
+      Map(
+        "SerialNumber" -> "integer"
       )
     )
 
     assert(structType.length equals 4)
 
-    val csvDF = SparkUtils.readCSV(spark, structType, file.getParent.toString)
+    val csvDF = CSVReader.readCSV(spark, structType, file.getParent.toString)
 
     assert(csvDF.isStreaming, "sessions must be a streaming Dataset")
 

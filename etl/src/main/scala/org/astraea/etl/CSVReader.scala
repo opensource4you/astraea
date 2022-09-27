@@ -18,12 +18,9 @@ package org.astraea.etl
 
 import org.apache.kafka.clients.producer.ProducerConfig
 import org.apache.spark.sql.{DataFrame, Row, SparkSession}
-import org.apache.spark.sql.catalyst.parser.ParseException
 import org.apache.spark.sql.streaming.DataStreamWriter
 import org.apache.spark.sql.types.StructType
-
-object SparkUtils {
-
+object CSVReader {
   def createSpark(deploymentModel: String): SparkSession = {
     SparkSession
       .builder()
@@ -32,17 +29,16 @@ object SparkUtils {
       .getOrCreate()
   }
 
-  def createSchema(map: Map[String, String]): StructType = {
+  def createSchema(
+      cols: Map[String, String],
+      pk: Map[String, String]
+  ): StructType = {
     var userSchema = new StructType()
-    map.foreach(x =>
-      try {
-        userSchema = userSchema.add(x._1, x._2, nullable = true)
-      } catch {
-        case _: ParseException =>
-          throw new IllegalArgumentException(
-            s"DataType ${x._2} is not supported.Please check ${x._1}=${x._2} in column."
-          )
-      }
+    cols.foreach(col =>
+      if (pk.contains(col._1))
+        userSchema = userSchema.add(col._1, col._2, nullable = false)
+      else
+        userSchema = userSchema.add(col._1, col._2, nullable = true)
     )
     userSchema
   }
@@ -61,7 +57,7 @@ object SparkUtils {
   //TODO To Kafka test
   def writeKafka(
       df: DataFrame,
-      metaData: ETLMetaData
+      metaData: MetaData
   ): DataStreamWriter[Row] = {
     df.writeStream
       .format("kafka")

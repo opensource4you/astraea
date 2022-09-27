@@ -48,7 +48,7 @@ import scala.util.Using
   *   SparkSession.builder().master(deployment.model).Two settings are currently
   *   supported spark://HOST:PORT and local[*].
   */
-case class ETLMetaData(
+case class MetaData(
     sourcePath: File,
     sinkPath: File,
     column: Map[String, String],
@@ -61,7 +61,7 @@ case class ETLMetaData(
     deploymentModel: String
 )
 
-object ETLMetaData {
+object MetaData {
   private[this] val SOURCE_PATH = "source.path"
   private[this] val SINK_PATH = "sink.path"
   private[this] val COLUMN_NAME = "column.name"
@@ -77,7 +77,7 @@ object ETLMetaData {
   private[this] val DEFAULT_REPLICAS = 1
 
   //Parameters needed to configure ETL.
-  def apply(path: File): ETLMetaData = {
+  def apply(path: File): MetaData = {
     val properties = readProp(path).asScala.filter(_._2.nonEmpty).toMap
 
     val sourcePath = Utils.requireFolder(
@@ -96,7 +96,7 @@ object ETLMetaData {
         )
       )
     )
-    val column = requireNonidentical(COLUMN_NAME, properties)
+    val column = columnRule(COLUMN_NAME, properties)
     val pKeys = primaryKeys(properties, column)
     //TODO check the format after linking Kafka
     val bootstrapServer = properties(KAFKA_BOOTSTRAP_SERVERS)
@@ -118,7 +118,7 @@ object ETLMetaData {
 
     val deploymentModel = requireSparkMaster(DEPLOYMENT_MODEL, properties)
 
-    ETLMetaData(
+    MetaData(
       sourcePath,
       sinkPath,
       column,
@@ -180,6 +180,25 @@ object ETLMetaData {
     primaryKeys
   }
 
+  def columnRule(
+      string: String,
+      prop: Map[String, String]
+  ): Map[String, String] = {
+    requireNonidentical(string, prop)
+    Option(prop(string))
+      .map(
+        _.split(",")
+          .map(_.split("="))
+          .map { elem =>
+            println(elem(0) + ":" + elem(1))
+            matchType(elem(0), elem(1))
+          }
+          .toMap
+      )
+      .get
+
+  }
+
   def requireNonidentical(
       string: String,
       prop: Map[String, String]
@@ -211,5 +230,39 @@ object ETLMetaData {
       )
     }
     string
+  }
+
+  /** Column Types supported by astraea dispatcher.
+    */
+  private object ReaderDataTypes extends Enumeration {
+    val STRING_TYPE = "string"
+    val BINARY_TYPE = "binary"
+    val BOOLEAN_TYPE = "boolean"
+    val DATE_TYPE = "date"
+    val DOUBLE_TYPE = "double"
+    val BYTE_TYPE = "byte"
+    val INTEGER_TYPE = "integer"
+    val LONG_TYPE = "long"
+    val SHORT_TYPE = "short"
+
+    val StringType: ReaderDataTypes.Value = Value(STRING_TYPE)
+    val BinaryType: ReaderDataTypes.Value = Value(BINARY_TYPE)
+    val BooleanType: ReaderDataTypes.Value = Value(BOOLEAN_TYPE)
+    val DateType: ReaderDataTypes.Value = Value(DATE_TYPE)
+    val DoubleType: ReaderDataTypes.Value = Value(DOUBLE_TYPE)
+    val ByteType: ReaderDataTypes.Value = Value(BYTE_TYPE)
+    val IntegerType: ReaderDataTypes.Value = Value(INTEGER_TYPE)
+    val LongType: ReaderDataTypes.Value = Value(LONG_TYPE)
+    val ShortType: ReaderDataTypes.Value = Value(SHORT_TYPE)
+  }
+
+  def matchType(t: (String, String)): (String, String) = {
+    println(ReaderDataTypes.values.mkString(",").split(",").mkString)
+    if (!ReaderDataTypes.values.mkString(",").split(",").contains(t._2)) {
+      throw new IllegalArgumentException(
+        s"DataType ${t._2} is not supported.Please check ${t._1}=${t._2} in column."
+      )
+    }
+    t
   }
 }
