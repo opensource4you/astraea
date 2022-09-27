@@ -18,10 +18,12 @@ package org.astraea.etl
 
 import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Test
+
+import java.awt.geom.IllegalPathStateException
 class UtilsTest {
   @Test def requireFolderTest(): Unit = {
     assertThrows(
-      classOf[IllegalArgumentException],
+      classOf[IllegalPathStateException],
       () => Utils.requireFolder("??")
     )
   }
