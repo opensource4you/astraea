@@ -16,12 +16,9 @@
  */
 package org.astraea.common.admin;
 
-import java.util.OptionalLong;
-
 public interface Topic {
 
-  static Topic of(
-      String name, org.apache.kafka.clients.admin.Config kafkaConfig, OptionalLong maxTimestamp) {
+  static Topic of(String name, org.apache.kafka.clients.admin.Config kafkaConfig) {
 
     var config = Config.of(kafkaConfig);
     return new Topic() {
@@ -34,11 +31,6 @@ public interface Topic {
       public Config config() {
         return config;
       }
-
-      @Override
-      public long maxTimestamp() {
-        return maxTimestamp.orElse(-1L);
-      }
     };
   }
 
@@ -47,7 +39,4 @@ public interface Topic {
 
   /** @return config used by this topic */
   Config config();
-
-  /** @return max timestamp of existent record */
-  long maxTimestamp();
 }
