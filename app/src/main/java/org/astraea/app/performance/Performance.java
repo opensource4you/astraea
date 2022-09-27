@@ -440,7 +440,7 @@ public class Performance {
     @Parameter(
         names = {"--interdependent.size"},
         description =
-            "Integer: the number of records sending to the same partition (Note: this parameter effects on Astraea partitioner)",
+            "Integer: the number of records sending to the same partition (Note: this parameter only works for Astraea partitioner)",
         validateWith = PositiveIntegerField.class)
     int interdependent = 1;
   }
