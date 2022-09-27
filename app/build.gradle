@@ -39,7 +39,6 @@ dependencies {
     testImplementation "org.junit.jupiter:junit-jupiter:${versions["junit"]}"
     testImplementation "org.mockito:mockito-core:${versions["mockito"]}"
     testImplementation "org.mockito:mockito-inline:${versions["mockito"]}"
-    testImplementation "org.apache.kafka:kafka_2.12:${versions["kafka"]}"
     testImplementation "commons-io:commons-io:${versions["commons-io"]}"
     testImplementation project(':it')
 
