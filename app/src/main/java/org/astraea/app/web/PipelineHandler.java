@@ -64,8 +64,7 @@ class PipelineHandler implements Handler {
                 Collectors.toMap(
                     Function.identity(), tp -> new TopicPartition(tp.topic(), tp.partition())));
     admin
-        .consumerGroups()
-        .values()
+        .consumerGroups(admin.consumerGroupIds())
         .forEach(
             cg ->
                 cg.assignment()

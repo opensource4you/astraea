@@ -161,7 +161,7 @@ public class Builder {
     }
 
     @Override
-    public Map<String, ConsumerGroup> consumerGroups(Set<String> consumerGroupNames) {
+    public List<ConsumerGroup> consumerGroups(Set<String> consumerGroupNames) {
       return Utils.packException(
           () -> {
             var consumerGroupDescriptions =
@@ -181,31 +181,30 @@ public class Builder {
                                             .get())));
 
             return consumerGroupNames.stream()
-                .collect(
-                    Collectors.toMap(
-                        Function.identity(),
-                        groupId ->
-                            new ConsumerGroup(
-                                groupId,
-                                consumerGroupMetadata.get(groupId).entrySet().stream()
-                                    .collect(
-                                        Collectors.toUnmodifiableMap(
-                                            tp -> TopicPartition.from(tp.getKey()),
-                                            offset -> offset.getValue().offset())),
-                                consumerGroupDescriptions.get(groupId).members().stream()
-                                    .collect(
-                                        Collectors.toUnmodifiableMap(
-                                            member ->
-                                                new Member(
-                                                    groupId,
-                                                    member.consumerId(),
-                                                    member.groupInstanceId(),
-                                                    member.clientId(),
-                                                    member.host()),
-                                            member ->
-                                                member.assignment().topicPartitions().stream()
-                                                    .map(TopicPartition::from)
-                                                    .collect(Collectors.toSet()))))));
+                .map(
+                    groupId ->
+                        new ConsumerGroup(
+                            groupId,
+                            consumerGroupMetadata.get(groupId).entrySet().stream()
+                                .collect(
+                                    Collectors.toUnmodifiableMap(
+                                        tp -> TopicPartition.from(tp.getKey()),
+                                        offset -> offset.getValue().offset())),
+                            consumerGroupDescriptions.get(groupId).members().stream()
+                                .collect(
+                                    Collectors.toUnmodifiableMap(
+                                        member ->
+                                            new Member(
+                                                groupId,
+                                                member.consumerId(),
+                                                member.groupInstanceId(),
+                                                member.clientId(),
+                                                member.host()),
+                                        member ->
+                                            member.assignment().topicPartitions().stream()
+                                                .map(TopicPartition::from)
+                                                .collect(Collectors.toSet())))))
+                .collect(Collectors.toList());
           });
     }
 

@@ -27,9 +27,11 @@ import org.apache.commons.math3.distribution.BinomialDistribution;
 import org.apache.commons.math3.distribution.EnumeratedDistribution;
 import org.apache.commons.math3.distribution.IntegerDistribution;
 import org.apache.commons.math3.util.Pair;
+import org.astraea.app.balancer.executor.RebalanceAdmin;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.TopicPartition;
+import org.astraea.common.admin.TopicPartitionReplica;
 
 public class SkewedPartitionScenario implements Scenario {
 
@@ -69,14 +71,34 @@ public class SkewedPartitionScenario implements Scenario {
                     p -> TopicPartition.of(topicName, p),
                     ignore -> sampledReplicaList(brokers, replicas, distribution)));
 
-    replicaLists.forEach(
-        (tp, newReplicas) ->
-            admin.migrator().partition(tp.topic(), tp.partition()).moveTo(newReplicas));
-    Utils.sleep(Duration.ofSeconds(1));
+    replicaLists.entrySet().parallelStream()
+        .forEach(
+            entry -> {
+              final var topicPartition = entry.getKey();
+              final var newReplicas = entry.getValue();
+              admin
+                  .migrator()
+                  .partition(topicPartition.topic(), topicPartition.partition())
+                  .moveTo(newReplicas);
+            });
+    replicaLists.entrySet().parallelStream()
+        .flatMap(
+            entry ->
+                entry.getValue().stream()
+                    .map(
+                        id ->
+                            TopicPartitionReplica.of(
+                                entry.getKey().topic(), entry.getKey().partition(), id)))
+        .forEach(
+            tpr -> Utils.packException(() -> RebalanceAdmin.of(admin).waitLogSynced(tpr).get()));
 
     // elect leader
     replicaLists.keySet().forEach(admin::preferredLeaderElection);
-    Utils.sleep(Duration.ofSeconds(1));
+    replicaLists.keySet().parallelStream()
+        .forEach(
+            tp ->
+                Utils.packException(
+                    () -> RebalanceAdmin.of(admin).waitPreferredLeaderSynced(tp).get()));
 
     return new Result(
         topicName,
