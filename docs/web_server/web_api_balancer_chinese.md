@@ -152,3 +152,6 @@ JSON Response 範例
 ```json
 { "done": true }
 ```
+
+
+目前此 endpoint 僅能查詢負載平衡計劃是否完成，如想知道更細部的搬移進度，可考慮使用 [Web Service Reassignment API](web_api_reassignments_chinese.md) 查詢。
