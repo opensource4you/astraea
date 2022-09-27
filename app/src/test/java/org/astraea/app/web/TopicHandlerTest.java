@@ -255,7 +255,14 @@ public class TopicHandlerTest extends RequireBrokerCluster {
         Assertions.assertEquals(2, topicInfo.partitions.iterator().next().replicas.size());
       }
       Assertions.assertEquals(
-          "3000", admin.topics(Set.of(topicName)).get(topicName).value("segment.ms").get());
+          "3000",
+          admin.topics(Set.of(topicName)).stream()
+              .filter(t -> t.name().equals(topicName))
+              .findFirst()
+              .get()
+              .config()
+              .value("segment.ms")
+              .get());
     }
   }
 

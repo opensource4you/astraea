@@ -50,13 +50,7 @@ public interface Admin extends Closeable {
     return topicNames(true);
   }
 
-  /** @return the topic name and its configurations. */
-  default Map<String, Config> topics() {
-    return topics(topicNames());
-  }
-
-  /** @return the topic name and its configurations. */
-  Map<String, Config> topics(Set<String> topicNames);
+  List<Topic> topics(Set<String> names);
 
   /** delete topics by topic names */
   void deleteTopics(Set<String> topicNames);

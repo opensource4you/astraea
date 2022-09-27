@@ -319,8 +319,11 @@ public class ThrottleHandlerTest extends RequireBrokerCluster {
           affectedLeaders.stream()
               .allMatch(
                   log ->
-                      topicConfigs
-                          .get(log.topic())
+                      topicConfigs.stream()
+                          .filter(t -> t.name().equals(log.topic()))
+                          .findFirst()
+                          .get()
+                          .config()
                           .value("leader.replication.throttled.replicas")
                           .orElse("")
                           .contains(log.partition() + ":" + log.brokerId())));
@@ -328,8 +331,11 @@ public class ThrottleHandlerTest extends RequireBrokerCluster {
           affectedFollowers.stream()
               .allMatch(
                   log ->
-                      topicConfigs
-                          .get(log.topic())
+                      topicConfigs.stream()
+                          .filter(t -> t.name().equals(log.topic()))
+                          .findFirst()
+                          .get()
+                          .config()
                           .value("follower.replication.throttled.replicas")
                           .orElse("")
                           .contains(log.partition() + ":" + log.brokerId())));
@@ -417,14 +423,16 @@ public class ThrottleHandlerTest extends RequireBrokerCluster {
           () ->
               admin
                   .topics(Set.of(topic))
-                  .get(topic)
+                  .get(0)
+                  .config()
                   .value("leader.replication.throttled.replicas")
                   .orElse("");
       Supplier<String> followerConfig =
           () ->
               admin
                   .topics(Set.of(topic))
-                  .get(topic)
+                  .get(0)
+                  .config()
                   .value("follower.replication.throttled.replicas")
                   .orElse("");
       Function<Integer, Long> egressRate =
