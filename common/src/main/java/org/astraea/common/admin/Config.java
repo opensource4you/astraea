@@ -18,9 +18,30 @@ package org.astraea.common.admin;
 
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
+import org.apache.kafka.clients.admin.ConfigEntry;
 
 /** this interface used to represent the resource (topic or broker) configuration. */
 public interface Config {
+
+  static Config of(org.apache.kafka.clients.admin.Config config) {
+    var configs =
+        config.entries().stream()
+            .filter(e -> e.value() != null)
+            .collect(Collectors.toUnmodifiableMap(ConfigEntry::name, ConfigEntry::value));
+    return new Config() {
+      @Override
+      public Map<String, String> raw() {
+        return configs;
+      }
+
+      @Override
+      public Optional<String> value(String key) {
+        return Optional.ofNullable(configs.get(key));
+      }
+    };
+  }
+
   Map<String, String> raw();
   /**
    * @param key config key
