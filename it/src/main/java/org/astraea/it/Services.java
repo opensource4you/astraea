@@ -18,6 +18,11 @@ package org.astraea.it;
 
 import java.io.File;
 import java.net.InetSocketAddress;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
@@ -28,14 +33,92 @@ import java.util.stream.IntStream;
 import kafka.server.KafkaConfig;
 import kafka.server.KafkaConfig$;
 import kafka.server.KafkaServer;
+import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.common.network.ListenerName;
 import org.apache.kafka.common.utils.SystemTime;
+import org.apache.kafka.connect.cli.ConnectDistributed;
+import org.apache.kafka.connect.runtime.Connect;
+import org.apache.kafka.connect.runtime.ConnectorConfig;
+import org.apache.kafka.connect.runtime.WorkerConfig;
+import org.apache.kafka.connect.runtime.distributed.DistributedConfig;
 import org.apache.zookeeper.server.NIOServerCnxnFactory;
 import org.apache.zookeeper.server.ZooKeeperServer;
 
 public final class Services {
 
   private Services() {}
+
+  static WorkerCluster workerCluster(BrokerCluster bk, int[] ports) {
+    List<Connect> connects =
+        Arrays.stream(ports)
+            .mapToObj(
+                port -> {
+                  var realPort = Utils.resolvePort(port);
+                  Map<String, String> config = new HashMap<>();
+                  // reduce the number from partitions and replicas to speedup the mini cluster
+                  // for setting storage. the partition from setting topic is always 1 so we
+                  // needn't to set it to 1 here.
+                  config.put(DistributedConfig.CONFIG_TOPIC_CONFIG, "connect-config");
+                  config.put(DistributedConfig.CONFIG_STORAGE_REPLICATION_FACTOR_CONFIG, "1");
+                  // for offset storage
+                  config.put(DistributedConfig.OFFSET_STORAGE_TOPIC_CONFIG, "connect-offsets");
+                  config.put(DistributedConfig.OFFSET_STORAGE_PARTITIONS_CONFIG, "1");
+                  config.put(DistributedConfig.OFFSET_STORAGE_REPLICATION_FACTOR_CONFIG, "1");
+                  // for status storage
+                  config.put(DistributedConfig.STATUS_STORAGE_TOPIC_CONFIG, "connect-status");
+                  config.put(DistributedConfig.STATUS_STORAGE_PARTITIONS_CONFIG, "1");
+                  config.put(DistributedConfig.STATUS_STORAGE_REPLICATION_FACTOR_CONFIG, "1");
+                  // set the brokers info
+                  config.put(WorkerConfig.BOOTSTRAP_SERVERS_CONFIG, bk.bootstrapServers());
+                  config.put(ConsumerConfig.GROUP_ID_CONFIG, "connect");
+                  // set the normal converter
+                  config.put(
+                      ConnectorConfig.KEY_CONVERTER_CLASS_CONFIG,
+                      "org.apache.kafka.connect.converters.ByteArrayConverter");
+                  config.put(
+                      ConnectorConfig.VALUE_CONVERTER_CLASS_CONFIG,
+                      "org.apache.kafka.connect.converters.ByteArrayConverter");
+                  config.put(
+                      WorkerConfig.LISTENERS_CONFIG,
+                      // the worker hostname is a part of information used by restful apis.
+                      // the 0.0.0.0 make all connector say that they are executed by 0.0.0.0
+                      // and it does make sense in production. With a view to testing the
+                      // related codes in other modules, we have to define the "really" hostname
+                      // in starting worker cluster.
+                      "http://" + Utils.hostname() + ":" + realPort);
+                  config.put(WorkerConfig.OFFSET_COMMIT_INTERVAL_MS_CONFIG, String.valueOf(500));
+                  // enable us to override the connector configs
+                  config.put(WorkerConfig.CONNECTOR_CLIENT_POLICY_CLASS_CONFIG, "All");
+                  return new ConnectDistributed().startConnect(config);
+                })
+            .collect(Collectors.toUnmodifiableList());
+
+    return new WorkerCluster() {
+      @Override
+      public List<URL> workerUrls() {
+        return connects.stream()
+            .map(Connect::restUrl)
+            .map(
+                uri -> {
+                  try {
+                    return uri.toURL();
+                  } catch (MalformedURLException e) {
+                    throw new RuntimeException(e);
+                  }
+                })
+            .collect(Collectors.toList());
+      }
+
+      @Override
+      public void close() {
+        connects.forEach(
+            connect -> {
+              connect.stop();
+              connect.awaitStop();
+            });
+      }
+    };
+  }
 
   static BrokerCluster brokerCluster(ZookeeperCluster zk, int numberOfBrokers) {
     var tempFolders =
