@@ -141,7 +141,8 @@ public interface TrackerThread extends AbstractThread {
       for (var i = 0; i < reports.size(); ++i) {
         var report = reports.get(i);
         var ms = metrics.stream().filter(m -> m.clientId().equals(report.clientId())).findFirst();
-        var stickyNumber = Performance.RecordListener.stickyNumbers.get(report.clientId());
+        var clientId = report.clientId() == null ? "temp" : report.clientId();
+        var stickyNumber = Performance.RecordListener.stickyNumbers.get(clientId);
         if (ms.isPresent()) {
           System.out.printf(
               "  consumer[%d] has %d partitions and %d sticky partitions%n",

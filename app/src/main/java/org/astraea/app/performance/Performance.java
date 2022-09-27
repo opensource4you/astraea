@@ -454,8 +454,6 @@ public class Performance {
       nowPartitions = partitions;
       diffPartitions.retainAll(prevPartitions);
       stickyNumbers.put(clientId, diffPartitions.size());
-      System.out.println(clientId + " now assignment = " + nowPartitions);
-      System.out.println(clientId + " previous assignment = " + prevPartitions);
     }
 
     @Override
