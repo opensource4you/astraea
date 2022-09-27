@@ -166,19 +166,37 @@ class ClusterLogAllocationTest extends RequireBrokerCluster {
         "no preferred leader");
   }
 
-  @Test
-  @DisplayName("Migrate some replicas without directory specified will raise exception")
-  void testMigrateReplicaNoDir() {
+  @ParameterizedTest
+  @DisplayName("Migrate some replicas without directory specified")
+  @ValueSource(shorts = {1, 2, 3, 4, 5, 30})
+  void testMigrateReplicaNoDir(short replicas) {
     // arrange
     final var randomTopicPartitions = generateRandomTopicPartition();
-    final var randomReplicas = generateRandomReplicaList(randomTopicPartitions, (short) 3);
+    final var randomReplicas = generateRandomReplicaList(randomTopicPartitions, replicas);
     final var allocation = ClusterLogAllocation.of(randomReplicas);
     final var target = randomReplicas.stream().findAny().orElseThrow();
 
-    // act, assert
-    Assertions.assertThrows(
-        NullPointerException.class,
-        () -> allocation.migrateReplica(target.topicPartitionReplica(), 9999, null));
+    // act
+    final var cla = allocation.migrateReplica(target.topicPartitionReplica(), 9999);
+
+    // assert
+    Assertions.assertEquals(
+        replicas, cla.logPlacements(target.topicPartition()).size(), "No replica factor shrinkage");
+    Assertions.assertTrue(
+        cla.logPlacements(target.topicPartition()).stream()
+            .anyMatch(replica -> replica.nodeInfo().id() == 9999),
+        "The replica is here");
+    Assertions.assertTrue(
+        cla.logPlacements(target.topicPartition()).stream()
+            .noneMatch(replica -> replica.nodeInfo().id() == target.nodeInfo().id()),
+        "The original replica is gone");
+    Assertions.assertNull(
+        cla.logPlacements(target.topicPartition()).stream()
+            .filter(replica -> replica.nodeInfo().id() == 9999)
+            .findFirst()
+            .orElseThrow()
+            .dataFolder(),
+        "The dir should be null");
   }
 
   @ParameterizedTest

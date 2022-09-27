@@ -55,12 +55,24 @@ public interface ClusterLogAllocation {
   }
 
   /**
+   * let specific broker leave the replica set and let another broker join the replica set. Which
+   * data directory the migrated replica will be is up to the Kafka broker implementation to decide.
+   *
+   * @param replica the replica to perform replica migration
+   * @param toBroker the id of the broker about to replace the removed broker
+   */
+  default ClusterLogAllocation migrateReplica(TopicPartitionReplica replica, int toBroker) {
+    return migrateReplica(replica, toBroker, null);
+  }
+
+  /**
    * let specific broker leave the replica set and let another broker join the replica set.
    *
    * @param replica the replica to perform replica migration
    * @param toBroker the id of the broker about to replace the removed broker
    * @param toDir the absolute path of the data directory this migrated replica is supposed to be on
-   *     the destination broker. This value must be supplied and not null.
+   *     the destination broker, if {@code null} is specified then the data directory choice is left
+   *     up to the Kafka broker implementation.
    */
   ClusterLogAllocation migrateReplica(TopicPartitionReplica replica, int toBroker, String toDir);
 
@@ -202,11 +214,6 @@ public interface ClusterLogAllocation {
     @Override
     public ClusterLogAllocation migrateReplica(
         TopicPartitionReplica replica, int toBroker, String toDir) {
-      // we don't offer a way to take advantage fo kafka implementation detail to decide which data
-      // directory the replica should be. This kind of usage might make the executor complicate, and
-      // it is probably rarely used. Also, not offering much value to the problem.
-      Objects.requireNonNull(toDir, "The destination data directory must be specified explicitly");
-
       var topicPartition = TopicPartition.of(replica.topic(), replica.partition());
       var theReplica =
           logPlacements(topicPartition).stream()
