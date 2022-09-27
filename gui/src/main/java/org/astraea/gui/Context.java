@@ -27,11 +27,14 @@ import java.util.stream.Collectors;
 import javafx.application.Platform;
 import javafx.beans.property.ReadOnlyObjectWrapper;
 import javafx.collections.FXCollections;
+import javafx.geometry.Insets;
+import javafx.scene.control.Label;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
 import javafx.scene.control.TextField;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.Pane;
+import javafx.scene.layout.VBox;
 import org.astraea.common.admin.Admin;
 
 public class Context {
@@ -45,10 +48,10 @@ public class Context {
     return Optional.ofNullable(atomicReference.get());
   }
 
-  <T> Pane tableView(BiFunction<Admin, String, Result<T>> resultGenerator) {
+  <T> Pane tableView(String hint, BiFunction<Admin, String, Result<T>> resultGenerator) {
     var view = new TableView<>(FXCollections.<T>observableArrayList());
     view.setColumnResizePolicy(TableView.UNCONSTRAINED_RESIZE_POLICY);
-    var search = new TextField("enter to search");
+    var search = new TextField("");
     search
         .textProperty()
         .addListener(
@@ -70,8 +73,12 @@ public class Context {
                                         });
                                   }));
             }));
+    var ns = List.of(new Label(hint), search);
+    var topPane = new VBox(ns.size());
+    topPane.setPadding(new Insets(15));
+    topPane.getChildren().setAll(ns);
     var pane = new BorderPane();
-    pane.setTop(search);
+    pane.setTop(topPane);
     pane.setCenter(view);
     return pane;
   }

@@ -23,6 +23,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import javafx.geometry.Insets;
 import javafx.scene.control.Button;
+import javafx.scene.control.Label;
 import javafx.scene.control.Tab;
 import javafx.scene.control.TextField;
 import javafx.scene.layout.VBox;
@@ -32,12 +33,10 @@ public class ExcludeNodeTab {
 
   public static Tab of(Context context) {
     var tab = new Tab("exclude node");
-    var pane = new VBox(4);
-    pane.setPadding(new Insets(5));
 
     var selectedTopics = new AtomicReference<Set<String>>();
     var console = new Console("");
-    var search = new TextField("enter to search");
+    var search = new TextField("");
     search
         .textProperty()
         .addListener(
@@ -58,13 +57,26 @@ public class ExcludeNodeTab {
                                   (names, e) -> {
                                     if (names != null) {
                                       selectedTopics.set(names);
-                                      console.text(String.join(",", names));
+                                      console.text(
+                                          names.size()
+                                              + " topics are selected. "
+                                              + String.join(", ", names));
                                     }
                                   }));
             }));
     var excludedBrokerIdBox = new IntegerBox((short) 1);
     var excludeButton = new Button("exclude");
-    pane.getChildren().setAll(search, excludedBrokerIdBox, console, excludeButton);
+    var nodes =
+        List.of(
+            new Label("search for topics:"),
+            search,
+            new Label("select a broker:"),
+            excludedBrokerIdBox,
+            console,
+            excludeButton);
+    var pane = new VBox(nodes.size());
+    pane.setPadding(new Insets(15));
+    pane.getChildren().setAll(nodes);
     excludeButton.setOnAction(
         ignored -> {
           var topics = selectedTopics.get();

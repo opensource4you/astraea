@@ -16,6 +16,7 @@
  */
 package org.astraea.gui;
 
+import java.util.List;
 import javafx.geometry.Insets;
 import javafx.scene.control.Label;
 import javafx.scene.control.Tab;
@@ -26,14 +27,16 @@ public class AboutTab {
 
   public static Tab of(Context context) {
     var tab = new Tab("about");
-    var pane = new VBox();
-    pane.setPadding(new Insets(10, 30, 30, 30));
-    pane.setSpacing(20);
-    pane.getChildren().add(new Label("Version: " + VersionUtils.VERSION));
-    pane.getChildren().add(new Label("Revision: " + VersionUtils.REVISION));
-    pane.getChildren().add(new Label("Builder: " + VersionUtils.BUILDER));
-    pane.getChildren().add(new Label("Date: " + VersionUtils.DATE));
-    pane.getChildren().add(new Label("Web: https://github.com/skiptests/astraea"));
+    var ns =
+        List.of(
+            new Label("Version: " + VersionUtils.VERSION),
+            new Label("Revision: " + VersionUtils.REVISION),
+            new Label("Builder: " + VersionUtils.BUILDER),
+            new Label("Date: " + VersionUtils.DATE),
+            new Label("Web: https://github.com/skiptests/astraea"));
+    var pane = new VBox(ns.size());
+    pane.setPadding(new Insets(15));
+    pane.getChildren().setAll(ns);
     tab.setContent(pane);
     return tab;
   }

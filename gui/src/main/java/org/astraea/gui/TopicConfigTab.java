@@ -27,14 +27,10 @@ public class TopicConfigTab {
   public static Tab of(Context context) {
     var pane =
         context.tableView(
+            "search for configs:",
             (admin, word) -> {
               var beans =
-                  admin
-                      .topics(
-                          admin.topicNames().stream()
-                              .filter(name -> word.isEmpty() || name.contains(word))
-                              .collect(Collectors.toSet()))
-                      .stream()
+                  admin.topics(admin.topicNames()).stream()
                       .map(
                           topic ->
                               new Bean(

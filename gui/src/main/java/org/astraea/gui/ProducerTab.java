@@ -44,6 +44,7 @@ public class ProducerTab {
   public static Tab of(Context context) {
     var pane =
         context.tableView(
+            "search for topics:",
             (admin, word) ->
                 Context.result(
                     COLUMN_AND_BEAN,
@@ -67,7 +68,7 @@ public class ProducerTab {
                                     state.lastSequence(),
                                     state.lastTimestamp()))
                         .collect(Collectors.toList())));
-    var tab = new Tab("producers");
+    var tab = new Tab("producer");
     tab.setContent(pane);
     return tab;
   }

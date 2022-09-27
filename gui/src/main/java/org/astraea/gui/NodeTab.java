@@ -45,6 +45,7 @@ public class NodeTab {
   public static Tab of(Context context) {
     var pane =
         context.tableView(
+            "search for nodes:",
             (admin, word) ->
                 Context.result(
                     COLUMN_AND_BEAN,

@@ -16,9 +16,11 @@
  */
 package org.astraea.gui;
 
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import javafx.geometry.Insets;
 import javafx.scene.control.Button;
+import javafx.scene.control.Label;
 import javafx.scene.control.Tab;
 import javafx.scene.control.TextField;
 import javafx.scene.layout.VBox;
@@ -29,12 +31,15 @@ public class SettingTab {
 
   public static Tab of(Context context) {
     var tab = new Tab("bootstrap servers");
-    var pane = new VBox(3);
-    pane.setPadding(new Insets(5));
+
     var bootstrapField = new TextField("");
     var console = new Console("");
     var checkButton = new Button("check");
-    pane.getChildren().setAll(bootstrapField, console, checkButton);
+    var ns =
+        List.of(new Label("enter the bootstrap servers:"), bootstrapField, console, checkButton);
+    var pane = new VBox(ns.size());
+    pane.setPadding(new Insets(15));
+    pane.getChildren().setAll(ns);
     tab.setContent(pane);
     checkButton.setOnAction(
         ignored -> {

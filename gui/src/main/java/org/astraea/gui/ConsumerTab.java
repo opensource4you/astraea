@@ -47,6 +47,7 @@ public class ConsumerTab {
   public static Tab of(Context context) {
     var pane =
         context.tableView(
+            "search for consumer groups:",
             (admin, word) ->
                 Context.result(
                     COLUMN_AND_BEAN,

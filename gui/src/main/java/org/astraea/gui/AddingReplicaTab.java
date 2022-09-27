@@ -44,6 +44,7 @@ public class AddingReplicaTab {
   public static Tab of(Context context) {
     var pane =
         context.tableView(
+            "search for topics:",
             (admin, word) ->
                 Context.result(
                     COLUMN_AND_BEAN,
@@ -87,7 +88,7 @@ public class AddingReplicaTab {
       this.leaderSize = leaderSize;
       this.progress =
           String.format(
-              "%.2f%%", leaderSize == 0 ? 0D : ((double) size / (double) leaderSize) * 100);
+              "%.2f%%", leaderSize == 0 ? 100D : ((double) size / (double) leaderSize) * 100);
     }
   }
 }

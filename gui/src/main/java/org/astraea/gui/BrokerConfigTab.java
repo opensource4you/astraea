@@ -27,6 +27,7 @@ public class BrokerConfigTab {
   public static Tab of(Context context) {
     var pane =
         context.tableView(
+            "search for config:",
             (admin, word) -> {
               var beans =
                   admin.nodes().stream()
