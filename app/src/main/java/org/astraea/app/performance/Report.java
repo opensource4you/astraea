@@ -16,8 +16,6 @@
  */
 package org.astraea.app.performance;
 
-import java.util.Set;
-import org.astraea.common.admin.TopicPartition;
 import java.util.List;
 import java.util.stream.Collectors;
 import org.astraea.common.metrics.MBeanClient;
@@ -41,7 +39,6 @@ public interface Report {
         .map(
             m ->
                 new Report() {
-                  private Set<TopicPartition> diffAssignments;
                   @Override
                   public long records() {
                     return (long) m.recordsConsumedTotal();
@@ -109,8 +106,6 @@ public interface Report {
                   public String clientId() {
                     return m.clientId();
                   }
-
-
                 })
         .collect(Collectors.toList());
   }
@@ -129,6 +124,5 @@ public interface Report {
   double avgThroughput();
 
   String clientId();
-
 
 }

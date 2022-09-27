@@ -27,6 +27,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Supplier;
 import java.util.regex.Pattern;
@@ -50,6 +52,7 @@ import org.astraea.common.argument.PositiveShortField;
 import org.astraea.common.argument.StringListField;
 import org.astraea.common.argument.TopicPartitionField;
 import org.astraea.common.consumer.Consumer;
+import org.astraea.common.consumer.ConsumerRebalanceListener;
 import org.astraea.common.consumer.Isolation;
 import org.astraea.common.producer.Acks;
 import org.astraea.common.producer.Producer;
@@ -74,6 +77,7 @@ public class Performance {
 
   public static List<String> execute(final Argument param)
       throws InterruptedException, IOException {
+    Supplier<RecordListener> recordListener = () -> new RecordListener();
     // always try to init topic even though it may be existent already.
     System.out.println("checking topics: " + String.join(",", param.topics));
     param.checkTopics();
@@ -101,7 +105,8 @@ public class Performance {
                         .isolation(param.isolation())
                         .seek(latestOffsets)
                         .consumerRebalanceListener(listener)
-                        .build())
+                        .build(),
+                recordListener)
             : ConsumerThread.create(
                 param.consumers,
                 listener ->
@@ -112,7 +117,8 @@ public class Performance {
                         .isolation(param.isolation())
                         .seek(latestOffsets)
                         .consumerRebalanceListener(listener)
-                        .build());
+                        .build(),
+                recordListener);
 
     System.out.println("creating tracker");
     var tracker =
@@ -425,5 +431,35 @@ public class Performance {
             "Perf will close all read processes if it can't get more data in this duration",
         converter = DurationField.class)
     Duration readIdle = Duration.ofSeconds(2);
+  }
+
+  static class RecordListener implements ConsumerRebalanceListener {
+    public static ConcurrentMap<String, Integer> stickyNumbers = new ConcurrentHashMap<>();
+    private Set<TopicPartition> prevPartitions = new HashSet<>();
+    private Set<TopicPartition> nowPartitions = new HashSet<>();
+    private String clientId = "temp";
+
+    public void clientId(String clientId) {
+      this.clientId = clientId;
+    }
+
+    public void flushPrevPartitions() {
+      prevPartitions.clear();
+    }
+
+    @Override
+    public void onPartitionAssigned(Set<TopicPartition> partitions) {
+      var diffPartitions = new HashSet<>(partitions);
+      nowPartitions = partitions;
+      diffPartitions.retainAll(prevPartitions);
+      stickyNumbers.put(clientId, diffPartitions.size());
+      System.out.println(clientId + " now assignment = " + nowPartitions);
+      System.out.println(clientId + " previous assignment = " + prevPartitions);
+    }
+
+    @Override
+    public void onPartitionsRevoked(Set<TopicPartition> partitions) {
+      prevPartitions = partitions;
+    }
   }
 }

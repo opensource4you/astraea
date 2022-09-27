@@ -84,5 +84,4 @@ public class ConsumerMetrics {
         .map(b -> (HasConsumerMetrics) () -> b)
         .collect(Collectors.toUnmodifiableList());
   }
-
 }

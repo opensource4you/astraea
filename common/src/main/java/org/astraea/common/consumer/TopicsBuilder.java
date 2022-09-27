@@ -194,7 +194,6 @@ public class TopicsBuilder<Key, Value> extends Builder<Key, Value> {
     private final ConsumerRebalanceListener listener;
     private final Pattern patternTopics;
 
-
     public SubscribedConsumerImpl(
         org.apache.kafka.clients.consumer.Consumer<Key, Value> kafkaConsumer,
         Set<String> setTopics,
@@ -238,6 +237,5 @@ public class TopicsBuilder<Key, Value> extends Builder<Key, Value> {
           .map(TopicPartition::from)
           .collect(Collectors.toUnmodifiableSet());
     }
-
   }
 }
