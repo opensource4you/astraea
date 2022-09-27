@@ -16,7 +16,7 @@
  */
 package org.astraea.gui;
 
-import java.util.ArrayList;
+import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
@@ -26,11 +26,12 @@ import javafx.scene.control.Button;
 import javafx.scene.control.Tab;
 import javafx.scene.control.TextField;
 import javafx.scene.layout.VBox;
+import org.astraea.common.admin.ReplicaInfo;
 
-public class ShuffleReplicaTab {
+public class ExcludeNodeTab {
 
   public static Tab of(Context context) {
-    var tab = new Tab("shuffle replica");
+    var tab = new Tab("exclude node");
     var pane = new VBox(4);
     pane.setPadding(new Insets(5));
 
@@ -61,31 +62,54 @@ public class ShuffleReplicaTab {
                                     }
                                   }));
             }));
-    var replicasBox = new ShortBox((short) 1);
-    var adjustButton = new Button("shuffle");
-    pane.getChildren().setAll(search, replicasBox, console, adjustButton);
-    adjustButton.setOnAction(
+    var excludedBrokerIdBox = new IntegerBox((short) 1);
+    var excludeButton = new Button("exclude");
+    pane.getChildren().setAll(search, excludedBrokerIdBox, console, excludeButton);
+    excludeButton.setOnAction(
         ignored -> {
           var topics = selectedTopics.get();
           if (topics == null || topics.isEmpty()) return;
-          var numberOfReplicas = replicasBox.getValue();
+          var numberOfReplicas = excludedBrokerIdBox.getValue();
           context
               .optionalAdmin()
               .ifPresent(
                   admin ->
                       CompletableFuture.runAsync(
                               () -> {
-                                var ids = new ArrayList<>(admin.brokerIds());
-                                if (ids.size() < numberOfReplicas)
-                                  throw new IllegalArgumentException(
-                                      "there are only " + ids.size() + " nodes");
-                                topics.forEach(
-                                    t -> {
-                                      admin
-                                          .migrator()
-                                          .topic(t)
-                                          .moveTo(Utils.random(ids, numberOfReplicas));
-                                      console.text(t + " is shuffling");
+                                var allBrokerIds = admin.brokerIds();
+                                int excludedBrokerId = excludedBrokerIdBox.getValue();
+                                var replicas =
+                                    admin.newReplicas(topics).stream()
+                                        .collect(
+                                            Collectors.groupingBy(ReplicaInfo::topicPartition));
+                                replicas.forEach(
+                                    (tp, rs) -> {
+                                      var remainingBrokerIds =
+                                          rs.stream()
+                                              .map(r -> r.nodeInfo().id())
+                                              .filter(id -> id != excludedBrokerId)
+                                              .collect(Collectors.toList());
+                                      if (remainingBrokerIds.size() != rs.size()) {
+                                        // if the partition has only one excluded replica,
+                                        // we have to move it to another node.
+                                        var moveTo =
+                                            remainingBrokerIds.isEmpty()
+                                                ? allBrokerIds.stream()
+                                                    .filter(id -> id != excludedBrokerId)
+                                                    .findAny()
+                                                    .map(List::of)
+                                                    .orElseThrow(
+                                                        () ->
+                                                            new IllegalArgumentException(
+                                                                "there is no enough brokers to exclude "
+                                                                    + excludedBrokerId))
+                                                : remainingBrokerIds;
+                                        admin
+                                            .migrator()
+                                            .partition(tp.topic(), tp.partition())
+                                            .moveTo(moveTo);
+                                        console.text("remove " + tp + " from " + excludedBrokerId);
+                                      }
                                     });
                                 console.text("done!!!");
                               })
@@ -99,9 +123,8 @@ public class ShuffleReplicaTab {
               .optionalAdmin()
               .ifPresent(
                   admin ->
-                      CompletableFuture.supplyAsync(() -> admin.brokerIds().size())
-                          .whenComplete(
-                              (size, e) -> replicasBox.range((short) 0, size.shortValue())));
+                      CompletableFuture.supplyAsync(admin::brokerIds)
+                          .whenComplete((ids, e) -> excludedBrokerIdBox.values(ids)));
         });
     return tab;
   }

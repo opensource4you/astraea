@@ -16,24 +16,24 @@
  */
 package org.astraea.gui;
 
-import java.util.List;
+import java.util.Collection;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.scene.control.ComboBox;
 
-public class ShortBox extends ComboBox<Short> {
+public class IntegerBox extends ComboBox<Integer> {
 
-  public ShortBox(short initialValue) {
+  public IntegerBox(int initialValue) {
     super(FXCollections.observableArrayList(initialValue));
   }
 
   void range(int from, int to) {
-    values(IntStream.range(from, to).mapToObj(i -> (short) (i + 1)).collect(Collectors.toList()));
+    values(IntStream.range(from, to).mapToObj(i -> i + 1).collect(Collectors.toList()));
   }
 
-  void values(List<Short> values) {
+  void values(Collection<Integer> values) {
     if (Platform.isFxApplicationThread()) getItems().setAll(values);
     else Platform.runLater(() -> getItems().setAll(values));
   }

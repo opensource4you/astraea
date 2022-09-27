@@ -51,7 +51,7 @@ public class Main {
               ProducerTab.of(context),
               AddingReplicaTab.of(context),
               CreateTopicTab.of(context),
-              ShuffleReplicaTab.of(context),
+              ExcludeNodeTab.of(context),
               AboutTab.of(context));
       rootPane.setSide(Side.TOP);
       rootPane.setTabClosingPolicy(TabPane.TabClosingPolicy.UNAVAILABLE);
