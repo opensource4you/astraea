@@ -39,6 +39,7 @@ import org.astraea.common.DataUnit;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.Compression;
+import org.astraea.common.admin.Partition;
 import org.astraea.common.admin.ReplicaInfo;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.argument.DurationField;
@@ -209,8 +210,8 @@ public class Performance {
         // the slow zk causes unknown error, so we have to wait it.
         return Utils.waitForNonNull(
             () ->
-                admin.offsets(new HashSet<>(topics)).entrySet().stream()
-                    .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().latest())),
+                admin.partitions(new HashSet<>(topics)).stream()
+                    .collect(Collectors.toMap(Partition::topicPartition, Partition::latestOffset)),
             Duration.ofSeconds(30));
       }
     }
