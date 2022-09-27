@@ -75,13 +75,14 @@ public class AdminTest extends RequireBrokerCluster {
       Utils.waitFor(
           () ->
               admin
-                  .topics()
-                  .get(topicName)
+                  .topics(Set.of(topicName))
+                  .get(0)
+                  .config()
                   .value(TopicConfig.COMPRESSION_TYPE_CONFIG)
                   .filter(value -> value.equals("lz4"))
                   .isPresent());
 
-      var config = admin.topics().get(topicName);
+      var config = admin.topics(Set.of(topicName)).get(0).config();
       config.raw().keySet().forEach(key -> Assertions.assertTrue(config.value(key).isPresent()));
       Assertions.assertTrue(config.raw().containsValue("lz4"));
     }
@@ -102,7 +103,7 @@ public class AdminTest extends RequireBrokerCluster {
                   .create();
 
       createTopic.run();
-      Utils.waitFor(() -> admin.topics().containsKey(topicName));
+      Utils.waitFor(() -> admin.topicNames().contains(topicName));
       IntStream.range(0, 10).forEach(i -> createTopic.run());
 
       // changing number of partitions can producer error
@@ -1519,7 +1520,8 @@ public class AdminTest extends RequireBrokerCluster {
     try (var admin = Admin.of(bootstrapServers())) {
       return admin
           .topics(Set.of(topicName))
-          .get(topicName)
+          .get(0)
+          .config()
           .value(configKey)
           .filter(v -> !v.isEmpty())
           .map(
@@ -1712,7 +1714,8 @@ public class AdminTest extends RequireBrokerCluster {
           "0:0",
           admin
               .topics(Set.of(topic))
-              .get(topic)
+              .get(0)
+              .config()
               .value("leader.replication.throttled.replicas")
               .orElse(""));
 
@@ -1722,7 +1725,8 @@ public class AdminTest extends RequireBrokerCluster {
           "",
           admin
               .topics(Set.of(topic))
-              .get(topic)
+              .get(0)
+              .config()
               .value("leader.replication.throttled.replicas")
               .orElse(""));
     }
@@ -1741,7 +1745,8 @@ public class AdminTest extends RequireBrokerCluster {
           "0:0",
           admin
               .topics(Set.of(topic))
-              .get(topic)
+              .get(0)
+              .config()
               .value("follower.replication.throttled.replicas")
               .orElse(""));
 
@@ -1751,7 +1756,8 @@ public class AdminTest extends RequireBrokerCluster {
           "",
           admin
               .topics(Set.of(topic))
-              .get(topic)
+              .get(0)
+              .config()
               .value("follower.replication.throttled.replicas")
               .orElse(""));
     }

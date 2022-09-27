@@ -226,19 +226,20 @@ public class Builder {
     }
 
     @Override
-    public Map<String, Config> topics(Set<String> topicNames) {
+    public List<Topic> topics(Set<String> names) {
       return Utils.packException(
               () ->
                   admin
                       .describeConfigs(
-                          topicNames.stream()
+                          names.stream()
                               .map(topic -> new ConfigResource(ConfigResource.Type.TOPIC, topic))
                               .collect(Collectors.toList()))
                       .all()
                       .get())
           .entrySet()
           .stream()
-          .collect(Collectors.toMap(e -> e.getKey().name(), e -> Config.of(e.getValue())));
+          .map(entry -> Topic.of(entry.getKey().name(), entry.getValue()))
+          .collect(Collectors.toUnmodifiableList());
     }
 
     @Override
@@ -468,7 +469,9 @@ public class Builder {
     @Override
     public TopicCreator creator() {
       return new CreatorImpl(
-          admin, topic -> this.replicas(Set.of(topic)), topic -> topics().get(topic));
+          admin,
+          topic -> this.replicas(Set.of(topic)),
+          topic -> topics(Set.of(topic)).get(0).config());
     }
 
     @Override

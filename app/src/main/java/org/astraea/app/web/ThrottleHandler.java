@@ -61,26 +61,23 @@ public class ThrottleHandler implements Handler {
                   return new BrokerThrottle(node.id(), ingress, egress);
                 })
             .collect(Collectors.toUnmodifiableSet());
-    final var topicConfigs = admin.topics();
+    final var topicConfigs = admin.topics(admin.topicNames());
     final var leaderTargets =
-        topicConfigs.entrySet().stream()
+        topicConfigs.stream()
             .map(
-                entry ->
+                topic ->
                     toReplicaSet(
-                        entry.getKey(),
-                        entry.getValue().value("leader.replication.throttled.replicas").orElse("")))
+                        topic.name(),
+                        topic.config().value("leader.replication.throttled.replicas").orElse("")))
             .flatMap(Collection::stream)
             .collect(Collectors.toUnmodifiableSet());
     final var followerTargets =
-        topicConfigs.entrySet().stream()
+        topicConfigs.stream()
             .map(
-                entry ->
+                topic ->
                     toReplicaSet(
-                        entry.getKey(),
-                        entry
-                            .getValue()
-                            .value("follower.replication.throttled.replicas")
-                            .orElse("")))
+                        topic.name(),
+                        topic.config().value("follower.replication.throttled.replicas").orElse("")))
             .flatMap(Collection::stream)
             .collect(Collectors.toUnmodifiableSet());
 
