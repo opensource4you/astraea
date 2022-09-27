@@ -29,10 +29,12 @@ import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 import org.astraea.common.DataRate;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
+import org.astraea.common.admin.Node;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.admin.TopicPartitionReplica;
 import org.astraea.it.RequireBrokerCluster;
@@ -331,11 +333,13 @@ public class ThrottleHandlerTest extends RequireBrokerCluster {
                           .value("follower.replication.throttled.replicas")
                           .orElse("")
                           .contains(log.partition() + ":" + log.brokerId())));
-      final var brokerConfigs = admin.brokers();
+      final var brokerConfigs =
+          admin.nodes().stream().collect(Collectors.toMap(Node::id, Function.identity()));
       Assertions.assertEquals(
           1000L,
           brokerConfigs
               .get(0)
+              .config()
               .value("leader.replication.throttled.rate")
               .map(Long::parseLong)
               .orElse(0L));
@@ -343,6 +347,7 @@ public class ThrottleHandlerTest extends RequireBrokerCluster {
           1000L,
           brokerConfigs
               .get(0)
+              .config()
               .value("follower.replication.throttled.rate")
               .map(Long::parseLong)
               .orElse(0L));
@@ -350,6 +355,7 @@ public class ThrottleHandlerTest extends RequireBrokerCluster {
           1000L,
           brokerConfigs
               .get(1)
+              .config()
               .value("follower.replication.throttled.rate")
               .map(Long::parseLong)
               .orElse(0L));
@@ -423,17 +429,21 @@ public class ThrottleHandlerTest extends RequireBrokerCluster {
                   .orElse("");
       Function<Integer, Long> egressRate =
           (id) ->
-              admin
-                  .brokers()
-                  .get(id)
+              admin.nodes().stream()
+                  .filter(n -> n.id() == id)
+                  .findFirst()
+                  .get()
+                  .config()
                   .value("leader.replication.throttled.rate")
                   .map(Long::parseLong)
                   .orElse(-1L);
       Function<Integer, Long> ingressRate =
           (id) ->
-              admin
-                  .brokers()
-                  .get(id)
+              admin.nodes().stream()
+                  .filter(n -> n.id() == id)
+                  .findFirst()
+                  .get()
+                  .config()
                   .value("follower.replication.throttled.rate")
                   .map(Long::parseLong)
                   .orElse(-1L);

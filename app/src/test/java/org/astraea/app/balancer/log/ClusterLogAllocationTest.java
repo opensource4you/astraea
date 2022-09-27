@@ -16,363 +16,538 @@
  */
 package org.astraea.app.balancer.log;
 
-import java.util.Collection;
+import java.time.Duration;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
-import org.astraea.app.balancer.FakeClusterInfo;
+import java.util.stream.IntStream;
+import org.astraea.common.Utils;
+import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.TopicPartition;
-import org.astraea.common.admin.TopicPartitionReplica;
+import org.astraea.it.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
-class ClusterLogAllocationTest {
+class ClusterLogAllocationTest extends RequireBrokerCluster {
 
-  @Test
-  void creation() {
-    // partial topic/partition
-    var badAllocation1 =
-        List.of(
-            Replica.of(
-                "topic",
-                999,
-                NodeInfo.of(1001, null, -1),
-                0,
-                0,
-                true,
-                false,
-                false,
-                false,
-                false,
-                "xx"));
-    Assertions.assertThrows(
-        IllegalArgumentException.class, () -> ClusterLogAllocation.of(badAllocation1));
-
-    // duplicate replica
-    var badAllocation2 =
-        List.of(
-            Replica.of(
-                "topic",
-                999,
-                NodeInfo.of(1001, "", -1),
-                0,
-                0,
-                true,
-                false,
-                false,
-                false,
-                false,
-                "xx"),
-            Replica.of(
-                "topic",
-                999,
-                NodeInfo.of(1001, "", -1),
-                0,
-                0,
-                true,
-                false,
-                false,
-                false,
-                false,
-                "xx"),
-            Replica.of(
-                "topic",
-                999,
-                NodeInfo.of(1001, "", -1),
-                0,
-                0,
-                true,
-                false,
-                false,
-                false,
-                false,
-                "xx"));
-    Assertions.assertThrows(
-        IllegalArgumentException.class, () -> ClusterLogAllocation.of(badAllocation2));
+  private Set<TopicPartition> generateRandomTopicPartition() {
+    return IntStream.range(0, 30)
+        .mapToObj(i -> "topic-" + i)
+        .map(topic -> TopicPartition.of(topic, ThreadLocalRandom.current().nextInt(0, 100)))
+        .limit(30)
+        .collect(Collectors.toUnmodifiableSet());
   }
 
-  @Test
-  void migrateReplica() {
-    final var fakeCluster = FakeClusterInfo.of(3, 1, 1, 1, (i) -> Set.of("topic"));
-    var clusterLogAllocation = ClusterLogAllocation.of(fakeCluster);
-    final var sourceTopicPartition = fakeCluster.replicas("topic").get(0);
-    clusterLogAllocation =
-        clusterLogAllocation.migrateReplica(sourceTopicPartition.topicPartitionReplica(), 1);
+  private Set<Replica> generateFakeReplica(TopicPartition tp, int replicas) {
+    return IntStream.range(0, replicas)
+        .mapToObj(
+            rIndex ->
+                Replica.of(
+                    tp.topic(),
+                    tp.partition(),
+                    NodeInfo.of(rIndex, "hostname" + rIndex, 9092),
+                    0,
+                    ThreadLocalRandom.current().nextInt(0, 30000000),
+                    rIndex == 0,
+                    true,
+                    false,
+                    false,
+                    rIndex == 0,
+                    "/tmp/dir0"))
+        .collect(Collectors.toUnmodifiableSet());
+  }
 
-    Assertions.assertEquals(
-        1,
-        clusterLogAllocation.logPlacements(sourceTopicPartition.topicPartition()).stream()
-            .filter(Replica::isPreferredLeader)
-            .findFirst()
-            .orElseThrow()
-            .nodeInfo()
-            .id());
+  private List<Replica> generateRandomReplicaList(
+      Set<TopicPartition> topicPartitions, short replicas) {
+    return topicPartitions.stream()
+        .flatMap(tp -> generateFakeReplica(tp, replicas).stream())
+        .collect(Collectors.toUnmodifiableList());
+  }
+
+  private Replica update(Replica baseReplica, Map<String, Object> override) {
+    return Replica.of(
+        (String) override.getOrDefault("topic", baseReplica.topic()),
+        (int) override.getOrDefault("partition", baseReplica.partition()),
+        NodeInfo.of((int) override.getOrDefault("broker", baseReplica.nodeInfo().id()), "", -1),
+        (long) override.getOrDefault("size", baseReplica.size()),
+        (long) override.getOrDefault("lag", baseReplica.lag()),
+        (boolean) override.getOrDefault("leader", baseReplica.isLeader()),
+        (boolean) override.getOrDefault("synced", baseReplica.inSync()),
+        (boolean) override.getOrDefault("future", baseReplica.isFuture()),
+        (boolean) override.getOrDefault("offline", baseReplica.isOffline()),
+        (boolean) override.getOrDefault("preferred", baseReplica.isPreferredLeader()),
+        (String) override.getOrDefault("dir", "/tmp/default/dir"));
   }
 
   @ParameterizedTest
-  @ValueSource(
-      strings = {"null", "/tmp/data-directory-0", "/tmp/data-directory-1", "/tmp/data-directory-2"})
-  void migrateReplica(String dataDirectory) {
-    dataDirectory = dataDirectory.equals("null") ? null : dataDirectory;
-    final var fakeCluster = FakeClusterInfo.of(3, 1, 1, 1, (i) -> Set.of("topic"));
-    var clusterLogAllocation = ClusterLogAllocation.of(fakeCluster);
-    final var sourceReplica = fakeCluster.replicas("topic").get(0);
+  @DisplayName("Create CLA from ClusterInfo")
+  @ValueSource(shorts = {1, 2, 3})
+  void testOfClusterInfo(short replicas) {
+    // arrange
+    try (Admin admin = Admin.of(bootstrapServers())) {
+      var topic0 = Utils.randomString();
+      var topic1 = Utils.randomString();
+      var topic2 = Utils.randomString();
+      var topics = Set.of(topic0, topic1, topic2);
+      var partitions = ThreadLocalRandom.current().nextInt(10, 30);
+      topics.forEach(
+          topic ->
+              admin
+                  .creator()
+                  .topic(topic)
+                  .numberOfPartitions(partitions)
+                  .numberOfReplicas(replicas)
+                  .create());
+      Utils.sleep(Duration.ofSeconds(1));
 
-    clusterLogAllocation =
-        clusterLogAllocation.migrateReplica(
-            sourceReplica.topicPartitionReplica(), 1, dataDirectory);
+      // act
+      final var cla = ClusterLogAllocation.of(admin.clusterInfo(topics));
 
-    Assertions.assertEquals(
-        1,
-        clusterLogAllocation.logPlacements(sourceReplica.topicPartition()).stream()
-            .filter(Replica::isPreferredLeader)
-            .findFirst()
-            .orElseThrow()
-            .nodeInfo()
-            .id());
-    Assertions.assertEquals(
-        dataDirectory,
-        clusterLogAllocation.logPlacements(sourceReplica.topicPartition()).stream()
-            .filter(Replica::isPreferredLeader)
-            .findFirst()
-            .orElseThrow()
-            .dataFolder());
+      // assert
+      final var expectedPartitions =
+          topics.stream()
+              .flatMap(
+                  topic ->
+                      IntStream.range(0, partitions).mapToObj(p -> TopicPartition.of(topic, p)))
+              .collect(Collectors.toUnmodifiableSet());
+      Assertions.assertEquals(expectedPartitions, cla.topicPartitions());
+      Assertions.assertEquals(topics.size() * partitions * replicas, cla.logPlacements().size());
+      expectedPartitions.forEach(
+          tp -> Assertions.assertEquals(replicas, cla.logPlacements(tp).size()));
+    }
+  }
 
-    clusterLogAllocation =
-        clusterLogAllocation.migrateReplica(
-            TopicPartitionReplica.of(sourceReplica.topic(), sourceReplica.partition(), 1),
-            1,
-            dataDirectory);
-    Assertions.assertEquals(
-        1,
-        clusterLogAllocation.logPlacements(sourceReplica.topicPartition()).stream()
-            .filter(Replica::isPreferredLeader)
-            .findFirst()
-            .orElseThrow()
-            .nodeInfo()
-            .id());
-    Assertions.assertEquals(
-        dataDirectory,
-        clusterLogAllocation.logPlacements(sourceReplica.topicPartition()).stream()
-            .filter(Replica::isPreferredLeader)
-            .findFirst()
-            .orElseThrow()
-            .dataFolder());
+  @ParameterizedTest
+  @DisplayName("Create CLA from replica list")
+  @ValueSource(shorts = {1, 2, 3, 4, 5, 30})
+  void testOfReplicaList(short replicas) {
+    // arrange
+    final var randomTopicPartitions = generateRandomTopicPartition();
+    final var randomReplicas = generateRandomReplicaList(randomTopicPartitions, replicas);
+
+    // act
+    final var cla = ClusterLogAllocation.of(randomReplicas);
+
+    // assert
+    Assertions.assertEquals(randomReplicas.size(), cla.logPlacements().size());
+    Assertions.assertEquals(Set.copyOf(randomReplicas), cla.logPlacements());
+    Assertions.assertEquals(randomTopicPartitions, cla.topicPartitions());
   }
 
   @Test
-  void letReplicaBecomeLeader() {
-    final var fakeCluster = FakeClusterInfo.of(3, 1, 1, 2, (i) -> Set.of("topic"));
-    var clusterLogAllocation = ClusterLogAllocation.of(fakeCluster);
-    final var sourceTopicPartition = fakeCluster.replicas("topic").get(1);
-
-    clusterLogAllocation =
-        clusterLogAllocation.letReplicaBecomeLeader(sourceTopicPartition.topicPartitionReplica());
-
-    Assertions.assertEquals(
-        1,
-        clusterLogAllocation.logPlacements(sourceTopicPartition.topicPartition()).stream()
-            .filter(Replica::isPreferredLeader)
-            .findFirst()
-            .orElseThrow()
-            .nodeInfo()
-            .id());
-    Assertions.assertTrue(
-        clusterLogAllocation.logPlacements(sourceTopicPartition.topicPartition()).stream()
-            .filter(x -> !x.isPreferredLeader())
-            .anyMatch(x -> x.nodeInfo().id() == 0));
-  }
-
-  @Test
-  void logPlacements() {
-    final var allocation =
-        ClusterLogAllocation.of(
-            List.of(
-                Replica.of(
-                    "topic",
-                    0,
-                    NodeInfo.of(0, null, -1),
-                    0,
-                    0,
-                    true,
-                    true,
-                    false,
-                    false,
-                    true,
-                    "/nowhere")));
-
-    Assertions.assertEquals(1, allocation.logPlacements(TopicPartition.of("topic", "0")).size());
-    Assertions.assertEquals(
-        0,
-        allocation.logPlacements(TopicPartition.of("topic", "0")).stream()
-            .filter(Replica::isPreferredLeader)
-            .findFirst()
-            .orElseThrow()
-            .nodeInfo()
-            .id());
-    Assertions.assertEquals(
-        "/nowhere",
-        allocation.logPlacements(TopicPartition.of("topic", "0")).stream()
-            .filter(Replica::isPreferredLeader)
-            .findFirst()
-            .orElseThrow()
-            .dataFolder());
-    Assertions.assertEquals(0, allocation.logPlacements(TopicPartition.of("no", "0")).size());
-    allocation.logPlacements(TopicPartition.of("no", "0"));
-  }
-
-  @Test
-  void findNonFulfilledAllocation() {
-    final var clusterInfo = FakeClusterInfo.of(3, 10, 10, 2);
-    Assertions.assertEquals(
-        Set.of(),
-        ClusterLogAllocation.findNonFulfilledAllocation(
-            ClusterLogAllocation.of(clusterInfo), ClusterLogAllocation.of(clusterInfo)));
-
-    final var source = ClusterLogAllocation.of(clusterInfo);
-    final var topicPartition0 =
-        clusterInfo.replicas().stream()
-            .filter(x -> x.partition() == 0)
-            .filter(x -> x.nodeInfo().id() == 0)
-            .findFirst()
-            .orElseThrow();
-    final var topicPartition1 =
-        clusterInfo.replicas().stream()
-            .filter(x -> x.topic().equals(topicPartition0.topic()))
-            .filter(x -> x.partition() == 1)
-            .filter(x -> !x.isLeader())
-            .findFirst()
-            .orElseThrow();
-
-    final var target0 =
-        source.migrateReplica(topicPartition0.topicPartitionReplica(), 0, "/somewhere");
-    Assertions.assertEquals(
-        Set.of(topicPartition0.topicPartition()),
-        ClusterLogAllocation.findNonFulfilledAllocation(source, target0));
-
-    final var target1 = source.migrateReplica(topicPartition0.topicPartitionReplica(), 2);
-    Assertions.assertEquals(
-        Set.of(topicPartition0.topicPartition()),
-        ClusterLogAllocation.findNonFulfilledAllocation(source, target1));
-
-    final var target2 = source.letReplicaBecomeLeader(topicPartition1.topicPartitionReplica());
-    Assertions.assertEquals(
-        Set.of(topicPartition1.topicPartition()),
-        ClusterLogAllocation.findNonFulfilledAllocation(source, target2));
-
-    final var target3 =
-        source
-            .migrateReplica(topicPartition0.topicPartitionReplica(), 2)
-            .migrateReplica(
-                TopicPartitionReplica.of(topicPartition0.topic(), topicPartition0.partition(), 2),
-                2,
-                "/somewhere")
-            .letReplicaBecomeLeader(topicPartition1.topicPartitionReplica());
-    Assertions.assertEquals(
-        Set.of(topicPartition0.topicPartition(), topicPartition1.topicPartition()),
-        ClusterLogAllocation.findNonFulfilledAllocation(source, target3));
-
-    final var map4 =
-        source.topicPartitions().stream()
-            .map(source::logPlacements)
-            .flatMap(Collection::stream)
-            .collect(Collectors.toList());
-    map4.add(
+  void testOfBadReplicaList() {
+    // arrange
+    var topic = Utils.randomString();
+    var partition = 30;
+    var nodeInfo = NodeInfo.of(0, "", -1);
+    Replica base =
         Replica.of(
-            "NewTopic", 0, NodeInfo.of(0, null, -1), 0, 0, true, true, false, false, true, "?"));
-    final var target4 = ClusterLogAllocation.of(map4);
+            topic, partition, nodeInfo, 0, 0, true, false, false, false, true, "/tmp/default/dir");
+    Replica leader0 = update(base, Map.of("broker", 3, "preferred", true));
+    Replica leader1 = update(base, Map.of("broker", 4, "preferred", true));
+    Replica follower2 = update(base, Map.of("broker", 4, "preferred", false));
+
+    // act, assert
     Assertions.assertThrows(
         IllegalArgumentException.class,
-        () -> ClusterLogAllocation.findNonFulfilledAllocation(source, target4));
+        () -> ClusterLogAllocation.of(List.of(leader0, leader1)),
+        "duplicate preferred leader in list");
+    Assertions.assertThrows(
+        IllegalArgumentException.class,
+        () -> ClusterLogAllocation.of(List.of(follower2)),
+        "no preferred leader");
+  }
 
-    final var allocation0 =
-        ClusterLogAllocation.of(
-            List.of(
-                Replica.of(
-                    "topicA",
-                    0,
-                    NodeInfo.of(0, null, -1),
-                    0,
-                    0,
-                    true,
-                    true,
-                    false,
-                    false,
-                    true,
-                    "no-change"),
-                Replica.of(
-                    "topicB",
-                    0,
-                    NodeInfo.of(0, null, -1),
-                    0,
-                    0,
-                    true,
-                    true,
-                    false,
-                    false,
-                    true,
-                    "no-change")));
-    final var allocation1 =
-        ClusterLogAllocation.of(
-            List.of(
-                Replica.of(
-                    "topicB",
-                    0,
-                    NodeInfo.of(0, null, -1),
-                    0,
-                    0,
-                    true,
-                    true,
-                    false,
-                    false,
-                    true,
-                    "do-change")));
+  @ParameterizedTest
+  @DisplayName("Migrate some replicas without directory specified")
+  @ValueSource(shorts = {1, 2, 3, 4, 5, 30})
+  void testMigrateReplicaNoDir(short replicas) {
+    // arrange
+    final var randomTopicPartitions = generateRandomTopicPartition();
+    final var randomReplicas = generateRandomReplicaList(randomTopicPartitions, replicas);
+    final var allocation = ClusterLogAllocation.of(randomReplicas);
+    final var target = randomReplicas.stream().findAny().orElseThrow();
+
+    // act
+    final var cla = allocation.migrateReplica(target.topicPartitionReplica(), 9999);
+
+    // assert
     Assertions.assertEquals(
-        Set.of(TopicPartition.of("topicB", 0)),
-        ClusterLogAllocation.findNonFulfilledAllocation(allocation0, allocation1));
+        replicas, cla.logPlacements(target.topicPartition()).size(), "No replica factor shrinkage");
+    Assertions.assertTrue(
+        cla.logPlacements(target.topicPartition()).stream()
+            .anyMatch(replica -> replica.nodeInfo().id() == 9999),
+        "The replica is here");
+    Assertions.assertTrue(
+        cla.logPlacements(target.topicPartition()).stream()
+            .noneMatch(replica -> replica.nodeInfo().id() == target.nodeInfo().id()),
+        "The original replica is gone");
+    Assertions.assertNull(
+        cla.logPlacements(target.topicPartition()).stream()
+            .filter(replica -> replica.nodeInfo().id() == 9999)
+            .findFirst()
+            .orElseThrow()
+            .dataFolder(),
+        "The dir should be null");
+  }
+
+  @ParameterizedTest
+  @DisplayName("Migrate some replicas")
+  @ValueSource(shorts = {1, 2, 3, 4, 5, 30})
+  void testMigrateReplica(short replicas) {
+    // arrange
+    final var randomTopicPartitions = generateRandomTopicPartition();
+    final var randomReplicas = generateRandomReplicaList(randomTopicPartitions, replicas);
+    final var allocation = ClusterLogAllocation.of(randomReplicas);
+    final var target = randomReplicas.stream().findAny().orElseThrow();
+
+    // act
+    final var cla = allocation.migrateReplica(target.topicPartitionReplica(), 9999, "/the/dir");
+
+    // assert
+    Assertions.assertEquals(
+        replicas, cla.logPlacements(target.topicPartition()).size(), "No replica factor shrinkage");
+    Assertions.assertTrue(
+        cla.logPlacements(target.topicPartition()).stream()
+            .anyMatch(replica -> replica.nodeInfo().id() == 9999),
+        "The replica is here");
+    Assertions.assertTrue(
+        cla.logPlacements(target.topicPartition()).stream()
+            .noneMatch(replica -> replica.nodeInfo().id() == target.nodeInfo().id()),
+        "The original replica is gone");
+    Assertions.assertEquals(
+        "/the/dir",
+        cla.logPlacements(target.topicPartition()).stream()
+            .filter(replica -> replica.nodeInfo().id() == 9999)
+            .findFirst()
+            .orElseThrow()
+            .dataFolder());
+  }
+
+  @ParameterizedTest
+  @DisplayName("Become leader")
+  @ValueSource(shorts = {1, 2, 3, 4, 5, 30})
+  void testBecomeLeader(short replicas) {
+    // arrange
+    final var randomTopicPartitions = generateRandomTopicPartition();
+    final var randomReplicas = generateRandomReplicaList(randomTopicPartitions, replicas);
+    final var allocation = ClusterLogAllocation.of(randomReplicas);
+    final var target = randomReplicas.stream().findAny().orElseThrow();
+    final var theTopicPartition = target.topicPartition();
+    final var originalReplicaList = allocation.logPlacements(theTopicPartition);
+    final var originalLeader =
+        originalReplicaList.stream().filter(Replica::isPreferredLeader).findFirst().orElseThrow();
+
+    // act
+    final var cla = allocation.becomeLeader(target.topicPartitionReplica());
+
+    // assert
+    Assertions.assertEquals(
+        replicas, cla.logPlacements(theTopicPartition).size(), "No replica factor shrinkage");
+    if (target.isLeader()) {
+      // let leader become a leader, nothing changed
+      Assertions.assertEquals(
+          originalReplicaList,
+          allocation.logPlacements(theTopicPartition),
+          "Nothing changed since target is already the leader");
+    } else {
+      Assertions.assertTrue(
+          cla.logPlacements(theTopicPartition).stream()
+              .filter(r -> r.nodeInfo().equals(target.nodeInfo()))
+              .findFirst()
+              .orElseThrow()
+              .isPreferredLeader(),
+          "target become the new preferred leader");
+      Assertions.assertFalse(
+          cla.logPlacements(theTopicPartition).stream()
+              .filter(r -> r.nodeInfo().equals(originalLeader.nodeInfo()))
+              .findFirst()
+              .orElseThrow()
+              .isPreferredLeader(),
+          "original leader lost its identity");
+      Assertions.assertEquals(
+          target.size(),
+          cla.logPlacements(theTopicPartition).stream()
+              .filter(r -> r.nodeInfo().equals(target.nodeInfo()))
+              .findFirst()
+              .orElseThrow()
+              .size(),
+          "Only the preferred leader field get updated, no change to other fields");
+      Assertions.assertEquals(
+          originalLeader.size(),
+          cla.logPlacements(theTopicPartition).stream()
+              .filter(r -> r.nodeInfo().equals(originalLeader.nodeInfo()))
+              .findFirst()
+              .orElseThrow()
+              .size(),
+          "Only the preferred leader field get updated, no change to other fields");
+    }
+  }
+
+  @ParameterizedTest
+  @DisplayName("placements")
+  @ValueSource(shorts = {1, 2, 3, 4, 5, 30})
+  void testLogPlacements(short replicas) {
+    // arrange
+    final var randomTopicPartitions = generateRandomTopicPartition();
+    final var randomReplicas = generateRandomReplicaList(randomTopicPartitions, replicas);
+
+    // act
+    final var allocation = ClusterLogAllocation.of(randomReplicas);
+
+    // assert
+    Assertions.assertEquals(Set.copyOf(randomReplicas), allocation.logPlacements());
+    for (var tp : randomTopicPartitions) {
+      final var expected =
+          randomReplicas.stream()
+              .filter(r -> r.topicPartition().equals(tp))
+              .collect(Collectors.toUnmodifiableSet());
+      Assertions.assertEquals(expected, allocation.logPlacements(tp));
+    }
+  }
+
+  @ParameterizedTest
+  @DisplayName("placements")
+  @ValueSource(shorts = {1, 2, 3, 4, 5, 30})
+  void testTopicPartitions(short replicas) {
+    // arrange
+    final var randomTopicPartitions = generateRandomTopicPartition();
+    final var randomReplicas = generateRandomReplicaList(randomTopicPartitions, replicas);
+
+    // act
+    final var allocation = ClusterLogAllocation.of(randomReplicas);
+
+    // assert
+    Assertions.assertEquals(randomTopicPartitions, allocation.topicPartitions());
   }
 
   @Test
-  void updateFromId() {
-    var topic = "theTopic";
-    var partition = 10;
-    var node = NodeInfo.of(1024, "example.com", 3000);
-    var theDir = "/example";
-    var theReplica = Replica.of(topic, partition, node, 0, 0, true, true, true, true, true, theDir);
+  void testPlacementMatch() {
+    var topic = Utils.randomString();
+    var partition = 30;
+    var nodeInfo = NodeInfo.of(0, "", -1);
 
-    var actual0 = ClusterLogAllocation.update(theReplica, 1024, "/new/dir");
-    Assertions.assertEquals(topic, actual0.topic());
-    Assertions.assertEquals(partition, actual0.partition());
-    Assertions.assertEquals(
-        node, actual0.nodeInfo(), "update to the same broker will not fake a node");
-    Assertions.assertEquals("/new/dir", actual0.dataFolder());
+    Replica base =
+        Replica.of(
+            topic,
+            partition,
+            nodeInfo,
+            0,
+            0,
+            false,
+            false,
+            false,
+            false,
+            false,
+            "/tmp/default/dir");
 
-    var actual1 = ClusterLogAllocation.update(theReplica, 2048, "/new/dir");
-    Assertions.assertEquals(topic, actual1.topic());
-    Assertions.assertEquals(partition, actual1.partition());
-    Assertions.assertNotEquals(
-        node, actual1.nodeInfo(), "update to another broker will fake a node");
-    Assertions.assertEquals(2048, actual1.nodeInfo().id());
-    Assertions.assertEquals("/new/dir", actual1.dataFolder());
+    {
+      // self equal
+      var leader0 = update(base, Map.of("leader", true, "preferred", true));
+      var follower1 = update(base, Map.of("broker", 1));
+      var follower2 = update(base, Map.of("broker", 2));
+      Assertions.assertTrue(
+          ClusterLogAllocation.placementMatch(
+              Set.of(leader0, follower1, follower2), Set.of(leader0, follower1, follower2)),
+          "Self equal");
+    }
+
+    {
+      // unrelated field does nothing
+      var leader0 = update(base, Map.of("leader", true, "preferred", true));
+      var follower1 = update(base, Map.of("broker", 1));
+      var follower2 = update(base, Map.of("broker", 2));
+      var awkwardFollower2 = update(follower2, Map.of("size", 123456789L));
+      Assertions.assertTrue(
+          ClusterLogAllocation.placementMatch(
+              Set.of(leader0, follower1, follower2), Set.of(leader0, follower1, awkwardFollower2)),
+          "Size field is unrelated to placement");
+    }
+
+    {
+      // preferred leader changed
+      var leaderA0 = update(base, Map.of("leader", true, "preferred", true));
+      var followerA1 = update(base, Map.of("broker", 1));
+      var followerA2 = update(base, Map.of("broker", 2));
+      var followerB0 = update(leaderA0, Map.of("preferred", false));
+      var leaderB1 = update(followerA1, Map.of("preferred", true));
+      var followerB2 = update(followerA2, Map.of());
+      Assertions.assertFalse(
+          ClusterLogAllocation.placementMatch(
+              Set.of(leaderA0, followerA1, followerA2), Set.of(leaderB1, followerB0, followerB2)),
+          "Size field is unrelated to placement");
+    }
+
+    {
+      // data dir changed
+      var leader0 = update(base, Map.of("leader", true, "preferred", true));
+      var follower1 = update(base, Map.of("broker", 1));
+      var follower2 = update(base, Map.of("broker", 2));
+      var alteredFollower2 = update(follower2, Map.of("dir", "/tmp/somewhere"));
+      Assertions.assertFalse(
+          ClusterLogAllocation.placementMatch(
+              Set.of(leader0, follower1, follower2), Set.of(leader0, follower1, alteredFollower2)),
+          "data dir changed");
+    }
+
+    {
+      // replica migrated
+      var leader0 = update(base, Map.of("leader", true, "preferred", true));
+      var follower1 = update(base, Map.of("broker", 1));
+      var follower2 = update(base, Map.of("broker", 2));
+      var alteredFollower2 = update(follower2, Map.of("broker", 3));
+      Assertions.assertFalse(
+          ClusterLogAllocation.placementMatch(
+              Set.of(leader0, follower1, follower2), Set.of(leader0, follower1, alteredFollower2)),
+          "migrate data dir");
+    }
+
+    {
+      // null dir in source set mean don't care
+      var leader0 = update(base, Map.of("leader", true, "preferred", true));
+      var follower1 = update(base, Map.of("broker", 1));
+      var nullMap = new HashMap<String, Object>();
+      nullMap.put("dir", null);
+      var sourceFollower1 = update(follower1, nullMap);
+      var targetFollower1 = update(follower1, Map.of("dir", "/target"));
+      Assertions.assertTrue(
+          ClusterLogAllocation.placementMatch(
+              Set.of(leader0, sourceFollower1), Set.of(leader0, targetFollower1)));
+    }
+
+    {
+      // null dir in target set mean always bad
+      var leader0 = update(base, Map.of("leader", true, "preferred", true));
+      var follower1 = update(base, Map.of("broker", 1));
+      var nullMap = new HashMap<String, Object>();
+      nullMap.put("dir", null);
+      var sourceFollower1 = update(follower1, Map.of("dir", "/target"));
+      var targetFollower1 = update(follower1, nullMap);
+      Assertions.assertFalse(
+          ClusterLogAllocation.placementMatch(
+              Set.of(leader0, sourceFollower1), Set.of(leader0, targetFollower1)));
+    }
   }
 
   @Test
-  void updateFromNodeInfo() {
-    var topic = "theTopic";
-    var partition = 10;
-    var node = NodeInfo.of(1024, "example.com", 3000);
-    var theDir = "/example";
-    var theReplica = Replica.of(topic, partition, node, 0, 0, true, true, true, true, true, theDir);
+  void testFindNonFulfilledAllocation() {
+    var topic = Utils.randomString();
+    var partition = 30;
+    var nodeInfo = NodeInfo.of(0, "", -1);
 
-    var newNode = NodeInfo.of(4096, "another.example.com", 9092);
-    var actual0 = ClusterLogAllocation.update(theReplica, newNode, "/new/dir");
-    Assertions.assertEquals(topic, actual0.topic());
-    Assertions.assertEquals(partition, actual0.partition());
-    Assertions.assertEquals(newNode, actual0.nodeInfo());
-    Assertions.assertEquals("/new/dir", actual0.dataFolder());
+    Replica baseLeader =
+        Replica.of(
+            topic, partition, nodeInfo, 0, 0, true, false, false, false, true, "/tmp/default/dir");
+
+    {
+      // self equal
+      var leader0 = update(baseLeader, Map.of());
+      var follower1 = update(baseLeader, Map.of("broker", 1, "leader", false, "preferred", false));
+      var follower2 = update(baseLeader, Map.of("broker", 2, "leader", false, "preferred", false));
+      Assertions.assertEquals(
+          Set.of(),
+          ClusterLogAllocation.findNonFulfilledAllocation(
+              ClusterLogAllocation.of(List.of(leader0, follower1, follower2)),
+              ClusterLogAllocation.of(List.of(leader0, follower1, follower2))));
+    }
+
+    {
+      // one alteration
+      var leader0 = update(baseLeader, Map.of());
+      var follower1 = update(baseLeader, Map.of("broker", 1, "leader", false, "preferred", false));
+      var follower2 = update(baseLeader, Map.of("broker", 2, "leader", false, "preferred", false));
+      var alteredFollower2 = update(follower2, Map.of("broker", 3));
+      Assertions.assertEquals(
+          Set.of(alteredFollower2.topicPartition()),
+          ClusterLogAllocation.findNonFulfilledAllocation(
+              ClusterLogAllocation.of(List.of(leader0, follower1, follower2)),
+              ClusterLogAllocation.of(List.of(leader0, follower1, alteredFollower2))));
+    }
+
+    {
+      // two alteration
+      var leader0 = update(baseLeader, Map.of());
+      var leader1 = update(baseLeader, Map.of("topic", "BBB"));
+      var leader2 = update(baseLeader, Map.of("topic", "CCC"));
+      var alteredLeader1 = update(baseLeader, Map.of("topic", "BBB", "broker", 4));
+      var alteredLeader2 = update(baseLeader, Map.of("topic", "CCC", "broker", 5));
+      Assertions.assertEquals(
+          Set.of(alteredLeader1.topicPartition(), alteredLeader2.topicPartition()),
+          ClusterLogAllocation.findNonFulfilledAllocation(
+              ClusterLogAllocation.of(List.of(leader0, leader1, leader2)),
+              ClusterLogAllocation.of(List.of(leader0, alteredLeader1, alteredLeader2))));
+    }
+  }
+
+  @Test
+  @DisplayName("the source CLA should be a subset of target CLA")
+  void testFindNonFulfilledAllocationException() {
+    var topic = Utils.randomString();
+    var partition = 30;
+    var nodeInfo = NodeInfo.of(0, "", -1);
+
+    Replica baseLeader =
+        Replica.of(
+            topic, partition, nodeInfo, 0, 0, true, false, false, false, true, "/tmp/default/dir");
+
+    {
+      var leader0 = update(baseLeader, Map.of());
+      var follower1 = update(baseLeader, Map.of("broker", 1, "leader", false, "preferred", false));
+      var follower2 = update(baseLeader, Map.of("broker", 2, "leader", false, "preferred", false));
+      var other = update(baseLeader, Map.of("topic", "AnotherTopic"));
+      Assertions.assertThrows(
+          IllegalArgumentException.class,
+          () ->
+              ClusterLogAllocation.findNonFulfilledAllocation(
+                  ClusterLogAllocation.of(List.of(leader0, follower1, follower2)),
+                  ClusterLogAllocation.of(List.of(leader0, follower1, follower2, other))));
+    }
+  }
+
+  @Test
+  void testUpdate() {
+    var topic = Utils.randomString();
+    var partition = 30;
+    var nodeInfo = NodeInfo.of(0, "", -1);
+    var newNodeInfo = NodeInfo.of(1, "", -1);
+    var lag = 100L;
+    var size = 200L;
+
+    Replica replica =
+        Replica.of(
+            topic,
+            partition,
+            nodeInfo,
+            lag,
+            size,
+            true,
+            false,
+            false,
+            false,
+            true,
+            "/tmp/default/dir");
+
+    Assertions.assertEquals(
+        "/other", ClusterLogAllocation.update(replica, nodeInfo.id(), "/other").dataFolder());
+    Assertions.assertEquals(
+        nodeInfo, ClusterLogAllocation.update(replica, nodeInfo.id(), "/other").nodeInfo());
+    Assertions.assertEquals(
+        5566, ClusterLogAllocation.update(replica, 5566, "/other").nodeInfo().id());
+    Assertions.assertEquals(
+        "/other", ClusterLogAllocation.update(replica, newNodeInfo, "/other").dataFolder());
+    Assertions.assertEquals(
+        newNodeInfo, ClusterLogAllocation.update(replica, newNodeInfo, "/other").nodeInfo());
+    Assertions.assertEquals(
+        100L, ClusterLogAllocation.update(replica, newNodeInfo, "/other").lag());
+    Assertions.assertEquals(
+        200L, ClusterLogAllocation.update(replica, newNodeInfo, "/other").size());
   }
 }

@@ -112,35 +112,20 @@ public interface Admin extends Closeable {
 
   List<Replica> newReplicas(Set<String> topics);
 
-  /** @return all broker id and their configuration */
-  default Map<Integer, Config> brokers() {
-    return brokers(brokerIds());
-  }
-
-  /**
-   * @param brokerIds to search
-   * @return broker information
-   */
-  Map<Integer, Config> brokers(Set<Integer> brokerIds);
-
   /** @return all alive brokers' ids */
-  default Set<Integer> brokerIds() {
-    return nodes().stream().map(NodeInfo::id).collect(Collectors.toUnmodifiableSet());
-  }
+  Set<Integer> brokerIds();
 
   /** @return all alive node information in the cluster */
-  Set<NodeInfo> nodes();
+  List<Node> nodes();
 
   /** @return data folders of all broker nodes */
   default Map<Integer, Set<String>> brokerFolders() {
-    return brokerFolders(brokerIds());
+    return nodes().stream()
+        .collect(
+            Collectors.toMap(
+                NodeInfo::id,
+                n -> n.folders().stream().map(Node.DataFolder::path).collect(Collectors.toSet())));
   }
-
-  /**
-   * @param brokers a Set containing broker's ID
-   * @return all log directory
-   */
-  Map<Integer, Set<String>> brokerFolders(Set<Integer> brokers);
 
   /** @return a partition migrator used to move partitions to another broker or folder. */
   ReplicaMigrator migrator();
@@ -195,7 +180,7 @@ public interface Admin extends Closeable {
    * @return a snapshot object of cluster state at the moment
    */
   default ClusterInfo<Replica> clusterInfo(Set<String> topics) {
-    var nodeInfo = nodes();
+    var nodeInfo = nodes().stream().map(n -> (NodeInfo) n).collect(Collectors.toSet());
     var replicas =
         Utils.packException(
             () ->

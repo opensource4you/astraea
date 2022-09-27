@@ -20,6 +20,7 @@ import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -52,6 +53,7 @@ public interface ClusterLogAllocation {
   static ClusterLogAllocation of(List<Replica> allocation) {
     return new ClusterLogAllocationImpl(allocation);
   }
+
   /**
    * let specific broker leave the replica set and let another broker join the replica set. Which
    * data directory the migrated replica will be is up to the Kafka broker implementation to decide.
@@ -74,21 +76,21 @@ public interface ClusterLogAllocation {
    */
   ClusterLogAllocation migrateReplica(TopicPartitionReplica replica, int toBroker, String toDir);
 
-  /** let specific follower log become the leader log of this topic/partition. */
-  ClusterLogAllocation letReplicaBecomeLeader(TopicPartitionReplica replica);
+  /** let specific replica become the preferred leader of its associated topic/partition. */
+  ClusterLogAllocation becomeLeader(TopicPartitionReplica replica);
 
   /**
-   * Retrieve the log placements of specific {@link TopicPartition}.
+   * Retrieve the log placements of a specific {@link TopicPartition}.
    *
    * @param topicPartition to query
    * @return log placements or empty collection if there is no log placements
    */
   Set<Replica> logPlacements(TopicPartition topicPartition);
 
-  /** @return all log */
+  /** @return all log placements recorded by this {@link ClusterLogAllocation} */
   Set<Replica> logPlacements();
 
-  /** Retrieve the stream of all topic/partition pairs in allocation. */
+  /** @return all topic/partitions recorded by this {@link ClusterLogAllocation} */
   Set<TopicPartition> topicPartitions();
 
   /**
@@ -113,16 +115,22 @@ public interface ClusterLogAllocation {
               + unknownTopicPartitions);
 
     return targetTopicPartition.stream()
-        .filter(tp -> !replicaListEqual(source.logPlacements(tp), target.logPlacements(tp)))
+        .filter(tp -> !placementMatch(source.logPlacements(tp), target.logPlacements(tp)))
         .collect(Collectors.toUnmodifiableSet());
   }
 
-  static boolean replicaListEqual(Set<Replica> sourceReplicas, Set<Replica> targetReplicas) {
+  /**
+   * Determine if both of the replicas can be considered as equal in terms of its placement.
+   *
+   * @param sourceReplicas the source replicas. null value of {@link Replica#dataFolder()} will be
+   *     interpreted as the actual location doesn't matter.
+   * @param targetReplicas the target replicas. null value of {@link Replica#dataFolder()} will be
+   *     interpreted as the actual location is unknown.
+   * @return true if both replicas of specific topic/partitions can be considered as equal in terms
+   *     of its placement.
+   */
+  static boolean placementMatch(Set<Replica> sourceReplicas, Set<Replica> targetReplicas) {
     if (sourceReplicas.size() != targetReplicas.size()) return false;
-    // equal rule:
-    // both preferred leader is equal.
-    // both follower is equal.
-    // two follower are equal if broker id and folder match
     final var sourceIds =
         sourceReplicas.stream()
             .sorted(
@@ -144,7 +152,8 @@ public interface ClusterLogAllocation {
               final var target = targetIds.get(index);
               return source.isPreferredLeader() == target.isPreferredLeader()
                   && source.nodeInfo().id() == target.nodeInfo().id()
-                  && source.dataFolder().equals(target.dataFolder());
+                  && (source.dataFolder() == null
+                      || Objects.equals(source.dataFolder(), target.dataFolder()));
             });
   }
 
@@ -221,7 +230,7 @@ public interface ClusterLogAllocation {
     }
 
     @Override
-    public ClusterLogAllocation letReplicaBecomeLeader(TopicPartitionReplica replica) {
+    public ClusterLogAllocation becomeLeader(TopicPartitionReplica replica) {
       final var topicPartition = TopicPartition.of(replica.topic(), replica.partition());
       final var source =
           logPlacements(topicPartition).stream()
@@ -239,10 +248,8 @@ public interface ClusterLogAllocation {
                               + topicPartition
                               + ", this replica list is probably corrupted."));
 
-      final var newSource =
-          ClusterLogAllocation.update(target, source.nodeInfo(), source.dataFolder());
-      final var newTarget =
-          ClusterLogAllocation.update(source, target.nodeInfo(), target.dataFolder());
+      final var newSource = this.update(source, true);
+      final var newTarget = this.update(target, false);
 
       return new ClusterLogAllocationImpl(
           allocation.values().stream()
@@ -268,7 +275,7 @@ public interface ClusterLogAllocation {
       return allocation.keySet();
     }
 
-    Replica update(Replica source, int newBroker, String newDir) {
+    private Replica update(Replica source, int newBroker, String newDir) {
       // lookup nodeInfo
       final var theNodeInfo =
           allocation.values().stream()
@@ -280,6 +287,21 @@ public interface ClusterLogAllocation {
       return theNodeInfo
           .map(info -> ClusterLogAllocation.update(source, info, newDir))
           .orElseGet(() -> ClusterLogAllocation.update(source, newBroker, newDir));
+    }
+
+    private Replica update(Replica source, boolean isPreferredLeader) {
+      return Replica.of(
+          source.topic(),
+          source.partition(),
+          source.nodeInfo(),
+          source.lag(),
+          source.size(),
+          source.isLeader(),
+          source.inSync(),
+          source.isFuture(),
+          source.isOffline(),
+          isPreferredLeader,
+          source.dataFolder());
     }
   }
 

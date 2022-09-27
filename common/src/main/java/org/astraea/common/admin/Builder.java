@@ -18,7 +18,6 @@ package org.astraea.common.admin;
 
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -44,7 +43,6 @@ import org.apache.kafka.clients.admin.RemoveMembersFromConsumerGroupOptions;
 import org.apache.kafka.clients.admin.ReplicaInfo;
 import org.apache.kafka.clients.admin.TransactionListing;
 import org.apache.kafka.common.ElectionType;
-import org.apache.kafka.common.Node;
 import org.apache.kafka.common.config.ConfigResource;
 import org.apache.kafka.common.errors.ElectionNotNeededException;
 import org.apache.kafka.common.errors.ReplicaNotAvailableException;
@@ -88,23 +86,6 @@ public class Builder {
     @Override
     public void close() {
       admin.close();
-    }
-
-    @Override
-    public Set<NodeInfo> nodes() {
-      return Utils.packException(
-          () ->
-              admin.describeCluster().nodes().get().stream()
-                  .map(NodeInfo::of)
-                  .collect(Collectors.toUnmodifiableSet()));
-    }
-
-    @Override
-    public Map<Integer, Set<String>> brokerFolders(Set<Integer> brokers) {
-      return Utils.packException(
-          () ->
-              admin.describeLogDirs(brokers).allDescriptions().get().entrySet().stream()
-                  .collect(Collectors.toMap(Map.Entry::getKey, map -> map.getValue().keySet())));
     }
 
     @Override
@@ -257,7 +238,7 @@ public class Builder {
                       .get())
           .entrySet()
           .stream()
-          .collect(Collectors.toMap(e -> e.getKey().name(), e -> new ConfigImpl(e.getValue())));
+          .collect(Collectors.toMap(e -> e.getKey().name(), e -> Config.of(e.getValue())));
     }
 
     @Override
@@ -272,24 +253,49 @@ public class Builder {
     }
 
     @Override
-    public Map<Integer, Config> brokers(Set<Integer> brokerIds) {
-      return Utils.packException(
+    public Set<Integer> brokerIds() {
+      return Utils.packException(() -> admin.describeCluster().nodes().get()).stream()
+          .map(org.apache.kafka.common.Node::id)
+          .collect(Collectors.toUnmodifiableSet());
+    }
+
+    @Override
+    public List<Node> nodes() {
+      var nodes =
+          Utils.packException(
+              () ->
+                  admin.describeCluster().nodes().get().stream()
+                      .map(NodeInfo::of)
+                      .collect(Collectors.toList()));
+      var logDirs =
+          Utils.packException(
               () ->
                   admin
-                      .describeConfigs(
-                          brokerIds.stream()
-                              .map(
-                                  id ->
-                                      new ConfigResource(
-                                          ConfigResource.Type.BROKER, String.valueOf(id)))
-                              .collect(Collectors.toList()))
-                      .all()
-                      .get())
-          .entrySet()
-          .stream()
-          .collect(
-              Collectors.toMap(
-                  e -> Integer.valueOf(e.getKey().name()), e -> new ConfigImpl(e.getValue())));
+                      .describeLogDirs(
+                          nodes.stream().map(NodeInfo::id).collect(Collectors.toList()))
+                      .allDescriptions()
+                      .get());
+      var configs =
+          Utils.packException(
+                  () ->
+                      admin
+                          .describeConfigs(
+                              nodes.stream()
+                                  .map(
+                                      n ->
+                                          new ConfigResource(
+                                              ConfigResource.Type.BROKER, String.valueOf(n.id())))
+                                  .collect(Collectors.toList()))
+                          .all()
+                          .get())
+              .entrySet()
+              .stream()
+              .collect(
+                  Collectors.toMap(e -> Integer.valueOf(e.getKey().name()), Map.Entry::getValue));
+
+      return nodes.stream()
+          .map(n -> Node.of(n, configs.get(n.id()), logDirs.get(n.id())))
+          .collect(Collectors.toList());
     }
 
     @Override
@@ -366,7 +372,7 @@ public class Builder {
 
     private Map<
             Integer, Map<TopicPartition, Map<String, org.apache.kafka.clients.admin.ReplicaInfo>>>
-        logDirs(Set<String> topics) {
+        logDirs() {
       return Utils.packException(() -> admin.describeLogDirs(brokerIds()).allDescriptions().get())
           .entrySet()
           .stream()
@@ -400,7 +406,7 @@ public class Builder {
     @Override
     public List<Replica> newReplicas(Set<String> topics) {
       // pre-group folders by (broker -> topic partition) to speedup seek
-      var logInfo = logDirs(topics);
+      var logInfo = logDirs();
 
       return Utils.packException(
           () ->
@@ -580,7 +586,7 @@ public class Builder {
                                   new org.apache.kafka.common.TopicPartitionReplica(
                                       entry.getKey().topic(), entry.getKey().partition(), id)))
               .collect(Collectors.toList());
-      var dirs = logDirs(topics);
+      var dirs = logDirs();
 
       Function<TopicPartition, Long> findMaxSize =
           tp ->
@@ -991,31 +997,6 @@ public class Builder {
     }
   }
 
-  private static class ConfigImpl implements Config {
-    private final Map<String, String> configs;
-
-    ConfigImpl(org.apache.kafka.clients.admin.Config config) {
-      this(
-          config.entries().stream()
-              .filter(e -> e.value() != null)
-              .collect(Collectors.toUnmodifiableMap(ConfigEntry::name, ConfigEntry::value)));
-    }
-
-    ConfigImpl(Map<String, String> configs) {
-      this.configs = Collections.unmodifiableMap(configs);
-    }
-
-    @Override
-    public Map<String, String> raw() {
-      return configs;
-    }
-
-    @Override
-    public Optional<String> value(String key) {
-      return Optional.ofNullable(configs.get(key));
-    }
-  }
-
   private static class CreatorImpl implements TopicCreator {
     private final org.apache.kafka.clients.admin.Admin admin;
     private final Function<String, Map<TopicPartition, List<Replica>>> replicasGetter;
@@ -1156,7 +1137,7 @@ public class Builder {
               .get(topicPartition.partition())
               .replicas()
               .stream()
-              .map(Node::id)
+              .map(org.apache.kafka.common.Node::id)
               .collect(Collectors.toUnmodifiableSet());
       var notHere =
           brokerFolders.keySet().stream()
@@ -1191,7 +1172,7 @@ public class Builder {
               .replicas();
       var alreadyHere =
           currentReplicas.stream()
-              .map(Node::id)
+              .map(org.apache.kafka.common.Node::id)
               .filter(preferredDirMap::containsKey)
               .collect(Collectors.toUnmodifiableSet());
 
