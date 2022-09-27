@@ -279,7 +279,6 @@ public class ConsumerTest extends RequireBrokerCluster {
             0,
             admin
                 .consumerGroups(Set.of(groupId))
-                .values()
                 .iterator()
                 .next()
                 .consumeProgress()
@@ -292,7 +291,6 @@ public class ConsumerTest extends RequireBrokerCluster {
             1,
             admin
                 .consumerGroups(Set.of(groupId))
-                .values()
                 .iterator()
                 .next()
                 .consumeProgress()
