@@ -14,27 +14,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-plugins {
-    id "com.diffplug.spotless" version "5.14.3"
-}
+package org.astraea.common;
 
-spotless {
-    java {
-        licenseHeaderFile(file("$rootDir/checkstyle/apache.header"))
-        importOrder()
-        removeUnusedImports()
-        targetExclude "**/VersionUtils.java"
-        target '**/java/**/*.java'
-        googleJavaFormat()
-        custom 'refuse wildcard', {
-            if (it.contains('*;\n')) {
-                throw new Error("Wildcard imports is disallowed")
-            }
-        }
-    }
-    scala {
-        licenseHeaderFile(file("$rootDir/checkstyle/apache.header"), "package ")
-        target '**/scala/**/*.scala'
-        scalafmt()
-    }
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
+
+public class VersionUtilsTest {
+
+  @Test
+  void test() {
+    Assertions.assertNotNull(VersionUtils.VERSION);
+    Assertions.assertNotNull(VersionUtils.REVISION);
+    Assertions.assertNotNull(VersionUtils.DATE);
+    Assertions.assertNotNull(VersionUtils.BUILDER);
+  }
 }
