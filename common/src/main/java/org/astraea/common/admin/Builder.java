@@ -407,66 +407,62 @@ public class Builder {
     public List<Replica> newReplicas(Set<String> topics) {
       // pre-group folders by (broker -> topic partition) to speedup seek
       var logInfo = logDirs();
-
-      return Utils.packException(
-          () ->
-              admin.describeTopics(topics).allTopicNames().get().entrySet().stream()
-                  .flatMap(
-                      topicDes ->
-                          topicDes.getValue().partitions().stream()
-                              .flatMap(
-                                  tpInfo ->
-                                      tpInfo.replicas().stream()
-                                          .flatMap(
-                                              node -> {
-                                                var pathAndReplicas =
-                                                    logInfo
-                                                        .get(node.id())
-                                                        .get(
-                                                            TopicPartition.of(
-                                                                topicDes.getKey(),
-                                                                tpInfo.partition()));
-                                                return pathAndReplicas.entrySet().stream()
-                                                    .map(
-                                                        pathAndReplica ->
-                                                            Replica.of(
-                                                                topicDes.getKey(),
-                                                                tpInfo.partition(),
-                                                                NodeInfo.of(node),
-                                                                pathAndReplica
-                                                                    .getValue()
-                                                                    .offsetLag(),
-                                                                pathAndReplica.getValue().size(),
-                                                                tpInfo.leader() != null
-                                                                    && !tpInfo.leader().isEmpty()
-                                                                    && tpInfo.leader().id()
-                                                                        == node.id(),
-                                                                tpInfo.isr().contains(node),
-                                                                pathAndReplica
-                                                                    .getValue()
-                                                                    .isFuture(),
-                                                                node.isEmpty(),
-                                                                // The first replica in the return
-                                                                // result is
-                                                                // the
-                                                                // preferred leader. This only works
-                                                                // with
-                                                                // Kafka broker
-                                                                // version after
-                                                                // 0.11. Version before 0.11 returns
-                                                                // the
-                                                                // replicas in
-                                                                // unspecified order.
-                                                                tpInfo.replicas().get(0).id()
-                                                                    == node.id(),
-                                                                // empty data folder means this
-                                                                // replica is
-                                                                // offline
-                                                                pathAndReplica.getKey().isEmpty()
-                                                                    ? null
-                                                                    : pathAndReplica.getKey()));
-                                              })))
-                  .collect(Collectors.toList()));
+      var topicDesc = Utils.packException(() -> admin.describeTopics(topics).allTopicNames().get());
+      return topicDesc.entrySet().stream()
+          .flatMap(
+              topicDes ->
+                  topicDes.getValue().partitions().stream()
+                      .flatMap(
+                          tpInfo ->
+                              tpInfo.replicas().stream()
+                                  .flatMap(
+                                      node -> {
+                                        var pathAndReplicas =
+                                            logInfo
+                                                .getOrDefault(node.id(), Map.of())
+                                                .getOrDefault(
+                                                    TopicPartition.of(
+                                                        topicDes.getKey(), tpInfo.partition()),
+                                                    Map.of(
+                                                        "",
+                                                        new org.apache.kafka.clients.admin
+                                                            .ReplicaInfo(-1L, -1L, false)));
+                                        return pathAndReplicas.entrySet().stream()
+                                            .map(
+                                                pathAndReplica ->
+                                                    Replica.of(
+                                                        topicDes.getKey(),
+                                                        tpInfo.partition(),
+                                                        NodeInfo.of(node),
+                                                        pathAndReplica.getValue().offsetLag(),
+                                                        pathAndReplica.getValue().size(),
+                                                        tpInfo.leader() != null
+                                                            && !tpInfo.leader().isEmpty()
+                                                            && tpInfo.leader().id() == node.id(),
+                                                        tpInfo.isr().contains(node),
+                                                        pathAndReplica.getValue().isFuture(),
+                                                        node.isEmpty()
+                                                            || pathAndReplica.getKey().equals(""),
+                                                        // The first replica in the return
+                                                        // result is
+                                                        // the
+                                                        // preferred leader. This only works
+                                                        // with
+                                                        // Kafka broker
+                                                        // version after
+                                                        // 0.11. Version before 0.11 returns
+                                                        // the
+                                                        // replicas in
+                                                        // unspecified order.
+                                                        tpInfo.replicas().get(0).id() == node.id(),
+                                                        // empty data folder means this
+                                                        // replica is
+                                                        // offline
+                                                        pathAndReplica.getKey().isEmpty()
+                                                            ? null
+                                                            : pathAndReplica.getKey()));
+                                      })))
+          .collect(Collectors.toList());
     }
 
     @Override
