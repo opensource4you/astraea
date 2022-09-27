@@ -124,5 +124,4 @@ public interface Report {
   double avgThroughput();
 
   String clientId();
-
 }
