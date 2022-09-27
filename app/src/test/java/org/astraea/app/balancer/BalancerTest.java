@@ -18,6 +18,7 @@ package org.astraea.app.balancer;
 
 import java.time.Duration;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ThreadLocalRandom;
@@ -37,11 +38,12 @@ import org.astraea.common.cost.HasClusterCost;
 import org.astraea.common.cost.ReplicaLeaderCost;
 import org.astraea.it.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 
 class BalancerTest extends RequireBrokerCluster {
 
-  @Test
+  @RepeatedTest(value = 3000)
   void testLeaderCountRebalance() {
     try (Admin admin = Admin.of(bootstrapServers())) {
       var topicName = Utils.randomString();
@@ -57,6 +59,7 @@ class BalancerTest extends RequireBrokerCluster {
           .topicName(topicName)
           .numberOfPartitions(100)
           .numberOfReplicas((short) 1)
+          .binomialProbability(0.1)
           .build()
           .apply(admin);
       var imbalanceFactor0 =
@@ -64,21 +67,15 @@ class BalancerTest extends RequireBrokerCluster {
               currentLeaders.get().values().stream().mapToLong(x -> x).min().orElseThrow()
                   - currentLeaders.get().values().stream().mapToLong(x -> x).max().orElseThrow());
 
-      for (int i = 0; i < 3; i++) {
-        try {
-          var plan =
-              Balancer.builder()
-                  .planGenerator(new ShufflePlanGenerator(1, 10))
-                  .clusterCost(new ReplicaLeaderCost())
-                  .limit(1000)
-                  .build()
-                  .offer(admin.clusterInfo(), admin.brokerFolders());
-          new StraightPlanExecutor()
-              .run(RebalanceAdmin.of(admin), plan.get().proposal().rebalancePlan());
-        } catch (Exception e) {
-          System.err.println(e.getMessage());
-        }
-      }
+      var plan =
+          Balancer.builder()
+              .planGenerator(new ShufflePlanGenerator(1, 10))
+              .clusterCost(new ReplicaLeaderCost())
+              .limit(1000)
+              .build()
+              .offer(admin.clusterInfo(Set.of(topicName)), admin.brokerFolders())
+              .orElseThrow();
+      new StraightPlanExecutor().run(RebalanceAdmin.of(admin), plan.proposal().rebalancePlan());
 
       var imbalanceFactor1 =
           Math.abs(
