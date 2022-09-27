@@ -41,6 +41,7 @@ import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.clients.admin.OffsetSpec;
 import org.apache.kafka.clients.admin.RecordsToDelete;
 import org.apache.kafka.clients.admin.RemoveMembersFromConsumerGroupOptions;
+import org.apache.kafka.clients.admin.ReplicaInfo;
 import org.apache.kafka.clients.admin.TransactionListing;
 import org.apache.kafka.common.ElectionType;
 import org.apache.kafka.common.Node;
@@ -108,7 +109,7 @@ public class Builder {
 
     @Override
     public ReplicaMigrator migrator() {
-      return new MigratorImpl(admin, this::partitions);
+      return new MigratorImpl(admin, this::topicPartitions);
     }
 
     @Override
@@ -134,27 +135,22 @@ public class Builder {
     }
 
     @Override
-    public Map<TopicPartition, Collection<ProducerState>> producerStates(
-        Set<TopicPartition> partitions) {
+    public List<ProducerState> producerStates(Set<TopicPartition> partitions) {
       return Utils.packException(
-          () ->
-              admin
-                  .describeProducers(
-                      partitions.stream()
-                          .map(TopicPartition::to)
-                          .collect(Collectors.toUnmodifiableList()))
-                  .all()
-                  .get()
-                  .entrySet()
-                  .stream()
-                  .filter(e -> !e.getValue().activeProducers().isEmpty())
-                  .collect(
-                      Collectors.toMap(
-                          e -> TopicPartition.from(e.getKey()),
-                          e ->
-                              e.getValue().activeProducers().stream()
-                                  .map(ProducerState::from)
-                                  .collect(Collectors.toUnmodifiableList()))));
+              () ->
+                  admin
+                      .describeProducers(
+                          partitions.stream()
+                              .map(TopicPartition::to)
+                              .collect(Collectors.toUnmodifiableList()))
+                      .all()
+                      .get())
+          .entrySet()
+          .stream()
+          .flatMap(
+              e ->
+                  e.getValue().activeProducers().stream().map(s -> ProducerState.of(e.getKey(), s)))
+          .collect(Collectors.toList());
     }
 
     @Override
@@ -165,7 +161,7 @@ public class Builder {
     }
 
     @Override
-    public Map<String, ConsumerGroup> consumerGroups(Set<String> consumerGroupNames) {
+    public List<ConsumerGroup> consumerGroups(Set<String> consumerGroupNames) {
       return Utils.packException(
           () -> {
             var consumerGroupDescriptions =
@@ -185,51 +181,49 @@ public class Builder {
                                             .get())));
 
             return consumerGroupNames.stream()
-                .collect(
-                    Collectors.toMap(
-                        Function.identity(),
-                        groupId ->
-                            new ConsumerGroup(
-                                groupId,
-                                consumerGroupMetadata.get(groupId).entrySet().stream()
-                                    .collect(
-                                        Collectors.toUnmodifiableMap(
-                                            tp -> TopicPartition.from(tp.getKey()),
-                                            offset -> offset.getValue().offset())),
-                                consumerGroupDescriptions.get(groupId).members().stream()
-                                    .collect(
-                                        Collectors.toUnmodifiableMap(
-                                            member ->
-                                                new Member(
-                                                    groupId,
-                                                    member.consumerId(),
-                                                    member.groupInstanceId(),
-                                                    member.clientId(),
-                                                    member.host()),
-                                            member ->
-                                                member.assignment().topicPartitions().stream()
-                                                    .map(TopicPartition::from)
-                                                    .collect(Collectors.toSet()))))));
+                .map(
+                    groupId ->
+                        new ConsumerGroup(
+                            groupId,
+                            consumerGroupMetadata.get(groupId).entrySet().stream()
+                                .collect(
+                                    Collectors.toUnmodifiableMap(
+                                        tp -> TopicPartition.from(tp.getKey()),
+                                        offset -> offset.getValue().offset())),
+                            consumerGroupDescriptions.get(groupId).members().stream()
+                                .collect(
+                                    Collectors.toUnmodifiableMap(
+                                        member ->
+                                            new Member(
+                                                groupId,
+                                                member.consumerId(),
+                                                member.groupInstanceId(),
+                                                member.clientId(),
+                                                member.host()),
+                                        member ->
+                                            member.assignment().topicPartitions().stream()
+                                                .map(TopicPartition::from)
+                                                .collect(Collectors.toSet())))))
+                .collect(Collectors.toList());
           });
     }
 
     private Map<TopicPartition, Long> earliestOffset(Set<TopicPartition> partitions) {
 
       return Utils.packException(
-          () ->
-              admin
-                  .listOffsets(
-                      partitions.stream()
-                          .collect(
-                              Collectors.toMap(
-                                  TopicPartition::to, e -> new OffsetSpec.EarliestSpec())))
-                  .all()
-                  .get()
-                  .entrySet()
-                  .stream()
-                  .collect(
-                      Collectors.toMap(
-                          e -> TopicPartition.from(e.getKey()), e -> e.getValue().offset())));
+              () ->
+                  admin
+                      .listOffsets(
+                          partitions.stream()
+                              .collect(
+                                  Collectors.toMap(
+                                      TopicPartition::to, e -> new OffsetSpec.EarliestSpec())))
+                      .all()
+                      .get())
+          .entrySet()
+          .stream()
+          .collect(
+              Collectors.toMap(e -> TopicPartition.from(e.getKey()), e -> e.getValue().offset()));
     }
 
     private Map<TopicPartition, Long> latestOffset(Set<TopicPartition> partitions) {
@@ -299,19 +293,56 @@ public class Builder {
     }
 
     @Override
-    public Map<TopicPartition, Offset> offsets(Set<String> topics) {
-      var partitions = partitions(topics);
-      var earliest = earliestOffset(partitions);
-      var latest = latestOffset(partitions);
-      return earliest.entrySet().stream()
-          .filter(e -> latest.containsKey(e.getKey()))
-          .collect(
-              Collectors.toMap(
-                  Map.Entry::getKey, e -> new Offset(e.getValue(), latest.get(e.getKey()))));
+    public List<Partition> partitions(Set<String> topics) {
+      var partitions =
+          Utils.packException(() -> admin.describeTopics(topics).all().get()).entrySet().stream()
+              .flatMap(
+                  e ->
+                      e.getValue().partitions().stream()
+                          .map(
+                              p ->
+                                  Map.entry(
+                                      new org.apache.kafka.common.TopicPartition(
+                                          e.getKey(), p.partition()),
+                                      p)))
+              .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+      var earliest =
+          Utils.packException(
+              () ->
+                  admin
+                      .listOffsets(
+                          partitions.keySet().stream()
+                              .collect(
+                                  Collectors.toMap(
+                                      Function.identity(), e -> new OffsetSpec.EarliestSpec())))
+                      .all()
+                      .get());
+
+      var latest =
+          Utils.packException(
+              () ->
+                  admin
+                      .listOffsets(
+                          partitions.keySet().stream()
+                              .collect(
+                                  Collectors.toMap(
+                                      Function.identity(), e -> new OffsetSpec.LatestSpec())))
+                      .all()
+                      .get());
+
+      return partitions.entrySet().stream()
+          .map(
+              entry ->
+                  Partition.of(
+                      entry.getKey().topic(),
+                      entry.getValue(),
+                      Optional.ofNullable(earliest.get(entry.getKey())),
+                      Optional.ofNullable(latest.get(entry.getKey()))))
+          .collect(Collectors.toList());
     }
 
     @Override
-    public Set<TopicPartition> partitions(Set<String> topics) {
+    public Set<TopicPartition> topicPartitions(Set<String> topics) {
       return Utils.packException(() -> admin.describeTopics(topics).all().get()).entrySet().stream()
           .flatMap(
               e ->
@@ -321,7 +352,7 @@ public class Builder {
     }
 
     @Override
-    public Set<TopicPartition> partitions(int broker) {
+    public Set<TopicPartition> topicPartitions(int broker) {
       return Utils.packException(() -> admin.describeTopics(topicNames()).all().get())
           .entrySet()
           .stream()
@@ -333,27 +364,43 @@ public class Builder {
           .collect(Collectors.toSet());
     }
 
+    private Map<
+            Integer, Map<TopicPartition, Map<String, org.apache.kafka.clients.admin.ReplicaInfo>>>
+        logDirs(Set<String> topics) {
+      return Utils.packException(() -> admin.describeLogDirs(brokerIds()).allDescriptions().get())
+          .entrySet()
+          .stream()
+          .collect(
+              Collectors.toMap(
+                  Map.Entry::getKey,
+                  pathAndDesc ->
+                      pathAndDesc.getValue().entrySet().stream()
+                          .flatMap(
+                              e ->
+                                  e.getValue().replicaInfos().entrySet().stream()
+                                      .map(
+                                          tr ->
+                                              Map.entry(
+                                                  TopicPartition.from(tr.getKey()),
+                                                  Map.entry(e.getKey(), tr.getValue()))))
+                          .collect(Collectors.groupingBy(Map.Entry::getKey))
+                          .entrySet()
+                          .stream()
+                          .collect(
+                              Collectors.toMap(
+                                  Map.Entry::getKey,
+                                  e ->
+                                      e.getValue().stream()
+                                          .map(Map.Entry::getValue)
+                                          .collect(
+                                              Collectors.toMap(
+                                                  Map.Entry::getKey, Map.Entry::getValue))))));
+    }
+
     @Override
     public Map<TopicPartition, List<Replica>> replicas(Set<String> topics) {
       // pre-group folders by (broker -> topic partition) to speedup seek
-      var logInfo =
-          Utils.packException(() -> admin.describeLogDirs(brokerIds()).allDescriptions().get())
-              .entrySet()
-              .stream()
-              .collect(
-                  Collectors.toMap(
-                      Map.Entry::getKey,
-                      pathAndDesc ->
-                          pathAndDesc.getValue().entrySet().stream()
-                              .flatMap(
-                                  e ->
-                                      e.getValue().replicaInfos().entrySet().stream()
-                                          .map(
-                                              tr ->
-                                                  Map.entry(
-                                                      TopicPartition.from(tr.getKey()),
-                                                      Map.entry(e.getKey(), tr.getValue()))))
-                              .collect(Collectors.groupingBy(Map.Entry::getKey))));
+      var logInfo = logDirs(topics);
 
       BiFunction<TopicPartition, org.apache.kafka.common.TopicPartitionInfo, List<Replica>>
           toReplicas =
@@ -366,15 +413,12 @@ public class Builder {
                                   .getOrDefault(node.id(), Map.of())
                                   .getOrDefault(
                                       tp,
-                                      List.of(
-                                          Map.entry(
-                                              tp,
-                                              Map.entry(
-                                                  "",
-                                                  new org.apache.kafka.clients.admin.ReplicaInfo(
-                                                      -1L, -1L, false)))))
+                                      Map.of(
+                                          "",
+                                          new org.apache.kafka.clients.admin.ReplicaInfo(
+                                              -1L, -1L, false)))
+                                  .entrySet()
                                   .stream()
-                                  .map(Map.Entry::getValue)
                                   .map(
                                       pathAndReplica ->
                                           Replica.of(
@@ -511,74 +555,61 @@ public class Builder {
     }
 
     @Override
-    public Map<TopicPartition, Reassignment> reassignments(Set<String> topics) {
-      var assignments =
+    public List<AddingReplica> addingReplicas(Set<String> topics) {
+      var adding =
           Utils.packException(
-              () ->
-                  admin
-                      .listPartitionReassignments(
-                          partitions(topics).stream()
-                              .map(TopicPartition::to)
-                              .collect(Collectors.toSet()))
-                      .reassignments()
-                      .get());
+                  () ->
+                      admin
+                          .listPartitionReassignments(
+                              topicPartitions(topics).stream()
+                                  .map(TopicPartition::to)
+                                  .collect(Collectors.toSet()))
+                          .reassignments()
+                          .get())
+              .entrySet()
+              .stream()
+              .flatMap(
+                  entry ->
+                      entry.getValue().addingReplicas().stream()
+                          .map(
+                              id ->
+                                  new org.apache.kafka.common.TopicPartitionReplica(
+                                      entry.getKey().topic(), entry.getKey().partition(), id)))
+              .collect(Collectors.toList());
+      var dirs = logDirs(topics);
 
-      var dirs =
-          Utils.packException(
-              () ->
-                  admin
-                      .describeReplicaLogDirs(
-                          replicas(topics).entrySet().stream()
-                              .flatMap(
-                                  e ->
-                                      e.getValue().stream()
-                                          .map(
-                                              r ->
-                                                  new org.apache.kafka.common.TopicPartitionReplica(
-                                                      e.getKey().topic(),
-                                                      e.getKey().partition(),
-                                                      r.nodeInfo().id())))
-                              .collect(Collectors.toUnmodifiableList()))
-                      .all()
-                      .get());
+      Function<TopicPartition, Long> findMaxSize =
+          tp ->
+              dirs.values().stream()
+                  .flatMap(e -> e.entrySet().stream())
+                  .filter(e -> e.getKey().equals(tp))
+                  .flatMap(e -> e.getValue().values().stream().map(ReplicaInfo::size))
+                  .mapToLong(v -> v)
+                  .max()
+                  .orElse(0);
 
-      var result =
-          new HashMap<
-              TopicPartition, Map.Entry<Set<Reassignment.Location>, Set<Reassignment.Location>>>();
-
-      dirs.forEach(
-          (replica, logDir) -> {
-            var brokerId = replica.brokerId();
-            var tp = TopicPartition.of(replica.topic(), replica.partition());
-            var ls =
-                result.computeIfAbsent(tp, ignored -> Map.entry(new HashSet<>(), new HashSet<>()));
-            // the replica is moved from a folder to another folder (in the same node)
-            if (logDir.getFutureReplicaLogDir() != null)
-              ls.getValue()
-                  .add(new Reassignment.Location(brokerId, logDir.getFutureReplicaLogDir()));
-            if (logDir.getCurrentReplicaLogDir() != null) {
-              var assignment = assignments.get(TopicPartition.to(tp));
-              // the replica is moved from a node to another node
-              if (assignment != null && assignment.addingReplicas().contains(brokerId)) {
-                ls.getValue()
-                    .add(new Reassignment.Location(brokerId, logDir.getCurrentReplicaLogDir()));
-              } else {
-                ls.getKey()
-                    .add(new Reassignment.Location(brokerId, logDir.getCurrentReplicaLogDir()));
-              }
-            }
-          });
-
-      return result.entrySet().stream()
-          // empty "to" means there is no reassignment
-          .filter(e -> !e.getValue().getValue().isEmpty())
-          .collect(
-              Collectors.toMap(
-                  Map.Entry::getKey,
-                  e ->
-                      new Reassignment(
-                          Collections.unmodifiableSet(e.getValue().getKey()),
-                          Collections.unmodifiableSet(e.getValue().getValue()))));
+      return adding.stream()
+          .filter(
+              r ->
+                  dirs.getOrDefault(r.brokerId(), Map.of())
+                      .containsKey(TopicPartition.of(r.topic(), r.partition())))
+          .flatMap(
+              r ->
+                  dirs
+                      .get(r.brokerId())
+                      .get(TopicPartition.of(r.topic(), r.partition()))
+                      .entrySet()
+                      .stream()
+                      .map(
+                          entry ->
+                              AddingReplica.of(
+                                  r.topic(),
+                                  r.partition(),
+                                  r.brokerId(),
+                                  entry.getKey(),
+                                  entry.getValue().size(),
+                                  findMaxSize.apply(TopicPartition.of(r.topic(), r.partition())))))
+          .collect(Collectors.toList());
     }
 
     @Override

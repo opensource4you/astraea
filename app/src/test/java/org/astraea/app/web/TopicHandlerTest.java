@@ -136,7 +136,8 @@ public class TopicHandlerTest extends RequireBrokerCluster {
       Assertions.assertEquals(2, topics.topics.size());
       // the topic creation is not synced, so we have to wait the creation.
       Utils.sleep(Duration.ofSeconds(2));
-      var actualTopPartitions = admin.offsets(Set.of(topicName0, topicName1)).keySet();
+
+      var actualTopPartitions = admin.topicPartitions(Set.of(topicName0, topicName1));
       Assertions.assertEquals(
           1, actualTopPartitions.stream().filter(tp -> tp.topic().equals(topicName0)).count());
       Assertions.assertEquals(

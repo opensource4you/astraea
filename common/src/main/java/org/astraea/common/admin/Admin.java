@@ -62,15 +62,15 @@ public interface Admin extends Closeable {
   void deleteTopics(Set<String> topicNames);
 
   /** @return all partitions */
-  default Set<TopicPartition> partitions() {
-    return partitions(topicNames());
+  default Set<TopicPartition> topicPartitions() {
+    return topicPartitions(topicNames());
   }
 
   /**
    * @param topics target
    * @return the partitions belong to input topics
    */
-  Set<TopicPartition> partitions(Set<String> topics);
+  Set<TopicPartition> topicPartitions(Set<String> topics);
 
   /**
    * list all partitions belongs to input brokers
@@ -78,26 +78,12 @@ public interface Admin extends Closeable {
    * @param brokerId to search
    * @return all partition belongs to brokers
    */
-  Set<TopicPartition> partitions(int brokerId);
+  Set<TopicPartition> topicPartitions(int brokerId);
 
   /** @return a topic creator to set all topic configs and then run the procedure. */
   TopicCreator creator();
 
-  /** @return offsets of all partitions */
-  default Map<TopicPartition, Offset> offsets() {
-    return offsets(topicNames());
-  }
-
-  /**
-   * @param topics topic names
-   * @return the earliest offset and latest offset for specific topics
-   */
-  Map<TopicPartition, Offset> offsets(Set<String> topics);
-
-  /** @return all consumer groups */
-  default Map<String, ConsumerGroup> consumerGroups() {
-    return consumerGroups(consumerGroupIds());
-  }
+  List<Partition> partitions(Set<String> topics);
 
   /** @return all consumer group ids */
   Set<String> consumerGroupIds();
@@ -106,7 +92,7 @@ public interface Admin extends Closeable {
    * @param consumerGroupNames consumer group names.
    * @return the member info of each consumer group
    */
-  Map<String, ConsumerGroup> consumerGroups(Set<String> consumerGroupNames);
+  List<ConsumerGroup> consumerGroups(Set<String> consumerGroupNames);
 
   /** @return replica info of all partitions */
   default Map<TopicPartition, List<Replica>> replicas() {
@@ -163,15 +149,15 @@ public interface Admin extends Closeable {
   void preferredLeaderElection(TopicPartition topicPartition);
 
   /** @return producer states of all topic partitions */
-  default Map<TopicPartition, Collection<ProducerState>> producerStates() {
-    return producerStates(partitions());
+  default List<ProducerState> producerStates() {
+    return producerStates(topicPartitions());
   }
 
   /**
    * @param partitions to search
    * @return producer states of input topic partitions
    */
-  Map<TopicPartition, Collection<ProducerState>> producerStates(Set<TopicPartition> partitions);
+  List<ProducerState> producerStates(Set<TopicPartition> partitions);
 
   /** @return a progress to set quota */
   QuotaCreator quotaCreator();
@@ -254,22 +240,7 @@ public interface Admin extends Closeable {
    */
   void removeStaticMembers(String groupId, Set<String> members);
 
-  /**
-   * Get the reassignments of all topics.
-   *
-   * @return reassignment
-   */
-  default Map<TopicPartition, Reassignment> reassignments() {
-    return reassignments(topicNames());
-  }
-
-  /**
-   * Get the reassignments of topics. It returns nothing if the partitions are not migrating.
-   *
-   * @param topics to search
-   * @return reassignment
-   */
-  Map<TopicPartition, Reassignment> reassignments(Set<String> topics);
+  List<AddingReplica> addingReplicas(Set<String> topics);
 
   /**
    * Delete records with offset less than specified Long

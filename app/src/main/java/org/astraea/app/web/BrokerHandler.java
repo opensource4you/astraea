@@ -47,7 +47,7 @@ class BrokerHandler implements Handler {
 
     var brokers =
         admin.brokers(brokers(channel.target())).entrySet().stream()
-            .map(e -> new Broker(e.getKey(), admin.partitions(e.getKey()), e.getValue()))
+            .map(e -> new Broker(e.getKey(), admin.topicPartitions(e.getKey()), e.getValue()))
             .collect(Collectors.toUnmodifiableList());
     if (channel.target().isPresent() && brokers.size() == 1) return brokers.get(0);
     return new Brokers(brokers);

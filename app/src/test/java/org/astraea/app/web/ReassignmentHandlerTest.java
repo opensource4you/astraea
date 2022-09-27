@@ -17,7 +17,6 @@
 package org.astraea.app.web;
 
 import static org.astraea.app.web.ReassignmentHandler.progressInPercentage;
-import static org.astraea.app.web.ReassignmentHandler.toReassignment;
 
 import java.time.Duration;
 import java.util.List;
@@ -25,9 +24,6 @@ import java.util.Objects;
 import java.util.Set;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
-import org.astraea.common.admin.NodeInfo;
-import org.astraea.common.admin.Reassignment;
-import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.it.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
@@ -69,7 +65,7 @@ public class ReassignmentHandlerTest extends RequireBrokerCluster {
       Utils.sleep(Duration.ofSeconds(2));
       var reassignments = handler.get(Channel.EMPTY);
       // the reassignment should be completed
-      Assertions.assertEquals(0, reassignments.reassignments.size());
+      Assertions.assertEquals(0, reassignments.addingReplicas.size());
 
       Assertions.assertEquals(
           nextBroker,
@@ -119,7 +115,7 @@ public class ReassignmentHandlerTest extends RequireBrokerCluster {
       Utils.sleep(Duration.ofSeconds(2));
       var reassignments = handler.get(Channel.ofTarget(topicName));
       // the reassignment should be completed
-      Assertions.assertEquals(0, reassignments.reassignments.size());
+      Assertions.assertEquals(0, reassignments.addingReplicas.size());
 
       Assertions.assertEquals(
           nextPath,
@@ -158,7 +154,7 @@ public class ReassignmentHandlerTest extends RequireBrokerCluster {
       Utils.sleep(Duration.ofSeconds(2));
       var reassignments = handler.get(Channel.EMPTY);
       // the reassignment should be completed
-      Assertions.assertEquals(0, reassignments.reassignments.size());
+      Assertions.assertEquals(0, reassignments.addingReplicas.size());
 
       Assertions.assertNotEquals(
           currentBroker,
@@ -205,7 +201,7 @@ public class ReassignmentHandlerTest extends RequireBrokerCluster {
       Utils.sleep(Duration.ofSeconds(2));
       var reassignments = handler.get(Channel.EMPTY);
       // the reassignment should be completed
-      Assertions.assertEquals(0, reassignments.reassignments.size());
+      Assertions.assertEquals(0, reassignments.addingReplicas.size());
 
       Assertions.assertNotEquals(
           currentBroker,
@@ -237,67 +233,6 @@ public class ReassignmentHandlerTest extends RequireBrokerCluster {
       Assertions.assertEquals(
           Response.BAD_REQUEST, handler.post(Channel.ofRequest(PostRequest.of(body))));
     }
-  }
-
-  @Test
-  void testToReassignment() {
-    var reassignment =
-        toReassignment(
-            TopicPartition.of("test", 0),
-            List.of(
-                new Reassignment.Location(1001, "/tmp/dir1"),
-                new Reassignment.Location(1002, "/tmp/dir1")),
-            List.of(
-                new Reassignment.Location(1001, "/tmp/dir2"),
-                new Reassignment.Location(1003, "/tmp/dir3")),
-            List.of(
-                fakeReplica(TopicPartition.of("test", 0), 1001, 200, "/tmp/dir1"),
-                fakeReplica(TopicPartition.of("test", 0), 1002, 200, "/tmp/dir1"),
-                fakeReplica(TopicPartition.of("test", 0), 1001, 20, "/tmp/dir2"),
-                fakeReplica(TopicPartition.of("test", 0), 1003, 30, "/tmp/dir3")));
-
-    Assertions.assertEquals(reassignment.topicName, "test");
-    Assertions.assertEquals(reassignment.partition, 0);
-
-    Assertions.assertEquals(reassignment.from.size(), 2);
-    var fromIterator = reassignment.from.iterator();
-    var from = fromIterator.next();
-    Assertions.assertEquals(from.broker, 1001);
-    Assertions.assertEquals(from.size, 200);
-    Assertions.assertEquals(from.path, "/tmp/dir1");
-    from = fromIterator.next();
-    Assertions.assertEquals(from.broker, 1002);
-    Assertions.assertEquals(from.size, 200);
-    Assertions.assertEquals(from.path, "/tmp/dir1");
-
-    Assertions.assertEquals(reassignment.to.size(), 2);
-    var toIterator = reassignment.to.iterator();
-    var to = toIterator.next();
-    Assertions.assertEquals(to.broker, 1001);
-    Assertions.assertEquals(to.size, 20);
-    Assertions.assertEquals(to.path, "/tmp/dir2");
-    to = toIterator.next();
-    Assertions.assertEquals(to.broker, 1003);
-    Assertions.assertEquals(to.size, 30);
-    Assertions.assertEquals(to.path, "/tmp/dir3");
-
-    Assertions.assertEquals(reassignment.progress, "12.50%");
-  }
-
-  private static Replica fakeReplica(
-      TopicPartition topicPartition, int brokerId, long size, String dataFolder) {
-    return Replica.of(
-        topicPartition.topic(),
-        topicPartition.partition(),
-        NodeInfo.of(brokerId, "", 12345),
-        0,
-        size,
-        true,
-        true,
-        true,
-        true,
-        true,
-        dataFolder);
   }
 
   @Test
