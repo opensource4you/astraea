@@ -95,9 +95,16 @@ public interface Admin extends Closeable {
 
   /**
    * @param topics topic names
-   * @return the replicas of partition
+   * @return all replica in topics
    */
-  Map<TopicPartition, List<Replica>> replicas(Set<String> topics);
+  default Map<TopicPartition, List<Replica>> replicas(Set<String> topics) {
+    return newReplicas(topics).stream()
+        .collect(
+            Collectors.groupingBy(
+                replica -> TopicPartition.of(replica.topic(), replica.partition())));
+  }
+
+  List<Replica> newReplicas(Set<String> topics);
 
   /** @return all alive brokers' ids */
   Set<Integer> brokerIds();
