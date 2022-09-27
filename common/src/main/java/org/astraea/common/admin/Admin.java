@@ -117,7 +117,12 @@ public interface Admin extends Closeable {
    * @param topics topic names
    * @return all replica in topics
    */
-  Map<TopicPartition, List<Replica>> replicas(Set<String> topics);
+  default Map<TopicPartition, List<Replica>> replicas(Set<String> topics) {
+    return newReplicas(topics).stream()
+        .collect(
+            Collectors.groupingBy(
+                replica -> TopicPartition.of(replica.topic(), replica.partition())));
+  }
 
   List<Replica> newReplicas(Set<String> topics);
 

@@ -502,28 +502,6 @@ public class AdminTest extends RequireBrokerCluster {
   }
 
   @Test
-  void testNewReplicas() {
-    try (var admin = Admin.of(bootstrapServers())) {
-      var topics = Set.of("abc", "def", "ghi");
-      topics.forEach(t -> admin.creator().topic(t).numberOfPartitions(2).create());
-
-      Utils.sleep(Duration.ofSeconds(2));
-      topics.forEach(t -> Assertions.assertEquals(2, admin.replicas(Set.of(t)).size()));
-      Assertions.assertEquals(6, admin.replicas(topics).size());
-      Assertions.assertEquals(6, admin.newReplicas(topics).size());
-
-      var count = admin.topicNames().stream().mapToInt(t -> admin.replicas(Set.of(t)).size()).sum();
-      Assertions.assertEquals(count, admin.replicas().size());
-
-      var replicas =
-          admin.replicas(Set.of("abc")).values().stream()
-              .flatMap(Collection::stream)
-              .collect(Collectors.toList());
-      Assertions.assertTrue(replicas.containsAll(admin.newReplicas(Set.of("abc"))));
-    }
-  }
-
-  @Test
   void testReplicasPreferredLeaderFlag() {
     // arrange
     try (Admin admin = Admin.of(bootstrapServers())) {
