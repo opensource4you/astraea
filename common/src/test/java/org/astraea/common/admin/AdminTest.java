@@ -184,6 +184,8 @@ public class AdminTest extends RequireBrokerCluster {
       admin
           .partitions(Set.of(topicName))
           .forEach(p -> Assertions.assertNotEquals(-1, p.maxTimestamp()));
+
+      Assertions.assertNotEquals(-1, admin.topics(Set.of(topicName)).get(0).maxTimestamp());
     }
   }
 

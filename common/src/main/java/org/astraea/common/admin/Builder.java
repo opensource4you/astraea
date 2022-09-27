@@ -227,6 +227,18 @@ public class Builder {
 
     @Override
     public List<Topic> topics(Set<String> names) {
+      var maxTimestamp =
+          Utils.packException(
+              () ->
+                  admin
+                      .listOffsets(
+                          topicPartitions(names).stream()
+                              .map(TopicPartition::to)
+                              .collect(
+                                  Collectors.toMap(
+                                      Function.identity(), e -> new OffsetSpec.MaxTimestampSpec())))
+                      .all()
+                      .get());
       return Utils.packException(
               () ->
                   admin
@@ -238,7 +250,16 @@ public class Builder {
                       .get())
           .entrySet()
           .stream()
-          .map(entry -> Topic.of(entry.getKey().name(), entry.getValue()))
+          .map(
+              entry ->
+                  Topic.of(
+                      entry.getKey().name(),
+                      entry.getValue(),
+                      maxTimestamp.entrySet().stream()
+                          .filter(offset -> offset.getKey().topic().equals(entry.getKey().name()))
+                          .mapToLong(offset -> offset.getValue().timestamp())
+                          .filter(v -> v > 0)
+                          .max()))
           .collect(Collectors.toUnmodifiableList());
     }
 
