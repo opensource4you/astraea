@@ -85,11 +85,6 @@ public interface Admin extends Closeable {
 
   List<Partition> partitions(Set<String> topics);
 
-  /** @return all consumer groups */
-  default Map<String, ConsumerGroup> consumerGroups() {
-    return consumerGroups(consumerGroupIds());
-  }
-
   /** @return all consumer group ids */
   Set<String> consumerGroupIds();
 
@@ -97,7 +92,7 @@ public interface Admin extends Closeable {
    * @param consumerGroupNames consumer group names.
    * @return the member info of each consumer group
    */
-  Map<String, ConsumerGroup> consumerGroups(Set<String> consumerGroupNames);
+  List<ConsumerGroup> consumerGroups(Set<String> consumerGroupNames);
 
   /** @return replica info of all partitions */
   default Map<TopicPartition, List<Replica>> replicas() {

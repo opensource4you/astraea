@@ -186,8 +186,8 @@ public class AdminTest extends RequireBrokerCluster {
         Utils.sleep(Duration.ofSeconds(5));
         var consumerGroupMap = admin.consumerGroups(Set.of(consumerGroup));
         Assertions.assertEquals(1, consumerGroupMap.size());
-        Assertions.assertTrue(consumerGroupMap.containsKey(consumerGroup));
-        Assertions.assertEquals(consumerGroup, consumerGroupMap.get(consumerGroup).groupId());
+        Assertions.assertTrue(
+            consumerGroupMap.stream().anyMatch(cg -> cg.groupId().equals(consumerGroup)));
 
         try (var c2 =
             Consumer.forTopics(Set.of(topicName))
@@ -198,7 +198,7 @@ public class AdminTest extends RequireBrokerCluster {
               admin.consumerGroupIds().stream()
                   .mapToInt(t -> admin.consumerGroups(Set.of(t)).size())
                   .sum();
-          Assertions.assertEquals(count, admin.consumerGroups().size());
+          Assertions.assertEquals(count, admin.consumerGroups(admin.consumerGroupIds()).size());
           Assertions.assertEquals(1, admin.consumerGroups(Set.of("abc")).size());
         }
       }
@@ -906,9 +906,10 @@ public class AdminTest extends RequireBrokerCluster {
       admin.removeAllMembers(consumer.groupId());
       Assertions.assertEquals(
           0,
-          admin
-              .consumerGroups(Set.of(consumer.groupId()))
-              .get(consumer.groupId())
+          admin.consumerGroups(Set.of(consumer.groupId())).stream()
+              .filter(g -> g.groupId().equals(consumer.groupId()))
+              .findFirst()
+              .get()
               .assignment()
               .size());
     }
@@ -928,10 +929,22 @@ public class AdminTest extends RequireBrokerCluster {
         Assertions.assertEquals(0, consumer.poll(Duration.ofSeconds(3)).size());
       }
       Assertions.assertEquals(
-          1, admin.consumerGroups(Set.of(groupId)).get(groupId).assignment().size());
+          1,
+          admin.consumerGroups(Set.of(groupId)).stream()
+              .filter(g -> g.groupId().equals(groupId))
+              .findFirst()
+              .get()
+              .assignment()
+              .size());
       admin.removeAllMembers(groupId);
       Assertions.assertEquals(
-          0, admin.consumerGroups(Set.of(groupId)).get(groupId).assignment().size());
+          0,
+          admin.consumerGroups(Set.of(groupId)).stream()
+              .filter(g -> g.groupId().equals(groupId))
+              .findFirst()
+              .get()
+              .assignment()
+              .size());
       admin.removeAllMembers(groupId);
     }
   }
@@ -957,9 +970,10 @@ public class AdminTest extends RequireBrokerCluster {
       admin.removeStaticMembers(consumer.groupId(), Set.of(consumer.groupInstanceId().get()));
       Assertions.assertEquals(
           0,
-          admin
-              .consumerGroups(Set.of(consumer.groupId()))
-              .get(consumer.groupId())
+          admin.consumerGroups(Set.of(consumer.groupId())).stream()
+              .filter(g -> g.groupId().equals(consumer.groupId()))
+              .findFirst()
+              .get()
               .assignment()
               .size());
     }
