@@ -276,25 +276,13 @@ public class ConsumerTest extends RequireBrokerCluster {
         Assertions.assertEquals(1, admin.consumerGroups(Set.of(groupId)).size());
         // no offsets are committed, so there is no progress.
         Assertions.assertEquals(
-            0,
-            admin
-                .consumerGroups(Set.of(groupId))
-                .iterator()
-                .next()
-                .consumeProgress()
-                .size());
+            0, admin.consumerGroups(Set.of(groupId)).iterator().next().consumeProgress().size());
 
         // commit offsets manually, so we can "see" the progress now.
         consumer.commitOffsets(Duration.ofSeconds(3));
         Assertions.assertEquals(1, admin.consumerGroups(Set.of(groupId)).size());
         Assertions.assertEquals(
-            1,
-            admin
-                .consumerGroups(Set.of(groupId))
-                .iterator()
-                .next()
-                .consumeProgress()
-                .size());
+            1, admin.consumerGroups(Set.of(groupId)).iterator().next().consumeProgress().size());
       }
     }
   }
