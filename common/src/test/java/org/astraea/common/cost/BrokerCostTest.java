@@ -17,12 +17,33 @@
 package org.astraea.common.cost;
 
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 public class BrokerCostTest {
+
+  @Test
+  void testEmpty() {
+    var empty = HasBrokerCost.EMPTY;
+    Assertions.assertEquals(0, empty.brokerCost(null, null).value().size());
+    Assertions.assertEquals(Optional.empty(), empty.fetcher());
+    Assertions.assertEquals(HasBrokerCost.EMPTY, empty);
+  }
+
+  @Test
+  void testMerge() {
+    HasBrokerCost cost0 = (c, b) -> () -> Map.of(1, 10D, 2, 5D);
+    HasBrokerCost cost1 = (c, b) -> () -> Map.of(1, 1D, 2, 2D);
+    var merged = HasBrokerCost.of(Map.of(cost0, 1D, cost1, 2D));
+    var result = merged.brokerCost(null, null).value();
+    Assertions.assertEquals(2, result.size());
+    Assertions.assertEquals(12, result.get(1));
+    Assertions.assertEquals(9, result.get(2));
+  }
+
   @Test
   void testNormalize() {
     var testMap =

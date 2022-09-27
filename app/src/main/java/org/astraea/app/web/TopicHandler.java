@@ -23,12 +23,12 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
-import java.util.stream.StreamSupport;
 import org.apache.kafka.common.errors.UnknownTopicOrPartitionException;
 import org.astraea.app.scenario.Scenario;
 import org.astraea.common.ExecutionRuntimeException;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.Config;
+import org.astraea.common.admin.Partition;
 
 class TopicHandler implements Handler {
 
@@ -73,18 +73,18 @@ class TopicHandler implements Handler {
     var topics = admin.topics(topicNames);
     var replicas = admin.replicas(topics.keySet());
     var partitions =
-        admin.offsets(topics.keySet()).entrySet().stream()
-            .filter(e -> partitionPredicate.test(e.getKey().partition()))
+        admin.partitions(topics.keySet()).stream()
+            .filter(p -> partitionPredicate.test(p.partition()))
             .collect(
                 Collectors.groupingBy(
-                    e -> e.getKey().topic(),
+                    org.astraea.common.admin.Partition::topic,
                     Collectors.mapping(
-                        e ->
+                        p ->
                             new Partition(
-                                e.getKey().partition(),
-                                e.getValue().earliest(),
-                                e.getValue().latest(),
-                                replicas.get(e.getKey()).stream()
+                                p.partition(),
+                                p.earliestOffset(),
+                                p.latestOffset(),
+                                replicas.get(p.topicPartition()).stream()
                                     .map(Replica::new)
                                     .collect(Collectors.toUnmodifiableList())),
                         Collectors.toList())));
@@ -179,11 +179,7 @@ class TopicHandler implements Handler {
     final Map<String, String> configs;
 
     private TopicInfo(String name, List<Partition> partitions, Config configs) {
-      this(
-          name,
-          partitions,
-          StreamSupport.stream(configs.spliterator(), false)
-              .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue)));
+      this(name, partitions, configs.raw());
     }
 
     private TopicInfo(String name, List<Partition> partitions, Map<String, String> configs) {

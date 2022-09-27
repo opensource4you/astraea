@@ -30,8 +30,8 @@ public interface ClusterInfo<T extends ReplicaInfo> {
       new ClusterInfo<>() {
 
         @Override
-        public List<NodeInfo> nodes() {
-          return List.of();
+        public Set<NodeInfo> nodes() {
+          return Set.of();
         }
 
         @Override
@@ -71,7 +71,7 @@ public interface ClusterInfo<T extends ReplicaInfo> {
   /** Mask specific topics from a {@link ClusterInfo}. */
   static <T extends ReplicaInfo> ClusterInfo<T> masked(
       ClusterInfo<T> clusterInfo, Predicate<String> topicFilter) {
-    final var nodes = List.copyOf(clusterInfo.nodes());
+    final var nodes = Set.copyOf(clusterInfo.nodes());
     final var replicas =
         clusterInfo
             .replicaStream()
@@ -79,7 +79,7 @@ public interface ClusterInfo<T extends ReplicaInfo> {
             .collect(Collectors.toList());
     return new ClusterInfo<T>() {
       @Override
-      public List<NodeInfo> nodes() {
+      public Set<NodeInfo> nodes() {
         return nodes;
       }
 
@@ -105,7 +105,7 @@ public interface ClusterInfo<T extends ReplicaInfo> {
    */
   static ClusterInfo<ReplicaInfo> of(org.apache.kafka.common.Cluster cluster) {
     return of(
-        cluster.nodes().stream().map(NodeInfo::of).collect(Collectors.toUnmodifiableList()),
+        cluster.nodes().stream().map(NodeInfo::of).collect(Collectors.toSet()),
         cluster.topics().stream()
             .flatMap(t -> cluster.partitionsForTopic(t).stream())
             .flatMap(p -> ReplicaInfo.of(p).stream())
@@ -120,12 +120,10 @@ public interface ClusterInfo<T extends ReplicaInfo> {
    * @param <T> ReplicaInfo or Replica
    */
   static <T extends ReplicaInfo> ClusterInfo<T> of(List<T> replicas) {
-    return of(
-        replicas.stream().map(ReplicaInfo::nodeInfo).collect(Collectors.toUnmodifiableList()),
-        replicas);
+    return of(replicas.stream().map(ReplicaInfo::nodeInfo).collect(Collectors.toSet()), replicas);
   }
 
-  static <T extends ReplicaInfo> ClusterInfo<T> of(List<NodeInfo> nodes, List<T> replicas) {
+  static <T extends ReplicaInfo> ClusterInfo<T> of(Set<NodeInfo> nodes, List<T> replicas) {
     var topics = replicas.stream().map(ReplicaInfo::topic).collect(Collectors.toUnmodifiableSet());
     var replicasForTopic = replicas.stream().collect(Collectors.groupingBy(ReplicaInfo::topic));
     var availableReplicasForTopic =
@@ -146,7 +144,7 @@ public interface ClusterInfo<T extends ReplicaInfo> {
 
     return new ClusterInfo<>() {
       @Override
-      public List<NodeInfo> nodes() {
+      public Set<NodeInfo> nodes() {
         return nodes;
       }
 
@@ -337,7 +335,7 @@ public interface ClusterInfo<T extends ReplicaInfo> {
   // ---------------------[abstract methods]---------------------//
 
   /** @return The known set of nodes */
-  List<NodeInfo> nodes();
+  Set<NodeInfo> nodes();
 
   /** @return replica stream to offer effective way to operate a bunch of replicas */
   Stream<T> replicaStream();

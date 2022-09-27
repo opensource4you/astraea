@@ -18,9 +18,9 @@ package org.astraea.app.balancer.executor;
 
 import java.time.Duration;
 import java.time.temporal.ChronoUnit;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import org.astraea.app.balancer.log.LogPlacement;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.Replica;
@@ -53,7 +53,7 @@ public interface RebalanceAdmin {
    * @return a list of task trackers regarding each log
    */
   List<ReplicaMigrationTask> alterReplicaPlacements(
-      TopicPartition topicPartition, List<LogPlacement> expectedPlacement);
+      TopicPartition topicPartition, LinkedHashMap<Integer, String> expectedPlacement);
 
   /** @return a {@link CompletableFuture} that indicate the specific log has become synced. */
   CompletableFuture<Boolean> waitLogSynced(TopicPartitionReplica log, Duration timeout);

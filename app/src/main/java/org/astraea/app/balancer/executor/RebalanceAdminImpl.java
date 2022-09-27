@@ -17,16 +17,18 @@
 package org.astraea.app.balancer.executor;
 
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
-import org.astraea.app.balancer.log.LogPlacement;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.ClusterInfo;
+import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.admin.TopicPartitionReplica;
@@ -42,12 +44,6 @@ class RebalanceAdminImpl implements RebalanceAdmin {
    */
   public RebalanceAdminImpl(Admin admin) {
     this.admin = admin;
-  }
-
-  private List<LogPlacement> fetchCurrentPlacement(TopicPartition topicPartition) {
-    return admin.replicas(Set.of(topicPartition.topic())).get(topicPartition).stream()
-        .map(replica -> LogPlacement.of(replica.nodeInfo().id(), replica.dataFolder()))
-        .collect(Collectors.toUnmodifiableList());
   }
 
   /**
@@ -66,19 +62,20 @@ class RebalanceAdminImpl implements RebalanceAdmin {
    *     brokers
    */
   private void declarePreferredDataDirectories(
-      TopicPartition topicPartition, List<LogPlacement> preferredPlacements) {
-
-    final var currentPlacement = fetchCurrentPlacement(topicPartition);
+      TopicPartition topicPartition, LinkedHashMap<Integer, String> preferredPlacements) {
 
     final var currentBrokerAllocation =
-        currentPlacement.stream().map(LogPlacement::broker).collect(Collectors.toUnmodifiableSet());
+        admin.nodes().stream()
+            .map(NodeInfo::id)
+            .filter(id -> admin.topicPartitions(id).contains(topicPartition))
+            .collect(Collectors.toSet());
 
     // this operation is not supposed to trigger a log movement. But there might be a small window
     // of time to actually trigger it (race condition).
     final var declareMap =
-        preferredPlacements.stream()
-            .filter(futurePlacement -> !currentBrokerAllocation.contains(futurePlacement.broker()))
-            .collect(Collectors.toUnmodifiableMap(LogPlacement::broker, LogPlacement::dataFolder));
+        preferredPlacements.entrySet().stream()
+            .filter(entry -> !currentBrokerAllocation.contains(entry.getKey()))
+            .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));
 
     admin
         .migrator()
@@ -88,43 +85,38 @@ class RebalanceAdminImpl implements RebalanceAdmin {
 
   @Override
   public List<ReplicaMigrationTask> alterReplicaPlacements(
-      TopicPartition topicPartition, List<LogPlacement> expectedPlacement) {
+      TopicPartition topicPartition, LinkedHashMap<Integer, String> expectedPlacement) {
 
     // ensure replica will be placed in the correct data directory at destination broker.
     declarePreferredDataDirectories(topicPartition, expectedPlacement);
 
     var currentReplicaBrokers =
-        fetchCurrentPlacement(topicPartition).stream()
-            .map(LogPlacement::broker)
-            .collect(Collectors.toUnmodifiableSet());
+        admin.nodes().stream()
+            .map(NodeInfo::id)
+            .filter(id -> admin.topicPartitions(id).contains(topicPartition))
+            .collect(Collectors.toSet());
 
     // do cross broker migration
     admin
         .migrator()
         .partition(topicPartition.topic(), topicPartition.partition())
-        .moveTo(
-            expectedPlacement.stream()
-                .map(LogPlacement::broker)
-                .collect(Collectors.toUnmodifiableList()));
+        .moveTo(new ArrayList<>(expectedPlacement.keySet()));
 
     // wait until the whole cluster knows the replica list just changed
     Utils.sleep(Duration.ofMillis(500));
 
     // do inter-data-directories migration
     var forCrossDirMigration =
-        expectedPlacement.stream()
-            .filter(placement -> currentReplicaBrokers.contains(placement.broker()))
-            .collect(Collectors.toUnmodifiableMap(LogPlacement::broker, LogPlacement::dataFolder));
+        expectedPlacement.entrySet().stream()
+            .filter(entry -> currentReplicaBrokers.contains(entry.getKey()))
+            .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));
     admin
         .migrator()
         .partition(topicPartition.topic(), topicPartition.partition())
         .moveTo(forCrossDirMigration);
 
-    return expectedPlacement.stream()
-        .map(
-            log ->
-                TopicPartitionReplica.of(
-                    topicPartition.topic(), topicPartition.partition(), log.broker()))
+    return expectedPlacement.keySet().stream()
+        .map(s -> TopicPartitionReplica.of(topicPartition.topic(), topicPartition.partition(), s))
         .map(log -> new ReplicaMigrationTask(this, log))
         .collect(Collectors.toUnmodifiableList());
   }

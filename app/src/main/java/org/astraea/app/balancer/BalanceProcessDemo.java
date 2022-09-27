@@ -23,6 +23,7 @@ import org.astraea.app.balancer.executor.RebalanceAdmin;
 import org.astraea.app.balancer.executor.StraightPlanExecutor;
 import org.astraea.app.balancer.generator.ShufflePlanGenerator;
 import org.astraea.common.admin.Admin;
+import org.astraea.common.argument.Argument;
 import org.astraea.common.cost.ReplicaLeaderCost;
 
 /**
@@ -44,12 +45,13 @@ public class BalanceProcessDemo {
       Predicate<String> filter = topic -> !argument.ignoredTopics.contains(topic);
       var plan =
           Balancer.builder()
-              .usePlanGenerator(new ShufflePlanGenerator(1, 10))
-              .useClusterCost(new ReplicaLeaderCost())
-              .searches(1000)
+              .planGenerator(new ShufflePlanGenerator(1, 10))
+              .clusterCost(new ReplicaLeaderCost())
+              .limit(1000)
               .build()
               .offer(clusterInfo, filter, brokerFolders);
-      new StraightPlanExecutor().run(RebalanceAdmin.of(admin), plan.proposal.rebalancePlan());
+      new StraightPlanExecutor()
+          .run(RebalanceAdmin.of(admin), plan.get().proposal().rebalancePlan());
     }
   }
 
