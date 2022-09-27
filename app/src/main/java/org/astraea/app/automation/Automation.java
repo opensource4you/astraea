@@ -71,7 +71,7 @@ public class Automation {
       while (i < times) {
         var topicName =
             Performance.execute(
-                Performance.Argument.parse(
+                org.astraea.common.argument.Argument.parse(
                     new Performance.Argument(), performanceArgs(properties)));
         i++;
         if (whetherDeleteTopic) {
