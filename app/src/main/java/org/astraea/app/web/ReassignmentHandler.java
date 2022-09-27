@@ -66,28 +66,32 @@ public class ReassignmentHandler implements Handler {
                     return Response.ACCEPT;
                   }
                   // case 2: move specific broker's (topic's) partitions to others
-                  if (request.booleanValue(EXCLUDE_KEY) && request.has(FROM_KEY)) {
-                    Predicate<TopicPartition> hasTopicKey =
-                        request.has(TOPIC_KEY)
-                            ? tp -> Objects.equals(tp.topic(), request.value(TOPIC_KEY))
-                            : tp -> true;
-                    var brokerList =
-                        admin.brokerIds().stream()
-                            .filter(i -> i != request.intValue(FROM_KEY))
-                            .collect(Collectors.toList());
-                    Iterator<Integer> it = brokerList.iterator();
-                    for (TopicPartition p :
-                        admin.topicPartitions(request.intValue(FROM_KEY)).stream()
-                            .filter(hasTopicKey)
-                            .collect(Collectors.toList())) {
-                      admin
-                          .migrator()
-                          .partition(p.topic(), p.partition())
-                          .moveTo(
-                              List.of(
-                                  it.hasNext() ? it.next() : (it = brokerList.iterator()).next()));
+                  if (request.has(FROM_KEY, EXCLUDE_KEY)) {
+                    if (request.booleanValue(EXCLUDE_KEY)) {
+                      Predicate<TopicPartition> hasTopicKey =
+                          request.has(TOPIC_KEY)
+                              ? tp -> Objects.equals(tp.topic(), request.value(TOPIC_KEY))
+                              : tp -> true;
+                      var brokerList =
+                          admin.brokerIds().stream()
+                              .filter(i -> i != request.intValue(FROM_KEY))
+                              .collect(Collectors.toList());
+                      Iterator<Integer> it = brokerList.iterator();
+                      for (TopicPartition p :
+                          admin.topicPartitions(request.intValue(FROM_KEY)).stream()
+                              .filter(hasTopicKey)
+                              .collect(Collectors.toList())) {
+                        admin
+                            .migrator()
+                            .partition(p.topic(), p.partition())
+                            .moveTo(
+                                List.of(
+                                    it.hasNext()
+                                        ? it.next()
+                                        : (it = brokerList.iterator()).next()));
+                      }
+                      return Response.ACCEPT;
                     }
-                    return Response.ACCEPT;
                   }
                   return Response.BAD_REQUEST;
                 })
