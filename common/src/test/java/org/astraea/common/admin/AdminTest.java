@@ -157,7 +157,7 @@ public class AdminTest extends RequireBrokerCluster {
 
   @Test
   void testOffsets() {
-    var topicName = "testOffsets";
+    var topicName = Utils.randomString(10);
     try (var admin = Admin.of(bootstrapServers())) {
       admin.creator().topic(topicName).numberOfPartitions(3).create();
       // wait for syncing topic creation
@@ -169,6 +169,21 @@ public class AdminTest extends RequireBrokerCluster {
             Assertions.assertEquals(0, p.earliestOffset());
             Assertions.assertEquals(0, p.latestOffset());
           });
+      try (var producer = Producer.of(bootstrapServers())) {
+        producer.sender().topic(topicName).key(new byte[100]).partition(0).run();
+        producer.sender().topic(topicName).key(new byte[55]).partition(1).run();
+        producer.sender().topic(topicName).key(new byte[33]).partition(2).run();
+      }
+
+      admin
+          .partitions(Set.of(topicName))
+          .forEach(p -> Assertions.assertEquals(0, p.earliestOffset()));
+      admin
+          .partitions(Set.of(topicName))
+          .forEach(p -> Assertions.assertEquals(1, p.latestOffset()));
+      admin
+          .partitions(Set.of(topicName))
+          .forEach(p -> Assertions.assertNotEquals(-1, p.maxTimestamp()));
     }
   }
 

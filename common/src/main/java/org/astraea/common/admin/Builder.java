@@ -337,6 +337,18 @@ public class Builder {
                       .all()
                       .get());
 
+      var maxTimestamp =
+          Utils.packException(
+              () ->
+                  admin
+                      .listOffsets(
+                          partitions.keySet().stream()
+                              .collect(
+                                  Collectors.toMap(
+                                      Function.identity(), e -> new OffsetSpec.MaxTimestampSpec())))
+                      .all()
+                      .get());
+
       return partitions.entrySet().stream()
           .map(
               entry ->
@@ -344,7 +356,8 @@ public class Builder {
                       entry.getKey().topic(),
                       entry.getValue(),
                       Optional.ofNullable(earliest.get(entry.getKey())),
-                      Optional.ofNullable(latest.get(entry.getKey()))))
+                      Optional.ofNullable(latest.get(entry.getKey())),
+                      Optional.ofNullable(maxTimestamp.get(entry.getKey()))))
           .collect(Collectors.toList());
     }
 
