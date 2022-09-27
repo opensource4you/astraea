@@ -27,6 +27,7 @@ import java.util.Objects;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import org.astraea.common.admin.Admin;
+import org.astraea.common.admin.TopicPartition;
 
 public class ReassignmentHandler implements Handler {
   static final String PLANS_KEY = "plans";
@@ -35,6 +36,7 @@ public class ReassignmentHandler implements Handler {
   static final String FROM_KEY = "from";
   static final String TO_KEY = "to";
   static final String BROKER_KEY = "broker";
+  static final String EXCLUDE_KEY = "exclude";
   private final Admin admin;
 
   ReassignmentHandler(Admin admin) {
@@ -64,7 +66,7 @@ public class ReassignmentHandler implements Handler {
                     return Response.ACCEPT;
                   }
                   // case 2: move specific broker's (topic's) partitions to others
-                  if (request.has(FROM_KEY)) {
+                  if (request.booleanValue(EXCLUDE_KEY) && request.has(FROM_KEY)) {
                     Predicate<TopicPartition> hasTopicKey =
                         request.has(TOPIC_KEY)
                             ? tp -> Objects.equals(tp.topic(), request.value(TOPIC_KEY))
@@ -74,13 +76,13 @@ public class ReassignmentHandler implements Handler {
                             .filter(i -> i != request.intValue(FROM_KEY))
                             .collect(Collectors.toList());
                     Iterator<Integer> it = brokerList.iterator();
-                    for (TopicPartition tp :
-                        admin.partitions(request.intValue(FROM_KEY)).stream()
+                    for (TopicPartition p :
+                        admin.topicPartitions(request.intValue(FROM_KEY)).stream()
                             .filter(hasTopicKey)
                             .collect(Collectors.toList())) {
                       admin
                           .migrator()
-                          .partition(tp.topic(), tp.partition())
+                          .partition(p.topic(), p.partition())
                           .moveTo(
                               List.of(
                                   it.hasNext() ? it.next() : (it = brokerList.iterator()).next()));

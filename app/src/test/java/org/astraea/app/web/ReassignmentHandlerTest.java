@@ -19,7 +19,6 @@ package org.astraea.app.web;
 import static org.astraea.app.web.ReassignmentHandler.progressInPercentage;
 
 import java.time.Duration;
-import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import org.astraea.common.Utils;
@@ -145,8 +144,12 @@ public class ReassignmentHandlerTest extends RequireBrokerCluster {
 
       var body =
           String.format(
-              "{\"%s\": [{\"%s\": \"%s\"}]}",
-              ReassignmentHandler.PLANS_KEY, ReassignmentHandler.FROM_KEY, currentBroker);
+              "{\"%s\": [{\"%s\": \"%s\", \"%s\": \"%s\"}]}",
+              ReassignmentHandler.PLANS_KEY,
+              ReassignmentHandler.EXCLUDE_KEY,
+              true,
+              ReassignmentHandler.FROM_KEY,
+              currentBroker);
 
       Assertions.assertEquals(
           Response.ACCEPT, handler.post(Channel.ofRequest(PostRequest.of(body))));
@@ -164,7 +167,7 @@ public class ReassignmentHandlerTest extends RequireBrokerCluster {
               .get(0)
               .nodeInfo()
               .id());
-      Assertions.assertEquals(0, admin.partitions(currentBroker).size());
+      Assertions.assertEquals(0, admin.topicPartitions(currentBroker).size());
     }
   }
 
@@ -188,12 +191,14 @@ public class ReassignmentHandlerTest extends RequireBrokerCluster {
 
       var body =
           String.format(
-              "{\"%s\": [{\"%s\": \"%s\", \"%s\": \"%s\"}]}",
+              "{\"%s\": [{\"%s\": \"%s\", \"%s\": \"%s\", \"%s\": \"%s\"}]}",
               ReassignmentHandler.PLANS_KEY,
               ReassignmentHandler.FROM_KEY,
               currentBroker,
               ReassignmentHandler.TOPIC_KEY,
-              targetTopic);
+              targetTopic,
+              ReassignmentHandler.EXCLUDE_KEY,
+              true);
 
       Assertions.assertEquals(
           Response.ACCEPT, handler.post(Channel.ofRequest(PostRequest.of(body))));
@@ -211,11 +216,11 @@ public class ReassignmentHandlerTest extends RequireBrokerCluster {
               .get(0)
               .nodeInfo()
               .id());
-      Assertions.assertNotEquals(0, admin.partitions(currentBroker).size());
+      Assertions.assertNotEquals(0, admin.topicPartitions(currentBroker).size());
       Assertions.assertEquals(
           0,
           (int)
-              admin.partitions(currentBroker).stream()
+              admin.topicPartitions(currentBroker).stream()
                   .filter(tp -> Objects.equals(tp.topic(), targetTopic))
                   .count());
     }
