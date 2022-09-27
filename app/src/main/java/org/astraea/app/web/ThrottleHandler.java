@@ -45,22 +45,20 @@ public class ThrottleHandler implements Handler {
 
   private Response get() {
     final var brokers =
-        admin.brokers().entrySet().stream()
+        admin.nodes().stream()
             .map(
-                entry -> {
+                node -> {
                   final var egress =
-                      entry
-                          .getValue()
+                      node.config()
                           .value("leader.replication.throttled.rate")
                           .map(Long::valueOf)
                           .orElse(null);
                   final var ingress =
-                      entry
-                          .getValue()
+                      node.config()
                           .value("follower.replication.throttled.rate")
                           .map(Long::valueOf)
                           .orElse(null);
-                  return new BrokerThrottle(entry.getKey(), ingress, egress);
+                  return new BrokerThrottle(node.id(), ingress, egress);
                 })
             .collect(Collectors.toUnmodifiableSet());
     final var topicConfigs = admin.topics();
