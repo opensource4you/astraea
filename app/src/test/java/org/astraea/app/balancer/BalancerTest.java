@@ -38,12 +38,11 @@ import org.astraea.common.cost.HasClusterCost;
 import org.astraea.common.cost.ReplicaLeaderCost;
 import org.astraea.it.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 
 class BalancerTest extends RequireBrokerCluster {
 
-  @RepeatedTest(value = 3000)
+  @Test
   void testLeaderCountRebalance() {
     try (Admin admin = Admin.of(bootstrapServers())) {
       var topicName = Utils.randomString();
