@@ -417,6 +417,10 @@ public class Builder {
                               tpInfo.replicas().stream()
                                   .flatMap(
                                       node -> {
+                                        // kafka admin#describeLogDirs does not return offline
+                                        // node,all TopicPartition return an empty dataFolder and a
+                                        // fake replicaInfo, and determine whether the node is
+                                        // online by whether the dataFolder is "".
                                         var pathAndReplicas =
                                             logInfo
                                                 .getOrDefault(node.id(), Map.of())
