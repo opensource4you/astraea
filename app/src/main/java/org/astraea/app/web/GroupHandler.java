@@ -58,7 +58,9 @@ public class GroupHandler implements Handler {
     if (shouldDeleteInstance) {
       var groupInstanceId = channel.queries().get(INSTANCE_KEY);
       var instanceExisted =
-          admin.consumerGroups(Set.of(groupId)).get(groupId).assignment().keySet().stream()
+          admin.consumerGroups(Set.of(groupId)).stream()
+              .filter(g -> g.groupId().equals(groupId))
+              .flatMap(g -> g.assignment().keySet().stream())
               .anyMatch(x -> x.groupInstanceId().filter(groupInstanceId::equals).isPresent());
       if (instanceExisted) admin.removeStaticMembers(groupId, Set.of(groupInstanceId));
     } else {
@@ -79,20 +81,20 @@ public class GroupHandler implements Handler {
             .collect(Collectors.toMap(Partition::topicPartition, Function.identity()));
 
     var groups =
-        consumerGroups.entrySet().stream()
+        consumerGroups.stream()
             // if users want to search groups for specify topic only, we remove the group having no
             // offsets related to specify topic
             .filter(
-                idAndGroup ->
+                g ->
                     !channel.queries().containsKey(TOPIC_KEY)
-                        || idAndGroup.getValue().consumeProgress().keySet().stream()
+                        || g.consumeProgress().keySet().stream()
                             .map(TopicPartition::topic)
                             .anyMatch(topics::contains))
             .map(
-                idAndGroup ->
+                group ->
                     new Group(
-                        idAndGroup.getKey(),
-                        idAndGroup.getValue().assignment().entrySet().stream()
+                        group.groupId(),
+                        group.assignment().entrySet().stream()
                             .map(
                                 entry ->
                                     new Member(
@@ -106,8 +108,7 @@ public class GroupHandler implements Handler {
                                             .map(
                                                 tp ->
                                                     partitions.containsKey(tp)
-                                                            && idAndGroup
-                                                                .getValue()
+                                                            && group
                                                                 .consumeProgress()
                                                                 .containsKey(tp)
                                                         ? Optional.of(
@@ -115,10 +116,7 @@ public class GroupHandler implements Handler {
                                                                 tp.topic(),
                                                                 tp.partition(),
                                                                 partitions.get(tp).earliestOffset(),
-                                                                idAndGroup
-                                                                    .getValue()
-                                                                    .consumeProgress()
-                                                                    .get(tp),
+                                                                group.consumeProgress().get(tp),
                                                                 partitions.get(tp).latestOffset()))
                                                         : Optional.<OffsetProgress>empty())
                                             .filter(Optional::isPresent)
