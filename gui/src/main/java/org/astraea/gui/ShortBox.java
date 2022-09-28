@@ -14,27 +14,27 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-plugins {
-    id "com.diffplug.spotless" version "5.14.3"
-}
+package org.astraea.gui;
 
-spotless {
-    java {
-        licenseHeaderFile(file("$rootDir/checkstyle/apache.header"))
-        importOrder()
-        removeUnusedImports()
-        targetExclude "**/VersionUtils.java"
-        target '**/java/**/*.java'
-        googleJavaFormat()
-        custom 'refuse wildcard', {
-            if (it.contains('*;\n')) {
-                throw new Error("Wildcard imports is disallowed")
-            }
-        }
-    }
-    scala {
-        licenseHeaderFile(file("$rootDir/checkstyle/apache.header"), "package ")
-        target '**/scala/**/*.scala'
-        scalafmt()
-    }
+import java.util.List;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+import javafx.application.Platform;
+import javafx.collections.FXCollections;
+import javafx.scene.control.ComboBox;
+
+public class ShortBox extends ComboBox<Short> {
+
+  public ShortBox(short initialValue) {
+    super(FXCollections.observableArrayList(initialValue));
+  }
+
+  void range(int from, int to) {
+    values(IntStream.range(from, to).mapToObj(i -> (short) (i + 1)).collect(Collectors.toList()));
+  }
+
+  void values(List<Short> values) {
+    if (Platform.isFxApplicationThread()) getItems().setAll(values);
+    else Platform.runLater(() -> getItems().setAll(values));
+  }
 }

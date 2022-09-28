@@ -14,27 +14,29 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-plugins {
-    id "com.diffplug.spotless" version "5.14.3"
-}
+package org.astraea.gui;
 
-spotless {
-    java {
-        licenseHeaderFile(file("$rootDir/checkstyle/apache.header"))
-        importOrder()
-        removeUnusedImports()
-        targetExclude "**/VersionUtils.java"
-        target '**/java/**/*.java'
-        googleJavaFormat()
-        custom 'refuse wildcard', {
-            if (it.contains('*;\n')) {
-                throw new Error("Wildcard imports is disallowed")
-            }
-        }
-    }
-    scala {
-        licenseHeaderFile(file("$rootDir/checkstyle/apache.header"), "package ")
-        target '**/scala/**/*.scala'
-        scalafmt()
-    }
+import javafx.application.Platform;
+import javafx.scene.control.Label;
+
+public class Console extends Label {
+
+  public Console(String text) {
+    super(text);
+  }
+
+  public void text(String text, Throwable e) {
+    if (e != null) text(e);
+    else text(text);
+  }
+
+  public void text(String text) {
+    if (text == null) return;
+    if (Platform.isFxApplicationThread()) setText(text);
+    else Platform.runLater(() -> setText(text));
+  }
+
+  public void text(Throwable e) {
+    if (e != null) text(Utils.toString(e));
+  }
 }
