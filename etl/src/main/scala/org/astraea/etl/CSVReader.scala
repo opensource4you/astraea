@@ -30,15 +30,15 @@ object CSVReader {
   }
 
   def createSchema(
-      cols: Map[String, String],
-      pk: Map[String, String]
+      cols: Map[String, DataType],
+      pk: Map[String, DataType]
   ): StructType = {
     var userSchema = new StructType()
     cols.foreach(col =>
       if (pk.contains(col._1))
-        userSchema = userSchema.add(col._1, col._2, nullable = false)
+        userSchema = userSchema.add(col._1, col._2.value, nullable = false)
       else
-        userSchema = userSchema.add(col._1, col._2, nullable = true)
+        userSchema = userSchema.add(col._1, col._2.value, nullable = true)
     )
     userSchema
   }

@@ -51,8 +51,8 @@ import scala.util.Using
 case class MetaData(
     sourcePath: File,
     sinkPath: File,
-    column: Map[String, String],
-    primaryKeys: Map[String, String],
+    column: Map[String, DataType],
+    primaryKeys: Map[String, DataType],
     kafkaBootstrapServers: String,
     topicName: String,
     numPartitions: Int,
@@ -96,8 +96,8 @@ object MetaData {
         )
       )
     )
-    val column = columnRule(COLUMN_NAME, properties)
-    val pKeys = primaryKeys(properties, column)
+    val column = columnParse(COLUMN_NAME, properties)
+    val pKeys = primaryKeyParse(properties, column)
     //TODO check the format after linking Kafka
     val bootstrapServer = properties(KAFKA_BOOTSTRAP_SERVERS)
     val topicName = properties.getOrElse(
@@ -159,10 +159,10 @@ object MetaData {
     properties
   }
 
-  def primaryKeys(
+  def primaryKeyParse(
       prop: Map[String, String],
-      columnName: Map[String, String]
-  ): Map[String, String] = {
+      columnName: Map[String, DataType]
+  ): Map[String, DataType] = {
     val primaryKeys = requireNonidentical(PRIMARY_KEYS, prop)
     val combine = primaryKeys.keys.toArray ++ columnName.keys.toArray
     if (combine.distinct.length != columnName.size) {
@@ -177,28 +177,28 @@ object MetaData {
           )} not in column. All $PRIMARY_KEYS should be included in the column."
       )
     }
-    primaryKeys
+
+    DataType.parseDataTypes(primaryKeys)
   }
 
-  def columnRule(
-      string: String,
+  def columnParse(
+      key: String,
       prop: Map[String, String]
-  ): Map[String, String] = {
-    requireNonidentical(string, prop)
-    Option(prop(string))
+  ): Map[String, DataType] = {
+    requireNonidentical(key, prop)
+    Option(prop(key))
       .map(
         _.split(",")
           .map(_.split("="))
           .map { elem =>
-            println(elem(0) + ":" + elem(1))
-            matchType(elem(0), elem(1))
+            (elem(0), DataType.parseDataType(elem(1)))
           }
           .toMap
       )
       .get
-
   }
 
+  //No duplicate values should be set.
   def requireNonidentical(
       string: String,
       prop: Map[String, String]
@@ -220,6 +220,7 @@ object MetaData {
     map
   }
 
+  //spark://host:port or local[*]
   def requireSparkMaster(string: String, prop: Map[String, String]): String = {
     if (
       !(Utils
@@ -230,39 +231,5 @@ object MetaData {
       )
     }
     string
-  }
-
-  /** Column Types supported by astraea dispatcher.
-    */
-  private object ReaderDataTypes extends Enumeration {
-    val STRING_TYPE = "string"
-    val BINARY_TYPE = "binary"
-    val BOOLEAN_TYPE = "boolean"
-    val DATE_TYPE = "date"
-    val DOUBLE_TYPE = "double"
-    val BYTE_TYPE = "byte"
-    val INTEGER_TYPE = "integer"
-    val LONG_TYPE = "long"
-    val SHORT_TYPE = "short"
-
-    val StringType: ReaderDataTypes.Value = Value(STRING_TYPE)
-    val BinaryType: ReaderDataTypes.Value = Value(BINARY_TYPE)
-    val BooleanType: ReaderDataTypes.Value = Value(BOOLEAN_TYPE)
-    val DateType: ReaderDataTypes.Value = Value(DATE_TYPE)
-    val DoubleType: ReaderDataTypes.Value = Value(DOUBLE_TYPE)
-    val ByteType: ReaderDataTypes.Value = Value(BYTE_TYPE)
-    val IntegerType: ReaderDataTypes.Value = Value(INTEGER_TYPE)
-    val LongType: ReaderDataTypes.Value = Value(LONG_TYPE)
-    val ShortType: ReaderDataTypes.Value = Value(SHORT_TYPE)
-  }
-
-  def matchType(t: (String, String)): (String, String) = {
-    println(ReaderDataTypes.values.mkString(",").split(",").mkString)
-    if (!ReaderDataTypes.values.mkString(",").split(",").contains(t._2)) {
-      throw new IllegalArgumentException(
-        s"DataType ${t._2} is not supported.Please check ${t._1}=${t._2} in column."
-      )
-    }
-    t
   }
 }

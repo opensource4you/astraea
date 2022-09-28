@@ -19,6 +19,7 @@ package org.astraea.etl
 import com.opencsv.CSVWriter
 import org.apache.spark.SparkException
 import org.apache.spark.sql.Row
+import org.astraea.etl.DataType.{IntegerType, StringType}
 import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Test
 
@@ -40,13 +41,13 @@ class CSVReaderTest {
 
     val structType = CSVReader.createSchema(
       Map(
-        "SerialNumber" -> "integer",
-        "RecordNumber" -> "string",
-        "Size" -> "integer",
-        "Type" -> "string"
+        "SerialNumber" -> IntegerType,
+        "RecordNumber" -> StringType,
+        "Size" -> IntegerType,
+        "Type" -> StringType
       ),
       Map(
-        "SerialNumber" -> "integer"
+        "SerialNumber" -> IntegerType
       )
     )
     val df =
@@ -68,13 +69,13 @@ class CSVReaderTest {
 
     val structType = CSVReader.createSchema(
       Map(
-        "SerialNumber" -> "integer",
-        "RecordNumber" -> "string",
-        "Size" -> "integer",
-        "Type" -> "string"
+        "SerialNumber" -> IntegerType,
+        "RecordNumber" -> StringType,
+        "Size" -> IntegerType,
+        "Type" -> StringType
       ),
       Map(
-        "SerialNumber" -> "integer"
+        "SerialNumber" -> IntegerType
       )
     )
 
