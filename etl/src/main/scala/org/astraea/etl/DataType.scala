@@ -71,7 +71,7 @@ object DataType {
         ShortType
       case _ =>
         throw new IllegalArgumentException(
-          s"$str is not supported data type.The data types supported ${allTypes.mkString(",")}"
+          s"$str is not supported data type.The data types supported ${allTypes.mkString(",")}."
         )
     }
   }
