@@ -166,37 +166,19 @@ class ClusterLogAllocationTest extends RequireBrokerCluster {
         "no preferred leader");
   }
 
-  @ParameterizedTest
+  @Test
   @DisplayName("Migrate some replicas without directory specified")
-  @ValueSource(shorts = {1, 2, 3, 4, 5, 30})
-  void testMigrateReplicaNoDir(short replicas) {
+  void testMigrateReplicaNoDir() {
     // arrange
     final var randomTopicPartitions = generateRandomTopicPartition();
-    final var randomReplicas = generateRandomReplicaList(randomTopicPartitions, replicas);
+    final var randomReplicas = generateRandomReplicaList(randomTopicPartitions, (short) 3);
     final var allocation = ClusterLogAllocation.of(randomReplicas);
     final var target = randomReplicas.stream().findAny().orElseThrow();
 
-    // act
-    final var cla = allocation.migrateReplica(target.topicPartitionReplica(), 9999);
-
-    // assert
-    Assertions.assertEquals(
-        replicas, cla.logPlacements(target.topicPartition()).size(), "No replica factor shrinkage");
-    Assertions.assertTrue(
-        cla.logPlacements(target.topicPartition()).stream()
-            .anyMatch(replica -> replica.nodeInfo().id() == 9999),
-        "The replica is here");
-    Assertions.assertTrue(
-        cla.logPlacements(target.topicPartition()).stream()
-            .noneMatch(replica -> replica.nodeInfo().id() == target.nodeInfo().id()),
-        "The original replica is gone");
-    Assertions.assertNull(
-        cla.logPlacements(target.topicPartition()).stream()
-            .filter(replica -> replica.nodeInfo().id() == 9999)
-            .findFirst()
-            .orElseThrow()
-            .dataFolder(),
-        "The dir should be null");
+    // act, assert
+    Assertions.assertThrows(
+        NullPointerException.class,
+        () -> allocation.migrateReplica(target.topicPartitionReplica(), 9999, null));
   }
 
   @ParameterizedTest
@@ -408,19 +390,6 @@ class ClusterLogAllocationTest extends RequireBrokerCluster {
           ClusterLogAllocation.placementMatch(
               Set.of(leader0, follower1, follower2), Set.of(leader0, follower1, alteredFollower2)),
           "migrate data dir");
-    }
-
-    {
-      // null dir in source set mean don't care
-      var leader0 = update(base, Map.of("leader", true, "preferred", true));
-      var follower1 = update(base, Map.of("broker", 1));
-      var nullMap = new HashMap<String, Object>();
-      nullMap.put("dir", null);
-      var sourceFollower1 = update(follower1, nullMap);
-      var targetFollower1 = update(follower1, Map.of("dir", "/target"));
-      Assertions.assertTrue(
-          ClusterLogAllocation.placementMatch(
-              Set.of(leader0, sourceFollower1), Set.of(leader0, targetFollower1)));
     }
 
     {
