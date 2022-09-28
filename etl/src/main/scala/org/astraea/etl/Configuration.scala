@@ -18,8 +18,6 @@ package org.astraea.etl
 
 import java.io.File
 import java.util.Properties
-import scala.jdk.CollectionConverters._
-import scala.util.Using
 
 /** Parameters required for Astraea ETL.
   *

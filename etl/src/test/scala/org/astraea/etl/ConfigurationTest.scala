@@ -29,7 +29,7 @@ import java.nio.file.Files.createTempFile
 import java.util.Properties
 import scala.util.{Try, Using}
 
-class ConfigurationTest {
+class ConfigurationTest{
   var file = new File("")
   var path = ""
 
