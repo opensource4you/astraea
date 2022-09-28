@@ -135,8 +135,8 @@ GET /balancer/{id}
 cURL 範例
 
 ```shell
-# curl -X POST http://localhost:8001/balancer/{id}
-curl -X POST http://localhost:8001/balancer/46ecf6e7-aa28-4f72-b1b6-a788056c122a
+# curl -X GET http://localhost:8001/balancer/{id}
+curl -X GET http://localhost:8001/balancer/46ecf6e7-aa28-4f72-b1b6-a788056c122a
 ```
 
 | 名稱  | 說明                 | 預設值 |
