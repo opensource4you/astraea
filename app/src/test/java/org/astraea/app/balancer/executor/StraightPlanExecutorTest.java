@@ -98,7 +98,7 @@ class StraightPlanExecutorTest extends RequireBrokerCluster {
       expectedTopicPartition.forEach(
           topicPartition ->
               Assertions.assertTrue(
-                  ClusterLogAllocation.replicaListEqual(
+                  ClusterLogAllocation.placementMatch(
                       expectedAllocation.logPlacements(topicPartition),
                       currentAllocation.logPlacements(topicPartition))));
 

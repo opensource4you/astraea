@@ -44,10 +44,11 @@ class BrokerHandler implements Handler {
 
   @Override
   public Response get(Channel channel) {
-
+    var ids = brokers(channel.target());
     var brokers =
-        admin.brokers(brokers(channel.target())).entrySet().stream()
-            .map(e -> new Broker(e.getKey(), admin.topicPartitions(e.getKey()), e.getValue()))
+        admin.nodes().stream()
+            .filter(n -> ids.contains(n.id()))
+            .map(n -> new Broker(n.id(), admin.topicPartitions(n.id()), n.config()))
             .collect(Collectors.toUnmodifiableList());
     if (channel.target().isPresent() && brokers.size() == 1) return brokers.get(0);
     return new Brokers(brokers);

@@ -19,7 +19,6 @@ package org.astraea.app.web;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import java.time.Duration;
-import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
@@ -256,7 +255,14 @@ public class TopicHandlerTest extends RequireBrokerCluster {
         Assertions.assertEquals(2, topicInfo.partitions.iterator().next().replicas.size());
       }
       Assertions.assertEquals(
-          "3000", admin.topics(Set.of(topicName)).get(topicName).value("segment.ms").get());
+          "3000",
+          admin.topics(Set.of(topicName)).stream()
+              .filter(t -> t.name().equals(topicName))
+              .findFirst()
+              .get()
+              .config()
+              .value("segment.ms")
+              .get());
     }
   }
 
@@ -306,34 +312,6 @@ public class TopicHandlerTest extends RequireBrokerCluster {
       latestTopicNames = admin.topicNames();
       Assertions.assertFalse(latestTopicNames.contains(topicNames.get(2)));
       Assertions.assertTrue(latestTopicNames.contains(topicNames.get(1)));
-    }
-  }
-
-  @Test
-  void testCreateTopicByProbability() {
-    var topicName = Utils.randomString(10);
-    try (Admin admin = Admin.of(bootstrapServers())) {
-      var handler = new TopicHandler(admin);
-      var request =
-          Channel.ofRequest(
-              PostRequest.of(
-                  String.format(
-                      "{\"topics\":[{\"name\":\"%s\", \"partitions\":30, \"probability\": 0.5}]}",
-                      topicName)));
-      var topics = handler.post(request);
-      Assertions.assertEquals(1, topics.topics.size());
-      Utils.waitFor(
-          () ->
-              ((TopicHandler.TopicInfo) handler.get(Channel.ofTarget(topicName))).partitions.size()
-                  == 30);
-      var groupByBroker =
-          ((TopicHandler.TopicInfo) handler.get(Channel.ofTarget(topicName)))
-              .partitions.stream()
-                  .flatMap(p -> p.replicas.stream())
-                  .collect(Collectors.groupingBy(r -> r.broker));
-      // those brokers should host different number of partitions
-      Assertions.assertEquals(
-          3, groupByBroker.values().stream().map(List::size).collect(Collectors.toSet()).size());
     }
   }
 }

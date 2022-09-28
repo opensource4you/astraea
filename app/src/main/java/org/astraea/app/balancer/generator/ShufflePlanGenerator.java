@@ -132,8 +132,7 @@ public class ShufflePlanGenerator implements RebalancePlanGenerator {
                                     follower.topic(),
                                     follower.partition(),
                                     follower.nodeInfo().id()));
-                            return currentAllocation.letReplicaBecomeLeader(
-                                follower.topicPartitionReplica());
+                            return currentAllocation.becomeLeader(follower.topicPartitionReplica());
                           });
 
       // [valid operation 2] change replica list

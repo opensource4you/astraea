@@ -396,4 +396,78 @@ public class PerformanceTest extends RequireBrokerCluster {
     }
     return topic;
   }
+
+  @Test
+  void testPartitionerConflict() {
+    var argument =
+        new String[] {
+          "--bootstrap.servers",
+          "localhost:9092",
+          "--topics",
+          "ignore",
+          "--interdependent.size",
+          "3",
+          "--partitioner",
+          "org.astraea.common.partitioner.StrictCostDispatcher"
+        };
+    Assertions.assertDoesNotThrow(
+        () -> Argument.parse(new Performance.Argument(), argument).partitioner());
+
+    var argument1 =
+        new String[] {
+          "--bootstrap.servers",
+          "localhost:9092",
+          "--topics",
+          "ignore",
+          "--interdependent.size",
+          "3"
+        };
+    Assertions.assertThrows(
+        ParameterException.class,
+        () -> Argument.parse(new Performance.Argument(), argument1).partitioner());
+    var argument2 =
+        new String[] {
+          "--bootstrap.servers",
+          "localhost:9092",
+          "--topics",
+          "ignore",
+          "--interdependent.size",
+          "3",
+          "--partitioner",
+          "org.apache.kafka.clients.producer.internals.DefaultPartitioner"
+        };
+    Assertions.assertThrows(
+        ParameterException.class,
+        () -> Argument.parse(new Performance.Argument(), argument2).partitioner());
+
+    var argument3 =
+        new String[] {
+          "--bootstrap.servers",
+          "localhost:9092",
+          "--topics",
+          "ignore",
+          "--partitioner",
+          "org.apache.kafka.clients.producer.internals.DefaultPartitioner",
+          "--specify.brokers",
+          "1"
+        };
+    Assertions.assertThrows(
+        IllegalArgumentException.class,
+        () -> Argument.parse(new Performance.Argument(), argument3).partitioner());
+
+    var argument4 =
+        new String[] {
+          "--bootstrap.servers",
+          "localhost:9092",
+          "--topics",
+          "ignore",
+          "--partitioner",
+          "org.apache.kafka.clients.producer.internals.DefaultPartitioner",
+          "--specify.partitions",
+          "1"
+        };
+    Assertions.assertThrows(
+        IllegalArgumentException.class,
+        () -> Argument.parse(new Performance.Argument(), argument4).partitioner());
+  }
 }
