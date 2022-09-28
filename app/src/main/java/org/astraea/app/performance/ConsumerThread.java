@@ -24,7 +24,6 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
-import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.kafka.common.errors.WakeupException;
@@ -35,8 +34,7 @@ import org.astraea.common.consumer.SubscribedConsumer;
 public interface ConsumerThread extends AbstractThread {
   static List<ConsumerThread> create(
       int consumers,
-      Function<ConsumerRebalanceListener, SubscribedConsumer<byte[], byte[]>> consumerSupplier,
-      Supplier<Performance.RecordListener> recordListener) {
+      Function<ConsumerRebalanceListener, SubscribedConsumer<byte[], byte[]>> consumerSupplier) {
     if (consumers == 0) return List.of();
     var closeLatches =
         IntStream.range(0, consumers)
@@ -57,13 +55,10 @@ public interface ConsumerThread extends AbstractThread {
         .mapToObj(
             index -> {
               @SuppressWarnings("resource")
-              var listener = recordListener.get();
-              var consumer = consumerSupplier.apply(listener);
+              var consumer = consumerSupplier.apply(ps -> {});
               var closed = new AtomicBoolean(false);
               var closeLatch = closeLatches.get(index);
               var subscribed = new AtomicBoolean(true);
-              Performance.RecordListener.stickyNumbers.putIfAbsent(consumer.clientId(), 0);
-              listener.clientId(consumer.clientId());
               executors.execute(
                   () -> {
                     try {
@@ -72,8 +67,6 @@ public interface ConsumerThread extends AbstractThread {
                         else {
                           consumer.unsubscribe();
                           Utils.sleep(Duration.ofSeconds(1));
-                          Performance.RecordListener.stickyNumbers.put(consumer.clientId(), 0);
-                          listener.flushPrevPartitions();
                           continue;
                         }
                         consumer.poll(Duration.ofSeconds(1));

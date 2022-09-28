@@ -30,6 +30,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -78,7 +79,8 @@ public class Performance {
 
   public static List<String> execute(final Argument param)
       throws InterruptedException, IOException {
-    Supplier<RecordListener> recordListener = () -> new RecordListener();
+    Function<String, Map<String, ConsumerRebalanceListener>> clientAndListener =
+        client -> Map.of(client, new RecordListener(client));
     // always try to init topic even though it may be existent already.
     System.out.println("checking topics: " + String.join(",", param.topics));
     param.checkTopics();
@@ -105,9 +107,8 @@ public class Performance {
                         .configs(param.configs())
                         .isolation(param.isolation())
                         .seek(latestOffsets)
-                        .consumerRebalanceListener(listener)
-                        .build(),
-                recordListener)
+                        .recordListener(clientAndListener.apply(Utils.randomString(10)))
+                        .build())
             : ConsumerThread.create(
                 param.consumers,
                 listener ->
@@ -117,9 +118,8 @@ public class Performance {
                         .configs(param.configs())
                         .isolation(param.isolation())
                         .seek(latestOffsets)
-                        .consumerRebalanceListener(listener)
-                        .build(),
-                recordListener);
+                        .recordListener(clientAndListener.apply(Utils.randomString(10)))
+                        .build());
 
     System.out.println("creating tracker");
     var tracker =
@@ -437,23 +437,17 @@ public class Performance {
   static class RecordListener implements ConsumerRebalanceListener {
     public static ConcurrentMap<String, Integer> stickyNumbers = new ConcurrentHashMap<>();
     private Set<TopicPartition> prevPartitions = new HashSet<>();
-    private Set<TopicPartition> nowPartitions = new HashSet<>();
-    private String clientId = "temp";
+    private final String clientId;
 
-    public void clientId(String clientId) {
+    RecordListener(String clientId) {
       this.clientId = clientId;
-    }
-
-    public void flushPrevPartitions() {
-      prevPartitions.clear();
     }
 
     @Override
     public void onPartitionAssigned(Set<TopicPartition> partitions) {
-      var diffPartitions = new HashSet<>(partitions);
-      nowPartitions = partitions;
-      diffPartitions.retainAll(prevPartitions);
-      stickyNumbers.put(clientId, diffPartitions.size());
+      var stickyPartitions = new HashSet<>(partitions);
+      stickyPartitions.retainAll(prevPartitions);
+      stickyNumbers.put(clientId, stickyPartitions.size());
     }
 
     @Override
