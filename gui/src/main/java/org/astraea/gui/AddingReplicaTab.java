@@ -44,16 +44,16 @@ public class AddingReplicaTab {
   public static Tab of(Context context) {
     var pane =
         context.tableView(
-            "search for topics:",
+            "search for topics/brokers:",
             (admin, word) ->
                 Context.result(
                     COLUMN_AND_BEAN,
-                    admin
-                        .addingReplicas(
-                            admin.topicNames().stream()
-                                .filter(t -> word.isEmpty() || t.contains(word))
-                                .collect(Collectors.toSet()))
-                        .stream()
+                    admin.addingReplicas(admin.topicNames()).stream()
+                        .filter(
+                            s ->
+                                word.isEmpty()
+                                    || s.topic().contains(word)
+                                    || String.valueOf(s.broker()).contains(word))
                         .map(
                             state ->
                                 new Bean(

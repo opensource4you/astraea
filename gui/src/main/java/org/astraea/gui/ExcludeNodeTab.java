@@ -27,6 +27,7 @@ import javafx.scene.control.Label;
 import javafx.scene.control.Tab;
 import javafx.scene.control.TextField;
 import javafx.scene.layout.VBox;
+import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.ReplicaInfo;
 
 public class ExcludeNodeTab {
@@ -35,7 +36,8 @@ public class ExcludeNodeTab {
     var tab = new Tab("exclude node");
 
     var selectedTopics = new AtomicReference<Set<String>>();
-    var console = new Console("");
+    var searchConsole = new Console("");
+    var excludedBrokerIdBox = new IntegerBox((short) 1);
     var search = new TextField("");
     search
         .textProperty()
@@ -56,23 +58,42 @@ public class ExcludeNodeTab {
                               .whenComplete(
                                   (names, e) -> {
                                     if (names != null) {
+                                      var nodeIds =
+                                          admin.nodes().stream()
+                                              .filter(
+                                                  n ->
+                                                      n.folders().stream()
+                                                          .anyMatch(
+                                                              f ->
+                                                                  f
+                                                                      .partitionSizes()
+                                                                      .keySet()
+                                                                      .stream()
+                                                                      .anyMatch(
+                                                                          tp ->
+                                                                              names.contains(
+                                                                                  tp.topic()))))
+                                              .map(NodeInfo::id)
+                                              .collect(Collectors.toSet());
+                                      excludedBrokerIdBox.values(nodeIds);
                                       selectedTopics.set(names);
-                                      console.text(
+                                      searchConsole.text(
                                           names.size()
-                                              + " topics are selected. "
+                                              + " topics are selected: "
                                               + String.join(", ", names));
                                     }
                                   }));
             }));
-    var excludedBrokerIdBox = new IntegerBox((short) 1);
+    var excludeButtonConsole = new Console("");
     var excludeButton = new Button("exclude");
     var nodes =
         List.of(
             new Label("search for topics:"),
             search,
-            new Label("select a broker:"),
+            searchConsole,
+            new Label("please select a broker:"),
             excludedBrokerIdBox,
-            console,
+            excludeButtonConsole,
             excludeButton);
     var pane = new VBox(nodes.size());
     pane.setPadding(new Insets(15));
@@ -82,6 +103,7 @@ public class ExcludeNodeTab {
           var topics = selectedTopics.get();
           if (topics == null || topics.isEmpty()) return;
           var numberOfReplicas = excludedBrokerIdBox.getValue();
+          if (numberOfReplicas == null) return;
           context
               .optionalAdmin()
               .ifPresent(
@@ -120,24 +142,15 @@ public class ExcludeNodeTab {
                                             .migrator()
                                             .partition(tp.topic(), tp.partition())
                                             .moveTo(moveTo);
-                                        console.text("remove " + tp + " from " + excludedBrokerId);
+                                        excludeButtonConsole.text(
+                                            "remove " + tp + " from " + excludedBrokerId);
                                       }
                                     });
-                                console.text("done!!!");
+                                excludeButtonConsole.text("done!!!");
                               })
-                          .whenComplete((none, e) -> console.text(e)));
+                          .whenComplete((none, e) -> excludeButtonConsole.text(e)));
         });
     tab.setContent(pane);
-    tab.setOnSelectionChanged(
-        ignored -> {
-          if (!tab.isSelected()) return;
-          context
-              .optionalAdmin()
-              .ifPresent(
-                  admin ->
-                      CompletableFuture.supplyAsync(admin::brokerIds)
-                          .whenComplete((ids, e) -> excludedBrokerIdBox.values(ids)));
-        });
     return tab;
   }
 }
