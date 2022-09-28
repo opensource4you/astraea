@@ -107,7 +107,6 @@ public class ReplicaBuilder {
     // todo is optional or necessary
     Objects.requireNonNull(this.nodeInfo);
     Objects.requireNonNull(this.topic);
-    Objects.requireNonNull(this.dataFolder);
 
     return new Replica() {
       @Override
