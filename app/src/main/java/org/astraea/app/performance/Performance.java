@@ -17,6 +17,7 @@
 package org.astraea.app.performance;
 
 import com.beust.jcommander.Parameter;
+import com.beust.jcommander.ParameterException;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.time.Duration;
@@ -43,6 +44,7 @@ import org.astraea.common.argument.DurationField;
 import org.astraea.common.argument.NonEmptyStringField;
 import org.astraea.common.argument.NonNegativeShortField;
 import org.astraea.common.argument.PathField;
+import org.astraea.common.argument.PositiveIntegerField;
 import org.astraea.common.argument.PositiveIntegerListField;
 import org.astraea.common.argument.PositiveLongField;
 import org.astraea.common.argument.PositiveShortField;
@@ -50,6 +52,7 @@ import org.astraea.common.argument.StringListField;
 import org.astraea.common.argument.TopicPartitionField;
 import org.astraea.common.consumer.Consumer;
 import org.astraea.common.consumer.Isolation;
+import org.astraea.common.partitioner.Dispatcher;
 import org.astraea.common.producer.Acks;
 import org.astraea.common.producer.Producer;
 
@@ -57,7 +60,7 @@ import org.astraea.common.producer.Producer;
 public class Performance {
   /** Used in Automation, to achieve the end of one Performance and then start another. */
   public static void main(String[] args) throws InterruptedException, IOException {
-    execute(org.astraea.common.argument.Argument.parse(new Argument(), args));
+    execute(Performance.Argument.parse(new Argument(), args));
   }
 
   private static DataSupplier dataSupplier(Performance.Argument argument) {
@@ -87,7 +90,8 @@ public class Performance {
             dataSupplier(param),
             param.topicPartitionSelector(),
             param.producers,
-            param::createProducer);
+            param::createProducer,
+            param.interdependent);
     var consumerThreads =
         ConsumerThread.create(
             param.consumers,
@@ -160,6 +164,7 @@ public class Performance {
   }
 
   public static class Argument extends org.astraea.common.argument.Argument {
+
     @Parameter(
         names = {"--topics"},
         description = "List<String>: topic names which you subscribed",
@@ -220,6 +225,33 @@ public class Performance {
         validateWith = NonEmptyStringField.class)
     String partitioner = null;
 
+    String partitioner() {
+      // The given partitioner should be Astraea Dispatcher when interdependent is set
+      if (this.interdependent > 1) {
+        try {
+          if (this.partitioner == null
+              || !Dispatcher.class.isAssignableFrom(Class.forName(this.partitioner))) {
+            throw new ParameterException(
+                "The given partitioner \""
+                    + this.partitioner
+                    + "\" is not a subclass of Astraea Dispatcher");
+          }
+        } catch (ClassNotFoundException e) {
+          throw new ParameterException(
+              "The given partitioner \"" + this.partitioner + "\" was not found.");
+        }
+      }
+      if (this.partitioner != null) {
+        if (!this.specifyBrokers.isEmpty())
+          throw new IllegalArgumentException(
+              "--specify.brokers can't be used in conjunction with partitioner");
+        if (!this.specifyPartitions.isEmpty())
+          throw new IllegalArgumentException(
+              "--specify.partitions can't be used in conjunction with partitioner");
+      }
+      return this.partitioner;
+    }
+
     @Parameter(
         names = {"--compression"},
         description =
@@ -244,14 +276,14 @@ public class Performance {
               .configs(configs())
               .bootstrapServers(bootstrapServers())
               .compression(compression)
-              .partitionClassName(partitioner)
+              .partitionClassName(partitioner())
               .acks(acks)
               .buildTransactional()
           : Producer.builder()
               .configs(configs())
               .bootstrapServers(bootstrapServers())
               .compression(compression)
-              .partitionClassName(partitioner)
+              .partitionClassName(partitioner())
               .acks(acks)
               .build();
     }
@@ -303,7 +335,7 @@ public class Performance {
       var specifiedByPartition = !specifyPartitions.isEmpty();
       if (specifiedByBroker && specifiedByPartition)
         throw new IllegalArgumentException(
-            "`--specify.partitions` can't be use in conjunction with `--specify.brokers`");
+            "`--specify.partitions` can't be used in conjunction with `--specify.brokers`");
       else if (specifiedByBroker) {
         try (Admin admin = Admin.of(configs())) {
           final var selections =
@@ -325,7 +357,7 @@ public class Performance {
         // specify.partitions can't be use in conjunction with partitioner or topics
         if (partitioner != null)
           throw new IllegalArgumentException(
-              "--specify.partitions can't be use in conjunction with partitioner");
+              "--specify.partitions can't be used in conjunction with partitioner");
         // sanity check, ensure all specified partitions are existed
         try (Admin admin = Admin.of(configs())) {
           var allTopics = admin.topicNames();
@@ -405,5 +437,12 @@ public class Performance {
             "Perf will close all read processes if it can't get more data in this duration",
         converter = DurationField.class)
     Duration readIdle = Duration.ofSeconds(2);
+
+    @Parameter(
+        names = {"--interdependent.size"},
+        description =
+            "Integer: the number of records sending to the same partition (Note: this parameter only works for Astraea partitioner)",
+        validateWith = PositiveIntegerField.class)
+    int interdependent = 1;
   }
 }
