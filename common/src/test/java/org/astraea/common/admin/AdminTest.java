@@ -1849,7 +1849,7 @@ public class AdminTest extends RequireBrokerCluster {
     var topic = Utils.randomString(10);
     try (Admin admin = Admin.of(bootstrapServers())) {
       admin.creator().topic(topic).numberOfPartitions(2).numberOfReplicas((short) 3).create();
-
+      Utils.sleep(Duration.ofSeconds(2));
       var partitions = admin.partitions(Set.of(topic));
       Assertions.assertEquals(2, partitions.size());
       partitions.forEach(
