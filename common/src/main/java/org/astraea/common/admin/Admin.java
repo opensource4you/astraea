@@ -282,6 +282,11 @@ public interface Admin extends Closeable {
   /** Clear the egress bandwidth of replication throttle for the specified brokers. */
   void clearEgressReplicationThrottle(Set<Integer> brokerIds);
 
+  /** Find idle topics with this admin object. See IdleTopicFinder. */
+  default IdleTopicFinder idleTopicFinder() {
+    return new IdleTopicFinder(this);
+  }
+
   @Override
   void close();
 }

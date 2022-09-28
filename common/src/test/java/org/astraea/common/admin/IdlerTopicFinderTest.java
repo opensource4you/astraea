@@ -27,22 +27,25 @@ import org.junit.jupiter.api.Test;
 
 public class IdlerTopicFinderTest extends RequireBrokerCluster {
   @Test
-  void testProduceIdleTopic() throws InterruptedException {
+  void testLatestTimestamp() throws InterruptedException {
     try (var producer = Producer.builder().bootstrapServers(bootstrapServers()).build()) {
       producer.sender().topic("produce").value("1".getBytes()).run().toCompletableFuture().get();
     } catch (ExecutionException e) {
       e.printStackTrace();
     }
 
-    try (var finder = new IdleTopicFinder(bootstrapServers())) {
-      Assertions.assertEquals(Set.of(), finder.produceIdleTopic(Duration.ofSeconds(3)));
+    try (var admin = Admin.of(bootstrapServers())) {
+      var finder = admin.idleTopicFinder();
+      finder.clearChecker();
+      finder.addChecker(IdleTopicFinder.IdleTopicChecker.latestTimestamp(Duration.ofSeconds(3)));
+      Assertions.assertEquals(Set.of(), finder.idleTopics());
       Thread.sleep(3000);
-      Assertions.assertEquals(Set.of("produce"), finder.produceIdleTopic(Duration.ofSeconds(2)));
+      Assertions.assertEquals(Set.of("produce"), finder.idleTopics());
     }
   }
 
   @Test
-  void testConsumeIdleTopic() throws InterruptedException {
+  void testNoAssignment() throws InterruptedException {
     var consumer =
         Consumer.forTopics(Set.of("produce"))
             .fromBeginning()
@@ -50,12 +53,16 @@ public class IdlerTopicFinderTest extends RequireBrokerCluster {
             .build();
     var consumerThread = new Thread(() -> consumer.poll(Duration.ofSeconds(5)));
     consumerThread.start();
-    try (var finder = new IdleTopicFinder(bootstrapServers())) {
+    try (var admin = Admin.of(bootstrapServers())) {
+      var finder = admin.idleTopicFinder();
+      finder.clearChecker();
+      finder.addChecker(IdleTopicFinder.IdleTopicChecker.noAssignment());
       Thread.sleep(5000);
-      Assertions.assertEquals(Set.of(), finder.consumeIdleTopic());
+
+      Assertions.assertEquals(Set.of(), finder.idleTopics());
       consumerThread.join();
       consumer.close();
-      Assertions.assertEquals(Set.of("produce"), finder.consumeIdleTopic());
+      Assertions.assertEquals(Set.of("produce"), finder.idleTopics());
     }
   }
 }
