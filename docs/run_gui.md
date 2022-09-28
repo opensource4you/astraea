@@ -8,7 +8,7 @@ Astraea 提供簡單但實用的 Kafka GUI 工具，讓使用者方便調閱和�
 
 #### 使用 Astraea GUI
 
-1. (選項) 下載 [Azul JRE FX 11](https://www.azul.com/downloads/?version=java-11-lts&os=windows&architecture=x86-64-bit&package=jre-fx)
+1. (如果環境已可運行`JavaFX`則跳過此步驟) 下載 [Azul JRE FX 11](https://www.azul.com/downloads/?version=java-11-lts&os=windows&architecture=x86-64-bit&package=jre-fx)
 
 ![download_jre](gui/download_jre.png)
 
