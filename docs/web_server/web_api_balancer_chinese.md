@@ -106,7 +106,7 @@ POST /balancer
 cURL 範例
 
 ```shell
-curl -X POST http://localhost:8001/throttles \
+curl -X POST http://localhost:8001/balancer \
     -H "Content-Type: application/json" \
     -d '{ "id": "46ecf6e7-aa28-4f72-b1b6-a788056c122a" }'
 ```
