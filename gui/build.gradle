@@ -1,0 +1,39 @@
+plugins {
+  id 'application'
+  id 'org.openjfx.javafxplugin' version '0.0.13'
+  id "com.github.johnrengelman.shadow" version "7.1.2"
+  id 'maven-publish'
+}
+repositories {
+    mavenCentral()
+}
+
+javafx {
+    version = "17"
+    modules = [ 'javafx.controls']
+}
+archivesBaseName = "astraea-gui"
+mainClassName = 'org.astraea.gui.Main'
+
+dependencies {
+    implementation project(':common')
+}
+
+publishing {
+    publications {
+        mavenJava(MavenPublication) {
+            groupId = 'org.astraea'
+            artifactId = 'astraea-gui'
+            from components.java
+        }
+    }
+    repositories {
+        maven {
+            url = "https://maven.pkg.github.com/skiptests/astraea"
+            credentials {
+                username = System.getenv("GITHUB_ACTOR")
+                password = System.getenv("GITHUB_TOKEN")
+            }
+        }
+    }
+}
