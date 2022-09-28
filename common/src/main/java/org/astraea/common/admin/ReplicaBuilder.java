@@ -18,20 +18,97 @@ package org.astraea.common.admin;
 
 import java.util.Objects;
 
-public interface Replica extends ReplicaInfo {
+public class ReplicaBuilder {
 
-  static Replica of(
-      String topic,
-      int partition,
-      NodeInfo nodeInfo,
-      long lag,
-      long size,
-      boolean leader,
-      boolean inSync,
-      boolean isFuture,
-      boolean offline,
-      boolean isPreferredLeader,
-      String dataFolder) {
+  private String topic;
+  private int partition;
+  private NodeInfo nodeInfo;
+  private long lag;
+  private long size;
+  private boolean leader;
+  private boolean inSync;
+  private boolean isFuture;
+  private boolean offline;
+  private boolean isPreferredLeader;
+  private String dataFolder;
+
+  public ReplicaBuilder replica(Replica replica) {
+    this.topic = replica.topic();
+    this.partition = replica.partition();
+    this.nodeInfo = replica.nodeInfo();
+    this.lag = replica.lag();
+    this.size = replica.size();
+    this.leader = replica.isLeader();
+    this.inSync = replica.inSync();
+    this.isFuture = replica.isFuture();
+    this.offline = replica.isOffline();
+    this.isPreferredLeader = replica.isPreferredLeader();
+    this.dataFolder = replica.dataFolder();
+
+    return this;
+  }
+
+  public ReplicaBuilder topic(String topic) {
+    this.topic = topic;
+    return this;
+  }
+
+  public ReplicaBuilder partition(int partition) {
+    this.partition = partition;
+    return this;
+  }
+
+  public ReplicaBuilder nodeInfo(NodeInfo nodeInfo) {
+    this.nodeInfo = nodeInfo;
+    return this;
+  }
+
+  public ReplicaBuilder lag(long lag) {
+    this.lag = lag;
+    return this;
+  }
+
+  public ReplicaBuilder size(long size) {
+    this.size = size;
+    return this;
+  }
+
+  public ReplicaBuilder leader(boolean leader) {
+    this.leader = leader;
+    return this;
+  }
+
+  public ReplicaBuilder inSync(boolean inSync) {
+    this.inSync = inSync;
+    return this;
+  }
+
+  public ReplicaBuilder isFuture(boolean isFuture) {
+    this.isFuture = isFuture;
+    return this;
+  }
+
+  public ReplicaBuilder offline(boolean offline) {
+    this.offline = offline;
+    return this;
+  }
+
+  public ReplicaBuilder isPreferredLeader(boolean isPreferredLeader) {
+    this.isPreferredLeader = isPreferredLeader;
+    return this;
+  }
+
+  public ReplicaBuilder dataFolder(String dataFolder) {
+    this.dataFolder = dataFolder;
+    return this;
+  }
+
+  public Replica build() {
+    // todo is optional or necessary
+    Objects.requireNonNull(this.nodeInfo);
+    Objects.requireNonNull(this.topic);
+    Objects.requireNonNull(this.dataFolder);
+
     return new Replica() {
       @Override
       public boolean equals(Object o) {
@@ -117,6 +194,7 @@ public interface Replica extends ReplicaInfo {
         return lag;
       }
 
+      @Override
       public long size() {
         return size;
       }
@@ -141,7 +219,6 @@ public interface Replica extends ReplicaInfo {
         return isPreferredLeader;
       }
 
-      /** @return true if the replica on the broker is offline. */
       @Override
       public boolean isOffline() {
         return offline;
@@ -153,43 +230,4 @@ public interface Replica extends ReplicaInfo {
       }
     };
   }
-
-  static ReplicaBuilder builder() {
-    return new ReplicaBuilder();
-  }
-
-  /**
-   * Whether this replica has been created by a AlterReplicaLogDirsRequest but not yet replaced the
-   * current replica on the broker.
-   *
-   * @return true if this log is created by AlterReplicaLogDirsRequest and will replace the current
-   *     log of the replica at some time in the future.
-   */
-  boolean isFuture();
-
-  /** @return true if this is current log of replica. */
-  default boolean isCurrent() {
-    return !isFuture();
-  }
-
-  /** @return true if the replica is the preferred leader */
-  boolean isPreferredLeader();
-
-  /**
-   * @return (LEO - high watermark) if it is the current log, * (LEO) if it is the future log, *
-   *     (-1) if the host of replica is offline
-   */
-  long lag();
-
-  /**
-   * @return The size of all log segments in this replica in bytes. It returns -1 if the host of
-   *     replica is offline
-   */
-  long size();
-
-  /**
-   * @return that indicates the data folder path which stored this replica on a specific Kafka node.
-   *     It returns null if the host of replica is offline
-   */
-  String dataFolder();
 }
