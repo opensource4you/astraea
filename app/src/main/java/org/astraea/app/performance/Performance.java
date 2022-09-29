@@ -95,7 +95,7 @@ public class Performance {
     var consumerThreads =
         ConsumerThread.create(
             param.consumers,
-            listener ->
+            (clientId, listener) ->
                 Consumer.forTopics(new HashSet<>(param.topics))
                     .bootstrapServers(param.bootstrapServers())
                     .groupId(param.groupId)
@@ -103,6 +103,7 @@ public class Performance {
                     .isolation(param.isolation())
                     .seek(latestOffsets)
                     .consumerRebalanceListener(listener)
+                    .clientId(clientId)
                     .build());
 
     System.out.println("creating tracker");

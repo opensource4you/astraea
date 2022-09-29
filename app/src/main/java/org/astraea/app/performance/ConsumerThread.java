@@ -18,24 +18,31 @@ package org.astraea.app.performance;
 
 import java.time.Duration;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.Function;
+import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.kafka.common.errors.WakeupException;
 import org.astraea.common.Utils;
+import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.consumer.ConsumerRebalanceListener;
 import org.astraea.common.consumer.SubscribedConsumer;
 
 public interface ConsumerThread extends AbstractThread {
 
+  ConcurrentMap<String, Set<TopicPartition>> CLIENT_ID_PARTITIONS = new ConcurrentHashMap<>();
+
   static List<ConsumerThread> create(
       int consumers,
-      Function<ConsumerRebalanceListener, SubscribedConsumer<byte[], byte[]>> consumerSupplier) {
+      BiFunction<String, ConsumerRebalanceListener, SubscribedConsumer<byte[], byte[]>>
+          consumerSupplier) {
     if (consumers == 0) return List.of();
     var closeLatches =
         IntStream.range(0, consumers)
@@ -56,7 +63,9 @@ public interface ConsumerThread extends AbstractThread {
         .mapToObj(
             index -> {
               @SuppressWarnings("resource")
-              var consumer = consumerSupplier.apply(ps -> {});
+              var clientId = Utils.randomString();
+              var consumer =
+                  consumerSupplier.apply(clientId, ps -> CLIENT_ID_PARTITIONS.put(clientId, ps));
               var closed = new AtomicBoolean(false);
               var closeLatch = closeLatches.get(index);
               var subscribed = new AtomicBoolean(true);
