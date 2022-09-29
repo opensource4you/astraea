@@ -110,6 +110,8 @@ class RebalanceAdminImpl implements RebalanceAdmin {
     // do inter-data-directories migration
     var forCrossDirMigration =
         expectedPlacement.entrySet().stream()
+            // filter out offline replica
+            .filter(entry -> entry.getValue() != null)
             .filter(entry -> currentReplicaBrokers.contains(entry.getKey()))
             .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));
     admin
