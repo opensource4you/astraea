@@ -23,7 +23,9 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Future;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.astraea.common.admin.Admin;
@@ -31,6 +33,9 @@ import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.TopicPartitionReplica;
 import org.astraea.common.balancer.Balancer;
+import org.astraea.common.balancer.executor.RebalanceAdmin;
+import org.astraea.common.balancer.executor.RebalancePlanExecutor;
+import org.astraea.common.balancer.executor.StraightPlanExecutor;
 import org.astraea.common.balancer.generator.RebalancePlanGenerator;
 import org.astraea.common.balancer.log.ClusterLogAllocation;
 import org.astraea.common.cost.HasClusterCost;
@@ -40,32 +45,54 @@ import org.astraea.common.cost.ReplicaSizeCost;
 
 class BalancerHandler implements Handler {
 
-  // TODO: implement an endpoint to execute rebalance plan, see
-  // https://github.com/skiptests/astraea/issues/743
-
   static String LIMIT_KEY = "limit";
 
   static String TOPICS_KEY = "topics";
 
   static int LIMIT_DEFAULT = 10000;
   private final Admin admin;
-  private final RebalancePlanGenerator generator = RebalancePlanGenerator.random(30);
+  private final RebalancePlanGenerator generator;
+  private final RebalancePlanExecutor executor;
   final HasClusterCost clusterCostFunction;
   final HasMoveCost moveCostFunction;
-  final Map<UUID, PlanInfo> generatedPlans = new ConcurrentHashMap<>();
+  private final Map<String, PlanInfo> generatedPlans = new ConcurrentHashMap<>();
+  private final Map<String, Future<Void>> executedPlans = new ConcurrentHashMap<>();
 
   BalancerHandler(Admin admin) {
     this(admin, new ReplicaSizeCost(), new ReplicaSizeCost());
   }
 
   BalancerHandler(Admin admin, HasClusterCost clusterCostFunction, HasMoveCost moveCostFunction) {
+    this(
+        admin,
+        clusterCostFunction,
+        moveCostFunction,
+        RebalancePlanGenerator.random(30),
+        new StraightPlanExecutor());
+  }
+
+  BalancerHandler(
+      Admin admin,
+      HasClusterCost clusterCostFunction,
+      HasMoveCost moveCostFunction,
+      RebalancePlanGenerator generator,
+      RebalancePlanExecutor executor) {
     this.admin = admin;
     this.clusterCostFunction = clusterCostFunction;
     this.moveCostFunction = moveCostFunction;
+    this.generator = generator;
+    this.executor = executor;
   }
 
   @Override
   public Response get(Channel channel) {
+    return channel
+        .target()
+        .map(this::lookupRebalancePlanProgress)
+        .orElseGet(() -> searchRebalancePlan(channel));
+  }
+
+  private Response searchRebalancePlan(Channel channel) {
     var topics =
         Optional.ofNullable(channel.queries().get(TOPICS_KEY))
             .map(s -> (Set<String>) new HashSet<>(Arrays.asList(s.split(","))))
@@ -112,7 +139,7 @@ class BalancerHandler implements Handler {
                                         ignored -> null)))
                         .collect(Collectors.toUnmodifiableList()))
             .orElse(List.of());
-    var id = bestPlan.map(ignore -> UUID.randomUUID()).orElse(null);
+    var id = bestPlan.map(ignore -> UUID.randomUUID()).map(UUID::toString).orElse(null);
     var report =
         new Report(
             id,
@@ -127,10 +154,57 @@ class BalancerHandler implements Handler {
     return report;
   }
 
+  private Response lookupRebalancePlanProgress(String planId) {
+    if (!generatedPlans.containsKey(planId))
+      throw new IllegalArgumentException("This plan doesn't exists: " + planId);
+    if (!executedPlans.containsKey(planId))
+      // TODO: add a field to describe the plan is not executed instead of this
+      throw new IllegalArgumentException("This plan is not executed: " + planId);
+
+    final var execution = executedPlans.get(planId);
+
+    // TODO: offer error details
+    return new PlanExecutionProgress(execution.isDone());
+  }
+
+  @Override
+  public Response post(Channel channel) {
+    final var thePlanId =
+        channel
+            .request()
+            .get("id")
+            .orElseThrow(() -> new IllegalArgumentException("No rebalance plan id offered"));
+    final var thePlanInfo =
+        Optional.ofNullable(generatedPlans.get(thePlanId))
+            .orElseThrow(
+                () -> new IllegalArgumentException("No such rebalance plan id: " + thePlanId));
+    final var theRebalanceProposal = thePlanInfo.associatedPlan.proposal();
+
+    submitRebalancePlan(thePlanId, theRebalanceProposal.rebalancePlan());
+
+    return new PostPlanResponse(thePlanId);
+  }
+
+  /** This method must be thread-safe, otherwise we might fire two executor tasks for a plan. */
+  private void submitRebalancePlan(String thePlanId, ClusterLogAllocation allocation) {
+    executedPlans.computeIfAbsent(
+        thePlanId,
+        ignore ->
+            CompletableFuture.runAsync(() -> executor.run(RebalanceAdmin.of(admin), allocation)));
+  }
+
   static List<Placement> placements(Set<Replica> lps, Function<Replica, Long> size) {
     return lps.stream()
         .map(p -> new Placement(p, size.apply(p)))
         .collect(Collectors.toUnmodifiableList());
+  }
+
+  static class PostPlanResponse implements Response {
+    final String id;
+
+    PostPlanResponse(String id) {
+      this.id = id;
+    }
   }
 
   static class Placement {
@@ -189,7 +263,7 @@ class BalancerHandler implements Handler {
   }
 
   static class Report implements Response {
-    final UUID id;
+    final String id;
     final double cost;
 
     // don't generate new cost if there is no best plan
@@ -203,7 +277,7 @@ class BalancerHandler implements Handler {
     final List<MigrationCost> migrationCosts;
 
     Report(
-        UUID id,
+        String id,
         double cost,
         Double newCost,
         int limit,
@@ -237,6 +311,14 @@ class BalancerHandler implements Handler {
 
     Balancer.Plan plan() {
       return associatedPlan;
+    }
+  }
+
+  static class PlanExecutionProgress implements Response {
+    final boolean done;
+
+    PlanExecutionProgress(boolean done) {
+      this.done = done;
     }
   }
 }
