@@ -87,6 +87,7 @@ public interface ConsumerThread extends AbstractThread {
                       Utils.swallowException(consumer::close);
                       closeLatch.countDown();
                       closed.set(true);
+                      CLIENT_ID_PARTITIONS.remove(clientId);
                     }
                   });
               return new ConsumerThread() {
