@@ -41,6 +41,7 @@ import org.astraea.common.admin.TopicPartitionReplica;
 import org.astraea.common.producer.Producer;
 import org.astraea.it.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 
@@ -76,6 +77,23 @@ class RebalanceAdminTest extends RequireBrokerCluster {
       Assertions.assertEquals(logFolder0, replicas.get(0).dataFolder());
       Assertions.assertEquals(logFolder1, replicas.get(1).dataFolder());
       Assertions.assertEquals(logFolder2, replicas.get(2).dataFolder());
+    }
+  }
+
+  @Test
+  @DisplayName("Offline directory will not raise an exception")
+  void testOfflineReplicaWorks() {
+    // arrange
+    try (Admin admin = Admin.of(bootstrapServers())) {
+      var topic = prepareTopic(admin, 1, (short) 1);
+      var topicPartition = TopicPartition.of(topic, 0);
+      var rebalanceAdmin = prepareRebalanceAdmin(admin);
+      var newPlacement = new LinkedHashMap<Integer, String>();
+      newPlacement.put(1, null);
+
+      // act, assert
+      Assertions.assertDoesNotThrow(
+          () -> rebalanceAdmin.alterReplicaPlacements(topicPartition, newPlacement));
     }
   }
 

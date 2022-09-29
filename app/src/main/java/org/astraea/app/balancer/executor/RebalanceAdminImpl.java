@@ -74,6 +74,8 @@ class RebalanceAdminImpl implements RebalanceAdmin {
     // of time to actually trigger it (race condition).
     final var declareMap =
         preferredPlacements.entrySet().stream()
+            // filter out offline replicas
+            .filter(entry -> entry.getValue() != null)
             .filter(entry -> !currentBrokerAllocation.contains(entry.getKey()))
             .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));
 
