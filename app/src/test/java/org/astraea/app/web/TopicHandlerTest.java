@@ -27,6 +27,7 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
+import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.consumer.Consumer;
 import org.astraea.common.producer.Producer;
 import org.astraea.it.RequireBrokerCluster;
@@ -247,7 +248,11 @@ public class TopicHandlerTest extends RequireBrokerCluster {
       // the topic creation is not synced, so we have to wait the creation.
       if (topicInfo.partitions.isEmpty()) {
         Utils.sleep(Duration.ofSeconds(2));
-        var result = admin.replicas(Set.of(topicName));
+        var result =
+            admin.newReplicas(Set.of(topicName)).stream()
+                .collect(
+                    Collectors.groupingBy(
+                        replica -> TopicPartition.of(replica.topic(), replica.partition())));
         Assertions.assertEquals(2, result.size());
         result.values().forEach(replicas -> Assertions.assertEquals(2, replicas.size()));
       } else {

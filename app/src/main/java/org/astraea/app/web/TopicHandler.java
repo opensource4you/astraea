@@ -69,7 +69,7 @@ class TopicHandler implements Handler {
   }
 
   private Topics get(Set<String> topicNames, Predicate<Integer> partitionPredicate) {
-    var replicas = admin.replicas(topicNames);
+    var replicas = admin.newReplicas(topicNames);
     var partitions =
         admin.partitions(topicNames).stream()
             .filter(p -> partitionPredicate.test(p.partition()))
@@ -82,7 +82,9 @@ class TopicHandler implements Handler {
                                 p.partition(),
                                 p.earliestOffset(),
                                 p.latestOffset(),
-                                replicas.get(p.topicPartition()).stream()
+                                replicas.stream()
+                                    .filter(replica -> replica.topic().equals(p.topic()))
+                                    .filter(replica -> replica.partition() == p.partition())
                                     .map(Replica::new)
                                     .collect(Collectors.toUnmodifiableList())),
                         Collectors.toList())));

@@ -96,7 +96,11 @@ public class ThrottleHandlerTest extends RequireBrokerCluster {
       Utils.sleep(Duration.ofSeconds(1));
       admin.replicationThrottler().throttle(topicName).apply();
       Utils.sleep(Duration.ofSeconds(1));
-      var currentReplicas = admin.replicas();
+      var currentReplicas =
+          admin.newReplicas().stream()
+              .collect(
+                  Collectors.groupingBy(
+                      replica -> TopicPartition.of(replica.topic(), replica.partition())));
 
       var jsonString = handler.get(Channel.EMPTY).json();
       var json = new Gson().fromJson(jsonString, JsonObject.class);
