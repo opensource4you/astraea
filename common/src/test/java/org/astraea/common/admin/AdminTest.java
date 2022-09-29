@@ -1845,10 +1845,7 @@ public class AdminTest extends RequireBrokerCluster {
               });
       Utils.sleep(Duration.ofSeconds(2));
       var replica =
-          admin.replicas(Set.of(topic)).stream()
-              .filter(r -> r.partition() == 0)
-              .findFirst()
-              .get();
+          admin.replicas(Set.of(topic)).stream().filter(r -> r.partition() == 0).findFirst().get();
       admin
           .migrator()
           .partition(topic, 0)
@@ -1861,8 +1858,7 @@ public class AdminTest extends RequireBrokerCluster {
                       .get()));
       Utils.waitFor(
           () ->
-              admin.replicas(Set.of(topic)).stream().filter(r -> r.partition() == 0).count()
-                  == 2);
+              admin.replicas(Set.of(topic)).stream().filter(r -> r.partition() == 0).count() == 2);
     }
   }
 
