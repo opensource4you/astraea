@@ -158,6 +158,10 @@ public interface Replica extends ReplicaInfo {
     return new ReplicaBuilder();
   }
 
+  static ReplicaBuilder builder(Replica replica) {
+    return Replica.builder().replica(replica);
+  }
+
   /**
    * Whether this replica has been created by a AlterReplicaLogDirsRequest but not yet replaced the
    * current replica on the broker.

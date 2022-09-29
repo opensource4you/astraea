@@ -32,7 +32,7 @@ public class ReplicaBuilder {
   private boolean isPreferredLeader;
   private String dataFolder;
 
-  public ReplicaBuilder replica(Replica replica) {
+  ReplicaBuilder replica(Replica replica) {
     this.topic = replica.topic();
     this.partition = replica.partition();
     this.nodeInfo = replica.nodeInfo();
@@ -104,7 +104,6 @@ public class ReplicaBuilder {
   }
 
   public Replica build() {
-    // todo is optional or necessary
     Objects.requireNonNull(this.nodeInfo);
     Objects.requireNonNull(this.topic);
 
