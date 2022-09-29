@@ -50,30 +50,13 @@ object DataType {
     *   DataType
     */
   def parseDataType(str: String): DataType = {
-    str match {
-      case STRING_TYPE =>
-        StringType
-      case BINARY_TYPE =>
-        BinaryType
-      case BOOLEAN_TYPE =>
-        BooleanType
-      case DATE_TYPE =>
-        DateType
-      case DOUBLE_TYPE =>
-        DoubleType
-      case BYTE_TYPE =>
-        ByteType
-      case INTEGER_TYPE =>
-        IntegerType
-      case LONG_TYPE =>
-        LongType
-      case SHORT_TYPE =>
-        ShortType
-      case _ =>
-        throw new IllegalArgumentException(
-          s"$str is not supported data type.The data types supported ${allTypes.mkString(",")}."
-        )
+    val value = allTypes.filter(_.value == str)
+    if (value.isEmpty) {
+      throw new IllegalArgumentException(
+        s"$str is not supported data type.The data types supported ${allTypes.mkString(",")}."
+      )
     }
+    value.head
   }
 
   /** @param map
@@ -88,17 +71,17 @@ object DataType {
   /** @return
     *   All supported data types.
     */
-  def allTypes: Seq[String] = {
+  def allTypes: Seq[DataType] = {
     Seq(
-      STRING_TYPE,
-      BINARY_TYPE,
-      BOOLEAN_TYPE,
-      DATE_TYPE,
-      DOUBLE_TYPE,
-      BYTE_TYPE,
-      INTEGER_TYPE,
-      LONG_TYPE,
-      SHORT_TYPE
+      StringType,
+      BinaryType,
+      BooleanType,
+      DateType,
+      DoubleType,
+      ByteType,
+      IntegerType,
+      LongType,
+      ShortType
     )
   }
 }
