@@ -17,7 +17,10 @@
 package org.astraea.etl
 
 import org.apache.spark.sql.{DataFrame, SparkSession}
-import org.apache.spark.sql.functions.{col, struct, to_json}
+import org.apache.spark.sql.functions.{col, concat, struct, to_json}
+
+import scala.collection.IterableOnce.iterableOnceExtensionMethods
+import scala.collection.parallel.immutable.ParVector
 
 object SparkUtils {
   def createSpark(deploymentModel: String): SparkSession = {
@@ -50,10 +53,10 @@ object SparkUtils {
     * @return
     *   json df
     */
-  def csvToJSON(dataFrame: DataFrame, pk: Map[String, String]) = {
+  def csvToJSON(dataFrame: DataFrame, pk: Map[String, String]): DataFrame = {
     dataFrame
       .withColumn("value", to_json(struct($conforms("*"))))
-      .withColumn("key", col(pk.keys.mkString("_")))
+      .withColumn("key", concat(pk.keys.map(col).toSeq: _*))
       .selectExpr("CAST(key AS STRING)", "CAST(value AS STRING)")
   }
 }
