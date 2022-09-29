@@ -69,7 +69,7 @@ class TopicHandler implements Handler {
   }
 
   private Topics get(Set<String> topicNames, Predicate<Integer> partitionPredicate) {
-    var replicas = admin.newReplicas(topicNames);
+    var replicas = admin.replicas(topicNames);
     var partitions =
         admin.partitions(topicNames).stream()
             .filter(p -> partitionPredicate.test(p.partition()))

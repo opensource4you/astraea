@@ -37,7 +37,7 @@ public class ReassignmentHandlerTest extends RequireBrokerCluster {
       Utils.sleep(Duration.ofSeconds(3));
 
       var currentBroker =
-          admin.newReplicas(Set.of(topicName)).stream()
+          admin.replicas(Set.of(topicName)).stream()
               .filter(replica -> replica.partition() == 0)
               .findFirst()
               .get()
@@ -66,7 +66,7 @@ public class ReassignmentHandlerTest extends RequireBrokerCluster {
 
       Assertions.assertEquals(
           nextBroker,
-          admin.newReplicas(Set.of(topicName)).stream()
+          admin.replicas(Set.of(topicName)).stream()
               .filter(replica -> replica.partition() == 0)
               .findFirst()
               .get()
@@ -84,7 +84,7 @@ public class ReassignmentHandlerTest extends RequireBrokerCluster {
       Utils.sleep(Duration.ofSeconds(3));
 
       var currentReplica =
-          admin.newReplicas(Set.of(topicName)).stream()
+          admin.replicas(Set.of(topicName)).stream()
               .filter(replica -> replica.partition() == 0)
               .findFirst()
               .get();
@@ -120,7 +120,7 @@ public class ReassignmentHandlerTest extends RequireBrokerCluster {
 
       Assertions.assertEquals(
           nextPath,
-          admin.newReplicas(Set.of(topicName)).stream()
+          admin.replicas(Set.of(topicName)).stream()
               .filter(replica -> replica.partition() == 0)
               .findFirst()
               .get()

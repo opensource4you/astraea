@@ -149,7 +149,7 @@ public class PerformanceTest extends RequireBrokerCluster {
                 "1"
               });
       var expectedLeaders =
-          admin.newReplicas(Set.of(topicName)).stream()
+          admin.replicas(Set.of(topicName)).stream()
               .filter(Replica::isLeader)
               .filter(r -> r.nodeInfo().id() == 1)
               .map(ReplicaInfo::topicPartition)
@@ -184,7 +184,7 @@ public class PerformanceTest extends RequireBrokerCluster {
               });
 
       var expected2 =
-          admin.newReplicas(Set.of(topicName, topicName2)).stream()
+          admin.replicas(Set.of(topicName, topicName2)).stream()
               .filter(ReplicaInfo::isLeader)
               .filter(replica -> replica.nodeInfo().id() == 1)
               .map(ReplicaInfo::topicPartition)
@@ -211,7 +211,7 @@ public class PerformanceTest extends RequireBrokerCluster {
       admin.creator().topic(topicName3).numberOfPartitions(1).create();
       Utils.sleep(Duration.ofSeconds(2));
       var validBroker =
-          admin.newReplicas(Set.of(topicName3)).stream().findFirst().get().nodeInfo().id();
+          admin.replicas(Set.of(topicName3)).stream().findFirst().get().nodeInfo().id();
       var noPartitionBroker = (validBroker == 3) ? 1 : validBroker + 1;
       args =
           Argument.parse(

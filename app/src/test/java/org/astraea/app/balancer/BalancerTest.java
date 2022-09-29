@@ -49,7 +49,7 @@ class BalancerTest extends RequireBrokerCluster {
       var currentLeaders =
           (Supplier<Map<Integer, Long>>)
               () ->
-                  admin.newReplicas().stream()
+                  admin.replicas().stream()
                       .map(replica -> replica.nodeInfo().id())
                       .collect(Collectors.groupingBy(x -> x, Collectors.counting()));
 

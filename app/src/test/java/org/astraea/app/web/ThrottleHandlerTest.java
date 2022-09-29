@@ -97,7 +97,7 @@ public class ThrottleHandlerTest extends RequireBrokerCluster {
       admin.replicationThrottler().throttle(topicName).apply();
       Utils.sleep(Duration.ofSeconds(1));
       var currentReplicas =
-          admin.newReplicas().stream()
+          admin.replicas().stream()
               .collect(
                   Collectors.groupingBy(
                       replica -> TopicPartition.of(replica.topic(), replica.partition())));

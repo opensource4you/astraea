@@ -137,7 +137,7 @@ public class AdminTest extends RequireBrokerCluster {
       // wait for syncing topic creation
       Utils.sleep(Duration.ofSeconds(5));
       Assertions.assertTrue(admin.topicNames().contains(topicName));
-      var partitions = admin.newReplicas(Set.of(topicName));
+      var partitions = admin.replicas(Set.of(topicName));
       Assertions.assertEquals(10, partitions.size());
       var logFolders =
           logFolders().values().stream().flatMap(Collection::stream).collect(Collectors.toSet());
@@ -230,13 +230,13 @@ public class AdminTest extends RequireBrokerCluster {
       admin.migrator().partition(topicName, 0).moveTo(List.of(broker));
       Utils.waitFor(
           () -> {
-            var partitionReplicas = admin.newReplicas(Set.of(topicName));
+            var partitionReplicas = admin.replicas(Set.of(topicName));
             return partitionReplicas.size() == 1
                 && partitionReplicas.get(0).nodeInfo().id() == broker;
           });
 
       var currentBroker =
-          admin.newReplicas(Set.of(topicName)).stream()
+          admin.replicas(Set.of(topicName)).stream()
               .filter(replica -> replica.partition() == 0)
               .findFirst()
               .get()
@@ -248,7 +248,7 @@ public class AdminTest extends RequireBrokerCluster {
               .filter(
                   i ->
                       !i.contains(
-                          admin.newReplicas(Set.of(topicName)).stream()
+                          admin.replicas(Set.of(topicName)).stream()
                               .filter(replica -> replica.partition() == 0)
                               .findFirst()
                               .get()
@@ -260,7 +260,7 @@ public class AdminTest extends RequireBrokerCluster {
           .moveTo(Map.of(currentBroker, otherPath.iterator().next()));
       Utils.waitFor(
           () -> {
-            var partitionReplicas = admin.newReplicas(Set.of(topicName));
+            var partitionReplicas = admin.replicas(Set.of(topicName));
             return partitionReplicas.size() == 1
                 && partitionReplicas.get(0).dataFolder().equals(otherPath.iterator().next());
           });
@@ -276,7 +276,7 @@ public class AdminTest extends RequireBrokerCluster {
       admin.creator().topic(topic).numberOfPartitions(1).numberOfReplicas((short) 1).create();
       Utils.sleep(Duration.ofSeconds(1));
       var originalBroker =
-          admin.newReplicas(Set.of(topic)).stream()
+          admin.replicas(Set.of(topic)).stream()
               .filter(replica -> replica.partition() == topicPartition.partition())
               .findFirst()
               .get()
@@ -286,7 +286,7 @@ public class AdminTest extends RequireBrokerCluster {
       var nextDir = logFolders().get(nextBroker).stream().findAny().orElseThrow();
       Supplier<Replica> replicaNow =
           () ->
-              admin.newReplicas(Set.of(topic)).stream()
+              admin.replicas(Set.of(topic)).stream()
                   .filter(replica -> replica.partition() == topicPartition.partition())
                   .findFirst()
                   .get();
@@ -320,7 +320,7 @@ public class AdminTest extends RequireBrokerCluster {
       admin.creator().topic(topic).numberOfPartitions(1).numberOfReplicas((short) 1).create();
       Utils.sleep(Duration.ofSeconds(1));
       var currentReplica =
-          admin.newReplicas(Set.of(topic)).stream()
+          admin.replicas(Set.of(topic)).stream()
               .filter(replica -> replica.partition() == topicPartition.partition())
               .findFirst()
               .get();
@@ -342,7 +342,7 @@ public class AdminTest extends RequireBrokerCluster {
       admin.creator().topic(topic).numberOfPartitions(1).numberOfReplicas((short) 1).create();
       Utils.sleep(Duration.ofSeconds(1));
       var currentReplica =
-          admin.newReplicas(Set.of(topic)).stream()
+          admin.replicas(Set.of(topic)).stream()
               .filter(replica -> replica.partition() == topicPartition.partition())
               .findFirst()
               .get();
@@ -403,7 +403,7 @@ public class AdminTest extends RequireBrokerCluster {
       admin.migrator().topic(topicName).moveTo(List.of(broker));
       Utils.waitFor(
           () -> {
-            var replicas = admin.newReplicas(Set.of(topicName));
+            var replicas = admin.replicas(Set.of(topicName));
             return replicas.stream().allMatch(r -> r.nodeInfo().id() == broker);
           });
     }
@@ -416,7 +416,7 @@ public class AdminTest extends RequireBrokerCluster {
         var producer = Producer.builder().bootstrapServers(bootstrapServers()).build()) {
       producer.sender().topic(topicName).key(new byte[100]).run().toCompletableFuture().get();
       var originSize =
-          admin.newReplicas(Set.of(topicName)).stream()
+          admin.replicas(Set.of(topicName)).stream()
               .filter(replica -> replica.partition() == 0)
               .findFirst()
               .get()
@@ -426,7 +426,7 @@ public class AdminTest extends RequireBrokerCluster {
       producer.sender().topic(topicName).key(new byte[100]).run().toCompletableFuture().get();
 
       var newSize =
-          admin.newReplicas(Set.of(topicName)).stream()
+          admin.replicas(Set.of(topicName)).stream()
               .filter(replica -> replica.partition() == 0)
               .findFirst()
               .get()
@@ -516,20 +516,20 @@ public class AdminTest extends RequireBrokerCluster {
       Utils.sleep(Duration.ofSeconds(2));
       Assertions.assertEquals(
           2,
-          admin.newReplicas(Set.of("abc")).stream()
+          admin.replicas(Set.of("abc")).stream()
               .collect(
                   Collectors.groupingBy(
                       replica -> TopicPartition.of(replica.topic(), replica.partition())))
               .size());
       var count =
-          admin.newReplicas(admin.topicNames()).stream()
+          admin.replicas(admin.topicNames()).stream()
               .collect(
                   Collectors.groupingBy(
                       replica -> TopicPartition.of(replica.topic(), replica.partition())))
               .size();
       Assertions.assertEquals(
           count,
-          admin.newReplicas().stream()
+          admin.replicas().stream()
               .collect(
                   Collectors.groupingBy(
                       replica -> TopicPartition.of(replica.topic(), replica.partition())))
@@ -557,7 +557,7 @@ public class AdminTest extends RequireBrokerCluster {
       var currentPreferredLeader =
           (Supplier<Map<TopicPartition, List<Integer>>>)
               () ->
-                  admin.newReplicas(Set.of(topic)).stream()
+                  admin.replicas(Set.of(topic)).stream()
                       .filter(Replica::isPreferredLeader)
                       .collect(
                           Collectors.groupingBy(
@@ -796,7 +796,7 @@ public class AdminTest extends RequireBrokerCluster {
       var currentLeaderMap =
           (Supplier<Map<TopicPartition, Integer>>)
               () ->
-                  admin.newReplicas(Set.of(topic)).stream()
+                  admin.replicas(Set.of(topic)).stream()
                       .filter(Replica::isLeader)
                       .collect(
                           Utils.toSortedMap(
@@ -1054,7 +1054,7 @@ public class AdminTest extends RequireBrokerCluster {
       Utils.sleep(Duration.ofSeconds(3));
 
       var currentBroker =
-          admin.newReplicas(Set.of(topicName)).stream()
+          admin.replicas(Set.of(topicName)).stream()
               .filter(replica -> replica.partition() == 0)
               .findFirst()
               .get()
@@ -1096,7 +1096,7 @@ public class AdminTest extends RequireBrokerCluster {
       Utils.sleep(Duration.ofSeconds(3));
 
       var currentReplica =
-          admin.newReplicas(Set.of(topicName)).stream()
+          admin.replicas(Set.of(topicName)).stream()
               .filter(replica -> replica.partition() == 0)
               .findFirst()
               .get();
@@ -1344,7 +1344,7 @@ public class AdminTest extends RequireBrokerCluster {
   }
 
   private Set<TopicPartitionReplica> currentLeaderLogs(Admin admin, String topic) {
-    return admin.newReplicas(Set.of(topic)).stream()
+    return admin.replicas(Set.of(topic)).stream()
         .filter(Replica::isLeader)
         .map(
             replica ->
@@ -1354,7 +1354,7 @@ public class AdminTest extends RequireBrokerCluster {
   }
 
   private Set<TopicPartitionReplica> currentFollowerLogs(Admin admin, String topic) {
-    return admin.newReplicas(Set.of(topic)).stream()
+    return admin.replicas(Set.of(topic)).stream()
         .filter(replica -> !replica.isLeader())
         .map(
             replica ->
@@ -1845,7 +1845,7 @@ public class AdminTest extends RequireBrokerCluster {
               });
       Utils.sleep(Duration.ofSeconds(2));
       var replica =
-          admin.newReplicas(Set.of(topic)).stream()
+          admin.replicas(Set.of(topic)).stream()
               .filter(r -> r.partition() == 0)
               .findFirst()
               .get();
@@ -1861,7 +1861,7 @@ public class AdminTest extends RequireBrokerCluster {
                       .get()));
       Utils.waitFor(
           () ->
-              admin.newReplicas(Set.of(topic)).stream().filter(r -> r.partition() == 0).count()
+              admin.replicas(Set.of(topic)).stream().filter(r -> r.partition() == 0).count()
                   == 2);
     }
   }

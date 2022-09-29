@@ -249,7 +249,7 @@ public class TopicHandlerTest extends RequireBrokerCluster {
       if (topicInfo.partitions.isEmpty()) {
         Utils.sleep(Duration.ofSeconds(2));
         var result =
-            admin.newReplicas(Set.of(topicName)).stream()
+            admin.replicas(Set.of(topicName)).stream()
                 .collect(
                     Collectors.groupingBy(
                         replica -> TopicPartition.of(replica.topic(), replica.partition())));

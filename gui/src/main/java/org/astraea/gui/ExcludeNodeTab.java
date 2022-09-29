@@ -91,7 +91,7 @@ public class ExcludeNodeTab {
                                 var allBrokerIds = admin.brokerIds();
                                 int excludedBrokerId = excludedBrokerIdBox.getValue();
                                 var replicas =
-                                    admin.newReplicas(topics).stream()
+                                    admin.replicas(topics).stream()
                                         .collect(
                                             Collectors.groupingBy(ReplicaInfo::topicPartition));
                                 replicas.forEach(

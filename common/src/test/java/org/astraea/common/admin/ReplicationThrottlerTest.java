@@ -84,7 +84,7 @@ public class ReplicationThrottlerTest extends RequireBrokerCluster {
       // 4. wait until it finished
       Utils.waitFor(
           () ->
-              admin.newReplicas(Set.of(topicName)).stream()
+              admin.replicas(Set.of(topicName)).stream()
                   .filter(replica -> replica.partition() == 0)
                   .filter(replica -> replica.nodeInfo().id() == 1)
                   .findFirst()

@@ -338,7 +338,7 @@ public class Performance {
       else if (specifiedByBroker) {
         try (Admin admin = Admin.of(configs())) {
           final var selections =
-              admin.newReplicas(Set.copyOf(topics)).stream()
+              admin.replicas(Set.copyOf(topics)).stream()
                   .filter(ReplicaInfo::isLeader)
                   .filter(replica -> specifyBrokers.contains(replica.nodeInfo().id()))
                   .map(replica -> TopicPartition.of(replica.topic(), replica.partition()))
@@ -361,7 +361,7 @@ public class Performance {
           var allTopics = admin.topicNames();
           var allTopicPartitions =
               admin
-                  .newReplicas(
+                  .replicas(
                       specifyPartitions.stream()
                           .map(TopicPartition::topic)
                           .filter(allTopics::contains)

@@ -418,7 +418,7 @@ public class Builder {
     }
 
     @Override
-    public List<Replica> newReplicas(Set<String> topics) {
+    public List<Replica> replicas(Set<String> topics) {
       // pre-group folders by (broker -> topic partition) to speedup seek
       var logInfo = logDirs();
       var topicDesc = Utils.packException(() -> admin.describeTopics(topics).allTopicNames().get());
@@ -489,7 +489,7 @@ public class Builder {
       return new CreatorImpl(
           admin,
           topic ->
-              this.newReplicas(Set.of(topic)).stream()
+              this.replicas(Set.of(topic)).stream()
                   .collect(
                       Collectors.groupingBy(
                           replica -> TopicPartition.of(replica.topic(), replica.partition()))),
@@ -694,7 +694,7 @@ public class Builder {
 
         @Override
         public ReplicationThrottler throttle(String topic) {
-          newReplicas(Set.of(topic))
+          replicas(Set.of(topic))
               .forEach(
                   replica -> {
                     if (replica.isLeader())
@@ -712,7 +712,7 @@ public class Builder {
         @Override
         public ReplicationThrottler throttle(TopicPartition topicPartition) {
           var replicas =
-              newReplicas(Set.of(topicPartition.topic())).stream()
+              replicas(Set.of(topicPartition.topic())).stream()
                   .filter(replica -> replica.partition() == topicPartition.partition())
                   .collect(Collectors.toList());
           replicas.forEach(
@@ -926,7 +926,7 @@ public class Builder {
     @Override
     public void clearReplicationThrottle(TopicPartition topicPartition) {
       var configValue =
-          newReplicas(Set.of(topicPartition.topic())).stream()
+          replicas(Set.of(topicPartition.topic())).stream()
               .filter(replica -> replica.partition() == topicPartition.partition())
               .map(replica -> topicPartition.partition() + ":" + replica.nodeInfo().id())
               .collect(Collectors.joining(","));

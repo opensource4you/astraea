@@ -136,7 +136,7 @@ class RebalanceAdminImpl implements RebalanceAdmin {
         debounceCheck(
             timeout,
             () ->
-                admin.newReplicas(Set.of(log.topic())).stream()
+                admin.replicas(Set.of(log.topic())).stream()
                     .filter(x -> x.topic().equals(log.topic()))
                     .filter(x -> x.partition() == log.partition())
                     .filter(x -> x.nodeInfo().id() == log.brokerId())
@@ -152,7 +152,7 @@ class RebalanceAdminImpl implements RebalanceAdmin {
         debounceCheck(
             timeout,
             () ->
-                admin.newReplicas(Set.of(topicPartition.topic())).stream()
+                admin.replicas(Set.of(topicPartition.topic())).stream()
                     .filter(x -> x.topic().equals(topicPartition.topic()))
                     .filter(x -> x.partition() == topicPartition.partition())
                     .findFirst()

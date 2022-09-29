@@ -69,7 +69,7 @@ class RebalanceAdminTest extends RequireBrokerCluster {
       // assert
       var topicPartition = TopicPartition.of(topic, 0);
       var replicas =
-          admin.newReplicas(Set.of(topic)).stream()
+          admin.replicas(Set.of(topic)).stream()
               .filter(replica -> replica.partition() == topicPartition.partition())
               .collect(Collectors.toList());
 
@@ -94,7 +94,7 @@ class RebalanceAdminTest extends RequireBrokerCluster {
       prepareData(topic, 0, DataSize.MiB.of(256));
       Supplier<Replica> replicaNow =
           () ->
-              admin.newReplicas(Set.of(topic)).stream()
+              admin.replicas(Set.of(topic)).stream()
                   .filter(replica -> replica.partition() == topicPartition.partition())
                   .findFirst()
                   .get();
@@ -142,7 +142,7 @@ class RebalanceAdminTest extends RequireBrokerCluster {
       var topicPartition = TopicPartition.of(topic, 0);
       var rebalanceAdmin = prepareRebalanceAdmin(admin);
       var beginReplica =
-          admin.newReplicas().stream()
+          admin.replicas().stream()
               .filter(replica -> replica.topic().equals(topicPartition.topic()))
               .filter(replica -> replica.partition() == topicPartition.partition())
               .findFirst()
@@ -169,9 +169,9 @@ class RebalanceAdminTest extends RequireBrokerCluster {
       long time1 = System.currentTimeMillis();
 
       // assert all replica synced
-      Assertions.assertTrue(admin.newReplicas(Set.of(topic)).stream().allMatch(Replica::inSync));
+      Assertions.assertTrue(admin.replicas(Set.of(topic)).stream().allMatch(Replica::inSync));
       // assert all data directory migration synced
-      Assertions.assertTrue(admin.newReplicas(Set.of(topic)).stream().noneMatch(Replica::isFuture));
+      Assertions.assertTrue(admin.replicas(Set.of(topic)).stream().noneMatch(Replica::isFuture));
       Assertions.assertTrue((time1 - time0) > 100, "This should takes awhile");
     }
   }
@@ -187,7 +187,7 @@ class RebalanceAdminTest extends RequireBrokerCluster {
       var leaderNow =
           (Supplier<Integer>)
               () ->
-                  admin.newReplicas(Set.of(topic)).stream()
+                  admin.replicas(Set.of(topic)).stream()
                       .filter(x -> x.topic().equals(topic))
                       .filter(x -> x.partition() == 0)
                       .filter(Replica::isLeader)
@@ -229,7 +229,7 @@ class RebalanceAdminTest extends RequireBrokerCluster {
       var leaderNow =
           (Supplier<Integer>)
               () ->
-                  admin.newReplicas(Set.of(topic)).stream()
+                  admin.replicas(Set.of(topic)).stream()
                       .filter(x -> x.topic().equals(topic))
                       .filter(x -> x.partition() == 0)
                       .filter(Replica::isLeader)
