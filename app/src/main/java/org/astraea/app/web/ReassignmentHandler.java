@@ -20,14 +20,9 @@ import static java.lang.Math.max;
 import static java.lang.Math.min;
 
 import java.util.Collection;
-import java.util.Iterator;
-import java.util.List;
 import java.util.Map;
-import java.util.Objects;
-import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import org.astraea.common.admin.Admin;
-import org.astraea.common.admin.TopicPartition;
 
 public class ReassignmentHandler implements Handler {
   static final String PLANS_KEY = "plans";
@@ -68,29 +63,22 @@ public class ReassignmentHandler implements Handler {
                   // case 2: move specific broker's (topic's) partitions to others
                   if (request.has(FROM_KEY, EXCLUDE_KEY)) {
                     if (request.booleanValue(EXCLUDE_KEY)) {
-                      Predicate<TopicPartition> hasTopicKey =
-                          request.has(TOPIC_KEY)
-                              ? tp -> Objects.equals(tp.topic(), request.value(TOPIC_KEY))
-                              : tp -> true;
-                      var brokerList =
-                          admin.brokerIds().stream()
-                              .filter(i -> i != request.intValue(FROM_KEY))
-                              .collect(Collectors.toList());
-                      Iterator<Integer> it = brokerList.iterator();
-                      for (TopicPartition p :
-                          admin.topicPartitions(request.intValue(FROM_KEY)).stream()
-                              .filter(hasTopicKey)
-                              .collect(Collectors.toList())) {
+                      if (request.has(TOPIC_KEY)) {
                         admin
                             .migrator()
-                            .partition(p.topic(), p.partition())
-                            .moveTo(
-                                List.of(
-                                    it.hasNext()
-                                        ? it.next()
-                                        : (it = brokerList.iterator()).next()));
+                            .broker(request.intValue(FROM_KEY))
+                            .moveToExcept(
+                                admin.brokerIds(),
+                                request.intValue(FROM_KEY),
+                                request.value(TOPIC_KEY));
+                        return Response.ACCEPT;
+                      } else {
+                        admin
+                            .migrator()
+                            .broker(request.intValue(FROM_KEY))
+                            .moveToExcept(admin.brokerIds(), request.intValue(FROM_KEY));
+                        return Response.ACCEPT;
                       }
-                      return Response.ACCEPT;
                     }
                   }
                   return Response.BAD_REQUEST;

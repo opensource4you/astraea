@@ -21,6 +21,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -28,6 +29,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.BiFunction;
 import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.kafka.clients.admin.AdminClientConfig;
@@ -109,7 +111,7 @@ public class Builder {
 
     @Override
     public ReplicaMigrator migrator() {
-      return new MigratorImpl(admin, this::topicPartitions);
+      return new MigratorImpl(admin, this::topicPartitions, this::topicPartitions);
     }
 
     @Override
@@ -1119,13 +1121,16 @@ public class Builder {
   private static class MigratorImpl implements ReplicaMigrator {
     private final org.apache.kafka.clients.admin.Admin admin;
     private final Function<Set<String>, Set<TopicPartition>> partitionGetter;
+    private final Function<Integer, Set<TopicPartition>> brokerPartitionGetter;
     private final Set<TopicPartition> partitions = new HashSet<>();
 
     MigratorImpl(
         org.apache.kafka.clients.admin.Admin admin,
-        Function<Set<String>, Set<TopicPartition>> partitionGetter) {
+        Function<Set<String>, Set<TopicPartition>> partitionGetter,
+        Function<Integer, Set<TopicPartition>> brokerPartitionGetter) {
       this.admin = admin;
       this.partitionGetter = partitionGetter;
+      this.brokerPartitionGetter = brokerPartitionGetter;
     }
 
     @Override
@@ -1137,6 +1142,12 @@ public class Builder {
     @Override
     public ReplicaMigrator partition(String topic, int partition) {
       partitions.add(TopicPartition.of(topic, partition));
+      return this;
+    }
+
+    @Override
+    public ReplicaMigrator broker(int broker) {
+      partitions.addAll(brokerPartitionGetter.apply(broker));
       return this;
     }
 
@@ -1214,6 +1225,35 @@ public class Builder {
         // exception since this is a supported operation. See the Javadoc of
         // AdminClient#alterReplicaLogDirs for details.
       }
+    }
+
+    @Override
+    public void moveToExcept(Set<Integer> brokerSet, Integer exclude, String topic) {
+      Predicate<TopicPartition> hasTopicKey =
+          !Objects.equals(topic, "") ? tp -> Objects.equals(tp.topic(), topic) : tp -> true;
+      var brokerList =
+          brokerSet.stream().filter(i -> !Objects.equals(i, exclude)).collect(Collectors.toList());
+      Iterator<Integer> it = brokerList.iterator();
+      for (TopicPartition tp :
+          partitions.stream().filter(hasTopicKey).collect(Collectors.toSet())) {
+        var broker = List.of(it.hasNext() ? it.next() : (it = brokerList.iterator()).next());
+        Utils.packException(
+            () ->
+                admin
+                    .alterPartitionReassignments(
+                        Stream.of(tp)
+                            .collect(
+                                Collectors.toMap(
+                                    TopicPartition::to,
+                                    ignore -> Optional.of(new NewPartitionReassignment(broker)))))
+                    .all()
+                    .get());
+      }
+    }
+
+    @Override
+    public void moveToExcept(Set<Integer> brokerSet, Integer exclude) {
+      this.moveToExcept(brokerSet, exclude, "");
     }
 
     @Override

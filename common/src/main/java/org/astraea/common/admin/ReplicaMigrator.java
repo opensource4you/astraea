@@ -18,6 +18,7 @@ package org.astraea.common.admin;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /** used to migrate partitions to another broker or broker folder. */
 public interface ReplicaMigrator {
@@ -37,6 +38,14 @@ public interface ReplicaMigrator {
    * @return this migrator
    */
   ReplicaMigrator partition(String topic, int partition);
+
+  /**
+   * move all partitions (leader replica and follower replicas) of broker
+   *
+   * @param broker broker id
+   * @return this migrator
+   */
+  ReplicaMigrator broker(int broker);
 
   /**
    * change the partition replica list. If the current partition leader is kicked out of the
@@ -76,4 +85,21 @@ public interface ReplicaMigrator {
    *     will be raised.
    */
   void declarePreferredDir(Map<Integer, String> preferredDirMap);
+
+  /**
+   * move partitions of topic from excluded broker to others.
+   *
+   * @param brokerSet all brokers
+   * @param exclude the broker id to exclude
+   * @param topic topic of broker id to exclude
+   */
+  void moveToExcept(Set<Integer> brokerSet, Integer exclude, String topic);
+
+  /**
+   * move partitions from excluded broker to others.
+   *
+   * @param brokerSet all brokers
+   * @param exclude the broker id to exclude
+   */
+  void moveToExcept(Set<Integer> brokerSet, Integer exclude);
 }
