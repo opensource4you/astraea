@@ -289,6 +289,6 @@ public interface ClusterLogAllocation {
   }
 
   static Replica update(Replica source, NodeInfo newBroker, String newDir) {
-    return Replica.builder(source).dataFolder(newDir).build();
+    return Replica.builder(source).nodeInfo(newBroker).dataFolder(newDir).build();
   }
 }
