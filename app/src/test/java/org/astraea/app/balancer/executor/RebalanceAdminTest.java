@@ -44,6 +44,8 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 class RebalanceAdminTest extends RequireBrokerCluster {
 
@@ -80,16 +82,17 @@ class RebalanceAdminTest extends RequireBrokerCluster {
     }
   }
 
-  @Test
+  @ParameterizedTest
+  @ValueSource(ints = {0, 1, 2})
   @DisplayName("Offline directory will not raise an exception")
-  void testOfflineReplicaWorks() {
+  void testOfflineReplicaWorks(int destBroker) {
     // arrange
     try (Admin admin = Admin.of(bootstrapServers())) {
       var topic = prepareTopic(admin, 1, (short) 1);
       var topicPartition = TopicPartition.of(topic, 0);
       var rebalanceAdmin = prepareRebalanceAdmin(admin);
       var newPlacement = new LinkedHashMap<Integer, String>();
-      newPlacement.put(1, null);
+      newPlacement.put(destBroker, null);
 
       // act, assert
       Assertions.assertDoesNotThrow(
