@@ -16,6 +16,7 @@
  */
 package org.astraea.gui;
 
+import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -43,27 +44,44 @@ public class AddingReplicaTab {
 
   public static Tab of(Context context) {
     var pane =
-        context.tableView(
+        Utils.searchToTable(
             "search for topics/brokers:",
-            (admin, word) ->
-                Context.result(
-                    COLUMN_AND_BEAN,
-                    admin.addingReplicas(admin.topicNames()).stream()
-                        .filter(
-                            s ->
-                                word.isEmpty()
-                                    || s.topic().contains(word)
-                                    || String.valueOf(s.broker()).contains(word))
-                        .map(
-                            state ->
-                                new Bean(
-                                    state.topic(),
-                                    state.partition(),
-                                    state.broker(),
-                                    state.path(),
-                                    state.size(),
-                                    state.leaderSize()))
-                        .collect(Collectors.toList())));
+            word ->
+                context
+                    .optionalAdmin()
+                    .map(
+                        admin ->
+                            admin.addingReplicas(admin.topicNames()).stream()
+                                .filter(
+                                    s ->
+                                        word.isEmpty()
+                                            || s.topic().contains(word)
+                                            || String.valueOf(s.broker()).contains(word))
+                                .map(
+                                    state ->
+                                        LinkedHashMap.of(
+                                            "topic",
+                                            state.topic(),
+                                            "partition",
+                                            String.valueOf(state.partition()),
+                                            "broker",
+                                            String.valueOf(state.broker()),
+                                            "path",
+                                            state.path(),
+                                            "size",
+                                            String.valueOf(state.size()),
+                                            "leader size",
+                                            String.valueOf(state.leaderSize()),
+                                            "progress",
+                                            String.format(
+                                                "%.2f%%",
+                                                state.leaderSize() == 0
+                                                    ? 100D
+                                                    : ((double) state.size()
+                                                            / (double) state.leaderSize())
+                                                        * 100)))
+                                .collect(Collectors.toList()))
+                    .orElse(List.of()));
     var tab = new Tab("adding replica");
     tab.setContent(pane);
     return tab;

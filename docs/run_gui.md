@@ -35,3 +35,7 @@ Astraea 提供簡單但實用的 Kafka GUI 工具，讓使用者方便調閱和�
 3. 查看新增的 `replicas` 的同步狀況
 
 ![adding_replica](gui/adding_replica.png)
+
+4. 刪除/新增 `replicas`，下圖示範如何將從節點`1007`身上刪除`ccc`的所有`partitions`
+
+![adding_replica](gui/reassign_replica.png)

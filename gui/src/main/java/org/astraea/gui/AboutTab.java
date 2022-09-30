@@ -16,28 +16,20 @@
  */
 package org.astraea.gui;
 
-import java.util.List;
-import javafx.geometry.Insets;
-import javafx.scene.control.Label;
 import javafx.scene.control.Tab;
-import javafx.scene.layout.VBox;
 import org.astraea.common.VersionUtils;
 
 public class AboutTab {
 
   public static Tab of(Context context) {
     var tab = new Tab("about");
-    var ns =
-        List.of(
-            new Label("Version: " + VersionUtils.VERSION),
-            new Label("Revision: " + VersionUtils.REVISION),
-            new Label("Builder: " + VersionUtils.BUILDER),
-            new Label("Date: " + VersionUtils.DATE),
-            new Label("Web: https://github.com/skiptests/astraea"));
-    var pane = new VBox(ns.size());
-    pane.setPadding(new Insets(15));
-    pane.getChildren().setAll(ns);
-    tab.setContent(pane);
+    tab.setContent(
+        Utils.vbox(
+            Utils.hbox(Utils.label("Version:"), Utils.copyableField(VersionUtils.VERSION)),
+            Utils.hbox(Utils.label("Revision:"), Utils.copyableField(VersionUtils.REVISION)),
+            Utils.hbox(Utils.label("Build Date:"), Utils.copyableField(VersionUtils.DATE)),
+            Utils.hbox(
+                Utils.label("Web:"), Utils.copyableField("https://github.com/skiptests/astraea"))));
     return tab;
   }
 }

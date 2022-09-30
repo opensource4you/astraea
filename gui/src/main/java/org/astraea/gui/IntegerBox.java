@@ -25,6 +25,10 @@ import javafx.scene.control.ComboBox;
 
 public class IntegerBox extends ComboBox<Integer> {
 
+  public IntegerBox() {
+    super(FXCollections.observableArrayList());
+  }
+
   public IntegerBox(int initialValue) {
     super(FXCollections.observableArrayList(initialValue));
   }
