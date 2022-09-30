@@ -32,7 +32,7 @@ import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Partition;
 import org.astraea.common.admin.ReplicaInfo;
 
-public class ReassignmentTab {
+public class ReassignReplicaTab {
 
   public static Tab of(Context context) {
     var tab = new Tab("reassign replica");

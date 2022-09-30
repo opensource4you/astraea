@@ -39,3 +39,7 @@ Astraea 提供簡單但實用的 Kafka GUI 工具，讓使用者方便調閱和�
 4. 刪除/新增 `replicas`，下圖示範如何將從節點`1007`身上刪除`ccc`的所有`partitions`
 
 ![adding_replica](gui/reassign_replica.png)
+
+5. 平衡叢集。輸入要平衡的目標`topics`後，系統會在一定時間內找尋最佳化配置，上方表格可以看見新舊配置的比較，接著點擊`apply`可套用新的配置
+
+![balance](gui/balance.png)

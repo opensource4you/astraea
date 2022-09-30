@@ -29,6 +29,7 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.BiConsumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import javafx.application.Platform;
@@ -103,6 +104,18 @@ class Utils {
 
   public static <T extends Map<String, String>> Pane searchToTable(
       String hint, Function<String, List<T>> itemGenerator) {
+    return searchToTable(
+        hint,
+        itemGenerator,
+        (ignored, e) -> {
+          if (e != null) e.printStackTrace();
+        });
+  }
+
+  public static <T extends Map<String, String>> Pane searchToTable(
+      String hint,
+      Function<String, List<T>> itemGenerator,
+      BiConsumer<List<T>, Throwable> callback) {
     var view = new TableView<>(FXCollections.<Map<String, String>>observableArrayList());
     view.setColumnResizePolicy(TableView.UNCONSTRAINED_RESIZE_POLICY);
     var search = new TextField("");
@@ -113,8 +126,9 @@ class Utils {
             ((observable, oldValue, newValue) -> {
               if (newValue == null) return;
               var word = newValue.isBlank() ? "" : newValue;
-              // already running if keyword is not null
+              // the process is already running if keyword is not null
               if (keyword.getAndSet(word) != null) return;
+              view.getItems().clear();
               CompletableFuture.supplyAsync(
                       () -> itemGenerator.apply(keyword.get()),
                       CompletableFuture.delayedExecutor(
@@ -123,8 +137,10 @@ class Utils {
                       (items, e) -> {
                         if (items == null) {
                           keyword.set(null);
+                          callback.accept(null, e);
                           return;
                         }
+                        callback.accept(items, e);
                         var keys =
                             items.stream()
                                 .flatMap(i -> i.keySet().stream())
