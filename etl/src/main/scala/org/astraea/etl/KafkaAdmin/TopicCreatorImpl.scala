@@ -1,18 +1,32 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package org.astraea.etl.KafkaAdmin
 
-import org.apache.kafka.clients.admin.{Admin, NewTopic}
-import org.apache.kafka.common.config.ConfigResource
+import org.astraea.common.admin.Admin
 
 import scala.collection.mutable.ListBuffer
 import scala.collection.JavaConverters._
-
-import scala.xml.Utility
+import scala.collection.convert.ImplicitConversions.`list asScalaBuffer`
 
 class TopicCreatorImpl(admin: Admin) extends TopicCreator {
-  private [this] var topic:String = ""
-  private [this] var numberOfPartitions: Int = 1
-  private [this] var numberOfReplicas:Short = 1
-  private [this] var configs: Map[String, String] = Map.empty[String, String]
+  private[this] var topic: String = ""
+  private[this] var numberOfPartitions: Int = 1
+  private[this] var numberOfReplicas: Short = 1
+  private[this] var configs: Map[String, String] = Map.empty[String, String]
 
   override def topic(name: String): TopicCreator = {
     this.topic = name
@@ -35,32 +49,54 @@ class TopicCreatorImpl(admin: Admin) extends TopicCreator {
   }
 
   override def config(map: Map[String, String]): TopicCreator = {
-    this.configs = map ++ this.configs
+    this.configs = this.configs ++ map
     this
   }
 
   override def create(): Unit = {
-    if (admin.listTopics().names().get().contains(topic)){
-      val topicPartitions = admin.describeTopics(ListBuffer(topic).asJava).topicNameValues().get(topic).get().partitions()
+    if (admin.topicNames(false).contains(topic)) {
+      val topicPartitions =
+        admin.topicPartitions(ListBuffer(topic).toSet.asJava)
+      if (!topicPartitions.size().equals(numberOfPartitions))
+        throw new IllegalArgumentException(
+          s"$topic is existent but its partitions:${topicPartitions.size()} is not equal to expected $numberOfPartitions"
+        )
 
-      if (!topicPartitions.size().equals(numberOfPartitions)) throw
-        new IllegalArgumentException(s"$topic is existent but its partitions:${topicPartitions.size()} is not equal to expected $numberOfPartitions")
+      admin
+        .replicas(Set(topic).asJava)
+        .values()
+        .forEach(replica =>
+          if (replica.size() != numberOfReplicas)
+            throw new IllegalArgumentException(
+              s"$topic is existent but its replicas:${replica.size()} is not equal to expected $numberOfReplicas"
+            )
+        )
 
-      topicPartitions
-        .forEach(topic=>if(!topic.replicas().size().equals(numberOfReplicas)){
-          throw new IllegalArgumentException(s"$topic is existent but its replicas:${topic.replicas().size()} is not equal to expected $numberOfReplicas")
-        })
+      val actualConfigs =
+        admin.topics(ListBuffer(topic).toSet.asJava).head.config().raw()
 
-      val actualConfigs = admin.describeConfigs(List(new ConfigResource(ConfigResource.Type.TOPIC, topic)).asJava).values().get(ConfigResource.Type.TOPIC).get()
-
-      configs.foreach(
-        config=>if(!Option(actualConfigs.get(config._1)).exists(actual => actual.value().equals(config._2))){
-          throw new IllegalArgumentException(s"$topic is existent but its config:<${config._1}, ${actualConfigs.get(config._1).value()}> is not equal to expected <${config._1},${config._2}>")
+      //Confirm only the incoming config
+      configs.foreach(config =>
+        if (
+          !Option(actualConfigs.get(config._1))
+            .exists(actual => actual.equals(config._2))
+        ) {
+          throw new IllegalArgumentException(
+            s"$topic is existent but its config:<${config._1}, ${actualConfigs
+              .get(config._1)}> is not equal to expected <${config._1},${config._2}>"
+          )
         }
       )
+
       // ok, the existent topic is totally equal to what we want to create.
-    }else{
-      admin.createTopics(List(new NewTopic(topic, numberOfPartitions, numberOfReplicas).configs(configs.asJava)).asJava).all().get()
+    } else {
+      admin
+        .creator()
+        .topic(topic)
+        .numberOfPartitions(numberOfPartitions)
+        .numberOfReplicas(numberOfReplicas)
+        .configs(configs.asJava)
+        .create()
     }
   }
 }

@@ -25,7 +25,7 @@ repositories {
 }
 
 def versions = [
-        scala: project.properties['scala.version'] ?: "2.12.17",
+        scala: project.properties['scala.version'] ?: "2.12.15",
         spark_sql: project.properties['spark_sql.version'] ?: "3.3.0",
         spark_kafka: project.properties['spark_kafka.version'] ?: "3.3.0",
         junit: project.properties['junit.version'] ?: "5.8.2",
@@ -39,11 +39,11 @@ dependencies {
     implementation "org.apache.spark:spark-sql_2.12:${versions["spark_sql"]}"
     implementation "org.apache.spark:spark-sql-kafka-0-10_2.12:${versions["spark_kafka"]}"
     implementation "org.apache.kafka:kafka-clients:${versions["kafka"]}"
+    implementation project(':common')
 
     testImplementation "org.scalatest:scalatest_2.12:${versions["scalatest"]}"
     testImplementation "org.junit.jupiter:junit-jupiter:${versions["junit"]}"
     testImplementation "com.opencsv:opencsv:${versions["opencsv"]}"
-    testImplementation project(':common')
     testImplementation project(':it')
 }
 

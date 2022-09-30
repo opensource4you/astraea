@@ -27,9 +27,9 @@ import org.scalatest.Assertions.assertThrows
 import java.io.{File, FileOutputStream}
 import java.nio.file.Files.createTempFile
 import java.util.Properties
-import scala.util.{Try, Using}
+import scala.util.Try
 
-class ConfigurationTest{
+class ConfigurationTest {
   var file = new File("")
   var path = ""
 
@@ -61,9 +61,11 @@ class ConfigurationTest{
 
   @Test def configuredTest(): Unit = {
     val prop = new Properties
-    Using(scala.io.Source.fromFile(file)) { bufferedSource =>
+
+    Utils.withResources(scala.io.Source.fromFile(file)) { bufferedSource =>
       prop.load(bufferedSource.reader())
     }
+
     prop.setProperty("topic.partitions", "30")
     prop.setProperty("topic.replicas", "3")
     prop.setProperty("topic.config", "KA=VA,KB=VB")
