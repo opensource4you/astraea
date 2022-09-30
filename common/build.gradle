@@ -9,12 +9,13 @@ repositories {
 }
 
 def versions = [
-        kafka: project.properties['kafka.version'] ?: "3.2.1",
-        junit: project.properties['junit.version'] ?: "5.8.2",
-        mockito: project.properties['mockito.version'] ?: "4.6.1",
-        jcommander: project.properties['jcommander.version'] ?: "1.82",
-        slf4j: project.properties['slf4j.version'] ?: "1.7.36",
-        "commons-io": project.properties['commons-io.version'] ?: "2.11.0",
+    kafka       : project.properties['kafka.version'] ?: "3.2.1",
+    junit       : project.properties['junit.version'] ?: "5.8.2",
+    mockito     : project.properties['mockito.version'] ?: "4.6.1",
+    jcommander  : project.properties['jcommander.version'] ?: "1.82",
+    slf4j       : project.properties['slf4j.version'] ?: "1.7.36",
+    "commons-io": project.properties['commons-io.version'] ?: "2.11.0",
+    "math3"     : project.properties['math3.version'] ?: "3.6.1",
 ]
 
 dependencies {
@@ -29,6 +30,7 @@ dependencies {
     implementation "com.beust:jcommander:${versions["jcommander"]}"
     // we don't use slf4j actually, and it is used by kafka so we swallow the log.
     implementation "org.slf4j:slf4j-nop:${versions["slf4j"]}"
+    implementation "org.apache.commons:commons-math3:${versions["math3"]}"
 }
 
 java {
@@ -91,6 +93,7 @@ private String exec(String[] args) {
 }
 
 import org.apache.tools.ant.taskdefs.condition.Os
+
 private String whoami() {
     try {
         if (Os.isFamily(Os.FAMILY_WINDOWS)) {
@@ -98,8 +101,7 @@ private String whoami() {
             def backslash = fullName.lastIndexOf("\\")
             if (backslash == -1) return fullName
             else fullName.substring(backslash + 1)
-        }
-        else return exec("whoami")
+        } else return exec("whoami")
     } catch (Throwable ignored) {
         return "Unknown"
     }
@@ -157,6 +159,6 @@ public final class VersionUtils {
 /**
  * Generating VersionUtils must run before compileJava.
  */
-tasks.matching { it.name != 'initializer' && it.name == "compileJava"}.all { Task task ->
+tasks.matching { it.name != 'initializer' && it.name == "compileJava" }.all { Task task ->
     task.dependsOn initializer
 }
