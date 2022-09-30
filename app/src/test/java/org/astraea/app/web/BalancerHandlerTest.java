@@ -289,8 +289,8 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
 
   @Test
   void testNoReport() {
+    createAndProduceTopic(3);
     try (var admin = Admin.of(bootstrapServers())) {
-      admin.creator().topic(Utils.randomString()).numberOfPartitions(30).create();
       Utils.sleep(Duration.ofSeconds(1));
       var handler =
           new BalancerHandler(admin, MultiplicationCost.increasing(), new ReplicaSizeCost());
