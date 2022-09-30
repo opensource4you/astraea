@@ -17,8 +17,7 @@
 package org.astraea.gui;
 
 import java.util.Comparator;
-import java.util.Map;
-import java.util.function.Function;
+import java.util.List;
 import java.util.stream.Collectors;
 import javafx.scene.control.Tab;
 import org.astraea.common.LinkedHashMap;
@@ -26,74 +25,44 @@ import org.astraea.common.admin.ProducerState;
 
 public class ProducerTab {
 
-  static final Map<String, Function<Bean, Object>> COLUMN_AND_BEAN =
-      LinkedHashMap.of(
-          "topic",
-          bean -> bean.topic,
-          "partition",
-          bean -> bean.partition,
-          "producer id",
-          bean -> bean.producerId,
-          "producer epoch",
-          bean -> bean.producerEpoch,
-          "last sequence",
-          bean -> bean.lastSequence,
-          "last timestamp",
-          bean -> bean.lastTimestamp);
-
   public static Tab of(Context context) {
     var pane =
-        context.tableView(
+        Utils.searchToTable(
             "search for topics:",
-            (admin, word) ->
-                Context.result(
-                    COLUMN_AND_BEAN,
-                    admin
-                        .producerStates(
-                            admin.topicPartitions(
-                                admin.topicNames().stream()
-                                    .filter(name -> word.isEmpty() || name.contains(word))
-                                    .collect(Collectors.toSet())))
-                        .stream()
-                        .sorted(
-                            Comparator.comparing(ProducerState::topic)
-                                .thenComparing(ProducerState::partition))
-                        .map(
-                            state ->
-                                new Bean(
-                                    state.topic(),
-                                    state.partition(),
-                                    state.producerId(),
-                                    state.producerEpoch(),
-                                    state.lastSequence(),
-                                    state.lastTimestamp()))
-                        .collect(Collectors.toList())));
+            word ->
+                context
+                    .optionalAdmin()
+                    .map(
+                        admin ->
+                            admin
+                                .producerStates(
+                                    admin.topicPartitions(
+                                        admin.topicNames().stream()
+                                            .filter(name -> word.isEmpty() || name.contains(word))
+                                            .collect(Collectors.toSet())))
+                                .stream()
+                                .sorted(
+                                    Comparator.comparing(ProducerState::topic)
+                                        .thenComparing(ProducerState::partition))
+                                .map(
+                                    state ->
+                                        LinkedHashMap.of(
+                                            "topic",
+                                            state.topic(),
+                                            "partition",
+                                            String.valueOf(state.partition()),
+                                            "producer id",
+                                            String.valueOf(state.producerId()),
+                                            "producer epoch",
+                                            String.valueOf(state.producerEpoch()),
+                                            "last sequence",
+                                            String.valueOf(state.lastSequence()),
+                                            "last timestamp",
+                                            String.valueOf(state.lastTimestamp())))
+                                .collect(Collectors.toList()))
+                    .orElse(List.of()));
     var tab = new Tab("producer");
     tab.setContent(pane);
     return tab;
-  }
-
-  public static class Bean {
-    private final String topic;
-    private final int partition;
-    private final long producerId;
-    private final int producerEpoch;
-    private final int lastSequence;
-    private final long lastTimestamp;
-
-    public Bean(
-        String topic,
-        int partition,
-        long producerId,
-        int producerEpoch,
-        int lastSequence,
-        long lastTimestamp) {
-      this.topic = topic;
-      this.partition = partition;
-      this.producerId = producerId;
-      this.producerEpoch = producerEpoch;
-      this.lastSequence = lastSequence;
-      this.lastTimestamp = lastTimestamp;
-    }
   }
 }

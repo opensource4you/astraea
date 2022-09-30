@@ -42,7 +42,7 @@ public class Main {
       var rootPane =
           new TabPane(
               SettingTab.of(context),
-              NodeTab.of(context),
+              BrokerTab.of(context),
               TopicTab.of(context),
               PartitionTab.of(context),
               BrokerConfigTab.of(context),
@@ -51,7 +51,7 @@ public class Main {
               ProducerTab.of(context),
               AddingReplicaTab.of(context),
               CreateTopicTab.of(context),
-              ExcludeNodeTab.of(context),
+              ReassignmentTab.of(context),
               AboutTab.of(context));
       rootPane.setSide(Side.TOP);
       rootPane.setTabClosingPolicy(TabPane.TabClosingPolicy.UNAVAILABLE);
