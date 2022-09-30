@@ -18,7 +18,6 @@ package org.astraea.common.admin;
 
 import java.time.Duration;
 import java.util.Collection;
-import java.util.Map;
 import java.util.stream.Collectors;
 import org.astraea.common.Utils;
 import org.astraea.it.RequireBrokerCluster;
@@ -36,18 +35,22 @@ public class SomePartitionOfflineTest extends RequireBrokerCluster {
       // wait for topic creation
       Utils.sleep(Duration.ofSeconds(3));
       var replicaOnBroker0 =
-          admin.replicas(admin.topicNames()).entrySet().stream()
-              .filter(replica -> replica.getValue().get(0).nodeInfo().id() == 0)
-              .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+          admin.replicas(admin.topicNames()).stream()
+              .filter(replica -> replica.nodeInfo().id() == 0)
+              .collect(
+                  Collectors.groupingBy(
+                      replica -> TopicPartition.of(replica.topic(), replica.partition())));
       replicaOnBroker0.forEach((tp, replica) -> Assertions.assertFalse(replica.get(0).isOffline()));
       closeBroker(0);
       Assertions.assertNull(logFolders().get(0));
       Assertions.assertNotNull(logFolders().get(1));
       Assertions.assertNotNull(logFolders().get(2));
       var offlineReplicaOnBroker0 =
-          admin.replicas(admin.topicNames()).entrySet().stream()
-              .filter(replica -> replica.getValue().get(0).nodeInfo().id() == 0)
-              .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+          admin.replicas(admin.topicNames()).stream()
+              .filter(replica -> replica.nodeInfo().id() == 0)
+              .collect(
+                  Collectors.groupingBy(
+                      replica -> TopicPartition.of(replica.topic(), replica.partition())));
       offlineReplicaOnBroker0.values().stream()
           .flatMap(Collection::stream)
           .forEach(

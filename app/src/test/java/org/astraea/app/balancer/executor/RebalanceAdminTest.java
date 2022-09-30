@@ -69,7 +69,10 @@ class RebalanceAdminTest extends RequireBrokerCluster {
 
       // assert
       var topicPartition = TopicPartition.of(topic, 0);
-      var replicas = admin.replicas(Set.of(topic)).get(topicPartition);
+      var replicas =
+          admin.replicas(Set.of(topic)).stream()
+              .filter(replica -> replica.partition() == topicPartition.partition())
+              .collect(Collectors.toList());
 
       Assertions.assertEquals(
           List.of(0, 1, 2),
@@ -107,7 +110,12 @@ class RebalanceAdminTest extends RequireBrokerCluster {
       var rebalanceAdmin = prepareRebalanceAdmin(admin);
       // decrease the debouncing time so the test has higher chance to fail
       prepareData(topic, 0, DataSize.MiB.of(256));
-      Supplier<Replica> replicaNow = () -> admin.replicas(Set.of(topic)).get(topicPartition).get(0);
+      Supplier<Replica> replicaNow =
+          () ->
+              admin.replicas(Set.of(topic)).stream()
+                  .filter(replica -> replica.partition() == topicPartition.partition())
+                  .findFirst()
+                  .get();
       var originalReplica = replicaNow.get();
       var nextDir =
           logFolders().get(originalReplica.nodeInfo().id()).stream()
@@ -151,7 +159,12 @@ class RebalanceAdminTest extends RequireBrokerCluster {
       var topic = prepareTopic(admin, 1, (short) 1);
       var topicPartition = TopicPartition.of(topic, 0);
       var rebalanceAdmin = prepareRebalanceAdmin(admin);
-      var beginReplica = admin.replicas().get(topicPartition).get(0);
+      var beginReplica =
+          admin.replicas().stream()
+              .filter(replica -> replica.topic().equals(topicPartition.topic()))
+              .filter(replica -> replica.partition() == topicPartition.partition())
+              .findFirst()
+              .get();
       var otherDataDir =
           admin.brokerFolders().get(beginReplica.nodeInfo().id()).stream()
               .filter(dir -> !dir.equals(beginReplica.dataFolder()))
@@ -174,15 +187,9 @@ class RebalanceAdminTest extends RequireBrokerCluster {
       long time1 = System.currentTimeMillis();
 
       // assert all replica synced
-      Assertions.assertTrue(
-          admin.replicas(Set.of(topic)).entrySet().stream()
-              .flatMap(x -> x.getValue().stream())
-              .allMatch(Replica::inSync));
+      Assertions.assertTrue(admin.replicas(Set.of(topic)).stream().allMatch(Replica::inSync));
       // assert all data directory migration synced
-      Assertions.assertTrue(
-          admin.replicas(Set.of(topic)).entrySet().stream()
-              .flatMap(x -> x.getValue().stream())
-              .noneMatch(Replica::isFuture));
+      Assertions.assertTrue(admin.replicas(Set.of(topic)).stream().noneMatch(Replica::isFuture));
       Assertions.assertTrue((time1 - time0) > 100, "This should takes awhile");
     }
   }
@@ -198,10 +205,9 @@ class RebalanceAdminTest extends RequireBrokerCluster {
       var leaderNow =
           (Supplier<Integer>)
               () ->
-                  admin.replicas(Set.of(topic)).entrySet().stream()
-                      .filter(x -> x.getKey().topic().equals(topic))
-                      .filter(x -> x.getKey().partition() == 0)
-                      .flatMap(x -> x.getValue().stream())
+                  admin.replicas(Set.of(topic)).stream()
+                      .filter(x -> x.topic().equals(topic))
+                      .filter(x -> x.partition() == 0)
                       .filter(Replica::isLeader)
                       .findFirst()
                       .orElseThrow()
@@ -241,10 +247,9 @@ class RebalanceAdminTest extends RequireBrokerCluster {
       var leaderNow =
           (Supplier<Integer>)
               () ->
-                  admin.replicas(Set.of(topic)).entrySet().stream()
-                      .filter(x -> x.getKey().topic().equals(topic))
-                      .filter(x -> x.getKey().partition() == 0)
-                      .flatMap(x -> x.getValue().stream())
+                  admin.replicas(Set.of(topic)).stream()
+                      .filter(x -> x.topic().equals(topic))
+                      .filter(x -> x.partition() == 0)
                       .filter(Replica::isLeader)
                       .findFirst()
                       .orElseThrow()

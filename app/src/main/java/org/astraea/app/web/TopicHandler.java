@@ -82,7 +82,9 @@ class TopicHandler implements Handler {
                                 p.partition(),
                                 p.earliestOffset(),
                                 p.latestOffset(),
-                                replicas.get(p.topicPartition()).stream()
+                                replicas.stream()
+                                    .filter(replica -> replica.topic().equals(p.topic()))
+                                    .filter(replica -> replica.partition() == p.partition())
                                     .map(Replica::new)
                                     .collect(Collectors.toUnmodifiableList())),
                         Collectors.toList())));
