@@ -303,17 +303,6 @@ public interface ClusterLogAllocation {
   }
 
   static Replica update(Replica source, NodeInfo newBroker, String newDir) {
-    return Replica.of(
-        source.topic(),
-        source.partition(),
-        newBroker,
-        source.lag(),
-        source.size(),
-        source.isLeader(),
-        source.inSync(),
-        source.isFuture(),
-        source.isOffline(),
-        source.isPreferredLeader(),
-        newDir);
+    return Replica.builder(source).nodeInfo(newBroker).dataFolder(newDir).build();
   }
 }
