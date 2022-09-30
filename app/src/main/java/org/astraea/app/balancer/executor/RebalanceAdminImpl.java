@@ -30,6 +30,7 @@ import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
+import org.astraea.common.admin.ReplicaInfo;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.admin.TopicPartitionReplica;
 
@@ -110,6 +111,8 @@ class RebalanceAdminImpl implements RebalanceAdmin {
     // do inter-data-directories migration
     var forCrossDirMigration =
         expectedPlacement.entrySet().stream()
+            // filter out offline replica
+            .filter(entry -> entry.getValue() != null)
             .filter(entry -> currentReplicaBrokers.contains(entry.getKey()))
             .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));
     admin
@@ -137,10 +140,9 @@ class RebalanceAdminImpl implements RebalanceAdmin {
         debounceCheck(
             timeout,
             () ->
-                admin.replicas(Set.of(log.topic())).entrySet().stream()
-                    .filter(x -> x.getKey().partition() == log.partition())
-                    .filter(x -> x.getKey().topic().equals(log.topic()))
-                    .flatMap(x -> x.getValue().stream())
+                admin.replicas(Set.of(log.topic())).stream()
+                    .filter(x -> x.topic().equals(log.topic()))
+                    .filter(x -> x.partition() == log.partition())
                     .filter(x -> x.nodeInfo().id() == log.brokerId())
                     .findFirst()
                     .map(x -> x.inSync() && !x.isFuture())
@@ -154,19 +156,12 @@ class RebalanceAdminImpl implements RebalanceAdmin {
         debounceCheck(
             timeout,
             () ->
-                admin.replicas(Set.of(topicPartition.topic())).entrySet().stream()
-                    .filter(x -> x.getKey().equals(topicPartition))
+                admin.replicas(Set.of(topicPartition.topic())).stream()
+                    .filter(x -> x.topic().equals(topicPartition.topic()))
+                    .filter(x -> x.partition() == topicPartition.partition())
                     .findFirst()
-                    .map(Map.Entry::getValue)
-                    .map(
-                        replicas -> {
-                          var preferred =
-                              replicas.stream()
-                                  .filter(Replica::isPreferredLeader)
-                                  .findFirst()
-                                  .orElseThrow();
-                          return preferred.isLeader();
-                        })
+                    .filter(Replica::isPreferredLeader)
+                    .map(ReplicaInfo::isLeader)
                     .orElseThrow()));
   }
 

@@ -89,7 +89,7 @@ public interface Admin extends Closeable {
   List<ConsumerGroup> consumerGroups(Set<String> consumerGroupNames);
 
   /** @return replica info of all partitions */
-  default Map<TopicPartition, List<Replica>> replicas() {
+  default List<Replica> replicas() {
     return replicas(topicNames());
   }
 
@@ -97,14 +97,7 @@ public interface Admin extends Closeable {
    * @param topics topic names
    * @return all replica in topics
    */
-  default Map<TopicPartition, List<Replica>> replicas(Set<String> topics) {
-    return newReplicas(topics).stream()
-        .collect(
-            Collectors.groupingBy(
-                replica -> TopicPartition.of(replica.topic(), replica.partition())));
-  }
-
-  List<Replica> newReplicas(Set<String> topics);
+  List<Replica> replicas(Set<String> topics);
 
   /** @return all alive brokers' ids */
   Set<Integer> brokerIds();
@@ -175,12 +168,7 @@ public interface Admin extends Closeable {
    */
   default ClusterInfo<Replica> clusterInfo(Set<String> topics) {
     var nodeInfo = nodes().stream().map(n -> (NodeInfo) n).collect(Collectors.toSet());
-    var replicas =
-        Utils.packException(
-            () ->
-                replicas(topics).values().stream()
-                    .flatMap(Collection::stream)
-                    .collect(Collectors.toUnmodifiableList()));
+    var replicas = Utils.packException(() -> replicas(topics));
 
     return new ClusterInfo<>() {
       @Override

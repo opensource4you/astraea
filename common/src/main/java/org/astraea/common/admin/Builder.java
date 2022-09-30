@@ -418,7 +418,7 @@ public class Builder {
     }
 
     @Override
-    public List<Replica> newReplicas(Set<String> topics) {
+    public List<Replica> replicas(Set<String> topics) {
       // pre-group folders by (broker -> topic partition) to speedup seek
       var logInfo = logDirs();
       var topicDesc = Utils.packException(() -> admin.describeTopics(topics).allTopicNames().get());
@@ -488,7 +488,11 @@ public class Builder {
     public TopicCreator creator() {
       return new CreatorImpl(
           admin,
-          topic -> this.replicas(Set.of(topic)),
+          topic ->
+              this.replicas(Set.of(topic)).stream()
+                  .collect(
+                      Collectors.groupingBy(
+                          replica -> TopicPartition.of(replica.topic(), replica.partition()))),
           topic -> topics(Set.of(topic)).get(0).config());
     }
 
@@ -692,18 +696,15 @@ public class Builder {
         public ReplicationThrottler throttle(String topic) {
           replicas(Set.of(topic))
               .forEach(
-                  (tp, replicas) -> {
-                    replicas.forEach(
-                        replica -> {
-                          if (replica.isLeader())
-                            leaders.add(
-                                TopicPartitionReplica.of(
-                                    tp.topic(), tp.partition(), replica.nodeInfo().id()));
-                          else
-                            followers.add(
-                                TopicPartitionReplica.of(
-                                    tp.topic(), tp.partition(), replica.nodeInfo().id()));
-                        });
+                  replica -> {
+                    if (replica.isLeader())
+                      leaders.add(
+                          TopicPartitionReplica.of(
+                              replica.topic(), replica.partition(), replica.nodeInfo().id()));
+                    else
+                      followers.add(
+                          TopicPartitionReplica.of(
+                              replica.topic(), replica.partition(), replica.nodeInfo().id()));
                   });
           return this;
         }
@@ -711,7 +712,9 @@ public class Builder {
         @Override
         public ReplicationThrottler throttle(TopicPartition topicPartition) {
           var replicas =
-              replicas(Set.of(topicPartition.topic())).getOrDefault(topicPartition, List.of());
+              replicas(Set.of(topicPartition.topic())).stream()
+                  .filter(replica -> replica.partition() == topicPartition.partition())
+                  .collect(Collectors.toList());
           replicas.forEach(
               replica -> {
                 if (replica.isLeader())
@@ -923,7 +926,8 @@ public class Builder {
     @Override
     public void clearReplicationThrottle(TopicPartition topicPartition) {
       var configValue =
-          replicas(Set.of(topicPartition.topic())).get(topicPartition).stream()
+          replicas(Set.of(topicPartition.topic())).stream()
+              .filter(replica -> replica.partition() == topicPartition.partition())
               .map(replica -> topicPartition.partition() + ":" + replica.nodeInfo().id())
               .collect(Collectors.joining(","));
       var configEntry0 = new ConfigEntry("leader.replication.throttled.replicas", configValue);
