@@ -30,7 +30,7 @@ public class BrokerConfigTab {
         Utils.searchToTable(
             "search for config:",
             word -> {
-              var brokers = context.optionalAdmin().map(Admin::nodes).orElse(List.of());
+              var brokers = context.optionalAdmin().map(Admin::brokers).orElse(List.of());
               return brokers.stream()
                   .map(
                       n -> {

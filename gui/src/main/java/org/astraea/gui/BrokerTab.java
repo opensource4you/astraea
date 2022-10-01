@@ -34,7 +34,7 @@ public class BrokerTab {
                     .optionalAdmin()
                     .map(
                         admin ->
-                            admin.nodes().stream()
+                            admin.brokers().stream()
                                 .filter(
                                     nodeInfo ->
                                         word.isEmpty()

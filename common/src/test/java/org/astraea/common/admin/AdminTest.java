@@ -490,18 +490,19 @@ public class AdminTest extends RequireBrokerCluster {
   }
 
   @Test
-  void testNodes() {
+  void testBrokers() {
     try (var admin = Admin.of(bootstrapServers())) {
-      var nodes = admin.nodes();
+      var nodes = admin.brokers();
       Assertions.assertEquals(3, nodes.size());
       nodes.forEach(c -> Assertions.assertNotEquals(0, c.config().raw().size()));
+      Assertions.assertEquals(1, nodes.stream().filter(Broker::isController).count());
     }
   }
 
   @Test
   void testBrokerFolders() {
     try (var admin = Admin.of(bootstrapServers())) {
-      Assertions.assertEquals(brokerIds().size(), admin.nodes().size());
+      Assertions.assertEquals(brokerIds().size(), admin.brokers().size());
       // list all
       logFolders()
           .forEach(
@@ -1277,7 +1278,7 @@ public class AdminTest extends RequireBrokerCluster {
           .forEach(
               id -> {
                 var leaderValue =
-                    admin.nodes().stream()
+                    admin.brokers().stream()
                         .filter(n -> n.id() == id)
                         .findFirst()
                         .get()
@@ -1285,7 +1286,7 @@ public class AdminTest extends RequireBrokerCluster {
                         .value("leader.replication.throttled.rate")
                         .orElseThrow();
                 var followerValue =
-                    admin.nodes().stream()
+                    admin.brokers().stream()
                         .filter(n -> n.id() == id)
                         .findFirst()
                         .get()
@@ -1319,7 +1320,7 @@ public class AdminTest extends RequireBrokerCluster {
           .forEach(
               (id, rate) -> {
                 var leaderValue =
-                    admin.nodes().stream()
+                    admin.brokers().stream()
                         .filter(n -> n.id() == id)
                         .findFirst()
                         .get()
@@ -1327,7 +1328,7 @@ public class AdminTest extends RequireBrokerCluster {
                         .value("leader.replication.throttled.rate")
                         .orElseThrow();
                 var followerValue =
-                    admin.nodes().stream()
+                    admin.brokers().stream()
                         .filter(n -> n.id() == id)
                         .findFirst()
                         .get()
@@ -1643,7 +1644,7 @@ public class AdminTest extends RequireBrokerCluster {
 
       // ensure the throttle was applied
       final var value0 =
-          admin.nodes().stream()
+          admin.brokers().stream()
               .filter(n -> n.id() == 0)
               .findFirst()
               .get()
@@ -1657,7 +1658,7 @@ public class AdminTest extends RequireBrokerCluster {
 
       // ensure the throttle was removed
       final var value1 =
-          admin.nodes().stream()
+          admin.brokers().stream()
               .filter(n -> n.id() == 0)
               .findFirst()
               .get()
@@ -1677,7 +1678,7 @@ public class AdminTest extends RequireBrokerCluster {
 
       // ensure the throttle was applied
       final var value0 =
-          admin.nodes().stream()
+          admin.brokers().stream()
               .filter(n -> n.id() == 0)
               .findFirst()
               .get()
@@ -1691,7 +1692,7 @@ public class AdminTest extends RequireBrokerCluster {
 
       // ensure the throttle was removed
       final var value1 =
-          admin.nodes().stream()
+          admin.brokers().stream()
               .filter(n -> n.id() == 0)
               .findFirst()
               .get()
@@ -1867,7 +1868,7 @@ public class AdminTest extends RequireBrokerCluster {
     var topic = Utils.randomString(10);
     try (Admin admin = Admin.of(bootstrapServers())) {
       admin.creator().topic(topic).numberOfPartitions(2).numberOfReplicas((short) 3).create();
-
+      Utils.sleep(Duration.ofSeconds(2));
       var partitions = admin.partitions(Set.of(topic));
       Assertions.assertEquals(2, partitions.size());
       partitions.forEach(

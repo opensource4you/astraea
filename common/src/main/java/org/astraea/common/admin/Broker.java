@@ -20,9 +20,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-public interface Node extends NodeInfo {
+public interface Broker extends NodeInfo {
 
-  static Node of(
+  static Broker of(
+      boolean isController,
       org.astraea.common.admin.NodeInfo nodeInfo,
       org.apache.kafka.clients.admin.Config kafkaConfig,
       Map<String, org.apache.kafka.clients.admin.LogDirDescription> dirs) {
@@ -52,7 +53,7 @@ public interface Node extends NodeInfo {
                       };
                 })
             .collect(Collectors.toList());
-    return new Node() {
+    return new Broker() {
       @Override
       public String host() {
         return nodeInfo.host();
@@ -69,6 +70,11 @@ public interface Node extends NodeInfo {
       }
 
       @Override
+      public boolean isController() {
+        return isController;
+      }
+
+      @Override
       public Config config() {
         return config;
       }
@@ -79,6 +85,8 @@ public interface Node extends NodeInfo {
       }
     };
   }
+
+  boolean isController();
 
   /** @return config used by this node */
   Config config();
