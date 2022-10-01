@@ -16,8 +16,10 @@
  */
 package org.astraea.common.admin;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 public interface Broker extends NodeInfo {
@@ -26,7 +28,8 @@ public interface Broker extends NodeInfo {
       boolean isController,
       org.astraea.common.admin.NodeInfo nodeInfo,
       org.apache.kafka.clients.admin.Config kafkaConfig,
-      Map<String, org.apache.kafka.clients.admin.LogDirDescription> dirs) {
+      Map<String, org.apache.kafka.clients.admin.LogDirDescription> dirs,
+      Collection<org.apache.kafka.clients.admin.TopicDescription> topics) {
     var config = Config.of(kafkaConfig);
     var folders =
         dirs.entrySet().stream()
@@ -53,6 +56,14 @@ public interface Broker extends NodeInfo {
                       };
                 })
             .collect(Collectors.toList());
+    var partitions =
+        topics.stream()
+            .flatMap(
+                topic ->
+                    topic.partitions().stream()
+                        .filter(p -> p.leader().id() == nodeInfo.id())
+                        .map(p -> TopicPartition.of(topic.name(), p.partition())))
+            .collect(Collectors.toUnmodifiableSet());
     return new Broker() {
       @Override
       public String host() {
@@ -83,6 +94,11 @@ public interface Broker extends NodeInfo {
       public List<DataFolder> folders() {
         return folders;
       }
+
+      @Override
+      public Set<TopicPartition> topicPartitionLeaders() {
+        return partitions;
+      }
     };
   }
 
@@ -93,6 +109,9 @@ public interface Broker extends NodeInfo {
 
   /** @return the disk folder used to stored data by this node */
   List<DataFolder> folders();
+
+  /** @return partition leaders hosted by this broker */
+  Set<TopicPartition> topicPartitionLeaders();
 
   interface DataFolder {
 
