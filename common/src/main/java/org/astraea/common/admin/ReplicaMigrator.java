@@ -46,6 +46,13 @@ public interface ReplicaMigrator {
    */
   ReplicaMigrator broker(int broker);
 
+  /**
+   * move all partitions (leader replica and follower replicas) of topic of broker
+   *
+   * @param broker broker id
+   * @param topic topic name
+   * @return this migrator
+   */
   ReplicaMigrator topicOfBroker(int broker, String topic);
 
   /**
