@@ -34,6 +34,10 @@ interface Response {
     return new ResponseImpl(404, message);
   }
 
+  static Response for500(String message) {
+    return new ResponseImpl(500, message);
+  }
+
   private static int code(Exception exception) {
     if (exception instanceof IllegalArgumentException) return 400;
     if (exception instanceof NoSuchElementException) return 404;
@@ -46,8 +50,18 @@ interface Response {
   }
 
   default String json() {
+    // TODO: manage the customized serialize/deserialize logic, see
+    // https://github.com/skiptests/astraea/issues/626
     return new Gson().toJson(this);
   }
+
+  /**
+   * Callback fired when the response is sent, regardless of success or failure.
+   *
+   * @param error that cause sending response failed, will be null when sending response is
+   *     successful.
+   */
+  default void onComplete(Throwable error) {}
 
   class ResponseImpl implements Response {
     final int code;

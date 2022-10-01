@@ -16,94 +16,136 @@
  */
 package org.astraea.app.web;
 
-import java.util.Map;
-import java.util.Optional;
+import static org.astraea.app.web.ReassignmentHandler.progressInPercentage;
+
+import java.time.Duration;
 import java.util.Set;
-import java.util.concurrent.TimeUnit;
-import org.astraea.app.admin.Admin;
-import org.astraea.app.admin.TopicPartition;
-import org.astraea.app.common.Utils;
-import org.astraea.app.service.RequireBrokerCluster;
+import org.astraea.common.Utils;
+import org.astraea.common.admin.Admin;
+import org.astraea.it.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 public class ReassignmentHandlerTest extends RequireBrokerCluster {
 
   @Test
-  void testMigrateToAnotherBroker() throws InterruptedException {
+  void testMigrateToAnotherBroker() {
     var topicName = Utils.randomString(10);
     try (Admin admin = Admin.of(bootstrapServers())) {
       var handler = new ReassignmentHandler(admin);
       admin.creator().topic(topicName).numberOfPartitions(1).create();
-      TimeUnit.SECONDS.sleep(3);
+      Utils.sleep(Duration.ofSeconds(3));
 
       var currentBroker =
-          admin.replicas(Set.of(topicName)).get(new TopicPartition(topicName, 0)).get(0).broker();
+          admin.replicas(Set.of(topicName)).stream()
+              .filter(replica -> replica.partition() == 0)
+              .findFirst()
+              .get()
+              .nodeInfo()
+              .id();
       var nextBroker = brokerIds().stream().filter(i -> i != currentBroker).findAny().get();
 
-      Assertions.assertEquals(
-          Response.ACCEPT,
-          handler.post(
-              PostRequest.of(
-                  Map.of(
-                      ReassignmentHandler.TOPIC_KEY,
-                      topicName,
-                      ReassignmentHandler.PARTITION_KEY,
-                      "0",
-                      ReassignmentHandler.TO_KEY,
-                      "[\"" + nextBroker + "\"]"))));
+      var body =
+          String.format(
+              "{\"%s\": [{\"%s\": \"%s\",\"%s\": \"%s\",\"%s\": [%s]}]}",
+              ReassignmentHandler.PLANS_KEY,
+              ReassignmentHandler.TOPIC_KEY,
+              topicName,
+              ReassignmentHandler.PARTITION_KEY,
+              "0",
+              ReassignmentHandler.TO_KEY,
+              nextBroker);
 
-      TimeUnit.SECONDS.sleep(2);
-      var reassignments = handler.get(Optional.of(topicName), Map.of());
+      Assertions.assertEquals(
+          Response.ACCEPT, handler.post(Channel.ofRequest(PostRequest.of(body))));
+
+      Utils.sleep(Duration.ofSeconds(2));
+      var reassignments = handler.get(Channel.EMPTY);
       // the reassignment should be completed
-      Assertions.assertEquals(0, reassignments.reassignments.size());
+      Assertions.assertEquals(0, reassignments.addingReplicas.size());
 
       Assertions.assertEquals(
           nextBroker,
-          admin.replicas(Set.of(topicName)).get(new TopicPartition(topicName, 0)).get(0).broker());
+          admin.replicas(Set.of(topicName)).stream()
+              .filter(replica -> replica.partition() == 0)
+              .findFirst()
+              .get()
+              .nodeInfo()
+              .id());
     }
   }
 
   @Test
-  void testMigrateToAnotherPath() throws InterruptedException {
+  void testMigrateToAnotherPath() {
     var topicName = Utils.randomString(10);
     try (Admin admin = Admin.of(bootstrapServers())) {
       var handler = new ReassignmentHandler(admin);
       admin.creator().topic(topicName).numberOfPartitions(1).create();
-      TimeUnit.SECONDS.sleep(3);
+      Utils.sleep(Duration.ofSeconds(3));
 
       var currentReplica =
-          admin.replicas(Set.of(topicName)).get(new TopicPartition(topicName, 0)).get(0);
-      var currentBroker = currentReplica.broker();
-      var currentPath = currentReplica.path();
+          admin.replicas(Set.of(topicName)).stream()
+              .filter(replica -> replica.partition() == 0)
+              .findFirst()
+              .get();
+
+      var currentBroker = currentReplica.nodeInfo().id();
+      var currentPath = currentReplica.dataFolder();
       var nextPath =
           logFolders().get(currentBroker).stream()
               .filter(p -> !p.equals(currentPath))
               .findFirst()
               .get();
 
-      Assertions.assertEquals(
-          Response.ACCEPT,
-          handler.post(
-              PostRequest.of(
-                  Map.of(
-                      ReassignmentHandler.TOPIC_KEY,
-                      topicName,
-                      ReassignmentHandler.PARTITION_KEY,
-                      "0",
-                      ReassignmentHandler.BROKER_KEY,
-                      String.valueOf(currentBroker),
-                      ReassignmentHandler.TO_KEY,
-                      nextPath))));
+      var body =
+          String.format(
+              "{\"%s\": [{\"%s\": \"%s\", \"%s\": \"%s\" ,\"%s\": \"%s\",\"%s\": \"%s\"}]}",
+              ReassignmentHandler.PLANS_KEY,
+              ReassignmentHandler.TOPIC_KEY,
+              topicName,
+              ReassignmentHandler.PARTITION_KEY,
+              "0",
+              ReassignmentHandler.BROKER_KEY,
+              currentBroker,
+              ReassignmentHandler.TO_KEY,
+              nextPath);
 
-      TimeUnit.SECONDS.sleep(2);
-      var reassignments = handler.get(Optional.of(topicName), Map.of());
+      Assertions.assertEquals(
+          Response.ACCEPT, handler.post(Channel.ofRequest(PostRequest.of(body))));
+
+      Utils.sleep(Duration.ofSeconds(2));
+      var reassignments = handler.get(Channel.ofTarget(topicName));
       // the reassignment should be completed
-      Assertions.assertEquals(0, reassignments.reassignments.size());
+      Assertions.assertEquals(0, reassignments.addingReplicas.size());
 
       Assertions.assertEquals(
           nextPath,
-          admin.replicas(Set.of(topicName)).get(new TopicPartition(topicName, 0)).get(0).path());
+          admin.replicas(Set.of(topicName)).stream()
+              .filter(replica -> replica.partition() == 0)
+              .findFirst()
+              .get()
+              .dataFolder());
     }
+  }
+
+  @Test
+  void testBadRequest() {
+    var topicName = Utils.randomString(10);
+    try (Admin admin = Admin.of(bootstrapServers())) {
+      var handler = new ReassignmentHandler(admin);
+      admin.creator().topic(topicName).numberOfPartitions(1).create();
+      Utils.sleep(Duration.ofSeconds(3));
+      var body = "{\"plans\": []}";
+
+      Assertions.assertEquals(
+          Response.BAD_REQUEST, handler.post(Channel.ofRequest(PostRequest.of(body))));
+    }
+  }
+
+  @Test
+  void testProgressInPercentage() {
+    Assertions.assertEquals(progressInPercentage(-1.1), "0.00%");
+    Assertions.assertEquals(progressInPercentage(11.11), "100.00%");
+    Assertions.assertEquals(progressInPercentage(0.12345), "12.35%");
   }
 }

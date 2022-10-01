@@ -22,10 +22,9 @@ import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
-import java.util.stream.StreamSupport;
-import org.astraea.app.admin.Admin;
-import org.astraea.app.admin.Config;
-import org.astraea.app.admin.TopicPartition;
+import org.astraea.common.admin.Admin;
+import org.astraea.common.admin.Config;
+import org.astraea.common.admin.TopicPartition;
 
 class BrokerHandler implements Handler {
 
@@ -44,13 +43,14 @@ class BrokerHandler implements Handler {
   }
 
   @Override
-  public Response get(Optional<String> target, Map<String, String> queries) {
-
+  public Response get(Channel channel) {
+    var ids = brokers(channel.target());
     var brokers =
-        admin.brokers(brokers(target)).entrySet().stream()
-            .map(e -> new Broker(e.getKey(), admin.partitions(e.getKey()), e.getValue()))
+        admin.nodes().stream()
+            .filter(n -> ids.contains(n.id()))
+            .map(n -> new Broker(n.id(), admin.topicPartitions(n.id()), n.config()))
             .collect(Collectors.toUnmodifiableList());
-    if (target.isPresent() && brokers.size() == 1) return brokers.get(0);
+    if (channel.target().isPresent() && brokers.size() == 1) return brokers.get(0);
     return new Brokers(brokers);
   }
 
@@ -78,9 +78,7 @@ class BrokerHandler implements Handler {
               .stream()
               .map(e -> new Topic(e.getKey(), e.getValue().size()))
               .collect(Collectors.toUnmodifiableList());
-      this.configs =
-          StreamSupport.stream(configs.spliterator(), false)
-              .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+      this.configs = configs.raw();
     }
   }
 

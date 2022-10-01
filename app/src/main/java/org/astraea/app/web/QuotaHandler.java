@@ -18,21 +18,20 @@ package org.astraea.app.web;
 
 import java.util.Collection;
 import java.util.List;
-import java.util.Map;
-import java.util.Optional;
 import java.util.stream.Collectors;
-import org.astraea.app.admin.Admin;
+import org.astraea.common.DataRate;
+import org.astraea.common.admin.Admin;
 
 public class QuotaHandler implements Handler {
 
-  static final String IP_KEY = org.astraea.app.admin.Quota.Target.IP.nameOfKafka();
-  static final String CLIENT_ID_KEY = org.astraea.app.admin.Quota.Target.CLIENT_ID.nameOfKafka();
+  static final String IP_KEY = org.astraea.common.admin.Quota.Target.IP.nameOfKafka();
+  static final String CLIENT_ID_KEY = org.astraea.common.admin.Quota.Target.CLIENT_ID.nameOfKafka();
   static final String CONNECTION_RATE_KEY =
-      org.astraea.app.admin.Quota.Limit.IP_CONNECTION_RATE.nameOfKafka();
+      org.astraea.common.admin.Quota.Limit.IP_CONNECTION_RATE.nameOfKafka();
   static final String PRODUCE_RATE_KEY =
-      org.astraea.app.admin.Quota.Limit.PRODUCER_BYTE_RATE.nameOfKafka();
+      org.astraea.common.admin.Quota.Limit.PRODUCER_BYTE_RATE.nameOfKafka();
   static final String CONSUME_RATE_KEY =
-      org.astraea.app.admin.Quota.Limit.CONSUMER_BYTE_RATE.nameOfKafka();
+      org.astraea.common.admin.Quota.Limit.CONSUMER_BYTE_RATE.nameOfKafka();
 
   private final Admin admin;
 
@@ -41,34 +40,54 @@ public class QuotaHandler implements Handler {
   }
 
   @Override
-  public Quotas get(Optional<String> target, Map<String, String> queries) {
-    if (queries.containsKey(IP_KEY))
-      return new Quotas(admin.quotas(org.astraea.app.admin.Quota.Target.IP, queries.get(IP_KEY)));
-    if (queries.containsKey(CLIENT_ID_KEY))
+  public Quotas get(Channel channel) {
+    if (channel.queries().containsKey(IP_KEY))
       return new Quotas(
-          admin.quotas(org.astraea.app.admin.Quota.Target.CLIENT_ID, queries.get(CLIENT_ID_KEY)));
+          admin.quotas(org.astraea.common.admin.Quota.Target.IP, channel.queries().get(IP_KEY)));
+    if (channel.queries().containsKey(CLIENT_ID_KEY))
+      return new Quotas(
+          admin.quotas(
+              org.astraea.common.admin.Quota.Target.CLIENT_ID,
+              channel.queries().get(CLIENT_ID_KEY)));
     return new Quotas(admin.quotas());
   }
 
   @Override
-  public Response post(PostRequest request) {
-    if (request.get(IP_KEY).isPresent()) {
+  public Response post(Channel channel) {
+    if (channel.request().get(IP_KEY).isPresent()) {
       admin
           .quotaCreator()
-          .ip(request.value(IP_KEY))
-          .connectionRate(request.intValue(CONNECTION_RATE_KEY, Integer.MAX_VALUE))
-          .create();
-      return new Quotas(admin.quotas(org.astraea.app.admin.Quota.Target.IP, request.value(IP_KEY)));
-    }
-    if (request.get(CLIENT_ID_KEY).isPresent()) {
-      admin
-          .quotaCreator()
-          .clientId(request.value(CLIENT_ID_KEY))
-          .produceRate(request.intValue(PRODUCE_RATE_KEY, Integer.MAX_VALUE))
-          .consumeRate(request.intValue(CONSUME_RATE_KEY, Integer.MAX_VALUE))
+          .ip(channel.request().value(IP_KEY))
+          .connectionRate(channel.request().getInt(CONNECTION_RATE_KEY).orElse(Integer.MAX_VALUE))
           .create();
       return new Quotas(
-          admin.quotas(org.astraea.app.admin.Quota.Target.CLIENT_ID, request.value(CLIENT_ID_KEY)));
+          admin.quotas(org.astraea.common.admin.Quota.Target.IP, channel.request().value(IP_KEY)));
+    }
+    if (channel.request().get(CLIENT_ID_KEY).isPresent()) {
+      admin
+          .quotaCreator()
+          .clientId(channel.request().value(CLIENT_ID_KEY))
+          // TODO: use DataRate#Field (traced https://github.com/skiptests/astraea/issues/488)
+          // see https://github.com/skiptests/astraea/issues/490
+          .produceRate(
+              channel
+                  .request()
+                  .get(PRODUCE_RATE_KEY)
+                  .map(Long::parseLong)
+                  .map(v -> DataRate.Byte.of(v).perSecond())
+                  .orElse(null))
+          .consumeRate(
+              channel
+                  .request()
+                  .get(CONSUME_RATE_KEY)
+                  .map(Long::parseLong)
+                  .map(v -> DataRate.Byte.of(v).perSecond())
+                  .orElse(null))
+          .create();
+      return new Quotas(
+          admin.quotas(
+              org.astraea.common.admin.Quota.Target.CLIENT_ID,
+              channel.request().value(CLIENT_ID_KEY)));
     }
     return Response.NOT_FOUND;
   }
@@ -97,7 +116,7 @@ public class QuotaHandler implements Handler {
     final Target target;
     final Limit limit;
 
-    public Quota(org.astraea.app.admin.Quota quota) {
+    public Quota(org.astraea.common.admin.Quota quota) {
       this(
           quota.target().nameOfKafka(),
           quota.targetValue(),
@@ -114,7 +133,7 @@ public class QuotaHandler implements Handler {
   static class Quotas implements Response {
     final List<Quota> quotas;
 
-    Quotas(Collection<org.astraea.app.admin.Quota> quotas) {
+    Quotas(Collection<org.astraea.common.admin.Quota> quotas) {
       this.quotas = quotas.stream().map(Quota::new).collect(Collectors.toUnmodifiableList());
     }
   }

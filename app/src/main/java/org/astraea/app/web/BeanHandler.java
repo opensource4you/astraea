@@ -17,14 +17,12 @@
 package org.astraea.app.web;
 
 import java.util.List;
-import java.util.Map;
-import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import org.astraea.app.admin.Admin;
-import org.astraea.app.metrics.jmx.BeanObject;
-import org.astraea.app.metrics.jmx.BeanQuery;
-import org.astraea.app.metrics.jmx.MBeanClient;
+import org.astraea.common.admin.Admin;
+import org.astraea.common.metrics.BeanObject;
+import org.astraea.common.metrics.BeanQuery;
+import org.astraea.common.metrics.MBeanClient;
 
 public class BeanHandler implements Handler {
   private final List<MBeanClient> clients;
@@ -37,9 +35,9 @@ public class BeanHandler implements Handler {
   }
 
   @Override
-  public Response get(Optional<String> domain, Map<String, String> properties) {
-    var builder = BeanQuery.builder().usePropertyListPattern().properties(properties);
-    domain.ifPresent(builder::domainName);
+  public Response get(Channel channel) {
+    var builder = BeanQuery.builder().usePropertyListPattern().properties(channel.queries());
+    channel.target().ifPresent(builder::domainName);
     return new NodeBeans(
         clients.stream()
             .map(
@@ -80,11 +78,11 @@ public class BeanHandler implements Handler {
     Bean(BeanObject obj) {
       this.domainName = obj.domainName();
       this.properties =
-          obj.getProperties().entrySet().stream()
+          obj.properties().entrySet().stream()
               .map(e -> new Property(e.getKey(), e.getValue()))
               .collect(Collectors.toUnmodifiableList());
       this.attributes =
-          obj.getAttributes().entrySet().stream()
+          obj.attributes().entrySet().stream()
               .map(e -> new Attribute(e.getKey(), e.getValue().toString()))
               .collect(Collectors.toUnmodifiableList());
     }

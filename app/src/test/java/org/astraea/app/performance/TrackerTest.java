@@ -16,59 +16,95 @@
  */
 package org.astraea.app.performance;
 
+import java.time.Duration;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
-import org.astraea.app.concurrent.State;
+import java.util.concurrent.atomic.AtomicLong;
+import org.astraea.common.Utils;
+import org.astraea.common.metrics.client.HasNodeMetrics;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 
 public class TrackerTest {
+
   @Test
-  public void testTerminate() throws InterruptedException {
-    var producerData = List.of(new Metrics());
-    var consumerData = List.of(new Metrics());
-    List<Metrics> empty = List.of();
-    var argument = new Performance.Argument();
-    argument.exeTime = ExeTime.of("1records");
+  void testCloseConsumer() {
+    var closed = new AtomicBoolean(false);
+    var tracker = TrackerThread.create(() -> true, closed::get);
+    Assertions.assertFalse(tracker.closed());
+    closed.set(true);
+    Utils.sleep(Duration.ofSeconds(2));
+    Assertions.assertTrue(tracker.closed());
+  }
 
-    var manager = new Manager(argument, producerData, consumerData);
-    var producerDone = new AtomicBoolean(false);
-    try (Tracker tracker = new Tracker(producerData, consumerData, manager, producerDone::get)) {
-      producerDone.set(false);
-      Assertions.assertEquals(State.RUNNING, tracker.execute());
-      producerData.get(0).accept(1L, 1);
-      consumerData.get(0).accept(1L, 1);
-      producerDone.set(true);
-      Assertions.assertEquals(State.DONE, tracker.execute());
-    }
+  @Test
+  void testPartialClose() {
+    var closed0 = new AtomicBoolean(false);
+    var closed1 = new AtomicBoolean(false);
+    var tracker = TrackerThread.create(closed0::get, closed1::get);
+    Assertions.assertFalse(tracker.closed());
+    closed0.set(true);
+    Utils.sleep(Duration.ofSeconds(2));
+    Assertions.assertFalse(tracker.closed());
+    closed1.set(true);
+    Utils.sleep(Duration.ofSeconds(2));
+    Assertions.assertTrue(tracker.closed());
+  }
 
-    // Zero consumer
-    producerData = List.of(new Metrics());
-    manager = new Manager(argument, producerData, empty);
-    try (Tracker tracker = new Tracker(producerData, empty, manager, producerDone::get)) {
-      producerDone.set(false);
-      Assertions.assertEquals(State.RUNNING, tracker.execute());
-      producerData.get(0).accept(1L, 1);
-      producerDone.set(true);
-      Assertions.assertEquals(State.DONE, tracker.execute());
-    }
+  @Test
+  void testSumOfAttribute() {
+    var hasNodeMetrics = Mockito.mock(HasNodeMetrics.class);
+    var hasNodeMetrics2 = Mockito.mock(HasNodeMetrics.class);
+    Mockito.when(hasNodeMetrics.incomingByteTotal()).thenReturn(2D);
+    Mockito.when(hasNodeMetrics2.incomingByteTotal()).thenReturn(3D);
+    Mockito.when(hasNodeMetrics.createdTimestamp()).thenReturn(System.currentTimeMillis());
+    Mockito.when(hasNodeMetrics2.createdTimestamp()).thenReturn(System.currentTimeMillis());
+    Assertions.assertEquals(
+        5D,
+        TrackerThread.sumOfAttribute(
+            List.of(hasNodeMetrics, hasNodeMetrics2), HasNodeMetrics::incomingByteTotal));
+  }
 
-    // Stop by duration time out
-    argument.exeTime = ExeTime.of("2s");
-    producerData = List.of(new Metrics());
-    consumerData = List.of(new Metrics());
-    manager = new Manager(argument, producerData, consumerData);
-    try (Tracker tracker = new Tracker(producerData, consumerData, manager, producerDone::get)) {
-      producerDone.set(false);
-      tracker.start = System.currentTimeMillis();
-      Assertions.assertEquals(State.RUNNING, tracker.execute());
+  @Test
+  void testTrackerThread() {
+    var producerClosed = new AtomicBoolean(false);
+    var consumerClosed = new AtomicBoolean(false);
+    var closed = new AtomicBoolean(false);
+    var f =
+        CompletableFuture.runAsync(
+            TrackerThread.trackerLoop(closed::get, producerClosed::get, consumerClosed::get));
+    Assertions.assertFalse(f.isDone());
+    producerClosed.set(true);
+    Utils.sleep(Duration.ofSeconds(2));
+    Assertions.assertFalse(f.isDone());
+    consumerClosed.set(true);
+    Utils.sleep(Duration.ofSeconds(2));
+    Assertions.assertTrue(f.isDone());
+  }
 
-      // Mock record producing
-      producerData.get(0).accept(1L, 1);
-      consumerData.get(0).accept(1L, 1);
-      Thread.sleep(2000);
-      producerDone.set(true);
-      Assertions.assertEquals(State.DONE, tracker.execute());
-    }
+  @Test
+  void testProducerPrinter() {
+    var report = Mockito.mock(Report.class);
+    var records = new AtomicLong(0);
+    Mockito.when(report.records()).thenAnswer(a -> records.get());
+    var printer = new TrackerThread.ProducerPrinter(() -> List.of(report));
+    Assertions.assertFalse(printer.tryToPrint(Duration.ofSeconds(1)));
+    records.set(100);
+    Assertions.assertTrue(printer.tryToPrint(Duration.ofSeconds(1)));
+    Assertions.assertFalse(printer.tryToPrint(Duration.ofSeconds(1)));
+  }
+
+  @Test
+  void testConsumerPrinter() {
+    var report = Mockito.mock(Report.class);
+    var records = new AtomicLong(0);
+    Mockito.when(report.records()).thenAnswer(a -> records.get());
+    var printer = new TrackerThread.ConsumerPrinter(() -> List.of(report));
+    Assertions.assertFalse(printer.tryToPrint(Duration.ofSeconds(1)));
+    records.set(100);
+    Assertions.assertTrue(printer.tryToPrint(Duration.ofSeconds(1)));
+    Assertions.assertFalse(printer.tryToPrint(Duration.ofSeconds(1)));
   }
 }

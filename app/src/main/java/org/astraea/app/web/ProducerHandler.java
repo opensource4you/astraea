@@ -19,11 +19,10 @@ package org.astraea.app.web;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
-import org.astraea.app.admin.Admin;
-import org.astraea.app.admin.TopicPartition;
+import org.astraea.common.admin.Admin;
+import org.astraea.common.admin.TopicPartition;
 
 class ProducerHandler implements Handler {
 
@@ -39,7 +38,7 @@ class ProducerHandler implements Handler {
   Set<TopicPartition> partitions(Map<String, String> queries) {
     if (queries.containsKey(TOPIC_KEY) && queries.containsKey(PARTITION_KEY))
       return Set.of(TopicPartition.of(queries.get(TOPIC_KEY), queries.get(PARTITION_KEY)));
-    var partitions = admin.partitions();
+    var partitions = admin.topicPartitions();
     if (queries.containsKey(TOPIC_KEY))
       return partitions.stream()
           .filter(p -> p.topic().equals(queries.get(TOPIC_KEY)))
@@ -48,9 +47,12 @@ class ProducerHandler implements Handler {
   }
 
   @Override
-  public Partitions get(Optional<String> target, Map<String, String> queries) {
+  public Partitions get(Channel channel) {
     var topics =
-        admin.producerStates(partitions(queries)).entrySet().stream()
+        admin.producerStates(partitions(channel.queries())).stream()
+            .collect(Collectors.groupingBy(org.astraea.common.admin.ProducerState::topicPartition))
+            .entrySet()
+            .stream()
             .map(e -> new Partition(e.getKey(), e.getValue()))
             .collect(Collectors.toUnmodifiableList());
     return new Partitions(topics);
@@ -63,7 +65,7 @@ class ProducerHandler implements Handler {
     final int lastSequence;
     final long lastTimestamp;
 
-    ProducerState(org.astraea.app.admin.ProducerState state) {
+    ProducerState(org.astraea.common.admin.ProducerState state) {
       this.producerId = state.producerId();
       this.producerEpoch = state.producerEpoch();
       this.lastSequence = state.lastSequence();
@@ -77,8 +79,8 @@ class ProducerHandler implements Handler {
     final List<ProducerState> states;
 
     Partition(
-        org.astraea.app.admin.TopicPartition tp,
-        Collection<org.astraea.app.admin.ProducerState> states) {
+        org.astraea.common.admin.TopicPartition tp,
+        Collection<org.astraea.common.admin.ProducerState> states) {
       this.topic = tp.topic();
       this.partition = tp.partition();
       this.states =

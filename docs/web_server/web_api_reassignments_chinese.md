@@ -15,30 +15,25 @@ curl -X GET http://localhost:8001/reassignments
 ```
 
 JSON Response 範例
-- `topicName`: 有 partitions 正在重新配置的 topic 名稱
-- `partition`: 有 replicas 正在重新配置的 partition id
-- `from`: replica 原本的位址
-  - `broker`: broker id
-  - `path`: 存放的資料夾路徑
-- `to`: replica 將來的位址
+- `topicName`: 正在新增的 replica 所屬於的 topic
+- `partition`: 正在新增的 replica 所屬於的 partition
+- `broker`: 正在新增的 replica 位於的節點
+- `path`: 正在新增的 replica 位於的目錄
+- `size`: 正在新增的 replica 大小
+- `leaderSize`: 正在新增的 replica 最終的大小
+- `progress`: 當前 replicas 搬移進度，以百分比顯示
+
 ```json
 {
   "reassignments": [
     {
       "topicName": "chia",
       "partition": 0,
-      "from": [
-        {
-          "broker": 1002,
-          "path": "/tmp/log-folder-0"
-        }
-      ],
-      "to": [
-        {
-          "broker": 1001,
-          "path": "/tmp/log-folder-1"
-        }
-      ]
+      "broker": 1,
+      "path": "/tmp/log-folder-0",
+      "size": 200,
+      "leaderSize": 400,
+      "progress": "50.00%"
     }
   ]
 }
@@ -63,11 +58,11 @@ cURL 範例
 ```shell
 curl -X POST http://localhost:8001/reassignments \
     -H "Content-Type: application/json" \
-    -d '{
+    -d '"plans":[{
     "topic": "chia", 
     "partition": 0,
     "to": [1003]
-    }' 
+    }]' 
 ```
 
 ## 變更 replica 的資料路徑
@@ -90,10 +85,10 @@ cURL 範例
 ```shell
 curl -X POST http://localhost:8001/reassignments \
     -H "Content-Type: application/json" \
-    -d '{
+    -d '"plans":[{
     "topic": "chia", 
     "partition": 0,
     "broker": 1003
     "to": "/tmp/data"
-    }' 
+    }]' 
 ```

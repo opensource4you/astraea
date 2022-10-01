@@ -22,12 +22,11 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
-import java.util.concurrent.ExecutionException;
 import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.clients.admin.AdminClientConfig;
 import org.apache.kafka.clients.admin.KafkaAdminClient;
-import org.astraea.app.argument.NonEmptyStringField;
 import org.astraea.app.performance.Performance;
+import org.astraea.common.argument.NonEmptyStringField;
 
 /**
  * By configuring the parameters in config/automation.properties, control the execution times of
@@ -57,7 +56,7 @@ public class Automation {
   public static void main(String[] args) {
     try {
       var properties = new Properties();
-      var arg = org.astraea.app.argument.Argument.parse(new Argument(), args);
+      var arg = org.astraea.common.argument.Argument.parse(new Argument(), args);
       properties.load(new FileInputStream(arg.address));
       var whetherDeleteTopic = properties.getProperty("--whetherDeleteTopic").equals("true");
       var bootstrap = properties.getProperty("--bootstrap.servers");
@@ -70,19 +69,19 @@ public class Automation {
       else times = Integer.parseInt(properties.getProperty("--time"));
 
       while (i < times) {
-        var result =
+        var topicName =
             Performance.execute(
-                org.astraea.app.argument.Argument.parse(
+                org.astraea.common.argument.Argument.parse(
                     new Performance.Argument(), performanceArgs(properties)));
         i++;
         if (whetherDeleteTopic) {
           try (final AdminClient adminClient = KafkaAdminClient.create(config)) {
-            adminClient.deleteTopics(List.of(result.topicName()));
+            adminClient.deleteTopics(topicName);
           }
         }
         System.out.println("=============== " + i + " time Performance Complete! ===============");
       }
-    } catch (IOException | InterruptedException | ExecutionException e) {
+    } catch (IOException | InterruptedException e) {
       e.printStackTrace();
     }
   }

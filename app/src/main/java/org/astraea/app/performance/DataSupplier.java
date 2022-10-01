@@ -16,12 +16,12 @@
  */
 package org.astraea.app.performance;
 
-import java.util.Arrays;
+import java.util.Map;
 import java.util.Random;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
-import org.astraea.app.common.DataSize;
-import org.astraea.app.common.DataUnit;
+import org.astraea.common.DataRate;
 
 @FunctionalInterface
 interface DataSupplier extends Supplier<DataSupplier.Data> {
@@ -116,42 +116,56 @@ interface DataSupplier extends Supplier<DataSupplier.Data> {
     byte[] value();
   }
 
+  /**
+   * Generate Data according to the given arguments. The returned supplier map the 64-bit number
+   * supplied by key(/value) distribution to a byte array. That is, if we want the DataSupplier to
+   * produce the same content, the key(/value) distribution should always produce the same number.
+   * For example,
+   *
+   * <pre>{@code
+   * DataSupplier.of(exeTime,
+   *                 ()->1,
+   *                 keySizeDistribution,
+   *                 ()->1,
+   *                 valueSizeDistribution,
+   *                 throughput)
+   * }</pre>
+   *
+   * It is not recommend to supply too many unique number. This DataSupplier store every unique
+   * number and its content in a map structure.
+   *
+   * @param exeTime the time for stop supplying data
+   * @param keyDistribution supply abstract keys which is represented by a 64-bit integer
+   * @param keySizeDistribution supply the size of newly created key
+   * @param valueDistribution supply abstract value which is represented by a 64-bit integer
+   * @param valueSizeDistribution supply the size of newly created value
+   * @param throughput the limit on data produced
+   * @return supply data with given distribution. It will map the 64-bit number supplied by
+   *     key(/value) distribution to a byte array.
+   */
   static DataSupplier of(
       ExeTime exeTime,
       Supplier<Long> keyDistribution,
-      DataSize valueSize,
+      Supplier<Long> keySizeDistribution,
       Supplier<Long> valueDistribution,
-      DataSize throughput) {
+      Supplier<Long> valueSizeDistribution,
+      DataRate throughput) {
     return new DataSupplier() {
+      private final Throttler throttler = new Throttler(throughput);
       private final long start = System.currentTimeMillis();
       private final Random rand = new Random();
-      private final byte[] content = new byte[valueSize.measurement(DataUnit.Byte).intValue()];
       private final AtomicLong dataCount = new AtomicLong(0);
-      private long intervalStart = 0;
-      private long payloadBytes;
-
-      synchronized boolean checkAndAdd(int payloadLength) {
-        if (System.currentTimeMillis() - intervalStart > 1000) {
-          intervalStart = System.currentTimeMillis();
-          payloadBytes = payloadLength;
-          return true;
-        } else if (payloadBytes < throughput.measurement(DataUnit.Byte).longValue()) {
-          payloadBytes += payloadLength;
-          return true;
-        } else {
-          return false;
-        }
-      }
+      private final Map<Long, byte[]> recordKeyTable = new ConcurrentHashMap<>();
+      private final Map<Long, byte[]> recordValueTable = new ConcurrentHashMap<>();
 
       byte[] value() {
-        // Randomly change one position of the content;
-        content[rand.nextInt(content.length)] = (byte) rand.nextInt(256);
-        return Arrays.copyOfRange(
-            content, (int) (valueDistribution.get() % content.length), content.length);
+        return getOrNew(
+            recordValueTable, valueDistribution, valueSizeDistribution.get().intValue(), rand);
       }
 
       public byte[] key() {
-        return (String.valueOf(keyDistribution.get())).getBytes();
+        return getOrNew(
+            recordKeyTable, keyDistribution, keySizeDistribution.get().intValue(), rand);
       }
 
       @Override
@@ -160,9 +174,57 @@ interface DataSupplier extends Supplier<DataSupplier.Data> {
             >= 100D) return NO_MORE_DATA;
         var key = key();
         var value = value();
-        if (checkAndAdd(value.length)) return data(key, value);
-        return THROTTLED_DATA;
+        if (throttler.throttled(
+            (value != null ? value.length : 0) + (key != null ? key.length : 0)))
+          return THROTTLED_DATA;
+        return data(key, value);
       }
     };
+  }
+
+  // Find the key from the table, if the record has been produced before. Randomly generate a
+  // byte array if
+  // the record has not been produced.
+  private static byte[] getOrNew(
+      Map<Long, byte[]> table, Supplier<Long> distribution, int size, Random rand) {
+    return table.computeIfAbsent(
+        distribution.get(),
+        ignore -> {
+          if (size == 0) return null;
+          var value = new byte[size];
+          rand.nextBytes(value);
+          return value;
+        });
+  }
+
+  class Throttler {
+    private final long start = System.currentTimeMillis();
+    private final long throughput;
+    private final AtomicLong totalBytes = new AtomicLong();
+
+    Throttler(DataRate max) {
+      throughput = Double.valueOf(max.byteRate()).longValue();
+    }
+
+    /**
+     * @param payloadLength of new data
+     * @return true if the data need to be throttled. Otherwise, false
+     */
+    boolean throttled(long payloadLength) {
+      var duration = durationInSeconds();
+      if (duration <= 0) return false;
+      var current = totalBytes.addAndGet(payloadLength);
+      // too much -> slow down
+      if ((current / duration) > throughput) {
+        totalBytes.addAndGet(-payloadLength);
+        return true;
+      }
+      return false;
+    }
+
+    // visible for testing
+    long durationInSeconds() {
+      return (System.currentTimeMillis() - start) / 1000;
+    }
   }
 }

@@ -17,10 +17,9 @@
 package org.astraea.app.web;
 
 import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 import com.google.gson.reflect.TypeToken;
-import com.sun.net.httpserver.HttpExchange;
-import java.io.IOException;
-import java.nio.charset.StandardCharsets;
+import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -31,29 +30,33 @@ import java.util.stream.Collectors;
 
 public interface PostRequest {
 
-  static PostRequest of(HttpExchange exchange) throws IOException {
-    return of(new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8));
-  }
+  PostRequest EMPTY = PostRequest.of(Map.of());
 
   @SuppressWarnings("unchecked")
   static PostRequest of(String json) {
-    return of(
-        ((Map<String, Object>) new Gson().fromJson(json, Map.class))
-            .entrySet().stream()
-                .filter(e -> e.getValue() != null)
-                .collect(Collectors.toMap(Map.Entry::getKey, e -> handleDouble(e.getValue()))));
+    return of((Map<String, Object>) new Gson().fromJson(json, Map.class));
   }
 
-  static String handleDouble(Object obj) {
+  static String handle(Object obj) {
     // the number in GSON is always DOUBLE
     if (obj instanceof Double) {
       var value = (double) obj;
       if (value - Math.floor(value) == 0) return String.valueOf((long) Math.floor(value));
     }
+    // TODO: handle double in nested type
+    // use gson instead of obj.toString in nested type since obj.toString won't add double quote to
+    // string and will create invalid json
+    if (obj instanceof Map || obj instanceof List) {
+      return new GsonBuilder().disableHtmlEscaping().create().toJson(obj);
+    }
     return obj.toString();
   }
 
-  static PostRequest of(Map<String, String> raw) {
+  static PostRequest of(Map<String, Object> objs) {
+    var raw =
+        objs.entrySet().stream()
+            .filter(e -> e.getValue() != null)
+            .collect(Collectors.toMap(Map.Entry::getKey, e -> handle(e.getValue())));
     return () -> raw;
   }
 
@@ -68,63 +71,105 @@ public interface PostRequest {
     return Arrays.stream(keys).allMatch(raw()::containsKey);
   }
 
+  default <T> Optional<T> get(String key, Class<T> clz) {
+    return Optional.ofNullable(raw().get(key)).map(v -> new Gson().fromJson(v, clz));
+  }
+
+  default <T> Optional<T> get(String key, Type type) {
+    return Optional.ofNullable(raw().get(key)).map(v -> new Gson().fromJson(v, type));
+  }
+
+  default <T> T value(String key, Class<T> clz) {
+    return get(key, clz)
+        .orElseThrow(() -> new NoSuchElementException("the value for " + key + " is nonexistent"));
+  }
+
+  // -----------------------------[string]-----------------------------//
+
   default Optional<String> get(String key) {
     return Optional.ofNullable(raw().get(key));
   }
 
   default String value(String key) {
-    var value = raw().get(key);
-    if (value == null) throw new NoSuchElementException("the value for " + key + " is nonexistent");
-    return value;
+    return get(key)
+        .orElseThrow(() -> new NoSuchElementException("the value for " + key + " is nonexistent"));
   }
 
-  /**
-   * parse the value as a string array
-   *
-   * @param key to search value
-   * @return string array
-   */
   default List<String> values(String key) {
-    return new Gson().fromJson(value(key), new TypeToken<ArrayList<String>>() {}.getType());
+    return values(key, String.class);
   }
 
-  default double doubleValue(String key, double defaultValue) {
-    return get(key).map(Double::parseDouble).orElse(defaultValue);
+  // -----------------------------[boolean]-----------------------------//
+  default Optional<Boolean> getBoolean(String key) {
+    return get(key).map(Boolean::parseBoolean);
   }
 
-  default double doubleValue(String key) {
-    return Double.parseDouble(value(key));
+  // -----------------------------[numbers]-----------------------------//
+
+  default short shortValue(String key) {
+    return Short.parseShort(value(key));
   }
 
-  default int intValue(String key, int defaultValue) {
-    return get(key).map(Integer::parseInt).orElse(defaultValue);
+  default List<Short> shortValues(String key) {
+    return doubleValues(key).stream()
+        .map(Double::shortValue)
+        .collect(Collectors.toUnmodifiableList());
+  }
+
+  default Optional<Short> getShort(String key) {
+    return get(key).map(Short::parseShort);
   }
 
   default int intValue(String key) {
     return Integer.parseInt(value(key));
   }
 
-  default List<Integer> ints(String key) {
-    return values(key).stream()
-        // the number in GSON is always DOUBLE
-        .map(Double::valueOf)
+  default List<Integer> intValues(String key) {
+    return doubleValues(key).stream()
         .map(Double::intValue)
         .collect(Collectors.toUnmodifiableList());
   }
 
-  default short shortValue(String key, short defaultValue) {
-    return get(key).map(Short::parseShort).orElse(defaultValue);
+  default Optional<Integer> getInt(String key) {
+    return get(key).map(Integer::parseInt);
   }
 
-  default short shortValue(String key) {
-    return Short.parseShort(value(key));
+  default long longValue(String key) {
+    return Long.parseLong(value(key));
   }
 
-  default boolean booleanValue(String key, boolean defaultValue) {
-    return get(key).map(Boolean::parseBoolean).orElse(defaultValue);
+  default List<Long> longValues(String key) {
+    return doubleValues(key).stream()
+        .map(Double::longValue)
+        .collect(Collectors.toUnmodifiableList());
   }
 
-  default boolean booleanValue(String key) {
-    return Boolean.parseBoolean(value(key));
+  default Optional<Long> getLong(String key) {
+    return get(key).map(Long::parseLong);
+  }
+
+  default double doubleValue(String key) {
+    return Double.parseDouble(value(key));
+  }
+
+  default List<Double> doubleValues(String key) {
+    return values(key, Double.class);
+  }
+
+  default Optional<Double> getDouble(String key) {
+    return get(key).map(Double::parseDouble);
+  }
+
+  // -----------------------------[others]-----------------------------//
+
+  default <T> List<T> values(String key, Class<T> clz) {
+    return new Gson()
+        .fromJson(value(key), TypeToken.getParameterized(ArrayList.class, clz).getType());
+  }
+
+  default List<PostRequest> requests(String key) {
+    return values(key, Map.class).stream()
+        .map(PostRequest::of)
+        .collect(Collectors.toUnmodifiableList());
   }
 }

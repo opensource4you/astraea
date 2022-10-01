@@ -17,6 +17,7 @@
 package org.astraea.app.web;
 
 import com.beust.jcommander.Parameter;
+import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpServer;
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -24,33 +25,40 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.function.Function;
-import org.astraea.app.admin.Admin;
-import org.astraea.app.argument.NonNegativeIntegerField;
-import org.astraea.app.argument.StringMapField;
+import org.astraea.common.admin.Admin;
+import org.astraea.common.argument.NonNegativeIntegerField;
+import org.astraea.common.argument.StringMapField;
 
 public class WebService {
 
   public static void main(String[] args) throws Exception {
-    execute(org.astraea.app.argument.Argument.parse(new Argument(), args));
+    execute(org.astraea.common.argument.Argument.parse(new Argument(), args));
   }
 
   private static void execute(Argument arg) throws IOException {
     var server = HttpServer.create(new InetSocketAddress(arg.port), 0);
-    server.createContext("/topics", new TopicHandler(Admin.of(arg.configs())));
-    server.createContext("/groups", new GroupHandler(Admin.of(arg.configs())));
-    server.createContext("/brokers", new BrokerHandler(Admin.of(arg.configs())));
-    server.createContext("/producers", new ProducerHandler(Admin.of(arg.configs())));
-    server.createContext("/quotas", new QuotaHandler(Admin.of(arg.configs())));
-    server.createContext("/pipelines", new PipelineHandler(Admin.of(arg.configs())));
-    server.createContext("/transactions", new TransactionHandler(Admin.of(arg.configs())));
+    server.createContext("/topics", to(new TopicHandler(Admin.of(arg.configs()))));
+    server.createContext("/groups", to(new GroupHandler(Admin.of(arg.configs()))));
+    server.createContext("/brokers", to(new BrokerHandler(Admin.of(arg.configs()))));
+    server.createContext("/producers", to(new ProducerHandler(Admin.of(arg.configs()))));
+    server.createContext("/quotas", to(new QuotaHandler(Admin.of(arg.configs()))));
+    server.createContext("/pipelines", to(new PipelineHandler(Admin.of(arg.configs()))));
+    server.createContext("/transactions", to(new TransactionHandler(Admin.of(arg.configs()))));
     if (arg.needJmx())
-      server.createContext("/beans", new BeanHandler(Admin.of(arg.configs()), arg.jmxPorts()));
-    server.createContext("/records", new RecordHandler(arg.bootstrapServers()));
-    server.createContext("/reassignments", new ReassignmentHandler(Admin.of(arg.configs())));
+      server.createContext("/beans", to(new BeanHandler(Admin.of(arg.configs()), arg.jmxPorts())));
+    server.createContext(
+        "/records", to(new RecordHandler(Admin.of(arg.configs()), arg.bootstrapServers())));
+    server.createContext("/reassignments", to(new ReassignmentHandler(Admin.of(arg.configs()))));
+    server.createContext("/balancer", to(new BalancerHandler(Admin.of(arg.configs()))));
+    server.createContext("/throttles", to(new ThrottleHandler(Admin.of(arg.configs()))));
     server.start();
   }
 
-  static class Argument extends org.astraea.app.argument.Argument {
+  private static HttpHandler to(Handler handler) {
+    return exchange -> handler.handle(Channel.of(exchange));
+  }
+
+  static class Argument extends org.astraea.common.argument.Argument {
     @Parameter(
         names = {"--port"},
         description = "Integer: the port to bind",

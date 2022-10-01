@@ -12,11 +12,12 @@ POST /topics
 
 參數
 
-| 名稱         | 說明                  | 預設值 |
-|------------|---------------------|-----|
-| name       | (必填) topic 名稱       | 無   |
-| partitions | (選填) partition 數量   | 1   |
-| replicas   | (選填) replication 數量 | 1   |
+| 名稱          | 說明                  | 預設值                |
+|-------------|---------------------|--------------------|
+| name        | (必填) topic 名稱       | 無                  |
+| partitions  | (選填) partition 數量   | 1                  |
+| replicas    | (選填) replication 數量 | 1                  |
+| probability | (選填) 分佈機率           | 無，預設依照 kafka 的分佈方式 |
 - replicas 數量須 <= brokers 數量
 
 cURL 範例
@@ -25,21 +26,21 @@ cURL 範例
 ```shell
 curl -X POST http://localhost:8001/topics \
     -H "Content-Type: application/json" \
-    -d '{
+    -d '{"topics":[{
     "name": "test1",
     "partitions": 1,
     "replicas": 1
-    }'
+    }]}'
 ```
 
 所有在 JSON Response `configs` 裡頭的參數也可以透過此 api 來設定。範例如下
 ```shell
 curl -X POST http://localhost:8001/topics \
     -H "Content-Type: application/json" \
-    -d '{
+    -d '{"topics":[{
     "name": "test1",
     "max.message.bytes": 1000
-    }'
+    }]}'
 ```
 
 JSON Response 範例
@@ -115,6 +116,13 @@ JSON Response 範例
 GET /topics
 ```
 
+參數
+
+| 名稱           | 說明                                                                                             | 預設值                |
+|--------------|------------------------------------------------------------------------------------------------|--------------------|
+| partition    | (選填) 指定要查看哪一個 partition                                                                        | 無，代表全部 partitions  |
+| listInternal | (選填) 為 boolean 值。若填寫 true，則會列出 kafka 內部所使用的 topics，如 __commit_offsets。若設為 false，則不會列出此種 topics | true，代表列出所有 topics |
+
 cURL 範例
 ```shell
 curl -X GET http://localhost:8001/topics
@@ -183,6 +191,13 @@ JSON Response 範例
 GET /topics/{topicName}
 ```
 
+參數
+
+| 名稱        | 說明                      | 預設值               |
+|-----------|-------------------------|-------------------|
+| partition | (選填) 指定要查看哪一個 partition | 無，代表全部 partitions |
+
+
 cURL 範例
 
 查詢名為 test1 的 topic 資訊
@@ -242,3 +257,13 @@ JSON Response 範例
   }
 }
  ```
+## 刪除 topic
+```shell
+DELETE /topics/{topicName}
+```
+
+cURL 範例
+
+```shell
+curl -X DELETE "http://localhost:8001/topics/mytopic"
+```
