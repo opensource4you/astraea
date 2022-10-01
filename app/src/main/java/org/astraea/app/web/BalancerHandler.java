@@ -16,6 +16,7 @@
  */
 package org.astraea.app.web;
 
+import java.time.Duration;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
@@ -27,6 +28,7 @@ import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.TopicPartitionReplica;
+import org.astraea.common.argument.DurationField;
 import org.astraea.common.balancer.Balancer;
 import org.astraea.common.balancer.generator.RebalancePlanGenerator;
 import org.astraea.common.balancer.log.ClusterLogAllocation;
@@ -62,6 +64,10 @@ class BalancerHandler implements Handler {
 
   @Override
   public Response get(Channel channel) {
+    var execTime =
+        Optional.ofNullable(channel.queries().get("execTime"))
+            .map(DurationField::toDuration)
+            .orElse(Duration.ofSeconds(3));
     var topics =
         Optional.ofNullable(channel.queries().get(TOPICS_KEY))
             .map(s -> (Set<String>) new HashSet<>(Arrays.asList(s.split(","))))
@@ -78,7 +84,8 @@ class BalancerHandler implements Handler {
             .clusterConstraint((before, after) -> after.value() <= before.value())
             .moveCost(moveCostFunction)
             .movementConstraint(moveCost -> true)
-            .limit(LIMIT_DEFAULT)
+            .limit(limit)
+            .limit(execTime)
             .build()
             .offer(admin.clusterInfo(), topics::contains, admin.brokerFolders());
     return new Report(
