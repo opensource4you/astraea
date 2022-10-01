@@ -20,6 +20,7 @@ import java.io.File
 import java.util.Properties
 import scala.jdk.CollectionConverters._
 import scala.util.Using
+import scala.util.matching.Regex
 
 /** Parameters required for Astraea ETL.
   *
@@ -48,7 +49,7 @@ import scala.util.Using
   *   SparkSession.builder().master(deployment.model).Two settings are currently
   *   supported spark://HOST:PORT and local[*].
   */
-case class MetaData(
+case class Metadata(
     sourcePath: File,
     sinkPath: File,
     column: Map[String, DataType],
@@ -61,7 +62,7 @@ case class MetaData(
     deploymentModel: String
 )
 
-object MetaData {
+object Metadata {
   private[this] val SOURCE_PATH = "source.path"
   private[this] val SINK_PATH = "sink.path"
   private[this] val COLUMN_NAME = "column.name"
@@ -77,7 +78,7 @@ object MetaData {
   private[this] val DEFAULT_REPLICAS = 1
 
   //Parameters needed to configure ETL.
-  def apply(path: File): MetaData = {
+  def apply(path: File): Metadata = {
     val properties = readProp(path).asScala.filter(_._2.nonEmpty).toMap
 
     val sourcePath = Utils.requireFolder(
@@ -116,9 +117,9 @@ object MetaData {
       .getOrElse(DEFAULT_REPLICAS)
     val topicConfig = requirePair(properties.getOrElse(TOPIC_CONFIG, null))
 
-    val deploymentModel = requireSparkMaster(DEPLOYMENT_MODEL, properties)
+    val deploymentModel = requireDeployMode(DEPLOYMENT_MODEL, properties)
 
-    MetaData(
+    Metadata(
       sourcePath,
       sinkPath,
       column,
@@ -178,7 +179,7 @@ object MetaData {
       )
     }
 
-    DataType.parseDataTypes(primaryKeys)
+    DataType.of(primaryKeys)
   }
 
   def columnParse(
@@ -191,7 +192,7 @@ object MetaData {
         _.split(",")
           .map(_.split("="))
           .map { elem =>
-            (elem(0), DataType.parseDataType(elem(1)))
+            (elem(0), DataType.of(elem(1)))
           }
           .toMap
       )
@@ -221,15 +222,12 @@ object MetaData {
   }
 
   //spark://host:port or local[*]
-  def requireSparkMaster(string: String, prop: Map[String, String]): String = {
-    if (
-      !(Utils
-        .localPattern(prop(string)) || Utils.standAlonePattern(prop(string)))
-    ) {
+  def requireDeployMode(str: String, prop: Map[String, String]): String = {
+    if (!DeployModePattern.of(prop(str))) {
       throw new IllegalArgumentException(
-        s"${prop { string }} not a supported deployment model. Please check $string."
+        s"${prop { str }} not a supported deployment model. Please check $str."
       )
     }
-    string
+    str
   }
 }

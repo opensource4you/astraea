@@ -27,16 +27,4 @@ class UtilsTest {
       () => Utils.requireFolder("??")
     )
   }
-
-  @Test def localPatternTest(): Unit = {
-    assert(!Utils.localPattern(""))
-    assert(!Utils.localPattern("123"))
-    assert(Utils.localPattern("local[2]"))
-  }
-
-  @Test def standAloneTest(): Unit = {
-    assert(!Utils.standAlonePattern(""))
-    assert(!Utils.standAlonePattern("abc"))
-    assert(!Utils.standAlonePattern("spark://0.0.0.0"))
-  }
 }

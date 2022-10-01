@@ -25,7 +25,6 @@ sealed abstract class DataType(dataType: String) {
 /** Column Types supported by astraea dispatcher. */
 object DataType {
   private val STRING_TYPE = "string"
-  private val BINARY_TYPE = "binary"
   private val BOOLEAN_TYPE = "boolean"
   private val DATE_TYPE = "date"
   private val DOUBLE_TYPE = "double"
@@ -33,9 +32,9 @@ object DataType {
   private val INTEGER_TYPE = "integer"
   private val LONG_TYPE = "long"
   private val SHORT_TYPE = "short"
+  private val TIMESTAMP_TYPE = "timestamp"
 
   case object StringType extends DataType(STRING_TYPE)
-  case object BinaryType extends DataType(BINARY_TYPE)
   case object BooleanType extends DataType(BOOLEAN_TYPE)
   case object DateType extends DataType(DATE_TYPE)
   case object DoubleType extends DataType(DOUBLE_TYPE)
@@ -43,17 +42,18 @@ object DataType {
   case object IntegerType extends DataType(INTEGER_TYPE)
   case object LongType extends DataType(LONG_TYPE)
   case object ShortType extends DataType(SHORT_TYPE)
+  case object TimestampType extends DataType(TIMESTAMP_TYPE)
 
   /** @param str
     *   String that needs to be parsed as a DataType.
     * @return
     *   DataType
     */
-  def parseDataType(str: String): DataType = {
-    val value = allTypes.filter(_.value == str)
+  def of(str: String): DataType = {
+    val value = all.filter(_.value == str)
     if (value.isEmpty) {
       throw new IllegalArgumentException(
-        s"$str is not supported data type.The data types supported ${allTypes.mkString(",")}."
+        s"$str is not supported data type.The data types supported ${all.mkString(",")}."
       )
     }
     value.head
@@ -64,17 +64,16 @@ object DataType {
     * @return
     *   Map[String, DataType]
     */
-  def parseDataTypes(map: Map[String, String]): Map[String, DataType] = {
-    map.map(x => (x._1, parseDataType(x._2)))
+  def of(map: Map[String, String]): Map[String, DataType] = {
+    map.map(x => (x._1, of(x._2)))
   }
 
   /** @return
     *   All supported data types.
     */
-  def allTypes: Seq[DataType] = {
+  def all: Seq[DataType] = {
     Seq(
       StringType,
-      BinaryType,
       BooleanType,
       DateType,
       DoubleType,

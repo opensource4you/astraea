@@ -19,6 +19,7 @@ package org.astraea.etl
 import com.opencsv.CSVWriter
 import org.apache.spark.SparkException
 import org.apache.spark.sql.Row
+import org.apache.spark.sql.types.{StructType, TimestampType}
 import org.astraea.etl.DataType.{IntegerType, StringType}
 import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Test
@@ -31,7 +32,6 @@ import scala.util.{Failure, Random, Try}
 class CSVReaderTest {
   @Test def createSchemaNullTest(): Unit = {
     val spark = CSVReader.createSpark("local[2]")
-
     val seq = Seq(
       Row(1, "A1", 52, "fghgh"),
       Row(2, "B2", 42, "affrgg"),

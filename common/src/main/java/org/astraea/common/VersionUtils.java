@@ -14,29 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.etl
+package org.astraea.common;
+// DON'T touch this file!!! It is generated dynamically. see common/build.gradle
+public final class VersionUtils {
+  public static final String VERSION = "0.0.1-SNAPSHOT";
+  public static final String BUILDER = "wycccccc";
+  public static final String REVISION = "4660fdb023aeb98ec04135e2914f3dee0384ab8e";
+  public static final String DATE = "2022-09-30 21:16:23";
 
-import java.awt.geom.IllegalPathStateException
-import java.io.File
-
-object Utils {
-  def requireFolder(path: String): File = {
-    val file = new File(path)
-    if (!file.isDirectory) {
-      throw new IllegalPathStateException(
-        s"$path is not a folder. The path should be a folder."
-      )
-    }
-    file
-  }
-
-  def requireFile(path: String): File = {
-    val file = new File(path)
-    if (!file.exists()) {
-      throw new IllegalPathStateException(
-        s"$path is not a file. The file does not exist."
-      )
-    }
-    file
-  }
+  private VersionUtils() {}
 }

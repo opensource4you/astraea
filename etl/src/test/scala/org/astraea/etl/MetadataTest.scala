@@ -17,7 +17,7 @@
 package org.astraea.etl
 
 import org.astraea.etl.DataType.StringType
-import org.astraea.etl.MetaData.{
+import org.astraea.etl.Metadata.{
   primaryKeyParse,
   requireNonidentical,
   requirePair
@@ -30,7 +30,7 @@ import java.nio.file.Files.createTempFile
 import java.util.Properties
 import scala.util.{Try, Using}
 
-class MetaDataTest {
+class MetadataTest {
   var file = new File("")
   var path = ""
 
@@ -41,7 +41,7 @@ class MetaDataTest {
   }
 
   @Test def defaultTest(): Unit = {
-    val config = MetaData(Utils.requireFile(file.getAbsolutePath))
+    val config = Metadata(Utils.requireFile(file.getAbsolutePath))
     assert(config.sourcePath.equals(new File(file.getParent)))
     assert(config.sinkPath.equals(new File(file.getParent)))
     assert(
@@ -70,7 +70,7 @@ class MetaDataTest {
     prop.setProperty("topic.config", "KA=VA,KB=VB")
     prop.store(new FileOutputStream(file), null)
 
-    val config = MetaData(Utils.requireFile(file.getAbsolutePath))
+    val config = Metadata(Utils.requireFile(file.getAbsolutePath))
     assert(config.sourcePath.equals(new File(file.getParent)))
     assert(config.sinkPath.equals(new File(file.getParent)))
     assert(
@@ -105,7 +105,7 @@ class MetaDataTest {
       () =>
         primaryKeyParse(
           map,
-          DataType.parseDataTypes(requireNonidentical("data", map))
+          DataType.of(requireNonidentical("data", map))
         )
     )
   }
@@ -118,19 +118,27 @@ class MetaDataTest {
   @Test def columnParseTest(): Unit = {
     val map =
       Map[String, String]("data" -> "ID=string,KA=string,KB=string,KC=integer")
-    MetaData.columnParse("data", map)
+    Metadata.columnParse("data", map)
     val error =
       Map[String, String]("data" -> "ID=string,KA=string,KB=string,KC=intege")
     assertThrows(
       classOf[IllegalArgumentException],
-      () => MetaData.columnParse("data", error)
+      () => Metadata.columnParse("data", error)
     )
   }
 
-  @Test def typeParse(): Unit = {
+  @Test def typeParseTest(): Unit = {
     assertThrows(
       classOf[IllegalArgumentException],
-      () => DataType.parseDataType("LLL")
+      () => DataType.of("LLL")
+    )
+  }
+
+  @Test def requireDeployModeTest(): Unit = {
+    val deploy = Map[String, String]("deployment.model" -> "local")
+    assertThrows(
+      classOf[IllegalArgumentException],
+      () => Metadata.requireDeployMode("deployment.model", deploy)
     )
   }
 

@@ -57,7 +57,7 @@ object CSVReader {
   //TODO To Kafka test
   def writeKafka(
       df: DataFrame,
-      metaData: MetaData
+      metaData: Metadata
   ): DataStreamWriter[Row] = {
     df.writeStream
       .format("kafka")
