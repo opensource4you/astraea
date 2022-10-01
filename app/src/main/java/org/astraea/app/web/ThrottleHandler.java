@@ -45,7 +45,7 @@ public class ThrottleHandler implements Handler {
 
   private Response get() {
     final var brokers =
-        admin.nodes().stream()
+        admin.brokers().stream()
             .map(
                 node -> {
                   final var egress =
