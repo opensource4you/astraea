@@ -47,6 +47,7 @@ public class BrokerTab {
                                             "hostname", node.host(),
                                             "id", String.valueOf(node.id()),
                                             "port", String.valueOf(node.port()),
+                                            "controller", String.valueOf(node.isController()),
                                             "topics",
                                                 String.valueOf(
                                                     node.folders().stream()
