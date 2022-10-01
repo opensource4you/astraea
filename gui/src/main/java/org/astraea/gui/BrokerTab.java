@@ -83,7 +83,7 @@ public class BrokerTab {
                                                     .toString()))
                                 .collect(Collectors.toList()))
                     .orElse(List.of()));
-    var tab = new Tab("node");
+    var tab = new Tab("broker");
     tab.setContent(pane);
     return tab;
   }
