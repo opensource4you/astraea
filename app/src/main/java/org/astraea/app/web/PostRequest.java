@@ -104,10 +104,6 @@ public interface PostRequest {
     return get(key).map(Boolean::parseBoolean);
   }
 
-  default boolean booleanValue(String key) {
-    return Boolean.parseBoolean(value(key));
-  }
-
   // -----------------------------[numbers]-----------------------------//
 
   default short shortValue(String key) {

@@ -144,12 +144,8 @@ public class ReassignmentHandlerTest extends RequireBrokerCluster {
 
       var body =
           String.format(
-              "{\"%s\": [{\"%s\": \"%s\", \"%s\": \"%s\"}]}",
-              ReassignmentHandler.PLANS_KEY,
-              ReassignmentHandler.EXCLUDE_KEY,
-              true,
-              ReassignmentHandler.FROM_KEY,
-              currentBroker);
+              "{\"%s\": [{\"%s\": \"%s\"}]}",
+              ReassignmentHandler.PLANS_KEY, ReassignmentHandler.EXCLUDE_KEY, currentBroker);
 
       Assertions.assertEquals(
           Response.ACCEPT, handler.post(Channel.ofRequest(PostRequest.of(body))));
@@ -191,14 +187,12 @@ public class ReassignmentHandlerTest extends RequireBrokerCluster {
 
       var body =
           String.format(
-              "{\"%s\": [{\"%s\": \"%s\", \"%s\": \"%s\", \"%s\": \"%s\"}]}",
+              "{\"%s\": [{\"%s\": \"%s\", \"%s\": \"%s\"}]}",
               ReassignmentHandler.PLANS_KEY,
-              ReassignmentHandler.FROM_KEY,
+              ReassignmentHandler.EXCLUDE_KEY,
               currentBroker,
               ReassignmentHandler.TOPIC_KEY,
-              targetTopic,
-              ReassignmentHandler.EXCLUDE_KEY,
-              true);
+              targetTopic);
 
       Assertions.assertEquals(
           Response.ACCEPT, handler.post(Channel.ofRequest(PostRequest.of(body))));

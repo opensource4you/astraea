@@ -61,24 +61,25 @@ public class ReassignmentHandler implements Handler {
                     return Response.ACCEPT;
                   }
                   // case 2: move specific broker's (topic's) partitions to others
-                  if (request.has(FROM_KEY, EXCLUDE_KEY)) {
-                    if (request.booleanValue(EXCLUDE_KEY)) {
-                      if (request.has(TOPIC_KEY)) {
-                        admin
-                            .migrator()
-                            .broker(request.intValue(FROM_KEY))
-                            .moveToExcept(
-                                admin.brokerIds(),
-                                request.intValue(FROM_KEY),
-                                request.value(TOPIC_KEY));
-                        return Response.ACCEPT;
-                      } else {
-                        admin
-                            .migrator()
-                            .broker(request.intValue(FROM_KEY))
-                            .moveToExcept(admin.brokerIds(), request.intValue(FROM_KEY));
-                        return Response.ACCEPT;
-                      }
+                  if (request.has(EXCLUDE_KEY)) {
+                    if (request.has(TOPIC_KEY)) {
+                      admin
+                          .migrator()
+                          .topicOfBroker(request.intValue(EXCLUDE_KEY), request.value(TOPIC_KEY))
+                          .moveTo(
+                              admin.brokerIds().stream()
+                                  .filter(i -> i != request.intValue(EXCLUDE_KEY))
+                                  .collect(Collectors.toList()));
+                      return Response.ACCEPT;
+                    } else {
+                      admin
+                          .migrator()
+                          .broker(request.intValue(EXCLUDE_KEY))
+                          .moveTo(
+                              admin.brokerIds().stream()
+                                  .filter(i -> i != request.intValue(EXCLUDE_KEY))
+                                  .collect(Collectors.toList()));
+                      return Response.ACCEPT;
                     }
                   }
                   return Response.BAD_REQUEST;
