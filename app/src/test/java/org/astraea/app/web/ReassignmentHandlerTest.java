@@ -138,12 +138,12 @@ public class ReassignmentHandlerTest extends RequireBrokerCluster {
       Utils.sleep(Duration.ofSeconds(3));
 
       var currentBroker =
-              admin.replicas(Set.of(topicName)).stream()
-                      .filter(replica -> replica.partition() == 0)
-                      .findFirst()
-                      .get()
-                      .nodeInfo()
-                      .id();
+          admin.replicas(Set.of(topicName)).stream()
+              .filter(replica -> replica.partition() == 0)
+              .findFirst()
+              .get()
+              .nodeInfo()
+              .id();
 
       var body =
           String.format(
@@ -160,12 +160,12 @@ public class ReassignmentHandlerTest extends RequireBrokerCluster {
 
       Assertions.assertNotEquals(
           currentBroker,
-              admin.replicas(Set.of(topicName)).stream()
-                      .filter(replica -> replica.partition() == 0)
-                      .findFirst()
-                      .get()
-                      .nodeInfo()
-                      .id());
+          admin.replicas(Set.of(topicName)).stream()
+              .filter(replica -> replica.partition() == 0)
+              .findFirst()
+              .get()
+              .nodeInfo()
+              .id());
       Assertions.assertEquals(0, admin.topicPartitions(currentBroker).size());
     }
   }
@@ -181,12 +181,12 @@ public class ReassignmentHandlerTest extends RequireBrokerCluster {
       Utils.sleep(Duration.ofSeconds(3));
 
       var currentBroker =
-              admin.replicas(Set.of(topicName)).stream()
-                      .filter(replica -> replica.partition() == 0)
-                      .findFirst()
-                      .get()
-                      .nodeInfo()
-                      .id();
+          admin.replicas(Set.of(topicName)).stream()
+              .filter(replica -> replica.partition() == 0)
+              .findFirst()
+              .get()
+              .nodeInfo()
+              .id();
 
       var body =
           String.format(
@@ -207,12 +207,12 @@ public class ReassignmentHandlerTest extends RequireBrokerCluster {
 
       Assertions.assertNotEquals(
           currentBroker,
-              admin.replicas(Set.of(targetTopic)).stream()
-                      .filter(replica -> replica.partition() == 0)
-                      .findFirst()
-                      .get()
-                      .nodeInfo()
-                      .id());
+          admin.replicas(Set.of(targetTopic)).stream()
+              .filter(replica -> replica.partition() == 0)
+              .findFirst()
+              .get()
+              .nodeInfo()
+              .id());
       Assertions.assertNotEquals(0, admin.topicPartitions(currentBroker).size());
       Assertions.assertEquals(
           0,
