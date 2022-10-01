@@ -42,10 +42,16 @@ public class SettingTab {
           if (!bootstrapServers.isEmpty())
             CompletableFuture.supplyAsync(
                     () -> {
-                      var previous = context.replace(Admin.of(bootstrapServers));
+                      var newAdmin = Admin.of(bootstrapServers);
+                      var brokerIds = newAdmin.brokerIds();
+                      var previous = context.replace(newAdmin);
                       previous.ifPresent(
                           admin -> org.astraea.common.Utils.swallowException(admin::close));
-                      return "succeed to connect to " + bootstrapServers;
+                      return "succeed to connect to "
+                          + bootstrapServers
+                          + ", and there are "
+                          + brokerIds.size()
+                          + " nodes";
                     })
                 .whenComplete(console::append);
         });
