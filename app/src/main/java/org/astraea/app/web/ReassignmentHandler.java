@@ -92,7 +92,6 @@ public class ReassignmentHandler implements Handler {
   @Override
   public Reassignments get(Channel channel) {
     var topics = Handler.compare(admin.topicNames(), channel.target());
-    var replicas = admin.replicas(topics);
     return new Reassignments(
         admin.addingReplicas(topics).stream()
             .map(AddingReplica::new)

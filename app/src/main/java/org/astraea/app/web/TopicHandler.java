@@ -24,11 +24,10 @@ import java.util.Set;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import org.apache.kafka.common.errors.UnknownTopicOrPartitionException;
-import org.astraea.app.scenario.Scenario;
 import org.astraea.common.ExecutionRuntimeException;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.Config;
-import org.astraea.common.admin.Partition;
+import org.astraea.common.scenario.Scenario;
 
 class TopicHandler implements Handler {
 
@@ -70,10 +69,9 @@ class TopicHandler implements Handler {
   }
 
   private Topics get(Set<String> topicNames, Predicate<Integer> partitionPredicate) {
-    var topics = admin.topics(topicNames);
-    var replicas = admin.replicas(topics.keySet());
+    var replicas = admin.replicas(topicNames);
     var partitions =
-        admin.partitions(topics.keySet()).stream()
+        admin.partitions(topicNames).stream()
             .filter(p -> partitionPredicate.test(p.partition()))
             .collect(
                 Collectors.groupingBy(
@@ -84,14 +82,16 @@ class TopicHandler implements Handler {
                                 p.partition(),
                                 p.earliestOffset(),
                                 p.latestOffset(),
-                                replicas.get(p.topicPartition()).stream()
+                                replicas.stream()
+                                    .filter(replica -> replica.topic().equals(p.topic()))
+                                    .filter(replica -> replica.partition() == p.partition())
                                     .map(Replica::new)
                                     .collect(Collectors.toUnmodifiableList())),
                         Collectors.toList())));
 
     var topicInfos =
-        topics.entrySet().stream()
-            .map(p -> new TopicInfo(p.getKey(), partitions.get(p.getKey()), p.getValue()))
+        admin.topics(topicNames).stream()
+            .map(topic -> new TopicInfo(topic.name(), partitions.get(topic.name()), topic.config()))
             .collect(Collectors.toUnmodifiableList());
     return new Topics(topicInfos);
   }

@@ -18,7 +18,6 @@ package org.astraea.common.admin;
 
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -44,7 +43,6 @@ import org.apache.kafka.clients.admin.RemoveMembersFromConsumerGroupOptions;
 import org.apache.kafka.clients.admin.ReplicaInfo;
 import org.apache.kafka.clients.admin.TransactionListing;
 import org.apache.kafka.common.ElectionType;
-import org.apache.kafka.common.Node;
 import org.apache.kafka.common.config.ConfigResource;
 import org.apache.kafka.common.errors.ElectionNotNeededException;
 import org.apache.kafka.common.errors.ReplicaNotAvailableException;
@@ -88,23 +86,6 @@ public class Builder {
     @Override
     public void close() {
       admin.close();
-    }
-
-    @Override
-    public Set<NodeInfo> nodes() {
-      return Utils.packException(
-          () ->
-              admin.describeCluster().nodes().get().stream()
-                  .map(NodeInfo::of)
-                  .collect(Collectors.toUnmodifiableSet()));
-    }
-
-    @Override
-    public Map<Integer, Set<String>> brokerFolders(Set<Integer> brokers) {
-      return Utils.packException(
-          () ->
-              admin.describeLogDirs(brokers).allDescriptions().get().entrySet().stream()
-                  .collect(Collectors.toMap(Map.Entry::getKey, map -> map.getValue().keySet())));
     }
 
     @Override
@@ -245,19 +226,20 @@ public class Builder {
     }
 
     @Override
-    public Map<String, Config> topics(Set<String> topicNames) {
+    public List<Topic> topics(Set<String> names) {
       return Utils.packException(
               () ->
                   admin
                       .describeConfigs(
-                          topicNames.stream()
+                          names.stream()
                               .map(topic -> new ConfigResource(ConfigResource.Type.TOPIC, topic))
                               .collect(Collectors.toList()))
                       .all()
                       .get())
           .entrySet()
           .stream()
-          .collect(Collectors.toMap(e -> e.getKey().name(), e -> new ConfigImpl(e.getValue())));
+          .map(entry -> Topic.of(entry.getKey().name(), entry.getValue()))
+          .collect(Collectors.toUnmodifiableList());
     }
 
     @Override
@@ -272,24 +254,49 @@ public class Builder {
     }
 
     @Override
-    public Map<Integer, Config> brokers(Set<Integer> brokerIds) {
-      return Utils.packException(
+    public Set<Integer> brokerIds() {
+      return Utils.packException(() -> admin.describeCluster().nodes().get()).stream()
+          .map(org.apache.kafka.common.Node::id)
+          .collect(Collectors.toUnmodifiableSet());
+    }
+
+    @Override
+    public List<Node> nodes() {
+      var nodes =
+          Utils.packException(
+              () ->
+                  admin.describeCluster().nodes().get().stream()
+                      .map(NodeInfo::of)
+                      .collect(Collectors.toList()));
+      var logDirs =
+          Utils.packException(
               () ->
                   admin
-                      .describeConfigs(
-                          brokerIds.stream()
-                              .map(
-                                  id ->
-                                      new ConfigResource(
-                                          ConfigResource.Type.BROKER, String.valueOf(id)))
-                              .collect(Collectors.toList()))
-                      .all()
-                      .get())
-          .entrySet()
-          .stream()
-          .collect(
-              Collectors.toMap(
-                  e -> Integer.valueOf(e.getKey().name()), e -> new ConfigImpl(e.getValue())));
+                      .describeLogDirs(
+                          nodes.stream().map(NodeInfo::id).collect(Collectors.toList()))
+                      .allDescriptions()
+                      .get());
+      var configs =
+          Utils.packException(
+                  () ->
+                      admin
+                          .describeConfigs(
+                              nodes.stream()
+                                  .map(
+                                      n ->
+                                          new ConfigResource(
+                                              ConfigResource.Type.BROKER, String.valueOf(n.id())))
+                                  .collect(Collectors.toList()))
+                          .all()
+                          .get())
+              .entrySet()
+              .stream()
+              .collect(
+                  Collectors.toMap(e -> Integer.valueOf(e.getKey().name()), Map.Entry::getValue));
+
+      return nodes.stream()
+          .map(n -> Node.of(n, configs.get(n.id()), logDirs.get(n.id())))
+          .collect(Collectors.toList());
     }
 
     @Override
@@ -330,6 +337,18 @@ public class Builder {
                       .all()
                       .get());
 
+      var maxTimestamp =
+          Utils.packException(
+              () ->
+                  admin
+                      .listOffsets(
+                          partitions.keySet().stream()
+                              .collect(
+                                  Collectors.toMap(
+                                      Function.identity(), e -> new OffsetSpec.MaxTimestampSpec())))
+                      .all()
+                      .get());
+
       return partitions.entrySet().stream()
           .map(
               entry ->
@@ -337,7 +356,8 @@ public class Builder {
                       entry.getKey().topic(),
                       entry.getValue(),
                       Optional.ofNullable(earliest.get(entry.getKey())),
-                      Optional.ofNullable(latest.get(entry.getKey()))))
+                      Optional.ofNullable(latest.get(entry.getKey())),
+                      Optional.ofNullable(maxTimestamp.get(entry.getKey()))))
           .collect(Collectors.toList());
     }
 
@@ -366,7 +386,7 @@ public class Builder {
 
     private Map<
             Integer, Map<TopicPartition, Map<String, org.apache.kafka.clients.admin.ReplicaInfo>>>
-        logDirs(Set<String> topics) {
+        logDirs() {
       return Utils.packException(() -> admin.describeLogDirs(brokerIds()).allDescriptions().get())
           .entrySet()
           .stream()
@@ -398,71 +418,82 @@ public class Builder {
     }
 
     @Override
-    public Map<TopicPartition, List<Replica>> replicas(Set<String> topics) {
+    public List<Replica> replicas(Set<String> topics) {
       // pre-group folders by (broker -> topic partition) to speedup seek
-      var logInfo = logDirs(topics);
-
-      BiFunction<TopicPartition, org.apache.kafka.common.TopicPartitionInfo, List<Replica>>
-          toReplicas =
-              (tp, tpi) ->
-                  tpi.replicas().stream()
-                      .flatMap(
-                          node ->
-                              // kafka admin#describeLogDirs does not return offline node
-                              logInfo
-                                  .getOrDefault(node.id(), Map.of())
-                                  .getOrDefault(
-                                      tp,
-                                      Map.of(
-                                          "",
-                                          new org.apache.kafka.clients.admin.ReplicaInfo(
-                                              -1L, -1L, false)))
-                                  .entrySet()
-                                  .stream()
-                                  .map(
-                                      pathAndReplica ->
-                                          Replica.of(
-                                              tp.topic(),
-                                              tp.partition(),
-                                              NodeInfo.of(node),
-                                              pathAndReplica.getValue().offsetLag(),
-                                              pathAndReplica.getValue().size(),
-                                              tpi.leader() != null
-                                                  && !tpi.leader().isEmpty()
-                                                  && tpi.leader().id() == node.id(),
-                                              tpi.isr().contains(node),
-                                              pathAndReplica.getValue().isFuture(),
-                                              node.isEmpty(),
-                                              // The first replica in the return result is the
-                                              // preferred leader. This only works with Kafka broker
-                                              // version after
-                                              // 0.11. Version before 0.11 returns the replicas in
-                                              // unspecified order.
-                                              tpi.replicas().get(0).id() == node.id(),
-                                              // empty data folder means this replica is offline
-                                              pathAndReplica.getKey().isEmpty()
-                                                  ? null
-                                                  : pathAndReplica.getKey())))
-                      .collect(Collectors.toList());
-
-      return Utils.packException(() -> admin.describeTopics(topics).allTopicNames().get())
-          .entrySet()
-          .stream()
+      var logInfo = logDirs();
+      var topicDesc = Utils.packException(() -> admin.describeTopics(topics).allTopicNames().get());
+      return topicDesc.entrySet().stream()
           .flatMap(
-              e ->
-                  e.getValue().partitions().stream()
-                      .map(
+              topicDes ->
+                  topicDes.getValue().partitions().stream()
+                      .flatMap(
                           tpInfo ->
-                              Map.entry(TopicPartition.of(e.getKey(), tpInfo.partition()), tpInfo)))
-          .collect(
-              Collectors.toUnmodifiableMap(
-                  Map.Entry::getKey, entry -> toReplicas.apply(entry.getKey(), entry.getValue())));
+                              tpInfo.replicas().stream()
+                                  .flatMap(
+                                      node -> {
+                                        // kafka admin#describeLogDirs does not return offline
+                                        // node,when the node is not online,all TopicPartition
+                                        // return an empty dataFolder and a
+                                        // fake replicaInfo, and determine whether the node is
+                                        // online by whether the dataFolder is "".
+                                        var pathAndReplicas =
+                                            logInfo
+                                                .getOrDefault(node.id(), Map.of())
+                                                .getOrDefault(
+                                                    TopicPartition.of(
+                                                        topicDes.getKey(), tpInfo.partition()),
+                                                    Map.of(
+                                                        "",
+                                                        new org.apache.kafka.clients.admin
+                                                            .ReplicaInfo(-1L, -1L, false)));
+                                        return pathAndReplicas.entrySet().stream()
+                                            .map(
+                                                pathAndReplica ->
+                                                    Replica.of(
+                                                        topicDes.getKey(),
+                                                        tpInfo.partition(),
+                                                        NodeInfo.of(node),
+                                                        pathAndReplica.getValue().offsetLag(),
+                                                        pathAndReplica.getValue().size(),
+                                                        tpInfo.leader() != null
+                                                            && !tpInfo.leader().isEmpty()
+                                                            && tpInfo.leader().id() == node.id(),
+                                                        tpInfo.isr().contains(node),
+                                                        pathAndReplica.getValue().isFuture(),
+                                                        node.isEmpty()
+                                                            || pathAndReplica.getKey().equals(""),
+                                                        // The first replica in the return
+                                                        // result is
+                                                        // the
+                                                        // preferred leader. This only works
+                                                        // with
+                                                        // Kafka broker
+                                                        // version after
+                                                        // 0.11. Version before 0.11 returns
+                                                        // the
+                                                        // replicas in
+                                                        // unspecified order.
+                                                        tpInfo.replicas().get(0).id() == node.id(),
+                                                        // empty data folder means this
+                                                        // replica is
+                                                        // offline
+                                                        pathAndReplica.getKey().isEmpty()
+                                                            ? null
+                                                            : pathAndReplica.getKey()));
+                                      })))
+          .collect(Collectors.toList());
     }
 
     @Override
     public TopicCreator creator() {
       return new CreatorImpl(
-          admin, topic -> this.replicas(Set.of(topic)), topic -> topics().get(topic));
+          admin,
+          topic ->
+              this.replicas(Set.of(topic)).stream()
+                  .collect(
+                      Collectors.groupingBy(
+                          replica -> TopicPartition.of(replica.topic(), replica.partition()))),
+          topic -> topics(Set.of(topic)).get(0).config());
     }
 
     @Override
@@ -576,7 +607,7 @@ public class Builder {
                                   new org.apache.kafka.common.TopicPartitionReplica(
                                       entry.getKey().topic(), entry.getKey().partition(), id)))
               .collect(Collectors.toList());
-      var dirs = logDirs(topics);
+      var dirs = logDirs();
 
       Function<TopicPartition, Long> findMaxSize =
           tp ->
@@ -665,18 +696,15 @@ public class Builder {
         public ReplicationThrottler throttle(String topic) {
           replicas(Set.of(topic))
               .forEach(
-                  (tp, replicas) -> {
-                    replicas.forEach(
-                        replica -> {
-                          if (replica.isLeader())
-                            leaders.add(
-                                TopicPartitionReplica.of(
-                                    tp.topic(), tp.partition(), replica.nodeInfo().id()));
-                          else
-                            followers.add(
-                                TopicPartitionReplica.of(
-                                    tp.topic(), tp.partition(), replica.nodeInfo().id()));
-                        });
+                  replica -> {
+                    if (replica.isLeader())
+                      leaders.add(
+                          TopicPartitionReplica.of(
+                              replica.topic(), replica.partition(), replica.nodeInfo().id()));
+                    else
+                      followers.add(
+                          TopicPartitionReplica.of(
+                              replica.topic(), replica.partition(), replica.nodeInfo().id()));
                   });
           return this;
         }
@@ -684,7 +712,9 @@ public class Builder {
         @Override
         public ReplicationThrottler throttle(TopicPartition topicPartition) {
           var replicas =
-              replicas(Set.of(topicPartition.topic())).getOrDefault(topicPartition, List.of());
+              replicas(Set.of(topicPartition.topic())).stream()
+                  .filter(replica -> replica.partition() == topicPartition.partition())
+                  .collect(Collectors.toList());
           replicas.forEach(
               replica -> {
                 if (replica.isLeader())
@@ -896,7 +926,8 @@ public class Builder {
     @Override
     public void clearReplicationThrottle(TopicPartition topicPartition) {
       var configValue =
-          replicas(Set.of(topicPartition.topic())).get(topicPartition).stream()
+          replicas(Set.of(topicPartition.topic())).stream()
+              .filter(replica -> replica.partition() == topicPartition.partition())
               .map(replica -> topicPartition.partition() + ":" + replica.nodeInfo().id())
               .collect(Collectors.joining(","));
       var configEntry0 = new ConfigEntry("leader.replication.throttled.replicas", configValue);
@@ -984,31 +1015,6 @@ public class Builder {
                       entry -> new ConfigResource(ConfigResource.Type.BROKER, entry.getKey()),
                       entry -> (Collection<AlterConfigOp>) entry.getValue()));
       Utils.packException(() -> admin.incrementalAlterConfigs(map).all().get());
-    }
-  }
-
-  private static class ConfigImpl implements Config {
-    private final Map<String, String> configs;
-
-    ConfigImpl(org.apache.kafka.clients.admin.Config config) {
-      this(
-          config.entries().stream()
-              .filter(e -> e.value() != null)
-              .collect(Collectors.toUnmodifiableMap(ConfigEntry::name, ConfigEntry::value)));
-    }
-
-    ConfigImpl(Map<String, String> configs) {
-      this.configs = Collections.unmodifiableMap(configs);
-    }
-
-    @Override
-    public Map<String, String> raw() {
-      return configs;
-    }
-
-    @Override
-    public Optional<String> value(String key) {
-      return Optional.ofNullable(configs.get(key));
     }
   }
 
@@ -1170,7 +1176,7 @@ public class Builder {
               .get(topicPartition.partition())
               .replicas()
               .stream()
-              .map(Node::id)
+              .map(org.apache.kafka.common.Node::id)
               .collect(Collectors.toUnmodifiableSet());
       var notHere =
           brokerFolders.keySet().stream()
@@ -1205,7 +1211,7 @@ public class Builder {
               .replicas();
       var alreadyHere =
           currentReplicas.stream()
-              .map(Node::id)
+              .map(org.apache.kafka.common.Node::id)
               .filter(preferredDirMap::containsKey)
               .collect(Collectors.toUnmodifiableSet());
 

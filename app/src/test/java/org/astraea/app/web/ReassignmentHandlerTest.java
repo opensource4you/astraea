@@ -23,7 +23,6 @@ import java.util.Objects;
 import java.util.Set;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
-import org.astraea.common.admin.TopicPartition;
 import org.astraea.it.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -39,10 +38,10 @@ public class ReassignmentHandlerTest extends RequireBrokerCluster {
       Utils.sleep(Duration.ofSeconds(3));
 
       var currentBroker =
-          admin
-              .replicas(Set.of(topicName))
-              .get(TopicPartition.of(topicName, 0))
-              .get(0)
+          admin.replicas(Set.of(topicName)).stream()
+              .filter(replica -> replica.partition() == 0)
+              .findFirst()
+              .get()
               .nodeInfo()
               .id();
       var nextBroker = brokerIds().stream().filter(i -> i != currentBroker).findAny().get();
@@ -68,10 +67,10 @@ public class ReassignmentHandlerTest extends RequireBrokerCluster {
 
       Assertions.assertEquals(
           nextBroker,
-          admin
-              .replicas(Set.of(topicName))
-              .get(TopicPartition.of(topicName, 0))
-              .get(0)
+          admin.replicas(Set.of(topicName)).stream()
+              .filter(replica -> replica.partition() == 0)
+              .findFirst()
+              .get()
               .nodeInfo()
               .id());
     }
@@ -86,7 +85,11 @@ public class ReassignmentHandlerTest extends RequireBrokerCluster {
       Utils.sleep(Duration.ofSeconds(3));
 
       var currentReplica =
-          admin.replicas(Set.of(topicName)).get(TopicPartition.of(topicName, 0)).get(0);
+          admin.replicas(Set.of(topicName)).stream()
+              .filter(replica -> replica.partition() == 0)
+              .findFirst()
+              .get();
+
       var currentBroker = currentReplica.nodeInfo().id();
       var currentPath = currentReplica.dataFolder();
       var nextPath =
@@ -118,10 +121,10 @@ public class ReassignmentHandlerTest extends RequireBrokerCluster {
 
       Assertions.assertEquals(
           nextPath,
-          admin
-              .replicas(Set.of(topicName))
-              .get(TopicPartition.of(topicName, 0))
-              .get(0)
+          admin.replicas(Set.of(topicName)).stream()
+              .filter(replica -> replica.partition() == 0)
+              .findFirst()
+              .get()
               .dataFolder());
     }
   }

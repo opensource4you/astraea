@@ -84,10 +84,11 @@ public class ReplicationThrottlerTest extends RequireBrokerCluster {
       // 4. wait until it finished
       Utils.waitFor(
           () ->
-              admin.replicas(Set.of(topicName)).get(TopicPartition.of(topicName, 0)).stream()
-                  .filter(x -> x.nodeInfo().id() == 1)
+              admin.replicas(Set.of(topicName)).stream()
+                  .filter(replica -> replica.partition() == 0)
+                  .filter(replica -> replica.nodeInfo().id() == 1)
                   .findFirst()
-                  .map(Replica::inSync)
+                  .map(ReplicaInfo::inSync)
                   .orElse(false),
           Duration.ofSeconds(20));
       var end = System.currentTimeMillis();

@@ -27,7 +27,9 @@ public interface Partition {
       String topic,
       org.apache.kafka.common.TopicPartitionInfo tpi,
       Optional<org.apache.kafka.clients.admin.ListOffsetsResult.ListOffsetsResultInfo> earliest,
-      Optional<org.apache.kafka.clients.admin.ListOffsetsResult.ListOffsetsResultInfo> latest) {
+      Optional<org.apache.kafka.clients.admin.ListOffsetsResult.ListOffsetsResultInfo> latest,
+      Optional<org.apache.kafka.clients.admin.ListOffsetsResult.ListOffsetsResultInfo>
+          maxTimestamp) {
     return of(
         topic,
         tpi.partition(),
@@ -35,9 +37,8 @@ public interface Partition {
         tpi.replicas().stream().map(NodeInfo::of).collect(Collectors.toList()),
         tpi.isr().stream().map(NodeInfo::of).collect(Collectors.toList()),
         earliest.map(ListOffsetsResult.ListOffsetsResultInfo::offset).orElse(-1L),
-        earliest.map(ListOffsetsResult.ListOffsetsResultInfo::timestamp).orElse(-1L),
         latest.map(ListOffsetsResult.ListOffsetsResultInfo::offset).orElse(-1L),
-        latest.map(ListOffsetsResult.ListOffsetsResultInfo::timestamp).orElse(-1L));
+        maxTimestamp.map(ListOffsetsResult.ListOffsetsResultInfo::timestamp).orElse(-1L));
   }
 
   static Partition of(
@@ -47,9 +48,8 @@ public interface Partition {
       List<NodeInfo> replicas,
       List<NodeInfo> isr,
       long earliestOffset,
-      long earliestOffsetTimestamp,
       long latestOffset,
-      long latestOffsetTimestamp) {
+      long maxTimestamp) {
     return new Partition() {
 
       @Override
@@ -68,18 +68,13 @@ public interface Partition {
       }
 
       @Override
-      public long earliestOffsetTimestamp() {
-        return earliestOffsetTimestamp;
-      }
-
-      @Override
       public long latestOffset() {
         return latestOffset;
       }
 
       @Override
-      public long latestOffsetTimestamp() {
-        return latestOffsetTimestamp;
+      public long maxTimestamp() {
+        return maxTimestamp;
       }
 
       @Override
@@ -110,14 +105,11 @@ public interface Partition {
   /** @return existent earliest offset */
   long earliestOffset();
 
-  /** @return timestamp of the earliest offset */
-  long earliestOffsetTimestamp();
-
   /** @return existent latest offset */
   long latestOffset();
 
-  /** @return timestamp of the latest offset */
-  long latestOffsetTimestamp();
+  /** @return max timestamp of existent records */
+  long maxTimestamp();
 
   NodeInfo leader();
 
