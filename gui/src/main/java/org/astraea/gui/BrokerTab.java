@@ -44,45 +44,45 @@ public class BrokerTab {
                                 .map(
                                     node ->
                                         LinkedHashMap.of(
-                                            "hostname", node.host(),
-                                            "id", String.valueOf(node.id()),
-                                            "port", String.valueOf(node.port()),
+                                            "hostname",
+                                            node.host(),
+                                            "id",
+                                            String.valueOf(node.id()),
+                                            "port",
+                                            String.valueOf(node.port()),
+                                            "controller",
+                                            String.valueOf(node.isController()),
                                             "topics",
-                                                String.valueOf(
-                                                    node.folders().stream()
-                                                        .flatMap(
-                                                            d ->
-                                                                d.partitionSizes().keySet().stream()
-                                                                    .map(TopicPartition::topic))
-                                                        .distinct()
-                                                        .count()),
+                                            String.valueOf(
+                                                node.folders().stream()
+                                                    .flatMap(
+                                                        d ->
+                                                            d.partitionSizes().keySet().stream()
+                                                                .map(TopicPartition::topic))
+                                                    .distinct()
+                                                    .count()),
                                             "partitions",
-                                                String.valueOf(
-                                                    node.folders().stream()
-                                                        .flatMap(
-                                                            d ->
-                                                                d
-                                                                    .partitionSizes()
-                                                                    .keySet()
-                                                                    .stream())
-                                                        .distinct()
-                                                        .count()),
+                                            String.valueOf(
+                                                node.folders().stream()
+                                                    .flatMap(
+                                                        d -> d.partitionSizes().keySet().stream())
+                                                    .distinct()
+                                                    .count()),
+                                            "leaders",
+                                            String.valueOf(node.topicPartitionLeaders().size()),
                                             "size",
-                                                DataSize.Byte.of(
-                                                        node.folders().stream()
-                                                            .mapToLong(
-                                                                d ->
-                                                                    d
-                                                                        .partitionSizes()
-                                                                        .values()
-                                                                        .stream()
-                                                                        .mapToLong(v -> v)
-                                                                        .sum())
-                                                            .sum())
-                                                    .toString()))
+                                            DataSize.Byte.of(
+                                                    node.folders().stream()
+                                                        .mapToLong(
+                                                            d ->
+                                                                d.partitionSizes().values().stream()
+                                                                    .mapToLong(v -> v)
+                                                                    .sum())
+                                                        .sum())
+                                                .toString()))
                                 .collect(Collectors.toList()))
                     .orElse(List.of()));
-    var tab = new Tab("node");
+    var tab = new Tab("broker");
     tab.setContent(pane);
     return tab;
   }

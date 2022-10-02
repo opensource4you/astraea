@@ -667,6 +667,7 @@ public class RecordHandlerTest extends RequireBrokerCluster {
       var topicName = Utils.randomString(10);
       var handler = getRecordHandler();
       admin.creator().topic(topicName).numberOfPartitions(3).numberOfReplicas((short) 3).create();
+      Utils.sleep(Duration.ofSeconds(2));
       Assertions.assertEquals(
           Response.OK,
           handler.delete(Channel.ofQueries(topicName, Map.of(PARTITION, "0", OFFSET, "0"))));

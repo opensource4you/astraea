@@ -16,27 +16,16 @@
  */
 package org.astraea.etl
 
-import java.awt.geom.IllegalPathStateException
-import java.io.File
+import org.junit.jupiter.api.Test
 
-object Utils {
-  def requireFolder(path: String): File = {
-    val file = new File(path)
-    if (!file.isDirectory) {
-      throw new IllegalPathStateException(
-        s"$path is not a folder. The path should be a folder."
-      )
-    }
-    file
-  }
+class DeployModePatternTest {
+  @Test def deployModePatternTest(): Unit = {
+    assert(!DeployModePattern.of(""))
+    assert(!DeployModePattern.of("123"))
+    assert(DeployModePattern.of("local[2]"))
 
-  def requireFile(path: String): File = {
-    val file = new File(path)
-    if (!file.exists()) {
-      throw new IllegalPathStateException(
-        s"$path is not a file. The file does not exist."
-      )
-    }
-    file
+    assert(!DeployModePattern.of(""))
+    assert(!DeployModePattern.of("abc"))
+    assert(!DeployModePattern.of("spark://0.0.0.0"))
   }
 }
