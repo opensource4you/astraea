@@ -47,6 +47,7 @@ public class BrokerTab {
                                             "hostname", node.host(),
                                             "id", String.valueOf(node.id()),
                                             "port", String.valueOf(node.port()),
+                                            "controller", String.valueOf(node.isController()),
                                             "topics",
                                                 String.valueOf(
                                                     node.folders().stream()
@@ -82,7 +83,7 @@ public class BrokerTab {
                                                     .toString()))
                                 .collect(Collectors.toList()))
                     .orElse(List.of()));
-    var tab = new Tab("node");
+    var tab = new Tab("broker");
     tab.setContent(pane);
     return tab;
   }
