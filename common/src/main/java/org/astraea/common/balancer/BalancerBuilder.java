@@ -112,8 +112,7 @@ public class BalancerBuilder {
    * @return this
    */
   public BalancerBuilder limit(int limit) {
-    if (searchLimit <= 0)
-      throw new IllegalArgumentException("invalid search limit: " + searchLimit);
+    if (limit <= 0) throw new IllegalArgumentException("invalid search limit: " + limit);
     this.searchLimit = limit;
     return this;
   }

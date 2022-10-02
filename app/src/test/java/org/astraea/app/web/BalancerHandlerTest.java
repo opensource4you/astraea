@@ -232,15 +232,19 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
 
       Assertions.assertNotEquals(Optional.empty(), Best);
 
-      var i =
-          Balancer.builder()
-              .planGenerator(RebalancePlanGenerator.random(30))
-              .clusterCost(clusterCostFunction)
-              .clusterConstraint((before, after) -> false)
-              .moveCost(moveCostFunction)
-              .movementConstraint(moveCost -> true)
-              .build()
-              .offer(admin.clusterInfo(), ignore -> true, admin.brokerFolders());
+      // test loop limit
+      Assertions.assertThrows(
+          IllegalArgumentException.class,
+          () ->
+              Balancer.builder()
+                  .planGenerator(RebalancePlanGenerator.random(30))
+                  .clusterCost(clusterCostFunction)
+                  .clusterConstraint((before, after) -> true)
+                  .moveCost(moveCostFunction)
+                  .movementConstraint(moveCost -> true)
+                  .limit(0)
+                  .build()
+                  .offer(admin.clusterInfo(), ignore -> true, admin.brokerFolders()));
 
       // test cluster cost predicate
       Assertions.assertEquals(
