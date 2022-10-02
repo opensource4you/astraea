@@ -151,6 +151,10 @@ public class BalancerBuilder {
     Objects.requireNonNull(this.movementConstraint);
 
     if (greedy) return buildGreedy();
+    return buildNormal();
+  }
+
+  private Balancer buildNormal() {
     return (currentClusterInfo, topicFilter, brokerFolders) -> {
       final var currentClusterBean = ClusterBean.EMPTY;
       final var currentCost =

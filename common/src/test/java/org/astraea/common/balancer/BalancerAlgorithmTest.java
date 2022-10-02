@@ -18,12 +18,11 @@ package org.astraea.common.balancer;
 
 import java.time.Duration;
 import java.util.List;
-import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.balancer.generator.ShufflePlanGenerator;
-import org.astraea.common.cost.HasClusterCost;
+import org.astraea.common.cost.ReplicaNumberCost;
 import org.astraea.it.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.RepeatedTest;
@@ -42,49 +41,26 @@ public class BalancerAlgorithmTest extends RequireBrokerCluster {
           .forEach(tp -> admin.migrator().topic(tp).moveTo(List.of(brokerIds().iterator().next())));
       Utils.sleep(Duration.ofSeconds(2));
 
-      HasClusterCost cost =
-          (clusterInfo, ignored) -> {
-            var group =
-                clusterInfo.replicas().stream()
-                    .collect(Collectors.groupingBy(r -> r.nodeInfo().id()));
-
-            var max = group.values().stream().mapToLong(List::size).max().orElse(0);
-            var min = group.values().stream().mapToLong(List::size).min().orElse(0);
-            var c = group.size() == 1 ? Long.MAX_VALUE : max - min;
-            System.out.println(
-                "cost="
-                    + c
-                    + " allocations:"
-                    + group.entrySet().stream()
-                        .map(e -> e.getKey() + ":" + e.getValue().size())
-                        .collect(Collectors.joining(",")));
-            return () -> c;
-          };
-
       var planOfGreedy =
           Balancer.builder()
               .planGenerator(new ShufflePlanGenerator(0, 30))
-              .clusterCost(cost)
+              .clusterCost(new ReplicaNumberCost())
               .limit(Duration.ofSeconds(5))
               .greedy(true)
               .build()
               .offer(admin.clusterInfo(), admin.brokerFolders())
               .get();
 
-      System.out.println("greedy done");
-
       var plan =
           Balancer.builder()
               .planGenerator(new ShufflePlanGenerator(0, 30))
-              .clusterCost(cost)
+              .clusterCost(new ReplicaNumberCost())
               .limit(Duration.ofSeconds(5))
               .greedy(false)
               .build()
               .offer(admin.clusterInfo(), admin.brokerFolders())
               .get();
-      System.out.println("normal done");
 
-      Assertions.assertNotEquals(plan.clusterCost.value(), planOfGreedy.clusterCost.value());
       Assertions.assertTrue(plan.clusterCost.value() > planOfGreedy.clusterCost.value());
     }
   }
