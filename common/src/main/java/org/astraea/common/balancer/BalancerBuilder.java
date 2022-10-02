@@ -36,7 +36,7 @@ public class BalancerBuilder {
   private HasClusterCost clusterCostFunction;
   private HasMoveCost moveCostFunction = HasMoveCost.EMPTY;
   private BiPredicate<ClusterCost, ClusterCost> clusterConstraint =
-      (before, after) -> after.value() <= before.value();
+      (before, after) -> after.value() < before.value();
   private Predicate<MoveCost> movementConstraint = ignore -> true;
   private int searchLimit = Integer.MAX_VALUE;
   private Duration executionTime = Duration.ofSeconds(3);
