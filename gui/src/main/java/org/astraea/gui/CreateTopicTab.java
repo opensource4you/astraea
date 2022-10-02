@@ -17,54 +17,26 @@
 package org.astraea.gui;
 
 import java.util.concurrent.CompletableFuture;
-import javafx.geometry.HPos;
-import javafx.geometry.Insets;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.Tab;
 import javafx.scene.control.TextField;
-import javafx.scene.layout.GridPane;
 
 public class CreateTopicTab {
 
   public static Tab of(Context context) {
     var tab = new Tab("create topic");
-    var pane = new GridPane();
-    pane.setPadding(new Insets(5));
-    pane.setVgap(4);
-    pane.setHgap(2);
-
-    // topic
-    var topicLabel = new Label("topic name:");
-    GridPane.setHalignment(topicLabel, HPos.RIGHT);
-    pane.add(topicLabel, 0, 0);
     var topicField = new TextField();
-    pane.add(topicField, 1, 0);
-
-    // partitions
-    var partitionsLabel = new Label("number of partitions:");
-    GridPane.setHalignment(partitionsLabel, HPos.RIGHT);
-    pane.add(partitionsLabel, 0, 1);
     var partitionsField = Utils.onlyNumber(1);
-    pane.add(partitionsField, 1, 1);
-
-    // replicas
-    var replicasLabel = new Label("number of replicas:");
-    GridPane.setHalignment(replicasLabel, HPos.RIGHT);
-    pane.add(replicasLabel, 0, 2);
     var replicasField = new ShortBox((short) 1);
-    GridPane.setHalignment(replicasField, HPos.LEFT);
-    pane.add(replicasField, 1, 2);
 
-    var btn = new Button("create");
+    var executeButton = new Button("create");
     var console = new Console("");
-    pane.add(btn, 0, 3);
-    pane.add(console, 1, 3);
-    btn.setOnAction(
+    executeButton.setOnAction(
         ignored -> {
           var name = topicField.getText();
           if (name.isEmpty()) {
-            console.text("please enter topic name");
+            console.append("please enter topic name");
             return;
           }
           context
@@ -84,7 +56,13 @@ public class CreateTopicTab {
                               })
                           .whenComplete(console::text));
         });
-    tab.setContent(pane);
+    tab.setContent(
+        Utils.vbox(
+            Utils.hbox(new Label("name:"), topicField),
+            Utils.hbox(new Label("partitions:"), partitionsField),
+            Utils.hbox(new Label("replicas"), replicasField),
+            executeButton,
+            console));
     tab.setOnSelectionChanged(
         ignored -> {
           if (!tab.isSelected()) return;

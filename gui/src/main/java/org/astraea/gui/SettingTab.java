@@ -16,15 +16,12 @@
  */
 package org.astraea.gui;
 
-import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import javafx.geometry.Insets;
+import javafx.geometry.Pos;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.Tab;
 import javafx.scene.control.TextField;
-import javafx.scene.layout.VBox;
-import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 
 public class SettingTab {
@@ -35,23 +32,28 @@ public class SettingTab {
     var bootstrapField = new TextField("");
     var console = new Console("");
     var checkButton = new Button("check");
-    var ns =
-        List.of(new Label("enter the bootstrap servers:"), bootstrapField, console, checkButton);
-    var pane = new VBox(ns.size());
-    pane.setPadding(new Insets(15));
-    pane.getChildren().setAll(ns);
-    tab.setContent(pane);
+    tab.setContent(
+        Utils.vbox(
+            Utils.hbox(new Label("bootstrap servers:"), bootstrapField),
+            Utils.hbox(Pos.TOP_LEFT, checkButton, console)));
     checkButton.setOnAction(
         ignored -> {
           var bootstrapServers = bootstrapField.getText();
           if (!bootstrapServers.isEmpty())
             CompletableFuture.supplyAsync(
                     () -> {
-                      var previous = context.replace(Admin.of(bootstrapServers));
-                      previous.ifPresent(admin -> Utils.swallowException(admin::close));
-                      return "succeed to connect to " + bootstrapServers;
+                      var newAdmin = Admin.of(bootstrapServers);
+                      var brokerIds = newAdmin.brokerIds();
+                      var previous = context.replace(newAdmin);
+                      previous.ifPresent(
+                          admin -> org.astraea.common.Utils.swallowException(admin::close));
+                      return "succeed to connect to "
+                          + bootstrapServers
+                          + ", and there are "
+                          + brokerIds.size()
+                          + " nodes";
                     })
-                .whenComplete(console::text);
+                .whenComplete(console::append);
         });
     return tab;
   }

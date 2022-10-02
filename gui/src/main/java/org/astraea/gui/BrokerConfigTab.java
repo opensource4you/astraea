@@ -16,53 +16,36 @@
  */
 package org.astraea.gui;
 
-import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 import javafx.scene.control.Tab;
+import org.astraea.common.LinkedHashMap;
+import org.astraea.common.admin.Admin;
 
 public class BrokerConfigTab {
 
   public static Tab of(Context context) {
     var pane =
-        context.tableView(
+        Utils.searchToTable(
             "search for config:",
-            (admin, word) -> {
-              var beans =
-                  admin.nodes().stream()
-                      .map(
-                          n ->
-                              new Bean(
-                                  String.valueOf(n.id()),
-                                  n.config().raw().entrySet().stream()
-                                      .filter(
-                                          entry -> word.isEmpty() || entry.getKey().contains(word))
-                                      .collect(
-                                          Collectors.toMap(
-                                              Map.Entry::getKey, Map.Entry::getValue))))
-                      .collect(Collectors.toList());
-              var columnGetter = new LinkedHashMap<String, Function<Bean, Object>>();
-              columnGetter.put("broker id", bean -> bean.name);
-              beans.stream()
-                  .flatMap(bean -> bean.configs.keySet().stream())
-                  .sorted()
-                  .forEach(
-                      key -> columnGetter.put(key, bean -> bean.configs.getOrDefault(key, "")));
-              return Context.result(columnGetter, beans);
+            word -> {
+              var brokers = context.optionalAdmin().map(Admin::brokers).orElse(List.of());
+              return brokers.stream()
+                  .map(
+                      n -> {
+                        Map<String, String> map = new LinkedHashMap<>();
+                        map.put("id", String.valueOf(n.id()));
+                        n.config().raw().entrySet().stream()
+                            .filter(entry -> word.isEmpty() || entry.getKey().contains(word))
+                            .sorted(Map.Entry.comparingByKey())
+                            .forEach(entry -> map.put(entry.getKey(), entry.getValue()));
+                        return map;
+                      })
+                  .collect(Collectors.toList());
             });
     var tab = new Tab("broker config");
     tab.setContent(pane);
     return tab;
-  }
-
-  public static class Bean {
-    private final String name;
-    private final Map<String, String> configs;
-
-    public Bean(String name, Map<String, String> configs) {
-      this.name = name;
-      this.configs = configs;
-    }
   }
 }

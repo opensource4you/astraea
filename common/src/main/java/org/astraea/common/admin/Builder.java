@@ -261,13 +261,12 @@ public class Builder {
     }
 
     @Override
-    public List<Node> nodes() {
+    public List<Broker> brokers() {
+      var cluster = admin.describeCluster();
+      var controller = Utils.packException(() -> cluster.controller().get());
       var nodes =
           Utils.packException(
-              () ->
-                  admin.describeCluster().nodes().get().stream()
-                      .map(NodeInfo::of)
-                      .collect(Collectors.toList()));
+              () -> cluster.nodes().get().stream().map(NodeInfo::of).collect(Collectors.toList()));
       var logDirs =
           Utils.packException(
               () ->
@@ -294,8 +293,18 @@ public class Builder {
               .collect(
                   Collectors.toMap(e -> Integer.valueOf(e.getKey().name()), Map.Entry::getValue));
 
+      var tableDesc =
+          Utils.packException(() -> admin.describeTopics(this.topicNames()).all().get()).values();
+
       return nodes.stream()
-          .map(n -> Node.of(n, configs.get(n.id()), logDirs.get(n.id())))
+          .map(
+              n ->
+                  Broker.of(
+                      n.id() == controller.id(),
+                      n,
+                      configs.get(n.id()),
+                      logDirs.get(n.id()),
+                      tableDesc))
           .collect(Collectors.toList());
     }
 

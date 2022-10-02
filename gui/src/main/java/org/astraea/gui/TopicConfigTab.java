@@ -16,52 +16,39 @@
  */
 package org.astraea.gui;
 
-import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 import javafx.scene.control.Tab;
+import org.astraea.common.LinkedHashMap;
 
 public class TopicConfigTab {
 
   public static Tab of(Context context) {
     var pane =
-        context.tableView(
-            "search for configs:",
-            (admin, word) -> {
-              var beans =
-                  admin.topics(admin.topicNames()).stream()
-                      .map(
-                          topic ->
-                              new Bean(
-                                  topic.name(),
-                                  topic.config().raw().entrySet().stream()
-                                      .filter(e -> word.isEmpty() || e.getKey().contains(word))
-                                      .collect(
-                                          Collectors.toMap(
-                                              Map.Entry::getKey, Map.Entry::getValue))))
-                      .collect(Collectors.toList());
-              var columnGetter = new LinkedHashMap<String, Function<Bean, Object>>();
-              columnGetter.put("topic name", bean -> bean.name);
-              beans.stream()
-                  .flatMap(bean -> bean.configs.keySet().stream())
-                  .sorted()
-                  .forEach(
-                      key -> columnGetter.put(key, bean -> bean.configs.getOrDefault(key, "")));
-              return Context.result(columnGetter, beans);
+        Utils.searchToTable(
+            "search for config:",
+            word -> {
+              var topics =
+                  context
+                      .optionalAdmin()
+                      .map(admin -> admin.topics(admin.topicNames()))
+                      .orElse(List.of());
+              return topics.stream()
+                  .map(
+                      t -> {
+                        Map<String, String> map = new LinkedHashMap<>();
+                        map.put("name", t.name());
+                        t.config().raw().entrySet().stream()
+                            .filter(entry -> word.isEmpty() || entry.getKey().contains(word))
+                            .sorted(Map.Entry.comparingByKey())
+                            .forEach(entry -> map.put(entry.getKey(), entry.getValue()));
+                        return map;
+                      })
+                  .collect(Collectors.toList());
             });
     var tab = new Tab("topic config");
     tab.setContent(pane);
     return tab;
-  }
-
-  public static class Bean {
-    private final String name;
-    private final Map<String, String> configs;
-
-    public Bean(String name, Map<String, String> configs) {
-      this.name = name;
-      this.configs = configs;
-    }
   }
 }

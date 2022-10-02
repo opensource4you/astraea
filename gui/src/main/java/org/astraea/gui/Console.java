@@ -17,12 +17,13 @@
 package org.astraea.gui;
 
 import javafx.application.Platform;
-import javafx.scene.control.Label;
+import javafx.scene.control.TextArea;
 
-public class Console extends Label {
+public class Console extends TextArea {
 
   public Console(String text) {
     super(text);
+    this.setEditable(false);
   }
 
   public void text(String text, Throwable e) {
@@ -31,12 +32,41 @@ public class Console extends Label {
   }
 
   public void text(String text) {
-    if (text == null) return;
-    if (Platform.isFxApplicationThread()) setText(text);
-    else Platform.runLater(() -> setText(text));
+    text(text, false);
   }
 
   public void text(Throwable e) {
     if (e != null) text(Utils.toString(e));
+  }
+
+  private void text(String text, boolean append) {
+    if (text == null) return;
+    Runnable exec =
+        () -> {
+          var before = getText();
+          if (before != null && !before.isEmpty() && append)
+            setText("[" + Utils.formatCurrentTime() + "] " + text + "\n" + before);
+          else setText("[" + Utils.formatCurrentTime() + "] " + text);
+        };
+    if (Platform.isFxApplicationThread()) exec.run();
+    else Platform.runLater(exec);
+  }
+
+  public void append(String text) {
+    text(text, true);
+  }
+
+  public void append(Throwable e) {
+    if (e != null) text(Utils.toString(e), true);
+  }
+
+  public void append(String text, Throwable e) {
+    if (e != null) append(e);
+    else append(text);
+  }
+
+  public void cleanup() {
+    if (Platform.isFxApplicationThread()) setText("");
+    else Platform.runLater(() -> setText(""));
   }
 }
