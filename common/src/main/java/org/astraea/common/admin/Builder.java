@@ -293,10 +293,18 @@ public class Builder {
               .collect(
                   Collectors.toMap(e -> Integer.valueOf(e.getKey().name()), Map.Entry::getValue));
 
+      var tableDesc =
+          Utils.packException(() -> admin.describeTopics(this.topicNames()).all().get()).values();
+
       return nodes.stream()
           .map(
               n ->
-                  Broker.of(n.id() == controller.id(), n, configs.get(n.id()), logDirs.get(n.id())))
+                  Broker.of(
+                      n.id() == controller.id(),
+                      n,
+                      configs.get(n.id()),
+                      logDirs.get(n.id()),
+                      tableDesc))
           .collect(Collectors.toList());
     }
 
