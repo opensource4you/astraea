@@ -16,6 +16,7 @@
  */
 package org.astraea.app.web;
 
+import java.time.Duration;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
@@ -26,6 +27,7 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import org.astraea.common.Cache;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.Replica;
@@ -53,6 +55,12 @@ class BalancerHandler implements Handler {
   final HasClusterCost clusterCostFunction;
   final HasMoveCost moveCostFunction;
   final Map<UUID, PlanInfo> generatedPlans = new ConcurrentHashMap<>();
+  final Cache<UUID, PlanInfo> generatedPlanCache =
+      Cache.<UUID, PlanInfo>builder(generatedPlans::get)
+          .expireAfterAccess(Duration.ofDays(7))
+          .maxCapacity(10000)
+          .removalListener((id, ignore) -> generatedPlans.remove(id))
+          .build();
 
   BalancerHandler(Admin admin) {
     this(admin, new ReplicaSizeCost(), new ReplicaSizeCost());
