@@ -42,11 +42,13 @@ class BalancerHandler implements Handler {
   // TODO: implement an endpoint to execute rebalance plan, see
   // https://github.com/skiptests/astraea/issues/743
 
-  static String LIMIT_KEY = "limit";
+  static String LOOP_KEY = "loop";
 
   static String TOPICS_KEY = "topics";
 
-  static int LIMIT_DEFAULT = 10000;
+  static String TIMEOUT_KEY = "timeout";
+
+  static int LOOP_DEFAULT = 10000;
   private final Admin admin;
   private final RebalancePlanGenerator generator = RebalancePlanGenerator.random(30);
   final HasClusterCost clusterCostFunction;
@@ -64,8 +66,8 @@ class BalancerHandler implements Handler {
 
   @Override
   public Response get(Channel channel) {
-    var execTime =
-        Optional.ofNullable(channel.queries().get("execTime"))
+    var timeout =
+        Optional.ofNullable(channel.queries().get(TIMEOUT_KEY))
             .map(DurationField::toDuration)
             .orElse(Duration.ofSeconds(3));
     var topics =
@@ -74,8 +76,8 @@ class BalancerHandler implements Handler {
             .orElseGet(() -> admin.topicNames(false));
     var currentClusterInfo = admin.clusterInfo();
     var cost = clusterCostFunction.clusterCost(currentClusterInfo, ClusterBean.EMPTY).value();
-    var limit =
-        Integer.parseInt(channel.queries().getOrDefault(LIMIT_KEY, String.valueOf(LIMIT_DEFAULT)));
+    var loop =
+        Integer.parseInt(channel.queries().getOrDefault(LOOP_KEY, String.valueOf(LOOP_DEFAULT)));
     var targetAllocations = ClusterLogAllocation.of(admin.clusterInfo(topics));
     var bestPlan =
         Balancer.builder()
@@ -84,14 +86,14 @@ class BalancerHandler implements Handler {
             .clusterConstraint((before, after) -> after.value() <= before.value())
             .moveCost(moveCostFunction)
             .movementConstraint(moveCost -> true)
-            .limit(limit)
-            .limit(execTime)
+            .limit(loop)
+            .limit(timeout)
             .build()
             .offer(admin.clusterInfo(), topics::contains, admin.brokerFolders());
     return new Report(
         cost,
         bestPlan.map(p -> p.clusterCost().value()).orElse(null),
-        limit,
+        loop,
         bestPlan.map(p -> p.proposal().index()).orElse(null),
         clusterCostFunction.getClass().getSimpleName(),
         bestPlan
