@@ -46,7 +46,7 @@ public class BalancerBuilder {
   private int searchLimit = Integer.MAX_VALUE;
   private Duration executionTime = Duration.ofSeconds(3);
 
-  private boolean greedy = true;
+  private boolean greedy = false;
 
   /**
    * Specify the {@link RebalancePlanGenerator} for potential rebalance plan generation.
@@ -134,6 +134,13 @@ public class BalancerBuilder {
     return this;
   }
 
+  /**
+   * greedy mode means the balancer will use the first better plan to find out next better plan. The
+   * advantage is that balancer always try to find a "better" plan. However, it can't generate the
+   * best plan if the "first"/"second"/... better plan is not good enough.
+   *
+   * @return this builder
+   */
   public BalancerBuilder greedy(boolean greedy) {
     this.greedy = greedy;
     return this;
@@ -187,15 +194,15 @@ public class BalancerBuilder {
     return (originClusterInfo, topicFilter, brokerFolders) -> {
       final var loop = new AtomicInteger(searchLimit);
       final var start = System.currentTimeMillis();
-      Supplier<Boolean> isDone =
+      Supplier<Boolean> moreRoom =
           () ->
-              System.currentTimeMillis() - start >= executionTime.toMillis()
-                  || loop.getAndDecrement() <= 0;
+              System.currentTimeMillis() - start < executionTime.toMillis()
+                  && loop.getAndDecrement() > 0;
       BiFunction<ClusterInfo<Replica>, ClusterCost, Optional<Balancer.Plan>> next =
           (currentClusterInfo, currentCost) ->
               planGenerator
                   .generate(brokerFolders, ClusterLogAllocation.of(currentClusterInfo))
-                  .takeWhile(ignored -> !isDone.get())
+                  .takeWhile(ignored -> moreRoom.get())
                   .map(
                       proposal -> {
                         var newClusterInfo =
