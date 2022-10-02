@@ -18,9 +18,7 @@ package org.astraea.etl
 
 import java.io.File
 import java.util.Properties
-import scala.jdk.CollectionConverters._
-import scala.util.Using
-import scala.util.matching.Regex
+import scala.collection.JavaConverters._
 
 /** Parameters required for Astraea ETL.
   *
@@ -154,7 +152,7 @@ object Metadata {
 
   private[this] def readProp(path: File): Properties = {
     val properties = new Properties()
-    Using(scala.io.Source.fromFile(path)) { bufferedSource =>
+    Utils.withResources(scala.io.Source.fromFile(path)) { bufferedSource =>
       properties.load(bufferedSource.reader())
     }
     properties
@@ -164,8 +162,9 @@ object Metadata {
       prop: Map[String, String],
       columnName: Map[String, DataType]
   ): Map[String, DataType] = {
+    val cols = columnName.keys.toArray
     val primaryKeys = requireNonidentical(PRIMARY_KEYS, prop)
-    val combine = primaryKeys.keys.toArray ++ columnName.keys.toArray
+    val combine = primaryKeys.keys.toArray ++ cols
     if (combine.distinct.length != columnName.size) {
       val column = columnName.keys.toArray
       throw new IllegalArgumentException(

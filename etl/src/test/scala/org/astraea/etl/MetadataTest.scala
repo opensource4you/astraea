@@ -28,7 +28,7 @@ import org.junit.jupiter.api.{BeforeEach, Test}
 import java.io.{File, FileOutputStream}
 import java.nio.file.Files.createTempFile
 import java.util.Properties
-import scala.util.{Try, Using}
+import scala.util.Try
 
 class MetadataTest {
   var file = new File("")
@@ -62,7 +62,7 @@ class MetadataTest {
 
   @Test def configuredTest(): Unit = {
     val prop = new Properties
-    Using(scala.io.Source.fromFile(file)) { bufferedSource =>
+    Utils.withResources(scala.io.Source.fromFile(file)) { bufferedSource =>
       prop.load(bufferedSource.reader())
     }
     prop.setProperty("topic.partitions", "30")

@@ -33,7 +33,7 @@ object DeployModePattern {
       extends DeployModePattern("spark://(.+):(\\d+)".r)
 
   def of(str: String): Boolean = {
-    all().exists(_.r matches str)
+    all().exists(_.r.findAllIn(str).hasNext)
   }
 
   def all() = {
