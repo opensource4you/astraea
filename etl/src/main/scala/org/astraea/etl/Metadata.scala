@@ -152,7 +152,7 @@ object Metadata {
 
   private[this] def readProp(path: File): Properties = {
     val properties = new Properties()
-    Utils.withResources(scala.io.Source.fromFile(path)) { bufferedSource =>
+    Utils.Using(scala.io.Source.fromFile(path)) { bufferedSource =>
       properties.load(bufferedSource.reader())
     }
     properties
@@ -222,7 +222,7 @@ object Metadata {
 
   //spark://host:port or local[*]
   def requireDeployMode(str: String, prop: Map[String, String]): String = {
-    if (!DeployModePattern.of(prop(str))) {
+    if (!DeployMode.deployMatch(prop(str))) {
       throw new IllegalArgumentException(
         s"${prop { str }} not a supported deployment model. Please check $str."
       )

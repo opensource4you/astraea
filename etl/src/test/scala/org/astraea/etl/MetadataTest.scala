@@ -62,7 +62,7 @@ class MetadataTest {
 
   @Test def configuredTest(): Unit = {
     val prop = new Properties
-    Utils.withResources(scala.io.Source.fromFile(file)) { bufferedSource =>
+    Utils.Using(scala.io.Source.fromFile(file)) { bufferedSource =>
       prop.load(bufferedSource.reader())
     }
     prop.setProperty("topic.partitions", "30")
