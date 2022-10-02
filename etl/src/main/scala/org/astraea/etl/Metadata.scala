@@ -20,6 +20,7 @@ import java.io.File
 import java.util.Properties
 import scala.jdk.CollectionConverters._
 import scala.util.Using
+import scala.util.matching.Regex
 
 /** Parameters required for Astraea ETL.
   *
@@ -27,7 +28,7 @@ import scala.util.Using
   *   The data source path should be a directory.
   * @param sinkPath
   *   The data sink path should be a directory.
-  * @param columnName
+  * @param column
   *   The CSV Column Name.For example:stringA,stringB,stringC...
   * @param primaryKeys
   *   Primary keys.
@@ -43,20 +44,25 @@ import scala.util.Using
   * @param topicConfig
   *   The rest of the topic can be configured parameters.For example:
   *   keyA:valueA,keyB:valueB,keyC:valueC...
+  * @param deploymentModel
+  *   Set deployment model, which will be used in
+  *   SparkSession.builder().master(deployment.model).Two settings are currently
+  *   supported spark://HOST:PORT and local[*].
   */
-case class Configuration(
+case class Metadata(
     sourcePath: File,
     sinkPath: File,
-    columnName: Map[String, String],
-    primaryKeys: Map[String, String],
+    column: Map[String, DataType],
+    primaryKeys: Map[String, DataType],
     kafkaBootstrapServers: String,
     topicName: String,
     numPartitions: Int,
     numReplicas: Int,
-    topicConfig: Map[String, String]
+    topicConfig: Map[String, String],
+    deploymentModel: String
 )
 
-object Configuration {
+object Metadata {
   private[this] val SOURCE_PATH = "source.path"
   private[this] val SINK_PATH = "sink.path"
   private[this] val COLUMN_NAME = "column.name"
@@ -66,12 +72,13 @@ object Configuration {
   private[this] val TOPIC_PARTITIONS = "topic.partitions"
   private[this] val TOPIC_REPLICAS = "topic.replicas"
   private[this] val TOPIC_CONFIG = "topic.config"
+  private[this] val DEPLOYMENT_MODEL = "deployment.model"
 
   private[this] val DEFAULT_PARTITIONS = 15
   private[this] val DEFAULT_REPLICAS = 1
 
   //Parameters needed to configure ETL.
-  def apply(path: File): Configuration = {
+  def apply(path: File): Metadata = {
     val properties = readProp(path).asScala.filter(_._2.nonEmpty).toMap
 
     val sourcePath = Utils.requireFolder(
@@ -86,19 +93,18 @@ object Configuration {
       properties.getOrElse(
         SINK_PATH,
         throw new NullPointerException(
-          s"${SINK_PATH} + is null.You must configure ${SINK_PATH}."
+          s"$SINK_PATH + is null.You must configure $SINK_PATH."
         )
       )
     )
-    //TODO check the type
-    val column = requireNonidentical(COLUMN_NAME, properties)
-    val pKeys = primaryKeys(properties, column)
+    val column = columnParse(COLUMN_NAME, properties)
+    val pKeys = primaryKeyParse(properties, column)
     //TODO check the format after linking Kafka
     val bootstrapServer = properties(KAFKA_BOOTSTRAP_SERVERS)
     val topicName = properties.getOrElse(
       TOPIC_NAME,
       throw new NullPointerException(
-        s"${TOPIC_NAME} is null.You must configure ${TOPIC_NAME}."
+        s"$TOPIC_NAME is null.You must configure $TOPIC_NAME."
       )
     )
     val topicPartitions = properties
@@ -111,7 +117,9 @@ object Configuration {
       .getOrElse(DEFAULT_REPLICAS)
     val topicConfig = requirePair(properties.getOrElse(TOPIC_CONFIG, null))
 
-    Configuration(
+    val deploymentModel = requireDeployMode(DEPLOYMENT_MODEL, properties)
+
+    Metadata(
       sourcePath,
       sinkPath,
       column,
@@ -120,7 +128,8 @@ object Configuration {
       topicName,
       topicPartitions,
       topicReplicas,
-      topicConfig
+      topicConfig,
+      deploymentModel
     )
   }
 
@@ -151,10 +160,10 @@ object Configuration {
     properties
   }
 
-  def primaryKeys(
+  def primaryKeyParse(
       prop: Map[String, String],
-      columnName: Map[String, String]
-  ): Map[String, String] = {
+      columnName: Map[String, DataType]
+  ): Map[String, DataType] = {
     val primaryKeys = requireNonidentical(PRIMARY_KEYS, prop)
     val combine = primaryKeys.keys.toArray ++ columnName.keys.toArray
     if (combine.distinct.length != columnName.size) {
@@ -166,12 +175,31 @@ object Configuration {
             PRIMARY_KEYS + "(",
             ", ",
             ")"
-          )} not in column. All ${PRIMARY_KEYS} should be included in the column."
+          )} not in column. All $PRIMARY_KEYS should be included in the column."
       )
     }
-    primaryKeys
+
+    DataType.of(primaryKeys)
   }
 
+  def columnParse(
+      key: String,
+      prop: Map[String, String]
+  ): Map[String, DataType] = {
+    requireNonidentical(key, prop)
+    Option(prop(key))
+      .map(
+        _.split(",")
+          .map(_.split("="))
+          .map { elem =>
+            (elem(0), DataType.of(elem(1)))
+          }
+          .toMap
+      )
+      .get
+  }
+
+  //No duplicate values should be set.
   def requireNonidentical(
       string: String,
       prop: Map[String, String]
@@ -187,9 +215,19 @@ object Configuration {
             string + " (",
             ", ",
             ")"
-          )} is duplication. The ${string} should not be duplicated."
+          )} is duplication. The $string should not be duplicated."
       )
     }
     map
+  }
+
+  //spark://host:port or local[*]
+  def requireDeployMode(str: String, prop: Map[String, String]): String = {
+    if (!DeployModePattern.of(prop(str))) {
+      throw new IllegalArgumentException(
+        s"${prop { str }} not a supported deployment model. Please check $str."
+      )
+    }
+    str
   }
 }

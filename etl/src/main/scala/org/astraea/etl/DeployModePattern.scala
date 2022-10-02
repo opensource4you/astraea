@@ -16,27 +16,27 @@
  */
 package org.astraea.etl
 
-import java.awt.geom.IllegalPathStateException
-import java.io.File
+import scala.util.matching.Regex
 
-object Utils {
-  def requireFolder(path: String): File = {
-    val file = new File(path)
-    if (!file.isDirectory) {
-      throw new IllegalPathStateException(
-        s"$path is not a folder. The path should be a folder."
-      )
-    }
-    file
+sealed abstract class DeployModePattern(pattern: Regex) {
+  def r: Regex = {
+    pattern
+  }
+}
+
+object DeployModePattern {
+  // Whether it is a local mode string.
+  case object LocalModePattern
+      extends DeployModePattern("local(\\[)[\\d{1}](])".r)
+  // Whether it is a standalone mode string.
+  case object StandAloneModePattern
+      extends DeployModePattern("spark://(.+):(\\d+)".r)
+
+  def of(str: String): Boolean = {
+    all().exists(_.r matches str)
   }
 
-  def requireFile(path: String): File = {
-    val file = new File(path)
-    if (!file.exists()) {
-      throw new IllegalPathStateException(
-        s"$path is not a file. The file does not exist."
-      )
-    }
-    file
+  def all() = {
+    Seq(LocalModePattern, StandAloneModePattern)
   }
 }
