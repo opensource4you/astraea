@@ -17,13 +17,13 @@
 package org.astraea.app.web;
 
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.astraea.common.admin.Admin;
@@ -52,7 +52,7 @@ class BalancerHandler implements Handler {
   private final RebalancePlanGenerator generator = RebalancePlanGenerator.random(30);
   final HasClusterCost clusterCostFunction;
   final HasMoveCost moveCostFunction;
-  final Map<UUID, PlanInfo> generatedPlans = new HashMap<>();
+  final Map<UUID, PlanInfo> generatedPlans = new ConcurrentHashMap<>();
 
   BalancerHandler(Admin admin) {
     this(admin, new ReplicaSizeCost(), new ReplicaSizeCost());
