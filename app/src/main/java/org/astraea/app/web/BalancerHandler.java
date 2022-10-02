@@ -114,7 +114,7 @@ class BalancerHandler implements Handler {
                                         ignored -> null)))
                         .collect(Collectors.toUnmodifiableList()))
             .orElse(List.of());
-    var id = changes.isEmpty() ? null : UUID.randomUUID();
+    var id = bestPlan.map(ignore -> UUID.randomUUID()).orElse(null);
     var report =
         new Report(
             id,
