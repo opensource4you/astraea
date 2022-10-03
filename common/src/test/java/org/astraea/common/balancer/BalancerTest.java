@@ -62,34 +62,23 @@ class BalancerTest extends RequireBrokerCluster {
           .binomialProbability(0.1)
           .build()
           .apply(admin);
+
+      Utils.sleep(Duration.ofSeconds(3));
+
       var imbalanceFactor0 =
           Math.abs(
               currentLeaders.get().values().stream().mapToLong(x -> x).min().orElseThrow()
                   - currentLeaders.get().values().stream().mapToLong(x -> x).max().orElseThrow());
-
-      var start = System.currentTimeMillis();
       var plan =
           Balancer.builder()
               .planGenerator(new ShufflePlanGenerator(1, 10))
               .clusterCost(new ReplicaLeaderCost())
-              .limit(1000)
+              .limit(Duration.ofSeconds(10))
               .greedy(greedy)
               .build()
               .offer(admin.clusterInfo(Set.of(topicName)), admin.brokerFolders())
               .orElseThrow();
-      var start2 = System.currentTimeMillis();
-
       new StraightPlanExecutor().run(RebalanceAdmin.of(admin), plan.proposal().rebalancePlan());
-
-      System.out.println(
-          "plan: "
-              + (start2 - start)
-              + " exec:"
-              + (System.currentTimeMillis() - start2)
-              + " greedy: "
-              + greedy
-              + " cost: "
-              + plan.clusterCost.value());
       var imbalanceFactor1 =
           Math.abs(
               currentLeaders.get().values().stream().mapToLong(x -> x).min().orElseThrow()
