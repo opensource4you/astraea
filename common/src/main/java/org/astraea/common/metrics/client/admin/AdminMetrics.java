@@ -45,4 +45,17 @@ public class AdminMetrics {
         .map(b -> (HasNodeMetrics) () -> b)
         .collect(Collectors.toUnmodifiableList());
   }
+
+  public static Collection<HasAdminMetrics> of(MBeanClient mBeanClient) {
+    return mBeanClient
+        .queryBeans(
+            BeanQuery.builder()
+                .domainName("kafka.admin.client")
+                .property("type", "admin-client-metrics")
+                .property("client-id", "*")
+                .build())
+        .stream()
+        .map(b -> (HasAdminMetrics) () -> b)
+        .collect(Collectors.toUnmodifiableList());
+  }
 }

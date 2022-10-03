@@ -79,10 +79,12 @@ public class Builder {
   private static class AdminImpl implements Admin {
     private final org.apache.kafka.clients.admin.Admin admin;
 
+    private final String clientId;
     private final List<?> pendingRequests;
 
     AdminImpl(org.apache.kafka.clients.admin.Admin admin) {
       this.admin = Objects.requireNonNull(admin);
+      this.clientId = (String) Utils.member(admin, "clientId");
       this.pendingRequests =
           (ArrayList<?>) Utils.member(Utils.member(admin, "runnable"), "pendingCalls");
     }
@@ -244,6 +246,11 @@ public class Builder {
           .stream()
           .map(entry -> Topic.of(entry.getKey().name(), entry.getValue()))
           .collect(Collectors.toUnmodifiableList());
+    }
+
+    @Override
+    public String clientId() {
+      return clientId;
     }
 
     @Override

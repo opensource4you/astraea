@@ -17,6 +17,7 @@
 package org.astraea.common.metrics.client.admin;
 
 import java.time.Duration;
+import java.util.concurrent.ExecutionException;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.metrics.MBeanClient;
@@ -53,5 +54,53 @@ public class AdminMetricsTest extends RequireBrokerCluster {
     Assertions.assertNotEquals(0D, metrics.requestTotal());
     Assertions.assertNotEquals(0D, metrics.responseRate());
     Assertions.assertNotEquals(0D, metrics.responseTotal());
+  }
+
+  @Test
+  void testMetrics() throws ExecutionException, InterruptedException {
+    var topic = Utils.randomString(10);
+    try (var admin = Admin.of(bootstrapServers())) {
+      admin.creator().topic(topic).numberOfPartitions(3).create();
+      Utils.sleep(Duration.ofSeconds(3));
+      var metrics =
+          AdminMetrics.of(MBeanClient.local()).stream()
+              .filter(m -> m.clientId().equals(admin.clientId()))
+              .findFirst()
+              .get();
+      Assertions.assertDoesNotThrow(metrics::connectionCloseRate);
+      Assertions.assertDoesNotThrow(metrics::connectionCloseTotal);
+      Assertions.assertDoesNotThrow(metrics::connectionCount);
+      Assertions.assertDoesNotThrow(metrics::connectionCreationRate);
+      Assertions.assertDoesNotThrow(metrics::connectionCreationTotal);
+      Assertions.assertDoesNotThrow(metrics::failedAuthenticationRate);
+      Assertions.assertDoesNotThrow(metrics::failedAuthenticationTotal);
+      Assertions.assertDoesNotThrow(metrics::failedReauthenticationRate);
+      Assertions.assertDoesNotThrow(metrics::failedReauthenticationTotal);
+      Assertions.assertDoesNotThrow(metrics::incomingByteRate);
+      Assertions.assertDoesNotThrow(metrics::incomingByteTotal);
+      Assertions.assertDoesNotThrow(metrics::ioTimeNsAvg);
+      Assertions.assertDoesNotThrow(metrics::ioTimeNsTotal);
+      Assertions.assertDoesNotThrow(metrics::ioWaitTimeNsAvg);
+      Assertions.assertDoesNotThrow(metrics::ioWaitTimeNsTotal);
+      Assertions.assertDoesNotThrow(metrics::networkIoRate);
+      Assertions.assertDoesNotThrow(metrics::networkIoTotal);
+      Assertions.assertDoesNotThrow(metrics::outgoingByteRate);
+      Assertions.assertDoesNotThrow(metrics::outgoingByteTotal);
+      Assertions.assertDoesNotThrow(metrics::reauthenticationLatencyAvg);
+      Assertions.assertDoesNotThrow(metrics::reauthenticationLatencyMax);
+      Assertions.assertDoesNotThrow(metrics::requestRate);
+      Assertions.assertDoesNotThrow(metrics::requestSizeAvg);
+      Assertions.assertDoesNotThrow(metrics::requestSizeMax);
+      Assertions.assertDoesNotThrow(metrics::requestTotal);
+      Assertions.assertDoesNotThrow(metrics::responseRate);
+      Assertions.assertDoesNotThrow(metrics::responseTotal);
+      Assertions.assertDoesNotThrow(metrics::selectRate);
+      Assertions.assertDoesNotThrow(metrics::selectTotal);
+      Assertions.assertDoesNotThrow(metrics::successfulAuthenticationNoReauthTotal);
+      Assertions.assertDoesNotThrow(metrics::successfulAuthenticationRate);
+      Assertions.assertDoesNotThrow(metrics::successfulAuthenticationTotal);
+      Assertions.assertDoesNotThrow(metrics::successfulReauthenticationRate);
+      Assertions.assertDoesNotThrow(metrics::successfulReauthenticationTotal);
+    }
   }
 }

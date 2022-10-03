@@ -39,6 +39,8 @@ public interface Admin extends Closeable {
     return builder().configs(configs).build();
   }
 
+  String clientId();
+
   /** @return the number of pending requests. */
   int pendingRequests();
 
