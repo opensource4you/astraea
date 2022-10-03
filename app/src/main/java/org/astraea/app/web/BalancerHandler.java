@@ -42,13 +42,15 @@ class BalancerHandler implements Handler {
   // TODO: implement an endpoint to execute rebalance plan, see
   // https://github.com/skiptests/astraea/issues/743
 
-  static String LOOP_KEY = "loop";
+  static final String LOOP_KEY = "loop";
 
-  static String TOPICS_KEY = "topics";
+  static final String TOPICS_KEY = "topics";
 
-  static String TIMEOUT_KEY = "timeout";
+  static final String TIMEOUT_KEY = "timeout";
 
-  static int LOOP_DEFAULT = 10000;
+  static final int LOOP_DEFAULT = 10000;
+  static final int TIMEOUT_DEFAULT = 3;
+
   private final Admin admin;
   private final RebalancePlanGenerator generator = RebalancePlanGenerator.random(30);
   final HasClusterCost clusterCostFunction;
@@ -69,7 +71,7 @@ class BalancerHandler implements Handler {
     var timeout =
         Optional.ofNullable(channel.queries().get(TIMEOUT_KEY))
             .map(DurationField::toDuration)
-            .orElse(Duration.ofSeconds(3));
+            .orElse(Duration.ofSeconds(TIMEOUT_DEFAULT));
     var topics =
         Optional.ofNullable(channel.queries().get(TOPICS_KEY))
             .map(s -> (Set<String>) new HashSet<>(Arrays.asList(s.split(","))))
