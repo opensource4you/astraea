@@ -1882,4 +1882,12 @@ public class AdminTest extends RequireBrokerCluster {
           });
     }
   }
+
+  @Test
+  void testPendingRequest() {
+    var topic = Utils.randomString(10);
+    try (Admin admin = Admin.of(bootstrapServers())) {
+      Assertions.assertEquals(0, admin.pendingRequests());
+    }
+  }
 }
