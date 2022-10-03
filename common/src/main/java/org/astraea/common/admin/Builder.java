@@ -560,12 +560,12 @@ public class Builder {
     }
 
     @Override
-    public Map<String, Transaction> transactions(Set<String> transactionIds) {
-      return Utils.packException(
-          () ->
-              admin.describeTransactions(transactionIds).all().get().entrySet().stream()
-                  .collect(
-                      Collectors.toMap(Map.Entry::getKey, e -> Transaction.from(e.getValue()))));
+    public List<Transaction> transactions(Set<String> transactionIds) {
+      return Utils.packException(() -> admin.describeTransactions(transactionIds).all().get())
+          .entrySet()
+          .stream()
+          .map(e -> Transaction.of(e.getKey(), e.getValue()))
+          .collect(Collectors.toUnmodifiableList());
     }
 
     @Override
