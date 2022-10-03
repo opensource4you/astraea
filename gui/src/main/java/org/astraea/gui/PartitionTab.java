@@ -18,55 +18,62 @@ package org.astraea.gui;
 
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import javafx.scene.control.Tab;
 import org.astraea.common.LinkedHashMap;
 import org.astraea.common.admin.Partition;
 
 public class PartitionTab {
+
+  private static List<Map<String, String>> result(Stream<Partition> ps) {
+    return ps.map(
+            p ->
+                LinkedHashMap.of(
+                    "topic",
+                    p.topic(),
+                    "partition",
+                    String.valueOf(p.partition()),
+                    "leader",
+                    String.valueOf(p.leader().id()),
+                    "replicas",
+                    p.replicas().stream()
+                        .map(n -> String.valueOf(n.id()))
+                        .collect(Collectors.joining(",")),
+                    "isr",
+                    p.isr().stream()
+                        .map(n -> String.valueOf(n.id()))
+                        .collect(Collectors.joining(",")),
+                    "earliest offset",
+                    String.valueOf(p.earliestOffset()),
+                    "latest offset",
+                    String.valueOf(p.latestOffset()),
+                    "max timestamp",
+                    String.valueOf(p.maxTimestamp())))
+        .collect(Collectors.toList());
+  }
+
   public static Tab of(Context context) {
 
     var pane =
         Utils.searchToTable(
-            "search for topics:",
-            word ->
+            "topic name (space means all topics):",
+            (word, console) ->
                 context
                     .optionalAdmin()
                     .map(
                         admin ->
-                            admin
-                                .partitions(
-                                    admin.topicNames().stream()
-                                        .filter(name -> word.isEmpty() || name.contains(word))
-                                        .collect(Collectors.toSet()))
-                                .stream()
-                                .sorted(
-                                    Comparator.comparing(Partition::topic)
-                                        .thenComparing(Partition::partition))
-                                .map(
-                                    p ->
-                                        LinkedHashMap.of(
-                                            "topic",
-                                            p.topic(),
-                                            "partition",
-                                            String.valueOf(p.partition()),
-                                            "leader",
-                                            String.valueOf(p.leader().id()),
-                                            "replicas",
-                                            p.replicas().stream()
-                                                .map(n -> String.valueOf(n.id()))
-                                                .collect(Collectors.joining(",")),
-                                            "isr",
-                                            p.isr().stream()
-                                                .map(n -> String.valueOf(n.id()))
-                                                .collect(Collectors.joining(",")),
-                                            "earliest offset",
-                                            String.valueOf(p.earliestOffset()),
-                                            "latest offset",
-                                            String.valueOf(p.latestOffset()),
-                                            "max timestamp",
-                                            String.valueOf(p.maxTimestamp())))
-                                .collect(Collectors.toList()))
+                            result(
+                                admin
+                                    .partitions(
+                                        admin.topicNames().stream()
+                                            .filter(name -> word.isEmpty() || name.contains(word))
+                                            .collect(Collectors.toSet()))
+                                    .stream()
+                                    .sorted(
+                                        Comparator.comparing(Partition::topic)
+                                            .thenComparing(Partition::partition))))
                     .orElse(List.of()));
     var tab = new Tab("partition");
     tab.setContent(pane);

@@ -17,60 +17,63 @@
 package org.astraea.gui;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import javafx.scene.control.Tab;
 import org.astraea.common.LinkedHashMap;
+import org.astraea.common.admin.ConsumerGroup;
 
 public class ConsumerTab {
+
+  private static List<Map<String, String>> result(Stream<ConsumerGroup> cgs) {
+    return cgs.flatMap(
+            cg ->
+                cg.assignment().entrySet().stream()
+                    .flatMap(
+                        entry ->
+                            entry.getValue().stream()
+                                .map(
+                                    tp ->
+                                        LinkedHashMap.of(
+                                            "group",
+                                            entry.getKey().groupId(),
+                                            "topic",
+                                            tp.topic(),
+                                            "partition",
+                                            String.valueOf(tp.partition()),
+                                            "offset",
+                                            Optional.ofNullable(cg.consumeProgress().get(tp))
+                                                .map(String::valueOf)
+                                                .orElse("unknown"),
+                                            "client host",
+                                            entry.getKey().host(),
+                                            "client id",
+                                            entry.getKey().clientId(),
+                                            "member id",
+                                            entry.getKey().memberId(),
+                                            "instance id",
+                                            entry.getKey().groupInstanceId().orElse("")))))
+        .collect(Collectors.toList());
+  }
+
   public static Tab of(Context context) {
     var pane =
         Utils.searchToTable(
-            "search for consumer groups:",
-            word ->
+            "group id (space means all groups):",
+            (word, console) ->
                 context
                     .optionalAdmin()
                     .map(
                         admin ->
-                            admin
-                                .consumerGroups(
-                                    admin.consumerGroupIds().stream()
-                                        .filter(group -> word.isEmpty() || group.contains(word))
-                                        .collect(Collectors.toSet()))
-                                .stream()
-                                .flatMap(
-                                    cg ->
-                                        cg.assignment().entrySet().stream()
-                                            .flatMap(
-                                                entry ->
-                                                    entry.getValue().stream()
-                                                        .map(
-                                                            tp ->
-                                                                LinkedHashMap.of(
-                                                                    "group",
-                                                                        entry.getKey().groupId(),
-                                                                    "topic", tp.topic(),
-                                                                    "partition",
-                                                                        String.valueOf(
-                                                                            tp.partition()),
-                                                                    "offset",
-                                                                        Optional.ofNullable(
-                                                                                cg.consumeProgress()
-                                                                                    .get(tp))
-                                                                            .map(String::valueOf)
-                                                                            .orElse("unknown"),
-                                                                    "client host",
-                                                                        entry.getKey().host(),
-                                                                    "client id",
-                                                                        entry.getKey().clientId(),
-                                                                    "member id",
-                                                                        entry.getKey().memberId(),
-                                                                    "instance id",
-                                                                        entry
-                                                                            .getKey()
-                                                                            .groupInstanceId()
-                                                                            .orElse("")))))
-                                .collect(Collectors.toList()))
+                            result(
+                                admin
+                                    .consumerGroups(
+                                        admin.consumerGroupIds().stream()
+                                            .filter(group -> word.isEmpty() || group.contains(word))
+                                            .collect(Collectors.toSet()))
+                                    .stream()))
                     .orElse(List.of()));
     var tab = new Tab("consumer");
     tab.setContent(pane);

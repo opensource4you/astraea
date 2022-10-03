@@ -18,48 +18,56 @@ package org.astraea.gui;
 
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import javafx.scene.control.Tab;
 import org.astraea.common.LinkedHashMap;
 import org.astraea.common.admin.ProducerState;
 
 public class ProducerTab {
 
+  private static List<Map<String, String>> result(Stream<ProducerState> states) {
+    return states
+        .map(
+            state ->
+                LinkedHashMap.of(
+                    "topic",
+                    state.topic(),
+                    "partition",
+                    String.valueOf(state.partition()),
+                    "producer id",
+                    String.valueOf(state.producerId()),
+                    "producer epoch",
+                    String.valueOf(state.producerEpoch()),
+                    "last sequence",
+                    String.valueOf(state.lastSequence()),
+                    "last timestamp",
+                    String.valueOf(state.lastTimestamp())))
+        .collect(Collectors.toList());
+  }
+
   public static Tab of(Context context) {
     var pane =
         Utils.searchToTable(
-            "search for topics:",
-            word ->
+            "topic name (space means all topics):",
+            (word, console) ->
                 context
                     .optionalAdmin()
                     .map(
                         admin ->
-                            admin
-                                .producerStates(
-                                    admin.topicPartitions(
-                                        admin.topicNames().stream()
-                                            .filter(name -> word.isEmpty() || name.contains(word))
-                                            .collect(Collectors.toSet())))
-                                .stream()
-                                .sorted(
-                                    Comparator.comparing(ProducerState::topic)
-                                        .thenComparing(ProducerState::partition))
-                                .map(
-                                    state ->
-                                        LinkedHashMap.of(
-                                            "topic",
-                                            state.topic(),
-                                            "partition",
-                                            String.valueOf(state.partition()),
-                                            "producer id",
-                                            String.valueOf(state.producerId()),
-                                            "producer epoch",
-                                            String.valueOf(state.producerEpoch()),
-                                            "last sequence",
-                                            String.valueOf(state.lastSequence()),
-                                            "last timestamp",
-                                            String.valueOf(state.lastTimestamp())))
-                                .collect(Collectors.toList()))
+                            result(
+                                admin
+                                    .producerStates(
+                                        admin.topicPartitions(
+                                            admin.topicNames().stream()
+                                                .filter(
+                                                    name -> word.isEmpty() || name.contains(word))
+                                                .collect(Collectors.toSet())))
+                                    .stream()
+                                    .sorted(
+                                        Comparator.comparing(ProducerState::topic)
+                                            .thenComparing(ProducerState::partition))))
                     .orElse(List.of()));
     var tab = new Tab("producer");
     tab.setContent(pane);

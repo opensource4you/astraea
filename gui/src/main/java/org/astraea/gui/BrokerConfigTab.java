@@ -28,8 +28,8 @@ public class BrokerConfigTab {
   public static Tab of(Context context) {
     var pane =
         Utils.searchToTable(
-            "search for config:",
-            word -> {
+            "config key (space means all configs):",
+            (word, console) -> {
               var brokers = context.optionalAdmin().map(Admin::brokers).orElse(List.of());
               return brokers.stream()
                   .map(

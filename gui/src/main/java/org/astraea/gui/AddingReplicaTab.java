@@ -43,10 +43,11 @@ public class AddingReplicaTab {
           bean -> bean.progress);
 
   public static Tab of(Context context) {
-    var pane =
+    var tab = new Tab("adding replica");
+    tab.setContent(
         Utils.searchToTable(
-            "search for topics/brokers:",
-            word ->
+            "topic name or broker id (space means all topics/brokers):",
+            (word, console) ->
                 context
                     .optionalAdmin()
                     .map(
@@ -81,9 +82,7 @@ public class AddingReplicaTab {
                                                             / (double) state.leaderSize())
                                                         * 100)))
                                 .collect(Collectors.toList()))
-                    .orElse(List.of()));
-    var tab = new Tab("adding replica");
-    tab.setContent(pane);
+                    .orElse(List.of())));
     return tab;
   }
 
