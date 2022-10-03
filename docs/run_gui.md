@@ -23,23 +23,26 @@ Astraea 提供簡單但實用的 Kafka GUI 工具，讓使用者方便調閱和�
 ```
 
 #### 頁面範例
+1. 設定`bootstrap servers`
 
-1. 查詢所有 `topics` 與`min`有關的參數
+![setting](gui/setting.png)
+
+2. 查詢所有 `topics` 與`min`有關的參數
 
 ![topic_config](gui/topic_config.png)
 
-2. 調閱節點 `1007` 的資訊
+3. 調閱節點 `1007` 的資訊
 
-![node](gui/node.png)
+![node](gui/brokers.png)
 
-3. 查看新增的 `replicas` 的同步狀況
+4. 查看新增的 `replicas` 的同步狀況
 
 ![adding_replica](gui/adding_replica.png)
 
-4. 刪除/新增 `replicas`，下圖示範如何將從節點`1007`身上刪除`ccc`的所有`partitions`
+5. 刪除/新增 `replicas`，下圖示範如何將將節點`1008`身上所有的partitions移動到節點`1002`
 
 ![adding_replica](gui/reassign_replica.png)
 
-5. 平衡叢集。輸入要平衡的目標`topics`後，系統會在一定時間內找尋最佳化配置，上方表格可以看見新舊配置的比較，接著點擊`apply`可套用新的配置
+6. 平衡叢集。下圖示範如何依照`replica 數量`來平衡所有`topics`，系統會在一定時間內找尋最佳化配置，上方表格可以看見新舊配置的比較，接著點擊`apply`可套用新的配置
 
 ![balance](gui/balance.png)

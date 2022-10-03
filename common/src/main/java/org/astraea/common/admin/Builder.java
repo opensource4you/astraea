@@ -270,9 +270,9 @@ public class Builder {
     }
 
     @Override
-    public Set<Integer> brokerIds() {
+    public Set<NodeInfo> nodes() {
       return Utils.packException(() -> admin.describeCluster().nodes().get()).stream()
-          .map(org.apache.kafka.common.Node::id)
+          .map(n -> NodeInfo.of(n.id(), n.host(), n.port()))
           .collect(Collectors.toUnmodifiableSet());
     }
 

@@ -27,35 +27,32 @@ import org.astraea.common.admin.TopicPartition;
 
 public class BrokerTab {
 
-  private static List<LinkedHashMap<String, String>> result(Stream<Broker> brokers) {
+  private static List<LinkedHashMap<String, Object>> result(Stream<Broker> brokers) {
     return brokers
         .map(
             broker ->
-                LinkedHashMap.of(
+                LinkedHashMap.<String, Object>of(
                     "hostname",
                     broker.host(),
                     "id",
-                    String.valueOf(broker.id()),
+                    broker.id(),
                     "port",
-                    String.valueOf(broker.port()),
+                    broker.port(),
                     "controller",
-                    String.valueOf(broker.isController()),
+                    broker.isController(),
                     "topics",
-                    String.valueOf(
-                        broker.folders().stream()
-                            .flatMap(
-                                d ->
-                                    d.partitionSizes().keySet().stream().map(TopicPartition::topic))
-                            .distinct()
-                            .count()),
+                    broker.folders().stream()
+                        .flatMap(
+                            d -> d.partitionSizes().keySet().stream().map(TopicPartition::topic))
+                        .distinct()
+                        .count(),
                     "partitions",
-                    String.valueOf(
-                        broker.folders().stream()
-                            .flatMap(d -> d.partitionSizes().keySet().stream())
-                            .distinct()
-                            .count()),
+                    broker.folders().stream()
+                        .flatMap(d -> d.partitionSizes().keySet().stream())
+                        .distinct()
+                        .count(),
                     "leaders",
-                    String.valueOf(broker.topicPartitionLeaders().size()),
+                    broker.topicPartitionLeaders().size(),
                     "size",
                     DataSize.Byte.of(
                             broker.folders().stream()
@@ -72,21 +69,17 @@ public class BrokerTab {
   public static Tab of(Context context) {
     var pane =
         Utils.searchToTable(
-            "broker id/host/port (space means all brokers):",
             (word, console) ->
-                context
-                    .optionalAdmin()
-                    .map(
-                        admin ->
-                            result(
-                                admin.brokers().stream()
-                                    .filter(
-                                        nodeInfo ->
-                                            word.isEmpty()
-                                                || String.valueOf(nodeInfo.id()).contains(word)
-                                                || nodeInfo.host().contains(word)
-                                                || String.valueOf(nodeInfo.port()).contains(word))))
-                    .orElse(List.of()));
+                context.submit(
+                    admin ->
+                        result(
+                            admin.brokers().stream()
+                                .filter(
+                                    nodeInfo ->
+                                        word.isEmpty()
+                                            || String.valueOf(nodeInfo.id()).contains(word)
+                                            || nodeInfo.host().contains(word)
+                                            || String.valueOf(nodeInfo.port()).contains(word)))));
     var tab = new Tab("broker");
     tab.setContent(pane);
     return tab;

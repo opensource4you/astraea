@@ -21,6 +21,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import javafx.scene.control.Tab;
+import org.astraea.common.DataSize;
 import org.astraea.common.LinkedHashMap;
 import org.astraea.common.admin.Broker;
 import org.astraea.common.admin.NodeInfo;
@@ -31,25 +32,21 @@ public class TopicTab {
 
     var pane =
         Utils.searchToTable(
-            "topic name (space means all topics):",
             (word, console) ->
-                context
-                    .optionalAdmin()
-                    .map(
-                        admin ->
-                            beans(
-                                admin.partitions(
-                                    admin.topicNames().stream()
-                                        .filter(name -> word.isEmpty() || name.contains(word))
-                                        .collect(Collectors.toSet())),
-                                admin.brokers()))
-                    .orElse(List.of()));
+                context.submit(
+                    admin ->
+                        beans(
+                            admin.partitions(
+                                admin.topicNames().stream()
+                                    .filter(name -> word.isEmpty() || name.contains(word))
+                                    .collect(Collectors.toSet())),
+                            admin.brokers())));
     var tab = new Tab("topic");
     tab.setContent(pane);
     return tab;
   }
 
-  private static List<Map<String, String>> beans(List<Partition> partitions, List<Broker> nodes) {
+  private static List<Map<String, Object>> beans(List<Partition> partitions, List<Broker> nodes) {
     var topicSize =
         nodes.stream()
             .flatMap(n -> n.folders().stream().flatMap(d -> d.partitionSizes().entrySet().stream()))
@@ -64,15 +61,13 @@ public class TopicTab {
     return tps.keySet().stream()
         .map(
             topic ->
-                LinkedHashMap.of(
+                LinkedHashMap.<String, Object>of(
                     "name", topic,
-                    "partitions", String.valueOf(tps.get(topic).size()),
-                    "replicas",
-                        String.valueOf(
-                            tps.get(topic).stream().mapToInt(p -> p.replicas().size()).sum()),
+                    "partitions", tps.get(topic).size(),
+                    "replicas", tps.get(topic).stream().mapToInt(p -> p.replicas().size()).sum(),
                     "size",
                         Optional.ofNullable(topicSize.get(topic))
-                            .map(String::valueOf)
+                            .map(s -> DataSize.Byte.of(s).toString())
                             .orElse("unknown"),
                     "broker ids",
                         tps.get(topic).stream()
