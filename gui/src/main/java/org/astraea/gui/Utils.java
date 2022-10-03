@@ -20,14 +20,16 @@ import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.text.SimpleDateFormat;
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
@@ -40,15 +42,17 @@ import javafx.geometry.Pos;
 import javafx.scene.Node;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
+import javafx.scene.control.RadioButton;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
 import javafx.scene.control.TextField;
+import javafx.scene.control.ToggleGroup;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Pane;
 import javafx.scene.layout.VBox;
 
 class Utils {
-  private static final Duration DELAY_INPUT = Duration.ofMillis(600);
+  private static final Duration DELAY_INPUT = Duration.ofMillis(900);
 
   public static TextField onlyNumber(int defaultValue) {
     var field = new TextField(String.valueOf(defaultValue));
@@ -108,20 +112,21 @@ class Utils {
   }
 
   public static <T extends Map<String, String>> Pane searchToTable(
-      String hint, BiFunction<String, Console, List<T>> itemGenerator) {
+      String hint, BiFunction<String, Console, List<T>> itemGenerator, Node... nodes) {
     return searchToTable(
-        hint, (word, console) -> SearchResult.of(itemGenerator.apply(word, console)), null);
+        hint, (word, console) -> SearchResult.of(itemGenerator.apply(word, console)), null, nodes);
   }
 
   public static <T> Pane searchToTable(
       String hint,
       BiFunction<String, Console, SearchResult<T>> resultGenerator,
-      BiConsumer<SearchResult<T>, Console> resultConsumer) {
+      BiConsumer<SearchResult<T>, Console> resultConsumer,
+      Node... nodes) {
     var view = new TableView<>(FXCollections.<Map<String, String>>observableArrayList());
     view.setColumnResizePolicy(TableView.UNCONSTRAINED_RESIZE_POLICY);
     var console = new ConsoleArea();
     var search = new TextField("");
-    var isRunning = new AtomicBoolean();
+    var lastWord = new AtomicReference<String>();
     var lastResult = new AtomicReference<SearchResult<T>>();
     var applyResultButton = new Button("apply");
     applyResultButton.setVisible(false);
@@ -130,21 +135,19 @@ class Utils {
         .addListener(
             ((observable, oldValue, newValue) -> {
               if (newValue == null) return;
-              var word = newValue.isBlank() ? "" : newValue;
-              if (!isRunning.compareAndSet(false, true)) return;
+              if (lastWord.getAndSet(newValue.isBlank() ? "" : newValue) != null) return;
               applyResultButton.setVisible(false);
               console.cleanup();
               view.getItems().clear();
-              applyResultButton.setVisible(false);
               CompletableFuture.supplyAsync(
-                      () -> resultGenerator.apply(word, console),
+                      () -> resultGenerator.apply(lastWord.get(), console),
                       CompletableFuture.delayedExecutor(
                           DELAY_INPUT.toMillis(), TimeUnit.MILLISECONDS))
                   .whenComplete(
                       (result, e) -> {
                         if (result == null || result == SearchResult.empty()) {
                           console.append("can't generate result. Please retry it.");
-                          isRunning.set(false);
+                          lastWord.set(null);
                           return;
                         }
                         var tables =
@@ -164,7 +167,7 @@ class Utils {
                             () -> {
                               view.getColumns().setAll(tables);
                               view.getItems().setAll(result.items());
-                              isRunning.set(false);
+                              lastWord.set(null);
                               // There is a callback of result, so we display the button.
                               if (resultConsumer != null) applyResultButton.setVisible(true);
                             });
@@ -183,7 +186,11 @@ class Utils {
             CompletableFuture.runAsync(() -> resultConsumer.accept(result, console))
                 .whenComplete((r, e) -> console.append(e));
           });
-    return vbox(Pos.TOP_RIGHT, hbox(new Label(hint), search), view, applyResultButton, console);
+    var list = new ArrayList<Node>();
+    list.add(new Label(hint));
+    list.add(search);
+    if (nodes != null) list.addAll(Arrays.asList(nodes));
+    return vbox(Pos.TOP_RIGHT, hbox(list.toArray(new Node[0])), view, applyResultButton, console);
   }
 
   public static String toString(Throwable e) {
@@ -203,6 +210,18 @@ class Utils {
 
   public static String formatCurrentTime() {
     return format(System.currentTimeMillis());
+  }
+
+  public static <T extends Enum<T>> Map<Enum<T>, RadioButton> radioButton(Enum<T>[] keys) {
+    var group = new ToggleGroup();
+    var result = new HashMap<Enum<T>, RadioButton>();
+    for (var i = 0; i != keys.length; ++i) {
+      var button = new RadioButton(keys[i].name());
+      button.setToggleGroup(group);
+      button.setSelected(i == 0);
+      result.put(keys[i], button);
+    }
+    return result;
   }
 
   private Utils() {}

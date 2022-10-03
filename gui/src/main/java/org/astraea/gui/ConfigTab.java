@@ -16,38 +16,56 @@
  */
 package org.astraea.gui;
 
-import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import javafx.scene.control.RadioButton;
 import javafx.scene.control.Tab;
 import org.astraea.common.LinkedHashMap;
+import org.astraea.common.admin.Broker;
+import org.astraea.common.admin.Topic;
 
-public class TopicConfigTab {
+public class ConfigTab {
+
+  private enum Resource {
+    BROKER,
+    TOPIC
+  }
 
   public static Tab of(Context context) {
+    var radioButtons = Utils.radioButton(Resource.values());
     var pane =
         Utils.searchToTable(
             "config key (space means all configs):",
             (word, console) -> {
-              var topics =
+              var isTopic = radioButtons.get(Resource.TOPIC).isSelected();
+              var resources =
                   context
                       .optionalAdmin()
-                      .map(admin -> admin.topics(admin.topicNames()))
-                      .orElse(List.of());
-              return topics.stream()
+                      .map(
+                          admin ->
+                              isTopic
+                                  ? admin.topics(admin.topicNames()).stream()
+                                      .collect(Collectors.toMap(Topic::name, Topic::config))
+                                  : admin.brokers().stream()
+                                      .collect(
+                                          Collectors.toMap(
+                                              b -> String.valueOf(b.id()), Broker::config)))
+                      .orElse(Map.of());
+              return resources.entrySet().stream()
                   .map(
-                      t -> {
+                      e -> {
                         Map<String, String> map = new LinkedHashMap<>();
-                        map.put("name", t.name());
-                        t.config().raw().entrySet().stream()
+                        map.put(isTopic ? "name" : "id", e.getKey());
+                        e.getValue().raw().entrySet().stream()
                             .filter(entry -> word.isEmpty() || entry.getKey().contains(word))
                             .sorted(Map.Entry.comparingByKey())
                             .forEach(entry -> map.put(entry.getKey(), entry.getValue()));
                         return map;
                       })
                   .collect(Collectors.toList());
-            });
-    var tab = new Tab("topic config");
+            },
+            radioButtons.values().toArray(RadioButton[]::new));
+    var tab = new Tab("config");
     tab.setContent(pane);
     return tab;
   }

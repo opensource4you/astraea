@@ -50,7 +50,7 @@ public class PartitionTab {
                     "latest offset",
                     String.valueOf(p.latestOffset()),
                     "max timestamp",
-                    String.valueOf(p.maxTimestamp())))
+                    Utils.format(p.maxTimestamp())))
         .collect(Collectors.toList());
   }
 
