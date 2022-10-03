@@ -87,9 +87,7 @@ class BalancerHandler implements Handler {
         Balancer.builder()
             .planGenerator(generator)
             .clusterCost(clusterCostFunction)
-            .clusterConstraint((before, after) -> after.value() <= before.value())
             .moveCost(moveCostFunction)
-            .movementConstraint(moveCost -> true)
             .limit(LIMIT_DEFAULT)
             .build()
             .offer(currentClusterInfo, topics::contains, admin.brokerFolders());

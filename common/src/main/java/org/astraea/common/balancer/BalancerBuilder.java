@@ -19,10 +19,15 @@ package org.astraea.common.balancer;
 import java.time.Duration;
 import java.util.Comparator;
 import java.util.Objects;
+import java.util.Optional;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.BiFunction;
 import java.util.function.BiPredicate;
 import java.util.function.Predicate;
+import java.util.function.Supplier;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
+import org.astraea.common.admin.Replica;
 import org.astraea.common.balancer.generator.RebalancePlanGenerator;
 import org.astraea.common.balancer.log.ClusterLogAllocation;
 import org.astraea.common.cost.ClusterCost;
@@ -36,10 +41,12 @@ public class BalancerBuilder {
   private HasClusterCost clusterCostFunction;
   private HasMoveCost moveCostFunction = HasMoveCost.EMPTY;
   private BiPredicate<ClusterCost, ClusterCost> clusterConstraint =
-      (before, after) -> after.value() <= before.value();
+      (before, after) -> after.value() < before.value();
   private Predicate<MoveCost> movementConstraint = ignore -> true;
   private int searchLimit = Integer.MAX_VALUE;
   private Duration executionTime = Duration.ofSeconds(3);
+
+  private boolean greedy = false;
 
   /**
    * Specify the {@link RebalancePlanGenerator} for potential rebalance plan generation.
@@ -128,6 +135,18 @@ public class BalancerBuilder {
   }
 
   /**
+   * greedy mode means the balancer will use the first better plan to find out next better plan. The
+   * advantage is that balancer always try to find a "better" plan. However, it can't generate the
+   * best plan if the "first"/"second"/... better plan is not good enough.
+   *
+   * @return this builder
+   */
+  public BalancerBuilder greedy(boolean greedy) {
+    this.greedy = greedy;
+    return this;
+  }
+
+  /**
    * @return a {@link Balancer} that will offer rebalance plan based on the implementation detail
    *     you specified.
    */
@@ -138,6 +157,11 @@ public class BalancerBuilder {
     Objects.requireNonNull(this.moveCostFunction);
     Objects.requireNonNull(this.movementConstraint);
 
+    if (greedy) return buildGreedy();
+    return buildNormal();
+  }
+
+  private Balancer buildNormal() {
     return (currentClusterInfo, topicFilter, brokerFolders) -> {
       final var currentClusterBean = ClusterBean.EMPTY;
       final var currentCost =
@@ -163,6 +187,50 @@ public class BalancerBuilder {
           .filter(plan -> clusterConstraint.test(currentCost, plan.clusterCost))
           .filter(plan -> movementConstraint.test(plan.moveCost))
           .min(Comparator.comparing(plan -> plan.clusterCost.value()));
+    };
+  }
+
+  private Balancer buildGreedy() {
+    return (originClusterInfo, topicFilter, brokerFolders) -> {
+      final var loop = new AtomicInteger(searchLimit);
+      final var start = System.currentTimeMillis();
+      Supplier<Boolean> moreRoom =
+          () ->
+              System.currentTimeMillis() - start < executionTime.toMillis()
+                  && loop.getAndDecrement() > 0;
+      BiFunction<ClusterInfo<Replica>, ClusterCost, Optional<Balancer.Plan>> next =
+          (currentClusterInfo, currentCost) ->
+              planGenerator
+                  .generate(brokerFolders, ClusterLogAllocation.of(currentClusterInfo))
+                  .takeWhile(ignored -> moreRoom.get())
+                  .map(
+                      proposal -> {
+                        var newClusterInfo =
+                            BalancerUtils.update(currentClusterInfo, proposal.rebalancePlan());
+                        return new Balancer.Plan(
+                            proposal,
+                            clusterCostFunction.clusterCost(newClusterInfo, ClusterBean.EMPTY),
+                            moveCostFunction.moveCost(
+                                currentClusterInfo, newClusterInfo, ClusterBean.EMPTY));
+                      })
+                  .filter(plan -> clusterConstraint.test(currentCost, plan.clusterCost))
+                  .filter(plan -> movementConstraint.test(plan.moveCost))
+                  .findFirst();
+      var currentCost = clusterCostFunction.clusterCost(originClusterInfo, ClusterBean.EMPTY);
+      var currentClusterInfo = ClusterInfo.masked(originClusterInfo, topicFilter);
+      var currentPlan = Optional.<Balancer.Plan>empty();
+      while (true) {
+        var newPlan = next.apply(currentClusterInfo, currentCost);
+        if (newPlan.isEmpty()) break;
+        currentPlan = newPlan;
+        currentCost = currentPlan.get().clusterCost;
+        currentClusterInfo =
+            ClusterInfo.masked(
+                BalancerUtils.update(
+                    originClusterInfo, currentPlan.get().proposal().rebalancePlan()),
+                topicFilter);
+      }
+      return currentPlan;
     };
   }
 }
