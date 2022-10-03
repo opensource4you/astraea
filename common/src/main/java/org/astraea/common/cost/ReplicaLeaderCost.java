@@ -93,7 +93,7 @@ public class ReplicaLeaderCost implements HasBrokerCost, HasClusterCost, HasMove
       Collection<Replica> addedReplicas,
       ClusterBean clusterBean) {
     return MoveCost.builder()
-        .name("leader")
+        .name("Replica Leader")
         .unit("partition leaders")
         .totalCost(addedReplicas.stream().filter(Replica::isLeader).count())
         .change(

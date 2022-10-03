@@ -82,7 +82,7 @@ public class StrictCostDispatcherTest {
                   "2",
                   "jmx.port",
                   "1111")));
-      Assertions.assertEquals(2, dispatcher.functions.size());
+      Assertions.assertNotEquals(HasBrokerCost.EMPTY, dispatcher.costFunction);
     }
   }
 
@@ -98,7 +98,7 @@ public class StrictCostDispatcherTest {
                   "2",
                   "jmx.port",
                   "1111")));
-      Assertions.assertEquals(2, dispatcher.functions.size());
+      Assertions.assertNotEquals(HasBrokerCost.EMPTY, dispatcher.costFunction);
     }
   }
 
@@ -283,7 +283,7 @@ public class StrictCostDispatcherTest {
   void testDefaultFunction() {
     try (var dispatcher = new StrictCostDispatcher()) {
       dispatcher.configure(Configuration.of(Map.of()));
-      Assertions.assertEquals(1, dispatcher.functions.size());
+      Assertions.assertNotEquals(HasBrokerCost.EMPTY, dispatcher.costFunction);
       Assertions.assertEquals(1, dispatcher.receivers.size());
     }
   }
@@ -291,7 +291,7 @@ public class StrictCostDispatcherTest {
   @Test
   void testCostToScore() {
     var cost = Map.of(1, 100D, 2, 10D);
-    var score = StrictCostDispatcher.costToScore(cost);
+    var score = StrictCostDispatcher.costToScore(() -> cost);
     Assertions.assertTrue(score.get(2) > score.get(1));
   }
 
@@ -335,7 +335,19 @@ public class StrictCostDispatcherTest {
           ClusterInfo.of(List.of(ReplicaInfo.of("topic", 0, nodeInfo, true, true, false)));
 
       Assertions.assertEquals(0, dispatcher.receivers.size());
-      dispatcher.fetcher = Optional.of(Mockito.mock(Fetcher.class));
+      dispatcher.costFunction =
+          new HasBrokerCost() {
+            @Override
+            public BrokerCost brokerCost(
+                ClusterInfo<? extends ReplicaInfo> clusterInfo, ClusterBean clusterBean) {
+              return Map::of;
+            }
+
+            @Override
+            public Optional<Fetcher> fetcher() {
+              return Optional.of(Mockito.mock(Fetcher.class));
+            }
+          };
       dispatcher.jmxPortGetter = id -> Optional.of(1111);
       dispatcher.tryToUpdateFetcher(clusterInfo);
       Assertions.assertEquals(1, dispatcher.receivers.size());

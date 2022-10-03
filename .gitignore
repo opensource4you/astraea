@@ -18,3 +18,4 @@ spark.dockerfile
 deps.dockerfile
 # we don't put binary file to git repo
 gradle-wrapper.jar
+VersionUtils.java

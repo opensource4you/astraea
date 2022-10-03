@@ -119,8 +119,8 @@ public class ProducerHandlerTest extends RequireBrokerCluster {
     var topicName = Utils.randomString(10);
     try (var admin = Admin.of(bootstrapServers())) {
       var handler = new ProducerHandler(admin);
-      Assertions.assertEquals(admin.partitions(), handler.partitions(Map.of()));
-      var target = admin.partitions().iterator().next();
+      Assertions.assertEquals(admin.topicPartitions(), handler.partitions(Map.of()));
+      var target = admin.topicPartitions().iterator().next();
       Assertions.assertEquals(
           Set.of(target),
           handler.partitions(

@@ -22,6 +22,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
+import org.astraea.common.Utils;
 
 public interface Admin extends Closeable {
 
@@ -48,46 +50,34 @@ public interface Admin extends Closeable {
     return topicNames(true);
   }
 
-  /** @return the topic name and its configurations. */
-  default Map<String, Config> topics() {
-    return topics(topicNames());
-  }
-
-  /** @return the topic name and its configurations. */
-  Map<String, Config> topics(Set<String> topicNames);
+  List<Topic> topics(Set<String> names);
 
   /** delete topics by topic names */
   void deleteTopics(Set<String> topicNames);
 
   /** @return all partitions */
-  default Set<TopicPartition> partitions() {
-    return partitions(topicNames());
+  default Set<TopicPartition> topicPartitions() {
+    return topicPartitions(topicNames());
   }
 
   /**
    * @param topics target
    * @return the partitions belong to input topics
    */
-  Set<TopicPartition> partitions(Set<String> topics);
+  Set<TopicPartition> topicPartitions(Set<String> topics);
+
+  /**
+   * list all partitions belongs to input brokers
+   *
+   * @param brokerId to search
+   * @return all partition belongs to brokers
+   */
+  Set<TopicPartition> topicPartitions(int brokerId);
 
   /** @return a topic creator to set all topic configs and then run the procedure. */
   TopicCreator creator();
 
-  /** @return offsets of all partitions */
-  default Map<TopicPartition, Offset> offsets() {
-    return offsets(topicNames());
-  }
-
-  /**
-   * @param topics topic names
-   * @return the earliest offset and latest offset for specific topics
-   */
-  Map<TopicPartition, Offset> offsets(Set<String> topics);
-
-  /** @return all consumer groups */
-  default Map<String, ConsumerGroup> consumerGroups() {
-    return consumerGroups(consumerGroupIds());
-  }
+  List<Partition> partitions(Set<String> topics);
 
   /** @return all consumer group ids */
   Set<String> consumerGroupIds();
@@ -96,65 +86,34 @@ public interface Admin extends Closeable {
    * @param consumerGroupNames consumer group names.
    * @return the member info of each consumer group
    */
-  Map<String, ConsumerGroup> consumerGroups(Set<String> consumerGroupNames);
+  List<ConsumerGroup> consumerGroups(Set<String> consumerGroupNames);
 
   /** @return replica info of all partitions */
-  default Map<TopicPartition, List<Replica>> replicas() {
+  default List<Replica> replicas() {
     return replicas(topicNames());
   }
 
   /**
    * @param topics topic names
-   * @return the replicas of partition
+   * @return all replica in topics
    */
-  Map<TopicPartition, List<Replica>> replicas(Set<String> topics);
-
-  /** @return all broker id and their configuration */
-  default Map<Integer, Config> brokers() {
-    return brokers(brokerIds());
-  }
-
-  /**
-   * @param brokerIds to search
-   * @return broker information
-   */
-  Map<Integer, Config> brokers(Set<Integer> brokerIds);
+  List<Replica> replicas(Set<String> topics);
 
   /** @return all alive brokers' ids */
-  default Set<Integer> brokerIds() {
-    return nodes().stream().map(NodeInfo::id).collect(Collectors.toUnmodifiableSet());
-  }
+  Set<Integer> brokerIds();
 
   /** @return all alive node information in the cluster */
-  Set<NodeInfo> nodes();
-
-  /**
-   * list all partitions belongs to input brokers
-   *
-   * @param brokerId to search
-   * @return all partition belongs to brokers
-   */
-  default Set<TopicPartition> partitions(int brokerId) {
-    return partitions(topicNames(), Set.of(brokerId)).getOrDefault(brokerId, Set.of());
-  }
-
-  /**
-   * @param topics topic names
-   * @param brokerIds brokers ID
-   * @return the partitions of brokers
-   */
-  Map<Integer, Set<TopicPartition>> partitions(Set<String> topics, Set<Integer> brokerIds);
+  List<Broker> brokers();
 
   /** @return data folders of all broker nodes */
   default Map<Integer, Set<String>> brokerFolders() {
-    return brokerFolders(brokerIds());
+    return brokers().stream()
+        .collect(
+            Collectors.toMap(
+                NodeInfo::id,
+                n ->
+                    n.folders().stream().map(Broker.DataFolder::path).collect(Collectors.toSet())));
   }
-
-  /**
-   * @param brokers a Set containing broker's ID
-   * @return all log directory
-   */
-  Map<Integer, Set<String>> brokerFolders(Set<Integer> brokers);
 
   /** @return a partition migrator used to move partitions to another broker or folder. */
   ReplicaMigrator migrator();
@@ -170,15 +129,15 @@ public interface Admin extends Closeable {
   void preferredLeaderElection(TopicPartition topicPartition);
 
   /** @return producer states of all topic partitions */
-  default Map<TopicPartition, Collection<ProducerState>> producerStates() {
-    return producerStates(partitions());
+  default List<ProducerState> producerStates() {
+    return producerStates(topicPartitions());
   }
 
   /**
    * @param partitions to search
    * @return producer states of input topic partitions
    */
-  Map<TopicPartition, Collection<ProducerState>> producerStates(Set<TopicPartition> partitions);
+  List<ProducerState> producerStates(Set<TopicPartition> partitions);
 
   /** @return a progress to set quota */
   QuotaCreator quotaCreator();
@@ -208,7 +167,22 @@ public interface Admin extends Closeable {
    * @param topics query only this subset of topics
    * @return a snapshot object of cluster state at the moment
    */
-  ClusterInfo<Replica> clusterInfo(Set<String> topics);
+  default ClusterInfo<Replica> clusterInfo(Set<String> topics) {
+    var nodeInfo = brokers().stream().map(n -> (NodeInfo) n).collect(Collectors.toSet());
+    var replicas = Utils.packException(() -> replicas(topics));
+
+    return new ClusterInfo<>() {
+      @Override
+      public Set<NodeInfo> nodes() {
+        return nodeInfo;
+      }
+
+      @Override
+      public Stream<Replica> replicaStream() {
+        return replicas.stream();
+      }
+    };
+  }
 
   /** @return all transaction ids */
   Set<String> transactionIds();
@@ -241,22 +215,7 @@ public interface Admin extends Closeable {
    */
   void removeStaticMembers(String groupId, Set<String> members);
 
-  /**
-   * Get the reassignments of all topics.
-   *
-   * @return reassignment
-   */
-  default Map<TopicPartition, Reassignment> reassignments() {
-    return reassignments(topicNames());
-  }
-
-  /**
-   * Get the reassignments of topics. It returns nothing if the partitions are not migrating.
-   *
-   * @param topics to search
-   * @return reassignment
-   */
-  Map<TopicPartition, Reassignment> reassignments(Set<String> topics);
+  List<AddingReplica> addingReplicas(Set<String> topics);
 
   /**
    * Delete records with offset less than specified Long

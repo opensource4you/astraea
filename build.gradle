@@ -23,6 +23,7 @@ spotless {
         licenseHeaderFile(file("$rootDir/checkstyle/apache.header"))
         importOrder()
         removeUnusedImports()
+        targetExclude "**/VersionUtils.java"
         target '**/java/**/*.java'
         googleJavaFormat()
         custom 'refuse wildcard', {

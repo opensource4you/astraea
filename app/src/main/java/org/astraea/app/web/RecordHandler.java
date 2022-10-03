@@ -44,6 +44,7 @@ import org.astraea.common.Cache;
 import org.astraea.common.EnumInfo;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
+import org.astraea.common.admin.Partition;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.argument.DurationField;
 import org.astraea.common.consumer.Builder;
@@ -234,7 +235,7 @@ public class RecordHandler implements Handler {
     var partitions =
         Optional.ofNullable(channel.queries().get(PARTITION))
             .map(x -> Set.of(TopicPartition.of(topic, x)))
-            .orElseGet(() -> admin.partitions(Set.of(topic)));
+            .orElseGet(() -> admin.topicPartitions(Set.of(topic)));
 
     var deletedOffsets =
         Optional.ofNullable(channel.queries().get(OFFSET))
@@ -244,11 +245,14 @@ public class RecordHandler implements Handler {
                     partitions.stream().collect(Collectors.toMap(Function.identity(), x -> offset)))
             .orElseGet(
                 () -> {
-                  var currentOffsets = admin.offsets(Set.of(topic));
+                  var currentPartitions =
+                      admin.partitions(Set.of(topic)).stream()
+                          .collect(
+                              Collectors.toMap(Partition::topicPartition, Function.identity()));
                   return partitions.stream()
                       .collect(
                           Collectors.toMap(
-                              Function.identity(), x -> currentOffsets.get(x).latest()));
+                              Function.identity(), x -> currentPartitions.get(x).latestOffset()));
                 });
     admin.deleteRecords(deletedOffsets);
     return Response.OK;
