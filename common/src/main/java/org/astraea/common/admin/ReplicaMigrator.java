@@ -39,6 +39,23 @@ public interface ReplicaMigrator {
   ReplicaMigrator partition(String topic, int partition);
 
   /**
+   * move all partitions (leader replica and follower replicas) of broker
+   *
+   * @param broker broker id
+   * @return this migrator
+   */
+  ReplicaMigrator broker(int broker);
+
+  /**
+   * move all partitions (leader replica and follower replicas) of topic of broker
+   *
+   * @param broker broker id
+   * @param topic topic name
+   * @return this migrator
+   */
+  ReplicaMigrator topicOfBroker(int broker, String topic);
+
+  /**
    * change the partition replica list. If the current partition leader is kicked out of the
    * partition replica list. A preferred leader election will occur implicitly. The preferred
    * leader(the first replica in the list) will become the new leader of this topic/partition. If
