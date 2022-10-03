@@ -36,7 +36,7 @@ import org.astraea.common.cost.ClusterCost;
 import org.astraea.common.cost.HasClusterCost;
 import org.astraea.common.cost.HasMoveCost;
 import org.astraea.common.cost.MoveCost;
-import org.astraea.common.cost.ReplicaNumberCost;
+import org.astraea.common.cost.ReplicaSizeCost;
 import org.astraea.common.producer.Producer;
 import org.astraea.it.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
@@ -49,11 +49,13 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
     createAndProduceTopic(3);
     try (var admin = Admin.of(bootstrapServers())) {
       var handler =
-          new BalancerHandler(admin, List.of(new DegradeCost()), List.of(new ReplicaNumberCost()));
+          new BalancerHandler(
+              admin, List.of(MultiplicationCost.decreasing()), List.of(new ReplicaSizeCost()));
       var report =
           Assertions.assertInstanceOf(
               BalancerHandler.Report.class,
               handler.get(Channel.ofQueries(Map.of(BalancerHandler.LIMIT_KEY, "3000"))));
+      Assertions.assertNotNull(report.id);
       Assertions.assertEquals(3000, report.limit);
       Assertions.assertNotEquals(0, report.changes.size());
       Assertions.assertTrue(report.cost >= report.newCost);
@@ -70,10 +72,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
           .forEach(p -> Assertions.assertNull(p.size));
       Assertions.assertTrue(report.cost >= report.newCost);
       var sizeMigration =
-          report.migrationCosts.stream()
-              .filter(x -> x.function.equals("Replica Number"))
-              .findFirst()
-              .get();
+          report.migrationCosts.stream().filter(x -> x.function.equals("size")).findFirst().get();
       Assertions.assertTrue(sizeMigration.totalCost >= 0);
       Assertions.assertTrue(sizeMigration.cost.size() > 0);
       Assertions.assertEquals(0, sizeMigration.cost.stream().mapToLong(x -> x.cost).sum());
@@ -85,7 +84,8 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
     var topicNames = createAndProduceTopic(3);
     try (var admin = Admin.of(bootstrapServers())) {
       var handler =
-          new BalancerHandler(admin, List.of(new DegradeCost()), List.of(new ReplicaNumberCost()));
+          new BalancerHandler(
+              admin, List.of(MultiplicationCost.decreasing()), List.of(new ReplicaSizeCost()));
       var report =
           Assertions.assertInstanceOf(
               BalancerHandler.Report.class,
@@ -102,10 +102,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
       Assertions.assertEquals(topicNames.get(0), actual.iterator().next());
       Assertions.assertTrue(report.cost >= report.newCost);
       var sizeMigration =
-          report.migrationCosts.stream()
-              .filter(x -> x.function.equals("Replica Number"))
-              .findFirst()
-              .get();
+          report.migrationCosts.stream().filter(x -> x.function.equals("size")).findFirst().get();
       Assertions.assertTrue(sizeMigration.totalCost >= 0);
       Assertions.assertTrue(sizeMigration.cost.size() > 0);
       Assertions.assertEquals(0, sizeMigration.cost.stream().mapToLong(x -> x.cost).sum());
@@ -113,16 +110,29 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
   }
 
   /** The score will getter better after each call, pretend we find a better plan */
-  private static class DegradeCost implements HasClusterCost {
+  private static class MultiplicationCost implements HasClusterCost {
 
-    private double value = 1.0;
+    private double value0 = 1.0;
+    private final double mul;
+
+    static MultiplicationCost decreasing() {
+      return new MultiplicationCost(0.998);
+    }
+
+    static MultiplicationCost increasing() {
+      return new MultiplicationCost(1.02);
+    }
+
+    private MultiplicationCost(double mul) {
+      this.mul = mul;
+    }
 
     @Override
     public synchronized ClusterCost clusterCost(
         ClusterInfo<Replica> clusterInfo, ClusterBean clusterBean) {
-      value = value * 0.998;
-      var result = value;
-      return () -> result;
+      double theCost = value0;
+      value0 = value0 * mul;
+      return () -> theCost;
     }
   }
 
@@ -131,7 +141,8 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
     var topicNames = createAndProduceTopic(3);
     try (var admin = Admin.of(bootstrapServers())) {
       var handler =
-          new BalancerHandler(admin, List.of(new DegradeCost()), List.of(new ReplicaNumberCost()));
+          new BalancerHandler(
+              admin, List.of(MultiplicationCost.decreasing()), List.of(new ReplicaSizeCost()));
       var report =
           Assertions.assertInstanceOf(
               BalancerHandler.Report.class,
@@ -149,10 +160,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
       Assertions.assertTrue(actual.contains(topicNames.get(1)));
       Assertions.assertTrue(report.cost >= report.newCost);
       var sizeMigration =
-          report.migrationCosts.stream()
-              .filter(x -> x.function.equals("Replica Number"))
-              .findFirst()
-              .get();
+          report.migrationCosts.stream().filter(x -> x.function.equals("size")).findFirst().get();
       Assertions.assertTrue(sizeMigration.totalCost >= 0);
       Assertions.assertTrue(sizeMigration.cost.size() > 0);
       Assertions.assertEquals(0, sizeMigration.cost.stream().mapToLong(x -> x.cost).sum());
@@ -252,6 +260,24 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
               .movementConstraint(Map.of("unknown", (ignore) -> false))
               .build()
               .offer(admin.clusterInfo(), ignore -> true, admin.brokerFolders()));
+    }
+  }
+
+  @Test
+  void testNoReport() {
+    createAndProduceTopic(3);
+    try (var admin = Admin.of(bootstrapServers())) {
+      Utils.sleep(Duration.ofSeconds(1));
+      var handler =
+          new BalancerHandler(
+              admin, List.of(MultiplicationCost.increasing()), List.of(new ReplicaSizeCost()));
+      var report =
+          Assertions.assertInstanceOf(
+              BalancerHandler.Report.class,
+              handler.get(Channel.ofQueries(Map.of(BalancerHandler.LIMIT_KEY, "10"))));
+
+      Assertions.assertTrue(report.changes.isEmpty());
+      Assertions.assertNull(report.id);
     }
   }
 }

@@ -105,7 +105,12 @@ public interface Admin extends Closeable {
   List<Replica> replicas(Set<String> topics);
 
   /** @return all alive brokers' ids */
-  Set<Integer> brokerIds();
+  default Set<Integer> brokerIds() {
+    return nodes().stream().map(NodeInfo::id).collect(Collectors.toUnmodifiableSet());
+  }
+
+  /** @return all node info */
+  Set<NodeInfo> nodes();
 
   /** @return all alive node information in the cluster */
   List<Broker> brokers();
@@ -192,17 +197,13 @@ public interface Admin extends Closeable {
   /** @return all transaction ids */
   Set<String> transactionIds();
 
-  /** @return all transaction states */
-  default Map<String, Transaction> transactions() {
-    return transactions(transactionIds());
-  }
   /**
    * return transaction states associated to input ids
    *
    * @param transactionIds to query state
    * @return transaction states
    */
-  Map<String, Transaction> transactions(Set<String> transactionIds);
+  List<Transaction> transactions(Set<String> transactionIds);
 
   /**
    * remove an empty group. It causes error if the group has memebrs.

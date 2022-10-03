@@ -27,7 +27,7 @@ public class TransactionStateTest {
   void testConversion() {
     var r =
         Arrays.stream(org.apache.kafka.clients.admin.TransactionState.values())
-            .map(TransactionState::from)
+            .map(TransactionState::of)
             .collect(Collectors.toSet());
     Assertions.assertEquals(
         r.size(), org.apache.kafka.clients.admin.TransactionState.values().length);

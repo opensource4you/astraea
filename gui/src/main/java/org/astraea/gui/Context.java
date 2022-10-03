@@ -18,6 +18,8 @@ package org.astraea.gui;
 
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
+import java.util.function.Function;
 import org.astraea.common.admin.Admin;
 
 public class Context {
@@ -27,7 +29,15 @@ public class Context {
     return Optional.ofNullable(atomicReference.getAndSet(admin));
   }
 
-  public Optional<Admin> optionalAdmin() {
-    return Optional.ofNullable(atomicReference.get());
+  public <T> T submit(Function<Admin, T> executor) {
+    var admin = atomicReference.get();
+    if (admin == null) throw new IllegalArgumentException("Please define bootstrap servers");
+    return executor.apply(admin);
+  }
+
+  public void execute(Consumer<Admin> executor) {
+    var admin = atomicReference.get();
+    if (admin == null) throw new IllegalArgumentException("Please define bootstrap servers");
+    executor.accept(admin);
   }
 }
