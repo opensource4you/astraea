@@ -110,3 +110,5 @@ Dispatcher.endInterdependent(producer);
 experiments 資料夾中收錄不同版本的實驗紀錄，主要使用 [performance tool](../performance_benchmark.md) 測試並紀錄數據。
 
 * [2022 Aug28](experiments/StrictCostDispatcher_1.md), 測試 [Strict Cost Partitioner](./strict_cost_dispatcher.md) (Astraea revision: [75bcc3faa39864d5ec5f5ed530346184e79fc0c9](https://github.com/skiptests/astraea/tree/75bcc3faa39864d5ec5f5ed530346184e79fc0c9))
+* [2022 Oct1](experiments/StrictCostDispatcher_1.md), 測試資源充足下 [interdependent message](README.md#Astraea Dispatcher "Interdependent Message" 功能) 對 [Strict Cost Partitioner](./strict_cost_dispatcher.md) 的影響
+* [2022 Oct1](experiments/StrictCostDispatcher_1.md), 測試高壓下 [interdependent message](README.md#Astraea Dispatcher "Interdependent Message" 功能) 對 [Strict Cost Partitioner](./strict_cost_dispatcher.md) 的影響
