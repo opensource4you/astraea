@@ -51,23 +51,19 @@ public class ProducerTab {
     var pane =
         Utils.searchToTable(
             (word, console) ->
-                context
-                    .optionalAdmin()
-                    .map(
-                        admin ->
-                            result(
-                                admin
-                                    .producerStates(
-                                        admin.topicPartitions(
-                                            admin.topicNames().stream()
-                                                .filter(
-                                                    name -> word.isEmpty() || name.contains(word))
-                                                .collect(Collectors.toSet())))
-                                    .stream()
-                                    .sorted(
-                                        Comparator.comparing(ProducerState::topic)
-                                            .thenComparing(ProducerState::partition))))
-                    .orElse(List.of()));
+                context.submit(
+                    admin ->
+                        result(
+                            admin
+                                .producerStates(
+                                    admin.topicPartitions(
+                                        admin.topicNames().stream()
+                                            .filter(name -> word.isEmpty() || name.contains(word))
+                                            .collect(Collectors.toSet())))
+                                .stream()
+                                .sorted(
+                                    Comparator.comparing(ProducerState::topic)
+                                        .thenComparing(ProducerState::partition)))));
     var tab = new Tab("producer");
     tab.setContent(pane);
     return tab;

@@ -59,21 +59,18 @@ public class PartitionTab {
     var pane =
         Utils.searchToTable(
             (word, console) ->
-                context
-                    .optionalAdmin()
-                    .map(
-                        admin ->
-                            result(
-                                admin
-                                    .partitions(
-                                        admin.topicNames().stream()
-                                            .filter(name -> word.isEmpty() || name.contains(word))
-                                            .collect(Collectors.toSet()))
-                                    .stream()
-                                    .sorted(
-                                        Comparator.comparing(Partition::topic)
-                                            .thenComparing(Partition::partition))))
-                    .orElse(List.of()));
+                context.submit(
+                    admin ->
+                        result(
+                            admin
+                                .partitions(
+                                    admin.topicNames().stream()
+                                        .filter(name -> word.isEmpty() || name.contains(word))
+                                        .collect(Collectors.toSet()))
+                                .stream()
+                                .sorted(
+                                    Comparator.comparing(Partition::topic)
+                                        .thenComparing(Partition::partition)))));
     var tab = new Tab("partition");
     tab.setContent(pane);
     return tab;

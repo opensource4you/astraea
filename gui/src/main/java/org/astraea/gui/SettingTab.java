@@ -16,11 +16,10 @@
  */
 package org.astraea.gui;
 
-import java.util.concurrent.CompletableFuture;
-import javafx.scene.control.Button;
-import javafx.scene.control.Label;
+import java.util.List;
+import java.util.stream.Collectors;
 import javafx.scene.control.Tab;
-import javafx.scene.control.TextField;
+import org.astraea.common.LinkedHashMap;
 import org.astraea.common.admin.Admin;
 
 public class SettingTab {
@@ -28,31 +27,21 @@ public class SettingTab {
   public static Tab of(Context context) {
     var tab = new Tab("bootstrap servers");
 
-    var bootstrapField = new TextField("");
-    var console = new ConsoleArea();
-    var checkButton = new Button("check");
     tab.setContent(
-        Utils.vbox(
-            Utils.hbox(new Label("bootstrap servers:"), bootstrapField, checkButton), console));
-    checkButton.setOnAction(
-        ignored -> {
-          var bootstrapServers = bootstrapField.getText();
-          if (!bootstrapServers.isEmpty())
-            CompletableFuture.supplyAsync(
-                    () -> {
-                      var newAdmin = Admin.of(bootstrapServers);
-                      var brokerIds = newAdmin.brokerIds();
-                      var previous = context.replace(newAdmin);
-                      previous.ifPresent(
-                          admin -> org.astraea.common.Utils.swallowException(admin::close));
-                      return "succeed to connect to "
-                          + bootstrapServers
-                          + ", and there are "
-                          + brokerIds.size()
-                          + " nodes";
-                    })
-                .whenComplete(console::append);
-        });
+        Utils.searchToTable(
+            (bootstrapServers, console) -> {
+              if (bootstrapServers.isEmpty()) return List.of();
+              var newAdmin = Admin.of(bootstrapServers);
+              var brokerIds = newAdmin.brokerIds();
+              var previous = context.replace(newAdmin);
+              previous.ifPresent(admin -> org.astraea.common.Utils.swallowException(admin::close));
+              return newAdmin.nodes().stream()
+                  .map(
+                      n ->
+                          LinkedHashMap.<String, Object>of(
+                              "id", n.id(), "host", n.host(), "port", n.port()))
+                  .collect(Collectors.toUnmodifiableList());
+            }));
     return tab;
   }
 }

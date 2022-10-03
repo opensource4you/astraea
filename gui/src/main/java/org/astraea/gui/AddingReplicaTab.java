@@ -57,18 +57,15 @@ public class AddingReplicaTab {
     tab.setContent(
         Utils.searchToTable(
             (word, console) ->
-                context
-                    .optionalAdmin()
-                    .map(
-                        admin ->
-                            result(
-                                admin.addingReplicas(admin.topicNames()).stream()
-                                    .filter(
-                                        s ->
-                                            word.isEmpty()
-                                                || s.topic().contains(word)
-                                                || String.valueOf(s.broker()).contains(word))))
-                    .orElse(List.of())));
+                context.submit(
+                    admin ->
+                        result(
+                            admin.addingReplicas(admin.topicNames()).stream()
+                                .filter(
+                                    s ->
+                                        word.isEmpty()
+                                            || s.topic().contains(word)
+                                            || String.valueOf(s.broker()).contains(word))))));
     return tab;
   }
 }

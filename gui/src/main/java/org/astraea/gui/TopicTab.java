@@ -32,17 +32,14 @@ public class TopicTab {
     var pane =
         Utils.searchToTable(
             (word, console) ->
-                context
-                    .optionalAdmin()
-                    .map(
-                        admin ->
-                            beans(
-                                admin.partitions(
-                                    admin.topicNames().stream()
-                                        .filter(name -> word.isEmpty() || name.contains(word))
-                                        .collect(Collectors.toSet())),
-                                admin.brokers()))
-                    .orElse(List.of()));
+                context.submit(
+                    admin ->
+                        beans(
+                            admin.partitions(
+                                admin.topicNames().stream()
+                                    .filter(name -> word.isEmpty() || name.contains(word))
+                                    .collect(Collectors.toSet())),
+                            admin.brokers())));
     var tab = new Tab("topic");
     tab.setContent(pane);
     return tab;

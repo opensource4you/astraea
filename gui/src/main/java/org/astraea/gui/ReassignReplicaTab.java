@@ -39,79 +39,83 @@ public class ReassignReplicaTab {
     var addedIdBox = new IntegerBox();
 
     BiFunction<String, Console, SearchResult<Set<String>>> resultGenerator =
-        (word, console) -> {
-          var optionalAdmin = context.optionalAdmin();
-          if (optionalAdmin.isEmpty()) return SearchResult.empty();
-          var admin = optionalAdmin.get();
-          var partitions =
-              admin.partitions(
-                  admin.topicNames().stream()
-                      .filter(name -> word.isEmpty() || name.contains(word))
-                      .collect(Collectors.toSet()));
-          var selectedIds =
-              partitions.stream()
-                  .flatMap(p -> p.replicas().stream().map(NodeInfo::id))
-                  .collect(Collectors.toSet());
-          var allNodeIds = admin.brokerIds();
-          removedIdBox.values(
-              allNodeIds.stream().filter(selectedIds::contains).collect(Collectors.toSet()));
-          addedIdBox.values(allNodeIds);
-          var topics = partitions.stream().map(Partition::topic).collect(Collectors.toSet());
-          return SearchResult.of(
-              partitions.stream()
-                  .map(
-                      p ->
-                          LinkedHashMap.<String, Object>of(
-                              "topic",
-                              p.topic(),
-                              "partition",
-                              p.partition(),
-                              "brokers",
-                              p.replicas().stream()
-                                  .map(n -> String.valueOf(n.id()))
-                                  .collect(Collectors.joining(","))))
-                  .collect(Collectors.toList()),
-              topics);
-        };
+        (word, console) ->
+            context.submit(
+                admin -> {
+                  var partitions =
+                      admin.partitions(
+                          admin.topicNames().stream()
+                              .filter(name -> word.isEmpty() || name.contains(word))
+                              .collect(Collectors.toSet()));
+                  var selectedIds =
+                      partitions.stream()
+                          .flatMap(p -> p.replicas().stream().map(NodeInfo::id))
+                          .collect(Collectors.toSet());
+                  var allNodeIds = admin.brokerIds();
+                  removedIdBox.values(
+                      allNodeIds.stream()
+                          .filter(selectedIds::contains)
+                          .collect(Collectors.toSet()));
+                  addedIdBox.values(allNodeIds);
+                  var topics =
+                      partitions.stream().map(Partition::topic).collect(Collectors.toSet());
+                  return SearchResult.of(
+                      partitions.stream()
+                          .map(
+                              p ->
+                                  LinkedHashMap.<String, Object>of(
+                                      "topic",
+                                      p.topic(),
+                                      "partition",
+                                      p.partition(),
+                                      "brokers",
+                                      p.replicas().stream()
+                                          .map(n -> String.valueOf(n.id()))
+                                          .collect(Collectors.joining(","))))
+                          .collect(Collectors.toList()),
+                      topics);
+                });
 
     BiConsumer<SearchResult<Set<String>>, Console> resultExecutor =
-        (result, console) -> {
-          var optionalAdmin = context.optionalAdmin();
-          if (optionalAdmin.isEmpty()) return;
-          var admin = optionalAdmin.get();
-          var removedId = removedIdBox.getValue();
-          var addedId = addedIdBox.getValue();
-          if (removedId == null && addedId == null) {
-            console.append("please define either \"removed\" or \"added\"");
-            return;
-          }
-          var replicas =
-              admin.replicas(result.object()).stream()
-                  .collect(Collectors.groupingBy(ReplicaInfo::topicPartition));
-          replicas.forEach(
-              (tp, rs) -> {
-                var moveTo =
-                    Stream.concat(
-                            rs.stream()
-                                .map(r -> r.nodeInfo().id())
-                                .filter(id -> removedId == null || id != removedId.intValue()),
-                            addedId == null ? Stream.of() : Stream.of(addedId))
-                        .collect(Collectors.toCollection(LinkedHashSet::new));
-                if (moveTo.isEmpty()) {
-                  console.append("the new assignment of " + tp + " is empty. skip it");
-                  return;
-                }
-                admin
-                    .migrator()
-                    .partition(tp.topic(), tp.partition())
-                    .moveTo(new ArrayList<>(moveTo));
-                console.append(
-                    tp
-                        + " is reassigned to ["
-                        + moveTo.stream().map(String::valueOf).collect(Collectors.joining(","))
-                        + "]");
-              });
-        };
+        (result, console) ->
+            context.execute(
+                admin -> {
+                  var removedId = removedIdBox.getValue();
+                  var addedId = addedIdBox.getValue();
+                  if (removedId == null && addedId == null) {
+                    console.append("please define either \"removed\" or \"added\"");
+                    return;
+                  }
+                  var replicas =
+                      admin.replicas(result.object()).stream()
+                          .collect(Collectors.groupingBy(ReplicaInfo::topicPartition));
+                  replicas.forEach(
+                      (tp, rs) -> {
+                        var moveTo =
+                            Stream.concat(
+                                    rs.stream()
+                                        .map(r -> r.nodeInfo().id())
+                                        .filter(
+                                            id -> removedId == null || id != removedId.intValue()),
+                                    addedId == null ? Stream.of() : Stream.of(addedId))
+                                .collect(Collectors.toCollection(LinkedHashSet::new));
+                        if (moveTo.isEmpty()) {
+                          console.append("the new assignment of " + tp + " is empty. skip it");
+                          return;
+                        }
+                        admin
+                            .migrator()
+                            .partition(tp.topic(), tp.partition())
+                            .moveTo(new ArrayList<>(moveTo));
+                        console.append(
+                            tp
+                                + " is reassigned to ["
+                                + moveTo.stream()
+                                    .map(String::valueOf)
+                                    .collect(Collectors.joining(","))
+                                + "]");
+                      });
+                });
 
     tab.setContent(
         Utils.vbox(

@@ -46,6 +46,7 @@ import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
 import javafx.scene.control.TextField;
 import javafx.scene.control.ToggleGroup;
+import javafx.scene.input.KeyCode;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Pane;
 import javafx.scene.layout.VBox;
@@ -122,10 +123,10 @@ class Utils {
     var isRunning = new AtomicBoolean(false);
     var lastResult = new AtomicReference<SearchResult<T>>();
     var applyResultButton = new Button("apply");
-    applyResultButton.setVisible(false);
     var searchButton = new Button("search");
-    searchButton.setOnAction(
-        event -> {
+
+    Runnable processSearch =
+        () -> {
           if (!isRunning.compareAndSet(false, true)) {
             console.append("previous search is running");
             return;
@@ -141,8 +142,8 @@ class Utils {
                   CompletableFuture.delayedExecutor(DELAY_INPUT.toMillis(), TimeUnit.MILLISECONDS))
               .whenComplete(
                   (result, e) -> {
-                    if (result == null || result == SearchResult.empty()) {
-                      console.append("can't generate result. Please retry it.");
+                    if (e != null || result == null || result == SearchResult.empty()) {
+                      console.append("can't generate result. Please retry it.", e);
                       searchButton.setDisable(false);
                       isRunning.set(false);
                       return;
@@ -170,6 +171,13 @@ class Utils {
                           if (resultConsumer != null) applyResultButton.setVisible(true);
                         });
                   });
+        };
+
+    applyResultButton.setVisible(false);
+    searchButton.setOnAction(event -> processSearch.run());
+    search.setOnKeyPressed(
+        event -> {
+          if (event.getCode().equals(KeyCode.ENTER)) processSearch.run();
         });
     if (resultConsumer != null)
       applyResultButton.setOnAction(

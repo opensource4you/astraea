@@ -70,19 +70,16 @@ public class BrokerTab {
     var pane =
         Utils.searchToTable(
             (word, console) ->
-                context
-                    .optionalAdmin()
-                    .map(
-                        admin ->
-                            result(
-                                admin.brokers().stream()
-                                    .filter(
-                                        nodeInfo ->
-                                            word.isEmpty()
-                                                || String.valueOf(nodeInfo.id()).contains(word)
-                                                || nodeInfo.host().contains(word)
-                                                || String.valueOf(nodeInfo.port()).contains(word))))
-                    .orElse(List.of()));
+                context.submit(
+                    admin ->
+                        result(
+                            admin.brokers().stream()
+                                .filter(
+                                    nodeInfo ->
+                                        word.isEmpty()
+                                            || String.valueOf(nodeInfo.id()).contains(word)
+                                            || nodeInfo.host().contains(word)
+                                            || String.valueOf(nodeInfo.port()).contains(word)))));
     var tab = new Tab("broker");
     tab.setContent(pane);
     return tab;

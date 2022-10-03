@@ -105,7 +105,12 @@ public interface Admin extends Closeable {
   List<Replica> replicas(Set<String> topics);
 
   /** @return all alive brokers' ids */
-  Set<Integer> brokerIds();
+  default Set<Integer> brokerIds() {
+    return nodes().stream().map(NodeInfo::id).collect(Collectors.toUnmodifiableSet());
+  }
+
+  /** @return all node info */
+  Set<NodeInfo> nodes();
 
   /** @return all alive node information in the cluster */
   List<Broker> brokers();

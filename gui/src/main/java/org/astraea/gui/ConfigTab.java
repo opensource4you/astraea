@@ -18,7 +18,6 @@ package org.astraea.gui;
 
 import java.util.Map;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import javafx.scene.control.Tab;
 import org.astraea.common.LinkedHashMap;
 
@@ -36,15 +35,13 @@ public class ConfigTab {
             (word, console) -> {
               var isTopic = resources.get(Resource.TOPIC).isSelected();
               return context
-                  .optionalAdmin()
-                  .map(
+                  .submit(
                       admin ->
                           isTopic
                               ? admin.topics(admin.topicNames()).stream()
                                   .map(t -> Map.entry(t.name(), t.config()))
                               : admin.brokers().stream()
                                   .map(t -> Map.entry(String.valueOf(t.id()), t.config())))
-                  .orElse(Stream.of())
                   .map(
                       e -> {
                         Map<String, Object> map = new LinkedHashMap<>();

@@ -41,22 +41,20 @@ public class CreateTopicTab {
             console.append("please enter topic name");
             return;
           }
-          context
-              .optionalAdmin()
-              .ifPresent(
-                  admin ->
-                      CompletableFuture.supplyAsync(
-                              () -> {
-                                if (admin.topicNames().contains(name)) return name + " is existent";
-                                admin
-                                    .creator()
-                                    .topic(name)
-                                    .numberOfPartitions(Integer.parseInt(partitionsField.getText()))
-                                    .numberOfReplicas(replicasField.getValue().shortValue())
-                                    .create();
-                                return "succeed to create " + name;
-                              })
-                          .whenComplete(console::text));
+          context.execute(
+              admin ->
+                  CompletableFuture.supplyAsync(
+                          () -> {
+                            if (admin.topicNames().contains(name)) return name + " is existent";
+                            admin
+                                .creator()
+                                .topic(name)
+                                .numberOfPartitions(Integer.parseInt(partitionsField.getText()))
+                                .numberOfReplicas(replicasField.getValue().shortValue())
+                                .create();
+                            return "succeed to create " + name;
+                          })
+                      .whenComplete(console::text));
         });
     tab.setContent(
         Utils.vbox(
@@ -68,18 +66,16 @@ public class CreateTopicTab {
     tab.setOnSelectionChanged(
         ignored -> {
           if (!tab.isSelected()) return;
-          context
-              .optionalAdmin()
-              .ifPresent(
-                  admin ->
-                      CompletableFuture.supplyAsync(() -> admin.brokerIds().size())
-                          .whenComplete(
-                              (size, e) ->
-                                  replicasField.values(
-                                      IntStream.range(0, size)
-                                          .mapToObj(i -> i + 1)
-                                          .collect(Collectors.toList()),
-                                      0)));
+          context.execute(
+              admin ->
+                  CompletableFuture.supplyAsync(() -> admin.brokerIds().size())
+                      .whenComplete(
+                          (size, e) ->
+                              replicasField.values(
+                                  IntStream.range(0, size)
+                                      .mapToObj(i -> i + 1)
+                                      .collect(Collectors.toList()),
+                                  0)));
         });
     return tab;
   }
