@@ -33,7 +33,7 @@ import org.astraea.common.admin.ReplicaInfo;
 public class ReassignReplicaTab {
 
   public static Tab of(Context context) {
-    var tab = new Tab("topic name (space means all topics):");
+    var tab = new Tab("reassign replica");
     var removedIdBox = new IntegerBox();
     var addedIdBox = new IntegerBox();
 
@@ -114,8 +114,14 @@ public class ReassignReplicaTab {
 
     tab.setContent(
         Utils.vbox(
-            Utils.searchToTable("search for topics:", resultGenerator, resultExecutor),
-            Utils.hbox(new Label("removed:"), removedIdBox, new Label("added:"), addedIdBox)));
+            Utils.searchToTable(
+                "search for topics:",
+                resultGenerator,
+                resultExecutor,
+                new Label("removed:"),
+                removedIdBox,
+                new Label("added:"),
+                addedIdBox)));
     return tab;
   }
 }
