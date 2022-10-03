@@ -17,7 +17,6 @@
 package org.astraea.gui;
 
 import java.util.concurrent.CompletableFuture;
-import javafx.geometry.Pos;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.Tab;
@@ -34,8 +33,7 @@ public class SettingTab {
     var checkButton = new Button("check");
     tab.setContent(
         Utils.vbox(
-            Utils.hbox(new Label("bootstrap servers:"), bootstrapField),
-            Utils.hbox(Pos.TOP_LEFT, checkButton, console)));
+            Utils.hbox(new Label("bootstrap servers:"), bootstrapField, checkButton), console));
     checkButton.setOnAction(
         ignored -> {
           var bootstrapServers = bootstrapField.getText();

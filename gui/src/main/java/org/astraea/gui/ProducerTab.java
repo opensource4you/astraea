@@ -27,30 +27,29 @@ import org.astraea.common.admin.ProducerState;
 
 public class ProducerTab {
 
-  private static List<Map<String, String>> result(Stream<ProducerState> states) {
+  private static List<Map<String, Object>> result(Stream<ProducerState> states) {
     return states
         .map(
             state ->
-                LinkedHashMap.of(
+                LinkedHashMap.<String, Object>of(
                     "topic",
                     state.topic(),
                     "partition",
-                    String.valueOf(state.partition()),
+                    state.partition(),
                     "producer id",
-                    String.valueOf(state.producerId()),
+                    state.producerId(),
                     "producer epoch",
-                    String.valueOf(state.producerEpoch()),
+                    state.producerEpoch(),
                     "last sequence",
-                    String.valueOf(state.lastSequence()),
+                    state.lastSequence(),
                     "last timestamp",
-                    String.valueOf(state.lastTimestamp())))
+                    state.lastTimestamp()))
         .collect(Collectors.toList());
   }
 
   public static Tab of(Context context) {
     var pane =
         Utils.searchToTable(
-            "topic name (space means all topics):",
             (word, console) ->
                 context
                     .optionalAdmin()

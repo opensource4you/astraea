@@ -18,6 +18,7 @@ package org.astraea.gui;
 
 import java.time.Duration;
 import java.util.Comparator;
+import java.util.Map;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.function.Function;
@@ -29,12 +30,28 @@ import org.astraea.common.admin.Replica;
 import org.astraea.common.balancer.Balancer;
 import org.astraea.common.balancer.generator.ShufflePlanGenerator;
 import org.astraea.common.balancer.log.ClusterLogAllocation;
+import org.astraea.common.cost.HasClusterCost;
+import org.astraea.common.cost.ReplicaLeaderCost;
 import org.astraea.common.cost.ReplicaNumberCost;
+import org.astraea.common.cost.ReplicaSizeCost;
 
 public class BalancerTab {
 
+  private enum Cost {
+    REPLICA(new ReplicaNumberCost()),
+    LEADER(new ReplicaLeaderCost()),
+    SIZE(new ReplicaSizeCost());
+
+    final HasClusterCost costFunction;
+
+    Cost(HasClusterCost costFunction) {
+      this.costFunction = costFunction;
+    }
+  }
+
   public static Tab of(Context context) {
     var tab = new Tab("balance topic");
+    var cost = Utils.radioButton(Cost.values());
     BiFunction<String, Console, SearchResult<Balancer.Plan>> planGenerator =
         (word, console) -> {
           var optionalAdmin = context.optionalAdmin();
@@ -51,7 +68,13 @@ public class BalancerTab {
           var optionalPlan =
               Balancer.builder()
                   .planGenerator(new ShufflePlanGenerator(0, 30))
-                  .clusterCost(new ReplicaNumberCost())
+                  .clusterCost(
+                      cost.entrySet().stream()
+                          .filter(e -> e.getValue().isSelected())
+                          .map(Map.Entry::getKey)
+                          .findFirst()
+                          .orElse(Cost.REPLICA)
+                          .costFunction)
                   .limit(Duration.ofSeconds(10))
                   .limit(10000)
                   .greedy(true)
@@ -66,11 +89,11 @@ public class BalancerTab {
                   .stream()
                   .map(
                       tp ->
-                          LinkedHashMap.of(
+                          LinkedHashMap.<String, Object>of(
                               "topic",
                               tp.topic(),
                               "partition",
-                              String.valueOf(tp.partition()),
+                              tp.partition(),
                               "old assignments",
                               clusterInfo.replicas(tp).stream()
                                   .map(r -> r.nodeInfo().id() + ":" + r.dataFolder())
@@ -130,8 +153,7 @@ public class BalancerTab {
               });
         };
 
-    tab.setContent(
-        Utils.searchToTable("topic name (space means all topics):", planGenerator, planExecutor));
+    tab.setContent(Utils.searchToTable(planGenerator, planExecutor, cost.values()));
     return tab;
   }
 }

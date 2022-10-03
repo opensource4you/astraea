@@ -27,16 +27,16 @@ import org.astraea.common.admin.Partition;
 
 public class PartitionTab {
 
-  private static List<Map<String, String>> result(Stream<Partition> ps) {
+  private static List<Map<String, Object>> result(Stream<Partition> ps) {
     return ps.map(
             p ->
-                LinkedHashMap.of(
+                LinkedHashMap.<String, Object>of(
                     "topic",
                     p.topic(),
                     "partition",
-                    String.valueOf(p.partition()),
+                    p.partition(),
                     "leader",
-                    String.valueOf(p.leader().id()),
+                    p.leader().id(),
                     "replicas",
                     p.replicas().stream()
                         .map(n -> String.valueOf(n.id()))
@@ -46,9 +46,9 @@ public class PartitionTab {
                         .map(n -> String.valueOf(n.id()))
                         .collect(Collectors.joining(",")),
                     "earliest offset",
-                    String.valueOf(p.earliestOffset()),
+                    p.earliestOffset(),
                     "latest offset",
-                    String.valueOf(p.latestOffset()),
+                    p.latestOffset(),
                     "max timestamp",
                     Utils.format(p.maxTimestamp())))
         .collect(Collectors.toList());
@@ -58,7 +58,6 @@ public class PartitionTab {
 
     var pane =
         Utils.searchToTable(
-            "topic name (space means all topics):",
             (word, console) ->
                 context
                     .optionalAdmin()

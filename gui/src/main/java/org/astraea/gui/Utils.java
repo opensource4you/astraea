@@ -20,20 +20,19 @@ import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.text.SimpleDateFormat;
 import java.time.Duration;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
+import java.util.Collection;
 import java.util.Date;
 import java.util.HashMap;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import javafx.application.Platform;
 import javafx.beans.property.ReadOnlyObjectWrapper;
 import javafx.collections.FXCollections;
@@ -65,17 +64,6 @@ class Utils {
               }
             });
     return field;
-  }
-
-  public static <T> List<T> random(List<T> all, int number) {
-    var sub = all.size() - number;
-    if (sub < 0)
-      throw new IllegalArgumentException(
-          "only " + all.size() + " elements, but required number is " + number);
-    if (sub == 0) return all;
-    var result = new LinkedList<>(all);
-    Collections.shuffle(result);
-    return result.stream().skip(sub).collect(Collectors.toUnmodifiableList());
   }
 
   public static TextField copyableField(String content) {
@@ -111,68 +99,75 @@ class Utils {
     return pane;
   }
 
-  public static <T extends Map<String, String>> Pane searchToTable(
-      String hint, BiFunction<String, Console, List<T>> itemGenerator, Node... nodes) {
+  public static <T extends Map<String, Object>> Pane searchToTable(
+      BiFunction<String, Console, List<T>> itemGenerator) {
     return searchToTable(
-        hint, (word, console) -> SearchResult.of(itemGenerator.apply(word, console)), null, nodes);
+        (word, console) -> SearchResult.of(itemGenerator.apply(word, console)), null, List.of());
   }
 
-  public static <T> Pane searchToTable(
-      String hint,
+  public static <T extends Map<String, Object>, N extends Node> Pane searchToTable(
+      BiFunction<String, Console, List<T>> itemGenerator, Collection<N> nodes) {
+    return searchToTable(
+        (word, console) -> SearchResult.of(itemGenerator.apply(word, console)), null, nodes);
+  }
+
+  public static <T, N extends Node> Pane searchToTable(
       BiFunction<String, Console, SearchResult<T>> resultGenerator,
       BiConsumer<SearchResult<T>, Console> resultConsumer,
-      Node... nodes) {
-    var view = new TableView<>(FXCollections.<Map<String, String>>observableArrayList());
+      Collection<N> nodes) {
+    var view = new TableView<>(FXCollections.<Map<String, Object>>observableArrayList());
     view.setColumnResizePolicy(TableView.UNCONSTRAINED_RESIZE_POLICY);
     var console = new ConsoleArea();
     var search = new TextField("");
-    var lastWord = new AtomicReference<String>();
+    var isRunning = new AtomicBoolean(false);
     var lastResult = new AtomicReference<SearchResult<T>>();
     var applyResultButton = new Button("apply");
     applyResultButton.setVisible(false);
-    search
-        .textProperty()
-        .addListener(
-            ((observable, oldValue, newValue) -> {
-              if (newValue == null) return;
-              if (lastWord.getAndSet(newValue.isBlank() ? "" : newValue) != null) return;
-              applyResultButton.setVisible(false);
-              console.cleanup();
-              view.getItems().clear();
-              CompletableFuture.supplyAsync(
-                      () -> resultGenerator.apply(lastWord.get(), console),
-                      CompletableFuture.delayedExecutor(
-                          DELAY_INPUT.toMillis(), TimeUnit.MILLISECONDS))
-                  .whenComplete(
-                      (result, e) -> {
-                        if (result == null || result == SearchResult.empty()) {
-                          console.append("can't generate result. Please retry it.");
-                          lastWord.set(null);
-                          return;
-                        }
-                        var tables =
-                            result.keys().stream()
-                                .map(
-                                    key -> {
-                                      var col = new TableColumn<Map<String, String>, String>(key);
-                                      col.setCellValueFactory(
-                                          param ->
-                                              new ReadOnlyObjectWrapper<>(
-                                                  param.getValue().getOrDefault(key, "")));
-                                      return col;
-                                    })
-                                .collect(Collectors.toList());
-                        lastResult.set(result);
-                        Platform.runLater(
-                            () -> {
-                              view.getColumns().setAll(tables);
-                              view.getItems().setAll(result.items());
-                              lastWord.set(null);
-                              // There is a callback of result, so we display the button.
-                              if (resultConsumer != null) applyResultButton.setVisible(true);
-                            });
-                      });
-            }));
+    var searchButton = new Button("search");
+    searchButton.setOnAction(
+        event -> {
+          if (!isRunning.compareAndSet(false, true)) {
+            console.append("previous search is running");
+            return;
+          }
+          var value = search.getText();
+          var word = value == null || value.isBlank() ? "" : value;
+          applyResultButton.setVisible(false);
+          console.text("search for " + (word.isEmpty() ? "all" : word));
+          view.getItems().clear();
+          CompletableFuture.supplyAsync(
+                  () -> resultGenerator.apply(word, console),
+                  CompletableFuture.delayedExecutor(DELAY_INPUT.toMillis(), TimeUnit.MILLISECONDS))
+              .whenComplete(
+                  (result, e) -> {
+                    if (result == null || result == SearchResult.empty()) {
+                      console.append("can't generate result. Please retry it.");
+                      isRunning.set(false);
+                      return;
+                    }
+                    var tables =
+                        result.keys().stream()
+                            .map(
+                                key -> {
+                                  var col = new TableColumn<Map<String, Object>, Object>(key);
+                                  col.setCellValueFactory(
+                                      param ->
+                                          new ReadOnlyObjectWrapper<>(
+                                              param.getValue().getOrDefault(key, "")));
+                                  return col;
+                                })
+                            .collect(Collectors.toList());
+                    lastResult.set(result);
+                    Platform.runLater(
+                        () -> {
+                          view.getColumns().setAll(tables);
+                          view.getItems().setAll(result.items());
+                          isRunning.set(false);
+                          // There is a callback of result, so we display the button.
+                          if (resultConsumer != null) applyResultButton.setVisible(true);
+                        });
+                  });
+        });
     if (resultConsumer != null)
       applyResultButton.setOnAction(
           ignored -> {
@@ -186,11 +181,13 @@ class Utils {
             CompletableFuture.runAsync(() -> resultConsumer.accept(result, console))
                 .whenComplete((r, e) -> console.append(e));
           });
-    var list = new ArrayList<Node>();
-    list.add(new Label(hint));
-    list.add(search);
-    if (nodes != null) list.addAll(Arrays.asList(nodes));
-    return vbox(Pos.TOP_RIGHT, hbox(list.toArray(new Node[0])), view, applyResultButton, console);
+
+    return vbox(
+        Pos.TOP_RIGHT,
+        hbox(Stream.concat(Stream.of(search, searchButton), nodes.stream()).toArray(Node[]::new)),
+        view,
+        applyResultButton,
+        console);
   }
 
   public static String toString(Throwable e) {
@@ -212,9 +209,9 @@ class Utils {
     return format(System.currentTimeMillis());
   }
 
-  public static <T extends Enum<T>> Map<Enum<T>, RadioButton> radioButton(Enum<T>[] keys) {
+  public static <E extends Enum<E>, T extends Enum<E>> Map<T, RadioButton> radioButton(T[] keys) {
     var group = new ToggleGroup();
-    var result = new HashMap<Enum<T>, RadioButton>();
+    var result = new HashMap<T, RadioButton>();
     for (var i = 0; i != keys.length; ++i) {
       var button = new RadioButton(keys[i].name());
       button.setToggleGroup(group);

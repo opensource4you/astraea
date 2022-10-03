@@ -31,11 +31,11 @@ public interface SearchResult<T> {
     return (SearchResult<T>) EMPTY;
   }
 
-  static <R extends Map<String, String>> SearchResult<Object> of(List<R> items) {
+  static <R extends Map<String, Object>> SearchResult<Object> of(List<R> items) {
     return of(items, null);
   }
 
-  static <R extends Map<String, String>, T> SearchResult<T> of(List<R> items, T obj) {
+  static <R extends Map<String, Object>, T> SearchResult<T> of(List<R> items, T obj) {
     return new SearchResult<T>() {
       @Override
       public T object() {
@@ -43,9 +43,9 @@ public interface SearchResult<T> {
       }
 
       @Override
-      public List<Map<String, String>> items() {
+      public List<Map<String, Object>> items() {
         return items.stream()
-            .map(item -> (Map<String, String>) item)
+            .map(item -> (Map<String, Object>) item)
             .collect(Collectors.toUnmodifiableList());
       }
     };
@@ -59,5 +59,5 @@ public interface SearchResult<T> {
         .collect(Collectors.toCollection(LinkedHashSet::new));
   }
 
-  List<Map<String, String>> items();
+  List<Map<String, Object>> items();
 }

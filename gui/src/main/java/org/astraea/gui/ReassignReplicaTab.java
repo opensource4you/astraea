@@ -18,6 +18,7 @@ package org.astraea.gui;
 
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
@@ -60,11 +61,11 @@ public class ReassignReplicaTab {
               partitions.stream()
                   .map(
                       p ->
-                          LinkedHashMap.of(
+                          LinkedHashMap.<String, Object>of(
                               "topic",
                               p.topic(),
                               "partition",
-                              String.valueOf(p.partition()),
+                              p.partition(),
                               "brokers",
                               p.replicas().stream()
                                   .map(n -> String.valueOf(n.id()))
@@ -115,13 +116,9 @@ public class ReassignReplicaTab {
     tab.setContent(
         Utils.vbox(
             Utils.searchToTable(
-                "search for topics:",
                 resultGenerator,
                 resultExecutor,
-                new Label("removed:"),
-                removedIdBox,
-                new Label("added:"),
-                addedIdBox)));
+                List.of(new Label("removed:"), removedIdBox, new Label("added:"), addedIdBox))));
     return tab;
   }
 }
