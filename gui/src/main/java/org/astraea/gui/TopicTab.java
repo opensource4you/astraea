@@ -21,6 +21,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import javafx.scene.control.Tab;
+import org.astraea.common.DataSize;
 import org.astraea.common.LinkedHashMap;
 import org.astraea.common.admin.Broker;
 import org.astraea.common.admin.NodeInfo;
@@ -66,7 +67,7 @@ public class TopicTab {
                     "replicas", tps.get(topic).stream().mapToInt(p -> p.replicas().size()).sum(),
                     "size",
                         Optional.ofNullable(topicSize.get(topic))
-                            .map(String::valueOf)
+                            .map(s -> DataSize.Byte.of(s).toString())
                             .orElse("unknown"),
                     "broker ids",
                         tps.get(topic).stream()
