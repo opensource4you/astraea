@@ -79,8 +79,14 @@ public class Builder {
   private static class AdminImpl implements Admin {
     private final org.apache.kafka.clients.admin.Admin admin;
 
+    private final String clientId;
+    private final List<?> pendingRequests;
+
     AdminImpl(org.apache.kafka.clients.admin.Admin admin) {
       this.admin = Objects.requireNonNull(admin);
+      this.clientId = (String) Utils.member(admin, "clientId");
+      this.pendingRequests =
+          (ArrayList<?>) Utils.member(Utils.member(admin, "runnable"), "pendingCalls");
     }
 
     @Override
@@ -90,7 +96,7 @@ public class Builder {
 
     @Override
     public ReplicaMigrator migrator() {
-      return new MigratorImpl(admin, this::topicPartitions);
+      return new MigratorImpl(admin, this::topicPartitions, this::topicPartitions);
     }
 
     @Override
@@ -243,6 +249,16 @@ public class Builder {
     }
 
     @Override
+    public String clientId() {
+      return clientId;
+    }
+
+    @Override
+    public int pendingRequests() {
+      return pendingRequests.size();
+    }
+
+    @Override
     public Set<String> topicNames(boolean listInternal) {
       return Utils.packException(
           () -> admin.listTopics(new ListTopicsOptions().listInternal(listInternal)).names().get());
@@ -293,10 +309,18 @@ public class Builder {
               .collect(
                   Collectors.toMap(e -> Integer.valueOf(e.getKey().name()), Map.Entry::getValue));
 
+      var tableDesc =
+          Utils.packException(() -> admin.describeTopics(this.topicNames()).all().get()).values();
+
       return nodes.stream()
           .map(
               n ->
-                  Broker.of(n.id() == controller.id(), n, configs.get(n.id()), logDirs.get(n.id())))
+                  Broker.of(
+                      n.id() == controller.id(),
+                      n,
+                      configs.get(n.id()),
+                      logDirs.get(n.id()),
+                      tableDesc))
           .collect(Collectors.toList());
     }
 
@@ -1126,13 +1150,16 @@ public class Builder {
   private static class MigratorImpl implements ReplicaMigrator {
     private final org.apache.kafka.clients.admin.Admin admin;
     private final Function<Set<String>, Set<TopicPartition>> partitionGetter;
+    private final Function<Integer, Set<TopicPartition>> brokerPartitionGetter;
     private final Set<TopicPartition> partitions = new HashSet<>();
 
     MigratorImpl(
         org.apache.kafka.clients.admin.Admin admin,
-        Function<Set<String>, Set<TopicPartition>> partitionGetter) {
+        Function<Set<String>, Set<TopicPartition>> partitionGetter,
+        Function<Integer, Set<TopicPartition>> brokerPartitionGetter) {
       this.admin = admin;
       this.partitionGetter = partitionGetter;
+      this.brokerPartitionGetter = brokerPartitionGetter;
     }
 
     @Override
@@ -1144,6 +1171,21 @@ public class Builder {
     @Override
     public ReplicaMigrator partition(String topic, int partition) {
       partitions.add(TopicPartition.of(topic, partition));
+      return this;
+    }
+
+    @Override
+    public ReplicaMigrator broker(int broker) {
+      partitions.addAll(brokerPartitionGetter.apply(broker));
+      return this;
+    }
+
+    @Override
+    public ReplicaMigrator topicOfBroker(int broker, String topic) {
+      partitions.addAll(
+          brokerPartitionGetter.apply(broker).stream()
+              .filter(tp -> Objects.equals(tp.topic(), topic))
+              .collect(Collectors.toList()));
       return this;
     }
 

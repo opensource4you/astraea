@@ -37,7 +37,7 @@ import org.astraea.common.cost.HasClusterCost;
 import org.astraea.common.cost.HasMoveCost;
 import org.astraea.common.cost.MoveCost;
 import org.astraea.common.cost.ReplicaLeaderCost;
-import org.astraea.common.cost.ReplicaNumCost;
+import org.astraea.common.cost.ReplicaNumberCost;
 import org.astraea.common.cost.ReplicaSizeCost;
 
 class BalancerHandler implements Handler {
@@ -59,7 +59,7 @@ class BalancerHandler implements Handler {
     this(
         admin,
         List.of(new ReplicaSizeCost()),
-        List.of(new ReplicaNumCost(), new ReplicaLeaderCost(), new ReplicaSizeCost()));
+        List.of(new ReplicaNumberCost(), new ReplicaLeaderCost(), new ReplicaSizeCost()));
   }
 
   BalancerHandler(

@@ -51,8 +51,10 @@ public class BalanceProcessDemo {
               .limit(1000)
               .build()
               .offer(clusterInfo, filter, brokerFolders);
-      new StraightPlanExecutor()
-          .run(RebalanceAdmin.of(admin), plan.get().proposal().rebalancePlan());
+      plan.ifPresent(
+          p ->
+              new StraightPlanExecutor()
+                  .run(RebalanceAdmin.of(admin), p.proposal().rebalancePlan()));
     }
   }
 

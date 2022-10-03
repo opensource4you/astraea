@@ -17,16 +17,18 @@
 package org.astraea.common.cost;
 
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.astraea.common.admin.ClusterBean;
+import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.metrics.collector.Fetcher;
 
 /** more replicas migrate -> higher cost */
-public class ReplicaNumCost implements HasMoveCost.Helper {
+public class ReplicaNumberCost implements HasClusterCost, HasMoveCost.Helper {
 
   @Override
   public Optional<Fetcher> fetcher() {
@@ -49,5 +51,26 @@ public class ReplicaNumCost implements HasMoveCost.Helper {
                     addedReplicas.stream().map(replica -> Map.entry(replica.nodeInfo().id(), +1L)))
                 .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue, Long::sum)))
         .build();
+  }
+
+  @Override
+  public ClusterCost clusterCost(ClusterInfo<Replica> clusterInfo, ClusterBean clusterBean) {
+    // there is no better plan for single node
+    if (clusterInfo.nodes().size() == 1) return () -> 0;
+
+    var group =
+        clusterInfo.replicas().stream().collect(Collectors.groupingBy(r -> r.nodeInfo().id()));
+
+    // worst case: all partitions are hosted by single node
+    if (clusterInfo.nodes().size() > 1 && group.size() <= 1) return () -> Long.MAX_VALUE;
+
+    // there is a node having zero replica!
+    if (clusterInfo.nodes().stream().anyMatch(node -> !group.containsKey(node.id())))
+      return () -> Long.MAX_VALUE;
+
+    // normal case
+    var max = group.values().stream().mapToLong(List::size).max().orElse(0);
+    var min = group.values().stream().mapToLong(List::size).min().orElse(0);
+    return () -> max - min;
   }
 }

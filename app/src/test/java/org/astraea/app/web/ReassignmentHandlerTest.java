@@ -19,6 +19,7 @@ package org.astraea.app.web;
 import static org.astraea.app.web.ReassignmentHandler.progressInPercentage;
 
 import java.time.Duration;
+import java.util.Objects;
 import java.util.Set;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
@@ -125,6 +126,100 @@ public class ReassignmentHandlerTest extends RequireBrokerCluster {
               .findFirst()
               .get()
               .dataFolder());
+    }
+  }
+
+  @Test
+  void testExcludeSpecificBroker() {
+    var topicName = Utils.randomString(10);
+    try (Admin admin = Admin.of(bootstrapServers())) {
+      var handler = new ReassignmentHandler(admin);
+      admin.creator().topic(topicName).numberOfPartitions(10).create();
+      Utils.sleep(Duration.ofSeconds(3));
+
+      var currentBroker =
+          admin.replicas(Set.of(topicName)).stream()
+              .filter(replica -> replica.partition() == 0)
+              .findFirst()
+              .get()
+              .nodeInfo()
+              .id();
+
+      var body =
+          String.format(
+              "{\"%s\": [{\"%s\": \"%s\"}]}",
+              ReassignmentHandler.PLANS_KEY, ReassignmentHandler.EXCLUDE_KEY, currentBroker);
+
+      Assertions.assertEquals(
+          Response.ACCEPT, handler.post(Channel.ofRequest(PostRequest.of(body))));
+
+      Utils.sleep(Duration.ofSeconds(2));
+      var reassignments = handler.get(Channel.EMPTY);
+      // the reassignment should be completed
+      Assertions.assertEquals(0, reassignments.addingReplicas.size());
+
+      Assertions.assertNotEquals(
+          currentBroker,
+          admin.replicas(Set.of(topicName)).stream()
+              .filter(replica -> replica.partition() == 0)
+              .findFirst()
+              .get()
+              .nodeInfo()
+              .id());
+      Assertions.assertEquals(0, admin.topicPartitions(currentBroker).size());
+    }
+  }
+
+  @Test
+  void testExcludeSpecificBrokerTopic() {
+    var topicName = Utils.randomString(10);
+    var targetTopic = Utils.randomString(10);
+    try (Admin admin = Admin.of(bootstrapServers())) {
+      var handler = new ReassignmentHandler(admin);
+      admin.creator().topic(topicName).numberOfPartitions(10).create();
+      admin.creator().topic(targetTopic).numberOfPartitions(10).create();
+      Utils.sleep(Duration.ofSeconds(3));
+
+      var currentBroker =
+          admin.replicas(Set.of(topicName)).stream()
+              .filter(replica -> replica.partition() == 0)
+              .findFirst()
+              .get()
+              .nodeInfo()
+              .id();
+
+      var body =
+          String.format(
+              "{\"%s\": [{\"%s\": \"%s\", \"%s\": \"%s\"}]}",
+              ReassignmentHandler.PLANS_KEY,
+              ReassignmentHandler.EXCLUDE_KEY,
+              currentBroker,
+              ReassignmentHandler.TOPIC_KEY,
+              targetTopic);
+
+      Assertions.assertEquals(
+          Response.ACCEPT, handler.post(Channel.ofRequest(PostRequest.of(body))));
+
+      Utils.sleep(Duration.ofSeconds(2));
+      var reassignments = handler.get(Channel.EMPTY);
+      // the reassignment should be completed
+      Assertions.assertEquals(0, reassignments.addingReplicas.size());
+
+      Assertions.assertNotEquals(
+          currentBroker,
+          admin.replicas(Set.of(targetTopic)).stream()
+              .filter(replica -> replica.partition() == 0)
+              .findFirst()
+              .get()
+              .nodeInfo()
+              .id());
+      Assertions.assertNotEquals(0, admin.topicPartitions(currentBroker).size());
+      Assertions.assertEquals(
+          0,
+          (int)
+              admin.topicPartitions(currentBroker).stream()
+                  .filter(tp -> Objects.equals(tp.topic(), targetTopic))
+                  .count());
     }
   }
 

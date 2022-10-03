@@ -39,12 +39,14 @@ import org.astraea.common.cost.ReplicaLeaderCost;
 import org.astraea.common.scenario.Scenario;
 import org.astraea.it.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 class BalancerTest extends RequireBrokerCluster {
 
-  @Test
-  void testLeaderCountRebalance() {
+  @ParameterizedTest
+  @ValueSource(booleans = {true, false})
+  void testLeaderCountRebalance(boolean greedy) {
     try (Admin admin = Admin.of(bootstrapServers())) {
       var topicName = Utils.randomString();
       var currentLeaders =
@@ -66,16 +68,29 @@ class BalancerTest extends RequireBrokerCluster {
               currentLeaders.get().values().stream().mapToLong(x -> x).min().orElseThrow()
                   - currentLeaders.get().values().stream().mapToLong(x -> x).max().orElseThrow());
 
+      var start = System.currentTimeMillis();
       var plan =
           Balancer.builder()
               .planGenerator(new ShufflePlanGenerator(1, 10))
               .clusterCost(List.of(new ReplicaLeaderCost()))
               .limit(1000)
+              .greedy(greedy)
               .build()
               .offer(admin.clusterInfo(Set.of(topicName)), admin.brokerFolders())
               .orElseThrow();
+      var start2 = System.currentTimeMillis();
+
       new StraightPlanExecutor().run(RebalanceAdmin.of(admin), plan.proposal().rebalancePlan());
 
+      System.out.println(
+          "plan: "
+              + (start2 - start)
+              + " exec:"
+              + (System.currentTimeMillis() - start2)
+              + " greedy: "
+              + greedy
+              + " cost: "
+              + plan.clusterCosts.stream().mapToDouble(ClusterCost::value).sum());
       var imbalanceFactor1 =
           Math.abs(
               currentLeaders.get().values().stream().mapToLong(x -> x).min().orElseThrow()
@@ -84,8 +99,9 @@ class BalancerTest extends RequireBrokerCluster {
     }
   }
 
-  @Test
-  void testFilter() {
+  @ParameterizedTest
+  @ValueSource(booleans = {true, false})
+  void testFilter(boolean greedy) {
     try (Admin admin = Admin.of(bootstrapServers())) {
       var theTopic = Utils.randomString();
       var topic1 = Utils.randomString();
@@ -113,6 +129,7 @@ class BalancerTest extends RequireBrokerCluster {
               .planGenerator(new ShufflePlanGenerator(50, 100))
               .clusterCost(List.of(randomScore))
               .limit(500)
+              .greedy(greedy)
               .build()
               .offer(clusterInfo, t -> t.equals(theTopic), brokerFolders)
               .get()
@@ -129,8 +146,9 @@ class BalancerTest extends RequireBrokerCluster {
     }
   }
 
-  @Test
-  void testExecutionTime() throws ExecutionException, InterruptedException {
+  @ParameterizedTest
+  @ValueSource(booleans = {true, false})
+  void testExecutionTime(boolean greedy) throws ExecutionException, InterruptedException {
     try (Admin admin = Admin.of(bootstrapServers())) {
       var theTopic = Utils.randomString();
       var topic1 = Utils.randomString();
@@ -148,6 +166,7 @@ class BalancerTest extends RequireBrokerCluster {
                       .planGenerator(new ShufflePlanGenerator(50, 100))
                       .clusterCost(List.of((clusterInfo, bean) -> Math::random))
                       .limit(Duration.ofSeconds(3))
+                      .greedy(greedy)
                       .build()
                       .offer(admin.clusterInfo(), admin.brokerFolders())
                       .get()

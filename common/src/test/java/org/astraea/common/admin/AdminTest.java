@@ -492,10 +492,14 @@ public class AdminTest extends RequireBrokerCluster {
   @Test
   void testBrokers() {
     try (var admin = Admin.of(bootstrapServers())) {
-      var nodes = admin.brokers();
-      Assertions.assertEquals(3, nodes.size());
-      nodes.forEach(c -> Assertions.assertNotEquals(0, c.config().raw().size()));
-      Assertions.assertEquals(1, nodes.stream().filter(Broker::isController).count());
+      admin.creator().topic(Utils.randomString()).numberOfPartitions(6).create();
+      Utils.sleep(Duration.ofSeconds(2));
+      var brokers = admin.brokers();
+      Assertions.assertEquals(3, brokers.size());
+      brokers.forEach(broker -> Assertions.assertNotEquals(0, broker.config().raw().size()));
+      Assertions.assertEquals(1, brokers.stream().filter(Broker::isController).count());
+      brokers.forEach(
+          broker -> Assertions.assertNotEquals(0, broker.topicPartitionLeaders().size()));
     }
   }
 
@@ -1876,6 +1880,14 @@ public class AdminTest extends RequireBrokerCluster {
             Assertions.assertEquals(3, p.replicas().size());
             Assertions.assertEquals(3, p.isr().size());
           });
+    }
+  }
+
+  @Test
+  void testPendingRequest() {
+    var topic = Utils.randomString(10);
+    try (Admin admin = Admin.of(bootstrapServers())) {
+      Assertions.assertEquals(0, admin.pendingRequests());
     }
   }
 }

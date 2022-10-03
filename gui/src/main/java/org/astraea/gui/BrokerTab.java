@@ -18,71 +18,76 @@ package org.astraea.gui;
 
 import java.util.List;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import javafx.scene.control.Tab;
 import org.astraea.common.DataSize;
 import org.astraea.common.LinkedHashMap;
+import org.astraea.common.admin.Broker;
 import org.astraea.common.admin.TopicPartition;
 
 public class BrokerTab {
 
+  private static List<LinkedHashMap<String, String>> result(Stream<Broker> brokers) {
+    return brokers
+        .map(
+            broker ->
+                LinkedHashMap.of(
+                    "hostname",
+                    broker.host(),
+                    "id",
+                    String.valueOf(broker.id()),
+                    "port",
+                    String.valueOf(broker.port()),
+                    "controller",
+                    String.valueOf(broker.isController()),
+                    "topics",
+                    String.valueOf(
+                        broker.folders().stream()
+                            .flatMap(
+                                d ->
+                                    d.partitionSizes().keySet().stream().map(TopicPartition::topic))
+                            .distinct()
+                            .count()),
+                    "partitions",
+                    String.valueOf(
+                        broker.folders().stream()
+                            .flatMap(d -> d.partitionSizes().keySet().stream())
+                            .distinct()
+                            .count()),
+                    "leaders",
+                    String.valueOf(broker.topicPartitionLeaders().size()),
+                    "size",
+                    DataSize.Byte.of(
+                            broker.folders().stream()
+                                .mapToLong(
+                                    d ->
+                                        d.partitionSizes().values().stream()
+                                            .mapToLong(v -> v)
+                                            .sum())
+                                .sum())
+                        .toString()))
+        .collect(Collectors.toList());
+  }
+
   public static Tab of(Context context) {
     var pane =
         Utils.searchToTable(
-            "search for brokers:",
-            word ->
+            "broker id/host/port (space means all brokers):",
+            (word, console) ->
                 context
                     .optionalAdmin()
                     .map(
                         admin ->
-                            admin.brokers().stream()
-                                .filter(
-                                    nodeInfo ->
-                                        word.isEmpty()
-                                            || String.valueOf(nodeInfo.id()).contains(word)
-                                            || nodeInfo.host().contains(word)
-                                            || String.valueOf(nodeInfo.port()).contains(word))
-                                .map(
-                                    node ->
-                                        LinkedHashMap.of(
-                                            "hostname", node.host(),
-                                            "id", String.valueOf(node.id()),
-                                            "port", String.valueOf(node.port()),
-                                            "topics",
-                                                String.valueOf(
-                                                    node.folders().stream()
-                                                        .flatMap(
-                                                            d ->
-                                                                d.partitionSizes().keySet().stream()
-                                                                    .map(TopicPartition::topic))
-                                                        .distinct()
-                                                        .count()),
-                                            "partitions",
-                                                String.valueOf(
-                                                    node.folders().stream()
-                                                        .flatMap(
-                                                            d ->
-                                                                d
-                                                                    .partitionSizes()
-                                                                    .keySet()
-                                                                    .stream())
-                                                        .distinct()
-                                                        .count()),
-                                            "size",
-                                                DataSize.Byte.of(
-                                                        node.folders().stream()
-                                                            .mapToLong(
-                                                                d ->
-                                                                    d
-                                                                        .partitionSizes()
-                                                                        .values()
-                                                                        .stream()
-                                                                        .mapToLong(v -> v)
-                                                                        .sum())
-                                                            .sum())
-                                                    .toString()))
-                                .collect(Collectors.toList()))
+                            result(
+                                admin.brokers().stream()
+                                    .filter(
+                                        nodeInfo ->
+                                            word.isEmpty()
+                                                || String.valueOf(nodeInfo.id()).contains(word)
+                                                || nodeInfo.host().contains(word)
+                                                || String.valueOf(nodeInfo.port()).contains(word))))
                     .orElse(List.of()));
-    var tab = new Tab("node");
+    var tab = new Tab("broker");
     tab.setContent(pane);
     return tab;
   }

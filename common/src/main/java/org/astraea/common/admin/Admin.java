@@ -39,6 +39,11 @@ public interface Admin extends Closeable {
     return builder().configs(configs).build();
   }
 
+  String clientId();
+
+  /** @return the number of pending requests. */
+  int pendingRequests();
+
   /**
    * @param listInternal should list internal topics or not
    * @return names of topics

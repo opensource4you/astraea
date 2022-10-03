@@ -36,7 +36,7 @@ import org.astraea.common.cost.ClusterCost;
 import org.astraea.common.cost.HasClusterCost;
 import org.astraea.common.cost.HasMoveCost;
 import org.astraea.common.cost.MoveCost;
-import org.astraea.common.cost.ReplicaNumCost;
+import org.astraea.common.cost.ReplicaNumberCost;
 import org.astraea.common.producer.Producer;
 import org.astraea.it.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
@@ -49,7 +49,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
     createAndProduceTopic(3);
     try (var admin = Admin.of(bootstrapServers())) {
       var handler =
-          new BalancerHandler(admin, List.of(new DegradeCost()), List.of(new ReplicaNumCost()));
+          new BalancerHandler(admin, List.of(new DegradeCost()), List.of(new ReplicaNumberCost()));
       var report =
           Assertions.assertInstanceOf(
               BalancerHandler.Report.class,
@@ -85,7 +85,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
     var topicNames = createAndProduceTopic(3);
     try (var admin = Admin.of(bootstrapServers())) {
       var handler =
-          new BalancerHandler(admin, List.of(new DegradeCost()), List.of(new ReplicaNumCost()));
+          new BalancerHandler(admin, List.of(new DegradeCost()), List.of(new ReplicaNumberCost()));
       var report =
           Assertions.assertInstanceOf(
               BalancerHandler.Report.class,
@@ -115,13 +115,14 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
   /** The score will getter better after each call, pretend we find a better plan */
   private static class DegradeCost implements HasClusterCost {
 
-    private double value0 = 1.0;
+    private double value = 1.0;
 
     @Override
     public synchronized ClusterCost clusterCost(
         ClusterInfo<Replica> clusterInfo, ClusterBean clusterBean) {
-      value0 = value0 * 0.998;
-      return () -> value0;
+      value = value * 0.998;
+      var result = value;
+      return () -> result;
     }
   }
 
@@ -130,7 +131,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
     var topicNames = createAndProduceTopic(3);
     try (var admin = Admin.of(bootstrapServers())) {
       var handler =
-          new BalancerHandler(admin, List.of(new DegradeCost()), List.of(new ReplicaNumCost()));
+          new BalancerHandler(admin, List.of(new DegradeCost()), List.of(new ReplicaNumberCost()));
       var report =
           Assertions.assertInstanceOf(
               BalancerHandler.Report.class,
