@@ -24,7 +24,6 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import javafx.scene.control.Tab;
 import org.astraea.common.LinkedHashMap;
-import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Partition;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.balancer.Balancer;
@@ -49,10 +48,6 @@ public class BalancerTab {
           var topics = partitions.stream().map(Partition::topic).collect(Collectors.toSet());
           var clusterInfo = admin.clusterInfo();
           console.append("start to generate optimized assignments for topics: " + topics);
-          System.out.println(
-              "nodes: "
-                  + clusterInfo.nodes().stream().map(NodeInfo::id).collect(Collectors.toList()));
-          System.out.println("admin.brokerFolders(): " + admin.brokerFolders());
           var optionalPlan =
               Balancer.builder()
                   .planGenerator(new ShufflePlanGenerator(0, 30))
