@@ -31,7 +31,7 @@ public class CreateTopicTab {
     var replicasField = new ShortBox((short) 1);
 
     var executeButton = new Button("create");
-    var console = new Console("");
+    var console = new ConsoleArea();
     executeButton.setOnAction(
         ignored -> {
           var name = topicField.getText();

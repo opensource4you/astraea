@@ -31,8 +31,8 @@ public class TopicTab {
 
     var pane =
         Utils.searchToTable(
-            "search for topics:",
-            word ->
+            "topic name (space means all topics):",
+            (word, console) ->
                 context
                     .optionalAdmin()
                     .map(
