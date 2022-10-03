@@ -23,6 +23,8 @@ import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
+import javafx.scene.control.Label;
 import javafx.scene.control.Tab;
 import org.astraea.common.LinkedHashMap;
 import org.astraea.common.admin.Partition;
@@ -153,7 +155,12 @@ public class BalancerTab {
               });
         };
 
-    tab.setContent(Utils.searchToTable(planGenerator, planExecutor, cost.values()));
+    tab.setContent(
+        Utils.searchToTable(
+            planGenerator,
+            planExecutor,
+            Stream.concat(Stream.of(new Label("balanced by:")), cost.values().stream())
+                .collect(Collectors.toList())));
     return tab;
   }
 }

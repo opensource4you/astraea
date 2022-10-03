@@ -130,6 +130,7 @@ class Utils {
             console.append("previous search is running");
             return;
           }
+          searchButton.setDisable(true);
           var value = search.getText();
           var word = value == null || value.isBlank() ? "" : value;
           applyResultButton.setVisible(false);
@@ -142,6 +143,7 @@ class Utils {
                   (result, e) -> {
                     if (result == null || result == SearchResult.empty()) {
                       console.append("can't generate result. Please retry it.");
+                      searchButton.setDisable(false);
                       isRunning.set(false);
                       return;
                     }
@@ -162,6 +164,7 @@ class Utils {
                         () -> {
                           view.getColumns().setAll(tables);
                           view.getItems().setAll(result.items());
+                          searchButton.setDisable(false);
                           isRunning.set(false);
                           // There is a callback of result, so we display the button.
                           if (resultConsumer != null) applyResultButton.setVisible(true);
