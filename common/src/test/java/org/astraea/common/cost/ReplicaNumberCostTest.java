@@ -31,6 +31,17 @@ import org.junit.jupiter.api.Test;
 class ReplicaNumberCostTest {
 
   @Test
+  void testClusterCostWhenNodeHavingNothing() {
+    var nodeInfo = NodeInfo.of(10, "h", 100);
+    var replica = Replica.builder().nodeInfo(nodeInfo).topic("t").build();
+    var clusterInfo =
+        ClusterInfo.of(Set.of(nodeInfo, NodeInfo.of(100, "h", 100)), List.of(replica));
+    var cost = new ReplicaNumberCost();
+    Assertions.assertEquals(
+        Long.MAX_VALUE, cost.clusterCost(clusterInfo, ClusterBean.EMPTY).value());
+  }
+
+  @Test
   void testClusterCostForSingleNode() {
     var nodeInfo = NodeInfo.of(10, "h", 100);
     var clusterInfo = ClusterInfo.of(Set.of(nodeInfo), List.<Replica>of());

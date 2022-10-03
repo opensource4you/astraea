@@ -55,14 +55,18 @@ public class ReplicaNumberCost implements HasClusterCost, HasMoveCost.Helper {
 
   @Override
   public ClusterCost clusterCost(ClusterInfo<Replica> clusterInfo, ClusterBean clusterBean) {
-    var group =
-        clusterInfo.replicas().stream().collect(Collectors.groupingBy(r -> r.nodeInfo().id()));
-
     // there is no better plan for single node
     if (clusterInfo.nodes().size() == 1) return () -> 0;
 
+    var group =
+        clusterInfo.replicas().stream().collect(Collectors.groupingBy(r -> r.nodeInfo().id()));
+
     // worst case: all partitions are hosted by single node
     if (clusterInfo.nodes().size() > 1 && group.size() <= 1) return () -> Long.MAX_VALUE;
+
+    // there is a node having zero replica!
+    if (clusterInfo.nodes().stream().anyMatch(node -> !group.containsKey(node.id())))
+      return () -> Long.MAX_VALUE;
 
     // normal case
     var max = group.values().stream().mapToLong(List::size).max().orElse(0);
