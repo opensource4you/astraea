@@ -18,7 +18,6 @@ package org.astraea.common.balancer;
 
 import java.time.Duration;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ThreadLocalRandom;
@@ -52,49 +51,46 @@ class BalancerTest extends RequireBrokerCluster {
           (Supplier<Map<Integer, Long>>)
               () ->
                   admin.replicas().stream()
+                      .filter(Replica::isLeader)
                       .map(replica -> replica.nodeInfo().id())
                       .collect(Collectors.groupingBy(x -> x, Collectors.counting()));
-
-      Scenario.build(0.5)
+      var currentImbalanceFactor =
+          (Supplier<Long>)
+              () ->
+                  currentLeaders.get().values().stream().mapToLong(x -> x).max().orElseThrow()
+                      - currentLeaders.get().values().stream()
+                          .mapToLong(x -> x)
+                          .min()
+                          .orElseThrow();
+      Scenario.build(0.1)
           .topicName(topicName)
           .numberOfPartitions(100)
           .numberOfReplicas((short) 1)
           .binomialProbability(0.1)
           .build()
           .apply(admin);
-      var imbalanceFactor0 =
-          Math.abs(
-              currentLeaders.get().values().stream().mapToLong(x -> x).min().orElseThrow()
-                  - currentLeaders.get().values().stream().mapToLong(x -> x).max().orElseThrow());
+      var imbalanceFactor0 = currentImbalanceFactor.get();
+      Assertions.assertNotEquals(
+          0, imbalanceFactor0, "This cluster is completely balanced in terms of leader count");
 
-      var start = System.currentTimeMillis();
       var plan =
           Balancer.builder()
               .planGenerator(new ShufflePlanGenerator(1, 10))
               .clusterCost(new ReplicaLeaderCost())
-              .limit(1000)
+              .limit(Duration.ofSeconds(10))
               .greedy(greedy)
               .build()
-              .offer(admin.clusterInfo(Set.of(topicName)), admin.brokerFolders())
+              .offer(admin.clusterInfo(), topic -> topic.equals(topicName), admin.brokerFolders())
               .orElseThrow();
-      var start2 = System.currentTimeMillis();
-
       new StraightPlanExecutor().run(RebalanceAdmin.of(admin), plan.proposal().rebalancePlan());
 
-      System.out.println(
-          "plan: "
-              + (start2 - start)
-              + " exec:"
-              + (System.currentTimeMillis() - start2)
-              + " greedy: "
-              + greedy
-              + " cost: "
-              + plan.clusterCost.value());
-      var imbalanceFactor1 =
-          Math.abs(
-              currentLeaders.get().values().stream().mapToLong(x -> x).min().orElseThrow()
-                  - currentLeaders.get().values().stream().mapToLong(x -> x).max().orElseThrow());
-      Assertions.assertTrue(imbalanceFactor1 < imbalanceFactor0);
+      var imbalanceFactor1 = currentImbalanceFactor.get();
+      Assertions.assertTrue(
+          imbalanceFactor1 < imbalanceFactor0,
+          "Leader count should be closer, original: "
+              + imbalanceFactor0
+              + ". now: "
+              + imbalanceFactor1);
     }
   }
 
