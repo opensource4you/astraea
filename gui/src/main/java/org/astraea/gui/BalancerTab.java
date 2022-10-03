@@ -18,6 +18,7 @@ package org.astraea.gui;
 
 import java.time.Duration;
 import java.util.Comparator;
+import java.util.List;
 import java.util.Map;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
@@ -71,12 +72,13 @@ public class BalancerTab {
                       Balancer.builder()
                           .planGenerator(new ShufflePlanGenerator(0, 30))
                           .clusterCost(
-                              cost.entrySet().stream()
-                                  .filter(e -> e.getValue().isSelected())
-                                  .map(Map.Entry::getKey)
-                                  .findFirst()
-                                  .orElse(Cost.REPLICA)
-                                  .costFunction)
+                              List.of(
+                                  cost.entrySet().stream()
+                                      .filter(e -> e.getValue().isSelected())
+                                      .map(Map.Entry::getKey)
+                                      .findFirst()
+                                      .orElse(Cost.REPLICA)
+                                      .costFunction))
                           .limit(Duration.ofSeconds(10))
                           .limit(10000)
                           .greedy(true)
