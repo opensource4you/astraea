@@ -30,7 +30,7 @@ import org.astraea.common.admin.Replica;
 import org.astraea.common.balancer.Balancer;
 import org.astraea.common.balancer.generator.ShufflePlanGenerator;
 import org.astraea.common.balancer.log.ClusterLogAllocation;
-import org.astraea.common.cost.ReplicaLeaderCost;
+import org.astraea.common.cost.ReplicaNumberCost;
 
 public class BalancerTab {
 
@@ -62,9 +62,10 @@ public class BalancerTab {
                           var optionalPlan =
                               Balancer.builder()
                                   .planGenerator(new ShufflePlanGenerator(0, 3000))
-                                  .clusterCost(new ReplicaLeaderCost())
+                                  .clusterCost(new ReplicaNumberCost())
                                   .limit(Duration.ofSeconds(10))
                                   .limit(10000)
+                                  .greedy(true)
                                   .clusterConstraint(
                                       (before, after) -> {
                                         var good = after.value() < before.value();
