@@ -92,3 +92,27 @@ curl -X POST http://localhost:8001/reassignments \
     "to": "/tmp/data"
     }]' 
 ```
+
+## 排除指定節點的 replicas
+
+```shell
+POST /reassignments
+```
+參數
+
+| 名稱      | 說明                   | 預設                |
+|---------|----------------------|-------------------|
+| exclude | (必填) 指定排除之 broker id | 無                 |
+| topic   | (選填) topic 名稱，排除該節點下指定 topic 的 partitions       | 無 |
+
+cURL 範例
+
+排除 broker = 1003 身上屬於 "chia" 的 partitions
+```shell
+curl -X POST http://localhost:8001/reassignments \
+    -H "Content-Type: application/json" \
+    -d '{"plans": [{
+    "exclude": 1003,
+    "topic": "chia"
+    }]}' 
+```
