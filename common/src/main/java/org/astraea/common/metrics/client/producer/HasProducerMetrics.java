@@ -164,6 +164,10 @@ public interface HasProducerMetrics extends HasBeanObject {
     return (double) beanObject().attributes().get("reauthentication-latency-avg");
   }
 
+  default double reauthenticationLatencyMax() {
+    return (double) beanObject().attributes().get("reauthentication-latency-max");
+  }
+
   default double recordErrorRate() {
     return (double) beanObject().attributes().get("record-error-rate");
   }

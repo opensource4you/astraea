@@ -24,7 +24,7 @@ object Utils {
     val file = new File(path)
     if (!file.isDirectory) {
       throw new IllegalPathStateException(
-        s"${path} is not a folder. The path should be a folder."
+        s"$path is not a folder. The path should be a folder."
       )
     }
     file
@@ -34,7 +34,7 @@ object Utils {
     val file = new File(path)
     if (!file.exists()) {
       throw new IllegalPathStateException(
-        s"${path} is not a file. The file does not exist."
+        s"$path is not a file. The file does not exist."
       )
     }
     file

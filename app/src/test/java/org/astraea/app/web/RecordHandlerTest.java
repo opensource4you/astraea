@@ -51,7 +51,6 @@ import org.astraea.app.web.RecordHandler.Metadata;
 import org.astraea.common.ExecutionRuntimeException;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
-import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.consumer.Consumer;
 import org.astraea.common.consumer.Deserializer;
 import org.astraea.common.consumer.Header;
@@ -668,6 +667,7 @@ public class RecordHandlerTest extends RequireBrokerCluster {
       var topicName = Utils.randomString(10);
       var handler = getRecordHandler();
       admin.creator().topic(topicName).numberOfPartitions(3).numberOfReplicas((short) 3).create();
+      Utils.sleep(Duration.ofSeconds(2));
       Assertions.assertEquals(
           Response.OK,
           handler.delete(Channel.ofQueries(topicName, Map.of(PARTITION, "0", OFFSET, "0"))));
@@ -697,16 +697,53 @@ public class RecordHandlerTest extends RequireBrokerCluster {
       Assertions.assertEquals(
           Response.OK,
           handler.delete(Channel.ofQueries(topicName, Map.of(PARTITION, "0", OFFSET, "1"))));
-      var offsets = admin.offsets();
-      Assertions.assertEquals(1, offsets.get(TopicPartition.of(topicName, 0)).earliest());
-      Assertions.assertEquals(0, offsets.get(TopicPartition.of(topicName, 1)).earliest());
-      Assertions.assertEquals(0, offsets.get(TopicPartition.of(topicName, 2)).earliest());
+      var partitions = admin.partitions(Set.of(topicName));
+      Assertions.assertEquals(3, partitions.size());
+      Assertions.assertEquals(
+          1,
+          partitions.stream()
+              .filter(p -> p.topic().equals(topicName) && p.partition() == 0)
+              .findFirst()
+              .get()
+              .earliestOffset());
+      Assertions.assertEquals(
+          0,
+          partitions.stream()
+              .filter(p -> p.topic().equals(topicName) && p.partition() == 1)
+              .findFirst()
+              .get()
+              .earliestOffset());
+      Assertions.assertEquals(
+          0,
+          partitions.stream()
+              .filter(p -> p.topic().equals(topicName) && p.partition() == 2)
+              .findFirst()
+              .get()
+              .earliestOffset());
 
       Assertions.assertEquals(Response.OK, handler.delete(Channel.ofTarget(topicName)));
-      offsets = admin.offsets();
-      Assertions.assertEquals(2, offsets.get(TopicPartition.of(topicName, 0)).earliest());
-      Assertions.assertEquals(3, offsets.get(TopicPartition.of(topicName, 1)).earliest());
-      Assertions.assertEquals(4, offsets.get(TopicPartition.of(topicName, 2)).earliest());
+      partitions = admin.partitions(admin.topicNames());
+      Assertions.assertEquals(
+          2,
+          partitions.stream()
+              .filter(p -> p.topic().equals(topicName) && p.partition() == 0)
+              .findFirst()
+              .get()
+              .earliestOffset());
+      Assertions.assertEquals(
+          3,
+          partitions.stream()
+              .filter(p -> p.topic().equals(topicName) && p.partition() == 1)
+              .findFirst()
+              .get()
+              .earliestOffset());
+      Assertions.assertEquals(
+          4,
+          partitions.stream()
+              .filter(p -> p.topic().equals(topicName) && p.partition() == 2)
+              .findFirst()
+              .get()
+              .earliestOffset());
     }
   }
 
@@ -727,10 +764,28 @@ public class RecordHandlerTest extends RequireBrokerCluster {
 
       Assertions.assertEquals(
           Response.OK, handler.delete(Channel.ofQueries(topicName, Map.of(OFFSET, "1"))));
-      var offsets = admin.offsets();
-      Assertions.assertEquals(1, offsets.get(TopicPartition.of(topicName, 0)).earliest());
-      Assertions.assertEquals(1, offsets.get(TopicPartition.of(topicName, 1)).earliest());
-      Assertions.assertEquals(1, offsets.get(TopicPartition.of(topicName, 2)).earliest());
+      var partitions = admin.partitions(admin.topicNames());
+      Assertions.assertEquals(
+          1,
+          partitions.stream()
+              .filter(p -> p.topic().equals(topicName) && p.partition() == 0)
+              .findFirst()
+              .get()
+              .earliestOffset());
+      Assertions.assertEquals(
+          1,
+          partitions.stream()
+              .filter(p -> p.topic().equals(topicName) && p.partition() == 1)
+              .findFirst()
+              .get()
+              .earliestOffset());
+      Assertions.assertEquals(
+          1,
+          partitions.stream()
+              .filter(p -> p.topic().equals(topicName) && p.partition() == 2)
+              .findFirst()
+              .get()
+              .earliestOffset());
     }
   }
 
@@ -751,10 +806,28 @@ public class RecordHandlerTest extends RequireBrokerCluster {
 
       Assertions.assertEquals(
           Response.OK, handler.delete(Channel.ofQueries(topicName, Map.of(PARTITION, "1"))));
-      var offsets = admin.offsets();
-      Assertions.assertEquals(0, offsets.get(TopicPartition.of(topicName, 0)).earliest());
-      Assertions.assertEquals(3, offsets.get(TopicPartition.of(topicName, 1)).earliest());
-      Assertions.assertEquals(0, offsets.get(TopicPartition.of(topicName, 2)).earliest());
+      var partitions = admin.partitions(admin.topicNames());
+      Assertions.assertEquals(
+          0,
+          partitions.stream()
+              .filter(p -> p.topic().equals(topicName) && p.partition() == 0)
+              .findFirst()
+              .get()
+              .earliestOffset());
+      Assertions.assertEquals(
+          3,
+          partitions.stream()
+              .filter(p -> p.topic().equals(topicName) && p.partition() == 1)
+              .findFirst()
+              .get()
+              .earliestOffset());
+      Assertions.assertEquals(
+          0,
+          partitions.stream()
+              .filter(p -> p.topic().equals(topicName) && p.partition() == 2)
+              .findFirst()
+              .get()
+              .earliestOffset());
     }
   }
 

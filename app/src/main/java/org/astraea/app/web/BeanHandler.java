@@ -29,7 +29,7 @@ public class BeanHandler implements Handler {
 
   BeanHandler(Admin admin, Function<String, Integer> jmxPorts) {
     clients =
-        admin.nodes().stream()
+        admin.brokers().stream()
             .map(n -> MBeanClient.jndi(n.host(), jmxPorts.apply(n.host())))
             .collect(Collectors.toUnmodifiableList());
   }

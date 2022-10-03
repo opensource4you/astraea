@@ -36,10 +36,6 @@ public interface HasConsumerMetrics extends HasBeanObject {
     return (double) beanObject().attributes().get("successful-authentication-total");
   }
 
-  default double ioWaittimeTotal() {
-    return (double) beanObject().attributes().get("io-waittime-total");
-  }
-
   default double committedTimeNsTotal() {
     return (double) beanObject().attributes().get("committed-time-ns-total");
   }
@@ -112,16 +108,8 @@ public interface HasConsumerMetrics extends HasBeanObject {
     return (double) beanObject().attributes().get("io-time-ns-avg");
   }
 
-  default double iotimeTotal() {
-    return (double) beanObject().attributes().get("iotime-total");
-  }
-
   default double ioWaitTimeNsTotal() {
     return (double) beanObject().attributes().get("io-wait-time-ns-total");
-  }
-
-  default double ioWaitRatio() {
-    return (double) beanObject().attributes().get("io-wait-ratio");
   }
 
   default double networkIoRate() {
@@ -134,10 +122,6 @@ public interface HasConsumerMetrics extends HasBeanObject {
 
   default double requestSizeAvg() {
     return (double) beanObject().attributes().get("request-size-avg");
-  }
-
-  default double ioRatio() {
-    return (double) beanObject().attributes().get("io-ratio");
   }
 
   default double responseRate() {
