@@ -30,7 +30,7 @@ public class SettingTab {
     var tab = new Tab("bootstrap servers");
 
     var bootstrapField = new TextField("");
-    var console = new Console("");
+    var console = new ConsoleArea();
     var checkButton = new Button("check");
     tab.setContent(
         Utils.vbox(

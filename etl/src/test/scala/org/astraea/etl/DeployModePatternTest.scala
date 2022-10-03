@@ -14,27 +14,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.gui;
+package org.astraea.etl
 
-public interface Console {
+import org.junit.jupiter.api.Test
 
-  default void text(String text, Throwable e) {
-    if (e != null) text(e);
-    else text(text);
-  }
+class DeployModePatternTest {
+  @Test def deployModePatternTest(): Unit = {
+    assert(!DeployModePattern.of(""))
+    assert(!DeployModePattern.of("123"))
+    assert(DeployModePattern.of("local[2]"))
 
-  void text(String text);
-
-  default void text(Throwable e) {
-    if (e != null) text(Utils.toString(e));
-  }
-
-  void append(String text);
-
-  void append(Throwable e);
-
-  default void append(String text, Throwable e) {
-    if (e != null) append(e);
-    else append(text);
+    assert(!DeployModePattern.of(""))
+    assert(!DeployModePattern.of("abc"))
+    assert(!DeployModePattern.of("spark://0.0.0.0"))
   }
 }

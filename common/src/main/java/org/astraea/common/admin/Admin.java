@@ -39,6 +39,11 @@ public interface Admin extends Closeable {
     return builder().configs(configs).build();
   }
 
+  String clientId();
+
+  /** @return the number of pending requests. */
+  int pendingRequests();
+
   /**
    * @param listInternal should list internal topics or not
    * @return names of topics
@@ -103,15 +108,16 @@ public interface Admin extends Closeable {
   Set<Integer> brokerIds();
 
   /** @return all alive node information in the cluster */
-  List<Node> nodes();
+  List<Broker> brokers();
 
   /** @return data folders of all broker nodes */
   default Map<Integer, Set<String>> brokerFolders() {
-    return nodes().stream()
+    return brokers().stream()
         .collect(
             Collectors.toMap(
                 NodeInfo::id,
-                n -> n.folders().stream().map(Node.DataFolder::path).collect(Collectors.toSet())));
+                n ->
+                    n.folders().stream().map(Broker.DataFolder::path).collect(Collectors.toSet())));
   }
 
   /** @return a partition migrator used to move partitions to another broker or folder. */
@@ -167,7 +173,7 @@ public interface Admin extends Closeable {
    * @return a snapshot object of cluster state at the moment
    */
   default ClusterInfo<Replica> clusterInfo(Set<String> topics) {
-    var nodeInfo = nodes().stream().map(n -> (NodeInfo) n).collect(Collectors.toSet());
+    var nodeInfo = brokers().stream().map(n -> (NodeInfo) n).collect(Collectors.toSet());
     var replicas = Utils.packException(() -> replicas(topics));
 
     return new ClusterInfo<>() {

@@ -66,7 +66,7 @@ class RebalanceAdminImpl implements RebalanceAdmin {
       TopicPartition topicPartition, LinkedHashMap<Integer, String> preferredPlacements) {
 
     final var currentBrokerAllocation =
-        admin.nodes().stream()
+        admin.brokers().stream()
             .map(NodeInfo::id)
             .filter(id -> admin.topicPartitions(id).contains(topicPartition))
             .collect(Collectors.toSet());
@@ -94,7 +94,7 @@ class RebalanceAdminImpl implements RebalanceAdmin {
     declarePreferredDataDirectories(topicPartition, expectedPlacement);
 
     var currentReplicaBrokers =
-        admin.nodes().stream()
+        admin.brokers().stream()
             .map(NodeInfo::id)
             .filter(id -> admin.topicPartitions(id).contains(topicPartition))
             .collect(Collectors.toSet());

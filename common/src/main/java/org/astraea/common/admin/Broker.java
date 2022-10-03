@@ -16,16 +16,20 @@
  */
 package org.astraea.common.admin;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
-public interface Node extends NodeInfo {
+public interface Broker extends NodeInfo {
 
-  static Node of(
+  static Broker of(
+      boolean isController,
       org.astraea.common.admin.NodeInfo nodeInfo,
       org.apache.kafka.clients.admin.Config kafkaConfig,
-      Map<String, org.apache.kafka.clients.admin.LogDirDescription> dirs) {
+      Map<String, org.apache.kafka.clients.admin.LogDirDescription> dirs,
+      Collection<org.apache.kafka.clients.admin.TopicDescription> topics) {
     var config = Config.of(kafkaConfig);
     var folders =
         dirs.entrySet().stream()
@@ -52,7 +56,15 @@ public interface Node extends NodeInfo {
                       };
                 })
             .collect(Collectors.toList());
-    return new Node() {
+    var partitions =
+        topics.stream()
+            .flatMap(
+                topic ->
+                    topic.partitions().stream()
+                        .filter(p -> p.leader().id() == nodeInfo.id())
+                        .map(p -> TopicPartition.of(topic.name(), p.partition())))
+            .collect(Collectors.toUnmodifiableSet());
+    return new Broker() {
       @Override
       public String host() {
         return nodeInfo.host();
@@ -69,6 +81,11 @@ public interface Node extends NodeInfo {
       }
 
       @Override
+      public boolean isController() {
+        return isController;
+      }
+
+      @Override
       public Config config() {
         return config;
       }
@@ -77,14 +94,24 @@ public interface Node extends NodeInfo {
       public List<DataFolder> folders() {
         return folders;
       }
+
+      @Override
+      public Set<TopicPartition> topicPartitionLeaders() {
+        return partitions;
+      }
     };
   }
+
+  boolean isController();
 
   /** @return config used by this node */
   Config config();
 
   /** @return the disk folder used to stored data by this node */
   List<DataFolder> folders();
+
+  /** @return partition leaders hosted by this broker */
+  Set<TopicPartition> topicPartitionLeaders();
 
   interface DataFolder {
 

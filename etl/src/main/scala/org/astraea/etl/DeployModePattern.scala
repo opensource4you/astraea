@@ -14,27 +14,29 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.gui;
+package org.astraea.etl
 
-public interface Console {
+import scala.util.matching.Regex
 
-  default void text(String text, Throwable e) {
-    if (e != null) text(e);
-    else text(text);
+sealed abstract class DeployModePattern(pattern: Regex) {
+  def r: Regex = {
+    pattern
+  }
+}
+
+object DeployModePattern {
+  // Whether it is a local mode string.
+  case object LocalModePattern
+      extends DeployModePattern("local(\\[)[\\d{1}](])".r)
+  // Whether it is a standalone mode string.
+  case object StandAloneModePattern
+      extends DeployModePattern("spark://(.+):(\\d+)".r)
+
+  def of(str: String): Boolean = {
+    all().exists(_.r matches str)
   }
 
-  void text(String text);
-
-  default void text(Throwable e) {
-    if (e != null) text(Utils.toString(e));
-  }
-
-  void append(String text);
-
-  void append(Throwable e);
-
-  default void append(String text, Throwable e) {
-    if (e != null) append(e);
-    else append(text);
+  def all() = {
+    Seq(LocalModePattern, StandAloneModePattern)
   }
 }

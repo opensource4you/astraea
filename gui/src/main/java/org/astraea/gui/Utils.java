@@ -22,15 +22,15 @@ import java.text.SimpleDateFormat;
 import java.time.Duration;
 import java.util.Collections;
 import java.util.Date;
-import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
-import java.util.function.Function;
+import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 import javafx.application.Platform;
 import javafx.beans.property.ReadOnlyObjectWrapper;
@@ -38,11 +38,11 @@ import javafx.collections.FXCollections;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
+import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
 import javafx.scene.control.TextField;
-import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Pane;
 import javafx.scene.layout.VBox;
@@ -96,57 +96,59 @@ class Utils {
   }
 
   public static VBox vbox(Node... nodes) {
+    return vbox(Pos.TOP_LEFT, nodes);
+  }
+
+  public static VBox vbox(Pos pos, Node... nodes) {
     var pane = new VBox(10);
     pane.setPadding(new Insets(15));
     pane.getChildren().setAll(nodes);
+    pane.setAlignment(pos);
     return pane;
   }
 
   public static <T extends Map<String, String>> Pane searchToTable(
-      String hint, Function<String, List<T>> itemGenerator) {
+      String hint, BiFunction<String, Console, List<T>> itemGenerator) {
     return searchToTable(
-        hint,
-        itemGenerator,
-        (ignored, e) -> {
-          if (e != null) e.printStackTrace();
-        });
+        hint, (word, console) -> SearchResult.of(itemGenerator.apply(word, console)), null);
   }
 
-  public static <T extends Map<String, String>> Pane searchToTable(
+  public static <T> Pane searchToTable(
       String hint,
-      Function<String, List<T>> itemGenerator,
-      BiConsumer<List<T>, Throwable> callback) {
+      BiFunction<String, Console, SearchResult<T>> resultGenerator,
+      BiConsumer<SearchResult<T>, Console> resultConsumer) {
     var view = new TableView<>(FXCollections.<Map<String, String>>observableArrayList());
     view.setColumnResizePolicy(TableView.UNCONSTRAINED_RESIZE_POLICY);
+    var console = new ConsoleArea();
     var search = new TextField("");
-    var keyword = new AtomicReference<String>();
+    var isRunning = new AtomicBoolean();
+    var lastResult = new AtomicReference<SearchResult<T>>();
+    var applyResultButton = new Button("apply");
+    applyResultButton.setVisible(false);
     search
         .textProperty()
         .addListener(
             ((observable, oldValue, newValue) -> {
               if (newValue == null) return;
               var word = newValue.isBlank() ? "" : newValue;
-              // the process is already running if keyword is not null
-              if (keyword.getAndSet(word) != null) return;
+              if (!isRunning.compareAndSet(false, true)) return;
+              applyResultButton.setVisible(false);
+              console.cleanup();
               view.getItems().clear();
+              applyResultButton.setVisible(false);
               CompletableFuture.supplyAsync(
-                      () -> itemGenerator.apply(keyword.get()),
+                      () -> resultGenerator.apply(word, console),
                       CompletableFuture.delayedExecutor(
                           DELAY_INPUT.toMillis(), TimeUnit.MILLISECONDS))
                   .whenComplete(
-                      (items, e) -> {
-                        if (items == null) {
-                          keyword.set(null);
-                          callback.accept(null, e);
+                      (result, e) -> {
+                        if (result == null || result == SearchResult.empty()) {
+                          console.append("can't generate result. Please retry it.");
+                          isRunning.set(false);
                           return;
                         }
-                        callback.accept(items, e);
-                        var keys =
-                            items.stream()
-                                .flatMap(i -> i.keySet().stream())
-                                .collect(Collectors.toCollection(LinkedHashSet::new));
                         var tables =
-                            keys.stream()
+                            result.keys().stream()
                                 .map(
                                     key -> {
                                       var col = new TableColumn<Map<String, String>, String>(key);
@@ -157,19 +159,31 @@ class Utils {
                                       return col;
                                     })
                                 .collect(Collectors.toList());
+                        lastResult.set(result);
                         Platform.runLater(
                             () -> {
                               view.getColumns().setAll(tables);
-                              view.getItems().setAll(items);
-                              keyword.set(null);
+                              view.getItems().setAll(result.items());
+                              isRunning.set(false);
+                              // There is a callback of result, so we display the button.
+                              if (resultConsumer != null) applyResultButton.setVisible(true);
                             });
                       });
             }));
-    var pane = new BorderPane();
-    pane.setPadding(new Insets(10, 20, 10, 20));
-    pane.setTop(hbox(new Label(hint), search));
-    pane.setCenter(view);
-    return pane;
+    if (resultConsumer != null)
+      applyResultButton.setOnAction(
+          ignored -> {
+            applyResultButton.setVisible(false);
+            var result = lastResult.get();
+            if (result == null) {
+              console.append("there is no result!!!");
+              return;
+            }
+            console.append("Applying result ... ");
+            CompletableFuture.runAsync(() -> resultConsumer.accept(result, console))
+                .whenComplete((r, e) -> console.append(e));
+          });
+    return vbox(Pos.TOP_RIGHT, hbox(new Label(hint), search), view, applyResultButton, console);
   }
 
   public static String toString(Throwable e) {

@@ -46,7 +46,7 @@ class BrokerHandler implements Handler {
   public Response get(Channel channel) {
     var ids = brokers(channel.target());
     var brokers =
-        admin.nodes().stream()
+        admin.brokers().stream()
             .filter(n -> ids.contains(n.id()))
             .map(n -> new Broker(n.id(), admin.topicPartitions(n.id()), n.config()))
             .collect(Collectors.toUnmodifiableList());

@@ -22,7 +22,7 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 import javafx.scene.control.Tab;
 import org.astraea.common.LinkedHashMap;
-import org.astraea.common.admin.Node;
+import org.astraea.common.admin.Broker;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Partition;
 
@@ -31,8 +31,8 @@ public class TopicTab {
 
     var pane =
         Utils.searchToTable(
-            "search for topics:",
-            word ->
+            "topic name (space means all topics):",
+            (word, console) ->
                 context
                     .optionalAdmin()
                     .map(
@@ -42,14 +42,14 @@ public class TopicTab {
                                     admin.topicNames().stream()
                                         .filter(name -> word.isEmpty() || name.contains(word))
                                         .collect(Collectors.toSet())),
-                                admin.nodes()))
+                                admin.brokers()))
                     .orElse(List.of()));
     var tab = new Tab("topic");
     tab.setContent(pane);
     return tab;
   }
 
-  private static List<Map<String, String>> beans(List<Partition> partitions, List<Node> nodes) {
+  private static List<Map<String, String>> beans(List<Partition> partitions, List<Broker> nodes) {
     var topicSize =
         nodes.stream()
             .flatMap(n -> n.folders().stream().flatMap(d -> d.partitionSizes().entrySet().stream()))

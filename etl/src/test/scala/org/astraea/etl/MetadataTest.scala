@@ -16,20 +16,21 @@
  */
 package org.astraea.etl
 
-import org.astraea.etl.Configuration.{
-  primaryKeys,
+import org.astraea.etl.DataType.StringType
+import org.astraea.etl.Metadata.{
+  primaryKeyParse,
   requireNonidentical,
   requirePair
 }
+import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.{BeforeEach, Test}
-import org.scalatest.Assertions.assertThrows
 
 import java.io.{File, FileOutputStream}
 import java.nio.file.Files.createTempFile
 import java.util.Properties
 import scala.util.{Try, Using}
 
-class ConfigurationTest {
+class MetadataTest {
   var file = new File("")
   var path = ""
 
@@ -40,18 +41,18 @@ class ConfigurationTest {
   }
 
   @Test def defaultTest(): Unit = {
-    val config = Configuration(Utils.requireFile(file.getAbsolutePath))
+    val config = Metadata(Utils.requireFile(file.getAbsolutePath))
     assert(config.sourcePath.equals(new File(file.getParent)))
     assert(config.sinkPath.equals(new File(file.getParent)))
     assert(
-      config.columnName equals Map(
-        "ID" -> "string",
-        "KA" -> "string",
-        "KB" -> "string",
-        "KC" -> "string"
+      config.column equals Map(
+        "ID" -> StringType,
+        "KA" -> StringType,
+        "KB" -> StringType,
+        "KC" -> StringType
       )
     )
-    assert(config.primaryKeys equals Map("ID" -> "string"))
+    assert(config.primaryKeys equals Map("ID" -> StringType))
     assert(config.kafkaBootstrapServers.equals("0.0.0.0"))
     assert(config.numPartitions.equals(15))
     assert(config.numReplicas.equals(1))
@@ -69,18 +70,18 @@ class ConfigurationTest {
     prop.setProperty("topic.config", "KA=VA,KB=VB")
     prop.store(new FileOutputStream(file), null)
 
-    val config = Configuration(Utils.requireFile(file.getAbsolutePath))
+    val config = Metadata(Utils.requireFile(file.getAbsolutePath))
     assert(config.sourcePath.equals(new File(file.getParent)))
     assert(config.sinkPath.equals(new File(file.getParent)))
     assert(
-      config.columnName equals Map(
-        "ID" -> "string",
-        "KA" -> "string",
-        "KB" -> "string",
-        "KC" -> "string"
+      config.column equals Map(
+        "ID" -> StringType,
+        "KA" -> StringType,
+        "KB" -> StringType,
+        "KC" -> StringType
       )
     )
-    assert(config.primaryKeys equals Map("ID" -> "string"))
+    assert(config.primaryKeys equals Map("ID" -> StringType))
     assert(config.kafkaBootstrapServers.equals("0.0.0.0"))
     assert(config.numPartitions.equals(30))
     assert(config.numReplicas.equals(3))
@@ -90,24 +91,55 @@ class ConfigurationTest {
 
   @Test def requireNonidenticalTest(): Unit = {
     val map = Map[String, String]("data" -> "ID,KA,KB,KC,ID")
-    assertThrows[IllegalArgumentException] {
-      requireNonidentical("data", map)
-    }
+    assertThrows(
+      classOf[IllegalArgumentException],
+      () => requireNonidentical("data", map)
+    )
   }
 
-  @Test def primaryKeysTest(): Unit = {
+  @Test def primaryKeysParseTest(): Unit = {
     val map =
       Map[String, String]("data" -> "ID,KA,KB,KC", "primary=keys" -> "DD")
-    assertThrows[IllegalArgumentException] {
-      primaryKeys(map, requireNonidentical("data", map))
-    }
+    assertThrows(
+      classOf[IllegalArgumentException],
+      () =>
+        primaryKeyParse(
+          map,
+          DataType.of(requireNonidentical("data", map))
+        )
+    )
   }
 
-  @Test def topicParametersTest(): Unit = {
+  @Test def requirePairTest(): Unit = {
     val map = "ID=KA,PP=KB,KC"
-    assertThrows[IllegalArgumentException] {
-      requirePair(map)
-    }
+    assertThrows(classOf[IllegalArgumentException], () => requirePair(map))
+  }
+
+  @Test def columnParseTest(): Unit = {
+    val map =
+      Map[String, String]("data" -> "ID=string,KA=string,KB=string,KC=integer")
+    Metadata.columnParse("data", map)
+    val error =
+      Map[String, String]("data" -> "ID=string,KA=string,KB=string,KC=intege")
+    assertThrows(
+      classOf[IllegalArgumentException],
+      () => Metadata.columnParse("data", error)
+    )
+  }
+
+  @Test def typeParseTest(): Unit = {
+    assertThrows(
+      classOf[IllegalArgumentException],
+      () => DataType.of("LLL")
+    )
+  }
+
+  @Test def requireDeployModeTest(): Unit = {
+    val deploy = Map[String, String]("deployment.model" -> "local")
+    assertThrows(
+      classOf[IllegalArgumentException],
+      () => Metadata.requireDeployMode("deployment.model", deploy)
+    )
   }
 
   def testConfig(): Unit = {
@@ -122,6 +154,7 @@ class ConfigurationTest {
       prop.setProperty("topic.partitions", "")
       prop.setProperty("topic.replicas", "")
       prop.setProperty("topic.config", "")
+      prop.setProperty("deployment.model", "local[2]")
       prop.store(new FileOutputStream(file), null)
     }
   }

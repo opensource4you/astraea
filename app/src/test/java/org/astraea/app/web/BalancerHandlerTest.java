@@ -107,13 +107,14 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
   /** The score will getter better after each call, pretend we find a better plan */
   private static class DegradeCost implements HasClusterCost {
 
-    private double value0 = 1.0;
+    private double value = 1.0;
 
     @Override
     public synchronized ClusterCost clusterCost(
         ClusterInfo<Replica> clusterInfo, ClusterBean clusterBean) {
-      value0 = value0 * 0.998;
-      return () -> value0;
+      value = value * 0.998;
+      var result = value;
+      return () -> result;
     }
   }
 
