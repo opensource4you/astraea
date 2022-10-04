@@ -17,8 +17,6 @@
 package org.astraea.gui;
 
 import java.util.Collection;
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.scene.control.ComboBox;
@@ -33,12 +31,21 @@ public class IntegerBox extends ComboBox<Integer> {
     super(FXCollections.observableArrayList(initialValue));
   }
 
-  void range(int from, int to) {
-    values(IntStream.range(from, to).mapToObj(i -> i + 1).collect(Collectors.toList()));
+  void values(Collection<Integer> values) {
+    values(values, -1);
   }
 
-  void values(Collection<Integer> values) {
-    if (Platform.isFxApplicationThread()) getItems().setAll(values);
-    else Platform.runLater(() -> getItems().setAll(values));
+  void values(Collection<Integer> values, int selectedIndex) {
+    if (Platform.isFxApplicationThread()) {
+      getItems().setAll(values);
+      if (selectedIndex >= 0) this.getSelectionModel().select(selectedIndex);
+      return;
+    }
+
+    Platform.runLater(
+        () -> {
+          getItems().setAll(values);
+          if (selectedIndex >= 0) this.getSelectionModel().select(selectedIndex);
+        });
   }
 }

@@ -27,7 +27,7 @@ import org.astraea.common.admin.ConsumerGroup;
 
 public class ConsumerTab {
 
-  private static List<Map<String, String>> result(Stream<ConsumerGroup> cgs) {
+  private static List<Map<String, Object>> result(Stream<ConsumerGroup> cgs) {
     return cgs.flatMap(
             cg ->
                 cg.assignment().entrySet().stream()
@@ -36,13 +36,13 @@ public class ConsumerTab {
                             entry.getValue().stream()
                                 .map(
                                     tp ->
-                                        LinkedHashMap.of(
+                                        LinkedHashMap.<String, Object>of(
                                             "group",
                                             entry.getKey().groupId(),
                                             "topic",
                                             tp.topic(),
                                             "partition",
-                                            String.valueOf(tp.partition()),
+                                            tp.partition(),
                                             "offset",
                                             Optional.ofNullable(cg.consumeProgress().get(tp))
                                                 .map(String::valueOf)
@@ -61,20 +61,17 @@ public class ConsumerTab {
   public static Tab of(Context context) {
     var pane =
         Utils.searchToTable(
-            "group id (space means all groups):",
             (word, console) ->
-                context
-                    .optionalAdmin()
-                    .map(
-                        admin ->
-                            result(
-                                admin
-                                    .consumerGroups(
-                                        admin.consumerGroupIds().stream()
-                                            .filter(group -> word.isEmpty() || group.contains(word))
-                                            .collect(Collectors.toSet()))
-                                    .stream()))
-                    .orElse(List.of()));
+                context.submit(
+                    admin ->
+                        result(
+                            admin.consumerGroups(admin.consumerGroupIds()).stream()
+                                .filter(
+                                    group ->
+                                        word.isEmpty()
+                                            || group.groupId().contains(word)
+                                            || group.consumeProgress().keySet().stream()
+                                                .anyMatch(tp -> tp.topic().contains(word))))));
     var tab = new Tab("consumer");
     tab.setContent(pane);
     return tab;

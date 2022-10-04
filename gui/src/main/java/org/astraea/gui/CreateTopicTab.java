@@ -17,6 +17,8 @@
 package org.astraea.gui;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.Tab;
@@ -28,7 +30,7 @@ public class CreateTopicTab {
     var tab = new Tab("create topic");
     var topicField = new TextField();
     var partitionsField = Utils.onlyNumber(1);
-    var replicasField = new ShortBox((short) 1);
+    var replicasField = new IntegerBox(1);
 
     var executeButton = new Button("create");
     var console = new ConsoleArea();
@@ -39,22 +41,20 @@ public class CreateTopicTab {
             console.append("please enter topic name");
             return;
           }
-          context
-              .optionalAdmin()
-              .ifPresent(
-                  admin ->
-                      CompletableFuture.supplyAsync(
-                              () -> {
-                                if (admin.topicNames().contains(name)) return name + " is existent";
-                                admin
-                                    .creator()
-                                    .topic(name)
-                                    .numberOfPartitions(Integer.parseInt(partitionsField.getText()))
-                                    .numberOfReplicas(replicasField.getValue())
-                                    .create();
-                                return "succeed to create " + name;
-                              })
-                          .whenComplete(console::text));
+          context.execute(
+              admin ->
+                  CompletableFuture.supplyAsync(
+                          () -> {
+                            if (admin.topicNames().contains(name)) return name + " is existent";
+                            admin
+                                .creator()
+                                .topic(name)
+                                .numberOfPartitions(Integer.parseInt(partitionsField.getText()))
+                                .numberOfReplicas(replicasField.getValue().shortValue())
+                                .create();
+                            return "succeed to create " + name;
+                          })
+                      .whenComplete(console::text));
         });
     tab.setContent(
         Utils.vbox(
@@ -66,13 +66,16 @@ public class CreateTopicTab {
     tab.setOnSelectionChanged(
         ignored -> {
           if (!tab.isSelected()) return;
-          context
-              .optionalAdmin()
-              .ifPresent(
-                  admin ->
-                      CompletableFuture.supplyAsync(() -> admin.brokerIds().size())
-                          .whenComplete(
-                              (size, e) -> replicasField.range((short) 0, size.shortValue())));
+          context.execute(
+              admin ->
+                  CompletableFuture.supplyAsync(() -> admin.brokerIds().size())
+                      .whenComplete(
+                          (size, e) ->
+                              replicasField.values(
+                                  IntStream.range(0, size)
+                                      .mapToObj(i -> i + 1)
+                                      .collect(Collectors.toList()),
+                                  0)));
         });
     return tab;
   }

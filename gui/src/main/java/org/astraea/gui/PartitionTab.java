@@ -27,16 +27,16 @@ import org.astraea.common.admin.Partition;
 
 public class PartitionTab {
 
-  private static List<Map<String, String>> result(Stream<Partition> ps) {
+  private static List<Map<String, Object>> result(Stream<Partition> ps) {
     return ps.map(
             p ->
-                LinkedHashMap.of(
+                LinkedHashMap.<String, Object>of(
                     "topic",
                     p.topic(),
                     "partition",
-                    String.valueOf(p.partition()),
+                    p.partition(),
                     "leader",
-                    String.valueOf(p.leader().id()),
+                    p.leader().id(),
                     "replicas",
                     p.replicas().stream()
                         .map(n -> String.valueOf(n.id()))
@@ -46,11 +46,11 @@ public class PartitionTab {
                         .map(n -> String.valueOf(n.id()))
                         .collect(Collectors.joining(",")),
                     "earliest offset",
-                    String.valueOf(p.earliestOffset()),
+                    p.earliestOffset(),
                     "latest offset",
-                    String.valueOf(p.latestOffset()),
+                    p.latestOffset(),
                     "max timestamp",
-                    String.valueOf(p.maxTimestamp())))
+                    Utils.format(p.maxTimestamp())))
         .collect(Collectors.toList());
   }
 
@@ -58,23 +58,19 @@ public class PartitionTab {
 
     var pane =
         Utils.searchToTable(
-            "topic name (space means all topics):",
             (word, console) ->
-                context
-                    .optionalAdmin()
-                    .map(
-                        admin ->
-                            result(
-                                admin
-                                    .partitions(
-                                        admin.topicNames().stream()
-                                            .filter(name -> word.isEmpty() || name.contains(word))
-                                            .collect(Collectors.toSet()))
-                                    .stream()
-                                    .sorted(
-                                        Comparator.comparing(Partition::topic)
-                                            .thenComparing(Partition::partition))))
-                    .orElse(List.of()));
+                context.submit(
+                    admin ->
+                        result(
+                            admin
+                                .partitions(
+                                    admin.topicNames().stream()
+                                        .filter(name -> word.isEmpty() || name.contains(word))
+                                        .collect(Collectors.toSet()))
+                                .stream()
+                                .sorted(
+                                    Comparator.comparing(Partition::topic)
+                                        .thenComparing(Partition::partition)))));
     var tab = new Tab("partition");
     tab.setContent(pane);
     return tab;

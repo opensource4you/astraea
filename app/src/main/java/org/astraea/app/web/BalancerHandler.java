@@ -20,8 +20,11 @@ import java.time.Duration;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.astraea.common.admin.Admin;
@@ -55,6 +58,7 @@ class BalancerHandler implements Handler {
   private final RebalancePlanGenerator generator = RebalancePlanGenerator.random(30);
   final HasClusterCost clusterCostFunction;
   final HasMoveCost moveCostFunction;
+  final Map<UUID, PlanInfo> generatedPlans = new ConcurrentHashMap<>();
 
   BalancerHandler(Admin admin) {
     this(admin, new ReplicaSizeCost(), new ReplicaSizeCost());
@@ -86,17 +90,11 @@ class BalancerHandler implements Handler {
             .planGenerator(generator)
             .clusterCost(clusterCostFunction)
             .moveCost(moveCostFunction)
-            .movementConstraint(moveCost -> true)
             .limit(loop)
             .limit(timeout)
             .build()
-            .offer(admin.clusterInfo(), topics::contains, admin.brokerFolders());
-    return new Report(
-        cost,
-        bestPlan.map(p -> p.clusterCost().value()).orElse(null),
-        loop,
-        bestPlan.map(p -> p.proposal().index()).orElse(null),
-        clusterCostFunction.getClass().getSimpleName(),
+            .offer(currentClusterInfo, topics::contains, admin.brokerFolders());
+    var changes =
         bestPlan
             .map(
                 p ->
@@ -124,8 +122,20 @@ class BalancerHandler implements Handler {
                                         p.proposal().rebalancePlan().logPlacements(tp),
                                         ignored -> null)))
                         .collect(Collectors.toUnmodifiableList()))
-            .orElse(List.of()),
-        bestPlan.map(p -> List.of(new MigrationCost(p.moveCost()))).orElseGet(List::of));
+            .orElse(List.of());
+    var id = bestPlan.map(ignore -> UUID.randomUUID()).orElse(null);
+    var report =
+        new Report(
+            id,
+            cost,
+            bestPlan.map(p -> p.clusterCost().value()).orElse(null),
+            limit,
+            bestPlan.map(p -> p.proposal().index()).orElse(null),
+            clusterCostFunction.getClass().getSimpleName(),
+            changes,
+            bestPlan.map(p -> List.of(new MigrationCost(p.moveCost()))).orElseGet(List::of));
+    bestPlan.ifPresent(thePlan -> generatedPlans.put(id, new PlanInfo(report, thePlan)));
+    return report;
   }
 
   static List<Placement> placements(Set<Replica> lps, Function<Replica, Long> size) {
@@ -190,6 +200,7 @@ class BalancerHandler implements Handler {
   }
 
   static class Report implements Response {
+    final UUID id;
     final double cost;
 
     // don't generate new cost if there is no best plan
@@ -203,6 +214,7 @@ class BalancerHandler implements Handler {
     final List<MigrationCost> migrationCosts;
 
     Report(
+        UUID id,
         double cost,
         Double newCost,
         int limit,
@@ -210,6 +222,7 @@ class BalancerHandler implements Handler {
         String function,
         List<Change> changes,
         List<MigrationCost> migrationCosts) {
+      this.id = id;
       this.cost = cost;
       this.newCost = newCost;
       this.limit = limit;
@@ -220,5 +233,21 @@ class BalancerHandler implements Handler {
     }
   }
 
-  // ----------------[inner class]----------------//
+  static class PlanInfo {
+    private final Report report;
+    private final Balancer.Plan associatedPlan;
+
+    PlanInfo(Report report, Balancer.Plan associatedPlan) {
+      this.report = report;
+      this.associatedPlan = associatedPlan;
+    }
+
+    Report report() {
+      return report;
+    }
+
+    Balancer.Plan plan() {
+      return associatedPlan;
+    }
+  }
 }

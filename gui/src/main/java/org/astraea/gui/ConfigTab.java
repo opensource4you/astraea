@@ -16,38 +16,46 @@
  */
 package org.astraea.gui;
 
-import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import javafx.scene.control.Tab;
 import org.astraea.common.LinkedHashMap;
 
-public class TopicConfigTab {
+public class ConfigTab {
+
+  private enum Resource {
+    BROKER,
+    TOPIC
+  }
 
   public static Tab of(Context context) {
+    var resources = Utils.radioButton(Resource.values());
     var pane =
         Utils.searchToTable(
-            "config key (space means all configs):",
             (word, console) -> {
-              var topics =
-                  context
-                      .optionalAdmin()
-                      .map(admin -> admin.topics(admin.topicNames()))
-                      .orElse(List.of());
-              return topics.stream()
+              var isTopic = resources.get(Resource.TOPIC).isSelected();
+              return context
+                  .submit(
+                      admin ->
+                          isTopic
+                              ? admin.topics(admin.topicNames()).stream()
+                                  .map(t -> Map.entry(t.name(), t.config()))
+                              : admin.brokers().stream()
+                                  .map(t -> Map.entry(String.valueOf(t.id()), t.config())))
                   .map(
-                      t -> {
-                        Map<String, String> map = new LinkedHashMap<>();
-                        map.put("name", t.name());
-                        t.config().raw().entrySet().stream()
+                      e -> {
+                        Map<String, Object> map = new LinkedHashMap<>();
+                        map.put(isTopic ? "name" : "id", e.getKey());
+                        e.getValue().raw().entrySet().stream()
                             .filter(entry -> word.isEmpty() || entry.getKey().contains(word))
                             .sorted(Map.Entry.comparingByKey())
                             .forEach(entry -> map.put(entry.getKey(), entry.getValue()));
                         return map;
                       })
                   .collect(Collectors.toList());
-            });
-    var tab = new Tab("topic config");
+            },
+            resources.values());
+    var tab = new Tab("config");
     tab.setContent(pane);
     return tab;
   }
