@@ -37,7 +37,7 @@ public class IdlerTopicFinderTest extends RequireBrokerCluster {
     try (var admin = Admin.of(bootstrapServers())) {
       var finder = admin.idleTopicFinder();
       finder.clearChecker();
-      finder.addChecker(IdleTopicFinder.IdleTopicChecker.latestTimestamp(Duration.ofSeconds(3)));
+      finder.addChecker(IdleTopicFinder.Checker.latestTimestamp(Duration.ofSeconds(3)));
       Assertions.assertEquals(Set.of(), finder.idleTopics());
       Thread.sleep(3000);
       Assertions.assertEquals(Set.of("produce"), finder.idleTopics());
@@ -56,7 +56,7 @@ public class IdlerTopicFinderTest extends RequireBrokerCluster {
     try (var admin = Admin.of(bootstrapServers())) {
       var finder = admin.idleTopicFinder();
       finder.clearChecker();
-      finder.addChecker(IdleTopicFinder.IdleTopicChecker.noAssignment());
+      finder.addChecker(IdleTopicFinder.Checker.noAssignment());
       Thread.sleep(5000);
 
       Assertions.assertEquals(Set.of(), finder.idleTopics());

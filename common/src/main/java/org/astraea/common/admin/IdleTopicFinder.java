@@ -19,10 +19,10 @@ package org.astraea.common.admin;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
 /**
@@ -38,7 +38,7 @@ import java.util.stream.Collectors;
  *
  * By default, the finder determines the idle topics by consumer group assignment and timestamp of
  * partition's latest offset. To "add" or "clear" the restriction of idle topic, use {@link
- * IdleTopicFinder#addChecker(IdleTopicChecker)} or {@link IdleTopicFinder#clearChecker()}
+ * IdleTopicFinder#addChecker(Checker)} or {@link IdleTopicFinder#clearChecker()}
  *
  * <pre>{@code
  * try (Admin admin = Admin.of("localhost:9092")) {
@@ -52,27 +52,43 @@ import java.util.stream.Collectors;
 public class IdleTopicFinder {
   private final Admin admin;
 
-  private final List<IdleTopicChecker> checkers = new ArrayList<>();
+  private final List<Checker> checkers = new ArrayList<>();
 
   public IdleTopicFinder(Admin admin) {
     this.admin = admin;
-    addChecker(IdleTopicChecker.noAssignment());
-    addChecker(IdleTopicChecker.latestTimestamp(Duration.ofSeconds(10)));
+    addChecker(Checker.noAssignment());
+    addChecker(Checker.latestTimestamp(Duration.ofSeconds(10)));
   }
 
   public Set<String> idleTopics() {
     if (checkers.isEmpty()) {
       throw new RuntimeException("Can not check for idle topics because of no checkers!");
     }
-
-    var topicNames = admin.topicNames();
-    checkers.forEach(c -> c.fetchLatest(admin));
-    return topicNames.stream()
-        .filter(topic -> checkers.stream().allMatch(checker -> checker.test(admin, topic)))
-        .collect(Collectors.toUnmodifiableSet());
+    var checkerResults =
+        checkers.stream()
+            .map(checker -> checker.idleTopics(this.admin))
+            .collect(Collectors.toList());
+    var topicUnion =
+        checkerResults.stream()
+            .reduce(
+                new HashSet<>(),
+                (s1, s2) -> {
+                  s1.addAll(s2);
+                  return s1;
+                });
+    return checkerResults.stream()
+        .reduce(
+            topicUnion,
+            (s1, s2) -> {
+              s1.forEach(
+                  topic -> {
+                    if (!s2.contains(topic)) s1.remove(topic);
+                  });
+              return s1;
+            });
   }
 
-  public void addChecker(IdleTopicChecker checker) {
+  public void addChecker(Checker checker) {
     this.checkers.add(checker);
   }
 
@@ -80,78 +96,46 @@ public class IdleTopicFinder {
     this.checkers.clear();
   }
 
-  public interface IdleTopicChecker {
-
-    void fetchLatest(Admin admin);
-
-    boolean test(Admin admin, String topicName);
+  public interface Checker {
+    Set<String> idleTopics(Admin admin);
 
     /** Find topics which is **not** assigned by any consumer. */
-    static IdleTopicChecker noAssignment() {
-      return new IdleTopicChecker() {
-        private final AtomicReference<Set<String>> idleTopicsCache = new AtomicReference<>();
+    static Checker noAssignment() {
+      return admin -> {
+        var topicNames = admin.topicNames(false);
+        var notIdleTopic =
+            // TODO: consumer may not belong to any consumer group
+            admin.consumerGroups(admin.consumerGroupIds()).stream()
+                .flatMap(
+                    group ->
+                        group.assignment().values().stream()
+                            .flatMap(Collection::stream)
+                            .map(TopicPartition::topic))
+                .collect(Collectors.toUnmodifiableSet());
 
-        @Override
-        public void fetchLatest(Admin admin) {
-          var topicNames = admin.topicNames(false);
-          var notIdleTopic =
-              // TODO: consumer may not belong to any consumer group
-              admin.consumerGroups(admin.consumerGroupIds()).stream()
-                  .flatMap(
-                      group ->
-                          group.assignment().values().stream()
-                              .flatMap(Collection::stream)
-                              .map(TopicPartition::topic))
-                  .collect(Collectors.toUnmodifiableSet());
-
-          idleTopicsCache.set(
-              topicNames.stream()
-                  .filter(name -> !notIdleTopic.contains(name))
-                  .collect(Collectors.toUnmodifiableSet()));
-        }
-
-        @Override
-        public boolean test(Admin admin, String topicName) {
-          if (idleTopicsCache.get() == null)
-            throw new NullPointerException(
-                "IdleTopicChecker.fetchLatest() should be called before checking topic name.");
-          return idleTopicsCache.get().contains(topicName);
-        }
+        return topicNames.stream()
+            .filter(name -> !notIdleTopic.contains(name))
+            .collect(Collectors.toUnmodifiableSet());
       };
     }
 
     // TODO: Timestamp may custom by producer, maybe check the time by idempotent state. See:
     // https://github.com/skiptests/astraea/issues/739#issuecomment-1254838359
-    static IdleTopicChecker latestTimestamp(Duration duration) {
-      return new IdleTopicChecker() {
-        private final AtomicReference<Set<String>> idleTopicsCache = new AtomicReference<>();
-
-        @Override
-        public void fetchLatest(Admin admin) {
-          var topicNames = admin.topicNames(false);
-          long now = System.currentTimeMillis();
-          idleTopicsCache.set(
-              admin.partitions(topicNames).stream()
-                  .collect(
-                      Collectors.groupingBy(
-                          Partition::topic,
-                          Collectors.maxBy(
-                              (p1, p2) -> (int) (p1.maxTimestamp() - p2.maxTimestamp()))))
-                  .values()
-                  .stream()
-                  .filter(Optional::isPresent)
-                  .filter(p -> p.get().maxTimestamp() < now - duration.toMillis())
-                  .map(p -> p.get().topic())
-                  .collect(Collectors.toUnmodifiableSet()));
-        }
-
-        @Override
-        public boolean test(Admin admin, String topicName) {
-          if (idleTopicsCache.get() == null)
-            throw new NullPointerException(
-                "IdleTopicChecker.fetchLatest() should be called before checking topic name.");
-          return idleTopicsCache.get().contains(topicName);
-        }
+    static Checker latestTimestamp(Duration duration) {
+      return admin -> {
+        var topicNames = admin.topicNames(false);
+        long now = System.currentTimeMillis();
+        return admin.partitions(topicNames).stream()
+            .collect(
+                Collectors.groupingBy(
+                    Partition::topic,
+                    Collectors.maxBy((p1, p2) -> (int) (p1.maxTimestamp() - p2.maxTimestamp()))))
+            .values()
+            .stream()
+            .filter(Optional::isPresent)
+            .filter(p -> p.get().maxTimestamp() < now - duration.toMillis())
+            .map(p -> p.get().topic())
+            .collect(Collectors.toUnmodifiableSet());
       };
     }
   }
