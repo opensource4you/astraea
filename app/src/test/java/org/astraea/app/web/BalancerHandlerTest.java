@@ -115,7 +115,6 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
     }
   }
 
-  /** The score will getter better after each call, pretend we find a better plan */
   private static class MultiplicationCost implements HasClusterCost {
 
     private double value0 = 1.0;
@@ -440,6 +439,19 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
       var report =
           Assertions.assertInstanceOf(BalancerHandler.Report.class, handler.get(Channel.EMPTY));
       Assertions.assertNotNull(report.id, "The plan should be generated");
+
+      // not scheduled yet
+      Utils.sleep(Duration.ofSeconds(1));
+      var progress0 =
+          Assertions.assertInstanceOf(
+              BalancerHandler.PlanExecutionProgress.class,
+              handler.get(Channel.ofTarget(report.id)));
+      Assertions.assertEquals(report.id, progress0.id);
+      Assertions.assertFalse(progress0.scheduled);
+      Assertions.assertFalse(progress0.done);
+      Assertions.assertFalse(progress0.exception);
+
+      // schedule
       var response =
           Assertions.assertInstanceOf(
               BalancerHandler.PostPlanResponse.class,
@@ -448,20 +460,69 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
 
       // not done yet
       Utils.sleep(Duration.ofSeconds(1));
-      var progress0 =
-          Assertions.assertInstanceOf(
-              BalancerHandler.PlanExecutionProgress.class,
-              handler.get(Channel.ofTarget(response.id)));
-      Assertions.assertFalse(progress0.done);
-
-      // it is done
-      theExecutor.latch.countDown();
-      Utils.sleep(Duration.ofMillis(500));
       var progress1 =
           Assertions.assertInstanceOf(
               BalancerHandler.PlanExecutionProgress.class,
               handler.get(Channel.ofTarget(response.id)));
-      Assertions.assertTrue(progress1.done);
+      Assertions.assertEquals(report.id, progress1.id);
+      Assertions.assertTrue(progress1.scheduled);
+      Assertions.assertFalse(progress1.done);
+      Assertions.assertFalse(progress1.exception);
+
+      // it is done
+      theExecutor.latch.countDown();
+      Utils.sleep(Duration.ofMillis(500));
+      var progress2 =
+          Assertions.assertInstanceOf(
+              BalancerHandler.PlanExecutionProgress.class,
+              handler.get(Channel.ofTarget(response.id)));
+      Assertions.assertEquals(report.id, progress2.id);
+      Assertions.assertTrue(progress2.scheduled);
+      Assertions.assertTrue(progress2.done);
+      Assertions.assertFalse(progress2.exception);
+    }
+  }
+
+  @Test
+  void testLookupBadExecutionProgress() {
+    createAndProduceTopic(3);
+    try (var admin = Admin.of(bootstrapServers())) {
+      var theExecutor =
+          new NoOpExecutor() {
+            @Override
+            public void run(RebalanceAdmin rebalanceAdmin, ClusterLogAllocation targetAllocation) {
+              super.run(rebalanceAdmin, targetAllocation);
+              throw new RuntimeException("Boom");
+            }
+          };
+      var handler =
+          new BalancerHandler(
+              admin,
+              MultiplicationCost.decreasing(),
+              new ReplicaSizeCost(),
+              RebalancePlanGenerator.random(30),
+              theExecutor);
+      var report =
+          Assertions.assertInstanceOf(BalancerHandler.Report.class, handler.get(Channel.EMPTY));
+      Assertions.assertNotNull(report.id, "The plan should be generated");
+
+      // schedule
+      var response =
+          Assertions.assertInstanceOf(
+              BalancerHandler.PostPlanResponse.class,
+              handler.post(Channel.ofRequest(PostRequest.of(Map.of("id", report.id)))));
+      Assertions.assertNotNull(response.id, "The plan should be executed");
+
+      // exception
+      Utils.sleep(Duration.ofSeconds(1));
+      var progress =
+          Assertions.assertInstanceOf(
+              BalancerHandler.PlanExecutionProgress.class,
+              handler.get(Channel.ofTarget(response.id)));
+      Assertions.assertEquals(report.id, progress.id);
+      Assertions.assertTrue(progress.scheduled);
+      Assertions.assertTrue(progress.done);
+      Assertions.assertTrue(progress.exception);
     }
   }
 
@@ -483,17 +544,6 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
             IllegalArgumentException.class,
             () -> handler.post(Channel.ofRequest(PostRequest.of(Map.of("id", "no such plan")))),
             "This plan doesn't exists");
-      }
-
-      {
-        // plan is not executed
-        var report =
-            Assertions.assertInstanceOf(BalancerHandler.Report.class, handler.get(Channel.EMPTY));
-        Assertions.assertNotNull(report.id, "The plan should be generated");
-        Assertions.assertThrows(
-            IllegalArgumentException.class,
-            () -> handler.get(Channel.ofTarget(report.id)),
-            "This plan haven't being executed");
       }
     }
   }

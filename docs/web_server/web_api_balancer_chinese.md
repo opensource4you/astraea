@@ -154,10 +154,18 @@ curl -X GET http://localhost:8001/balancer/46ecf6e7-aa28-4f72-b1b6-a788056c122a
 
 JSON Response 範例
 
-* `done`: 描述對應的負載平衡計劃是否執行完成。
+* `id`: 此 Response 所描述的負載平衡計劃編號
+* `scheduled`: 此負載平衡計劃是否正在執行
+* `done`: 此負載平衡計劃是否結束執行
+* `exception`: 此負載平衡計劃是否是在意外情況下結束執行
 
 ```json
-{ "done": true }
+{
+  "id": "46ecf6e7-aa28-4f72-b1b6-a788056c122a",
+  "scheduled": true,
+  "done": true,
+  "exception": false
+}
 ```
 
 

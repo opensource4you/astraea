@@ -25,7 +25,6 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.Future;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.astraea.common.admin.Admin;
@@ -56,7 +55,7 @@ class BalancerHandler implements Handler {
   final HasClusterCost clusterCostFunction;
   final HasMoveCost moveCostFunction;
   private final Map<String, PlanInfo> generatedPlans = new ConcurrentHashMap<>();
-  private final Map<String, Future<Void>> executedPlans = new ConcurrentHashMap<>();
+  private final Map<String, CompletableFuture<Void>> executedPlans = new ConcurrentHashMap<>();
 
   BalancerHandler(Admin admin) {
     this(admin, new ReplicaSizeCost(), new ReplicaSizeCost());
@@ -157,14 +156,11 @@ class BalancerHandler implements Handler {
   private Response lookupRebalancePlanProgress(String planId) {
     if (!generatedPlans.containsKey(planId))
       throw new IllegalArgumentException("This plan doesn't exists: " + planId);
-    if (!executedPlans.containsKey(planId))
-      // TODO: add a field to describe the plan is not executed instead of this
-      throw new IllegalArgumentException("This plan is not executed: " + planId);
+    boolean isScheduled = executedPlans.containsKey(planId);
+    boolean isDone = isScheduled && executedPlans.get(planId).isDone();
+    boolean isException = isScheduled && executedPlans.get(planId).isCompletedExceptionally();
 
-    final var execution = executedPlans.get(planId);
-
-    // TODO: offer error details
-    return new PlanExecutionProgress(execution.isDone());
+    return new PlanExecutionProgress(planId, isScheduled, isDone, isException);
   }
 
   @Override
@@ -197,14 +193,6 @@ class BalancerHandler implements Handler {
     return lps.stream()
         .map(p -> new Placement(p, size.apply(p)))
         .collect(Collectors.toUnmodifiableList());
-  }
-
-  static class PostPlanResponse implements Response {
-    final String id;
-
-    PostPlanResponse(String id) {
-      this.id = id;
-    }
   }
 
   static class Placement {
@@ -314,11 +302,25 @@ class BalancerHandler implements Handler {
     }
   }
 
-  static class PlanExecutionProgress implements Response {
-    final boolean done;
+  static class PostPlanResponse implements Response {
+    final String id;
 
-    PlanExecutionProgress(boolean done) {
+    PostPlanResponse(String id) {
+      this.id = id;
+    }
+  }
+
+  static class PlanExecutionProgress implements Response {
+    final String id;
+    final boolean scheduled;
+    final boolean done;
+    final boolean exception;
+
+    PlanExecutionProgress(String id, boolean scheduled, boolean done, boolean exception) {
+      this.id = id;
+      this.scheduled = scheduled;
       this.done = done;
+      this.exception = exception;
     }
   }
 }
