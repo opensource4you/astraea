@@ -877,7 +877,11 @@ public class AdminTest extends RequireBrokerCluster {
 
       Assertions.assertTrue(admin.transactionIds().contains(producer.transactionId().get()));
 
-      var transaction = admin.transactions().get(producer.transactionId().get());
+      var transaction =
+          admin.transactions(admin.transactionIds()).stream()
+              .filter(t -> t.transactionId().equals(producer.transactionId().get()))
+              .findFirst()
+              .get();
       Assertions.assertNotNull(transaction);
       Assertions.assertEquals(
           transaction.state() == TransactionState.COMPLETE_COMMIT ? 0 : 1,
@@ -905,11 +909,20 @@ public class AdminTest extends RequireBrokerCluster {
       Assertions.assertTrue(admin.transactionIds().contains(producer.transactionId().get()));
       Utils.waitFor(
           () ->
-              admin.transactions().get(producer.transactionId().get()).state()
+              admin.transactions(admin.transactionIds()).stream()
+                      .filter(t -> t.transactionId().equals(producer.transactionId().get()))
+                      .findFirst()
+                      .get()
+                      .state()
                   == TransactionState.COMPLETE_COMMIT);
       Utils.waitFor(
           () ->
-              admin.transactions().get(producer.transactionId().get()).topicPartitions().isEmpty());
+              admin.transactions(admin.transactionIds()).stream()
+                  .filter(t -> t.transactionId().equals(producer.transactionId().get()))
+                  .findFirst()
+                  .get()
+                  .topicPartitions()
+                  .isEmpty());
     }
   }
 

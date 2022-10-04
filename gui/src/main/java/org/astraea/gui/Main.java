@@ -48,6 +48,7 @@ public class Main {
               ConfigTab.of(context),
               ConsumerTab.of(context),
               ProducerTab.of(context),
+              TransactionTab.of(context),
               AddingReplicaTab.of(context),
               CreateTopicTab.of(context),
               ReassignReplicaTab.of(context),

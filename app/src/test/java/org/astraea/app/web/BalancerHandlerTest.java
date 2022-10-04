@@ -62,7 +62,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
       var report =
           Assertions.assertInstanceOf(
               BalancerHandler.Report.class,
-              handler.get(Channel.ofQueries(Map.of(BalancerHandler.LIMIT_KEY, "3000"))));
+              handler.get(Channel.ofQueries(Map.of(BalancerHandler.LOOP_KEY, "3000"))));
       Assertions.assertNotNull(report.id);
       Assertions.assertEquals(3000, report.limit);
       Assertions.assertNotEquals(0, report.changes.size());
@@ -98,7 +98,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
               handler.get(
                   Channel.ofQueries(
                       Map.of(
-                          BalancerHandler.LIMIT_KEY,
+                          BalancerHandler.LOOP_KEY,
                           "30",
                           BalancerHandler.TOPICS_KEY,
                           topicNames.get(0)))));
@@ -153,7 +153,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
               handler.get(
                   Channel.ofQueries(
                       Map.of(
-                          BalancerHandler.LIMIT_KEY,
+                          BalancerHandler.LOOP_KEY,
                           "30",
                           BalancerHandler.TOPICS_KEY,
                           topicNames.get(0) + "," + topicNames.get(1)))));
@@ -258,15 +258,19 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
 
       Assertions.assertNotEquals(Optional.empty(), Best);
 
-      var i =
-          Balancer.builder()
-              .planGenerator(RebalancePlanGenerator.random(30))
-              .clusterCost(clusterCostFunction)
-              .clusterConstraint((before, after) -> false)
-              .moveCost(moveCostFunction)
-              .movementConstraint(moveCost -> true)
-              .build()
-              .offer(admin.clusterInfo(), ignore -> true, admin.brokerFolders());
+      // test loop limit
+      Assertions.assertThrows(
+          IllegalArgumentException.class,
+          () ->
+              Balancer.builder()
+                  .planGenerator(RebalancePlanGenerator.random(30))
+                  .clusterCost(clusterCostFunction)
+                  .clusterConstraint((before, after) -> true)
+                  .moveCost(moveCostFunction)
+                  .movementConstraint(moveCost -> true)
+                  .limit(0)
+                  .build()
+                  .offer(admin.clusterInfo(), ignore -> true, admin.brokerFolders()));
 
       // test cluster cost predicate
       Assertions.assertEquals(
@@ -304,7 +308,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
       var report =
           Assertions.assertInstanceOf(
               BalancerHandler.Report.class,
-              handler.get(Channel.ofQueries(Map.of(BalancerHandler.LIMIT_KEY, "10"))));
+              handler.get(Channel.ofQueries(Map.of(BalancerHandler.LOOP_KEY, "10"))));
 
       Assertions.assertTrue(report.changes.isEmpty());
       Assertions.assertNull(report.id);

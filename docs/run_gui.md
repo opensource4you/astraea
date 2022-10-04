@@ -27,7 +27,7 @@ Astraea 提供簡單但實用的 Kafka GUI 工具，讓使用者方便調閱和�
 
 ![setting](gui/setting.png)
 
-2. 查詢所有 `topics` 與`min`有關的參數
+2. 查詢所有 `topics` 的參數
 
 ![topic_config](gui/topic_config.png)
 
