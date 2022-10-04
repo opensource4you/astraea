@@ -472,23 +472,16 @@ class AsyncAdminImpl implements AsyncAdmin {
                                                                           .getKey()
                                                                           .equals(""),
                                                                   // The first replica in the return
-                                                                  // result is
-                                                                  // the
-                                                                  // preferred leader. This only
-                                                                  // works
-                                                                  // with
-                                                                  // Kafka broker
-                                                                  // version after
+                                                                  // result is the preferred leader.
+                                                                  // This only works with Kafka
+                                                                  // broker version after
                                                                   // 0.11. Version before 0.11
-                                                                  // returns
-                                                                  // the
-                                                                  // replicas in
+                                                                  // returns the replicas in
                                                                   // unspecified order.
                                                                   tpInfo.replicas().get(0).id()
                                                                       == node.id(),
                                                                   // empty data folder means this
-                                                                  // replica is
-                                                                  // offline
+                                                                  // replica is offline
                                                                   pathAndReplica.getKey().isEmpty()
                                                                       ? null
                                                                       : pathAndReplica.getKey()));
