@@ -16,6 +16,7 @@
  */
 package org.astraea.app.web;
 
+import java.time.Duration;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
@@ -30,6 +31,7 @@ import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.TopicPartitionReplica;
+import org.astraea.common.argument.DurationField;
 import org.astraea.common.balancer.Balancer;
 import org.astraea.common.balancer.generator.RebalancePlanGenerator;
 import org.astraea.common.balancer.log.ClusterLogAllocation;
@@ -43,11 +45,15 @@ class BalancerHandler implements Handler {
   // TODO: implement an endpoint to execute rebalance plan, see
   // https://github.com/skiptests/astraea/issues/743
 
-  static String LIMIT_KEY = "limit";
+  static final String LOOP_KEY = "loop";
 
-  static String TOPICS_KEY = "topics";
+  static final String TOPICS_KEY = "topics";
 
-  static int LIMIT_DEFAULT = 10000;
+  static final String TIMEOUT_KEY = "timeout";
+
+  static final int LOOP_DEFAULT = 10000;
+  static final int TIMEOUT_DEFAULT = 3;
+
   private final Admin admin;
   private final RebalancePlanGenerator generator = RebalancePlanGenerator.random(30);
   final HasClusterCost clusterCostFunction;
@@ -66,21 +72,26 @@ class BalancerHandler implements Handler {
 
   @Override
   public Response get(Channel channel) {
+    var timeout =
+        Optional.ofNullable(channel.queries().get(TIMEOUT_KEY))
+            .map(DurationField::toDuration)
+            .orElse(Duration.ofSeconds(TIMEOUT_DEFAULT));
     var topics =
         Optional.ofNullable(channel.queries().get(TOPICS_KEY))
             .map(s -> (Set<String>) new HashSet<>(Arrays.asList(s.split(","))))
             .orElseGet(() -> admin.topicNames(false));
     var currentClusterInfo = admin.clusterInfo();
     var cost = clusterCostFunction.clusterCost(currentClusterInfo, ClusterBean.EMPTY).value();
-    var limit =
-        Integer.parseInt(channel.queries().getOrDefault(LIMIT_KEY, String.valueOf(LIMIT_DEFAULT)));
+    var loop =
+        Integer.parseInt(channel.queries().getOrDefault(LOOP_KEY, String.valueOf(LOOP_DEFAULT)));
     var targetAllocations = ClusterLogAllocation.of(admin.clusterInfo(topics));
     var bestPlan =
         Balancer.builder()
             .planGenerator(generator)
             .clusterCost(clusterCostFunction)
             .moveCost(moveCostFunction)
-            .limit(LIMIT_DEFAULT)
+            .limit(loop)
+            .limit(timeout)
             .build()
             .offer(currentClusterInfo, topics::contains, admin.brokerFolders());
     var changes =
@@ -118,7 +129,7 @@ class BalancerHandler implements Handler {
             id,
             cost,
             bestPlan.map(p -> p.clusterCost().value()).orElse(null),
-            limit,
+            loop,
             bestPlan.map(p -> p.proposal().index()).orElse(null),
             clusterCostFunction.getClass().getSimpleName(),
             changes,
