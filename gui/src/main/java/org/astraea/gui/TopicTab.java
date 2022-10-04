@@ -67,8 +67,8 @@ public class TopicTab {
                     "replicas", tps.get(topic).stream().mapToInt(p -> p.replicas().size()).sum(),
                     "size",
                         Optional.ofNullable(topicSize.get(topic))
-                            .map(s -> DataSize.Byte.of(s).toString())
-                            .orElse("unknown"),
+                            .map(DataSize.Byte::of)
+                            .orElse(DataSize.Byte.of(0)),
                     "broker ids",
                         tps.get(topic).stream()
                             .flatMap(p -> p.replicas().stream().map(NodeInfo::id))
