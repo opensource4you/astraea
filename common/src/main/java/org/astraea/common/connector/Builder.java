@@ -26,7 +26,6 @@ import java.util.Map;
 import java.util.Objects;
 import org.astraea.common.Utils;
 import org.astraea.common.Utils.Getter;
-import org.astraea.common.Utils.Runner;
 import org.astraea.common.connector.WorkerResponseException.WorkerError;
 
 public class Builder {
@@ -76,10 +75,7 @@ public class Builder {
 
       @Override
       public void deleteConnector(String name) {
-        convertErrorException(
-            () -> {
-              httpExecutor.delete(getURL("/connectors/" + name));
-            });
+        convertErrorException(() -> httpExecutor.delete(getURL("/connectors/" + name)));
       }
 
       private URL getURL(String path) {
@@ -108,14 +104,6 @@ public class Builder {
                     stringResponseException,
                     workerError);
               }
-            });
-      }
-
-      private void convertErrorException(Runner runner) {
-        convertErrorException(
-            () -> {
-              runner.run();
-              return null;
             });
       }
     };
