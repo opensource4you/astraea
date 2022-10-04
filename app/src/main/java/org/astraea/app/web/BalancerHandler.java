@@ -17,6 +17,7 @@
 package org.astraea.app.web;
 
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -200,6 +201,7 @@ class BalancerHandler implements Handler {
 
   static List<Placement> placements(Set<Replica> lps, Function<Replica, Long> size) {
     return lps.stream()
+        .sorted(Comparator.comparing(Replica::isPreferredLeader).reversed())
         .map(p -> new Placement(p, size.apply(p)))
         .collect(Collectors.toUnmodifiableList());
   }
