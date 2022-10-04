@@ -46,7 +46,8 @@ public class Builder {
         return convertErrorException(
             () ->
                 httpExecutor
-                    .<List<String>>get(getURL("/connectors"), new TypeToken<>() {}.getType())
+                    .<List<String>>get(
+                        getURL("/connectors"), new TypeToken<List<String>>() {}.getType())
                     .body());
       }
 
