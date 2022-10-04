@@ -129,7 +129,7 @@ class BalancerHandler implements Handler {
             id,
             cost,
             bestPlan.map(p -> p.clusterCost().value()).orElse(null),
-            limit,
+            loop,
             bestPlan.map(p -> p.proposal().index()).orElse(null),
             clusterCostFunction.getClass().getSimpleName(),
             changes,
