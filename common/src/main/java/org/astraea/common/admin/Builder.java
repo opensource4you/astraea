@@ -32,14 +32,10 @@ import java.util.stream.Stream;
 import org.apache.kafka.clients.admin.AdminClientConfig;
 import org.apache.kafka.clients.admin.AlterConfigOp;
 import org.apache.kafka.clients.admin.ConfigEntry;
-import org.apache.kafka.clients.admin.ConsumerGroupListing;
 import org.apache.kafka.clients.admin.MemberToRemove;
 import org.apache.kafka.clients.admin.NewPartitionReassignment;
-import org.apache.kafka.clients.admin.OffsetSpec;
 import org.apache.kafka.clients.admin.RecordsToDelete;
 import org.apache.kafka.clients.admin.RemoveMembersFromConsumerGroupOptions;
-import org.apache.kafka.clients.admin.ReplicaInfo;
-import org.apache.kafka.clients.admin.TransactionListing;
 import org.apache.kafka.common.ElectionType;
 import org.apache.kafka.common.config.ConfigResource;
 import org.apache.kafka.common.errors.ElectionNotNeededException;
@@ -125,111 +121,18 @@ public class Builder {
     @Override
     public List<ProducerState> producerStates(Set<TopicPartition> partitions) {
       return Utils.packException(
-              () ->
-                  admin
-                      .describeProducers(
-                          partitions.stream()
-                              .map(TopicPartition::to)
-                              .collect(Collectors.toUnmodifiableList()))
-                      .all()
-                      .get())
-          .entrySet()
-          .stream()
-          .flatMap(
-              e ->
-                  e.getValue().activeProducers().stream().map(s -> ProducerState.of(e.getKey(), s)))
-          .collect(Collectors.toList());
+          () -> asyncAdmin.producerStates(partitions).toCompletableFuture().get());
     }
 
     @Override
     public Set<String> consumerGroupIds() {
-      return Utils.packException(() -> admin.listConsumerGroups().all().get()).stream()
-          .map(ConsumerGroupListing::groupId)
-          .collect(Collectors.toUnmodifiableSet());
+      return Utils.packException(() -> asyncAdmin.consumerGroupIds().toCompletableFuture().get());
     }
 
     @Override
     public List<ConsumerGroup> consumerGroups(Set<String> consumerGroupNames) {
       return Utils.packException(
-          () -> {
-            var consumerGroupDescriptions =
-                admin.describeConsumerGroups(consumerGroupNames).all().get();
-
-            var consumerGroupMetadata =
-                consumerGroupNames.stream()
-                    .collect(
-                        Collectors.toMap(
-                            Function.identity(),
-                            groupId ->
-                                Utils.packException(
-                                    () ->
-                                        admin
-                                            .listConsumerGroupOffsets(groupId)
-                                            .partitionsToOffsetAndMetadata()
-                                            .get())));
-
-            return consumerGroupNames.stream()
-                .map(
-                    groupId ->
-                        new ConsumerGroup(
-                            groupId,
-                            consumerGroupMetadata.get(groupId).entrySet().stream()
-                                .collect(
-                                    Collectors.toUnmodifiableMap(
-                                        tp -> TopicPartition.from(tp.getKey()),
-                                        offset -> offset.getValue().offset())),
-                            consumerGroupDescriptions.get(groupId).members().stream()
-                                .collect(
-                                    Collectors.toUnmodifiableMap(
-                                        member ->
-                                            new Member(
-                                                groupId,
-                                                member.consumerId(),
-                                                member.groupInstanceId(),
-                                                member.clientId(),
-                                                member.host()),
-                                        member ->
-                                            member.assignment().topicPartitions().stream()
-                                                .map(TopicPartition::from)
-                                                .collect(Collectors.toSet())))))
-                .collect(Collectors.toList());
-          });
-    }
-
-    private Map<TopicPartition, Long> earliestOffset(Set<TopicPartition> partitions) {
-
-      return Utils.packException(
-              () ->
-                  admin
-                      .listOffsets(
-                          partitions.stream()
-                              .collect(
-                                  Collectors.toMap(
-                                      TopicPartition::to, e -> new OffsetSpec.EarliestSpec())))
-                      .all()
-                      .get())
-          .entrySet()
-          .stream()
-          .collect(
-              Collectors.toMap(e -> TopicPartition.from(e.getKey()), e -> e.getValue().offset()));
-    }
-
-    private Map<TopicPartition, Long> latestOffset(Set<TopicPartition> partitions) {
-      return Utils.packException(
-          () ->
-              admin
-                  .listOffsets(
-                      partitions.stream()
-                          .collect(
-                              Collectors.toMap(
-                                  TopicPartition::to, e -> new OffsetSpec.LatestSpec())))
-                  .all()
-                  .get()
-                  .entrySet()
-                  .stream()
-                  .collect(
-                      Collectors.toMap(
-                          e -> TopicPartition.from(e.getKey()), e -> e.getValue().offset())));
+          () -> asyncAdmin.consumerGroups(consumerGroupNames).toCompletableFuture().get());
     }
 
     @Override
@@ -285,104 +188,9 @@ public class Builder {
           () -> asyncAdmin.topicPartitions(broker).toCompletableFuture().get());
     }
 
-    private Map<
-            Integer, Map<TopicPartition, Map<String, org.apache.kafka.clients.admin.ReplicaInfo>>>
-        logDirs() {
-      return Utils.packException(() -> admin.describeLogDirs(brokerIds()).allDescriptions().get())
-          .entrySet()
-          .stream()
-          .collect(
-              Collectors.toMap(
-                  Map.Entry::getKey,
-                  pathAndDesc ->
-                      pathAndDesc.getValue().entrySet().stream()
-                          .flatMap(
-                              e ->
-                                  e.getValue().replicaInfos().entrySet().stream()
-                                      .map(
-                                          tr ->
-                                              Map.entry(
-                                                  TopicPartition.from(tr.getKey()),
-                                                  Map.entry(e.getKey(), tr.getValue()))))
-                          .collect(Collectors.groupingBy(Map.Entry::getKey))
-                          .entrySet()
-                          .stream()
-                          .collect(
-                              Collectors.toMap(
-                                  Map.Entry::getKey,
-                                  e ->
-                                      e.getValue().stream()
-                                          .map(Map.Entry::getValue)
-                                          .collect(
-                                              Collectors.toMap(
-                                                  Map.Entry::getKey, Map.Entry::getValue))))));
-    }
-
     @Override
     public List<Replica> replicas(Set<String> topics) {
-      // pre-group folders by (broker -> topic partition) to speedup seek
-      var logInfo = logDirs();
-      var topicDesc = Utils.packException(() -> admin.describeTopics(topics).allTopicNames().get());
-      return topicDesc.entrySet().stream()
-          .flatMap(
-              topicDes ->
-                  topicDes.getValue().partitions().stream()
-                      .flatMap(
-                          tpInfo ->
-                              tpInfo.replicas().stream()
-                                  .flatMap(
-                                      node -> {
-                                        // kafka admin#describeLogDirs does not return offline
-                                        // node,when the node is not online,all TopicPartition
-                                        // return an empty dataFolder and a
-                                        // fake replicaInfo, and determine whether the node is
-                                        // online by whether the dataFolder is "".
-                                        var pathAndReplicas =
-                                            logInfo
-                                                .getOrDefault(node.id(), Map.of())
-                                                .getOrDefault(
-                                                    TopicPartition.of(
-                                                        topicDes.getKey(), tpInfo.partition()),
-                                                    Map.of(
-                                                        "",
-                                                        new org.apache.kafka.clients.admin
-                                                            .ReplicaInfo(-1L, -1L, false)));
-                                        return pathAndReplicas.entrySet().stream()
-                                            .map(
-                                                pathAndReplica ->
-                                                    Replica.of(
-                                                        topicDes.getKey(),
-                                                        tpInfo.partition(),
-                                                        NodeInfo.of(node),
-                                                        pathAndReplica.getValue().offsetLag(),
-                                                        pathAndReplica.getValue().size(),
-                                                        tpInfo.leader() != null
-                                                            && !tpInfo.leader().isEmpty()
-                                                            && tpInfo.leader().id() == node.id(),
-                                                        tpInfo.isr().contains(node),
-                                                        pathAndReplica.getValue().isFuture(),
-                                                        node.isEmpty()
-                                                            || pathAndReplica.getKey().equals(""),
-                                                        // The first replica in the return
-                                                        // result is
-                                                        // the
-                                                        // preferred leader. This only works
-                                                        // with
-                                                        // Kafka broker
-                                                        // version after
-                                                        // 0.11. Version before 0.11 returns
-                                                        // the
-                                                        // replicas in
-                                                        // unspecified order.
-                                                        tpInfo.replicas().get(0).id() == node.id(),
-                                                        // empty data folder means this
-                                                        // replica is
-                                                        // offline
-                                                        pathAndReplica.getKey().isEmpty()
-                                                            ? null
-                                                            : pathAndReplica.getKey()));
-                                      })))
-          .collect(Collectors.toList());
+      return Utils.packException(() -> asyncAdmin.replicas(topics).toCompletableFuture().get());
     }
 
     @Override
@@ -421,20 +229,13 @@ public class Builder {
 
     @Override
     public Set<String> transactionIds() {
-      return Utils.packException(
-          () ->
-              admin.listTransactions().all().get().stream()
-                  .map(TransactionListing::transactionalId)
-                  .collect(Collectors.toUnmodifiableSet()));
+      return Utils.packException(() -> asyncAdmin.transactionIds().toCompletableFuture().get());
     }
 
     @Override
     public List<Transaction> transactions(Set<String> transactionIds) {
-      return Utils.packException(() -> admin.describeTransactions(transactionIds).all().get())
-          .entrySet()
-          .stream()
-          .map(e -> Transaction.of(e.getKey(), e.getValue()))
-          .collect(Collectors.toUnmodifiableList());
+      return Utils.packException(
+          () -> asyncAdmin.transactions(transactionIds).toCompletableFuture().get());
     }
 
     @Override
@@ -481,60 +282,8 @@ public class Builder {
 
     @Override
     public List<AddingReplica> addingReplicas(Set<String> topics) {
-      var adding =
-          Utils.packException(
-                  () ->
-                      admin
-                          .listPartitionReassignments(
-                              topicPartitions(topics).stream()
-                                  .map(TopicPartition::to)
-                                  .collect(Collectors.toSet()))
-                          .reassignments()
-                          .get())
-              .entrySet()
-              .stream()
-              .flatMap(
-                  entry ->
-                      entry.getValue().addingReplicas().stream()
-                          .map(
-                              id ->
-                                  new org.apache.kafka.common.TopicPartitionReplica(
-                                      entry.getKey().topic(), entry.getKey().partition(), id)))
-              .collect(Collectors.toList());
-      var dirs = logDirs();
-
-      Function<TopicPartition, Long> findMaxSize =
-          tp ->
-              dirs.values().stream()
-                  .flatMap(e -> e.entrySet().stream())
-                  .filter(e -> e.getKey().equals(tp))
-                  .flatMap(e -> e.getValue().values().stream().map(ReplicaInfo::size))
-                  .mapToLong(v -> v)
-                  .max()
-                  .orElse(0);
-
-      return adding.stream()
-          .filter(
-              r ->
-                  dirs.getOrDefault(r.brokerId(), Map.of())
-                      .containsKey(TopicPartition.of(r.topic(), r.partition())))
-          .flatMap(
-              r ->
-                  dirs
-                      .get(r.brokerId())
-                      .get(TopicPartition.of(r.topic(), r.partition()))
-                      .entrySet()
-                      .stream()
-                      .map(
-                          entry ->
-                              AddingReplica.of(
-                                  r.topic(),
-                                  r.partition(),
-                                  r.brokerId(),
-                                  entry.getKey(),
-                                  entry.getValue().size(),
-                                  findMaxSize.apply(TopicPartition.of(r.topic(), r.partition())))))
-          .collect(Collectors.toList());
+      return Utils.packException(
+          () -> asyncAdmin.addingReplicas(topics).toCompletableFuture().get());
     }
 
     @Override
