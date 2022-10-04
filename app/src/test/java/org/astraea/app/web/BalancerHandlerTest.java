@@ -450,6 +450,37 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
   }
 
   @Test
+  void testPostSanityCheck() {
+    var topic = createAndProduceTopic(1).get(0);
+    try (var admin = Admin.of(bootstrapServers())) {
+      var theExecutor = new NoOpExecutor();
+      var handler =
+          new BalancerHandler(
+              admin,
+              MultiplicationCost.decreasing(),
+              new ReplicaSizeCost(),
+              RebalancePlanGenerator.random(30),
+              theExecutor);
+      var theReport =
+          Assertions.assertInstanceOf(
+              BalancerHandler.Report.class,
+              handler.get(Channel.ofQueries(Map.of(BalancerHandler.TOPICS_KEY, topic))));
+      Assertions.assertNotNull(theReport.id);
+
+      // pick a partition and alter its placement
+      var theChange = theReport.changes.stream().findAny().orElseThrow();
+      admin.migrator().partition(theChange.topic, theChange.partition).moveTo(List.of(0, 1, 2));
+      Utils.sleep(Duration.ofSeconds(10));
+
+      // assert
+      Assertions.assertThrows(
+          IllegalStateException.class,
+          () -> handler.post(Channel.ofRequest(PostRequest.of(Map.of("id", theReport.id)))),
+          "The cluster state has changed, prevent the plan from execution");
+    }
+  }
+
+  @Test
   void testLookupRebalanceProgress() {
     createAndProduceTopic(3);
     try (var admin = Admin.of(bootstrapServers())) {

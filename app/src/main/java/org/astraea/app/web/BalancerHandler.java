@@ -29,9 +29,11 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.Replica;
+import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.admin.TopicPartitionReplica;
 import org.astraea.common.balancer.Balancer;
 import org.astraea.common.balancer.executor.RebalanceAdmin;
@@ -178,6 +180,38 @@ class BalancerHandler implements Handler {
             .orElseThrow(
                 () -> new IllegalArgumentException("No such rebalance plan id: " + thePlanId));
     final var theRebalanceProposal = thePlanInfo.associatedPlan.proposal();
+
+    // sanity check
+    final var mismatchPartitions =
+        thePlanInfo.report.changes.stream()
+            .filter(
+                change -> {
+                  var currentReplicaList =
+                      admin.replicas(Set.of(change.topic)).stream()
+                          .filter(replica -> replica.partition() == change.partition)
+                          .sorted(
+                              Comparator.comparing(Replica::isPreferredLeader)
+                                  .reversed()
+                                  .thenComparing(x -> x.nodeInfo().id()))
+                          .map(x -> Map.entry(x.nodeInfo().id(), x.dataFolder()))
+                          .collect(Collectors.toUnmodifiableList());
+                  var expectedReplicaList =
+                      Stream.concat(
+                              change.before.stream().limit(1),
+                              change.before.stream()
+                                  .skip(1)
+                                  .sorted(Comparator.comparing(x -> x.brokerId)))
+                          .map(x -> Map.entry(x.brokerId, x.directory))
+                          .collect(Collectors.toUnmodifiableList());
+                  return !expectedReplicaList.equals(currentReplicaList);
+                })
+            .map(change -> TopicPartition.of(change.topic, change.partition))
+            .collect(Collectors.toUnmodifiableSet());
+    if (!mismatchPartitions.isEmpty())
+      throw new IllegalStateException(
+          "The cluster state has been changed significantly. "
+              + "The following topic/partitions have different replica list(lookup the moment of plan generation): "
+              + mismatchPartitions);
 
     synchronized (this) {
       if (executedPlans.containsKey(thePlanId)) {
