@@ -22,10 +22,18 @@ import java.net.URISyntaxException;
 import java.net.URL;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.Map;
 import java.util.stream.Collectors;
 
 public class URLUtil {
+
+  /**
+   * The syntax `,` is a value splitter. So we don't treat it as a value. Example:
+   * Map("key","value1,value2") => key=value1,value2
+   *
+   * @param url URL object without any query parameter
+   */
   public static URL getQueryUrl(URL url, Map<String, String> parameters)
       throws URISyntaxException, MalformedURLException {
     var uri = url.toURI();
@@ -34,13 +42,22 @@ public class URLUtil {
             .map(
                 x -> {
                   var key = x.getKey();
-                  var value = URLEncoder.encode(x.getValue(), StandardCharsets.UTF_8);
-                  return key + "=" + value;
+                  return key + "=" + getQueryValue(x.getValue());
                 })
             .collect(Collectors.joining("&"));
 
     return new URI(
             uri.getScheme(), uri.getAuthority(), uri.getPath(), queryString, uri.getFragment())
         .toURL();
+  }
+
+  private static String getQueryValue(String value) {
+    if (value.contains(",")) {
+      var values = value.split(",");
+      return Arrays.stream(values)
+          .map(x -> URLEncoder.encode(x, StandardCharsets.UTF_8))
+          .collect(Collectors.joining(","));
+    }
+    return URLEncoder.encode(value, StandardCharsets.UTF_8);
   }
 }

@@ -18,6 +18,8 @@ package org.astraea.common.connector.impl;
 
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import org.apache.kafka.common.config.ConfigDef;
 import org.apache.kafka.connect.connector.Task;
 import org.apache.kafka.connect.source.SourceConnector;
@@ -25,9 +27,7 @@ import org.apache.kafka.connect.source.SourceConnector;
 public class TestTextSourceConnector extends SourceConnector {
 
   @Override
-  public void start(Map<String, String> props) {
-    System.out.println(props);
-  }
+  public void start(Map<String, String> props) {}
 
   @Override
   public Class<? extends Task> taskClass() {
@@ -36,7 +36,9 @@ public class TestTextSourceConnector extends SourceConnector {
 
   @Override
   public List<Map<String, String>> taskConfigs(int maxTasks) {
-    return List.of(Map.of());
+    return IntStream.range(0, maxTasks)
+        .mapToObj(x -> Map.<String, String>of())
+        .collect(Collectors.toList());
   }
 
   @Override

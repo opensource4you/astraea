@@ -19,6 +19,13 @@ package org.astraea.common.connector;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * The kafka connect client
+ *
+ * @see <a
+ *     href="https://docs.confluent.io/platform/current/connect/references/restapi.html">Connector
+ *     Document</a>
+ */
 public interface ConnectorClient {
 
   static Builder builder() {

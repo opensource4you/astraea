@@ -28,7 +28,6 @@ public class TestTextSourceTask extends SourceTask {
 
   @Override
   public void start(Map<String, String> props) {
-    System.out.println(props);
     topics = props.get("topics");
   }
 
@@ -38,6 +37,7 @@ public class TestTextSourceTask extends SourceTask {
     var sourceRecord =
         new SourceRecord(
             Map.of(), Map.of(), topics, null, jsonValue.getBytes(StandardCharsets.UTF_8));
+    Thread.sleep(5000);
     return List.of(sourceRecord);
   }
 

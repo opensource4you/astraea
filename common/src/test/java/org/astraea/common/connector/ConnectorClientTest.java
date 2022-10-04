@@ -34,8 +34,8 @@ class ConnectorClientTest extends RequireSingleWorkerCluster {
   void testInfo() {
     var connectorClient = ConnectorClient.builder().build(workerUrl());
     var info = connectorClient.info();
-    assertFalse(Utils.isEmpty(info.commit()));
-    assertFalse(Utils.isEmpty(info.version()));
+    assertFalse(Utils.isBlank(info.commit()));
+    assertFalse(Utils.isBlank(info.version()));
     // TODO: 2022-10-03 clusterId is null
   }
 
@@ -69,14 +69,32 @@ class ConnectorClientTest extends RequireSingleWorkerCluster {
 
   @Test
   void testCreateConnector() {
-    // TODO: 2022-10-03 test tasks
     var connectorName = Utils.randomString(10);
     var connectorClient = ConnectorClient.builder().build(workerUrl());
-    var exampleConnector = getExampleConnector();
+    var exampleConnector = new HashMap<>(getExampleConnector());
+    exampleConnector.put("tasks.max", "3");
 
-    var connector = connectorClient.createConnector(connectorName, exampleConnector);
-    assertEquals(connectorName, connector.name());
-    assertExampleConnector(connector.config());
+    var createdConnectorInfo = connectorClient.createConnector(connectorName, exampleConnector);
+    assertEquals(connectorName, createdConnectorInfo.name());
+    var config = createdConnectorInfo.config();
+    assertEquals("3", config.get("tasks.max"));
+    assertEquals("myTopic", config.get("topics"));
+    assertEquals(TestTextSourceConnector.class.getName(), config.get("connector.class"));
+
+    Utils.waitFor(
+        () -> {
+          var connectorInfo = connectorClient.connector(connectorName);
+          assertEquals(3, connectorInfo.tasks().size());
+          assertTrue(
+              connectorInfo.tasks().stream().allMatch(x -> connectorName.equals(x.connector())));
+          assertEquals(
+              3,
+              connectorInfo.tasks().stream()
+                  .map(TaskInfo::task)
+                  .filter(x -> x > -1)
+                  .distinct()
+                  .count());
+        });
   }
 
   @Test

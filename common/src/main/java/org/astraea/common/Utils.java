@@ -115,6 +115,33 @@ public final class Utils {
   }
 
   /**
+   * Wait for `done` to complete without exception. Default is 10 seconds
+   *
+   * @param done the operation should success in timeout.
+   */
+  public static void waitFor(Runner done) {
+    waitFor(done, Duration.ofSeconds(10));
+  }
+
+  /**
+   * Wait for `done` to complete without exception.
+   *
+   * @param done the operation should success in timeout.
+   */
+  public static void waitFor(Runner done, Duration timeout) {
+    waitForNonNull(
+        () -> {
+          try {
+            done.run();
+            return new Object();
+          } catch (Error | Exception e) {
+            return null;
+          }
+        },
+        timeout);
+  }
+
+  /**
    * Wait for procedure.
    *
    * @param done a flag indicating the result.
@@ -254,8 +281,7 @@ public final class Utils {
         TreeMap::new);
   }
 
-  public static boolean isEmpty(String value) {
-    // TODO: 2022-10-02 test
+  public static boolean isBlank(String value) {
     return value == null || value.isBlank();
   }
 
