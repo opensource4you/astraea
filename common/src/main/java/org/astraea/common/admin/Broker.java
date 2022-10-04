@@ -21,14 +21,15 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+import org.apache.kafka.common.requests.DescribeLogDirsResponse;
 
 public interface Broker extends NodeInfo {
 
   static Broker of(
       boolean isController,
-      org.astraea.common.admin.NodeInfo nodeInfo,
+      org.apache.kafka.common.Node nodeInfo,
       org.apache.kafka.clients.admin.Config kafkaConfig,
-      Map<String, org.apache.kafka.clients.admin.LogDirDescription> dirs,
+      Map<String, DescribeLogDirsResponse.LogDirInfo> dirs,
       Collection<org.apache.kafka.clients.admin.TopicDescription> topics) {
     var config = Config.of(kafkaConfig);
     var folders =
@@ -37,10 +38,10 @@ public interface Broker extends NodeInfo {
                 entry -> {
                   var path = entry.getKey();
                   var tpAndSize =
-                      entry.getValue().replicaInfos().entrySet().stream()
+                      entry.getValue().replicaInfos.entrySet().stream()
                           .collect(
                               Collectors.toUnmodifiableMap(
-                                  e -> TopicPartition.from(e.getKey()), e -> e.getValue().size()));
+                                  e -> TopicPartition.from(e.getKey()), e -> e.getValue().size));
                   return (DataFolder)
                       new DataFolder() {
 

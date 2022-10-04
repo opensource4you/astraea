@@ -107,24 +107,49 @@ public class AdminTest extends RequireBrokerCluster {
       IntStream.range(0, 10).forEach(i -> createTopic.run());
 
       // changing number of partitions can producer error
-      Assertions.assertThrows(
+      Assertions.assertInstanceOf(
           IllegalArgumentException.class,
-          () -> admin.creator().numberOfPartitions(1).topic(topicName).create());
+          Assertions.assertThrows(
+                  ExecutionException.class,
+                  () ->
+                      admin
+                          .creator()
+                          .numberOfPartitions(1)
+                          .topic(topicName)
+                          .run()
+                          .toCompletableFuture()
+                          .get())
+              .getCause());
 
       // changing number of replicas can producer error
-      Assertions.assertThrows(
+      Assertions.assertInstanceOf(
           IllegalArgumentException.class,
-          () -> admin.creator().numberOfReplicas((short) 2).topic(topicName).create());
+          Assertions.assertThrows(
+                  ExecutionException.class,
+                  () ->
+                      admin
+                          .creator()
+                          .numberOfReplicas((short) 2)
+                          .topic(topicName)
+                          .run()
+                          .toCompletableFuture()
+                          .get())
+              .getCause());
 
       // changing config can producer error
-      Assertions.assertThrows(
+      Assertions.assertInstanceOf(
           IllegalArgumentException.class,
-          () ->
-              admin
-                  .creator()
-                  .configs(Map.of(TopicConfig.COMPRESSION_TYPE_CONFIG, "gzip"))
-                  .topic(topicName)
-                  .create());
+          Assertions.assertThrows(
+                  ExecutionException.class,
+                  () ->
+                      admin
+                          .creator()
+                          .configs(Map.of(TopicConfig.COMPRESSION_TYPE_CONFIG, "gzip"))
+                          .topic(topicName)
+                          .run()
+                          .toCompletableFuture()
+                          .get())
+              .getCause());
     }
   }
 
@@ -439,7 +464,16 @@ public class AdminTest extends RequireBrokerCluster {
   void testCompact() {
     var topicName = "testCompacted";
     try (var admin = Admin.of(bootstrapServers())) {
-      admin.creator().topic(topicName).compactionMaxLag(Duration.ofSeconds(1)).create();
+      admin
+          .creator()
+          .topic(topicName)
+          .configs(
+              Map.of(
+                  TopicCreator.MAX_COMPACTION_LAG_MS_CONFIG,
+                  "1000",
+                  TopicCreator.CLEANUP_POLICY_CONFIG,
+                  TopicCreator.CLEANUP_POLICY_COMPACT))
+          .create();
 
       var key = "key";
       var anotherKey = "anotherKey";
