@@ -348,14 +348,6 @@ class BalancerHandler implements Handler {
       this.report = report;
       this.associatedPlan = associatedPlan;
     }
-
-    Report report() {
-      return report;
-    }
-
-    Balancer.Plan plan() {
-      return associatedPlan;
-    }
   }
 
   static class PostPlanResponse implements Response {
