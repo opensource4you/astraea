@@ -60,28 +60,34 @@ public class TopicTab {
     var tps = partitions.stream().collect(Collectors.groupingBy(Partition::topic));
     return tps.keySet().stream()
         .map(
-            topic ->
-                LinkedHashMap.<String, Object>of(
-                    "name", topic,
-                    "partitions", tps.get(topic).size(),
-                    "replicas", tps.get(topic).stream().mapToInt(p -> p.replicas().size()).sum(),
-                    "size",
-                        Optional.ofNullable(topicSize.get(topic))
-                            .map(DataSize.Byte::of)
-                            .orElse(DataSize.Byte.of(0)),
-                    "broker ids",
-                        tps.get(topic).stream()
-                            .flatMap(p -> p.replicas().stream().map(NodeInfo::id))
-                            .map(String::valueOf)
-                            .distinct()
-                            .sorted()
-                            .collect(Collectors.joining(",")),
-                    "max timestamp",
-                        Utils.format(
-                            tps.get(topic).stream()
-                                .mapToLong(Partition::maxTimestamp)
-                                .max()
-                                .orElse(-1L))))
+            topic -> {
+              var result = new LinkedHashMap<String, Object>();
+              result.put("name", topic);
+              result.put("partitions", tps.get(topic).size());
+              result.put(
+                  "replicas", tps.get(topic).stream().mapToInt(p -> p.replicas().size()).sum());
+              result.put(
+                  "size",
+                  Optional.ofNullable(topicSize.get(topic))
+                      .map(DataSize.Byte::of)
+                      .orElse(DataSize.Byte.of(0)));
+              result.put(
+                  "max timestamp",
+                  Utils.format(
+                      tps.get(topic).stream()
+                          .mapToLong(Partition::maxTimestamp)
+                          .max()
+                          .orElse(-1L)));
+              tps.get(topic).stream()
+                  .flatMap(p -> p.replicas().stream())
+                  .collect(Collectors.groupingBy(NodeInfo::id))
+                  .entrySet()
+                  .stream()
+                  .sorted(Map.Entry.comparingByKey())
+                  .forEach(
+                      entry -> result.put("broker:" + entry.getKey(), entry.getValue().size()));
+              return result;
+            })
         .collect(Collectors.toList());
   }
 }
