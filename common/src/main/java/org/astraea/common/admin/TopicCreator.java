@@ -49,6 +49,7 @@ public interface TopicCreator {
   TopicCreator configs(Map<String, String> configs);
 
   /** start to create topic. */
+  @Deprecated
   default void create() {
     Utils.packException(() -> run().toCompletableFuture().get());
   }
