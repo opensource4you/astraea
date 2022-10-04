@@ -416,6 +416,40 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
   }
 
   @Test
+  void testRebalanceOnePlanAtATime() {
+    createAndProduceTopic(3);
+    try (var admin = Admin.of(bootstrapServers())) {
+      var theExecutor =
+          new NoOpExecutor() {
+            @Override
+            public void run(RebalanceAdmin rebalanceAdmin, ClusterLogAllocation targetAllocation) {
+              super.run(rebalanceAdmin, targetAllocation);
+              Utils.sleep(Duration.ofSeconds(10));
+            }
+          };
+      var handler =
+          new BalancerHandler(
+              admin,
+              MultiplicationCost.decreasing(),
+              new ReplicaSizeCost(),
+              RebalancePlanGenerator.random(30),
+              theExecutor);
+      var theReport0 =
+          Assertions.assertInstanceOf(BalancerHandler.Report.class, handler.get(Channel.EMPTY));
+      var theReport1 =
+          Assertions.assertInstanceOf(BalancerHandler.Report.class, handler.get(Channel.EMPTY));
+      Assertions.assertNotNull(theReport0.id);
+      Assertions.assertNotNull(theReport1.id);
+
+      Assertions.assertDoesNotThrow(
+          () -> handler.post(Channel.ofRequest(PostRequest.of(Map.of("id", theReport0.id)))));
+      Assertions.assertThrows(
+          IllegalStateException.class,
+          () -> handler.post(Channel.ofRequest(PostRequest.of(Map.of("id", theReport1.id)))));
+    }
+  }
+
+  @Test
   void testLookupRebalanceProgress() {
     createAndProduceTopic(3);
     try (var admin = Admin.of(bootstrapServers())) {

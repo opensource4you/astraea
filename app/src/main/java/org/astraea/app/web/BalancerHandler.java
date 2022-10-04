@@ -25,6 +25,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.astraea.common.admin.Admin;
@@ -56,6 +57,7 @@ class BalancerHandler implements Handler {
   final HasMoveCost moveCostFunction;
   private final Map<String, PlanInfo> generatedPlans = new ConcurrentHashMap<>();
   private final Map<String, CompletableFuture<Void>> executedPlans = new ConcurrentHashMap<>();
+  private final AtomicReference<String> lastExecutionId = new AtomicReference<>();
 
   BalancerHandler(Admin admin) {
     this(admin, new ReplicaSizeCost(), new ReplicaSizeCost());
@@ -176,17 +178,24 @@ class BalancerHandler implements Handler {
                 () -> new IllegalArgumentException("No such rebalance plan id: " + thePlanId));
     final var theRebalanceProposal = thePlanInfo.associatedPlan.proposal();
 
-    submitRebalancePlan(thePlanId, theRebalanceProposal.rebalancePlan());
+    synchronized (this) {
+      if (executedPlans.containsKey(thePlanId)) {
+        // already scheduled, nothing to do
+      } else if (lastExecutionId.get() != null
+          && !executedPlans.get(lastExecutionId.get()).isDone()) {
+        throw new IllegalStateException(
+            "There are another on-going rebalance: " + lastExecutionId.get());
+      } else {
+        executedPlans.put(
+            thePlanId,
+            CompletableFuture.runAsync(
+                () ->
+                    executor.run(RebalanceAdmin.of(admin), theRebalanceProposal.rebalancePlan())));
+        lastExecutionId.set(thePlanId);
+      }
+    }
 
     return new PostPlanResponse(thePlanId);
-  }
-
-  /** This method must be thread-safe, otherwise we might fire two executor tasks for a plan. */
-  private void submitRebalancePlan(String thePlanId, ClusterLogAllocation allocation) {
-    executedPlans.computeIfAbsent(
-        thePlanId,
-        ignore ->
-            CompletableFuture.runAsync(() -> executor.run(RebalanceAdmin.of(admin), allocation)));
   }
 
   static List<Placement> placements(Set<Replica> lps, Function<Replica, Long> size) {
