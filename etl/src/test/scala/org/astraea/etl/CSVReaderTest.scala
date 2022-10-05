@@ -19,15 +19,14 @@ package org.astraea.etl
 import com.opencsv.CSVWriter
 import org.apache.spark.SparkException
 import org.apache.spark.sql.Row
-import org.apache.spark.sql.types.{StructType, TimestampType}
 import org.astraea.etl.DataType.{IntegerType, StringType}
 import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Test
 
 import java.io._
 import java.nio.file.Files
-import scala.jdk.CollectionConverters.IterableHasAsJava
 import scala.util.{Failure, Random, Try}
+import scala.collection.JavaConverters._
 
 class CSVReaderTest {
   @Test def createSchemaNullTest(): Unit = {

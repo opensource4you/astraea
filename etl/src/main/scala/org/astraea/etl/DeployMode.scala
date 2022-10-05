@@ -16,16 +16,35 @@
  */
 package org.astraea.etl
 
-import org.junit.jupiter.api.Test
+import scala.util.matching.Regex
 
-class DeployModePatternTest {
-  @Test def deployModePatternTest(): Unit = {
-    assert(!DeployModePattern.of(""))
-    assert(!DeployModePattern.of("123"))
-    assert(DeployModePattern.of("local[2]"))
+sealed abstract class DeployMode(pattern: Regex) {
+  def r: Regex = {
+    pattern
+  }
+}
 
-    assert(!DeployModePattern.of(""))
-    assert(!DeployModePattern.of("abc"))
-    assert(!DeployModePattern.of("spark://0.0.0.0"))
+object DeployMode {
+  // Whether it is a local mode string.
+  case object Local extends DeployMode("local(\\[)[\\d{1}](])".r)
+  // Whether it is a standalone mode string.
+  case object Standalone extends DeployMode("spark://(.+):(\\d+)".r)
+
+  def of(str: String): DeployMode = {
+    val patterns = all().filter(_.r.findAllIn(str).hasNext)
+    if (patterns.isEmpty) {
+      throw new IllegalArgumentException(
+        s"$str does not belong to any of the deploy modes."
+      )
+    }
+    patterns.head
+  }
+
+  def deployMatch(str: String): Boolean = {
+    all().exists(_.r.findAllIn(str).hasNext)
+  }
+
+  def all(): Seq[DeployMode] = {
+    Seq(Local, Standalone)
   }
 }
