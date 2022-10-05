@@ -1,6 +1,6 @@
 # Strict Cost Dispatcher 測試
 
-此次實驗目的是量測 interdependent message 對效能的影響。對使用 Astraea Partitioner 的使用者來說，也許有些 record 需要被送到同一個 partition ，因此 Astraea Partitioner 提供了 [interdependent](../README.md#Astraea Dispatcher "Interdependent Message" 功能) 的機制。
+此次實驗目的是量測 `StrictCostDispatcher` "**有使用** interdependent message" 和 "**沒有使用** interdependent message" 對效能的影響。對使用 Astraea Partitioner 的使用者來說，也許有些 record 需要被送到同一個 partition ，因此 Astraea Partitioner 提供了 [interdependent](../README.md#astraea-dispatcher-interdependent-message-功能) 的機制。
 
 ## 測試環境
 
@@ -110,9 +110,9 @@ REVISION=08b4e32f31091a3de69775db5442eb631deca550 docker/start_app.sh performanc
 
 從平均吞吐的折線圖來觀察，吞吐量平均都超過 1000 (MiB/sec) 。雖然差距不大 (約4%)，但觀察到有使用 `interdependent` 的實驗表現較好。
 
-從平均延遲來看，使用 `interdependent` 的延遲會上升，預設的 `StrictCostDispatcher` 是使用延遲判斷，`interdependent` 的限制也讓平均延遲有所增加。
+從平均延遲來看，使用 `interdependent` 的延遲會上升，預設的 `StrictCostDispatcher` 是使用延遲判斷，`interdependent` 的限制也讓平均延遲有所增加。（這裡紀錄的延遲是 "moving average" 的一種，每秒取的 "moving average"  彼此都有相依性。每一秒取的 "moving average" 都是有個別意義的。所以這裡沒有寫出一個具體的數字，直接看圖表的意義會比較準確。）
 
-另外，比較[先前的實驗結果](StrictCostDispatcher_1)，會發現延遲的數據有極大的差異，[先前的實驗](StrictCostDispatcher_1) 延遲落在 \~200 ms ，但這次的實驗延遲落在 ~1 ms，主要原因是 [PR 711](https://github.com/skiptests/astraea/pull/711) 修改了數據的紀錄方式，從原本的手動計算，改成從 producer api 直接抓取相關數據，所以這次實驗的延遲才會和[先前實驗](StrictCostDispatcher_1)有很大的差距。
+另外，比較[先前的實驗結果](StrictCostDispatcher_1.md)，會發現延遲的數據有極大的差異，[先前的實驗](StrictCostDispatcher_1.md) 延遲落在 \~200 ms ，但這次的實驗延遲落在 ~1 ms，主要原因是 [PR 711](https://github.com/skiptests/astraea/pull/711) 修改了數據的紀錄方式，原先量測的延遲是 user -> producer -> request -> server -> response  -> producer -> user，現在抓取的latency則是只有統計 request -> server ->  response 這一段，兩者量測的路徑有明顯的不同，所以這次實驗的延遲才會和[先前實驗](StrictCostDispatcher_1.md)的延遲有很大的差距。
 
 ![](../../pictures/partitioner_experiment2_1.png)
 
@@ -121,7 +121,7 @@ REVISION=08b4e32f31091a3de69775db5442eb631deca550 docker/start_app.sh performanc
 在資源充足的環境下，使用 Strict Cost Dispatcher 時，使用 interdependent message
 
 * 吞吐增加 (約4%)
-* 平均延遲會上升。
+* 平均延遲上升。(moving average 難以量化比較，故只以圖表呈現)
 
 ## 相關
 

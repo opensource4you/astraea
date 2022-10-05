@@ -1,6 +1,6 @@
 # Strict Cost Dispatcher 測試
 
-此次實驗目的是量測 interdependent message 對效能的影響。對使用 Astraea Partitioner 的使用者來說，也許有些 record 需要被送到同一個 partition ，因此 Astraea Partitioner 提供了 [interdependent](../README.md#Astraea Dispatcher "Interdependent Message" 功能) 的機制。
+此次實驗目的是量測 `StrictCostDispatcher` "**有使用** interdependent message" 和 "**沒有使用** interdependent message" 對效能的影響。對使用 Astraea Partitioner 的使用者來說，也許有些 record 需要被送到同一個 partition ，因此 Astraea Partitioner 提供了 [interdependent](../README.md#astraea-dispatcher-interdependent-message-功能) 的機制。
 
 ## 測試環境
 
@@ -110,7 +110,7 @@ REVISION=08b4e32f31091a3de69775db5442eb631deca550 docker/start_app.sh performanc
 
 從平均吞吐的折線圖來觀察，吞吐量平均都超過 2000 (MiB/sec) 。觀察到有使用 `interdependent` 的吞吐量較高 (約11%)。
 
-從平均延遲來看，使用 `interdependent` 的延遲會降低，理應 `StrictCostDispatcher` 預設是對延遲做優化，那麼多了 `interdependent` 的限制不應該讓延遲變得更好，也說明了 `StrictCostDispatcher` 有改善的空間。
+從平均延遲來看，使用 `interdependent` 的延遲會降低，理應 `StrictCostDispatcher` 預設是對延遲做優化，那麼多了 `interdependent` 的限制不應該讓延遲變得更好，也說明了 `StrictCostDispatcher` 有改善的空間。（這裡紀錄的延遲是 "moving average" 的一種，每秒取的 "moving average"  彼此都有相依性。每一秒取的 "moving average" 都是有個別意義的。所以這裡沒有寫出一個具體的數字，直接看圖表的意義會比較準確。）
 
 ![](../../pictures/partitioner_experiment3_1.png)
 
@@ -119,7 +119,7 @@ REVISION=08b4e32f31091a3de69775db5442eb631deca550 docker/start_app.sh performanc
 在高壓的環境下，使用 Strict Cost Dispatcher 時，使用 interdependent message 
 
 * 吞吐增加 (約11%)
-* 平均延遲降低。
+* 平均延遲降低 (moving average 難以量化比較，故只以圖表呈現)
 
 ## 相關
 
