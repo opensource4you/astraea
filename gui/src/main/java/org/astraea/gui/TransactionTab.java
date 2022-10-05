@@ -58,10 +58,11 @@ public class TransactionTab {
                                     ts.stream()
                                         .filter(
                                             transaction ->
-                                                word.isEmpty()
-                                                    || transaction.transactionId().contains(word)
+                                                Utils.contains(transaction.transactionId(), word)
                                                     || transaction.topicPartitions().stream()
-                                                        .anyMatch(tp -> tp.topic().contains(word))))
+                                                        .anyMatch(
+                                                            tp ->
+                                                                Utils.contains(tp.topic(), word))))
                             .thenApply(TransactionTab::result)));
     var tab = new Tab("transaction");
     tab.setContent(pane);

@@ -40,7 +40,7 @@ public class TopicTab {
                             .thenApply(
                                 names ->
                                     names.stream()
-                                        .filter(name -> word.isEmpty() || name.contains(word))
+                                        .filter(name -> Utils.contains(name, word))
                                         .collect(Collectors.toSet()))
                             .thenCompose(
                                 names ->

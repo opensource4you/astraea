@@ -41,14 +41,21 @@ import org.astraea.common.cost.ReplicaSizeCost;
 public class BalancerTab {
 
   private enum Cost {
-    REPLICA(new ReplicaNumberCost()),
-    LEADER(new ReplicaLeaderCost()),
-    SIZE(new ReplicaSizeCost());
+    REPLICA("replica", new ReplicaNumberCost()),
+    LEADER("leader", new ReplicaLeaderCost()),
+    SIZE("size", new ReplicaSizeCost());
 
-    final HasClusterCost costFunction;
+    private final HasClusterCost costFunction;
+    private final String alias;
 
-    Cost(HasClusterCost costFunction) {
+    Cost(String alias, HasClusterCost costFunction) {
+      this.alias = alias;
       this.costFunction = costFunction;
+    }
+
+    @Override
+    public String toString() {
+      return alias;
     }
   }
 
@@ -64,7 +71,7 @@ public class BalancerTab {
                         .thenApply(
                             names ->
                                 names.stream()
-                                    .filter(name -> word.isEmpty() || name.contains(word))
+                                    .filter(name -> Utils.contains(name, word))
                                     .collect(Collectors.toSet()))
                         .thenCompose(admin::partitions)
                         .thenCompose(

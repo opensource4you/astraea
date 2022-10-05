@@ -66,7 +66,7 @@ public class PartitionTab {
                             .thenApply(
                                 names ->
                                     names.stream()
-                                        .filter(name -> word.isEmpty() || name.contains(word))
+                                        .filter(name -> Utils.contains(name, word))
                                         .collect(Collectors.toSet()))
                             .thenCompose(admin::partitions)
                             .thenApply(

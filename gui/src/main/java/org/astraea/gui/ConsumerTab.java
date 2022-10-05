@@ -73,12 +73,12 @@ public class ConsumerTab {
                                         groups.stream()
                                             .filter(
                                                 group ->
-                                                    word.isEmpty()
-                                                        || group.groupId().contains(word)
+                                                    Utils.contains(group.groupId(), word)
                                                         || group.consumeProgress().keySet().stream()
                                                             .anyMatch(
                                                                 tp ->
-                                                                    tp.topic().contains(word)))))));
+                                                                    Utils.contains(
+                                                                        tp.topic(), word)))))));
     var tab = new Tab("consumer");
     tab.setContent(pane);
     return tab;
