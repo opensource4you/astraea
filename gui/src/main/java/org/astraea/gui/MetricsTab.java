@@ -30,6 +30,7 @@ import org.astraea.common.LinkedHashMap;
 import org.astraea.common.metrics.MBeanClient;
 import org.astraea.common.metrics.broker.ControllerMetrics;
 import org.astraea.common.metrics.broker.ServerMetrics;
+import org.astraea.common.metrics.platform.HostMetrics;
 
 public class MetricsTab {
 
@@ -43,6 +44,12 @@ public class MetricsTab {
   }
 
   enum MetricType {
+    HOST(
+        "host",
+        client ->
+            tryToFetch(() -> HostMetrics.operatingSystem(client))
+                .map(o -> o.beanObject().attributes())
+                .orElse(Map.of())),
     CONTROLLER(
         "controller",
         client ->
