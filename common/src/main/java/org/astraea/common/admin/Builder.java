@@ -92,7 +92,7 @@ public class Builder {
     }
 
     @Override
-    public ReplicaMigrator migrator() {
+    public SyncReplicaMigrator migrator() {
       return new MigratorImpl(admin, this::topicPartitions, this::topicPartitions);
     }
 
@@ -661,7 +661,7 @@ public class Builder {
     }
   }
 
-  private static class MigratorImpl implements ReplicaMigrator {
+  private static class MigratorImpl implements SyncReplicaMigrator {
     private final org.apache.kafka.clients.admin.Admin admin;
     private final Function<Set<String>, Set<TopicPartition>> partitionGetter;
     private final Function<Integer, Set<TopicPartition>> brokerPartitionGetter;
@@ -677,25 +677,25 @@ public class Builder {
     }
 
     @Override
-    public ReplicaMigrator topic(String topic) {
+    public SyncReplicaMigrator topic(String topic) {
       partitions.addAll(partitionGetter.apply(Set.of(topic)));
       return this;
     }
 
     @Override
-    public ReplicaMigrator partition(String topic, int partition) {
+    public SyncReplicaMigrator partition(String topic, int partition) {
       partitions.add(TopicPartition.of(topic, partition));
       return this;
     }
 
     @Override
-    public ReplicaMigrator broker(int broker) {
+    public SyncReplicaMigrator broker(int broker) {
       partitions.addAll(brokerPartitionGetter.apply(broker));
       return this;
     }
 
     @Override
-    public ReplicaMigrator topicOfBroker(int broker, String topic) {
+    public SyncReplicaMigrator topicOfBroker(int broker, String topic) {
       partitions.addAll(
           brokerPartitionGetter.apply(broker).stream()
               .filter(tp -> Objects.equals(tp.topic(), topic))

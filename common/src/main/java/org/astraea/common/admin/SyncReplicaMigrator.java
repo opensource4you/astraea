@@ -18,17 +18,16 @@ package org.astraea.common.admin;
 
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CompletionStage;
 
 /** used to migrate partitions to another broker or broker folder. */
-public interface ReplicaMigrator {
+public interface SyncReplicaMigrator {
   /**
    * move all partitions (leader replica and follower replicas) of topic
    *
    * @param topic topic name
    * @return this migrator
    */
-  ReplicaMigrator topic(String topic);
+  SyncReplicaMigrator topic(String topic);
 
   /**
    * move one partition (leader replica and follower replicas) of topic
@@ -37,7 +36,7 @@ public interface ReplicaMigrator {
    * @param partition partition id
    * @return this migrator
    */
-  ReplicaMigrator partition(String topic, int partition);
+  SyncReplicaMigrator partition(String topic, int partition);
 
   /**
    * move all partitions (leader replica and follower replicas) of broker
@@ -45,7 +44,7 @@ public interface ReplicaMigrator {
    * @param broker broker id
    * @return this migrator
    */
-  ReplicaMigrator broker(int broker);
+  SyncReplicaMigrator broker(int broker);
 
   /**
    * move all partitions (leader replica and follower replicas) of topic of broker
@@ -54,18 +53,18 @@ public interface ReplicaMigrator {
    * @param topic topic name
    * @return this migrator
    */
-  ReplicaMigrator topicOfBroker(int broker, String topic);
+  SyncReplicaMigrator topicOfBroker(int broker, String topic);
 
   /**
    * change the partition replica list. If the current partition leader is kicked out of the
    * partition replica list. A preferred leader election will occur implicitly. The preferred
    * leader(the first replica in the list) will become the new leader of this topic/partition. If
    * one wants the preferred leader election to occur explicitly. Consider using {@link
-   * AsyncAdmin#preferredLeaderElection(TopicPartition)}.
+   * Admin#preferredLeaderElection(TopicPartition)}.
    *
    * @param brokers to host partitions
    */
-  CompletionStage<Void> moveTo(List<Integer> brokers);
+  void moveTo(List<Integer> brokers);
 
   /**
    * move the replica to specified data directory. All the specified brokers must be part of the
@@ -78,5 +77,20 @@ public interface ReplicaMigrator {
    *     brokers must be part of the partition's current replica list. Otherwise, an {@link
    *     IllegalStateException} exception will be raised.
    */
-  CompletionStage<Void> moveTo(Map<Integer, String> brokerFolders);
+  void moveTo(Map<Integer, String> brokerFolders);
+
+  /**
+   * declare the preferred data directories for the specified topic/partition. This method can only
+   * declare preferred data directory for the broker that doesn't host a replica for the specified
+   * partition. To move specific replica from one data directory to another on the same broker,
+   * consider use {@link SyncReplicaMigrator#moveTo(Map)}. Noted that this method performs some
+   * validation to ensure user declaring preferred data directory. There is a small chance to
+   * accidentally perform a data directory movement due to stale data.
+   *
+   * @param preferredDirMap the preferred directory map. With each entry indicate the preferred data
+   *     directory(value) for a broker(key). All the specified brokers must not be part of the
+   *     partition's current replica list. Otherwise, an {@link IllegalStateException} exception
+   *     will be raised.
+   */
+  void declarePreferredDir(Map<Integer, String> preferredDirMap);
 }

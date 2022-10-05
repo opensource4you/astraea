@@ -17,6 +17,8 @@
 package org.astraea.common.admin;
 
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -24,16 +26,20 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
+import java.util.concurrent.ExecutionException;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.kafka.clients.admin.ConsumerGroupListing;
 import org.apache.kafka.clients.admin.ListTopicsOptions;
+import org.apache.kafka.clients.admin.NewPartitionReassignment;
 import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.clients.admin.OffsetSpec;
 import org.apache.kafka.clients.admin.ReplicaInfo;
 import org.apache.kafka.clients.admin.TransactionListing;
+import org.apache.kafka.common.ElectionType;
 import org.apache.kafka.common.Node;
 import org.apache.kafka.common.config.ConfigResource;
+import org.apache.kafka.common.errors.ElectionNotNeededException;
 import org.astraea.common.Utils;
 
 class AsyncAdminImpl implements AsyncAdmin {
@@ -590,6 +596,153 @@ class AsyncAdminImpl implements AsyncAdmin {
                 });
       }
     };
+  }
+
+  @Override
+  public ReplicaMigrator migrator() {
+    return new ReplicaMigrator() {
+      private final List<CompletableFuture<Set<TopicPartition>>> partitions =
+          Collections.synchronizedList(new ArrayList<>());
+
+      @Override
+      public ReplicaMigrator topic(String topic) {
+        partitions.add(topicPartitions(Set.of(topic)).toCompletableFuture());
+        return this;
+      }
+
+      @Override
+      public ReplicaMigrator partition(String topic, int partition) {
+        partitions.add(
+            CompletableFuture.completedFuture(Set.of(TopicPartition.of(topic, partition))));
+        return this;
+      }
+
+      @Override
+      public ReplicaMigrator broker(int broker) {
+        partitions.add(topicPartitions(broker).toCompletableFuture());
+        return this;
+      }
+
+      @Override
+      public ReplicaMigrator topicOfBroker(int broker, String topic) {
+        partitions.add(
+            topicPartitions(broker)
+                .toCompletableFuture()
+                .thenApply(
+                    ps ->
+                        ps.stream()
+                            .filter(p -> p.topic().equals(topic))
+                            .collect(Collectors.toUnmodifiableSet())));
+        return this;
+      }
+
+      @Override
+      public CompletionStage<Void> moveTo(List<Integer> brokers) {
+        return Utils.sequence(partitions)
+            .thenApply(ss -> ss.stream().flatMap(Collection::stream).collect(Collectors.toList()))
+            .thenCompose(
+                partitions ->
+                    to(
+                        kafkaAdmin
+                            .alterPartitionReassignments(
+                                partitions.stream()
+                                    .collect(
+                                        Collectors.toMap(
+                                            p ->
+                                                new org.apache.kafka.common.TopicPartition(
+                                                    p.topic(), p.partition()),
+                                            ignore ->
+                                                Optional.of(
+                                                    new NewPartitionReassignment(brokers)))))
+                            .all()));
+      }
+
+      @Override
+      public CompletionStage<Void> moveTo(Map<Integer, String> brokerFolders) {
+        var f = new CompletableFuture<Void>();
+        var ps =
+            Utils.sequence(partitions)
+                .thenApply(
+                    ss -> ss.stream().flatMap(Collection::stream).collect(Collectors.toList()))
+                .thenCompose(
+                    tps ->
+                        partitions(
+                                tps.stream()
+                                    .map(TopicPartition::topic)
+                                    .collect(Collectors.toUnmodifiableSet()))
+                            .thenApply(
+                                partitions ->
+                                    partitions.stream()
+                                        .filter(
+                                            p ->
+                                                tps.contains(
+                                                    TopicPartition.of(p.topic(), p.partition())))
+                                        .collect(Collectors.toList())));
+
+        ps.whenComplete(
+            (partitions, e) -> {
+              if (e != null) {
+                f.completeExceptionally(e);
+                return;
+              }
+              for (var p : partitions) {
+                var currentBrokerIds =
+                    p.replicas().stream().map(NodeInfo::id).collect(Collectors.toList());
+                if (!brokerFolders.keySet().containsAll(currentBrokerIds)) {
+                  f.completeExceptionally(
+                      new IllegalStateException(
+                          p.topic()
+                              + " is located at "
+                              + currentBrokerIds
+                              + " which is not matched to expected brokers: "
+                              + brokerFolders.keySet()
+                              + ". Please use moveTo(List<Integer>) first"));
+                  return;
+                }
+              }
+              for (var p : partitions) {
+                var payload =
+                    brokerFolders.entrySet().stream()
+                        .collect(
+                            Collectors.toUnmodifiableMap(
+                                entry ->
+                                    new org.apache.kafka.common.TopicPartitionReplica(
+                                        p.topic(), p.partition(), entry.getKey()),
+                                Map.Entry::getValue));
+                to(kafkaAdmin.alterReplicaLogDirs(payload).all())
+                    .whenComplete(
+                        (ignored, e2) -> {
+                          if (e2 != null) f.completeExceptionally(e2);
+                          else f.complete(null);
+                        });
+              }
+            });
+        return f;
+      }
+    };
+  }
+
+  @Override
+  public CompletionStage<Void> preferredLeaderElection(TopicPartition topicPartition) {
+    var f = new CompletableFuture<Void>();
+
+    to(kafkaAdmin
+            .electLeaders(ElectionType.PREFERRED, Set.of(TopicPartition.to(topicPartition)))
+            .all())
+        .whenComplete(
+            (ignored, e) -> {
+              if (e == null) f.complete(null);
+              // Swallow the ElectionNotNeededException.
+              // This error occurred if the preferred leader of the given topic/partition is already
+              // the
+              // leader. It is ok to swallow the exception since the preferred leader be the actual
+              // leader. That is what the caller wants to be.
+              else if (e instanceof ExecutionException
+                  && e.getCause() instanceof ElectionNotNeededException) f.complete(null);
+              else if (e instanceof ElectionNotNeededException) f.complete(null);
+              else f.completeExceptionally(e);
+            });
+    return f;
   }
 
   @Override
