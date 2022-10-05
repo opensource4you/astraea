@@ -127,7 +127,7 @@ public interface Admin extends Closeable {
   }
 
   /** @return a partition migrator used to move partitions to another broker or folder. */
-  ReplicaMigrator migrator();
+  SyncReplicaMigrator migrator();
 
   /**
    * Perform preferred leader election for the specified topic/partitions. Let the first replica(the

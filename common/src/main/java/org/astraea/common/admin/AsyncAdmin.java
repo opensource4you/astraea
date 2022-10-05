@@ -97,4 +97,20 @@ public interface AsyncAdmin extends AutoCloseable {
 
   /** @return a topic creator to set all topic configs and then run the procedure. */
   TopicCreator creator();
+
+  /** @return a partition migrator used to move partitions to another broker or folder. */
+  ReplicaMigrator migrator();
+
+  /**
+   * Perform preferred leader election for the specified topic/partitions. Let the first replica(the
+   * preferred leader) in the partition replica list becomes the leader of its corresponding
+   * topic/partition. Noted that the first replica(the preferred leader) must be in-sync state.
+   * Otherwise, an exception might be raised.
+   *
+   * @param topicPartition to perform preferred leader election
+   */
+  CompletionStage<Void> preferredLeaderElection(TopicPartition topicPartition);
+
+  @Override
+  void close();
 }
