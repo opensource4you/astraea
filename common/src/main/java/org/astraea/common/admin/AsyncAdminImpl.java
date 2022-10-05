@@ -30,6 +30,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.kafka.clients.admin.ConsumerGroupListing;
+import org.apache.kafka.clients.admin.KafkaAdminClient;
 import org.apache.kafka.clients.admin.ListTopicsOptions;
 import org.apache.kafka.clients.admin.NewPartitionReassignment;
 import org.apache.kafka.clients.admin.NewTopic;
@@ -47,6 +48,10 @@ class AsyncAdminImpl implements AsyncAdmin {
   private final org.apache.kafka.clients.admin.Admin kafkaAdmin;
   private final String clientId;
   private final List<?> pendingRequests;
+
+  AsyncAdminImpl(Map<String, Object> props) {
+    this(KafkaAdminClient.create(props));
+  }
 
   AsyncAdminImpl(org.apache.kafka.clients.admin.Admin kafkaAdmin) {
     this.kafkaAdmin = kafkaAdmin;

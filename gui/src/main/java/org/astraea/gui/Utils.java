@@ -25,11 +25,9 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.CompletionStage;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -101,20 +99,24 @@ class Utils {
   }
 
   public static <T extends Map<String, Object>> Pane searchToTable(
-      BiFunction<String, Console, List<T>> itemGenerator) {
+      BiFunction<String, Console, CompletionStage<List<T>>> itemGenerator) {
     return searchToTable(
-        (word, console) -> SearchResult.of(itemGenerator.apply(word, console)), null, List.of());
+        (word, console) -> itemGenerator.apply(word, console).thenApply(SearchResult::of),
+        null,
+        List.of());
   }
 
   public static <T extends Map<String, Object>, N extends Node> Pane searchToTable(
-      BiFunction<String, Console, List<T>> itemGenerator, Collection<N> nodes) {
+      BiFunction<String, Console, CompletionStage<List<T>>> itemGenerator, Collection<N> nodes) {
     return searchToTable(
-        (word, console) -> SearchResult.of(itemGenerator.apply(word, console)), null, nodes);
+        (word, console) -> itemGenerator.apply(word, console).thenApply(SearchResult::of),
+        null,
+        nodes);
   }
 
-  public static <T, N extends Node> Pane searchToTable(
-      BiFunction<String, Console, SearchResult<T>> resultGenerator,
-      BiConsumer<SearchResult<T>, Console> resultConsumer,
+  public static <T, N extends Node, R> Pane searchToTable(
+      BiFunction<String, Console, CompletionStage<SearchResult<T>>> resultGenerator,
+      BiFunction<SearchResult<T>, Console, CompletionStage<R>> resultConsumer,
       Collection<N> nodes) {
     var view = new TableView<>(FXCollections.<Map<String, Object>>observableArrayList());
     view.setColumnResizePolicy(TableView.UNCONSTRAINED_RESIZE_POLICY);
@@ -137,9 +139,8 @@ class Utils {
           applyResultButton.setVisible(false);
           console.text("search for " + (word.isEmpty() ? "all" : word));
           view.getItems().clear();
-          CompletableFuture.supplyAsync(
-                  () -> resultGenerator.apply(word, console),
-                  CompletableFuture.delayedExecutor(DELAY_INPUT.toMillis(), TimeUnit.MILLISECONDS))
+          resultGenerator
+              .apply(word, console)
               .whenComplete(
                   (result, e) -> {
                     if (e != null || result == null || result == SearchResult.empty()) {
@@ -189,7 +190,8 @@ class Utils {
               return;
             }
             console.append("result is applying");
-            CompletableFuture.runAsync(() -> resultConsumer.accept(result, console))
+            resultConsumer
+                .apply(result, console)
                 .whenComplete((r, e) -> console.append("result is applied", e));
           });
 

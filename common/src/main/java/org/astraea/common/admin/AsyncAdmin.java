@@ -20,8 +20,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletionStage;
+import java.util.stream.Collectors;
 import org.apache.kafka.clients.CommonClientConfigs;
-import org.apache.kafka.clients.admin.KafkaAdminClient;
 
 public interface AsyncAdmin extends AutoCloseable {
 
@@ -30,12 +30,9 @@ public interface AsyncAdmin extends AutoCloseable {
   }
 
   static AsyncAdmin of(Map<String, Object> configs) {
-    return of(KafkaAdminClient.create(configs));
+    return new AsyncAdminImpl(configs);
   }
 
-  static AsyncAdmin of(org.apache.kafka.clients.admin.Admin kafkaAdmin) {
-    return new AsyncAdminImpl(kafkaAdmin);
-  }
   // ---------------------------------[internal]---------------------------------//
   String clientId();
 
@@ -74,6 +71,20 @@ public interface AsyncAdmin extends AutoCloseable {
   CompletionStage<Set<NodeInfo>> nodeInfos();
 
   CompletionStage<List<Broker>> brokers();
+
+  default CompletionStage<Map<Integer, Set<String>>> brokerFolders() {
+    return brokers()
+        .thenApply(
+            brokers ->
+                brokers.stream()
+                    .collect(
+                        Collectors.toMap(
+                            NodeInfo::id,
+                            n ->
+                                n.folders().stream()
+                                    .map(Broker.DataFolder::path)
+                                    .collect(Collectors.toSet()))));
+  }
 
   CompletionStage<Set<String>> consumerGroupIds();
 

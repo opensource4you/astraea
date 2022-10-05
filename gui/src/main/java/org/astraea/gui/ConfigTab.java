@@ -38,21 +38,38 @@ public class ConfigTab {
                   .submit(
                       admin ->
                           isTopic
-                              ? admin.topics(admin.topicNames()).stream()
-                                  .map(t -> Map.entry(t.name(), t.config()))
-                              : admin.brokers().stream()
-                                  .map(t -> Map.entry(String.valueOf(t.id()), t.config())))
-                  .map(
-                      e -> {
-                        Map<String, Object> map = new LinkedHashMap<>();
-                        map.put(isTopic ? "name" : "id", e.getKey());
-                        e.getValue().raw().entrySet().stream()
-                            .filter(entry -> word.isEmpty() || entry.getKey().contains(word))
-                            .sorted(Map.Entry.comparingByKey())
-                            .forEach(entry -> map.put(entry.getKey(), entry.getValue()));
-                        return map;
-                      })
-                  .collect(Collectors.toList());
+                              ? admin
+                                  .topicNames(true)
+                                  .thenCompose(admin::topics)
+                                  .thenApply(
+                                      topics ->
+                                          topics.stream().map(t -> Map.entry(t.name(), t.config())))
+                              : admin
+                                  .brokers()
+                                  .thenApply(
+                                      brokers ->
+                                          brokers.stream()
+                                              .map(
+                                                  t ->
+                                                      Map.entry(
+                                                          String.valueOf(t.id()), t.config()))))
+                  .thenApply(
+                      items ->
+                          items
+                              .map(
+                                  e -> {
+                                    Map<String, Object> map = new LinkedHashMap<>();
+                                    map.put(isTopic ? "name" : "id", e.getKey());
+                                    e.getValue().raw().entrySet().stream()
+                                        .filter(
+                                            entry ->
+                                                word.isEmpty() || entry.getKey().contains(word))
+                                        .sorted(Map.Entry.comparingByKey())
+                                        .forEach(
+                                            entry -> map.put(entry.getKey(), entry.getValue()));
+                                    return map;
+                                  })
+                              .collect(Collectors.toList()));
             },
             resources.values());
     var tab = new Tab("config");

@@ -17,10 +17,11 @@
 package org.astraea.gui;
 
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import javafx.scene.control.Tab;
 import org.astraea.common.LinkedHashMap;
-import org.astraea.common.admin.Admin;
+import org.astraea.common.admin.AsyncAdmin;
 
 public class SettingTab {
 
@@ -30,17 +31,21 @@ public class SettingTab {
     tab.setContent(
         Utils.searchToTable(
             (bootstrapServers, console) -> {
-              if (bootstrapServers.isEmpty()) return List.of();
-              var newAdmin = Admin.of(bootstrapServers);
-              var brokerIds = newAdmin.brokerIds();
-              var previous = context.replace(newAdmin);
-              previous.ifPresent(admin -> org.astraea.common.Utils.swallowException(admin::close));
-              return newAdmin.nodes().stream()
-                  .map(
-                      n ->
-                          LinkedHashMap.<String, Object>of(
-                              "id", n.id(), "host", n.host(), "port", n.port()))
-                  .collect(Collectors.toUnmodifiableList());
+              if (bootstrapServers.isEmpty()) return CompletableFuture.completedFuture(List.of());
+              var newAdmin = AsyncAdmin.of(bootstrapServers);
+              context
+                  .replace(newAdmin)
+                  .ifPresent(admin -> org.astraea.common.Utils.swallowException(admin::close));
+              return newAdmin
+                  .nodeInfos()
+                  .thenApply(
+                      nodes ->
+                          nodes.stream()
+                              .map(
+                                  n ->
+                                      LinkedHashMap.<String, Object>of(
+                                          "id", n.id(), "host", n.host(), "port", n.port()))
+                              .collect(Collectors.toUnmodifiableList()));
             }));
     return tab;
   }

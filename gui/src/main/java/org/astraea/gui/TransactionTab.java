@@ -50,14 +50,19 @@ public class TransactionTab {
             (word, console) ->
                 context.submit(
                     admin ->
-                        result(
-                            admin.transactions(admin.transactionIds()).stream()
-                                .filter(
-                                    transaction ->
-                                        word.isEmpty()
-                                            || transaction.transactionId().contains(word)
-                                            || transaction.topicPartitions().stream()
-                                                .anyMatch(tp -> tp.topic().contains(word))))));
+                        admin
+                            .transactionIds()
+                            .thenCompose(admin::transactions)
+                            .thenApply(
+                                ts ->
+                                    ts.stream()
+                                        .filter(
+                                            transaction ->
+                                                word.isEmpty()
+                                                    || transaction.transactionId().contains(word)
+                                                    || transaction.topicPartitions().stream()
+                                                        .anyMatch(tp -> tp.topic().contains(word))))
+                            .thenApply(TransactionTab::result)));
     var tab = new Tab("transaction");
     tab.setContent(pane);
     return tab;

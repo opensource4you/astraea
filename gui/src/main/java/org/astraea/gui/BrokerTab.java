@@ -68,14 +68,20 @@ public class BrokerTab {
             (word, console) ->
                 context.submit(
                     admin ->
-                        result(
-                            admin.brokers().stream()
-                                .filter(
-                                    nodeInfo ->
-                                        word.isEmpty()
-                                            || String.valueOf(nodeInfo.id()).contains(word)
-                                            || nodeInfo.host().contains(word)
-                                            || String.valueOf(nodeInfo.port()).contains(word)))));
+                        admin
+                            .brokers()
+                            .thenApply(
+                                brokers ->
+                                    result(
+                                        brokers.stream()
+                                            .filter(
+                                                nodeInfo ->
+                                                    word.isEmpty()
+                                                        || String.valueOf(nodeInfo.id())
+                                                            .contains(word)
+                                                        || nodeInfo.host().contains(word)
+                                                        || String.valueOf(nodeInfo.port())
+                                                            .contains(word))))));
     var tab = new Tab("broker");
     tab.setContent(pane);
     return tab;

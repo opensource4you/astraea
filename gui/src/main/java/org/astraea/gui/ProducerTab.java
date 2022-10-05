@@ -53,17 +53,22 @@ public class ProducerTab {
             (word, console) ->
                 context.submit(
                     admin ->
-                        result(
-                            admin
-                                .producerStates(
-                                    admin.topicPartitions(
-                                        admin.topicNames().stream()
-                                            .filter(name -> word.isEmpty() || name.contains(word))
-                                            .collect(Collectors.toSet())))
-                                .stream()
-                                .sorted(
-                                    Comparator.comparing(ProducerState::topic)
-                                        .thenComparing(ProducerState::partition)))));
+                        admin
+                            .topicNames(true)
+                            .thenApply(
+                                names ->
+                                    names.stream()
+                                        .filter(name -> word.isEmpty() || name.contains(word))
+                                        .collect(Collectors.toSet()))
+                            .thenCompose(admin::topicPartitions)
+                            .thenCompose(admin::producerStates)
+                            .thenApply(
+                                ps ->
+                                    result(
+                                        ps.stream()
+                                            .sorted(
+                                                Comparator.comparing(ProducerState::topic)
+                                                    .thenComparing(ProducerState::partition))))));
     var tab = new Tab("producer");
     tab.setContent(pane);
     return tab;

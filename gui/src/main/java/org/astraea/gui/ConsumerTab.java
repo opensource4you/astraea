@@ -64,14 +64,21 @@ public class ConsumerTab {
             (word, console) ->
                 context.submit(
                     admin ->
-                        result(
-                            admin.consumerGroups(admin.consumerGroupIds()).stream()
-                                .filter(
-                                    group ->
-                                        word.isEmpty()
-                                            || group.groupId().contains(word)
-                                            || group.consumeProgress().keySet().stream()
-                                                .anyMatch(tp -> tp.topic().contains(word))))));
+                        admin
+                            .consumerGroupIds()
+                            .thenCompose(admin::consumerGroups)
+                            .thenApply(
+                                groups ->
+                                    result(
+                                        groups.stream()
+                                            .filter(
+                                                group ->
+                                                    word.isEmpty()
+                                                        || group.groupId().contains(word)
+                                                        || group.consumeProgress().keySet().stream()
+                                                            .anyMatch(
+                                                                tp ->
+                                                                    tp.topic().contains(word)))))));
     var tab = new Tab("consumer");
     tab.setContent(pane);
     return tab;
