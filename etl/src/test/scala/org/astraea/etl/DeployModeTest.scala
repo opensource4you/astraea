@@ -16,27 +16,32 @@
  */
 package org.astraea.etl
 
-import scala.util.matching.Regex
+import org.junit.jupiter.api.Assertions.assertThrows
+import org.junit.jupiter.api.Test
 
-sealed abstract class DeployModePattern(pattern: Regex) {
-  def r: Regex = {
-    pattern
-  }
-}
+class DeployModeTest {
+  @Test def deployModePatternTest(): Unit = {
+    assert(!DeployMode.deployMatch(""))
+    assert(!DeployMode.deployMatch("123"))
+    assert(DeployMode.deployMatch("local[2]"))
 
-object DeployModePattern {
-  // Whether it is a local mode string.
-  case object LocalModePattern
-      extends DeployModePattern("local(\\[)[\\d{1}](])".r)
-  // Whether it is a standalone mode string.
-  case object StandAloneModePattern
-      extends DeployModePattern("spark://(.+):(\\d+)".r)
-
-  def of(str: String): Boolean = {
-    all().exists(_.r matches str)
+    assert(!DeployMode.deployMatch(""))
+    assert(!DeployMode.deployMatch("abc"))
+    assert(!DeployMode.deployMatch("spark://0.0.0.0"))
   }
 
-  def all() = {
-    Seq(LocalModePattern, StandAloneModePattern)
+  @Test def ofTest(): Unit = {
+    assertThrows(
+      classOf[IllegalArgumentException],
+      () => DeployMode.of("123xxx")
+    )
+    assertThrows(
+      classOf[IllegalArgumentException],
+      () => DeployMode.of("local")
+    )
+    assertThrows(
+      classOf[IllegalArgumentException],
+      () => DeployMode.of("spar://0.0.0.0")
+    )
   }
 }
