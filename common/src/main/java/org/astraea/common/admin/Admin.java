@@ -283,8 +283,8 @@ public interface Admin extends Closeable {
   void clearEgressReplicationThrottle(Set<Integer> brokerIds);
 
   /** Find idle topics with this admin object. See IdleTopicFinder. */
-  default IdleTopicFinder idleTopicFinder() {
-    return new IdleTopicFinder(this);
+  default IdleTopicFinder idleTopicFinder(List<IdleTopicFinder.Checker> checkers) {
+    return new IdleTopicFinder(this, checkers);
   }
 
   @Override

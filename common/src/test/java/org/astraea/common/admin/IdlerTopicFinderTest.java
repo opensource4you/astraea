@@ -17,6 +17,7 @@
 package org.astraea.common.admin;
 
 import java.time.Duration;
+import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import org.astraea.common.consumer.Consumer;
@@ -35,9 +36,9 @@ public class IdlerTopicFinderTest extends RequireBrokerCluster {
     }
 
     try (var admin = Admin.of(bootstrapServers())) {
-      var finder = admin.idleTopicFinder();
-      finder.clearChecker();
-      finder.addChecker(IdleTopicFinder.Checker.latestTimestamp(Duration.ofSeconds(3)));
+      var finder =
+          admin.idleTopicFinder(
+              List.of(IdleTopicFinder.Checker.latestTimestamp(Duration.ofSeconds(3))));
       Assertions.assertEquals(Set.of(), finder.idleTopics());
       Thread.sleep(3000);
       Assertions.assertEquals(Set.of("produce"), finder.idleTopics());
@@ -54,9 +55,7 @@ public class IdlerTopicFinderTest extends RequireBrokerCluster {
     var consumerThread = new Thread(() -> consumer.poll(Duration.ofSeconds(5)));
     consumerThread.start();
     try (var admin = Admin.of(bootstrapServers())) {
-      var finder = admin.idleTopicFinder();
-      finder.clearChecker();
-      finder.addChecker(IdleTopicFinder.Checker.noAssignment());
+      var finder = admin.idleTopicFinder(List.of(IdleTopicFinder.Checker.NO_ASSIGNMENT));
       Thread.sleep(5000);
 
       Assertions.assertEquals(Set.of(), finder.idleTopics());
