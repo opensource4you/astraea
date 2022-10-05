@@ -180,7 +180,7 @@ class BalancerHandler implements Handler {
   }
 
   @Override
-  public Response post(Channel channel) {
+  public Response put(Channel channel) {
     final var thePlanId =
         channel
             .request()
@@ -192,7 +192,7 @@ class BalancerHandler implements Handler {
                 () -> new IllegalArgumentException("No such rebalance plan id: " + thePlanId));
     final var theRebalanceProposal = thePlanInfo.associatedPlan.proposal();
 
-    // sanity check
+    // sanity check: replica allocation didn't change
     final var mismatchPartitions =
         thePlanInfo.report.changes.stream()
             .filter(
@@ -223,6 +223,17 @@ class BalancerHandler implements Handler {
           "The cluster state has been changed significantly. "
               + "The following topic/partitions have different replica list(lookup the moment of plan generation): "
               + mismatchPartitions);
+
+    // sanity check: no ongoing migration
+    var ongoingMigration =
+        admin.addingReplicas(admin.topicNames()).stream()
+            .map(replica -> TopicPartition.of(replica.topic(), replica.partition()))
+            .collect(Collectors.toUnmodifiableSet());
+    if (!ongoingMigration.isEmpty())
+      throw new IllegalStateException(
+          "Another rebalance task might be working on. "
+              + "The following topic/partition has ongoing migration: "
+              + ongoingMigration);
 
     synchronized (this) {
       if (executedPlans.containsKey(thePlanId)) {
@@ -355,6 +366,11 @@ class BalancerHandler implements Handler {
 
     PostPlanResponse(String id) {
       this.id = id;
+    }
+
+    @Override
+    public int code() {
+      return Response.ACCEPT.code();
     }
   }
 

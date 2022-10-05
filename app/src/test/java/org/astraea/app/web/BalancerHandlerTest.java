@@ -316,7 +316,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
   }
 
   @Test
-  void testPost() {
+  void testPut() {
     // arrange
     createAndProduceTopic(3);
     try (var admin = Admin.of(bootstrapServers())) {
@@ -338,17 +338,18 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
       var response =
           Assertions.assertInstanceOf(
               BalancerHandler.PostPlanResponse.class,
-              handler.post(Channel.ofRequest(PostRequest.of(Map.of("id", thePlanId.toString())))));
+              handler.put(Channel.ofRequest(PostRequest.of(Map.of("id", thePlanId.toString())))));
       Utils.sleep(Duration.ofSeconds(1));
 
       // assert
+      Assertions.assertEquals(Response.ACCEPT.code(), response.code());
       Assertions.assertEquals(thePlanId, response.id);
       Assertions.assertEquals(1, theExecutor.count());
     }
   }
 
   @Test
-  void testBadPost() {
+  void testBadPut() {
     createAndProduceTopic(3);
     try (var admin = Admin.of(bootstrapServers())) {
       var handler =
@@ -362,13 +363,13 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
       // no id offered
       Assertions.assertThrows(
           IllegalArgumentException.class,
-          () -> handler.post(Channel.EMPTY),
+          () -> handler.put(Channel.EMPTY),
           "The 'id' field is required");
 
       // no such plan id
       Assertions.assertThrows(
           IllegalArgumentException.class,
-          () -> handler.post(Channel.ofRequest(PostRequest.of(Map.of("id", "no such plan")))),
+          () -> handler.put(Channel.ofRequest(PostRequest.of(Map.of("id", "no such plan")))),
           "The requested plan doesn't exists");
     }
   }
@@ -403,8 +404,8 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
                             Channel.ofRequest(PostRequest.of(Map.of("id", theReport.id)));
                         // use cyclic barrier to ensure all threads are ready to work
                         Utils.packException(() -> barrier.await());
-                        // send the post request
-                        handler.post(request);
+                        // send the put request
+                        handler.put(request);
                       }));
 
       // await work done
@@ -446,15 +447,42 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
       Assertions.assertNotNull(theReport1.id);
 
       Assertions.assertDoesNotThrow(
-          () -> handler.post(Channel.ofRequest(PostRequest.of(Map.of("id", theReport0.id)))));
+          () -> handler.put(Channel.ofRequest(PostRequest.of(Map.of("id", theReport0.id)))));
       Assertions.assertThrows(
           IllegalStateException.class,
-          () -> handler.post(Channel.ofRequest(PostRequest.of(Map.of("id", theReport1.id)))));
+          () -> handler.put(Channel.ofRequest(PostRequest.of(Map.of("id", theReport1.id)))));
     }
   }
 
   @Test
-  void testPostSanityCheck() {
+  void testRebalanceDetectOngoing() {
+    final String theTopic = createAndProduceTopic(1).get(0);
+    try (var admin = Admin.of(bootstrapServers())) {
+      var handler =
+          new BalancerHandler(
+              admin,
+              MultiplicationCost.decreasing(),
+              new ReplicaSizeCost(),
+              RebalancePlanGenerator.random(30),
+              new NoOpExecutor());
+      var theReport =
+          Assertions.assertInstanceOf(
+              BalancerHandler.Report.class,
+              handler.get(Channel.ofQueries(Map.of(BalancerHandler.TOPICS_KEY, theTopic))));
+      Assertions.assertNotNull(theReport.id);
+
+      // create an ongoing reassignment
+      admin.migrator().partition(theTopic, 0).moveTo(List.of(0, 1, 2));
+      Utils.sleep(Duration.ofMillis(500));
+
+      Assertions.assertThrows(
+          IllegalStateException.class,
+          () -> handler.put(Channel.ofRequest(PostRequest.of(Map.of("id", theReport.id)))));
+    }
+  }
+
+  @Test
+  void testPutSanityCheck() {
     var topic = createAndProduceTopic(1).get(0);
     try (var admin = Admin.of(bootstrapServers())) {
       var theExecutor = new NoOpExecutor();
@@ -479,7 +507,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
       // assert
       Assertions.assertThrows(
           IllegalStateException.class,
-          () -> handler.post(Channel.ofRequest(PostRequest.of(Map.of("id", theReport.id)))),
+          () -> handler.put(Channel.ofRequest(PostRequest.of(Map.of("id", theReport.id)))),
           "The cluster state has changed, prevent the plan from execution");
     }
   }
@@ -524,7 +552,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
       var response =
           Assertions.assertInstanceOf(
               BalancerHandler.PostPlanResponse.class,
-              handler.post(Channel.ofRequest(PostRequest.of(Map.of("id", report.id)))));
+              handler.put(Channel.ofRequest(PostRequest.of(Map.of("id", report.id)))));
       Assertions.assertNotNull(response.id, "The plan should be executed");
 
       // not done yet
@@ -579,7 +607,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
       var response =
           Assertions.assertInstanceOf(
               BalancerHandler.PostPlanResponse.class,
-              handler.post(Channel.ofRequest(PostRequest.of(Map.of("id", report.id)))));
+              handler.put(Channel.ofRequest(PostRequest.of(Map.of("id", report.id)))));
       Assertions.assertNotNull(response.id, "The plan should be executed");
 
       // exception
@@ -611,7 +639,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
         // plan doesn't exists
         Assertions.assertThrows(
             IllegalArgumentException.class,
-            () -> handler.post(Channel.ofRequest(PostRequest.of(Map.of("id", "no such plan")))),
+            () -> handler.put(Channel.ofRequest(PostRequest.of(Map.of("id", "no such plan")))),
             "This plan doesn't exists");
       }
     }

@@ -108,13 +108,13 @@ JSON Response 範例
 ## 執行負載平衡計劃
 
 ```shell
-POST /balancer
+PUT /balancer
 ```
 
 cURL 範例
 
 ```shell
-curl -X POST http://localhost:8001/balancer \
+curl -X PUT http://localhost:8001/balancer \
     -H "Content-Type: application/json" \
     -d '{ "id": "46ecf6e7-aa28-4f72-b1b6-a788056c122a" }'
 ```
@@ -135,10 +135,11 @@ JSON Response 範例
 ```
 
 > ##### 一個叢集同時間只能執行一個負載平衡計劃
-> 嘗試對一個叢集同時套用多個負載平衡計劃會導致意外的結果，因此 `POST /balancer` 被設計為：
+> 嘗試對一個叢集同時套用多個負載平衡計劃會導致意外的結果，因此 `PUT /balancer` 被設計為：
 > 同時間只能夠執行一個負載平衡計劃，嘗試執行多個負載平衡計劃，那只有一個請求會被接受，其他請求將會被拒絕。
-> 注意 Web Service 只能夠避免對當前執行 process 的多個執行請求做預防。如果啟動兩個 Web Service 且分別對兩方
-> 要求執行負載平衡計劃，這種使用方式目前沒有被 Web Service 阻擋，且會產生意外後果，建議別這樣使用。
+> 注意 Web Service 只能夠避免對當前執行 process 的多個執行請求做有效預防。在執行計劃前 Web Service
+> 會檢查是否有正在進行的 Partition Reassignment，如果有偵測到則意味着可能有其他負載平衡計劃正在運行。
+> Web Service 在這個情況下也會拒絕執行負載平衡計劃。
 
 ## 查詢負載平衡計劃執行進度
 
@@ -162,7 +163,7 @@ curl -X GET http://localhost:8001/balancer/46ecf6e7-aa28-4f72-b1b6-a788056c122a
 JSON Response 範例
 
 * `id`: 此 Response 所描述的負載平衡計劃編號
-* `scheduled`: 此負載平衡計劃是否正在執行
+* `scheduled`: 此負載平衡計劃是否有排程執行過
 * `done`: 此負載平衡計劃是否結束執行
 * `exception`: 此負載平衡計劃是否是在意外情況下結束執行
 
