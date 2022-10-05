@@ -36,6 +36,11 @@ public interface AsyncAdmin extends AutoCloseable {
   static AsyncAdmin of(org.apache.kafka.clients.admin.Admin kafkaAdmin) {
     return new AsyncAdminImpl(kafkaAdmin);
   }
+  // ---------------------------------[internal]---------------------------------//
+  String clientId();
+
+  /** @return the number of pending requests. */
+  int pendingRequests();
 
   // ---------------------------------[readonly]---------------------------------//
 
@@ -69,6 +74,24 @@ public interface AsyncAdmin extends AutoCloseable {
   CompletionStage<Set<NodeInfo>> nodeInfos();
 
   CompletionStage<List<Broker>> brokers();
+
+  CompletionStage<Set<String>> consumerGroupIds();
+
+  CompletionStage<List<ConsumerGroup>> consumerGroups(Set<String> consumerGroupIds);
+
+  CompletionStage<List<ProducerState>> producerStates(Set<TopicPartition> partitions);
+
+  CompletionStage<List<AddingReplica>> addingReplicas(Set<String> topics);
+
+  CompletionStage<Set<String>> transactionIds();
+
+  CompletionStage<List<Transaction>> transactions(Set<String> transactionIds);
+
+  CompletionStage<List<Replica>> replicas(Set<String> topics);
+
+  default CompletionStage<ClusterInfo<Replica>> clusterInfo(Set<String> topics) {
+    return nodeInfos().thenCombine(replicas(topics), ClusterInfo::of);
+  }
 
   // ---------------------------------[write]---------------------------------//
 

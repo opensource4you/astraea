@@ -16,6 +16,7 @@
  */
 package org.astraea.common.admin;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -25,9 +26,12 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import org.apache.kafka.clients.admin.ConsumerGroupListing;
 import org.apache.kafka.clients.admin.ListTopicsOptions;
 import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.clients.admin.OffsetSpec;
+import org.apache.kafka.clients.admin.ReplicaInfo;
+import org.apache.kafka.clients.admin.TransactionListing;
 import org.apache.kafka.common.Node;
 import org.apache.kafka.common.config.ConfigResource;
 import org.astraea.common.Utils;
@@ -35,9 +39,14 @@ import org.astraea.common.Utils;
 class AsyncAdminImpl implements AsyncAdmin {
 
   private final org.apache.kafka.clients.admin.Admin kafkaAdmin;
+  private final String clientId;
+  private final List<?> pendingRequests;
 
   AsyncAdminImpl(org.apache.kafka.clients.admin.Admin kafkaAdmin) {
     this.kafkaAdmin = kafkaAdmin;
+    this.clientId = (String) Utils.member(kafkaAdmin, "clientId");
+    this.pendingRequests =
+        (ArrayList<?>) Utils.member(Utils.member(kafkaAdmin, "runnable"), "pendingCalls");
   }
 
   private static <T> CompletionStage<T> to(org.apache.kafka.common.KafkaFuture<T> kafkaFuture) {
@@ -48,6 +57,16 @@ class AsyncAdminImpl implements AsyncAdmin {
           else f.complete(r);
         });
     return f;
+  }
+
+  @Override
+  public String clientId() {
+    return clientId;
+  }
+
+  @Override
+  public int pendingRequests() {
+    return pendingRequests.size();
   }
 
   @Override
@@ -243,6 +262,234 @@ class AsyncAdminImpl implements AsyncAdmin {
   }
 
   @Override
+  public CompletionStage<Set<String>> consumerGroupIds() {
+    return to(kafkaAdmin.listConsumerGroups().all())
+        .thenApply(
+            gs ->
+                gs.stream()
+                    .map(ConsumerGroupListing::groupId)
+                    .collect(Collectors.toUnmodifiableSet()));
+  }
+
+  @Override
+  public CompletionStage<List<ConsumerGroup>> consumerGroups(Set<String> consumerGroupIds) {
+    return to(kafkaAdmin.describeConsumerGroups(consumerGroupIds).all())
+        .thenCombine(
+            Utils.sequence(
+                    consumerGroupIds.stream()
+                        .map(
+                            id ->
+                                kafkaAdmin
+                                    .listConsumerGroupOffsets(id)
+                                    .partitionsToOffsetAndMetadata()
+                                    .thenApply(of -> Map.entry(id, of)))
+                        .map(f -> to(f).toCompletableFuture())
+                        .collect(Collectors.toUnmodifiableList()))
+                .thenApply(
+                    s ->
+                        s.stream()
+                            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue))),
+            (consumerGroupDescriptions, consumerGroupMetadata) ->
+                consumerGroupIds.stream()
+                    .map(
+                        groupId ->
+                            new ConsumerGroup(
+                                groupId,
+                                consumerGroupMetadata.get(groupId).entrySet().stream()
+                                    .collect(
+                                        Collectors.toUnmodifiableMap(
+                                            tp -> TopicPartition.from(tp.getKey()),
+                                            offset -> offset.getValue().offset())),
+                                consumerGroupDescriptions.get(groupId).members().stream()
+                                    .collect(
+                                        Collectors.toUnmodifiableMap(
+                                            member ->
+                                                new Member(
+                                                    groupId,
+                                                    member.consumerId(),
+                                                    member.groupInstanceId(),
+                                                    member.clientId(),
+                                                    member.host()),
+                                            member ->
+                                                member.assignment().topicPartitions().stream()
+                                                    .map(TopicPartition::from)
+                                                    .collect(Collectors.toSet())))))
+                    .collect(Collectors.toList()));
+  }
+
+  @Override
+  public CompletionStage<List<ProducerState>> producerStates(Set<TopicPartition> partitions) {
+    return to(kafkaAdmin
+            .describeProducers(
+                partitions.stream()
+                    .map(TopicPartition::to)
+                    .collect(Collectors.toUnmodifiableList()))
+            .all())
+        .thenApply(
+            ps ->
+                ps.entrySet().stream()
+                    .flatMap(
+                        e ->
+                            e.getValue().activeProducers().stream()
+                                .map(s -> ProducerState.of(e.getKey(), s)))
+                    .collect(Collectors.toList()));
+  }
+
+  @Override
+  public CompletionStage<List<AddingReplica>> addingReplicas(Set<String> topics) {
+
+    return topicPartitions(topics)
+        .thenApply(ps -> ps.stream().map(TopicPartition::to).collect(Collectors.toSet()))
+        .thenCompose(ps -> to(kafkaAdmin.listPartitionReassignments(ps).reassignments()))
+        .thenApply(
+            pr ->
+                pr.entrySet().stream()
+                    .flatMap(
+                        entry ->
+                            entry.getValue().addingReplicas().stream()
+                                .map(
+                                    id ->
+                                        new org.apache.kafka.common.TopicPartitionReplica(
+                                            entry.getKey().topic(),
+                                            entry.getKey().partition(),
+                                            id)))
+                    .collect(Collectors.toList()))
+        .thenCombine(
+            logDirs(),
+            (adding, dirs) -> {
+              Function<TopicPartition, Long> findMaxSize =
+                  tp ->
+                      dirs.values().stream()
+                          .flatMap(e -> e.entrySet().stream())
+                          .filter(e -> e.getKey().equals(tp))
+                          .flatMap(e -> e.getValue().values().stream().map(ReplicaInfo::size))
+                          .mapToLong(v -> v)
+                          .max()
+                          .orElse(0);
+              return adding.stream()
+                  .filter(
+                      r ->
+                          dirs.getOrDefault(r.brokerId(), Map.of())
+                              .containsKey(TopicPartition.of(r.topic(), r.partition())))
+                  .flatMap(
+                      r ->
+                          dirs
+                              .get(r.brokerId())
+                              .get(TopicPartition.of(r.topic(), r.partition()))
+                              .entrySet()
+                              .stream()
+                              .map(
+                                  entry ->
+                                      AddingReplica.of(
+                                          r.topic(),
+                                          r.partition(),
+                                          r.brokerId(),
+                                          entry.getKey(),
+                                          entry.getValue().size(),
+                                          findMaxSize.apply(
+                                              TopicPartition.of(r.topic(), r.partition())))))
+                  .collect(Collectors.toList());
+            });
+  }
+
+  @Override
+  public CompletionStage<Set<String>> transactionIds() {
+    return to(kafkaAdmin.listTransactions().all())
+        .thenApply(
+            t ->
+                t.stream()
+                    .map(TransactionListing::transactionalId)
+                    .collect(Collectors.toUnmodifiableSet()));
+  }
+
+  @Override
+  public CompletionStage<List<Transaction>> transactions(Set<String> transactionIds) {
+    return to(kafkaAdmin.describeTransactions(transactionIds).all())
+        .thenApply(
+            ts ->
+                ts.entrySet().stream()
+                    .map(e -> Transaction.of(e.getKey(), e.getValue()))
+                    .collect(Collectors.toUnmodifiableList()));
+  }
+
+  @Override
+  public CompletionStage<List<Replica>> replicas(Set<String> topics) {
+    // pre-group folders by (broker -> topic partition) to speedup seek
+    return logDirs()
+        .thenCombine(
+            to(kafkaAdmin.describeTopics(topics).allTopicNames()),
+            (logDirs, topicDesc) ->
+                topicDesc.entrySet().stream()
+                    .flatMap(
+                        topicDes ->
+                            topicDes.getValue().partitions().stream()
+                                .flatMap(
+                                    tpInfo ->
+                                        tpInfo.replicas().stream()
+                                            .flatMap(
+                                                node -> {
+                                                  // kafka admin#describeLogDirs does not return
+                                                  // offline
+                                                  // node,when the node is not online,all
+                                                  // TopicPartition
+                                                  // return an empty dataFolder and a
+                                                  // fake replicaInfo, and determine whether the
+                                                  // node is
+                                                  // online by whether the dataFolder is "".
+                                                  var pathAndReplicas =
+                                                      logDirs
+                                                          .getOrDefault(node.id(), Map.of())
+                                                          .getOrDefault(
+                                                              TopicPartition.of(
+                                                                  topicDes.getKey(),
+                                                                  tpInfo.partition()),
+                                                              Map.of(
+                                                                  "",
+                                                                  new org.apache.kafka.clients.admin
+                                                                      .ReplicaInfo(
+                                                                      -1L, -1L, false)));
+                                                  return pathAndReplicas.entrySet().stream()
+                                                      .map(
+                                                          pathAndReplica ->
+                                                              Replica.of(
+                                                                  topicDes.getKey(),
+                                                                  tpInfo.partition(),
+                                                                  NodeInfo.of(node),
+                                                                  pathAndReplica
+                                                                      .getValue()
+                                                                      .offsetLag(),
+                                                                  pathAndReplica.getValue().size(),
+                                                                  tpInfo.leader() != null
+                                                                      && !tpInfo.leader().isEmpty()
+                                                                      && tpInfo.leader().id()
+                                                                          == node.id(),
+                                                                  tpInfo.isr().contains(node),
+                                                                  pathAndReplica
+                                                                      .getValue()
+                                                                      .isFuture(),
+                                                                  node.isEmpty()
+                                                                      || pathAndReplica
+                                                                          .getKey()
+                                                                          .equals(""),
+                                                                  // The first replica in the return
+                                                                  // result is the preferred leader.
+                                                                  // This only works with Kafka
+                                                                  // broker version after
+                                                                  // 0.11. Version before 0.11
+                                                                  // returns the replicas in
+                                                                  // unspecified order.
+                                                                  tpInfo.replicas().get(0).id()
+                                                                      == node.id(),
+                                                                  // empty data folder means this
+                                                                  // replica is offline
+                                                                  pathAndReplica.getKey().isEmpty()
+                                                                      ? null
+                                                                      : pathAndReplica.getKey()));
+                                                })))
+                    .collect(Collectors.toList()));
+  }
+
+  @Override
   public TopicCreator creator() {
     return new TopicCreator() {
       private String topic;
@@ -348,5 +595,46 @@ class AsyncAdminImpl implements AsyncAdmin {
   @Override
   public void close() {
     kafkaAdmin.close();
+  }
+
+  private CompletionStage<
+          Map<
+              Integer,
+              Map<TopicPartition, Map<String, org.apache.kafka.clients.admin.ReplicaInfo>>>>
+      logDirs() {
+    return nodeInfos()
+        .thenApply(
+            nodeInfos ->
+                nodeInfos.stream().map(NodeInfo::id).collect(Collectors.toUnmodifiableSet()))
+        .thenCompose(ids -> to(kafkaAdmin.describeLogDirs(ids).allDescriptions()))
+        .thenApply(
+            ds ->
+                ds.entrySet().stream()
+                    .collect(
+                        Collectors.toMap(
+                            Map.Entry::getKey,
+                            pathAndDesc ->
+                                pathAndDesc.getValue().entrySet().stream()
+                                    .flatMap(
+                                        e ->
+                                            e.getValue().replicaInfos().entrySet().stream()
+                                                .map(
+                                                    tr ->
+                                                        Map.entry(
+                                                            TopicPartition.from(tr.getKey()),
+                                                            Map.entry(e.getKey(), tr.getValue()))))
+                                    .collect(Collectors.groupingBy(Map.Entry::getKey))
+                                    .entrySet()
+                                    .stream()
+                                    .collect(
+                                        Collectors.toMap(
+                                            Map.Entry::getKey,
+                                            e ->
+                                                e.getValue().stream()
+                                                    .map(Map.Entry::getValue)
+                                                    .collect(
+                                                        Collectors.toMap(
+                                                            Map.Entry::getKey,
+                                                            Map.Entry::getValue)))))));
   }
 }
