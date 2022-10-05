@@ -54,7 +54,7 @@ class AsyncAdminImpl implements AsyncAdmin {
     kafkaFuture.whenComplete(
         (r, e) -> {
           if (e != null) f.completeExceptionally(e);
-          else f.complete(r);
+          else f.completeAsync(() -> r);
         });
     return f;
   }
