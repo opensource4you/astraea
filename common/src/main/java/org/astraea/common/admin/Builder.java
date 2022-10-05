@@ -80,7 +80,7 @@ public class Builder {
 
     AdminImpl(org.apache.kafka.clients.admin.Admin admin) {
       this.admin = Objects.requireNonNull(admin);
-      this.asyncAdmin = AsyncAdmin.of(admin);
+      this.asyncAdmin = new AsyncAdminImpl(admin);
       this.clientId = (String) Utils.member(admin, "clientId");
       this.pendingRequests =
           (ArrayList<?>) Utils.member(Utils.member(admin, "runnable"), "pendingCalls");

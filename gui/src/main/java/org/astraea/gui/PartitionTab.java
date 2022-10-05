@@ -61,16 +61,21 @@ public class PartitionTab {
             (word, console) ->
                 context.submit(
                     admin ->
-                        result(
-                            admin
-                                .partitions(
-                                    admin.topicNames().stream()
+                        admin
+                            .topicNames(true)
+                            .thenApply(
+                                names ->
+                                    names.stream()
                                         .filter(name -> word.isEmpty() || name.contains(word))
                                         .collect(Collectors.toSet()))
-                                .stream()
-                                .sorted(
-                                    Comparator.comparing(Partition::topic)
-                                        .thenComparing(Partition::partition)))));
+                            .thenCompose(admin::partitions)
+                            .thenApply(
+                                ps ->
+                                    result(
+                                        ps.stream()
+                                            .sorted(
+                                                Comparator.comparing(Partition::topic)
+                                                    .thenComparing(Partition::partition))))));
     var tab = new Tab("partition");
     tab.setContent(pane);
     return tab;

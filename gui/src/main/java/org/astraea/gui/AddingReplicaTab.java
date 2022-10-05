@@ -59,13 +59,19 @@ public class AddingReplicaTab {
             (word, console) ->
                 context.submit(
                     admin ->
-                        result(
-                            admin.addingReplicas(admin.topicNames()).stream()
-                                .filter(
-                                    s ->
-                                        word.isEmpty()
-                                            || s.topic().contains(word)
-                                            || String.valueOf(s.broker()).contains(word))))));
+                        admin
+                            .topicNames(true)
+                            .thenCompose(admin::addingReplicas)
+                            .thenApply(
+                                rs ->
+                                    result(
+                                        rs.stream()
+                                            .filter(
+                                                s ->
+                                                    word.isEmpty()
+                                                        || s.topic().contains(word)
+                                                        || String.valueOf(s.broker())
+                                                            .contains(word)))))));
     return tab;
   }
 }

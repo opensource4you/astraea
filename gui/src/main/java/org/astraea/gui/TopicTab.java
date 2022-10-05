@@ -35,12 +35,18 @@ public class TopicTab {
             (word, console) ->
                 context.submit(
                     admin ->
-                        beans(
-                            admin.partitions(
-                                admin.topicNames().stream()
-                                    .filter(name -> word.isEmpty() || name.contains(word))
-                                    .collect(Collectors.toSet())),
-                            admin.brokers())));
+                        admin
+                            .topicNames(true)
+                            .thenApply(
+                                names ->
+                                    names.stream()
+                                        .filter(name -> word.isEmpty() || name.contains(word))
+                                        .collect(Collectors.toSet()))
+                            .thenCompose(
+                                names ->
+                                    admin
+                                        .partitions(names)
+                                        .thenCombine(admin.brokers(), TopicTab::beans))));
     var tab = new Tab("topic");
     tab.setContent(pane);
     return tab;

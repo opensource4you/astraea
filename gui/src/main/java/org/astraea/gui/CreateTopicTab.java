@@ -43,16 +43,19 @@ public class CreateTopicTab {
           }
           context.execute(
               admin ->
-                  CompletableFuture.supplyAsync(
-                          () -> {
-                            if (admin.topicNames().contains(name)) return name + " is existent";
-                            admin
+                  admin
+                      .topicNames(true)
+                      .thenCompose(
+                          names -> {
+                            if (names.contains(name))
+                              return CompletableFuture.completedFuture(name + " is existent");
+                            return admin
                                 .creator()
                                 .topic(name)
                                 .numberOfPartitions(Integer.parseInt(partitionsField.getText()))
                                 .numberOfReplicas(replicasField.getValue().shortValue())
-                                .create();
-                            return "succeed to create " + name;
+                                .run()
+                                .thenApply(nonexistent -> "succeed to create " + name);
                           })
                       .whenComplete(console::text));
         });
@@ -68,11 +71,12 @@ public class CreateTopicTab {
           if (!tab.isSelected()) return;
           context.execute(
               admin ->
-                  CompletableFuture.supplyAsync(() -> admin.brokerIds().size())
+                  admin
+                      .brokers()
                       .whenComplete(
-                          (size, e) ->
+                          (brokers, e) ->
                               replicasField.values(
-                                  IntStream.range(0, size)
+                                  IntStream.range(0, brokers.size())
                                       .mapToObj(i -> i + 1)
                                       .collect(Collectors.toList()),
                                   0)));
