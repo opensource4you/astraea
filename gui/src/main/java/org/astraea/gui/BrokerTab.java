@@ -55,14 +55,10 @@ public class BrokerTab {
                     broker.topicPartitionLeaders().size(),
                     "size",
                     DataSize.Byte.of(
-                            broker.folders().stream()
-                                .mapToLong(
-                                    d ->
-                                        d.partitionSizes().values().stream()
-                                            .mapToLong(v -> v)
-                                            .sum())
-                                .sum())
-                        .toString()))
+                        broker.folders().stream()
+                            .mapToLong(
+                                d -> d.partitionSizes().values().stream().mapToLong(v -> v).sum())
+                            .sum())))
         .collect(Collectors.toList());
   }
 

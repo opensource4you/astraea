@@ -24,8 +24,10 @@ import java.util.Objects;
 import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collector;
@@ -153,6 +155,12 @@ public final class Utils {
     return value;
   }
 
+  public static short requirePositive(short value) {
+    if (value <= 0)
+      throw new IllegalArgumentException("the value: " + value + " must be bigger than zero");
+    return value;
+  }
+
   public static boolean notNegative(int value) {
     return value >= 0;
   }
@@ -210,6 +218,13 @@ public final class Utils {
   public static <T> CompletableFuture<List<T>> sequence(Collection<CompletableFuture<T>> futures) {
     return CompletableFuture.allOf(futures.toArray(new CompletableFuture<?>[0]))
         .thenApply(f -> futures.stream().map(CompletableFuture::join).collect(Collectors.toList()));
+  }
+
+  public static <T, U, V> CompletionStage<V> thenCombine(
+      CompletionStage<? extends T> from,
+      CompletionStage<? extends U> other,
+      BiFunction<? super T, ? super U, ? extends CompletionStage<V>> fn) {
+    return from.thenCompose(l -> other.thenCompose(r -> fn.apply(l, r)));
   }
 
   public static Object staticMember(Class<?> clz, String attribute) {

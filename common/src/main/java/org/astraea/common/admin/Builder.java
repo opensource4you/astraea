@@ -33,10 +33,8 @@ import org.apache.kafka.clients.admin.AdminClientConfig;
 import org.apache.kafka.clients.admin.AlterConfigOp;
 import org.apache.kafka.clients.admin.ConfigEntry;
 import org.apache.kafka.clients.admin.ConsumerGroupListing;
-import org.apache.kafka.clients.admin.ListTopicsOptions;
 import org.apache.kafka.clients.admin.MemberToRemove;
 import org.apache.kafka.clients.admin.NewPartitionReassignment;
-import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.clients.admin.OffsetSpec;
 import org.apache.kafka.clients.admin.RecordsToDelete;
 import org.apache.kafka.clients.admin.RemoveMembersFromConsumerGroupOptions;
@@ -79,11 +77,14 @@ public class Builder {
   private static class AdminImpl implements Admin {
     private final org.apache.kafka.clients.admin.Admin admin;
 
+    private final AsyncAdmin asyncAdmin;
+
     private final String clientId;
     private final List<?> pendingRequests;
 
     AdminImpl(org.apache.kafka.clients.admin.Admin admin) {
       this.admin = Objects.requireNonNull(admin);
+      this.asyncAdmin = AsyncAdmin.of(admin);
       this.clientId = (String) Utils.member(admin, "clientId");
       this.pendingRequests =
           (ArrayList<?>) Utils.member(Utils.member(admin, "runnable"), "pendingCalls");
@@ -233,19 +234,7 @@ public class Builder {
 
     @Override
     public List<Topic> topics(Set<String> names) {
-      return Utils.packException(
-              () ->
-                  admin
-                      .describeConfigs(
-                          names.stream()
-                              .map(topic -> new ConfigResource(ConfigResource.Type.TOPIC, topic))
-                              .collect(Collectors.toList()))
-                      .all()
-                      .get())
-          .entrySet()
-          .stream()
-          .map(entry -> Topic.of(entry.getKey().name(), entry.getValue()))
-          .collect(Collectors.toUnmodifiableList());
+      return Utils.packException(() -> asyncAdmin.topics(names).toCompletableFuture().get());
     }
 
     @Override
@@ -261,152 +250,39 @@ public class Builder {
     @Override
     public Set<String> topicNames(boolean listInternal) {
       return Utils.packException(
-          () -> admin.listTopics(new ListTopicsOptions().listInternal(listInternal)).names().get());
+          () -> asyncAdmin.topicNames(listInternal).toCompletableFuture().get());
     }
 
     @Override
-    public void deleteTopics(Set<String> topicNames) {
-      Utils.packException(() -> admin.deleteTopics(topicNames).all().get());
+    public void deleteTopics(Set<String> topics) {
+      Utils.packException(() -> asyncAdmin.deleteTopics(topics).toCompletableFuture().get());
     }
 
     @Override
     public Set<NodeInfo> nodes() {
-      return Utils.packException(() -> admin.describeCluster().nodes().get()).stream()
-          .map(n -> NodeInfo.of(n.id(), n.host(), n.port()))
-          .collect(Collectors.toUnmodifiableSet());
+      return Utils.packException(() -> asyncAdmin.nodeInfos().toCompletableFuture().get());
     }
 
     @Override
     public List<Broker> brokers() {
-      var cluster = admin.describeCluster();
-      var controller = Utils.packException(() -> cluster.controller().get());
-      var nodes =
-          Utils.packException(
-              () -> cluster.nodes().get().stream().map(NodeInfo::of).collect(Collectors.toList()));
-      var logDirs =
-          Utils.packException(
-              () ->
-                  admin
-                      .describeLogDirs(
-                          nodes.stream().map(NodeInfo::id).collect(Collectors.toList()))
-                      .allDescriptions()
-                      .get());
-      var configs =
-          Utils.packException(
-                  () ->
-                      admin
-                          .describeConfigs(
-                              nodes.stream()
-                                  .map(
-                                      n ->
-                                          new ConfigResource(
-                                              ConfigResource.Type.BROKER, String.valueOf(n.id())))
-                                  .collect(Collectors.toList()))
-                          .all()
-                          .get())
-              .entrySet()
-              .stream()
-              .collect(
-                  Collectors.toMap(e -> Integer.valueOf(e.getKey().name()), Map.Entry::getValue));
-
-      var tableDesc =
-          Utils.packException(() -> admin.describeTopics(this.topicNames()).all().get()).values();
-
-      return nodes.stream()
-          .map(
-              n ->
-                  Broker.of(
-                      n.id() == controller.id(),
-                      n,
-                      configs.get(n.id()),
-                      logDirs.get(n.id()),
-                      tableDesc))
-          .collect(Collectors.toList());
+      return Utils.packException(() -> asyncAdmin.brokers().toCompletableFuture().get());
     }
 
     @Override
     public List<Partition> partitions(Set<String> topics) {
-      var partitions =
-          Utils.packException(() -> admin.describeTopics(topics).all().get()).entrySet().stream()
-              .flatMap(
-                  e ->
-                      e.getValue().partitions().stream()
-                          .map(
-                              p ->
-                                  Map.entry(
-                                      new org.apache.kafka.common.TopicPartition(
-                                          e.getKey(), p.partition()),
-                                      p)))
-              .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-      var earliest =
-          Utils.packException(
-              () ->
-                  admin
-                      .listOffsets(
-                          partitions.keySet().stream()
-                              .collect(
-                                  Collectors.toMap(
-                                      Function.identity(), e -> new OffsetSpec.EarliestSpec())))
-                      .all()
-                      .get());
-
-      var latest =
-          Utils.packException(
-              () ->
-                  admin
-                      .listOffsets(
-                          partitions.keySet().stream()
-                              .collect(
-                                  Collectors.toMap(
-                                      Function.identity(), e -> new OffsetSpec.LatestSpec())))
-                      .all()
-                      .get());
-
-      var maxTimestamp =
-          Utils.packException(
-              () ->
-                  admin
-                      .listOffsets(
-                          partitions.keySet().stream()
-                              .collect(
-                                  Collectors.toMap(
-                                      Function.identity(), e -> new OffsetSpec.MaxTimestampSpec())))
-                      .all()
-                      .get());
-
-      return partitions.entrySet().stream()
-          .map(
-              entry ->
-                  Partition.of(
-                      entry.getKey().topic(),
-                      entry.getValue(),
-                      Optional.ofNullable(earliest.get(entry.getKey())),
-                      Optional.ofNullable(latest.get(entry.getKey())),
-                      Optional.ofNullable(maxTimestamp.get(entry.getKey()))))
-          .collect(Collectors.toList());
+      return Utils.packException(() -> asyncAdmin.partitions(topics).toCompletableFuture().get());
     }
 
     @Override
     public Set<TopicPartition> topicPartitions(Set<String> topics) {
-      return Utils.packException(() -> admin.describeTopics(topics).all().get()).entrySet().stream()
-          .flatMap(
-              e ->
-                  e.getValue().partitions().stream()
-                      .map(p -> TopicPartition.of(e.getKey(), p.partition())))
-          .collect(Collectors.toSet());
+      return Utils.packException(
+          () -> asyncAdmin.topicPartitions(topics).toCompletableFuture().get());
     }
 
     @Override
     public Set<TopicPartition> topicPartitions(int broker) {
-      return Utils.packException(() -> admin.describeTopics(topicNames()).all().get())
-          .entrySet()
-          .stream()
-          .flatMap(
-              e ->
-                  e.getValue().partitions().stream()
-                      .filter(p -> p.replicas().stream().anyMatch(n -> n.id() == broker))
-                      .map(p -> TopicPartition.of(e.getKey(), p.partition())))
-          .collect(Collectors.toSet());
+      return Utils.packException(
+          () -> asyncAdmin.topicPartitions(broker).toCompletableFuture().get());
     }
 
     private Map<
@@ -511,14 +387,7 @@ public class Builder {
 
     @Override
     public TopicCreator creator() {
-      return new CreatorImpl(
-          admin,
-          topic ->
-              this.replicas(Set.of(topic)).stream()
-                  .collect(
-                      Collectors.groupingBy(
-                          replica -> TopicPartition.of(replica.topic(), replica.partition()))),
-          topic -> topics(Set.of(topic)).get(0).config());
+      return asyncAdmin.creator();
     }
 
     @Override
@@ -1040,110 +909,6 @@ public class Builder {
                       entry -> new ConfigResource(ConfigResource.Type.BROKER, entry.getKey()),
                       entry -> (Collection<AlterConfigOp>) entry.getValue()));
       Utils.packException(() -> admin.incrementalAlterConfigs(map).all().get());
-    }
-  }
-
-  private static class CreatorImpl implements TopicCreator {
-    private final org.apache.kafka.clients.admin.Admin admin;
-    private final Function<String, Map<TopicPartition, List<Replica>>> replicasGetter;
-    private final Function<String, Config> configsGetter;
-    private String topic;
-    private int numberOfPartitions = 1;
-    private short numberOfReplicas = 1;
-    private final Map<String, String> configs = new HashMap<>();
-
-    CreatorImpl(
-        org.apache.kafka.clients.admin.Admin admin,
-        Function<String, Map<TopicPartition, List<Replica>>> replicasGetter,
-        Function<String, Config> configsGetter) {
-      this.admin = admin;
-      this.replicasGetter = replicasGetter;
-      this.configsGetter = configsGetter;
-    }
-
-    @Override
-    public TopicCreator topic(String topic) {
-      this.topic = Objects.requireNonNull(topic);
-      return this;
-    }
-
-    @Override
-    public TopicCreator numberOfPartitions(int numberOfPartitions) {
-      this.numberOfPartitions = numberOfPartitions;
-      return this;
-    }
-
-    @Override
-    public TopicCreator numberOfReplicas(short numberOfReplicas) {
-      this.numberOfReplicas = numberOfReplicas;
-      return this;
-    }
-
-    @Override
-    public TopicCreator config(String key, String value) {
-      this.configs.put(key, value);
-      return this;
-    }
-
-    @Override
-    public TopicCreator configs(Map<String, String> configs) {
-      this.configs.putAll(configs);
-      return this;
-    }
-
-    @Override
-    public void create() {
-      if (Utils.packException(() -> admin.listTopics().names().get()).contains(topic)) {
-        var partitionReplicas = replicasGetter.apply(topic);
-        partitionReplicas.forEach(
-            (tp, replicas) -> {
-              if (replicas.size() != numberOfReplicas)
-                throw new IllegalArgumentException(
-                    topic
-                        + " is existent but its replicas: "
-                        + replicas.size()
-                        + " is not equal to expected: "
-                        + numberOfReplicas);
-            });
-        var result =
-            Utils.packException(() -> admin.describeTopics(Set.of(topic)).all().get().get(topic));
-        if (result.partitions().size() != numberOfPartitions)
-          throw new IllegalArgumentException(
-              topic
-                  + " is existent but its partitions: "
-                  + result.partitions().size()
-                  + " is not equal to expected: "
-                  + numberOfReplicas);
-
-        var actualConfigs = configsGetter.apply(topic);
-        this.configs.forEach(
-            (key, value) -> {
-              if (actualConfigs.value(key).filter(actual -> actual.equals(value)).isEmpty())
-                throw new IllegalArgumentException(
-                    topic
-                        + " is existent but its config: <"
-                        + key
-                        + ", "
-                        + actualConfigs.value(key)
-                        + "> is not equal to expected: "
-                        + key
-                        + ", "
-                        + value);
-            });
-
-        // ok, the existent topic is totally equal to what we want to create.
-        return;
-      }
-
-      Utils.packException(
-          () ->
-              admin
-                  .createTopics(
-                      List.of(
-                          new NewTopic(topic, numberOfPartitions, numberOfReplicas)
-                              .configs(configs)))
-                  .all()
-                  .get());
     }
   }
 

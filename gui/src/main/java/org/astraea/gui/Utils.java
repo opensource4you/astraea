@@ -188,9 +188,9 @@ class Utils {
               console.append("there is no result!!!");
               return;
             }
-            console.append("Applying result ... ");
+            console.append("result is applying");
             CompletableFuture.runAsync(() -> resultConsumer.accept(result, console))
-                .whenComplete((r, e) -> console.append(e));
+                .whenComplete((r, e) -> console.append("result is applied", e));
           });
 
     return vbox(

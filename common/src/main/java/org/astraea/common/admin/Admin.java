@@ -25,6 +25,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.astraea.common.Utils;
 
+@Deprecated
 public interface Admin extends Closeable {
 
   static Builder builder() {
