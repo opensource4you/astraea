@@ -52,6 +52,7 @@ public class Main {
               TransactionTab.of(context),
               AddingReplicaTab.of(context),
               CreateTopicTab.of(context),
+              AddPartitionTab.of(context),
               ReassignReplicaTab.of(context),
               BalancerTab.of(context),
               AboutTab.of(context));

@@ -122,6 +122,12 @@ public interface AsyncAdmin extends AutoCloseable {
    */
   CompletionStage<Void> preferredLeaderElection(TopicPartition topicPartition);
 
+  /**
+   * @param total the final number of partitions. Noted that reducing number of partitions is
+   *     illegal
+   */
+  CompletionStage<Void> addPartitions(String topic, int total);
+
   @Override
   void close();
 }

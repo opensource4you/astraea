@@ -39,6 +39,8 @@ public class ConsumerTab {
                                         LinkedHashMap.<String, Object>of(
                                             "group",
                                             entry.getKey().groupId(),
+                                            "coordinator",
+                                            cg.coordinator().id(),
                                             "topic",
                                             tp.topic(),
                                             "partition",

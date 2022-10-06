@@ -22,20 +22,28 @@ import java.util.Set;
 
 public class ConsumerGroup {
   private final String groupId;
+
+  private final NodeInfo coordinator;
   private final Map<TopicPartition, Long> consumeProgress;
   private final Map<Member, Set<TopicPartition>> assignment;
 
   public ConsumerGroup(
       String groupId,
+      NodeInfo coordinator,
       Map<TopicPartition, Long> consumeProgress,
       Map<Member, Set<TopicPartition>> assignment) {
     this.groupId = Objects.requireNonNull(groupId);
+    this.coordinator = coordinator;
     this.consumeProgress = Map.copyOf(consumeProgress);
     this.assignment = Map.copyOf(assignment);
   }
 
   public String groupId() {
     return groupId;
+  }
+
+  public NodeInfo coordinator() {
+    return coordinator;
   }
 
   public Map<Member, Set<TopicPartition>> assignment() {
