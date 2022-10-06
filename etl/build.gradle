@@ -38,10 +38,10 @@ dependencies {
     implementation "org.apache.kafka:kafka-clients:${versions["kafka"]}"
     implementation "org.apache.spark:spark-sql_2.12:${versions["spark_sql"]}"
     implementation "org.apache.spark:spark-sql-kafka-0-10_2.12:${versions["spark_kafka"]}"
+    implementation project(':common')
 
     testImplementation "org.junit.jupiter:junit-jupiter:${versions["junit"]}"
     testImplementation "com.opencsv:opencsv:${versions["opencsv"]}"
-    testImplementation project(':common')
 }
 
 ext {
