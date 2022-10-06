@@ -174,7 +174,7 @@ public class MetricsTab {
                             .map(
                                 entry -> {
                                   var result = new LinkedHashMap<String, Object>();
-                                  result.put("id", entry.getKey().id());
+                                  result.put("broker id", entry.getKey().id());
                                   result.put("host", entry.getKey().host());
                                   entry.getValue().entrySet().stream()
                                       .filter(m -> Utils.contains(m.getKey(), word))
@@ -182,7 +182,8 @@ public class MetricsTab {
                                   return result;
                                 })
                             .collect(Collectors.toList())),
-            types.values()));
+            types.values(),
+            "SEARCH for metric"));
     return tab;
   }
 }

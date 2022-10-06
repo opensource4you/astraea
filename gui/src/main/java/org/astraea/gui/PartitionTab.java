@@ -75,7 +75,8 @@ public class PartitionTab {
                                         ps.stream()
                                             .sorted(
                                                 Comparator.comparing(Partition::topic)
-                                                    .thenComparing(Partition::partition))))));
+                                                    .thenComparing(Partition::partition))))),
+            "SEARCH for topic");
     var tab = new Tab("partition");
     tab.setContent(pane);
     return tab;

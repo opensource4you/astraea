@@ -34,7 +34,7 @@ public class BrokerTab {
                 LinkedHashMap.<String, Object>of(
                     "hostname",
                     broker.host(),
-                    "id",
+                    "broker id",
                     broker.id(),
                     "port",
                     broker.port(),
@@ -81,7 +81,8 @@ public class BrokerTab {
                                                         || Utils.contains(nodeInfo.host(), word)
                                                         || Utils.contains(
                                                             String.valueOf(nodeInfo.port()),
-                                                            word))))));
+                                                            word))))),
+            "SEARCH for broker");
     var tab = new Tab("broker");
     tab.setContent(pane);
     return tab;

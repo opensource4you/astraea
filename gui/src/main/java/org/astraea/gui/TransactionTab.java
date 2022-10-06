@@ -63,7 +63,8 @@ public class TransactionTab {
                                                         .anyMatch(
                                                             tp ->
                                                                 Utils.contains(tp.topic(), word))))
-                            .thenApply(TransactionTab::result)));
+                            .thenApply(TransactionTab::result)),
+            "SEARCH for topic/transaction");
     var tab = new Tab("transaction");
     tab.setContent(pane);
     return tab;

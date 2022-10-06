@@ -46,7 +46,8 @@ public class TopicTab {
                                 names ->
                                     admin
                                         .partitions(names)
-                                        .thenCombine(admin.brokers(), TopicTab::beans))));
+                                        .thenCombine(admin.brokers(), TopicTab::beans))),
+            "SEARCH for topic");
     var tab = new Tab("topic");
     tab.setContent(pane);
     return tab;
@@ -68,10 +69,11 @@ public class TopicTab {
         .map(
             topic -> {
               var result = new LinkedHashMap<String, Object>();
-              result.put("name", topic);
-              result.put("partitions", tps.get(topic).size());
+              result.put("topic", topic);
+              result.put("number of partitions", tps.get(topic).size());
               result.put(
-                  "replicas", tps.get(topic).stream().mapToInt(p -> p.replicas().size()).sum());
+                  "number of replicas",
+                  tps.get(topic).stream().mapToInt(p -> p.replicas().size()).sum());
               result.put(
                   "size",
                   Optional.ofNullable(topicSize.get(topic))

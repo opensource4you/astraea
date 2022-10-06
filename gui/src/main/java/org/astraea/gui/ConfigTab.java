@@ -70,7 +70,7 @@ public class ConfigTab {
                               .map(
                                   e -> {
                                     Map<String, Object> map = new LinkedHashMap<>();
-                                    map.put(isTopic ? "name" : "id", e.getKey());
+                                    map.put(isTopic ? "name" : "broker id", e.getKey());
                                     e.getValue().raw().entrySet().stream()
                                         .filter(entry -> Utils.contains(entry.getKey(), word))
                                         .sorted(Map.Entry.comparingByKey())
@@ -80,7 +80,8 @@ public class ConfigTab {
                                   })
                               .collect(Collectors.toList()));
             },
-            resources.values());
+            resources.values(),
+            "SEARCH for config");
     var tab = new Tab("config");
     tab.setContent(pane);
     return tab;

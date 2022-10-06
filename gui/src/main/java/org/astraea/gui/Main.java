@@ -56,7 +56,7 @@ public class Main {
               ReassignReplicaTab.of(context),
               BalancerTab.of(context),
               AboutTab.of(context));
-      rootPane.setSide(Side.TOP);
+      rootPane.setSide(Side.BOTTOM);
       rootPane.setTabClosingPolicy(TabPane.TabClosingPolicy.UNAVAILABLE);
       var scene = new Scene(rootPane, 300, 300);
       stage.setTitle("Astraea");

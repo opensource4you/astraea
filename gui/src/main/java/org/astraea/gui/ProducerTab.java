@@ -68,7 +68,8 @@ public class ProducerTab {
                                         ps.stream()
                                             .sorted(
                                                 Comparator.comparing(ProducerState::topic)
-                                                    .thenComparing(ProducerState::partition))))));
+                                                    .thenComparing(ProducerState::partition))))),
+            "SEARCH for topic");
     var tab = new Tab("producer");
     tab.setContent(pane);
     return tab;

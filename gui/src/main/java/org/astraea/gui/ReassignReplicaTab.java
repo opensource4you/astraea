@@ -29,30 +29,34 @@ import org.astraea.common.admin.Partition;
 
 public class ReassignReplicaTab {
 
+  private static final String TOPIC_NAME = "topic";
+  private static final String PARTITION_ID = "partition";
+  private static final String MOVE_TO = "move to";
+
   public static Tab of(Context context) {
     var tab = new Tab("reassign replica");
     tab.setContent(
         Utils.form(
-            LinkedHashSet.of("topic", "partition", "brokers"),
+            LinkedHashSet.of(TOPIC_NAME, PARTITION_ID, MOVE_TO),
             LinkedHashSet.<String>of(),
             (result, console) -> {
-              var topic = result.get("topic");
+              var topic = result.get(TOPIC_NAME);
               if (topic == null || topic.isBlank())
                 return CompletableFuture.failedFuture(
                     new IllegalArgumentException("please define topic name"));
-              var brokers =
-                  Optional.ofNullable(result.get("brokers"))
+              var moveTo =
+                  Optional.ofNullable(result.get(MOVE_TO))
                       .map(
                           s ->
                               Arrays.stream(s.replace(" ", "").split(","))
                                   .map(Integer::parseInt)
                                   .collect(Collectors.toList()))
                       .orElse(List.of());
-              if (brokers.isEmpty())
+              if (moveTo.isEmpty())
                 return CompletableFuture.failedFuture(
                     new IllegalArgumentException("please define \"brokers\""));
               var partitions =
-                  Optional.ofNullable(result.get("partition"))
+                  Optional.ofNullable(result.get(PARTITION_ID))
                       .map(Integer::parseInt)
                       .map(partition -> CompletableFuture.completedStage(List.of(partition)))
                       .orElseGet(
@@ -77,11 +81,11 @@ public class ReassignReplicaTab {
                                                   admin
                                                       .migrator()
                                                       .partition(topic, p)
-                                                      .moveTo(brokers)))
+                                                      .moveTo(moveTo)))
                                   .map(CompletionStage::toCompletableFuture)
                                   .collect(Collectors.toList()))
                           .thenApply(
-                              ignored -> "succeed to move " + topic + "-" + ps + " to " + brokers));
+                              ignored -> "succeed to move " + topic + "-" + ps + " to " + moveTo));
             },
             "EXECUTE"));
     return tab;
