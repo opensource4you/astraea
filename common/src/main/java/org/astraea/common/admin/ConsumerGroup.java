@@ -53,17 +53,4 @@ public class ConsumerGroup {
   public Map<TopicPartition, Long> consumeProgress() {
     return consumeProgress;
   }
-
-  @Override
-  public String toString() {
-    return "ConsumerGroup{"
-        + "groupId='"
-        + groupId
-        + '\''
-        + ", consumeProgress="
-        + consumeProgress
-        + ", assignment="
-        + assignment
-        + '}';
-  }
 }
