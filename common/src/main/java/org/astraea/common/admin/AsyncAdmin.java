@@ -128,6 +128,12 @@ public interface AsyncAdmin extends AutoCloseable {
    */
   CompletionStage<Void> addPartitions(String topic, int total);
 
+  /** @param override defines the key and new value. The other undefined keys won't get changed. */
+  CompletionStage<Void> updateConfig(String topic, Map<String, String> override);
+
+  /** @param override defines the key and new value. The other undefined keys won't get changed. */
+  CompletionStage<Void> updateConfig(int brokerId, Map<String, String> override);
+
   @Override
   void close();
 }
