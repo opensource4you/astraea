@@ -60,8 +60,8 @@ public class Main {
       rootPane.setTabClosingPolicy(TabPane.TabClosingPolicy.UNAVAILABLE);
       var scene = new Scene(rootPane, 300, 300);
       stage.setTitle("Astraea");
-      stage.setHeight(1000);
-      stage.setWidth(1000);
+      stage.setHeight(800);
+      stage.setWidth(1200);
       stage.setScene(scene);
       stage.show();
     }

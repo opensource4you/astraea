@@ -17,55 +17,43 @@
 package org.astraea.gui;
 
 import java.util.concurrent.CompletableFuture;
-import javafx.scene.control.Button;
-import javafx.scene.control.Label;
 import javafx.scene.control.Tab;
-import javafx.scene.control.TextField;
+import org.astraea.common.LinkedHashSet;
 
 public class AddPartitionTab {
 
   public static Tab of(Context context) {
     var tab = new Tab("add partition");
-    var topicField = new TextField();
-    var partitionsField = Utils.onlyNumber(1);
-    var applyButton = new Button("apply");
-    var console = new ConsoleArea();
-    applyButton.setOnAction(
-        ignored -> {
-          var name = topicField.getText();
-          if (name.isEmpty()) {
-            console.append("please enter topic name");
-            return;
-          }
-          var partitions = partitionsField.getText();
-          if (partitions.isEmpty()) {
-            console.append("please enter number of partitions");
-            return;
-          }
-          context.execute(
-              admin ->
-                  admin
-                      .topicNames(true)
-                      .thenCompose(
-                          names -> {
-                            if (!names.contains(name)) {
-                              console.text(name + " is nonexistent");
-                              return CompletableFuture.completedFuture(null);
-                            }
-                            return admin
-                                .addPartitions(name, Integer.parseInt(partitions))
-                                .whenComplete(
-                                    (r, e) ->
-                                        console.text(
-                                            "succeed to increase partitions to " + partitions, e));
-                          }));
-        });
     tab.setContent(
-        Utils.vbox(
-            Utils.hbox(new Label("name:"), topicField),
-            Utils.hbox(new Label("total partitions:"), partitionsField),
-            applyButton,
-            console));
+        Utils.form(
+            LinkedHashSet.of("name", "total partitions"),
+            LinkedHashSet.of(),
+            (result, console) -> {
+              var name = result.get("name");
+              if (name == null || name.isEmpty())
+                return CompletableFuture.failedFuture(
+                    new IllegalArgumentException("please enter topic name"));
+              var partitions = result.get("total partitions");
+              if (partitions == null || partitions.isEmpty())
+                return CompletableFuture.failedFuture(
+                    new IllegalArgumentException("please enter total number of partitions"));
+              return context.submit(
+                  admin ->
+                      admin
+                          .topicNames(true)
+                          .thenCompose(
+                              names -> {
+                                if (!names.contains(name))
+                                  return CompletableFuture.failedFuture(
+                                      new IllegalArgumentException(name + " is nonexistent"));
+
+                                return admin
+                                    .addPartitions(name, Integer.parseInt(partitions))
+                                    .thenApply(
+                                        r -> "succeed to increase partitions to " + partitions);
+                              }));
+            },
+            "EXECUTE"));
     return tab;
   }
 }

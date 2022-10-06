@@ -32,17 +32,12 @@ public class Context {
   private final AtomicReference<AsyncAdmin> asyncAdminReference = new AtomicReference<>();
   private final AtomicInteger jmxPort = new AtomicInteger(-1);
 
-  public Optional<AsyncAdmin> replace(AsyncAdmin admin, int jmxPort) {
-    if (jmxPort > 0) {
-      org.astraea.common.Utils.packException(() -> admin.brokers().toCompletableFuture().get())
-          .forEach(
-              broker -> {
-                var client = MBeanClient.jndi(broker.host(), jmxPort);
-                client.close();
-              });
-      this.jmxPort.set(jmxPort);
-    }
+  public Optional<AsyncAdmin> replace(AsyncAdmin admin) {
     return Optional.ofNullable(asyncAdminReference.getAndSet(admin));
+  }
+
+  public void replace(int jmxPort) {
+    this.jmxPort.set(jmxPort);
   }
 
   public <T> T submit(Function<AsyncAdmin, T> executor) {
