@@ -16,27 +16,25 @@
  */
 package org.astraea.gui;
 
-import javafx.application.Platform;
-import javafx.scene.control.Label;
+public interface Console {
 
-public class Console extends Label {
-
-  public Console(String text) {
-    super(text);
-  }
-
-  public void text(String text, Throwable e) {
+  default void text(String text, Throwable e) {
     if (e != null) text(e);
     else text(text);
   }
 
-  public void text(String text) {
-    if (text == null) return;
-    if (Platform.isFxApplicationThread()) setText(text);
-    else Platform.runLater(() -> setText(text));
+  void text(String text);
+
+  default void text(Throwable e) {
+    if (e != null) text(Utils.toString(e));
   }
 
-  public void text(Throwable e) {
-    if (e != null) text(Utils.toString(e));
+  void append(String text);
+
+  void append(Throwable e);
+
+  default void append(String text, Throwable e) {
+    if (e != null) append(e);
+    else append(text);
   }
 }

@@ -16,33 +16,38 @@
  */
 package org.astraea.etl.KafkaAdmin
 
-import org.astraea.common.admin.Admin
+import org.astraea.common.admin.{Admin, AsyncAdmin}
 import org.astraea.etl.Utils
 import org.astraea.it.RequireBrokerCluster
 import org.astraea.it.RequireBrokerCluster.bootstrapServers
 import org.junit.jupiter.api.Assertions.assertThrows
-import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.{AfterEach, Test}
 
 import scala.collection.JavaConverters._
 import scala.collection.convert.ImplicitConversions.`collection AsScalaIterable`
 
 class TopicCreatorTest extends RequireBrokerCluster {
+  @AfterEach def tearDown():Unit={
+    Utils.Using(AsyncAdmin.of(bootstrapServers())){ admin =>
+      admin.deleteTopics(Set("test-topic").asJava)
+    }
+  }
+
   @Test def TopicCreatorTest(): Unit = {
     val TOPIC = "test-topic"
 
-    Utils.withResources(Admin.of(bootstrapServers)) { admin =>
+    Utils.Using(AsyncAdmin.of(bootstrapServers)) { admin =>
       {
         testTopicCreator(admin)
 
-        assert(admin.topicNames().contains(TOPIC), true)
-        assert(admin.partitions(Set(TOPIC).asJava).size() equals 10)
+        assert(admin.topicNames(false).toCompletableFuture.get().contains(TOPIC), true)
+        assert(admin.partitions(Set(TOPIC).asJava).toCompletableFuture.get().size() equals 10)
         admin
-          .replicas(Set(TOPIC).asJava)
-          .values()
+          .replicas(Set(TOPIC).asJava).toCompletableFuture.get()
           .forEach(replicas => assert(replicas.size() equals 2))
         assert(
           admin
-            .topics(Set(TOPIC).asJava)
+            .topics(Set(TOPIC).asJava).toCompletableFuture.get()
             .head
             .config()
             .raw()
@@ -57,7 +62,7 @@ class TopicCreatorTest extends RequireBrokerCluster {
   @Test def IllegalArgumentTopicCreatorTest(): Unit = {
     val TOPIC = "test-topic"
 
-    Utils.withResources(Admin.of(bootstrapServers)) { admin =>
+    Utils.Using(AsyncAdmin.of(bootstrapServers)) { admin =>
       {
         testTopicCreator(admin)
 
@@ -98,7 +103,7 @@ class TopicCreatorTest extends RequireBrokerCluster {
     }
   }
 
-  def testTopicCreator(admin: Admin): Unit = {
+  def testTopicCreator(admin: AsyncAdmin): Unit = {
     val config = Map("compression.type" -> "gzip")
     val TOPIC = "test-topic"
 

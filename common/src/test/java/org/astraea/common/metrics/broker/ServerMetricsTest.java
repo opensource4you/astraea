@@ -40,9 +40,9 @@ public class ServerMetricsTest extends RequireSingleBrokerCluster {
   @ParameterizedTest()
   @EnumSource(value = ServerMetrics.DelayedOperationPurgatory.class)
   void testPurgatorySize(ServerMetrics.DelayedOperationPurgatory request) {
-    var gauges = request.fetch(MBeanClient.local());
-    Assertions.assertFalse(gauges.isEmpty());
-    gauges.forEach(MetricsTestUtil::validate);
+    var m = request.fetch(MBeanClient.local());
+    Assertions.assertEquals(0, m.value());
+    MetricsTestUtil.validate(m);
   }
 
   @ParameterizedTest()

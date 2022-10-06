@@ -17,84 +17,69 @@
 package org.astraea.gui;
 
 import java.util.concurrent.CompletableFuture;
-import javafx.geometry.HPos;
-import javafx.geometry.Insets;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.Tab;
 import javafx.scene.control.TextField;
-import javafx.scene.layout.GridPane;
 
 public class CreateTopicTab {
 
   public static Tab of(Context context) {
     var tab = new Tab("create topic");
-    var pane = new GridPane();
-    pane.setPadding(new Insets(5));
-    pane.setVgap(4);
-    pane.setHgap(2);
-
-    // topic
-    var topicLabel = new Label("topic name:");
-    GridPane.setHalignment(topicLabel, HPos.RIGHT);
-    pane.add(topicLabel, 0, 0);
     var topicField = new TextField();
-    pane.add(topicField, 1, 0);
-
-    // partitions
-    var partitionsLabel = new Label("number of partitions:");
-    GridPane.setHalignment(partitionsLabel, HPos.RIGHT);
-    pane.add(partitionsLabel, 0, 1);
     var partitionsField = Utils.onlyNumber(1);
-    pane.add(partitionsField, 1, 1);
+    var replicasField = new IntegerBox(1);
 
-    // replicas
-    var replicasLabel = new Label("number of replicas:");
-    GridPane.setHalignment(replicasLabel, HPos.RIGHT);
-    pane.add(replicasLabel, 0, 2);
-    var replicasField = new ShortBox((short) 1);
-    GridPane.setHalignment(replicasField, HPos.LEFT);
-    pane.add(replicasField, 1, 2);
-
-    var btn = new Button("create");
-    var console = new Console("");
-    pane.add(btn, 0, 3);
-    pane.add(console, 1, 3);
-    btn.setOnAction(
+    var executeButton = new Button("create");
+    var console = new ConsoleArea();
+    executeButton.setOnAction(
         ignored -> {
           var name = topicField.getText();
           if (name.isEmpty()) {
-            console.text("please enter topic name");
+            console.append("please enter topic name");
             return;
           }
-          context
-              .optionalAdmin()
-              .ifPresent(
-                  admin ->
-                      CompletableFuture.supplyAsync(
-                              () -> {
-                                if (admin.topicNames().contains(name)) return name + " is existent";
-                                admin
-                                    .creator()
-                                    .topic(name)
-                                    .numberOfPartitions(Integer.parseInt(partitionsField.getText()))
-                                    .numberOfReplicas(replicasField.getValue())
-                                    .create();
-                                return "succeed to create " + name;
-                              })
-                          .whenComplete(console::text));
+          context.execute(
+              admin ->
+                  admin
+                      .topicNames(true)
+                      .thenCompose(
+                          names -> {
+                            if (names.contains(name))
+                              return CompletableFuture.completedFuture(name + " is existent");
+                            return admin
+                                .creator()
+                                .topic(name)
+                                .numberOfPartitions(Integer.parseInt(partitionsField.getText()))
+                                .numberOfReplicas(replicasField.getValue().shortValue())
+                                .run()
+                                .thenApply(nonexistent -> "succeed to create " + name);
+                          })
+                      .whenComplete(console::text));
         });
-    tab.setContent(pane);
+    tab.setContent(
+        Utils.vbox(
+            Utils.hbox(new Label("name:"), topicField),
+            Utils.hbox(new Label("partitions:"), partitionsField),
+            Utils.hbox(new Label("replicas"), replicasField),
+            executeButton,
+            console));
     tab.setOnSelectionChanged(
         ignored -> {
           if (!tab.isSelected()) return;
-          context
-              .optionalAdmin()
-              .ifPresent(
-                  admin ->
-                      CompletableFuture.supplyAsync(() -> admin.brokerIds().size())
-                          .whenComplete(
-                              (size, e) -> replicasField.range((short) 0, size.shortValue())));
+          context.execute(
+              admin ->
+                  admin
+                      .brokers()
+                      .whenComplete(
+                          (brokers, e) ->
+                              replicasField.values(
+                                  IntStream.range(0, brokers.size())
+                                      .mapToObj(i -> i + 1)
+                                      .collect(Collectors.toList()),
+                                  0)));
         });
     return tab;
   }

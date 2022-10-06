@@ -16,116 +16,84 @@
  */
 package org.astraea.gui;
 
-import java.text.SimpleDateFormat;
-import java.util.Date;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
-import java.util.function.Function;
+import java.util.Optional;
 import java.util.stream.Collectors;
 import javafx.scene.control.Tab;
 import org.astraea.common.DataSize;
 import org.astraea.common.LinkedHashMap;
-import org.astraea.common.admin.Node;
+import org.astraea.common.admin.Broker;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Partition;
 
 public class TopicTab {
-
-  static final Map<String, Function<Bean, Object>> COLUMN_AND_BEAN =
-      LinkedHashMap.of(
-          "name",
-          bean -> bean.name,
-          "partitions",
-          bean -> bean.partitions,
-          "replicas",
-          bean -> bean.replicas,
-          "size",
-          bean -> bean.size,
-          "brokers",
-          bean -> bean.brokerIds.stream().map(String::valueOf).collect(Collectors.joining(",")),
-          "max timestamp",
-          bean -> bean.maxTimestamp);
-
   public static Tab of(Context context) {
+
     var pane =
-        context.tableView(
-            "search for topics:",
-            (admin, word) ->
-                Context.result(
-                    COLUMN_AND_BEAN,
-                    beans(
-                        admin.partitions(
-                            admin.topicNames().stream()
-                                .filter(name -> word.isEmpty() || name.contains(word))
-                                .collect(Collectors.toSet())),
-                        admin.nodes())));
+        Utils.searchToTable(
+            (word, console) ->
+                context.submit(
+                    admin ->
+                        admin
+                            .topicNames(true)
+                            .thenApply(
+                                names ->
+                                    names.stream()
+                                        .filter(name -> Utils.contains(name, word))
+                                        .collect(Collectors.toSet()))
+                            .thenCompose(
+                                names ->
+                                    admin
+                                        .partitions(names)
+                                        .thenCombine(admin.brokers(), TopicTab::beans))));
     var tab = new Tab("topic");
     tab.setContent(pane);
     return tab;
   }
 
-  private static List<Bean> beans(List<Partition> partitions, List<Node> nodes) {
+  private static List<Map<String, Object>> beans(List<Partition> partitions, List<Broker> nodes) {
     var topicSize =
         nodes.stream()
             .flatMap(n -> n.folders().stream().flatMap(d -> d.partitionSizes().entrySet().stream()))
-            .collect(Collectors.groupingBy(e -> e.getKey().topic()));
-    return partitions.stream()
-        .map(Partition::topic)
-        .distinct()
-        .sorted()
+            .collect(Collectors.groupingBy(e -> e.getKey().topic()))
+            .entrySet()
+            .stream()
+            .collect(
+                Collectors.toMap(
+                    Map.Entry::getKey,
+                    e -> e.getValue().stream().mapToLong(Map.Entry::getValue).sum()));
+    var tps = partitions.stream().collect(Collectors.groupingBy(Partition::topic));
+    return tps.keySet().stream()
         .map(
-            topic ->
-                new Bean(
-                    topic,
-                    (int) partitions.stream().filter(tp -> tp.topic().equals(topic)).count(),
-                    (int)
-                        topicSize.values().stream()
-                            .mapToLong(
-                                entries ->
-                                    entries.stream()
-                                        .filter(tp -> tp.getKey().topic().equals(topic))
-                                        .count())
-                            .sum(),
-                    DataSize.Byte.of(
-                        topicSize.get(topic).stream().mapToLong(Map.Entry::getValue).sum()),
-                    partitions.stream()
-                        .filter(p -> p.topic().equals(topic))
-                        .flatMap(p -> p.replicas().stream().map(NodeInfo::id))
-                        .collect(Collectors.toSet()),
-                    partitions.stream()
-                        .filter(tp -> tp.topic().equals(topic))
-                        .mapToLong(Partition::maxTimestamp)
-                        .max()
-                        .orElse(-1)))
+            topic -> {
+              var result = new LinkedHashMap<String, Object>();
+              result.put("name", topic);
+              result.put("partitions", tps.get(topic).size());
+              result.put(
+                  "replicas", tps.get(topic).stream().mapToInt(p -> p.replicas().size()).sum());
+              result.put(
+                  "size",
+                  Optional.ofNullable(topicSize.get(topic))
+                      .map(DataSize.Byte::of)
+                      .orElse(DataSize.Byte.of(0)));
+              result.put(
+                  "max timestamp",
+                  Utils.format(
+                      tps.get(topic).stream()
+                          .mapToLong(Partition::maxTimestamp)
+                          .max()
+                          .orElse(-1L)));
+              tps.get(topic).stream()
+                  .flatMap(p -> p.replicas().stream())
+                  .collect(Collectors.groupingBy(NodeInfo::id))
+                  .entrySet()
+                  .stream()
+                  .sorted(Map.Entry.comparingByKey())
+                  .forEach(
+                      entry -> result.put("broker:" + entry.getKey(), entry.getValue().size()));
+              return result;
+            })
         .collect(Collectors.toList());
-  }
-
-  public static class Bean {
-    private final String name;
-    private final int partitions;
-    private final int replicas;
-    private final DataSize size;
-    private final Set<Integer> brokerIds;
-
-    private final String maxTimestamp;
-
-    public Bean(
-        String name,
-        int partitions,
-        int replicas,
-        DataSize size,
-        Set<Integer> brokerIds,
-        long maxTimestamp) {
-      this.name = name;
-      this.partitions = partitions;
-      this.replicas = replicas;
-      this.size = size;
-      this.brokerIds = brokerIds;
-      if (maxTimestamp > 0) {
-        var format = new SimpleDateFormat("yyyy/MM/dd HH:mm:ss.SSS");
-        this.maxTimestamp = format.format(new Date(maxTimestamp));
-      } else this.maxTimestamp = "unknown";
-    }
   }
 }

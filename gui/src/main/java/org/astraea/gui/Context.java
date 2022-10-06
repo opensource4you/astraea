@@ -16,106 +16,60 @@
  */
 package org.astraea.gui;
 
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.BiFunction;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import javafx.application.Platform;
-import javafx.beans.property.ReadOnlyObjectWrapper;
-import javafx.collections.FXCollections;
-import javafx.geometry.Insets;
-import javafx.scene.control.Label;
-import javafx.scene.control.TableColumn;
-import javafx.scene.control.TableView;
-import javafx.scene.control.TextField;
-import javafx.scene.layout.BorderPane;
-import javafx.scene.layout.Pane;
-import javafx.scene.layout.VBox;
-import org.astraea.common.admin.Admin;
+import org.astraea.common.admin.AsyncAdmin;
+import org.astraea.common.admin.Broker;
+import org.astraea.common.metrics.MBeanClient;
 
 public class Context {
-  private final AtomicReference<Admin> atomicReference = new AtomicReference<>();
+  private final AtomicReference<AsyncAdmin> asyncAdminReference = new AtomicReference<>();
+  private final AtomicInteger jmxPort = new AtomicInteger(-1);
 
-  public Optional<Admin> replace(Admin admin) {
-    return Optional.ofNullable(atomicReference.getAndSet(admin));
+  public Optional<AsyncAdmin> replace(AsyncAdmin admin, int jmxPort) {
+    if (jmxPort > 0) {
+      org.astraea.common.Utils.packException(() -> admin.brokers().toCompletableFuture().get())
+          .forEach(
+              broker -> {
+                var client = MBeanClient.jndi(broker.host(), jmxPort);
+                client.close();
+              });
+      this.jmxPort.set(jmxPort);
+    }
+    return Optional.ofNullable(asyncAdminReference.getAndSet(admin));
   }
 
-  public Optional<Admin> optionalAdmin() {
-    return Optional.ofNullable(atomicReference.get());
+  public <T> T submit(Function<AsyncAdmin, T> executor) {
+    var admin = asyncAdminReference.get();
+    if (admin == null) throw new IllegalArgumentException("Please define bootstrap servers");
+    return executor.apply(admin);
   }
 
-  <T> Pane tableView(String hint, BiFunction<Admin, String, Result<T>> resultGenerator) {
-    var view = new TableView<>(FXCollections.<T>observableArrayList());
-    view.setColumnResizePolicy(TableView.UNCONSTRAINED_RESIZE_POLICY);
-    var search = new TextField("");
-    search
-        .textProperty()
-        .addListener(
-            ((observable, oldValue, newValue) -> {
-              if (newValue == null) return;
-              if (newValue.equals(oldValue)) return;
-              optionalAdmin()
-                  .ifPresent(
-                      admin ->
-                          CompletableFuture.supplyAsync(
-                                  () -> resultGenerator.apply(admin, newValue))
-                              .whenComplete(
-                                  (result, e) -> {
-                                    if (result == null) return;
-                                    Platform.runLater(
-                                        () -> {
-                                          view.getColumns().setAll(result.columns());
-                                          view.getItems().setAll(result.values());
-                                        });
-                                  }));
-            }));
-    var ns = List.of(new Label(hint), search);
-    var topPane = new VBox(ns.size());
-    topPane.setPadding(new Insets(15));
-    topPane.getChildren().setAll(ns);
-    var pane = new BorderPane();
-    pane.setTop(topPane);
-    pane.setCenter(view);
-    return pane;
+  public void execute(Consumer<AsyncAdmin> executor) {
+    var admin = asyncAdminReference.get();
+    if (admin == null) throw new IllegalArgumentException("Please define bootstrap servers");
+    executor.accept(admin);
   }
 
-  public static <T> Result<T> result(
-      Map<String, Function<T, Object>> columnGetter, List<T> values) {
-    return result(
-        columnGetter.entrySet().stream()
-            .map(
-                entry -> {
-                  var col = new TableColumn<T, Object>(entry.getKey());
-                  col.setCellValueFactory(
-                      param ->
-                          new ReadOnlyObjectWrapper<>(entry.getValue().apply(param.getValue())));
-                  return col;
-                })
-            .collect(Collectors.toList()),
-        values);
-  }
-
-  static <T> Result<T> result(List<TableColumn<T, Object>> columns, List<T> values) {
-    return new Result<>() {
-      @Override
-      public List<TableColumn<T, Object>> columns() {
-        return columns;
-      }
-
-      @Override
-      public List<T> values() {
-        return values;
-      }
-    };
-  }
-
-  interface Result<T> {
-    List<TableColumn<T, Object>> columns();
-
-    List<T> values();
+  public <T> CompletionStage<T> metrics(Function<Map<Broker, MBeanClient>, T> executor) {
+    var jmxPort = this.jmxPort.get();
+    if (jmxPort < 0) throw new IllegalArgumentException("Please define jmxPort");
+    return submit(
+            admin ->
+                admin
+                    .brokers()
+                    .thenApply(
+                        brokers ->
+                            brokers.stream()
+                                .collect(
+                                    Collectors.toMap(
+                                        b -> b, b -> MBeanClient.jndi(b.host(), jmxPort)))))
+        .thenApply(executor);
   }
 }

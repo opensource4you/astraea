@@ -18,41 +18,40 @@ package org.astraea.gui;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import javafx.geometry.Insets;
-import javafx.scene.control.Button;
+import java.util.stream.Collectors;
 import javafx.scene.control.Label;
 import javafx.scene.control.Tab;
-import javafx.scene.control.TextField;
-import javafx.scene.layout.VBox;
-import org.astraea.common.Utils;
-import org.astraea.common.admin.Admin;
+import org.astraea.common.LinkedHashMap;
+import org.astraea.common.admin.AsyncAdmin;
 
 public class SettingTab {
 
   public static Tab of(Context context) {
     var tab = new Tab("bootstrap servers");
-
-    var bootstrapField = new TextField("");
-    var console = new Console("");
-    var checkButton = new Button("check");
-    var ns =
-        List.of(new Label("enter the bootstrap servers:"), bootstrapField, console, checkButton);
-    var pane = new VBox(ns.size());
-    pane.setPadding(new Insets(15));
-    pane.getChildren().setAll(ns);
-    tab.setContent(pane);
-    checkButton.setOnAction(
-        ignored -> {
-          var bootstrapServers = bootstrapField.getText();
-          if (!bootstrapServers.isEmpty())
-            CompletableFuture.supplyAsync(
-                    () -> {
-                      var previous = context.replace(Admin.of(bootstrapServers));
-                      previous.ifPresent(admin -> Utils.swallowException(admin::close));
-                      return "succeed to connect to " + bootstrapServers;
-                    })
-                .whenComplete(console::text);
-        });
+    var jmxPortText = Utils.onlyNumber(-1);
+    tab.setContent(
+        Utils.searchToTable(
+            (bootstrapServers, console) -> {
+              if (bootstrapServers.isEmpty()) {
+                console.append("please define bootstrap servers");
+                return CompletableFuture.completedFuture(List.of());
+              }
+              var newAdmin = AsyncAdmin.of(bootstrapServers);
+              context
+                  .replace(newAdmin, Integer.parseInt(jmxPortText.getText()))
+                  .ifPresent(admin -> org.astraea.common.Utils.swallowException(admin::close));
+              return newAdmin
+                  .nodeInfos()
+                  .thenApply(
+                      nodes ->
+                          nodes.stream()
+                              .map(
+                                  n ->
+                                      LinkedHashMap.<String, Object>of(
+                                          "id", n.id(), "host", n.host(), "port", n.port()))
+                              .collect(Collectors.toUnmodifiableList()));
+            },
+            List.of(new Label("jmx port:"), jmxPortText)));
     return tab;
   }
 }

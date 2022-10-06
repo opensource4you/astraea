@@ -16,6 +16,7 @@
  */
 package org.astraea.common.metrics.broker;
 
+import java.util.Objects;
 import org.astraea.common.EnumInfo;
 import org.astraea.common.metrics.BeanObject;
 import org.astraea.common.metrics.BeanQuery;
@@ -70,7 +71,7 @@ public class ControllerMetrics {
                   .build()));
     }
 
-    public static class Gauge implements HasGauge<Long> {
+    public static class Gauge implements HasGauge<Integer> {
       private final BeanObject beanObject;
 
       public Gauge(BeanObject beanObject) {
@@ -79,6 +80,13 @@ public class ControllerMetrics {
 
       public String metricsName() {
         return beanObject().properties().get("name");
+      }
+
+      @Override
+      public Integer value() {
+        var obj = Objects.requireNonNull(beanObject().attributes().get("Value"));
+        if (type() == CONTROLLER_STATE) return (int) ((byte) obj);
+        return (int) obj;
       }
 
       public Controller type() {

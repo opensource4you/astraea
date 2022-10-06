@@ -16,88 +16,68 @@
  */
 package org.astraea.gui;
 
-import java.text.SimpleDateFormat;
 import java.util.Comparator;
-import java.util.Date;
 import java.util.List;
 import java.util.Map;
-import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import javafx.scene.control.Tab;
 import org.astraea.common.LinkedHashMap;
-import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Partition;
 
 public class PartitionTab {
 
-  static final Map<String, Function<Bean, Object>> COLUMN_AND_BEAN =
-      LinkedHashMap.of(
-          "topic",
-          bean -> bean.topic,
-          "partition",
-          bean -> bean.partition,
-          "leader",
-          bean -> bean.leader,
-          "replicas",
-          bean -> bean.replicas.stream().map(String::valueOf).collect(Collectors.joining(",")),
-          "isr",
-          bean -> bean.isr.stream().map(String::valueOf).collect(Collectors.joining(",")),
-          "earliest offset",
-          bean -> bean.earliestOffset,
-          "latest offset",
-          bean -> bean.latestOffset,
-          "max timestamp",
-          bean -> bean.maxTimestamp);
+  private static List<Map<String, Object>> result(Stream<Partition> ps) {
+    return ps.map(
+            p ->
+                LinkedHashMap.<String, Object>of(
+                    "topic",
+                    p.topic(),
+                    "partition",
+                    p.partition(),
+                    "leader",
+                    p.leader().id(),
+                    "replicas",
+                    p.replicas().stream()
+                        .map(n -> String.valueOf(n.id()))
+                        .collect(Collectors.joining(",")),
+                    "isr",
+                    p.isr().stream()
+                        .map(n -> String.valueOf(n.id()))
+                        .collect(Collectors.joining(",")),
+                    "earliest offset",
+                    p.earliestOffset(),
+                    "latest offset",
+                    p.latestOffset(),
+                    "max timestamp",
+                    Utils.format(p.maxTimestamp())))
+        .collect(Collectors.toList());
+  }
 
   public static Tab of(Context context) {
+
     var pane =
-        context.tableView(
-            "search for topics:",
-            (admin, word) ->
-                Context.result(
-                    COLUMN_AND_BEAN,
-                    admin
-                        .partitions(
-                            admin.topicNames().stream()
-                                .filter(name -> word.isEmpty() || name.contains(word))
-                                .collect(Collectors.toSet()))
-                        .stream()
-                        .sorted(
-                            Comparator.comparing(Partition::topic)
-                                .thenComparing(Partition::partition))
-                        .map(Bean::new)
-                        .collect(Collectors.toList())));
+        Utils.searchToTable(
+            (word, console) ->
+                context.submit(
+                    admin ->
+                        admin
+                            .topicNames(true)
+                            .thenApply(
+                                names ->
+                                    names.stream()
+                                        .filter(name -> Utils.contains(name, word))
+                                        .collect(Collectors.toSet()))
+                            .thenCompose(admin::partitions)
+                            .thenApply(
+                                ps ->
+                                    result(
+                                        ps.stream()
+                                            .sorted(
+                                                Comparator.comparing(Partition::topic)
+                                                    .thenComparing(Partition::partition))))));
     var tab = new Tab("partition");
     tab.setContent(pane);
     return tab;
-  }
-
-  public static class Bean {
-    private final String topic;
-    private final int partition;
-
-    private final int leader;
-    private final List<Integer> replicas;
-    private final List<Integer> isr;
-
-    private final long earliestOffset;
-
-    private final long latestOffset;
-
-    private final String maxTimestamp;
-
-    public Bean(Partition partition) {
-      this.topic = partition.topic();
-      this.partition = partition.partition();
-      this.leader = partition.leader().id();
-      this.replicas = partition.replicas().stream().map(NodeInfo::id).collect(Collectors.toList());
-      this.isr = partition.isr().stream().map(NodeInfo::id).collect(Collectors.toList());
-      this.earliestOffset = partition.earliestOffset();
-      this.latestOffset = partition.latestOffset();
-      if (partition.maxTimestamp() > 0) {
-        var format = new SimpleDateFormat("yyyy/MM/dd HH:mm:ss.SSS");
-        maxTimestamp = format.format(new Date(partition.maxTimestamp()));
-      } else maxTimestamp = "unknown";
-    }
   }
 }

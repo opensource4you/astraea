@@ -21,7 +21,6 @@ import com.beust.jcommander.ParameterException;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.time.Duration;
-import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -95,7 +94,7 @@ public class Performance {
     var consumerThreads =
         ConsumerThread.create(
             param.consumers,
-            listener ->
+            (clientId, listener) ->
                 Consumer.forTopics(new HashSet<>(param.topics))
                     .bootstrapServers(param.bootstrapServers())
                     .groupId(param.groupId)
@@ -103,6 +102,7 @@ public class Performance {
                     .isolation(param.isolation())
                     .seek(latestOffsets)
                     .consumerRebalanceListener(listener)
+                    .clientId(clientId)
                     .build());
 
     System.out.println("creating tracker");
@@ -339,8 +339,7 @@ public class Performance {
       else if (specifiedByBroker) {
         try (Admin admin = Admin.of(configs())) {
           final var selections =
-              admin.replicas(Set.copyOf(topics)).values().stream()
-                  .flatMap(Collection::stream)
+              admin.replicas(Set.copyOf(topics)).stream()
                   .filter(ReplicaInfo::isLeader)
                   .filter(replica -> specifyBrokers.contains(replica.nodeInfo().id()))
                   .map(replica -> TopicPartition.of(replica.topic(), replica.partition()))
@@ -368,7 +367,9 @@ public class Performance {
                           .map(TopicPartition::topic)
                           .filter(allTopics::contains)
                           .collect(Collectors.toUnmodifiableSet()))
-                  .keySet();
+                  .stream()
+                  .map(replica -> TopicPartition.of(replica.topic(), replica.partition()))
+                  .collect(Collectors.toSet());
           var notExist =
               specifyPartitions.stream()
                   .filter(tp -> !allTopicPartitions.contains(tp))

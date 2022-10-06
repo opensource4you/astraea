@@ -16,79 +16,61 @@
  */
 package org.astraea.gui;
 
+import java.util.List;
 import java.util.Map;
-import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import javafx.scene.control.Tab;
 import org.astraea.common.LinkedHashMap;
+import org.astraea.common.admin.AddingReplica;
 
 public class AddingReplicaTab {
 
-  static final Map<String, Function<Bean, Object>> COLUMN_AND_BEAN =
-      LinkedHashMap.of(
-          "topic",
-          bean -> bean.topic,
-          "partition",
-          bean -> bean.partition,
-          "broker",
-          bean -> bean.broker,
-          "path",
-          bean -> bean.path,
-          "size",
-          bean -> bean.size,
-          "leader size",
-          bean -> bean.leaderSize,
-          "progress",
-          bean -> bean.progress);
-
-  public static Tab of(Context context) {
-    var pane =
-        context.tableView(
-            "search for topics:",
-            (admin, word) ->
-                Context.result(
-                    COLUMN_AND_BEAN,
-                    admin
-                        .addingReplicas(
-                            admin.topicNames().stream()
-                                .filter(t -> word.isEmpty() || t.contains(word))
-                                .collect(Collectors.toSet()))
-                        .stream()
-                        .map(
-                            state ->
-                                new Bean(
-                                    state.topic(),
-                                    state.partition(),
-                                    state.broker(),
-                                    state.path(),
-                                    state.size(),
-                                    state.leaderSize()))
-                        .collect(Collectors.toList())));
-    var tab = new Tab("adding replica");
-    tab.setContent(pane);
-    return tab;
+  private static List<Map<String, Object>> result(Stream<AddingReplica> replicas) {
+    return replicas
+        .map(
+            state ->
+                LinkedHashMap.<String, Object>of(
+                    "topic",
+                    state.topic(),
+                    "partition",
+                    state.partition(),
+                    "broker",
+                    state.broker(),
+                    "path",
+                    state.path(),
+                    "size",
+                    state.size(),
+                    "leader size",
+                    state.leaderSize(),
+                    "progress",
+                    String.format(
+                        "%.2f%%",
+                        state.leaderSize() == 0
+                            ? 100D
+                            : ((double) state.size() / (double) state.leaderSize()) * 100)))
+        .collect(Collectors.toList());
   }
 
-  public static class Bean {
-    private final String topic;
-    private final int partition;
-    private final int broker;
-    private final String path;
-    private final long size;
-    private final long leaderSize;
-
-    private final String progress;
-
-    public Bean(String topic, int partition, int broker, String path, long size, long leaderSize) {
-      this.topic = topic;
-      this.partition = partition;
-      this.broker = broker;
-      this.path = path;
-      this.size = size;
-      this.leaderSize = leaderSize;
-      this.progress =
-          String.format(
-              "%.2f%%", leaderSize == 0 ? 100D : ((double) size / (double) leaderSize) * 100);
-    }
+  public static Tab of(Context context) {
+    var tab = new Tab("adding replica");
+    tab.setContent(
+        Utils.searchToTable(
+            (word, console) ->
+                context.submit(
+                    admin ->
+                        admin
+                            .topicNames(true)
+                            .thenCompose(admin::addingReplicas)
+                            .thenApply(
+                                rs ->
+                                    result(
+                                        rs.stream()
+                                            .filter(
+                                                s ->
+                                                    Utils.contains(s.topic(), word)
+                                                        || Utils.contains(
+                                                            String.valueOf(s.broker()), word)))))));
+    return tab;
   }
 }

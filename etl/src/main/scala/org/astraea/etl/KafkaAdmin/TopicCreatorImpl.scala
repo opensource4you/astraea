@@ -16,13 +16,13 @@
  */
 package org.astraea.etl.KafkaAdmin
 
-import org.astraea.common.admin.Admin
+import org.astraea.common.admin.AsyncAdmin
 
 import scala.collection.mutable.ListBuffer
 import scala.collection.JavaConverters._
 import scala.collection.convert.ImplicitConversions.`list asScalaBuffer`
 
-class TopicCreatorImpl(admin: Admin) extends TopicCreator {
+class TopicCreatorImpl(admin: AsyncAdmin) extends TopicCreator {
   private[this] var topic: String = ""
   private[this] var numberOfPartitions: Int = 1
   private[this] var numberOfReplicas: Short = 1
@@ -54,17 +54,16 @@ class TopicCreatorImpl(admin: Admin) extends TopicCreator {
   }
 
   override def create(): Unit = {
-    if (admin.topicNames(false).contains(topic)) {
+    if (admin.topicNames(false).toCompletableFuture.get().contains(topic)) {
       val topicPartitions =
-        admin.topicPartitions(ListBuffer(topic).toSet.asJava)
+        admin.topicPartitions(ListBuffer(topic).toSet.asJava).toCompletableFuture.get()
       if (!topicPartitions.size().equals(numberOfPartitions))
         throw new IllegalArgumentException(
           s"$topic is existent but its partitions:${topicPartitions.size()} is not equal to expected $numberOfPartitions"
         )
 
       admin
-        .replicas(Set(topic).asJava)
-        .values()
+        .replicas(Set(topic).asJava).toCompletableFuture.get()
         .forEach(replica =>
           if (replica.size() != numberOfReplicas)
             throw new IllegalArgumentException(
@@ -73,7 +72,7 @@ class TopicCreatorImpl(admin: Admin) extends TopicCreator {
         )
 
       val actualConfigs =
-        admin.topics(ListBuffer(topic).toSet.asJava).head.config().raw()
+        admin.topics(ListBuffer(topic).toSet.asJava).toCompletableFuture.get().head.config().raw()
 
       //Confirm only the incoming config
       configs.foreach(config =>
@@ -96,13 +95,13 @@ class TopicCreatorImpl(admin: Admin) extends TopicCreator {
         .numberOfPartitions(numberOfPartitions)
         .numberOfReplicas(numberOfReplicas)
         .configs(configs.asJava)
-        .create()
+        .run()
     }
   }
 }
 
 object TopicCreatorImpl {
-  def apply(admin: Admin): TopicCreatorImpl = {
+  def apply(admin: AsyncAdmin): TopicCreatorImpl = {
     new TopicCreatorImpl(admin)
   }
 }

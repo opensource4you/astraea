@@ -42,23 +42,25 @@ public class Main {
       var rootPane =
           new TabPane(
               SettingTab.of(context),
-              NodeTab.of(context),
+              BrokerTab.of(context),
+              MetricsTab.of(context),
               TopicTab.of(context),
               PartitionTab.of(context),
-              BrokerConfigTab.of(context),
-              TopicConfigTab.of(context),
+              ConfigTab.of(context),
               ConsumerTab.of(context),
               ProducerTab.of(context),
+              TransactionTab.of(context),
               AddingReplicaTab.of(context),
               CreateTopicTab.of(context),
-              ExcludeNodeTab.of(context),
+              ReassignReplicaTab.of(context),
+              BalancerTab.of(context),
               AboutTab.of(context));
       rootPane.setSide(Side.TOP);
       rootPane.setTabClosingPolicy(TabPane.TabClosingPolicy.UNAVAILABLE);
       var scene = new Scene(rootPane, 300, 300);
       stage.setTitle("Astraea");
       stage.setHeight(1000);
-      stage.setWidth(900);
+      stage.setWidth(1000);
       stage.setScene(scene);
       stage.show();
     }
