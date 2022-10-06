@@ -192,6 +192,31 @@ class BalancerHandler implements Handler {
                 () -> new IllegalArgumentException("No such rebalance plan id: " + thePlanId));
     final var theRebalanceProposal = thePlanInfo.associatedPlan.proposal();
 
+    synchronized (this) {
+      if (executedPlans.containsKey(thePlanId)) {
+        // already scheduled, nothing to do
+        return new PostPlanResponse(thePlanId);
+      } else if (lastExecutionId.get() != null
+          && !executedPlans.get(lastExecutionId.get()).isDone()) {
+        throw new IllegalStateException(
+            "There are another on-going rebalance: " + lastExecutionId.get());
+      } else {
+        // check if the plan is eligible for execution
+        sanityCheck(thePlanInfo);
+
+        // schedule the actual execution
+        executedPlans.put(
+            thePlanId,
+            CompletableFuture.runAsync(
+                () ->
+                    executor.run(RebalanceAdmin.of(admin), theRebalanceProposal.rebalancePlan())));
+        lastExecutionId.set(thePlanId);
+        return new PostPlanResponse(thePlanId);
+      }
+    }
+  }
+
+  private void sanityCheck(PlanInfo thePlanInfo) {
     // sanity check: replica allocation didn't change
     final var mismatchPartitions =
         thePlanInfo.report.changes.stream()
@@ -234,25 +259,6 @@ class BalancerHandler implements Handler {
           "Another rebalance task might be working on. "
               + "The following topic/partition has ongoing migration: "
               + ongoingMigration);
-
-    synchronized (this) {
-      if (executedPlans.containsKey(thePlanId)) {
-        // already scheduled, nothing to do
-      } else if (lastExecutionId.get() != null
-          && !executedPlans.get(lastExecutionId.get()).isDone()) {
-        throw new IllegalStateException(
-            "There are another on-going rebalance: " + lastExecutionId.get());
-      } else {
-        executedPlans.put(
-            thePlanId,
-            CompletableFuture.runAsync(
-                () ->
-                    executor.run(RebalanceAdmin.of(admin), theRebalanceProposal.rebalancePlan())));
-        lastExecutionId.set(thePlanId);
-      }
-    }
-
-    return new PostPlanResponse(thePlanId);
   }
 
   static List<Placement> placements(Set<Replica> lps, Function<Replica, Long> size) {

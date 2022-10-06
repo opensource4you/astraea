@@ -38,6 +38,7 @@ import org.astraea.common.admin.Replica;
 import org.astraea.common.balancer.Balancer;
 import org.astraea.common.balancer.executor.RebalanceAdmin;
 import org.astraea.common.balancer.executor.RebalancePlanExecutor;
+import org.astraea.common.balancer.executor.StraightPlanExecutor;
 import org.astraea.common.balancer.generator.RebalancePlanGenerator;
 import org.astraea.common.balancer.log.ClusterLogAllocation;
 import org.astraea.common.cost.ClusterCost;
@@ -642,6 +643,36 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
             () -> handler.put(Channel.ofRequest(PostRequest.of(Map.of("id", "no such plan")))),
             "This plan doesn't exists");
       }
+    }
+  }
+
+  @Test
+  void testPutIdempotent() {
+    var topics = createAndProduceTopic(3);
+    try (var admin = Admin.of(bootstrapServers())) {
+      var handler =
+          new BalancerHandler(
+              admin,
+              MultiplicationCost.decreasing(),
+              new ReplicaSizeCost(),
+              RebalancePlanGenerator.random(30),
+              new StraightPlanExecutor());
+      var report =
+          Assertions.assertInstanceOf(
+              BalancerHandler.Report.class,
+              handler.get(
+                  Channel.ofQueries(Map.of(BalancerHandler.TOPICS_KEY, String.join(",", topics)))));
+
+      Assertions.assertDoesNotThrow(
+          () -> handler.put(Channel.ofRequest(PostRequest.of(Map.of("id", report.id)))),
+          "Schedule the rebalance task");
+
+      // Wait until the migration occurred
+      Utils.waitFor(() -> !admin.addingReplicas(Set.copyOf(topics)).isEmpty());
+
+      Assertions.assertDoesNotThrow(
+          () -> handler.put(Channel.ofRequest(PostRequest.of(Map.of("id", report.id)))),
+          "Idempotent behavior");
     }
   }
 
