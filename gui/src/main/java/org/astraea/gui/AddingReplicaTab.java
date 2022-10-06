@@ -68,10 +68,9 @@ public class AddingReplicaTab {
                                         rs.stream()
                                             .filter(
                                                 s ->
-                                                    word.isEmpty()
-                                                        || s.topic().contains(word)
-                                                        || String.valueOf(s.broker())
-                                                            .contains(word)))))));
+                                                    Utils.contains(s.topic(), word)
+                                                        || Utils.contains(
+                                                            String.valueOf(s.broker()), word)))))));
     return tab;
   }
 }

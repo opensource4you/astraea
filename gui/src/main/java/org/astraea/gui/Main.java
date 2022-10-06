@@ -43,6 +43,7 @@ public class Main {
           new TabPane(
               SettingTab.of(context),
               BrokerTab.of(context),
+              MetricsTab.of(context),
               TopicTab.of(context),
               PartitionTab.of(context),
               ConfigTab.of(context),

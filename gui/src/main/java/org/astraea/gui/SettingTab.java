@@ -19,6 +19,7 @@ package org.astraea.gui;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
+import javafx.scene.control.Label;
 import javafx.scene.control.Tab;
 import org.astraea.common.LinkedHashMap;
 import org.astraea.common.admin.AsyncAdmin;
@@ -27,14 +28,17 @@ public class SettingTab {
 
   public static Tab of(Context context) {
     var tab = new Tab("bootstrap servers");
-
+    var jmxPortText = Utils.onlyNumber(-1);
     tab.setContent(
         Utils.searchToTable(
             (bootstrapServers, console) -> {
-              if (bootstrapServers.isEmpty()) return CompletableFuture.completedFuture(List.of());
+              if (bootstrapServers.isEmpty()) {
+                console.append("please define bootstrap servers");
+                return CompletableFuture.completedFuture(List.of());
+              }
               var newAdmin = AsyncAdmin.of(bootstrapServers);
               context
-                  .replace(newAdmin)
+                  .replace(newAdmin, Integer.parseInt(jmxPortText.getText()))
                   .ifPresent(admin -> org.astraea.common.Utils.swallowException(admin::close));
               return newAdmin
                   .nodeInfos()
@@ -46,7 +50,8 @@ public class SettingTab {
                                       LinkedHashMap.<String, Object>of(
                                           "id", n.id(), "host", n.host(), "port", n.port()))
                               .collect(Collectors.toUnmodifiableList()));
-            }));
+            },
+            List.of(new Label("jmx port:"), jmxPortText)));
     return tab;
   }
 }

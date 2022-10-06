@@ -30,6 +30,7 @@ public class ReplicaManagerMetricsTest extends RequireSingleBrokerCluster {
   @EnumSource(ServerMetrics.ReplicaManager.class)
   void testBrokerTopic(ServerMetrics.ReplicaManager rm) {
     var gauge = rm.fetch(MBeanClient.local());
+    Assertions.assertEquals(0, gauge.value());
     MetricsTestUtil.validate(gauge);
     Assertions.assertEquals(rm, gauge.type());
   }

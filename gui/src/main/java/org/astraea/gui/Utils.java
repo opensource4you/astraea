@@ -139,39 +139,47 @@ class Utils {
           applyResultButton.setVisible(false);
           console.text("search for " + (word.isEmpty() ? "all" : word));
           view.getItems().clear();
-          resultGenerator
-              .apply(word, console)
-              .whenComplete(
-                  (result, e) -> {
-                    if (e != null || result == null || result == SearchResult.empty()) {
-                      console.append("can't generate result. Please retry it.", e);
+          CompletionStage<SearchResult<T>> future;
+          try {
+            future = resultGenerator.apply(word, console);
+          } catch (Exception e) {
+            isRunning.set(false);
+            searchButton.setDisable(false);
+            console.append(e);
+            return;
+          }
+
+          future.whenComplete(
+              (result, e) -> {
+                if (e != null || result == null || result == SearchResult.empty()) {
+                  console.append("can't generate result. Please retry it.", e);
+                  searchButton.setDisable(false);
+                  isRunning.set(false);
+                  return;
+                }
+                var tables =
+                    result.keys().stream()
+                        .map(
+                            key -> {
+                              var col = new TableColumn<Map<String, Object>, Object>(key);
+                              col.setCellValueFactory(
+                                  param ->
+                                      new ReadOnlyObjectWrapper<>(
+                                          param.getValue().getOrDefault(key, "")));
+                              return col;
+                            })
+                        .collect(Collectors.toList());
+                lastResult.set(result);
+                Platform.runLater(
+                    () -> {
+                      view.getColumns().setAll(tables);
+                      view.getItems().setAll(result.items());
                       searchButton.setDisable(false);
                       isRunning.set(false);
-                      return;
-                    }
-                    var tables =
-                        result.keys().stream()
-                            .map(
-                                key -> {
-                                  var col = new TableColumn<Map<String, Object>, Object>(key);
-                                  col.setCellValueFactory(
-                                      param ->
-                                          new ReadOnlyObjectWrapper<>(
-                                              param.getValue().getOrDefault(key, "")));
-                                  return col;
-                                })
-                            .collect(Collectors.toList());
-                    lastResult.set(result);
-                    Platform.runLater(
-                        () -> {
-                          view.getColumns().setAll(tables);
-                          view.getItems().setAll(result.items());
-                          searchButton.setDisable(false);
-                          isRunning.set(false);
-                          // There is a callback of result, so we display the button.
-                          if (resultConsumer != null) applyResultButton.setVisible(true);
-                        });
-                  });
+                      // There is a callback of result, so we display the button.
+                      if (resultConsumer != null) applyResultButton.setVisible(true);
+                    });
+              });
         };
 
     applyResultButton.setVisible(false);
@@ -226,12 +234,17 @@ class Utils {
     var group = new ToggleGroup();
     var result = new HashMap<T, RadioButton>();
     for (var i = 0; i != keys.length; ++i) {
-      var button = new RadioButton(keys[i].name());
+      var button = new RadioButton(keys[i].toString());
       button.setToggleGroup(group);
       button.setSelected(i == 0);
       result.put(keys[i], button);
     }
     return result;
+  }
+
+  public static boolean contains(String source, String word) {
+    if (word.isEmpty()) return true;
+    return source.toLowerCase().contains(word.toLowerCase());
   }
 
   private Utils() {}

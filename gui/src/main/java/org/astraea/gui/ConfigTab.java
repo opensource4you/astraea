@@ -24,8 +24,19 @@ import org.astraea.common.LinkedHashMap;
 public class ConfigTab {
 
   private enum Resource {
-    BROKER,
-    TOPIC
+    BROKER("broker"),
+    TOPIC("topic");
+
+    private final String alias;
+
+    Resource(String alias) {
+      this.alias = alias;
+    }
+
+    @Override
+    public String toString() {
+      return alias;
+    }
   }
 
   public static Tab of(Context context) {
@@ -61,9 +72,7 @@ public class ConfigTab {
                                     Map<String, Object> map = new LinkedHashMap<>();
                                     map.put(isTopic ? "name" : "id", e.getKey());
                                     e.getValue().raw().entrySet().stream()
-                                        .filter(
-                                            entry ->
-                                                word.isEmpty() || entry.getKey().contains(word))
+                                        .filter(entry -> Utils.contains(entry.getKey(), word))
                                         .sorted(Map.Entry.comparingByKey())
                                         .forEach(
                                             entry -> map.put(entry.getKey(), entry.getValue()));

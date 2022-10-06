@@ -58,7 +58,7 @@ public class ProducerTab {
                             .thenApply(
                                 names ->
                                     names.stream()
-                                        .filter(name -> word.isEmpty() || name.contains(word))
+                                        .filter(name -> Utils.contains(name, word))
                                         .collect(Collectors.toSet()))
                             .thenCompose(admin::topicPartitions)
                             .thenCompose(admin::producerStates)

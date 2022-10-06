@@ -45,10 +45,10 @@ class BalancerUtilsTest {
   private static final HasGauge<Long> NEW_TP1_1 =
       fakePartitionBeanObject(
           "Log", LogMetrics.Log.SIZE.metricName(), "test-1", "1", 100000000, 10000L);
-  private static final HasGauge<Long> LEADER_BROKER1 =
+  private static final HasGauge<Integer> LEADER_BROKER1 =
       fakeBrokerBeanObject(
           "ReplicaManager", ServerMetrics.ReplicaManager.LEADER_COUNT.metricName(), 2, 10000L);
-  private static final HasGauge<Long> LEADER_BROKER2 =
+  private static final HasGauge<Integer> LEADER_BROKER2 =
       fakeBrokerBeanObject(
           "ReplicaManager", ServerMetrics.ReplicaManager.LEADER_COUNT.metricName(), 4, 10000L);
   private static final Collection<HasBeanObject> broker1 =

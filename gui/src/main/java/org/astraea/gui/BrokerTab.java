@@ -76,12 +76,12 @@ public class BrokerTab {
                                         brokers.stream()
                                             .filter(
                                                 nodeInfo ->
-                                                    word.isEmpty()
-                                                        || String.valueOf(nodeInfo.id())
-                                                            .contains(word)
-                                                        || nodeInfo.host().contains(word)
-                                                        || String.valueOf(nodeInfo.port())
-                                                            .contains(word))))));
+                                                    Utils.contains(
+                                                            String.valueOf(nodeInfo.id()), word)
+                                                        || Utils.contains(nodeInfo.host(), word)
+                                                        || Utils.contains(
+                                                            String.valueOf(nodeInfo.port()),
+                                                            word))))));
     var tab = new Tab("broker");
     tab.setContent(pane);
     return tab;
