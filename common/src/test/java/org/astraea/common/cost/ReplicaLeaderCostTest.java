@@ -183,7 +183,7 @@ public class ReplicaLeaderCostTest {
     Assertions.assertEquals(1, moveCost.changes().get(2));
   }
 
-  private ServerMetrics.ReplicaManager.Gauge mockResult(String name, long count) {
+  private ServerMetrics.ReplicaManager.Gauge mockResult(String name, int count) {
     var result = Mockito.mock(ServerMetrics.ReplicaManager.Gauge.class);
     var bean = Mockito.mock(BeanObject.class);
     Mockito.when(result.beanObject()).thenReturn(bean);

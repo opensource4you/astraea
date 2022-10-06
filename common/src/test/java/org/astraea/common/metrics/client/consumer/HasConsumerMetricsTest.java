@@ -58,7 +58,6 @@ public class HasConsumerMetricsTest extends RequireSingleBrokerCluster {
       Assertions.assertDoesNotThrow(m::reauthenticationLatencyAvg);
       Assertions.assertDoesNotThrow(m::ioTimeNsTotal);
       Assertions.assertDoesNotThrow(m::successfulAuthenticationTotal);
-      Assertions.assertDoesNotThrow(m::ioWaittimeTotal);
       Assertions.assertDoesNotThrow(m::committedTimeNsTotal);
       Assertions.assertDoesNotThrow(m::reauthenticationLatencyMax);
       Assertions.assertDoesNotThrow(m::successfulAuthenticationRate);
@@ -77,13 +76,10 @@ public class HasConsumerMetricsTest extends RequireSingleBrokerCluster {
       Assertions.assertDoesNotThrow(m::successfulReauthenticationTotal);
       Assertions.assertDoesNotThrow(m::requestTotal);
       Assertions.assertDoesNotThrow(m::ioTimeNsAvg);
-      Assertions.assertDoesNotThrow(m::iotimeTotal);
       Assertions.assertDoesNotThrow(m::ioWaitTimeNsTotal);
-      Assertions.assertDoesNotThrow(m::ioWaitRatio);
       Assertions.assertDoesNotThrow(m::networkIoRate);
       Assertions.assertDoesNotThrow(m::connectionCreationRate);
       Assertions.assertDoesNotThrow(m::requestSizeAvg);
-      Assertions.assertDoesNotThrow(m::ioRatio);
       Assertions.assertDoesNotThrow(m::responseRate);
       Assertions.assertDoesNotThrow(m::successfulReauthenticationRate);
       Assertions.assertDoesNotThrow(m::selectTotal);

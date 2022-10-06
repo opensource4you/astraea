@@ -15,13 +15,12 @@ curl -X GET http://localhost:8001/reassignments
 ```
 
 JSON Response 範例
-- `topicName`: 有 partitions 正在重新配置的 topic 名稱
-- `partition`: 有 replicas 正在重新配置的 partition id
-- `from`: replica 原本的位址
-  - `broker`: broker id
-  - `path`: 存放的資料夾路徑
-  - `size`: replica 大小，單位為 byte
-- `to`: replica 將來的位址
+- `topicName`: 正在新增的 replica 所屬於的 topic
+- `partition`: 正在新增的 replica 所屬於的 partition
+- `broker`: 正在新增的 replica 位於的節點
+- `path`: 正在新增的 replica 位於的目錄
+- `size`: 正在新增的 replica 大小
+- `leaderSize`: 正在新增的 replica 最終的大小
 - `progress`: 當前 replicas 搬移進度，以百分比顯示
 
 ```json
@@ -30,20 +29,10 @@ JSON Response 範例
     {
       "topicName": "chia",
       "partition": 0,
-      "from": [
-        {
-          "broker": 1002,
-          "path": "/tmp/log-folder-0",
-          "size": 200
-        }
-      ],
-      "to": [
-        {
-          "broker": 1001,
-          "path": "/tmp/log-folder-1",
-          "size": 100
-        }
-      ],
+      "broker": 1,
+      "path": "/tmp/log-folder-0",
+      "size": 200,
+      "leaderSize": 400,
       "progress": "50.00%"
     }
   ]
@@ -102,4 +91,28 @@ curl -X POST http://localhost:8001/reassignments \
     "broker": 1003
     "to": "/tmp/data"
     }]' 
+```
+
+## 排除指定節點的 replicas
+
+```shell
+POST /reassignments
+```
+參數
+
+| 名稱      | 說明                                        | 預設                     |
+|---------|-------------------------------------------|------------------------|
+| exclude | (必填) 指定排除之 broker id                      | 無                      |
+| topic   | (選填) topic 名稱，排除該節點下指定 topic 的 partitions | 無，代表排除該節點所有 partitions |
+
+cURL 範例
+
+排除 broker = 1003 身上屬於 "chia" 的 partitions
+```shell
+curl -X POST http://localhost:8001/reassignments \
+    -H "Content-Type: application/json" \
+    -d '{"plans": [{
+    "exclude": 1003,
+    "topic": "chia"
+    }]}' 
 ```

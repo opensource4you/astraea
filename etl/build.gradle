@@ -25,22 +25,20 @@ repositories {
 }
 
 def versions = [
-        scala: project.properties['scala.version'] ?: "2.13.7",
+        kafka: project.properties['kafka.version'] ?: "3.2.1",
+        scala: project.properties['scala.version'] ?: "2.12.15",
         spark_sql: project.properties['spark_sql.version'] ?: "3.3.0",
         spark_kafka: project.properties['spark_kafka.version'] ?: "3.3.0",
         junit: project.properties['junit.version'] ?: "5.8.2",
-        scalatest: project.properties['scalatest.version'] ?: "3.1.1",
-        opencsv: project.properties['opencsv.version'] ?: "4.1",
-        kafka: project.properties['kafka.version'] ?: "3.2.1"
+        opencsv: project.properties['opencsv.version'] ?: "4.1"
 ]
 
 dependencies {
     implementation "org.scala-lang:scala-library:${versions["scala"]}"
-    implementation "org.apache.spark:spark-sql_2.13:${versions["spark_sql"]}"
-    implementation "org.apache.spark:spark-sql-kafka-0-10_2.13:${versions["spark_kafka"]}"
     implementation "org.apache.kafka:kafka-clients:${versions["kafka"]}"
+    implementation "org.apache.spark:spark-sql_2.12:${versions["spark_sql"]}"
+    implementation "org.apache.spark:spark-sql-kafka-0-10_2.12:${versions["spark_kafka"]}"
 
-    testImplementation "org.scalatest:scalatest_2.13:${versions["scalatest"]}"
     testImplementation "org.junit.jupiter:junit-jupiter:${versions["junit"]}"
     testImplementation "com.opencsv:opencsv:${versions["opencsv"]}"
     testImplementation project(':common')

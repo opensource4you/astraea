@@ -19,9 +19,6 @@ package org.astraea.etl
 import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.apache.spark.sql.functions.{col, concat, struct, to_json}
 
-import scala.collection.IterableOnce.iterableOnceExtensionMethods
-import scala.collection.parallel.immutable.ParVector
-
 object SparkUtils {
   def createSpark(deploymentModel: String): SparkSession = {
     SparkSession

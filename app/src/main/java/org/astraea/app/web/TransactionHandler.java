@@ -32,11 +32,8 @@ class TransactionHandler implements Handler {
   @Override
   public Response get(Channel channel) {
     var transactions =
-        admin
-            .transactions(Handler.compare(admin.transactionIds(), channel.target()))
-            .entrySet()
-            .stream()
-            .map(e -> new Transaction(e.getKey(), e.getValue()))
+        admin.transactions(Handler.compare(admin.transactionIds(), channel.target())).stream()
+            .map(t -> new Transaction(t.transactionId(), t))
             .collect(Collectors.toUnmodifiableList());
     if (channel.target().isPresent() && transactions.size() == 1) return transactions.get(0);
     return new Transactions(transactions);

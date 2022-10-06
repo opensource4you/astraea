@@ -19,15 +19,15 @@ package org.astraea.common;
 import java.net.InetAddress;
 import java.time.Duration;
 import java.util.Collection;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collector;
@@ -155,6 +155,12 @@ public final class Utils {
     return value;
   }
 
+  public static short requirePositive(short value) {
+    if (value <= 0)
+      throw new IllegalArgumentException("the value: " + value + " must be bigger than zero");
+    return value;
+  }
+
   public static boolean notNegative(int value) {
     return value >= 0;
   }
@@ -214,6 +220,13 @@ public final class Utils {
         .thenApply(f -> futures.stream().map(CompletableFuture::join).collect(Collectors.toList()));
   }
 
+  public static <T, U, V> CompletionStage<V> thenCombine(
+      CompletionStage<? extends T> from,
+      CompletionStage<? extends U> other,
+      BiFunction<? super T, ? super U, ? extends CompletionStage<V>> fn) {
+    return from.thenCompose(l -> other.thenCompose(r -> fn.apply(l, r)));
+  }
+
   public static Object staticMember(Class<?> clz, String attribute) {
     return reflectionAttribute(clz, null, attribute);
   }
@@ -254,12 +267,6 @@ public final class Utils {
           throw new IllegalStateException("Duplicate key");
         },
         TreeMap::new);
-  }
-
-  public static <K, V> LinkedHashMap<K, V> toLinkedHashMap(List<Map.Entry<K, V>> entries) {
-    var result = new LinkedHashMap<K, V>();
-    entries.forEach(e -> result.put(e.getKey(), e.getValue()));
-    return result;
   }
 
   private Utils() {}

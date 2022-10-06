@@ -42,9 +42,8 @@ class SparkUtilsTest {
         val i = iterator.next()
         assert(row(0) equals data(i).name)
         assert(
-          row(1) equals s"{\"name\":\"${data(i).name}\",\"age\":${data(i).age}}"
+          row(1) equals s"""{"name":"${data(i).name}","age":${data(i).age}}"""
         )
-        println(row(1))
       })
   }
 
@@ -79,11 +78,12 @@ class SparkUtilsTest {
         val i = iterator.next()
         assert(row(0) equals s"${data(i).firstName}${data(i).secondName}")
         assert(
-          row(1) equals s"{\"firstName\":\"${data(i).firstName}\",\"secondName\":\"${data(
+          row(1) equals s"""{"firstName":"${data(
             i
-          ).secondName}\",\"age\":${data(i).age}}"
+          ).firstName}","secondName":"${data(i).secondName}","age":${data(
+            i
+          ).age}}"""
         )
-        println(row(1))
       })
   }
 

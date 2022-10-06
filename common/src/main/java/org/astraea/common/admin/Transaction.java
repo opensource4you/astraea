@@ -16,102 +16,62 @@
  */
 package org.astraea.common.admin;
 
-import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-public class Transaction {
+public interface Transaction {
 
-  public static Transaction from(org.apache.kafka.clients.admin.TransactionDescription td) {
-    return new Transaction(
-        td.coordinatorId(),
-        TransactionState.from(td.state()),
-        td.producerId(),
-        td.producerEpoch(),
-        td.transactionTimeoutMs(),
-        td.topicPartitions().stream().map(TopicPartition::from).collect(Collectors.toSet()));
+  static Transaction of(
+      String transactionId, org.apache.kafka.clients.admin.TransactionDescription td) {
+    return new Transaction() {
+      @Override
+      public String transactionId() {
+        return transactionId;
+      }
+
+      @Override
+      public int coordinatorId() {
+        return td.coordinatorId();
+      }
+
+      @Override
+      public TransactionState state() {
+        return TransactionState.of(td.state());
+      }
+
+      @Override
+      public long producerId() {
+        return td.producerId();
+      }
+
+      @Override
+      public int producerEpoch() {
+        return td.producerEpoch();
+      }
+
+      @Override
+      public long transactionTimeoutMs() {
+        return 0;
+      }
+
+      @Override
+      public Set<TopicPartition> topicPartitions() {
+        return td.topicPartitions().stream().map(TopicPartition::from).collect(Collectors.toSet());
+      }
+    };
   }
 
-  private final int coordinatorId;
-  private final TransactionState state;
-  private final long producerId;
-  private final int producerEpoch;
-  private final long transactionTimeoutMs;
-  private final Set<TopicPartition> topicPartitions;
+  String transactionId();
 
-  public Transaction(
-      int coordinatorId,
-      TransactionState state,
-      long producerId,
-      int producerEpoch,
-      long transactionTimeoutMs,
-      Set<TopicPartition> topicPartitions) {
-    this.coordinatorId = coordinatorId;
-    this.state = state;
-    this.producerId = producerId;
-    this.producerEpoch = producerEpoch;
-    this.transactionTimeoutMs = transactionTimeoutMs;
-    this.topicPartitions = topicPartitions;
-  }
+  int coordinatorId();
 
-  public int coordinatorId() {
-    return coordinatorId;
-  }
+  TransactionState state();
 
-  public TransactionState state() {
-    return state;
-  }
+  long producerId();
 
-  public long producerId() {
-    return producerId;
-  }
+  int producerEpoch();
 
-  public int producerEpoch() {
-    return producerEpoch;
-  }
+  long transactionTimeoutMs();
 
-  public long transactionTimeoutMs() {
-    return transactionTimeoutMs;
-  }
-
-  public Set<TopicPartition> topicPartitions() {
-    return topicPartitions;
-  }
-
-  @Override
-  public boolean equals(Object o) {
-    if (this == o) return true;
-    if (o == null || getClass() != o.getClass()) return false;
-    Transaction that = (Transaction) o;
-    return coordinatorId == that.coordinatorId
-        && producerId == that.producerId
-        && producerEpoch == that.producerEpoch
-        && transactionTimeoutMs == that.transactionTimeoutMs
-        && state == that.state
-        && Objects.equals(topicPartitions, that.topicPartitions);
-  }
-
-  @Override
-  public int hashCode() {
-    return Objects.hash(
-        coordinatorId, state, producerId, producerEpoch, transactionTimeoutMs, topicPartitions);
-  }
-
-  @Override
-  public String toString() {
-    return "Transaction{"
-        + "coordinatorId="
-        + coordinatorId
-        + ", state="
-        + state
-        + ", producerId="
-        + producerId
-        + ", producerEpoch="
-        + producerEpoch
-        + ", transactionTimeoutMs="
-        + transactionTimeoutMs
-        + ", topicPartitions="
-        + topicPartitions
-        + '}';
-  }
+  Set<TopicPartition> topicPartitions();
 }

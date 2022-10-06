@@ -59,13 +59,12 @@ class PipelineHandler implements Handler {
 
   static Collection<TopicPartition> topicPartitions(Admin admin) {
     var result =
-        admin.partitions().stream()
+        admin.topicPartitions().stream()
             .collect(
                 Collectors.toMap(
                     Function.identity(), tp -> new TopicPartition(tp.topic(), tp.partition())));
     admin
-        .consumerGroups()
-        .values()
+        .consumerGroups(admin.consumerGroupIds())
         .forEach(
             cg ->
                 cg.assignment()
@@ -77,7 +76,7 @@ class PipelineHandler implements Handler {
                                 .forEach(tp -> result.get(tp).to.add(new Consumer(m)))));
     admin
         .producerStates(result.keySet())
-        .forEach((tp, p) -> p.forEach(s -> result.get(tp).from.add(new Producer(s))));
+        .forEach(p -> result.get(p.topicPartition()).from.add(new Producer(p)));
     return result.values().stream()
         .sorted(
             Comparator.comparing((TopicPartition tp) -> tp.topic).thenComparing(tp -> tp.partition))

@@ -38,7 +38,7 @@ class ProducerHandler implements Handler {
   Set<TopicPartition> partitions(Map<String, String> queries) {
     if (queries.containsKey(TOPIC_KEY) && queries.containsKey(PARTITION_KEY))
       return Set.of(TopicPartition.of(queries.get(TOPIC_KEY), queries.get(PARTITION_KEY)));
-    var partitions = admin.partitions();
+    var partitions = admin.topicPartitions();
     if (queries.containsKey(TOPIC_KEY))
       return partitions.stream()
           .filter(p -> p.topic().equals(queries.get(TOPIC_KEY)))
@@ -49,7 +49,10 @@ class ProducerHandler implements Handler {
   @Override
   public Partitions get(Channel channel) {
     var topics =
-        admin.producerStates(partitions(channel.queries())).entrySet().stream()
+        admin.producerStates(partitions(channel.queries())).stream()
+            .collect(Collectors.groupingBy(org.astraea.common.admin.ProducerState::topicPartition))
+            .entrySet()
+            .stream()
             .map(e -> new Partition(e.getKey(), e.getValue()))
             .collect(Collectors.toUnmodifiableList());
     return new Partitions(topics);

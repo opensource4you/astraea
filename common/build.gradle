@@ -9,12 +9,13 @@ repositories {
 }
 
 def versions = [
-        kafka: project.properties['kafka.version'] ?: "3.2.1",
-        junit: project.properties['junit.version'] ?: "5.8.2",
-        mockito: project.properties['mockito.version'] ?: "4.6.1",
-        jcommander: project.properties['jcommander.version'] ?: "1.82",
-        slf4j: project.properties['slf4j.version'] ?: "1.7.36",
-        "commons-io": project.properties['commons-io.version'] ?: "2.11.0",
+    kafka       : project.properties['kafka.version'] ?: "3.2.1",
+    junit       : project.properties['junit.version'] ?: "5.8.2",
+    mockito     : project.properties['mockito.version'] ?: "4.6.1",
+    jcommander  : project.properties['jcommander.version'] ?: "1.82",
+    slf4j       : project.properties['slf4j.version'] ?: "1.7.36",
+    "commons-io": project.properties['commons-io.version'] ?: "2.11.0",
+    "math3"     : project.properties['math3.version'] ?: "3.6.1",
 ]
 
 dependencies {
@@ -29,6 +30,7 @@ dependencies {
     implementation "com.beust:jcommander:${versions["jcommander"]}"
     // we don't use slf4j actually, and it is used by kafka so we swallow the log.
     implementation "org.slf4j:slf4j-nop:${versions["slf4j"]}"
+    implementation "org.apache.commons:commons-math3:${versions["math3"]}"
 }
 
 java {
@@ -75,4 +77,88 @@ publishing {
             }
         }
     }
+}
+
+private String exec(String[] args) {
+    def stdout = new ByteArrayOutputStream()
+    exec {
+        commandLine args
+        standardOutput = stdout
+    }
+    // If the shell is wrapped by cygwin, the line separator is changed to \n...
+    // Hence, checking the separator manually is more suitable in this case
+    def s = stdout.toString()
+    if (s.contains("\r\n")) return s.replaceAll("\r\n", "")
+    return s.replaceAll("\n", "")
+}
+
+import org.apache.tools.ant.taskdefs.condition.Os
+
+private String whoami() {
+    try {
+        if (Os.isFamily(Os.FAMILY_WINDOWS)) {
+            def fullName = exec("whoami")
+            def backslash = fullName.lastIndexOf("\\")
+            if (backslash == -1) return fullName
+            else fullName.substring(backslash + 1)
+        } else return exec("whoami")
+    } catch (Throwable ignored) {
+        return "Unknown"
+    }
+}
+
+private String user() {
+    try {
+        return exec("git", "config", "user.name")
+    } catch (Throwable ignored) {
+        // if git's user is not set, git will return exit code 1
+        return whoami()
+    }
+}
+
+private String revision() {
+    try {
+        return exec("git", "log", "-1", "--pretty=format:%H")
+    } catch (Throwable ignored) {
+        // if git's user is not set, git will return exit code 1
+        return "Unknown"
+    }
+}
+
+private static String date() {
+    return new Date().format('yyyy-MM-dd HH:mm:ss')
+}
+
+private String version() {
+    return project.version.toString();
+}
+
+task initializer {
+    doLast {
+        def file = new File("$projectDir" + "/src/main/java/org/astraea/common/VersionUtils.java")
+        if (file.exists()) file.delete()
+        String code = """package org.astraea.common;
+// DON'T touch this file!!! It is generated dynamically. see common/build.gradle
+public final class VersionUtils {
+  public static final String VERSION = \"${version()}\";
+  public static final String BUILDER = \"${user()}\";
+  public static final String REVISION = \"${revision()}\";
+  public static final String DATE = \"${date()}\";
+  private VersionUtils() {}
+}
+"""
+        def writer = new FileWriter(file)
+        try {
+            writer.write(code.replaceAll("\n", System.lineSeparator()))
+        } finally {
+            writer.close()
+        }
+    }
+}
+
+/**
+ * Generating VersionUtils must run before compileJava.
+ */
+tasks.matching { it.name != 'initializer' && it.name == "compileJava" }.all { Task task ->
+    task.dependsOn initializer
 }

@@ -18,7 +18,6 @@ package org.astraea.app.performance;
 
 import com.beust.jcommander.ParameterException;
 import java.time.Duration;
-import java.util.Collection;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.stream.Collectors;
@@ -150,8 +149,7 @@ public class PerformanceTest extends RequireBrokerCluster {
                 "1"
               });
       var expectedLeaders =
-          admin.replicas(Set.of(topicName)).values().stream()
-              .flatMap(Collection::stream)
+          admin.replicas(Set.of(topicName)).stream()
               .filter(Replica::isLeader)
               .filter(r -> r.nodeInfo().id() == 1)
               .map(ReplicaInfo::topicPartition)
@@ -186,8 +184,7 @@ public class PerformanceTest extends RequireBrokerCluster {
               });
 
       var expected2 =
-          admin.replicas(Set.of(topicName, topicName2)).values().stream()
-              .flatMap(Collection::stream)
+          admin.replicas(Set.of(topicName, topicName2)).stream()
               .filter(ReplicaInfo::isLeader)
               .filter(replica -> replica.nodeInfo().id() == 1)
               .map(ReplicaInfo::topicPartition)
@@ -214,12 +211,7 @@ public class PerformanceTest extends RequireBrokerCluster {
       admin.creator().topic(topicName3).numberOfPartitions(1).create();
       Utils.sleep(Duration.ofSeconds(2));
       var validBroker =
-          admin.replicas(Set.of(topicName3)).values().stream()
-              .findAny()
-              .get()
-              .get(0)
-              .nodeInfo()
-              .id();
+          admin.replicas(Set.of(topicName3)).stream().findFirst().get().nodeInfo().id();
       var noPartitionBroker = (validBroker == 3) ? 1 : validBroker + 1;
       args =
           Argument.parse(
@@ -395,5 +387,79 @@ public class PerformanceTest extends RequireBrokerCluster {
       admin.creator().topic(topic).create();
     }
     return topic;
+  }
+
+  @Test
+  void testPartitionerConflict() {
+    var argument =
+        new String[] {
+          "--bootstrap.servers",
+          "localhost:9092",
+          "--topics",
+          "ignore",
+          "--interdependent.size",
+          "3",
+          "--partitioner",
+          "org.astraea.common.partitioner.StrictCostDispatcher"
+        };
+    Assertions.assertDoesNotThrow(
+        () -> Argument.parse(new Performance.Argument(), argument).partitioner());
+
+    var argument1 =
+        new String[] {
+          "--bootstrap.servers",
+          "localhost:9092",
+          "--topics",
+          "ignore",
+          "--interdependent.size",
+          "3"
+        };
+    Assertions.assertThrows(
+        ParameterException.class,
+        () -> Argument.parse(new Performance.Argument(), argument1).partitioner());
+    var argument2 =
+        new String[] {
+          "--bootstrap.servers",
+          "localhost:9092",
+          "--topics",
+          "ignore",
+          "--interdependent.size",
+          "3",
+          "--partitioner",
+          "org.apache.kafka.clients.producer.internals.DefaultPartitioner"
+        };
+    Assertions.assertThrows(
+        ParameterException.class,
+        () -> Argument.parse(new Performance.Argument(), argument2).partitioner());
+
+    var argument3 =
+        new String[] {
+          "--bootstrap.servers",
+          "localhost:9092",
+          "--topics",
+          "ignore",
+          "--partitioner",
+          "org.apache.kafka.clients.producer.internals.DefaultPartitioner",
+          "--specify.brokers",
+          "1"
+        };
+    Assertions.assertThrows(
+        IllegalArgumentException.class,
+        () -> Argument.parse(new Performance.Argument(), argument3).partitioner());
+
+    var argument4 =
+        new String[] {
+          "--bootstrap.servers",
+          "localhost:9092",
+          "--topics",
+          "ignore",
+          "--partitioner",
+          "org.apache.kafka.clients.producer.internals.DefaultPartitioner",
+          "--specify.partitions",
+          "1"
+        };
+    Assertions.assertThrows(
+        IllegalArgumentException.class,
+        () -> Argument.parse(new Performance.Argument(), argument4).partitioner());
   }
 }

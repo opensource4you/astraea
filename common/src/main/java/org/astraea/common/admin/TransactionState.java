@@ -51,11 +51,11 @@ public enum TransactionState implements EnumInfo {
     return name;
   }
 
-  public static TransactionState from(org.apache.kafka.clients.admin.TransactionState state) {
-    return from(state.toString());
+  public static TransactionState of(org.apache.kafka.clients.admin.TransactionState state) {
+    return of(state.toString());
   }
 
-  public static TransactionState from(String value) {
+  public static TransactionState of(String value) {
     return all().stream()
         .filter(s -> s.name.equalsIgnoreCase(value))
         .findFirst()
