@@ -31,8 +31,10 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.kafka.clients.admin.ConsumerGroupListing;
 import org.apache.kafka.clients.admin.KafkaAdminClient;
+import org.apache.kafka.clients.admin.ListOffsetsResult;
 import org.apache.kafka.clients.admin.ListTopicsOptions;
 import org.apache.kafka.clients.admin.NewPartitionReassignment;
+import org.apache.kafka.clients.admin.NewPartitions;
 import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.clients.admin.OffsetSpec;
 import org.apache.kafka.clients.admin.ReplicaInfo;
@@ -184,6 +186,16 @@ class AsyncAdminImpl implements AsyncAdmin {
                                                                     new OffsetSpec
                                                                         .MaxTimestampSpec())))
                                                 .all())
+                                            // the old kafka does not support to fetch max timestamp
+                                            .handle(
+                                                (r, e) ->
+                                                    e == null
+                                                        ? r
+                                                        : Map
+                                                            .<String,
+                                                                ListOffsetsResult
+                                                                    .ListOffsetsResultInfo>
+                                                                of())
                                             .thenApply(
                                                 maxTimestamp ->
                                                     partitions.entrySet().stream()
@@ -306,6 +318,7 @@ class AsyncAdminImpl implements AsyncAdmin {
                         groupId ->
                             new ConsumerGroup(
                                 groupId,
+                                NodeInfo.of(consumerGroupDescriptions.get(groupId).coordinator()),
                                 consumerGroupMetadata.get(groupId).entrySet().stream()
                                     .collect(
                                         Collectors.toUnmodifiableMap(
@@ -748,6 +761,11 @@ class AsyncAdminImpl implements AsyncAdmin {
               else f.completeExceptionally(e);
             });
     return f;
+  }
+
+  @Override
+  public CompletionStage<Void> addPartitions(String topic, int total) {
+    return to(kafkaAdmin.createPartitions(Map.of(topic, NewPartitions.increaseTo(total))).all());
   }
 
   @Override
