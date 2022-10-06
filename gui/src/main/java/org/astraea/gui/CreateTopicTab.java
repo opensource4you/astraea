@@ -16,71 +16,84 @@
  */
 package org.astraea.gui;
 
+import java.util.HashMap;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
-import javafx.scene.control.Button;
-import javafx.scene.control.Label;
 import javafx.scene.control.Tab;
-import javafx.scene.control.TextField;
+import org.astraea.common.LinkedHashSet;
+import org.astraea.common.admin.TopicCreator;
 
 public class CreateTopicTab {
 
+  private static final LinkedHashSet<String> ALL_CONFIG_KEYS =
+      LinkedHashSet.of(
+          TopicCreator.SEGMENT_BYTES_CONFIG,
+          TopicCreator.SEGMENT_MS_CONFIG,
+          TopicCreator.SEGMENT_JITTER_MS_CONFIG,
+          TopicCreator.SEGMENT_INDEX_BYTES_CONFIG,
+          TopicCreator.FLUSH_MESSAGES_INTERVAL_CONFIG,
+          TopicCreator.FLUSH_MS_CONFIG,
+          TopicCreator.RETENTION_BYTES_CONFIG,
+          TopicCreator.RETENTION_MS_CONFIG,
+          TopicCreator.REMOTE_LOG_STORAGE_ENABLE_CONFIG,
+          TopicCreator.LOCAL_LOG_RETENTION_MS_CONFIG,
+          TopicCreator.LOCAL_LOG_RETENTION_BYTES_CONFIG,
+          TopicCreator.MAX_MESSAGE_BYTES_CONFIG,
+          TopicCreator.INDEX_INTERVAL_BYTES_CONFIG,
+          TopicCreator.FILE_DELETE_DELAY_MS_CONFIG,
+          TopicCreator.DELETE_RETENTION_MS_CONFIG,
+          TopicCreator.MIN_COMPACTION_LAG_MS_CONFIG,
+          TopicCreator.MAX_COMPACTION_LAG_MS_CONFIG,
+          TopicCreator.MIN_CLEANABLE_DIRTY_RATIO_CONFIG,
+          TopicCreator.CLEANUP_POLICY_CONFIG,
+          TopicCreator.UNCLEAN_LEADER_ELECTION_ENABLE_CONFIG,
+          TopicCreator.MIN_IN_SYNC_REPLICAS_CONFIG,
+          TopicCreator.COMPRESSION_TYPE_CONFIG,
+          TopicCreator.PREALLOCATE_CONFIG,
+          TopicCreator.MESSAGE_TIMESTAMP_TYPE_CONFIG,
+          TopicCreator.MESSAGE_TIMESTAMP_DIFFERENCE_MAX_MS_CONFIG,
+          TopicCreator.MESSAGE_DOWNCONVERSION_ENABLE_CONFIG);
+
   public static Tab of(Context context) {
     var tab = new Tab("create topic");
-    var topicField = new TextField();
-    var partitionsField = Utils.onlyNumber(1);
-    var replicasField = new IntegerBox(1);
-
-    var executeButton = new Button("create");
-    var console = new ConsoleArea();
-    executeButton.setOnAction(
-        ignored -> {
-          var name = topicField.getText();
-          if (name.isEmpty()) {
-            console.append("please enter topic name");
-            return;
-          }
-          context.execute(
-              admin ->
-                  admin
-                      .topicNames(true)
-                      .thenCompose(
-                          names -> {
-                            if (names.contains(name))
-                              return CompletableFuture.completedFuture(name + " is existent");
-                            return admin
-                                .creator()
-                                .topic(name)
-                                .numberOfPartitions(Integer.parseInt(partitionsField.getText()))
-                                .numberOfReplicas(replicasField.getValue().shortValue())
-                                .run()
-                                .thenApply(nonexistent -> "succeed to create " + name);
-                          })
-                      .whenComplete(console::text));
-        });
     tab.setContent(
-        Utils.vbox(
-            Utils.hbox(new Label("name:"), topicField),
-            Utils.hbox(new Label("partitions:"), partitionsField),
-            Utils.hbox(new Label("replicas"), replicasField),
-            executeButton,
-            console));
-    tab.setOnSelectionChanged(
-        ignored -> {
-          if (!tab.isSelected()) return;
-          context.execute(
-              admin ->
-                  admin
-                      .brokers()
-                      .whenComplete(
-                          (brokers, e) ->
-                              replicasField.values(
-                                  IntStream.range(0, brokers.size())
-                                      .mapToObj(i -> i + 1)
-                                      .collect(Collectors.toList()),
-                                  0)));
-        });
+        Utils.form(
+            LinkedHashSet.of("topic", "partitions", "replicas"),
+            ALL_CONFIG_KEYS,
+            (result, console) -> {
+              var allConfigs = new HashMap<>(result);
+              var name = allConfigs.remove("name");
+              if (name == null)
+                return CompletableFuture.failedFuture(
+                    new IllegalArgumentException("please define topic name"));
+              return context.submit(
+                  admin ->
+                      admin
+                          .topicNames(true)
+                          .thenCompose(
+                              names -> {
+                                if (names.contains(name))
+                                  return CompletableFuture.completedFuture(
+                                      name + " is already existent");
+
+                                return admin
+                                    .creator()
+                                    .topic(name)
+                                    .numberOfPartitions(
+                                        Optional.ofNullable(allConfigs.remove("partitions"))
+                                            .map(Integer::parseInt)
+                                            .orElse(1))
+                                    .numberOfReplicas(
+                                        Optional.ofNullable(allConfigs.remove("replicas"))
+                                            .map(Short::parseShort)
+                                            .orElse((short) 1))
+                                    .configs(allConfigs)
+                                    .run()
+                                    .thenApply(i -> "succeed to create topic:" + name);
+                              }));
+            },
+            "CREATE"));
+
     return tab;
   }
 }

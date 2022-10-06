@@ -19,21 +19,25 @@ package org.astraea.gui;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.text.SimpleDateFormat;
-import java.time.Duration;
 import java.util.Collection;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import javafx.application.Platform;
 import javafx.beans.property.ReadOnlyObjectWrapper;
 import javafx.collections.FXCollections;
+import javafx.geometry.HPos;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
@@ -45,13 +49,12 @@ import javafx.scene.control.TableView;
 import javafx.scene.control.TextField;
 import javafx.scene.control.ToggleGroup;
 import javafx.scene.input.KeyCode;
+import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Pane;
 import javafx.scene.layout.VBox;
 
 class Utils {
-  private static final Duration DELAY_INPUT = Duration.ofMillis(900);
-
   public static TextField onlyNumber(int defaultValue) {
     var field = new TextField(String.valueOf(defaultValue));
     field
@@ -114,6 +117,80 @@ class Utils {
         nodes);
   }
 
+  public static <R> Pane form(
+      LinkedHashSet<String> requiredFields,
+      LinkedHashSet<String> optionalFields,
+      BiFunction<Map<String, String>, Console, CompletionStage<R>> action,
+      String buttonText) {
+
+    var allTexts = new LinkedHashMap<String, TextField>();
+
+    BiFunction<LinkedHashSet<String>, Integer, Pane> paneFunction =
+        (fields, maxNumberOfItems) -> {
+          var pane = new GridPane();
+          pane.setAlignment(Pos.CENTER);
+          var row = new AtomicInteger();
+          var column = new AtomicInteger();
+          fields.forEach(
+              key -> {
+                var label = new Label(key);
+                GridPane.setHalignment(label, HPos.RIGHT);
+                GridPane.setMargin(label, new Insets(10, 5, 10, 15));
+                pane.add(label, column.getAndIncrement() % maxNumberOfItems, row.get());
+
+                var textField = new TextField();
+                GridPane.setHalignment(textField, HPos.LEFT);
+                GridPane.setMargin(textField, new Insets(10, 15, 10, 5));
+                pane.add(textField, column.getAndIncrement() % maxNumberOfItems, row.get());
+                if (column.get() % maxNumberOfItems == 0) row.incrementAndGet();
+                allTexts.put(key, textField);
+              });
+          return pane;
+        };
+    var button = new Button(buttonText);
+    var console = new ConsoleArea();
+
+    Runnable runAction =
+        () -> {
+          var items =
+              allTexts.entrySet().stream()
+                  .map(
+                      entry -> {
+                        var text = entry.getValue().getText();
+                        if (text == null || text.isBlank())
+                          return Optional.<Map.Entry<String, String>>empty();
+                        return Optional.of(Map.entry(entry.getKey(), text));
+                      })
+                  .filter(Optional::isPresent)
+                  .map(Optional::get)
+                  .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+          try {
+            button.setDisable(true);
+            action
+                .apply(items, console)
+                .whenComplete(
+                    (r, e) -> {
+                      try {
+                        console.text(r.toString(), e);
+                      } finally {
+                        Platform.runLater(() -> button.setDisable(false));
+                      }
+                    });
+          } catch (Exception e) {
+            button.setDisable(false);
+            console.text(e);
+          }
+        };
+
+    button.setOnAction(ignored -> runAction.run());
+    return Utils.vbox(
+        Pos.CENTER,
+        paneFunction.apply(requiredFields, 6),
+        paneFunction.apply(optionalFields, 6),
+        button,
+        console);
+  }
+
   public static <T, N extends Node, R> Pane searchToTable(
       BiFunction<String, Console, CompletionStage<SearchResult<T>>> resultGenerator,
       BiFunction<SearchResult<T>, Console, CompletionStage<R>> resultConsumer,
@@ -125,7 +202,7 @@ class Utils {
     var isRunning = new AtomicBoolean(false);
     var lastResult = new AtomicReference<SearchResult<T>>();
     var applyResultButton = new Button("apply");
-    var searchButton = new Button("search");
+    var searchButton = new Button("SEARCH");
 
     Runnable processSearch =
         () -> {
@@ -202,13 +279,11 @@ class Utils {
                 .apply(result, console)
                 .whenComplete((r, e) -> console.append("result is applied", e));
           });
-
+    var topItems = new LinkedList<Node>(nodes);
+    topItems.addLast(search);
+    topItems.addLast(searchButton);
     return vbox(
-        Pos.TOP_RIGHT,
-        hbox(Stream.concat(Stream.of(search, searchButton), nodes.stream()).toArray(Node[]::new)),
-        view,
-        applyResultButton,
-        console);
+        Pos.TOP_RIGHT, hbox(topItems.toArray(Node[]::new)), view, applyResultButton, console);
   }
 
   public static String toString(Throwable e) {
