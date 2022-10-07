@@ -668,7 +668,13 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
           "Schedule the rebalance task");
 
       // Wait until the migration occurred
-      Utils.waitFor(() -> !admin.addingReplicas(Set.copyOf(topics)).isEmpty());
+      try {
+        Utils.waitFor(
+            () ->
+                admin.replicas(Set.copyOf(topics)).stream()
+                    .anyMatch(replica -> replica.isFuture() || !replica.inSync()));
+      } catch (Exception ignore) {
+      }
 
       Assertions.assertDoesNotThrow(
           () -> handler.put(Channel.ofRequest(PostRequest.of(Map.of("id", report.id)))),
