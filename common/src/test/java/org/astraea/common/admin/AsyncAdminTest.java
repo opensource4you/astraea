@@ -148,4 +148,42 @@ public class AsyncAdminTest extends RequireBrokerCluster {
               .getCause());
     }
   }
+
+  @Test
+  void testUpdateTopicConfig() throws ExecutionException, InterruptedException {
+    var topic = Utils.randomString();
+    try (var admin = AsyncAdmin.of(bootstrapServers())) {
+      admin.creator().topic(topic).numberOfPartitions(1).run().toCompletableFuture().get();
+      Utils.sleep(Duration.ofSeconds(2));
+
+      var config = admin.topics(Set.of(topic)).toCompletableFuture().get().get(0).config();
+      Assertions.assertEquals("delete", config.value("cleanup.policy").get());
+
+      admin.updateConfig(topic, Map.of("cleanup.policy", "compact")).toCompletableFuture().get();
+      Utils.sleep(Duration.ofSeconds(2));
+      config = admin.topics(Set.of(topic)).toCompletableFuture().get().get(0).config();
+      Assertions.assertEquals("compact", config.value("cleanup.policy").get());
+    }
+  }
+
+  @Test
+  void testUpdateBrokerConfig() throws ExecutionException, InterruptedException {
+    var topic = Utils.randomString();
+    try (var admin = AsyncAdmin.of(bootstrapServers())) {
+      var broker = admin.brokers().toCompletableFuture().get().get(0);
+      Assertions.assertEquals("producer", broker.config().value("compression.type").get());
+
+      admin
+          .updateConfig(broker.id(), Map.of("compression.type", "gzip"))
+          .toCompletableFuture()
+          .get();
+      Utils.sleep(Duration.ofSeconds(2));
+      var broker2 =
+          admin.brokers().toCompletableFuture().get().stream()
+              .filter(b -> b.id() == broker.id())
+              .findFirst()
+              .get();
+      Assertions.assertEquals("gzip", broker2.config().value("compression.type").get());
+    }
+  }
 }

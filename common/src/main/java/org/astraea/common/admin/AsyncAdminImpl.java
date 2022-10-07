@@ -29,6 +29,8 @@ import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import org.apache.kafka.clients.admin.AlterConfigOp;
+import org.apache.kafka.clients.admin.ConfigEntry;
 import org.apache.kafka.clients.admin.ConsumerGroupListing;
 import org.apache.kafka.clients.admin.KafkaAdminClient;
 import org.apache.kafka.clients.admin.ListOffsetsResult;
@@ -766,6 +768,40 @@ class AsyncAdminImpl implements AsyncAdmin {
   @Override
   public CompletionStage<Void> addPartitions(String topic, int total) {
     return to(kafkaAdmin.createPartitions(Map.of(topic, NewPartitions.increaseTo(total))).all());
+  }
+
+  @Override
+  public CompletionStage<Void> updateConfig(String topic, Map<String, String> override) {
+    return to(
+        kafkaAdmin
+            .incrementalAlterConfigs(
+                Map.of(
+                    new ConfigResource(ConfigResource.Type.TOPIC, topic),
+                    override.entrySet().stream()
+                        .map(
+                            entry ->
+                                new AlterConfigOp(
+                                    new ConfigEntry(entry.getKey(), entry.getValue()),
+                                    AlterConfigOp.OpType.SET))
+                        .collect(Collectors.toList())))
+            .all());
+  }
+
+  @Override
+  public CompletionStage<Void> updateConfig(int brokerId, Map<String, String> override) {
+    return to(
+        kafkaAdmin
+            .incrementalAlterConfigs(
+                Map.of(
+                    new ConfigResource(ConfigResource.Type.BROKER, String.valueOf(brokerId)),
+                    override.entrySet().stream()
+                        .map(
+                            entry ->
+                                new AlterConfigOp(
+                                    new ConfigEntry(entry.getKey(), entry.getValue()),
+                                    AlterConfigOp.OpType.SET))
+                        .collect(Collectors.toList())))
+            .all());
   }
 
   @Override
