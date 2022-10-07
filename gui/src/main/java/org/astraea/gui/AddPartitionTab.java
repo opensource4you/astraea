@@ -22,18 +22,21 @@ import org.astraea.common.LinkedHashSet;
 
 public class AddPartitionTab {
 
+  private static final String TOPIC_NAME = "topic";
+  private static final String NUMBER_OF_PARTITIONS = "number of partitions";
+
   public static Tab of(Context context) {
     var tab = new Tab("add partition");
     tab.setContent(
         Utils.form(
-            LinkedHashSet.of("name", "total partitions"),
+            LinkedHashSet.of(TOPIC_NAME, NUMBER_OF_PARTITIONS),
             LinkedHashSet.of(),
             (result, console) -> {
-              var name = result.get("name");
+              var name = result.get(TOPIC_NAME);
               if (name == null || name.isEmpty())
                 return CompletableFuture.failedFuture(
                     new IllegalArgumentException("please enter topic name"));
-              var partitions = result.get("total partitions");
+              var partitions = result.get(NUMBER_OF_PARTITIONS);
               if (partitions == null || partitions.isEmpty())
                 return CompletableFuture.failedFuture(
                     new IllegalArgumentException("please enter total number of partitions"));

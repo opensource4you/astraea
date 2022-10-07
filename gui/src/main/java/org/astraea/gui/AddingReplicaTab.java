@@ -70,7 +70,8 @@ public class AddingReplicaTab {
                                                 s ->
                                                     Utils.contains(s.topic(), word)
                                                         || Utils.contains(
-                                                            String.valueOf(s.broker()), word)))))));
+                                                            String.valueOf(s.broker()), word))))),
+            "SEARCH for topic"));
     return tab;
   }
 }

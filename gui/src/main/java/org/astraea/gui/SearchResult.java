@@ -60,4 +60,8 @@ public interface SearchResult<T> {
   }
 
   List<Map<String, Object>> items();
+
+  default boolean isEmpty() {
+    return items().isEmpty();
+  }
 }

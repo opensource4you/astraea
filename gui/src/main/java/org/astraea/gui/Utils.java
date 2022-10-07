@@ -29,7 +29,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletionStage;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiFunction;
@@ -99,22 +98,6 @@ class Utils {
     pane.getChildren().setAll(nodes);
     pane.setAlignment(pos);
     return pane;
-  }
-
-  public static <T extends Map<String, Object>> Pane searchToTable(
-      BiFunction<String, Console, CompletionStage<List<T>>> itemGenerator) {
-    return searchToTable(
-        (word, console) -> itemGenerator.apply(word, console).thenApply(SearchResult::of),
-        null,
-        List.of());
-  }
-
-  public static <T extends Map<String, Object>, N extends Node> Pane searchToTable(
-      BiFunction<String, Console, CompletionStage<List<T>>> itemGenerator, Collection<N> nodes) {
-    return searchToTable(
-        (word, console) -> itemGenerator.apply(word, console).thenApply(SearchResult::of),
-        null,
-        nodes);
   }
 
   public static <R> Pane form(
@@ -191,22 +174,42 @@ class Utils {
         console);
   }
 
+  public static <T extends Map<String, Object>> Pane searchToTable(
+      BiFunction<String, Console, CompletionStage<List<T>>> itemGenerator, String buttonText) {
+    return searchToTable(
+        (word, console) -> itemGenerator.apply(word, console).thenApply(SearchResult::of),
+        null,
+        List.of(),
+        buttonText);
+  }
+
+  public static <T extends Map<String, Object>, N extends Node> Pane searchToTable(
+      BiFunction<String, Console, CompletionStage<List<T>>> itemGenerator,
+      Collection<N> nodes,
+      String buttonText) {
+    return searchToTable(
+        (word, console) -> itemGenerator.apply(word, console).thenApply(SearchResult::of),
+        null,
+        nodes,
+        buttonText);
+  }
+
   public static <T, N extends Node, R> Pane searchToTable(
       BiFunction<String, Console, CompletionStage<SearchResult<T>>> resultGenerator,
       BiFunction<SearchResult<T>, Console, CompletionStage<R>> resultConsumer,
-      Collection<N> nodes) {
+      Collection<N> nodes,
+      String buttonText) {
     var view = new TableView<>(FXCollections.<Map<String, Object>>observableArrayList());
     view.setColumnResizePolicy(TableView.UNCONSTRAINED_RESIZE_POLICY);
     var console = new ConsoleArea();
     var search = new TextField("");
-    var isRunning = new AtomicBoolean(false);
     var lastResult = new AtomicReference<SearchResult<T>>();
     var applyResultButton = new Button("apply");
-    var searchButton = new Button("SEARCH");
+    var searchButton = new Button(buttonText);
 
     Runnable processSearch =
         () -> {
-          if (!isRunning.compareAndSet(false, true)) {
+          if (!lastResult.compareAndSet(null, SearchResult.empty())) {
             console.append("previous search is running");
             return;
           }
@@ -220,7 +223,7 @@ class Utils {
           try {
             future = resultGenerator.apply(word, console);
           } catch (Exception e) {
-            isRunning.set(false);
+            lastResult.set(null);
             searchButton.setDisable(false);
             console.append(e);
             return;
@@ -228,10 +231,10 @@ class Utils {
 
           future.whenComplete(
               (result, e) -> {
-                if (e != null || result == null || result == SearchResult.empty()) {
+                if (e != null || result == null || result.isEmpty()) {
                   console.append("can't generate result. Please retry it.", e);
                   searchButton.setDisable(false);
-                  isRunning.set(false);
+                  lastResult.set(null);
                   return;
                 }
                 var tables =
@@ -252,7 +255,7 @@ class Utils {
                       view.getColumns().setAll(tables);
                       view.getItems().setAll(result.items());
                       searchButton.setDisable(false);
-                      isRunning.set(false);
+                      lastResult.set(null);
                       // There is a callback of result, so we display the button.
                       if (resultConsumer != null) applyResultButton.setVisible(true);
                     });
@@ -270,14 +273,18 @@ class Utils {
           ignored -> {
             applyResultButton.setVisible(false);
             var result = lastResult.get();
-            if (result == null) {
+            if (result == null || result.isEmpty()) {
               console.append("there is no result!!!");
               return;
             }
             console.append("result is applying");
             resultConsumer
                 .apply(result, console)
-                .whenComplete((r, e) -> console.append("result is applied", e));
+                .whenComplete(
+                    (r, e) -> {
+                      lastResult.set(null);
+                      console.append("result is applied", e);
+                    });
           });
     var topItems = new LinkedList<Node>(nodes);
     topItems.addLast(search);

@@ -54,15 +54,19 @@ public class CreateTopicTab {
           TopicCreator.MESSAGE_TIMESTAMP_DIFFERENCE_MAX_MS_CONFIG,
           TopicCreator.MESSAGE_DOWNCONVERSION_ENABLE_CONFIG);
 
+  private static final String TOPIC_NAME = "topic";
+  private static final String NUMBER_OF_PARTITIONS = "number of partitions";
+  private static final String NUMBER_OF_REPLICAS = "number of replicas";
+
   public static Tab of(Context context) {
     var tab = new Tab("create topic");
     tab.setContent(
         Utils.form(
-            LinkedHashSet.of("topic", "partitions", "replicas"),
+            LinkedHashSet.of(TOPIC_NAME, NUMBER_OF_PARTITIONS, NUMBER_OF_REPLICAS),
             ALL_CONFIG_KEYS,
             (result, console) -> {
               var allConfigs = new HashMap<>(result);
-              var name = allConfigs.remove("name");
+              var name = allConfigs.remove(TOPIC_NAME);
               if (name == null)
                 return CompletableFuture.failedFuture(
                     new IllegalArgumentException("please define topic name"));
@@ -80,11 +84,11 @@ public class CreateTopicTab {
                                     .creator()
                                     .topic(name)
                                     .numberOfPartitions(
-                                        Optional.ofNullable(allConfigs.remove("partitions"))
+                                        Optional.ofNullable(allConfigs.remove(NUMBER_OF_PARTITIONS))
                                             .map(Integer::parseInt)
                                             .orElse(1))
                                     .numberOfReplicas(
-                                        Optional.ofNullable(allConfigs.remove("replicas"))
+                                        Optional.ofNullable(allConfigs.remove(NUMBER_OF_REPLICAS))
                                             .map(Short::parseShort)
                                             .orElse((short) 1))
                                     .configs(allConfigs)

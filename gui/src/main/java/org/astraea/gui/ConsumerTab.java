@@ -80,7 +80,8 @@ public class ConsumerTab {
                                                             .anyMatch(
                                                                 tp ->
                                                                     Utils.contains(
-                                                                        tp.topic(), word)))))));
+                                                                        tp.topic(), word)))))),
+            "SEARCH for topic/group");
     var tab = new Tab("consumer");
     tab.setContent(pane);
     return tab;
