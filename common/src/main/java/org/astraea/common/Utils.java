@@ -18,9 +18,11 @@ package org.astraea.common;
 
 import java.net.InetAddress;
 import java.time.Duration;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.concurrent.CompletableFuture;
@@ -29,6 +31,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BiFunction;
 import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.Collector;
 import java.util.stream.Collectors;
@@ -267,6 +270,15 @@ public final class Utils {
           throw new IllegalStateException("Duplicate key");
         },
         TreeMap::new);
+  }
+
+  public static Set<String> constants(Class<?> clz, Predicate<String> variableNameFilter) {
+    return Arrays.stream(clz.getFields())
+        .filter(field -> variableNameFilter.test(field.getName()))
+        .map(field -> packException(() -> field.get(null)))
+        .filter(obj -> obj instanceof String)
+        .map(obj -> (String) obj)
+        .collect(Collectors.toUnmodifiableSet());
   }
 
   private Utils() {}

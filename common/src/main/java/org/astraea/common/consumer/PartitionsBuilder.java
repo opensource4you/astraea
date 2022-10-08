@@ -33,28 +33,6 @@ public class PartitionsBuilder<Key, Value> extends Builder<Key, Value> {
     this.partitions = requireNonNull(partitions);
   }
 
-  /**
-   * make the consumer read data from beginning. By default, it reads the latest data.
-   *
-   * @return this builder
-   */
-  @Override
-  public PartitionsBuilder<Key, Value> fromBeginning() {
-    super.fromBeginning();
-    return this;
-  }
-
-  /**
-   * make the consumer read data from latest. this is default setting.
-   *
-   * @return this builder
-   */
-  @Override
-  public PartitionsBuilder<Key, Value> fromLatest() {
-    super.fromLatest();
-    return this;
-  }
-
   @Override
   public <NewKey> PartitionsBuilder<NewKey, Value> keyDeserializer(
       Deserializer<NewKey> keyDeserializer) {
@@ -68,24 +46,18 @@ public class PartitionsBuilder<Key, Value> extends Builder<Key, Value> {
   }
 
   public PartitionsBuilder<Key, Value> config(String key, String value) {
-    this.configs.put(key, value);
+    super.config(key, value);
     return this;
   }
 
   public PartitionsBuilder<Key, Value> configs(Map<String, String> configs) {
-    this.configs.putAll(configs);
+    super.configs(configs);
     return this;
   }
 
   @Override
   public PartitionsBuilder<Key, Value> bootstrapServers(String bootstrapServers) {
     super.bootstrapServers(bootstrapServers);
-    return this;
-  }
-
-  @Override
-  public PartitionsBuilder<Key, Value> isolation(Isolation isolation) {
-    super.isolation(isolation);
     return this;
   }
 
@@ -98,12 +70,6 @@ public class PartitionsBuilder<Key, Value> extends Builder<Key, Value> {
   @Override
   public PartitionsBuilder<Key, Value> seek(Map<TopicPartition, Long> offsets) {
     super.seek(offsets);
-    return this;
-  }
-
-  @Override
-  public PartitionsBuilder<Key, Value> clientId(String clientId) {
-    super.clientId(clientId);
     return this;
   }
 

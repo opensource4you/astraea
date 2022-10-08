@@ -14,31 +14,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.common.consumer;
+package org.astraea.common.admin;
 
-import java.util.Locale;
-import org.astraea.common.EnumInfo;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
-public enum Isolation implements EnumInfo {
-  READ_UNCOMMITTED,
-  READ_COMMITTED;
+public class TopicConfigsTest {
 
-  public static Isolation ofAlias(String alias) {
-    return EnumInfo.ignoreCaseEnum(Isolation.class, alias);
-  }
-
-  @Override
-  public String alias() {
-    return name();
-  }
-
-  @Override
-  public String toString() {
-    return alias();
-  }
-
-  /** @return the name parsed by kafka */
-  public String nameOfKafka() {
-    return alias().toLowerCase(Locale.ROOT);
+  @Test
+  void testDynamicalConfigs() {
+    TopicConfigs.DYNAMICAL_CONFIGS.forEach(
+        config -> Assertions.assertTrue(TopicConfigs.ALL_CONFIGS.contains(config)));
   }
 }
