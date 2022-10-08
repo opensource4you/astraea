@@ -55,28 +55,29 @@ public class PartitionTab {
   }
 
   public static Tab of(Context context) {
-
     var pane =
-        Utils.searchToTable(
-            (word, console) ->
-                context.submit(
-                    admin ->
-                        admin
-                            .topicNames(true)
-                            .thenApply(
-                                names ->
-                                    names.stream()
-                                        .filter(name -> Utils.contains(name, word))
-                                        .collect(Collectors.toSet()))
-                            .thenCompose(admin::partitions)
-                            .thenApply(
-                                ps ->
-                                    result(
+        PaneBuilder.of()
+            .searchField("topic name")
+            .outputTable(
+                input ->
+                    context.submit(
+                        admin ->
+                            admin
+                                .topicNames(true)
+                                .thenApply(
+                                    names ->
+                                        names.stream()
+                                            .filter(input::matchSearch)
+                                            .collect(Collectors.toSet()))
+                                .thenCompose(admin::partitions)
+                                .thenApply(
+                                    ps ->
                                         ps.stream()
                                             .sorted(
                                                 Comparator.comparing(Partition::topic)
-                                                    .thenComparing(Partition::partition))))),
-            "SEARCH for topic");
+                                                    .thenComparing(Partition::partition)))
+                                .thenApply(PartitionTab::result)))
+            .build();
     var tab = new Tab("partition");
     tab.setContent(pane);
     return tab;

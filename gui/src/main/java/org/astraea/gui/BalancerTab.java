@@ -17,16 +17,19 @@
 package org.astraea.gui;
 
 import java.time.Duration;
+import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
-import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import javafx.scene.control.Tab;
 import org.astraea.common.LinkedHashMap;
-import org.astraea.common.admin.Partition;
+import org.astraea.common.LinkedHashSet;
+import org.astraea.common.admin.AsyncAdmin;
+import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.balancer.Balancer;
 import org.astraea.common.balancer.generator.ShufflePlanGenerator;
@@ -50,194 +53,157 @@ public class BalancerTab {
       this.alias = alias;
       this.costFunction = costFunction;
     }
+  }
 
-    @Override
-    public String toString() {
-      return alias;
-    }
+  private static List<Map<String, Object>> result(
+      ClusterInfo<Replica> clusterInfo, Balancer.Plan plan) {
+    return ClusterLogAllocation.findNonFulfilledAllocation(
+            ClusterLogAllocation.of(clusterInfo), plan.proposal().rebalancePlan())
+        .stream()
+        .map(
+            tp ->
+                LinkedHashMap.<String, Object>of(
+                    "topic",
+                    tp.topic(),
+                    "partition",
+                    tp.partition(),
+                    "old assignments",
+                    clusterInfo.replicas(tp).stream()
+                        .map(r -> String.valueOf(r.nodeInfo().id()))
+                        .collect(Collectors.joining(",")),
+                    "new assignments",
+                    plan.proposal().rebalancePlan().logPlacements(tp).stream()
+                        .map(r -> String.valueOf(r.nodeInfo().id()))
+                        .collect(Collectors.joining(","))))
+        .collect(Collectors.toList());
+  }
+
+  private static PaneBuilder.Output output(AsyncAdmin admin, PaneBuilder.Input input) {
+    var clusterInfoAndPlan =
+        admin
+            .topicNames(true)
+            .thenCompose(admin::clusterInfo)
+            .thenCompose(
+                clusterInfo ->
+                    admin
+                        .brokerFolders()
+                        .thenApply(
+                            brokerFolders -> {
+                              input.log("searching better assignments ... ");
+                              return Map.entry(
+                                  clusterInfo,
+                                  Balancer.builder()
+                                      .planGenerator(new ShufflePlanGenerator(0, 30))
+                                      .clusterCost(
+                                          Arrays.stream(Cost.values())
+                                              .filter(
+                                                  c ->
+                                                      input
+                                                          .selectedRadio()
+                                                          .filter(c.alias::equals)
+                                                          .isPresent())
+                                              .findFirst()
+                                              .orElse(Cost.REPLICA)
+                                              .costFunction)
+                                      .limit(Duration.ofSeconds(10))
+                                      .limit(10000)
+                                      .greedy(true)
+                                      .build()
+                                      .offer(clusterInfo, input::matchSearch, brokerFolders));
+                            }));
+
+    var outputTable =
+        clusterInfoAndPlan.thenApply(
+            entry -> entry.getValue().map(plan -> result(entry.getKey(), plan)).orElse(List.of()));
+
+    var outputMessage =
+        clusterInfoAndPlan.thenCompose(
+            entry -> {
+              var tpAndReplicasMap =
+                  entry
+                      .getValue()
+                      .map(
+                          plan ->
+                              ClusterLogAllocation.findNonFulfilledAllocation(
+                                      ClusterLogAllocation.of(entry.getKey()),
+                                      plan.proposal().rebalancePlan())
+                                  .stream()
+                                  .collect(
+                                      Collectors.toMap(
+                                          Function.identity(),
+                                          tp ->
+                                              plan
+                                                  .proposal()
+                                                  .rebalancePlan()
+                                                  .logPlacements(tp)
+                                                  .stream()
+                                                  .sorted(
+                                                      Comparator.comparing(
+                                                          Replica::isPreferredLeader))
+                                                  .collect(Collectors.toList()))))
+                      .orElse(Map.of());
+              if (tpAndReplicasMap.isEmpty())
+                return CompletableFuture.completedFuture("there is no better assignments");
+
+              input.log("applying better assignments ... ");
+
+              // TODO: how to migrate folder safely ???
+              return org.astraea.common.Utils.sequence(
+                      tpAndReplicasMap.entrySet().stream()
+                          .map(
+                              tpAndReplicas ->
+                                  admin
+                                      .migrator()
+                                      .partition(
+                                          tpAndReplicas.getKey().topic(),
+                                          tpAndReplicas.getKey().partition())
+                                      .moveTo(
+                                          tpAndReplicas.getValue().stream()
+                                              .map(r -> r.nodeInfo().id())
+                                              .collect(Collectors.toList()))
+                                      .whenComplete(
+                                          (r, e) -> {
+                                            if (e == null)
+                                              input.log(
+                                                  "succeed to move "
+                                                      + tpAndReplicas.getKey()
+                                                      + " to "
+                                                      + tpAndReplicas.getValue().stream()
+                                                          .map(
+                                                              n ->
+                                                                  String.valueOf(n.nodeInfo().id()))
+                                                          .collect(Collectors.joining(",")));
+                                          })
+                                      .toCompletableFuture())
+                          .collect(Collectors.toList()))
+                  .thenApply(ignored -> "the balance is completed");
+            });
+    return new PaneBuilder.Output() {
+      @Override
+      public CompletionStage<String> message() {
+        return outputMessage;
+      }
+
+      @Override
+      public CompletionStage<List<Map<String, Object>>> table() {
+        return outputTable;
+      }
+    };
   }
 
   public static Tab of(Context context) {
+    var pane =
+        PaneBuilder.of()
+            .radioButtons(
+                LinkedHashSet.of(
+                    Arrays.stream(Cost.values()).map(c -> c.alias).toArray(String[]::new)))
+            .buttonName("EXECUTE")
+            .searchField("topic name")
+            .output(input -> context.submit(admin -> output(admin, input)))
+            .build();
+
     var tab = new Tab("balance topic");
-    var cost = Utils.radioButton(Cost.values());
-    BiFunction<String, Console, CompletionStage<SearchResult<Balancer.Plan>>> planGenerator =
-        (word, console) ->
-            context.submit(
-                admin ->
-                    admin
-                        .topicNames(true)
-                        .thenApply(
-                            names ->
-                                names.stream()
-                                    .filter(name -> Utils.contains(name, word))
-                                    .collect(Collectors.toSet()))
-                        .thenCompose(admin::partitions)
-                        .thenCompose(
-                            partitions -> {
-                              var topics =
-                                  partitions.stream()
-                                      .map(Partition::topic)
-                                      .collect(Collectors.toSet());
-                              return admin
-                                  .clusterInfo(topics)
-                                  .thenCompose(
-                                      clusterInfo -> {
-                                        console.append(
-                                            "start to generate optimized assignments for topics: "
-                                                + topics);
-                                        return admin
-                                            .brokerFolders()
-                                            .thenApply(
-                                                brokerFolders -> {
-                                                  var optionalPlan =
-                                                      Balancer.builder()
-                                                          .planGenerator(
-                                                              new ShufflePlanGenerator(0, 30))
-                                                          .clusterCost(
-                                                              cost.entrySet().stream()
-                                                                  .filter(
-                                                                      e ->
-                                                                          e.getValue().isSelected())
-                                                                  .map(Map.Entry::getKey)
-                                                                  .findFirst()
-                                                                  .orElse(Cost.REPLICA)
-                                                                  .costFunction)
-                                                          .limit(Duration.ofSeconds(10))
-                                                          .limit(10000)
-                                                          .greedy(true)
-                                                          .build()
-                                                          .offer(
-                                                              clusterInfo,
-                                                              topics::contains,
-                                                              brokerFolders);
-                                                  if (optionalPlan.isEmpty())
-                                                    return SearchResult.empty();
-                                                  var plan = optionalPlan.get();
-                                                  var allocation = plan.proposal().rebalancePlan();
-                                                  var items =
-                                                      ClusterLogAllocation
-                                                          .findNonFulfilledAllocation(
-                                                              ClusterLogAllocation.of(clusterInfo),
-                                                              allocation)
-                                                          .stream()
-                                                          .map(
-                                                              tp ->
-                                                                  LinkedHashMap.<String, Object>of(
-                                                                      "topic",
-                                                                      tp.topic(),
-                                                                      "partition",
-                                                                      tp.partition(),
-                                                                      "old assignments",
-                                                                      clusterInfo
-                                                                          .replicas(tp)
-                                                                          .stream()
-                                                                          .map(
-                                                                              r ->
-                                                                                  r.nodeInfo().id()
-                                                                                      + ":"
-                                                                                      + r
-                                                                                          .dataFolder())
-                                                                          .collect(
-                                                                              Collectors.joining(
-                                                                                  ",")),
-                                                                      "new assignments",
-                                                                      allocation
-                                                                          .logPlacements(tp)
-                                                                          .stream()
-                                                                          .map(
-                                                                              r ->
-                                                                                  r.nodeInfo().id()
-                                                                                      + ":"
-                                                                                      + r
-                                                                                          .dataFolder())
-                                                                          .collect(
-                                                                              Collectors.joining(
-                                                                                  ","))))
-                                                          .collect(Collectors.toList());
-                                                  return SearchResult.of(items, plan);
-                                                });
-                                      });
-                            }));
-
-    BiFunction<SearchResult<Balancer.Plan>, Console, CompletionStage<List<Void>>> planExecutor =
-        (result, console) ->
-            context.submit(
-                admin ->
-                    admin
-                        .topicNames(true)
-                        .thenCompose(admin::clusterInfo)
-                        .thenCompose(
-                            clusterInfo -> {
-                              var allocation = result.object().proposal().rebalancePlan();
-                              var changedPartitions =
-                                  ClusterLogAllocation.findNonFulfilledAllocation(
-                                      ClusterLogAllocation.of(clusterInfo), allocation);
-                              var tpAndReplicas =
-                                  changedPartitions.stream()
-                                      .collect(
-                                          Collectors.toMap(
-                                              Function.identity(),
-                                              tp ->
-                                                  allocation.logPlacements(tp).stream()
-                                                      .sorted(
-                                                          Comparator.comparing(
-                                                              Replica::isPreferredLeader))
-                                                      .collect(Collectors.toList())));
-
-                              return org.astraea.common.Utils.sequence(
-                                      tpAndReplicas.entrySet().stream()
-                                          .map(
-                                              entry -> {
-                                                var tp = entry.getKey();
-                                                var replicas = entry.getValue();
-                                                return admin
-                                                    .migrator()
-                                                    .partition(tp.topic(), tp.partition())
-                                                    .moveTo(
-                                                        replicas.stream()
-                                                            .map(r -> r.nodeInfo().id())
-                                                            .collect(Collectors.toList()))
-                                                    .toCompletableFuture();
-                                              })
-                                          .collect(Collectors.toList()))
-                                  .thenCompose(
-                                      ignored -> {
-                                        org.astraea.common.Utils.sleep(Duration.ofSeconds(5));
-                                        return org.astraea.common.Utils.sequence(
-                                            tpAndReplicas.entrySet().stream()
-                                                .map(
-                                                    entry2 -> {
-                                                      var tp = entry2.getKey();
-                                                      var replicas = entry2.getValue();
-                                                      return admin
-                                                          .migrator()
-                                                          .partition(tp.topic(), tp.partition())
-                                                          .moveTo(
-                                                              replicas.stream()
-                                                                  .collect(
-                                                                      Collectors.toMap(
-                                                                          r -> r.nodeInfo().id(),
-                                                                          Replica::dataFolder)))
-                                                          .whenComplete(
-                                                              (r, e) -> {
-                                                                if (e == null)
-                                                                  console.append(
-                                                                      "start to migrate " + tp);
-                                                                else
-                                                                  console.append(
-                                                                      "failed to migrate "
-                                                                          + tp
-                                                                          + " due to "
-                                                                          + e.getMessage());
-                                                              })
-                                                          .toCompletableFuture();
-                                                    })
-                                                .collect(Collectors.toList()));
-                                      });
-                            }));
-
-    tab.setContent(
-        Utils.searchToTable(planGenerator, planExecutor, cost.values(), "SEARCH for topic"));
+    tab.setContent(pane);
     return tab;
   }
 }

@@ -62,26 +62,27 @@ public class ConsumerTab {
 
   public static Tab of(Context context) {
     var pane =
-        Utils.searchToTable(
-            (word, console) ->
-                context.submit(
-                    admin ->
-                        admin
-                            .consumerGroupIds()
-                            .thenCompose(admin::consumerGroups)
-                            .thenApply(
-                                groups ->
-                                    result(
+        PaneBuilder.of()
+            .searchField("group id or topic name")
+            .outputTable(
+                input ->
+                    context.submit(
+                        admin ->
+                            admin
+                                .consumerGroupIds()
+                                .thenCompose(admin::consumerGroups)
+                                .thenApply(
+                                    groups ->
                                         groups.stream()
                                             .filter(
                                                 group ->
-                                                    Utils.contains(group.groupId(), word)
+                                                    input.matchSearch(group.groupId())
                                                         || group.consumeProgress().keySet().stream()
                                                             .anyMatch(
                                                                 tp ->
-                                                                    Utils.contains(
-                                                                        tp.topic(), word)))))),
-            "SEARCH for topic/group");
+                                                                    input.matchSearch(tp.topic()))))
+                                .thenApply(ConsumerTab::result)))
+            .build();
     var tab = new Tab("consumer");
     tab.setContent(pane);
     return tab;

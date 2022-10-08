@@ -17,6 +17,7 @@
 package org.astraea.gui;
 
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javafx.scene.control.Tab;
@@ -27,7 +28,7 @@ import org.astraea.common.admin.TopicPartition;
 
 public class BrokerTab {
 
-  private static List<LinkedHashMap<String, Object>> result(Stream<Broker> brokers) {
+  private static List<Map<String, Object>> result(Stream<Broker> brokers) {
     return brokers
         .map(
             broker ->
@@ -64,25 +65,23 @@ public class BrokerTab {
 
   public static Tab of(Context context) {
     var pane =
-        Utils.searchToTable(
-            (word, console) ->
-                context.submit(
-                    admin ->
-                        admin
-                            .brokers()
-                            .thenApply(
-                                brokers ->
-                                    result(
+        PaneBuilder.of()
+            .searchField("broker id/host")
+            .outputTable(
+                input ->
+                    context.submit(
+                        admin ->
+                            admin
+                                .brokers()
+                                .thenApply(
+                                    brokers ->
                                         brokers.stream()
                                             .filter(
                                                 nodeInfo ->
-                                                    Utils.contains(
-                                                            String.valueOf(nodeInfo.id()), word)
-                                                        || Utils.contains(nodeInfo.host(), word)
-                                                        || Utils.contains(
-                                                            String.valueOf(nodeInfo.port()),
-                                                            word))))),
-            "SEARCH for broker");
+                                                    input.matchSearch(String.valueOf(nodeInfo.id()))
+                                                        || input.matchSearch(nodeInfo.host())))
+                                .thenApply(BrokerTab::result)))
+            .build();
     var tab = new Tab("broker");
     tab.setContent(pane);
     return tab;

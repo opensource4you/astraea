@@ -24,7 +24,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.stream.Collectors;
 import javafx.scene.control.Tab;
-import org.astraea.common.LinkedHashSet;
+import org.astraea.common.Utils;
 import org.astraea.common.admin.Partition;
 
 public class ReassignReplicaTab {
@@ -34,60 +34,57 @@ public class ReassignReplicaTab {
   private static final String MOVE_TO = "move to";
 
   public static Tab of(Context context) {
+    var pane =
+        PaneBuilder.of()
+            .buttonName("EXECUTE")
+            .input(TOPIC_NAME, true, false)
+            .input(MOVE_TO, true, false)
+            .input(PARTITION_ID, false, true)
+            .outputMessage(
+                input -> {
+                  var topic = input.texts().get(TOPIC_NAME);
+
+                  var moveTo =
+                      Arrays.stream(input.texts().get(MOVE_TO).split(","))
+                          .map(Integer::parseInt)
+                          .collect(Collectors.toList());
+                  var partitions =
+                      Optional.ofNullable(input.texts().get(PARTITION_ID))
+                          .map(Integer::parseInt)
+                          .map(partition -> CompletableFuture.completedStage(List.of(partition)))
+                          .orElseGet(
+                              () ->
+                                  context.submit(
+                                      admin ->
+                                          admin
+                                              .partitions(Set.of(topic))
+                                              .thenApply(
+                                                  ps ->
+                                                      ps.stream()
+                                                          .map(Partition::partition)
+                                                          .collect(Collectors.toList()))));
+                  return partitions.thenCompose(
+                      ps ->
+                          Utils.sequence(
+                                  ps.stream()
+                                      .map(
+                                          p ->
+                                              context.submit(
+                                                  admin ->
+                                                      admin
+                                                          .migrator()
+                                                          .partition(topic, p)
+                                                          .moveTo(moveTo)))
+                                      .map(CompletionStage::toCompletableFuture)
+                                      .collect(Collectors.toList()))
+                              .thenApply(
+                                  ignored ->
+                                      "succeed to move " + topic + "-" + ps + " to " + moveTo));
+                })
+            .build();
+
     var tab = new Tab("reassign replica");
-    tab.setContent(
-        Utils.form(
-            LinkedHashSet.of(TOPIC_NAME, PARTITION_ID, MOVE_TO),
-            LinkedHashSet.<String>of(),
-            (result, console) -> {
-              var topic = result.get(TOPIC_NAME);
-              if (topic == null || topic.isBlank())
-                return CompletableFuture.failedFuture(
-                    new IllegalArgumentException("please define topic name"));
-              var moveTo =
-                  Optional.ofNullable(result.get(MOVE_TO))
-                      .map(
-                          s ->
-                              Arrays.stream(s.replace(" ", "").split(","))
-                                  .map(Integer::parseInt)
-                                  .collect(Collectors.toList()))
-                      .orElse(List.of());
-              if (moveTo.isEmpty())
-                return CompletableFuture.failedFuture(
-                    new IllegalArgumentException("please define \"brokers\""));
-              var partitions =
-                  Optional.ofNullable(result.get(PARTITION_ID))
-                      .map(Integer::parseInt)
-                      .map(partition -> CompletableFuture.completedStage(List.of(partition)))
-                      .orElseGet(
-                          () ->
-                              context.submit(
-                                  admin ->
-                                      admin
-                                          .partitions(Set.of(topic))
-                                          .thenApply(
-                                              ps ->
-                                                  ps.stream()
-                                                      .map(Partition::partition)
-                                                      .collect(Collectors.toList()))));
-              return partitions.thenCompose(
-                  ps ->
-                      org.astraea.common.Utils.sequence(
-                              ps.stream()
-                                  .map(
-                                      p ->
-                                          context.submit(
-                                              admin ->
-                                                  admin
-                                                      .migrator()
-                                                      .partition(topic, p)
-                                                      .moveTo(moveTo)))
-                                  .map(CompletionStage::toCompletableFuture)
-                                  .collect(Collectors.toList()))
-                          .thenApply(
-                              ignored -> "succeed to move " + topic + "-" + ps + " to " + moveTo));
-            },
-            "EXECUTE"));
+    tab.setContent(pane);
     return tab;
   }
 }

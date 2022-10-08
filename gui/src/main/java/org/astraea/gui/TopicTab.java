@@ -29,25 +29,26 @@ import org.astraea.common.admin.Partition;
 
 public class TopicTab {
   public static Tab of(Context context) {
-
     var pane =
-        Utils.searchToTable(
-            (word, console) ->
-                context.submit(
-                    admin ->
-                        admin
-                            .topicNames(true)
-                            .thenApply(
-                                names ->
-                                    names.stream()
-                                        .filter(name -> Utils.contains(name, word))
-                                        .collect(Collectors.toSet()))
-                            .thenCompose(
-                                names ->
-                                    admin
-                                        .partitions(names)
-                                        .thenCombine(admin.brokers(), TopicTab::beans))),
-            "SEARCH for topic");
+        PaneBuilder.of()
+            .searchField("topic name")
+            .outputTable(
+                input ->
+                    context.submit(
+                        admin ->
+                            admin
+                                .topicNames(true)
+                                .thenApply(
+                                    names ->
+                                        names.stream()
+                                            .filter(name -> input.matchSearch(name))
+                                            .collect(Collectors.toSet()))
+                                .thenCompose(
+                                    names ->
+                                        admin
+                                            .partitions(names)
+                                            .thenCombine(admin.brokers(), TopicTab::beans))))
+            .build();
     var tab = new Tab("topic");
     tab.setContent(pane);
     return tab;

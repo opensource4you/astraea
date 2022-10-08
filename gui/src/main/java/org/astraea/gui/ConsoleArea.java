@@ -19,7 +19,7 @@ package org.astraea.gui;
 import javafx.application.Platform;
 import javafx.scene.control.TextArea;
 
-public class ConsoleArea extends TextArea implements Console {
+public class ConsoleArea extends TextArea {
 
   public ConsoleArea() {
     this("");
@@ -30,7 +30,15 @@ public class ConsoleArea extends TextArea implements Console {
     this.setEditable(false);
   }
 
-  @Override
+  public void text(String text, Throwable e) {
+    if (e != null) text(e);
+    else text(text);
+  }
+
+  public void text(Throwable e) {
+    if (e != null) text(Utils.toString(e));
+  }
+
   public void text(String text) {
     text(text, false);
   }
@@ -41,19 +49,17 @@ public class ConsoleArea extends TextArea implements Console {
         () -> {
           var before = getText();
           if (before != null && !before.isEmpty() && append)
-            setText("[" + Utils.formatCurrentTime() + "] " + text + "\n" + before);
-          else setText("[" + Utils.formatCurrentTime() + "] " + text);
+            setText("[" + formatCurrentTime() + "] " + text + "\n" + before);
+          else setText("[" + formatCurrentTime() + "] " + text);
         };
     if (Platform.isFxApplicationThread()) exec.run();
     else Platform.runLater(exec);
   }
 
-  @Override
   public void append(String text) {
     text(text, true);
   }
 
-  @Override
   public void append(Throwable e) {
     if (e != null) text(Utils.toString(e), true);
   }
@@ -61,5 +67,9 @@ public class ConsoleArea extends TextArea implements Console {
   public void cleanup() {
     if (Platform.isFxApplicationThread()) setText("");
     else Platform.runLater(() -> setText(""));
+  }
+
+  private static String formatCurrentTime() {
+    return Utils.format(System.currentTimeMillis());
   }
 }
