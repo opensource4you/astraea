@@ -49,6 +49,7 @@ import org.astraea.common.DataSize;
 import org.astraea.common.ExecutionRuntimeException;
 import org.astraea.common.Utils;
 import org.astraea.common.consumer.Consumer;
+import org.astraea.common.consumer.ConsumerConfigs;
 import org.astraea.common.consumer.Deserializer;
 import org.astraea.common.producer.Producer;
 import org.astraea.common.producer.Serializer;
@@ -216,7 +217,7 @@ public class AdminTest extends RequireBrokerCluster {
       try (var c1 =
           Consumer.forTopics(Set.of(topicName))
               .bootstrapServers(bootstrapServers())
-              .config(Consumer.GROUP_ID_CONFIG, consumerGroup)
+              .config(ConsumerConfigs.GROUP_ID_CONFIG, consumerGroup)
               .build()) {
         // wait for syncing topic creation
         Utils.sleep(Duration.ofSeconds(5));
@@ -228,7 +229,7 @@ public class AdminTest extends RequireBrokerCluster {
         try (var c2 =
             Consumer.forTopics(Set.of(topicName))
                 .bootstrapServers(bootstrapServers())
-                .config(Consumer.GROUP_ID_CONFIG, "abc")
+                .config(ConsumerConfigs.GROUP_ID_CONFIG, "abc")
                 .build()) {
           var count =
               admin.consumerGroupIds().stream()
@@ -469,10 +470,10 @@ public class AdminTest extends RequireBrokerCluster {
           .topic(topicName)
           .configs(
               Map.of(
-                  TopicCreator.MAX_COMPACTION_LAG_MS_CONFIG,
+                  TopicConfigs.MAX_COMPACTION_LAG_MS_CONFIG,
                   "1000",
-                  TopicCreator.CLEANUP_POLICY_CONFIG,
-                  TopicCreator.CLEANUP_POLICY_COMPACT))
+                  TopicConfigs.CLEANUP_POLICY_CONFIG,
+                  TopicConfigs.CLEANUP_POLICY_COMPACT))
           .create();
 
       var key = "key";
@@ -503,7 +504,9 @@ public class AdminTest extends RequireBrokerCluster {
           Consumer.forTopics(Set.of(topicName))
               .keyDeserializer(Deserializer.STRING)
               .valueDeserializer(Deserializer.STRING)
-              .config(Consumer.AUTO_OFFSET_RESET_CONFIG, Consumer.AUTO_OFFSET_RESET_EARLIEST)
+              .config(
+                  ConsumerConfigs.AUTO_OFFSET_RESET_CONFIG,
+                  ConsumerConfigs.AUTO_OFFSET_RESET_EARLIEST)
               .bootstrapServers(bootstrapServers())
               .build()) {
 
@@ -968,7 +971,9 @@ public class AdminTest extends RequireBrokerCluster {
         var consumer =
             Consumer.forTopics(Set.of(topicName))
                 .bootstrapServers(bootstrapServers())
-                .config(Consumer.AUTO_OFFSET_RESET_CONFIG, Consumer.AUTO_OFFSET_RESET_EARLIEST)
+                .config(
+                    ConsumerConfigs.AUTO_OFFSET_RESET_CONFIG,
+                    ConsumerConfigs.AUTO_OFFSET_RESET_EARLIEST)
                 .build()) {
       producer.sender().topic(topicName).key(new byte[10]).run();
       producer.flush();
@@ -996,8 +1001,8 @@ public class AdminTest extends RequireBrokerCluster {
       try (var consumer =
           Consumer.forTopics(Set.of(topicName))
               .bootstrapServers(bootstrapServers())
-              .config(Consumer.GROUP_ID_CONFIG, groupId)
-              .config(Consumer.GROUP_INSTANCE_ID_CONFIG, Utils.randomString(10))
+              .config(ConsumerConfigs.GROUP_ID_CONFIG, groupId)
+              .config(ConsumerConfigs.GROUP_INSTANCE_ID_CONFIG, Utils.randomString(10))
               .build()) {
         Assertions.assertEquals(0, consumer.poll(Duration.ofSeconds(3)).size());
       }
@@ -1031,8 +1036,10 @@ public class AdminTest extends RequireBrokerCluster {
         var consumer =
             Consumer.forTopics(Set.of(topicName))
                 .bootstrapServers(bootstrapServers())
-                .config(Consumer.GROUP_INSTANCE_ID_CONFIG, staticId)
-                .config(Consumer.AUTO_OFFSET_RESET_CONFIG, Consumer.AUTO_OFFSET_RESET_EARLIEST)
+                .config(ConsumerConfigs.GROUP_INSTANCE_ID_CONFIG, staticId)
+                .config(
+                    ConsumerConfigs.AUTO_OFFSET_RESET_CONFIG,
+                    ConsumerConfigs.AUTO_OFFSET_RESET_EARLIEST)
                 .build()) {
       producer.sender().topic(topicName).key(new byte[10]).run();
       producer.flush();
@@ -1059,7 +1066,7 @@ public class AdminTest extends RequireBrokerCluster {
     try (var consumer =
         Consumer.forTopics(Set.of(topicName))
             .bootstrapServers(bootstrapServers())
-            .config(Consumer.GROUP_ID_CONFIG, groupId)
+            .config(ConsumerConfigs.GROUP_ID_CONFIG, groupId)
             .build()) {
       Assertions.assertEquals(0, consumer.poll(Duration.ofSeconds(3)).size());
     }
@@ -1077,8 +1084,8 @@ public class AdminTest extends RequireBrokerCluster {
     try (var consumer =
         Consumer.forTopics(Set.of(topicName))
             .bootstrapServers(bootstrapServers())
-            .config(Consumer.GROUP_ID_CONFIG, groupId)
-            .config(Consumer.GROUP_INSTANCE_ID_CONFIG, Utils.randomString(10))
+            .config(ConsumerConfigs.GROUP_ID_CONFIG, groupId)
+            .config(ConsumerConfigs.GROUP_INSTANCE_ID_CONFIG, Utils.randomString(10))
             .build()) {
       Assertions.assertEquals(0, consumer.poll(Duration.ofSeconds(3)).size());
     }

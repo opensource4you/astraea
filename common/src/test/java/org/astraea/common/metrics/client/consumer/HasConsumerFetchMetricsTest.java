@@ -22,6 +22,7 @@ import java.util.Set;
 import java.util.stream.IntStream;
 import org.astraea.common.Utils;
 import org.astraea.common.consumer.Consumer;
+import org.astraea.common.consumer.ConsumerConfigs;
 import org.astraea.common.metrics.MBeanClient;
 import org.astraea.common.producer.Producer;
 import org.astraea.it.RequireSingleBrokerCluster;
@@ -47,7 +48,9 @@ public class HasConsumerFetchMetricsTest extends RequireSingleBrokerCluster {
     try (var consumer =
         Consumer.forTopics(Set.of(topic))
             .bootstrapServers(bootstrapServers())
-            .config(Consumer.AUTO_OFFSET_RESET_CONFIG, Consumer.AUTO_OFFSET_RESET_EARLIEST)
+            .config(
+                ConsumerConfigs.AUTO_OFFSET_RESET_CONFIG,
+                ConsumerConfigs.AUTO_OFFSET_RESET_EARLIEST)
             .build()) {
       Assertions.assertEquals(10, consumer.poll(10, Duration.ofSeconds(5)).size());
       consumer.commitOffsets(Duration.ofSeconds(2));

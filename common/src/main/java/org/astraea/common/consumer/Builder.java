@@ -102,7 +102,7 @@ public abstract class Builder<Key, Value> {
   }
 
   public Builder<Key, Value> bootstrapServers(String bootstrapServers) {
-    this.configs.put(Consumer.BOOTSTRAP_SERVERS_CONFIG, requireNonNull(bootstrapServers));
+    this.configs.put(ConsumerConfigs.BOOTSTRAP_SERVERS_CONFIG, requireNonNull(bootstrapServers));
     return this;
   }
 

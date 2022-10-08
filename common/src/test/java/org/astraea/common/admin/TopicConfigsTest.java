@@ -16,29 +16,14 @@
  */
 package org.astraea.common.admin;
 
-import java.util.Map;
-import java.util.concurrent.CompletionStage;
-import org.astraea.common.Utils;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
-public interface TopicCreator {
+public class TopicConfigsTest {
 
-  TopicCreator topic(String topic);
-
-  TopicCreator numberOfPartitions(int numberOfPartitions);
-
-  TopicCreator numberOfReplicas(short numberOfReplicas);
-
-  /**
-   * @param configs used to create new topic
-   * @return this creator
-   */
-  TopicCreator configs(Map<String, String> configs);
-
-  /** start to create topic. */
-  @Deprecated
-  default void create() {
-    Utils.packException(() -> run().toCompletableFuture().get());
+  @Test
+  void testDynamicalConfigs() {
+    TopicConfigs.DYNAMICAL_CONFIGS.forEach(
+        config -> Assertions.assertTrue(TopicConfigs.ALL_CONFIGS.contains(config)));
   }
-
-  CompletionStage<Boolean> run();
 }

@@ -49,8 +49,10 @@ import org.astraea.common.argument.PositiveShortField;
 import org.astraea.common.argument.StringListField;
 import org.astraea.common.argument.TopicPartitionField;
 import org.astraea.common.consumer.Consumer;
+import org.astraea.common.consumer.ConsumerConfigs;
 import org.astraea.common.partitioner.Dispatcher;
 import org.astraea.common.producer.Producer;
+import org.astraea.common.producer.ProducerConfigs;
 
 /** see docs/performance_benchmark.md for man page */
 public class Performance {
@@ -95,15 +97,15 @@ public class Performance {
                 Consumer.forTopics(new HashSet<>(param.topics))
                     .configs(param.configs())
                     .config(
-                        Consumer.ISOLATION_LEVEL_CONFIG,
+                        ConsumerConfigs.ISOLATION_LEVEL_CONFIG,
                         param.transactionSize > 1
-                            ? Consumer.ISOLATION_LEVEL_COMMITTED
-                            : Consumer.ISOLATION_LEVEL_UNCOMMITTED)
+                            ? ConsumerConfigs.ISOLATION_LEVEL_COMMITTED
+                            : ConsumerConfigs.ISOLATION_LEVEL_UNCOMMITTED)
                     .bootstrapServers(param.bootstrapServers())
-                    .config(Consumer.GROUP_ID_CONFIG, param.groupId)
+                    .config(ConsumerConfigs.GROUP_ID_CONFIG, param.groupId)
                     .seek(latestOffsets)
                     .consumerRebalanceListener(listener)
-                    .config(Consumer.CLIENT_ID_CONFIG, clientId)
+                    .config(ConsumerConfigs.CLIENT_ID_CONFIG, clientId)
                     .build());
 
     System.out.println("creating tracker");
@@ -265,12 +267,12 @@ public class Performance {
           ? Producer.builder()
               .configs(configs())
               .bootstrapServers(bootstrapServers())
-              .config(Producer.PARTITIONER_CLASS_CONFIG, partitioner())
+              .config(ProducerConfigs.PARTITIONER_CLASS_CONFIG, partitioner())
               .buildTransactional()
           : Producer.builder()
               .configs(configs())
               .bootstrapServers(bootstrapServers())
-              .config(Producer.PARTITIONER_CLASS_CONFIG, partitioner())
+              .config(ProducerConfigs.PARTITIONER_CLASS_CONFIG, partitioner())
               .build();
     }
 

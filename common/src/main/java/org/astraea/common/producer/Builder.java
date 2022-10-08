@@ -71,7 +71,8 @@ public class Builder<Key, Value> {
   }
 
   public Builder<Key, Value> bootstrapServers(String bootstrapServers) {
-    return config(Producer.BOOTSTRAP_SERVERS_CONFIG, Objects.requireNonNull(bootstrapServers));
+    return config(
+        ProducerConfigs.BOOTSTRAP_SERVERS_CONFIG, Objects.requireNonNull(bootstrapServers));
   }
 
   private static <Key, Value> CompletionStage<Metadata> doSend(
@@ -94,7 +95,7 @@ public class Builder<Key, Value> {
   @SuppressWarnings("unchecked")
   public Producer<Key, Value> build() {
     // if user configs the transaction id, we should build transactional producer
-    if (configs.containsKey(Producer.TRANSACTIONAL_ID_CONFIG)) return buildTransactional();
+    if (configs.containsKey(ProducerConfigs.TRANSACTIONAL_ID_CONFIG)) return buildTransactional();
     return new NormalProducer<>(
         new KafkaProducer<>(
             configs,
@@ -112,7 +113,7 @@ public class Builder<Key, Value> {
     var transactionId =
         (String)
             transactionConfigs.computeIfAbsent(
-                Producer.TRANSACTIONAL_ID_CONFIG,
+                ProducerConfigs.TRANSACTIONAL_ID_CONFIG,
                 ignored -> "transaction-id-" + new Random().nextLong());
     // For transactional send
     var transactionProducer =

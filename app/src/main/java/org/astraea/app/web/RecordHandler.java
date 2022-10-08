@@ -49,9 +49,11 @@ import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.argument.DurationField;
 import org.astraea.common.consumer.Builder;
 import org.astraea.common.consumer.Consumer;
+import org.astraea.common.consumer.ConsumerConfigs;
 import org.astraea.common.consumer.Deserializer;
 import org.astraea.common.consumer.SubscribedConsumer;
 import org.astraea.common.producer.Producer;
+import org.astraea.common.producer.ProducerConfigs;
 import org.astraea.common.producer.Sender;
 import org.astraea.common.producer.Serializer;
 
@@ -87,7 +89,7 @@ public class RecordHandler implements Handler {
         Cache.<String, Producer<byte[], byte[]>>builder(
                 transactionId ->
                     Producer.builder()
-                        .config(Producer.TRANSACTIONAL_ID_CONFIG, transactionId)
+                        .config(ProducerConfigs.TRANSACTIONAL_ID_CONFIG, transactionId)
                         .bootstrapServers(bootstrapServers)
                         .buildTransactional())
             .maxCapacity(MAX_CACHE_SIZE)
@@ -125,9 +127,10 @@ public class RecordHandler implements Handler {
                   // disable auto commit here since we commit manually in Records#onComplete
                   var builder =
                       Consumer.forTopics(Set.of(topic))
-                          .config(Consumer.ENABLE_AUTO_COMMIT_CONFIG, "false");
+                          .config(ConsumerConfigs.ENABLE_AUTO_COMMIT_CONFIG, "false");
                   Optional.ofNullable(channel.queries().get(GROUP_ID))
-                      .ifPresent(groupId -> builder.config(Consumer.GROUP_ID_CONFIG, groupId));
+                      .ifPresent(
+                          groupId -> builder.config(ConsumerConfigs.GROUP_ID_CONFIG, groupId));
                   return builder;
                 });
 

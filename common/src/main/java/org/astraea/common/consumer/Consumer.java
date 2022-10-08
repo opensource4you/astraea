@@ -24,55 +24,6 @@ import org.astraea.common.admin.TopicPartition;
 /** An interface for polling records. */
 public interface Consumer<Key, Value> extends AutoCloseable {
 
-  // ---------------------------------[keys]---------------------------------//
-  String GROUP_ID_CONFIG = "group.id";
-  String GROUP_INSTANCE_ID_CONFIG = "group.instance.id";
-  String MAX_POLL_RECORDS_CONFIG = "max.poll.records";
-  String MAX_POLL_INTERVAL_MS_CONFIG = "max.poll.interval.ms";
-  String SESSION_TIMEOUT_MS_CONFIG = "session.timeout.ms";
-  String HEARTBEAT_INTERVAL_MS_CONFIG = "heartbeat.interval.ms";
-  String BOOTSTRAP_SERVERS_CONFIG = "bootstrap.servers";
-  String CLIENT_DNS_LOOKUP_CONFIG = "client.dns.lookup";
-  String ENABLE_AUTO_COMMIT_CONFIG = "enable.auto.commit";
-  String AUTO_COMMIT_INTERVAL_MS_CONFIG = "auto.commit.interval.ms";
-  String PARTITION_ASSIGNMENT_STRATEGY_CONFIG = "partition.assignment.strategy";
-  String AUTO_OFFSET_RESET_CONFIG = "auto.offset.reset";
-  String FETCH_MIN_BYTES_CONFIG = "fetch.min.bytes";
-  String FETCH_MAX_BYTES_CONFIG = "fetch.max.bytes";
-  String FETCH_MAX_WAIT_MS_CONFIG = "fetch.max.wait.ms";
-  String METADATA_MAX_AGE_CONFIG = "metadata.max.age.ms";
-  String MAX_PARTITION_FETCH_BYTES_CONFIG = "max.partition.fetch.bytes";
-  String SEND_BUFFER_CONFIG = "send.buffer.bytes";
-  String RECEIVE_BUFFER_CONFIG = "receive.buffer.bytes";
-  String CLIENT_ID_CONFIG = "client.id";
-  String CLIENT_RACK_CONFIG = "client.rack";
-  String RECONNECT_BACKOFF_MS_CONFIG = "reconnect.backoff.ms";
-  String RECONNECT_BACKOFF_MAX_MS_CONFIG = "reconnect.backoff.max.ms";
-  String RETRY_BACKOFF_MS_CONFIG = "retry.backoff.ms";
-  String METRICS_SAMPLE_WINDOW_MS_CONFIG = "metrics.sample.window.ms";
-  String METRICS_NUM_SAMPLES_CONFIG = "metrics.num.samples";
-  String METRICS_RECORDING_LEVEL_CONFIG = "metrics.recording.level";
-  String METRIC_REPORTER_CLASSES_CONFIG = "metric.reporters";
-  String CHECK_CRCS_CONFIG = "check.crcs";
-  String KEY_DESERIALIZER_CLASS_CONFIG = "key.deserializer";
-  String VALUE_DESERIALIZER_CLASS_CONFIG = "value.deserializer";
-  String SOCKET_CONNECTION_SETUP_TIMEOUT_MS_CONFIG = "socket.connection.setup.timeout.ms";
-  String SOCKET_CONNECTION_SETUP_TIMEOUT_MAX_MS_CONFIG = "socket.connection.setup.timeout.max.ms";
-  String CONNECTIONS_MAX_IDLE_MS_CONFIG = "connections.max.idle.ms";
-  String REQUEST_TIMEOUT_MS_CONFIG = "request.timeout.ms";
-  String DEFAULT_API_TIMEOUT_MS_CONFIG = "default.api.timeout.ms";
-  String INTERCEPTOR_CLASSES_CONFIG = "interceptor.classes";
-  String EXCLUDE_INTERNAL_TOPICS_CONFIG = "exclude.internal.topics";
-  String ISOLATION_LEVEL_CONFIG = "isolation.level";
-  String ALLOW_AUTO_CREATE_TOPICS_CONFIG = "allow.auto.create.topics";
-
-  // ---------------------------------[Values]---------------------------------//
-  String AUTO_OFFSET_RESET_LATEST = "latest";
-  String AUTO_OFFSET_RESET_EARLIEST = "earliest";
-  String AUTO_OFFSET_RESET_NONE = "none";
-  String ISOLATION_LEVEL_UNCOMMITTED = "read_uncommitted";
-  String ISOLATION_LEVEL_COMMITTED = "read_committed";
-
   default Collection<Record<Key, Value>> poll(Duration timeout) {
     return poll(1, timeout);
   }
