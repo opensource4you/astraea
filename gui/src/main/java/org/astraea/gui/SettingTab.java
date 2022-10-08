@@ -17,51 +17,55 @@
 package org.astraea.gui;
 
 import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
 import javafx.scene.control.Tab;
-import org.astraea.common.LinkedHashSet;
 import org.astraea.common.admin.AsyncAdmin;
 import org.astraea.common.metrics.MBeanClient;
 
 public class SettingTab {
 
+  private static final String BOOTSTRAP_SERVERS = "bootstrap servers";
+  private static final String JMX_PORT = "jmx port";
+
   public static Tab of(Context context) {
+    var pane =
+        PaneBuilder.of()
+            .input(BOOTSTRAP_SERVERS, true, false)
+            .input(JMX_PORT, false, true)
+            .buttonName("CHECK")
+            .outputMessage(
+                input -> {
+                  var bootstrapServers = input.texts().get(BOOTSTRAP_SERVERS);
+                  var jmxPort =
+                      Optional.ofNullable(input.texts().get(JMX_PORT)).map(Integer::parseInt);
+                  var newAdmin = AsyncAdmin.of(bootstrapServers);
+                  return newAdmin
+                      .nodeInfos()
+                      .thenApply(
+                          nodeInfos -> {
+                            context
+                                .replace(newAdmin)
+                                .ifPresent(
+                                    admin ->
+                                        org.astraea.common.Utils.swallowException(admin::close));
+                            if (jmxPort.isEmpty())
+                              return "succeed to connect to " + bootstrapServers;
+                            nodeInfos.forEach(
+                                n -> {
+                                  try (var client = MBeanClient.jndi(n.host(), jmxPort.get())) {
+                                    client.listDomains();
+                                  }
+                                });
+                            context.replace(jmxPort.get());
+                            return "succeed to connect to "
+                                + bootstrapServers
+                                + ", and jmx: "
+                                + jmxPort.get()
+                                + " works well";
+                          });
+                })
+            .build();
     var tab = new Tab("setting");
-    tab.setContent(
-        Utils.form(
-            LinkedHashSet.of("bootstrap servers"),
-            LinkedHashSet.of("jmx port"),
-            (result, console) -> {
-              var bootstrapServers = result.get("bootstrap servers");
-              if (bootstrapServers == null || bootstrapServers.isBlank())
-                return CompletableFuture.failedFuture(
-                    new IllegalArgumentException("please define bootstrap servers"));
-              var jmxPort = Optional.ofNullable(result.get("jmx port")).map(Integer::parseInt);
-              var newAdmin = AsyncAdmin.of(bootstrapServers);
-              return newAdmin
-                  .nodeInfos()
-                  .thenApply(
-                      nodeInfos -> {
-                        context
-                            .replace(newAdmin)
-                            .ifPresent(
-                                admin -> org.astraea.common.Utils.swallowException(admin::close));
-                        if (jmxPort.isEmpty()) return "succeed to connect to " + bootstrapServers;
-                        nodeInfos.forEach(
-                            n -> {
-                              try (var client = MBeanClient.jndi(n.host(), jmxPort.get())) {
-                                client.listDomains();
-                              }
-                            });
-                        context.replace(jmxPort.get());
-                        return "succeed to connect to "
-                            + bootstrapServers
-                            + ", and jmx: "
-                            + jmxPort.get()
-                            + " works well";
-                      });
-            },
-            "CHECK"));
+    tab.setContent(pane);
     return tab;
   }
 }

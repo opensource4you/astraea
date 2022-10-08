@@ -59,45 +59,48 @@ public class CreateTopicTab {
   private static final String NUMBER_OF_REPLICAS = "number of replicas";
 
   public static Tab of(Context context) {
+
+    var pane =
+        PaneBuilder.of()
+            .buttonName("CREATE")
+            .input(TOPIC_NAME, true, false)
+            .input(NUMBER_OF_PARTITIONS, false, true)
+            .input(NUMBER_OF_REPLICAS, false, true)
+            .outputMessage(
+                input -> {
+                  var allConfigs = new HashMap<>(input.texts());
+                  var name = allConfigs.remove(TOPIC_NAME);
+                  return context.submit(
+                      admin ->
+                          admin
+                              .topicNames(true)
+                              .thenCompose(
+                                  names -> {
+                                    if (names.contains(name))
+                                      return CompletableFuture.completedFuture(
+                                          name + " is already existent");
+
+                                    return admin
+                                        .creator()
+                                        .topic(name)
+                                        .numberOfPartitions(
+                                            Optional.ofNullable(
+                                                    allConfigs.remove(NUMBER_OF_PARTITIONS))
+                                                .map(Integer::parseInt)
+                                                .orElse(1))
+                                        .numberOfReplicas(
+                                            Optional.ofNullable(
+                                                    allConfigs.remove(NUMBER_OF_REPLICAS))
+                                                .map(Short::parseShort)
+                                                .orElse((short) 1))
+                                        .configs(allConfigs)
+                                        .run()
+                                        .thenApply(i -> "succeed to create topic:" + name);
+                                  }));
+                })
+            .build();
     var tab = new Tab("create topic");
-    tab.setContent(
-        Utils.form(
-            LinkedHashSet.of(TOPIC_NAME, NUMBER_OF_PARTITIONS, NUMBER_OF_REPLICAS),
-            ALL_CONFIG_KEYS,
-            (result, console) -> {
-              var allConfigs = new HashMap<>(result);
-              var name = allConfigs.remove(TOPIC_NAME);
-              if (name == null)
-                return CompletableFuture.failedFuture(
-                    new IllegalArgumentException("please define topic name"));
-              return context.submit(
-                  admin ->
-                      admin
-                          .topicNames(true)
-                          .thenCompose(
-                              names -> {
-                                if (names.contains(name))
-                                  return CompletableFuture.completedFuture(
-                                      name + " is already existent");
-
-                                return admin
-                                    .creator()
-                                    .topic(name)
-                                    .numberOfPartitions(
-                                        Optional.ofNullable(allConfigs.remove(NUMBER_OF_PARTITIONS))
-                                            .map(Integer::parseInt)
-                                            .orElse(1))
-                                    .numberOfReplicas(
-                                        Optional.ofNullable(allConfigs.remove(NUMBER_OF_REPLICAS))
-                                            .map(Short::parseShort)
-                                            .orElse((short) 1))
-                                    .configs(allConfigs)
-                                    .run()
-                                    .thenApply(i -> "succeed to create topic:" + name);
-                              }));
-            },
-            "CREATE"));
-
+    tab.setContent(pane);
     return tab;
   }
 }

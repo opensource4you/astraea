@@ -53,25 +53,29 @@ public class AddingReplicaTab {
   }
 
   public static Tab of(Context context) {
-    var tab = new Tab("adding replica");
-    tab.setContent(
-        Utils.searchToTable(
-            (word, console) ->
-                context.submit(
-                    admin ->
-                        admin
-                            .topicNames(true)
-                            .thenCompose(admin::addingReplicas)
-                            .thenApply(
-                                rs ->
-                                    result(
+    var pane =
+        PaneBuilder.of()
+            .searchField("topic name")
+            .outputTable(
+                input ->
+                    context.submit(
+                        admin ->
+                            admin
+                                .topicNames(true)
+                                .thenCompose(admin::addingReplicas)
+                                .thenApply(
+                                    rs ->
                                         rs.stream()
                                             .filter(
                                                 s ->
-                                                    Utils.contains(s.topic(), word)
-                                                        || Utils.contains(
-                                                            String.valueOf(s.broker()), word))))),
-            "SEARCH for topic"));
+                                                    input.matchSearch(s.topic())
+                                                        || input.matchSearch(
+                                                            String.valueOf(s.broker()))))
+                                .thenApply(AddingReplicaTab::result)))
+            .build();
+
+    var tab = new Tab("adding replica");
+    tab.setContent(pane);
     return tab;
   }
 }

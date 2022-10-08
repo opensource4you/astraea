@@ -151,6 +151,12 @@ public class UtilsTest {
     Assertions.assertThrows(RuntimeException.class, () -> Utils.construct(aClass, config));
   }
 
+  @Test
+  void testEmptySequence() throws ExecutionException, InterruptedException {
+    var f = Utils.sequence(List.of()).thenApply(ignored -> "yes");
+    Assertions.assertEquals("yes", f.get());
+  }
+
   private static class TestConfigCostFunction implements CostFunction {
     public TestConfigCostFunction(Configuration configuration) {}
   }

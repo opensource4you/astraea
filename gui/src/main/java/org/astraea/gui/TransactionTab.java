@@ -17,6 +17,7 @@
 package org.astraea.gui;
 
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javafx.scene.control.Tab;
@@ -26,7 +27,7 @@ import org.astraea.common.admin.Transaction;
 
 public class TransactionTab {
 
-  private static List<LinkedHashMap<String, Object>> result(Stream<Transaction> transactions) {
+  private static List<Map<String, Object>> result(Stream<Transaction> transactions) {
     return transactions
         .map(
             transaction ->
@@ -46,25 +47,27 @@ public class TransactionTab {
 
   public static Tab of(Context context) {
     var pane =
-        Utils.searchToTable(
-            (word, console) ->
-                context.submit(
-                    admin ->
-                        admin
-                            .transactionIds()
-                            .thenCompose(admin::transactions)
-                            .thenApply(
-                                ts ->
-                                    ts.stream()
-                                        .filter(
-                                            transaction ->
-                                                Utils.contains(transaction.transactionId(), word)
-                                                    || transaction.topicPartitions().stream()
-                                                        .anyMatch(
-                                                            tp ->
-                                                                Utils.contains(tp.topic(), word))))
-                            .thenApply(TransactionTab::result)),
-            "SEARCH for topic/transaction");
+        PaneBuilder.of()
+            .searchField("topic name or transaction id")
+            .outputTable(
+                input ->
+                    context.submit(
+                        admin ->
+                            admin
+                                .transactionIds()
+                                .thenCompose(admin::transactions)
+                                .thenApply(
+                                    ts ->
+                                        ts.stream()
+                                            .filter(
+                                                transaction ->
+                                                    input.matchSearch(transaction.transactionId())
+                                                        || transaction.topicPartitions().stream()
+                                                            .anyMatch(
+                                                                tp ->
+                                                                    input.matchSearch(tp.topic()))))
+                                .thenApply(TransactionTab::result)))
+            .build();
     var tab = new Tab("transaction");
     tab.setContent(pane);
     return tab;
