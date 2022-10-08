@@ -202,83 +202,79 @@ public class PaneBuilder {
                       console.append(message);
                     }
                   };
-              Object outputObject;
-              try {
-                outputObject = actionRunner.apply(input);
-              } catch (IllegalArgumentException e) {
-                console.append(e.getMessage());
-                return;
-              } catch (Exception e) {
-                console.text(e);
-                return;
-              }
-              console.cleanup();
-              actionButton.setDisable(true);
-
               BiConsumer<OutputTable, Boolean> processOutputTable =
-                  (outputTable, enableButton) -> {
-                    outputTable
-                        .table()
-                        .whenComplete(
-                            (table, exception) -> {
-                              if (exception != null) {
-                                console.text(exception);
-                                Platform.runLater(() -> actionButton.setDisable(false));
-                                return;
-                              }
-                              var columns =
-                                  table.stream()
-                                      .flatMap(r -> r.keySet().stream())
-                                      .collect(Collectors.toCollection(LinkedHashSet::new))
-                                      .stream()
-                                      .map(
-                                          key -> {
-                                            var col =
-                                                new TableColumn<Map<String, Object>, Object>(key);
-                                            col.setCellValueFactory(
-                                                param ->
-                                                    new ReadOnlyObjectWrapper<>(
-                                                        param.getValue().getOrDefault(key, "")));
-                                            return col;
-                                          })
-                                      .collect(Collectors.toList());
-                              Platform.runLater(
-                                  () -> {
-                                    tableView.getColumns().setAll(columns);
-                                    tableView.getItems().setAll(table);
-                                    actionButton.setDisable(!enableButton);
-                                  });
-                            });
-                  };
+                  (outputTable, enableButton) ->
+                      outputTable
+                          .table()
+                          .whenComplete(
+                              (table, exception) -> {
+                                if (exception != null) {
+                                  console.text(exception);
+                                  Platform.runLater(() -> actionButton.setDisable(false));
+                                  return;
+                                }
+                                var columns =
+                                    table.stream()
+                                        .flatMap(r -> r.keySet().stream())
+                                        .collect(Collectors.toCollection(LinkedHashSet::new))
+                                        .stream()
+                                        .map(
+                                            key -> {
+                                              var col =
+                                                  new TableColumn<Map<String, Object>, Object>(key);
+                                              col.setCellValueFactory(
+                                                  param ->
+                                                      new ReadOnlyObjectWrapper<>(
+                                                          param.getValue().getOrDefault(key, "")));
+                                              return col;
+                                            })
+                                        .collect(Collectors.toList());
+                                Platform.runLater(
+                                    () -> {
+                                      tableView.getColumns().setAll(columns);
+                                      tableView.getItems().setAll(table);
+                                      actionButton.setDisable(!enableButton);
+                                    });
+                              });
 
               BiConsumer<OutputMessage, Boolean> processOutputMessage =
-                  (outputMessage, enableButton) -> {
-                    outputMessage
-                        .message()
-                        .whenComplete(
-                            (message, exception) -> {
-                              if (exception != null) {
-                                console.text(exception);
-                                Platform.runLater(() -> actionButton.setDisable(false));
-                                return;
-                              }
-                              console.append(message);
-                              if (enableButton)
-                                Platform.runLater(() -> actionButton.setDisable(false));
-                            });
-                  };
+                  (outputMessage, enableButton) ->
+                      outputMessage
+                          .message()
+                          .whenComplete(
+                              (message, exception) -> {
+                                if (exception != null) {
+                                  console.text(exception);
+                                  Platform.runLater(() -> actionButton.setDisable(false));
+                                  return;
+                                }
+                                console.append(message);
+                                if (enableButton)
+                                  Platform.runLater(() -> actionButton.setDisable(false));
+                              });
 
-              if (outputObject instanceof Output) {
-                processOutputTable.accept((OutputTable) outputObject, false);
-                processOutputMessage.accept((OutputMessage) outputObject, true);
-                return;
+              console.cleanup();
+              actionButton.setDisable(true);
+              try {
+                Object outputObject = actionRunner.apply(input);
+                if (outputObject instanceof Output) {
+                  processOutputTable.accept((OutputTable) outputObject, false);
+                  processOutputMessage.accept((OutputMessage) outputObject, true);
+                  return;
+                }
+
+                if (outputObject instanceof OutputTable)
+                  processOutputTable.accept((OutputTable) outputObject, true);
+
+                if (outputObject instanceof OutputMessage)
+                  processOutputMessage.accept((OutputMessage) outputObject, true);
+              } catch (IllegalArgumentException e) {
+                console.append(e.getMessage());
+                actionButton.setDisable(false);
+              } catch (Exception e) {
+                console.append(e);
+                actionButton.setDisable(false);
               }
-
-              if (outputObject instanceof OutputTable)
-                processOutputTable.accept((OutputTable) outputObject, true);
-
-              if (outputObject instanceof OutputMessage)
-                processOutputMessage.accept((OutputMessage) outputObject, true);
             };
 
     if (handler != null) {
