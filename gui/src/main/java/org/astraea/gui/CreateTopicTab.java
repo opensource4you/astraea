@@ -20,6 +20,7 @@ import java.util.HashMap;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import javafx.scene.control.Tab;
+import org.astraea.common.admin.TopicConfigs;
 
 public class CreateTopicTab {
 
@@ -35,6 +36,7 @@ public class CreateTopicTab {
             .input(TOPIC_NAME, true, false)
             .input(NUMBER_OF_PARTITIONS, false, true)
             .input(NUMBER_OF_REPLICAS, false, true)
+            .input(TopicConfigs.ALL_CONFIGS)
             .outputMessage(
                 input -> {
                   var allConfigs = new HashMap<>(input.texts());
