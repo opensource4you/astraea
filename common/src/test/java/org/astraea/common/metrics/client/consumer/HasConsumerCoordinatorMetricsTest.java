@@ -47,7 +47,7 @@ public class HasConsumerCoordinatorMetricsTest extends RequireSingleBrokerCluste
     try (var consumer =
         Consumer.forTopics(Set.of(topic))
             .bootstrapServers(bootstrapServers())
-            .fromBeginning()
+            .config(Consumer.AUTO_OFFSET_RESET_CONFIG, Consumer.AUTO_OFFSET_RESET_EARLIEST)
             .build()) {
       Assertions.assertEquals(10, consumer.poll(10, Duration.ofSeconds(5)).size());
       consumer.commitOffsets(Duration.ofSeconds(2));

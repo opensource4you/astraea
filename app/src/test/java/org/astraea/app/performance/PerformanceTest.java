@@ -30,8 +30,6 @@ import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.ReplicaInfo;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.argument.Argument;
-import org.astraea.common.consumer.Isolation;
-import org.astraea.common.producer.Acks;
 import org.astraea.it.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -51,26 +49,14 @@ public class PerformanceTest extends RequireBrokerCluster {
   }
 
   @Test
-  void testProducerExecutor() throws InterruptedException {
+  void testProducerExecutor() {
     var topic = "testProducerExecutor";
-    String[] arguments1 = {
-      "--bootstrap.servers", bootstrapServers(), "--topics", topic, "--compression", "gzip"
-    };
+    String[] arguments1 = {"--bootstrap.servers", bootstrapServers(), "--topics", topic};
     var latch = new CountDownLatch(1);
     var argument = Argument.parse(new Performance.Argument(), arguments1);
     try (var producer = argument.createProducer()) {
       Assertions.assertFalse(producer.transactional());
     }
-  }
-
-  @Test
-  void testTransactionSet() {
-    var argument = new Performance.Argument();
-    Assertions.assertEquals(Isolation.READ_UNCOMMITTED, argument.isolation());
-    argument.transactionSize = 1;
-    Assertions.assertEquals(Isolation.READ_UNCOMMITTED, argument.isolation());
-    argument.transactionSize = 3;
-    Assertions.assertEquals(Isolation.READ_COMMITTED, argument.isolation());
   }
 
   @Test
@@ -359,26 +345,6 @@ public class PerformanceTest extends RequireBrokerCluster {
       System.out.println(args.lastOffsets());
       args.lastOffsets().values().forEach(v -> Assertions.assertNotEquals(0, v));
     }
-  }
-
-  @Test
-  void testAcks() {
-    Stream.of(Acks.values())
-        .forEach(
-            ack -> {
-              var arg =
-                  Argument.parse(
-                      new Performance.Argument(),
-                      new String[] {
-                        "--bootstrap.servers",
-                        bootstrapServers(),
-                        "--acks",
-                        ack.alias(),
-                        "--topics",
-                        initTopic()
-                      });
-              Assertions.assertEquals(ack, arg.acks);
-            });
   }
 
   private static String initTopic() {

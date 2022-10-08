@@ -216,7 +216,7 @@ public class AdminTest extends RequireBrokerCluster {
       try (var c1 =
           Consumer.forTopics(Set.of(topicName))
               .bootstrapServers(bootstrapServers())
-              .groupId(consumerGroup)
+              .config(Consumer.GROUP_ID_CONFIG, consumerGroup)
               .build()) {
         // wait for syncing topic creation
         Utils.sleep(Duration.ofSeconds(5));
@@ -228,7 +228,7 @@ public class AdminTest extends RequireBrokerCluster {
         try (var c2 =
             Consumer.forTopics(Set.of(topicName))
                 .bootstrapServers(bootstrapServers())
-                .groupId("abc")
+                .config(Consumer.GROUP_ID_CONFIG, "abc")
                 .build()) {
           var count =
               admin.consumerGroupIds().stream()
@@ -503,7 +503,7 @@ public class AdminTest extends RequireBrokerCluster {
           Consumer.forTopics(Set.of(topicName))
               .keyDeserializer(Deserializer.STRING)
               .valueDeserializer(Deserializer.STRING)
-              .fromBeginning()
+              .config(Consumer.AUTO_OFFSET_RESET_CONFIG, Consumer.AUTO_OFFSET_RESET_EARLIEST)
               .bootstrapServers(bootstrapServers())
               .build()) {
 
@@ -968,7 +968,7 @@ public class AdminTest extends RequireBrokerCluster {
         var consumer =
             Consumer.forTopics(Set.of(topicName))
                 .bootstrapServers(bootstrapServers())
-                .fromBeginning()
+                .config(Consumer.AUTO_OFFSET_RESET_CONFIG, Consumer.AUTO_OFFSET_RESET_EARLIEST)
                 .build()) {
       producer.sender().topic(topicName).key(new byte[10]).run();
       producer.flush();
@@ -996,8 +996,8 @@ public class AdminTest extends RequireBrokerCluster {
       try (var consumer =
           Consumer.forTopics(Set.of(topicName))
               .bootstrapServers(bootstrapServers())
-              .groupId(groupId)
-              .groupInstanceId(Utils.randomString(10))
+              .config(Consumer.GROUP_ID_CONFIG, groupId)
+              .config(Consumer.GROUP_INSTANCE_ID_CONFIG, Utils.randomString(10))
               .build()) {
         Assertions.assertEquals(0, consumer.poll(Duration.ofSeconds(3)).size());
       }
@@ -1031,8 +1031,8 @@ public class AdminTest extends RequireBrokerCluster {
         var consumer =
             Consumer.forTopics(Set.of(topicName))
                 .bootstrapServers(bootstrapServers())
-                .groupInstanceId(staticId)
-                .fromBeginning()
+                .config(Consumer.GROUP_INSTANCE_ID_CONFIG, staticId)
+                .config(Consumer.AUTO_OFFSET_RESET_CONFIG, Consumer.AUTO_OFFSET_RESET_EARLIEST)
                 .build()) {
       producer.sender().topic(topicName).key(new byte[10]).run();
       producer.flush();
@@ -1059,7 +1059,7 @@ public class AdminTest extends RequireBrokerCluster {
     try (var consumer =
         Consumer.forTopics(Set.of(topicName))
             .bootstrapServers(bootstrapServers())
-            .groupId(groupId)
+            .config(Consumer.GROUP_ID_CONFIG, groupId)
             .build()) {
       Assertions.assertEquals(0, consumer.poll(Duration.ofSeconds(3)).size());
     }
@@ -1077,8 +1077,8 @@ public class AdminTest extends RequireBrokerCluster {
     try (var consumer =
         Consumer.forTopics(Set.of(topicName))
             .bootstrapServers(bootstrapServers())
-            .groupId(groupId)
-            .groupInstanceId(Utils.randomString(10))
+            .config(Consumer.GROUP_ID_CONFIG, groupId)
+            .config(Consumer.GROUP_INSTANCE_ID_CONFIG, Utils.randomString(10))
             .build()) {
       Assertions.assertEquals(0, consumer.poll(Duration.ofSeconds(3)).size());
     }

@@ -26,16 +26,13 @@ import java.util.Random;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.stream.Collectors;
-import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.producer.KafkaProducer;
-import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.KafkaException;
 import org.apache.kafka.common.errors.AuthorizationException;
 import org.apache.kafka.common.errors.OutOfOrderSequenceException;
 import org.apache.kafka.common.errors.ProducerFencedException;
 import org.astraea.common.Utils;
-import org.astraea.common.admin.Compression;
 
 public class Builder<Key, Value> {
   private final Map<String, Object> configs = new HashMap<>();
@@ -56,50 +53,25 @@ public class Builder<Key, Value> {
     return (Builder<Key, NewValue>) this;
   }
 
+  /**
+   * @param key a non-null string
+   * @param value null means you want to remove the associated key. Otherwise, the previous value
+   *     will be overwritten
+   * @return this builder
+   */
   public Builder<Key, Value> config(String key, String value) {
-    this.configs.put(key, value);
+    if (value == null) this.configs.remove(key);
+    else this.configs.put(key, value);
     return this;
   }
 
   public Builder<Key, Value> configs(Map<String, String> configs) {
-    this.configs.putAll(configs);
+    configs.forEach(this::config);
     return this;
   }
 
   public Builder<Key, Value> bootstrapServers(String bootstrapServers) {
-    return config(
-        ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, Objects.requireNonNull(bootstrapServers));
-  }
-
-  public Builder<Key, Value> partitionClassName(String partitionClassName) {
-    // Don't set partitioner to make sure DefaultPartitioner (Kafka version 3.2 and before) or
-    // BuiltInPartitioner (Kafka version 3.3) both works.
-    if (partitionClassName == null || partitionClassName.isEmpty()) return this;
-    return config(ProducerConfig.PARTITIONER_CLASS_CONFIG, partitionClassName);
-  }
-
-  public Builder<Key, Value> compression(Compression compression) {
-    return config(ProducerConfig.COMPRESSION_TYPE_CONFIG, compression.nameOfKafka());
-  }
-
-  public Builder<Key, Value> acks(Acks acks) {
-    return config(ProducerConfig.ACKS_CONFIG, acks.valueOfKafka());
-  }
-
-  /**
-   * set the transaction id. If you set the transaction id, the builder will always build
-   * transactional producer.
-   *
-   * @param transactionId used to trace by server
-   * @return this builder
-   */
-  public Builder<Key, Value> transactionId(String transactionId) {
-    return config(ProducerConfig.TRANSACTIONAL_ID_CONFIG, transactionId);
-  }
-
-  public Builder<Key, Value> clientId(String clientId) {
-    this.configs.put(ConsumerConfig.CLIENT_ID_CONFIG, clientId);
-    return this;
+    return config(Producer.BOOTSTRAP_SERVERS_CONFIG, Objects.requireNonNull(bootstrapServers));
   }
 
   private static <Key, Value> CompletionStage<Metadata> doSend(
@@ -122,7 +94,7 @@ public class Builder<Key, Value> {
   @SuppressWarnings("unchecked")
   public Producer<Key, Value> build() {
     // if user configs the transaction id, we should build transactional producer
-    if (configs.containsKey(ProducerConfig.TRANSACTIONAL_ID_CONFIG)) return buildTransactional();
+    if (configs.containsKey(Producer.TRANSACTIONAL_ID_CONFIG)) return buildTransactional();
     return new NormalProducer<>(
         new KafkaProducer<>(
             configs,
@@ -140,7 +112,7 @@ public class Builder<Key, Value> {
     var transactionId =
         (String)
             transactionConfigs.computeIfAbsent(
-                ProducerConfig.TRANSACTIONAL_ID_CONFIG,
+                Producer.TRANSACTIONAL_ID_CONFIG,
                 ignored -> "transaction-id-" + new Random().nextLong());
     // For transactional send
     var transactionProducer =

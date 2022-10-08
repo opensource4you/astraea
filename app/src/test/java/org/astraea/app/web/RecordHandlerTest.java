@@ -146,7 +146,7 @@ public class RecordHandlerTest extends RequireBrokerCluster {
     try (var consumer =
         Consumer.forTopics(Set.of(topic))
             .bootstrapServers(bootstrapServers())
-            .fromBeginning()
+            .config(Consumer.AUTO_OFFSET_RESET_CONFIG, Consumer.AUTO_OFFSET_RESET_EARLIEST)
             .keyDeserializer(Deserializer.STRING)
             .valueDeserializer(Deserializer.INTEGER)
             .build()) {
@@ -208,7 +208,7 @@ public class RecordHandlerTest extends RequireBrokerCluster {
     try (var consumer =
         Consumer.forTopics(Set.of(topic))
             .bootstrapServers(bootstrapServers())
-            .fromBeginning()
+            .config(Consumer.AUTO_OFFSET_RESET_CONFIG, Consumer.AUTO_OFFSET_RESET_EARLIEST)
             .build()) {
       var record = consumer.poll(1, Duration.ofSeconds(10)).iterator().next();
       Assertions.assertEquals(topic, record.topic());
@@ -242,7 +242,7 @@ public class RecordHandlerTest extends RequireBrokerCluster {
     try (var consumer =
         Consumer.forTopics(Set.of(topic))
             .bootstrapServers(bootstrapServers())
-            .fromBeginning()
+            .config(Consumer.AUTO_OFFSET_RESET_CONFIG, Consumer.AUTO_OFFSET_RESET_EARLIEST)
             .build()) {
       var record = consumer.poll(1, Duration.ofSeconds(10)).iterator().next();
       Assertions.assertArrayEquals(expected, record.key());

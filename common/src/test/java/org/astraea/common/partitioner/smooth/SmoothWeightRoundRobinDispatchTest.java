@@ -120,7 +120,7 @@ public class SmoothWeightRoundRobinDispatchTest extends RequireBrokerCluster {
     try (var consumer =
         Consumer.forTopics(Set.of(topicName))
             .bootstrapServers(bootstrapServers())
-            .fromBeginning()
+            .config(Consumer.AUTO_OFFSET_RESET_CONFIG, Consumer.AUTO_OFFSET_RESET_EARLIEST)
             .keyDeserializer(Deserializer.STRING)
             .build()) {
       var records = consumer.poll(Duration.ofSeconds(20));
@@ -172,7 +172,7 @@ public class SmoothWeightRoundRobinDispatchTest extends RequireBrokerCluster {
     try (var consumer =
         Consumer.forTopics(Set.of(topicName))
             .bootstrapServers(bootstrapServers())
-            .fromBeginning()
+            .config(Consumer.AUTO_OFFSET_RESET_CONFIG, Consumer.AUTO_OFFSET_RESET_EARLIEST)
             .keyDeserializer(Deserializer.STRING)
             .build()) {
       var records = consumer.poll(Duration.ofSeconds(20));

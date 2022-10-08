@@ -38,14 +38,6 @@ public class TopicsBuilder<Key, Value> extends Builder<Key, Value> {
     this.topics = requireNonNull(topics);
   }
 
-  public TopicsBuilder<Key, Value> groupId(String groupId) {
-    return config(Consumer.GROUP_ID_CONFIG, requireNonNull(groupId));
-  }
-
-  public TopicsBuilder<Key, Value> groupInstanceId(String groupInstanceId) {
-    return config(Consumer.GROUP_INSTANCE_ID_CONFIG, requireNonNull(groupInstanceId));
-  }
-
   public TopicsBuilder<Key, Value> consumerRebalanceListener(ConsumerRebalanceListener listener) {
     this.listener = Objects.requireNonNull(listener);
     return this;
@@ -63,28 +55,6 @@ public class TopicsBuilder<Key, Value> extends Builder<Key, Value> {
     return this;
   }
 
-  /**
-   * make the consumer read data from beginning. By default, it reads the latest data.
-   *
-   * @return this builder
-   */
-  @Override
-  public TopicsBuilder<Key, Value> fromBeginning() {
-    super.fromBeginning();
-    return this;
-  }
-
-  /**
-   * make the consumer read data from latest. this is default setting.
-   *
-   * @return this builder
-   */
-  @Override
-  public TopicsBuilder<Key, Value> fromLatest() {
-    super.fromLatest();
-    return this;
-  }
-
   @Override
   public <NewKey> TopicsBuilder<NewKey, Value> keyDeserializer(
       Deserializer<NewKey> keyDeserializer) {
@@ -98,34 +68,18 @@ public class TopicsBuilder<Key, Value> extends Builder<Key, Value> {
   }
 
   public TopicsBuilder<Key, Value> config(String key, String value) {
-    this.configs.put(key, value);
+    super.config(key, value);
     return this;
   }
 
   public TopicsBuilder<Key, Value> configs(Map<String, String> configs) {
-    this.configs.putAll(configs);
+    super.configs(configs);
     return this;
   }
 
   @Override
   public TopicsBuilder<Key, Value> bootstrapServers(String bootstrapServers) {
     super.bootstrapServers(bootstrapServers);
-    return this;
-  }
-
-  @Override
-  public TopicsBuilder<Key, Value> isolation(Isolation isolation) {
-    super.isolation(isolation);
-    return this;
-  }
-
-  public TopicsBuilder<Key, Value> disableAutoCommitOffsets() {
-    return config(Consumer.ENABLE_AUTO_COMMIT_CONFIG, "false");
-  }
-
-  @Override
-  public TopicsBuilder<Key, Value> clientId(String clientId) {
-    super.clientId(clientId);
     return this;
   }
 

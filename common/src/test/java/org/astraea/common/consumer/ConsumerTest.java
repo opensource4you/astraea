@@ -70,7 +70,7 @@ public class ConsumerTest extends RequireBrokerCluster {
     try (var consumer =
         Consumer.forTopics(Set.of(topic))
             .bootstrapServers(bootstrapServers())
-            .fromBeginning()
+            .config(Consumer.AUTO_OFFSET_RESET_CONFIG, Consumer.AUTO_OFFSET_RESET_EARLIEST)
             .build()) {
 
       Assertions.assertEquals(
@@ -85,7 +85,7 @@ public class ConsumerTest extends RequireBrokerCluster {
     try (var consumer =
         Consumer.forTopics(Set.of(topic))
             .bootstrapServers(bootstrapServers())
-            .fromLatest()
+            .config(Consumer.AUTO_OFFSET_RESET_CONFIG, Consumer.AUTO_OFFSET_RESET_LATEST)
             .build()) {
 
       Assertions.assertEquals(0, consumer.poll(Duration.ofSeconds(3)).size());
@@ -99,7 +99,7 @@ public class ConsumerTest extends RequireBrokerCluster {
     try (var consumer =
         Consumer.forTopics(Set.of(topic))
             .bootstrapServers(bootstrapServers())
-            .fromLatest()
+            .config(Consumer.AUTO_OFFSET_RESET_CONFIG, Consumer.AUTO_OFFSET_RESET_LATEST)
             .build()) {
       var service = Executors.newSingleThreadExecutor();
       service.execute(
@@ -126,8 +126,8 @@ public class ConsumerTest extends RequireBrokerCluster {
           try (var consumer =
               Consumer.forTopics(Set.of(topic))
                   .bootstrapServers(bootstrapServers())
-                  .fromBeginning()
-                  .groupId(id)
+                  .config(Consumer.AUTO_OFFSET_RESET_CONFIG, Consumer.AUTO_OFFSET_RESET_EARLIEST)
+                  .config(Consumer.GROUP_ID_CONFIG, id)
                   .build()) {
             Assertions.assertEquals(
                 expectedSize, consumer.poll(expectedSize, Duration.ofSeconds(5)).size());
@@ -152,7 +152,7 @@ public class ConsumerTest extends RequireBrokerCluster {
     try (var consumer =
         Consumer.forTopics(Set.of(Utils.randomString(10)))
             .bootstrapServers(bootstrapServers())
-            .groupInstanceId(staticId)
+            .config(Consumer.GROUP_INSTANCE_ID_CONFIG, staticId)
             .build()) {
       Assertions.assertEquals(0, consumer.poll(Duration.ofSeconds(2)).size());
       Assertions.assertEquals(staticId, consumer.groupInstanceId().get());
@@ -198,7 +198,7 @@ public class ConsumerTest extends RequireBrokerCluster {
     try (var consumer =
         Consumer.forTopics(Set.of(topic))
             .bootstrapServers(bootstrapServers())
-            .fromBeginning()
+            .config(Consumer.AUTO_OFFSET_RESET_CONFIG, Consumer.AUTO_OFFSET_RESET_EARLIEST)
             .build()) {
 
       // poll() returns immediately, if there is(/are) record(s) to poll.
@@ -267,10 +267,10 @@ public class ConsumerTest extends RequireBrokerCluster {
       var groupId = Utils.randomString(10);
       try (var consumer =
           Consumer.forTopics(Set.of(topic))
-              .groupId(groupId)
+              .config(Consumer.GROUP_ID_CONFIG, groupId)
               .bootstrapServers(bootstrapServers())
-              .fromBeginning()
-              .disableAutoCommitOffsets()
+              .config(Consumer.AUTO_OFFSET_RESET_CONFIG, Consumer.AUTO_OFFSET_RESET_EARLIEST)
+              .config(Consumer.ENABLE_AUTO_COMMIT_CONFIG, "false")
               .build()) {
         Assertions.assertEquals(1, consumer.poll(1, Duration.ofSeconds(4)).size());
         Assertions.assertEquals(1, admin.consumerGroups(Set.of(groupId)).size());
@@ -346,7 +346,7 @@ public class ConsumerTest extends RequireBrokerCluster {
     try (var consumer =
         Consumer.forTopics(Set.of(topic))
             .bootstrapServers(bootstrapServers())
-            .fromBeginning()
+            .config(Consumer.AUTO_OFFSET_RESET_CONFIG, Consumer.AUTO_OFFSET_RESET_EARLIEST)
             .build()) {
       Assertions.assertNotEquals(0, consumer.poll(Duration.ofSeconds(5)).size());
       consumer.unsubscribe();
@@ -374,7 +374,7 @@ public class ConsumerTest extends RequireBrokerCluster {
     try (var consumer =
         Consumer.forPartitions(Set.of(TopicPartition.of(topic, 0)))
             .bootstrapServers(bootstrapServers())
-            .fromBeginning()
+            .config(Consumer.AUTO_OFFSET_RESET_CONFIG, Consumer.AUTO_OFFSET_RESET_EARLIEST)
             .build()) {
       Assertions.assertNotEquals(0, consumer.poll(Duration.ofSeconds(5)).size());
       consumer.unsubscribe();
@@ -418,7 +418,7 @@ public class ConsumerTest extends RequireBrokerCluster {
                             () -> {
                               try (var consumer =
                                   Consumer.forTopics(Set.of(topic))
-                                      .groupId(groupId)
+                                      .config(Consumer.GROUP_ID_CONFIG, groupId)
                                       .bootstrapServers(bootstrapServers())
                                       .seek(SEEK_TO, 0)
                                       .consumerRebalanceListener(ps -> log.put(index, ps.size()))
@@ -441,8 +441,8 @@ public class ConsumerTest extends RequireBrokerCluster {
     try (var consumer =
         Consumer.forTopics(Set.of(topic))
             .bootstrapServers(bootstrapServers())
-            .fromBeginning()
-            .clientId(clientId0)
+            .config(Consumer.AUTO_OFFSET_RESET_CONFIG, Consumer.AUTO_OFFSET_RESET_EARLIEST)
+            .config(Consumer.CLIENT_ID_CONFIG, clientId0)
             .build()) {
       Assertions.assertEquals(clientId0, consumer.clientId());
     }
@@ -451,8 +451,8 @@ public class ConsumerTest extends RequireBrokerCluster {
     try (var consumer =
         Consumer.forPartitions(Set.of(TopicPartition.of(topic, 0)))
             .bootstrapServers(bootstrapServers())
-            .fromBeginning()
-            .clientId(clientId1)
+            .config(Consumer.AUTO_OFFSET_RESET_CONFIG, Consumer.AUTO_OFFSET_RESET_EARLIEST)
+            .config(Consumer.CLIENT_ID_CONFIG, clientId1)
             .build()) {
       Assertions.assertEquals(clientId1, consumer.clientId());
     }

@@ -24,6 +24,7 @@ import org.astraea.common.admin.TopicPartition;
 /** An interface for polling records. */
 public interface Consumer<Key, Value> extends AutoCloseable {
 
+  // ---------------------------------[keys]---------------------------------//
   String GROUP_ID_CONFIG = "group.id";
   String GROUP_INSTANCE_ID_CONFIG = "group.instance.id";
   String MAX_POLL_RECORDS_CONFIG = "max.poll.records";
@@ -64,6 +65,13 @@ public interface Consumer<Key, Value> extends AutoCloseable {
   String EXCLUDE_INTERNAL_TOPICS_CONFIG = "exclude.internal.topics";
   String ISOLATION_LEVEL_CONFIG = "isolation.level";
   String ALLOW_AUTO_CREATE_TOPICS_CONFIG = "allow.auto.create.topics";
+
+  // ---------------------------------[Values]---------------------------------//
+  String AUTO_OFFSET_RESET_LATEST = "latest";
+  String AUTO_OFFSET_RESET_EARLIEST = "earliest";
+  String AUTO_OFFSET_RESET_NONE = "none";
+  String ISOLATION_LEVEL_UNCOMMITTED = "read_uncommitted";
+  String ISOLATION_LEVEL_COMMITTED = "read_committed";
 
   default Collection<Record<Key, Value>> poll(Duration timeout) {
     return poll(1, timeout);

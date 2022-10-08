@@ -87,7 +87,7 @@ public class RecordHandler implements Handler {
         Cache.<String, Producer<byte[], byte[]>>builder(
                 transactionId ->
                     Producer.builder()
-                        .transactionId(transactionId)
+                        .config(Producer.TRANSACTIONAL_ID_CONFIG, transactionId)
                         .bootstrapServers(bootstrapServers)
                         .buildTransactional())
             .maxCapacity(MAX_CACHE_SIZE)
@@ -123,8 +123,11 @@ public class RecordHandler implements Handler {
             .orElseGet(
                 () -> {
                   // disable auto commit here since we commit manually in Records#onComplete
-                  var builder = Consumer.forTopics(Set.of(topic)).disableAutoCommitOffsets();
-                  Optional.ofNullable(channel.queries().get(GROUP_ID)).ifPresent(builder::groupId);
+                  var builder =
+                      Consumer.forTopics(Set.of(topic))
+                          .config(Consumer.ENABLE_AUTO_COMMIT_CONFIG, "false");
+                  Optional.ofNullable(channel.queries().get(GROUP_ID))
+                      .ifPresent(groupId -> builder.config(Consumer.GROUP_ID_CONFIG, groupId));
                   return builder;
                 });
 
