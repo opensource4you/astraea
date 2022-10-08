@@ -339,7 +339,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
       var response =
           Assertions.assertInstanceOf(
               BalancerHandler.PutPlanResponse.class,
-              handler.post(Channel.ofRequest(PostRequest.of(Map.of("id", thePlanId.toString())))));
+              handler.put(Channel.ofRequest(PostRequest.of(Map.of("id", thePlanId)))));
       Utils.sleep(Duration.ofSeconds(1));
 
       // assert
@@ -553,7 +553,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
       var response =
           Assertions.assertInstanceOf(
               BalancerHandler.PutPlanResponse.class,
-              handler.post(Channel.ofRequest(PostRequest.of(Map.of("id", report.id)))));
+              handler.put(Channel.ofRequest(PostRequest.of(Map.of("id", report.id)))));
       Assertions.assertNotNull(response.id, "The plan should be executed");
 
       // not done yet
@@ -608,7 +608,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
       var response =
           Assertions.assertInstanceOf(
               BalancerHandler.PutPlanResponse.class,
-              handler.post(Channel.ofRequest(PostRequest.of(Map.of("id", report.id)))));
+              handler.put(Channel.ofRequest(PostRequest.of(Map.of("id", report.id)))));
       Assertions.assertNotNull(response.id, "The plan should be executed");
 
       // exception
