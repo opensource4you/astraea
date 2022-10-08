@@ -174,9 +174,13 @@ class BalancerHandler implements Handler {
       throw new IllegalArgumentException("This plan doesn't exists: " + planId);
     boolean isScheduled = executedPlans.containsKey(planId);
     boolean isDone = isScheduled && executedPlans.get(planId).isDone();
-    boolean isException = isScheduled && executedPlans.get(planId).isCompletedExceptionally();
+    var exception =
+        executedPlans
+            .getOrDefault(planId, CompletableFuture.completedFuture(null))
+            .handle((result, error) -> error != null ? error.toString() : null)
+            .getNow(null);
 
-    return new PlanExecutionProgress(planId, isScheduled, isDone, isException);
+    return new PlanExecutionProgress(planId, isScheduled, isDone, exception);
   }
 
   @Override
@@ -384,9 +388,9 @@ class BalancerHandler implements Handler {
     final String id;
     final boolean scheduled;
     final boolean done;
-    final boolean exception;
+    final String exception;
 
-    PlanExecutionProgress(String id, boolean scheduled, boolean done, boolean exception) {
+    PlanExecutionProgress(String id, boolean scheduled, boolean done, String exception) {
       this.id = id;
       this.scheduled = scheduled;
       this.done = done;

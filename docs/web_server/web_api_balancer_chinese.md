@@ -16,7 +16,7 @@ GET /balancer
 |---------|----------------------|--------------------------|
 | loop    | (選填) 要嘗試幾種組合         | 10000                    |
 | topics  | (選填) 只嘗試搬移指定的 topics | 無，除了內部 topics 以外的都作為候選對象 |
- | timeout | (選填) 指定產生時間          | 3s                       |
+| timeout | (選填) 指定產生時間          | 3s                       |
 
 cURL 範例
 ```shell
@@ -165,14 +165,22 @@ JSON Response 範例
 * `id`: 此 Response 所描述的負載平衡計劃編號
 * `scheduled`: 此負載平衡計劃是否有排程執行過
 * `done`: 此負載平衡計劃是否結束執行
-* `exception`: 此負載平衡計劃是否是在意外情況下結束執行
+* `exception`: 當負載平衡計劃在意外下結束時，其附帶的錯誤訊息。如果沒有錯誤則此欄位會是 `null`
+
+```json
+{
+  "id": "46ecf6e7-aa28-4f72-b1b6-a788056c122a",
+  "scheduled": true,
+  "done": true
+}
+```
 
 ```json
 {
   "id": "46ecf6e7-aa28-4f72-b1b6-a788056c122a",
   "scheduled": true,
   "done": true,
-  "exception": false
+  "exception": "org.apache.kafka.common.KafkaException: Failed to create new KafkaAdminClient"
 }
 ```
 

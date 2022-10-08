@@ -547,7 +547,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
       Assertions.assertEquals(report.id, progress0.id);
       Assertions.assertFalse(progress0.scheduled);
       Assertions.assertFalse(progress0.done);
-      Assertions.assertFalse(progress0.exception);
+      Assertions.assertNull(progress0.exception);
 
       // schedule
       var response =
@@ -565,7 +565,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
       Assertions.assertEquals(report.id, progress1.id);
       Assertions.assertTrue(progress1.scheduled);
       Assertions.assertFalse(progress1.done);
-      Assertions.assertFalse(progress1.exception);
+      Assertions.assertNull(progress1.exception);
 
       // it is done
       theExecutor.latch.countDown();
@@ -577,7 +577,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
       Assertions.assertEquals(report.id, progress2.id);
       Assertions.assertTrue(progress2.scheduled);
       Assertions.assertTrue(progress2.done);
-      Assertions.assertFalse(progress2.exception);
+      Assertions.assertNull(progress2.exception);
     }
   }
 
@@ -620,7 +620,8 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
       Assertions.assertEquals(report.id, progress.id);
       Assertions.assertTrue(progress.scheduled);
       Assertions.assertTrue(progress.done);
-      Assertions.assertTrue(progress.exception);
+      Assertions.assertNotNull(progress.exception);
+      Assertions.assertInstanceOf(String.class, progress.exception);
     }
   }
 
