@@ -93,10 +93,7 @@ public class AboutTab {
                         Arrays.stream(Info.values())
                             .filter(
                                 info ->
-                                    input
-                                        .selectedRadio()
-                                        .filter(info.alias::equals)
-                                        .isPresent())
+                                    input.selectedRadio().filter(info.alias::equals).isPresent())
                             .findFirst()
                             .orElse(Info.Version)
                             .tables))
