@@ -100,10 +100,29 @@ public class PaneBuilder {
     return this;
   }
 
+  /**
+   * add key to this builder
+   *
+   * @param key to add
+   * @param required true if key is required. The font will get highlight
+   * @param numberOnly true if the value associated to key must be number
+   * @return this builder
+   */
   public PaneBuilder input(String key, boolean required, boolean numberOnly) {
     textKeys.add(key);
     textPriority.put(key, required);
     textNumberOnly.put(key, numberOnly);
+    return this;
+  }
+
+  /**
+   * add optional keys to this builder.
+   *
+   * @param keys optional keys
+   * @return this builder
+   */
+  public PaneBuilder input(Set<String> keys) {
+    keys.forEach(k -> input(k, false, false));
     return this;
   }
 
