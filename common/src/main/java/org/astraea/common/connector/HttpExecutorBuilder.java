@@ -38,6 +38,7 @@ public class HttpExecutorBuilder {
 
   public HttpExecutor build() {
     var client = HttpClient.newHttpClient();
+    var jsonConverter = this.jsonConverter;
 
     return new HttpExecutor() {
       @Override
