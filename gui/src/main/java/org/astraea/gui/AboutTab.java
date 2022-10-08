@@ -41,34 +41,34 @@ public class AboutTab {
                 "web site",
                 "https://github.com/skiptests/astraea"))),
     Author(
-        "author",
+        "維護者",
         List.of(
             LinkedHashMap.of(
-                "name", "Chia-Ping Tsai",
+                "name", "蔡嘉平",
                 "email", "chia7712@gmail.com"),
             LinkedHashMap.of(
-                "name", "Yi-Chen Wang",
+                "name", "王懿宸",
                 "email", "warren215215@gmail.com"),
             LinkedHashMap.of(
-                "name", "Ching-Hong Fang",
+                "name", "方竫泓",
                 "email", "fjh7777@gmail.com"),
             LinkedHashMap.of(
-                "name", "Zheng-Xian Li",
+                "name", "李政憲",
                 "email", "garyparrottt@gmail.com"),
             LinkedHashMap.of(
-                "name", "Xiang-Jun Sun",
+                "name", "孫祥鈞",
                 "email", "sean0651101@gmail.com"),
             LinkedHashMap.of(
-                "name", "Zhi-Mao Teng",
+                "name", "鄧智懋",
                 "email", "zhimao.teng@gmail.com"),
             LinkedHashMap.of(
-                "name", "Jia-Sheng Chen",
+                "name", "陳嘉晟",
                 "email", "haser1156@gmail.com"),
             LinkedHashMap.of(
-                "name", "Chao-Heng Lee",
+                "name", "李兆恆",
                 "email", "chaohengstudent@gmail.com"),
             LinkedHashMap.of(
-                "name", "Yi-Huan Lee",
+                "name", "李宜桓",
                 "email", "yi.huan.max@gmail.com")));
 
     private final String alias;
@@ -81,7 +81,7 @@ public class AboutTab {
     }
   }
 
-  public static Tab of(Context context) {
+  public static Tab of(Context ignored) {
     var pane =
         PaneBuilder.of()
             .radioButtons(

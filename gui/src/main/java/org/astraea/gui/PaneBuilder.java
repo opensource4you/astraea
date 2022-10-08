@@ -31,6 +31,7 @@ import java.util.stream.Collectors;
 import javafx.application.Platform;
 import javafx.beans.property.ReadOnlyObjectWrapper;
 import javafx.collections.FXCollections;
+import javafx.event.EventHandler;
 import javafx.geometry.HPos;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -44,7 +45,12 @@ import javafx.scene.control.TableView;
 import javafx.scene.control.TextField;
 import javafx.scene.control.ToggleButton;
 import javafx.scene.control.ToggleGroup;
+import javafx.scene.input.Clipboard;
+import javafx.scene.input.ClipboardContent;
 import javafx.scene.input.KeyCode;
+import javafx.scene.input.KeyCodeCombination;
+import javafx.scene.input.KeyCombination;
+import javafx.scene.input.KeyEvent;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.Pane;
 import javafx.scene.text.Font;
@@ -118,14 +124,19 @@ public class PaneBuilder {
 
   public PaneBuilder outputTable(
       Function<Input, CompletionStage<List<Map<String, Object>>>> outputTable) {
-    tableView = new TableView<>(FXCollections.observableArrayList());
     this.actionRunner = input -> (OutputTable) () -> outputTable.apply(input);
-    return this;
+    return enableTableView();
   }
 
   public PaneBuilder output(Function<Input, Output> output) {
-    tableView = new TableView<>(FXCollections.observableArrayList());
     this.actionRunner = input -> (Object) output.apply(input);
+    return enableTableView();
+  }
+
+  private PaneBuilder enableTableView() {
+    tableView = new TableView<>(FXCollections.observableArrayList());
+    tableView.getSelectionModel().setCellSelectionEnabled(true);
+    tableView.setOnKeyPressed(new CopyCellToClipboard());
     return this;
   }
 
@@ -387,4 +398,30 @@ public class PaneBuilder {
    * use this interface if the tab needs to refresh table first and then output result to console.
    */
   interface Output extends OutputMessage, OutputTable {}
+
+  private static class CopyCellToClipboard implements EventHandler<KeyEvent> {
+
+    private final KeyCodeCombination keyForWindows =
+        new KeyCodeCombination(KeyCode.C, KeyCombination.CONTROL_DOWN);
+
+    private final KeyCodeCombination keyForMacos =
+        new KeyCodeCombination(KeyCode.C, KeyCombination.SHORTCUT_DOWN);
+
+    @SuppressWarnings("unchecked")
+    public void handle(final KeyEvent keyEvent) {
+      if (keyForWindows.match(keyEvent) || keyForMacos.match(keyEvent)) {
+        if (keyEvent.getSource() instanceof TableView) {
+          var tableView = (TableView) keyEvent.getSource();
+          var pos = tableView.getFocusModel().getFocusedCell();
+          var value =
+              pos.getTableColumn()
+                  .getCellObservableValue(tableView.getItems().get(pos.getRow()))
+                  .getValue();
+          var clipboardContent = new ClipboardContent();
+          clipboardContent.putString(value.toString());
+          Clipboard.getSystemClipboard().setContent(clipboardContent);
+        }
+      }
+    }
+  }
 }
