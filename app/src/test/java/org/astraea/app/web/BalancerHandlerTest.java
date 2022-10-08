@@ -338,8 +338,13 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
       // act
       var response =
           Assertions.assertInstanceOf(
+<<<<<<< Updated upstream
               BalancerHandler.PostPlanResponse.class,
               handler.put(Channel.ofRequest(PostRequest.of(Map.of("id", thePlanId.toString())))));
+=======
+              BalancerHandler.PutPlanResponse.class,
+              handler.post(Channel.ofRequest(PostRequest.of(Map.of("id", thePlanId.toString())))));
+>>>>>>> Stashed changes
       Utils.sleep(Duration.ofSeconds(1));
 
       // assert
@@ -552,8 +557,13 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
       // schedule
       var response =
           Assertions.assertInstanceOf(
+<<<<<<< Updated upstream
               BalancerHandler.PostPlanResponse.class,
               handler.put(Channel.ofRequest(PostRequest.of(Map.of("id", report.id)))));
+=======
+              BalancerHandler.PutPlanResponse.class,
+              handler.post(Channel.ofRequest(PostRequest.of(Map.of("id", report.id)))));
+>>>>>>> Stashed changes
       Assertions.assertNotNull(response.id, "The plan should be executed");
 
       // not done yet
@@ -607,8 +617,13 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
       // schedule
       var response =
           Assertions.assertInstanceOf(
+<<<<<<< Updated upstream
               BalancerHandler.PostPlanResponse.class,
               handler.put(Channel.ofRequest(PostRequest.of(Map.of("id", report.id)))));
+=======
+              BalancerHandler.PutPlanResponse.class,
+              handler.post(Channel.ofRequest(PostRequest.of(Map.of("id", report.id)))));
+>>>>>>> Stashed changes
       Assertions.assertNotNull(response.id, "The plan should be executed");
 
       // exception

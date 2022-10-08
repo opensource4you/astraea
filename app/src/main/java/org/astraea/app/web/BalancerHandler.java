@@ -249,6 +249,7 @@ class BalancerHandler implements Handler {
               + "The following topic/partitions have different replica list(lookup the moment of plan generation): "
               + mismatchPartitions);
 
+<<<<<<< Updated upstream
     // sanity check: no ongoing migration
     var ongoingMigration =
         admin.addingReplicas(admin.topicNames()).stream()
@@ -259,6 +260,26 @@ class BalancerHandler implements Handler {
           "Another rebalance task might be working on. "
               + "The following topic/partition has ongoing migration: "
               + ongoingMigration);
+=======
+    synchronized (this) {
+      if (executedPlans.containsKey(thePlanId)) {
+        // already scheduled, nothing to do
+      } else if (lastExecutionId.get() != null
+          && !executedPlans.get(lastExecutionId.get()).isDone()) {
+        throw new IllegalStateException(
+            "There are another on-going rebalance: " + lastExecutionId.get());
+      } else {
+        executedPlans.put(
+            thePlanId,
+            CompletableFuture.runAsync(
+                () ->
+                    executor.run(RebalanceAdmin.of(admin), theRebalanceProposal.rebalancePlan())));
+        lastExecutionId.set(thePlanId);
+      }
+    }
+
+    return new PutPlanResponse(thePlanId);
+>>>>>>> Stashed changes
   }
 
   static List<Placement> placements(Set<Replica> lps, Function<Replica, Long> size) {
@@ -367,10 +388,10 @@ class BalancerHandler implements Handler {
     }
   }
 
-  static class PostPlanResponse implements Response {
+  static class PutPlanResponse implements Response {
     final String id;
 
-    PostPlanResponse(String id) {
+    PutPlanResponse(String id) {
       this.id = id;
     }
 
