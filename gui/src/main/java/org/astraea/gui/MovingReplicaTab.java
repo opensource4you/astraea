@@ -21,10 +21,11 @@ import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javafx.scene.control.Tab;
+import org.astraea.common.DataSize;
 import org.astraea.common.LinkedHashMap;
 import org.astraea.common.admin.AddingReplica;
 
-public class AddingReplicaTab {
+public class MovingReplicaTab {
 
   private static List<Map<String, Object>> result(Stream<AddingReplica> replicas) {
     return replicas
@@ -40,9 +41,9 @@ public class AddingReplicaTab {
                     "path",
                     state.path(),
                     "size",
-                    state.size(),
+                    DataSize.Byte.of(state.size()),
                     "leader size",
-                    state.leaderSize(),
+                    DataSize.Byte.of(state.leaderSize()),
                     "progress",
                     String.format(
                         "%.2f%%",
@@ -71,10 +72,10 @@ public class AddingReplicaTab {
                                                     input.matchSearch(s.topic())
                                                         || input.matchSearch(
                                                             String.valueOf(s.broker()))))
-                                .thenApply(AddingReplicaTab::result)))
+                                .thenApply(MovingReplicaTab::result)))
             .build();
 
-    var tab = new Tab("adding replica");
+    var tab = new Tab("moving replica");
     tab.setContent(pane);
     return tab;
   }

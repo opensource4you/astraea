@@ -25,6 +25,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.SortedMap;
 import java.util.TreeMap;
+import java.util.TreeSet;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ExecutionException;
@@ -278,7 +279,7 @@ public final class Utils {
         .map(field -> packException(() -> field.get(null)))
         .filter(obj -> obj instanceof String)
         .map(obj -> (String) obj)
-        .collect(Collectors.toUnmodifiableSet());
+        .collect(Collectors.toCollection(TreeSet::new));
   }
 
   private Utils() {}

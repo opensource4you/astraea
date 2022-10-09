@@ -17,6 +17,7 @@
 package org.astraea.common.admin;
 
 import java.util.Set;
+import java.util.TreeSet;
 import org.astraea.common.Utils;
 
 public final class TopicConfigs {
@@ -55,18 +56,19 @@ public final class TopicConfigs {
       Utils.constants(TopicConfigs.class, name -> name.endsWith("CONFIG"));
 
   public static final Set<String> DYNAMICAL_CONFIGS =
-      Set.of(
-          CLEANUP_POLICY_CONFIG,
-          FLUSH_MESSAGES_INTERVAL_CONFIG,
-          FLUSH_MS_CONFIG,
-          MAX_MESSAGE_BYTES_CONFIG,
-          MIN_IN_SYNC_REPLICAS_CONFIG,
-          RETENTION_BYTES_CONFIG,
-          RETENTION_MS_CONFIG,
-          SEGMENT_BYTES_CONFIG,
-          SEGMENT_JITTER_MS_CONFIG,
-          SEGMENT_MS_CONFIG,
-          UNCLEAN_LEADER_ELECTION_ENABLE_CONFIG);
+      new TreeSet<>(
+          Set.of(
+              CLEANUP_POLICY_CONFIG,
+              FLUSH_MESSAGES_INTERVAL_CONFIG,
+              FLUSH_MS_CONFIG,
+              MAX_MESSAGE_BYTES_CONFIG,
+              MIN_IN_SYNC_REPLICAS_CONFIG,
+              RETENTION_BYTES_CONFIG,
+              RETENTION_MS_CONFIG,
+              SEGMENT_BYTES_CONFIG,
+              SEGMENT_JITTER_MS_CONFIG,
+              SEGMENT_MS_CONFIG,
+              UNCLEAN_LEADER_ELECTION_ENABLE_CONFIG));
 
   // ---------------------------------[values]---------------------------------//
   public static final String CLEANUP_POLICY_COMPACT = "compact";

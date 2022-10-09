@@ -18,7 +18,6 @@ package org.astraea.common.admin;
 
 import java.util.Set;
 import org.astraea.common.Utils;
-import org.astraea.common.consumer.ConsumerConfigs;
 
 public final class BrokerConfigs {
   // ---------------------------------[keys]---------------------------------//
@@ -80,9 +79,18 @@ public final class BrokerConfigs {
       "log.message.timestamp.difference.max.ms";
   public static final String LOG_MESSAGE_DOWN_CONVERSION_ENABLE_CONFIG =
       "log.message.downconversion.enable";
-
+  public static final String LEADER_REPLICATION_THROTTLED_RATE_CONFIG =
+      "leader.replication.throttled.rate";
+  public static final String FOLLOWER_REPLICATION_THROTTLED_RATE_CONFIG =
+      "follower.replication.throttled.rate";
+  public static final String REPLICA_ALTER_LOG_DIRS_IO_MAX_BYTES_PER_SECOND_CONFIG =
+      "replica.alter.log.dirs.io.max.bytes.per.second";
+  public static final String LEADER_REPLICATION_THROTTLED_REPLICAS_CONFIG =
+      "leader.replication.throttled.replicas";
+  public static final String FOLLOWER_REPLICATION_THROTTLED_REPLICAS_CONFIG =
+      "follower.replication.throttled.replicas";
   public static final Set<String> DYNAMICAL_CONFIGS =
-      Utils.constants(ConsumerConfigs.class, name -> name.endsWith("CONFIG"));
+      Utils.constants(BrokerConfigs.class, name -> name.endsWith("CONFIG"));
   // ---------------------------------[values]---------------------------------//
 
   private BrokerConfigs() {}
