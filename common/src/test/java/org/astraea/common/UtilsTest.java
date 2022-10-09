@@ -17,7 +17,6 @@
 package org.astraea.common;
 
 import java.io.IOException;
-import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.List;
@@ -117,8 +116,8 @@ public class UtilsTest {
   }
 
   @Test
-  void testGetQueryUrl() throws URISyntaxException, MalformedURLException {
-    var url = new URI("http://localhost:8989/test").toURL();
+  void testGetQueryUrl() throws URISyntaxException {
+    var url = new URI("http://localhost:8989/test");
     var newURL = Utils.getQueryUrl(url, Map.of("key1", "value1"));
     Assertions.assertEquals("key1=value1", newURL.getQuery());
 
@@ -126,10 +125,10 @@ public class UtilsTest {
     Assertions.assertEquals("key1=value1,value2", newURL.getQuery());
 
     newURL = Utils.getQueryUrl(url, Map.of("key1", "/redirectKey"));
-    Assertions.assertEquals("key1=%252FredirectKey", newURL.getQuery());
+    Assertions.assertEquals("key1=%2FredirectKey", newURL.getQuery());
 
     newURL = Utils.getQueryUrl(url, Map.of("key1", "/redirectKey,/redirectKey2"));
-    Assertions.assertEquals("key1=%252FredirectKey,%252FredirectKey2", newURL.getQuery());
+    Assertions.assertEquals("key1=%2FredirectKey,%2FredirectKey2", newURL.getQuery());
   }
 
   private static class Dumb {

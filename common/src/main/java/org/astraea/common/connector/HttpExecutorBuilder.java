@@ -20,7 +20,6 @@ import com.google.gson.JsonSyntaxException;
 import com.google.gson.reflect.TypeToken;
 import java.lang.reflect.Type;
 import java.net.URI;
-import java.net.URL;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
@@ -65,7 +64,7 @@ public class HttpExecutorBuilder {
               HttpRequest request =
                   HttpRequest.newBuilder()
                       .GET()
-                      .uri(Utils.getQueryUrl(new URL(url), object2Map(param)).toURI())
+                      .uri(Utils.getQueryUrl(new URI(url), object2Map(param)))
                       .build();
 
               return toGsonHttpResponse(

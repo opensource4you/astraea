@@ -17,10 +17,8 @@
 package org.astraea.common;
 
 import java.net.InetAddress;
-import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.net.URL;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
@@ -281,11 +279,9 @@ public final class Utils {
    * The syntax `,` is a value splitter. So we don't treat it as a value. Example:
    * Map("key","value1,value2") => key=value1,value2
    *
-   * @param url URL object without any query parameter
+   * @param uri URL object without any query parameter
    */
-  public static URL getQueryUrl(URL url, Map<String, String> parameters)
-      throws URISyntaxException, MalformedURLException {
-    var uri = url.toURI();
+  public static URI getQueryUrl(URI uri, Map<String, String> parameters) throws URISyntaxException {
     var queryString =
         parameters.entrySet().stream()
             .map(
@@ -296,8 +292,7 @@ public final class Utils {
             .collect(Collectors.joining("&"));
 
     return new URI(
-            uri.getScheme(), uri.getAuthority(), uri.getPath(), queryString, uri.getFragment())
-        .toURL();
+        uri.getScheme(), uri.getAuthority(), uri.getPath(), queryString, uri.getFragment());
   }
 
   private static String getQueryValue(String value) {
