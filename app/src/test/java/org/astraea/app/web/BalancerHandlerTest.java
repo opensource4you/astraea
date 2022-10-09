@@ -482,8 +482,16 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
       Assertions.assertNotNull(theReport.id);
 
       // create an ongoing reassignment
+      Assertions.assertEquals(1, admin.replicas(Set.of(theTopic)).size());
       admin.migrator().partition(theTopic, 0).moveTo(List.of(0, 1, 2));
-      Utils.sleep(Duration.ofMillis(50));
+
+      // debounce wait
+      for (int i = 0; i < 2; i++) {
+        Utils.waitForNonNull(
+            () -> !admin.addingReplicas(Set.of(theTopic)).isEmpty(),
+            Duration.ofSeconds(10),
+            Duration.ofMillis(10));
+      }
 
       Assertions.assertThrows(
           IllegalStateException.class,
