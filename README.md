@@ -10,8 +10,8 @@
 | 李政憲 | garyparrottt@gmail.com    | https://github.com/garyparrot      |
 | 孫祥鈞 | sean0651101@gmail.com     | https://github.com/qoo332001       |
 | 鄧智懋 | zhimao.teng@gmail.com     | https://github.com/harryteng9527   |
-| 李兆恆 | haser1156@gmail.com       | https://github.com/Haser0305       |
-| 陳嘉晟 | chaohengstudent@gmail.com | https://github.com/chaohengstudent |
+| 陳嘉晟 | haser1156@gmail.com       | https://github.com/Haser0305       |
+| 李兆恆 | chaohengstudent@gmail.com | https://github.com/chaohengstudent |
 | 李宜桓 | yi.huan.max@gmail.com     | https://github.com/MaxwellYHL      |
 
 # Kafka 工具
