@@ -43,7 +43,7 @@ public class AsyncAdminTest extends RequireBrokerCluster {
 
       var ids =
           brokerIds().stream()
-              .filter(i -> i != partition.leader().id())
+              .filter(i -> i != partition.leader().get().id())
               .collect(Collectors.toList());
       admin.migrator().topic(topic).moveTo(ids).toCompletableFuture().get();
       Utils.sleep(Duration.ofSeconds(2));
@@ -53,7 +53,7 @@ public class AsyncAdminTest extends RequireBrokerCluster {
       var newPartition = newPartitions.get(0);
       Assertions.assertEquals(ids.size(), newPartition.replicas().size());
       Assertions.assertEquals(ids.size(), newPartition.isr().size());
-      Assertions.assertEquals(ids.get(0), newPartition.leader().id());
+      Assertions.assertEquals(ids.get(0), newPartition.leader().get().id());
     }
   }
 
@@ -70,8 +70,11 @@ public class AsyncAdminTest extends RequireBrokerCluster {
       Assertions.assertEquals(1, partition.replicas().size());
       var ids =
           List.of(
-              brokerIds().stream().filter(i -> i != partition.leader().id()).findFirst().get(),
-              partition.leader().id());
+              brokerIds().stream()
+                  .filter(i -> i != partition.leader().get().id())
+                  .findFirst()
+                  .get(),
+              partition.leader().get().id());
       admin.migrator().topic(topic).moveTo(ids).toCompletableFuture().get();
       Utils.sleep(Duration.ofSeconds(2));
 
@@ -80,7 +83,7 @@ public class AsyncAdminTest extends RequireBrokerCluster {
       var newPartition = newPartitions.get(0);
       Assertions.assertEquals(ids.size(), newPartition.replicas().size());
       Assertions.assertEquals(ids.size(), newPartition.isr().size());
-      Assertions.assertNotEquals(ids.get(0), newPartition.leader().id());
+      Assertions.assertNotEquals(ids.get(0), newPartition.leader().get().id());
 
       admin
           .preferredLeaderElection(TopicPartition.of(partition.topic(), partition.partition()))
@@ -88,7 +91,7 @@ public class AsyncAdminTest extends RequireBrokerCluster {
           .get();
       Assertions.assertEquals(
           ids.get(0),
-          admin.partitions(Set.of(topic)).toCompletableFuture().get().get(0).leader().id());
+          admin.partitions(Set.of(topic)).toCompletableFuture().get().get(0).leader().get().id());
     }
   }
 

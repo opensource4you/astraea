@@ -33,7 +33,7 @@ public interface Partition {
     return of(
         topic,
         tpi.partition(),
-        NodeInfo.of(tpi.leader()),
+        tpi.leader() == null ? null : NodeInfo.of(tpi.leader()),
         tpi.replicas().stream().map(NodeInfo::of).collect(Collectors.toList()),
         tpi.isr().stream().map(NodeInfo::of).collect(Collectors.toList()),
         earliest.map(ListOffsetsResult.ListOffsetsResultInfo::offset).orElse(-1L),
@@ -78,8 +78,8 @@ public interface Partition {
       }
 
       @Override
-      public NodeInfo leader() {
-        return leader;
+      public Optional<NodeInfo> leader() {
+        return Optional.ofNullable(leader);
       }
 
       @Override
@@ -111,7 +111,8 @@ public interface Partition {
   /** @return max timestamp of existent records */
   long maxTimestamp();
 
-  NodeInfo leader();
+  /** @return null if the node gets offline. otherwise, it returns node info. */
+  Optional<NodeInfo> leader();
 
   List<NodeInfo> replicas();
 

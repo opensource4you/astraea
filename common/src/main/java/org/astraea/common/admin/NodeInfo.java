@@ -26,6 +26,11 @@ public interface NodeInfo {
 
   static NodeInfo of(int id, String host, int port) {
     return new NodeInfo() {
+      @Override
+      public String toString() {
+        return "NodeInfo{" + "host=" + host + ", id=" + id + ", port=" + port + '}';
+      }
+
       // NodeInfo is used to be key of Map commonly, so creating hash can reduce the memory pressure
       private final int hashCode = Objects.hash(id, host, port);
 
@@ -68,4 +73,9 @@ public interface NodeInfo {
 
   /** @return id of broker node. it must be unique. */
   int id();
+
+  /** @return true if the node is offline. An offline node can't offer host or port information. */
+  default boolean offline() {
+    return host() == null || host().isEmpty() || port() < 0;
+  }
 }
