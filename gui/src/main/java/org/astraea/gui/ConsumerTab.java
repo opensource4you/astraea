@@ -27,13 +27,18 @@ import org.astraea.common.admin.ConsumerGroup;
 
 public class ConsumerTab {
 
-  private static List<Map<String, Object>> result(Stream<ConsumerGroup> cgs) {
+  private static List<Map<String, Object>> result(
+      Stream<ConsumerGroup> cgs, PaneBuilder.Input input) {
     return cgs.flatMap(
             cg ->
                 cg.assignment().entrySet().stream()
                     .flatMap(
                         entry ->
                             entry.getValue().stream()
+                                .filter(
+                                    tp ->
+                                        input.matchSearch(tp.topic())
+                                            || input.matchSearch(entry.getKey().groupId()))
                                 .map(
                                     tp ->
                                         LinkedHashMap.<String, Object>of(
@@ -71,17 +76,7 @@ public class ConsumerTab {
                             admin
                                 .consumerGroupIds()
                                 .thenCompose(admin::consumerGroups)
-                                .thenApply(
-                                    groups ->
-                                        groups.stream()
-                                            .filter(
-                                                group ->
-                                                    input.matchSearch(group.groupId())
-                                                        || group.consumeProgress().keySet().stream()
-                                                            .anyMatch(
-                                                                tp ->
-                                                                    input.matchSearch(tp.topic()))))
-                                .thenApply(ConsumerTab::result)))
+                                .thenApply(cgs -> result(cgs.stream(), input))))
             .build();
     var tab = new Tab("consumer");
     tab.setContent(pane);
