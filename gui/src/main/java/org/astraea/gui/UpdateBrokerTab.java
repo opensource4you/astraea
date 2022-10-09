@@ -16,48 +16,43 @@
  */
 package org.astraea.gui;
 
+import java.util.HashMap;
 import java.util.concurrent.CompletableFuture;
 import javafx.scene.control.Tab;
+import org.astraea.common.admin.BrokerConfigs;
 
-public class AddPartitionTab {
+public class UpdateBrokerTab {
 
-  private static final String TOPIC_NAME = "topic";
-  private static final String NUMBER_OF_PARTITIONS = "number of partitions";
+  private static final String BROKER_ID = "broker id";
 
   public static Tab of(Context context) {
+
     var pane =
         PaneBuilder.of()
-            .buttonName("EXECUTE")
-            .input(TOPIC_NAME, true, false)
-            .input(NUMBER_OF_PARTITIONS, true, true)
+            .buttonName("UPDATE")
+            .input(BROKER_ID, true, true)
+            .input(BrokerConfigs.DYNAMICAL_CONFIGS)
             .outputMessage(
                 input -> {
-                  var name = input.texts().get(TOPIC_NAME);
-                  if (name == null)
-                    return CompletableFuture.failedFuture(
-                        new IllegalArgumentException("please enter topic name"));
-                  var partitions = input.texts().get(NUMBER_OF_PARTITIONS);
-                  if (partitions == null)
-                    return CompletableFuture.failedFuture(
-                        new IllegalArgumentException("please enter total number of partitions"));
+                  var allConfigs = new HashMap<>(input.texts());
+                  var id = Integer.parseInt(allConfigs.remove(BROKER_ID));
                   return context.submit(
                       admin ->
                           admin
-                              .topicNames(true)
+                              .brokers()
                               .thenCompose(
-                                  names -> {
-                                    if (!names.contains(name))
+                                  brokers -> {
+                                    if (brokers.stream().noneMatch(b -> b.id() == id))
                                       return CompletableFuture.failedFuture(
-                                          new IllegalArgumentException(name + " is nonexistent"));
-
+                                          new IllegalArgumentException(
+                                              "broker:" + id + " is nonexistent"));
                                     return admin
-                                        .addPartitions(name, Integer.parseInt(partitions))
-                                        .thenApply(
-                                            r -> "succeed to increase partitions to " + partitions);
+                                        .updateConfig(id, allConfigs)
+                                        .thenApply(ignored -> "succeed to update configs of " + id);
                                   }));
                 })
             .build();
-    var tab = new Tab("add partition");
+    var tab = new Tab("update broker");
     tab.setContent(pane);
     return tab;
   }

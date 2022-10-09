@@ -18,7 +18,6 @@ package org.astraea.common.admin;
 
 import java.util.Set;
 import org.astraea.common.Utils;
-import org.astraea.common.consumer.ConsumerConfigs;
 
 public final class BrokerConfigs {
   // ---------------------------------[keys]---------------------------------//
@@ -82,7 +81,7 @@ public final class BrokerConfigs {
       "log.message.downconversion.enable";
 
   public static final Set<String> DYNAMICAL_CONFIGS =
-      Utils.constants(ConsumerConfigs.class, name -> name.endsWith("CONFIG"));
+      Utils.constants(BrokerConfigs.class, name -> name.endsWith("CONFIG"));
   // ---------------------------------[values]---------------------------------//
 
   private BrokerConfigs() {}

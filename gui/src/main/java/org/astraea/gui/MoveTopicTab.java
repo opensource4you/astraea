@@ -27,7 +27,7 @@ import javafx.scene.control.Tab;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Partition;
 
-public class ReassignReplicaTab {
+public class MoveTopicTab {
 
   private static final String TOPIC_NAME = "topic";
   private static final String PARTITION_ID = "partition";
@@ -36,7 +36,7 @@ public class ReassignReplicaTab {
   public static Tab of(Context context) {
     var pane =
         PaneBuilder.of()
-            .buttonName("EXECUTE")
+            .buttonName("MOVE")
             .input(TOPIC_NAME, true, false)
             .input(MOVE_TO, true, false)
             .input(PARTITION_ID, false, true)
@@ -83,7 +83,7 @@ public class ReassignReplicaTab {
                 })
             .build();
 
-    var tab = new Tab("reassign replica");
+    var tab = new Tab("move topic");
     tab.setContent(pane);
     return tab;
   }

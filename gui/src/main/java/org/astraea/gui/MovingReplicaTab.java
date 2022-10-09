@@ -24,7 +24,7 @@ import javafx.scene.control.Tab;
 import org.astraea.common.LinkedHashMap;
 import org.astraea.common.admin.AddingReplica;
 
-public class AddingReplicaTab {
+public class MovingReplicaTab {
 
   private static List<Map<String, Object>> result(Stream<AddingReplica> replicas) {
     return replicas
@@ -71,10 +71,10 @@ public class AddingReplicaTab {
                                                     input.matchSearch(s.topic())
                                                         || input.matchSearch(
                                                             String.valueOf(s.broker()))))
-                                .thenApply(AddingReplicaTab::result)))
+                                .thenApply(MovingReplicaTab::result)))
             .build();
 
-    var tab = new Tab("adding replica");
+    var tab = new Tab("moving replica");
     tab.setContent(pane);
     return tab;
   }
