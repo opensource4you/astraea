@@ -457,8 +457,17 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
 
   @Test
   void testRebalanceDetectOngoing() {
-    final String theTopic = createAndProduceTopic(1).get(0);
     try (var admin = Admin.of(bootstrapServers())) {
+      var theTopic = Utils.randomString();
+      admin.creator().topic(theTopic).numberOfPartitions(1).run().toCompletableFuture().join();
+      try (var producer = Producer.of(bootstrapServers())) {
+        var dummy = new byte[1024];
+        IntStream.range(0, 100000)
+            .mapToObj(i -> producer.sender().topic(theTopic).value(dummy).run())
+            .collect(Collectors.toUnmodifiableSet())
+            .forEach(i -> i.toCompletableFuture().join());
+      }
+
       var handler =
           new BalancerHandler(
               admin,
@@ -474,7 +483,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
 
       // create an ongoing reassignment
       admin.migrator().partition(theTopic, 0).moveTo(List.of(0, 1, 2));
-      Utils.sleep(Duration.ofMillis(500));
+      Utils.sleep(Duration.ofMillis(50));
 
       Assertions.assertThrows(
           IllegalStateException.class,
