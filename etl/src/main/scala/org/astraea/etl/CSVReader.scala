@@ -17,7 +17,8 @@
 package org.astraea.etl
 
 import org.apache.kafka.clients.producer.ProducerConfig
-import org.apache.spark.sql.{DataFrame, Row, SparkSession}
+import org.apache.spark.sql.functions.{col, concat, struct, to_json}
+import org.apache.spark.sql.{DataFrame, Row, SparkSession, functions}
 import org.apache.spark.sql.streaming.DataStreamWriter
 import org.apache.spark.sql.types.StructType
 object CSVReader {
@@ -77,5 +78,35 @@ object CSVReader {
       .option("topic", metaData.topicName)
       .option(ProducerConfig.ACKS_CONFIG, "all")
       .option(ProducerConfig.ENABLE_IDEMPOTENCE_CONFIG, "true")
+  }
+
+  /** Turn the original DataFrame into a key-value table.Integrate all columns
+    * into one value->josh. If there are multiple primary keys, key will become
+    * keyA_keyB_....
+    *
+    * {{{
+    * Seq(Person("Michael", 29), Person("Andy", 30), Person("Justin", 19))
+    *
+    * // +-------+---------------------------+
+    * // |    key|                      value|
+    * // +-------+---------------------------+
+    * // |Michael|{"name":"Michael","age":29}|
+    * // |   Andy|{"name":"Andy","age":30}   |
+    * // | Justin|{"name":"Justin","age":19} |
+    * // +-------+---------------------------+
+    * }}}
+    *
+    * @param dataFrame
+    *   any DataFrame
+    * @param pk
+    *   primary keys
+    * @return
+    *   json df
+    */
+  def csvToJSON(dataFrame: DataFrame, pk: Seq[String]): DataFrame = {
+    dataFrame
+      .withColumn("key", concat(pk.map(col).seq: _*))
+      .withColumn("value", to_json(struct($conforms("*"))))
+      .selectExpr("CAST(key AS STRING)", "CAST(value AS STRING)")
   }
 }
