@@ -17,11 +17,11 @@ Astraea 提供簡單但實用的 Kafka GUI 工具，讓使用者方便調閱和�
 - [查詢 consumer group 資訊](#consumer)
 - [查詢 idempotent producer 資訊](#producer)
 - [查詢 transaction 狀態](#transaction)
-- [查詢正在移動的 replica 狀態](#moving_replica)
-- [建立 topic](#create_topic)
-- [更新 topic 參數或是增加 partition 數量](#update_topic)
-- [變更 topic 的節點部署](#move_topic)
-- [更新 broker 的參數](#update_broker)
+- [查詢正在移動的 replica 狀態](#moving-replica)
+- [建立 topic](#create-topic)
+- [更新 topic 參數或是增加 partition 數量](#update-topic)
+- [變更 topic 的節點部署](#move-topic)
+- [更新 broker 的參數](#update-broker)
 - [執行負載平衡](#balancer)
 
 #### 使用 Astraea GUI
@@ -88,27 +88,27 @@ Astraea 提供簡單但實用的 Kafka GUI 工具，讓使用者方便調閱和�
 
 ![transaction](gui/transaction.png)
 
-## moving_replica
+## moving replica
 `moving replica ` 提供我們查詢正在移動的 replicas 資訊，搜尋欄位可用來過濾 topic 名稱，如下圖是顯示 tina 的 partitions 移動狀況
 
 ![moving_replica](gui/moving_replica.png)
 
-## create_topic
+## create topic
 `create topic ` 提供我們建立 topic 的能力，除了帶有 * 記號的欄位是必填以外，其他欄位都是選填
 
 ![create_topic](gui/create_topic.png)
 
-## update_topic
+## update topic
 `update topic ` 提供我們動態更新 topic 的能力，如下圖我們將 ikea 的 partitions 數量增加至 20 個 
 
 ![update_topic](gui/update_topic.png)
 
-## move_topic
+## move topic
 `move topic ` 提供我們動態移動 topic 的能力，如下圖我們將 tina 的 partitions 通通移動到節點 1008 和節點 1005
 
 ![move_topic](gui/move_topic.png)
 
-## update_broker
+## update broker
 `update broker ` 提供我們動態更新節點的能力，如下圖我們將節點 1002 的 num.network.threads 的數量調整至 9 個
 
 ![update_broker](gui/update_broker.png)
