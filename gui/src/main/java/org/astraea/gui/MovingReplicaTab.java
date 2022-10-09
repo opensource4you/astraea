@@ -21,6 +21,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javafx.scene.control.Tab;
+import org.astraea.common.DataSize;
 import org.astraea.common.LinkedHashMap;
 import org.astraea.common.admin.AddingReplica;
 
@@ -40,9 +41,9 @@ public class MovingReplicaTab {
                     "path",
                     state.path(),
                     "size",
-                    state.size(),
+                    DataSize.Byte.of(state.size()),
                     "leader size",
-                    state.leaderSize(),
+                    DataSize.Byte.of(state.leaderSize()),
                     "progress",
                     String.format(
                         "%.2f%%",
