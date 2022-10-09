@@ -16,86 +16,88 @@
  */
 package org.astraea.gui;
 
+import java.util.HashMap;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
-import javafx.geometry.HPos;
-import javafx.geometry.Insets;
-import javafx.scene.control.Button;
-import javafx.scene.control.Label;
 import javafx.scene.control.Tab;
-import javafx.scene.control.TextField;
-import javafx.scene.layout.GridPane;
+import org.astraea.common.LinkedHashSet;
+import org.astraea.common.admin.TopicCreator;
 
 public class CreateTopicTab {
 
+  private static final LinkedHashSet<String> ALL_CONFIG_KEYS =
+      LinkedHashSet.of(
+          TopicCreator.SEGMENT_BYTES_CONFIG,
+          TopicCreator.SEGMENT_MS_CONFIG,
+          TopicCreator.SEGMENT_JITTER_MS_CONFIG,
+          TopicCreator.SEGMENT_INDEX_BYTES_CONFIG,
+          TopicCreator.FLUSH_MESSAGES_INTERVAL_CONFIG,
+          TopicCreator.FLUSH_MS_CONFIG,
+          TopicCreator.RETENTION_BYTES_CONFIG,
+          TopicCreator.RETENTION_MS_CONFIG,
+          TopicCreator.REMOTE_LOG_STORAGE_ENABLE_CONFIG,
+          TopicCreator.LOCAL_LOG_RETENTION_MS_CONFIG,
+          TopicCreator.LOCAL_LOG_RETENTION_BYTES_CONFIG,
+          TopicCreator.MAX_MESSAGE_BYTES_CONFIG,
+          TopicCreator.INDEX_INTERVAL_BYTES_CONFIG,
+          TopicCreator.FILE_DELETE_DELAY_MS_CONFIG,
+          TopicCreator.DELETE_RETENTION_MS_CONFIG,
+          TopicCreator.MIN_COMPACTION_LAG_MS_CONFIG,
+          TopicCreator.MAX_COMPACTION_LAG_MS_CONFIG,
+          TopicCreator.MIN_CLEANABLE_DIRTY_RATIO_CONFIG,
+          TopicCreator.CLEANUP_POLICY_CONFIG,
+          TopicCreator.UNCLEAN_LEADER_ELECTION_ENABLE_CONFIG,
+          TopicCreator.MIN_IN_SYNC_REPLICAS_CONFIG,
+          TopicCreator.COMPRESSION_TYPE_CONFIG,
+          TopicCreator.PREALLOCATE_CONFIG,
+          TopicCreator.MESSAGE_TIMESTAMP_TYPE_CONFIG,
+          TopicCreator.MESSAGE_TIMESTAMP_DIFFERENCE_MAX_MS_CONFIG,
+          TopicCreator.MESSAGE_DOWNCONVERSION_ENABLE_CONFIG);
+
+  private static final String TOPIC_NAME = "topic";
+  private static final String NUMBER_OF_PARTITIONS = "number of partitions";
+  private static final String NUMBER_OF_REPLICAS = "number of replicas";
+
   public static Tab of(Context context) {
     var tab = new Tab("create topic");
-    var pane = new GridPane();
-    pane.setPadding(new Insets(5));
-    pane.setVgap(4);
-    pane.setHgap(2);
-
-    // topic
-    var topicLabel = new Label("topic name:");
-    GridPane.setHalignment(topicLabel, HPos.RIGHT);
-    pane.add(topicLabel, 0, 0);
-    var topicField = new TextField();
-    pane.add(topicField, 1, 0);
-
-    // partitions
-    var partitionsLabel = new Label("number of partitions:");
-    GridPane.setHalignment(partitionsLabel, HPos.RIGHT);
-    pane.add(partitionsLabel, 0, 1);
-    var partitionsField = Utils.onlyNumber(1);
-    pane.add(partitionsField, 1, 1);
-
-    // replicas
-    var replicasLabel = new Label("number of replicas:");
-    GridPane.setHalignment(replicasLabel, HPos.RIGHT);
-    pane.add(replicasLabel, 0, 2);
-    var replicasField = new ShortBox((short) 1);
-    GridPane.setHalignment(replicasField, HPos.LEFT);
-    pane.add(replicasField, 1, 2);
-
-    var btn = new Button("create");
-    var console = new Console("");
-    pane.add(btn, 0, 3);
-    pane.add(console, 1, 3);
-    btn.setOnAction(
-        ignored -> {
-          var name = topicField.getText();
-          if (name.isEmpty()) {
-            console.text("please enter topic name");
-            return;
-          }
-          context
-              .optionalAdmin()
-              .ifPresent(
+    tab.setContent(
+        Utils.form(
+            LinkedHashSet.of(TOPIC_NAME, NUMBER_OF_PARTITIONS, NUMBER_OF_REPLICAS),
+            ALL_CONFIG_KEYS,
+            (result, console) -> {
+              var allConfigs = new HashMap<>(result);
+              var name = allConfigs.remove(TOPIC_NAME);
+              if (name == null)
+                return CompletableFuture.failedFuture(
+                    new IllegalArgumentException("please define topic name"));
+              return context.submit(
                   admin ->
-                      CompletableFuture.supplyAsync(
-                              () -> {
-                                if (admin.topicNames().contains(name)) return name + " is existent";
-                                admin
+                      admin
+                          .topicNames(true)
+                          .thenCompose(
+                              names -> {
+                                if (names.contains(name))
+                                  return CompletableFuture.completedFuture(
+                                      name + " is already existent");
+
+                                return admin
                                     .creator()
                                     .topic(name)
-                                    .numberOfPartitions(Integer.parseInt(partitionsField.getText()))
-                                    .numberOfReplicas(replicasField.getValue())
-                                    .create();
-                                return "succeed to create " + name;
-                              })
-                          .whenComplete(console::text));
-        });
-    tab.setContent(pane);
-    tab.setOnSelectionChanged(
-        ignored -> {
-          if (!tab.isSelected()) return;
-          context
-              .optionalAdmin()
-              .ifPresent(
-                  admin ->
-                      CompletableFuture.supplyAsync(() -> admin.brokerIds().size())
-                          .whenComplete(
-                              (size, e) -> replicasField.range((short) 0, size.shortValue())));
-        });
+                                    .numberOfPartitions(
+                                        Optional.ofNullable(allConfigs.remove(NUMBER_OF_PARTITIONS))
+                                            .map(Integer::parseInt)
+                                            .orElse(1))
+                                    .numberOfReplicas(
+                                        Optional.ofNullable(allConfigs.remove(NUMBER_OF_REPLICAS))
+                                            .map(Short::parseShort)
+                                            .orElse((short) 1))
+                                    .configs(allConfigs)
+                                    .run()
+                                    .thenApply(i -> "succeed to create topic:" + name);
+                              }));
+            },
+            "CREATE"));
+
     return tab;
   }
 }

@@ -27,7 +27,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiConsumer;
-import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.astraea.common.EnumInfo;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.TopicPartition;
@@ -48,7 +47,7 @@ public abstract class Builder<Key, Value> {
    * @return this builder
    */
   public Builder<Key, Value> fromBeginning() {
-    this.configs.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
+    this.configs.put(Consumer.AUTO_OFFSET_RESET_CONFIG, "earliest");
     return this;
   }
 
@@ -58,7 +57,7 @@ public abstract class Builder<Key, Value> {
    * @return this builder
    */
   public Builder<Key, Value> fromLatest() {
-    this.configs.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "latest");
+    this.configs.put(Consumer.AUTO_OFFSET_RESET_CONFIG, "latest");
     return this;
   }
 
@@ -107,17 +106,17 @@ public abstract class Builder<Key, Value> {
   }
 
   public Builder<Key, Value> bootstrapServers(String bootstrapServers) {
-    this.configs.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, requireNonNull(bootstrapServers));
+    this.configs.put(Consumer.BOOTSTRAP_SERVERS_CONFIG, requireNonNull(bootstrapServers));
     return this;
   }
 
   public Builder<Key, Value> isolation(Isolation isolation) {
-    this.configs.put(ConsumerConfig.ISOLATION_LEVEL_CONFIG, isolation.nameOfKafka());
+    this.configs.put(Consumer.ISOLATION_LEVEL_CONFIG, isolation.nameOfKafka());
     return this;
   }
 
   public Builder<Key, Value> clientId(String clientId) {
-    this.configs.put(ConsumerConfig.CLIENT_ID_CONFIG, clientId);
+    this.configs.put(Consumer.CLIENT_ID_CONFIG, clientId);
     return this;
   }
 

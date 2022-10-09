@@ -18,13 +18,14 @@ package org.astraea.etl
 
 import java.awt.geom.IllegalPathStateException
 import java.io.File
+import scala.util.control.NonFatal
 
 object Utils {
   def requireFolder(path: String): File = {
     val file = new File(path)
     if (!file.isDirectory) {
       throw new IllegalPathStateException(
-        s"${path} is not a folder. The path should be a folder."
+        s"$path is not a folder. The path should be a folder."
       )
     }
     file
@@ -34,9 +35,40 @@ object Utils {
     val file = new File(path)
     if (!file.exists()) {
       throw new IllegalPathStateException(
-        s"${path} is not a file. The file does not exist."
+        s"$path is not a file. The file does not exist."
       )
     }
     file
+  }
+
+  /** Lack of means of try with resource in scala 2.12.So replace it with the
+    * following method.
+    */
+  def Using[T <: AutoCloseable, V](r: => T)(f: T => V): V = {
+    val resource: T = r
+    require(resource != null, "resource is null")
+    var exception: Throwable = null
+    try f(resource)
+    catch {
+      case NonFatal(e) =>
+        exception = e
+        throw e
+    } finally closeAndAddSuppressed(exception, resource)
+  }
+
+  private def closeAndAddSuppressed(
+      e: Throwable,
+      resource: AutoCloseable
+  ): Unit = {
+    if (e != null) {
+      try {
+        resource.close()
+      } catch {
+        case NonFatal(suppressed) =>
+          e.addSuppressed(suppressed)
+      }
+    } else {
+      resource.close()
+    }
   }
 }

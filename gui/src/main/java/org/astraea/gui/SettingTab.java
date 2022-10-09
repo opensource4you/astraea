@@ -16,43 +16,52 @@
  */
 package org.astraea.gui;
 
-import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
-import javafx.geometry.Insets;
-import javafx.scene.control.Button;
-import javafx.scene.control.Label;
 import javafx.scene.control.Tab;
-import javafx.scene.control.TextField;
-import javafx.scene.layout.VBox;
-import org.astraea.common.Utils;
-import org.astraea.common.admin.Admin;
+import org.astraea.common.LinkedHashSet;
+import org.astraea.common.admin.AsyncAdmin;
+import org.astraea.common.metrics.MBeanClient;
 
 public class SettingTab {
 
   public static Tab of(Context context) {
-    var tab = new Tab("bootstrap servers");
-
-    var bootstrapField = new TextField("");
-    var console = new Console("");
-    var checkButton = new Button("check");
-    var ns =
-        List.of(new Label("enter the bootstrap servers:"), bootstrapField, console, checkButton);
-    var pane = new VBox(ns.size());
-    pane.setPadding(new Insets(15));
-    pane.getChildren().setAll(ns);
-    tab.setContent(pane);
-    checkButton.setOnAction(
-        ignored -> {
-          var bootstrapServers = bootstrapField.getText();
-          if (!bootstrapServers.isEmpty())
-            CompletableFuture.supplyAsync(
-                    () -> {
-                      var previous = context.replace(Admin.of(bootstrapServers));
-                      previous.ifPresent(admin -> Utils.swallowException(admin::close));
-                      return "succeed to connect to " + bootstrapServers;
-                    })
-                .whenComplete(console::text);
-        });
+    var tab = new Tab("setting");
+    tab.setContent(
+        Utils.form(
+            LinkedHashSet.of("bootstrap servers"),
+            LinkedHashSet.of("jmx port"),
+            (result, console) -> {
+              var bootstrapServers = result.get("bootstrap servers");
+              if (bootstrapServers == null || bootstrapServers.isBlank())
+                return CompletableFuture.failedFuture(
+                    new IllegalArgumentException("please define bootstrap servers"));
+              var jmxPort = Optional.ofNullable(result.get("jmx port")).map(Integer::parseInt);
+              var newAdmin = AsyncAdmin.of(bootstrapServers);
+              return newAdmin
+                  .nodeInfos()
+                  .thenApply(
+                      nodeInfos -> {
+                        context
+                            .replace(newAdmin)
+                            .ifPresent(
+                                admin -> org.astraea.common.Utils.swallowException(admin::close));
+                        if (jmxPort.isEmpty()) return "succeed to connect to " + bootstrapServers;
+                        nodeInfos.forEach(
+                            n -> {
+                              try (var client = MBeanClient.jndi(n.host(), jmxPort.get())) {
+                                client.listDomains();
+                              }
+                            });
+                        context.replace(jmxPort.get());
+                        return "succeed to connect to "
+                            + bootstrapServers
+                            + ", and jmx: "
+                            + jmxPort.get()
+                            + " works well";
+                      });
+            },
+            "CHECK"));
     return tab;
   }
 }

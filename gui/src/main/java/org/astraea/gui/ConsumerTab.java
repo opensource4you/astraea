@@ -16,98 +16,74 @@
  */
 package org.astraea.gui;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import javafx.scene.control.Tab;
 import org.astraea.common.LinkedHashMap;
+import org.astraea.common.admin.ConsumerGroup;
 
 public class ConsumerTab {
 
-  static final Map<String, Function<Bean, Object>> COLUMN_AND_BEAN =
-      LinkedHashMap.of(
-          "group",
-          bean -> bean.groupId,
-          "topic",
-          bean -> bean.topic,
-          "partition",
-          bean -> bean.partition,
-          "offset",
-          bean -> bean.offset,
-          "member id",
-          bean -> bean.memberId,
-          "host",
-          bean -> bean.host,
-          "client id",
-          bean -> bean.clientId,
-          "instance id",
-          bean -> bean.groupInstanceId.orElse(""));
+  private static List<Map<String, Object>> result(Stream<ConsumerGroup> cgs) {
+    return cgs.flatMap(
+            cg ->
+                cg.assignment().entrySet().stream()
+                    .flatMap(
+                        entry ->
+                            entry.getValue().stream()
+                                .map(
+                                    tp ->
+                                        LinkedHashMap.<String, Object>of(
+                                            "group",
+                                            entry.getKey().groupId(),
+                                            "coordinator",
+                                            cg.coordinator().id(),
+                                            "topic",
+                                            tp.topic(),
+                                            "partition",
+                                            tp.partition(),
+                                            "offset",
+                                            Optional.ofNullable(cg.consumeProgress().get(tp))
+                                                .map(String::valueOf)
+                                                .orElse("unknown"),
+                                            "client host",
+                                            entry.getKey().host(),
+                                            "client id",
+                                            entry.getKey().clientId(),
+                                            "member id",
+                                            entry.getKey().memberId(),
+                                            "instance id",
+                                            entry.getKey().groupInstanceId().orElse("")))))
+        .collect(Collectors.toList());
+  }
 
   public static Tab of(Context context) {
     var pane =
-        context.tableView(
-            "search for consumer groups:",
-            (admin, word) ->
-                Context.result(
-                    COLUMN_AND_BEAN,
-                    admin
-                        .consumerGroups(
-                            admin.consumerGroupIds().stream()
-                                .filter(group -> word.isEmpty() || group.contains(word))
-                                .collect(Collectors.toSet()))
-                        .stream()
-                        .flatMap(
-                            v ->
-                                v.assignment().entrySet().stream()
-                                    .flatMap(
-                                        entry ->
-                                            entry.getValue().stream()
-                                                .map(
-                                                    tp ->
-                                                        new Bean(
-                                                            v.groupId(),
-                                                            tp.topic(),
-                                                            tp.partition(),
-                                                            v.consumeProgress()
-                                                                .getOrDefault(tp, -1L),
-                                                            entry.getKey().memberId(),
-                                                            entry.getKey().groupInstanceId(),
-                                                            entry.getKey().clientId(),
-                                                            entry.getKey().host()))))
-                        .collect(Collectors.toList())));
+        Utils.searchToTable(
+            (word, console) ->
+                context.submit(
+                    admin ->
+                        admin
+                            .consumerGroupIds()
+                            .thenCompose(admin::consumerGroups)
+                            .thenApply(
+                                groups ->
+                                    result(
+                                        groups.stream()
+                                            .filter(
+                                                group ->
+                                                    Utils.contains(group.groupId(), word)
+                                                        || group.consumeProgress().keySet().stream()
+                                                            .anyMatch(
+                                                                tp ->
+                                                                    Utils.contains(
+                                                                        tp.topic(), word)))))),
+            "SEARCH for topic/group");
     var tab = new Tab("consumer");
     tab.setContent(pane);
     return tab;
-  }
-
-  public static class Bean {
-    private final String groupId;
-    private final String topic;
-    private final int partition;
-    private final long offset;
-    private final String memberId;
-    private final Optional<String> groupInstanceId;
-    private final String clientId;
-    private final String host;
-
-    public Bean(
-        String groupId,
-        String topic,
-        int partition,
-        long offset,
-        String memberId,
-        Optional<String> groupInstanceId,
-        String clientId,
-        String host) {
-      this.groupId = groupId;
-      this.topic = topic;
-      this.partition = partition;
-      this.offset = offset;
-      this.memberId = memberId;
-      this.groupInstanceId = groupInstanceId;
-      this.clientId = clientId;
-      this.host = host;
-    }
   }
 }

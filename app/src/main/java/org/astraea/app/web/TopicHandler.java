@@ -24,10 +24,10 @@ import java.util.Set;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import org.apache.kafka.common.errors.UnknownTopicOrPartitionException;
-import org.astraea.app.scenario.Scenario;
 import org.astraea.common.ExecutionRuntimeException;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.Config;
+import org.astraea.common.scenario.Scenario;
 
 class TopicHandler implements Handler {
 
@@ -82,7 +82,9 @@ class TopicHandler implements Handler {
                                 p.partition(),
                                 p.earliestOffset(),
                                 p.latestOffset(),
-                                replicas.get(p.topicPartition()).stream()
+                                replicas.stream()
+                                    .filter(replica -> replica.topic().equals(p.topic()))
+                                    .filter(replica -> replica.partition() == p.partition())
                                     .map(Replica::new)
                                     .collect(Collectors.toUnmodifiableList())),
                         Collectors.toList())));

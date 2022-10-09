@@ -75,6 +75,7 @@ public class ProducerMetricsTest extends RequireBrokerCluster {
       Assertions.assertDoesNotThrow(metrics::produceThrottleTimeAvg);
       Assertions.assertDoesNotThrow(metrics::produceThrottleTimeMax);
       Assertions.assertDoesNotThrow(metrics::reauthenticationLatencyAvg);
+      Assertions.assertDoesNotThrow(metrics::reauthenticationLatencyMax);
       Assertions.assertDoesNotThrow(metrics::recordErrorRate);
       Assertions.assertDoesNotThrow(metrics::recordErrorTotal);
       Assertions.assertDoesNotThrow(metrics::recordQueueTimeAvg);

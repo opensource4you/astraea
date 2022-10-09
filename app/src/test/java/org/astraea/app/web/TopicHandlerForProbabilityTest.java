@@ -34,7 +34,7 @@ public class TopicHandlerForProbabilityTest extends RequireBrokerCluster {
           Channel.ofRequest(
               PostRequest.of(
                   String.format(
-                      "{\"topics\":[{\"name\":\"%s\", \"partitions\":30, \"probability\": 0.5}]}",
+                      "{\"topics\":[{\"name\":\"%s\", \"partitions\":30, \"probability\": 0.15}]}",
                       topicName)));
       var topics = handler.post(request);
       Assertions.assertEquals(1, topics.topics.size());
@@ -47,9 +47,13 @@ public class TopicHandlerForProbabilityTest extends RequireBrokerCluster {
               .partitions.stream()
                   .flatMap(p -> p.replicas.stream())
                   .collect(Collectors.groupingBy(r -> r.broker));
-      // those brokers should host different number of partitions
-      Assertions.assertEquals(
-          3, groupByBroker.values().stream().map(List::size).collect(Collectors.toSet()).size());
+      // those brokers should host different number of partitions, broker0 holds the most replicas,
+      // followed by broker1, and lastly broker2
+      var numberOfReplicas =
+          groupByBroker.values().stream().map(List::size).collect(Collectors.toList());
+      Assertions.assertTrue(numberOfReplicas.get(0) > numberOfReplicas.get(1));
+      if (numberOfReplicas.size() == 3)
+        Assertions.assertTrue(numberOfReplicas.get(1) > numberOfReplicas.get(2));
     }
   }
 }

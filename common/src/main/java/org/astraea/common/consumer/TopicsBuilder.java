@@ -27,7 +27,6 @@ import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
-import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.TopicPartition;
@@ -48,11 +47,11 @@ public class TopicsBuilder<Key, Value> extends Builder<Key, Value> {
   }
 
   public TopicsBuilder<Key, Value> groupId(String groupId) {
-    return config(ConsumerConfig.GROUP_ID_CONFIG, requireNonNull(groupId));
+    return config(Consumer.GROUP_ID_CONFIG, requireNonNull(groupId));
   }
 
   public TopicsBuilder<Key, Value> groupInstanceId(String groupInstanceId) {
-    return config(ConsumerConfig.GROUP_INSTANCE_ID_CONFIG, requireNonNull(groupInstanceId));
+    return config(Consumer.GROUP_INSTANCE_ID_CONFIG, requireNonNull(groupInstanceId));
   }
 
   public TopicsBuilder<Key, Value> consumerRebalanceListener(ConsumerRebalanceListener listener) {
@@ -139,7 +138,7 @@ public class TopicsBuilder<Key, Value> extends Builder<Key, Value> {
   }
 
   public TopicsBuilder<Key, Value> disableAutoCommitOffsets() {
-    return config(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "false");
+    return config(Consumer.ENABLE_AUTO_COMMIT_CONFIG, "false");
   }
 
   @Override
@@ -152,7 +151,7 @@ public class TopicsBuilder<Key, Value> extends Builder<Key, Value> {
   @Override
   public SubscribedConsumer<Key, Value> build() {
     // generate group id if it is empty
-    configs.putIfAbsent(ConsumerConfig.GROUP_ID_CONFIG, "groupId-" + System.currentTimeMillis());
+    configs.putIfAbsent(Consumer.GROUP_ID_CONFIG, "groupId-" + System.currentTimeMillis());
 
     var kafkaConsumer =
         new KafkaConsumer<>(
