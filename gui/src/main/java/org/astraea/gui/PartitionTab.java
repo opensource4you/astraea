@@ -23,6 +23,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javafx.scene.control.Tab;
 import org.astraea.common.LinkedHashMap;
+import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Partition;
 
 public class PartitionTab {
@@ -36,7 +37,7 @@ public class PartitionTab {
                     "partition",
                     p.partition(),
                     "leader",
-                    p.leader().id(),
+                    p.leader().map(NodeInfo::id).orElse(-1),
                     "replicas",
                     p.replicas().stream()
                         .map(n -> String.valueOf(n.id()))
