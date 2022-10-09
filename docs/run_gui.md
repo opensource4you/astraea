@@ -71,7 +71,7 @@ Astraea 提供簡單但實用的 Kafka GUI 工具，讓使用者方便調閱和�
 
 ![update_topic](gui/update_topic.png)
 
-13. `move topic ` 提供我們動態移動 topic 的能力，如下圖我們將 ikea 的 partitions 通通移動到節點 1008 和節點 1005
+13. `move topic ` 提供我們動態移動 topic 的能力，如下圖我們將 tina 的 partitions 通通移動到節點 1008 和節點 1005
 
 ![move_topic](gui/move_topic.png)
 
