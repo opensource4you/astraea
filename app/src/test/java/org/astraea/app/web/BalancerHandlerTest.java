@@ -22,6 +22,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.CyclicBarrier;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.LongAdder;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.astraea.common.Utils;
@@ -31,6 +36,9 @@ import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.balancer.Balancer;
+import org.astraea.common.balancer.executor.RebalanceAdmin;
+import org.astraea.common.balancer.executor.RebalancePlanExecutor;
+import org.astraea.common.balancer.executor.StraightPlanExecutor;
 import org.astraea.common.balancer.generator.RebalancePlanGenerator;
 import org.astraea.common.balancer.log.ClusterLogAllocation;
 import org.astraea.common.cost.ClusterCost;
@@ -41,6 +49,7 @@ import org.astraea.common.cost.ReplicaSizeCost;
 import org.astraea.common.producer.Producer;
 import org.astraea.it.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 
 public class BalancerHandlerTest extends RequireBrokerCluster {
@@ -107,7 +116,6 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
     }
   }
 
-  /** The score will getter better after each call, pretend we find a better plan */
   private static class MultiplicationCost implements HasClusterCost {
 
     private double value0 = 1.0;
@@ -305,6 +313,387 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
 
       Assertions.assertTrue(report.changes.isEmpty());
       Assertions.assertNull(report.id);
+    }
+  }
+
+  @Test
+  void testPut() {
+    // arrange
+    createAndProduceTopic(3);
+    try (var admin = Admin.of(bootstrapServers())) {
+      var theExecutor = new NoOpExecutor();
+      var handler =
+          new BalancerHandler(
+              admin,
+              MultiplicationCost.decreasing(),
+              new ReplicaSizeCost(),
+              RebalancePlanGenerator.random(30),
+              theExecutor);
+      var report =
+          Assertions.assertInstanceOf(
+              BalancerHandler.Report.class,
+              handler.get(Channel.ofQueries(Map.of(BalancerHandler.LOOP_KEY, "100"))));
+      var thePlanId = report.id;
+
+      // act
+      var response =
+          Assertions.assertInstanceOf(
+              BalancerHandler.PutPlanResponse.class,
+              handler.put(Channel.ofRequest(PostRequest.of(Map.of("id", thePlanId)))));
+      Utils.sleep(Duration.ofSeconds(1));
+
+      // assert
+      Assertions.assertEquals(Response.ACCEPT.code(), response.code());
+      Assertions.assertEquals(thePlanId, response.id);
+      Assertions.assertEquals(1, theExecutor.count());
+    }
+  }
+
+  @Test
+  void testBadPut() {
+    createAndProduceTopic(3);
+    try (var admin = Admin.of(bootstrapServers())) {
+      var handler =
+          new BalancerHandler(
+              admin,
+              MultiplicationCost.decreasing(),
+              new ReplicaSizeCost(),
+              RebalancePlanGenerator.random(30),
+              new NoOpExecutor());
+
+      // no id offered
+      Assertions.assertThrows(
+          IllegalArgumentException.class,
+          () -> handler.put(Channel.EMPTY),
+          "The 'id' field is required");
+
+      // no such plan id
+      Assertions.assertThrows(
+          IllegalArgumentException.class,
+          () -> handler.put(Channel.ofRequest(PostRequest.of(Map.of("id", "no such plan")))),
+          "The requested plan doesn't exists");
+    }
+  }
+
+  @RepeatedTest(value = 10)
+  void testSubmitRebalancePlanThreadSafe() {
+    try (var admin = Admin.of(bootstrapServers())) {
+      var theExecutor = new NoOpExecutor();
+      var handler =
+          new BalancerHandler(
+              admin,
+              MultiplicationCost.decreasing(),
+              new ReplicaSizeCost(),
+              RebalancePlanGenerator.random(30),
+              theExecutor);
+      var theReport =
+          Assertions.assertInstanceOf(BalancerHandler.Report.class, handler.get(Channel.EMPTY));
+
+      // use many threads to increase the chance to trigger a data race
+      final int threadCount = Runtime.getRuntime().availableProcessors() * 3;
+      final var executor = Executors.newFixedThreadPool(threadCount);
+      final var barrier = new CyclicBarrier(threadCount);
+
+      // launch threads
+      IntStream.range(0, threadCount)
+          .forEach(
+              ignore ->
+                  executor.submit(
+                      () -> {
+                        // the plan
+                        final var request =
+                            Channel.ofRequest(PostRequest.of(Map.of("id", theReport.id)));
+                        // use cyclic barrier to ensure all threads are ready to work
+                        Utils.packException(() -> barrier.await());
+                        // send the put request
+                        handler.put(request);
+                      }));
+
+      // await work done
+      executor.shutdown();
+      Assertions.assertTrue(
+          Utils.packException(() -> executor.awaitTermination(3, TimeUnit.SECONDS)));
+
+      // the rebalance task is triggered in async manner, it may take some time to getting schedule
+      Utils.sleep(Duration.ofMillis(500));
+      // test if the plan has been executed just once
+      Assertions.assertEquals(1, theExecutor.count());
+    }
+  }
+
+  @Test
+  void testRebalanceOnePlanAtATime() {
+    createAndProduceTopic(3);
+    try (var admin = Admin.of(bootstrapServers())) {
+      var theExecutor =
+          new NoOpExecutor() {
+            @Override
+            public void run(RebalanceAdmin rebalanceAdmin, ClusterLogAllocation targetAllocation) {
+              super.run(rebalanceAdmin, targetAllocation);
+              Utils.sleep(Duration.ofSeconds(10));
+            }
+          };
+      var handler =
+          new BalancerHandler(
+              admin,
+              MultiplicationCost.decreasing(),
+              new ReplicaSizeCost(),
+              RebalancePlanGenerator.random(30),
+              theExecutor);
+      var theReport0 =
+          Assertions.assertInstanceOf(BalancerHandler.Report.class, handler.get(Channel.EMPTY));
+      var theReport1 =
+          Assertions.assertInstanceOf(BalancerHandler.Report.class, handler.get(Channel.EMPTY));
+      Assertions.assertNotNull(theReport0.id);
+      Assertions.assertNotNull(theReport1.id);
+
+      Assertions.assertDoesNotThrow(
+          () -> handler.put(Channel.ofRequest(PostRequest.of(Map.of("id", theReport0.id)))));
+      Assertions.assertThrows(
+          IllegalStateException.class,
+          () -> handler.put(Channel.ofRequest(PostRequest.of(Map.of("id", theReport1.id)))));
+    }
+  }
+
+  @Test
+  void testRebalanceDetectOngoing() {
+    final String theTopic = createAndProduceTopic(1).get(0);
+    try (var admin = Admin.of(bootstrapServers())) {
+      var handler =
+          new BalancerHandler(
+              admin,
+              MultiplicationCost.decreasing(),
+              new ReplicaSizeCost(),
+              RebalancePlanGenerator.random(30),
+              new NoOpExecutor());
+      var theReport =
+          Assertions.assertInstanceOf(
+              BalancerHandler.Report.class,
+              handler.get(Channel.ofQueries(Map.of(BalancerHandler.TOPICS_KEY, theTopic))));
+      Assertions.assertNotNull(theReport.id);
+
+      // create an ongoing reassignment
+      admin.migrator().partition(theTopic, 0).moveTo(List.of(0, 1, 2));
+      Utils.sleep(Duration.ofMillis(500));
+
+      Assertions.assertThrows(
+          IllegalStateException.class,
+          () -> handler.put(Channel.ofRequest(PostRequest.of(Map.of("id", theReport.id)))));
+    }
+  }
+
+  @Test
+  void testPutSanityCheck() {
+    var topic = createAndProduceTopic(1).get(0);
+    try (var admin = Admin.of(bootstrapServers())) {
+      var theExecutor = new NoOpExecutor();
+      var handler =
+          new BalancerHandler(
+              admin,
+              MultiplicationCost.decreasing(),
+              new ReplicaSizeCost(),
+              RebalancePlanGenerator.random(30),
+              theExecutor);
+      var theReport =
+          Assertions.assertInstanceOf(
+              BalancerHandler.Report.class,
+              handler.get(Channel.ofQueries(Map.of(BalancerHandler.TOPICS_KEY, topic))));
+      Assertions.assertNotNull(theReport.id);
+
+      // pick a partition and alter its placement
+      var theChange = theReport.changes.stream().findAny().orElseThrow();
+      admin.migrator().partition(theChange.topic, theChange.partition).moveTo(List.of(0, 1, 2));
+      Utils.sleep(Duration.ofSeconds(10));
+
+      // assert
+      Assertions.assertThrows(
+          IllegalStateException.class,
+          () -> handler.put(Channel.ofRequest(PostRequest.of(Map.of("id", theReport.id)))),
+          "The cluster state has changed, prevent the plan from execution");
+    }
+  }
+
+  @Test
+  void testLookupRebalanceProgress() {
+    createAndProduceTopic(3);
+    try (var admin = Admin.of(bootstrapServers())) {
+      var theExecutor =
+          new NoOpExecutor() {
+            final CountDownLatch latch = new CountDownLatch(1);
+
+            @Override
+            public void run(RebalanceAdmin rebalanceAdmin, ClusterLogAllocation targetAllocation) {
+              super.run(rebalanceAdmin, targetAllocation);
+              Utils.packException(() -> latch.await());
+            }
+          };
+      var handler =
+          new BalancerHandler(
+              admin,
+              MultiplicationCost.decreasing(),
+              new ReplicaSizeCost(),
+              RebalancePlanGenerator.random(30),
+              theExecutor);
+      var report =
+          Assertions.assertInstanceOf(BalancerHandler.Report.class, handler.get(Channel.EMPTY));
+      Assertions.assertNotNull(report.id, "The plan should be generated");
+
+      // not scheduled yet
+      Utils.sleep(Duration.ofSeconds(1));
+      var progress0 =
+          Assertions.assertInstanceOf(
+              BalancerHandler.PlanExecutionProgress.class,
+              handler.get(Channel.ofTarget(report.id)));
+      Assertions.assertEquals(report.id, progress0.id);
+      Assertions.assertFalse(progress0.scheduled);
+      Assertions.assertFalse(progress0.done);
+      Assertions.assertNull(progress0.exception);
+
+      // schedule
+      var response =
+          Assertions.assertInstanceOf(
+              BalancerHandler.PutPlanResponse.class,
+              handler.put(Channel.ofRequest(PostRequest.of(Map.of("id", report.id)))));
+      Assertions.assertNotNull(response.id, "The plan should be executed");
+
+      // not done yet
+      Utils.sleep(Duration.ofSeconds(1));
+      var progress1 =
+          Assertions.assertInstanceOf(
+              BalancerHandler.PlanExecutionProgress.class,
+              handler.get(Channel.ofTarget(response.id)));
+      Assertions.assertEquals(report.id, progress1.id);
+      Assertions.assertTrue(progress1.scheduled);
+      Assertions.assertFalse(progress1.done);
+      Assertions.assertNull(progress1.exception);
+
+      // it is done
+      theExecutor.latch.countDown();
+      Utils.sleep(Duration.ofMillis(500));
+      var progress2 =
+          Assertions.assertInstanceOf(
+              BalancerHandler.PlanExecutionProgress.class,
+              handler.get(Channel.ofTarget(response.id)));
+      Assertions.assertEquals(report.id, progress2.id);
+      Assertions.assertTrue(progress2.scheduled);
+      Assertions.assertTrue(progress2.done);
+      Assertions.assertNull(progress2.exception);
+    }
+  }
+
+  @Test
+  void testLookupBadExecutionProgress() {
+    createAndProduceTopic(3);
+    try (var admin = Admin.of(bootstrapServers())) {
+      var theExecutor =
+          new NoOpExecutor() {
+            @Override
+            public void run(RebalanceAdmin rebalanceAdmin, ClusterLogAllocation targetAllocation) {
+              super.run(rebalanceAdmin, targetAllocation);
+              throw new RuntimeException("Boom");
+            }
+          };
+      var handler =
+          new BalancerHandler(
+              admin,
+              MultiplicationCost.decreasing(),
+              new ReplicaSizeCost(),
+              RebalancePlanGenerator.random(30),
+              theExecutor);
+      var report =
+          Assertions.assertInstanceOf(BalancerHandler.Report.class, handler.get(Channel.EMPTY));
+      Assertions.assertNotNull(report.id, "The plan should be generated");
+
+      // schedule
+      var response =
+          Assertions.assertInstanceOf(
+              BalancerHandler.PutPlanResponse.class,
+              handler.put(Channel.ofRequest(PostRequest.of(Map.of("id", report.id)))));
+      Assertions.assertNotNull(response.id, "The plan should be executed");
+
+      // exception
+      Utils.sleep(Duration.ofSeconds(1));
+      var progress =
+          Assertions.assertInstanceOf(
+              BalancerHandler.PlanExecutionProgress.class,
+              handler.get(Channel.ofTarget(response.id)));
+      Assertions.assertEquals(report.id, progress.id);
+      Assertions.assertTrue(progress.scheduled);
+      Assertions.assertTrue(progress.done);
+      Assertions.assertNotNull(progress.exception);
+      Assertions.assertInstanceOf(String.class, progress.exception);
+    }
+  }
+
+  @Test
+  void testBadLookupRequest() {
+    createAndProduceTopic(3);
+    try (var admin = Admin.of(bootstrapServers())) {
+      var handler =
+          new BalancerHandler(
+              admin,
+              MultiplicationCost.decreasing(),
+              new ReplicaSizeCost(),
+              RebalancePlanGenerator.random(30),
+              new NoOpExecutor());
+
+      {
+        // plan doesn't exists
+        Assertions.assertThrows(
+            IllegalArgumentException.class,
+            () -> handler.put(Channel.ofRequest(PostRequest.of(Map.of("id", "no such plan")))),
+            "This plan doesn't exists");
+      }
+    }
+  }
+
+  @Test
+  void testPutIdempotent() {
+    var topics = createAndProduceTopic(3);
+    try (var admin = Admin.of(bootstrapServers())) {
+      var handler =
+          new BalancerHandler(
+              admin,
+              MultiplicationCost.decreasing(),
+              new ReplicaSizeCost(),
+              RebalancePlanGenerator.random(30),
+              new StraightPlanExecutor());
+      var report =
+          Assertions.assertInstanceOf(
+              BalancerHandler.Report.class,
+              handler.get(
+                  Channel.ofQueries(Map.of(BalancerHandler.TOPICS_KEY, String.join(",", topics)))));
+
+      Assertions.assertDoesNotThrow(
+          () -> handler.put(Channel.ofRequest(PostRequest.of(Map.of("id", report.id)))),
+          "Schedule the rebalance task");
+
+      // Wait until the migration occurred
+      try {
+        Utils.waitFor(
+            () ->
+                admin.replicas(Set.copyOf(topics)).stream()
+                    .anyMatch(replica -> replica.isFuture() || !replica.inSync()));
+      } catch (Exception ignore) {
+      }
+
+      Assertions.assertDoesNotThrow(
+          () -> handler.put(Channel.ofRequest(PostRequest.of(Map.of("id", report.id)))),
+          "Idempotent behavior");
+    }
+  }
+
+  private static class NoOpExecutor implements RebalancePlanExecutor {
+
+    private final LongAdder executionCounter = new LongAdder();
+
+    @Override
+    public void run(RebalanceAdmin rebalanceAdmin, ClusterLogAllocation targetAllocation) {
+      executionCounter.increment();
+    }
+
+    int count() {
+      return executionCounter.intValue();
     }
   }
 }
