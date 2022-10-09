@@ -40,7 +40,7 @@ public class MoveTopicTab {
             .input(TOPIC_NAME, true, false)
             .input(MOVE_TO, true, false)
             .input(PARTITION_ID, false, true)
-            .outputMessage(
+            .buttonMessageAction(
                 input -> {
                   var topic = input.texts().get(TOPIC_NAME);
 

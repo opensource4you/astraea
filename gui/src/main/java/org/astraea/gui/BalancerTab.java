@@ -112,11 +112,11 @@ public class BalancerTab {
                                       .offer(clusterInfo, input::matchSearch, brokerFolders));
                             }));
 
-    var outputTable =
+    var tableAction =
         clusterInfoAndPlan.thenApply(
             entry -> entry.getValue().map(plan -> result(entry.getKey(), plan)).orElse(List.of()));
 
-    var outputMessage =
+    var messageAction =
         clusterInfoAndPlan.thenCompose(
             entry -> {
               var tpAndReplicasMap =
@@ -181,12 +181,12 @@ public class BalancerTab {
     return new PaneBuilder.Output() {
       @Override
       public CompletionStage<String> message() {
-        return outputMessage;
+        return messageAction;
       }
 
       @Override
       public CompletionStage<List<Map<String, Object>>> table() {
-        return outputTable;
+        return tableAction;
       }
     };
   }
@@ -199,7 +199,7 @@ public class BalancerTab {
                     Arrays.stream(Cost.values()).map(c -> c.alias).toArray(String[]::new)))
             .buttonName("EXECUTE")
             .searchField("topic name")
-            .output(input -> context.submit(admin -> output(admin, input)))
+            .buttonAction(input -> context.submit(admin -> output(admin, input)))
             .build();
 
     var tab = new Tab("balance topic");

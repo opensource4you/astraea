@@ -43,7 +43,7 @@ public class ConfigTab {
                 LinkedHashSet.of(
                     Arrays.stream(Resource.values()).map(r -> r.alias).toArray(String[]::new)))
             .searchField("config key")
-            .outputTable(
+            .buttonTableAction(
                 input -> {
                   var isTopic =
                       input.selectedRadio().map(Resource.TOPIC.alias::equals).orElse(true);

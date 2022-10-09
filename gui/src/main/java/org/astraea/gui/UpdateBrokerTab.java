@@ -32,7 +32,7 @@ public class UpdateBrokerTab {
             .buttonName("UPDATE")
             .input(BROKER_ID, true, true)
             .input(BrokerConfigs.DYNAMICAL_CONFIGS)
-            .outputMessage(
+            .buttonMessageAction(
                 input -> {
                   var allConfigs = new HashMap<>(input.texts());
                   var id = Integer.parseInt(allConfigs.remove(BROKER_ID));

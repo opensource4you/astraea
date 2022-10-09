@@ -149,7 +149,7 @@ public class MetricsTab {
     var pane =
         PaneBuilder.of()
             .searchField("config key")
-            .outputTable(
+            .buttonTableAction(
                 input ->
                     context.metrics(
                         bs ->

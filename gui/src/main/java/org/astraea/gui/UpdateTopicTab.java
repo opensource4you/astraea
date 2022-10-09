@@ -35,7 +35,7 @@ public class UpdateTopicTab {
             .input(TOPIC_NAME, true, false)
             .input(NUMBER_OF_PARTITIONS, false, true)
             .input(TopicConfigs.DYNAMICAL_CONFIGS)
-            .outputMessage(
+            .buttonMessageAction(
                 input -> {
                   var allConfigs = new HashMap<>(input.texts());
                   var name = allConfigs.remove(TOPIC_NAME);
