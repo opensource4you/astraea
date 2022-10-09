@@ -20,14 +20,13 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.net.InetSocketAddress;
-import java.net.MalformedURLException;
-import java.net.URL;
 import java.util.List;
 import java.util.Map;
+import org.astraea.common.json.JsonConverter;
 import org.junit.jupiter.api.Test;
 
 class HttpExecutorTest {
-  private static final JsonConverter jsonConverter = JsonConverters.gson();
+  private static final JsonConverter jsonConverter = JsonConverter.gson();
 
   @Test
   void testGet() {
@@ -143,12 +142,8 @@ class HttpExecutorTest {
         });
   }
 
-  private URL getUrl(InetSocketAddress socketAddress, String path) {
-    try {
-      return new URL("http://localhost:" + socketAddress.getPort() + path);
-    } catch (MalformedURLException e) {
-      throw new RuntimeException(e);
-    }
+  private String getUrl(InetSocketAddress socketAddress, String path) {
+    return "http://localhost:" + socketAddress.getPort() + path;
   }
 
   public static class TestParam {

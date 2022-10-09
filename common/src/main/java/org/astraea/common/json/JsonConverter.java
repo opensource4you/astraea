@@ -14,8 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.common.connector;
+package org.astraea.common.json;
 
+import com.google.gson.Gson;
 import java.lang.reflect.Type;
 
 public interface JsonConverter {
@@ -26,4 +27,24 @@ public interface JsonConverter {
 
   /** for nested generic object ,the return value should specify type , Example: List<String> */
   <T> T fromJson(String json, Type type);
+
+  static JsonConverter gson() {
+    var gson = new Gson();
+    return new JsonConverter() {
+      @Override
+      public String toJson(Object src) {
+        return gson.toJson(src);
+      }
+
+      @Override
+      public <T> T fromJson(String json, Class<T> tClass) {
+        return gson.fromJson(json, tClass);
+      }
+
+      @Override
+      public <T> T fromJson(String json, Type type) {
+        return gson.fromJson(json, type);
+      }
+    };
+  }
 }

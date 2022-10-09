@@ -19,6 +19,7 @@ package org.astraea.common.connector;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.lang.reflect.Type;
+import org.astraea.common.json.JsonConverter;
 import org.junit.jupiter.api.Test;
 
 class HttpExecutorBuilderTest {
@@ -26,7 +27,7 @@ class HttpExecutorBuilderTest {
   @Test
   void testBuilder() {
     var builder = HttpExecutor.builder();
-    assertEquals(JsonConverters.gson().getClass(), builder.jsonConverter.getClass());
+    assertEquals(JsonConverter.gson().getClass(), builder.jsonConverter.getClass());
 
     builder = HttpExecutor.builder().jsonConverter(new TestJsonConverter());
     assertEquals(TestJsonConverter.class, builder.jsonConverter.getClass());

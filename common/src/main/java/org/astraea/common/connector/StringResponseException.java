@@ -16,14 +16,22 @@
  */
 package org.astraea.common.connector;
 
+import java.lang.reflect.Type;
 import java.net.http.HttpResponse;
 
 public class StringResponseException extends RuntimeException {
 
   private final HttpResponse<String> httpResponse;
 
-  public StringResponseException(String message, HttpResponse<String> httpResponse) {
-    super(message);
+  public StringResponseException(HttpResponse<String> httpResponse) {
+    super(
+        String.format("Failed response: %s, %s.", httpResponse.statusCode(), httpResponse.body()));
+    this.httpResponse = httpResponse;
+  }
+
+  public StringResponseException(HttpResponse<String> httpResponse, Type type) {
+    super(
+        String.format("Response json `%s` can't convert to Object %s.", httpResponse.body(), type));
     this.httpResponse = httpResponse;
   }
 

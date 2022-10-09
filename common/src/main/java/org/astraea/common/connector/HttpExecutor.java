@@ -17,7 +17,6 @@
 package org.astraea.common.connector;
 
 import java.lang.reflect.Type;
-import java.net.URL;
 import java.net.http.HttpResponse;
 
 /** Send json http request. */
@@ -27,15 +26,15 @@ public interface HttpExecutor {
     return new HttpExecutorBuilder();
   }
 
-  <T> HttpResponse<T> get(URL url, Class<T> respCls);
+  <T> HttpResponse<T> get(String url, Class<T> respCls);
 
-  <T> HttpResponse<T> get(URL url, Object param, Class<T> respCls);
+  <T> HttpResponse<T> get(String url, Object param, Class<T> respCls);
 
-  <T> HttpResponse<T> get(URL url, Type type);
+  <T> HttpResponse<T> get(String url, Type type);
 
-  <T> HttpResponse<T> post(URL url, Object body, Class<T> respCls);
+  <T> HttpResponse<T> post(String url, Object body, Class<T> respCls);
 
-  <T> HttpResponse<T> put(URL url, Object body, Class<T> respCls);
+  <T> HttpResponse<T> put(String url, Object body, Class<T> respCls);
 
-  HttpResponse<Void> delete(URL url);
+  HttpResponse<Void> delete(String url);
 }

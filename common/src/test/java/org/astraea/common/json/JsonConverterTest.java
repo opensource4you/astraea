@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.common.connector;
+package org.astraea.common.json;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -30,7 +30,7 @@ class JsonConverterTest {
 
   @Test
   void testMap() {
-    var jsonConverter = JsonConverters.gson();
+    var jsonConverter = JsonConverter.gson();
     var json = jsonConverter.toJson(Map.of("testKey", "testValue"));
     assertEquals("{\"testKey\":\"testValue\"}", json);
 
@@ -42,7 +42,7 @@ class JsonConverterTest {
 
   @Test
   void testList() {
-    var jsonConverter = JsonConverters.gson();
+    var jsonConverter = JsonConverter.gson();
     var json = jsonConverter.toJson(List.of("v1", "v2"));
     assertEquals("[\"v1\",\"v2\"]", json);
 
@@ -53,7 +53,7 @@ class JsonConverterTest {
 
   @Test
   void testSet() {
-    var jsonConverter = JsonConverters.gson();
+    var jsonConverter = JsonConverter.gson();
     var json = jsonConverter.toJson(Set.of("v1", "v2"));
     //    equals ignore order
     assertTrue("[\"v1\",\"v2\"]".equals(json) || "[\"v2\",\"v1\"]".equals(json));
@@ -67,7 +67,7 @@ class JsonConverterTest {
 
   @Test
   void testObject() {
-    var jsonConverter = JsonConverters.gson();
+    var jsonConverter = JsonConverter.gson();
     var json = jsonConverter.toJson(new TestClass("testString", 45678));
     assertEquals("{\"stringValue\":\"testString\",\"intValue\":45678}", json);
 
