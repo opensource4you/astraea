@@ -129,23 +129,29 @@ public final class Utils {
     waitForNonNull(() -> done.get() ? "good" : null, timeout);
   }
 
+  public static <T> T waitForNonNull(Supplier<T> supplier, Duration timeout) {
+    return waitForNonNull(supplier, timeout, Duration.ofSeconds(1));
+  }
+
   /**
    * loop the supplier until it returns non-null value. The exception arisen in the waiting get
    * ignored if the supplier offers the non-null value in the end.
    *
    * @param supplier to loop
    * @param timeout to break the loop
+   * @param retryInterval the time interval between each supplier call
    * @param <T> returned type
    * @return value from supplier
    */
-  public static <T> T waitForNonNull(Supplier<T> supplier, Duration timeout) {
+  public static <T> T waitForNonNull(
+      Supplier<T> supplier, Duration timeout, Duration retryInterval) {
     var endTime = System.currentTimeMillis() + timeout.toMillis();
     Exception lastError = null;
     while (System.currentTimeMillis() <= endTime)
       try {
         var r = supplier.get();
         if (r != null) return r;
-        Utils.sleep(Duration.ofSeconds(1));
+        Utils.sleep(retryInterval);
       } catch (Exception e) {
         lastError = e;
       }
