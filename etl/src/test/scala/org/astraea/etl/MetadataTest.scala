@@ -17,7 +17,11 @@
 package org.astraea.etl
 
 import org.astraea.etl.DataType.StringType
-import org.astraea.etl.Metadata.{primaryKeyParse, requireNonidentical, requirePair}
+import org.astraea.etl.Metadata.{
+  primaryKeyParse,
+  requireNonidentical,
+  requirePair
+}
 import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.{BeforeEach, Test}
 

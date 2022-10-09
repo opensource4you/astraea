@@ -16,97 +16,114 @@
  */
 package org.astraea.etl.KafkaAdmin
 
-import org.astraea.common.admin.{Admin, AsyncAdmin}
+import org.astraea.common.admin.{AsyncAdmin}
 import org.astraea.etl.Utils
 import org.astraea.it.RequireBrokerCluster
 import org.astraea.it.RequireBrokerCluster.bootstrapServers
-import org.junit.jupiter.api.Assertions.assertThrows
-import org.junit.jupiter.api.{AfterEach, Test}
+import org.junit.jupiter.api.Assertions.{assertInstanceOf, assertThrows}
+import org.junit.jupiter.api.Test
 
+import java.util.concurrent.ExecutionException
 import scala.collection.JavaConverters._
 import scala.collection.convert.ImplicitConversions.`collection AsScalaIterable`
 
 class TopicCreatorTest extends RequireBrokerCluster {
-  @AfterEach def tearDown():Unit={
-    Utils.Using(AsyncAdmin.of(bootstrapServers())){ admin =>
-      admin.deleteTopics(Set("test-topic").asJava)
-    }
-  }
 
   @Test def TopicCreatorTest(): Unit = {
-    val TOPIC = "test-topic"
-
+    val TOPIC = "test-topicA"
     Utils.Using(AsyncAdmin.of(bootstrapServers)) { admin =>
       {
-        testTopicCreator(admin)
-
-        assert(admin.topicNames(false).toCompletableFuture.get().contains(TOPIC), true)
-        assert(admin.partitions(Set(TOPIC).asJava).toCompletableFuture.get().size() equals 10)
-        admin
-          .replicas(Set(TOPIC).asJava).toCompletableFuture.get()
-          .forEach(replicas => assert(replicas.size() equals 2))
+        testTopicCreator(admin, TOPIC)
+        assert(
+          admin.topicNames(true).toCompletableFuture.get().contains(TOPIC),
+          true
+        )
         assert(
           admin
-            .topics(Set(TOPIC).asJava).toCompletableFuture.get()
+            .partitions(Set(TOPIC).asJava)
+            .toCompletableFuture
+            .get()
+            .size() equals 10
+        )
+        admin
+          .partitions(Set(TOPIC).asJava)
+          .toCompletableFuture
+          .get()
+          .forEach(partition => assert(partition.replicas().size() equals 2))
+        assert(
+          admin
+            .topics(Set(TOPIC).asJava)
+            .toCompletableFuture
+            .get()
             .head
             .config()
             .raw()
             .get("compression.type") equals "gzip"
         )
 
-        testTopicCreator(admin)
+        testTopicCreator(admin, TOPIC)
       }
     }
   }
 
   @Test def IllegalArgumentTopicCreatorTest(): Unit = {
-    val TOPIC = "test-topic"
+    val TOPIC = "test-topicB"
 
     Utils.Using(AsyncAdmin.of(bootstrapServers)) { admin =>
       {
-        testTopicCreator(admin)
+        testTopicCreator(admin, TOPIC)
 
-        assertThrows(
+        assertInstanceOf(
           classOf[IllegalArgumentException],
-          () =>
-            TopicCreatorImpl
-              .apply(admin)
-              .topic(TOPIC)
-              .numberOfPartitions(2)
-              .numberOfReplicas(2)
-              .create()
+          assertThrows(
+            classOf[ExecutionException],
+            () =>
+              TopicCreatorImpl
+                .apply(admin)
+                .topic(TOPIC)
+                .numberOfPartitions(2)
+                .numberOfReplicas(2)
+                .create()
+                .get
+          ).getCause
         )
 
-        assertThrows(
+        assertInstanceOf(
           classOf[IllegalArgumentException],
-          () =>
-            TopicCreatorImpl
-              .apply(admin)
-              .topic(TOPIC)
-              .numberOfPartitions(10)
-              .numberOfReplicas(1)
-              .create()
+          assertThrows(
+            classOf[ExecutionException],
+            () =>
+              TopicCreatorImpl
+                .apply(admin)
+                .topic(TOPIC)
+                .numberOfPartitions(10)
+                .numberOfReplicas(1)
+                .create()
+                .get()
+          ).getCause
         )
 
-        assertThrows(
+        assertInstanceOf(
           classOf[IllegalArgumentException],
-          () =>
-            TopicCreatorImpl
-              .apply(admin)
-              .topic(TOPIC)
-              .numberOfPartitions(10)
-              .numberOfReplicas(2)
-              .config(Map("compression.type" -> "lz4"))
-              .create()
+          assertThrows(
+            classOf[ExecutionException],
+            () =>
+              TopicCreatorImpl
+                .apply(admin)
+                .topic(TOPIC)
+                .numberOfPartitions(10)
+                .numberOfReplicas(2)
+                .config(Map("compression.type" -> "lz4"))
+                .create()
+                .get()
+          ).getCause
         )
       }
     }
   }
 
-  def testTopicCreator(admin: AsyncAdmin): Unit = {
+  def testTopicCreator(admin: AsyncAdmin, TOPIC: String): Unit = {
     val config = Map("compression.type" -> "gzip")
-    val TOPIC = "test-topic"
-
     TopicCreatorImpl
       .apply(admin)
       .topic(TOPIC)
@@ -114,5 +131,6 @@ class TopicCreatorTest extends RequireBrokerCluster {
       .numberOfReplicas(2)
       .config(config)
       .create()
+      .get()
   }
 }

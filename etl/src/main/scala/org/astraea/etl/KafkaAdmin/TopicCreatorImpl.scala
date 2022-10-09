@@ -18,9 +18,11 @@ package org.astraea.etl.KafkaAdmin
 
 import org.astraea.common.admin.AsyncAdmin
 
+import java.util.concurrent.{CompletableFuture, CompletionStage}
 import scala.collection.mutable.ListBuffer
 import scala.collection.JavaConverters._
 import scala.collection.convert.ImplicitConversions.`list asScalaBuffer`
+import scala.concurrent.Future
 
 class TopicCreatorImpl(admin: AsyncAdmin) extends TopicCreator {
   private[this] var topic: String = ""
@@ -53,50 +55,16 @@ class TopicCreatorImpl(admin: AsyncAdmin) extends TopicCreator {
     this
   }
 
-  override def create(): Unit = {
-    if (admin.topicNames(false).toCompletableFuture.get().contains(topic)) {
-      val topicPartitions =
-        admin.topicPartitions(ListBuffer(topic).toSet.asJava).toCompletableFuture.get()
-      if (!topicPartitions.size().equals(numberOfPartitions))
-        throw new IllegalArgumentException(
-          s"$topic is existent but its partitions:${topicPartitions.size()} is not equal to expected $numberOfPartitions"
-        )
-
-      admin
-        .replicas(Set(topic).asJava).toCompletableFuture.get()
-        .forEach(replica =>
-          if (replica.size() != numberOfReplicas)
-            throw new IllegalArgumentException(
-              s"$topic is existent but its replicas:${replica.size()} is not equal to expected $numberOfReplicas"
-            )
-        )
-
-      val actualConfigs =
-        admin.topics(ListBuffer(topic).toSet.asJava).toCompletableFuture.get().head.config().raw()
-
-      //Confirm only the incoming config
-      configs.foreach(config =>
-        if (
-          !Option(actualConfigs.get(config._1))
-            .exists(actual => actual.equals(config._2))
-        ) {
-          throw new IllegalArgumentException(
-            s"$topic is existent but its config:<${config._1}, ${actualConfigs
-              .get(config._1)}> is not equal to expected <${config._1},${config._2}>"
-          )
-        }
-      )
-
-      // ok, the existent topic is totally equal to what we want to create.
-    } else {
-      admin
-        .creator()
-        .topic(topic)
-        .numberOfPartitions(numberOfPartitions)
-        .numberOfReplicas(numberOfReplicas)
-        .configs(configs.asJava)
-        .run()
-    }
+  //Starting Scala 2.13, the standard library includes scala.jdk.FutureConverters which provides Java to Scala CompletableFuture/Future implicit conversions
+  override def create(): CompletableFuture[java.lang.Boolean] = {
+    admin
+      .creator()
+      .topic(topic)
+      .numberOfPartitions(numberOfPartitions)
+      .numberOfReplicas(numberOfReplicas)
+      .configs(configs.asJava)
+      .run()
+      .toCompletableFuture
   }
 }
 
