@@ -18,7 +18,7 @@ package org.astraea.etl
 
 import org.apache.kafka.clients.producer.ProducerConfig
 import org.apache.spark.sql.functions.{col, concat, struct, to_json}
-import org.apache.spark.sql.{DataFrame, Row, SparkSession, functions}
+import org.apache.spark.sql.{DataFrame, Row, SparkSession}
 import org.apache.spark.sql.streaming.DataStreamWriter
 import org.apache.spark.sql.types.StructType
 object CSVReader {
@@ -85,15 +85,22 @@ object CSVReader {
     * keyA_keyB_....
     *
     * {{{
-    * Seq(Person("Michael", 29), Person("Andy", 30), Person("Justin", 19))
+    * Seq(Person("Michael","A.K", 29), Person("Andy","B.C", 30), Person("Justin","C.L", 19))
     *
-    * // +-------+---------------------------+
-    * // |    key|                      value|
-    * // +-------+---------------------------+
-    * // |Michael|{"name":"Michael","age":29}|
-    * // |   Andy|{"name":"Andy","age":30}   |
-    * // | Justin|{"name":"Justin","age":19} |
-    * // +-------+---------------------------+
+    * Person
+    * |-- FirstName: string
+    * |-- SecondName: string
+    * |-- Age: Integer
+    *
+    * Key:FirstName,SecondName
+    *
+    * // +-------+------------------------------------------------------+
+    * // |    key|                                                 value|
+    * // +-------+------------------------------------------------------+
+    * // |MichaelA.K|{"FirstName":"Michael","SecondName":"A.K","Age":29}|
+    * // |   AndyB.C|{"FirstName":"Andy","SecondName":"B.C","Age":30}   |
+    * // | JustinC.L|{"FirstName":"Justin","SecondName":"C.L","Age":19} |
+    * // +-------+------------------------------------------------------+
     * }}}
     *
     * @param dataFrame
@@ -105,8 +112,8 @@ object CSVReader {
     */
   def csvToJSON(dataFrame: DataFrame, pk: Seq[String]): DataFrame = {
     dataFrame
-      .withColumn("key", concat(pk.map(col).seq: _*))
       .withColumn("value", to_json(struct($conforms("*"))))
+      .withColumn("key", concat(pk.map(col).seq: _*))
       .selectExpr("CAST(key AS STRING)", "CAST(value AS STRING)")
   }
 }

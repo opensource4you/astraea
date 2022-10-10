@@ -23,7 +23,7 @@ import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.types.StructType
 import org.astraea.etl.CSVReader.{createSpark, csvToJSON}
 import org.astraea.etl.DataType.{IntegerType, StringType}
-import org.junit.jupiter.api.Assertions.assertThrows
+import org.junit.jupiter.api.Assertions.{assertEquals, assertThrows, assertTrue}
 import org.junit.jupiter.api.Test
 
 import java.io._
@@ -81,11 +81,11 @@ class CSVReaderTest {
       )
     )
 
-    assert(structType.length equals 4)
+    assertEquals(structType.length, 4)
 
     val csvDF = CSVReader.readCSV(spark, structType, file.getParent.toString)
 
-    assert(csvDF.isStreaming, "sessions must be a streaming Dataset")
+    assertTrue(csvDF.isStreaming, "sessions must be a streaming Dataset")
 
     csvDF.writeStream
       .format("csv")
@@ -100,10 +100,10 @@ class CSVReaderTest {
     val writeFile = getCSVFile(new File(myDir.getPath + "/data"))(0)
     val br = new BufferedReader(new FileReader(writeFile))
 
-    assert(br.readLine equals "1,A1,52,fghgh")
-    assert(br.readLine equals "2,B1,36,gjgbn")
-    assert(br.readLine equals "3,C1,45,fgbhjf")
-    assert(br.readLine equals "4,D1,25,dfjf")
+    assertEquals(br.readLine, "1,A1,52,fghgh")
+    assertEquals(br.readLine, "2,B1,36,gjgbn")
+    assertEquals(br.readLine, "3,C1,45,fgbhjf")
+    assertEquals(br.readLine, "4,D1,25,dfjf")
   }
 
   def rows: List[List[String]] = {
@@ -161,8 +161,8 @@ class CSVReaderTest {
 
   @Test def csvToJSONTest(): Unit = {
     val spark = createSpark("local[2]")
-
     import spark.implicits._
+
     case class Person(name: String, age: Long)
     val data =
       Seq(Person("Michael", 29), Person("Andy", 30), Person("Justin", 19))
@@ -177,17 +177,18 @@ class CSVReaderTest {
       .collectAsList()
       .forEach(row => {
         val i = iterator.next()
-        assert(row(0) equals data(i).name)
-        assert(
-          row(1) equals s"""{"name":"${data(i).name}","age":${data(i).age}}"""
+        assertEquals(row(0), data(i).name)
+        assertEquals(
+          row(1),
+          s"""{"name":"${data(i).name}","age":${data(i).age}}"""
         )
       })
   }
 
   @Test def csvToJsonMulKeysTest(): Unit = {
     val spark = createSpark("local[2]")
-
     import spark.implicits._
+
     case class Person(firstName: String, secondName: String, age: Long)
     val data =
       Seq(
@@ -213,14 +214,14 @@ class CSVReaderTest {
       .collectAsList()
       .forEach(row => {
         val i = iterator.next()
-        assert(row(0) equals s"${data(i).firstName}${data(i).secondName}")
-        assert(
-          row(1) equals
-            s"""{"firstName":"${data(
-              i
-            ).firstName}","secondName":"${data(i).secondName}","age":${data(
-              i
-            ).age}}"""
+        assertEquals(row(0), s"${data(i).firstName}${data(i).secondName}")
+        assertEquals(
+          row(1),
+          s"""{"firstName":"${data(
+            i
+          ).firstName}","secondName":"${data(i).secondName}","age":${data(
+            i
+          ).age}}"""
         )
       })
   }
@@ -250,6 +251,6 @@ class CSVReaderTest {
       .withColumn("byte", col("value").cast("Byte"))
       .selectExpr("CAST(byte AS BYTE)")
     val head = json.head()
-    assert(json.filter(_ != head).isEmpty)
+    assertTrue(json.filter(_ != head).isEmpty)
   }
 }
