@@ -67,7 +67,7 @@ public class BrokerTab {
     var pane =
         PaneBuilder.of()
             .searchField("broker id/host")
-            .outputTable(
+            .buttonTableAction(
                 input ->
                     context.submit(
                         admin ->

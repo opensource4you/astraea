@@ -87,7 +87,7 @@ public class AboutTab {
             .radioButtons(
                 LinkedHashSet.of(
                     Arrays.stream(Info.values()).map(c -> c.alias).toArray(String[]::new)))
-            .outputTable(
+            .buttonTableAction(
                 input ->
                     CompletableFuture.completedFuture(
                         Arrays.stream(Info.values())

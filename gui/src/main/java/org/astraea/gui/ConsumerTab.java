@@ -69,7 +69,7 @@ public class ConsumerTab {
     var pane =
         PaneBuilder.of()
             .searchField("group id or topic name")
-            .outputTable(
+            .buttonTableAction(
                 input ->
                     context.submit(
                         admin ->

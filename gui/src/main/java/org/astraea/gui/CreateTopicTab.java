@@ -37,7 +37,7 @@ public class CreateTopicTab {
             .input(NUMBER_OF_PARTITIONS, false, true)
             .input(NUMBER_OF_REPLICAS, false, true)
             .input(TopicConfigs.ALL_CONFIGS)
-            .outputMessage(
+            .buttonMessageAction(
                 input -> {
                   var allConfigs = new HashMap<>(input.texts());
                   var name = allConfigs.remove(TOPIC_NAME);

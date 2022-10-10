@@ -49,7 +49,7 @@ public class TransactionTab {
     var pane =
         PaneBuilder.of()
             .searchField("topic name or transaction id")
-            .outputTable(
+            .buttonTableAction(
                 input ->
                     context.submit(
                         admin ->

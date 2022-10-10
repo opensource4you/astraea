@@ -32,7 +32,7 @@ public class SettingTab {
             .input(BOOTSTRAP_SERVERS, true, false)
             .input(JMX_PORT, false, true)
             .buttonName("CHECK")
-            .outputMessage(
+            .buttonMessageAction(
                 input -> {
                   var bootstrapServers = input.texts().get(BOOTSTRAP_SERVERS);
                   var jmxPort =

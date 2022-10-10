@@ -57,7 +57,7 @@ public class MovingReplicaTab {
     var pane =
         PaneBuilder.of()
             .searchField("topic name")
-            .outputTable(
+            .buttonTableAction(
                 input ->
                     context.submit(
                         admin ->

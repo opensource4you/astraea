@@ -17,6 +17,7 @@
 package org.astraea.gui;
 
 import java.util.ArrayList;
+import java.util.EventObject;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -31,7 +32,6 @@ import java.util.stream.Collectors;
 import javafx.application.Platform;
 import javafx.beans.property.ReadOnlyObjectWrapper;
 import javafx.collections.FXCollections;
-import javafx.event.EventHandler;
 import javafx.geometry.HPos;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -50,7 +50,6 @@ import javafx.scene.input.ClipboardContent;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyCodeCombination;
 import javafx.scene.input.KeyCombination;
-import javafx.scene.input.KeyEvent;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.Pane;
 import javafx.scene.text.Font;
@@ -136,26 +135,49 @@ public class PaneBuilder {
     return this;
   }
 
-  public PaneBuilder outputMessage(Function<Input, CompletionStage<String>> outputMessage) {
-    this.actionRunner = input -> (OutputMessage) () -> outputMessage.apply(input);
+  public PaneBuilder buttonMessageAction(Function<Input, CompletionStage<String>> action) {
+    this.actionRunner = input -> (OutputMessage) () -> action.apply(input);
     return this;
   }
 
-  public PaneBuilder outputTable(
-      Function<Input, CompletionStage<List<Map<String, Object>>>> outputTable) {
-    this.actionRunner = input -> (OutputTable) () -> outputTable.apply(input);
+  public PaneBuilder buttonTableAction(
+      Function<Input, CompletionStage<List<Map<String, Object>>>> action) {
+    this.actionRunner = input -> (OutputTable) () -> action.apply(input);
     return enableTableView();
   }
 
-  public PaneBuilder output(Function<Input, Output> output) {
-    this.actionRunner = input -> (Object) output.apply(input);
+  public PaneBuilder buttonAction(Function<Input, Output> action) {
+    this.actionRunner = input -> (Object) action.apply(input);
     return enableTableView();
   }
 
   private PaneBuilder enableTableView() {
     tableView = new TableView<>(FXCollections.observableArrayList());
     tableView.getSelectionModel().setCellSelectionEnabled(true);
-    tableView.setOnKeyPressed(new CopyCellToClipboard());
+    Function<EventObject, Map.Entry<Object, Object>> fetcher =
+        event -> {
+          var tableView = (TableView) event.getSource();
+          var pos = tableView.getFocusModel().getFocusedCell();
+          var item = tableView.getItems().get(pos.getRow());
+          var value = pos.getTableColumn().getCellObservableValue(item).getValue();
+          return Map.entry(item, value);
+        };
+
+    var keyForWindows = new KeyCodeCombination(KeyCode.C, KeyCombination.CONTROL_DOWN);
+
+    var keyForMacos = new KeyCodeCombination(KeyCode.C, KeyCombination.SHORTCUT_DOWN);
+
+    tableView.setOnKeyPressed(
+        event -> {
+          var result = fetcher.apply(event);
+          if (keyForWindows.match(event) || keyForMacos.match(event)) {
+            if (event.getSource() instanceof TableView) {
+              var clipboardContent = new ClipboardContent();
+              clipboardContent.putString(result.getValue().toString());
+              Clipboard.getSystemClipboard().setContent(clipboardContent);
+            }
+          }
+        });
     return this;
   }
 
@@ -413,30 +435,4 @@ public class PaneBuilder {
    * use this interface if the tab needs to refresh table first and then output result to console.
    */
   interface Output extends OutputMessage, OutputTable {}
-
-  private static class CopyCellToClipboard implements EventHandler<KeyEvent> {
-
-    private final KeyCodeCombination keyForWindows =
-        new KeyCodeCombination(KeyCode.C, KeyCombination.CONTROL_DOWN);
-
-    private final KeyCodeCombination keyForMacos =
-        new KeyCodeCombination(KeyCode.C, KeyCombination.SHORTCUT_DOWN);
-
-    @SuppressWarnings("unchecked")
-    public void handle(final KeyEvent keyEvent) {
-      if (keyForWindows.match(keyEvent) || keyForMacos.match(keyEvent)) {
-        if (keyEvent.getSource() instanceof TableView) {
-          var tableView = (TableView) keyEvent.getSource();
-          var pos = tableView.getFocusModel().getFocusedCell();
-          var value =
-              pos.getTableColumn()
-                  .getCellObservableValue(tableView.getItems().get(pos.getRow()))
-                  .getValue();
-          var clipboardContent = new ClipboardContent();
-          clipboardContent.putString(value.toString());
-          Clipboard.getSystemClipboard().setContent(clipboardContent);
-        }
-      }
-    }
-  }
 }
