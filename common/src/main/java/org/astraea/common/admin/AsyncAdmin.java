@@ -68,8 +68,10 @@ public interface AsyncAdmin extends AutoCloseable {
 
   CompletionStage<List<Partition>> partitions(Set<String> topics);
 
+  /** @return online node information */
   CompletionStage<Set<NodeInfo>> nodeInfos();
 
+  /** @return online broker information */
   CompletionStage<List<Broker>> brokers();
 
   default CompletionStage<Map<Integer, Set<String>>> brokerFolders() {

@@ -16,10 +16,12 @@
  */
 package org.astraea.gui;
 
+import java.util.Arrays;
 import java.util.Map;
 import java.util.stream.Collectors;
 import javafx.scene.control.Tab;
 import org.astraea.common.LinkedHashMap;
+import org.astraea.common.LinkedHashSet;
 
 public class ConfigTab {
 
@@ -32,56 +34,56 @@ public class ConfigTab {
     Resource(String alias) {
       this.alias = alias;
     }
-
-    @Override
-    public String toString() {
-      return alias;
-    }
   }
 
   public static Tab of(Context context) {
-    var resources = Utils.radioButton(Resource.values());
     var pane =
-        Utils.searchToTable(
-            (word, console) -> {
-              var isTopic = resources.get(Resource.TOPIC).isSelected();
-              return context
-                  .submit(
-                      admin ->
-                          isTopic
-                              ? admin
-                                  .topicNames(true)
-                                  .thenCompose(admin::topics)
-                                  .thenApply(
-                                      topics ->
-                                          topics.stream().map(t -> Map.entry(t.name(), t.config())))
-                              : admin
-                                  .brokers()
-                                  .thenApply(
-                                      brokers ->
-                                          brokers.stream()
-                                              .map(
-                                                  t ->
-                                                      Map.entry(
-                                                          String.valueOf(t.id()), t.config()))))
-                  .thenApply(
-                      items ->
-                          items
-                              .map(
-                                  e -> {
-                                    Map<String, Object> map = new LinkedHashMap<>();
-                                    map.put(isTopic ? "name" : "broker id", e.getKey());
-                                    e.getValue().raw().entrySet().stream()
-                                        .filter(entry -> Utils.contains(entry.getKey(), word))
-                                        .sorted(Map.Entry.comparingByKey())
-                                        .forEach(
-                                            entry -> map.put(entry.getKey(), entry.getValue()));
-                                    return map;
-                                  })
-                              .collect(Collectors.toList()));
-            },
-            resources.values(),
-            "SEARCH for config");
+        PaneBuilder.of()
+            .radioButtons(
+                LinkedHashSet.of(
+                    Arrays.stream(Resource.values()).map(r -> r.alias).toArray(String[]::new)))
+            .searchField("config key")
+            .outputTable(
+                input -> {
+                  var isTopic =
+                      input.selectedRadio().map(Resource.TOPIC.alias::equals).orElse(true);
+                  return context
+                      .submit(
+                          admin ->
+                              isTopic
+                                  ? admin
+                                      .topicNames(true)
+                                      .thenCompose(admin::topics)
+                                      .thenApply(
+                                          topics ->
+                                              topics.stream()
+                                                  .map(t -> Map.entry(t.name(), t.config())))
+                                  : admin
+                                      .brokers()
+                                      .thenApply(
+                                          brokers ->
+                                              brokers.stream()
+                                                  .map(
+                                                      t ->
+                                                          Map.entry(
+                                                              String.valueOf(t.id()), t.config()))))
+                      .thenApply(
+                          items ->
+                              items
+                                  .map(
+                                      e -> {
+                                        var map = new LinkedHashMap<String, Object>();
+                                        map.put(isTopic ? "name" : "broker id", e.getKey());
+                                        e.getValue().raw().entrySet().stream()
+                                            .filter(entry -> input.matchSearch(entry.getKey()))
+                                            .sorted(Map.Entry.comparingByKey())
+                                            .forEach(
+                                                entry -> map.put(entry.getKey(), entry.getValue()));
+                                        return map;
+                                      })
+                                  .collect(Collectors.toList()));
+                })
+            .build();
     var tab = new Tab("config");
     tab.setContent(pane);
     return tab;

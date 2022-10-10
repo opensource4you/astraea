@@ -143,47 +143,49 @@ public class MetricsTab {
       this.alias = alias;
       this.fetcher = fetcher;
     }
-
-    @Override
-    public String toString() {
-      return alias;
-    }
   }
 
   public static Tab of(Context context) {
+    var pane =
+        PaneBuilder.of()
+            .searchField("config key")
+            .outputTable(
+                input ->
+                    context.metrics(
+                        bs ->
+                            bs.entrySet().stream()
+                                .map(
+                                    entry ->
+                                        Map.entry(
+                                            entry.getKey(),
+                                            Arrays.stream(MetricType.values())
+                                                .filter(
+                                                    metricType ->
+                                                        input
+                                                            .selectedRadio()
+                                                            .filter(metricType.alias::equals)
+                                                            .isPresent())
+                                                .findFirst()
+                                                .orElse(MetricType.TOPIC)
+                                                .fetcher
+                                                .apply(entry.getValue())))
+                                .sorted(Comparator.comparing(e -> e.getKey().id()))
+                                .map(
+                                    entry -> {
+                                      var result = new LinkedHashMap<String, Object>();
+                                      result.put("broker id", entry.getKey().id());
+                                      result.put("host", entry.getKey().host());
+                                      entry.getValue().entrySet().stream()
+                                          .filter(m -> input.matchSearch(m.getKey()))
+                                          .forEach(m -> result.put(m.getKey(), m.getValue()));
+                                      return result;
+                                    })
+                                .collect(Collectors.toList())))
+            .build();
+
     var tab = new Tab("metrics");
     var types = Utils.radioButton(MetricType.values());
-    tab.setContent(
-        Utils.searchToTable(
-            (word, console) ->
-                context.metrics(
-                    bs ->
-                        bs.entrySet().stream()
-                            .map(
-                                entry ->
-                                    Map.entry(
-                                        entry.getKey(),
-                                        types.entrySet().stream()
-                                            .filter(e -> e.getValue().isSelected())
-                                            .map(Map.Entry::getKey)
-                                            .findFirst()
-                                            .orElse(MetricType.TOPIC)
-                                            .fetcher
-                                            .apply(entry.getValue())))
-                            .sorted(Comparator.comparing(e -> e.getKey().id()))
-                            .map(
-                                entry -> {
-                                  var result = new LinkedHashMap<String, Object>();
-                                  result.put("broker id", entry.getKey().id());
-                                  result.put("host", entry.getKey().host());
-                                  entry.getValue().entrySet().stream()
-                                      .filter(m -> Utils.contains(m.getKey(), word))
-                                      .forEach(m -> result.put(m.getKey(), m.getValue()));
-                                  return result;
-                                })
-                            .collect(Collectors.toList())),
-            types.values(),
-            "SEARCH for metric"));
+    tab.setContent(pane);
     return tab;
   }
 }

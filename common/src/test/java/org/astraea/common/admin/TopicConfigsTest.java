@@ -14,27 +14,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.gui;
+package org.astraea.common.admin;
 
-public interface Console {
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
-  default void text(String text, Throwable e) {
-    if (e != null) text(e);
-    else text(text);
-  }
+public class TopicConfigsTest {
 
-  void text(String text);
-
-  default void text(Throwable e) {
-    if (e != null) text(Utils.toString(e));
-  }
-
-  void append(String text);
-
-  void append(Throwable e);
-
-  default void append(String text, Throwable e) {
-    if (e != null) append(e);
-    else append(text);
+  @Test
+  void testDynamicalConfigs() {
+    TopicConfigs.DYNAMICAL_CONFIGS.forEach(
+        config -> Assertions.assertTrue(TopicConfigs.ALL_CONFIGS.contains(config)));
   }
 }

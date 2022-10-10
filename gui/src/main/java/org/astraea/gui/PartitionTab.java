@@ -23,6 +23,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javafx.scene.control.Tab;
 import org.astraea.common.LinkedHashMap;
+import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Partition;
 
 public class PartitionTab {
@@ -36,7 +37,7 @@ public class PartitionTab {
                     "partition",
                     p.partition(),
                     "leader",
-                    p.leader().id(),
+                    p.leader().map(NodeInfo::id).orElse(-1),
                     "replicas",
                     p.replicas().stream()
                         .map(n -> String.valueOf(n.id()))
@@ -55,28 +56,29 @@ public class PartitionTab {
   }
 
   public static Tab of(Context context) {
-
     var pane =
-        Utils.searchToTable(
-            (word, console) ->
-                context.submit(
-                    admin ->
-                        admin
-                            .topicNames(true)
-                            .thenApply(
-                                names ->
-                                    names.stream()
-                                        .filter(name -> Utils.contains(name, word))
-                                        .collect(Collectors.toSet()))
-                            .thenCompose(admin::partitions)
-                            .thenApply(
-                                ps ->
-                                    result(
+        PaneBuilder.of()
+            .searchField("topic name")
+            .outputTable(
+                input ->
+                    context.submit(
+                        admin ->
+                            admin
+                                .topicNames(true)
+                                .thenApply(
+                                    names ->
+                                        names.stream()
+                                            .filter(input::matchSearch)
+                                            .collect(Collectors.toSet()))
+                                .thenCompose(admin::partitions)
+                                .thenApply(
+                                    ps ->
                                         ps.stream()
                                             .sorted(
                                                 Comparator.comparing(Partition::topic)
-                                                    .thenComparing(Partition::partition))))),
-            "SEARCH for topic");
+                                                    .thenComparing(Partition::partition)))
+                                .thenApply(PartitionTab::result)))
+            .build();
     var tab = new Tab("partition");
     tab.setContent(pane);
     return tab;

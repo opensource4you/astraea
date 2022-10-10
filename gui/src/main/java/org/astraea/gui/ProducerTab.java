@@ -48,28 +48,31 @@ public class ProducerTab {
   }
 
   public static Tab of(Context context) {
+
     var pane =
-        Utils.searchToTable(
-            (word, console) ->
-                context.submit(
-                    admin ->
-                        admin
-                            .topicNames(true)
-                            .thenApply(
-                                names ->
-                                    names.stream()
-                                        .filter(name -> Utils.contains(name, word))
-                                        .collect(Collectors.toSet()))
-                            .thenCompose(admin::topicPartitions)
-                            .thenCompose(admin::producerStates)
-                            .thenApply(
-                                ps ->
-                                    result(
+        PaneBuilder.of()
+            .searchField("topic name")
+            .outputTable(
+                input ->
+                    context.submit(
+                        admin ->
+                            admin
+                                .topicNames(true)
+                                .thenApply(
+                                    names ->
+                                        names.stream()
+                                            .filter(input::matchSearch)
+                                            .collect(Collectors.toSet()))
+                                .thenCompose(admin::topicPartitions)
+                                .thenCompose(admin::producerStates)
+                                .thenApply(
+                                    ps ->
                                         ps.stream()
                                             .sorted(
                                                 Comparator.comparing(ProducerState::topic)
-                                                    .thenComparing(ProducerState::partition))))),
-            "SEARCH for topic");
+                                                    .thenComparing(ProducerState::partition)))
+                                .thenApply(ProducerTab::result)))
+            .build();
     var tab = new Tab("producer");
     tab.setContent(pane);
     return tab;

@@ -136,6 +136,7 @@ interface Channel {
     GET,
     DELETE,
     POST,
+    PUT,
     UNKNOWN;
 
     public static Type ofAlias(String alias) {
@@ -191,6 +192,8 @@ interface Channel {
               return Type.POST;
             case "DELETE":
               return Type.DELETE;
+            case "PUT":
+              return Type.PUT;
             default:
               return Type.UNKNOWN;
           }

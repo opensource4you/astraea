@@ -50,17 +50,18 @@ public class Main {
               ConsumerTab.of(context),
               ProducerTab.of(context),
               TransactionTab.of(context),
-              AddingReplicaTab.of(context),
+              MovingReplicaTab.of(context),
               CreateTopicTab.of(context),
-              AddPartitionTab.of(context),
-              ReassignReplicaTab.of(context),
+              UpdateTopicTab.of(context),
+              MoveTopicTab.of(context),
+              UpdateBrokerTab.of(context),
               BalancerTab.of(context),
               AboutTab.of(context));
       rootPane.setSide(Side.BOTTOM);
       rootPane.setTabClosingPolicy(TabPane.TabClosingPolicy.UNAVAILABLE);
       var scene = new Scene(rootPane, 300, 300);
       stage.setTitle("Astraea");
-      stage.setHeight(800);
+      stage.setHeight(1000);
       stage.setWidth(1200);
       stage.setScene(scene);
       stage.show();

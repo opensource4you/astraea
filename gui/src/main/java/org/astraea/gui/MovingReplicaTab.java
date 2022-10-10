@@ -21,10 +21,11 @@ import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javafx.scene.control.Tab;
+import org.astraea.common.DataSize;
 import org.astraea.common.LinkedHashMap;
 import org.astraea.common.admin.AddingReplica;
 
-public class AddingReplicaTab {
+public class MovingReplicaTab {
 
   private static List<Map<String, Object>> result(Stream<AddingReplica> replicas) {
     return replicas
@@ -40,9 +41,9 @@ public class AddingReplicaTab {
                     "path",
                     state.path(),
                     "size",
-                    state.size(),
+                    DataSize.Byte.of(state.size()),
                     "leader size",
-                    state.leaderSize(),
+                    DataSize.Byte.of(state.leaderSize()),
                     "progress",
                     String.format(
                         "%.2f%%",
@@ -53,25 +54,29 @@ public class AddingReplicaTab {
   }
 
   public static Tab of(Context context) {
-    var tab = new Tab("adding replica");
-    tab.setContent(
-        Utils.searchToTable(
-            (word, console) ->
-                context.submit(
-                    admin ->
-                        admin
-                            .topicNames(true)
-                            .thenCompose(admin::addingReplicas)
-                            .thenApply(
-                                rs ->
-                                    result(
+    var pane =
+        PaneBuilder.of()
+            .searchField("topic name")
+            .outputTable(
+                input ->
+                    context.submit(
+                        admin ->
+                            admin
+                                .topicNames(true)
+                                .thenCompose(admin::addingReplicas)
+                                .thenApply(
+                                    rs ->
                                         rs.stream()
                                             .filter(
                                                 s ->
-                                                    Utils.contains(s.topic(), word)
-                                                        || Utils.contains(
-                                                            String.valueOf(s.broker()), word))))),
-            "SEARCH for topic"));
+                                                    input.matchSearch(s.topic())
+                                                        || input.matchSearch(
+                                                            String.valueOf(s.broker()))))
+                                .thenApply(MovingReplicaTab::result)))
+            .build();
+
+    var tab = new Tab("moving replica");
+    tab.setContent(pane);
     return tab;
   }
 }

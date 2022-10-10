@@ -27,13 +27,18 @@ import org.astraea.common.admin.ConsumerGroup;
 
 public class ConsumerTab {
 
-  private static List<Map<String, Object>> result(Stream<ConsumerGroup> cgs) {
+  private static List<Map<String, Object>> result(
+      Stream<ConsumerGroup> cgs, PaneBuilder.Input input) {
     return cgs.flatMap(
             cg ->
                 cg.assignment().entrySet().stream()
                     .flatMap(
                         entry ->
                             entry.getValue().stream()
+                                .filter(
+                                    tp ->
+                                        input.matchSearch(tp.topic())
+                                            || input.matchSearch(entry.getKey().groupId()))
                                 .map(
                                     tp ->
                                         LinkedHashMap.<String, Object>of(
@@ -62,26 +67,17 @@ public class ConsumerTab {
 
   public static Tab of(Context context) {
     var pane =
-        Utils.searchToTable(
-            (word, console) ->
-                context.submit(
-                    admin ->
-                        admin
-                            .consumerGroupIds()
-                            .thenCompose(admin::consumerGroups)
-                            .thenApply(
-                                groups ->
-                                    result(
-                                        groups.stream()
-                                            .filter(
-                                                group ->
-                                                    Utils.contains(group.groupId(), word)
-                                                        || group.consumeProgress().keySet().stream()
-                                                            .anyMatch(
-                                                                tp ->
-                                                                    Utils.contains(
-                                                                        tp.topic(), word)))))),
-            "SEARCH for topic/group");
+        PaneBuilder.of()
+            .searchField("group id or topic name")
+            .outputTable(
+                input ->
+                    context.submit(
+                        admin ->
+                            admin
+                                .consumerGroupIds()
+                                .thenCompose(admin::consumerGroups)
+                                .thenApply(cgs -> result(cgs.stream(), input))))
+            .build();
     var tab = new Tab("consumer");
     tab.setContent(pane);
     return tab;

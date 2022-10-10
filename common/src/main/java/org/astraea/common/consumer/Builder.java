@@ -41,22 +41,19 @@ public abstract class Builder<Key, Value> {
   Builder() {}
 
   /**
-   * make the consumer read data from beginning. By default, it reads the latest data.
-   *
+   * @param key a non-null string
+   * @param value null means you want to remove the associated key. Otherwise, the previous value
+   *     will be overwritten
    * @return this builder
    */
-  public Builder<Key, Value> fromBeginning() {
-    this.configs.put(Consumer.AUTO_OFFSET_RESET_CONFIG, "earliest");
+  public Builder<Key, Value> config(String key, String value) {
+    if (value == null) this.configs.remove(key);
+    else this.configs.put(key, value);
     return this;
   }
 
-  /**
-   * make the consumer read data from latest. this is default setting.
-   *
-   * @return this builder
-   */
-  public Builder<Key, Value> fromLatest() {
-    this.configs.put(Consumer.AUTO_OFFSET_RESET_CONFIG, "latest");
+  public Builder<Key, Value> configs(Map<String, String> configs) {
+    this.configs.putAll(configs);
     return this;
   }
 
@@ -105,17 +102,7 @@ public abstract class Builder<Key, Value> {
   }
 
   public Builder<Key, Value> bootstrapServers(String bootstrapServers) {
-    this.configs.put(Consumer.BOOTSTRAP_SERVERS_CONFIG, requireNonNull(bootstrapServers));
-    return this;
-  }
-
-  public Builder<Key, Value> isolation(Isolation isolation) {
-    this.configs.put(Consumer.ISOLATION_LEVEL_CONFIG, isolation.nameOfKafka());
-    return this;
-  }
-
-  public Builder<Key, Value> clientId(String clientId) {
-    this.configs.put(Consumer.CLIENT_ID_CONFIG, clientId);
+    this.configs.put(ConsumerConfigs.BOOTSTRAP_SERVERS_CONFIG, requireNonNull(bootstrapServers));
     return this;
   }
 
