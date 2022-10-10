@@ -16,6 +16,7 @@
  */
 package org.astraea.gui;
 
+import org.astraea.gui.pane.PaneBuilder;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 

@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.gui;
+package org.astraea.gui.tab;
 
 import java.util.List;
 import java.util.Map;
@@ -24,6 +24,8 @@ import javafx.scene.control.Tab;
 import org.astraea.common.LinkedHashMap;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.admin.Transaction;
+import org.astraea.gui.Context;
+import org.astraea.gui.pane.PaneBuilder;
 
 public class TransactionTab {
 
@@ -49,8 +51,8 @@ public class TransactionTab {
     var pane =
         PaneBuilder.of()
             .searchField("topic name or transaction id")
-            .buttonTableAction(
-                input ->
+            .buttonAction(
+                (input, logger) ->
                     context.submit(
                         admin ->
                             admin

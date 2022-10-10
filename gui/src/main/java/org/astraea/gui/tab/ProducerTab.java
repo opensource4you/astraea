@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.gui;
+package org.astraea.gui.tab;
 
 import java.util.Comparator;
 import java.util.List;
@@ -23,44 +23,39 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javafx.scene.control.Tab;
 import org.astraea.common.LinkedHashMap;
-import org.astraea.common.admin.NodeInfo;
-import org.astraea.common.admin.Partition;
+import org.astraea.common.admin.ProducerState;
+import org.astraea.gui.Context;
+import org.astraea.gui.pane.PaneBuilder;
 
-public class PartitionTab {
+public class ProducerTab {
 
-  private static List<Map<String, Object>> result(Stream<Partition> ps) {
-    return ps.map(
-            p ->
+  private static List<Map<String, Object>> result(Stream<ProducerState> states) {
+    return states
+        .map(
+            state ->
                 LinkedHashMap.<String, Object>of(
                     "topic",
-                    p.topic(),
+                    state.topic(),
                     "partition",
-                    p.partition(),
-                    "leader",
-                    p.leader().map(NodeInfo::id).orElse(-1),
-                    "replicas",
-                    p.replicas().stream()
-                        .map(n -> String.valueOf(n.id()))
-                        .collect(Collectors.joining(",")),
-                    "isr",
-                    p.isr().stream()
-                        .map(n -> String.valueOf(n.id()))
-                        .collect(Collectors.joining(",")),
-                    "earliest offset",
-                    p.earliestOffset(),
-                    "latest offset",
-                    p.latestOffset(),
-                    "max timestamp",
-                    Utils.format(p.maxTimestamp())))
+                    state.partition(),
+                    "producer id",
+                    state.producerId(),
+                    "producer epoch",
+                    state.producerEpoch(),
+                    "last sequence",
+                    state.lastSequence(),
+                    "last timestamp",
+                    state.lastTimestamp()))
         .collect(Collectors.toList());
   }
 
   public static Tab of(Context context) {
+
     var pane =
         PaneBuilder.of()
             .searchField("topic name")
-            .buttonTableAction(
-                input ->
+            .buttonAction(
+                (input, logger) ->
                     context.submit(
                         admin ->
                             admin
@@ -70,16 +65,17 @@ public class PartitionTab {
                                         names.stream()
                                             .filter(input::matchSearch)
                                             .collect(Collectors.toSet()))
-                                .thenCompose(admin::partitions)
+                                .thenCompose(admin::topicPartitions)
+                                .thenCompose(admin::producerStates)
                                 .thenApply(
                                     ps ->
                                         ps.stream()
                                             .sorted(
-                                                Comparator.comparing(Partition::topic)
-                                                    .thenComparing(Partition::partition)))
-                                .thenApply(PartitionTab::result)))
+                                                Comparator.comparing(ProducerState::topic)
+                                                    .thenComparing(ProducerState::partition)))
+                                .thenApply(ProducerTab::result)))
             .build();
-    var tab = new Tab("partition");
+    var tab = new Tab("producer");
     tab.setContent(pane);
     return tab;
   }

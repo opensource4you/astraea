@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.gui;
+package org.astraea.gui.tab;
 
 import java.util.Arrays;
 import java.util.Comparator;
@@ -31,6 +31,9 @@ import org.astraea.common.metrics.MBeanClient;
 import org.astraea.common.metrics.broker.ControllerMetrics;
 import org.astraea.common.metrics.broker.ServerMetrics;
 import org.astraea.common.metrics.platform.HostMetrics;
+import org.astraea.gui.Context;
+import org.astraea.gui.button.RadioButtonAble;
+import org.astraea.gui.pane.PaneBuilder;
 
 public class MetricsTab {
 
@@ -43,7 +46,7 @@ public class MetricsTab {
     }
   }
 
-  enum MetricType {
+  private enum MetricType implements RadioButtonAble {
     HOST(
         "host",
         client ->
@@ -137,11 +140,16 @@ public class MetricsTab {
                         })));
 
     private final Function<MBeanClient, Map<String, Object>> fetcher;
-    private final String alias;
+    private final String display;
 
-    MetricType(String alias, Function<MBeanClient, Map<String, Object>> fetcher) {
-      this.alias = alias;
+    MetricType(String display, Function<MBeanClient, Map<String, Object>> fetcher) {
+      this.display = display;
       this.fetcher = fetcher;
+    }
+
+    @Override
+    public String display() {
+      return display;
     }
   }
 
@@ -149,8 +157,9 @@ public class MetricsTab {
     var pane =
         PaneBuilder.of()
             .searchField("config key")
-            .buttonTableAction(
-                input ->
+            .radioButtons(MetricType.values())
+            .buttonAction(
+                (input, logger) ->
                     context.metrics(
                         bs ->
                             bs.entrySet().stream()
@@ -158,14 +167,9 @@ public class MetricsTab {
                                     entry ->
                                         Map.entry(
                                             entry.getKey(),
-                                            Arrays.stream(MetricType.values())
-                                                .filter(
-                                                    metricType ->
-                                                        input
-                                                            .selectedRadio()
-                                                            .filter(metricType.alias::equals)
-                                                            .isPresent())
-                                                .findFirst()
+                                            input
+                                                .selectedRadio()
+                                                .map(o -> (MetricType) o)
                                                 .orElse(MetricType.TOPIC)
                                                 .fetcher
                                                 .apply(entry.getValue())))
@@ -184,7 +188,6 @@ public class MetricsTab {
             .build();
 
     var tab = new Tab("metrics");
-    var types = Utils.radioButton(MetricType.values());
     tab.setContent(pane);
     return tab;
   }

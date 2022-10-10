@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.gui;
+package org.astraea.gui.tab;
 
 import java.util.List;
 import java.util.Map;
@@ -24,11 +24,13 @@ import java.util.stream.Stream;
 import javafx.scene.control.Tab;
 import org.astraea.common.LinkedHashMap;
 import org.astraea.common.admin.ConsumerGroup;
+import org.astraea.gui.Context;
+import org.astraea.gui.pane.Input;
+import org.astraea.gui.pane.PaneBuilder;
 
 public class ConsumerTab {
 
-  private static List<Map<String, Object>> result(
-      Stream<ConsumerGroup> cgs, PaneBuilder.Input input) {
+  private static List<Map<String, Object>> result(Stream<ConsumerGroup> cgs, Input input) {
     return cgs.flatMap(
             cg ->
                 cg.assignment().entrySet().stream()
@@ -69,8 +71,8 @@ public class ConsumerTab {
     var pane =
         PaneBuilder.of()
             .searchField("group id or topic name")
-            .buttonTableAction(
-                input ->
+            .buttonAction(
+                (input, logger) ->
                     context.submit(
                         admin ->
                             admin

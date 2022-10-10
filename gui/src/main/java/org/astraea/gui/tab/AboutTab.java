@@ -14,22 +14,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.gui;
+package org.astraea.gui.tab;
 
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import javafx.scene.control.Tab;
 import org.astraea.common.LinkedHashMap;
-import org.astraea.common.LinkedHashSet;
 import org.astraea.common.VersionUtils;
+import org.astraea.gui.Context;
+import org.astraea.gui.button.RadioButtonAble;
+import org.astraea.gui.pane.PaneBuilder;
 
 public class AboutTab {
 
-  private enum Info {
+  private enum Info implements RadioButtonAble {
     Version(
-        "version",
+        "版本",
         List.of(
             LinkedHashMap.of(
                 "version",
@@ -71,32 +72,29 @@ public class AboutTab {
                 "name", "李宜桓",
                 "email", "yi.huan.max@gmail.com")));
 
-    private final String alias;
+    private final String display;
 
     private final List<Map<String, Object>> tables;
 
-    Info(String alias, List<Map<String, Object>> tables) {
-      this.alias = alias;
+    Info(String display, List<Map<String, Object>> tables) {
+      this.display = display;
       this.tables = tables;
+    }
+
+    @Override
+    public String display() {
+      return display;
     }
   }
 
   public static Tab of(Context ignored) {
     var pane =
         PaneBuilder.of()
-            .radioButtons(
-                LinkedHashSet.of(
-                    Arrays.stream(Info.values()).map(c -> c.alias).toArray(String[]::new)))
-            .buttonTableAction(
-                input ->
+            .radioButtons(Info.values())
+            .buttonAction(
+                (input, logger) ->
                     CompletableFuture.completedFuture(
-                        Arrays.stream(Info.values())
-                            .filter(
-                                info ->
-                                    input.selectedRadio().filter(info.alias::equals).isPresent())
-                            .findFirst()
-                            .orElse(Info.Version)
-                            .tables))
+                        input.selectedRadio().map(o -> (Info) o).orElse(Info.Version).tables))
             .build();
     var tab = new Tab("about");
     tab.setContent(pane);

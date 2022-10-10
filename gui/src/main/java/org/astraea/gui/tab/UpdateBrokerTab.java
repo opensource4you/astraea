@@ -14,12 +14,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.gui;
+package org.astraea.gui.tab;
 
 import java.util.HashMap;
 import java.util.concurrent.CompletableFuture;
 import javafx.scene.control.Tab;
 import org.astraea.common.admin.BrokerConfigs;
+import org.astraea.gui.Context;
+import org.astraea.gui.pane.PaneBuilder;
 
 public class UpdateBrokerTab {
 
@@ -32,8 +34,8 @@ public class UpdateBrokerTab {
             .buttonName("UPDATE")
             .input(BROKER_ID, true, true)
             .input(BrokerConfigs.DYNAMICAL_CONFIGS)
-            .buttonMessageAction(
-                input -> {
+            .buttonListener(
+                (input, logger) -> {
                   var allConfigs = new HashMap<>(input.texts());
                   var id = Integer.parseInt(allConfigs.remove(BROKER_ID));
                   return context.submit(
@@ -48,7 +50,8 @@ public class UpdateBrokerTab {
                                               "broker:" + id + " is nonexistent"));
                                     return admin
                                         .updateConfig(id, allConfigs)
-                                        .thenApply(ignored -> "succeed to update configs of " + id);
+                                        .thenAccept(
+                                            ignored -> logger.log("succeed to update " + id));
                                   }));
                 })
             .build();

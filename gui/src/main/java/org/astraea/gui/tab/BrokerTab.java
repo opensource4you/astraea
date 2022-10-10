@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.gui;
+package org.astraea.gui.tab;
 
 import java.util.List;
 import java.util.Map;
@@ -25,6 +25,8 @@ import org.astraea.common.DataSize;
 import org.astraea.common.LinkedHashMap;
 import org.astraea.common.admin.Broker;
 import org.astraea.common.admin.TopicPartition;
+import org.astraea.gui.Context;
+import org.astraea.gui.pane.PaneBuilder;
 
 public class BrokerTab {
 
@@ -81,8 +83,8 @@ public class BrokerTab {
     var pane =
         PaneBuilder.of()
             .searchField("broker id/host")
-            .buttonTableAction(
-                input ->
+            .buttonAction(
+                (input, logger) ->
                     context.submit(
                         admin ->
                             admin

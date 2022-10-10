@@ -14,18 +14,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.gui;
+package org.astraea.gui.text;
 
 import javafx.application.Platform;
-import javafx.scene.control.TextArea;
+import org.astraea.common.Utils;
 
-public class ConsoleArea extends TextArea {
+public class TextArea extends javafx.scene.control.TextArea {
 
-  public ConsoleArea() {
+  public TextArea() {
     this("");
   }
 
-  public ConsoleArea(String text) {
+  public TextArea(String text) {
     super(text);
     this.setEditable(false);
   }
