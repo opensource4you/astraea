@@ -49,9 +49,6 @@ public interface AsyncAdmin extends AutoCloseable {
 
   CompletionStage<List<Topic>> topics(Set<String> topics);
 
-  /** delete topics by topic names */
-  CompletionStage<Void> deleteTopics(Set<String> topics);
-
   /**
    * @param topics target
    * @return the partitions belong to input topics
@@ -135,6 +132,18 @@ public interface AsyncAdmin extends AutoCloseable {
 
   /** @param override defines the key and new value. The other undefined keys won't get changed. */
   CompletionStage<Void> updateConfig(int brokerId, Map<String, String> override);
+
+  /** delete topics by topic names */
+  CompletionStage<Void> deleteTopics(Set<String> topics);
+
+  /**
+   * Remove the records when their offsets are smaller than given offsets.
+   *
+   * @param offsets to truncate topic partition
+   * @return topic partition and low watermark (it means the minimum logStartOffset of all alive
+   *     replicas)
+   */
+  CompletionStage<Map<TopicPartition, Long>> deleteRecords(Map<TopicPartition, Long> offsets);
 
   @Override
   void close();

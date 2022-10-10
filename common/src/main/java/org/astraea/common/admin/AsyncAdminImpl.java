@@ -39,6 +39,7 @@ import org.apache.kafka.clients.admin.NewPartitionReassignment;
 import org.apache.kafka.clients.admin.NewPartitions;
 import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.clients.admin.OffsetSpec;
+import org.apache.kafka.clients.admin.RecordsToDelete;
 import org.apache.kafka.clients.admin.ReplicaInfo;
 import org.apache.kafka.clients.admin.TransactionListing;
 import org.apache.kafka.common.ElectionType;
@@ -110,6 +111,33 @@ class AsyncAdminImpl implements AsyncAdmin {
   @Override
   public CompletionStage<Void> deleteTopics(Set<String> topics) {
     return to(kafkaAdmin.deleteTopics(topics).all());
+  }
+
+  @Override
+  public CompletionStage<Map<TopicPartition, Long>> deleteRecords(
+      Map<TopicPartition, Long> offsets) {
+    return Utils.sequence(
+            kafkaAdmin
+                .deleteRecords(
+                    offsets.entrySet().stream()
+                        .collect(
+                            Collectors.toMap(
+                                e -> TopicPartition.to(e.getKey()),
+                                e -> RecordsToDelete.beforeOffset(e.getValue()))))
+                .lowWatermarks()
+                .entrySet()
+                .stream()
+                .map(
+                    e ->
+                        to(e.getValue().thenApply(r -> Map.entry(e.getKey(), r.lowWatermark())))
+                            .toCompletableFuture())
+                .collect(Collectors.toList()))
+        .thenApply(
+            r ->
+                r.stream()
+                    .collect(
+                        Collectors.toMap(
+                            e -> TopicPartition.from(e.getKey()), Map.Entry::getValue)));
   }
 
   @Override

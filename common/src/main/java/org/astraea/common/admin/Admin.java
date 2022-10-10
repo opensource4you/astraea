@@ -230,7 +230,7 @@ public interface Admin extends Closeable {
    * @param recordsToDelete offset of partition
    * @return deletedRecord
    */
-  Map<TopicPartition, DeletedRecord> deleteRecords(Map<TopicPartition, Long> recordsToDelete);
+  Map<TopicPartition, Long> deleteRecords(Map<TopicPartition, Long> recordsToDelete);
 
   /** @return a utility to apply replication throttle to the cluster. */
   ReplicationThrottler replicationThrottler();
