@@ -18,7 +18,6 @@ package org.astraea.gui;
 
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javafx.scene.control.Tab;
@@ -82,7 +81,6 @@ public class BrokerTab {
                                                     input.matchSearch(String.valueOf(nodeInfo.id()))
                                                         || input.matchSearch(nodeInfo.host())))
                                 .thenApply(BrokerTab::result)))
-            .menu("test", r -> CompletableFuture.completedFuture("hello"))
             .build();
     var tab = new Tab("broker");
     tab.setContent(pane);
