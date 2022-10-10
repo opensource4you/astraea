@@ -20,7 +20,11 @@ import org.astraea.common.admin.AsyncAdmin
 import org.astraea.etl.Utils
 import org.astraea.it.RequireBrokerCluster
 import org.astraea.it.RequireBrokerCluster.bootstrapServers
-import org.junit.jupiter.api.Assertions.{assertInstanceOf, assertThrows}
+import org.junit.jupiter.api.Assertions.{
+  assertEquals,
+  assertInstanceOf,
+  assertThrows
+}
 import org.junit.jupiter.api.Test
 
 import java.util.concurrent.CompletionException
@@ -42,19 +46,21 @@ class TopicCreatorTest extends RequireBrokerCluster {
           admin.topicNames(true).toCompletableFuture.get().contains(TOPIC),
           true
         )
-        assert(
+        assertEquals(
           admin
             .partitions(Set(TOPIC).asJava)
             .toCompletableFuture
             .get()
-            .size() equals 10
+            .size(),
+          10
         )
+
         admin
           .partitions(Set(TOPIC).asJava)
           .toCompletableFuture
           .get()
-          .forEach(partition => assert(partition.replicas().size() equals 2))
-        assert(
+          .forEach(partition => assertEquals(partition.replicas().size(), 2))
+        assertEquals(
           admin
             .topics(Set(TOPIC).asJava)
             .toCompletableFuture
@@ -62,7 +68,8 @@ class TopicCreatorTest extends RequireBrokerCluster {
             .head
             .config()
             .raw()
-            .get("compression.type") equals "gzip"
+            .get("compression.type"),
+          "gzip"
         )
 
         testTopicCreator(admin, TOPIC)

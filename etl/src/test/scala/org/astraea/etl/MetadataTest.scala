@@ -65,7 +65,6 @@ class MetadataTest {
     Utils.Using(scala.io.Source.fromFile(file)) { bufferedSource =>
       prop.load(bufferedSource.reader())
     }
-
     prop.setProperty("topic.partitions", "30")
     prop.setProperty("topic.replicas", "3")
     prop.setProperty("topic.config", "KA=VA,KB=VB")
