@@ -59,6 +59,20 @@ public class BrokerTab {
                         broker.folders().stream()
                             .mapToLong(
                                 d -> d.partitionSizes().values().stream().mapToLong(v -> v).sum())
+                            .sum()),
+                    "orphan partitions",
+                    broker.folders().stream()
+                        .flatMap(d -> d.orphanPartitionSizes().keySet().stream())
+                        .distinct()
+                        .count(),
+                    "orphan size",
+                    DataSize.Byte.of(
+                        broker.folders().stream()
+                            .mapToLong(
+                                d ->
+                                    d.orphanPartitionSizes().values().stream()
+                                        .mapToLong(v -> v)
+                                        .sum())
                             .sum())))
         .collect(Collectors.toList());
   }
