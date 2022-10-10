@@ -1251,7 +1251,7 @@ public class AdminTest extends RequireBrokerCluster {
       var deleteRecords = admin.deleteRecords(Map.of(TopicPartition.of(topicName, 0), 0L));
 
       Assertions.assertEquals(1, deleteRecords.size());
-      Assertions.assertEquals(0, deleteRecords.values().stream().findFirst().get().lowWatermark());
+      Assertions.assertEquals(0, deleteRecords.values().stream().findFirst().get());
 
       try (var producer = Producer.of(bootstrapServers())) {
         var senders =
@@ -1266,8 +1266,8 @@ public class AdminTest extends RequireBrokerCluster {
           admin.deleteRecords(
               Map.of(TopicPartition.of(topicName, 0), 2L, TopicPartition.of(topicName, 1), 1L));
       Assertions.assertEquals(2, deleteRecords.size());
-      Assertions.assertEquals(2, deleteRecords.get(TopicPartition.of(topicName, 0)).lowWatermark());
-      Assertions.assertEquals(1, deleteRecords.get(TopicPartition.of(topicName, 1)).lowWatermark());
+      Assertions.assertEquals(2, deleteRecords.get(TopicPartition.of(topicName, 0)));
+      Assertions.assertEquals(1, deleteRecords.get(TopicPartition.of(topicName, 1)));
 
       var partitions = admin.partitions(Set.of(topicName));
       Assertions.assertEquals(3, partitions.size());
